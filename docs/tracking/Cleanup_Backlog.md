@@ -12,6 +12,38 @@
 
 ## Open
 
+### CU-241 — Pupil/PSF plot cards are unreadable: fixed-aspect figures in tall cards, overlapping titles/colorbars, clipped labels, index-space PSF axes
+
+**Discovered**: operator session (owner driving the GUI), 2026-07-27 — Optics pupil-amplitude / pupil-wavefront / PSF panels.
+**Status**: Open
+**File**: `src/radiant/gui/` figure-rendering path for the pupil/PSF cards (matplotlib canvases; likely shared card/figure scaffolding, so fix once at the scaffold).
+**Symptom**: four compounding layout defects, all visible in one screenshot: (1) the figure's aspect ignores the card's — square-ish figures in tall narrow cards render at ~20 % of the card area with dead space above/below; (2) no constrained layout — titles collide with colorbar labels ("Pupil wavefront error" overstrikes the colorbar text) and y-axis labels clip at the canvas edge; (3) colorbars take ~a third of each axes' width at these sizes; (4) the PSF panel plots in raw sample indices (500–550) over the full grid instead of a core crop in physical units, so the PSF is a dot in a field of nothing and the "18.0 µm pixel" title truncates.
+**Why it still matters**: these are the panels an optics engineer uses to sanity-check the pupil and PSF the whole spatial chain hangs on (Rule 4); in this state they cannot be read at all, let alone compared.
+**Second instance (2026-07-27, same operator session)**: Detector → Noise tab, share-of-variance pie. The batch-1 item-18 content fix holds (sub-3 % wedges correctly delegated to the legend), but the scaffold clips everything around it: title truncated mid-parenthesis, on-wedge labels cut at both card edges ("…gnal_shot / S (62.0%)"), legend entries truncated after ~15 characters ("signal_shot — 1"), pie occupying a fraction of a mostly-white card. Sibling nit on the same tab: the σ table's value column truncates at "0.7071 e- …" — needs either column auto-width or right-alignment with the unit outside the cell.
+
+**Third instance (2026-07-27, owner screenshot)**: Detector → *Detector + PSF* tab. Same scaffold, one added cause: `panel_placement=beside` gives the pixel illustration ~half the pane, so **both** figures are squeezed into a ~250 px left column and stack vertically. Visible in the shot: the `psf_pixel_grid` title clipped at both ends ("SF · detector pixel grid (18.0 µ"), the colorbar and its tick labels overstriking that title, the y-axis label cut at the canvas edge, and the PSF still drawn in raw sample indices (~500–560) rather than physical units. The `pixel_aperture` kernel card above it fares better only because it has no colorbar.
+**Why the third instance matters**: three tabs across two stages now show it, so this is the shared scaffold (and the `beside` column-width policy), not a per-figure defect. Fixing one card at a time will keep re-surfacing it.
+
+**Suggested fix**: (a) inline-fix at the scaffold — `constrained_layout=True` (or explicit `tight_layout` on resize), figure size driven by the canvas geometry (respond to card resize, don't fix the aspect), `colorbar(fraction=0.046, pad=0.04)`-class sizing, PSF plotted on physical axes (µm on the focal plane or angular µrad) auto-cropped to N× the FWHM with the full-grid view an option, title lines shortened or wrapped. Plus a minimum readable width for a plot column under `PANEL_BESIDE`, so an embedded panel cannot starve the figures beside it. Effort S. Category D. Related: the walkthrough-cleanup series (batches 1–3); same rendering scaffold as the batch-2 MTF/PSF items.
+
+### CU-239 — Interpolated-library selection is an operator trap: a magic axes string stands in for a family picker, and mismatches surface as an evaluate-time crash dialog
+
+**Discovered**: operator session (owner driving the GUI), 2026-07-27 — LEO nadir → 20 km sub-pixel target, the textbook interpolated-library scenario (deck G4's exact geometry), failed at evaluate with the "Unexpected Error" dialog because `atmosphere.interpolation_axes` still carried its `path_zenith_rad` default; the fix required knowing to type `sensor_altitude_m,target_altitude_m` into a free-text field.
+**Status**: Open
+**File**: `gui` Atmosphere screen (`atmosphere.interpolated_data_dir` / `atmosphere.interpolation_axes` editors); `src/radiant/atmosphere/loaders.py` (`_SHIPPED_FAMILY_BY_DIRECTION_AND_AXES`, `_shipped_family_catalogue`)
+**Symptom**: the operator-facing contract is inverted. The shipped-family catalogue is a closed, known set keyed by (direction, axes), but the GUI asks the operator to *reconstruct a dict key by hand* in a free-text field, and the only feedback for a wrong key is a mid-evaluation refusal rendered as a crash. Three compounding layers: (1) no family picker — the catalogue is never shown; (2) no scene-aware default — the loader could derive the needed axes from the resolved scene (h_tgt > 0 ⇒ target-altitude axis; los_direction ⇒ family direction) and auto-select or at least pre-fill; (3) no config-time validation — the family/scene mismatch is knowable the moment both are set (Rule 16) and belongs in the Messages rail with the remedy, not in an exception five stages later.
+**Why it still matters**: the interpolated backend is the fast path the MODTRAN batches exist to feed; every operator hits this the first time they raise `target_altitude_m` above zero. The knowledge currently lives in a schema docstring.
+**Suggested fix**: (b) stand-alone GUI task, natural walkthrough-cleanup batch item. Family-first UI: a picker enumerating `_shipped_family_catalogue()` entries with plain-language coverage lines ("midlat summer, space/airborne sensor, targets 0–29 km, nadir–60°"), writing `interpolation_axes`/`interpolated_data_dir` as derived values; scene-aware default selection with a profile-mismatch warning (choosing the family must never silently change the atmosphere profile the operator asked for); config-time coverage check in the Messages rail. Effort M; category D. Related: Gap 94, CU-226, CU-240.
+
+### CU-240 — Interpolated backend capability refusals raise bare `NotImplementedError`, so the GUI renders them as crashes
+
+**Discovered**: operator session, 2026-07-27 (same scenario as CU-239).
+**Status**: Open
+**File**: `src/radiant/atmosphere/interpolated.py` (grep `raise NotImplementedError` — the h_tgt-needs-target-axis refusal at ~line 1011 and siblings)
+**Symptom**: the refusal text is exemplary Rule-15 content (what/why/two workarounds) wrapped in the wrong type: bare `NotImplementedError` is not a `RadiantError`, so the GUI's deliberate error routing (RadiantError → in-context rejection; everything else → the "Unexpected Error" crash dialog) presents a well-formed capability refusal as an internal failure, and `except RadiantError` handlers in user scripts miss it.
+**Why it still matters**: Rule 15 violation on the exact surface operators hit first (see CU-239); the crash framing erodes trust in a refusal that is actually the system protecting the radiometry.
+**Suggested fix**: (a) inline-fix — introduce/reuse an `AtmosphereCapabilityError(RadiantError)` (the Phase-2 capability-refusal pattern), swap the raises, add one test asserting the class reaches the GUI's rejection path. Effort XS; category A. Related: CU-239.
+
 ### CU-242 — Target-spec over-specification is unreachable by the parameter editor's clone-validate, so the GUI accepts a conflicting pair until Evaluate
 
 **Discovered**: GUI walkthrough item 6 (branch `gui/reflective-tab`), 2026-07-27 — while mounting `source.target.reflectance_path` beside the scalar ρ.

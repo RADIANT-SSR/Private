@@ -19,6 +19,14 @@
 **File**: `src/radiant/gui/stage_views.py` (Spectral Integration view).
 **Symptom**: the Outputs block presents every published scalar as co-equal, including an input echo (`Qe scalar` — a detector property averaged for the integration, not a product of it), and the screen carries an at-aperture radiance plot that is the Atmosphere stage's product — now redundant with the batch-2 per-arm Atmosphere view.
 **Owner-directed spec (2026-07-27)**: the screen keeps exactly the values *calculated at this stage* — Signal, E-rate, Background, Contrast, dS/dT, nearfield/stray electron terms (all Rule-8 spectral→scalar products) — drops the `Qe scalar` input echo, and removes the radiance plot (one home: Atmosphere). Sub-item, orchestrator-proposed and unobjected: conditionally-relevant zero rows (nearfield/stray with nothing configured) hide rather than render `0 e-`. The at-image irradiance plot stays (it is this stage's spectral product).
+**Addition (owner-directed, 2026-07-27) — per-output tooltips**, stating why each value is computed at this stage (Rule 8: band integrals must happen while the spectral arrays exist). Implementation-ready text:
+- *Signal (e-)*: "Target electrons collected in-band this integration: spectral radiance x chain throughput x QE, integrated over the filter band (Rule 8 - spectral collapses to scalar exactly here)."
+- *E rate (e-/s)*: "The same band integral per second, before the integration time is applied."
+- *Background (e-)*: "Background-path electrons in the pixel over the same band and integration time."
+- *Contrast (e-)*: "Detectable target-vs-reference-pixel differential; regime-dependent: point source = Signal (background is common-mode and cancels), sub-pixel subtracts only the displaced footprint background, extended compares against the reference scene (ADR-0005)."
+- *dS/dT (e-/K)*: "Temperature sensitivity of the in-band signal via the Planck derivative (1/B)(dB/dT) - exact-NEDT support (Gap 43); downstream NEDT = sigma_total / (dS/dT)."
+- *Nearfield / Stray (e-)*: "Electrons from the configured nearfield / straylight path; row hidden when the path is not configured."
+
 **Suggested fix**: (a) inline in the GUI queue. Effort S; category D. Related: CU-241 (same screen family), Rule 8.
 
 ### CU-243 — Platform "PSF degradation" tab shows inherited kernels unattributed; empty stage reads as wrong-stage data

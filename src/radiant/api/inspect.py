@@ -305,7 +305,7 @@ class ResultPlotNamespace:
                 "['spectral_irradiance_at_image'] — the chain must run "
                 "SpectralIntegrationStage with a resolvable detector pixel pitch."
             )
-        kwargs.setdefault("ylabel", "Spectral irradiance at image (W/m²/µm)")
+        kwargs.setdefault("ylabel", "Irradiance (W/m²/µm)")
         kwargs.setdefault("title", "At-image spectral irradiance on one pixel")
         return plot_spectral(self._result.state.wavelength_um, irradiance, **kwargs)
 

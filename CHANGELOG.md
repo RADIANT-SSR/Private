@@ -21,6 +21,19 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Source "Target — point source" plots the source-side emission, not the
+  at-aperture radiance (GUI walkthrough item 5).** The tab defines what the
+  target *emits* (blackbody T/area/ε or a band-integrated intensity in W/sr),
+  but plotted `spectral_source` — the radiance after the atmosphere has already
+  attenuated it — so the operator could not see the effect of the intensity they
+  were typing. It now plots `spectral_source_emission`. The at-aperture view
+  still lives on the Atmosphere stage, which owns that step.
+- **Integration time is edited on Readout only (GUI walkthrough item 21).**
+  `spectral_integration.integration_time_s` was mounted on both the
+  Spectral-Integration and Readout input cards, giving one parameter two
+  editors. The Spectral-Integration card is now the filter bandpass alone. The
+  schema is unchanged — the parameter keeps its dot-path and owning stage; only
+  which form surfaces it changed.
 - **The PSF plots now show the fully degraded PSF, cropped to the core (GUI
   walkthrough items 14 and 20).** `result.plot.psf()` and
   `result.plot.psf_pixel_grid()` read `stage_outputs["optics"]["effective_psf"]`

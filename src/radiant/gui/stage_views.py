@@ -329,14 +329,20 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
                     ),
                 ),
             ),
+            # Owner walkthrough item 5: this tab defines what the *target emits*
+            # (blackbody T/area/ε, or a band-integrated intensity in W/sr), so it
+            # must plot the source-side radiance, not the at-aperture radiance the
+            # atmosphere has already attenuated — the operator could not see the
+            # effect of the intensity they were typing. spectral_source (at
+            # aperture) belongs to the Atmosphere view, which owns that step.
             StageSubView(
                 title="Target — point source",
                 source_inputs=True,
                 source_groups=("point_source",),
                 plots=(
                     PlotSpec(
-                        "Radiance at aperture (day/night moves the reflected term)",
-                        "spectral_source",
+                        "Target & background emission (before atmosphere)",
+                        "spectral_source_emission",
                     ),
                 ),
             ),

@@ -63,6 +63,17 @@ retroactively reconstructed.
   (walkthrough item 17), so every term is visible without scrolling.
 
 ### Added
+- **PSF convolution kernels are now visible, not just named (GUI walkthrough
+  items 15 and 19).** `EffectivePSF` gained a `kernels` field holding the arrays
+  convolved in, paired with the names `convolution_history` already recorded —
+  so a view can show *what* each degradation did rather than only that it
+  happened. New `result.plot.psf_kernels()` draws every retained kernel as a row
+  of 2-D maps (each cropped to its own support and scaled independently, since
+  they differ by orders of magnitude), and `result.plot.detector_kernels()`
+  draws only the detector-side subset (pixel aperture, charge diffusion, IPC).
+  The Platform stage gains a **PSF degradation** tab pairing the kernels with
+  the post-convolution PSF; the Detector **Detector + PSF** tab now places the
+  pixel illustration beside the kernel that pixel imposes.
 - **`radiant.performance.mtf_fraction_table`** — samples each MTF contributor at
   a ladder of Nyquist fractions (default 0.25/0.5/0.75/1.0). Sampling only: no
   new MTF physics. `PerformanceStage` publishes

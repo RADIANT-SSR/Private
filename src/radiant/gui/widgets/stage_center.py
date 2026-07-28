@@ -422,10 +422,13 @@ class StagePane(QWidget):
             readout_form.parameterEdited.connect(self.parameterEdited)
             layout.addWidget(readout_form)
             self._readout_forms.append(readout_form)
+        # The detector pixel illustration participates in ``panel_placement`` like
+        # the MTF/noise panels, so it can sit *beside* the kernel that pixel
+        # imposes on the PSF (owner walkthrough item 19) rather than above it.
+        deferred_illustration: DetectorIllustration | None = None
         if spec.detector_illustration:
-            illustration = DetectorIllustration(parent)
-            self._add_section(layout, "Detector pixel", illustration)
-            self._detector_illustrations.append(illustration)
+            deferred_illustration = DetectorIllustration(parent)
+            self._detector_illustrations.append(deferred_illustration)
         if spec.outputs:
             outputs = OutputsReadout(parent)
             outputs.pinOutputRequested.connect(self.pinOutputRequested)
@@ -495,6 +498,8 @@ class StagePane(QWidget):
         # placement helper — nothing below branches on the placement again.
         panel: QWidget | None = None
         panel_header = ""
+        if deferred_illustration is not None:
+            panel, panel_header = deferred_illustration, "Detector pixel"
         if spec.mtf_panel:
             mtf_panel = MtfPanel(parent)
             self._mtf_panels.append(mtf_panel)

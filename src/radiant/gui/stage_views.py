@@ -272,6 +272,12 @@ _PLATFORM_NOTE: Final[str] = (
     "overlays. Platform/sensor attitude has no stage owner yet (ADR-0006 §4 / CU-122); the "
     "target RPY triad ships from source.target.*."
 )
+_PLATFORM_PSF_NOTE: Final[str] = (
+    "Kernels appear here only for degradations that are configured non-zero — a "
+    "scene with no jitter, no smear and no turbulence contributes none, and the "
+    "PSF below is then the optical + detector one unchanged. The PSF shown is the "
+    "fully degraded one every spatial metric is derived from (Rule 4)."
+)
 _SPECTRAL_NOTE: Final[str] = (
     "A per-wavelength noise spectrum is deferred (Gap 92); noise is scalar per term, "
     "computed post-integration (Rule 8) — see the Detector view for the noise budget."
@@ -443,11 +449,30 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
     # v1-minimal (owner-ratified — no dedicated MTF). Editable jitter/smear inputs beside the
     # scalar outputs readout (jitter_sigma_x/y_m, smear_width_m, EE_box) + a themed v1-minimal
     # note (attitude ownership deferred, CU-122). Single flat pane.
+    # The Platform stage instrument. The v1-minimal Inputs pane is unchanged; owner
+    # walkthrough item 15 adds a second tab showing what this stage actually does to
+    # the PSF — the jitter / smear / turbulence kernels it convolves in, beside the
+    # post-convolution PSF those kernels produced. The kernels are read off
+    # EffectivePSF.kernels (retained alongside convolution_history), so the tab shows
+    # the degradation rather than only naming it.
     "platform": StageComposition(
         title="Platform",
-        platform_inputs=True,
-        outputs=True,
-        note=_PLATFORM_NOTE,
+        subviews=(
+            StageSubView(
+                title="Inputs",
+                platform_inputs=True,
+                outputs=True,
+                note=_PLATFORM_NOTE,
+            ),
+            StageSubView(
+                title="PSF degradation",
+                plots=(
+                    PlotSpec("Convolution kernels applied to the PSF", "psf_kernels"),
+                    PlotSpec("Effective PSF after convolution", "psf"),
+                ),
+                note=_PLATFORM_PSF_NOTE,
+            ),
+        ),
     ),
     # The Spectral-Integration stage instrument (GUI plan Phase PS-4, arch doc §4.4.1
     # Spectral-Integration rows): the editable band + acquisition inputs (filter edges +
@@ -484,10 +509,17 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
                 panel_placement=PANEL_BESIDE,
                 plots=(PlotSpec("Noise budget — share of variance", "noise_pie"),),
             ),
+            # Owner walkthrough item 19: the pixel picture sits *next to* the
+            # convolution kernel that pixel imposes on the PSF, so cause and effect
+            # read together; the PSF with the pixel grid overlaid follows below.
             StageSubView(
                 title="Detector + PSF",
                 detector_illustration=True,
-                plots=(PlotSpec("PSF with detector pixel grid", "psf_pixel_grid"),),
+                panel_placement=PANEL_BESIDE,
+                plots=(
+                    PlotSpec("Detector convolution kernels", "detector_kernels"),
+                    PlotSpec("PSF with detector pixel grid", "psf_pixel_grid"),
+                ),
             ),
         ),
     ),

@@ -38,6 +38,11 @@ logger = logging.getLogger(__name__)
 # pixel widths"). Presentation-only: it changes no computed value.
 _DEFAULT_PSF_SPAN_PIXELS: Final[int] = 12
 
+# Fraction of a convolution kernel's volume the plotted crop must retain. A kernel
+# is stored at whatever grid its construction needed, not at its support, so this
+# is what turns "a dot in a 1023² field" into a readable shape. Presentation-only.
+_KERNEL_SUPPORT_FRACTION: Final[float] = 0.999
+
 # Smallest variance share that still earns an on-wedge label in the noise pie.
 # Below ~3 % a wedge subtends under 11°, so its label collides with its
 # neighbours' — those terms are carried by the legend instead (see
@@ -933,3 +938,110 @@ def plot_atmosphere_spectral(
     ax_tau.set_title(title)
     ax_tau.legend([line_tau, line_lp], ["\u03c4_atm", "L_path"], fontsize="small", loc="best")
     return cast("Figure", fig)
+
+
+def plot_psf_kernels(
+    psf: EffectivePSF,
+    names: tuple[str, ...] | None = None,
+    **kwargs: Any,
+) -> Figure:
+    """Plot the convolution kernels that degraded *psf*, one 2-D map per kernel.
+
+    ``EffectivePSF.convolution_history`` names the degradations that were
+    applied; :attr:`EffectivePSF.kernels` carries the arrays themselves, and this
+    draws them side by side so the operator can see *what each degradation did*
+    rather than only that it happened (owner walkthrough item 15: "show the PSF
+    convolution kernels and post convolution PSF"; item 19 uses the same figure
+    filtered to the detector terms).
+
+    Each kernel is **cropped to its own support** before drawing. Kernels are
+    built at whatever grid size their construction needed — the pixel-aperture
+    kernel is a full-PSF-grid array holding an 8-sample box — so drawn at their
+    stored extent most of them are a dot in an empty field. The crop keeps the
+    smallest centred window holding :data:`_KERNEL_SUPPORT_FRACTION` of the
+    kernel's volume, which is what makes the shapes comparable.
+
+    Each kernel is shown on its own linear colour scale — they differ by orders
+    of magnitude in peak value (a 3×3 IPC kernel against a broad turbulence one),
+    so a shared scale would render all but the narrowest as blank. The extent is
+    labelled in **µm on the focal plane** (kernel samples × the PSF's
+    ``sample_spacing_m``), which is the physically meaningful axis, and each
+    title carries the kernel's width in detector pixels.
+
+    Parameters
+    ----------
+    psf:
+        The :class:`EffectivePSF` whose kernels to draw.
+    names:
+        Restrict to these kernel names, in this order. ``None`` draws every
+        retained kernel in the order it was applied.
+    **kwargs:
+        Passed to each ``ax.imshow()``.
+
+    Raises
+    ------
+    ApiValidationError
+        When the PSF retains no kernels (nothing was convolved, or it predates
+        kernel retention), or when *names* selects none of them.
+    """
+    from radiant.api.errors import ApiValidationError
+
+    plt = _require_matplotlib()
+
+    kept = [(n, k) for n, k in psf.kernels if names is None or n in names]
+    if names is not None:
+        order = {n: i for i, n in enumerate(names)}
+        kept.sort(key=lambda item: order[item[0]])
+    if not kept:
+        available = ", ".join(n for n, _ in psf.kernels) or "none"
+        raise ApiValidationError(
+            "No PSF convolution kernels to plot"
+            + (f" matching {list(names)}" if names is not None else "")
+            + f" — the PSF retains: {available}. A degradation contributes a "
+            "kernel only when it is configured non-zero."
+        )
+
+    fig, axes = plt.subplots(1, len(kept), constrained_layout=True, squeeze=False)
+    spacing_um = psf.sample_spacing_m * 1e6
+    for ax, (name, raw) in zip(axes[0], kept, strict=True):
+        kernel = _crop_kernel_to_support(raw)
+        half_um = kernel.shape[0] / 2.0 * spacing_um
+        defaults: dict[str, Any] = {
+            "cmap": "magma",
+            "origin": "lower",
+            "extent": (-half_um, half_um, -half_um, half_um),
+        }
+        defaults.update(kwargs)
+        ax.imshow(kernel, **defaults)
+        width_pixels = kernel.shape[0] * psf.sample_spacing_m / psf.pixel_pitch_m
+        ax.set_title(
+            f"{name}\n{kernel.shape[0]}² samples ({width_pixels:.2f} px)", fontsize="small"
+        )
+        ax.set_xlabel("x (µm)", fontsize="small")
+        ax.set_ylabel("y (µm)", fontsize="small")
+        ax.tick_params(labelsize="small")
+    return cast("Figure", fig)
+
+
+def _crop_kernel_to_support(kernel: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """The smallest centred square window of *kernel* holding most of its volume.
+
+    Kernels are stored at their construction grid, which for the pixel-aperture
+    term is the whole PSF grid holding a handful of non-zero samples. Plotting
+    that verbatim wastes the axes on empty field, so the drawn window is grown
+    from the centre until it contains :data:`_KERNEL_SUPPORT_FRACTION` of the
+    total. Returns the input unchanged when it is already tight or degenerate.
+    """
+    n = kernel.shape[0]
+    total = float(kernel.sum())
+    if n < 5 or total <= 0.0:
+        return kernel
+    center = n // 2
+    target = _KERNEL_SUPPORT_FRACTION * total
+    for half in range(1, center + 1):
+        window = kernel[center - half : center + half + 1, center - half : center + half + 1]
+        if float(window.sum()) >= target:
+            # One sample of margin so the support is not flush against the edge.
+            pad = min(half + 1, center)
+            return kernel[center - pad : center + pad + 1, center - pad : center + pad + 1]
+    return kernel

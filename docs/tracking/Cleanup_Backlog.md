@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-235 — Clamping the smear kernel to the PSF grid can make its size even, which the kernel builder rejects
+
+**Discovered**: GUI walkthrough cleanup batch 2, item 15 (hit while exercising the platform kernels with a large ground velocity), branch `gui/cleanup-batch2`, 2026-07-27.
+**Status**: Open — a crash, not a wrong number.
+**File**: `src/radiant/platform/stage.py` — the smear branch: `npix_smear = int(math.ceil(2.0 * smear_w_m / sample_spacing_m)) | 1`, then `npix_smear = min(npix_smear, epsf.data.shape[0])`.
+**Symptom**: the `| 1` forces an odd kernel size, and the very next line clamps it to the PSF grid size — which is **even** (1024 on the shipped configs). When the smear is wide enough to hit the clamp, `npix_smear` becomes 1024 and `smear_kernel_1d` raises `PlatformValidationError: npix must be a positive odd integer, got 1024`, aborting the whole evaluation. Reproduce on `examples/mwir_leo_minimal.yaml` with `platform.ground_velocity_m_s = 7000` (a plausible LEO ground-track speed): smear width 5250 µm against a 2176.8 µm half-grid, warning `Smear width exceeds half the PSF grid extent. Kernel will be clamped to grid size.` is logged, then the raise. The warning shows the clamp was an anticipated path; the parity was not.
+**Why it still matters**: the guard exists precisely to keep an over-wide smear survivable, and instead it is the thing that crashes. It fires for a realistic LEO velocity with the shipped 5 ms integration time, so it is reachable from ordinary inputs, not just pathological ones — and the failure is a hard raise out of `Sensor.evaluate()`, so nothing else in the chain reports either (the same blast radius as the item-3/4 GSD bug fixed in batch 1). The neighbouring turbulence branch does `min(npix_turb, epsf.data.shape[0])` after its own `| 1` and has the identical latent defect; only the wider smear reaches it in practice.
+**Suggested fix**: (a) inline fix in the next PR touching this stage. Clamp first, then force odd — `npix = min(npix, grid) ; npix -= 1 - (npix & 1)` — or clamp to `grid - 1 if grid % 2 == 0 else grid`. Apply to both the smear and turbulence branches, and add a regression test at a smear width that exceeds the grid asserting the chain completes with the clamped odd kernel. While there, consider whether a smear wider than the PSF grid should warn *and* clamp or should be an actionable error naming the integration time (the current behaviour silently truncates the kernel, which understates the blur). Effort S; category B. Related: [[CU-234]], Rule 17.
+
 ### CU-234 — Turbulence MTF is evaluated on a focal-plane frequency axis 10⁶× too small, so it is silently a no-op
 
 **Discovered**: GUI walkthrough cleanup batch 2, item 12 (adding the Nyquist marker required deriving the cycles/m ↔ cycles/mrad conversion, which exposed this), branch `gui/cleanup-batch2`, 2026-07-27.

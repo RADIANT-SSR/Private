@@ -127,6 +127,14 @@ def _format_stage(result: ChainResult, stage: str) -> str:
     return "\n".join(lines)
 
 
+#: The PSF convolution kernels the **detector** contributes, in application order.
+#: Named here (not discovered) because "which of these kernels is the detector's"
+#: is a fact about the signal chain, not about any one result: pixel aperture and
+#: charge diffusion are applied by OpticsStage, IPC by PerformanceStage, so no
+#: single stage's output identifies the set.
+_DETECTOR_KERNELS: tuple[str, ...] = ("pixel_aperture", "charge_diffusion", "ipc")
+
+
 class ResultPlotNamespace:
     """Namespace for result plot accessors.
 
@@ -194,6 +202,32 @@ class ResultPlotNamespace:
         from radiant.api.plot import plot_psf
 
         return plot_psf(self._degraded_psf(), pixel_grid=True, **kwargs)
+
+    def psf_kernels(self, **kwargs: Any) -> Any:
+        """Plot every convolution kernel that degraded the effective PSF.
+
+        One 2-D map per kernel, in the order applied — the optical PSF's
+        successive degradations made visible instead of merely named in
+        ``convolution_history`` (walkthrough item 15). Raises
+        :class:`ApiValidationError` when the PSF retains no kernels, which means
+        every optional degradation is configured to zero.
+        """
+        from radiant.api.plot import plot_psf_kernels
+
+        return plot_psf_kernels(self._degraded_psf(), **kwargs)
+
+    def detector_kernels(self, **kwargs: Any) -> Any:
+        """Plot only the **detector-side** PSF convolution kernels.
+
+        The subset of :meth:`psf_kernels` contributed by the detector — pixel
+        aperture, charge diffusion, and inter-pixel capacitance — so the pixel
+        illustration can sit beside the kernel that pixel actually imposes on the
+        PSF (walkthrough item 19). Raises :class:`ApiValidationError` when none
+        of them is present.
+        """
+        from radiant.api.plot import plot_psf_kernels
+
+        return plot_psf_kernels(self._degraded_psf(), names=_DETECTOR_KERNELS, **kwargs)
 
     def pupil_amplitude(self, **kwargs: Any) -> Any:
         """Plot the pupil amplitude (apodization) map (Gap 89).

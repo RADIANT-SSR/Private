@@ -177,6 +177,63 @@ class TestPlotNoisePie:
 
 
 @pytest.mark.level1
+class TestPlotNoisePieLabelCollision:
+    """Sub-percent wedges must not stack their labels on each other (walkthrough item 18).
+
+    The real shape of a shot-noise-limited budget: one term at ~100 % of the
+    variance and a handful rounding to 0.0 %. Every one of those tiny wedges
+    used to draw a two-line label at nearly the same angle, producing the
+    overstruck block of text in the walkthrough screenshot.
+    """
+
+    @staticmethod
+    def _dominated_terms() -> list[_FakeNoiseTerm]:
+        """σ values reproducing the reported case: shot noise ≫ everything else."""
+        return [
+            _FakeNoiseTerm("signal_shot", 916.0),
+            _FakeNoiseTerm("dark_shot", 0.202),
+            _FakeNoiseTerm("read_noise", 0.202),
+            _FakeNoiseTerm("quantization", 0.202),
+            _FakeNoiseTerm("pattern_noise", 0.202),
+        ]
+
+    def test_tiny_wedges_carry_no_on_wedge_label(self) -> None:
+        fig = plot_noise_pie(self._dominated_terms())
+        drawn = [t.get_text() for t in fig.axes[0].texts if t.get_text()]
+        # Only the dominant term is labelled on the wedge; the 0.0 % terms are not.
+        assert len(drawn) == 1
+        assert "signal_shot" in drawn[0]
+        matplotlib.pyplot.close(fig)
+
+    def test_every_term_still_appears_in_the_legend(self) -> None:
+        """Suppressing a wedge label must not lose the term — the legend keeps it."""
+        fig = plot_noise_pie(self._dominated_terms())
+        legend = fig.axes[0].get_legend()
+        assert legend is not None
+        entries = " ".join(t.get_text() for t in legend.get_texts())
+        for name in ("signal_shot", "dark_shot", "read_noise", "quantization", "pattern_noise"):
+            assert name in entries
+        matplotlib.pyplot.close(fig)
+
+    def test_legend_entries_carry_e_rms_units(self) -> None:
+        """Units on every value (owner hard rule) survives the move to the legend."""
+        fig = plot_noise_pie(self._dominated_terms())
+        legend = fig.axes[0].get_legend()
+        assert legend is not None
+        for text in legend.get_texts():
+            assert "e- RMS" in text.get_text()
+        matplotlib.pyplot.close(fig)
+
+    def test_comparable_terms_keep_their_wedge_labels(self) -> None:
+        """The suppression is threshold-based, not blanket: even splits stay labelled."""
+        terms = [_FakeNoiseTerm("a", 100.0), _FakeNoiseTerm("b", 100.0)]
+        fig = plot_noise_pie(terms)
+        drawn = [t.get_text() for t in fig.axes[0].texts if t.get_text()]
+        assert len(drawn) == 2
+        matplotlib.pyplot.close(fig)
+
+
+@pytest.mark.level1
 class TestPlotPsfPixelGrid:
     """PS-3 Part A: plot_psf(pixel_grid=True) overlays the detector pixel grid + crops."""
 

@@ -297,40 +297,37 @@ naming the pending capability (direction-aware atmosphere, Phase 2, Gaps
 composition that runs today is the wholly-vacuum one (both endpoints at or
 above `h_atm_top`): the LEO→GEO quick win. See `RADIANT_Atmosphere.md` §4.2a–b.
 
-### 4.3 CU-096 carve-out — Phase 3 re-audit (guardrail G4)
+### 4.3 CU-096 carve-out — RETIRED at Phase 5 close (guardrail G4)
 
 CU-096 itself (θ_o vs η in platform/performance) was **resolved 2026-07-23**
-(commit `b5be390`). What survives is the residue it named: four
-*partial-fixture* fallbacks — the smear width in `platform/stage.py` and the
-GSD, ground-range, and diffraction-ground-projection helpers in
-`performance/stage.py` — which derive geometry from `geometry.path_zenith_rad`
-whenever `GeometryStage` published nothing. Guardrail G4 requires them to be
-re-audited at Phase 3 close; the audit's findings (2026-07-27):
+(commit `b5be390`). The residue it named — four *partial-fixture* fallbacks
+(the smear width in `platform/stage.py`; the GSD, ground-range, and
+diffraction-ground-projection helpers in `performance/stage.py`) that derived
+geometry from `geometry.path_zenith_rad` whenever `GeometryStage` published
+nothing — was **retired 2026-07-28** at the Phase 5 close, discharging the
+G4 deferral recorded at Phase 3 (gating stage Phase 5, honoured on schedule).
 
-1. **Not reachable from the live chain.** `ChainRunner` always runs
-   `GeometryStage` first, and the only scene for which it publishes no slant
-   range — coincident endpoints — is refused upstream by the source stage's
-   limb-crossing guard before any consumer is reached. The fallbacks are
-   exercised only by the deliberate partial-stage fixtures
-   (`performance/tests/test_off_nadir_theta_o_fallback.py` and the
-   platform-stage unit fixtures).
-2. **Their premise narrowed in Phase 1, and the narrowing is caught.**
-   `geometry.path_zenith_rad` is now the zenith at the path's **lower
-   endpoint** (ADR-0011 decision 3), which equals θ_o only while
-   `h_sensor > h_target`. The fallbacks still read it as θ_o unconditionally —
-   but `core.viewing_triangle._validate_hemisphere` (Phase 1) rejects the
-   mismatch with an actionable `ParameterBoundsError` that names the
-   supplementary-hemisphere value, so an up-looking partial fixture **raises**
-   rather than silently computing the wrong slant range. No silent-wrong-answer
-   exposure remains.
-3. **Retirement is not zero-drift-provable and is therefore deferred, not
-   silent.** Deleting the fallbacks changes those fixtures from "computes a
-   GSD/smear" to "skips", which is a behavioural change in the test surface;
-   the right retirement is the contract decision *"`PerformanceStage` and
-   `PlatformStage` require `GeometryStage`"*, which belongs with the Phase 5
-   scenario close-out rather than with a metrics phase. **Deferral record:**
-   gating stage — Phase 5 (validation and scenario close-out); re-audit date —
-   at Phase 5 close.
+**The contract now in force** (pinned by
+`performance/tests/test_geometry_required_contract.py`):
+
+- **Geometry-projected metrics consume only GeometryStage-published values.**
+  `PerformanceStage`'s GSD family, ground range, and diffraction ground
+  projection read `stage_outputs["geometry"]` (`slant_range_m`,
+  `incidence_angle_rad`, `ground_range_m`) and are **absent** — skipped, never
+  parameter-derived — for a partial fixture that never ran `GeometryStage`.
+  The `_is_downlooking` gate likewise reads only the published
+  `los_direction`.
+- **`PlatformStage`'s velocity-smear slant keeps one degenerate proxy:**
+  without a published slant range it uses `slant = altitude` — the exact
+  θ_o → 0 (nadir) limit of the viewing triangle, which cannot drift from
+  `GeometryStage` because it *is* the stage's nadir value. Off-nadir smear
+  geometry requires the published slant range.
+- **The live chain is unaffected**: `ChainRunner` always runs `GeometryStage`
+  first (the Phase-3 audit finding that made retirement test-surface-only),
+  so no computed result, golden baseline, or public API behaviour moves. The
+  Phase-3 audit's other finding stands as history: since Phase 1 the
+  hemisphere validator already prevented any silent-wrong-answer path through
+  the old fallbacks.
 
 ## 5. Parameters
 

@@ -42,7 +42,6 @@ import numpy as np
 from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 from radiant.core.regime import RadiometricRegime
-from radiant.core.viewing_triangle import slant_range_from_theta_o_m
 from radiant.platform.errors import PlatformValidationError
 from radiant.platform.jitter import jitter_kernel_2d, jitter_mtf_1d, jitter_sigma_focal_m
 from radiant.platform.kernel_size import odd_kernel_size
@@ -378,25 +377,18 @@ class PlatformStage:
             return 0.0
 
         # Use slant range for off-nadir consistency — the GeometryStage
-        # published value when available (ADR-0006), else derive it from the
-        # canonical target-side path zenith θ_o for partial fixtures. This
-        # matches what GeometryStage publishes (CU-096): geometry.path_zenith_rad
-        # is θ_o, so it must go through slant_range_from_theta_o_m — NOT the
-        # sensor-off-nadir-η helper slant_range_spherical_m.
+        # published value when available (ADR-0006). A partial fixture that
+        # runs PlatformStage without GeometryStage gets the NADIR PROXY
+        # ``slant = altitude`` — the exact θ_o → 0 limit of the viewing
+        # triangle, so it cannot drift from GeometryStage. The off-nadir
+        # θ_o-triangle derivation that used to sit here is retired (CU-096
+        # fallback retirement, Geometry-Flexibility Phase 5 / guardrail G4 —
+        # RADIANT_Geometry.md §4.3): off-nadir smear geometry requires
+        # GeometryStage's published slant range.
         if published_slant_m is not None and published_slant_m > 0.0:
             slant_m = float(published_slant_m)
         else:
-            try:
-                theta_o_rad: float = params.get("geometry.path_zenith_rad")
-            except (KeyError, TypeError):
-                theta_o_rad = 0.0
-            try:
-                h_target_m: float = params.get("geometry.target_altitude_m")
-            except (KeyError, TypeError):
-                h_target_m = 0.0
-            slant_m = slant_range_from_theta_o_m(theta_o_rad, altitude_m, h_target_m)
-            if slant_m <= 0.0:
-                slant_m = altitude_m
+            slant_m = altitude_m
 
         return smear_width_m(velocity, t_int_s, focal_length_m, slant_m)
 

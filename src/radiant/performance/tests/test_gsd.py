@@ -87,6 +87,32 @@ def _make_state() -> ChainState:
     return ChainState(wavelength_um=wl)
 
 
+def _state_with_geometry(altitude_m: float, theta_o_rad: float = 0.0) -> ChainState:
+    """A state carrying the θ_o-consistent values GeometryStage would publish.
+
+    The stage-wiring tests below consume published geometry only — the CU-096
+    partial-fixture derivation is retired (Geometry-Flexibility Phase 5 / G4;
+    ``test_geometry_required_contract.py`` pins the skip contract), so a wiring
+    test supplies exactly what GeometryStage publishes for its (altitude, θ_o).
+    """
+    from radiant.core.viewing_triangle import (
+        ground_range_from_theta_o_m,
+        slant_range_from_theta_o_m,
+    )
+
+    return (
+        _make_state()
+        .with_stage_output(
+            "geometry", "slant_range_m", slant_range_from_theta_o_m(theta_o_rad, altitude_m, 0.0)
+        )
+        # On a spherical Earth the incidence angle at the target equals θ_o.
+        .with_stage_output("geometry", "incidence_angle_rad", theta_o_rad)
+        .with_stage_output(
+            "geometry", "ground_range_m", ground_range_from_theta_o_m(theta_o_rad, altitude_m, 0.0)
+        )
+    )
+
+
 # ---------------------------------------------------------------------------
 # Level 0 — pure function formula correctness (nadir, existing)
 # ---------------------------------------------------------------------------
@@ -444,7 +470,7 @@ class TestGSDMetricsWiring:
     @pytest.mark.level1
     def test_metrics_populated(self) -> None:
         """GSD appears in ChainState metrics for orbital scenario."""
-        state = _make_state()
+        state = _state_with_geometry(500_000.0)
         params = _make_params(altitude_m=500_000.0, focal_length_m=1.2, pitch_x_um=18.0)
         out = _compute_gsd_metrics(state, params)
         assert out.metrics["gsd_cross_track_m"] == pytest.approx(7.5, rel=1e-10)
@@ -470,7 +496,7 @@ class TestGSDMetricsWiring:
     @pytest.mark.level1
     def test_zenith_zero_matches_nadir(self) -> None:
         """path_zenith_rad=0.0 gives identical GSD to current nadir behavior."""
-        state = _make_state()
+        state = _state_with_geometry(600_000.0, 0.0)
         params_no_zen = _make_params(altitude_m=600_000.0, focal_length_m=3.5, pitch_x_um=8.0)
         params_zen0 = _make_params(
             altitude_m=600_000.0, focal_length_m=3.5, pitch_x_um=8.0, path_zenith_rad=0.0
@@ -486,8 +512,7 @@ class TestGSDMetricsWiring:
 
     @pytest.mark.level1
     def test_off_nadir_gives_larger_gsd(self) -> None:
-        """path_zenith_rad > 0 gives larger GSD than nadir."""
-        state = _make_state()
+        """Published off-nadir geometry gives larger GSD than nadir."""
         params_nadir = _make_params(
             altitude_m=600_000.0, focal_length_m=3.5, pitch_x_um=8.0, path_zenith_rad=0.0
         )
@@ -497,15 +522,17 @@ class TestGSDMetricsWiring:
             pitch_x_um=8.0,
             path_zenith_rad=math.radians(30.0),
         )
-        out_nadir = _compute_gsd_metrics(state, params_nadir)
-        out_off = _compute_gsd_metrics(state, params_offnadir)
+        out_nadir = _compute_gsd_metrics(_state_with_geometry(600_000.0, 0.0), params_nadir)
+        out_off = _compute_gsd_metrics(
+            _state_with_geometry(600_000.0, math.radians(30.0)), params_offnadir
+        )
         assert out_off.metrics["gsd_cross_track_m"] > out_nadir.metrics["gsd_cross_track_m"]
         assert out_off.metrics["gsd_along_track_m"] > out_nadir.metrics["gsd_along_track_m"]
 
     @pytest.mark.level1
     def test_geometric_mean_in_metrics(self) -> None:
         """gsd_geometric_mean_m is stored in metrics."""
-        state = _make_state()
+        state = _state_with_geometry(600_000.0, math.radians(30.0))
         params = _make_params(
             altitude_m=600_000.0,
             focal_length_m=3.5,
@@ -530,7 +557,7 @@ class TestAccessMetricsWiring:
     @pytest.mark.level1
     def test_ground_range_at_nadir(self) -> None:
         """At nadir, ground_range_m = 0."""
-        state = _make_state()
+        state = _state_with_geometry(600_000.0, 0.0)
         params = _make_params(
             altitude_m=600_000.0,
             focal_length_m=3.5,
@@ -547,7 +574,7 @@ class TestAccessMetricsWiring:
     @pytest.mark.level1
     def test_ground_range_offnadir(self) -> None:
         """Off-nadir produces nonzero ground range."""
-        state = _make_state()
+        state = _state_with_geometry(600_000.0, math.radians(30.0))
         params = _make_params(
             altitude_m=600_000.0,
             focal_length_m=3.5,
@@ -564,7 +591,7 @@ class TestAccessMetricsWiring:
     @pytest.mark.level1
     def test_swath_width_present(self) -> None:
         """Swath width = GSD_cross × n_pixels_cross."""
-        state = _make_state()
+        state = _state_with_geometry(600_000.0, 0.0)
         params = _make_params(
             altitude_m=600_000.0,
             focal_length_m=3.5,
@@ -586,7 +613,7 @@ class TestAccessMetricsWiring:
     @pytest.mark.level1
     def test_access_rate_with_speed(self) -> None:
         """Access rate = swath × ground_speed."""
-        state = _make_state()
+        state = _state_with_geometry(600_000.0, 0.0)
         params = _make_params(
             altitude_m=600_000.0,
             focal_length_m=3.5,
@@ -609,7 +636,7 @@ class TestAccessMetricsWiring:
     @pytest.mark.level1
     def test_no_speed_skips_rate(self) -> None:
         """Without ground_speed, access_rate is not in metrics."""
-        state = _make_state()
+        state = _state_with_geometry(600_000.0, 0.0)
         params = _make_params(
             altitude_m=600_000.0,
             focal_length_m=3.5,
@@ -627,7 +654,7 @@ class TestAccessMetricsWiring:
     @pytest.mark.level1
     def test_no_n_pixels_skips_swath(self) -> None:
         """Without n_pixels_cross, swath and access rate are not in metrics."""
-        state = _make_state()
+        state = _state_with_geometry(600_000.0, 0.0)
         params = _make_params(
             altitude_m=600_000.0,
             focal_length_m=3.5,

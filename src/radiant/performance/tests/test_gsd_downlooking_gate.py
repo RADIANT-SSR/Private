@@ -104,15 +104,20 @@ class TestDownLookingUnchanged:
             assert metric in out.metrics
 
 
-class TestDirectionLabelAbsentFallsBackToThetaO:
-    """Partial fixtures without GeometryStage gate on θ_o directly (the CU-096 path)."""
+class TestDirectionLabelAbsentSkips:
+    """No GeometryStage output at all → no GSD, whatever θ_o parameter is set.
+
+    The pre-Phase-5 behaviour gated on ``geometry.path_zenith_rad`` directly
+    and *derived* the nadir GSD from parameters; the CU-096 fallback retirement
+    (Geometry-Flexibility Phase 5 / guardrail G4) removed that derivation, so a
+    partial fixture without the stage simply publishes nothing —
+    ``test_geometry_required_contract.py`` pins the full contract.
+    """
 
     def test_uplooking_theta_o_skips_without_label(self) -> None:
         out = _compute_gsd_metrics(_state(None, math.pi), _params(math.pi))
         assert "gsd_cross_track_m" not in out.metrics
 
-    def test_downlooking_theta_o_computes_without_label(self) -> None:
+    def test_downlooking_theta_o_also_skips_without_label(self) -> None:
         out = _compute_gsd_metrics(_state(None, 0.0), _params(0.0))
-        assert out.metrics["gsd_cross_track_m"] == pytest.approx(
-            _PITCH_UM * 1e-6 * _ALT_M / _FOCAL_M, rel=1e-12
-        )
+        assert "gsd_cross_track_m" not in out.metrics

@@ -20,7 +20,7 @@ import pytest
 from radiant.api.sensor import Sensor
 from radiant.core.constants import hc
 
-_CONFIG = Path(__file__).resolve().parents[1] / "examples" / "mwir_leo_minimal.yaml"
+_CONFIG = Path(__file__).resolve().parents[2] / "examples" / "mwir_leo_minimal.yaml"
 
 
 @pytest.fixture(scope="module")

@@ -20,6 +20,21 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **GUI preferences now persist to a portable INI file (CU-233).** `SettingsStore`
+  built its `QSettings` with the two-argument `QSettings(organization,
+  application)` constructor, which ignores `QSettings.setDefaultFormat()` and
+  resolves to the platform-native backend (a plist under
+  `~/Library/Preferences` on macOS). That made the store unreachable by the test
+  suite's path redirection — the cause of the theme resets fixed above — and it
+  persisted differently on macOS than on Windows. It now uses the explicit
+  `IniFormat` / `UserScope` constructor that `PinnedPanel` already used, so both
+  GUI persistence surfaces share one portable, redirectable backend.
+  **One-time reset (owner-ratified):** no migration reads the old native store
+  forward, so the remembered theme, recent-files list, and panel show/hide state
+  start empty on the next launch. The GUI opens in the light default once; the
+  View menu re-establishes the preference and it persists from then on.
+
 ### Fixed
 - **An up-looking scene no longer aborts the whole chain evaluation (GUI
   walkthrough items 3 & 4).** Ground sample distance is a down-looking quantity —

@@ -70,23 +70,23 @@
 **Why it still matters**: Rule 15 violation on the exact surface operators hit first (see CU-239); the crash framing erodes trust in a refusal that is actually the system protecting the radiometry.
 **Suggested fix**: (a) inline-fix — introduce/reuse an `AtmosphereCapabilityError(RadiantError)` (the Phase-2 capability-refusal pattern), swap the raises, add one test asserting the class reaches the GUI's rejection path. Effort XS; category A. Related: CU-239.
 
-### CU-242 — Target-spec over-specification is unreachable by the parameter editor's clone-validate, so the GUI accepts a conflicting pair until Evaluate
+### CU-244 — Target-spec over-specification is unreachable by the parameter editor's clone-validate, so the GUI accepts a conflicting pair until Evaluate
 
 **Discovered**: GUI walkthrough item 6 (branch `gui/reflective-tab`), 2026-07-27 — while mounting `source.target.reflectance_path` beside the scalar ρ.
 **Status**: Open.
 **File**: `src/radiant/source/_schema.py::validate_reflectance_albedo_exclusive` (called from `source/_inferrer.py:1169`) vs `src/radiant/gui/widgets/parameter_editor_dialog.py::_try_resolve`.
 **Symptom**: set `source.target.reflectance = 0.3`, then `source.target.reflectance_path = <csv>`. Both `Sensor.set` and `Sensor.get` accept the pair; the rejection fires only inside `infer_descriptors`, i.e. at `evaluate()`. The editor validates a candidate on a throwaway clone with `set` + `get`, so it cannot see this class of conflict and commits the second surface happily. The same is true of every other target-spec exclusivity (ρ + (ε, T), ρ + S11/S12, the `albedo` aliases).
 **Why it still matters**: `RADIANT_GUI_Architecture.md` claimed the reflective inputs were guarded by "the editor reject discipline" — they are not; that row was corrected in this PR to describe the evaluate-time path instead. The operator still learns of the conflict, actionably (dialog + Messages), but only after a full chain attempt, and the editor's committed value stays in the config. The gap is that a whole family of *cross-parameter* validators lives behind the inferrer while the editor can only run *per-parameter* ones.
-**Suggested fix**: (b) stand-alone task — expose the target-spec exclusivity validators as a resolve-time consistency check (a `ConsistencyGroup`-shaped seam or an explicit `Sensor.validate_target_spec()` the dialog calls after the clone `get`), so an over-specified pair is rejected at the door with the same what/why/action it produces today. Effort M; category B. Related: [[CU-243]].
+**Suggested fix**: (b) stand-alone task — expose the target-spec exclusivity validators as a resolve-time consistency check (a `ConsistencyGroup`-shaped seam or an explicit `Sensor.validate_target_spec()` the dialog calls after the clone `get`), so an over-specified pair is rejected at the door with the same what/why/action it produces today. Effort M; category B. Related: [[CU-245]].
 
-### CU-243 — `test_inferrer_reflective.py` documents the S5 ρ(λ) CSV path as deferred; it has been implemented for some time
+### CU-245 — `test_inferrer_reflective.py` documents the S5 ρ(λ) CSV path as deferred; it has been implemented for some time
 
 **Discovered**: GUI walkthrough item 6 (branch `gui/reflective-tab`), 2026-07-27.
 **Status**: Open.
 **File**: `src/radiant/source/tests/test_inferrer_reflective.py` — module docstring, and the `TestTruthAnchorHeavisideSpectrum` class docstring ("The inferrer only scalar-lifts today (S5 CSV loader lands with the S11 T_B path)").
 **Symptom**: both docstrings state that `source.target.reflectance_path` is "recognised but deferred" and that the spectral path is therefore exercised only through the boundary converter. `source/_inferrer.py:1284` routes the CSV to a `T2Reflective` today, and this PR's `test_reflectance_published.py::test_spectral_rho_csv_lands_on_the_chain_grid` runs it end-to-end through `SourceStage`.
 **Why it still matters**: the stale claim is why the ρ(λ) input surface stayed unmounted in the GUI until item 6 — a reader auditing the reflective pathway is told a shipped capability does not exist yet, and the Heaviside anchor's stated rationale (test the converter *because* the inferrer cannot) no longer holds.
-**Suggested fix**: (a) inline-fix at next touch — rewrite the two docstrings to describe the shipped S5/S6 routing and re-anchor the Heaviside test on the inferrer path it now has. Effort S; category A. Related: [[CU-242]].
+**Suggested fix**: (a) inline-fix at next touch — rewrite the two docstrings to describe the shipped S5/S6 routing and re-anchor the Heaviside test on the inferrer path it now has. Effort S; category A. Related: [[CU-244]].
 
 ### CU-236 — Down-looking detection range still uses one constant extinction coefficient (owner-decision gated)
 

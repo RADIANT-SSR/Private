@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-252 — 36 files fail `ruff format --check` — formatter drift the gate battery never sees
+
+**Discovered**: Geometry-Flexibility Phase 4 gate run (branch `gf/phase4-gui`), 2026-07-28.
+**Status**: Open.
+**File**: repo-wide — `ruff format --check src/ tests/` flags 36 files (e.g. `src/radiant/api/stage_output_units.py`, `src/radiant/atmosphere/loaders.py`); none touched by Phase 4.
+**Symptom**: CLAUDE.md Code Style declares `ruff format` the formatter, but the merge gate battery runs only `ruff check` — so format drift accumulates invisibly. Local ruff is 0.15.12 against a `ruff>=0.1` floor pin, so some or all of the drift may be formatter-version churn rather than hand-edits.
+**Why it still matters**: an unenforced declared formatter is aspirational tooling (the Rule-20 drift profile applied to code style); the first PR that does run `ruff format` will carry a 36-file noise diff.
+**Suggested fix**: (b) stand-alone task — pin the ruff version in the dev extra, run `ruff format` once repo-wide as a dedicated formatting-only commit, and add `ruff format --check` to the gate battery (CLAUDE.md + CI) in the same PR. Effort S; category A.
+
 ### CU-246 — `geometry_readout` labels `eta_rad` "Nadir (off-nadir) angle" — wrong for an up-looking scene
 
 **Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, wording agent finding), 2026-07-28.

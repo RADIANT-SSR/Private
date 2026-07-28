@@ -610,17 +610,23 @@ class TestNonGroundTargetSelection:
         assert "q_center" in metrics
 
     def test_explicit_selection_overrides_the_map(self) -> None:
-        """Provenance gate: a flag the analyst set wins, for better or worse.
+        """Provenance gate: a flag the analyst set wins — for computable metrics.
 
-        GSD is defined through ``incidence_angle_rad ∈ [0, π/2)``, which an
-        up-looking θ_o violates — so opting in surfaces the refusal the analyst
-        asked for instead of the map quietly protecting them from their choice.
+        Explicitly enabling ``sampling`` on an up-looking scene overrides the
+        relevance map's default suppression, so the group's computable members
+        (the target-plane metrics) appear.  GSD stays absent regardless: the
+        LOS-direction gate (GUI cleanup batch 1, 5af0362) is a *computability*
+        condition — GSD's ground-plane cos projection is undefined for
+        ``incidence_angle_rad ≥ π/2`` — not a relevance default, so an
+        explicit opt-in revives suppressed metrics but cannot conjure an
+        undefined one (absent, not wrong; the ADR-B convention).
         """
-        from radiant.performance.errors import PerformanceValidationError
-
         session = RadiantSession(wavelength_um=MWIR_WL)
-        with pytest.raises(PerformanceValidationError, match="incidence_angle_rad"):
-            session.run(self._params(session, **{"performance.metrics.sampling": True}))
+        result = session.run(self._params(session, **{"performance.metrics.sampling": True}))
+        for name in TARGET_PLANE_METRICS:
+            assert name in result.metrics, name
+        assert "gsd_cross_track_m" not in result.metrics
+        assert "gsd_along_track_m" not in result.metrics
 
     def test_explicit_deselection_also_wins(self) -> None:
         session = RadiantSession(wavelength_um=MWIR_WL)

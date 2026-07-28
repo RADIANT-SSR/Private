@@ -76,7 +76,12 @@ class TestDetectorComposition:
         assert [p.method for p in subviews["Noise"].plots] == ["noise_pie"]
         # Detector + PSF: the Qt illustration + the PSF-with-pixel-grid accessor.
         assert subviews["Detector + PSF"].detector_illustration is True
-        assert [p.method for p in subviews["Detector + PSF"].plots] == ["psf_pixel_grid"]
+        # Item 19: the pixel illustration sits beside the kernel that pixel imposes,
+        # with the pixel-grid PSF below.
+        assert [p.method for p in subviews["Detector + PSF"].plots] == [
+            "detector_kernels",
+            "psf_pixel_grid",
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +98,7 @@ class TestDetectorPane:
     def test_noise_pie_and_psf_grid_figures_render(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Both plot sections (noise pie + PSF-with-grid) draw from their bound accessors."""
         pane = _detector_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
-        assert len(pane.plot_canvases) == 2
+        assert len(pane.plot_canvases) == 3  # noise pie + detector kernels + PSF grid
         assert all(c.has_figure() for c in pane.plot_canvases)
 
     def test_noise_table_present_with_units_and_bar_suppressed(  # type: ignore[no-untyped-def]

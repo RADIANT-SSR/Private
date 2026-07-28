@@ -1,20 +1,21 @@
 """The Spectral-Integration stage's **Inputs** section — the band + acquisition knobs.
 
 :class:`SpectralIntegrationInputsForm` is the *Inputs* section of the Spectral-Integration
-stage's contextual center (arch doc §4.4 section 1, GUI plan Phase PS-4): the three knobs
-that control the spectral-to-scalar collapse — the filter bandpass edges
-(``filter_min_um`` / ``filter_max_um``) and the acquisition ``integration_time_s`` — as
-editable schema-driven rows. It is the spectral-integration sibling of
+stage's contextual center (arch doc §4.4 section 1, GUI plan Phase PS-4): the two knobs
+that define the band for the spectral-to-scalar collapse — the filter bandpass edges
+(``filter_min_um`` / ``filter_max_um``) — as editable schema-driven rows. It is the
+spectral-integration sibling of
 :class:`~radiant.gui.widgets.detector_inputs_form.DetectorInputsForm`: edit the band and
-watch the in-band signal spectrum re-clip; edit the integration time and watch the electron
-budget in the Outputs readout scale.
+watch the in-band signal spectrum re-clip.
 
-**The integration-time grouping (arch doc §4.4.1 GUI-grouping note).** The owner notes
-``integration_time_s`` reads as an *acquisition* setting rather than a spectral-integration
-one; the GUI **may** present it under a more operator-relevant label without touching the
-schema (it stays ``spectral_integration.integration_time_s`` in the sensor). So the two
-filter edges sit under a **Filter bandpass** heading and the integration time under a
-separate **Acquisition** heading — a presentation choice only, no schema change.
+**The integration time is edited on Readout, not here (owner walkthrough item 21).**
+``spectral_integration.integration_time_s`` reads as an *acquisition* setting rather
+than a spectral-integration one, and
+:class:`~radiant.gui.widgets.readout_inputs_form.ReadoutInputsForm`
+already mounts it — so this form showed a second editor for the same parameter. The
+duplicate is gone; this card is the **filter bandpass** only. The schema is untouched
+(the parameter keeps its ``spectral_integration.`` dot-path and its owning stage);
+only which form surfaces it changed.
 
 **Schema-driven, one API call per edit (Gap 70 / R-API).** Every field is built from and
 formatted through the public :class:`~radiant.api.sensor.Sensor` surface; editing a field
@@ -59,15 +60,8 @@ _FILTER_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Filter max (long edge)", "spectral_integration.filter_max_um"),
 )
 
-# The acquisition knob, presented under its own heading per the arch-doc §4.4.1 GUI-grouping
-# note (the owner reads integration time as an acquisition setting; the schema is unchanged).
-_ACQUISITION_FIELDS: Final[tuple[tuple[str, str], ...]] = (
-    ("Integration time", "spectral_integration.integration_time_s"),
-)
-
-_TITLE = "Spectral integration — filter bandpass & acquisition"
+_TITLE = "Spectral integration — filter bandpass"
 _FILTER_HEADING = "Filter bandpass"
-_ACQUISITION_HEADING = "Acquisition"
 
 
 class SpectralIntegrationInputsForm(QWidget):
@@ -116,7 +110,6 @@ class SpectralIntegrationInputsForm(QWidget):
 
         self._rows: dict[str, FieldRow] = {}
         self._add_group(box, card, _FILTER_HEADING, _FILTER_FIELDS)
-        self._add_group(box, card, _ACQUISITION_HEADING, _ACQUISITION_FIELDS)
 
         layout.addWidget(card)
 

@@ -24,7 +24,6 @@ from radiant.gui.main_window import RADIANTMainWindow  # noqa: E402
 from radiant.gui.stage_views import STAGE_COMPOSITIONS  # noqa: E402
 from radiant.gui.widgets.field_row import FieldRow  # noqa: E402
 from radiant.gui.widgets.spectral_integration_inputs_form import (  # noqa: E402
-    _ACQUISITION_FIELDS,
     _FILTER_FIELDS,
 )
 from radiant.gui.widgets.stage_center import StagePane  # noqa: E402
@@ -100,16 +99,24 @@ class TestSpectralPane:
         pane = _spectral_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
         form = pane.spectral_inputs_form
         assert form is not None
-        for _label, dotpath in (*_FILTER_FIELDS, *_ACQUISITION_FIELDS):
+        for _label, dotpath in _FILTER_FIELDS:
             assert isinstance(form.row(dotpath), FieldRow)
-        # The band edges carry their unit (R-UNITS): µm; the integration time: s.
+        # The band edges carry their unit (R-UNITS): µm.
         assert form.field_value_text(_FILTER_MAX).endswith("um")
-        assert form.field_value_text(_INTEGRATION_TIME).endswith("s")
 
-    def test_integration_time_grouped_under_acquisition(self) -> None:
-        """Per the §4.4.1 GUI-grouping note, integration time is its own acquisition field —
-        still the unchanged schema path (presentation choice only)."""
-        assert _ACQUISITION_FIELDS == (("Integration time", _INTEGRATION_TIME),)
+    def test_integration_time_is_not_duplicated_here(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Owner walkthrough item 21: integration time is edited on Readout, not here.
+
+        It was mounted on both forms, so the same parameter had two editors. The
+        schema is untouched — the parameter keeps its ``spectral_integration.``
+        dot-path and its owning stage; only which form surfaces it changed.
+        """
+        pane = _spectral_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
+        form = pane.spectral_inputs_form
+        assert form is not None
+        assert _INTEGRATION_TIME not in [dotpath for _label, dotpath in _FILTER_FIELDS]
+        with pytest.raises(KeyError):
+            form.row(_INTEGRATION_TIME)
         # The schema is untouched: the sensor still exposes the canonical dot-path.
         sensor = Sensor.from_yaml(_EXAMPLE)
         assert sensor.get_input(_INTEGRATION_TIME) is not None
@@ -182,17 +189,22 @@ class TestSpectralEditAndWatch:
     def test_editing_integration_time_scales_the_electron_budget(  # type: ignore[no-untyped-def]
         self, qtbot, monkeypatch
     ) -> None:
-        """Editing the integration time → one sensor.set → the signal_e scales with it."""
+        """Editing the integration time → one sensor.set → the signal_e scales with it.
+
+        Driven from the **Readout** form since walkthrough item 21 removed the
+        duplicate editor from the Spectral-Integration card; the parameter and its
+        effect on the spectral-integration electron budget are unchanged.
+        """
         window = _load_window(qtbot)
         center = window.central_canvas.stage_center
-        window.stage_strip.stageClicked.emit("spectral_integration")
-        pane = center.pane("spectral_integration")
-        form = pane.spectral_inputs_form
+        window.stage_strip.stageClicked.emit("readout")
+        pane = center.pane("readout")
+        form = pane.readout_inputs_form
         assert form is not None
 
         signal_before = window.last_result.stage_outputs["spectral_integration"]["signal_e"]
 
-        from radiant.gui.widgets import spectral_integration_inputs_form as sif
+        from radiant.gui.widgets import readout_inputs_form as sif
 
         def fake_exec(self):  # type: ignore[no-untyped-def]
             self.value_editor.setText("0.010")  # double the 5 ms integration time

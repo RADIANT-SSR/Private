@@ -39,6 +39,21 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Final
 
+# Where an embedded panel (the MTF per-term table, the noise-budget table, the
+# detector pixel illustration) sits relative to the stage's plot sections. Set on
+# a composition/sub-view via ``panel_placement``; the pane reads it and nothing
+# else branches on it.
+#
+#   before  — panel above the plots. The original v1 arrangement.
+#   beside  — panel and plots side by side in a horizontal splitter, so a long
+#             table is readable without scrolling past the chart (owner
+#             walkthrough item 17: "have the noise budget next to the pie chart
+#             so we can see all the terms and not have to scroll").
+PANEL_BEFORE: Final[str] = "before"
+PANEL_BESIDE: Final[str] = "beside"
+
+PANEL_PLACEMENTS: Final[frozenset[str]] = frozenset({PANEL_BEFORE, PANEL_BESIDE})
+
 
 @dataclass(frozen=True, slots=True)
 class PlotSpec:
@@ -78,9 +93,11 @@ class StageSubView:
     title:
         The tab label.
     geometry_form, geometry_readout, geometry_viewer, mtf_panel, noise_panel, outputs, \
-    metrics, plots, note:
+    metrics, plots, plot_columns, panel_placement, note:
         The same section fields as :class:`StageComposition`, scoped to this tab.
         ``geometry_viewer`` embeds the geometry schematic viewer (ADR-0007, Geometry "Schematic").
+        ``plot_columns`` and ``panel_placement`` control this tab's arrangement — see
+        :class:`StageComposition` for both.
     """
 
     title: str
@@ -104,6 +121,8 @@ class StageSubView:
     metrics: bool = False
     metric_selection: bool = False
     plots: tuple[PlotSpec, ...] = field(default_factory=tuple)
+    plot_columns: int = 1
+    panel_placement: str = PANEL_BEFORE
     note: str | None = None
 
 
@@ -193,6 +212,15 @@ class StageComposition:
         per Gap-96 metric group, human labels, hover pins; owner redesign 2026-07-25).
     plots:
         Zero or more plot sections, each a :class:`PlotSpec`.
+    plot_columns:
+        How many plot sections to place per row (default ``1`` — one per row, the
+        v1 stacked arrangement). ``3`` puts the Optics "PSF + Pupil" trio on one
+        row (owner walkthrough item 13: "three 2D plots in the same row"). Plots
+        fill left-to-right and wrap; a trailing partial row is left-aligned.
+    panel_placement:
+        Where an embedded panel (MTF table, noise table, detector illustration)
+        sits relative to the plots — :data:`PANEL_BEFORE` (default) or
+        :data:`PANEL_BESIDE`. See those constants.
     note:
         An optional themed note (deferred content / v1-minimal rationale).
     subviews:
@@ -223,6 +251,8 @@ class StageComposition:
     metrics: bool = False
     metric_selection: bool = False
     plots: tuple[PlotSpec, ...] = field(default_factory=tuple)
+    plot_columns: int = 1
+    panel_placement: str = PANEL_BEFORE
     note: str | None = None
     subviews: tuple[StageSubView, ...] = field(default_factory=tuple)
 
@@ -241,6 +271,12 @@ _PLATFORM_NOTE: Final[str] = (
     "post-v1 task). The smear and jitter MTF terms appear in the Optics and Performance MTF "
     "overlays. Platform/sensor attitude has no stage owner yet (ADR-0006 §4 / CU-122); the "
     "target RPY triad ships from source.target.*."
+)
+_PLATFORM_PSF_NOTE: Final[str] = (
+    "Kernels appear here only for degradations that are configured non-zero — a "
+    "scene with no jitter, no smear and no turbulence contributes none, and the "
+    "PSF below is then the optical + detector one unchanged. The PSF shown is the "
+    "fully degraded one every spatial metric is derived from (Rule 4)."
 )
 _SPECTRAL_NOTE: Final[str] = (
     "A per-wavelength noise spectrum is deferred (Gap 92); noise is scalar per term, "
@@ -299,14 +335,20 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
                     ),
                 ),
             ),
+            # Owner walkthrough item 5: this tab defines what the *target emits*
+            # (blackbody T/area/ε, or a band-integrated intensity in W/sr), so it
+            # must plot the source-side radiance, not the at-aperture radiance the
+            # atmosphere has already attenuated — the operator could not see the
+            # effect of the intensity they were typing. spectral_source (at
+            # aperture) belongs to the Atmosphere view, which owns that step.
             StageSubView(
                 title="Target — point source",
                 source_inputs=True,
                 source_groups=("point_source",),
                 plots=(
                     PlotSpec(
-                        "Radiance at aperture (day/night moves the reflected term)",
-                        "spectral_source",
+                        "Target & background emission (before atmosphere)",
+                        "spectral_source_emission",
                     ),
                 ),
             ),
@@ -352,12 +394,26 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
         atmosphere_inputs=True,
         outputs=True,
         plots=(
-            PlotSpec("τ_atm & L_path vs wavelength", "spectral_atmosphere"),
+            # Owner walkthrough item 8: the target and background arms travel
+            # different columns whenever the target is above the surface — the
+            # target through τ_up (target → sensor), a surface background through
+            # τ_full_up (ground → sensor, including the air *below* the target).
+            # They are drawn separately so that difference is visible, then the
+            # two at-aperture radiances share one axis, because their ratio there
+            # is what the contrast metrics actually see.
+            PlotSpec("Target path — τ_up & L_path_up", "spectral_atmosphere"),
+            PlotSpec(
+                "Background path — τ_full_up & L_path_full",
+                "spectral_atmosphere_background",
+            ),
             PlotSpec(
                 "Before atmosphere — target & background emission",
                 "spectral_source_emission",
             ),
-            PlotSpec("After atmosphere — radiance at aperture", "spectral_source"),
+            PlotSpec(
+                "At aperture — target & background together",
+                "spectral_at_aperture_arms",
+            ),
         ),
     ),
     # The Optics stage instrument (GUI plan Phase PS-2, arch doc §4.4.1 Optics rows): the
@@ -376,17 +432,22 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
             # ADR-0009 D2 element-train editor — per-element R/T/temperature/geometry,
             # ε derived read-only (Rule 5), Apply = one Sensor.set_optical_elements call.
             StageSubView(title="Elements", element_editor=True),
-            StageSubView(
-                title="MTF",
-                mtf_panel=True,
-                plots=(PlotSpec("MTF-at-Nyquist budget", "mtf_budget"),),
-            ),
+            # Owner walkthrough items 10-12: the system-MTF overlay leads (with Nyquist
+            # marked on it), and the per-term budget table follows *below* the figure
+            # rather than above it. The separate MTF-at-Nyquist bar chart is gone —
+            # it re-marked the table's own numbers ("MTF, don't need the bar chart"),
+            # and the budget now reads at four fractions of Nyquist in x and y.
+            StageSubView(title="MTF", mtf_panel=True),
+            # Owner walkthrough item 13: pupil apodization, pupil WFE and the PSF as
+            # three 2-D maps on ONE row — they are read together (the pupil pair is
+            # the cause, the PSF is the effect), so stacking them hid the comparison.
             StageSubView(
                 title="PSF + Pupil",
+                plot_columns=3,
                 plots=(
-                    PlotSpec("Effective PSF", "psf"),
                     PlotSpec("Pupil apodization (amplitude / transmission)", "pupil_amplitude"),
                     PlotSpec("Pupil wavefront error (waves)", "pupil_phase"),
+                    PlotSpec("Effective PSF", "psf"),
                 ),
             ),
             StageSubView(
@@ -402,11 +463,30 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
     # v1-minimal (owner-ratified — no dedicated MTF). Editable jitter/smear inputs beside the
     # scalar outputs readout (jitter_sigma_x/y_m, smear_width_m, EE_box) + a themed v1-minimal
     # note (attitude ownership deferred, CU-122). Single flat pane.
+    # The Platform stage instrument. The v1-minimal Inputs pane is unchanged; owner
+    # walkthrough item 15 adds a second tab showing what this stage actually does to
+    # the PSF — the jitter / smear / turbulence kernels it convolves in, beside the
+    # post-convolution PSF those kernels produced. The kernels are read off
+    # EffectivePSF.kernels (retained alongside convolution_history), so the tab shows
+    # the degradation rather than only naming it.
     "platform": StageComposition(
         title="Platform",
-        platform_inputs=True,
-        outputs=True,
-        note=_PLATFORM_NOTE,
+        subviews=(
+            StageSubView(
+                title="Inputs",
+                platform_inputs=True,
+                outputs=True,
+                note=_PLATFORM_NOTE,
+            ),
+            StageSubView(
+                title="PSF degradation",
+                plots=(
+                    PlotSpec("Convolution kernels applied to the PSF", "psf_kernels"),
+                    PlotSpec("Effective PSF after convolution", "psf"),
+                ),
+                note=_PLATFORM_PSF_NOTE,
+            ),
+        ),
     ),
     # The Spectral-Integration stage instrument (GUI plan Phase PS-4, arch doc §4.4.1
     # Spectral-Integration rows): the editable band + acquisition inputs (filter edges +
@@ -434,16 +514,26 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
         title="Detector",
         subviews=(
             StageSubView(title="Inputs", detector_inputs=True, outputs=True),
+            # Owner walkthrough item 17: the per-term table sits *beside* the pie, not
+            # under it, so every term is visible without scrolling past the chart.
             StageSubView(
                 title="Noise",
                 noise_panel=True,
                 noise_panel_chart=False,
+                panel_placement=PANEL_BESIDE,
                 plots=(PlotSpec("Noise budget — share of variance", "noise_pie"),),
             ),
+            # Owner walkthrough item 19: the pixel picture sits *next to* the
+            # convolution kernel that pixel imposes on the PSF, so cause and effect
+            # read together; the PSF with the pixel grid overlaid follows below.
             StageSubView(
                 title="Detector + PSF",
                 detector_illustration=True,
-                plots=(PlotSpec("PSF with detector pixel grid", "psf_pixel_grid"),),
+                panel_placement=PANEL_BESIDE,
+                plots=(
+                    PlotSpec("Detector convolution kernels", "detector_kernels"),
+                    PlotSpec("PSF with detector pixel grid", "psf_pixel_grid"),
+                ),
             ),
         ),
     ),

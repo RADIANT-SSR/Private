@@ -8,7 +8,7 @@
 #   3. Paste this script and Run. The figure pops out into its own window;
 #      the parameter change marks the main view stale (click Refresh).
 #
-# NOTE: Runner's reference altitude (2 km).
+# NOTE: Runner's reference altitude (2 km). NOT re-centered: the 16 ms frame is the microbolometer's thermal time constant (NETD is quoted at it) and cannot move, while the photon-model signal (~5.5e9 e-) is 55x the schema's max full well — so the well/ADC saturation warning is a photon-FPA check misapplied to a bolometer, not a re-centerable operating point. See Gap 101; the scenario's real metric is the delta-T-vs-NETD detection threshold, which is unaffected (CU-170).
 #
 # NB: the header is comments, not a docstring — the console is a REPL and would
 # echo a bare """string""" back into the transcript. Also runs standalone
@@ -22,7 +22,7 @@ except NameError:
 
     from radiant.api import Sensor
 
-    sensor = Sensor.from_yaml(
+    sensor = Sensor.load(
         _Path(__file__).resolve().parent.parent / "inputs" / "4.5_altitude_trade_uav.gui.yaml"
     )
 

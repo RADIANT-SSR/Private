@@ -8,7 +8,7 @@
 #   3. Paste this script and Run. The figure pops out into its own window;
 #      the parameter change marks the main view stale (click Refresh).
 #
-# NOTE: Vendor A of the three-vendor comparison (transcribes evaluate_vendor).
+# NOTE: Vendor A of the three-vendor comparison (transcribes evaluate_vendor). GUI baseline uses a well-matched gain (400 e-/DN vs Vendor A's 20) so the 14-bit ADC spans the 6 Me- well at the 8 ms point instead of clipping; NIIRS is a per-vendor comparison column, so allow_extrapolated=true keeps the rating (CU-170/CU-166).
 #
 # NB: the header is comments, not a docstring — the console is a REPL and would
 # echo a bare """string""" back into the transcript. Also runs standalone
@@ -22,7 +22,7 @@ except NameError:
 
     from radiant.api import Sensor
 
-    sensor = Sensor.from_yaml(
+    sensor = Sensor.load(
         _Path(__file__).resolve().parent.parent / "inputs" / "3.3_multi_sensor_comparison.gui.yaml"
     )
 

@@ -47,7 +47,6 @@ Runtime: ~40 s.  Usage:  python run_ground_to_space_sst_visible.py
 from __future__ import annotations
 
 import math
-import tempfile
 import warnings
 from pathlib import Path
 
@@ -260,16 +259,24 @@ def write_canonical_signature(vendor: dict[str, object], destination: Path) -> P
 # Module-level factory — the GUI-baseline registry wires to THIS
 # ---------------------------------------------------------------------------
 
-_DERIVED_DIR = Path(tempfile.gettempdir()) / "radiant_scenario_10_3_ground_to_space"
+# The RADIANT-format intensity CSV is materialised INTO THE SCENARIO'S
+# ``inputs/`` and committed (regenerated deterministically from the vendor
+# signature CSV on every run; MANIFEST.md names the generator). It must NOT
+# live in the system temp directory: the GUI baseline ``.gui.yaml`` references
+# this path, and a baseline pointing at an uncommitted temp file is unportable
+# (fails verify_gui_yaml / File → Open on any fresh checkout) and mutable
+# under the yaml (found by the Phase-5 verification gate).
+_DERIVED_DIR = INPUT_DIR
 
 
 def make_sensor() -> Sensor:
     """Build the scenario's nominal, validated ``Sensor`` (no side effects but one file).
 
     Reads the vendor workbook and signature file, converts them to canonical
-    units, materialises the RADIANT-format intensity CSV in the system temp
-    directory (the chain needs a path on disk), and returns the configured
-    Sensor.  Does NOT run the chain and does NOT touch ``outputs/``.
+    units, materialises the RADIANT-format intensity CSV beside the vendor
+    inputs (the chain needs a path on disk; see ``_DERIVED_DIR``), and returns
+    the configured Sensor.  Does NOT run the chain and does NOT touch
+    ``outputs/``.
     """
     vendor = read_vendor_inputs()
     signature_csv = write_canonical_signature(

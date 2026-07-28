@@ -8,7 +8,7 @@
 #   3. Paste this script and Run. The figure pops out into its own window;
 #      the parameter change marks the main view stale (click Refresh).
 #
-# NOTE: Nominal 2% inter-pixel capacitance fraction.
+# NOTE: Nominal 2% inter-pixel capacitance fraction. GUI baseline uses a well-matched gain (110 e-/DN vs the runner's 1.2) so the 14-bit ADC spans the 1.8 Me- well instead of clipping the signal (CU-170).
 #
 # NB: the header is comments, not a docstring — the console is a REPL and would
 # echo a bare """string""" back into the transcript. Also runs standalone
@@ -22,7 +22,7 @@ except NameError:
 
     from radiant.api import Sensor
 
-    sensor = Sensor.from_yaml(
+    sensor = Sensor.load(
         _Path(__file__).resolve().parent.parent / "inputs" / "2.3_ipc_impact_on_mtf.gui.yaml"
     )
 

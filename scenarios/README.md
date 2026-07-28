@@ -132,6 +132,11 @@ maturity by marking 21 executed scenarios "stub" and omitting the 08 series
 | 9.1_sentinel2_msi_snr | implemented (config-driven; canonical comparison in scripts/run_external_validation.py) |
 | 9.2_landsat_tirs_nedt | implemented (config-driven) |
 | 9.3_modis_teb_nedt | implemented (config-driven) |
+| **10 Direction-general validation (Geometry-Flexibility Phase 5)** | |
+| 10.1_ground_to_air_mwir_detection | implemented (executed 2026-07-28; MODTRAN K-ladder anchor) |
+| 10.2_air_to_air_level_irst | implemented (executed 2026-07-28; MODTRAN L-grid anchor) |
+| 10.3_ground_to_space_sst_visible | implemented (executed 2026-07-28; MODTRAN anchor deferred — owner batch 2) |
+| 10.4_leo_to_geo_exo | implemented (executed 2026-07-28; vacuum-identity anchors, exact) |
 
 40 of 40 implemented (35 persona + 2 interpolation + 3 flagship-mission validation). Each folder carries the
 `walkthrough.md` / `gaps.md` / `gui_workflow.md` trio and executed

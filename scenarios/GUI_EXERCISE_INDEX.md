@@ -122,6 +122,11 @@ Paths follow the uniform pattern above; the focus column is distilled from each
 | **08 Interpolation demonstrations** | |
 | 8.1 off_nadir_angle_interpolation | query-geometry entry; coverage indicator; A/B vs nearest-neighbor; family registry browser |
 | 8.2 target_altitude_interpolation | query-altitude entry; interpolation coverage + A/B |
+| **10 Direction-general validation (ADR-0011 / Geometry-Flexibility Phase 5)** | |
+| 10.1 ground_to_air_mwir_detection | scene-class chip (ground_to_air derived) + assertion; up-looking schematic composition (sensor on the ground plane, LOS ascending); θ_o / ζ_low arcs (obtuse θ_o); relevance preview — GSD family off, target-plane metrics on |
+| 10.2 air_to_air_level_irst | level schematic composition (both endpoints elevated); Δh sag pill; horizon-guard warning surfaced in Messages; kinematics doors (K1/K2) in the LOS-rate family selector |
+| 10.3 ground_to_space_sst_visible | scene-class chip (ground_to_space); up-looking full-column composition; turbulence inputs (Cn² profile / r₀); solar-depression entry past 90° (terminator) |
+| 10.4 leo_to_geo_exo | space-observer both-elevated composition; θ_o = π exactly on the arc pill; vacuum-path atmosphere view (τ = 1); assertion agreeing with the derivation |
 
 ---
 

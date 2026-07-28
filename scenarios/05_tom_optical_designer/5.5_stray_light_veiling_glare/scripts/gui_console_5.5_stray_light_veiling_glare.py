@@ -8,7 +8,7 @@
 #   3. Paste this script and Run. The figure pops out into its own window;
 #      the parameter change marks the main view stale (click Refresh).
 #
-# NOTE: Rooftop target reflectance, zero veiling-glare (clean reference).
+# NOTE: Rooftop target reflectance, zero veiling-glare (clean reference). GUI baseline shortens integration to 1 ms (well ~75% vs 3.75x over-full at the runner's 5 ms) and uses a well-matched gain (8 e-/DN) so neither the 0.3 Me- well nor the 16-bit ADC clips (CU-170). NIIRS stays absent — the extrapolated rating (>11 at SNR ~470) is outside any physical NIIRS range, so it is not opted in (CU-166).
 #
 # NB: the header is comments, not a docstring — the console is a REPL and would
 # echo a bare """string""" back into the transcript. Also runs standalone
@@ -22,7 +22,7 @@ except NameError:
 
     from radiant.api import Sensor
 
-    sensor = Sensor.from_yaml(
+    sensor = Sensor.load(
         _Path(__file__).resolve().parent.parent / "inputs" / "5.5_stray_light_veiling_glare.gui.yaml"
     )
 

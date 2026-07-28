@@ -8,7 +8,7 @@
 #   3. Paste this script and Run. The figure pops out into its own window;
 #      the parameter change marks the main view stale (click Refresh).
 #
-# NOTE: Nominal 300 K surface, emissivity 0.9.
+# NOTE: Nominal 300 K surface, emissivity 0.9. The 0.1 ms integration keeps the well ~43% full (linear contrast); the GUI baseline adds a well-matched gain (400 e-/DN) so the 14-bit ADC spans the 6 Me- well instead of clipping (CU-170).
 #
 # NB: the header is comments, not a docstring — the console is a REPL and would
 # echo a bare """string""" back into the transcript. Also runs standalone
@@ -22,7 +22,7 @@ except NameError:
 
     from radiant.api import Sensor
 
-    sensor = Sensor.from_yaml(
+    sensor = Sensor.load(
         _Path(__file__).resolve().parent.parent / "inputs" / "4.4_time_of_day_analysis.gui.yaml"
     )
 

@@ -34,4 +34,7 @@ series — see `scenarios/README.md` and `docs/guides/scenario_testing.md`.
 
 | Scenario | Scene class | Grid cell | What it validates |
 |---|---|---|---|
+| `10.1_ground_to_air_mwir_detection` | `ground_to_air` | E2 | Ground MWIR camera, up-looking 0–60° ζ_low ladder to a 10 km UAS: sky background behind the target, point-source regime boundary, full-chain detection walk, Rule-4 silence, anchored against MODTRAN K4/K6 |
 | `10.2_air_to_air_level_irst` | `air_to_air` | E5 | Level arm at 10 km, MWIR IRST, 25–100 km range sweep: level-arm geometry, the horizon guard's clean→warn crossover, target kinematics (Gap 111) both doors, metric-relevance flip, anchored against MODTRAN L16–L20 |
+| `10.3_ground_to_space_sst_visible` | `ground_to_space` | E3 | 1 m visible SST telescope, full up-looking column: HV-5/7 turbulence (seeing- vs diffraction-limited), GF-9 terminator shadow height, intensity-door point source; MODTRAN anchor deferred to owner batch 2 (vacuum identity + published-extinction cross-checks instead — the latter root-caused the Rayleigh-coefficient defect) |
+| `10.4_leo_to_geo_exo` | `space_to_space` | up-looking exo | LEO→GEO SDA at θ_o = π exactly: vacuum identities bitwise (τ = 1, L_path = 0), slant = h_GEO − h_LEO exact, relative kinematics LEO vs GEO, detection range on a vacuum path |

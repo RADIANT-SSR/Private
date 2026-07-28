@@ -23,3 +23,9 @@ Commit that produced this set: the commit introducing
 `scenarios/10_direction_general/10.3_ground_to_space_sst_visible/` on branch
 `gf5/ground-to-space`. Regenerating on a later RADIANT revision may move the
 numbers; the walkthrough tables record the values as of that commit.
+
+## Committed derived input (Rule 26)
+
+| Artifact | Generator | Input | Why committed |
+|---|---|---|---|
+| `inputs/object_signature_radiant_um.csv` | `scripts/run_ground_to_space_sst_visible.py::write_canonical_signature` (regenerated deterministically on every run and by `make_sensor()`) | `inputs/object_signature_ORB-4471.csv` (vendor nm / W·sr⁻¹·nm⁻¹ signature) | Referenced by the GUI baseline `inputs/10.3_ground_to_space_sst_visible.gui.yaml` (`source.target.user_intensity_path`, relative) — part of the baseline the verify gate asserts against; a temp-dir path was unportable (Phase-5 gate finding) |

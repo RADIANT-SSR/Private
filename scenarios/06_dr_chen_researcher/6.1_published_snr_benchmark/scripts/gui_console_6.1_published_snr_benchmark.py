@@ -8,7 +8,7 @@
 #   3. Paste this script and Run. The figure pops out into its own window;
 #      the parameter change marks the main view stale (click Refresh).
 #
-# NOTE: Fixed datasheet-benchmark configuration.
+# NOTE: Fixed datasheet-benchmark configuration. The 30 us integration is chosen to stay unsaturated on the intense LWIR flux (well ~61%); the GUI baseline adds a well-matched gain (640 e-/DN) so the 14-bit ADC spans the 1e7 e- well instead of clipping (CU-170).
 #
 # NB: the header is comments, not a docstring — the console is a REPL and would
 # echo a bare """string""" back into the transcript. Also runs standalone
@@ -22,7 +22,7 @@ except NameError:
 
     from radiant.api import Sensor
 
-    sensor = Sensor.from_yaml(
+    sensor = Sensor.load(
         _Path(__file__).resolve().parent.parent / "inputs" / "6.1_published_snr_benchmark.gui.yaml"
     )
 

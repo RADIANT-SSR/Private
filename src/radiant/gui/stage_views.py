@@ -394,12 +394,26 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
         atmosphere_inputs=True,
         outputs=True,
         plots=(
-            PlotSpec("τ_atm & L_path vs wavelength", "spectral_atmosphere"),
+            # Owner walkthrough item 8: the target and background arms travel
+            # different columns whenever the target is above the surface — the
+            # target through τ_up (target → sensor), a surface background through
+            # τ_full_up (ground → sensor, including the air *below* the target).
+            # They are drawn separately so that difference is visible, then the
+            # two at-aperture radiances share one axis, because their ratio there
+            # is what the contrast metrics actually see.
+            PlotSpec("Target path — τ_up & L_path_up", "spectral_atmosphere"),
+            PlotSpec(
+                "Background path — τ_full_up & L_path_full",
+                "spectral_atmosphere_background",
+            ),
             PlotSpec(
                 "Before atmosphere — target & background emission",
                 "spectral_source_emission",
             ),
-            PlotSpec("After atmosphere — radiance at aperture", "spectral_source"),
+            PlotSpec(
+                "At aperture — target & background together",
+                "spectral_at_aperture_arms",
+            ),
         ),
     ),
     # The Optics stage instrument (GUI plan Phase PS-2, arch doc §4.4.1 Optics rows): the

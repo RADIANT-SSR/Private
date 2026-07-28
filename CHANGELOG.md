@@ -63,6 +63,19 @@ retroactively reconstructed.
   (walkthrough item 17), so every term is visible without scrolling.
 
 ### Added
+- **The Atmosphere view separates the target and background columns (GUI
+  walkthrough item 8).** These are genuinely different paths whenever the target
+  sits above the surface: the target is seen through `τ_up` (target → sensor)
+  while a surface background is seen through `τ_full_up` (ground → sensor,
+  including the air *below* the target). On the shipped MWIR example with a
+  500 km sensor and a 10 km target the two transmittances are 0.87 and 0.50 —
+  the effect that sets contrast, previously invisible because only the target
+  arm was plotted. New `result.plot.spectral_atmosphere_background()` draws the
+  background column, and `result.plot.spectral_at_aperture_arms()` puts both
+  at-aperture radiances on one axis. `result.plot.spectral_atmosphere()` is
+  unchanged except for a title now naming it as the target arm. For a
+  surface-level target, or an up-looking scene, the two columns coincide by
+  construction and the figures agree.
 - **PSF convolution kernels are now visible, not just named (GUI walkthrough
   items 15 and 19).** `EffectivePSF` gained a `kernels` field holding the arrays
   convolved in, paired with the names `convolution_history` already recorded —

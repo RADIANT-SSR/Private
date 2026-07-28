@@ -203,6 +203,76 @@ class ResultPlotNamespace:
 
         return plot_psf(self._degraded_psf(), pixel_grid=True, **kwargs)
 
+    def spectral_atmosphere_background(self, **kwargs: Any) -> Any:
+        """Plot the **background** arm's transmittance and path radiance vs λ.
+
+        The sibling of :meth:`spectral_atmosphere`, which draws the *target*
+        arm. The two are genuinely different columns whenever the target sits
+        above the surface: the target arm carries ``τ_up`` / ``L_path_up``
+        (target → sensor), while a surface background is seen through
+        ``τ_full_up`` / ``L_path_full`` (ground → sensor), the full column
+        including the air *below* the target. On the shipped MWIR example with a
+        500 km sensor and a 10 km target the two transmittances are 0.87 and
+        0.50 — the background is nearly a factor of two dimmer through the
+        atmosphere, which is exactly the effect that sets contrast (owner
+        walkthrough item 8: "depending on geometry these could be different,
+        lets show both").
+
+        For a surface-level target the two are identical by construction, and
+        for an up-looking scene the topology sets the full column equal to the
+        observer leg, so the two figures coincide — correctly, not by accident.
+
+        Raises :class:`ApiValidationError` when the atmosphere stage did not run.
+        """
+        from radiant.api.plot import plot_atmosphere_spectral
+
+        quantities = self._result.stage_outputs.get("atmosphere", {}).get("atm_quantities")
+        if quantities is None:
+            raise ApiValidationError(
+                "No atmospheric quantities found in result "
+                "stage_outputs['atmosphere']['atm_quantities'] — the chain must "
+                "run AtmosphereStage."
+            )
+        return plot_atmosphere_spectral(
+            self._result.state.wavelength_um,
+            quantities.tau_full_up,
+            quantities.L_path_full,
+            title="Background path — τ_full_up & L_path_full (ground → sensor)",
+            **kwargs,
+        )
+
+    def spectral_at_aperture_arms(self, **kwargs: Any) -> Any:
+        """Plot the target and background radiance **at the aperture** together.
+
+        The end of the atmospheric story on one axis: what actually arrives after
+        each arm's own transmittance and path radiance have been applied (owner
+        walkthrough item 8's third plot). Their ratio here — not the ratio at the
+        source — is what the contrast metrics see.
+
+        The background curve appears only when a background is configured; a
+        target-only scene draws the target alone rather than failing.
+        """
+        from radiant.api.plot import plot_spectral_multi
+
+        frames = self._result.frames
+        target = frames.get("at_aperture_target") or frames.get("at_aperture")
+        if target is None or target.spectral_radiance is None:
+            raise ApiValidationError(
+                "No at-aperture frame found in result.frames "
+                "('at_aperture_target') — the chain must run AtmosphereStage."
+            )
+        series: dict[str, Any] = {"target": target.spectral_radiance}
+        background = frames.get("at_aperture_background")
+        if background is not None and background.spectral_radiance is not None:
+            series["background"] = background.spectral_radiance
+        return plot_spectral_multi(
+            self._result.state.wavelength_um,
+            series,
+            ylabel="Radiance at aperture (W/m²/sr/µm)",
+            title="At aperture — target vs background (after atmosphere)",
+            **kwargs,
+        )
+
     def psf_kernels(self, **kwargs: Any) -> Any:
         """Plot every convolution kernel that degraded the effective PSF.
 
@@ -489,6 +559,9 @@ class ResultPlotNamespace:
                 "stage_outputs['atmosphere'] ('tau_atm', 'L_path') — the chain "
                 "must run AtmosphereStage."
             )
+        # Named as the target arm so it reads as one of a pair with
+        # spectral_atmosphere_background rather than as "the" atmosphere.
+        kwargs.setdefault("title", "Target path — τ_up & L_path_up (target → sensor)")
         return plot_atmosphere_spectral(
             self._result.state.wavelength_um,
             tau_atm,

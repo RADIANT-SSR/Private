@@ -35,6 +35,7 @@ from radiant.core.parameters import ParameterSet
 from radiant.core.regime import RadiometricRegime
 from radiant.core.viewing_triangle import slant_range_from_theta_o_m
 from radiant.platform.jitter import jitter_kernel_2d, jitter_mtf_1d, jitter_sigma_focal_m
+from radiant.platform.kernel_size import odd_kernel_size
 from radiant.platform.smear import smear_kernel_1d, smear_mtf_1d, smear_width_m
 from radiant.platform.turbulence_kernel import kolmogorov_kernel_2d
 
@@ -112,14 +113,10 @@ class PlatformStage:
             # Kernel size: cover ±4σ, at the PSF sample spacing, capped to PSF grid.
             sample_spacing_m = epsf.sample_spacing_m
             max_sigma = max(sigma_x_m, sigma_y_m)
-            npix_needed = int(2 * (4.0 * max_sigma / sample_spacing_m) + 1)
-            # Ensure odd.
-            if npix_needed % 2 == 0:
-                npix_needed += 1
-            # Cap to PSF grid size.
-            npix_needed = min(npix_needed, epsf.data.shape[0])
-            # Ensure at least 3.
-            npix_needed = max(npix_needed, 3)
+            npix_needed = odd_kernel_size(
+                int(2 * (4.0 * max_sigma / sample_spacing_m) + 1),
+                epsf.data.shape[0],
+            )
 
             kernel = jitter_kernel_2d(npix_needed, sample_spacing_m, sigma_x_m, sigma_y_m)
             epsf = epsf.with_kernel("jitter", kernel)
@@ -146,20 +143,33 @@ class PlatformStage:
         if smear_w_m > 0.0:
             sample_spacing_m = epsf.sample_spacing_m
 
-            # Warn if smear is very large relative to PSF grid.
+            # Clamping the kernel to the grid is *clipping*, so it owes the caller
+            # a UserWarning, not just a log line (Rule 17) — and it must name the
+            # consequence, which is a Rule-4 divergence: the PSF path gets a
+            # truncated smear while the MTF product keeps the full analytic term,
+            # so EE/RER/FWHM understate the blur and the dual-path consistency
+            # check will report the disagreement (CU-235).
             psf_extent_m = epsf.data.shape[0] * sample_spacing_m
             if smear_w_m > 0.5 * psf_extent_m:
-                logger.warning(
-                    "Smear width (%.1f µm) exceeds half the PSF grid extent "
-                    "(%.1f µm). Kernel will be clamped to grid size.",
-                    smear_w_m * 1e6,
-                    psf_extent_m * 1e6,
+                warnings.warn(
+                    f"PlatformStage: smear width {smear_w_m * 1e6:.1f} µm exceeds "
+                    f"half the PSF grid extent ({psf_extent_m * 1e6:.1f} µm), so the "
+                    "smear kernel is TRUNCATED to the grid. The PSF path then "
+                    "carries less blur than the MTF product's analytic smear term: "
+                    "ensquared energy, RER and FWHM are optimistic, and the "
+                    "dual-path consistency check will flag the disagreement. "
+                    "Reduce spectral_integration.integration_time_s, reduce "
+                    "platform.ground_velocity_m_s, or increase the PSF grid "
+                    "sampling so the full smear fits.",
+                    UserWarning,
+                    stacklevel=2,
                 )
 
             # 1-D rect kernel along y (along-track).
-            npix_smear = int(math.ceil(2.0 * smear_w_m / sample_spacing_m)) | 1
-            npix_smear = min(npix_smear, epsf.data.shape[0])
-            npix_smear = max(npix_smear, 3)
+            npix_smear = odd_kernel_size(
+                int(math.ceil(2.0 * smear_w_m / sample_spacing_m)),
+                epsf.data.shape[0],
+            )
 
             kern_1d = smear_kernel_1d(npix_smear, sample_spacing_m, smear_w_m)
 
@@ -193,9 +203,10 @@ class PlatformStage:
             # Kernel size: estimate FWHM ≈ 0.98 λ/r0 on focal plane,
             # cover ±4 FWHM, ensure odd and capped to PSF grid.
             fwhm_turb_m = 0.98 * wavelength_m * focal_length_m / r0_m
-            npix_turb = int(math.ceil(8.0 * fwhm_turb_m / sample_spacing_m)) | 1
-            npix_turb = min(npix_turb, epsf.data.shape[0])
-            npix_turb = max(npix_turb, 3)
+            npix_turb = odd_kernel_size(
+                int(math.ceil(8.0 * fwhm_turb_m / sample_spacing_m)),
+                epsf.data.shape[0],
+            )
 
             k_turb = kolmogorov_kernel_2d(
                 npix_turb, sample_spacing_m, wavelength_m, r0_m, focal_length_m

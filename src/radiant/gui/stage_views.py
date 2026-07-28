@@ -498,7 +498,14 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
         title="Spectral Integration",
         spectral_inputs=True,
         outputs=True,
-        plots=(PlotSpec("In-band signal spectral radiance", "spectral_inband"),),
+        # Owner walkthrough item 16: the at-image spectral irradiance is what the
+        # detector actually sees, and it is the quantity this stage integrates
+        # into signal_e — so the spectrum-to-electrons step is traceable on one
+        # axis. The at-FPA radiance stays beneath it as the input to that step.
+        plots=(
+            PlotSpec("At-image spectral irradiance (per pixel)", "spectral_irradiance_at_image"),
+            PlotSpec("In-band signal spectral radiance", "spectral_inband"),
+        ),
         note=_SPECTRAL_NOTE,
     ),
     # The Detector stage instrument (GUI plan Phase PS-3, arch doc §4.4.1 Detector rows): a

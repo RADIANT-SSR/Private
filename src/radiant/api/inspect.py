@@ -273,6 +273,42 @@ class ResultPlotNamespace:
             **kwargs,
         )
 
+    def spectral_irradiance_at_image(self, **kwargs: Any) -> Any:
+        """Plot the at-image spectral irradiance E(λ) on one detector pixel.
+
+        What the detector actually sees: power per unit focal-plane area,
+        W/m²/µm (owner walkthrough item 16). This is the same ``photon_rate``
+        the stage integrates into ``signal_e``, expressed as an irradiance —
+
+            Φ(λ) = photon_rate(λ) · hc/λ      [W/µm on one pixel]
+            E(λ) = Φ(λ) / A_pixel             [W/m²/µm at the image]
+
+        — so it is **regime-correct by construction** (the rate already carries
+        Ω_pixel for an extended scene and Ω_target for a point source) and
+        integrates back to the published electron count exactly. Unlike
+        :meth:`spectral_inband`, which draws the at-FPA *radiance*, this is the
+        quantity the electron budget is built from, so the step from spectrum to
+        electrons is traceable on one axis.
+
+        Raises :class:`ApiValidationError` when the stage did not publish it —
+        which happens only when the detector pixel area is not yet resolvable.
+        """
+        from radiant.api.plot import plot_spectral
+
+        irradiance = self._result.stage_outputs.get("spectral_integration", {}).get(
+            "spectral_irradiance_at_image"
+        )
+        if irradiance is None:
+            raise ApiValidationError(
+                "No at-image spectral irradiance found in "
+                "stage_outputs['spectral_integration']"
+                "['spectral_irradiance_at_image'] — the chain must run "
+                "SpectralIntegrationStage with a resolvable detector pixel pitch."
+            )
+        kwargs.setdefault("ylabel", "Spectral irradiance at image (W/m²/µm)")
+        kwargs.setdefault("title", "At-image spectral irradiance on one pixel")
+        return plot_spectral(self._result.state.wavelength_um, irradiance, **kwargs)
+
     def psf_kernels(self, **kwargs: Any) -> Any:
         """Plot every convolution kernel that degraded the effective PSF.
 

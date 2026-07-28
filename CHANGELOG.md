@@ -20,6 +20,33 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **A smear wider than the PSF grid no longer crashes the evaluation (CU-235).**
+  `PlatformStage` forced each kernel size odd and *then* clamped it to the PSF
+  grid — which is 1024, even — so any degradation wide enough to reach the clamp
+  came back out even and the kernel builder raised, aborting the whole chain. The
+  guard that existed to make an over-wide smear survivable was the thing that
+  crashed it, and it was reachable from ordinary inputs (a 7000 m/s LEO
+  ground-track speed at the shipped 5 ms integration time). All three kernel
+  sites — smear, turbulence and jitter — had the same defect and now share
+  `radiant.platform.kernel_size.odd_kernel_size`, which clamps first and forces
+  odd downward. The over-wide notice is also now a `UserWarning` rather than a
+  log line (clamping is clipping, Rule 17) and states what the truncation costs:
+  the PSF path carries less blur than the MTF product's analytic smear term, so
+  EE/RER/FWHM are optimistic and the dual-path consistency check flags it.
+
+### Added
+- **At-image spectral irradiance (GUI walkthrough item 16).**
+  `SpectralIntegrationStage` publishes
+  `stage_outputs["spectral_integration"]["spectral_irradiance_at_image"]` —
+  E(λ) in W/m²/µm on one detector pixel — and `result.plot` gains the matching
+  `spectral_irradiance_at_image()` accessor, now the lead figure on the
+  Spectral Integration view. This is the stage's own `photon_rate` expressed as
+  power per unit focal-plane area, not a re-derivation, so it is regime-correct
+  by construction (the rate already carries Ω_pixel for an extended scene and
+  Ω_target for a point source) and integrates back to the published `signal_e`
+  exactly — pinned by a round-trip test.
+
 ### Changed
 - **Source "Target — point source" plots the source-side emission, not the
   at-aperture radiance (GUI walkthrough item 5).** The tab defines what the

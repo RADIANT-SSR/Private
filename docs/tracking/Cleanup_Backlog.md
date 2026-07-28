@@ -12,6 +12,159 @@
 
 ## Open
 
+### CU-253 — Simple-model Rayleigh: the dimensionless total vertical optical depth is used as a km⁻¹ extinction coefficient (~8× VIS inflation)
+
+**Discovered**: Scenario 10.3 published-extinction cross-check (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open — **results-affecting, stand-alone task** (the CU-236 pattern).
+**File**: `src/radiant/atmosphere/simple.py` (`RAYLEIGH_COEFF_KM = 0.0088`, `RAYLEIGH_EXPONENT = 4.09`).
+**Symptom**: `0.0088·λ_um^-4.09` is the published **total vertical Rayleigh optical depth** (dimensionless; Hansen & Travis 1974, Bucholtz 1995), but the code multiplies it by the path length in km as if it were a sea-level volume extinction (true value ≈ 0.0116 km⁻¹ at 550 nm). With the ~8 km molecular column this inflates VIS Rayleigh OD ~8×: measured zenith extinction 0.816 mag/airmass vs the published 0.12–0.20; dividing out the column depth gives 0.127 mag/airmass — inside the band.
+**Why it still matters**: every VIS/NIR simple-model scene (incl. flagship 9.1 Sentinel-2) carries a grossly wrong molecular term; MWIR/LWIR barely affected (λ^-4).
+**Suggested fix**: (b) stand-alone task — correct the coefficient/exponent to a real volume-extinction form (or integrate the published OD over the molecular scale height), refresh affected golden baselines under the `RADIANT_Testing_Validation.md` §5.3 protocol, **Results-affecting** CHANGELOG entry (VIS τ up strongly), Rule-20 doc update. Effort M; category C. Related: Gap 114, [[CU-267]].
+
+### CU-254 — Up-looking sky background depends on the target's altitude (segment composition is not additive)
+
+**Discovered**: Scenario 10.1 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/sky_radiance.py` + `segment_simple.py` (composition `L_bkg = L_up(sensor→target) + τ(sensor→target)·L_sky(target→top)`).
+**Symptom**: the simple model's single-effective-temperature graybody per segment is not additive, so a fixed pointing direction reports a target-altitude-dependent sky: 1.7528e5 e- (target 10 km) → 1.9415e5 (20 km) → 2.0130e5 (99 km — the whole column, the physically correct value for every row). The 10 km scene under-reports the sky by 12.9 %, always the same sign.
+**Why it still matters**: the background behind a target cannot depend on where the target sits along the ray; SCNR for low-altitude targets is systematically optimistic.
+**Suggested fix**: (b) stand-alone task — compose the sky from one whole-column evaluation of the pointing direction (or make the segment graybody additive by construction). Effort M; category C. Related: Gap 108, [[CU-260]].
+
+### CU-255 — `AtmosphericGeometry.slant_path_length_m` >80° spherical form uses the segment's full geometric Δh, making τ non-monotonic in zenith
+
+**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/protocol.py::AtmosphericGeometry.slant_path_length_m`.
+**Symptom**: the >80° spherical root form parameterises on x = Δh/R_E assuming Δh is the *atmospheric slab* thickness; for an up-looking observer segment Δh is site→target (e.g. 699 km, x = 0.110). Measured: τ(0.55 µm) at ζ_low = 79.9° is 0.01373 (OD 4.288) and at 80.1° is 0.09796 (OD 2.323) — optical depth **drops** as the path lengthens; transmittance is discontinuous and non-monotonic above 80°.
+**Why it still matters**: any up-looking scene past 80° zenith gets a physically impossible air mass.
+**Suggested fix**: (a) inline-fix-now — evaluate the spherical air-mass on the atmospheric thickness (min(Δh, column top − h_low)), continuity-tested across 80°. Effort S; category C.
+
+### CU-256 — T7 intensity door publishes sentinel extent values, bypassing the point-source angular-size guard
+
+**Discovered**: Scenario 10.2 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/source/_inferrer.py` (T7 branch: `projected_area_m2 = 1e-12`, `angular_extent_rad = 4e-11`) vs `src/radiant/optics/stage.py::_validate_psf_regime_consistency`.
+**Symptom**: the guard reads `stage_outputs["source"]["angular_extent_rad"]`; the T7 door publishes sentinels regardless of a user-set `geometry.target.projected_area_m2`, so a 500 m² target at 25 km (≈20 pixels wide) evaluates silently as a point source.
+**Why it still matters**: the matrix-section-7 validity guard is void on exactly the door IRST/SDA configurations use.
+**Suggested fix**: (a) inline-fix — when the target extent parameters are user-set alongside the T7 door, publish the real extent (guard then applies); document the truly-unknown-extent case. Effort S; category B. Related: [[CU-264]].
+
+### CU-257 — Point-source validity guard compares against the optics-only PSF FWHM, ignoring turbulence
+
+**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/optics/stage.py::_validate_psf_regime_consistency`.
+**Symptom**: turbulence enters at PlatformStage, after the guard; a seeing-limited ground telescope has an operative PSF 4–15× wider than the optics-only FWHM the guard uses, so a physically unresolved LEO object is rejected (1 m² at 739 km raises at 1.305× optics FWHM while the seeing disc leaves it unresolved by 2.4×).
+**Why it still matters**: blocks the shape/area door for exactly the seeing-limited SST scenes Gap 110's turbulence upgrade was built for.
+**Suggested fix**: (b) stand-alone — either move/duplicate the check after the platform kernels, or fold the r₀-derived FWHM into the bound when a turbulence profile is active. Effort M; category C. Related: Gap 110, [[CU-256]].
+
+### CU-258 — `_adjust_scene_los` strips solar geometry for the T7 intensity door, deleting the daytime sky from every intensity-door scene
+
+**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/source/_inferrer.py::_adjust_scene_los` (the CU-009 pure-thermal predicate keeps θ_s/Δφ only for T2Reflective/T3Mixed).
+**Symptom**: `T7IntensityAtSource` falls into the else-branch, so the atmosphere receives θ_s = None and builds a **purely thermal** sky/path radiance (~1e-18 W/m²/sr/µm in the VIS) even for a manifestly reflective object — the daytime sky pedestal, the dominant noise source of a visible measurement, is silently absent.
+**Why it still matters**: every intensity-door VIS/NIR scene reports noise without its dominant term.
+**Suggested fix**: (a) inline-fix — include T7 in the solar-keeping predicate (an intensity source says nothing about the *sky*). Effort S; category C. Related: Gap 114, [[CU-259]].
+
+### CU-259 — τ_sun / the GF-9 eclipse verdict never multiplies an intensity-door target: an eclipsed object reports full signal, silently
+
+**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: intensity-door signal path (`source` T7 → spectral integration); `atmosphere/solar_shadow.py` publishes the verdict.
+**Symptom**: the T7 door consumes I(λ) verbatim, so τ_sun — which carries the GF-9 shadow-height eclipse verdict — never scales the target term. Re-running scenario 10.3's nominal at 30° solar depression with the object fully eclipsed (τ_sun = 0) returns the **same** 34,961 e- signal with no warning.
+**Why it still matters**: an SST pass planner reading full SNR through an eclipse is the exact silent-wrong-answer class Rule 17 forbids.
+**Suggested fix**: (a) minimum — `UserWarning` when τ_sun = 0 under an intensity descriptor; (b) proper — an illumination-aware intensity door (with Gap 114). Effort S/M; category C. Related: Gap 114, [[CU-258]].
+
+### CU-260 — VIS/NIR provisional-sky warning is unreachable for the ground-to-space class, and the single-scatter species split underflows at the segment's arithmetic-mean altitude
+
+**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/uplooking_quantities.py::_sky_source_radiance` (early zero return for `h_tgt ≥ h_atm_top`) + `segment_simple.py::_single_scatter_terms` (species split at the segment's arithmetic mean altitude).
+**Symptom**: for a site→space-object segment the mean altitude is h_tgt/2 (350 km LEO, ~17,900 km GEO); every exp(−h/H) underflows, ω₀ = 0, the scattered term vanishes — and the early return means `sky_radiance_along_los` (where the ratified ADR-0011 decision-10 VIS/NIR `UserWarning` lives) is never called. Sky background and its shot noise are missing from every ground_to_space / air_to_space scene, with the ratified provisional warning structurally silent.
+**Why it still matters**: daytime/twilight SST SNR is computed against a black sky with no caveat — precisely what the band-gating decision existed to prevent.
+**Suggested fix**: (b) stand-alone — evaluate the observer-leg single-scatter on the *in-column* part of the segment (species split at the leg's in-column mean), and emit the provisional warning from the composition site. Effort M; category C. Related: Gap 108, [[CU-254]].
+
+### CU-261 — Wholly-vacuum up-looking path + SkyBackground termination raises instead of publishing the exact zero-radiance sky
+
+**Discovered**: Scenario 10.3 cross-check (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/topology.py::evaluate_path_topology` (returns `sky_source_radiance = None` when both endpoints ≥ `h_atm_top`) vs `source/_inferrer.py::_select_los_termination_background` + assembly.
+**Symptom**: the LOS-termination rule can still select `SkyBackground`, and assembly refuses to default it → `ParameterBoundsError` for an up-looking point_source/sub_pixel scene with both endpoints above the column — a configuration of the ADR-0011 LEO→GEO quick win (scenario 10.4's own path selects ColdSpaceBackground and runs; the raise is reachable via the sky-terminating selector).
+**Why it still matters**: the vacuum sky is exactly zero — a known value refused instead of published.
+**Suggested fix**: (a) inline-fix-now — publish the exact zero-radiance array in the vacuum branch. Effort S; category B.
+
+### CU-262 — HV-5/7 Cn² profile is evaluated against MSL altitude, so an elevated site loses its own boundary layer (~2× optimistic seeing)
+
+**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/cn2_hufnagel_valley.py` (+ `r0_path` integrating from `h_low = h_sensor` in MSL).
+**Symptom**: the HV ground term has a 100 m scale height; a site at 900 m MSL starts above its own boundary layer entirely. Chain r₀ = 14.5 cm at 0.5 µm (0.70″ seeing) where a real 0.9 km site runs 1.0–1.5″.
+**Why it still matters**: seeing-limited SST/astronomy predictions are ~2× optimistic for any non-sea-level sensor — the SST-critical case Gap 110 shipped for.
+**Suggested fix**: (a) inline-fix — evaluate the boundary-layer term on height above ground (h − h_site), keep the free-atmosphere terms on MSL, per the standard HV practice; anchor against the A&P values again. Effort S; category C. Related: Gap 110.
+
+### CU-263 — Detection-range solvers freeze total noise at the reference range, making the metric reference-range-dependent
+
+**Discovered**: Scenarios 10.2 and 10.4 independently (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/performance/detection_generic.py`, `detection_path_aware.py`, `detection_beer_lambert.py` (`noise_e` scalar).
+**Symptom**: solved SNR(R) = S(R)/σ_ref, but the target's own shot noise falls as it dims: σ²(R) = S(R) + N₀². Measured: one unchanged air-to-air config gives 123.4 km referenced at 25 km vs 182.5 km referenced at 100 km (1.48×); the vacuum LEO→GEO case (no atmospheric confound, signal shot = 51 % of noise power) reports 78,139 km vs the shot-noise-consistent 90,015 km (15.2 % conservative).
+**Why it still matters**: a headline metric that depends on where you evaluated it is not a metric; every point-source scenario is affected, down-looking included.
+**Suggested fix**: (b) stand-alone — solve SNR(R) = S(R)/√(S(R)+N₀²) with N₀ the target-free floor (closed form exists; both scenarios print it). **Results-affecting** for every point-source detection range (direction: up for bright-target references). Effort M; category C. Related: [[CU-236]], Gap 113.
+
+### CU-264 — Asymmetric policy for declared scene types at the point-source/sub-pixel boundary (raise vs silent promote)
+
+**Discovered**: Scenario 10.1 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/optics/stage.py::_validate_psf_regime_consistency`.
+**Symptom**: a declared `scene_type = 'point_source'` outside the validity band (√A_t/d > 0.1·PSF_FWHM) **raises** `ParameterBoundsError`, but a declared `'sub_pixel'` inside the point-source band is silently **promoted** to point_source with only a `UserWarning`. Same nozzle: raises at 1 km declared point_source, promoted at 2 km declared sub_pixel.
+**Why it still matters**: two declarations at the same boundary get opposite enforcement severity; the promote path changes the applied radiometry (EE_box handling) under a warning many runners suppress.
+**Suggested fix**: (b) stand-alone policy alignment (owner may have a preference: both warn, or both raise). Effort S; category B. Related: [[CU-256]], ADR-0008.
+
+### CU-265 — `optics.optics_temperature_K` is inert in scalar-transmission mode unless `optics.scalar_emissivity` is also set (silent no-op)
+
+**Discovered**: Scenario 10.1 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/optics/_schema.py:345` (`scalar_emissivity` default 0.0, the 'refractive lump' assumption).
+**Symptom**: an uncooled 293.15 K MWIR telescope evaluates bit-identically to an 80 K one (background_e = 1.753e5 e- at 293.15/200/80 K; nearfield_e = 0.0) — the temperature is accepted, bounds-validated, published, and consumed by nothing.
+**Why it still matters**: a silent-no-op trap for exactly the uncooled-MWIR sensor class the ground-to-air scenes introduce; the user believes warm-optics emission is modelled.
+**Suggested fix**: (a) inline-fix — `UserWarning` when `optics_temperature_K` is user-set while `scalar_emissivity` is 0 in scalar mode (mirror of CU-085's pattern), naming the two ways to make it live. Effort S; category B.
+
+### CU-266 — `TopologyProducts` drops the up-looking provenance notes, so `result.inspect()` cannot explain τ_sun / illumination
+
+**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/topology.py` (`TopologyProducts` has no provenance field; `uplooking_quantities.UplookingProducts.provenance` is discarded).
+**Symptom**: the GF-9 illumination note, observer-leg description and sky-continuation note survive only in an INFO log record; the published stage outputs carry none of it.
+**Why it still matters**: Rule-16 inspectability — the analyst cannot see why τ_sun took its value (sunlit vs shadowed) from the result object.
+**Suggested fix**: (a) inline-fix — carry the provenance dict through `TopologyProducts` and publish it under `stage_outputs["atmosphere"]`. Effort S; category A.
+
+### CU-267 — Simple-model gas-region table is piecewise-constant, so τ(λ) steps discontinuously at region edges
+
+**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/simple.py::_CALIBRATED_GAS_REGIONS` (step table; e.g. k_H2O 0.0025 → 0.1245 at the 0.70 µm edge).
+**Symptom**: τ(λ) steps 0.728 → 0.617 across one grid point at 0.70 µm (visible in scenario 10.3's committed transmittance figure); any band edge near a region boundary inherits the step.
+**Why it still matters**: narrow-band work near a region edge sees a discontinuous, grid-dependent transmittance.
+**Suggested fix**: (b) stand-alone — blend region coefficients across a small transition width (results-affecting at the ~1 % level near edges only). Effort S–M; category C. Related: CU-161, [[CU-253]].
+
+### CU-268 — `geometry.target_heading_rad` reference frame is azimuthally degenerate for a radial LOS (θ_o = 0 or π) — documentation only
+
+**Discovered**: Scenario 10.4 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/geometry/los_rate.py` (module doc) + `geometry/_schema.py` heading description.
+**Symptom**: heading is measured from the azimuth of the sensor's ground point, which does not exist when the ground range is 0 m (vertical LOS). Numerically harmless — ω = |v_rel × û|/R is rotation-invariant about the vertical there (verified against the K1 door to 0.0 %) — but no doc names the case.
+**Why it still matters**: a user configuring a co-rotating LEO/GEO pair has no guidance that any heading value is equivalent at θ_o = π.
+**Suggested fix**: (a) inline doc fix at next touch. Effort S; category A. Related: Gap 115.
+
+### CU-269 — Horizon-guard shoulder warning names the excluded refraction but does not size it
+
+**Discovered**: Scenario 10.2 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: Open.
+**File**: `src/radiant/core/viewing_triangle.py` (guard `UserWarning` construction).
+**Symptom**: 6 of 16 sweep points in scenario 10.2 land in the 100 m–2 km Δh shoulder and carry an unsized caveat; the structured context already carries `tangent_depression_m`, the slant range and the thresholds, so every consumer must derive the magnitude independently (10.2 does: k = 4/3 → Δh 195.9 → 146.9 m, mean sampling-altitude error 32.6 m, ≈0.91 % in band τ).
+**Why it still matters**: a quantified caveat was the ratified intent of the warn shoulder (plan §8.3 answer 1: "warning quantifies the refraction-excluded caveat").
+**Suggested fix**: (a) inline-fix — add the k = 4/3 order-of-magnitude estimate (Δh reduction + τ-impact scale) to the warning text/context. Effort S; category A. Related: ADR-0011 decision 6.
+
 ### CU-252 — 36 files fail `ruff format --check` — formatter drift the gate battery never sees
 
 **Discovered**: Geometry-Flexibility Phase 4 gate run (branch `gf/phase4-gui`), 2026-07-28.

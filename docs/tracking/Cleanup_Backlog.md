@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-241 — Pupil/PSF plot cards are unreadable: fixed-aspect figures in tall cards, overlapping titles/colorbars, clipped labels, index-space PSF axes
+
+**Discovered**: operator session (owner driving the GUI), 2026-07-27 — Optics pupil-amplitude / pupil-wavefront / PSF panels.
+**Status**: Open
+**File**: `src/radiant/gui/` figure-rendering path for the pupil/PSF cards (matplotlib canvases; likely shared card/figure scaffolding, so fix once at the scaffold).
+**Symptom**: four compounding layout defects, all visible in one screenshot: (1) the figure's aspect ignores the card's — square-ish figures in tall narrow cards render at ~20 % of the card area with dead space above/below; (2) no constrained layout — titles collide with colorbar labels ("Pupil wavefront error" overstrikes the colorbar text) and y-axis labels clip at the canvas edge; (3) colorbars take ~a third of each axes' width at these sizes; (4) the PSF panel plots in raw sample indices (500–550) over the full grid instead of a core crop in physical units, so the PSF is a dot in a field of nothing and the "18.0 µm pixel" title truncates.
+**Why it still matters**: these are the panels an optics engineer uses to sanity-check the pupil and PSF the whole spatial chain hangs on (Rule 4); in this state they cannot be read at all, let alone compared.
+**Suggested fix**: (a) inline-fix at the scaffold — `constrained_layout=True` (or explicit `tight_layout` on resize), figure size driven by the canvas geometry (respond to card resize, don't fix the aspect), `colorbar(fraction=0.046, pad=0.04)`-class sizing, PSF plotted on physical axes (µm on the focal plane or angular µrad) auto-cropped to N× the FWHM with the full-grid view an option, title lines shortened or wrapped. Effort S. Category D. Related: the walkthrough-cleanup series (batches 1–3); same rendering scaffold as the batch-2 MTF/PSF items.
+
 ### CU-239 — Interpolated-library selection is an operator trap: a magic axes string stands in for a family picker, and mismatches surface as an evaluate-time crash dialog
 
 **Discovered**: operator session (owner driving the GUI), 2026-07-27 — LEO nadir → 20 km sub-pixel target, the textbook interpolated-library scenario (deck G4's exact geometry), failed at evaluate with the "Unexpected Error" dialog because `atmosphere.interpolation_axes` still carried its `path_zenith_rad` default; the fix required knowing to type `sensor_altitude_m,target_altitude_m` into a free-text field.

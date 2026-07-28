@@ -71,7 +71,13 @@ class TestSpectralComposition:
         comp = STAGE_COMPOSITIONS["spectral_integration"]
         assert comp.spectral_inputs is True
         assert comp.outputs is True
-        assert [p.method for p in comp.plots] == ["spectral_inband"]
+        # Owner walkthrough item 16: the at-image irradiance leads (it is what the
+        # detector sees and what this stage integrates into signal_e); the at-FPA
+        # radiance stays below it as the input to that step.
+        assert [p.method for p in comp.plots] == [
+            "spectral_irradiance_at_image",
+            "spectral_inband",
+        ]
         # The note names the deferral so it reads as intentional, not missing.
         assert comp.note is not None and "Gap 92" in comp.note
 
@@ -91,7 +97,7 @@ class TestSpectralPane:
     def test_inband_spectrum_renders_from_the_accessor(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The primary plot draws ``result.plot.spectral_inband`` after evaluate."""
         pane = _spectral_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
-        assert len(pane.plot_canvases) == 1
+        assert len(pane.plot_canvases) == 2  # at-image irradiance + in-band radiance
         assert pane.plot_canvases[0].has_figure()
 
     def test_inputs_are_the_shared_field_row(self, qtbot) -> None:  # type: ignore[no-untyped-def]

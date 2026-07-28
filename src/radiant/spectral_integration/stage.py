@@ -134,6 +134,7 @@ OUTPUT_UNITS: dict[str, str] = {
     "ds_dt_e_per_K": "e-/K",
     "nearfield_e": "e-",
     "stray_e": "e-",
+    "spectral_irradiance_at_image": "W/m²/µm",
     "qe_scalar": "",
 }
 
@@ -338,6 +339,26 @@ class SpectralIntegrationStage:
         else:
             raise SpectralIntegrationValidationError(
                 f"SpectralIntegrationStage: unknown regime {regime!r}."
+            )
+
+        # At-image spectral irradiance — the same photon_rate the electron budget
+        # integrates, expressed as power per unit focal-plane area (owner
+        # walkthrough item 16). Published rather than re-derived in the view layer
+        # so it is regime-correct by construction: photon_rate above already
+        # carries Ω_pixel for an extended scene and Ω_target for a point source,
+        # so this tracks whichever equation the regime selected and stays
+        # traceable to signal_e.
+        #
+        #   photon_rate [photons/s/µm] × hc/λ [J/photon] = Φ [W/µm] on one pixel
+        #   Φ / A_pixel                                   = E [W/m²/µm] at the image
+        pitch_x_m: float = params.get("detector.pixel_pitch_x_um")
+        pitch_y_m: float = params.get("detector.pixel_pitch_y_um")
+        pixel_area_m2 = pitch_x_m * pitch_y_m  # canonical m already
+        if pixel_area_m2 > 0.0:
+            state = state.with_stage_output(
+                "spectral_integration",
+                "spectral_irradiance_at_image",
+                photon_rate * (hc / lam_m) / pixel_area_m2,
             )
 
         # electron rate: × effective collection efficiency (QE·FF)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -237,3 +238,112 @@ class TestSourceEmissionFrame:
             rtol=1e-9,
             atol=1e-12,
         )
+
+
+class TestReflectedSourceRadianceFrame:
+    """Owner walkthrough item 6 — the ρ-proportional half of the source emission.
+
+    The reflective view plots ρ(λ) beside the radiance it produces, so that
+    radiance must be published where it is assembled (Rule 6).  The invariant
+    that keeps the pair honest: ``at_source_target`` splits exactly into
+    self-emission plus this frame.
+    """
+
+    @pytest.fixture()
+    def wl(self) -> np.ndarray:
+        return np.linspace(3.5, 5.0, 100)
+
+    @pytest.mark.level1
+    def test_thermal_target_reflects_nothing(self, wl: np.ndarray) -> None:
+        """T1 is pure-thermal (ρ ≡ 0): the reflected frame is identically zero."""
+        state = _make_state_with_descriptors(wl)
+        out = AtmosphereStage().run(state, _make_params())
+        L_refl = out.frames["at_source_target_reflected"].spectral_radiance
+        assert L_refl is not None
+        np.testing.assert_array_equal(L_refl, np.zeros_like(wl))
+
+    @pytest.mark.level1
+    def test_pure_reflective_target_reflects_its_whole_emission(
+        self, wl: np.ndarray
+    ) -> None:
+        """T2 has ε ≡ 0, so the reflected frame IS the whole source emission."""
+        from radiant.core.descriptors import T2Reflective
+        from radiant.core.reflectance import ScalarLambertianReflectance
+
+        rho_sd = SpectralData(
+            name="target.rho",
+            wavelength_um=wl,
+            values=np.full_like(wl, 0.3),
+            unit="",
+            source="test",
+        )
+        target = T2Reflective(
+            rho=ScalarLambertianReflectance(reflectance=rho_sd),
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+        )
+        state = _make_state_with_descriptors(wl).with_stage_output("source", "target", target)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)  # MWIR non-mixed advisory
+            out = AtmosphereStage().run(state, _make_params())
+
+        L_refl = out.frames["at_source_target_reflected"].spectral_radiance
+        L_src = out.frames["at_source_target"].spectral_radiance
+        assert L_refl is not None and L_src is not None
+        np.testing.assert_allclose(L_refl, L_src, rtol=1e-12, atol=0.0)
+        assert np.any(L_refl > 0.0), "a lit reflective target must reflect something"
+
+    @pytest.mark.level1
+    def test_mixed_target_splits_into_self_emission_plus_reflected(
+        self, wl: np.ndarray
+    ) -> None:
+        """T3: source emission − reflected = ε·B(λ, T_t), the Kirchhoff self term.
+
+        Anchored against an independent Planck evaluation from the CODATA
+        constants, not the assembly's own helper.
+        """
+        from radiant.core.constants import c, h, k_B
+        from radiant.core.descriptors import T3Mixed
+
+        T_t, eps = 300.0, 0.7
+        epsilon = SpectralData(
+            name="target.epsilon",
+            wavelength_um=wl,
+            values=np.full_like(wl, eps),
+            unit="",
+            source="test",
+        )
+        target = T3Mixed(
+            epsilon=epsilon,
+            T_t=T_t,
+            scene_type="extended",
+            target_location="terrestrial",
+            h_tgt=0.0,
+        )
+        state = _make_state_with_descriptors(wl).with_stage_output("source", "target", target)
+        out = AtmosphereStage().run(state, _make_params())
+
+        L_refl = out.frames["at_source_target_reflected"].spectral_radiance
+        L_src = out.frames["at_source_target"].spectral_radiance
+        assert L_refl is not None and L_src is not None
+
+        lam_m = wl * 1e-6
+        planck_per_um = (2.0 * h * c**2 / lam_m**5) / (np.exp(h * c / (lam_m * k_B * T_t)) - 1.0)
+        planck_per_um *= 1e-6
+        np.testing.assert_allclose(L_src - L_refl, eps * planck_per_um, rtol=1e-9)
+        # ρ = 1 − ε = 0.3 > 0 with the sun at 30°, so the reflected half is real.
+        assert np.any(L_refl > 0.0)
+
+    @pytest.mark.level1
+    def test_reflected_frame_never_exceeds_the_source_emission(
+        self, wl: np.ndarray
+    ) -> None:
+        """Energy sanity: the reflected part is a non-negative share of the whole."""
+        state = _make_state_with_descriptors(wl)
+        out = AtmosphereStage().run(state, _make_params())
+        L_refl = out.frames["at_source_target_reflected"].spectral_radiance
+        L_src = out.frames["at_source_target"].spectral_radiance
+        assert L_refl is not None and L_src is not None
+        assert np.all(L_refl >= 0.0)
+        assert np.all(L_refl <= L_src + 1e-12)

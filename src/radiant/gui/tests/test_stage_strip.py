@@ -125,9 +125,15 @@ class TestStageCompositionMapping:
         assert comp.plots == ()
 
     def test_spectral_domain_stages_carry_spectral_accessors(self) -> None:
-        """Source/Atmosphere/Spectral-Integration plot their spectral figures (Gap 86)."""
+        """Source/Atmosphere/Spectral-Integration plot their spectral figures (Gap 86).
+
+        Source's spectral figure is the **source-side** emission, not an at-aperture
+        radiance: owner walkthrough items 5 and 6 moved that post-atmosphere view to
+        the Atmosphere stage, which owns the step and draws it per arm through
+        ``spectral_at_aperture_arms`` (asserted in ``test_atmosphere_instrument.py``).
+        """
         expected = {
-            "source": "spectral_source",
+            "source": "spectral_source_emission",
             "atmosphere": "spectral_atmosphere",
             "spectral_integration": "spectral_inband",
         }

@@ -53,8 +53,13 @@ if TYPE_CHECKING:
 # live schema (never transcribed) — only the labels + grouping are literals here (CU-120).
 #
 # Reflective note: `source.target.albedo`/`albedo_path` are user-facing *aliases* of
-# reflectance (mutually exclusive) — the form exposes only `reflectance` so the GUI never
-# invites an over-specified pair; the aliases stay reachable in the All-Parameters tree.
+# reflectance (mutually exclusive) — the form exposes only the `reflectance` surfaces so
+# the GUI never invites an over-specified pair; the aliases stay reachable in the
+# All-Parameters tree. Both reflectance surfaces are mounted (owner walkthrough item 6:
+# "should be able to input R(lambda) as well"): the scalar ρ and the ρ(λ) CSV. They are
+# themselves mutually exclusive, and the engine says so — setting the second opens the
+# shared editor's reject path with the actionable what/why/action, exactly as any other
+# over-specified pair does.
 _THERMAL_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Target temperature", "source.target.temperature"),
     ("Target emissivity", "source.target.emissivity"),
@@ -63,9 +68,32 @@ _THERMAL_FIELDS: Final[tuple[tuple[str, str], ...]] = (
 
 _REFLECTIVE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Target reflectance ρ (VIS/solar)", "source.target.reflectance"),
-    ("Solar illumination", "geometry.solar_illumination"),
-    ("Solar zenith angle", "geometry.solar_zenith_rad"),
-    ("Solar azimuth angle", "geometry.solar_azimuth_rad"),
+    ("Target ρ(λ) file (spectral)", "source.target.reflectance_path"),
+    ("Solar illumination (Geometry)", "geometry.solar_illumination"),
+    ("Solar zenith angle (Geometry)", "geometry.solar_zenith_rad"),
+    ("Solar azimuth angle (Geometry)", "geometry.solar_azimuth_rad"),
+)
+
+# Sun geometry has exactly one owner — the Geometry stage — but the reflective
+# pathway is where its consequence is visible, so the rows show here read-only
+# (owner walkthrough item 6: keep them, they answer "why is my reflected term
+# dark?", but do not offer a second editor for a Geometry-owned parameter).
+_GEOMETRY_OWNED: Final[frozenset[str]] = frozenset(
+    {
+        "geometry.solar_illumination",
+        "geometry.solar_zenith_rad",
+        "geometry.solar_azimuth_rad",
+    }
+)
+_GEOMETRY_OWNED_REASON: Final[str] = (
+    "Owned by the Geometry stage — read-only here. Edit it on Geometry → Inputs "
+    "(solar illumination / zenith / azimuth). It is shown on this tab because it "
+    "drives the reflected-solar term: no sun, no reflected radiance."
+)
+_SOLAR_NOTE_TEXT: Final[str] = (
+    "Sun geometry is defined on the Geometry stage; the three rows above are "
+    "read-only mirrors. ρ is the surface property — the plots pair it with the "
+    "reflected radiance it produces under this scene's illumination."
 )
 
 _BACKGROUND_FIELDS: Final[tuple[tuple[str, str], ...]] = (
@@ -185,8 +213,17 @@ class SourceInputsForm(QWidget):
             box.addWidget(group_label)
             for label, dotpath in fields:
                 row = FieldRow(dotpath, label, self._open_editor)
+                if dotpath in _GEOMETRY_OWNED:
+                    row.set_read_only(_GEOMETRY_OWNED_REASON)
                 box.addWidget(row)
                 self._rows[dotpath] = row
+            if key == "reflective":
+                # Name the owner in the pane itself, not only in a tooltip: the
+                # operator must know where to go to change the sun.
+                solar_note = QLabel(_SOLAR_NOTE_TEXT, card)
+                solar_note.setObjectName("stageCenterNote")
+                solar_note.setWordWrap(True)
+                box.addWidget(solar_note)
             if key == "background":
                 # GT-0 derived-albedo readout (owner, 2026-07-16): the assembly's
                 # daytime reflected-ground term uses exactly ρ_g = 1 − ε_g
@@ -226,6 +263,10 @@ class SourceInputsForm(QWidget):
         self._refresh_albedo_note()
         for dotpath, row in self._rows.items():
             row.set_value_text(self._value_text(dotpath))
+            if row.is_read_only:
+                # A Geometry-owned mirror: its value refreshes, but neither the
+                # relevance gating nor its tooltip is this form's to rewrite.
+                continue
             regimes = self._regime_tags(dotpath)
             relevant = (
                 declared in (None, "auto")

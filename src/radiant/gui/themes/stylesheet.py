@@ -471,6 +471,17 @@ QPushButton#geoModeFieldValue:disabled {{
     background-color: {t.panel_2};
     border: {tokens.BORDER_WIDTH} solid {t.line};
 }}
+/* A parameter another stage owns: shown at full legibility (it explains the
+ * physics on this screen) but with no edit affordance — flat, no hover accent.
+ * Not `:disabled`, which greys the value into "not applicable". */
+QPushButton#geoModeFieldValue[state="readonly"] {{
+    color: {t.ink};
+    background-color: transparent;
+    border: {tokens.BORDER_WIDTH} dashed {t.line};
+}}
+QPushButton#geoModeFieldValue[state="readonly"]:hover {{
+    border: {tokens.BORDER_WIDTH} dashed {t.line};
+}}
 
 /* -- Configured-parameter marker (ADR-0010 D-2, multi-configuration 4b) - *
  * The small red "C" on any parameter that carries one value per configuration.

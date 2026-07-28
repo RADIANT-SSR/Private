@@ -459,7 +459,7 @@ result.metrics["gsd_geometric_mean_m"]   # 0.12 m
 
 ### 3.5 Radiometric Frames (`result.frames`)
 
-Frames registered in a standard run: `at_source_target`, `at_aperture`, `at_aperture_target`, `post_optics`, `photoelectrons` (plus `at_source_background` / `at_aperture_background` when a background descriptor is present). `at_source_target` / `at_source_background` are the **pre-atmosphere** source emission (`L_source`); `at_aperture*` are the **post-atmosphere** at-aperture radiances (Gap 91). Each `RadiometricFrame` has:
+Frames registered in a standard run: `at_source_target`, `at_source_target_reflected`, `at_aperture`, `at_aperture_target`, `post_optics`, `photoelectrons` (plus `at_source_background` / `at_aperture_background` when a background descriptor is present). `at_source_target` / `at_source_background` are the **pre-atmosphere** source emission (`L_source`); `at_source_target_reflected` is the ρ-proportional (reflected) part of `at_source_target` — direct solar plus diffuse sky, without the ε·B(T_t) self-emission, and identically zero for a target with no reflective physics; `at_aperture*` are the **post-atmosphere** at-aperture radiances (Gap 91). Each `RadiometricFrame` has:
 
 - `.name` — frame name
 - `.wavelength_um` — spectral grid [µm]
@@ -481,7 +481,7 @@ Every stage publishes named intermediate values. Keys observed in a standard run
 
 | Stage | Selected keys |
 |-------|---------------|
-| `source` | `regime_tentative`, `fill_fraction`, `projected_area_m2`, `range_m`, `angular_extent_rad`, `target`, `background` |
+| `source` | `regime_tentative`, `fill_fraction`, `projected_area_m2`, `range_m`, `angular_extent_rad`, `target`, `background`, `reflectance` (ρ(λ) `SpectralData`, dimensionless — present only for the two reflective pathways: a user-supplied ρ / ρ(λ), and the Kirchhoff ρ = 1 − ε of a mixed target) |
 | `atmosphere` | `tau_atm`, `L_path`, `E_sky_thermal`, `E_sky_scattered` |
 | `optics` | `regime` (final — Rule 10), `A_collect` [m²], `Omega_pixel` [sr], `tau_opt`, `effective_psf`, `reference_psf`, `wavefront_error`, `stray_light_irradiance_at_fpa`, `pupil_amplitude` [transmission], `pupil_phase_waves` [waves], `pupil_wavelength_um` [µm], `pupil_plane_extent_m` [m] (Gap 89) |
 | `platform` | `EE_box`, `effective_psf` (fully degraded), `jitter_sigma_x_m`, `jitter_sigma_y_m`, `smear_width_m` |
@@ -674,6 +674,8 @@ recomputation:
 |----------|--------|-------|
 | `spectral_source()` | `frames["at_aperture_target"]` (falls back to `at_aperture`) + optional `frames["at_aperture_background"]` | The **at-aperture** (post-atmosphere) radiance — earliest stored radiance conflating source + atmosphere. |
 | `spectral_source_emission()` | `frames["at_source_target"]` + optional `frames["at_source_background"]` | Gap 91 — the **pre-atmosphere** emitted+reflected radiance *leaving the source* (`L_source`), before the up-leg τ/L_path. AtmosphereStage persists it; `at_aperture_target ≈ τ_up · at_source_target + L_path_up`. Isolates what the target emits from what reaches the aperture. |
+| `target_reflectance()` | `stage_outputs["source"]["reflectance"]` | The target's resolved ρ(λ) [dimensionless] — the **surface property**, published by SourceStage for both reflective pathways (a user-supplied ρ or ρ(λ) CSV, and the Kirchhoff ρ = 1 − ε of a mixed target). Raises `ApiValidationError` for a target that carries no reflectance (pure-thermal, or a user-supplied radiance/intensity) rather than drawing a zero curve. |
+| `spectral_reflected_radiance()` | `frames["at_source_target_reflected"]` | The radiance that ρ(λ) *produces* under the scene illumination — direct solar + diffuse sky, no self-emission. Pairs with `target_reflectance()` as cause and effect on the GUI's reflective view. |
 | `spectral_atmosphere()` | `stage_outputs["atmosphere"]["tau_atm"]` + `["L_path"]` | Twin, unit-labelled y-axes (τ is dimensionless; L_path is W/m²/sr/µm). |
 | `spectral_inband()` | `frames["post_optics"]` | The band-filtered at-FPA radiance SpectralIntegrationStage integrates; the collapsed in-band scalar is a single value, not a spectrum. |
 

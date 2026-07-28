@@ -47,7 +47,10 @@
 **Why it still matters**: these are the panels an optics engineer uses to sanity-check the pupil and PSF the whole spatial chain hangs on (Rule 4); in this state they cannot be read at all, let alone compared.
 **Second instance (2026-07-27, same operator session)**: Detector → Noise tab, share-of-variance pie. The batch-1 item-18 content fix holds (sub-3 % wedges correctly delegated to the legend), but the scaffold clips everything around it: title truncated mid-parenthesis, on-wedge labels cut at both card edges ("…gnal_shot / S (62.0%)"), legend entries truncated after ~15 characters ("signal_shot — 1"), pie occupying a fraction of a mostly-white card. Sibling nit on the same tab: the σ table's value column truncates at "0.7071 e- …" — needs either column auto-width or right-alignment with the unit outside the cell.
 
-**Suggested fix**: (a) inline-fix at the scaffold — `constrained_layout=True` (or explicit `tight_layout` on resize), figure size driven by the canvas geometry (respond to card resize, don't fix the aspect), `colorbar(fraction=0.046, pad=0.04)`-class sizing, PSF plotted on physical axes (µm on the focal plane or angular µrad) auto-cropped to N× the FWHM with the full-grid view an option, title lines shortened or wrapped. Effort S. Category D. Related: the walkthrough-cleanup series (batches 1–3); same rendering scaffold as the batch-2 MTF/PSF items.
+**Third instance (2026-07-27, owner screenshot)**: Detector → *Detector + PSF* tab. Same scaffold, one added cause: `panel_placement=beside` gives the pixel illustration ~half the pane, so **both** figures are squeezed into a ~250 px left column and stack vertically. Visible in the shot: the `psf_pixel_grid` title clipped at both ends ("SF · detector pixel grid (18.0 µ"), the colorbar and its tick labels overstriking that title, the y-axis label cut at the canvas edge, and the PSF still drawn in raw sample indices (~500–560) rather than physical units. The `pixel_aperture` kernel card above it fares better only because it has no colorbar.
+**Why the third instance matters**: three tabs across two stages now show it, so this is the shared scaffold (and the `beside` column-width policy), not a per-figure defect. Fixing one card at a time will keep re-surfacing it.
+
+**Suggested fix**: (a) inline-fix at the scaffold — `constrained_layout=True` (or explicit `tight_layout` on resize), figure size driven by the canvas geometry (respond to card resize, don't fix the aspect), `colorbar(fraction=0.046, pad=0.04)`-class sizing, PSF plotted on physical axes (µm on the focal plane or angular µrad) auto-cropped to N× the FWHM with the full-grid view an option, title lines shortened or wrapped. Plus a minimum readable width for a plot column under `PANEL_BESIDE`, so an embedded panel cannot starve the figures beside it. Effort S. Category D. Related: the walkthrough-cleanup series (batches 1–3); same rendering scaffold as the batch-2 MTF/PSF items.
 
 ### CU-239 — Interpolated-library selection is an operator trap: a magic axes string stands in for a family picker, and mismatches surface as an evaluate-time crash dialog
 
@@ -67,7 +70,23 @@
 **Why it still matters**: Rule 15 violation on the exact surface operators hit first (see CU-239); the crash framing erodes trust in a refusal that is actually the system protecting the radiometry.
 **Suggested fix**: (a) inline-fix — introduce/reuse an `AtmosphereCapabilityError(RadiantError)` (the Phase-2 capability-refusal pattern), swap the raises, add one test asserting the class reaches the GUI's rejection path. Effort XS; category A. Related: CU-239.
 
+### CU-244 — Target-spec over-specification is unreachable by the parameter editor's clone-validate, so the GUI accepts a conflicting pair until Evaluate
 
+**Discovered**: GUI walkthrough item 6 (branch `gui/reflective-tab`), 2026-07-27 — while mounting `source.target.reflectance_path` beside the scalar ρ.
+**Status**: Open.
+**File**: `src/radiant/source/_schema.py::validate_reflectance_albedo_exclusive` (called from `source/_inferrer.py:1169`) vs `src/radiant/gui/widgets/parameter_editor_dialog.py::_try_resolve`.
+**Symptom**: set `source.target.reflectance = 0.3`, then `source.target.reflectance_path = <csv>`. Both `Sensor.set` and `Sensor.get` accept the pair; the rejection fires only inside `infer_descriptors`, i.e. at `evaluate()`. The editor validates a candidate on a throwaway clone with `set` + `get`, so it cannot see this class of conflict and commits the second surface happily. The same is true of every other target-spec exclusivity (ρ + (ε, T), ρ + S11/S12, the `albedo` aliases).
+**Why it still matters**: `RADIANT_GUI_Architecture.md` claimed the reflective inputs were guarded by "the editor reject discipline" — they are not; that row was corrected in this PR to describe the evaluate-time path instead. The operator still learns of the conflict, actionably (dialog + Messages), but only after a full chain attempt, and the editor's committed value stays in the config. The gap is that a whole family of *cross-parameter* validators lives behind the inferrer while the editor can only run *per-parameter* ones.
+**Suggested fix**: (b) stand-alone task — expose the target-spec exclusivity validators as a resolve-time consistency check (a `ConsistencyGroup`-shaped seam or an explicit `Sensor.validate_target_spec()` the dialog calls after the clone `get`), so an over-specified pair is rejected at the door with the same what/why/action it produces today. Effort M; category B. Related: [[CU-245]].
+
+### CU-245 — `test_inferrer_reflective.py` documents the S5 ρ(λ) CSV path as deferred; it has been implemented for some time
+
+**Discovered**: GUI walkthrough item 6 (branch `gui/reflective-tab`), 2026-07-27.
+**Status**: Open.
+**File**: `src/radiant/source/tests/test_inferrer_reflective.py` — module docstring, and the `TestTruthAnchorHeavisideSpectrum` class docstring ("The inferrer only scalar-lifts today (S5 CSV loader lands with the S11 T_B path)").
+**Symptom**: both docstrings state that `source.target.reflectance_path` is "recognised but deferred" and that the spectral path is therefore exercised only through the boundary converter. `source/_inferrer.py:1284` routes the CSV to a `T2Reflective` today, and this PR's `test_reflectance_published.py::test_spectral_rho_csv_lands_on_the_chain_grid` runs it end-to-end through `SourceStage`.
+**Why it still matters**: the stale claim is why the ρ(λ) input surface stayed unmounted in the GUI until item 6 — a reader auditing the reflective pathway is told a shipped capability does not exist yet, and the Heaviside anchor's stated rationale (test the converter *because* the inferrer cannot) no longer holds.
+**Suggested fix**: (a) inline-fix at next touch — rewrite the two docstrings to describe the shipped S5/S6 routing and re-anchor the Heaviside test on the inferrer path it now has. Effort S; category A. Related: [[CU-244]].
 
 ### CU-236 — Down-looking detection range still uses one constant extinction coefficient (owner-decision gated)
 

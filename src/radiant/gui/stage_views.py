@@ -259,8 +259,10 @@ class StageComposition:
 
 # Deferred/minimal notes kept as named constants so they read once and stay honest.
 _SOURCE_NOTE: Final[str] = (
-    "Shown: pre-atmosphere target/background emission (primary) + at-aperture radiance "
-    "(post-atmosphere). Pathways (mutually exclusive by engine design): thermal ε+T "
+    "Shown: source-side quantities only — pre-atmosphere target/background emission, and "
+    "the reflectance ρ(λ) with the reflected radiance it produces. The at-aperture "
+    "(post-atmosphere) radiance lives on Atmosphere, the stage that owns that step. "
+    "Pathways (mutually exclusive by engine design): thermal ε+T "
     "(Kirchhoff ρ=1−ε adds a daytime reflected-solar term — mixed emit+reflect); pure "
     "reflectance ρ alone (VIS/solar); declared scene type cross-checks the derived regime "
     "(warning on mismatch). All inputs shown ungated; per-scenario-type relevance is the "
@@ -352,20 +354,35 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
                     ),
                 ),
             ),
+            # Owner walkthrough item 6: this tab's inputs define a *surface
+            # property*, so it leads with that property — ρ(λ) — and pairs it
+            # with the radiance that property produces under the scene's
+            # illumination. The at-aperture radiance (spectral_source) moved
+            # off this tab to Atmosphere, which owns that step: same move
+            # item 5 made for the point-source tab.
             StageSubView(
                 title="Target — reflective",
                 source_inputs=True,
                 source_groups=("reflective",),
                 plots=(
                     PlotSpec(
-                        "Radiance at aperture (day/night moves the reflected term)",
-                        "spectral_source",
+                        "Target reflectance ρ(λ) — the surface property you set",
+                        "target_reflectance",
+                    ),
+                    PlotSpec(
+                        "Reflected radiance it produces (before atmosphere)",
+                        "spectral_reflected_radiance",
                     ),
                 ),
+                plot_columns=2,
                 note=(
-                    "Pure-reflective targets: set reflectance ρ alone (T2). Mixed "
-                    "emit+reflect: set ε+T and Kirchhoff supplies ρ = 1−ε (T3) — the "
-                    "engine rejects setting both ρ and ε/T for the same target."
+                    "Pure-reflective targets: set reflectance ρ alone — either the "
+                    "scalar or a ρ(λ) CSV (T2). Mixed emit+reflect: set ε+T and "
+                    "Kirchhoff supplies ρ = 1−ε (T3) — the engine rejects setting both "
+                    "ρ and ε/T for the same target, and rejects a scalar ρ paired with "
+                    "a ρ(λ) file. Sun geometry belongs to the Geometry stage and is "
+                    "mirrored here read-only; the at-aperture radiance is on Atmosphere, "
+                    "which owns that step."
                 ),
             ),
             StageSubView(

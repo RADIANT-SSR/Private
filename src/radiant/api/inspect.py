@@ -508,6 +508,77 @@ class ResultPlotNamespace:
             **kwargs,
         )
 
+    def target_reflectance(self, **kwargs: Any) -> Any:
+        """Plot the target's resolved reflectance ρ(λ) vs λ (dimensionless).
+
+        Draws ``stage_outputs['source']['reflectance']`` — the surface
+        property the analyst specified, resolved onto the chain wavelength
+        grid by :mod:`radiant.core.target_reflectance`.  Two pathways
+        publish it: a pure-reflective target (scalar ``source.target
+        .reflectance`` or a λ-dependent ``reflectance_path`` CSV) and the
+        mixed emit+reflect target, whose ρ = 1 − ε is Kirchhoff-derived
+        (Rule 5).  This is the *input* view — the radiance ρ produces under
+        the scene illumination is :meth:`spectral_reflected_radiance`.
+
+        Raises :class:`ApiValidationError` when the scene's target carries
+        no reflectance at all (a pure-thermal target, or a user-supplied
+        at-aperture / at-source radiance or point intensity).
+        """
+        from radiant.api.plot import plot_spectral_multi
+
+        reflectance = self._result.stage_outputs.get("source", {}).get("reflectance")
+        if reflectance is None:
+            raise ApiValidationError(
+                "No target reflectance found in stage_outputs['source']"
+                "['reflectance'] — this scene's target carries none. Set "
+                "source.target.reflectance (or source.target.reflectance_path "
+                "for a spectral ρ(λ)) for a pure-reflective target, or "
+                "source.target.emissivity + temperature for the mixed "
+                "emit+reflect target whose ρ = 1 − ε is Kirchhoff-derived."
+            )
+        return plot_spectral_multi(
+            reflectance.wavelength_um,
+            {"target": reflectance.values},
+            title="Target reflectance ρ(λ)",
+            ylabel="Reflectance ρ (dimensionless)",
+            **kwargs,
+        )
+
+    def spectral_reflected_radiance(self, **kwargs: Any) -> Any:
+        """Plot the reflected radiance leaving the target vs λ.
+
+        Draws the ``at_source_target_reflected`` frame — the ρ-proportional
+        part of the pre-atmosphere source emission (direct solar + diffuse
+        sky, with the ε·B(T_t) self-emission dropped), in W/m²/sr/µm.  It is
+        the radiance the reflectance plotted by :meth:`target_reflectance`
+        actually produces under this scene's illumination, so the pair reads
+        as cause and effect: change ρ, or move the sun on the Geometry stage,
+        and this curve moves with it.
+
+        For a pure-reflective target this is the whole source emission
+        (:meth:`spectral_source_emission`); for a mixed emit+reflect target
+        it isolates the reflected fraction.  It is identically zero for a
+        scene with no reflective physics (pure-thermal target, or the sun
+        below the horizon).  Raises :class:`ApiValidationError` when the
+        frame is absent (the chain did not run AtmosphereStage).
+        """
+        from radiant.api.plot import plot_spectral_multi
+
+        frame = self._result.frames.get("at_source_target_reflected")
+        if frame is None or frame.spectral_radiance is None:
+            raise ApiValidationError(
+                "No reflected-radiance frame found in result.frames "
+                "('at_source_target_reflected') — the chain must run "
+                "AtmosphereStage to assemble the reflected source radiance."
+            )
+        return plot_spectral_multi(
+            frame.wavelength_um,
+            {"target (reflected)": frame.spectral_radiance},
+            title="Reflected radiance leaving the target (before atmosphere)",
+            ylabel="Radiance (W/m²/sr/µm)",
+            **kwargs,
+        )
+
     def optical_throughput(self, **kwargs: Any) -> Any:
         """Plot the assembled system optical throughput τ_opt(λ) (Gap 90).
 

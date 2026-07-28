@@ -74,6 +74,7 @@ from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError
 from radiant.core.reflectance import ReflectanceDescriptor
 from radiant.core.spectral import SpectralData
+from radiant.core.target_reflectance import resolve_reflectance_on_grid
 
 # Gap H: assembly consumes T2Reflective.rho via the ReflectanceDescriptor
 # protocol.  H.2 closes the Phase 6 framing by passing the view /
@@ -81,14 +82,9 @@ from radiant.core.spectral import SpectralData
 # protocol call.  The Lambertian adapter ignores these directions (so
 # the numerical output is bit-identical to the pre-Gap-H path), but
 # anisotropic BRDFs that land on the protocol in the future will
-# consume them.  See ``_view_illum_from_los`` for the frame convention.
-_ZERO_VEC3: np.ndarray = np.zeros(3, dtype=np.float64)
-# Illumination fallback when the scenario has no solar geometry
-# (``theta_s is None``): ρ is never multiplied against a solar term in
-# that regime, so the descriptor call is formal.  The zero vector
-# flags "no illumination" to anisotropic BRDFs without forcing them to
-# branch on a sentinel — they can check ``np.any(illum_dir)``.
-_NO_ILLUMINATION: np.ndarray = _ZERO_VEC3
+# consume them.  Both the vectors and the protocol call live in
+# ``radiant.core.target_reflectance`` — the ONE resolver (Rule 19), shared
+# with SourceStage, which publishes the same ρ(λ) for the GUI.
 
 # Floor for "non-trivial atmosphere" detection in the T5 warn-if-atm arm.
 # τ ≥ 1 − _T5_TAU_TRIVIAL_TOL everywhere → trivial; otherwise warn.
@@ -367,101 +363,20 @@ def _extract_sd_values(sd: SpectralData, atm: AtmosphericQuantities) -> np.ndarr
     return np.asarray(sd.values, dtype=np.float64)
 
 
-def _view_illum_from_los(
-    los: LineOfSightGeometry,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Unit vectors (view_dir, illum_dir) at the target surface from LOS.
-
-    Frame convention — local surface tangent plane at the target:
-      * +Z = outward surface normal (local vertical)
-      * +X = azimuth reference (``φ = 0``); observer azimuth is aligned
-        with it so ``phi_o ≡ 0``
-      * +Y = right-hand complement (``+Z × +X``)
-
-    With ``phi_o ≡ 0`` and ``phi_s = delta_phi`` (``delta_phi`` is
-    ``φ_s − φ_o`` per :class:`LineOfSightGeometry`), the direction from
-    the target toward the sensor is::
-
-        view_dir = (sin θ_o, 0, cos θ_o)
-
-    and the direction from the target toward the sun is::
-
-        illum_dir = (sin θ_s cos δφ, sin θ_s sin δφ, cos θ_s)
-
-    Both are unit vectors by construction (``sin²+cos² = 1``).
-
-    When ``theta_s`` is None the scenario has no solar term (pure-thermal
-    or dark-cal lab_test); assembly already skips the direct-solar
-    branch, so the descriptor receives ``_NO_ILLUMINATION`` (the zero
-    vector) as a formal placeholder.
-    """
-    view_dir = np.asarray(
-        [
-            np.sin(los.theta_o),
-            0.0,
-            np.cos(los.theta_o),
-        ],
-        dtype=np.float64,
-    )
-
-    if los.theta_s is None:
-        return view_dir, _NO_ILLUMINATION
-
-    delta_phi = 0.0 if los.delta_phi is None else float(los.delta_phi)
-    sin_ts = np.sin(los.theta_s)
-    illum_dir = np.asarray(
-        [
-            sin_ts * np.cos(delta_phi),
-            sin_ts * np.sin(delta_phi),
-            np.cos(los.theta_s),
-        ],
-        dtype=np.float64,
-    )
-    return view_dir, illum_dir
-
-
 def _extract_reflectance_on_grid(
     rho: ReflectanceDescriptor,
     atm: AtmosphericQuantities,
     los: LineOfSightGeometry | None,
 ) -> np.ndarray:
-    """Resolve ρ(λ) on the chain grid via the ReflectanceDescriptor protocol.
+    """Resolve ρ(λ) on the chain grid — the shared core resolver, bound to *atm*.
 
-    Gap H closes the Phase 6 stub framing: T2Reflective.rho is a
-    ReflectanceDescriptor after construction, so assembly exercises the
-    ``reflectance_at(λ, view, illum)`` protocol rather than reaching into
-    the adapter's stored SpectralData.  ``los`` provides the observer /
-    solar zenith and relative azimuth from which the unit vectors are
-    built via :func:`_view_illum_from_los`; the Lambertian adapter
-    ignores the directions (so the output is bit-identical to the H.1
-    zero-vector path), but anisotropic BRDFs that land on this protocol
-    in the future will consume them.
-
-    ``los=None`` is accepted only for the (unreachable-at-runtime)
-    case where a caller hand-assembles a T2Reflective outside the
-    dispatcher; the protocol call falls back to zero vectors with a
-    warning-free path so the test surface stays small.
+    A one-line adapter onto
+    :func:`radiant.core.target_reflectance.resolve_reflectance_on_grid`, which
+    is the single implementation (Rule 19): SourceStage publishes the same
+    ρ(λ) through it, so the plotted surface property and the reflected
+    radiance terms below can never drift apart.
     """
-    if los is None:
-        view_dir = _ZERO_VEC3
-        illum_dir = _ZERO_VEC3
-    else:
-        view_dir, illum_dir = _view_illum_from_los(los)
-    vals = rho.reflectance_at(atm.wavelength_um, view_dir, illum_dir)
-    if vals.shape != atm.wavelength_um.shape:
-        raise ParameterBoundsError(
-            what=(f"ReflectanceDescriptor.reflectance_at returned shape {vals.shape}"),
-            why="Assembly requires ρ(λ) sampled on the chain wavelength grid.",
-            action=(
-                "Ensure the ReflectanceDescriptor implementation resamples to "
-                "the input wavelength grid."
-            ),
-            context={
-                "expected_shape": atm.wavelength_um.shape,
-                "actual_shape": vals.shape,
-            },
-        )
-    return np.asarray(vals, dtype=np.float64)
+    return resolve_reflectance_on_grid(rho, atm.wavelength_um, los)
 
 
 def _cos_theta_s(los: LineOfSightGeometry) -> float:
@@ -1098,6 +1013,48 @@ def assemble_target_source_emission(
     )
 
 
+def assemble_target_reflected_source_radiance(
+    target: TargetDescriptor,
+    atm: AtmosphericQuantities,
+    los: LineOfSightGeometry | None,
+) -> np.ndarray:
+    """The **reflected** part of the target radiance leaving the source.
+
+    The three ρ-proportional constituents of :func:`assemble_target_source_emission`,
+    with the self-emission term dropped::
+
+        L_reflected = direct_solar          (ρ·τ_sun·E_TOA·cosθ_s/π)
+                    + diffuse_sky_scattered (ρ·E_sky_scattered/π)
+                    + diffuse_sky_thermal   (ρ·E_sky_thermal/π)
+
+    This is the radiance the surface reflectance ρ(λ) *produces* under the
+    scene's illumination — the companion figure to ρ(λ) itself on the GUI's
+    reflective view (owner walkthrough item 6).  It is not a new computation:
+    like :func:`assemble_target_source_emission` it reuses the per-term
+    decomposition ``assemble_target_at_aperture(..., report_components=True)``
+    already produces, so it cannot drift from the radiance the chain actually
+    integrates.
+
+    For a pure-reflective ``T2Reflective`` target (ε ≡ 0) this equals the full
+    source emission; for a Kirchhoff ``T3Mixed`` target it isolates the
+    reflected fraction from the ε·B(T_t) self-emission.  For every arm with no
+    reflective physics — ``T1Thermal`` (ρ ≡ 0), the ``T5``/``T6``/``T7``
+    user-supplied radiance and intensity arms — it is identically zero, because
+    those decompositions carry the whole spectrum in ``self_emission`` (or, for
+    T5, in ``total``).
+
+    Returns
+    -------
+    numpy.ndarray
+        1-D reflected source radiance [W/m²/sr/µm] on the atm grid.
+    """
+    comps = assemble_target_at_aperture(target, atm, los, report_components=True)
+    return np.asarray(
+        comps.direct_solar + comps.diffuse_sky_scattered + comps.diffuse_sky_thermal,
+        dtype=np.float64,
+    )
+
+
 def assemble_background_source_emission(
     background: BackgroundDescriptor | None,
     atm: AtmosphericQuantities,
@@ -1409,6 +1366,7 @@ __all__ = [
     "assemble_background_at_aperture",
     "assemble_background_source_emission",
     "assemble_target_at_aperture",
+    "assemble_target_reflected_source_radiance",
     "assemble_target_source_emission",
     "validate_no_atmosphere_subcase",
 ]

@@ -44,11 +44,28 @@ class TestPublished:
         assert np.all(irradiance > 0.0)
         assert np.all(np.isfinite(irradiance))
 
-    def test_carries_its_unit_in_the_stage_output_map(self) -> None:
-        """R-UNITS: every published scalar/array names its unit."""
+    def test_the_figure_axis_carries_the_unit(self, result) -> None:  # type: ignore[no-untyped-def]
+        """R-UNITS: the operator sees the unit on the plot.
+
+        It is deliberately NOT in the stage's ``OUTPUT_UNITS`` map — that map is
+        the *scalar* Outputs-readout table (the readout skips non-scalars), and no
+        other published spectral array registers there either. For an array the
+        axis label is where the unit belongs.
+        """
+        import matplotlib
+
+        matplotlib.use("Agg")
+        from radiant.api.inspect import ResultPlotNamespace
+
+        figure = ResultPlotNamespace(result).spectral_irradiance_at_image()
+        assert "W/m²/µm" in figure.axes[0].get_ylabel()
+        matplotlib.pyplot.close(figure)
+
+    def test_not_registered_in_the_scalar_units_map(self) -> None:
+        """Guard the convention: arrays stay out of the scalar readout table."""
         from radiant.spectral_integration.stage import OUTPUT_UNITS
 
-        assert OUTPUT_UNITS["spectral_irradiance_at_image"] == "W/m²/µm"
+        assert "spectral_irradiance_at_image" not in OUTPUT_UNITS
 
 
 class TestRoundTripToSignalElectrons:

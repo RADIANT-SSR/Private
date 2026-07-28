@@ -134,7 +134,6 @@ OUTPUT_UNITS: dict[str, str] = {
     "ds_dt_e_per_K": "e-/K",
     "nearfield_e": "e-",
     "stray_e": "e-",
-    "spectral_irradiance_at_image": "W/m²/µm",
     "qe_scalar": "",
 }
 

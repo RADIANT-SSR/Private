@@ -15,7 +15,7 @@ Five guiding rules:
 1. **One contract, four input paths.** A user may specify the atmosphere by simple parametric model, by tabulated transmittance/path-radiance, by MODTRAN run, or by declaring the path exo-atmospheric (τ ≡ 1, L_path ≡ 0). All four paths produce the **same** `AtmosphericState`. The chain has no idea which path was used.
 2. **Three spectral outputs, always.** Every model, including exo-atmospheric, returns `τ_atm(λ)`, `L_path(λ)` (upwelling path radiance — what the sensor sees added to the target on its way through the atmosphere), and `L_atm_down(λ)` (hemispheric downwelling **irradiance**, used by the reflected-diffuse terms of the target and ground-background arms). The `SkyBackground` descriptor consumes a different product — a directional radiance along the LOS continuation, §4.2g — not this one. Numerical zero is preferable to a model-dependent `None`.
 3. **Geometry is an input, not a model property.** Slant range, sensor altitude, target altitude, path zenith angle, and solar zenith are all geometry inputs to *every* atmosphere model. The model decides how each input affects its outputs; the user does not pre-bake geometry into a tabulated file.
-4. **Turbulence is a stub with a real interface.** The Kolmogorov MTF formula is implemented because it is one line. Everything else (Cn² profiles, anisoplanatism, scintillation) is reserved interface. Turbulence is a flag, off by default, and never enabled for space-based observers.
+4. **Turbulence is profile-driven, and off by default.** The Kolmogorov long-exposure MTF takes a Fried parameter $r_0$, which the user may enter directly (`atmosphere.r0_m`, the default path) or have RADIANT derive from a $C_n^2(h)$ profile integrated along the line of sight (`atmosphere.cn2_profile`; Gap 110, §7). Anisoplanatism, scintillation, short-exposure MTF, and the von Kármán outer scale remain out of scope. There is **no observer-type gate**: a space observer's path simply carries no atmospheric column, so the integral is negligible and the term is omitted — a computed answer, not a refusal (ADR-0011 guardrail G4).
 5. **MODTRAN is a wrapped tool, not an embedded library.** RADIANT writes a card deck, calls a `modtran` binary, parses tape7, and caches the result keyed by a hash of the deck. If the binary is missing, the cache is consulted; if the cache misses, a clear error is raised. RADIANT itself never tries to *be* MODTRAN.
 
 ---
@@ -61,8 +61,8 @@ class AtmosphericState:
     air_mass: float                      # computed from zenith angle (≥ 1, ∞ at horizon)
     slant_path_length_m: float
 
-    # ---- Turbulence (stubbed; populated only if turbulence_enabled) ------
-    turbulence: TurbulenceState | None   # None for space, optional for ground
+    # ---- Turbulence: not carried on this bundle.  The resolved Fried
+    #      parameter travels as stage_outputs['atmosphere']['r0_m'] (§7.1).
 
     # ---- Optional: native model output for debugging ---------------------
     native_output: ModtranNativeOutput | None  # tape7 parsed dataclass
@@ -73,7 +73,7 @@ class AtmosphericState:
 1. `transmittance`, `path_radiance`, and `atm_emission_down` are **all** populated, even when one is "not physical" for the model. For `EXO_ATMOSPHERIC`, transmittance is unity at every wavelength and the two radiance fields are zero.
 2. All three spectral arrays live on the global wavelength grid in `SpectralDataStore` before `AtmosphericState` is constructed. Wavelength alignment is enforced at construction, not at consumption.
 3. `air_mass` and `slant_path_length_m` are derived from `geometry` at construction and stored for downstream use (NEDT and detection-range calculations want them).
-4. `turbulence` is `None` unless the user explicitly enabled the turbulence flag *and* the observer is ground-based. Space-based observers cannot enable turbulence; the parameter resolver rejects the combination with a `ScopeError` (per RADIANT_Scope_Decisions.md).
+4. The turbulence MTF term exists only when the resolved Fried parameter is positive (§7). There is no observer-type restriction: `radiant.atmosphere.r0_path` integrates whatever atmospheric column the line of sight actually crosses, so a space observer's residual column yields a huge $r_0$ and the term is omitted entirely. The pre-Gap-110 "the parameter resolver rejects turbulence for a space observer with a `ScopeError`" rule is **retired** (ADR-0011 guardrail G4 / Rule 27).
 
 ---
 
@@ -781,7 +781,6 @@ All parameters live under the `atmosphere.*` namespace. Names follow RADIANT_Par
 Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context:
 
 - `atmosphere.model` — five legal values; `interpolated` interpolates between pre-computed runs.
-- `atmosphere.turbulence_enabled` — ground-only; rejected if the observer is space.
 
 ### 6.2 Simple parametric
 
@@ -830,41 +829,68 @@ These parameters live in `geometry.*`, owned by GeometryStage since ADR-0006 (de
 
 **Producer-side note (CU-009; amended by ADR-0006 Phase 2):** SourceStage adopts the scene `LineOfSightGeometry` that GeometryStage publishes (`stage_outputs["geometry"]["los_geometry"]` — built once from the resolved viewing/solar input mode) and descriptor-adjusts it (`source/_inferrer._adjust_scene_los`); the legacy param-built `_infer_los` path survives only for direct `infer_descriptors` callers (source-only unit fixtures). The solar-zenith and solar-azimuth values propagate only when the target descriptor is solar-interacting (`T2Reflective`, `T3Mixed`); pure-thermal `T1Thermal` targets receive `theta_s = delta_phi = None` regardless of the registered solar params, honoring the `LineOfSightGeometry` "None for pure-thermal" docstring contract.
 
-### 6.6 Turbulence (stubbed)
+### 6.6 Turbulence
 
 Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context:
 
-- `atmosphere.turbulence_enabled` — rejected if observer is space.
-- `atmosphere.r0_cm` — Fried parameter (at 500 nm); user provides directly in v1.
-- `atmosphere.turbulence_outer_scale_m` — von Kármán outer scale; reserved (Kolmogorov uses ∞).
-- `atmosphere.cn2_profile` — reserved interface; `none` means "use r₀ directly".
+- `atmosphere.r0_m` — Fried parameter [m] entered directly. Default 0 = turbulence off. Quoted at the scene's band-centre wavelength.
+- `atmosphere.cn2_profile` — `direct` (default, use `r0_m` verbatim), `hufnagel_valley`, or `tabulated`. Selecting a profile makes $r_0$ a derived quantity (§7.1).
+- `atmosphere.cn2_hv_wind_rms_m_s`, `atmosphere.cn2_hv_ground_strength` — the two HV coefficients $w$ and $A$; the defaults are HV-5/7.
+- `atmosphere.cn2_tabulated_file` — two-column `altitude_m,cn2_m^-2/3` CSV, read pre-chain (Rule 6) by `loaders.build_cn2_profile` and injected at `stage_outputs["atmosphere_config"]["cn2_profile"]`.
+- `atmosphere.turbulence_wave_type` — `plane` (default) or `spherical` path weighting (§7.1).
+
+There is no `turbulence_enabled` flag and no observer-type gate: `r0_m = 0` with `cn2_profile = 'direct'` *is* "off", and a path that crosses no atmosphere resolves to "off" by itself.
 
 ---
 
-## 7. Atmospheric Turbulence (Stubbed)
+## 7. Atmospheric Turbulence
 
-### 7.1 What v1 implements
+### 7.1 What RADIANT implements
 
-Exactly one thing: a Kolmogorov long-exposure MTF, applied as an MTF term in the spatial model (not in `AtmosphereStage`'s radiometric output).
+**The MTF.** A Kolmogorov long-exposure MTF, applied as a term in the spatial model, not in `AtmosphereStage`'s radiometric output:
 
-```
-MTF_turb(f) = exp[ −3.44 · (λ · f / r₀)^(5/3) ]
-```
+$$\mathrm{MTF}_{turb}(f) = \exp\!\left[-3.44\,\left(\frac{\lambda f}{r_0}\right)^{5/3}\right]$$
 
-where `f` is the spatial frequency at the entrance pupil in cycles/m, `λ` is wavelength in m, and `r₀` is the Fried parameter at the wavelength of interest. The wavelength scaling `r₀(λ) = r₀(500 nm) · (λ / 500 nm)^(6/5)` is applied automatically.
+with $f$ the angular spatial frequency [cycles/rad] and $r_0$ the Fried parameter at the wavelength of interest. `atmosphere/turbulence.py` holds the formula; the PSF-path kernel is built in `platform/turbulence_kernel.py` and the MTF-product term in `performance/turbulence_mtf_term.py` (Rule 4 — both paths, one physics).
 
-The MTF is registered into `state.mtf_terms["turbulence"]` by `AtmosphereStage`. From the perspective of the spatial model (RADIANT_Signal_Chain_Architecture.md §6 and the upcoming `RADIANT_Spatial.md`), it is just another term in the system MTF cascade — no special handling.
+**The Fried parameter.** $r_0$ reaches those consumers through `stage_outputs["atmosphere"]["r0_m"]`, resolved by `atmosphere/r0_resolution.py`:
 
-### 7.2 What v1 does *not* implement (interface reserved)
+| `atmosphere.cn2_profile` | `atmosphere.r0_m` | Result |
+|---|---|---|
+| `direct` (default) | any | used verbatim; `0` = turbulence off. No geometry consulted. |
+| a profile | unset | derived from the path integral below. |
+| a profile | user-set, agrees within 1 % | the **entered** value wins; the profile is a recorded cross-check. |
+| a profile | user-set, disagrees > 1 % | `TurbulenceSpecificationError` (the CU-093 redundant-entry pattern). |
+| a profile | user-set to `0` | `TurbulenceSpecificationError` — contradictory intent. |
 
-- **Cn² profile integration** to derive r₀ from atmospheric structure. The v1 user provides r₀ directly.
-- **Anisoplanatism** (off-axis turbulence degradation).
-- **Scintillation** (irradiance fluctuations from refractive index variations).
-- **Tilt vs. higher-order decomposition** (relevant for adaptive optics).
-- **Short-exposure MTF** (the `exp((λf/r₀)^(5/3) · 1)` correction term).
-- **Dome and platform-induced seeing**.
+**The path integral** (`atmosphere/r0_path.py`, Gap 110):
 
-These are interface-reserved: parameters exist in `_schema.py` and on the `TurbulenceState` dataclass, but raise `NotImplementedError` in v1. They are deferred per RADIANT_Scope_Decisions.md ("turbulence is dominated by r₀ for the use cases we care about, and r₀ is something a working observer can measure or estimate; everything else is a refinement that does not change the conclusions of a trade study").
+$$r_0 = \left[\,0.423\,k^2 \sec\zeta \int_{h_{low}}^{h_{high}} C_n^2(h)\,W(h)\,\mathrm{d}h\right]^{-3/5},\qquad k = 2\pi/\lambda$$
+
+- $\zeta$ is the zenith angle at the segment's **lower endpoint** — the same ADR-0011 decision-3 convention `ColumnSegmentSpec` and the MODTRAN Card-3 deck builder use. It comes from `observer_leg.py` for up-looking paths and is $\theta_o$ for down-looking ones. $\sec\zeta$ is refused past `ZENITH_CEILING_RAD` (89.5°), which the Phase-1 horizon guard already forbids.
+- **Integration limits are direction-aware**: the endpoint altitudes clipped into `[0, h_atm_top]`. A ground sensor gets the full column above it; an airborne sensor a partial one; a space sensor's residual column is empty, giving a finite huge $r_0$ saturated at `R0_NEGLIGIBLE_M` (1 km) with `negligible = True`, whereupon the term is **omitted entirely** rather than multiplied in as unity (§8 item 5). This replaces the retired space-observer `ScopeError` (ADR-0011 guardrail G4 / Rule 27).
+- **Weighting** $W$, parameterized by $u(h) = (h - h_{tgt})/(h_{sen} - h_{tgt}) \in [0,1]$ — the fraction of the way from the target to the aperture: `plane` (default) is $W = 1$, the source-at-infinity imaging case that published $r_0$ values assume; `spherical` is $W = u^{5/3}$, **maximum at the aperture and zero at the target**, the finite-range point-source case. Turbulence near the sensor therefore dominates.
+- **Level (constant-altitude) paths** are not columns — $\sec(\pi/2)$ diverges. They integrate along the true chord at constant altitude: $C_n^2(h)\,L$ (plane) or $C_n^2(h)\,L\cdot 3/8$ (spherical, since $\int_0^1 u^{5/3}du = 3/8$).
+- Quadrature is a graded-grid trapezoid refined by doubling until it converges to $10^{-6}$ relative; failure to converge raises (Rule 17).
+
+**Profiles** (`atmosphere/cn2_profiles.py` is the contract; one implementation per module, Rule 19):
+
+- `hufnagel_valley` (`cn2_hufnagel_valley.py`) — the three-term HV form parameterized by the RMS upper-atmosphere wind $w$ and ground strength $A$; the schema defaults are HV-5/7 ($w = 21$ m/s, $A = 1.7\times10^{-14}$ m$^{-2/3}$), which reproduce the published $r_0 = 5$ cm and $\theta_0 = 7$ µrad at 0.5 µm for a vertical path.
+- `tabulated` (`cn2_tabulated.py`) — a measured (altitude, $C_n^2$) table, log-linearly interpolated (linearly across a zero endpoint), **zero outside its range** with a `UserWarning` quantifying the uncovered extent.
+
+**Reference wavelength.** $r_0 \propto \lambda^{6/5}$ exactly. The derived value is computed at the **band-centre wavelength of the scene's spectral grid** — the same wavelength `OpticsStage` uses for its monochromatic PSF reference, so the number is quoted at the wavelength its consumers apply it at. The value is published on `stage_outputs["atmosphere"]["r0_resolution"]` (present only when a profile was evaluated, so a scene using the direct input sees exactly the outputs it saw before Gap 110). A directly-entered `r0_m` is **not** rescaled — it is taken as being at the operating wavelength.
+
+### 7.2 What RADIANT does *not* implement
+
+- **Anisoplanatism** (off-axis turbulence degradation) and the isoplanatic angle $\theta_0$ as a published metric.
+- **Scintillation** (irradiance fluctuations).
+- **Tilt vs. higher-order decomposition** (adaptive optics).
+- **Short-exposure MTF** (the tilt-removed correction term).
+- **von Kármán outer scale** — Kolmogorov ($L_0 = \infty$) only.
+- **Dome and platform-induced seeing.**
+- **Turbulence-induced beam wander / refraction of the path itself** — the geometry is unrefracted (ADR-0011 decision 5).
+
+These are absent, not stubbed: no parameter, no dataclass field, no `NotImplementedError` placeholder.
 
 ### 7.3 Why turbulence is in the atmosphere module but applied as MTF
 
@@ -883,7 +909,7 @@ Per RADIANT_Signal_Chain_Architecture.md §2, `AtmosphereStage` is the second st
    ```
 3. **Register the `at_aperture` frame** on the `ChainState` per the architecture document.
 4. **Register `L_atm_down(λ)`** in `state.stage_outputs["atmosphere"]["downwelling"]` so the source stage's reflected-solar paths can consume it on their next pass (the `SkyBackground` arm does *not* read it — its radiance arrives on `TopologyProducts.sky_source_radiance`, §4.2g) — this is the only chain-level back-coupling and is handled by re-running `SourceStage` once if the source has a downwelling-dependent component (per RADIANT_Signal_Chain_Architecture.md §6.3).
-5. **Register the turbulence MTF** in `state.mtf_terms["turbulence"]` if turbulence is enabled. Otherwise this term is omitted entirely (not set to unity); the system-MTF cascade simply has one fewer term, which is faster and avoids the temptation to "see" turbulence in a debug plot when it is off.
+5. **Resolve and publish the Fried parameter** (§7.1) as `stage_outputs["atmosphere"]["r0_m"]`, and — only when a Cn² profile was evaluated — the `FriedParameterResolution` record as `["r0_resolution"]`. When turbulence is off (or the path carries none), `r0_m` is absent and the downstream turbulence terms are omitted entirely rather than set to unity; the system-MTF cascade simply has one fewer term, which is faster and avoids the temptation to "see" turbulence in a debug plot when it is off. The MTF term itself is built downstream (`platform/` for the PSF kernel, `performance/` for the MTF product), not here.
 6. **Store the full `AtmosphericState`** in `state.stage_outputs["atmosphere"]["state"]` for downstream inspection.
 
 `AtmosphereStage` is a pure function of `(state_in, params)` per the architecture document. It does not mutate state, performs **no file I/O** (Rule 6 — see §8.1), and is safely re-runnable.
@@ -957,7 +983,6 @@ Recorded explicitly so future RADIANT_Scope_Decisions.md updates can lift them d
 - **Adjacency effects.** The reflected-solar contribution from neighboring ground pixels is not modeled (a 6S/MODTRAN-style "background reflectance" term).
 - **Auroral and airglow emission.**
 - **Refraction-induced apparent altitude shifts.** A target at zenith angle 89.5° is treated geometrically; the apparent vs. true altitude correction is deferred.
-- **Cn² profile integration** (turbulence stub above).
 - **Cloud microphysics.** Clouds in v1 are either "off" or "MODTRAN's canned cloud model"; no LWC/effective-radius parameterization.
 
 ---

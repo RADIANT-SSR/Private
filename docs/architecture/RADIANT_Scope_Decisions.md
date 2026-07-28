@@ -143,8 +143,8 @@ These effects have parameter hooks in the API but return zero/unity/identity. Th
 
 | ID | Effect | Stub Behavior | Reason for Stub |
 |----|--------|--------------|-----------------|
-| A13 | Turbulence (r₀, Cn²) | Parameters stored; feeds SP9 | Acceptable per constraints |
-| A14 | Turbulence MTF | Returns 1.0 for space; long-exposure Kolmogorov model for ground | Acceptable per constraints |
+| A13 | Turbulence (r₀, Cn²) | **No longer stubbed** (Gap 110, 2026-07-27): Cn²(h) profile family (Hufnagel-Valley + tabulated) with a path-weighted r₀ integral. Anisoplanatism (A15) and scintillation (A16) stay deferred. See RADIANT_Atmosphere.md §7. | — |
+| A14 | Turbulence MTF | Long-exposure Kolmogorov; the term is **omitted** (not forced to 1.0) whenever the resolved r₀ is absent — including a space observer, whose path simply carries no atmospheric column. The observer-type gate is retired (ADR-0011 G4). | Short-exposure MTF still out of scope |
 | O8 | Stray light | SLRR parameter accepted; uniform additive background | First-principles BSDF out of scope |
 | D24 | Snow/sparkle (RTS) | Rolled into bad pixel fraction (D26) | Subsumed by D26 |
 | R15 | Data rate / compression | Lossy flag only; no artifact model | Artifact simulation out of scope |

@@ -81,12 +81,17 @@ class TestModeManifest:
         The ``geometry.target.*`` extent params (shape, dimensions,
         orientation, projected area — migrated from ``source.target.*`` per
         ADR-0008) are rendered by ``TargetShapePanel``, not the V/S input-mode
-        forms, so they are excluded from the mode-manifest coverage set.
+        forms, so they are excluded from the mode-manifest coverage set. So is
+        ``geometry.scene_class``: it is an optional *assertion* validated
+        against the derived class (ADR-0011 decision 8), not a door onto a
+        canonical quantity, so it belongs to no mode family.
         """
         schema_geometry = {
             p
             for p in sensor.parameter_defs()
-            if p.startswith("geometry.") and not p.startswith("geometry.target.")
+            if p.startswith("geometry.")
+            and not p.startswith("geometry.target.")
+            and p != "geometry.scene_class"
         }
         manifest = set(all_mode_params())
         assert manifest == schema_geometry
@@ -97,9 +102,14 @@ class TestModeManifest:
         defs = sensor.parameter_defs()
         assert all(dotpath in defs for dotpath in all_mode_params())
 
-    def test_three_families_present(self) -> None:
-        """The manifest exposes the viewing, solar, and kinematics selectors."""
-        assert {f.key for f in MODE_FAMILIES} == {"viewing", "solar", "kinematics"}
+    def test_families_present(self) -> None:
+        """The manifest exposes the viewing, solar, kinematics, LOS-rate selectors."""
+        assert {f.key for f in MODE_FAMILIES} == {
+            "viewing",
+            "solar",
+            "kinematics",
+            "los_rate",
+        }
 
     def test_implicated_family_viewing_disagreement(self) -> None:
         """A viewing disagreement (two angle doors) localises to the viewing selector."""

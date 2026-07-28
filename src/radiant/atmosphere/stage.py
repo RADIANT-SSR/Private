@@ -62,7 +62,16 @@ Stage outputs under ``stage_outputs["atmosphere"]``:
       for Rule 16 inspectability (Stage 6 — Option C decomposition).
     - ``E_sky_thermal``: ``atm_quantities.E_sky_thermal`` exposed for
       Rule 16 inspectability (Stage 6 — Option C decomposition).
-    - ``r0_m``: Fried parameter (only when ``atmosphere.r0_m > 0``).
+    - ``r0_m``: Fried parameter [m], present only when turbulence is on.
+      Resolved by :func:`radiant.atmosphere.r0_resolution.resolve_fried_parameter`
+      — the direct ``atmosphere.r0_m`` input (default) or, when
+      ``atmosphere.cn2_profile`` selects a profile, the path-weighted integral
+      over the line of sight (Gap 110).
+    - ``r0_resolution``: the
+      :class:`~radiant.atmosphere.r0_resolution.FriedParameterResolution`
+      record, published only when a Cn² profile was actually evaluated, so a
+      scene using the direct input keeps exactly the stage outputs it had
+      before.
 """
 
 from __future__ import annotations
@@ -81,6 +90,7 @@ from radiant.atmosphere.assembly import (
 )
 from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.loaders import build_atmosphere_model, model_requires_prebuild
+from radiant.atmosphere.r0_resolution import resolve_fried_parameter
 from radiant.atmosphere.topology import TopologyProducts, evaluate_path_topology
 from radiant.core.chain import ChainState
 from radiant.core.descriptors import GroundBackground
@@ -308,13 +318,23 @@ class AtmosphereStage:
             )
             state = state.with_frame(at_source_background_frame)
 
-        # Turbulence: store Fried parameter for downstream stages.
-        try:
-            r0_m: float = params.get("atmosphere.r0_m")
-        except (KeyError, TypeError):
-            r0_m = 0.0
-        if r0_m > 0.0:
-            state = state.with_stage_output("atmosphere", "r0_m", r0_m)
+        # Turbulence: resolve the Fried parameter (direct input or Cn²-profile
+        # path integral — Gap 110) and store it for downstream stages.
+        # atmosphere.cn2_profile = 'direct' (the default) reproduces the
+        # pre-Gap-110 behaviour exactly.
+        r0_resolution = resolve_fried_parameter(
+            params,
+            los,
+            state.wavelength_um,
+            tabulated_profile=atm_config.get("cn2_profile"),
+        )
+        if r0_resolution.r0_m > 0.0:
+            state = state.with_stage_output("atmosphere", "r0_m", r0_resolution.r0_m)
+        if r0_resolution.path is not None:
+            # Only the derived path publishes diagnostics: a scene that simply
+            # entered r0_m sees exactly the stage outputs it saw before.
+            state = state.with_stage_output("atmosphere", "r0_resolution", r0_resolution)
+            logger.info("Turbulence r₀ resolved: %s", r0_resolution.detail)
 
         return state
 

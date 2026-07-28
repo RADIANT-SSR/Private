@@ -186,10 +186,8 @@ The canonical kernel order — recorded in `convolution_history` — is:
 psf_0 = psf_optical                                          # diffraction + WFE
 psf_1 = psf_0  ∗  rect(pixel_pitch_x, pixel_pitch_y)         # detector aperture
 psf_2 = psf_1  ∗  gauss(σ_diffusion_x, σ_diffusion_y)        # charge diffusion
-psf_3 = psf_2  ∗  rect(v_along · t_int, 0)                   # platform smear (along-track)
+psf_3 = psf_2  ∗  rect(ω_LOS · f · t_int, 0)                 # relative-motion smear (along-track)
 psf_4 = psf_3  ∗  rect(0, v_cross · t_int)                   # scan smear (cross-track) — NOT IMPLEMENTED (Gap 74)
-psf_5 = psf_4  ∗  rect(v_target_x · t_int_eff,
-                       v_target_y · t_int_eff)               # target motion — NOT IMPLEMENTED (Gap 74)
 psf_6 = psf_5  ∗  gauss(σ_jitter_x, σ_jitter_y)              # jitter
 psf_7 = psf_6  ∗  ipc_kernel_pitch_spaced(α, Δx, p)          # inter-pixel capacitance
 psf_8 = psf_7  ∗  kolmogorov_kernel(r0, λ)                   # turbulence (ground only)
@@ -198,7 +196,11 @@ psf_eff = psf_8
 
 Order matters because some kernels are not commutative when truncated to the working grid (the detector aperture is much wider than the optical PSF and dominates the support of the result). The result is the same to within FFT round-off, but the working order above is the canonical one and `convolution_history` records it.
 
-`t_int_eff` for target-motion smear in TDI mode is `N_TDI × t_int_per_stage` (the target moves through every TDI stage's integration time before being read out).
+`ω_LOS` is the **relative** line-of-sight angular rate — platform and target motion composed as vectors *before* the projection, `ω = |(v_target − v_sensor) × û| / R` (`geometry/los_rate.py`, published as `stage_outputs["geometry"]["los_angular_rate_rad_s"]`, Gap 111). Platform motion and target motion are therefore **one** kernel, not two to be combined: they are two contributions to a single linear image translation, so a co-moving target correctly yields zero smear and a counter-moving one yields double — outcomes an RSS of two separate smears gets wrong in both directions (`platform/relative_motion_smear.py`). The target-velocity door is `geometry.target_speed_m_s` / `target_heading_rad` / `target_climb_rad`, or the rate may be entered directly as `geometry.los_angular_rate_rad_s`; with neither set the published rate reduces exactly to the platform-only `v_ground / R` that `platform/smear.py` has always computed.
+
+**v1 limitation:** the rect kernel and the `mtf_smear_y` term stay on the along-track (y) axis regardless of the relative velocity's focal-plane azimuth, because no track-azimuth input exists. The smear *magnitude* (hence MTF, RER, NIIRS) is correct; the orientation of the anisotropy is not. Azimuth-resolved 2-D smear is the remaining part of Gap 74.
+
+`t_int_eff` for target-motion smear in TDI mode is `N_TDI × t_int_per_stage` (the target moves through every TDI stage's integration time before being read out) — TDI-aware `t_int_eff` is not yet wired into the smear arm.
 
 **IPC kernel is resampled to the PSF sample grid (CU-083).** The logical IPC kernel places the four nearest-neighbour couplings α one **pixel pitch** `p` away from the centre, but the PSF cascade is sampled at the sub-µm focal-plane spacing `Δx`. Convolving the raw 3×3 `ipc_kernel(α)` directly would place the couplings one *sample* away — orders of magnitude too close — making the PSF-path IPC blur negligible and divergent from the analytic MTF-product term `mtf_ipc`. `ipc_kernel_pitch_spaced(α, Δx, p)` (`detector/ipc.py`) builds the kernel on the sample grid with the couplings at `±p` (linearly interpolated between the two straddling samples so the first moment lands exactly at the pitch), so its DFT reproduces `(1−4α) + 2α·cos(2πf·p)` and both Rule-4 paths agree. The detector stage builds it (reading `Δx` from the optics `EffectivePSF` via stage outputs, Rule 11) and stores it as `stage_outputs["detector"]["ipc_kernel_psf"]`; the raw 3×3 `ipc_kernel` output is retained for provenance only.
 
@@ -214,9 +216,8 @@ Confusing these is one of the top sources of error in EO performance modeling. R
 
 | Smear source | Origin | Parameters | Direction | Always present? |
 |--------------|--------|------------|-----------|-----------------|
-| Platform motion | Sensor moves along-track during integration | `platform.velocity_m_s`, `platform.altitude_m`, `t_int` | Along-track | Yes |
+| Relative platform + target motion | The sensor↔target LOS rotates during integration (either endpoint moving) | `platform.ground_velocity_m_s` / `geometry.sensor_altitude_m`, or `geometry.target_speed_m_s` + `target_heading_rad` + `target_climb_rad`, or `geometry.los_angular_rate_rad_s` directly; `t_int` | Along-track (v1 — magnitude only, see §6) | Yes |
 | Scan mechanism | Cross-track scanner (whiskbroom or dual-axis pushbroom) | `scan.cross_track_velocity_m_s`, `t_int` | Cross-track | Only for whiskbroom / dual-axis |
-| Target motion | Target moves in scene during integration | `target.velocity_x_m_s`, `target.velocity_y_m_s`, `t_int_eff` | Either | Only if target moving and untracked |
 | Jitter | Random pointing errors | `platform.jitter_rms_urad`, `platform.jitter_axes` | Either / both | Yes (default 0) |
 | Turbulence | Atmospheric refractive-index fluctuations | `atmosphere.r0_cm` | Isotropic | Ground only |
 
@@ -274,9 +275,8 @@ The remaining contributors are physically independent of the pupil and of each o
 | 2 | `mtf_pixel_aperture` | sinc(π · f · p_x) · sinc(π · f · p_y) | `optics/pixel_kernel.py` |
 | 3 | `mtf_charge_diffusion` | exp(−2π² · σ_d² · f²) | `detector/diffusion.py` |
 | 4 | `mtf_ipc` | (1 − 4α) + 2α · cos(2πf · p) | `detector/ipc.py` |
-| 5 | `mtf_smear_along` | \|sinc(π · f · v · t)\| | `platform/smear.py` |
-| 6 | `mtf_smear_cross` | \|sinc(π · f · v · t)\| | `platform/smear.py` |
-| 7 | `mtf_target_motion` | \|sinc(π · f · v_t · t_eff)\| | `platform/smear.py` |
+| 5 | `mtf_smear_y` (along-track) | \|sinc(π · f · ω_LOS · f_len · t)\| | `platform/smear.py` |
+| 6 | `mtf_smear_x` (cross-track) | 1 in v1 — the scan-smear source is unbuilt (Gap 74) | `platform/smear.py` |
 | 8 | `mtf_jitter` | exp(−2π² · σ_j² · f²) | `platform/jitter.py` |
 | 9 | `mtf_tdi_misalign` | \|sinc(π · f · misalign)\| | `readout/tdi_mtf.py` |
 | 10 | `mtf_turbulence` | exp(−3.44 · (λ · f / r₀)^(5/3)) | `atmosphere/turbulence.py` + `performance/turbulence_mtf_term.py` |
@@ -284,7 +284,7 @@ The remaining contributors are physically independent of the pupil and of each o
 | 12 | `mtf_scatter` | (1 − TIS) + TIS·exp(−2π² σ_halo² f²), isotropic | `optics/scatter.py` |
 
 Notes:
-- Diffraction, WFE, and defocus are **not** separate terms: they are unified into the single `mtf_optics` via pupil autocorrelation (§9.1), which is why the table opens with one optics term rather than three. The 12 rows above are the distinct contributor terms in the current build.
+- Diffraction, WFE, and defocus are **not** separate terms: they are unified into the single `mtf_optics` via pupil autocorrelation (§9.1), which is why the table opens with one optics term rather than three. The rows above are the distinct contributor terms in the current build; platform and target motion share one smear term because they share one image translation (§6).
 - Each term keys into `state.mtf_terms` with a `_x` / `_y` suffix for per-axis storage (e.g., `mtf_optics_x`, `mtf_pixel_aperture_y`).
 - **Scatter MTF (Gap 31) enters BOTH paths**: `OpticsStage` computes TIS = 1 − exp(−(4πσ_s/λ)²) from `optics.surface_roughness_nm` at the ePSF wavelength, convolves the mixed kernel `(1−TIS)·δ + TIS·Gaussian(optics.scatter_halo_sigma_um)` into the ePSF, and pushes the analytic Fourier-pair term `(1−TIS) + TIS·exp(−2π²σ_halo²f²)` isotropically. Included in the consistency check. Harvey–Shack BRDF is out of scope for v1.
 - **Electronics MTF (Gap 32) enters BOTH paths**, unlike TDI: `ReadoutStage` pushes the analytic term and builds the matching Gaussian-in-x kernel (delta in y — readout-axis blur only), which `PerformanceStage` convolves into the `EffectivePSF` exactly like the IPC kernel (the kernel travels via `stage_outputs["readout"]["electronics_kernel"]`, Rule 11). It is therefore *included* in the dual-path consistency comparison. Parameter: `readout.electronics_sigma_um` (default 0 = ideal electronics).
@@ -329,7 +329,9 @@ Pupil grid (`pupil_npix`) and PSF oversample (`psf_oversample`) are hard-coded i
 Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context:
 
 - `platform.ground_velocity_m_s` — along-track velocity for smear; identity-grouped with `geometry.ground_speed_m_s`.
-- `platform.smear_length_um` — image-plane smear length (direct).
+- `geometry.target_speed_m_s` / `geometry.target_heading_rad` / `geometry.target_climb_rad` — target velocity; composed with the platform velocity into the relative LOS rate (Gap 111).
+- `geometry.los_angular_rate_rad_s` — the relative LOS rate entered directly (overrides nothing; agrees with the target-velocity door within 1 % or raises).
+- `platform.smear_length_um` — image-plane smear length (direct); still wins over both rate doors, and warns when it suppresses a kinematics-derived smear.
 - `platform.h_sensor` — **deprecated alias** of `geometry.sensor_altitude_m`; no longer a distinct schema parameter (folded per CU-090 / ADR-0006, `geometry/_schema.py`). Use `geometry.sensor_altitude_m`.
 - `platform.jitter_axes` — `isotropic` / `anisotropic`.
 - `platform.jitter_rms_x_urad`, `platform.jitter_rms_y_urad` — anisotropic mode only.

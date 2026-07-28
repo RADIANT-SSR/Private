@@ -17,7 +17,8 @@ from dataclasses import replace
 import numpy as np
 
 from radiant.core.chain import ChainState
-from radiant.core.parameters import ParameterSet
+from radiant.core.los_geometry import LineOfSightGeometry
+from radiant.core.parameters import ParameterSet, Provenance
 from radiant.core.viewing_triangle import (
     ground_range_from_theta_o_m,
     slant_range_from_theta_o_m,
@@ -26,7 +27,9 @@ from radiant.performance.access_rate import compute_access_rate_m2_s
 from radiant.performance.adc_margin import compute_adc_margin
 from radiant.performance.consistency_check import check_dual_path_consistency
 from radiant.performance.contrast_snr import compute_contrast_snr
+from radiant.performance.detection import DetectionRangeResult
 from radiant.performance.detection_beer_lambert import detection_range_beer_lambert
+from radiant.performance.detection_path_aware import detection_range_path_aware
 from radiant.performance.diffraction_limit import (
     diffraction_limited_angular_rad,
     diffraction_limited_ground_m,
@@ -43,14 +46,17 @@ from radiant.performance.minimum_resolvable import minimum_resolvable_temperatur
 from radiant.performance.mtf_budget import compute_mtf_budget
 from radiant.performance.nedt import compute_nedt, compute_nedt_from_snr
 from radiant.performance.niirs import compute_niirs
+from radiant.performance.path_optical_depth import resolve_path_optical_depth
 from radiant.performance.qsample import compute_q
 from radiant.performance.sampling_regime import classify_sampling_regime
 from radiant.performance.scan_feasibility import scan_feasibility
+from radiant.performance.scene_relevance import suppressed_metrics
 from radiant.performance.scnr import compute_scnr
 from radiant.performance.snr import compute_snr
 from radiant.performance.strehl import compute_strehl
 from radiant.performance.swath_width import compute_swath_width_m
 from radiant.performance.system_mtf import mtf_at_nyquist, nyquist_freq
+from radiant.performance.target_plane_sample_distance import target_plane_sample_distance
 from radiant.performance.turbulence_mtf_term import kolmogorov_mtf_1d
 from radiant.performance.well_margin import compute_well_margin
 
@@ -199,7 +205,11 @@ def _compute_spatial_metrics(
         except (KeyError, TypeError):
             focal_length_turb = 0.0
         if focal_length_turb > 0.0:
-            freq_m_turb = freq_mrad / (focal_length_turb * 1e3)
+            # cycles/mrad -> cycles/m on the focal plane: f [m] * 1e-3 m/mrad.
+            # (CU-231: '* 1e3' here was a 1e6 slip that zeroed the turbulence
+            # term out of the MTF product since 847a71b; platform/stage.py's
+            # smear conversion is the correct reference form.)
+            freq_m_turb = freq_mrad / (focal_length_turb * 1e-3)
             wavelength_turb_m = epsf.wavelength_um * 1e-6
             mtf_turb = kolmogorov_mtf_1d(freq_m_turb, wavelength_turb_m, r0_m, focal_length_turb)
             state = state.with_mtf("mtf_turbulence_x", mtf_turb)
@@ -362,25 +372,59 @@ def _compute_gsd_metrics(
     return _compute_scan_feasibility(state, params, result.along_track_m)
 
 
+def _band_mean_tau(state: ChainState, params: ParameterSet) -> float | None:
+    """Band-mean in-band atmospheric transmittance, or ``None`` when unavailable.
+
+    Extracted verbatim from the detection-range helper so the down-looking and
+    path-aware arms consume one definition of τ̄ (the arithmetic is unchanged —
+    the down-looking α it feeds is bit-identical to the pre-Phase-3 value).
+    """
+    tau_atm = state.stage_outputs.get("atmosphere", {}).get("tau_atm")
+    if tau_atm is None:
+        return None
+    wl = state.wavelength_um
+    lam_min = params.get("spectral_integration.filter_min_um")
+    lam_max = params.get("spectral_integration.filter_max_um")
+    band = (wl >= lam_min) & (wl <= lam_max)
+    if not band.any():
+        return None
+    return float(np.mean(np.asarray(tau_atm)[band]))
+
+
 def _compute_detection_range_metric(
     state: ChainState,
     params: ParameterSet,
     snr_result: object,
 ) -> ChainState:
-    """Point-source detection range via the Beer-Lambert solver (Gap 77).
+    """Point-source detection range (Gap 77), dispatched on the path topology.
 
     Only meaningful in the point-source regime: the signal follows the
-    inverse-square law with range, attenuated by a constant atmospheric
-    extinction. Uses the current signal/noise at the source range as the
-    reference point and bisects for the range where SNR equals
-    ``performance.detection_snr_threshold``.
+    inverse-square law with range, attenuated along the path. Uses the current
+    signal/noise at the source range as the reference point and bisects for the
+    range where SNR equals ``performance.detection_snr_threshold``.
 
-    Constant-extinction assumption: α is derived from the band-mean
-    in-band transmittance over the source range (α = −ln(τ̄)/R). This is
-    exact in vacuum (α = 0, pure inverse-square) and a first-order model
-    for atmospheric paths; the full geometry-aware spherical-Earth
-    slant-path solve (varying α along the path) is deferred. Skips
-    gracefully outside the point-source regime or when the inputs are
+    Two arms, keyed on the **derived LOS direction** ``GeometryStage``
+    publishes — not on the scene class (guardrail G3 forbids scene-class
+    branches in ``performance/``; this is the path topology, which is what the
+    extinction model actually depends on):
+
+    ``down`` (and any run without a published direction)
+        The shipped constant-extinction solver, unchanged: α is derived from
+        the band-mean in-band transmittance over the source range
+        (α = −ln(τ̄)/R), exact in vacuum and first-order for atmospheric
+        paths. Migrating this arm would move every existing point-source
+        golden result and is an owner decision.
+
+    ``up`` / ``level`` (finding GF-15)
+        The path-aware solver: τ(R) is evaluated along the actual ray by
+        :mod:`radiant.performance.path_optical_depth`, which knows where the
+        ray leaves the modelled column and stops accruing optical depth. When
+        that module cannot build a profile (an up-looking continuation still
+        inside the atmosphere), the result carries a ``failure_reason`` and no
+        metric is emitted — the constant-α model is *not* silently substituted
+        (Rule 17).
+
+    Skips gracefully outside the point-source regime or when the inputs are
     unavailable.
     """
     optics_out = state.stage_outputs.get("optics", {})
@@ -399,31 +443,91 @@ def _compute_detection_range_metric(
     if not ref_range_m or ref_range_m <= 0.0:
         return state
 
-    # Constant extinction from the band-mean in-band transmittance.
-    alpha = 0.0
-    tau_atm = state.stage_outputs.get("atmosphere", {}).get("tau_atm")
-    if tau_atm is not None:
-        wl = state.wavelength_um
-        lam_min = params.get("spectral_integration.filter_min_um")
-        lam_max = params.get("spectral_integration.filter_max_um")
-        band = (wl >= lam_min) & (wl <= lam_max)
-        if band.any():
-            tau_bar = float(np.mean(np.asarray(tau_atm)[band]))
-            if 0.0 < tau_bar < 1.0:
-                alpha = -math.log(tau_bar) / ref_range_m
-
     threshold: float = params.get("performance.detection_snr_threshold")
-    result = detection_range_beer_lambert(
-        signal_e_at_ref=float(signal_e),
-        noise_e=float(noise_e),
-        ref_range_m=float(ref_range_m),
-        extinction_coeff=alpha,
-        snr_threshold=threshold,
-    )
+    tau_bar = _band_mean_tau(state, params)
+
+    geo_out = state.stage_outputs.get("geometry", {})
+    los = geo_out.get("los_geometry")
+    direction = geo_out.get("los_direction")
+
+    if direction in ("up", "level") and isinstance(los, LineOfSightGeometry):
+        # Optical depth over the measured leg. τ̄ outside (0, 1] means "no
+        # usable atmospheric product" — treated as a transparent path, the
+        # same convention the down-looking arm uses for α = 0.
+        ref_od = 0.0
+        if tau_bar is not None and 0.0 < tau_bar < 1.0:
+            ref_od = -math.log(tau_bar)
+        resolution = resolve_path_optical_depth(los, float(ref_range_m), ref_od)
+        if resolution.profile is None:
+            failed = DetectionRangeResult(
+                range_m=float("nan"),
+                snr_at_range=float(signal_e) / float(noise_e),
+                snr_threshold=threshold,
+                iterations=0,
+                failure_reason=resolution.failure_reason,
+            )
+            return state.with_stage_output("performance", "detection_range_result", failed)
+        result = detection_range_path_aware(
+            signal_e_at_ref=float(signal_e),
+            noise_e=float(noise_e),
+            profile=resolution.profile,
+            snr_threshold=threshold,
+        )
+    else:
+        # Constant extinction from the band-mean in-band transmittance.
+        alpha = 0.0
+        if tau_bar is not None and 0.0 < tau_bar < 1.0:
+            alpha = -math.log(tau_bar) / ref_range_m
+        result = detection_range_beer_lambert(
+            signal_e_at_ref=float(signal_e),
+            noise_e=float(noise_e),
+            ref_range_m=float(ref_range_m),
+            extinction_coeff=alpha,
+            snr_threshold=threshold,
+        )
+
     state = state.with_stage_output("performance", "detection_range_result", result)
     if result.ok:
         state = state.with_metric("detection_range_m", result.range_m)
     return state
+
+
+def _compute_target_plane_metrics(
+    state: ChainState,
+    params: ParameterSet,
+) -> ChainState:
+    """Target-plane sample distance — the non-ground counterpart of GSD (GF-13).
+
+    Consumes the slant range ``GeometryStage`` published (ADR-0006): unlike
+    GSD this metric needs *no* incidence angle, which is exactly why it is
+    defined for air and space targets where ``incidence_angle_rad`` is not in
+    ``[0, π/2)``. Skips gracefully when the geometry stage did not run or the
+    optics/detector parameters are unset.
+    """
+    slant_range_m = state.stage_outputs.get("geometry", {}).get("slant_range_m")
+    if slant_range_m is None or slant_range_m <= 0.0:
+        return state
+    try:
+        focal_length_m: float = params.get("optics.focal_length_m")
+        pitch_x_m: float = params.get("detector.pixel_pitch_x_um")
+        pitch_y_m: float = params.get("detector.pixel_pitch_y_um")
+    except (KeyError, TypeError):
+        return state
+    if focal_length_m <= 0.0 or pitch_x_m <= 0.0 or pitch_y_m <= 0.0:
+        return state
+
+    result = target_plane_sample_distance(
+        pitch_x_m,
+        pitch_y_m,
+        focal_length_m,
+        float(slant_range_m),
+    )
+    state = state.with_metric("target_plane_sample_distance_x_m", result.x_m)
+    state = state.with_metric("target_plane_sample_distance_y_m", result.y_m)
+    return state.with_metric(
+        "target_plane_sample_distance_geometric_mean_m",
+        result.geometric_mean_m,
+    )
 
 
 def _compute_scan_feasibility(
@@ -821,6 +925,13 @@ _PRODUCES_GSD = frozenset(
         "max_integration_time_s",
     }
 )
+_PRODUCES_TARGET_PLANE = frozenset(
+    {
+        "target_plane_sample_distance_x_m",
+        "target_plane_sample_distance_y_m",
+        "target_plane_sample_distance_geometric_mean_m",
+    }
+)
 _PRODUCES_ACCESS = frozenset({"ground_range_m", "swath_width_m", "access_rate_m2_s"})
 _PRODUCES_Q = frozenset({"q_center", "q_min", "q_max"})
 _PRODUCES_DIFFRACTION = frozenset({"diffraction_limit_angular_urad", "diffraction_limit_ground_m"})
@@ -847,6 +958,35 @@ def _enabled_groups(params: ParameterSet) -> frozenset[str]:
     return frozenset(enabled)
 
 
+def _groups_at_default(params: ParameterSet) -> frozenset[str]:
+    """Groups whose ``performance.metrics.*`` flag the analyst has not touched.
+
+    The scene-class relevance map (guardrail G3) conditions *defaults* only, so
+    it may act on a group only while that group's flag still carries
+    ``Provenance.DEFAULT``. A flag the analyst set explicitly — in a config
+    file, via the API, or by a sweep — wins outright, which is the Gap 96
+    override contract, unchanged. An unresolvable flag (partial fixtures build
+    a ParameterSet without the performance defs) counts as untouched, matching
+    :func:`_enabled_groups`' additive-default convention.
+    """
+    at_default: set[str] = set()
+    for group, param_name in GROUP_PARAMS.items():
+        try:
+            provenance = params.get_resolved(param_name).provenance
+        except (KeyError, TypeError):
+            at_default.add(group)
+            continue
+        if provenance is Provenance.DEFAULT:
+            at_default.add(group)
+    return frozenset(at_default)
+
+
+def _scene_class(state: ChainState) -> str | None:
+    """The derived scene-class label, or ``None`` when no GeometryStage ran."""
+    value = state.stage_outputs.get("geometry", {}).get("scene_class")
+    return str(value) if value is not None else None
+
+
 class PerformanceStage:
     """Chain stage for performance metrics."""
 
@@ -862,7 +1002,14 @@ class PerformanceStage:
         # compute-only prerequisites are dropped at the end so only surfaced
         # metrics reach the result. Default (all groups on) ⇒ compute == every
         # metric ⇒ nothing gated and nothing dropped ⇒ identical to before.
-        surfaced, compute = resolve_selection(_enabled_groups(params))
+        #
+        # Guardrail G3: the scene-class → relevance map is consulted exactly
+        # once, here, and only for groups the analyst left at their default.
+        # For every ground-target class its off-set contains only the
+        # target-plane metrics this phase introduced, so a ground-target
+        # scene's selection is bit-identical to the pre-Phase-3 one.
+        suppressed = suppressed_metrics(_scene_class(state), _groups_at_default(params))
+        surfaced, compute = resolve_selection(_enabled_groups(params), suppressed)
 
         snr_result = None
         if "snr" in compute:
@@ -902,6 +1049,10 @@ class PerformanceStage:
         # Ground sample distance (when orbital/airborne geometry is set).
         if compute & _PRODUCES_GSD:
             state = _compute_gsd_metrics(state, params)
+
+        # Target-plane sample distance — GSD's non-ground counterpart (GF-13).
+        if compute & _PRODUCES_TARGET_PLANE:
+            state = _compute_target_plane_metrics(state, params)
 
         # Access geometry (ground range, swath width, access rate).
         if compute & _PRODUCES_ACCESS:

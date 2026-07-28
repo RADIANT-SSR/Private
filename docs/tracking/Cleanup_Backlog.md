@@ -12,6 +12,66 @@
 
 ## Open
 
+### CU-232 — Down-looking detection range still uses one constant extinction coefficient (owner-decision gated)
+
+**Discovered**: Geometry-Flexibility Phase 3, GF-15 (branch `gf3/degradations-metrics`), 2026-07-27.
+**Status**: Open — owner-decision gated (results-affecting for every existing point-source detection range).
+**File**: `src/radiant/performance/stage.py::_compute_detection_range_metric` (the `down` arm) → `performance/detection_beer_lambert.py`
+**Symptom**: Phase 3 gave `up`/`level` topologies a path-aware τ(R) (`detection_path_aware.py` over `path_optical_depth.py`) that knows where the ray leaves the modelled column; the `down` arm was deliberately left on `α = −ln(τ̄)/R_ref` extrapolated as a constant — a first-order model that over-attenuates a descending ray (extra range is in thinner air, then vacuum). The two topologies now use different extinction physics for the same metric.
+**Why it still matters**: `detection_range_m` is a headline trade-study number; the arms are not comparable across a scene-class sweep, and `result.metrics` does not show which model produced the value. Documented as a scope split (`RADIANT_Metrics.md` §4.13, `detection_path_aware.py` docstring) — a stated limitation, not a resolution.
+**Suggested fix**: (b) stand-alone task — route the `down` arm through the same path-aware solver, then refresh affected point-source golden baselines under the `RADIANT_Testing_Validation.md` §5.3 review protocol. **Results-affecting: every existing point-source detection range moves upward** (constant-α over-attenuates) — hence owner decision, not refactor. Effort M; category C. Related: Gap 77, GF-15, [[CU-231]].
+
+### CU-233 — `column_exit_range_m` is a geometry computation living in a metrics module (Rule-19 bundling)
+
+**Discovered**: Geometry-Flexibility Phase 3 integration re-audit (branch `gf3/degradations-metrics`), 2026-07-27.
+**Status**: Open.
+**File**: `src/radiant/performance/path_optical_depth.py:190`
+**Symptom**: the ray/column-exit intersection (where the LOS leaves the modelled atmospheric shell) is a pure spherical-geometry computation bundled inside the optical-depth-profile module; the Phase-2 segment machinery computes the same quantity independently.
+**Why it still matters**: two implementations of one geometric fact will drift; the computation is independently testable and reusable (Rule 19).
+**Suggested fix**: (a) inline-fix at next touch — hoist into `core` (or reuse the existing viewing-triangle/exit machinery) and consume it from both sites. Effort S; category A.
+
+### CU-230 — `PlatformStage` smear-kernel grid clamp makes `npix_smear` even, so a large smear crashes instead of clamping
+
+**Discovered**: Geometry-Flexibility Phase 3, Gap 111 moving-target smear arm (branch `gf3/degradations-metrics`), 2026-07-27.
+**Status**: Open.
+**File**: `src/radiant/platform/stage.py:178-180`.
+**Symptom**: the kernel width is forced odd and *then* clamped to the PSF grid:
+```python
+npix_smear = int(math.ceil(2.0 * smear_w_m / sample_spacing_m)) | 1
+npix_smear = min(npix_smear, epsf.data.shape[0])   # grid size is even (2048) → result is even
+npix_smear = max(npix_smear, 3)
+```
+`epsf.data.shape[0]` is a power of two, so whenever the smear is wide enough for the clamp to bind, the `| 1` is undone and `smear_kernel_1d` raises `PlatformValidationError: npix must be a positive odd integer, got 2048`. The `logger.warning` immediately above ("Kernel will be clamped to grid size") announces a graceful degradation that then cannot happen. Reproduce entirely through the **pre-existing** velocity/range door — no Gap-111 parameter involved: sensor at 20 km, `f = 1.5 m`, `t_int = 10 ms`, `platform.ground_velocity_m_s = geometry.ground_speed_m_s = 7000` (smear 5250 µm vs a 2568 µm half-grid) raises out of `PlatformStage.run`. Present unchanged at `024e347`; the Gap-111 arm only widens the set of inputs that reach it (a fast target now produces the same wide smear).
+**Why it still matters**: an actionable-error contract (Rule 15/17) is replaced by an internal invariant violation whose message names an implementation detail (`npix`) the user never supplied and offers no action. It is a hard failure of the whole chain, not a degraded metric, and it fires precisely in the high-smear regime an analyst is most likely to be probing (fast platform, long integration, or now a fast target).
+**Suggested fix**: (a) inline-fix-now — clamp first, then re-force odd (`npix_smear = min(...) | 1` after subtracting 1 if it would exceed the grid, or `npix_smear = (min(...) - 1) | 1`), and decide deliberately what a smear wider than the PSF grid *means*: a clamped rect kernel silently under-blurs, so the honest options are to enlarge the grid or to raise a Rule-15 error naming `spectral_integration.integration_time_s` / the velocity as the lever. Not done here because it changes behaviour for configurations that currently raise, which is outside the Gap-111 zero-drift scope. Effort S; category C (the clamp semantics are a physics decision, not a bounds check).
+
+### CU-229 — `RADIANT_File_Tree.md` package source/test counts are stale across every package
+
+**Discovered**: Geometry-Flexibility Phase 3, Gap 110 turbulence upgrade (branch `gf3/degradations-metrics`), 2026-07-27.
+**Status**: Open.
+**File**: `docs/architecture/RADIANT_File_Tree.md` — every `### \`<pkg>/\` — N source + M tests` heading.
+**Symptom**: the headings disagree with the tree by up to 3×. Measured 2026-07-27 (`ls src/radiant/<pkg>/*.py | wc -l` vs `ls src/radiant/<pkg>/tests/test_*.py | wc -l`): `core/` says 18+15, is 24+20; `source/` says 40+27, is 18+30; `optics/` says 30+19, is 29+23; `platform/` says 6+6, is 8+6; `detector/` says 14+9, is 11+10; `readout/` says 10+8, is 14+10; `performance/` says 28+16, is 48+30. `geometry/` has no heading at all despite being a stage package since ADR-0006. This PR corrected only the `atmosphere/` line (12+12 → 34+35) because Rule 20 required it for the section it touched; the rest are untouched, so the doc is now consistently wrong *except* in one place.
+**Why it still matters**: the counts are the only quantitative claim in the file and are what a reader uses to judge whether the tree listing beneath them is complete. Several listings are also missing files outright (the `atmosphere/` listing named 8 of 34 modules before this PR). A reader who trusts the counts will assume the enumerated modules are the whole package.
+**Suggested fix**: (a) inline-fix-now in a doc-only PR — either regenerate the counts and the per-package listings from the tree with a small script under `scripts/` (and add it to the `check_org_rules.py` gate so it cannot drift again), or delete the counts entirely and keep only the annotated listings. The script route is preferable: a hand-maintained count of a growing tree is a Rule-20 drift generator by construction. Effort S; category A.
+
+### CU-228 — `atmosphere.r0_m` has no declared reference wavelength, so a directly-entered seeing value is silently applied at the wrong λ
+
+**Discovered**: Geometry-Flexibility Phase 3, Gap 110 turbulence upgrade (branch `gf3/degradations-metrics`), 2026-07-27.
+**Status**: Open — the *doc* claim that misled was corrected in this PR; the parameter behaviour is unchanged and undefended.
+**File**: `src/radiant/atmosphere/_schema.py` — `FRIED_PARAMETER_M` (`atmosphere.r0_m`); consumers `src/radiant/platform/stage.py` (turbulence kernel) and `src/radiant/performance/stage.py` (MTF term), both of which apply it at `epsf.wavelength_um`.
+**Symptom**: `RADIANT_Atmosphere.md` §7.1 claimed "the wavelength scaling `r₀(λ) = r₀(500 nm)·(λ/500 nm)^(6/5)` is applied automatically". No code does this: `r0_m` is handed to the Kolmogorov MTF at the PSF's own wavelength, whatever that is. A user who enters the astronomer's habitual 500 nm seeing value (r₀ = 10 cm) and runs a 4 µm MWIR scene gets a turbulence MTF ≈ 8× too aggressive, because the true MWIR r₀ is `0.10 × (4/0.5)^1.2 = 1.2 m`. The doc claim was removed in this PR (§7.1 now states the value is taken as being at the operating wavelength), so the trap is documented — but nothing detects it.
+**Why it still matters**: it is a silent order-of-magnitude error in the dominant spatial degradation for exactly the ground-based scenes Gap 110 exists to serve, and it is the *default* input door (`cn2_profile = 'direct'`). The Gap-110 profile path sidesteps it — that r₀ is computed at the band centre and is correct by construction — but the direct door remains a foot-gun.
+**Suggested fix**: (b) stand-alone task. Add `atmosphere.r0_reference_wavelength_um` (default `0.0` = "the entered value is already at the operating wavelength", preserving today's behaviour bit-identically); when set, `r0_resolution` rescales by `(λ_band / λ_ref)^(6/5)` and records both in the `FriedParameterResolution`. Emit a one-time `UserWarning` when `r0_m` is set, the reference is unset, and the band centre is more than a factor of two from 0.5 µm — the case where the habitual value is almost certainly what was entered. Effort S; category C (results-affecting only for scenes that set the new parameter). Related: Gap 110, [[CU-093]].
+
+### CU-227 — Two architecture docs name turbulence parameters that do not exist (`turbulence_enabled`, `r0_cm`)
+
+**Discovered**: Geometry-Flexibility Phase 3, Gap 110 turbulence upgrade (branch `gf3/degradations-metrics`), 2026-07-27.
+**Status**: Open.
+**File**: `docs/architecture/RADIANT_Metric_Dependencies.md:178`; `docs/architecture/RADIANT_Spatial_Complete.md:221` and `:364`.
+**Symptom**: three lines reference `atmosphere.turbulence_enabled` and `atmosphere.r0_cm`. Neither has ever existed in `atmosphere/_schema.py` — the real parameter is `atmosphere.r0_m` and there is no enable flag (a zero `r0_m` is "off"). `RADIANT_Spatial_Complete.md:221` additionally carries a "Ground only" applicability column and `:364` a "`r0_cm > 0` if turbulence enabled — hard" validation row, both describing the observer-type gate ADR-0011 guardrail G4 retired in this PR. `RADIANT_Atmosphere.md` §6.6/§7 and `RADIANT_Scope_Decisions.md` A13/A14 were corrected here; these three were left because they belong to the spatial/metric-dependency surface this task did not touch.
+**Why it still matters**: a reader (or agent) building a turbulence scenario from either doc will set a parameter name that `ParameterSet` rejects with `UnknownParameterError`, and will believe a space-observer restriction that no longer exists. The metric-dependency tree is also the document the GUI relevance work reads for parameter→metric edges, so the wrong names propagate.
+**Suggested fix**: (a) inline-fix-now in the next PR touching either file — replace with `atmosphere.r0_m` / `atmosphere.cn2_profile`, drop the "Ground only" and "if turbulence enabled" qualifiers, and point the validation row at `atmosphere/r0_resolution.py`. Effort XS; category A. Related: Gap 110, ADR-0011 G4.
+
 ### CU-226 — The shipped up-looking library family is queryable but not reachable from a chain run
 
 **Discovered**: Geometry-Flexibility Phase 2, up-looking library family + interpolated-backend dispatch (branch `gf2/atmosphere`), 2026-07-26.

@@ -8,10 +8,17 @@ blur, yielding a sinc MTF:
 where ``smear_width = velocity × t_int`` is the motion extent on the
 focal plane [m].
 
-Three independent smear sources exist (see RADIANT_Spatial_Complete.md §7):
+Three smear sources exist (see RADIANT_Spatial_Complete.md §7):
 1. Platform along-track motion
-2. Scan mechanism cross-track motion
+2. Scan mechanism cross-track motion — not implemented (Gap 74)
 3. Untracked target motion
+
+Platform motion and target motion are **not** combined here as two blurs:
+they are two contributions to one linear image translation, composed in the
+velocity domain by GeometryStage into a single relative LOS angular rate
+(Gap 111).  ``relative_motion_smear.smear_width_from_los_rate_m`` turns that
+one rate into the one smear extent used by both Rule-4 paths; see that
+module for why an RSS of two smears would be wrong.
 
 Each produces its own sinc MTF along its respective axis.
 
@@ -24,6 +31,7 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.platform.errors import PlatformValidationError
+from radiant.platform.relative_motion_smear import smear_width_from_los_rate_m
 
 
 def smear_mtf_1d(
@@ -65,11 +73,20 @@ def smear_width_m(
     focal_length_m: float,
     altitude_m: float,
 ) -> float:
-    """Compute the smear extent on the focal plane.
+    """Compute the smear extent on the focal plane from a velocity and a range.
 
     For an object at range ``altitude_m`` (slant range approximation),
     the angular rate is ``velocity / altitude`` rad/s, and the focal-
     plane motion is ``angular_rate × focal_length × t_int``.
+
+    This is the **velocity/range door** onto the one smear-extent computation:
+    it derives the LOS angular rate from a single endpoint's speed and hands it
+    to :func:`~radiant.platform.relative_motion_smear.smear_width_from_los_rate_m`.
+    The rate it forms is the platform-only special case of the *relative* LOS
+    rate GeometryStage publishes (Gap 111) — exactly equal to it when the target
+    is stationary, since a stationary target leaves ``v_rel`` purely cross-track.
+    Prefer the published rate when it is available; this door remains for the
+    partial fixtures that run PlatformStage without GeometryStage (CU-096).
 
     Parameters
     ----------
@@ -100,7 +117,7 @@ def smear_width_m(
         raise PlatformValidationError(f"altitude_m must be positive, got {altitude_m}")
 
     angular_rate = abs(velocity_m_s) / altitude_m  # rad/s
-    return angular_rate * focal_length_m * t_int_s
+    return smear_width_from_los_rate_m(angular_rate, t_int_s, focal_length_m)
 
 
 def smear_kernel_1d(

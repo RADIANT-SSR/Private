@@ -18,10 +18,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from radiant.core.parameters import ParameterSet
 from radiant.geometry._schema import ALL_PARAMETERS
 from radiant.geometry.mode_manifest import (
     KINEMATICS_FAMILY,
+    LOS_RATE_FAMILY,
     MODE_FAMILIES,
     SOLAR_FAMILY,
     VIEWING_FAMILY,
@@ -32,11 +35,15 @@ from radiant.geometry.mode_manifest import (
 from radiant.geometry.modes import (
     _provided,
     resolve_kinematics,
+    resolve_los_rate,
     resolve_solar,
     resolve_viewing,
 )
 
 H_LEO = 500_000.0
+
+#: ``geometry.*`` parameters that are deliberately not mode doors.
+_NON_MODE_PARAMS = frozenset({"geometry.scene_class"})
 
 
 def make_params(**inputs: object) -> ParameterSet:
@@ -68,11 +75,20 @@ def _active(family: GeometryModeFamily, ps: ParameterSet) -> str:
 
 class TestManifestSchemaAgreement:
     def test_manifest_covers_every_input_mode_parameter(self) -> None:
-        """The manifest names exactly the ``geometry.*`` input-mode parameters."""
+        """The manifest names exactly the ``geometry.*`` input-mode parameters.
+
+        Two documented exclusions: the ``geometry.target.*`` extent params
+        (rendered by the GUI target-shape panel, not the mode forms) and
+        ``geometry.scene_class`` — an optional *assertion* validated against
+        the derivation (ADR-0011 decision 8), not a door onto a canonical
+        quantity, so it belongs to no mode family.
+        """
         schema_geometry = {
             d.name
             for d in ALL_PARAMETERS
-            if d.name.startswith("geometry.") and not d.name.startswith("geometry.target.")
+            if d.name.startswith("geometry.")
+            and not d.name.startswith("geometry.target.")
+            and d.name not in _NON_MODE_PARAMS
         }
         assert set(all_mode_params()) == schema_geometry
         assert len(all_mode_params()) == len(schema_geometry)  # no duplicates
@@ -101,8 +117,13 @@ class TestManifestSchemaAgreement:
         (s3,) = [m for m in SOLAR_FAMILY.modes if m.key == "S3"]
         assert tagged == set(s3.params)
 
-    def test_families_are_the_three_stage_output_families(self) -> None:
-        assert tuple(f.key for f in MODE_FAMILIES) == ("viewing", "solar", "kinematics")
+    def test_families_are_the_stage_output_families(self) -> None:
+        assert tuple(f.key for f in MODE_FAMILIES) == (
+            "viewing",
+            "solar",
+            "kinematics",
+            "los_rate",
+        )
 
     def test_default_mode_keys_exist_in_their_family(self) -> None:
         for family in MODE_FAMILIES:
@@ -203,3 +224,33 @@ class TestKinematicsRoundTrip:
         ps = make_params()
         assert resolve_kinematics(ps).mode == "direct"
         assert _active(KINEMATICS_FAMILY, ps) == "direct"
+
+
+class TestLosRateRoundTrip:
+    def test_default_door_is_k0_platform_only(self) -> None:
+        ps = make_params()
+        viewing = resolve_viewing(ps)
+        kin = resolve_kinematics(ps)
+        assert resolve_los_rate(ps, viewing, kin).mode == "platform-only (derived)"
+        assert _active(LOS_RATE_FAMILY, ps) == "K0"
+
+    def test_k1_direct_rate(self) -> None:
+        ps = make_params(geometry__los_angular_rate_rad_s=0.004)
+        viewing = resolve_viewing(ps)
+        kin = resolve_kinematics(ps)
+        resolved = resolve_los_rate(ps, viewing, kin)
+        assert resolved.mode == "geometry.los_angular_rate_rad_s"
+        assert resolved.los_angular_rate_rad_s == pytest.approx(0.004, rel=1e-12)
+        assert _active(LOS_RATE_FAMILY, ps) == "K1"
+
+    def test_k2_target_velocity(self) -> None:
+        ps = make_params(geometry__target_speed_m_s=250.0)
+        viewing = resolve_viewing(ps)
+        kin = resolve_kinematics(ps)
+        assert resolve_los_rate(ps, viewing, kin).mode == "target velocity (K2)"
+        assert _active(LOS_RATE_FAMILY, ps) == "K2"
+
+    def test_k2_detected_from_heading_alone(self) -> None:
+        """Any member of the triple opens the K2 door (a zero speed warns)."""
+        ps = make_params(geometry__target_heading_rad=0.5)
+        assert _active(LOS_RATE_FAMILY, ps) == "K2"

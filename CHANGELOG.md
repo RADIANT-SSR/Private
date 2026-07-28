@@ -20,7 +20,153 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **Results-affecting (turbulence scenes only; no shipped baseline affected):
+  turbulence now actually enters the MTF-product path.** A unit slip
+  (`* 1e3` for `* 1e-3` in the cycles/mrad → cycles/m conversion, present
+  since the dual-path architecture landed 2026-04-18) left
+  `mtf_turbulence_x/y ≡ 1`, so every MTF-product consumer (MTF budget,
+  MTF-at-Nyquist, folded MTF, GIQE/NIIRS) ignored turbulence while the PSF
+  path applied it — a Rule-4 dual-path violation of up to 0.88 absolute MTF
+  error. Direction of change: MTF-product metrics decrease (correctly) on
+  scenes with turbulence; no shipped scenario or golden baseline sets
+  `atmosphere.r0_m`, so no recorded result moves. (CU-231)
+
 ### Added
+- **Geometry-Flexibility Phase 3 — direction-aware degradations and metrics
+  (Gaps 110, 111; findings GF-13, GF-15; guardrail G3).** Four capabilities land
+  together and are itemised below: the Cn²-profile-driven Fried parameter, the
+  derived scene class + target kinematics in `GeometryStage`, the moving-target
+  smear arm, and the scene-class → metric relevance map with its target-plane
+  sample distance and path-aware detection range.
+  **Results-affecting: NONE.** No existing scene's computed value changes.
+  Every new behaviour activates only through a newly-set parameter — target
+  velocity and LOS rate default to *unset* (the platform-only rate is
+  numerically the rate the smear arm always derived), `atmosphere.cn2_profile`
+  defaults to `direct` (the pre-Gap-110 `r0_m` passthrough), and the relevance
+  map's `*_to_ground` off-set contains only metric keys this phase created.
+  The one *selection* change — a non-ground-target scene now defaults the
+  ground-projection metric family off and the target-plane family on — alters
+  which metrics are emitted, never what any emitted metric computes. Proved
+  end-to-end in `tests/integration/test_phase3_conditioning.py`,
+  `test_los_rate_zero_drift.py`, `test_moving_target_smear.py`,
+  `test_scene_relevance_chain.py`; all 78 golden baselines unchanged.
+- **Moving-target smear (Geometry-Flexibility Phase 3, Gap 111 consumer).**
+  `PlatformStage` now consumes the relative line-of-sight angular rate
+  published by `GeometryStage` and turns it into the smear extent
+  (`platform/relative_motion_smear.py`, Rule 19: `s = ω_LOS · f · t_int`),
+  feeding both Rule-4 spatial paths — the rect PSF kernel and the
+  `mtf_smear_*` product terms — from that one rate. Platform and target
+  motion compose as vectors upstream (`v_rel = v_target − v_sensor`), so they
+  are one smear rather than two combined: a co-moving target smears not at
+  all, a counter-moving one smears twice as much, and an RSS of two separate
+  smears (which would return √2× in both cases) is never formed. A direct
+  `platform.smear_length_um` still wins, and now warns when it suppresses a
+  kinematics-derived smear. **Not results-affecting for existing scenes:** the
+  arm engages only when a kinematics door (`geometry.target_speed_m_s` /
+  `target_heading_rad` / `target_climb_rad`, or `geometry.los_angular_rate_rad_s`)
+  is explicitly set; with none set the stage runs the unchanged
+  velocity/range door and every smear number is bit-identical (proved by exact
+  equality over a 576-configuration grid plus the golden suite).
+- **Target-plane sample distance (Geometry-Flexibility Phase 3, finding GF-13).**
+  Three new metrics — `target_plane_sample_distance_x_m`, `_y_m`,
+  `_geometric_mean_m` (module `performance/target_plane_sample_distance.py`,
+  Rule 19) — the non-ground counterpart of GSD: the pixel's angular subtense
+  projected at the slant range (`pitch × R / f`), with no ground-plane `cos`
+  projection, in the plane through the target normal to the line of sight.
+  Defined where GSD is not, because it needs no incidence angle. **Not
+  results-affecting for existing scenes:** surfaced by default only for a
+  non-ground target (see the relevance map below), so every ground-target run
+  emits exactly the metric set it did before.
+- **Scene-class → metric relevance map (Geometry-Flexibility Phase 3,
+  guardrail G3, finding GF-13).** One declarative map
+  (`performance/scene_relevance.py`) supplies the *engine-side defaults* of the
+  Gap 96 selection machinery, keyed on the derived scene class published by
+  `GeometryStage`. For an air or space target the ground-projection family
+  (`gsd_*`, `ground_range_m`, `swath_width_m`, `access_rate_m2_s`,
+  `diffraction_limit_ground_m`, `max_integration_time_s`, `niirs`,
+  `niirs_extrapolated`) defaults **off** and the target-plane sample distance
+  defaults **on**; angular-resolution, radiometric, spatial/MTF and saturation
+  metrics are band-independent and unaffected. Override semantics are
+  unchanged: the map conditions a metric group only while that group's
+  `performance.metrics.*` flag is still at its default provenance, so an
+  explicitly-set flag wins outright. Physics never branches on the class
+  (ADR-0011 decision 8). **Results-affecting only for non-ground-target
+  scenes**, and only in *which* metrics are emitted — no computed value
+  changes. A ground-target scene's default metric set is bit-identical to
+  before.
+- **Path-aware point-source detection range for up/level topologies
+  (Geometry-Flexibility Phase 3, finding GF-15).** `detection_range_m` now
+  dispatches on the derived LOS direction. `up` and `level` paths evaluate
+  τ(R) along the actual ray (`performance/detection_path_aware.py` over
+  `performance/path_optical_depth.py`) instead of extrapolating one constant
+  extinction coefficient: the profile is piecewise and stops accruing optical
+  depth where the ray leaves the modelled column, and the bisection's upper
+  bound is the analytic vacuum solution `R_ref·√(SNR_ref/threshold)` rather
+  than a fixed ceiling. An up-looking path whose continuation is still inside
+  the atmosphere is **refused** with a named `failure_reason` rather than
+  answered with the wrong model (Rule 17). **Not results-affecting for
+  existing scenes:** the down-looking arm is untouched and bit-identical;
+  migrating it is a separate owner decision.
+- **Cn²-profile-driven Fried parameter (Geometry-Flexibility Phase 3, Gap 110).**
+  Turbulence stops being a path-blind user-entered `r0`. New parameters
+  `atmosphere.cn2_profile` (`direct` | `hufnagel_valley` | `tabulated`),
+  `atmosphere.cn2_hv_wind_rms_m_s`, `atmosphere.cn2_hv_ground_strength`,
+  `atmosphere.cn2_tabulated_file`, `atmosphere.turbulence_wave_type`
+  (`plane` | `spherical`). Selecting a profile makes r₀ a derived quantity:
+  `atmosphere/r0_path.py` integrates
+  `r0 = [0.423 k² sec ζ ∫ Cn²(h) W(h) dh]^(-3/5)` over the part of the line of
+  sight inside the atmosphere, with ζ the lower-endpoint zenith (ADR-0011
+  decision 3, via the Phase-2 `observer_leg` machinery), plane- or
+  spherical-wave weighting (the spherical weight peaks **at the aperture** —
+  turbulence near the sensor dominates), and a closed-form constant-altitude
+  branch for level paths. Profiles live one-per-module:
+  `atmosphere/cn2_hufnagel_valley.py` (HV; schema defaults are HV-5/7, which
+  reproduce the published r₀ = 5 cm and θ₀ = 7 µrad at 0.5 µm for a vertical
+  path) and `atmosphere/cn2_tabulated.py` (measured table, log-linear
+  interpolation, zero-with-a-`UserWarning` outside its range; the CSV is read
+  pre-chain by `loaders.build_cn2_profile` and injected at
+  `stage_outputs["atmosphere_config"]["cn2_profile"]`, Rule 6).
+  **Not results-affecting:** `atmosphere.cn2_profile` defaults to `direct`,
+  which passes `atmosphere.r0_m` through unchanged and consults no geometry —
+  every existing scene is bit-identical, and the new `r0_resolution` stage
+  output appears only when a profile is actually evaluated.
+- **New error class `radiant.atmosphere.errors.TurbulenceSpecificationError`**
+  (a `RadiantError`). Raised when `atmosphere.cn2_profile` selects a profile
+  *and* `atmosphere.r0_m` is explicitly set to a value the profile does not
+  reproduce within 1 % (the CU-093 redundant-entry pattern), or is explicitly
+  set to `0` alongside a profile (contradictory intent).
+- **Derived scene class + target kinematics in GeometryStage
+  (Geometry-Flexibility Phase 3; ADR-0011 decision 8, Gap 111).** Two additive
+  publications in `stage_outputs["geometry"]`, both reachable only through newly
+  legal inputs — **not results-affecting**: no existing scene's numbers change
+  (proved in `tests/integration/test_los_rate_zero_drift.py`).
+  1. **Scene class** — `geometry/scene_class.py` derives the ADR-0011
+     observer × target band label (`ground` h < 1 km, `air` 1–100 km, `space`
+     h > 100 km, the `h_atm_top` convention; both boundaries closed from below)
+     and publishes `scene_class` / `observer_class` / `target_class`. The 1 km
+     boundary is a naming convention with **no physical effect** and physics
+     never branches on the class. New optional parameter `geometry.scene_class`
+     lets a user *assert* the class; a disagreement with the derivation raises
+     `GeometrySpecificationError` naming asserted vs. derived and both altitudes
+     (the CU-093 pattern — it catches wrong-magnitude altitude typos). The
+     assertion is never required (`auto` = unset).
+  2. **LOS angular rate** — `geometry/los_rate.py` publishes
+     `los_angular_rate_rad_s` (ω = |v_rel,⊥| / R) and `los_rate_mode`. Both
+     Gap 111 doors ship, provenance-resolved with the ADR-0006 1 % agreement
+     check: the new `geometry.los_angular_rate_rad_s` (direct, K1) and the new
+     target-velocity triple `geometry.target_speed_m_s` /
+     `geometry.target_heading_rad` / `geometry.target_climb_rad` (K2). With
+     neither set the published rate is the platform-only value
+     `ground_speed / slant_range`, which is *exactly* the rate
+     `platform/smear.py` already derives. Heading is referenced to the
+     observer's ground azimuth (the `delta_phi` zero); the platform track is
+     modelled cross-track to the LOS azimuth plane, matching the existing smear
+     arm. `None` only for coincident endpoints. Its consumer is the
+     moving-target smear arm above, which landed in the same phase.
+  Also new: a `los_rate` family in `geometry/mode_manifest.py` (K0/K1/K2), so
+  the GUI mode form follows automatically, and `rad/s` (with `deg/s`, `mrad/s`,
+  `urad/s`) in the `core.units` registry.
 - **Shipped up-looking atmosphere library family + direction-aware family
   dispatch (Geometry-Flexibility Phase 2, GF-10; Gap 109).** New committed
   family `midlat_summer_uplooking_ladder/` — the MODTRAN K-block vertical
@@ -163,6 +309,15 @@ retroactively reconstructed.
   `level_*` central-angle family.
 
 ### Changed
+- **Turbulence is no longer gated on observer type (ADR-0011 guardrail G4,
+  Rule 27).** `RADIANT_Atmosphere.md`'s rule that "the parameter resolver
+  rejects turbulence for a space observer with a `ScopeError`" is retired: the
+  path integral simply finds no atmospheric column above a space sensor,
+  returns a finite huge r₀ (saturated at 1 km, flagged `negligible`), and the
+  turbulence MTF term is omitted entirely rather than forced to unity. The rule
+  was documentation-only — no code implemented it — so this is a doc/behaviour
+  reconciliation, not a results change. A 20 km sensor looking up through the
+  residual HV-5/7 column gets r₀ = 4.13 m at 0.5 µm, a real (if small) number.
 - **Horizon-guard thresholds are stored in radians (CU-222).**
   `radiant.core.viewing_triangle.GUARD_HARD_DEG` / `GUARD_WARN_DEG` become
   `GUARD_HARD_RAD` / `GUARD_WARN_RAD` (`math.radians(0.5)` / `math.radians(2.0)`),

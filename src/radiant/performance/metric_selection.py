@@ -86,6 +86,9 @@ METRIC_GROUPS: Mapping[str, frozenset[str]] = {
             "gsd_cross_track_m",
             "gsd_along_track_m",
             "gsd_geometric_mean_m",
+            "target_plane_sample_distance_x_m",
+            "target_plane_sample_distance_y_m",
+            "target_plane_sample_distance_geometric_mean_m",
             "ground_range_m",
             "swath_width_m",
             "access_rate_m2_s",
@@ -161,14 +164,30 @@ def dependency_closure(seed: frozenset[str]) -> frozenset[str]:
 
 def resolve_selection(
     enabled_groups: frozenset[str],
+    suppressed: frozenset[str] = frozenset(),
 ) -> tuple[frozenset[str], frozenset[str]]:
     """Resolve enabled groups into ``(surfaced, compute)`` metric sets.
 
-    ``surfaced`` = union of the enabled groups' metrics (what the run emits).
+    ``surfaced`` = union of the enabled groups' metrics, minus *suppressed*
+    (what the run emits).
     ``compute`` = transitive dependency closure of ``surfaced`` (what the stage
     must actually calculate so the surfaced metrics are well-defined).
     ``compute ⊇ surfaced`` always holds.
+
+    Parameters
+    ----------
+    enabled_groups:
+        Groups whose ``performance.metrics.*`` flag is on.
+    suppressed:
+        Metrics the scene-class relevance map turns off *by default*
+        (:mod:`radiant.performance.scene_relevance`, guardrail G3). Empty by
+        default, which reproduces the pre-Phase-3 resolution exactly. The
+        caller has already restricted this set to groups the analyst left at
+        their default value, so explicit selection still wins. Suppression
+        applies to *surfacing*: a suppressed metric that some surfaced metric
+        depends on is still computed, exactly like any other hidden
+        prerequisite.
     """
-    surfaced = surfaced_metrics(enabled_groups)
+    surfaced = surfaced_metrics(enabled_groups) - suppressed
     compute = dependency_closure(surfaced)
     return surfaced, compute

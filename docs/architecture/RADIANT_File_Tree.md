@@ -63,12 +63,14 @@ core/
 ```
 geometry/
 ├── __init__.py          # GeometryStage, GeometrySpecificationError re-exports
-├── _schema.py           # the geometry.* namespace (27 ParameterDefs, incl. the geometry.target.* extent params — ADR-0008)
+├── _schema.py           # the geometry.* namespace (32 ParameterDefs, incl. the geometry.target.* extent params — ADR-0008)
 ├── errors.py            # GeometrySpecificationError (over/under-specification)
+├── los_rate.py          # relative LOS angular rate ω = |v_rel,⊥| / R (Gap 111)
 ├── mode_manifest.py     # family → mode → param manifest as data (ADR-0006; CU-120)
-├── modes.py             # input-mode detection + resolution (V/S families)
+├── modes.py             # input-mode detection + resolution (V/S/K families)
+├── scene_class.py       # derived observer×target band label + optional assertion (ADR-0011 decision 8)
 ├── stage.py             # GeometryStage — publishes stage_outputs["geometry"]
-└── tests/               # mode matrix, stage contract, alias behavior, manifest drift
+└── tests/               # mode matrix, stage contract, alias behavior, manifest drift, scene class, LOS rate
 ```
 
 Stage 0: resolves the scene-geometry input mode and publishes LOS + derived
@@ -92,7 +94,7 @@ source/shapes/         # box, cone, cylinder, flat_plate, sphere — projected_a
                        # implementations for sub-pixel target geometry
 ```
 
-### `atmosphere/` — 12 source + 12 tests
+### `atmosphere/` — 34 source + 35 tests
 
 Stage 2: τ_atm, L_path, L_atm.
 
@@ -109,7 +111,12 @@ atmosphere/
 ├── exo.py               # exo-atmosphere (vacuum) — τ=1, L_path=0
 ├── tabulated.py         # user-supplied tabulated τ(λ) / L_path(λ)
 ├── interpolated.py      # spectral interpolation helpers
-└── turbulence.py        # Fried r0, Cn² profile, turbulence MTF (ground only)
+├── turbulence.py        # Kolmogorov long-exposure turbulence MTF
+├── cn2_profiles.py      # Cn²(h) profile family contract + selector
+├── cn2_hufnagel_valley.py  # Hufnagel-Valley Cn²(h) preset (HV-5/7 defaults)
+├── cn2_tabulated.py     # user-tabulated Cn²(h) profile
+├── r0_path.py           # path-weighted Fried parameter over the LOS
+└── r0_resolution.py     # direct r0 vs profile-derived r0 (CU-093 agreement)
 ```
 
 ### `optics/` — 30 source + 19 tests
@@ -124,7 +131,7 @@ Top-level modules group by concern:
 - **Throughput / element model:** `element.py`, `element_factories.py`, `system_transmission.py`, `transmission_modes.py`, `filters.py`, `cavity_model.py`, `stray_light.py`
 - **Stage glue:** `stage.py`, `_schema.py`, `ee_box.py`, `fnumber.py`, `nearfield_irradiance.py`, `telescope.py`
 
-### `platform/` — 6 source + 6 tests
+### `platform/` — 8 source + 7 tests
 
 Stage 4: smear MTF, jitter MTF, sampling, turbulence kernel.
 
@@ -132,7 +139,9 @@ Stage 4: smear MTF, jitter MTF, sampling, turbulence kernel.
 platform/
 ├── stage.py
 ├── _schema.py
+├── errors.py
 ├── smear.py
+├── relative_motion_smear.py  # smear extent from the relative LOS angular rate (Gap 111)
 ├── jitter.py
 ├── sampling.py
 └── turbulence_kernel.py    # spatial kernel that pairs with atmosphere turbulence MTF
@@ -187,7 +196,7 @@ readout/
 
 Stage 8: SNR, NEDT, NEDL, NEDR, NIIRS, GIQE, IIRS, MTF system + budget, detection range, GSD, swath, access, dynamic range, saturation. Each metric is its own module (Rule 19 — one computation, one module).
 
-Notable modules: `stage.py`, `registry.py`, `system_mtf.py`, `mtf_budget.py`, `folded_mtf.py`, `qsample.py`, `consistency_check.py` (PSF/MTF dual-path agreement), `snr.py`, `nedt.py`, `nedl.py`, `nedr.py`, `niirs.py`, `giqe.py`, `iirs.py`, `gsd.py`, `ground_range.py`, `swath_width.py`, `access_rate.py`, `detection.py`, `detection_generic.py`, `detection_beer_lambert.py`, `dynamic_range.py`, `saturation_metrics.py`, `well_margin.py`, `adc_margin.py`, `contrast_snr.py`, `strehl.py` (wraps the optics Strehl into a metric), `turbulence_mtf_term.py`.
+Notable modules: `stage.py`, `registry.py`, `system_mtf.py`, `mtf_budget.py`, `folded_mtf.py`, `qsample.py`, `consistency_check.py` (PSF/MTF dual-path agreement), `snr.py`, `nedt.py`, `nedl.py`, `nedr.py`, `niirs.py`, `giqe.py`, `iirs.py`, `gsd.py`, `ground_range.py`, `swath_width.py`, `access_rate.py`, `target_plane_sample_distance.py` (non-ground counterpart of GSD, GF-13), `scene_relevance.py` (the one declarative scene-class → metric-relevance map, guardrail G3), `detection.py`, `detection_generic.py`, `detection_beer_lambert.py`, `detection_path_aware.py` (up/level topologies, GF-15), `path_optical_depth.py` (piecewise τ(R) along the LOS), `dynamic_range.py`, `saturation_metrics.py`, `well_margin.py`, `adc_margin.py`, `contrast_snr.py`, `strehl.py` (wraps the optics Strehl into a metric), `turbulence_mtf_term.py`.
 
 ### `io/` — 3 source + 3 tests
 
@@ -435,15 +444,15 @@ source of truth, per the header.
 | Subpackage             | Source | Tests | Notes |
 |------------------------|--------|-------|-------|
 | core/                  | 22     | 19    | foundational abstractions |
-| geometry/              | 5      | 3     | scene geometry / LOS (ADR-0006) |
+| geometry/              | 7      | 5     | scene geometry / LOS (ADR-0006, ADR-0011) |
 | source/                | 43     | 33    | spec-form fan-out + shape catalog |
 | atmosphere/            | 15     | 15    | MODTRAN + simple + exo + tabulated + loaders |
 | optics/                | 31     | 22    | dual-path PSF/MTF + element model |
-| platform/              | 7      | 6     | smear, jitter, sampling, turbulence |
+| platform/              | 8      | 7     | smear, relative-motion smear, jitter, sampling, turbulence |
 | spectral_integration/  | 3      | 1     | single-stage collapse |
 | detector/              | 16     | 10    | includes `detector/noise/` subpackage |
 | readout/               | 12     | 9     | TDI, ADC, binning, coadds |
-| performance/           | 47     | 29    | one metric per module (Rule 19) |
+| performance/           | 52     | 35    | one metric per module (Rule 19) |
 | io/                    | 11     | 11    | config, results, element_config |
 | cli/                   | 12     | 2     | subcommand-per-file (incl. `radiant gui`) |
 | api/                   | 20     | 13    | public + internal session |

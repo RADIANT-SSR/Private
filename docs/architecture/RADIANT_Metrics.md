@@ -353,6 +353,29 @@ ERF comes from `EffectivePSF.erf(axis)` per RADIANT_Spatial_Complete.md. By defi
 > first-order model for atmospheric paths. The full geometry-aware
 > spherical-Earth slant-path solve (α varying along the path, τ_atm(R)
 > recomputed per range) described below is the deferred refinement.
+>
+> **Update (2026-07-27, Geometry Flexibility Phase 3, finding GF-15):** the
+> helper now dispatches on the **derived LOS direction** that `GeometryStage`
+> publishes (`stage_outputs["geometry"]["los_direction"]`) — not on the scene
+> class, which guardrail G3 forbids branching on inside `performance/`.
+> `down` (and any run without a published direction) takes the constant-α
+> solver above, unchanged and bit-identical. `up` and `level` take the
+> **path-aware** solver `performance.detection_path_aware`, whose τ(R) comes
+> from `performance.path_optical_depth` — a piecewise profile that knows where
+> the ray leaves the modelled column (`h_atm_top`) and stops accruing optical
+> depth there. Its search bound is analytic rather than a fixed ceiling: since
+> τ(R)/τ(R_ref) ≤ 1 always, the detection range can never exceed the vacuum
+> answer `R_ref·√(SNR_ref/threshold)`, which makes the bisection bracket
+> provably root-containing. Three path shapes are solvable — a **level** arm
+> (constant altitude ⇒ constant density ⇒ constant extinction is the arm
+> model's *own* assumption, so it is exact, bounded by the ADR-0011 2 km
+> tangent-sag ceiling ≈ 319 km), an **up-looking** path whose target already
+> sits at or above `h_atm_top` (vacuum tail, exact), and a **transparent**
+> path. An up-looking path whose continuation is still inside the column is
+> **refused** with a named `failure_reason` (ADR-B result-typed failure) rather
+> than answered with the constant-α model — that substitution is exactly the
+> error GF-15 reports. Migrating the down-looking arm would move every existing
+> point-source golden result and is an owner decision.
 
 **Formula:** Solve for the range R at which SNR equals the user's `performance.detection_snr_threshold`:
 ```
@@ -410,6 +433,48 @@ where `σ_temporal_dark` is the temporal noise evaluated at zero signal (dark fr
 **Typical values:** 60–80 dB for science detectors; 50–60 dB for commercial.
 
 **Failure modes:** none.
+
+### 4.15 Target-plane sample distance (non-ground counterpart of GSD)
+
+> **Implementation status (2026-07-27, Geometry Flexibility Phase 3, finding
+> GF-13):** wired in-chain as `target_plane_sample_distance_x_m` /
+> `_y_m` / `_geometric_mean_m` (module
+> `performance/target_plane_sample_distance.py`, Rule 19). Surfaced by default
+> only for a **non-ground target** — see §7a.1.
+
+**Formula:** the pixel's angular subtense projected at the slant range, in the
+plane through the target **normal to the line of sight** — GSD without the
+ground-plane `cos` projection, because an air or space target has no ground
+plane:
+```
+IFOV_x = pitch_x / f                       [rad]
+d_x    = R · IFOV_x = pitch_x · R / f      [m]
+d_y    = R · IFOV_y = pitch_y · R / f      [m]
+d_mean = √(d_x · d_y)                      [m]
+```
+
+**Required inputs:** `detector.pixel_pitch_x_um` / `_y_um` (canonical m),
+`optics.focal_length_m`, and the slant range `GeometryStage` publishes
+(`stage_outputs["geometry"]["slant_range_m"]`, ADR-0006). No incidence angle —
+that absence is precisely why the metric is defined where GSD is not.
+
+**Regimes:** all. **Unit:** m.
+
+**Typical values:** cm–m for airborne air-to-air; 10⁰–10³ m for space-to-space
+(≈ 360 m for a 10 µrad IFOV at GEO range).
+
+**Relation to GSD:** identical at `incidence = 0`; off-axis, GSD's along-track
+axis is longer by `1/cos(incidence)`. The metric deliberately carries **no**
+target-body orientation term: it answers "how far apart are adjacent pixel
+samples where the target is", which range and optics determine uniquely, not
+"how much of the target's skin does a pixel cover", which needs an attitude the
+framework does not carry (GF-5). The name *target-plane* rather than
+*target-surface* keeps that distinction visible.
+
+**Failure modes:** any non-positive or non-finite pitch, focal length, or slant
+range raises `PerformanceValidationError` (Rule 16). The chain helper skips
+silently when the geometry stage published no slant range or the optics /
+detector parameters are unset.
 
 ---
 
@@ -505,7 +570,7 @@ The analyst chooses *which* metric families the chain computes and surfaces via 
 | `performance.metrics.radiometric` | Radiometric | `snr`, `contrast_snr`, `scnr`, `detection_range_m`, `nedt_K` |
 | `performance.metrics.spatial_mtf` | Spatial / MTF | `fwhm_x_m`, `fwhm_y_m`, `rer`, `ee_1x1`, `ee_3x3`, `mtf_at_nyquist`, `strehl`, `strehl_marechal`, `mtf_system_at_nyquist_x/_y`, `mtf_folded_at_nyquist`, `alias_fraction_at_nyquist` |
 | `performance.metrics.interpretability` | Interpretability | `niirs`, `niirs_extrapolated`, `mrt_at_nyquist_K` |
-| `performance.metrics.sampling` | Sampling / geometry | `gsd_cross_track_m`, `gsd_along_track_m`, `gsd_geometric_mean_m`, `ground_range_m`, `swath_width_m`, `access_rate_m2_s`, `q_center`, `q_min`, `q_max`, `sampling_regime_code`, `diffraction_limit_angular_urad`, `diffraction_limit_ground_m`, `max_integration_time_s` |
+| `performance.metrics.sampling` | Sampling / geometry | `gsd_cross_track_m`, `gsd_along_track_m`, `gsd_geometric_mean_m`, `target_plane_sample_distance_x_m`, `target_plane_sample_distance_y_m`, `target_plane_sample_distance_geometric_mean_m`, `ground_range_m`, `swath_width_m`, `access_rate_m2_s`, `q_center`, `q_min`, `q_max`, `sampling_regime_code`, `diffraction_limit_angular_urad`, `diffraction_limit_ground_m`, `max_integration_time_s` |
 | `performance.metrics.saturation` | Saturation | `well_margin_dB`, `adc_margin_dB`, `dynamic_range_dB` |
 
 **Surfaced vs. compute (the dependency-closure rule).** Metrics are not independent — `niirs` needs `snr` + `rer` + `gsd_*`; `mrt_at_nyquist_K` needs `nedt_K` + `mtf_at_nyquist`; `nedt_K`/`scnr`/`detection_range_m` need `snr`. The **effective compute set is the transitive closure of the enabled (surfaced) set over the inter-metric dependency graph**, and a metric is *surfaced* (emitted in `result.metrics` and shown in the GUI) iff its group is enabled. So enabling only Interpretability auto-computes `snr`/`rer`/`gsd_*` (needed for NIIRS) but does **not** surface them; disabling Interpretability stops the NIIRS compute (and any of its warnings) entirely.
@@ -513,6 +578,23 @@ The analyst chooses *which* metric families the chain computes and surfaces via 
 The dependency graph is **not** re-declared for this feature — it is derived from each `MetricSpec.requires_metrics` (§6, the single source of metric metadata). Only the group→metric partition is declared, in `radiant/performance/metric_selection.py` (`METRIC_GROUPS`, `GROUP_PARAMS`, `resolve_selection`), and `test_metric_selection.py` asserts it partitions `METRIC_SPECS` exactly. The view layers reach it through `radiant.api.metric_groups` (import-linter forbids `gui` → `performance`).
 
 Default selection is **all groups on**, so the change is additive and alters no golden result. It is an analyst override: the engine-side applicability defaults that make a valid scenario clean *before* the user touches anything are CU-166.
+
+### 7a.1 Scene-class relevance defaults (Geometry Flexibility Phase 3, guardrail G3)
+
+The group flags are an *analyst* choice. Layered underneath them is an **engine-side default**: a declarative map from the derived scene class to the metrics whose default relevance is off, in `radiant/performance/scene_relevance.py`. Guardrail G3 of the Geometry Flexibility plan makes its shape binding — **one map, consulted once** by `PerformanceStage.run`; per-metric `if scene_class == ...` branches inside `performance/` modules are review-blocking. Physics never consults it (ADR-0011 decision 8): the class drives defaults, metric relevance, validation, and GUI composition only.
+
+The discriminator is the **target** altitude band, not the observer's: GSD, ground range, swath width, access rate, `diffraction_limit_ground_m`, `max_integration_time_s`, and NIIRS/GIQE are all defined by projecting the sample footprint onto the *target's* ground plane through `incidence_angle_rad ∈ [0, π/2)`, which an air or space target does not have whichever band the observer occupies.
+
+| Target band | Metrics off by default |
+|---|---|
+| `ground` (`*_to_ground`) | `target_plane_sample_distance_x_m`, `..._y_m`, `..._geometric_mean_m` |
+| `air`, `space` (`*_to_air`, `*_to_space`) | `gsd_cross_track_m`, `gsd_along_track_m`, `gsd_geometric_mean_m`, `ground_range_m`, `swath_width_m`, `access_rate_m2_s`, `diffraction_limit_ground_m`, `max_integration_time_s`, `niirs`, `niirs_extrapolated` |
+
+Every other metric — radiometric, spatial/MTF, saturation, the sampling parameter Q, the sampling-regime code, and the *angular* diffraction limit — is band-independent and stays on for all nine classes.
+
+**Override semantics are unchanged.** The map conditions a group only while that group's `performance.metrics.*` flag still carries `Provenance.DEFAULT`; a flag the analyst set explicitly wins outright, including into an actionable refusal (opting `sampling` back on for an up-looking scene surfaces GSD's `incidence_angle_rad ∈ [0, π/2)` rejection, as it always did). Suppression applies to *surfacing* only: a suppressed metric that a surfaced metric depends on is still computed, exactly like any other hidden prerequisite.
+
+**Zero drift.** For every `*_to_ground` class the off-set contains only the target-plane metrics this phase introduced — keys that did not exist before — so a ground-target scene's default selection is bit-identical to the pre-Phase-3 one. A run with no published scene class (a partial fixture without `GeometryStage`) falls back to the ground rule.
 
 ---
 

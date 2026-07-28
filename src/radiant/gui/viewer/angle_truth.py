@@ -19,7 +19,18 @@ those two unit vectors reproduces the stage angles by construction:
   off_nadir          η        ``eta_rad``                         ``compute_angles(...).theta_v``
   sun_zenith         θ_s      ``theta_s_rad``                     ``compute_angles(...).theta_s``
   relative_azimuth   Δφ       ``delta_phi_rad``                   ``compute_angles(...).delta_phi``
+  path_zenith        θ_o      ``theta_o_rad``                     zenith of the θ_o arc ray
+  lower_zenith       ζ_low    ``theta_o_rad`` / ``eta_rad``       zenith of the ζ_low arc ray
   =================  =======  ==================================  ==============================
+
+The last two are the ADR-0011 generalized-geometry arcs. Their rays are built with the
+same :func:`~radiant.gui.viewer.projection.dir_from_az_zen` the schematic uses, and the
+recomputation reads the zenith angle back off that ray, so a scene-side change that stops
+drawing the arc at the stage angle fails the check. ζ_low has no key of its own: it is the
+path zenith at the segment's *lower* endpoint, which is ``theta_o_rad`` for a down or level
+scene and ``π − eta_rad`` for an up-looking one — the direction-keyed transform defined once
+in :func:`radiant.gui.viewer.angle_catalog.lower_zenith_rad` and applied to the stage
+outputs by :func:`stage_angle_rad`.
 
 The phase-angle arc (α_t) is **excluded** — it is not a stage output, so there is nothing
 to check it against (it renders symbol-only per §6.3).
@@ -37,8 +48,12 @@ Pure numpy/stdlib; no Qt, no physics stage — reads a :class:`ViewerState` only
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Final
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, Final
 
+import numpy as np
+
+from radiant.gui.viewer import angle_catalog
 from radiant.gui.viewer.projection import compute_angles, dir_from_az_zen
 
 if TYPE_CHECKING:
@@ -48,11 +63,45 @@ if TYPE_CHECKING:
 ANGLE_CONSISTENCY_ABS_TOL_RAD: Final[float] = 1e-9
 
 # Annotation name → the ``stage_outputs["geometry"]`` key it must agree with.
+# ``lower_zenith`` records its down/level source here; :func:`stage_angle_rad` applies the
+# ADR-0011 direction-keyed transform that swaps it to ``eta_rad`` for an up-looking scene.
 ANGLE_TRUTH_KEYS: Final[dict[str, str]] = {
     "off_nadir": "eta_rad",
     "sun_zenith": "theta_s_rad",
     "relative_azimuth": "delta_phi_rad",
+    "path_zenith": "theta_o_rad",
+    "lower_zenith": "theta_o_rad",
 }
+
+
+def stage_angle_rad(geometry: Mapping[str, Any], name: str) -> float:
+    """The stage-truth value (radians) the named annotation must agree with.
+
+    *geometry* is ``stage_outputs["geometry"]``. Every annotation but ``lower_zenith``
+    reads one key verbatim; ζ_low is the lower endpoint's path zenith, so it goes through
+    :func:`radiant.gui.viewer.angle_catalog.lower_zenith_rad` keyed by the stage-published
+    ``los_direction`` (θ_o for down/level, ``π − η`` for up). Raises ``KeyError`` for an
+    unknown *name* or a missing stage key — a programming error, never a silent default.
+    """
+    if name == "lower_zenith":
+        return angle_catalog.lower_zenith_rad(
+            float(geometry["theta_o_rad"]),
+            float(geometry["eta_rad"]),
+            str(geometry.get("los_direction", angle_catalog.LOS_DOWN)),
+        )
+    return float(geometry[ANGLE_TRUTH_KEYS[name]])
+
+
+def _ray_zenith_rad(zenith_rad: float, azimuth_deg: float = 0.0) -> float:
+    """Zenith angle read back off a ray the scene math builds at *zenith_rad*.
+
+    Round-trips the angle through :func:`~radiant.gui.viewer.projection.dir_from_az_zen`
+    and ``acos`` exactly as the schematic's arc placement does, so the check exercises the
+    scene construction rather than restating the input. The azimuth places the ray in the
+    scene and does not affect the zenith angle recovered here.
+    """
+    ray = dir_from_az_zen(azimuth_deg, math.degrees(zenith_rad))
+    return float(math.acos(float(np.clip(ray[2], -1.0, 1.0))))
 
 
 def recompute_angle_rad(state: ViewerState, name: str) -> float:
@@ -75,6 +124,14 @@ def recompute_angle_rad(state: ViewerState, name: str) -> float:
         return angles.theta_s_rad
     if name == "relative_azimuth":
         return angles.delta_phi_rad
+    if name == "path_zenith":
+        return _ray_zenith_rad(state.theta_o_rad)
+    if name == "lower_zenith":
+        return _ray_zenith_rad(
+            angle_catalog.lower_zenith_rad(
+                state.theta_o_rad, state.observer_look_angle_rad, state.los_direction
+            )
+        )
     raise KeyError(f"angle_truth: no viewer-local recomputation for {name!r}")
 
 
@@ -82,4 +139,5 @@ __all__ = [
     "ANGLE_CONSISTENCY_ABS_TOL_RAD",
     "ANGLE_TRUTH_KEYS",
     "recompute_angle_rad",
+    "stage_angle_rad",
 ]

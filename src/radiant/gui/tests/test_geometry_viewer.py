@@ -93,6 +93,62 @@ class TestViewerStateMapping:
         assert vs.relative_azimuth_rad == 0.0
 
 
+class TestGeneralizedGeometryMapping:
+    """ADR-0011: the generalized-geometry fields bind verbatim, with down-looking defaults.
+
+    ``theta_o_rad`` / ``los_direction`` / ``scene_class`` / ``observer_class`` /
+    ``target_class`` drive the schematic's *composition* — which endpoint is the lower one
+    and where the ground plane sits — so they must arrive from the stage unchanged (§6.3),
+    and a result that lacks them must still compose the pre-ADR-0011 down-looking scene.
+    """
+
+    def test_generalized_fields_map_verbatim(self, evaluated) -> None:  # type: ignore[no-untyped-def]
+        sensor, result = evaluated
+        geo = result.stage_outputs["geometry"]
+        vs = ViewerState.from_chain_result(result, sensor)
+
+        assert vs.theta_o_rad == geo["theta_o_rad"]
+        assert vs.los_direction == geo["los_direction"]
+        assert vs.scene_class == geo["scene_class"]
+        assert vs.observer_class == geo["observer_class"]
+        assert vs.target_class == geo["target_class"]
+
+    def test_example_is_a_down_looking_air_to_ground_scene(self, evaluated) -> None:  # type: ignore[no-untyped-def]
+        """The v1 baseline composition — an 8 km sensor over a sea-level target."""
+        sensor, result = evaluated
+        vs = ViewerState.from_chain_result(result, sensor)
+        assert vs.los_direction == "down"
+        assert vs.scene_class == "air_to_ground"
+        assert vs.observer_class == "air"
+        assert vs.target_class == "ground"
+        # θ_o and η are read at different vertices of the same triangle, so θ_o is never
+        # the smaller of the two (they coincide only at nadir).
+        assert vs.theta_o_rad >= vs.observer_look_angle_rad
+
+    def test_partial_stage_outputs_default_to_down_looking(self, evaluated) -> None:  # type: ignore[no-untyped-def]
+        """A result without the ADR-0011 keys binds the pre-Phase-4 down-looking defaults."""
+
+        class _PartialResult:
+            """A chain result whose geometry stage published none of the new keys."""
+
+            stage_outputs: dict[str, dict[str, object]] = {"geometry": {}, "optics": {}}
+
+        sensor, _result = evaluated
+        vs = ViewerState.from_chain_result(_PartialResult(), sensor)  # type: ignore[arg-type]
+        assert vs.los_direction == "down"
+        assert vs.theta_o_rad == 0.0
+        assert vs.scene_class == ""
+        assert vs.observer_class == ""
+        assert vs.target_class == ""
+
+    def test_default_state_is_a_down_looking_baseline(self) -> None:
+        vs = ViewerState.default()
+        assert vs.los_direction == "down"
+        assert vs.scene_class == "air_to_ground"
+        assert vs.observer_class == "air"
+        assert vs.target_class == "ground"
+
+
 class TestViewerImportsNoPhysicsStage:
     """The viewer package must not import any physics stage (gui → api + core)."""
 

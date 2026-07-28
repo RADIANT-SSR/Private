@@ -19,6 +19,11 @@ rebind table:
 ``observer_altitude_m``      ``stage_outputs["geometry"]["h_sensor_m"]``
 ``observer_look_angle_rad``  ``stage_outputs["geometry"]["eta_rad"]`` (off-nadir η)
 ``target_altitude_m``        ``stage_outputs["geometry"]["h_target_m"]``
+``theta_o_rad``              ``stage_outputs["geometry"]["theta_o_rad"]`` (path zenith)
+``los_direction``            ``stage_outputs["geometry"]["los_direction"]``
+``scene_class``              ``stage_outputs["geometry"]["scene_class"]``
+``observer_class``           ``stage_outputs["geometry"]["observer_class"]``
+``target_class``             ``stage_outputs["geometry"]["target_class"]``
 ``solar_zenith_rad``         ``stage_outputs["geometry"]["theta_s_rad"]``
 ``relative_azimuth_rad``     ``stage_outputs["geometry"]["delta_phi_rad"]``
 ``regime_override``          ``stage_outputs["optics"]["regime"]`` (final, Rule 10)
@@ -55,6 +60,10 @@ if TYPE_CHECKING:
 ShapeKind = Literal["none", "sphere", "cylinder", "flat_plate", "box", "cone"]
 RegimeOverride = Literal["auto", "extended", "sub_pixel", "point_source"]
 BackgroundKind = Literal["none", "cold_space", "ground", "at_aperture"]
+
+#: LOS direction the schematic composes for when the stage publishes none (a partial or
+#: pre-ADR-0011 result): the down-looking layout that was the only one before Phase 4.
+DEFAULT_LOS_DIRECTION: str = "down"
 
 
 class ParamGetter(Protocol):
@@ -117,6 +126,26 @@ class ViewerState:
     # angle fields above then hold inert 0.0 placeholders (never drawn).
     has_sun: bool = True
 
+    # -- Generalized viewing geometry (ADR-0011), bound verbatim from the stage ----
+    # These five drive the schematic's *composition* (which endpoint is the lower one,
+    # where the ground plane sits) and the θ_o / ζ_low annotations. They default to the
+    # down-looking scene the viewer composed before ADR-0011, so a partial result — or a
+    # state built without them — renders exactly as it did then.
+    #
+    # ``theta_o_rad`` is the canonical target-side path zenith on the CLOSED domain
+    # [0, π]: acute for a down-looking scene, obtuse for an up-looking one (ADR-0011
+    # decision 2). ``los_direction`` is "down" | "up" | "level", DERIVED by the stage from
+    # the altitude pair — never a user switch and never re-derived here (decision 1).
+    # ``scene_class`` is the observer×target altitude-band label ("ground_to_air", …) and
+    # ``observer_class`` / ``target_class`` are its two halves ("ground" | "air" | "space");
+    # the schematic uses ``observer_class`` only to decide where the ground plane sits
+    # relative to the sensor glyph (decision 8: composition, never physics).
+    theta_o_rad: float = 0.0
+    los_direction: str = DEFAULT_LOS_DIRECTION
+    scene_class: str = ""
+    observer_class: str = ""
+    target_class: str = ""
+
     @classmethod
     def default(cls) -> ViewerState:
         """A neutral airborne-ish baseline used only by tests / anchor enumeration.
@@ -150,6 +179,14 @@ class ViewerState:
             relative_azimuth_rad=math.radians(12.0),
             regime_override="auto",
             background_kind="none",
+            # A neutral DOWN-looking baseline: an 8 km sensor over a sea-level target, so
+            # the path zenith θ_o and the off-nadir η agree to ~0.03° and the composition
+            # is the pre-ADR-0011 one. Tests that need another class override these.
+            theta_o_rad=math.radians(20.0),
+            los_direction="down",
+            scene_class="air_to_ground",
+            observer_class="air",
+            target_class="ground",
         )
 
     @classmethod
@@ -204,6 +241,14 @@ class ViewerState:
             regime_override=_regime_of(optics.get("regime")),
             background_kind="none",
             has_sun=theta_s is not None,
+            # Generalized viewing geometry (ADR-0011), read verbatim. A result that
+            # predates these keys (or a partial stage output) falls back to the
+            # down-looking composition — the viewer's behaviour before Phase 4.
+            theta_o_rad=float(geometry.get("theta_o_rad") or 0.0),
+            los_direction=str(geometry.get("los_direction") or DEFAULT_LOS_DIRECTION),
+            scene_class=str(geometry.get("scene_class") or ""),
+            observer_class=str(geometry.get("observer_class") or ""),
+            target_class=str(geometry.get("target_class") or ""),
         )
 
 
@@ -233,4 +278,11 @@ def _regime_of(value: object) -> RegimeOverride:
     return text if text in known else "auto"  # type: ignore[return-value]
 
 
-__all__ = ["ViewerState", "ShapeKind", "RegimeOverride", "BackgroundKind", "ParamGetter"]
+__all__ = [
+    "ViewerState",
+    "ShapeKind",
+    "RegimeOverride",
+    "BackgroundKind",
+    "ParamGetter",
+    "DEFAULT_LOS_DIRECTION",
+]

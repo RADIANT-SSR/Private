@@ -29,6 +29,15 @@ its ZYX Euler orientation, and the schema-driven per-shape dimension inputs (CU-
 in the side panel). The angle-truth consistency test (:mod:`radiant.gui.viewer.angle_truth`)
 proves the scene angle recomputation agrees with the stage within an explicit tolerance.
 
+**Generalized viewing geometry (ADR-0011) adds the composition split:** the scene is laid
+out by the stage-derived ``los_direction`` — the original down-looking layout, an
+**up-looking** one in which the SENSOR is the path's lower endpoint (the ground plane sitting
+at the sensor for a ground observer, below both endpoints for an airborne/space one), and a
+**level** one with both endpoints lifted to a single abstract height. The two new
+stage-backed arcs (path zenith θ_o, lower-endpoint zenith ζ_low) and the level-arm tangent-sag
+Δh pill come with it. Composition reads ``los_direction`` / ``observer_class`` only —
+scene-class conditioning is data, never physics (ADR-0011 decision 8).
+
 **Not-to-scale (owner-endorsed, binding — ADR-0007 §4 / arch doc §6.1):** glyphs sit at
 *fixed abstract* display distances; the schematic is **never** rescaled or translated by
 the raw metric altitude/range. A 600 km slant range and a 1 m target cannot share a
@@ -62,6 +71,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
+from radiant.core.viewing_triangle import classify_horizon_topology
 from radiant.gui.themes.tokens import LIGHT, Theme
 from radiant.gui.viewer import angle_catalog
 from radiant.gui.viewer.angle_overlay import AngleToggleOverlay
@@ -97,6 +107,12 @@ _ZENITH_LEN: float = 2.6  # +Z zenith axis length
 _TARGET_AIRBORNE_Z: float = 0.9  # abstract lift for an airborne target (on/off ground cue)
 _GRID_N: int = 8
 _GRID_STEP: float = 0.8
+# Abstract height of an endpoint that is OFF the ground in a generalized (up-looking /
+# level) composition — the same lift the airborne-target cue uses, so "this endpoint is not
+# on the surface" reads identically wherever it appears. NEVER derived from metric altitude.
+_ELEVATED_ENDPOINT_Z: float = _TARGET_AIRBORNE_Z
+# Abstract height of an endpoint that IS on the ground (a ground observer looking up).
+_GROUND_ENDPOINT_Z: float = 0.0
 
 # -- Target wireframe abstract proportions (scene units; NEVER metric magnitude) -
 # The full shape library (CU-131) draws each primitive at an *abstract* size that
@@ -138,6 +154,7 @@ _STAGE_VALUE_FIELDS: dict[str, str] = {
     "eta_rad": "observer_look_angle_rad",
     "theta_s_rad": "solar_zenith_rad",
     "delta_phi_rad": "relative_azimuth_rad",
+    "theta_o_rad": "theta_o_rad",
 }
 
 # RPY body-axis name → (glyph, palette colour) for the on-target triad (CU-130).
@@ -180,6 +197,35 @@ def _area_label(
     return label
 
 
+def _level_sag_label(theta_o_rad: float, h_endpoint_m: float, los_direction: str) -> str | None:
+    """Leader-label text for a LEVEL arm's tangent sag Δh, or None when not applicable.
+
+    A level arm (both endpoints at the same altitude) does not stay at that altitude: on a
+    spherical Earth the straight LOS dips to a tangent point *below* both endpoints, by
+    ``Δh = (R_E + h)(1 − sin ζ_low)``. That depression is what the ADR-0011 horizon guard
+    classifies a level path on, and it is invisible in a not-to-scale schematic (a 240 m sag
+    over a 110 km arm), so it is annotated as text — the §6.1 idiom the h_s / h_t pills use.
+
+    The value is **not** recomputed here: it comes from the core horizon-guard classifier
+    (:func:`radiant.core.viewing_triangle.classify_horizon_topology`), fed the stage's θ_o
+    and the shared endpoint altitude, so the schematic and the guard can never disagree
+    about the same path.
+
+    Returns ``None`` — the pill is hidden — for any scene that is not a level arm. Domain:
+    a level arm's path zenith is ``≥ π/2`` at both endpoints by construction (equal radii
+    put each endpoint on or below the other's horizon plane), so a "level" state carrying
+    ``θ_o < π/2`` is not a level arm and has no sag to report.
+    """
+    if los_direction != angle_catalog.LOS_LEVEL:
+        return None
+    if not (math.pi / 2.0 <= theta_o_rad <= math.pi) or h_endpoint_m < 0.0:
+        return None
+    result = classify_horizon_topology(theta_o_rad, h_endpoint_m, h_endpoint_m)
+    if result.dh_m is None:
+        return None
+    return f"{angle_catalog.LEVEL_SAG_SYMBOL}  {_format_km(result.dh_m / 1000.0)}"
+
+
 # -- Line weights (px), mirroring the mockup stroke conventions -----------------
 _W_GRID: float = 0.6
 _W_AXIS: float = 1.0
@@ -192,6 +238,10 @@ _W_TRIAD: float = 1.8  # RPY body-axis stroke
 _ARROW_LEN_PX: float = 10.0  # arrowhead length in pixels
 _ARC_RADIUS: float = 1.0  # zenith/phase arc radius (scene units)
 _GROUND_ARC_RADIUS: float = 1.4  # relative-azimuth ground arc radius
+# The two ADR-0011 arcs share the zenith ray with the existing ones, so each gets its own
+# radius (scene units, multiples of _ARC_RADIUS) and they read as concentric, not overlaid.
+_PATH_ZENITH_ARC_SCALE: float = 1.45
+_LOWER_ZENITH_ARC_SCALE: float = 0.7
 _TRIAD_LEN: float = 0.85  # RPY body-axis length (scene units)
 _LABEL_FONT_PX: float = 10.0  # value/leader pill font size
 
@@ -228,6 +278,13 @@ class SchematicScene:
     for the on-target triad; ``target_center`` is the body's rotation pivot (also the triad
     origin). ``altitude_km`` / ``target_altitude_km`` are the leader-label magnitudes read
     verbatim from the stage-bound state (§6.1 not-to-scale annotation).
+
+    ``eta_dir`` / ``theta_o_dir`` / ``zeta_low_dir`` are the **arc rays** — one per
+    stage-backed zenith annotation, each built at its own stage angle. They are separate
+    from ``sensor_dir`` (which only places the sensor glyph) because η, θ_o, and ζ_low are
+    read at *different vertices* of the same viewing triangle and differ by the Earth-centre
+    central angle; the schematic's single shared zenith cannot merge them without
+    misreporting one (§6.3 — the stage owns every displayed angle).
     """
 
     sun_dir: np.ndarray
@@ -245,6 +302,9 @@ class SchematicScene:
     is_point: bool
     altitude_km: float
     target_altitude_km: float
+    eta_dir: np.ndarray  # off-nadir η arc ray (identical to sensor_dir when down-looking)
+    theta_o_dir: np.ndarray  # path-zenith θ_o arc ray, at the target
+    zeta_low_dir: np.ndarray  # lower-endpoint ζ_low arc ray, at whichever endpoint is lower
     # Projected-area leader label (CU-168): "A_t  240 m²  ·  1.5 px" when a target
     # area is defined (via projected_area_m2 or a shape), else None (pill hidden). The
     # px multiple is the angular extent over the detector IFOV — the sub-pixel vs
@@ -254,6 +314,19 @@ class SchematicScene:
     # lines, and every sun-derived arc (θ_s, Δφ, phase) are omitted; sun_dir/sun_pos
     # then hold inert placeholder directions that are never drawn.
     has_sun: bool = True
+    # -- Generalized viewing geometry (ADR-0011) ---------------------------------
+    # Which composition built this scene: "down" (the pre-ADR-0011 layout, unchanged),
+    # "up" (sensor is the lower endpoint, LOS ascending), or "level" (both endpoints at one
+    # abstract height). Read verbatim from the stage via ``ViewerState.los_direction``.
+    los_direction: str = "down"
+    # Whether the h_t altitude pill is drawn. Down-looking keeps the original rule (only an
+    # elevated target has an altitude worth annotating); an up/level composition draws the
+    # target as a distinct endpoint, so its magnitude is always annotated — including the
+    # 0 m of a surface-level arm, which is information, not noise.
+    show_target_altitude: bool = False
+    # Level arms only: the tangent-sag leader pill "Δh  243 m" (None ⇒ hidden). See
+    # :func:`_level_sag_label`.
+    level_sag_label: str | None = None
 
 
 def _origin() -> np.ndarray:
@@ -431,15 +504,49 @@ def _rotate_edges(
     return [(rot(a), rot(b)) for a, b in edges]
 
 
+def _lower_endpoint_z(state: ViewerState) -> float:
+    """Abstract height of the path's LOWER endpoint for an up-looking / level composition.
+
+    The scene class places the ground plane (ADR-0011 decision 8 — composition, never
+    physics): a **ground** observer looking up sits *on* the ground plane, an **air** or
+    **space** observer is lifted to the fixed abstract off-ground height so the schematic
+    reads "both endpoints are above the surface". A level arm always lifts both endpoints,
+    so its horizontal LOS is legible against the ground grid rather than lying in it.
+
+    Fixed abstract scene units throughout — the metric altitudes appear only in the
+    h_s / h_t leader pills (not-to-scale rule, §6.1).
+    """
+    if state.los_direction == angle_catalog.LOS_LEVEL:
+        return _ELEVATED_ENDPOINT_Z
+    if state.observer_class == "ground":
+        return _GROUND_ENDPOINT_Z
+    return _ELEVATED_ENDPOINT_Z
+
+
 def build_scene(state: ViewerState) -> SchematicScene:
     """Build the abstract world-space :class:`SchematicScene` from a bound *state*.
 
     Directions come from the stage-derived angles (``solar_zenith_rad``,
-    ``relative_azimuth_rad``, ``observer_look_angle_rad``); the sensor is placed at
-    azimuth 0 and the sun at the relative azimuth, so the *relative* geometry (the
+    ``relative_azimuth_rad``, ``observer_look_angle_rad``, ``theta_o_rad``); the sensor is
+    placed at azimuth 0 and the sun at the relative azimuth, so the *relative* geometry (the
     radiometrically-relevant quantity) is faithful. Distances are the fixed abstract radii
     above — **never** the raw metric altitude/range (not-to-scale rule). The target body is
     drawn from the full shape library (CU-131) and rotated by its RPY (CU-130).
+
+    **Composition is keyed by the stage-derived ``los_direction``** (ADR-0011 decision 1 —
+    derived from the altitude pair, never a user switch):
+
+    * ``"down"`` — the original layout, unchanged bit-for-bit: the target sits at the scene
+      origin (lifted to ``_TARGET_AIRBORNE_Z`` when airborne) and the sensor is placed from
+      the origin along the off-nadir ray at ``_SENSOR_DIST``.
+    * ``"up"`` — the SENSOR is the path's lower endpoint. It is anchored at the height
+      :func:`_lower_endpoint_z` gives for the scene class (on the ground plane for a ground
+      observer, lifted otherwise) and the target is carried *above* it along the θ_o ray, so
+      the SENSOR→TARGET vector ascends.
+    * ``"level"`` — the same construction with both endpoints anchored at the one fixed
+      off-ground height, which (θ_o being within a couple of degrees of π/2 for any arm the
+      horizon guard admits) draws the LOS horizontal. The true tangent sag of the arm is
+      annotated as the Δh leader pill instead of being drawn.
     """
     sun_az = math.degrees(state.relative_azimuth_rad)
     sun_zen = math.degrees(state.solar_zenith_rad)
@@ -448,12 +555,38 @@ def build_scene(state: ViewerState) -> SchematicScene:
     # populated (the dataclass contract) but nothing sun-derived is drawn.
 
     sun_dir = dir_from_az_zen(sun_az, sun_zen)
-    sensor_dir = dir_from_az_zen(0.0, sen_zen)
-    sun_pos = sun_dir * _SUN_DIST
-    sensor_pos = sensor_dir * _SENSOR_DIST
+    # One ray per stage-backed zenith annotation, each at its own stage angle (§6.3). For a
+    # down-looking scene ``eta_dir`` IS the sensor placement ray, so that layout is
+    # untouched; θ_o and ζ_low get their own rays because they are read at other vertices.
+    eta_dir = dir_from_az_zen(0.0, sen_zen)
+    theta_o_dir = dir_from_az_zen(0.0, math.degrees(state.theta_o_rad))
+    zeta_low_rad = angle_catalog.lower_zenith_rad(
+        state.theta_o_rad, state.observer_look_angle_rad, state.los_direction
+    )
 
     airborne = state.target_altitude_m > 0.0
-    target_z = _TARGET_AIRBORNE_Z if airborne else 0.0
+    ascending = state.los_direction in (angle_catalog.LOS_UP, angle_catalog.LOS_LEVEL)
+
+    if ascending:
+        # The sensor is the lower endpoint: anchor it, then carry the target up the θ_o ray.
+        # target→sensor is the θ_o direction (obtuse θ_o ⇒ its z is ≤ 0), so placing the
+        # sensor at ``target + θ_o_dir · _SENSOR_DIST`` puts the target above the sensor by
+        # ``−_SENSOR_DIST·cos θ_o`` and the SENSOR→TARGET vector ascends.
+        sensor_dir = theta_o_dir
+        target_z = _lower_endpoint_z(state) - _SENSOR_DIST * math.cos(state.theta_o_rad)
+        target_anchor = np.array([0.0, 0.0, target_z], dtype=np.float64)
+        sensor_pos = target_anchor + sensor_dir * _SENSOR_DIST
+        sun_pos = target_anchor + sun_dir * _SUN_DIST
+        # ζ_low is read at the sensor, where the ray runs back toward the target — the
+        # opposite scene azimuth from the target-anchored arcs.
+        zeta_low_dir = dir_from_az_zen(180.0, math.degrees(zeta_low_rad))
+    else:
+        sensor_dir = eta_dir
+        sensor_pos = sensor_dir * _SENSOR_DIST
+        sun_pos = sun_dir * _SUN_DIST
+        target_z = _TARGET_AIRBORNE_Z if airborne else 0.0
+        # Down-looking: the target IS the lower endpoint, so ζ_low is θ_o at the target.
+        zeta_low_dir = dir_from_az_zen(0.0, math.degrees(zeta_low_rad))
 
     shape = state.target_shape
     is_point = shape not in _SHAPE_DIMS
@@ -498,6 +631,9 @@ def build_scene(state: ViewerState) -> SchematicScene:
         is_point=is_point,
         altitude_km=state.observer_altitude_m / 1000.0,
         target_altitude_km=state.target_altitude_m / 1000.0,
+        eta_dir=eta_dir,
+        theta_o_dir=theta_o_dir,
+        zeta_low_dir=zeta_low_dir,
         target_area_label=_area_label(
             state.projected_area_m2,
             state.angular_extent_rad,
@@ -505,6 +641,11 @@ def build_scene(state: ViewerState) -> SchematicScene:
             state.focal_length_m,
         ),
         has_sun=state.has_sun,
+        los_direction=state.los_direction,
+        show_target_altitude=airborne or ascending,
+        level_sag_label=_level_sag_label(
+            state.theta_o_rad, state.observer_altitude_m, state.los_direction
+        ),
     )
 
 
@@ -879,6 +1020,16 @@ class SchematicView(QWidget):
         A ``None`` stage_key (the phase angle) renders **symbol-only** — there is no
         stage-output phase angle, so §6.3 forbids fabricating a number.
         """
+        if ann.name == "lower_zenith" and self._state is not None:
+            # ζ_low has no single stage key: it is the lower endpoint's path zenith, so the
+            # value comes from the stage through the documented direction-keyed transform
+            # (θ_o for down/level, π − η for up) — still stage truth, never scene math.
+            zeta = angle_catalog.lower_zenith_rad(
+                self._state.theta_o_rad,
+                self._state.observer_look_angle_rad,
+                self._state.los_direction,
+            )
+            return f"{ann.symbol} {math.degrees(zeta):.1f}°"
         if ann.stage_key is None or self._state is None:
             return ann.symbol
         field = _STAGE_VALUE_FIELDS.get(ann.stage_key)
@@ -887,27 +1038,60 @@ class SchematicView(QWidget):
         deg = math.degrees(float(getattr(self._state, field)))
         return f"{ann.symbol} {deg:.1f}°"
 
+    @staticmethod
+    def _arc_apex(scene: SchematicScene, name: str) -> np.ndarray:
+        """The world-space vertex an arc is drawn about.
+
+        Every arc but ζ_low is anchored at the target (the schematic's focus). ζ_low is the
+        zenith at the path's **lower** endpoint, which is the target for a down-looking
+        scene and the SENSOR for an up-looking or level one — so the arc moves to the
+        sensor glyph there, where the angle is actually subtended.
+        """
+        if name == "lower_zenith" and scene.los_direction in (
+            angle_catalog.LOS_UP,
+            angle_catalog.LOS_LEVEL,
+        ):
+            return scene.sensor_pos
+        return scene.target_top
+
     def _arc_points(self, scene: SchematicScene, name: str) -> list[np.ndarray]:
         """The world-space arc polyline for annotation *name* (empty if not drawable).
+
+        Each zenith arc is swept from the local zenith to that annotation's **own** stage
+        ray (``eta_dir`` / ``theta_o_dir`` / ``zeta_low_dir``), not to the sensor-glyph
+        placement ray: η, θ_o and ζ_low are read at different vertices of the viewing
+        triangle and differ by the Earth-centre central angle, so sharing one ray would
+        put a stage-true number on a visibly wrong arc (§6.3). For a down-looking scene
+        ``eta_dir`` is the placement ray, so that arc is unchanged.
 
         Sun-derived arcs (θ_s, Δφ, phase) are not drawable in a night scene — there is
         no sun to measure against, so they return empty rather than a fabricated angle.
         """
         zenith = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+        apex = self._arc_apex(scene, name)
         if name in ("sun_zenith", "phase_angle", "relative_azimuth") and not scene.has_sun:
             return []
         if name == "off_nadir":
+            return [p + apex for p in arc_between(zenith, scene.eta_dir, _ARC_RADIUS)]
+        if name == "path_zenith":
             return [
-                p + scene.target_top for p in arc_between(zenith, scene.sensor_dir, _ARC_RADIUS)
+                p + apex
+                for p in arc_between(
+                    zenith, scene.theta_o_dir, _ARC_RADIUS * _PATH_ZENITH_ARC_SCALE
+                )
+            ]
+        if name == "lower_zenith":
+            return [
+                p + apex
+                for p in arc_between(
+                    zenith, scene.zeta_low_dir, _ARC_RADIUS * _LOWER_ZENITH_ARC_SCALE
+                )
             ]
         if name == "sun_zenith":
-            return [
-                p + scene.target_top for p in arc_between(zenith, scene.sun_dir, _ARC_RADIUS * 1.15)
-            ]
+            return [p + apex for p in arc_between(zenith, scene.sun_dir, _ARC_RADIUS * 1.15)]
         if name == "phase_angle":
             return [
-                p + scene.target_top
-                for p in arc_between(scene.sun_dir, scene.sensor_dir, _ARC_RADIUS * 0.85)
+                p + apex for p in arc_between(scene.sun_dir, scene.sensor_dir, _ARC_RADIUS * 0.85)
             ]
         if name == "relative_azimuth" and self._state is not None:
             return ground_azimuth_arc(0.0, self._state.relative_azimuth_rad, _GROUND_ARC_RADIUS)
@@ -946,10 +1130,13 @@ class SchematicView(QWidget):
             self._text(painter, pt.x + 4, pt.y, glyph, color)
 
     def _draw_leader_labels(self, painter: QPainter, cam: Camera, scene: SchematicScene) -> None:
-        """Draw the not-to-scale altitude leader pills (h_s always; h_t when airborne) — CU-129.
+        """Draw the not-to-scale leader pills (h_s always; h_t and Δh when they apply) — CU-129.
 
         The magnitudes are read verbatim from the stage-bound state and shown in km/m; the
-        geometry is never rescaled by them (§6.1 not-to-scale rule).
+        geometry is never rescaled by them (§6.1 not-to-scale rule). ``h_t`` follows
+        :attr:`SchematicScene.show_target_altitude` — the airborne rule for a down-looking
+        scene, always for an up/level composition whose two endpoints are drawn apart. The
+        Δh pill (level arms only) carries the tangent sag the horizontal LOS cannot show.
         """
         sp = cam.project(scene.sensor_pos)
         self._label_pill(
@@ -959,7 +1146,7 @@ class SchematicView(QWidget):
             f"h_s  {_format_km(scene.altitude_km)}",
             self._theme.muted,
         )
-        if scene.airborne:
+        if scene.show_target_altitude:
             tp = cam.project(scene.target_top)
             self._label_pill(
                 painter,
@@ -976,8 +1163,19 @@ class SchematicView(QWidget):
             self._label_pill(
                 painter,
                 tc.x + 12,
-                tc.y + (38 if scene.airborne else 20),
+                tc.y + (38 if scene.show_target_altitude else 20),
                 scene.target_area_label,
+                self._theme.muted,
+            )
+        # Level-arm tangent sag (ADR-0011): pinned at the midpoint of the horizontal LOS,
+        # the one place on the drawing where the (invisible) sag actually is.
+        if scene.level_sag_label is not None:
+            mid = cam.project((scene.sensor_pos + scene.target_top) * 0.5)
+            self._label_pill(
+                painter,
+                mid.x + 8,
+                mid.y + 20,
+                scene.level_sag_label,
                 self._theme.muted,
             )
 
@@ -1033,7 +1231,7 @@ class SchematicView(QWidget):
     def _ground_vectors(
         self, scene: SchematicScene
     ) -> list[tuple[str, np.ndarray, np.ndarray, str]]:
-        """The SENSOR→GROUND + SUN→GROUND vectors for an elevated target (§6.2).
+        """The SENSOR→GROUND + SUN→GROUND vectors for an elevated DOWN-LOOKING target (§6.2).
 
         Present **only** when the target is above the ground (``target_altitude_m > 0``); both
         land at the target's ground projection (nadir footprint, ``scene.ground_point``). A
@@ -1041,8 +1239,16 @@ class SchematicView(QWidget):
         2026-07-14). Each entry is ``(legend label, start, end, palette colour)`` so the drawing
         and the legend derive from one source. Colours are the allowlisted physics palette
         (sensor = blue, sun = amber), consistent with the SENSOR→TARGET / SUN→TARGET vectors.
+
+        They are also omitted for the ADR-0011 up-looking and level compositions. The pair
+        exists to expose the *ground-frame* geometry at the target's nadir footprint — the
+        radiometrically-relevant point when a sensor looks **down** past an elevated target
+        onto the surface. Looking up (or along) the LOS never terminates on the ground, the
+        footprint below a space target is not a scene participant, and for a ground observer
+        the SENSOR→GROUND vector is degenerate; drawing them would assert a ground
+        interaction the scene does not have.
         """
-        if not scene.airborne:
+        if not scene.airborne or scene.los_direction != angle_catalog.LOS_DOWN:
             return []
         vectors = [
             ("SENSOR → GROUND", scene.sensor_pos, scene.ground_point, palette.SATELLITE_FAMILY),

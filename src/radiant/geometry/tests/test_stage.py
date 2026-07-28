@@ -44,14 +44,19 @@ class TestPublishedContract:
             "target_range_m",
             "h_sensor_m",
             "h_target_m",
+            "scene_class",
+            "observer_class",
+            "target_class",
             "theta_s_rad",
             "delta_phi_rad",
             "solar_illumination",
             "ground_speed_m_s",
             "orbital_period_s",
+            "los_angular_rate_rad_s",
             "viewing_mode",
             "solar_mode",
             "kinematics_mode",
+            "los_rate_mode",
         ):
             assert key in out, f"missing stage output: {key}"
 

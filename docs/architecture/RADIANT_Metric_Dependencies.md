@@ -344,6 +344,19 @@ R_detect
 
 New ★ over SNR: a *point-source* target (i.e., `target.input_path = DIRECT_INTENSITY` or `INTEGRATED_OBJECT_INTENSITY`). Tabulated atmosphere is forbidden — bisection over range needs a re-evaluable atmosphere.
 
+**Extinction model depends on the path topology (Geometry Flexibility Phase 3, GF-15).** The dependency set above is unchanged for a `down` path, which keeps the constant-α solver. An `up` or `level` path additionally depends on `stage_outputs["geometry"]["los_geometry"]` (both endpoint altitudes + the lower-endpoint zenith), because τ(R) is then evaluated piecewise along the actual ray by `performance/path_optical_depth.py`. That dependency is on the **derived LOS direction**, never on the scene class — guardrail G3 forbids scene-class branches inside `performance/`. An up-looking path whose continuation is still inside the modelled column yields a named `failure_reason` and no metric.
+
+### 3.12b Target-plane sample distance (non-ground counterpart of GSD)
+
+```
+target_plane_sample_distance_{x,y,geometric_mean}_m
+├── ★ detector.pixel_pitch_x_um / _y_um
+├── ★ optics.focal_length_m
+└── ★ geometry.slant_range_m   (published by GeometryStage, ADR-0006)
+```
+
+Deliberately **no** incidence-angle dependency — that absence is why the metric is defined for air and space targets, where `incidence_angle_rad ∉ [0, π/2)` and the GSD family is not. Default relevance is scene-class-conditioned by the one declarative map in `performance/scene_relevance.py` (RADIANT_Metrics.md §7a.1): on for a non-ground target, off for a ground target where GSD is the right answer.
+
 ### 3.13 Saturation margins (well, ADC)
 
 ```
@@ -393,7 +406,8 @@ The minimum-set table — what the user *must* set to compute each metric, assum
 | EE | RER set + `metric.ee.n` (defaulted to {1,3,5}) |
 | Strehl (`strehl`) | RER set (needs both `effective_psf` and `reference_psf` stage outputs) |
 | Marechal Strehl (`strehl_marechal`) | `optics.wfe_rms_waves` + reference wavelength (needs the `wavefront_error` stage output) |
-| Detection range | SNR set + point-source target + non-tabulated atmosphere |
+| Detection range | SNR set + point-source target + non-tabulated atmosphere (+ `los_geometry` for an up/level path) |
+| Target-plane sample distance | aperture-independent: pitch + focal length + `geometry.slant_range_m` |
 | Saturation margin (well/ADC) | SNR set + `detector.full_well_capacity_e` + `detector.gain_e_per_dn` + `detector.adc_bits` |
 | Dynamic range | `detector.full_well_capacity_e` + `detector.read_noise_e_rms` |
 

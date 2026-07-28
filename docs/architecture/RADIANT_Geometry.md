@@ -63,6 +63,26 @@ direction (`down` / `up` / `level`, published as `los_direction`).
 
 `geometry.solar_azimuth_rad` supplies Δφ in every lit mode (wrapped to [−π, π]).
 
+### LOS-rate family (resolves to ω, the line-of-sight angular rate)
+
+Target kinematics (Gap 111) ship **both doors, provenance-resolved** (ADR-0011
+decision 10):
+
+| Mode | Entry parameters | Derivation |
+|------|------------------|------------|
+| K0 platform-only (default) | *(none)* | ω = ground-track speed / slant range — the value `platform/smear.py` already derives. `None` when the endpoints are coincident (no LOS to rotate) |
+| K1 direct rate | `geometry.los_angular_rate_rad_s` | taken as given; needs no geometry, so it is the door that still works for a coincident-endpoint scene |
+| K2 target velocity | `geometry.target_speed_m_s`, `geometry.target_heading_rad`, `geometry.target_climb_rad` | ω = \|v_rel,⊥\| / R with v_rel = v_target − v_sensor (`geometry/los_rate.py`) |
+
+Heading is measured in the target's local horizontal plane **from the
+observer's ground azimuth** — the same zero and sense `delta_phi` uses
+(Δφ = φ_s − φ_o with φ_o ≡ 0) — and climb is the velocity's elevation above
+that plane. The platform's ground track is modelled as **cross-track** to the
+LOS azimuth plane (the push-broom convention `platform/smear.py` already
+assumes, RADIANT having no track-azimuth input), which is what makes the K0
+limit reduce *exactly* to the smear arm's rate at every θ_o rather than only at
+nadir. Both doors set must agree within 1 % (rule 2 below) or the stage raises.
+
 ### Mode-resolution rules (normative; enforced in `geometry/modes.py`)
 
 1. **Detection is by provenance.** A parameter left at DEFAULT provenance was
@@ -72,8 +92,8 @@ direction (`down` / `up` / `level`, published as `los_direction`).
    floor) or the stage raises `GeometrySpecificationError` naming every
    entry and its implied value.
 3. **Every derived value is published with its mode label**
-   (`viewing_mode` / `solar_mode` / `kinematics_mode`) so `result.inspect()`
-   shows how each number was produced.
+   (`viewing_mode` / `solar_mode` / `kinematics_mode` / `los_rate_mode`) so
+   `result.inspect()` shows how each number was produced.
 4. **No entries at all → documented defaults** (nadir view; 0.5 rad solar
    zenith in day mode) — never a silent NaN (Rule 16).
 5. `geometry.ltan_h` and `geometry.local_solar_time_h` are mutually
@@ -85,7 +105,8 @@ direction (`down` / `up` / `level`, published as `los_direction`).
 
 The family → mode → parameter structure above is also stated as **data** in
 `geometry/mode_manifest.py` (`MODE_FAMILIES`: family key, anchor params, ordered
-modes with their entry dot-paths, default door) together with
+modes with their entry dot-paths, default door — viewing, solar, kinematics,
+and the LOS-rate family) together with
 `active_mode_key(family, is_provided, get_value)` — the provenance-based
 detection a view layer uses to show which door a config currently sits in.
 View layers consume it through the public bridge `radiant.api.geometry_modes`
@@ -109,11 +130,14 @@ cannot drift silently.
 | `incidence_angle_rad` | float \| None | LOS vs target local vertical (≡ θ_o on a spherical Earth); `None` alongside the ranges in the coincident-endpoint case |
 | `target_range_m` | float \| None | user-declared slant range (V0); None if unset |
 | `h_sensor_m`, `h_target_m` | float | anchor altitudes |
+| `scene_class` | str | derived observer×target band label, e.g. `ground_to_air` (§3.1) |
+| `observer_class`, `target_class` | str | the two pieces: `ground` / `air` / `space` |
+| `los_angular_rate_rad_s` | float \| None | relative LOS angular rate [rad/s] (Gap 111); `None` only for coincident endpoints |
 | `theta_s_rad`, `delta_phi_rad` | float \| None | solar geometry (None at night) |
 | `solar_illumination` | str | `day` / `night` |
 | `ground_speed_m_s` | float | direct or orbit-derived |
 | `orbital_period_s` | float \| None | circular-orbit mode only |
-| `viewing_mode`, `solar_mode`, `kinematics_mode` | str | which input mode resolved each family |
+| `viewing_mode`, `solar_mode`, `kinematics_mode`, `los_rate_mode` | str | which input mode resolved each family |
 
 `eta_rad` / `slant_range_m` / `ground_range_m` are `None` in exactly one case:
 **coincident endpoints** — equal altitudes with no separation supplied at all
@@ -122,6 +146,30 @@ are the same point and there is no path. That is the $\varphi \to 0$ limit of
 the level solution, not a carve-out: an equal-altitude scene carrying *any*
 separation resolves to the full horizontal triangle (guardrail G4 — the
 pre-ADR-0011 collocated no-triangle carve-out is retired).
+
+### 3.1 Scene class — derived, never mandatory (ADR-0011 decision 8)
+
+`geometry/scene_class.py` derives the observer × target label from the two
+altitudes and publishes it beside the (already derived) `los_direction`:
+
+| Band | Altitude | Source of the boundary |
+|---|---|---|
+| `ground` | h < 1 km | **classification convention only — no physics depends on it** |
+| `air` | 1 km ≤ h ≤ 100 km | between the two boundaries |
+| `space` | h > 100 km | the `h_atm_top` (Kármán-line) convention |
+
+Both boundaries are closed from below: 1 km exactly and 100 km exactly are
+`air`. A scene at 999 m and one at 1001 m compute **identically** — the label
+is the only difference. **Physics never branches on the class**: it drives
+defaults, metric relevance (the Phase 3 scene-class → relevance map, guardrail
+G3), validation, and GUI composition only.
+
+`geometry.scene_class` is an **optional assertion**, never required (`auto` =
+unset). When set and it disagrees with the derivation the stage raises
+`GeometrySpecificationError` naming asserted vs. derived and both altitudes —
+the CU-093 redundant-entry pattern, which is what catches a wrong-magnitude
+altitude typo (600 m where 600 km was meant) that pure derivation would render
+as a self-consistent scene of the wrong class.
 
 **Consumers** (Geometry_Stage_Plan Phase 2, shipped): SourceStage adopts the
 published `los_geometry` (descriptor-adjusted in `_adjust_scene_los` — T1
@@ -238,15 +286,52 @@ naming the pending capability (direction-aware atmosphere, Phase 2, Gaps
 composition that runs today is the wholly-vacuum one (both endpoints at or
 above `h_atm_top`): the LEO→GEO quick win. See `RADIANT_Atmosphere.md` §4.2a–b.
 
-One unification remains tracked: CU-096 (θ_o vs η in platform/performance).
+### 4.3 CU-096 carve-out — Phase 3 re-audit (guardrail G4)
+
+CU-096 itself (θ_o vs η in platform/performance) was **resolved 2026-07-23**
+(commit `b5be390`). What survives is the residue it named: four
+*partial-fixture* fallbacks — the smear width in `platform/stage.py` and the
+GSD, ground-range, and diffraction-ground-projection helpers in
+`performance/stage.py` — which derive geometry from `geometry.path_zenith_rad`
+whenever `GeometryStage` published nothing. Guardrail G4 requires them to be
+re-audited at Phase 3 close; the audit's findings (2026-07-27):
+
+1. **Not reachable from the live chain.** `ChainRunner` always runs
+   `GeometryStage` first, and the only scene for which it publishes no slant
+   range — coincident endpoints — is refused upstream by the source stage's
+   limb-crossing guard before any consumer is reached. The fallbacks are
+   exercised only by the deliberate partial-stage fixtures
+   (`performance/tests/test_off_nadir_theta_o_fallback.py` and the
+   platform-stage unit fixtures).
+2. **Their premise narrowed in Phase 1, and the narrowing is caught.**
+   `geometry.path_zenith_rad` is now the zenith at the path's **lower
+   endpoint** (ADR-0011 decision 3), which equals θ_o only while
+   `h_sensor > h_target`. The fallbacks still read it as θ_o unconditionally —
+   but `core.viewing_triangle._validate_hemisphere` (Phase 1) rejects the
+   mismatch with an actionable `ParameterBoundsError` that names the
+   supplementary-hemisphere value, so an up-looking partial fixture **raises**
+   rather than silently computing the wrong slant range. No silent-wrong-answer
+   exposure remains.
+3. **Retirement is not zero-drift-provable and is therefore deferred, not
+   silent.** Deleting the fallbacks changes those fixtures from "computes a
+   GSD/smear" to "skips", which is a behavioural change in the test surface;
+   the right retirement is the contract decision *"`PerformanceStage` and
+   `PlatformStage` require `GeometryStage`"*, which belongs with the Phase 5
+   scenario close-out rather than with a metrics phase. **Deferral record:**
+   gating stage — Phase 5 (validation and scenario close-out); re-audit date —
+   at Phase 5 close.
 
 ## 5. Parameters
 
-Twenty-seven `ParameterDef`s in `geometry/_schema.py` — the seven canonical
+Thirty-two `ParameterDef`s in `geometry/_schema.py` — the seven canonical
 definitions moved verbatim from `atmosphere/_schema.py`, plus
 `geometry.target_range_m` (moved from `source/_schema.py`;
 `source.target.range_m` survives as a deprecated alias, warn-and-redirect),
-plus nine mode-entry parameters, plus the ten **`geometry.target.*` target-extent
+plus nine viewing/solar mode-entry parameters, plus the four **target-kinematics**
+parameters (`los_angular_rate_rad_s`; `target_speed_m_s` / `target_heading_rad` /
+`target_climb_rad`) and the optional **`geometry.scene_class`** assertion
+(not a mode door — see §3.1 — and therefore deliberately outside the mode
+manifest), plus the ten **`geometry.target.*` target-extent
 parameters** (shape, five dimensions, three orientation angles, projected area)
 moved from `source.target.*` per ADR-0008 (the old `source.target.*` names survive
 as deprecated aliases). Note: these extent params are **not** input-mode-form

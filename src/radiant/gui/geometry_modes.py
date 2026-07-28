@@ -36,6 +36,7 @@ from typing import Any, Final
 
 from radiant.api.geometry_modes import (
     KINEMATICS_FAMILY,
+    LOS_RATE_FAMILY,
     MODE_FAMILIES,
     SOLAR_FAMILY,
     VIEWING_FAMILY,
@@ -53,6 +54,7 @@ FAMILY_TITLES: Final[Mapping[str, str]] = {
     "viewing": "Viewing geometry",
     "solar": "Solar geometry",
     "kinematics": "Platform kinematics",
+    "los_rate": "Line-of-sight rate",
 }
 
 MODE_LABELS: Final[Mapping[str, str]] = {
@@ -66,6 +68,9 @@ MODE_LABELS: Final[Mapping[str, str]] = {
     "S3": "Site + time (S3)",
     "direct": "Direct ground speed",
     "circular": "Circular orbit (V6)",
+    "K0": "Platform motion only (derived)",
+    "K1": "Direct LOS rate (K1)",
+    "K2": "Target velocity (K2)",
 }
 
 # Import-time drift guard (developer invariant, not user input): a mode or
@@ -155,6 +160,7 @@ __all__ = [
     "VIEWING_FAMILY",
     "SOLAR_FAMILY",
     "KINEMATICS_FAMILY",
+    "LOS_RATE_FAMILY",
     "MODE_FAMILIES",
     "FAMILY_TITLES",
     "MODE_LABELS",

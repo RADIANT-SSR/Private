@@ -358,6 +358,43 @@ _register(
 )
 _register(
     MetricSpec(
+        name="target_plane_sample_distance_x_m",
+        unit="m",
+        description=(
+            "Sample distance at the target in the plane normal to the LOS, "
+            "cross-track: pitch_x × slant_range / focal_length. The non-ground "
+            "counterpart of GSD (no ground-plane cos projection)."
+        ),
+        requires_stage_outputs=frozenset({("geometry", "slant_range_m")}),
+    )
+)
+_register(
+    MetricSpec(
+        name="target_plane_sample_distance_y_m",
+        unit="m",
+        description=(
+            "Sample distance at the target in the plane normal to the LOS, "
+            "along-track: pitch_y × slant_range / focal_length."
+        ),
+        requires_stage_outputs=frozenset({("geometry", "slant_range_m")}),
+    )
+)
+_register(
+    MetricSpec(
+        name="target_plane_sample_distance_geometric_mean_m",
+        unit="m",
+        description="Geometric-mean target-plane sample distance.",
+        requires_metrics=frozenset(
+            {
+                "target_plane_sample_distance_x_m",
+                "target_plane_sample_distance_y_m",
+            }
+        ),
+        requires_stage_outputs=frozenset({("geometry", "slant_range_m")}),
+    )
+)
+_register(
+    MetricSpec(
         name="ground_range_m",
         unit="m",
         description="Ground distance from nadir to the target point.",

@@ -18,8 +18,17 @@ jitter, smear, and turbulence blur. For extended scenes EE_box = 1.0
 Beyond the EE_box coupling, jitter and smear do NOT affect signal or
 noise — they degrade spatial quality (MTF, RER, NIIRS).
 
-See ``platform/jitter.py`` and ``platform/smear.py`` for the
-underlying models.
+Smear is ONE relative-motion term (Gap 111): when the user supplies target
+kinematics, GeometryStage composes the platform and target velocities into a
+single relative LOS angular rate and this stage turns that one rate into the
+one smear extent used by *both* Rule-4 paths (the rect PSF kernel and the
+``mtf_smear_*`` product terms). Platform-only scenes — every configuration
+that predates Gap 111 — keep the velocity/range door in ``smear.py``, which
+computes the same rate from ``platform.ground_velocity_m_s`` and the slant
+range.
+
+See ``platform/jitter.py``, ``platform/smear.py`` and
+``platform/relative_motion_smear.py`` for the underlying models.
 """
 
 from __future__ import annotations
@@ -34,8 +43,10 @@ from radiant.core.chain import ChainState
 from radiant.core.parameters import ParameterSet
 from radiant.core.regime import RadiometricRegime
 from radiant.core.viewing_triangle import slant_range_from_theta_o_m
+from radiant.platform.errors import PlatformValidationError
 from radiant.platform.jitter import jitter_kernel_2d, jitter_mtf_1d, jitter_sigma_focal_m
 from radiant.platform.kernel_size import odd_kernel_size
+from radiant.platform.relative_motion_smear import smear_width_from_los_rate_m
 from radiant.platform.smear import smear_kernel_1d, smear_mtf_1d, smear_width_m
 from radiant.platform.turbulence_kernel import kolmogorov_kernel_2d
 
@@ -131,12 +142,19 @@ class PlatformStage:
                 npix_needed,
             )
 
-        # --- Smear (along-track motion blur) ---
+        # --- Smear (relative-motion blur) ---
         # ADR-0006: slant range is derived once by GeometryStage; None for
         # partial fixtures that run PlatformStage without it (CU-096).
-        published_slant = state.stage_outputs.get("geometry", {}).get("slant_range_m")
+        # Gap 111: when a kinematics door was used, GeometryStage also publishes
+        # the *relative* LOS angular rate (platform + target), which is the one
+        # rate this stage turns into the one smear extent.
+        geometry_out = state.stage_outputs.get("geometry", {})
         smear_w_m = self._compute_smear_width(
-            params, focal_length_m, published_slant_m=published_slant
+            params,
+            focal_length_m,
+            published_slant_m=geometry_out.get("slant_range_m"),
+            published_los_rate_rad_s=geometry_out.get("los_angular_rate_rad_s"),
+            los_rate_mode=geometry_out.get("los_rate_mode"),
         )
         state = state.with_stage_output("platform", "smear_width_m", smear_w_m)
 
@@ -260,21 +278,66 @@ class PlatformStage:
         return state.with_stage_output("platform", "effective_psf", epsf)
 
     @staticmethod
+    def _relative_los_rate_active(los_rate_mode: object) -> bool:
+        """True when GeometryStage resolved the LOS rate through a kinematics door.
+
+        Gap 111 gives the rate two user doors (K1 ``geometry.los_angular_rate_rad_s``
+        direct, K2 the ``geometry.target_speed_m_s`` triple); with neither set,
+        GeometryStage still publishes a rate, but a *platform-only* one — flagged
+        by the ``"platform-only"`` prefix of ``los_rate_mode``
+        (``radiant.geometry.modes.resolve_los_rate``).
+
+        The distinction is provenance, not physics (ADR-0011 decision 8: nothing
+        branches on the scene): both branches compute the same smear from the
+        same relative rate, and in the platform-only case the two rates are equal
+        by construction (proved in ``tests/integration/test_moving_target_smear.py``
+        and ``test_los_rate_zero_drift.py``).  The gate exists so that an existing
+        configuration — which never sets a kinematics parameter — keeps running the
+        byte-for-byte identical velocity/range door it ran before Gap 111,
+        including that door's CU-085 guards, rather than a numerically-equal but
+        differently-guarded rewrite (plan §3 principle 3: zero drift).
+        """
+        return isinstance(los_rate_mode, str) and not los_rate_mode.startswith("platform-only")
+
+    @staticmethod
     def _compute_smear_width(
         params: ParameterSet,
         focal_length_m: float,
         published_slant_m: float | None = None,
+        published_los_rate_rad_s: float | None = None,
+        los_rate_mode: object = None,
     ) -> float:
         """Determine smear width on the focal plane [m].
 
-        Priority: smear_length_um > ground_velocity_m_s > 0 (no smear).
+        Priority: ``smear_length_um`` > published relative LOS rate (Gap 111,
+        only when a kinematics door was used) > ``ground_velocity_m_s`` over
+        the slant range > 0 (no smear).
         """
+        relative_rate_active = PlatformStage._relative_los_rate_active(los_rate_mode)
+
         # Direct override.
         smear_direct_m: float = params.get("platform.smear_length_um")
         if smear_direct_m > 0.0:
+            if relative_rate_active:
+                warnings.warn(
+                    "PlatformStage: platform.smear_length_um > 0 overrides the "
+                    "relative line-of-sight rate GeometryStage resolved from the "
+                    "target-kinematics inputs "
+                    f"(los_rate_mode={los_rate_mode!r}), so the target motion does "
+                    "not affect the smear. Clear platform.smear_length_um (set it "
+                    "to 0) to use the kinematics-derived smear.",
+                    UserWarning,
+                    stacklevel=2,
+                )
             return smear_direct_m
 
-        # Velocity-based computation.
+        # Gap 111: one relative-motion smear from the one published rate.
+        if relative_rate_active:
+            return PlatformStage._smear_from_published_rate(
+                params, published_los_rate_rad_s, focal_length_m, los_rate_mode
+            )
+
+        # Velocity-based computation — the platform-only door, unchanged.
         velocity: float = params.get("platform.ground_velocity_m_s")
         if velocity <= 0.0:
             return 0.0
@@ -336,3 +399,50 @@ class PlatformStage:
                 slant_m = altitude_m
 
         return smear_width_m(velocity, t_int_s, focal_length_m, slant_m)
+
+    @staticmethod
+    def _smear_from_published_rate(
+        params: ParameterSet,
+        published_los_rate_rad_s: float | None,
+        focal_length_m: float,
+        los_rate_mode: object,
+    ) -> float:
+        """Gap 111 arm: smear extent from the published relative LOS rate.
+
+        The rate already carries **both** endpoints' motion (``v_rel =
+        v_target − v_sensor``, projected perpendicular to the LOS and divided by
+        the slant range), so this is the whole relative-motion smear — the
+        platform contribution is inside it and must not be added again.
+        """
+        if published_los_rate_rad_s is None:
+            # Unreachable through GeometryStage: the only scene with a None rate
+            # is coincident endpoints, which resolves to a "platform-only" mode
+            # (and mode K2 raises there). Named rather than silently zeroed
+            # (Rule 17) so a future publisher change surfaces here.
+            raise PlatformValidationError(
+                "PlatformStage: the geometry stage reported LOS-rate mode "
+                f"{los_rate_mode!r} — a target-kinematics door — but published "
+                "no rate (los_angular_rate_rad_s is None). A kinematics-derived "
+                "smear cannot be computed without the rate. Give the scene a "
+                "sensor↔target separation, or set platform.smear_length_um "
+                "directly."
+            )
+
+        try:
+            t_int_s: float = params.get("spectral_integration.integration_time_s")
+        except (KeyError, TypeError):
+            t_int_s = 0.0
+        if t_int_s <= 0.0:
+            warnings.warn(
+                "PlatformStage: a target-kinematics input set the line-of-sight "
+                f"rate to {published_los_rate_rad_s:.6g} rad/s, but "
+                "spectral_integration.integration_time_s is missing or ≤ 0, so "
+                "the relative-motion smear is not computed (returned 0). Set a "
+                "positive integration time, or provide platform.smear_length_um "
+                "directly (CU-085).",
+                UserWarning,
+                stacklevel=2,
+            )
+            return 0.0
+
+        return smear_width_from_los_rate_m(published_los_rate_rad_s, t_int_s, focal_length_m)

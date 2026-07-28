@@ -203,7 +203,22 @@ path-radiance physics).
   checks ($\tau$ equal both directions), vacuum limits, horizontal-path
   analytic values.
 
-### Phase 3 — Direction-aware degradations and metrics (Category C)
+### Phase 3 — Direction-aware degradations and metrics (Category C) — COMPLETE 2026-07-27
+
+Exit state: Gap 110 delivered (Cn² profile family + path-weighted r₀,
+HV-5/7 anchored to 0.8 % of the Andrews & Phillips value; space-observer
+`ScopeError` retired per G4); Gap 111 delivered (both kinematics doors +
+relative-motion smear arm feeding both Rule-4 paths); scene class derived
++ optional validated assertion (ADR-0011 decision 8); **G3** held — one
+declarative scene-class → relevance map (`performance/scene_relevance.py`),
+zero per-metric class branches; target-plane sample distance metric
+registered; detection range path-aware for up/level (down-looking swap is
+owner-gated: CU-236). CU-096 residue re-audited per G4 → refreshed
+deferral, gating stage Phase 5 (`RADIANT_Geometry.md` §4.3). Discovered
+and fixed in-phase: CU-234, a pre-existing 1e6 unit slip that had zeroed
+turbulence out of the MTF-product path since 2026-04-18 (Rule-4 violation
+up to 0.88 absolute; caught by the new phase's dual-path tripwire).
+Zero golden drift; full suite green.
 
 - **Turbulence** (Gap 110): $C_n^2$ profile family (HV-5/7 preset +
   tabulated), path-weighted $r_0$ with plane/spherical-wave options and
@@ -232,6 +247,11 @@ path-radiance physics).
   `gui_workflow.md` in its validation scenario.
 
 ### Phase 5 — Validation and scenario close-out (Category D)
+
+- **Carried duty (G4, from Phase 3 close):** re-audit the partial-fixture
+  geometry fallbacks recorded in `RADIANT_Geometry.md` §4.3 (CU-096
+  residue) and either retire them behind a "Performance/Platform require
+  GeometryStage" contract decision or refresh the deferral again.
 
 - One golden scenario per newly-opened cell of §2's matrix (minimum:
   ground-to-air MWIR detection, ground-to-space SST visible, air-to-air

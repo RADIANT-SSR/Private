@@ -127,10 +127,34 @@ KINEMATICS_FAMILY: Final[GeometryModeFamily] = GeometryModeFamily(
     default_mode_key="direct",
 )
 
+LOS_RATE_FAMILY: Final[GeometryModeFamily] = GeometryModeFamily(
+    key="los_rate",
+    anchor_params=(),
+    modes=(
+        # K0 = platform-only (derived from the kinematics family's ground
+        # speed and the viewing slant range — no field of its own);
+        # K1 = the rate entered directly; K2 = the target-velocity triple.
+        # Both doors ship together, provenance-resolved, per ADR-0011
+        # decision 10 / plan §8.3 answer 4 (Gap 111).
+        GeometryMode("K0", ()),
+        GeometryMode("K1", ("geometry.los_angular_rate_rad_s",)),
+        GeometryMode(
+            "K2",
+            (
+                "geometry.target_speed_m_s",
+                "geometry.target_heading_rad",
+                "geometry.target_climb_rad",
+            ),
+        ),
+    ),
+    default_mode_key="K0",
+)
+
 MODE_FAMILIES: Final[tuple[GeometryModeFamily, ...]] = (
     VIEWING_FAMILY,
     SOLAR_FAMILY,
     KINEMATICS_FAMILY,
+    LOS_RATE_FAMILY,
 )
 
 
@@ -175,6 +199,8 @@ def active_mode_key(
     * **solar** — night when illumination is ``"night"``; else the first user-set
       door among S2/S3/S1, else the default (S1).
     * **kinematics** — circular when ``circular_orbit`` is set true, else direct.
+    * **los_rate** — K1 when the rate is entered directly, else K2 when any
+      target-velocity field is set, else the default (K0, platform-only).
 
     Parameters
     ----------
@@ -206,6 +232,12 @@ def active_mode_key(
         if bool(get_value("geometry.circular_orbit")):
             return "circular"
         return "direct"
+    if family.key == "los_rate":
+        for mode_key in ("K1", "K2"):
+            mode = _mode(family, mode_key)
+            if any(is_provided(p) for p in mode.params):
+                return mode_key
+        return family.default_mode_key
     return family.default_mode_key  # pragma: no cover - families are closed
 
 
@@ -226,6 +258,7 @@ __all__ = [
     "VIEWING_FAMILY",
     "SOLAR_FAMILY",
     "KINEMATICS_FAMILY",
+    "LOS_RATE_FAMILY",
     "MODE_FAMILIES",
     "all_mode_params",
     "active_mode_key",

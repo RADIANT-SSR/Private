@@ -131,6 +131,11 @@ METRIC_DISPLAY_LABELS: Final[dict[str, str]] = {
     "gsd_cross_track_m": "GSD (cross-track)",
     "gsd_along_track_m": "GSD (along-track)",
     "gsd_geometric_mean_m": "GSD (geometric mean)",
+    "target_plane_sample_distance_x_m": "Target-plane sample distance (x)",
+    "target_plane_sample_distance_y_m": "Target-plane sample distance (y)",
+    "target_plane_sample_distance_geometric_mean_m": (
+        "Target-plane sample distance (geometric mean)"
+    ),
     "ground_range_m": "Ground range",
     "swath_width_m": "Swath width",
     "access_rate_m2_s": "Access rate",

@@ -59,6 +59,11 @@ _CONVERSIONS: dict[tuple[str, str], float] = {
     # Velocity
     ("m/s", "m/s"): 1.0,
     ("km/s", "m/s"): 1e3,
+    # Angular rate (canonical rad/s — LOS slew, target kinematics)
+    ("rad/s", "rad/s"): 1.0,
+    ("deg/s", "rad/s"): math.pi / 180.0,
+    ("mrad/s", "rad/s"): 1e-3,
+    ("urad/s", "rad/s"): 1e-6,
     # Irradiance
     ("W/m2/um", "W/m2/um"): 1.0,
     ("W/cm2/um", "W/m2/um"): 1e4,

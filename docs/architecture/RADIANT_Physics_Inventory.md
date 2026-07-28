@@ -233,8 +233,8 @@ Legend: ✅ IN v1 | 🔶 STUBBED v1 (placeholder returns, no real model) | ❌ D
 | A10 | Cloud/fog attenuation | ✅ IN | Beer-Lambert model from cloud optical depth τ_cloud; binary flag is τ_cloud → ∞ degenerate case |
 | A11 | Rain attenuation | ❌ DEFERRED | Specialized; low priority |
 | A12 | Atmospheric refraction | ❌ DEFERRED | Pointing/geolocation tool; not radiometric |
-| A13 | Turbulence (r₀, Cn²) | 🔶 STUBBED | Parameter stored; turbulence MTF computed in SP9 |
-| A14 | Turbulence MTF | 🔶 STUBBED | Long-exposure Kolmogorov model only; return 1.0 if space-based |
+| A13 | Turbulence (r₀, Cn²) | ✅ IN | Cn²(h) profiles (Hufnagel-Valley, tabulated) integrated along the LOS to r₀; direct r₀ entry retained (Gap 110) |
+| A14 | Turbulence MTF | ✅ IN | Long-exposure Kolmogorov; term omitted when r₀ is absent (no observer-type gate — ADR-0011 G4). Short-exposure MTF deferred |
 | A15 | Anisoplanatism | ❌ DEFERRED | Requires AO system context |
 | A16 | Scintillation | ❌ DEFERRED | Point-source specific; specialized |
 | A17 | Adjacency effect | ❌ DEFERRED | Requires scene radiance field |

@@ -588,4 +588,93 @@ def _build_interpolated(params: ParameterSet) -> object:
     return InterpolatedAtmosphere(points, axes, method, family_direction=family_direction)
 
 
-__all__ = ["FILE_BACKED_MODELS", "build_atmosphere_model", "model_requires_prebuild"]
+def build_cn2_profile(params: ParameterSet) -> object | None:
+    """Construct the tabulated Cn² profile named by the parameters, if any.
+
+    Rule 6: the ``atmosphere.cn2_tabulated_file`` CSV is read **here**,
+    before chain execution, and the resulting
+    :class:`~radiant.atmosphere.cn2_tabulated.TabulatedCn2Profile` is injected
+    at ``stage_outputs["atmosphere_config"]["cn2_profile"]`` — the same route
+    the atmosphere model itself takes.
+
+    Returns ``None`` for every selector other than ``"tabulated"`` (the
+    analytic Hufnagel-Valley profile needs no file, and ``"direct"`` needs no
+    profile at all).
+
+    File format
+    -----------
+    Two comma-separated columns, ``altitude_m,cn2_m^-2/3``, ascending in
+    altitude.  Blank lines and ``#`` comments are ignored, and a single
+    non-numeric header row is accepted.
+    """
+    try:
+        profile_name: str = str(params.get("atmosphere.cn2_profile"))
+    except (KeyError, TypeError):
+        # Partial-chain fixtures may not register the turbulence schema.
+        return None
+    if profile_name != "tabulated":
+        return None
+
+    from radiant.atmosphere.cn2_tabulated import TabulatedCn2Profile
+
+    raw_path = str(params.get("atmosphere.cn2_tabulated_file"))
+    if not raw_path:
+        raise AtmosphereValidationError(
+            "build_cn2_profile: atmosphere.cn2_profile = 'tabulated' but "
+            "atmosphere.cn2_tabulated_file is empty. Point it at a two-column "
+            "'altitude_m,cn2_m^-2/3' CSV, or choose another "
+            "atmosphere.cn2_profile ('hufnagel_valley' needs no file, 'direct' "
+            "uses atmosphere.r0_m)."
+        )
+    path = Path(raw_path)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"atmosphere.cn2_tabulated_file: file not found: {path}. Check the "
+            "path, or choose another atmosphere.cn2_profile."
+        )
+
+    altitudes: list[float] = []
+    cn2_values: list[float] = []
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        text = line.split("#", 1)[0].strip()
+        if not text:
+            continue
+        fields = [f.strip() for f in text.split(",")]
+        if len(fields) < 2:
+            raise AtmosphereValidationError(
+                f"atmosphere.cn2_tabulated_file {path}: line {lineno} has "
+                f"{len(fields)} field(s); expected two comma-separated columns "
+                "'altitude_m,cn2_m^-2/3'."
+            )
+        try:
+            altitudes.append(float(fields[0]))
+            cn2_values.append(float(fields[1]))
+        except ValueError:
+            if lineno == 1 or not altitudes:
+                continue  # a header row
+            raise AtmosphereValidationError(
+                f"atmosphere.cn2_tabulated_file {path}: line {lineno} "
+                f"({text!r}) is not a numeric 'altitude_m,cn2_m^-2/3' pair."
+            ) from None
+
+    if not altitudes:
+        raise AtmosphereValidationError(
+            f"atmosphere.cn2_tabulated_file {path}: no numeric rows found. The "
+            "file must hold at least two 'altitude_m,cn2_m^-2/3' rows."
+        )
+
+    profile = TabulatedCn2Profile(
+        altitude_m=np.asarray(altitudes, dtype=np.float64),
+        cn2_m23=np.asarray(cn2_values, dtype=np.float64),
+        label=path.name,
+    )
+    logger.info("Cn² profile loaded: %s", profile.describe())
+    return profile
+
+
+__all__ = [
+    "FILE_BACKED_MODELS",
+    "build_atmosphere_model",
+    "build_cn2_profile",
+    "model_requires_prebuild",
+]

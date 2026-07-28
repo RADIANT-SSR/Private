@@ -457,6 +457,107 @@ FRIED_PARAMETER_M = ParameterDef(
     ),
 )
 
+CN2_PROFILE = ParameterDef(
+    name="atmosphere.cn2_profile",
+    description=(
+        "Optical-turbulence profile Cn²(h) used to derive the Fried parameter "
+        "(Gap 110). 'direct' (default) uses atmosphere.r0_m as given — the "
+        "pre-Gap-110 behaviour. 'hufnagel_valley' integrates the analytic HV "
+        "profile along the line of sight (parameters cn2_hv_wind_rms_m_s and "
+        "cn2_hv_ground_strength; the defaults are HV-5/7). 'tabulated' uses the "
+        "two-column CSV named by atmosphere.cn2_tabulated_file."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="direct",
+    enum_values=("direct", "hufnagel_valley", "tabulated"),
+    tags=frozenset({"atmosphere", "turbulence"}),
+    default_justification=(
+        "'direct' reproduces the pre-Gap-110 r₀ input exactly; the "
+        "profile-driven path activates only when the user selects it."
+    ),
+)
+
+CN2_HV_WIND_RMS_M_S = ParameterDef(
+    name="atmosphere.cn2_hv_wind_rms_m_s",
+    description=(
+        "Hufnagel-Valley RMS upper-atmosphere (5–20 km) wind speed w [m/s]. "
+        "Scales the jet-stream term of Cn²(h). Used only when "
+        "atmosphere.cn2_profile = 'hufnagel_valley'."
+    ),
+    dtype=float,
+    canonical_unit="m/s",
+    input_unit="m/s",
+    default=21.0,
+    bounds=(0.0, 100.0),
+    tags=frozenset({"atmosphere", "turbulence"}),
+    default_justification=(
+        "21 m/s is the HV-5/7 value (Andrews & Phillips 2005 §12.2.2), which "
+        "with the default ground strength yields r₀ = 5 cm and θ₀ = 7 µrad at "
+        "0.5 µm for a vertical path."
+    ),
+)
+
+CN2_HV_GROUND_STRENGTH = ParameterDef(
+    name="atmosphere.cn2_hv_ground_strength",
+    description=(
+        "Hufnagel-Valley ground-level structure constant A [m^(-2/3)]. Scales "
+        "the 100 m-scale-height surface layer of Cn²(h). Used only when "
+        "atmosphere.cn2_profile = 'hufnagel_valley'."
+    ),
+    dtype=float,
+    canonical_unit="m^(-2/3)",
+    input_unit="m^(-2/3)",
+    default=1.7e-14,
+    bounds=(0.0, 1.0e-10),
+    tags=frozenset({"atmosphere", "turbulence"}),
+    default_justification=(
+        "1.7e-14 m^(-2/3) is the HV-5/7 value (Andrews & Phillips 2005 "
+        "§12.2.2) — a typical daytime near-surface value at a good site."
+    ),
+)
+
+CN2_TABULATED_FILE = ParameterDef(
+    name="atmosphere.cn2_tabulated_file",
+    description=(
+        "Two-column CSV 'altitude_m,cn2_m^-2/3' (ascending altitude, '#' "
+        "comments allowed) defining a measured or externally-modelled Cn²(h) "
+        "profile. Required when atmosphere.cn2_profile = 'tabulated'. Read "
+        "before chain execution (Rule 6) and injected at "
+        "stage_outputs['atmosphere_config']['cn2_profile']."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="",
+    is_file_path=True,
+    tags=frozenset({"atmosphere", "turbulence"}),
+    default_justification="Empty = no tabulated profile (the 'tabulated' selector then raises).",
+)
+
+TURBULENCE_WAVE_TYPE = ParameterDef(
+    name="atmosphere.turbulence_wave_type",
+    description=(
+        "Path weighting for the profile-driven Fried parameter. 'plane' "
+        "(default) weights every slab equally — the source is effectively at "
+        "infinity, which is the imaging case and the convention published r₀ "
+        "values use. 'spherical' weights each slab by (fractional distance "
+        "from the target)^(5/3), peaking at the aperture — the finite-range "
+        "point-source case. Ignored when atmosphere.cn2_profile = 'direct'."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="plane",
+    enum_values=("plane", "spherical"),
+    tags=frozenset({"atmosphere", "turbulence"}),
+    default_justification=(
+        "Plane-wave is the imaging convention and reproduces the literature "
+        "r₀ values for a given Cn² profile."
+    ),
+)
+
 
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     ATMOSPHERE_MODEL,
@@ -488,4 +589,9 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     INTERPOLATION_METHOD,
     # Turbulence
     FRIED_PARAMETER_M,
+    CN2_PROFILE,
+    CN2_HV_WIND_RMS_M_S,
+    CN2_HV_GROUND_STRENGTH,
+    CN2_TABULATED_FILE,
+    TURBULENCE_WAVE_TYPE,
 )

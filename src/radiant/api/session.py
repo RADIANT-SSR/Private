@@ -16,7 +16,7 @@ import numpy.typing as npt
 from radiant.api._param_registry import build_parameter_set
 
 # Stage imports — only api/ may import all physics stages.
-from radiant.atmosphere.loaders import build_atmosphere_model
+from radiant.atmosphere.loaders import build_atmosphere_model, build_cn2_profile
 from radiant.atmosphere.stage import AtmosphereStage
 from radiant.core.chain import ChainRunner
 from radiant.core.parameters import ParameterSet
@@ -264,6 +264,13 @@ class RadiantSession:
         initial: dict[str, dict[str, Any]] = {
             "atmosphere_config": {"model": atmosphere_model},
         }
+        # Tabulated Cn² turbulence profile (Gap 110): the schema param
+        # atmosphere.cn2_tabulated_file names an altitude-vs-Cn² CSV. Rule 6
+        # keeps file I/O out of the stage, so parse it here and inject the
+        # profile object; None for every other atmosphere.cn2_profile value.
+        cn2_profile = build_cn2_profile(params)
+        if cn2_profile is not None:
+            initial["atmosphere_config"]["cn2_profile"] = cn2_profile
         # Spectral QE from a file (Gap 44): the schema param
         # detector.qe_table_path names a wavelength-vs-QE CSV. Rule 6 keeps
         # file I/O out of the stage, so load it here and inject the curve

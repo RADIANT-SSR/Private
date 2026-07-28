@@ -589,6 +589,149 @@ CIRCULAR_ORBIT = ParameterDef(
     default_justification=("False preserves existing behavior — orbital derivation is opt-in."),
 )
 
+# ---------------------------------------------------------------------------
+# Optional scene-class assertion (ADR-0011 decision 8)
+# NOT an input mode: it is a *validated assertion* against the derivation, not
+# a door onto a canonical quantity, so it carries no ``mode_entry`` tag and
+# does not appear in the mode manifest.
+# ---------------------------------------------------------------------------
+
+SCENE_CLASS = ParameterDef(
+    name="geometry.scene_class",
+    description=(
+        "OPTIONAL assertion of the scene class — the observer x target "
+        "altitude-band label of the ADR-0011 taxonomy "
+        "(ground: h < 1 km; air: 1-100 km; space: h > 100 km, the h_atm_top "
+        "convention). The class is ALWAYS derived from "
+        "geometry.sensor_altitude_m and geometry.target_altitude_m and "
+        "published as stage_outputs['geometry']['scene_class']; setting this "
+        "parameter does not select anything, it ASSERTS what the altitudes "
+        "should derive. If the assertion disagrees with the derivation the "
+        "stage raises GeometrySpecificationError naming both — which is how a "
+        "wrong-magnitude altitude typo (600 m where 600 km was meant) is "
+        "caught, since pure derivation renders it as a self-consistent scene "
+        "of the wrong class. Physics NEVER branches on the class (ADR-0011 "
+        "decision 8): it drives defaults, metric relevance, validation, and "
+        "GUI composition only. 'auto' = unset (no assertion, the default)."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="auto",
+    enum_values=(
+        "auto",
+        "ground_to_ground",
+        "ground_to_air",
+        "ground_to_space",
+        "air_to_ground",
+        "air_to_air",
+        "air_to_space",
+        "space_to_ground",
+        "space_to_air",
+        "space_to_space",
+    ),
+    tags=frozenset({"geometry", "scene_class"}),
+    default_justification=(
+        "'auto' is the Rule-12 sentinel for 'not asserted' — the assertion is "
+        "never required (ADR-0011 decision 8 rejects a mandatory declaration), "
+        "so every existing configuration is unaffected."
+    ),
+)
+
+# ---------------------------------------------------------------------------
+# Target kinematics — the two doors onto the LOS angular rate (Gap 111)
+# Defaults are inert; mode detection is by provenance.
+# ---------------------------------------------------------------------------
+
+LOS_ANGULAR_RATE_RAD_S = ParameterDef(
+    name="geometry.los_angular_rate_rad_s",
+    description=(
+        "Line-of-sight angular rate [rad/s] entered DIRECTLY — mode K1, the "
+        "first of the two Gap 111 doors. This is the rate at which the "
+        "sensor-target LOS direction rotates, |v_rel,perp| / slant_range, "
+        "including both platform and target motion. Use it when the rate is "
+        "known (a tracker's measured slew) rather than the velocities. The "
+        "alternative door is the target-velocity triple "
+        "(geometry.target_speed_m_s / target_heading_rad / target_climb_rad), "
+        "from which the same rate is derived; setting both is legal only if "
+        "they agree within 1% (ADR-0006 rule 2). Unused unless explicitly "
+        "set: with neither door set the published rate is the platform-only "
+        "value derived from geometry.ground_speed_m_s."
+    ),
+    dtype=float,
+    canonical_unit="rad/s",
+    input_unit="rad/s",
+    default=0.0,
+    bounds=(0.0, 1.0e4),
+    tags=frozenset({"geometry", "mode_entry", "kinematics"}),
+    default_justification="Inert — provenance-based mode detection ignores defaults.",
+)
+
+TARGET_SPEED_M_S = ParameterDef(
+    name="geometry.target_speed_m_s",
+    description=(
+        "Target speed [m/s] — mode K2 entry (target-velocity door, Gap 111). "
+        "Magnitude only; direction is geometry.target_heading_rad (azimuth) "
+        "and geometry.target_climb_rad (elevation). 0 = a stationary target, "
+        "which is the default and reduces the published LOS rate exactly to "
+        "the platform-only value. Combined with the platform ground-track "
+        "velocity into the relative LOS rate by "
+        "radiant.geometry.los_rate."
+    ),
+    dtype=float,
+    canonical_unit="m/s",
+    input_unit="m/s",
+    default=0.0,
+    bounds=(0.0, 1.0e6),
+    tags=frozenset({"geometry", "mode_entry", "kinematics", "target"}),
+    default_justification=(
+        "0 = stationary target — the pre-Gap-111 behaviour of every existing "
+        "configuration, and inert for provenance-based mode detection."
+    ),
+)
+
+TARGET_HEADING_RAD = ParameterDef(
+    name="geometry.target_heading_rad",
+    description=(
+        "Target heading [rad] — mode K2 entry. Azimuth of the target's "
+        "horizontal velocity in the TARGET'S local horizontal plane, measured "
+        "from the observer's ground azimuth: the same zero "
+        "geometry.solar_azimuth_rad / delta_phi is measured from "
+        "(delta_phi = phi_s - phi_o with phi_o = 0), and the same rotational "
+        "sense (counter-clockwise seen from above). 0 = the target moves "
+        "horizontally TOWARD the sensor's ground point; pi = directly away; "
+        "+pi/2 = crossing, in the platform's ground-track direction (RADIANT "
+        "models the platform track as cross-track to the LOS azimuth plane — "
+        "see radiant.geometry.los_rate for that simplification). Unused "
+        "unless explicitly set."
+    ),
+    dtype=float,
+    canonical_unit="rad",
+    input_unit="rad",
+    default=0.0,
+    bounds=(-6.283185307179586, 6.283185307179586),  # [-2π, 2π]
+    tags=frozenset({"geometry", "mode_entry", "kinematics", "target"}),
+    default_justification="Inert — provenance-based mode detection ignores defaults.",
+)
+
+TARGET_CLIMB_RAD = ParameterDef(
+    name="geometry.target_climb_rad",
+    description=(
+        "Target climb angle [rad] — mode K2 entry. Elevation of the target's "
+        "velocity above its own local horizontal plane, positive up: 0 = level "
+        "flight, +pi/2 = vertical ascent, -pi/2 = vertical descent. Combined "
+        "with geometry.target_speed_m_s and geometry.target_heading_rad into "
+        "the target velocity vector. Unused unless explicitly set."
+    ),
+    dtype=float,
+    canonical_unit="rad",
+    input_unit="rad",
+    default=0.0,
+    bounds=(-1.5707963267948966, 1.5707963267948966),  # [-π/2, π/2]
+    tags=frozenset({"geometry", "mode_entry", "kinematics", "target"}),
+    default_justification="Inert (level flight) — provenance-based detection ignores defaults.",
+)
+
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     SENSOR_ALTITUDE_M,
     TARGET_ALTITUDE_M,
@@ -617,4 +760,9 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     LOCAL_SOLAR_TIME_H,
     LTAN_H,
     CIRCULAR_ORBIT,
+    SCENE_CLASS,
+    LOS_ANGULAR_RATE_RAD_S,
+    TARGET_SPEED_M_S,
+    TARGET_HEADING_RAD,
+    TARGET_CLIMB_RAD,
 )

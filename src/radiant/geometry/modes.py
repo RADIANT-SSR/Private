@@ -9,6 +9,8 @@ resolves them to the canonical internal representation:
               ground range, altitudes
     solar:    theta_s, delta_phi (or None/None at night)
     kinematics: ground-track speed (+ orbital period for circular orbits)
+    los_rate: LOS angular rate — direct (K1) or from the target velocity
+              triple (K2), defaulting to the platform-only value (K0)
 
 Rules (normative, ADR-0006):
   1. Mode detection is by provenance — a parameter left at DEFAULT
@@ -73,6 +75,7 @@ from radiant.core.viewing_triangle import (
     theta_o_from_ground_range_m,
 )
 from radiant.geometry.errors import GeometrySpecificationError
+from radiant.geometry.los_rate import relative_los_angular_rate_rad_s
 
 # Agreement tolerance between redundant mode entries (ADR-0006 rule 2).
 _REL_TOL = 0.01
@@ -130,6 +133,21 @@ class KinematicsResolution:
     mode: str
     ground_speed_m_s: float
     orbital_period_s: float | None
+
+
+@dataclass(frozen=True, kw_only=True)
+class LosRateResolution:
+    """Canonical LOS angular rate after mode resolution (Gap 111).
+
+    ``los_angular_rate_rad_s`` is ``None`` in exactly the case the viewing
+    ranges are ``None`` — coincident endpoints, where there is no line of
+    sight to rotate — and no rate door was used.  Any other scene publishes a
+    number, which with no kinematics input at all is the platform-only rate
+    ``v_ground / slant`` that ``platform/smear.py`` already derives.
+    """
+
+    mode: str
+    los_angular_rate_rad_s: float | None
 
 
 def _provided(params: ParameterSet, name: str) -> bool:
@@ -475,6 +493,143 @@ def resolve_kinematics(params: ParameterSet) -> KinematicsResolution:
         mode="circular_orbit",
         ground_speed_m_s=v_orbit,
         orbital_period_s=orbital_period_s(h_sensor),
+    )
+
+
+#: The K2 door: any user-set member selects the target-velocity mode.
+_TARGET_VELOCITY_DOORS: tuple[str, ...] = (
+    "geometry.target_speed_m_s",
+    "geometry.target_heading_rad",
+    "geometry.target_climb_rad",
+)
+
+
+def resolve_los_rate(
+    params: ParameterSet,
+    viewing: ViewingResolution,
+    kinematics: KinematicsResolution,
+) -> LosRateResolution:
+    """Resolve the LOS angular rate (modes K0 default / K1 direct / K2 target velocity).
+
+    Gap 111 ships **both doors, provenance-resolved** (ADR-0011 decision 10 /
+    plan §8.3 answer 4):
+
+    * **K1** — ``geometry.los_angular_rate_rad_s`` entered directly.  Needs no
+      geometry at all, so it is the door that still works for a coincident-
+      endpoint scene.
+    * **K2** — ``geometry.target_speed_m_s`` + ``target_heading_rad`` +
+      ``target_climb_rad``, combined with the platform's ground-track velocity
+      by :func:`radiant.geometry.los_rate.relative_los_angular_rate_rad_s`.
+    * **K0** — neither door set: the rate is derived from the platform motion
+      alone, which is exactly ``ground_speed / slant_range`` (the value
+      ``platform/smear.py`` already derives) because a zero target velocity
+      leaves ``v_rel`` purely cross-track.
+
+    Both doors set must agree within 1 % (ADR-0006 rule 2) or this raises,
+    exactly like two viewing-angle entries.
+    """
+    direct_provided = _provided(params, "geometry.los_angular_rate_rad_s")
+    target_provided = any(_provided(params, name) for name in _TARGET_VELOCITY_DOORS)
+    slant = viewing.slant_range_m
+
+    candidates: list[tuple[str, float]] = []
+    if direct_provided:
+        candidates.append(
+            (
+                "geometry.los_angular_rate_rad_s",
+                float(params.get("geometry.los_angular_rate_rad_s")),
+            )
+        )
+    if target_provided:
+        target_speed = float(params.get("geometry.target_speed_m_s"))
+        if target_speed <= 0.0:
+            warnings.warn(
+                "GeometryStage: a target-velocity input "
+                "(geometry.target_heading_rad / target_climb_rad) is set but "
+                "geometry.target_speed_m_s is 0 m/s, so the target contributes "
+                "nothing to the line-of-sight rate — the published rate is the "
+                "platform-only value. Set geometry.target_speed_m_s > 0 for a "
+                "moving target.",
+                UserWarning,
+                stacklevel=2,
+            )
+        candidates.append(
+            (
+                "target velocity (K2)",
+                _los_rate_from_velocity(params, viewing, kinematics, target_speed),
+            )
+        )
+
+    if not candidates:
+        if slant is None or slant <= 0.0:
+            # Coincident endpoints: no LOS exists, so no rate does either.
+            # Published as None beside the None ranges rather than raising —
+            # nothing new was asked for, and raising here would change the
+            # behaviour of an existing collocated scene (zero drift).
+            return LosRateResolution(
+                mode="platform-only (no path — coincident endpoints)",
+                los_angular_rate_rad_s=None,
+            )
+        return LosRateResolution(
+            mode="platform-only (derived)",
+            los_angular_rate_rad_s=relative_los_angular_rate_rad_s(
+                slant_range_m=slant,
+                theta_o_rad=viewing.theta_o_rad,
+                sensor_ground_speed_m_s=kinematics.ground_speed_m_s,
+            ),
+        )
+    if len(candidates) == 1:
+        mode, rate = candidates[0]
+        return LosRateResolution(mode=mode, los_angular_rate_rad_s=rate)
+
+    first = candidates[0][1]
+    if not all(_agree(first, v) for _, v in candidates[1:]):
+        _raise_disagreement("LOS-rate", candidates, "rad/s")
+    return LosRateResolution(
+        mode=" + ".join(name for name, _ in candidates) + " (consistent)",
+        los_angular_rate_rad_s=first,
+    )
+
+
+def _los_rate_from_velocity(
+    params: ParameterSet,
+    viewing: ViewingResolution,
+    kinematics: KinematicsResolution,
+    target_speed_m_s: float,
+) -> float:
+    """K2: LOS rate from the target-velocity triple + the platform ground track."""
+    slant = viewing.slant_range_m
+    if slant is None or slant <= 0.0:
+        raise GeometrySpecificationError(
+            what=(
+                "geometry.target_speed_m_s (and its heading/climb) were set, but "
+                "the scene has no line of sight: the sensor and target are "
+                "coincident (equal altitudes with no separation supplied)"
+            ),
+            why=(
+                "The LOS angular rate is |v_rel,perp| / slant_range. With zero "
+                "separation the LOS has no direction, so a target velocity "
+                "cannot be turned into a rate at which that direction changes."
+            ),
+            action=(
+                "Give the scene a separation (geometry.target_range_m, a ground "
+                "range, or a viewing angle), or enter the rate directly with "
+                "geometry.los_angular_rate_rad_s, which needs no range."
+            ),
+            context={
+                "geometry.target_speed_m_s": target_speed_m_s,
+                "geometry.sensor_altitude_m": viewing.h_sensor_m,
+                "geometry.target_altitude_m": viewing.h_target_m,
+                "viewing_mode": viewing.mode,
+            },
+        )
+    return relative_los_angular_rate_rad_s(
+        slant_range_m=slant,
+        theta_o_rad=viewing.theta_o_rad,
+        sensor_ground_speed_m_s=kinematics.ground_speed_m_s,
+        target_speed_m_s=target_speed_m_s,
+        target_heading_rad=float(params.get("geometry.target_heading_rad")),
+        target_climb_rad=float(params.get("geometry.target_climb_rad")),
     )
 
 

@@ -22,9 +22,19 @@ instead of re-deriving:
                         (identically θ_o on a spherical Earth)
     target_range_m      user-declared slant range (V0), or None
     h_sensor_m / h_target_m
+    scene_class         derived observer×target altitude-band label, e.g.
+                        "ground_to_air" (ADR-0011 decision 8) — drives
+                        defaults, metric relevance, validation and GUI
+                        composition; physics NEVER branches on it
+    observer_class / target_class
+                        the two pieces of scene_class ("ground"/"air"/"space")
     theta_s_rad / delta_phi_rad / solar_illumination
     ground_speed_m_s / orbital_period_s (circular-orbit mode only)
-    viewing_mode / solar_mode / kinematics_mode
+    los_angular_rate_rad_s
+                        relative LOS angular rate (Gap 111); None only for
+                        coincident endpoints.  With no kinematics input set
+                        it is the platform-only value ground_speed / slant
+    viewing_mode / solar_mode / kinematics_mode / los_rate_mode
                         which input mode produced each family — surfaced
                         by result.inspect() and the GUI
 
@@ -50,8 +60,13 @@ from radiant.core.parameters import ParameterSet
 from radiant.geometry.modes import (
     check_range_consistency,
     resolve_kinematics,
+    resolve_los_rate,
     resolve_solar,
     resolve_viewing,
+)
+from radiant.geometry.scene_class import (
+    check_scene_class_assertion,
+    derive_scene_class,
 )
 
 logger = logging.getLogger(__name__)
@@ -87,6 +102,20 @@ class GeometryStage:
             delta_phi=solar.delta_phi_rad,
         )
 
+        # Derived scene class (ADR-0011 decision 8) — a label, never an input.
+        # The direction comes off the LOS object so there is one definition of
+        # it; the optional user assertion is validated against the derivation
+        # (CU-093 redundant-entry pattern) and is never required.
+        scene = derive_scene_class(viewing.h_sensor_m, viewing.h_target_m, los.los_direction)
+        check_scene_class_assertion(
+            str(params.get("geometry.scene_class")),
+            scene,
+            viewing.h_sensor_m,
+            viewing.h_target_m,
+        )
+
+        los_rate = resolve_los_rate(params, viewing, kinematics)
+
         logger.debug(
             "GeometryStage: viewing=%s (%s) solar=%s kinematics=%s theta_o=%.6f rad slant=%s m",
             viewing.mode,
@@ -101,7 +130,7 @@ class GeometryStage:
             ("los_geometry", los),
             # Derived, never declared (ADR-0011 decision 1).  Read straight
             # off the contract object so there is exactly one definition of
-            # the direction; the scene-class machinery is Phase 3.
+            # the direction; the scene class below carries this same value.
             ("los_direction", los.los_direction),
             ("theta_o_rad", viewing.theta_o_rad),
             ("eta_rad", viewing.eta_rad),
@@ -122,9 +151,20 @@ class GeometryStage:
             ("solar_illumination", params.get("geometry.solar_illumination")),
             ("ground_speed_m_s", kinematics.ground_speed_m_s),
             ("orbital_period_s", kinematics.orbital_period_s),
+            # Derived scene class (ADR-0011 decision 8): a label consumed by
+            # metric relevance, defaults, validation, and the GUI — never by
+            # physics.  Published alongside its two pieces.
+            ("scene_class", scene.key),
+            ("observer_class", scene.observer_class),
+            ("target_class", scene.target_class),
+            # LOS angular rate (Gap 111).  With no kinematics input this is
+            # the platform-only value ground_speed / slant that the smear arm
+            # already derives; None only for coincident endpoints.
+            ("los_angular_rate_rad_s", los_rate.los_angular_rate_rad_s),
             ("viewing_mode", viewing.mode),
             ("solar_mode", solar.mode),
             ("kinematics_mode", kinematics.mode),
+            ("los_rate_mode", los_rate.mode),
         ):
             state = state.with_stage_output("geometry", key, value)
         return state

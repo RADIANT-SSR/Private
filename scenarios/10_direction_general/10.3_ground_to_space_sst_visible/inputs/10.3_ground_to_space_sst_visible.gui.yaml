@@ -1,0 +1,40 @@
+# RADIANT config — written by Sensor.to_yaml()
+_radiant:
+  format: 1
+  wavelength_points: 121
+atmosphere:
+  cn2_hv_ground_strength: 1.7e-14
+  cn2_hv_wind_rms_m_s: 21.0
+  cn2_profile: hufnagel_valley
+  model: simple
+  standard_atmosphere: midlat_summer
+  turbulence_wave_type: plane
+  visibility_km: 100.0
+detector:
+  dark_rate_e_per_s: 100.0
+  pixel_pitch_x_um: 15.0
+  pixel_pitch_y_um: 15.0
+  qe_value: 0.8
+geometry:
+  path_zenith_rad: 0.3490658503988659
+  sensor_altitude_m: 900.0
+  solar_azimuth_rad: 0.7853981633974483
+  solar_zenith_rad: 1.7802358370342162
+  target_altitude_m: 700000.0
+optics:
+  aperture_diameter_m: 1.0
+  focal_length_m: 10.0
+  transmission_scalar: 0.6
+readout:
+  adc_bits: 16
+  full_well_capacity_e: 400000.0
+  gain_e_per_dn: 10.0
+  read_noise_e_rms: 5.0
+source:
+  scene_type: point_source
+  target:
+    user_intensity_path: object_signature_radiant_um.csv
+spectral_integration:
+  filter_max_um: 0.9
+  filter_min_um: 0.4
+  integration_time_s: 0.005

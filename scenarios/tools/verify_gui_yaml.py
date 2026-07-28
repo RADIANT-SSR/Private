@@ -2,7 +2,8 @@
 
 This is the acceptance gate for the GUI-exercise artifacts. For every
 scenario it opens ``inputs/<slug>.gui.yaml`` exactly as the GUI's
-``File -> Open YAML`` would (``Sensor.from_yaml``), evaluates the chain, and
+``File -> Open YAML`` would (``Sensor.load`` — the metadata-honoring loader
+the GUI uses, restoring ``_radiant.wavelength_points``), evaluates the chain, and
 compares the headline metrics against ``inputs/<slug>.gui.expected.json``.
 
 A PASS means the GUI-loadable artifact is faithful to the backend-validated
@@ -37,7 +38,7 @@ _REL_TOL = 1e-6
 def _reload_metrics(scen: GuiScenario) -> dict[str, float | None]:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        sensor = Sensor.from_yaml(scen.yaml_path)
+        sensor = Sensor.load(scen.yaml_path)
         result = sensor.evaluate()
     metrics = result.metrics
     stage_outputs = result.stage_outputs
@@ -72,7 +73,7 @@ def consistency_one(scen: GuiScenario) -> tuple[bool, str]:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            result = Sensor.from_yaml(scen.yaml_path).evaluate()
+            result = Sensor.load(scen.yaml_path).evaluate()
     except Exception as exc:  # noqa: BLE001
         return False, f"reload/evaluate raised {type(exc).__name__}: {exc}"
     consistency = result.stage_outputs.get("performance", {}).get("dual_path_consistency")

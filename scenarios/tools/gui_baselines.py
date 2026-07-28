@@ -884,4 +884,75 @@ REGISTRY: list[GuiScenario] = [
         ),
         notes="Nominal LWIR chain; SimpleAtmosphere (tape7 family not portable).",
     ),
+    # ------------------------------------------------------------------
+    # 10 — direction-general validation (Geometry-Flexibility Phase 5).
+    # One scenario per newly-opened ADR-0011 scene class. The ground-projection
+    # metric family (GSD/NIIRS/...) is OFF by default for these non-ground-target
+    # classes (scene relevance, G3), so the snapshot metrics are the ones the
+    # class actually computes.
+    # ------------------------------------------------------------------
+    GuiScenario(
+        id="10.1",
+        persona="10_direction_general",
+        slug="10.1_ground_to_air_mwir_detection",
+        title="Ground-to-air MWIR detection — up-looking, sky background",
+        build=runner_factory(
+            "10_direction_general",
+            "10.1_ground_to_air_mwir_detection",
+            "run_ground_to_air_mwir_detection.py",
+            lambda m: m.make_sensor(),  # type: ignore[attr-defined]
+        ),
+        metrics=("snr", "contrast_snr", "nedt_K"),
+        stage_scalars=("geometry.theta_o_rad", "geometry.slant_range_m"),
+        sweep=("geometry.path_zenith_rad", "Lower-endpoint zenith ζ_low", "deg"),
+        notes="scene_class ground_to_air; los_direction up; SkyBackground behind the target.",
+    ),
+    GuiScenario(
+        id="10.2",
+        persona="10_direction_general",
+        slug="10.2_air_to_air_level_irst",
+        title="Air-to-air level IRST — horizontal arm, target kinematics",
+        build=runner_factory(
+            "10_direction_general",
+            "10.2_air_to_air_level_irst",
+            "run_air_to_air_level_irst.py",
+            lambda m: m.make_sensor(),  # type: ignore[attr-defined]
+        ),
+        metrics=("snr", "contrast_snr", "detection_range_m"),
+        stage_scalars=("geometry.theta_o_rad", "geometry.slant_range_m"),
+        sweep=("geometry.target_range_m", "Level-arm slant range", "km"),
+        notes="scene_class air_to_air; los_direction level; Δh sag pill on the schematic.",
+    ),
+    GuiScenario(
+        id="10.3",
+        persona="10_direction_general",
+        slug="10.3_ground_to_space_sst_visible",
+        title="Ground-to-space SST — visible, seeing-limited, full column",
+        build=runner_factory(
+            "10_direction_general",
+            "10.3_ground_to_space_sst_visible",
+            "run_ground_to_space_sst_visible.py",
+            lambda m: m.make_sensor(),  # type: ignore[attr-defined]
+        ),
+        metrics=("snr", "contrast_snr", "mtf_at_nyquist"),
+        stage_scalars=("geometry.theta_o_rad", "geometry.slant_range_m"),
+        sweep=("geometry.path_zenith_rad", "Telescope zenith ζ_low", "deg"),
+        notes="scene_class ground_to_space; HV-5/7 turbulence; MODTRAN anchor deferred (batch 2).",
+    ),
+    GuiScenario(
+        id="10.4",
+        persona="10_direction_general",
+        slug="10.4_leo_to_geo_exo",
+        title="LEO→GEO exo SDA — θ_o = π, vacuum path",
+        build=runner_factory(
+            "10_direction_general",
+            "10.4_leo_to_geo_exo",
+            "run_leo_to_geo_exo.py",
+            lambda m: m.make_sensor(),  # type: ignore[attr-defined]
+        ),
+        metrics=("snr", "contrast_snr", "detection_range_m"),
+        stage_scalars=("geometry.theta_o_rad", "geometry.slant_range_m"),
+        sweep=("spectral_integration.integration_time_s", "Integration time", "ms"),
+        notes="scene_class space_to_space; wholly-vacuum up-looking path (τ = 1 exact).",
+    ),
 ]

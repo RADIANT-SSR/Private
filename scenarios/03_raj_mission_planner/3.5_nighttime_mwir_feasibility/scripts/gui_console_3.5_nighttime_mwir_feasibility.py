@@ -8,7 +8,7 @@
 #   3. Paste this script and Run. The figure pops out into its own window;
 #      the parameter change marks the main view stale (click Refresh).
 #
-# NOTE: MWIR band, nominal target/background thermal temperatures.
+# NOTE: MWIR band, nominal target/background thermal temperatures. The 0.2 ms / 1e7 e- well is deliberately sized so neither band saturates (well OK); the GUI baseline adds a well-matched gain (160 e-/DN) so the 16-bit ADC no longer clips (CU-170).
 #
 # NB: the header is comments, not a docstring — the console is a REPL and would
 # echo a bare """string""" back into the transcript. Also runs standalone
@@ -22,7 +22,7 @@ except NameError:
 
     from radiant.api import Sensor
 
-    sensor = Sensor.from_yaml(
+    sensor = Sensor.load(
         _Path(__file__).resolve().parent.parent / "inputs" / "3.5_nighttime_mwir_feasibility.gui.yaml"
     )
 

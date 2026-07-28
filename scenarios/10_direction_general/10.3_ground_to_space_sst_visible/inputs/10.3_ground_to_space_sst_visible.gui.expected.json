@@ -1,0 +1,12 @@
+{
+  "id": "10.3",
+  "title": "Ground-to-space SST \u2014 visible, seeing-limited, full column",
+  "metrics": {
+    "snr": 186.88883085116558,
+    "contrast_snr": 186.88883085116558,
+    "mtf_at_nyquist": 0.008872336668760847,
+    "geometry.theta_o_rad": 2.828286962715728,
+    "geometry.slant_range_m": 739155.8770111911
+  },
+  "notes": "scene_class ground_to_space; HV-5/7 turbulence; MODTRAN anchor deferred (batch 2)."
+}

@@ -22,7 +22,7 @@ except NameError:
 
     from radiant.api import Sensor
 
-    sensor = Sensor.from_yaml(
+    sensor = Sensor.load(
         _Path(__file__).resolve().parent.parent / "inputs" / "6.4_synthetic_scene_generation.gui.yaml"
     )
 

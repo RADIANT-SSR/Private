@@ -22,7 +22,7 @@ except NameError:
 
     from radiant.api import Sensor
 
-    sensor = Sensor.from_yaml(
+    sensor = Sensor.load(
         _Path(__file__).resolve().parent.parent / "inputs" / "8.1_off_nadir_angle_interpolation.gui.yaml"
     )
 

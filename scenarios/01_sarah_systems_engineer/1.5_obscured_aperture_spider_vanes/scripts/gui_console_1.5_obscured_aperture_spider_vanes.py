@@ -22,7 +22,7 @@ except NameError:
 
     from radiant.api import Sensor
 
-    sensor = Sensor.from_yaml(
+    sensor = Sensor.load(
         _Path(__file__).resolve().parent.parent / "inputs" / "1.5_obscured_aperture_spider_vanes.gui.yaml"
     )
 

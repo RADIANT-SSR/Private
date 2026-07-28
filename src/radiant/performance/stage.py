@@ -19,10 +19,6 @@ import numpy as np
 from radiant.core.chain import ChainState
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterSet, Provenance
-from radiant.core.viewing_triangle import (
-    ground_range_from_theta_o_m,
-    slant_range_from_theta_o_m,
-)
 from radiant.performance.access_rate import compute_access_rate_m2_s
 from radiant.performance.adc_margin import compute_adc_margin
 from radiant.performance.consistency_check import check_dual_path_consistency
@@ -334,21 +330,20 @@ def _is_downlooking(state: ChainState, params: ParameterSet) -> bool:
     Reads the ``los_direction`` label GeometryStage already derived and
     published (ADR-0011 decision 1: derived once, in
     :class:`~radiant.core.los_geometry.LineOfSightGeometry`, never re-derived
-    here).  Falls back to the θ_o hemisphere test only for partial fixtures
-    that run PerformanceStage without GeometryStage — the same fallback the
-    GSD derivation itself carries (CU-096).
+    here).  A state with no published label at all (a partial fixture that ran
+    PerformanceStage without GeometryStage) passes the gate — the metric
+    computations behind it consume only GeometryStage-published values since
+    the CU-096 fallback retirement (Geometry-Flexibility Phase 5), so with no
+    stage output they skip on the missing values themselves and the gate's
+    verdict is moot.
 
     Returns ``False`` for both up-looking (θ_o > π/2) and level (θ_o = π/2)
     scenes: neither has a ground footprint below the sensor.
     """
     direction = state.stage_outputs.get("geometry", {}).get("los_direction")
-    if direction is not None:
-        return bool(direction == "down")
-    try:
-        theta_o_rad: float = params.get("geometry.path_zenith_rad")
-    except (KeyError, TypeError):
-        return True  # No θ_o at all: the legacy nadir default (θ_o = 0).
-    return bool(theta_o_rad < math.pi / 2.0)
+    if direction is None:
+        return True
+    return bool(direction == "down")
 
 
 def _compute_gsd_metrics(
@@ -357,13 +352,13 @@ def _compute_gsd_metrics(
 ) -> ChainState:
     """Compute ground sample distance when orbital/airborne geometry is available.
 
-    Uses GeometryStage's published θ_o-consistent slant range + incidence when
-    present; otherwise derives them from ``geometry.path_zenith_rad`` (the
-    target-side path zenith θ_o) via the spherical viewing triangle and hands
-    them to ``gsd.compute_gsd_from_geometry`` (CU-096).  Off-nadir correction
-    defaults to nadir (θ_o = 0) if not set.  Skips gracefully when altitude or
-    focal length is not set (e.g. lab/TVAC scenarios), and when the LOS is not
-    down-looking (see below).
+    Consumes GeometryStage's published θ_o-consistent slant range + incidence
+    angle — and **only** those (the CU-096 partial-fixture θ_o derivation is
+    retired; Geometry-Flexibility Phase 5 / guardrail G4, RADIANT_Geometry.md
+    §4.3).  Skips gracefully when altitude or focal length is not set (e.g.
+    lab/TVAC scenarios), when GeometryStage published no slant/incidence (a
+    partial fixture that never ran it), and when the LOS is not down-looking
+    (see below).
 
     Down-looking only
     -----------------
@@ -406,41 +401,21 @@ def _compute_gsd_metrics(
     # ADR-0006: consume the slant range and incidence angle GeometryStage
     # derived once from the canonical target-side zenith. Falls back to the
     # legacy (altitude, angle) derivation only for partial fixtures that run
-    # PerformanceStage without GeometryStage (CU-096 tracks retiring it).
+    # PerformanceStage without GeometryStage skips (CU-096 fallback retired,
+    # Geometry-Flexibility Phase 5 / guardrail G4: this stage derives no
+    # geometry of its own — RADIANT_Geometry.md §4.3).
     geo_out = state.stage_outputs.get("geometry", {})
     slant_range_m = geo_out.get("slant_range_m")
     incidence_rad = geo_out.get("incidence_angle_rad")
-    if slant_range_m is not None and incidence_rad is not None:
-        result = compute_gsd_from_geometry(
-            pitch_x_m,
-            pitch_y_m,
-            focal_length_m,
-            slant_range_m,
-            incidence_rad,
-        )
-    else:
-        # Partial-fixture fallback: derive the geometry from the canonical
-        # target-side path zenith θ_o exactly as GeometryStage does (CU-096).
-        # geometry.path_zenith_rad is θ_o, so route it through the θ_o spherical
-        # triangle — NOT compute_gsd(), whose angle argument is the sensor-side
-        # off-nadir η. On a spherical Earth the incidence angle at the target
-        # equals θ_o (what GeometryStage publishes as incidence_angle_rad).
-        try:
-            theta_o_rad: float = params.get("geometry.path_zenith_rad")
-        except (KeyError, TypeError):
-            theta_o_rad = 0.0
-        try:
-            h_target_m: float = params.get("geometry.target_altitude_m")
-        except (KeyError, TypeError):
-            h_target_m = 0.0
-        slant_fallback_m = slant_range_from_theta_o_m(theta_o_rad, altitude_m, h_target_m)
-        result = compute_gsd_from_geometry(
-            pitch_x_m,
-            pitch_y_m,
-            focal_length_m,
-            slant_fallback_m,
-            theta_o_rad,
-        )
+    if slant_range_m is None or incidence_rad is None:
+        return state
+    result = compute_gsd_from_geometry(
+        pitch_x_m,
+        pitch_y_m,
+        focal_length_m,
+        slant_range_m,
+        incidence_rad,
+    )
     state = state.with_metric("gsd_cross_track_m", result.cross_track_m)
     state = state.with_metric("gsd_along_track_m", result.along_track_m)
     state = state.with_metric("gsd_geometric_mean_m", result.geometric_mean_m)
@@ -675,24 +650,15 @@ def _compute_access_metrics(
     if altitude_m <= 0.0:
         return state
 
-    # Ground range — published by GeometryStage (ADR-0006); legacy
-    # derivation only for partial fixtures without the stage (CU-096).
+    # Ground range — published by GeometryStage (ADR-0006). Absent that
+    # publication the metric is skipped: this stage derives no geometry of its
+    # own (CU-096 fallback retired, Geometry-Flexibility Phase 5 / G4 —
+    # RADIANT_Geometry.md §4.3). Swath and access rate below need only the
+    # GSD and the ground speed, so they still compute.
     geo_out = state.stage_outputs.get("geometry", {})
     ground_range = geo_out.get("ground_range_m")
-    if ground_range is None:
-        # geometry.path_zenith_rad is θ_o (target-side); derive the ground arc
-        # from it via the θ_o triangle to match GeometryStage — NOT
-        # compute_ground_range_m, whose angle argument is the sensor-side η (CU-096).
-        try:
-            theta_o_rad: float = params.get("geometry.path_zenith_rad")
-        except (KeyError, TypeError):
-            theta_o_rad = 0.0
-        try:
-            h_target_m: float = params.get("geometry.target_altitude_m")
-        except (KeyError, TypeError):
-            h_target_m = 0.0
-        ground_range = ground_range_from_theta_o_m(theta_o_rad, altitude_m, h_target_m)
-    state = state.with_metric("ground_range_m", ground_range)
+    if ground_range is not None:
+        state = state.with_metric("ground_range_m", ground_range)
 
     # Swath width (requires n_pixels_cross > 0).
     try:
@@ -774,23 +740,14 @@ def _compute_diffraction_limit_metrics(
         return state
     if altitude_m <= 0.0:
         return state
-    # Slant range — published by GeometryStage (ADR-0006); legacy
-    # derivation only for partial fixtures without the stage (CU-096).
+    # Slant range — published by GeometryStage (ADR-0006). Absent that
+    # publication the metric is skipped: this stage derives no geometry of its
+    # own (CU-096 fallback retired, Geometry-Flexibility Phase 5 / G4 —
+    # RADIANT_Geometry.md §4.3).
     range_pub = state.stage_outputs.get("geometry", {}).get("slant_range_m")
-    if range_pub is not None:
-        range_m = float(range_pub)
-    else:
-        # geometry.path_zenith_rad is θ_o; derive the slant via the θ_o triangle
-        # to match GeometryStage — NOT the sensor-off-nadir-η helper (CU-096).
-        try:
-            theta_o_rad: float = params.get("geometry.path_zenith_rad")
-        except (KeyError, TypeError):
-            theta_o_rad = 0.0
-        try:
-            h_target_m: float = params.get("geometry.target_altitude_m")
-        except (KeyError, TypeError):
-            h_target_m = 0.0
-        range_m = slant_range_from_theta_o_m(theta_o_rad, altitude_m, h_target_m)
+    if range_pub is None:
+        return state
+    range_m = float(range_pub)
     ground_m = diffraction_limited_ground_m(lambda_center_m, aperture_m, range_m)
     return state.with_metric("diffraction_limit_ground_m", ground_m)
 

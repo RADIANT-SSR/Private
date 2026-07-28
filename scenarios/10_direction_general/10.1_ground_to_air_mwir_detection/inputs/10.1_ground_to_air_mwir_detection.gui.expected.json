@@ -1,0 +1,12 @@
+{
+  "id": "10.1",
+  "title": "Ground-to-air MWIR detection \u2014 up-looking, sky background",
+  "metrics": {
+    "snr": 136.40027941260598,
+    "contrast_snr": 136.40027941260598,
+    "nedt_K": 0.6481313488981436,
+    "geometry.theta_o_rad": 2.6188984378211106,
+    "geometry.slant_range_m": 11543.990971290506
+  },
+  "notes": "scene_class ground_to_air; los_direction up; SkyBackground behind the target."
+}

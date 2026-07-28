@@ -1,0 +1,12 @@
+{
+  "id": "10.2",
+  "title": "Air-to-air level IRST \u2014 horizontal arm, target kinematics",
+  "metrics": {
+    "snr": 283.91135062805887,
+    "contrast_snr": 283.91135062805887,
+    "detection_range_m": 150923.11794527367,
+    "geometry.theta_o_rad": 1.5747142180279186,
+    "geometry.slant_range_m": 49999.99999999926
+  },
+  "notes": "scene_class air_to_air; los_direction level; \u0394h sag pill on the schematic."
+}

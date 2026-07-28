@@ -8,7 +8,7 @@
 #   3. Paste this script and Run. The figure pops out into its own window;
 #      the parameter change marks the main view stale (click Refresh).
 #
-# NOTE: Runner's module-level base_config (nadir); the sweep varies path zenith.
+# NOTE: Runner's module-level base_config (nadir); the sweep varies path zenith. NIIRS-vs-off-nadir is the headline trade, so allow_extrapolated=true opts the baseline into the GIQE-5 rating past its SNR-calibration envelope (CU-166/CU-170).
 #
 # NB: the header is comments, not a docstring — the console is a REPL and would
 # echo a bare """string""" back into the transcript. Also runs standalone
@@ -22,7 +22,7 @@ except NameError:
 
     from radiant.api import Sensor
 
-    sensor = Sensor.from_yaml(
+    sensor = Sensor.load(
         _Path(__file__).resolve().parent.parent / "inputs" / "3.4_off_nadir_agility.gui.yaml"
     )
 

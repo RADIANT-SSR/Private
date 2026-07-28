@@ -95,7 +95,7 @@ except NameError:
 
     from radiant.api import Sensor
 
-    sensor = Sensor.from_yaml(
+    sensor = Sensor.load(
         _Path(__file__).resolve().parent.parent / "inputs" / "{slug}.gui.yaml"
     )
 
@@ -191,7 +191,7 @@ def generate_one(scen: GuiScenario) -> Path:
         raise FileNotFoundError(f"{scen.id}: run emit_gui_yaml.py first ({scen.yaml_path} missing)")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        sensor = Sensor.from_yaml(scen.yaml_path)
+        sensor = Sensor.load(scen.yaml_path)
         sweep_dot, sweep_label, sweep_unit, center = _pick_sweep(scen, sensor)
     notes_block = scen.notes or "baseline is the scenario's nominal operating point."
     text = _TEMPLATE.format(

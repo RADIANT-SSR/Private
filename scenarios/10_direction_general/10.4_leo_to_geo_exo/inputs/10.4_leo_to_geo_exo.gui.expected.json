@@ -1,0 +1,12 @@
+{
+  "id": "10.4",
+  "title": "LEO\u2192GEO exo SDA \u2014 \u03b8_o = \u03c0, vacuum path",
+  "metrics": {
+    "snr": 24.51880642227754,
+    "contrast_snr": 24.51880642227754,
+    "detection_range_m": 78138863.2163665,
+    "geometry.theta_o_rad": 3.141592653589793,
+    "geometry.slant_range_m": 35286000.0
+  },
+  "notes": "scene_class space_to_space; wholly-vacuum up-looking path (\u03c4 = 1 exact)."
+}

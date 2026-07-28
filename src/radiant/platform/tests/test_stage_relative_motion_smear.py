@@ -412,7 +412,14 @@ class TestDifferentialZeroDrift:
                     los_rate_mode=mode,
                 )
             )
-            expected = 0.0 if v_g <= 0.0 else smear_width_m(v_g, t_int, FOCAL_LENGTH_M, slant)
+            # A fixture with NO published geometry gets the nadir proxy
+            # ``slant = altitude`` since the CU-096 fallback retirement
+            # (Geometry-Flexibility Phase 5 / G4): the θ_o-triangle derivation
+            # is gone, so off-nadir smear geometry requires GeometryStage.
+            effective_slant = alt if mode is None else slant
+            expected = (
+                0.0 if v_g <= 0.0 else smear_width_m(v_g, t_int, FOCAL_LENGTH_M, effective_slant)
+            )
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
                 actual = PlatformStage._compute_smear_width(

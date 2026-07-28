@@ -9,6 +9,7 @@ from radiant.api.errors import ApiValidationError
 from radiant.api.inspect import ResultPlotNamespace, inspect_result
 from radiant.core.chain import ChainState
 from radiant.core.radiometry import NoiseTerm, RadiometricFrame
+from radiant.core.spectral import SpectralData
 from radiant.io.results import ChainResult
 
 
@@ -287,6 +288,39 @@ def _make_spectral_result(*, with_background: bool = True) -> ChainResult:
     return ChainResult(state)
 
 
+def _make_reflective_result() -> ChainResult:
+    """A result carrying the two reflective-view products (owner item 6).
+
+    ρ(λ) is a ramp so a flat-vs-spectral mix-up would show, and the reflected
+    radiance is a distinct curve so the two accessors cannot pass by plotting
+    each other's data.
+    """
+    wl = np.linspace(0.4, 0.9, 20)
+    rho = 0.2 + 0.4 * (wl - 0.4) / 0.5
+    l_reflected = rho * 1200.0 / np.pi
+
+    state = ChainState(wavelength_um=wl)
+    state = state.with_stage_output(
+        "source",
+        "reflectance",
+        SpectralData(
+            name="target_reflectance",
+            wavelength_um=wl,
+            values=rho,
+            unit="dimensionless",
+            source="test",
+        ),
+    )
+    state = state.with_frame(
+        RadiometricFrame(
+            name="at_source_target_reflected",
+            wavelength_um=wl,
+            spectral_radiance=l_reflected,
+        )
+    )
+    return ChainResult(state)
+
+
 @pytest.mark.level1
 class TestSpectralAccessors:
     def test_source_returns_figure_with_units(self) -> None:
@@ -343,6 +377,41 @@ class TestSpectralAccessors:
         ns = ResultPlotNamespace(ChainResult(ChainState(wavelength_um=wl)))
         with pytest.raises(ApiValidationError, match="at_source_target"):
             ns.spectral_source_emission()
+
+    def test_reflectance_returns_dimensionless_figure(self) -> None:
+        """Owner item 6: the reflective view's lead figure is ρ(λ), not a radiance."""
+        result = _make_reflective_result()
+        fig = ResultPlotNamespace(result).target_reflectance()
+        ax = fig.axes[0]
+        assert "µm" in ax.get_xlabel()
+        assert "dimensionless" in ax.get_ylabel()
+        assert "W/m²/sr/µm" not in ax.get_ylabel()
+        np.testing.assert_array_equal(
+            ax.lines[0].get_ydata(),
+            result.stage_outputs["source"]["reflectance"].values,
+        )
+
+    def test_reflectance_raises_for_a_target_that_has_none(self) -> None:
+        """A pure-thermal scene gets the actionable message, never a zero curve."""
+        ns = ResultPlotNamespace(_make_spectral_result())
+        with pytest.raises(ApiValidationError, match="carries none"):
+            ns.target_reflectance()
+
+    def test_reflected_radiance_returns_figure_with_units(self) -> None:
+        result = _make_reflective_result()
+        fig = ResultPlotNamespace(result).spectral_reflected_radiance()
+        ax = fig.axes[0]
+        assert "µm" in ax.get_xlabel()
+        assert "W/m²/sr/µm" in ax.get_ylabel()
+        np.testing.assert_array_equal(
+            ax.lines[0].get_ydata(),
+            result.frames["at_source_target_reflected"].spectral_radiance,
+        )
+
+    def test_reflected_radiance_raises_without_frame(self) -> None:
+        ns = ResultPlotNamespace(_make_spectral_result())
+        with pytest.raises(ApiValidationError, match="at_source_target_reflected"):
+            ns.spectral_reflected_radiance()
 
     def test_atmosphere_returns_twin_unit_axes(self) -> None:
         ns = ResultPlotNamespace(_make_spectral_result())

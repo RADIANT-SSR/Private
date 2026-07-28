@@ -36,6 +36,27 @@ retroactively reconstructed.
   EE/RER/FWHM are optimistic and the dual-path consistency check flags it.
 
 ### Added
+- **Target reflectance ρ(λ) is published and plotted (GUI walkthrough item 6).**
+  `SourceStage` publishes `stage_outputs["source"]["reflectance"]` — the target's
+  resolved ρ(λ) as dimensionless `SpectralData` on the chain grid — for both
+  reflective pathways: a user-supplied ρ (scalar or a ρ(λ) CSV) and the Kirchhoff
+  ρ = 1 − ε of a mixed emit+reflect target. It is absent, not zero, for a target
+  that carries no reflectance. `AtmosphereStage` publishes the companion
+  `at_source_target_reflected` frame — the ρ-proportional part of the source
+  emission (direct solar + diffuse sky, no self-emission). `result.plot` gains
+  `target_reflectance()` and `spectral_reflected_radiance()`, which are now the
+  two figures on the Source stage's *Target — reflective* tab. Both publications
+  reuse the decomposition and the reflectance resolver the radiance path already
+  used (the resolver moved to `radiant.core.target_reflectance` so SourceStage
+  and the atmosphere assembly share one implementation), so no computed metric
+  moves and every golden baseline is unchanged.
+- **The reflective tab can input a spectral ρ(λ) (GUI walkthrough item 6).**
+  `source.target.reflectance_path` — a λ-dependent reflectance CSV that the
+  schema and the inferrer already supported — is now mounted on the Source
+  *Target — reflective* input card beside the scalar ρ, so a spectral
+  reflectance no longer requires hand-editing YAML. The two surfaces stay
+  mutually exclusive; the engine's rejection reaches the operator through the
+  actionable evaluate dialog and the Messages panel.
 - **At-image spectral irradiance (GUI walkthrough item 16).**
   `SpectralIntegrationStage` publishes
   `stage_outputs["spectral_integration"]["spectral_irradiance_at_image"]` —
@@ -48,6 +69,15 @@ retroactively reconstructed.
   exactly — pinned by a round-trip test.
 
 ### Changed
+- **Sun geometry is read-only on the Source reflective tab (GUI walkthrough
+  item 6).** `geometry.solar_illumination` / `solar_zenith_rad` /
+  `solar_azimuth_rad` were mounted there as editable rows, a second editor for
+  three Geometry-owned parameters. They now render through the new
+  `FieldRow.set_read_only` — fully legible (they answer "why is my reflected
+  term dark?") but inert, each naming the Geometry stage as their owner. The
+  Source *Target — reflective* tab also no longer plots the at-aperture
+  `spectral_source`; that post-atmosphere view belongs to the Atmosphere stage,
+  the same move item 5 made for the point-source tab.
 - **Source "Target — point source" plots the source-side emission, not the
   at-aperture radiance (GUI walkthrough item 5).** The tab defines what the
   target *emits* (blackbody T/area/ε or a band-integrated intensity in W/sr),

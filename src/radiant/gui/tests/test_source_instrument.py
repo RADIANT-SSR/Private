@@ -66,12 +66,32 @@ def _load_window(qtbot) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
 
 class TestSourceComposition:
     def test_emission_is_the_primary_plot(self) -> None:
-        """GT-0: the thermal tab leads with the FP-1 emission accessor; the reflective
-        tab carries the at-aperture radiance (owner: keep it available)."""
+        """GT-0: the thermal tab leads with the FP-1 emission accessor.
+
+        Owner walkthrough item 6 finished the move item 5 started: no Source tab
+        plots the *at-aperture* radiance any more. That view is post-atmosphere,
+        and it belongs to the stage that owns the step — a Source tab whose
+        inputs define what leaves the target must not lead with a curve the
+        atmosphere has already modified.
+        """
         comp = STAGE_COMPOSITIONS["source"]
         methods = [p.method for sub in comp.subviews for p in sub.plots]
         assert methods[0] == "spectral_source_emission"
-        assert "spectral_source" in methods
+        assert "spectral_source" not in methods
+
+    def test_reflective_tab_pairs_rho_with_the_radiance_it_produces(self) -> None:
+        """Owner item 6: "Plot should be reflectivity vs. Lambda", plus the radiance.
+
+        ρ(λ) leads (it is the property the tab's inputs define) and the reflected
+        radiance sits beside it, so the operator sees cause and effect in one row.
+        """
+        comp = STAGE_COMPOSITIONS["source"]
+        reflective = next(s for s in comp.subviews if s.title == "Target — reflective")
+        assert [p.method for p in reflective.plots] == [
+            "target_reflectance",
+            "spectral_reflected_radiance",
+        ]
+        assert reflective.plot_columns == 2
 
     def test_source_declares_scene_first_tabs_without_shape(self) -> None:
         """GT-0 / Windows finding 14: owner-ordered tabs, scene declaration first; the
@@ -266,6 +286,143 @@ class TestReflectiveAndSceneType:
         assert day > night, (
             f"reflected-solar term had no effect: day={day:.4g} e- vs night={night:.4g} e-"
         )
+
+
+class TestReflectiveTab:
+    """Owner walkthrough item 6 — the reflective tab as a surface-property instrument."""
+
+    def _reflective_form(self, qtbot, sensor: Sensor):  # type: ignore[no-untyped-def]
+        pane = _source_pane(qtbot, sensor)
+        return pane, next(
+            f
+            for f in pane._source_forms  # noqa: SLF001 — one per GT-0 tab
+            if "source.target.reflectance" in f.field_dotpaths()
+        )
+
+    def test_both_reflectance_surfaces_are_mounted(self) -> None:
+        """ "Should be able to input R(lambda) as well": the scalar ρ *and* the CSV.
+
+        The ρ(λ) path already existed in the schema and in the inferrer; it was
+        simply unreachable from the GUI, so a spectral reflectance could only be
+        set by hand-editing YAML.
+        """
+        paths = {dotpath for _label, dotpath in _RADIOMETRY_FIELDS}
+        assert "source.target.reflectance" in paths
+        assert "source.target.reflectance_path" in paths
+
+    def test_solar_rows_are_shown_but_not_editable_here(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Sun geometry stays visible (it explains a dark reflected term) but read-only.
+
+        Read-only, *not* disabled: the value must stay legible — it is the answer
+        to "why is my reflected term dark?" — while the one place it can be
+        changed remains the Geometry stage.
+        """
+        _pane, form = self._reflective_form(qtbot, Sensor.from_yaml(_EXAMPLE))
+        for dotpath in (
+            "geometry.solar_illumination",
+            "geometry.solar_zenith_rad",
+            "geometry.solar_azimuth_rad",
+        ):
+            row = form.row(dotpath)
+            assert row.is_read_only
+            assert row.isEnabled(), "a Geometry-owned row stays legible, not greyed out"
+            assert row.value_text() != ""
+            assert "Geometry" in row.toolTip(), "the row must name the owning stage"
+
+    def test_solar_rows_do_not_open_an_editor(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """Clicking a Geometry-owned row is inert — no second editor for one parameter."""
+        from radiant.gui.widgets import source_inputs_form as sif
+
+        _pane, form = self._reflective_form(qtbot, Sensor.from_yaml(_EXAMPLE))
+        opened: list[str] = []
+        monkeypatch.setattr(
+            sif.ParameterEditorDialog,
+            "exec",
+            lambda self: opened.append(self.dotpath) or 0,
+        )
+
+        form.row("geometry.solar_zenith_rad").value_button.click()
+        assert opened == []
+        # The reflectance row on the same tab still opens normally.
+        form.row("source.target.reflectance").value_button.click()
+        assert opened == ["source.target.reflectance"]
+
+    def test_read_only_survives_a_refresh(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The scene-type relevance gating cannot hand a Geometry-owned row an editor."""
+        _pane, form = self._reflective_form(qtbot, Sensor.from_yaml(_EXAMPLE))
+        form.refresh()
+        row = form.row("geometry.solar_zenith_rad")
+        assert row.is_read_only
+        assert "Geometry" in row.toolTip()
+
+    def test_reflective_plots_render_for_a_kirchhoff_target(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The example config is a mixed emit+reflect target: both figures draw.
+
+        ρ = 1 − ε is published for it (Rule 5), so neither section falls back to
+        its actionable "no reflectance here" message.
+        """
+        pane = _source_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
+        sections = pane._plot_sections  # noqa: SLF001
+        reflective = [
+            s
+            for s in sections
+            if s._spec.method  # noqa: SLF001
+            in ("target_reflectance", "spectral_reflected_radiance")
+        ]
+        assert len(reflective) == 2
+        for section in reflective:
+            assert section.canvas.has_figure()
+            assert not section._message.isVisible()  # noqa: SLF001
+
+    def test_scalar_rho_and_rho_lambda_file_remain_mutually_exclusive(
+        self,
+        tmp_path,  # type: ignore[no-untyped-def]
+    ) -> None:
+        """Mounting both surfaces must not let the GUI build an over-specified target.
+
+        The engine owns the rule (both surfaces describe the same ρ); this guards
+        that it still fires with all three actionable parts, naming both surfaces
+        so the operator knows which one to clear.
+        """
+        from radiant.core.exceptions import RadiantError
+
+        csv = tmp_path / "rho.csv"
+        csv.write_text("wavelength_um,rho\n3.0,0.2\n5.0,0.4\n", encoding="utf-8")
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        sensor.set("source.target.reflectance", 0.3)
+        sensor.set("source.target.reflectance_path", str(csv))
+
+        with pytest.raises(RadiantError) as excinfo:
+            _evaluate(sensor)
+        exc = excinfo.value
+        assert "source.target.reflectance" in str(exc.what)
+        assert "source.target.reflectance_path" in str(exc.what)
+        assert exc.why and exc.action  # Rule 15: all three parts, not a bare message
+
+    def test_over_specified_reflectance_surfaces_actionably_in_the_gui(  # type: ignore[no-untyped-def]
+        self, qtbot, monkeypatch, tmp_path
+    ) -> None:
+        """The rejection reaches the operator: actionable dialog + Messages panel.
+
+        The exclusivity is an inferrer-time check (it needs the whole target spec,
+        not one value), so it lands on the evaluate path rather than in the editor's
+        clone-validate — the same surface every cross-parameter conflict uses.
+        """
+        from radiant.gui.widgets import actionable_error_dialog as aed
+
+        csv = tmp_path / "rho.csv"
+        csv.write_text("wavelength_um,rho\n3.0,0.2\n5.0,0.4\n", encoding="utf-8")
+        window = _load_window(qtbot)
+        shown: list[aed.ActionableErrorDialog] = []
+        monkeypatch.setattr(aed.ActionableErrorDialog, "exec", lambda self: shown.append(self) or 0)
+
+        window.sensor.set("source.target.reflectance", 0.3)
+        window.sensor.set("source.target.reflectance_path", str(csv))
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.parameter_panel.parameterEdited.emit("source.target.reflectance_path")
+
+        assert len(shown) == 1, "an over-specified ρ must raise the actionable dialog"
+        assert window.right_rail.messages.has_error()
 
     def test_declared_scene_type_mismatch_warns(self) -> None:
         """Declaring point_source on the extended example fires the T2 cross-check warning."""

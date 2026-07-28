@@ -51,6 +51,14 @@ Frame ``"at_source_background"`` with the background pre-atmosphere source
     emission, **only when** the background descriptor is non-``None``
     (Gap 91; same Decision #13 gate as ``at_aperture_background``).
 
+Frame ``"at_source_target_reflected"`` with the ρ-proportional (reflected)
+    part of ``at_source_target`` — direct solar plus diffuse sky, without the
+    ε·B(T_t) self-emission.  This is the radiance the target's reflectance
+    produces under the scene illumination; it pairs with the ρ(λ) SourceStage
+    publishes to make the GUI's reflective view show cause and effect (owner
+    walkthrough item 6).  Identically zero for a scene with no reflective
+    physics.  Purely additive (feeds no metric).
+
 Stage outputs under ``stage_outputs["atmosphere"]``:
     - ``atm_quantities``: the :class:`AtmosphericQuantities` bundle
       (the eight spectral fields used by §6.1 assembly).
@@ -85,6 +93,7 @@ from radiant.atmosphere.assembly import (
     assemble_background_at_aperture,
     assemble_background_source_emission,
     assemble_target_at_aperture,
+    assemble_target_reflected_source_radiance,
     assemble_target_source_emission,
     validate_no_atmosphere_subcase,
 )
@@ -224,6 +233,14 @@ class AtmosphereStage:
             atm_quantities,
             los,
         )
+        # Owner walkthrough item 6: the reflected (ρ-proportional) part of the
+        # same source emission, so the reflective view can show ρ(λ) next to
+        # the radiance it produces.  Same decomposition, self-emission dropped.
+        L_source_target_reflected: np.ndarray = assemble_target_reflected_source_radiance(
+            target_desc,
+            atm_quantities,
+            los,
+        )
         L_source_background: np.ndarray | None = assemble_background_source_emission(
             background_desc,
             atm_quantities,
@@ -267,10 +284,22 @@ class AtmosphereStage:
                 f"variant={type(target_desc).__name__}"
             ),
         )
+        # Owner walkthrough item 6: the reflected-only companion frame.
+        at_source_target_reflected_frame = RadiometricFrame(
+            name="at_source_target_reflected",
+            wavelength_um=state.wavelength_um,
+            spectral_radiance=L_source_target_reflected,
+            notes=(
+                "reflected (ρ-proportional) part of the pre-atmosphere source "
+                f"emission — direct solar + diffuse sky, no self-emission; "
+                f"model={model_name}; variant={type(target_desc).__name__}"
+            ),
+        )
         state = (
             state.with_frame(target_frame)
             .with_frame(at_aperture_frame)
             .with_frame(at_source_target_frame)
+            .with_frame(at_source_target_reflected_frame)
             .with_stage_output("atmosphere", "atm_quantities", atm_quantities)
             .with_stage_output("atmosphere", "tau_atm", atm_quantities.tau_up)
             .with_stage_output("atmosphere", "L_path", atm_quantities.L_path_up)

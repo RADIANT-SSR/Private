@@ -14,6 +14,15 @@ Stage outputs under ``stage_outputs["source"]``:
     - ``target``: :class:`TargetDescriptor` (T1/T2/T3/T5/T6/T7)
     - ``background``: :class:`BackgroundDescriptor` or ``None``
     - ``los_geometry``: :class:`LineOfSightGeometry` or ``None``
+    - ``reflectance``: resolved target ρ(λ) as :class:`SpectralData`
+      (dimensionless, on the chain grid) — present **only** for the two
+      descriptors that carry a reflectance: ``T2Reflective`` (the
+      ``ReflectanceDescriptor`` protocol) and ``T3Mixed`` (Kirchhoff
+      ρ = 1 − ε).  Absent otherwise.  Purely additive: it is the surface
+      property the analyst typed, published so the GUI can plot it; the
+      radiance path resolves ρ through the same
+      :mod:`radiant.core.target_reflectance` resolver (Rule 19) and is
+      unchanged by this output.
 
 Tentative regime classification (Rule 10 — finalized in OpticsStage):
     angular_extent = sqrt(A_target) / R
@@ -40,6 +49,8 @@ from radiant.core.regime import (
     REGIME_POINT_SOURCE_IFOV_MULTIPLE,
     RadiometricRegime,
 )
+from radiant.core.spectral import SpectralData
+from radiant.core.target_reflectance import target_reflectance_on_grid
 from radiant.source._inferrer import infer_descriptors
 from radiant.source.fill_fraction import fill_fraction_from_area
 
@@ -293,4 +304,31 @@ class SourceStage:
 
         state = state.with_stage_output("source", "target", target_desc)
         state = state.with_stage_output("source", "background", background_desc)
+
+        # Resolved target reflectance ρ(λ) on the chain grid (owner walkthrough
+        # item 6).  The GUI's reflective view plots the *surface property* the
+        # analyst typed, not the at-aperture radiance it eventually produces —
+        # so it must be published, and published from the ONE resolver the
+        # radiance path also uses (Rule 19).  ``None`` for every descriptor with
+        # no reflectance (T1 pure-thermal, T5/T6/T7 user-supplied radiance /
+        # intensity): the output is then simply absent, and the accessor that
+        # reads it says so actionably rather than plotting a fabricated zero.
+        rho_grid = target_reflectance_on_grid(
+            target_desc,
+            state.wavelength_um,
+            los_geometry,
+        )
+        if rho_grid is not None:
+            state = state.with_stage_output(
+                "source",
+                "reflectance",
+                SpectralData(
+                    name="target_reflectance",
+                    wavelength_um=state.wavelength_um,
+                    values=rho_grid,
+                    unit="dimensionless",
+                    source=f"resolved from {type(target_desc).__name__}",
+                ),
+            )
+
         return state.with_stage_output("source", "los_geometry", los_geometry)

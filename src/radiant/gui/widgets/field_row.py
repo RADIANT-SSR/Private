@@ -117,6 +117,7 @@ class FieldRow(QWidget):
         self._dotpath = dotpath
         self._on_edit = on_edit
         self._scope: ConfigurationScope | None = None
+        self._read_only = False
         self.setObjectName("geoModeFieldRow")
 
         row = QGridLayout(self)
@@ -148,7 +149,7 @@ class FieldRow(QWidget):
         self._value.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self._value.setMinimumWidth(VALUE_BOX_MIN)
         self._value.setMaximumWidth(VALUE_BOX_MAX)
-        self._value.clicked.connect(lambda: self._on_edit(self._dotpath))
+        self._value.clicked.connect(self._handle_clicked)
 
         # The configured-parameter marker (Phase 4b): hidden until a scope says this
         # dot-path carries one value per configuration. It sits **immediately right of
@@ -210,6 +211,12 @@ class FieldRow(QWidget):
         add_configuration_actions(menu, scope, self._dotpath)
         menu.exec(self.mapToGlobal(pos))
 
+    def _handle_clicked(self) -> None:
+        """Open the editor — unless this row mirrors a parameter another stage owns."""
+        if self._read_only:
+            return
+        self._on_edit(self._dotpath)
+
     def set_value_text(self, text: str) -> None:
         """Set the displayed value+unit text."""
         self._value.setText(text)
@@ -222,6 +229,35 @@ class FieldRow(QWidget):
         """Enable/disable the field (only the active mode's fields are editable)."""
         self.setEnabled(editable)
         self._value.setEnabled(editable)
+
+    def set_read_only(self, reason: str) -> None:
+        """Show this parameter but refuse edits — another stage owns it.
+
+        Distinct from ``set_editable(False)``, which *disables* the row: a
+        disabled row greys its value into the muted palette, which reads as
+        "not applicable" and makes the number hard to read. A parameter that a
+        different stage owns is fully applicable here — the operator needs to
+        see it (owner walkthrough item 6: the sun geometry answers "why is my
+        reflected term dark?") but must change it at its one owner, so the row
+        stays legible, drops its edit affordance, and carries *reason* as its
+        tooltip. The read-only state is sticky: a later
+        :meth:`set_editable` (the per-scene relevance gating) cannot
+        accidentally hand the row an editor it must not have.
+        """
+        self._read_only = True
+        self.setEnabled(True)
+        self._value.setEnabled(True)
+        self._value.setCursor(Qt.CursorShape.ArrowCursor)
+        self._value.setProperty("state", "readonly")
+        self._value.style().unpolish(self._value)
+        self._value.style().polish(self._value)
+        self.setToolTip(reason)
+        self._value.setToolTip(reason)
+
+    @property
+    def is_read_only(self) -> bool:
+        """Whether this row mirrors a parameter another stage owns (no editing here)."""
+        return self._read_only
 
     @property
     def value_button(self) -> QPushButton:

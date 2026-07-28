@@ -1,6 +1,8 @@
+> **HISTORICAL — archived 2026-07-28 (completed by the coding agent; all five phases delivered).** Phase 0 ADR-0011 + matrix composition (`f6b747a`); Phase 1 direction-general core (`c869d06`); Phase 2 direction-aware atmosphere (`0748dff`); Phase 3 degradations/metrics (`0b08ee7`); Phase 4 direction-aware GUI (`6365dfa`); Phase 5 validation scenarios + G4 close-out (this merge). Outstanding items live in the registries: owner-run MODTRAN batch 2, CU-236, CU-253…CU-269, Gaps 113–115.
+
 # Geometry Flexibility — Generalized Viewing Geometry Development Plan
 
-**Status:** Active — §8.1 ratified in full and §8.2 answered by the owner 2026-07-26 (record: §8.3). Phases 0–2 complete 2026-07-26, Phase 3 complete 2026-07-27, **Phase 4 complete 2026-07-28**. Remaining: Phase 5 (validation scenarios + close-out) and the owner-run MODTRAN batch 2.
+**Status:** Complete — §8.1 ratified in full and §8.2 answered by the owner 2026-07-26 (record: §8.3). Phases 0–2 complete 2026-07-26, Phase 3 complete 2026-07-27, Phases 4–5 complete 2026-07-28. **All five phases delivered.** Outstanding beyond this plan: the owner-run MODTRAN batch 2 (SST full-column ladder + twilight/refraction calibration pair — anchors the ground-to-space class and calibrates the horizon-guard thresholds), the owner-gated CU-236 down-looking detection-range swap, and the validation-wave findings CU-253…CU-269 / Gaps 113–115 (headline: CU-253, results-affecting VIS Rayleigh coefficient).
 **Source audit:** `docs/reports/geometry_flexibility_2026-07/` (chartered 2026-07-26).
 **Gaps served:** 107 (down-looking-only LOS), 108 (direction-blind backgrounds), 109 (path topology), 110 (turbulence stub), 111 (target kinematics). Related: 82 (clouds — untouched), 83 (two-point geodetic), 84 (ephemeris), 85 (mission-type relevance), 100 (IIRS).
 **Supersedes on ratification:** the 2026-07-11 "v1 has no uplooking geometry" ruling (`RADIANT_Geometry.md` §4); requires a new ADR (ADR-0011, Phase 0 deliverable).
@@ -268,20 +270,43 @@ the scenarios themselves are built.
   `gui_workflow.md` in its validation scenario (→ Phase 5, with the
   scenarios).
 
-### Phase 5 — Validation and scenario close-out (Category D)
+### Phase 5 — Validation and scenario close-out (Category D) — COMPLETE 2026-07-28
 
-- **Carried duty (G4, from Phase 3 close):** re-audit the partial-fixture
-  geometry fallbacks recorded in `RADIANT_Geometry.md` §4.3 (CU-096
-  residue) and either retire them behind a "Performance/Platform require
-  GeometryStage" contract decision or refresh the deferral again.
+Exit state: scenario series `scenarios/10_direction_general/` delivers one
+validation scenario per priority cell — 10.1 ground-to-air MWIR detection
+(E2), 10.2 air-to-air level IRST (E5), 10.3 ground-to-space SST visible
+(E3), 10.4 LEO→GEO exo — each with the full walkthrough / gaps /
+gui_workflow trio, units on every output, regime discussion, committed
+figures + manifests, a module-level factory, and a registered GUI baseline
+(38/38 scenarios pass the reload gate; 4/4 open in the real GUI headless).
+**Rule-4 consistency stayed silent on every new class** (10.1 measured the
+residual at 26× margin across its sweep; 10.3 at 5× with turbulence).
+**Cross-model anchors:** 10.1 vs the K-ladder (τ +4.3 % at K6 45°, +17.3 %
+vertical — the known simple-model MWIR excess), 10.2 vs the L-grid 10 km row
+(band-saturation shortfall quantified), 10.4 vs exact vacuum/geometry
+identities (bitwise); **the ground-to-space MODTRAN comparison is deferred
+pending the owner-run batch 2** (SST ladder + twilight/refraction pair) —
+10.3 substitutes a vacuum identity and a published-extinction anchor, and
+that anchor **root-caused CU-253**, a results-affecting VIS Rayleigh
+coefficient defect (~8× OD inflation) now owner-visible in the backlog.
+**G4 carried duty discharged:** the CU-096 partial-fixture fallbacks are
+retired (Performance consumes only GeometryStage-published geometry;
+Platform keeps the drift-proof nadir slant = altitude proxy;
+`test_geometry_required_contract.py` pins it; §4.3 records it). The
+validation wave minted CU-253…CU-269 and Gaps 113–115 — the direction-general
+machinery is sound (geometry, guards, relevance, kinematics doors, GUI all
+verified), while the findings concentrate in the simple model's VIS fidelity
+and the intensity-door solar coupling, exactly what a validation phase
+exists to surface. All existing golden baselines unchanged.
 
-- One golden scenario per newly-opened cell of §2's matrix (minimum:
-  ground-to-air MWIR detection, ground-to-space SST visible, air-to-air
-  level IRST, LEO→GEO exo). Each: walkthrough .md, units-on-all-outputs,
-  regime discussion, gui_workflow.md.
-- Full regression: all existing golden baselines unchanged; consistency
-  check (Rule 4) green on the new classes; cross-model simple-vs-MODTRAN
-  comparison per class.
+- **Carried duty (G4, from Phase 3 close):** retire or re-defer the CU-096
+  fallbacks. ✅ Retired.
+- One golden scenario per newly-opened cell (minimum: ground-to-air MWIR
+  detection, ground-to-space SST visible, air-to-air level IRST, LEO→GEO
+  exo), each with walkthrough / units / regime discussion / gui_workflow. ✅
+- Full regression: existing golden baselines unchanged ✅; Rule-4 green on
+  the new classes ✅; cross-model simple-vs-MODTRAN per class ✅ where batch-1
+  anchors exist (K/L); SST deferred to batch 2 (recorded above).
 
 ## 5. Explicitly Out of Scope (this plan)
 

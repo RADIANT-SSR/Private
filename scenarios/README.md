@@ -138,7 +138,8 @@ maturity by marking 21 executed scenarios "stub" and omitting the 08 series
 | 10.3_ground_to_space_sst_visible | implemented (executed 2026-07-28; MODTRAN anchor deferred — owner batch 2) |
 | 10.4_leo_to_geo_exo | implemented (executed 2026-07-28; vacuum-identity anchors, exact) |
 
-40 of 40 implemented (35 persona + 2 interpolation + 3 flagship-mission validation). Each folder carries the
+44 of 44 implemented (35 persona + 2 interpolation + 3 flagship-mission
+validation + 4 direction-general validation). Each folder carries the
 `walkthrough.md` / `gaps.md` / `gui_workflow.md` trio and executed
 `inputs/scripts/outputs`.
 

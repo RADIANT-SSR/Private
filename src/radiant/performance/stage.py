@@ -206,7 +206,7 @@ def _compute_spatial_metrics(
             focal_length_turb = 0.0
         if focal_length_turb > 0.0:
             # cycles/mrad -> cycles/m on the focal plane: f [m] * 1e-3 m/mrad.
-            # (CU-235: '* 1e3' here was a 1e6 slip that zeroed the turbulence
+            # (CU-234: '* 1e3' here was a 1e6 slip that zeroed the turbulence
             # term out of the MTF product since 847a71b; platform/stage.py's
             # smear conversion is the correct reference form.)
             freq_m_turb = freq_mrad / (focal_length_turb * 1e-3)

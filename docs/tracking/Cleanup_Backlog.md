@@ -30,20 +30,6 @@
 **Why it still matters**: two implementations of one geometric fact will drift; the computation is independently testable and reusable (Rule 19).
 **Suggested fix**: (a) inline-fix at next touch — hoist into `core` (or reuse the existing viewing-triangle/exit machinery) and consume it from both sites. Effort S; category A.
 
-### CU-234 — `PlatformStage` smear-kernel grid clamp makes `npix_smear` even, so a large smear crashes instead of clamping
-
-**Discovered**: Geometry-Flexibility Phase 3, Gap 111 moving-target smear arm (branch `gf3/degradations-metrics`), 2026-07-27.
-**Status**: Open.
-**File**: `src/radiant/platform/stage.py:178-180`.
-**Symptom**: the kernel width is forced odd and *then* clamped to the PSF grid:
-```python
-npix_smear = int(math.ceil(2.0 * smear_w_m / sample_spacing_m)) | 1
-npix_smear = min(npix_smear, epsf.data.shape[0])   # grid size is even (2048) → result is even
-npix_smear = max(npix_smear, 3)
-```
-`epsf.data.shape[0]` is a power of two, so whenever the smear is wide enough for the clamp to bind, the `| 1` is undone and `smear_kernel_1d` raises `PlatformValidationError: npix must be a positive odd integer, got 2048`. The `logger.warning` immediately above ("Kernel will be clamped to grid size") announces a graceful degradation that then cannot happen. Reproduce entirely through the **pre-existing** velocity/range door — no Gap-111 parameter involved: sensor at 20 km, `f = 1.5 m`, `t_int = 10 ms`, `platform.ground_velocity_m_s = geometry.ground_speed_m_s = 7000` (smear 5250 µm vs a 2568 µm half-grid) raises out of `PlatformStage.run`. Present unchanged at `024e347`; the Gap-111 arm only widens the set of inputs that reach it (a fast target now produces the same wide smear).
-**Why it still matters**: an actionable-error contract (Rule 15/17) is replaced by an internal invariant violation whose message names an implementation detail (`npix`) the user never supplied and offers no action. It is a hard failure of the whole chain, not a degraded metric, and it fires precisely in the high-smear regime an analyst is most likely to be probing (fast platform, long integration, or now a fast target).
-**Suggested fix**: (a) inline-fix-now — clamp first, then re-force odd (`npix_smear = min(...) | 1` after subtracting 1 if it would exceed the grid, or `npix_smear = (min(...) - 1) | 1`), and decide deliberately what a smear wider than the PSF grid *means*: a clamped rect kernel silently under-blurs, so the honest options are to enlarge the grid or to raise a Rule-15 error naming `spectral_integration.integration_time_s` / the velocity as the lever. Not done here because it changes behaviour for configurations that currently raise, which is outside the Gap-111 zero-drift scope. Effort S; category C (the clamp semantics are a physics decision, not a bounds check).
 
 ### CU-229 — `RADIANT_File_Tree.md` package source/test counts are stale across every package
 
@@ -322,7 +308,7 @@ npix_smear = max(npix_smear, 3)
 
 ## Resolved
 
-### CU-235 — Turbulence absent from the MTF-product path: 1e6 frequency-unit slip — RESOLVED 2026-07-27 (commit `4150cd6`)
+### CU-234 — Turbulence absent from the MTF-product path: 1e6 frequency-unit slip — RESOLVED 2026-07-27 (commit `4150cd6`)
 
 **Discovered**: Geometry-Flexibility Phase 3 integration (dual-path consistency tripwire under turbulence), 2026-07-27. Pre-existing on `main` since `847a71b` (2026-04-18, dual-path MTF architecture) — Gap 110 did not introduce it, it made turbulence reachable enough to expose it; no shipped scenario or golden sets `atmosphere.r0_m`, which is how it escaped the golden gate.
 **File**: `src/radiant/performance/stage.py` (turbulence MTF term)

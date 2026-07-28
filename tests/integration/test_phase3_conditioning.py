@@ -304,7 +304,7 @@ class TestGroundToSpaceTurbulence:
         assert bad == {}
 
     def test_dual_path_consistency_holds_under_turbulence(self, sst_hv: ChainResult) -> None:
-        """CU-235 regression: the turbulence term must enter BOTH Rule-4 paths.
+        """CU-234 regression: the turbulence term must enter BOTH Rule-4 paths.
 
         Until 2026-07-27 `performance/stage.py` converted cycles/mrad →
         cycles/m with ``* 1e3`` instead of ``* 1e-3`` for the turbulence MTF

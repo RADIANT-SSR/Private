@@ -19,7 +19,10 @@
       "Bash(import-linter *)",
       "Bash(git add *)",
       "Bash(git commit -m *)",
-      "Bash(git commit -F *)"
+      "Bash(git commit -F *)",
+      "Workflow",
+      "Agent"
     ]
-  }
+  },
+  "skipWorkflowUsageWarning": true
 }

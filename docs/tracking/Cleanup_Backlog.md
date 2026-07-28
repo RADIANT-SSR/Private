@@ -12,6 +12,32 @@
 
 ## Open
 
+### CU-242 — Spectral Integration screen: show only stage-computed values; remove the at-aperture radiance plot (owner-directed spec)
+
+**Discovered**: operator session (owner driving the GUI), 2026-07-27.
+**Status**: Open — execution deferred to the GUI walkthrough queue (reflective-tab session in flight; gui/ locked).
+**File**: `src/radiant/gui/stage_views.py` (Spectral Integration view).
+**Symptom**: the Outputs block presents every published scalar as co-equal, including an input echo (`Qe scalar` — a detector property averaged for the integration, not a product of it), and the screen carries an at-aperture radiance plot that is the Atmosphere stage's product — now redundant with the batch-2 per-arm Atmosphere view.
+**Owner-directed spec (2026-07-27)**: the screen keeps exactly the values *calculated at this stage* — Signal, E-rate, Background, Contrast, dS/dT, nearfield/stray electron terms (all Rule-8 spectral→scalar products) — drops the `Qe scalar` input echo, and removes the radiance plot (one home: Atmosphere). Sub-item, orchestrator-proposed and unobjected: conditionally-relevant zero rows (nearfield/stray with nothing configured) hide rather than render `0 e-`. The at-image irradiance plot stays (it is this stage's spectral product).
+**Addition (owner-directed, 2026-07-27) — per-output tooltips**, stating why each value is computed at this stage (Rule 8: band integrals must happen while the spectral arrays exist). Implementation-ready text:
+- *Signal (e-)*: "Target electrons collected in-band this integration: spectral radiance x chain throughput x QE, integrated over the filter band (Rule 8 - spectral collapses to scalar exactly here)."
+- *E rate (e-/s)*: "The same band integral per second, before the integration time is applied."
+- *Background (e-)*: "Background-path electrons in the pixel over the same band and integration time."
+- *Contrast (e-)*: "Detectable target-vs-reference-pixel differential; regime-dependent: point source = Signal (background is common-mode and cancels), sub-pixel subtracts only the displaced footprint background, extended compares against the reference scene (ADR-0005)."
+- *dS/dT (e-/K)*: "Temperature sensitivity of the in-band signal via the Planck derivative (1/B)(dB/dT) - exact-NEDT support (Gap 43); downstream NEDT = sigma_total / (dS/dT)."
+- *Nearfield / Stray (e-)*: "Electrons from the configured nearfield / straylight path; row hidden when the path is not configured."
+
+**Suggested fix**: (a) inline in the GUI queue. Effort S; category D. Related: CU-241 (same screen family), Rule 8.
+
+### CU-243 — Platform "PSF degradation" tab shows inherited kernels unattributed; empty stage reads as wrong-stage data
+
+**Discovered**: operator session, 2026-07-27 — Platform tab displayed only `pixel_aperture` (an OpticsStage kernel: optics/stage.py:557, deliberately front-loaded so Platform's EE_box ensquares a real pixel and Strehl's reference cancels detector terms, Rule 4/9).
+**Status**: Open — execution deferred to the GUI walkthrough queue.
+**File**: `src/radiant/gui/stage_views.py` (~469-484, kernels read off `EffectivePSF.kernels` — the accumulated stack, not per-stage additions).
+**Symptom**: the tab titled "Convolution kernels applied to the PSF" enumerates the accumulated stack, so upstream kernels appear under Platform with no ownership label; when the scene adds no platform kernels the tab shows *only* inherited ones — correct data presented as a wrong-stage bug.
+**First verification step**: confirm whether the operator's LEO scenario had jitter configured. If a configured jitter/smear kernel failed to render, this is a data defect, not display — re-scope before fixing. (Owner asked 2026-07-27; answer pending.)
+**Suggested fix**: (a) inline in the GUI queue — label each kernel card with its owning stage; split "added by this stage" from "inherited"; explicit empty state naming why nothing was added ("jitter σ = 0; smear below kernel threshold"). Effort S; category D. Related: CU-241, Rule 4.
+
 ### CU-241 — Pupil/PSF plot cards are unreadable: fixed-aspect figures in tall cards, overlapping titles/colorbars, clipped labels, index-space PSF axes
 
 **Discovered**: operator session (owner driving the GUI), 2026-07-27 — Optics pupil-amplitude / pupil-wavefront / PSF panels.

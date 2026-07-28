@@ -213,9 +213,9 @@ relative-motion smear arm feeding both Rule-4 paths); scene class derived
 declarative scene-class → relevance map (`performance/scene_relevance.py`),
 zero per-metric class branches; target-plane sample distance metric
 registered; detection range path-aware for up/level (down-looking swap is
-owner-gated: CU-232). CU-096 residue re-audited per G4 → refreshed
+owner-gated: CU-236). CU-096 residue re-audited per G4 → refreshed
 deferral, gating stage Phase 5 (`RADIANT_Geometry.md` §4.3). Discovered
-and fixed in-phase: CU-231, a pre-existing 1e6 unit slip that had zeroed
+and fixed in-phase: CU-235, a pre-existing 1e6 unit slip that had zeroed
 turbulence out of the MTF-product path since 2026-04-18 (Rule-4 violation
 up to 0.88 absolute; caught by the new phase's dual-path tripwire).
 Zero golden drift; full suite green.

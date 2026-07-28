@@ -12,16 +12,16 @@
 
 ## Open
 
-### CU-232 — Down-looking detection range still uses one constant extinction coefficient (owner-decision gated)
+### CU-236 — Down-looking detection range still uses one constant extinction coefficient (owner-decision gated)
 
 **Discovered**: Geometry-Flexibility Phase 3, GF-15 (branch `gf3/degradations-metrics`), 2026-07-27.
 **Status**: Open — owner-decision gated (results-affecting for every existing point-source detection range).
 **File**: `src/radiant/performance/stage.py::_compute_detection_range_metric` (the `down` arm) → `performance/detection_beer_lambert.py`
 **Symptom**: Phase 3 gave `up`/`level` topologies a path-aware τ(R) (`detection_path_aware.py` over `path_optical_depth.py`) that knows where the ray leaves the modelled column; the `down` arm was deliberately left on `α = −ln(τ̄)/R_ref` extrapolated as a constant — a first-order model that over-attenuates a descending ray (extra range is in thinner air, then vacuum). The two topologies now use different extinction physics for the same metric.
 **Why it still matters**: `detection_range_m` is a headline trade-study number; the arms are not comparable across a scene-class sweep, and `result.metrics` does not show which model produced the value. Documented as a scope split (`RADIANT_Metrics.md` §4.13, `detection_path_aware.py` docstring) — a stated limitation, not a resolution.
-**Suggested fix**: (b) stand-alone task — route the `down` arm through the same path-aware solver, then refresh affected point-source golden baselines under the `RADIANT_Testing_Validation.md` §5.3 review protocol. **Results-affecting: every existing point-source detection range moves upward** (constant-α over-attenuates) — hence owner decision, not refactor. Effort M; category C. Related: Gap 77, GF-15, [[CU-231]].
+**Suggested fix**: (b) stand-alone task — route the `down` arm through the same path-aware solver, then refresh affected point-source golden baselines under the `RADIANT_Testing_Validation.md` §5.3 review protocol. **Results-affecting: every existing point-source detection range moves upward** (constant-α over-attenuates) — hence owner decision, not refactor. Effort M; category C. Related: Gap 77, GF-15, [[CU-235]].
 
-### CU-233 — `column_exit_range_m` is a geometry computation living in a metrics module (Rule-19 bundling)
+### CU-237 — `column_exit_range_m` is a geometry computation living in a metrics module (Rule-19 bundling)
 
 **Discovered**: Geometry-Flexibility Phase 3 integration re-audit (branch `gf3/degradations-metrics`), 2026-07-27.
 **Status**: Open.
@@ -30,7 +30,7 @@
 **Why it still matters**: two implementations of one geometric fact will drift; the computation is independently testable and reusable (Rule 19).
 **Suggested fix**: (a) inline-fix at next touch — hoist into `core` (or reuse the existing viewing-triangle/exit machinery) and consume it from both sites. Effort S; category A.
 
-### CU-230 — `PlatformStage` smear-kernel grid clamp makes `npix_smear` even, so a large smear crashes instead of clamping
+### CU-234 — `PlatformStage` smear-kernel grid clamp makes `npix_smear` even, so a large smear crashes instead of clamping
 
 **Discovered**: Geometry-Flexibility Phase 3, Gap 111 moving-target smear arm (branch `gf3/degradations-metrics`), 2026-07-27.
 **Status**: Open.
@@ -286,12 +286,12 @@ npix_smear = max(npix_smear, 3)
 
 ## Resolved
 
-### CU-231 — Turbulence absent from the MTF-product path: 1e6 frequency-unit slip — RESOLVED 2026-07-27 (commit `4150cd6`)
+### CU-235 — Turbulence absent from the MTF-product path: 1e6 frequency-unit slip — RESOLVED 2026-07-27 (commit `4150cd6`)
 
 **Discovered**: Geometry-Flexibility Phase 3 integration (dual-path consistency tripwire under turbulence), 2026-07-27. Pre-existing on `main` since `847a71b` (2026-04-18, dual-path MTF architecture) — Gap 110 did not introduce it, it made turbulence reachable enough to expose it; no shipped scenario or golden sets `atmosphere.r0_m`, which is how it escaped the golden gate.
 **File**: `src/radiant/performance/stage.py` (turbulence MTF term)
 **Symptom**: cycles/mrad → cycles/m conversion used `focal_length * 1e3` instead of `* 1e-3` — a factor 1e6 — so `mtf_turbulence_x/y` sat in [0.99999965, 1.0] and the MTF product carried no turbulence while the PSF path applied the full Kolmogorov blur. Measured Rule-4 dual-path error up to 0.878 absolute (r₀ = 6.2 cm) vs the 2e-2 tolerance.
-**Resolution**: conversion corrected to `* 1e-3` (matching the reference form in `platform/stage.py`); the strict-xfail tripwire `test_dual_path_consistency_holds_under_turbulence` flipped to a plain assertion (CU-231 regression test). Results-affecting for turbulence scenes only — CHANGELOG `[Unreleased]/Fixed` entry records direction and magnitude; no recorded baseline moves.
+**Resolution**: conversion corrected to `* 1e-3` (matching the reference form in `platform/stage.py`); the strict-xfail tripwire `test_dual_path_consistency_holds_under_turbulence` flipped to a plain assertion (CU-235 regression test). Results-affecting for turbulence scenes only — CHANGELOG `[Unreleased]/Fixed` entry records direction and magnitude; no recorded baseline moves.
 
 
 ### CU-222 — Horizon-guard threshold constants are degree-valued in a core physics module (Rule-2 tension) — RESOLVED 2026-07-27 (commit `f4c389b`)

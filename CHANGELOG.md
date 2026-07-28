@@ -30,7 +30,7 @@ retroactively reconstructed.
   path applied it — a Rule-4 dual-path violation of up to 0.88 absolute MTF
   error. Direction of change: MTF-product metrics decrease (correctly) on
   scenes with turbulence; no shipped scenario or golden baseline sets
-  `atmosphere.r0_m`, so no recorded result moves. (CU-231)
+  `atmosphere.r0_m`, so no recorded result moves. (CU-235)
 
 ### Added
 - **Geometry-Flexibility Phase 3 — direction-aware degradations and metrics

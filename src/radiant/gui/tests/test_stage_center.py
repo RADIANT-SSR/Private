@@ -550,11 +550,12 @@ class TestTabbedSubViewHook:
         # Its flat sections are still built (the outputs readout + the in-band plot).
         assert pane.outputs_readout is not None
         assert pane.plot_canvases
-        # Geometry (Phase 7), Optics (PS-2), Detector (PS-3), and Source (GT-0 rework,
-        # 2026-07-16) are the tabbed stages; the rest are flat (Performance returned to
-        # a single pane, owner-slimmed 2026-07-25).
+        # Geometry (Phase 7), Optics (PS-2), Detector (PS-3), Source (GT-0 rework,
+        # 2026-07-16) and Platform (owner walkthrough item 15 — Inputs + PSF
+        # degradation) are the tabbed stages; the rest are flat (Performance
+        # returned to a single pane, owner-slimmed 2026-07-25).
         tabbed = {name for name, comp in STAGE_COMPOSITIONS.items() if comp.subviews}
-        assert tabbed == {"geometry", "optics", "detector", "source"}
+        assert tabbed == {"geometry", "optics", "detector", "source", "platform"}
 
 
 class TestBottomTabsRemoved:

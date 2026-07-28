@@ -75,14 +75,27 @@ def _load_window(qtbot) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
 
 
 class TestComposition:
-    def test_platform_binds_inputs_outputs_and_note_no_plots(self) -> None:
-        """Platform: editable inputs + outputs + a v1-minimal note; no plot (owner: no MTF)."""
+    def test_platform_inputs_tab_is_unchanged_v1_minimal(self) -> None:
+        """The Inputs tab keeps the v1-minimal content: inputs + outputs + the note.
+
+        Owner walkthrough item 15 made Platform tabbed, so these fields moved from
+        the composition onto its first sub-view. The owner-ratified "no dedicated
+        MTF here" decision is unchanged — the new tab shows the PSF kernels this
+        stage convolves in, not an MTF view.
+        """
         comp = STAGE_COMPOSITIONS["platform"]
-        assert comp.platform_inputs is True
-        assert comp.outputs is True
-        assert comp.plots == ()
-        assert comp.note is not None and "v1-minimal" in comp.note
-        assert comp.subviews == ()
+        inputs = {sv.title: sv for sv in comp.subviews}["Inputs"]
+        assert inputs.platform_inputs is True
+        assert inputs.outputs is True
+        assert inputs.plots == ()
+        assert inputs.note is not None and "v1-minimal" in inputs.note
+
+    def test_platform_psf_degradation_tab_shows_kernels_and_result(self) -> None:
+        """Item 15: the kernels this stage applies, beside the PSF they produced."""
+        comp = STAGE_COMPOSITIONS["platform"]
+        assert [sv.title for sv in comp.subviews] == ["Inputs", "PSF degradation"]
+        psf_tab = {sv.title: sv for sv in comp.subviews}["PSF degradation"]
+        assert [p.method for p in psf_tab.plots] == ["psf_kernels", "psf"]
 
     def test_readout_binds_inputs_outputs_noise_budget_and_note(self) -> None:
         """Readout: editable inputs + outputs + the scalar noise budget + a v1-minimal note."""
@@ -100,9 +113,11 @@ class TestComposition:
 
 
 class TestPlatformPane:
-    def test_stays_a_flat_pane(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_renders_as_tabs(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Item 15 turned Platform into a two-tab composite (was a single flat pane)."""
         pane = _pane(qtbot, "platform", Sensor.from_yaml(_EXAMPLE))
-        assert not pane.has_tabs
+        assert pane.has_tabs
+        assert pane.tab_titles() == ["Inputs", "PSF degradation"]
 
     def test_inputs_are_the_shared_field_row(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Every platform input is the shared FieldRow (by-construction consistency)."""

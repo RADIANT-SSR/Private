@@ -6,7 +6,8 @@ regenerable artifact (Rule 26) — gitignored, never hand-edited, never forked t
 
 Usage:
     python scripts/build_manual.py            # PDF via xelatex -> build/radiant_theory_manual.pdf
-    python scripts/build_manual.py --tex      # emit standalone .tex instead (no LaTeX install needed)
+    python scripts/build_manual.py --tex      # emit standalone .tex instead
+                                              # (no LaTeX install needed)
 
 Requires ``pandoc`` on PATH; PDF output additionally requires ``xelatex`` (e.g. TeX Live
 or MacTeX). Missing tools raise an actionable error rather than a stack trace.

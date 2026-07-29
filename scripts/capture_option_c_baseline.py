@@ -49,7 +49,6 @@ import yaml
 from radiant.api.session import RadiantSession
 from radiant.io.config import load_config
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCENARIOS_DIR = REPO_ROOT / "scenarios"
 EXAMPLES_DIR = REPO_ROOT / "examples"

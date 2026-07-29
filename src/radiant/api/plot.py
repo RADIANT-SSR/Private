@@ -434,7 +434,7 @@ def plot_psf(
 
 def _psf_um_per_sample(psf: EffectivePSF) -> float | None:
     """Focal-plane µm per PSF sample, or ``None`` for a degenerate grid."""
-    dx = psf.sample_spacing_m
+    dx = float(psf.sample_spacing_m)
     return dx * 1e6 if dx > 0.0 else None
 
 
@@ -449,7 +449,7 @@ def _psf_sample_to_um(psf: EffectivePSF, sample: float) -> float:
     if um is None:
         return sample
     centre = (psf.data.shape[0] - 1) / 2.0
-    return (sample - centre) * um
+    return float((sample - centre) * um)
 
 
 def _psf_extent_um(psf: EffectivePSF) -> tuple[float, float, float, float] | None:

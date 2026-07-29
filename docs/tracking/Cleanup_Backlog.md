@@ -148,15 +148,6 @@ The 10 km row under-reports the background by **12.3 %**, always the same sign. 
 **Why it still matters**: narrow-band work near a region edge sees a discontinuous, grid-dependent transmittance.
 **Suggested fix**: (b) stand-alone — blend region coefficients across a small transition width (results-affecting at the ~1 % level near edges only). Effort S–M; category C. Related: CU-161, [[CU-253]].
 
-### CU-248 — GUI never closes the matplotlib figures it consumes from `result.plot.*`
-
-**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, agent finding while running the GUI suite), 2026-07-28.
-**Status**: Open.
-**File**: GUI consumers of `src/radiant/api/plot.py` figures (`matplotlib_canvas.py` / stage panes); warning raised from `api/plot.py:1004`.
-**Symptom**: the GUI test suite emits matplotlib's "More than 20 figures have been opened" `RuntimeWarning` during `test_stage_center.py` / `test_stage_navigation.py` — figures created per evaluate/re-render are never `plt.close()`d once the canvas has taken the figure.
-**Why it still matters**: a real interactive session re-evaluates continuously; unbounded figure accumulation is a memory leak in the app, not just test noise.
-**Suggested fix**: (a) inline-fix-now — close each consumed figure after the canvas adopts it (or reuse figures per pane); assert the suite runs warning-free. Effort S; category A.
-
 ### CU-249 — `test_configuration_manager.py` is an order of magnitude slower per test than the rest of the GUI suite
 
 **Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, agent finding), 2026-07-28.
@@ -262,15 +253,6 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 **Why it still matters**: unreachable today, and blocked by construction rather than by luck — `AtmosphericGeometry.__post_init__` rejects any `path_zenith_rad` past `ZENITH_CEILING_RAD` (89.5°), and *every* up-looking scene has `θ_o > π/2` (a point below the target's altitude is always inside the tangent sphere at the target, hence below its horizon plane). So the wrong value cannot survive construction and there is no wrong number in the field. (The Phase-2 topology layer is separately not routing an up-looking LOS to the MODTRAN backend yet — but that is in-flight work, whereas the ceiling is the durable guard.) It matters because it is a **silent trap primed for the exact PR that lifts the gate**: the topology layer will make up-looking LOS objects legal, and this line will then render a nadir deck for a zenith-looking scene without raising — the failure mode Rule 17 exists to prevent, in the one backend whose output is treated as truth data.
 **Suggested fix**: (b) stand-alone task, folded into the Phase 2 topology PR that first routes an up-looking LOS to a backend. Derive the lower-endpoint zenith explicitly (`ζ_low = θ_o if los.h_sensor >= los.h_tgt else π − θ_o`) in one named helper — the same quantity `ColumnSegmentSpec.zeta_low_rad` already carries, so the natural fix is to build the deck geometry *from the segment spec* rather than re-deriving it. Effort S once the topology exists; category C (it changes what MODTRAN is asked to compute). Related: ADR-0011 decision 3, Gap 109, [[CU-065]].
 
-
-### CU-219 — the Parameter Editor commits a tolerance and a value in different orders on its two paths
-
-**Discovered**: multi-config GUI UX refinement (`gui/multiconfig-ux-refine1`), 2026-07-26
-**Status**: Open
-**File**: `src/radiant/gui/widgets/parameter_editor_dialog.py:apply` (single-value path) vs. `:_apply_per_configuration` (per-configuration path)
-**Symptom**: the two Apply paths order their two writes differently. The **single-value** path runs `_apply_tolerance()` *before* `sensor.set(...)`, so a value the API then rejects leaves a tolerance behind that was set for a value which never landed — the dialog says "Rejected" while a Monte-Carlo spread has silently been written. The **per-configuration** path (added 2026-07-26) commits the column first and the tolerance second, so a value rejection commits nothing, but a malformed tolerance now follows an already-committed column. Reproduce (single-value): open a float parameter, set Tolerance to `gaussian std=0.1`, type an out-of-bounds value, Apply — the rejection renders, and `sensor.tolerances()` nevertheless contains the new entry.
-**Why it still matters**: "a rejected Apply changes nothing" is the contract every other reject surface in the GUI keeps (Rules 15/17), and the single-value path quietly breaks it for the tolerance half. It is also a two-orders-for-one-dialog inconsistency: whichever order is right, both paths should use it.
-**Suggested fix**: (a) inline-fix-now in a small stand-alone PR — validate *both* the value and the tolerance parameters before writing either, then perform the two writes together (the tolerance fields are already parsed by `_apply_tolerance`; split it into a `_parse_tolerance() -> (call, error)` and a `_write_tolerance(call)`), and use the same order on both paths. Effort S. Category A. Not taken in this PR: the per-configuration mode was the task, and reordering the pre-existing single-value commit is a behaviour change to an untouched path.
 
 ### CU-216 — modal dialogs parented to the main window are never destroyed, so a long session accumulates them
 
@@ -389,6 +371,44 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-219 — the Parameter Editor commits a tolerance and a value in different orders on its two paths — RESOLVED 2026-07-29 (commit `9ecd05a`)
+
+**Discovered**: multi-config GUI UX refinement (`gui/multiconfig-ux-refine1`), 2026-07-26
+**Status**: RESOLVED 2026-07-29, commit `9ecd05a`. **Resolution**: `_parse_tolerance()` splits validation from the write; `apply()` validates the value *and* the tolerance before writing either, then commits value-then-tolerance — the order `_apply_tolerance_per_configuration` already used, so the "two orders for one dialog" inconsistency is gone. `_apply_tolerance()` remains as the single-step entry point for callers that have already committed a value.
+
+**Correction — this entry's stated reproduction does not reproduce** (verified this pass). An out-of-bounds value never reaches the tolerance step: `_try_resolve` rejects it on the throwaway clone and returns early, so nothing is written and `sensor.tolerances()` stays empty. Traced directly: `_try_resolve` returns a non-None rejection for `999999999999` on `geometry.sensor_altitude_m`. The window that *does* exist is narrower — the clone accepts the value but the live `sensor.set` fails anyway — and the old order left an orphaned Monte-Carlo spread in exactly that case. That is what the reorder closes.
+
+**Test coverage is honest about its limits.** Three tests pin the invariant (a rejected Apply changes nothing) and one documents *why* the entry's reproduction does not fire, so the reasoning survives. A test that discriminates old-from-new on the residual window needs the live sensor's `set` to fail mid-`apply`; two monkeypatch approaches (class-level, then instance-level) both deadlocked the Qt suite — the class-level one because the clone then failed too and routed to a blocking `UnexpectedErrorDialog.exec()`. A hanging test is worse than no test, so the residual window ships **untested** and is recorded here rather than guarded by something fragile.
+
+**File**: `src/radiant/gui/widgets/parameter_editor_dialog.py:apply` (single-value path) vs. `:_apply_per_configuration` (per-configuration path)
+**Symptom**: the two Apply paths order their two writes differently. The **single-value** path runs `_apply_tolerance()` *before* `sensor.set(...)`, so a value the API then rejects leaves a tolerance behind that was set for a value which never landed — the dialog says "Rejected" while a Monte-Carlo spread has silently been written. The **per-configuration** path (added 2026-07-26) commits the column first and the tolerance second, so a value rejection commits nothing, but a malformed tolerance now follows an already-committed column. Reproduce (single-value): open a float parameter, set Tolerance to `gaussian std=0.1`, type an out-of-bounds value, Apply — the rejection renders, and `sensor.tolerances()` nevertheless contains the new entry.
+**Why it still matters**: "a rejected Apply changes nothing" is the contract every other reject surface in the GUI keeps (Rules 15/17), and the single-value path quietly breaks it for the tolerance half. It is also a two-orders-for-one-dialog inconsistency: whichever order is right, both paths should use it.
+**Suggested fix**: (a) inline-fix-now in a small stand-alone PR — validate *both* the value and the tolerance parameters before writing either, then perform the two writes together (the tolerance fields are already parsed by `_apply_tolerance`; split it into a `_parse_tolerance() -> (call, error)` and a `_write_tolerance(call)`), and use the same order on both paths. Effort S. Category A. Not taken in this PR: the per-configuration mode was the task, and reordering the pre-existing single-value commit is a behaviour change to an untouched path.
+
+### CU-248 — GUI never closes the matplotlib figures it consumes from `result.plot.*` — CLOSED 2026-07-29 as NOT-A-DEFECT (commit `9ecd05a`)
+
+**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, agent finding while running the GUI suite), 2026-07-28.
+**Status**: CLOSED 2026-07-29 as **not a defect** — the premise is disproved by measurement, and the real issue is [[CU-116]].
+
+**Measured** (offscreen, shipped example, all eight plot-bearing stage panes built then re-populated):
+
+| step | figures open |
+|---|---|
+| start | 0 |
+| after building all 8 panes | **22** |
+| after re-populating every pane ×1 | 22 |
+| ×2 | 22 |
+| ×3 | **22** |
+
+The count is **bounded and stable**: `MatplotlibCanvas._discard_current` already calls `plt.close()` on the figure it replaces, so a re-evaluation does not accumulate anything. "Never closes" and "unbounded figure accumulation is a memory leak in the app" are both incorrect — there is no leak to fix.
+
+What is real is that the app legitimately holds **one figure per plot section**, and 22 exceeds matplotlib's default `figure.max_open_warning` of 20 — so the `RuntimeWarning` is a threshold artefact of intentional retention, not evidence of a leak. That retention is exactly what [[CU-116]] tracks ("retains one matplotlib figure per visited stage"), and the measurement above is recorded there so its open question — whether 22 is acceptable — has a number attached. Deliberately **not** silenced by raising the rcParam: that would remove the only signal that would catch a genuine future leak.
+
+**File**: GUI consumers of `src/radiant/api/plot.py` figures (`matplotlib_canvas.py` / stage panes); warning raised from `api/plot.py:1004`.
+**Symptom**: the GUI test suite emits matplotlib's "More than 20 figures have been opened" `RuntimeWarning` during `test_stage_center.py` / `test_stage_navigation.py` — figures created per evaluate/re-render are never `plt.close()`d once the canvas has taken the figure.
+**Why it still matters**: a real interactive session re-evaluates continuously; unbounded figure accumulation is a memory leak in the app, not just test noise.
+**Suggested fix**: (a) inline-fix-now — close each consumed figure after the canvas adopts it (or reuse figures per pane); assert the suite runs warning-free. Effort S; category A.
+
 ### CU-242 — Spectral Integration screen: show only stage-computed values; remove the at-aperture radiance plot (owner-directed spec) — RESOLVED 2026-07-29 (commit `d257ce3`)
 
 **Discovered**: operator session (owner driving the GUI), 2026-07-27.

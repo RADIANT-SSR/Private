@@ -97,7 +97,8 @@ METRIC_GROUPS: Mapping[str, frozenset[str]] = {
             "q_max",
             "sampling_regime_code",
             "diffraction_limit_angular_urad",
-            "diffraction_limit_ground_m",
+            "diffraction_limit_target_plane_m",
+            "diffraction_limit_ground_m",  # deprecated alias (CU-231)
             "max_integration_time_s",
         }
     ),

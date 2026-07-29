@@ -60,7 +60,18 @@
 **File**: `src/radiant/atmosphere/sky_radiance.py` + `segment_simple.py` (composition `L_bkg = L_up(sensor→target) + τ(sensor→target)·L_sky(target→top)`).
 **Symptom**: the simple model's single-effective-temperature graybody per segment is not additive, so a fixed pointing direction reports a target-altitude-dependent sky: 1.7528e5 e- (target 10 km) → 1.9415e5 (20 km) → 2.0130e5 (99 km — the whole column, the physically correct value for every row). The 10 km scene under-reports the sky by 12.9 %, always the same sign.
 **Why it still matters**: the background behind a target cannot depend on where the target sits along the ray; SCNR for low-altitude targets is systematically optimistic.
-**Suggested fix**: (b) stand-alone task — compose the sky from one whole-column evaluation of the pointing direction (or make the segment graybody additive by construction). Effort M; category C. Related: Gap 108, [[CU-260]].
+**Reproduction verified 2026-07-29 (Backlog-Reduction Batch 5), on the shipped 10.1 config** — `scenarios/10_direction_general/10.1_ground_to_air_mwir_detection/inputs/10.1_ground_to_air_mwir_detection.gui.yaml`, varying only `geometry.target_altitude_m`:
+
+| target altitude | `background_e` |
+|---|---|
+| 10 km | 1.94207e5 |
+| 20 km | 2.14046e5 |
+| 99 km (whole column — the physically correct value for all three) | 2.21479e5 |
+
+The 10 km row under-reports the background by **12.3 %**, always the same sign. That table is the acceptance test: after the fix all three rows must equal the 99 km value, because the background behind a target cannot depend on where along the ray the target sits.
+
+**Fix location, traced this pass.** `uplooking_quantities._sky_source_radiance` returns the sky at the **target** plane (`sky_radiance_along_los(atm, lam, h_tgt, zeta_c, …)`), and `assembly.assemble_background_at_aperture`'s `SkyBackground` arm then propagates it: `L_bg = L_sky(target→top)·τ(sensor→target) + L_path(sensor→target)`. The simple model's single-effective-temperature graybody is not additive across that split, so the two-step differs from one whole-column evaluation. The correct quantity is `sky_radiance_along_los` evaluated **from the sensor** along the pointing direction, used directly (τ ≡ 1, L_path ≡ 0 for that arm) rather than re-propagated — which is a change to the `SkyBackground` arm's contract, not a local edit, and is why this stays Effort M.
+**Suggested fix**: (b) stand-alone task — compose the sky from one whole-column evaluation of the pointing direction (or make the segment graybody additive by construction). **Results-affecting** for every up-looking/level background and therefore SCNR. Effort M; category C. Related: Gap 108, [[CU-260]], [[CU-224]].
 
 ### CU-255 — `AtmosphericGeometry.slant_path_length_m` >80° spherical form uses the segment's full geometric Δh, making τ non-monotonic in zenith
 

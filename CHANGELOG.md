@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **`radiant run --provenance` now writes one schema (CU-218).** A plain config
+  previously produced a three-key record (`radiant_version`, `resolved_at`,
+  `parameters`) while a `--configuration` run produced the full run record, so a
+  consumer of the single flag had to detect which shape it received. Both paths now
+  write the run record — `run_id`, `radiant_version`, `git_commit`, `parameter_set`,
+  … — plus a `configuration` key naming the configuration, or `null` for a plain run.
+  **Scripts reading the old `parameters` key should read `parameter_set`.**
+
+### Changed
 - **`geometry.sensor_off_nadir_rad` renamed to `geometry.sensor_off_boresight_rad`
   (CU-247).** Since ADR-0011 the reference axis is resolved from the altitudes — the
   sensor's nadir when it is above the target, its zenith when below — so the old name

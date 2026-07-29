@@ -86,6 +86,7 @@ from typing import Any
 
 from radiant.core.constants import R_EARTH_M
 from radiant.core.parameters import ParameterBoundsError
+from radiant.core.shell_crossing import slant_range_to_shell_m
 
 # ---------------------------------------------------------------------------
 # Horizon-guard thresholds (plan §8.3 addendum, owner 2026-07-26)
@@ -641,10 +642,9 @@ def solve_from_lower_zenith(
 
     r_low = R_EARTH_M + h_low_m
     r_up = R_EARTH_M + h_high_m
-    cos_low = math.cos(zeta_low_rad)
-    disc = (r_low * cos_low) ** 2 + (r_up * r_up - r_low * r_low)
-    # r_up > r_low ⇒ disc > 0 and the '+' root is the unique positive one.
-    d = -r_low * cos_low + math.sqrt(disc)
+    # CU-237: the shell-crossing root is shared with the performance layer's
+    # column-exit range — same geometry, two names for the shell.
+    d = slant_range_to_shell_m(h_low_m, zeta_low_rad, h_high_m)
     zeta_up = math.asin(min(1.0, (r_low / r_up) * math.sin(zeta_low_rad)))
     phi = zeta_low_rad - zeta_up
 

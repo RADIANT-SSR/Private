@@ -442,6 +442,17 @@ radiant explain config.yaml optics.f_number
 #   optics.aperture_diameter_m = 0.45 m (user_set, cli_override)
 ```
 
+**Provenance record shape (CU-218).** `--provenance` writes **one** schema
+whichever config it was given: the run record from
+`ChainResult.to_provenance_record()` — `run_id`, `radiant_version`, `git_commit`,
+`parameter_set`, and the rest — plus a `configuration` key naming the
+configuration a study run used, or `null` for a plain single-configuration run.
+Before CU-218 a plain config wrote a different, three-key record
+(`ParameterSet.to_provenance_record`: `radiant_version`, `resolved_at`,
+`parameters`) while a `--configuration` run wrote the run record, so a consumer
+had to detect which shape it had received. Scripts that read the old plain-path
+`parameters` key should read `parameter_set` instead.
+
 ### 4.3 Batch Sweep from CLI
 
 A lightweight parameter sweep from the CLI using shell expansion. For proper sweeps with result collection, use the Python API.

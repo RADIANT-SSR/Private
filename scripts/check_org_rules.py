@@ -15,6 +15,11 @@ Only git-tracked files are checked (untracked scratch is a working-tree concern)
 
 from __future__ import annotations
 
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parent))
+
 import re
 import subprocess
 import sys
@@ -143,6 +148,14 @@ def main() -> int:
                     "IDs are never reused; closure moves an entry, never copies it)"
                 )
             seen.add(rid)
+
+    # CU-229: the RADIANT_File_Tree.md per-package counts are generated, not
+    # maintained by hand — a hand-kept count of a growing tree drifts by
+    # construction (11 of 13 headings were wrong when this gate landed). Checked
+    # here so it rides the gate battery every contributor already runs.
+    from check_file_tree_counts import check as _check_file_tree_counts
+
+    errors.extend(_check_file_tree_counts())
 
     if errors:
         print(f"check_org_rules: {len(errors)} violation(s)\n")

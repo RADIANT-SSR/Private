@@ -217,9 +217,15 @@ def run(
     _write_result_file(result, config=config, configuration=None, path=output_path, quiet=quiet)
 
     if provenance_path is not None:
-        from radiant import __version__ as _radiant_version
-
-        prov = params.to_provenance_record(radiant_version=_radiant_version)
+        # CU-218: one flag, one schema. This path used to write
+        # `ParameterSet.to_provenance_record` — three keys, resolved parameters
+        # only — while the study path wrote the full run record, so a consumer of
+        # `--provenance` had to sniff which shape it had been given. Both now emit
+        # the run record, with `configuration: null` marking a plain (single
+        # configuration) run. The run record is the richer of the two and the one
+        # a materialized study can produce at all.
+        prov: dict[str, object] = {"configuration": None}
+        prov.update(result.to_provenance_record())
         Path(provenance_path).write_text(json.dumps(prov, indent=2), encoding="utf-8")
         if not quiet:
             click.echo(f"Provenance written to {provenance_path}")
@@ -316,9 +322,9 @@ def _run_study(
     )
 
     if provenance_path is not None:
-        # The run's own record (`ChainResult.to_provenance_record`), tagged with
-        # the configuration it came from. It is a different, richer shape than
-        # the plain path's `ParameterSet.to_provenance_record` — see CU-218.
+        # The run's own record, tagged with the configuration it came from.
+        # Same shape as the plain path since CU-218 — only `configuration`
+        # differs (a name here, null there).
         prov: dict[str, object] = {"configuration": configuration}
         prov.update(result.to_provenance_record())
         Path(provenance_path).write_text(json.dumps(prov, indent=2), encoding="utf-8")

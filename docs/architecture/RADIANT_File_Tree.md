@@ -28,9 +28,22 @@ view, not a spec. When in doubt, run the find command.
 
 ## Subpackage Inventories
 
-Counts below exclude `__init__.py` files. "Source" = production modules; "Tests" = `test_*.py` files. Run `find src/radiant/<pkg> -name '*.py'` for the full enumeration; this doc highlights the structure and the load-bearing modules per package.
+**The counts below are generated, not hand-maintained (CU-229).** They are the only
+quantitative claim in this document, and a reader uses them to judge whether the tree
+listing beneath a heading is complete — so a stale count is worse than no count. Eleven
+of thirteen were wrong (`performance/` claimed 28 + 16 against an actual 52 + 36) before
+`scripts/check_file_tree_counts.py` took them over; it now runs inside
+`scripts/check_org_rules.py`, so drift fails the gate battery instead of accumulating.
+Regenerate with `python scripts/check_file_tree_counts.py --fix`.
 
-### `core/` — 18 source + 15 tests
+Counting rule, which the checker implements exactly: **source** = `*.py` directly in
+`src/radiant/<pkg>/`, excluding `__init__.py`; **tests** = `test_*.py` directly in
+`src/radiant/<pkg>/tests/`. Sub-packages (`optics/psf/`, `gui/widgets/`, …) are listed
+in their own right and are **not** folded into the parent's count. Run
+`find src/radiant/<pkg> -name '*.py'` for the full enumeration; this doc highlights the
+structure and the load-bearing modules per package.
+
+### `core/` — 25 source + 21 tests
 
 Foundational abstractions; no physics, no sensor knowledge. The only package physics modules may import from.
 
@@ -77,7 +90,7 @@ Stage 0: resolves the scene-geometry input mode and publishes LOS + derived
 quantities. The θ_o-based spherical-triangle math lives in
 `core/viewing_triangle.py` (core, like its η-based siblings in `core/geometry.py`).
 
-### `source/` — 40 source + 27 tests
+### `source/` — 17 source + 31 tests
 
 Stage 1: target + background spectral radiance. The largest physics package because of the spec-form fan-out (S1-S9), shape catalog, BRDF models, and converters.
 
@@ -119,7 +132,7 @@ atmosphere/
 └── r0_resolution.py     # direct r0 vs profile-derived r0 (CU-093 agreement)
 ```
 
-### `optics/` — 30 source + 19 tests
+### `optics/` — 28 source + 23 tests
 
 Stage 3: PSF (dual-path), MTF terms, throughput, EE_box, regime final. Largest package alongside `source/` and `performance/` because spatial physics (pupil → PSF → MTF) lives here.
 
@@ -131,7 +144,7 @@ Top-level modules group by concern:
 - **Throughput / element model:** `element.py`, `element_factories.py`, `system_transmission.py`, `transmission_modes.py`, `filters.py`, `cavity_model.py`, `stray_light.py`
 - **Stage glue:** `stage.py`, `_schema.py`, `ee_box.py`, `fnumber.py`, `nearfield_irradiance.py`, `telescope.py`
 
-### `platform/` — 8 source + 7 tests
+### `platform/` — 9 source + 9 tests
 
 Stage 4: smear MTF, jitter MTF, sampling, turbulence kernel.
 
@@ -147,7 +160,7 @@ platform/
 └── turbulence_kernel.py    # spatial kernel that pairs with atmosphere turbulence MTF
 ```
 
-### `spectral_integration/` — 2 source + 1 test
+### `spectral_integration/` — 3 source + 1 test
 
 Stage 5: spectral → scalar (the only stage that collapses spectral arrays to per-pixel scalars; applies EE_box exactly once for point/sub-pixel regimes).
 
@@ -157,7 +170,7 @@ spectral_integration/
 └── _schema.py
 ```
 
-### `detector/` — 14 source + 9 tests
+### `detector/` — 10 source + 10 tests
 
 Stage 6: QE, dark current, full well, noise terms, detector MTF.
 
@@ -174,7 +187,7 @@ noise/
 └── other.py              # 1/f, glow, persistence, etc.
 ```
 
-### `readout/` — 10 source + 8 tests
+### `readout/` — 13 source + 10 tests
 
 Stage 7: TDI, ADC, gain, read noise, binning, coadds, saturation.
 
@@ -192,13 +205,13 @@ readout/
 └── saturation.py
 ```
 
-### `performance/` — 28 source + 16 tests
+### `performance/` — 52 source + 36 tests
 
 Stage 8: SNR, NEDT, NEDL, NEDR, NIIRS, GIQE, IIRS, MTF system + budget, detection range, GSD, swath, access, dynamic range, saturation. Each metric is its own module (Rule 19 — one computation, one module).
 
 Notable modules: `stage.py`, `registry.py`, `system_mtf.py`, `mtf_budget.py`, `folded_mtf.py`, `qsample.py`, `consistency_check.py` (PSF/MTF dual-path agreement), `snr.py`, `nedt.py`, `nedl.py`, `nedr.py`, `niirs.py`, `giqe.py`, `iirs.py`, `gsd.py`, `ground_range.py`, `swath_width.py`, `access_rate.py`, `target_plane_sample_distance.py` (non-ground counterpart of GSD, GF-13), `scene_relevance.py` (the one declarative scene-class → metric-relevance map, guardrail G3), `detection.py`, `detection_generic.py`, `detection_beer_lambert.py`, `detection_path_aware.py` (up/level topologies, GF-15), `path_optical_depth.py` (piecewise τ(R) along the LOS), `dynamic_range.py`, `saturation_metrics.py`, `well_margin.py`, `adc_margin.py`, `contrast_snr.py`, `strehl.py` (wraps the optics Strehl into a metric), `turbulence_mtf_term.py`.
 
-### `io/` — 3 source + 3 tests
+### `io/` — 11 source + 13 tests
 
 I/O layer: YAML config, results container.
 
@@ -209,7 +222,7 @@ io/
 └── results.py             # ChainResult: signal_at, noise_at, snr/nedt/niirs accessors
 ```
 
-### `cli/` — 11 source + 1 test
+### `cli/` — 13 source + 2 tests
 
 Command-line interface (Click-based). Subcommand-per-file plus shared helpers.
 
@@ -229,7 +242,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 20 source + 13 tests
+### `api/` — 23 source + 16 tests
 
 Public scripting API.
 

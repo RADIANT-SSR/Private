@@ -216,7 +216,14 @@ class TestRunCommand:
         assert result.exit_code == 0, result.output
         assert prov.exists()
         data = json.loads(prov.read_text(encoding="utf-8"))
-        assert "parameters" in data
+        # CU-218: one schema for both paths — the full run record, with
+        # `configuration: null` marking a plain (single-configuration) run.
+        # Previously this path wrote the three-key ParameterSet record while a
+        # study run wrote this one, so consumers had to sniff the shape.
+        assert data["configuration"] is None
+        for key in ("run_id", "radiant_version", "git_commit", "parameter_set"):
+            assert key in data, f"run record missing {key!r}"
+        assert "parameters" not in data  # the old plain-only key is gone
 
 
 # ---------------------------------------------------------------------------

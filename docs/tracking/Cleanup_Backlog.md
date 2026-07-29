@@ -169,15 +169,6 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 **Why it still matters**: purely visual coherence — a future pass could place the down-looking sensor along `theta_o_dir` so glyph ray and target-apex arcs coincide in all three compositions.
 **Suggested fix**: (b) stand-alone small task, owner-visible (changes existing down-looking pixels, so it needs the screenshot-parity expectation reset). Effort S; category A.
 
-### CU-251 — No completeness guard tying the scene-relevance off-sets to `METRIC_DISPLAY_LABELS`
-
-**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, steering agent finding), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/gui/widgets/scene_class_panel.py::off_metric_labels` / `src/radiant/gui/metric_format.py` tests.
-**Symptom**: `off_metric_labels` falls back to the raw registry key for an unlabelled metric. Today unreachable (an existing test asserts every taxonomy metric has a label), but a future scene-relevance off-set naming a metric outside the Gap-96 taxonomy would render a raw key on the Geometry screen.
-**Why it still matters**: defence-in-depth for the "never a raw registry key on screen" rule; one asserted invariant instead of an implicit one.
-**Suggested fix**: (a) inline-fix-now — add a test asserting every metric in the union of `SCENE_RELEVANCE` off-sets has a display label. Effort S; category A.
-
 ### CU-242 — Spectral Integration screen: show only stage-computed values; remove the at-aperture radiance plot (owner-directed spec)
 
 **Discovered**: operator session (owner driving the GUI), 2026-07-27.
@@ -245,25 +236,6 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 **Why it still matters**: `detection_range_m` is a headline trade-study number; the arms are not comparable across a scene-class sweep, and `result.metrics` does not show which model produced the value. Documented as a scope split (`RADIANT_Metrics.md` §4.13, `detection_path_aware.py` docstring) — a stated limitation, not a resolution.
 **Suggested fix**: (b) stand-alone task — route the `down` arm through the same path-aware solver, then refresh affected point-source golden baselines under the `RADIANT_Testing_Validation.md` §5.3 review protocol. **Results-affecting: every existing point-source detection range moves upward** (constant-α over-attenuates) — hence owner decision, not refactor. Effort M; category C. Related: Gap 77, GF-15, [[CU-235]].
 
-### CU-237 — `column_exit_range_m` is a geometry computation living in a metrics module (Rule-19 bundling)
-
-**Discovered**: Geometry-Flexibility Phase 3 integration re-audit (branch `gf3/degradations-metrics`), 2026-07-27.
-**Status**: Open.
-**File**: `src/radiant/performance/path_optical_depth.py:190`
-**Symptom**: the ray/column-exit intersection (where the LOS leaves the modelled atmospheric shell) is a pure spherical-geometry computation bundled inside the optical-depth-profile module; the Phase-2 segment machinery computes the same quantity independently.
-**Why it still matters**: two implementations of one geometric fact will drift; the computation is independently testable and reusable (Rule 19).
-**Suggested fix**: (a) inline-fix at next touch — hoist into `core` (or reuse the existing viewing-triangle/exit machinery) and consume it from both sites. Effort S; category A.
-
-
-### CU-229 — `RADIANT_File_Tree.md` package source/test counts are stale across every package
-
-**Discovered**: Geometry-Flexibility Phase 3, Gap 110 turbulence upgrade (branch `gf3/degradations-metrics`), 2026-07-27.
-**Status**: Open.
-**File**: `docs/architecture/RADIANT_File_Tree.md` — every `### \`<pkg>/\` — N source + M tests` heading.
-**Symptom**: the headings disagree with the tree by up to 3×. Measured 2026-07-27 (`ls src/radiant/<pkg>/*.py | wc -l` vs `ls src/radiant/<pkg>/tests/test_*.py | wc -l`): `core/` says 18+15, is 24+20; `source/` says 40+27, is 18+30; `optics/` says 30+19, is 29+23; `platform/` says 6+6, is 8+6; `detector/` says 14+9, is 11+10; `readout/` says 10+8, is 14+10; `performance/` says 28+16, is 48+30. `geometry/` has no heading at all despite being a stage package since ADR-0006. This PR corrected only the `atmosphere/` line (12+12 → 34+35) because Rule 20 required it for the section it touched; the rest are untouched, so the doc is now consistently wrong *except* in one place.
-**Why it still matters**: the counts are the only quantitative claim in the file and are what a reader uses to judge whether the tree listing beneath them is complete. Several listings are also missing files outright (the `atmosphere/` listing named 8 of 34 modules before this PR). A reader who trusts the counts will assume the enumerated modules are the whole package.
-**Suggested fix**: (a) inline-fix-now in a doc-only PR — either regenerate the counts and the per-package listings from the tree with a small script under `scripts/` (and add it to the `check_org_rules.py` gate so it cannot drift again), or delete the counts entirely and keep only the annotated listings. The script route is preferable: a hand-maintained count of a growing tree is a Rule-20 drift generator by construction. Effort S; category A.
-
 ### CU-226 — The shipped up-looking library family is queryable but not reachable from a chain run
 
 **Discovered**: Geometry-Flexibility Phase 2, up-looking library family + interpolated-backend dispatch (branch `gf2/atmosphere`), 2026-07-26.
@@ -318,15 +290,6 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 **Symptom**: the two Apply paths order their two writes differently. The **single-value** path runs `_apply_tolerance()` *before* `sensor.set(...)`, so a value the API then rejects leaves a tolerance behind that was set for a value which never landed — the dialog says "Rejected" while a Monte-Carlo spread has silently been written. The **per-configuration** path (added 2026-07-26) commits the column first and the tolerance second, so a value rejection commits nothing, but a malformed tolerance now follows an already-committed column. Reproduce (single-value): open a float parameter, set Tolerance to `gaussian std=0.1`, type an out-of-bounds value, Apply — the rejection renders, and `sensor.tolerances()` nevertheless contains the new entry.
 **Why it still matters**: "a rejected Apply changes nothing" is the contract every other reject surface in the GUI keeps (Rules 15/17), and the single-value path quietly breaks it for the tolerance half. It is also a two-orders-for-one-dialog inconsistency: whichever order is right, both paths should use it.
 **Suggested fix**: (a) inline-fix-now in a small stand-alone PR — validate *both* the value and the tolerance parameters before writing either, then perform the two writes together (the tolerance fields are already parsed by `_apply_tolerance`; split it into a `_parse_tolerance() -> (call, error)` and a `_write_tolerance(call)`), and use the same order on both paths. Effort S. Category A. Not taken in this PR: the per-configuration mode was the task, and reordering the pre-existing single-value commit is a behaviour change to an untouched path.
-
-### CU-218 — `radiant run --provenance` writes two different record shapes depending on the config file
-
-**Discovered**: multi-config Phase 5 CLI study support (`cli/multiconfig-phase5`), 2026-07-25
-**Status**: Open
-**File**: `src/radiant/cli/run.py` (the plain path's `params.to_provenance_record(radiant_version=…)` vs. the study path's `result.to_provenance_record()`)
-**Symptom**: one flag, two JSON schemas. For a plain config file `--provenance out.json` writes `ParameterSet.to_provenance_record` — three keys (`radiant_version`, `resolved_at`, `parameters`). For a study config file (`--configuration NAME`) it writes `ChainResult.to_provenance_record` — the 8-key run record (`run_id`, `radiant_version`, `git_commit`, `parameter_set`, …) with a CLI-added `configuration` key. A consumer parsing the file has to sniff which shape it got. Reproduce: `radiant run examples/mwir_leo_minimal.yaml --provenance a.json` vs. `radiant run study.yaml --configuration MWIR --provenance b.json`, then compare the top-level keys.
-**Why it still matters**: the divergence is not physics but it is a public output surface, and the two shapes disagree about what "provenance" means (resolved parameters only vs. the whole run record). The study path took the richer one deliberately — a materialized `Sensor` exposes no `ParameterSet`, and `ChainResult.to_provenance_record()` is the public seam that exists (it also carries the `config:<name>` provenance sources, which is exactly what a study run wants recorded). Left alone, the next consumer of the flag writes shape-sniffing code.
-**Suggested fix**: (a) inline-fix-now in a small follow-up — move the plain path onto `result.to_provenance_record()` as well, so both paths emit the run record. That is a **public-surface change** (the file's keys change for existing users of the flag) and therefore needs a `CHANGELOG.md` entry and an update to `RADIANT_Config_Format.md` §4.2; it also wants a check that nothing in `scripts/` or the scenario workbooks parses the three-key form. Alternative (b): add `Sensor.to_provenance_record()` and keep both paths on the parameter-set shape — smaller blast radius, but it keeps the poorer record. Effort S; category A.
 
 ### CU-216 — modal dialogs parented to the main window are never destroyed, so a long session accumulates them
 
@@ -412,7 +375,12 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 ### CU-110 — `EvaluationWorker` warning capture mutates the process-global `warnings` filter; safe only under the single-worker invariant
 
 **Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2 (in-GUI warnings), 2026-07-13
-**Status**: Open — latent fragility; correct today because the window runs at most one evaluation worker at a time and the Qt thread never runs the chain. Gated by any future concurrent-evaluation work (inline Sweep / Monte-Carlo workers, GUI plan Phase deferred). Re-audit when concurrent evaluation lands.
+**Status**: Open — **re-audited 2026-07-28 (Backlog-Reduction Batch 3); the deferral's premise is stale in two concrete ways and the risk surface has moved.**
+
+1. **The named class is gone.** `radiant.gui.workers.EvaluationWorker` no longer exists. The surviving process-global `catch_warnings` is `radiant.api.config_set.ConfigurationSet._evaluate_one`, whose docstring still cited the removed class as its safety justification — a dangling citation, corrected in this pass.
+2. **"At most one evaluation worker" is narrower than stated.** `main_window._start_worker` serialises only *its own* worker (`if self._worker.isRunning(): self._rerun_pending = True`). There are now **four** worker classes — `ConfigSetEvaluationWorker`, `_SweepWorker`, `_SolveWorker`, `_EvaluateAllWorker` — and the latter three are started by dialogs on cloned sensors with no serialisation against the main worker. A sweep opened while a debounced re-evaluation is in flight gives two concurrent chain runs; if both reach `_evaluate_one`, they race on the global filter.
+
+Not yet demonstrated to misbehave (the race needs both workers inside the capture window simultaneously, and a sweep over a plain sensor may not enter `_evaluate_one` at all), so this stays Open rather than becoming a defect — but it is no longer "correct today because there is only one worker". **Re-audit trigger changed**: not "when concurrent evaluation lands" (it has), but the next PR touching `gui/workers.py`, any dialog worker, or `config_set._evaluate_one`. Re-audit date: 2026-08-31.
 **Re-audited 2026-07-25** (multi-config Phase 4a, gating stage "GUI evaluate loop" landed): the capture **moved out of the GUI** into `ConfigurationSet.evaluate_all` (`_evaluate_one`), which opens one `catch_warnings` window per configuration; `radiant.gui.workers` no longer captures at all. The fragility is unchanged in kind (still a process-global filter mutation, still safe only under the single-worker invariant) and is now additionally relied on across N sequential configurations in one pass. Still Open, same gating condition, same fix; re-audit next when a concurrent evaluation path lands.
 **File**: `src/radiant/api/config_set.py` (`ConfigurationSet._evaluate_one` uses `warnings.catch_warnings(record=True)` + `simplefilter("always")`; was `radiant.gui.workers.EvaluationWorker.run` before 2026-07-25).
 **Symptom**: `warnings.catch_warnings` saves/restores the **module-global** filter list and `showwarning`; if two chain evaluations ever run concurrently (two worker threads), one worker's enter/exit can clobber the other's filter state, losing or mis-capturing warnings, and the capture itself is not thread-safe against a concurrent `warnings.warn`.
@@ -440,6 +408,46 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-237 — `column_exit_range_m` is a geometry computation living in a metrics module (Rule-19 bundling) — RESOLVED 2026-07-28 (commit `4c3e75a`)
+
+**Discovered**: Geometry-Flexibility Phase 3 integration re-audit (branch `gf3/degradations-metrics`), 2026-07-27.
+**Status**: RESOLVED 2026-07-28, commit `4c3e75a`. **Resolution**: the entry was right that two implementations existed — `column_exit_range_m`'s root is exactly the one `viewing_triangle.solve_from_lower_zenith` takes, with a different name for the shell. Both now call `radiant.core.shell_crossing.slant_range_to_shell_m`; what stays in the performance module is the part genuinely specific to it (the up-looking validation and the η → ζ_low conversion). Five Level-0 tests pin the shared function against closed forms derived without RADIANT code — radial launch = Δh, horizontal launch = the tangent construction, monotonicity in launch zenith, the no-crossing case, and a law-of-cosines round trip for a ray aimed below the horizontal. The 1298 core/performance/geometry tests pass unchanged, so the hoist is numerically exact.
+
+**File**: `src/radiant/performance/path_optical_depth.py:190`
+**Symptom**: the ray/column-exit intersection (where the LOS leaves the modelled atmospheric shell) is a pure spherical-geometry computation bundled inside the optical-depth-profile module; the Phase-2 segment machinery computes the same quantity independently.
+**Why it still matters**: two implementations of one geometric fact will drift; the computation is independently testable and reusable (Rule 19).
+**Suggested fix**: (a) inline-fix at next touch — hoist into `core` (or reuse the existing viewing-triangle/exit machinery) and consume it from both sites. Effort S; category A.
+
+### CU-251 — No completeness guard tying the scene-relevance off-sets to `METRIC_DISPLAY_LABELS` — RESOLVED 2026-07-28 (commit `4c3e75a`)
+
+**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, steering agent finding), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `4c3e75a`. **Resolution**: a test asserts every metric named in any `SCENE_RELEVANCE` off-set has a `METRIC_DISPLAY_LABELS` entry, with a guard against the set being empty (which would make the assertion vacuous). The sibling test covers the Gap-96 taxonomy side; this covers the relevance side, which is the one ADR-0011's nine scene classes grew and which can grow again. It earned its keep immediately: it polices the `diffraction_limit_target_plane_m` key [[CU-231]] added to the relevance table in the same wave.
+
+**File**: `src/radiant/gui/widgets/scene_class_panel.py::off_metric_labels` / `src/radiant/gui/metric_format.py` tests.
+**Symptom**: `off_metric_labels` falls back to the raw registry key for an unlabelled metric. Today unreachable (an existing test asserts every taxonomy metric has a label), but a future scene-relevance off-set naming a metric outside the Gap-96 taxonomy would render a raw key on the Geometry screen.
+**Why it still matters**: defence-in-depth for the "never a raw registry key on screen" rule; one asserted invariant instead of an implicit one.
+**Suggested fix**: (a) inline-fix-now — add a test asserting every metric in the union of `SCENE_RELEVANCE` off-sets has a display label. Effort S; category A.
+
+### CU-218 — `radiant run --provenance` writes two different record shapes depending on the config file — RESOLVED 2026-07-28 (commit `bd862e8`)
+
+**Discovered**: multi-config Phase 5 CLI study support (`cli/multiconfig-phase5`), 2026-07-25
+**Status**: RESOLVED 2026-07-28, commit `bd862e8` — disposition (a), unify on the run record. **Resolution**: the plain path now emits `ChainResult.to_provenance_record()` as the study path already did, with `configuration: null` marking a single-configuration run, so `--provenance` has one schema and no consumer has to sniff shapes. The run record is the richer of the two and the only one a materialized study can produce. **Public output surface**: scripts reading the old plain-path `parameters` key must read `parameter_set`; recorded in the CHANGELOG and in `RADIANT_Config_Format.md` §4.2, and the CLI test now asserts the run-record keys and the absence of the old one.
+
+**File**: `src/radiant/cli/run.py` (the plain path's `params.to_provenance_record(radiant_version=…)` vs. the study path's `result.to_provenance_record()`)
+**Symptom**: one flag, two JSON schemas. For a plain config file `--provenance out.json` writes `ParameterSet.to_provenance_record` — three keys (`radiant_version`, `resolved_at`, `parameters`). For a study config file (`--configuration NAME`) it writes `ChainResult.to_provenance_record` — the 8-key run record (`run_id`, `radiant_version`, `git_commit`, `parameter_set`, …) with a CLI-added `configuration` key. A consumer parsing the file has to sniff which shape it got. Reproduce: `radiant run examples/mwir_leo_minimal.yaml --provenance a.json` vs. `radiant run study.yaml --configuration MWIR --provenance b.json`, then compare the top-level keys.
+**Why it still matters**: the divergence is not physics but it is a public output surface, and the two shapes disagree about what "provenance" means (resolved parameters only vs. the whole run record). The study path took the richer one deliberately — a materialized `Sensor` exposes no `ParameterSet`, and `ChainResult.to_provenance_record()` is the public seam that exists (it also carries the `config:<name>` provenance sources, which is exactly what a study run wants recorded). Left alone, the next consumer of the flag writes shape-sniffing code.
+**Suggested fix**: (a) inline-fix-now in a small follow-up — move the plain path onto `result.to_provenance_record()` as well, so both paths emit the run record. That is a **public-surface change** (the file's keys change for existing users of the flag) and therefore needs a `CHANGELOG.md` entry and an update to `RADIANT_Config_Format.md` §4.2; it also wants a check that nothing in `scripts/` or the scenario workbooks parses the three-key form. Alternative (b): add `Sensor.to_provenance_record()` and keep both paths on the parameter-set shape — smaller blast radius, but it keeps the poorer record. Effort S; category A.
+
+### CU-229 — `RADIANT_File_Tree.md` package source/test counts are stale across every package — RESOLVED 2026-07-28 (commit `bd862e8`)
+
+**Discovered**: Geometry-Flexibility Phase 3, Gap 110 turbulence upgrade (branch `gf3/degradations-metrics`), 2026-07-27.
+**Status**: RESOLVED 2026-07-28, commit `bd862e8` — took the entry's preferred route (generate + gate, not hand-correct). **Resolution**: `scripts/check_file_tree_counts.py` derives each `### <pkg>/ — N source + M tests` heading from the tree and is called by `scripts/check_org_rules.py`, so drift now fails the gate battery every contributor already runs. **11 of 13 headings were wrong** when it landed (`performance/` claimed 28 + 16 against 52 + 36; `source/` 40 + 27 against 17 + 31); `--fix` regenerated them. Verified the gate actually bites: reintroducing a stale count fails `check_org_rules`, and `--fix` restores it. The counting rule is stated identically in the script and in the document, so the two cannot disagree.
+
+**File**: `docs/architecture/RADIANT_File_Tree.md` — every `### \`<pkg>/\` — N source + M tests` heading.
+**Symptom**: the headings disagree with the tree by up to 3×. Measured 2026-07-27 (`ls src/radiant/<pkg>/*.py | wc -l` vs `ls src/radiant/<pkg>/tests/test_*.py | wc -l`): `core/` says 18+15, is 24+20; `source/` says 40+27, is 18+30; `optics/` says 30+19, is 29+23; `platform/` says 6+6, is 8+6; `detector/` says 14+9, is 11+10; `readout/` says 10+8, is 14+10; `performance/` says 28+16, is 48+30. `geometry/` has no heading at all despite being a stage package since ADR-0006. This PR corrected only the `atmosphere/` line (12+12 → 34+35) because Rule 20 required it for the section it touched; the rest are untouched, so the doc is now consistently wrong *except* in one place.
+**Why it still matters**: the counts are the only quantitative claim in the file and are what a reader uses to judge whether the tree listing beneath them is complete. Several listings are also missing files outright (the `atmosphere/` listing named 8 of 34 modules before this PR). A reader who trusts the counts will assume the enumerated modules are the whole package.
+**Suggested fix**: (a) inline-fix-now in a doc-only PR — either regenerate the counts and the per-package listings from the tree with a small script under `scripts/` (and add it to the `check_org_rules.py` gate so it cannot drift again), or delete the counts entirely and keep only the annotated listings. The script route is preferable: a hand-maintained count of a growing tree is a Rule-20 drift generator by construction. Effort S; category A.
+
 ### CU-231 — `diffraction_limit_ground_m` is a slant-range quantity wearing a ground-referenced name — RESOLVED 2026-07-28 (commit `f249b49`)
 
 **Discovered**: GUI walkthrough cleanup batch 1, items 3/4 metric audit (branch `gui/cleanup-batch1`), 2026-07-27.

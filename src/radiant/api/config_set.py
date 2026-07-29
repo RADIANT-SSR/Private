@@ -858,13 +858,20 @@ class ConfigurationSet:
         :meth:`sensor_for`.
 
         Note that ``catch_warnings`` mutates process-global filter state, so
-        this method must not run concurrently with another
-        ``catch_warnings`` user in the same process. Evaluation here is
-        strictly sequential, and the GUI runs at most one evaluation worker at
-        a time, which is what makes the pattern safe (the same reasoning as
-        ``radiant.gui.workers.EvaluationWorker``). A GUI worker driving
+        this method must not run concurrently with another ``catch_warnings``
+        user in the same process. Evaluation here is strictly sequential, and
+        the GUI's main window serialises its own evaluations (it defers a
+        re-run while a worker ``isRunning``). A GUI worker driving
         ``evaluate_all`` therefore needs no capture of its own — the
         per-configuration attribution it wants is already on the result.
+
+        **The single-worker premise is narrower than it looks (CU-110).** The
+        main window's guard covers only *its* worker; the sweep, solve and
+        comparison dialogs each start their own ``QThread`` on a cloned sensor
+        and are not serialised against it. Two concurrent evaluations that both
+        reach this method would race on the global filter. This citation
+        previously named ``radiant.gui.workers.EvaluationWorker``, a class that
+        no longer exists — see CU-110 for the open re-audit.
 
         Parameters
         ----------

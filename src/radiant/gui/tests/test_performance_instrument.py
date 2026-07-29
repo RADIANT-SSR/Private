@@ -271,3 +271,29 @@ class TestMetricFailureRendering:
         text = cards.value_text("mtf_at_nyquist")
         assert text.startswith(NOT_AVAILABLE)
         assert "non-finite" in text  # the generic named note, not a bare "inf"
+
+
+class TestSceneRelevanceLabelCompleteness:
+    """CU-251 — every metric a scene can switch *off* must have a display label.
+
+    ``off_metric_labels`` falls back to the raw registry key for an unlabelled
+    metric, so a scene-relevance off-set naming a metric outside the Gap-96
+    taxonomy would put `diffraction_limit_target_plane_m` on screen instead of
+    "Diffraction limit (at target)". The sibling test above guards the taxonomy
+    side; this guards the *relevance* side, which is the one that grew with
+    ADR-0011's nine scene classes and can grow again.
+    """
+
+    def test_every_off_metric_has_a_display_label(self) -> None:
+        from radiant.performance.scene_relevance import SCENE_RELEVANCE
+
+        off_metrics: set[str] = set()
+        for off_set in SCENE_RELEVANCE.values():
+            off_metrics |= set(off_set)
+        assert off_metrics, "the relevance table is empty — the guard would be vacuous"
+
+        missing = sorted(m for m in off_metrics if m not in METRIC_DISPLAY_LABELS)
+        assert not missing, (
+            "scene-relevance off-sets name metrics with no display label, so the "
+            f"Geometry screen would render their raw registry keys: {missing}"
+        )

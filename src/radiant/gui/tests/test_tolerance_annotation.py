@@ -133,3 +133,67 @@ class TestRelevanceBadging:
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             pass
         return window
+
+
+class TestRejectedApplyChangesNothing:
+    """CU-219 — the single-value path must keep the contract every reject surface keeps."""
+
+    def test_out_of_bounds_value_is_rejected_before_the_tolerance_step(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Documents why the entry's reproduction does not reproduce.
+
+        Kept as a guard: if clone validation ever stops catching this, the orphan
+        window widens back to the case the CU described.
+        """
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        alt = "geometry.sensor_altitude_m"  # bounds (0, 1e8)
+        before_value = sensor.get(alt)
+        assert alt not in sensor.tolerances()
+
+        dialog = ParameterEditorDialog(sensor, alt, lambda d, u: None)
+        qtbot.addWidget(dialog)
+        assert dialog._tol_distribution is not None  # noqa: SLF001
+        dialog._tol_distribution.setCurrentText("gaussian")  # noqa: SLF001
+        dialog._tol_params["std"].setText("100.0")  # noqa: SLF001
+        dialog.value_editor.setText("999999999999")  # far above the 1e8 m bound
+        dialog.apply(close=False)
+
+        assert dialog.error_frame.isVisibleTo(dialog)  # the rejection is shown
+        assert sensor.get(alt) == pytest.approx(before_value, abs=0)
+        assert alt not in sensor.tolerances(), (
+            "a rejected Apply wrote a tolerance for a value that never landed"
+        )
+
+    def test_rejected_tolerance_leaves_no_value_behind(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The mirror case: a good value with a malformed tolerance commits neither."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        alt = "geometry.sensor_altitude_m"
+        before_value = sensor.get(alt)
+
+        dialog = ParameterEditorDialog(sensor, alt, lambda d, u: None)
+        qtbot.addWidget(dialog)
+        assert dialog._tol_distribution is not None  # noqa: SLF001
+        dialog._tol_distribution.setCurrentText("gaussian")  # noqa: SLF001
+        dialog._tol_params["std"].setText("")  # required field left empty
+        dialog.value_editor.setText("600000")
+        dialog.apply(close=False)
+
+        assert dialog.error_frame.isVisibleTo(dialog)
+        assert sensor.get(alt) == pytest.approx(before_value, abs=0)
+        assert alt not in sensor.tolerances()
+
+    def test_both_valid_commits_both(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The guard must not have made the happy path a no-op."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        alt = "geometry.sensor_altitude_m"
+
+        dialog = ParameterEditorDialog(sensor, alt, lambda d, u: None)
+        qtbot.addWidget(dialog)
+        assert dialog._tol_distribution is not None  # noqa: SLF001
+        dialog._tol_distribution.setCurrentText("gaussian")  # noqa: SLF001
+        dialog._tol_params["std"].setText("1000.0")  # noqa: SLF001
+        dialog.value_editor.setText("600000")
+        dialog.apply(close=False)
+
+        assert not dialog.error_frame.isVisibleTo(dialog)
+        assert sensor.get(alt) == pytest.approx(600000.0, abs=0)
+        assert sensor.tolerances()[alt].distribution == "gaussian"

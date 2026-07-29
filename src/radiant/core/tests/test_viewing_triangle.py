@@ -438,6 +438,48 @@ class TestHorizonGuard:
         with pytest.warns(UserWarning, match="refraction"):
             check_horizon_guard(theta_o, 10_000.0, 10_000.0, where="test")
 
+    def test_shoulder_warning_sizes_the_refraction_it_excludes(self) -> None:
+        """CU-269: the warn shoulder must quantify what it is leaving out.
+
+        Under the standard k = 4/3 effective-radius model the tangent depression
+        of a fixed geometry scales as 1/k, so a warned path bottoms out ``dh/k``
+        below its endpoints instead of ``dh``. Hand-check against the CU's own
+        independently-derived scenario-10.2 figures: dh = 195.9 m refracts to
+        146.9 m, a path-mean sampling-altitude error of 32.6 m (two-thirds of the
+        49.0 m peak, the depression profile being parabolic about the tangent).
+        """
+        from radiant.core.viewing_triangle import GUARD_REFRACTION_K
+
+        dh = 195.9
+        refracted = dh / GUARD_REFRACTION_K
+        mean_error = (2.0 / 3.0) * (dh - refracted)
+        assert refracted == pytest.approx(146.9, abs=0.1)
+        assert mean_error == pytest.approx(32.6, abs=0.1)
+
+        # And the emitted warning carries the numbers, not just the caveat.
+        theta_o = self._level_theta_o(200_000.0, 10_000.0)
+        with pytest.warns(UserWarning) as record:
+            guard = check_horizon_guard(theta_o, 10_000.0, 10_000.0, where="test")
+        assert guard.dh_m is not None
+        text = str(record[0].message)
+        assert "refraction is NOT modelled" in text
+        assert f"{guard.dh_m / GUARD_REFRACTION_K:.1f} m" in text
+        assert "on average" in text
+
+    def test_endpoint_minimum_shoulder_says_the_size_does_not_apply(self) -> None:
+        """A slant with no interior tangent must not quote a tangent-depression number.
+
+        Its closest approach is its lower endpoint, so the refraction omission is a
+        path-length effect, not a sampling-altitude one — the warning says that
+        rather than printing a figure that does not describe this geometry.
+        """
+        with pytest.warns(UserWarning) as record:
+            guard = check_horizon_guard(math.radians(89.0), H_LEO, 0.0, where="test")
+        assert guard.dh_m is None
+        text = str(record[0].message)
+        assert "no interior tangent point" in text
+        assert "not sized here" in text
+
     def test_deep_level_transit_raises(self) -> None:
         theta_o = self._level_theta_o(500_000.0, 5_000.0)
         guard = classify_horizon_topology(theta_o, 5_000.0, 5_000.0)

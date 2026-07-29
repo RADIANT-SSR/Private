@@ -45,7 +45,11 @@ import numpy as np
 from radiant.atmosphere._modtran_paths import default_modtran_binary
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere._sensor_endpoint import require_sensor_altitude_m
-from radiant.atmosphere.errors import AtmosphereStateError, AtmosphereValidationError
+from radiant.atmosphere.errors import (
+    AtmosphereCapabilityError,
+    AtmosphereStateError,
+    AtmosphereValidationError,
+)
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
@@ -1538,16 +1542,25 @@ class ModtranAtmosphere:
             and float(los.h_tgt) > 0.0
             and self._tape7_up_import is None
         ):
-            raise NotImplementedError(
-                f"ModtranAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 needs "
-                "two columns on the tape7 file-import path — the "
-                "target→sensor leg (tau_up) and the ground→sensor full "
-                "column (tau_full_up) the background branch needs — and only "
-                "one file was supplied.  Provide the target→sensor leg via "
-                "atmosphere.modtran.tape7_up_path (a MODTRAN run with H2 = "
-                "the target altitude), or use the binary path (unset "
-                "atmosphere.modtran.tape7_path), SimpleAtmosphere, or a "
-                "surface-level target."
+            raise AtmosphereCapabilityError(
+                what=(
+                    f"ModtranAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 needs "
+                    "two columns on the tape7 file-import path, and only one file "
+                    "was supplied"
+                ),
+                why=(
+                    "The target→sensor leg (tau_up) and the ground→sensor full "
+                    "column (tau_full_up) the background branch needs are different "
+                    "columns; one tape7 cannot supply both."
+                ),
+                action=(
+                    "Provide the target→sensor leg via "
+                    "atmosphere.modtran.tape7_up_path (a MODTRAN run with H2 = the "
+                    "target altitude), or use the binary path (unset "
+                    "atmosphere.modtran.tape7_path), SimpleAtmosphere, or a "
+                    "surface-level target."
+                ),
+                context={"h_tgt_m": float(los.h_tgt)},
             )
 
         # Reconstruct an AtmosphericGeometry for the deck; MODTRAN consumes

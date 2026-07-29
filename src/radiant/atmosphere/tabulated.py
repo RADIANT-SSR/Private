@@ -30,7 +30,7 @@ from typing import Any
 import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
-from radiant.atmosphere.errors import AtmosphereValidationError
+from radiant.atmosphere.errors import AtmosphereCapabilityError, AtmosphereValidationError
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
@@ -484,15 +484,20 @@ class TabulatedAtmosphere:
         import warnings
 
         if los.h_tgt > 0.0:
-            raise NotImplementedError(
-                f"TabulatedAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 "
-                "is not supported — tabulated files record a single "
-                "(sensor ↔ ground) column and cannot be rescaled to a "
-                "partial-column geometry without the species-resolved "
-                "profile.  See Option C Stage 5 §8.3 open question "
-                "'partial-column rescaling for tabulated/interpolated "
-                "backends'.  Workaround: use SimpleAtmosphere or generate "
-                "a fresh tabulated file at the requested h_tgt."
+            raise AtmosphereCapabilityError(
+                what=(f"TabulatedAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 is not supported"),
+                why=(
+                    "Tabulated files record a single (sensor ↔ ground) column and "
+                    "cannot be rescaled to a partial-column geometry without the "
+                    "species-resolved profile.  See Option C Stage 5 §8.3 open "
+                    "question 'partial-column rescaling for tabulated/interpolated "
+                    "backends'."
+                ),
+                action=(
+                    "Use SimpleAtmosphere, or generate a fresh tabulated file at "
+                    "the requested h_tgt."
+                ),
+                context={"h_tgt_m": float(los.h_tgt)},
             )
         _ = params  # unused; tabulated is geometry-agnostic by design.
 

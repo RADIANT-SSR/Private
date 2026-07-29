@@ -70,6 +70,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+from typing import Any
 
 import numpy as np
 
@@ -102,10 +103,21 @@ class TopologyProducts:
         [W/m²/sr/µm], or ``None`` when the topology has no sky termination
         (every down-looking scene).  Consumed only by the ``SkyBackground``
         assembly arm.
+    provenance:
+        How this topology resolved, as a plain dict — the observer-leg
+        description, the segment provenance, the GF-9 illumination note and
+        the sky-continuation note, plus the geometry the dispatch keyed off.
+        ``None`` for the topologies that carry no narrative (the down-looking
+        arms and the vacuum path).  Published under
+        ``stage_outputs["atmosphere"]["topology_provenance"]`` so an analyst
+        can see from ``result.inspect()`` *why* τ_sun took its value —
+        sunlit vs shadowed (Rule 16).  Before CU-240's sibling CU-266 this
+        survived only in an INFO log record, which no result object carries.
     """
 
     quantities: AtmosphericQuantities
     sky_source_radiance: np.ndarray | None = None
+    provenance: dict[str, Any] | None = None
 
 
 def evaluate_path_topology(
@@ -147,6 +159,7 @@ def evaluate_path_topology(
     return TopologyProducts(
         quantities=products.quantities,
         sky_source_radiance=products.sky_source_radiance,
+        provenance=products.provenance,
     )
 
 

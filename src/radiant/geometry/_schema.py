@@ -702,8 +702,14 @@ TARGET_HEADING_RAD = ParameterDef(
         "horizontally TOWARD the sensor's ground point; pi = directly away; "
         "+pi/2 = crossing, in the platform's ground-track direction (RADIANT "
         "models the platform track as cross-track to the LOS azimuth plane — "
-        "see radiant.geometry.los_rate for that simplification). Unused "
-        "unless explicitly set."
+        "see radiant.geometry.los_rate for that simplification). DEGENERATE "
+        "for a radial line of sight (path_zenith_rad = 0 or pi, i.e. the "
+        "sensor or the target straight overhead): the zero azimuth is the "
+        "sensor's ground point, which does not exist at zero ground range, "
+        "and every heading then gives the same LOS rate. Any value is "
+        "equally correct there (0 is conventional) — see "
+        "radiant.geometry.los_rate 'Degenerate azimuth at a radial LOS'. "
+        "Unused unless explicitly set."
     ),
     dtype=float,
     canonical_unit="rad",

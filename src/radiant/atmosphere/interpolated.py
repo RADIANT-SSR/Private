@@ -77,7 +77,7 @@ from scipy.interpolate import LinearNDInterpolator, RegularGridInterpolator
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere._sensor_endpoint import require_sensor_altitude_m
-from radiant.atmosphere.errors import AtmosphereValidationError
+from radiant.atmosphere.errors import AtmosphereCapabilityError, AtmosphereValidationError
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
@@ -1008,18 +1008,26 @@ class InterpolatedAtmosphere:
 
         has_target_axis = "target_altitude_m" in self._axes
         if los.h_tgt > 0.0 and not has_target_axis:
-            raise NotImplementedError(
-                f"InterpolatedAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 "
-                "needs a 'target_altitude_m' interpolation axis, and this "
-                f"grid interpolates only over {self._axes} for the full "
-                "(h_tgt = 0) column — one column cannot supply both the "
-                "target→sensor leg (tau_up) and the ground→sensor full "
-                "column (tau_full_up) the background branch needs (Gap 94). "
-                "Workaround: point atmosphere.interpolated_data_dir at a "
-                "grid with a target-altitude axis (e.g. the shipped "
-                "data/atmospheres/midlat_summer_ladders/ family, 0–29 km) "
-                "and add 'target_altitude_m' to "
-                "atmosphere.interpolation_axes, or use SimpleAtmosphere."
+            raise AtmosphereCapabilityError(
+                what=(
+                    f"InterpolatedAtmosphere.evaluate: h_tgt = {los.h_tgt} m > 0 "
+                    "needs a 'target_altitude_m' interpolation axis, and this "
+                    f"grid interpolates only over {self._axes}"
+                ),
+                why=(
+                    "The grid holds the full (h_tgt = 0) column, and one column "
+                    "cannot supply both the target→sensor leg (tau_up) and the "
+                    "ground→sensor full column (tau_full_up) the background "
+                    "branch needs (Gap 94)."
+                ),
+                action=(
+                    "Point atmosphere.interpolated_data_dir at a grid with a "
+                    "target-altitude axis (e.g. the shipped "
+                    "midlat_summer_ladders/ family, 0–29 km) and add "
+                    "'target_altitude_m' to atmosphere.interpolation_axes, or "
+                    "use SimpleAtmosphere."
+                ),
+                context={"h_tgt_m": float(los.h_tgt), "axes": tuple(self._axes)},
             )
 
         # Build legacy AtmosphericGeometry queries to reuse the

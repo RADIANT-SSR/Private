@@ -17,6 +17,9 @@ optics:
   focal_length_m: 1.2
   optics_temperature_K: 293.0
   transmission_scalar: 0.7000000000000001
+performance:
+  niirs:
+    allow_extrapolated: true
 readout:
   adc_bits: 21
   full_well_capacity_e: 2000000.0

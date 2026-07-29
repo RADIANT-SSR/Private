@@ -18,6 +18,9 @@ optics:
   optics_temperature_K: 293
   psf_n_wavelengths: 1
   transmission_scalar: 0.72
+performance:
+  niirs:
+    allow_extrapolated: true
 readout:
   adc_bits: 14
   full_well_capacity_e: 500000

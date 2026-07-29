@@ -43,8 +43,8 @@ from radiant.atmosphere.simple import (
     H_H2O_M,
     H_MOL_M,
     KOSCHMIEDER,
-    RAYLEIGH_COEFF_KM,
     RAYLEIGH_EXPONENT,
+    RAYLEIGH_VERTICAL_OD_1UM,
     SimpleAtmosphere,
 )
 from radiant.core.los_geometry import LineOfSightGeometry
@@ -413,20 +413,25 @@ class TestAnchor3HandCalculatedOD:
         H = H_MOL_M  # 8000 m
         col_mol_km = (H / 1000.0) * (math.exp(-h_low / H) - math.exp(-h_high / H))
         lam_um = 4.0
-        sigma_0 = RAYLEIGH_COEFF_KM * lam_um ** (-RAYLEIGH_EXPONENT)
+        sigma_0 = RAYLEIGH_VERTICAL_OD_1UM * lam_um ** (-RAYLEIGH_EXPONENT) / (H_MOL_M / 1000.0)
         od_mol_expected = sigma_0 * col_mol_km
 
         # Expected closed-form value (bit-exact, hand-derived):
         # col_mol_km = 8.0 · [exp(-1.25) - exp(-12.5)]
         #           = 8.0 · [0.28650481... - 3.72665e-6]
         #           ≈ 2.29200856 km
-        # σ_0 = 0.0088 · 4^(-4.09) ≈ 3.0343e-5 / km
-        # → OD_mol,vert ≈ 6.956e-5
+        # CU-253 re-derivation: 0.0088·λ^-4.09 is the published *total vertical*
+        # Rayleigh OD (dimensionless), not a km⁻¹ coefficient, so the sea-level
+        # volume extinction is that divided by the molecular scale height:
+        # σ_0 = 0.0088 · 4^(-4.09) / 8.0 km ≈ 3.7929e-6 / km
+        #       (was pinned at 3.0343e-5 — the same number *without* the ÷H, i.e.
+        #        the defect itself, frozen into the anchor)
+        # → OD_mol,vert = σ_0 · col_mol_km ≈ 8.693e-6
         # The pinned literals below catch any drift in RAYLEIGH_*
         # constants to 4 sig figs.
         assert col_mol_km == pytest.approx(2.29200856, rel=1e-6, abs=0.0)
-        assert sigma_0 == pytest.approx(3.0343e-5, rel=1e-3, abs=0.0)
-        assert od_mol_expected == pytest.approx(6.95e-5, rel=1e-2, abs=0.0)
+        assert sigma_0 == pytest.approx(3.7929e-6, rel=1e-3, abs=0.0)
+        assert od_mol_expected == pytest.approx(8.693e-6, rel=1e-2, abs=0.0)
 
     @pytest.mark.level0
     def test_hand_calculated_aerosol_column_OD(self) -> None:
@@ -476,7 +481,7 @@ class TestAnchor3HandCalculatedOD:
         h_low, h_high = 10_000.0, 100_000.0
         col_mol_km = (H_MOL_M / 1000.0) * (math.exp(-h_low / H_MOL_M) - math.exp(-h_high / H_MOL_M))
         col_aer_km = (H_AER_M / 1000.0) * (math.exp(-h_low / H_AER_M) - math.exp(-h_high / H_AER_M))
-        sigma_mol = RAYLEIGH_COEFF_KM * 4.0 ** (-RAYLEIGH_EXPONENT)
+        sigma_mol = RAYLEIGH_VERTICAL_OD_1UM * 4.0 ** (-RAYLEIGH_EXPONENT) / (H_MOL_M / 1000.0)
         sigma_aer = (KOSCHMIEDER / 23.0) * (4.0 / 0.550) ** (-1.3)
 
         od_mol = sigma_mol * col_mol_km

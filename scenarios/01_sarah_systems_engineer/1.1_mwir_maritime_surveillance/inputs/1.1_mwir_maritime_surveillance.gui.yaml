@@ -22,6 +22,9 @@ optics:
   aperture_diameter_m: 0.3
   focal_length_m: 0.75
   transmission_scalar: 0.85
+performance:
+  niirs:
+    allow_extrapolated: true
 readout:
   adc_bits: 14
   full_well_capacity_e: 8000000.0

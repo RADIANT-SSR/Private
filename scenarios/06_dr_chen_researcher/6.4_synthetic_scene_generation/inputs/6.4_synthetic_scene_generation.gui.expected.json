@@ -2,8 +2,8 @@
   "id": "6.4",
   "title": "Synthetic scene \u2014 first target pixel baseline",
   "metrics": {
-    "snr": 874.4102451229286,
-    "nedt_K": 0.08557687441640938,
+    "snr": 874.4119438090524,
+    "nedt_K": 0.08557669082702332,
     "niirs": null
   },
   "notes": "First scene target (temperature, emissivity, range->altitude)."

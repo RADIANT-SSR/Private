@@ -75,6 +75,63 @@ def _humanize(key: str) -> str:
 # "— " row reads backwards, so these are skipped when None (CU-135).
 _NULLABLE_DESCRIPTOR_KEYS = frozenset({"background", "target", "los_geometry"})
 
+# CU-242 (owner-directed, 2026-07-27): a stage screen shows the values *calculated at
+# that stage*, not every scalar it happens to publish. These two tables are keyed by
+# stage namespace so the policy is declarative and greppable rather than branch logic
+# inside the render loop.
+#
+# ``_INPUT_ECHO_KEYS`` — published for downstream use but *not* products of the stage.
+# `qe_scalar` is a detector property averaged for the integration; presenting it
+# beside signal_e implies the stage computed it.
+_INPUT_ECHO_KEYS: dict[str, frozenset[str]] = {
+    "spectral_integration": frozenset({"qe_scalar"}),
+}
+
+# ``_HIDE_WHEN_ZERO_KEYS`` — conditionally-relevant terms whose zero means "this path
+# is not configured", not "this path contributes nothing measurable". Rendering
+# `0 e-` invites the reader to conclude the model found the term negligible.
+_HIDE_WHEN_ZERO_KEYS: dict[str, frozenset[str]] = {
+    "spectral_integration": frozenset({"nearfield_e", "stray_e"}),
+}
+
+# Per-output tooltips (owner-supplied text, CU-242): why the value is computed *here*.
+# Rule 8 is the reason this stage exists — band integrals must happen while the
+# spectral arrays still exist — and the tooltips are where that is said to the operator.
+_OUTPUT_TOOLTIPS: dict[str, dict[str, str]] = {
+    "spectral_integration": {
+        "signal_e": (
+            "Target electrons collected in-band this integration: spectral radiance "
+            "× chain throughput × QE, integrated over the filter band (Rule 8 — "
+            "spectral collapses to scalar exactly here)."
+        ),
+        "e_rate_per_s": (
+            "The same band integral per second, before the integration time is applied."
+        ),
+        "background_e": (
+            "Background-path electrons in the pixel over the same band and integration time."
+        ),
+        "contrast_e": (
+            "Detectable target-vs-reference-pixel differential; regime-dependent: "
+            "point source = Signal (background is common-mode and cancels), sub-pixel "
+            "subtracts only the displaced footprint background, extended compares "
+            "against the reference scene (ADR-0005)."
+        ),
+        "ds_dt_e_per_K": (
+            "Temperature sensitivity of the in-band signal via the Planck derivative "
+            "(1/B)(dB/dT) — exact-NEDT support (Gap 43); downstream "
+            "NEDT = σ_total / (dS/dT)."
+        ),
+        "nearfield_e": (
+            "Electrons from the configured nearfield path; row hidden when the path "
+            "is not configured."
+        ),
+        "stray_e": (
+            "Electrons from the configured straylight path; row hidden when the path "
+            "is not configured."
+        ),
+    },
+}
+
 
 def _is_scalar(value: Any) -> bool:
     """True for the primitive scalars the readout renders (numbers, strings, enums, None).
@@ -152,12 +209,25 @@ class OutputsReadout(QWidget):
             # already skipped above) (CU-135).
             if value is None and key in _NULLABLE_DESCRIPTOR_KEYS:
                 continue
+            # CU-242: an input echo is not this stage's product — never render it.
+            if key in _INPUT_ECHO_KEYS.get(stage, frozenset()):
+                continue
+            # CU-242: a conditionally-relevant term at exactly zero means "not
+            # configured"; showing `0 e-` reads as "computed and negligible".
+            if key in _HIDE_WHEN_ZERO_KEYS.get(stage, frozenset()) and value == 0:
+                continue
             # An enum (e.g. regime_tentative) renders by its value string ("extended"),
             # never its ``RadiometricRegime.EXTENDED`` repr.
             display = value.value if isinstance(value, Enum) else value
             unit = stage_output_unit(stage, key)
             label = _humanize(key)
-            self._add_row(row, key, label, _format_scalar(display, unit))
+            self._add_row(
+                row,
+                key,
+                label,
+                _format_scalar(display, unit),
+                tooltip=_OUTPUT_TOOLTIPS.get(stage, {}).get(key, ""),
+            )
             self._add_pin(
                 row, lambda k=key, la=label, u=unit: self.pinOutputRequested.emit(stage, k, la, u)
             )
@@ -174,14 +244,27 @@ class OutputsReadout(QWidget):
         """The rendered 'value + unit' text for an output *key* (for tests)."""
         return self._value_labels[key].text()
 
+    def tooltip_for(self, key: str) -> str:
+        """The row's explanatory tooltip, or "" when it has none (CU-242)."""
+        return self._value_labels[key].toolTip()
+
     # -- internal -----------------------------------------------------------
 
-    def _add_row(self, row: int, key: str, label: str, value_text: str) -> None:
-        """Add a label + value cell pair at grid *row*."""
+    def _add_row(
+        self, row: int, key: str, label: str, value_text: str, *, tooltip: str = ""
+    ) -> None:
+        """Add a label + value cell pair at grid *row*, with an optional *tooltip*.
+
+        The tooltip (CU-242) says why the value is computed at this stage — it goes
+        on both cells so a hover anywhere on the row finds it.
+        """
         name_label = QLabel(label, self)
         name_label.setObjectName("outputsRowLabel")
         value_label = QLabel(value_text, self)
         value_label.setObjectName("outputsRowValue")
+        if tooltip:
+            name_label.setToolTip(tooltip)
+            value_label.setToolTip(tooltip)
         value_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self._grid.addWidget(name_label, row, 0)

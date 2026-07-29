@@ -283,10 +283,14 @@ _PLATFORM_NOTE: Final[str] = (
     "target RPY triad ships from source.target.*."
 )
 _PLATFORM_PSF_NOTE: Final[str] = (
-    "Kernels appear here only for degradations that are configured non-zero — a "
-    "scene with no jitter, no smear and no turbulence contributes none, and the "
-    "PSF below is then the optical + detector one unchanged. The PSF shown is the "
-    "fully degraded one every spatial metric is derived from (Rule 4)."
+    "Each kernel card names the stage that applied it (CU-243). The PSF carries an "
+    "accumulated stack, so kernels from Optics (optical, pixel aperture, charge "
+    "diffusion — front-loaded so this stage's EE_box ensquares a real pixel, Rules "
+    "4/9) and Performance (IPC) appear here too; Platform's own are jitter, smear "
+    "and turbulence. Kernels appear only for degradations configured non-zero, so a "
+    "scene with none contributes none and this view shows only what it inherited — "
+    "that is the model agreeing with the configuration, not a missing-data bug. The "
+    "PSF shown is the fully degraded one every spatial metric derives from (Rule 4)."
 )
 _SPECTRAL_NOTE: Final[str] = (
     "A per-wavelength noise spectrum is deferred (Gap 92); noise is scalar per term, "
@@ -535,10 +539,15 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
         # Owner walkthrough item 16: the at-image spectral irradiance is what the
         # detector actually sees, and it is the quantity this stage integrates
         # into signal_e — so the spectrum-to-electrons step is traceable on one
-        # axis. The at-FPA radiance stays beneath it as the input to that step.
+        # axis.
+        #
+        # CU-242 (owner-directed): this screen shows only what is *calculated at
+        # this stage*. The in-band radiance plot was the input to the step, not
+        # its product, and the batch-2 per-arm Atmosphere view now owns the
+        # radiance story — one home per quantity. The irradiance plot stays: it
+        # is this stage's own spectral product.
         plots=(
             PlotSpec("At-image spectral irradiance (per pixel)", "spectral_irradiance_at_image"),
-            PlotSpec("In-band signal spectral radiance", "spectral_inband"),
         ),
         note=_SPECTRAL_NOTE,
     ),

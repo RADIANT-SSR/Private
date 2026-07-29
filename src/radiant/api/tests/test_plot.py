@@ -580,3 +580,63 @@ class TestPlotTheme:
         with plot_theme(dark=True):
             assert plt.rcParams["text.color"] == "#e0e0e0"
         assert plt.rcParams["text.color"] == before  # restored
+
+
+class TestKernelStageAttribution:
+    """CU-243 — a kernel card must name the stage that applied it."""
+
+    def test_owner_map_covers_every_kernel_the_chain_builds(self) -> None:
+        """The attribution is a fact about the chain, so it must be complete.
+
+        An unmapped kernel would render "added by ?" — worse than no label,
+        because it looks like a bug rather than a gap in this table.
+        """
+        from radiant.api.plot import _KERNEL_OWNER_STAGE
+
+        # The kernels the chain can apply, per the signal-chain docs.
+        for name in (
+            "optical",
+            "pixel_aperture",
+            "charge_diffusion",
+            "jitter",
+            "smear",
+            "turbulence",
+            "ipc",
+        ):
+            assert name in _KERNEL_OWNER_STAGE, f"kernel {name!r} has no owning stage"
+
+    def test_upstream_kernels_are_attributed_not_anonymous(self) -> None:
+        """The exact defect: pixel_aperture shown on Platform with no owner."""
+        from radiant.api.plot import kernel_owner_stage
+
+        assert kernel_owner_stage("pixel_aperture") == "Optics"
+        assert kernel_owner_stage("jitter") == "Platform"
+        assert kernel_owner_stage("ipc") == "Performance"
+        assert kernel_owner_stage("not_a_kernel") == "?"
+
+    def test_titles_carry_the_owning_stage(self) -> None:
+        """Rendered titles, not just the map — the label has to reach the card."""
+        import numpy as np
+
+        from radiant.api.plot import plot_psf_kernels
+        from radiant.optics.psf.effective import EffectivePSF
+
+        n = 64
+        yy, xx = np.mgrid[0:n, 0:n]
+        c = (n - 1) / 2.0
+        core = np.exp(-((xx - c) ** 2 + (yy - c) ** 2) / (2.0 * 2.0**2))
+        kern = np.zeros((n, n))
+        kern[c1 := int(c), c1] = 1.0
+        psf = EffectivePSF(
+            data=core / core.sum(),
+            sample_spacing_m=2.0e-6,
+            pixel_pitch_m=18.0e-6,
+            wavelength_um=4.0,
+            convolution_history=("pixel_aperture",),
+            kernels=(("pixel_aperture", kern),),
+        )
+        fig = plot_psf_kernels(psf)
+        title = fig.axes[0].get_title()
+        assert "pixel_aperture" in title
+        assert "added by Optics" in title
+        matplotlib.pyplot.close(fig)

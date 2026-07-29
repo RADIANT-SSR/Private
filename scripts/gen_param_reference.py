@@ -39,16 +39,23 @@ def render() -> str:
     lines: list[str] = []
     lines.append("# Parameter Reference")
     lines.append("")
-    lines.append("*Auto-generated from the parameter registry. "
-                 "Do not edit by hand --- re-run "
-                 "`python scripts/gen_param_reference.py` to update.*")
+    lines.append(
+        "*Auto-generated from the parameter registry. "
+        "Do not edit by hand --- re-run "
+        "`python scripts/gen_param_reference.py` to update.*"
+    )
     lines.append("")
     lines.append(f"**Total parameters: {len(defs)}**")
     lines.append("")
 
     stage_order = [
-        "source", "atmosphere", "geometry", "optics",
-        "detector", "spectral_integration", "readout",
+        "source",
+        "atmosphere",
+        "geometry",
+        "optics",
+        "detector",
+        "spectral_integration",
+        "readout",
     ]
 
     for stage in stage_order:
@@ -81,8 +88,9 @@ def render() -> str:
                 lines.append(f"  - Relation: `{cg.relation}`")
         lines.append("")
     else:
-        lines.append("See `optics.f_number` = `optics.focal_length_m / "
-                     "optics.aperture_diameter_m`.")
+        lines.append(
+            "See `optics.f_number` = `optics.focal_length_m / optics.aperture_diameter_m`."
+        )
         lines.append("")
 
     return "\n".join(lines)

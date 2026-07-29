@@ -495,9 +495,7 @@ class SpectralDataStore:
         # log; over a large fraction the requested band is mostly invented, which the
         # caller should see as a UserWarning (CU-085 #3).
         if data.wavelength_um[0] > self._grid[0] or data.wavelength_um[-1] < self._grid[-1]:
-            covered = (self._grid >= data.wavelength_um[0]) & (
-                self._grid <= data.wavelength_um[-1]
-            )
+            covered = (self._grid >= data.wavelength_um[0]) & (self._grid <= data.wavelength_um[-1])
             extrap_fraction = float(1.0 - np.mean(covered))
             msg = (
                 f"SpectralDataStore.add('{data.name}'): source range "

@@ -464,12 +464,8 @@ class ReadoutStage:
         state = state.with_stage_output("readout", "gain_e_per_dn", gain_e_per_dn)
         # ADC↔well match diagnostics (finding 10) — read-only; see the computation above.
         state = state.with_stage_output("readout", "adc_full_scale_e", adc_full_scale_e)
-        state = state.with_stage_output(
-            "readout", "matched_gain_e_per_dn", matched_gain_e_per_dn
-        )
-        state = state.with_stage_output(
-            "readout", "adc_well_match_ratio", adc_well_match_ratio
-        )
+        state = state.with_stage_output("readout", "matched_gain_e_per_dn", matched_gain_e_per_dn)
+        state = state.with_stage_output("readout", "adc_well_match_ratio", adc_well_match_ratio)
         state = state.with_stage_output("readout", "well_status", well_status.value)
         # CU-101: publish the supporting well-charge numbers so the
         # ChainResult.well_status() surface (GUI saturation banner) carries

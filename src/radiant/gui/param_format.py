@@ -84,10 +84,14 @@ def display_in_unit(
     (owner feedback 2026-07-13: "the displayed units should be what the user chose").
     This performs **no ad-hoc unit maths** — it routes through the public
     :mod:`radiant.api.units` registry (``convert`` to the canonical unit, then
-    ``inverse_convert`` out to the display unit). The registry holds **only pure
-    multiplicative factors** — no additive offsets are registered (temperature keeps
-    only ``K``; a °C/°F conversion would need an offset and is deliberately absent), so
-    division-through-canonical is always invertible and sound for any *registered* unit.
+    ``inverse_convert`` out to the display unit). Round-tripping through the canonical
+    unit is sound for every *registered* unit, affine ones included: the registry holds
+    a multiplicative table **and** an affine ``(scale, offset)`` table
+    (``radiant.core.units._AFFINE_CONVERSIONS`` — ``degC``/``degF`` ↔ ``K``, the only
+    affine dimension), and ``convert`` / ``inverse_convert`` both dispatch through it.
+    Do not re-derive a display value by dividing by a factor read out of the
+    multiplicative table: that is exactly what breaks on a temperature row (CU-230 —
+    this docstring previously asserted the affine table did not exist).
 
     Raises :class:`KeyError` when either leg is unregistered (a one-way or offset unit);
     the caller falls back to displaying *source_unit* for that row rather than inventing

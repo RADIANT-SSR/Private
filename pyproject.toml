@@ -28,7 +28,10 @@ dev = [
     "pytest-cov>=4.1",
     "pytest-qt>=4.2",
     "mypy>=1.7",
-    "ruff>=0.1",
+    # Pinned to a minor series (CU-252): `ruff format` output changes between
+    # releases, so an unpinned floor makes the format gate non-deterministic —
+    # two contributors on different ruff versions would fight over the same files.
+    "ruff>=0.15,<0.16",
     "import-linter>=2.0",
     "hypothesis>=6.90",
     "h5py>=3.10",

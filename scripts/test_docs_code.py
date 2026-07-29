@@ -80,7 +80,7 @@ def main() -> int:
                 print(f"  FAIL  {label}")
                 print(f"        {err}")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Total: {total}  Passed: {passed}  Failed: {failed}")
 
     if failures:

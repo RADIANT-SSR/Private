@@ -4,8 +4,10 @@ Step 3.2 of the Target Definition Matrix Implementation Plan: the
 inferrer routes a user-supplied scalar reflectance (S4) or albedo alias
 (S6) through :func:`radiant.source.converters.reflectance_to_descriptor`
 and emits a :class:`~radiant.core.descriptors.T2Reflective` descriptor.
-The S5 tabulated path (``reflectance_path``) is recognised but deferred
-alongside the S11 ``brightness_temperature_path`` CSV loader.
+The S5/S6 tabulated paths (``reflectance_path`` / ``albedo_path``) ship
+too: the inferrer loads the CSV and routes it through the same converter
+(``_inferrer.py``, "Tabulated ρ(λ) via CSV").  That routing is exercised
+end-to-end through ``SourceStage`` in ``test_reflectance_published.py``.
 
 Truth anchors
 -------------
@@ -14,9 +16,10 @@ Truth anchors
    ``L_refl(λ) = ρ · E_sun(λ) / π`` when evaluated through the existing
    :class:`~radiant.source.brdf_lambertian.LambertianBRDF`.
 2. **Heaviside ρ(λ) propagation** — a tabulated ρ with a sharp step at
-   0.5 µm is passed straight through the boundary converter (no
-   smoothing, no grid interpolation) — tests the Rule-19 scope of the
-   converter module.
+   0.5 µm is passed straight through (no smoothing, no grid
+   interpolation), asserted on **both** entry points: the boundary
+   converter directly (the Rule-19 scope of the converter module) and
+   the ``reflectance_path`` CSV route the inferrer actually takes.
 3. **Kirchhoff cross-model consistency** — a T2Reflective built from
    ρ=0.3 and a T3Mixed built from ε=0.7 on the same grid satisfy
    ``T2.rho + T3.epsilon ≡ 1`` pointwise (Rule 5 sanity check at the
@@ -161,11 +164,13 @@ class TestTruthAnchorLambertianIdentity:
 class TestTruthAnchorHeavisideSpectrum:
     """Tabulated ρ with a step at 0.5 µm propagates unaltered.
 
-    The inferrer only scalar-lifts today (S5 CSV loader lands with the
-    S11 T_B path); the spectral path is exercised directly via the
-    converter, which the inferrer will call once the loader arrives.
-    The invariant under test is identical on both paths: the converter
-    never resamples or smooths ρ.
+    The invariant is identical on both entry points — the converter never
+    resamples or smooths ρ — so both are asserted: the converter called
+    directly, and the ``reflectance_path`` CSV the inferrer loads (S5).
+    The CU-245 correction: this class used to state that the inferrer
+    "only scalar-lifts today", which stopped being true once the S5
+    loader landed, and that stale claim is why the ρ(λ) GUI input stayed
+    unmounted until the walkthrough item-6 pass.
     """
 
     @pytest.mark.level1
@@ -200,6 +205,41 @@ class TestTruthAnchorHeavisideSpectrum:
         above = wl >= step_edge_um
         assert np.all(rho_on_grid[below] == 0.0)
         assert np.all(rho_on_grid[above] == 1.0)
+
+    @pytest.mark.level1
+    def test_heaviside_step_survives_the_reflectance_path_csv_route(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """The same step, entered the way a user actually enters one (S5 CSV).
+
+        The inferrer route adds a CSV load and a resample onto the chain
+        grid; neither may round the edge off.  Sampling the CSV knots on
+        the chain grid itself keeps the step exact, so any interpolation
+        across the edge would show immediately.
+        """
+        step_edge_um = 0.5
+        wl = np.linspace(0.3, 0.9, 25)
+        rho_vals = np.where(wl < step_edge_um, 0.0, 1.0).astype(np.float64)
+
+        csv = tmp_path / "rho_step.csv"
+        rows = "".join(f"{w},{r}\n" for w, r in zip(wl, rho_vals, strict=True))
+        csv.write_text("wavelength_um,rho\n" + rows, encoding="utf-8")
+
+        params = _reflective_params()
+        params.set("source.target.reflectance_path", str(csv))
+        params.resolve()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            target, _bg, _los = infer_descriptors(params, wl)
+
+        assert isinstance(target, T2Reflective)
+        assert target.rho is not None
+        rho_on_grid = target.rho.reflectance_at(wl, _ZERO3, _ZERO3)
+        np.testing.assert_allclose(rho_on_grid, rho_vals, rtol=0.0, atol=1e-12)
+        assert np.all(rho_on_grid[wl < step_edge_um] == 0.0)
+        assert np.all(rho_on_grid[wl >= step_edge_um] == 1.0)
 
 
 # ---------------------------------------------------------------------------

@@ -178,8 +178,16 @@ class TestScaleNoiseTermDigitalTDI:
         from radiant.readout.stage import _scale_noise_term
 
         return _scale_noise_term(
-            10.0, term, n_tdi=n_tdi, tdi_digital=digital,
-            mx_on=1, my_on=1, px_off=1, py_off=1, n_coadds=1, coadd_mode=CoaddMode.AVERAGE,
+            10.0,
+            term,
+            n_tdi=n_tdi,
+            tdi_digital=digital,
+            mx_on=1,
+            my_on=1,
+            px_off=1,
+            py_off=1,
+            n_coadds=1,
+            coadd_mode=CoaddMode.AVERAGE,
         )
 
     @pytest.mark.level0

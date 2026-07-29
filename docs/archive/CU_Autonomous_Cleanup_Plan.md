@@ -1,7 +1,8 @@
+> **HISTORICAL — archived 2026-07-28 (completed by the coding agent; charter fulfilled).** All 29 autonomous-safe CUs across Waves 1–8 are Resolved with SHA-linked backlog closures, and every owner-gated CU this plan escalated has since been closed too (CU-096, 103, 104, 115, 120, 139, 165, 166, 170). Nine CUs it named remain Open — all of them ones this plan deliberately *declined* (dependency-blocked, owner-gated, or flagged for a focused pass): CU-011, 087, 110, 116, 122, 126, 137, 138, 164. Those carry forward, re-audited per Rule 22, into `docs/plans/Backlog_Reduction_Plan.md`, which supersedes this document for the 62-CU backlog that exists today.
+
 # CU Autonomous Cleanup Plan
 
-**Status:** Active — 2026-07-19. Owner green-lit autonomous execution; owner-gated CUs
-dispositioned 2026-07-19 (below) and scheduled into Waves 7–10.
+**Status:** Complete — charter fulfilled 2026-07-20 (CU-120 the last actionable item); archived 2026-07-28. Owner green-lit autonomous execution; owner-gated CUs were dispositioned 2026-07-19 (below) and scheduled into Waves 7–10. Superseded for all remaining work by `docs/plans/Backlog_Reduction_Plan.md`.
 
 ## Owner decisions on the gated CUs (2026-07-19)
 

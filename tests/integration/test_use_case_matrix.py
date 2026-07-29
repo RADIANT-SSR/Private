@@ -86,7 +86,7 @@ _REGIME_GRIDS: dict[str, np.ndarray] = {
 _REGIME_TARGET_K: dict[str, float] = {
     "VIS": 300.0,
     "NIR": 300.0,
-    "SWIR": 400.0,      # warm enough for a SWIR thermal tail, <700 K so no SWIR warning
+    "SWIR": 400.0,  # warm enough for a SWIR thermal tail, <700 K so no SWIR warning
     "MWIR": 320.0,
     "LWIR": 300.0,
 }
@@ -234,16 +234,18 @@ def _run_injected_chain(
     wl: np.ndarray,
 ) -> ChainState:
     """Run the downstream chain with ``_InjectedSource`` in place of SourceStage."""
-    runner = ChainRunner([
-        _InjectedSource(target, background, los),
-        AtmosphereStage(),
-        OpticsStage(),
-        PlatformStage(),
-        SpectralIntegrationStage(),
-        DetectorStage(),
-        ReadoutStage(),
-        PerformanceStage(),
-    ])
+    runner = ChainRunner(
+        [
+            _InjectedSource(target, background, los),
+            AtmosphereStage(),
+            OpticsStage(),
+            PlatformStage(),
+            SpectralIntegrationStage(),
+            DetectorStage(),
+            ReadoutStage(),
+            PerformanceStage(),
+        ]
+    )
     return runner.run(params, wl)
 
 
@@ -256,12 +258,12 @@ def _run_injected_chain(
 class CellSpec:
     """Describes one matrix cell and how the test should handle it."""
 
-    cell_id: str                      # e.g. "1", "28", "G13", "L1"
+    cell_id: str  # e.g. "1", "28", "G13", "L1"
     # at_aperture | terrestrial | airborne | no_atm_space | ground_test | lab_test
     location: str
-    regime: str                       # VIS | NIR | SWIR | MWIR | LWIR
-    scene_type: str                   # extended | sub_pixel | point_source
-    outcome: str                      # "pass" | "raise" | "xfail"
+    regime: str  # VIS | NIR | SWIR | MWIR | LWIR
+    scene_type: str  # extended | sub_pixel | point_source
+    outcome: str  # "pass" | "raise" | "xfail"
     notes: str = ""
 
 
@@ -493,11 +495,11 @@ def _run_at_aperture_extended_cell(cell: CellSpec) -> None:
     # (W/m²/sr/µm): use ε·B(300K) evaluated at mid-band as a rough scale.
     # For simplicity use a regime-tuned scalar.
     L_value = {
-        "VIS": 50.0,       # reflected-solar magnitude in VIS
+        "VIS": 50.0,  # reflected-solar magnitude in VIS
         "NIR": 40.0,
         "SWIR": 5.0,
         "MWIR": 1.0,
-        "LWIR": 8.0,       # ε·B(300K) near 10 µm
+        "LWIR": 8.0,  # ε·B(300K) near 10 µm
     }[cell.regime]
 
     target = T5AtAperture(
@@ -592,8 +594,8 @@ def _run_subcase_cell(cell: CellSpec) -> None:
     elif cell.scene_type == "sub_pixel":
         # √A_t/R_eff chosen to be well above the 0.01·PSF_FWHM reclassify
         # threshold but well below 0.1·PSF_FWHM — safe middle ground.
-        area_m2 = 100.0   # 10 m × 10 m test-range target
-        range_m = 100.0   # 100 m test range
+        area_m2 = 100.0  # 10 m × 10 m test-range target
+        range_m = 100.0  # 100 m test range
         angular = math.sqrt(area_m2) / range_m  # 0.1 rad
     else:  # point_source
         # √A_t/R_eff far below 0.1·PSF_FWHM — genuine point source.
@@ -602,28 +604,30 @@ def _run_subcase_cell(cell: CellSpec) -> None:
         # √A_t/d ≤ 0.1·PSF_FWHM, so we pick a value ~2 orders below that
         # bound (1e-8 rad) to be comfortably inside the point-source regime
         # across every band.
-        area_m2 = 1e-8     # 0.1 mm × 0.1 mm collimated point aperture
-        range_m = 1e4      # 10 km optical path
+        area_m2 = 1e-8  # 0.1 mm × 0.1 mm collimated point aperture
+        range_m = 1e4  # 10 km optical path
         angular = math.sqrt(area_m2) / range_m  # 1e-8 rad
 
-    runner = ChainRunner([
-        _InjectedSource(
-            target=target,
-            background=background,
-            los=los,
-            regime_tentative=regime_tentative,
-            angular_extent_rad=angular,
-            projected_area_m2=area_m2,
-            range_m=range_m,
-        ),
-        AtmosphereStage(),
-        OpticsStage(),
-        PlatformStage(),
-        SpectralIntegrationStage(),
-        DetectorStage(),
-        ReadoutStage(),
-        PerformanceStage(),
-    ])
+    runner = ChainRunner(
+        [
+            _InjectedSource(
+                target=target,
+                background=background,
+                los=los,
+                regime_tentative=regime_tentative,
+                angular_extent_rad=angular,
+                projected_area_m2=area_m2,
+                range_m=range_m,
+            ),
+            AtmosphereStage(),
+            OpticsStage(),
+            PlatformStage(),
+            SpectralIntegrationStage(),
+            DetectorStage(),
+            ReadoutStage(),
+            PerformanceStage(),
+        ]
+    )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
         state = runner.run(params, wl)

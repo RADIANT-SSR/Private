@@ -502,9 +502,7 @@ class TestFilePathPortability:
         """Back-compat: a config with an absolute file-path value passes through."""
         csv = self._csv(tmp_path)
         cfg = tmp_path / "s.yaml"
-        cfg.write_text(
-            f"detector:\n  qe_table_path: {csv.resolve()}\n", encoding="utf-8"
-        )
+        cfg.write_text(f"detector:\n  qe_table_path: {csv.resolve()}\n", encoding="utf-8")
         reloaded = build_parameter_set()
         load_config(cfg, reloaded)
         loaded = reloaded.inputs()["detector.qe_table_path"]

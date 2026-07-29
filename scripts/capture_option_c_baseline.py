@@ -53,28 +53,36 @@ from radiant.io.config import load_config
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCENARIOS_DIR = REPO_ROOT / "scenarios"
 EXAMPLES_DIR = REPO_ROOT / "examples"
-SNAPSHOT_PATH = (
-    REPO_ROOT / "tests" / "integration" / "snapshots" / "option_c_baseline.yaml"
-)
+SNAPSHOT_PATH = REPO_ROOT / "tests" / "integration" / "snapshots" / "option_c_baseline.yaml"
 
 # The fixed λ grid used for at-aperture radiance samples in the snapshot.
 # Spans the full VNIR-LWIR range; each scenario evaluates only the subset of
 # samples that fall inside its own filter band.
 FIXED_GRID_UM: tuple[float, ...] = (
-    0.5, 0.7, 1.0, 1.6, 2.2, 3.5, 4.0, 4.5, 8.0, 10.0, 12.0,
+    0.5,
+    0.7,
+    1.0,
+    1.6,
+    2.2,
+    3.5,
+    4.0,
+    4.5,
+    8.0,
+    10.0,
+    12.0,
 )
 
 
 @dataclass(frozen=True)
 class ScenarioResult:
     name: str
-    status: str           # "ok" | "error"
+    status: str  # "ok" | "error"
     error: str | None
-    classification: str   # "invariant" | "expected_to_change_at_stage_3" |
-                          # "expected_to_change_at_stage_4" |
-                          # "expected_to_change_at_stage_6" |
-                          # "expected_to_change_at_stage_6_and_stage_7" |
-                          # "unclassified"
+    classification: str  # "invariant" | "expected_to_change_at_stage_3" |
+    # "expected_to_change_at_stage_4" |
+    # "expected_to_change_at_stage_6" |
+    # "expected_to_change_at_stage_6_and_stage_7" |
+    # "unclassified"
     cell_ref: str | None  # "Cell 28", "Cell 58", or None
     snr: float | None
     nedt_K: float | None
@@ -326,10 +334,7 @@ def main() -> int:
     with open(SNAPSHOT_PATH, "w", encoding="utf-8") as fh:
         yaml.safe_dump(snapshot, fh, sort_keys=True, default_flow_style=False)
 
-    print(
-        f"\nWrote {SNAPSHOT_PATH.relative_to(REPO_ROOT)}: "
-        f"{ok_count} ok, {err_count} error"
-    )
+    print(f"\nWrote {SNAPSHOT_PATH.relative_to(REPO_ROOT)}: {ok_count} ok, {err_count} error")
     return 0
 
 

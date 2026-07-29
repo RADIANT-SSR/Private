@@ -38,9 +38,7 @@ logger = logging.getLogger(__name__)
 #: ``src/radiant/data/tables/atmospheres/`` so a wheel install carries it
 #: (parents[1] == ``radiant`` package root; same relative pattern as
 #: ``radiant.data.library``). Rule 30: no repo-root path assumption.
-_SHIPPED_ATMOSPHERES_DIR = (
-    Path(__file__).resolve().parents[1] / "data" / "tables" / "atmospheres"
-)
+_SHIPPED_ATMOSPHERES_DIR = Path(__file__).resolve().parents[1] / "data" / "tables" / "atmospheres"
 
 #: Shipped library family to use when ``atmosphere.interpolated_data_dir`` is
 #: left unset, keyed by ``(los_direction, normalized interpolation_axes)``.

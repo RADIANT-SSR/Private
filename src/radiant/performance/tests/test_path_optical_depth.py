@@ -78,9 +78,7 @@ class TestColumnExitGeometry:
     def test_slant_exit_exceeds_vertical_exit(self) -> None:
         """A slanted ray traverses more path before leaving the column."""
         vertical = column_exit_range_m(_vertical_up(0.0, 5.0e5))
-        slant = column_exit_range_m(
-            LineOfSightGeometry(h_tgt=5.0e5, h_sensor=0.0, theta_o=2.6)
-        )
+        slant = column_exit_range_m(LineOfSightGeometry(h_tgt=5.0e5, h_sensor=0.0, theta_o=2.6))
         assert slant > vertical
 
     @pytest.mark.level0
@@ -137,9 +135,7 @@ class TestLevelArm:
         assert profile.topology == "level"
         assert profile.extinction_per_m == pytest.approx(0.6 / 1.5e5, rel=1e-14)
         assert profile.optical_depth_at(3.0e5) == pytest.approx(1.2, rel=1e-12)
-        assert profile.transmittance_ratio(3.0e5) == pytest.approx(
-            math.exp(-0.6), rel=1e-12
-        )
+        assert profile.transmittance_ratio(3.0e5) == pytest.approx(math.exp(-0.6), rel=1e-12)
 
     @pytest.mark.level0
     def test_validity_bound_is_the_two_km_sag_threshold(self) -> None:

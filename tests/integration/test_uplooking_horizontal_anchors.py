@@ -791,9 +791,7 @@ def test_k6_uplooking_zenith_coupling_characterization() -> None:
                 ),
             )
         )
-    family = InterpolatedAtmosphere(
-        points, axes=["target_altitude_m"], family_direction="up"
-    )
+    family = InterpolatedAtmosphere(points, axes=["target_altitude_m"], family_direction="up")
 
     vertical = family.uplooking_column_product(
         family.wavelength_um,
@@ -807,9 +805,7 @@ def test_k6_uplooking_zenith_coupling_characterization() -> None:
     with pytest.raises(AtmosphereValidationError, match="VERTICAL"):
         family.uplooking_column_product(
             family.wavelength_um,
-            LineOfSightGeometry(
-                theta_o=math.pi - math.radians(45.0), h_tgt=10_000.0, h_sensor=0.0
-            ),
+            LineOfSightGeometry(theta_o=math.pi - math.radians(45.0), h_tgt=10_000.0, h_sensor=0.0),
         )
 
     air_mass = AtmosphericGeometry(

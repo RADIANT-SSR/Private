@@ -134,9 +134,7 @@ class TestGroundTruthMWIR:
 
     def test_A_collect(self, result) -> None:
         """A_collect = π/4 × D²."""
-        assert result.stage_outputs["optics"]["A_collect"] == pytest.approx(
-            A_COLLECT, rel=1e-10
-        )
+        assert result.stage_outputs["optics"]["A_collect"] == pytest.approx(A_COLLECT, rel=1e-10)
 
     def test_Omega_pixel(self, result) -> None:
         """Ω_pixel = pitch² / f²."""
@@ -208,8 +206,14 @@ class TestGroundTruthMWIR:
 
     def test_history(self, result) -> None:
         assert result.history == (
-            "geometry", "source", "atmosphere", "optics", "platform",
-            "spectral_integration", "detector", "readout",
+            "geometry",
+            "source",
+            "atmosphere",
+            "optics",
+            "platform",
+            "spectral_integration",
+            "detector",
+            "readout",
             "performance",
         )
 

@@ -219,7 +219,7 @@ Confusing these is one of the top sources of error in EO performance modeling. R
 | Relative platform + target motion | The sensor↔target LOS rotates during integration (either endpoint moving) | `platform.ground_velocity_m_s` / `geometry.sensor_altitude_m`, or `geometry.target_speed_m_s` + `target_heading_rad` + `target_climb_rad`, or `geometry.los_angular_rate_rad_s` directly; `t_int` | Along-track (v1 — magnitude only, see §6) | Yes |
 | Scan mechanism | Cross-track scanner (whiskbroom or dual-axis pushbroom) | `scan.cross_track_velocity_m_s`, `t_int` | Cross-track | Only for whiskbroom / dual-axis |
 | Jitter | Random pointing errors | `platform.jitter_rms_urad`, `platform.jitter_axes` | Either / both | Yes (default 0) |
-| Turbulence | Atmospheric refractive-index fluctuations | `atmosphere.r0_cm` | Isotropic | Ground only |
+| Turbulence | Atmospheric refractive-index fluctuations | `atmosphere.r0_m`, `atmosphere.cn2_profile` | Isotropic | Any path that crosses atmosphere (`r0_m = 0` is "off") |
 
 A user studying a moving target observed by a stationary tracking ground sensor has all five potentially active. A user studying a building from LEO has platform motion and jitter only. The framework does not switch behavior based on use case — every term is computed (zero if not configured) and every term enters the PSF cascade. Zero-magnitude terms are skipped from the convolution and logged in `convolution_history`.
 
@@ -363,7 +363,7 @@ Parameter types, defaults, units, and bounds are the canonical [Parameter Refere
 | `psf.data` integrates to 1 ± numerical error | `optics/psf/builder.py` re-normalizes after each kernel | hard (always-true post-build) |
 | `mtf_2d` ≤ 1 + 1e-9 | `optics/psf/effective.py` per FFT normalization | hard |
 | Dual-path MTF consistency, tol = 2e-2 | `performance/consistency_check.py` (§9.3) | runs whenever the spatial path is computed (skipped only when the Spatial-MTF group is deselected, Gap 96); soft on failure (logs a warning, result stored in stage outputs — does not raise) |
-| `r0_cm > 0` if turbulence enabled | `atmosphere/turbulence.py` | hard |
+| `r0_m > 0` whenever a turbulence MTF is requested | `atmosphere/turbulence.py` (`AtmosphereValidationError`) | hard |
 | `psf_eff` symmetric for symmetric inputs | unit tests | sanity |
 
 ---

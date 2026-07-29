@@ -32,15 +32,11 @@ def result():  # type: ignore[no-untyped-def]
 
 class TestPublished:
     def test_present_and_shaped_like_the_wavelength_grid(self, result) -> None:  # type: ignore[no-untyped-def]
-        irradiance = result.stage_outputs["spectral_integration"][
-            "spectral_irradiance_at_image"
-        ]
+        irradiance = result.stage_outputs["spectral_integration"]["spectral_irradiance_at_image"]
         assert irradiance.shape == result.state.wavelength_um.shape
 
     def test_strictly_positive_for_a_lit_scene(self, result) -> None:  # type: ignore[no-untyped-def]
-        irradiance = result.stage_outputs["spectral_integration"][
-            "spectral_irradiance_at_image"
-        ]
+        irradiance = result.stage_outputs["spectral_integration"]["spectral_irradiance_at_image"]
         assert np.all(irradiance > 0.0)
         assert np.all(np.isfinite(irradiance))
 

@@ -103,9 +103,7 @@ def _model_nonwater_od() -> dict[tuple[float, float], float]:
         params.set(key, val)
     params.resolve()
     atm = SimpleAtmosphere(precipitable_water_cm=1e-9)
-    los = LineOfSightGeometry(
-        h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=None, delta_phi=None
-    )
+    los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=None, delta_phi=None)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         q = atm.evaluate(wl, los, params)
@@ -128,9 +126,7 @@ def main() -> int:
     rows = []
     print(f"{'segment':16} {'OD0':>7} {'k':>8} {'b':>6} {'nonwater':>9} {'floor_add':>9}")
     for lo, hi in SEGMENTS:
-        od = [
-            _band_od(*spectra[run], lo, hi) for run, _w in LADDER
-        ]
+        od = [_band_od(*spectra[run], lo, hi) for run, _w in LADDER]
         d1, d2 = od[1] - od[0], od[2] - od[1]
         if d1 <= 1e-4:  # no measurable water response in this segment
             k, b, od0 = 0.0, 1.0, od[1]

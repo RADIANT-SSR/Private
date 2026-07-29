@@ -263,9 +263,7 @@ class TestReflectedSourceRadianceFrame:
         np.testing.assert_array_equal(L_refl, np.zeros_like(wl))
 
     @pytest.mark.level1
-    def test_pure_reflective_target_reflects_its_whole_emission(
-        self, wl: np.ndarray
-    ) -> None:
+    def test_pure_reflective_target_reflects_its_whole_emission(self, wl: np.ndarray) -> None:
         """T2 has ε ≡ 0, so the reflected frame IS the whole source emission."""
         from radiant.core.descriptors import T2Reflective
         from radiant.core.reflectance import ScalarLambertianReflectance
@@ -295,9 +293,7 @@ class TestReflectedSourceRadianceFrame:
         assert np.any(L_refl > 0.0), "a lit reflective target must reflect something"
 
     @pytest.mark.level1
-    def test_mixed_target_splits_into_self_emission_plus_reflected(
-        self, wl: np.ndarray
-    ) -> None:
+    def test_mixed_target_splits_into_self_emission_plus_reflected(self, wl: np.ndarray) -> None:
         """T3: source emission − reflected = ε·B(λ, T_t), the Kirchhoff self term.
 
         Anchored against an independent Planck evaluation from the CODATA
@@ -336,9 +332,7 @@ class TestReflectedSourceRadianceFrame:
         assert np.any(L_refl > 0.0)
 
     @pytest.mark.level1
-    def test_reflected_frame_never_exceeds_the_source_emission(
-        self, wl: np.ndarray
-    ) -> None:
+    def test_reflected_frame_never_exceeds_the_source_emission(self, wl: np.ndarray) -> None:
         """Energy sanity: the reflected part is a non-negative share of the whole."""
         state = _make_state_with_descriptors(wl)
         out = AtmosphereStage().run(state, _make_params())

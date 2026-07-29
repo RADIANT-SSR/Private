@@ -160,8 +160,7 @@ def target_band_of(scene_class: str) -> str:
     """
     if scene_class not in SCENE_RELEVANCE:
         raise PerformanceValidationError(
-            f"Unknown scene class {scene_class!r}. Expected one of: "
-            f"{', '.join(SCENE_CLASS_KEYS)}."
+            f"Unknown scene class {scene_class!r}. Expected one of: {', '.join(SCENE_CLASS_KEYS)}."
         )
     return scene_class.split("_to_")[1]
 

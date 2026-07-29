@@ -71,6 +71,7 @@ class ConfigurationScopeError(RadiantError):
             parts.append(f"Action: {action}")
         super().__init__(" | ".join(parts))
 
+
 # Separator between per-configuration entries in a badge tooltip, e.g.
 # "MWIR: 3.5 µm · LWIR: 8.0 µm" (the owner's Phase 4b spec, plan §4 item 3).
 _TOOLTIP_SEPARATOR = " · "

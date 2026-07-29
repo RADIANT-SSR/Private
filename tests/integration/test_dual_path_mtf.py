@@ -36,7 +36,7 @@ GAIN = 32.0
 
 # Platform effects
 JITTER_URAD = 5.0  # isotropic jitter
-SMEAR_UM = 5.0     # along-track smear
+SMEAR_UM = 5.0  # along-track smear
 
 
 @pytest.fixture(scope="module")
@@ -81,11 +81,16 @@ class TestMTFTermsPresent:
     @pytest.mark.parametrize(
         "term",
         [
-            "mtf_optics_x", "mtf_optics_y",
-            "mtf_jitter_x", "mtf_jitter_y",
-            "mtf_smear_x", "mtf_smear_y",
-            "mtf_pixel_aperture_x", "mtf_pixel_aperture_y",
-            "mtf_ipc_x", "mtf_ipc_y",
+            "mtf_optics_x",
+            "mtf_optics_y",
+            "mtf_jitter_x",
+            "mtf_jitter_y",
+            "mtf_smear_x",
+            "mtf_smear_y",
+            "mtf_pixel_aperture_x",
+            "mtf_pixel_aperture_y",
+            "mtf_ipc_x",
+            "mtf_ipc_y",
         ],
     )
     def test_term_exists(self, result, term: str) -> None:

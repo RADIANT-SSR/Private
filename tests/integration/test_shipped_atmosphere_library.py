@@ -317,9 +317,7 @@ class TestShippedLadders:
         params.set("readout.adc_bits", 14)
         params.resolve()
 
-        los = LineOfSightGeometry(
-            h_tgt=10_000.0, h_sensor=100_000.0, theta_o=0.0, h_atm_top=1.0e5
-        )
+        los = LineOfSightGeometry(h_tgt=10_000.0, h_sensor=100_000.0, theta_o=0.0, h_atm_top=1.0e5)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             q = ladders.evaluate(wl, los, params)
@@ -386,9 +384,7 @@ class TestShippedLadders:
         params.set("readout.adc_bits", 14)
         params.resolve()
 
-        los = LineOfSightGeometry(
-            h_tgt=10_000.0, h_sensor=100_000.0, theta_o=0.0, h_atm_top=1.0e5
-        )
+        los = LineOfSightGeometry(h_tgt=10_000.0, h_sensor=100_000.0, theta_o=0.0, h_atm_top=1.0e5)
         assert los.theta_s is None  # pure-thermal contract
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")

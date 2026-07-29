@@ -151,16 +151,18 @@ def _run_injected_chain(
     params: ParameterSet,
 ) -> ChainState:
     """Run a chain with a custom ``_InjectedSource`` in place of SourceStage."""
-    runner = ChainRunner([
-        _InjectedSource(target, background, los),
-        AtmosphereStage(),
-        OpticsStage(),
-        PlatformStage(),
-        SpectralIntegrationStage(),
-        DetectorStage(),
-        ReadoutStage(),
-        PerformanceStage(),
-    ])
+    runner = ChainRunner(
+        [
+            _InjectedSource(target, background, los),
+            AtmosphereStage(),
+            OpticsStage(),
+            PlatformStage(),
+            SpectralIntegrationStage(),
+            DetectorStage(),
+            ReadoutStage(),
+            PerformanceStage(),
+        ]
+    )
     return runner.run(params, LWIR_WL)
 
 
@@ -334,9 +336,9 @@ class TestL13LWIRLabDarkCalBlackbody:
     """
 
     def test_runs_to_completion_and_produces_sane_metrics(self) -> None:
-        T_t = 310.0            # calibration blackbody
-        eps_value = 0.999      # near-perfect emitter
-        L_bg_value = 0.3       # chamber wall radiance
+        T_t = 310.0  # calibration blackbody
+        eps_value = 0.999  # near-perfect emitter
+        L_bg_value = 0.3  # chamber wall radiance
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)

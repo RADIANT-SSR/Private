@@ -79,6 +79,7 @@ class TestInjectedStoreStillHonoured:
         store = SettingsStore(QSettings(str(explicit), QSettings.Format.IniFormat))
         store.set_theme_name("dark")
         assert Path(store._settings.fileName()) == explicit  # noqa: SLF001
-        assert SettingsStore(
-            QSettings(str(explicit), QSettings.Format.IniFormat)
-        ).theme_name() == "dark"
+        assert (
+            SettingsStore(QSettings(str(explicit), QSettings.Format.IniFormat)).theme_name()
+            == "dark"
+        )

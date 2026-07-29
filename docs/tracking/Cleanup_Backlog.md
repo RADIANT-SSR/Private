@@ -15,7 +15,7 @@
 ### CU-273 — `emit_gui_yaml.py` rewrites portable baseline paths back to gitignored generated locations, silently un-doing CU-180
 
 **Discovered**: Backlog-Reduction Track B1, 2026-07-28 — a fresh worktree failed `test_gui_baselines[4.3]` immediately after the CU-253 baseline regeneration merged.
-**Status**: Open — **a live regression was introduced and repaired by commit `<this branch>`; the generator defect that caused it is what remains open.**
+**Status**: Open — **a live regression was introduced by `d169feb` and repaired by `962bc8e`; the generator defect that caused it is what remains open.**
 **File**: `scenarios/tools/emit_gui_yaml.py`; symptom file `scenarios/04_lisa_analyst/4.3_camouflage_effectiveness/inputs/4.3_camouflage_effectiveness.gui.yaml`.
 **Symptom**: CU-180 (`8349080`) deliberately committed 4.3's derived radiance as `inputs/L_bare_vehicle.csv` and pointed the portable baseline at it (`user_radiance_path: L_bare_vehicle.csv`) so the baseline reloads in a cold checkout. Re-running the emitter rewrites that to `user_radiance_path: ../outputs/derived/L_bare_vehicle.csv` — the scenario's *working* path, under a gitignored `outputs/` tree. The baseline then fails to reload anywhere the scenario has not just been run: `ParameterBoundsError: L_t_source: CSV file not found`.
 **Why it still matters**: it is invisible in the worktree that performs the regeneration, because the generated file exists there — which is exactly how it reached `main` in the CU-253 merge despite a green 6023-test suite. Any future results-affecting change that regenerates baselines will silently re-introduce it, and the failure surfaces only for the next person with a clean checkout (or CI). It defeats CU-177/CU-180's portability work by construction.

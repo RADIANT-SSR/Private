@@ -20,6 +20,41 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **`atmosphere.r0_reference_wavelength_um` — declare what wavelength your seeing
+  value is quoted at (CU-228).** Fried's parameter goes as λ^(6/5), so the
+  astronomer's habitual 10 cm at 500 nm is 1.30 m at a 4.25 µm band centre; entering
+  the habitual number and running an MWIR scene made the turbulence MTF roughly an
+  order of magnitude too aggressive, silently. Set the new parameter and `r0_m` is
+  rescaled to the band centre, with both values recorded in the resolution
+  provenance. **The default (unset) preserves existing behaviour bit-identically** —
+  no scene moves unless it opts in. A `UserWarning` fires when `r0_m` is set, the
+  reference is unset, and the band centre is more than a factor of two from 0.5 µm.
+
+### Fixed
+- **Results-affecting: the T7 intensity door had no sky (CU-258).** Solar geometry
+  was stripped for every descriptor except T2/T3, so an intensity-door scene received
+  a purely thermal sky (~1e-18 W/m²/sr/µm in the VIS). Every daytime intensity-door
+  scene was therefore missing the sky pedestal — for a visible measurement, its
+  dominant noise term. VIS/NIR intensity-door noise and SNR change accordingly;
+  thermal-band scenes are unaffected.
+- **An eclipsed intensity-door target no longer reports full signal silently
+  (CU-259).** The door consumes I(λ) verbatim, so τ_sun — which carries the eclipse
+  verdict — never scaled the target term: an object in the Earth's shadow returned
+  the same signal with no indication. RADIANT cannot tell reflected sunlight from
+  self-emission given I(λ) alone (that is the illumination-aware door of Gap 114), so
+  it now computes the number and warns plainly about what the number omits, only when
+  the scene declares a sun *and* the target is eclipsed. No computed value changes.
+- **A wholly-vacuum path with a sky-terminated background no longer raises
+  (CU-261).** The vacuum topology published "no sky" where the correct answer is a
+  sky of exactly zero radiance; assembly's refusal to invent a missing sky is
+  unchanged.
+- **A set optics temperature that does nothing now says so (CU-265).** In scalar
+  transmission mode the optics emit ε·B(T) with ε defaulting to 0, so an uncooled
+  293 K telescope evaluated bit-identically to an 80 K one while the user believed
+  warm-optics emission was modelled. Warns when the temperature is explicitly set and
+  the emissivity leaves it inert, naming both ways to make it live.
+
 ### Changed
 - **PSF plots read in focal-plane micrometres, not sample indices (CU-241).**
   `result.plot.psf()` and `psf_pixel_grid()` previously labelled their axes in raw

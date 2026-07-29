@@ -102,9 +102,23 @@ logger = logging.getLogger(__name__)
 # Model constants
 # ---------------------------------------------------------------------------
 
-# Bucholtz 1995 sea-level Rayleigh extinction coefficient at λ = 1 µm.
-# σ_mol(λ) = RAYLEIGH_COEFF_KM * λ_µm**(-RAYLEIGH_EXPONENT)  [1/km]
-RAYLEIGH_COEFF_KM: float = 0.0088
+# Published **total vertical** Rayleigh optical depth at λ = 1 µm — dimensionless,
+# not a per-km coefficient:
+#
+#     τ_R,vertical(λ) = RAYLEIGH_VERTICAL_OD_1UM * λ_µm**(-RAYLEIGH_EXPONENT)
+#
+# Check against the literature: at 550 nm this gives 0.1015, matching the published
+# whole-atmosphere Rayleigh optical depth (Hansen & Travis 1974; Bucholtz 1995 give
+# 0.0973–0.10).  It is emphatically **not** the sea-level volume extinction, which is
+# ≈ 0.0116 km⁻¹ at 550 nm — a factor ≈ 8.4 km (the effective molecular scale height)
+# smaller.
+#
+# CU-253: this constant was named ``RAYLEIGH_COEFF_KM`` and consumed directly as a
+# km⁻¹ extinction, so multiplying it by the ~8 km molecular column inflated every
+# VIS/NIR molecular optical depth by ~8×.  The name now states the quantity, and the
+# km⁻¹ coefficient the model needs is *derived* from it below via τ = σ₀·H, so the
+# two can never drift apart again.
+RAYLEIGH_VERTICAL_OD_1UM: float = 0.0088
 RAYLEIGH_EXPONENT: float = 4.09
 
 # Exponential-atmosphere scale heights [m].
@@ -358,11 +372,26 @@ class SimpleAtmosphere:
     def _rayleigh_extinction_km(
         self, wavelength_um: np.ndarray, mean_altitude_m: float
     ) -> np.ndarray:
-        """Molecular (Rayleigh) extinction at the path-mean altitude.
+        r"""Molecular (Rayleigh) volume extinction at *mean_altitude_m* [1/km].
 
-        ``σ_mol(λ, h) = 0.0088 · λ_µm^{−4.09} · exp(−h / 8 km)`` [1/km].
+        The published Rayleigh constant is a **total vertical optical depth**
+        (dimensionless), while this model needs a sea-level volume extinction
+        to multiply against :meth:`_column_length_km`.  For the exponential
+        profile the model already assumes, the two are related exactly by
+
+        .. math::  \tau_{vertical} = \sigma_0 \int_0^\infty e^{-h/H}\,dh
+                                    = \sigma_0 H,
+
+        so ``σ₀ = τ_vertical / H_mol``.  Deriving it here (rather than storing a
+        second hand-computed constant) keeps the sea-level coefficient and the
+        published optical depth consistent by construction, including if
+        ``H_MOL_M`` is ever revised — the CU-253 defect was exactly these two
+        quantities being conflated.
+
+        ``σ_mol(λ, h) = [τ_R,vertical(λ) / H_mol] · exp(−h / H_mol)`` [1/km].
         """
-        sea_level = RAYLEIGH_COEFF_KM * wavelength_um ** (-RAYLEIGH_EXPONENT)
+        vertical_od = RAYLEIGH_VERTICAL_OD_1UM * wavelength_um ** (-RAYLEIGH_EXPONENT)
+        sea_level = vertical_od / (H_MOL_M / 1000.0)
         scale = math.exp(-mean_altitude_m / H_MOL_M)
         return np.asarray(sea_level * scale, dtype=np.float64)
 

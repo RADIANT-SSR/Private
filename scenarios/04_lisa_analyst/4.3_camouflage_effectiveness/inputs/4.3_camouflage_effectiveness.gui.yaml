@@ -15,7 +15,6 @@ detector:
 geometry:
   path_zenith_rad: 0.0
   sensor_altitude_m: 3000.0
-  target_range_m: 3000.0
 optics:
   aperture_diameter_m: 0.1
   focal_length_m: 0.2
@@ -30,7 +29,7 @@ source:
   regime_override: extended
   scene_type: extended
   target:
-    user_radiance_path: L_bare_vehicle.csv
+    user_radiance_path: ../outputs/derived/L_bare_vehicle.csv
 spectral_integration:
   filter_max_um: 12.0
   filter_min_um: 8.0

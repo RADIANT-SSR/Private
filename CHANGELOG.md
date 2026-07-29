@@ -20,6 +20,45 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **Results-affecting: the simple atmosphere's molecular (Rayleigh) optical depth was
+  ~8× too large in VIS/NIR (CU-253).** `0.0088·λ⁻⁴·⁰⁹` is the published **total
+  vertical** Rayleigh optical depth (dimensionless — 0.1015 at 550 nm, matching the
+  0.0973–0.10 of Hansen & Travis 1974 / Bucholtz 1995), but it was named
+  `RAYLEIGH_COEFF_KM` and consumed as a km⁻¹ volume extinction, so multiplying it by
+  the ~8 km molecular column inflated every molecular optical depth by exactly the
+  column depth. The sea-level coefficient is now *derived* from the published optical
+  depth through the exponential profile's own identity τ_vert = σ₀·H_mol, so the two
+  cannot drift apart again.
+
+  **Direction and magnitude.** Molecular optical depth falls 8.00× at every
+  wavelength. Band transmittance rises steeply in the blue and negligibly in the
+  thermal bands: τ_mol for a full vertical column goes 0.13 → 0.78 at 440 nm,
+  0.44 → 0.90 at 550 nm, 0.93 → 0.99 at 1 µm, and by ≤ 0.03 points beyond 2 µm.
+  Corrected zenith Rayleigh extinction is 0.110 mag/airmass, just under the published
+  *total* 0.12–0.20 band (which also carries aerosol and ozone). The LWIR anchors move
+  by +2.74 ppm at 8 µm decaying monotonically to +0.29 ppm at 13 µm — the λ⁻⁴·⁰⁹
+  signature, which is the check that this repin is the Rayleigh term and nothing else.
+
+  **Downstream, the VIS/NIR effect is not simply "more signal".** Removing the excess
+  molecular scattering raises transmission *and* halves the scattered-sky irradiance
+  that illuminates the target. For a visible reflective scene the sky term dominates,
+  so the net signal falls: on scenario 5.1 (0.5–0.8 µm), τ_up 0.494 → 0.741 and
+  τ_sun 0.445 → 0.708, while `E_sky_scattered` drops 524 → 257 W/m²/µm and the
+  collected signal halves (58 710 → 29 940 e⁻), taking SNR 242 → 173. 73 metric values
+  across 30 scenario baselines moved; the largest are SNR −34 % (5.4), −29 % (1.4),
+  −29 % (5.1), −27 % (3.4) and **+24 % (10.3, ground-to-space visible)**, with NEDT up
+  to +53 %. Six scenarios whose SNR previously fell outside the GIQE-5 envelope now
+  report a NIIRS value instead of `null`. All 38 GUI baselines regenerated per
+  `RADIANT_Testing_Validation.md` §5.3.
+
+  **Caveat carried forward:** the VIS/NIR *magnitudes* above now rest on the
+  single-scatter sky model, whose own defects are still open — CU-224 (up- vs
+  down-looking path radiance use different physics), CU-225 (28 % step at the grazing
+  hand-over) and CU-260 (single-scatter species split underflow). This fix removes a
+  first-order unit error; it does not validate the sky model that the corrected
+  numbers now expose.
+
 ### Added
 - **Up-looking topology provenance is published (CU-266).** `AtmosphereStage` now
   publishes `stage_outputs["atmosphere"]["topology_provenance"]` for up-looking and

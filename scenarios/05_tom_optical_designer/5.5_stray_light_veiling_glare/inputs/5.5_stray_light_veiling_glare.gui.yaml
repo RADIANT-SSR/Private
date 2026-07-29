@@ -23,6 +23,9 @@ optics:
     input_mode: veiling_glare
     veiling_glare_fraction: 0.0
   transmission_scalar: 0.8
+performance:
+  niirs:
+    allow_extrapolated: true
 readout:
   full_well_capacity_e: 300000.0
   gain_e_per_dn: 8.0

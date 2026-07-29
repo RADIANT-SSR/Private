@@ -2,8 +2,8 @@
   "id": "8.2",
   "title": "Target-altitude interpolation \u2014 LWIR, SimpleAtmosphere",
   "metrics": {
-    "snr": 1088.189700687396,
-    "nedt_K": 0.040533771844400074,
+    "snr": 1088.192268155994,
+    "nedt_K": 0.04053366593459266,
     "niirs": null
   },
   "notes": "Nominal LWIR chain; SimpleAtmosphere (tape7 family not portable)."

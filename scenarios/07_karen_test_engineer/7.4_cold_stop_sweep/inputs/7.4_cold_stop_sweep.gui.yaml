@@ -19,6 +19,9 @@ optics:
   optics_temperature_K: 293.15
   scalar_emissivity: 0.31999999999999995
   transmission_scalar: 0.68
+performance:
+  niirs:
+    allow_extrapolated: true
 readout:
   adc_bits: 14
   full_well_capacity_e: 8500000.0

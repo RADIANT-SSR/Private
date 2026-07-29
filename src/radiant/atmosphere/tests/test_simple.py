@@ -54,8 +54,8 @@ from radiant.atmosphere.simple import (
     H_AER_M,
     H_MOL_M,
     KOSCHMIEDER,
-    RAYLEIGH_COEFF_KM,
     RAYLEIGH_EXPONENT,
+    RAYLEIGH_VERTICAL_OD_1UM,
     SimpleAtmosphere,
 )
 
@@ -137,7 +137,7 @@ def test_truth_anchor_1_rayleigh_only_matches_hand_calc() -> None:
 
     for lam_um in (0.55, 1.0, 2.0):
         idx = int(np.argmin(np.abs(state.wavelength_um - lam_um)))
-        sigma_mol_0 = RAYLEIGH_COEFF_KM * lam_um ** (-RAYLEIGH_EXPONENT)
+        sigma_mol_0 = RAYLEIGH_VERTICAL_OD_1UM * lam_um ** (-RAYLEIGH_EXPONENT) / (H_MOL_M / 1000.0)
         sigma_aer_0 = KOSCHMIEDER / 10_000.0 * (lam_um / 0.55) ** (-1.3)
         od = sigma_mol_0 * col_mol + sigma_aer_0 * col_aer
         expected_tau = math.exp(-od)
@@ -212,7 +212,7 @@ def test_truth_anchor_3_koschmieder_visibility_round_trip() -> None:
     col_aer = (H_AER_M / 1000.0) * (math.exp(-h_low_m / H_AER_M) - math.exp(-h_high_m / H_AER_M))
 
     od_total = -math.log(tau)
-    sigma_mol_0 = RAYLEIGH_COEFF_KM * 0.55 ** (-RAYLEIGH_EXPONENT)
+    sigma_mol_0 = RAYLEIGH_VERTICAL_OD_1UM * 0.55 ** (-RAYLEIGH_EXPONENT) / (H_MOL_M / 1000.0)
     od_mol = sigma_mol_0 * col_mol
     od_aer = od_total - od_mol
     sigma_aer_0 = od_aer / col_aer
@@ -474,7 +474,7 @@ def test_orbital_altitude_column_od_hand_calc() -> None:
     tau = float(state.transmittance.values[0])
 
     # Hand calc: at 500 km the full molecular column is traversed.
-    sigma_mol_0 = RAYLEIGH_COEFF_KM * 4.25 ** (-RAYLEIGH_EXPONENT)
+    sigma_mol_0 = RAYLEIGH_VERTICAL_OD_1UM * 4.25 ** (-RAYLEIGH_EXPONENT) / (H_MOL_M / 1000.0)
     col_mol = (H_MOL_M / 1000.0) * (1.0 - math.exp(-500_000.0 / H_MOL_M))
     # Aerosol term (V=1e9 → negligible but nonzero)
     sigma_aer_0 = KOSCHMIEDER / 1e9 * (4.25 / 0.55) ** (-1.3)

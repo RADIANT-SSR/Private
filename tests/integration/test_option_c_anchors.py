@@ -217,13 +217,19 @@ CELL28_PINNED = {
     # the real CO₂ 15 µm wing floor + super-linear water continuum, −34%
     # at 12 µm). Band-integrated values move the anchors toward the real
     # A3/F-run band means (scenario 3.5 validation note).
+    # Repinned 2026-07-28 (CU-253 Rayleigh coefficient correction). The molecular
+    # optical depth fell ~8x, so LWIR radiance rises very slightly — and the size of
+    # the rise decays monotonically with wavelength exactly as λ^-4.09 demands:
+    # +2.74 ppm at 8 µm, +1.74 at 9, +1.11 at 10, +0.77 at 11, +0.53 at 12,
+    # +0.29 ppm at 13 µm. That ordering is the physical check that this repin is the
+    # Rayleigh term and nothing else — a bug elsewhere would not sort by λ^-4.
     "L_aperture_W_m2_sr_um": {
-        8.0: 6.643141,
-        9.0: 7.193199,
-        10.0: 7.751573,
-        11.0: 7.477523,
-        12.0: 5.112159,
-        13.0: 4.690788,
+        8.0: 6.643159211627895,
+        9.0: 7.1932115500743015,
+        10.0: 7.751581606124174,
+        11.0: 7.477528784720062,
+        12.0: 5.112161696354939,
+        13.0: 4.6907893682809565,
     },
 }
 

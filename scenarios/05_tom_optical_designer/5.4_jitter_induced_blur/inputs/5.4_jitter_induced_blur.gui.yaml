@@ -23,6 +23,9 @@ optics:
   optics_temperature_K: 293.15
   transmission_scalar: 0.7
   wfe_rms_waves: 0.05
+performance:
+  niirs:
+    allow_extrapolated: true
 platform:
   jitter_rms_urad: 0.0
 readout:

@@ -4,7 +4,7 @@
   "metrics": {
     "snr": 1529.5662698384122,
     "nedt_K": 0.018888334730927096,
-    "niirs": null
+    "niirs": 23.84666923327147
   },
   "notes": "Runner's module-level baseline config; the sweep varies cold-stop f-number. GUI baseline uses a well-matched gain (512 e-/DN vs the runner's 2.5) so the 14-bit ADC spans the 8.5 Me- well instead of clipping (CU-170)."
 }

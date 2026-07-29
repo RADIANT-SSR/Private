@@ -12,6 +12,17 @@
 
 ## Open
 
+### CU-274 — `slant_path_length_m` jumps 18 % across its own 80° branch switch, for every geometry
+
+**Discovered**: Backlog-Reduction Batch 5, while fixing [[CU-255]], 2026-07-29. **Pre-existing**: reproduced on unmodified `main`.
+**Status**: Open — needs a modelling decision, not a formula swap.
+**File**: `src/radiant/atmosphere/protocol.py::AtmosphericGeometry.slant_path_length_m` (`SPHERICAL_SWITCH_RAD`).
+**Symptom**: the two branches model different quantities, so the switch is a step. A 100 km in-column path gives air mass **5.7023 at 79.9°** and **4.8072 at 80.1°** — an 18 % discontinuity, on `main`, for an ordinary down-looking column. CU-255 removed the up-looking case's absurd slab thickness but cannot remove this: it is inherent to switching formulas.
+**Which side is right (measured this pass, against `segment_grazing`'s exact spherical slant integral):** flat `sec θ` agrees with the exact integral to **0.18 % at 60°** and 0.02 % at 30°; the root form is **2.2 % low** at 60°. The reason is physical — with an 8 km molecular scale height the absorbing mass hugs the ground, where curvature is negligible, so `sec θ` is very nearly the true air mass at moderate zenith while the root form computes the *geometric chord* of a 100 km slab, which is a different quantity. Below 80° the current code is therefore the accurate one, and the root form it switches to at 80° is the less accurate.
+**Why it still matters**: transmittance is discontinuous in look angle for every scene class, so any sweep crossing 80° shows a step that is pure model artefact; and past 80° the model silently changes what it means by "path length".
+**Suggested fix**: (b) stand-alone task — the exact integral already exists (`segment_grazing.grazing_segment_optical_depth`, which `ColumnSegmentSpec` defers to past 89.5°). Either lower that hand-over to ~80° so the accurate model covers the whole near-horizon range, or replace the root form with a proper exponential-atmosphere air mass (Kasten–Young or a Chapman function), and continuity-test across whatever switch remains. **Results-affecting** for any scene past 80°. Effort M; category C. Related: [[CU-255]], [[CU-225]] (the 89.5° hand-over step, the same class of defect one switch further out).
+
+
 ### CU-273 — `emit_gui_yaml.py` rewrites portable baseline paths back to gitignored generated locations, silently un-doing CU-180
 
 **Discovered**: Backlog-Reduction Track B1, 2026-07-28 — a fresh worktree failed `test_gui_baselines[4.3]` immediately after the CU-253 baseline regeneration merged.
@@ -58,7 +69,8 @@
 **File**: `src/radiant/atmosphere/protocol.py::AtmosphericGeometry.slant_path_length_m`.
 **Symptom**: the >80° spherical root form parameterises on x = Δh/R_E assuming Δh is the *atmospheric slab* thickness; for an up-looking observer segment Δh is site→target (e.g. 699 km, x = 0.110). Measured: τ(0.55 µm) at ζ_low = 79.9° is 0.01373 (OD 4.288) and at 80.1° is 0.09796 (OD 2.323) — optical depth **drops** as the path lengthens; transmittance is discontinuous and non-monotonic above 80°.
 **Why it still matters**: any up-looking scene past 80° zenith gets a physically impossible air mass.
-**Suggested fix**: (a) inline-fix-now — evaluate the spherical air-mass on the atmospheric thickness (min(Δh, column top − h_low)), continuity-tested across 80°. Effort S; category C.
+**Resolution 2026-07-29 (commit `00769a7`) — the thickness half is fixed; the continuity half is not achievable here and is now [[CU-274]].** `_absorbing_thickness_m` clamps both branches at the column top, and `air_mass` normalises by the same thickness (it could otherwise report below 1 for an exo target, contradicting its own contract). Paths ending inside the column are **bit-identical** — air mass at 0/30/60° is still exactly `sec θ` — so no shipped scene moves. The requested continuity across 80° turned out to be unreachable by this fix: measured against `segment_grazing`'s exact slant integral, flat `sec θ` is accurate to 0.18 % at 60° while the root form is 2.2 % low, so the branches genuinely model different quantities and the step is inherent to the switch, not to the thickness. It is pre-existing and universal (a 100 km in-column path steps 5.70 → 4.81 across 80° on unmodified `main`), so it is filed separately rather than left implied here.
+**Suggested fix**: superseded — see the resolution above and [[CU-274]].
 
 ### CU-256 — T7 intensity door publishes sentinel extent values, bypassing the point-source angular-size guard
 

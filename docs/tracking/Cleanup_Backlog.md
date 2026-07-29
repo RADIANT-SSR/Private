@@ -32,16 +32,6 @@
 **Suggested fix**: (c) delete-as-unused if it is scratch, or (a) rename to a content-stating slug (e.g. the band + platform + regime it configures) if it is a real example worth shipping. Needs one word from the owner — the file may be in active personal use. Effort XS; category A. Related: [[CU-207]].
 
 
-### CU-270 — `ruff check` still skips `scripts/` and `dev_tools/`, where 14 violations sit unseen
-
-**Discovered**: Backlog-Reduction Track A, Wave A1 (CU-252 fix), 2026-07-28 — surfaced by trialling a wider path list on the lint gate.
-**Status**: Open.
-**File**: `.github/workflows/ci.yml` (the `Ruff lint` step) and `CLAUDE.md` (gate battery + "Running Tests Locally").
-**Symptom**: CU-252 widened `ruff format --check` to `src/ tests/ scripts/ dev_tools/`, but `ruff check` remains `src/ tests/` (its CU-089 scope). Running it over the two uncovered trees reports **14 errors** — E501 long lines and I001 unsorted import blocks, 12 of them `--fix`-able — in `scripts/build_manual.py`, `scripts/capture_option_c_baseline.py` and siblings. `pyproject.toml` declares no ruff excludes, so these trees were never deliberately exempted; they were simply never added to the gate's path list.
-**Why it still matters**: the same blind spot CU-252 documents, one check over. The formatter and the linter now disagree about which trees are governed, which is the state that lets drift accumulate unnoticed — and `scripts/` holds the gate tooling itself (`check_org_rules.py`, `gen_param_reference.py`).
-**Suggested fix**: (a) inline-fix — `ruff check scripts/ dev_tools/ --fix`, hand-fix the two remaining, then widen the CI step and both CLAUDE.md gate lists to the same four-tree path list the formatter now uses. Deliberately **not** bundled into CU-252, which is a pure-formatting change; this one alters what the lint gate rejects. Effort XS; category A. Related: [[CU-252]], [[CU-089]].
-
-
 ### CU-253 — Simple-model Rayleigh: the dimensionless total vertical optical depth is used as a km⁻¹ extinction coefficient (~8× VIS inflation)
 
 **Discovered**: Scenario 10.3 published-extinction cross-check (branch `gf/phase5-validation`), 2026-07-28.
@@ -159,15 +149,6 @@
 **Why it still matters**: a silent-no-op trap for exactly the uncooled-MWIR sensor class the ground-to-air scenes introduce; the user believes warm-optics emission is modelled.
 **Suggested fix**: (a) inline-fix — `UserWarning` when `optics_temperature_K` is user-set while `scalar_emissivity` is 0 in scalar mode (mirror of CU-085's pattern), naming the two ways to make it live. Effort S; category B.
 
-### CU-266 — `TopologyProducts` drops the up-looking provenance notes, so `result.inspect()` cannot explain τ_sun / illumination
-
-**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/atmosphere/topology.py` (`TopologyProducts` has no provenance field; `uplooking_quantities.UplookingProducts.provenance` is discarded).
-**Symptom**: the GF-9 illumination note, observer-leg description and sky-continuation note survive only in an INFO log record; the published stage outputs carry none of it.
-**Why it still matters**: Rule-16 inspectability — the analyst cannot see why τ_sun took its value (sunlit vs shadowed) from the result object.
-**Suggested fix**: (a) inline-fix — carry the provenance dict through `TopologyProducts` and publish it under `stage_outputs["atmosphere"]`. Effort S; category A.
-
 ### CU-267 — Simple-model gas-region table is piecewise-constant, so τ(λ) steps discontinuously at region edges
 
 **Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
@@ -176,24 +157,6 @@
 **Symptom**: τ(λ) steps 0.728 → 0.617 across one grid point at 0.70 µm (visible in scenario 10.3's committed transmittance figure); any band edge near a region boundary inherits the step.
 **Why it still matters**: narrow-band work near a region edge sees a discontinuous, grid-dependent transmittance.
 **Suggested fix**: (b) stand-alone — blend region coefficients across a small transition width (results-affecting at the ~1 % level near edges only). Effort S–M; category C. Related: CU-161, [[CU-253]].
-
-### CU-268 — `geometry.target_heading_rad` reference frame is azimuthally degenerate for a radial LOS (θ_o = 0 or π) — documentation only
-
-**Discovered**: Scenario 10.4 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/geometry/los_rate.py` (module doc) + `geometry/_schema.py` heading description.
-**Symptom**: heading is measured from the azimuth of the sensor's ground point, which does not exist when the ground range is 0 m (vertical LOS). Numerically harmless — ω = |v_rel × û|/R is rotation-invariant about the vertical there (verified against the K1 door to 0.0 %) — but no doc names the case.
-**Why it still matters**: a user configuring a co-rotating LEO/GEO pair has no guidance that any heading value is equivalent at θ_o = π.
-**Suggested fix**: (a) inline doc fix at next touch. Effort S; category A. Related: Gap 115.
-
-### CU-269 — Horizon-guard shoulder warning names the excluded refraction but does not size it
-
-**Discovered**: Scenario 10.2 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/core/viewing_triangle.py` (guard `UserWarning` construction).
-**Symptom**: 6 of 16 sweep points in scenario 10.2 land in the 100 m–2 km Δh shoulder and carry an unsized caveat; the structured context already carries `tangent_depression_m`, the slant range and the thresholds, so every consumer must derive the magnitude independently (10.2 does: k = 4/3 → Δh 195.9 → 146.9 m, mean sampling-altitude error 32.6 m, ≈0.91 % in band τ).
-**Why it still matters**: a quantified caveat was the ratified intent of the warn shoulder (plan §8.3 answer 1: "warning quantifies the refraction-excluded caveat").
-**Suggested fix**: (a) inline-fix — add the k = 4/3 order-of-magnitude estimate (Δh reduction + τ-impact scale) to the warning text/context. Effort S; category A. Related: ADR-0011 decision 6.
 
 ### CU-246 — `geometry_readout` labels `eta_rad` "Nadir (off-nadir) angle" — wrong for an up-looking scene
 
@@ -305,15 +268,6 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 **Symptom**: the operator-facing contract is inverted. The shipped-family catalogue is a closed, known set keyed by (direction, axes), but the GUI asks the operator to *reconstruct a dict key by hand* in a free-text field, and the only feedback for a wrong key is a mid-evaluation refusal rendered as a crash. Three compounding layers: (1) no family picker — the catalogue is never shown; (2) no scene-aware default — the loader could derive the needed axes from the resolved scene (h_tgt > 0 ⇒ target-altitude axis; los_direction ⇒ family direction) and auto-select or at least pre-fill; (3) no config-time validation — the family/scene mismatch is knowable the moment both are set (Rule 16) and belongs in the Messages rail with the remedy, not in an exception five stages later.
 **Why it still matters**: the interpolated backend is the fast path the MODTRAN batches exist to feed; every operator hits this the first time they raise `target_altitude_m` above zero. The knowledge currently lives in a schema docstring.
 **Suggested fix**: (b) stand-alone GUI task, natural walkthrough-cleanup batch item. Family-first UI: a picker enumerating `_shipped_family_catalogue()` entries with plain-language coverage lines ("midlat summer, space/airborne sensor, targets 0–29 km, nadir–60°"), writing `interpolation_axes`/`interpolated_data_dir` as derived values; scene-aware default selection with a profile-mismatch warning (choosing the family must never silently change the atmosphere profile the operator asked for); config-time coverage check in the Messages rail. Effort M; category D. Related: Gap 94, CU-226, CU-240.
-
-### CU-240 — Interpolated backend capability refusals raise bare `NotImplementedError`, so the GUI renders them as crashes
-
-**Discovered**: operator session, 2026-07-27 (same scenario as CU-239).
-**Status**: Open
-**File**: `src/radiant/atmosphere/interpolated.py` (grep `raise NotImplementedError` — the h_tgt-needs-target-axis refusal at ~line 1011 and siblings)
-**Symptom**: the refusal text is exemplary Rule-15 content (what/why/two workarounds) wrapped in the wrong type: bare `NotImplementedError` is not a `RadiantError`, so the GUI's deliberate error routing (RadiantError → in-context rejection; everything else → the "Unexpected Error" crash dialog) presents a well-formed capability refusal as an internal failure, and `except RadiantError` handlers in user scripts miss it.
-**Why it still matters**: Rule 15 violation on the exact surface operators hit first (see CU-239); the crash framing erodes trust in a refusal that is actually the system protecting the radiometry.
-**Suggested fix**: (a) inline-fix — introduce/reuse an `AtmosphereCapabilityError(RadiantError)` (the Phase-2 capability-refusal pattern), swap the raises, add one test asserting the class reaches the GUI's rejection path. Effort XS; category A. Related: CU-239.
 
 ### CU-244 — Target-spec over-specification is unreachable by the parameter editor's clone-validate, so the GUI accepts a conflicting pair until Evaluate
 
@@ -555,6 +509,56 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-240 — Interpolated backend capability refusals raise bare `NotImplementedError`, so the GUI renders them as crashes — RESOLVED 2026-07-28 (commit `4813f46`)
+
+**Discovered**: operator session, 2026-07-27 (same scenario as CU-239).
+**Status**: RESOLVED 2026-07-28, commit `4813f46`. **Resolution**: added `AtmosphereCapabilityError(RadiantError, NotImplementedError)` to `atmosphere/errors.py` and swapped all three bare raises onto it (`interpolated.py`, `modtran.py`, `tabulated.py`), restructured into Rule-15 `what`/`why`/`action`/`context`. The co-inheritance is the Rule-15 back-compat carve-out — the existing `pytest.raises(NotImplementedError)` call sites in `test_evaluate.py` / `test_modtran.py` pass unchanged — while the `RadiantError` half is what moves the refusal from the GUI's "Unexpected Error" crash dialog to its actionable in-context path, and makes `except RadiantError` in user scripts catch it. New test `test_capability_refusal_is_a_radiant_error` asserts both bases, all three message parts, and the structured context.
+
+**File**: `src/radiant/atmosphere/interpolated.py` (grep `raise NotImplementedError` — the h_tgt-needs-target-axis refusal at ~line 1011 and siblings)
+**Symptom**: the refusal text is exemplary Rule-15 content (what/why/two workarounds) wrapped in the wrong type: bare `NotImplementedError` is not a `RadiantError`, so the GUI's deliberate error routing (RadiantError → in-context rejection; everything else → the "Unexpected Error" crash dialog) presents a well-formed capability refusal as an internal failure, and `except RadiantError` handlers in user scripts miss it.
+**Why it still matters**: Rule 15 violation on the exact surface operators hit first (see CU-239); the crash framing erodes trust in a refusal that is actually the system protecting the radiometry.
+**Suggested fix**: (a) inline-fix — introduce/reuse an `AtmosphereCapabilityError(RadiantError)` (the Phase-2 capability-refusal pattern), swap the raises, add one test asserting the class reaches the GUI's rejection path. Effort XS; category A. Related: CU-239.
+
+### CU-266 — `TopologyProducts` drops the up-looking provenance notes, so `result.inspect()` cannot explain τ_sun / illumination — RESOLVED 2026-07-28 (commit `4813f46`)
+
+**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `4813f46`. **Resolution**: `TopologyProducts` gained a `provenance` field, `evaluate_path_topology` carries `UplookingProducts.provenance` through instead of discarding it, and `AtmosphereStage` publishes it as `stage_outputs["atmosphere"]["topology_provenance"]`. It is published only where one exists (the up-looking/level arms); a down-looking or vacuum scene keeps exactly the stage outputs it had before, so nothing else moved. The analyst can now see the observer-leg detail, segment provenance, GF-9 illumination note and sky-continuation note — i.e. *why* τ_sun took its value — from `result.inspect()` rather than from an INFO log record no result object carries.
+
+**File**: `src/radiant/atmosphere/topology.py` (`TopologyProducts` has no provenance field; `uplooking_quantities.UplookingProducts.provenance` is discarded).
+**Symptom**: the GF-9 illumination note, observer-leg description and sky-continuation note survive only in an INFO log record; the published stage outputs carry none of it.
+**Why it still matters**: Rule-16 inspectability — the analyst cannot see why τ_sun took its value (sunlit vs shadowed) from the result object.
+**Suggested fix**: (a) inline-fix — carry the provenance dict through `TopologyProducts` and publish it under `stage_outputs["atmosphere"]`. Effort S; category A.
+
+### CU-269 — Horizon-guard shoulder warning names the excluded refraction but does not size it — RESOLVED 2026-07-28 (commit `4813f46`)
+
+**Discovered**: Scenario 10.2 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `4813f46`. **Resolution**: the warn-shoulder `UserWarning` now sizes what it excludes. New `GUARD_REFRACTION_K = 4/3` in `viewing_triangle.py` is used **only** for sizing (v1.x still models no refraction, ADR-0011 decision 6): under the effective-radius model a fixed geometry's tangent depression scales as 1/k, so the warning states the refracted depression and the path-mean sampling-altitude error, and the structured context carries `tangent_depression_refracted_m`, `refraction_sampling_error_peak_m` and `_mean_m`. Reproduces the CU's independently-derived scenario-10.2 figures **exactly** — dh 195.9 m → 146.9 m, mean error 32.6 m — pinned by `test_shoulder_warning_sizes_the_refraction_it_excludes`. An endpoint-minimum segment (no interior tangent) says the sizing does not apply instead of quoting an inapplicable number, pinned by its own test.
+
+**File**: `src/radiant/core/viewing_triangle.py` (guard `UserWarning` construction).
+**Symptom**: 6 of 16 sweep points in scenario 10.2 land in the 100 m–2 km Δh shoulder and carry an unsized caveat; the structured context already carries `tangent_depression_m`, the slant range and the thresholds, so every consumer must derive the magnitude independently (10.2 does: k = 4/3 → Δh 195.9 → 146.9 m, mean sampling-altitude error 32.6 m, ≈0.91 % in band τ).
+**Why it still matters**: a quantified caveat was the ratified intent of the warn shoulder (plan §8.3 answer 1: "warning quantifies the refraction-excluded caveat").
+**Suggested fix**: (a) inline-fix — add the k = 4/3 order-of-magnitude estimate (Δh reduction + τ-impact scale) to the warning text/context. Effort S; category A. Related: ADR-0011 decision 6.
+
+### CU-268 — `geometry.target_heading_rad` reference frame is azimuthally degenerate for a radial LOS (θ_o = 0 or π) — documentation only — RESOLVED 2026-07-28 (commit `4813f46`)
+
+**Discovered**: Scenario 10.4 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `4813f46`. **Resolution**: documented in both places a reader would look — a "Degenerate azimuth at a radial LOS" section in `geometry/los_rate.py` explaining that at θ_o = 0 or π the zero azimuth (the sensor's ground point) does not exist, every heading yields the same ω because the whole horizontal plane is perpendicular to the LOS, and this is a degeneracy of the *parameterisation* rather than an error (verified against the K1 door to 0.0 %); and a DEGENERATE note on the `geometry.target_heading_rad` schema entry naming the condition and the conventional choice (0). `parameter_reference.md` regenerated. No behaviour change.
+
+**File**: `src/radiant/geometry/los_rate.py` (module doc) + `geometry/_schema.py` heading description.
+**Symptom**: heading is measured from the azimuth of the sensor's ground point, which does not exist when the ground range is 0 m (vertical LOS). Numerically harmless — ω = |v_rel × û|/R is rotation-invariant about the vertical there (verified against the K1 door to 0.0 %) — but no doc names the case.
+**Why it still matters**: a user configuring a co-rotating LEO/GEO pair has no guidance that any heading value is equivalent at θ_o = π.
+**Suggested fix**: (a) inline doc fix at next touch. Effort S; category A. Related: Gap 115.
+
+### CU-270 — `ruff check` still skips `scripts/` and `dev_tools/`, where 14 violations sit unseen — RESOLVED 2026-07-28 (commit `78c23af`)
+
+**Discovered**: Backlog-Reduction Track A, Wave A1 (CU-252 fix), 2026-07-28 — surfaced by trialling a wider path list on the lint gate.
+**Status**: RESOLVED 2026-07-28, commit `78c23af`. **Resolution**: fixed all 15 accumulated violations in `scripts/` and `dev_tools/` (13 by `ruff check --fix` — import ordering and unused imports; 2 by hand — an E501 in `build_manual.py`'s usage docstring and an unused `plot_path` binding in `spatial_audit.py`), then widened the CI `Ruff lint` step and both `CLAUDE.md` gate lists to `src/ tests/ scripts/ dev_tools/`. The linter and the formatter now govern the **same four trees**, closing the asymmetry CU-252 deliberately left. Filed while here: [[CU-272]] — `scripts/synth_modtran/tests/` is red on a clean tree for an environmental reason and no gate runs it.
+
+**File**: `.github/workflows/ci.yml` (the `Ruff lint` step) and `CLAUDE.md` (gate battery + "Running Tests Locally").
+**Symptom**: CU-252 widened `ruff format --check` to `src/ tests/ scripts/ dev_tools/`, but `ruff check` remains `src/ tests/` (its CU-089 scope). Running it over the two uncovered trees reports **14 errors** — E501 long lines and I001 unsorted import blocks, 12 of them `--fix`-able — in `scripts/build_manual.py`, `scripts/capture_option_c_baseline.py` and siblings. `pyproject.toml` declares no ruff excludes, so these trees were never deliberately exempted; they were simply never added to the gate's path list.
+**Why it still matters**: the same blind spot CU-252 documents, one check over. The formatter and the linter now disagree about which trees are governed, which is the state that lets drift accumulate unnoticed — and `scripts/` holds the gate tooling itself (`check_org_rules.py`, `gen_param_reference.py`).
+**Suggested fix**: (a) inline-fix — `ruff check scripts/ dev_tools/ --fix`, hand-fix the two remaining, then widen the CI step and both CLAUDE.md gate lists to the same four-tree path list the formatter now uses. Deliberately **not** bundled into CU-252, which is a pure-formatting change; this one alters what the lint gate rejects. Effort XS; category A. Related: [[CU-252]], [[CU-089]].
+
 ### CU-217 — `gui/yaml_format.py` is now entirely unreferenced by production code — RESOLVED 2026-07-28 (commit `9bec99a`)
 
 **Discovered**: multi-config Phase 4e, when `gui/document_yaml.py` took over the document serialization, 2026-07-25

@@ -21,6 +21,31 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Up-looking topology provenance is published (CU-266).** `AtmosphereStage` now
+  publishes `stage_outputs["atmosphere"]["topology_provenance"]` for up-looking and
+  level scenes — the observer-leg detail, segment provenance, GF-9 illumination note
+  and sky-continuation note that previously survived only in an INFO log record. An
+  analyst can now see from `result.inspect()` why τ_sun took its value (sunlit vs
+  shadowed). Absent for down-looking and vacuum paths, which carry no such narrative;
+  no computed value changes.
+
+### Changed
+- **Atmospheric capability refusals are now `RadiantError`s (CU-240).** The three
+  "this backend cannot serve this geometry" refusals (`InterpolatedAtmosphere`,
+  `ModtranAtmosphere`, `TabulatedAtmosphere`) raise a new
+  `AtmosphereCapabilityError` instead of a bare `NotImplementedError`. The GUI shows
+  them as actionable refusals rather than "Unexpected Error" crash dialogs, and
+  `except RadiantError` in user scripts now catches them. The class co-inherits
+  `NotImplementedError`, so existing `except NotImplementedError` call sites keep
+  working.
+- **The horizon-guard shoulder warning now sizes the refraction it excludes
+  (CU-269).** The `UserWarning` states what a k = 4/3 refracted ray would have done
+  to this path's tangent depression, and the structured context carries the refracted
+  depression plus the peak and path-mean sampling-altitude error. v1.x still models no
+  refraction — this only quantifies the omission. Segments with no interior tangent
+  point say the sizing does not apply instead of quoting an inapplicable number.
+
+### Added
 - **Direction-aware Geometry GUI (Geometry-Flexibility Phase 4).** The 2D
   geometry schematic now composes by the stage-derived `los_direction`:
   up-looking scenes draw the sensor as the path's lower endpoint (on the ground

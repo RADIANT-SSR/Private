@@ -12,6 +12,16 @@
 
 ## Open
 
+### CU-272 — `scripts/synth_modtran/tests/` is red on a clean tree: a missing generated fixture fails instead of skipping
+
+**Discovered**: Backlog-Reduction Track A, Wave A3 (widening the lint gate for [[CU-270]]), 2026-07-28 — the first `pytest scripts/` anyone appears to have run.
+**Status**: Open.
+**File**: `scripts/synth_modtran/tests/test_family_interpolate.py` (3 of 8 tests).
+**Symptom**: `python -m pytest scripts/synth_modtran/tests/test_family_interpolate.py` gives `3 failed, 5 passed` on a clean tree. Every failure is `FileNotFoundError: .../modtran/synthetic/B1.synthetic.tp7 not found` — the synthetic tape7 decks are generate-on-demand artifacts (correctly gitignored, per Rule 26), and the tests treat their absence as a failure rather than a skip. The error text is otherwise exemplary: it names the generator (`python scripts/generate_synthetic_tape7.py --run-id B1`). Verified pre-existing on `origin/main` (`ddd9ca3`) and unrelated to the CU-270 lint fixes — reproduced against main's own copy of the directory.
+**Why it still matters**: the same blind spot as [[CU-221]] and [[CU-252]]/[[CU-270]], one directory over. The merge gate battery runs `pytest` over `src/` and `tests/`, so nothing under `scripts/` is ever executed by the gate — a genuine regression in the synthetic-MODTRAN tooling would sit red indefinitely, indistinguishable from this environmental red. That tooling feeds the interpolated-library families ([[CU-226]], [[CU-239]]).
+**Suggested fix**: (a) inline-fix, small — a module-level fixture (or `pytest.importorskip`-style guard) that skips with the existing actionable message when the deck is absent, so the suite is green-or-genuinely-broken; optionally have the fixture *generate* the deck on demand, since the generator is a committed script. Then decide deliberately whether `scripts/` joins the gate battery's pytest scope — if it does not, say so in `CLAUDE.md` so the exclusion is a choice rather than an oversight. Effort S; category A. Related: [[CU-221]], [[CU-270]], [[CU-164]].
+
+
 ### CU-271 — `examples/MWIR_Jason.yaml` is a personally-named, unreferenced config in the shipped examples folder
 
 **Discovered**: Backlog-Reduction Track A, Wave A2 (deleting `nintendo.yaml` for CU-207), 2026-07-28.

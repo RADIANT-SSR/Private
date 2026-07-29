@@ -74,10 +74,8 @@ class TestSpectralComposition:
         # Owner walkthrough item 16: the at-image irradiance leads (it is what the
         # detector sees and what this stage integrates into signal_e); the at-FPA
         # radiance stays below it as the input to that step.
-        assert [p.method for p in comp.plots] == [
-            "spectral_irradiance_at_image",
-            "spectral_inband",
-        ]
+        # CU-242 (owner-directed): one plot — this stage's own spectral product.
+        assert [p.method for p in comp.plots] == ["spectral_irradiance_at_image"]
         # The note names the deferral so it reads as intentional, not missing.
         assert comp.note is not None and "Gap 92" in comp.note
 
@@ -94,10 +92,15 @@ class TestSpectralComposition:
 
 
 class TestSpectralPane:
-    def test_inband_spectrum_renders_from_the_accessor(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The primary plot draws ``result.plot.spectral_inband`` after evaluate."""
+    def test_at_image_irradiance_renders_from_the_accessor(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The screen's one plot draws this stage's own spectral product.
+
+        CU-242 (owner-directed) removed the in-band *radiance* plot: it was the
+        input to the integration, not its result, and the Atmosphere view owns
+        the radiance story.
+        """
         pane = _spectral_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
-        assert len(pane.plot_canvases) == 2  # at-image irradiance + in-band radiance
+        assert len(pane.plot_canvases) == 1  # at-image irradiance only
         assert pane.plot_canvases[0].has_figure()
 
     def test_inputs_are_the_shared_field_row(self, qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -225,3 +228,50 @@ class TestSpectralEditAndWatch:
         signal_after = window.last_result.stage_outputs["spectral_integration"]["signal_e"]
         # Signal integrates linearly in t_int (Rule 8): doubling t_int doubles signal_e.
         assert signal_after == pytest.approx(2.0 * signal_before, rel=1e-6)
+
+
+class TestOwnerDirectedScreenSpec:
+    """CU-242 — the screen shows only what is *calculated at this stage*."""
+
+    def test_input_echo_is_not_presented_as_a_product(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """`qe_scalar` is a detector property averaged for the integration.
+
+        Publishing it is right (downstream reads it); presenting it beside
+        `signal_e` implies this stage computed it.
+        """
+        pane = _spectral_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
+        readout = pane.outputs_readout
+        assert readout is not None
+        keys = readout.rendered_keys()
+        assert "qe_scalar" not in keys
+        assert "signal_e" in keys  # the real products still render
+
+    def test_unconfigured_zero_paths_are_hidden_not_zeroed(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """`0 e-` for an unconfigured path reads as "computed and negligible"."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        result = _evaluate(sensor)
+        outputs = result.stage_outputs["spectral_integration"]  # type: ignore[attr-defined]
+        assert outputs["nearfield_e"] == 0.0 and outputs["stray_e"] == 0.0
+
+        readout = _spectral_pane(qtbot, sensor).outputs_readout
+        assert readout is not None
+        keys = readout.rendered_keys()
+        assert "nearfield_e" not in keys
+        assert "stray_e" not in keys
+
+    def test_every_product_row_explains_why_it_is_computed_here(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Owner-directed tooltips: Rule 8 is why this stage exists, so say it."""
+        pane = _spectral_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
+        readout = pane.outputs_readout
+        assert readout is not None
+        tip = readout.tooltip_for("signal_e")
+        assert "Rule 8" in tip
+        assert "filter band" in tip
+        assert "Planck derivative" in readout.tooltip_for("ds_dt_e_per_K")
+
+    def test_the_radiance_plot_has_one_home_and_it_is_not_here(self) -> None:
+        """The in-band radiance fed this stage; it is not this stage's product."""
+        spec = STAGE_COMPOSITIONS["spectral_integration"]
+        methods = [p.method for p in spec.plots]
+        assert methods == ["spectral_irradiance_at_image"]
+        assert "spectral_inband" not in methods

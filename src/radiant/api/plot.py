@@ -989,6 +989,30 @@ def plot_atmosphere_spectral(
     return cast("Figure", fig)
 
 
+#: Which stage *adds* each PSF convolution kernel (CU-243). The kernel list on an
+#: EffectivePSF is the accumulated stack, so a per-stage view that simply enumerates
+#: it shows upstream kernels with no owner — correct data reading as a wrong-stage
+#: bug. This is a fact about the signal chain, not about any one result, so it is
+#: named here rather than discovered: the pixel aperture and charge diffusion are
+#: applied by OpticsStage (deliberately front-loaded so Platform's EE_box ensquares a
+#: real pixel and Strehl's reference cancels detector terms — Rules 4 and 9), jitter,
+#: smear and turbulence by PlatformStage, and IPC by PerformanceStage.
+_KERNEL_OWNER_STAGE: dict[str, str] = {
+    "optical": "Optics",
+    "pixel_aperture": "Optics",
+    "charge_diffusion": "Optics",
+    "jitter": "Platform",
+    "smear": "Platform",
+    "turbulence": "Platform",
+    "ipc": "Performance",
+}
+
+
+def kernel_owner_stage(name: str) -> str:
+    """The stage that applies the kernel called *name* (CU-243); "?" if unknown."""
+    return _KERNEL_OWNER_STAGE.get(name, "?")
+
+
 def plot_psf_kernels(
     psf: EffectivePSF,
     names: tuple[str, ...] | None = None,
@@ -1042,12 +1066,16 @@ def plot_psf_kernels(
         order = {n: i for i, n in enumerate(names)}
         kept.sort(key=lambda item: order[item[0]])
     if not kept:
-        available = ", ".join(n for n, _ in psf.kernels) or "none"
+        # CU-243: an empty state must say *why* it is empty, and for whose stage.
+        # "Nothing here" beside a PSF that plainly has kernels reads as a bug.
+        retained = [n for n, _ in psf.kernels]
+        available = ", ".join(f"{n} (added by {kernel_owner_stage(n)})" for n in retained) or "none"
         raise ApiValidationError(
             "No PSF convolution kernels to plot"
             + (f" matching {list(names)}" if names is not None else "")
             + f" — the PSF retains: {available}. A degradation contributes a "
-            "kernel only when it is configured non-zero."
+            "kernel only when it is configured non-zero, so an empty view here "
+            "means this stage added none to a PSF it inherited already degraded."
         )
 
     fig, axes = plt.subplots(1, len(kept), constrained_layout=True, squeeze=False)
@@ -1063,8 +1091,12 @@ def plot_psf_kernels(
         defaults.update(kwargs)
         ax.imshow(kernel, **defaults)
         width_pixels = kernel.shape[0] * psf.sample_spacing_m / psf.pixel_pitch_m
+        # CU-243: every kernel names the stage that applied it, so none of them
+        # can read as "this stage's" merely by appearing on this stage's tab.
         ax.set_title(
-            f"{name}\n{kernel.shape[0]}² samples ({width_pixels:.2f} px)", fontsize="small"
+            f"{name} · added by {kernel_owner_stage(name)}\n"
+            f"{kernel.shape[0]}² samples ({width_pixels:.2f} px)",
+            fontsize="small",
         )
         ax.set_xlabel("x (µm)", fontsize="small")
         ax.set_ylabel("y (µm)", fontsize="small")

@@ -8,7 +8,7 @@ human label, and the value **with its unit** (R-UNITS, an owner hard rule).
 The rows are grouped by **reference frame** (GUI plan Phase 5 task 2): a *target-frame*
 set (angles referenced at the target's local vertical — θ_o, θ_i, θ_s, Δφ — the angles
 the source/atmosphere consume) and a *ground/platform-frame* set (the sensor-side
-off-nadir angle η and the ranges, altitudes, and kinematics that describe the
+sensor-side look angle η and the ranges, altitudes, and kinematics that describe the
 platform-to-ground geometry), plus a small *resolution* group naming the illumination
 and which input mode resolved each family. Any output key not classified falls into an
 "Other" group so a future stage output is never silently dropped.
@@ -45,11 +45,14 @@ _TITLE: Final[str] = "Geometry — derived angles & ranges"
 
 # Known geometry output keys → (human label, conventional symbol). Keys not listed
 # fall back to a humanized key and an empty symbol. Symbols follow the geometry doc /
-# §6.2 (θ_o target zenith, θ_s solar zenith, η nadir angle, Δφ relative azimuth).
+# §6.2 (θ_o target zenith, θ_s solar zenith, η sensor-side look angle, Δφ relative
+# azimuth). CU-246: η is labelled direction-neutrally — since ADR-0011 its reference
+# axis is the sensor's nadir only when the sensor is above the target, and its zenith
+# when below, so "off-nadir" is wrong for every up-looking scene.
 _LABELS: Final[Mapping[str, tuple[str, str]]] = {
     "theta_o_rad": ("Target-path zenith", "θ_o"),
     "theta_s_rad": ("Solar zenith", "θ_s"),
-    "eta_rad": ("Nadir (off-nadir) angle", "η"),
+    "eta_rad": ("Look angle at sensor", "η"),
     "delta_phi_rad": ("Relative azimuth", "Δφ"),
     "incidence_angle_rad": ("Incidence angle", "θ_i"),
     "slant_range_m": ("Slant range", "R"),

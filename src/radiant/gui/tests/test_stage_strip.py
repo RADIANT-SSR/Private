@@ -135,7 +135,10 @@ class TestStageCompositionMapping:
         expected = {
             "source": "spectral_source_emission",
             "atmosphere": "spectral_atmosphere",
-            "spectral_integration": "spectral_inband",
+            # CU-242 (owner-directed): the Spectral-Integration screen shows only
+            # what it computes. Its spectral figure is the at-image irradiance —
+            # this stage's own product — not the in-band radiance that fed it.
+            "spectral_integration": "spectral_irradiance_at_image",
         }
         for namespace, method in expected.items():
             comp = stage_views.composition_for(namespace)

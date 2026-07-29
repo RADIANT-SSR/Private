@@ -21,6 +21,27 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Spectral Integration screen shows only what it computes (CU-242, owner-directed).**
+  The `Qe scalar` input echo is gone, `Nearfield` / `Stray` rows hide when their path
+  is not configured rather than displaying `0 e-`, every remaining row explains via
+  tooltip why the value is computed at this stage (Rule 8), and the in-band radiance
+  plot is removed — it was the input to the integration, not its product, and the
+  Atmosphere view owns radiance. The at-image irradiance plot stays.
+- **PSF kernel cards name the stage that applied them (CU-243).** The Platform "PSF
+  degradation" tab enumerates the *accumulated* kernel stack, so Optics' pixel-aperture
+  kernel appeared under Platform with no owner — correct data reading as a wrong-stage
+  bug. Each card is now titled `<kernel> · added by <Stage>`, and the empty state says
+  what was inherited, from where, and why nothing was added here.
+- **`eta_rad` is labelled "Look angle at sensor" (CU-246).** "Nadir (off-nadir) angle"
+  is wrong for an up-looking scene, where η is measured from the sensor's zenith.
+
+### Fixed
+- **A configured filesystem-path parameter keeps its Browse… picker (CU-220).**
+  Configuring a `*_path` / `*_file` / `*_dir` parameter moved editing to the
+  per-configuration rows, which had no picker — so making a path per-configuration
+  silently downgraded it to hand-typed. Every configuration row now has one.
+
+### Changed
 - **`radiant run --provenance` now writes one schema (CU-218).** A plain config
   previously produced a three-key record (`radiant_version`, `resolved_at`,
   `parameters`) while a `--configuration` run produced the full run record, so a

@@ -125,15 +125,6 @@
 **Why it still matters**: narrow-band work near a region edge sees a discontinuous, grid-dependent transmittance.
 **Suggested fix**: (b) stand-alone — blend region coefficients across a small transition width (results-affecting at the ~1 % level near edges only). Effort S–M; category C. Related: CU-161, [[CU-253]].
 
-### CU-246 — `geometry_readout` labels `eta_rad` "Nadir (off-nadir) angle" — wrong for an up-looking scene
-
-**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, wording agent finding), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/gui/widgets/geometry_readout.py:52` (and the same phrasing in its module docstring, line 11); related internal identifier `"off_nadir"` in `src/radiant/gui/viewer/angle_catalog.py:73` / `angle_truth.py`.
-**Symptom**: the readout's display label for the published `eta_rad` asserts a nadir reference; `RADIANT_Geometry.md` §3 defines `eta_rad` as the sensor-vertex interior angle, "the familiar off-nadir look angle when the sensor is above the target, **obtuse when below**". For an up-looking scene the label claims a reference the value does not have. The Phase-4 wording pass fixed the V2 *input* label ("Off-boresight angle") but the derived-output label was out of that task's scope. The `"off_nadir"` viewer identifier is internal (not displayed) but embeds the same pre-ADR-0011 framing.
-**Why it still matters**: an analyst reading the Geometry readout for a ground-to-air scene sees "Nadir (off-nadir) angle 148°" — a physically wrong caption on a correct number.
-**Suggested fix**: (a) inline-fix-now — re-label to a direction-neutral wording (e.g. "Look angle at sensor (η)"), refresh the docstring, and optionally sweep the internal `"off_nadir"` identifier in the same pass. Effort S; category A. Related: [[CU-247]].
-
 ### CU-248 — GUI never closes the matplotlib figures it consumes from `result.plot.*`
 
 **Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, agent finding while running the GUI suite), 2026-07-28.
@@ -168,32 +159,6 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 **Symptom**: the down-looking layout places the sensor from the target at zenith angle η — but η is the angle at the *sensor* vertex; the target-side zenith is θ_o (differs by the Earth-centre central angle, ~2.2° for a 705 km LEO scene). Phase 4 worked around it by giving every stage-backed arc its own ray (η, θ_o, ζ_low each swept to their own direction), so **no displayed number is wrong** — but the glyph-placement ray itself is the η ray at the wrong vertex. Pre-existing; retained because bit-identical down-looking composition was a Phase-4 hard constraint.
 **Why it still matters**: purely visual coherence — a future pass could place the down-looking sensor along `theta_o_dir` so glyph ray and target-apex arcs coincide in all three compositions.
 **Suggested fix**: (b) stand-alone small task, owner-visible (changes existing down-looking pixels, so it needs the screenshot-parity expectation reset). Effort S; category A.
-
-### CU-242 — Spectral Integration screen: show only stage-computed values; remove the at-aperture radiance plot (owner-directed spec)
-
-**Discovered**: operator session (owner driving the GUI), 2026-07-27.
-**Status**: Open — execution deferred to the GUI walkthrough queue (reflective-tab session in flight; gui/ locked).
-**File**: `src/radiant/gui/stage_views.py` (Spectral Integration view).
-**Symptom**: the Outputs block presents every published scalar as co-equal, including an input echo (`Qe scalar` — a detector property averaged for the integration, not a product of it), and the screen carries an at-aperture radiance plot that is the Atmosphere stage's product — now redundant with the batch-2 per-arm Atmosphere view.
-**Owner-directed spec (2026-07-27)**: the screen keeps exactly the values *calculated at this stage* — Signal, E-rate, Background, Contrast, dS/dT, nearfield/stray electron terms (all Rule-8 spectral→scalar products) — drops the `Qe scalar` input echo, and removes the radiance plot (one home: Atmosphere). Sub-item, orchestrator-proposed and unobjected: conditionally-relevant zero rows (nearfield/stray with nothing configured) hide rather than render `0 e-`. The at-image irradiance plot stays (it is this stage's spectral product).
-**Addition (owner-directed, 2026-07-27) — per-output tooltips**, stating why each value is computed at this stage (Rule 8: band integrals must happen while the spectral arrays exist). Implementation-ready text:
-- *Signal (e-)*: "Target electrons collected in-band this integration: spectral radiance x chain throughput x QE, integrated over the filter band (Rule 8 - spectral collapses to scalar exactly here)."
-- *E rate (e-/s)*: "The same band integral per second, before the integration time is applied."
-- *Background (e-)*: "Background-path electrons in the pixel over the same band and integration time."
-- *Contrast (e-)*: "Detectable target-vs-reference-pixel differential; regime-dependent: point source = Signal (background is common-mode and cancels), sub-pixel subtracts only the displaced footprint background, extended compares against the reference scene (ADR-0005)."
-- *dS/dT (e-/K)*: "Temperature sensitivity of the in-band signal via the Planck derivative (1/B)(dB/dT) - exact-NEDT support (Gap 43); downstream NEDT = sigma_total / (dS/dT)."
-- *Nearfield / Stray (e-)*: "Electrons from the configured nearfield / straylight path; row hidden when the path is not configured."
-
-**Suggested fix**: (a) inline in the GUI queue. Effort S; category D. Related: CU-241 (same screen family), Rule 8.
-
-### CU-243 — Platform "PSF degradation" tab shows inherited kernels unattributed; empty stage reads as wrong-stage data
-
-**Discovered**: operator session, 2026-07-27 — Platform tab displayed only `pixel_aperture` (an OpticsStage kernel: optics/stage.py:557, deliberately front-loaded so Platform's EE_box ensquares a real pixel and Strehl's reference cancels detector terms, Rule 4/9).
-**Status**: Open — execution deferred to the GUI walkthrough queue.
-**File**: `src/radiant/gui/stage_views.py` (~469-484, kernels read off `EffectivePSF.kernels` — the accumulated stack, not per-stage additions).
-**Symptom**: the tab titled "Convolution kernels applied to the PSF" enumerates the accumulated stack, so upstream kernels appear under Platform with no ownership label; when the scene adds no platform kernels the tab shows *only* inherited ones — correct data presented as a wrong-stage bug.
-**First verification step**: confirm whether the operator's LEO scenario had jitter configured. If a configured jitter/smear kernel failed to render, this is a data defect, not display — re-scope before fixing. (Owner asked 2026-07-27; answer pending.)
-**Suggested fix**: (a) inline in the GUI queue — label each kernel card with its owning stage; split "added by this stage" from "inherited"; explicit empty state naming why nothing was added ("jitter σ = 0; smear below kernel threshold"). Effort S; category D. Related: CU-241, Rule 4.
 
 ### CU-241 — Pupil/PSF plot cards are unreadable: fixed-aspect figures in tall cards, overlapping titles/colorbars, clipped labels, index-space PSF axes
 
@@ -272,15 +237,6 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 **Why it still matters**: unreachable today, and blocked by construction rather than by luck — `AtmosphericGeometry.__post_init__` rejects any `path_zenith_rad` past `ZENITH_CEILING_RAD` (89.5°), and *every* up-looking scene has `θ_o > π/2` (a point below the target's altitude is always inside the tangent sphere at the target, hence below its horizon plane). So the wrong value cannot survive construction and there is no wrong number in the field. (The Phase-2 topology layer is separately not routing an up-looking LOS to the MODTRAN backend yet — but that is in-flight work, whereas the ceiling is the durable guard.) It matters because it is a **silent trap primed for the exact PR that lifts the gate**: the topology layer will make up-looking LOS objects legal, and this line will then render a nadir deck for a zenith-looking scene without raising — the failure mode Rule 17 exists to prevent, in the one backend whose output is treated as truth data.
 **Suggested fix**: (b) stand-alone task, folded into the Phase 2 topology PR that first routes an up-looking LOS to a backend. Derive the lower-endpoint zenith explicitly (`ζ_low = θ_o if los.h_sensor >= los.h_tgt else π − θ_o`) in one named helper — the same quantity `ColumnSegmentSpec.zeta_low_rad` already carries, so the natural fix is to build the deck geometry *from the segment spec* rather than re-deriving it. Effort S once the topology exists; category C (it changes what MODTRAN is asked to compute). Related: ADR-0011 decision 3, Gap 109, [[CU-065]].
 
-
-### CU-220 — a configured filesystem-path parameter loses its Browse… picker
-
-**Discovered**: multi-config GUI UX refinement (`gui/multiconfig-ux-refine1`), 2026-07-26
-**Status**: Open
-**File**: `src/radiant/gui/widgets/per_configuration_values.py:_make_value_editor` (and the `Browse…` button in `parameter_editor_dialog.py:_build_editor_row`, which lives on the hidden single-value row)
-**Symptom**: `path_picker_kind()` gives a `*_path` / `*_file` / `*_dir` parameter a native **Browse…** picker beside its line edit (owner request 2026-07-18). The per-configuration editor builds its rows from the schema dtype only, so a **configured** path parameter — e.g. one MODTRAN tape7 per configuration, which is a natural study shape — offers N bare line edits and the analyst must type or paste each full path. Reproduce: in a two-configuration study, configure `atmosphere.tape7_path`, then open it in the Parameter Editor.
-**Why it still matters**: it is a silent capability step-down that depends on scope, not on the parameter — the same dot-path offers a picker when shared and not when configured. It also pushes the analyst toward hand-typed absolute paths, which is the Rule-30 hazard the picker was added to reduce. (Pre-existing: Phase 4b's retired `ConfiguredValuesDialog` had the same gap; retiring it into the Parameter Editor made the asymmetry visible in one dialog.)
-**Suggested fix**: (a) inline-fix-now, small — give `PerConfigurationValues` the same `path_picker_kind` branch, adding a per-row Browse… button that fills that row's line edit (the picker logic is already factored as `default_browse_dir` / `path_picker_kind` module functions in `parameter_editor_dialog.py`, so it moves without duplication). Effort S. Category A (D-flavoured: needs one GUI test that a configured path parameter's rows carry pickers).
 
 ### CU-219 — the Parameter Editor commits a tolerance and a value in different orders on its two paths
 
@@ -408,6 +364,54 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-242 — Spectral Integration screen: show only stage-computed values; remove the at-aperture radiance plot (owner-directed spec) — RESOLVED 2026-07-29 (commit `d257ce3`)
+
+**Discovered**: operator session (owner driving the GUI), 2026-07-27.
+**Status**: RESOLVED 2026-07-29, commit `d257ce3` — owner-directed spec executed as written. **Resolution**: `qe_scalar` is suppressed as an input echo; `nearfield_e` / `stray_e` hide at zero (the unobjected sub-item — `0 e-` for an unconfigured path reads as "computed and negligible"); every remaining row carries the owner's tooltip text; the in-band radiance plot is removed (it was the *input* to the integration, and the batch-2 per-arm Atmosphere view owns radiance — one home per quantity), while the at-image irradiance plot stays as this stage's own spectral product. The policy lives in two declarative per-stage tables (`_INPUT_ECHO_KEYS`, `_HIDE_WHEN_ZERO_KEYS`) plus a tooltip map in `outputs_readout.py`, so a future stage opts in by data rather than by branching in the render loop. Four tests pin it, including that the real products still render.
+
+**File**: `src/radiant/gui/stage_views.py` (Spectral Integration view).
+**Symptom**: the Outputs block presents every published scalar as co-equal, including an input echo (`Qe scalar` — a detector property averaged for the integration, not a product of it), and the screen carries an at-aperture radiance plot that is the Atmosphere stage's product — now redundant with the batch-2 per-arm Atmosphere view.
+**Owner-directed spec (2026-07-27)**: the screen keeps exactly the values *calculated at this stage* — Signal, E-rate, Background, Contrast, dS/dT, nearfield/stray electron terms (all Rule-8 spectral→scalar products) — drops the `Qe scalar` input echo, and removes the radiance plot (one home: Atmosphere). Sub-item, orchestrator-proposed and unobjected: conditionally-relevant zero rows (nearfield/stray with nothing configured) hide rather than render `0 e-`. The at-image irradiance plot stays (it is this stage's spectral product).
+**Addition (owner-directed, 2026-07-27) — per-output tooltips**, stating why each value is computed at this stage (Rule 8: band integrals must happen while the spectral arrays exist). Implementation-ready text:
+- *Signal (e-)*: "Target electrons collected in-band this integration: spectral radiance x chain throughput x QE, integrated over the filter band (Rule 8 - spectral collapses to scalar exactly here)."
+- *E rate (e-/s)*: "The same band integral per second, before the integration time is applied."
+- *Background (e-)*: "Background-path electrons in the pixel over the same band and integration time."
+- *Contrast (e-)*: "Detectable target-vs-reference-pixel differential; regime-dependent: point source = Signal (background is common-mode and cancels), sub-pixel subtracts only the displaced footprint background, extended compares against the reference scene (ADR-0005)."
+- *dS/dT (e-/K)*: "Temperature sensitivity of the in-band signal via the Planck derivative (1/B)(dB/dT) - exact-NEDT support (Gap 43); downstream NEDT = sigma_total / (dS/dT)."
+- *Nearfield / Stray (e-)*: "Electrons from the configured nearfield / straylight path; row hidden when the path is not configured."
+
+**Suggested fix**: (a) inline in the GUI queue. Effort S; category D. Related: CU-241 (same screen family), Rule 8.
+
+### CU-243 — Platform "PSF degradation" tab shows inherited kernels unattributed; empty stage reads as wrong-stage data — RESOLVED 2026-07-29 (commit `d257ce3`)
+
+**Discovered**: operator session, 2026-07-27 — Platform tab displayed only `pixel_aperture` (an OpticsStage kernel: optics/stage.py:557, deliberately front-loaded so Platform's EE_box ensquares a real pixel and Strehl's reference cancels detector terms, Rule 4/9).
+**Status**: RESOLVED 2026-07-29, commit `d257ce3`. **First verification step answered (this pass, with evidence)**: a configured jitter **does** render — `convolution_history` is `('optical', 'pixel_aperture')` at σ = 0 and `('optical', 'pixel_aperture', 'jitter')` at 15 µrad. So this is a **display/labelling defect, not a data defect**, and fix (a) applies unchanged; the entry's re-scope question is closed without needing the owner. **Resolution**: a `_KERNEL_OWNER_STAGE` map (the same "fact about the signal chain, named not discovered" pattern as `_DETECTOR_KERNELS`) attributes every kernel, and each card's title now reads `<kernel> · added by <Stage>`, so no kernel can read as this stage's merely by appearing on its tab. The empty state names what was inherited and from where, and says an inherited-only view is the model agreeing with the configuration rather than missing data; the tab note says the same in prose. Three tests, including one asserting the owner map covers every kernel the chain can build — an unmapped kernel would render "added by ?", which looks worse than no label.
+
+**File**: `src/radiant/gui/stage_views.py` (~469-484, kernels read off `EffectivePSF.kernels` — the accumulated stack, not per-stage additions).
+**Symptom**: the tab titled "Convolution kernels applied to the PSF" enumerates the accumulated stack, so upstream kernels appear under Platform with no ownership label; when the scene adds no platform kernels the tab shows *only* inherited ones — correct data presented as a wrong-stage bug.
+**First verification step**: confirm whether the operator's LEO scenario had jitter configured. If a configured jitter/smear kernel failed to render, this is a data defect, not display — re-scope before fixing. (Owner asked 2026-07-27; answer pending.)
+**Suggested fix**: (a) inline in the GUI queue — label each kernel card with its owning stage; split "added by this stage" from "inherited"; explicit empty state naming why nothing was added ("jitter σ = 0; smear below kernel threshold"). Effort S; category D. Related: CU-241, Rule 4.
+
+### CU-246 — `geometry_readout` labels `eta_rad` "Nadir (off-nadir) angle" — wrong for an up-looking scene — RESOLVED 2026-07-29 (commit `7b045a9`)
+
+**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, wording agent finding), 2026-07-28.
+**Status**: RESOLVED 2026-07-29, commit `7b045a9`. **Resolution**: relabelled to the direction-neutral "Look angle at sensor" (η). "Nadir (off-nadir)" was wrong for every up-looking scene: since ADR-0011 the reference axis is the sensor's nadir only when the sensor is above the target, and its zenith when below. Module docstring refreshed to match. Pairs with [[CU-247]], which renamed the parameter itself for the same reason.
+
+**File**: `src/radiant/gui/widgets/geometry_readout.py:52` (and the same phrasing in its module docstring, line 11); related internal identifier `"off_nadir"` in `src/radiant/gui/viewer/angle_catalog.py:73` / `angle_truth.py`.
+**Symptom**: the readout's display label for the published `eta_rad` asserts a nadir reference; `RADIANT_Geometry.md` §3 defines `eta_rad` as the sensor-vertex interior angle, "the familiar off-nadir look angle when the sensor is above the target, **obtuse when below**". For an up-looking scene the label claims a reference the value does not have. The Phase-4 wording pass fixed the V2 *input* label ("Off-boresight angle") but the derived-output label was out of that task's scope. The `"off_nadir"` viewer identifier is internal (not displayed) but embeds the same pre-ADR-0011 framing.
+**Why it still matters**: an analyst reading the Geometry readout for a ground-to-air scene sees "Nadir (off-nadir) angle 148°" — a physically wrong caption on a correct number.
+**Suggested fix**: (a) inline-fix-now — re-label to a direction-neutral wording (e.g. "Look angle at sensor (η)"), refresh the docstring, and optionally sweep the internal `"off_nadir"` identifier in the same pass. Effort S; category A. Related: [[CU-247]].
+
+### CU-220 — a configured filesystem-path parameter loses its Browse… picker — RESOLVED 2026-07-29 (commit `7b045a9`)
+
+**Discovered**: multi-config GUI UX refinement (`gui/multiconfig-ux-refine1`), 2026-07-26
+**Status**: RESOLVED 2026-07-29, commit `7b045a9`. **Resolution**: `PerConfigurationValues` fell through to a bare `QLineEdit` for every dtype, so *configuring* a path parameter removed the picker the single-value editor gives it — the act of making a path per-configuration downgraded it to hand-typed. Each configuration row now carries its own **Browse…**. Importing the helpers from `parameter_editor_dialog` would have closed an import cycle (the dialog embeds this block), so `default_browse_dir` / `path_picker_kind` moved into `radiant.gui.path_picker` — the entry's own "moves without duplication". The existing browse-start tests immediately caught that the move broke the `__file__`-relative data-root depth, which is exactly what they exist for.
+
+**File**: `src/radiant/gui/widgets/per_configuration_values.py:_make_value_editor` (and the `Browse…` button in `parameter_editor_dialog.py:_build_editor_row`, which lives on the hidden single-value row)
+**Symptom**: `path_picker_kind()` gives a `*_path` / `*_file` / `*_dir` parameter a native **Browse…** picker beside its line edit (owner request 2026-07-18). The per-configuration editor builds its rows from the schema dtype only, so a **configured** path parameter — e.g. one MODTRAN tape7 per configuration, which is a natural study shape — offers N bare line edits and the analyst must type or paste each full path. Reproduce: in a two-configuration study, configure `atmosphere.tape7_path`, then open it in the Parameter Editor.
+**Why it still matters**: it is a silent capability step-down that depends on scope, not on the parameter — the same dot-path offers a picker when shared and not when configured. It also pushes the analyst toward hand-typed absolute paths, which is the Rule-30 hazard the picker was added to reduce. (Pre-existing: Phase 4b's retired `ConfiguredValuesDialog` had the same gap; retiring it into the Parameter Editor made the asymmetry visible in one dialog.)
+**Suggested fix**: (a) inline-fix-now, small — give `PerConfigurationValues` the same `path_picker_kind` branch, adding a per-row Browse… button that fills that row's line edit (the picker logic is already factored as `default_browse_dir` / `path_picker_kind` module functions in `parameter_editor_dialog.py`, so it moves without duplication). Effort S. Category A (D-flavoured: needs one GUI test that a configured path parameter's rows carry pickers).
+
 ### CU-237 — `column_exit_range_m` is a geometry computation living in a metrics module (Rule-19 bundling) — RESOLVED 2026-07-28 (commit `4c3e75a`)
 
 **Discovered**: Geometry-Flexibility Phase 3 integration re-audit (branch `gf3/degradations-metrics`), 2026-07-27.

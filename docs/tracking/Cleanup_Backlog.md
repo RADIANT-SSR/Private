@@ -32,15 +32,6 @@
 **Suggested fix**: (c) delete-as-unused if it is scratch, or (a) rename to a content-stating slug (e.g. the band + platform + regime it configures) if it is a real example worth shipping. Needs one word from the owner — the file may be in active personal use. Effort XS; category A. Related: [[CU-207]].
 
 
-### CU-253 — Simple-model Rayleigh: the dimensionless total vertical optical depth is used as a km⁻¹ extinction coefficient (~8× VIS inflation)
-
-**Discovered**: Scenario 10.3 published-extinction cross-check (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open — **results-affecting, stand-alone task** (the CU-236 pattern).
-**File**: `src/radiant/atmosphere/simple.py` (`RAYLEIGH_COEFF_KM = 0.0088`, `RAYLEIGH_EXPONENT = 4.09`).
-**Symptom**: `0.0088·λ_um^-4.09` is the published **total vertical Rayleigh optical depth** (dimensionless; Hansen & Travis 1974, Bucholtz 1995), but the code multiplies it by the path length in km as if it were a sea-level volume extinction (true value ≈ 0.0116 km⁻¹ at 550 nm). With the ~8 km molecular column this inflates VIS Rayleigh OD ~8×: measured zenith extinction 0.816 mag/airmass vs the published 0.12–0.20; dividing out the column depth gives 0.127 mag/airmass — inside the band.
-**Why it still matters**: every VIS/NIR simple-model scene (incl. flagship 9.1 Sentinel-2) carries a grossly wrong molecular term; MWIR/LWIR barely affected (λ^-4).
-**Suggested fix**: (b) stand-alone task — correct the coefficient/exponent to a real volume-extinction form (or integrate the published OD over the molecular scale height), refresh affected golden baselines under the `RADIANT_Testing_Validation.md` §5.3 protocol, **Results-affecting** CHANGELOG entry (VIS τ up strongly), Rule-20 doc update. Effort M; category C. Related: Gap 114, [[CU-267]].
-
 ### CU-254 — Up-looking sky background depends on the target's altitude (segment composition is not additive)
 
 **Discovered**: Scenario 10.1 (branch `gf/phase5-validation`), 2026-07-28.
@@ -509,6 +500,24 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-253 — Simple-model Rayleigh: the dimensionless total vertical optical depth is used as a km⁻¹ extinction coefficient (~8× VIS inflation) — RESOLVED 2026-07-28 (commit `d169feb`)
+
+**Discovered**: Scenario 10.3 published-extinction cross-check (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `d169feb`. **Resolution**: the constant is renamed `RAYLEIGH_VERTICAL_OD_1UM` — stating the quantity it actually is — and the km⁻¹ coefficient the model needs is **derived** from it via the exponential profile's own identity τ_vert = σ₀·H_mol, rather than stored as a second hand-computed number. Deriving rather than re-pinning is what stops the two drifting apart again.
+
+**Verification (three independent checks).** (1) The constant reproduces the published *total vertical* OD: 0.1015 at 550 nm vs Bucholtz 0.0973–0.10. (2) The correction ratio is exactly **8.00×** — the molecular column depth, as the diagnosis predicted. (3) The LWIR anchors move +2.74 ppm at 8 µm, +1.74 at 9, +1.11 at 10, +0.77 at 11, +0.53 at 12, +0.29 ppm at 13 µm — a monotonic λ⁻⁴·⁰⁹ decay that no unrelated defect would produce. Corrected zenith Rayleigh extinction is 0.110 mag/airmass, just below the published *total* 0.12–0.20 band (which includes aerosol and ozone), i.e. correctly positioned.
+
+**Results moved.** 73 metric values across 30 scenario baselines. The VIS/NIR effect is *not* simply "more signal": transmission rises **and** the scattered-sky irradiance illuminating the target halves, and for a visible reflective scene the sky term dominates. Measured on scenario 5.1 (0.5–0.8 µm): τ_up 0.4938 → 0.7414, τ_sun 0.4448 → 0.7081, `E_sky_scattered` 523.8 → 256.7 W/m²/µm, signal 58 710 → 29 940 e⁻, SNR 242.2 → 173.0. Largest moves: SNR −34.3 % (5.4), −29.0 % (1.4), −28.6 % (5.1), −26.8 % (3.4), **+24.3 % (10.3 ground-to-space visible)**; NEDT up to +52.6 %. Six scenarios now report a NIIRS value where the GIQE-5 envelope previously gated it to `null`.
+
+**Caveat recorded, not resolved:** the VIS/NIR magnitudes now rest on the single-scatter sky model, whose own defects remain open — [[CU-224]], [[CU-225]], [[CU-260]]. This fix removes a first-order unit error; it does not validate the sky model the corrected numbers expose.
+
+**Process note for the next results-affecting CU:** `scenarios/tools/emit_gui_yaml.py` must be run with `PYTHONPATH=./src` inside a worktree. Run bare, it resolves `radiant` from the editable install (the *primary* checkout) and silently regenerates baselines against unfixed code — which cost a full regenerate-and-verify cycle here before the discrepancy was traced (CLAUDE.md "Editable-install caveat").
+
+**File**: `src/radiant/atmosphere/simple.py` (`RAYLEIGH_COEFF_KM = 0.0088`, `RAYLEIGH_EXPONENT = 4.09`).
+**Symptom**: `0.0088·λ_um^-4.09` is the published **total vertical Rayleigh optical depth** (dimensionless; Hansen & Travis 1974, Bucholtz 1995), but the code multiplies it by the path length in km as if it were a sea-level volume extinction (true value ≈ 0.0116 km⁻¹ at 550 nm). With the ~8 km molecular column this inflates VIS Rayleigh OD ~8×: measured zenith extinction 0.816 mag/airmass vs the published 0.12–0.20; dividing out the column depth gives 0.127 mag/airmass — inside the band.
+**Why it still matters**: every VIS/NIR simple-model scene (incl. flagship 9.1 Sentinel-2) carries a grossly wrong molecular term; MWIR/LWIR barely affected (λ^-4).
+**Suggested fix**: (b) stand-alone task — correct the coefficient/exponent to a real volume-extinction form (or integrate the published OD over the molecular scale height), refresh affected golden baselines under the `RADIANT_Testing_Validation.md` §5.3 protocol, **Results-affecting** CHANGELOG entry (VIS τ up strongly), Rule-20 doc update. Effort M; category C. Related: Gap 114, [[CU-267]].
+
 ### CU-240 — Interpolated backend capability refusals raise bare `NotImplementedError`, so the GUI renders them as crashes — RESOLVED 2026-07-28 (commit `4813f46`)
 
 **Discovered**: operator session, 2026-07-27 (same scenario as CU-239).

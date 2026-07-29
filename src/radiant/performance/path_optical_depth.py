@@ -75,6 +75,7 @@ from typing import Final
 
 from radiant.core.constants import R_EARTH_M
 from radiant.core.los_geometry import LineOfSightGeometry
+from radiant.core.shell_crossing import slant_range_to_shell_m
 from radiant.core.viewing_triangle import eta_from_theta_o
 from radiant.performance.errors import PerformanceValidationError
 
@@ -223,15 +224,13 @@ def column_exit_range_m(los: LineOfSightGeometry) -> float:
             "column_exit_range_m: the line of sight carries no sensor altitude "
             "(h_sensor is None), so the ray's lower endpoint is unknown."
         )
-    r_0 = R_EARTH_M + los.h_sensor
-    r_top = R_EARTH_M + los.h_atm_top
-    if r_0 >= r_top:
-        return 0.0
+    # CU-237: the intersection itself is shared spherical geometry, not a
+    # metrics computation — it lives in core and is the same root
+    # viewing_triangle.solve_from_lower_zenith takes. What stays here is the
+    # part that *is* specific to this call: the up-looking validation above and
+    # the η → ζ_low conversion below.
     eta = eta_from_theta_o(los.theta_o, los.h_sensor, los.h_tgt)
-    cos_zeta = math.cos(math.pi - eta)
-    disc = (r_0 * cos_zeta) ** 2 + r_top**2 - r_0**2
-    # disc > 0 whenever r_top > r_0, which the guard above has established.
-    return -r_0 * cos_zeta + math.sqrt(disc)
+    return slant_range_to_shell_m(los.h_sensor, math.pi - eta, los.h_atm_top)
 
 
 def resolve_path_optical_depth(

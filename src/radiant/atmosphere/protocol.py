@@ -50,6 +50,13 @@ SPHERICAL_SWITCH_RAD: float = math.radians(80.0)
 ZENITH_CEILING_RAD: float = math.radians(89.5)
 
 
+#: Top of the modelled atmospheric column [m]. Above it there is no medium, so it
+#: bounds the *absorbing* thickness of any segment (CU-255). Defined here, in the
+#: lowest layer, and re-exported by ``segment_simple`` as ``DEFAULT_H_ATM_TOP_M``
+#: so the column top has one value framework-wide.
+H_ATM_TOP_M: float = 1.0e5
+
+
 # ---------------------------------------------------------------------------
 # AtmosphericGeometry
 # ---------------------------------------------------------------------------
@@ -194,16 +201,39 @@ class AtmosphericGeometry:
         contract guarantees ``slant_path_length_m > 0`` (i.e. not
         ``ExoAtmosphere``).
         """
-        dh = self.altitude_difference_m
+        dh = self._absorbing_thickness_m()
         cos_theta = math.cos(self.path_zenith_rad)
         if self.path_zenith_rad <= SPHERICAL_SWITCH_RAD:
             return dh / cos_theta
         # Spherical-Earth correction. The formulation is the standard
         # plane-parallel-atmosphere root-form Air Mass approximation
-        # specialised to a finite-thickness slab.
+        # specialised to a finite-thickness slab — which is why it must be given
+        # the *slab* thickness, not the endpoint separation (CU-255; see
+        # :meth:`_absorbing_thickness_m`).
         x = dh / R_EARTH_M
         radicand = cos_theta * cos_theta + 2.0 * x + x * x
         return R_EARTH_M * (math.sqrt(radicand) - cos_theta)
+
+    def _absorbing_thickness_m(self) -> float:
+        """Vertical extent of *atmosphere* on this segment [m] (CU-255).
+
+        Both branches of :meth:`slant_path_length_m` are slab formulas: they
+        answer "how much air does this ray traverse", not "how far apart are the
+        endpoints". Where the path ends inside the atmosphere the two coincide,
+        which is why the distinction went unnoticed.
+
+        For an up-looking segment ending **above** the column they do not. A
+        ground site viewing a 700 km target gave Δh = 700 km, i.e. x = 0.110 in
+        the root form — a slab a hundred times thicker than the real atmosphere.
+        The returned length then saturated and optical depth *fell* as the ray
+        tilted further from vertical: on scenario 10.3, τ(0.55 µm) went 0.0137 at
+        79.9° to 0.0980 at 80.1°, a physically impossible air mass.
+
+        Clamping at the column top removes that: vacuum above the column
+        contributes no extinction, so excluding it loses nothing.
+        """
+        h_low = min(self.sensor_altitude_m, self.target_altitude_m)
+        return min(self.altitude_difference_m, max(H_ATM_TOP_M - h_low, 0.0))
 
     def cos_scattering_angle(self) -> float:
         """Cosine of the single-scatter angle ``Θ`` between sun and sensor.
@@ -239,7 +269,11 @@ class AtmosphericGeometry:
         mass is conventionally ``1`` — this matches the
         ``ExoAtmosphere`` contract that ``air_mass ≥ 1`` always.
         """
-        dh = self.altitude_difference_m
+        # CU-255: normalise by the same absorbing thickness the slant path uses.
+        # Dividing the clamped path by the raw endpoint separation would report an
+        # air mass below 1 for a target above the column, contradicting the
+        # ``air_mass ≥ 1`` contract stated above.
+        dh = self._absorbing_thickness_m()
         if dh == 0.0:
             return 1.0
         return self.slant_path_length_m() / dh

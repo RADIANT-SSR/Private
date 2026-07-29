@@ -52,7 +52,7 @@ from typing import Any
 
 import numpy as np
 
-from radiant.atmosphere.protocol import AtmosphericGeometry
+from radiant.atmosphere.protocol import H_ATM_TOP_M, AtmosphericGeometry
 from radiant.atmosphere.segment_single_scatter import (
     COS_HORIZON_TOLERANCE,
     cos_scattering_angle,
@@ -82,7 +82,9 @@ __all__ = ["DEFAULT_H_ATM_TOP_M", "column_segment_optical_depth", "evaluate_colu
 # depth of a segment that straddles h_atm_top is NOT truncated — that keeps
 # the bit-for-bit identity with the existing ``evaluate`` column integrals,
 # which also run the exponential tail out to the sensor altitude.
-DEFAULT_H_ATM_TOP_M: float = 1.0e5
+#: Re-export of the single framework-wide column top (defined in ``protocol`` — the
+#: lowest layer — so CU-255's absorbing-thickness clamp and this module agree).
+DEFAULT_H_ATM_TOP_M: float = H_ATM_TOP_M
 
 
 def column_segment_optical_depth(

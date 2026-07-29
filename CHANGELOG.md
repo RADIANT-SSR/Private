@@ -20,6 +20,18 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **Results-affecting (up-looking only): air mass is evaluated on the atmospheric
+  slab, not the endpoint separation (CU-255).** For a path ending above the
+  atmosphere — a ground site viewing a 700 km target — the slant-path formula was
+  handed a 700 km "slab", a hundred times the real column. The result saturated, so
+  optical depth *fell* as the ray tilted away from vertical: τ(0.55 µm) went 0.0137
+  at 79.9° to 0.0980 at 80.1°, a physically impossible air mass. Both branches now
+  clamp at the column top, and `air_mass` normalises by the same thickness so it can
+  no longer report below 1 for an exo target. **Paths that end inside the atmosphere
+  are bit-identical** (air mass at 0/30/60° is still exactly sec θ), so no
+  down-looking or in-column scene moves.
+
 ### Changed
 - **Spectral Integration screen shows only what it computes (CU-242, owner-directed).**
   The `Qe scalar` input echo is gone, `Nearfield` / `Stray` rows hide when their path

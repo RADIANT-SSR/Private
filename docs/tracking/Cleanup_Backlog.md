@@ -12,6 +12,17 @@
 
 ## Open
 
+### CU-274 — `slant_path_length_m` jumps 18 % across its own 80° branch switch, for every geometry
+
+**Discovered**: Backlog-Reduction Batch 5, while fixing [[CU-255]], 2026-07-29. **Pre-existing**: reproduced on unmodified `main`.
+**Status**: Open — needs a modelling decision, not a formula swap.
+**File**: `src/radiant/atmosphere/protocol.py::AtmosphericGeometry.slant_path_length_m` (`SPHERICAL_SWITCH_RAD`).
+**Symptom**: the two branches model different quantities, so the switch is a step. A 100 km in-column path gives air mass **5.7023 at 79.9°** and **4.8072 at 80.1°** — an 18 % discontinuity, on `main`, for an ordinary down-looking column. CU-255 removed the up-looking case's absurd slab thickness but cannot remove this: it is inherent to switching formulas.
+**Which side is right (measured this pass, against `segment_grazing`'s exact spherical slant integral):** flat `sec θ` agrees with the exact integral to **0.18 % at 60°** and 0.02 % at 30°; the root form is **2.2 % low** at 60°. The reason is physical — with an 8 km molecular scale height the absorbing mass hugs the ground, where curvature is negligible, so `sec θ` is very nearly the true air mass at moderate zenith while the root form computes the *geometric chord* of a 100 km slab, which is a different quantity. Below 80° the current code is therefore the accurate one, and the root form it switches to at 80° is the less accurate.
+**Why it still matters**: transmittance is discontinuous in look angle for every scene class, so any sweep crossing 80° shows a step that is pure model artefact; and past 80° the model silently changes what it means by "path length".
+**Suggested fix**: (b) stand-alone task — the exact integral already exists (`segment_grazing.grazing_segment_optical_depth`, which `ColumnSegmentSpec` defers to past 89.5°). Either lower that hand-over to ~80° so the accurate model covers the whole near-horizon range, or replace the root form with a proper exponential-atmosphere air mass (Kasten–Young or a Chapman function), and continuity-test across whatever switch remains. **Results-affecting** for any scene past 80°. Effort M; category C. Related: [[CU-255]], [[CU-225]] (the 89.5° hand-over step, the same class of defect one switch further out).
+
+
 ### CU-273 — `emit_gui_yaml.py` rewrites portable baseline paths back to gitignored generated locations, silently un-doing CU-180
 
 **Discovered**: Backlog-Reduction Track B1, 2026-07-28 — a fresh worktree failed `test_gui_baselines[4.3]` immediately after the CU-253 baseline regeneration merged.
@@ -49,7 +60,18 @@
 **File**: `src/radiant/atmosphere/sky_radiance.py` + `segment_simple.py` (composition `L_bkg = L_up(sensor→target) + τ(sensor→target)·L_sky(target→top)`).
 **Symptom**: the simple model's single-effective-temperature graybody per segment is not additive, so a fixed pointing direction reports a target-altitude-dependent sky: 1.7528e5 e- (target 10 km) → 1.9415e5 (20 km) → 2.0130e5 (99 km — the whole column, the physically correct value for every row). The 10 km scene under-reports the sky by 12.9 %, always the same sign.
 **Why it still matters**: the background behind a target cannot depend on where the target sits along the ray; SCNR for low-altitude targets is systematically optimistic.
-**Suggested fix**: (b) stand-alone task — compose the sky from one whole-column evaluation of the pointing direction (or make the segment graybody additive by construction). Effort M; category C. Related: Gap 108, [[CU-260]].
+**Reproduction verified 2026-07-29 (Backlog-Reduction Batch 5), on the shipped 10.1 config** — `scenarios/10_direction_general/10.1_ground_to_air_mwir_detection/inputs/10.1_ground_to_air_mwir_detection.gui.yaml`, varying only `geometry.target_altitude_m`:
+
+| target altitude | `background_e` |
+|---|---|
+| 10 km | 1.94207e5 |
+| 20 km | 2.14046e5 |
+| 99 km (whole column — the physically correct value for all three) | 2.21479e5 |
+
+The 10 km row under-reports the background by **12.3 %**, always the same sign. That table is the acceptance test: after the fix all three rows must equal the 99 km value, because the background behind a target cannot depend on where along the ray the target sits.
+
+**Fix location, traced this pass.** `uplooking_quantities._sky_source_radiance` returns the sky at the **target** plane (`sky_radiance_along_los(atm, lam, h_tgt, zeta_c, …)`), and `assembly.assemble_background_at_aperture`'s `SkyBackground` arm then propagates it: `L_bg = L_sky(target→top)·τ(sensor→target) + L_path(sensor→target)`. The simple model's single-effective-temperature graybody is not additive across that split, so the two-step differs from one whole-column evaluation. The correct quantity is `sky_radiance_along_los` evaluated **from the sensor** along the pointing direction, used directly (τ ≡ 1, L_path ≡ 0 for that arm) rather than re-propagated — which is a change to the `SkyBackground` arm's contract, not a local edit, and is why this stays Effort M.
+**Suggested fix**: (b) stand-alone task — compose the sky from one whole-column evaluation of the pointing direction (or make the segment graybody additive by construction). **Results-affecting** for every up-looking/level background and therefore SCNR. Effort M; category C. Related: Gap 108, [[CU-260]], [[CU-224]].
 
 ### CU-255 — `AtmosphericGeometry.slant_path_length_m` >80° spherical form uses the segment's full geometric Δh, making τ non-monotonic in zenith
 
@@ -58,7 +80,8 @@
 **File**: `src/radiant/atmosphere/protocol.py::AtmosphericGeometry.slant_path_length_m`.
 **Symptom**: the >80° spherical root form parameterises on x = Δh/R_E assuming Δh is the *atmospheric slab* thickness; for an up-looking observer segment Δh is site→target (e.g. 699 km, x = 0.110). Measured: τ(0.55 µm) at ζ_low = 79.9° is 0.01373 (OD 4.288) and at 80.1° is 0.09796 (OD 2.323) — optical depth **drops** as the path lengthens; transmittance is discontinuous and non-monotonic above 80°.
 **Why it still matters**: any up-looking scene past 80° zenith gets a physically impossible air mass.
-**Suggested fix**: (a) inline-fix-now — evaluate the spherical air-mass on the atmospheric thickness (min(Δh, column top − h_low)), continuity-tested across 80°. Effort S; category C.
+**Resolution 2026-07-29 (commit `00769a7`) — the thickness half is fixed; the continuity half is not achievable here and is now [[CU-274]].** `_absorbing_thickness_m` clamps both branches at the column top, and `air_mass` normalises by the same thickness (it could otherwise report below 1 for an exo target, contradicting its own contract). Paths ending inside the column are **bit-identical** — air mass at 0/30/60° is still exactly `sec θ` — so no shipped scene moves. The requested continuity across 80° turned out to be unreachable by this fix: measured against `segment_grazing`'s exact slant integral, flat `sec θ` is accurate to 0.18 % at 60° while the root form is 2.2 % low, so the branches genuinely model different quantities and the step is inherent to the switch, not to the thickness. It is pre-existing and universal (a 100 km in-column path steps 5.70 → 4.81 across 80° on unmodified `main`), so it is filed separately rather than left implied here.
+**Suggested fix**: superseded — see the resolution above and [[CU-274]].
 
 ### CU-256 — T7 intensity door publishes sentinel extent values, bypassing the point-source angular-size guard
 
@@ -232,6 +255,8 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 
 **Discovered**: Geometry-Flexibility Phase 2, MODTRAN ITYPE=1 wiring + delivered-run anchors (branch `gf2/atmosphere`), 2026-07-26.
 **Status**: Stage-deferred — **re-audited 2026-07-26 at the gating stage's landing** (Geometry-Flexibility Phase 2 topology dispatch, branch `gf2/atmosphere`). Verdict: **still gated, deferral refreshed.** The topology layer now routes up-looking and level paths to a backend, but only to `SimpleAtmosphere`: `uplooking_quantities.supports_uplooking` admits that backend alone and every other one raises an actionable capability error naming what *is* supported. `ModtranAtmosphere.evaluate` therefore still cannot be reached with `θ_o > π/2`, so the trap remains primed but unsprung. New gating stage: the MODTRAN up-looking / ITYPE=1 wiring PR (the owner-run batch-2 families, plan §4 Phase 2 GF-10) — that PR is the first one that can produce a wrong deck, and it must build the deck geometry from `ColumnSegmentSpec.zeta_low_rad` / `observer_leg.ObserverLeg` rather than from `los.theta_o`. Re-audit date: at MODTRAN batch-2 wiring, or 2026-10-26, whichever is first.
+
+**Re-audited 2026-07-29 (Backlog-Reduction Batch 5): still gated, unchanged.** Verified directly rather than assumed — `uplooking_quantities.supports_uplooking` is still `isinstance(model, SimpleAtmosphere)`, so `ModtranAtmosphere.evaluate` remains unreachable with θ_o > π/2 and the trap is still primed but unsprung. Gating stage and re-audit date carry forward untouched; no code change is warranted while the guard holds, and pre-emptively rewriting the deck geometry would be untestable until the batch-2 families exist.
 **File**: `src/radiant/atmosphere/modtran.py` — `ModtranAtmosphere.evaluate`, `path_zenith_rad=float(los.theta_o)` (currently line 1499).
 **Symptom**: `AtmosphericGeometry.path_zenith_rad` is contractually the zenith angle **at the path's lower endpoint** (`protocol.py` docstring; ADR-0011 decision 3; `RADIANT_Atmosphere.md` §4.1), and `render_tape5` relies on that when it maps to MODTRAN's Card-3 at-H1 ANGLE. `los.theta_o` is the **target-referenced** angle. For every down-looking scene the target *is* the lower endpoint, so the two coincide and today's behavior is correct. For an up-looking scene (`h_sensor < h_tgt`) the sensor is the lower endpoint and the lower-endpoint zenith is `π − θ_o`, so the assignment would be wrong by that reflection. `SimpleAtmosphere` and the `exo` backend do not build an `AtmosphericGeometry` this way, so this is the MODTRAN backend's own conversion. Reproduce (once the gate below lifts): a ground→10 km vertical up-looking scene has `θ_o = π`; the correct Card-3 ANGLE for K4's geometry is 0°, and this line would supply 180°.
 **Why it still matters**: unreachable today, and blocked by construction rather than by luck — `AtmosphericGeometry.__post_init__` rejects any `path_zenith_rad` past `ZENITH_CEILING_RAD` (89.5°), and *every* up-looking scene has `θ_o > π/2` (a point below the target's altitude is always inside the tangent sphere at the target, hence below its horizon plane). So the wrong value cannot survive construction and there is no wrong number in the field. (The Phase-2 topology layer is separately not routing an up-looking LOS to the MODTRAN backend yet — but that is in-flight work, whereas the ceiling is the durable guard.) It matters because it is a **silent trap primed for the exact PR that lifts the gate**: the topology layer will make up-looking LOS objects legal, and this line will then render a nadir deck for a zenith-looking scene without raising — the failure mode Rule 17 exists to prevent, in the one backend whose output is treated as truth data.

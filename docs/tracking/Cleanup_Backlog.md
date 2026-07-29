@@ -12,6 +12,16 @@
 
 ## Open
 
+### CU-271 — `examples/MWIR_Jason.yaml` is a personally-named, unreferenced config in the shipped examples folder
+
+**Discovered**: Backlog-Reduction Track A, Wave A2 (deleting `nintendo.yaml` for CU-207), 2026-07-28.
+**Status**: Open — **owner call, not an autonomous delete** (it is plausibly the owner's own working config).
+**File**: `examples/MWIR_Jason.yaml`.
+**Symptom**: an `examples/` entry named after a person, referenced by no test, script, or document (`grep -rn MWIR_Jason` outside the file itself returns nothing). Unlike [[CU-207]] it carries **no** hardcoded absolute path, so it loads fine anywhere — this is a naming/placement finding, not a Rule-30 one. `docs/OPERATING_MODEL.md` §5 requires a name that states the *content*, not the event or author, and `examples/` is a shipped surface a new user reads for canonical configs.
+**Why it still matters**: a reader opening `examples/` cannot tell which files are the curated examples (`mwir_leo_minimal.yaml`, `ground_truth_mwir.yaml`, `templates/`) and which are someone's scratch. It is the same clutter CU-207 removed, minus the broken path that forced that one's hand.
+**Suggested fix**: (c) delete-as-unused if it is scratch, or (a) rename to a content-stating slug (e.g. the band + platform + regime it configures) if it is a real example worth shipping. Needs one word from the owner — the file may be in active personal use. Effort XS; category A. Related: [[CU-207]].
+
+
 ### CU-270 — `ruff check` still skips `scripts/` and `dev_tools/`, where 14 violations sit unseen
 
 **Discovered**: Backlog-Reduction Track A, Wave A1 (CU-252 fix), 2026-07-28 — surfaced by trialling a wider path list on the lint gate.
@@ -205,11 +215,19 @@
 ### CU-249 — `test_configuration_manager.py` is an order of magnitude slower per test than the rest of the GUI suite
 
 **Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, agent finding), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/gui/tests/test_configuration_manager.py`.
-**Symptom**: ~109 s for 32 tests (~3.4 s/test) of a ~7.5 min suite — likely a full window + multi-configuration evaluate per test.
+**Status**: Open — **profiled 2026-07-28 (Backlog-Reduction Track A, Wave A2); the entry's hypothesis is disproved and the suggested fix would not have worked.** Measured on the shipped example, offscreen:
+
+| Component | Cost |
+|---|---|
+| pytest `setup` + `teardown` (incl. the CU-212 widget release) | 0.03 s |
+| `RADIANTMainWindow` construction | 0.41 s (0.05 s at a coarse grid) |
+| one chain `evaluate()` | 0.13 s |
+| **one test, `call` phase** | **4.8 s** |
+
+So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s per test is Qt **event-loop round-trips inside the test body** — `qtbot.waitSignal` on `evaluationFinished` (twice: window open, then the manager transaction), the 200 ms `_DEBOUNCE_MS` timer, and the `ConfigSetEvaluationWorker` QThread start/join per pass. Confirmed by construction: coarsening the fixture's spectral grid from 500 to 40 points changed the file's wall clock by **0.7 s out of 108 s** (107.95 s → 107.19 s), and the grid size does survive the `ConfigurationSet.save`/`load` round trip, so the chain really is not the cost. That change was reverted rather than kept as a dead knob. A module-scoped window fixture (the original suggestion) therefore buys at most ~0.4 s/test and costs the structural isolation these CRUD/undo tests depend on — a bad trade.
+**File**: `src/radiant/gui/tests/test_configuration_manager.py`; `src/radiant/gui/main_window.py:100` (`_DEBOUNCE_MS`); `src/radiant/gui/workers.py` (`ConfigSetEvaluationWorker`).
 **Why it still matters**: the GUI suite is in the merge gate battery; its wall-clock cost is paid on every merge to `main`.
-**Suggested fix**: (a) inline-fix-now — profile, then share a module-scoped window/configuration-set fixture where isolation permits. Effort S–M; category A.
+**Suggested fix**: (b) stand-alone task, now that the cost is located — attack the *waiting*, not the computing: (1) let tests shorten `_DEBOUNCE_MS` through a seam (an env var or a test hook) so 32 tests do not each pay 2 × 200 ms of deliberate idle; (2) check whether the manager transaction needs a **second** full evaluation pass at all, or can assert on the scheduled-state before it completes; (3) investigate the per-pass QThread start/join, which is paid per configuration. Any of the three is worth more than fixture sharing. Effort M; category A. Related: [[CU-110]] (same worker surface).
 
 ### CU-250 — Down-looking schematic places the sensor glyph along the η ray from the target apex (vertex mismatch)
 

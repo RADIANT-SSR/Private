@@ -400,12 +400,26 @@ def plot_psf(
         "origin": "lower",
     }
     defaults.update(kwargs)
+    # CU-241: plot on the focal plane in µm, not in raw sample indices. Index axes
+    # (500-560 on a 1024 grid) told the reader nothing about the physical size of
+    # the blur and forced a mental conversion through the sample spacing; the
+    # detector pitch is quoted in µm in the title, so the axes must share its
+    # units for the comparison the plot exists to support. Coordinates are
+    # measured from the array centre, which is where the PSF core sits.
+    extent_um = _psf_extent_um(psf)
+    if extent_um is not None:
+        defaults.setdefault("extent", extent_um)
     im = ax.imshow(data, **defaults)
-    fig.colorbar(im, ax=ax, label="PSF intensity")
-    # The imshow extent is the PSF sample grid (spacing sample_spacing_m), not the
-    # detector pixel grid — label it accurately (CU-136).
-    ax.set_xlabel("x (PSF samples)")
-    ax.set_ylabel("y (PSF samples)")
+    # Colorbar sized so it does not eat a third of a narrow card (CU-241).
+    fig.colorbar(im, ax=ax, label="PSF intensity", fraction=0.046, pad=0.04)
+    if extent_um is not None:
+        ax.set_xlabel("x on focal plane (µm)")
+        ax.set_ylabel("y on focal plane (µm)")
+    else:
+        # Degenerate geometry (no sample spacing / pitch): fall back to the sample
+        # grid rather than inventing a physical scale (CU-136).
+        ax.set_xlabel("x (PSF samples)")
+        ax.set_ylabel("y (PSF samples)")
     pitch_um = psf.pixel_pitch_m * 1e6
     if pixel_grid:
         ax.set_title(f"Effective PSF · detector pixel grid ({pitch_um:.1f} µm pitch)")
@@ -416,6 +430,36 @@ def plot_psf(
         if pixel_outline:
             _overlay_pixel_outline(ax, psf)
     return cast("Figure", fig)
+
+
+def _psf_um_per_sample(psf: EffectivePSF) -> float | None:
+    """Focal-plane µm per PSF sample, or ``None`` for a degenerate grid."""
+    dx = psf.sample_spacing_m
+    return dx * 1e6 if dx > 0.0 else None
+
+
+def _psf_sample_to_um(psf: EffectivePSF, sample: float) -> float:
+    """Convert a PSF sample coordinate to µm measured from the array centre.
+
+    One transform, used by the image extent and by every overlay, so the
+    gridlines and the pixel outline cannot drift off the image they annotate
+    (CU-241).
+    """
+    um = _psf_um_per_sample(psf)
+    if um is None:
+        return sample
+    centre = (psf.data.shape[0] - 1) / 2.0
+    return (sample - centre) * um
+
+
+def _psf_extent_um(psf: EffectivePSF) -> tuple[float, float, float, float] | None:
+    """``imshow`` extent in focal-plane µm, or ``None`` for a degenerate grid."""
+    if _psf_um_per_sample(psf) is None:
+        return None
+    n = psf.data.shape[0]
+    lo = _psf_sample_to_um(psf, -0.5)
+    hi = _psf_sample_to_um(psf, n - 0.5)
+    return (lo, hi, lo, hi)
 
 
 def _pixel_geometry(psf: EffectivePSF) -> tuple[float, float, float] | None:
@@ -435,8 +479,10 @@ def _crop_to_pixels(ax: Any, psf: EffectivePSF, span_pixels: int) -> None:
         return
     samples_per_pixel, center, n = geometry
     half = max(1, span_pixels // 2) * samples_per_pixel
-    ax.set_xlim(max(-0.5, center - half), min(n - 0.5, center + half))
-    ax.set_ylim(max(-0.5, center - half), min(n - 0.5, center + half))
+    lo = _psf_sample_to_um(psf, max(-0.5, center - half))
+    hi = _psf_sample_to_um(psf, min(n - 0.5, center + half))
+    ax.set_xlim(lo, hi)
+    ax.set_ylim(lo, hi)
 
 
 def _overlay_pixel_outline(ax: Any, psf: EffectivePSF) -> None:
@@ -453,11 +499,13 @@ def _overlay_pixel_outline(ax: Any, psf: EffectivePSF) -> None:
         return
     samples_per_pixel, center, _n = geometry
     half = samples_per_pixel / 2.0
+    corner = _psf_sample_to_um(psf, center - half)
+    side = samples_per_pixel * (_psf_um_per_sample(psf) or 1.0)
     ax.add_patch(
         Rectangle(
-            (center - half, center - half),
-            samples_per_pixel,
-            samples_per_pixel,
+            (corner, corner),
+            side,
+            side,
             fill=False,
             edgecolor="white",
             linewidth=1.2,
@@ -488,10 +536,11 @@ def _overlay_pixel_grid(ax: Any, psf: EffectivePSF, span_pixels: int) -> None:
     positions = [center - off for off in offsets] + [center + off for off in offsets]
     for pos in positions:
         if -0.5 <= pos <= n - 0.5:
-            ax.axvline(pos, color="white", lw=0.5, alpha=0.5)
-            ax.axhline(pos, color="white", lw=0.5, alpha=0.5)
-    lo = max(-0.5, center - half_pixels * samples_per_pixel)
-    hi = min(n - 0.5, center + half_pixels * samples_per_pixel)
+            pos_um = _psf_sample_to_um(psf, pos)
+            ax.axvline(pos_um, color="white", lw=0.5, alpha=0.5)
+            ax.axhline(pos_um, color="white", lw=0.5, alpha=0.5)
+    lo = _psf_sample_to_um(psf, max(-0.5, center - half_pixels * samples_per_pixel))
+    hi = _psf_sample_to_um(psf, min(n - 0.5, center + half_pixels * samples_per_pixel))
     ax.set_xlim(lo, hi)
     ax.set_ylim(lo, hi)
 

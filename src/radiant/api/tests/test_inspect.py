@@ -147,6 +147,58 @@ class TestNoisePieAccessor:
             ns.noise_pie()
 
 
+class TestPsfPhysicalAxes:
+    """CU-241: the PSF plots read in focal-plane µm, not raw sample indices."""
+
+    @staticmethod
+    def _psf(sample_spacing_m: float = 2.0e-6, pitch_m: float = 18.0e-6):  # type: ignore[no-untyped-def]
+        from radiant.optics.psf.effective import EffectivePSF
+
+        n = 256
+        yy, xx = np.mgrid[0:n, 0:n]
+        c = (n - 1) / 2.0
+        data = np.exp(-((xx - c) ** 2 + (yy - c) ** 2) / (2.0 * 3.0**2))
+        return EffectivePSF(
+            data=data / data.sum(),
+            sample_spacing_m=sample_spacing_m,
+            pixel_pitch_m=pitch_m,
+            wavelength_um=4.0,
+            convolution_history=("diffraction",),
+        )
+
+    def test_axes_are_micrometres_on_the_focal_plane(self) -> None:
+        """Index axes (500-560 on a 1024 grid) said nothing about the blur's size.
+
+        The detector pitch is quoted in µm in the title, so the axes must share
+        its units for the comparison the plot exists to support.
+        """
+        from radiant.api.plot import plot_psf
+
+        fig = plot_psf(self._psf())
+        ax = fig.axes[0]
+        assert "µm" in ax.get_xlabel()
+        assert "µm" in ax.get_ylabel()
+        assert "samples" not in ax.get_xlabel()
+
+    def test_crop_window_is_the_requested_pixel_count_in_microns(self) -> None:
+        """The window is span_pixels wide *in detector pixels*, expressed in µm."""
+        from radiant.api.plot import plot_psf
+
+        pitch_um = 18.0
+        fig = plot_psf(self._psf(), span_pixels=6)
+        lo, hi = fig.axes[0].get_xlim()
+        # 6 // 2 = 3 pixels each side of the peak.
+        assert hi - lo == pytest.approx(2 * 3 * pitch_um, rel=1e-9)
+        assert lo == pytest.approx(-hi, rel=1e-9)  # centred on the core
+
+    def test_degenerate_grid_falls_back_to_sample_axes(self) -> None:
+        """With no usable sample spacing, do not invent a physical scale."""
+        from radiant.api.plot import plot_psf
+
+        fig = plot_psf(self._psf(sample_spacing_m=0.0))
+        assert "samples" in fig.axes[0].get_xlabel()
+
+
 class TestPsfPixelGridAccessor:
     """PS-3 Part A: result.plot.psf_pixel_grid() — psf() with the detector pixel grid."""
 

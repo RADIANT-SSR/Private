@@ -300,12 +300,20 @@ class TestPlotPsfPixelGrid:
             fig = plot_psf(self._psf(), pixel_grid=True, pixel_grid_span=8)
         matplotlib.pyplot.close(fig)
 
-    def test_default_axes_labelled_psf_samples_not_pixels(self) -> None:
-        """CU-136: the default imshow extent is the PSF sample grid, not detector pixels."""
+    def test_default_axes_are_focal_plane_microns(self) -> None:
+        """CU-241 supersedes CU-136: physical axes, not sample indices.
+
+        CU-136's point was that the axes must not be *mislabelled* as detector
+        pixels when they were really the sample grid, and it fixed that by naming
+        the sample grid. CU-241 goes the rest of the way: the reader wants the size
+        of the blur, and the title already quotes the detector pitch in µm, so the
+        axes are now µm on the focal plane. The CU-136 hazard — axes claiming units
+        they do not have — is still guarded, by the degenerate-grid case below.
+        """
         fig = plot_psf(self._psf())
         ax = fig.axes[0]
-        assert ax.get_xlabel() == "x (PSF samples)"
-        assert ax.get_ylabel() == "y (PSF samples)"
+        assert ax.get_xlabel() == "x on focal plane (µm)"
+        assert ax.get_ylabel() == "y on focal plane (µm)"
         matplotlib.pyplot.close(fig)
 
     def test_grid_overlays_lines_and_crops_and_titles_pitch(self) -> None:

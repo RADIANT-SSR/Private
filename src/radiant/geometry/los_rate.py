@@ -40,6 +40,22 @@ for down-looking (:math:`\cos\theta_o > 0`), level, and up-looking
 (:math:`\cos\theta_o < 0`) scenes alike, since :math:`\sin\theta_o \ge 0` on the
 whole closed domain (ADR-0011).
 
+Degenerate azimuth at a radial LOS (CU-268)
+-------------------------------------------
+The frame's zero is the azimuth of the *sensor's ground point*, which does not
+exist when the ground range is zero — i.e. for a **radial** line of sight,
+:math:`\theta_o = 0` (sensor straight overhead) or :math:`\theta_o = \pi`
+(target straight overhead, the co-rotating LEO/GEO pair).  There
+:math:`\sin\theta_o = 0`, so :math:`\hat{u} = \pm\hat{e}_{up}` and the whole
+horizontal plane is perpendicular to the LOS: **every** value of
+``geometry.target_heading_rad`` yields the same
+:math:`\lvert \mathbf{v}_{rel,\perp} \rvert`, hence the same ω.  The rate is
+rotation-invariant about the vertical there, so this is a genuine degeneracy of
+the *parameterisation*, not an error — nothing is silently wrong, and no value
+is more correct than another.  Verified numerically against the K1 door to
+0.0 % (scenario 10.4).  Set heading to anything (0 is the conventional choice)
+and read the climb angle as the only quantity that matters in this geometry.
+
 **Target velocity** is entered as speed + heading + climb:
 
 .. math::

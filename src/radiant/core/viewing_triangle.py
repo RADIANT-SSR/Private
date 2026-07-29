@@ -111,6 +111,14 @@ GUARD_DH_CLEAN_M = 100.0
 #: Interior-tangent topology — tangent-height depression above which the path is rejected [m].
 GUARD_DH_RAISE_M = 2000.0
 
+#: Effective-Earth-radius factor used to *size* (never to model) the refraction the
+#: shoulder warning excludes — the standard k = 4/3 approximation, in which a ray
+#: bends as if the Earth had radius k·R and the tangent depression of a given
+#: geometry shrinks by 1/k.  v1.x models no refraction (ADR-0011 decision 6); this
+#: constant exists only so the warning can state the order of magnitude of what it
+#: is leaving out, which was the ratified intent of the warn shoulder (CU-269).
+GUARD_REFRACTION_K = 4.0 / 3.0
+
 #: Angular slack on the band comparisons [rad].  A threshold quoted as "0.5°"
 #: must mean the same band whether the caller's angle was built as
 #: ``math.radians(89.5)`` or as ``math.pi/2 - math.radians(0.5)`` — those two
@@ -906,6 +914,18 @@ def _check_segment(
     )
     if result.dh_m is not None:
         payload["tangent_depression_m"] = result.dh_m
+        # CU-269: size the refraction this guard excludes, so every consumer does
+        # not have to re-derive it. Under the standard effective-radius model the
+        # tangent depression of a fixed geometry scales as 1/k, so a k = 4/3 ray
+        # bottoms out dh/k below its endpoints instead of dh: the peak
+        # sampling-altitude error is dh·(1 - 1/k), and the path-mean is 2/3 of that
+        # (the depression profile is parabolic about the tangent point).
+        dh_refracted = result.dh_m / GUARD_REFRACTION_K
+        dh_peak_error = result.dh_m - dh_refracted
+        payload["refraction_k"] = GUARD_REFRACTION_K
+        payload["tangent_depression_refracted_m"] = dh_refracted
+        payload["refraction_sampling_error_peak_m"] = dh_peak_error
+        payload["refraction_sampling_error_mean_m"] = (2.0 / 3.0) * dh_peak_error
     if result.band_rad is not None:
         payload["band_rad"] = result.band_rad
 
@@ -950,12 +970,33 @@ def _check_segment(
             context=payload,
         )
     if result.action == "warn":
+        # CU-269: a caveat the reader can act on has to carry its size. Where the
+        # path has a tangent point, quote what k = 4/3 refraction would have done
+        # to it; where it does not (an endpoint-minimum slant), say so rather than
+        # quoting a number that does not apply.
+        if result.dh_m is not None:
+            dh_refracted = result.dh_m / GUARD_REFRACTION_K
+            mean_error = (2.0 / 3.0) * (result.dh_m - dh_refracted)
+            size = (
+                f" Size of the omission: under the standard k = {GUARD_REFRACTION_K:.3g} "
+                f"effective-radius model this path would bottom out at "
+                f"{dh_refracted:.1f} m rather than {result.dh_m:.1f} m below its lower "
+                f"endpoint, i.e. the air this path is sampled through sits on average "
+                f"~{mean_error:.1f} m lower than the true refracted ray's — so the band "
+                "transmittance is biased slightly low."
+            )
+        else:
+            size = (
+                " This segment has no interior tangent point (its closest approach is "
+                "its lower endpoint), so the refraction omission is a path-length "
+                "effect rather than a sampling-altitude one and is not sized here."
+            )
         warnings.warn(
             f"{where}: near-horizontal path — {result.detail}. Computing anyway, but "
             "atmospheric refraction is NOT modelled in v1.x and is the dominant "
             "geometric error in this band (hard guard at "
             f"±{math.degrees(GUARD_HARD_RAD):g}° / {GUARD_DH_RAISE_M:.0f} m tangent depression; "
-            "thresholds provisional pending Phase 2 MODTRAN calibration).",
+            f"thresholds provisional pending Phase 2 MODTRAN calibration).{size}",
             UserWarning,
             stacklevel=3,
         )

@@ -24,7 +24,7 @@ jobs:
       - name: Install package + dev extras
         run: pip install -e ".[dev]"
       - name: Ruff lint
-        run: ruff check src/ tests/
+        run: ruff check src/ tests/ scripts/ dev_tools/
       - name: Ruff format check
         run: ruff format --check src/ tests/ scripts/ dev_tools/
       - name: mypy --strict on core + api

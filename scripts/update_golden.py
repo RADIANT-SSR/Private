@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import math
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -28,7 +28,6 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from radiant.api.session import RadiantSession  # noqa: E402
 from radiant.io.config import load_config  # noqa: E402
-
 
 GOLDEN_PATH = ROOT / "tests" / "integration" / "golden" / "mwir_leo_minimal.json"
 CONFIG_PATH = ROOT / "examples" / "mwir_leo_minimal.yaml"
@@ -80,7 +79,7 @@ def main() -> None:
     }
 
     # Compare and log changes.
-    timestamp = datetime.now(timezone.utc).isoformat()
+    timestamp = datetime.now(UTC).isoformat()
     changes: list[str] = []
     for key, new_val in new_values.items():
         if key in old and isinstance(old[key], dict):

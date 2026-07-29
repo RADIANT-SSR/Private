@@ -27,10 +27,8 @@ Checkpoint 2C deliverables
 
 from __future__ import annotations
 
-import math
 import subprocess
 import sys
-import textwrap
 from pathlib import Path
 
 import numpy as np
@@ -97,10 +95,10 @@ def check(condition: bool, msg: str) -> bool:
 
 def build_reference_psfs() -> dict:
     """Build diffraction-only and degraded EffectivePSFs."""
-    from radiant.optics.sampling import compute_sampling
-    from radiant.optics.psf_mono import compute_psf
-    from radiant.optics.psf.builder import build_effective_psf
     from radiant.detector.diffusion import diffusion_kernel_2d
+    from radiant.optics.psf.builder import build_effective_psf
+    from radiant.optics.psf_mono import compute_psf
+    from radiant.optics.sampling import compute_sampling
     from radiant.platform.jitter import jitter_kernel_2d
     from radiant.platform.smear import smear_kernel_1d
 
@@ -197,11 +195,10 @@ def print_sampling_config(data: dict) -> None:
 def print_mtf_components(data: dict) -> None:
     banner("2. MTF COMPONENTS AT NYQUIST")
 
-    from radiant.performance.system_mtf import nyquist_freq, mtf_at_nyquist
     from radiant.detector.diffusion import diffusion_mtf_1d
-    from radiant.detector.ipc import ipc_mtf_1d
-    from radiant.platform.sampling import pixel_aperture_mtf_1d
+    from radiant.performance.system_mtf import nyquist_freq
     from radiant.platform.jitter import jitter_mtf_1d
+    from radiant.platform.sampling import pixel_aperture_mtf_1d
     from radiant.platform.smear import smear_mtf_1d
 
     f_ny = nyquist_freq(PITCH)
@@ -581,6 +578,7 @@ def adversarial_audit() -> None:
 
     # Check: performance.stage only reads EffectivePSF from stage_outputs
     import inspect
+
     from radiant.performance import stage as perf_stage
 
     source = inspect.getsource(perf_stage)
@@ -771,8 +769,8 @@ def generate_plots(data: dict) -> Path:
     ax = axes[1, 1]
     from radiant.detector.diffusion import diffusion_mtf_1d
     from radiant.platform.jitter import jitter_mtf_1d
-    from radiant.platform.smear import smear_mtf_1d
     from radiant.platform.sampling import pixel_aperture_mtf_1d
+    from radiant.platform.smear import smear_mtf_1d
 
     freq_plot = np.linspace(0, 2.0 * f_ny, 500)
     sigma_jit = JITTER_RMS_RAD * F
@@ -903,7 +901,7 @@ def main() -> int:
     print_spatial_metrics(data)
     print_niirs(data)
     n_invariants = verify_invariants(data)
-    plot_path = generate_plots(data)
+    generate_plots(data)
     gt_ok = run_ground_truth()
     suite_ok = run_full_suite()
     imports_ok = run_import_linter()

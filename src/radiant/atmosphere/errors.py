@@ -16,6 +16,7 @@ from typing import Any
 from radiant.core.exceptions import RadiantError
 
 __all__ = [
+    "AtmosphereCapabilityError",
     "AtmosphereValidationError",
     "AtmosphereStateError",
     "TurbulenceSpecificationError",
@@ -47,6 +48,44 @@ class TurbulenceSpecificationError(RadiantError):
     Inherits :class:`RadiantError` only, per the Rule 15 guidance for new
     exception classes — it has no historical ``ValueError`` call sites to
     preserve.
+    """
+
+    def __init__(
+        self,
+        what: str,
+        why: str = "",
+        action: str = "",
+        context: dict[str, Any] | None = None,
+    ) -> None:
+        self.what = what
+        self.why = why
+        self.action = action
+        self.context = context or {}
+        parts: list[str] = [what]
+        if why:
+            parts.append(f"Why: {why}")
+        if action:
+            parts.append(f"Action: {action}")
+        super().__init__(" | ".join(parts))
+
+
+class AtmosphereCapabilityError(RadiantError, NotImplementedError):
+    """A backend cannot serve this geometry, and says so deliberately (CU-240).
+
+    Not a bug and not a bad input — the *scene* is legal, but the chosen
+    backend has no way to compute it (a tabulated file holds one column and
+    cannot be rescaled to a partial-column geometry; an interpolated grid
+    without a ``target_altitude_m`` axis cannot supply both the target→sensor
+    leg and the ground→sensor column). The refusal protects the radiometry
+    from a silently-wrong answer, and always names a workaround.
+
+    Co-inherits :class:`NotImplementedError` per the Rule 15 back-compat
+    carve-out: these sites raised it before, and existing
+    ``except NotImplementedError`` / ``pytest.raises(NotImplementedError)``
+    call sites keep working. What changes is that it is now **also** a
+    :class:`RadiantError`, so the GUI's error routing shows it as an
+    actionable refusal instead of an "Unexpected Error" crash dialog, and
+    ``except RadiantError`` in user scripts catches it.
     """
 
     def __init__(

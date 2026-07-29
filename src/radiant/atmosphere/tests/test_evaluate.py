@@ -551,6 +551,53 @@ class TestInterpolatedAtmosphereEvaluate:
             model.evaluate(lwir_wavelengths, los, lwir_params)
 
     @pytest.mark.level1
+    def test_capability_refusal_is_a_radiant_error(
+        self, lwir_wavelengths: np.ndarray, lwir_params
+    ) -> None:
+        """CU-240: the refusal reaches the GUI's *rejection* path, not its crash path.
+
+        The GUI routes ``RadiantError`` to an actionable in-context dialog and
+        everything else to the "Unexpected Error" crash dialog, so a well-formed
+        capability refusal wrapped in a bare ``NotImplementedError`` was shown to
+        operators as an internal failure. It must be both: a ``RadiantError`` for
+        the routing (and for ``except RadiantError`` in user scripts), and still a
+        ``NotImplementedError`` for the call sites that predate this.
+        """
+        from radiant.atmosphere.errors import AtmosphereCapabilityError
+        from radiant.atmosphere.interpolated import GeometryPoint, InterpolatedAtmosphere
+        from radiant.core.exceptions import RadiantError
+
+        points = [
+            GeometryPoint(
+                coordinates={"path_zenith_rad": z},
+                transmittance=_spectral(
+                    "tau", lwir_wavelengths, t * np.ones_like(lwir_wavelengths)
+                ),
+                path_radiance=_spectral(
+                    "lp", lwir_wavelengths, 0.05 * np.ones_like(lwir_wavelengths), "W/m²/sr/µm"
+                ),
+                atm_emission_down=_spectral(
+                    "ld", lwir_wavelengths, 0.02 * np.ones_like(lwir_wavelengths), "W/m²/sr/µm"
+                ),
+            )
+            for z, t in ((0.0, 0.8), (0.5, 0.7))
+        ]
+        model = InterpolatedAtmosphere(points, axes=["path_zenith_rad"])
+        los = LineOfSightGeometry(h_tgt=5_000.0, h_sensor=20_000.0, theta_o=0.0, h_atm_top=1.0e5)
+
+        with pytest.raises(RadiantError) as excinfo:
+            model.evaluate(lwir_wavelengths, los, lwir_params)
+
+        exc = excinfo.value
+        assert isinstance(exc, AtmosphereCapabilityError)
+        assert isinstance(exc, NotImplementedError)  # back-compat carve-out
+        # Rule 15: all three parts, and the workaround actually names a way out.
+        assert exc.what and exc.why and exc.action
+        assert "target_altitude_m" in exc.what
+        assert "SimpleAtmosphere" in exc.action
+        assert exc.context["h_tgt_m"] == 5_000.0
+
+    @pytest.mark.level1
     def test_airborne_above_hull_refused(self, lwir_wavelengths: np.ndarray, lwir_params) -> None:
         """No extrapolation: h_tgt above the grid's target range fails loud."""
         from radiant.atmosphere.errors import AtmosphereValidationError

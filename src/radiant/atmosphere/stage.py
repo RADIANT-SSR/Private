@@ -70,6 +70,11 @@ Stage outputs under ``stage_outputs["atmosphere"]``:
       for Rule 16 inspectability (Stage 6 — Option C decomposition).
     - ``E_sky_thermal``: ``atm_quantities.E_sky_thermal`` exposed for
       Rule 16 inspectability (Stage 6 — Option C decomposition).
+    - ``topology_provenance``: dict describing how an **up-looking** or level
+      topology resolved — observer-leg detail, segment provenance, the GF-9
+      illumination note, the solar-leg and sky-continuation notes, and the
+      geometry the dispatch keyed off. Absent for down-looking and vacuum
+      paths, which carry no such narrative (Rule 16 inspectability, CU-266).
     - ``r0_m``: Fried parameter [m], present only when turbulence is on.
       Resolved by :func:`radiant.atmosphere.r0_resolution.resolve_fried_parameter`
       — the direct ``atmosphere.r0_m`` input (default) or, when
@@ -319,6 +324,20 @@ class AtmosphereStage:
                 atm_quantities.E_sky_thermal,
             )
         )
+
+        # CU-266: how this topology resolved — observer leg, segment provenance,
+        # the GF-9 illumination note and the sky continuation. It survived only in
+        # an INFO log record before, which no result object carries, so an analyst
+        # could not see from ``result.inspect()`` why tau_sun took its value
+        # (sunlit vs shadowed). Published only for the topologies that produce one
+        # (the up-looking arms); a down-looking scene keeps exactly the stage
+        # outputs it had before.
+        if topology.provenance is not None:
+            state = state.with_stage_output(
+                "atmosphere",
+                "topology_provenance",
+                topology.provenance,
+            )
 
         if L_aperture_background is not None:
             background_frame = RadiometricFrame(

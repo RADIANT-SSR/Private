@@ -113,11 +113,15 @@ class TestSweepAndMcExports:
 
 
 class TestGuiYamlPath:
-    def test_serialize_yaml_no_temp_file(self) -> None:
-        pytest.importorskip("PySide6")
-        from radiant.gui.yaml_format import serialize_yaml
+    def test_inputs_scope_needs_no_temp_file(self) -> None:
+        """Gap 88's contract, asserted where it lives (CU-217).
 
+        The GUI's ``yaml_format.serialize_yaml`` shim used to round-trip through
+        a temp file, and this test guarded that it no longer did. The shim became
+        a one-line pass-through to ``Sensor.to_yaml`` and was deleted, so the
+        contract is asserted directly on the public surface — which also drops an
+        api-test → gui-module import that inverted the layering.
+        """
         s = _sensor()
-        text = serialize_yaml(s)
+        text = s.to_yaml(scope="inputs")
         assert "optics" in text and "_radiant" in text
-        assert text == s.to_yaml(scope="inputs")

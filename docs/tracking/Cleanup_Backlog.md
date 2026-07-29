@@ -12,14 +12,24 @@
 
 ## Open
 
-### CU-270 — `ruff check` still skips `scripts/` and `dev_tools/`, where 14 violations sit unseen
+### CU-272 — `scripts/synth_modtran/tests/` is red on a clean tree: a missing generated fixture fails instead of skipping
 
-**Discovered**: Backlog-Reduction Track A, Wave A1 (CU-252 fix), 2026-07-28 — surfaced by trialling a wider path list on the lint gate.
+**Discovered**: Backlog-Reduction Track A, Wave A3 (widening the lint gate for [[CU-270]]), 2026-07-28 — the first `pytest scripts/` anyone appears to have run.
 **Status**: Open.
-**File**: `.github/workflows/ci.yml` (the `Ruff lint` step) and `CLAUDE.md` (gate battery + "Running Tests Locally").
-**Symptom**: CU-252 widened `ruff format --check` to `src/ tests/ scripts/ dev_tools/`, but `ruff check` remains `src/ tests/` (its CU-089 scope). Running it over the two uncovered trees reports **14 errors** — E501 long lines and I001 unsorted import blocks, 12 of them `--fix`-able — in `scripts/build_manual.py`, `scripts/capture_option_c_baseline.py` and siblings. `pyproject.toml` declares no ruff excludes, so these trees were never deliberately exempted; they were simply never added to the gate's path list.
-**Why it still matters**: the same blind spot CU-252 documents, one check over. The formatter and the linter now disagree about which trees are governed, which is the state that lets drift accumulate unnoticed — and `scripts/` holds the gate tooling itself (`check_org_rules.py`, `gen_param_reference.py`).
-**Suggested fix**: (a) inline-fix — `ruff check scripts/ dev_tools/ --fix`, hand-fix the two remaining, then widen the CI step and both CLAUDE.md gate lists to the same four-tree path list the formatter now uses. Deliberately **not** bundled into CU-252, which is a pure-formatting change; this one alters what the lint gate rejects. Effort XS; category A. Related: [[CU-252]], [[CU-089]].
+**File**: `scripts/synth_modtran/tests/test_family_interpolate.py` (3 of 8 tests).
+**Symptom**: `python -m pytest scripts/synth_modtran/tests/test_family_interpolate.py` gives `3 failed, 5 passed` on a clean tree. Every failure is `FileNotFoundError: .../modtran/synthetic/B1.synthetic.tp7 not found` — the synthetic tape7 decks are generate-on-demand artifacts (correctly gitignored, per Rule 26), and the tests treat their absence as a failure rather than a skip. The error text is otherwise exemplary: it names the generator (`python scripts/generate_synthetic_tape7.py --run-id B1`). Verified pre-existing on `origin/main` (`ddd9ca3`) and unrelated to the CU-270 lint fixes — reproduced against main's own copy of the directory.
+**Why it still matters**: the same blind spot as [[CU-221]] and [[CU-252]]/[[CU-270]], one directory over. The merge gate battery runs `pytest` over `src/` and `tests/`, so nothing under `scripts/` is ever executed by the gate — a genuine regression in the synthetic-MODTRAN tooling would sit red indefinitely, indistinguishable from this environmental red. That tooling feeds the interpolated-library families ([[CU-226]], [[CU-239]]).
+**Suggested fix**: (a) inline-fix, small — a module-level fixture (or `pytest.importorskip`-style guard) that skips with the existing actionable message when the deck is absent, so the suite is green-or-genuinely-broken; optionally have the fixture *generate* the deck on demand, since the generator is a committed script. Then decide deliberately whether `scripts/` joins the gate battery's pytest scope — if it does not, say so in `CLAUDE.md` so the exclusion is a choice rather than an oversight. Effort S; category A. Related: [[CU-221]], [[CU-270]], [[CU-164]].
+
+
+### CU-271 — `examples/MWIR_Jason.yaml` is a personally-named, unreferenced config in the shipped examples folder
+
+**Discovered**: Backlog-Reduction Track A, Wave A2 (deleting `nintendo.yaml` for CU-207), 2026-07-28.
+**Status**: Open — **owner call, not an autonomous delete** (it is plausibly the owner's own working config).
+**File**: `examples/MWIR_Jason.yaml`.
+**Symptom**: an `examples/` entry named after a person, referenced by no test, script, or document (`grep -rn MWIR_Jason` outside the file itself returns nothing). Unlike [[CU-207]] it carries **no** hardcoded absolute path, so it loads fine anywhere — this is a naming/placement finding, not a Rule-30 one. `docs/OPERATING_MODEL.md` §5 requires a name that states the *content*, not the event or author, and `examples/` is a shipped surface a new user reads for canonical configs.
+**Why it still matters**: a reader opening `examples/` cannot tell which files are the curated examples (`mwir_leo_minimal.yaml`, `ground_truth_mwir.yaml`, `templates/`) and which are someone's scratch. It is the same clutter CU-207 removed, minus the broken path that forced that one's hand.
+**Suggested fix**: (c) delete-as-unused if it is scratch, or (a) rename to a content-stating slug (e.g. the band + platform + regime it configures) if it is a real example worth shipping. Needs one word from the owner — the file may be in active personal use. Effort XS; category A. Related: [[CU-207]].
 
 
 ### CU-253 — Simple-model Rayleigh: the dimensionless total vertical optical depth is used as a km⁻¹ extinction coefficient (~8× VIS inflation)
@@ -139,15 +149,6 @@
 **Why it still matters**: a silent-no-op trap for exactly the uncooled-MWIR sensor class the ground-to-air scenes introduce; the user believes warm-optics emission is modelled.
 **Suggested fix**: (a) inline-fix — `UserWarning` when `optics_temperature_K` is user-set while `scalar_emissivity` is 0 in scalar mode (mirror of CU-085's pattern), naming the two ways to make it live. Effort S; category B.
 
-### CU-266 — `TopologyProducts` drops the up-looking provenance notes, so `result.inspect()` cannot explain τ_sun / illumination
-
-**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/atmosphere/topology.py` (`TopologyProducts` has no provenance field; `uplooking_quantities.UplookingProducts.provenance` is discarded).
-**Symptom**: the GF-9 illumination note, observer-leg description and sky-continuation note survive only in an INFO log record; the published stage outputs carry none of it.
-**Why it still matters**: Rule-16 inspectability — the analyst cannot see why τ_sun took its value (sunlit vs shadowed) from the result object.
-**Suggested fix**: (a) inline-fix — carry the provenance dict through `TopologyProducts` and publish it under `stage_outputs["atmosphere"]`. Effort S; category A.
-
 ### CU-267 — Simple-model gas-region table is piecewise-constant, so τ(λ) steps discontinuously at region edges
 
 **Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
@@ -156,24 +157,6 @@
 **Symptom**: τ(λ) steps 0.728 → 0.617 across one grid point at 0.70 µm (visible in scenario 10.3's committed transmittance figure); any band edge near a region boundary inherits the step.
 **Why it still matters**: narrow-band work near a region edge sees a discontinuous, grid-dependent transmittance.
 **Suggested fix**: (b) stand-alone — blend region coefficients across a small transition width (results-affecting at the ~1 % level near edges only). Effort S–M; category C. Related: CU-161, [[CU-253]].
-
-### CU-268 — `geometry.target_heading_rad` reference frame is azimuthally degenerate for a radial LOS (θ_o = 0 or π) — documentation only
-
-**Discovered**: Scenario 10.4 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/geometry/los_rate.py` (module doc) + `geometry/_schema.py` heading description.
-**Symptom**: heading is measured from the azimuth of the sensor's ground point, which does not exist when the ground range is 0 m (vertical LOS). Numerically harmless — ω = |v_rel × û|/R is rotation-invariant about the vertical there (verified against the K1 door to 0.0 %) — but no doc names the case.
-**Why it still matters**: a user configuring a co-rotating LEO/GEO pair has no guidance that any heading value is equivalent at θ_o = π.
-**Suggested fix**: (a) inline doc fix at next touch. Effort S; category A. Related: Gap 115.
-
-### CU-269 — Horizon-guard shoulder warning names the excluded refraction but does not size it
-
-**Discovered**: Scenario 10.2 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/core/viewing_triangle.py` (guard `UserWarning` construction).
-**Symptom**: 6 of 16 sweep points in scenario 10.2 land in the 100 m–2 km Δh shoulder and carry an unsized caveat; the structured context already carries `tangent_depression_m`, the slant range and the thresholds, so every consumer must derive the magnitude independently (10.2 does: k = 4/3 → Δh 195.9 → 146.9 m, mean sampling-altitude error 32.6 m, ≈0.91 % in band τ).
-**Why it still matters**: a quantified caveat was the ratified intent of the warn shoulder (plan §8.3 answer 1: "warning quantifies the refraction-excluded caveat").
-**Suggested fix**: (a) inline-fix — add the k = 4/3 order-of-magnitude estimate (Δh reduction + τ-impact scale) to the warning text/context. Effort S; category A. Related: ADR-0011 decision 6.
 
 ### CU-246 — `geometry_readout` labels `eta_rad` "Nadir (off-nadir) angle" — wrong for an up-looking scene
 
@@ -205,11 +188,19 @@
 ### CU-249 — `test_configuration_manager.py` is an order of magnitude slower per test than the rest of the GUI suite
 
 **Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, agent finding), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/gui/tests/test_configuration_manager.py`.
-**Symptom**: ~109 s for 32 tests (~3.4 s/test) of a ~7.5 min suite — likely a full window + multi-configuration evaluate per test.
+**Status**: Open — **profiled 2026-07-28 (Backlog-Reduction Track A, Wave A2); the entry's hypothesis is disproved and the suggested fix would not have worked.** Measured on the shipped example, offscreen:
+
+| Component | Cost |
+|---|---|
+| pytest `setup` + `teardown` (incl. the CU-212 widget release) | 0.03 s |
+| `RADIANTMainWindow` construction | 0.41 s (0.05 s at a coarse grid) |
+| one chain `evaluate()` | 0.13 s |
+| **one test, `call` phase** | **4.8 s** |
+
+So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s per test is Qt **event-loop round-trips inside the test body** — `qtbot.waitSignal` on `evaluationFinished` (twice: window open, then the manager transaction), the 200 ms `_DEBOUNCE_MS` timer, and the `ConfigSetEvaluationWorker` QThread start/join per pass. Confirmed by construction: coarsening the fixture's spectral grid from 500 to 40 points changed the file's wall clock by **0.7 s out of 108 s** (107.95 s → 107.19 s), and the grid size does survive the `ConfigurationSet.save`/`load` round trip, so the chain really is not the cost. That change was reverted rather than kept as a dead knob. A module-scoped window fixture (the original suggestion) therefore buys at most ~0.4 s/test and costs the structural isolation these CRUD/undo tests depend on — a bad trade.
+**File**: `src/radiant/gui/tests/test_configuration_manager.py`; `src/radiant/gui/main_window.py:100` (`_DEBOUNCE_MS`); `src/radiant/gui/workers.py` (`ConfigSetEvaluationWorker`).
 **Why it still matters**: the GUI suite is in the merge gate battery; its wall-clock cost is paid on every merge to `main`.
-**Suggested fix**: (a) inline-fix-now — profile, then share a module-scoped window/configuration-set fixture where isolation permits. Effort S–M; category A.
+**Suggested fix**: (b) stand-alone task, now that the cost is located — attack the *waiting*, not the computing: (1) let tests shorten `_DEBOUNCE_MS` through a seam (an env var or a test hook) so 32 tests do not each pay 2 × 200 ms of deliberate idle; (2) check whether the manager transaction needs a **second** full evaluation pass at all, or can assert on the scheduled-state before it completes; (3) investigate the per-pass QThread start/join, which is paid per configuration. Any of the three is worth more than fixture sharing. Effort M; category A. Related: [[CU-110]] (same worker surface).
 
 ### CU-250 — Down-looking schematic places the sensor glyph along the η ray from the target apex (vertex mismatch)
 
@@ -277,15 +268,6 @@
 **Symptom**: the operator-facing contract is inverted. The shipped-family catalogue is a closed, known set keyed by (direction, axes), but the GUI asks the operator to *reconstruct a dict key by hand* in a free-text field, and the only feedback for a wrong key is a mid-evaluation refusal rendered as a crash. Three compounding layers: (1) no family picker — the catalogue is never shown; (2) no scene-aware default — the loader could derive the needed axes from the resolved scene (h_tgt > 0 ⇒ target-altitude axis; los_direction ⇒ family direction) and auto-select or at least pre-fill; (3) no config-time validation — the family/scene mismatch is knowable the moment both are set (Rule 16) and belongs in the Messages rail with the remedy, not in an exception five stages later.
 **Why it still matters**: the interpolated backend is the fast path the MODTRAN batches exist to feed; every operator hits this the first time they raise `target_altitude_m` above zero. The knowledge currently lives in a schema docstring.
 **Suggested fix**: (b) stand-alone GUI task, natural walkthrough-cleanup batch item. Family-first UI: a picker enumerating `_shipped_family_catalogue()` entries with plain-language coverage lines ("midlat summer, space/airborne sensor, targets 0–29 km, nadir–60°"), writing `interpolation_axes`/`interpolated_data_dir` as derived values; scene-aware default selection with a profile-mismatch warning (choosing the family must never silently change the atmosphere profile the operator asked for); config-time coverage check in the Messages rail. Effort M; category D. Related: Gap 94, CU-226, CU-240.
-
-### CU-240 — Interpolated backend capability refusals raise bare `NotImplementedError`, so the GUI renders them as crashes
-
-**Discovered**: operator session, 2026-07-27 (same scenario as CU-239).
-**Status**: Open
-**File**: `src/radiant/atmosphere/interpolated.py` (grep `raise NotImplementedError` — the h_tgt-needs-target-axis refusal at ~line 1011 and siblings)
-**Symptom**: the refusal text is exemplary Rule-15 content (what/why/two workarounds) wrapped in the wrong type: bare `NotImplementedError` is not a `RadiantError`, so the GUI's deliberate error routing (RadiantError → in-context rejection; everything else → the "Unexpected Error" crash dialog) presents a well-formed capability refusal as an internal failure, and `except RadiantError` handlers in user scripts miss it.
-**Why it still matters**: Rule 15 violation on the exact surface operators hit first (see CU-239); the crash framing erodes trust in a refusal that is actually the system protecting the radiometry.
-**Suggested fix**: (a) inline-fix — introduce/reuse an `AtmosphereCapabilityError(RadiantError)` (the Phase-2 capability-refusal pattern), swap the raises, add one test asserting the class reaches the GUI's rejection path. Effort XS; category A. Related: CU-239.
 
 ### CU-244 — Target-spec over-specification is unreachable by the parameter editor's clone-validate, so the GUI accepts a conflicting pair until Evaluate
 
@@ -388,15 +370,6 @@
 **Suggested fix**: (b) stand-alone task, folded into the Phase 2 topology PR that first routes an up-looking LOS to a backend. Derive the lower-endpoint zenith explicitly (`ζ_low = θ_o if los.h_sensor >= los.h_tgt else π − θ_o`) in one named helper — the same quantity `ColumnSegmentSpec.zeta_low_rad` already carries, so the natural fix is to build the deck geometry *from the segment spec* rather than re-deriving it. Effort S once the topology exists; category C (it changes what MODTRAN is asked to compute). Related: ADR-0011 decision 3, Gap 109, [[CU-065]].
 
 
-### CU-221 — `scripts/test_docs_code.py` always reports 3 failures, so its signal is dead
-
-**Discovered**: multi-config user-guide coverage (`docs/multiconfig-guides`), 2026-07-26
-**Status**: Open
-**File**: `scripts/test_docs_code.py` (the `^```python` extraction regex) vs. `docs/guides/scenario_testing.md:74,87,101`
-**Symptom**: `python scripts/test_docs_code.py` exits 1 with `Total: 41  Passed: 38  Failed: 3` on a clean tree. All three failures are in `docs/guides/scenario_testing.md` and are `NameError` (`row`, `snr`, `ax`) — that guide's ```python fences are deliberately *illustrative fragments* ("CORRECT: … WRONG: …" print examples, a matplotlib axis-label example), not standalone runnable snippets. The script assumes every python fence under `docs/guides/` executes.
-**Why it still matters**: the checker is the only thing that verifies guide snippets still match the API, and a tool that is red on a clean tree gets ignored — a *real* regression in a runnable snippet would land invisibly among the three known failures. It is not in the merge gate battery, which is why the red has persisted unnoticed.
-**Suggested fix**: (a) inline-fix-now, small — teach the extractor to skip fences marked as illustrative (an info-string suffix on the fence, e.g. `python title="fragment"`, or an HTML `docs-code: skip` comment immediately above the fence) and tag the three fragments in `scenario_testing.md`; then the script exits 0 on a clean tree and a failure means something. Optionally, once green, add it to the gate battery (owner's call — same boundary as CU-215). Effort S. Category A.
-
 ### CU-220 — a configured filesystem-path parameter loses its Browse… picker
 
 **Discovered**: multi-config GUI UX refinement (`gui/multiconfig-ux-refine1`), 2026-07-26
@@ -433,15 +406,6 @@
 **Why it still matters**: it is the *interactive* half of CU-212. CU-212's test-side crash is fixed by releasing widgets between tests (`gui/tests/conftest.py::_release_widgets`, commit `cce4cb2`), but that fixture exists only in the test session; a real analyst who works for hours and then toggles the theme walks the same accumulating tree. The Phase-4e audit also established that the *other* candidate fix does not exist: `apply_theme` cannot be narrowed to "only the windows it owns", because the app-level stylesheet is precisely what later-created dialogs inherit — replacing it with per-window `setStyleSheet` calls would leave every dialog opened after a theme toggle unstyled. So the lifetime, not the re-polish, is the thing to fix.
 **Suggested fix**: (b) stand-alone task — set `Qt.WidgetAttribute.WA_DeleteOnClose` on the modal dialogs the window creates, or `deleteLater()` them after `exec()` returns, at each call site. Needs care rather than a blanket edit: several call sites (`open_yaml_editor`, `open_inspector`, the sweep dialog) **return** the dialog so tests can drive it without a modal loop, and those must keep a live object for the caller's lifetime — so the deletion belongs in the `_on_*` handler that owns the `exec()`, not in the builder. Effort S–M; category A (with a small D-flavoured pass over the GUI tests that hold returned dialogs).
 
-### CU-217 — `gui/yaml_format.py` is now entirely unreferenced by production code
-
-**Discovered**: multi-config Phase 4e, when `gui/document_yaml.py` took over the document serialization, 2026-07-25
-**Status**: Open
-**File**: `src/radiant/gui/yaml_format.py`
-**Symptom**: nothing under `src/radiant/` outside the module imports any of its four public names. `dotpath_provenance`, `line_provenance`, and `PROVENANCE_TOKEN` have had **no** caller since the read-only YAML detail tab was folded into the right-rail *Edit Config (YAML)* modal (the modal never rendered the per-line provenance tinting the module exists to feed). `serialize_yaml` lost its last production caller in Phase 4e, when `YamlEditorDialog` moved to `document_yaml.serialize_document` (which must decide study-vs-plain, something a `Sensor`-only helper cannot). Both surviving references are **tests**: `gui/tests/test_right_rail.py` and `api/tests/test_export_surfaces.py::test_serialize_yaml_no_temp_file`. Reproduce: `grep -rn "serialize_yaml\|line_provenance\|dotpath_provenance\|PROVENANCE_TOKEN" src/ | grep -v yaml_format.py`.
-**Why it still matters**: it is a module-sized piece of dead weight that still *reads* as live infrastructure — its docstring describes "the YAML detail tab", a surface that no longer exists — so the next reader looking for where YAML is rendered finds the wrong file first. It is also a fork of the same concern `document_yaml.py` now owns (Rule 27), and the `api/tests` reference makes an API-layer test depend on a GUI helper for a property (`Sensor.to_yaml` needs no temp file, Gap 88) that belongs to `Sensor`.
-**Suggested fix**: decide between two, not both. (c) **delete-as-unused** — drop the module, re-point `test_right_rail`'s four assertions at `document_yaml.serialize_document` (identical text for a plain session) and rewrite `test_serialize_yaml_no_temp_file` against `Sensor.to_yaml` directly, which is what it is really asserting. Or (b) **stand-alone task** — actually ship the provenance tinting in the YAML modal, which is what the module was built for and what would make `line_provenance` live; that is a GUI feature, so it needs an owner nod and a `RADIANT_GUI_Architecture.md` §4.5 line. Recommend (c) unless the owner wants the tinting: nothing has asked for it in the nine phases since the tab was retired. Effort S; category A.
-
 ### CU-209 — folded MTF replicates at `f_Nyquist` instead of the sampling frequency `2·f_Nyquist`
 
 **Discovered**: multi-config Phase 3 dual-band example (`examples/scripts/dual_band_configuration_set.py`), 2026-07-25
@@ -450,14 +414,6 @@
 **Symptom**: sampling replicates the spectrum at multiples of the **sampling** frequency `f_s = 1/pitch = 2·f_Nyquist`, but `compute_folded_mtf` shifts by `k·f_Nyquist`. At `f = f_Nyquist` the `k = -1` term therefore lands on DC and contributes `MTF(0) = 1` to every system, sampled or not. Reproduce with the dual-band example: the LWIR configuration is oversampled (Q = 2.22, `mtf_at_nyquist = 5.4e-17`, i.e. the optics cut off below Nyquist so there is nothing to alias) yet reports `mtf_folded_at_nyquist = 0.9957` and `alias_fraction_at_nyquist = 1.0`. The MWIR configuration reports `mtf_folded_at_nyquist = 1.53` — an MTF above unity, which the ×2 replica sum alone (2 × 0.267 ≈ 0.53) does not produce.
 **Why it still matters**: `mtf_folded_at_nyquist` and `alias_fraction_at_nyquist` are shipped metrics in the Spatial-MTF group and are rendered in the GUI Performance dashboard. As computed they contradict the module's own documented invariant ("For well-sampled systems (Q >> 1) … the folded MTF equals the optical MTF") exactly at the frequency the two reported metrics are sampled at, so an oversampled design reads as fully aliased. Existing unit tests (`performance/tests/test_folded_mtf.py::test_oversampled_folded_equals_optical`, `…alias_fraction_zero`) mask it — both restrict their assertions to the band where the optical MTF is significant, which for their narrow Gaussian is far below `f_Nyquist`; nothing pins the value **at** `f_Nyquist`.
 **Suggested fix**: (a) inline-fix — shift by `k * 2 * f_nyquist_cy_m`, correct the module docstring formula, and add Level-0 anchors at `f = f_Nyquist` for both an oversampled case (folded == optical, alias fraction 0) and an undersampled case (folded == 2 × optical for the ±1 orders). **Results-affecting** (`mtf_folded_at_nyquist`, `alias_fraction_at_nyquist` change for every scenario; golden baselines carrying them must be re-reviewed per `RADIANT_Testing_Validation.md` §5.3), so it does not belong in an orthogonal PR. Also update the explanatory note in `examples/scripts/dual_band_configuration_set.py` (which currently tells the reader to ignore those two rows and cites this CU) when it closes. Effort S for the fix, M including the baseline review; category C.
-
-### CU-207 — `examples/nintendo.yaml` is a committed scratch config with a hardcoded absolute data path (Rule 30 violation)
-
-**Discovered**: data-in-wheel packaging (finding 5), 2026-07-24
-**File**: `examples/nintendo.yaml:6`
-**Symptom**: `interpolated_data_dir: /Users/jforsyth/SSR_Tool/data/atmospheres` — a machine-specific absolute POSIX path pointing at the (now-relocated) repo-root data tree. The config is committed but referenced by no test; it fails to load on any machine but the author's, and now points at a directory that no longer exists after the data move to `src/radiant/data/tables/atmospheres/`.
-**Why it still matters**: Rule 30 forbids hardcoded absolute POSIX paths; a committed example that only works on one developer's machine is misleading, and the name (`nintendo.yaml`) suggests a scratch file that should not be in `examples/` at all.
-**Suggested fix**: (c) delete-as-unused, or (a) if it is a real example, rename to a descriptive slug and repoint `interpolated_data_dir` to the shipped default (unset it — the loader now resolves the bundled library) or a portable relative path. Effort S; category A.
 
 ### CU-181 — Boost/off-nadir/sensor-ladder families attach the ground-level H5 downwelling to elevated-target nodes (constant per family), over-stating downwelling at altitude
 
@@ -553,6 +509,84 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-240 — Interpolated backend capability refusals raise bare `NotImplementedError`, so the GUI renders them as crashes — RESOLVED 2026-07-28 (commit `4813f46`)
+
+**Discovered**: operator session, 2026-07-27 (same scenario as CU-239).
+**Status**: RESOLVED 2026-07-28, commit `4813f46`. **Resolution**: added `AtmosphereCapabilityError(RadiantError, NotImplementedError)` to `atmosphere/errors.py` and swapped all three bare raises onto it (`interpolated.py`, `modtran.py`, `tabulated.py`), restructured into Rule-15 `what`/`why`/`action`/`context`. The co-inheritance is the Rule-15 back-compat carve-out — the existing `pytest.raises(NotImplementedError)` call sites in `test_evaluate.py` / `test_modtran.py` pass unchanged — while the `RadiantError` half is what moves the refusal from the GUI's "Unexpected Error" crash dialog to its actionable in-context path, and makes `except RadiantError` in user scripts catch it. New test `test_capability_refusal_is_a_radiant_error` asserts both bases, all three message parts, and the structured context.
+
+**File**: `src/radiant/atmosphere/interpolated.py` (grep `raise NotImplementedError` — the h_tgt-needs-target-axis refusal at ~line 1011 and siblings)
+**Symptom**: the refusal text is exemplary Rule-15 content (what/why/two workarounds) wrapped in the wrong type: bare `NotImplementedError` is not a `RadiantError`, so the GUI's deliberate error routing (RadiantError → in-context rejection; everything else → the "Unexpected Error" crash dialog) presents a well-formed capability refusal as an internal failure, and `except RadiantError` handlers in user scripts miss it.
+**Why it still matters**: Rule 15 violation on the exact surface operators hit first (see CU-239); the crash framing erodes trust in a refusal that is actually the system protecting the radiometry.
+**Suggested fix**: (a) inline-fix — introduce/reuse an `AtmosphereCapabilityError(RadiantError)` (the Phase-2 capability-refusal pattern), swap the raises, add one test asserting the class reaches the GUI's rejection path. Effort XS; category A. Related: CU-239.
+
+### CU-266 — `TopologyProducts` drops the up-looking provenance notes, so `result.inspect()` cannot explain τ_sun / illumination — RESOLVED 2026-07-28 (commit `4813f46`)
+
+**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `4813f46`. **Resolution**: `TopologyProducts` gained a `provenance` field, `evaluate_path_topology` carries `UplookingProducts.provenance` through instead of discarding it, and `AtmosphereStage` publishes it as `stage_outputs["atmosphere"]["topology_provenance"]`. It is published only where one exists (the up-looking/level arms); a down-looking or vacuum scene keeps exactly the stage outputs it had before, so nothing else moved. The analyst can now see the observer-leg detail, segment provenance, GF-9 illumination note and sky-continuation note — i.e. *why* τ_sun took its value — from `result.inspect()` rather than from an INFO log record no result object carries.
+
+**File**: `src/radiant/atmosphere/topology.py` (`TopologyProducts` has no provenance field; `uplooking_quantities.UplookingProducts.provenance` is discarded).
+**Symptom**: the GF-9 illumination note, observer-leg description and sky-continuation note survive only in an INFO log record; the published stage outputs carry none of it.
+**Why it still matters**: Rule-16 inspectability — the analyst cannot see why τ_sun took its value (sunlit vs shadowed) from the result object.
+**Suggested fix**: (a) inline-fix — carry the provenance dict through `TopologyProducts` and publish it under `stage_outputs["atmosphere"]`. Effort S; category A.
+
+### CU-269 — Horizon-guard shoulder warning names the excluded refraction but does not size it — RESOLVED 2026-07-28 (commit `4813f46`)
+
+**Discovered**: Scenario 10.2 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `4813f46`. **Resolution**: the warn-shoulder `UserWarning` now sizes what it excludes. New `GUARD_REFRACTION_K = 4/3` in `viewing_triangle.py` is used **only** for sizing (v1.x still models no refraction, ADR-0011 decision 6): under the effective-radius model a fixed geometry's tangent depression scales as 1/k, so the warning states the refracted depression and the path-mean sampling-altitude error, and the structured context carries `tangent_depression_refracted_m`, `refraction_sampling_error_peak_m` and `_mean_m`. Reproduces the CU's independently-derived scenario-10.2 figures **exactly** — dh 195.9 m → 146.9 m, mean error 32.6 m — pinned by `test_shoulder_warning_sizes_the_refraction_it_excludes`. An endpoint-minimum segment (no interior tangent) says the sizing does not apply instead of quoting an inapplicable number, pinned by its own test.
+
+**File**: `src/radiant/core/viewing_triangle.py` (guard `UserWarning` construction).
+**Symptom**: 6 of 16 sweep points in scenario 10.2 land in the 100 m–2 km Δh shoulder and carry an unsized caveat; the structured context already carries `tangent_depression_m`, the slant range and the thresholds, so every consumer must derive the magnitude independently (10.2 does: k = 4/3 → Δh 195.9 → 146.9 m, mean sampling-altitude error 32.6 m, ≈0.91 % in band τ).
+**Why it still matters**: a quantified caveat was the ratified intent of the warn shoulder (plan §8.3 answer 1: "warning quantifies the refraction-excluded caveat").
+**Suggested fix**: (a) inline-fix — add the k = 4/3 order-of-magnitude estimate (Δh reduction + τ-impact scale) to the warning text/context. Effort S; category A. Related: ADR-0011 decision 6.
+
+### CU-268 — `geometry.target_heading_rad` reference frame is azimuthally degenerate for a radial LOS (θ_o = 0 or π) — documentation only — RESOLVED 2026-07-28 (commit `4813f46`)
+
+**Discovered**: Scenario 10.4 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `4813f46`. **Resolution**: documented in both places a reader would look — a "Degenerate azimuth at a radial LOS" section in `geometry/los_rate.py` explaining that at θ_o = 0 or π the zero azimuth (the sensor's ground point) does not exist, every heading yields the same ω because the whole horizontal plane is perpendicular to the LOS, and this is a degeneracy of the *parameterisation* rather than an error (verified against the K1 door to 0.0 %); and a DEGENERATE note on the `geometry.target_heading_rad` schema entry naming the condition and the conventional choice (0). `parameter_reference.md` regenerated. No behaviour change.
+
+**File**: `src/radiant/geometry/los_rate.py` (module doc) + `geometry/_schema.py` heading description.
+**Symptom**: heading is measured from the azimuth of the sensor's ground point, which does not exist when the ground range is 0 m (vertical LOS). Numerically harmless — ω = |v_rel × û|/R is rotation-invariant about the vertical there (verified against the K1 door to 0.0 %) — but no doc names the case.
+**Why it still matters**: a user configuring a co-rotating LEO/GEO pair has no guidance that any heading value is equivalent at θ_o = π.
+**Suggested fix**: (a) inline doc fix at next touch. Effort S; category A. Related: Gap 115.
+
+### CU-270 — `ruff check` still skips `scripts/` and `dev_tools/`, where 14 violations sit unseen — RESOLVED 2026-07-28 (commit `78c23af`)
+
+**Discovered**: Backlog-Reduction Track A, Wave A1 (CU-252 fix), 2026-07-28 — surfaced by trialling a wider path list on the lint gate.
+**Status**: RESOLVED 2026-07-28, commit `78c23af`. **Resolution**: fixed all 15 accumulated violations in `scripts/` and `dev_tools/` (13 by `ruff check --fix` — import ordering and unused imports; 2 by hand — an E501 in `build_manual.py`'s usage docstring and an unused `plot_path` binding in `spatial_audit.py`), then widened the CI `Ruff lint` step and both `CLAUDE.md` gate lists to `src/ tests/ scripts/ dev_tools/`. The linter and the formatter now govern the **same four trees**, closing the asymmetry CU-252 deliberately left. Filed while here: [[CU-272]] — `scripts/synth_modtran/tests/` is red on a clean tree for an environmental reason and no gate runs it.
+
+**File**: `.github/workflows/ci.yml` (the `Ruff lint` step) and `CLAUDE.md` (gate battery + "Running Tests Locally").
+**Symptom**: CU-252 widened `ruff format --check` to `src/ tests/ scripts/ dev_tools/`, but `ruff check` remains `src/ tests/` (its CU-089 scope). Running it over the two uncovered trees reports **14 errors** — E501 long lines and I001 unsorted import blocks, 12 of them `--fix`-able — in `scripts/build_manual.py`, `scripts/capture_option_c_baseline.py` and siblings. `pyproject.toml` declares no ruff excludes, so these trees were never deliberately exempted; they were simply never added to the gate's path list.
+**Why it still matters**: the same blind spot CU-252 documents, one check over. The formatter and the linter now disagree about which trees are governed, which is the state that lets drift accumulate unnoticed — and `scripts/` holds the gate tooling itself (`check_org_rules.py`, `gen_param_reference.py`).
+**Suggested fix**: (a) inline-fix — `ruff check scripts/ dev_tools/ --fix`, hand-fix the two remaining, then widen the CI step and both CLAUDE.md gate lists to the same four-tree path list the formatter now uses. Deliberately **not** bundled into CU-252, which is a pure-formatting change; this one alters what the lint gate rejects. Effort XS; category A. Related: [[CU-252]], [[CU-089]].
+
+### CU-217 — `gui/yaml_format.py` is now entirely unreferenced by production code — RESOLVED 2026-07-28 (commit `9bec99a`)
+
+**Discovered**: multi-config Phase 4e, when `gui/document_yaml.py` took over the document serialization, 2026-07-25
+**Status**: RESOLVED 2026-07-28, commit `9bec99a`. **Resolution**: `src/radiant/gui/yaml_format.py` deleted. `serialize_yaml` had decayed to a one-line pass-through to the public `Sensor.to_yaml(scope="inputs")` (Gap 88 closed the temp-file round trip in `6f37734`), and `dotpath_provenance` / `line_provenance` / `PROVENANCE_TOKEN` had had no caller since the read-only YAML detail tab was folded into the right-rail modal. The two test callers were repointed at `Sensor.to_yaml` directly — which also removes the api-test → gui-module import the entry flagged as an inverted layering. `Sensor.to_yaml` keeps its own direct coverage in `test_export_surfaces.py` (inputs/resolved scopes, save-parity).
+
+**File**: `src/radiant/gui/yaml_format.py`
+**Symptom**: nothing under `src/radiant/` outside the module imports any of its four public names. `dotpath_provenance`, `line_provenance`, and `PROVENANCE_TOKEN` have had **no** caller since the read-only YAML detail tab was folded into the right-rail *Edit Config (YAML)* modal (the modal never rendered the per-line provenance tinting the module exists to feed). `serialize_yaml` lost its last production caller in Phase 4e, when `YamlEditorDialog` moved to `document_yaml.serialize_document` (which must decide study-vs-plain, something a `Sensor`-only helper cannot). Both surviving references are **tests**: `gui/tests/test_right_rail.py` and `api/tests/test_export_surfaces.py::test_serialize_yaml_no_temp_file`. Reproduce: `grep -rn "serialize_yaml\|line_provenance\|dotpath_provenance\|PROVENANCE_TOKEN" src/ | grep -v yaml_format.py`.
+**Why it still matters**: it is a module-sized piece of dead weight that still *reads* as live infrastructure — its docstring describes "the YAML detail tab", a surface that no longer exists — so the next reader looking for where YAML is rendered finds the wrong file first. It is also a fork of the same concern `document_yaml.py` now owns (Rule 27), and the `api/tests` reference makes an API-layer test depend on a GUI helper for a property (`Sensor.to_yaml` needs no temp file, Gap 88) that belongs to `Sensor`.
+**Suggested fix**: decide between two, not both. (c) **delete-as-unused** — drop the module, re-point `test_right_rail`'s four assertions at `document_yaml.serialize_document` (identical text for a plain session) and rewrite `test_serialize_yaml_no_temp_file` against `Sensor.to_yaml` directly, which is what it is really asserting. Or (b) **stand-alone task** — actually ship the provenance tinting in the YAML modal, which is what the module was built for and what would make `line_provenance` live; that is a GUI feature, so it needs an owner nod and a `RADIANT_GUI_Architecture.md` §4.5 line. Recommend (c) unless the owner wants the tinting: nothing has asked for it in the nine phases since the tab was retired. Effort S; category A.
+
+### CU-221 — `scripts/test_docs_code.py` always reports 3 failures, so its signal is dead — RESOLVED 2026-07-28 (commit `9bec99a`)
+
+**Discovered**: multi-config user-guide coverage (`docs/multiconfig-guides`), 2026-07-26
+**Status**: RESOLVED 2026-07-28, commit `9bec99a`. **Resolution**: the fence regex now captures the info string; a fence tagged ```` ```python fragment ```` is skipped and **counted** (`Skipped (fragment): 3` in the summary, so coverage cannot shrink silently), and the three illustrative snippets in `scenario_testing.md` are tagged. Any *other* info string is a hard `UnknownFenceMarker` error that exits 1 — a typo'd marker must not quietly disable a check, which is the same failure mode this checker exists to catch. Verified: exits 0 on a clean tree (`Total: 38  Passed: 38  Failed: 0  Skipped (fragment): 3`); a `fragmnet` typo fails loudly; an untagged failing fence still runs and still fails.
+
+**File**: `scripts/test_docs_code.py` (the `^```python` extraction regex) vs. `docs/guides/scenario_testing.md:74,87,101`
+**Symptom**: `python scripts/test_docs_code.py` exits 1 with `Total: 41  Passed: 38  Failed: 3` on a clean tree. All three failures are in `docs/guides/scenario_testing.md` and are `NameError` (`row`, `snr`, `ax`) — that guide's ```python fences are deliberately *illustrative fragments* ("CORRECT: … WRONG: …" print examples, a matplotlib axis-label example), not standalone runnable snippets. The script assumes every python fence under `docs/guides/` executes.
+**Why it still matters**: the checker is the only thing that verifies guide snippets still match the API, and a tool that is red on a clean tree gets ignored — a *real* regression in a runnable snippet would land invisibly among the three known failures. It is not in the merge gate battery, which is why the red has persisted unnoticed.
+**Suggested fix**: (a) inline-fix-now, small — teach the extractor to skip fences marked as illustrative (an info-string suffix on the fence, e.g. `python title="fragment"`, or an HTML `docs-code: skip` comment immediately above the fence) and tag the three fragments in `scenario_testing.md`; then the script exits 0 on a clean tree and a failure means something. Optionally, once green, add it to the gate battery (owner's call — same boundary as CU-215). Effort S. Category A.
+
+### CU-207 — `examples/nintendo.yaml` is a committed scratch config with a hardcoded absolute data path (Rule 30 violation) — RESOLVED 2026-07-28 (commit `cc4e2c6`)
+
+**Discovered**: data-in-wheel packaging (finding 5), 2026-07-24
+**File**: `examples/nintendo.yaml:6`
+**Symptom**: `interpolated_data_dir: /Users/jforsyth/SSR_Tool/data/atmospheres` — a machine-specific absolute POSIX path pointing at the (now-relocated) repo-root data tree. The config is committed but referenced by no test; it fails to load on any machine but the author's, and now points at a directory that no longer exists after the data move to `src/radiant/data/tables/atmospheres/`.
+**Why it still matters**: Rule 30 forbids hardcoded absolute POSIX paths; a committed example that only works on one developer's machine is misleading, and the name (`nintendo.yaml`) suggests a scratch file that should not be in `examples/` at all.
+**Suggested fix**: (c) delete-as-unused, or (a) if it is a real example, rename to a descriptive slug and repoint `interpolated_data_dir` to the shipped default (unset it — the loader now resolves the bundled library) or a portable relative path. Effort S; category A.
+
 ### CU-227 — Two architecture docs name turbulence parameters that do not exist (`turbulence_enabled`, `r0_cm`) — RESOLVED 2026-07-28 (commit `b62bae4`)
 
 **Discovered**: Geometry-Flexibility Phase 3, Gap 110 turbulence upgrade (branch `gf3/degradations-metrics`), 2026-07-27.

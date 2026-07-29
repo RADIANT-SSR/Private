@@ -23,7 +23,6 @@ from radiant.api.sensor import Sensor
 from radiant.gui.main_window import RADIANTMainWindow
 from radiant.gui.widgets import actionable_error_dialog as aed
 from radiant.gui.widgets.pin_picker_dialog import PinPickerDialog
-from radiant.gui.yaml_format import serialize_yaml
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
 _WAIT_MS = 15000
@@ -130,7 +129,7 @@ class TestYamlEditor:
         dialog = window.open_yaml_editor()
         qtbot.addWidget(dialog)
         assert dialog is not None
-        assert dialog.yaml_text() == serialize_yaml(window.sensor)
+        assert dialog.yaml_text() == window.sensor.to_yaml(scope="inputs")
         assert "aperture_diameter_m: 0.3" in dialog.yaml_text()
 
     def test_valid_apply_swaps_config_and_reevaluates(self, qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -148,7 +147,7 @@ class TestYamlEditor:
             dialog.apply_button.click()
 
         # The live sensor was swapped and the whole GUI refreshed: SNR moved.
-        assert "aperture_diameter_m: 0.9" in serialize_yaml(window.sensor)
+        assert "aperture_diameter_m: 0.9" in window.sensor.to_yaml(scope="inputs")
         snr_after = window.right_rail.pinned.cards["snr"].value_text()
         assert snr_after != snr_before
         # A successful Apply closes the modal.
@@ -159,7 +158,7 @@ class TestYamlEditor:
     ) -> None:
         """Apply with invalid YAML shows the actionable error; the live config is untouched."""
         window = _load_window(qtbot)
-        before = serialize_yaml(window.sensor)
+        before = window.sensor.to_yaml(scope="inputs")
         sensor_obj = window.sensor
 
         shown: list[aed.ActionableErrorDialog] = []
@@ -176,7 +175,7 @@ class TestYamlEditor:
         assert len(shown) == 1
         assert applied == []  # configApplied did not fire
         assert window.sensor is sensor_obj  # same live sensor object
-        assert serialize_yaml(window.sensor) == before  # unchanged via the public surface
+        assert window.sensor.to_yaml(scope="inputs") == before  # unchanged via the public surface
         # The dialog stays open with the bad text (not accepted/closed).
         assert dialog.result() != QDialog.DialogCode.Accepted
         assert "broken" in dialog.yaml_text()

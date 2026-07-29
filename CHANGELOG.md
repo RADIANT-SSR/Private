@@ -20,6 +20,26 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **PSF plots read in focal-plane micrometres, not sample indices (CU-241).**
+  `result.plot.psf()` and `psf_pixel_grid()` previously labelled their axes in raw
+  PSF sample numbers (e.g. 500–560 on a 1024 grid), so the reader could not tell how
+  large the blur was without converting through the sample spacing — while the title
+  quoted the detector pitch in µm. Both axes are now µm on the focal plane, measured
+  from the PSF core, and the pixel outline and pixel-boundary gridlines share the
+  same transform. A degenerate grid (no usable sample spacing) still falls back to
+  sample axes rather than inventing a physical scale. The colorbar is also sized so
+  it no longer takes a third of a narrow card, and a plot column placed beside an
+  embedded panel now has a minimum readable width so the panel cannot squeeze the
+  figures into an unreadable strip.
+
+### Fixed
+- **Scenario 4.3's GUI baseline reloads in a clean checkout again (CU-273).** The
+  CU-253 baseline regeneration rewrote its `user_radiance_path` from the committed
+  `inputs/` copy to a gitignored `outputs/derived/` path, so the baseline failed to
+  load anywhere the scenario had not just been run. The generator defect that caused
+  it is tracked as CU-273.
+
 ### Fixed
 - **Results-affecting: the simple atmosphere's molecular (Rayleigh) optical depth was
   ~8× too large in VIS/NIR (CU-253).** `0.0088·λ⁻⁴·⁰⁹` is the published **total

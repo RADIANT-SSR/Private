@@ -93,6 +93,16 @@ _PLOT_MIN_HEIGHT: int = 240
 # theme token — the QSS owns colour and type, this owns only spacing between figures).
 _PLOT_BLOCK_SPACING_PX: int = 8
 
+# Floor on the width of a plot column when an embedded panel sits beside it
+# (PANEL_BESIDE). A matplotlib figure squeezed below roughly this width cannot lay
+# out its title, colorbar and axis labels without overlapping or clipping them —
+# constrained_layout has nowhere left to go. The Detector "Detector + PSF" tab hit
+# exactly that: the pixel illustration took half the pane and both figures were
+# crushed into a ~250 px column with a clipped title and an overstruck colorbar
+# (CU-241, third instance). The splitter stays user-draggable; this only stops the
+# *initial* division from starving the figures.
+_PLOT_MIN_WIDTH_PX: int = 420
+
 # The shape-dimension parameters the geometry side panel edits (bounds/units from the
 # schema; this list is the read/sync surface — the panel owns the shape→subset matrix).
 _SHAPE_DIMENSION_PATHS: tuple[str, ...] = (
@@ -566,10 +576,16 @@ class StagePane(QWidget):
             # the table needs enough width to show its terms, not half the pane.
             split = QSplitter(Qt.Orientation.Horizontal, parent)
             split.setObjectName("stagePanelSplit")
+            plots_host.setMinimumWidth(_PLOT_MIN_WIDTH_PX)
             split.addWidget(plots_host)
             split.addWidget(panel)
             split.setStretchFactor(0, 3)
             split.setStretchFactor(1, 2)
+            # The figures are the point of the tab; the panel annotates them. Neither
+            # may be collapsed to nothing by a stray drag, and the panel's own size
+            # hint must not push the figures below the readable floor (CU-241).
+            split.setCollapsible(0, False)
+            split.setCollapsible(1, False)
             layout.addWidget(split)
             return
 

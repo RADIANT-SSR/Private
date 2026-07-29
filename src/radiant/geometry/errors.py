@@ -12,7 +12,7 @@ class GeometrySpecificationError(RadiantError):
 
     Raised when two input modes imply disagreeing values for the same
     canonical quantity (e.g. ``geometry.path_zenith_rad`` and
-    ``geometry.sensor_off_nadir_rad`` both user-set but inconsistent),
+    ``geometry.sensor_off_boresight_rad`` both user-set but inconsistent),
     or when mutually exclusive entries are combined
     (``local_solar_time_h`` and ``ltan_h``).
     """

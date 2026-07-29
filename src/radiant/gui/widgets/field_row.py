@@ -67,7 +67,7 @@ VALUE_BOX_MAX = 280
 class ElidingLabel(QLabel):
     """A field label that elides with an ellipsis instead of forcing its full text width.
 
-    The geometry/target field labels are raw dot-path leaves (e.g. ``sensor_off_nadir_rad``,
+    The geometry/target field labels are raw dot-path leaves (e.g. ``sensor_off_boresight_rad``,
     ``shape_radius_m``); a plain :class:`QLabel` demands its full text width as a hard
     minimum, which pushed the field row past the right-column accordion and tripped its
     horizontal scrollbar (owner bug 2026-07-14). This label reports a *small* minimum width

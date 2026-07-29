@@ -47,6 +47,7 @@ unchanged.  Rule 17 — no silent failure.
 
 from __future__ import annotations
 
+import math
 import warnings
 from dataclasses import dataclass
 from typing import Literal, overload
@@ -643,8 +644,8 @@ def assemble_target_at_aperture(
     # --- T7IntensityAtSource — user-supplied I(λ) for point sources ---
     if isinstance(target, T7IntensityAtSource):
         if report_components:
-            return _components_t7(target, atm)
-        return _assemble_t7(target, atm)
+            return _components_t7(target, atm, los)
+        return _assemble_t7(target, atm, los)
 
     # --- T5 but target_location != at_aperture — already blocked by
     #     T5AtAperture.__post_init__, but guard anyway. ---
@@ -855,9 +856,50 @@ def _components_t6(
     )
 
 
+def _warn_if_intensity_door_ignores_an_eclipse(
+    atm: AtmosphericQuantities,
+    los: LineOfSightGeometry | None,
+) -> None:
+    """Warn when a lit scene's intensity-door target is actually in shadow (CU-259).
+
+    The T7 door consumes the user's I(λ) verbatim: there is no ρ, no solar leg,
+    and therefore nothing for ``tau_sun`` to multiply.  That is *correct* for a
+    self-emitting object (a hot plume does not dim in the Earth's shadow) and
+    silently wrong for a sunlit one (a spacecraft entering eclipse goes dark).
+    RADIANT cannot tell the two apart from I(λ) alone — resolving that is the
+    illumination-aware door of Gap 114 — so the honest v1 behaviour is to
+    compute the number and say plainly what it does not include (Rule 17).
+
+    The warning fires only in the case that actually misleads: the scene
+    **declares a sun** (``theta_s`` is set, i.e. day mode) and the GF-9
+    shadow-height verdict has zeroed ``tau_sun`` for this target. A night scene
+    carries ``theta_s = None`` and says nothing, so a thermal intensity source
+    at night stays quiet.
+    """
+    if los is None or los.theta_s is None:
+        return
+    if float(np.max(atm.tau_sun)) > 0.0:
+        return
+    warnings.warn(
+        "T7IntensityAtSource: the scene is lit (theta_s = "
+        f"{math.degrees(los.theta_s):.2f}°) but this target is fully eclipsed — "
+        "the GF-9 shadow-height verdict set tau_sun = 0 at every wavelength. The "
+        "intensity door consumes I(lambda) verbatim, so the reported signal is the "
+        "UNATTENUATED one: if your I(lambda) is reflected sunlight the true signal "
+        "is essentially zero, and SNR / detection range are meaningless here. If "
+        "I(lambda) is self-emission (a hot body), the number is correct and this "
+        "warning does not apply. Supply a self-emitted I(lambda), move the epoch "
+        "out of eclipse, or model the target with a reflective descriptor "
+        "(T2/T3) whose solar leg tau_sun does scale.",
+        UserWarning,
+        stacklevel=3,
+    )
+
+
 def _assemble_t7(
     target: T7IntensityAtSource,
     atm: AtmosphericQuantities,
+    los: LineOfSightGeometry | None = None,
 ) -> np.ndarray:
     """T7 user-intensity-at-source assembly: (I/A_fict)·τ_up + L_path_up.
 
@@ -875,6 +917,7 @@ def _assemble_t7(
     point-source form ``I · A_collect / R²``.  See ADR-0004.
     """
     assert target.I_t_source is not None  # constructor invariant
+    _warn_if_intensity_door_ignores_an_eclipse(atm, los)
     I_source = _extract_sd_values(target.I_t_source, atm)
     L_source = I_source / T7IntensityAtSource.REFERENCE_AREA_M2
     return np.asarray(L_source * atm.tau_up + atm.L_path_up, dtype=np.float64)
@@ -883,6 +926,7 @@ def _assemble_t7(
 def _components_t7(
     target: T7IntensityAtSource,
     atm: AtmosphericQuantities,
+    los: LineOfSightGeometry | None = None,
 ) -> AssemblyComponents:
     """Per-term T7 decomposition (Stage 6 introspection).
 
@@ -891,6 +935,7 @@ def _components_t7(
     are identically zero (ADR-0004: T7 has no reflective branch).
     """
     assert target.I_t_source is not None
+    _warn_if_intensity_door_ignores_an_eclipse(atm, los)
     I_source = _extract_sd_values(target.I_t_source, atm)
     L_source = I_source / T7IntensityAtSource.REFERENCE_AREA_M2
     zeros = np.zeros_like(atm.wavelength_um, dtype=np.float64)

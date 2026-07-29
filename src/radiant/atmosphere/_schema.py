@@ -457,6 +457,32 @@ FRIED_PARAMETER_M = ParameterDef(
     ),
 )
 
+R0_REFERENCE_WAVELENGTH_UM = ParameterDef(
+    name="atmosphere.r0_reference_wavelength_um",
+    description=(
+        "Wavelength [µm] that atmosphere.r0_m is quoted at (CU-228). Seeing is "
+        "habitually reported at 0.5 µm, but r₀ is strongly wavelength-dependent "
+        "(r₀ ∝ λ^(6/5)), so an r₀ entered at 500 nm and applied at 4 µm is ~8x "
+        "too small — a silent order-of-magnitude error in the turbulence MTF. "
+        "When set, r0_resolution rescales the entered value to the band centre "
+        "by (λ_band / λ_ref)^(6/5). The default 0.0 means 'the value I entered "
+        "is already at the operating wavelength' and preserves the pre-CU-228 "
+        "behaviour bit-identically. Ignored unless atmosphere.r0_m is set "
+        "directly (a Cn² profile derives r₀ at the band centre already)."
+    ),
+    dtype=float,
+    canonical_unit="um",
+    input_unit="um",
+    default=0.0,
+    bounds=(0.0, 100.0),
+    tags=frozenset({"atmosphere", "turbulence"}),
+    default_justification=(
+        "0.0 is the Rule-12 'not set' sentinel: it keeps every existing config "
+        "bit-identical, because rescaling by an undeclared reference would "
+        "silently change results for scenes that never opted in."
+    ),
+)
+
 CN2_PROFILE = ParameterDef(
     name="atmosphere.cn2_profile",
     description=(
@@ -589,6 +615,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     INTERPOLATION_METHOD,
     # Turbulence
     FRIED_PARAMETER_M,
+    R0_REFERENCE_WAVELENGTH_UM,
     CN2_PROFILE,
     CN2_HV_WIND_RMS_M_S,
     CN2_HV_GROUND_STRENGTH,

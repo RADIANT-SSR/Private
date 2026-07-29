@@ -134,7 +134,7 @@ class TestErrorPredicate:
 
     def test_unrelated_geometry_error_is_not_this_cards(self) -> None:
         """A viewing over-spec is the mode form's conflict, not the scene-class card's."""
-        ctx = {"geometry.path_zenith_rad": 0.5, "geometry.sensor_off_nadir_rad": 0.1}
+        ctx = {"geometry.path_zenith_rad": 0.5, "geometry.sensor_off_boresight_rad": 0.1}
         assert not names_scene_class_assertion("Over-specified viewing geometry", ctx)
 
 
@@ -243,7 +243,7 @@ class TestSceneClassPanel:
     def test_unrelated_error_leaves_the_card_alone(self, qtbot, sensor: Sensor) -> None:  # type: ignore[no-untyped-def]
         """A viewing over-spec is not this card's conflict."""
         panel = _panel(qtbot, sensor)
-        ctx = {"geometry.path_zenith_rad": 0.5, "geometry.sensor_off_nadir_rad": 0.1}
+        ctx = {"geometry.path_zenith_rad": 0.5, "geometry.sensor_off_boresight_rad": 0.1}
         assert not panel.highlight_error("Over-specified viewing geometry", ctx)
         assert not panel.is_conflicting()
 

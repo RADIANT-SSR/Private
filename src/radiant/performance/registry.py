@@ -458,9 +458,30 @@ _register(
 )
 _register(
     MetricSpec(
+        name="diffraction_limit_target_plane_m",
+        unit="m",
+        description=(
+            "Diffraction-limited resolution element at the target plane "
+            "(angular limit × slant range). No incidence projection and no "
+            "ground-plane assumption, so it is meaningful for every LOS "
+            "direction — including up-looking scenes, where the GSD family is "
+            "correctly absent."
+        ),
+        requires_metrics=frozenset({"diffraction_limit_angular_urad"}),
+    )
+)
+_register(
+    MetricSpec(
         name="diffraction_limit_ground_m",
         unit="m",
-        description="Diffraction-limited ground resolution (angular limit × range).",
+        description=(
+            "DEPRECATED (CU-231) — use diffraction_limit_target_plane_m. Same "
+            "value, published under both keys for back-compatibility. The old "
+            "name claimed a ground projection the computation never performed "
+            "(it is angular × slant range), which read as an inconsistency when "
+            "it kept publishing beside an absent gsd_* family for an up-looking "
+            "scene."
+        ),
         requires_metrics=frozenset({"diffraction_limit_angular_urad"}),
     )
 )

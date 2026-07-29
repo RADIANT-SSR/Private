@@ -31,7 +31,7 @@ Since the geometry core became direction-general, **every viewing angle a
 user enters is referenced to the path's LOWER endpoint**:
 
 * ``path_zenith_rad`` (V1) is the LOS zenith *at the lower endpoint*;
-* ``sensor_off_nadir_rad`` (V2) is an off-**boresight** angle whose
+* ``sensor_off_boresight_rad`` (V2) is an off-**boresight** angle whose
   reference axis is resolved from the altitudes — nadir when the sensor is
   the upper endpoint, zenith when it is the lower one;
 * ``elevation_angle_rad`` (V4) is the elevation above the horizontal *at
@@ -250,8 +250,8 @@ def resolve_viewing(params: ParameterSet) -> ViewingResolution:
                 ),
             )
         )
-    if _provided(params, "geometry.sensor_off_nadir_rad"):
-        eta_in = float(params.get("geometry.sensor_off_nadir_rad"))
+    if _provided(params, "geometry.sensor_off_boresight_rad"):
+        eta_in = float(params.get("geometry.sensor_off_boresight_rad"))
         # V2 is an off-BORESIGHT angle: the reference axis is the sensor's
         # nadir when the sensor is the upper endpoint (the historical
         # off-nadir look angle, converted by the sine rule exactly as
@@ -259,7 +259,7 @@ def resolve_viewing(params: ParameterSet) -> ViewingResolution:
         # in which case the entered angle already *is* ζ_low.
         candidates.append(
             (
-                "geometry.sensor_off_nadir_rad",
+                "geometry.sensor_off_boresight_rad",
                 theta_o_from_eta(eta_in, h_sensor, h_target)
                 if direction == "down"
                 else _theta_o_from_lower_zenith(eta_in, direction, h_sensor, h_target),
@@ -664,7 +664,7 @@ def check_range_consistency(
 
     angle_entries = (
         "geometry.path_zenith_rad",
-        "geometry.sensor_off_nadir_rad",
+        "geometry.sensor_off_boresight_rad",
         "geometry.ground_range_m",
         "geometry.elevation_angle_rad",
     )
@@ -696,7 +696,7 @@ def check_range_consistency(
             f"h_sensor = {viewing.h_sensor_m:.6g} m). The user range drives "
             f"regime classification and detection range; spatial/ground "
             f"metrics use the default-nadir geometry. Set a viewing angle "
-            f"(e.g. geometry.path_zenith_rad or geometry.sensor_off_nadir_rad) "
+            f"(e.g. geometry.path_zenith_rad or geometry.sensor_off_boresight_rad) "
             f"to make the scene self-consistent (CU-093)."
         ),
         UserWarning,

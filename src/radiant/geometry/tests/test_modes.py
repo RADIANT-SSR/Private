@@ -8,6 +8,7 @@ contract (defaults are inert).
 from __future__ import annotations
 
 import math
+import warnings
 
 import pytest
 
@@ -65,10 +66,10 @@ class TestViewingModes:
 
     def test_v2_off_nadir_derives_theta_o(self) -> None:
         eta = 0.5
-        v = resolve_viewing(make_params(geometry__sensor_off_nadir_rad=eta))
+        v = resolve_viewing(make_params(geometry__sensor_off_boresight_rad=eta))
         assert v.theta_o_rad == pytest.approx(theta_o_from_eta(eta, H_LEO, 0.0), rel=1e-12)
         assert v.eta_rad == pytest.approx(eta, rel=1e-9)
-        assert v.mode == "geometry.sensor_off_nadir_rad"
+        assert v.mode == "geometry.sensor_off_boresight_rad"
 
     def test_v3_ground_range_derives_theta_o(self) -> None:
         theta_ref = 0.7
@@ -91,7 +92,7 @@ class TestViewingModes:
         v = resolve_viewing(
             make_params(
                 geometry__path_zenith_rad=theta_o,
-                geometry__sensor_off_nadir_rad=eta,
+                geometry__sensor_off_boresight_rad=eta,
             )
         )
         assert v.theta_o_rad == pytest.approx(theta_o, rel=1e-9)
@@ -103,11 +104,11 @@ class TestViewingModes:
                 make_params(
                     geometry__path_zenith_rad=0.6,
                     # 0.6 rad off-nadir at LEO implies theta_o ≈ 0.65 — >1% off.
-                    geometry__sensor_off_nadir_rad=0.6,
+                    geometry__sensor_off_boresight_rad=0.6,
                 )
             )
         msg = str(exc.value)
-        assert "path_zenith_rad" in msg and "off_nadir" in msg
+        assert "path_zenith_rad" in msg and "off_boresight" in msg
 
     def test_three_way_disagreement_raises(self) -> None:
         with pytest.raises(GeometrySpecificationError):
@@ -204,11 +205,11 @@ class TestUpLookingViewing:
         v2 = resolve_viewing(
             uplooking_params(
                 geometry__target_altitude_m=20_000.0,
-                geometry__sensor_off_nadir_rad=angle,
+                geometry__sensor_off_boresight_rad=angle,
             )
         )
         assert v2.theta_o_rad == pytest.approx(v1.theta_o_rad, rel=1e-12)
-        assert v2.mode.startswith("geometry.sensor_off_nadir_rad")
+        assert v2.mode.startswith("geometry.sensor_off_boresight_rad")
 
     def test_v4_elevation_is_read_at_the_sensor(self) -> None:
         elev = math.radians(35.0)
@@ -466,3 +467,26 @@ class TestKinematics:
                     geometry__ground_speed_m_s=250.0,  # aircraft speed at LEO
                 )
             )
+
+
+class TestOffBoresightDeprecatedAlias:
+    """CU-247 — the rename must not break a single saved config or script."""
+
+    def test_old_dotpath_still_sets_the_parameter(self) -> None:
+        """`geometry.sensor_off_nadir_rad` warn-and-redirects to the new name."""
+        params = ParameterSet(list(ALL_PARAMETERS))
+        params.set("geometry.sensor_altitude_m", 500_000.0)
+        with pytest.warns(DeprecationWarning, match="sensor_off_nadir_rad"):
+            params.set("geometry.sensor_off_nadir_rad", 0.25)
+        params.resolve()
+        assert params.get("geometry.sensor_off_boresight_rad") == pytest.approx(0.25)
+
+    def test_old_and_new_names_are_one_parameter(self) -> None:
+        """Not two doors: the alias is the same slot, so mode detection sees one entry."""
+        params = ParameterSet(list(ALL_PARAMETERS))
+        params.set("geometry.sensor_altitude_m", 500_000.0)
+        params.set("geometry.sensor_off_boresight_rad", 0.3)
+        params.resolve()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            assert params.get("geometry.sensor_off_nadir_rad") == pytest.approx(0.3)

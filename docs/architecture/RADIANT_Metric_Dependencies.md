@@ -175,7 +175,7 @@ EffectivePSF
 ├── target motion smear                       (● target.velocity_x_m_s, ● target.velocity_y_m_s)
 ├── jitter                                    (● platform.jitter_rms_urad)
 ├── TDI misalignment                          (● detector.tdi_misalign_pixels)
-└── turbulence                                (● atmosphere.turbulence_enabled, ● atmosphere.r0_cm)
+└── turbulence                                (● atmosphere.r0_m, ○ atmosphere.cn2_profile)
 ```
 
 ---

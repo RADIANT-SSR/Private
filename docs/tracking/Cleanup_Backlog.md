@@ -12,6 +12,16 @@
 
 ## Open
 
+### CU-270 — `ruff check` still skips `scripts/` and `dev_tools/`, where 14 violations sit unseen
+
+**Discovered**: Backlog-Reduction Track A, Wave A1 (CU-252 fix), 2026-07-28 — surfaced by trialling a wider path list on the lint gate.
+**Status**: Open.
+**File**: `.github/workflows/ci.yml` (the `Ruff lint` step) and `CLAUDE.md` (gate battery + "Running Tests Locally").
+**Symptom**: CU-252 widened `ruff format --check` to `src/ tests/ scripts/ dev_tools/`, but `ruff check` remains `src/ tests/` (its CU-089 scope). Running it over the two uncovered trees reports **14 errors** — E501 long lines and I001 unsorted import blocks, 12 of them `--fix`-able — in `scripts/build_manual.py`, `scripts/capture_option_c_baseline.py` and siblings. `pyproject.toml` declares no ruff excludes, so these trees were never deliberately exempted; they were simply never added to the gate's path list.
+**Why it still matters**: the same blind spot CU-252 documents, one check over. The formatter and the linter now disagree about which trees are governed, which is the state that lets drift accumulate unnoticed — and `scripts/` holds the gate tooling itself (`check_org_rules.py`, `gen_param_reference.py`).
+**Suggested fix**: (a) inline-fix — `ruff check scripts/ dev_tools/ --fix`, hand-fix the two remaining, then widen the CI step and both CLAUDE.md gate lists to the same four-tree path list the formatter now uses. Deliberately **not** bundled into CU-252, which is a pure-formatting change; this one alters what the lint gate rejects. Effort XS; category A. Related: [[CU-252]], [[CU-089]].
+
+
 ### CU-253 — Simple-model Rayleigh: the dimensionless total vertical optical depth is used as a km⁻¹ extinction coefficient (~8× VIS inflation)
 
 **Discovered**: Scenario 10.3 published-extinction cross-check (branch `gf/phase5-validation`), 2026-07-28.

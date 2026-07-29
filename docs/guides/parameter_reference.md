@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 183**
+**Total parameters: 184**
 
 ## source
 
@@ -67,6 +67,7 @@
 | `atmosphere.modtran.tape7_up_path` | str |  | --- | --- | Optional target→sensor up-leg tape7 file for airborne targets (Gap 94, file flavor). Requires atmosphere.modtran.tape7_path (which then supplies the ground→sensor full column the background branch needs). When set, tau_up and L_path_up (the target→sensor partial column) come from this file — a MODTRAN run with H2 = the target altitude — enabling h_tgt > 0 on the file-import path. The user owns geometry consistency: nothing in the file records H2, so this file must actually be the run matching the scenario's target altitude and LOS zenith. Unset, airborne targets are rejected on the file-import path. |
 | `atmosphere.precipitable_water_cm` | float | 1.4 | cm | (0.0, 10.0) | Total column precipitable water in centimetres of liquid-equivalent water vapour. Drives the 5-band water-vapor extinction fit. |
 | `atmosphere.r0_m` | float | 0.0 | m | (0.0, 10.0) | Fried coherence diameter r₀ [m] at the operating wavelength. Controls long-exposure Kolmogorov turbulence MTF. Set to 0 to disable turbulence effects. |
+| `atmosphere.r0_reference_wavelength_um` | float | 0.0 | um | (0.0, 100.0) | Wavelength [µm] that atmosphere.r0_m is quoted at (CU-228). Seeing is habitually reported at 0.5 µm, but r₀ is strongly wavelength-dependent (r₀ ∝ λ^(6/5)), so an r₀ entered at 500 nm and applied at 4 µm is ~8x too small — a silent order-of-magnitude error in the turbulence MTF. When set, r0_resolution rescales the entered value to the band centre by (λ_band / λ_ref)^(6/5). The default 0.0 means 'the value I entered is already at the operating wavelength' and preserves the pre-CU-228 behaviour bit-identically. Ignored unless atmosphere.r0_m is set directly (a Cn² profile derives r₀ at the band centre already). |
 | `atmosphere.standard_atmosphere` | str | us_standard | --- | --- | Standard atmosphere profile selector. Used by the simple model for the path-mean temperature lookup and aerosol/H2O scale heights. |
 | `atmosphere.tabulated_downwelling_file` | str |  | --- | --- | Path to CSV file containing tabulated downwelling atmospheric emission [W/m^2/sr/um]. Optional; defaults to zeros if not provided. |
 | `atmosphere.tabulated_path_radiance_file` | str |  | --- | --- | Path to CSV or NPZ file containing tabulated path radiance [W/m^2/sr/um]. Required when atmosphere.model='tabulated'. |

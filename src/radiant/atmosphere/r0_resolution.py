@@ -41,6 +41,7 @@ other wavelength uses the ``"direct"`` path.
 from __future__ import annotations
 
 import math
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -126,8 +127,16 @@ def resolve_fried_parameter(
     except (KeyError, TypeError):
         profile_name = CN2_PROFILE_DIRECT
 
+    # CU-228: the wavelength the user's r₀ is quoted at. Only the direct path uses
+    # it — a Cn² profile derives r₀ at the band centre already, so there is nothing
+    # to rescale.
+    try:
+        r0_reference_um: float = float(params.get("atmosphere.r0_reference_wavelength_um"))
+    except (KeyError, TypeError):
+        r0_reference_um = 0.0
+
     if profile_name == CN2_PROFILE_DIRECT:
-        return _direct_resolution(r0_direct, profile_name, wavelength_um)
+        return _direct_resolution(r0_direct, profile_name, wavelength_um, r0_reference_um)
 
     if r0_is_user_set and r0_direct == 0.0:
         raise TurbulenceSpecificationError(
@@ -173,7 +182,7 @@ def resolve_fried_parameter(
         tabulated=tabulated_profile,
     )
     if profile is None:  # pragma: no cover — only "direct" returns None
-        return _direct_resolution(r0_direct, profile_name, wavelength_um)
+        return _direct_resolution(r0_direct, profile_name, wavelength_um, r0_reference_um)
 
     wave_type: str = str(params.get("atmosphere.turbulence_wave_type"))
     lam_um = _band_centre_um(wavelength_um)
@@ -248,24 +257,99 @@ def resolve_fried_parameter(
     )
 
 
+#: Kolmogorov wavelength scaling exponent: r₀ ∝ λ^(6/5).
+_R0_WAVELENGTH_EXPONENT: float = 6.0 / 5.0
+
+#: The wavelength seeing is habitually quoted at [µm]. Used only to decide whether
+#: an un-referenced r₀ looks like a mis-entered visible seeing value (CU-228).
+_HABITUAL_SEEING_WAVELENGTH_UM: float = 0.5
+
+#: How far the band centre must sit from 0.5 µm before an un-referenced r₀ is
+#: suspicious. A factor of two is well clear of any VIS/NIR band, so the warning
+#: cannot fire for a scene that really is working near the habitual wavelength.
+_REFERENCE_SUSPICION_FACTOR: float = 2.0
+
+
+def _rescale_r0_to_band(
+    r0_direct: float,
+    reference_wavelength_um: float,
+    band_centre_um: float,
+) -> tuple[float, str]:
+    """Scale an r₀ quoted at *reference_wavelength_um* to the band centre (CU-228).
+
+    Kolmogorov turbulence gives ``r₀ ∝ λ^(6/5)``, so a value measured at one
+    wavelength is simply wrong at another — the astronomer's habitual 0.5 µm
+    seeing of 10 cm corresponds to 1.2 m at 4 µm, a factor of twelve in the
+    turbulence MTF. Returns ``(r0_at_band, provenance_detail)``.
+
+    With *reference_wavelength_um* = 0 the user has declared nothing, and the
+    value passes through untouched — the pre-CU-228 behaviour, bit-identical.
+    """
+    if reference_wavelength_um <= 0.0:
+        return r0_direct, ""
+    scaled = r0_direct * (band_centre_um / reference_wavelength_um) ** _R0_WAVELENGTH_EXPONENT
+    return scaled, (
+        f"; rescaled from {r0_direct:.6g} m at {reference_wavelength_um:.4g} µm "
+        f"to {scaled:.6g} m at the {band_centre_um:.4g} µm band centre "
+        f"(r₀ ∝ λ^{_R0_WAVELENGTH_EXPONENT:.1f})"
+    )
+
+
+def _warn_if_reference_wavelength_is_missing(
+    reference_wavelength_um: float,
+    band_centre_um: float,
+) -> None:
+    """Flag an un-referenced r₀ used far from the habitual seeing wavelength (CU-228)."""
+    if reference_wavelength_um > 0.0:
+        return
+    ratio = band_centre_um / _HABITUAL_SEEING_WAVELENGTH_UM
+    if 1.0 / _REFERENCE_SUSPICION_FACTOR <= ratio <= _REFERENCE_SUSPICION_FACTOR:
+        return
+    implied = (
+        _HABITUAL_SEEING_WAVELENGTH_UM,
+        ratio**_R0_WAVELENGTH_EXPONENT,
+    )
+    warnings.warn(
+        f"atmosphere.r0_m is being applied at the {band_centre_um:.4g} µm band centre, "
+        f"but atmosphere.r0_reference_wavelength_um is unset so the entered value is "
+        f"taken as already being at that wavelength. Seeing is habitually quoted at "
+        f"{implied[0]:.1f} µm; if that is what you entered, the correct r₀ here is "
+        f"{implied[1]:.3g}x larger (r₀ ∝ λ^{_R0_WAVELENGTH_EXPONENT:.1f}) and the "
+        f"turbulence MTF is currently that much too aggressive. Set "
+        f"atmosphere.r0_reference_wavelength_um to the wavelength your r₀ is quoted "
+        f"at, or leave it unset if the value is already at the operating wavelength.",
+        UserWarning,
+        stacklevel=3,
+    )
+
+
 def _direct_resolution(
     r0_direct: float,
     profile_name: str,
     wavelength_um: npt.NDArray[np.float64],
+    reference_wavelength_um: float = 0.0,
 ) -> FriedParameterResolution:
-    """The pre-Gap-110 path: ``atmosphere.r0_m`` verbatim."""
+    """The pre-Gap-110 path: ``atmosphere.r0_m``, rescaled to the band if referenced."""
     on = r0_direct > 0.0
+    if not on:
+        return FriedParameterResolution(
+            r0_m=r0_direct,
+            mode="off",
+            profile_name=profile_name,
+            reference_wavelength_um=0.0,
+            path=None,
+            detail="turbulence off (atmosphere.r0_m = 0)",
+        )
+    band_centre = _band_centre_um(wavelength_um)
+    _warn_if_reference_wavelength_is_missing(reference_wavelength_um, band_centre)
+    r0_at_band, rescale_note = _rescale_r0_to_band(r0_direct, reference_wavelength_um, band_centre)
     return FriedParameterResolution(
-        r0_m=r0_direct,
-        mode="direct" if on else "off",
+        r0_m=r0_at_band,
+        mode="direct",
         profile_name=profile_name,
-        reference_wavelength_um=_band_centre_um(wavelength_um) if on else 0.0,
+        reference_wavelength_um=band_centre,
         path=None,
-        detail=(
-            f"r₀ = {r0_direct:.6g} m from atmosphere.r0_m (direct input)"
-            if on
-            else "turbulence off (atmosphere.r0_m = 0)"
-        ),
+        detail=f"r₀ = {r0_at_band:.6g} m from atmosphere.r0_m (direct input){rescale_note}",
     )
 
 

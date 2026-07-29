@@ -8,6 +8,7 @@ convention, and the zero-drift guarantee for the pre-Gap-110 path.
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -202,3 +203,62 @@ class TestAgreementRules:
                 GROUND_TO_SPACE,
                 np.array([]),
             )
+
+
+_MWIR_GRID = np.linspace(3.5, 5.0, 51)  # band centre = 4.25 µm
+
+
+class TestR0ReferenceWavelength:
+    """CU-228 — an r₀ quoted at one wavelength must not be applied at another.
+
+    Kolmogorov gives r₀ ∝ λ^(6/5), so the astronomer's habitual 0.5 µm seeing
+    value used verbatim in the MWIR makes the turbulence MTF about an order of
+    magnitude too aggressive.
+    """
+
+    def test_unset_reference_is_bit_identical_to_the_old_behaviour(self) -> None:
+        """The default must not move a single existing result."""
+        res = resolve_fried_parameter(_params(**{"atmosphere.r0_m": 0.10}), None, _MWIR_GRID)
+        assert res.r0_m == 0.10
+
+    def test_declared_reference_rescales_by_the_six_fifths_power(self) -> None:
+        """Hand value: 0.10 m at 0.5 µm → 0.10·(4.25/0.5)^1.2 = 1.304 m at 4.25 µm."""
+        res = resolve_fried_parameter(
+            _params(**{"atmosphere.r0_m": 0.10, "atmosphere.r0_reference_wavelength_um": 0.5}),
+            None,
+            _MWIR_GRID,
+        )
+        assert res.r0_m == pytest.approx(0.10 * (4.25 / 0.5) ** 1.2, rel=1e-12)
+        assert res.r0_m == pytest.approx(1.304, abs=0.001)
+        assert "rescaled" in res.detail  # provenance records both values
+
+    def test_reference_equal_to_the_band_is_a_no_op(self) -> None:
+        res = resolve_fried_parameter(
+            _params(**{"atmosphere.r0_m": 0.08, "atmosphere.r0_reference_wavelength_um": 0.5}),
+            None,
+            GRID,  # band centre 0.50 µm
+        )
+        assert res.r0_m == pytest.approx(0.08, rel=1e-12)
+
+    def test_unreferenced_r0_far_from_the_habitual_wavelength_warns(self) -> None:
+        """The case that is almost certainly a mis-entered visible seeing value."""
+        with pytest.warns(UserWarning, match="r0_reference_wavelength_um"):
+            resolve_fried_parameter(_params(**{"atmosphere.r0_m": 0.10}), None, _MWIR_GRID)
+
+    def test_unreferenced_r0_near_the_habitual_wavelength_is_quiet(self) -> None:
+        """No false alarm for a scene genuinely working near 0.5 µm."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            resolve_fried_parameter(_params(**{"atmosphere.r0_m": 0.10}), None, GRID)
+
+    def test_turbulence_off_is_quiet_and_unscaled(self) -> None:
+        """r₀ = 0 means off; there is nothing to rescale and nothing to warn about."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            res = resolve_fried_parameter(
+                _params(**{"atmosphere.r0_m": 0.0, "atmosphere.r0_reference_wavelength_um": 0.5}),
+                None,
+                _MWIR_GRID,
+            )
+        assert res.r0_m == 0.0
+        assert res.mode == "off"

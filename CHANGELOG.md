@@ -20,6 +20,29 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **`geometry.sensor_off_nadir_rad` renamed to `geometry.sensor_off_boresight_rad`
+  (CU-247).** Since ADR-0011 the reference axis is resolved from the altitudes — the
+  sensor's nadir when it is above the target, its zenith when below — so the old name
+  contradicted its own description and invited the wrong-hemisphere entry the
+  agreement checks exist to catch. The old dot-path remains as a **deprecated alias**
+  that warns and redirects, so existing YAML configs and scripts keep working
+  unchanged.
+- **Metric `diffraction_limit_ground_m` renamed to
+  `diffraction_limit_target_plane_m` (CU-231).** The value is `angular × slant_range`
+  with no incidence projection and no ground-plane assumption — correct for every LOS
+  direction, including up-looking scenes where the `gsd_*` family is (correctly)
+  absent, which is where the old name read as an inconsistency. **Both keys are
+  published with the identical value**; the old one is registered as deprecated. No
+  computed value changes.
+
+### Fixed
+- **A ground-based sensor keeps its ground-referenced metrics (CU-232).** GSD and the
+  diffraction limit treated `geometry.sensor_altitude_m <= 0` as "geometry not
+  available", but the schema defines 0 as a legal ground-based sensor, so those scenes
+  silently lost `gsd_*` for a reason unrelated to what they asked. Only a negative
+  altitude is now skipped.
+
 ### Added
 - **`atmosphere.r0_reference_wavelength_um` — declare what wavelength your seeing
   value is quoted at (CU-228).** Fried's parameter goes as λ^(6/5), so the

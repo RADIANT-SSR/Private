@@ -37,7 +37,7 @@ look angle ``eta`` (which depends on ``h_sensor``) to the target-side observer
 zenith ``theta_o`` (which does not).  **It is deliberately unwired** — CU-005
 resolution (owner-directed, 2026-07-10): users supply the target-side zenith
 directly via the canonical ``geometry.path_zenith_rad`` (CU-009); an
-``eta``-input surface (``geometry.sensor_off_nadir_rad`` routed through this
+``eta``-input surface (``geometry.sensor_off_boresight_rad`` routed through this
 converter, with a precedence rule against ``path_zenith_rad``) is deferred
 behind the SensorDescriptor ADR rather than adding a second, redundant way
 to specify the same look geometry today.  The converter stays tested

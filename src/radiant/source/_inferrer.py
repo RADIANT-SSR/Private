@@ -72,6 +72,7 @@ from radiant.core.descriptors import (
     T2Reflective,
     T3Mixed,
     T5AtAperture,
+    T7IntensityAtSource,
     TargetDescriptor,
     UserSpectralBackground,
     _is_mwir_spectral_data,
@@ -402,16 +403,25 @@ def _adjust_scene_los(
         intercept check keeps its legacy geometry).  See
         :func:`_no_atmosphere_h_tgt` for why the override stops at the
         down-looking case since ADR-0011.
-      * T1 (non-T2/T3) targets → solar fields stripped (CU-009 predicate:
-        a pure-thermal radiance has no solar leg).  Night mode arrives
-        already stripped from GeometryStage.
+      * T1 (pure-thermal) and the user-supplied-radiance doors → solar
+        fields stripped (CU-009 predicate: a pure-thermal radiance has no
+        solar leg).  Night mode arrives already stripped from GeometryStage.
+      * ``T7IntensityAtSource`` **keeps** the solar fields (CU-258).  The
+        intensity door says what the *target* emits; it says nothing about
+        the **sky**.  Stripping θ_s there made the atmosphere build a purely
+        thermal sky and path radiance (~1e-18 W/m²/sr/µm in the VIS), so
+        every daytime intensity-door scene lost the sky pedestal — which for
+        a visible measurement is the dominant noise term, not a correction.
     """
     if target_location == "at_aperture":
         return None
     h_tgt = (
         _no_atmosphere_h_tgt(scene_los) if target_location == "no_atmosphere" else scene_los.h_tgt
     )
-    if isinstance(target_descriptor, (T2Reflective, T3Mixed)):
+    # CU-258: T7 joins the solar-keeping set. The predicate asks "does this
+    # scene have a sun the atmosphere should know about?", not "does the target
+    # reflect?" — an intensity door still sits under a lit sky.
+    if isinstance(target_descriptor, (T2Reflective, T3Mixed, T7IntensityAtSource)):
         theta_s, delta_phi = scene_los.theta_s, scene_los.delta_phi
     else:
         theta_s, delta_phi = None, None

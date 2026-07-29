@@ -120,7 +120,7 @@ class TestModeManifest:
 
     def test_implicated_family_viewing_disagreement(self) -> None:
         """A viewing disagreement (two angle doors) localises to the viewing selector."""
-        ctx = {"geometry.path_zenith_rad": 0.5, "geometry.sensor_off_nadir_rad": 0.1}
+        ctx = {"geometry.path_zenith_rad": 0.5, "geometry.sensor_off_boresight_rad": 0.1}
         assert implicated_families("Over-specified viewing geometry", ctx) == {"viewing"}
 
     def test_implicated_family_solar_ltan_conflict(self) -> None:
@@ -235,7 +235,7 @@ class TestGeometryModeForm:
         """Selecting a viewing mode enables its field and disables the other doors."""
         form = _bound_form(qtbot, sensor)
         form.select_mode("viewing", "V2")
-        assert form.is_field_editable("geometry.sensor_off_nadir_rad")  # active door
+        assert form.is_field_editable("geometry.sensor_off_boresight_rad")  # active door
         assert not form.is_field_editable("geometry.path_zenith_rad")  # V1 door
         assert not form.is_field_editable("geometry.ground_range_m")  # V3 door
         # Anchors are always editable regardless of the active mode.
@@ -243,7 +243,7 @@ class TestGeometryModeForm:
 
         form.select_mode("viewing", "V3")
         assert form.is_field_editable("geometry.ground_range_m")
-        assert not form.is_field_editable("geometry.sensor_off_nadir_rad")
+        assert not form.is_field_editable("geometry.sensor_off_boresight_rad")
 
     def test_mode_roundtrip_via_public_api(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Set a mode's field through the public API → sensor + form both reflect it.
@@ -252,7 +252,7 @@ class TestGeometryModeForm:
         (provenance detection) and the form shows the value with the sensor agreeing.
         """
         cases = {
-            "V2": ("geometry.sensor_off_nadir_rad", 0.1),
+            "V2": ("geometry.sensor_off_boresight_rad", 0.1),
             "V3": ("geometry.ground_range_m", 2000.0),
             "V4": ("geometry.elevation_angle_rad", 1.4),
         }
@@ -285,7 +285,7 @@ class TestGeometryModeForm:
     def test_highlight_localises_and_clears(self, qtbot, sensor: Sensor) -> None:  # type: ignore[no-untyped-def]
         """A viewing conflict tints only the viewing selector; clear resets all."""
         form = _bound_form(qtbot, sensor)
-        ctx = {"geometry.path_zenith_rad": 0.5, "geometry.sensor_off_nadir_rad": 0.1}
+        ctx = {"geometry.path_zenith_rad": 0.5, "geometry.sensor_off_boresight_rad": 0.1}
         families = form.highlight_error("Over-specified viewing geometry", ctx)
         assert families == {"viewing"}
         assert form.is_conflicting("viewing")
@@ -417,7 +417,7 @@ class TestGeometryScreenIntegration:
 
         # A genuine, schema-valid pair that disagrees on θ_o → the stage over-spec error.
         window.sensor.set("geometry.path_zenith_rad", 0.5)
-        window.sensor.set("geometry.sensor_off_nadir_rad", 0.1)
+        window.sensor.set("geometry.sensor_off_boresight_rad", 0.1)
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             window.parameter_panel.parameterEdited.emit("geometry.path_zenith_rad")
 
@@ -452,7 +452,7 @@ class TestGeometryScreenIntegration:
         monkeypatch.setattr(aed.ActionableErrorDialog, "exec", lambda self: 0)
 
         window.sensor.set("geometry.path_zenith_rad", 0.5)
-        window.sensor.set("geometry.sensor_off_nadir_rad", 0.1)
+        window.sensor.set("geometry.sensor_off_boresight_rad", 0.1)
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             window.parameter_panel.parameterEdited.emit("geometry.path_zenith_rad")
         form = window.central_canvas.stage_center.pane("geometry").geometry_form
@@ -460,7 +460,7 @@ class TestGeometryScreenIntegration:
         assert form.is_conflicting("viewing")
 
         # Remove the redundant door: one θ_o source, a clean run, tint cleared.
-        window.sensor.reset("geometry.sensor_off_nadir_rad")
+        window.sensor.reset("geometry.sensor_off_boresight_rad")
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.parameter_panel.parameterEdited.emit("geometry.sensor_off_nadir_rad")
+            window.parameter_panel.parameterEdited.emit("geometry.sensor_off_boresight_rad")
         assert not form.is_conflicting("viewing")

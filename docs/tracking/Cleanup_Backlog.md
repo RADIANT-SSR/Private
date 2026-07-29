@@ -67,7 +67,8 @@
 **File**: `src/radiant/source/_inferrer.py` (T7 branch: `projected_area_m2 = 1e-12`, `angular_extent_rad = 4e-11`) vs `src/radiant/optics/stage.py::_validate_psf_regime_consistency`.
 **Symptom**: the guard reads `stage_outputs["source"]["angular_extent_rad"]`; the T7 door publishes sentinels regardless of a user-set `geometry.target.projected_area_m2`, so a 500 m² target at 25 km (≈20 pixels wide) evaluates silently as a point source.
 **Why it still matters**: the matrix-section-7 validity guard is void on exactly the door IRST/SDA configurations use.
-**Suggested fix**: (a) inline-fix — when the target extent parameters are user-set alongside the T7 door, publish the real extent (guard then applies); document the truly-unknown-extent case. Effort S; category B. Related: [[CU-264]].
+**Analysis 2026-07-28 (Backlog-Reduction Batch 1) — the proposed inline fix is not safe as written.** `projected_area_m2` is doing **double duty** on the T7 path: SpectralIntegrationStage needs it to equal `A_fict` for the ADR-0004 algebra to cancel (`L·A_t = (I/A_fict)·A_fict = I`, which is what reduces the single camera equation to `I·A_collect/R²`), while the §7 guard wants the *real* extent. Publishing the real area therefore breaks the intensity door's radiometry outright. Publishing only the real `angular_extent_rad` is no safer: it feeds `optics/stage.py::_finalize_regime` (Rule 10, the **final** regime classification), so a 500 m² target at 25 km would be reclassified out of point_source and take a different radiometric path — results-affecting, and it presumes an answer to the modelling question *"what does a T7 door with a user-declared extent mean?"* The intensity door exists **for** point sources; a user who declares a 20-pixel extent alongside it is either mis-specifying, or wants an extended object the door cannot express (Gap 114).
+**Suggested fix**: (b) stand-alone, **owner-gated** — decide first whether a T7 door plus a declared extent is (i) an error to reject, (ii) a point source whose declared extent is ignored (status quo, but stated rather than silent), or (iii) a request to leave the intensity door. Only then implement: a separate guard-only extent key preserves the algebra but newly *raises* on configs that pass today. Effort M; category B/C. Related: [[CU-264]] (same boundary, also owner-gated), ADR-0004, ADR-0008, Gap 114.
 
 ### CU-257 — Point-source validity guard compares against the optics-only PSF FWHM, ignoring turbulence
 
@@ -78,24 +79,6 @@
 **Why it still matters**: blocks the shape/area door for exactly the seeing-limited SST scenes Gap 110's turbulence upgrade was built for.
 **Suggested fix**: (b) stand-alone — either move/duplicate the check after the platform kernels, or fold the r₀-derived FWHM into the bound when a turbulence profile is active. Effort M; category C. Related: Gap 110, [[CU-256]].
 
-### CU-258 — `_adjust_scene_los` strips solar geometry for the T7 intensity door, deleting the daytime sky from every intensity-door scene
-
-**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/source/_inferrer.py::_adjust_scene_los` (the CU-009 pure-thermal predicate keeps θ_s/Δφ only for T2Reflective/T3Mixed).
-**Symptom**: `T7IntensityAtSource` falls into the else-branch, so the atmosphere receives θ_s = None and builds a **purely thermal** sky/path radiance (~1e-18 W/m²/sr/µm in the VIS) even for a manifestly reflective object — the daytime sky pedestal, the dominant noise source of a visible measurement, is silently absent.
-**Why it still matters**: every intensity-door VIS/NIR scene reports noise without its dominant term.
-**Suggested fix**: (a) inline-fix — include T7 in the solar-keeping predicate (an intensity source says nothing about the *sky*). Effort S; category C. Related: Gap 114, [[CU-259]].
-
-### CU-259 — τ_sun / the GF-9 eclipse verdict never multiplies an intensity-door target: an eclipsed object reports full signal, silently
-
-**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open.
-**File**: intensity-door signal path (`source` T7 → spectral integration); `atmosphere/solar_shadow.py` publishes the verdict.
-**Symptom**: the T7 door consumes I(λ) verbatim, so τ_sun — which carries the GF-9 shadow-height eclipse verdict — never scales the target term. Re-running scenario 10.3's nominal at 30° solar depression with the object fully eclipsed (τ_sun = 0) returns the **same** 34,961 e- signal with no warning.
-**Why it still matters**: an SST pass planner reading full SNR through an eclipse is the exact silent-wrong-answer class Rule 17 forbids.
-**Suggested fix**: (a) minimum — `UserWarning` when τ_sun = 0 under an intensity descriptor; (b) proper — an illumination-aware intensity door (with Gap 114). Effort S/M; category C. Related: Gap 114, [[CU-258]].
-
 ### CU-260 — VIS/NIR provisional-sky warning is unreachable for the ground-to-space class, and the single-scatter species split underflows at the segment's arithmetic-mean altitude
 
 **Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
@@ -105,15 +88,6 @@
 **Why it still matters**: daytime/twilight SST SNR is computed against a black sky with no caveat — precisely what the band-gating decision existed to prevent.
 **Suggested fix**: (b) stand-alone — evaluate the observer-leg single-scatter on the *in-column* part of the segment (species split at the leg's in-column mean), and emit the provisional warning from the composition site. Effort M; category C. Related: Gap 108, [[CU-254]].
 
-### CU-261 — Wholly-vacuum up-looking path + SkyBackground termination raises instead of publishing the exact zero-radiance sky
-
-**Discovered**: Scenario 10.3 cross-check (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/atmosphere/topology.py::evaluate_path_topology` (returns `sky_source_radiance = None` when both endpoints ≥ `h_atm_top`) vs `source/_inferrer.py::_select_los_termination_background` + assembly.
-**Symptom**: the LOS-termination rule can still select `SkyBackground`, and assembly refuses to default it → `ParameterBoundsError` for an up-looking point_source/sub_pixel scene with both endpoints above the column — a configuration of the ADR-0011 LEO→GEO quick win (scenario 10.4's own path selects ColdSpaceBackground and runs; the raise is reachable via the sky-terminating selector).
-**Why it still matters**: the vacuum sky is exactly zero — a known value refused instead of published.
-**Suggested fix**: (a) inline-fix-now — publish the exact zero-radiance array in the vacuum branch. Effort S; category B.
-
 ### CU-262 — HV-5/7 Cn² profile is evaluated against MSL altitude, so an elevated site loses its own boundary layer (~2× optimistic seeing)
 
 **Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
@@ -121,7 +95,8 @@
 **File**: `src/radiant/atmosphere/cn2_hufnagel_valley.py` (+ `r0_path` integrating from `h_low = h_sensor` in MSL).
 **Symptom**: the HV ground term has a 100 m scale height; a site at 900 m MSL starts above its own boundary layer entirely. Chain r₀ = 14.5 cm at 0.5 µm (0.70″ seeing) where a real 0.9 km site runs 1.0–1.5″.
 **Why it still matters**: seeing-limited SST/astronomy predictions are ~2× optimistic for any non-sea-level sensor — the SST-critical case Gap 110 shipped for.
-**Suggested fix**: (a) inline-fix — evaluate the boundary-layer term on height above ground (h − h_site), keep the free-atmosphere terms on MSL, per the standard HV practice; anchor against the A&P values again. Effort S; category C. Related: Gap 110.
+**Analysis 2026-07-28 (Backlog-Reduction Batch 1) — the fix needs a concept RADIANT does not yet have, so it is not the effort-S inline change this entry assumed.** The `Cn2Profile` protocol is `cn2(altitude_m)`: there is no site elevation to subtract. The obvious proxy — the path integral's lower endpoint `h_low` — is right for the two cases that motivated the CU (a ground sensor at 900 m gives `h_low` = 900 m; an airborne sensor looking down at sea level gives `h_low` = 0) but **wrong for a level path**: an air-to-air leg at 10 km would place a 100 m-scale-height surface boundary layer at 10 km altitude, inventing turbulence that is not there. Terrain elevation is genuinely distinct from "the lowest point of this line of sight", and RADIANT carries no parameter for it — which is what the module docstring's original "a quantity RADIANT does not carry" was protecting against, and it is still true after ADR-0011 put `h_sensor` on the LOS.
+**Suggested fix**: (b) stand-alone task — add an explicit site/terrain elevation (a `geometry.site_elevation_m`-shaped parameter, defaulting to 0 to preserve today's results), evaluate **only** the HV surface term at `h − h_site` while the tropopause and middle-atmosphere terms stay on MSL, and decide per topology whether the site is the sensor's, the target's, or neither (a level path has no surface term at all). Re-anchor against Andrews & Phillips after. **Results-affecting** for every elevated-site turbulence scene. Effort M; category C (new public parameter → Rules 20/29). Related: Gap 110, [[CU-228]].
 
 ### CU-263 — Detection-range solvers freeze total noise at the reference range, making the metric reference-range-dependent
 
@@ -139,16 +114,7 @@
 **File**: `src/radiant/optics/stage.py::_validate_psf_regime_consistency`.
 **Symptom**: a declared `scene_type = 'point_source'` outside the validity band (√A_t/d > 0.1·PSF_FWHM) **raises** `ParameterBoundsError`, but a declared `'sub_pixel'` inside the point-source band is silently **promoted** to point_source with only a `UserWarning`. Same nozzle: raises at 1 km declared point_source, promoted at 2 km declared sub_pixel.
 **Why it still matters**: two declarations at the same boundary get opposite enforcement severity; the promote path changes the applied radiometry (EE_box handling) under a warning many runners suppress.
-**Suggested fix**: (b) stand-alone policy alignment (owner may have a preference: both warn, or both raise). Effort S; category B. Related: [[CU-256]], ADR-0008.
-
-### CU-265 — `optics.optics_temperature_K` is inert in scalar-transmission mode unless `optics.scalar_emissivity` is also set (silent no-op)
-
-**Discovered**: Scenario 10.1 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/optics/_schema.py:345` (`scalar_emissivity` default 0.0, the 'refractive lump' assumption).
-**Symptom**: an uncooled 293.15 K MWIR telescope evaluates bit-identically to an 80 K one (background_e = 1.753e5 e- at 293.15/200/80 K; nearfield_e = 0.0) — the temperature is accepted, bounds-validated, published, and consumed by nothing.
-**Why it still matters**: a silent-no-op trap for exactly the uncooled-MWIR sensor class the ground-to-air scenes introduce; the user believes warm-optics emission is modelled.
-**Suggested fix**: (a) inline-fix — `UserWarning` when `optics_temperature_K` is user-set while `scalar_emissivity` is 0 in scalar mode (mirror of CU-085's pattern), naming the two ways to make it live. Effort S; category B.
+**Suggested fix**: (b) stand-alone policy alignment — **owner preference required** (both warn, or both raise); not taken autonomously in the 2026-07-28 batch for that reason. Worth deciding together with [[CU-256]], which is the same declared-extent boundary seen from the intensity door. Effort S; category B. Related: [[CU-256]], ADR-0008.
 
 ### CU-267 — Simple-model gas-region table is piecewise-constant, so τ(λ) steps discontinuously at region edges
 
@@ -167,15 +133,6 @@
 **Symptom**: the readout's display label for the published `eta_rad` asserts a nadir reference; `RADIANT_Geometry.md` §3 defines `eta_rad` as the sensor-vertex interior angle, "the familiar off-nadir look angle when the sensor is above the target, **obtuse when below**". For an up-looking scene the label claims a reference the value does not have. The Phase-4 wording pass fixed the V2 *input* label ("Off-boresight angle") but the derived-output label was out of that task's scope. The `"off_nadir"` viewer identifier is internal (not displayed) but embeds the same pre-ADR-0011 framing.
 **Why it still matters**: an analyst reading the Geometry readout for a ground-to-air scene sees "Nadir (off-nadir) angle 148°" — a physically wrong caption on a correct number.
 **Suggested fix**: (a) inline-fix-now — re-label to a direction-neutral wording (e.g. "Look angle at sensor (η)"), refresh the docstring, and optionally sweep the internal `"off_nadir"` identifier in the same pass. Effort S; category A. Related: [[CU-247]].
-
-### CU-247 — `geometry.sensor_off_nadir_rad` parameter NAME contradicts its off-boresight meaning
-
-**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, wording agent finding), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/geometry/_schema.py` (`geometry.sensor_off_nadir_rad`), rendered as the raw leaf `sensor_off_nadir_rad` by `gui/widgets/field_row.py`.
-**Symptom**: the V2 schema description (correctly, per ADR-0011) defines the entry as an off-**boresight** angle whose reference axis is resolved from the altitudes, but the dot-path still says `off_nadir`. The GUI now shows the correct combo label "Off-boresight angle (V2)" directly above a field labelled `sensor_off_nadir_rad`.
-**Why it still matters**: the parameter name is a public surface users script against; name-vs-meaning contradiction invites exactly the wrong-hemisphere entry ADR-0011's agreement checks exist to catch.
-**Suggested fix**: (b) stand-alone task — either rename with a deprecated warn-and-redirect alias (the `source.target.range_m` precedent; Rule 20 doc + CHANGELOG + config back-compat), or Decline with a recorded rationale that the legacy name is kept for config back-compat. Effort M; category B. Related: [[CU-246]].
 
 ### CU-248 — GUI never closes the matplotlib figures it consumes from `result.plot.*`
 
@@ -306,33 +263,6 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 **Symptom**: the headings disagree with the tree by up to 3×. Measured 2026-07-27 (`ls src/radiant/<pkg>/*.py | wc -l` vs `ls src/radiant/<pkg>/tests/test_*.py | wc -l`): `core/` says 18+15, is 24+20; `source/` says 40+27, is 18+30; `optics/` says 30+19, is 29+23; `platform/` says 6+6, is 8+6; `detector/` says 14+9, is 11+10; `readout/` says 10+8, is 14+10; `performance/` says 28+16, is 48+30. `geometry/` has no heading at all despite being a stage package since ADR-0006. This PR corrected only the `atmosphere/` line (12+12 → 34+35) because Rule 20 required it for the section it touched; the rest are untouched, so the doc is now consistently wrong *except* in one place.
 **Why it still matters**: the counts are the only quantitative claim in the file and are what a reader uses to judge whether the tree listing beneath them is complete. Several listings are also missing files outright (the `atmosphere/` listing named 8 of 34 modules before this PR). A reader who trusts the counts will assume the enumerated modules are the whole package.
 **Suggested fix**: (a) inline-fix-now in a doc-only PR — either regenerate the counts and the per-package listings from the tree with a small script under `scripts/` (and add it to the `check_org_rules.py` gate so it cannot drift again), or delete the counts entirely and keep only the annotated listings. The script route is preferable: a hand-maintained count of a growing tree is a Rule-20 drift generator by construction. Effort S; category A.
-
-### CU-228 — `atmosphere.r0_m` has no declared reference wavelength, so a directly-entered seeing value is silently applied at the wrong λ
-
-**Discovered**: Geometry-Flexibility Phase 3, Gap 110 turbulence upgrade (branch `gf3/degradations-metrics`), 2026-07-27.
-**Status**: Open — the *doc* claim that misled was corrected in this PR; the parameter behaviour is unchanged and undefended.
-**File**: `src/radiant/atmosphere/_schema.py` — `FRIED_PARAMETER_M` (`atmosphere.r0_m`); consumers `src/radiant/platform/stage.py` (turbulence kernel) and `src/radiant/performance/stage.py` (MTF term), both of which apply it at `epsf.wavelength_um`.
-**Symptom**: `RADIANT_Atmosphere.md` §7.1 claimed "the wavelength scaling `r₀(λ) = r₀(500 nm)·(λ/500 nm)^(6/5)` is applied automatically". No code does this: `r0_m` is handed to the Kolmogorov MTF at the PSF's own wavelength, whatever that is. A user who enters the astronomer's habitual 500 nm seeing value (r₀ = 10 cm) and runs a 4 µm MWIR scene gets a turbulence MTF ≈ 8× too aggressive, because the true MWIR r₀ is `0.10 × (4/0.5)^1.2 = 1.2 m`. The doc claim was removed in this PR (§7.1 now states the value is taken as being at the operating wavelength), so the trap is documented — but nothing detects it.
-**Why it still matters**: it is a silent order-of-magnitude error in the dominant spatial degradation for exactly the ground-based scenes Gap 110 exists to serve, and it is the *default* input door (`cn2_profile = 'direct'`). The Gap-110 profile path sidesteps it — that r₀ is computed at the band centre and is correct by construction — but the direct door remains a foot-gun.
-**Suggested fix**: (b) stand-alone task. Add `atmosphere.r0_reference_wavelength_um` (default `0.0` = "the entered value is already at the operating wavelength", preserving today's behaviour bit-identically); when set, `r0_resolution` rescales by `(λ_band / λ_ref)^(6/5)` and records both in the `FriedParameterResolution`. Emit a one-time `UserWarning` when `r0_m` is set, the reference is unset, and the band centre is more than a factor of two from 0.5 µm — the case where the habitual value is almost certainly what was entered. Effort S; category C (results-affecting only for scenes that set the new parameter). Related: Gap 110, [[CU-093]].
-
-### CU-232 — Bare `sensor_altitude_m == 0` is read as "unset", so a ground-based sensor silently loses its ground-referenced metrics
-
-**Discovered**: GUI walkthrough cleanup batch 1, items 3/4 (branch `gui/cleanup-batch1`), 2026-07-27.
-**Status**: Open.
-**File**: `src/radiant/performance/stage.py` — `_compute_gsd_metrics` (`if altitude_m <= 0.0: return state`) and `_compute_diffraction_limit_metrics` (the same guard before the ground projection).
-**Symptom**: both helpers treat a zero sensor altitude as "geometry not available" and skip. But `geometry.sensor_altitude_m`'s own schema entry states `0 = a ground-based sensor (legal; the LOS direction is derived from this altitude ...)`, so zero is a *value*, not a sentinel. A ground-based sensor viewing a down-slope or level target therefore silently loses `gsd_*` and `diffraction_limit_ground_m` for a reason that has nothing to do with what it was asked. This also masked items 3/4 during triage: the ground-sensor reproduction (`h_sensor = 0`, `h_target = 30 km`) returned `gsd = None` and looked healthy, while the airborne one (`h_sensor = 10 km`) raised — the two differed only in which guard fired first.
-**Why it still matters**: it conflates two distinct conditions ("the user did not set an altitude" and "the altitude is zero") in a stage whose convention is that an absent metric means *not applicable to this scene*. A reader cannot distinguish a legitimately skipped metric from a swallowed one, and the ADR-0011 direction-general work makes ground-based observers a first-class scene class rather than an edge case. The schema default is already `None`, so the unset case is representable without overloading zero.
-**Suggested fix**: (a) inline fix in the next PR touching these helpers. Gate on `params.get(...) is None` for the unset case and drop the `<= 0.0` test, keeping a separate explicit rejection for a *negative* altitude. Verify against the down-looking golden suite (a zero-altitude down-looking scene is degenerate and should still skip, but by the new direction gate, not by the altitude one). Effort S; category B. Related: [[CU-096]], ADR-0011.
-
-### CU-231 — `diffraction_limit_ground_m` is a slant-range quantity wearing a ground-referenced name
-
-**Discovered**: GUI walkthrough cleanup batch 1, items 3/4 metric audit (branch `gui/cleanup-batch1`), 2026-07-27.
-**Status**: Open.
-**File**: `src/radiant/performance/stage.py` — `_compute_diffraction_limit_metrics`; `src/radiant/performance/diffraction_limit.py` — `diffraction_limited_ground_m`.
-**Symptom**: the metric is `angular_rad × slant_range_m` with **no** incidence projection and no ground-plane assumption, so its value is the diffraction-limited resolution element *at the target range*. That is correct for any LOS direction — and it duly keeps publishing for up-looking scenes, where the GSD metrics are now (correctly) absent. Reproduce: an airborne sensor at 10 km viewing a 30 km target reports `diffraction_limit_ground_m = 0.346 m` beside `gsd_cross_track_m = None`. The number is right; the word "ground" in its name is not, since there is no ground on that line of sight.
-**Why it still matters**: it reads as an inconsistency in the output — one "ground" metric present, three absent, for the same scene — and a user comparing them will reasonably assume one of the two is wrong. The name also invites a future contributor to add the `cos(incidence)` projection the name implies, which would silently break the up-looking case that currently works. The docstring says "ground projection at the slant range", which is itself two different claims.
-**Suggested fix**: (b) stand-alone task, bundled with the next public-metric naming pass. Rename to something direction-neutral (`diffraction_limit_at_target_m` / `..._spatial_m`) with a deprecation alias on the metric key, update `metric_format.py`'s label map, `RADIANT_Performance` doc, and the Gap-96 metric-group registration; or, if the ground projection was actually intended, add it *and* gate the metric on down-looking like GSD. The two options are mutually exclusive and the choice is the owner's. Requires a **CHANGELOG** public-surface entry either way. Effort S; category B. Related: [[CU-232]], Gap 96.
 
 ### CU-226 — The shipped up-looking library family is queryable but not reachable from a chain run
 
@@ -510,6 +440,86 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-231 — `diffraction_limit_ground_m` is a slant-range quantity wearing a ground-referenced name — RESOLVED 2026-07-28 (commit `f249b49`)
+
+**Discovered**: GUI walkthrough cleanup batch 1, items 3/4 metric audit (branch `gui/cleanup-batch1`), 2026-07-27.
+**Status**: RESOLVED 2026-07-28, commit `f249b49` — **owner disposition: rename with a deprecation alias** (2026-07-28). **Resolution**: the canonical key is now `diffraction_limit_target_plane_m`, which says what the number is — the diffraction-limited resolution element at the *target plane* (`angular × slant_range`, no incidence projection, no ground-plane assumption). `diffraction_limit_ground_m` is still registered and still published with the identical value, its spec description marked DEPRECATED, so scripts and saved analyses keep working. The alternative option (adding the `cos(incidence)` projection the old name implied) was **not** taken: it was the results-affecting one, and the metric's whole virtue is that it stays meaningful up-looking, where a ground projection does not exist. Rule 20: `RADIANT_Metrics.md` reconciliation contract, group table and applicability table updated — the metric is also removed from the target-band applicability list it never belonged in, since it has no ground-plane dependence.
+
+**File**: `src/radiant/performance/stage.py` — `_compute_diffraction_limit_metrics`; `src/radiant/performance/diffraction_limit.py` — `diffraction_limited_ground_m`.
+**Symptom**: the metric is `angular_rad × slant_range_m` with **no** incidence projection and no ground-plane assumption, so its value is the diffraction-limited resolution element *at the target range*. That is correct for any LOS direction — and it duly keeps publishing for up-looking scenes, where the GSD metrics are now (correctly) absent. Reproduce: an airborne sensor at 10 km viewing a 30 km target reports `diffraction_limit_ground_m = 0.346 m` beside `gsd_cross_track_m = None`. The number is right; the word "ground" in its name is not, since there is no ground on that line of sight.
+**Why it still matters**: it reads as an inconsistency in the output — one "ground" metric present, three absent, for the same scene — and a user comparing them will reasonably assume one of the two is wrong. The name also invites a future contributor to add the `cos(incidence)` projection the name implies, which would silently break the up-looking case that currently works. The docstring says "ground projection at the slant range", which is itself two different claims.
+**Suggested fix**: (b) stand-alone task, bundled with the next public-metric naming pass. Rename to something direction-neutral (`diffraction_limit_at_target_m` / `..._spatial_m`) with a deprecation alias on the metric key, update `metric_format.py`'s label map, `RADIANT_Performance` doc, and the Gap-96 metric-group registration; or, if the ground projection was actually intended, add it *and* gate the metric on down-looking like GSD. The two options are mutually exclusive and the choice is the owner's. Requires a **CHANGELOG** public-surface entry either way. Effort S; category B. Related: [[CU-232]], Gap 96.
+
+### CU-232 — Bare `sensor_altitude_m == 0` is read as "unset", so a ground-based sensor silently loses its ground-referenced metrics — RESOLVED 2026-07-28 (commit `f249b49`)
+
+**Discovered**: GUI walkthrough cleanup batch 1, items 3/4 (branch `gui/cleanup-batch1`), 2026-07-27.
+**Status**: RESOLVED 2026-07-28, commit `f249b49`. **Resolution**: both guards now skip only on a **negative** altitude. `geometry.sensor_altitude_m`'s own schema entry states 0 = a ground-based sensor, so `<= 0` was reading a legal value as a not-set sentinel. Neither function reads the altitude again after the guard — it was only ever a proxy for "is geometry available?" — and the real decision belongs to the direction gate that follows, which is untouched.
+
+**File**: `src/radiant/performance/stage.py` — `_compute_gsd_metrics` (`if altitude_m <= 0.0: return state`) and `_compute_diffraction_limit_metrics` (the same guard before the ground projection).
+**Symptom**: both helpers treat a zero sensor altitude as "geometry not available" and skip. But `geometry.sensor_altitude_m`'s own schema entry states `0 = a ground-based sensor (legal; the LOS direction is derived from this altitude ...)`, so zero is a *value*, not a sentinel. A ground-based sensor viewing a down-slope or level target therefore silently loses `gsd_*` and `diffraction_limit_ground_m` for a reason that has nothing to do with what it was asked. This also masked items 3/4 during triage: the ground-sensor reproduction (`h_sensor = 0`, `h_target = 30 km`) returned `gsd = None` and looked healthy, while the airborne one (`h_sensor = 10 km`) raised — the two differed only in which guard fired first.
+**Why it still matters**: it conflates two distinct conditions ("the user did not set an altitude" and "the altitude is zero") in a stage whose convention is that an absent metric means *not applicable to this scene*. A reader cannot distinguish a legitimately skipped metric from a swallowed one, and the ADR-0011 direction-general work makes ground-based observers a first-class scene class rather than an edge case. The schema default is already `None`, so the unset case is representable without overloading zero.
+**Suggested fix**: (a) inline fix in the next PR touching these helpers. Gate on `params.get(...) is None` for the unset case and drop the `<= 0.0` test, keeping a separate explicit rejection for a *negative* altitude. Verify against the down-looking golden suite (a zero-altitude down-looking scene is degenerate and should still skip, but by the new direction gate, not by the altitude one). Effort S; category B. Related: [[CU-096]], ADR-0011.
+
+### CU-247 — `geometry.sensor_off_nadir_rad` parameter NAME contradicts its off-boresight meaning — RESOLVED 2026-07-28 (commit `fbbb99a`)
+
+**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, wording agent finding), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `fbbb99a` — **owner disposition: rename with a deprecation alias** (2026-07-28). **Resolution**: `geometry.sensor_off_nadir_rad` → `geometry.sensor_off_boresight_rad`, using the framework's own `deprecated_aliases` mechanism (the `source.target.range_m` precedent), so the old dot-path warn-and-redirects and every saved YAML and script keeps loading. Since ADR-0011 the reference axis is resolved from the altitudes — nadir when the sensor is above the target, zenith when below — so the old name contradicted its own description and invited exactly the wrong-hemisphere entry the agreement checks exist to catch. Updated across the geometry modes, the mode manifest, the error text, the GUI, and `RADIANT_Geometry.md`; parameter reference regenerated. Two tests pin the alias: the old path still sets the value, and the two names are one slot rather than two competing mode doors.
+
+**File**: `src/radiant/geometry/_schema.py` (`geometry.sensor_off_nadir_rad`), rendered as the raw leaf `sensor_off_nadir_rad` by `gui/widgets/field_row.py`.
+**Symptom**: the V2 schema description (correctly, per ADR-0011) defines the entry as an off-**boresight** angle whose reference axis is resolved from the altitudes, but the dot-path still says `off_nadir`. The GUI now shows the correct combo label "Off-boresight angle (V2)" directly above a field labelled `sensor_off_nadir_rad`.
+**Why it still matters**: the parameter name is a public surface users script against; name-vs-meaning contradiction invites exactly the wrong-hemisphere entry ADR-0011's agreement checks exist to catch.
+**Suggested fix**: (b) stand-alone task — either rename with a deprecated warn-and-redirect alias (the `source.target.range_m` precedent; Rule 20 doc + CHANGELOG + config back-compat), or Decline with a recorded rationale that the legacy name is kept for config back-compat. Effort M; category B. Related: [[CU-246]].
+
+### CU-258 — `_adjust_scene_los` strips solar geometry for the T7 intensity door, deleting the daytime sky from every intensity-door scene — RESOLVED 2026-07-28 (commit `f3f1d1d`)
+
+**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `f3f1d1d`. **Resolution**: `T7IntensityAtSource` joins `T2Reflective`/`T3Mixed` in `_adjust_scene_los`'s solar-keeping set. The predicate's question is "does this scene have a sun the atmosphere should know about?", not "does the target reflect?" — an intensity door still sits under a lit sky, and in the VIS that sky pedestal is the dominant noise term rather than a correction.
+
+**File**: `src/radiant/source/_inferrer.py::_adjust_scene_los` (the CU-009 pure-thermal predicate keeps θ_s/Δφ only for T2Reflective/T3Mixed).
+**Symptom**: `T7IntensityAtSource` falls into the else-branch, so the atmosphere receives θ_s = None and builds a **purely thermal** sky/path radiance (~1e-18 W/m²/sr/µm in the VIS) even for a manifestly reflective object — the daytime sky pedestal, the dominant noise source of a visible measurement, is silently absent.
+**Why it still matters**: every intensity-door VIS/NIR scene reports noise without its dominant term.
+**Suggested fix**: (a) inline-fix — include T7 in the solar-keeping predicate (an intensity source says nothing about the *sky*). Effort S; category C. Related: Gap 114, [[CU-259]].
+
+### CU-259 — τ_sun / the GF-9 eclipse verdict never multiplies an intensity-door target: an eclipsed object reports full signal, silently — RESOLVED 2026-07-28 (commit `f3f1d1d`)
+
+**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `f3f1d1d` — disposition (a), the honest-v1 fix; the illumination-aware door stays with Gap 114. **Resolution**: whether I(λ) is reflected sunlight or self-emission is not knowable from I alone, so RADIANT must not silently apply τ_sun *or* silently ignore it. It now computes the number and states what the number omits (Rule 17). The `UserWarning` fires only where it can mislead — the scene declares a sun **and** the GF-9 shadow-height verdict has zeroed τ_sun — so a night scene (θ_s = None) and a sunlit target stay quiet. Tests drive the real verdict rather than a hand-set flag: θ_s = 125° eclipses a 700 km target (shadow height 1407 km) where 115° does not (659 km).
+
+**File**: intensity-door signal path (`source` T7 → spectral integration); `atmosphere/solar_shadow.py` publishes the verdict.
+**Symptom**: the T7 door consumes I(λ) verbatim, so τ_sun — which carries the GF-9 shadow-height eclipse verdict — never scales the target term. Re-running scenario 10.3's nominal at 30° solar depression with the object fully eclipsed (τ_sun = 0) returns the **same** 34,961 e- signal with no warning.
+**Why it still matters**: an SST pass planner reading full SNR through an eclipse is the exact silent-wrong-answer class Rule 17 forbids.
+**Suggested fix**: (a) minimum — `UserWarning` when τ_sun = 0 under an intensity descriptor; (b) proper — an illumination-aware intensity door (with Gap 114). Effort S/M; category C. Related: Gap 114, [[CU-258]].
+
+### CU-228 — `atmosphere.r0_m` has no declared reference wavelength, so a directly-entered seeing value is silently applied at the wrong λ — RESOLVED 2026-07-28 (commit `a755538`)
+
+**Discovered**: Geometry-Flexibility Phase 3, Gap 110 turbulence upgrade (branch `gf3/degradations-metrics`), 2026-07-27.
+**Status**: RESOLVED 2026-07-28, commit `a755538`. **Resolution**: new `atmosphere.r0_reference_wavelength_um`. When set, `r0_resolution` rescales the entered r₀ to the band centre by (λ_band/λ_ref)^(6/5) and records both values in the `FriedParameterResolution` detail; the default 0.0 means "already at the operating wavelength" and keeps every existing config **bit-identical**. Because a wrong value cannot be detected from the number alone, a `UserWarning` fires exactly where the mis-entry is likely — `r0_m` set, reference unset, band centre more than 2× from the habitual 0.5 µm — and stays quiet for a VIS scene. Hand-checked against the entry's own example: 0.10 m at 0.5 µm → 1.304 m at the 4.25 µm band centre. Rule 20: `RADIANT_Atmosphere.md` §7.1 rewritten; parameter reference regenerated.
+
+**File**: `src/radiant/atmosphere/_schema.py` — `FRIED_PARAMETER_M` (`atmosphere.r0_m`); consumers `src/radiant/platform/stage.py` (turbulence kernel) and `src/radiant/performance/stage.py` (MTF term), both of which apply it at `epsf.wavelength_um`.
+**Symptom**: `RADIANT_Atmosphere.md` §7.1 claimed "the wavelength scaling `r₀(λ) = r₀(500 nm)·(λ/500 nm)^(6/5)` is applied automatically". No code does this: `r0_m` is handed to the Kolmogorov MTF at the PSF's own wavelength, whatever that is. A user who enters the astronomer's habitual 500 nm seeing value (r₀ = 10 cm) and runs a 4 µm MWIR scene gets a turbulence MTF ≈ 8× too aggressive, because the true MWIR r₀ is `0.10 × (4/0.5)^1.2 = 1.2 m`. The doc claim was removed in this PR (§7.1 now states the value is taken as being at the operating wavelength), so the trap is documented — but nothing detects it.
+**Why it still matters**: it is a silent order-of-magnitude error in the dominant spatial degradation for exactly the ground-based scenes Gap 110 exists to serve, and it is the *default* input door (`cn2_profile = 'direct'`). The Gap-110 profile path sidesteps it — that r₀ is computed at the band centre and is correct by construction — but the direct door remains a foot-gun.
+**Suggested fix**: (b) stand-alone task. Add `atmosphere.r0_reference_wavelength_um` (default `0.0` = "the entered value is already at the operating wavelength", preserving today's behaviour bit-identically); when set, `r0_resolution` rescales by `(λ_band / λ_ref)^(6/5)` and records both in the `FriedParameterResolution`. Emit a one-time `UserWarning` when `r0_m` is set, the reference is unset, and the band centre is more than a factor of two from 0.5 µm — the case where the habitual value is almost certainly what was entered. Effort S; category C (results-affecting only for scenes that set the new parameter). Related: Gap 110, [[CU-093]].
+
+### CU-261 — Wholly-vacuum up-looking path + SkyBackground termination raises instead of publishing the exact zero-radiance sky — RESOLVED 2026-07-28 (commit `12082fb`)
+
+**Discovered**: Scenario 10.3 cross-check (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `12082fb`. **Resolution**: the wholly-vacuum branch of `evaluate_path_topology` now publishes an explicit zero-radiance sky instead of `None`. Assembly's refusal to default a `None` sky is correct and untouched — it guards an *unknown* sky, whose silent zeroing would understate the background and inflate SNR — but with no medium anywhere on the LOS continuation the sky radiance is **known** to be exactly zero. Handing that over is a computed result, not a default.
+
+**File**: `src/radiant/atmosphere/topology.py::evaluate_path_topology` (returns `sky_source_radiance = None` when both endpoints ≥ `h_atm_top`) vs `source/_inferrer.py::_select_los_termination_background` + assembly.
+**Symptom**: the LOS-termination rule can still select `SkyBackground`, and assembly refuses to default it → `ParameterBoundsError` for an up-looking point_source/sub_pixel scene with both endpoints above the column — a configuration of the ADR-0011 LEO→GEO quick win (scenario 10.4's own path selects ColdSpaceBackground and runs; the raise is reachable via the sky-terminating selector).
+**Why it still matters**: the vacuum sky is exactly zero — a known value refused instead of published.
+**Suggested fix**: (a) inline-fix-now — publish the exact zero-radiance array in the vacuum branch. Effort S; category B.
+
+### CU-265 — `optics.optics_temperature_K` is inert in scalar-transmission mode unless `optics.scalar_emissivity` is also set (silent no-op) — RESOLVED 2026-07-28 (commit `12082fb`)
+
+**Discovered**: Scenario 10.1 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `12082fb`. **Resolution**: `UserWarning` when `optics.optics_temperature_K` is explicitly set while `optics.scalar_emissivity` is 0 in scalar mode — the state in which the temperature is bounds-validated, published, and then multiplied by zero, so an uncooled 293 K telescope evaluates bit-identically to an 80 K one. The warning names both ways to make it live (set a scalar emissivity, or supply an element list with Kirchhoff-derived per-element ε). Gated on explicit provenance so the schema default never nags a scene that never mentioned optics temperature.
+
+**File**: `src/radiant/optics/_schema.py:345` (`scalar_emissivity` default 0.0, the 'refractive lump' assumption).
+**Symptom**: an uncooled 293.15 K MWIR telescope evaluates bit-identically to an 80 K one (background_e = 1.753e5 e- at 293.15/200/80 K; nearfield_e = 0.0) — the temperature is accepted, bounds-validated, published, and consumed by nothing.
+**Why it still matters**: a silent-no-op trap for exactly the uncooled-MWIR sensor class the ground-to-air scenes introduce; the user believes warm-optics emission is modelled.
+**Suggested fix**: (a) inline-fix — `UserWarning` when `optics_temperature_K` is user-set while `scalar_emissivity` is 0 in scalar mode (mirror of CU-085's pattern), naming the two ways to make it live. Effort S; category B.
+
 ### CU-253 — Simple-model Rayleigh: the dimensionless total vertical optical depth is used as a km⁻¹ extinction coefficient (~8× VIS inflation) — RESOLVED 2026-07-28 (commit `d169feb`)
 
 **Discovered**: Scenario 10.3 published-extinction cross-check (branch `gf/phase5-validation`), 2026-07-28.

@@ -92,7 +92,8 @@ GROUND_PROJECTION_METRICS: Final[frozenset[str]] = frozenset(
         "ground_range_m",
         "swath_width_m",
         "access_rate_m2_s",
-        "diffraction_limit_ground_m",
+        "diffraction_limit_target_plane_m",
+        "diffraction_limit_ground_m",  # deprecated alias (CU-231)
         "max_integration_time_s",
         "niirs",
         "niirs_extrapolated",

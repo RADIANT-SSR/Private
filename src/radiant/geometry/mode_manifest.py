@@ -90,7 +90,7 @@ VIEWING_FAMILY: Final[GeometryModeFamily] = GeometryModeFamily(
         # (nadir- or zenith-referenced, resolved from the altitudes);
         # V3 = direction-free surface arc; V4 = lower-endpoint elevation.
         GeometryMode("V1", ("geometry.path_zenith_rad",)),
-        GeometryMode("V2", ("geometry.sensor_off_nadir_rad",)),
+        GeometryMode("V2", ("geometry.sensor_off_boresight_rad",)),
         GeometryMode("V3", ("geometry.ground_range_m",)),
         GeometryMode("V4", ("geometry.elevation_angle_rad",)),
         GeometryMode("V0", ("geometry.target_range_m",)),

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -611,3 +612,47 @@ class TestNonScalarModeInjection:
         with pytest.raises(ValueError, match="must be one of"):
             params.set("optics.stray.input_mode", "pst_file")
             params.resolve()
+
+
+class TestWarmOpticsSilentNoOp:
+    """CU-265 — a set optics temperature that contributes nothing must say so."""
+
+    @staticmethod
+    def _params(*, set_temp: bool, emissivity: float) -> ParameterSet:
+        from radiant.api._param_registry import _FNUMBER_GROUP
+
+        ps = ParameterSet(list(OPT_PARAMS) + list(DET_PARAMS), [_FNUMBER_GROUP])
+        ps.set("optics.aperture_diameter_m", 0.30)
+        ps.set("optics.focal_length_m", 1.20)
+        ps.set("optics.transmission_scalar", 0.70)
+        ps.set("detector.pixel_pitch_x_um", 18.0)
+        ps.set("detector.pixel_pitch_y_um", 18.0)
+        ps.set("detector.qe_value", 0.7)
+        ps.set("optics.scalar_emissivity", emissivity)
+        if set_temp:
+            ps.set("optics.optics_temperature_K", 293.15)
+        ps.resolve()
+        return ps
+
+    @pytest.mark.level1
+    def test_temperature_set_with_zero_emissivity_warns(self) -> None:
+        """The uncooled-MWIR trap: 293 K optics evaluating like 80 K ones."""
+        state = _make_state(np.linspace(3.5, 5.0, 24))
+        with pytest.warns(UserWarning, match="scalar_emissivity"):
+            OpticsStage().run(state, self._params(set_temp=True, emissivity=0.0))
+
+    @pytest.mark.level1
+    def test_no_warning_when_the_emissivity_makes_it_live(self) -> None:
+        """With ε > 0 the temperature does something, so there is nothing to flag."""
+        state = _make_state(np.linspace(3.5, 5.0, 24))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            OpticsStage().run(state, self._params(set_temp=True, emissivity=0.15))
+
+    @pytest.mark.level1
+    def test_no_warning_when_the_temperature_was_never_set(self) -> None:
+        """The schema default must not nag a scene that never mentioned optics temperature."""
+        state = _make_state(np.linspace(3.5, 5.0, 24))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            OpticsStage().run(state, self._params(set_temp=False, emissivity=0.0))

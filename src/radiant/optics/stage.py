@@ -56,7 +56,7 @@ import numpy as np
 from radiant.core.chain import ChainState
 from radiant.core.constants import c as c_light
 from radiant.core.constants import h as h_planck
-from radiant.core.parameters import ParameterBoundsError, ParameterSet
+from radiant.core.parameters import ParameterBoundsError, ParameterSet, Provenance
 from radiant.core.radiometry import RadiometricFrame
 from radiant.core.regime import RadiometricRegime
 from radiant.core.spectral import SpectralData
@@ -839,6 +839,32 @@ class OpticsStage:
                 "are Kirchhoff-derived in element-based modes.",
                 scalar_emissivity,
                 mode.value,
+            )
+        # CU-265: the mirror-image trap. In scalar mode the optics emit
+        # ε·B(T_optics), so with the default ε = 0 ("refractive lump") the optics
+        # temperature is accepted, bounds-validated, published — and multiplied by
+        # zero. An uncooled 293 K telescope then evaluates bit-identically to an
+        # 80 K one, and the user believes warm-optics emission is modelled. Warn
+        # only when the temperature was *explicitly set*, so the schema default
+        # never nags a scene that simply never mentioned it.
+        if (
+            mode == TransmissionInputMode.SCALAR
+            and scalar_emissivity == 0.0
+            and params.get_resolved("optics.optics_temperature_K").provenance
+            is not Provenance.DEFAULT
+        ):
+            warnings.warn(
+                f"optics.optics_temperature_K = {optics_temp_K:.4g} K is set, but in "
+                "scalar transmission mode the optics' self-emission is "
+                "ε·B(λ, T_optics) with ε = optics.scalar_emissivity, which is 0 (the "
+                "default 'refractive lump' assumption). The temperature therefore "
+                "contributes nothing: this scene evaluates identically at any optics "
+                "temperature. To model warm optics, either set "
+                "optics.scalar_emissivity to the train's effective emissivity, or "
+                "supply an element list (optical_elements:) whose emissivities are "
+                "Kirchhoff-derived per element.",
+                UserWarning,
+                stacklevel=2,
             )
 
         # Modes 2-4 (Gap 68): non-scalar inputs are injected pre-chain via

@@ -147,8 +147,8 @@ class TestViewingRoundTrip:
         assert _active(VIEWING_FAMILY, ps) == "V1"
 
     def test_v2_off_nadir(self) -> None:
-        ps = make_params(geometry__sensor_off_nadir_rad=0.3)
-        assert resolve_viewing(ps).mode == "geometry.sensor_off_nadir_rad"
+        ps = make_params(geometry__sensor_off_boresight_rad=0.3)
+        assert resolve_viewing(ps).mode == "geometry.sensor_off_boresight_rad"
         assert _active(VIEWING_FAMILY, ps) == "V2"
 
     def test_v3_ground_range(self) -> None:

@@ -21,6 +21,64 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **`geometry.sensor_off_nadir_rad` renamed to `geometry.sensor_off_boresight_rad`
+  (CU-247).** Since ADR-0011 the reference axis is resolved from the altitudes — the
+  sensor's nadir when it is above the target, its zenith when below — so the old name
+  contradicted its own description and invited the wrong-hemisphere entry the
+  agreement checks exist to catch. The old dot-path remains as a **deprecated alias**
+  that warns and redirects, so existing YAML configs and scripts keep working
+  unchanged.
+- **Metric `diffraction_limit_ground_m` renamed to
+  `diffraction_limit_target_plane_m` (CU-231).** The value is `angular × slant_range`
+  with no incidence projection and no ground-plane assumption — correct for every LOS
+  direction, including up-looking scenes where the `gsd_*` family is (correctly)
+  absent, which is where the old name read as an inconsistency. **Both keys are
+  published with the identical value**; the old one is registered as deprecated. No
+  computed value changes.
+
+### Fixed
+- **A ground-based sensor keeps its ground-referenced metrics (CU-232).** GSD and the
+  diffraction limit treated `geometry.sensor_altitude_m <= 0` as "geometry not
+  available", but the schema defines 0 as a legal ground-based sensor, so those scenes
+  silently lost `gsd_*` for a reason unrelated to what they asked. Only a negative
+  altitude is now skipped.
+
+### Added
+- **`atmosphere.r0_reference_wavelength_um` — declare what wavelength your seeing
+  value is quoted at (CU-228).** Fried's parameter goes as λ^(6/5), so the
+  astronomer's habitual 10 cm at 500 nm is 1.30 m at a 4.25 µm band centre; entering
+  the habitual number and running an MWIR scene made the turbulence MTF roughly an
+  order of magnitude too aggressive, silently. Set the new parameter and `r0_m` is
+  rescaled to the band centre, with both values recorded in the resolution
+  provenance. **The default (unset) preserves existing behaviour bit-identically** —
+  no scene moves unless it opts in. A `UserWarning` fires when `r0_m` is set, the
+  reference is unset, and the band centre is more than a factor of two from 0.5 µm.
+
+### Fixed
+- **Results-affecting: the T7 intensity door had no sky (CU-258).** Solar geometry
+  was stripped for every descriptor except T2/T3, so an intensity-door scene received
+  a purely thermal sky (~1e-18 W/m²/sr/µm in the VIS). Every daytime intensity-door
+  scene was therefore missing the sky pedestal — for a visible measurement, its
+  dominant noise term. VIS/NIR intensity-door noise and SNR change accordingly;
+  thermal-band scenes are unaffected.
+- **An eclipsed intensity-door target no longer reports full signal silently
+  (CU-259).** The door consumes I(λ) verbatim, so τ_sun — which carries the eclipse
+  verdict — never scaled the target term: an object in the Earth's shadow returned
+  the same signal with no indication. RADIANT cannot tell reflected sunlight from
+  self-emission given I(λ) alone (that is the illumination-aware door of Gap 114), so
+  it now computes the number and warns plainly about what the number omits, only when
+  the scene declares a sun *and* the target is eclipsed. No computed value changes.
+- **A wholly-vacuum path with a sky-terminated background no longer raises
+  (CU-261).** The vacuum topology published "no sky" where the correct answer is a
+  sky of exactly zero radiance; assembly's refusal to invent a missing sky is
+  unchanged.
+- **A set optics temperature that does nothing now says so (CU-265).** In scalar
+  transmission mode the optics emit ε·B(T) with ε defaulting to 0, so an uncooled
+  293 K telescope evaluated bit-identically to an 80 K one while the user believed
+  warm-optics emission was modelled. Warns when the temperature is explicitly set and
+  the emissivity leaves it inert, naming both ways to make it live.
+
+### Changed
 - **PSF plots read in focal-plane micrometres, not sample indices (CU-241).**
   `result.plot.psf()` and `psf_pixel_grid()` previously labelled their axes in raw
   PSF sample numbers (e.g. 500–560 on a 1024 grid), so the reader could not tell how

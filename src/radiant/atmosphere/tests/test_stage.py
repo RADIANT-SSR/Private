@@ -341,3 +341,75 @@ class TestReflectedSourceRadianceFrame:
         assert L_refl is not None and L_src is not None
         assert np.all(L_refl >= 0.0)
         assert np.all(L_refl <= L_src + 1e-12)
+
+
+class TestIntensityDoorEclipseWarning:
+    """CU-259 — an eclipsed intensity-door target must not report full signal silently."""
+
+    @pytest.fixture()
+    def wl(self) -> np.ndarray:
+        return np.linspace(0.45, 0.85, 40)
+
+    @staticmethod
+    def _t7_state(wl: np.ndarray, theta_s_rad: float | None) -> ChainState:
+        """A T7 intensity door at 700 km with the sun at *theta_s_rad* (None = night)."""
+        from radiant.core.descriptors import T7IntensityAtSource
+
+        intensity = SpectralData(
+            name="target.I",
+            wavelength_um=wl,
+            values=np.full_like(wl, 5.0),
+            unit="W/sr/um",
+            source="test",
+        )
+        target = T7IntensityAtSource(
+            I_t_source=intensity,
+            scene_type="point_source",
+            target_location="terrestrial",
+            h_tgt=700_000.0,
+        )
+        los = LineOfSightGeometry(
+            h_tgt=700_000.0,
+            h_sensor=0.0,
+            theta_o=math.radians(160.0),  # up-looking: theta_o is the TARGET-side zenith
+            theta_s=theta_s_rad,
+            delta_phi=0.0 if theta_s_rad is not None else None,
+        )
+        state = ChainState(wavelength_um=wl)
+        state = state.with_stage_output("source", "target", target)
+        state = state.with_stage_output("source", "background", None)
+        return state.with_stage_output("source", "los_geometry", los)
+
+    @pytest.mark.level1
+    def test_eclipsed_target_in_a_lit_scene_warns(self, wl: np.ndarray) -> None:
+        """Sun well below the horizontal ⇒ the 700 km target is in the Earth's shadow.
+
+        The door still returns a number — that is correct for a self-emitting
+        object — but it must say what the number omits, because for reflected
+        sunlight the true answer is essentially zero (Rule 17).
+        """
+        # The shadow height at theta_s = 125° is ~1407 km, comfortably above this
+        # 700 km target, so the GF-9 verdict declares it unlit. (115° would NOT
+        # eclipse it — shadow height 659 km — which is the check that this test
+        # exercises the real verdict rather than a hand-set flag.)
+        state = self._t7_state(wl, math.radians(125.0))
+        with pytest.warns(UserWarning, match="fully eclipsed"):
+            out = AtmosphereStage().run(state, _make_params(sensor_alt_m=0.0))
+        L = out.frames["at_aperture_target"].spectral_radiance
+        assert L is not None and np.all(np.isfinite(L))
+
+    @pytest.mark.level1
+    def test_night_scene_is_quiet(self, wl: np.ndarray) -> None:
+        """No sun declared ⇒ nothing to mislead about; a thermal source stays silent."""
+        state = self._t7_state(wl, None)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            AtmosphereStage().run(state, _make_params(sensor_alt_m=0.0))
+
+    @pytest.mark.level1
+    def test_sunlit_target_is_quiet(self, wl: np.ndarray) -> None:
+        """Sun above the horizontal ⇒ tau_sun > 0, the door is not hiding an eclipse."""
+        state = self._t7_state(wl, math.radians(35.0))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            AtmosphereStage().run(state, _make_params(sensor_alt_m=0.0))

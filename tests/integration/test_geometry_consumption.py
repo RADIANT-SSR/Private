@@ -54,7 +54,7 @@ class TestModeCoherence:
 
     def test_v2_off_nadir_reaches_atmosphere_los(self) -> None:
         eta = 0.5
-        result = _run(**{"geometry.sensor_off_nadir_rad": eta})
+        result = _run(**{"geometry.sensor_off_boresight_rad": eta})
         expected_theta_o = theta_o_from_eta(eta, ALT, 0.0)
         geo = result.stage_outputs["geometry"]
         assert geo["theta_o_rad"] == pytest.approx(expected_theta_o, rel=1e-12)
@@ -65,7 +65,7 @@ class TestModeCoherence:
 
     def test_v2_off_nadir_steers_gsd(self) -> None:
         eta = 0.5
-        result = _run(**{"geometry.sensor_off_nadir_rad": eta})
+        result = _run(**{"geometry.sensor_off_boresight_rad": eta})
         geo = result.stage_outputs["geometry"]
         # GSD consumed the published slant/incidence: cross-track GSD is
         # pitch × slant / f, NOT pitch × altitude / f (the nadir value).
@@ -77,7 +77,7 @@ class TestModeCoherence:
         """V2's eta and the equivalent V1 theta_o produce identical metrics."""
         eta = 0.4
         theta_o = theta_o_from_eta(eta, ALT, 0.0)
-        r_eta = _run(**{"geometry.sensor_off_nadir_rad": eta})
+        r_eta = _run(**{"geometry.sensor_off_boresight_rad": eta})
         r_zen = _run(**{"geometry.path_zenith_rad": theta_o})
         assert r_eta.metrics["gsd_cross_track_m"] == pytest.approx(
             r_zen.metrics["gsd_cross_track_m"], rel=1e-12

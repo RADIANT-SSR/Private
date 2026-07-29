@@ -11,7 +11,7 @@ accident); ``geometry.target_range_m`` moved from
 alias.  Values, bounds, and defaults are unchanged — the move is
 ownership-only (zero drift).
 
-Mode-entry parameters (``sensor_off_nadir_rad``, ``ground_range_m``,
+Mode-entry parameters (``sensor_off_boresight_rad``, ``ground_range_m``,
 ``elevation_angle_rad``, ``solar_elevation_rad``, the site/time solar
 inputs, ``circular_orbit``) are alternate doors into the canonical
 representation.  Their defaults are inert: mode detection is by
@@ -69,7 +69,7 @@ PATH_ZENITH_RAD = ParameterDef(
         "the target's zenith (nadir view). When the sensor is below the "
         "target it is the sensor's own zenith angle, and theta_o = pi - "
         "zeta_up is derived from it (0 = target directly overhead). The "
-        "sensor-side off-boresight angle is geometry.sensor_off_nadir_rad."
+        "sensor-side off-boresight angle is geometry.sensor_off_boresight_rad."
     ),
     dtype=float,
     canonical_unit="rad",
@@ -408,7 +408,7 @@ SHAPE_ROLL = ParameterDef(
 # ---------------------------------------------------------------------------
 
 SENSOR_OFF_NADIR_RAD = ParameterDef(
-    name="geometry.sensor_off_nadir_rad",
+    name="geometry.sensor_off_boresight_rad",
     description=(
         "Sensor off-BORESIGHT angle [rad] — mode V2 entry. The reference "
         "axis is resolved from the altitudes (ADR-0011), never declared: "
@@ -428,6 +428,13 @@ SENSOR_OFF_NADIR_RAD = ParameterDef(
     default=0.0,
     bounds=(0.0, 1.5707),
     tags=frozenset({"geometry", "mode_entry"}),
+    # CU-231's sibling: the old name said off_NADIR while the parameter has meant
+    # off-BORESIGHT since ADR-0011 resolved the reference axis from the altitudes.
+    # A name that contradicts its own description invites precisely the
+    # wrong-hemisphere entry ADR-0011's agreement checks exist to catch. The old
+    # dot-path keeps working (warn-and-redirect), so existing YAML and scripts load
+    # unchanged — the `source.target.range_m` precedent.
+    deprecated_aliases=frozenset({"geometry.sensor_off_nadir_rad"}),
     default_justification="Inert — provenance-based mode detection ignores defaults.",
 )
 

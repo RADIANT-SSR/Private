@@ -144,7 +144,8 @@ METRIC_DISPLAY_LABELS: Final[dict[str, str]] = {
     "q_max": "Q (max λ)",
     "sampling_regime_code": "Sampling regime",
     "diffraction_limit_angular_urad": "Diffraction limit (angular)",
-    "diffraction_limit_ground_m": "Diffraction limit (ground)",
+    "diffraction_limit_target_plane_m": "Diffraction limit (at target)",
+    "diffraction_limit_ground_m": "Diffraction limit (at target, legacy key)",
     "max_integration_time_s": "Max integration time",
     # Saturation
     "well_margin_dB": "Well margin",

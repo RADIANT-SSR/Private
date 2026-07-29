@@ -382,7 +382,14 @@ def _compute_gsd_metrics(
     except (KeyError, TypeError):
         return state
 
-    if altitude_m <= 0.0:
+    # CU-232: only a *negative* altitude is meaningless here. Zero is a legal
+    # value — `geometry.sensor_altitude_m`'s own schema entry says "0 = a
+    # ground-based sensor" — so treating `<= 0` as "geometry not available"
+    # silently dropped every ground-sensor scene's GSD for a reason unrelated to
+    # what it was asked. The direction gate below is what actually decides
+    # whether a ground-referenced metric applies; the altitude is not used again
+    # in this function at all.
+    if altitude_m < 0.0:
         return state
 
     if not _is_downlooking(state, params):
@@ -647,7 +654,7 @@ def _compute_access_metrics(
     except (KeyError, TypeError):
         return state
 
-    if altitude_m <= 0.0:
+    if altitude_m < 0.0:  # CU-232: 0 m is a ground sensor, not "unset"
         return state
 
     # Ground range — published by GeometryStage (ADR-0006). Absent that
@@ -749,6 +756,11 @@ def _compute_diffraction_limit_metrics(
         return state
     range_m = float(range_pub)
     ground_m = diffraction_limited_ground_m(lambda_center_m, aperture_m, range_m)
+    # CU-231: the canonical name says what the number is — the resolution element
+    # at the *target plane* (angular × slant range, no incidence projection). The
+    # old ground-referenced key is published alongside it, deprecated, so scripts
+    # and saved analyses keep working.
+    state = state.with_metric("diffraction_limit_target_plane_m", ground_m)
     return state.with_metric("diffraction_limit_ground_m", ground_m)
 
 
@@ -966,7 +978,13 @@ _PRODUCES_TARGET_PLANE = frozenset(
 )
 _PRODUCES_ACCESS = frozenset({"ground_range_m", "swath_width_m", "access_rate_m2_s"})
 _PRODUCES_Q = frozenset({"q_center", "q_min", "q_max"})
-_PRODUCES_DIFFRACTION = frozenset({"diffraction_limit_angular_urad", "diffraction_limit_ground_m"})
+_PRODUCES_DIFFRACTION = frozenset(
+    {
+        "diffraction_limit_angular_urad",
+        "diffraction_limit_target_plane_m",
+        "diffraction_limit_ground_m",  # deprecated alias (CU-231)
+    }
+)
 _PRODUCES_NIIRS = frozenset({"niirs", "niirs_extrapolated"})
 _PRODUCES_SATURATION = frozenset({"well_margin_dB", "adc_margin_dB", "dynamic_range_dB"})
 

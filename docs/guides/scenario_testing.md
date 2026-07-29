@@ -71,7 +71,7 @@ The script converts from vendor units to RADIANT canonical units:
 
 Every conversion must be explicit in the script with a comment:
 
-```python
+```python fragment
 # Convert vendor units → RADIANT canonical
 aperture_m = row["Entrance Pupil Diameter [mm]"] / 1000  # mm → m
 qe = row["QE [%]"] / 100                                 # % → fraction
@@ -84,7 +84,7 @@ altitude_m = row["Orbit Altitude [km]"] * 1000            # km → m
 **HARD RULE.** Every number printed, tabled, or plotted must include
 its unit. No exceptions.
 
-```python
+```python fragment
 # CORRECT:
 print(f"SNR: {snr:.1f}")                          # SNR is dimensionless — OK
 print(f"GSD: {gsd_m:.2f} m")                       # unit attached
@@ -98,7 +98,7 @@ print(f"Temperature: {temp}")        # no unit, no format
 
 Plot axes must include units in labels:
 
-```python
+```python fragment
 ax.set_xlabel("Pixel Pitch [µm]")
 ax.set_ylabel("SNR [dimensionless]")
 ax.set_ylabel("NEDT [mK]")

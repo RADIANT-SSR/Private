@@ -153,7 +153,21 @@ def evaluate_path_topology(
     if los.h_sensor is not None and los.h_sensor >= los.h_atm_top:
         # Both endpoints above the column: no G segment, no medium anywhere on
         # the path or its continuation.  Backend-independent by construction.
-        return TopologyProducts(quantities=_vacuum_quantities(wavelength_um, los))
+        #
+        # CU-261: publish an explicit zero sky rather than ``None``. Assembly
+        # refuses a ``None`` sky because a silently-zero background would
+        # understate the photon term and inflate SNR (Rule 17) — but that guard
+        # is about an *unknown* sky. Here the sky is known: there is no medium
+        # anywhere along the LOS continuation, so its radiance is exactly zero.
+        # Handing that zero over is a computed result, not a default, and it lets
+        # a legitimate vacuum scene whose termination rule selects SkyBackground
+        # run instead of raising.
+        return TopologyProducts(
+            quantities=_vacuum_quantities(wavelength_um, los),
+            sky_source_radiance=np.zeros_like(
+                np.asarray(wavelength_um, dtype=np.float64), dtype=np.float64
+            ),
+        )
 
     products: UplookingProducts = evaluate_uplooking_topology(model, wavelength_um, los, params)
     return TopologyProducts(

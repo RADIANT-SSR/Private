@@ -738,3 +738,50 @@ class TestThemeTogglesRepaintPaintedMarkers:
         # The configured badges survived the repaint.
         assert window.parameter_panel.is_configured_row(_FILTER_MIN) is True
         assert window.configuration_scope.summary(_FILTER_MIN) == "MWIR: 3.5 um · LWIR: 8 um"
+
+
+class TestConfiguredPathKeepsItsPicker:
+    """CU-220 — configuring a path parameter must not downgrade it to hand-typed."""
+
+    def test_path_rows_offer_browse(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A *_path parameter gets a Browse… button on every configuration row."""
+        from PySide6.QtWidgets import QPushButton
+
+        from radiant.gui.widgets.per_configuration_values import PerConfigurationValues
+
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        pdef = sensor.parameter_def("atmosphere.modtran.tape7_path")
+        block = PerConfigurationValues(pdef, ["MWIR", "LWIR"], ["", ""])
+        qtbot.addWidget(block)
+
+        buttons = block.findChildren(QPushButton)
+        browse = [b for b in buttons if b.text() == "Browse…"]
+        assert len(browse) == 2, "one picker per configuration row"
+
+    def test_path_row_values_still_read_back(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The row is a container now, so the value reader must see through it."""
+        from PySide6.QtWidgets import QLineEdit
+
+        from radiant.gui.widgets.per_configuration_values import PerConfigurationValues
+
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        pdef = sensor.parameter_def("atmosphere.modtran.tape7_path")
+        block = PerConfigurationValues(pdef, ["MWIR", "LWIR"], ["/a/one.tp7", "/b/two.tp7"])
+        qtbot.addWidget(block)
+        assert block.values() == ["/a/one.tp7", "/b/two.tp7"]
+
+        edits = block.findChildren(QLineEdit)
+        edits[0].setText("/c/three.tp7")
+        assert block.values()[0] == "/c/three.tp7"
+
+    def test_a_non_path_parameter_gets_no_picker(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Only *_path / *_file / *_dir leaves get the button."""
+        from PySide6.QtWidgets import QPushButton
+
+        from radiant.gui.widgets.per_configuration_values import PerConfigurationValues
+
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        pdef = sensor.parameter_def("optics.aperture_diameter_m")
+        block = PerConfigurationValues(pdef, ["MWIR"], [0.3])
+        qtbot.addWidget(block)
+        assert [b for b in block.findChildren(QPushButton) if b.text() == "Browse…"] == []

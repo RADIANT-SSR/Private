@@ -97,6 +97,7 @@ from radiant.gui.param_format import (
     provenance_label,
     safe_provenance,
 )
+from radiant.gui.path_picker import default_browse_dir, path_picker_kind
 from radiant.gui.tolerance_units import convert_tolerance_value, field_unit_label
 from radiant.gui.widgets.configure_menu import CONFIGURE_TEXT, SINGLE_CONFIGURATION_HINT
 from radiant.gui.widgets.per_configuration_values import PerConfigurationValues
@@ -141,51 +142,11 @@ _PREVIEW_SEPARATOR = " · "
 # file-relative pattern as ``radiant.data.library``): this file is
 # src/radiant/gui/widgets/parameter_editor_dialog.py → the ``radiant`` package root is
 # parents[2]. Ships in a wheel install; Rule 30: no repo-root path assumption.
-_REPO_DATA_ROOT = Path(__file__).resolve().parents[2] / "data" / "tables"
 
 # Where a path parameter's Browse… picker starts when the field is empty, by top-level
 # namespace: the shipped data family for that stage. Anything unmapped starts at the
 # data root (if present) so the picker opens on RADIANT's bundled data rather than an
 # arbitrary working directory (owner bug report 2026-07-18).
-_BROWSE_START_SUBDIR: dict[str, str] = {
-    "atmosphere": "atmospheres",
-    "detector": "detectors",
-    "source": "emissivity",
-}
-
-
-def default_browse_dir(dotpath: str) -> Path | None:
-    """The default directory the Browse… picker opens in for *dotpath*, or None.
-
-    The parameter's namespace maps to its shipped data family under the bundled
-    ``src/radiant/data/tables/`` tree; an unmapped namespace falls back to the data
-    root. Returns None when neither exists — the caller then falls back to the
-    working directory.
-    """
-    namespace = dotpath.split(".", 1)[0]
-    subdir = _BROWSE_START_SUBDIR.get(namespace)
-    if subdir is not None and (_REPO_DATA_ROOT / subdir).is_dir():
-        return _REPO_DATA_ROOT / subdir
-    if _REPO_DATA_ROOT.is_dir():
-        return _REPO_DATA_ROOT
-    return None
-
-
-def path_picker_kind(dotpath: str) -> str | None:
-    """``"dir"`` / ``"file"`` when the dot-path leaf names a filesystem path, else None.
-
-    The parameter schema types paths as plain ``str``; what marks them as paths is the
-    binding naming convention (Parameter System doc): the leaf ends in ``_path`` or
-    ``_file`` for files, ``_dir`` for directories. Every ``*_path``/``*_file``/``*_dir``
-    parameter in the schema today is a real filesystem path (audited 2026-07-18), so the
-    editor can safely offer a native picker for them — the "need a link" owner request.
-    """
-    leaf = dotpath.rsplit(".", 1)[-1]
-    if leaf.endswith("_dir"):
-        return "dir"
-    if leaf.endswith(("_path", "_file")):
-        return "file"
-    return None
 
 
 def convertible_units(canonical_unit: str, input_unit: str) -> list[str]:

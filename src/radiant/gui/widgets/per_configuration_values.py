@@ -39,6 +39,7 @@ here being the accent token tuple read from the active theme.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import Signal
@@ -46,14 +47,18 @@ from PySide6.QtGui import QColor, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QFileDialog,
     QGridLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QSpinBox,
     QWidget,
 )
 
 from radiant.gui.param_format import display_in_unit
+from radiant.gui.path_picker import default_browse_dir, path_picker_kind
 from radiant.gui.themes import active_theme
 
 if TYPE_CHECKING:
@@ -213,7 +218,45 @@ class PerConfigurationValues(QWidget):
         line = QLineEdit(self)
         line.setText("" if current is None else str(current))
         line.textChanged.connect(self.valueChanged)
-        return line
+
+        # CU-220: a filesystem path keeps its native picker once it is configured.
+        # The single-value editor offers Browse… for any *_path / *_file / *_dir
+        # parameter; configuring the same parameter moved editing here, where the
+        # button did not exist — so the act of making a path per-configuration
+        # silently downgraded it to hand-typed. The picker helpers are already
+        # module functions in parameter_editor_dialog, so this reuses them rather
+        # than growing a second implementation.
+        kind = path_picker_kind(self._pdef.name)
+        if kind is None:
+            return line
+        row = QWidget(self)
+        box = QHBoxLayout(row)
+        box.setContentsMargins(0, 0, 0, 0)
+        box.setSpacing(4)
+        browse = QPushButton("Browse…", row)
+        browse.setObjectName("paramEditorBrowseButton")
+        browse.clicked.connect(lambda: self._browse_into(line, kind))
+        box.addWidget(line, 1)
+        box.addWidget(browse)
+        return row
+
+    def _browse_into(self, line: QLineEdit, kind: str) -> None:
+        """Open the native picker for *kind* and write the choice into *line* (CU-220).
+
+        Starts at the row's current value's directory when it has one, else at the
+        parameter's shipped-data default — the same precedence the single-value
+        editor uses. Cancelling leaves the row untouched.
+        """
+        current = line.text().strip()
+        start = str(Path(current).parent) if current else ""
+        if not start:
+            start = str(default_browse_dir(self._pdef.name) or Path.cwd())
+        if kind == "dir":
+            chosen = QFileDialog.getExistingDirectory(self, "Select directory", start)
+        else:
+            chosen, _filter = QFileDialog.getOpenFileName(self, "Select file", start)
+        if chosen:
+            line.setText(chosen)
 
     # -- read side ----------------------------------------------------------
 
@@ -235,6 +278,11 @@ class PerConfigurationValues(QWidget):
             return editor.value()
         if isinstance(editor, QLineEdit):
             return editor.text()
+        # CU-220: a path row is a container (line edit + Browse…); its value is
+        # still the line edit's text.
+        nested = editor.findChild(QLineEdit)
+        if nested is not None:
+            return nested.text()
         return None
 
     def set_unit(self, unit: str) -> None:

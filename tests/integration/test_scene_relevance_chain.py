@@ -191,9 +191,9 @@ class TestGroundToAirRelevanceDefaults:
         assert result.metrics["target_plane_sample_distance_y_m"] == pytest.approx(
             expected, rel=1e-12
         )
-        assert result.metrics[
-            "target_plane_sample_distance_geometric_mean_m"
-        ] == pytest.approx(expected, rel=1e-12)
+        assert result.metrics["target_plane_sample_distance_geometric_mean_m"] == pytest.approx(
+            expected, rel=1e-12
+        )
 
     def test_explicit_group_selection_overrides_the_map(self) -> None:
         """Setting the flag explicitly overrides the map — for computable metrics.

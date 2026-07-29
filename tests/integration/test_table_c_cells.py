@@ -125,8 +125,7 @@ class TestTableCAirborneLWIRExtended:
         sorted_h = sorted(TABLE_C_ALTITUDES_M)
         for a, b in zip(sorted_h, sorted_h[1:], strict=False):
             assert tau_up_by_h[b] >= tau_up_by_h[a] - 1e-12, (
-                f"τ_up not monotonic: h={a} m → {tau_up_by_h[a]}, "
-                f"h={b} m → {tau_up_by_h[b]}"
+                f"τ_up not monotonic: h={a} m → {tau_up_by_h[a]}, h={b} m → {tau_up_by_h[b]}"
             )
 
         assert tau_up_by_h[29000.0] > tau_up_by_h[1000.0], (

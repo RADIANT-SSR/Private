@@ -20,9 +20,9 @@ FILTER_MAX = 5.0
 def _spectrum(kind: str) -> SpectralData:
     wl = np.linspace(FILTER_MIN, FILTER_MAX, 100)
     if kind == "blue":  # weight the short-wavelength edge
-        vals = np.exp(-((wl - FILTER_MIN) / 0.3) ** 2)
+        vals = np.exp(-(((wl - FILTER_MIN) / 0.3) ** 2))
     else:  # red: weight the long-wavelength edge
-        vals = np.exp(-((wl - FILTER_MAX) / 0.3) ** 2)
+        vals = np.exp(-(((wl - FILTER_MAX) / 0.3) ** 2))
     return SpectralData(
         name=f"{kind}_override",
         wavelength_um=wl,

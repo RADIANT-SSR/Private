@@ -87,9 +87,7 @@ def main() -> None:
             old_val = old[key].get("value")
             if old_val is not None and old_val != new_val:
                 rel = abs(new_val - old_val) / abs(old_val) if old_val != 0 else float("inf")
-                changes.append(
-                    f"  {key}: {old_val} -> {new_val}  (rel change: {rel:.2e})"
-                )
+                changes.append(f"  {key}: {old_val} -> {new_val}  (rel change: {rel:.2e})")
 
     if changes:
         print(f"CHANGES detected at {timestamp}:")

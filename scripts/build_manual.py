@@ -36,24 +36,34 @@ CHAPTERS: list[str] = [
 ]
 
 METADATA: list[str] = [
-    "--metadata", "title=RADIANT Theory Manual",
-    "--metadata", "subtitle=Physics Reference for the RADIANT EO Sensor Performance Model",
-    "--metadata", "author=RADIANT Project",
+    "--metadata",
+    "title=RADIANT Theory Manual",
+    "--metadata",
+    "subtitle=Physics Reference for the RADIANT EO Sensor Performance Model",
+    "--metadata",
+    "author=RADIANT Project",
 ]
 
 PANDOC_ARGS: list[str] = [
-    "--from", "gfm+tex_math_dollars",
-    "--toc", "--toc-depth=2",
+    "--from",
+    "gfm+tex_math_dollars",
+    "--toc",
+    "--toc-depth=2",
     "--number-sections",
-    "-V", "geometry:margin=1in",
-    "-V", "mainfont=Helvetica Neue",
-    "-V", "monofont=Menlo",
+    "-V",
+    "geometry:margin=1in",
+    "-V",
+    "mainfont=Helvetica Neue",
+    "-V",
+    "monofont=Menlo",
 ]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--tex", action="store_true", help="emit standalone .tex (no xelatex needed)")
+    parser.add_argument(
+        "--tex", action="store_true", help="emit standalone .tex (no xelatex needed)"
+    )
     args = parser.parse_args()
 
     if shutil.which("pandoc") is None:
@@ -76,7 +86,10 @@ def main() -> int:
 
     missing = [c for c in CHAPTERS if not (THEORY / c).is_file()]
     if missing:
-        print(f"error: missing chapter file(s) under docs/theory/: {', '.join(missing)}", file=sys.stderr)
+        print(
+            f"error: missing chapter file(s) under docs/theory/: {', '.join(missing)}",
+            file=sys.stderr,
+        )
         return 1
 
     BUILD.mkdir(exist_ok=True)
@@ -88,7 +101,8 @@ def main() -> int:
         *PANDOC_ARGS,
         *([] if args.tex else ["--pdf-engine=xelatex"]),
         *(["--standalone"] if args.tex else []),
-        "-o", str(out),
+        "-o",
+        str(out),
     ]
     result = subprocess.run(cmd, cwd=REPO, check=False)
     if result.returncode != 0:

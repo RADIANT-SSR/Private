@@ -210,9 +210,7 @@ class TestShapeSubPixelIntegration:
         shape_dims: dict[str, float],
         expected_cls: type,
     ) -> None:
-        params, session = _build_params(
-            cell_id, target_location, regime, shape_name, shape_dims
-        )
+        params, session = _build_params(cell_id, target_location, regime, shape_name, shape_dims)
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
@@ -233,9 +231,7 @@ class TestShapeSubPixelIntegration:
         #    the correct concrete shape dispatch yields a positive A_t here.
         target_desc = result.stage_outputs["source"]["target"]
         assert (
-            target_desc.A_t is not None
-            and np.isfinite(target_desc.A_t)
-            and target_desc.A_t > 0.0
+            target_desc.A_t is not None and np.isfinite(target_desc.A_t) and target_desc.A_t > 0.0
         ), (
             f"cell {cell_id} / {shape_name} ({expected_cls.__name__}): "
             f"descriptor.A_t is {target_desc.A_t!r}, expected a positive "
@@ -244,9 +240,7 @@ class TestShapeSubPixelIntegration:
 
         # 4. SNR metric is finite.
         snr = result.metrics.get("snr")
-        assert snr is not None, (
-            f"cell {cell_id} / {shape_name}: 'snr' missing from metrics"
-        )
+        assert snr is not None, f"cell {cell_id} / {shape_name}: 'snr' missing from metrics"
         assert np.isfinite(float(snr)), (
             f"cell {cell_id} / {shape_name}: SNR not finite (got {snr!r})"
         )

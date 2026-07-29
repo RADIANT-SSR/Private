@@ -51,8 +51,14 @@ class TestMWIRLeoMinimal:
 
     def test_history_complete(self, result) -> None:
         assert result.history == (
-            "geometry", "source", "atmosphere", "optics", "platform",
-            "spectral_integration", "detector", "readout",
+            "geometry",
+            "source",
+            "atmosphere",
+            "optics",
+            "platform",
+            "spectral_integration",
+            "detector",
+            "readout",
             "performance",
         )
 
@@ -69,14 +75,10 @@ class TestMWIRLeoMinimal:
         assert expected <= set(result.frames.keys())
 
     def test_A_collect(self, result) -> None:
-        assert result.stage_outputs["optics"]["A_collect"] == pytest.approx(
-            A_COLLECT, rel=1e-6
-        )
+        assert result.stage_outputs["optics"]["A_collect"] == pytest.approx(A_COLLECT, rel=1e-6)
 
     def test_Omega_pixel(self, result) -> None:
-        assert result.stage_outputs["optics"]["Omega_pixel"] == pytest.approx(
-            OMEGA_PIXEL, rel=1e-6
-        )
+        assert result.stage_outputs["optics"]["Omega_pixel"] == pytest.approx(OMEGA_PIXEL, rel=1e-6)
 
     def test_photoelectrons_positive(self, result) -> None:
         pe = result.frames["photoelectrons"].in_band_value

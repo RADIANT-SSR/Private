@@ -33,9 +33,7 @@ _ALTITUDE = "geometry.target_altitude_m"
 
 def _dialog(qtbot, dotpath: str, display_unit: str | None = None):  # type: ignore[no-untyped-def]
     sensor = Sensor.from_yaml(_EXAMPLE)
-    dialog = ParameterEditorDialog(
-        sensor, dotpath, lambda d, u: None, display_unit=display_unit
-    )
+    dialog = ParameterEditorDialog(sensor, dotpath, lambda d, u: None, display_unit=display_unit)
     qtbot.addWidget(dialog)
     return sensor, dialog
 
@@ -111,9 +109,7 @@ class TestExistingToleranceIsShownInDisplayUnits:
         """A 1000 m stored spread opens as '1' when the row is displaying km."""
         sensor = Sensor.from_yaml(_EXAMPLE)
         sensor.set_tolerance(_ALTITUDE, "gaussian", std=1000.0)
-        dialog = ParameterEditorDialog(
-            sensor, _ALTITUDE, lambda d, u: None, display_unit="km"
-        )
+        dialog = ParameterEditorDialog(sensor, _ALTITUDE, lambda d, u: None, display_unit="km")
         qtbot.addWidget(dialog)
         assert float(dialog._tol_params["std"].text()) == pytest.approx(1.0, rel=1e-9)  # noqa: SLF001
 
@@ -121,9 +117,7 @@ class TestExistingToleranceIsShownInDisplayUnits:
         """Opening in km and re-applying must not rescale the stored spread."""
         sensor = Sensor.from_yaml(_EXAMPLE)
         sensor.set_tolerance(_ALTITUDE, "gaussian", std=1000.0)
-        dialog = ParameterEditorDialog(
-            sensor, _ALTITUDE, lambda d, u: None, display_unit="km"
-        )
+        dialog = ParameterEditorDialog(sensor, _ALTITUDE, lambda d, u: None, display_unit="km")
         qtbot.addWidget(dialog)
         dialog.apply(close=False)
         assert sensor.tolerances()[_ALTITUDE].params["std"] == pytest.approx(1000.0, rel=1e-9)

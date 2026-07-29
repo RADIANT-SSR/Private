@@ -93,7 +93,7 @@ class TestGoldenMWIRLeoMinimal:
 
     def test_noise_rss(self, result, golden) -> None:
         expected = golden["noise_rss"]["value"]
-        actual = math.sqrt(sum(n.value_e ** 2 for n in result.noise_terms))
+        actual = math.sqrt(sum(n.value_e**2 for n in result.noise_terms))
         assert actual == pytest.approx(expected, rel=REL_TOL)
 
     def test_snr(self, result, golden) -> None:

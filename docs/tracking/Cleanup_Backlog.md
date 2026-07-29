@@ -175,15 +175,6 @@
 **Why it still matters**: a quantified caveat was the ratified intent of the warn shoulder (plan §8.3 answer 1: "warning quantifies the refraction-excluded caveat").
 **Suggested fix**: (a) inline-fix — add the k = 4/3 order-of-magnitude estimate (Δh reduction + τ-impact scale) to the warning text/context. Effort S; category A. Related: ADR-0011 decision 6.
 
-### CU-252 — 36 files fail `ruff format --check` — formatter drift the gate battery never sees
-
-**Discovered**: Geometry-Flexibility Phase 4 gate run (branch `gf/phase4-gui`), 2026-07-28.
-**Status**: Open.
-**File**: repo-wide — `ruff format --check src/ tests/` flags 36 files (e.g. `src/radiant/api/stage_output_units.py`, `src/radiant/atmosphere/loaders.py`); none touched by Phase 4.
-**Symptom**: CLAUDE.md Code Style declares `ruff format` the formatter, but the merge gate battery runs only `ruff check` — so format drift accumulates invisibly. Local ruff is 0.15.12 against a `ruff>=0.1` floor pin, so some or all of the drift may be formatter-version churn rather than hand-edits.
-**Why it still matters**: an unenforced declared formatter is aspirational tooling (the Rule-20 drift profile applied to code style); the first PR that does run `ruff format` will carry a 36-file noise diff.
-**Suggested fix**: (b) stand-alone task — pin the ruff version in the dev extra, run `ruff format` once repo-wide as a dedicated formatting-only commit, and add `ruff format --check` to the gate battery (CLAUDE.md + CI) in the same PR. Effort S; category A.
-
 ### CU-246 — `geometry_readout` labels `eta_rad` "Nadir (off-nadir) angle" — wrong for an up-looking scene
 
 **Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, wording agent finding), 2026-07-28.
@@ -460,17 +451,6 @@
 **Why it still matters**: the divergence is not physics but it is a public output surface, and the two shapes disagree about what "provenance" means (resolved parameters only vs. the whole run record). The study path took the richer one deliberately — a materialized `Sensor` exposes no `ParameterSet`, and `ChainResult.to_provenance_record()` is the public seam that exists (it also carries the `config:<name>` provenance sources, which is exactly what a study run wants recorded). Left alone, the next consumer of the flag writes shape-sniffing code.
 **Suggested fix**: (a) inline-fix-now in a small follow-up — move the plain path onto `result.to_provenance_record()` as well, so both paths emit the run record. That is a **public-surface change** (the file's keys change for existing users of the flag) and therefore needs a `CHANGELOG.md` entry and an update to `RADIANT_Config_Format.md` §4.2; it also wants a check that nothing in `scripts/` or the scenario workbooks parses the three-key form. Alternative (b): add `Sensor.to_provenance_record()` and keep both paths on the parameter-set shape — smaller blast radius, but it keeps the poorer record. Effort S; category A.
 
-### CU-215 — `test_configured_parameters.py` is not `ruff format` clean, and the gate cannot see it
-
-**Discovered**: multi-config Phase 4d Performance columns (`gui/multiconfig-phase4d`), 2026-07-25
-**Status**: Open — **narrowed 2026-07-25 (multi-config Phase 4e)**. The *file* half is done: `src/radiant/gui/tests/test_configured_parameters.py` was reformatted in commit `b57491b`. What remains is the gate-widening half, and Phase 4e's enumeration found it needs one more decision than the entry assumed. **Re-audit date**: at the next tooling/CI task, or the next time a contributor's formatter fights the repo.
-**File**: `src/radiant/gui/tests/test_configured_parameters.py` (landed by `b6089a5`, Phase 4c; reformatted by `b57491b`), `pyproject.toml:31` (`ruff>=0.1`), plus the 23 files listed below
-**Symptom**: `ruff format --check src/radiant/gui/` reports `Would reformat: src/radiant/gui/tests/test_configured_parameters.py`. `ruff check src/ tests/` — the gate the merge battery actually runs — passes, because formatting and linting are separate ruff commands. Reproduce: `ruff format --check src/ tests/` on a clean `main`.
-**Why it still matters**: CLAUDE.md names `ruff format` as *the* formatter, but no gate enforces it, so formatting drift accumulates silently and shows up as unrelated diff noise the next time someone runs the formatter over a file they are editing. One file today; the mechanism is the issue, not the file.
-**Phase 4e enumeration (2026-07-25)**: `ruff format --check src/ tests/` on ruff **0.15.12** reports **24** files, not one. The other 23 are `src/radiant/api/stage_output_units.py`, `src/radiant/atmosphere/loaders.py`, `src/radiant/cli/tests/test_cli.py`, `src/radiant/core/spectral.py`, `src/radiant/io/config.py`, `src/radiant/io/tests/test_config.py`, `src/radiant/readout/stage.py`, `src/radiant/readout/tests/test_tdi.py`, `src/radiant/source/converters/point_intensity.py`, `src/radiant/source/tests/test_inferrer_mwir_routing.py`, and 13 files under `tests/integration/` + `tests/test_provenance.py`. **Every one of those diffs is the same shape**: a wrapped expression re-joined onto a single line that fits in 100 columns. That is a *formatter version* behaviour change, not author drift — the repo pins only `ruff>=0.1` (`pyproject.toml:31`), so each contributor's ruff formats differently and reformatting the 23 now would simply re-drift on the next checkout with an older ruff.
-
-**Suggested fix** (revised): (a) **done** — the named file, commit `b57491b`. Then, as one owner-facing tooling task and in this order: **pin ruff to an exact version** in the `dev` extra and in CI (without a pin, `ruff format --check` is a version-dependent gate and will fail spuriously); reformat the remaining 23 files with that pinned version in the same PR; and only then add `ruff format --check src/ tests/` to the merge gate battery in CLAUDE.md and to CI alongside `ruff check`. Effort S for the pin + reformat, and the gate line in CLAUDE.md is the owner's call, not an agent's (Phase 4e deliberately did not edit that list). Category A. Not done in Phase 4e: reformatting 23 physics/io/integration files inside a GUI PR is the scope creep the task discipline forbids, and it would churn files concurrent agents may be editing.
-
 ### CU-216 — modal dialogs parented to the main window are never destroyed, so a long session accumulates them
 
 **Discovered**: multi-config Phase 4e, while auditing what `apply_theme` re-polishes (the second half of CU-212), 2026-07-25
@@ -600,6 +580,28 @@
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-252 — 36 files fail `ruff format --check` — formatter drift the gate battery never sees — RESOLVED 2026-07-28 (commit `31c40f6`)
+
+**Discovered**: Geometry-Flexibility Phase 4 gate run (branch `gf/phase4-gui`), 2026-07-28.
+**Status**: RESOLVED 2026-07-28, commit `31c40f6`. **Resolution**: `ruff format` run once repo-wide as a formatting-only change (44 files across `src/ tests/ scripts/ dev_tools/` — the count grew from the entry's 36 because the two extra trees had never been checked at all); `ruff` pinned to `>=0.15,<0.16` in the dev extra so the formatter's output is deterministic across contributors; and `ruff format --check src/ tests/ scripts/ dev_tools/` added to **both** gate lists in `CLAUDE.md` and widened in `.github/workflows/ci.yml` (which format-checked `src/` only). Verified behaviour-neutral: the diff is pure line reflow (`git diff -w` shows only line joins/splits, no changed tokens); full gate battery + suites green. Deliberately **not** bundled: widening `ruff check` to the same four trees — that alters what the lint gate *rejects* and is filed as [[CU-270]].
+
+**File**: repo-wide — `ruff format --check src/ tests/` flags 36 files (e.g. `src/radiant/api/stage_output_units.py`, `src/radiant/atmosphere/loaders.py`); none touched by Phase 4.
+**Symptom**: CLAUDE.md Code Style declares `ruff format` the formatter, but the merge gate battery runs only `ruff check` — so format drift accumulates invisibly. Local ruff is 0.15.12 against a `ruff>=0.1` floor pin, so some or all of the drift may be formatter-version churn rather than hand-edits.
+**Why it still matters**: an unenforced declared formatter is aspirational tooling (the Rule-20 drift profile applied to code style); the first PR that does run `ruff format` will carry a 36-file noise diff.
+**Suggested fix**: (b) stand-alone task — pin the ruff version in the dev extra, run `ruff format` once repo-wide as a dedicated formatting-only commit, and add `ruff format --check` to the gate battery (CLAUDE.md + CI) in the same PR. Effort S; category A.
+
+### CU-215 — `test_configured_parameters.py` is not `ruff format` clean, and the gate cannot see it — RESOLVED 2026-07-28 (commit `31c40f6`)
+
+**Discovered**: multi-config Phase 4d Performance columns (`gui/multiconfig-phase4d`), 2026-07-25
+**Status**: RESOLVED 2026-07-28, commit `31c40f6` — closed as **subsumed by [[CU-252]]**. **Resolution**: this entry's file half was already done (`b57491b`); its remaining gate-widening half is exactly what CU-252 delivered — `ruff format --check` is now in the merge gate battery and in CI, over a four-tree path list. The 'one more decision' Phase 4e flagged (which paths the gate should cover) is answered: the same four trees the formatter runs on, with the `ruff check` path list left alone and tracked separately as [[CU-270]].
+
+**File**: `src/radiant/gui/tests/test_configured_parameters.py` (landed by `b6089a5`, Phase 4c; reformatted by `b57491b`), `pyproject.toml:31` (`ruff>=0.1`), plus the 23 files listed below
+**Symptom**: `ruff format --check src/radiant/gui/` reports `Would reformat: src/radiant/gui/tests/test_configured_parameters.py`. `ruff check src/ tests/` — the gate the merge battery actually runs — passes, because formatting and linting are separate ruff commands. Reproduce: `ruff format --check src/ tests/` on a clean `main`.
+**Why it still matters**: CLAUDE.md names `ruff format` as *the* formatter, but no gate enforces it, so formatting drift accumulates silently and shows up as unrelated diff noise the next time someone runs the formatter over a file they are editing. One file today; the mechanism is the issue, not the file.
+**Phase 4e enumeration (2026-07-25)**: `ruff format --check src/ tests/` on ruff **0.15.12** reports **24** files, not one. The other 23 are `src/radiant/api/stage_output_units.py`, `src/radiant/atmosphere/loaders.py`, `src/radiant/cli/tests/test_cli.py`, `src/radiant/core/spectral.py`, `src/radiant/io/config.py`, `src/radiant/io/tests/test_config.py`, `src/radiant/readout/stage.py`, `src/radiant/readout/tests/test_tdi.py`, `src/radiant/source/converters/point_intensity.py`, `src/radiant/source/tests/test_inferrer_mwir_routing.py`, and 13 files under `tests/integration/` + `tests/test_provenance.py`. **Every one of those diffs is the same shape**: a wrapped expression re-joined onto a single line that fits in 100 columns. That is a *formatter version* behaviour change, not author drift — the repo pins only `ruff>=0.1` (`pyproject.toml:31`), so each contributor's ruff formats differently and reformatting the 23 now would simply re-drift on the next checkout with an older ruff.
+
+**Suggested fix** (revised): (a) **done** — the named file, commit `b57491b`. Then, as one owner-facing tooling task and in this order: **pin ruff to an exact version** in the `dev` extra and in CI (without a pin, `ruff format --check` is a version-dependent gate and will fail spuriously); reformat the remaining 23 files with that pinned version in the same PR; and only then add `ruff format --check src/ tests/` to the merge gate battery in CLAUDE.md and to CI alongside `ruff check`. Effort S for the pin + reformat, and the gate line in CLAUDE.md is the owner's call, not an agent's (Phase 4e deliberately did not edit that list). Category A. Not done in Phase 4e: reformatting 23 physics/io/integration files inside a GUI PR is the scope creep the task discipline forbids, and it would churn files concurrent agents may be editing.
+
 
 ### CU-235 — Clamping the smear kernel to the PSF grid can make its size even, which the kernel builder rejects — RESOLVED 2026-07-27 (commit `2bb84c5`)
 

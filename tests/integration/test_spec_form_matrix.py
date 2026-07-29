@@ -69,9 +69,9 @@ _WL_VIS = _REGIME_GRIDS["VIS"]
 class SpecCell:
     """One (spec_form, scene_type) combination."""
 
-    spec_form: str              # "S1".."S12"
-    scene_type: str             # extended | sub_pixel | point_source
-    outcome: str                # "pass" | "raise"
+    spec_form: str  # "S1".."S12"
+    scene_type: str  # extended | sub_pixel | point_source
+    outcome: str  # "pass" | "raise"
     notes: str = ""
 
 
@@ -81,61 +81,61 @@ class SpecCell:
 # documents the preferred canonical form, not a validation rule).
 _CELLS: tuple[SpecCell, ...] = (
     # S1 Blackbody — T only, ε ≡ 1.
-    SpecCell("S1", "extended",     "pass"),
-    SpecCell("S1", "sub_pixel",    "pass"),
+    SpecCell("S1", "extended", "pass"),
+    SpecCell("S1", "sub_pixel", "pass"),
     SpecCell("S1", "point_source", "pass"),
     # S2 Graybody scalar — T + scalar ε.
-    SpecCell("S2", "extended",     "pass"),
-    SpecCell("S2", "sub_pixel",    "pass"),
+    SpecCell("S2", "extended", "pass"),
+    SpecCell("S2", "sub_pixel", "pass"),
     SpecCell("S2", "point_source", "pass"),
     # S3 Graybody spectral — T + ε(λ).  The inferrer accepts a scalar ε
     # that is materialized to a constant SpectralData (the tabulated-
     # constant limit of S3).  We reuse S2's surface here; the distinction
     # from S2 matters for the matrix but not for the coverage assertion.
-    SpecCell("S3", "extended",     "pass"),
-    SpecCell("S3", "sub_pixel",    "pass"),
+    SpecCell("S3", "extended", "pass"),
+    SpecCell("S3", "sub_pixel", "pass"),
     SpecCell("S3", "point_source", "pass"),
     # S4 Reflective scalar — ρ scalar (Phase 3).
-    SpecCell("S4", "extended",     "pass"),
-    SpecCell("S4", "sub_pixel",    "pass"),
+    SpecCell("S4", "extended", "pass"),
+    SpecCell("S4", "sub_pixel", "pass"),
     SpecCell("S4", "point_source", "pass"),
     # S5 Reflective spectral — ρ(λ) via reflectance_path (Gap G Step G.2:
     # CSV loader wired through the inferrer via the shared two-column
     # reader).  All three scenes exercise the CSV path.
-    SpecCell("S5", "extended",     "pass"),
-    SpecCell("S5", "sub_pixel",    "pass"),
+    SpecCell("S5", "extended", "pass"),
+    SpecCell("S5", "sub_pixel", "pass"),
     SpecCell("S5", "point_source", "pass"),
     # S6 Albedo — alias of S5.  Extended scene exercises the albedo_path
     # CSV (Gap G G.4); sub_pixel / point_source exercise scalar albedo.
-    SpecCell("S6", "extended",     "pass"),
-    SpecCell("S6", "sub_pixel",    "pass"),
+    SpecCell("S6", "extended", "pass"),
+    SpecCell("S6", "sub_pixel", "pass"),
     SpecCell("S6", "point_source", "pass"),
     # S7 Mixed emit+reflect — ε + T via T3Mixed (the default inferrer
     # path when emissivity < 1 and solar irradiance is available).
-    SpecCell("S7", "extended",     "pass"),
-    SpecCell("S7", "sub_pixel",    "pass"),
+    SpecCell("S7", "extended", "pass"),
+    SpecCell("S7", "sub_pixel", "pass"),
     SpecCell("S7", "point_source", "pass"),
     # S8 User radiance at source — T6TabulatedAtSource (Phase 4).
-    SpecCell("S8", "extended",     "pass"),
-    SpecCell("S8", "sub_pixel",    "pass"),
+    SpecCell("S8", "extended", "pass"),
+    SpecCell("S8", "sub_pixel", "pass"),
     SpecCell("S8", "point_source", "pass"),
     # S9 User radiance at aperture — T5AtAperture; §2 extended-only.
-    SpecCell("S9", "extended",     "pass"),
-    SpecCell("S9", "sub_pixel",    "raise", "at_aperture + sub_pixel §7"),
+    SpecCell("S9", "extended", "pass"),
+    SpecCell("S9", "sub_pixel", "raise", "at_aperture + sub_pixel §7"),
     SpecCell("S9", "point_source", "raise", "at_aperture + point_source §7"),
     # S10 User intensity — T7IntensityAtSource (Phase 5); point-source only.
-    SpecCell("S10", "extended",     "raise", "intensity is point-source only"),
-    SpecCell("S10", "sub_pixel",    "raise", "intensity is point-source only"),
+    SpecCell("S10", "extended", "raise", "intensity is point-source only"),
+    SpecCell("S10", "sub_pixel", "raise", "intensity is point-source only"),
     SpecCell("S10", "point_source", "pass"),
     # S11 Brightness temperature — converter → T1Thermal or T6 (Phase 2).
     # Extended scene exercises brightness_temperature_path CSV (Gap G G.4);
     # sub_pixel / point_source exercise scalar brightness_temperature_K.
-    SpecCell("S11", "extended",     "pass"),
-    SpecCell("S11", "sub_pixel",    "pass"),
+    SpecCell("S11", "extended", "pass"),
+    SpecCell("S11", "sub_pixel", "pass"),
     SpecCell("S11", "point_source", "pass"),
     # S12 Radiance temperature — converter → T1Thermal (Phase 2).
-    SpecCell("S12", "extended",     "pass"),
-    SpecCell("S12", "sub_pixel",    "pass"),
+    SpecCell("S12", "extended", "pass"),
+    SpecCell("S12", "sub_pixel", "pass"),
     SpecCell("S12", "point_source", "pass"),
 )
 
@@ -311,21 +311,23 @@ def _run_user_aperture(scene: str) -> None:
     _seed_optics_detector_readout(params, "LWIR")
     params.resolve()
 
-    runner = ChainRunner([
-        _InjectedSource(
-            target=target,
-            background=background,
-            los=None,
-            regime_tentative=RadiometricRegime.EXTENDED,
-        ),
-        AtmosphereStage(),
-        OpticsStage(),
-        PlatformStage(),
-        SpectralIntegrationStage(),
-        DetectorStage(),
-        ReadoutStage(),
-        PerformanceStage(),
-    ])
+    runner = ChainRunner(
+        [
+            _InjectedSource(
+                target=target,
+                background=background,
+                los=None,
+                regime_tentative=RadiometricRegime.EXTENDED,
+            ),
+            AtmosphereStage(),
+            OpticsStage(),
+            PlatformStage(),
+            SpectralIntegrationStage(),
+            DetectorStage(),
+            ReadoutStage(),
+            PerformanceStage(),
+        ]
+    )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
         state = runner.run(params, wl)

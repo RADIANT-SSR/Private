@@ -78,8 +78,7 @@ def scalar_band_intensity(
                 "is empty or inverted"
             ),
             why=(
-                "The band width (filter_max − filter_min) is the denominator of "
-                "the flat intensity."
+                "The band width (filter_max − filter_min) is the denominator of the flat intensity."
             ),
             action="Set spectral_integration.filter_min_um < filter_max_um.",
             context={"filter_min_um": filter_min_um, "filter_max_um": filter_max_um},

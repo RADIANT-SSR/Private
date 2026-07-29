@@ -95,9 +95,7 @@ class TestLevelArmReducesToBeerLambert:
         ref, od = 5.0e4, 0.25
         profile = resolve_path_optical_depth(los, ref, od).profile
         assert profile is not None
-        path = detection_range_path_aware(
-            SIGNAL_E, NOISE_E, profile, snr_threshold=THRESHOLD
-        )
+        path = detection_range_path_aware(SIGNAL_E, NOISE_E, profile, snr_threshold=THRESHOLD)
         beer = detection_range_beer_lambert(
             SIGNAL_E,
             NOISE_E,
@@ -114,9 +112,7 @@ class TestLevelArmReducesToBeerLambert:
         los = LineOfSightGeometry(h_tgt=5.0e3, h_sensor=5.0e3, theta_o=math.pi / 2.0)
         profile = resolve_path_optical_depth(los, 1.0e4, 0.0).profile
         assert profile is not None
-        result = detection_range_path_aware(
-            1.0e12, NOISE_E, profile, snr_threshold=THRESHOLD
-        )
+        result = detection_range_path_aware(1.0e12, NOISE_E, profile, snr_threshold=THRESHOLD)
         assert result.range_m <= LEVEL_ARM_MAX_RANGE_M
         assert not result.ok
         assert result.failure_reason is not None
@@ -260,9 +256,7 @@ class TestAnalyticSearchBound:
         los = LineOfSightGeometry(h_tgt=1.0e4, h_sensor=1.0e4, theta_o=math.pi / 2.0)
         profile = resolve_path_optical_depth(los, 1.0e4, 0.5).profile
         assert profile is not None
-        result = detection_range_path_aware(
-            SIGNAL_E, NOISE_E, profile, snr_threshold=THRESHOLD
-        )
+        result = detection_range_path_aware(SIGNAL_E, NOISE_E, profile, snr_threshold=THRESHOLD)
         assert result.ok
         vacuum_bound = _inverse_square_range(1.0e4, SIGNAL_E / NOISE_E, THRESHOLD)
         assert result.range_m < vacuum_bound

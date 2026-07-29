@@ -466,8 +466,7 @@ class ParameterEditorDialog(QDialog):
         button = QPushButton(CONFIGURE_TEXT, self)
         button.setObjectName("paramEditorConfigureButton")
         button.setToolTip(
-            "Give this parameter its own value in every configuration, then set them "
-            "all here."
+            "Give this parameter its own value in every configuration, then set them all here."
             if scope.is_multi()
             else SINGLE_CONFIGURATION_HINT
         )

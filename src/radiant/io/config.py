@@ -210,8 +210,7 @@ def unattached_section_error(
         for key in sections
     )
     return ConfigError(
-        f"Config carries structured section(s) {keys}, which this loader does not "
-        f"attach. {advice}",
+        f"Config carries structured section(s) {keys}, which this loader does not attach. {advice}",
         path=path,
     )
 

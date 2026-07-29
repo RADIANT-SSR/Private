@@ -88,10 +88,9 @@ class TestGitCommit:
         sha = git_commit()
         assert sha == "unknown"
 
-    def test_returns_unknown_when_git_binary_missing(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_returns_unknown_when_git_binary_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """If the ``git`` binary is unavailable, helper returns ``"unknown"``."""
+
         def _raise(*_a: object, **_kw: object) -> None:
             raise FileNotFoundError("git not installed")
 
@@ -131,9 +130,7 @@ class TestHashFile:
         f.write_bytes(b"hello world\n")
         # SHA-256("hello world\n") — verified independently via
         # `python -c 'import hashlib; print(hashlib.sha256(b"hello world\n").hexdigest())'`.
-        assert hash_file(f) == (
-            "a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447"
-        )
+        assert hash_file(f) == ("a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447")
 
     def test_deterministic(self, tmp_path: Path) -> None:
         f = tmp_path / "blob.bin"
@@ -297,16 +294,18 @@ class TestLoadConfigRecordsFileHash:
 # ---------------------------------------------------------------------------
 
 
-C13_REQUIRED_KEYS: frozenset[str] = frozenset({
-    "run_id",
-    "radiant_version",
-    "git_commit",
-    "python_version",
-    "dependency_versions",
-    "parameter_set",
-    "input_file_hashes",
-    "active_models",
-})
+C13_REQUIRED_KEYS: frozenset[str] = frozenset(
+    {
+        "run_id",
+        "radiant_version",
+        "git_commit",
+        "python_version",
+        "dependency_versions",
+        "parameter_set",
+        "input_file_hashes",
+        "active_models",
+    }
+)
 
 
 @pytest.mark.level1
@@ -345,9 +344,7 @@ class TestChainResultProvenanceEndToEnd:
         from radiant.api.session import RadiantSession
         from radiant.io.config import load_config
 
-        yaml_path = (
-            Path(__file__).parent.parent / "examples" / "mwir_leo_minimal.yaml"
-        )
+        yaml_path = Path(__file__).parent.parent / "examples" / "mwir_leo_minimal.yaml"
         wl = np.linspace(3.5, 5.0, 200)
         session = RadiantSession(wavelength_um=wl)
         params = session.default_params()
@@ -410,16 +407,18 @@ class TestProvenanceUnresolvedParams:
     def test_unresolved_params_yield_empty_set(self) -> None:
         from radiant.io.results import ChainResult
 
-        params = ParameterSet(schema=[
-            ParameterDef(
-                name="source.target.temperature",
-                description="test temp",
-                dtype=float,
-                canonical_unit="K",
-                input_unit="K",
-                default=300.0,
-            ),
-        ])
+        params = ParameterSet(
+            schema=[
+                ParameterDef(
+                    name="source.target.temperature",
+                    description="test temp",
+                    dtype=float,
+                    canonical_unit="K",
+                    input_unit="K",
+                    default=300.0,
+                ),
+            ]
+        )
         # NOT resolved — `all_resolved()` raises RuntimeError.
         params.set("source.target.temperature", 270.0, Provenance.USER_SET, "test")
 

@@ -38,24 +38,24 @@ import numpy as np
 # ---------------------------------------------------------------------------
 # Reference configuration
 # ---------------------------------------------------------------------------
-D = 0.30           # aperture diameter [m]
-F = 1.20           # focal length [m]
-PITCH = 18e-6      # pixel pitch [m]
+D = 0.30  # aperture diameter [m]
+F = 1.20  # focal length [m]
+PITCH = 18e-6  # pixel pitch [m]
 OBSCURATION = 0.0  # central obscuration ratio
-WFE = 0.0          # wave-front error [waves RMS]
-FILTER_MIN = 3.5   # µm
-FILTER_MAX = 5.0   # µm
+WFE = 0.0  # wave-front error [waves RMS]
+FILTER_MIN = 3.5  # µm
+FILTER_MAX = 5.0  # µm
 LAM_CENTER_UM = (FILTER_MIN + FILTER_MAX) / 2.0  # 4.25 µm
 LAM_CENTER_M = LAM_CENTER_UM * 1e-6
 ALTITUDE = 8000.0  # m
-SNR = 325.0        # approximate from chain
+SNR = 325.0  # approximate from chain
 PUPIL_NPIX = 128
 PSF_OVERSAMPLE = 8
 
 # Degradation parameters
-DIFFUSION_LENGTH_M = 5e-6   # 5 µm charge diffusion
-JITTER_RMS_RAD = 1e-6       # 1 µrad jitter
-SMEAR_WIDTH_M = 2e-6        # 2 µm smear on FPA
+DIFFUSION_LENGTH_M = 5e-6  # 5 µm charge diffusion
+JITTER_RMS_RAD = 1e-6  # 1 µrad jitter
+SMEAR_WIDTH_M = 2e-6  # 2 µm smear on FPA
 
 
 def banner(title: str) -> None:
@@ -93,6 +93,7 @@ def check(condition: bool, msg: str) -> bool:
 # ===================================================================
 # 1. Build the PSF and EffectivePSF
 # ===================================================================
+
 
 def build_reference_psfs() -> dict:
     """Build diffraction-only and degraded EffectivePSFs."""
@@ -165,14 +166,15 @@ def build_reference_psfs() -> dict:
 # 2. Sampling Configuration
 # ===================================================================
 
+
 def print_sampling_config(data: dict) -> None:
     banner("1. SAMPLING CONFIGURATION")
     config = data["config"]
     info(f"Wavelength:          {LAM_CENTER_UM:.2f} µm  ({LAM_CENTER_M:.3e} m)")
     info(f"Aperture:            {D:.3f} m")
     info(f"Focal length:        {F:.3f} m")
-    info(f"f/#:                 {F/D:.1f}")
-    info(f"Pixel pitch:         {PITCH*1e6:.1f} µm  ({PITCH:.3e} m)")
+    info(f"f/#:                 {F / D:.1f}")
+    info(f"Pixel pitch:         {PITCH * 1e6:.1f} µm  ({PITCH:.3e} m)")
     info(f"Obscuration ratio:   {OBSCURATION:.2f}")
     info(f"WFE RMS:             {WFE:.2f} waves")
     info(f"Pupil N:             {config.pupil_npix}")
@@ -181,7 +183,7 @@ def print_sampling_config(data: dict) -> None:
     info(f"Focal spacing:       {config.focal_spacing_m:.3e} m")
     info(f"Airy FWHM:           {1.028 * LAM_CENTER_M * F / D * 1e6:.2f} µm")
     info(f"Airy first zero:     {1.22 * LAM_CENTER_M * F / D * 1e6:.2f} µm")
-    info(f"Nyquist freq:        {1/(2*PITCH):.0f} cy/m")
+    info(f"Nyquist freq:        {1 / (2 * PITCH):.0f} cy/m")
     info(f"λf/D (diffraction):  {LAM_CENTER_M * F / D * 1e6:.2f} µm")
     q = (LAM_CENTER_M * F / D) / PITCH
     info(f"Q = λf/(D·p):        {q:.3f}  ({'under-sampled' if q < 2 else 'well-sampled'})")
@@ -190,6 +192,7 @@ def print_sampling_config(data: dict) -> None:
 # ===================================================================
 # 3. MTF Components at Nyquist
 # ===================================================================
+
 
 def print_mtf_components(data: dict) -> None:
     banner("2. MTF COMPONENTS AT NYQUIST")
@@ -203,7 +206,7 @@ def print_mtf_components(data: dict) -> None:
 
     f_ny = nyquist_freq(PITCH)
     freq = np.array([f_ny])
-    info(f"Nyquist frequency: {f_ny:.1f} cy/m  ({f_ny*PITCH:.3f} cy/pixel)")
+    info(f"Nyquist frequency: {f_ny:.1f} cy/m  ({f_ny * PITCH:.3f} cy/pixel)")
 
     section("Individual component MTF at Nyquist")
 
@@ -215,7 +218,7 @@ def print_mtf_components(data: dict) -> None:
 
     # Charge diffusion
     mtf_cd = float(diffusion_mtf_1d(freq, DIFFUSION_LENGTH_M)[0])
-    info(f"Charge diffusion MTF:  {mtf_cd:.6f}  (L_d={DIFFUSION_LENGTH_M*1e6:.1f} µm)")
+    info(f"Charge diffusion MTF:  {mtf_cd:.6f}  (L_d={DIFFUSION_LENGTH_M * 1e6:.1f} µm)")
 
     # Pixel aperture
     mtf_pa = float(pixel_aperture_mtf_1d(freq, PITCH, fill_factor=1.0)[0])
@@ -224,11 +227,11 @@ def print_mtf_components(data: dict) -> None:
     # Jitter
     sigma_jit = JITTER_RMS_RAD * F
     mtf_jit = float(jitter_mtf_1d(freq, sigma_jit)[0])
-    info(f"Jitter MTF:            {mtf_jit:.6f}  (σ={JITTER_RMS_RAD*1e6:.1f} µrad)")
+    info(f"Jitter MTF:            {mtf_jit:.6f}  (σ={JITTER_RMS_RAD * 1e6:.1f} µrad)")
 
     # Smear
     mtf_sm = float(smear_mtf_1d(freq, SMEAR_WIDTH_M)[0])
-    info(f"Smear MTF:             {mtf_sm:.6f}  (w={SMEAR_WIDTH_M*1e6:.1f} µm)")
+    info(f"Smear MTF:             {mtf_sm:.6f}  (w={SMEAR_WIDTH_M * 1e6:.1f} µm)")
 
     # Budget product
     mtf_budget = mtf_diff_ny * mtf_cd * mtf_pa * mtf_jit * mtf_sm
@@ -254,6 +257,7 @@ def print_mtf_components(data: dict) -> None:
 # ===================================================================
 # 4. EE Values
 # ===================================================================
+
 
 def print_ee_values(data: dict) -> None:
     banner("3. ENSQUARED ENERGY")
@@ -286,6 +290,7 @@ def print_ee_values(data: dict) -> None:
 # 5. FWHM, RER, Strehl
 # ===================================================================
 
+
 def print_spatial_metrics(data: dict) -> None:
     banner("4. SPATIAL METRICS")
 
@@ -295,8 +300,8 @@ def print_spatial_metrics(data: dict) -> None:
         fwhm_x = epsf.fwhm("x")
         fwhm_y = epsf.fwhm("y")
         rer = epsf.rer()
-        info(f"FWHM_x:  {fwhm_x:.3e} m  ({fwhm_x*1e6:.2f} µm)  ({fwhm_x/PITCH:.3f} pixels)")
-        info(f"FWHM_y:  {fwhm_y:.3e} m  ({fwhm_y*1e6:.2f} µm)  ({fwhm_y/PITCH:.3f} pixels)")
+        info(f"FWHM_x:  {fwhm_x:.3e} m  ({fwhm_x * 1e6:.2f} µm)  ({fwhm_x / PITCH:.3f} pixels)")
+        info(f"FWHM_y:  {fwhm_y:.3e} m  ({fwhm_y * 1e6:.2f} µm)  ({fwhm_y / PITCH:.3f} pixels)")
         info(f"RER:     {rer:.6f}")
         info(f"Peak:    {epsf.peak:.6e}")
         info(f"Total:   {epsf.total:.10f}")
@@ -311,6 +316,7 @@ def print_spatial_metrics(data: dict) -> None:
 # 6. NIIRS
 # ===================================================================
 
+
 def print_niirs(data: dict) -> None:
     banner("5. NIIRS (GIQE-5)")
 
@@ -318,8 +324,8 @@ def print_niirs(data: dict) -> None:
 
     gsd = PITCH * ALTITUDE / F
     ifov = PITCH / F
-    info(f"GSD:   {gsd:.4f} m  ({gsd*100:.2f} cm)")
-    info(f"IFOV:  {ifov:.3e} rad  ({ifov*1e6:.2f} µrad)")
+    info(f"GSD:   {gsd:.4f} m  ({gsd * 100:.2f} cm)")
+    info(f"IFOV:  {ifov:.3e} rad  ({ifov * 1e6:.2f} µrad)")
 
     for label, key in [("Diffraction-only", "epsf_diff"), ("Degraded", "epsf_degraded")]:
         section(f"{label}")
@@ -338,6 +344,7 @@ def print_niirs(data: dict) -> None:
 # ===================================================================
 # 7. Nine Mandatory Invariants
 # ===================================================================
+
 
 def verify_invariants(data: dict) -> int:
     banner("6. NINE MANDATORY INVARIANTS")
@@ -358,9 +365,11 @@ def verify_invariants(data: dict) -> int:
     total_deg = epsf_deg.total
     info(f"Diffraction total: {total_diff:.15f}")
     info(f"Degraded total:    {total_deg:.15f}")
-    if check(abs(total_diff - 1.0) < 1e-10, f"|total_diff - 1| = {abs(total_diff-1):.2e} < 1e-10"):
+    if check(
+        abs(total_diff - 1.0) < 1e-10, f"|total_diff - 1| = {abs(total_diff - 1):.2e} < 1e-10"
+    ):
         n_pass += 1
-    if check(abs(total_deg - 1.0) < 1e-10, f"|total_deg - 1| = {abs(total_deg-1):.2e} < 1e-10"):
+    if check(abs(total_deg - 1.0) < 1e-10, f"|total_deg - 1| = {abs(total_deg - 1):.2e} < 1e-10"):
         n_pass += 1
 
     # 2. MTF(0) = 1
@@ -369,7 +378,7 @@ def verify_invariants(data: dict) -> int:
         freq, mtf = epsf.mtf_1d("x")
         mtf0 = mtf[0]
         info(f"{label} MTF(0) = {mtf0:.15f}")
-        if check(abs(mtf0 - 1.0) < 1e-6, f"{label}: |MTF(0) - 1| = {abs(mtf0-1):.2e} < 1e-6"):
+        if check(abs(mtf0 - 1.0) < 1e-6, f"{label}: |MTF(0) - 1| = {abs(mtf0 - 1):.2e} < 1e-6"):
             n_pass += 1
 
     # 3. Parseval's theorem
@@ -377,7 +386,7 @@ def verify_invariants(data: dict) -> int:
     for label, epsf in [("Diffraction", epsf_diff), ("Degraded", epsf_deg)]:
         psf_data = epsf.data
         n = psf_data.shape[0]
-        sum_psf_sq = float(np.sum(psf_data ** 2))
+        sum_psf_sq = float(np.sum(psf_data**2))
         fft_psf = np.fft.fft2(psf_data)
         sum_fft_sq = float(np.sum(np.abs(fft_psf) ** 2)) / (n * n)
         rel_err = abs(sum_psf_sq - sum_fft_sq) / max(sum_psf_sq, 1e-30)
@@ -390,14 +399,16 @@ def verify_invariants(data: dict) -> int:
     section("Invariant 4: Convolution order independence")
     # Forward order
     epsf_fwd = build_effective_psf(
-        psf_arr, kernels,
+        psf_arr,
+        kernels,
         sample_spacing_m=config.focal_spacing_m,
         pixel_pitch_m=PITCH,
         wavelength_um=LAM_CENTER_UM,
     )
     # Reversed order
     epsf_rev = build_effective_psf(
-        psf_arr, list(reversed(kernels)),
+        psf_arr,
+        list(reversed(kernels)),
         sample_spacing_m=config.focal_spacing_m,
         pixel_pitch_m=PITCH,
         wavelength_um=LAM_CENTER_UM,
@@ -443,7 +454,9 @@ def verify_invariants(data: dict) -> int:
     mask = freq_epsf <= f_ny
     max_budget_diff = float(np.max(np.abs(mtf_epsf[mask] - mtf_budget[mask])))
     info(f"max |MTF_epsf - MTF_budget| (0 to Nyquist): {max_budget_diff:.6f}")
-    if check(max_budget_diff < 0.01, f"Budget consistency: max diff = {max_budget_diff:.4f} < 0.01"):
+    if check(
+        max_budget_diff < 0.01, f"Budget consistency: max diff = {max_budget_diff:.4f} < 0.01"
+    ):
         n_pass += 1
 
     # 7. Strehl = 1 for unaberrated, no motion
@@ -458,8 +471,8 @@ def verify_invariants(data: dict) -> int:
     section("Invariant 8: FWHM increases with degradation")
     fwhm_diff = epsf_diff.fwhm("x")
     fwhm_deg = epsf_deg.fwhm("x")
-    info(f"FWHM diffraction: {fwhm_diff*1e6:.2f} µm")
-    info(f"FWHM degraded:    {fwhm_deg*1e6:.2f} µm")
+    info(f"FWHM diffraction: {fwhm_diff * 1e6:.2f} µm")
+    info(f"FWHM degraded:    {fwhm_deg * 1e6:.2f} µm")
     if check(fwhm_deg >= fwhm_diff, "FWHM(degraded) >= FWHM(diffraction)"):
         n_pass += 1
 
@@ -481,16 +494,20 @@ def verify_invariants(data: dict) -> int:
 # 8. Ground Truth Tests
 # ===================================================================
 
+
 def run_ground_truth() -> bool:
     banner("7. GROUND TRUTH TESTS")
 
     result = subprocess.run(
         [
-            sys.executable, "-m", "pytest",
+            sys.executable,
+            "-m",
+            "pytest",
             "tests/integration/test_ground_truth_mwir.py",
             "tests/integration/test_golden_mwir_leo_minimal.py",
             "tests/integration/test_chain_spatial.py",
-            "-v", "--tb=short",
+            "-v",
+            "--tb=short",
         ],
         capture_output=True,
         text=True,
@@ -507,6 +524,7 @@ def run_ground_truth() -> bool:
 # ===================================================================
 # 9. Full Test Suite
 # ===================================================================
+
 
 def run_full_suite() -> bool:
     banner("8. FULL TEST SUITE")
@@ -531,6 +549,7 @@ def run_full_suite() -> bool:
 # 10. Import Contract Check
 # ===================================================================
 
+
 def run_import_linter() -> bool:
     banner("9. IMPORT CONTRACTS")
 
@@ -552,6 +571,7 @@ def run_import_linter() -> bool:
 # 11. Adversarial Single-Source-of-Truth Audit
 # ===================================================================
 
+
 def adversarial_audit() -> None:
     banner("10. ADVERSARIAL AUDIT: SINGLE SOURCE OF TRUTH")
 
@@ -562,6 +582,7 @@ def adversarial_audit() -> None:
     # Check: performance.stage only reads EffectivePSF from stage_outputs
     import inspect
     from radiant.performance import stage as perf_stage
+
     source = inspect.getsource(perf_stage)
 
     issues = []
@@ -589,6 +610,7 @@ def adversarial_audit() -> None:
 
     # Check: optics.stage builds EffectivePSF
     from radiant.optics import stage as optics_stage
+
     optics_source = inspect.getsource(optics_stage)
     if "build_effective_psf" in optics_source:
         ok("optics.stage builds EffectivePSF via build_effective_psf()")
@@ -597,6 +619,7 @@ def adversarial_audit() -> None:
 
     # Check: EffectivePSF.rer() uses ERF from same PSF
     from radiant.optics.psf.effective import EffectivePSF
+
     rer_source = inspect.getsource(EffectivePSF.rer)
     if "self.erf" in rer_source:
         ok("EffectivePSF.rer() derives from self.erf() (same PSF)")
@@ -612,6 +635,7 @@ def adversarial_audit() -> None:
 
     # Check: no independent MTF or EE computation in chain stages
     import importlib
+
     stage_modules = [
         "radiant.source.stage",
         "radiant.atmosphere.stage",
@@ -639,6 +663,7 @@ def adversarial_audit() -> None:
 # PSF Plots
 # ===================================================================
 
+
 def generate_plots(data: dict) -> Path:
     """Generate PSF, MTF, EE, LSF/ERF diagnostic plots.
 
@@ -646,6 +671,7 @@ def generate_plots(data: dict) -> Path:
     and returns the path.
     """
     import matplotlib
+
     matplotlib.use("Agg")  # non-interactive backend
     import matplotlib.pyplot as plt
     from matplotlib.colors import LogNorm
@@ -663,8 +689,8 @@ def generate_plots(data: dict) -> Path:
     fig, axes = plt.subplots(3, 3, figsize=(16, 14))
     fig.suptitle(
         f"RADIANT Checkpoint 2C — Spatial Audit\n"
-        f"D={D:.2f} m, f={F:.2f} m, pitch={PITCH*1e6:.0f} µm, "
-        f"λ={LAM_CENTER_UM:.2f} µm, f/{F/D:.0f}",
+        f"D={D:.2f} m, f={F:.2f} m, pitch={PITCH * 1e6:.0f} µm, "
+        f"λ={LAM_CENTER_UM:.2f} µm, f/{F / D:.0f}",
         fontsize=13,
         fontweight="bold",
     )
@@ -674,7 +700,7 @@ def generate_plots(data: dict) -> Path:
     # (0,0) Diffraction PSF — log scale
     ax = axes[0, 0]
     n = epsf_diff.data.shape[0]
-    extent_um = np.array([-n/2, n/2, -n/2, n/2]) * dx * 1e6
+    extent_um = np.array([-n / 2, n / 2, -n / 2, n / 2]) * dx * 1e6
     vmin = epsf_diff.peak * 1e-5  # 5 decades
     im = ax.imshow(
         epsf_diff.data,
@@ -750,16 +776,23 @@ def generate_plots(data: dict) -> Path:
 
     freq_plot = np.linspace(0, 2.0 * f_ny, 500)
     sigma_jit = JITTER_RMS_RAD * F
-    ax.plot(freq_plot / f_ny, np.interp(freq_plot, freq_d, mtf_d),
-            label="Diffraction", linewidth=1.5)
-    ax.plot(freq_plot / f_ny, diffusion_mtf_1d(freq_plot, DIFFUSION_LENGTH_M),
-            label="Charge diffusion", linewidth=1)
-    ax.plot(freq_plot / f_ny, pixel_aperture_mtf_1d(freq_plot, PITCH),
-            label="Pixel aperture", linewidth=1)
-    ax.plot(freq_plot / f_ny, jitter_mtf_1d(freq_plot, sigma_jit),
-            label="Jitter", linewidth=1)
-    ax.plot(freq_plot / f_ny, smear_mtf_1d(freq_plot, SMEAR_WIDTH_M),
-            label="Smear", linewidth=1)
+    ax.plot(
+        freq_plot / f_ny, np.interp(freq_plot, freq_d, mtf_d), label="Diffraction", linewidth=1.5
+    )
+    ax.plot(
+        freq_plot / f_ny,
+        diffusion_mtf_1d(freq_plot, DIFFUSION_LENGTH_M),
+        label="Charge diffusion",
+        linewidth=1,
+    )
+    ax.plot(
+        freq_plot / f_ny,
+        pixel_aperture_mtf_1d(freq_plot, PITCH),
+        label="Pixel aperture",
+        linewidth=1,
+    )
+    ax.plot(freq_plot / f_ny, jitter_mtf_1d(freq_plot, sigma_jit), label="Jitter", linewidth=1)
+    ax.plot(freq_plot / f_ny, smear_mtf_1d(freq_plot, SMEAR_WIDTH_M), label="Smear", linewidth=1)
     ax.axvline(1.0, color="red", alpha=0.5, linewidth=1, label="Nyquist")
     ax.set_xlim(0, 2.0)
     ax.set_ylim(0, 1.05)
@@ -772,13 +805,14 @@ def generate_plots(data: dict) -> Path:
     # (1,2) MTF 2-D (diffraction)
     ax = axes[1, 2]
     mtf2d = epsf_diff.mtf_2d()
-    freq_extent = np.array([-n/2, n/2, -n/2, n/2]) / (n * dx) / f_ny
+    freq_extent = np.array([-n / 2, n / 2, -n / 2, n / 2]) / (n * dx) / f_ny
     im = ax.imshow(
         mtf2d,
         extent=freq_extent,
         origin="lower",
         cmap="viridis",
-        vmin=0, vmax=1,
+        vmin=0,
+        vmax=1,
     )
     ax.set_xlim(-2, 2)
     ax.set_ylim(-2, 2)
@@ -816,7 +850,9 @@ def generate_plots(data: dict) -> Path:
     ax.axhspan(
         float(np.interp(-half_p, pos_d * 1e6, erf_d)),
         float(np.interp(half_p, pos_d * 1e6, erf_d)),
-        alpha=0.1, color="blue", label=f"RER={epsf_diff.rer():.3f}",
+        alpha=0.1,
+        color="blue",
+        label=f"RER={epsf_diff.rer():.3f}",
     )
     ax.set_xlim(-60, 60)
     ax.set_title("Edge Response Function")
@@ -851,6 +887,7 @@ def generate_plots(data: dict) -> Path:
 # ===================================================================
 # Main
 # ===================================================================
+
 
 def main() -> int:
     print()

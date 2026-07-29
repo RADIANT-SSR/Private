@@ -843,9 +843,7 @@ class TestRunStudyConfigFiles:
         assert "plain config file" in result.output
 
     @pytest.mark.level1
-    def test_json_output_carries_the_configuration(
-        self, runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_json_output_carries_the_configuration(self, runner: CliRunner, tmp_path: Path) -> None:
         study = _write_study(tmp_path)
         result = runner.invoke(
             cli, ["run", str(study), "--configuration", "MWIR", "--format", "json"]

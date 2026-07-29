@@ -51,8 +51,7 @@ def _sha256(path: Path) -> str:
 def _staged_data_files() -> list[Path]:
     """Staged data files (``*.tp7``/``*.csv``), sorted by name for determinism."""
     return sorted(
-        (p for p in REAL_RUNS_DIR.iterdir()
-         if p.is_file() and p.suffix.lower() in _DATA_SUFFIXES),
+        (p for p in REAL_RUNS_DIR.iterdir() if p.is_file() and p.suffix.lower() in _DATA_SUFFIXES),
         key=lambda p: p.name,
     )
 
@@ -109,9 +108,7 @@ def check() -> int:
             missing.append(name)
         elif _sha256(path) != want:
             mismatched.append(name)
-    extra = sorted(
-        p.name for p in _staged_data_files() if p.name not in expected
-    )
+    extra = sorted(p.name for p in _staged_data_files() if p.name not in expected)
     for name in missing:
         print(f"  MISSING    {name}")
     for name in mismatched:
@@ -119,8 +116,10 @@ def check() -> int:
     for name in extra:
         print(f"  UNMANIFEST {name} (staged but not in manifest — regenerate?)")
     if missing or mismatched:
-        print(f"FAIL: {len(missing)} missing, {len(mismatched)} mismatched "
-              f"of {len(expected)} manifested files.")
+        print(
+            f"FAIL: {len(missing)} missing, {len(mismatched)} mismatched "
+            f"of {len(expected)} manifested files."
+        )
         return 1
     note = f" ({len(extra)} extra unmanifested)" if extra else ""
     print(f"OK: {len(expected)} staged files match the manifest{note}.")
@@ -130,7 +129,8 @@ def check() -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--check", action="store_true",
+        "--check",
+        action="store_true",
         help="verify staged files against the manifest instead of regenerating it",
     )
     args = parser.parse_args(argv)

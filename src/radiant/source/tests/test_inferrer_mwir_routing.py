@@ -203,9 +203,7 @@ class TestA4MwirWarningSurfaces:
             with caplog.at_level(logging.DEBUG, logger="radiant.core.descriptors"):
                 _build(params, wl)
         mwir_msgs = [
-            r.message
-            for r in caplog.records
-            if "spectral band overlapping the MWIR" in r.message
+            r.message for r in caplog.records if "spectral band overlapping the MWIR" in r.message
         ]
         assert len(mwir_msgs) == 1, mwir_msgs
         assert "T3Mixed" in mwir_msgs[0]

@@ -52,8 +52,7 @@ def _manifest_entries() -> dict[str, str]:
 def test_manifest_is_committed() -> None:
     """The manifest itself must be committed (it lives outside the ignored dir)."""
     assert _MANIFEST.is_file(), (
-        f"{_MANIFEST} missing — regenerate with "
-        "`python scripts/gen_modtran_manifest.py`"
+        f"{_MANIFEST} missing — regenerate with `python scripts/gen_modtran_manifest.py`"
     )
     assert _manifest_entries(), "manifest has no checksum entries"
 

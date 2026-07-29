@@ -59,16 +59,12 @@ class TestTruncationIsAnnounced:
     """Clipping without telling the caller is a Rule-17 violation."""
 
     def test_user_warning_names_the_consequence(self) -> None:
-        sensor = Sensor.load(_CONFIG).set(
-            "platform.ground_velocity_m_s", _WIDE_SMEAR_VELOCITY_M_S
-        )
+        sensor = Sensor.load(_CONFIG).set("platform.ground_velocity_m_s", _WIDE_SMEAR_VELOCITY_M_S)
         with pytest.warns(UserWarning, match="smear kernel is TRUNCATED"):
             sensor.evaluate()
 
     def test_warning_states_what_it_costs_and_what_to_do(self) -> None:
-        sensor = Sensor.load(_CONFIG).set(
-            "platform.ground_velocity_m_s", _WIDE_SMEAR_VELOCITY_M_S
-        )
+        sensor = Sensor.load(_CONFIG).set("platform.ground_velocity_m_s", _WIDE_SMEAR_VELOCITY_M_S)
         with pytest.warns(UserWarning) as record:
             sensor.evaluate()
         texts = [str(w.message) for w in record]

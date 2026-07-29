@@ -116,7 +116,7 @@ def _seed_optics_detector_readout(params, regime: str) -> None:
 # / point_source in the same regime — the extended cell is the canonical
 # representative per table to keep the parametrization readable.
 _SWIR_EXTENDED_CELLS: tuple[tuple[str, str], ...] = (
-    ("7", "at_aperture"),   # not used — at_aperture uses T5AtAperture (no T_t).
+    ("7", "at_aperture"),  # not used — at_aperture uses T5AtAperture (no T_t).
     ("22", "terrestrial"),
     ("37", "airborne"),
     ("52", "no_atm_space"),

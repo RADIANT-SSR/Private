@@ -58,9 +58,7 @@ _STAGE_UNIT_TABLES: Final[dict[str, dict[str, str]]] = {
 
 # Flattened ``(stage, output_key) -> unit`` view assembled from the per-stage tables.
 STAGE_OUTPUT_UNITS: Final[dict[tuple[str, str], str]] = {
-    (stage, key): unit
-    for stage, table in _STAGE_UNIT_TABLES.items()
-    for key, unit in table.items()
+    (stage, key): unit for stage, table in _STAGE_UNIT_TABLES.items() for key, unit in table.items()
 }
 
 

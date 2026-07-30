@@ -52,16 +52,6 @@ So "root it at the sensor like the up-looking branch" would drop up to 25 % of t
 **Suggested fix**: (b) stand-alone — give the plane-parallel column the same hand-over the sky now has. `AtmosphericGeometry` cannot do it alone: it carries no scale height, and making `slant_path_length_m` density-weighted would change a documented *geometric length* into something else (public-surface change, Rule 20). The cleaner shape is to route `column_segment_optical_depth` and `SimpleAtmosphere.evaluate`'s two air-mass sites to `grazing_segment_optical_depth` past 80°, exactly as `uplooking_quantities` does, and leave `AtmosphericGeometry.air_mass` as the honest plane-parallel primitive it now is. Re-anchor the twilight solar column against a MODTRAN run before trusting it. **Results-affecting** for any scene past 80° LOS or solar zenith. Effort M; category C. Related: [[CU-274]], [[CU-225]], [[CU-260]].
 
 
-### CU-271 — `examples/MWIR_Jason.yaml` is a personally-named, unreferenced config in the shipped examples folder
-
-**Discovered**: Backlog-Reduction Track A, Wave A2 (deleting `nintendo.yaml` for CU-207), 2026-07-28.
-**Status**: Open — **owner call, not an autonomous delete** (it is plausibly the owner's own working config).
-**File**: `examples/MWIR_Jason.yaml`.
-**Symptom**: an `examples/` entry named after a person, referenced by no test, script, or document (`grep -rn MWIR_Jason` outside the file itself returns nothing). Unlike [[CU-207]] it carries **no** hardcoded absolute path, so it loads fine anywhere — this is a naming/placement finding, not a Rule-30 one. `docs/OPERATING_MODEL.md` §5 requires a name that states the *content*, not the event or author, and `examples/` is a shipped surface a new user reads for canonical configs.
-**Why it still matters**: a reader opening `examples/` cannot tell which files are the curated examples (`mwir_leo_minimal.yaml`, `ground_truth_mwir.yaml`, `templates/`) and which are someone's scratch. It is the same clutter CU-207 removed, minus the broken path that forced that one's hand.
-**Suggested fix**: (c) delete-as-unused if it is scratch, or (a) rename to a content-stating slug (e.g. the band + platform + regime it configures) if it is a real example worth shipping. Needs one word from the owner — the file may be in active personal use. Effort XS; category A. Related: [[CU-207]].
-
-
 ### CU-256 — T7 intensity door publishes sentinel extent values, bypassing the point-source angular-size guard
 
 **Discovered**: Scenario 10.2 (branch `gf/phase5-validation`), 2026-07-28.
@@ -376,6 +366,16 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-271 — `examples/MWIR_Jason.yaml` is a personally-named, unreferenced config in the shipped examples folder — RESOLVED 2026-07-29 (commit `3da7402`)
+
+**Discovered**: Backlog-Reduction Track A, Wave A2 (deleting `nintendo.yaml` for [[CU-207]]), 2026-07-28.
+**Status**: RESOLVED 2026-07-29, commit `3da7402`. **Owner ruling: delete as scratch** (asked directly, 2026-07-29). Removed with `git rm`; git history is the archive (Rule 26).
+**File**: `examples/MWIR_Jason.yaml` (deleted).
+**What it was, recorded here so the deletion is reversible from this entry alone**: a `Sensor.save()` dump of a LEO→boost-phase tracking config — sensor 500 km, target 20 km, MWIR 3.5–5 µm, `scene_type: sub_pixel`, a 0.5 × 0.1 m flat-plate target at 1000 K / ε 0.95, 0.3 m aperture at f/4, interpolated atmosphere on the `sensor_altitude_m,target_altitude_m` axes, midlat_summer. Last touched by `2cefaf3`. Recoverable with `git show 2cefaf3:examples/MWIR_Jason.yaml` if it turns out to have been wanted.
+**Verified unreferenced before deleting**: `grep -rn MWIR_Jason` across the tree returns only this registry and the plan's owner-triage list; no test, script, doc or config loads it, and nothing globs `examples/` (checked for `glob`/`iterdir`/`listdir`/`rglob` against that path in `src/`, `tests/` and `scripts/`). Unlike [[CU-207]]'s `nintendo.yaml` it carried no hardcoded absolute path, so this was purely a naming/placement finding — `docs/OPERATING_MODEL.md` §5 requires a name that states the *content*, not the author, and `examples/` is a shipped surface a new user reads for canonical configs.
+**No CHANGELOG entry**, matching the [[CU-207]] precedent: `nintendo.yaml`'s deletion (`cc4e2c6`) got none either. The curated examples a user is pointed at — `mwir_leo_minimal.yaml`, `ground_truth_mwir.yaml`, and the twelve under `templates/` — are untouched. Related: [[CU-207]].
+
+
 ### CU-273 — `emit_gui_yaml.py` rewrites portable baseline paths back to gitignored generated locations, silently un-doing CU-180 — RESOLVED 2026-07-29 (commit `1d71422`)
 
 **Discovered**: Backlog-Reduction Track B1, 2026-07-28 — a fresh worktree failed `test_gui_baselines[4.3]` immediately after the CU-253 baseline regeneration merged.

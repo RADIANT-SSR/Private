@@ -59,6 +59,40 @@ TARGET_ALTITUDE_M = ParameterDef(
     default_justification="Ground-level target is the common case.",
 )
 
+SITE_ELEVATION_M = ParameterDef(
+    name="geometry.site_elevation_m",
+    description=(
+        "Terrain elevation of the scene's ground site above mean sea level "
+        "[m] — the altitude of the SURFACE beneath the line of sight, which "
+        "is NOT the same thing as the lowest point of the line of sight "
+        "(CU-262). It is the reference the surface boundary layer sits on: "
+        "the Hufnagel-Valley Cn2 surface term is evaluated at (h - "
+        "site_elevation_m) so that a mountain-top observatory keeps its own "
+        "boundary layer, while the tropopause and middle-atmosphere terms "
+        "stay on mean sea level. Whose site it is follows the topology: "
+        "down-looking = the terrain under the TARGET; up-looking = the "
+        "terrain under the SENSOR; level = the terrain under the arm (shared "
+        "- both endpoints are at the same altitude). An endpoint that is "
+        "airborne over that terrain needs no special case: the 100 m scale "
+        "height suppresses the surface term on its own, so a level air-to-air "
+        "path more than a few hundred metres above the site carries no "
+        "surface term at all. Consumed today ONLY by "
+        "atmosphere.cn2_profile = 'hufnagel_valley'; a 'tabulated' Cn2 "
+        "profile is taken as given against MSL and is not shifted. The "
+        "default 0 reproduces every pre-CU-262 result bit-identically."
+    ),
+    dtype=float,
+    canonical_unit="m",
+    input_unit="m",
+    default=0.0,
+    bounds=(0.0, 1.0e4),
+    tags=frozenset({"geometry"}),
+    default_justification=(
+        "Sea level — the reference every RADIANT altitude already uses, so the "
+        "default changes no existing result."
+    ),
+)
+
 PATH_ZENITH_RAD = ParameterDef(
     name="geometry.path_zenith_rad",
     description=(
@@ -748,6 +782,7 @@ TARGET_CLIMB_RAD = ParameterDef(
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     SENSOR_ALTITUDE_M,
     TARGET_ALTITUDE_M,
+    SITE_ELEVATION_M,
     PATH_ZENITH_RAD,
     SOLAR_ZENITH_RAD,
     SOLAR_AZIMUTH_RAD,

@@ -43,7 +43,11 @@ from radiant.geometry.modes import (
 H_LEO = 500_000.0
 
 #: ``geometry.*`` parameters that are deliberately not mode doors.
-_NON_MODE_PARAMS = frozenset({"geometry.scene_class"})
+#: ``scene_class`` is an assertion validated against the derivation;
+#: ``site_elevation_m`` is a standalone scene fact — the terrain elevation
+#: beneath the LOS (CU-262) — which is an input to the turbulence profile,
+#: not an alternate door onto any canonical viewing quantity.
+_NON_MODE_PARAMS = frozenset({"geometry.scene_class", "geometry.site_elevation_m"})
 
 
 def make_params(**inputs: object) -> ParameterSet:

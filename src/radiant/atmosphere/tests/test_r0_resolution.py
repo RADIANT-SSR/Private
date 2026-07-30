@@ -262,3 +262,97 @@ class TestR0ReferenceWavelength:
             )
         assert res.r0_m == 0.0
         assert res.mode == "off"
+
+
+class TestSiteElevationWiring:
+    """CU-262 — ``geometry.site_elevation_m`` reaches the HV surface term."""
+
+    @staticmethod
+    def _params_with_geometry(**overrides: object) -> ParameterSet:
+        from radiant.atmosphere._schema import ALL_PARAMETERS as ATM_PARAMS
+        from radiant.geometry._schema import ALL_PARAMETERS as GEO_PARAMS
+
+        ps = ParameterSet([*ATM_PARAMS, *GEO_PARAMS], [])
+        ps.set("geometry.sensor_altitude_m", 0.0)  # required; unused by the resolver
+        for dotpath, value in overrides.items():
+            ps.set(dotpath, value)
+        ps.resolve()
+        return ps
+
+    @pytest.mark.level0
+    def test_default_site_elevation_is_bit_identical(self) -> None:
+        """Registering the geometry schema must not move the sea-level answer."""
+        without = resolve_fried_parameter(
+            _params(**{"atmosphere.cn2_profile": "hufnagel_valley"}), GROUND_TO_SPACE, GRID
+        )
+        with_geometry = resolve_fried_parameter(
+            self._params_with_geometry(**{"atmosphere.cn2_profile": "hufnagel_valley"}),
+            GROUND_TO_SPACE,
+            GRID,
+        )
+        assert with_geometry.r0_m == without.r0_m
+        assert with_geometry.detail == without.detail
+
+    @pytest.mark.level0
+    def test_elevated_site_recovers_the_hv_5_7_anchor(self) -> None:
+        """A 900 m observatory looking up: without the site elevation the HV-5/7
+        defining value (r₀ = 5 cm at 0.5 µm, vertical) is lost — the CU-262
+        symptom was 15.0 cm.  With it declared, the anchor comes back to within
+        the 5 % the free-atmosphere slab below the site genuinely buys.
+        """
+        los = LineOfSightGeometry(h_tgt=800.0e3, h_sensor=900.0, theta_o=math.pi)
+        broken = resolve_fried_parameter(
+            self._params_with_geometry(**{"atmosphere.cn2_profile": "hufnagel_valley"}), los, GRID
+        )
+        fixed = resolve_fried_parameter(
+            self._params_with_geometry(
+                **{"atmosphere.cn2_profile": "hufnagel_valley", "geometry.site_elevation_m": 900.0}
+            ),
+            los,
+            GRID,
+        )
+        assert broken.r0_m == pytest.approx(0.150, abs=0.002)  # the defect
+        assert fixed.r0_m == pytest.approx(0.052, abs=0.002)  # HV-5/7 restored
+        assert fixed.path is not None
+        assert "900 m MSL" in fixed.path.detail
+
+    @pytest.mark.level0
+    def test_site_above_the_path_lower_endpoint_raises(self) -> None:
+        """Declaring a 900 m site while looking up from sea level describes two
+        different scenes; RADIANT refuses rather than modelling a path that runs
+        underground."""
+        from radiant.core.parameters import ParameterBoundsError
+
+        with pytest.raises(ParameterBoundsError, match="below the ground"):
+            resolve_fried_parameter(
+                self._params_with_geometry(
+                    **{
+                        "atmosphere.cn2_profile": "hufnagel_valley",
+                        "geometry.site_elevation_m": 900.0,
+                    }
+                ),
+                GROUND_TO_SPACE,  # h_sensor = 0 m MSL
+                GRID,
+            )
+
+    @pytest.mark.level0
+    def test_tabulated_profile_is_not_shifted_by_the_site(self) -> None:
+        """A measured table already carries its own site; the parameter is
+        HV-only by design."""
+        h = np.linspace(0.0, 30.0e3, 3001)
+        table = TabulatedCn2Profile(altitude_m=h, cn2_m23=HufnagelValleyCn2().cn2(h), label="hv")
+        plain = resolve_fried_parameter(
+            self._params_with_geometry(**{"atmosphere.cn2_profile": "tabulated"}),
+            GROUND_TO_SPACE,
+            GRID,
+            tabulated_profile=table,
+        )
+        elevated = resolve_fried_parameter(
+            self._params_with_geometry(
+                **{"atmosphere.cn2_profile": "tabulated", "geometry.site_elevation_m": 900.0}
+            ),
+            GROUND_TO_SPACE,
+            GRID,
+            tabulated_profile=table,
+        )
+        assert elevated.r0_m == plain.r0_m

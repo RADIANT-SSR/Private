@@ -123,6 +123,104 @@ class TestHVTruthAnchors:
         assert 6.0e-6 <= theta0 <= 8.0e-6, f"HV-5/7 theta0 = {theta0 * 1e6:.3f} urad"
 
 
+class TestSiteElevation:
+    """CU-262 — the surface term is anchored to the terrain, not to MSL."""
+
+    @pytest.mark.level0
+    def test_default_site_is_sea_level_and_bit_identical(self) -> None:
+        """``site_elevation_m = 0`` reproduces the pre-CU-262 profile exactly."""
+        h = np.linspace(0.0, 1.0e5, 4001)
+        np.testing.assert_array_equal(
+            HufnagelValleyCn2().cn2(h), HufnagelValleyCn2(site_elevation_m=0.0).cn2(h)
+        )
+
+    @pytest.mark.level0
+    def test_surface_term_full_strength_at_the_site(self) -> None:
+        """At h = h_site the surface term is A, exactly as it is at MSL for a
+        sea-level site.  The free-atmosphere terms stay on MSL, so only the
+        surface term is shifted."""
+        h_site = 900.0
+        hv = HufnagelValleyCn2(site_elevation_m=h_site)
+        value = float(hv.cn2(np.array([h_site]))[0])
+        tropo = 0.00594 * (21.0 / 27.0) ** 2 * (1.0e-5 * h_site) ** 10 * math.exp(-h_site / 1000.0)
+        middle = 2.7e-16 * math.exp(-h_site / 1500.0)
+        expected = tropo + middle + HV_5_7_GROUND_STRENGTH_M23  # surface at full A
+        assert value == pytest.approx(expected, rel=1e-12)
+
+    @pytest.mark.level0
+    def test_free_atmosphere_terms_are_not_shifted(self) -> None:
+        """The 10 km jet stream stays at 10 km MSL for a 2 km site (a mountain
+        does not lift the tropopause)."""
+        hv = HufnagelValleyCn2(site_elevation_m=2000.0, ground_strength_m23=0.0)
+        h = np.linspace(5.0e3, 20.0e3, 15001)
+        tropo = hv.cn2(h) - 2.7e-16 * np.exp(-h / 1500.0)
+        assert h[int(np.argmax(tropo))] == pytest.approx(10.0e3, abs=10.0)
+
+    @pytest.mark.level0
+    def test_surface_term_decays_from_the_site_not_from_msl(self) -> None:
+        """100 m above a 900 m site the surface term is A/e — the CU-262 defect
+        gave A·exp(-10) there instead."""
+        h_site = 900.0
+        hv = HufnagelValleyCn2(
+            site_elevation_m=h_site, wind_rms_m_s=0.0, ground_strength_m23=1.7e-14
+        )
+        surface = float(hv.cn2(np.array([h_site + 100.0]))[0]) - 2.7e-16 * math.exp(
+            -(h_site + 100.0) / 1500.0
+        )
+        assert surface == pytest.approx(1.7e-14 / math.e, rel=1e-11)
+
+    @pytest.mark.level0
+    def test_surface_layer_column_is_site_invariant(self) -> None:
+        r"""Analytic anchor: $\int_{h_{site}}^{\infty} A e^{-(h-h_{site})/100}\,dh
+        = 100 A$ regardless of the site elevation.  This is the whole content of
+        the CU-262 fix — an elevated site keeps its boundary layer."""
+        for h_site in (0.0, 900.0, 2635.0, 4200.0):
+            hv = HufnagelValleyCn2(
+                site_elevation_m=h_site, wind_rms_m_s=0.0, ground_strength_m23=0.0
+            )
+            hv_with_surface = HufnagelValleyCn2(
+                site_elevation_m=h_site, wind_rms_m_s=0.0, ground_strength_m23=1.7e-14
+            )
+            h = np.linspace(h_site, h_site + 5000.0, 500_001)
+            surface_only = hv_with_surface.cn2(h) - hv.cn2(h)
+            column = float(np.trapezoid(surface_only, h))
+            assert column == pytest.approx(100.0 * 1.7e-14, rel=1e-6), (
+                f"site {h_site} m MSL: surface column {column:.6e} m^(1/3)"
+            )
+
+    @pytest.mark.level0
+    def test_level_air_to_air_path_has_no_surface_term(self) -> None:
+        """A level leg 10 km above a 900 m site: the surface term is suppressed
+        by exp(-91), i.e. gone, without any topology special case."""
+        h_site, h_arm = 900.0, 10.0e3
+        hv = HufnagelValleyCn2(site_elevation_m=h_site)
+        free = HufnagelValleyCn2(site_elevation_m=h_site, ground_strength_m23=0.0)
+        total = float(hv.cn2(np.array([h_arm]))[0])
+        assert total == pytest.approx(float(free.cn2(np.array([h_arm]))[0]), rel=1e-12)
+
+    @pytest.mark.level0
+    def test_negative_site_elevation_rejected(self) -> None:
+        with pytest.raises(ParameterBoundsError, match="site_elevation_m"):
+            HufnagelValleyCn2(site_elevation_m=-1.0)
+
+    @pytest.mark.level0
+    def test_nonfinite_site_elevation_rejected(self) -> None:
+        with pytest.raises(ParameterBoundsError, match="not finite"):
+            HufnagelValleyCn2(site_elevation_m=float("nan"))
+
+    @pytest.mark.level0
+    def test_altitude_below_the_site_is_refused(self) -> None:
+        """h < h_site is inside the terrain — an input error, not a clamp."""
+        hv = HufnagelValleyCn2(site_elevation_m=900.0)
+        with pytest.raises(ParameterBoundsError, match="below the ground"):
+            hv.cn2(np.array([899.0]))
+
+    @pytest.mark.level0
+    def test_describe_names_the_site_only_when_non_zero(self) -> None:
+        assert "site" not in HufnagelValleyCn2().describe()
+        assert "900 m MSL" in HufnagelValleyCn2(site_elevation_m=900.0).describe()
+
+
 class TestHVFailureModes:
     @pytest.mark.level0
     def test_negative_wind_rejected(self) -> None:
@@ -141,7 +239,8 @@ class TestHVFailureModes:
 
     @pytest.mark.level0
     def test_negative_altitude_rejected(self) -> None:
-        with pytest.raises(ParameterBoundsError, match="negative"):
+        """At the default site elevation of 0 the floor is mean sea level."""
+        with pytest.raises(ParameterBoundsError, match="below the ground"):
             HufnagelValleyCn2().cn2(np.array([-1.0]))
 
     @pytest.mark.level0

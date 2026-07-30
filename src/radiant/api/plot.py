@@ -16,6 +16,7 @@ Usage::
 from __future__ import annotations
 
 import logging
+import textwrap
 import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -48,6 +49,41 @@ _KERNEL_SUPPORT_FRACTION: Final[float] = 0.999
 # neighbours' — those terms are carried by the legend instead (see
 # :func:`plot_noise_pie`). Presentation-only: it changes no computed value.
 _PIE_LABEL_MIN_SHARE: Final[float] = 0.03
+
+# Radial position of an on-wedge pie label, as a fraction of the pie radius. Inside the
+# rim (< 1.0), so a wide label cannot run off the card edge — see :func:`plot_noise_pie`.
+_PIE_LABEL_DISTANCE: Final[float] = 0.62
+
+# Colorbar geometry for every 2-D map (PSF, pupil amplitude, pupil WFE). matplotlib's
+# default steals ~15 % of the axes width for the bar plus its pad, which at the card
+# sizes the GUI actually renders (a ~200-400 px wide plot column) left the bar wider
+# than the useful part of the image and its tick labels crowding the title
+# (CU-241 defects 2-3). ``fraction``/``pad`` are documented matplotlib axes-relative
+# quantities, so one pair of numbers governs every map at every card size, and the
+# bar shrinks with the aspect-locked image instead of spanning the whole figure.
+# Presentation-only: changes no computed value.
+_MAP_COLORBAR: Final[dict[str, float]] = {"fraction": 0.046, "pad": 0.04}
+
+# Characters per line before an axes title is wrapped. A one-line title is laid out at
+# its natural width; matplotlib does not shrink or wrap it, so a title longer than the
+# figure is simply clipped at both canvas edges — the "SF · detector pixel grid (18.0 µ"
+# symptom (CU-241). Wrapping trades height (which constrained layout redistributes) for
+# width (which it cannot). 34 characters is about what a 300 px-wide card holds at the
+# default title size. Presentation-only.
+_TITLE_WRAP_CHARS: Final[int] = 34
+
+
+def _wrapped_title(text: str) -> str:
+    """Soft-wrap *text* to :data:`_TITLE_WRAP_CHARS` per line for use as an axes title.
+
+    Existing newlines are honoured as hard breaks, so a title that already carries its
+    own two-line structure keeps it.
+    """
+    lines: list[str] = []
+    for hard_line in text.split("\n"):
+        lines.extend(textwrap.wrap(hard_line, width=_TITLE_WRAP_CHARS) or [""])
+    return "\n".join(lines)
+
 
 # Dark-theme matplotlib rcParams — chrome only (background, axes, text, ticks, grid).
 # Data-series colours keep matplotlib's cycle, which reads on both backgrounds.
@@ -305,21 +341,53 @@ def plot_noise_pie(
         for label, var in zip(labels, variances, strict=True)
     ]
     fig, ax = _subplots()
-    wedges, _ = ax.pie(variances, labels=wedge_labels, **kwargs)  # slices ∝ σ_i² (noise power)
+    # On-wedge labels are drawn **inside** the pie (CU-241, second instance). Outside the
+    # wedge (matplotlib's default ``labeldistance=1.1``) a label is centred just past the
+    # rim and then extends ~65 px to each side, so on a 463 px-wide card the left and
+    # right labels ran off both canvas edges — measured 6 px past the left edge and 9 px
+    # past the right — and no amount of layout negotiation helps, because pie labels are
+    # plain axes text that constrained layout does not see. Moving them inside costs the
+    # pie nothing (the alternative was shrinking the pie until the labels fitted around
+    # it) and a translucent box behind each label keeps it legible over any wedge colour
+    # in either theme, since both the box and the text take their colour from the active
+    # rcParams rather than a literal.
+    plt = _require_matplotlib()
+    label_box = {
+        "facecolor": plt.rcParams["axes.facecolor"],
+        "edgecolor": "none",
+        "alpha": 0.8,
+        "boxstyle": "round,pad=0.2",
+    }
+    wedges, _ = ax.pie(
+        variances,
+        labels=wedge_labels,
+        labeldistance=_PIE_LABEL_DISTANCE,
+        textprops={"fontsize": "small", "ha": "center", "bbox": label_box},
+        **kwargs,
+    )  # slices ∝ σ_i² (noise power)
     ax.set_aspect("equal")
     # One legend row per term, dominant first — the tiny terms are readable here
     # even when they are invisible on the wedge. Newlines suit the wedge labels,
     # not a legend row, so the same fields are joined inline.
+    #
+    # The legend sits **below** the pie, not to its right (CU-241, second instance). A
+    # right-hand legend competes with the pie for the card's width: the axes is
+    # aspect-locked, so every character of legend text shrinks the pie, and the
+    # on-wedge labels — which extend past the wedge radius on both sides — were the
+    # first thing to run off the card edge ("…gnal_shot / S (62.0%)"). Below the pie
+    # the legend consumes height, which the card has to spare and which constrained
+    # layout can redistribute, and each entry gets the full card width instead of a
+    # ~15-character column.
     ax.legend(
         wedges,
         [label.replace("\n", " — ") for label in labels],
         title="σ per term (e- RMS) · share of σ²",
-        loc="center left",
-        bbox_to_anchor=(1.0, 0.5),
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.0),
         fontsize="small",
         frameon=False,
     )
-    ax.set_title("Noise budget — share of variance (σ²; total noise power)")
+    ax.set_title(_wrapped_title("Noise budget — share of variance (σ²; noise power)"))
     return cast("Figure", fig)
 
 
@@ -432,7 +500,7 @@ def plot_psf(
         defaults.setdefault("extent", extent_um)
     im = ax.imshow(data, **defaults)
     # Colorbar sized so it does not eat a third of a narrow card (CU-241).
-    fig.colorbar(im, ax=ax, label="PSF intensity", fraction=0.046, pad=0.04)
+    fig.colorbar(im, ax=ax, label="PSF intensity", **_MAP_COLORBAR)
     if extent_um is not None:
         ax.set_xlabel("x on focal plane (µm)")
         ax.set_ylabel("y on focal plane (µm)")
@@ -443,10 +511,12 @@ def plot_psf(
         ax.set_ylabel("y (PSF samples)")
     pitch_um = psf.pixel_pitch_m * 1e6
     if pixel_grid:
-        ax.set_title(f"Effective PSF · detector pixel grid ({pitch_um:.1f} µm pitch)")
+        ax.set_title(
+            _wrapped_title(f"Effective PSF · detector pixel grid ({pitch_um:.1f} µm pitch)")
+        )
         _overlay_pixel_grid(ax, psf, span_pixels)
     else:
-        ax.set_title(f"Effective PSF ({pitch_um:.1f} µm pixel outlined)")
+        ax.set_title(_wrapped_title(f"Effective PSF ({pitch_um:.1f} µm pixel outlined)"))
         _crop_to_pixels(ax, psf, span_pixels)
         if pixel_outline:
             _overlay_pixel_outline(ax, psf)
@@ -619,8 +689,8 @@ def plot_pupil_amplitude(
     defaults.update(_pupil_axes_labels(ax, extent_m))
     defaults.update(kwargs)
     im = ax.imshow(amplitude, **defaults)
-    fig.colorbar(im, ax=ax, label="transmission (dimensionless)")
-    ax.set_title("Pupil amplitude (apodization)")
+    fig.colorbar(im, ax=ax, label="transmission (dimensionless)", **_MAP_COLORBAR)
+    ax.set_title(_wrapped_title("Pupil amplitude (apodization)"))
     return cast("Figure", fig)
 
 
@@ -663,8 +733,8 @@ def plot_pupil_phase(
     defaults.update(_pupil_axes_labels(ax, extent_m))
     defaults.update(kwargs)
     im = ax.imshow(phase_waves, **defaults)
-    fig.colorbar(im, ax=ax, label="wavefront error (waves)")
-    ax.set_title("Pupil wavefront error")
+    fig.colorbar(im, ax=ax, label="wavefront error (waves)", **_MAP_COLORBAR)
+    ax.set_title(_wrapped_title("Pupil wavefront error"))
     return cast("Figure", fig)
 
 

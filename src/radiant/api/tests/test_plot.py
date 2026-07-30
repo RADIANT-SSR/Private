@@ -640,3 +640,47 @@ class TestKernelStageAttribution:
         assert "pixel_aperture" in title
         assert "added by Optics" in title
         matplotlib.pyplot.close(fig)
+
+
+@pytest.mark.level1
+class TestFiguresArePyplotFree:
+    """CU-116: ``result.plot.*`` figures are not registered with pyplot's ``Gcf``.
+
+    The figures are owned by whoever asked for them — the GUI embeds them in its own
+    ``FigureCanvasQTAgg``, a script saves them — so pyplot's process-global registry
+    only kept them alive past their use (the GUI held 22 figures once the operator had
+    visited all nine stages, over matplotlib's 20-figure ``max_open_warning``) and made
+    releasing them a ``plt.close()`` that deadlocks inside a Qt signal handler.
+    """
+
+    def test_plot_functions_open_no_pyplot_figures(self) -> None:
+        import matplotlib.pyplot as plt
+
+        plt.close("all")
+        figures = [
+            plot_sweep(_make_sweep_result()),
+            plot_sweep_2d(_make_sweep_2d_result()),
+            plot_noise_budget([_FakeNoiseTerm("shot", 30.0), _FakeNoiseTerm("read", 10.0)]),
+            plot_noise_pie([_FakeNoiseTerm("shot", 30.0), _FakeNoiseTerm("read", 10.0)]),
+            plot_spectral(np.array([3.0, 4.0, 5.0]), np.array([1.0, 2.0, 3.0])),
+        ]
+        assert all(isinstance(fig, Figure) for fig in figures)
+        assert plt.get_fignums() == [], (
+            f"{len(plt.get_fignums())} figures registered with pyplot; "
+            "result.plot.* must build unregistered Figures (CU-116)"
+        )
+
+    def test_unregistered_figure_still_saves_and_lays_out(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """The two properties a pyplot-free figure must keep: constrained layout and savefig."""
+        fig = plot_sweep(_make_sweep_result())
+        assert isinstance(fig.get_layout_engine(), ConstrainedLayoutEngine)
+        out = tmp_path / "sweep.png"
+        fig.savefig(out)
+        assert out.stat().st_size > 0
+
+    def test_dark_theme_still_reaches_an_unregistered_figure(self) -> None:
+        """CU-139's rcParams seam works on ``Figure`` construction, not via pyplot."""
+        with plot_theme(dark=True):
+            fig = plot_sweep(_make_sweep_result())
+        assert fig.get_facecolor()[:3] != (1.0, 1.0, 1.0)  # dark chrome applied
+        assert fig.axes[0].title.get_color() == "#e0e0e0"

@@ -580,3 +580,72 @@ class TestBottomTabsRemoved:
         ):
             with pytest.raises(ModuleNotFoundError):
                 importlib.import_module(name)
+
+
+class TestFigureRetention:
+    """CU-116: visiting every stage must not accumulate ``pyplot``-managed figures.
+
+    Measured before the fix (offscreen, shipped example, all nine stages visited):
+    **22 figures** open — one per plot section across the panes (21 canvases) plus the
+    Optics MTF panel's own — over matplotlib's default ``figure.max_open_warning`` of
+    20, which is why the GUI suite emitted "More than 20 figures have been opened".
+    The count was bounded (stable at 22 figures over three passes), so it was retention
+    rather than a leak, but it was retention of a **process-global** resource the GUI
+    could only release with a ``plt.close()`` that deadlocks under offscreen Qt when
+    called on a live pane's figure from inside a stage-click handler.
+
+    The fix removes the registration instead of the figures: ``result.plot.*`` builds
+    pyplot-free ``Figure`` objects, so the count below is **0 figures** and each
+    figure's lifetime is its Qt canvas's.
+    """
+
+    def test_visiting_every_stage_opens_no_pyplot_figures(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Nine stages visited, twice over: zero pyplot-managed figures held."""
+        import matplotlib.pyplot as plt
+
+        plt.close("all")  # other tests in this session may hold their own figures
+        window = _load_window(qtbot)
+        center = window.central_canvas.stage_center
+
+        for _ in range(2):
+            for namespace in STAGE_NAMESPACES:
+                window.stage_strip.stageClicked.emit(namespace)
+
+        # The panes really did render (else the assertion below passes vacuously).
+        rendered = sum(
+            1
+            for namespace in STAGE_NAMESPACES
+            for canvas in center.pane(namespace).plot_canvases
+            if canvas.has_figure()
+        )
+        assert rendered > 20, f"expected >20 embedded figures, saw {rendered}"
+        assert plt.get_fignums() == [], (
+            f"{len(plt.get_fignums())} pyplot figures retained after visiting all stages"
+        )
+
+    def test_replaced_figure_is_garbage_collected(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A re-render's discarded figure is reclaimed — the count is 0 because the
+        figures are freed, not because pyplot stopped counting them."""
+        import gc
+        import weakref
+
+        from PySide6.QtCore import QEvent
+        from PySide6.QtWidgets import QApplication
+
+        window = _load_window(qtbot)
+        center = window.central_canvas.stage_center
+        window.stage_strip.stageClicked.emit("readout")
+        canvas = center.pane("readout").plot_canvases[0]
+        # Only a weak reference is taken, and it is dereferenced exactly once, at the
+        # end: pytest's assertion rewriting keeps every intermediate it evaluates in
+        # the test frame, so an `assert first() is not None` here would itself be the
+        # strong reference that keeps the figure alive.
+        first = weakref.ref(canvas._figure)
+
+        window.stage_strip.stageClicked.emit("readout")  # re-populate: release-and-replace
+        app = QApplication.instance()
+        assert app is not None
+        app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        app.processEvents()
+        gc.collect()
+        assert first() is None, "the replaced figure is still reachable"

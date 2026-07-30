@@ -106,6 +106,31 @@ def _require_matplotlib() -> Any:
         ) from None
 
 
+def _subplots(*args: Any, **kwargs: Any) -> tuple[Any, Any]:
+    """Create a **pyplot-free** constrained-layout figure and its axes (CU-116).
+
+    Equivalent to ``plt.subplots(constrained_layout=True, *args, **kwargs)`` except
+    that the figure is **not registered with pyplot's global figure manager**
+    (``Gcf``). RADIANT's figures are consumed by a caller that owns them — the GUI
+    embeds them in its own ``FigureCanvasQTAgg``, a script saves or displays them —
+    so pyplot's process-global registry only added two liabilities: figures stayed
+    alive until an explicit ``plt.close()`` (the GUI held one per visited stage, and
+    tripped matplotlib's 20-figure ``max_open_warning``), and closing them from
+    inside a Qt signal handler deadlocked under the offscreen platform plugin.
+    An unregistered figure is reclaimed by ordinary garbage collection when its last
+    reference drops, so nothing has to be closed at all.
+
+    The rendering behaviour is unchanged: matplotlib reads ``rcParams`` at figure and
+    axes construction, so the :func:`plot_theme` dark chrome still applies (CU-139),
+    and ``fig.savefig(...)`` works on a canvas-less figure.
+    """
+    _require_matplotlib()
+    from matplotlib.figure import Figure
+
+    fig = Figure(layout="constrained")
+    return fig, fig.subplots(*args, **kwargs)
+
+
 # ------------------------------------------------------------------
 # Plottable protocol
 # ------------------------------------------------------------------
@@ -140,8 +165,7 @@ def plot_sweep(result: SweepResult, **kwargs: Any) -> Figure:
     Figure
         A matplotlib Figure.
     """
-    plt = _require_matplotlib()
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = _subplots()
     ax.plot(result.values, result.metric_values, "o-", **kwargs)
     ax.set_xlabel(result.param_name)
     ax.set_ylabel(result.metric_name)
@@ -165,8 +189,7 @@ def plot_sweep_2d(result: Sweep2DResult, **kwargs: Any) -> Figure:
     Figure
         A matplotlib Figure.
     """
-    plt = _require_matplotlib()
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = _subplots()
     v1_grid, v2_grid = np.meshgrid(result.values1, result.values2, indexing="ij")
     cs = ax.contourf(v1_grid, v2_grid, result.grid, **kwargs)
     fig.colorbar(cs, ax=ax, label=result.metric_name)
@@ -194,8 +217,7 @@ def plot_noise_budget(
     Figure
         A matplotlib Figure.
     """
-    plt = _require_matplotlib()
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = _subplots()
     names = [nt.name for nt in noise_terms]
     values = [nt.value_e for nt in noise_terms]
     # Sort by magnitude
@@ -260,7 +282,6 @@ def plot_noise_pie(
     """
     from radiant.api.errors import ApiValidationError
 
-    plt = _require_matplotlib()
     kept = [(nt.name, float(nt.value_e)) for nt in noise_terms if float(nt.value_e) > 0.0]
     if not kept:
         raise ApiValidationError(
@@ -283,7 +304,7 @@ def plot_noise_pie(
         label if var / total_var >= _PIE_LABEL_MIN_SHARE else ""
         for label, var in zip(labels, variances, strict=True)
     ]
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = _subplots()
     wedges, _ = ax.pie(variances, labels=wedge_labels, **kwargs)  # slices ∝ σ_i² (noise power)
     ax.set_aspect("equal")
     # One legend row per term, dominant first — the tiny terms are readable here
@@ -312,8 +333,7 @@ def plot_mtf_budget(budget: Any, **kwargs: Any) -> Figure:
     **kwargs:
         Passed to ``ax.barh()``.
     """
-    plt = _require_matplotlib()
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = _subplots()
     bases = sorted(
         {n[:-2] for n in budget.per_term_at_nyquist if n.endswith(("_x", "_y"))},
         key=lambda b: budget.per_term_at_nyquist.get(f"{b}_x", 1.0),
@@ -379,7 +399,8 @@ def plot_psf(
     Figure
         A matplotlib Figure.
     """
-    plt = _require_matplotlib()
+    # Gate the direct matplotlib import below behind the actionable message.
+    _require_matplotlib()
     from matplotlib.colors import LogNorm
 
     if pixel_grid_span is not None:
@@ -391,7 +412,7 @@ def plot_psf(
         )
         span_pixels = pixel_grid_span
 
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = _subplots()
     data = psf.data
     vmin = data[data > 0].min() if np.any(data > 0) else 1e-10
     defaults: dict[str, Any] = {
@@ -588,9 +609,7 @@ def plot_pupil_amplitude(
     Figure
         A matplotlib Figure.
     """
-    plt = _require_matplotlib()
-
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = _subplots()
     defaults: dict[str, Any] = {
         "cmap": "viridis",
         "origin": "lower",
@@ -631,9 +650,7 @@ def plot_pupil_phase(
     Figure
         A matplotlib Figure.
     """
-    plt = _require_matplotlib()
-
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = _subplots()
     amax = float(np.max(np.abs(phase_waves))) if phase_waves.size else 0.0
     if amax == 0.0:
         amax = 1.0  # flat (zero-WFE) map — avoid a degenerate colour range
@@ -679,8 +696,7 @@ def plot_mtf_terms(
     Figure
         A matplotlib Figure.
     """
-    plt = _require_matplotlib()
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = _subplots()
 
     def _x_axis(arr: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         if spatial_freq is not None:
@@ -788,8 +804,7 @@ def plot_spectral(
     Figure
         A matplotlib Figure.
     """
-    plt = _require_matplotlib()
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = _subplots()
     ax.plot(wavelength_um, radiance, **kwargs)
     ax.set_xlabel("Wavelength (\u00b5m)")
     ax.set_ylabel(ylabel)
@@ -830,8 +845,7 @@ def plot_spectral_multi(
     Figure
         A matplotlib Figure.
     """
-    plt = _require_matplotlib()
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = _subplots()
     for label, y in series.items():
         ax.plot(wavelength_um, y, label=label, **kwargs)
     ax.set_xlabel("Wavelength (\u00b5m)")
@@ -873,8 +887,7 @@ def plot_optical_throughput(
     Figure
         A matplotlib Figure.
     """
-    plt = _require_matplotlib()
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = _subplots()
     ax.plot(wavelength_um, tau_opt, **kwargs)
     ax.set_xlabel("Wavelength (µm)")
     ax.set_ylabel("τ_opt (dimensionless)")
@@ -914,8 +927,7 @@ def plot_coating_spectra(
     Figure
         A matplotlib Figure.
     """
-    plt = _require_matplotlib()
-    fig, ax = plt.subplots(constrained_layout=True)
+    fig, ax = _subplots()
     for label, (wavelength_um, values) in series.items():
         ax.plot(wavelength_um, values, label=label, **kwargs)
     ax.set_xlabel("Wavelength (µm)")
@@ -970,8 +982,7 @@ def plot_atmosphere_spectral(
     Figure
         A matplotlib Figure.
     """
-    plt = _require_matplotlib()
-    fig, ax_tau = plt.subplots(constrained_layout=True)
+    fig, ax_tau = _subplots()
     (line_tau,) = ax_tau.plot(wavelength_um, tau_atm, color="C0", label="\u03c4_atm", **kwargs)
     ax_tau.set_xlabel("Wavelength (\u00b5m)")
     ax_tau.set_ylabel("\u03c4_atm (dimensionless)", color="C0")
@@ -1059,8 +1070,6 @@ def plot_psf_kernels(
     """
     from radiant.api.errors import ApiValidationError
 
-    plt = _require_matplotlib()
-
     kept = [(n, k) for n, k in psf.kernels if names is None or n in names]
     if names is not None:
         order = {n: i for i, n in enumerate(names)}
@@ -1078,7 +1087,7 @@ def plot_psf_kernels(
             "means this stage added none to a PSF it inherited already degraded."
         )
 
-    fig, axes = plt.subplots(1, len(kept), constrained_layout=True, squeeze=False)
+    fig, axes = _subplots(1, len(kept), squeeze=False)
     spacing_um = psf.sample_spacing_m * 1e6
     for ax, (name, raw) in zip(axes[0], kept, strict=True):
         kernel = _crop_kernel_to_support(raw)

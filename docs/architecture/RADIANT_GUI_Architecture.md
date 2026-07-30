@@ -141,7 +141,10 @@ tabs become brittle; no standalone distribution; poor experience outside Jupyter
   tools, Zemax OpticStudio); persona users recognize this style. PySide6 is the
   official LGPL Qt binding (no licensing cost).
 - Matplotlib integrates via `matplotlib.backends.backend_qtagg`; all `result.plot.*`
-  methods render inside the GUI unchanged.
+  methods render inside the GUI unchanged. The figures are **not** `pyplot`-managed
+  (CU-116, `RADIANT_Scripting_API.md` §5), so an embedded figure's lifetime *is* its
+  canvas's: `MatplotlibCanvas` drops the reference when it swaps a figure out and the
+  figure is garbage-collected — the GUI never closes a process-global figure.
 - Background computation in a `QThread`; Qt signal/slot delivers thread-safe results.
 
 *Cons:* requires Qt (mitigated by a bundled binary later); dark/custom theming needs

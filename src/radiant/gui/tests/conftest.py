@@ -86,9 +86,11 @@ def _release_widgets():  # type: ignore[no-untyped-def]
       QEvent.Type.DeferredDelete)``, because a plain ``processEvents`` only delivers
       those events when the *outermost* event loop unwinds — which never happens
       inside a test;
-    * matplotlib figures are closed too — the suite's canvases hold ``pyplot``
-      figures, which leak independently of Qt ("More than 20 figures have been
-      opened").
+    * ``plt.close("all")`` still runs, for figures a **test** creates through
+      ``pyplot`` itself. It is no longer needed for the widgets: since CU-116 the
+      ``result.plot.*`` figures the canvases embed are not ``pyplot``-registered at
+      all, so they are reclaimed with their canvas and never reach matplotlib's
+      "More than 20 figures have been opened" threshold.
 
     Widgets the ``QApplication`` itself owns transiently (e.g. Qt's internal
     tooltip/menu windows) are left alone: they carry no ``parent()`` and no test

@@ -28,6 +28,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -90,6 +91,34 @@ if TYPE_CHECKING:
 # Minimum figure height so a composite with two plots stays readable in a scroll area.
 _PLOT_MIN_HEIGHT: int = 240
 
+# Ceiling on a plot canvas' height as a multiple of its own width (CU-241 defect 1).
+#
+# A matplotlib figure *does* track its canvas widget exactly — the Qt backend sets
+# ``figure.set_size_inches(w/dpi, h/dpi)`` on every resize, so a 258x480 px card holds a
+# 2.58x4.80 in figure. What does not track it is the **axes**: every card in this family
+# draws an ``imshow`` map, whose aspect is locked square, so the axes side length is
+# min(usable width, usable height). Handed a card 2.4x taller than it is wide, the axes
+# takes the width — minus the y label, the colorbar and its ticks — and leaves the rest of
+# the height empty. Measured on the Optics "PSF + Pupil" tab at 700x800 px: the PSF axes
+# came out 0.221 x 0.091 of the figure, i.e. **2 % of the card's area**, which is the
+# reported "square-ish figure at ~20 % of the card with dead space above and below".
+#
+# Capping the canvas height at its own width removes the dead space at the source: the
+# card stops asking for height an aspect-locked axes cannot use, and the pane's scroll
+# area gives that height to the next section instead. Ratio 1.0 (square-ish, floored at
+# ``_PLOT_MIN_HEIGHT``) is the smallest defensible choice for maps; a square figure minus
+# label/colorbar overhead still yields a landscape *axes*, so nothing is over-corrected.
+_PLOT_MAX_HEIGHT_RATIO: float = 1.0
+
+# Floor on the width of a single plot section inside a multi-plot block. Below roughly
+# this width the y label, the tick labels and the colorbar leave the aspect-locked map
+# nothing (see the 2 %-of-card measurement above): the Optics three-map row gave each
+# figure 197 px in a 700 px pane. Sections keep this floor even when it makes the block
+# wider than the pane — the enclosing scroll area then scrolls horizontally, which is
+# strictly better than three unreadable maps. Distinct from ``_PLOT_MIN_WIDTH_PX`` below,
+# which floors the whole plot *column* against an embedded panel beside it.
+_PLOT_MIN_SECTION_WIDTH_PX: int = 320
+
 # Gap between plot sections inside a multi-column plot block (layout geometry, not a
 # theme token — the QSS owns colour and type, this owns only spacing between figures).
 _PLOT_BLOCK_SPACING_PX: int = 8
@@ -134,6 +163,7 @@ class _PlotSection(QWidget):
 
         self._canvas = MatplotlibCanvas(self)
         self._canvas.setMinimumHeight(_PLOT_MIN_HEIGHT)
+        self._canvas.setMinimumWidth(_PLOT_MIN_SECTION_WIDTH_PX)
         self._message = QLabel("", self)
         self._message.setObjectName("stagePlotMessage")
         self._message.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -146,6 +176,26 @@ class _PlotSection(QWidget):
     def canvas(self) -> MatplotlibCanvas:
         """The embedded figure canvas (populated on the next result)."""
         return self._canvas
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 - Qt override
+        """Re-apply the width-driven height ceiling whenever the card resizes (CU-241).
+
+        The figure follows its canvas widget automatically (the Qt backend resizes it),
+        so the only thing this scaffold has to decide is **how much height a plot card
+        should accept**. An aspect-locked map cannot use height beyond its own width, so
+        the ceiling tracks the width on every resize rather than being fixed once at
+        construction: a user widening the window or dragging the ``beside`` splitter gets
+        a proportionally taller figure, and narrowing it reclaims the dead space instead
+        of stranding it above and below the map.
+        """
+        super().resizeEvent(event)
+        self._apply_height_ceiling()
+
+    def _apply_height_ceiling(self) -> None:
+        """Cap the canvas height at ``_PLOT_MAX_HEIGHT_RATIO`` x its own width."""
+        width = self._canvas.width()
+        ceiling = max(_PLOT_MIN_HEIGHT, int(round(width * _PLOT_MAX_HEIGHT_RATIO)))
+        self._canvas.setMaximumHeight(ceiling)
 
     def render(self, result: ChainResult) -> None:
         """Draw the section's ``result.plot.*`` figure, or its actionable message."""

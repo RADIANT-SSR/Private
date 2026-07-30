@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Plot-card readability at GUI card sizes: colorbars, titles, and the noise pie's labels
+  (CU-241).** Presentation-only — no computed value changes. `plot_pupil_amplitude` and
+  `plot_pupil_phase` now size their colorbar as `plot_psf` already did
+  (`fraction=0.046, pad=0.04`), so the bar shrinks with the aspect-locked map instead of
+  spanning the figure height at ~15 % of its width. Axes titles longer than 34 characters
+  soft-wrap (`plot_psf`, both pupil maps, `plot_noise_pie`), because matplotlib clips an
+  over-long title at both canvas edges rather than shrinking it — measured 4 px of
+  clipping on `psf_pixel_grid`'s title and 10 px on the pie's at the sizes the GUI renders
+  them. `plot_noise_pie` moves its legend from the axes' right edge to below the pie and
+  draws on-wedge labels *inside* the wedge (`labeldistance` 0.62, translucent label box),
+  which stops a wide label running off the card. Callers matching a full title string need
+  to normalise newlines; label text and legend content are unchanged.
 - **`result.plot.*` / `radiant.api.plot` figures are no longer registered with `pyplot`
   (CU-116).** Every helper now builds a plain `matplotlib.figure.Figure(layout=
   "constrained")` instead of `plt.subplots(constrained_layout=True)`. Returned figures

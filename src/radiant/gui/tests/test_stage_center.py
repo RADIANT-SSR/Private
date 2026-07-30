@@ -126,6 +126,68 @@ class TestDarkThemePlots:
         assert max(dark_fc) < 0.5  # dark background
 
 
+class TestPlotCardGeometry:
+    """CU-241: the card scaffold must not starve or stretch the figure it hosts."""
+
+    def _section(self, qtbot):  # type: ignore[no-untyped-def]
+        from radiant.gui.stage_views import PlotSpec
+        from radiant.gui.widgets.stage_center import _PlotSection
+
+        sec = _PlotSection(PlotSpec(title="PSF", method="psf"))
+        qtbot.addWidget(sec)
+        sec.show()
+        return sec
+
+    def test_canvas_height_is_capped_at_its_own_width(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A card 2.4x taller than wide left an aspect-locked map at 2 % of the card.
+
+        The map's axes side is min(usable width, usable height), so height beyond the
+        width is dead space. The ceiling tracks the width on every resize.
+        """
+        from radiant.gui.widgets.stage_center import _PLOT_MAX_HEIGHT_RATIO, _PLOT_MIN_HEIGHT
+
+        sec = self._section(qtbot)
+        for width in (500, 900):
+            sec.resize(width, 4 * width)
+            expected = max(
+                _PLOT_MIN_HEIGHT, int(round(sec.canvas.width() * _PLOT_MAX_HEIGHT_RATIO))
+            )
+            assert sec.canvas.maximumHeight() == expected
+            assert sec.canvas.height() <= expected
+
+    def test_canvas_never_narrower_than_the_readable_floor(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The Optics three-map row gave each figure 197 px; the floor stops that."""
+        from radiant.gui.widgets.stage_center import _PLOT_MIN_SECTION_WIDTH_PX
+
+        sec = self._section(qtbot)
+        assert sec.canvas.minimumWidth() == _PLOT_MIN_SECTION_WIDTH_PX
+        sec.resize(120, 400)
+        assert sec.canvas.width() >= _PLOT_MIN_SECTION_WIDTH_PX
+
+    def test_figure_tracks_the_canvas_geometry(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """Figure size is driven by the canvas, not fixed at matplotlib's default."""
+        sec = self._section(qtbot)
+        sec.resize(600, 600)
+        sec.render(result)
+        qtbot.wait(50)
+        figure = sec.canvas._figure
+        inner = sec.canvas._canvas
+        width_px, height_px = (v * figure.dpi for v in figure.get_size_inches())
+        assert width_px == pytest.approx(inner.width(), abs=2)
+        assert height_px == pytest.approx(inner.height(), abs=2)
+
+    def test_psf_card_axes_are_physical_units_not_sample_indices(self, qtbot, result) -> None:  # type: ignore[no-untyped-def]
+        """CU-241 defect 4: µm on the focal plane, never raw 500-560 sample indices."""
+        sec = self._section(qtbot)
+        sec.render(result)
+        ax = sec.canvas._figure.axes[0]
+        assert ax.get_xlabel() == "x on focal plane (µm)"
+        assert ax.get_ylabel() == "y on focal plane (µm)"
+        # Cropped to the core and centred on it, so the window straddles zero.
+        lo, hi = ax.get_xlim()
+        assert lo < 0.0 < hi
+
+
 class TestComposition:
     def test_every_stage_has_a_composition(self) -> None:
         """The nine chain namespaces each have a §4.4.1 composition."""

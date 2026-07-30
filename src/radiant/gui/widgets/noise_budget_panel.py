@@ -113,6 +113,13 @@ class NoiseBudgetPanel(QWidget):
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        # The σ column sizes to its own content (CU-241 sibling nit): left at the default
+        # interactive width it truncated the value mid-unit — "0.7071 e- …" — which loses
+        # the unit the owner's R-UNITS rule requires on every displayed number. Column 0
+        # (the term name) keeps the stretch, so the σ column takes only what it needs.
+        self._table.horizontalHeader().setSectionResizeMode(
+            1, QHeaderView.ResizeMode.ResizeToContents
+        )
         self._table.itemSelectionChanged.connect(self._on_row_selected)
 
         self._explain = QPlainTextEdit(self._content)

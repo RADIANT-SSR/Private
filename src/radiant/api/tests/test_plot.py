@@ -20,6 +20,7 @@ from radiant.api.plot import (
     plot_noise_pie,
     plot_optical_throughput,
     plot_psf,
+    plot_pupil_phase,
     plot_spectral,
     plot_spectral_multi,
     plot_sweep,
@@ -265,7 +266,10 @@ class TestPlotPsfPixelGrid:
         psf = self._psf()
         fig = plot_psf(psf)
         ax = fig.axes[0]
-        assert ax.get_title() == "Effective PSF (10.0 µm pixel outlined)"
+        # Newlines normalised: CU-241 soft-wraps long titles so they cannot clip at a
+        # narrow card's edges. The wrap is a line-break policy, not a content change —
+        # this asserts the content, and TestCardReadableGeometry asserts the wrapping.
+        assert ax.get_title().replace("\n", " ") == "Effective PSF (10.0 µm pixel outlined)"
         assert not ax.get_lines()  # no pixel-boundary grid mesh
         # Exactly one pixel outlined, not a grid of them.
         assert len([p for p in ax.patches if isinstance(p, Rectangle)]) == 1
@@ -684,3 +688,75 @@ class TestFiguresArePyplotFree:
             fig = plot_sweep(_make_sweep_result())
         assert fig.get_facecolor()[:3] != (1.0, 1.0, 1.0)  # dark chrome applied
         assert fig.axes[0].title.get_color() == "#e0e0e0"
+
+
+@pytest.mark.level1
+class TestCardReadableGeometry:
+    """CU-241: the figure-side half of the unreadable-plot-card fix.
+
+    These pin the three properties that made the pupil/PSF/pie cards unreadable at the
+    sizes the GUI actually renders them (a 200-500 px wide plot column), each measured
+    at that size rather than at matplotlib's 640x480 default: no text runs off the
+    canvas, the colorbar does not eat the map, and the pie's own labels stay inside it.
+    """
+
+    _CARD_PX: tuple[int, int] = (420, 300)
+
+    def _drawn(self, fig: Figure) -> Figure:
+        """Render *fig* at a realistic card size so text extents are measurable."""
+        fig.set_dpi(100)
+        fig.set_size_inches(self._CARD_PX[0] / 100.0, self._CARD_PX[1] / 100.0)
+        fig.canvas.draw()
+        return fig
+
+    def _overflow_px(self, fig: Figure) -> float:
+        """Total horizontal overflow of the title + every axes text past the canvas."""
+        ax = fig.axes[0]
+        width = float(self._CARD_PX[0])
+        boxes = [ax.title.get_window_extent()]
+        boxes += [t.get_window_extent() for t in ax.texts if t.get_text()]
+        return sum(max(0.0, -bb.x0) + max(0.0, bb.x1 - width) for bb in boxes)
+
+    def test_long_psf_title_wraps_instead_of_clipping(self) -> None:
+        """The pixel-grid title is longer than a 420 px card: it must wrap, not clip."""
+        psf = TestPlotPsfPixelGrid._psf()
+        fig = self._drawn(plot_psf(psf, pixel_grid=True))
+        title = fig.axes[0].get_title()
+        assert "\n" in title, f"long title did not wrap: {title!r}"
+        assert max(len(line) for line in title.split("\n")) <= 34
+        assert self._overflow_px(fig) == 0.0
+        matplotlib.pyplot.close(fig)
+
+    def test_pupil_colorbar_is_a_slim_fraction_of_the_map(self) -> None:
+        """The colorbar must not take a third of the axes width (CU-241 defect 3)."""
+        fig = self._drawn(plot_pupil_phase(np.zeros((32, 32)), 0.3))
+        image_ax, cbar_ax = fig.axes[0], fig.axes[1]
+        image_w = image_ax.get_position().width
+        assert cbar_ax.get_position().width < 0.15 * image_w
+        # ... and it spans the aspect-locked image, not the whole figure height.
+        assert cbar_ax.get_position().height == pytest.approx(
+            image_ax.get_position().height, rel=0.12
+        )
+        matplotlib.pyplot.close(fig)
+
+    def test_pie_labels_and_title_stay_inside_the_card(self) -> None:
+        """On-wedge labels sit inside the pie, so neither edge clips them."""
+        terms = [
+            _FakeNoiseTerm("signal_shot", 100.0),
+            _FakeNoiseTerm("dark_shot", 60.0),
+            _FakeNoiseTerm("read_noise", 5.0),
+        ]
+        fig = self._drawn(plot_noise_pie(terms))
+        assert self._overflow_px(fig) == 0.0
+        matplotlib.pyplot.close(fig)
+
+    def test_pie_legend_sits_below_the_pie_not_beside_it(self) -> None:
+        """A right-hand legend competes with the aspect-locked pie for card width."""
+        fig = plot_noise_pie([_FakeNoiseTerm("a", 10.0), _FakeNoiseTerm("b", 5.0)])
+        legend = fig.axes[0].get_legend()
+        assert legend is not None
+        anchor = legend.get_bbox_to_anchor()
+        assert anchor is not None
+        # Anchored on the axes' bottom edge (y ≈ 0), horizontally centred.
+        assert legend.get_window_extent().y0 <= fig.axes[0].get_window_extent().y0 + 1.0
+        matplotlib.pyplot.close(fig)

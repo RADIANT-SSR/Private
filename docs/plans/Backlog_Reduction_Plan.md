@@ -105,22 +105,32 @@ CU-248 together, CU-216.
 Not scheduled into waves yet, deliberately. These are **coupled families**, so scheduling them
 as independent tickets would duplicate the analysis and the golden refreshes:
 
+**Refreshed 2026-07-29** (Rule 24 — the table below had gone stale enough to mislead:
+every question in the original owner-triage list was already answered, and 12 of the 22
+CUs it named were already Resolved). Struck-through ids are closed.
+
 | Family | CUs | Note |
 |---|---|---|
-| Simple-model τ | 253, 267 | 253 is the headline: dimensionless vertical OD used as a km⁻¹ coefficient, ~8× VIS inflation. Both are the same table. |
-| Up-looking atmosphere | 254, 255, 260, 224, 225, 223, 181 | Segment composition, grazing hand-over, path-radiance physics asymmetry. |
-| T7 intensity door | 256, 258, 259, 264 | 258 and 259 are the same LOS strip — an eclipsed object silently reports full signal. |
-| Turbulence / seeing | 262, 228, 257 | Cn² against MSL, r₀ reference wavelength, point-source guard ignoring turbulence. |
-| Detection range | 263, 236 | Both change a headline trade-study number. |
-| Sampling | 209 | Folded MTF replication frequency. |
-| Reachability | 226, 261, 265, 232, 231, 247 | Capability/naming items adjacent to the above. |
+| Simple-model τ | ~~253~~, 267 | **253 resolved** (the ~8× VIS inflation — dimensionless vertical OD used as a km⁻¹ coefficient). 267 is the same table's piecewise-constant region steps; still open. |
+| Up-looking atmosphere | ~~254~~, ~~255~~, 260, 224, ~~225~~, 223, 181 | **Mostly closed 2026-07-29** (`5c0f3dd`): segment composition and the grazing hand-over are done, along with ~~274~~. **260** stays open for the species-split half only (its stated mechanism was corrected — ω₀ → 1, not 0). **224** and **223** are now Stage-deferred behind the MODTRAN batch-2 upwelling families, i.e. behind **226**. **181** untouched. New from that pass: **275** (no near-horizon route for the down-looking/solar columns) and **276** (level topology keeps the target-position dependence). |
+| T7 intensity door | 256, ~~258~~, ~~259~~, 264 | **256 and 264 ruled 2026-07-29**: both raise — a declared extent alongside the intensity door is an over-specification, and the silent `sub_pixel` promotion becomes an error. Both are **breaking changes** for configs that pass today; each needs a CHANGELOG entry and a sweep of `scenarios/`+`examples/` before it lands. |
+| Turbulence / seeing | 262, ~~228~~, 257 | **262 ruled 2026-07-29**: add `geometry.site_elevation_m`, default 0 (bit-identical today). The per-topology question — whose site, and none at all for a level path — is part of the task, not settled by the ruling. |
+| Detection range | 263, 236 | Unchanged. Both change a headline trade-study number. 263 is the reference-range dependence (123 km vs 183 km on one unchanged config). |
+| Sampling | 209 | Unchanged. Folded MTF replication frequency. |
+| Reachability | 226, ~~261~~, ~~265~~, ~~232~~, ~~231~~, ~~247~~ | **226 is the only one left, and it is now the highest-leverage item in Track C**: wiring the shipped up-looking family into the chain retires 223's deferral and supplies the upwelling anchor that 224 and half of 260 are both waiting on. |
 
-### Owner triage — what this plan needs from you before Track C runs
-1. For each of the **10 results-affecting** CUs: fix-and-refresh-goldens, or document as a
-   known limitation? (CU-253's ~8× VIS error is the one that most likely wants fixing.)
-2. **CU-231** is mutually exclusive between two options (rename with a deprecation alias, or add
-   the `cos(incidence)` projection the name implies) — one call closes it.
-3. **CU-247** renames a public parameter — deprecation-alias policy confirmation.
+### Owner triage — status
+
+The three questions this section originally posed are **all answered** (CU-253 fixed and its
+goldens refreshed; CU-231 and CU-247 both resolved), so Track C is no longer blocked on them.
+Rulings taken 2026-07-29 and recorded on the entries themselves: **CU-256** (reject the
+over-specification), **CU-264** (both raise), **CU-262** (add the parameter, default 0).
+
+Still owner-gated:
+1. **CU-271** — `examples/MWIR_Jason.yaml`: delete as scratch, or rename to a content-stating
+   slug? It may be in personal use, so it is not an autonomous delete.
+2. **CU-250** — down-looking schematic pixels, under active owner review.
+3. **CU-236** — down-looking detection range; the entry itself is marked owner-decision.
 
 ## Execution protocol
 

@@ -497,10 +497,10 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
-### CU-226 — The shipped up-looking library family is queryable but not reachable from a chain run — RESOLVED 2026-07-30 (commit `(pending merge — orchestrator stamps final SHA)`)
+### CU-226 — The shipped up-looking library family is queryable but not reachable from a chain run — RESOLVED 2026-07-30 (commit `a9dbe4d`)
 
 **Discovered**: Geometry-Flexibility Phase 2, up-looking library family + interpolated-backend dispatch (branch `gf2/atmosphere`), 2026-07-26.
-**Status**: RESOLVED 2026-07-30, commit `(pending merge — orchestrator stamps final SHA)`.
+**Status**: RESOLVED 2026-07-30, commit `a9dbe4d`.
 **File**: `src/radiant/atmosphere/uplooking_quantities.py` — `supports_uplooking` (returns `isinstance(model, SimpleAtmosphere)`); consumer of `src/radiant/atmosphere/interpolated.py` — `InterpolatedAtmosphere.uplooking_column_product`.
 **Symptom**: `atmosphere.model = "interpolated"` with an up-looking scene now resolves and loads `midlat_summer_uplooking_ladder/`, and `uplooking_column_product()` returns the interpolated segment (τ + `L_toward_lower`) correctly. But `topology.evaluate_path_topology` routes every up/level scene through `evaluate_uplooking_topology`, whose `supports_uplooking` gate admits only `SimpleAtmosphere` — so an end-to-end chain run on the new family still raises the capability error and tells the user to switch to `simple`. The library is exercised only by tests and direct API calls.
 **Why it still matters**: the whole point of the family is to give up-looking ground-to-air scenes real MODTRAN radiative transfer instead of the parametric simple model. Until the observer-leg dispatch in `uplooking_quantities._evaluate_observer_segment` can take a library-backed column, the shipped data changes no computed result. It is also a latent trap: the loader now happily builds a model the chain will refuse, so the failure surfaces one layer later than the configuration error that caused it.

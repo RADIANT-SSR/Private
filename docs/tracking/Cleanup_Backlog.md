@@ -466,10 +466,10 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
-### CU-262 — HV-5/7 Cn² profile is evaluated against MSL altitude, so an elevated site loses its own boundary layer (~2× optimistic seeing) — RESOLVED 2026-07-30 (pending merge — orchestrator stamps final SHA)
+### CU-262 — HV-5/7 Cn² profile is evaluated against MSL altitude, so an elevated site loses its own boundary layer (~2× optimistic seeing) — RESOLVED 2026-07-30 (commit `243e596`)
 
 **Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: RESOLVED 2026-07-30, commit `(pending merge — orchestrator stamps final SHA)`.
+**Status**: RESOLVED 2026-07-30, commit `243e596`.
 **File**: `src/radiant/atmosphere/cn2_hufnagel_valley.py` (+ `r0_path` integrating from `h_low = h_sensor` in MSL).
 **Symptom**: the HV ground term has a 100 m scale height; a site at 900 m MSL starts above its own boundary layer entirely. Chain r₀ = 14.5 cm at 0.5 µm (0.70″ seeing) where a real 0.9 km site runs 1.0–1.5″.
 **Why it still matters**: seeing-limited SST/astronomy predictions are ~2× optimistic for any non-sea-level sensor — the SST-critical case Gap 110 shipped for.

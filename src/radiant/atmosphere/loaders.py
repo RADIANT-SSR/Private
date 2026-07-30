@@ -27,6 +27,11 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from radiant.atmosphere.errors import AtmosphereValidationError
+from radiant.atmosphere.interpolation_coverage import (
+    SHIPPED_FAMILIES,
+    check_interpolation_coverage,
+    shipped_family_catalogue_text,
+)
 from radiant.core.parameters import ParameterSet
 
 if TYPE_CHECKING:  # type-only: keeps scipy out of this module's import cost
@@ -51,24 +56,14 @@ _SHIPPED_ATMOSPHERES_DIR = Path(__file__).resolve().parents[1] / "data" / "table
 #: covers appear here; anything else still requires an explicit data dir and
 #: raises the no-family error naming everything that IS shipped.
 #:
-#: Data, not branches (guardrail G3 in spirit): adding a family is a row.
+#: Data, not branches (guardrail G3 in spirit): adding a family is a row — but
+#: since CU-239 that row lives in
+#: :data:`radiant.atmosphere.interpolation_coverage.SHIPPED_FAMILIES`, which
+#: also carries the operator-facing coverage prose the GUI picker and the
+#: config-time coverage check read. This dispatch table is *derived* from it so
+#: there is exactly one authority (Rule 27).
 _SHIPPED_FAMILY_BY_DIRECTION_AND_AXES: dict[tuple[str, str], str] = {
-    ("down", "path_zenith_rad"): "us_standard_zenith_fan",
-    ("down", "sensor_altitude_m,target_altitude_m"): "midlat_summer_ladders",
-    # Boost expansion families (plan §4.7). The 2-axis key above stays on
-    # the 0–29 km ladders (§4.1, no re-baseline); nadir 0–100 km boost
-    # coverage is reachable via the off-nadir family (which includes the
-    # 0° column) or an explicit interpolated_data_dir.
-    ("down", "sensor_altitude_m"): "midlat_summer_sensor_ladder",
-    (
-        "down",
-        "sensor_altitude_m,target_altitude_m,path_zenith_rad",
-    ): "midlat_summer_boost_offnadir",
-    # Up-looking (Geometry-Flexibility Phase 2, GF-10): the K-block vertical
-    # partial-column ladder, ground sensor, targets 0–20 km. One axis — the
-    # family is rendered at a single lower endpoint (ground) and a single
-    # lower-endpoint zenith (vertical), so neither is an axis.
-    ("up", "target_altitude_m"): "midlat_summer_uplooking_ladder",
+    (family.los_direction, family.interpolation_axes): family.name for family in SHIPPED_FAMILIES
 }
 
 #: Models whose construction ALWAYS requires reading data files. These
@@ -340,11 +335,13 @@ def _scene_los_direction(params: ParameterSet) -> str:
 
 
 def _shipped_family_catalogue() -> str:
-    """Human-readable list of every shipped ``(direction, axes)`` combination."""
-    return ", ".join(
-        f"{direction}-looking axes='{axes}' → {family}"
-        for (direction, axes), family in sorted(_SHIPPED_FAMILY_BY_DIRECTION_AND_AXES.items())
-    )
+    """Human-readable list of every shipped ``(direction, axes)`` combination.
+
+    Thin alias kept for the existing call sites; the text is owned by
+    :func:`radiant.atmosphere.interpolation_coverage.shipped_family_catalogue_text`
+    (CU-239 — one authority for the catalogue).
+    """
+    return shipped_family_catalogue_text()
 
 
 def _npz_family_direction(npz_files: list[Path]) -> str:
@@ -470,6 +467,12 @@ def _build_interpolated(params: ParameterSet) -> object:
         InterpolatedAtmosphere,
     )
     from radiant.atmosphere.tabulated import TabulatedAtmosphere
+
+    # CU-239: the scene ↔ axes coverage rules are knowable here, before any
+    # NPZ is opened, so the operator meets one actionable config-time refusal
+    # instead of an AtmosphereCapabilityError five stages into the chain. The
+    # evaluate-time checks stay as defence in depth.
+    check_interpolation_coverage(params)
 
     data_dir = params.get("atmosphere.interpolated_data_dir")
     axes_str: str = params.get("atmosphere.interpolation_axes")

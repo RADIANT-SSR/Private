@@ -21,6 +21,21 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Interpolated-atmosphere coverage is checked at config time, and the shipped-family
+  catalogue is public (CU-239).** New `Sensor.validate_atmosphere_coverage()` and
+  `radiant.api.atmosphere_families` (`shipped_atmosphere_families`,
+  `shipped_family_for_axes`, `suggested_interpolation_axes`, `ShippedFamily`).
+  `atmosphere.model = "interpolated"` with a scene the configured
+  `atmosphere.interpolation_axes` cannot serve — the common case being an above-ground
+  `geometry.target_altitude_m` against the `"path_zenith_rad"` schema default — now raises
+  **pre-chain**, from `build_atmosphere_model`, instead of five stages later inside
+  `InterpolatedAtmosphere.evaluate`. The refusal names the exact axes string to set, the
+  shipped family it selects with its coverage in km and degrees, and a profile-change
+  caveat when that family's rendered atmosphere profile differs from an explicitly-set
+  `atmosphere.standard_atmosphere`. Not breaking: every configuration that evaluated
+  successfully before still does, and every configuration that failed still fails — the
+  same `AtmosphereCapabilityError` type, raised earlier with a longer, actionable message.
+  No computed results change. Evaluate-time checks remain as defence in depth.
 - **`Sensor.validate_target_spec()` — resolve-time target-spec over-specification check
   (CU-244).** Runs the source inferrer's `source.target.*` mutual-exclusivity guards
   (reflectance/albedo aliases, ρ vs (ε, T), ρ vs the S8/S10 radiance/intensity paths,

@@ -5,8 +5,8 @@
 **Source of truth:** `find src/radiant -name '*.py'` — this doc is a derived
 view, not a spec. When in doubt, run the find command.
 
-**Current file count:** 584 `.py` files under `src/radiant/` (323 source +
-219 test + 42 `__init__.py`), plus 41 integration tests under
+**Current file count:** 588 `.py` files under `src/radiant/` (325 source +
+221 test + 42 `__init__.py`), plus 41 integration tests under
 `tests/integration/` and 6 top-level test files (`tests/test_public_api.py`,
 `tests/test_exceptions.py`, `tests/test_provenance.py`,
 `tests/test_calibration_analysis.py`, `tests/test_error_budget.py`,
@@ -107,7 +107,7 @@ source/shapes/         # box, cone, cylinder, flat_plate, sphere — projected_a
                        # implementations for sub-pixel target geometry
 ```
 
-### `atmosphere/` — 34 source + 35 tests
+### `atmosphere/` — 35 source + 36 tests
 
 Stage 2: τ_atm, L_path, L_atm.
 
@@ -124,6 +124,7 @@ atmosphere/
 ├── exo.py               # exo-atmosphere (vacuum) — τ=1, L_path=0
 ├── tabulated.py         # user-supplied tabulated τ(λ) / L_path(λ)
 ├── interpolated.py      # spectral interpolation helpers
+├── interpolation_coverage.py  # shipped-family catalogue + config-time scene↔axes check (CU-239)
 ├── turbulence.py        # Kolmogorov long-exposure turbulence MTF
 ├── cn2_profiles.py      # Cn²(h) profile family contract + selector
 ├── cn2_hufnagel_valley.py  # Hufnagel-Valley Cn²(h) preset (HV-5/7 defaults)
@@ -242,7 +243,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 23 source + 17 tests
+### `api/` — 24 source + 18 tests
 
 Public scripting API.
 
@@ -263,6 +264,7 @@ api/
 ├── units.py               # public unit-conversion helpers
 ├── metric_groups.py       # re-export bridge: performance metric-group taxonomy (Gap 96)
 ├── geometry_modes.py      # re-export bridge: ADR-0006 mode manifest (CU-120)
+├── atmosphere_families.py # shipped interpolation-family catalogue seam for the GUI (CU-239)
 ├── stage_output_units.py  # canonical display units for scalar stage outputs (CU-118)
 ├── config_io.py           # config-document facade for structured configuration
 ├── errors.py              # stage-scoped RADIANT error types (Rule 15)

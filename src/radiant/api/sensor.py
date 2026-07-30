@@ -33,6 +33,9 @@ from radiant.api.session import RadiantSession
 from radiant.api.solve import SolveResult, solve_for
 from radiant.api.sweep import Sweep2DResult, SweepResult, sweep, sweep_2d
 from radiant.api.tolerance import MonteCarloResult, monte_carlo
+from radiant.atmosphere.interpolation_coverage import (
+    check_interpolation_coverage as _check_interpolation_coverage,
+)
 from radiant.core.orbit import ground_track_speed_m_s
 from radiant.core.parameters import (
     ParameterDef,
@@ -646,6 +649,40 @@ class Sensor:
             user-set. A no-op otherwise.
         """
         _validate_target_spec(self._params)
+
+    def validate_atmosphere_coverage(self) -> None:
+        """Raise if the interpolated atmosphere's axes cannot serve this scene.
+
+        The resolve-time seam for the interpolated-backend coverage rules
+        (CU-239): checks the two things that are knowable the moment the
+        geometry and ``atmosphere.interpolation_axes`` are both set —
+
+        1. a down-looking scene with ``geometry.target_altitude_m`` above 0 m
+           needs a ``target_altitude_m`` axis (Gap 94), and
+        2. an empty ``atmosphere.interpolated_data_dir`` needs the
+           ``(los_direction, axes)`` pair to name a shipped library family.
+
+        Both were previously discovered inside the chain — the first in
+        ``InterpolatedAtmosphere.evaluate``, five stages deep — so the operator
+        met a mid-evaluation refusal instead of a config-time message. The
+        error names the exact ``interpolation_axes`` string to use and, when
+        that selects a shipped family, its coverage in km/degrees plus a
+        profile-change caveat if the family's rendered profile differs from
+        ``atmosphere.standard_atmosphere``. No physics, no chain, no mutation;
+        the evaluate-time checks stay in place as defence in depth.
+
+        No-op for every ``atmosphere.model`` other than ``"interpolated"`` and
+        for a config whose geometry altitudes are not registered.
+
+        Raises
+        ------
+        radiant.atmosphere.errors.AtmosphereCapabilityError
+            The axes cannot serve the scene's target altitude.
+        radiant.atmosphere.errors.AtmosphereValidationError
+            No shipped family covers the pair and no data directory was given.
+        """
+        self._ensure_resolved()
+        _check_interpolation_coverage(self._params)
 
     def evaluate(
         self,

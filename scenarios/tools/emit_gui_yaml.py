@@ -99,6 +99,17 @@ def _repoint_generated_inputs(sensor: object, scen: GuiScenario) -> list[str]:
                 "CU-180 for the precedent) and name its generator in the scenario MANIFEST, "
                 "then re-run this emitter."
             )
+        if committed.read_bytes() != resolved.read_bytes():
+            raise UnreloadableBaselineError(
+                f"{scen.id}: {dotpath}'s committed copy has drifted from the generated one.\n"
+                f"  generated (just used for the metrics): {resolved}\n"
+                f"  committed (what the baseline would point at): {committed}\n"
+                "  Repointing here would pair a freshly-computed snapshot with a stale input, "
+                "so the baseline would fail its own reload check for a reason that looks like "
+                "a physics regression (CU-273).\n"
+                "  Fix: re-commit the regenerated file over the inputs/ copy, then re-run this "
+                "emitter."
+            )
         sensor.set(dotpath, str(committed))  # type: ignore[attr-defined]
         repointed.append(dotpath)
 

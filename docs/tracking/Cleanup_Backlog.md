@@ -17,9 +17,10 @@
 **Discovered**: Backlog-Reduction, gate-blindspot branch (`hygiene/gate-blindspots`), 2026-07-29 — while closing [[CU-272]]'s gate-scope half.
 **Status**: Open — likely a deliberate exclusion that was simply never written down.
 **File**: `CLAUDE.md` gate battery (names `src/ tests/ scripts/ dev_tools/`); `scenarios/`.
-**Symptom**: to be completed on the branch.
-**Why it still matters**: to be completed on the branch.
-**Suggested fix**: to be completed on the branch. Related: [[CU-272]], [[CU-270]], [[CU-252]].
+**Symptom**: the merge-gate battery lints and formats four trees (`src/ tests/ scripts/ dev_tools/`, widened by [[CU-252]] then [[CU-270]]) and runs pytest over two (`testpaths = ["src", "tests"]`, plus `scripts/` as of [[CU-272]]). `scenarios/` is in none of them, and nothing says whether that is a decision or an oversight. Measured 2026-07-29, `ruff check scenarios/`: **822 findings** — 766 `F541` (f-string with no placeholder), 169 `E501`, 76 `B018`, 75 `B905`, 35 `I001`, 26 `E402`, 20 `SIM113`, plus 43 reported as `invalid-syntax`.
+**The 43 `invalid-syntax` reports are NOT broken Python** — checked before filing, because that would have been a real defect rather than a lint gap. `python -m compileall -q scenarios/` exits **0**: every scenario script parses. Ruff is reporting on files in that tree it cannot parse as Python, not on code that would fail to import. So the whole 822 is style debt, not breakage.
+**Why it still matters**: it is the same shape as [[CU-272]]'s second half — a tree with no gate over it, where the absence is invisible rather than chosen. `scenarios/` is also **analyst-facing**: the runners and walkthrough scripts are what a new user reads to learn the API, so the bar there is arguably a readability bar rather than a CI one. The counter-argument is real too: these are one-shot narrative scripts, `E402`/`E501`/`F541` are largely noise in that idiom, and 822 findings is not a backlog anyone will clear as a side quest. Either answer is defensible; not writing one down is not.
+**Suggested fix**: (a) inline, small — decide and record it in `CLAUDE.md` next to the gate battery, exactly as [[CU-272]] did for `scripts/` and `dev_tools/`. If `scenarios/` joins, it needs its own `[tool.ruff.lint.per-file-ignores]` entry for the narrative-script idiom first (at minimum `F541`, `E402`, `E501`), or the gate is unpassable on day one. If it stays out, say so and say why. Effort XS for the decision; S–M if it joins and the per-file-ignores have to be tuned. Related: [[CU-272]], [[CU-270]], [[CU-252]], [[CU-164]].
 
 
 ### CU-276 — The level-topology sky still composes two segments, so it keeps the CU-254 target-position dependence

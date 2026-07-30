@@ -2,7 +2,9 @@
 
 The Qt main thread never runs the signal chain (arch doc §3.2, GUI plan §4.5): a
 full-chain evaluation runs in a :class:`QThread` worker that emits its result by
-signal. A full chain evaluates in ~0.22 s and a configuration set is capped at
+signal. A full chain evaluates in **~0.8 s** on the shipped MWIR example (measured
+2026-07-29, CU-249; the bulk of it is the optics stage's PSF/MTF FFTs on the
+hardcoded 128-pixel pupil grid — see CU-288) and a configuration set is capped at
 eight configurations, so the worker reports only finished / failed — there is no
 per-stage progress stream; the status bar shows a plain busy indicator while it
 runs.

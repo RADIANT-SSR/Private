@@ -29,6 +29,17 @@ import pytest
 # Headless Qt — set before QApplication exists (pytest-qt builds it lazily).
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+# Shorten the re-evaluation debounce for the whole GUI suite (CU-249). Production
+# keeps the 200 ms window (``main_window._DEBOUNCE_MS``); this suite drives well over
+# a hundred windows through the debounced path and would otherwise spend ~30 s of the
+# merge gate's clock deliberately idle. 10 ms is still a real timer on a real event
+# loop, so the coalescing contract still holds — a synchronous burst of edits cannot
+# be interrupted by a single-shot timer at any positive interval, which is exactly what
+# ``test_evaluate_loop.py::test_debounce_collapses_rapid_edits_into_one_run`` asserts.
+# ``setdefault`` so a developer can pin the production value back for a race hunt:
+# ``RADIANT_GUI_DEBOUNCE_MS=200 pytest src/radiant/gui``.
+os.environ.setdefault("RADIANT_GUI_DEBOUNCE_MS", "10")
+
 # The GUI suite is meaningless without the gui extra; skip collection if absent.
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 

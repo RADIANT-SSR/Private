@@ -263,6 +263,19 @@ run). There is no incremental / stale-subgraph engine and none is planned for v1
 (CU-079, declined). A failed evaluation leaves the previous result displayed with a
 visible "stale — last evaluation failed" state; it never shows a blank or a partial mix.
 
+**Test seam (CU-249).** The 200 ms window is `main_window._DEBOUNCE_MS` and is what
+ships. The `RADIANT_GUI_DEBOUNCE_MS` environment variable overrides it, read once per
+window by `main_window._debounce_interval_ms()`; the live value is readable as
+`RADIANTMainWindow.debounce_interval_ms` [ms]. Unset — production and any run that does
+not opt in — the interval is exactly `_DEBOUNCE_MS`, so the seam changes no shipped
+behaviour; a malformed or negative value raises `GuiValidationError` rather than silently
+falling back (Rule 17). Its purpose is the merge gate: the GUI suite drives well over a
+hundred windows through this path and sets the variable to 10 ms in
+`gui/tests/conftest.py`, recovering ~5 s per affected test file of pure idle. It is *not*
+a user-facing tuning knob — the coalescing window is a UX decision, not a preference —
+and shortening it is safe for the suite only because a single-shot `QTimer` cannot fire
+mid-burst (the burst holds the GUI thread), so the coalescing contract is interval-independent.
+
 ---
 
 ## 4. Layout — Contextual Per-Stage Workspace (ratified 2026-07-13)

@@ -20,6 +20,7 @@ object names only.
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
@@ -48,6 +49,7 @@ from radiant.core.exceptions import RadiantError
 from radiant.gui.config_scope import ConfigurationScope
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.document_yaml import is_study
+from radiant.gui.errors import GuiValidationError
 from radiant.gui.geometry_modes import implicated_families
 from radiant.gui.metric_matrix import ConfigurationColumns, build_metric_matrix
 from radiant.gui.param_format import format_value
@@ -99,6 +101,52 @@ if TYPE_CHECKING:
 # Re-evaluation debounce window (arch doc §3.3): parameter edits within this
 # window coalesce into a single full-chain run.
 _DEBOUNCE_MS: int = 200
+
+# Test seam for the debounce window (CU-249). The GUI suite drives ~150 windows
+# through the debounced re-evaluate path, and every one of them pays the full
+# 200 ms of *deliberate idle* on the merge gate's clock. Setting this env var
+# shortens the window; unset (production, and any run that does not opt in) the
+# interval is exactly _DEBOUNCE_MS, so no shipped behaviour changes.
+#
+# Shortening it does not weaken the coalescing contract the GUI suite pins: a
+# burst of edits issued synchronously cannot be interrupted by the timer at all
+# (a single-shot QTimer fires only when the event loop turns, and the burst holds
+# the GUI thread), so the burst still collapses into one run at any interval > 0.
+# What a shortened window *would* mask is a real-time race between an edit and a
+# run — which is why the seam is opt-in, and why the production default is left
+# alone rather than lowered.
+_DEBOUNCE_ENV_VAR: str = "RADIANT_GUI_DEBOUNCE_MS"
+
+
+def _debounce_interval_ms() -> int:
+    """The debounce interval this process should use, in milliseconds.
+
+    Returns :data:`_DEBOUNCE_MS` unless :data:`_DEBOUNCE_ENV_VAR` overrides it.
+    A malformed or negative override is an error, never a silent fallback to the
+    default (Rule 17) — a typo in a CI variable must not quietly restore the
+    200 ms it was set to avoid.
+    """
+    raw = os.environ.get(_DEBOUNCE_ENV_VAR)
+    if raw is None:
+        return _DEBOUNCE_MS
+    action = (
+        f"Set {_DEBOUNCE_ENV_VAR} to an integer >= 0 (milliseconds), or unset it for the "
+        f"{_DEBOUNCE_MS} ms default"
+    )
+    try:
+        interval = int(raw)
+    except ValueError:
+        raise GuiValidationError(
+            f"{_DEBOUNCE_ENV_VAR}={raw!r} is not an integer — the re-evaluation debounce "
+            f"interval is a whole number of milliseconds. {action}"
+        ) from None
+    if interval < 0:
+        raise GuiValidationError(
+            f"{_DEBOUNCE_ENV_VAR}={interval} ms is negative — a debounce window cannot run "
+            f"backwards in time. {action}"
+        )
+    return interval
+
 
 # Default window geometry and dock proportions, matching the mockup's balance
 # (1440×900 with a ~360 px parameter dock and a ~260 px detail dock). The
@@ -999,6 +1047,16 @@ class RADIANTMainWindow(QMainWindow):
         return self._evaluation_count
 
     @property
+    def debounce_interval_ms(self) -> int:
+        """The live re-evaluation debounce window [ms] (arch doc §3.3).
+
+        Normally :data:`_DEBOUNCE_MS` (200 ms); the ``RADIANT_GUI_DEBOUNCE_MS`` test
+        seam can shorten it (CU-249). Read-only — the interval is fixed when the
+        evaluate loop is wired.
+        """
+        return int(self._debounce.interval())
+
+    @property
     def last_result(self) -> ChainResult | None:
         """The most recent successful :class:`~radiant.api.ChainResult`, if any."""
         return self._last_result
@@ -1012,7 +1070,7 @@ class RADIANTMainWindow(QMainWindow):
         """
         self._debounce = QTimer(self)
         self._debounce.setSingleShot(True)
-        self._debounce.setInterval(_DEBOUNCE_MS)
+        self._debounce.setInterval(_debounce_interval_ms())
         self._debounce.timeout.connect(self._evaluate_now)
 
         evaluate_action = self.action("run.evaluate")

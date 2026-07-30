@@ -12,6 +12,25 @@
 
 ## Open
 
+### CU-289 — GUI transaction tests await a full re-evaluation pass they mostly do not assert on
+
+**Discovered**: [[CU-249]] resolution (branch `test/cu-249`), 2026-07-29.
+**Status**: Open — **needs an owner judgement on test fidelity, deliberately not taken unilaterally.**
+**File**: `src/radiant/gui/tests/test_configuration_manager.py::_manage` (and the same `changes=True` shape in `test_configured_parameters.py`, `test_configuration_selector.py`).
+**Symptom**: `_manage(..., changes=True)` awaits `evaluationFinished` after the manager transaction. Of the 32 tests in the file, all but two then assert **only** on synchronously-applied `ConfigurationSet` state (`names()`, `configured()`, `baseline`, `wavelength_points`) or on window surfaces that `_apply_shape_change` refreshes *before* the debounce even starts. The awaited pass costs a measured **≈ 2.5 s per test** (3 configurations × 0.84 s) and its result is discarded. Because the debounce is a single-shot `QTimer` parented to the window, a test that simply *does not* wait leaves no worker running at all — the timer dies with the window at teardown — so not waiting is thread-safe.
+**Why it still matters**: this is the largest remaining tranche of GUI-suite wall clock (~25 tests × 2.5 s ≈ 60 s of a 105 s file), paid on every merge to `main`.
+**Why it was not just done**: dropping the wait removes ~25 tests' incidental coverage of the post-transaction *render* path (`_render_run`, the per-configuration Performance columns) and of "a shape change really does schedule a re-evaluation". A defensible replacement exists — assert `window.debounce_interval_ms`-backed scheduled state (`_debounce.isActive()`, which **fails** if the transaction stops scheduling, so it is not an assert-on-nothing) and keep the full-pass wait in the two tests that read `window.last_run`. But choosing how much render-path coverage a CRUD/undo file owes is a Category-D fidelity call, not a performance one.
+**Suggested fix**: (b) stand-alone task once the fidelity question is answered. Effort S once decided; category D. Related: [[CU-249]], [[CU-288]].
+
+### CU-288 — PSF/MTF FFT grid (`pupil_npix`, `psf_oversample`) is hardcoded in `optics/stage.py`, and it is the dominant cost of every chain evaluation
+
+**Discovered**: [[CU-249]] profiling (branch `test/cu-249`), 2026-07-29.
+**Status**: Open.
+**File**: `src/radiant/optics/stage.py:228` (`pupil_npix = 128`), `:248`/`:290` (`psf_oversample=8`), `:401` (`pupil_npix=128` again).
+**Symptom**: two tuneable numerics that set the size of every spatial FFT are local literals in the stage body, with no `ParameterDef` in `optics/_schema.py` — a Rule 12 violation, and a repeated literal (128 appears twice, 8 twice), so the pupil and MTF paths could silently drift apart. Measured consequence (cProfile, one GUI test, shipped `examples/mwir_leo_minimal.yaml`): **3.07 s of 4.18 s** across five `Sensor.evaluate()` calls is `numpy.fft._pocketfft._raw_fft`, reached from `_build_effective_psf` (1.50 s in `pupil_autocorrelation_mtf_2d`, 1.50 s in the PSF convolutions). One full chain evaluate is **0.84 s**, not the ~0.22 s the `workers.py` docstring and the `test_evaluate_loop.py` comment claimed before this CU corrected them.
+**Why it still matters**: (a) Rule 12 — an analyst cannot trade PSF grid resolution against runtime, and cannot even see that the knob exists; (b) it is the single largest cost in the whole GUI test suite and in every interactive GUI re-evaluate, and being unparameterized it cannot be coarsened by a test fixture, which is precisely what blocked the fixture-side half of [[CU-249]]; (c) [[CU-249]]'s original 2026-07-28 profile mis-attributed this to Qt event-loop idle and "confirmed" it by coarsening the *spectral* grid — the wrong axis — so the literal has already cost one wrong diagnosis.
+**Suggested fix**: (b) stand-alone task — add `optics.pupil_npix` and `optics.psf_oversample` `ParameterDef`s (defaults 128 / 8, so no golden result moves), read them once in the stage, and check the [[Rule 4]] consistency tolerance holds across the supported range. Results-affecting only if a default changes, so the first PR is a pure parameterization. Effort M; category C (the tolerance check is physics). Related: [[CU-249]], [[CU-003]]/[[CU-045]] (the consistency tolerance the grid size feeds).
+
 ### CU-287 — `_require_matplotlib()` forces the process-global Agg backend on every `plot_*` call, including from GUI embedders
 
 **Discovered**: Overnight backlog run, CU-241 close-out, 2026-07-29.
@@ -213,23 +232,6 @@ Only the **GEO** row behaves as the entry describes: there `exp(−h/H_MOL)` und
 **Why it still matters**: narrow-band work near a region edge sees a discontinuous, grid-dependent transmittance.
 **Suggested fix**: (b) stand-alone — blend region coefficients across a small transition width (results-affecting at the ~1 % level near edges only). Effort S–M; category C. Related: CU-161, [[CU-253]].
 
-### CU-249 — `test_configuration_manager.py` is an order of magnitude slower per test than the rest of the GUI suite
-
-**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, agent finding), 2026-07-28.
-**Status**: Open — **profiled 2026-07-28 (Backlog-Reduction Track A, Wave A2); the entry's hypothesis is disproved and the suggested fix would not have worked.** Measured on the shipped example, offscreen:
-
-| Component | Cost |
-|---|---|
-| pytest `setup` + `teardown` (incl. the CU-212 widget release) | 0.03 s |
-| `RADIANTMainWindow` construction | 0.41 s (0.05 s at a coarse grid) |
-| one chain `evaluate()` | 0.13 s |
-| **one test, `call` phase** | **4.8 s** |
-
-So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s per test is Qt **event-loop round-trips inside the test body** — `qtbot.waitSignal` on `evaluationFinished` (twice: window open, then the manager transaction), the 200 ms `_DEBOUNCE_MS` timer, and the `ConfigSetEvaluationWorker` QThread start/join per pass. Confirmed by construction: coarsening the fixture's spectral grid from 500 to 40 points changed the file's wall clock by **0.7 s out of 108 s** (107.95 s → 107.19 s), and the grid size does survive the `ConfigurationSet.save`/`load` round trip, so the chain really is not the cost. That change was reverted rather than kept as a dead knob. A module-scoped window fixture (the original suggestion) therefore buys at most ~0.4 s/test and costs the structural isolation these CRUD/undo tests depend on — a bad trade.
-**File**: `src/radiant/gui/tests/test_configuration_manager.py`; `src/radiant/gui/main_window.py:100` (`_DEBOUNCE_MS`); `src/radiant/gui/workers.py` (`ConfigSetEvaluationWorker`).
-**Why it still matters**: the GUI suite is in the merge gate battery; its wall-clock cost is paid on every merge to `main`.
-**Suggested fix**: (b) stand-alone task, now that the cost is located — attack the *waiting*, not the computing: (1) let tests shorten `_DEBOUNCE_MS` through a seam (an env var or a test hook) so 32 tests do not each pay 2 × 200 ms of deliberate idle; (2) check whether the manager transaction needs a **second** full evaluation pass at all, or can assert on the scheduled-state before it completes; (3) investigate the per-pass QThread start/join, which is paid per configuration. Any of the three is worth more than fixture sharing. Effort M; category A. Related: [[CU-110]] (same worker surface).
-
 ### CU-250 — Down-looking schematic places the sensor glyph along the η ray from the target apex (vertex mismatch)
 
 **Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, viewer agent finding), 2026-07-28.
@@ -406,6 +408,18 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-249 — `test_configuration_manager.py` is an order of magnitude slower per test than the rest of the GUI suite — RESOLVED 2026-07-29 (commit `(pending merge — orchestrator stamps final SHA)`)
+
+**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, agent finding), 2026-07-28.
+**Status**: RESOLVED 2026-07-29, commit `(pending merge — orchestrator stamps final SHA)`. **Resolution**: added the `RADIANT_GUI_DEBOUNCE_MS` test seam (`main_window._debounce_interval_ms`, production default unchanged at 200 ms) and set it to 10 ms for the GUI suite; the remaining and dominant cost was re-profiled, found to be the chain itself — not Qt idle — and split out as [[CU-288]] (hardcoded PSF FFT grid) and [[CU-289]] (the awaited second pass).
+**File**: `src/radiant/gui/tests/test_configuration_manager.py`; `src/radiant/gui/main_window.py` (`_DEBOUNCE_MS`, new `_DEBOUNCE_ENV_VAR` / `_debounce_interval_ms()` / `debounce_interval_ms`); `src/radiant/gui/tests/conftest.py`; `src/radiant/gui/workers.py` (docstring).
+**Symptom**: 32 tests, 105.46 s — reproduced before fixing (`python -m pytest src/radiant/gui/tests/test_configuration_manager.py -q`), i.e. 3.30 s/test against a GUI-suite norm nearer 0.5 s/test.
+**What was landed**: the seam is opt-in and inert unless the env var is set, so no shipped behaviour changes; a malformed or negative override raises `GuiValidationError` rather than silently restoring the 200 ms it was set to avoid (Rule 17). File: **105.46 s → 100.60 s** (3.30 → 3.14 s/test). Full GUI suite: **444.35 s → 417.25 s** (868 passed, 2 skipped, both runs; −27.1 s, −6.1 %), measured on the same tree with only the env var differing, so the comparison is exact rather than reconstructed. CPU utilisation rose 95 % → 99 % in both measurements, which is the corroboration that what was removed was idle and nothing else. The saving is process-wide, not file-local — every GUI file that drives a debounced re-evaluate pays it, which is why the suite gained 27 s while the profiled file gained 5 s.
+**Why shortening the debounce cannot mask a race**: the contract the suite pins is *coalescing* — a burst of edits collapses into one run. A single-shot `QTimer` can only fire when the event loop turns, and a synchronous burst holds the GUI thread throughout, so the burst collapses at any interval > 0; `test_evaluate_loop.py::test_debounce_collapses_rapid_edits_into_one_run` is therefore asserting the same thing at 10 ms as at 200 ms. What a shortened window *would* mask is a real-time race between an edit and an in-flight run, which is why the production default was left alone and the suite value is `setdefault` — `RADIANT_GUI_DEBOUNCE_MS=200 pytest src/radiant/gui` restores the shipped timing for a race hunt, and that is exactly how the "before" number above was measured. Teardown was checked for the one new hazard: `_release_widgets` deletes each window (and with it its child debounce timer) via the deferred-delete drain *before* `processEvents()`, so a pending short-interval timer cannot fire into a half-deleted window.
+**Where the 2026-07-28 profile went wrong**: it attributed ~4 s of a 4.8 s test to "Qt event-loop round-trips" and measured one chain `evaluate()` at 0.13 s. cProfile on one test (2026-07-29) shows the opposite: of a 4.94 s `call` phase, **4.18 s is `ConfigurationSet.evaluate_all` inside the worker** (five `Sensor.evaluate()` calls at **0.84 s** each, of which **3.07 s total is `numpy.fft`** under `_build_effective_psf` / `pupil_autocorrelation_mtf_2d`), and the two `qtbot.waitSignal` loops total 4.43 s **because they are waiting on that compute**, not on idle. The 95 % CPU utilisation of the baseline run was the tell: only ~5 s of the 105 s was ever idle, and that 5 s is what the seam recovered. The earlier "confirmed by construction" step coarsened the **spectral** grid (500 → 40 points) and correctly found it changed nothing — but the cost is the **spatial** FFT grid, a different axis, and one that has no parameter at all ([[CU-288]]). Item (3) of the old suggested fix (per-pass QThread start/join) does not appear in the profile as a measurable cost and was declined on that evidence. The entry's own verdict on module-scoped fixtures stands and was not revisited.
+**Why it still mattered**: the GUI suite is in the merge gate battery; its wall-clock cost is paid on every merge to `main`.
+**Resolution summary**: `RADIANT_GUI_DEBOUNCE_MS` seam (200 ms production default untouched) cuts the file 105.46 s → 100.60 s by removing ~5 s of deliberate idle; re-profiling disproved the entry's "waiting, not computing" diagnosis and split the real cost — a hardcoded 128-pixel pupil FFT grid — into [[CU-288]], with the awaited-second-pass judgement into [[CU-289]].
+
 ### CU-241 — Pupil/PSF plot cards are unreadable: fixed-aspect figures in tall cards, overlapping titles/colorbars, clipped labels, index-space PSF axes — RESOLVED 2026-07-29 (commit `6d8aee4`)
 
 **Discovered**: operator session (owner driving the GUI), 2026-07-27 — Optics pupil-amplitude / pupil-wavefront / PSF panels.

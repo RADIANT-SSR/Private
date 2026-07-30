@@ -12,6 +12,33 @@
 
 ## Open
 
+### CU-282 — Resolved-heading format is inconsistent across the registry, so Rule-22 compliance is prose-dependent
+
+**Discovered**: Overnight backlog run, CU-279 close-out, 2026-07-29.
+**Status**: Open.
+**File**: `docs/tracking/Cleanup_Backlog.md` (Resolved section); `scripts/check_org_rules.py`.
+**Symptom**: some Resolved headings carry `— RESOLVED <date> (commit \`x\`)`, others (e.g. CU-213) carry no SHA in the heading at all — the SHA lives only in the Status line, in varying phrasings. There is no single greppable format, so verifying Rule-22 closure requires reading each entry's prose.
+**Why it still matters**: check 7 (CU-279) validates SHAs that are *present*; a closure whose SHA is absent or phrased unusually is invisible to it. Same failure shape as [[CU-279]], one level up — presence and format, not resolvability.
+**Suggested fix**: (a) inline, small — define one canonical Resolved-entry format in the registry header, normalise existing entries, and add a format check to `check_org_rules.py` alongside the ID-uniqueness check. Effort S; category A. Related: [[CU-279]], [[CU-281]].
+
+### CU-281 — `gaps.md` closed entries are not checked for SHA presence
+
+**Discovered**: Overnight backlog run, CU-279 close-out, 2026-07-29.
+**Status**: Open.
+**File**: `docs/tracking/gaps.md`; `scripts/check_org_rules.py`.
+**Symptom**: OPERATING_MODEL §2 says gap closures are "marked closed in place w/ commit SHA", and nothing checks that a gap marked closed *has* a SHA at all — check 7 (CU-279) only validates ancestry of SHAs that are present.
+**Why it still matters**: same failure shape as [[CU-279]] one level up: the rule is enforced by convention where a mechanical check is cheap, and a SHA-less closure is a closure that cannot be verified.
+**Suggested fix**: (a) inline, small — extend `check_org_rules.py` check 7 (or a sibling check) to require a backticked SHA in every gap entry marked closed. Effort S; category A. Related: [[CU-279]], [[CU-282]].
+
+### CU-280 — The gate battery's `pytest scripts/` invocation fails at collection; only `python -m pytest scripts/` runs
+
+**Discovered**: Overnight backlog run, CU-279 verification, 2026-07-29.
+**Status**: Open.
+**File**: `scripts/synth_modtran/tests/test_emission_sanity.py:14`, `scripts/synth_modtran/tests/test_family_interpolate.py:32`; `CLAUDE.md` gate battery.
+**Symptom**: bare `pytest scripts/ -q` (the exact form CLAUDE.md and CU-272 document) aborts with `ModuleNotFoundError: No module named 'scripts'` — 2 collection errors, on main, in both the primary checkout and worktrees. `python -m pytest scripts/ -q` passes (12 passed in 1.19 s in the primary; 9 passed / 3 skipped in a worktree without the staged decks) because `python -m` puts the CWD on `sys.path`, letting `scripts` resolve as a namespace package for the two test files that import `from scripts.synth_modtran...`. The imports have been in these files since they were created (`7296963`, `b0a85f5`), so the documented invocation has never worked as literally written.
+**Why it still matters**: CU-272 put `pytest scripts/` in the merge gate specifically so a red synth-MODTRAN suite could not hide; the invocation as documented is red on every clean tree, which is exactly the environmental-red-vs-real-regression ambiguity CU-272 existed to remove.
+**Suggested fix**: (a) inline, small — either add repo-root to pytest's `pythonpath` in `pyproject.toml` (`pythonpath = ["src", "."]`), or change the two imports to the `synth_modtran.`-rooted form the package layout supports, or document `python -m pytest scripts/` as the canonical form in CLAUDE.md. Pick one; make CI and CLAUDE.md agree. Effort S; category A. Related: [[CU-272]], [[CU-278]].
+
 ### CU-278 — `scenarios/` is outside both the lint and the pytest gate scope, and the exclusion is undocumented
 
 **Discovered**: Backlog-Reduction, gate-blindspot branch (`hygiene/gate-blindspots`), 2026-07-29 — while closing [[CU-272]]'s gate-scope half.

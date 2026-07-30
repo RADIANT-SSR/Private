@@ -288,8 +288,11 @@ class TestStudyYamlEditor:
         # actionable payload the analyst reads, not on a dialog attribute.
         raised: list[BaseException] = []
 
-        class _Recorder:
+        class _Recorder(QDialog):
+            """A real QDialog: `exec_dialog` deleteLater()s what it runs (CU-216)."""
+
             def __init__(self, exc: BaseException, _label: str, _parent: object = None) -> None:
+                super().__init__()
                 raised.append(exc)
 
             def exec(self) -> int:

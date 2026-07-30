@@ -46,6 +46,7 @@ from radiant.api.config_set import ConfigSetError, ConfigSetRunResult, Configura
 from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
 from radiant.gui.config_scope import ConfigurationScope
+from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.document_yaml import is_study
 from radiant.gui.geometry_modes import implicated_families
 from radiant.gui.metric_matrix import ConfigurationColumns, build_metric_matrix
@@ -663,7 +664,7 @@ class RADIANTMainWindow(QMainWindow):
         except RadiantError as exc:
             cs.active = previous
             self._configuration_bar.set_active(previous)
-            ActionableErrorDialog(exc, "display configuration", self).exec()
+            exec_dialog(ActionableErrorDialog(exc, "display configuration", self))
             return
         self._configuration_bar.set_active(name)
         self._rebind_display_sensor()
@@ -953,7 +954,9 @@ class RADIANTMainWindow(QMainWindow):
         try:
             self._central.select_stage(namespace)
         except Exception as exc:  # rendering the API's own figure — surface, never swallow
-            UnexpectedErrorDialog(exc, f"Rendering the {namespace} visualization", self).exec()
+            exec_dialog(
+                UnexpectedErrorDialog(exc, f"Rendering the {namespace} visualization", self)
+            )
 
     def _build_status_bar(self) -> None:
         """Status bar with the initial ready/no-config message + a busy indicator.
@@ -1224,7 +1227,7 @@ class RADIANTMainWindow(QMainWindow):
             self._central.show_result(result)
         except Exception as exc:  # rendering the API's own figure — surface, never swallow
             self._central.mark_stale()
-            UnexpectedErrorDialog(exc, "Rendering the evaluation result", self).exec()
+            exec_dialog(UnexpectedErrorDialog(exc, "Rendering the evaluation result", self))
             self.statusBar().showMessage("Evaluation succeeded, but the plot could not render")
             return
         # A result now exists: enable the global Inspector tool (§4.6). It opens against
@@ -1274,9 +1277,9 @@ class RADIANTMainWindow(QMainWindow):
         # is still shown below and in the Messages panel; no GUI-side geometry validation.
         self._highlight_geometry_conflict(exc)
         if isinstance(exc, RadiantError):
-            ActionableErrorDialog(exc, "evaluate", self).exec()
+            exec_dialog(ActionableErrorDialog(exc, "evaluate", self))
         else:
-            UnexpectedErrorDialog(exc, "Evaluating the signal chain", self).exec()
+            exec_dialog(UnexpectedErrorDialog(exc, "Evaluating the signal chain", self))
 
     def _highlight_geometry_conflict(self, exc: BaseException) -> None:
         """Tint + navigate to the geometry control a conflict names (task 3 / Phase 4).
@@ -1351,7 +1354,7 @@ class RADIANTMainWindow(QMainWindow):
         """Handle the right-rail Edit Config (YAML) click: open the modal editor."""
         dialog = self.open_yaml_editor()
         if dialog is not None:
-            dialog.exec()
+            exec_dialog(dialog)
 
     def open_yaml_editor(self) -> YamlEditorDialog | None:
         """Build the YAML editor against the live **document**, wired to apply-and-reevaluate.
@@ -1593,10 +1596,10 @@ class RADIANTMainWindow(QMainWindow):
         try:
             config_set = ConfigurationSet.load(path)
         except RadiantError as exc:
-            ActionableErrorDialog(exc, "open", self).exec()
+            exec_dialog(ActionableErrorDialog(exc, "open", self))
             return
         except (OSError, ValueError) as exc:
-            UnexpectedErrorDialog(exc, f"Opening {path}", self).exec()
+            exec_dialog(UnexpectedErrorDialog(exc, f"Opening {path}", self))
             return
         self._adopt_config_set(
             config_set, path=Path(path), dirty=False, add_recent=True, evaluate=True
@@ -1658,10 +1661,10 @@ class RADIANTMainWindow(QMainWindow):
         try:
             written = self._write_document(path)
         except RadiantError as exc:
-            ActionableErrorDialog(exc, "save", self).exec()
+            exec_dialog(ActionableErrorDialog(exc, "save", self))
             return
         except OSError as exc:
-            UnexpectedErrorDialog(exc, f"Saving {path}", self).exec()
+            exec_dialog(UnexpectedErrorDialog(exc, f"Saving {path}", self))
             return
         self._current_path = Path(written)
         self._dirty = False
@@ -1733,7 +1736,7 @@ class RADIANTMainWindow(QMainWindow):
         try:
             self._write_document(Path(filename))
         except RadiantError as exc:
-            ActionableErrorDialog(exc, "export_yaml", self).exec()
+            exec_dialog(ActionableErrorDialog(exc, "export_yaml", self))
             return
         self.statusBar().showMessage(f"Exported config to {filename}")
 
@@ -1755,7 +1758,7 @@ class RADIANTMainWindow(QMainWindow):
             record = result.to_provenance_record()
             Path(filename).write_text(json.dumps(record, indent=2), encoding="utf-8")
         except (TypeError, ValueError, OSError) as exc:
-            UnexpectedErrorDialog(exc, "Exporting the result as JSON", self).exec()
+            exec_dialog(UnexpectedErrorDialog(exc, "Exporting the result as JSON", self))
             return
         self.statusBar().showMessage(f"Exported result record to {filename}")
 
@@ -1774,7 +1777,7 @@ class RADIANTMainWindow(QMainWindow):
         else:
             metric_names = ("snr",)
         dialog = SweepDialog(sensor, metric_names, self)
-        dialog.exec()
+        exec_dialog(dialog)
         if dialog.sweep_result is not None:
             self.last_sweep_result = dialog.sweep_result
             self.action("file.export_sweep_csv").setEnabled(True)
@@ -1792,7 +1795,7 @@ class RADIANTMainWindow(QMainWindow):
         )
         from radiant.gui.widgets.solve_dialog import SolveDialog
 
-        SolveDialog(sensor, metric_names, self).exec()
+        exec_dialog(SolveDialog(sensor, metric_names, self))
 
     def _on_mtf_overlay(self) -> None:
         """Tools → Compare Measured MTF… (GT-5): lab points over the predicted curve."""
@@ -1800,7 +1803,7 @@ class RADIANTMainWindow(QMainWindow):
             return
         from radiant.gui.widgets.mtf_overlay_dialog import MtfOverlayDialog
 
-        MtfOverlayDialog(self._last_result, self).exec()
+        exec_dialog(MtfOverlayDialog(self._last_result, self))
 
     def _on_compare_configs(self) -> None:
         """Tools → Compare Config Files… (GT-3): current config vs config files on disk."""
@@ -1808,7 +1811,7 @@ class RADIANTMainWindow(QMainWindow):
             return
         from radiant.gui.widgets.comparison_dialog import ComparisonDialog
 
-        ComparisonDialog(self._sensor, self).exec()
+        exec_dialog(ComparisonDialog(self._sensor, self))
 
     def _open_script_scaffold(self, title: str, snippet: str) -> None:
         """Open the scripting window with *snippet* in a fresh editor tab (GT-2).
@@ -1892,7 +1895,7 @@ class RADIANTMainWindow(QMainWindow):
         try:
             text = sensor.to_yaml(scope="resolved")
         except RadiantError as exc:
-            ActionableErrorDialog(exc, "export_resolved_yaml", self).exec()
+            exec_dialog(ActionableErrorDialog(exc, "export_resolved_yaml", self))
             return
         Path(filename).write_text(text, encoding="utf-8")
         self.statusBar().showMessage(f"Resolved config exported to {filename}")
@@ -1935,7 +1938,7 @@ class RADIANTMainWindow(QMainWindow):
         """Tools → Parameter Schema Browser: the read-only Gap-70 schema tree."""
         if self._sensor is None:
             return
-        SchemaBrowserDialog(self._sensor, self).exec()
+        exec_dialog(SchemaBrowserDialog(self._sensor, self))
 
     def _on_explain_parameter(self) -> None:
         """Tools → Explain Parameter…: pick a dot-path, show Sensor.explain(dotpath)."""
@@ -1946,7 +1949,7 @@ class RADIANTMainWindow(QMainWindow):
         dotpath, ok = QInputDialog.getItem(self, "Explain Parameter", "Parameter:", names, 0, False)
         if not ok or not dotpath:
             return
-        ExplainDialog(dotpath, sensor.explain(dotpath), self).exec()
+        exec_dialog(ExplainDialog(dotpath, sensor.explain(dotpath), self))
 
     def _wire_edit_menu(self) -> None:
         """Wire Edit → Undo / Redo to the parameter-edit :class:`QUndoStack` (Phase 9)."""
@@ -1998,7 +2001,7 @@ class RADIANTMainWindow(QMainWindow):
             try:
                 fresh = ConfigurationSet.load(self._current_path)
             except RadiantError as exc:
-                ActionableErrorDialog(exc, str(self._current_path), self).exec()
+                exec_dialog(ActionableErrorDialog(exc, str(self._current_path), self))
                 return
             self._adopt_config_set(
                 fresh, path=self._current_path, dirty=False, add_recent=False, evaluate=True
@@ -2122,7 +2125,7 @@ class RADIANTMainWindow(QMainWindow):
             else:
                 cs.base.set(dotpath, value)
         except RadiantError as exc:
-            ActionableErrorDialog(exc, "edit", self).exec()
+            exec_dialog(ActionableErrorDialog(exc, "edit", self))
             return False
         return True
 
@@ -2153,7 +2156,7 @@ class RADIANTMainWindow(QMainWindow):
         try:
             cs.configure(dotpath)
         except RadiantError as exc:
-            ActionableErrorDialog(exc, dotpath, self).exec()
+            exec_dialog(ActionableErrorDialog(exc, dotpath, self))
             return
         after = ScopeState.configured_column(cs.configured()[dotpath])
         self._push_scope_command(
@@ -2192,7 +2195,7 @@ class RADIANTMainWindow(QMainWindow):
         try:
             cs.unconfigure(dotpath)
         except RadiantError as exc:
-            ActionableErrorDialog(exc, dotpath, self).exec()
+            exec_dialog(ActionableErrorDialog(exc, dotpath, self))
             return
         after = ScopeState.shared(cs.base.inputs().get(dotpath))
         self._push_scope_command(
@@ -2321,7 +2324,7 @@ class RADIANTMainWindow(QMainWindow):
             return
         before = ConfigurationShape.of(cs)
         dialog = ConfigurationManagerDialog(cs, self)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
+        if exec_dialog(dialog) != QDialog.DialogCode.Accepted:
             return
         after = dialog.shape()
         if after == before:
@@ -2333,7 +2336,7 @@ class RADIANTMainWindow(QMainWindow):
             # The dialog validated every step against a real ConfigurationSet, so this
             # is not a user-input path; surfacing it (never swallowing) is the Rule 17
             # contract for the case the two objects ever disagree.
-            ActionableErrorDialog(exc, "configurations", self).exec()
+            exec_dialog(ActionableErrorDialog(exc, "configurations", self))
             return
         self._undo_stack.push(
             ConfigurationShapeCommand(

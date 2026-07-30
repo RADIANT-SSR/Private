@@ -89,6 +89,7 @@ from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterBoundsError
 from radiant.core.units import convert
 from radiant.gui.config_scope import scope_of
+from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.param_format import (
     DERIVED_BADGE,
     display_in_unit,
@@ -894,7 +895,7 @@ class ParameterEditorDialog(QDialog):
             self._show_error(rejection)
             return
         if unexpected is not None:
-            UnexpectedErrorDialog(unexpected, f"Editing “{self._dotpath}”", self).exec()
+            exec_dialog(UnexpectedErrorDialog(unexpected, f"Editing “{self._dotpath}”", self))
             return
 
         # CU-219: validate the tolerance *before* writing anything. This path used

@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.metric_format import BADGE_METRICS
 from radiant.gui.widgets.pin_picker_dialog import PinPickerDialog
 from radiant.gui.widgets.pinned_card import PinnedCard
@@ -279,7 +280,7 @@ class PinnedPanel(QWidget):
         if self._result is None:
             return
         dialog = PinPickerDialog(self._result, self.pinned_keys, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
+        if exec_dialog(dialog) == QDialog.DialogCode.Accepted:
             key = dialog.selected_key()
             if key is not None:
                 self.pin(key, key)

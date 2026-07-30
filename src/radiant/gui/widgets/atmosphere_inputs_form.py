@@ -44,6 +44,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 from radiant.core.exceptions import RadiantError
+from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.param_format import field_display_text
 from radiant.gui.widgets.field_row import (
     LABEL_COLUMN_WIDTH,
@@ -209,7 +210,7 @@ class AtmosphereInputsForm(QWidget):
         if self._sensor is None:
             return
         dialog = ImportPreviewDialog("tape7", self)
-        if dialog.exec() != int(dialog.DialogCode.Accepted):
+        if exec_dialog(dialog) != int(dialog.DialogCode.Accepted):
             return
         path = dialog.selected_path()
         if path is None:
@@ -275,7 +276,7 @@ class AtmosphereInputsForm(QWidget):
             self,
             display_unit=self._display_units.get(dotpath),
         )
-        dialog.exec()
+        exec_dialog(dialog)
 
     def _after_commit(self, dotpath: str, unit: str | None) -> None:
         """Record the display unit, refresh (a model edit swaps groups), notify the host."""

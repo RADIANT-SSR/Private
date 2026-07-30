@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
 from radiant.api.errors import ApiValidationError
 from radiant.api.inspect import ResultPlotNamespace
 from radiant.api.plot import plot_theme
+from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.param_format import field_display_text
 from radiant.gui.stage_views import (
     DEFAULT_STAGE,
@@ -902,7 +903,7 @@ class StagePane(QWidget):
             self,
             display_unit=self._display_units.get(dotpath),
         )
-        dialog.exec()
+        exec_dialog(dialog)
 
     def _after_panel_commit(self, dotpath: str, unit: str | None) -> None:
         """After an accepted dimension/RPY edit: adopt the unit, preview, re-evaluate.

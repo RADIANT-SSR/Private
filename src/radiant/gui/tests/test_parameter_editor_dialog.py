@@ -67,12 +67,19 @@ def _dialog(sensor: Sensor, dotpath: str, qtbot, on_committed: Any = None) -> Pa
     return d
 
 
-class _CapturingDialog:
-    """Non-blocking stand-in for the editor dialog: records ctor args, never blocks."""
+class _CapturingDialog(QDialog):
+    """Non-blocking stand-in for the editor dialog: records ctor args, never blocks.
+
+    A real :class:`QDialog` subclass, because the production call sites run the modal
+    loop through ``dialog_lifetime.exec_dialog``, which ``deleteLater()``s the dialog
+    afterwards (CU-216) — a bare object has no Qt lifetime to end. Created parentless;
+    the ctor args are recorded, never forwarded.
+    """
 
     calls: list[tuple[Any, ...]] = []
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__()
         type(self).calls.append(args)
 
     def exec(self) -> int:

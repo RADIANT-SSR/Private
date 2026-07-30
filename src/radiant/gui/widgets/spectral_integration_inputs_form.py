@@ -44,6 +44,7 @@ from typing import TYPE_CHECKING, Final
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.param_format import field_display_text
 from radiant.gui.widgets.field_row import UNSET as _UNSET
 from radiant.gui.widgets.field_row import FieldRow
@@ -167,7 +168,7 @@ class SpectralIntegrationInputsForm(QWidget):
             self,
             display_unit=self._display_units.get(dotpath),
         )
-        dialog.exec()
+        exec_dialog(dialog)
 
     def _after_commit(self, dotpath: str, unit: str | None) -> None:
         """Record the chosen display unit, refresh, and signal the edit upstream."""

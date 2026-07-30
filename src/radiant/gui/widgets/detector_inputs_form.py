@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.param_format import field_display_text
 from radiant.gui.widgets.field_row import (
     LABEL_COLUMN_WIDTH,
@@ -242,7 +243,7 @@ class DetectorInputsForm(QWidget):
         dialog = SpectralTableDialog(self, title="Quantum efficiency QE(λ)")
         if current and Path(current).is_file():
             dialog.load_text(Path(current).read_text(encoding="utf-8"))
-        if dialog.exec() != int(dialog.DialogCode.Accepted):
+        if exec_dialog(dialog) != int(dialog.DialogCode.Accepted):
             return
         filename, _ = QFileDialog.getSaveFileName(
             self, "Save QE curve CSV", "qe_curve.csv", "CSV (*.csv);;All files (*)"
@@ -256,7 +257,7 @@ class DetectorInputsForm(QWidget):
         if self._sensor is None:
             return
         dialog = ImportPreviewDialog("qe_csv", self)
-        if dialog.exec() != int(dialog.DialogCode.Accepted):
+        if exec_dialog(dialog) != int(dialog.DialogCode.Accepted):
             return
         path = dialog.selected_path()
         if path is None:
@@ -321,7 +322,7 @@ class DetectorInputsForm(QWidget):
             self,
             display_unit=self._display_units.get(dotpath),
         )
-        dialog.exec()
+        exec_dialog(dialog)
 
     def _after_commit(self, dotpath: str, unit: str | None) -> None:
         """Record the chosen display unit, refresh, and signal the edit upstream."""

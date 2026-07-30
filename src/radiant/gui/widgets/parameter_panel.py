@@ -66,6 +66,7 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.core.exceptions import RadiantError
+from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.param_format import (
     DERIVED_BADGE,
     display_in_unit,
@@ -574,7 +575,7 @@ class ParameterPanel(QWidget):
             self._reject_edit(dotpath, exc)
             return
         except Exception as exc:  # genuine bug, not a rejected input — never swallow
-            UnexpectedErrorDialog(exc, f"Editing “{dotpath}”", self).exec()
+            exec_dialog(UnexpectedErrorDialog(exc, f"Editing “{dotpath}”", self))
             return
 
         # Accepted: the single mandated API call on the live sensor.
@@ -594,7 +595,7 @@ class ParameterPanel(QWidget):
     def _reject_edit(self, dotpath: str, exc: RadiantError) -> None:
         """Show the rejected-edit state inline + modal; the value never sticks."""
         self._set_error_state(dotpath, exc)
-        ActionableErrorDialog(exc, dotpath, self).exec()
+        exec_dialog(ActionableErrorDialog(exc, dotpath, self))
 
     def _set_error_state(self, dotpath: str, exc: RadiantError) -> None:
         """Mark *dotpath*'s row rejected (tint + tooltip) and show the banner."""
@@ -705,7 +706,7 @@ class ParameterPanel(QWidget):
             display_unit=self.display_unit(dotpath),
             scope=self._scope,
         )
-        dialog.exec()
+        exec_dialog(dialog)
 
     def _after_dialog_commit(self, dotpath: str, unit: str | None) -> None:
         """Record the chosen display unit, refresh the tree, and mark results stale.
@@ -734,9 +735,9 @@ class ParameterPanel(QWidget):
         try:
             text = self._sensor.explain(dotpath)
         except Exception as exc:  # never swallow — surface it (Rules 15/17)
-            UnexpectedErrorDialog(exc, f"Explaining “{dotpath}”", self).exec()
+            exec_dialog(UnexpectedErrorDialog(exc, f"Explaining “{dotpath}”", self))
             return
-        ExplainDialog(dotpath, text, self).exec()
+        exec_dialog(ExplainDialog(dotpath, text, self))
 
     def _reset_to_default(self, dotpath: str) -> None:
         """Reset *dotpath* to its schema default via ``Sensor.reset`` (§4.3).
@@ -754,7 +755,7 @@ class ParameterPanel(QWidget):
             self._reject_edit(dotpath, exc)
             return
         except Exception as exc:
-            UnexpectedErrorDialog(exc, f"Resetting “{dotpath}”", self).exec()
+            exec_dialog(UnexpectedErrorDialog(exc, f"Resetting “{dotpath}”", self))
             return
         self._clear_error_state()
         self.populate(self._sensor)

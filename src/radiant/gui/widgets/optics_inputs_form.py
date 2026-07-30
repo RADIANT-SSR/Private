@@ -47,6 +47,7 @@ from PySide6.QtWidgets import (
 
 from radiant.api.config_io import preview_zemax_zernike
 from radiant.core.exceptions import RadiantError
+from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.param_format import field_display_text
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.field_row import (
@@ -160,7 +161,7 @@ class OpticsInputsForm(QWidget):
         try:
             preview = preview_zemax_zernike(filename)
         except RadiantError as exc:
-            ActionableErrorDialog(exc, "optics.zernike_file", self).exec()
+            exec_dialog(ActionableErrorDialog(exc, "optics.zernike_file", self))
             return
         ref = (
             f"{preview.reference_wavelength_um:g} µm (from report)"
@@ -221,7 +222,7 @@ class OpticsInputsForm(QWidget):
             self,
             display_unit=self._display_units.get(dotpath),
         )
-        dialog.exec()
+        exec_dialog(dialog)
 
     def _after_commit(self, dotpath: str, unit: str | None) -> None:
         """Record the chosen display unit, refresh, and signal the edit upstream."""

@@ -51,6 +51,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.settings_store import SettingsStore
 from radiant.gui.themes import Theme
 from radiant.gui.widgets.script_editor import ScriptEditor
@@ -262,7 +263,7 @@ class ScriptingWindow(QMainWindow):
         try:
             text = p.read_text(encoding="utf-8")
         except (OSError, ValueError) as exc:
-            UnexpectedErrorDialog(exc, f"Opening {p.name}", self).exec()
+            exec_dialog(UnexpectedErrorDialog(exc, f"Opening {p.name}", self))
             return None
         tab = self._editor.add_file_tab(p, text)
         self._settings.add_recent_script(str(p))
@@ -298,7 +299,7 @@ class ScriptingWindow(QMainWindow):
         try:
             path.write_text(tab.toPlainText(), encoding="utf-8")
         except OSError as exc:
-            UnexpectedErrorDialog(exc, f"Saving {path.name}", self).exec()
+            exec_dialog(UnexpectedErrorDialog(exc, f"Saving {path.name}", self))
             return
         tab.mark_saved(path)
         self._editor.refresh_tab_title(tab)

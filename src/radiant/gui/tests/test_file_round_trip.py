@@ -15,6 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QSettings
+from PySide6.QtWidgets import QDialog
 
 from radiant.api.sensor import Sensor
 from radiant.gui import main_window as mw
@@ -124,8 +125,11 @@ class TestBadFileLoad:
 
         shown: list[str] = []
 
-        class _StubDialog:
+        class _StubDialog(QDialog):
+            """A real QDialog: `exec_dialog` deleteLater()s what it runs (CU-216)."""
+
             def __init__(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+                super().__init__()
                 shown.append("shown")
 
             def exec(self) -> int:

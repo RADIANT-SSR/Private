@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QDialog,
     QLabel,
     QLineEdit,
     QSpinBox,
@@ -63,12 +64,20 @@ def panel(sensor: Sensor, qtbot) -> ParameterPanel:  # type: ignore[no-untyped-d
     return p
 
 
-class _CapturingDialog:
-    """Non-blocking stand-in for a modal dialog: records its ctor args, never blocks."""
+class _CapturingDialog(QDialog):
+    """Non-blocking stand-in for a modal dialog: records its ctor args, never blocks.
+
+    A real :class:`QDialog` subclass, not a bare object: the production call sites run
+    the modal loop through ``dialog_lifetime.exec_dialog``, which ``deleteLater()``s the
+    dialog afterwards (CU-216), so a stand-in must have a real Qt lifetime. It is created
+    parentless (the ctor args are only recorded, never forwarded) and the session-wide
+    ``_release_widgets`` fixture cleans up anything the deferred delete has not.
+    """
 
     calls: list[tuple[Any, ...]] = []
 
     def __init__(self, *args: Any) -> None:
+        super().__init__()
         type(self).calls.append(args)
 
     def exec(self) -> int:

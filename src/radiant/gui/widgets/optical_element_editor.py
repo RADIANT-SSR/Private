@@ -49,6 +49,7 @@ from PySide6.QtWidgets import (
 
 from radiant.api.config_io import preview_optical_elements
 from radiant.core.exceptions import RadiantError
+from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.spectral_table_dialog import SpectralTableDialog
 
@@ -395,7 +396,7 @@ class OpticalElementEditor(QWidget):
             title=f"Spectral R/T — {name}",
             initial=stored if isinstance(stored, dict) else None,
         )
-        if dialog.exec() != int(dialog.DialogCode.Accepted):
+        if exec_dialog(dialog) != int(dialog.DialogCode.Accepted):
             return
         spectrum = dialog.spectrum()
         if value_item is None:
@@ -426,7 +427,7 @@ class OpticalElementEditor(QWidget):
                 sensor.set_optical_elements(None)
         except RadiantError as exc:
             dialog = ActionableErrorDialog(exc, ELEMENT_EDIT_PATH, self)
-            dialog.exec()
+            exec_dialog(dialog)
             return False
         self.elementsApplied.emit(ELEMENT_EDIT_PATH)
         return True

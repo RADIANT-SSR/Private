@@ -803,20 +803,32 @@ class ParameterEditorDialog(QDialog):
         except KeyError:
             return stored
 
-    def _apply_tolerance(self) -> str | None:
-        """Commit the tolerance section (one API call); returns an error text or None."""
+    def _parse_tolerance(self) -> tuple[Callable[[], None] | None, str | None]:
+        """Validate the tolerance section without writing: ``(write, error)`` (CU-219).
+
+        Splitting parse from write is what lets both Apply paths hold to the
+        contract every other reject surface keeps — *a rejected Apply changes
+        nothing*. The single-value path used to commit the tolerance first, so an
+        out-of-bounds value left a Monte-Carlo spread behind for a value that
+        never landed, while the dialog said "Rejected".
+
+        Returns ``(None, None)`` when there is no tolerance section or nothing to
+        do, ``(callable, None)`` when the entered tolerance is valid and the
+        callable performs the single API write, and ``(None, text)`` on rejection.
+        All unit conversion happens here, once, at the API boundary (Rule 2) — the
+        returned callable only writes.
+        """
         if self._tol_distribution is None:
-            return None
+            return None, None
         distribution = self._tol_distribution.currentText()
-        existing = self._sensor.tolerances().get(self._dotpath)
         if distribution == "none":
-            if existing is not None:
-                self._sensor.clear_tolerance(self._dotpath)
-            return None
+            if self._sensor.tolerances().get(self._dotpath) is None:
+                return None, None
+            dotpath = self._dotpath
+            return (lambda: self._sensor.clear_tolerance(dotpath)), None
         entered_unit = self._tolerance_unit()
         try:
             # Entered in the display unit; stored in the parameter's input unit.
-            # The conversion happens exactly once, here at the API boundary.
             kwargs = {
                 key: convert_tolerance_value(
                     float(self._tol_params[key].text()),
@@ -830,15 +842,34 @@ class ParameterEditorDialog(QDialog):
             }
             missing = set(self._TOL_FIELDS[distribution]) - set(kwargs)
             if missing:
-                return f"tolerance {distribution} needs {sorted(missing)}"
-            self._sensor.set_tolerance(self._dotpath, distribution, **kwargs)
+                return None, f"tolerance {distribution} needs {sorted(missing)}"
         except KeyError:
-            return (
+            return None, (
                 f"no registered conversion from {entered_unit!r} to "
                 f"{self._pdef.input_unit!r} for this tolerance"
             )
         except (ValueError, RadiantError) as exc:
-            return str(exc)
+            return None, str(exc)
+
+        dotpath = self._dotpath
+
+        def _write() -> None:
+            self._sensor.set_tolerance(dotpath, distribution, **kwargs)
+
+        return _write, None
+
+    def _apply_tolerance(self) -> str | None:
+        """Parse **and** write the tolerance — the pre-CU-219 single-step entry point.
+
+        Retained for the per-configuration path and any caller that has already
+        committed its value. New code should prefer :meth:`_parse_tolerance` and
+        write only once every input has validated.
+        """
+        write, error = self._parse_tolerance()
+        if error is not None:
+            return error
+        if write is not None:
+            write()
         return None
 
     def apply(self, close: bool) -> None:
@@ -866,7 +897,14 @@ class ParameterEditorDialog(QDialog):
             UnexpectedErrorDialog(unexpected, f"Editing “{self._dotpath}”", self).exec()
             return
 
-        tol_error = self._apply_tolerance()
+        # CU-219: validate the tolerance *before* writing anything. This path used
+        # to commit the tolerance first, so an out-of-bounds value left a
+        # Monte-Carlo spread behind for a value that never landed while the dialog
+        # reported "Rejected" — breaking the contract every other reject surface in
+        # the GUI keeps (Rules 15/17). Both inputs are now checked, then both are
+        # written, in the same order the per-configuration path uses: value first,
+        # tolerance second.
+        write_tolerance, tol_error = self._parse_tolerance()
         if tol_error is not None:
             self._show_error(f"Tolerance not applied — {tol_error}")
             return
@@ -876,6 +914,8 @@ class ParameterEditorDialog(QDialog):
             self._sensor.set(self._dotpath, value, unit=unit)
         else:
             self._sensor.set(self._dotpath, value)
+        if write_tolerance is not None:
+            write_tolerance()
 
         self._clear_error()
         # Refresh the dialog's own informative readouts (the "after") in the unit the

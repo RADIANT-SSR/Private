@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Fixed
+- **A rejected Parameter-Editor Apply no longer writes a tolerance (CU-219).** The
+  single-value path committed the tolerance before the value, so when the value write
+  failed a Monte-Carlo spread was left behind for a value that never landed. Both
+  Apply paths now validate everything first and then commit in the same order (value,
+  then tolerance).
+
+### Fixed
 - **Results-affecting (up-looking only): air mass is evaluated on the atmospheric
   slab, not the endpoint separation (CU-255).** For a path ending above the
   atmosphere — a ground site viewing a 700 km target — the slant-path formula was

@@ -55,6 +55,52 @@ def test_gui_baseline_reproduces_snapshot(scen: object) -> None:
     assert ok, f"{scen.id} {scen.slug}: {message}"
 
 
+@pytest.mark.parametrize("scen", REGISTRY, ids=[s.id for s in REGISTRY])
+def test_gui_baseline_references_only_committed_files(scen: object) -> None:
+    """CU-273: no baseline may point at a generated (gitignored) input file.
+
+    ``test_gui_baseline_reproduces_snapshot`` above cannot catch this. It runs
+    in a tree where the scenario's ``outputs/`` directory usually exists — the
+    same tree that regenerated the baseline — so an unreloadable path resolves
+    fine there and the failure surfaces only for the next cold checkout or CI.
+    That is precisely how a live regression reached ``main`` in the CU-253
+    baseline refresh under a green 6023-test suite (``d169feb``, repaired by
+    ``962bc8e``).
+
+    This is the static half, and it holds regardless of what happens to be on
+    disk: every file-path value in every shipped ``.gui.yaml`` must resolve to
+    a file that is committed and *outside* any ``outputs/`` tree. It is cheap,
+    unmarked (so it runs in the fast suite, unlike the golden reload above),
+    and it fails in the tree that introduces the problem rather than the one
+    that inherits it.
+    """
+    text = scen.yaml_path.read_text(encoding="utf-8")
+    offenders = [
+        line.strip() for line in text.splitlines() if "_path:" in line and "outputs/" in line
+    ]
+    assert not offenders, (
+        f"{scen.id} {scen.slug}: baseline references the gitignored outputs/ tree, so it "
+        f"will not reload in a cold checkout (CU-273): {offenders}. Commit the derived "
+        "file under the scenario's inputs/ directory — scenarios/tools/emit_gui_yaml.py "
+        "repoints it automatically once a committed counterpart exists."
+    )
+
+    # And the paths it does reference must actually be there.
+    base = scen.yaml_path.parent
+    for line in text.splitlines():
+        key, _, value = line.partition(":")
+        if not key.strip().endswith("_path"):
+            continue
+        target = value.strip().strip("'\"")
+        if not target:
+            continue
+        resolved = (base / target).resolve()
+        assert resolved.exists(), (
+            f"{scen.id} {scen.slug}: {key.strip()} -> {target} does not resolve to a file "
+            f"({resolved}). A shipped baseline must be reloadable from a clean checkout."
+        )
+
+
 @pytest.mark.golden
 @pytest.mark.parametrize("scen", REGISTRY, ids=[s.id for s in REGISTRY])
 def test_gui_baseline_dual_path_consistency(scen: object) -> None:

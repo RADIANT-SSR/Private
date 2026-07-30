@@ -12,6 +12,33 @@
 
 ## Open
 
+### CU-285 — Scripting-console figure windows are retained forever, growing the live widget tree unbounded
+
+**Discovered**: Overnight backlog run, CU-216 close-out, 2026-07-29.
+**Status**: Open — needs a judgement call, not a silent fix.
+**File**: `src/radiant/gui/widgets/scripting_console.py:624` (`_show_figure`, `self._figure_windows`).
+**Symptom**: every figure the analyst plots from the console is appended to `self._figure_windows` ("keeping a reference to it alive") and never removed, even after the analyst closes the window. Deliberate in intent (plots must not vanish while shown), but unbounded: a long scripting session accumulates every figure ever shown, and the theme toggle's app-wide re-polish walks all of them — the same consequence [[CU-216]] fixed for modal dialogs.
+**Why it still matters**: the scripting window is the MATLAB-like workflow the GUI is built around; hours-long sessions are its normal use.
+**Suggested fix**: (b) small stand-alone — remove the reference when the figure window closes (`WA_DeleteOnClose` + `destroyed` hook pruning the list), or cap the retained set. Which behaviour the analyst wants (closed figure = gone, or reopenable?) is the judgement to settle. Effort S; category A. Related: [[CU-216]], [[CU-116]].
+
+### CU-284 — `messages_panel` dialog docstrings promise "returned for tests" but nothing consumes the return
+
+**Discovered**: Overnight backlog run, CU-216 close-out, 2026-07-29.
+**Status**: Open.
+**File**: `src/radiant/gui/widgets/messages_panel.py` (`_open_warning_list`, `_open_error_dialog`).
+**Symptom**: docstrings claim the dialog is returned for tests to drive, but no test uses the return value; after [[CU-216]] the returned dialog is freed on the next event-loop turn, so the affordance is dead as well as unused.
+**Why it still matters**: doc-claim drift on a test affordance — the next author either trusts the docstring and writes a test against a freed object, or copies the pattern.
+**Suggested fix**: (a) inline, XS — drop the return-and-docstring, or add the test the docstring promises and exempt the site the way the `open_yaml_editor`/`open_inspector` builders are. Category A. Related: [[CU-216]].
+
+### CU-283 — Non-modal `InspectorDialog` accumulates exactly as the modal dialogs did
+
+**Discovered**: Overnight backlog run, CU-216 close-out, 2026-07-29 — measured during the CU-216 fix.
+**Status**: Open.
+**File**: `src/radiant/gui/main_window.py:1349` (`_open_inspector`).
+**Symptom**: `_open_inspector` builds a fresh `InspectorDialog(self._last_result, self)` and `.show()`s it; closing hides, never destroys. Measured: **10 live `InspectorDialog` children after 10 open/close cycles**. Out of [[CU-216]]'s scope (that CU covered `.exec()` call sites) and not fixable by `exec_dialog` — the non-modal path needs `WA_DeleteOnClose` on the shown dialog, which interacts with the `open_inspector` builder contract that returns the dialog to tests.
+**Why it still matters**: same theme-repolish consequence CU-216 was filed for; the inspector is a high-traffic dialog in analysis sessions.
+**Suggested fix**: (b) small stand-alone — `WA_DeleteOnClose` on the shown instance with the builder contract preserved (tests hold a reference before close). Effort S; category A. Related: [[CU-216]], [[CU-285]].
+
 ### CU-282 — Resolved-heading format is inconsistent across the registry, so Rule-22 compliance is prose-dependent
 
 **Discovered**: Overnight backlog run, CU-279 close-out, 2026-07-29.

@@ -1000,7 +1000,7 @@ def section_cross_checks(
         for line in _wrap(str(exc).split("|")[0].strip(), 68):
             print(f"          {line}")
         print(
-            "        A wholly-vacuum up-looking path returns sky_source_radiance = None,\n"
+            "        A wholly-vacuum up-looking path returns sky_radiance_at_aperture = None,\n"
             "        but the LOS-termination rule still selects SkyBackground, and the\n"
             "        assembly refuses to default it to zero (Rule 17).  The two vacuum\n"
             "        branches disagree.  The identity above is therefore evaluated\n"

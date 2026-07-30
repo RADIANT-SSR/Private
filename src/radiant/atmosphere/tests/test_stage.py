@@ -407,9 +407,22 @@ class TestIntensityDoorEclipseWarning:
             AtmosphereStage().run(state, _make_params(sensor_alt_m=0.0))
 
     @pytest.mark.level1
-    def test_sunlit_target_is_quiet(self, wl: np.ndarray) -> None:
-        """Sun above the horizontal ⇒ tau_sun > 0, the door is not hiding an eclipse."""
+    def test_sunlit_target_does_not_warn_about_an_eclipse(self, wl: np.ndarray) -> None:
+        """Sun above the horizontal ⇒ tau_sun > 0, the door is not hiding an eclipse.
+
+        Scoped to the eclipse warning rather than to silence: this is a
+        ground→700 km scene on a 0.45–0.85 µm grid with the sun up, so since
+        CU-260 it legitimately carries the provisional-scattered-sky warning
+        (the sensor now sees the real sky column above it — before, the sky was
+        short-circuited to zero for an exo target and the band-gating warning
+        was structurally unreachable on exactly this scene class).
+        """
         state = self._t7_state(wl, math.radians(35.0))
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", UserWarning)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
             AtmosphereStage().run(state, _make_params(sensor_alt_m=0.0))
+        assert not [w for w in caught if "eclipsed" in str(w.message)]
+        assert [w for w in caught if "provisional" in str(w.message)], (
+            "the ground-to-space VIS sky must carry the ADR-0011 decision-10 "
+            "provisional-scattered-sky warning (CU-260)"
+        )

@@ -23,13 +23,25 @@ The composition
 
     observer leg  = segment(target ↔ sensor)      → tau_obs, L_obs→sensor
     illumination  = target-side products, reused  → tau_sun, E_TOA, E_sky_*
-    continuation  = segment(target → space)       → L_sky
+    sky (up)      = segment(sensor → space)       → L_sky,aperture
+    sky (level)   = arm + tau_arm · segment(target → space)
 
     L_target,aperture = [ ε·B(T_t)
                         + ρ·τ_sun·E_TOA·cos θ_s / π
                         + ρ·(E_sky_scattered + E_sky_thermal) / π ] · tau_obs
                         + L_obs→sensor
-    L_bg,aperture     = L_sky · tau_obs + L_obs→sensor
+    L_bg,aperture     = L_sky,aperture
+
+The **sky** row is the one that changed with CU-254, and it lands at the
+aperture rather than at the target plane.  On the up-looking branch it is one
+segment: splitting it at the target — ``L_sky(target→top)·tau_obs + L_obs`` —
+is exact radiative transfer but is *not* exact for this segment model, whose
+per-segment single-effective-temperature graybody is not additive across the
+split, and the measured consequence was a background that moved with the
+target's position along a fixed ray.  On the level branch it stays a
+composition, because a level ray is tangent at the chord midpoint and a
+single sensor-rooted arc would drop the constant-altitude arm entirely.  Both
+cases, with their measurements, are in :func:`_sky_radiance_at_aperture`.
 
 The target equation is the *unmodified* §6.1 equation with the observer leg
 swapped — which is the whole point of ADR-0011 decision 3: the illumination
@@ -38,15 +50,16 @@ leg does not care which way the observer is.  Consequently
 verbatim, not forked, and every T-code (T1/T2/T3/T6/T7) works up-looking on
 its first day with no new arms.
 
-The background equation has the same shape as the ``GroundBackground`` arm
-(``source · tau_full_up + L_path_full``), because for an up/level topology the
-background *source plane* and the target plane coincide: the LOS terminates on
-space, so the "full" column and the observer leg are the same segment.  That
-is why ``tau_full_up``/``L_path_full`` are set to the observer leg here — it
-makes the existing assembly arithmetic correct rather than merely harmless.
-An explicit ``GroundBackground`` on such a scene is refused upstream (there is
-no ground behind an up-looking target), so the ground reading of those two
-fields is never exercised.
+``tau_full_up``/``L_path_full`` are still set to the observer leg here, but
+since CU-254 the ``SkyBackground`` arm no longer reads them: the sky arrives
+already at the aperture, so that arm is a pass-through (``τ ≡ 1``,
+``L_path ≡ 0``).  The two fields keep the observer leg because
+``SpectralIntegrationStage``'s sub-pixel decomposition subtracts
+``L_path_full`` from the at-aperture background to recover the pure-background
+term, and the observer-leg path radiance is exactly what has to come out
+there.  An explicit ``GroundBackground`` on such a scene is refused upstream
+(there is no ground behind an up-looking target), so the ground reading of
+those two fields is never exercised.
 
 Illumination reuse
 ------------------
@@ -103,17 +116,21 @@ import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.level_arm import evaluate_level_arm
-from radiant.atmosphere.observer_leg import observer_leg_from_los
-from radiant.atmosphere.protocol import ZENITH_CEILING_RAD
+from radiant.atmosphere.observer_leg import ObserverLeg, observer_leg_from_los
+from radiant.atmosphere.protocol import SPHERICAL_SWITCH_RAD
 from radiant.atmosphere.segment_grazing import evaluate_grazing_segment
 from radiant.atmosphere.segment_simple import evaluate_column_segment
 from radiant.atmosphere.segments import ColumnSegmentSpec, LevelArmSpec, SegmentQuantities
 from radiant.atmosphere.simple import SimpleAtmosphere
-from radiant.atmosphere.sky_radiance import sky_radiance_along_los
+from radiant.atmosphere.sky_radiance import (
+    sky_radiance_along_los,
+    warn_if_scattered_sky_provisional,
+)
 from radiant.atmosphere.solar_shadow import sunlit
 from radiant.atmosphere.solar_transit import twilight_solar_transmittance
+from radiant.core.constants import R_EARTH_M
 from radiant.core.los_geometry import LineOfSightGeometry
-from radiant.core.los_termination import classify_los_termination
+from radiant.core.los_termination import LosTermination, classify_los_termination
 from radiant.core.parameters import ParameterBoundsError, ParameterSet
 from radiant.core.solar import toa_solar_spectral_irradiance
 
@@ -132,18 +149,20 @@ class UplookingProducts:
         The eight-field :class:`AtmosphericQuantities` bundle with the
         observer-leg segment in the ``*_up`` / ``*_full`` slots (see the
         module docstring).  Unchanged contract, different segment.
-    sky_source_radiance:
-        Sky radiance along the LOS continuation, at the target plane,
-        travelling toward the sensor [W/m²/sr/µm].  This is the
-        ``SkyBackground`` source term; assembly propagates it through the
-        observer leg.
+    sky_radiance_at_aperture:
+        Sky radiance along the whole LOS, evaluated **from the sensor** and
+        travelling toward it [W/m²/sr/µm] — what the aperture would see if the
+        target were not there.  This is the ``SkyBackground`` arm's answer
+        directly: it is already at the aperture, so assembly does **not**
+        propagate it (CU-254; renamed from ``sky_source_radiance``, which named
+        a target-plane quantity).
     provenance:
         Inputs and intermediates (Rule 16 inspectability).  Never consumed
         by physics.
     """
 
     quantities: AtmosphericQuantities
-    sky_source_radiance: np.ndarray
+    sky_radiance_at_aperture: np.ndarray
     provenance: dict[str, Any]
 
 
@@ -227,9 +246,12 @@ def evaluate_uplooking_topology(
     tau_sun, solar_note = _resolve_tau_sun(atmosphere, lam, los, illum.tau_sun, h_atm_top)
 
     # ---------------------------------------------------------------
-    # 3. LOS continuation — the sky the sensor sees behind the target.
+    # 3. The sky the sensor sees behind the target — one whole-path
+    #    evaluation rooted at the sensor, already at the aperture (CU-254).
     # ---------------------------------------------------------------
-    sky, sky_note = _sky_source_radiance(atmosphere, lam, los, theta_s, h_atm_top)
+    sky, sky_note = _sky_radiance_at_aperture(
+        atmosphere, lam, los, leg, segment, theta_s, h_atm_top
+    )
 
     provenance: dict[str, Any] = {
         "topology": los.los_direction,
@@ -269,7 +291,7 @@ def evaluate_uplooking_topology(
     )
     return UplookingProducts(
         quantities=quantities,
-        sky_source_radiance=sky,
+        sky_radiance_at_aperture=sky,
         provenance=provenance,
     )
 
@@ -392,25 +414,105 @@ def _resolve_tau_sun(
     )
 
 
-def _sky_source_radiance(
+def _sky_radiance_at_aperture(
     atmosphere: SimpleAtmosphere,
     lam: np.ndarray,
     los: LineOfSightGeometry,
+    leg: ObserverLeg,
+    segment: SegmentQuantities,
     theta_s_rad: float | None,
     h_atm_top_m: float,
 ) -> tuple[np.ndarray, str]:
-    """Radiance of the LOS continuation at the target plane, toward the sensor.
+    """Sky radiance reaching the **aperture** along the pointing direction.
 
-    Two evaluators, split at ``ZENITH_CEILING_RAD``: the anchored column
-    product below it, the spherical slant integral above it.  **Known
-    discontinuity at the hand-over (CU-225):** the two disagree by ≈ 28 % in
-    band-mean LWIR sky radiance right at 89.5° (they agree to 1.6 % at 80° and
-    to 0.05 % at the 48° zenith the MODTRAN H-runs anchor), because the column
-    form's plane-parallel air mass understates the real slant column as the
-    path approaches horizontal.  The grazing form is the more accurate one
-    there — that is why it takes over — but the switch is a step, not a blend.
-    Filed rather than papered over, because closing it means choosing between
-    two anchored products and that is a MODTRAN batch-2 question.
+    This is the radiance the sensor would measure if the target were not
+    there: everything the LOS runs through from the *sensor* out to
+    ``h_atm_top``, with cold space behind it.  It is therefore already an
+    at-aperture quantity, and the ``SkyBackground`` assembly arm consumes it
+    directly (``τ ≡ 1``, ``L_path ≡ 0`` for that arm) rather than propagating
+    it.
+
+    One whole-path evaluation — up-looking (CU-254)
+    -----------------------------------------------
+    An up-looking LOS leaves the sensor at ``ζ_low = π − η < π/2`` and
+    ascends monotonically, so the whole path *is* one column segment keyed to
+    the sensor.  Until 2026-07-29 this function returned the sky at the **target** plane
+    and assembly re-propagated it as ``L_sky(target→top)·τ(sensor→target) +
+    L_path(sensor→target)``.  That composition is exact radiative transfer,
+    but the segment model it composes is not additive: each segment emits
+    ``(1 − τ_seg)·B(T_eff(h_low,seg))`` with its *own* lower-endpoint
+    effective temperature, so splitting one column at the target plane
+    replaces part of a warm ground-anchored graybody with a cold
+    target-anchored one.  The measured consequence was a background that
+    depended on where along a fixed ray the target sat — 1.94207e5 e⁻ at a
+    10 km target, 2.14046e5 at 20 km, 2.21479e5 for the whole column — a
+    12.3 % under-report that always ran the same way (optimistic SCNR).
+    Evaluating the whole path once removes the split, and the surviving value
+    is the ground-rooted one, which is also the geometry the MODTRAN H-runs
+    anchor.
+
+    A second defect fell out with it (CU-260): the old target-rooted form
+    returned **exactly zero** whenever ``h_tgt ≥ h_atm_top``, so every
+    ground-to-space and air-to-space scene saw a black sky *and* never
+    reached the ADR-0011 decision-10 provisional-VIS warning that lives on
+    the way there.  Rooted at the sensor there is no such case: the column
+    above a ground site exists whatever the target is doing.
+
+    Why the **level** arm still composes
+    ------------------------------------
+    A level LOS is tangent at the *chord midpoint*, not at the sensor, so the
+    sensor sits on the ray's descending half and a single ascending arc rooted
+    at the sensor would omit the entire constant-altitude arm.  Measured, in
+    sea-level-equivalent molecular column: a sensor-rooted arc recovers 98.6 %
+    of the true traversed path for an 8 km arm at ground level, 83.0 % for
+    100 km at 3 km, and 75.1 % for 150 km at 10 km.  Nothing in RADIANT
+    evaluates "constant-altitude arm then ascending arc" as one segment
+    (:class:`~radiant.atmosphere.segments.LevelArmSpec` and
+    :mod:`radiant.atmosphere.segment_grazing` are different computations, Rule
+    19), so the level branch keeps the two-segment composition
+    ``L_arm→sensor + τ_arm · L_continuation(target→top)`` — which is
+    geometrically complete, is numerically what the ``SkyBackground`` arm used
+    to assemble, and therefore leaves every level scene unmoved.
+
+    The consequence is that the CU-254 non-additivity survives on the level
+    branch: slide the target along a fixed level ray and the split point
+    moves, so the background moves with it.  It is bounded by the same
+    graybody argument and it is recorded rather than papered over — closing it
+    needs a segment evaluator that spans both geometries (CU-276).
+
+    Hand-over at 80°, not 89.5° (CU-225 / CU-274)
+    ---------------------------------------------
+    Two evaluators still serve the two zenith regimes, but the split moved
+    from ``ZENITH_CEILING_RAD`` (89.5°) down to
+    :data:`~radiant.atmosphere.protocol.SPHERICAL_SWITCH_RAD` (80°) — the
+    angle at which the column form's plane-parallel air mass stops being the
+    accurate one.  Below it the column product is used; above it the exact
+    spherical slant integral (:mod:`radiant.atmosphere.segment_grazing`).
+
+    The hand-over is still a step, not a blend, but it is now a small one.
+    Measured band-mean LWIR (8–13 µm) sky from the ground, grazing/column:
+
+    =======  ================
+    ζ [deg]  grazing / column
+    =======  ================
+    0        1.00000
+    30       0.99979
+    48.2     0.99929  (the MODTRAN H-run anchor zenith)
+    60       0.99852
+    80       0.99359  ← the hand-over
+    85       1.08665
+    89.4     1.07785  ← the old hand-over
+    =======  ================
+
+    So the discontinuity went from ≈ 8 % (LWIR from the ground; ≈ 28 % on the
+    3 km level arm CU-225 measured) to 0.64 %, and the 80–89.5° band is now
+    served by the exact integral instead of by an air mass that was 14–62 %
+    low there.  The residual 0.64 % is the plane-parallel model's own error at
+    80°; closing it entirely would mean using the grazing form at *every*
+    zenith, which is deferred because the two evaluators weight their species
+    split at different altitudes and that changes the provisional VIS
+    scattered sky by up to 10× — a modelling decision, not a formula swap
+    (CU-260).
     """
     termination = classify_los_termination(los)
     if termination.terminus == "earth":
@@ -443,51 +545,153 @@ def _sky_source_radiance(
             },
         )
 
-    h_tgt = float(los.h_tgt)
-    if h_tgt >= h_atm_top_m:
-        return (
-            np.zeros_like(lam),
-            "target above h_atm_top — continuation is vacuum, sky radiance ≡ 0",
-        )
-
-    zeta_c = termination.continuation_zeta_rad
-    # The segment's lower→upper direction is target → away-from-sensor, the
-    # horizontal reverse of φ_o, so the sun's relative azimuth flips by π; the
-    # radiance heading back toward the sensor emerges at the lower end.
+    # The sky column's lower→upper direction is sensor → target → space, the
+    # horizontal reverse of φ_o (which is measured target → sensor), so the
+    # sun's relative azimuth flips by π; the radiance heading back toward the
+    # sensor emerges at the lower end of whichever segment produced it.
     delta_phi = 0.0 if los.delta_phi is None else float(los.delta_phi)
     delta_phi_seg = delta_phi - math.pi
 
-    if zeta_c <= ZENITH_CEILING_RAD:
+    if isinstance(leg.spec, LevelArmSpec):
+        return _level_sky_at_aperture(
+            atmosphere,
+            lam,
+            leg,
+            segment,
+            termination,
+            theta_s_rad=theta_s_rad,
+            delta_phi_seg_rad=delta_phi_seg,
+            h_atm_top_m=h_atm_top_m,
+        )
+
+    # Up-looking: one whole column rooted at the sensor.
+    h_sensor = leg.spec.h_low_m
+    if h_sensor >= h_atm_top_m:
+        return (
+            np.zeros_like(lam),
+            "sensor above h_atm_top — the whole LOS is vacuum, sky radiance ≡ 0",
+        )
+    # Zenith of the pointing direction **at the sensor** — the lower endpoint
+    # of the sky column, exactly the key an ADR-0011 column segment wants.
+    return _ascending_sky(
+        atmosphere,
+        lam,
+        h_low_m=h_sensor,
+        zeta_low_rad=leg.zeta_low_rad,
+        r_tangent_m=(R_EARTH_M + h_sensor) * math.sin(leg.zeta_low_rad),
+        origin="the sensor",
+        theta_s_rad=theta_s_rad,
+        delta_phi_seg_rad=delta_phi_seg,
+        h_atm_top_m=h_atm_top_m,
+    )
+
+
+def _level_sky_at_aperture(
+    atmosphere: SimpleAtmosphere,
+    lam: np.ndarray,
+    leg: ObserverLeg,
+    segment: SegmentQuantities,
+    termination: LosTermination,
+    *,
+    theta_s_rad: float | None,
+    delta_phi_seg_rad: float,
+    h_atm_top_m: float,
+) -> tuple[np.ndarray, str]:
+    """``L_arm→sensor + τ_arm · L_continuation`` for a level LOS.
+
+    The two-segment composition, kept deliberately — see
+    :func:`_sky_radiance_at_aperture` for why a sensor-rooted single arc
+    cannot express a level path (it drops the constant-altitude arm, up to
+    25 % of the traversed column).  Numerically identical to what the
+    ``SkyBackground`` assembly arm used to compute for this topology, so no
+    level scene moves.
+    """
+    assert isinstance(leg.spec, LevelArmSpec)  # caller-enforced branch invariant
+    # Level: sensor, target and arm all sit at the one altitude, so the
+    # continuation starts there too.
+    h_arm = leg.spec.altitude_m
+    continuation, cont_note = _ascending_sky(
+        atmosphere,
+        lam,
+        h_low_m=h_arm,
+        zeta_low_rad=termination.continuation_zeta_rad,
+        r_tangent_m=termination.tangent_radius_m,
+        origin="the target",
+        theta_s_rad=theta_s_rad,
+        delta_phi_seg_rad=delta_phi_seg_rad,
+        h_atm_top_m=h_atm_top_m,
+    )
+    tau_arm = np.asarray(segment.tau, dtype=np.float64)
+    L_arm = np.asarray(segment.radiance_toward(leg.toward_sensor), dtype=np.float64)
+    sky = L_arm + tau_arm * continuation
+    note = (
+        f"level composition at {h_arm:.0f} m MSL: constant-altitude arm toward "
+        f"the sensor + arm transmittance × [{cont_note}]"
+    )
+    return np.asarray(sky, dtype=np.float64), note
+
+
+def _ascending_sky(
+    atmosphere: SimpleAtmosphere,
+    lam: np.ndarray,
+    *,
+    h_low_m: float,
+    zeta_low_rad: float,
+    r_tangent_m: float,
+    origin: str,
+    theta_s_rad: float | None,
+    delta_phi_seg_rad: float,
+    h_atm_top_m: float,
+) -> tuple[np.ndarray, str]:
+    """One monotonically-ascending sky segment, toward its lower end.
+
+    Dispatches on :data:`~radiant.atmosphere.protocol.SPHERICAL_SWITCH_RAD`:
+    the anchored column product inside the plane-parallel band, the exact
+    spherical slant integral outside it.
+    """
+    if h_low_m >= h_atm_top_m:
+        return (
+            np.zeros_like(lam),
+            f"{origin} is above h_atm_top — this segment is vacuum, sky radiance ≡ 0",
+        )
+
+    if zeta_low_rad <= SPHERICAL_SWITCH_RAD:
         sky = sky_radiance_along_los(
             atmosphere,
             lam,
-            h_tgt,
-            zeta_c,
+            h_low_m,
+            zeta_low_rad,
             theta_s_rad=theta_s_rad,
-            delta_phi_rad=delta_phi_seg,
+            delta_phi_rad=delta_phi_seg_rad,
             h_atm_top_m=h_atm_top_m,
         )
         note = (
-            f"sky column from {h_tgt:.0f} m at zenith {math.degrees(zeta_c):.4f}° "
-            "to cold space (column machinery)"
+            f"sky column from {origin} at {h_low_m:.0f} m, zenith "
+            f"{math.degrees(zeta_low_rad):.4f}°, to cold space (column machinery)"
         )
         return np.asarray(sky, dtype=np.float64), note
 
+    # Past the plane-parallel band: the exact spherical slant integral.  The
+    # band gating that ``sky_radiance_along_los`` applies on the other branch
+    # is applied here explicitly — it is a policy about the product, not about
+    # which evaluator produced it (CU-260).
+    warn_if_scattered_sky_provisional(lam, theta_s_rad)
     grazing = evaluate_grazing_segment(
         atmosphere,
         lam,
-        r_tangent_m=termination.tangent_radius_m,
-        h_low_m=h_tgt,
+        r_tangent_m=r_tangent_m,
+        h_low_m=h_low_m,
         h_high_m=h_atm_top_m,
-        zeta_low_rad=zeta_c,
+        zeta_low_rad=zeta_low_rad,
         theta_s_rad=theta_s_rad,
-        delta_phi_rad=delta_phi_seg,
+        delta_phi_rad=delta_phi_seg_rad,
         h_atm_top_m=h_atm_top_m,
     )
     note = (
-        f"near-tangent sky arc from {h_tgt:.0f} m at zenith "
-        f"{math.degrees(zeta_c):.4f}° (past the {math.degrees(ZENITH_CEILING_RAD):.1f}° "
-        f"column ceiling — true spherical slant integral, line perigee "
-        f"{termination.tangent_altitude_m:.0f} m MSL)"
+        f"near-horizon sky arc from {origin} at {h_low_m:.0f} m, zenith "
+        f"{math.degrees(zeta_low_rad):.4f}° (past the "
+        f"{math.degrees(SPHERICAL_SWITCH_RAD):.1f}° plane-parallel band — true "
+        f"spherical slant integral, line perigee "
+        f"{r_tangent_m - R_EARTH_M:.0f} m MSL)"
     )
     return np.asarray(grazing.L_toward_lower, dtype=np.float64), note

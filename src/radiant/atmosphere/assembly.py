@@ -1105,7 +1105,7 @@ def assemble_background_source_emission(
     atm: AtmosphericQuantities,
     los: LineOfSightGeometry | None,
     *,
-    sky_source_radiance: np.ndarray | None = None,
+    sky_radiance_at_aperture: np.ndarray | None = None,
 ) -> np.ndarray | None:
     """Emitted+reflected background radiance **leaving the source**, pre-atmosphere.
 
@@ -1125,13 +1125,17 @@ def assemble_background_source_emission(
                                 atmospheric transport; τ ≡ 1, path ≡ 0)
     GroundBackground            ε_g·B(T_g) + reflected diffuse+direct
                                 (the pre-τ_full_up self+reflected term)
-    SkyBackground               ``sky_source_radiance`` — the LOS-continuation
-                                sky at the target plane (matrix B2)
+    SkyBackground               ``sky_radiance_at_aperture`` — the whole-LOS
+                                sky, already at the aperture (matrix B2)
     ==========================  =========================================
 
-    For every pass-through variant the atmosphere is A0 / trivial, so the
-    source emission equals the at-aperture radiance
-    (:func:`assemble_background_at_aperture`).  Only ``GroundBackground``
+    For every pass-through variant the source emission equals the at-aperture
+    radiance (:func:`assemble_background_at_aperture`).  For the four A0 /
+    trivial-atmosphere variants that is because there is no transport to
+    apply; for ``SkyBackground`` it is because the sky *is* the transport —
+    a spatially distributed emitter with no source plane, evaluated from the
+    sensor outward, so "before the atmosphere" is not a place the quantity
+    exists (CU-254).  Only ``GroundBackground``
     has a real up-leg; its source emission is the shared
     :func:`_ground_background_source_emission` term, so
     ``assemble_background_at_aperture(...) ==
@@ -1154,7 +1158,7 @@ def assemble_background_source_emission(
         return _extract_sd_values(background.L_bg, atm)
 
     if isinstance(background, SkyBackground):
-        return _sky_background_source_emission(atm, sky_source_radiance)
+        return _validated_sky_radiance(atm, sky_radiance_at_aperture)
 
     if isinstance(background, GroundBackground):
         if los is None:
@@ -1196,7 +1200,7 @@ def assemble_background_at_aperture(
     atm: AtmosphericQuantities,
     los: LineOfSightGeometry | None,
     *,
-    sky_source_radiance: np.ndarray | None = None,
+    sky_radiance_at_aperture: np.ndarray | None = None,
 ) -> np.ndarray | None:
     """Compute the background at-aperture spectral radiance [W/m²/sr/µm] or None.
 
@@ -1210,7 +1214,9 @@ def assemble_background_at_aperture(
     AtApertureBackground        Pass through L_bg_aperture (or zeros)
     ColdSpaceBackground         Zeros (CMB is a SourceStage concern)
     GroundBackground            ε_g·B(T_g)·τ_full_up + L_path_full + diffuse
-    SkyBackground               L_sky·τ_full_up + L_path_full (matrix B2)
+    SkyBackground               Pass through ``sky_radiance_at_aperture``
+                                (matrix B2) — the sensor-rooted whole-LOS sky
+                                is already at the aperture (CU-254)
     UserSpectralBackground      Pass through L_bg (no atmospheric transport;
                                 the subcase is ground_test/lab_test and
                                 atmosphere is A0 pass-through)
@@ -1222,8 +1228,8 @@ def assemble_background_at_aperture(
 
     Parameters
     ----------
-    sky_source_radiance:
-        The LOS-continuation sky radiance at the target plane [W/m²/sr/µm],
+    sky_radiance_at_aperture:
+        The whole-LOS sky radiance evaluated from the sensor [W/m²/sr/µm],
         supplied by ``AtmosphereStage`` for an up-looking / level topology.
         Required by — and consumed only by — the :class:`SkyBackground` arm;
         ``None`` for every other variant, which is why the default keeps this
@@ -1252,16 +1258,19 @@ def assemble_background_at_aperture(
         return _extract_sd_values(background.L_bg, atm)
 
     if isinstance(background, SkyBackground):
-        # Matrix B2.  Structurally the GroundBackground arm with a different
-        # source plane: for an up-looking / level topology the LOS terminates
-        # on space, so the background source sits at the *target* plane and
-        # τ_full_up / L_path_full carry the observer leg
-        # (radiant.atmosphere.uplooking_quantities).
-        source_emission = _sky_background_source_emission(atm, sky_source_radiance)
-        return np.asarray(
-            source_emission * atm.tau_full_up + atm.L_path_full,
-            dtype=np.float64,
-        )
+        # Matrix B2.  A pass-through arm since CU-254: the sky radiance is
+        # evaluated from the *sensor* along the pointing direction, over the
+        # whole LOS out to the top of the column, so it is already the
+        # at-aperture background — τ ≡ 1 and L_path ≡ 0 for this arm.
+        #
+        # It used to be the GroundBackground arm with the source plane moved
+        # to the target (``L_sky·τ_full_up + L_path_full``).  That is exact
+        # radiative transfer, but the segment model being composed is not
+        # additive across the split — each segment emits (1 − τ) · B(T_eff)
+        # at its own lower-endpoint temperature — so the assembled background
+        # depended on where along a fixed ray the target sat.  See
+        # radiant.atmosphere.uplooking_quantities._sky_radiance_at_aperture.
+        return _validated_sky_radiance(atm, sky_radiance_at_aperture)
 
     # GroundBackground is the only remaining arm that propagates through
     # the atmosphere; everything else is handled above.
@@ -1318,11 +1327,11 @@ def _assemble_ground_background(
     )
 
 
-def _sky_background_source_emission(
+def _validated_sky_radiance(
     atm: AtmosphericQuantities,
-    sky_source_radiance: np.ndarray | None,
+    sky_radiance_at_aperture: np.ndarray | None,
 ) -> np.ndarray:
-    """Validated ``L_sky`` at the target plane for the B2 arm [W/m²/sr/µm].
+    """Validated whole-LOS ``L_sky`` at the aperture for the B2 arm [W/m²/sr/µm].
 
     The sky radiance is *computed from the scene*, not carried on the
     descriptor (see :class:`~radiant.core.descriptors.SkyBackground`), so it
@@ -1331,11 +1340,11 @@ def _sky_background_source_emission(
     background would understate the background photon term and therefore
     *overstate* SNR, which is exactly the failure mode Rule 17 forbids.
     """
-    if sky_source_radiance is None:
+    if sky_radiance_at_aperture is None:
         raise ParameterBoundsError(
             what=(
-                "assembly: SkyBackground requires the LOS-continuation sky radiance, "
-                "but sky_source_radiance is None"
+                "assembly: SkyBackground requires the whole-LOS sky radiance, "
+                "but sky_radiance_at_aperture is None"
             ),
             why=(
                 "SkyBackground carries no user parameters by design — the radiance is "
@@ -1344,18 +1353,18 @@ def _sky_background_source_emission(
                 "delete the background photon term and inflate SNR (Rule 17)."
             ),
             action=(
-                "Call assemble_background_at_aperture(..., sky_source_radiance=...) "
+                "Call assemble_background_at_aperture(..., sky_radiance_at_aperture=...) "
                 "with the array from "
                 "radiant.atmosphere.topology.evaluate_path_topology(), or use a "
                 "different BackgroundDescriptor for a down-looking scene."
             ),
             context={},
         )
-    vals = np.asarray(sky_source_radiance, dtype=np.float64)
+    vals = np.asarray(sky_radiance_at_aperture, dtype=np.float64)
     if vals.shape != atm.wavelength_um.shape:
         raise ParameterBoundsError(
             what=(
-                f"assembly: sky_source_radiance shape {vals.shape} does not match the "
+                f"assembly: sky_radiance_at_aperture shape {vals.shape} does not match the "
                 f"atmosphere wavelength grid {atm.wavelength_um.shape}"
             ),
             why="Assembly is grid-aligned arithmetic (Rule 2 — conversions at boundaries).",
@@ -1365,7 +1374,7 @@ def _sky_background_source_emission(
     if np.any(vals < 0.0):
         raise ParameterBoundsError(
             what=(
-                f"assembly: sky_source_radiance has negative values "
+                f"assembly: sky_radiance_at_aperture has negative values "
                 f"(min = {float(vals.min()):g} W/m²/sr/µm)"
             ),
             why="Emergent sky radiance is non-negative; a negative value is a backend bug.",

@@ -285,7 +285,10 @@ class TestSceneRelevanceLabelCompleteness:
     """
 
     def test_every_off_metric_has_a_display_label(self) -> None:
-        from radiant.performance.scene_relevance import SCENE_RELEVANCE
+        # Through the api bridge, not the physics module: `gui/` (tests
+        # included) may import only api + core, and `radiant.api.scene_relevance`
+        # exists for exactly this — guardrail G3.  CU-277.
+        from radiant.api.scene_relevance import SCENE_RELEVANCE
 
         off_metrics: set[str] = set()
         for off_set in SCENE_RELEVANCE.values():

@@ -290,21 +290,45 @@ def test_zenith_60_deg_air_mass_two() -> None:
 
 
 @pytest.mark.level0
-def test_zenith_85_deg_uses_spherical_correction() -> None:
-    """Past 80° the spherical correction kicks in. Air mass remains
-    finite and is less than the (singular) flat-Earth ``sec(85°)``.
+def test_air_mass_is_sec_zeta_with_no_branch() -> None:
+    """CU-274: one formula over the whole legal domain, ``m = sec ζ``.
+
+    The 80° "spherical correction" branch is gone.  It was the root form
+    ``R_E·[√(cos²ζ + 2x + x²) − cos ζ]`` with ``x = Δh/R_E``, i.e. the
+    *geometric chord* of a slab — not a density-weighted air mass — and it
+    made the air mass **drop** 18 % across its own switch (5.7023 at 79.9° →
+    4.8072 at 80.1°), so transmittance was discontinuous in look angle for
+    every scene class.
     """
-    geo = AtmosphericGeometry(
-        sensor_altitude_m=20_000.0,
-        target_altitude_m=0.0,
-        path_zenith_rad=math.radians(85.0),
-    )
-    am = geo.air_mass()
-    flat = 1.0 / math.cos(math.radians(85.0))  # ≈ 11.47
-    assert math.isfinite(am)
-    assert am < flat
-    # The spherical correction should not dramatically change AM at 85°.
-    assert am > 0.5 * flat
+    for zenith_deg in (0.0, 30.0, 60.0, 79.9, 80.0, 80.1, 85.0, 89.5):
+        geo = AtmosphericGeometry(
+            sensor_altitude_m=20_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=math.radians(zenith_deg),
+        )
+        assert geo.air_mass() == pytest.approx(1.0 / math.cos(math.radians(zenith_deg)), rel=1e-12)
+
+
+@pytest.mark.level0
+def test_air_mass_is_continuous_and_monotone_across_the_old_switch() -> None:
+    """No step at 80°, and air mass never falls as the path tilts (CU-274)."""
+
+    def am(zenith_deg: float) -> float:
+        return AtmosphericGeometry(
+            sensor_altitude_m=20_000.0,
+            target_altitude_m=0.0,
+            path_zenith_rad=math.radians(zenith_deg),
+        ).air_mass()
+
+    # Continuity: the two sides of the retired switch agree to the step size
+    # the derivative alone implies (d(sec ζ)/dζ · 0.2° ≈ 0.115 at 80°).
+    assert am(80.1) - am(79.9) == pytest.approx(0.114, abs=0.01)
+    previous = 0.0
+    for zenith_deg in (0.0, 15.0, 30.0, 45.0, 60.0, 75.0, 79.9, 80.1, 85.0, 89.0, 89.5):
+        value = am(zenith_deg)
+        assert value > previous, f"air mass fell at {zenith_deg}°"
+        assert math.isfinite(value)
+        previous = value
 
 
 @pytest.mark.level0

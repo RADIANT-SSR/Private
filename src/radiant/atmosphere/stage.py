@@ -226,7 +226,7 @@ class AtmosphereStage:
             background_desc,
             atm_quantities,
             los,
-            sky_source_radiance=topology.sky_source_radiance,
+            sky_radiance_at_aperture=topology.sky_radiance_at_aperture,
         )
         # Gap 91: pre-atmosphere source emission (emitted+reflected radiance
         # LEAVING the target/background, before the up-leg τ/L_path).  This is
@@ -250,7 +250,7 @@ class AtmosphereStage:
             background_desc,
             atm_quantities,
             los,
-            sky_source_radiance=topology.sky_source_radiance,
+            sky_radiance_at_aperture=topology.sky_radiance_at_aperture,
         )
 
         # ------------------------------------------------------------------

@@ -251,15 +251,31 @@ Per RADIANT_Conventions.md §5, all angles are stored in radians internally; `_d
 Computed once at `AtmosphericGeometry` construction and stored for every model to use:
 
 ```
-For target above sensor (uplooking):
-    L_slant = (h_target − h_sensor) / cos(θ_zenith)            # flat-Earth small zenith
-For sensor above target (downlooking):
-    L_slant = (h_sensor − h_target) / cos(θ_zenith)
-For zenith > 80°: switch to spherical-Earth correction
-    L_slant = R_E · [√(cos²θ + 2(Δh/R_E) + (Δh/R_E)²) − cos θ]
+L_slant = Δh_absorbing / cos(ζ)          for the whole legal domain 0 ≤ ζ ≤ 89.5°
 ```
 
-Air mass `m = L_slant / Δh` is stored alongside; for zenith ≤ 80° it equals `sec(θ)`, and the spherical correction kicks in past 80° to keep the horizon finite (`m ≈ 38` at the horizon for sea level).
+with `Δh_absorbing = min(|h_sensor − h_target|, h_atm_top − min(h_sensor, h_target))` — the vertical extent of *atmosphere* on the segment, not the endpoint separation (CU-255: a ground site viewing a 700 km target traverses 100 km of air, not 700 km). Air mass `m = L_slant / Δh_absorbing` is stored alongside and is therefore exactly `sec(ζ)`; `Δh = 0` (a wholly exo path) returns `m = 1` by the `ExoAtmosphere` convention.
+
+**One formula, no branch (CU-274, 2026-07-29).** A second "spherical-Earth correction" branch used to take over past 80°:
+
+```
+L_slant = R_E · [√(cos²ζ + 2(Δh/R_E) + (Δh/R_E)²) − cos ζ]     # REMOVED
+```
+
+It was not an air mass. It is the *geometric chord* of a slab of thickness Δh on a spherical Earth, while an air mass is a density-weighted path, and with an 8 km molecular scale height the absorbing mass hugs the ground where curvature is negligible. Measured against the exact spherical slant integral (`grazing_column.grazing_slant_column_km`, molecular scale height, ground → 100 km):
+
+| ζ | `sec ζ` | root form | exact |
+|---|---|---|---|
+| 30° | 1.15470 | 1.15470 | 1.15422 |
+| 60° | 2.00000 | 2.00000 | 1.99258 |
+| 79.9° | 5.70234 | (unused) | 5.49989 |
+| 80.1° | 5.81635 | 4.80715 | 5.60209 |
+| 85° | 11.47371 | 7.06683 | 10.14005 |
+| 89.4° | 95.49471 | 10.68472 | 28.37722 |
+
+The root form was 14 % low at 80.1°, 30 % at 85° and 62 % at 89.4°, and it made the air mass **drop 18 % across its own switch** — transmittance discontinuous in look angle for every scene class, on an ordinary down-looking column. Removing it makes the model continuous, monotone in ζ, and consistent with the rest of `SimpleAtmosphere`, which is plane-parallel throughout (vertical columns × one air mass, mean-altitude species weights, target-anchored emission height). No shipped scenario exceeds 37.5° LOS zenith or 40° solar zenith, so nothing moved.
+
+Accuracy past 80° is bought by **routing elsewhere**, not by patching this formula: the exact spherical slant integral is `segment_grazing.py` (§4.2g), and callers that have that route take it at `SPHERICAL_SWITCH_RAD` = 80°. The up-looking sky background does. The down-looking column and the solar column do not, so they now *overestimate* the near-horizon air mass (+13 % at 85°, +237 % at 89.4°) rather than underestimating it — a pessimistic SNR rather than an optimistic one, tracked as CU-275. `ZENITH_CEILING_RAD` = 89.5° still bounds the domain, and its docstring's "the model is not trustworthy in that regime" is what these numbers quantify.
 
 ### 4.2a Exo-altitude targets — the vacuum target leg (Gap 95)
 
@@ -610,6 +626,43 @@ not modelled. The composition is therefore a no-op and
 `atmosphere/sky_radiance.py` is a thin, well-named wrapper over
 `segment_simple.py` rather than a second physics implementation.
 
+**Where the ray starts: the sensor, not the target (CU-254, 2026-07-29).** The
+quantity handed to assembly is `TopologyProducts.sky_radiance_at_aperture`
+[W/m²/sr/µm] — the whole LOS from the *sensor* out to `h_atm_top`, i.e. what the
+aperture would measure if the target were not there. Until 2026-07-29 the field
+was named `sky_source_radiance` and held the sky at the **target** plane, which
+assembly re-propagated as `L_sky·τ_full_up + L_path_full`. That composition is
+exact radiative transfer, but the segment model being composed is *not* additive:
+each segment emits `(1 − τ_seg)·B(T_eff(h_low,seg))` at its own lower-endpoint
+effective temperature, so splitting one column at the target plane swaps part of
+a warm ground-anchored graybody for a cold target-anchored one. Measured on the
+shipped 10.1 config, varying only `geometry.target_altitude_m` at fixed pointing:
+
+| target altitude | `background_e` before | after |
+|---|---|---|
+| 10 km | 1.94207e5 e⁻ | 2.21479e5 e⁻ |
+| 20 km | 2.14046e5 e⁻ | 2.21479e5 e⁻ |
+| 99 km (whole column) | 2.21479e5 e⁻ | 2.21479e5 e⁻ |
+
+A background behind a target cannot depend on where along the ray the target
+sits; the surviving value is the ground-rooted one, which is also the geometry
+the MODTRAN H-runs anchor. The `SkyBackground` arm is consequently a
+**pass-through** — `τ ≡ 1`, `L_path ≡ 0` — and must not consult `τ_full_up` /
+`L_path_full` at all.
+
+**The level topology still composes.** A level ray is tangent at the chord
+*midpoint*, so the sensor sits on its descending half and a single sensor-rooted
+ascending arc would omit the constant-altitude arm entirely: measured in
+sea-level-equivalent molecular column, such an arc recovers 98.6 % of the true
+traversed path for an 8 km arm at ground level, 83.0 % for 100 km at 3 km, and
+75.1 % for 150 km at 10 km. Nothing evaluates "constant-altitude arm then
+ascending arc" as one segment (`LevelArmSpec` and `segment_grazing.py` are
+different computations, Rule 19), so the level branch keeps
+`L_arm→sensor + τ_arm · L_continuation(target→top)`, computed at the production
+site in `uplooking_quantities._level_sky_at_aperture`. It is geometrically
+complete, it is numerically what assembly used to build, and no level scene
+moved. It also keeps the CU-254 target-position dependence, tracked as CU-276.
+
 Two things it is **not**:
 
 - It is not `AtmosphericQuantities.E_sky_thermal`. That is a hemispheric
@@ -618,14 +671,12 @@ Two things it is **not**:
   different unit, different geometry — nothing here modifies or replaces it, so
   no existing scene moves.
 - It is not a field on `AtmosphericQuantities` (guardrail G1). It rides
-  alongside the eight-field bundle on `TopologyProducts.sky_source_radiance` and
-  is consumed only by the `SkyBackground` arm of `assembly.py`, which propagates
-  it as `L_sky·τ_full_up + L_path_full` — structurally the `GroundBackground`
-  arm with the source plane moved from the surface to the target.
+  alongside the eight-field bundle on
+  `TopologyProducts.sky_radiance_at_aperture`.
 
-A missing or off-grid `sky_source_radiance` **raises** rather than defaulting to
-zero: a silently-zero sky background would delete the background photon term and
-therefore *inflate* SNR, which is the exact failure mode Rule 17 forbids.
+A missing or off-grid `sky_radiance_at_aperture` **raises** rather than defaulting
+to zero: a silently-zero sky background would delete the background photon term
+and therefore *inflate* SNR, which is the exact failure mode Rule 17 forbids.
 
 **Band gating (plan §8.3 answer 3, locked decision 20).** The thermal component
 is first-class at first delivery — it is anchored directly against the real
@@ -649,16 +700,35 @@ warns about nothing, and neither does a night scene on a VIS grid.
 > characterization by
 > `tests/integration/test_direction_aware_atmosphere.py::TestProvisionalScatteredSkyWarning`.
 
-**Near-tangent continuation.** Past the 89.5° column ceiling — which is every
-level arm shorter than ≈ 111 km — the continuation is evaluated as a true
-spherical slant integral (`atmosphere/segment_grazing.py` over
-`grazing_column.py`) instead, because the plane-parallel air mass understates
-the real column by ~3× there. The hand-over at 89.5° is a **step, not a blend**
-(CU-225): the two forms agree to 0.05 % at the 48° zenith the MODTRAN H-runs
-anchor and to 1.6 % at 80°, but differ by ≈ 28 % in band-mean LWIR sky radiance
-right at the ceiling. The grazing form is the more accurate one there — that is
-why it takes over — but closing the step means choosing between two anchored
-products, which is a batch-2 question.
+**Near-horizon: hand over at 80°, not 89.5° (CU-225 / CU-274, 2026-07-29).**
+Past `SPHERICAL_SWITCH_RAD` the sky is evaluated as a true spherical slant
+integral (`atmosphere/segment_grazing.py` over `grazing_column.py`) instead of
+by the plane-parallel column form. The hand-over moved down from the 89.5°
+ceiling to 80° because 80° is where the column form's air mass stops being
+`sec ζ` and starts being the root form §4.2 has now deleted — i.e. 80° is where
+the plane-parallel description genuinely expires, and there is no reason to keep
+using it for another 9.5°.
+
+The hand-over is still a **step, not a blend**, but a small one. Band-mean LWIR
+(8–13 µm) sky from the ground, grazing/column:
+
+| ζ | 0° | 30° | 48.2° | 60° | **80°** | 85° | 89.4° |
+|---|---|---|---|---|---|---|---|
+| ratio | 1.00000 | 0.99979 | 0.99929 | 0.99852 | **0.99359** | 1.08665 | 1.07785 |
+
+(48.2° is the zenith the MODTRAN H-runs anchor.) So the discontinuity went from
+≈ 8 % at the old ceiling — ≈ 28 % on the 3 km level arm CU-225 originally
+measured — to **0.64 %**, and the whole 80–89.5° band is now served by the exact
+integral rather than by an air mass that was 14–62 % low there. The residual
+0.64 % is the plane-parallel model's own error where it is retired; the
+underlying optical depths differ by 2.8 % at 80° and by a factor of two at 89°.
+
+Closing the residual entirely would mean using the grazing form at *every*
+zenith. That is deferred, not forgotten: the two evaluators weight their species
+split at different altitudes (`segment_grazing` at the arc's lower end,
+`segment_simple` at the segment mean), which leaves the thermal products
+agreeing to ≤ 0.65 % but moves the provisional VIS scattered sky by up to 10×.
+Choosing between them is a modelling decision, not a formula swap — CU-260.
 
 ### 4.3 How geometry feeds each model
 

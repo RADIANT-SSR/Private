@@ -195,6 +195,26 @@ class TestEditReject:
         assert not panel.has_error(_TEMP)
         assert not panel.error_banner.isVisibleTo(panel)
 
+    def test_target_spec_conflict_rejected_at_commit(
+        self, panel: ParameterPanel, sensor: Sensor, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CU-244: an edit introducing a target-spec over-specification is rejected.
+
+        The example config carries a thermal (ε, T) target, so committing a
+        reflectance value introduces the ρ-vs-(ε, T) conflict; the resolve-time
+        seam rejects it at the door with the evaluate-time error text.
+        """
+        monkeypatch.setattr(panel_mod, "ActionableErrorDialog", _CapturingDialog)
+        rho = "source.target.reflectance"
+        before = sensor.get(rho)
+
+        panel._commit_edit(rho, 0.3)
+
+        assert sensor.get(rho) == before  # live sensor untouched
+        assert panel.has_error(rho)
+        assert "mutually exclusive" in panel.error_banner.text()
+        assert _CapturingDialog.calls, "reject must surface an ActionableErrorDialog"
+
 
 class TestEditorTypes:
     """The delegate opens the editor the ParameterDef dtype/enum calls for."""

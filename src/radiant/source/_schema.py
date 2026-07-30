@@ -732,15 +732,27 @@ def validate_reflectance_albedo_exclusive(params: Any) -> None:
         Provenance,
     )
 
-    rho_rv = params.get_resolved("source.target.reflectance")
-    alb_rv = params.get_resolved("source.target.albedo")
-    rho_path_rv = params.get_resolved("source.target.reflectance_path")
-    alb_path_rv = params.get_resolved("source.target.albedo_path")
+    # Dual view (CU-244): a resolved set answers from provenance (the
+    # inferrer's evaluate-time path); an unresolved set answers from the
+    # explicit-inputs snapshot, so the resolve-time seam
+    # (Sensor.validate_target_spec) can run before — or without — a full
+    # resolve. The two views agree for these surfaces (none is derived).
+    def _user(name: str) -> bool:
+        if params.is_resolved:
+            return bool(params.get_resolved(name).provenance is not Provenance.DEFAULT)
+        return name in params.inputs()
 
-    rho_user = rho_rv.provenance is not Provenance.DEFAULT
-    alb_user = alb_rv.provenance is not Provenance.DEFAULT
-    rho_path_user = rho_path_rv.provenance is not Provenance.DEFAULT and bool(rho_path_rv.value)
-    alb_path_user = alb_path_rv.provenance is not Provenance.DEFAULT and bool(alb_path_rv.value)
+    def _val(name: str) -> Any:
+        if params.is_resolved:
+            return params.get_resolved(name).value
+        return params.inputs().get(name)
+
+    rho_user = _user("source.target.reflectance")
+    alb_user = _user("source.target.albedo")
+    rho_path_user = _user("source.target.reflectance_path") and bool(
+        _val("source.target.reflectance_path")
+    )
+    alb_path_user = _user("source.target.albedo_path") and bool(_val("source.target.albedo_path"))
 
     set_surfaces = []
     if rho_user:

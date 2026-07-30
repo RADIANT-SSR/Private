@@ -420,3 +420,61 @@ class TestBrowseStartLocation:
         assert start is not None
         # The bundled data root is src/radiant/data/tables/ (data-in-wheel packaging).
         assert start.name == "tables"
+
+
+class TestTargetSpecSeam:
+    """CU-244: a cross-parameter target-spec conflict is rejected at commit time.
+
+    The example config carries a thermal (ε, T) target, so committing a
+    reflectance surface introduces the ρ-vs-(ε, T) over-specification; a second
+    reflectance surface introduces the alias over-specification. Both must be
+    rejected at the door — same what/why/action as ``evaluate()`` — while a
+    conflict that pre-exists on the live sensor never blocks an unrelated edit.
+    """
+
+    _RHO = "source.target.reflectance"
+    _RHO_PATH = "source.target.reflectance_path"
+
+    def test_rho_vs_thermal_rejected_at_commit(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
+        d = _dialog(sensor, self._RHO, qtbot)
+        before = sensor.get(self._RHO)
+
+        d.value_editor.setText("0.3")
+        d.apply(close=False)
+
+        assert sensor.get(self._RHO) == before  # live sensor untouched
+        assert d.error_frame.isVisibleTo(d)
+        assert d.result() != QDialog.DialogCode.Accepted  # dialog stayed open
+        rendered = "\n".join(lbl.text() for lbl in d.error_frame.findChildren(QLabel))
+        assert "mutually exclusive" in rendered
+        assert "Remove source.target.temperature" in rendered  # actionable action text
+
+    def test_second_reflectance_surface_rejected_at_commit(
+        self, sensor: Sensor, qtbot, tmp_path: Path
+    ) -> None:  # type: ignore[no-untyped-def]
+        csv = tmp_path / "rho.csv"
+        csv.write_text("wavelength_um,reflectance\n3.0,0.30\n5.5,0.30\n", encoding="utf-8")
+        sensor.set(self._RHO, 0.3)  # the API accepts this; the seam guards the *pair*
+
+        d = _dialog(sensor, self._RHO_PATH, qtbot)
+        d.value_editor.setText(str(csv))
+        d.apply(close=False)
+
+        assert sensor.get(self._RHO_PATH) == ""  # live sensor untouched
+        assert d.error_frame.isVisibleTo(d)
+        rendered = "\n".join(lbl.text() for lbl in d.error_frame.findChildren(QLabel))
+        assert "over-specified" in rendered
+        assert "Leave exactly one surface set" in rendered  # actionable action text
+
+    def test_pre_existing_conflict_does_not_block_unrelated_edit(
+        self, sensor: Sensor, qtbot
+    ) -> None:  # type: ignore[no-untyped-def]
+        """Differential guard: only a conflict this edit INTRODUCES is a rejection."""
+        sensor.set(self._RHO, 0.3)  # live sensor now carries ρ + (ε, T) already
+
+        d = _dialog(sensor, _ALT, qtbot)
+        d.value_editor.setText("650000")
+        d.apply(close=False)
+
+        assert not d.error_frame.isVisibleTo(d)
+        assert sensor.get(_ALT) == pytest.approx(650000.0, abs=0)  # edit committed [m]

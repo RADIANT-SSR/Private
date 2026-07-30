@@ -20,6 +20,19 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **`Sensor.validate_target_spec()` — resolve-time target-spec over-specification check
+  (CU-244).** Runs the source inferrer's `source.target.*` mutual-exclusivity guards
+  (reflectance/albedo aliases, ρ vs (ε, T), ρ vs the S8/S10 radiance/intensity paths,
+  ρ vs S11/S12 brightness/radiance temperature, S11 vs S12) without physics, file I/O,
+  or a resolved config, raising the same actionable `ParameterBoundsError` — identical
+  what/why/action text — that `evaluate()` produces. The GUI's clone-validate edit
+  discipline (parameter tree and Parameter Editor dialog) now calls it on every commit,
+  so a conflicting pair such as `source.target.reflectance` + `reflectance_path` is
+  rejected at the door instead of surviving until Evaluate; a conflict that pre-exists
+  on the live sensor still surfaces at Evaluate and never blocks unrelated edits.
+  Evaluate-time checks are unchanged (defence in depth); no computed results change.
+
 ### Changed
 - **Plot-card readability at GUI card sizes: colorbars, titles, and the noise pie's labels
   (CU-241).** Presentation-only — no computed value changes. `plot_pupil_amplitude` and

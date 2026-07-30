@@ -99,6 +99,7 @@ from radiant.gui.param_format import (
     safe_provenance,
 )
 from radiant.gui.path_picker import default_browse_dir, path_picker_kind
+from radiant.gui.target_spec_guard import introduced_target_spec_conflict
 from radiant.gui.tolerance_units import convert_tolerance_value, field_unit_label
 from radiant.gui.widgets.configure_menu import CONFIGURE_TEXT, SINGLE_CONFIGURATION_HINT
 from radiant.gui.widgets.per_configuration_values import PerConfigurationValues
@@ -1008,6 +1009,12 @@ class ParameterEditorDialog(QDialog):
         (``get`` forces bounds/enum/consistency validation). A ``RadiantError`` is a
         rejected input; any other exception is an unexpected bug. The live sensor is
         never touched.
+
+        An accepted value is additionally screened by the resolve-time
+        target-spec seam (CU-244): a cross-parameter over-specification this
+        edit introduces (e.g. a second reflectance surface) is rejected at the
+        door with the same what/why/action ``evaluate()`` would produce, via
+        the shared differential guard.
         """
         trial = self._sensor.clone()
         try:
@@ -1037,6 +1044,9 @@ class ParameterEditorDialog(QDialog):
             return None, exc, None
         except Exception as exc:  # genuine bug, not a rejected input — never swallow
             return None, None, exc
+        conflict = introduced_target_spec_conflict(self._sensor, trial)
+        if conflict is not None:
+            return None, conflict, None
         return canonical, None, None
 
     def _validate_value_shallow(self, value: Any, unit: str | None) -> RadiantError | None:

@@ -50,6 +50,7 @@ from radiant.io.config import (
 )
 from radiant.io.element_config import parse_element_entries
 from radiant.io.results import ChainResult
+from radiant.source.target_spec import validate_target_spec as _validate_target_spec
 
 logger = logging.getLogger(__name__)
 
@@ -616,6 +617,35 @@ class Sensor:
             return session.run(ps, extra_stage_outputs=extras)
 
         return _run
+
+    def validate_target_spec(self) -> None:
+        """Raise if the ``source.target.*`` spec surfaces are over-specified.
+
+        The resolve-time seam for the target-spec mutual-exclusivity rules
+        (CU-244): runs the same guards — same what/why/action text — that
+        ``evaluate()`` runs inside the source inferrer, but without any physics,
+        file I/O, or chain execution, so a conflicting pair (e.g. scalar
+        ``source.target.reflectance`` [dimensionless] plus a tabulated
+        ``source.target.reflectance_path`` CSV) can be rejected at the door.
+        The GUI's clone-validate edit discipline calls this after each
+        candidate ``set``; the evaluate-time check remains in place as defence
+        in depth.
+
+        Covered exclusivity families: the reflectance/albedo aliases (scalar
+        and ``_path`` forms), ρ vs the legacy (ε, T) thermal surface, ρ vs the
+        S8/S10 absolute radiance/intensity paths, ρ vs the S11/S12
+        brightness/radiance-temperature forms, and the S11/S12 internal
+        pairings. Completeness ("this form still needs its band edges") is
+        deliberately not checked here — a half-entered spec is a legitimate
+        intermediate state, and ``evaluate()`` reports what is missing.
+
+        Raises
+        ------
+        radiant.core.parameters.ParameterBoundsError
+            If more than one mutually exclusive target-spec surface is
+            user-set. A no-op otherwise.
+        """
+        _validate_target_spec(self._params)
 
     def evaluate(
         self,

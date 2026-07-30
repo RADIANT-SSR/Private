@@ -1,0 +1,503 @@
+"""Target-spec over-specification guards — the resolve-time seam (CU-244).
+
+One computation, one module (Rule 19): this module owns the **cross-parameter
+mutual-exclusivity rules** for the ``source.target.*`` user-entry surfaces
+(Target Definition Matrix §1 spec forms).  The guards were historically inlined
+in the :mod:`radiant.source._inferrer` door builders, which made them reachable
+only at ``evaluate()`` time; CU-244 extracted them here so the same checks — and
+the exact same what/why/action text — can also run at *resolve* time, before any
+physics, via :meth:`radiant.api.sensor.Sensor.validate_target_spec` (which the
+GUI's clone-validate edit discipline calls to reject an over-specified pair at
+the door).
+
+Two entry points:
+
+* The inferrer's door builders call the per-door ``check_*_conflicts``
+  functions at the same points the inline blocks used to occupy, so the
+  evaluate-time behaviour (and error text) is unchanged — defence in depth.
+* :func:`validate_target_spec` runs the doors in the inferrer's dispatch order
+  (S11 → S12 → S4/S5/S6) and is the single seam the API exposes.  Future door
+  guards (e.g. the S10/T7 intensity-door over-specification work, CU-256/264)
+  slot in as additional ``check_*`` calls here.
+
+Scope: **over-specification only.**  Completeness checks (e.g. "S12 requires
+the band edges") stay in the inferrer — a half-entered spec is a legitimate
+intermediate state while the user types, and ``evaluate()`` remains the surface
+that reports what is still missing.
+
+Every guard is a pure read of :class:`~radiant.core.parameters.ParameterSet`
+provenance — no file I/O, no physics, no mutation — so the seam is safe to run
+on every GUI edit.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from radiant.core.parameters import ParameterBoundsError, ParameterSet, Provenance
+from radiant.source._schema import validate_reflectance_albedo_exclusive
+
+__all__ = [
+    "check_brightness_temperature_conflicts",
+    "check_radiance_temperature_conflicts",
+    "check_reflectance_conflicts",
+    "validate_target_spec",
+]
+
+
+def _is_user_set(params: ParameterSet, name: str) -> bool:
+    """True iff the user chose a value for ``name`` (non-DEFAULT provenance).
+
+    Works on both resolved and unresolved sets: a resolved set answers from
+    provenance (the inferrer's evaluate-time view, which also counts DERIVED);
+    an unresolved set answers from the explicit-inputs snapshot — none of the
+    ``source.target.*`` spec surfaces participate in a consistency group, so
+    the two views agree for every parameter these guards inspect.  The
+    unresolved branch is what lets :meth:`Sensor.validate_target_spec` run on
+    a still-incomplete config without forcing (or failing) a full resolve.
+    """
+    if params.is_resolved:
+        return params.get_resolved(name).provenance is not Provenance.DEFAULT
+    return name in params.inputs()
+
+
+def _value_of(params: ParameterSet, name: str) -> Any:
+    """The parameter's value on either view (``None`` if unset and unresolved)."""
+    if params.is_resolved:
+        return params.get_resolved(name).value
+    return params.inputs().get(name)
+
+
+def _is_user_set_nonempty(params: ParameterSet, name: str) -> bool:
+    """User-set AND truthy — the activation test for path-valued surfaces."""
+    return _is_user_set(params, name) and bool(_value_of(params, name))
+
+
+def _rho_family_user_set(params: ParameterSet) -> bool:
+    """True iff any S4/S5/S6 reflectance surface is user-set (paths must be non-empty)."""
+    return (
+        _is_user_set(params, "source.target.reflectance")
+        or _is_user_set(params, "source.target.albedo")
+        or _is_user_set_nonempty(params, "source.target.reflectance_path")
+        or _is_user_set_nonempty(params, "source.target.albedo_path")
+    )
+
+
+def check_brightness_temperature_conflicts(params: ParameterSet) -> None:
+    """S11 door: raise if brightness_temperature_* is paired with a rival surface.
+
+    No-op when neither S11 surface is user-set.  Guard order (and text) is
+    exactly the pre-CU-244 inline order in
+    ``_inferrer._maybe_build_from_brightness_temperature``: K+path both set,
+    then (ε, T), then S8, then S10, then ρ-family.
+    """
+    t_b_k_user = _is_user_set(params, "source.target.brightness_temperature_K")
+    t_b_path_user = _is_user_set_nonempty(params, "source.target.brightness_temperature_path")
+
+    if not t_b_k_user and not t_b_path_user:
+        return
+
+    if t_b_k_user and t_b_path_user:
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: both "
+                "source.target.brightness_temperature_K and "
+                "source.target.brightness_temperature_path are user-set"
+            ),
+            why=(
+                "S11 is a single spec form — either a scalar T_B or a "
+                "tabulated T_B(λ), not both (would over-specify the "
+                "source surface)."
+            ),
+            action=(
+                "Pick one: leave the scalar for a flat T_B, or the path "
+                "for a λ-dependent T_B (routes to T6TabulatedAtSource)."
+            ),
+            context={
+                "brightness_temperature_K": _value_of(
+                    params, "source.target.brightness_temperature_K"
+                ),
+                "brightness_temperature_path": _value_of(
+                    params, "source.target.brightness_temperature_path"
+                ),
+            },
+        )
+
+    if _is_user_set(params, "source.target.temperature") or _is_user_set(
+        params, "source.target.emissivity"
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: brightness_temperature is mutually "
+                "exclusive with source.target.temperature / "
+                "source.target.emissivity"
+            ),
+            why=(
+                "S11 replaces the (ε, T_t) surface with an equivalent-"
+                "blackbody radiance description; supplying both forms "
+                "over-specifies the target."
+            ),
+            action=(
+                "Remove source.target.temperature and .emissivity when "
+                "using source.target.brightness_temperature_*; or remove "
+                "brightness_temperature_* to use the legacy (ε, T) form."
+            ),
+            context={
+                "temperature_set": _is_user_set(params, "source.target.temperature"),
+                "emissivity_set": _is_user_set(params, "source.target.emissivity"),
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_radiance_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: brightness_temperature is mutually "
+                "exclusive with user_radiance_path (S11 vs S8)"
+            ),
+            why=(
+                "S8 supplies an absolute radiance already at the target "
+                "plane; S11 supplies an equivalent brightness "
+                "temperature that the converter turns into radiance.  "
+                "Combining them over-specifies the target radiance."
+            ),
+            action=(
+                "Pick one user-entry surface: brightness_temperature_* "
+                "for S11, or user_radiance_path for S8 (direct radiance)."
+            ),
+            context={
+                "user_radiance_path": _value_of(params, "source.target.user_radiance_path"),
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_intensity_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: brightness_temperature is mutually "
+                "exclusive with user_intensity_path (S11 vs S10)"
+            ),
+            why=(
+                "S10 supplies an absolute intensity at the target plane "
+                "for point sources; S11 supplies an equivalent "
+                "brightness temperature that the converter turns into "
+                "radiance.  Combining them over-specifies the target."
+            ),
+            action=(
+                "Pick one user-entry surface: brightness_temperature_* "
+                "for S11, or user_intensity_path for S10 (direct "
+                "intensity)."
+            ),
+            context={
+                "user_intensity_path": _value_of(params, "source.target.user_intensity_path"),
+            },
+        )
+
+    if (
+        _is_user_set(params, "source.target.reflectance")
+        or _is_user_set(params, "source.target.albedo")
+        or _is_user_set(params, "source.target.reflectance_path")
+        or _is_user_set(params, "source.target.albedo_path")
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: brightness_temperature is mutually "
+                "exclusive with reflectance/albedo (thermal S11 vs "
+                "reflective S4/S5/S6)"
+            ),
+            why=(
+                "A single target cannot be both purely thermal and "
+                "purely reflective.  Mixed emit+reflect must go through "
+                "the legacy (ε, T) → T3Mixed path."
+            ),
+            action=(
+                "Pick one user-entry surface: brightness_temperature_* "
+                "for pure thermal (T1), reflectance/albedo for pure "
+                "reflection (T2), or temperature+emissivity for mixed (T3)."
+            ),
+            context={
+                "reflectance_set": _is_user_set(params, "source.target.reflectance"),
+                "albedo_set": _is_user_set(params, "source.target.albedo"),
+            },
+        )
+
+
+def check_radiance_temperature_conflicts(params: ParameterSet) -> None:
+    """S12 door: raise if radiance_temperature_K is paired with a rival surface.
+
+    No-op when ``radiance_temperature_K`` is not user-set.  Guard order (and
+    text) is exactly the pre-CU-244 inline order in
+    ``_inferrer._maybe_build_from_radiance_temperature``: (ε, T), then S8,
+    then S10, then ρ-family, then S11.  The S12 *completeness* check (band
+    edges required) is not an exclusivity rule and stays in the inferrer.
+    """
+    if not _is_user_set(params, "source.target.radiance_temperature_K"):
+        return
+
+    if _is_user_set(params, "source.target.temperature") or _is_user_set(
+        params, "source.target.emissivity"
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: radiance_temperature is mutually "
+                "exclusive with source.target.temperature / "
+                "source.target.emissivity"
+            ),
+            why=(
+                "S12 replaces the (ε, T_t) surface with an equivalent-"
+                "blackbody band-radiance description; supplying both "
+                "forms over-specifies the target."
+            ),
+            action=(
+                "Remove source.target.temperature and .emissivity when "
+                "using source.target.radiance_temperature_K; or remove "
+                "T_R to use the legacy (ε, T) form."
+            ),
+            context={
+                "temperature_set": _is_user_set(params, "source.target.temperature"),
+                "emissivity_set": _is_user_set(params, "source.target.emissivity"),
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_radiance_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: radiance_temperature is mutually "
+                "exclusive with user_radiance_path (S12 vs S8)"
+            ),
+            why=(
+                "S8 supplies an absolute radiance already at the target "
+                "plane; S12 supplies a band-averaged radiance "
+                "temperature the converter inverts into radiance.  "
+                "Combining them over-specifies the target radiance."
+            ),
+            action=(
+                "Pick one user-entry surface: radiance_temperature_K + "
+                "band for S12, or user_radiance_path for S8 (direct "
+                "radiance)."
+            ),
+            context={
+                "user_radiance_path": _value_of(params, "source.target.user_radiance_path"),
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_intensity_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: radiance_temperature is mutually "
+                "exclusive with user_intensity_path (S12 vs S10)"
+            ),
+            why=(
+                "S10 supplies an absolute intensity at the target plane "
+                "for point sources; S12 supplies a band-averaged "
+                "radiance temperature the converter inverts into "
+                "radiance.  Combining them over-specifies the target."
+            ),
+            action=(
+                "Pick one user-entry surface: radiance_temperature_K + "
+                "band for S12, or user_intensity_path for S10 (direct "
+                "intensity)."
+            ),
+            context={
+                "user_intensity_path": _value_of(params, "source.target.user_intensity_path"),
+            },
+        )
+
+    if (
+        _is_user_set(params, "source.target.reflectance")
+        or _is_user_set(params, "source.target.albedo")
+        or _is_user_set(params, "source.target.reflectance_path")
+        or _is_user_set(params, "source.target.albedo_path")
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: radiance_temperature is mutually "
+                "exclusive with reflectance/albedo (thermal S12 vs "
+                "reflective S4/S5/S6)"
+            ),
+            why=(
+                "A single target cannot be both purely thermal and "
+                "purely reflective.  Mixed emit+reflect must go through "
+                "the legacy (ε, T) → T3Mixed path."
+            ),
+            action=(
+                "Pick one user-entry surface: radiance_temperature_K + "
+                "band for pure thermal (T1), reflectance/albedo for pure "
+                "reflection (T2), or temperature+emissivity for mixed (T3)."
+            ),
+            context={
+                "reflectance_set": _is_user_set(params, "source.target.reflectance"),
+                "albedo_set": _is_user_set(params, "source.target.albedo"),
+            },
+        )
+
+    if _is_user_set(params, "source.target.brightness_temperature_K") or _is_user_set(
+        params, "source.target.brightness_temperature_path"
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: radiance_temperature is mutually "
+                "exclusive with brightness_temperature_* (S11 vs S12)"
+            ),
+            why=(
+                "S11 and S12 are parallel user-entry forms for the same "
+                "thermal target; combining them over-specifies the "
+                "source surface."
+            ),
+            action=(
+                "Pick one: brightness_temperature_* for a λ-resolved "
+                "T_B(λ), or radiance_temperature_K + band for a scalar "
+                "band-averaged T_R."
+            ),
+            context={
+                "T_B_K_set": _is_user_set(params, "source.target.brightness_temperature_K"),
+                "T_B_path_set": _is_user_set(params, "source.target.brightness_temperature_path"),
+            },
+        )
+
+
+def check_reflectance_conflicts(params: ParameterSet) -> None:
+    """S4/S5/S6 door: raise if a reflectance surface is paired with a rival surface.
+
+    No-op when no ρ-family surface is user-set.  Guard order (and text) is
+    exactly the pre-CU-244 inline order in
+    ``_inferrer._maybe_build_from_reflectance``: the reflectance/albedo alias
+    exclusivity (schema-layer validator), then (ε, T), then S8, then S10, then
+    S11/S12.
+    """
+    if not _rho_family_user_set(params):
+        return
+
+    # Reject over-specified reflectance surfaces (reflectance + albedo,
+    # scalar + path, etc.).  The schema-layer validator owns this check.
+    validate_reflectance_albedo_exclusive(params)
+
+    # Reject pairing with legacy thermal surface (T3Mixed is the path for
+    # combined ε + T; supplying both ρ and T over-specifies the target).
+    if _is_user_set(params, "source.target.temperature") or _is_user_set(
+        params, "source.target.emissivity"
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: reflectance/albedo is mutually "
+                "exclusive with source.target.temperature / "
+                "source.target.emissivity"
+            ),
+            why=(
+                "Pure-reflective targets (T2Reflective) are specified "
+                "by ρ(λ) alone.  Combining ρ with (ε, T) drops into the "
+                "T3Mixed regime — for that surface, omit ρ and let "
+                "Kirchhoff derive ρ = 1 − ε downstream."
+            ),
+            action=(
+                "Remove source.target.temperature and .emissivity when "
+                "using reflectance/albedo; or remove reflectance to use "
+                "the legacy (ε, T) → T3Mixed path."
+            ),
+            context={
+                "temperature_set": _is_user_set(params, "source.target.temperature"),
+                "emissivity_set": _is_user_set(params, "source.target.emissivity"),
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_radiance_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: reflectance/albedo is mutually "
+                "exclusive with user_radiance_path (S4/S5/S6 vs S8)"
+            ),
+            why=(
+                "S8 supplies an absolute radiance already at the target "
+                "plane; S4/S5/S6 supplies a material ρ(λ) that RADIANT "
+                "turns into radiance via the solar path.  Combining "
+                "them over-specifies the target radiance."
+            ),
+            action=(
+                "Pick one user-entry surface: reflectance/albedo for "
+                "a material description (S4/S5/S6), or "
+                "user_radiance_path for direct radiance (S8)."
+            ),
+            context={
+                "user_radiance_path": _value_of(params, "source.target.user_radiance_path"),
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_intensity_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: reflectance/albedo is mutually "
+                "exclusive with user_intensity_path (S4/S5/S6 vs S10)"
+            ),
+            why=(
+                "S10 supplies an absolute intensity at the target plane "
+                "for point sources; S4/S5/S6 supplies a material ρ(λ) "
+                "that RADIANT turns into radiance via the solar path.  "
+                "Combining them over-specifies the target."
+            ),
+            action=(
+                "Pick one user-entry surface: reflectance/albedo for "
+                "a material description (S4/S5/S6), or "
+                "user_intensity_path for direct intensity (S10)."
+            ),
+            context={
+                "user_intensity_path": _value_of(params, "source.target.user_intensity_path"),
+            },
+        )
+
+    # Reject pairing with S11 / S12 thermal user-entry forms.
+    if (
+        _is_user_set(params, "source.target.brightness_temperature_K")
+        or _is_user_set(params, "source.target.brightness_temperature_path")
+        or _is_user_set(params, "source.target.radiance_temperature_K")
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source._inferrer: reflectance/albedo is mutually "
+                "exclusive with brightness_temperature / "
+                "radiance_temperature (thermal S11/S12 vs reflective "
+                "S4/S5/S6)"
+            ),
+            why=(
+                "A single target cannot be both purely reflective and "
+                "purely thermal.  Mixed emit+reflect must go through "
+                "the legacy (ε, T) → T3Mixed path."
+            ),
+            action=(
+                "Pick one user-entry surface: reflectance/albedo for "
+                "pure reflection (T2), brightness_temperature or "
+                "radiance_temperature for pure thermal (T1), or "
+                "temperature+emissivity for mixed (T3)."
+            ),
+            context={
+                "brightness_temperature_K_set": _is_user_set(
+                    params, "source.target.brightness_temperature_K"
+                ),
+                "brightness_temperature_path_set": _is_user_set(
+                    params, "source.target.brightness_temperature_path"
+                ),
+                "radiance_temperature_K_set": _is_user_set(
+                    params, "source.target.radiance_temperature_K"
+                ),
+            },
+        )
+
+
+def validate_target_spec(params: ParameterSet) -> None:
+    """Raise :class:`ParameterBoundsError` if the target spec is over-specified.
+
+    Runs the per-door exclusivity guards in the inferrer's dispatch order
+    (S11 → S12 → S4/S5/S6), so whenever ``evaluate()`` would raise an
+    exclusivity error via ``_inferrer._build_target_descriptor``, the first
+    error raised here is that same error — same what/why/action.  A no-op on a
+    cleanly specified (or not-yet-complete) target: completeness is
+    deliberately out of scope.
+
+    One known corner where this seam is *stricter* than ``evaluate()``: an
+    S11 + S12 pair (brightness_temperature_* AND radiance_temperature_K).
+    The inferrer's S11 builder dispatches first and does not check S12, so at
+    evaluate time the radiance-temperature surface is silently ignored (a
+    latent Rule-17 gap discovered during CU-244);
+    this seam runs every door's guards and correctly rejects the pair with
+    the S12-door text.
+    """
+    check_brightness_temperature_conflicts(params)
+    check_radiance_temperature_conflicts(params)
+    check_reflectance_conflicts(params)

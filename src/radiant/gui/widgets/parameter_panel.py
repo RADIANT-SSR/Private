@@ -77,6 +77,7 @@ from radiant.gui.param_format import (
     provenance_label,
     safe_provenance,
 )
+from radiant.gui.target_spec_guard import introduced_target_spec_conflict
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.configure_menu import add_configuration_actions
 from radiant.gui.widgets.configured_name_delegate import (
@@ -576,6 +577,14 @@ class ParameterPanel(QWidget):
             return
         except Exception as exc:  # genuine bug, not a rejected input — never swallow
             exec_dialog(UnexpectedErrorDialog(exc, f"Editing “{dotpath}”", self))
+            return
+
+        # CU-244: resolve-time target-spec seam — a cross-parameter
+        # over-specification this edit introduces (e.g. a second reflectance
+        # surface) is rejected at the door with the evaluate-time error text.
+        conflict = introduced_target_spec_conflict(sensor, trial)
+        if conflict is not None:
+            self._reject_edit(dotpath, conflict)
             return
 
         # Accepted: the single mandated API call on the live sensor.

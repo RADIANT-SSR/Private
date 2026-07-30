@@ -277,15 +277,6 @@ Only the **GEO** row behaves as the entry describes: there `exp(−h/H_MOL)` und
 **Why it still matters**: the interpolated backend is the fast path the MODTRAN batches exist to feed; every operator hits this the first time they raise `target_altitude_m` above zero. The knowledge currently lives in a schema docstring.
 **Suggested fix**: (b) stand-alone GUI task, natural walkthrough-cleanup batch item. Family-first UI: a picker enumerating `_shipped_family_catalogue()` entries with plain-language coverage lines ("midlat summer, space/airborne sensor, targets 0–29 km, nadir–60°"), writing `interpolation_axes`/`interpolated_data_dir` as derived values; scene-aware default selection with a profile-mismatch warning (choosing the family must never silently change the atmosphere profile the operator asked for); config-time coverage check in the Messages rail. Effort M; category D. Related: Gap 94, CU-226, CU-240.
 
-### CU-244 — Target-spec over-specification is unreachable by the parameter editor's clone-validate, so the GUI accepts a conflicting pair until Evaluate
-
-**Discovered**: GUI walkthrough item 6 (branch `gui/reflective-tab`), 2026-07-27 — while mounting `source.target.reflectance_path` beside the scalar ρ.
-**Status**: Open.
-**File**: `src/radiant/source/_schema.py::validate_reflectance_albedo_exclusive` (called from `source/_inferrer.py:1169`) vs `src/radiant/gui/widgets/parameter_editor_dialog.py::_try_resolve`.
-**Symptom**: set `source.target.reflectance = 0.3`, then `source.target.reflectance_path = <csv>`. Both `Sensor.set` and `Sensor.get` accept the pair; the rejection fires only inside `infer_descriptors`, i.e. at `evaluate()`. The editor validates a candidate on a throwaway clone with `set` + `get`, so it cannot see this class of conflict and commits the second surface happily. The same is true of every other target-spec exclusivity (ρ + (ε, T), ρ + S11/S12, the `albedo` aliases).
-**Why it still matters**: `RADIANT_GUI_Architecture.md` claimed the reflective inputs were guarded by "the editor reject discipline" — they are not; that row was corrected in this PR to describe the evaluate-time path instead. The operator still learns of the conflict, actionably (dialog + Messages), but only after a full chain attempt, and the editor's committed value stays in the config. The gap is that a whole family of *cross-parameter* validators lives behind the inferrer while the editor can only run *per-parameter* ones.
-**Suggested fix**: (b) stand-alone task — expose the target-spec exclusivity validators as a resolve-time consistency check (a `ConsistencyGroup`-shaped seam or an explicit `Sensor.validate_target_spec()` the dialog calls after the clone `get`), so an over-specified pair is rejected at the door with the same what/why/action it produces today. Effort M; category B. Related: [[CU-245]].
-
 ### CU-236 — Down-looking detection range still uses one constant extinction coefficient (owner-decision gated)
 
 **Discovered**: Geometry-Flexibility Phase 3, GF-15 (branch `gf3/degradations-metrics`), 2026-07-27.
@@ -435,6 +426,14 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-244 — Target-spec over-specification is unreachable by the parameter editor's clone-validate, so the GUI accepts a conflicting pair until Evaluate — RESOLVED 2026-07-30 (commit (pending merge — orchestrator stamps final SHA))
+
+**Discovered**: GUI walkthrough item 6 (branch `gui/reflective-tab`), 2026-07-27 — while mounting `source.target.reflectance_path` beside the scalar ρ.
+**Status**: RESOLVED 2026-07-30, commit (pending merge — orchestrator stamps final SHA). **Resolution**: extracted the inferrer's door exclusivity guards into `radiant.source.target_spec` (evaluate-time behaviour and text unchanged — the builders now call the shared functions), exposed them as `Sensor.validate_target_spec()` (pure provenance read, works on unresolved sets), and wired both GUI clone-validate commit paths (`ParameterEditorDialog._try_resolve`, `ParameterPanel._commit_edit`) through the differential `radiant.gui.target_spec_guard.introduced_target_spec_conflict`, so a conflict the edit introduces is rejected at the door with the identical what/why/action while a pre-existing conflict never blocks unrelated edits.
+**File**: `src/radiant/source/target_spec.py` (new); `src/radiant/source/_inferrer.py`; `src/radiant/source/_schema.py` (dual-view alias validator); `src/radiant/api/sensor.py`; `src/radiant/gui/target_spec_guard.py` (new); `src/radiant/gui/widgets/parameter_editor_dialog.py`; `src/radiant/gui/widgets/parameter_panel.py`.
+**Symptom**: set `source.target.reflectance = 0.3`, then `source.target.reflectance_path = <csv>`. Both `Sensor.set` and `Sensor.get` accepted the pair; the rejection fired only inside `infer_descriptors`, i.e. at `evaluate()` — reproduced 2026-07-30 before fixing (both halves: API pair accepted with evaluate-time `ParameterBoundsError`, and `_try_resolve` returning the canonical value with no rejection).
+**Resolution summary**: resolve-time seam `Sensor.validate_target_spec()` over the extracted `radiant.source.target_spec` guards; all four named exclusivity families (ρ + path, ρ + (ε, T), ρ + S11/S12, albedo aliases) plus ρ + S8/S10 and the S11/S12 internal pairs now reject at commit time in both GUI edit paths, with the evaluate-time check retained as defence in depth. Related: [[CU-245]].
+
 ### CU-249 — `test_configuration_manager.py` is an order of magnitude slower per test than the rest of the GUI suite — RESOLVED 2026-07-29 (commit `17239c9`)
 
 **Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, agent finding), 2026-07-28.

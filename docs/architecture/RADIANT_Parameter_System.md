@@ -423,6 +423,36 @@ for orbital platforms. The analogous altitude duplicate has been collapsed:
 (warn-and-redirect at `set()`/`get()`, CU-090 fold / ADR-0006, 2026-07-12) — see
 the `deprecated_aliases` note earlier in this section.
 
+### Target-spec exclusivity — the resolve-time seam (CU-244)
+
+The `source.target.*` user-entry surfaces (Target Definition Matrix §1 spec
+forms) carry a family of **cross-parameter mutual-exclusivity rules** that are
+not consistency groups — there is no derivation between the members, only the
+constraint "set at most one door": the reflectance/albedo aliases (scalar and
+`_path`), ρ vs the legacy (ε, T) thermal pair, ρ vs the S8/S10 absolute
+radiance/intensity paths, ρ vs the S11/S12 brightness/radiance-temperature
+forms, and the S11/S12 internal pairings.
+
+These guards live in `radiant.source.target_spec` (one door-check function per
+spec door, run in the inferrer's dispatch order S11 → S12 → S4/S5/S6) and are
+called from **two** places:
+
+1. **Evaluate time** — the source inferrer's door builders call the door
+   checks at the same points the historical inline blocks occupied, so
+   `evaluate()` behaviour and error text are unchanged (defence in depth).
+2. **Resolve time** — `Sensor.validate_target_spec()` runs the same functions
+   with no physics, file I/O, or resolve required (an unresolved set is read
+   through the explicit-inputs snapshot; none of these surfaces is derived, so
+   the views agree). The GUI's clone-validate edit discipline calls this after
+   each candidate `set` and rejects a conflict *the edit introduces* at the
+   door — with the identical what/why/action `ParameterBoundsError` the
+   evaluate-time path produces, by construction (same code).
+
+Completeness checks ("S12 also needs its band edges") are deliberately **not**
+part of the seam: a half-entered spec is a legitimate intermediate state while
+a user types, and `evaluate()` remains the surface that reports what is
+missing.
+
 ---
 
 ## Dependency Tracking

@@ -90,11 +90,11 @@ Stage 0: resolves the scene-geometry input mode and publishes LOS + derived
 quantities. The θ_o-based spherical-triangle math lives in
 `core/viewing_triangle.py` (core, like its η-based siblings in `core/geometry.py`).
 
-### `source/` — 17 source + 31 tests
+### `source/` — 18 source + 31 tests
 
 Stage 1: target + background spectral radiance. The largest physics package because of the spec-form fan-out (S1-S9), shape catalog, BRDF models, and converters.
 
-Top-level: `stage.py`, `_inferrer.py` (spec-form router), `_schema.py`, `protocol.py`, plus per-spec-form modules (`emitted.py`, `reflected.py`, `combined.py`, `composite.py`, `tabulated.py`, `solar.py`, `material.py`, `shape.py`, `sub_pixel.py`, `point_source_blackbody.py`, `point_source_direct.py`, `brdf_lambertian.py`, `brdf_phong.py`).
+Top-level: `stage.py`, `_inferrer.py` (spec-form router), `_schema.py`, `target_spec.py` (door exclusivity guards, shared with the CU-244 resolve-time seam), `protocol.py`, plus per-spec-form modules (`emitted.py`, `reflected.py`, `combined.py`, `composite.py`, `tabulated.py`, `solar.py`, `material.py`, `shape.py`, `sub_pixel.py`, `point_source_blackbody.py`, `point_source_direct.py`, `brdf_lambertian.py`, `brdf_phong.py`).
 
 Subpackages:
 ```
@@ -242,7 +242,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 23 source + 16 tests
+### `api/` — 23 source + 17 tests
 
 Public scripting API.
 
@@ -285,6 +285,7 @@ gui/
 ├── config_scope.py      # ConfigurationScope — configured-parameter badges + scope actions (4b)
 ├── dialog_lifetime.py   # exec_dialog(dialog) — run a modal loop, then free the dialog (CU-216)
 ├── document_yaml.py     # is_study / serialize_document / load_document_from_text (4e)
+├── target_spec_guard.py # introduced_target_spec_conflict — CU-244 differential door guard shared by both clone-validate edit paths
 ├── tolerance_units.py   # Qt-free: per-field tolerance unit conversion (std=difference, low/high=absolute, sigma=dimensionless)
 ├── workers.py           # ConfigSetEvaluationWorker(QThread) — off-thread evaluate_all (Phase 4a)
 ├── widgets/             # one widget/dialog class per file (Rule 19 spirit)
@@ -460,7 +461,7 @@ source of truth, per the header.
 |------------------------|--------|-------|-------|
 | core/                  | 22     | 19    | foundational abstractions |
 | geometry/              | 7      | 5     | scene geometry / LOS (ADR-0006, ADR-0011) |
-| source/                | 43     | 33    | spec-form fan-out + shape catalog |
+| source/                | 44     | 33    | spec-form fan-out + shape catalog |
 | atmosphere/            | 15     | 15    | MODTRAN + simple + exo + tabulated + loaders |
 | optics/                | 31     | 22    | dual-path PSF/MTF + element model |
 | platform/              | 8      | 7     | smear, relative-motion smear, jitter, sampling, turbulence |
@@ -470,8 +471,8 @@ source of truth, per the header.
 | performance/           | 52     | 35    | one metric per module (Rule 19) |
 | io/                    | 11     | 11    | config, results, element_config |
 | cli/                   | 12     | 2     | subcommand-per-file (incl. `radiant gui`) |
-| api/                   | 20     | 13    | public + internal session |
-| gui/                   | 79     | 43    | PySide6 shell + 56 widgets + design-system theme — optional `gui` extra |
+| api/                   | 20     | 14    | public + internal session |
+| gui/                   | 80     | 43    | PySide6 shell + 56 widgets + design-system theme — optional `gui` extra |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
 | data/                  | 1      | 4     | packaged-data accessor |
 | **Subtotal**           | **322**| **219**| 541 non-init files |

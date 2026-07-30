@@ -28,7 +28,6 @@ import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.errors import AtmosphereValidationError
-from radiant.core.constants import R_EARTH_M
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterSet
 from radiant.core.spectral import SpectralData
@@ -37,16 +36,23 @@ from radiant.core.spectral import SpectralData
 # Constants used by geometry math
 # ---------------------------------------------------------------------------
 
-# Mean Earth radius [m] for the spherical-Earth slant-path correction —
-# the one canonical value from core.constants (Rule 13; CU-100).
-
-# Zenith angle (rad) above which the flat-Earth approximation breaks down
-# and the spherical correction kicks in. Per RADIANT_Atmosphere.md §4.2.
+# Zenith angle (rad) beyond which the plane-parallel column model stops being
+# the accurate description of the path and callers that have an alternative
+# must hand over to the exact spherical slant integral
+# (``atmosphere/segment_grazing.py`` over ``grazing_column.py``).  Measured
+# against that integral, ``sec ζ`` is high by 0.04 % at 30°, 0.4 % at 60° and
+# 3.8 % at 80°, and the error then runs away (13 % at 85°, 237 % at 89.4°).
+#
+# CU-274: this constant used to *also* switch ``slant_path_length_m`` onto a
+# root-form "spherical correction" that was not an air mass at all (see that
+# method), producing an 18 % discontinuity in transmittance at 80° for every
+# geometry.  The root form is gone; the constant now marks a hand-over point
+# for callers, not a formula switch inside this class.
 SPHERICAL_SWITCH_RAD: float = math.radians(80.0)
 
 # Hard ceiling on the zenith angle. The horizon (π/2) is excluded — the
-# slant path is finite under spherical correction but the simple model is
-# not trustworthy in that regime, so the ceiling sits a hair below.
+# plane-parallel column model is not trustworthy in that regime, so the
+# ceiling sits a hair below.
 ZENITH_CEILING_RAD: float = math.radians(89.5)
 
 
@@ -80,9 +86,10 @@ class AtmosphericGeometry:
         greater than ``sensor_altitude_m`` for uplooking geometries.
     path_zenith_rad:
         Zenith angle of the line of sight at the lower endpoint [rad].
-        Must satisfy ``0 ≤ θ ≤ ZENITH_CEILING_RAD``. Past
-        ``SPHERICAL_SWITCH_RAD`` the spherical-Earth correction is used
-        for ``slant_path_length_m`` and ``air_mass``.
+        Must satisfy ``0 ≤ θ ≤ ZENITH_CEILING_RAD``. ``slant_path_length_m``
+        and ``air_mass`` are plane-parallel (``sec θ``) over the whole
+        domain; past ``SPHERICAL_SWITCH_RAD`` callers that can should hand
+        over to :mod:`radiant.atmosphere.segment_grazing` (CU-274).
     solar_zenith_rad:
         Solar zenith angle [rad], for the single-scatter ``L_path``
         and reflected-solar paths. ``0 ≤ θ_sun ≤ π`` (widened from the
@@ -186,50 +193,83 @@ class AtmosphericGeometry:
         return abs(self.sensor_altitude_m - self.target_altitude_m)
 
     def slant_path_length_m(self) -> float:
-        """Slant-path length through the atmosphere [m].
+        """Plane-parallel slant-path length through the atmosphere [m].
 
-        Flat-Earth: ``L = Δh / cos(θ)`` for ``θ ≤ 80°``.
-
-        Spherical-Earth correction past ``80°``::
-
-            L = R_E · [√(cos²θ + 2(Δh/R_E) + (Δh/R_E)²) − cos θ]
+        ``L = Δh / cos(ζ)`` over the whole legal zenith domain
+        ``[0, ZENITH_CEILING_RAD]``, with ``Δh`` the *absorbing* thickness of
+        the segment (:meth:`_absorbing_thickness_m`, CU-255).
 
         Per ``docs/architecture/RADIANT_Atmosphere.md`` §4.2.
+
+        One formula, no branch (CU-274)
+        -------------------------------
+        Until 2026-07-29 a second, "spherical-Earth corrected" branch took over
+        past :data:`SPHERICAL_SWITCH_RAD`::
+
+            L = R_E · [√(cos²ζ + 2(Δh/R_E) + (Δh/R_E)²) − cos ζ]
+
+        That root form is not an air mass: it is the *geometric chord* of a
+        slab of thickness ``Δh`` on a spherical Earth, and an air mass is a
+        density-weighted path.  With an 8 km molecular scale height the
+        absorbing mass hugs the ground where curvature is negligible, so the
+        two are different quantities and the switch was a step, not a
+        refinement.  Measured against the exact spherical slant integral
+        (:func:`radiant.atmosphere.grazing_column.grazing_slant_column_km`,
+        molecular scale height, ground → 100 km):
+
+        =======  ==========  ===========  ==========
+        ζ [deg]  ``sec ζ``   root form    exact
+        =======  ==========  ===========  ==========
+        30       1.15470     1.15470       1.15422
+        60       2.00000     2.00000       1.99258
+        79.9     5.70234     (unused)      5.49989
+        80.1     5.81635     4.80715       5.60209
+        85       11.47371    7.06683      10.14005
+        89.4     95.49471   10.68472      28.37722
+        =======  ==========  ===========  ==========
+
+        The root form was 14 % low at 80.1°, 30 % at 85° and 62 % at 89.4°,
+        and it produced an 18 % *drop* in air mass across its own switch —
+        transmittance discontinuous in look angle for every scene class.
+        Removing it makes the model continuous, monotone in ζ, and internally
+        consistent: :class:`~radiant.atmosphere.simple.SimpleAtmosphere` is
+        plane-parallel everywhere else too (vertical columns × one air mass,
+        mean-altitude species weights, target-anchored emission height).
+
+        Accuracy past 80° is bought by *routing elsewhere*, not by patching
+        this formula: the exact spherical slant integral lives in
+        :mod:`radiant.atmosphere.segment_grazing`, and every caller that has
+        that route takes it at :data:`SPHERICAL_SWITCH_RAD` (the up-looking
+        sky background does — §4.2g).  Callers that do not (the down-looking
+        column, the solar column) now overestimate the air mass near the
+        horizon rather than underestimating it — a pessimistic SNR rather than
+        an optimistic one — and that residual is tracked as CU-275.
 
         For exo-atmospheric paths (``Δh = 0``) the slant path is zero.
         Callers needing a positive path length must use a model whose
         contract guarantees ``slant_path_length_m > 0`` (i.e. not
         ``ExoAtmosphere``).
         """
-        dh = self._absorbing_thickness_m()
-        cos_theta = math.cos(self.path_zenith_rad)
-        if self.path_zenith_rad <= SPHERICAL_SWITCH_RAD:
-            return dh / cos_theta
-        # Spherical-Earth correction. The formulation is the standard
-        # plane-parallel-atmosphere root-form Air Mass approximation
-        # specialised to a finite-thickness slab — which is why it must be given
-        # the *slab* thickness, not the endpoint separation (CU-255; see
-        # :meth:`_absorbing_thickness_m`).
-        x = dh / R_EARTH_M
-        radicand = cos_theta * cos_theta + 2.0 * x + x * x
-        return R_EARTH_M * (math.sqrt(radicand) - cos_theta)
+        return self._absorbing_thickness_m() / math.cos(self.path_zenith_rad)
 
     def _absorbing_thickness_m(self) -> float:
         """Vertical extent of *atmosphere* on this segment [m] (CU-255).
 
-        Both branches of :meth:`slant_path_length_m` are slab formulas: they
-        answer "how much air does this ray traverse", not "how far apart are the
-        endpoints". Where the path ends inside the atmosphere the two coincide,
-        which is why the distinction went unnoticed.
+        :meth:`slant_path_length_m` is a slab formula: it answers "how much air
+        does this ray traverse", not "how far apart are the endpoints". Where
+        the path ends inside the atmosphere the two coincide, which is why the
+        distinction went unnoticed.
 
         For an up-looking segment ending **above** the column they do not. A
-        ground site viewing a 700 km target gave Δh = 700 km, i.e. x = 0.110 in
-        the root form — a slab a hundred times thicker than the real atmosphere.
-        The returned length then saturated and optical depth *fell* as the ray
-        tilted further from vertical: on scenario 10.3, τ(0.55 µm) went 0.0137 at
-        79.9° to 0.0980 at 80.1°, a physically impossible air mass.
+        ground site viewing a 700 km target gives Δh = 700 km — a slab a hundred
+        times thicker than the real atmosphere — so the reported length would be
+        700 km/cos ζ of which 600 km is vacuum. Under the pre-CU-274 root form
+        the same input also made optical depth *fall* as the ray tilted further
+        from vertical (scenario 10.3: τ(0.55 µm) 0.0137 at 79.9° → 0.0980 at
+        80.1°); that branch is gone, but the thickness clamp is still what makes
+        the reported length and the air mass describe the absorbing path.
 
-        Clamping at the column top removes that: vacuum above the column
+        Clamping at the column top does that: vacuum above the column
         contributes no extinction, so excluding it loses nothing.
         """
         h_low = min(self.sensor_altitude_m, self.target_altitude_m)
@@ -263,7 +303,14 @@ class AtmosphericGeometry:
         )
 
     def air_mass(self) -> float:
-        """Dimensionless air mass ``L_slant / Δh``.
+        """Dimensionless air mass ``L_slant / Δh`` — ``sec(ζ)`` (CU-274).
+
+        Since the root-form branch was removed the ratio is exactly
+        ``sec(path_zenith_rad)`` for every non-degenerate geometry: the
+        absorbing thickness cancels between numerator and denominator. It is
+        still written as the ratio rather than as ``1/cos ζ`` because that is
+        the *definition* of an air mass, and because ``Δh = 0`` needs the
+        conventional answer below.
 
         For ``Δh = 0`` (no atmosphere along the line of sight) the air
         mass is conventionally ``1`` — this matches the

@@ -114,7 +114,7 @@ class TestDownLookingIsNotRerouted:
             np.testing.assert_array_equal(
                 getattr(via.quantities, field), getattr(direct, field), err_msg=field
             )
-        assert via.sky_source_radiance is None
+        assert via.sky_radiance_at_aperture is None
 
     @pytest.mark.level1
     def test_down_looking_stage_still_runs(self, wl: np.ndarray) -> None:
@@ -192,9 +192,17 @@ class TestUpLookingComposition:
         np.testing.assert_array_equal(q_up.tau_up, q_down.tau_up)
 
     @pytest.mark.level1
-    def test_ground_to_space_sst_runs(self, atm: SimpleAtmosphere) -> None:
-        """E3 — exo target seen from inside the column: the observer leg is the
-        whole atmosphere, the continuation beyond it is vacuum."""
+    def test_ground_to_space_sst_has_a_sky(self, atm: SimpleAtmosphere) -> None:
+        """E3 — exo target seen from inside the column.
+
+        The observer leg is the whole atmosphere and everything beyond the
+        target is vacuum, but the sensor is on the ground: it still looks up
+        through 100 km of air, so the sky background is emphatically **not**
+        zero.  Before CU-254/CU-260 it was exactly zero — the sky was rooted at
+        the *target* plane and short-circuited for ``h_tgt ≥ h_atm_top``, so
+        every ground-to-space and air-to-space scene ran against a black sky
+        with no warning.
+        """
         wl_vis = np.linspace(0.4, 1.0, 31)
         los = LineOfSightGeometry(
             h_tgt=8.0e5,
@@ -208,13 +216,21 @@ class TestUpLookingComposition:
         assert float(q.tau_up.max()) < 1.0  # a real column was traversed
         np.testing.assert_array_equal(q.tau_sun, np.ones_like(wl_vis))  # vacuum solar leg
         np.testing.assert_array_equal(q.E_sky_scattered, np.zeros_like(wl_vis))
-        np.testing.assert_array_equal(products.sky_source_radiance, np.zeros_like(wl_vis))
+        sky = products.sky_radiance_at_aperture
+        assert sky is not None
+        assert float(sky.min()) > 0.0
+        # The sensor-rooted sky is the ground-level vertical column, so it must
+        # equal a direct evaluation of exactly that — no target dependence.
+        from radiant.atmosphere.sky_radiance import sky_radiance_along_los
+
+        direct = _quiet(
+            sky_radiance_along_los, atm, wl_vis, 0.0, 0.0, theta_s_rad=0.6, delta_phi_rad=-math.pi
+        )
+        np.testing.assert_allclose(sky, direct, rtol=1e-14)
 
     @pytest.mark.level1
-    def test_sky_background_is_the_observer_leg_carrying_the_continuation(
-        self, atm: SimpleAtmosphere, wl: np.ndarray
-    ) -> None:
-        """L_bg = L_sky·τ_obs + L_obs — the composition, recomputed."""
+    def test_sky_background_is_the_sky_itself(self, atm: SimpleAtmosphere, wl: np.ndarray) -> None:
+        """L_bg,aperture = L_sky — the arm is a pass-through (CU-254)."""
         from radiant.atmosphere.assembly import assemble_background_at_aperture
 
         los = LineOfSightGeometry(
@@ -222,10 +238,45 @@ class TestUpLookingComposition:
         )
         p = _quiet(evaluate_path_topology, atm, wl, los, _params(0.0))
         bg = assemble_background_at_aperture(
-            SkyBackground(), p.quantities, los, sky_source_radiance=p.sky_source_radiance
+            SkyBackground(), p.quantities, los, sky_radiance_at_aperture=p.sky_radiance_at_aperture
         )
-        expected = p.sky_source_radiance * p.quantities.tau_up + p.quantities.L_path_up
-        np.testing.assert_allclose(bg, expected, rtol=1e-15)
+        np.testing.assert_array_equal(bg, p.sky_radiance_at_aperture)  # type: ignore[arg-type]
+
+    @pytest.mark.level1
+    def test_sky_background_does_not_depend_on_the_target_altitude(
+        self, atm: SimpleAtmosphere, wl: np.ndarray
+    ) -> None:
+        """CU-254, stated as the invariant it violated.
+
+        Hold the sensor and the *pointing direction at the sensor* fixed and
+        slide the target along the ray.  The background behind the target
+        cannot depend on where along the ray the target sits, so every
+        altitude must give the identical array — including a target above
+        ``h_atm_top``, where the whole continuation is vacuum.
+        """
+        zeta_sensor = math.radians(30.0)
+        skies = []
+        for h_tgt in (1_000.0, 10_000.0, 20_000.0, 99_000.0, 500_000.0):
+            # theta_o is the zenith AT THE TARGET of the target→sensor
+            # direction; r·sin ζ is invariant along the ray, so the sensor-side
+            # zenith fixes it.
+            sin_arg = R_EARTH_M * math.sin(zeta_sensor) / (R_EARTH_M + h_tgt)
+            los = LineOfSightGeometry(
+                h_tgt=h_tgt,
+                h_sensor=0.0,
+                theta_o=math.pi - math.asin(sin_arg),
+                h_atm_top=H_ATM_TOP_M,
+            )
+            p = _quiet(evaluate_path_topology, atm, wl, los, _params(0.0))
+            assert p.sky_radiance_at_aperture is not None
+            skies.append(p.sky_radiance_at_aperture)
+        for other in skies[1:]:
+            # Not bit-identical: the sensor-side zenith is recovered from θ_o
+            # through the viewing triangle, so each altitude carries its own
+            # few-ULP round-off in that inversion.  Measured spread over this
+            # sweep is 5.7e-16 relative; the tolerance is two orders above the
+            # residual and eleven below the 12.3 % defect it guards.
+            np.testing.assert_allclose(other, skies[0], rtol=1e-13, atol=0.0)
 
 
 class TestLevelComposition:
@@ -262,9 +313,9 @@ class TestLevelComposition:
             h_atm_top=H_ATM_TOP_M,
         )
         p = _quiet(evaluate_path_topology, atm, wl_lwir, los, _params(30.0))
-        assert p.sky_source_radiance is not None
-        assert np.all(np.isfinite(p.sky_source_radiance))
-        assert float(p.sky_source_radiance.min()) > 0.0
+        assert p.sky_radiance_at_aperture is not None
+        assert np.all(np.isfinite(p.sky_radiance_at_aperture))
+        assert float(p.sky_radiance_at_aperture.min()) > 0.0
 
     @pytest.mark.level1
     def test_level_arm_transmittance_falls_with_range(self, atm: SimpleAtmosphere) -> None:

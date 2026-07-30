@@ -131,16 +131,28 @@ class TestCrossModelConsistency:
         np.testing.assert_allclose(od_grazing, od_column, rtol=0.01)
 
     @pytest.mark.level0
-    def test_diverges_past_the_ceiling_and_the_grazing_form_is_larger(
+    def test_diverges_past_the_ceiling_and_the_column_form_overstates(
         self, atm: SimpleAtmosphere, wl: np.ndarray
     ) -> None:
-        """At 89° the air-mass form understates the true slant column by ~3×.
+        """At 89° the plane-parallel form **overstates** the true slant column ~2×.
 
         This is the quantitative statement of *why* ``ColumnSegmentSpec``
-        refuses past 89.5° and this module exists.  The factor is larger than
-        the molecular-only ratio (≈ 2.4) because water vapour's 2 km scale
-        height hugs the tangent point far more tightly than the 8 km molecular
-        one — the per-species air mass is exactly what captures that.
+        refuses past 89.5° and this module exists.
+
+        The sign flipped with CU-274.  Before it, the column form switched to a
+        root-form "spherical correction" past 80° that under-counted the air
+        (grazing/column ≈ 2.9 — the column was ~3× too *thin*).  That branch was
+        the geometric chord of a 100 km slab rather than a density-weighted
+        path, and it made transmittance discontinuous at 80°, so it was
+        deleted; the column form is now ``sec ζ`` throughout, which at 89°
+        over-counts (grazing/column ≈ 0.51 — the column is ~2× too *thick*,
+        because ``sec 89° = 57.3`` against a true molecular air mass of 26.8 and
+        a still-tighter water-vapour one).  Either way the two disagree by
+        about a factor of two at 89°, which is the point.
+
+        The near-horizon direction is now the conservative one — too much air
+        means pessimistic transmittance and pessimistic SNR, rather than the
+        optimistic answer the root form gave.
         """
         z = math.radians(89.0)
         r_tan = R_EARTH_M * math.sin(z)
@@ -149,7 +161,33 @@ class TestCrossModelConsistency:
             atm, wl, ColumnSegmentSpec(h_low_m=0.0, h_high_m=H_ATM_TOP_M, zeta_low_rad=z)
         )
         ratio = float(np.median(od_grazing / od_column))
-        assert 2.5 < ratio < 3.2
+        assert 0.45 < ratio < 0.60
+
+    @pytest.mark.level0
+    def test_agrees_at_the_eighty_degree_hand_over(
+        self, atm: SimpleAtmosphere, wl: np.ndarray
+    ) -> None:
+        """The two forms agree to ≈ 3 % in OD at 80°, which is why the sky hands
+        over there.
+
+        CU-225/CU-274: ``uplooking_quantities`` switches the sky product from
+        the column form to this module at ``SPHERICAL_SWITCH_RAD`` rather than
+        at the 89.5° ceiling, where the same comparison is a factor of two.
+        The size of the remaining step *is* this number — the plane-parallel
+        model's own error where it is retired.  Measured here: grazing/column
+        OD = 0.973 (the plane-parallel form is 2.8 % thick; ``sec 80° = 5.759``
+        against a true molecular air mass of 5.552, and water vapour's 2 km
+        scale height hugs the curve harder still).  The *sky radiance* step is
+        smaller than the OD step because the product saturates as ``1 − τ``:
+        band-mean 0.64 % LWIR, 0.36 % MWIR, 0.47 % VIS from the ground.
+        """
+        z = math.radians(80.0)
+        r_tan = R_EARTH_M * math.sin(z)
+        od_grazing, _ = grazing_segment_optical_depth(atm, wl, r_tan, 0.0, H_ATM_TOP_M)
+        od_column, _, _ = column_segment_optical_depth(
+            atm, wl, ColumnSegmentSpec(h_low_m=0.0, h_high_m=H_ATM_TOP_M, zeta_low_rad=z)
+        )
+        np.testing.assert_allclose(od_grazing, od_column, rtol=0.03)
 
     @pytest.mark.level0
     def test_radiance_agrees_with_the_column_evaluator_at_moderate_zenith(

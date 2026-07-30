@@ -98,11 +98,13 @@ class TopologyProducts:
         The eight-field :class:`AtmosphericQuantities` bundle the §6.1
         assembly consumes — the same contract for every topology (guardrail
         G1: no flat-bundle accretion).
-    sky_source_radiance:
-        Sky radiance along the LOS continuation at the target plane
+    sky_radiance_at_aperture:
+        Sky radiance along the whole LOS, evaluated from the sensor
         [W/m²/sr/µm], or ``None`` when the topology has no sky termination
         (every down-looking scene).  Consumed only by the ``SkyBackground``
-        assembly arm.
+        assembly arm, which passes it through unmodified — it is already at
+        the aperture (CU-254; renamed from ``sky_source_radiance``, which
+        named the superseded target-plane quantity).
     provenance:
         How this topology resolved, as a plain dict — the observer-leg
         description, the segment provenance, the GF-9 illumination note and
@@ -116,7 +118,7 @@ class TopologyProducts:
     """
 
     quantities: AtmosphericQuantities
-    sky_source_radiance: np.ndarray | None = None
+    sky_radiance_at_aperture: np.ndarray | None = None
     provenance: dict[str, Any] | None = None
 
 
@@ -164,7 +166,7 @@ def evaluate_path_topology(
         # run instead of raising.
         return TopologyProducts(
             quantities=_vacuum_quantities(wavelength_um, los),
-            sky_source_radiance=np.zeros_like(
+            sky_radiance_at_aperture=np.zeros_like(
                 np.asarray(wavelength_um, dtype=np.float64), dtype=np.float64
             ),
         )
@@ -172,7 +174,7 @@ def evaluate_path_topology(
     products: UplookingProducts = evaluate_uplooking_topology(model, wavelength_um, los, params)
     return TopologyProducts(
         quantities=products.quantities,
-        sky_source_radiance=products.sky_source_radiance,
+        sky_radiance_at_aperture=products.sky_radiance_at_aperture,
         provenance=products.provenance,
     )
 

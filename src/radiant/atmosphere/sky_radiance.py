@@ -54,7 +54,11 @@ from radiant.atmosphere.segments import ColumnSegmentSpec, validate_wavelength_g
 from radiant.atmosphere.simple import SimpleAtmosphere
 from radiant.core.parameters import ParameterBoundsError
 
-__all__ = ["SCATTERED_SKY_PROVISIONAL_MAX_UM", "sky_radiance_along_los"]
+__all__ = [
+    "SCATTERED_SKY_PROVISIONAL_MAX_UM",
+    "sky_radiance_along_los",
+    "warn_if_scattered_sky_provisional",
+]
 
 # Wavelengths below this carry the provisional-scattered-sky warning.  It is
 # the MWIR band edge: at and above it the sky radiance the model returns is
@@ -125,7 +129,7 @@ def sky_radiance_along_los(
             context={"h_start_m": h_start_m},
         )
 
-    _warn_if_scattered_sky_provisional(lam, theta_s_rad)
+    warn_if_scattered_sky_provisional(lam, theta_s_rad)
 
     if h_start_m >= h_atm_top_m:
         # Looking up from vacuum: no emitting or scattering material at all.
@@ -149,11 +153,24 @@ def sky_radiance_along_los(
     return np.asarray(segment.L_toward_lower, dtype=np.float64)
 
 
-def _warn_if_scattered_sky_provisional(
+def warn_if_scattered_sky_provisional(
     lam: np.ndarray,
     theta_s_rad: float | None,
 ) -> None:
-    """Emit the plan §8.3 provisional-scattered-sky warning when applicable."""
+    """Emit the plan §8.3 provisional-scattered-sky warning when applicable.
+
+    Public because the band-gating *policy* must be applied wherever a sky
+    radiance is produced, not only where this module produces it (CU-260):
+    :mod:`radiant.atmosphere.uplooking_quantities` calls it directly on the
+    near-horizon branch, where the sky comes from
+    :mod:`radiant.atmosphere.segment_grazing` and never passes through
+    :func:`sky_radiance_along_los`.  Keeping the predicate here — rather than
+    duplicating it at each production site — is what stops the two from
+    drifting apart.
+
+    Exactly one call fires per scene: the two production branches are
+    mutually exclusive.
+    """
     if theta_s_rad is None:
         return
     if math.cos(theta_s_rad) <= COS_HORIZON_TOLERANCE:

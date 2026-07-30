@@ -1,12 +1,16 @@
 """The ``SkyBackground`` (matrix B2) assembly arm.
 
-Structurally the ``GroundBackground`` arm with a different source plane: for an
-up-looking or level topology the LOS terminates on space, so the background
-source sits at the *target* plane and ``τ_full_up`` / ``L_path_full`` carry the
-observer leg.  What is asserted here is the arithmetic identity, the
-source-emission/at-aperture consistency, and the Rule-17 refusals — plus the
-zero-drift statement that the new keyword changes nothing for the four
-pre-existing variants.
+A **pass-through** arm since CU-254: the sky radiance handed in is evaluated
+from the sensor over the whole LOS, so it is already the at-aperture
+background and the arm applies no transport at all (``τ ≡ 1``,
+``L_path ≡ 0``).  It used to be the ``GroundBackground`` arm with the source
+plane moved to the target (``L_sky·τ_full_up + L_path_full``), which made the
+assembled background depend on where along a fixed ray the target sat.
+
+What is asserted here is that identity (and that ``τ_full_up`` /
+``L_path_full`` are genuinely *not* consulted), the source-emission/at-aperture
+consistency, and the Rule-17 refusals — plus the zero-drift statement that the
+sky keyword changes nothing for the four pre-existing variants.
 """
 
 from __future__ import annotations
@@ -56,22 +60,54 @@ def atm(wl: np.ndarray) -> AtmosphericQuantities:
 
 class TestSkyArm:
     @pytest.mark.level0
-    def test_at_aperture_is_the_composition(
+    def test_at_aperture_is_the_sky_itself(
         self, wl: np.ndarray, atm: AtmosphericQuantities
     ) -> None:
-        """L_bg = L_sky · τ_full_up + L_path_full [W/m²/sr/µm]."""
+        """L_bg,aperture = L_sky [W/m²/sr/µm] — no transport (CU-254)."""
         sky = np.linspace(0.05, 0.25, wl.size)
-        got = assemble_background_at_aperture(SkyBackground(), atm, None, sky_source_radiance=sky)
-        np.testing.assert_allclose(got, sky * atm.tau_full_up + atm.L_path_full, rtol=0.0, atol=0.0)
+        got = assemble_background_at_aperture(
+            SkyBackground(), atm, None, sky_radiance_at_aperture=sky
+        )
+        np.testing.assert_array_equal(got, sky)
+
+    @pytest.mark.level0
+    def test_observer_leg_fields_are_not_consulted(
+        self, wl: np.ndarray, atm: AtmosphericQuantities
+    ) -> None:
+        """The arm must ignore τ_full_up / L_path_full entirely.
+
+        This is the regression guard for CU-254: the defect was precisely that
+        the arm re-propagated an already-composed quantity, so perturbing the
+        observer leg while holding the sky fixed must not move the answer.
+        """
+        sky = np.linspace(0.05, 0.25, wl.size)
+        perturbed = AtmosphericQuantities(
+            wavelength_um=atm.wavelength_um,
+            tau_sun=atm.tau_sun,
+            tau_up=atm.tau_up,
+            tau_full_up=np.full_like(wl, 0.01),
+            E_TOA=atm.E_TOA,
+            E_sky_scattered=atm.E_sky_scattered,
+            E_sky_thermal=atm.E_sky_thermal,
+            L_path_up=atm.L_path_up,
+            L_path_full=np.full_like(wl, 99.0),
+        )
+        base = assemble_background_at_aperture(
+            SkyBackground(), atm, None, sky_radiance_at_aperture=sky
+        )
+        moved = assemble_background_at_aperture(
+            SkyBackground(), perturbed, None, sky_radiance_at_aperture=sky
+        )
+        np.testing.assert_array_equal(base, moved)  # type: ignore[arg-type]
 
     @pytest.mark.level0
     def test_source_emission_is_the_sky_itself(
         self, wl: np.ndarray, atm: AtmosphericQuantities
     ) -> None:
-        """Gap 91: the pre-atmosphere background radiance IS the sky column."""
+        """Gap 91: a pass-through arm's source emission is its at-aperture value."""
         sky = np.linspace(0.05, 0.25, wl.size)
         got = assemble_background_source_emission(
-            SkyBackground(), atm, None, sky_source_radiance=sky
+            SkyBackground(), atm, None, sky_radiance_at_aperture=sky
         )
         np.testing.assert_array_equal(got, sky)
 
@@ -79,24 +115,25 @@ class TestSkyArm:
     def test_gap91_round_trip_holds_exactly(
         self, wl: np.ndarray, atm: AtmosphericQuantities
     ) -> None:
-        """at_aperture == source_emission · τ_full_up + L_path_full."""
+        """at_aperture == source_emission, the pass-through-variant identity."""
         sky = np.linspace(0.05, 0.25, wl.size)
-        ap = assemble_background_at_aperture(SkyBackground(), atm, None, sky_source_radiance=sky)
-        src = assemble_background_source_emission(
-            SkyBackground(), atm, None, sky_source_radiance=sky
+        ap = assemble_background_at_aperture(
+            SkyBackground(), atm, None, sky_radiance_at_aperture=sky
         )
-        np.testing.assert_array_equal(ap, src * atm.tau_full_up + atm.L_path_full)
+        src = assemble_background_source_emission(
+            SkyBackground(), atm, None, sky_radiance_at_aperture=sky
+        )
+        np.testing.assert_array_equal(ap, src)
 
     @pytest.mark.level0
-    def test_zero_sky_reduces_to_the_observer_leg_emission(
+    def test_zero_sky_is_a_zero_background(
         self, wl: np.ndarray, atm: AtmosphericQuantities
     ) -> None:
-        """The E3/SST limit: nothing behind the target, so the background is
-        exactly what the observer leg itself emits."""
+        """The LEO→GEO vacuum limit: no medium anywhere, so no background."""
         got = assemble_background_at_aperture(
-            SkyBackground(), atm, None, sky_source_radiance=np.zeros_like(wl)
+            SkyBackground(), atm, None, sky_radiance_at_aperture=np.zeros_like(wl)
         )
-        np.testing.assert_array_equal(got, atm.L_path_full)
+        np.testing.assert_array_equal(got, np.zeros_like(wl))
 
 
 class TestFailureModes:
@@ -108,14 +145,14 @@ class TestFailureModes:
         with pytest.raises(ParameterBoundsError) as exc:
             assemble_background_at_aperture(SkyBackground(), atm, None)
         message = str(exc.value)
-        assert "sky_source_radiance is None" in message
+        assert "sky_radiance_at_aperture is None" in message
         assert "inflate SNR" in message
 
     @pytest.mark.level0
     def test_off_grid_sky_raises(self, atm: AtmosphericQuantities) -> None:
         with pytest.raises(ParameterBoundsError, match="does not match"):
             assemble_background_at_aperture(
-                SkyBackground(), atm, None, sky_source_radiance=np.zeros(3)
+                SkyBackground(), atm, None, sky_radiance_at_aperture=np.zeros(3)
             )
 
     @pytest.mark.level0
@@ -123,11 +160,13 @@ class TestFailureModes:
         bad = np.zeros_like(wl)
         bad[3] = -1e-9
         with pytest.raises(ParameterBoundsError, match="negative"):
-            assemble_background_at_aperture(SkyBackground(), atm, None, sky_source_radiance=bad)
+            assemble_background_at_aperture(
+                SkyBackground(), atm, None, sky_radiance_at_aperture=bad
+            )
 
     @pytest.mark.level0
     def test_source_emission_arm_shares_the_refusal(self, atm: AtmosphericQuantities) -> None:
-        with pytest.raises(ParameterBoundsError, match="sky_source_radiance is None"):
+        with pytest.raises(ParameterBoundsError, match="sky_radiance_at_aperture is None"):
             assemble_background_source_emission(SkyBackground(), atm, None)
 
 
@@ -154,7 +193,7 @@ class TestZeroDriftForOtherVariants:
             UserSpectralBackground(L_bg=l_bg),
         ):
             without = assemble_background_at_aperture(bg, atm, None)
-            with_sky = assemble_background_at_aperture(bg, atm, None, sky_source_radiance=sky)
+            with_sky = assemble_background_at_aperture(bg, atm, None, sky_radiance_at_aperture=sky)
             np.testing.assert_array_equal(without, with_sky)  # type: ignore[arg-type]
         assert GroundBackground(epsilon_g=epsilon_g, T_g=290.0) is not None
 

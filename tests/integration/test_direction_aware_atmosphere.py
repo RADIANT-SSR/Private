@@ -320,6 +320,70 @@ class TestGroundToAirMwirDetection:
 
 
 # ---------------------------------------------------------------------------
+# 1a. The CU-254 invariant, at chain level
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level2
+class TestBackgroundIsIndependentOfTargetPositionAlongTheRay:
+    """CU-254 — slide the target along a fixed up-looking ray.
+
+    The sensor and the pointing direction *at the sensor* are held fixed and
+    only ``geometry.target_altitude_m`` changes, so the sky behind the target
+    is the same physical column every time.  A background that moves with the
+    target is a composition error, not physics.
+
+    Reproduced on the shipped 10.1 configuration before the fix (band MWIR,
+    night, ζ_low = 30°, ground sensor):
+
+    ======================  =================
+    target altitude         ``background_e``
+    ======================  =================
+    10 km                   1.94207e5 e⁻
+    20 km                   2.14046e5 e⁻
+    99 km (whole column)    2.21479e5 e⁻
+    ======================  =================
+
+    — a 12.3 % under-report at 10 km, always the same sign, so SCNR for
+    low-altitude targets was systematically optimistic.  All three rows must
+    now equal the whole-column value.  ``signal_e`` legitimately *does* vary
+    with target altitude (a more distant, more attenuated target), and is
+    asserted to keep varying so the test cannot pass by flattening everything.
+    """
+
+    ZETA_LOW_DEG = 30.0
+    ALTITUDES_M = (10_000.0, 20_000.0, 50_000.0, 99_000.0)
+
+    def test_background_is_flat_while_signal_is_not(self) -> None:
+        backgrounds: list[float] = []
+        signals: list[float] = []
+        for h_target_m in self.ALTITUDES_M:
+            result, _ = _run_scene(
+                "MWIR",
+                MWIR_WL,
+                sensor_altitude_m=0.0,
+                target_altitude_m=h_target_m,
+                path_zenith_rad=math.radians(self.ZETA_LOW_DEG),
+                solar_illumination="night",
+            )
+            integ = result.stage_outputs["spectral_integration"]
+            backgrounds.append(float(integ["background_e"]))
+            signals.append(float(integ["signal_e"]))
+
+        reference = backgrounds[-1]  # the 99 km whole-column row
+        for altitude_m, value in zip(self.ALTITUDES_M, backgrounds, strict=True):
+            # Tolerance is round-off in recovering ζ_low through the viewing
+            # triangle, not a physics allowance: the pre-fix spread was 12.3 %.
+            assert value == pytest.approx(reference, rel=1e-12), (
+                f"background_e moved with the target at {altitude_m:.0f} m"
+            )
+        assert signals[0] > 4.0 * signals[-1], (
+            "signal_e must still fall with target range — a flat signal would "
+            "mean the scene stopped responding to geometry at all"
+        )
+
+
+# ---------------------------------------------------------------------------
 # 2. Air → air level MWIR (worked example E5, owner priority 2)
 # ---------------------------------------------------------------------------
 

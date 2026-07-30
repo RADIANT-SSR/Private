@@ -293,6 +293,22 @@ class SpectralIntegrationStage:
             # Pure target contribution = at_aperture_target − L_path_up
             # Pure background contribution = at_aperture_background − L_path_full
             # Path radiance is added back once, unweighted by ff.
+            #
+            # Up-looking / level topology (CU-254).  The SkyBackground arm is
+            # a pass-through — its at-aperture radiance is a whole-LOS sky
+            # evaluated from the sensor, not `L_bg · τ_full_up + L_path_full`.
+            # The rearrangement above stays *exact* anyway, because that
+            # topology publishes L_path_full == L_path_up (both are the
+            # observer leg), so the algebra collapses to the honest form
+            #   L_mixed = ff·(L_target·τ_up·EE + L_path) + (1 − ff)·L_bg,ap.
+            # What does NOT survive is the sign of the intermediate: with a
+            # daytime VIS/NIR sun the observer leg's single-scatter radiance
+            # can exceed the whole column's (the two weight their species
+            # split at different mean altitudes — CU-260), so
+            # `L_bg_only_at_aperture` may be negative there.  It is a bare
+            # algebraic term with no independent physical meaning on this
+            # arm; L_mixed itself stays non-negative and correct.  Do not
+            # "fix" it by clamping — that would break the identity.
             source_out = state.stage_outputs["source"]
             fill_fraction: float = source_out["fill_fraction"]
 

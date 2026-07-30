@@ -20,6 +20,55 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **`TopologyProducts.sky_source_radiance` is now `sky_radiance_at_aperture`, and the
+  `SkyBackground` assembly arm is a pass-through (CU-254).** The keyword argument on
+  `assemble_background_at_aperture()` and `assemble_background_source_emission()` is
+  renamed to match. The quantity changed meaning, not just name: it used to be the sky
+  at the *target* plane, which assembly re-propagated as `L_sky·τ_full_up + L_path_full`;
+  it is now the whole line of sight evaluated from the *sensor*, so it is already the
+  at-aperture background and that arm applies no transport at all. Code that passed the
+  old keyword raises `TypeError`; code that read the old field raises `AttributeError`.
+
+### Fixed
+- **Results-affecting (up-looking scenes): the sky background no longer depends on where
+  along the ray the target sits (CU-254).** The per-segment single-effective-temperature
+  graybody is not additive, so splitting the sky column at the target plane traded part
+  of a warm ground-anchored emitter for a cold target-anchored one. On the shipped
+  scenario 10.1, varying only `geometry.target_altitude_m` at fixed pointing, the
+  background ran 1.94207e5 e⁻ (10 km target) → 2.14046e5 (20 km) → 2.21479e5 (whole
+  column); all three are now 2.21479e5. **Direction: up, by up to ~14 % for
+  low-altitude targets** (SCNR was correspondingly optimistic). Target signal is
+  unchanged. **Level scenes are bit-identical** — a level ray is tangent at the chord
+  midpoint, so its sky keeps the two-segment composition (a sensor-rooted arc would drop
+  up to 25 % of the traversed column) and therefore keeps the residual dependence,
+  tracked as CU-276. Down-looking scenes are untouched.
+- **Results-affecting (up-looking/level near-horizon): the sky hands over to the exact
+  spherical slant integral at 80° instead of 89.5° (CU-225).** The plane-parallel column
+  form was carried 9.5° past the point where its air mass stops being `sec ζ`. The
+  hand-over discontinuity in band-mean LWIR sky radiance drops from ≈ 8 % (≈ 28 % on the
+  3 km level arm originally measured) to **0.64 %**, and the whole 80–89.5° band is now
+  served by the exact integral rather than by an air mass that was 14–62 % low there.
+  Scenes below 80° zenith are unaffected.
+- **Results-affecting (near-horizon, >80° only): the "spherical-Earth correction" branch
+  of `AtmosphericGeometry.slant_path_length_m` is removed (CU-274).** It computed the
+  geometric chord of a 100 km slab rather than a density-weighted air mass, and made the
+  air mass *drop* 18 % across its own switch (5.7023 at 79.9° → 4.8072 at 80.1°) — so
+  transmittance was discontinuous in look angle for every scene class, down-looking
+  included. `L_slant = Δh_absorbing / cos ζ` now covers the whole legal domain, so the
+  model is continuous and monotone in ζ. **Nothing at or below 80° moves** (it was
+  already `sec ζ`), and no shipped scenario exceeds 37.5° LOS zenith or 40° solar zenith.
+  Past 80° the near-horizon air mass is now overestimated (+13 % at 85°, +237 % at 89.4°
+  against the exact integral) rather than underestimated — pessimistic SNR rather than
+  optimistic — for the callers that have no grazing route; tracked as CU-275.
+- **The provisional VIS/NIR sky warning now reaches the ground-to-space and air-to-space
+  classes (CU-260, partial).** The ADR-0011 decision-10 `UserWarning` lives on the path
+  through `sky_radiance_along_los`, which an exo-altitude target short-circuited before
+  it was ever called — so exactly the daytime SST scenes the band gating exists for ran
+  silently. Rooting the sky at the sensor removes the short-circuit, and the near-horizon
+  branch now emits the warning explicitly (`warn_if_scattered_sky_provisional` is public
+  for that purpose). The species-split half of CU-260 is unfixed and remains open.
+
 ### Fixed
 - **A rejected Parameter-Editor Apply no longer writes a tolerance (CU-219).** The
   single-value path committed the tolerance before the value, so when the value write

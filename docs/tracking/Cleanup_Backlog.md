@@ -12,6 +12,16 @@
 
 ## Open
 
+### CU-277 — `lint-imports` is red on `origin/main`: a GUI test imports `radiant.performance` directly
+
+**Discovered**: Backlog-Reduction, up-looking sky-model cluster (branch `atmo/sky-composition`), 2026-07-29 — running the merge gate battery.
+**Status**: Open.
+**File**: `src/radiant/gui/tests/test_performance_instrument.py:288`.
+**Symptom**: to be completed on the branch.
+**Why it still matters**: to be completed on the branch.
+**Suggested fix**: to be completed on the branch. Related: [[CU-251]], [[CU-164]].
+
+
 ### CU-276 — The level-topology sky still composes two segments, so it keeps the CU-254 target-position dependence
 
 **Discovered**: Backlog-Reduction, up-looking sky-model cluster (branch `atmo/sky-composition`), 2026-07-29 — while fixing [[CU-254]].

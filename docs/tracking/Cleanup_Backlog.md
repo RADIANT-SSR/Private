@@ -12,6 +12,42 @@
 
 ## Open
 
+### CU-308 — The `_illumination_products` exo branch is guarded by data coverage, not by code
+
+**Discovered**: Overnight backlog run, CU-226 close-out, 2026-07-30.
+**Status**: Open — latent until a taller up-looking family lands.
+**File**: `src/radiant/atmosphere/uplooking_quantities.py::_illumination_products` (exo branch).
+**Symptom**: with a library-backed observer leg, the exo branch (target at or above `h_atm_top`) is now structurally reachable. It is unreachable in practice only because the shipped up-looking ladder tops out at 20 km — i.e. the guard is the data's coverage, not a check.
+**Why it still matters**: the moment a taller up-looking family ships (batch 2), the branch goes live with no test and no explicit contract. Data-shaped guards are invisible to the next author.
+**Suggested fix**: (a) inline, S — make the constraint explicit (refuse or handle the exo case in the library branch, with a test), rather than relying on the ladder's top rung. Category B. Related: [[CU-226]], [[CU-224]].
+
+### CU-307 — The CU-167 non-axis warning fires on every up-looking library query
+
+**Discovered**: Overnight backlog run, CU-226 close-out, 2026-07-30.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/interpolated.py` (CU-167 non-axis warning); `modtran/interpolated/midlat_summer_uplooking_ladder/`.
+**Symptom**: the shipped up-looking ladder was rendered at a single solar zenith (0.5236 rad = 30 degrees), so every query with a different `solar_zenith_rad` emits the CU-167 "is IGNORED" `UserWarning` — the shipped default scene warns twice per run.
+**Why it still matters**: correct behaviour producing routine noise trains operators to ignore the warning that exists to catch a real mis-specification. Same desensitisation risk Rule 17 guards against, from the other direction.
+**Suggested fix**: (b) small — either render the family at more solar zeniths (a MODTRAN batch item) or add a solar-zenith axis; failing both, de-duplicate the warning per run. Effort S for the de-dup, M for the family. Category A/D. Related: [[CU-226]], [[CU-167]], MODTRAN batch 2.
+
+### CU-306 — `InterpolatedAtmosphere.build_state` interpolates in log-tau then resamples in linear tau
+
+**Discovered**: Overnight backlog run, CU-226 close-out, 2026-07-30 — measured while anchoring [[CU-226]].
+**Status**: Open — pre-existing, affects down-looking families equally.
+**File**: `src/radiant/atmosphere/interpolated.py::build_state`.
+**Symptom**: the family interpolation is done in log-tau on the stored grid (correct, Beer-Lambert), and the result is then resampled onto the chain's wavelength grid linearly in tau. The two operations do not commute. Measured against the analytic log-tau midpoint identity: on the stored grid the error is **1.110e-16 absolute / 2.558e-15 relative**; on a differing chain grid the same check reads **1.676e-05 absolute / 2.847e-02 relative** — i.e. up to ~2.8 % relative tau error on off-node queries at low-tau wavelengths.
+**Why it still matters**: it sets an accuracy floor on every interpolated-backend result whose chain grid differs from the stored grid, which is the normal case. ~3 % on tau is comparable to the model differences the interpolated backend exists to capture.
+**Suggested fix**: (b) stand-alone — resample in log-tau as well (one operation-order change), then re-anchor against a stored-grid run. **Results-affecting** for interpolated scenes on a non-matching grid. Effort S–M; category C. Related: [[CU-226]], [[CU-239]].
+
+### CU-305 — The up-looking hybrid composes two independently-calibrated atmospheres and needs owner ratification
+
+**Discovered**: Overnight backlog run, CU-226 close-out, 2026-07-30.
+**Status**: Open — **awaiting owner decision**; the shipped behaviour is [[CU-226]]'s, reversible in two lines.
+**File**: `src/radiant/atmosphere/uplooking_quantities.py::_resolve_backends`.
+**Symptom**: [[CU-226]] made the shipped up-looking library reachable by serving the **observer leg** from the run family while the **illumination and sky legs** come from a `SimpleAtmosphere` companion — because an up-looking run family integrates *up to* the target and stops, so it cannot supply the solar column or sky hemisphere above the target even in principle. The composed answer therefore mixes MODTRAN line-by-line radiative transfer with the parametric band model in one result. Measured divergence on the observer leg at 3–5 µm, ground to 10 km: tau 0.4725 vs 0.5715 (−17.3 %), L 0.5414 vs 0.3995 W/m²/sr/µm (+35.5 %), SNR 1152.72 vs 1207.21 (−4.5 %). Where the two must agree (`tau_sun`, `E_TOA`, `E_sky_scattered`, `E_sky_thermal`) they are bit-identical.
+**Why it still matters**: it is a modelling judgement, not a mechanical one. The compromise is never silent — `UserWarning`, INFO log, and `topology_provenance["backend_split"]` — and no shipped scenario uses the path, so nothing computes differently today. But whether a hybrid is acceptable at all, or whether the scene should refuse until an up-looking family carries its own illumination and sky columns (or unless the target is a blackbody, where the illumination terms vanish), is the owner's call. The implementing agent's reasoning: refusing is precisely the defect CU-226 was filed to remove, and zeroing the missing legs would be a silent wrong answer that inflates SNR.
+**Suggested fix**: owner decision. If the hybrid stands, this entry closes as ratified. If not, `_resolve_backends` refuses a family without self-contained illumination coverage — a two-line edit, and the [[CU-226]] tests already isolate it. Related: [[CU-226]], [[CU-224]], Gap 109, ADR-0011.
+
 ### CU-304 — No guidance that HV's ground strength A is a sea-level value, and the old "absorb elevation into A" workaround is now obsolete
 
 **Discovered**: Overnight backlog run, CU-262 close-out, 2026-07-30.

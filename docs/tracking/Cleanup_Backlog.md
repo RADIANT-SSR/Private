@@ -12,6 +12,26 @@
 
 ## Open
 
+### CU-276 — The level-topology sky still composes two segments, so it keeps the CU-254 target-position dependence
+
+**Discovered**: Backlog-Reduction, up-looking sky-model cluster (branch `atmo/sky-composition`), 2026-07-29 — while fixing [[CU-254]].
+**Status**: Open.
+**File**: `src/radiant/atmosphere/uplooking_quantities.py::_level_sky_at_aperture`.
+**Symptom**: to be completed on the branch.
+**Why it still matters**: to be completed on the branch.
+**Suggested fix**: to be completed on the branch. Related: [[CU-254]], [[CU-225]].
+
+
+### CU-275 — Past 80° the down-looking and solar columns have no exact near-horizon route, so `sec ζ` overstates the air mass
+
+**Discovered**: Backlog-Reduction, up-looking sky-model cluster (branch `atmo/sky-composition`), 2026-07-29 — while fixing [[CU-274]].
+**Status**: Open.
+**File**: `src/radiant/atmosphere/protocol.py::AtmosphericGeometry.air_mass`; consumers `simple.py::SimpleAtmosphere.evaluate` (up-leg and solar columns), `segment_simple.py::column_segment_optical_depth`.
+**Symptom**: to be completed on the branch.
+**Why it still matters**: to be completed on the branch.
+**Suggested fix**: to be completed on the branch. Related: [[CU-274]], [[CU-225]].
+
+
 ### CU-274 — `slant_path_length_m` jumps 18 % across its own 80° branch switch, for every geometry
 
 **Discovered**: Backlog-Reduction Batch 5, while fixing [[CU-255]], 2026-07-29. **Pre-existing**: reproduced on unmodified `main`.

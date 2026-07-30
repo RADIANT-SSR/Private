@@ -19,12 +19,15 @@ The selector values
 ``"hufnagel_valley"``
     HV parameterized by ``atmosphere.cn2_hv_wind_rms_m_s`` (``w``) and
     ``atmosphere.cn2_hv_ground_strength`` (``A``); the schema defaults are
-    HV-5/7.
+    HV-5/7.  Its surface term is referenced to ``geometry.site_elevation_m``
+    (CU-262).
 ``"tabulated"``
     A :class:`~radiant.atmosphere.cn2_tabulated.TabulatedCn2Profile` built
     pre-chain from ``atmosphere.cn2_tabulated_file`` and injected at
     ``stage_outputs["atmosphere_config"]["cn2_profile"]`` (Rule 6 — stages do
-    not read files).
+    not read files).  A measured table already carries whatever site the
+    measurement was made at, so ``geometry.site_elevation_m`` does **not**
+    shift it — the altitudes in the file are used as written.
 """
 
 from __future__ import annotations
@@ -88,12 +91,17 @@ def resolve_cn2_profile(
     *,
     hv_wind_rms_m_s: float,
     hv_ground_strength_m23: float,
+    hv_site_elevation_m: float = 0.0,
     tabulated: Cn2Profile | None = None,
 ) -> Cn2Profile | None:
     """Turn the ``atmosphere.cn2_profile`` selector into a profile object.
 
     Returns ``None`` for ``"direct"`` (no profile — the caller uses
     ``atmosphere.r0_m``).
+
+    ``hv_site_elevation_m`` is ``geometry.site_elevation_m`` and reaches the
+    Hufnagel-Valley surface term only; the tabulated profile is used as
+    written (see the module docstring).
 
     Raises
     ------
@@ -107,6 +115,7 @@ def resolve_cn2_profile(
         return HufnagelValleyCn2(
             wind_rms_m_s=hv_wind_rms_m_s,
             ground_strength_m23=hv_ground_strength_m23,
+            site_elevation_m=hv_site_elevation_m,
         )
     if name == "tabulated":
         if tabulated is None:

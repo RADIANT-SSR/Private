@@ -52,6 +52,15 @@ endpoint (up-looking), θ_o is derived as $\pi - \zeta_{up}$ and the published
 anchor every mode, and their ordering — never a user switch — derives the LOS
 direction (`down` / `up` / `level`, published as `los_direction`).
 
+`geometry.site_elevation_m` (default 0) is a **third** altitude and not an
+input mode: it is the elevation of the *terrain beneath the line of sight*,
+which is a separate fact from either endpoint's altitude and is deliberately
+**not** derived from the lower endpoint (that proxy would place a surface
+boundary layer at 10 km for a level air-to-air leg). Its single consumer today
+is the Hufnagel-Valley $C_n^2$ surface term; which endpoint's terrain it names
+for each of the three LOS directions is tabulated in RADIANT_Atmosphere.md
+§7.1 "Site elevation" (CU-262).
+
 ### Solar family (resolves to θ_s, Δφ)
 
 | Mode | Entry parameters | Derivation |

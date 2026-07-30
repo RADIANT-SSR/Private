@@ -906,6 +906,7 @@ Parameter types, defaults, units, and bounds are the canonical [Parameter Refere
 - `atmosphere.r0_m` — Fried parameter [m] entered directly. Default 0 = turbulence off. Quoted at the scene's band-centre wavelength.
 - `atmosphere.cn2_profile` — `direct` (default, use `r0_m` verbatim), `hufnagel_valley`, or `tabulated`. Selecting a profile makes $r_0$ a derived quantity (§7.1).
 - `atmosphere.cn2_hv_wind_rms_m_s`, `atmosphere.cn2_hv_ground_strength` — the two HV coefficients $w$ and $A$; the defaults are HV-5/7.
+- `geometry.site_elevation_m` — the terrain elevation the HV **surface term** is referenced to (CU-262, §7.1 "Site elevation"). Default 0 = sea level. Owned by the geometry schema because it is a scene-geometry fact, not a turbulence coefficient; consumed today only by the `hufnagel_valley` profile.
 - `atmosphere.cn2_tabulated_file` — two-column `altitude_m,cn2_m^-2/3` CSV, read pre-chain (Rule 6) by `loaders.build_cn2_profile` and injected at `stage_outputs["atmosphere_config"]["cn2_profile"]`.
 - `atmosphere.turbulence_wave_type` — `plane` (default) or `spherical` path weighting (§7.1).
 
@@ -946,7 +947,25 @@ $$r_0 = \left[\,0.423\,k^2 \sec\zeta \int_{h_{low}}^{h_{high}} C_n^2(h)\,W(h)\,\
 **Profiles** (`atmosphere/cn2_profiles.py` is the contract; one implementation per module, Rule 19):
 
 - `hufnagel_valley` (`cn2_hufnagel_valley.py`) — the three-term HV form parameterized by the RMS upper-atmosphere wind $w$ and ground strength $A$; the schema defaults are HV-5/7 ($w = 21$ m/s, $A = 1.7\times10^{-14}$ m$^{-2/3}$), which reproduce the published $r_0 = 5$ cm and $\theta_0 = 7$ µrad at 0.5 µm for a vertical path.
-- `tabulated` (`cn2_tabulated.py`) — a measured (altitude, $C_n^2$) table, log-linearly interpolated (linearly across a zero endpoint), **zero outside its range** with a `UserWarning` quantifying the uncovered extent.
+- `tabulated` (`cn2_tabulated.py`) — a measured (altitude, $C_n^2$) table, log-linearly interpolated (linearly across a zero endpoint), **zero outside its range** with a `UserWarning` quantifying the uncovered extent. A measured table already carries the site it was taken at, so `geometry.site_elevation_m` does **not** shift it — the altitudes in the file are used as written.
+
+**Site elevation — which altitude reference each HV term uses (CU-262).** RADIANT altitudes are metres above mean sea level; the HV literature writes the profile against height above the *site*. The two disagree by exactly the terrain elevation, and that disagreement is only harmless for two of the three terms:
+
+$$C_n^2(h) = \underbrace{0.00594\left(\tfrac{w}{27}\right)^2 (10^{-5}h)^{10}e^{-h/1000}}_{\text{jet stream — MSL}} + \underbrace{2.7\times10^{-16}e^{-h/1500}}_{\text{free atmosphere — MSL}} + \underbrace{A\,e^{-(h - h_{site})/100}}_{\text{surface layer — site-referenced}}$$
+
+The jet stream is at 10 km MSL wherever the ground below it is, and the 1500 m-scale-height background is a free-atmosphere property, so both stay on MSL. The surface term is different: its 100 m scale height means a 900 m observatory evaluated against MSL sits $e^{-9} \approx 1.2\times10^{-4}$ into its own boundary layer — it loses the layer entirely and reports $r_0 = 15.0$ cm (0.67″ seeing) at 0.5 µm where HV-5/7 is *defined* to give 5 cm (2.0″). Referencing the surface term to $h_{site}$ restores the anchor to 5.22 cm (1.94″); the residual +4 % is the genuine altitude benefit of starting 900 m up the free-atmosphere column, not a lost boundary layer.
+
+*Whose site is it?* — per topology, with the physics reason:
+
+| LOS topology | Site is the terrain under… | Why |
+|---|---|---|
+| down-looking (`h_sensor > h_tgt`) | the **target** | The path descends toward the target; the only boundary layer it can enter is the one over the target's ground. |
+| up-looking (`h_sensor < h_tgt`) | the **sensor** | The path rises from the sensor; the boundary layer it looks up through is the one the sensor stands in. The observatory / SST case. |
+| level (`h_sensor == h_tgt`) | **both, jointly** — the arm's own terrain | Both endpoints are at the same altitude, so there is one terrain beneath the whole arm. |
+
+In every row it is the same single number: the elevation of the terrain beneath the line of sight. It is deliberately **not** derived from the lowest point of the line of sight — that proxy would put a 100 m-scale-height boundary layer at 10 km for a level air-to-air leg, inventing turbulence that is not there. No topology needs a special case for an endpoint that is airborne over the site: the 100 m scale height suppresses the surface term on its own ($e^{-91}$ for a 10 km leg over a 900 m site), so **a level air-to-air path carries no surface term**, while a genuinely near-surface horizontal link keeps the layer it physically sits in.
+
+An altitude below $h_{site}$ is inside the terrain and is refused with a `ParameterBoundsError` (Rule 16/17) — most often it means the declared site elevation and the path's lower endpoint describe different scenes. At the default $h_{site} = 0$ that check is exactly the pre-CU-262 "altitude must be ≥ 0" check, and $e^{-(h-0)/100} \equiv e^{-h/100}$, so **every existing result is bit-identical**.
 
 **Reference wavelength.** $r_0 \propto \lambda^{6/5}$ exactly. The derived value is computed at the **band-centre wavelength of the scene's spectral grid** — the same wavelength `OpticsStage` uses for its monochromatic PSF reference, so the number is quoted at the wavelength its consumers apply it at. The value is published on `stage_outputs["atmosphere"]["r0_resolution"]` (present only when a profile was evaluated, so a scene using the direct input sees exactly the outputs it saw before Gap 110). A directly-entered `r0_m` is rescaled **only if you say what wavelength it is quoted at**, via `atmosphere.r0_reference_wavelength_um` (CU-228): when set, the value is scaled to the band centre by $(\lambda_{band}/\lambda_{ref})^{6/5}$ and both numbers are recorded in the resolution detail. Left unset (the default), the entered value is taken as already being at the operating wavelength — the pre-CU-228 behaviour, preserved bit-identically so no existing config moves.
 

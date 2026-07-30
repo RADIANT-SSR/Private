@@ -25,6 +25,14 @@ The resolution rules (the ADR-0006 provenance pattern, CU-093 agreement check)
    contradiction ("compute the turbulence" and "there is no turbulence"), so
    it raises rather than silently picking one (Rule 17).
 
+Site elevation (CU-262)
+-----------------------
+On the profile path the resolver also reads ``geometry.site_elevation_m`` — the
+terrain elevation beneath the line of sight — and hands it to the
+Hufnagel-Valley profile, whose **surface term only** is then referenced to the
+ground rather than to mean sea level.  The default 0 leaves every profile
+evaluation bit-identical to the pre-CU-262 one.
+
 Reference wavelength
 --------------------
 $r_0 \propto \lambda^{6/5}$, so a Fried parameter is meaningless without the
@@ -175,10 +183,19 @@ def resolve_fried_parameter(
             context={"cn2_profile": profile_name},
         )
 
+    # CU-262: the terrain the surface boundary layer sits on. A partial-chain
+    # fixture that never registered the geometry schema falls back to sea
+    # level — the pre-CU-262 behaviour, bit-identical.
+    try:
+        site_elevation_m: float = float(params.get("geometry.site_elevation_m"))
+    except (KeyError, TypeError):
+        site_elevation_m = 0.0
+
     profile = resolve_cn2_profile(
         profile_name,
         hv_wind_rms_m_s=float(params.get("atmosphere.cn2_hv_wind_rms_m_s")),
         hv_ground_strength_m23=float(params.get("atmosphere.cn2_hv_ground_strength")),
+        hv_site_elevation_m=site_elevation_m,
         tabulated=tabulated_profile,
     )
     if profile is None:  # pragma: no cover — only "direct" returns None

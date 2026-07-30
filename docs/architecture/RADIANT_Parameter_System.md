@@ -183,6 +183,10 @@ spectral_integration.integration_time_s  # s
 
 geometry.sensor_altitude_m            # m
 geometry.target_altitude_m            # m
+geometry.site_elevation_m             # m — terrain elevation under the LOS (default 0 = MSL);
+                                      #     references the Hufnagel-Valley Cn² SURFACE term only
+                                      #     (CU-262, RADIANT_Atmosphere.md §7.1). Not derived from
+                                      #     the LOS lower endpoint — see that section.
 geometry.target.shape                 # enum: none/sphere/cylinder/flat_plate/box/cone — target spatial extent (ADR-0008; was source.target.shape, now a deprecated alias)
 geometry.target.shape_radius_m        # m   (+ shape_length_m/width_m/height_m/base_radius_m)
 geometry.target.shape_yaw_rad         # rad (+ shape_pitch_rad/shape_roll_rad) — body ZYX Euler

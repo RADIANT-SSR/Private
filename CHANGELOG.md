@@ -21,6 +21,27 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`geometry.site_elevation_m` — an elevated site keeps its own turbulence boundary
+  layer (CU-262).** New public parameter [m, default 0 = mean sea level]: the terrain
+  elevation beneath the line of sight. The Hufnagel-Valley $C_n^2$ **surface term** is
+  now evaluated at `h − site_elevation_m` while the jet-stream and free-atmosphere terms
+  stay on MSL, so a site above sea level no longer starts above its own 100 m-scale-height
+  boundary layer. Whose terrain it is follows the LOS topology (down-looking = the
+  target's, up-looking = the sensor's, level = the arm's own) and is *not* derived from
+  the lowest point of the line of sight — a level air-to-air leg therefore carries no
+  surface term, because the 100 m scale height suppresses it, not because of a special
+  case. An altitude below the declared site is refused with a `ParameterBoundsError`
+  instead of being modelled as a path through the ground. Consumed only by
+  `atmosphere.cn2_profile = "hufnagel_valley"`; a `"tabulated"` profile already carries
+  its own site and is not shifted.
+  **Results-affecting only when `geometry.site_elevation_m` is set non-zero** — at the
+  default 0 the profile, the domain check, and every provenance string are bit-identical,
+  and no golden or GUI baseline moves. Where it is set, turbulence gets *stronger*: the
+  HV-5/7 vertical anchor at a 900 m site goes from $r_0$ = 15.0 cm (0.67″ seeing at
+  0.5 µm) to 5.22 cm (1.94″), restoring the model's defining $r_0 = 5$ cm to within the
+  +4 % the free-atmosphere column below the site genuinely buys. Before this fix
+  `atmosphere.cn2_hv_ground_strength` was inert at an elevated site (a 10 000× change in
+  $A$ moved the seeing at a 2635 m site by 0.0 %); it now behaves as documented.
 - **Interpolated-atmosphere coverage is checked at config time, and the shipped-family
   catalogue is public (CU-239).** New `Sensor.validate_atmosphere_coverage()` and
   `radiant.api.atmosphere_families` (`shipped_atmosphere_families`,

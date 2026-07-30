@@ -17,9 +17,18 @@
 **Discovered**: Backlog-Reduction, CU-271 close-out, 2026-07-29 — after creating (and catching) a fourth instance by hand.
 **Status**: Open.
 **File**: `docs/tracking/Cleanup_Backlog.md` (entries for CU-007, CU-009, CU-213); `scripts/check_org_rules.py`.
-**Symptom**: to be completed on the branch.
-**Why it still matters**: to be completed on the branch.
-**Suggested fix**: to be completed on the branch. Related: [[CU-271]], [[CU-212]].
+**Symptom**: Rule 22 requires every Resolved entry to carry a linked commit SHA, and nothing checks that the SHA means anything. Audited all **182** distinct SHAs the registry cites on 2026-07-29: every one resolves to a real object, but **three are not ancestors of `main`** —
+
+| SHA | Cited by | The commit |
+|---|---|---|
+| `452cccd` | CU-007 | `feat(source): CU-007 — MWIR-overlap legacy ε+T scenarios route to T3Mixed` |
+| `c2634b6` | CU-009 | `chore(debt): CU-009 — wire _infer_los to existing geometry.* params` |
+| `97eafb6` | CU-213 | `feat(gui): study-aware YAML document editor … CU-213 shared grid points` |
+
+Each message matches its entry, so these are almost certainly pre-rebase or pre-amend objects whose work landed on `main` under a different hash — the closures are real, the *links* are not. Reachable today only because the objects have not been garbage-collected; `git gc` would silently turn all three into dead references.
+**How the fourth one was made, in about sixty seconds**: stamping a SHA into the entry, then `git commit --amend`. The amend rewrites the hash and the entry is instantly stale. The "obvious" repair — a global `sed` on the old hash — is worse: the hash in question did not appear in the entry being fixed at all, and the sed overwrote **CU-212's** genuine resolution SHA instead. Both were caught and repaired in `805eb3f`, but only because the SHAs were audited rather than assumed. Nothing in the gate would have noticed either.
+**Why it still matters**: a closure SHA that cannot be resolved is a closure that cannot be verified, which is the exact failure Rule 22 was written to prevent — it just fails one level down, at the link rather than the entry. It is also the same shape as [[CU-272]] / [[CU-277]] / [[CU-278]]: a rule enforced by convention where a mechanical check is cheap and obvious.
+**Suggested fix**: (a) inline, small — teach `scripts/check_org_rules.py` to extract every `` commit `<sha>` `` from the registry and fail on any that is not an ancestor of `HEAD`, exactly as it already fails on duplicate CU ids. That is ~15 lines, runs in the gate battery, and would have caught all four of these. Then re-map the three above by searching `main` for the commit that actually carries each change (`git log --all --grep=CU-007` and friends) and correct the entries. Note the check must compare against `HEAD`'s ancestry, not mere object existence — all three of these pass a bare `git cat-file -t`. Effort S; category A. Related: [[CU-271]], [[CU-212]], [[CU-272]], [[CU-278]].
 
 
 ### CU-278 — `scenarios/` is outside both the lint and the pytest gate scope, and the exclusion is undocumented

@@ -379,6 +379,31 @@ The `--i-know-what-im-doing` flag is mandatory: without it the script prints an 
 
 Golden files are committed to the repository. They are not `.gitignore`d.
 
+**There are two golden families, with two regeneration scripts.** The above covers the MWIR
+LEO minimal golden under `tests/integration/golden/`. The **scenario GUI baselines** —
+`scenarios/<persona>/<slug>/inputs/<slug>.gui.expected.json`, gated by
+`tests/integration/test_gui_baselines.py` (CU-179) — regenerate with a different command:
+
+```bash
+PYTHONPATH=./src python scenarios/tools/emit_gui_yaml.py          # all scenarios
+PYTHONPATH=./src python scenarios/tools/emit_gui_yaml.py 10.1     # one, by id
+```
+
+Three things about it are load-bearing:
+
+- **Pass an id when only one scenario legitimately moved.** Regenerating all 34 hides which
+  ones the change actually touched, which is the review signal.
+- **`PYTHONPATH=./src` is required inside a `git worktree`.** The emitter imports `radiant`,
+  and the editable install's `.pth` pins that to whichever checkout ran `pip install -e .` —
+  normally the primary tree. Without it you regenerate baselines against *unfixed* library
+  code and the diff looks clean. (`pytest` is immune: `pythonpath = ["src"]` in
+  `pyproject.toml` is rootdir-relative. `ruff` and `mypy` take explicit paths. `lint-imports`
+  is **not** immune — it resolves `radiant` by import, so it needs the same prefix.)
+- **The emitter repoints generated inputs at their committed counterparts** and raises
+  `UnreloadableBaselineError` if none exists (CU-273). A baseline that references the
+  scenario's gitignored `outputs/` tree reloads only in the tree that just ran the scenario;
+  `test_gui_baseline_references_only_committed_files` is the static guard against it.
+
 ---
 
 ## 6. Numerical Tolerances

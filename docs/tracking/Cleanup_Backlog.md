@@ -12,6 +12,16 @@
 
 ## Open
 
+### CU-278 — `scenarios/` is outside both the lint and the pytest gate scope, and the exclusion is undocumented
+
+**Discovered**: Backlog-Reduction, gate-blindspot branch (`hygiene/gate-blindspots`), 2026-07-29 — while closing [[CU-272]]'s gate-scope half.
+**Status**: Open — likely a deliberate exclusion that was simply never written down.
+**File**: `CLAUDE.md` gate battery (names `src/ tests/ scripts/ dev_tools/`); `scenarios/`.
+**Symptom**: to be completed on the branch.
+**Why it still matters**: to be completed on the branch.
+**Suggested fix**: to be completed on the branch. Related: [[CU-272]], [[CU-270]], [[CU-252]].
+
+
 ### CU-276 — The level-topology sky still composes two segments, so it keeps the CU-254 target-position dependence
 
 **Discovered**: Backlog-Reduction, up-looking sky-model cluster (branch `atmo/sky-composition`), 2026-07-29 — while fixing [[CU-254]].

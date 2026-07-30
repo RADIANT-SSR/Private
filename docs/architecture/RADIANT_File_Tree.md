@@ -107,7 +107,7 @@ source/shapes/         # box, cone, cylinder, flat_plate, sphere — projected_a
                        # implementations for sub-pixel target geometry
 ```
 
-### `atmosphere/` — 35 source + 36 tests
+### `atmosphere/` — 35 source + 37 tests
 
 Stage 2: τ_atm, L_path, L_atm.
 

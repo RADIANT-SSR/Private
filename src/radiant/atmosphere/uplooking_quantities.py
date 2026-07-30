@@ -98,10 +98,45 @@ because it is an inspectable physical quantity (Rule 16) and because a
 non-horizontal target model would consume it; the facet convention, not this
 module, is what zeroes the term.
 
+Which backend serves which leg (CU-226)
+---------------------------------------
+Until 2026-07-30 every leg came from one ``SimpleAtmosphere``.  The shipped
+``midlat_summer_uplooking_ladder`` family changes that for the **observer leg
+only**: it is a MODTRAN-rendered ground→target downwelling column, which is
+exactly the segment :func:`_evaluate_observer_segment` needs and is the term
+that dominates a ground-to-air scene.  It is *one leg of data* — one lower
+endpoint (the ground), one zenith (vertical), one direction (downwelling) —
+and the topology needs two more legs it does not contain:
+
+* the **illumination** leg is the solar column and sky hemisphere *above the
+  target*.  No rung of a sensor→target ladder is that column, and it cannot be
+  recovered from one: the ladder integrates upward *to* the target, never past
+  it.  Evaluating the backend at the down-looking proxy geometry
+  :func:`_illumination_products` uses is refused by construction
+  (``InterpolatedAtmosphere._require_family_direction``), and rightly — a
+  down-looking query would return the upwelling product under a downwelling
+  name.
+* the **sky-at-aperture** leg is the whole sensor→``h_atm_top`` column.  The
+  shipped ladder stops at 20 km; reading its top rung as "the sky" would be
+  extrapolation past the hull, which this backend never does.
+
+So a library-backed up-looking scene is a **declared hybrid**: the observer leg
+is MODTRAN-interpolated, the illumination and sky legs come from the
+``SimpleAtmosphere`` companion the loader attached to the family
+(``InterpolatedAtmosphere.uplooking_companion``).  Two atmospheres in one
+answer is a real modelling compromise, so it is never silent — a
+``UserWarning`` is raised, an INFO record is logged, and
+``provenance["backend_split"]`` names which leg came from which model
+(Rule 17: no silent substitution; Rule 16: inspectable).  The alternative,
+refusing the scene outright, is what CU-226 was filed to remove; the other
+alternative, zeroing the legs the family lacks, would be a silently wrong
+answer that inflates SNR.
+
 Zero drift
 ----------
 Every entry point here refuses a down-looking LOS.  Nothing in this module is
-imported by a pre-existing evaluate path.
+imported by a pre-existing evaluate path.  ``atmosphere.model='simple'``
+resolves to ``column=None`` and takes byte-for-byte the pre-CU-226 route.
 """
 
 from __future__ import annotations
@@ -109,8 +144,9 @@ from __future__ import annotations
 import dataclasses
 import logging
 import math
+import warnings
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -120,7 +156,7 @@ from radiant.atmosphere.observer_leg import ObserverLeg, observer_leg_from_los
 from radiant.atmosphere.protocol import SPHERICAL_SWITCH_RAD
 from radiant.atmosphere.segment_grazing import evaluate_grazing_segment
 from radiant.atmosphere.segment_simple import evaluate_column_segment
-from radiant.atmosphere.segments import ColumnSegmentSpec, LevelArmSpec, SegmentQuantities
+from radiant.atmosphere.segments import LevelArmSpec
 from radiant.atmosphere.simple import SimpleAtmosphere
 from radiant.atmosphere.sky_radiance import (
     sky_radiance_along_los,
@@ -136,7 +172,17 @@ from radiant.core.solar import toa_solar_spectral_irradiance
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["UplookingProducts", "evaluate_uplooking_topology", "supports_uplooking"]
+#: Floating-point slack for the range checks applied to a library column
+#: product — the same slop allowance ``SegmentQuantities`` uses, not a physics
+#: parameter.
+_LIBRARY_TOLERANCE: float = 1e-12
+
+__all__ = [
+    "UplookingColumnBackend",
+    "UplookingProducts",
+    "evaluate_uplooking_topology",
+    "supports_uplooking",
+]
 
 
 @dataclass(frozen=True)
@@ -166,16 +212,77 @@ class UplookingProducts:
     provenance: dict[str, Any]
 
 
+@runtime_checkable
+class UplookingColumnBackend(Protocol):
+    """A backend that can supply the up-looking **observer-leg column** (CU-226).
+
+    Structural, not nominal: anything exposing an up-looking column product,
+    a ``family_direction`` of ``"up"``, and a companion for the legs it does
+    not carry qualifies.  Today that is
+    :class:`~radiant.atmosphere.interpolated.InterpolatedAtmosphere` built from
+    an up-looking run family; the MODTRAN ITYPE=1 wiring (GF-10, CU-224) is the
+    next implementer and needs no change here.
+    """
+
+    @property
+    def family_direction(self) -> str:
+        """``"up"`` for a family whose product is the downwelling column."""
+
+    @property
+    def uplooking_companion(self) -> object | None:
+        """Backend serving the illumination and sky-continuation legs."""
+
+    def uplooking_column_product(self, wavelength_um: np.ndarray, los: Any) -> Any:
+        """The sensor→target column segment (τ and ``L_toward_lower``)."""
+
+
+@dataclass(frozen=True)
+class _Backends:
+    """Which model serves which leg of one up-looking / level evaluation.
+
+    ``column is None`` is the pre-CU-226 arrangement — one ``SimpleAtmosphere``
+    serving every leg — and is the only arrangement a ``simple`` scene ever
+    takes.
+    """
+
+    simple: SimpleAtmosphere
+    column: UplookingColumnBackend | None
+
+
+def _resolve_backends(model: object) -> _Backends | None:
+    """Split *model* into (observer-leg backend, companion), or ``None``.
+
+    ``None`` means the model cannot serve an up-looking / level topology at
+    all — the caller turns that into the capability error.
+    """
+    if isinstance(model, SimpleAtmosphere):
+        return _Backends(simple=model, column=None)
+    if isinstance(model, UplookingColumnBackend) and model.family_direction == "up":
+        companion = model.uplooking_companion
+        if isinstance(companion, SimpleAtmosphere):
+            return _Backends(simple=companion, column=model)
+    return None
+
+
 def supports_uplooking(model: object) -> bool:
     """Does *model* implement the direction-aware (up/level) segment products?
 
-    The Phase-2 segment evaluators are built on the CU-161-calibrated
-    :class:`~radiant.atmosphere.simple.SimpleAtmosphere` species model, so the
-    simple backend is the one that serves up-looking and level paths at first
-    delivery.  MODTRAN tape7-import and the interpolated library arrive
-    separately (their up-looking / ITYPE=1 families are owner-run batches).
+    Two arrangements qualify (CU-226):
+
+    * :class:`~radiant.atmosphere.simple.SimpleAtmosphere` — the
+      CU-161-calibrated species machinery serves every leg of every up-looking
+      and level topology, at any zenith;
+    * an :class:`UplookingColumnBackend` whose family is up-looking and which
+      carries a ``SimpleAtmosphere`` companion — the observer leg comes from
+      the run family, the illumination and sky legs from the companion.  See
+      the module docstring for why that split is the only one the data
+      supports, and why it is declared rather than silent.
+
+    MODTRAN tape7-import still does not qualify: its up-looking / ITYPE=1 deck
+    geometry is unwritten (GF-10, CU-224), so it has no column product to
+    offer.
     """
-    return isinstance(model, SimpleAtmosphere)
+    return _resolve_backends(model) is not None
 
 
 def evaluate_uplooking_topology(
@@ -193,7 +300,8 @@ def evaluate_uplooking_topology(
         or if the LOS continuation is a limb-crossing column (B4, declined
         for v1.x — ADR-0011 decision 5).
     """
-    if not supports_uplooking(model):
+    backends = _resolve_backends(model)
+    if backends is None:
         raise ParameterBoundsError(
             what=(
                 f"AtmosphereStage: atmosphere model {type(model).__name__} cannot serve "
@@ -205,15 +313,20 @@ def evaluate_uplooking_topology(
                 "constant-altitude arm, sky radiance along the LOS) are built on the "
                 "CU-161-calibrated simple-model species machinery.  What IS supported "
                 "up-looking today: (a) atmosphere.model='simple' for any endo path, "
-                "and (b) any backend for a wholly-vacuum path with both endpoints at "
-                "or above h_atm_top (the LEO→GEO case).  MODTRAN tape7-import and the "
-                "interpolated library need their own up-looking / ITYPE=1 run "
-                "families, which are owner-run batches (plan §4 Phase 2, GF-10)."
+                "(b) atmosphere.model='interpolated' pointed at an UP-looking run "
+                "family (shipped: midlat_summer_uplooking_ladder, "
+                "interpolation_axes='target_altitude_m') — its MODTRAN column serves "
+                "the observer leg and its simple companion the illumination and sky "
+                "legs (CU-226), and (c) any backend for a wholly-vacuum path with "
+                "both endpoints at or above h_atm_top (the LEO→GEO case).  MODTRAN "
+                "tape7-import still needs its own up-looking / ITYPE=1 deck geometry, "
+                "which is an owner-run batch (plan §4 Phase 2, GF-10)."
             ),
             action=(
-                "Set atmosphere.model='simple' for this scene, raise both endpoints "
-                "above h_atm_top for a vacuum path, or use a down-looking geometry "
-                "with the current backend."
+                "Set atmosphere.model='simple' for this scene, point "
+                "atmosphere.interpolated_data_dir at an up-looking run family, raise "
+                "both endpoints above h_atm_top for a vacuum path, or use a "
+                "down-looking geometry with the current backend."
             ),
             context={
                 "model": type(model).__name__,
@@ -223,7 +336,9 @@ def evaluate_uplooking_topology(
                 "los_direction": los.los_direction,
             },
         )
-    atmosphere: SimpleAtmosphere = model  # narrowed by supports_uplooking
+    # The companion serves the illumination and sky legs for every arrangement;
+    # for a ``simple`` scene it IS the model, so nothing about that path moves.
+    atmosphere: SimpleAtmosphere = backends.simple
 
     lam = np.asarray(wavelength_um, dtype=np.float64)
     h_atm_top = float(los.h_atm_top)
@@ -232,12 +347,29 @@ def evaluate_uplooking_topology(
     # ---------------------------------------------------------------
     # 1. Observer leg — the target ↔ sensor segment.
     # ---------------------------------------------------------------
+    if backends.column is not None:
+        warnings.warn(
+            (
+                "AtmosphereStage: this up-looking scene is served by TWO atmosphere "
+                f"models (CU-226). The observer leg ({los.h_sensor:.0f} m -> "
+                f"{los.h_tgt:.0f} m MSL) comes from the interpolated up-looking run "
+                "family; the target's illumination (solar column and sky hemisphere "
+                "above the target) and the sky radiance along the LOS continuation "
+                "come from the SimpleAtmosphere companion, because an up-looking run "
+                "family carries neither leg and neither can be recovered from it. "
+                "The two models are calibrated independently, so the composed "
+                "answer is not a single self-consistent radiative transfer. Use "
+                "atmosphere.model='simple' for one consistent model throughout, or "
+                "accept the split (result.inspect() -> stage_outputs['atmosphere']"
+                "['topology_provenance']['backend_split'] records it)."
+            ),
+            UserWarning,
+            stacklevel=3,
+        )
     leg = observer_leg_from_los(los)
-    segment = _evaluate_observer_segment(
-        atmosphere, lam, leg.spec, leg.delta_phi_seg_rad, theta_s, h_atm_top
-    )
-    tau_obs = np.asarray(segment.tau, dtype=np.float64)
-    L_obs = np.asarray(segment.radiance_toward(leg.toward_sensor), dtype=np.float64)
+    segment = _evaluate_observer_segment(backends, lam, los, leg, theta_s, h_atm_top)
+    tau_obs = segment.tau
+    L_obs = segment.L_toward_sensor
 
     # ---------------------------------------------------------------
     # 2. Illumination leg — reused target-side products (proxy evaluation).
@@ -257,6 +389,7 @@ def evaluate_uplooking_topology(
         "topology": los.los_direction,
         "observer_leg": leg.detail,
         "observer_segment_provenance": segment.provenance,
+        "backend_split": _backend_split_note(backends),
         "illumination_proxy": "backend evaluated at (h_sensor = h_atm_top, theta_o = 0)",
         "solar_leg": solar_note,
         "sky_continuation": sky_note,
@@ -301,32 +434,211 @@ def evaluate_uplooking_topology(
 # ---------------------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class _ObserverSegment:
+    """The observer leg, reduced to the two products the composition reads.
+
+    Deliberately **not** a
+    :class:`~radiant.atmosphere.segments.SegmentQuantities` (CU-226 design
+    question (i)).  That contract carries both directional radiances, and an
+    up-looking run family measures only one — its reverse-direction product for
+    the same column is a separate run set.  The composition never needs the
+    other direction:
+    :func:`~radiant.atmosphere.observer_leg.observer_leg_from_los` sets
+    ``toward_sensor`` from the topology, ``"toward_lower"`` on the up-looking
+    branch (the sensor IS the segment's lower endpoint) and ``"toward_upper"``
+    on the level branch, and every reader of the observer segment —
+    :func:`evaluate_uplooking_topology` and
+    :func:`_level_sky_at_aperture` — reads exactly
+    ``radiance_toward(leg.toward_sensor)``.  Reducing to that one field at the
+    point of evaluation makes the unreachability structural instead of a
+    comment: there is no ``L_toward_upper`` slot for a library product to have
+    to invent.
+
+    Attributes
+    ----------
+    tau:
+        Segment transmittance, dimensionless ∈ [0, 1].
+    L_toward_sensor:
+        Radiance emerging at the segment's sensor-side end [W/m²/sr/µm].
+    provenance:
+        Which evaluator produced it, and its inputs (Rule 16).
+    """
+
+    tau: np.ndarray
+    L_toward_sensor: np.ndarray
+    provenance: dict[str, Any]
+
+
+def _backend_split_note(backends: _Backends) -> str:
+    """One line naming which model served which leg (Rule 16 inspectability)."""
+    if backends.column is None:
+        return "all legs: SimpleAtmosphere"
+    return (
+        f"observer leg: {type(backends.column).__name__} up-looking run family; "
+        f"illumination and sky-continuation legs: "
+        f"{type(backends.simple).__name__} companion (CU-226 hybrid)"
+    )
+
+
 def _evaluate_observer_segment(
-    atmosphere: SimpleAtmosphere,
+    backends: _Backends,
     lam: np.ndarray,
-    spec: ColumnSegmentSpec | LevelArmSpec,
-    delta_phi_seg_rad: float,
+    los: LineOfSightGeometry,
+    leg: ObserverLeg,
     theta_s_rad: float | None,
     h_atm_top_m: float,
-) -> SegmentQuantities:
-    """Dispatch the observer-leg segment to its evaluator (Rule 19 split)."""
+) -> _ObserverSegment:
+    """Dispatch the observer-leg segment to its evaluator (Rule 19 split).
+
+    Three evaluators, selected by (backend, segment shape): the up-looking run
+    family's column product when one is attached, otherwise the simple-model
+    level-arm or column evaluator.
+    """
+    if backends.column is not None:
+        return _library_observer_segment(backends.column, lam, los, leg)
+
+    spec = leg.spec
     if isinstance(spec, LevelArmSpec):
-        return evaluate_level_arm(
-            atmosphere,
+        segment = evaluate_level_arm(
+            backends.simple,
             lam,
             spec,
             theta_s_rad=theta_s_rad,
-            delta_phi_rad=delta_phi_seg_rad,
+            delta_phi_rad=leg.delta_phi_seg_rad,
             h_atm_top_m=h_atm_top_m,
         )
-    return evaluate_column_segment(
-        atmosphere,
-        lam,
-        spec,
-        theta_s_rad=theta_s_rad,
-        delta_phi_rad=delta_phi_seg_rad,
-        h_atm_top_m=h_atm_top_m,
+    else:
+        segment = evaluate_column_segment(
+            backends.simple,
+            lam,
+            spec,
+            theta_s_rad=theta_s_rad,
+            delta_phi_rad=leg.delta_phi_seg_rad,
+            h_atm_top_m=h_atm_top_m,
+        )
+    return _ObserverSegment(
+        tau=np.asarray(segment.tau, dtype=np.float64),
+        L_toward_sensor=np.asarray(segment.radiance_toward(leg.toward_sensor), dtype=np.float64),
+        provenance=segment.provenance,
     )
+
+
+def _library_observer_segment(
+    column: UplookingColumnBackend,
+    lam: np.ndarray,
+    los: LineOfSightGeometry,
+    leg: ObserverLeg,
+) -> _ObserverSegment:
+    """The observer leg from an up-looking MODTRAN-derived run family (CU-226).
+
+    The family's product is the sensor→target column, keyed to its lower
+    endpoint exactly as :class:`~radiant.atmosphere.segments.ColumnSegmentSpec`
+    is, so no re-keying is needed — the backend reads ``h_sensor``, ``h_tgt``
+    and ``θ_o`` off the same LOS this leg was derived from, and refuses (loudly,
+    with its own actionable message) any query its hull cannot serve: off
+    vertical, a lower endpoint other than the rendered one, or a target outside
+    the ladder.
+    """
+    if isinstance(leg.spec, LevelArmSpec):
+        raise ParameterBoundsError(
+            what=(
+                "AtmosphereStage: a LEVEL path cannot be served by an up-looking "
+                f"interpolated run family (altitude {leg.spec.altitude_m:.0f} m MSL, "
+                f"arm length {leg.spec.length_m:.0f} m)"
+            ),
+            why=(
+                "An up-looking run family is a column ladder: every rung integrates "
+                "upward from one lower endpoint.  A level arm has zero vertical "
+                "extent and a local zenith of pi/2 everywhere along it, so no rung "
+                "of the ladder is that path and no interpolation between rungs "
+                "produces it (Rule 17 — this is a refusal, not an approximation)."
+            ),
+            action=(
+                "Set atmosphere.model='simple' for a level path — its level-arm "
+                "evaluator uses the true chord length at the arm altitude — or "
+                "raise the target above the sensor to make the path up-looking."
+            ),
+            context={
+                "h_sensor": los.h_sensor,
+                "h_tgt": los.h_tgt,
+                "altitude_m": leg.spec.altitude_m,
+                "length_m": leg.spec.length_m,
+            },
+        )
+    if leg.toward_sensor != "toward_lower":
+        raise ParameterBoundsError(  # pragma: no cover - contract invariant
+            what=(
+                "AtmosphereStage: the up-looking observer leg asked for the "
+                f"'{leg.toward_sensor}' radiance, which an up-looking run family "
+                "does not carry"
+            ),
+            why=(
+                "An up-looking column's sensor is its LOWER endpoint, so the "
+                "radiance reaching it is always L_toward_lower — the one direction "
+                "the family measures.  Reaching this branch means observer_leg and "
+                "the topology classification disagree."
+            ),
+            action="File a bug — this is an internal invariant violation.",
+            context={"toward_sensor": leg.toward_sensor, "theta_o": los.theta_o},
+        )
+
+    product = column.uplooking_column_product(lam, los)
+    tau = np.asarray(product.tau, dtype=np.float64)
+    L_lower = np.asarray(product.L_toward_lower, dtype=np.float64)
+    _validate_library_segment(tau, L_lower, lam)
+
+    provenance = dict(product.provenance)
+    provenance["evaluator"] = f"{type(column).__name__}.uplooking_column_product"
+    provenance["radiance_read"] = "L_toward_lower (the sensor is the lower endpoint)"
+    return _ObserverSegment(tau=tau, L_toward_sensor=L_lower, provenance=provenance)
+
+
+def _validate_library_segment(tau: np.ndarray, radiance: np.ndarray, lam: np.ndarray) -> None:
+    """Range-check a library column product (Rule 17 — no plausible-wrong values).
+
+    ``SegmentQuantities`` applies exactly these checks to a simple-model
+    segment; the library branch does not build one (see :class:`_ObserverSegment`),
+    so the checks are applied here rather than dropped.
+    """
+    for name, arr in (("tau", tau), ("L_toward_lower", radiance)):
+        if arr.shape != lam.shape:
+            raise ParameterBoundsError(
+                what=(
+                    f"uplooking run family returned {name} of shape {arr.shape}, "
+                    f"expected the query grid shape {lam.shape}"
+                ),
+                why="Every spectral product must ride the chain wavelength grid.",
+                action="Regenerate the run family on a grid covering the chain band.",
+                context={"field": name, "shape": arr.shape},
+            )
+        if not np.all(np.isfinite(arr)):
+            raise ParameterBoundsError(
+                what=f"uplooking run family returned a non-finite {name}",
+                why="NaN or inf propagates silently through every downstream product.",
+                action="Inspect the run family NPZ and the interpolation query.",
+                context={"field": name},
+            )
+    tau_min = float(tau.min())
+    tau_max = float(tau.max())
+    if tau_min < -_LIBRARY_TOLERANCE or tau_max > 1.0 + _LIBRARY_TOLERANCE:
+        raise ParameterBoundsError(
+            what=f"uplooking run family tau outside [0, 1] (min={tau_min:g}, max={tau_max:g})",
+            why=(
+                "Segment transmittance is a probability of transmission; a value "
+                "outside [0, 1] means the interpolation left the physical range."
+            ),
+            action="Inspect the run family NPZ transmittance arrays.",
+            context={"min": tau_min, "max": tau_max},
+        )
+    rad_min = float(radiance.min())
+    if rad_min < -_LIBRARY_TOLERANCE:
+        raise ParameterBoundsError(
+            what=f"uplooking run family L_toward_lower has negative values (min={rad_min:g})",
+            why="Emergent spectral radiance must be >= 0; Rule 17 forbids silent clipping.",
+            action="Inspect the run family NPZ path_radiance_toward_lower arrays.",
+            context={"min": rad_min},
+        )
 
 
 def _illumination_products(
@@ -419,7 +731,7 @@ def _sky_radiance_at_aperture(
     lam: np.ndarray,
     los: LineOfSightGeometry,
     leg: ObserverLeg,
-    segment: SegmentQuantities,
+    segment: _ObserverSegment,
     theta_s_rad: float | None,
     h_atm_top_m: float,
 ) -> tuple[np.ndarray, str]:
@@ -590,7 +902,7 @@ def _level_sky_at_aperture(
     atmosphere: SimpleAtmosphere,
     lam: np.ndarray,
     leg: ObserverLeg,
-    segment: SegmentQuantities,
+    segment: _ObserverSegment,
     termination: LosTermination,
     *,
     theta_s_rad: float | None,
@@ -621,8 +933,8 @@ def _level_sky_at_aperture(
         delta_phi_seg_rad=delta_phi_seg_rad,
         h_atm_top_m=h_atm_top_m,
     )
-    tau_arm = np.asarray(segment.tau, dtype=np.float64)
-    L_arm = np.asarray(segment.radiance_toward(leg.toward_sensor), dtype=np.float64)
+    tau_arm = segment.tau
+    L_arm = segment.L_toward_sensor
     sky = L_arm + tau_arm * continuation
     note = (
         f"level composition at {h_arm:.0f} m MSL: constant-altitude arm toward "

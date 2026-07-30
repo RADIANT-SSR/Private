@@ -19,6 +19,8 @@ from pathlib import Path
 import pytest
 
 from radiant.api.sensor import Sensor
+from radiant.gui import main_window as mw
+from radiant.gui.errors import GuiValidationError
 from radiant.gui.main_window import RADIANTMainWindow
 from radiant.gui.widgets import actionable_error_dialog as aed
 from radiant.gui.widgets.messages_panel import MessagesPanel
@@ -30,7 +32,7 @@ _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.
 _APERTURE = "optics.aperture_diameter_m"
 _FULL_WELL = "readout.full_well_capacity_e"
 
-_WAIT_MS = 15000  # generous headroom over the ~0.22 s full-chain evaluate
+_WAIT_MS = 15000  # generous headroom over the ~0.8 s full-chain evaluate (measured, CU-249)
 
 
 def _load_window(qtbot):  # type: ignore[no-untyped-def]
@@ -228,6 +230,39 @@ class TestTriggersAndDebounce:
             pass  # the single coalesced run fires ~200 ms after the last edit
 
         assert window.evaluation_count == count_before + 1
+
+    def test_the_debounce_interval_seam_defaults_to_the_production_window(  # type: ignore[no-untyped-def]
+        self, monkeypatch
+    ) -> None:
+        """CU-249: with the env var unset the interval is exactly the shipped 200 ms.
+
+        The GUI suite opts into a shortened window (``conftest.py``) so ~150 windows do
+        not each idle 200 ms on the merge gate's clock. The seam must be *inert* in
+        production: unset ⇒ ``_DEBOUNCE_MS``, no drift between the tested value and the
+        shipped one.
+        """
+        monkeypatch.delenv(mw._DEBOUNCE_ENV_VAR, raising=False)
+        assert mw._debounce_interval_ms() == mw._DEBOUNCE_MS == 200
+
+    def test_the_debounce_interval_seam_is_honoured_and_reaches_the_timer(  # type: ignore[no-untyped-def]
+        self, qtbot, monkeypatch
+    ) -> None:
+        """An override reaches the live timer — the seam is not decoration."""
+        monkeypatch.setenv(mw._DEBOUNCE_ENV_VAR, "7")
+        assert mw._debounce_interval_ms() == 7
+        window = _load_window(qtbot)
+        assert window.debounce_interval_ms == 7
+
+    @pytest.mark.parametrize(
+        ("value", "expected"), [("fast", "not an integer"), ("-1", "negative")]
+    )
+    def test_a_malformed_debounce_override_is_refused_not_silently_ignored(  # type: ignore[no-untyped-def]
+        self, monkeypatch, value: str, expected: str
+    ) -> None:
+        """Rule 17: a typo'd CI variable must not quietly restore the 200 ms it replaced."""
+        monkeypatch.setenv(mw._DEBOUNCE_ENV_VAR, value)
+        with pytest.raises(GuiValidationError, match=expected):
+            mw._debounce_interval_ms()
 
 
 class TestThreading:

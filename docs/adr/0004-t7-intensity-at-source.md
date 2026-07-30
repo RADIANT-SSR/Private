@@ -129,6 +129,19 @@ far below any realistic PSF and always passes — the guard is satisfied
 by construction for T7 because the user opted into the point-source
 approximation by supplying intensity in the first place.
 
+**Amendment (CU-256, owner ruling 2026-07-29).** "Satisfied by
+construction" is exactly why the door must refuse a *declared* extent.
+A user who supplies both an intensity and
+`geometry.target.projected_area_m2` / `geometry.target.shape` has stated
+the target's size twice, inconsistently; T7 honoured only the sentinel,
+so a 500 m² target at 25 km (≈20 pixels across) passed the §7 guard as a
+point source. The pair is now refused at the door
+(`source.target_spec.check_intensity_door_extent_conflicts`), *before*
+the sentinels are published. This ADR's `A_fict` algebra is unchanged —
+T7 still publishes `A_fict` as the projected area; the guard simply never
+sees a conflicting user value, because the conflict is refused
+upstream.
+
 `_components_t7` populates `AssemblyComponents` with `self_emission =
 I_t_source / A_fict`, all ρ-driven terms zero, and the standard τ_up /
 L_path audit fields — consistent with T1 / T6 reporting.

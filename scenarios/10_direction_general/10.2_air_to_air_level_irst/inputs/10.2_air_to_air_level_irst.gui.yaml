@@ -19,8 +19,6 @@ geometry:
   ground_speed_m_s: 246.93312
   sensor_altitude_m: 10000.0
   solar_illumination: night
-  target:
-    projected_area_m2: 0.36
   target_altitude_m: 10000.0
   target_range_m: 50000.0
 optics:

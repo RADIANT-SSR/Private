@@ -16,9 +16,10 @@ Two entry points:
   functions at the same points the inline blocks used to occupy, so the
   evaluate-time behaviour (and error text) is unchanged — defence in depth.
 * :func:`validate_target_spec` runs the doors in the inferrer's dispatch order
-  (S11 → S12 → S4/S5/S6) and is the single seam the API exposes.  Future door
-  guards (e.g. the S10/T7 intensity-door over-specification work, CU-256/264)
-  slot in as additional ``check_*`` calls here.
+  (S11 → S12 → S4/S5/S6 → S10/S10b) and is the single seam the API exposes.
+  CU-256 added :func:`check_intensity_door_extent_conflicts` here as the
+  intended extension point predicted by the CU-244 docstring; future door
+  guards slot in the same way.
 
 Scope: **over-specification only.**  Completeness checks (e.g. "S12 requires
 the band edges") stay in the inferrer — a half-entered spec is a legitimate
@@ -39,10 +40,28 @@ from radiant.source._schema import validate_reflectance_albedo_exclusive
 
 __all__ = [
     "check_brightness_temperature_conflicts",
+    "check_intensity_door_extent_conflicts",
     "check_radiance_temperature_conflicts",
     "check_reflectance_conflicts",
     "validate_target_spec",
 ]
+
+# The three user-entry surfaces that open the S10/S10b intensity door
+# (:class:`~radiant.core.descriptors.T7IntensityAtSource`).
+_INTENSITY_DOOR_SURFACES: tuple[str, ...] = (
+    "source.target.user_intensity_path",
+    "source.target.point_intensity_temperature_K",
+    "source.target.point_intensity_band_W_per_sr",
+)
+
+# Declared-extent surfaces: the ways a user states how big the target is on
+# the sky.  ``geometry.target.shape`` uses ``'none'`` as its Rule-12 sentinel
+# for "not provided"; ``projected_area_m2`` uses ``0.0``.
+_DECLARED_EXTENT_SURFACES: tuple[str, ...] = (
+    "geometry.target.projected_area_m2",
+    "geometry.target.shape",
+)
+_EXTENT_UNSET_SENTINELS: frozenset[object] = frozenset({None, "", "none", 0.0})
 
 
 def _is_user_set(params: ParameterSet, name: str) -> bool:
@@ -354,6 +373,78 @@ def check_radiance_temperature_conflicts(params: ParameterSet) -> None:
         )
 
 
+def check_intensity_door_extent_conflicts(params: ParameterSet) -> None:
+    """S10/S10b door: raise if the intensity door is paired with a declared extent.
+
+    CU-256 (owner ruling 2026-07-29).  The intensity door describes the target
+    as a zero-dimensional emitter of ``I(λ)`` [W/sr/µm]; a declared extent
+    (``geometry.target.projected_area_m2`` or ``geometry.target.shape``)
+    describes it as a finite object on the sky.  They are two mutually
+    exclusive descriptions of the same target, so supplying both is an
+    over-specification and is refused here — at the door, before
+    :class:`~radiant.core.descriptors.T7IntensityAtSource` publishes its
+    fictitious reference area.
+
+    Why refusing beats reconciling: the T7 path deliberately publishes
+    ``A_fict`` as ``stage_outputs["source"]["projected_area_m2"]`` so the
+    ADR-0004 algebra cancels (``L·A_t = (I/A_fict)·A_fict = I``).  The
+    consequence is that the derived ``angular_extent_rad`` is a sentinel
+    (``√A_fict/d``, ~1e-11 rad), which silently disarms the matrix §7
+    point-source validity guard in
+    ``radiant.optics.stage._validate_psf_regime_consistency`` — a 500 m²
+    target at 25 km (≈20 pixels across) evaluated as a point source.
+    Publishing the *real* area would break the radiometry; publishing the
+    real angular extent would re-classify the regime (Rule 10).  The
+    over-specification is refused instead, so neither trade-off arises.
+
+    ``source.target.point_intensity_area_m2`` is **not** an extent surface —
+    it is the emitting area inside the S10b blackbody intensity itself
+    (``I(λ) = ε·A·B(λ,T)``) and belongs to the door.
+
+    No-op when no intensity-door surface is user-set.
+    """
+    door_set = [s for s in _INTENSITY_DOOR_SURFACES if _is_user_set_nonempty(params, s)]
+    if not door_set:
+        return
+
+    extent_set = [
+        s
+        for s in _DECLARED_EXTENT_SURFACES
+        if _is_user_set(params, s) and _value_of(params, s) not in _EXTENT_UNSET_SENTINELS
+    ]
+    if not extent_set:
+        return
+
+    raise ParameterBoundsError(
+        what=(
+            "source._inferrer: the point-source intensity door "
+            f"({', '.join(door_set)}) is mutually exclusive with the declared "
+            f"target extent ({', '.join(extent_set)})"
+        ),
+        why=(
+            "An intensity I(λ) [W/sr/µm] describes the target as a "
+            "zero-dimensional emitter — the area has already been integrated "
+            "out.  A declared projected area or shape describes it as a "
+            "resolved object on the sky.  Supplying both over-specifies the "
+            "target: RADIANT would have two inconsistent statements of how "
+            "big it is, and the intensity path can only honour one of them "
+            "(it publishes a fictitious reference area so the ADR-0004 "
+            "algebra cancels, which would silently discard the declared "
+            "extent and disarm the matrix §7 point-source validity check)."
+        ),
+        action=(
+            "Pick one description of the target.  For an unresolved point "
+            "source, remove "
+            f"{' and '.join(extent_set)}.  For a resolved target, remove "
+            f"{' and '.join(door_set)} and specify the target's radiance "
+            "instead (source.target.temperature + .emissivity, "
+            "source.target.user_radiance_path, or a brightness/radiance "
+            "temperature) alongside the extent."
+        ),
+        context={s: _value_of(params, s) for s in door_set + extent_set},
+    )
+
+
 def check_reflectance_conflicts(params: ParameterSet) -> None:
     """S4/S5/S6 door: raise if a reflectance surface is paired with a rival surface.
 
@@ -484,7 +575,7 @@ def validate_target_spec(params: ParameterSet) -> None:
     """Raise :class:`ParameterBoundsError` if the target spec is over-specified.
 
     Runs the per-door exclusivity guards in the inferrer's dispatch order
-    (S11 → S12 → S4/S5/S6), so whenever ``evaluate()`` would raise an
+    (S11 → S12 → S4/S5/S6 → S10/S10b), so whenever ``evaluate()`` would raise an
     exclusivity error via ``_inferrer._build_target_descriptor``, the first
     error raised here is that same error — same what/why/action.  A no-op on a
     cleanly specified (or not-yet-complete) target: completeness is
@@ -501,3 +592,4 @@ def validate_target_spec(params: ParameterSet) -> None:
     check_brightness_temperature_conflicts(params)
     check_radiance_temperature_conflicts(params)
     check_reflectance_conflicts(params)
+    check_intensity_door_extent_conflicts(params)

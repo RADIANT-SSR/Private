@@ -49,6 +49,35 @@ retroactively reconstructed.
   Evaluate-time checks are unchanged (defence in depth); no computed results change.
 
 ### Changed
+- **BREAKING — a declared target extent is refused at the point-source intensity door
+  (CU-256).** Setting any S10/S10b intensity surface (`source.target.user_intensity_path`,
+  `source.target.point_intensity_temperature_K`, `source.target.point_intensity_band_W_per_sr`)
+  together with a declared extent (`geometry.target.projected_area_m2` or
+  `geometry.target.shape`, including the deprecated `source.target.*` aliases) now raises
+  `ParameterBoundsError` naming which surface to drop. **What stops working:** configs that
+  supplied both and ran anyway — the extent was silently discarded, because T7 publishes a
+  fictitious reference area `A_fict` and therefore an `angular_extent_rad` sentinel of
+  ~1e-11 rad, which disarmed the matrix §7 point-source validity guard (a 500 m² target at
+  25 km, ≈20 pixels across, evaluated as a point source). The refusal fires at the door,
+  before the sentinels are published, and also at config time via
+  `Sensor.validate_target_spec()`. `source.target.point_intensity_area_m2` is unaffected —
+  it belongs to the intensity door and scales `I(λ) = ε·A·B(λ,T)`. **Not results-affecting:**
+  the declared extent never influenced any computed number, so configs that drop the
+  redundant parameter reproduce their previous results exactly (verified on scenario 10.2:
+  29/29 metrics identical). One shipped scenario needed the follow-up edit —
+  `scenarios/10_direction_general/10.2_air_to_air_level_irst` (both its `.gui.yaml` and its
+  run script) declared `geometry.target.projected_area_m2` alongside the T7 blackbody door.
+  ADR-0004's `A_fict` algebra is unchanged.
+- **BREAKING — a `sub_pixel` declaration below 1% of PSF_FWHM now raises instead of warning
+  (CU-264).** `OpticsStage._validate_psf_regime_consistency` raised `ParameterBoundsError`
+  for a declared `point_source` above `0.1·PSF_FWHM` but only emitted a `UserWarning` for a
+  declared `sub_pixel` below `0.01·PSF_FWHM`. Both now raise. **What stops working:** configs
+  declaring `source.scene_type='sub_pixel'` for a target whose angular extent is under 1% of
+  the system PSF FWHM. Those runs previously continued with the regime promoted to
+  `point_source` — which changes the applied EE_box handling — under a warning batch runners
+  routinely suppress (Rule 17). No shipped scenario, example, or golden baseline is in that
+  band (swept 2026-07-30: every shipped `sub_pixel` config sits three or more orders of
+  magnitude above the threshold). No computed results change.
 - **Plot-card readability at GUI card sizes: colorbars, titles, and the noise pie's labels
   (CU-241).** Presentation-only — no computed value changes. `plot_pupil_amplitude` and
   `plot_pupil_phase` now size their colorbar as `plot_psf` already did

@@ -649,8 +649,10 @@ def _finalize_regime(
 # Matrix §7 thresholds for PSF-dependent angular-size checks.
 # Point-source: fail above 0.1 × PSF_FWHM (angular extent no longer << PSF).
 _POINT_SOURCE_ANGULAR_SIZE_LIMIT: float = 0.1
-# Sub-pixel: warn below 0.01 × PSF_FWHM (descriptor has degraded into the
-# point-source corner of the §1.1 decision region).
+# Sub-pixel: fail below 0.01 × PSF_FWHM (descriptor has degraded into the
+# point-source corner of the §1.1 decision region).  CU-264 (owner ruling
+# 2026-07-29) raised this from a UserWarning to a ParameterBoundsError so both
+# sides of the declared-extent boundary carry the same enforcement severity.
 _SUBPIXEL_RECLASSIFICATION_THRESHOLD: float = 0.01
 
 
@@ -707,8 +709,13 @@ def _validate_psf_regime_consistency(
       physics error, not a warning).
     * **Sub-pixel descriptor with √A_t / d ≪ PSF_FWHM** — below
       ``0.01 · PSF_FWHM`` the sub-pixel descriptor is effectively a
-      point source and carries unused area/shape fields.  Emit a
-      :class:`UserWarning` suggesting reclassification per matrix §1.1.
+      point source and carries unused area/shape fields.  Raise
+      :class:`ParameterBoundsError` per matrix §1.1 (CU-264): the
+      declaration contradicts the geometry, which is a specification
+      error in the same way the point-source branch above is.  This
+      was a :class:`UserWarning` until the 2026-07-29 owner ruling —
+      the promote path silently changed the applied radiometry
+      (EE_box handling) under a warning batch runners suppress.
 
     Both checks are skipped when there is no EffectivePSF (degenerate
     chain) or the scene_type is not one of ``{point_source, sub_pixel}``.
@@ -767,17 +774,39 @@ def _validate_psf_regime_consistency(
         )
 
     if scene_type == "sub_pixel" and ratio < _SUBPIXEL_RECLASSIFICATION_THRESHOLD:
-        warnings.warn(
-            (
+        raise ParameterBoundsError(
+            what=(
                 f"OpticsStage: sub_pixel target has angular extent "
                 f"√A_t/d = {angular_extent_rad:.3e} rad, which is only "
-                f"{ratio:.3e}× PSF_FWHM ({psf_fwhm_rad:.3e} rad) — the "
-                f"target is effectively a point source.  Matrix §1.1 "
-                f"suggests reclassifying to scene_type='point_source' to "
-                f"avoid carrying unused A_t/shape fields."
+                f"{ratio:.3e}× PSF_FWHM ({psf_fwhm_rad:.3e} rad); the "
+                f"sub-pixel descriptor requires √A_t/d ≥ "
+                f"{_SUBPIXEL_RECLASSIFICATION_THRESHOLD:g}·PSF_FWHM "
+                f"(matrix §1.1)."
             ),
-            UserWarning,
-            stacklevel=2,
+            why=(
+                "A sub-pixel descriptor mixes target and background inside "
+                "one pixel by fill fraction, which presumes the target is "
+                "resolved enough to occupy a finite part of the PSF.  Below "
+                "~1% of PSF_FWHM the target is a point source: the chain "
+                "finalizes the regime as point_source and applies "
+                "point-source radiometry (EE_box), so the declared "
+                "'sub_pixel' and the applied physics disagree.  Rule 17 "
+                "forbids resolving that disagreement silently."
+            ),
+            action=(
+                "Either (a) set source.scene_type='point_source' (the regime "
+                "the geometry actually implies) and drop the unused "
+                "A_t/shape fields, or (b) move the target closer to the "
+                "sensor (smaller d) / enlarge A_t so √A_t/d rises above "
+                f"{_SUBPIXEL_RECLASSIFICATION_THRESHOLD:g}·PSF_FWHM."
+            ),
+            context={
+                "scene_type": scene_type,
+                "angular_extent_rad": angular_extent_rad,
+                "psf_fwhm_rad": psf_fwhm_rad,
+                "ratio": ratio,
+                "threshold": _SUBPIXEL_RECLASSIFICATION_THRESHOLD,
+            },
         )
 
 
@@ -1194,7 +1223,7 @@ class OpticsStage:
         # Matrix §7 PSF-dependent validation on the scene_type axis
         # (separate from the radiometric regime which is IFOV-based):
         # point-source with √A_t/d > 0.1·PSF_FWHM raises, sub-pixel with
-        # √A_t/d < 0.01·PSF_FWHM warns.  Reads the published descriptor
+        # √A_t/d < 0.01·PSF_FWHM raises (CU-264).  Reads the published descriptor
         # so the scene_type is the descriptor-declared value, not the
         # finalized regime (they can differ at the PSF/IFOV boundary).
         target_desc = source_out.get("target")

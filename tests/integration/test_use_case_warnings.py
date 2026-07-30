@@ -255,8 +255,9 @@ class TestT2BelowHorizonWarning:
 
 
 # Sub-pixel cells in Tables B / C / D-space: (cell_id, target_location).
-# The warning fires when √A_t/d < 0.01·PSF_FWHM after OpticsStage
-# finalizes the regime.  At the matrix-harness defaults
+# The error fires when √A_t/d < 0.01·PSF_FWHM after OpticsStage
+# finalizes the regime (a UserWarning until CU-264 aligned it on raise).
+# At the matrix-harness defaults
 # (projected_area_m2=100, range_m=1e6, aperture=0.15, focal=0.45) the
 # ratio is well above 0.01; to trigger the warning we shrink the target
 # by 6 orders of magnitude so √A_t/d ≈ 10⁻⁷ rad, which is ≪ 0.01·PSF_FWHM
@@ -275,16 +276,18 @@ _SUBPIXEL_CELLS: tuple[tuple[str, str, str], ...] = (
 
 @pytest.mark.level2
 class TestSubPixelCollapsesToPointSource:
-    """Matrix §1.1 — sub-pixel with √A_t/d ≪ 0.01·PSF_FWHM warns.
+    """Matrix §1.1 — sub-pixel with √A_t/d ≪ 0.01·PSF_FWHM raises (CU-264).
 
-    The warning is emitted from ``OpticsStage._validate_psf_regime_consistency``
+    The error is raised from ``OpticsStage._validate_psf_regime_consistency``
     (optics/stage.py) after the regime is finalized.  This test runs the
     full chain with an extreme small-target/large-range geometry so the
-    ratio clears the 0.01 threshold from below.
+    ratio clears the 0.01 threshold from below.  Before CU-264 this was a
+    :class:`UserWarning` and the chain went on to apply point-source
+    radiometry under a declared ``sub_pixel``.
     """
 
     @pytest.mark.parametrize("cell_id,target_location,regime", _SUBPIXEL_CELLS)
-    def test_tiny_subpixel_warns_collapse(
+    def test_tiny_subpixel_raises_on_collapse(
         self, cell_id: str, target_location: str, regime: str
     ) -> None:
         wl = _REGIME_GRIDS[regime]
@@ -319,7 +322,7 @@ class TestSubPixelCollapsesToPointSource:
         _seed_optics_detector_readout(params, regime)
         params.resolve()
 
-        with pytest.warns(UserWarning, match=r"effectively a point source"):
+        with pytest.raises(ParameterBoundsError, match=r"sub_pixel target has angular extent"):
             session.run(params)
 
 

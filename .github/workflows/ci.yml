@@ -17,6 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: check_org_rules' cited-commit ancestry gate (CU-279)
+          # resolves every SHA the registries cite against `git rev-list HEAD`.
+          # The default depth-1 checkout knows one commit, so the check would
+          # skip itself here and the gate would exist only on developer machines.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"

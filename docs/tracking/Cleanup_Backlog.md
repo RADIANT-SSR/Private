@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-286 — `SpectralData.plot()` still creates a pyplot-registered figure and never returns it
+
+**Discovered**: Overnight backlog run, CU-116 close-out, 2026-07-29.
+**Status**: Open.
+**File**: `src/radiant/core/spectral.py:427` (`SpectralData.plot`).
+**Symptom**: with `ax=None` it does `_, ax = plt.subplots()` and returns only the `Axes`, so the caller has no handle on the figure — releasable only via `plt.close("all")`/`plt.gcf()`. After [[CU-116]] made every `radiant.api.plot` figure pyplot-free, this is the one remaining `result`-adjacent figure producer that retains a process-global resource, and the convention is now inconsistent.
+**Why it still matters**: same slow-retention shape CU-116 removed; also an API wart — a plot method that hides its figure.
+**Suggested fix**: (a) inline, XS — return the figure, or build it unregistered (`Figure()`) matching the CU-116 convention; only `core/tests/test_spectral.py` calls it today, so the blast radius is one test file plus any user notebooks (public surface → Rule 29b CHANGELOG if the signature changes). Category A. Related: [[CU-116]].
+
 ### CU-285 — Scripting-console figure windows are retained forever, growing the live widget tree unbounded
 
 **Discovered**: Overnight backlog run, CU-216 close-out, 2026-07-29.
@@ -402,10 +411,10 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
-### CU-116 — Per-stage center retains one matplotlib figure per visited stage until the window closes — RESOLVED 2026-07-29 (commit `(pending merge — orchestrator stamps final SHA)`)
+### CU-116 — Per-stage center retains one matplotlib figure per visited stage until the window closes — RESOLVED 2026-07-29 (commit `68adf15`)
 
 **Discovered**: GUI contextual-layout retrofit Step B, 2026-07-13 (commit on branch `gui-phase1-task-a`)
-**Status**: RESOLVED 2026-07-29, commit `(pending merge — orchestrator stamps final SHA)`. **Resolution**: route (b) of the three the 2026-07-19 investigation named — `radiant.api.plot` now builds every figure with a **pyplot-free** `Figure(layout="constrained")` (new `_subplots()` helper, 15 call sites), so `result.plot.*` figures are never entered in pyplot's process-global `Gcf` registry and `MatplotlibCanvas._discard_current` simply drops its reference instead of calling `plt.close()`. The retention the CU tracks is gone by construction: an embedded figure's lifetime *is* its Qt canvas's, and garbage collection — not a process-global close — reclaims it.
+**Status**: RESOLVED 2026-07-29, commit `68adf15`. **Resolution**: route (b) of the three the 2026-07-19 investigation named — `radiant.api.plot` now builds every figure with a **pyplot-free** `Figure(layout="constrained")` (new `_subplots()` helper, 15 call sites), so `result.plot.*` figures are never entered in pyplot's process-global `Gcf` registry and `MatplotlibCanvas._discard_current` simply drops its reference instead of calling `plt.close()`. The retention the CU tracks is gone by construction: an embedded figure's lifetime *is* its Qt canvas's, and garbage collection — not a process-global close — reclaims it.
 **File**: `src/radiant/api/plot.py`, `src/radiant/gui/widgets/matplotlib_canvas.py`; tests in `src/radiant/gui/tests/test_stage_center.py` (`TestFigureRetention`, 2) and `src/radiant/api/tests/test_plot.py` (`TestFiguresArePyplotFree`, 3).
 
 **Symptom, corrected by measurement 2026-07-29** (offscreen window, shipped `examples/mwir_leo_minimal.yaml`, all nine stages clicked through the real `stageClicked` handler):

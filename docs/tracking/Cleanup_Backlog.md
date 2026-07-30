@@ -12,6 +12,42 @@
 
 ## Open
 
+### CU-304 — No guidance that HV's ground strength A is a sea-level value, and the old "absorb elevation into A" workaround is now obsolete
+
+**Discovered**: Overnight backlog run, CU-262 close-out, 2026-07-30.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/cn2_hufnagel_valley.py` (module docstring, `cn2_hv_ground_strength` schema description); `docs/architecture/RADIANT_Atmosphere.md` §7.1.
+**Symptom**: HV-5/7's default `A = 1.7e-14 m^(-2/3)` is a near-sea-level daytime figure. Carried unchanged to a 900 m site it now yields ~1.94 arcsec seeing — correct for the model, wrong for a good observatory. [[CU-262]]'s Paranal anchor shows the right knob (`A = 2.70e-15 m^(-2/3)` reproduces the 0.80 arcsec median at 2635 m), but nothing in the docs points a user there. Worse, the pre-CU-262 module docstring suggested *absorbing* site elevation into an inflated A — anyone who did that now double-counts.
+**Why it still matters**: the parameter became meaningful at elevation only with CU-262 (measured: A spanning 0 to 3.4e-14 moved r0 by 0.07 % before, 75.8 % after), so this is the first time getting A right matters — and the guidance points the wrong way. No shipped scenario used the old workaround (checked during CU-262).
+**Suggested fix**: (a) inline, S — a short "choosing A for your site" note with the Paranal worked example and an explicit migration warning about the obsolete workaround. Category A (doc). Related: [[CU-262]], Gap 110.
+
+### CU-303 — Site-vs-endpoint contradiction is caught only when an HV profile is selected
+
+**Discovered**: Overnight backlog run, CU-262 close-out, 2026-07-30.
+**Status**: Open.
+**File**: `src/radiant/geometry/stage.py` (no check); `src/radiant/atmosphere/cn2_hufnagel_valley.py::cn2` (where it currently raises).
+**Symptom**: a config with `geometry.site_elevation_m = 900` and `geometry.target.target_altitude_m = 0` — a target below its own terrain — passes GeometryStage silently and raises only inside `cn2()`, i.e. only when an HV profile is selected. With a tabulated or direct profile it never raises at all.
+**Why it still matters**: Rule 16 (validate before compute) — the contradiction is knowable the moment both are set, and it is a geometry error, not a turbulence error. The error currently surfaces in the wrong stage with the wrong framing.
+**Suggested fix**: (a) inline, S — a GeometryStage consistency check that both endpoints are at or above `site_elevation_m`, with an actionable error naming both values. Category B. Related: [[CU-262]], [[CU-302]].
+
+### CU-302 — `geometry.site_elevation_m` is silently inert for tabulated and direct Cn2 profiles
+
+**Discovered**: Overnight backlog run, CU-262 close-out, 2026-07-30.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/cn2_profiles.py` (tabulated and direct branches).
+**Symptom**: with `atmosphere.cn2_profile = "tabulated"` or `"direct"`, a non-zero `geometry.site_elevation_m` is ignored — correctly, since a measured table carries its own site — but **silently**. Documented in three places ([[CU-262]] added them), warned about in none.
+**Why it still matters**: Rule 17 — a user-supplied input that changes nothing, with no signal. An analyst who sets a 2635 m site elevation and a tabulated profile will reasonably believe it applied.
+**Suggested fix**: (a) inline, XS — `UserWarning` when a non-zero site elevation meets a profile mode that ignores it, naming why it is inert. Category A. Related: [[CU-262]], [[CU-303]].
+
+### CU-301 — `geometry.site_elevation_m` has no GUI entry point
+
+**Discovered**: Overnight backlog run, CU-262 close-out, 2026-07-30.
+**Status**: Open.
+**File**: `src/radiant/gui/widgets/` (geometry screen); `src/radiant/geometry/tests/test_mode_manifest.py::_NON_MODE_PARAMS`.
+**Symptom**: the GUI's geometry screen renders from the mode manifest, and [[CU-262]]'s new parameter is correctly excluded from it (it is not an input-mode door) — which leaves it reachable only from YAML or the scripting API. It sits exactly where `geometry.scene_class` sat before that parameter got its bespoke `scene_class_panel.py`.
+**Why it still matters**: the standing project rule is that every scenario's GUI workflow is documented and drivable; a results-affecting turbulence parameter that an operator cannot enter in the GUI fails that. Elevated-site seeing is the SST case Gap 110 shipped for, and it is a GUI-driven workflow.
+**Suggested fix**: (b) small stand-alone GUI task — a field on the geometry or turbulence view (unit-bearing, entry/display symmetric per the display-units rule), following the `scene_class_panel.py` precedent. Category D. Related: [[CU-262]], Gap 110.
+
 ### CU-300 — `_is_user_set` counts `Provenance.DERIVED` as user-set, a latent trap for any future guard over a derived surface
 
 **Discovered**: Overnight backlog run, CU-256/CU-264 close-out, 2026-07-30.

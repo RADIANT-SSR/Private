@@ -116,6 +116,7 @@ from radiant.source.shape import TargetShape
 from radiant.source.tabulated import TabulatedRadianceSource
 from radiant.source.target_spec import (
     check_brightness_temperature_conflicts,
+    check_intensity_door_extent_conflicts,
     check_radiance_temperature_conflicts,
     check_reflectance_conflicts,
 )
@@ -1156,6 +1157,10 @@ def _maybe_build_from_point_intensity(
     if not bb_set and not scalar_set:
         return None
 
+    # CU-256: refuse a declared target extent at the door, BEFORE T7 publishes
+    # its fictitious reference area (which would silently discard the extent).
+    check_intensity_door_extent_conflicts(params)
+
     if bb_set and scalar_set:
         raise ParameterBoundsError(
             what=(
@@ -1272,6 +1277,10 @@ def _maybe_build_from_user_intensity(
     path_user = path_rv.provenance is not Provenance.DEFAULT and bool(path_rv.value)
     if not path_user:
         return None
+
+    # CU-256: refuse a declared target extent at the door, BEFORE T7 publishes
+    # its fictitious reference area (which would silently discard the extent).
+    check_intensity_door_extent_conflicts(params)
 
     if _is_user_set(params, "source.target.temperature") or _is_user_set(
         params, "source.target.emissivity"

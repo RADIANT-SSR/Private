@@ -34,7 +34,7 @@ Four independent axes define a use case. Target/atmosphere/background/illuminati
 **Scene-type constraints**:
 - `at_aperture` target location is restricted to `extended` scene type.
 - EE_box applies per Rule 9: never in extended, always in point_source and sub_pixel (on target term only).
-- Sub-pixel collapses to point-source when `√A_t/d ≪ PSF_FWHM` (emit UserWarning suggesting reclassification).
+- Sub-pixel collapses to point-source when `√A_t/d ≪ PSF_FWHM` (**raise** — the declaration contradicts the geometry; CU-264, owner ruling 2026-07-29. Was a UserWarning + silent promote until then).
 - Point-source with a resolved target is a physics error (raise).
 
 ### 1.2 Wavelength regime
@@ -199,7 +199,7 @@ Rule T is independent of scene class and of LOS direction: the target's own radi
 | Scene type | What changes | Constraint |
 |---|---|---|
 | `extended` | Target radiance fills the IFOV; **no** BackgroundDescriptor is populated (locked decision 13) and SpectralIntegrationStage skips the background photon term | EE_box never applied (Rule 9) |
-| `sub_pixel` | Adds `A_t` + `shape`; Ω_t = A_t/d² < Ω_pix | EE_box on the **target term only**; background term never gets EE_box (Rule 9). Warn + suggest reclassification when `√A_t/d ≪ PSF_FWHM` |
+| `sub_pixel` | Adds `A_t` + `shape`; Ω_t = A_t/d² < Ω_pix | EE_box on the **target term only**; background term never gets EE_box (Rule 9). **Raise** and direct reclassification when `√A_t/d < 0.01·PSF_FWHM` (CU-264) |
 | `point_source` | Area pre-integrated into intensity `I_t(λ)` | EE_box applied; **raise** if the target is resolved (`√A_t/d > 0.1·PSF_FWHM`) |
 
 `at_aperture` is restricted to `extended` (locked decision 2). All ten `at_aperture × {sub_pixel, point_source}` combinations are invalid and raise at descriptor construction (§7) — this is the entire invalid-cell population of the primary space (§3.5).
@@ -540,6 +540,8 @@ The schema validator rejects combinations where the physics is ill-defined. Non-
 | Specifying both ε(λ) and ρ(λ) for target or ground | Over-specification (violates Kirchhoff derivation rule) | Raise | Permanent |
 | MWIR scene with T1 or T2 alone (not T3) | MWIR requires the mixed model for ambient targets | Warn or raise on the ambient check; never forced when ρ ≈ 0 | Permanent |
 | Point-source target with resolved angular size | `√A_t/d > 0.1 · PSF_FWHM` | Raise | Permanent |
+| Sub-pixel target collapsed to a point source | `√A_t/d < 0.01 · PSF_FWHM` | Raise `ParameterBoundsError` | **Implemented (CU-264, 2026-07-30).** Was a `UserWarning` while the chain promoted the regime to `point_source` and switched the applied EE_box handling — the Rule-17 asymmetry the owner ruling closed |
+| Point-source intensity door (S10/S10b) with a declared target extent | Any of `source.target.user_intensity_path` / `point_intensity_temperature_K` / `point_intensity_band_W_per_sr` set together with `geometry.target.projected_area_m2` or `geometry.target.shape` | Raise `ParameterBoundsError` naming which surface to drop | **Implemented (CU-256, 2026-07-30)** — `source/target_spec.py::check_intensity_door_extent_conflicts`, called from both T7 door builders and from `Sensor.validate_target_spec()`. An intensity and a declared extent are mutually exclusive descriptions of the same target; T7 publishes a fictitious reference area, so the extent was silently discarded and this §7 guard was disarmed |
 | `T_g ∉ [150, 350] K` | Physically implausible Earth surface | Warn at the boundaries; raise far outside | Permanent |
 | ~~`h_sensor ≤ h_target`~~ | Was `core/viewing_triangle.py::_validate_altitudes` — "v1 has no uplooking geometry" (owner ruling 2026-07-11) | — | **LIFTED (plan Phase 1, 2026-07-26).** Superseded by [ADR-0011](../adr/0011-generalized-viewing-geometry.md) and replaced by symmetric solutions for any altitude ordering plus the equal-altitude (level) case. Any ordering is now accepted; what *is* enforced is the altitude/hemisphere invariant (next row) |
 | ~~`θ_o ∉ [0, π/2)`~~ | Was: target beyond the sensor's horizon plane | — | **LIFTED (plan Phase 1, 2026-07-26).** The domain is the **closed** interval `[0, π]`; `π` is the vertical up-looking case. `AtmosphereGeometry`'s 89.5° ceiling survives only inside the simple-model backend, which Phase 2 revisits |

@@ -251,8 +251,13 @@ def make_config(
         "target_range_m": slant_m,
         "solar_illumination": c["illumination"],
         "ground_speed_m_s": c["own_speed_m_s"],
-        # Hot-parts area, so the schematic and the regime guards see the extent.
-        "target": {"projected_area_m2": c["target_area_m2"]},
+        # CU-256: geometry.target.projected_area_m2 is NOT set here.  The
+        # target is specified through the T7 point-intensity door, which
+        # describes it as a zero-dimensional emitter; declaring an extent
+        # alongside it over-specifies the target and is now refused at the
+        # door.  The hot-parts area enters as
+        # source.target.point_intensity_area_m2 below (it sizes I(λ) = ε·A·B),
+        # which is the door's own input.
     }
     if kinematics == "target":
         geometry["target_speed_m_s"] = c["target_speed_m_s"]

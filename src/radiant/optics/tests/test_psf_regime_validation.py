@@ -6,9 +6,11 @@ that fire in OpticsStage after the regime is finalized:
 * Point-source descriptor with ``√A_t/d > 0.1·PSF_FWHM`` → raise
   :class:`ParameterBoundsError` (point-source approximation breaking
   down — the target is resolved).
-* Sub-pixel descriptor with ``√A_t/d < 0.01·PSF_FWHM`` → emit a
-  :class:`UserWarning` suggesting reclassification to ``point_source``
-  (matrix §1.1).
+* Sub-pixel descriptor with ``√A_t/d < 0.01·PSF_FWHM`` → raise
+  :class:`ParameterBoundsError` directing reclassification to
+  ``point_source`` (matrix §1.1).  This was a :class:`UserWarning`
+  until CU-264 (owner ruling 2026-07-29) aligned both sides of the
+  boundary on raise.
 
 Both checks are driven by :func:`_validate_psf_regime_consistency` in
 ``optics/stage.py`` and live there per Rule 19 (the PSF-dependent check
@@ -123,26 +125,64 @@ def test_point_source_right_at_threshold_noop() -> None:
 
 
 @pytest.mark.level1
-def test_subpixel_collapses_to_point_warns() -> None:
-    """√A_t/d = 1e-4·PSF_FWHM on a sub_pixel descriptor → UserWarning."""
+def test_subpixel_collapses_to_point_raises() -> None:
+    """√A_t/d = 1e-4·PSF_FWHM on a sub_pixel descriptor → ParameterBoundsError (CU-264)."""
     fwhm_m = 20e-6
     f_m = 1.0
     epsf = _make_gaussian_epsf(fwhm_m=fwhm_m, sample_spacing_m=fwhm_m / 4.0)
     psf_fwhm_rad = fwhm_m / f_m
     angular_rad = 1e-4 * psf_fwhm_rad  # way below 0.01
 
-    with pytest.warns(UserWarning, match=r"effectively a point source"):
+    with pytest.raises(ParameterBoundsError) as exc_info:
         _validate_psf_regime_consistency(
             scene_type="sub_pixel",
             angular_extent_rad=angular_rad,
             epsf=epsf,
             focal_length_m=f_m,
         )
+    err = exc_info.value
+    # Rule 15: the error is actionable — what / why / action all populated.
+    assert "sub_pixel target has angular extent" in err.what
+    assert "point source" in err.why
+    assert "source.scene_type='point_source'" in err.action
+    assert err.context["ratio"] == pytest.approx(1e-4, rel=1e-9)
+    assert err.context["threshold"] == pytest.approx(0.01, rel=1e-12)
+
+
+@pytest.mark.level1
+def test_subpixel_severity_matches_point_source_branch() -> None:
+    """CU-264: both sides of the declared-extent boundary raise the same class.
+
+    The asymmetry this closes: a declared ``point_source`` above
+    ``0.1·PSF_FWHM`` raised, while a declared ``sub_pixel`` below
+    ``0.01·PSF_FWHM`` only warned and let the chain promote the regime.
+    """
+    fwhm_m = 20e-6
+    f_m = 1.0
+    epsf = _make_gaussian_epsf(fwhm_m=fwhm_m, sample_spacing_m=fwhm_m / 4.0)
+    psf_fwhm_rad = fwhm_m / f_m
+
+    with pytest.raises(ParameterBoundsError) as too_big:
+        _validate_psf_regime_consistency(
+            scene_type="point_source",
+            angular_extent_rad=1.0 * psf_fwhm_rad,
+            epsf=epsf,
+            focal_length_m=f_m,
+        )
+    with pytest.raises(ParameterBoundsError) as too_small:
+        _validate_psf_regime_consistency(
+            scene_type="sub_pixel",
+            angular_extent_rad=1e-4 * psf_fwhm_rad,
+            epsf=epsf,
+            focal_length_m=f_m,
+        )
+    for err in (too_big.value, too_small.value):
+        assert err.what and err.why and err.action
 
 
 @pytest.mark.level1
 def test_subpixel_above_threshold_noop() -> None:
-    """√A_t/d = 0.5·PSF_FWHM on a sub_pixel descriptor — no warning."""
+    """√A_t/d = 0.5·PSF_FWHM on a sub_pixel descriptor — no warning, no raise."""
     fwhm_m = 20e-6
     f_m = 1.0
     epsf = _make_gaussian_epsf(fwhm_m=fwhm_m, sample_spacing_m=fwhm_m / 4.0)
@@ -157,6 +197,22 @@ def test_subpixel_above_threshold_noop() -> None:
             epsf=epsf,
             focal_length_m=f_m,
         )
+
+
+@pytest.mark.level1
+def test_subpixel_right_at_threshold_noop() -> None:
+    """Ratio exactly equal to 0.01 does not raise (strictly below fails)."""
+    fwhm_m = 20e-6
+    f_m = 1.0
+    epsf = _make_gaussian_epsf(fwhm_m=fwhm_m, sample_spacing_m=fwhm_m / 4.0)
+    psf_fwhm_rad = fwhm_m / f_m
+
+    _validate_psf_regime_consistency(
+        scene_type="sub_pixel",
+        angular_extent_rad=0.01 * psf_fwhm_rad,
+        epsf=epsf,
+        focal_length_m=f_m,
+    )
 
 
 # ---------------------------------------------------------------------------

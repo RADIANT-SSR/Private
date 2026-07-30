@@ -345,7 +345,7 @@ multiplicatively, and the atmosphere-free answer is recoverable analytically.
 
 A *true* vacuum run (telescope raised to `h_atm_top` = 100 km, where the topology
 dispatcher returns τ_up ≡ 1) **raises**: the wholly-vacuum branch returns
-`sky_source_radiance = None` while the LOS-termination rule still selects
+`sky_radiance_at_aperture = None` while the LOS-termination rule still selects
 `SkyBackground`, and the assembly refuses to default it to zero (`gaps.md` G7). The
 identity is therefore evaluated analytically rather than by a second chain run.
 

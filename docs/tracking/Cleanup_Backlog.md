@@ -12,24 +12,23 @@
 
 ## Open
 
-### CU-277 — `lint-imports` is red on `origin/main`: a GUI test imports `radiant.performance` directly
-
-**Discovered**: Backlog-Reduction, up-looking sky-model cluster (branch `atmo/sky-composition`), 2026-07-29 — running the merge gate battery.
-**Status**: Open.
-**File**: `src/radiant/gui/tests/test_performance_instrument.py:288`.
-**Symptom**: to be completed on the branch.
-**Why it still matters**: to be completed on the branch.
-**Suggested fix**: to be completed on the branch. Related: [[CU-251]], [[CU-164]].
-
-
 ### CU-276 — The level-topology sky still composes two segments, so it keeps the CU-254 target-position dependence
 
 **Discovered**: Backlog-Reduction, up-looking sky-model cluster (branch `atmo/sky-composition`), 2026-07-29 — while fixing [[CU-254]].
 **Status**: Open.
 **File**: `src/radiant/atmosphere/uplooking_quantities.py::_level_sky_at_aperture`.
-**Symptom**: to be completed on the branch.
-**Why it still matters**: to be completed on the branch.
-**Suggested fix**: to be completed on the branch. Related: [[CU-254]], [[CU-225]].
+**Symptom**: [[CU-254]] removed the target-plane split from the **up-looking** sky by evaluating the whole path once from the sensor. The **level** branch cannot do that and still composes `L_arm→sensor + τ_arm · L_continuation(target→top)`, so sliding the target along a fixed level ray still moves the split point and therefore the background — the same non-additive-graybody mechanism CU-254 measured at 12.3 % for a 10 km up-looking target.
+**Why the obvious fix is wrong (measured this pass).** A level ray is tangent at the *chord midpoint*, not at the sensor, so the sensor sits on its descending half. A single sensor-rooted ascending arc (`r_tangent = R_E + h_sensor`) omits the constant-altitude arm entirely. Measured in sea-level-equivalent molecular column [km], sensor-rooted arc vs the true traversed path (descending half + full ascending branch about the real perigee):
+
+| arm | altitude | sag | sensor-rooted | true | ratio |
+|---|---|---|---|---|---|
+| 8 km | 0 m | 1.3 m | 282.02 | 286.05 | 0.9859 |
+| 100 km | 3 km | 196.3 m | 194.61 | 234.38 | 0.8303 |
+| 150 km | 10 km | 442.1 m | 81.17 | 108.11 | 0.7508 |
+
+So "root it at the sensor like the up-looking branch" would drop up to 25 % of the column — a much larger error than the one it closes. The composition is kept deliberately and is numerically what the `SkyBackground` arm used to assemble, which is why every level scene stayed bit-identical through CU-254 (scenario 10.2 verified unchanged to the last digit).
+**Why it still matters**: the invariant "a background cannot depend on where along the ray the target sits" is violated on one of the three topologies, and level (air-to-air IRST, the 10.2 class) is exactly where a target slides along a fixed ray during an engagement. The error is bounded by the same graybody argument as CU-254 and runs the same direction (optimistic SCNR for a near target).
+**Suggested fix**: (b) stand-alone — a segment evaluator that spans "constant-altitude arm then ascending arc" as one optical path. The pieces exist: `grazing_column.grazing_slant_column_km` already integrates an arbitrary arc about a given perigee, and the true whole path is `2·S(r_p; h_p→h_sensor) + S(r_p; h_sensor→h_top)` per species. What it needs is a way to express a traversed *descending* leg, which `segment_grazing` refuses by construction today ("the segment must ascend monotonically"), plus a decision about whether the level arm's constant-altitude approximation survives alongside it (Rule 27). **Results-affecting** for level scenes only. Effort M; category C. Related: [[CU-254]], [[CU-225]], ADR-0011 decision 3.
 
 
 ### CU-275 — Past 80° the down-looking and solar columns have no exact near-horizon route, so `sec ζ` overstates the air mass
@@ -37,20 +36,9 @@
 **Discovered**: Backlog-Reduction, up-looking sky-model cluster (branch `atmo/sky-composition`), 2026-07-29 — while fixing [[CU-274]].
 **Status**: Open.
 **File**: `src/radiant/atmosphere/protocol.py::AtmosphericGeometry.air_mass`; consumers `simple.py::SimpleAtmosphere.evaluate` (up-leg and solar columns), `segment_simple.py::column_segment_optical_depth`.
-**Symptom**: to be completed on the branch.
-**Why it still matters**: to be completed on the branch.
-**Suggested fix**: to be completed on the branch. Related: [[CU-274]], [[CU-225]].
-
-
-### CU-274 — `slant_path_length_m` jumps 18 % across its own 80° branch switch, for every geometry
-
-**Discovered**: Backlog-Reduction Batch 5, while fixing [[CU-255]], 2026-07-29. **Pre-existing**: reproduced on unmodified `main`.
-**Status**: Open — needs a modelling decision, not a formula swap.
-**File**: `src/radiant/atmosphere/protocol.py::AtmosphericGeometry.slant_path_length_m` (`SPHERICAL_SWITCH_RAD`).
-**Symptom**: the two branches model different quantities, so the switch is a step. A 100 km in-column path gives air mass **5.7023 at 79.9°** and **4.8072 at 80.1°** — an 18 % discontinuity, on `main`, for an ordinary down-looking column. CU-255 removed the up-looking case's absurd slab thickness but cannot remove this: it is inherent to switching formulas.
-**Which side is right (measured this pass, against `segment_grazing`'s exact spherical slant integral):** flat `sec θ` agrees with the exact integral to **0.18 % at 60°** and 0.02 % at 30°; the root form is **2.2 % low** at 60°. The reason is physical — with an 8 km molecular scale height the absorbing mass hugs the ground, where curvature is negligible, so `sec θ` is very nearly the true air mass at moderate zenith while the root form computes the *geometric chord* of a 100 km slab, which is a different quantity. Below 80° the current code is therefore the accurate one, and the root form it switches to at 80° is the less accurate.
-**Why it still matters**: transmittance is discontinuous in look angle for every scene class, so any sweep crossing 80° shows a step that is pure model artefact; and past 80° the model silently changes what it means by "path length".
-**Suggested fix**: (b) stand-alone task — the exact integral already exists (`segment_grazing.grazing_segment_optical_depth`, which `ColumnSegmentSpec` defers to past 89.5°). Either lower that hand-over to ~80° so the accurate model covers the whole near-horizon range, or replace the root form with a proper exponential-atmosphere air mass (Kasten–Young or a Chapman function), and continuity-test across whatever switch remains. **Results-affecting** for any scene past 80°. Effort M; category C. Related: [[CU-255]], [[CU-225]] (the 89.5° hand-over step, the same class of defect one switch further out).
+**Symptom**: [[CU-274]] deleted the root-form branch that used to take over past 80°, because it was the geometric chord of a 100 km slab rather than a density-weighted air mass and made transmittance discontinuous. `sec ζ` now covers the whole legal domain `[0, 89.5°]`. That is continuous and monotone, but it is still the *plane-parallel* answer, and the plane-parallel answer diverges near the horizon. Measured against the exact spherical slant integral (`grazing_column.grazing_slant_column_km`, molecular scale height, ground → 100 km): `sec ζ` is high by **0.04 % at 30°, 0.37 % at 60°, 1.7 % at 75°, 3.8 % at 80°, 13 % at 85°, and 237 % at 89.4°** (95.49 against 28.38).
+**Why it still matters**: the accurate route exists — `segment_grazing.py` over `grazing_column.py`, with a *per-species* effective air mass, which is what the near-horizon regime actually needs since water vapour's 2 km scale height hugs the tangent point far harder than the 8 km molecular one. The up-looking sky background takes that route at `SPHERICAL_SWITCH_RAD`. Two callers do not and cannot today: the down-looking observer column (`SimpleAtmosphere.evaluate`, legal to 89.5°) and the **solar** column (`sun_geom.air_mass()`, capped at 89.5° — every twilight scene). They therefore overestimate the near-horizon air mass. Direction is at least the safe one: too much air means pessimistic τ, pessimistic signal and pessimistic SNR, where the old root form was optimistic by 14–62 %. No shipped scenario exceeds 37.5° LOS zenith or 40° solar zenith, so nothing ships wrong today; the exposure is a user who enters a grazing geometry.
+**Suggested fix**: (b) stand-alone — give the plane-parallel column the same hand-over the sky now has. `AtmosphericGeometry` cannot do it alone: it carries no scale height, and making `slant_path_length_m` density-weighted would change a documented *geometric length* into something else (public-surface change, Rule 20). The cleaner shape is to route `column_segment_optical_depth` and `SimpleAtmosphere.evaluate`'s two air-mass sites to `grazing_segment_optical_depth` past 80°, exactly as `uplooking_quantities` does, and leave `AtmosphericGeometry.air_mass` as the honest plane-parallel primitive it now is. Re-anchor the twilight solar column against a MODTRAN run before trusting it. **Results-affecting** for any scene past 80° LOS or solar zenith. Effort M; category C. Related: [[CU-274]], [[CU-225]], [[CU-260]].
 
 
 ### CU-273 — `emit_gui_yaml.py` rewrites portable baseline paths back to gitignored generated locations, silently un-doing CU-180
@@ -82,26 +70,6 @@
 **Why it still matters**: a reader opening `examples/` cannot tell which files are the curated examples (`mwir_leo_minimal.yaml`, `ground_truth_mwir.yaml`, `templates/`) and which are someone's scratch. It is the same clutter CU-207 removed, minus the broken path that forced that one's hand.
 **Suggested fix**: (c) delete-as-unused if it is scratch, or (a) rename to a content-stating slug (e.g. the band + platform + regime it configures) if it is a real example worth shipping. Needs one word from the owner — the file may be in active personal use. Effort XS; category A. Related: [[CU-207]].
 
-
-### CU-254 — Up-looking sky background depends on the target's altitude (segment composition is not additive)
-
-**Discovered**: Scenario 10.1 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open.
-**File**: `src/radiant/atmosphere/sky_radiance.py` + `segment_simple.py` (composition `L_bkg = L_up(sensor→target) + τ(sensor→target)·L_sky(target→top)`).
-**Symptom**: the simple model's single-effective-temperature graybody per segment is not additive, so a fixed pointing direction reports a target-altitude-dependent sky: 1.7528e5 e- (target 10 km) → 1.9415e5 (20 km) → 2.0130e5 (99 km — the whole column, the physically correct value for every row). The 10 km scene under-reports the sky by 12.9 %, always the same sign.
-**Why it still matters**: the background behind a target cannot depend on where the target sits along the ray; SCNR for low-altitude targets is systematically optimistic.
-**Reproduction verified 2026-07-29 (Backlog-Reduction Batch 5), on the shipped 10.1 config** — `scenarios/10_direction_general/10.1_ground_to_air_mwir_detection/inputs/10.1_ground_to_air_mwir_detection.gui.yaml`, varying only `geometry.target_altitude_m`:
-
-| target altitude | `background_e` |
-|---|---|
-| 10 km | 1.94207e5 |
-| 20 km | 2.14046e5 |
-| 99 km (whole column — the physically correct value for all three) | 2.21479e5 |
-
-The 10 km row under-reports the background by **12.3 %**, always the same sign. That table is the acceptance test: after the fix all three rows must equal the 99 km value, because the background behind a target cannot depend on where along the ray the target sits.
-
-**Fix location, traced this pass.** `uplooking_quantities._sky_source_radiance` returns the sky at the **target** plane (`sky_radiance_along_los(atm, lam, h_tgt, zeta_c, …)`), and `assembly.assemble_background_at_aperture`'s `SkyBackground` arm then propagates it: `L_bg = L_sky(target→top)·τ(sensor→target) + L_path(sensor→target)`. The simple model's single-effective-temperature graybody is not additive across that split, so the two-step differs from one whole-column evaluation. The correct quantity is `sky_radiance_along_los` evaluated **from the sensor** along the pointing direction, used directly (τ ≡ 1, L_path ≡ 0 for that arm) rather than re-propagated — which is a change to the `SkyBackground` arm's contract, not a local edit, and is why this stays Effort M.
-**Suggested fix**: (b) stand-alone task — compose the sky from one whole-column evaluation of the pointing direction (or make the segment graybody additive by construction). **Results-affecting** for every up-looking/level background and therefore SCNR. Effort M; category C. Related: Gap 108, [[CU-260]], [[CU-224]].
 
 ### CU-255 — `AtmosphericGeometry.slant_path_length_m` >80° spherical form uses the segment's full geometric Δh, making τ non-monotonic in zenith
 
@@ -136,10 +104,31 @@ The 10 km row under-reports the background by **12.3 %**, always the same sign. 
 
 **Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
 **Status**: Open.
-**File**: `src/radiant/atmosphere/uplooking_quantities.py::_sky_source_radiance` (early zero return for `h_tgt ≥ h_atm_top`) + `segment_simple.py::_single_scatter_terms` (species split at the segment's arithmetic mean altitude).
-**Symptom**: for a site→space-object segment the mean altitude is h_tgt/2 (350 km LEO, ~17,900 km GEO); every exp(−h/H) underflows, ω₀ = 0, the scattered term vanishes — and the early return means `sky_radiance_along_los` (where the ratified ADR-0011 decision-10 VIS/NIR `UserWarning` lives) is never called. Sky background and its shot noise are missing from every ground_to_space / air_to_space scene, with the ratified provisional warning structurally silent.
-**Why it still matters**: daytime/twilight SST SNR is computed against a black sky with no caveat — precisely what the band-gating decision existed to prevent.
-**Suggested fix**: (b) stand-alone — evaluate the observer-leg single-scatter on the *in-column* part of the segment (species split at the leg's in-column mean), and emit the provisional warning from the composition site. Effort M; category C. Related: Gap 108, [[CU-254]].
+**File**: `src/radiant/atmosphere/segment_simple.py::_single_scatter_terms` (species split at the segment's arithmetic mean altitude). The `uplooking_quantities` half is closed — see the partial resolution below.
+**Symptom as originally filed** (early zero return for `h_tgt ≥ h_atm_top`, plus "every exp(−h/H) underflows, ω₀ = 0, the scattered term vanishes … sky background and its shot noise are missing from every ground_to_space / air_to_space scene").
+
+**Corrected 2026-07-29 (branch `atmo/sky-composition`) — half of that reproduces and half of it is backwards.** Verified rather than assumed, on the shipped 10.3 config and on the species model directly.
+
+*What was true — the warning.* The early return did make the ADR-0011 decision-10 VIS/NIR `UserWarning` structurally unreachable for the whole ground-to-space class: `sky_radiance_along_los`, where the warning lives, was never called when `h_tgt ≥ h_atm_top`. Confirmed on main by the topology note it emitted ("target above h_atm_top — continuation is vacuum, sky radiance ≡ 0") with no warning on a 0.45–0.85 µm grid at θ_s = 35°.
+
+*What was NOT true — the missing background.* The `SkyBackground` arm added `+ L_path_full` (the observer leg), which for a near-vertical ground-to-space scene carries essentially the same air as the sky column. Measured on 10.3 at θ_s = 34° (sun forced up): band-mean at-aperture background 1.601304e1 W/m²/sr/µm before, 1.601300e1 after — a **2.5e-6 relative** move, and `background_e` moved by −2.6e-7 relative on the shipped twilight config. The sky term was zero; the assembled background was not.
+
+*What was NOT true as a general claim — "ω₀ = 0".* That holds only at the far extreme. There are **two** regimes, and the common one is the opposite. Measured at 0.55 µm, rural-23 midlat_summer:
+
+| species split at | σ_mol [1/km] | σ_aer [1/km] | σ_h2o [1/km] | σ_gas [1/km] | ω₀ | P(forward) |
+|---|---|---|---|---|---|---|
+| 5 km (short leg) | 6.790e-3 | 2.637e-3 | 1.378e-4 | 0 | 0.9718 | 6.187 |
+| 50 km (ground → 100 km column) | 2.449e-5 | 1.365e-19 | 2.330e-14 | 0 | 1.0000 | 1.500 |
+| 350 km (LEO leg) | 1.267e-21 | 3.643e-128 | 1.671e-79 | 0 | 1.0000 | 1.500 |
+| 17 893 km (GEO leg) | 0 (true underflow) | 0 | 0 | 0 | 0.0000 | 1.000 |
+
+Only the **GEO** row behaves as the entry describes: there `exp(−h/H_MOL)` underflows to exactly zero, ω₀ evaluates to 0 and the scattered term really does vanish. (Scenario 10.3's own `gaps.md` states this correctly and separates the two cases; it was this entry that generalised the GEO behaviour to the whole class.) For **LEO and for any ordinary tall column** σ_mol is small but finite, σ_gas shares its scale height so the ratio survives the decay, and ω₀ goes to exactly **1** — not 0.
+
+**The real defect, restated.** For everything short of the GEO extreme the scattered term does not vanish; it silently becomes **pure Rayleigh at full single-scattering albedo**. Aerosol and water weights underflow while molecular does not, so the Henyey-Greenstein forward peak (P = 6.19 at a 5 km split) collapses to the Rayleigh 1.5, and ω₀ rises to exactly 1 (no absorption at all). Any segment tall enough to put its arithmetic mean above ~20 km computes its sky scattering as if the atmosphere contained no aerosol, whatever the user set `visibility_km` to. The magnitude is large and geometry-dependent: comparing the two evaluators, which differ *only* in weight altitude (`segment_grazing` weights at the arc's lower end, `segment_simple` at the segment mean), band-mean VIS sky from the ground at θ_s = 30° differs by **2.4× at ζ = 0°, 10.9× at ζ = 30°** (near-forward scatter, where the lost aerosol peak matters most), and by 0.5 % at ζ = 80°.
+**Second-order consequence, pinned in code.** Because the observer leg (short, low mean altitude, aerosol alive) can out-radiate the whole sky column (tall, high mean altitude, aerosol dead), `SpectralIntegrationStage`'s sub-pixel intermediate `L_bg_only_at_aperture = at_aperture_background − L_path_full` can go **negative** on a daytime VIS/NIR up-looking scene — measured down to −10× the peak sky over a sweep of grids and geometries. The mixed radiance it feeds is still exact and non-negative (the algebra collapses to `ff·(L_target·τ_up·EE + L_path) + (1 − ff)·L_bg,ap`), and there is a comment at the site saying so and forbidding a clamp. It is listed here because it is a symptom of this CU, and it disappears when this CU is fixed.
+**Why it still matters**: `visibility_km` and `aerosol_type` are the two knobs an analyst reaches for, and for a tall column they silently stop affecting the sky's angular distribution. Daytime VIS/NIR up-looking and ground-to-space SNR therefore carry an aerosol model the user did not ask for. The band is already flagged provisional, which is why this is a correctness debt rather than a live wrong answer.
+**Partial resolution 2026-07-29, commit `5c0f3dd`** — the warning half only. Rooting the sky at the sensor ([[CU-254]]) removed the `h_tgt ≥ h_atm_top` early return, so a ground site now evaluates its real column whatever the target is doing; `sky_radiance.warn_if_scattered_sky_provisional` was made public so the near-horizon (grazing) branch applies the same band-gating policy it would have got from the column branch. Pinned by `test_stage.py::test_sunlit_target_does_not_warn_about_an_eclipse` (asserts the provisional warning *is* present on a ground→700 km VIS scene) and `test_topology_dispatch.py::test_ground_to_space_sst_has_a_sky`. **This entry stays open for the species split.**
+**Suggested fix**: (b) stand-alone, and it is a **modelling decision, not a formula swap** — which is why it was not taken in the CU-254 pass. Options: (i) weight the split at the segment's *density-weighted* mean rather than its arithmetic mean (per species, so each sees its own scale height); (ii) adopt `segment_grazing`'s lower-endpoint weighting everywhere, which also removes the last 0.64 % hand-over step [[CU-225]] left, at the cost of a 10× swing in the provisional VIS sky; (iii) leave it and raise the band gate from 3 µm. Choosing needs a MODTRAN daytime up-looking anchor, which batch 1 does not contain. **Results-affecting** for daytime VIS/NIR up-looking and ground-to-space scenes. Effort M; category C. Related: Gap 108, [[CU-254]], [[CU-225]], [[CU-275]].
 
 ### CU-262 — HV-5/7 Cn² profile is evaluated against MSL altitude, so an elevated site loses its own boundary layer (~2× optimistic seeing)
 
@@ -254,19 +243,21 @@ So the window + both study evaluations account for **≈ 15 %** of a test; ~4 s 
 **Why it still matters**: the whole point of the family is to give up-looking ground-to-air scenes real MODTRAN radiative transfer instead of the parametric simple model. Until the observer-leg dispatch in `uplooking_quantities._evaluate_observer_segment` can take a library-backed column, the shipped data changes no computed result. It is also a latent trap: the loader now happily builds a model the chain will refuse, so the failure surfaces one layer later than the configuration error that caused it.
 **Suggested fix**: (b) stand-alone task, next Phase-2 increment. Widen the observer-leg dispatch to accept a backend that can supply a column segment: either a small protocol (`supports_column_segment`) that `SimpleAtmosphere` and `InterpolatedAtmosphere` both satisfy, or an explicit branch in `_evaluate_observer_segment`. Two design questions must be answered in that task, both currently blocking a mechanical wiring: (i) the up-looking family carries only `L_toward_lower`, while `SegmentQuantities` requires both directions — the composition needs to state which consumers may read `L_toward_upper` for an up-looking scene (today's `uplooking_quantities` reads only `radiance_toward(leg.toward_sensor)`, so it may not need it at all); and (ii) the illumination-leg proxy (`_illumination_products`) still evaluates the backend down-looking, which an up-looking family refuses by construction. Effort M; category C (results-affecting for up-looking interpolated scenes only — nothing computes differently until it lands). Related: Gap 109, GF-10, [[CU-224]].
 
-### CU-225 — The sky-radiance product steps by ≈ 28 % at the 89.5° column/grazing hand-over
-
-**Discovered**: Geometry-Flexibility Phase 2, up/level topology assembly (branch `gf2/atmosphere`), 2026-07-26.
-**Status**: Open — measured and documented in code (`uplooking_quantities._sky_source_radiance` docstring), not blended.
-**File**: `src/radiant/atmosphere/uplooking_quantities.py` — `_sky_source_radiance`, the `zeta_c <= ZENITH_CEILING_RAD` branch.
-**Symptom**: the `SkyBackground` continuation radiance is computed by `sky_radiance.sky_radiance_along_los` (vertical column × plane-parallel-with-spherical-correction air mass) up to 89.5° and by `segment_grazing.evaluate_grazing_segment` (exact spherical slant integral) above it. The two are not continuous at the switch. Measured, midlat_summer, arm altitude 3 km, 8–13 µm band mean: grazing/column = 0.984 at ζ = 80°, 1.142 at 85°, 1.218 at 88°, **1.279 at 89.4°**. A scene whose continuation zenith crosses 89.5° therefore sees the background radiance jump by about a quarter with no physical change.
-**Why it still matters**: it is a step in a quantity that feeds the background photon term and therefore SCNR/contrast — the metric that decides detection for exactly the up-looking and level classes this phase opened. It is bounded and it is on the *conservative* side at the boundary (the grazing form, which is the more accurate one there, is the larger), so nothing is silently wrong; but a sweep over range or elevation that crosses the boundary will show a discontinuity a user cannot explain from the inputs. Note the two forms agree to 0.02 % at 30° and to ≈ 0.05 % at the 48.2° zenith of the MODTRAN H-runs that anchor the column product, so the anchoring is not what disagrees — the air-mass approximation is, in the band where it was never claimed to hold.
-**Suggested fix**: (b) stand-alone task after the batch-2 MODTRAN up-looking families land. Two candidate resolutions, both needing the anchor to choose: (i) use the grazing integral for **every** ascending sky continuation (it reduces to the column form to 0.02 % at small zenith and matches the anchor geometry exactly, so this removes the step and loses nothing — the cheapest fix, but it makes `sky_radiance_along_los`'s column path unused by the topology layer, a Rule-27 question); or (ii) keep both and blend over a documented band. Effort S–M; category C (results-affecting for up/level scenes near the boundary only). Related: [[CU-222]], Gap 108, ADR-0011 decision 3.
-
 ### CU-224 — `SimpleAtmosphere.evaluate`'s `L_path_up` is single-scatter solar only, so up-looking and down-looking path radiance use different physics
 
 **Discovered**: Geometry-Flexibility Phase 2, topology dispatch + up/level assembly (branch `gf2/atmosphere`), 2026-07-26.
-**Status**: Open.
+**Status**: **Stage-deferred** — gating stage: the owner-run MODTRAN batch-2 **upwelling** families (plan §4 Phase 2, GF-10). Re-audit date: at batch-2 landing, or 2026-10-29, whichever is first. Re-classified from "Open" on 2026-07-29 because the blocker is a missing anchor, not missing effort, and Rule 22 requires that to be recorded with a gate rather than carried as ordinary backlog.
+
+**Re-audited 2026-07-29 (branch `atmo/sky-composition`, the up-looking sky-model cluster): reproduces unchanged, still gated.** Verified directly rather than assumed, on the same vertical 0–10 km air read both ways, MWIR 3.5–5 µm:
+
+| direction | `L_path_up` range [W/m²/sr/µm] |
+|---|---|
+| up-looking (segment composition, carries `segment_thermal`) | 6.7278e-2 … 1.9668e0 |
+| down-looking (`SimpleAtmosphere.evaluate`, single-scatter only) | 2.5737e-5 … 3.2795e-4 |
+
+`tau_up` is bit-identical between the two (reciprocity holds), so the three-to-four-order gap is entirely the missing Kirchhoff emission term on the down-looking side — the entry's stated symptom, confirmed.
+
+**The CU-254 fix makes this more visible, not less.** The up-looking sky background is now one whole sensor-rooted column carrying `(1 − τ)·B(T_eff)`, sitting directly beside a down-looking `L_path_up` that has no emission at all. Nothing was done about it here: the fix is squarely results-affecting for **every** down-looking golden (the opposite of this cluster, which moved one scenario), and it still needs an upwelling MODTRAN anchor for `T_eff` on the emission leg that batch 1 does not contain — the H-runs are downwelling. Inventing that temperature to unblock the task would be exactly the guessed modelling judgement this pass was told to stop and record instead.
 **File**: `src/radiant/atmosphere/simple.py` — `SimpleAtmosphere.evaluate`, the `L_path_up` / `L_path_full` construction (currently lines 1045–1120): `L_path_vals = l_sun · cos θ_s · ω₀ · P(Θ) · (1 − τ)/4`, and `np.zeros_like(lam)` when the sun is at or below the horizon.
 **Symptom**: the down-looking path radiance carries **no thermal emission term**. A pure-thermal LWIR down-looking scene therefore has `L_path_up ≡ 0` exactly, and an MWIR daylight one has only the scattered-solar part. The Phase-2 segment evaluators (`segment_simple`, `level_arm`, `segment_grazing`, via `segment_thermal.segment_thermal_emission`) *do* carry the Kirchhoff term `(1 − τ)·B(λ, T_eff)`. Reproduce: ground→10 km MWIR up-looking gives `L_path_up ∈ [0.14, 2.06] W/m²/sr/µm`; the reciprocal 10 km→ground down-looking column gives `[3.7e-5, 1.3e-3]` — three to four orders of magnitude apart for the *same* air, because one path includes atmospheric emission and the other does not.
 **Why it still matters**: the two topologies are now visibly inconsistent in the one product a user compares between them, and the down-looking side is the one that is wrong: upwelling path radiance in MWIR/LWIR is emission-dominated, not scatter-dominated. `RADIANT_Atmosphere.md` §3.1 line 162 documents the single-scatter form, and §11 open question 4 ("should the simple model expose its single-scatter `L_path` decomposition?") records the awareness, but neither states that the thermal term is *absent*, so the doc reads as a decomposition question rather than a missing term. Not fixed in this PR because it is squarely results-affecting for every existing down-looking golden baseline (plan §3 principle 3 requires those byte-identical through Phase 2), and because the right fix needs a MODTRAN anchor for the emission-height temperature on the *upwelling* leg, which batch 1 does not contain (the H-runs are downwelling).
@@ -401,6 +392,74 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-254 — Up-looking sky background depends on the target's altitude (segment composition is not additive) — RESOLVED 2026-07-29 (commit `5c0f3dd`)
+
+**Discovered**: Scenario 10.1 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: RESOLVED 2026-07-29, commit `5c0f3dd`. **Resolution**: the up-looking sky is evaluated **once, from the sensor**, over the whole LOS out to `h_atm_top`, and the `SkyBackground` assembly arm consumes it directly (`τ ≡ 1`, `L_path ≡ 0`) instead of re-propagating it. `UplookingProducts` / `TopologyProducts.sky_source_radiance` → `sky_radiance_at_aperture`, and the keyword on `assemble_background_at_aperture()` / `assemble_background_source_emission()` renamed to match, because the quantity changed *meaning*, not just location — leaving the old name is how this class of defect recurs.
+**File**: `src/radiant/atmosphere/uplooking_quantities.py::_sky_radiance_at_aperture`; `assembly.py` `SkyBackground` arm; `topology.py`; `stage.py`.
+**Symptom**: the simple model's single-effective-temperature graybody per segment is not additive, so a fixed pointing direction reported a target-altitude-dependent sky. Each segment emits `(1 − τ_seg)·B(T_eff(h_low,seg))` at its *own* lower-endpoint temperature, so splitting one column at the target plane swapped part of a warm ground-anchored emitter for a cold target-anchored one.
+**Acceptance test met.** On the shipped 10.1 config, varying only `geometry.target_altitude_m` at fixed pointing:
+
+| target altitude | `background_e` before | after |
+|---|---|---|
+| 10 km | 1.94207e5 e⁻ | 2.21479e5 e⁻ |
+| 20 km | 2.14046e5 e⁻ | 2.21479e5 e⁻ |
+| 50 km | 2.21308e5 e⁻ | 2.21479e5 e⁻ |
+| 99 km (whole column) | 2.21479e5 e⁻ | 2.21479e5 e⁻ |
+
+All rows now equal the whole-column value **exactly** (bit-identical through the chain; the segment-level test tolerates 1e-13 because it reconstructs ζ_low through the viewing triangle). `signal_e` is unchanged at every altitude — the target arm was never involved.
+**Results-affecting, scenario 10.1 only.** `background_e` +14.04 %; SNR 136.424 → 131.465 (−3.6 %); NEDT 0.648013 → 0.672457 K (+3.8 %). The direction is the correction of a previously optimistic result, exactly as this entry predicted. Baseline regenerated for 10.1 alone (`emit_gui_yaml.py 10.1`, run with `PYTHONPATH=./src` so it did not silently regenerate against the editable install) and verified to reload from a directory containing no `outputs/` tree ([[CU-273]] trap). Every other shipped scenario, and every down-looking golden, is bit-identical.
+**The level topology is deliberately NOT converted, and is bit-identical.** A level ray is tangent at the chord midpoint, so the sensor sits on its descending half; a sensor-rooted arc drops up to 25 % of the traversed column (measured: 0.9859 / 0.8303 / 0.7508 of the true sea-level-equivalent molecular column for 8 km at ground, 100 km at 3 km, 150 km at 10 km). That branch keeps `L_arm→sensor + τ_arm·L_continuation`, computed at the production site rather than in assembly, and keeps this CU's residual dependence — filed as [[CU-276]].
+**Tests**: `test_topology_dispatch.py::test_sky_background_does_not_depend_on_the_target_altitude` (the invariant), `::test_sky_background_is_the_sky_itself` (pass-through), `test_assembly_sky_background.py::test_observer_leg_fields_are_not_consulted` (perturb τ_full_up / L_path_full, answer must not move — the direct regression guard), and `tests/integration/test_direction_aware_atmosphere.py::TestBackgroundIsIndependentOfTargetPositionAlongTheRay` at chain level, which also asserts `signal_e` keeps varying so it cannot pass by flattening everything.
+**Note for consumers of the sub-pixel decomposition**: `SpectralIntegrationStage`'s `L_bg_only_at_aperture = at_aperture_background − L_path_full` stays exact for this topology (it publishes `L_path_full == L_path_up`), but the intermediate can go negative in daytime VIS/NIR — see [[CU-260]]. Documented at the site with an explicit do-not-clamp. Related: Gap 108, [[CU-260]], [[CU-224]], [[CU-225]], [[CU-276]].
+
+
+### CU-225 — The sky-radiance product steps by ≈ 28 % at the 89.5° column/grazing hand-over — RESOLVED 2026-07-29 (commit `5c0f3dd`)
+
+**Discovered**: Geometry-Flexibility Phase 2, up/level topology assembly (branch `gf2/atmosphere`), 2026-07-26.
+**Status**: RESOLVED 2026-07-29, commit `5c0f3dd`. **Resolution**: candidate (i) from this entry, applied at the right angle. The hand-over from the plane-parallel column form to `segment_grazing`'s exact spherical slant integral moved from `ZENITH_CEILING_RAD` (89.5°) down to `SPHERICAL_SWITCH_RAD` (80°) — the angle at which the column form's air mass stops being `sec ζ` and, before [[CU-274]], started being a root form that was 14–62 % low. 80° is where the plane-parallel description genuinely expires; carrying it another 9.5° was what made the step large.
+**File**: `src/radiant/atmosphere/uplooking_quantities.py::_ascending_sky`.
+**Measured outcome.** Band-mean LWIR (8–13 µm) sky from the ground, grazing/column:
+
+| ζ | 0° | 30° | 48.2° | 60° | **80°** | 85° | 89.4° |
+|---|---|---|---|---|---|---|---|
+| ratio | 1.00000 | 0.99979 | 0.99929 | 0.99852 | **0.99359** | 1.08665 | 1.07785 |
+
+(48.2° is the MODTRAN H-run anchor zenith.) The discontinuity went from ≈ 8 % at the old ceiling — ≈ 28 % on the 3 km level arm this entry originally measured — to **0.64 %**, and the whole 80–89.5° band is now served by the exact integral. The underlying optical depths differ by 2.8 % at 80° and by a factor of two at 89°; the radiance step is smaller because the product saturates as `1 − τ`.
+**The residual 0.64 % is deliberate, not overlooked.** Removing it entirely means using the grazing form at *every* zenith. The two evaluators weight their species split at different altitudes (`segment_grazing` at the arc's lower end, `segment_simple` at the segment mean), which leaves the thermal products agreeing to ≤ 0.65 % but moves the provisional VIS scattered sky by up to 10×. That is a modelling decision needing a MODTRAN daytime anchor, and it is tracked where the mechanism lives — [[CU-260]] — rather than left implied here. This entry's Rule-27 worry (that option (i) would orphan `sky_radiance_along_los`'s column path) did not materialise: that path still serves every scene inside 80°, which is all of them today.
+**Tests**: `test_segment_grazing.py::test_agrees_at_the_eighty_degree_hand_over` pins the ≈ 3 % OD agreement at the new switch, and `::test_diverges_past_the_ceiling_and_the_column_form_overstates` pins the factor-of-two at 89° that justifies the module's existence. **Results-affecting** for up/level scenes past 80° zenith; no shipped scenario is in that band, so no baseline moved from this change alone. Related: [[CU-222]], [[CU-274]], [[CU-260]], Gap 108, ADR-0011 decision 3.
+
+
+### CU-274 — `slant_path_length_m` jumps 18 % across its own 80° branch switch, for every geometry — RESOLVED 2026-07-29 (commit `5c0f3dd`)
+
+**Discovered**: Backlog-Reduction Batch 5, while fixing [[CU-255]], 2026-07-29. **Pre-existing**: reproduced on unmodified `main`.
+**Status**: RESOLVED 2026-07-29, commit `5c0f3dd`. **Resolution**: the root-form branch is **deleted**. `L_slant = Δh_absorbing / cos ζ` now covers the whole legal domain `[0, 89.5°]`, so `air_mass()` is exactly `sec ζ`, continuous and monotone in ζ, with no switch left to be discontinuous at.
+**File**: `src/radiant/atmosphere/protocol.py::AtmosphericGeometry.slant_path_length_m`.
+**Why deletion rather than replacement.** This entry offered two options; a third measurement decided between them. Against `segment_grazing`'s exact spherical slant integral (molecular scale height, ground → 100 km):
+
+| ζ | `sec ζ` | root form | exact |
+|---|---|---|---|
+| 30° | 1.15470 | 1.15470 | 1.15422 |
+| 60° | 2.00000 | 2.00000 | 1.99258 |
+| 79.9° | 5.70234 | (unused) | 5.49989 |
+| 80.1° | 5.81635 | 4.80715 | 5.60209 |
+| 85° | 11.47371 | 7.06683 | 10.14005 |
+| 89.4° | 95.49471 | 10.68472 | 28.37722 |
+
+The root form is not an air mass at all — it is the geometric chord of a slab of thickness Δh, while an air mass is a density-weighted path — and it is 14 % low at 80.1°, 30 % at 85° and 62 % at 89.4°. There is therefore no zenith at which it is the better answer, so "replace it with Kasten–Young or a Chapman function" would be fitting a better curve to a quantity that should not be branched at all: `SimpleAtmosphere` is plane-parallel everywhere else too (vertical columns × one air mass, mean-altitude species weights, target-anchored emission height), and one honest plane-parallel air mass is more coherent than a hybrid. Accuracy near the horizon is bought by **routing to `segment_grazing`**, which is what the sky now does at 80° ([[CU-225]]).
+**Zero movement below 80°**: that branch was already `sec ζ`, so the change is bit-identical there. No shipped scenario exceeds 37.5° LOS zenith or 40° solar zenith (checked across all `scenarios/*/*/inputs/*.yaml` and `examples/`), and the full golden suite confirms it — the only baseline that moved in this commit moved from [[CU-254]].
+**What is left**: past 80° the two callers with no grazing route (the down-looking column and the solar column) now *overestimate* the air mass — +13 % at 85°, +237 % at 89.4° — rather than underestimating it. That is the conservative direction (pessimistic τ, pessimistic SNR) where the root form was optimistic, but it is still an error and is tracked as [[CU-275]].
+**Tests**: `test_simple.py::test_air_mass_is_sec_zeta_with_no_branch` (the identity across 0–89.5°, including 79.9/80.0/80.1) and `::test_air_mass_is_continuous_and_monotone_across_the_old_switch` (no step, never falls as the path tilts). Related: [[CU-255]], [[CU-225]], [[CU-275]].
+
+
+### CU-277 — `lint-imports` is red on `origin/main`: a GUI test imports `radiant.performance` directly — RESOLVED 2026-07-29 (commit `5c0f3dd`)
+
+**Discovered**: Backlog-Reduction, up-looking sky-model cluster (branch `atmo/sky-composition`), 2026-07-29 — running the merge gate battery.
+**Status**: RESOLVED 2026-07-29, commit `5c0f3dd`. **Resolution**: routed the import through `radiant.api.scene_relevance`, the bridge that already exists for exactly this (guardrail G3, and what the GUI's own `scene_class_panel.py` uses). One line; no contract was widened and no test moved.
+**File**: `src/radiant/gui/tests/test_performance_instrument.py:288`.
+**Symptom**: `lint-imports --config pyproject.toml` reported **5 kept, 1 broken** — "gui imports only api and core" — via `radiant.gui.tests.test_performance_instrument → radiant.performance.scene_relevance`, a function-local import added with the [[CU-251]] label-completeness guard (`4c3e75a`). Verified pre-existing on `origin/main` at `5f70407`, i.e. the merge gate battery CLAUDE.md requires has been red on `main` since that commit, unrelated to this branch.
+**Why it still matters**: a gate that is already red cannot fail on the *next* regression — the same blind spot as [[CU-221]] / [[CU-252]] / [[CU-272]], one contract over. And the fix was never a judgement call: guardrail G3 exists precisely so view layers read the relevance table without importing a physics stage, so the test was bypassing the architecture rather than exposing a gap in it.
+**Method note worth keeping.** The breakage is invisible from a worktree unless you set `PYTHONPATH`. `lint-imports` resolves `radiant` by *import*, so in a `git worktree` it analyses whichever checkout the editable install points at (normally the primary tree), not the worktree — it kept reporting the old line number after the fix. `PYTHONPATH=./src lint-imports --config pyproject.toml` is the form that checks the code you are actually editing. `ruff`/`mypy` take explicit paths and are unaffected; this is the same class of trap as the `emit_gui_yaml.py` one in CLAUDE.md's multi-agent section. Related: [[CU-251]], [[CU-164]], [[CU-272]].
 ### CU-219 — the Parameter Editor commits a tolerance and a value in different orders on its two paths — RESOLVED 2026-07-29 (commit `9ecd05a`)
 
 **Discovered**: multi-config GUI UX refinement (`gui/multiconfig-ux-refine1`), 2026-07-26
@@ -592,7 +651,7 @@ What is real is that the app legitimately holds **one figure per plot section**,
 **Discovered**: Scenario 10.3 cross-check (branch `gf/phase5-validation`), 2026-07-28.
 **Status**: RESOLVED 2026-07-28, commit `12082fb`. **Resolution**: the wholly-vacuum branch of `evaluate_path_topology` now publishes an explicit zero-radiance sky instead of `None`. Assembly's refusal to default a `None` sky is correct and untouched — it guards an *unknown* sky, whose silent zeroing would understate the background and inflate SNR — but with no medium anywhere on the LOS continuation the sky radiance is **known** to be exactly zero. Handing that over is a computed result, not a default.
 
-**File**: `src/radiant/atmosphere/topology.py::evaluate_path_topology` (returns `sky_source_radiance = None` when both endpoints ≥ `h_atm_top`) vs `source/_inferrer.py::_select_los_termination_background` + assembly.
+**File**: `src/radiant/atmosphere/topology.py::evaluate_path_topology` (returns `sky_radiance_at_aperture = None` when both endpoints ≥ `h_atm_top`) vs `source/_inferrer.py::_select_los_termination_background` + assembly.
 **Symptom**: the LOS-termination rule can still select `SkyBackground`, and assembly refuses to default it → `ParameterBoundsError` for an up-looking point_source/sub_pixel scene with both endpoints above the column — a configuration of the ADR-0011 LEO→GEO quick win (scenario 10.4's own path selects ColdSpaceBackground and runs; the raise is reachable via the sky-terminating selector).
 **Why it still matters**: the vacuum sky is exactly zero — a known value refused instead of published.
 **Suggested fix**: (a) inline-fix-now — publish the exact zero-radiance array in the vacuum branch. Effort S; category B.

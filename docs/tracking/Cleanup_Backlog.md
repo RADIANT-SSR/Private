@@ -12,6 +12,33 @@
 
 ## Open
 
+### CU-292 — Scenario 2.1 stdout is nondeterministic: zero-valued noise-budget rows print in hash-dependent order
+
+**Discovered**: Overnight backlog run, CU-164 close-out, 2026-07-29.
+**Status**: Open.
+**File**: `scenarios/02_mike_detector_engineer/2.1_insb_vs_hgcdte_noise_budget/scripts/run_detector_shootout.py` (report/table assembly).
+**Symptom**: three consecutive runs of the unmodified script put the zero-valued `nearfield_shot` / `background_shot` / `ktc_reset` noise-budget rows in different orders — string-hash-dependent set/dict iteration somewhere in the table assembly.
+**Why it still matters**: any future golden-text comparison of scenario output will flake, and a walkthrough doc quoting the output goes stale nondeterministically. Likely shares a root cause with [[CU-291]] (series/legend ordering).
+**Suggested fix**: (a) inline, XS — sort the rows (by variance descending, then name) at the print site. Category A. Related: [[CU-291]], [[CU-164]].
+
+### CU-291 — Committed scenario figures are not byte-reproducible from their own unmodified generators
+
+**Discovered**: Overnight backlog run, CU-164 close-out, 2026-07-29 — found while byte-verifying figures for the guard pass.
+**Status**: Open.
+**File**: `scenarios/01_sarah_systems_engineer/1.3_dual_band_mwir_lwir/outputs/` (fig2, fig3), `scenarios/03_raj_mission_planner/3.2_weather_sensitivity/outputs/` (3 figures), `scenarios/03_raj_mission_planner/3.4_off_nadir_agility/outputs/` (3 figures).
+**Symptom**: running the *unmodified* (pre-CU-164) runner rewrites these 8 figures with different bytes, run-over-run stable per session but differing from the committed bytes; sibling figures in the same directories are byte-stable. So the committed artifacts cannot be verified against their generators.
+**Why it still matters**: falsifies Rule 26's regenerability assumption ("a figure changes only when its generator is run") one level down — the figure changes *every* time its generator runs. Suspected hash-dependent series/legend ordering, same family as [[CU-292]].
+**Suggested fix**: (b) small stand-alone — diagnose the nondeterminism (render two runs' figures, diff visually; check legend/series iteration order), fix the ordering at the source, regenerate the 8 figures once with cause, and note the generator in the referencing walkthrough per Rule 26. Effort S–M; category A. Related: [[CU-292]], [[CU-164]].
+
+### CU-290 — Runner 1.4 hard-codes TkAgg and calls `plt.show()`, blocking forever in any non-interactive run
+
+**Discovered**: Overnight backlog run, CU-164 close-out, 2026-07-29.
+**Status**: Open.
+**File**: `scenarios/01_sarah_systems_engineer/1.4_tdi_pushbroom_optimization/scripts/run_tdi_pushbroom_trade.py:44,685` (`matplotlib.use("TkAgg")`, `plt.show()`).
+**Symptom**: the script parks at 0 % CPU forever in `plt.show()` under any non-interactive invocation — two stuck processes were found parked >9 min during the CU-164 pass and had to be killed. Every other runner uses `Agg` with a `# headless-safe: plt.show() is a no-op` comment. Related lesser instance: five runners (2.2, 2.3, 2.5, 6.3, 7.1) call no `matplotlib.use` at all and rely on ambient `MPLBACKEND` — harmless today (none call `plt.show()`), same latent trap.
+**Why it still matters**: 1.4 is unrunnable in CI/batch/tooling and its figure regeneration is unverifiable, which blocks the [[CU-291]] reproducibility work and the CU-164 completion.
+**Suggested fix**: (a) inline, XS — switch 1.4 to `Agg` (one line; a behaviour change to a committed runner, so note it in the walkthrough), optionally pin the backend in the five bare runners. Category A. Related: [[CU-164]], [[CU-291]].
+
 ### CU-289 — GUI transaction tests await a full re-evaluation pass they mostly do not assert on
 
 **Discovered**: [[CU-249]] resolution (branch `test/cu-249`), 2026-07-29.

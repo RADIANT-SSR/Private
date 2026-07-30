@@ -12,6 +12,24 @@
 
 ## Open
 
+### CU-297 — `atmosphere.interpolated_data_dir`'s schema description documents 2 of the 5 shipped families
+
+**Discovered**: Overnight backlog run, CU-239 close-out, 2026-07-30.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/_schema.py` (`interpolated_data_dir` description).
+**Symptom**: the parameter description names only the `path_zenith_rad` family and the 2-axis ladders, omitting the sensor ladder, the off-nadir boost family, and the up-looking ladder. [[CU-239]] made `radiant.atmosphere.interpolation_coverage` the authority (published to the API as `shipped_atmosphere_families()`), but the docstring still ships as the stale description an operator reads first — and it is what feeds `docs/architecture/parameter_reference.md`.
+**Why it still matters**: the description is the operator's first contact with the family concept, and it under-reports the shipped set by three families. Rule 20 drift, one level down from the doc.
+**Suggested fix**: (a) inline, XS — regenerate the description from the catalogue, or point it at `shipped_atmosphere_families()` rather than re-enumerating (Rule 25's one-registry principle applied to a docstring). Regenerate `parameter_reference.md` in the same commit. Category A. Related: [[CU-239]], [[CU-296]].
+
+### CU-296 — `midlat_summer_boost_ladder/` ships 24 runs that no axes key can select
+
+**Discovered**: Overnight backlog run, CU-239 close-out, 2026-07-30.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/interpolation_coverage.py` (catalogue); `modtran/interpolated/midlat_summer_boost_ladder/`.
+**Symptom**: the family's `(down, sensor_altitude_m,target_altitude_m)` signature collides with `midlat_summer_ladders`, which owns that key (to avoid re-baselining), so the boost family is reachable **only** by an explicit `atmosphere.interpolated_data_dir`. 24 committed MODTRAN runs have no discoverable route. The rationale was an undocumented comment in `loaders.py`; [[CU-239]] moved it into the catalogue docstring, but the gap itself remains.
+**Why it still matters**: these decks cost real MODTRAN time and feed the off-nadir boost-phase work; a shipped artifact no operator can find via the documented mechanism is invisible capability (and Rule 26 wants every committed artifact to have a reason it is reachable).
+**Suggested fix**: (b) small stand-alone — belongs to whoever designs the [[CU-239]] family picker (layer 1): the picker enumerates the catalogue directly, so it can offer the boost family by *name* without needing a unique axes key. Alternatively give the family a distinguishing axis or an explicit `family` parameter. Category D. Related: [[CU-239]], [[CU-226]], Gap 94.
+
 ### CU-295 — Target-spec error messages still name `source._inferrer` after the guards moved to `source.target_spec`
 
 **Discovered**: Overnight backlog run, CU-244 verification, 2026-07-30.

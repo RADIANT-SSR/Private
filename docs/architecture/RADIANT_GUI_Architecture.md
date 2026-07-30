@@ -1940,3 +1940,15 @@ swap — Open / New / YAML-editor Apply / console Refresh — clears the stack).
 - **Errors:** `RadiantError` → modal with what/why/action/context verbatim; unexpected
   exceptions → error dialog with a traceback fold. No `except Exception: pass` anywhere
   in GUI code (Rules 15/17).
+- **Modal-dialog lifetime (CU-216):** every handler-owned modal loop runs through
+  `gui/dialog_lifetime.exec_dialog(dialog)`, never `dialog.exec()` directly. A parented
+  `QDialog` closed by `exec()` returning is *hidden, not destroyed*, so without this the
+  session accumulates one live dialog per open — measured at 10 dialogs after 10
+  `Edit → Configurations…` cycles — and the next theme toggle re-polishes all of them
+  (`apply_theme` → `QApplication.setStyleSheet` walks the live tree). `exec_dialog`
+  `deleteLater()`s the dialog as the loop unwinds, which still leaves every result the
+  handler reads afterwards (`SweepDialog.sweep_result`, `ConfigurationManagerDialog.shape()`)
+  valid. The carve-out is a **builder** that *returns* an un-exec'd dialog for its caller to
+  drive (`open_yaml_editor`, `open_inspector`): the deletion belongs to whichever handler
+  later exec's it. `gui/tests/test_dialog_lifetime.py` pins both halves and statically
+  scans for direct `.exec()` call sites.

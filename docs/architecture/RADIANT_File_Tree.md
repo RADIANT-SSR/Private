@@ -283,6 +283,7 @@ gui/
 ├── app.py               # QApplication bootstrap
 ├── main_window.py       # RADIANTMainWindow(QMainWindow) — menus, stage strip, docks
 ├── config_scope.py      # ConfigurationScope — configured-parameter badges + scope actions (4b)
+├── dialog_lifetime.py   # exec_dialog(dialog) — run a modal loop, then free the dialog (CU-216)
 ├── document_yaml.py     # is_study / serialize_document / load_document_from_text (4e)
 ├── tolerance_units.py   # Qt-free: per-field tolerance unit conversion (std=difference, low/high=absolute, sigma=dimensionless)
 ├── workers.py           # ConfigSetEvaluationWorker(QThread) — off-thread evaluate_all (Phase 4a)

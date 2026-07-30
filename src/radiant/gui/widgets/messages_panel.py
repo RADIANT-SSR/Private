@@ -33,6 +33,7 @@ from collections.abc import Mapping, Sequence
 
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.message_item import (
     SEVERITY_ERROR,
@@ -192,7 +193,9 @@ class MessagesPanel(QWidget):
         for name, exc in self._config_errors.items():
             row = MessageItem(f"{name}: {_payload_what(exc)}", SEVERITY_ERROR, self._items_host)
             row.clicked.connect(
-                lambda _checked=False, e=exc: ActionableErrorDialog(e, "evaluate", self).exec()
+                lambda _checked=False, e=exc: exec_dialog(
+                    ActionableErrorDialog(e, "evaluate", self)
+                )
             )
             self._items_layout.addWidget(row)
 
@@ -214,7 +217,7 @@ class MessagesPanel(QWidget):
     def _open_warning_list(self) -> WarningListDialog:
         """Open the verbatim warning list (the shipped dialog); returned for tests."""
         dialog = WarningListDialog(self._warnings, self)
-        dialog.exec()
+        exec_dialog(dialog)
         return dialog
 
     def _open_error_dialog(self) -> ActionableErrorDialog | None:
@@ -222,7 +225,7 @@ class MessagesPanel(QWidget):
         if self._error is None:  # pragma: no cover - guarded by the item's presence
             return None
         dialog = ActionableErrorDialog(self._error, "evaluate", self)
-        dialog.exec()
+        exec_dialog(dialog)
         return dialog
 
 

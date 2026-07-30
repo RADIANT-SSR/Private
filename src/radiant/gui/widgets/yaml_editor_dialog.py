@@ -52,6 +52,7 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.core.exceptions import RadiantError
+from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.document_yaml import is_study, load_document_from_text, serialize_document
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
@@ -172,10 +173,10 @@ class YamlEditorDialog(QDialog):
         try:
             new_document = load_document_from_text(text)
         except RadiantError as exc:
-            ActionableErrorDialog(exc, "Edit Config (YAML)", self).exec()
+            exec_dialog(ActionableErrorDialog(exc, "Edit Config (YAML)", self))
             return
         except Exception as exc:  # surfaced, never swallowed (Rules 15/17)
-            UnexpectedErrorDialog(exc, "Parsing the edited YAML config", self).exec()
+            exec_dialog(UnexpectedErrorDialog(exc, "Parsing the edited YAML config", self))
             return
         self.configApplied.emit(new_document)
         self.accept()

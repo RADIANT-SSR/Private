@@ -288,7 +288,7 @@
 ### CU-276 — The level-topology sky still composes two segments, so it keeps the CU-254 target-position dependence
 
 **Discovered**: Backlog-Reduction, up-looking sky-model cluster (branch `atmo/sky-composition`), 2026-07-29 — while fixing [[CU-254]].
-**Status**: Open.
+**Status**: Open — **re-audited against [[CU-226]] (`a9dbe4d`), 2026-07-30** (analysis-only pass, branch `analysis/atmo-2026-07-30`). **The level branch's composition did not change and the "why the obvious fix is wrong" argument is verified unchanged.** CU-226 rewrote large parts of this module (`_evaluate_observer_segment` now dispatches through `_Backends`, `_resolve_backends` is new, 398 lines changed) but its only edit inside `_level_sky_at_aperture` is a type swap — the `segment` parameter moved from `SegmentQuantities` to the new internal `_ObserverSegment`, so `tau_arm`/`L_arm` are read as attributes instead of via `radiance_toward(leg.toward_sensor)`. The composed expression is byte-identical: `sky = L_arm + tau_arm * continuation`. The CU-254 target-position dependence therefore survives exactly as filed. Re-measured sensor-rooted-arc vs true traversed path (molecular sea-level-equivalent column [km], H = 8 000 m, perigee at the chord midpoint, true = `2·S(r_p; h_p→h_sensor) + S(r_p; h_sensor→h_top)`): 100 km arm at 3 km → **194.61 vs 234.36, ratio 0.8304** (filed 194.61/234.38/0.8303); 150 km arm at 10 km → **81.17 vs 108.06, ratio 0.7512** (filed 81.17/108.11/0.7508). Both material rows reproduce; the 8 km / sea-level row is degenerate (perigee 1.3 m *below* the ellipsoid, so `grazing_slant_column_km` refuses the negative `h_low` and the row needs a clamp — measured 283.08/279.13 with `h_p` clamped to 0, against the filed 282.02/286.05). **So the 25 % column loss stands, the obvious fix stays wrong, and CU-226 changed nothing here.** One new interaction worth recording: an up-looking *interpolated* scene now refuses a level path outright (CU-226: "a level path on a column ladder is refused, not approximated"), so this CU's exposure remains `atmosphere.model = "simple"` level scenes only.
 **File**: `src/radiant/atmosphere/uplooking_quantities.py::_level_sky_at_aperture`.
 **Symptom**: [[CU-254]] removed the target-plane split from the **up-looking** sky by evaluating the whole path once from the sensor. The **level** branch cannot do that and still composes `L_arm→sensor + τ_arm · L_continuation(target→top)`, so sliding the target along a fixed level ray still moves the split point and therefore the background — the same non-additive-graybody mechanism CU-254 measured at 12.3 % for a 10 km up-looking target.
 **Why the obvious fix is wrong (measured this pass).** A level ray is tangent at the *chord midpoint*, not at the sensor, so the sensor sits on its descending half. A single sensor-rooted ascending arc (`r_tangent = R_E + h_sensor`) omits the constant-altitude arm entirely. Measured in sea-level-equivalent molecular column [km], sensor-rooted arc vs the true traversed path (descending half + full ascending branch about the real perigee):
@@ -307,7 +307,7 @@ So "root it at the sensor like the up-looking branch" would drop up to 25 % of t
 ### CU-275 — Past 80° the down-looking and solar columns have no exact near-horizon route, so `sec ζ` overstates the air mass
 
 **Discovered**: Backlog-Reduction, up-looking sky-model cluster (branch `atmo/sky-composition`), 2026-07-29 — while fixing [[CU-274]].
-**Status**: Open.
+**Status**: Open — **re-audited 2026-07-30** (analysis-only pass, branch `analysis/atmo-2026-07-30`). **Every filed number is verified unchanged**: `sec ζ` against the exact spherical density-weighted air mass (`grazing_slant_column_km`, H_mol = 8 000 m, ground → 100 km) is high by **0.042 % at 30°, 0.373 % at 60°, 1.687 % at 75°, 3.752 % at 80°, 13.15 % at 85°, 236.5 % at 89.4° (95.4947 against 28.3772)**, plus 130.4 % at 89.0° and 290.0 % at the 89.5° ceiling. **Tonight's landings changed none of the routing this entry describes**: `protocol.py` and `segment_simple.py` are untouched since `5c0f3dd` (both predate [[CU-226]] `a9dbe4d`); `simple.py` is untouched since `d169feb` ([[CU-253]]); [[CU-226]] routes only the up-looking observer leg to a run family and leaves `SimpleAtmosphere.evaluate`'s two air-mass sites and the solar column exactly where they were; [[CU-262]]'s `geometry.site_elevation_m` references the HV Cn² surface term only and does not enter any air-mass path; [[CU-239]]'s coverage check is pre-chain. **New supporting datum for the per-species argument**: at 89.4° the water-vapour column (H = 2 000 m) is over-stated by only **104.4 %** against molecular's 236.5 %, and at 80° by **0.989 %** against 3.752 % — the two species diverge by ~2.3× in error at the ceiling, so a single scalar effective air mass cannot serve both, confirming the entry's "per-species effective air mass" requirement rather than a single scalar hand-over. Shipped exposure unchanged (no scenario exceeds 37.5° LOS zenith or 40° solar zenith).
 **File**: `src/radiant/atmosphere/protocol.py::AtmosphericGeometry.air_mass`; consumers `simple.py::SimpleAtmosphere.evaluate` (up-leg and solar columns), `segment_simple.py::column_segment_optical_depth`.
 **Symptom**: [[CU-274]] deleted the root-form branch that used to take over past 80°, because it was the geometric chord of a 100 km slab rather than a density-weighted air mass and made transmittance discontinuous. `sec ζ` now covers the whole legal domain `[0, 89.5°]`. That is continuous and monotone, but it is still the *plane-parallel* answer, and the plane-parallel answer diverges near the horizon. Measured against the exact spherical slant integral (`grazing_column.grazing_slant_column_km`, molecular scale height, ground → 100 km): `sec ζ` is high by **0.04 % at 30°, 0.37 % at 60°, 1.7 % at 75°, 3.8 % at 80°, 13 % at 85°, and 237 % at 89.4°** (95.49 against 28.38).
 **Why it still matters**: the accurate route exists — `segment_grazing.py` over `grazing_column.py`, with a *per-species* effective air mass, which is what the near-horizon regime actually needs since water vapour's 2 km scale height hugs the tangent point far harder than the 8 km molecular one. The up-looking sky background takes that route at `SPHERICAL_SWITCH_RAD`. Two callers do not and cannot today: the down-looking observer column (`SimpleAtmosphere.evaluate`, legal to 89.5°) and the **solar** column (`sun_geom.air_mass()`, capped at 89.5° — every twilight scene). They therefore overestimate the near-horizon air mass. Direction is at least the safe one: too much air means pessimistic τ, pessimistic signal and pessimistic SNR, where the old root form was optimistic by 14–62 %. No shipped scenario exceeds 37.5° LOS zenith or 40° solar zenith, so nothing ships wrong today; the exposure is a user who enters a grazing geometry.
@@ -326,7 +326,21 @@ So "root it at the sensor like the up-looking branch" would drop up to 25 % of t
 ### CU-260 — VIS/NIR provisional-sky warning is unreachable for the ground-to-space class, and the single-scatter species split underflows at the segment's arithmetic-mean altitude
 
 **Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open.
+**Status**: Open — **re-audited against [[CU-226]] (`a9dbe4d`), 2026-07-30**, analysis-only pass, branch `analysis/atmo-2026-07-30`. **The species-split defect is unchanged and every 2026-07-29 measurement is verified unchanged**; what moved is the *blocker on choosing a fix*, which is now gone.
+
+*What CU-226 did not change.* `segment_simple.py` is untouched by `a9dbe4d` (its last commit is still `5c0f3dd`, this CU's own partial resolution). CU-226's `_Backends` split routes only the **observer leg** to the up-looking run family (`_library_observer_segment`); `_illumination_products` and `_sky_radiance_at_aperture` both take `backends.simple`, the `SimpleAtmosphere` companion, so the sky-at-aperture leg still runs through `sky_radiance_along_los` → `segment_simple._single_scatter_terms` with the arithmetic-mean split. Species weights re-measured at 0.55 µm, rural-23 (σ_mol 6.7901e-3, 2.4489e-5, 1.2674e-21 [1/km] at 5 / 50 / 350 km; σ_aer 2.6370e-3, 1.3648e-19, 3.6429e-128 [1/km]; ω₀ 0.9594, 1.0000, 1.0000; all four species exactly 0 at the 17 893 km GEO split) — **verified unchanged to the printed digits**. New precision on the two regimes: at 0.55 µm the aerosol weight underflows to exactly 0 above **892.2 km** split altitude and the Rayleigh weight above **5 926.1 km**, so the "pure Rayleigh at ω₀ = 1" band is 0.9–5.9 Mm wide and the ω₀ = 0 case needs a split above 5 926.1 km — i.e. GEO only, exactly as the 2026-07-29 correction says. The two-evaluator comparison also reproduces: band-mean 0.45–0.85 µm sky from the ground at θ_s = 30°, grazing/column = **2.12× at ζ = 0°, 9.91× at ζ = 30°** (us_standard, PWV 1.4 cm; midlat_summer PWV 2.92 cm gives 2.02× and 9.45×) against the filed 2.4× and 10.9× — same mechanism, same order, ~10 % lower on this band. **One filed number does not hold**: the entry's "0.5 % at ζ = 80°" is a *thermal* figure; on the VIS band the ζ = 80° ratio is **0.937 (6.3 % low)** and ζ = 85° is 0.815. The 8–13 µm control does give 0.9938 at 80° (0.62 % — the [[CU-225]] hand-over step, matching its filed 0.64 %).
+
+*What CU-226 newly exposes.* An up-looking interpolated scene now composes a MODTRAN-calibrated observer leg against a `segment_simple` sky whose aerosol is dead — the hybrid ([[CU-305]]) makes the inconsistency sharper, not milder.
+
+***What is unblocked — the entry's stated gate is satisfied.*** The suggested fix said "choosing needs a MODTRAN daytime up-looking anchor, which batch 1 does not contain." It does. `src/radiant/data/tables/atmospheres/midlat_summer_uplooking_ladder/` — the family CU-226 made reachable — spans **0.375–14.29 µm** (12 984 points) at **solar_zenith_rad = 0.5236 rad (30.0°)**, i.e. a daytime VIS-through-LWIR up-looking set, six target rungs 0/1/3/5/10/20 km. Anchoring the two candidate weightings against its `t020` node (ground ← 20 km, θ_s = 30°, ζ = 0°, 0.45–0.85 µm band-mean, 262-point grid):
+
+| quantity | band-mean [W/m²/sr/µm] | vs MODTRAN |
+|---|---|---|
+| MODTRAN `path_radiance_toward_lower` | 9.9310e1 | — |
+| `segment_simple` (split at the 10 km arithmetic mean) | 3.2008e1 | **3.103× low** |
+| `segment_grazing` (split at the 0 km lower endpoint) | 7.3694e1 | **1.348× low** |
+
+So option (ii) (lower-endpoint weighting everywhere) moves 2.302× toward the anchor and closes ~78 % of the log-gap; option (i) (per-species density-weighted mean) would land between the two and needs its own anchor run. **Recommendation: the modelling decision is now anchorable and should be scheduled** — take option (ii) as the measured-better default, verify against the remaining five rungs and the off-band region before adopting, and keep the 3 µm band gate until it is. Entry stays Open (fix not landed).
 **File**: `src/radiant/atmosphere/segment_simple.py::_single_scatter_terms` (species split at the segment's arithmetic mean altitude). The `uplooking_quantities` half is closed — see the partial resolution below.
 **Symptom as originally filed** (early zero return for `h_tgt ≥ h_atm_top`, plus "every exp(−h/H) underflows, ω₀ = 0, the scattered term vanishes … sky background and its shot noise are missing from every ground_to_space / air_to_space scene").
 
@@ -365,7 +379,30 @@ Only the **GEO** row behaves as the entry describes: there `exp(−h/H_MOL)` und
 ### CU-267 — Simple-model gas-region table is piecewise-constant, so τ(λ) steps discontinuously at region edges
 
 **Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open.
+**Status**: Open — **measured across the whole table, 2026-07-30** (analysis-only pass, branch `analysis/atmo-2026-07-30`). **The step is confirmed, and the 0.70 µm edge the entry names is the third-*smallest* of the fourteen.** Vertical ground → 700 km, θ_o = 0, rural-23, midlat_summer PWV 2.92 cm, τ_up evaluated ±1e-9 µm either side of each `hi_um`:
+
+| edge [µm] | k_H2O lo→hi | floor_OD lo→hi | τ below | τ above | Δτ | rel |
+|---|---|---|---|---|---|---|
+| 0.45 | 0.0000→0.0025 | 0.0000→0.0000 | 0.609247 | 0.605374 | −0.003873 | −0.64 % |
+| 0.70 | 0.0025→0.1245 | 0.0000→0.0000 | 0.824152 | 0.680287 | −0.143866 | −17.46 % |
+| 1.30 | 0.1245→1.0933 | 0.0000→0.0000 | 0.764954 | 0.197539 | −0.567415 | −74.18 % |
+| 1.50 | 1.0933→0.0282 | 0.0000→0.0133 | 0.200055 | 0.881041 | +0.680986 | +340.40 % |
+| 1.75 | 0.0282→1.1186 | 0.0133→0.0000 | 0.890645 | 0.233132 | −0.657513 | −73.82 % |
+| 2.05 | 1.1186→0.0320 | 0.0000→0.0725 | 0.235205 | 0.827919 | +0.592714 | +252.00 % |
+| 2.40 | 0.0320→0.9666 | 0.0725→0.7434 | 0.833784 | 0.079252 | −0.754532 | −90.49 % |
+| 3.10 | 0.9666→0.5824 | 0.7434→0.1366 | 0.079942 | 0.330011 | +0.250069 | +312.81 % |
+| 3.50 | 0.5824→0.0944 | 0.1366→0.4497 | 0.331062 | 0.500298 | +0.169237 | +51.12 % |
+| 5.00 | 0.0944→1.7850 | 0.4497→1.3543 | 0.503748 | 0.010935 | −0.492812 | −97.83 % |
+| 7.50 | 1.7850→0.9210 | 1.3543→0.9424 | 0.010936 | 0.057940 | +0.047005 | +429.84 % |
+| 8.00 | 0.9210→0.0877 | 0.9424→0.2751 | 0.057940 | 0.533682 | +0.475741 | +821.09 % |
+| 10.00 | 0.0877→0.0602 | 0.2751→0.0471 | 0.533682 | 0.636775 | +0.103093 | +19.32 % |
+| 12.00 | 0.0602→0.1398 | 0.0471→0.5956 | 0.636775 | 0.254203 | −0.382572 | −60.08 % |
+
+Largest **absolute** steps: 2.40 µm (Δτ = −0.7545), 1.50 µm (+0.6810), 1.75 µm (−0.6575), 2.05 µm (+0.5927), 1.30 µm (−0.5674), 5.00 µm (−0.4928), 8.00 µm (+0.4757). Largest **relative**: 8.00 µm (+821 %). Every edge steps; only 0.45 µm is under 1 %. The entry's cited 0.728 → 0.617 at 0.70 µm is the same feature at a different configuration (−15.2 % rel; us_standard/PWV 1.4 cm gives 0.826648 → 0.718135, −13.13 %) — **confirmed, not exact-reproduced, and configuration-dependent by design**.
+
+**Shipped bands that sit on or across an edge.** Filter edges that land *exactly* on a region boundary: 0.45, 0.70, 3.50, 5.00, 8.00, 10.00, 12.00 µm — all shipped. Bands that *straddle* one: 0.5–0.8 (crosses 0.70), 0.4–0.9 (0.45 and 0.70), 3.0–5.0 (3.10 and 3.50), 8.0–12.0 (10.00), 8.0–14.0 (10.00, 12.00), 11.5–12.5 (12.00). Interior controls that cross nothing: 3.7–4.8 and 10.6–11.2. **Grid dependence measured directly** (band-mean τ_up, N = 31 vs N = 1001 sample points): straddling bands move **0.324 % (0.5–0.8), 0.351 % (0.4–0.9), 0.772 % (8–12), 0.964 % (8–14), 1.389 % (11.5–12.5), 1.830 % (3.0–5.0)**; the two interior controls move **exactly 0.000 %**. That is the reader-reproducible form of the symptom: a band's transmittance depends on how finely it is sampled, and only because it crosses an edge.
+
+**Recommended blend width and results impact.** A C¹ smoothstep ramp on `(floor_od, k_h2o, b_h2o)` of half-width **hw = 0.02 µm** (full width 0.04 µm — ~3 % of the narrowest region, 0.20 µm at 1.30–1.50 µm, so no two ramps overlap) moves band-mean τ_up by **−0.204 % (0.5–0.8), −0.121 % (0.4–0.9), −0.711 % (3.0–5.0), −0.245 % (8–12), −0.170 % (8–14), −0.193 % (11.5–12.5)** and **exactly 0.000 %** on both interior controls. hw = 0.01 µm halves those; hw = 0.05 µm roughly triples them (−0.51 % on 0.5–0.8, −1.79 % on 3.0–5.0) and begins to smear real band structure. **So hw = 0.02 µm is the recommendation**: sub-1 % results impact on every shipped band, zero impact on any band that does not cross an edge, and it removes the grid dependence entirely. Note the ramp is *always* one-signed downward in these bands (blending fills the low-τ side of a step faster than it empties the high-τ side), so a re-baseline is a small uniform τ reduction, not a scatter. **Results-affecting** at the ≤ 0.7 % level for the six straddling shipped bands, no-op for the rest.
 **File**: `src/radiant/atmosphere/simple.py::_CALIBRATED_GAS_REGIONS` (step table; e.g. k_H2O 0.0025 → 0.1245 at the 0.70 µm edge).
 **Symptom**: τ(λ) steps 0.728 → 0.617 across one grid point at 0.70 µm (visible in scenario 10.3's committed transmittance figure); any band edge near a region boundary inherits the step.
 **Why it still matters**: narrow-band work near a region edge sees a discontinuous, grid-dependent transmittance.
@@ -446,7 +483,47 @@ Only the **GEO** row behaves as the entry describes: there `exp(−h/H_MOL)` und
 ### CU-181 — Boost/off-nadir/sensor-ladder families attach the ground-level H5 downwelling to elevated-target nodes (constant per family), over-stating downwelling at altitude
 
 **Discovered**: MODTRAN boost-ladder landing (plan §4.4 execution), 2026-07-20
-**Status**: Open
+**Status**: Open — **measured 2026-07-30** (analysis-only pass, branch `analysis/atmo-2026-07-30`). **Both halves of the entry confirmed: the over-statement is four to seven orders of magnitude, and it is nonetheless negligible for the driving use case.**
+
+*The constant is real.* Every node carries the identical value: `midlat_summer_boost_ladder` (26 NPZ nodes) and `midlat_summer_boost_offnadir` (36 nodes) each have exactly **one distinct** `atm_emission_down`, band-mean 3–5 µm = **5.300789e−1 W/m²/sr/µm**, on every target rung and every off-nadir angle.
+
+*How wrong it is at altitude.* Analytic reference from `SimpleAtmosphere.evaluate` (`E_sky_thermal`, the downwelling the target actually sees, CU-155 form — sensor-independent by construction), midlat_summer PWV 2.92 cm, 3–5 µm band-mean:
+
+| h_tgt [km] | E_sky_thermal [W/m²/µm] | ratio to ground | over-statement of the shipped constant |
+|---|---|---|---|
+| 0 | 1.243618e0 | 1.0000 | 1× (correct) |
+| 1 | 8.391494e−1 | 0.6748 | 1.48× |
+| 5 | 1.605072e−1 | 0.1291 | 7.7× |
+| 10 | 1.522291e−2 | 0.01224 | 81.7× |
+| 20 | 3.181921e−3 | 0.002559 | 391× |
+| 29 | 1.035443e−3 | 0.0008326 | 1 201× |
+| 35 | 4.894815e−4 | 0.0003936 | 2 541× |
+| **50** | 7.501043e−5 | 6.031e−5 | **16 579×** |
+| **80** | 1.622758e−6 | 1.305e−6 | **766 300×** |
+| **99** | 1.932213e−8 | 1.554e−8 | **6.44e7×** |
+
+So the 50/80/100 km rungs the entry names carry a downwelling **4 to 7 orders of magnitude** too large, and interpolation across the target axis carries a value that should have decayed by a factor of ~10⁴ over the 0 → 50 km span but is flat.
+
+*Negligible for the driving use case — confirmed quantitatively.* Reflected-sky radiance is bounded by `(1 − ε) · E_sky/π`; using the whole (wrong) ground value as the bound, against `ε · B(T)` for a hot boost body, 3–5 µm band-mean:
+
+| T [K] | ε | L_self [W/m²/sr/µm] | L_refl (ground sky) | refl / self |
+|---|---|---|---|---|
+| 1200 | 0.9 | 5.6285e3 | 3.9586e−2 | **7.03e−6** |
+| 900 | 0.9 | 1.9128e3 | 3.9586e−2 | 2.07e−5 |
+| 600 | 0.9 | 2.4620e2 | 3.9586e−2 | 1.61e−4 |
+| 600 | 0.5 | 1.3678e2 | 1.9793e−1 | 1.45e−3 |
+
+The *error* is bounded above by the reflected term itself, so the shipped constant perturbs a 1200 K / ε = 0.9 boost body by **≤ 7.0e−4 %** of its radiance and, in the pessimistic 600 K / ε = 0.5 corner, by **≤ 0.145 %**. The plan §4.4 acceptance trade is sound.
+
+*What a reflective elevated-target scene would see.* Same band, target at the 50 km rung where the true E_sky is 7.501e−5 W/m²/µm:
+
+| target | L_self | L_refl (true, 50 km) | L_refl (shipped ground) | apparent-radiance error |
+|---|---|---|---|---|
+| 300 K, ε = 0.9 | 8.3969e−1 | 2.388e−6 | 3.959e−2 | **+4.71 %** |
+| 300 K, ε = 0.3 | 2.7990e−1 | 1.671e−5 | 2.771e−1 | **+99.0 %** (radiance ~doubled) |
+| 230 K, ε = 0.3 | 1.0778e−2 | 1.671e−5 | 2.771e−1 | **+2 567 %** (26× too bright) |
+
+i.e. the moment a scenario puts a *cold, low-emissivity* body on an elevated rung — a spent stage, a shroud, a debris object — the reflected-sky term stops being secondary and becomes the dominant (and wholly fictitious) source. That is the exposure the entry predicted; it is confirmed and it is large. Entry stays Open; the trigger for the stand-alone fix is the first reflective-elevated-target scenario, and the acceptance criterion should be that `atm_emission_down` decays by ≳ 10⁴ across the 0 → 50 km target axis.
 **File**: `scripts/build_atmosphere_library.py` (`_vacuum_arrays` + the boost/off-nadir/sensor-ladder loops attach `ms_down` = H5 to every node); `data/atmospheres/midlat_summer_boost_ladder/`, `…_boost_offnadir/` NPZs
 **Symptom**: the boost families carry `atm_emission_down` = the single H5 ground-level (48.2°) sky radiance on **every** target-altitude node, including the 50/80/100 km rungs. A target at altitude sees a thinner sky above it (a 80 km target sees almost no downwelling), so the constant-per-family value over-states downwelling at elevated targets; interpolation across the target axis therefore carries a too-high `E_sky_thermal`.
 **Why it still matters**: physically wrong for the reflected-sky term at elevated targets. It is negligible for the driving use case (self-emission of a hot boost body dominates any reflected-sky contribution) and downwelling is a secondary term, so the plan (§4.4) deliberately accepted it to satisfy the "no zero-downwelling warning on any midlat_summer node" acceptance criterion with the one H5 run available — but it is a latent physics simplification that a reflective-target-at-altitude scenario would expose.

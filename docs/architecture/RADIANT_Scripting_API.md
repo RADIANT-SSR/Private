@@ -609,7 +609,9 @@ Both return strings — `print()` them.
 
 ## 5. Plotting
 
-matplotlib is an **optional** dependency; all plot helpers import it lazily and raise a clear `ImportError` if missing. Everything returns a `matplotlib.figure.Figure` — call `.savefig(...)` on it. Every returned figure uses matplotlib **constrained layout** (`plt.subplots(constrained_layout=True)`), so titles, axis labels, and legends always keep a reserved margin and re-fit when the figure is resized (e.g. embedded in a GUI canvas) — no clipped titles on `savefig` or on window resize.
+matplotlib is an **optional** dependency; all plot helpers import it lazily and raise a clear `ImportError` if missing. Everything returns a `matplotlib.figure.Figure` — call `.savefig(...)` on it. Every returned figure uses matplotlib **constrained layout** (`Figure(layout="constrained")`), so titles, axis labels, and legends always keep a reserved margin and re-fit when the figure is resized (e.g. embedded in a GUI canvas) — no clipped titles on `savefig` or on window resize.
+
+Returned figures are **not registered with `pyplot`** (CU-116): they are plain `Figure` objects, so `plt.get_fignums()` never lists them, `plt.gcf()` never returns one, and there is nothing to `plt.close()` — a figure is reclaimed when the caller drops its last reference. The caller owns the figure: save it, hand it to a GUI canvas, or display it (a returned `Figure` renders in a Jupyter cell on its own). This costs nothing that worked before — the helpers select the non-interactive **Agg** backend, so `plt.show()` on a `result.plot.*` figure never displayed anything anyway — and it removes the process-global retention that made a GUI session holding one figure per stage trip matplotlib's 20-figure `max_open_warning`.
 
 Axis labels use the **symbol + unit** form (e.g. `τ_atm (dimensionless)`, `L_path (W/m²/sr/µm)`, `Radiance (W/m²/sr/µm)`), never a spelled-out descriptive phrase — the unit is always retained (R-UNITS), but the long spelled-out prefix that overflowed a narrow embedded twin-axis pane is dropped.
 

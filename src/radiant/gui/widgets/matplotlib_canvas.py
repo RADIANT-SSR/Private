@@ -58,7 +58,7 @@ class MatplotlibCanvas(QFrame):
     def show_result(self, result: ChainResult) -> None:
         """Render *result*'s default figure (``result.plot.mtf()``) into the canvas.
 
-        The prior figure is closed first, so re-evaluations do not accumulate
+        The prior figure is released first, so re-evaluations do not accumulate
         matplotlib figures. Phase 4 selects a per-stage figure via :meth:`show_figure`;
         this stays the no-stage default.
         """
@@ -69,7 +69,7 @@ class MatplotlibCanvas(QFrame):
 
         Phase 4's stage strip picks the per-stage default figure from the
         ``result.plot`` surface (one GUI action ↔ one API call) and hands the figure
-        here; the prior figure is closed first so re-renders do not leak figures.
+        here; the prior figure is released first so re-renders do not leak figures.
         """
         self._embed(figure)
 
@@ -80,7 +80,7 @@ class MatplotlibCanvas(QFrame):
     # -- internals ----------------------------------------------------------
 
     def _embed(self, figure: Figure) -> None:
-        """Swap in a new figure, discarding and closing the previous one."""
+        """Swap in a new figure, releasing the previous one."""
         self._discard_current()
         canvas = FigureCanvasQTAgg(figure)
         self._layout.addWidget(canvas)
@@ -89,16 +89,22 @@ class MatplotlibCanvas(QFrame):
         canvas.draw_idle()
 
     def _discard_current(self) -> None:
-        """Remove the embedded canvas widget and close its figure (frees pyplot)."""
+        """Remove the embedded canvas widget and drop its figure reference (CU-116).
+
+        Every figure this canvas is handed is **pyplot-free** — ``result.plot.*``
+        builds them with :func:`radiant.api.plot._subplots` (a bare
+        ``matplotlib.figure.Figure``), and the GUI's own dialogs construct ``Figure``
+        directly — so there is no ``pyplot`` figure manager to tear down: dropping the
+        last reference is what frees the figure, and ordinary garbage collection does
+        the rest. The former ``plt.close()`` here was the process-global counterpart of
+        that reference drop; it is what made the GUI's retained figures visible as
+        matplotlib's 20-figure ``max_open_warning``, and calling it on a *live* pane's
+        figure from inside a Qt signal handler deadlocked under the offscreen platform
+        plugin (the route this CU rejected).
+        """
         if self._canvas is not None:
             self._layout.removeWidget(self._canvas)
             self._canvas.setParent(None)
             self._canvas.deleteLater()
             self._canvas = None
-        if self._figure is not None:
-            # Close the pyplot-managed figure so repeated re-evaluations do not
-            # leak figures. Imported lazily (matplotlib is the optional gui extra).
-            import matplotlib.pyplot as plt
-
-            plt.close(self._figure)
-            self._figure = None
+        self._figure = None

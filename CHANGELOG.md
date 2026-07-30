@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **`result.plot.*` / `radiant.api.plot` figures are no longer registered with `pyplot`
+  (CU-116).** Every helper now builds a plain `matplotlib.figure.Figure(layout=
+  "constrained")` instead of `plt.subplots(constrained_layout=True)`. Returned figures
+  are identical to render, save (`fig.savefig(...)`), embed, and theme
+  (`plot_theme(dark=True)` still applies — rcParams are read at construction), but they
+  do not appear in `plt.get_fignums()`, are never `plt.gcf()`, and need no `plt.close()`
+  — a figure is freed when its last reference drops. Scripts that relied on the implicit
+  "current figure" (`result.plot.mtf()` followed by a bare `plt.savefig(...)`) must use
+  the returned figure instead; `plt.show()` was already a no-op because the helpers force
+  the non-interactive Agg backend. This ends the GUI holding one process-global figure per
+  visited stage (22 figures after all nine stages), which tripped matplotlib's 20-figure
+  `max_open_warning`.
 - **`TopologyProducts.sky_source_radiance` is now `sky_radiance_at_aperture`, and the
   `SkyBackground` assembly arm is a pass-through (CU-254).** The keyword argument on
   `assemble_background_at_aperture()` and `assemble_background_source_emission()` is

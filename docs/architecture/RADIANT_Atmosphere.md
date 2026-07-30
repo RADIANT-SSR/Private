@@ -398,11 +398,45 @@ refusal).
 > band is batch-2 work, alongside the refraction on/off calibration pair; until
 > then `atmosphere.model = "simple"` is the answer for a slant up-look.
 >
-> **Also deferred: chain wiring.** The family is reachable only through
-> `InterpolatedAtmosphere.uplooking_column_product`. `uplooking_quantities.
-> supports_uplooking` still admits `SimpleAtmosphere` alone, so an up-looking
-> chain run on `atmosphere.model = "interpolated"` raises the capability error
-> rather than consuming the shipped family.
+**Chain wiring — landed 2026-07-30 (CU-226).** An up-looking chain run on
+`atmosphere.model = "interpolated"` now consumes the shipped family.
+`uplooking_quantities.supports_uplooking` admits two arrangements: a bare
+`SimpleAtmosphere` (every leg, any zenith, unchanged), and an
+`UplookingColumnBackend` — a structural protocol satisfied by an
+`InterpolatedAtmosphere` whose `family_direction` is `"up"` and which carries an
+`uplooking_companion`.
+
+The second arrangement is a **declared hybrid**, because an up-looking run
+family is one leg of data:
+
+| Leg | Served by | Why |
+|-----|-----------|-----|
+| observer (sensor → target) | the up-looking run family | this *is* the rendered column; it is the term that dominates a ground-to-air scene |
+| illumination (solar column + sky hemisphere above the target) | the `SimpleAtmosphere` companion | no rung of a sensor→target ladder is the column *above* the target, and the down-looking proxy query an up-looking family would need is refused by construction |
+| sky at aperture (sensor → `h_atm_top`) | the `SimpleAtmosphere` companion | the shipped ladder stops at 20 km; reading its top rung as "the sky" would be extrapolation past the hull |
+
+The companion is built pre-chain by `atmosphere.loaders.build_atmosphere_model`
+(Rule 6) from the same `atmosphere.*` parameters a `model = "simple"` run would
+use, and attached to the family only when its direction is `"up"`. Two
+independently-calibrated models in one answer is a real modelling compromise, so
+it is never silent: a `UserWarning` is raised, an INFO record is logged, and
+`stage_outputs["atmosphere"]["topology_provenance"]["backend_split"]` names which
+leg came from which model.
+
+`SegmentQuantities` is deliberately **not** the observer-leg type on this path.
+That contract carries both directional radiances and an up-looking family
+measures only `L_toward_lower`; the composition never needs the other direction,
+because `observer_leg_from_los` sets `toward_sensor = "toward_lower"` on every
+up-looking column (the sensor *is* the segment's lower endpoint). The internal
+`_ObserverSegment` carries exactly `tau` and `L_toward_sensor`, so the
+unreachability is structural rather than a comment — there is no
+`L_toward_upper` slot for a one-direction family to have to invent.
+
+A **level** path on an up-looking family is refused, not approximated: a level
+arm has zero vertical extent and a local zenith of π/2 everywhere, so no rung of
+a column ladder is that path and no interpolation between rungs produces it.
+MODTRAN tape7-import still does not qualify — its up-looking / ITYPE=1 deck
+geometry is unwritten (GF-10, CU-224).
 
 ### 4.2c The path-segment contract (guardrail G1)
 

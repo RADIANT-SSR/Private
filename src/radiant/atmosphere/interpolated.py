@@ -334,6 +334,18 @@ class InterpolatedAtmosphere:
         construction is byte-for-byte unchanged.  It selects which query
         entry point is legal: ``"down"`` families serve :meth:`evaluate`,
         ``"up"`` families serve :meth:`uplooking_column_product`.
+    uplooking_companion:
+        Backend that serves the legs an up-looking family does **not** carry
+        (CU-226): the target's illumination — the solar column and sky
+        hemisphere *above* the target — and the sky radiance along the LOS
+        continuation out to ``h_atm_top``.  An up-looking run family is one
+        column, sensor → target; neither of those legs is any rung of it, and
+        neither can be recovered from it.  ``None`` (the default, and the only
+        value a down-looking family ever takes) means the model serves the
+        observer leg only, which is what
+        :func:`radiant.atmosphere.uplooking_quantities.supports_uplooking`
+        keys on.  Built pre-chain by
+        :func:`radiant.atmosphere.loaders.build_atmosphere_model`, never here.
     """
 
     def __init__(
@@ -343,6 +355,7 @@ class InterpolatedAtmosphere:
         method: str = "linear",
         *,
         family_direction: str = "down",
+        uplooking_companion: object | None = None,
     ) -> None:
         if family_direction not in FAMILY_DIRECTIONS:
             raise AtmosphereValidationError(
@@ -352,6 +365,16 @@ class InterpolatedAtmosphere:
                 "for a downwelling (sensor-below-column) one."
             )
         self._family_direction = family_direction
+        if uplooking_companion is not None and family_direction != "up":
+            raise AtmosphereValidationError(
+                "InterpolatedAtmosphere: uplooking_companion was supplied for a "
+                f"'{family_direction}'-looking family. The companion serves the "
+                "illumination and sky-continuation legs of an UP-looking "
+                "topology only; a down-looking family's evaluate() already "
+                "returns the whole eight-field bundle, and attaching a second "
+                "backend to it would silently mix two atmospheres."
+            )
+        self._uplooking_companion = uplooking_companion
         if len(points) < 2:
             raise AtmosphereValidationError(
                 f"InterpolatedAtmosphere: at least 2 geometry points required, got {len(points)}."
@@ -613,6 +636,11 @@ class InterpolatedAtmosphere:
             "(L_toward_lower). They are different quantities and are never "
             f"substituted for one another. {action}"
         )
+
+    @property
+    def uplooking_companion(self) -> object | None:
+        """Backend serving the illumination and sky legs of an up-looking scene (CU-226)."""
+        return self._uplooking_companion
 
     def coordinate_bounds(self) -> dict[str, tuple[float, float]]:
         """Return the min/max coordinate range for each axis."""

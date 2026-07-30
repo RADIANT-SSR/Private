@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -115,7 +115,18 @@ def build_atmosphere_model(params: ParameterSet) -> object:
     if model_name == "interpolated":
         return _build_interpolated(params)
 
-    # Default: simple parametric model.
+    return _build_simple(params)
+
+
+def _build_simple(params: ParameterSet) -> Any:
+    """Construct the parametric :class:`SimpleAtmosphere` from *params*.
+
+    Extracted from :func:`build_atmosphere_model` unchanged (CU-226) so the
+    up-looking interpolated family can carry it as its companion for the legs
+    a one-direction MODTRAN column family cannot express — see
+    :func:`_build_interpolated`.  Same construction, same Gap-57 PWV default,
+    same log line: ``atmosphere.model='simple'`` is byte-for-byte unaffected.
+    """
     from radiant.atmosphere.simple import PROFILE_PWV_CM, SimpleAtmosphere
     from radiant.core.parameters import Provenance
 
@@ -586,7 +597,22 @@ def _build_interpolated(params: ParameterSet) -> object:
             )
         )
 
-    return InterpolatedAtmosphere(points, axes, method, family_direction=family_direction)
+    # CU-226: an up-looking family is a ONE-LEG data set — the sensor→target
+    # column and nothing else.  The up-looking topology also needs the target's
+    # illumination (the solar column and sky hemisphere ABOVE the target) and
+    # the sky along the LOS continuation out to h_atm_top, neither of which any
+    # rung of the ladder contains.  The companion supplies exactly those legs;
+    # it is built here rather than in the stage because Rule 6 keeps model
+    # construction pre-chain.  Down-looking families get no companion — their
+    # ``evaluate`` serves the whole bundle, and nothing changes for them.
+    companion = _build_simple(params) if family_direction == "up" else None
+    return InterpolatedAtmosphere(
+        points,
+        axes,
+        method,
+        family_direction=family_direction,
+        uplooking_companion=companion,
+    )
 
 
 def build_cn2_profile(params: ParameterSet) -> object | None:

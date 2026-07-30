@@ -21,6 +21,29 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Results-affecting (up-looking interpolated scenes only): the shipped up-looking
+  MODTRAN library is now reachable from a chain run (CU-226).**
+  `atmosphere.model = "interpolated"` with an up-looking scene and
+  `atmosphere.interpolation_axes = "target_altitude_m"` previously loaded
+  `midlat_summer_uplooking_ladder/` and then raised a capability error at
+  `AtmosphereStage`; it now composes a result. The observer leg (sensor → target)
+  comes from the MODTRAN-derived run family; the target's illumination and the sky
+  radiance along the LOS continuation come from a `SimpleAtmosphere` companion the
+  loader attaches to the family, because an up-looking run family carries neither
+  leg. The split is declared, never silent: a `UserWarning` names both models and
+  `result.inspect()` →
+  `stage_outputs["atmosphere"]["topology_provenance"]["backend_split"]` records
+  which leg came from which. **No existing result moves** — nothing else reaches
+  this path, and every golden and GUI baseline is bit-identical. For a ground
+  sensor looking straight up at a 10 km target in the shipped MWIR example, the
+  observer leg's band-mean (3–5 µm) transmittance goes from 0.5715 [-] (simple) to
+  0.4725 [-] (library, −17.3 %) and its band-mean path radiance from 0.3995 to
+  0.5414 W/m²/sr/µm (+35.5 %), moving SNR from 1207.2 [-] to 1152.7 [-] (−4.5 %).
+  New public surface:
+  `radiant.atmosphere.uplooking_quantities.UplookingColumnBackend` (structural
+  protocol) and the keyword-only `InterpolatedAtmosphere(uplooking_companion=...)`
+  with its `uplooking_companion` property. A **level** path on an up-looking family
+  is refused with an actionable error rather than approximated.
 - **`geometry.site_elevation_m` — an elevated site keeps its own turbulence boundary
   layer (CU-262).** New public parameter [m, default 0 = mean sea level]: the terrain
   elevation beneath the line of sight. The Hufnagel-Valley $C_n^2$ **surface term** is

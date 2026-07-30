@@ -17,9 +17,18 @@
 **Discovered**: Backlog-Reduction, CU-271 close-out, 2026-07-29 — after creating (and catching) a fourth instance by hand.
 **Status**: Open.
 **File**: `docs/tracking/Cleanup_Backlog.md` (entries for CU-007, CU-009, CU-213); `scripts/check_org_rules.py`.
-**Symptom**: to be completed on the branch.
-**Why it still matters**: to be completed on the branch.
-**Suggested fix**: to be completed on the branch. Related: [[CU-271]], [[CU-212]].
+**Symptom**: Rule 22 requires every Resolved entry to carry a linked commit SHA, and nothing checks that the SHA means anything. Audited all **182** distinct SHAs the registry cites on 2026-07-29: every one resolves to a real object, but **three are not ancestors of `main`** —
+
+| SHA | Cited by | The commit |
+|---|---|---|
+| `452cccd` | CU-007 | `feat(source): CU-007 — MWIR-overlap legacy ε+T scenarios route to T3Mixed` |
+| `c2634b6` | CU-009 | `chore(debt): CU-009 — wire _infer_los to existing geometry.* params` |
+| `97eafb6` | CU-213 | `feat(gui): study-aware YAML document editor … CU-213 shared grid points` |
+
+Each message matches its entry, so these are almost certainly pre-rebase or pre-amend objects whose work landed on `main` under a different hash — the closures are real, the *links* are not. Reachable today only because the objects have not been garbage-collected; `git gc` would silently turn all three into dead references.
+**How the fourth one was made, in about sixty seconds**: stamping a SHA into the entry, then `git commit --amend`. The amend rewrites the hash and the entry is instantly stale. The "obvious" repair — a global `sed` on the old hash — is worse: the hash in question did not appear in the entry being fixed at all, and the sed overwrote **CU-212's** genuine resolution SHA instead. Both were caught and repaired in `805eb3f`, but only because the SHAs were audited rather than assumed. Nothing in the gate would have noticed either.
+**Why it still matters**: a closure SHA that cannot be resolved is a closure that cannot be verified, which is the exact failure Rule 22 was written to prevent — it just fails one level down, at the link rather than the entry. It is also the same shape as [[CU-272]] / [[CU-277]] / [[CU-278]]: a rule enforced by convention where a mechanical check is cheap and obvious.
+**Suggested fix**: (a) inline, small — teach `scripts/check_org_rules.py` to extract every `` commit `<sha>` `` from the registry and fail on any that is not an ancestor of `HEAD`, exactly as it already fails on duplicate CU ids. That is ~15 lines, runs in the gate battery, and would have caught all four of these. Then re-map the three above by searching `main` for the commit that actually carries each change (`git log --all --grep=CU-007` and friends) and correct the entries. Note the check must compare against `HEAD`'s ancestry, not mere object existence — all three of these pass a bare `git cat-file -t`. Effort S; category A. Related: [[CU-271]], [[CU-212]], [[CU-272]], [[CU-278]].
 
 
 ### CU-278 — `scenarios/` is outside both the lint and the pytest gate scope, and the exclusion is undocumented
@@ -60,16 +69,6 @@ So "root it at the sensor like the up-looking branch" would drop up to 25 % of t
 **Symptom**: [[CU-274]] deleted the root-form branch that used to take over past 80°, because it was the geometric chord of a 100 km slab rather than a density-weighted air mass and made transmittance discontinuous. `sec ζ` now covers the whole legal domain `[0, 89.5°]`. That is continuous and monotone, but it is still the *plane-parallel* answer, and the plane-parallel answer diverges near the horizon. Measured against the exact spherical slant integral (`grazing_column.grazing_slant_column_km`, molecular scale height, ground → 100 km): `sec ζ` is high by **0.04 % at 30°, 0.37 % at 60°, 1.7 % at 75°, 3.8 % at 80°, 13 % at 85°, and 237 % at 89.4°** (95.49 against 28.38).
 **Why it still matters**: the accurate route exists — `segment_grazing.py` over `grazing_column.py`, with a *per-species* effective air mass, which is what the near-horizon regime actually needs since water vapour's 2 km scale height hugs the tangent point far harder than the 8 km molecular one. The up-looking sky background takes that route at `SPHERICAL_SWITCH_RAD`. Two callers do not and cannot today: the down-looking observer column (`SimpleAtmosphere.evaluate`, legal to 89.5°) and the **solar** column (`sun_geom.air_mass()`, capped at 89.5° — every twilight scene). They therefore overestimate the near-horizon air mass. Direction is at least the safe one: too much air means pessimistic τ, pessimistic signal and pessimistic SNR, where the old root form was optimistic by 14–62 %. No shipped scenario exceeds 37.5° LOS zenith or 40° solar zenith, so nothing ships wrong today; the exposure is a user who enters a grazing geometry.
 **Suggested fix**: (b) stand-alone — give the plane-parallel column the same hand-over the sky now has. `AtmosphericGeometry` cannot do it alone: it carries no scale height, and making `slant_path_length_m` density-weighted would change a documented *geometric length* into something else (public-surface change, Rule 20). The cleaner shape is to route `column_segment_optical_depth` and `SimpleAtmosphere.evaluate`'s two air-mass sites to `grazing_segment_optical_depth` past 80°, exactly as `uplooking_quantities` does, and leave `AtmosphericGeometry.air_mass` as the honest plane-parallel primitive it now is. Re-anchor the twilight solar column against a MODTRAN run before trusting it. **Results-affecting** for any scene past 80° LOS or solar zenith. Effort M; category C. Related: [[CU-274]], [[CU-225]], [[CU-260]].
-
-
-### CU-271 — `examples/MWIR_Jason.yaml` is a personally-named, unreferenced config in the shipped examples folder
-
-**Discovered**: Backlog-Reduction Track A, Wave A2 (deleting `nintendo.yaml` for CU-207), 2026-07-28.
-**Status**: Open — **owner call, not an autonomous delete** (it is plausibly the owner's own working config).
-**File**: `examples/MWIR_Jason.yaml`.
-**Symptom**: an `examples/` entry named after a person, referenced by no test, script, or document (`grep -rn MWIR_Jason` outside the file itself returns nothing). Unlike [[CU-207]] it carries **no** hardcoded absolute path, so it loads fine anywhere — this is a naming/placement finding, not a Rule-30 one. `docs/OPERATING_MODEL.md` §5 requires a name that states the *content*, not the event or author, and `examples/` is a shipped surface a new user reads for canonical configs.
-**Why it still matters**: a reader opening `examples/` cannot tell which files are the curated examples (`mwir_leo_minimal.yaml`, `ground_truth_mwir.yaml`, `templates/`) and which are someone's scratch. It is the same clutter CU-207 removed, minus the broken path that forced that one's hand.
-**Suggested fix**: (c) delete-as-unused if it is scratch, or (a) rename to a content-stating slug (e.g. the band + platform + regime it configures) if it is a real example worth shipping. Needs one word from the owner — the file may be in active personal use. Effort XS; category A. Related: [[CU-207]].
 
 
 ### CU-256 — T7 intensity door publishes sentinel extent values, bypassing the point-source angular-size guard
@@ -386,6 +385,16 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-271 — `examples/MWIR_Jason.yaml` is a personally-named, unreferenced config in the shipped examples folder — RESOLVED 2026-07-29 (commit `12b98e5`)
+
+**Discovered**: Backlog-Reduction Track A, Wave A2 (deleting `nintendo.yaml` for [[CU-207]]), 2026-07-28.
+**Status**: RESOLVED 2026-07-29, commit `12b98e5`. **Owner ruling: delete as scratch** (asked directly, 2026-07-29). Removed with `git rm`; git history is the archive (Rule 26).
+**File**: `examples/MWIR_Jason.yaml` (deleted).
+**What it was, recorded here so the deletion is reversible from this entry alone**: a `Sensor.save()` dump of a LEO→boost-phase tracking config — sensor 500 km, target 20 km, MWIR 3.5–5 µm, `scene_type: sub_pixel`, a 0.5 × 0.1 m flat-plate target at 1000 K / ε 0.95, 0.3 m aperture at f/4, interpolated atmosphere on the `sensor_altitude_m,target_altitude_m` axes, midlat_summer. Last touched by `2cefaf3`. Recoverable with `git show 2cefaf3:examples/MWIR_Jason.yaml` if it turns out to have been wanted.
+**Verified unreferenced before deleting**: `grep -rn MWIR_Jason` across the tree returns only this registry and the plan's owner-triage list; no test, script, doc or config loads it, and nothing globs `examples/` (checked for `glob`/`iterdir`/`listdir`/`rglob` against that path in `src/`, `tests/` and `scripts/`). Unlike [[CU-207]]'s `nintendo.yaml` it carried no hardcoded absolute path, so this was purely a naming/placement finding — `docs/OPERATING_MODEL.md` §5 requires a name that states the *content*, not the author, and `examples/` is a shipped surface a new user reads for canonical configs.
+**No CHANGELOG entry**, matching the [[CU-207]] precedent: `nintendo.yaml`'s deletion (`cc4e2c6`) got none either. The curated examples a user is pointed at — `mwir_leo_minimal.yaml`, `ground_truth_mwir.yaml`, and the twelve under `templates/` — are untouched. Related: [[CU-207]].
+
+
 ### CU-273 — `emit_gui_yaml.py` rewrites portable baseline paths back to gitignored generated locations, silently un-doing CU-180 — RESOLVED 2026-07-29 (commit `1d71422`)
 
 **Discovered**: Backlog-Reduction Track B1, 2026-07-28 — a fresh worktree failed `test_gui_baselines[4.3]` immediately after the CU-253 baseline regeneration merged.

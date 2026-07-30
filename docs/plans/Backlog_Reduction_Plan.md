@@ -127,8 +127,7 @@ Rulings taken 2026-07-29 and recorded on the entries themselves: **CU-256** (rej
 over-specification), **CU-264** (both raise), **CU-262** (add the parameter, default 0).
 
 Still owner-gated:
-1. **CU-271** — `examples/MWIR_Jason.yaml`: delete as scratch, or rename to a content-stating
-   slug? It may be in personal use, so it is not an autonomous delete.
+1. ~~**CU-271**~~ — answered 2026-07-29: delete as scratch. Done.
 2. **CU-250** — down-looking schematic pixels, under active owner review.
 3. **CU-236** — down-looking detection range; the entry itself is marked owner-decision.
 

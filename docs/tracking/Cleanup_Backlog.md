@@ -12,6 +12,33 @@
 
 ## Open
 
+### CU-295 — Target-spec error messages still name `source._inferrer` after the guards moved to `source.target_spec`
+
+**Discovered**: Overnight backlog run, CU-244 verification, 2026-07-30.
+**Status**: Open.
+**File**: `src/radiant/source/target_spec.py` (every `what=` string, e.g. lines 103, 131, 154).
+**Symptom**: [[CU-244]] extracted the door exclusivity guards from `_inferrer.py` into `target_spec.py` and kept every message byte-identical — deliberately, because a text-identity test is what proves the extraction changed no evaluate-time behaviour. The side effect is that each message still opens `"source._inferrer: …"`, pointing a reader at a module that no longer contains the check.
+**Why it still matters**: Rule 15 errors are meant to be actionable; a stale module self-reference sends the next debugger to the wrong file. Cosmetic, but it will be copied by the next guard added to the module.
+**Suggested fix**: (a) inline, XS — retarget the prefix to `source.target_spec` in one pass and update the text-identity test's expectation in the same commit (the identity that matters is seam-vs-evaluate, and both read from the shared functions, so the test still holds). Category A. Related: [[CU-244]].
+
+### CU-294 — Point-intensity door exclusivity guards are still inlined, so those conflicts reach evaluate
+
+**Discovered**: Overnight backlog run, CU-244 close-out, 2026-07-30.
+**Status**: Open — overlaps ruled work; see below.
+**File**: `src/radiant/source/_inferrer.py` (`_maybe_build_from_point_intensity`, `_maybe_build_from_user_intensity`, `_maybe_build_from_user_radiance`).
+**Symptom**: [[CU-244]] moved the S4/S5/S6/S11/S12 door guards into `radiant.source.target_spec` so the GUI can reject them at the door, but the three intensity/radiance doors keep their exclusivity blocks inlined. A conflicting pair entered purely through those doors (e.g. `point_intensity_temperature_K` + `user_intensity_path`) still slips past the editor and fails only at `evaluate()`.
+**Why it still matters**: it is the same operator-facing gap CU-244 closed, on the remaining doors — the editor commits a config it knows is invalid.
+**Suggested fix**: (a) inline, S — extract those blocks into `target_spec.check_*` functions and add them to `validate_target_spec`, exactly as CU-244 did for the others; the module docstring already documents the extension point. Best done **with or after [[CU-256]]/[[CU-264]]**, which own the T7 intensity door and will add a refusal there. Category B. Related: [[CU-244]], [[CU-256]], [[CU-264]].
+
+### CU-293 — S11 dispatches before S12 without checking it, so a brightness+radiance-temperature pair is silently ignored at evaluate
+
+**Discovered**: Overnight backlog run, CU-244 close-out, 2026-07-30 — measured while building the resolve-time seam.
+**Status**: Open.
+**File**: `src/radiant/source/_inferrer.py` (S11 builder `_maybe_build_from_brightness_temperature`; the unreachable S12 check in `_maybe_build_from_radiance_temperature`).
+**Symptom**: with **both** `brightness_temperature_K` and `radiance_temperature_K` (+ its band edges) user-set, `evaluate()` raises nothing — the S11 builder dispatches first and does not check S12, so the radiance-temperature surface the user supplied is **silently ignored**. Measured: the new [[CU-244]] seam raises the S11-vs-S12 error, `evaluate()` completes. The S12-side check exists but is unreachable for this pair.
+**Why it still matters**: Rule 17 — a user-supplied surface is discarded with no warning, and the two entry points now disagree (the door is deliberately stricter than evaluate, documented in `validate_target_spec`'s docstring, but that asymmetry is a stopgap not a design).
+**Suggested fix**: (a) inline, S — add the S12 conflict check to the S11 builder so evaluate refuses the pair too, then drop the docstring's asymmetry note. **Behaviour-changing** at evaluate (configs that run today by silently ignoring a surface will raise) → CHANGELOG under **Changed** per Rule 29b, and worth a `scenarios/`/`examples/` sweep first, same caveat as [[CU-256]]/[[CU-264]]. Category B. Related: [[CU-244]], [[CU-256]].
+
 ### CU-292 — Scenario 2.1 stdout is nondeterministic: zero-valued noise-budget rows print in hash-dependent order
 
 **Discovered**: Overnight backlog run, CU-164 close-out, 2026-07-29.
@@ -426,10 +453,10 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
-### CU-244 — Target-spec over-specification is unreachable by the parameter editor's clone-validate, so the GUI accepts a conflicting pair until Evaluate — RESOLVED 2026-07-30 (commit (pending merge — orchestrator stamps final SHA))
+### CU-244 — Target-spec over-specification is unreachable by the parameter editor's clone-validate, so the GUI accepts a conflicting pair until Evaluate — RESOLVED 2026-07-30 (commit `df862cc`)
 
 **Discovered**: GUI walkthrough item 6 (branch `gui/reflective-tab`), 2026-07-27 — while mounting `source.target.reflectance_path` beside the scalar ρ.
-**Status**: RESOLVED 2026-07-30, commit (pending merge — orchestrator stamps final SHA). **Resolution**: extracted the inferrer's door exclusivity guards into `radiant.source.target_spec` (evaluate-time behaviour and text unchanged — the builders now call the shared functions), exposed them as `Sensor.validate_target_spec()` (pure provenance read, works on unresolved sets), and wired both GUI clone-validate commit paths (`ParameterEditorDialog._try_resolve`, `ParameterPanel._commit_edit`) through the differential `radiant.gui.target_spec_guard.introduced_target_spec_conflict`, so a conflict the edit introduces is rejected at the door with the identical what/why/action while a pre-existing conflict never blocks unrelated edits.
+**Status**: RESOLVED 2026-07-30, commit `df862cc`. **Resolution**: extracted the inferrer's door exclusivity guards into `radiant.source.target_spec` (evaluate-time behaviour and text unchanged — the builders now call the shared functions), exposed them as `Sensor.validate_target_spec()` (pure provenance read, works on unresolved sets), and wired both GUI clone-validate commit paths (`ParameterEditorDialog._try_resolve`, `ParameterPanel._commit_edit`) through the differential `radiant.gui.target_spec_guard.introduced_target_spec_conflict`, so a conflict the edit introduces is rejected at the door with the identical what/why/action while a pre-existing conflict never blocks unrelated edits.
 **File**: `src/radiant/source/target_spec.py` (new); `src/radiant/source/_inferrer.py`; `src/radiant/source/_schema.py` (dual-view alias validator); `src/radiant/api/sensor.py`; `src/radiant/gui/target_spec_guard.py` (new); `src/radiant/gui/widgets/parameter_editor_dialog.py`; `src/radiant/gui/widgets/parameter_panel.py`.
 **Symptom**: set `source.target.reflectance = 0.3`, then `source.target.reflectance_path = <csv>`. Both `Sensor.set` and `Sensor.get` accepted the pair; the rejection fired only inside `infer_descriptors`, i.e. at `evaluate()` — reproduced 2026-07-30 before fixing (both halves: API pair accepted with evaluate-time `ParameterBoundsError`, and `_try_resolve` returning the canonical value with no rejection).
 **Resolution summary**: resolve-time seam `Sensor.validate_target_spec()` over the extracted `radiant.source.target_spec` guards; all four named exclusivity families (ρ + path, ρ + (ε, T), ρ + S11/S12, albedo aliases) plus ρ + S8/S10 and the S11/S12 internal pairs now reject at commit time in both GUI edit paths, with the evaluate-time check retained as defence in depth. Related: [[CU-245]].

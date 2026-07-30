@@ -8,6 +8,8 @@ Checks (CLAUDE.md Rules 23/25 + OPERATING_MODEL §1/§5.3/§6):
      tool roots may keep only README/ARCHITECTURE/CONTRIBUTING.
   5. Prohibited names (§5.3) anywhere in tracked files: misc*, temp*, scratch*,
      untitled*, stuff*, output<N>.<img>, spaces in filenames.
+  6. Registry IDs are unique (Rules 21/22/25).
+  7. Every commit SHA the registries cite is an ancestor of HEAD (Rule 22, CU-279).
 
 Exit 0 = compliant; exit 1 = violations printed. Runs in the CI `static` job.
 Only git-tracked files are checked (untracked scratch is a working-tree concern).
@@ -66,6 +68,105 @@ PROHIBITED_NAME = re.compile(
     r"(^|/)(misc|temp|tmp|scratch|untitled|stuff)(\d*)([._]|$)|(^|/)output\d*\.(png|jpg|jpeg|gif|svg)$",
     re.IGNORECASE,
 )
+
+# --- Cited-commit ancestry (Rule 22, CU-279) ---------------------------------
+#
+# Rule 22 requires every closure to carry a linked commit SHA, and until CU-279
+# nothing checked that the link resolved to anything. Of the 221 hashes the
+# backlog cited, four were real objects but *not* ancestors of `main`: three were
+# deliberate provenance references (pre-cherry-pick source objects), and one — the
+# sole SHA on CU-213 — was a genuinely broken link, a pre-amend twin whose work
+# landed under a different hash, reachable only until the next `git gc`. A closure
+# SHA that cannot be resolved is a closure that cannot be verified, which is the
+# failure Rule 22 exists to prevent; it just fails one level down, at the link
+# rather than the entry.
+#
+# The check is deliberately *object-agnostic*: `git cat-file -t` passes on all
+# four of those hashes, so existence proves nothing. Only ancestry does.
+
+#: Escape hatch. A hash that is *deliberately* not on `main` — the pre-cherry-pick
+#: source object a resolution cites for provenance, or a dead hash an audit entry
+#: quotes as its own evidence — is marked in the prose it appears in::
+#:
+#:     original commit `452cccd` (not on main)
+#:
+#: The marker is next to the claim rather than in an allowlist here, so a reader
+#: of the entry learns the hash is unverifiable at the point they read it.
+_OFF_MAIN_MARKER = " (not on main)"
+
+#: Shortest abbreviation git will hand out, and the prefix width the ancestor
+#: index is keyed on. A citation shorter than this is not matched at all.
+_MIN_ABBREV = 7
+
+#: Any backticked abbreviated-or-full hex hash, plus the marker if it follows.
+#: Matched everywhere in the registry rather than only after the literal word
+#: "commit", because the citation forms in use include bare lists
+#: (``commits `a`, `b`, `c``), phase labels between hashes, and "cherry-picked
+#: `x` as `y`" prose — a word-anchored regex checks the first hash of a list and
+#: silently skips the rest, which is how the CU-047 instance went unnoticed.
+_CITED_SHA = re.compile(
+    rf"`(?P<sha>[0-9a-f]{{{_MIN_ABBREV},40}})`(?P<exempt>{re.escape(_OFF_MAIN_MARKER)})?"
+)
+
+
+def is_shallow() -> bool:
+    """True if this clone lacks the history the ancestry check needs.
+
+    A depth-1 CI checkout knows one commit, which would report all 200+ cited
+    hashes as non-ancestors. The check declines to run rather than lie; CI's
+    ``static`` job sets ``fetch-depth: 0`` so it does run there.
+    """
+    out = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+        check=True,
+    ).stdout
+    return out.strip() == "true"
+
+
+def ancestor_index() -> dict[str, list[str]]:
+    """Map ``sha[:7] -> [full ancestor hashes]`` for every ancestor of ``HEAD``.
+
+    One ``git rev-list`` (≈1150 commits, single-digit ms) instead of one
+    ``git merge-base --is-ancestor`` subprocess per cited hash — the registry
+    cites 200+, and a gate that every contributor runs cannot cost seconds.
+    """
+    out = subprocess.run(
+        ["git", "rev-list", "HEAD"], capture_output=True, text=True, cwd=REPO, check=True
+    ).stdout
+    index: dict[str, list[str]] = {}
+    for full in out.split():
+        index.setdefault(full[:_MIN_ABBREV], []).append(full)
+    return index
+
+
+def check_cited_shas(text: str, index: dict[str, list[str]], label: str) -> list[str]:
+    """Errors for every hash in *text* that is not an ancestor in *index*.
+
+    Hashes with no ``[a-f]`` digit are skipped: a backticked decimal literal
+    (``999999999999``, a bounds-test value the backlog quotes) is not a SHA.
+    Hashes followed by :data:`_OFF_MAIN_MARKER` are skipped by declaration.
+    Each distinct offender is reported once.
+    """
+    errors: list[str] = []
+    seen: set[str] = set()
+    for match in _CITED_SHA.finditer(text):
+        sha = match.group("sha")
+        if match.group("exempt") or sha in seen or not re.search(r"[a-f]", sha):
+            continue
+        if not any(full.startswith(sha) for full in index.get(sha[:_MIN_ABBREV], ())):
+            seen.add(sha)
+            errors.append(
+                f"cited commit `{sha}` in {label} is not an ancestor of HEAD (Rule 22: a "
+                "closure SHA that cannot be resolved is a closure that cannot be verified). "
+                "Find the commit that actually carries the change "
+                f"(`git log --all --grep=...`, `git diff <sha> <candidate>`) and cite that; "
+                f"or, if the hash is deliberately off-`main` (a cherry-pick source, an audit "
+                f'quoting a dead hash), mark it in the prose: "`{sha}`{_OFF_MAIN_MARKER}".'
+            )
+    return errors
 
 
 def tracked_files() -> list[str]:
@@ -135,11 +236,17 @@ def main() -> int:
     # "next available" from the same base while one held its numbers on an
     # unpushed branch. Leading-ID extraction only — headings may legitimately
     # cite other CU/Gap numbers in their titles.
+    # 7. Every commit SHA a registry cites is an ancestor of HEAD (Rule 22,
+    # CU-279 — see the ancestry block above). A shallow clone cannot answer the
+    # question; say so out loud rather than pass or fail on no evidence.
+    shallow = is_shallow()
+    index = {} if shallow else ancestor_index()
     for path, pattern in (
         (REPO / "docs" / "tracking" / "Cleanup_Backlog.md", r"^### (CU-\d+)[ —]"),
         (REPO / "docs" / "tracking" / "gaps.md", r"^## (Gap \d+)\b"),
     ):
-        ids = re.findall(pattern, path.read_text(encoding="utf-8"), re.MULTILINE)
+        text = path.read_text(encoding="utf-8")
+        ids = re.findall(pattern, text, re.MULTILINE)
         seen: set[str] = set()
         for rid in ids:
             if rid in seen:
@@ -148,6 +255,14 @@ def main() -> int:
                     "IDs are never reused; closure moves an entry, never copies it)"
                 )
             seen.add(rid)
+        if not shallow:
+            errors.extend(check_cited_shas(text, index, path.name))
+
+    if shallow:
+        print(
+            "check_org_rules: NOTE — shallow clone; the cited-commit ancestry check "
+            "(Rule 22, CU-279) was skipped. Run `git fetch --unshallow` to enable it."
+        )
 
     # CU-229: the RADIANT_File_Tree.md per-package counts are generated, not
     # maintained by hand — a hand-kept count of a growing tree drifts by

@@ -12,6 +12,15 @@
 
 ## Open
 
+### CU-309 — The geometry mode-manifest exclusion set is duplicated in two test trees, and the gate battery's "GUI suite only if GUI files touched" heuristic misses the coupling
+
+**Discovered**: Overnight backlog run, final checkpoint battery, 2026-07-30 — [[CU-262]] went red on `main` and was repaired in the same session.
+**Status**: Open (the red is fixed; the structural cause is not).
+**File**: `src/radiant/geometry/tests/test_mode_manifest.py::_NON_MODE_PARAMS` and `src/radiant/gui/tests/test_geometry_screen.py::_NON_MODE_PARAMS` (duplicated); `CLAUDE.md` gate battery.
+**Symptom**: two independent tests assert that the geometry input-mode manifest covers every `geometry.*` schema parameter, each carrying its own hand-maintained exclusion list. [[CU-262]] added `geometry.site_elevation_m` and updated the geometry-side list; the GUI-side twin was not updated and `main` went red on `test_manifest_covers_every_geometry_parameter`. It was not caught pre-merge because CU-262 touched no GUI file, and the gate battery runs the ~7-minute GUI suite **only when GUI files are touched** — but a *geometry schema* addition breaks a *GUI* test, so "which files did I touch" is not a sound predictor of which suites can break.
+**Why it still matters**: two failure modes in one. (a) Rule 27 / one-canonical-version: a duplicated constant that must be edited in lockstep, with nothing enforcing it — the next parameter addition repeats this exactly. (b) The gate heuristic itself: any schema-level change can break a GUI test, and the current rule lets it through. This is the first time a merge reached `main` red this session, and the full battery is what caught it — which is the argument for the battery, not against it.
+**Suggested fix**: (a) inline, S for the duplication — give the exclusion set one home the GUI test can legally reach (`radiant.gui` may import `radiant.api` + `radiant.core` only, so a test-tree import is not available; the natural home is a small public accessor beside the manifest itself, or a schema-level `mode_entry`-style tag that both tests derive from, removing the hand-maintained list entirely — the tag route also fixes (a) permanently). Plus, for (b), amend the `CLAUDE.md` gate rule so a change touching **any** `_schema.py` runs the GUI suite regardless of which files it edited. Effort S; category A. Related: [[CU-262]], [[CU-301]], Rule 27.
+
 ### CU-308 — The `_illumination_products` exo branch is guarded by data coverage, not by code
 
 **Discovered**: Overnight backlog run, CU-226 close-out, 2026-07-30.

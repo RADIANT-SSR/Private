@@ -80,6 +80,13 @@ def _bound_form(qtbot, sensor: Sensor) -> GeometryModeForm:
 # Mode manifest (Qt-free)
 # ---------------------------------------------------------------------------
 
+#: ``geometry.*`` parameters that are deliberately not input-mode doors, and so
+#: are absent from the mode manifest. Duplicated from
+#: ``geometry/tests/test_mode_manifest.py::_NON_MODE_PARAMS`` rather than
+#: imported, because ``radiant.gui`` may not reach into a physics-stage test
+#: tree. The two sets must be kept in step — CU-309 tracks unifying them.
+_NON_MODE_PARAMS = frozenset({"geometry.scene_class", "geometry.site_elevation_m"})
+
 
 class TestModeManifest:
     def test_manifest_covers_every_geometry_parameter(self, sensor: Sensor) -> None:
@@ -91,14 +98,19 @@ class TestModeManifest:
         forms, so they are excluded from the mode-manifest coverage set. So is
         ``geometry.scene_class``: it is an optional *assertion* validated
         against the derived class (ADR-0011 decision 8), not a door onto a
-        canonical quantity, so it belongs to no mode family.
+        canonical quantity, so it belongs to no mode family. Nor is
+        ``geometry.site_elevation_m``: it is a standalone scene fact — the
+        terrain elevation beneath the LOS (CU-262) — that feeds the turbulence
+        profile rather than opening onto any canonical viewing quantity. This
+        exclusion set mirrors ``geometry/tests/test_mode_manifest.py``'s
+        ``_NON_MODE_PARAMS``; the two must be kept in step (CU-309).
         """
         schema_geometry = {
             p
             for p in sensor.parameter_defs()
             if p.startswith("geometry.")
             and not p.startswith("geometry.target.")
-            and p != "geometry.scene_class"
+            and p not in _NON_MODE_PARAMS
         }
         manifest = set(all_mode_params())
         assert manifest == schema_geometry

@@ -12,6 +12,16 @@
 
 ## Open
 
+### CU-279 — Rule-22 closure SHAs are unverified: three cited commits are not ancestors of `main`
+
+**Discovered**: Backlog-Reduction, CU-271 close-out, 2026-07-29 — after creating (and catching) a fourth instance by hand.
+**Status**: Open.
+**File**: `docs/tracking/Cleanup_Backlog.md` (entries for CU-007, CU-009, CU-213); `scripts/check_org_rules.py`.
+**Symptom**: to be completed on the branch.
+**Why it still matters**: to be completed on the branch.
+**Suggested fix**: to be completed on the branch. Related: [[CU-271]], [[CU-212]].
+
+
 ### CU-278 — `scenarios/` is outside both the lint and the pytest gate scope, and the exclusion is undocumented
 
 **Discovered**: Backlog-Reduction, gate-blindspot branch (`hygiene/gate-blindspots`), 2026-07-29 — while closing [[CU-272]]'s gate-scope half.

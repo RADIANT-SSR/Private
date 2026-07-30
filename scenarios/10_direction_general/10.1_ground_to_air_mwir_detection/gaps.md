@@ -56,8 +56,18 @@ a `performance/` + `atmosphere/` task, not a scenario one.
 ## G10.1-2: Sky background behind an up-looking target depends on the target's altitude
 
 **Severity**: Medium (systematic, signed, and it biases SNR optimistic)
-**Status**: OPEN
-**Where**: `radiant/atmosphere/sky_radiance.py` + `segment_simple.py` composition
+**Status**: **RESOLVED 2026-07-29** (commit `5c0f3dd`, CU-254). The sky is now one whole-path
+evaluation rooted at the **sensor**, and the `SkyBackground` assembly arm passes it through
+instead of re-propagating it, so the background is a property of the ray as this entry says
+it must be. Re-measured on the shipped config at fixed pointing: 2.214790e5 e⁻ at target
+altitudes of 10, 20, 50 and 99 km — identical to the last digit, against the 1.94207e5 /
+2.14046e5 / 2.21479e5 spread recorded below. Headline metrics moved with it: SNR
+136.424 → 131.465, NEDT 0.648013 → 0.672457 K, i.e. the ≈ 3.5 % optimism this entry
+predicted, removed. The `.gui.expected.json` baseline was regenerated; **the numeric tables
+in `walkthrough.md` are from the pre-fix run and are stale until the scenario is re-run** —
+the `background [e⁻]`, `SNR` and `NEDT` columns of its zenith sweep are the affected ones.
+**Where**: `radiant/atmosphere/uplooking_quantities.py::_sky_radiance_at_aperture` (was
+`sky_radiance.py` + `segment_simple.py` composition)
 
 **What happens.** A ground sensor pointed at a fixed zenith sees a fixed sky column, but
 the composed background drifts with where the target is placed:

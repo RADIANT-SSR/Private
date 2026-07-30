@@ -12,6 +12,33 @@
 
 ## Open
 
+### CU-300 — `_is_user_set` counts `Provenance.DERIVED` as user-set, a latent trap for any future guard over a derived surface
+
+**Discovered**: Overnight backlog run, CU-256/CU-264 close-out, 2026-07-30.
+**Status**: Open.
+**File**: `src/radiant/source/target_spec.py::_is_user_set`.
+**Symptom**: on a resolved `ParameterSet` the helper treats `Provenance.DERIVED` as user-set. Harmless today — no surface any current guard inspects is derived — but the [[CU-244]] seam is explicitly designed to grow (see [[CU-294]]), and the first guard added over a derived parameter will silently reject a value RADIANT itself computed. The CU-244 docstring acknowledges the resolved/unresolved dual view but not this edge.
+**Why it still matters**: a false over-specification refusal is a config that cannot run at all, with an error blaming the user for a value they never set.
+**Suggested fix**: (a) inline, XS — exclude `DERIVED` (or take an explicit provenance allow-set per guard) and add a test pinning it. Category A. Related: [[CU-244]], [[CU-294]].
+
+### CU-299 — `resolve_direct_intensity` is dead deprecated code past its one-release window
+
+**Discovered**: Overnight backlog run, CU-256/CU-264 close-out, 2026-07-30.
+**Status**: Open.
+**File**: `src/radiant/source/resolvers/intensity.py::resolve_direct_intensity`.
+**Symptom**: deprecated under ADR-0004 "for a single release so out-of-tree callers can migrate"; still present, still emitting `DeprecationWarning` on every test run. No in-tree caller remains.
+**Why it still matters**: Rule 27 (one canonical version) — a superseded implementation retained alongside its replacement, with no deferral record naming a gating condition or re-audit date. It is also warning noise in every suite run.
+**Suggested fix**: (c) delete-as-unused, XS — confirm no in-tree caller, delete, note the removal in CHANGELOG under **Removed** (Rule 29b, it is a public-ish surface out-of-tree callers were told about). Category A. Related: ADR-0004, [[CU-256]].
+
+### CU-298 — The Use-Case Matrix conflates the regime classifier with the §7 validity guard
+
+**Discovered**: Overnight backlog run, CU-256/CU-264 close-out, 2026-07-30.
+**Status**: Open.
+**File**: `docs/architecture/RADIANT_Use_Case_Matrix.md:37` (and any doc echoing it).
+**Symptom**: the doc says a sub-pixel declaration "collapses to point-source … emit UserWarning", attributing both the collapse and the warning to one mechanism. In the code they are two: `optics/stage.py::_finalize_regime` (Rule 10) performs the classification unconditionally, while `_validate_psf_regime_consistency` only validates and — since [[CU-264]] — raises. The guard never modified the regime at all. [[CU-264]] corrected the severity claim; the classifier/guard conflation is broader and survives.
+**Why it still matters**: it is the aspirational-doc failure mode Rule 20 exists to prevent — a reader (or agent) planning a change to regime behaviour will edit the wrong function. Two of tonight's CUs (256, 264) both turned on knowing exactly which mechanism does what.
+**Suggested fix**: (a) inline, S — separate the two in the matrix text: state that `_finalize_regime` classifies (Rule 10) and `_validate_psf_regime_consistency` validates-and-raises, and sweep sibling docs for the same conflation. Category A. Related: [[CU-264]], [[CU-256]], ADR-0008, Rule 10.
+
 ### CU-297 — `atmosphere.interpolated_data_dir`'s schema description documents 2 of the 5 shipped families
 
 **Discovered**: Overnight backlog run, CU-239 close-out, 2026-07-30.

@@ -85,6 +85,7 @@ The full public surface of `Sensor` (verified against `src/radiant/api/sensor.py
 | `s.set_tolerance(dotpath, distribution, **kwargs)` | Attach a tolerance distribution for Monte Carlo / sensitivity. Distributions: `"gaussian"`, `"uniform"`, `"truncated_gaussian"`, `"log_normal"`. Returns `self`. |
 | `s.set_ground_velocity_from_orbit()` | Derive `platform.ground_velocity_m_s` from the orbital altitude `geometry.sensor_altitude_m` (circular-orbit sub-satellite ground-track speed; Gap 75). Requires the altitude set first; orbital platforms only. The ground-speed parameters are a collapsed consistency group, so this one value feeds both smear and access-rate. Returns `self`. |
 | `s.validate_target_spec()` | Raise `ParameterBoundsError` if the `source.target.*` spec surfaces are over-specified (CU-244): runs the source inferrer's mutual-exclusivity guards — same what/why/action text as `evaluate()` — with no physics, file I/O, or resolve required, so a conflicting pair (ρ + ρ-path, ρ + (ε, T), ρ + S11/S12, the albedo aliases, S11 + S12, …) is rejectable at the door. Completeness ("this form still needs its band") is deliberately not checked — that stays `evaluate()`'s job. A no-op on a clean or partial spec. The GUI's clone-validate edit discipline calls this after each candidate `set`; the evaluate-time check remains as defence in depth. |
+| `s.validate_atmosphere_coverage()` | Raise if the `interpolated` atmosphere's `interpolation_axes` cannot serve the configured scene (CU-239). Two config-time rules: a down-looking scene with `geometry.target_altitude_m > 0 m` needs a `target_altitude_m` axis (Gap 94), and an empty `atmosphere.interpolated_data_dir` needs the `(los_direction, axes)` pair to name a shipped library family. Raises `AtmosphereCapabilityError` / `AtmosphereValidationError` with the **exact axes string to use**, the selected family's coverage in km/degrees, and a profile-change caveat when that family's rendered profile differs from `atmosphere.standard_atmosphere`. A no-op for every other `atmosphere.model` and for a config whose geometry altitudes are unregistered. `build_atmosphere_model` runs the same check pre-chain, so `evaluate()` raises the identical text at the door rather than five stages in. |
 | `s.evaluate(extra_stage_outputs=None)` | Run the full signal chain. Returns `ChainResult` (§3). The keyword takes one-off non-scalar pre-chain injections (Gap 68), merged over any set via `set_stage_output`. |
 | `s.set_stage_output(group, key, value)` | Attach a non-scalar pre-chain input (Gap 68 interim seam) used by `evaluate` **and** all trade studies: element lists, `WavefrontError` objects, spectral curves, filter stacks — e.g. `s.set_stage_output("optics_config", "element_list", elems)`. `value=None` removes it. Carried by `clone()`, **not** written by `save()` (arbitrary objects have no YAML form; for element trains use `set_optical_elements`, which does persist). An explicitly injected `element_list` overrides an attached element document for that run. Returns `self`. |
 | `s.set_optical_elements(entries, base_dir=None)` | Attach a declarative `optical_elements` **document** (ADR-0009, §2.6): the same entry dicts the YAML section carries (`RADIANT_Config_Format.md` §1.8). Validated immediately through the io parser (fail-fast — Kirchhoff checks included; ε is always derived, never an input, Rule 5); relative spectral-file references under `base_dir` are absolutized; the document is parsed onto the evaluation grid per run and injected as `optics_config.element_list` (the optics stage then runs full-prescription). Unlike raw injections, the document **is** written by `save()` and restored by `load()` (persistence parity, ADR-0009 D4). `entries=None` removes it. Returns `self`. |
@@ -335,6 +336,38 @@ Spectral inputs carrying their own grid are **resampled onto the evaluation grid
 time (linear; never silently extrapolated — a run band wider than the table raises the
 actionable range error). Facade validation/preview runs on each entry's native grid, so a
 narrow-band coating table validates regardless of any assumed default band.
+
+### 2.7 Shipped Interpolation Families — `radiant.api.atmosphere_families` (CU-239, 2026-07-30)
+
+`atmosphere.interpolation_axes` is a free-text, comma-separated axis list, but the *bundled*
+library it selects from is a **closed catalogue** keyed by `(los_direction, axes)`. This seam
+publishes that catalogue so a caller — a script or the GUI, which cannot import
+`radiant.atmosphere` — picks a family instead of reconstructing a dict key by hand.
+
+```python
+from radiant.api import (
+    shipped_atmosphere_families, shipped_family_for_axes, suggested_interpolation_axes,
+)
+
+for f in shipped_atmosphere_families():
+    print(f.summary)
+# midlat_summer_ladders — targets 0-29 km, sensor 35 km / 100 km / 40000 km (GEO), nadir only
+#   (LOS zenith 0 degrees) [down-looking, profile 'midlat_summer', axes
+#   'sensor_altitude_m,target_altitude_m']
+
+suggested_interpolation_axes("down", 20_000.0, 0.0)   # 'sensor_altitude_m,target_altitude_m'
+```
+
+| Function | Purpose |
+|----------|---------|
+| `shipped_atmosphere_families()` | Every bundled family as a `ShippedFamily` — `name`, `los_direction`, `interpolation_axes` (the exact string to write), `profile` (an `atmosphere.standard_atmosphere` enum value), `coverage` (plain language, units always explicit — km, degrees), and a `summary` one-liner suitable as a picker label. `radiant.atmosphere.loaders`' default-family dispatch table is derived from the same rows, so there is one authority. |
+| `shipped_family_for_axes(los_direction, interpolation_axes)` | The family a pair selects, or `None` if unshipped. Direction is part of the key: an up-looking family carries the *downwelling* column and cannot substitute for a down-looking one. |
+| `suggested_interpolation_axes(los_direction, target_altitude_m, path_zenith_rad)` | The axes string a shipped family covers for this scene — up-looking ⇒ `target_altitude_m`; down-looking with an above-ground target ⇒ the 2-axis ladders at nadir, the 3-axis boost family off-nadir; ground target ⇒ the sensor ladder at nadir, the zenith fan off-nadir. `None` for a level LOS. |
+
+A **recommendation only** — nothing here writes a parameter. Adopting a family can change the
+run's atmosphere profile (the shipped families are not all one profile), so the caller writes
+`interpolation_axes` itself and `Sensor.validate_atmosphere_coverage()` supplies the
+profile-change caveat when the family's `profile` differs from `atmosphere.standard_atmosphere`.
 
 ---
 

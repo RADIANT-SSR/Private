@@ -1,6 +1,12 @@
 """Public API: Sensor, ChainResult, and analysis result types."""
 
 from radiant.api._progress import OperationCancelledError
+from radiant.api.atmosphere_families import (
+    ShippedFamily,
+    shipped_atmosphere_families,
+    shipped_family_for_axes,
+    suggested_interpolation_axes,
+)
 from radiant.api.compare import (
     ComparisonError,
     ComparisonResult,
@@ -54,4 +60,8 @@ __all__ = [
     "ConfigSetRunResult",
     "ConfigRun",
     "ConfigSetError",
+    "ShippedFamily",
+    "shipped_atmosphere_families",
+    "shipped_family_for_axes",
+    "suggested_interpolation_axes",
 ]

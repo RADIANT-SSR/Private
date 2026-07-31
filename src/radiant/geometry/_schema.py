@@ -78,7 +78,10 @@ SITE_ELEVATION_M = ParameterDef(
         "path more than a few hundred metres above the site carries no "
         "surface term at all. Consumed today ONLY by "
         "atmosphere.cn2_profile = 'hufnagel_valley'; a 'tabulated' Cn2 "
-        "profile is taken as given against MSL and is not shifted. The "
+        "profile is taken as given against MSL and is not shifted, and "
+        "'direct' has no profile at all. A non-zero value set against "
+        "either of those is inert and emits a UserWarning naming why "
+        "(CU-302) rather than being dropped silently. The "
         "default 0 reproduces every pre-CU-262 result bit-identically."
     ),
     dtype=float,

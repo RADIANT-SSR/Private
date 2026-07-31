@@ -17,7 +17,6 @@ from radiant.source.protocol import SpectralRadianceSource
 from radiant.source.reflected import ReflectedSolarSource
 from radiant.source.resolvers import (
     ResolvedTarget,
-    resolve_direct_intensity,
     resolve_direct_radiance,
     resolve_geometry,
     resolve_physical_object,
@@ -49,7 +48,6 @@ __all__ = [
     "TabulatedRadianceSource",
     "TargetShape",
     "ThermalSource",
-    "resolve_direct_intensity",
     "resolve_direct_radiance",
     "resolve_geometry",
     "resolve_physical_object",

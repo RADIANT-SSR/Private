@@ -11,7 +11,10 @@
 > resolved parameters). The `ResolvedTarget` class and the parallel
 > `resolve_*` / `CombinedSource` / `ReflectedSolarSource` machinery are
 > still publicly exported from `radiant.source` but are **not wired into
-> the chain** (CU-084) — do not spec the GUI's source panel against the
+> the chain** (CU-084) — with one subtraction: `resolve_direct_intensity`
+> (Path 4) was deprecated by ADR-0004 and **deleted 2026-07-30 (CU-299)**,
+> so the exported set is now four `resolve_*` functions, not five.
+> Do not spec the GUI's source panel against the
 > parameter surface below; enumerate it from `Sensor.parameter_defs()`
 > (Gap 70) instead. This doc is retained for the physics model and the
 > planned unification; treat the specific class/parameter contracts as
@@ -366,6 +369,14 @@ This integral is what makes "geometry + materials" path produce the same `Resolv
 **Use case**: Detection-of-small-targets analysis where the user has a SWAG on target temperature and wants to know detection range.
 
 ### Path 4: Direct intensity (point source)
+
+> **The Path-4 resolver no longer exists (CU-299, 2026-07-30).**
+> `resolve_direct_intensity` was deprecated by [ADR-0004](../adr/0004-t7-intensity-at-source.md)
+> and deleted once its one-release migration window closed; the `ResolvedTarget`
+> population described immediately below is therefore a **design-target
+> description of the retired path**, retained for the physics model. The shipped
+> S10 surface is `T7IntensityAtSource` via the three intensity input surfaces
+> documented further down this section.
 
 **User provides**: `I(λ)` directly, `range`.  
 **Skipped**: Geometry, materials, projected area (set to 0).  

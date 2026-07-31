@@ -173,6 +173,19 @@ retroactively reconstructed.
   at-aperture background and that arm applies no transport at all. Code that passed the
   old keyword raises `TypeError`; code that read the old field raises `AttributeError`.
 
+### Removed
+- **`radiant.source.resolve_direct_intensity` deleted (CU-299).** The legacy Path-4
+  resolver deprecated under [ADR-0004](docs/adr/0004-t7-intensity-at-source.md) is gone,
+  together with its module `radiant/source/resolvers/intensity.py` and both package
+  re-exports (`radiant.source`, `radiant.source.resolvers`). It has emitted a
+  `DeprecationWarning` since ADR-0004 and returned a `ResolvedTarget`, which the Option-C
+  chain does not consume, so nothing in the chain could reach it. **Migration:** build the
+  descriptor instead —
+  `radiant.source.converters.user_intensity.user_intensity_to_descriptor(...)`, or set
+  `source.target.user_intensity_path` (S10) / `source.target.point_intensity_*` (S10b) in
+  YAML. **No computed result moves**: no in-tree caller remained, and the only test that
+  exercised it tested the deprecated function itself.
+
 ### Fixed
 - **Results-affecting (up-looking scenes): the sky background no longer depends on where
   along the ray the target sits (CU-254).** The per-segment single-effective-temperature

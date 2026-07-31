@@ -20,9 +20,12 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from check_org_rules import (  # noqa: E402  (path insert must precede the import)
+    _RESOLVED_HEADING,
     REPO,
     ancestor_index,
     check_cited_shas,
+    check_trailer_closures,
+    trailer_closed_ids,
 )
 
 #: Two fabricated "ancestors" whose 7-char prefixes differ.
@@ -122,6 +125,47 @@ def test_the_live_registries_cite_only_ancestors(registry: str) -> None:
     """The gate's own assertion, as a test: no dangling closure link in either registry."""
     path = REPO / "docs" / "tracking" / registry
     errors = check_cited_shas(path.read_text(encoding="utf-8"), ancestor_index(), registry)
+    assert errors == [], "\n".join(errors)
+
+
+# --- Two-tier closure grammar (Rule 22, ratified 2026-07-31) -------------------
+
+
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "### CU-900 — a fix — RESOLVED 2026-07-31 (commit trailer)",
+        "### CU-900 — a ruling — ACCEPTED 2026-07-31 (no commit — limitation: lived with)",
+        "### CU-900 — a merge — FOLDED 2026-07-31 (no commit — folded into CU-224)",
+        "### CU-900 — a triage — DEMOTED 2026-07-31 (no commit — demoted to Findings Log)",
+        "### CU-900 — legacy — RESOLVED 2026-07-30 (commit `abcdef1`)",
+    ],
+)
+def test_the_new_closure_grammar_is_canonical(heading: str) -> None:
+    assert _RESOLVED_HEADING.match(heading), heading
+
+
+def test_a_bare_trailer_word_without_the_clause_is_rejected() -> None:
+    assert not _RESOLVED_HEADING.match("### CU-900 — a fix — RESOLVED 2026-07-31 (trailer)")
+
+
+def test_a_trailer_closure_without_a_trailer_commit_is_reported() -> None:
+    text = "\n## Resolved\n\n### CU-999999 — never closed — RESOLVED 2026-07-31 (commit trailer)\n"
+    errors = check_trailer_closures(text, frozenset())
+    assert len(errors) == 1
+    assert "CU-999999" in errors[0]
+    assert "CU-Closes: 999999" in errors[0]
+
+
+def test_a_trailer_closure_with_its_commit_passes() -> None:
+    text = "\n## Resolved\n\n### CU-42 — closed — RESOLVED 2026-07-31 (commit trailer)\n"
+    assert check_trailer_closures(text, frozenset({"CU-42"})) == []
+
+
+def test_the_live_registry_trailer_closures_all_resolve() -> None:
+    """The gate's own assertion: every '(commit trailer)' heading has its commit."""
+    path = REPO / "docs" / "tracking" / "Cleanup_Backlog.md"
+    errors = check_trailer_closures(path.read_text(encoding="utf-8"), trailer_closed_ids())
     assert errors == [], "\n".join(errors)
 
 

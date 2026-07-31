@@ -3,7 +3,7 @@
 Checks (CLAUDE.md Rules 23/25 + OPERATING_MODEL §1/§5.3/§6):
   1. docs/ top level is a closed set: index.md, OPERATING_MODEL.md + the nine folders.
   2. Repo root markdown/config files are a closed set.
-  3. docs/tracking/ holds exactly Cleanup_Backlog.md and gaps.md.
+  3. docs/tracking/ holds exactly Cleanup_Backlog.md, gaps.md and Findings_Log.md.
   4. No project-management markdown inside Python packages (src/, dev_tools/<tool>/):
      tool roots may keep only README/ARCHITECTURE/CONTRIBUTING.
   5. Prohibited names (§5.3) anywhere in tracked files: misc*, temp*, scratch*,
@@ -12,6 +12,8 @@ Checks (CLAUDE.md Rules 23/25 + OPERATING_MODEL §1/§5.3/§6):
   7. Every commit SHA the registries cite is an ancestor of HEAD (Rule 22, CU-279).
   8. Every Resolved backlog heading carries the canonical closure record (Rule 22, CU-282).
   9. Every gap marked closed cites a commit SHA (Rule 22, CU-281).
+ 10. Every trailer-closed backlog heading has a `CU-Closes: NNN` commit in HEAD's
+     ancestry (Rule 22, two-tier tracking ratification 2026-07-31).
 
 Exit 0 = compliant; exit 1 = violations printed. Runs in the CI `static` job.
 Only git-tracked files are checked (untracked scratch is a working-tree concern).
@@ -59,7 +61,7 @@ ROOT_ALLOWED = {
     ".pre-commit-config.yaml",
 }
 
-TRACKING_ALLOWED = {"Cleanup_Backlog.md", "gaps.md"}
+TRACKING_ALLOWED = {"Cleanup_Backlog.md", "gaps.md", "Findings_Log.md"}
 
 # Markdown allowed at a dev_tools/<tool>/ package root (OPERATING_MODEL §6).
 TOOL_ROOT_MD_ALLOWED = {"README.md", "ARCHITECTURE.md", "CONTRIBUTING.md"}
@@ -181,7 +183,11 @@ def check_cited_shas(text: str, index: dict[str, list[str]], label: str) -> list
 
 #: Disposition vocabulary. Nuance ("closed as not a defect") belongs in the Status
 #: line — the heading is the machine-readable index, so it carries one word.
-_DISPOSITIONS = ("RESOLVED", "CLOSED", "DECLINED", "SUPERSEDED")
+#: ACCEPTED / FOLDED / DEMOTED added by the 2026-07-31 two-tier ratification:
+#: ACCEPTED = owner ratifies living with the behavior (clause carries the
+#: limitation one-liner); FOLDED = becomes a checklist item on a family head;
+#: DEMOTED = re-tested below CU grade, one-liner moved to Findings_Log.md.
+_DISPOSITIONS = ("RESOLVED", "CLOSED", "DECLINED", "SUPERSEDED", "ACCEPTED", "FOLDED", "DEMOTED")
 
 #: A closure written on a branch has no honest hash to write: OPERATING_MODEL §2
 #: stamps the SHA *after* the merge lands, because writing one and then
@@ -194,8 +200,52 @@ _DISPOSITIONS = ("RESOLVED", "CLOSED", "DECLINED", "SUPERSEDED")
 _RESOLVED_HEADING = re.compile(
     rf"^### CU-\d+ — .+ — (?:{'|'.join(_DISPOSITIONS)}) \d{{4}}-\d{{2}}-\d{{2}} "
     rf"\((?:commits? `[0-9a-f]{{{_MIN_ABBREV},40}}`(?:, `[0-9a-f]{{{_MIN_ABBREV},40}}`)*"
+    rf"|commit trailer"
     rf"|no commit — [^)]+)\)\s*$"
 )
+
+#: A trailer-closed heading: closure evidence is a `CU-Closes: NNN` line in the
+#: closing commit's message rather than a SHA embedded in the heading (Rule 22,
+#: 2026-07-31). Check 10 verifies the trailer commit exists in HEAD's ancestry.
+_TRAILER_HEADING = re.compile(r"^### (CU-\d+) — .+ \(commit trailer\)\s*$")
+
+#: A `CU-Closes:` trailer line in a commit message body. Numbers are bare and
+#: comma-separated (`CU-Closes: 296` / `CU-Closes: 295, 297`).
+_TRAILER_LINE = re.compile(r"^CU-Closes:\s*(?P<nums>\d+(?:\s*,\s*\d+)*)\s*$", re.MULTILINE)
+
+
+def trailer_closed_ids() -> frozenset[str]:
+    """Every ``CU-NNN`` named by a ``CU-Closes:`` trailer in HEAD's ancestry.
+
+    One ``git log`` over all reachable commit messages — same single-subprocess
+    budget as :func:`ancestor_index`, and shallow clones get the same skip.
+    """
+    out = subprocess.run(
+        ["git", "log", "--format=%B"], capture_output=True, text=True, cwd=REPO, check=True
+    ).stdout
+    ids: set[str] = set()
+    for match in _TRAILER_LINE.finditer(out):
+        ids.update(f"CU-{n.strip()}" for n in match.group("nums").split(","))
+    return frozenset(ids)
+
+
+def check_trailer_closures(text: str, trailers: frozenset[str]) -> list[str]:
+    """Errors for every trailer-closed heading with no ``CU-Closes`` commit on HEAD."""
+    errors: list[str] = []
+    if "\n## Resolved\n" not in text:
+        return errors
+    for line in text.split("\n## Resolved\n", 1)[1].splitlines():
+        match = _TRAILER_HEADING.match(line)
+        if match and match.group(1) not in trailers:
+            errors.append(
+                f"{match.group(1)} is closed '(commit trailer)' but no commit in HEAD's "
+                f"ancestry carries a 'CU-Closes: {match.group(1).removeprefix('CU-')}' "
+                "message trailer (Rule 22). Close the CU in the same commit as the fix, "
+                "with the trailer in that commit's message; or cite an explicit "
+                "(commit `sha`) if the closing commit already exists."
+            )
+    return errors
+
 
 #: Frozen grandfather set: entries closed before the registry carried commit links
 #: at all (CU-001/002/010/014, 2026-04-24), one whose closure cites a SHA *range*
@@ -436,8 +486,12 @@ def main() -> int:
             errors.extend(check_cited_shas(text, index, path.name))
         # 8/9. Closure records are present and in one shape. Unlike check 7 these
         # need no history, so they run in a shallow clone too.
+        # 10. Trailer-closed entries resolve to a CU-Closes commit. Needs
+        # history, so it shares check 7's shallow-clone skip.
         if path.name == "Cleanup_Backlog.md":
             errors.extend(check_resolved_headings(text))
+            if not shallow:
+                errors.extend(check_trailer_closures(text, trailer_closed_ids()))
         else:
             errors.extend(check_gap_closures(text))
 

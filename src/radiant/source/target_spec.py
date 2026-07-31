@@ -14,7 +14,12 @@ Two entry points:
 
 * The inferrer's door builders call the per-door ``check_*_conflicts``
   functions at the same points the inline blocks used to occupy, so the
-  evaluate-time behaviour (and error text) is unchanged — defence in depth.
+  evaluate-time behaviour is unchanged — defence in depth.  CU-244 kept the
+  message text byte-identical through the extraction, which left every
+  ``what=`` opening ``"source._inferrer: …"`` — a module that no longer holds
+  the check.  CU-295 retargeted that prefix to ``"source.target_spec: "``
+  here; the identity that matters (seam error == evaluate error) is unaffected
+  because both callers read these same functions.
 * :func:`validate_target_spec` runs the doors in the inferrer's dispatch order
   (S11 → S12 → S4/S5/S6 → S10/S10b) and is the single seam the API exposes.
   CU-256 added :func:`check_intensity_door_extent_conflicts` here as the
@@ -119,7 +124,7 @@ def check_brightness_temperature_conflicts(params: ParameterSet) -> None:
     if t_b_k_user and t_b_path_user:
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: both "
+                "source.target_spec: both "
                 "source.target.brightness_temperature_K and "
                 "source.target.brightness_temperature_path are user-set"
             ),
@@ -147,7 +152,7 @@ def check_brightness_temperature_conflicts(params: ParameterSet) -> None:
     ):
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: brightness_temperature is mutually "
+                "source.target_spec: brightness_temperature is mutually "
                 "exclusive with source.target.temperature / "
                 "source.target.emissivity"
             ),
@@ -170,7 +175,7 @@ def check_brightness_temperature_conflicts(params: ParameterSet) -> None:
     if _is_user_set(params, "source.target.user_radiance_path"):
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: brightness_temperature is mutually "
+                "source.target_spec: brightness_temperature is mutually "
                 "exclusive with user_radiance_path (S11 vs S8)"
             ),
             why=(
@@ -191,7 +196,7 @@ def check_brightness_temperature_conflicts(params: ParameterSet) -> None:
     if _is_user_set(params, "source.target.user_intensity_path"):
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: brightness_temperature is mutually "
+                "source.target_spec: brightness_temperature is mutually "
                 "exclusive with user_intensity_path (S11 vs S10)"
             ),
             why=(
@@ -218,7 +223,7 @@ def check_brightness_temperature_conflicts(params: ParameterSet) -> None:
     ):
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: brightness_temperature is mutually "
+                "source.target_spec: brightness_temperature is mutually "
                 "exclusive with reflectance/albedo (thermal S11 vs "
                 "reflective S4/S5/S6)"
             ),
@@ -256,7 +261,7 @@ def check_radiance_temperature_conflicts(params: ParameterSet) -> None:
     ):
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: radiance_temperature is mutually "
+                "source.target_spec: radiance_temperature is mutually "
                 "exclusive with source.target.temperature / "
                 "source.target.emissivity"
             ),
@@ -279,7 +284,7 @@ def check_radiance_temperature_conflicts(params: ParameterSet) -> None:
     if _is_user_set(params, "source.target.user_radiance_path"):
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: radiance_temperature is mutually "
+                "source.target_spec: radiance_temperature is mutually "
                 "exclusive with user_radiance_path (S12 vs S8)"
             ),
             why=(
@@ -301,7 +306,7 @@ def check_radiance_temperature_conflicts(params: ParameterSet) -> None:
     if _is_user_set(params, "source.target.user_intensity_path"):
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: radiance_temperature is mutually "
+                "source.target_spec: radiance_temperature is mutually "
                 "exclusive with user_intensity_path (S12 vs S10)"
             ),
             why=(
@@ -328,7 +333,7 @@ def check_radiance_temperature_conflicts(params: ParameterSet) -> None:
     ):
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: radiance_temperature is mutually "
+                "source.target_spec: radiance_temperature is mutually "
                 "exclusive with reflectance/albedo (thermal S12 vs "
                 "reflective S4/S5/S6)"
             ),
@@ -353,7 +358,7 @@ def check_radiance_temperature_conflicts(params: ParameterSet) -> None:
     ):
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: radiance_temperature is mutually "
+                "source.target_spec: radiance_temperature is mutually "
                 "exclusive with brightness_temperature_* (S11 vs S12)"
             ),
             why=(
@@ -417,7 +422,7 @@ def check_intensity_door_extent_conflicts(params: ParameterSet) -> None:
 
     raise ParameterBoundsError(
         what=(
-            "source._inferrer: the point-source intensity door "
+            "source.target_spec: the point-source intensity door "
             f"({', '.join(door_set)}) is mutually exclusive with the declared "
             f"target extent ({', '.join(extent_set)})"
         ),
@@ -468,7 +473,7 @@ def check_reflectance_conflicts(params: ParameterSet) -> None:
     ):
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: reflectance/albedo is mutually "
+                "source.target_spec: reflectance/albedo is mutually "
                 "exclusive with source.target.temperature / "
                 "source.target.emissivity"
             ),
@@ -492,7 +497,7 @@ def check_reflectance_conflicts(params: ParameterSet) -> None:
     if _is_user_set(params, "source.target.user_radiance_path"):
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: reflectance/albedo is mutually "
+                "source.target_spec: reflectance/albedo is mutually "
                 "exclusive with user_radiance_path (S4/S5/S6 vs S8)"
             ),
             why=(
@@ -514,7 +519,7 @@ def check_reflectance_conflicts(params: ParameterSet) -> None:
     if _is_user_set(params, "source.target.user_intensity_path"):
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: reflectance/albedo is mutually "
+                "source.target_spec: reflectance/albedo is mutually "
                 "exclusive with user_intensity_path (S4/S5/S6 vs S10)"
             ),
             why=(
@@ -541,7 +546,7 @@ def check_reflectance_conflicts(params: ParameterSet) -> None:
     ):
         raise ParameterBoundsError(
             what=(
-                "source._inferrer: reflectance/albedo is mutually "
+                "source.target_spec: reflectance/albedo is mutually "
                 "exclusive with brightness_temperature / "
                 "radiance_temperature (thermal S11/S12 vs reflective "
                 "S4/S5/S6)"

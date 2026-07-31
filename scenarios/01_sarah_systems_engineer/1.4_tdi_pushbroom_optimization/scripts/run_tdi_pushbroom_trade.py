@@ -41,7 +41,7 @@ import numpy as np
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import matplotlib
-matplotlib.use("TkAgg")
+matplotlib.use("Agg")  # headless-safe: plt.show() is a no-op, so the runner completes in CI/batch
 import matplotlib.pyplot as plt
 
 from radiant.api import Sensor

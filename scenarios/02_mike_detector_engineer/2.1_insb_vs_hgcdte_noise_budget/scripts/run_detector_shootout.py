@@ -247,9 +247,14 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     noise = {det: {nt.name: nt.value_e for nt in results[det].noise_terms} for det in results}
+    # The name is the tie-breaker, not decoration (CU-292): the primary key ties at
+    # -0.0 for every zero-valued term (ktc_reset, background_shot, nearfield_shot are
+    # all legitimately 0 in this config), and the input is a *set*, whose iteration
+    # order varies with PYTHONHASHSEED. A stable sort then preserves that random order,
+    # so three consecutive runs printed the zero rows three different ways.
     all_terms = sorted(
         set(noise["InSb"]) | set(noise["HgCdTe"]),
-        key=lambda k: -(noise["InSb"].get(k, 0.0) + noise["HgCdTe"].get(k, 0.0)),
+        key=lambda k: (-(noise["InSb"].get(k, 0.0) + noise["HgCdTe"].get(k, 0.0)), k),
     )
 
     signal_e = {det: results[det].stage_outputs["readout"]["signal_e_final"] for det in results}

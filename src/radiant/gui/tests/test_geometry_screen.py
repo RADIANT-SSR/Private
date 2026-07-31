@@ -80,13 +80,6 @@ def _bound_form(qtbot, sensor: Sensor) -> GeometryModeForm:
 # Mode manifest (Qt-free)
 # ---------------------------------------------------------------------------
 
-#: ``geometry.*`` parameters that are deliberately not input-mode doors, and so
-#: are absent from the mode manifest. Duplicated from
-#: ``geometry/tests/test_mode_manifest.py::_NON_MODE_PARAMS`` rather than
-#: imported, because ``radiant.gui`` may not reach into a physics-stage test
-#: tree. The two sets must be kept in step — CU-309 tracks unifying them.
-_NON_MODE_PARAMS = frozenset({"geometry.scene_class", "geometry.site_elevation_m"})
-
 
 class TestModeManifest:
     def test_manifest_covers_every_geometry_parameter(self, sensor: Sensor) -> None:
@@ -96,21 +89,25 @@ class TestModeManifest:
         orientation, projected area — migrated from ``source.target.*`` per
         ADR-0008) are rendered by ``TargetShapePanel``, not the V/S input-mode
         forms, so they are excluded from the mode-manifest coverage set. So is
-        ``geometry.scene_class``: it is an optional *assertion* validated
-        against the derived class (ADR-0011 decision 8), not a door onto a
-        canonical quantity, so it belongs to no mode family. Nor is
-        ``geometry.site_elevation_m``: it is a standalone scene fact — the
-        terrain elevation beneath the LOS (CU-262) — that feeds the turbulence
-        profile rather than opening onto any canonical viewing quantity. This
-        exclusion set mirrors ``geometry/tests/test_mode_manifest.py``'s
-        ``_NON_MODE_PARAMS``; the two must be kept in step (CU-309).
+        every parameter the schema tags ``non_mode``: today
+        ``geometry.scene_class`` (an optional *assertion* validated against the
+        derived class, ADR-0011 decision 8) and ``geometry.site_elevation_m``
+        (a standalone scene fact — the terrain elevation beneath the LOS,
+        CU-262 — feeding the turbulence profile). Neither opens onto a
+        canonical viewing quantity, so neither belongs to a mode family.
+
+        The exclusion is read off ``ParameterDef.tags`` via the public
+        ``Sensor.parameter_defs()`` surface, not restated here (CU-309): this
+        test and ``geometry/tests/test_mode_manifest.py`` previously each
+        carried a hand-maintained copy of the set, and CU-262 updated only the
+        geometry-side copy, taking ``main`` red.
         """
         schema_geometry = {
-            p
-            for p in sensor.parameter_defs()
-            if p.startswith("geometry.")
-            and not p.startswith("geometry.target.")
-            and p not in _NON_MODE_PARAMS
+            name
+            for name, pdef in sensor.parameter_defs().items()
+            if name.startswith("geometry.")
+            and not name.startswith("geometry.target.")
+            and "non_mode" not in pdef.tags
         }
         manifest = set(all_mode_params())
         assert manifest == schema_geometry

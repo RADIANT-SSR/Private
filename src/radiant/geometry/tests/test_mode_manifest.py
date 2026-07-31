@@ -42,13 +42,6 @@ from radiant.geometry.modes import (
 
 H_LEO = 500_000.0
 
-#: ``geometry.*`` parameters that are deliberately not mode doors.
-#: ``scene_class`` is an assertion validated against the derivation;
-#: ``site_elevation_m`` is a standalone scene fact — the terrain elevation
-#: beneath the LOS (CU-262) — which is an input to the turbulence profile,
-#: not an alternate door onto any canonical viewing quantity.
-_NON_MODE_PARAMS = frozenset({"geometry.scene_class", "geometry.site_elevation_m"})
-
 
 def make_params(**inputs: object) -> ParameterSet:
     """Geometry-only ParameterSet with sensor altitude anchored (as test_modes)."""
@@ -81,18 +74,21 @@ class TestManifestSchemaAgreement:
     def test_manifest_covers_every_input_mode_parameter(self) -> None:
         """The manifest names exactly the ``geometry.*`` input-mode parameters.
 
-        Two documented exclusions: the ``geometry.target.*`` extent params
-        (rendered by the GUI target-shape panel, not the mode forms) and
-        ``geometry.scene_class`` — an optional *assertion* validated against
-        the derivation (ADR-0011 decision 8), not a door onto a canonical
-        quantity, so it belongs to no mode family.
+        Two documented exclusions, both read off the schema rather than
+        restated here (CU-309): the ``geometry.target.*`` extent params
+        (rendered by the GUI target-shape panel, not the mode forms), and every
+        parameter tagged ``non_mode`` — today ``geometry.scene_class`` (an
+        optional *assertion* validated against the derivation, ADR-0011
+        decision 8) and ``geometry.site_elevation_m`` (a standalone scene fact
+        feeding the turbulence profile, CU-262). Neither is a door onto a
+        canonical quantity, so neither belongs to a mode family.
         """
         schema_geometry = {
             d.name
             for d in ALL_PARAMETERS
             if d.name.startswith("geometry.")
             and not d.name.startswith("geometry.target.")
-            and d.name not in _NON_MODE_PARAMS
+            and "non_mode" not in d.tags
         }
         assert set(all_mode_params()) == schema_geometry
         assert len(all_mode_params()) == len(schema_geometry)  # no duplicates

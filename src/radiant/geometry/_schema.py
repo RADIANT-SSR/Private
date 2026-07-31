@@ -86,7 +86,11 @@ SITE_ELEVATION_M = ParameterDef(
     input_unit="m",
     default=0.0,
     bounds=(0.0, 1.0e4),
-    tags=frozenset({"geometry"}),
+    # ``non_mode``: a standalone scene fact, not a door onto any canonical
+    # viewing quantity, so it belongs to no mode family and is absent from the
+    # mode manifest. The tag is what the manifest-coverage drift tests subtract
+    # (CU-309) — see the SCENE_CLASS block below for the convention.
+    tags=frozenset({"geometry", "non_mode"}),
     default_justification=(
         "Sea level — the reference every RADIANT altitude already uses, so the "
         "default changes no existing result."
@@ -635,6 +639,16 @@ CIRCULAR_ORBIT = ParameterDef(
 # NOT an input mode: it is a *validated assertion* against the derivation, not
 # a door onto a canonical quantity, so it carries no ``mode_entry`` tag and
 # does not appear in the mode manifest.
+#
+# ``non_mode`` is the schema-level marker for exactly that third category. The
+# other two are: manifest doors tagged ``mode_entry`` (the non-default ones),
+# and manifest default doors/anchors, which carry no tag but ARE in the
+# manifest. A ``geometry.*`` parameter that is in neither must be tagged
+# ``non_mode``, because the manifest-coverage drift tests in
+# ``geometry/tests/test_mode_manifest.py`` and ``gui/tests/test_geometry_screen.py``
+# both subtract this tag from the schema set. Before CU-309 each test carried
+# its own hand-maintained ``_NON_MODE_PARAMS`` literal, and CU-262's addition of
+# ``site_elevation_m`` updated only the geometry-side copy, taking `main` red.
 # ---------------------------------------------------------------------------
 
 SCENE_CLASS = ParameterDef(
@@ -671,7 +685,7 @@ SCENE_CLASS = ParameterDef(
         "space_to_air",
         "space_to_space",
     ),
-    tags=frozenset({"geometry", "scene_class"}),
+    tags=frozenset({"geometry", "scene_class", "non_mode"}),
     default_justification=(
         "'auto' is the Rule-12 sentinel for 'not asserted' — the assertion is "
         "never required (ADR-0011 decision 8 rejects a mandatory declaration), "

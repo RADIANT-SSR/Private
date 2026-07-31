@@ -10,6 +10,8 @@ Checks (CLAUDE.md Rules 23/25 + OPERATING_MODEL §1/§5.3/§6):
      untitled*, stuff*, output<N>.<img>, spaces in filenames.
   6. Registry IDs are unique (Rules 21/22/25).
   7. Every commit SHA the registries cite is an ancestor of HEAD (Rule 22, CU-279).
+  8. Every Resolved backlog heading carries the canonical closure record (Rule 22, CU-282).
+  9. Every gap marked closed cites a commit SHA (Rule 22, CU-281).
 
 Exit 0 = compliant; exit 1 = violations printed. Runs in the CI `static` job.
 Only git-tracked files are checked (untracked scratch is a working-tree concern).
@@ -169,6 +171,181 @@ def check_cited_shas(text: str, index: dict[str, list[str]], label: str) -> list
     return errors
 
 
+# --- Resolved-entry format (Rule 22, CU-282) ---------------------------------
+#
+# Check 7 validates the SHAs that are *present*. It cannot see a closure whose SHA
+# is absent or phrased unusually, which is how the registry accumulated a dozen
+# heading dialects: the record sat in the heading for older entries and in the
+# `**Status**:` line for newer ones. The canonical shape is documented in the
+# registry header; this is its enforcement.
+
+#: Disposition vocabulary. Nuance ("closed as not a defect") belongs in the Status
+#: line — the heading is the machine-readable index, so it carries one word.
+_DISPOSITIONS = ("RESOLVED", "CLOSED", "DECLINED", "SUPERSEDED")
+
+#: Transitional token for a closure written on a branch, before the merge that
+#: gives it a hash exists. OPERATING_MODEL §2 is explicit that a closure SHA is
+#: stamped *after* the merge lands (writing it and then `--amend`ing rewrites the
+#: hash and staleness is immediate), so a branch has no honest hash to write. The
+#: merging agent replaces this token with the real SHA; it must never survive on
+#: `main`, and `git log --grep` on the phrase is how a stale one is found.
+_PENDING_SHA = "pending merge — orchestrator stamps final SHA"
+
+_RESOLVED_HEADING = re.compile(
+    rf"^### CU-\d+ — .+ — (?:{'|'.join(_DISPOSITIONS)}) \d{{4}}-\d{{2}}-\d{{2}} "
+    rf"\((?:commits? `[0-9a-f]{{{_MIN_ABBREV},40}}`(?:, `[0-9a-f]{{{_MIN_ABBREV},40}}`)*"
+    rf"|no commit — [^)]+|{re.escape(_PENDING_SHA)})\)\s*$"
+)
+
+#: Frozen grandfather set: entries closed before the registry carried commit links
+#: at all (CU-001/002/010/014, 2026-04-24), one whose closure cites a SHA *range*
+#: that cannot be rewritten as a list without changing what it claims (CU-176),
+#: one owner decline with no commit (CU-103), and one closed "across four
+#: approaches" whose four SHAs are per-approach rather than one closure link
+#: (CU-166). Every one of these is a real Rule-22 hole, recorded rather than
+#: papered over. **This list must never grow** — a new closure has a SHA or it is
+#: not a closure.
+_UNLINKED_RESOLVED = frozenset(
+    {"CU-001", "CU-002", "CU-010", "CU-014", "CU-103", "CU-166", "CU-176"}
+)
+
+
+def check_resolved_headings(text: str) -> list[str]:
+    """Errors for every Resolved-section heading that is not in canonical form."""
+    if "\n## Resolved\n" not in text:
+        return ["Cleanup_Backlog.md has no '## Resolved' section (Rule 22)"]
+    resolved = text.split("\n## Resolved\n", 1)[1]
+    errors: list[str] = []
+    for line in resolved.splitlines():
+        if not line.startswith("### CU-"):
+            continue
+        cu = line.split(" ", 1)[1].split(" ")[0].rstrip("—").strip()
+        if cu in _UNLINKED_RESOLVED:
+            continue
+        if not _RESOLVED_HEADING.match(line):
+            errors.append(
+                f"Resolved entry {cu} heading is not in canonical form (Rule 22, CU-282). "
+                "Expected '### CU-NNN — <title> — <DISPOSITION> <YYYY-MM-DD> "
+                "(commit `sha`)', disposition one of "
+                f"{', '.join(_DISPOSITIONS)}; use 'no commit — <reason>' when there "
+                "genuinely is none. See the format block in the registry header. "
+                f"Got: {line[:120]}"
+            )
+    return errors
+
+
+# --- Gap closures cite a commit (Rule 22, CU-281) -----------------------------
+#
+# OPERATING_MODEL §2 says gap closures are "marked closed in place w/ commit SHA".
+# Nothing checked that a gap marked closed *had* a SHA at all — check 7 only
+# validates ancestry of SHAs already present, so a SHA-less closure was invisible
+# to it. Same failure shape as CU-279, one level up: presence, not resolvability.
+
+#: Status words that mean the gap is closed and therefore owes a commit link.
+#: DEFERRED / OPEN / WORKAROUND are not closures. NARROWED / PARTIALLY RESOLVED
+#: describe a gap still partly open, so they are not closures either.
+_GAP_CLOSED = re.compile(
+    r"^\|\s*\*{0,2}Status\*{0,2}\s*\|\s*\*{0,2}(FIXED|CLOSED|RESOLVED|DELIVERED)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+#: Frozen grandfather set: the closed gaps that cite no commit at all as of
+#: 2026-07-30 — **64 of the 84 closed entries**, i.e. three quarters of the gap
+#: registry's closures cannot be verified against history. Recorded by name
+#: rather than silently tolerated. Note that this is not purely a legacy
+#: problem: Gaps 107–111 were closed 2026-07-26/27, so the convention was still
+#: not being followed the week this check landed. SHA archaeology for the set is
+#: tracked separately. **This list must never grow** — a new closure has a SHA
+#: or it is not a closure.
+_UNLINKED_GAPS = frozenset(
+    f"Gap {n}"
+    for n in (
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        39,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        57,
+        65,
+        66,
+        80,
+        87,
+        89,
+        90,
+        91,
+        107,
+        108,
+        109,
+        110,
+        111,
+    )
+)
+
+
+def check_gap_closures(text: str) -> list[str]:
+    """Errors for every closed gap entry that cites no commit SHA."""
+    errors: list[str] = []
+    blocks = re.split(r"^## (Gap \d+)\b", text, flags=re.MULTILINE)
+    for gid, body in zip(blocks[1::2], blocks[2::2], strict=True):
+        if gid in _UNLINKED_GAPS or not _GAP_CLOSED.search(body):
+            continue
+        # A backticked hash anywhere in the entry counts as the link. Decimal
+        # literals are excluded the same way check 7 excludes them.
+        if not any(re.search(r"[a-f]", s) for s in re.findall(r"`([0-9a-f]{7,40})`", body)):
+            errors.append(
+                f"{gid} is marked closed but cites no commit SHA (Rule 22, "
+                "OPERATING_MODEL §2: a gap closure is marked closed in place with the "
+                "commit SHA). Add the commit that closed it, in backticks."
+            )
+    return errors
+
+
 def tracked_files() -> list[str]:
     out = subprocess.run(
         ["git", "ls-files"], capture_output=True, text=True, cwd=REPO, check=True
@@ -257,6 +434,12 @@ def main() -> int:
             seen.add(rid)
         if not shallow:
             errors.extend(check_cited_shas(text, index, path.name))
+        # 8/9. Closure records are present and in one shape. Unlike check 7 these
+        # need no history, so they run in a shallow clone too.
+        if path.name == "Cleanup_Backlog.md":
+            errors.extend(check_resolved_headings(text))
+        else:
+            errors.extend(check_gap_closures(text))
 
     if shallow:
         print(

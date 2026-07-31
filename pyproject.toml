@@ -82,7 +82,15 @@ testpaths = ["src", "tests"]
 # -e .` (normally the main checkout), so `pytest` run inside a git worktree would
 # silently exercise the MAIN tree's library code instead of the worktree's edits.
 # With it, each worktree tests its own src/. (pytest >= 7 pythonpath option.)
-pythonpath = ["src"]
+#
+# CU-280: the repo root is on the list too, so `scripts.synth_modtran...` — the
+# rooting used by every consumer of that package (scripts/generate_synthetic_tape7.py,
+# the package's own intra-imports, the scenario 08 runners) — resolves under a bare
+# `pytest scripts/ -q`. Without it only `python -m pytest` worked, because `python -m`
+# puts the CWD on sys.path and bare `pytest` does not; the gate battery's documented
+# invocation was red at collection on every clean tree. Rootdir-relative, so a
+# worktree still resolves to its own checkout.
+pythonpath = ["src", "."]
 addopts = "--strict-markers"
 markers = [
     "level0: Physics correctness tests (analytic result checks)",

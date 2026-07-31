@@ -443,14 +443,21 @@ called from **two** places:
 
 1. **Evaluate time** — the source inferrer's door builders call the door
    checks at the same points the historical inline blocks occupied, so
-   `evaluate()` behaviour and error text are unchanged (defence in depth).
+   `evaluate()` behaviour is unchanged (defence in depth). The message text is
+   unchanged too, with one deliberate exception: CU-295 retargeted the `what=`
+   prefix from `"source._inferrer: "` to `"source.target_spec: "`, because the
+   named module no longer holds the check.
 2. **Resolve time** — `Sensor.validate_target_spec()` runs the same functions
-   with no physics, file I/O, or resolve required (an unresolved set is read
-   through the explicit-inputs snapshot; none of these surfaces is derived, so
-   the views agree). The GUI's clone-validate edit discipline calls this after
-   each candidate `set` and rejects a conflict *the edit introduces* at the
-   door — with the identical what/why/action `ParameterBoundsError` the
-   evaluate-time path produces, by construction (same code).
+   with no physics, file I/O, or resolve required. Both views apply the same
+   provenance rule — a resolved set reads `get_resolved(...).provenance`, an
+   unresolved set reads `input_provenances()`, and `DEFAULT` and `DERIVED` both
+   read as *not* user-set (CU-300: an over-specification is a statement about
+   user input, so a value RADIANT computed must never trigger one; `SAMPLED`
+   does count, a sweep axis being user intent). The GUI's clone-validate edit
+   discipline calls this after each candidate `set` and rejects a conflict
+   *the edit introduces* at the door — with the identical what/why/action
+   `ParameterBoundsError` the evaluate-time path produces, by construction
+   (same code).
 
 Completeness checks ("S12 also needs its band edges") are deliberately **not**
 part of the seam: a half-entered spec is a legitimate intermediate state while

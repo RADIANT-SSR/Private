@@ -69,20 +69,37 @@ _DECLARED_EXTENT_SURFACES: tuple[str, ...] = (
 _EXTENT_UNSET_SENTINELS: frozenset[object] = frozenset({None, "", "none", 0.0})
 
 
-def _is_user_set(params: ParameterSet, name: str) -> bool:
-    """True iff the user chose a value for ``name`` (non-DEFAULT provenance).
+#: Provenances that do **not** mean "the user chose this value".
+#: ``DEFAULT`` is the schema fallback; ``DERIVED`` is a value RADIANT itself
+#: computed (a consistency-group free variable, or an API-side derivation such
+#: as ``platform.ground_velocity_m_s`` from the orbit).  Over-specification is a
+#: statement about *user input*, so refusing a config over a value the framework
+#: supplied would blame the user for something they never set (CU-300).
+#: ``SAMPLED`` deliberately counts as user-set: a sweep axis is user intent.
+_NOT_USER_SET: frozenset[Provenance] = frozenset({Provenance.DEFAULT, Provenance.DERIVED})
 
-    Works on both resolved and unresolved sets: a resolved set answers from
-    provenance (the inferrer's evaluate-time view, which also counts DERIVED);
-    an unresolved set answers from the explicit-inputs snapshot — none of the
-    ``source.target.*`` spec surfaces participate in a consistency group, so
-    the two views agree for every parameter these guards inspect.  The
-    unresolved branch is what lets :meth:`Sensor.validate_target_spec` run on
-    a still-incomplete config without forcing (or failing) a full resolve.
+
+def _is_user_set(params: ParameterSet, name: str) -> bool:
+    """True iff the user chose a value for ``name`` (see :data:`_NOT_USER_SET`).
+
+    Works on both resolved and unresolved sets, and both views apply the same
+    provenance rule: a resolved set reads :meth:`ParameterSet.get_resolved`
+    provenance, an unresolved set reads the explicit-inputs snapshot's
+    :meth:`ParameterSet.input_provenances`.  The unresolved branch is what lets
+    :meth:`Sensor.validate_target_spec` run on a still-incomplete config
+    without forcing (or failing) a full resolve.
+
+    CU-300: ``DERIVED`` used to count as user-set on the resolved view.  That
+    is inert for every surface the current guards inspect — none of the
+    ``source.target.*`` / ``geometry.target.*`` spec surfaces participates in a
+    consistency group, and the one API-side ``DERIVED`` write
+    (``platform.ground_velocity_m_s``) is not among them — but the CU-244 seam
+    is designed to grow, and the first guard added over a derived surface would
+    have raised an over-specification error against a value RADIANT computed.
     """
     if params.is_resolved:
-        return params.get_resolved(name).provenance is not Provenance.DEFAULT
-    return name in params.inputs()
+        return params.get_resolved(name).provenance not in _NOT_USER_SET
+    return params.input_provenances().get(name, Provenance.DEFAULT) not in _NOT_USER_SET
 
 
 def _value_of(params: ParameterSet, name: str) -> Any:

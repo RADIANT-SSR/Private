@@ -3,6 +3,20 @@
 **Status:** Active — opened 2026-07-28. Supersedes `docs/archive/CU_Autonomous_Cleanup_Plan.md`,
 whose charter (the 48 CUs open on 2026-07-19) was fulfilled 2026-07-20.
 
+> **2026-07-31 update — two-tier tracking ratification.** The owner ratified a new
+> tracking/closure strategy (CLAUDE.md Rules 21/22, OPERATING_MODEL §2–§3): four-test CU
+> intake with a `Findings_Log.md` tier below it, `CU-Closes` trailer closures, ACCEPTED /
+> FOLDED / DEMOTED dispositions, family CUs, and a meta-work moratorium. The same-day
+> triage moved 23 entries out of Open (3 ACCEPTED, 10 DEMOTED to the log, 10 FOLDED into
+> five family heads: [[CU-224]] atmosphere consistency, [[CU-263]] detection range,
+> [[CU-289]] GUI transaction tests, [[CU-293]] target-spec doors, [[CU-239]] library
+> picker), leaving 18 open entries. Where a wave table below names a folded or demoted
+> CU, the family head or the log line is now the unit of work; the tables are left as
+> written per Rule 24 (this note is the correction, the plan is the record). Track C's
+> owner-triage queue is now: CU-224's hybrid-ratification checklist item (ex-305),
+> CU-263 (with ex-236), CU-209, CU-250, CU-257's point-source-criterion question, and
+> CU-164's runner 4.3.
+
 ## Why a new plan rather than more waves on the old one
 
 The previous plan's admission test was *"resolvable without owner feedback, no

@@ -134,7 +134,7 @@ atmosphere/
 └── r0_resolution.py     # direct r0 vs profile-derived r0 (CU-093 agreement)
 ```
 
-### `optics/` — 28 source + 23 tests
+### `optics/` — 28 source + 24 tests
 
 Stage 3: PSF (dual-path), MTF terms, throughput, EE_box, regime final. Largest package alongside `source/` and `performance/` because spatial physics (pupil → PSF → MTF) lives here.
 

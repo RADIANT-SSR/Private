@@ -21,6 +21,16 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`optics.pupil_npix` and `optics.psf_oversample` — the PSF/MTF FFT grid is now
+  tuneable (CU-288).** Formerly hardcoded (128 / 8) in `optics/stage.py`, and the
+  dominant cost of every chain evaluation (~3.1 s of a 4.2 s five-evaluate GUI profile).
+  Both parameters are read once per evaluation and threaded to the target PSF, the
+  Strehl reference PSF, and the MTF product path, so both Rule-4 spatial paths always
+  share one grid. Defaults unchanged — **no computed result moves** (set-vs-default
+  identity pinned by test). Bounds (32–512) × (4–16): every corner measured within the
+  2e-2 dual-path consistency tolerance (worst 0.0075); `psf_oversample` floors at 4
+  because ≤ 3 aliases the FFT-of-PSF path at the grid edge (measured 0.032).
+
 - **`geometry.site_elevation_m` now warns when it cannot reach the selected Cn² profile
   (CU-302).** The parameter feeds only the Hufnagel-Valley surface term (CU-262); with
   `atmosphere.cn2_profile = "tabulated"` (the table carries its own site) or `"direct"`

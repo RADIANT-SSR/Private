@@ -183,18 +183,18 @@ def check_cited_shas(text: str, index: dict[str, list[str]], label: str) -> list
 #: line — the heading is the machine-readable index, so it carries one word.
 _DISPOSITIONS = ("RESOLVED", "CLOSED", "DECLINED", "SUPERSEDED")
 
-#: Transitional token for a closure written on a branch, before the merge that
-#: gives it a hash exists. OPERATING_MODEL §2 is explicit that a closure SHA is
-#: stamped *after* the merge lands (writing it and then `--amend`ing rewrites the
-#: hash and staleness is immediate), so a branch has no honest hash to write. The
-#: merging agent replaces this token with the real SHA; it must never survive on
-#: `main`, and `git log --grep` on the phrase is how a stale one is found.
-_PENDING_SHA = "pending merge — orchestrator stamps final SHA"
-
+#: A closure written on a branch has no honest hash to write: OPERATING_MODEL §2
+#: stamps the SHA *after* the merge lands, because writing one and then
+#: `--amend`ing rewrites the hash and staleness is immediate. An in-flight
+#: closure therefore parks a placeholder in the heading, the merging agent
+#: replaces it with the real SHA, and this check refuses the placeholder — so a
+#: branch that forgets the stamp cannot merge, rather than merging with a
+#: transitional token that silently becomes permanent. That escape hatch existed
+#: briefly during CU-282's own closure and was removed in the same merge.
 _RESOLVED_HEADING = re.compile(
     rf"^### CU-\d+ — .+ — (?:{'|'.join(_DISPOSITIONS)}) \d{{4}}-\d{{2}}-\d{{2}} "
     rf"\((?:commits? `[0-9a-f]{{{_MIN_ABBREV},40}}`(?:, `[0-9a-f]{{{_MIN_ABBREV},40}}`)*"
-    rf"|no commit — [^)]+|{re.escape(_PENDING_SHA)})\)\s*$"
+    rf"|no commit — [^)]+)\)\s*$"
 )
 
 #: Frozen grandfather set: entries closed before the registry carried commit links

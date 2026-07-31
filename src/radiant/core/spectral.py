@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 import warnings
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -36,6 +36,7 @@ _EXTRAP_WARN_FRACTION = 0.20
 
 if TYPE_CHECKING:
     import matplotlib.axes
+    import matplotlib.figure
 
 logger = logging.getLogger(__name__)
 
@@ -405,20 +406,32 @@ class SpectralData:
     # Visualisation
     # ------------------------------------------------------------------
 
-    def plot(self, ax: matplotlib.axes.Axes | None = None) -> matplotlib.axes.Axes:
-        """Plot values vs. wavelength.
+    def plot(self, ax: matplotlib.axes.Axes | None = None) -> matplotlib.figure.Figure:
+        """Plot values vs. wavelength and return the **figure** that carries the plot.
+
+        With ``ax=None`` the figure is a plain ``matplotlib.figure.Figure`` — *not*
+        registered with pyplot's global figure manager — matching the convention
+        ``radiant.api.plot`` adopted in CU-116: the caller owns the figure, and it is
+        freed when their last reference drops rather than living until a
+        ``plt.close()``. Before CU-286 this method built the figure with
+        ``plt.subplots()`` and returned only the ``Axes``, so the figure it created
+        was reachable only through ``plt.gcf()`` and never released.
 
         Parameters
         ----------
         ax:
-            Existing matplotlib Axes to plot into, or ``None`` to create one.
+            Existing matplotlib Axes to plot into, or ``None`` to create one. When an
+            Axes is supplied, its own figure is returned untouched (pyplot-registered
+            or not, as the caller made it).
 
         Returns
         -------
-        matplotlib.axes.Axes
+        matplotlib.figure.Figure
+            The figure holding the plotted Axes; ``fig.axes[0]`` (or the ``ax`` you
+            passed in) is the Axes itself.
         """
         try:
-            import matplotlib.pyplot as plt
+            from matplotlib.figure import Figure
         except ImportError as exc:
             raise ImportError(
                 "matplotlib is required for SpectralData.plot(). "
@@ -426,12 +439,19 @@ class SpectralData:
             ) from exc
 
         if ax is None:
-            _, ax = plt.subplots()
+            figure = Figure(layout="constrained")
+            ax = figure.subplots()
+        else:
+            # ``get_figure()`` is typed ``Figure | SubFigure | None``: the ``None`` arm
+            # is the not-yet-attached Axes, which cannot exist by the time a caller
+            # hands us one, and a SubFigure-hosted Axes returns its own SubFigure —
+            # the container the plot actually lives in, which is what a caller wants.
+            figure = cast("matplotlib.figure.Figure", ax.get_figure())
         ax.plot(self.wavelength_um, self.values, label=self.name)
         ax.set_xlabel("Wavelength (µm)")
         ax.set_ylabel(self.unit)
         ax.set_title(self.name)
-        return ax
+        return figure
 
 
 # ---------------------------------------------------------------------------

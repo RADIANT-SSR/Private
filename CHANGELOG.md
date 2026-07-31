@@ -93,6 +93,24 @@ retroactively reconstructed.
   Evaluate-time checks are unchanged (defence in depth); no computed results change.
 
 ### Changed
+- **BREAKING — `SpectralData.plot()` returns the `Figure`, not the `Axes`, and builds it
+  unregistered (CU-286).** `radiant.core.spectral.SpectralData.plot(ax=None)` used to do
+  `_, ax = plt.subplots()` and hand back only the `Axes`, so the figure it created was a
+  process-global pyplot resource reachable only via `plt.gcf()` and releasable only via
+  `plt.close("all")` — 1 retained figure per call. It now builds a plain
+  `Figure(layout="constrained")` (the CU-116 convention every `radiant.api.plot` helper
+  already follows) and returns it; `plt.get_fignums()` is unchanged by the call. Passing
+  your own `ax` returns that Axes' own figure, untouched. **What stops working:** code
+  doing `ax = sd.plot(); ax.set_ylim(...)` — use `fig.axes[0]`, or pass the `ax` you
+  already have. Not results-affecting: no computed number is involved.
+- **A plot call no longer switches the host process's matplotlib backend (CU-287).**
+  `radiant.api.plot` forced `matplotlib.use("Agg")` on **every** entry, so the first
+  `result.plot.*` call silently switched an embedder's backend — a Jupyter session
+  running `%matplotlib qt`, or any process that had chosen its own. Agg is now forced
+  only when *nothing* has been selected yet, which preserves the headless guarantee
+  exactly (a bare script or CI runner still lands on Agg) while leaving a chosen
+  backend alone. Figures are pyplot-free either way (CU-116), so nothing about how they
+  render, save, or embed changes.
 - **BREAKING — a declared target extent is refused at the point-source intensity door
   (CU-256).** Setting any S10/S10b intensity surface (`source.target.user_intensity_path`,
   `source.target.point_intensity_temperature_K`, `source.target.point_intensity_band_W_per_sr`)

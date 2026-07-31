@@ -207,6 +207,8 @@ def _compute_optical_mtf_terms(
     wfe: WavefrontError | None,
     sample_spacing_m: float,
     chromatic_zernikes: dict[float, dict[int, float]] | None,
+    pupil_npix: int,
+    psf_oversample: int,
     vanes: SpiderVaneSpec | None = None,
     mask_override: np.ndarray | None = None,
 ) -> ChainState:
@@ -224,9 +226,11 @@ def _compute_optical_mtf_terms(
 
     Stores ``mtf_optics_x``, ``mtf_optics_y`` in ``state.mtf_terms``
     and sets ``state.spatial_freq_cycles_per_mrad``.
-    """
-    pupil_npix = 128
 
+    ``pupil_npix`` / ``psf_oversample`` arrive from the caller's single
+    ``params.get`` read (CU-288) so the MTF product path and the PSF path
+    are guaranteed the same grid (Rule 4).
+    """
     # Diagnostic pupil maps (Gap 89) — captured for persistence, NOT fed back
     # into the MTF/PSF computation. Set in whichever branch runs below; the
     # amplitude is wavelength-independent, the phase is expressed at
@@ -245,7 +249,7 @@ def _compute_optical_mtf_terms(
             aperture_diameter_m=aperture_m,
             pixel_pitch_m=pixel_pitch_m,
             pupil_npix=pupil_npix,
-            psf_oversample=8,
+            psf_oversample=psf_oversample,
         )
 
         amplitude = make_pupil_amplitude(pupil_npix, obscuration, vanes, mask_override)
@@ -287,7 +291,7 @@ def _compute_optical_mtf_terms(
             obscuration_ratio=obscuration,
             wfe=wfe,
             pupil_npix=pupil_npix,
-            psf_oversample=8,
+            psf_oversample=psf_oversample,
             chromatic_zernikes=chromatic_zernikes,
             vanes=vanes,
             mask_override=mask_override,
@@ -371,6 +375,11 @@ def _build_effective_psf(
     pixel_pitch_m: float = params.get("detector.pixel_pitch_x_um")
     obscuration: float = params.get("optics.obscuration_ratio")
     n_psf_wavelengths: int = params.get("optics.psf_n_wavelengths")
+    # CU-288: the FFT grid is read ONCE and threaded to every sampling site —
+    # target PSF, reference PSF, and the MTF product path — so both Rule-4
+    # paths derive from the same-resolution complex pupil by construction.
+    pupil_npix: int = params.get("optics.pupil_npix")
+    psf_oversample: int = params.get("optics.psf_oversample")
     vanes = _read_vane_spec(params, aperture_m)
     mask_override = _read_pupil_mask_override(state)
 
@@ -398,8 +407,8 @@ def _build_effective_psf(
             focal_length_m=focal_length_m,
             aperture_diameter_m=aperture_m,
             pixel_pitch_m=pixel_pitch_m,
-            pupil_npix=128,
-            psf_oversample=8,
+            pupil_npix=pupil_npix,
+            psf_oversample=psf_oversample,
         )
         psf_arr = compute_psf(config, obscuration, wfe, vanes, mask_override)
         sample_spacing_m = config.focal_spacing_m
@@ -458,8 +467,8 @@ def _build_effective_psf(
             pixel_pitch_m=pixel_pitch_m,
             obscuration_ratio=obscuration,
             wfe=wfe,
-            pupil_npix=128,
-            psf_oversample=8,
+            pupil_npix=pupil_npix,
+            psf_oversample=psf_oversample,
             store_per_wavelength=store_per_wl,
             chromatic_zernikes=chromatic_zernikes,
             vanes=vanes,
@@ -525,8 +534,8 @@ def _build_effective_psf(
             pixel_pitch_m=pixel_pitch_m,
             obscuration_ratio=obscuration,
             wfe=None,
-            pupil_npix=128,
-            psf_oversample=8,
+            pupil_npix=pupil_npix,
+            psf_oversample=psf_oversample,
             store_per_wavelength=False,
             chromatic_zernikes=None,
             vanes=vanes,
@@ -588,6 +597,8 @@ def _build_effective_psf(
         wfe=wfe,
         sample_spacing_m=sample_spacing_m,
         chromatic_zernikes=chromatic_zernikes,
+        pupil_npix=pupil_npix,
+        psf_oversample=psf_oversample,
         vanes=_read_vane_spec(params, aperture_m),
         mask_override=_read_pupil_mask_override(state),
     )

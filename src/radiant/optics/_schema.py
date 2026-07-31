@@ -564,6 +564,59 @@ PSF_N_WAVELENGTHS = ParameterDef(
     ),
 )
 
+PUPIL_NPIX = ParameterDef(
+    name="optics.pupil_npix",
+    description=(
+        "Side length of the square pupil grid before FFT padding, in samples. "
+        "Sets the resolution of the complex pupil that BOTH spatial paths "
+        "derive from (Rule 4): the PSF (FT of the pupil) and the optical MTF "
+        "(pupil autocorrelation). Larger values resolve finer aperture "
+        "structure (thin spider vanes, small obscurations) at quadratically "
+        "higher FFT cost — this is the dominant cost of a chain evaluation "
+        "(CU-288)."
+    ),
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=128,
+    bounds=(32, 512),
+    tags=frozenset({"optics", "psf"}),
+    default_justification=(
+        "128 is the value previously hardcoded in optics/stage.py (CU-288): "
+        "every shipped golden was produced with it, and the Rule-4 dual-path "
+        "consistency tolerance (2e-2, CU-045) was calibrated at this grid. "
+        "Default unchanged = bit-identical results."
+    ),
+)
+
+PSF_OVERSAMPLE = ParameterDef(
+    name="optics.psf_oversample",
+    description=(
+        "Focal-plane PSF samples per detector pixel. Sets the PSF grid "
+        "spacing to pixel_pitch / psf_oversample; the padded FFT size grows "
+        "to match. Larger values sharpen spatial-metric discretization "
+        "(EE_box, RER, FWHM) at higher FFT cost. The schema floor is 4, "
+        "above compute_sampling's Nyquist floor of 2: at oversample ≤ 3 the "
+        "padded grid can land at exactly 2× the pupil width and the "
+        "FFT-of-PSF path aliases at the grid edge, breaching the Rule-4 "
+        "dual-path tolerance (measured 0.032 vs 0.02 on the reference MWIR "
+        "config, CU-288)."
+    ),
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=8,
+    bounds=(4, 16),
+    tags=frozenset({"optics", "psf"}),
+    default_justification=(
+        "8 is the value previously hardcoded in optics/stage.py (CU-288); "
+        "all shipped goldens and the CU-045 consistency-tolerance calibration "
+        "used it. Default unchanged = bit-identical results. Bounds (4, 16): "
+        "all four corners of (32–512)×(4–16) measured within the 2e-2 "
+        "dual-path tolerance (worst 0.0075); 16 caps padded-FFT memory."
+    ),
+)
+
 
 ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     ZERNIKE_FILE,
@@ -596,4 +649,6 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     STRAY_VEILING_GLARE_MTF,
     STRAY_HALO_SIGMA_UM,
     PSF_N_WAVELENGTHS,
+    PUPIL_NPIX,
+    PSF_OVERSAMPLE,
 )

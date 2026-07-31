@@ -502,6 +502,7 @@ obscuration + spiders is reachable; an arbitrary pupil is injected pre-chain
 - `optics.wfe_mode` — `opd_map` removed (no pupil-phase rep in v1, Gap 68); `zernike`/`field_dependent` need a `WavefrontError` injected as `optics_config["wavefront_error"]`.
 - `optics.field_position_x`, `optics.field_position_y` — field angle, for field-dependent WFE.
 - `optics.psf_n_wavelengths` — polychromatic-PSF sampling count.
+- `optics.pupil_npix`, `optics.psf_oversample` — the FFT grid both spatial paths derive from (CU-288; formerly hardcoded 128 / 8 in the stage). Read **once** per evaluation and threaded to the target PSF, the Strehl reference PSF, and the MTF product path, so Rule 4's shared-grid premise holds by construction. `psf_oversample`'s schema floor is 4, above `compute_sampling`'s Nyquist floor of 2: at oversample ≤ 3 the padded grid can land at exactly 2× the pupil width, where the FFT-of-PSF path aliases at the grid edge and the dual-path consistency tolerance (2e-2, CU-045) is breached (measured 0.032 on the reference MWIR config). All four corners of the bounds box (32–512) × (4–16) measured within tolerance (worst 0.0075).
 
 **[DESIGN-TARGET] — not in the schema:** `optics.wfe_zernike_coeffs`,
 `optics.wfe_opd_file`, `optics.wfe_field_table` (the Zernike/field WFE data

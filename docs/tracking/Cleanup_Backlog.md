@@ -36,6 +36,33 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-312 — Seven Resolved CU entries carry no commit link at all
+
+**Discovered**: Backlog sweep batch 1, CU-282 close-out, 2026-07-30 (`3917fe4`).
+**Status**: Open — grandfathered in `check_org_rules._UNLINKED_RESOLVED`, which must never grow.
+**File**: `docs/tracking/Cleanup_Backlog.md` (Resolved section); `scripts/check_org_rules.py::_UNLINKED_RESOLVED`.
+**Symptom**: seven closed CUs cannot be traced to a commit. CU-001/002/010/014 (closed 2026-04-24) predate the convention entirely; CU-103 is an owner decline with no commit; CU-166 cites four per-approach SHAs rather than one closure link; CU-176 cites a SHA *range* (`24904ea`…`8349080`) that cannot be rewritten as a list without changing what it claims. CU-282 normalised 91 of 239 Resolved headings to the canonical form (139 already conformed) and invented no SHA — these seven are what was left, recorded rather than papered over.
+**Why it still matters**: Rule 22 exists so a closure is auditable. Seven unauditable closures out of 239 is a small, bounded hole, but the grandfather set is load-bearing: it is the one place the registry admits a rule it does not enforce, and it silently legitimises the entries inside it. Left unwritten, the next author reads `_UNLINKED_RESOLVED` as a permitted category rather than a debt.
+**Suggested fix**: (b) stand-alone, S — SHA archaeology via `git log --grep` for the four pre-convention entries; for CU-103, CU-166 and CU-176 an owner ruling on whether "no commit — owner decline", a multi-SHA list, and a range are legitimate closure shapes (the heading grammar already admits `no commit — <reason>`). Effort S; category A. Related: [[CU-282]], [[CU-311]], [[CU-279]], Rule 22.
+
+### CU-311 — 64 of 84 closed gaps cite no commit SHA
+
+**Discovered**: Backlog sweep batch 1, CU-281 close-out, 2026-07-30 (`3917fe4`).
+**Status**: Open — grandfathered in `check_org_rules._UNLINKED_GAPS`; the new check gates all *future* closures.
+**File**: `docs/tracking/gaps.md`; `scripts/check_org_rules.py::_UNLINKED_GAPS`.
+**Symptom**: OPERATING_MODEL §2 says a gap closure is "marked closed in place w/ commit SHA". Measured 2026-07-30 while implementing [[CU-281]]'s check: **64 of 84 closed gap entries (76 %) carry no backticked SHA anywhere in the entry**. Checked for un-backticked hashes too — zero hits, so no SHA is recoverable from the entry text. This is not purely legacy: Gaps 107–111 were closed 2026-07-26/27, so the convention was still being skipped four days before filing.
+**Why it still matters**: three-quarters of the capability registry's closures cannot be verified against history — the exact hole Rule 22 and [[CU-279]] were built to close, one registry over. A gap marked closed with no link is indistinguishable from a gap marked closed in error.
+**Suggested fix**: (b) stand-alone, M — SHA archaeology via `git log --grep` per gap id, which is mechanical but 64 entries deep; or an owner ruling accepting the pre-2026-07-30 set as permanently unlinked and freezing `_UNLINKED_GAPS` the way [[CU-312]]'s CU-side list is frozen. The forward-looking half is already enforced. Effort M; category A. Related: [[CU-281]], [[CU-312]], [[CU-279]], Rule 22.
+
+### CU-310 — `check_cited_shas` silently skips every all-numeric commit hash
+
+**Discovered**: Backlog sweep batch 1, CU-281/282 implementation, 2026-07-30 (`3917fe4`).
+**Status**: Open.
+**File**: `scripts/check_org_rules.py:159` (`check_cited_shas`).
+**Symptom**: the ancestry check skips any backticked hash containing no `[a-f]` digit — `if ... or not re.search(r"[a-f]", sha): continue`. The exclusion is meant to ignore backticked decimal literals the backlog quotes (e.g. the bounds-test value `999999999999`), but it also swallows genuine all-hex-digit-free SHAs. Two are already in the registry and are real commits, verified 2026-07-30: `8349080` (CU-180, "docs(scenarios): CU-176/180 — refresh 4.3…") and `6098040` (CU-108, "feat(gui): CU-108 — per-metric display scaling"). Neither is ancestry-checked.
+**Why it still matters**: roughly 1 in 16 abbreviated 7-character hashes is all-numeric, so [[CU-279]]'s ancestry gate has a blind spot proportional to hash space rather than to any property of the citation. A closure pointing at a commit that never reached `main` is invisible whenever its hash happens to lack a letter — and the check reports success, which is worse than not checking.
+**Suggested fix**: (a) inline, XS — disambiguate by context rather than by charset: a backticked hex run introduced by `commit`/`commits`/`closed by` is a SHA regardless of its digits, and anything else is not. `git cat-file -t` already fails cleanly for a non-commit, so the decimal-literal case needs no charset heuristic at all. Effort XS; category A. Related: [[CU-279]], [[CU-281]], [[CU-282]].
+
 ### CU-308 — The `_illumination_products` exo branch is guarded by data coverage, not by code
 
 **Discovered**: Overnight backlog run, CU-226 close-out, 2026-07-30.

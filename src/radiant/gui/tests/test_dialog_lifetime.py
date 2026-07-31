@@ -42,6 +42,7 @@ from radiant.gui.main_window import RADIANTMainWindow  # noqa: E402
 from radiant.gui.widgets.configuration_manager_dialog import (  # noqa: E402
     ConfigurationManagerDialog,
 )
+from radiant.gui.widgets.inspector_dialog import InspectorDialog  # noqa: E402
 from radiant.gui.widgets.schema_browser_dialog import SchemaBrowserDialog  # noqa: E402
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
@@ -116,6 +117,30 @@ class TestNoAccumulation:
             window.action("tools.schema").trigger()
 
         assert _live_dialogs(window) == []
+
+    def test_reopening_the_inspector_leaves_no_live_dialogs(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The **non-modal** half of the same symptom (CU-283).
+
+        ``Tools → Inspector`` is shown with ``show()``, not ``exec()``, so
+        :func:`exec_dialog` never sees it; closing a non-modal dialog hides it and
+        Qt keeps it parented to the window. Measured before the fix: **10 live
+        ``InspectorDialog`` children after 10 open/close cycles**. The handler now
+        sets ``WA_DeleteOnClose`` on the instance it shows, so ``close()`` destroys
+        it — while ``open_inspector`` itself (the builder tests call) is untouched
+        and still hands back a dialog that outlives the call.
+        """
+        window = _window(qtbot)
+        assert [d for d in _live_dialogs(window) if isinstance(d, InspectorDialog)] == []
+
+        for _ in range(_CYCLES):
+            window.action("tools.inspector").trigger()
+            for dialog in window.findChildren(InspectorDialog):
+                dialog.close()
+
+        survivors = [d for d in _live_dialogs(window) if isinstance(d, InspectorDialog)]
+        assert survivors == [], (
+            f"{len(survivors)} InspectorDialog(s) survived {_CYCLES} open/close cycles"
+        )
 
 
 class TestExecDialogContract:

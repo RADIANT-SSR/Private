@@ -690,6 +690,62 @@ class TestFiguresArePyplotFree:
         assert fig.axes[0].title.get_color() == "#e0e0e0"
 
 
+class TestBackendIsNotHijacked:
+    """CU-287: a plot call must not reconfigure an embedder's matplotlib backend.
+
+    ``_require_matplotlib`` used to call ``matplotlib.use("Agg")`` unconditionally, so
+    the first ``result.plot.*`` call switched the backend out from under a Jupyter
+    session running ``%matplotlib qt`` or any other embedder. The headless guarantee
+    it existed for is kept — with *nothing* selected, Agg is still forced — so both
+    halves are pinned here: one in-process, one in a fresh interpreter (the only place
+    "no backend selected yet" can be observed, since this module selects Agg at import).
+    """
+
+    def test_an_already_selected_backend_survives_a_plot_call(self) -> None:
+        from radiant.api.plot import _require_matplotlib
+
+        previous = matplotlib.get_backend()
+        matplotlib.use("svg")  # stand-in for an embedder's interactive selection
+        try:
+            _require_matplotlib()
+            assert matplotlib.get_backend().lower() == "svg", (
+                f"backend became {matplotlib.get_backend()!r}; a library call must not "
+                "reconfigure the host process (CU-287)"
+            )
+        finally:
+            matplotlib.use(previous)
+
+    def test_agg_is_still_forced_when_no_backend_has_been_selected(self) -> None:
+        """The headless half: a bare interpreter (no ``MPLBACKEND``) still lands on Agg.
+
+        Run out-of-process because the check is only meaningful before *anything* has
+        touched the backend, which is untrue inside this test session.
+        """
+        import os
+        import subprocess
+        import sys
+
+        env = {**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)}
+        env.pop("MPLBACKEND", None)
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import matplotlib\n"
+                "from radiant.api.plot import _require_matplotlib\n"
+                "_require_matplotlib()\n"
+                "print(matplotlib.get_backend())\n",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+        )
+        assert proc.stdout.strip().lower() == "agg", (
+            f"headless default backend is {proc.stdout.strip()!r}, expected Agg (CU-287)"
+        )
+
+
 @pytest.mark.level1
 class TestCardReadableGeometry:
     """CU-241: the figure-side half of the unreadable-plot-card fix.

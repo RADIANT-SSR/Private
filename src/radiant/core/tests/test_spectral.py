@@ -422,9 +422,12 @@ class TestSpectralDataPlot:
         import matplotlib
 
         matplotlib.use("Agg")  # non-interactive backend for CI
+        from matplotlib.figure import Figure
+
         sd = _make_sd()
-        ax = sd.plot()
-        assert ax is not None
+        fig = sd.plot()
+        assert isinstance(fig, Figure)
+        assert len(fig.axes) == 1
 
     @pytest.mark.level0
     def test_plot_with_existing_ax(self) -> None:
@@ -432,10 +435,35 @@ class TestSpectralDataPlot:
         import matplotlib
 
         matplotlib.use("Agg")
-        _, ax = plt.subplots()
+        fig_in, ax = plt.subplots()
         sd = _make_sd()
-        returned_ax = sd.plot(ax=ax)
-        assert returned_ax is ax
+        try:
+            assert sd.plot(ax=ax) is fig_in  # the caller's own figure, untouched
+            assert ax.get_lines()  # and it was plotted into
+        finally:
+            plt.close(fig_in)
+
+    @pytest.mark.level0
+    def test_plot_figure_is_not_pyplot_registered(self) -> None:
+        """CU-286: the ``ax=None`` figure follows the CU-116 convention.
+
+        Before the fix, ``plot()`` did ``_, ax = plt.subplots()`` and returned only the
+        ``Axes``, leaving **1 pyplot-registered figure** per call with no caller handle
+        on it — releasable only via ``plt.close("all")``. Now the figure is
+        unregistered (0 added to ``plt.get_fignums()``) and is the return value.
+        """
+        plt = pytest.importorskip("matplotlib.pyplot")
+        import matplotlib
+
+        matplotlib.use("Agg")
+        before = set(plt.get_fignums())
+        fig = _make_sd().plot()
+
+        assert set(plt.get_fignums()) == before, (
+            f"{len(set(plt.get_fignums()) - before)} pyplot figure(s) registered; "
+            "SpectralData.plot() must build an unregistered Figure (CU-286/CU-116)"
+        )
+        assert fig not in [plt.figure(n) for n in plt.get_fignums()]
 
 
 # ===========================================================================

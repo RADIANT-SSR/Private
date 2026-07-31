@@ -126,12 +126,39 @@ def plot_theme(dark: bool = False) -> Iterator[None]:
         yield
 
 
+def _backend_already_selected(mpl: Any) -> bool:
+    """Whether the host process has already chosen a matplotlib backend (CU-287).
+
+    Answered **without** triggering matplotlib's auto-selection, so merely asking the
+    question never selects a backend. ``get_backend(auto_select=False)`` is the
+    supported spelling from matplotlib 3.10; on the 3.8/3.9 floor the pin still
+    allows, an unselected backend is a private sentinel object rather than a string,
+    and reading it through :meth:`dict.__getitem__` bypasses ``RcParams``'
+    resolve-on-access.
+    """
+    try:
+        return bool(mpl.get_backend(auto_select=False))
+    except TypeError:  # matplotlib < 3.10 — no auto_select keyword
+        return isinstance(dict.__getitem__(mpl.rcParams, "backend"), str)
+
+
 def _require_matplotlib() -> Any:
-    """Import and return matplotlib.pyplot, raising a helpful error if missing."""
+    """Import and return matplotlib.pyplot, raising a helpful error if missing.
+
+    Forces the non-interactive ``Agg`` backend **only when the host process has not
+    already chosen one** (CU-287). RADIANT builds every figure pyplot-free and never
+    shows one (see :func:`_subplots`), so the backend is RADIANT's business only to
+    the extent of not blowing up headless: with nothing selected — a script, a bare
+    CI runner — Agg is still forced, exactly as before. What no longer happens is a
+    library call reconfiguring an embedder that *did* choose: a Jupyter session
+    running ``%matplotlib qt``, or a Qt GUI, used to have its backend silently
+    switched to Agg by the first ``result.plot.*`` call.
+    """
     try:
         import matplotlib
 
-        matplotlib.use("Agg")
+        if not _backend_already_selected(matplotlib):
+            matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
         return plt

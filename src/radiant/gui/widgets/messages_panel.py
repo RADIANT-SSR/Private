@@ -214,19 +214,23 @@ class MessagesPanel(QWidget):
             parts.append(f"{n_err} error{'s' if n_err != 1 else ''}")
         self._count.setText(", ".join(parts) if parts else "clean")
 
-    def _open_warning_list(self) -> WarningListDialog:
-        """Open the verbatim warning list (the shipped dialog); returned for tests."""
-        dialog = WarningListDialog(self._warnings, self)
-        exec_dialog(dialog)
-        return dialog
+    def _open_warning_list(self) -> None:
+        """Open the verbatim warning list (the shipped dialog) modally.
 
-    def _open_error_dialog(self) -> ActionableErrorDialog | None:
-        """Open the actionable error dialog for the current error; returned for tests."""
+        Owns the modal loop, so :func:`exec_dialog` owns the dialog's lifetime and
+        nothing is handed back: the dialog is freed on the next event-loop turn
+        (CU-216), which is why the previous "returned for tests" affordance was both
+        unused and unusable (CU-284). A test that needs to drive this dialog builds a
+        :class:`WarningListDialog` directly against ``self.warnings``, as
+        ``test_evaluate_loop`` does.
+        """
+        exec_dialog(WarningListDialog(self._warnings, self))
+
+    def _open_error_dialog(self) -> None:
+        """Open the actionable error dialog for the current error, modally (see above)."""
         if self._error is None:  # pragma: no cover - guarded by the item's presence
-            return None
-        dialog = ActionableErrorDialog(self._error, "evaluate", self)
-        exec_dialog(dialog)
-        return dialog
+            return
+        exec_dialog(ActionableErrorDialog(self._error, "evaluate", self))
 
 
 __all__ = ["MessagesPanel"]

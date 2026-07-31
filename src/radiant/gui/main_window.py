@@ -1401,9 +1401,19 @@ class RADIANTMainWindow(QMainWindow):
         return InspectorDialog(self._last_result, self)
 
     def _open_inspector(self) -> None:
-        """Handle the Tools → Inspector action / corner button: show the dump non-modally."""
+        """Handle the Tools → Inspector action / corner button: show the dump non-modally.
+
+        ``WA_DeleteOnClose`` is set **here**, on the instance this handler shows, not in
+        :meth:`open_inspector` — closing a non-modal dialog otherwise only hides it, and
+        Qt keeps it parented to the window, so ten open/close cycles left ten live
+        dialogs for the theme toggle's app-wide re-polish to walk (CU-283, the non-modal
+        twin of CU-216). Keeping the attribute off the builder preserves its contract:
+        ``open_inspector`` still hands callers a dialog that outlives the call, exactly
+        as :mod:`radiant.gui.dialog_lifetime` describes for the builder carve-out.
+        """
         dialog = self.open_inspector()
         if dialog is not None:
+            dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
             dialog.show()
 
     # -- Edit Config (YAML) modal (arch doc §4.5) --------------------------

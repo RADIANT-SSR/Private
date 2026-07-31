@@ -24,6 +24,13 @@ Use it wherever a handler **owns** the modal loop. Do **not** use it in a builde
 that *returns* an un-exec'd dialog for a caller to drive (``RADIANTMainWindow``'s
 ``open_yaml_editor`` / ``open_inspector``): those hand out an object that must
 outlive the call, and the deletion belongs to whichever handler later exec's it.
+
+A **non-modal** dialog (``show()``, no modal loop) needs the same lifetime but
+cannot get it here — there is no loop to unwind. Its handler sets
+``Qt.WidgetAttribute.WA_DeleteOnClose`` on the instance it shows instead, so
+``close()`` destroys rather than hides it (``_open_inspector``, CU-283). The
+attribute goes on the *shown* instance, never inside the builder, for the same
+carve-out reason above.
 """
 
 from __future__ import annotations

@@ -8,18 +8,33 @@
 
 **Numbering note**: CU-026 through CU-041 were never allocated (the GUI-v2 track jumped to CU-042); the gap is intentional, not lost entries. The GUI-v2 README's Phase-7 deferral references to CU-043–046 were phantom numbers (never filed here) that collided with the audit entries now holding those IDs; they were re-filed 2026-07-06 as CU-052–055.
 
+## Resolved-entry format (canonical, CU-282)
+
+A closed entry's Rule-22 record lives in its **heading**, in exactly this shape:
+
+```
+### CU-NNN — <title> — <DISPOSITION> <YYYY-MM-DD> (<commit-clause>)
+```
+
+* `<DISPOSITION>` is one of `RESOLVED`, `CLOSED`, `DECLINED`, `SUPERSEDED`. Any nuance
+  ("closed as not a defect", "declined on owner ruling") goes in the `**Status**:` line
+  and the resolution summary, not the heading — the heading is the machine-readable index.
+* `<commit-clause>` is `commit ` + one backticked SHA, or `commits ` + a comma-separated
+  list. An entry that genuinely has no commit (a decline, a pre-registry closure) writes
+  `no commit — <reason>` instead, so the absence is declared rather than merely missing.
+* A SHA deliberately not on `main` (a cherry-pick source, a corrected-away pre-amend twin)
+  never appears here — the heading carries closure links only. Such hashes live in the
+  entry prose with the `` (not on main) `` marker that check 7 reads.
+
+`scripts/check_org_rules.py` check 8 enforces the shape; check 7 enforces that every SHA
+it names is an ancestor of `HEAD`. Before CU-282 the record sat in the heading for older
+entries and in the `**Status**:` line for newer ones, in a dozen phrasings, so verifying a
+closure meant reading its prose. Seven entries predate any commit link and are grandfathered
+by name in check 8 — that list is frozen and must never grow.
+
 ---
 
 ## Open
-
-### CU-309 — The geometry mode-manifest exclusion set is duplicated in two test trees, and the gate battery's "GUI suite only if GUI files touched" heuristic misses the coupling
-
-**Discovered**: Overnight backlog run, final checkpoint battery, 2026-07-30 — [[CU-262]] went red on `main` and was repaired in the same session.
-**Status**: Open (the red is fixed; the structural cause is not).
-**File**: `src/radiant/geometry/tests/test_mode_manifest.py::_NON_MODE_PARAMS` and `src/radiant/gui/tests/test_geometry_screen.py::_NON_MODE_PARAMS` (duplicated); `CLAUDE.md` gate battery.
-**Symptom**: two independent tests assert that the geometry input-mode manifest covers every `geometry.*` schema parameter, each carrying its own hand-maintained exclusion list. [[CU-262]] added `geometry.site_elevation_m` and updated the geometry-side list; the GUI-side twin was not updated and `main` went red on `test_manifest_covers_every_geometry_parameter`. It was not caught pre-merge because CU-262 touched no GUI file, and the gate battery runs the ~7-minute GUI suite **only when GUI files are touched** — but a *geometry schema* addition breaks a *GUI* test, so "which files did I touch" is not a sound predictor of which suites can break.
-**Why it still matters**: two failure modes in one. (a) Rule 27 / one-canonical-version: a duplicated constant that must be edited in lockstep, with nothing enforcing it — the next parameter addition repeats this exactly. (b) The gate heuristic itself: any schema-level change can break a GUI test, and the current rule lets it through. This is the first time a merge reached `main` red this session, and the full battery is what caught it — which is the argument for the battery, not against it.
-**Suggested fix**: (a) inline, S for the duplication — give the exclusion set one home the GUI test can legally reach (`radiant.gui` may import `radiant.api` + `radiant.core` only, so a test-tree import is not available; the natural home is a small public accessor beside the manifest itself, or a schema-level `mode_entry`-style tag that both tests derive from, removing the hand-maintained list entirely — the tag route also fixes (a) permanently). Plus, for (b), amend the `CLAUDE.md` gate rule so a change touching **any** `_schema.py` runs the GUI suite regardless of which files it edited. Effort S; category A. Related: [[CU-262]], [[CU-301]], Rule 27.
 
 ### CU-308 — The `_illumination_products` exo branch is guarded by data coverage, not by code
 
@@ -255,33 +270,6 @@
 **Symptom**: `_open_inspector` builds a fresh `InspectorDialog(self._last_result, self)` and `.show()`s it; closing hides, never destroys. Measured: **10 live `InspectorDialog` children after 10 open/close cycles**. Out of [[CU-216]]'s scope (that CU covered `.exec()` call sites) and not fixable by `exec_dialog` — the non-modal path needs `WA_DeleteOnClose` on the shown dialog, which interacts with the `open_inspector` builder contract that returns the dialog to tests.
 **Why it still matters**: same theme-repolish consequence CU-216 was filed for; the inspector is a high-traffic dialog in analysis sessions.
 **Suggested fix**: (b) small stand-alone — `WA_DeleteOnClose` on the shown instance with the builder contract preserved (tests hold a reference before close). Effort S; category A. Related: [[CU-216]], [[CU-285]].
-
-### CU-282 — Resolved-heading format is inconsistent across the registry, so Rule-22 compliance is prose-dependent
-
-**Discovered**: Overnight backlog run, CU-279 close-out, 2026-07-29.
-**Status**: Open.
-**File**: `docs/tracking/Cleanup_Backlog.md` (Resolved section); `scripts/check_org_rules.py`.
-**Symptom**: some Resolved headings carry `— RESOLVED <date> (commit \`x\`)`, others (e.g. CU-213) carry no SHA in the heading at all — the SHA lives only in the Status line, in varying phrasings. There is no single greppable format, so verifying Rule-22 closure requires reading each entry's prose.
-**Why it still matters**: check 7 (CU-279) validates SHAs that are *present*; a closure whose SHA is absent or phrased unusually is invisible to it. Same failure shape as [[CU-279]], one level up — presence and format, not resolvability.
-**Suggested fix**: (a) inline, small — define one canonical Resolved-entry format in the registry header, normalise existing entries, and add a format check to `check_org_rules.py` alongside the ID-uniqueness check. Effort S; category A. Related: [[CU-279]], [[CU-281]].
-
-### CU-281 — `gaps.md` closed entries are not checked for SHA presence
-
-**Discovered**: Overnight backlog run, CU-279 close-out, 2026-07-29.
-**Status**: Open.
-**File**: `docs/tracking/gaps.md`; `scripts/check_org_rules.py`.
-**Symptom**: OPERATING_MODEL §2 says gap closures are "marked closed in place w/ commit SHA", and nothing checks that a gap marked closed *has* a SHA at all — check 7 (CU-279) only validates ancestry of SHAs that are present.
-**Why it still matters**: same failure shape as [[CU-279]] one level up: the rule is enforced by convention where a mechanical check is cheap, and a SHA-less closure is a closure that cannot be verified.
-**Suggested fix**: (a) inline, small — extend `check_org_rules.py` check 7 (or a sibling check) to require a backticked SHA in every gap entry marked closed. Effort S; category A. Related: [[CU-279]], [[CU-282]].
-
-### CU-280 — The gate battery's `pytest scripts/` invocation fails at collection; only `python -m pytest scripts/` runs
-
-**Discovered**: Overnight backlog run, CU-279 verification, 2026-07-29.
-**Status**: Open.
-**File**: `scripts/synth_modtran/tests/test_emission_sanity.py:14`, `scripts/synth_modtran/tests/test_family_interpolate.py:32`; `CLAUDE.md` gate battery.
-**Symptom**: bare `pytest scripts/ -q` (the exact form CLAUDE.md and CU-272 document) aborts with `ModuleNotFoundError: No module named 'scripts'` — 2 collection errors, on main, in both the primary checkout and worktrees. `python -m pytest scripts/ -q` passes (12 passed in 1.19 s in the primary; 9 passed / 3 skipped in a worktree without the staged decks) because `python -m` puts the CWD on `sys.path`, letting `scripts` resolve as a namespace package for the two test files that import `from scripts.synth_modtran...`. The imports have been in these files since they were created (`7296963`, `b0a85f5`), so the documented invocation has never worked as literally written.
-**Why it still matters**: CU-272 put `pytest scripts/` in the merge gate specifically so a red synth-MODTRAN suite could not hide; the invocation as documented is red on every clean tree, which is exactly the environmental-red-vs-real-regression ambiguity CU-272 existed to remove.
-**Suggested fix**: (a) inline, small — either add repo-root to pytest's `pythonpath` in `pyproject.toml` (`pythonpath = ["src", "."]`), or change the two imports to the `synth_modtran.`-rooted form the package layout supports, or document `python -m pytest scripts/` as the canonical form in CLAUDE.md. Pick one; make CI and CLAUDE.md agree. Effort S; category A. Related: [[CU-272]], [[CU-278]].
 
 ### CU-278 — `scenarios/` is outside both the lint and the pytest gate scope, and the exclusion is undocumented
 
@@ -619,6 +607,46 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+### CU-309 — The geometry mode-manifest exclusion set is duplicated in two test trees, and the gate battery's "GUI suite only if GUI files touched" heuristic misses the coupling — RESOLVED 2026-07-30 (pending merge — orchestrator stamps final SHA)
+
+**Discovered**: Overnight backlog run, final checkpoint battery, 2026-07-30 — [[CU-262]] went red on `main` and was repaired in the same session.
+**Status**: RESOLVED 2026-07-30, pending merge — orchestrator stamps final SHA.
+**File**: `src/radiant/geometry/tests/test_mode_manifest.py::_NON_MODE_PARAMS` and `src/radiant/gui/tests/test_geometry_screen.py::_NON_MODE_PARAMS` (duplicated); `CLAUDE.md` gate battery.
+**Symptom**: two independent tests assert that the geometry input-mode manifest covers every `geometry.*` schema parameter, each carrying its own hand-maintained exclusion list. [[CU-262]] added `geometry.site_elevation_m` and updated the geometry-side list; the GUI-side twin was not updated and `main` went red on `test_manifest_covers_every_geometry_parameter`. It was not caught pre-merge because CU-262 touched no GUI file, and the gate battery runs the ~7-minute GUI suite **only when GUI files are touched** — but a *geometry schema* addition breaks a *GUI* test, so "which files did I touch" is not a sound predictor of which suites can break.
+**Why it still matters**: two failure modes in one. (a) Rule 27 / one-canonical-version: a duplicated constant that must be edited in lockstep, with nothing enforcing it — the next parameter addition repeats this exactly. (b) The gate heuristic itself: any schema-level change can break a GUI test, and the current rule lets it through. This is the first time a merge reached `main` red this session, and the full battery is what caught it — which is the argument for the battery, not against it.
+**Suggested fix**: (a) inline, S for the duplication — give the exclusion set one home the GUI test can legally reach (`radiant.gui` may import `radiant.api` + `radiant.core` only, so a test-tree import is not available; the natural home is a small public accessor beside the manifest itself, or a schema-level `mode_entry`-style tag that both tests derive from, removing the hand-maintained list entirely — the tag route also fixes (a) permanently). Plus, for (b), amend the `CLAUDE.md` gate rule so a change touching **any** `_schema.py` runs the GUI suite regardless of which files it edited. Effort S; category A. Related: [[CU-262]], [[CU-301]], Rule 27.
+**Resolution summary**: took the schema-tag route the entry preferred, and the hand-maintained lists are gone from both trees. `non_mode` is a new `ParameterDef` tag on `geometry.scene_class` and `geometry.site_elevation_m`; both coverage tests now subtract it from the schema set instead of restating it — `geometry/tests/test_mode_manifest.py` off `ALL_PARAMETERS`, `gui/tests/test_geometry_screen.py` off `Sensor.parameter_defs()[...].tags`, which is the public API surface `radiant.gui` is already allowed to import, so no import rule is bent and no test tree reaches into another. Effort was S as hoped: the tag vocabulary already existed (`mode_entry`, `solar_site`) and tags are inert at runtime (only `regime:`-prefixed tags are read by any consumer), so nothing computes differently. The guard now bites from one fact: removing the tag from `site_elevation_m` makes the schema set differ from the manifest by exactly that parameter, failing **both** tests at once rather than the geometry one only. Verified 24 passed (geometry) + 31 passed (GUI geometry screen). For half (b), the `CLAUDE.md` gate battery gained an explicit rule: a change touching **any** `_schema.py` runs the full GUI suite regardless of which files it edited. **Correction to the entry as filed**: there was no written "GUI suite only when GUI files are touched" rule to amend — `pytest -q` has `testpaths = ["src", "tests"]` and collects **874 GUI test items**, so the documented battery already covered it. The heuristic was unwritten agent practice, so the amendment is phrased as a rule against *narrowing* the battery rather than an addition to it. Geometry schema tag documented in `RADIANT_Geometry.md` (R20).
+
+### CU-282 — Resolved-heading format is inconsistent across the registry, so Rule-22 compliance is prose-dependent — RESOLVED 2026-07-30 (pending merge — orchestrator stamps final SHA)
+
+**Discovered**: Overnight backlog run, CU-279 close-out, 2026-07-29.
+**Status**: RESOLVED 2026-07-30, pending merge — orchestrator stamps final SHA.
+**File**: `docs/tracking/Cleanup_Backlog.md` (Resolved section); `scripts/check_org_rules.py`.
+**Symptom**: some Resolved headings carry `— RESOLVED <date> (commit \`x\`)`, others (e.g. CU-213) carry no SHA in the heading at all — the SHA lives only in the Status line, in varying phrasings. There is no single greppable format, so verifying Rule-22 closure requires reading each entry's prose.
+**Why it still matters**: check 7 (CU-279) validates SHAs that are *present*; a closure whose SHA is absent or phrased unusually is invisible to it. Same failure shape as [[CU-279]], one level up — presence and format, not resolvability.
+**Suggested fix**: (a) inline, small — define one canonical Resolved-entry format in the registry header, normalise existing entries, and add a format check to `check_org_rules.py` alongside the ID-uniqueness check. Effort S; category A. Related: [[CU-279]], [[CU-281]].
+**Resolution summary**: one canonical Resolved heading — `### CU-NNN — <title> — <DISPOSITION> <YYYY-MM-DD> (commit `sha`)`, disposition ∈ {RESOLVED, CLOSED, DECLINED, SUPERSEDED}, `no commit — <reason>` when there genuinely is none — defined in the registry header and enforced by `check_org_rules.py` check 8. Measured before: **139 of 239 Resolved headings conformed**; the record sat in the heading for older entries and in the `**Status**:` line for newer ones, in a dozen phrasings. **91 headings normalised**, every SHA copied from the same entry's own leading closure clause, never invented. Three over-capture traps were found and avoided by construction: CU-213 cites `97eafb6` (not on main), a corrected-away pre-amend twin — promoting it into the heading would have stripped its marker and broken check 7; CU-174's `5227c15` appears in prose rather than as its closure link, and CU-176 cites a SHA *range* (`24904ea`…`8349080`) that cannot be rewritten as a list without changing what it claims. The normaliser asserted, before writing, that every promoted SHA already existed in that entry, that no off-main SHA was promoted, that titles were byte-identical, and that no non-heading line changed. **7 entries were left alone and are grandfathered** in a frozen `_UNLINKED_RESOLVED` set: CU-001/002/010/014 (closed 2026-04-24, before commit links existed), CU-103 (owner decline, no commit), CU-166 (closed "across four approaches", four per-approach SHAs rather than one closure link), CU-176 (the range). One nuance was deliberately dropped from a heading: CU-248's "as NOT-A-DEFECT" — the disposition word `CLOSED` carries it, and the full phrasing survives in its Status line.
+
+### CU-281 — `gaps.md` closed entries are not checked for SHA presence — RESOLVED 2026-07-30 (pending merge — orchestrator stamps final SHA)
+
+**Discovered**: Overnight backlog run, CU-279 close-out, 2026-07-29.
+**Status**: RESOLVED 2026-07-30, pending merge — orchestrator stamps final SHA.
+**File**: `docs/tracking/gaps.md`; `scripts/check_org_rules.py`.
+**Symptom**: OPERATING_MODEL §2 says gap closures are "marked closed in place w/ commit SHA", and nothing checks that a gap marked closed *has* a SHA at all — check 7 (CU-279) only validates ancestry of SHAs that are present.
+**Why it still matters**: same failure shape as [[CU-279]] one level up: the rule is enforced by convention where a mechanical check is cheap, and a SHA-less closure is a closure that cannot be verified.
+**Suggested fix**: (a) inline, small — extend `check_org_rules.py` check 7 (or a sibling check) to require a backticked SHA in every gap entry marked closed. Effort S; category A. Related: [[CU-279]], [[CU-282]].
+**Resolution summary**: `check_org_rules.py` check 9 (`check_gap_closures`) requires a backticked commit SHA in every `gaps.md` entry whose Status is FIXED / CLOSED / RESOLVED / DELIVERED; OPEN, WORKAROUND, DEFERRED, NARROWED and PARTIALLY RESOLVED are not closures and are not asked for one. **The measurement is the finding**: of the **84 closed gap entries, 64 cite no commit SHA anywhere in the entry** — 76 % of the gap registry's closures cannot be verified against history. None of the 64 had a recoverable SHA (checked for un-backticked hashes too: zero hits), so none was fixable unambiguously and none was invented. They are grandfathered by name in a frozen `_UNLINKED_GAPS` set that must never grow, which converts an invisible hole into a counted one. This is not purely legacy debt: Gaps 107–111 were closed 2026-07-26/27, the week before the check landed. Negative-tested — a FIXED gap with no SHA raises, with a SHA passes, OPEN/DEFERRED are ignored.
+
+### CU-280 — The gate battery's `pytest scripts/` invocation fails at collection; only `python -m pytest scripts/` runs — RESOLVED 2026-07-30 (pending merge — orchestrator stamps final SHA)
+
+**Discovered**: Overnight backlog run, CU-279 verification, 2026-07-29.
+**Status**: RESOLVED 2026-07-30, pending merge — orchestrator stamps final SHA.
+**File**: `scripts/synth_modtran/tests/test_emission_sanity.py:14`, `scripts/synth_modtran/tests/test_family_interpolate.py:32`; `CLAUDE.md` gate battery.
+**Symptom**: bare `pytest scripts/ -q` (the exact form CLAUDE.md and CU-272 document) aborts with `ModuleNotFoundError: No module named 'scripts'` — 2 collection errors, on main, in both the primary checkout and worktrees. `python -m pytest scripts/ -q` passes (12 passed in 1.19 s in the primary; 9 passed / 3 skipped in a worktree without the staged decks) because `python -m` puts the CWD on `sys.path`, letting `scripts` resolve as a namespace package for the two test files that import `from scripts.synth_modtran...`. The imports have been in these files since they were created (`7296963`, `b0a85f5`), so the documented invocation has never worked as literally written.
+**Why it still matters**: CU-272 put `pytest scripts/` in the merge gate specifically so a red synth-MODTRAN suite could not hide; the invocation as documented is red on every clean tree, which is exactly the environmental-red-vs-real-regression ambiguity CU-272 existed to remove.
+**Suggested fix**: (a) inline, small — either add repo-root to pytest's `pythonpath` in `pyproject.toml` (`pythonpath = ["src", "."]`), or change the two imports to the `synth_modtran.`-rooted form the package layout supports, or document `python -m pytest scripts/` as the canonical form in CLAUDE.md. Pick one; make CI and CLAUDE.md agree. Effort S; category A. Related: [[CU-272]], [[CU-278]].
+**Resolution summary**: fixed the invocation, not the documentation — `pythonpath = ["src", "."]` in `pyproject.toml` (rootdir-relative, so a worktree still resolves to its own checkout) puts the repo root on `sys.path` for every pytest run, which is exactly what `python -m` was doing implicitly. The `scripts.synth_modtran...` rooting is used by every consumer of that package — `scripts/generate_synthetic_tape7.py`, the package's own intra-imports (`aerosol.py`, `hitran_layers.py`), and the scenario 08 runners — so rerooting the two test files alone (option 2) would have forked the convention, and documenting `python -m` (option 3) would have left the battery's one odd-one-out invocation. Measured before: `pytest scripts/ -q` = **2 collection errors in 0.21 s** (`ModuleNotFoundError: No module named 'scripts'`), `python -m pytest scripts/ -q` = 23 passed / 3 skipped in 1.15 s. After: **both forms 23 passed / 3 skipped in 0.88 s**, identical. CI agreement was the other half and was missing entirely — CU-272 put `pytest scripts/` in the local battery but no CI job ever ran it, so the synthetic-MODTRAN tooling had zero CI cover; a `pytest scripts/ -q` step now runs in the `fast-tests` job. `CLAUDE.md` battery text and `RADIANT_Testing_Validation.md`'s worktree note updated to match.
+
 ### CU-226 — The shipped up-looking library family is queryable but not reachable from a chain run — RESOLVED 2026-07-30 (commit `a9dbe4d`)
 
 **Discovered**: Geometry-Flexibility Phase 2, up-looking library family + interpolated-backend dispatch (branch `gf2/atmosphere`), 2026-07-26.
@@ -872,7 +900,7 @@ The root form is not an air mass at all — it is the geometric chord of a slab 
 **Why it still matters**: "a rejected Apply changes nothing" is the contract every other reject surface in the GUI keeps (Rules 15/17), and the single-value path quietly breaks it for the tolerance half. It is also a two-orders-for-one-dialog inconsistency: whichever order is right, both paths should use it.
 **Suggested fix**: (a) inline-fix-now in a small stand-alone PR — validate *both* the value and the tolerance parameters before writing either, then perform the two writes together (the tolerance fields are already parsed by `_apply_tolerance`; split it into a `_parse_tolerance() -> (call, error)` and a `_write_tolerance(call)`), and use the same order on both paths. Effort S. Category A. Not taken in this PR: the per-configuration mode was the task, and reordering the pre-existing single-value commit is a behaviour change to an untouched path.
 
-### CU-248 — GUI never closes the matplotlib figures it consumes from `result.plot.*` — CLOSED 2026-07-29 as NOT-A-DEFECT (commit `9ecd05a`)
+### CU-248 — GUI never closes the matplotlib figures it consumes from `result.plot.*` — CLOSED 2026-07-29 (commit `9ecd05a`)
 
 **Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, agent finding while running the GUI suite), 2026-07-28.
 **Status**: CLOSED 2026-07-29 as **not a defect** — the premise is disproved by measurement, and the real issue is [[CU-116]].
@@ -1246,7 +1274,7 @@ What is real is that the app legitimately holds **one figure per plot section**,
 **Why it still matters**: cosmetic today (conversion is explicit, named, and single-site), but it seeds the "which unit is this threshold in?" ambiguity Rule 2 exists to prevent, and Phase 2's MODTRAN threshold calibration will touch exactly these constants.
 **Suggested fix**: (a) inline-fix — store `GUARD_HARD_RAD`/`GUARD_WARN_RAD` in radians (values `math.radians(0.5)`, `math.radians(2.0)`), compare in radians, convert to degrees only in message formatting; keep the plan/ADR prose in degrees. Effort S; category A. Natural home: the Phase 2 threshold-calibration PR (plan §8.3 addendum), which re-touches these constants anyway.
 
-### CU-214 — Tools → "Compare Configurations…" now collides with the study vocabulary it predates
+### CU-214 — Tools → "Compare Configurations…" now collides with the study vocabulary it predates — RESOLVED 2026-07-25 (commit `e693e14`)
 
 **Discovered**: multi-config Phase 4c configuration manager (`gui/multiconfig-phase4c`), 2026-07-25
 **Status**: RESOLVED 2026-07-25, commit `e693e14`. **Resolution (option a, as suggested — inline fix in multi-config Phase 4d, the phase that landed the per-configuration comparison surface)**: the Tools item is now **"Compare Config Files…"** and `ComparisonDialog`'s window title **"Compare Config Files"**, both from one pair of constants (`COMPARE_FILES_MENU_TEXT` / `COMPARE_FILES_TITLE` in `widgets/comparison_dialog.py`) so the menu and the dialog cannot drift apart again. The dialog's module docstring now states which surface it is *not* (a study's configurations are compared on the Performance stage's columns and via `ConfigurationSet.compare`). D-10 terminology re-audit over the GUI strings: `Edit → Configurations…` and the selector band's tooltips are the only other places the bare word appears, and in both it correctly means a set member — no further relabelling needed. R20 lock-step: `RADIANT_GUI_Architecture.md` §4.2d (the note that filed this CU), §8c (heading + lead), and the §10 menu map, which now lists the Tools item explicitly. R29 CHANGELOG (public surface: a renamed menu action). 3 new tests (`gui/tests/test_comparison_dialog.py::TestMenuLabel`) pin the action text, the dialog title, and that the action still opens the dialog. `docs/tracking/gaps.md`'s GUI-3 row keeps its 2026-07-17 wording: it is a dated point-in-time DONE record, not a live description of the menu.
@@ -1255,174 +1283,174 @@ What is real is that the app legitimately holds **one figure per plot section**,
 **Why it still matters**: D-10 was ratified conditionally — "on the terminology staying unambiguous", and a review finding that it is breaking down in practice is a Phase-0-level signal, not a silent drift. An analyst reading "Compare Configurations…" in a study session will reasonably expect the per-configuration comparison surface (which is Phase 4d's Performance tabs / the scripting `cs.compare`), and get a file picker instead.
 **Suggested fix**: (a) inline-fix-now in the next GUI phase touching the menus (4d is the natural one, since it *does* land the per-configuration comparison surface) — relabel the Tools item to "Compare Config Files…" and re-word `ComparisonDialog`'s header to match, then re-check every remaining GUI string against the D-10 convention. Doc lock-step: `RADIANT_GUI_Architecture.md` §10 menu table. Effort S; category A (UX wording), with a D-10 terminology re-audit attached.
 
-### CU-213 — no GUI surface for a study's **shared** spectral grid point count
+### CU-213 — no GUI surface for a study's **shared** spectral grid point count — RESOLVED 2026-07-25 (commits `efcdfd4`, `7459f63`)
 
 **Discovered**: multi-config Phase 4c configuration manager (`gui/multiconfig-phase4c`), 2026-07-25
 **Status**: RESOLVED 2026-07-25, commit `efcdfd4` (implementation) + `7459f63` (tests + R20/R29 lock-step). *(SHA corrected 2026-07-29 by [[CU-279]]: the entry originally cited `97eafb6` (not on main), a pre-amend twin of `efcdfd4` — same tree, different hash.)* **Resolution (option a, as suggested — inline fix in its named natural home, multi-config Phase 4e)**: `ConfigurationManagerDialog` gained a **Shared grid points** field above the per-configuration rows, writing `ConfigurationSet.set_wavelength_points(None, n)` through the same `_guarded` path every other manager action uses — so a refusal renders as the API's own what/why/action and the redraw refreshes every blank per-row placeholder to the new number. One deliberate asymmetry with the per-row boxes, stated in the code: **blank is not a clear** here. `wavelength_points()` always reports the count *in force*, so there is no "inherit" state above the shared default; a cleared field restores the current value rather than writing `None`. Undo needed no work — `ConfigurationShape.shared_wavelength_points` already snapshots and restores it, so the change reverses with the rest of the manager transaction in one step, which the new tests assert in both directions. R20 lock-step: `RADIANT_GUI_Architecture.md` §4.2f (+ the §4.2d row). R29 CHANGELOG (GUI capability; the default is untouched, so no existing result moves). 4 new GUI tests (`gui/tests/test_study_persistence.py::TestSharedGridPoints`) covering the displayed default, the manager round-trip + undo/redo, save/reopen persistence, and the blank-field policy. Results-neutral.
 
-### CU-212 — the GUI test session sits on a widget-accumulation cliff: an app-wide `apply_theme` segfaults once enough windows are alive
+### CU-212 — the GUI test session sits on a widget-accumulation cliff: an app-wide `apply_theme` segfaults once enough windows are alive — RESOLVED 2026-07-25 (commit `cce4cb2`)
 
 **Discovered**: multi-config Phase 4b GUI configure/edit flow (`gui/multiconfig-phase4b`), 2026-07-25
 **Status**: RESOLVED 2026-07-25, commit `cce4cb2`. **Resolution (option b, as suggested — stand-alone test-infrastructure fix, taken with multi-config Phase 4e)**: added the session-wide autouse fixture `_release_widgets` to `src/radiant/gui/tests/conftest.py`. After **every** test it closes, re-parents to `None`, and `deleteLater()`s each remaining top-level widget, then drains the deferred-delete queue explicitly with `app.sendPostedEvents(None, QEvent.Type.DeferredDelete)` — a plain `processEvents()` is not enough, because Qt delivers `DeferredDelete` only when the *outermost* event loop unwinds, which never happens inside a test — and finally `pyplot.close("all")`. The three module-local `_release_windows` copies Phases 4b/4c/4d carried (`test_configured_parameters.py`, `test_configuration_manager.py`, `test_performance_columns.py`) are removed as subsumed; the fixture covers every module, including the ones that never had a copy. Verified on the full GUI suite in file order (`pytest -q -p no:randomly src/radiant/gui`): **653 passed, 2 skipped, no segfault**, and the "More than 20 figures have been opened" leak warning the entry cites is gone.
 
 **The promised `apply_theme` re-audit was performed, and the answer is that no narrowing exists there.** `apply_theme` re-polishes the live widget tree via `QApplication.setStyleSheet`, and that app-level stylesheet is exactly what dialogs created *after* the toggle inherit; narrowing it to "only the windows it owns" would mean per-window `setStyleSheet` calls and would leave every later dialog unstyled. The re-polish is therefore correct as written and the accumulating widget tree is the real subject — which in an interactive session is a distinct, still-open issue (parented modals are never destroyed) now tracked as **CU-216** rather than left inside a resolved entry. No production code changed; results-neutral.
 
-### CU-210 — `ConfigurationSet` wavelength-point overrides are write-only (no public read accessor)
+### CU-210 — `ConfigurationSet` wavelength-point overrides are write-only (no public read accessor) — RESOLVED 2026-07-25 (commit `b6089a5`)
 
 **Discovered**: multi-config Phase 4a GUI session model (`gui/multiconfig-phase4a`), 2026-07-25
 **Status**: RESOLVED 2026-07-25, commit `b6089a5`. **Resolution (option a, as suggested — inline fix in the next `api/config_set.py` task, multi-config Phase 4c)**: added `ConfigurationSet.wavelength_points(config: str | None = None) -> int | None`, mirroring `set_wavelength_points`'s argument shape — `config=None` returns the **shared default in force** (the set-level default when one was set, otherwise the base sensor's own count; always an `int`), and `config=<name>` returns that configuration's **override** or `None` when it inherits, which is the "inherits" vs. "happens to equal the default" distinction a display surface needs. Two additions came with it because the 4c manager row is *editable*: `set_wavelength_points(config, n=None)` now **clears** an override (or the shared default), so an undone edit can restore "no override"; and `Sensor.wavelength_points` exposes the base sensor's count so the set-level reader can report an effective shared value. R20 lock-step: three rows in `RADIANT_Scripting_API.md` §2.2/§2.5c plus the corrected `clone()` note (which claimed the state had no reader). R29 CHANGELOG (public surface). 9 new unit tests (`api/tests/test_config_set.py::TestWavelengthPointsAccessor`) covering round-trip, save/load, rename re-keying, duplicate/remove propagation, and clearing. Results-neutral. Consumed by the Phase 4c configuration manager's per-row grid editor (`RADIANT_GUI_Architecture.md` §4.2d).
 
-### CU-211 — the all-configurations value table edits in input units only (no per-row display-unit choice)
+### CU-211 — the all-configurations value table edits in input units only (no per-row display-unit choice) — RESOLVED 2026-07-25 (commit `b6089a5`)
 
 **Discovered**: multi-config Phase 4b GUI configure/edit flow (`gui/multiconfig-phase4b`), 2026-07-25
 **Status**: RESOLVED 2026-07-25, commit `b6089a5`. **Resolution (option b, as suggested — stand-alone task, taken with multi-config Phase 4c)**: added the API seam `ConfigurationSet.set_values(dotpath, values, *, unit=None)`, which reads **every** value in the caller's unit and converts once at the boundary (Rule 2), exactly as `set_value(unit=)` and `Sensor.set(unit=)` do — one unit for the whole column, because a configured parameter has one schema entry and therefore one dimension. Whole-column atomicity is preserved: values are converted *and* validated before the column is replaced, so a rejection still leaves the set untouched (the Phase 4b acceptance criterion). `ConfiguredValuesDialog` now takes the parameter row's display unit (`ParameterPanel.display_unit(dotpath)`, the same store the tree and the stage forms read), seeds every row in it, labels it, and passes it through the single `set_values` call; a unit the public registry cannot soundly invert drops the whole table back to the schema input unit rather than showing a mixture. Crossing from the tree to the table therefore no longer changes the unit under the reader (owner display-unit rule). R20 lock-step: `RADIANT_Scripting_API.md` §2.5c row + `RADIANT_GUI_Architecture.md` §4.2c. R29 CHANGELOG (public surface + GUI behaviour). 8 new tests (5 API in `TestSetValuesUnit`, 3 GUI in `gui/tests/test_configuration_manager.py::TestConfiguredValuesDisplayUnit` with the km→m conversion asserted numerically). Results-neutral.
 
-### CU-208 — `ConfigurationSet` reached into `Sensor._params` / `Sensor._ensure_resolved` because `Sensor` had no provenance-source or resolve seam
+### CU-208 — `ConfigurationSet` reached into `Sensor._params` / `Sensor._ensure_resolved` because `Sensor` had no provenance-source or resolve seam — RESOLVED 2026-07-25 (commit `780ae6b`)
 
 **Discovered**: multi-configuration Phase 1 (`api/config_set.py`), 2026-07-25
 **Status**: RESOLVED 2026-07-25, commit `780ae6b`. **Resolution (option a, as suggested)**: added the three additive, back-compatible public seams to `Sensor` — a `source=` keyword on `set`/`set_many` (provenance *label* only; the class stays `USER_SET`; defaults `"Sensor.set"`/`"Sensor.set_many"` unchanged), a public idempotent `resolve() -> Sensor`, and `inputs() -> Mapping[str, Any]` mirroring `ParameterSet.inputs()`. `config_set.py`'s `sensor_for` now calls `sensor.set(..., source=f"config:{name}")` + `sensor.resolve()`, and `_check_single_store` / `_shared_seed` read `self._base.inputs()`; the CU-208 comment at the call site is removed and no `_params` / `_ensure_resolved` reference remains in the module. R20 lock-step: three rows in `RADIANT_Scripting_API.md` §2.2. R29 CHANGELOG (public surface). 8 new Level-1 tests (`api/tests/test_sensor.py::TestProvenanceAndInputSeams`). Results-neutral. Related: ADR-0010 D-C, `docs/archive/Multi_Configuration_Plan.md` §3.1, multi-config Phase 2.
 
-### CU-198 — RADIANT_Source_Target_System.md §8 documented a `source.material.*` / `source.solar.*` / `source.point.*` parameter namespace that does not exist in the schema
+### CU-198 — RADIANT_Source_Target_System.md §8 documented a `source.material.*` / `source.solar.*` / `source.point.*` parameter namespace that does not exist in the schema — RESOLVED 2026-07-24 (commit `beb14d6`)
 
 **Discovered**: Assurance Audit remediation R2.4 (arch-doc parameter-table sweep), 2026-07-23.
 **Status**: RESOLVED 2026-07-24, commit `beb14d6`. **Symptom**: §8 of `RADIANT_Source_Target_System.md` (§8.1–§8.10, ~12 tables) enumerated `source.material.*`, `source.solar.*`, `source.thermal.*`, `source.tabulated.*`, `source.sub_pixel.*`, `source.point.*`, and `regime.*` parameters — **none of which exist** in any `_schema.py` or the generated `parameter_reference.md` (the shipped surface is `source.target.*` / `source.background.*` / `source.scene_type` / `source.regime_override`, resolved by `radiant.source._inferrer` into the T1–T7 descriptors). The doc's top reconciliation banner (CU-079) already flags the unified `ResolvedTarget` surface as design-target, but §8 read as a live parameter catalog when accessed directly — it misled the R2.4 arch-doc sweep. **Resolution (option a)**: added a §8-level `[DESIGN-TARGET]` banner stating the names are not in the schema and pointing at the shipped `source.target.*`/`source.background.*` descriptor schema (`source/_schema.py`, ADR-0003/0004/0008) and the generated Parameter Reference. A full re-key of §8 to shipped names is deferred to the CU-084 disposition (the `ResolvedTarget` machinery is exported but not chain-wired). Doc-only. Related: [[CU-197]] (R2.4), [[CU-084]], Rule 20.
 
-### CU-188 — Sampled-PSF EE_box carried an O(dx) box-edge bias that over-stated point-source / sub-pixel SNR at the default resolution
+### CU-188 — Sampled-PSF EE_box carried an O(dx) box-edge bias that over-stated point-source / sub-pixel SNR at the default resolution — RESOLVED 2026-07-24 (commit `3c267a5`)
 
 **Discovered**: Assurance Audit remediation R1.5 (building the B1-3 EE_box anchor), 2026-07-23.
 **Status**: RESOLVED 2026-07-24, commit `3c267a5`. **Root cause**: `EffectivePSF.ensquared_energy` gave every PSF cell within `floor(half_width/dx)` full weight and tapered only a fractional *overshoot* cell — so at critical sampling (integral half-width, the common case) the box-edge cells were counted at full weight instead of the ~half they physically straddle. This O(dx) bias made EE_box for an unaberrated Airy at Q=2 read 0.219 vs the analytic 0.177327 (+24 %) at the default `psf_oversample=8`, over-stating point-source / sub-pixel SNR (Rule 9). **Resolution**: replaced the point-sampling scheme with **cell-area-overlap** weighting — each cell weighted by the fraction of its area inside the box, `w(d)=clamp(H−d+0.5,0,1)`. Now second-order accurate: EE_box(Q=2) matches 0.177327 to ~3e-4 at **every** oversample including the default 8 (so no need to raise `psf_oversample`). Tightened the R1.5 anchor test to `abs=1e-3` at the default sampling; fixed `test_ee_full_grid_is_one` to use a whole-grid box that reaches the outer cell edges. **Results-affecting** (CHANGELOG): point-source/sub-pixel SNR down / NEDT up by ~the old over-statement (GUI baselines 1.1 SNR −7.4 %/NEDT +8.0 %, 1.3 SNR −5.3 %/NEDT +5.6 %); two `.gui.expected.json` snapshots regenerated per the golden-update protocol. Extended-scene results (EE_box ≡ 1) unchanged. Full suite green (4684 passed). Related: [[CU-187]], [[CU-003]].
 
-### CU-206 — Testing_Validation §5-§9 describes a golden/provenance/CI toolchain that largely does not exist (audit D10-D18)
+### CU-206 — Testing_Validation §5-§9 describes a golden/provenance/CI toolchain that largely does not exist (audit D10-D18) — RESOLVED 2026-07-23 (commit `0a20f97`)
 
 **Discovered**: Assurance Audit 2026-07 (Track C1 — the headline finding), remediation plan R3.2.
 **Status**: RESOLVED 2026-07-23, commit `0a20f97`. RADIANT_Testing_Validation.md §5–§9 (plus spots in §2/§3/§4) described a freeze-golden CLI, a `radiant reproduce` command, `config_hash`, a Hypothesis property-test suite, a coverage-threshold matrix, and a `tests.yml` CI matrix — **none of which exist**. Rewritten against the real code and tooling: **D10** real `ci.yml` (single Python 3.11/ubuntu, no `--cov`, main-only golden; static job now runs the three R2 `check_*.py` lints) and coverage-not-gated; **D11** the real 8-key provenance record (`io/results.py`); **D12** the real `mwir_leo_minimal.json` golden shape; **D13** `scripts/update_golden.py --i-know-what-im-doing` (no freeze-golden CLI, no `radiant_golden` fixture); **D14** `run_id` kept, `config_hash`/`radiant reproduce`/run-id console-log banner'd DESIGN-TARGET; **D15** `ConfigError` (not `ConfigValidationError`), `sensor.validate(verbose=True)` DESIGN-TARGET'd; **D16** the real exception hierarchy; **D17** the real fixture layout (`src/radiant/<stage>/tests/` + `tests/integration/golden/`, no `tests/conftest.py`/`tests/fixtures`); **D18** Hypothesis is a declared-but-unused dev dep. Minor: §2.1 `sigma_SB`→`sigma_sb`; §2.5 pixel-MTF `√(fill-factor)` term. Every fictional identifier that remains sits inside an explicit "does not exist" negation or a DESIGN-TARGET banner. Verified §5.1/§7.1/§9.3 against the real files; org-rules pass. Doc-only, net −32 lines. Two out-of-scope items noted for a possible follow-up (§8.1 base-class narrower list; §4.1/§6 illustrative scenario names) — neither was an audit DRIFTED finding. Related: [[CU-205]].
 
-### CU-205 — Conventions doc: §4 frame-rate/duty-cycle contract unimplemented, §5 angle-naming claim false (audit D1, D2; owner decision R4.1 = implement)
+### CU-205 — Conventions doc: §4 frame-rate/duty-cycle contract unimplemented, §5 angle-naming claim false (audit D1, D2; owner decision R4.1 = implement) — RESOLVED 2026-07-23 (commit `fd35136`)
 
 **Discovered**: Assurance Audit 2026-07 (Track C1), remediation plan R3.4.
 **Status**: RESOLVED 2026-07-23, commit `fd35136`. **D1 (implement, owner decision R4.1)**: Conventions §4 described a frame-period / frame-rate / duty-cycle contract with zero implementation (no `frame_rate`/`frame_period`/`duty` anywhere in `src/`). Rather than delete the claim, the owner chose to build it: added `readout.frame_period_s` (default 0.0 = unset), `radiant.readout.frame_timing.compute_frame_timing` (Rule 19; frame_rate=1/frame_period, duty=t_int/frame_period, unset→defaults to t_int with the §4 logged warning for direct callers, duty>1 rejected), and `ReadoutStage` publishing `frame_period_s`/`frame_rate_hz`/`duty_cycle`/`frame_period_defaulted` in `stage_outputs["readout"]`. Backward-compatible: the unset default reproduces the prior implicit continuous-readout behavior, so all 810 readout+integration tests (incl. goldens) pass unchanged; 7 new Level-0 tests. **D2 (doc)**: §5 claimed *all* angular parameters are named with their user-facing (degree) unit; the geometry schema stores `solar_zenith_rad`/`path_zenith_rad`/`elevation_angle_rad` as `_rad` (`input_unit="rad"`; degrees supplied via the unit-aware `set(..., unit="deg")`). Reworded to the invariant that holds (every angular param is unit-suffixed and converted to radians once at `set()`). Docs updated in lock-step (Conventions §4/§5, Scan_Timing banner, generated parameter reference, CHANGELOG). Related: [[CU-204]]; Scan_Timing line-rate/scan model remains a design target (Gap 74).
 
-### CU-204 — Master doc: C12 universal ValidationError claim, C11 collect-all overstated, §7.6 import table incomplete, broken archive link (audit D3-D5)
+### CU-204 — Master doc: C12 universal ValidationError claim, C11 collect-all overstated, §7.6 import table incomplete, broken archive link (audit D3-D5) — RESOLVED 2026-07-23 (commit `606408c`)
 
 **Discovered**: Assurance Audit 2026-07 (Track C1), remediation plan R3.3.
 **Status**: RESOLVED 2026-07-23, commit `606408c`. **D3 (C12)**: claimed "every stage package carries a stage-scoped `<Stage>ValidationError` in its errors.py"; geometry raises `GeometrySpecificationError(RadiantError)` only (no `ValueError` co-inherit, no `GeometryValidationError`). Softened to "most/near-universal" and named geometry as the exception in both C12 and the §8 error-class list. **D4 (C11)**: "Validation collects all errors before reporting … all execution modes: CLI, scripting API, GUI" overstated — collect-all is the `radiant validate` CLI path only; the scripting API and GUI are fail-fast (`ParameterSet.set()` / `io/config.py` raise immediately; no `Sensor.validate()` aggregator). **D5 (§7.6)**: the import table's `cli/` row omitted `radiant.gui` (lazy, CU-098) and the table lacked `data/` and `gui/` rows — added them to match the import-linter contracts and CLAUDE.md. **Archive link**: `[archive/RADIANT_Phase1_Plan.md]` resolved to a nonexistent `docs/architecture/archive/` path; fixed to `../archive/`. Doc-only. Related: [[CU-203]].
 
-### CU-203 — Parameter_System doc: non-existent spectral-grid namespace, stale altitude-fold note, unimplemented explain/sweep API, cds_enabled type (audit P1-P3)
+### CU-203 — Parameter_System doc: non-existent spectral-grid namespace, stale altitude-fold note, unimplemented explain/sweep API, cds_enabled type (audit P1-P3) — RESOLVED 2026-07-23 (commit `0a75729`)
 
 **Discovered**: Assurance Audit 2026-07 (Track C2), remediation plan R3.8.
 **Status**: RESOLVED 2026-07-23, commit `0a75729`. **P1**: the "Common wavelength grid" section claimed `spectral.lambda_min/lambda_max/n_points/grid_type` parameters — no `spectral.*` namespace exists. Rewrote to the real mechanism: `numpy.linspace(spectral_integration.filter_min_um, filter_max_um, wavelength_points)` with `wavelength_points` a `Sensor(...)` constructor argument (`Sensor._wavelength_grid`), uniform-in-wavelength, no `grid_type`. **P2**: "altitude duplicate … not yet collapsed … see CU-090" contradicted the same section — `platform.h_sensor` is a deprecated alias of `geometry.sensor_altitude_m` (CU-090 fold / ADR-0006). **P3**: `result.explain("snr")` and `ParameterSet.sweep(...)` / `params.sensitivity(...)` were shown as working but don't exist on those types; repointed to the shipped surfaces (`ChainResult.explain_noise`, `Sensor.explain`/`sweep`/`sensitivity`) and bannered the unified `result.explain` DESIGN-TARGET. **Minor**: `cds_enabled` shown as bool `True`; it is `dtype=int` default `1` — fixed the definitional/defaults/explain-output/YAML mentions; `required_unless` "current use" prose now names both alternatives (`qe_table_path` + `qe_material`). Doc-only. Related: [[CU-202]].
 
-### CU-202 — Metrics doc lists non-existent EE variants and wrong clutter parameter namespace (audit M1, M2)
+### CU-202 — Metrics doc lists non-existent EE variants and wrong clutter parameter namespace (audit M1, M2) — RESOLVED 2026-07-23 (commit `8f046bf`)
 
 **Discovered**: Assurance Audit 2026-07 (Track C2), remediation plan R3.7.
 **Status**: RESOLVED 2026-07-23, commit `8f046bf`. **M1**: RADIANT_Metrics.md §4.10 listed EE variants "1×1, 3×3, 5×5, and `ee_vs_offset(pitch)`"; only `ee_1x1` and `ee_3x3` are computed and registered (`performance/stage.py`, registry, and the doc's own §6). Trimmed §4.10 to the two shipped variants. **M2**: §4.5 referenced `background.clutter_sigma`; the actual parameter is `detector.clutter_sigma` (`detector/_schema.py:307`). Doc-only. Related: [[CU-201]].
 
-### CU-201 — Optics doc: f_number listed as a stage output, non-existent Ω names with fictional type-system flagging, transmission_scalar default (audit O1-O3, R4.2)
+### CU-201 — Optics doc: f_number listed as a stage output, non-existent Ω names with fictional type-system flagging, transmission_scalar default (audit O1-O3, R4.2) — RESOLVED 2026-07-23 (commit `5dc4624`)
 
 **Discovered**: Assurance Audit 2026-07 (Track C2), remediation plan R3.6.
 **Status**: RESOLVED 2026-07-23, commit `5dc4624`. **O2**: the §2 stage-output banner listed `f_number` among `stage_outputs["optics"]` keys; it is never written there (it lives only in the ParameterSet f-number consistency group). Removed it, and corrected `Ω_pixel`→`Omega_pixel` + added `tau_opt`. **O3**: §9 rule 3 claimed distinct names `omega_pixel_sr`/`omega_element_sr` "flagged by the type system"; neither identifier exists — the real names are `Omega_pixel` (stage-output float) and `OpticalElement.nearfield_solid_angle_sr`, both bare floats with only structural separation (no `NewType`/wrapper; a cross-wire type-checks clean — an unenforced risk). **O1/R4.2**: the §10.3 "default None" table was deleted in [[CU-197]] (R2.4); documented the real silent default `optics.transmission_scalar = 0.7` per owner decision R4.2 (keep the default, document it; no results change). Doc-only. Related: [[CU-200]], [[CU-197]].
 
-### CU-200 — Spatial_Complete doc: stale CU-003 kernel claims, RER "averaged", "unconditional" consistency check, h_sensor (audit S1-S6)
+### CU-200 — Spatial_Complete doc: stale CU-003 kernel claims, RER "averaged", "unconditional" consistency check, h_sensor (audit S1-S6) — RESOLVED 2026-07-23 (commit `d0ae789`)
 
 **Discovered**: Assurance Audit 2026-07 (Track C2), remediation plan R3.5.
 **Status**: RESOLVED 2026-07-23, commit `d0ae789`. Fixed six drifted claims in RADIANT_Spatial_Complete.md. **S1**: §9.3 still described the pixel-aperture rect kernel as a "binary mask" with a "planned" CU-003 anti-aliased fix — it has been area-integrated (anti-aliased edges) since CU-003 option a landed 2026-07-10; reworded to the real discretization floor. **S2**: §12 listed the anti-aliased kernel as out-of-scope/v2 — it is shipped. **S3**: §2 invariant 5 said RER is "averaged across the two axes"; the code uses the geometric mean `sqrt(rer_x·rer_y)` (differs for anisotropic PSFs). **S4**: §0/§1.4/§5/§11 and the §9.3 header called the dual-path consistency check "unconditional"; it is Gap-96-gated (skipped when the Spatial-MTF group is deselected) — reconciled to CLAUDE.md Rule 4. **S6**: `platform.h_sensor` was documented as a shipped param; it is a deprecated alias of `geometry.sensor_altitude_m` (CU-090/ADR-0006). Also fixed the stale §9.2 "11, not 12" count note (the table now has 12 terms). **S5** (wfe_reference default "band-center" vs 0.633) was already resolved by [[CU-197]] (R2.4 deleted the drifted §10.1 table). Doc-only. Related: [[CU-199]], [[CU-197]].
 
-### CU-199 — Signal_Chain doc misattributes turbulence/platform/readout MTF ownership and cites phantom frames (audit D6–D9)
+### CU-199 — Signal_Chain doc misattributes turbulence/platform/readout MTF ownership and cites phantom frames (audit D6–D9) — RESOLVED 2026-07-23 (commit `0af7aaa`)
 
 **Discovered**: Assurance Audit 2026-07 (Track C1), remediation plan R3.1.
 **Status**: RESOLVED 2026-07-23, commit `0af7aaa`. The Signal_Chain doc — the stage map implementers read first — carried four drifted claims. **D6**: §1/§2/§8 said AtmosphereStage "adds turbulence MTF (ground-based only)"; it publishes only `r0_m` (Fried parameter) — the turbulence PSF kernel is applied in PlatformStage and the turbulence MTF term written by PerformanceStage, both gated on `r0_m > 0`. **D7**: §1 credited PlatformStage with LOS-drift / platform-vibration / TDI-alignment MTF (none exist there — only smear+jitter); TDI mis-registration MTF and electronics MTF are ReadoutStage's, whose §2 MTF cell was empty. **D8**: §5 `signal_at("electrons")` / `noise_at("electrons")` examples would raise — `"electrons"` is not a `ReferenceFrame`; corrected to `"photoelectrons"` (a real enum member, `core/quantity.py:41`). **D9**: §8 worked example claimed SourceStage adds an `at_target` frame (source registers none) and SpectralIntegrationStage adds an `at_fpa` frame (no such frame). All corrected to match the code and the doc's own (correct) §5. Doc-only. Related: [[CU-197]].
 
-### CU-197 — Architecture docs duplicate schema parameter tables with no freshness check (audit unenforced-risk: arch-doc param-table drift)
+### CU-197 — Architecture docs duplicate schema parameter tables with no freshness check (audit unenforced-risk: arch-doc param-table drift) — RESOLVED 2026-07-23 (commit `a2c12e2`)
 
 **Discovered**: Assurance Audit 2026-07 (Track C / unenforced-risk register), remediation plan R2.4.
 **Status**: RESOLVED 2026-07-23, commit `a2c12e2`. **Symptom**: 19 parameter-definition tables across 6 subsystem architecture docs (Atmosphere, Detector_Complete, Optics, Scan_Timing, Spatial_Complete, Spectral_Integration) re-listed schema fields (type/default/unit/bounds) already generated canonically into `docs/guides/parameter_reference.md` by `gen_param_reference.py`. Nothing checked them against the schema; one (Optics §10.1) carried a stale `verified 2026-07-12` stamp — the drift artifact. **Resolution (owner decision: delete, not extend-check)**: removed the duplicated tables and replaced each with a pointer to the generated reference (Rule 27, one canonical version, "nothing to drift"); retained genuine per-subsystem design context (consistency-grouping, Gap/CU notes, DESIGN-TARGET banners, the five transmission/injection modes) as prose. `gen_param_reference.py --check` and `check_org_rules.py` both pass. Doc-only. **Surfaced [[CU-198]]** (Source_Target_System §8 documents a non-existent `source.material.*` namespace — name drift, left intact, filed open). Related: [[CU-195]], [[CU-196]] (sibling R2 tripwires), [[CU-099]] (the generated reference + its own --check).
 
-### CU-196 — No lint for pytest.approx-without-tolerance (Rule 18); 24 GUI-test violations beyond the audit's scan scope (audit unenforced-risk #3)
+### CU-196 — No lint for pytest.approx-without-tolerance (Rule 18); 24 GUI-test violations beyond the audit's scan scope (audit unenforced-risk #3) — RESOLVED 2026-07-23 (commit `27cc248`)
 
 **Discovered**: Assurance Audit 2026-07 (unenforced-risk register), remediation plan R2.3.
 **Status**: RESOLVED 2026-07-23, commit `27cc248`. **Symptom**: Rule 18 ("pytest.approx always uses explicit rel=/abs=") was enforced only by review; R1.10 fixed the 29 calls the audit's Track B found, but Track B only scanned the physics-stage suites. **Resolution**: added `scripts/check_approx_tolerances.py` (AST-based, wired into the CI `static` job) scanning **all** of `src/radiant/**/tests/` and `tests/`; a call is compliant with rel/abs as keyword or positional. **Running it surfaced 24 additional bare calls in `src/radiant/gui/tests/`** — never in Track B's scope — all GUI value/round-trip echoes; fixed with rel=1e-9 (abs=1e-12 for the one `approx(0.0)`). Tree now clean; 183 GUI tests + a planted-violation self-test pass. Related: [[CU-193]] (the physics-suite sweep), [[CU-195]].
 
-### CU-195 — No lint for in-physics-module unit conversions or hardcoded constants (audit unenforced-risk #2)
+### CU-195 — No lint for in-physics-module unit conversions or hardcoded constants (audit unenforced-risk #2) — RESOLVED 2026-07-23 (commit `6ba652d`)
 
 **Discovered**: Assurance Audit 2026-07 (unenforced-risk register), remediation plan R2.2.
 **Status**: RESOLVED 2026-07-23, commit `6ba652d`. **Symptom**: Rules 2 (convert units at boundaries only) and 13 (constants from `radiant.core.constants`) were enforced only by review — nothing caught a `* pi/180`, a MODTRAN `* 1e4` radiance factor, or a hardcoded `6.62607015e-34` slipped into a physics module. **Resolution**: added `scripts/check_physics_conversions.py` (wired into the CI `static` job) scanning the nine physics packages on **code tokens only** (tokenize-based, so docstrings/comments never false-positive) for pi/180 degree arithmetic, the 1e4/1e-4 W/cm²↔W/m² factor, and h/c/k_B/q/σ_SB digit strings; sanctioned `math.radians`/`math.degrees` and imported constants are not flagged. A `# units-ok: <reason>` opt-out allows documented at-boundary conversions. **The lint surfaced one such conversion** — R₀A Ω·cm²→Ω·m² in `detector/noise/detector_material.py:83`, a datasheet-unit argument converted at the function boundary (Rule-2-compliant, audit-accepted) — now annotated with the opt-out; the tree is otherwise clean. Self-tested against planted violations. Related: [[CU-194]].
 
-### CU-194 — Rule-4 dual-path (PSF vs MTF-product) consistency invariant is warn-only; no CI gate (audit unenforced-risk #1)
+### CU-194 — Rule-4 dual-path (PSF vs MTF-product) consistency invariant is warn-only; no CI gate (audit unenforced-risk #1) — RESOLVED 2026-07-23 (commit `bc93dc3`)
 
 **Discovered**: Assurance Audit 2026-07 (unenforced-risk register), remediation plan R2.1.
 **Status**: RESOLVED 2026-07-23, commit `bc93dc3`. **Symptom**: `PerformanceStage` computes the Rule-4 dual-path consistency check on every spatial chain execution but only *logs a warning* when the FFT of the convolved EffectivePSF disagrees with the MTF product — the audit's #1 unenforced risk. A spatial degradation added to one path but not the other would ship silently. **Resolution**: extended the CU-179 GUI-baseline gate (`tests/integration/test_gui_baselines.py`) with a `golden`-marked parametrized test asserting `dual_path_consistency.passed_x/passed_y` for every shipped baseline that computes the spatial path (34 baselines); scenarios that deselect the spatial-MTF group (Gap 96) compute no check and pass trivially. Added `consistency_one()` to `scenarios/tools/verify_gui_yaml.py`. Verified: 68 baseline tests pass (34 metrics + 34 consistency). The in-stage warn-only behavior is unchanged (still the runtime signal); this adds a hard CI backstop across the baseline set. Test/tooling only. Related: [[CU-179]].
 
-### CU-193 — 29 pytest.approx calls lack an explicit rel=/abs= tolerance (Rule 18) — audit B1-6, B2-7
+### CU-193 — 29 pytest.approx calls lack an explicit rel=/abs= tolerance (Rule 18) — audit B1-6, B2-7 — RESOLVED 2026-07-23 (commit `c6c57c8`)
 
 **Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.10.
 **Status**: RESOLVED 2026-07-23, commit `c6c57c8`. **Symptom**: 29 `pytest.approx` calls across the optics/performance/source/atmosphere/detector/geometry test suites relied on the implicit default tolerance, which CLAUDE.md Rule 18 forbids ("always uses explicit rel= or abs="). All are pass-through / echoed-parameter / context-value checks (not physics values), so the default 1e-6 was adequate but the rule is explicit. **Resolution**: added rel=1e-9 to nonzero comparisons and abs=1e-12 to the single `approx(0.0)` site; behavior preserved (all 236 tests in the touched files still pass). B1-6 (3 sites: test_stage_pupil_maps, test_minimum_resolvable) and B2-7 (26 sites) both closed. A CI lint to prevent regressions is remediation-plan item R2.3. Test-only change. Related: [[CU-192]].
 
-### CU-192 — Assorted low/medium test-quality findings (weak asserts, tautology, stale comment) — audit B2-4/5/6/8, B1-5/7/8
+### CU-192 — Assorted low/medium test-quality findings (weak asserts, tautology, stale comment) — audit B2-4/5/6/8, B1-5/7/8 — RESOLVED 2026-07-23 (commit `6c8c785`)
 
 **Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.9.
 **Status**: RESOLVED 2026-07-23, commit `6c8c785`. Batched the small test-quality fixes: **B1-5** — added the Rule-9 positive-path stage tests that were missing (point-source EE_box=0.5 → exactly 0.5× signal; sub-pixel signal affine in EE_box with the background/path pedestal exempt, surviving EE_box=0). **B2-4** — tightened the exo target test from `3<L<15` (passed a factor-2-low result) to `L==0.98·B(285 K)` at rtol=1e-9. **B2-5** — added a revisit-interval value anchor (600 km/50 km → 3.60 days, rel=2e-2) where only orderings were tested. **B2-6** — pinned emissivity resample values against `np.interp` (ε(8)=0.6667, ε(10)=0.80, ε(12)=0.90) instead of a monotone-ramp-only check. **B2-8** — fixed the solar-zenith anchor comment arithmetic (correct: 0.1143→83.44°; the assertion was already right). **B1-7** — deleted the tautological smear "along vs cross same formula" test (identical call compared with itself). **B1-8** — folded-MTF DC `>=`→`>` (the docstring already claimed strict; folded(0)≈2.91). All test-only. Related: [[CU-191]].
 
-### CU-191 — Track A3 noise/sensitivity code-vs-derivation comparison never run as pinned tests (RSS / ADC / D*)
+### CU-191 — Track A3 noise/sensitivity code-vs-derivation comparison never run as pinned tests (RSS / ADC / D*) — RESOLVED 2026-07-23 (commit `3dfe941`)
 
 **Discovered**: Assurance Audit remediation R1.8 (Track A3 comparison wave), 2026-07-23.
 **Status**: RESOLVED 2026-07-23, commit `3dfe941`. **Symptom**: the audit's Track A3 blind derivation produced noise anchors but the code-vs-derivation diff was never completed (session usage limit). Several hard anchors were unpinned: the RSS total (only a self-referential structural test existed), the specific 14-bit/100 ke⁻ ADC case (existing tests used g=1/5), and the D*=6.324555e12 area-in-cm² case (only the 1e-12 NEP case was pinned). **Resolution**: added Level-0 anchors — RSS √(16000+2500+100)=136.381817 e⁻ via a hand-built `NoiseBudget` (variance-space RSS + temporal/spatial split), ADC g=6.10351562 e⁻/DN and σ_ADC=g/√12=1.76193316 (pins g/√12 vs the wrong g/12), D*=6.324555e12 (pins area-in-cm²). **A3 comparison result**: every anchor matched the implementation exactly — no drift. Checklist items verified as already-covered/declared: Δf=1/(2t_int) (`test_bandwidth_anchor`=50 Hz), TDI shot ×√N (`test_tdi`), PRNU linear-in-signal (`prnu_noise` 100 e⁻ at 1%/10000), contrast-SNR denominator uses `sigma_total_e` (background+dark shot included), étendue paraxial π/(4F#²) declared in `aperture.py` docstring. Test-only change. Related: [[CU-186]], [[CU-190]].
 
-### CU-190 — Track A4 geometry code-vs-derivation comparison never run as pinned tests (viewing triangle / orbit / off-nadir GSD / solar zenith)
+### CU-190 — Track A4 geometry code-vs-derivation comparison never run as pinned tests (viewing triangle / orbit / off-nadir GSD / solar zenith) — RESOLVED 2026-07-23 (commit `b80fdc8`)
 
 **Discovered**: Assurance Audit remediation R1.7 (Track A4 comparison wave), 2026-07-23.
 **Status**: RESOLVED 2026-07-23, commit `b80fdc8`. **Symptom**: the audit's Track A4 blind derivation produced geometry anchors but the code-vs-derivation diff was never completed (session usage limit). Orbit anchors existed only at loose rounded tolerances (rel=1e-3/2e-3) and no test pinned the precise viewing-triangle / off-nadir-GSD values or the θ_i-vs-η discriminator (A4 flag #1). **Resolution**: added Level-0 A4-anchor tests at the mean radius RADIANT uses (6371.0 km): R_s=585110.538 m, θ_i=32.631938°, Λ=2.631938° (test_gsd), v=7616.560806 / v_g=7062.306636 / T=5668.144369 (test_orbit, rel=1e-9), off-nadir GSD 2.925553/3.473901 with the θ_i discriminator rejecting the wrong-angle 3.378137, and the A4 solar-zenith case (test_solar_geometry). Independent formulas were validated by reproducing A4's 6378.137-km equatorial table exactly before switching to mean-R. **A4 comparison result**: RADIANT reproduced every value to machine precision — no physics/constant/unit drift. Two pre-existing, correct convention nuances documented (not bugs): RADIANT applies the off-nadir 1/cos θ_i stretch to *along*-track (its tested convention) vs A4's cross-track label (tilt-direction naming); and RADIANT's Spencer declination series vs A4's idealized 23.44° axial tilt (0.0085° zenith gap). Test-only change. Related: [[CU-096]], [[CU-182]] (θ_o-vs-η geometry), [[CU-189]].
 
-### CU-189 — Optical (pupil-autocorrelation) MTF is cross-checked only against FFT(PSF), never pinned to an external analytic value (Track A2 §2)
+### CU-189 — Optical (pupil-autocorrelation) MTF is cross-checked only against FFT(PSF), never pinned to an external analytic value (Track A2 §2) — RESOLVED 2026-07-23 (commit `9a33dc0`)
 
 **Discovered**: Assurance Audit remediation R1.6 (Track A2 spatial comparison), 2026-07-23.
 **Status**: RESOLVED 2026-07-23, commit `9a33dc0`. **Symptom**: `optics/tests/test_pupil_mtf.py` verified the pupil-autocorrelation MTF only against FFT(PSF) — genuinely independent internal paths, but neither pinned to an external number, so a shared-convention slip in the cutoff ν_c or the autocorrelation normalization could escape both. **Resolution**: added `test_analytic_circular_mtf_anchor` pinning the incoherent circular-aperture MTF to the Goodman closed form MTF(ν̃)=(2/π)[arccos ν̃ − ν̃√(1−ν̃²)] at ν̃=0.25/0.5/0.75 → 0.685038/0.391002/0.144294 (both axes, rel=1e-3). Verified the other four Track A2 spatial anchors were already covered (detector MTF@Nyquist=2/π, jitter σ=0.25px=0.734603 and smear d=0.5px=0.900316 via machine-precision analytic-form tests, Maréchal S(λ/14)=0.817569 via `test_wavefront.py::test_lambda_over_14`). **A2 comparison result**: all five anchors matched the implementation. Test-only change. Related: [[CU-187]].
 
-### CU-187 — compute_ee_box tested only qualitatively; a factor-2 box-size error passes (audit finding B1-3)
+### CU-187 — compute_ee_box tested only qualitatively; a factor-2 box-size error passes (audit finding B1-3) — RESOLVED 2026-07-23 (commit `380148c`)
 
 **Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.5.
 **Status**: RESOLVED 2026-07-23, commit `380148c`. **Symptom**: `optics/tests/test_ee_box.py` asserted only `0<ee<1`, monotone-in-n, and →1 at n=50; the one quantitative cross-check elsewhere (`platform/tests/test_stage.py`) compared PlatformStage's EE_box to `epsf.ensquared_energy_nxn(1)` itself — circular. An implementation ensquaring over half/twice the pixel pitch passed every assertion, and EE_box scales point-source SNR (Rule 9). **Resolution**: added `test_ee_box_airy_q2_anchor` — an unaberrated Airy at Q=2 (λ=4 µm, F#=4, p=8 µm) anchored to the Track A2 §8 analytic ensquared energy EE_□=0.177327 (blind-derived by 2-D quadrature). **Comparison-wave result**: RADIANT's sampled-PSF EE_box converges to 0.177327 **from above** as dx→0 (0.219/0.198/0.188/0.183 at psf_oversample 8/16/32/48) — physics/box-definition correct; the finite-grid residual is a pure O(dx) discretization floor. Test uses ovs=32 (floor ≈+0.010) with a one-sided bracket to the analytic limit. The default-resolution (ovs=8) EE_box bias uncovered while building this anchor is tracked separately as open [[CU-188]]. Test-only change. Related: [[CU-186]].
 
-### CU-186 — NEP↔noise-electrons converter has no absolute anchor; a λ unit slip passes (audit finding B1-2)
+### CU-186 — NEP↔noise-electrons converter has no absolute anchor; a λ unit slip passes (audit finding B1-2) — RESOLVED 2026-07-23 (commit `889f0b1`)
 
 **Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.4.
 **Status**: RESOLVED 2026-07-23, commit `889f0b1`. **Symptom**: `TestNepElectrons` (`performance/tests/test_noise_spec_converters.py`) held only a round-trip, a 2× scaling ratio, and a monotonicity check; all share the `wavelength_um * 1e-6` conversion in `nep_electrons.py`, so dropping the 1e-6 (10⁶ error) or a wrong hc cancels in both directions and passes. **Resolution**: added `test_nep_absolute_anchor` — σ_e=100 e⁻, η=0.7, λ=10 µm, t=0.01 s → NEP = 2.8377797959270403e-16 W at rel=1e-6 (the audit's ≈2.84e-16 is the rounded form). **Comparison-wave result**: code matched the hand value exactly. Test-only change. Related: [[CU-185]].
 
-### CU-185 — GIQE-5 coefficients are never pinned; the hand-calc test imports the code's own constants (audit finding B1-1, High)
+### CU-185 — GIQE-5 coefficients are never pinned; the hand-calc test imports the code's own constants (audit finding B1-1, High) — RESOLVED 2026-07-23 (commit `46c1e52`)
 
 **Discovered**: Assurance Audit 2026-07 (Track B), remediation plan R1.3.
 **Status**: RESOLVED 2026-07-23, commit `46c1e52`. **Symptom**: `test_giqe.py::test_hand_calculation` imported `C0..C5` from `performance/giqe.py` and rebuilt its `expected` from them, so it verified only the formula *structure*; the three published-case tests assert only 2-NIIRS-wide windows. A silent edit of any coefficient (e.g. C5 −0.01→−0.1, C3 1.559→1.0) passed the entire file; only a gross C1 sign flip tripped a range check. **Resolution**: added `test_coefficients_pinned_to_literature` (exact `==` on all six Harrington/NGA-2015 values: 9.57, −3.32, 3.32, 1.559, −0.334, −0.01) and `test_hand_calculation_numeric_literal` (full NIIRS from pure literals: GSD=1 m, RER=0.9, SNR=50 → 6.426827307276607, rel=1e-10). **Comparison-wave result**: all six coefficients and the hand NIIRS matched the implementation exactly. Test-only change. Related: [[CU-183]], [[CU-184]].
 
-### CU-184 — Band-integrated responsivity and electrons→radiance round-trip tests assert only positivity/ordering (audit findings B2-1, B2-2)
+### CU-184 — Band-integrated responsivity and electrons→radiance round-trip tests assert only positivity/ordering (audit findings B2-1, B2-2) — RESOLVED 2026-07-23 (commit `c11195f`)
 
 **Discovered**: Assurance Audit 2026-07 (Track A1 / Track B), remediation plan R1.2.
 **Status**: RESOLVED 2026-07-23, commit `c11195f`. **Symptom**: `TestBandIntegratedResponsivity` asserted only `r_band>0` and `r_half<r_full` (B2-2), and `TestElectronsToRadiance.test_round_trip_consistency` asserted only `L>0` (B2-1) — both pass against a gutted `core/responsivity.py` (dropped `t_int`, QE factor, or λ/hc term; factor-of-2/π/1e6 unit slip). **Resolution**: added a closed-form value anchor for the band integral (flat τ·QE ⇒ R(λ)∝λ linear ⇒ trapezoid exact): `R_band = A·Ω·τ·QE·(1e-6/hc)·(λ_max²−λ_min²)/2` at rel=1e-9; and replaced the positivity round-trip with an end-to-end anchor that recovers a known radiance built from the *independent* closed-form R_band and the impl-inferred t_int. **Comparison-wave result**: both closed forms matched the implementation exactly (rel diff 0.0). Note: the plan's "λ in m" form (`(λ_max²−λ_min²)/(2hc)` with λ in metres) differs from the code by 1e-6 because the code integrates dλ in µm to match the band-averaged-radiance [W/m²/sr] convention — a consistent convention, verified not a bug. Test-only change. Related: [[CU-183]], sibling R1 items.
 
-### CU-183 — Planck band-integral functions have no absolute value anchor; monochromatic anchors not pinned to blind-derived literals (audit findings B2-3, B1-4)
+### CU-183 — Planck band-integral functions have no absolute value anchor; monochromatic anchors not pinned to blind-derived literals (audit findings B2-3, B1-4) — RESOLVED 2026-07-23 (commit `49898fa`)
 
 **Discovered**: Assurance Audit 2026-07 (Track A1 / Track B), remediation plan R1.1.
 **Status**: RESOLVED 2026-07-23, commit `49898fa`. **Symptom**: `integrate_planck_over_band` (source/converters) and `band_planck_radiance` (performance) had no repo-wide absolute value anchor — the round-trip/Jacobian tests invert the same forward model that generated the "measurement", so any scale/band-integration/unit slip cancels exactly (B2-3, B1-4). The monochromatic `planck_spectral_radiance`/`_dT` had an independent µm-native cross-check but no pinned numeric literal to catch a shared per-µm-Jacobian mistake. **Resolution**: added Level-0 tests pinning the Track A1 blind-derived literals — B(10,300)=9.92403333, B(4,300)=0.721976423 W/m²/sr/µm and ∂B/∂T(10,300)=0.159971567 W/m²/sr/µm/K at rel=1e-6; ∫₈¹²B(λ,300)dλ=38.5004239 W/m²/sr at rel=1e-3 for both band functions. **Running these tests was the audit's unfinished Track A1 comparison wave**: all four anchors matched the implementation on first run — no physics/constant/unit drift. Test-only change (no library or golden edits). Related: [[CU-184]]..[[CU-192]] (sibling R1 anchor-hardening items), `docs/reports/assurance_audit_2026-07/track_a1_radiometry_derivation.md`.
 
-### CU-096 — `geometry.path_zenith_rad` is θ_o (target-side) for atmosphere but treated as η (sensor-side) by platform and performance
+### CU-096 — `geometry.path_zenith_rad` is θ_o (target-side) for atmosphere but treated as η (sensor-side) by platform and performance — RESOLVED 2026-07-23 (commit `b5be390`)
 
 **Discovered**: Geometry_Stage_Plan Phase 1 read-through, 2026-07-12.
 **Status**: RESOLVED 2026-07-23, commit `b5be390`. The chain-level fix landed earlier (Geometry_Stage_Plan Phase 2, 2026-07-12): the live chain's GSD/ground-range/diffraction-projection/velocity-smear consume GeometryStage's θ_o-consistent published values. This closes the **residue** — the partial-fixture fallbacks in `platform/stage.py` (smear) and `performance/stage.py` (gsd, ground range, diffraction ground projection) that still fed `geometry.path_zenith_rad` (θ_o) into the sensor-off-nadir-η helpers (`slant_range_spherical_m`/`compute_gsd`/`compute_ground_range_m`), describing a different line of sight off-nadir (θ_o > η; 1.704e6 vs 1.061e6 m slant at 66°). **Resolution**: the four fallbacks now derive geometry from θ_o via `core.viewing_triangle` (`slant_range_from_theta_o_m`/`ground_range_from_theta_o_m`) + `compute_gsd_from_geometry`, identical to what GeometryStage publishes; the η-based standalones are left correct and re-documented (their angle arg is η, not θ_o, with a pointer to the θ_o functions). Added `test_off_nadir_theta_o_fallback.py` (7 tests) — the off-nadir coverage the all-nadir golden suite cannot provide — proving fallback == published at 45° and ≠ the old η value. No shipped result changes (goldens all nadir; live chain already used published values), so an internal correctness fix, no CHANGELOG. Full suite green (4619 passed); mypy core+api, ruff, import-linter 6/6 clean. Related: [[CU-182]] (the scenario-side twin), [[CU-118]]/Gap 87, ADR-0006.
 
-### CU-174 — Staged MODTRAN delivery has no checksum manifest; ignored-precious data survives only as one clobberable copy
+### CU-174 — Staged MODTRAN delivery has no checksum manifest; ignored-precious data survives only as one clobberable copy — RESOLVED 2026-07-22 (commit `6b4369a`)
 
 **Discovered**: real_runs symlink incident during the overnight-branch merge, 2026-07-20.
 **Status**: RESOLVED 2026-07-22, commit `6b4369a`. **Resolution**: `scripts/gen_modtran_manifest.py` (generate / `--check`) commits the SHA-256 checksums (not the data) of the staged `*.tp7`/`*.csv` deliveries to the **sibling** file `modtran/real_runs_MANIFEST.sha256` — placed outside `modtran/real_runs/` so the dir+symlink clobber guard added in `5227c15` stays intact (a manifest *inside* the dir would have required weakening that guard). `tests/integration/test_modtran_manifest.py` verifies each staged file against the manifest, `skipif`-guarded on the data's presence (no-op in CI / a cold clone). 60 data files manifested; the `.gitignore` block documents the manifest and a keep-a-second-copy convention. A partial/corrupted/incomplete re-staging now fails fast instead of surviving as a silent single clobberable copy.
 
-### CU-182 — Scenario 4.1/4.3 runners over-specify geometry (both `geometry.target_range_m` and `geometry.path_zenith_rad`); the CU-093 consistency check fails cells
+### CU-182 — Scenario 4.1/4.3 runners over-specify geometry (both `geometry.target_range_m` and `geometry.path_zenith_rad`); the CU-093 consistency check fails cells — RESOLVED 2026-07-22 (commit `2538da9`)
 
 **Discovered**: CU-176/178 refresh pass, 2026-07-22.
 **Status**: RESOLVED 2026-07-22, commit `2538da9`. **Root cause**: the runners set `geometry.path_zenith_rad` (the chain's target-side path zenith θ_o) **and** `geometry.target_range_m` from the scenario's own `slant_range_spherical_m()` helper — which takes the *sensor off-nadir angle η*, a different angle. The two slant ranges diverge off-nadir (1.704e6 vs 1.061e6 m at 66° θ_o; agree only at nadir), so the CU-093 over-spec check failed all 144 of 4.1's cells and 4.3's off-nadir detection-range sweep. **Resolution**: set ONLY `path_zenith_rad` (θ_o) and derive any needed slant range from the chain's own `slant_range_from_theta_o_m` (`radiant.core.viewing_triangle`); dropped the redundant `target_range_m` set in both runners. Removed the interim CU-182 try/except guard from 4.3 and re-added 4.1's CU-178 `allow_extrapolated`. **Result**: 4.1 is fully runnable and refreshed (all 144 cells; swath edge 1,704→1,061 km; flagship B now detects all 12 targets, hardest is Technical (pickup) not MBT tank; the CU-161 recalibration flattened the MWIR condition axis as scenario 6.2 predicted). 4.3's detection-range is edge-limited at 17.1 km (was a wrong-helper 17.4). Nadir results unchanged (θ_o=0 → slant=altitude either way); 4.3 GUI baseline still reproduces. This completes the CU-176 refresh (4.1 was its sole carve-out). Related: [[CU-093]], [[CU-176]], [[CU-178]], ADR-0006.
 
-### CU-180 — Scenario 4.3's GUI baseline references a generated (gitignored) input CSV, so it can't be reloaded in a cold checkout
+### CU-180 — Scenario 4.3's GUI baseline references a generated (gitignored) input CSV, so it can't be reloaded in a cold checkout — RESOLVED 2026-07-22 (commit `8349080`)
 
 **Discovered**: CU-179 (GUI-baseline CI gate), 2026-07-22.
 **Status**: RESOLVED 2026-07-22, commit `8349080`. **Resolution**: committed `scenarios/04_lisa_analyst/4.3_camouflage_effectiveness/inputs/L_bare_vehicle.csv` as a golden scenario input (Rule 26(a) — asserted against by `test_gui_baselines.py`), repointed the `.gui.yaml`'s `source.target.user_radiance_path` at it (YAML-relative, CU-177), documented its generator in a new `inputs/MANIFEST.md`, and dropped `"4.3"` from `_NON_PORTABLE`. All 34 GUI baselines are now portable and gated; `test_gui_baselines.py::[4.3]` reproduces its snapshot (34 pass, 0 skip). Related: [[CU-177]], [[CU-179]].
 
-### CU-178 — Scenario runners crash on gated NIIRS (CU-166 regression) — they format `metrics["niirs"]` unconditionally, but it is now `None` outside the GIQE-5 envelope
+### CU-178 — Scenario runners crash on gated NIIRS (CU-166 regression) — they format `metrics["niirs"]` unconditionally, but it is now `None` outside the GIQE-5 envelope — RESOLVED 2026-07-22 (commits `bada5ce`, `ba0030c`, `9973ab9`, `ad0781f`, `1ea5957`, `57df388`, `044c7f3`)
 
 **Discovered**: CU-176 number-refresh pass, 2026-07-21.
 **Status**: RESOLVED 2026-07-22 (branch `cu176/refresh-rest`, commits `bada5ce` 3.1, `ba0030c` 5.2, `9973ab9` 5.3, `ad0781f` 5.5, `1ea5957` 7.4, `57df388` 5.4; earlier `044c7f3` 3.4 + the 1.4/2.3/3.2/3.3/5.1/6.3 fixes). **Resolution**: every NIIRS-consuming runner that sits out of the GIQE-5 envelope now sets `performance.niirs.allow_extrapolated=True` in its config builder, so `metrics["niirs"]` is a float (or a deliberately-extrapolated trend) again and the runner completes instead of raising `TypeError`/`KeyError` mid-analysis. Verified by running each to completion. The MODTRAN-dependent runners flagged as "remaining" turned out not to consume NIIRS (`6.2`, `8.x`: `niirs`-free) or were already fixed (`1.1`). `4.1`'s runner crashed earlier, on a geometry over-spec (CU-093), before reaching NIIRS; its one-line `allow_extrapolated` fix landed with the geometry fix in [[CU-182]] (commit `2538da9`), so all NIIRS-consuming runners are now fixed. Also fixed a related headless-hang (`matplotlib.use("Agg")` on `3.2`/`5.2`/`5.4`/`7.4`, whose `plt.show()` blocked batch runs). Runner-side twin of CU-167.
@@ -1432,17 +1460,17 @@ What is real is that the app legitimately holds **one figure per plot section**,
 **Discovered**: CU-170/CU-166(iv) triage pass, 2026-07-20.
 **Status**: RESOLVED 2026-07-22 (branch `cu176/refresh-rest`, commits `24904ea`…`8349080`). **Resolution**: the coordinated post-boost-rebuild refresh pass. Every scenario walkthrough was re-run against the current engine and its hard numbers, tables, narratives, and figures refreshed: `6.3, 5.1, 3.2` (fixed runners) · `3.1, 5.2, 5.3, 5.5, 7.4` (CU-178 runner fix + refresh) · `1.2, 1.3, 1.5, 5.4` (spot-check → all drifted, refreshed) · `6.2, 7.3, 7.5, 8.2` (MODTRAN/real-data; `8.1, 8.3` already current) · `4.3` (with [[CU-180]]). `3.4` was the earlier proof-of-workflow scenario; `1.1/2.3/3.3/1.4` were refreshed in the prior on-main pass. Inverted narratives were rewritten factually and cited to the CU-155/161 recalibration validated by scenario 6.2 (e.g. `3.2`'s PWV over-response is now a −0.038/cm match to MODTRAN, not "5.5× too steep"). `4.1`'s full refresh was initially blocked by the geometry over-spec [[CU-182]] (its runner produced no results); that was fixed and 4.1 fully refreshed in the same session (commit `2538da9`), so **all scenarios are now refreshed**. Distinct from [[CU-175]] (JSON snapshots).
 
-### CU-179 — The GUI-baseline acceptance gate (`verify_gui_yaml.py`) runs outside CI/pytest, so the 34 shipped baselines drift undetected
+### CU-179 — The GUI-baseline acceptance gate (`verify_gui_yaml.py`) runs outside CI/pytest, so the 34 shipped baselines drift undetected — RESOLVED 2026-07-22 (commit `ba0b5d7`)
 
 **Discovered**: CU-175/CU-176 refresh pass, 2026-07-22.
 **Status**: RESOLVED 2026-07-22, commit `ba0b5d7`. **Resolution**: added `tests/integration/test_gui_baselines.py` — a `@pytest.mark.golden`, parametrized-per-scenario test that runs `verify_gui_yaml.verify_one` over the `gui_baselines` registry, so each shipped `.gui.yaml` reload-and-reproduce is gated in CI's golden job (drift now fails fast instead of silently accumulating as in [[CU-175]]). Portable from any checkout thanks to [[CU-177]]. The gate immediately caught one real defect — `4.3`'s baseline references a generated (gitignored) CSV and is not reloadable cold — now `pytest.skip`-ped and filed as [[CU-180]]. 33 pass, 1 skip. Golden-update path documented in the test docstring (regenerate via `emit_gui_yaml.py`, §5.3).
 
-### CU-173 — CLAUDE.md documents `import-linter --config pyproject.toml`; installed import-linter has no `--config` option
+### CU-173 — CLAUDE.md documents `import-linter --config pyproject.toml`; installed import-linter has no `--config` option — RESOLVED 2026-07-22 (commit `a61ff6b`)
 
 **Discovered**: doc audit; 2026-07-2x.
 **Status**: RESOLVED 2026-07-22, commit `a61ff6b`. **Resolution**: the real CLI entry point is `lint-imports` (reads `pyproject.toml`; the form CI's `ci.yml` uses); `import-linter` takes a subcommand and rejects `--config`. Fixed the two **live** copies — `CLAUDE.md` §Running Tests Locally and `.github/PULL_REQUEST_TEMPLATE.md` — to `lint-imports --config pyproject.toml`. The `docs/archive/*` copies are immutable historical records (Rule 24), left as-is.
 
-### CU-177 — GUI baselines that reference a data file serialize an absolute machine path (Rule 30 portability violation)
+### CU-177 — GUI baselines that reference a data file serialize an absolute machine path (Rule 30 portability violation) — RESOLVED 2026-07-21 (commits `162dd0d`, `f59c59d`)
 
 **Discovered**: CU-170 pass, 2026-07-20.
 **Status**: RESOLVED 2026-07-21, commits `162dd0d` (feature) + `f59c59d` (baselines). **Resolution**: added `ParameterDef.is_file_path` (marks the ~13 data-file `str` params — emissivity/reflectance/albedo/brightness-temperature/radiance/intensity paths, `detector.qe_table_path`, `optics.zernike_file`, the three `atmosphere.tabulated_*_file`; NOT system/staging paths). `serialize_config` gained a `relative_to` argument: `save_config`/`Sensor.save` pass the output directory and rewrite absolute file-path values to that-directory-relative, forward-slashed form; `load_config` resolves relative file-path values back to absolute against the source YAML's directory (`_resolve_file_paths`). `Sensor.to_yaml(relative_to=...)` exposes the same for string exports; `emit_gui_yaml.py` passes the baseline's own directory. Back-compatible — pre-CU-177 absolute paths still load; a relative path from a bare dict (no anchor) is left as-is. The `1.1`/`4.3` baselines now store `../…`-relative data-file paths and `verify_gui_yaml.py` is 34/34 from any checkout. 8 tests (round-trip, cross-tree portability, back-compat, non-path-string untouched, dtype validation). R20 (`RADIANT_Parameter_System.md`) + R29 CHANGELOG.
@@ -1452,53 +1480,53 @@ What is real is that the app legitimately holds **one figure per plot section**,
 **Discovered**: GUI-exercise campaign, 2026-07-18 — a scenario sweep floods with `SNR = 526 … outside the GIQE-5 calibration range` on every evaluate.
 **Status**: RESOLVED 2026-07-20 across four approaches. **(1)** warning-spam removed (`9ae5daa`) — the `giqe.py` `logger.warning` + `stage.py` `warnings.warn` dropped; condition carried as structured status (`GIQEResult.extrapolated`/`.warnings`, `niirs_extrapolated`). **(2)** metric-applicability gate (`c1aae9c`) — `PerformanceStage` returns NIIRS N/A (`GIQEResult.failure_reason`/`.applicable`, no `niirs` metric) outside the GIQE-5 envelope, with new `performance.niirs.allow_extrapolated` (default false) opt-in; R20 (`RADIANT_Metrics.md`) + R29. **(3)** owner decision 2026-07-20 — no relabel; a real IR-calibrated IIRS is **Gap 100**, v1 keeps the documented GIQE-5-form simplification. Item (iv) baseline refresh done with the CU-170 pass (`0f485be`). **(4) — this pass** (commit `66aba87`): chain-wide warning-site audit against the zero-warnings bar. Empirical sweep of all 34 scenarios + 3 examples found only **2 conditions** firing on valid configs beyond the (kept, actionable) saturation class: the `6.4` Nyquist/oversampling `logger.warning` → reclassified to `logger.debug` (redundant with `q_*`/`sampling_regime_code`/`mtf_at_nyquist` status), and the `nintendo` example's declared-vs-derived regime mismatch → the warning is correctly actionable (kept) and the mis-declared example fixed (`scene_type: point_source → auto`). Of 42 warning sites total, the remaining 40 never fire on valid shipped configs and are correctly actionable-only. `4.5` keeps its saturation warning (bolometric artifact, Gap 101). CU-167 (both entries) was already resolved (`fa3d8b2`, `1d212e8`). Every shipped example/scenario now evaluates warning-free except the documented Gap-101 case — the owner acceptance bar. R20 (gaps.md Gap 15) + R29 CHANGELOG.
 
-### CU-170 — 12 shipped scenario `.gui.yaml` baselines sit at a saturating operating point (full-well / ADC clip) — the nominal point is not warning-free
+### CU-170 — 12 shipped scenario `.gui.yaml` baselines sit at a saturating operating point (full-well / ADC clip) — the nominal point is not warning-free — RESOLVED 2026-07-20 (commits `f5db453`, `0f485be`)
 
 **Discovered**: Warning-Free UX campaign saturation audit, 2026-07-19 (`docs/archive/Warning_Free_UX_Plan.md`).
 **Status**: RESOLVED 2026-07-20, commits `f5db453` (re-center logic) + `0f485be` (regenerated baselines). **Resolution**: per-scenario intent triage of the 12 saturating baselines (owner-approved row-by-row) established that 11 were accidental clips and 1 (4.5) is a bolometric modeling artifact. The 11 are re-centered **on the GUI baseline only** (validated runner sweeps untouched) via `_recenter()` overrides in `scenarios/tools/gui_baselines.py`: ADC-only clips (well sizing deliberate) get a well-matched `readout.gain_e_per_dn` — `2.3`→110, `3.3`→400, `3.5`→160, `4.4`→400, `6.1`→640, `7.4`→512; `6.3` instead widens `adc_bits` 14→21 so the verified `gain=1.0` and every noise term (quantization = gain/√12 = 0.289 e-) stay bit-identical to the runner; well clips also shorten integration (`4.1` 4→1.5 ms + gain→48, `5.2`/`5.3` 2→1 ms + gain→32, `5.5` 5→1 ms + gain→8). `4.5` is deliberately **not** re-centered — its 16 ms is the microbolometer's thermal time constant and the photon-model signal (~5.5e9 e-) is 55× the schema max full well, so the saturation is a photon-FPA check misapplied to a bolometer (filed **Gap 101**, documented in the 4.5 walkthrough). `verify_gui_yaml.py` is now 34/34; 32/34 evaluate fully warning-free (4.5 = Gap 101; 6.4 = a pre-existing Q-oversampling notice owned by CU-166 approach 4). Also closes CU-166 item (iv) — see that entry. R29 Results-affecting CHANGELOG; the NIIRS surface was already R20-documented by CU-166. The broader stale-baseline refresh rides [[CU-175]]; stale walkthrough *prose* numbers filed as [[CU-176]].
 
-### CU-175 — All 34 shipped `.gui.expected.json` scenario baselines were frozen 2026-07-18 and never refreshed against post-date physics
+### CU-175 — All 34 shipped `.gui.expected.json` scenario baselines were frozen 2026-07-18 and never refreshed against post-date physics — RESOLVED 2026-07-18 (commit `0f485be`)
 
 **Discovered**: CU-170/CU-166(iv) triage pass, 2026-07-20 (worktree `cu170/fix`).
 **Status**: RESOLVED 2026-07-20, commit `0f485be`. **Resolution**: all 34 `.gui.expected.json` (and the 17 `.gui.yaml` whose config moved) regenerated through `scenarios/tools/emit_gui_yaml.py` (Rule 26). The refresh absorbs three drifts at once: the CU-166 NIIRS applicability gate (niirs → N/A out-of-envelope; opt-in value on the 5 NIIRS-headline scenarios), the CU-170 re-centers, and the orthogonal SNR/NEDT physics drift since 2026-07-18 (Gap 38 VNIR scattered-sky; CU-155/157/161 + Gap 94/95 MWIR/LWIR recalibration — e.g. `1.1` SNR 526→794). The pure-drift trio (`1.2`, `1.5`, `3.1`, niirs still in-envelope) was co-refreshed per owner approval. `verify_gui_yaml.py`: 34/34 PASS. Results-affecting CHANGELOG entry. The human-readable walkthrough narratives carry the same stale numbers and are tracked separately as [[CU-176]].
 
-### CU-165 — A single chain `evaluate()` takes ~123 s for a heavily-oversampled (Q≈8, f/20) config
+### CU-165 — A single chain `evaluate()` takes ~123 s for a heavily-oversampled (Q≈8, f/20) config — RESOLVED 2026-07-20 (commit `b7fc4c2`)
 
 **Discovered**: GUI-exercise campaign, 2026-07-18.
 **Status**: RESOLVED 2026-07-20, commit `b7fc4c2`. **Resolution**: profiling refuted the Wave-9 hypothesis (500 per-λ FFTs — the config runs the mono path once); the cost was ~13 full-complex FFTs + whole-array rolls on the 16384² padded grid (4.3 GB arrays). Landed three **exact** fast paths — no grid or discretization change: `optics/psf/fft_convolve.convolve_centered` (rfft2 + even-grid shift-elision identity) for `build_effective_psf`/`with_kernel`, and projection-slice `EffectivePSF.mtf_1d` (1-D real FFT of the LSF replaces the full 2-D FFT per slice). Result-invariance proven: 16 Level 0 tests vs the legacy formulas (≤1e-13); reference config 32/32 metrics ≤5e-16 rel (sole exception `mtf_at_nyquist`, FP noise around the physically-exact zero beyond the diffraction cutoff); Rule-4 consistency residuals unchanged (2.049e-05); full suite incl. golden 4472/0. Wall: **97.4 s → 36.5 s (2.67×)**. R20 (Spatial_Complete invariants note) + R29 (Changed, not results-affecting). **Residual (accepted)**: the remaining ~36 s is the 16384² grid itself; a further order-of-magnitude needs Q-decoupled grid capping, which changes PSF discretization (results-affecting) and would be a new owner-decided task. The interim GUI progress/cancel wrap remains desirable independently (GUI backlog).
 **File**: `src/radiant/optics/psf/fft_convolve.py` (new), `effective.py`, `builder.py`.
 
-### CU-171 — `mypy --strict core+api` checks different effective scope in a worktree vs the primary checkout
+### CU-171 — `mypy --strict core+api` checks different effective scope in a worktree vs the primary checkout — RESOLVED 2026-07-20 (commit `c31996e`)
 
 **Discovered**: CU-120 focused pass, 2026-07-20.
 **Status**: RESOLVED 2026-07-20, commit `c31996e`. **Resolution**: pinned `follow_imports = "silent"` in `[tool.mypy]` (with a rationale comment) — followed modules are still analyzed for type information but errors are reported only for the command-line files, so the gate is identical in any checkout. Verified: primary tree Success (78 files), fresh worktree Success (78 files, previously ~119 out-of-scope errors), and a negative probe (deliberate type error in `api/`) is still caught. Dev-tooling only — no CHANGELOG per R29.
 **File**: `pyproject.toml` (`[tool.mypy]`).
 
-### CU-172 — `RADIANT_File_Tree.md` §`api/` lists 10 of 21 modules; header count stale
+### CU-172 — `RADIANT_File_Tree.md` §`api/` lists 10 of 21 modules; header count stale — RESOLVED 2026-07-20 (commit `56902e0`)
 
 **Discovered**: CU-120 focused pass (R20 doc edit), 2026-07-20.
 **Status**: RESOLVED 2026-07-20, commit `56902e0`. **Resolution**: regenerated the `api/` listing — all 20 source modules with one-line comments (adds batch, solve, error_budget, calibration_analysis, compare, metric_groups, stage_output_units, config_io, errors, _progress), header "20 source + 13 tests", summary-table row 19→20, top-of-doc file counts refreshed against the doc's own `find` command (584 files: 323 source + 219 test + 42 init), regeneration date stamped. Doc-only (no CHANGELOG per R29).
 **File**: `docs/architecture/RADIANT_File_Tree.md`.
 
-### CU-120 — Geometry mode-form manifest transcribes `geometry.*` dot-paths (no schema-exposed mode structure)
+### CU-120 — Geometry mode-form manifest transcribes `geometry.*` dot-paths (no schema-exposed mode structure) — RESOLVED 2026-07-20 (commit `41b8158`)
 
 **Discovered**: GUI Development Plan Phase 5 (Geometry screen), 2026-07-13.
 **Status**: RESOLVED 2026-07-20, commit `41b8158`. **Resolution**: the ADR-0006 family → mode → parameter structure is now owned by `radiant.geometry.mode_manifest` (families, entry dot-paths, anchors, default doors, and the provenance-based `active_mode_key` detection — the detection-order transcription went too) and re-exported through the new public bridge `radiant.api.geometry_modes` (the Gap 96 `metric_groups` precedent; owner picked module-level bridge over a `Sensor` method, 2026-07-20). `radiant.gui.geometry_modes` keeps only display wording (`FAMILY_TITLES`/`MODE_LABELS`, asserted complete against the manifest at import) plus the error→family highlight map. 20 drift tests (`geometry/tests/test_mode_manifest.py`): schema coverage, `mode_entry`/`solar_site` tag reconciliation, and per-mode resolver round-trips. R20 docs (Geometry, File_Tree, GUI_Architecture), R29 CHANGELOG. No results change (4434 passed / 0 failed, non-golden).
 **File**: `src/radiant/geometry/mode_manifest.py`, `src/radiant/api/geometry_modes.py`, `src/radiant/gui/geometry_modes.py`.
 
-### CU-115 — Right-rail Pinned panel: pin set is not persisted across sessions
+### CU-115 — Right-rail Pinned panel: pin set is not persisted across sessions — RESOLVED 2026-07-19 (commit `f93f255`)
 
 **Discovered**: GUI contextual-layout retrofit Step A, 2026-07-13.
 **Status**: RESOLVED 2026-07-19, commit `f93f255`. **Resolution**: `PinnedPanel` now persists its pin set (metric and stage-output pins, via JSON in `QSettings` under `rightRail/pinnedPins`): every pin/unpin/pin_stage_output saves, and the constructor restores the set (falling back to the default five-metric set when none is stored or the value is unreadable). A `settings=` constructor injection lets tests use a scratch `QSettings` so the real user config is never touched. 4 tests (pin/unpin round-trip, empty→default, stage-output round-trip); right-rail suite green. Wave 8. R29 CHANGELOG. (The Step-B stage-output pinning half was already delivered.)
 **File**: `src/radiant/gui/widgets/pinned_panel.py`, `src/radiant/gui/tests/test_right_rail.py`.
 
-### CU-139 — `result.plot.*` matplotlib figures do not follow the GUI light/dark theme
+### CU-139 — `result.plot.*` matplotlib figures do not follow the GUI light/dark theme — RESOLVED 2026-07-19 (commit `c019fe7`)
 
 **Discovered**: GUI Development Plan Phase 9, 2026-07-15.
 **Status**: RESOLVED 2026-07-19, commit `c019fe7`. **Resolution**: added a public `radiant.api.plot.plot_theme(dark=…)` context manager (dark matplotlib chrome rcParams; light is a no-op) — the seam through which the GUI requests a dark figure without restyling it (one action ↔ one API call). Wired the GUI: `_PlotSection` tracks the dark flag, wraps figure production in `plot_theme`, and `set_dark()` re-renders via the normal re-embed path; `StagePane.set_theme` propagates `theme.name=='dark'`. Only figure chrome is themed (data-series colours unchanged). 4 tests (3 API + 1 GUI end-to-end) + smoke-verified light→dark facecolour flip; theme + stage_center suites green (no re-render deadlock). Wave 8. R29 CHANGELOG.
 **File**: `src/radiant/api/plot.py`, `src/radiant/gui/widgets/stage_center.py`.
 
-### CU-104 — Design-system §8.2 `letter-spacing` / `text-transform` are unrenderable through Qt QSS; the shell approximates them
+### CU-104 — Design-system §8.2 `letter-spacing` / `text-transform` are unrenderable through Qt QSS; the shell approximates them — RESOLVED 2026-07-19 (commit `69c8060`)
 
 **Status**: RESOLVED 2026-07-19, commit `69c8060` (owner decision: amend the spec). **Resolution**: added a rendering note to `RADIANT_GUI_Architecture.md` §8.2 recording that the `letter-spacing` values are nominal design targets Qt's QSS subset cannot render, and the `uppercase` transform is honored in-widget (`.upper()` in Python), not via QSS — with the per-widget `QFont.setLetterSpacing` path noted as the deferred option if exact tracking is ever required. Doc-only; the current approximation is accepted. Wave 7.
 **File**: `docs/architecture/RADIANT_GUI_Architecture.md` §8.2.
@@ -1508,183 +1536,183 @@ What is real is that the app legitimately holds **one figure per plot section**,
 **Status**: RESOLVED (Declined) 2026-07-19 (owner decision: keep the fallback). **Resolution**: **won't-bundle** — CU-169 already ships a warning-free clean fallback to the platform UI/mono fonts (the `qt.qpa.fonts` warning and alias-population cost are gone). Bundling the IBM Plex OFL `.ttf` binaries would add ~1 MB of packaged assets plus licensing/manifest/package-data wiring for a purely cosmetic gain, which the owner declined. The `register_bundled_fonts()` hook remains in place should bundling ever be reconsidered. No code change. Wave 7.
 **File**: n/a (declined).
 
-### CU-077 — `readout.read_noise_is_post_cds` is a dead parameter; `cds_1f_suppression` is doc-only
+### CU-077 — `readout.read_noise_is_post_cds` is a dead parameter; `cds_1f_suppression` is doc-only — RESOLVED 2026-07-19 (commit `2eddc52`)
 
 **Discovered**: Capability audit 2026-07 (F-25), 2026-07-11.
 **Status**: RESOLVED 2026-07-19, commit `2eddc52` (owner decision: delete). **Resolution**: removed the unread `READ_NOISE_IS_POST_CDS` ParameterDef from `readout/_schema.py` (readout.* 17→16 params); no pre/post-CDS √2 scaling is modelled, so `read_noise_e_rms` is documented as the effective per-frame (post-CDS) value. Corrected the false claims in `RADIANT_Detector_Complete.md` §CDS (the `cds_1f_suppression` 0.7 factor and the √2 read-noise scaling are **not** applied — table now says both terms are unaffected) and dropped the deleted param from the §11.2 list; `cds_1f_suppression` remains correctly listed under §11.3 designed-but-not-implemented. Read_noise.py docstring updated. parameter_reference regenerated; readout suite green; no results change (nothing read the param). R20 + R29 CHANGELOG. Wave 7.
 **File**: `src/radiant/readout/_schema.py`, `read_noise.py`; `docs/architecture/RADIANT_Detector_Complete.md`.
 
-### CU-084 — Shadow legacy source system publicly exported but unwired (Rule 27)
+### CU-084 — Shadow legacy source system publicly exported but unwired (Rule 27) — RESOLVED 2026-07-19 (commit `b33fd4a`)
 
 **Discovered**: Capability audit 2026-07 (F-22), 2026-07-11.
 **Status**: RESOLVED 2026-07-19, commit `b33fd4a`. **Resolution**: audit found the CU's "unwired shadow system" premise **stale** — since it was filed, the source system was reconciled and most of the listed exports are now the **wired live** source-object system (`_inferrer` → `resolvers` → `material`/`combined`; `converters/reflectance` → `reflected`), so they cannot be deleted without breaking the chain. Only `CompositeTarget` and `SubPixelSource` were **genuinely dead** (self-references only, no live constructor) — those two modules, their tests, and their `source/__init__` exports were removed (Rule 27; owner decision "delete as unused" applied to what is actually unused). The one-canonical-version concern is thereby resolved: no dead parallel source objects remain in the public API. R29 CHANGELOG. Source suite + public-API test green. Wave 7.
 **File**: `src/radiant/source/composite.py`, `sub_pixel.py` (deleted) + tests; `source/__init__.py`.
 
-### CU-082 — geometry_gui_v2 records stale; goldens missing vs claims; re-audit CU-052/053/054 at GUI kickoff
+### CU-082 — geometry_gui_v2 records stale; goldens missing vs claims; re-audit CU-052/053/054 at GUI kickoff — RESOLVED 2026-07-19 (commit `351eab7`)
 
 **Status**: RESOLVED 2026-07-19, commit `351eab7` — **moot**: the entire `dev_tools/geometry_gui_v2` VTK/pyvista prototype was deleted (owner decision 2026-07-19; superseded by the shipped 2D geometry viewer). This CU only concerned that tool. Wave 7 of the autonomous CU-cleanup plan.
 **File**: `dev_tools/geometry_gui_v2/` (deleted).
 
-### CU-053 — GUI v2 performance pass (Phase-7 deferral; formerly README "CU-044")
+### CU-053 — GUI v2 performance pass (Phase-7 deferral; formerly README "CU-044") — RESOLVED 2026-07-19 (commit `351eab7`)
 
 **Status**: RESOLVED 2026-07-19, commit `351eab7` — **moot**: the entire `dev_tools/geometry_gui_v2` VTK/pyvista prototype was deleted (owner decision 2026-07-19; superseded by the shipped 2D geometry viewer). This CU only concerned that tool. Wave 7 of the autonomous CU-cleanup plan.
 **File**: `dev_tools/geometry_gui_v2/` (deleted).
 
-### CU-054 — GUI v2 memory pass (Phase-7 deferral; formerly README "CU-045")
+### CU-054 — GUI v2 memory pass (Phase-7 deferral; formerly README "CU-045") — RESOLVED 2026-07-19 (commit `351eab7`)
 
 **Status**: RESOLVED 2026-07-19, commit `351eab7` — **moot**: the entire `dev_tools/geometry_gui_v2` VTK/pyvista prototype was deleted (owner decision 2026-07-19; superseded by the shipped 2D geometry viewer). This CU only concerned that tool. Wave 7 of the autonomous CU-cleanup plan.
 **File**: `dev_tools/geometry_gui_v2/` (deleted).
 
-### CU-056 — GUI v2 sun glyph uses world-space sizing, not screen-space (formerly docstring "CU-046")
+### CU-056 — GUI v2 sun glyph uses world-space sizing, not screen-space (formerly docstring "CU-046") — RESOLVED 2026-07-19 (commit `351eab7`)
 
 **Status**: RESOLVED 2026-07-19, commit `351eab7` — **moot**: the entire `dev_tools/geometry_gui_v2` VTK/pyvista prototype was deleted (owner decision 2026-07-19; superseded by the shipped 2D geometry viewer). This CU only concerned that tool. Wave 7 of the autonomous CU-cleanup plan.
 **File**: `dev_tools/geometry_gui_v2/` (deleted).
 
-### CU-080 — Reference-data provenance holes (detector QE, solar, emissivity grids, atmospheres README)
+### CU-080 — Reference-data provenance holes (detector QE, solar, emissivity grids, atmospheres README) — RESOLVED 2026-07-19 (commit `49486d5`)
 
 **Discovered**: Capability audit 2026-07 (F-23), 2026-07-11.
 **Status**: RESOLVED 2026-07-19, commit `49486d5`. **Resolution**: added honest provenance manifests per data family — `data/detectors/MANIFEST.md` (the 6 QE curves labelled representative/illustrative, spans verified against the CSVs, no committed citations flagged), `data/solar/MANIFEST.md` (the AM0 curve documented as a Planck-continuum approximation validated only against total irradiance ±5%, no Fraunhofer lines, band-integrated use only) — and a top-level provenance note in `data/emissivity/manifest.yaml` (19 materials share one synthetic 84-point 0.3–14 µm grid; citations are the level *basis*, not verbatim data; no committed generator, Rule 26). The `data/atmospheres/README.md` stale-reference half was **already fixed** by the 2026-07-17 rewrite (it now uses `atmosphere.modtran.tape7_path` / `tabulated_*_file`, not the nonexistent `atmosphere.modtran_file` / `radiant.io.modtran`) — verified. Emissivity manifest still loads (comment ignored; 19 materials intact; data suite green). Doc-only. Wave 6 of the autonomous CU-cleanup plan.
 **File**: `data/detectors/MANIFEST.md` (new), `data/solar/MANIFEST.md` (new), `data/emissivity/manifest.yaml`.
 
-### CU-085 — Validation-hardening sweep (grouped: eight Rule-16/17 soft spots)
+### CU-085 — Validation-hardening sweep (grouped: eight Rule-16/17 soft spots) — RESOLVED 2026-07-19 (commits `6ef6e5f`, `513c9c5`)
 
 **Discovered**: Capability audit 2026-07 (F-25), 2026-07-11.
 **Status**: RESOLVED 2026-07-19, commit `6ef6e5f` (final 2 of 8 sub-items; sub-items 1/2/4/5/6/8 fixed earlier in `513c9c5`). **Resolution**: (3) `SpectralDataStore.add` now computes the constant-extrapolated fraction of the store grid and raises a `UserWarning` past a 20% coverage-fraction threshold (`_EXTRAP_WARN_FRACTION`), keeping legitimate near-edge extrapolation a quiet debug log — verified against the 37-config sweep (0 new warnings, warning-free bar preserved). (7) added digital-TDI test coverage: `tdi_scale_read_noise(digital=True)` √N scaling and the stage-level `_scale_noise_term` digital branches (read noise ×√N, PRNU/DSNU correlated ×N, clutter always ×N). 11 new tests. R29 CHANGELOG. Wave 5 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/core/spectral.py`; tests in `test_spectral.py` + `readout/tests/test_tdi.py`.
 
-### CU-070 — MODTRAN cache key omits the binary version (silent stale cache after upgrade)
+### CU-070 — MODTRAN cache key omits the binary version (silent stale cache after upgrade) — RESOLVED 2026-07-19 (commit `2ce122d`)
 
 **Discovered**: CU-068 doc rewrite, 2026-07-11.
 **Status**: RESOLVED 2026-07-19, commit `2ce122d`. **Resolution**: `_cache_key(tape5, binary_path)` now folds in a `_binary_fingerprint` — `exe:<sha256(binary bytes)[:16]>`, falling back to the path string when the executable is unreadable — so a MODTRAN upgrade invalidates stale entries instead of silently serving old-version results. Resolved via the executable-**byte-hash** fallback the CU's own suggested-fix names, which needs only to read the binary (never invoke it), sidestepping the earlier deferral's `modtran -version` blocker; a version-string form can supersede the byte-hash once the binary-invocation path is first exercised. 2 new Level-0 tests; the existing `test_cache_hit_bypasses_binary` repointed to the binary-aware key. R20 (`RADIANT_Atmosphere.md` §5.4 + verification caveat), R29 CHANGELOG. Wave 5 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/atmosphere/modtran.py`; `docs/architecture/RADIANT_Atmosphere.md`.
 
-### CU-071 — `ModtranAtmosphere._build_state_from_arrays` clips τ and L_path silently (Rule 17)
+### CU-071 — `ModtranAtmosphere._build_state_from_arrays` clips τ and L_path silently (Rule 17) — RESOLVED 2026-07-19 (commit `620b64f`)
 
 **Discovered**: tape7 file-import task, 2026-07-11.
 **Status**: RESOLVED 2026-07-19, commit `620b64f`. **Resolution**: `_build_state_from_arrays` now validates the arrays before clamping — transmittance below `-1e-12` or above `1 + 1e-12`, or path radiance below `-1e-12`, raises an actionable `AtmosphereValidationError` naming the likely unit-confusion / corrupt-tape7 cause (matching `TabulatedAtmosphere`); only ≤1e-12 float-noise snaps are still clipped. Reachable from the user-facing tape7 import path. 3 new tests (τ>1 raises, negative L_path raises, float-noise τ clipped). R29 CHANGELOG. Wave 5 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/atmosphere/modtran.py`.
 
-### CU-118 — Stage-output display units live in one central hand-maintained table, not declared at the emission site
+### CU-118 — Stage-output display units live in one central hand-maintained table, not declared at the emission site — RESOLVED 2026-07-19 (commit `3847ce9`)
 
 **Discovered**: GUI Outputs-readout R-UNITS fix, 2026-07-13.
 **Status**: RESOLVED 2026-07-19, commit `3847ce9`. **Resolution**: each outputs-bearing stage now declares its own `OUTPUT_UNITS: dict[str, str]` next to the `with_stage_output(...)` sites in its `stage.py` (source, optics, platform, spectral_integration, detector, readout — 40 entries total); `api/stage_output_units.py` imports the six per-stage tables and **aggregates** them into the same `STAGE_OUTPUT_UNITS` `(stage, key)` view and `stage_output_unit()` accessor (public surface unchanged; the central hand-maintained literal is gone). A new test asserts the aggregate matches each stage's declaration. R20: module docstring + `RADIANT_Scripting_API.md` updated. Aggregated table is byte-identical (40 entries), so no display/results change. Wave 4 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/api/stage_output_units.py`, `src/radiant/{source,optics,platform,spectral_integration,detector,readout}/stage.py`.
 
-### CU-107 — Generic schema-bounds/enum rejection raises a flat `CoreValidationError`, so the GUI's actionable dialog can show only "what" (no why/action/context)
+### CU-107 — Generic schema-bounds/enum rejection raises a flat `CoreValidationError`, so the GUI's actionable dialog can show only "what" (no why/action/context) — RESOLVED 2026-07-19 (commit `468f355`)
 
 **Discovered**: GUI actionable-error review, 2026-07.
 **Status**: RESOLVED 2026-07-19, commit `468f355`. **Resolution**: the `ParameterSet` resolver now raises the structured `ParameterBoundsError` (out-of-bounds) and a new sibling `ParameterEnumError` (invalid enum choice) — each with `what/why/action/context` populated from the `ParameterDef` (name, value, bounds/allowed, unit) — instead of a flat `CoreValidationError`. Both co-inherit `(RadiantError, ValueError)`, and the messages keep "out of bounds"/"must be one of", so every existing `pytest.raises(ValueError|RadiantError, match=…)` and the GUI's `except RadiantError` catch are unaffected (audited: no `pytest.raises(CoreValidationError)` for these). `ParameterEnumError` re-exported from `core/__init__`; CLAUDE.md Rule-15 list updated (R20); R29 CHANGELOG. 2 new structured-payload tests. No results change. Wave 4 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/core/parameters.py`, `src/radiant/core/__init__.py`.
 
-### CU-108 — GUI metric badges render each metric in its canonical registry unit, with no per-metric display scaling (NEDT shows K, not mK)
+### CU-108 — GUI metric badges render each metric in its canonical registry unit, with no per-metric display scaling (NEDT shows K, not mK) — RESOLVED 2026-07-19 (commit `6098040`)
 
 **Discovered**: GUI metric-badge R-UNITS review, 2026-07.
 **Status**: RESOLVED 2026-07-19, commit `6098040`. **Resolution**: added a `scale_for_display(metric_key, value, unit)` helper + a single `_METRIC_DISPLAY_SCALE` table in `gui/metric_format.py` (currently `nedt_K → (mK, ×1000)`); `badge_display` applies it so the NEDT badge reads e.g. 44.6 mK instead of 0.0446 K. The base unit still comes from the registry (`rec.unit`); only the display prefix is chosen, in one table, out of the widgets. Display-only — the stored metric value (K) is unchanged. 2 new tests; existing badge tests still pass (mK still ends with K). R29 CHANGELOG. Wave 4 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/gui/metric_format.py`, `src/radiant/gui/tests/test_widgets.py`.
 
-### CU-121 — Geometry input form re-syncs from a parameter-tree edit only on the next evaluation, not immediately
+### CU-121 — Geometry input form re-syncs from a parameter-tree edit only on the next evaluation, not immediately — RESOLVED 2026-07-19 (commit `7da6c7a`)
 
 **Discovered**: GUI Development Plan Phase 5, 2026-07-13.
 **Status**: RESOLVED 2026-07-19, commit `7da6c7a`. **Resolution**: `_on_parameter_edited` now calls `stage_center.refresh_forms()` so a tree edit re-syncs the Geometry Inputs/Schematic form synchronously, not only after the debounced evaluate. This is safe on a mid-edit unresolvable sensor because `GeometryModeForm.refresh` reads exclusively through guarded accessors (`safe_provenance` → "", `field_display_text`/`_input_value` → "—"/None on `RadiantError`, CU-105/CU-140) — the original "would raise" concern is obsolete — and the debounced re-evaluate still surfaces any genuine error. Regression test added; blank-sensor (File→New) tests still pass. Display-only. Wave 4 of the autonomous CU-cleanup plan (unblocked by CU-105).
 **File**: `src/radiant/gui/main_window.py`, `src/radiant/gui/tests/test_geometry_screen.py`.
 
-### CU-105 — GUI reads per-parameter provenance by parsing the human-readable `Sensor.explain` string; no structured public accessor exists
+### CU-105 — GUI reads per-parameter provenance by parsing the human-readable `Sensor.explain` string; no structured public accessor exists — RESOLVED 2026-07-19 (commit `dd691a4`)
 
 **Discovered**: GUI Parameter-tree Source column, 2026-07 (branch `gui-phase1-task-a`).
 **Status**: RESOLVED 2026-07-19, commit `dd691a4`. **Resolution**: added `Sensor.resolved(dotpath) -> ResolvedValue` and `Sensor.provenance(dotpath) -> Provenance` — thin passthroughs to `ParameterSet.get_resolved` (already public). Rewrote `param_format.safe_provenance` to read `sensor.resolved(dotpath).provenance.value` and **deleted `provenance_from_explain`** (and its `_PROVENANCE_PREFIX`); switched `yaml_format.dotpath_provenance` and all provenance tests to the structured path. R20: `RADIANT_GUI_Architecture.md` §4.3 + param_format/yaml_format docstrings. R29 CHANGELOG (new public accessors). 4 new tests (2 sensor, 1 safe_provenance guard, label tests). No results change. Wave 4 of the autonomous CU-cleanup plan. Unblocks CU-121.
 **File**: `src/radiant/api/sensor.py`, `src/radiant/gui/param_format.py`, `src/radiant/gui/yaml_format.py`.
 
-### CU-109 — The only public unit-enumeration surface is the underscored `radiant.api.units._CONVERSIONS` re-export; there is no named "units convertible to X" accessor
+### CU-109 — The only public unit-enumeration surface is the underscored `radiant.api.units._CONVERSIONS` re-export; there is no named "units convertible to X" accessor — RESOLVED 2026-07-19 (commit `f970b8f`)
 
 **Discovered**: 2026-07 (GUI/CLI unit-seam review).
 **Status**: RESOLVED 2026-07-19, commit `f970b8f`. **Resolution**: added named accessors in `core/units.py` — `units_for(canonical_unit)` (inputs convertible to a canonical unit), `input_units()` (all recognised input units), `targets_for(from_unit)` (canonical targets of a unit) — re-exported via `radiant.api.units` and added to its `__all__`; **removed the `_CONVERSIONS` re-export entirely** from the api seam (it stays private to `core`). Switched the GUI parameter-editor unit selector, the `radiant convert` CLI, and their tests to the accessors. R20: `RADIANT_GUI_Architecture.md` §4.3 updated. R29 CHANGELOG (public surface). 4 new Level-0 tests. No results change. Wave 4 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/core/units.py`, `src/radiant/api/units.py`, `src/radiant/gui/widgets/parameter_editor_dialog.py`, `src/radiant/cli/convert.py`.
 
-### CU-111 — Parameter Editor's Current line renders in the dialog's original display unit after Apply, not the just-chosen combo unit
+### CU-111 — Parameter Editor's Current line renders in the dialog's original display unit after Apply, not the just-chosen combo unit — RESOLVED 2026-07-19 (commit `630715a`)
 
 **Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2, 2026-07-13.
 **Status**: RESOLVED 2026-07-19, commit `630715a`. **Resolution**: `apply()` now calls `_reexpress_in_unit(chosen_unit, provenance)` on acceptance — it adopts the chosen unit as `self._display_unit` and re-renders both the Current line and the (now reference-held) Bounds row, so after Apply-without-close the whole dialog reads the chosen unit (`8 km`, not `8000 m`) and agrees with the combo. The editor + combo already hold the value in that unit, so no editor re-seed is needed. Regression test added. Presentation-only; canonical value unchanged. Wave 3 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/gui/widgets/parameter_editor_dialog.py`, `src/radiant/gui/tests/test_parameter_editor_dialog.py`.
 
-### CU-135 — Source Outputs readout surfaces `angular_extent_rad = inf` and a bare "Background —" row
+### CU-135 — Source Outputs readout surfaces `angular_extent_rad = inf` and a bare "Background —" row — RESOLVED 2026-07-19 (commit `df8bfda`)
 
 **Discovered**: GUI Development Plan Phase PS-1, 2026-07-14.
 **Status**: RESOLVED 2026-07-19, commit `df8bfda`. **Resolution**: added `_format_scalar` — a non-finite float renders as a bare sentinel (`∞` / `−∞` / `n/a`) without the meaningless unit — and skip a `None`-valued descriptor key (`background`/`target`/`los_geometry`) so the absent case no longer renders a backwards `— ` row (a present descriptor is non-scalar and already skipped). Two regression tests. Display-only; no physics/results change. Wave 3 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/gui/widgets/outputs_readout.py`, `src/radiant/gui/tests/test_stage_center.py`.
 
-### CU-113 — `inspect_result` dumps full multi-line NumPy array reprs for array-valued objects nested in stage outputs
+### CU-113 — `inspect_result` dumps full multi-line NumPy array reprs for array-valued objects nested in stage outputs — RESOLVED 2026-07-19 (commit `c69a3d2`)
 
 **Discovered**: GUI Development Plan Phase 4 Task B, 2026-07-13.
 **Status**: RESOLVED 2026-07-19, commit `c69a3d2`. **Resolution**: wrapped the `inspect_result` render in a `np.printoptions(threshold=20, edgeitems=2)` context so any array — including ones reached only via a stage-output object's own `repr` (tuple/dataclass), which `_fmt` couldn't intercept — collapses to NumPy's summarised form. Shipped-example dump drops ~3900 → ~230 lines; structural tree unchanged. Regression test added. Formatting only; no computed values change. Wave 3 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/api/inspect.py`, `src/radiant/api/tests/test_inspect.py`.
 
-### CU-136 — `result.plot.psf()` default axis label says "x (pixels)" but the axis is PSF samples, not detector pixels
+### CU-136 — `result.plot.psf()` default axis label says "x (pixels)" but the axis is PSF samples, not detector pixels — RESOLVED 2026-07-19 (commit `0db02d1`)
 
 **Discovered**: GUI Development Plan Phase PS-3, 2026-07-15.
 **Status**: RESOLVED 2026-07-19, commit `0db02d1`. **Resolution**: relabelled the default `plot_psf` axes "x (PSF samples)"/"y (PSF samples)" (matching the `pixel_grid` branch), since the default imshow extent is the PSF sample grid (`sample_spacing_m`), not the detector pixel grid. Added a guard test. Label-only; no data/results change. Wave 3 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/api/plot.py`, `src/radiant/api/tests/test_plot.py`.
 
-### CU-089 — `ruff check tests/` fails with 18 pre-existing errors (lint gate covers src/ only)
+### CU-089 — `ruff check tests/` fails with 18 pre-existing errors (lint gate covers src/ only) — RESOLVED 2026-07-19 (commit `924c1c4`)
 
 **Discovered**: Gap 67 persistence task (pre-commit gate run), 2026-07-11.
 **Status**: RESOLVED 2026-07-19, commit `924c1c4`. **Resolution**: `ruff check tests/ --fix` cleared the auto-fixable errors (imports, unused imports); hand-fixed the remainder — 2 F841/B007 unused vars, 3 E501 long lines, 1 SIM117 nested-with, 1 UP035, and **2 PLW1514** encoding sites the CU-149 sweep hadn't reached (top-level `tests/` was outside that sweep's roots). Widened the documented gate in CLAUDE.md to `ruff check src/ tests/`. Test-lint + doc only; no test behaviour/results change. Wave 2 of the autonomous CU-cleanup plan.
 **File**: `tests/` (several integration + top-level files); `CLAUDE.md`.
 
-### CU-099 — `parameter_reference.md` regeneration is unenforced; committed copy had drifted ~17 parameters behind the registry
+### CU-099 — `parameter_reference.md` regeneration is unenforced; committed copy had drifted ~17 parameters behind the registry — RESOLVED 2026-07-19 (commit `74e9fa0`)
 
 **Discovered**: Geometry_Stage_Plan Phase 1, 2026-07-12.
 **Status**: RESOLVED 2026-07-19, commit `74e9fa0`. **Resolution**: refactored `scripts/gen_param_reference.py` into a `render()` function + a `--check` mode that regenerates in memory and diffs against the committed copy (fail-on-mismatch, same pattern as `check_org_rules.py`); regenerated the committed `parameter_reference.md` (now 172 parameters, was ~152); added `tests/test_parameter_reference_current.py` which runs `--check` so CI enforces freshness; documented the check in CLAUDE.md's gate list. Doc + tooling; no results/API change. Wave 2 of the autonomous CU-cleanup plan.
 **File**: `scripts/gen_param_reference.py`, `docs/guides/parameter_reference.md`, `tests/test_parameter_reference_current.py`, `CLAUDE.md`.
 
-### CU-112 — `RADIANT_File_Tree.md` `gui/widgets/` listing is frozen at Phase-1 shell chrome; omits every Phase 2/3 widget
+### CU-112 — `RADIANT_File_Tree.md` `gui/widgets/` listing is frozen at Phase-1 shell chrome; omits every Phase 2/3 widget — RESOLVED 2026-07-19 (commit `18a1650`)
 
 **Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2, 2026-07-13.
 **Status**: RESOLVED 2026-07-19, commit `18a1650`. **Resolution**: regenerated the `gui/widgets/` block from the live directory — 56 widget/dialog files, one line per class (primary public class extracted from each file), dropped the stale 9-entry "Phase 1 shell chrome" listing and qualifier. Doc-only. Wave 2 of the autonomous CU-cleanup plan.
 **File**: `docs/architecture/RADIANT_File_Tree.md`.
 
-### CU-102 — `RADIANT_File_Tree.md` file-count totals are a stale 2026-07-06 snapshot (states 348 `.py`; actual is 444)
+### CU-102 — `RADIANT_File_Tree.md` file-count totals are a stale 2026-07-06 snapshot (states 348 `.py`; actual is 444) — RESOLVED 2026-07-06 (commit `18a1650`)
 
 **Discovered**: 2026-07-06 doc-reconciliation pass (noted stale in-doc).
 **Status**: RESOLVED 2026-07-19, commit `18a1650`. **Resolution**: regenerated the count header and the per-package subtotal/grand-total table from `find src/radiant -name '*.py'` — now 583 `.py` (322 source + 219 test + 42 `__init__.py`), 41 integration + 6 top-level tests, grand-total (non-init) 588; added the missing `geometry/` row; refreshed the `Last regenerated` date and dropped the stale-snapshot/CU-102 caveat. Doc-only. Wave 2 of the autonomous CU-cleanup plan.
 **File**: `docs/architecture/RADIANT_File_Tree.md`.
 
-### CU-100 — `atmosphere/protocol.py` hardcodes its own `EARTH_RADIUS_M = 6_371_000.0` instead of importing `constants.R_EARTH_M`
+### CU-100 — `atmosphere/protocol.py` hardcodes its own `EARTH_RADIUS_M = 6_371_000.0` instead of importing `constants.R_EARTH_M` — RESOLVED 2026-07-19 (commit `a120824`)
 
 **Discovered**: CU-097 Earth-radius unification (commit `7043288`), 2026-07-12.
 **Status**: RESOLVED 2026-07-19, commit `a120824`. **Resolution**: replaced the local `EARTH_RADIUS_M` with `from radiant.core.constants import R_EARTH_M` and repointed the two slant-path usages (`protocol.py:196,198`). Values were already equal (6 371 000.0 m), so no numeric/results change — this is the Rule-13 one-canonical-constant repoint. Atmosphere-suite green (330 tests). Wave 2 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/atmosphere/protocol.py`.
 
-### CU-114 — Dead `#stageGapPanel` QSS block survives the `StageGapPanel` widget's deletion
+### CU-114 — Dead `#stageGapPanel` QSS block survives the `StageGapPanel` widget's deletion — RESOLVED 2026-07-19 (commit `b78cef8`)
 
 **Discovered**: GUI Development Plan Phase 4 Task B, 2026-07-13.
 **Status**: RESOLVED 2026-07-19, commit `b78cef8`. **Resolution**: deleted the four dead QSS rules (`#stageGapPanel`, `QLabel#stageGapHeader`/`#stageGapDetail`/`#stageGapTracked`) from `gui/themes/stylesheet.py`. Confirmed no widget carries those object names (`grep` finds hits only in the stylesheet). Style-only, no behaviour/results change; verified `build_stylesheet(LIGHT/DARK)` no longer contains `stageGap`. Wave 2 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/gui/themes/stylesheet.py`.
 
-### CU-152 — `dev_tools/geometry_gui_v2/install_deps.sh` is POSIX-only; no Windows-runnable equivalent
+### CU-152 — `dev_tools/geometry_gui_v2/install_deps.sh` is POSIX-only; no Windows-runnable equivalent — RESOLVED 2026-07-19 (commit `7095a34`)
 
 **Discovered**: Windows-portability review, 2026-07-16, `main`.
 **Status**: RESOLVED 2026-07-19, commit `7095a34`. **Resolution**: replaced the bash installer with a pinned `dev_tools/geometry_gui_v2/requirements.txt` + a cross-platform `install_deps.py` (`python -m pip install -r requirements.txt` via `sys.executable`), which runs identically on Windows and macOS/Linux (Rule 30). Deleted `install_deps.sh` (Rule 27, one canonical installer) and repointed the three prose references (`scene/__init__.py`, two test docstrings). Dev-tooling only — no library/results change, no CHANGELOG entry. Wave 1 of the autonomous CU-cleanup plan.
 **File**: `dev_tools/geometry_gui_v2/requirements.txt` (new), `install_deps.py` (new); `install_deps.sh` (deleted).
 
-### CU-151 — MODTRAN `binary_path` default `/usr/local/bin/modtran` is POSIX-only
+### CU-151 — MODTRAN `binary_path` default `/usr/local/bin/modtran` is POSIX-only — RESOLVED 2026-07-19 (commit `ea55cf9`)
 
 **Discovered**: Windows-portability review, 2026-07-16, `main`.
 **Status**: RESOLVED 2026-07-19, commit `ea55cf9`. **Resolution**: new leaf module `atmosphere/_modtran_paths.py` (`default_modtran_binary`/`_str`, stdlib-only) resolves the default to `modtran` on `PATH` if present, else the per-platform install location (POSIX `/usr/local/bin/modtran`; Windows `C:\Program Files\MODTRAN\modtran.exe`). `ModtranConfig.binary_path` uses it via `field(default_factory=...)`; the `_schema.py` `MODTRAN_BINARY_PATH` default calls the `_str` form. `ModtranUnavailableError` now names a Windows and a POSIX example path. On macOS the default string is unchanged (`/usr/local/bin/modtran`), so no golden/behavior change; 6 new tests. R20: corrected `RADIANT_Atmosphere.md` (removed a stale `RADIANT_MODTRAN_BIN` env-var claim never in code; now describes the real PATH-then-platform resolution). Wave 1 of the autonomous CU-cleanup plan.
 **File**: `src/radiant/atmosphere/_modtran_paths.py` (new), `modtran.py`, `_schema.py`; `docs/architecture/RADIANT_Atmosphere.md`.
 
-### CU-150 — No `.gitattributes`: line-ending normalization is unpinned across platforms
+### CU-150 — No `.gitattributes`: line-ending normalization is unpinned across platforms — RESOLVED 2026-07-19 (commit `457ba8f`)
 
 **Discovered**: Windows-portability review, 2026-07-16, `main`.
 **Status**: RESOLVED 2026-07-19, commit `457ba8f`. **Resolution**: added a root `.gitattributes` (`* text=auto eol=lf` + explicit `-text` for `.png`/`.jpg`/`.pdf`/`.xls*`/`.npy`/`.npz`/`.h5`/`.zip`/`.gz`/`.ttf`/`.otf`/…), so a Windows checkout with `core.autocrlf=true` cannot rewrite tracked text to CRLF. Belt-and-suspenders: the MODTRAN deck writers now pass `newline="\n"` explicitly where byte-exactness matters — `atmosphere/modtran.py` (tape5), `scripts/render_modtran_decks.py` (tp5), `scripts/synth_modtran/tape7_writer.py` (tape7). No existing tree file is CRLF (macOS dev), so nothing renormalized; no results change. Wave 1 of the autonomous CU-cleanup plan.
 **File**: `.gitattributes` (new); `src/radiant/atmosphere/modtran.py`, `scripts/render_modtran_decks.py`, `scripts/synth_modtran/tape7_writer.py`.
 
-### CU-149 — Text-mode file I/O without explicit `encoding=` mis-decodes UTF-8 on Windows (cp1252 default)
+### CU-149 — Text-mode file I/O without explicit `encoding=` mis-decodes UTF-8 on Windows (cp1252 default) — RESOLVED 2026-07-19 (commit `1aae70e`)
 
 **Discovered**: Windows-portability review, 2026-07-16, `main`.
 **Status**: RESOLVED 2026-07-19, commit `1aae70e`. **Resolution**: tokenize-based codemod added `encoding="utf-8"` to 86 text-mode `open()`/`read_text()`/`write_text()` call sites across `src/`, `scripts/`, `dev_tools/` (binary modes and already-encoded calls skipped). The named library readers — `data/library.py`, `source/converters/_csv.py`, `atmosphere/tabulated.py`, `atmosphere/modtran.py` — are covered; `io/element_config.py` already carried `encoding=`. Enabled ruff `PLW1514` (`unspecified-encoding`) via `preview = true` + `explicit-preview-rules = true` so only that preview rule activates and new call sites can't regress. `ruff check --select PLW1514 src scripts dev_tools` is clean; no results change on macOS (UTF-8 is already the platform default). First item of the autonomous CU-cleanup plan Wave 1 (`docs/plans/CU_Autonomous_Cleanup_Plan.md`).
 **File**: swept `src/`, `scripts/`, `dev_tools/`; ruff config in `pyproject.toml` (`[tool.ruff.lint]`).
 
-### CU-169 — GUI font stacks lead with "IBM Plex" which is not installed → Qt logs a `qt.qpa.fonts` warning + ~170 ms alias-population cost on every launch
+### CU-169 — GUI font stacks lead with "IBM Plex" which is not installed → Qt logs a `qt.qpa.fonts` warning + ~170 ms alias-population cost on every launch — RESOLVED 2026-07-19 (commit `24c11e3`)
 
 **Discovered**: GUI-launch report, 2026-07-19 (owner). Reproduced throughout the session's offscreen GUI renders.
 **Status**: RESOLVED 2026-07-19, commit `24c11e3`. **Resolution**: new `src/radiant/gui/themes/fonts.py` resolves each font stack (`tokens.FONT_SANS`/`FONT_MONO`) to families Qt actually has — unavailable design fonts (IBM Plex) are dropped from the stack, so the applied QSS never names a missing family and Qt populates no aliases (no warning, no ~170 ms cost). Qt was already falling back to the same next family, so the rendered UI is unchanged. `build_stylesheet` resolves on return; `apply_theme` first calls `register_bundled_fonts()` (CU-103 hook). Verified: resolved QSS omits "IBM Plex"; a launch emits 0 `qt.qpa.fonts` warnings. 6 theme tests. First item of the Warning-Free UX campaign (`docs/plans/Warning_Free_UX_Plan.md`).
@@ -1803,7 +1831,7 @@ What is real is that the app legitimately holds **one figure per plot section**,
 
 **Discovered**: ADR-0008 Phase B kickoff, 2026-07-16. **Resolution** (suggested fix (c) delete-as-unused): removed the `shape: object | None` field from all `TargetDescriptor` subclasses (T1Thermal, T2Reflective, T3Mixed, T6TabulatedAtSource) and the T6 docstring bullet; renamed `_inferrer._resolve_projected_area_and_shape` → `_resolve_projected_area` (returns `float | None`; the shape is still built internally to compute `a_shape`, just no longer returned/stored); dropped `shape=` from the 8 descriptor/converter constructions and the 4 converter modules' passthrough; removed the `isinstance(target.shape, …)` test assertions (the `A_t` assertions preserve shape-dispatch coverage). Regenerated 14 descriptor snapshots (diff is exactly `14 × "-  shape: null"`). **Results-neutral** — the field had no production reader; no computed value changed. Category B.
 
-### CU-153 — CLI `run`/`validate` reject `optical_elements`-bearing configs (bare-loader path)
+### CU-153 — CLI `run`/`validate` reject `optical_elements`-bearing configs (bare-loader path) — RESOLVED 2026-07-16 (commit `80f44f9`)
 
 **Discovered**: GUI plan FW-1 (ADR-0009 config facade), 2026-07-16
 **Status**: **RESOLVED 2026-07-16** (commit `80f44f9`) — CLI `run`/`validate` now load `optical_elements` sections: run parses the train onto the run grid and injects it pre-chain; validate checks it through the api facade. 3 CLI tests.
@@ -1824,7 +1852,7 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 (duplicates Sensor logic — dispreferred).
 
 
-### CU-145 — Script Editor has syntax highlighting but no line-number margin
+### CU-145 — Script Editor has syntax highlighting but no line-number margin — RESOLVED 2026-07-16 (commit `2afdef9`)
 
 **Discovered**: Scripting window Pass 2 (multi-tab script Editor), 2026-07-15, branch `gui-framework-plots`
 **Status**: **RESOLVED 2026-07-16** (commit `2afdef9`) — Script Editor gained the standard Qt line-number margin (width tracks blockCount; Theme panel/muted tokens; follows the light/dark toggle). — nice-to-have polish, non-blocking. Pass 2 shipped a Python `QSyntaxHighlighter` (keywords / strings / numbers / comments / def-class names, from the theme's `syntax_*` tokens) but deliberately **skipped** a line-number gutter to keep the pass focused on open/write/save/run (the chartered nice-to-have was "include if cleanly done; else skip and CU it"). Without a gutter the author cannot read the line a Run traceback names (`File "<script:foo.py>", line 7`) against a visible margin.
@@ -1834,7 +1862,7 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 **Suggested fix**: (a) inline-fix-now candidate — add the standard `QPlainTextEdit` line-number-area pattern (a sibling widget painting numbers in the left margin, sized from `blockCount`), themed from tokens. Effort S; category D (view-only). Re-audit at the next scripting-window touch or a v1.1 polish pass.
 
 
-### CU-144 — Script Editor closing / New-tab discards unsaved edits without a confirmation prompt
+### CU-144 — Script Editor closing / New-tab discards unsaved edits without a confirmation prompt — RESOLVED 2026-07-16 (commit `2afdef9`)
 
 **Discovered**: Scripting window Pass 2 (multi-tab script Editor), 2026-07-15, branch `gui-framework-plots`
 **Status**: **RESOLVED 2026-07-16** (commit `2afdef9`) — Closing a dirty script tab now asks Discard / Cancel; clean tabs close silently. — UX safety gap, non-blocking; the same class as CU-140 (main-window File → New/Open). Closing a *dirty* Editor tab (the tab-bar `×`) discards its unsaved edits with no "save changes?" prompt; the `*` marker is the visible signal but there is no guard before the destructive close. A Save/Discard/Cancel `QMessageBox` was deliberately omitted for v1 to keep the offscreen tests free of a modal loop and the scope minimal (mirroring CU-140).
@@ -1844,7 +1872,7 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 **Suggested fix**: (b) stand-alone task — add a `QMessageBox` "Save / Discard / Cancel" prompt gated on `tab.is_dirty` before a tab close (and window close), with a test hook to auto-answer under the offscreen QPA; fold together with CU-140's main-window prompt. Effort S; category D. Re-audit with CU-140 or at the acceptance walkthrough.
 
 
-### CU-140 — File → New / Open discard unsaved edits without a confirmation prompt
+### CU-140 — File → New / Open discard unsaved edits without a confirmation prompt — RESOLVED 2026-07-16 (commit `2afdef9`)
 
 **Discovered**: GUI Development Plan Phase 9 (File round-trip), 2026-07-15, branch `gui-framework-plots`
 **Status**: **RESOLVED 2026-07-16** (commit `2afdef9`) — File → New / Open / Open Recent now ask Save / Discard / Cancel on a dirty config; a cancelled Save As cancels the swap. Also fixed the pre-existing File → New crash the guard tests exposed (safe_provenance fallbacks). — UX safety gap, non-blocking. File → New and File → Open swap the live sensor immediately; if the current config carries unsaved edits (the title's `*` marker), those edits are silently discarded with no "save changes?" prompt. The dirty state is *visible* (the `*`), so nothing is hidden, but there is no guard before a destructive swap.
@@ -1978,7 +2006,7 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 
 **Discovered**: Capability audit 2026-07 (F-19), 2026-07-11. **Resolution**: `SimpleAtmosphere._aerosol_extinction_km` clamps the Ångström power law at `AEROSOL_CLAMP_WAVELENGTH_UM = 5.0 µm` (the MWIR–LWIR boundary): for λ > 5 µm the extinction is frozen at its 5 µm value instead of decaying unphysically toward zero, and a `UserWarning` fires once per run when the clamp engages. The boundary was placed at MWIR–LWIR (not the originally-doc-planned SWIR–MWIR / 3 µm) so the "weak but usable" MWIR power law and the flagship MWIR golden are preserved while only the genuinely-wrong long-wave extrapolation is corrected. Doc §12 updated in lock-step.
 
-### CU-079 — "Authoritative" architecture docs described unimplemented systems — RESOLVED 2026-07-12 (commits `c5a77e6`, plus Gap 71/74 banners)
+### CU-079 — "Authoritative" architecture docs described unimplemented systems — RESOLVED 2026-07-12 (commit `c5a77e6`)
 
 **Discovered**: Capability audit 2026-07 (F-20), 2026-07-11. **Resolution**: reconciliation / DESIGN-TARGET banners added to every listed doc. `RADIANT_Scan_Timing.md` → DESIGN TARGET (Gap 74, `bdc5ca3`); `RADIANT_Metrics.md` §2 MetricResult contract → status banner (Gap 71, `68e1fec`); `RADIANT_GUI_Architecture.md` → DESIGN TARGET, the <100 ms incremental-DAG contract marked DECLINED (owner-ratified) and dot-paths flagged illustrative (`c5a77e6`); `RADIANT_Source_Target_System.md` → DESIGN TARGET, ResolvedTarget noted exported-but-unwired (CU-084) (`c5a77e6`); `RADIANT_Optics.md` §3.1/3.4/3.5 → apodization/PupilDescription/non-circular apertures marked deferred/not-in-schema (`c5a77e6`); `RADIANT_Spatial_Complete.md` → scan/target-motion smear cascade steps marked NOT IMPLEMENTED (`c5a77e6`). Anyone speccing the GUI now sees the design-vs-shipped boundary explicitly; the doc-refresh precedes GUI kickoff as required. The GUI arch dot-path refresh against shipped `_schema.py` (item 12's second half) is subsumed: the banner directs readers to `Sensor.parameter_defs()` rather than transcribing dot-paths.
 
@@ -2038,7 +2066,7 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 
 **Discovered**: Option C Stage 2 (2026-04-19); escalated to `docs/reports/cu_tasks/CU-008_GroundBackground_Spectral_Task.md`. **Resolution**: task-doc Approach 1, adapted — the placeholder is replaced by a spectral ε_g(λ) surface: `source.background.emissivity_path` (CSV, wins) → `source.background.material` (named `radiant.data.SpectralLibrary` entry — the existing 19-material library supersedes the task doc's envisioned 3-entry YAML, Rule 27) → scalar grey back-compat (default, exact pre-CU-008 behavior, placeholder warning removed). Resolution happens in the API layer pre-chain (Rule 6) and injects via `stage_outputs["source_config"]["background_emissivity"]`; the inferrer resamples with a [0,1] validity check. Task-doc anchors A1–A6 covered; stop triggers held (all 14 baselines + Cells 28/58 bit-invariant, 1033 tests).
 
-### CU-003 — Pre-existing MTF tolerance warning on `swir_aerial_gas.yaml` — RESOLVED 2026-07-10 (commit `2d5da44`, investigation option a)
+### CU-003 — Pre-existing MTF tolerance warning on `swir_aerial_gas.yaml` — RESOLVED 2026-07-10 (commit `2d5da44`)
 
 **Discovered**: Option C era (2026-04); investigation completed 2026-07-07 with a three-way owner decision. **Resolution** (owner-directed close-the-backlog directive, Backlog_Closure_Plan Wave 2): option (a) — the pixel-aperture rect kernel is sampled by exact area overlap (anti-aliased edges) instead of a binary mask. Options (b) band-limited kernel and (c) sinc-envelope on the analytic reference were rejected for trading away PSF nonnegativity and path independence respectively. Measured: FFT-vs-analytic-sinc at Nyquist 4.5e-2 → 3.6e-3 (13×, the irreducible sinc(πfΔ) bin-average floor of any nonnegative sampled kernel); worst full-chain dual-path residual 5.8e-2 → 9.5e-3. Option-C MTF@Nyquist anchors repinned with provenance (+5.6%/+7.9% — the binary kernel over-blurred); radiometric goldens unaffected. `swir_aerial_gas`-class configs no longer warn.
 
@@ -2046,7 +2074,7 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 
 **Discovered**: architecture audit 2026-07-06; blocked on CU-003. **Resolution**: with CU-003 landed, the default tolerance is tightened 5e-2 → 2e-2 (~2× margin over the worst measured full-chain residual, 9.5e-3 at undersampled Q ≈ 0.2 VNIR). Gating decision: the check **stays warn-only by design** — it is a diagnostic invariant guarding the build, and raising would abort user runs whose physics is otherwise valid; the loud `UserWarning` plus the `dual_path_consistency` stage output remain the surfaced contract. Decision recorded in `consistency_check.py`, CLAUDE.md Rule 4, and RADIANT_Spatial_Complete.md. Full corpus passes under the tightened tolerance (784 tests).
 
-### CU-005 — `theta_o_from_eta` boundary converter is unwired — RESOLVED 2026-07-09 (commit `c8a6f70`, resolution option b)
+### CU-005 — `theta_o_from_eta` boundary converter is unwired — RESOLVED 2026-07-09 (commit `c8a6f70`)
 
 **Discovered**: Option C Stage 1 (2026-04-19); unblocked when CU-009 landed (`d846f07`). **Resolution** (owner-directed, Backlog_Closure_Plan Wave 1): option (b) — the η-input surface (`geometry.sensor_off_nadir_rad` routed through `theta_o_from_eta`, with a precedence rule against `geometry.path_zenith_rad`) is **deliberately deferred behind the SensorDescriptor ADR** rather than adding a second, redundant way to specify the same look geometry today. Users supply the target-side zenith directly via the canonical `geometry.path_zenith_rad` (CU-009). The decision is recorded in the `core/los_geometry.py` module docstring; the converter remains tested (`core/tests/test_los_geometry.py`) and reserved for the SensorDescriptor follow-on. **Addendum 2026-07-12**: the reserved follow-on shipped — ADR-0006's GeometryStage wires `theta_o_from_eta` as input mode V2 (`geometry.sensor_off_nadir_rad`, commit `664fd08`), with the redundancy rule against `path_zenith_rad` enforced by provenance-based mode resolution.
 
@@ -2089,7 +2117,7 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 **Suggested fix**: stand-alone task — either populate `in_band_value` for all frames at spectral-integration time or document/enforce that `in_band_value` is only defined post-integration and make `signal_at`'s derivation explicit in its docstring. Effort S; category B.
 **Resolution**: taken as the CU's document/enforce option — the populate option is architecturally forbidden (RadiometricFrame enforces spectral XOR scalar per Rule 8, so pre-integration frames are spectral-only by design). Contract made explicit in RadiometricFrame docs, signal_at() docstring, and a Scripting API §3.2 callout; pinned by integration test `test_pre_integration_frame_scalar_is_none_but_signal_at_derives`.
 
-### CU-023 — Phase-10 arc trace `name` duplicated across line + label sub-traces — RESOLVED 2026-07-06 (obsolete; commit `3acac3a`)
+### CU-023 — Phase-10 arc trace `name` duplicated across line + label sub-traces — RESOLVED 2026-07-06 (commit `3acac3a`)
 
 **Discovered**: Geometry GUI Phase 10 (2026-04-26)
 
@@ -2172,21 +2200,20 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 
 Resolved by removing the fixture (`src/radiant/atmosphere/tests/test_evaluate.py` lines 119-136), its self-test (`test_shadow_mode_off_fixture_sets_env`), the docstring sentence referencing it, and the now-unused `os` and `Iterator` imports. Kept `test_shadow_mode_symbol_is_gone` — that's a real guard against reintroducing `_shadow_mode_enabled` and remains valuable. Verified pytest 2797/2797 passing (was 2798 pre-removal — one self-test deleted), ruff lint+format clean, mypy --strict clean (53 files), lint-imports 5/5 contracts kept. Initial CU-022 draft also flagged `tests/integration/snapshots/option_c_baseline.yaml` as orphaned but that was wrong: the YAML is the scenario index for `src/radiant/source/tests/test_inferrer.py:49` (`SNAPSHOT_YAML = ...`) and is regenerated by `scripts/capture_option_c_baseline.py`. The YAML's per-cell `classification` field is unused but the file itself is live infrastructure — left in place.
 
-### CU-012 — Shadow-mode classification injection not wired — RESOLVED 2026-04-26 (Stage 4 commit `3680a54`)
+### CU-012 — Shadow-mode classification injection not wired — RESOLVED 2026-04-26 (commit `3680a54`)
 
 Closed by reference to the Stage 4 architectural decision, not by new code. Investigation 2026-04-26 found that Stage 4 (commit `3680a54`, 2026-04-20) deliberately removed the entire shadow-mode mechanism — `_shadow_compare()`, `_SHADOW_ENV_VAR`, `_SHADOW_RTOL`, `_shadow_mode_enabled()`, the dual-path execution in `AtmosphereStage.run()`, and the legacy `build_state()` protocol method are all gone. Per-scenario invariant assertion was not "silently dropped" — it was deliberately superseded. Post-Stage-4 regression gating is narrowed to **two anchor cells (28 and 58)** with hardcoded pinned values in `tests/integration/test_option_c_anchors.py::CELL28_PINNED` and `CELL58_PINNED` (rtol=1e-6, `ANCHOR_TOLERANCE` line 69). The 14-scenario `option_c_baseline.yaml` survives as an orphaned historical artifact (zero consumers — filed as **CU-022**). The post-Stage-6 narrowing is documented in `docs/archive/Option_C_Implementation_Plan.md` lines 31–53 (Regression Invariants section); the doc already carries a top-of-file HISTORICAL banner directing readers to `RADIANT_Master_Architecture.md` for current architecture.
 
-### CU-013 — Shadow-mode `rtol=1e-6` may be too tight for Stage 6 heterogeneous cells — RESOLVED 2026-04-26 (Stage 4 commit `3680a54`)
+### CU-013 — Shadow-mode `rtol=1e-6` may be too tight for Stage 6 heterogeneous cells — RESOLVED 2026-04-26 (commit `3680a54`)
 
 Closed alongside CU-012, same root cause. The `_SHADOW_RTOL` constant returned zero grep hits because Stage 4 (commit `3680a54`) deleted it along with the rest of the shadow-mode machinery. The Stage-6-tolerance concern is therefore moot — there is no post-Stage-6 tolerance value to recover because the per-scenario heterogeneous-cell comparison no longer runs. The `ANCHOR_TOLERANCE = 1e-6` in `tests/integration/test_option_c_anchors.py:69` survives unchanged because Cells 28 and 58 are both T1Thermal with ρ≡0, making them bit-invariant across Stage 6's `ρ · (E_sky_scattered + E_sky_thermal)` decomposition (`Option_C_Implementation_Plan.md:51`). No tolerance loosening occurred; the assertion scope shrank from "all invariant cells" to "two anchor cells."
 
 
-
-### CU-021 — Repo-wide `ruff format` drift (160 files) — RESOLVED 2026-04-26 (commit `1c1c6b7` + CI follow-up `87dfccc`)
+### CU-021 — Repo-wide `ruff format` drift (160 files) — RESOLVED 2026-04-26 (commits `1c1c6b7`, `87dfccc`)
 
 Resolved by two commits: (1) `1c1c6b7` ran `ruff format src/` repo-wide, reformatting 160 of 346 files (+2227/-2420 lines, format-only diff with no logic changes), verified by pytest 2798/2798 passing, mypy --strict clean (53 files), lint-imports 5/5 contracts kept, ruff check + ruff format --check both clean post-pass; (2) `87dfccc` added `ruff format --check src/` to the `static` job in `.github/workflows/ci.yml` so formatting drift is now gated alongside ruff lint, mypy --strict, and import-linter. CLAUDE.md "Code Style" requirement (ruff format, line length 100) is now enforceable in CI, completing the gap left by CU-020 slice 5.
 
-### CU-020 — Pytest level0/1/2/golden marker sweep + CI gating — RESOLVED 2026-04-26 (slice 5 commit `f0c2aed`)
+### CU-020 — Pytest level0/1/2/golden marker sweep + CI gating — RESOLVED 2026-04-26 (commit `f0c2aed`)
 
 Resolved across 5 slices: 1=`4f403c9` (`core/tests/`, 335 level0 + 34 level1), 2=`e18ace1` (`source/` + `atmosphere/tests/`, 318 level0 + 344 level1 + 3 level2), 3=`1925237` (`optics/`/`platform/`/`spectral_integration/`/`detector/`/`readout/`/`performance/tests/`, 612 level0 + 440 level1), 4=`6fedb03` (`io/`/`cli/tests/` + top-level `tests/`, 38 level0 + 82 level1 + 399 level2 + 10 golden), 4b=`4d288d7` (`api/tests/` + `data/tests/` + `source/converters/tests/`, 160 level1 + 19 level2), 5=`f0c2aed` (`.github/workflows/ci.yml` with four jobs: `static`, `fast-tests`, `integration-tests` gated on fast-tests, and `golden` on push-to-main + workflow_dispatch only). `--strict-markers` landed in `addopts` at commit `b021d38`. Final marker coverage: 2798/2798 (1307 level0 + 1060 level1 + 421 level2 + 10 golden); zero unmarked. `ruff format --check` deliberately omitted from CI — repo-wide format drift (160 files) filed as CU-021 for stand-alone fix. Two test files (`platform/tests/test_stage_mtf_term.py`, `performance/tests/test_consistency_check.py`) and one (`api/tests/test_performance.py`) needed an `import pytest` line added alongside the markers. Three slice-2 tests run a full `RadiantSession` and were marked level2 rather than level1; 19 slice-4b api/data tests likewise. Closes Testing_Validation §3 gap that previously left `pytest -m "not level0"` silently skipping un-marked Level-0 tests, making R18 ("Test at Level 0 Before Level 2") unenforceable.
 

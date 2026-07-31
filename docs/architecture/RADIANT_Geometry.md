@@ -126,6 +126,24 @@ display labels). The manifest is hand-maintained next to the resolvers;
 resolver behaviour and the `mode_entry` / `solar_site` schema tags, so it
 cannot drift silently.
 
+Coverage runs the other way too: every `geometry.*` schema parameter must be
+either a manifest door or explicitly *not* one. The three categories are
+
+| Category | Marker | In the manifest? |
+|----------|--------|------------------|
+| non-default door | `mode_entry` tag | yes |
+| default door / family anchor | no tag | yes |
+| not a door at all | **`non_mode` tag** | no |
+
+so a new `geometry.*` parameter that is neither added to the manifest nor
+tagged `non_mode` fails the coverage test. `non_mode` carries
+`geometry.scene_class` (an assertion validated against the derivation, ADR-0011
+decision 8) and `geometry.site_elevation_m` (a standalone scene fact feeding the
+turbulence profile, CU-262). The tag is the single home for that set: the GUI's
+twin coverage test in `gui/tests/test_geometry_screen.py` reads it off
+`Sensor.parameter_defs()` rather than restating it, so a schema change cannot
+satisfy one test tree and break the other (CU-309).
+
 ## 3. Published Contract — `stage_outputs["geometry"]`
 
 | Key | Type | Meaning |

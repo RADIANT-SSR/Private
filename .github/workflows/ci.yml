@@ -59,6 +59,14 @@ jobs:
         run: pytest -m level0 --strict-markers -q
       - name: pytest level1 (module composition)
         run: pytest -m level1 --strict-markers -q
+      - name: pytest scripts/ (synthetic-MODTRAN tooling)
+        # CU-272 put this in the merge-gate battery; it was never mirrored here,
+        # so the tooling that generates the interpolated libraries had no CI
+        # cover. `scripts/` is outside `testpaths`, so it needs naming
+        # explicitly. The bare form works as of CU-280 (repo root on pytest's
+        # `pythonpath`); deck-dependent tests skip when the generated tape7 set
+        # is absent, which it is on a fresh runner.
+        run: pytest scripts/ -q
 
   integration-tests:
     name: Integration tests (level2)

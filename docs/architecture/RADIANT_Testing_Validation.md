@@ -396,7 +396,7 @@ Three things about it are load-bearing:
 - **`PYTHONPATH=./src` is required inside a `git worktree`.** The emitter imports `radiant`,
   and the editable install's `.pth` pins that to whichever checkout ran `pip install -e .` —
   normally the primary tree. Without it you regenerate baselines against *unfixed* library
-  code and the diff looks clean. (`pytest` is immune: `pythonpath = ["src"]` in
+  code and the diff looks clean. (`pytest` is immune: `pythonpath = ["src", "."]` in
   `pyproject.toml` is rootdir-relative. `ruff` and `mypy` take explicit paths. `lint-imports`
   is **not** immune — it resolves `radiant` by import, so it needs the same prefix.)
 - **The emitter repoints generated inputs at their committed counterparts** and raises

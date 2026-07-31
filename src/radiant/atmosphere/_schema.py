@@ -7,6 +7,7 @@ plus the interpolated model and viewing geometry parameters.
 from __future__ import annotations
 
 from radiant.atmosphere._modtran_paths import default_modtran_binary_str
+from radiant.atmosphere.interpolation_coverage import shipped_family_catalogue_text
 from radiant.core.parameters import ParameterDef
 
 # ---------------------------------------------------------------------------
@@ -390,12 +391,16 @@ INTERPOLATED_DATA_DIR = ParameterDef(
     description=(
         "Directory containing pre-computed atmosphere runs (NPZ files) "
         "at discrete geometry points for the interpolated model. Empty "
-        "(the default) uses the bundled atmosphere library family "
-        "matching atmosphere.interpolation_axes: 'path_zenith_rad' → "
-        "us_standard_zenith_fan (LOS zenith 0–60°), "
-        "'sensor_altitude_m,target_altitude_m' → midlat_summer_ladders "
-        "(35 km–GEO × 0–29 km). Other axes combinations require an "
-        "explicit directory."
+        "(the default) uses the bundled atmosphere library family matching "
+        "the scene's line-of-sight direction and atmosphere.interpolation_axes: "
+        # CU-297: rendered from the SHIPPED_FAMILIES catalogue, which is the one
+        # authority for the (direction, axes) → family mapping (CU-239). Hand-
+        # enumerating it here under-reported the shipped set by three families.
+        # Pure data, evaluated once at import — no file I/O (Rule 6).
+        f"{shipped_family_catalogue_text()}. "
+        "Any other (direction, axes) combination requires an explicit "
+        "directory. Per-family coverage limits and the MODTRAN profile each was "
+        "rendered with: radiant.api.shipped_atmosphere_families()."
     ),
     dtype=str,
     canonical_unit="",

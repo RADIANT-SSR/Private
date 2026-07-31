@@ -16,7 +16,7 @@
 | `guides/` | User-facing how-to (published on mkdocs site) | Living | — |
 | `theory/` | Physics background (published) | Living | — |
 | `validation/` | Truth anchors, hand calculations, SHA-pinned baselines that current tests reference | Living | — |
-| `tracking/` | **The work board.** Exactly two files: `Cleanup_Backlog.md` (all actionable debt, CU-numbered) and `gaps.md` (library capability gaps) | Living — the most-edited files in docs/ | **Exactly two files, forever.** A third tracking file is a rule violation (Rule 25) |
+| `tracking/` | **The work board.** Exactly three files: `Cleanup_Backlog.md` (CU-grade debt, CU-numbered), `gaps.md` (library capability gaps), and `Findings_Log.md` (sub-CU findings, one line each — Rule 21 tier 2, added 2026-07-31) | Living — the most-edited files in docs/ | **Exactly three files, forever.** A fourth tracking file is a rule violation (Rule 25) |
 | `plans/` | Plans for work **not yet finished**. Status header mandatory | Living while active | **`plans/` empty ⇒ nothing is in flight.** That invariant is the point |
 | `reports/` | Completed point-in-time records: audits, task reports, remediation records | **Immutable** — corrections are new documents | One folder per audit: `<topic>_<YYYY-MM>/` |
 | `archive/` | Documents that once claimed to be current and no longer are. Flat, no subfolders. Every file carries a HISTORICAL banner with date + superseded-by | Frozen | — |
@@ -24,7 +24,7 @@
 
 **Repo root is a closed list too:** `README.md`, `DEVELOPMENT.md`, `CHANGELOG.md`, `CLAUDE.md`, `pyproject.toml`, `MANIFEST.in`, `mkdocs.yml`, `.gitignore`, `.gitattributes`, `.pre-commit-config.yaml` (plus `LICENSE` if one is added). `MANIFEST.in` is the setuptools sdist manifest that ships the bundled reference-data tree (`src/radiant/data/tables/`) into the distribution. Root-level `README`/`DEVELOPMENT`/`CHANGELOG` follow ecosystem convention — they are the files a newcomer looks for before knowing the taxonomy exists. `CHANGELOG.md` (added 2026-07-07) is the Rule-29 record of behavior-affecting changes: living, append-at-top, Keep-a-Changelog format; it complements the tracking registries, which remain the work board. Any other root file needs a row added here first.
 
-**Enforcement:** `scripts/check_org_rules.py` mechanically checks the closed lists, the two-file `tracking/` rule, the no-PM-docs-in-packages rule, §5.3 prohibited names, registry-ID uniqueness, the ancestry of every commit SHA the registries cite (§2, Rule 22), the canonical form of every Resolved backlog heading (CU-282), and the presence of a commit link on every gap marked closed (CU-281). It runs in the CI `static` job; a violation fails the build. (Per CLAUDE.md's final forbidden action, a normative claim with no enforcing check is aspirational drift — this file is normative *because* that script runs.)
+**Enforcement:** `scripts/check_org_rules.py` mechanically checks the closed lists, the three-file `tracking/` rule, the no-PM-docs-in-packages rule, §5.3 prohibited names, registry-ID uniqueness, the ancestry of every commit SHA the registries cite (§2, Rule 22), the canonical form of every Resolved backlog heading (CU-282), the existence of a `CU-Closes` trailer commit for every trailer-closed entry (Rule 22, 2026-07-31), and the presence of a commit link on every gap marked closed (CU-281). It runs in the CI `static` job; a violation fails the build. (Per CLAUDE.md's final forbidden action, a normative claim with no enforcing check is aspirational drift — this file is normative *because* that script runs.)
 
 ## 2. Lifecycle Flows — what moves where, and when
 
@@ -39,7 +39,12 @@ SPEC          → architecture/     stays, updated w/ code   → archive/  (when
 ADR           → adr/ (Proposed)   → Accepted, frozen       → never moves (superseded by new ADR)
 PLAN          → plans/ (Draft)    → Active                 → archive/  (in the PR that finishes it)
 AUDIT/REPORT  → reports/<t_YYYY-MM>/  immutable            → NEVER moves. reports/ is its grave and its home
-CU (debt)     → tracking/Cleanup_Backlog.md ## Open        → ## Resolved w/ commit SHA (Rule 22)
+CU (debt)     → tracking/Cleanup_Backlog.md ## Open        → ## Resolved w/ closure record (Rule 22:
+                                                             CU-Closes trailer, SHA, or a ruling —
+                                                             ACCEPTED / DECLINED / FOLDED / DEMOTED)
+FINDING (sub-CU) → tracking/Findings_Log.md (one line)     → promoted to a CU, struck when fixed
+                                                             in passing, or expired at the
+                                                             quarterly sweep
 GAP           → tracking/gaps.md (open)                    → marked closed in place w/ commit SHA
 ```
 
@@ -50,7 +55,9 @@ GAP           → tracking/gaps.md (open)                    → marked closed i
 - *What if a spec becomes aspirational (describes unbuilt machinery)?* It stays in `architecture/` with a **DEFERRED** banner at top (e.g., Plugins, GUI). It moves to `archive/` only if the capability is cancelled.
 - *Can I edit a report to fix an error?* No. Write a short correction doc in the same `reports/` folder referencing the original.
 - *What makes a closure SHA valid?* It must be an **ancestor of `HEAD`** — `scripts/check_org_rules.py` resolves every backticked hash in both registries and fails the gate on any that is not (CU-279: four cited hashes were real objects that no longer sat on `main`, pre-rebase/pre-amend twins that `git cat-file` happily resolved). This is why a closure SHA is stamped **after** the merge lands rather than written and then `--amend`ed: the amend rewrites the hash and the entry is stale the instant it is saved. A hash that is *deliberately* off-`main` — a cherry-pick source cited for provenance, or an audit quoting a dead hash as its own evidence — is written `` `452cccd` (not on main) ``; the marker is the escape hatch, and it lives next to the claim so a reader learns the hash is unverifiable where they meet it.
-- *Where does the closure record go, exactly?* For a **CU**, in the entry's heading: `### CU-NNN — <title> — <DISPOSITION> <YYYY-MM-DD> (commit `sha`)`, disposition one of RESOLVED / CLOSED / DECLINED / SUPERSEDED, with `no commit — <reason>` when there genuinely is none. Nuance goes in the `**Status**:` line, not the heading — the heading is the machine-readable index (check 8, CU-282; the canonical block lives in the registry header). For a **gap**, in the entry table, marked closed in place with a backticked SHA anywhere in the entry (check 9, CU-281). Both checks carry a **frozen** grandfather list of pre-convention entries — 7 CUs and 64 of the 84 closed gaps, which is the size of the hole those checks were filed to expose. Neither list may grow.
+- *Where does the closure record go, exactly?* For a **CU**, in the entry's heading: `### CU-NNN — <title> — <DISPOSITION> <YYYY-MM-DD> (<clause>)`, disposition one of RESOLVED / CLOSED / DECLINED / SUPERSEDED / ACCEPTED / FOLDED / DEMOTED. The clause is `commit trailer` (the closing commit carries a `CU-Closes: NNN` message trailer — the canonical form since 2026-07-31, verified by check 10), or the legacy `` commit `sha` `` (mandatory for pre-2026-07-31 entries, frozen), or `no commit — <reason>` for ruling-backed closures (ACCEPTED writes `no commit — limitation: <one line>`; FOLDED writes `no commit — folded into CU-NNN`; DEMOTED writes `no commit — demoted to Findings Log`). Nuance goes in the `**Status**:` line, not the heading — the heading is the machine-readable index (check 8, CU-282; the canonical block lives in the registry header). For a **gap**, in the entry table, marked closed in place with a backticked SHA anywhere in the entry (check 9, CU-281). Both checks carry a **frozen** grandfather list of pre-convention entries — 7 CUs and 64 of the 84 closed gaps, which is the size of the hole those checks were filed to expose. Neither list may grow.
+- *Why the trailer instead of a stamped SHA?* A heading cannot embed the hash of the commit that edits it, which is what forced the old stub → fix → closure → post-merge-stamp cycle (three to five commits per closure). A `CU-Closes: NNN` trailer names the CU from inside the closing commit, so git itself is the closure ledger (`git log --grep "CU-Closes"`), one commit closes a CU, and a commit cannot mislabel its own hash — the entire wrong-SHA failure class disappears going forward.
+- *When is a finding a CU and when is it a log line?* Rule 21's four intake tests: results-affecting, owner-gated, blocking, or workflow-visible → CU. Everything else → one appended line in `Findings_Log.md`. The tiebreaker: "would the owner schedule work for this?"
 - *Are process instructions and content catalogs architecture docs?* No. `architecture/` holds normative claims about the **system**; how-to process rulebooks and content catalogs are `guides/` (lowercase_snake, mkdocs-published). Ruled 2026-07-07 when `RADIANT_Scenario_Testing_Instructions.md` → `guides/scenario_testing.md` and `expanded_scenarios.md` → `guides/scenario_catalog.md`. (`RADIANT_Testing_Validation.md` stays in `architecture/` — it defines the system's validation contract, not a workflow.)
 
 ## 3. Work Tracking Without JIRA
@@ -63,7 +70,7 @@ The repo is the tracker. Three views replace a board:
 | **In progress** | `docs/plans/` — every file in it is an in-flight effort; small CUs in progress are just a branch |
 | **Done** | `Cleanup_Backlog.md` → `## Resolved` (with commit SHA) + `reports/` |
 
-**Intake rule (one door):** anything actionable — bug, debt, doc drift, missing feature, audit finding — enters as a **CU entry** in `Cleanup_Backlog.md` (Rule 21 fields). Nothing is tracked in chat logs, memory, TODO comments, or side files.
+**Intake rule (one door, two tiers):** anything actionable — bug, debt, doc drift, missing feature, audit finding — enters through Rule 21's intake test: a **CU entry** in `Cleanup_Backlog.md` (Rule 21 fields) if it is results-affecting, owner-gated, blocking, or workflow-visible; a **one-line entry** in `Findings_Log.md` otherwise. Nothing is tracked in chat logs, memory, TODO comments, or side files.
 
 **Sizing rule:** a CU that is one PR of work needs nothing else. A CU that needs multiple PRs or design gets a plan doc in `plans/` that references the CU(s) — the plan is the "epic," the CUs are the "tickets."
 
@@ -71,8 +78,8 @@ The repo is the tracker. Three views replace a board:
 1. **Pick** — take a CU from `## Open` (or charter an audit per Rule 28).
 2. **Branch** — one branch per CU or per plan phase.
 3. **Do** — code + tests + lock-step doc updates (Rule 20).
-4. **File** — any *new* latent issue found along the way → new CU before the PR merges (Rule 21).
-5. **Close** — move the CU to `## Resolved` with SHA + date (Rule 22); if this PR finished a plan, `git mv` it to `archive/` now (Rule 24).
+4. **File** — any *new* latent issue found along the way → recorded before the PR merges (Rule 21): a CU if it passes the intake test, a `Findings_Log.md` line otherwise.
+5. **Close** — move the CU to `## Resolved` with date + closure record in the same commit as the fix, with a `CU-Closes: NNN` trailer in its message (Rule 22); if this PR finished a plan, `git mv` it to `archive/` now (Rule 24).
 6. **Sweep** — run the hygiene checklist (§4) as part of the PR.
 
 ## 4. PR Hygiene Checklist
@@ -82,7 +89,7 @@ Every PR description ends with this six-line checklist (copy-paste; it belongs i
 ```
 - [ ] Placement & naming: every new/moved file is in its Rule-23 home and follows §5 naming (no PM docs in packages, nothing new at docs/ top level, no status/version words in filenames)
 - [ ] Lifecycle: no doc in plans/ or architecture/ has an expired claim (completed plan still live, ✅ banner in live tree)
-- [ ] Registry: new findings are CUs in tracking/Cleanup_Backlog.md — not a new tracking file
+- [ ] Registry: new findings are recorded per Rule 21 (CU in tracking/Cleanup_Backlog.md, or a Findings_Log.md line) — not a new tracking file
 - [ ] Artifacts: committed binaries are (a) test-asserted goldens or (b) doc-referenced figures, with generator named; superseded sets deleted
 - [ ] Docs lock-step: touched public surface ⇒ matching RADIANT_*.md updated in this PR (Rule 20)
 - [ ] Changelog: results-affecting or public-surface change ⇒ entry under CHANGELOG.md [Unreleased] in this PR (Rule 29)
@@ -111,7 +118,7 @@ Source code naming is governed by CLAUDE.md / PEP 8 and is out of scope here. Ev
 | Audit/report folder | `<topic>_<YYYY-MM>/` | `reports/organization_audit_2026-07/` |
 | Files inside an audit folder | Role names: `Audit_Plan.md`, `Findings*.md`, `Recommendation.md`; corrections dated `<YYYY-MM-DD>_<slug>.md` | `reports/architecture_audit_2026-04/Recommendation.md` |
 | CU task brief | `CU-NNN_<Slug>_Task.md` | `reports/cu_tasks/CU-009_Observer_Geometry_Schema_Task.md` |
-| Tracking registry | Frozen names: `Cleanup_Backlog.md`, `gaps.md` — no others, no renames | `tracking/Cleanup_Backlog.md` |
+| Tracking registry | Frozen names: `Cleanup_Backlog.md`, `gaps.md`, `Findings_Log.md` — no others, no renames | `tracking/Cleanup_Backlog.md` |
 | Changelog | Frozen name `CHANGELOG.md`, repo root only, Keep-a-Changelog headings (Rule 29) | `CHANGELOG.md` |
 | Guide / theory doc | `lowercase_snake.md` | `guides/regime_selection.md` |
 | Archived file | Original name unchanged + HISTORICAL banner (date, superseded-by) | `archive/Option_C_Implementation_Plan.md` |

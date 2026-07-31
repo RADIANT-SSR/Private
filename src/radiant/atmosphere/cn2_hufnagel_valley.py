@@ -32,6 +32,20 @@ default 0), and $C_n^2$ in **m^(-2/3)**.  The three terms are, in order:
 $\theta_0 = 7$ µrad it produces at 0.5 µm for a vertical path — is
 ``w = 21`` m/s, ``A = 1.7 \times 10^{-14}`` m^(-2/3).
 
+Choosing ``A`` for your site
+----------------------------
+The HV-5/7 default ``A`` is a near-sea-level **daytime** ground strength.  With
+the surface term site-referenced (CU-262), carrying it unchanged to an elevated
+site models a full sea-level-strength boundary layer there — ~1.94 arcsec
+seeing at a 900 m site, right for the model, wrong for a good observatory.
+``A`` is a site-quality parameter: set it from measured seeing (solve the
+``r0_path`` integral for the ``A`` that reproduces the site median).  Worked
+anchor: ``A = 2.70e-15`` m^(-2/3) reproduces Paranal's 0.80 arcsec median at
+2635 m.  **Do not** use the pre-CU-262 workaround of absorbing elevation into
+an adjusted ``A`` — with ``geometry.site_elevation_m`` set it now double-counts
+the site correction; re-derive ``A`` honestly instead.  Guidance also in
+``RADIANT_Atmosphere.md`` §7.1.
+
 References
 ----------
 - L. C. Andrews and R. L. Phillips, *Laser Beam Propagation through Random

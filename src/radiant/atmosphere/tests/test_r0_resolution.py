@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 
 from radiant.atmosphere.cn2_hufnagel_valley import HufnagelValleyCn2
+from radiant.atmosphere.cn2_profiles import warn_if_site_elevation_inert
 from radiant.atmosphere.cn2_tabulated import TabulatedCn2Profile
 from radiant.atmosphere.errors import TurbulenceSpecificationError
 from radiant.atmosphere.r0_resolution import resolve_fried_parameter
@@ -338,7 +339,7 @@ class TestSiteElevationWiring:
     @pytest.mark.level0
     def test_tabulated_profile_is_not_shifted_by_the_site(self) -> None:
         """A measured table already carries its own site; the parameter is
-        HV-only by design."""
+        HV-only by design — and CU-302 makes that inertness audible."""
         h = np.linspace(0.0, 30.0e3, 3001)
         table = TabulatedCn2Profile(altitude_m=h, cn2_m23=HufnagelValleyCn2().cn2(h), label="hv")
         plain = resolve_fried_parameter(
@@ -347,12 +348,70 @@ class TestSiteElevationWiring:
             GRID,
             tabulated_profile=table,
         )
-        elevated = resolve_fried_parameter(
-            self._params_with_geometry(
-                **{"atmosphere.cn2_profile": "tabulated", "geometry.site_elevation_m": 900.0}
-            ),
-            GROUND_TO_SPACE,
-            GRID,
-            tabulated_profile=table,
-        )
+        with pytest.warns(UserWarning, match="has no effect on this run"):
+            elevated = resolve_fried_parameter(
+                self._params_with_geometry(
+                    **{"atmosphere.cn2_profile": "tabulated", "geometry.site_elevation_m": 900.0}
+                ),
+                GROUND_TO_SPACE,
+                GRID,
+                tabulated_profile=table,
+            )
         assert elevated.r0_m == plain.r0_m
+
+
+class TestSiteElevationInertWarning:
+    """CU-302 — a site elevation that cannot reach the selected profile warns."""
+
+    @pytest.mark.level0
+    def test_direct_profile_warns_and_names_the_reason(self) -> None:
+        params = TestSiteElevationWiring._params_with_geometry(
+            **{
+                "atmosphere.cn2_profile": "direct",
+                "atmosphere.r0_m": 0.10,  # m
+                "geometry.site_elevation_m": 2635.0,  # m MSL
+            }
+        )
+        with pytest.warns(UserWarning) as record:
+            res = resolve_fried_parameter(params, GROUND_TO_SPACE, GRID)
+        text = "\n".join(str(w.message) for w in record)
+        assert "2635 m MSL has no effect" in text
+        assert "no Cn² profile at all" in text
+        assert "hufnagel_valley" in text
+        assert res.r0_m == pytest.approx(0.10, abs=1e-12)  # m — unchanged
+
+    @pytest.mark.level0
+    def test_tabulated_profile_warns_about_the_table_carrying_its_own_site(self) -> None:
+        h = np.linspace(0.0, 30.0e3, 3001)
+        table = TabulatedCn2Profile(altitude_m=h, cn2_m23=HufnagelValleyCn2().cn2(h), label="hv")
+        params = TestSiteElevationWiring._params_with_geometry(
+            **{"atmosphere.cn2_profile": "tabulated", "geometry.site_elevation_m": 2635.0}
+        )
+        with pytest.warns(UserWarning) as record:
+            resolve_fried_parameter(params, GROUND_TO_SPACE, GRID, tabulated_profile=table)
+        text = "\n".join(str(w.message) for w in record)
+        assert "2635 m MSL has no effect" in text
+        assert "carries its own altitudes" in text
+
+    @pytest.mark.level0
+    def test_hufnagel_valley_does_not_warn(self) -> None:
+        """The one consumer of the parameter must stay silent."""
+        params = TestSiteElevationWiring._params_with_geometry(
+            **{"atmosphere.cn2_profile": "hufnagel_valley", "geometry.site_elevation_m": 900.0}
+        )
+        los = LineOfSightGeometry(h_tgt=800.0e3, h_sensor=900.0, theta_o=math.pi)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            resolve_fried_parameter(params, los, GRID)
+        assert [
+            str(w.message) for w in caught if "has no effect on this run" in str(w.message)
+        ] == []
+
+    @pytest.mark.level0
+    @pytest.mark.parametrize("profile", ["direct", "tabulated", "hufnagel_valley"])
+    def test_sea_level_site_never_warns(self, profile: str) -> None:
+        """The schema default (0 m MSL) is 'not declared', not 'declared and ignored'."""
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            warn_if_site_elevation_inert(profile, 0.0)
+        assert caught == []

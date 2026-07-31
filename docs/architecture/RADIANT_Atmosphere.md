@@ -940,7 +940,7 @@ Parameter types, defaults, units, and bounds are the canonical [Parameter Refere
 - `atmosphere.r0_m` — Fried parameter [m] entered directly. Default 0 = turbulence off. Quoted at the scene's band-centre wavelength.
 - `atmosphere.cn2_profile` — `direct` (default, use `r0_m` verbatim), `hufnagel_valley`, or `tabulated`. Selecting a profile makes $r_0$ a derived quantity (§7.1).
 - `atmosphere.cn2_hv_wind_rms_m_s`, `atmosphere.cn2_hv_ground_strength` — the two HV coefficients $w$ and $A$; the defaults are HV-5/7.
-- `geometry.site_elevation_m` — the terrain elevation the HV **surface term** is referenced to (CU-262, §7.1 "Site elevation"). Default 0 = sea level. Owned by the geometry schema because it is a scene-geometry fact, not a turbulence coefficient; consumed today only by the `hufnagel_valley` profile.
+- `geometry.site_elevation_m` — the terrain elevation the HV **surface term** is referenced to (CU-262, §7.1 "Site elevation"). Default 0 = sea level. Owned by the geometry schema because it is a scene-geometry fact, not a turbulence coefficient; consumed today only by the `hufnagel_valley` profile. A non-zero value set against any other `cn2_profile` is **inert, and says so** — `cn2_profiles.warn_if_site_elevation_inert` raises a `UserWarning` naming why the input cannot reach that profile and what to do instead (CU-302, Rule 17).
 - `atmosphere.cn2_tabulated_file` — two-column `altitude_m,cn2_m^-2/3` CSV, read pre-chain (Rule 6) by `loaders.build_cn2_profile` and injected at `stage_outputs["atmosphere_config"]["cn2_profile"]`.
 - `atmosphere.turbulence_wave_type` — `plane` (default) or `spherical` path weighting (§7.1).
 
@@ -981,7 +981,7 @@ $$r_0 = \left[\,0.423\,k^2 \sec\zeta \int_{h_{low}}^{h_{high}} C_n^2(h)\,W(h)\,\
 **Profiles** (`atmosphere/cn2_profiles.py` is the contract; one implementation per module, Rule 19):
 
 - `hufnagel_valley` (`cn2_hufnagel_valley.py`) — the three-term HV form parameterized by the RMS upper-atmosphere wind $w$ and ground strength $A$; the schema defaults are HV-5/7 ($w = 21$ m/s, $A = 1.7\times10^{-14}$ m$^{-2/3}$), which reproduce the published $r_0 = 5$ cm and $\theta_0 = 7$ µrad at 0.5 µm for a vertical path.
-- `tabulated` (`cn2_tabulated.py`) — a measured (altitude, $C_n^2$) table, log-linearly interpolated (linearly across a zero endpoint), **zero outside its range** with a `UserWarning` quantifying the uncovered extent. A measured table already carries the site it was taken at, so `geometry.site_elevation_m` does **not** shift it — the altitudes in the file are used as written.
+- `tabulated` (`cn2_tabulated.py`) — a measured (altitude, $C_n^2$) table, log-linearly interpolated (linearly across a zero endpoint), **zero outside its range** with a `UserWarning` quantifying the uncovered extent. A measured table already carries the site it was taken at, so `geometry.site_elevation_m` does **not** shift it — the altitudes in the file are used as written, and a non-zero elevation emits the CU-302 inert-input `UserWarning` rather than being dropped silently.
 
 **Site elevation — which altitude reference each HV term uses (CU-262).** RADIANT altitudes are metres above mean sea level; the HV literature writes the profile against height above the *site*. The two disagree by exactly the terrain elevation, and that disagreement is only harmless for two of the three terms:
 

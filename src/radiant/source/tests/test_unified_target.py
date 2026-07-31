@@ -27,7 +27,6 @@ from radiant.source.material import SurfaceMaterial
 from radiant.source.point_source_blackbody import BlackbodyIntensitySource
 from radiant.source.resolvers.direct import resolve_direct_radiance
 from radiant.source.resolvers.geometry import resolve_geometry
-from radiant.source.resolvers.intensity import resolve_direct_intensity
 from radiant.source.resolvers.physical import resolve_physical_object
 from radiant.source.resolvers.resolved_target import ResolvedTarget
 from radiant.source.resolvers.sub_pixel import resolve_sub_pixel
@@ -239,31 +238,6 @@ class TestSubPixel:
                 fill_fraction=0.0,
                 range_m=10000.0,
             )
-
-
-# ======================================================================
-# Path 4: Direct intensity
-# ======================================================================
-
-
-class TestDirectIntensity:
-    @pytest.mark.level0
-    def test_basic(self, background: BlackbodyBackground) -> None:
-        isrc = BlackbodyIntensitySource(
-            temperature_K=500.0,
-            projected_area_m2=0.01,
-            emissivity=1.0,
-        )
-        rt = resolve_direct_intensity(
-            name="point",
-            intensity_source=isrc,
-            background_source=background,
-            range_m=50000.0,
-        )
-        assert rt.input_path == TargetInputPath.DIRECT_INTENSITY
-        assert rt.tentative_regime == RadiometricRegime.POINT_SOURCE
-        assert rt.projected_area_m2 == 0.0
-        assert rt.angular_extent_rad == 0.0
 
 
 # ======================================================================

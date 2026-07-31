@@ -31,7 +31,11 @@ On the profile path the resolver also reads ``geometry.site_elevation_m`` — th
 terrain elevation beneath the line of sight — and hands it to the
 Hufnagel-Valley profile, whose **surface term only** is then referenced to the
 ground rather than to mean sea level.  The default 0 leaves every profile
-evaluation bit-identical to the pre-CU-262 one.
+evaluation bit-identical to the pre-CU-262 one.  HV is the *only* consumer, so
+a non-zero elevation set against ``"direct"`` or ``"tabulated"`` changes
+nothing — correct, but reported rather than silent (CU-302, Rule 17): the
+elevation is read before the ``"direct"`` short-circuit purely so
+``cn2_profiles.warn_if_site_elevation_inert`` covers that branch too.
 
 Reference wavelength
 --------------------
@@ -55,7 +59,12 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
-from radiant.atmosphere.cn2_profiles import CN2_PROFILE_DIRECT, Cn2Profile, resolve_cn2_profile
+from radiant.atmosphere.cn2_profiles import (
+    CN2_PROFILE_DIRECT,
+    Cn2Profile,
+    resolve_cn2_profile,
+    warn_if_site_elevation_inert,
+)
 from radiant.atmosphere.errors import TurbulenceSpecificationError
 from radiant.atmosphere.r0_path import PathFriedParameter, path_fried_parameter_from_los
 from radiant.core.los_geometry import LineOfSightGeometry
@@ -143,6 +152,18 @@ def resolve_fried_parameter(
     except (KeyError, TypeError):
         r0_reference_um = 0.0
 
+    # CU-262: the terrain the surface boundary layer sits on. A partial-chain
+    # fixture that never registered the geometry schema falls back to sea
+    # level — the pre-CU-262 behaviour, bit-identical.  Read before the
+    # "direct" short-circuit so CU-302's inert-input warning covers that branch
+    # too: only 'hufnagel_valley' consumes the elevation, and a user who set it
+    # against any other profile must be told it changed nothing (Rule 17).
+    try:
+        site_elevation_m: float = float(params.get("geometry.site_elevation_m"))
+    except (KeyError, TypeError):
+        site_elevation_m = 0.0
+    warn_if_site_elevation_inert(profile_name, site_elevation_m)
+
     if profile_name == CN2_PROFILE_DIRECT:
         return _direct_resolution(r0_direct, profile_name, wavelength_um, r0_reference_um)
 
@@ -182,14 +203,6 @@ def resolve_fried_parameter(
             ),
             context={"cn2_profile": profile_name},
         )
-
-    # CU-262: the terrain the surface boundary layer sits on. A partial-chain
-    # fixture that never registered the geometry schema falls back to sea
-    # level — the pre-CU-262 behaviour, bit-identical.
-    try:
-        site_elevation_m: float = float(params.get("geometry.site_elevation_m"))
-    except (KeyError, TypeError):
-        site_elevation_m = 0.0
 
     profile = resolve_cn2_profile(
         profile_name,

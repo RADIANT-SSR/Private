@@ -214,6 +214,8 @@ else:                                          regime = SUB_PIXEL
 
 The final classifier uses the **PSF FWHM**, not the Airy first-dark-ring diameter `2.44 λ/D`. When in doubt, the framework picks SUB_PIXEL — the most general regime, which reduces correctly to the other two at the limits.
 
+The classifier (`optics/stage.py::_finalize_regime`) is the **only** mechanism that sets the regime, and it never warns or raises. It must not be confused with `optics/stage.py::_validate_psf_regime_consistency`, the matrix §7 validity guard, which reads the *declared* `scene_type` against the separate `0.1·PSF_FWHM` / `0.01·PSF_FWHM` thresholds, raises `ParameterBoundsError`, and never touches the regime (CU-298; thresholds and rationale in RADIANT_Use_Case_Matrix.md §1.1).
+
 ### User override
 
 The user may force a regime via the parameter `source.regime_override` (default `"auto"`):

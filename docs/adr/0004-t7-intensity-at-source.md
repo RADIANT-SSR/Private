@@ -1,7 +1,11 @@
 # ADR-0004: T7IntensityAtSource — user-supplied at-source spectral intensity
 
 **Date:** 2026-04-21
-**Status:** Accepted
+**Status:** Accepted. **Deprecation cycle closed 2026-07-30 (CU-299)**: the legacy
+`resolve_direct_intensity` resolver and its module `src/radiant/source/resolvers/intensity.py`
+were deleted after the one-release migration window; T7 via
+`user_intensity_to_descriptor(...)` / `source.target.user_intensity_path` is the only
+S10 surface.
 
 ## Context
 
@@ -13,7 +17,7 @@ scoped to wire this YAML surface through the inferrer.
 
 The pre-Option-C code path uses
 [`DirectIntensitySource`](../../src/radiant/source/point_source_direct.py) +
-[`resolve_direct_intensity`](../../src/radiant/source/resolvers/intensity.py),
+`resolve_direct_intensity` (`source/resolvers/intensity.py`, deleted 2026-07-30 — CU-299),
 which return a `ResolvedTarget` — the legacy container that Stage 2 of
 Option C replaced with `TargetDescriptor` subclasses (T1/T2/T3/T5/T6).
 The Step 5.1 plan prompt still reads *"route to `resolve_direct_intensity`"* —
@@ -151,8 +155,10 @@ L_path audit fields — consistent with T1 / T6 reporting.
 `DirectIntensitySource` becomes an **internal helper** used by
 `atmosphere.assembly._assemble_t7` to perform the `I → L` conversion.
 It stops being a user-facing source object.  `resolve_direct_intensity`
-is deprecated (marked with a `DeprecationWarning` pointing at T7) and
-removed once every in-tree caller has migrated.
+was deprecated (marked with a `DeprecationWarning` pointing at T7) and
+removed once every in-tree caller had migrated — **done 2026-07-30 (CU-299)**:
+no in-tree caller remained, so the function, its module, and both package
+re-exports (`radiant.source`, `radiant.source.resolvers`) were deleted.
 
 ### Scope of this ADR
 
@@ -212,7 +218,8 @@ construction) and unblocks Phase 7's matrix coverage for S10.
     an entry to `__all__`, the assembly dispatch ladder, and the
     `descriptors_to_params` round-trip helper.
   - Deprecation cycle for `resolve_direct_intensity` — one release of
-    `DeprecationWarning` before removal.
+    `DeprecationWarning` before removal.  **Closed 2026-07-30 (CU-299)**;
+    the removal is recorded in `CHANGELOG.md` under **Removed**.
 
 - **Neutral**:
   - Descriptor numbering stays contiguous on allocation (1, 2, 3, 5, 6,
@@ -254,7 +261,8 @@ construction) and unblocks Phase 7's matrix coverage for S10.
   Phase 5 (blocked on this ADR).
 - [`src/radiant/source/point_source_direct.py`](../../src/radiant/source/point_source_direct.py) —
   legacy `DirectIntensitySource` migrating to internal helper.
-- [`src/radiant/source/resolvers/intensity.py`](../../src/radiant/source/resolvers/intensity.py) —
-  legacy `resolve_direct_intensity` being deprecated.
+- `src/radiant/source/resolvers/intensity.py` — legacy `resolve_direct_intensity`;
+  deprecated by this ADR and **deleted 2026-07-30 (CU-299)**, so the path no longer
+  exists in the tree.  Git history is the archive (Rule 26).
 - `CLAUDE.md` Rules 2 (unit boundaries), 11 (no cross-stage imports),
   17 (no silent failure).

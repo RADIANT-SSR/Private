@@ -15,7 +15,10 @@ The selector values
 -------------------
 ``"direct"``
     No profile.  ``atmosphere.r0_m`` is the Fried parameter, exactly as before
-    Gap 110 — this is the default and the zero-drift path.
+    Gap 110 — this is the default and the zero-drift path.  ``geometry.
+    site_elevation_m`` is inert here (there is no surface layer), and
+    :func:`warn_if_site_elevation_inert` says so rather than ignoring it
+    silently (CU-302).
 ``"hufnagel_valley"``
     HV parameterized by ``atmosphere.cn2_hv_wind_rms_m_s`` (``w``) and
     ``atmosphere.cn2_hv_ground_strength`` (``A``); the schema defaults are
@@ -27,11 +30,13 @@ The selector values
     ``stage_outputs["atmosphere_config"]["cn2_profile"]`` (Rule 6 — stages do
     not read files).  A measured table already carries whatever site the
     measurement was made at, so ``geometry.site_elevation_m`` does **not**
-    shift it — the altitudes in the file are used as written.
+    shift it — the altitudes in the file are used as written, and
+    :func:`warn_if_site_elevation_inert` reports the input as inert (CU-302).
 """
 
 from __future__ import annotations
 
+import warnings
 from typing import Protocol, runtime_checkable
 
 import numpy as np
@@ -45,6 +50,7 @@ __all__ = [
     "CN2_PROFILE_NAMES",
     "Cn2Profile",
     "resolve_cn2_profile",
+    "warn_if_site_elevation_inert",
 ]
 
 #: The "no profile" selector value — ``atmosphere.r0_m`` is used directly.
@@ -52,6 +58,12 @@ CN2_PROFILE_DIRECT: str = "direct"
 
 #: Legal values of ``atmosphere.cn2_profile`` (mirrored by the schema enum).
 CN2_PROFILE_NAMES: tuple[str, ...] = ("direct", "hufnagel_valley", "tabulated")
+
+#: Selector values that consume ``geometry.site_elevation_m``.  Hufnagel-Valley
+#: is the only one: its surface term is referenced to the terrain (CU-262).
+#: Everything else in :data:`CN2_PROFILE_NAMES` ignores the parameter, which is
+#: correct but must not be silent (CU-302, Rule 17).
+_SITE_ELEVATION_CONSUMERS: frozenset[str] = frozenset({"hufnagel_valley"})
 
 
 @runtime_checkable
@@ -84,6 +96,52 @@ class Cn2Profile(Protocol):
     def describe(self) -> str:
         """One-line provenance string."""
         ...
+
+
+def warn_if_site_elevation_inert(profile_name: str, site_elevation_m: float) -> None:
+    """Warn when a declared site elevation cannot reach the selected profile.
+
+    ``geometry.site_elevation_m`` is consumed by exactly one profile — the
+    Hufnagel-Valley surface term (CU-262).  With ``"tabulated"`` the measured
+    table already carries whatever site it was taken at, and with ``"direct"``
+    there is no profile at all, so a non-zero elevation changes nothing.  That
+    is the right physics, but Rule 17 forbids doing it silently: an analyst who
+    enters a 2635 m site elevation and reads back an unchanged Fried parameter
+    has no way to tell the input was ignored.
+
+    No-op for a sea-level (or unset) elevation and for the profiles that use it.
+
+    Parameters
+    ----------
+    profile_name:
+        The ``atmosphere.cn2_profile`` selector value.
+    site_elevation_m:
+        ``geometry.site_elevation_m`` [m MSL].
+    """
+    if site_elevation_m == 0.0 or profile_name in _SITE_ELEVATION_CONSUMERS:
+        return
+    if profile_name == CN2_PROFILE_DIRECT:
+        reason = (
+            "atmosphere.cn2_profile = 'direct' selects no Cn² profile at all — "
+            "atmosphere.r0_m is used exactly as entered, so there is no surface "
+            "layer for the terrain to sit on"
+        )
+    else:
+        reason = (
+            f"atmosphere.cn2_profile = {profile_name!r} carries its own altitudes: a "
+            "measured table already includes whatever site the measurement was made "
+            "at, so RADIANT uses its altitudes as written rather than shifting them"
+        )
+    warnings.warn(
+        f"geometry.site_elevation_m = {site_elevation_m:g} m MSL has no effect on this "
+        f"run. {reason}. The parameter reaches only the Hufnagel-Valley surface term "
+        "(atmosphere.cn2_profile = 'hufnagel_valley', CU-262). Either set "
+        "atmosphere.cn2_profile = 'hufnagel_valley' to model an elevated site "
+        "analytically, or supply a table whose altitudes already describe the site "
+        "and leave geometry.site_elevation_m at 0.",
+        UserWarning,
+        stacklevel=3,
+    )
 
 
 def resolve_cn2_profile(

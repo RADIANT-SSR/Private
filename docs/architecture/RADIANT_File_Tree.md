@@ -90,7 +90,7 @@ Stage 0: resolves the scene-geometry input mode and publishes LOS + derived
 quantities. The θ_o-based spherical-triangle math lives in
 `core/viewing_triangle.py` (core, like its η-based siblings in `core/geometry.py`).
 
-### `source/` — 18 source + 31 tests
+### `source/` — 18 source + 32 tests
 
 Stage 1: target + background spectral radiance. The largest physics package because of the spec-form fan-out (S1-S9), shape catalog, BRDF models, and converters.
 
@@ -101,8 +101,9 @@ Subpackages:
 source/backgrounds/    # blackbody, constant, tabulated background descriptors
 source/converters/     # CSV loader, brightness_temperature, radiance_temperature,
                        # reflectance, invert_band_radiance, user_intensity, user_radiance
-source/resolvers/      # direct, geometry, intensity, physical, resolved_target,
-                       # shape_factory, sub_pixel — pre-stage parameter resolution
+source/resolvers/      # direct, geometry, physical, resolved_target, shape_factory,
+                       # sub_pixel — pre-stage parameter resolution (intensity.py
+                       # deleted 2026-07-30, CU-299 / ADR-0004)
 source/shapes/         # box, cone, cylinder, flat_plate, sphere — projected_area
                        # implementations for sub-pixel target geometry
 ```

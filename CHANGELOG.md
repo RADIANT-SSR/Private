@@ -21,6 +21,19 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`geometry.site_elevation_m` now warns when it cannot reach the selected Cn² profile
+  (CU-302).** The parameter feeds only the Hufnagel-Valley surface term (CU-262); with
+  `atmosphere.cn2_profile = "tabulated"` (the table carries its own site) or `"direct"`
+  (no profile at all) a non-zero elevation changes nothing, and until now it did so in
+  silence. A `UserWarning` from `atmosphere.cn2_profiles.warn_if_site_elevation_inert`
+  now names the elevation, why that profile cannot use it, and the two ways forward.
+  **No computed result moves** — measured on a 2635 m site with a ground→space vertical
+  path at the 4 µm band centre: r₀ is 0.601494 m with `tabulated` and 0.100000 m with
+  `direct` both before and after (delta 0.000e+00 m in each), while the `hufnagel_valley`
+  control moves 2.557716 m → 0.663070 m as CU-262 intends. A sea-level (default 0 m)
+  elevation never warns. **What to watch:** a batch runner with `-W error` and a config
+  that sets both will now stop; either switch to `hufnagel_valley` or leave the elevation
+  at 0 and let the table's own altitudes describe the site.
 - **Results-affecting (up-looking interpolated scenes only): the shipped up-looking
   MODTRAN library is now reachable from a chain run (CU-226).**
   `atmosphere.model = "interpolated"` with an up-looking scene and
@@ -172,6 +185,19 @@ retroactively reconstructed.
   it is now the whole line of sight evaluated from the *sensor*, so it is already the
   at-aperture background and that arm applies no transport at all. Code that passed the
   old keyword raises `TypeError`; code that read the old field raises `AttributeError`.
+
+### Removed
+- **`radiant.source.resolve_direct_intensity` deleted (CU-299).** The legacy Path-4
+  resolver deprecated under [ADR-0004](docs/adr/0004-t7-intensity-at-source.md) is gone,
+  together with its module `radiant/source/resolvers/intensity.py` and both package
+  re-exports (`radiant.source`, `radiant.source.resolvers`). It has emitted a
+  `DeprecationWarning` since ADR-0004 and returned a `ResolvedTarget`, which the Option-C
+  chain does not consume, so nothing in the chain could reach it. **Migration:** build the
+  descriptor instead —
+  `radiant.source.converters.user_intensity.user_intensity_to_descriptor(...)`, or set
+  `source.target.user_intensity_path` (S10) / `source.target.point_intensity_*` (S10b) in
+  YAML. **No computed result moves**: no in-tree caller remained, and the only test that
+  exercised it tested the deprecated function itself.
 
 ### Fixed
 - **Results-affecting (up-looking scenes): the sky background no longer depends on where

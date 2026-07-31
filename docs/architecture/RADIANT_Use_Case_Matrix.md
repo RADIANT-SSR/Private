@@ -34,8 +34,13 @@ Four independent axes define a use case. Target/atmosphere/background/illuminati
 **Scene-type constraints**:
 - `at_aperture` target location is restricted to `extended` scene type.
 - EE_box applies per Rule 9: never in extended, always in point_source and sub_pixel (on target term only).
-- Sub-pixel collapses to point-source when `√A_t/d ≪ PSF_FWHM` (**raise** — the declaration contradicts the geometry; CU-264, owner ruling 2026-07-29. Was a UserWarning + silent promote until then).
-- Point-source with a resolved target is a physics error (raise).
+- A declared `sub_pixel` whose target has degenerated to a point (`√A_t/d < 0.01·PSF_FWHM`) is **refused** — the declaration contradicts the geometry (CU-264, owner ruling 2026-07-29; was a `UserWarning` until then). This is the §7 validity guard, *not* a reclassification — see the note below.
+- Point-source with a resolved target (`√A_t/d > 0.1·PSF_FWHM`) is a physics error (raise) — the same guard, other side.
+
+> **Classification and validation are two mechanisms, not one (CU-298).** `optics/stage.py::_finalize_regime` is the **classifier** (Rule 10): it runs unconditionally, compares the target's derived `angular_extent_rad` against `PSF_FWHM`, and returns the final `RadiometricRegime` — `≥ 2.0·PSF_FWHM` → `extended`, `≤ 0.5·PSF_FWHM` → `point_source`, otherwise `sub_pixel`. It never warns and never raises, and `source.regime_override` short-circuits it entirely.
+> `optics/stage.py::_validate_psf_regime_consistency` is the **validity guard** (§7): it reads the *descriptor-declared* `scene_type` — not the finalized regime, which can legitimately differ at the boundary — and raises `ParameterBoundsError` at the two thresholds in the bullets above. It has never modified the regime; the pre-CU-264 `UserWarning` accompanied the classifier's independent decision rather than causing it.
+> A third, softer mechanism sits beside both: `_warn_declared_regime_mismatch` emits a `UserWarning` when the user's declared `source.scene_type` disagrees with the derived regime. The chain uses the derived regime regardless.
+> Planning a change to regime behaviour means picking the right one of the three: thresholds and outcomes belong to the classifier, refusals belong to the guard, advisory notices belong to the mismatch warning.
 
 ### 1.2 Wavelength regime
 
@@ -199,7 +204,7 @@ Rule T is independent of scene class and of LOS direction: the target's own radi
 | Scene type | What changes | Constraint |
 |---|---|---|
 | `extended` | Target radiance fills the IFOV; **no** BackgroundDescriptor is populated (locked decision 13) and SpectralIntegrationStage skips the background photon term | EE_box never applied (Rule 9) |
-| `sub_pixel` | Adds `A_t` + `shape`; Ω_t = A_t/d² < Ω_pix | EE_box on the **target term only**; background term never gets EE_box (Rule 9). **Raise** and direct reclassification when `√A_t/d < 0.01·PSF_FWHM` (CU-264) |
+| `sub_pixel` | Adds `A_t` + `shape`; Ω_t = A_t/d² < Ω_pix | EE_box on the **target term only**; background term never gets EE_box (Rule 9). The §7 guard **raises** when `√A_t/d < 0.01·PSF_FWHM` (CU-264); it does not reclassify — `_finalize_regime` derives `point_source` on its own threshold (`≤ 0.5·PSF_FWHM`), independently (CU-298) |
 | `point_source` | Area pre-integrated into intensity `I_t(λ)` | EE_box applied; **raise** if the target is resolved (`√A_t/d > 0.1·PSF_FWHM`) |
 
 `at_aperture` is restricted to `extended` (locked decision 2). All ten `at_aperture × {sub_pixel, point_source}` combinations are invalid and raise at descriptor construction (§7) — this is the entire invalid-cell population of the primary space (§3.5).
@@ -315,7 +320,7 @@ Every rule the retired tables encoded, and where it now lives. This ledger is th
 |---|---|
 | `at_aperture` is extended-only; 10 invalid combinations | §1.1, Rule S (§3.2.2), Rule V.1, §7 |
 | EE_box never in extended, target-term-only in sub_pixel/point_source (Rule 9) | Rule S |
-| Sub-pixel → point-source collapse warning; resolved point source raises | Rule S, Rule V.5, §7 |
+| Sub-pixel → point-source collapse warning; resolved point source raises | Rule S, §7. Both halves now **raise** (CU-264), and the ledger's single "collapse warning" is two mechanisms in the code — the §1.1 note (CU-298) separates the classifier from the guard |
 | MWIR requires the mixed model (T3) | Rule T, Rule V.2, §7 |
 | MWIR pure-thermal carve-out when ρ ≈ 0 (old cells 27, 42, 57) | Rule T (last row), Rule V.4 |
 | SWIR "mixed if hot" escalation ≈700 K (old cells 22–24, 37–39, 52–54) | Rule T, Rule V.3 |

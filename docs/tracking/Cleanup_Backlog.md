@@ -171,15 +171,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: Rule 17 — a user-supplied surface is discarded with no warning, and the two entry points now disagree (the door is deliberately stricter than evaluate, documented in `validate_target_spec`'s docstring, but that asymmetry is a stopgap not a design).
 **Suggested fix**: (a) inline, S — add the S12 conflict check to the S11 builder so evaluate refuses the pair too, then drop the docstring's asymmetry note. **Behaviour-changing** at evaluate (configs that run today by silently ignoring a surface will raise) → CHANGELOG under **Changed** per Rule 29b, and worth a `scenarios/`/`examples/` sweep first, same caveat as [[CU-256]]/[[CU-264]]. Category B. Related: [[CU-244]], [[CU-256]].
 
-### CU-292 — Scenario 2.1 stdout is nondeterministic: zero-valued noise-budget rows print in hash-dependent order
-
-**Discovered**: Overnight backlog run, CU-164 close-out, 2026-07-29.
-**Status**: Open.
-**File**: `scenarios/02_mike_detector_engineer/2.1_insb_vs_hgcdte_noise_budget/scripts/run_detector_shootout.py` (report/table assembly).
-**Symptom**: three consecutive runs of the unmodified script put the zero-valued `nearfield_shot` / `background_shot` / `ktc_reset` noise-budget rows in different orders — string-hash-dependent set/dict iteration somewhere in the table assembly.
-**Why it still matters**: any future golden-text comparison of scenario output will flake, and a walkthrough doc quoting the output goes stale nondeterministically. Likely shares a root cause with [[CU-291]] (series/legend ordering).
-**Suggested fix**: (a) inline, XS — sort the rows (by variance descending, then name) at the print site. Category A. Related: [[CU-291]], [[CU-164]].
-
 ### CU-291 — Committed scenario figures are not byte-reproducible from their own unmodified generators
 
 **Discovered**: Overnight backlog run, CU-164 close-out, 2026-07-29 — found while byte-verifying figures for the guard pass.
@@ -188,15 +179,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Symptom**: running the *unmodified* (pre-CU-164) runner rewrites these 8 figures with different bytes, run-over-run stable per session but differing from the committed bytes; sibling figures in the same directories are byte-stable. So the committed artifacts cannot be verified against their generators.
 **Why it still matters**: falsifies Rule 26's regenerability assumption ("a figure changes only when its generator is run") one level down — the figure changes *every* time its generator runs. Suspected hash-dependent series/legend ordering, same family as [[CU-292]].
 **Suggested fix**: (b) small stand-alone — diagnose the nondeterminism (render two runs' figures, diff visually; check legend/series iteration order), fix the ordering at the source, regenerate the 8 figures once with cause, and note the generator in the referencing walkthrough per Rule 26. Effort S–M; category A. Related: [[CU-292]], [[CU-164]].
-
-### CU-290 — Runner 1.4 hard-codes TkAgg and calls `plt.show()`, blocking forever in any non-interactive run
-
-**Discovered**: Overnight backlog run, CU-164 close-out, 2026-07-29.
-**Status**: Open.
-**File**: `scenarios/01_sarah_systems_engineer/1.4_tdi_pushbroom_optimization/scripts/run_tdi_pushbroom_trade.py:44,685` (`matplotlib.use("TkAgg")`, `plt.show()`).
-**Symptom**: the script parks at 0 % CPU forever in `plt.show()` under any non-interactive invocation — two stuck processes were found parked >9 min during the CU-164 pass and had to be killed. Every other runner uses `Agg` with a `# headless-safe: plt.show() is a no-op` comment. Related lesser instance: five runners (2.2, 2.3, 2.5, 6.3, 7.1) call no `matplotlib.use` at all and rely on ambient `MPLBACKEND` — harmless today (none call `plt.show()`), same latent trap.
-**Why it still matters**: 1.4 is unrunnable in CI/batch/tooling and its figure regeneration is unverifiable, which blocks the [[CU-291]] reproducibility work and the CU-164 completion.
-**Suggested fix**: (a) inline, XS — switch 1.4 to `Agg` (one line; a behaviour change to a committed runner, so note it in the walkthrough), optionally pin the backend in the five bare runners. Category A. Related: [[CU-164]], [[CU-291]].
 
 ### CU-289 — GUI transaction tests await a full re-evaluation pass they mostly do not assert on
 
@@ -562,6 +544,27 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-292 — Scenario 2.1 stdout is nondeterministic: zero-valued noise-budget rows print in hash-dependent order — RESOLVED 2026-07-30 (commit `ae9c5f8`)
+
+**Discovered**: Overnight backlog run, CU-164 close-out, 2026-07-29.
+**Status**: RESOLVED 2026-07-30, closed by `ae9c5f8`.
+**File**: `scenarios/02_mike_detector_engineer/2.1_insb_vs_hgcdte_noise_budget/scripts/run_detector_shootout.py` (report/table assembly).
+**Symptom**: three consecutive runs of the unmodified script put the zero-valued `nearfield_shot` / `background_shot` / `ktc_reset` noise-budget rows in different orders — string-hash-dependent set/dict iteration somewhere in the table assembly.
+**Why it still matters**: any future golden-text comparison of scenario output will flake, and a walkthrough doc quoting the output goes stale nondeterministically. Likely shares a root cause with [[CU-291]] (series/legend ordering).
+**Suggested fix**: (a) inline, XS — sort the rows (by variance descending, then name) at the print site. Category A. Related: [[CU-291]], [[CU-164]].
+**Resolution**: symptom reproduced before fixing. Root cause is exactly as filed and is at line 250: `sorted(set(noise["InSb"]) | set(noise["HgCdTe"]), key=lambda k: -(...))` ranks on summed variance **alone**, which ties at `-0.0` for the three legitimately-zero terms (`ktc_reset`, `background_shot`, `nearfield_shot`); the input is a `set`, whose iteration order varies with `PYTHONHASHSEED`, and Python's stable sort then preserves that random order into the printed table. Measured on the isolated mechanism across hash seeds 1–5: **3 distinct orderings of the three zero rows**. Fixed by making the term name the secondary key — `key=lambda k: (-(...), k)` — which is the CU's suggested "variance descending, then name". Re-measured across the same 5 seeds: **1 ordering**. Confirmed end to end on the real script: full stdout is **byte-identical** between `PYTHONHASHSEED=1` and `PYTHONHASHSEED=2` (both exit 0), where the zero-row order previously varied. No CHANGELOG entry — scenario runner, no public surface, no computed value moves.
+
+### CU-290 — Runner 1.4 hard-codes TkAgg and calls `plt.show()`, blocking forever in any non-interactive run — RESOLVED 2026-07-30 (commit `ae9c5f8`)
+
+**Discovered**: Overnight backlog run, CU-164 close-out, 2026-07-29.
+**Status**: RESOLVED 2026-07-30, closed by `ae9c5f8`.
+**File**: `scenarios/01_sarah_systems_engineer/1.4_tdi_pushbroom_optimization/scripts/run_tdi_pushbroom_trade.py:44,685` (`matplotlib.use("TkAgg")`, `plt.show()`).
+**Symptom**: the script parks at 0 % CPU forever in `plt.show()` under any non-interactive invocation — two stuck processes were found parked >9 min during the CU-164 pass and had to be killed. Every other runner uses `Agg` with a `# headless-safe: plt.show() is a no-op` comment. Related lesser instance: five runners (2.2, 2.3, 2.5, 6.3, 7.1) call no `matplotlib.use` at all and rely on ambient `MPLBACKEND` — harmless today (none call `plt.show()`), same latent trap.
+**Why it still matters**: 1.4 is unrunnable in CI/batch/tooling and its figure regeneration is unverifiable, which blocks the [[CU-291]] reproducibility work and the CU-164 completion.
+**Suggested fix**: (a) inline, XS — switch 1.4 to `Agg` (one line; a behaviour change to a committed runner, so note it in the walkthrough), optionally pin the backend in the five bare runners. Category A. Related: [[CU-164]], [[CU-291]].
+**Resolution**: symptom confirmed by inspection before fixing — `matplotlib.use("TkAgg")` at line 44 with an unconditional `plt.show()` at line 685, and every sibling runner already carrying `Agg` with the `# headless-safe` comment. Switched 1.4 to `Agg` with that same comment. Verified end to end: `python scripts/run_tdi_pushbroom_trade.py` now **exits 0** and writes all four figures, where it previously parked at 0 % CPU indefinitely. All four `savefig` calls (lines 492/523/551/573) precede the `show()`, so **no figure content depends on this change** — only the pop-up window is gone; the outputs `MANIFEST.md` records the behaviour change beside its now-honest "regenerate by running the script" instruction. **The CU's optional second half is declined as incorrect**: the five "bare" runners it names (2.2, 2.3, 2.5, 6.3, 7.1) are all `gui_console_*.py` scripts written to be pasted into the GUI scripting window, whose documented behaviour is "the figure pops out into its own window". Forcing `Agg` there would break their primary use case, and none of the five calls `plt.show()`, so none can block — the latent trap the CU posits does not exist for them. Regenerating the figures was **not** taken (out of scope, and [[CU-291]] owns it); the smoke test's regenerated PNGs were reverted, and their byte deltas against the committed set (−3650, +2313, +8, +3942 bytes) are a fresh datum for CU-291. No CHANGELOG entry — a scenario runner is not a public API surface and no computed value moves.
+
 
 ### CU-302 — `geometry.site_elevation_m` is silently inert for tabulated and direct Cn2 profiles — RESOLVED 2026-07-30 (commit `61d8104`)
 

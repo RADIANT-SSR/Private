@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-316 — Tabulated and MODTRAN backends resample tau linearly, diverging from the interpolated backend's log-tau convention
+
+**Discovered**: CU-306 closure (branch `atmo/cu-306-logtau-resample`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).
+**Status**: Open — backend-consistency question; needs an owner ruling on one convention across backends.
+**File**: `src/radiant/atmosphere/tabulated.py:421,530`; `src/radiant/atmosphere/modtran.py:1611` (linear-in-tau `SpectralData.resample` onto the chain grid).
+**Symptom**: after CU-306, the same stored MODTRAN column yields slightly different tau depending on which backend serves it: the interpolated backend carries tau to the chain grid in log-tau (Beer-Lambert-consistent), while `TabulatedAtmosphere` and `ModtranAtmosphere` still resample linearly in tau. Measured on the shipped ladders: up to ~1.5 % relative tau difference at a 200-point MWIR chain grid. Not an operation-order defect (those backends perform one resample; there is nothing to commute) — a convention divergence.
+**Why it still matters**: cross-backend comparisons (the exact workflow the interpolated backend exists for — fast path vs tabulated truth) now carry a ~1 % model-independent discrepancy that is pure resampling convention; it lands exactly at the magnitude of the physics differences those comparisons are meant to expose.
+**Suggested fix**: (b) stand-alone, S–M — adopt log-tau resampling for the tau-like arrays in both backends (radiances stay linear), with the same `TAU_FLOOR` guard and a §5.3 sweep of any golden anchored on those backends (the MODTRAN-backed integration anchors will move at the ~1 % level). **Results-affecting** for tabulated/MODTRAN-served scenes on non-matching chain grids. Category C. Related: [[CU-306]], [[CU-156]].
+
 ### CU-315 — `alias_fraction_at_nyquist` reports float noise for oversampled bands (no absolute floor)
 
 **Discovered**: CU-209 closure (branch `perf/cu-209-folded-mtf`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).

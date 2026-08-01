@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-318 — The `emissivity_path` door's exclusivity guard is still inlined; `emissivity_path` + scalar emissivity reaches evaluate unrefused at the seam
+
+**Discovered**: CU-293 closure (branch `source/cu-293-target-spec-doors`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).
+**Status**: Open.
+**File**: `src/radiant/source/_inferrer.py:1283,1331` (`_EMISSIVITY_PATH_CONFLICTS`, `_load_emissivity_on_grid`).
+**Symptom**: the S1-with-ε(λ) `emissivity_path` door is the one remaining door whose exclusivity guard is inlined in the builder, so it is not registered in `validate_target_spec` and does not reject at the resolve-time seam. Most of its pairs (ρ, S8, S10, S11, S12) are caught earlier by other doors' symmetric guards; **`emissivity_path` + scalar `source.target.emissivity` is unique to it and reaches only `evaluate()`** — the same class of defect ex-CU-294 closed for the intensity doors, on a door neither CU-293 nor CU-294 named.
+**Why it still matters**: workflow-visible (Rule 21 intake test 4) — the GUI parameter editor's clone-validate seam (CU-244) is exactly what this door bypasses, so a GUI operator can commit the conflicting pair and hit the refusal only at Evaluate.
+**Suggested fix**: (a)/(b) small — extract the guard into `target_spec.check_emissivity_path_conflicts`, register it in `validate_target_spec` in dispatch order, same verbatim-move pattern as CU-293. Refusal-only; no golden movement expected. Effort S; category B. Related: [[CU-293]], [[CU-244]].
+
 ### CU-317 — Scenario 4.1's committed detection matrix no longer matches its own runner (qualitative drift from earlier landed physics)
 
 **Discovered**: CU-263 §5.3 sweep (branch `perf/cu-263-detection-range`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).

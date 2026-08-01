@@ -35,12 +35,36 @@ Four independent axes define a use case. Target/atmosphere/background/illuminati
 - `at_aperture` target location is restricted to `extended` scene type.
 - EE_box applies per Rule 9: never in extended, always in point_source and sub_pixel (on target term only).
 - A declared `sub_pixel` whose target has degenerated to a point (`√A_t/d < 0.01·PSF_FWHM`) is **refused** — the declaration contradicts the geometry (CU-264, owner ruling 2026-07-29; was a `UserWarning` until then). This is the §7 validity guard, *not* a reclassification — see the note below.
-- Point-source with a resolved target (`√A_t/d > 0.1·PSF_FWHM`) is a physics error (raise) — the same guard, other side.
+- Point-source with a resolved target (`√A_t/d > 0.1·PSF_FWHM`) is a physics error (raise) — the same guard, other side. `PSF_FWHM` here is the optics-only value, deliberately (§1.1.1).
 
 > **Classification and validation are two mechanisms, not one (CU-298).** `optics/stage.py::_finalize_regime` is the **classifier** (Rule 10): it runs unconditionally, compares the target's derived `angular_extent_rad` against `PSF_FWHM`, and returns the final `RadiometricRegime` — `≥ 2.0·PSF_FWHM` → `extended`, `≤ 0.5·PSF_FWHM` → `point_source`, otherwise `sub_pixel`. It never warns and never raises, and `source.regime_override` short-circuits it entirely.
 > `optics/stage.py::_validate_psf_regime_consistency` is the **validity guard** (§7): it reads the *descriptor-declared* `scene_type` — not the finalized regime, which can legitimately differ at the boundary — and raises `ParameterBoundsError` at the two thresholds in the bullets above. It has never modified the regime; the pre-CU-264 `UserWarning` accompanied the classifier's independent decision rather than causing it.
 > A third, softer mechanism sits beside both: `_warn_declared_regime_mismatch` emits a `UserWarning` when the user's declared `source.scene_type` disagrees with the derived regime. The chain uses the derived regime regardless.
 > Planning a change to regime behaviour means picking the right one of the three: thresholds and outcomes belong to the classifier, refusals belong to the guard, advisory notices belong to the mismatch warning.
+
+#### 1.1.1 Declaring a regime for seeing-limited ground telescopes (CU-257)
+
+**A physically unresolved target seen through atmospheric turbulence is declared `sub_pixel`, not `point_source`.** This is the correct declaration, not a workaround (owner ruling 2026-08-01, closing CU-257; no guard change).
+
+The `point_source` door's `√A_t/d ≤ 0.1·PSF_FWHM` criterion is **optics-referenced by design**: `PSF_FWHM` is the `OpticsStage` `EffectivePSF` FWHM, before the turbulence, jitter, and smear kernels that `PlatformStage` convolves in. It is not an "is this target resolved by the seeing disc?" test — it is the far tighter question "is the target so small that pre-integrating its area into a spectral intensity `I_t(λ)` [W/sr/µm] discards nothing the optics could have carried?" Nothing about that question changes when the seeing blurs the image, so the criterion stands as written and is not widened by an r₀-derived term.
+
+Scenario 10.3 (`ground_to_space_sst_visible`) is the worked case. At its shipped geometry — slant range 739.156 km, band centre 0.650 µm, `atmosphere.r0_m` = 19.82 cm — the numbers are:
+
+| Quantity | Value | Unit |
+|---|---|---|
+| Seeing FWHM (0.98 λ/r₀) | 3.21398 (= 0.663 arcsec) | µrad |
+| Optics-only PSF FWHM (`OpticsStage`) | 1.52368 | µrad |
+| Platform PSF FWHM (turbulence + jitter + smear) | 3.54066 | µrad |
+| Target angular extent `√A_t/d`, 1 m² at 739.156 km | 1.35296 | µrad |
+| Ratio `√A_t/d` ÷ optics-only PSF FWHM | 0.888 | dimensionless |
+| Ratio `√A_t/d` ÷ platform PSF FWHM | 0.382 | dimensionless |
+| Seeing FWHM ÷ target extent (how unresolved the object is) | 2.375 | dimensionless |
+
+The target is genuinely unresolved by the seeing disc (2.375×), and it is genuinely *not* a point source to the optics: at 0.888 and 0.382 it sits far above the `0.1` point-source ceiling on either PSF, so referencing the criterion to the degraded PSF would not open the `point_source` door here either. Expressed as range, a 1 m² target would need to be beyond ≈ 6 563.06 km (optics-referenced) or ≈ 2 824.33 km (turbulence-inclusive) before the point-source door opened — both far outside a 739 km LEO pass. The binding constraint is the `0.1·PSF_FWHM` value itself, not which PSF it is measured against.
+
+`sub_pixel` is valid at both ratios and passes today: `0.888` and `0.382` are each ≫ the `0.01·PSF_FWHM` sub-pixel lower bound, with roughly two decades of margin either way. The shape/area door is therefore already open to this scene class — declare `sub_pixel`, supply `A_t` + `shape`, and the target term carries EE_box computed from the fully degraded (turbulence-inclusive) PSF per Rule 9, which is where the seeing enters the radiometry.
+
+Two consequences worth recording. First, re-referencing the guard to the degraded PSF would be **bidirectionally** results-affecting: widening `PSF_FWHM` by the same 2.32× also raises the `0.01·PSF_FWHM` sub-pixel *lower* bound by 2.32×, newly refusing targets between `0.01` and `0.0232` of the optics FWHM that are accepted today. Second, an r₀-derived bound would inherit a strong dependence on `geometry.site_elevation_m` (CU-262), a parameter most scenarios leave at 0.0 m.
 
 ### 1.2 Wavelength regime
 
@@ -544,7 +568,7 @@ The schema validator rejects combinations where the physics is ill-defined. Non-
 | `terrestrial`/`airborne` without `GroundBackground` | No sensible default for (ε, T_g) | Raise | Permanent |
 | Specifying both ε(λ) and ρ(λ) for target or ground | Over-specification (violates Kirchhoff derivation rule) | Raise | Permanent |
 | MWIR scene with T1 or T2 alone (not T3) | MWIR requires the mixed model for ambient targets | Warn or raise on the ambient check; never forced when ρ ≈ 0 | Permanent |
-| Point-source target with resolved angular size | `√A_t/d > 0.1 · PSF_FWHM` | Raise | Permanent |
+| Point-source target with resolved angular size | `√A_t/d > 0.1 · PSF_FWHM` | Raise | Permanent. `PSF_FWHM` is the **optics-only** `OpticsStage` value by design — turbulence broadening enters at `PlatformStage` and does not relax this door. A seeing-limited but physically unresolved target is declared `sub_pixel`, which passes (CU-257, owner ruling 2026-08-01; numbers and rationale in §1.1.1) |
 | Sub-pixel target collapsed to a point source | `√A_t/d < 0.01 · PSF_FWHM` | Raise `ParameterBoundsError` | **Implemented (CU-264, 2026-07-30).** Was a `UserWarning` while the chain promoted the regime to `point_source` and switched the applied EE_box handling — the Rule-17 asymmetry the owner ruling closed |
 | Point-source intensity door (S10/S10b) with a declared target extent | Any of `source.target.user_intensity_path` / `point_intensity_temperature_K` / `point_intensity_band_W_per_sr` set together with `geometry.target.projected_area_m2` or `geometry.target.shape` | Raise `ParameterBoundsError` naming which surface to drop | **Implemented (CU-256, 2026-07-30)** — `source/target_spec.py::check_intensity_door_extent_conflicts`, called from both T7 door builders and from `Sensor.validate_target_spec()`. An intensity and a declared extent are mutually exclusive descriptions of the same target; T7 publishes a fictitious reference area, so the extent was silently discarded and this §7 guard was disarmed |
 | Brightness temperature (S11) with radiance temperature (S12) | `source.target.brightness_temperature_K` or `_path` set together with `source.target.radiance_temperature_K` | Raise `ParameterBoundsError` naming both surfaces | **Implemented (CU-293, 2026-08-01)** — `source/target_spec.py::check_brightness_temperature_conflicts`. S11 and S12 are parallel user-entry forms for the same thermal target. The S12 door had always rejected the pair, but the inferrer dispatches S11 **first** and the S11 door had no S12 guard, so `evaluate()` discarded the radiance-temperature surface in silence (Rule 17) while `Sensor.validate_target_spec()` refused it. The guard is now on both doors, so the two entry points agree |

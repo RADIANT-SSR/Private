@@ -733,6 +733,23 @@ def _validate_psf_regime_consistency(
     ``angular_extent_rad`` of 0 or non-finite is also skipped because the
     descriptor carries no resolved geometry — the guard is only
     meaningful when √A_t / d is a positive finite number.
+
+    **The PSF_FWHM referenced here is optics-only, by design (CU-257,
+    owner ruling 2026-08-01).**  It is the ``OpticsStage`` EffectivePSF
+    FWHM, taken before the turbulence, jitter, and smear kernels that
+    PlatformStage convolves in.  That is deliberate: the point-source
+    door does not ask "is the seeing disc wider than the target?" but
+    the tighter question "is the target small enough that pre-integrating
+    its area into an intensity I(λ) discards nothing the *optics* could
+    have carried?" — a question atmospheric blur does not change.  A
+    seeing-limited ground telescope viewing a physically unresolved
+    object therefore declares ``sub_pixel``, not ``point_source``; the
+    sub-pixel branch passes with roughly two decades of margin on such
+    scenes, and the seeing enters the radiometry through the fully
+    degraded PSF that PlatformStage feeds into EE_box (Rule 9).  Neither
+    threshold is widened by an r₀-derived term; see
+    ``docs/architecture/RADIANT_Use_Case_Matrix.md`` §1.1.1 for the
+    measured scenario-10.3 numbers behind the ruling.
     """
     if epsf is None:
         return

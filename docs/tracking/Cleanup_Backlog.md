@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-317 — Scenario 4.1's committed detection matrix no longer matches its own runner (qualitative drift from earlier landed physics)
+
+**Discovered**: CU-263 §5.3 sweep (branch `perf/cu-263-detection-range`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).
+**Status**: Open — needs a chartered re-run refresh with attribution of which landed change moved which rows.
+**File**: `scenarios/04_lisa_analyst/4.1_target_detection_matrix/walkthrough.md`; `outputs/fig1`, `fig2`.
+**Symptom**: the committed 144-cell matrix disagrees with what its unmodified runner produces on `main`, and the drift is qualitative, not cosmetic: sensor A goes from "only the fuel bladder farm detectable" to patrol boat 542 km / fast attack 813 km / transport aircraft 1 061 km also detectable; sensor B's MBT 776 → 965 km, Technical 686 → 751 km; sensor C's MBT "not detectable" → 511 km; hardest-target mean 229 → 251 km. **Verified not caused by CU-263**: a tripwire patching all six CU-263 entry points to raise ran the full matrix clean — 4.1 bisects a script-side SCNR in the `sub_pixel` regime and never enters a detection solver. The drift is unrefreshed fallout from earlier landed results-affecting work.
+**Why it still matters**: Rule 26/24 — a committed analyst-facing product contradicts its own generator; an operator reading the walkthrough draws conclusions ("not detectable") the current model no longer supports. Passes intake tests 1 (a refresh changes committed numbers) and 4 (workflow-visible).
+**Suggested fix**: (b) stand-alone — re-run the 4.1 runner, regenerate matrix + figures under Rule 26, refresh the walkthrough with attribution (bisect which landed change moved the rows — candidates include the CU-253-adjacent VIS work, CU-262 turbulence, CU-254/255 atmosphere fixes), and note it in the CHANGELOG only if the attribution finds an unrecorded results-affecting landing. Effort M; category D. Related: [[CU-263]] (discovery), CU-291 (the byte-reproducibility log line).
+
 ### CU-316 — Tabulated and MODTRAN backends resample tau linearly, diverging from the interpolated backend's log-tau convention
 
 **Discovered**: CU-306 closure (branch `atmo/cu-306-logtau-resample`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).

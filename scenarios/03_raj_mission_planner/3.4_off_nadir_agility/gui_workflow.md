@@ -102,8 +102,8 @@ gsd_cross = pixel_pitch_m * slant_range_m / focal_length_m
 **MTF Budget Panel:**
 - Per-component MTF at Nyquist: Optics 0.3815, Pixel 0.6366, IPC 0.9400
 - System product: 0.2283 [--]
-- Folded MTF at Nyquist: 1.5114 [--] (aliasing significant)
-- Alias fraction: 0.8308 [--]
+- Folded MTF at Nyquist: 0.4544 [--] (≈ 2× the pre-sampling MTF there)
+- Alias fraction: 0.5000 [--] (half the apparent response at Nyquist is aliased)
 
 **Radiometric Metrics Panel:**
 - SNR: 85.8 [--]

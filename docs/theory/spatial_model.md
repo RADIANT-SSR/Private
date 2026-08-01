@@ -325,12 +325,22 @@ $$Q = \frac{\lambda F_\#}{p},\qquad \frac{\nu_c}{\nu_{Nyq}} = \frac{2}{Q}.$$
 - $Q > 2$: oversampled.
 
 The folded MTF adds the aliased response back onto the baseband
-(`performance/folded_mtf.py`); GIQE consumes RER from the PSF path and the MTF budget per
+(`performance/folded_mtf.py`). Sampling on a pitch $p$ replicates the pre-sampling spectrum
+at integer multiples of the **sampling** frequency $\nu_s = 1/p = 2\nu_{Nyq}$, so
+
+$$\mathrm{MTF}_{fold}(\nu) = \sum_{k=-N}^{+N} \mathrm{MTF}_{opt}\!\left(\left|\nu + k\,\nu_s\right|\right).$$
+
+At $\nu = \nu_{Nyq}$ the $k = -1$ replica lands back on $\nu_{Nyq}$, so the folded value
+there is twice the pre-sampling MTF (alias fraction $\to 1/2$) whenever the higher orders
+are negligible — and it is *zero* for optics that cut off below Nyquist, which is the
+oversampled sanity check. GIQE consumes RER from the PSF path and the MTF budget per
 `theory/performance_metrics.md`.
 
 **Pitfalls.** "Q = 1 critical" is a different (sampling-frequency) convention — RADIANT's
 statement is $\nu_c/\nu_{Nyq} = 2/Q$, critical at $Q=2$; sampling frequency $1/p$ vs
-Nyquist $1/(2p)$; ground-projecting Nyquist twice.
+Nyquist $1/(2p)$ — replicating the spectrum at $\nu_{Nyq}$ instead of $\nu_s$ puts the
+$k=-1$ copy on DC and adds $\mathrm{MTF}(0)=1$ to every system (CU-209); ground-projecting
+Nyquist twice.
 
 **Numeric anchor.** $\lambda = 0.55$ µm, $F_\# = 4$, $p = 10$ µm: $Q = 0.22$ —
 $\nu_c/\nu_{Nyq} = 9.1$, heavily aliased, the classic high-resolution VNIR design point.

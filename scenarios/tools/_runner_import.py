@@ -6,14 +6,21 @@ Importing the file yields that validated config factory — the basis for
 deriving a GUI-loadable YAML that cannot drift from the backend-validated
 inputs.
 
-**Two runner shapes.** ~17 runners guard their work behind ``if __name__ ==
-"__main__":`` — importing them only defines the factory. The other ~20 run
-their whole analysis at *module scope* (no guard), so importing them would
-re-run the sweep and, worse, ``savefig`` over committed figures. To stay
-side-effect-free, :func:`import_runner` executes the module inside a hermetic
-context that no-ops figure/workbook writes and silences stdout. The analysis
-still *computes* (unavoidable without the guard) but writes nothing and prints
-nothing; only the factory functions and constants it leaves behind are used.
+**Every runner is guarded.** Each ``run_*.py`` keeps only imports, constants,
+input loading and its config factories at module scope, with the imperative
+analysis behind ``if __name__ == "__main__": main()`` (CU-164), so importing
+one defines the factory and runs no analysis. The historical ``_StopModuleExec``
+halt — which made the first ``Sensor.evaluate`` raise, to stop an *unguarded*
+runner's module-level sweep partway — is retired with the last unguarded runner.
+Verified by importing every ``scenarios/*/*/scripts/run_*.py`` with plain
+``importlib`` (no hermetic context): nothing printed, no file under
+``scenarios/`` created or modified.
+
+:func:`import_runner` still executes the module inside a hermetic context that
+no-ops figure/workbook writes and silences stdout/stderr. That is now a
+belt-and-braces guard rather than the mechanism: it keeps a runner that prints
+or plots while loading its inputs (or one that regresses to module-scope
+analysis) from writing over committed artifacts or polluting tool output.
 
 This lives under ``scenarios/tools`` (parallel to each scenario's
 ``scripts/``), not in the ``radiant`` package.
@@ -31,24 +38,12 @@ from pathlib import Path
 from types import ModuleType
 
 
-class _StopModuleExec(Exception):
-    """Raised to halt an unguarded runner's module-level analysis at import.
-
-    The factory functions and constants a baseline needs are defined *above*
-    the analysis; the first chain execution is where the expensive (and
-    useless-to-us) sweep begins. Making that first ``evaluate``/``run`` raise
-    this stops the module early with everything we need already bound.
-    """
-
-
 @contextlib.contextmanager
 def _hermetic() -> Iterator[None]:
-    """Neutralise the side effects an unguarded runner performs at import.
+    """Neutralise any side effect a runner might perform at import.
 
-    Patches figure/workbook writers to no-ops, makes the first chain execution
-    raise :class:`_StopModuleExec` (so an unguarded sweep halts instead of
-    running to completion), and silences stdout/stderr — then restores
-    everything. Never suppresses *other* exceptions: a genuine failure in a
+    Patches figure/workbook writers to no-ops and silences stdout/stderr — then
+    restores everything. Never suppresses exceptions: a genuine failure in a
     runner's module-level code still propagates so the caller can report it.
     """
     os.environ.setdefault("MPLBACKEND", "Agg")
@@ -89,18 +84,6 @@ def _hermetic() -> Iterator[None]:
     except Exception:  # noqa: BLE001
         pass
 
-    def _halt(*_args: object, **_kwargs: object) -> None:
-        raise _StopModuleExec
-
-    try:
-        from radiant.api.sensor import Sensor
-        from radiant.api.session import RadiantSession
-
-        _patch(Sensor, "evaluate", _halt)
-        _patch(RadiantSession, "run", _halt)
-    except Exception:  # noqa: BLE001
-        pass
-
     sink = io.StringIO()
     try:
         with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
@@ -113,9 +96,10 @@ def _hermetic() -> Iterator[None]:
 def import_runner(path: Path, module_name: str) -> ModuleType:
     """Import ``path`` as ``module_name`` (side-effect-free) and return it.
 
-    Whether or not the runner is ``__main__``-guarded, importing it writes no
-    files and prints nothing (see :func:`_hermetic`); the returned module
-    carries the factory functions and constants used to build a baseline.
+    Every runner is ``__main__``-guarded, so importing it runs no analysis; the
+    hermetic context additionally guarantees it writes no files and prints
+    nothing (see :func:`_hermetic`). The returned module carries the factory
+    functions and constants used to build a baseline.
     """
     path = Path(path)
     if not path.is_file():
@@ -125,8 +109,6 @@ def import_runner(path: Path, module_name: str) -> ModuleType:
         raise ImportError(f"could not build import spec for {path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
-    # _StopModuleExec is how an unguarded runner's module-level analysis halts at
-    # its first chain execution; the factory + constants above it are already bound.
-    with _hermetic(), contextlib.suppress(_StopModuleExec):
+    with _hermetic():
         spec.loader.exec_module(module)
     return module

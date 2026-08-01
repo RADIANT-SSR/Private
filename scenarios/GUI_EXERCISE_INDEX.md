@@ -198,8 +198,18 @@ directly** and never assemble a full `Sensor` config, so there is nothing for
 Re-run both after any change to a scenario runner or the emitter; the two gates
 are the definition of done for the GUI artifacts.
 
-> Import note (see CU-164): 20 of the 37 scenario runners run their whole
-> analysis at *import* time (no `if __name__ == "__main__"` guard). The emitter
-> imports them inside a hermetic guard (`scenarios/tools/_runner_import.py`) that
-> writes no files and halts the sweep — so regenerating baselines never clobbers
-> committed figures. Guarding those runners is tracked as CU-164.
+> Import note (see CU-164): every scenario runner keeps only imports, constants,
+> input loading and its config factories at module scope, with the analysis behind
+> `if __name__ == "__main__": main()`. Importing one to reach its factory therefore
+> runs no analysis, prints nothing and writes nothing — the `_StopModuleExec` halt
+> that used to stop an unguarded sweep mid-import is retired. The emitter still
+> imports inside the hermetic guard (`scenarios/tools/_runner_import.py`, which
+> no-ops figure/workbook writes and silences stdout) as a belt-and-braces backstop,
+> so regenerating baselines never clobbers committed figures.
+>
+> One consequence for 4.3: its derived radiance CSVs live in the gitignored
+> `outputs/derived/` tree and are written by `main()`, so its baseline factory
+> reads them on demand. Run `python run_camouflage_analysis.py` once before
+> re-emitting the 4.3 baseline in a cold checkout; the factory says so if you
+> don't. (The shipped `.gui.yaml` points at the committed `inputs/` copy — CU-180
+> / CU-273 — so *verifying* the baselines needs no such run.)

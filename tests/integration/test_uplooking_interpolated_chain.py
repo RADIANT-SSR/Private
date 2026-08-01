@@ -29,6 +29,7 @@ import numpy as np
 import pytest
 
 from radiant.api.sensor import Sensor
+from radiant.atmosphere.interpolated import TAU_FLOOR
 
 _CONFIG = Path(__file__).resolve().parents[2] / "examples" / "mwir_leo_minimal.yaml"
 _LIB = (
@@ -87,7 +88,12 @@ class TestChainReachesTheLibrary:
             wl_n = np.asarray(data["wavelength_um"], dtype=np.float64)
             tau_n = np.asarray(data["transmittance"], dtype=np.float64)
             l_n = np.asarray(data["path_radiance_toward_lower"], dtype=np.float64)
-        assert np.asarray(q.tau_up) == pytest.approx(np.interp(lam, wl_n, tau_n), abs=1e-12)
+        # CU-306: τ is carried onto the chain grid in **log-τ** — the same
+        # optical-depth space the geometry interpolation runs in — so the
+        # anchor is the log-space resample of the node column, not the
+        # linear-in-τ one. Radiance is not Beer-Lambert and stays linear.
+        tau_expected = np.exp(np.interp(lam, wl_n, np.log(np.clip(tau_n, TAU_FLOOR, 1.0))))
+        assert np.asarray(q.tau_up) == pytest.approx(tau_expected, abs=1e-12)
         assert np.asarray(q.L_path_up) == pytest.approx(np.interp(lam, wl_n, l_n), abs=1e-12)
 
     def test_it_differs_from_the_parametric_model(self, interpolated, simple) -> None:  # type: ignore[no-untyped-def]

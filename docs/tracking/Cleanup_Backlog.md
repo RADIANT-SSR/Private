@@ -56,16 +56,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: a shipped metric rendered in the GUI Performance dashboard reads "94 % aliased" on a design with nothing to alias — the one Spatial-MTF number an operator would use to judge sampling adequacy is the one that lies in the best-sampled regime.
 **Suggested fix**: (b) stand-alone, S — owner ruling between (i) an absolute floor on the denominator (report 0 when the folded MTF at the sample frequency is below a documented epsilon) and (ii) a result-typed `failure_reason` per the Rule-17 metric-layer carve-out ("alias fraction undefined: optics cut off below Nyquist"). **Results-affecting** for the one metric on oversampled configurations either way. Category B. Related: [[CU-209]].
 
-### CU-306 — `InterpolatedAtmosphere.build_state` interpolates in log-tau then resamples in linear tau
-
-**Discovered**: Overnight backlog run, CU-226 close-out, 2026-07-30 — measured while anchoring [[CU-226]].
-**Status**: Open — pre-existing, affects down-looking families equally.
-**Owner ruling (2026-08-01)**: approved — resample in log-tau (one operation-order change), then re-anchor against a stored-grid run per the entry.
-**File**: `src/radiant/atmosphere/interpolated.py::build_state`.
-**Symptom**: the family interpolation is done in log-tau on the stored grid (correct, Beer-Lambert), and the result is then resampled onto the chain's wavelength grid linearly in tau. The two operations do not commute. Measured against the analytic log-tau midpoint identity: on the stored grid the error is **1.110e-16 absolute / 2.558e-15 relative**; on a differing chain grid the same check reads **1.676e-05 absolute / 2.847e-02 relative** — i.e. up to ~2.8 % relative tau error on off-node queries at low-tau wavelengths.
-**Why it still matters**: it sets an accuracy floor on every interpolated-backend result whose chain grid differs from the stored grid, which is the normal case. ~3 % on tau is comparable to the model differences the interpolated backend exists to capture.
-**Suggested fix**: (b) stand-alone — resample in log-tau as well (one operation-order change), then re-anchor against a stored-grid run. **Results-affecting** for interpolated scenes on a non-matching grid. Effort S–M; category C. Related: [[CU-226]], [[CU-239]].
-
 ### CU-301 — `geometry.site_elevation_m` has no GUI entry point
 
 **Discovered**: Overnight backlog run, CU-262 close-out, 2026-07-30.
@@ -332,6 +322,16 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 
 ## Resolved
 
+### CU-306 — `InterpolatedAtmosphere.build_state` interpolates in log-tau then resamples in linear tau — RESOLVED 2026-08-01 (commit trailer)
+
+**Discovered**: Overnight backlog run, CU-226 close-out, 2026-07-30 — measured while anchoring [[CU-226]].
+**Status**: RESOLVED 2026-08-01, closed by the `CU-Closes: 306` trailer commit.
+**Owner ruling (2026-08-01)**: approved — resample in log-tau (one operation-order change), then re-anchor against a stored-grid run per the entry.
+**File**: `src/radiant/atmosphere/interpolated.py::build_state`.
+**Symptom**: the family interpolation is done in log-tau on the stored grid (correct, Beer-Lambert), and the result is then resampled onto the chain's wavelength grid linearly in tau. The two operations do not commute. Measured against the analytic log-tau midpoint identity: on the stored grid the error is **1.110e-16 absolute / 2.558e-15 relative**; on a differing chain grid the same check reads **1.676e-05 absolute / 2.847e-02 relative** — i.e. up to ~2.8 % relative tau error on off-node queries at low-tau wavelengths.
+**Why it still matters**: it sets an accuracy floor on every interpolated-backend result whose chain grid differs from the stored grid, which is the normal case. ~3 % on tau is comparable to the model differences the interpolated backend exists to capture.
+**Suggested fix**: (b) stand-alone — resample in log-tau as well (one operation-order change), then re-anchor against a stored-grid run. **Results-affecting** for interpolated scenes on a non-matching grid. Effort S–M; category C. Related: [[CU-226]], [[CU-239]].
+**Resolution**: the wavelength resample moved ahead of the `exp()` — `build_state` now resamples `log_tau_interp` onto the chain grid and exponentiates after, so the geometry interpolation and the spectral resample are both linear in optical depth and commute. Radiances (`L_path`, `L_atm_down`) deliberately stay linear (additive, no Beer-Lambert structure) and are verified bit-identical. Re-anchored per the entry: the log-tau midpoint identity on an off-node grid collapses 2.077e-02 abs → 1.110e-16 abs (machine precision, `midlat_summer_ladders`, 12 983 λ); realistic 200-point chain grids move τ ≤ 1.51 % rel (down, geometric ≤ arithmetic mean), stored-grid queries bit-identical. 7 new Level-0/1 tests (4 fail on the old code); one integration anchor re-derived independently (§5.3; no committed golden sets `atmosphere.model: interpolated`, so none moved — coverage gap logged). Results-affecting CHANGELOG entry under Fixed; `RADIANT_Atmosphere.md` §3 updated in lock-step. The pre-existing `TAU_FLOOR` (1e-30) already makes log τ finite, so no new zero guard was needed; the linear-resample inconsistency this exposes in the tabulated/MODTRAN backends is promoted separately.
 ### CU-209 — folded MTF replicates at `f_Nyquist` instead of the sampling frequency `2·f_Nyquist` — RESOLVED 2026-08-01 (commit trailer)
 
 **Discovered**: multi-config Phase 3 dual-band example (`examples/scripts/dual_band_configuration_set.py`), 2026-07-25

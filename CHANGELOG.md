@@ -210,6 +210,26 @@ retroactively reconstructed.
   exercised it tested the deprecated function itself.
 
 ### Fixed
+- **Results-affecting (interpolated atmosphere on a non-matching chain grid): τ is now
+  resampled onto the chain's wavelength grid in log-τ, not linearly in τ (CU-306).**
+  `InterpolatedAtmosphere.build_state` interpolated the run family in log-τ (correct —
+  Beer-Lambert makes optical depth the quantity linear in path length) and then resampled
+  the result onto the chain grid linearly in τ. The two operations do not commute, so the
+  answer depended on their order. Both are now linear in ln(τ). Measured on the shipped
+  `midlat_summer_ladders` family, target-altitude midpoint at 35 km sensor: the analytic
+  log-τ midpoint identity on an off-node grid collapses from **2.077e-02 absolute /
+  1.36e-01 relative (τ > 0.1)** to **1.110e-16 / 5.47e-16** — machine precision, matching
+  what the stored grid always gave. On realistic 200-point band grids τ moves by up to
+  **1.3 % (LWIR 8–12 µm), 1.5 % (MWIR 3–5 µm, τ > 0.01), 0.5 % (VIS 0.4–0.9 µm)**;
+  **direction: τ decreases** at every point (the log-space result is the geometric rather
+  than arithmetic mean of the bracketing samples, and GM ≤ AM), so SNR through an
+  interpolated atmosphere edges down. Deep absorption bands move by more in relative terms
+  (τ ~ 1e-9 → 1e-20) but are radiometrically zero either way. **A query on the stored grid
+  is bit-identical** — no resample happens, so nothing changes for it — and `L_path` /
+  `L_atm_down` are bit-identical everywhere: they are additive emission terms with no
+  Beer-Lambert exponential in path length, so their resample deliberately stays linear.
+  Opaque bands are unaffected: the constructor's existing `TAU_FLOOR` (1e-30 ≡ OD ≈ 69)
+  clamp keeps ln(τ) finite, so a τ = 0 band resamples to the floor, never to NaN or −inf.
 - **Results-affecting: the folded (aliased) MTF now replicates at the sampling frequency
   `f_s = 2·f_Nyquist`, not at `f_Nyquist` (CU-209).** `compute_folded_mtf` shifted the
   aliasing replicas by `k·f_Nyquist`, so at `f = f_Nyquist` the `k = −1` copy landed on DC

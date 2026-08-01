@@ -849,3 +849,241 @@ class TestVacuumEquivalentSensor:
         model = self._zenith_axis_model(wl, sensor_m=35_000.0)
         with pytest.warns(UserWarning, match="sensor_altitude_m.*IGNORED"):
             model.build_state(wl, self._geom(80_000.0))
+
+
+# ---------------------------------------------------------------------------
+# CU-306: the wavelength resample runs in log-tau, like the geometry
+# interpolation, so the two operations commute
+# ---------------------------------------------------------------------------
+
+
+class TestLogTauWavelengthResample:
+    """CU-306 — resampling onto a differing chain grid happens in log-tau.
+
+    Geometry interpolation is linear in ln(tau) (Beer-Lambert: optical depth
+    is what scales with path length).  Before CU-306 the spectral resample
+    onto the chain's wavelength grid was linear in tau itself, and the two
+    operations do not commute — percent-level relative tau error on off-node
+    query wavelengths.  Both are now linear in ln(tau), so they commute and
+    the order no longer matters.
+
+    Truth anchor: for ``tau_i(lam) = exp(-a_i * lam)`` the optical depth is
+    *exactly* linear in lam, so log-linear resampling is exact on every grid
+    and the geometry midpoint has the closed form
+    ``tau(lam) = exp(-0.5 * (a_0 + a_1) * lam)``.
+    """
+
+    A0: float = 1.0  # [1/µm] optical-depth slope of node 0
+    A1: float = 3.0  # [1/µm] optical-depth slope of node 1
+
+    def _stored_wl(self) -> np.ndarray:
+        # Deliberately COARSE (0.2 µm cells): a linear-in-tau resample of a
+        # curved exponential then carries a percent-level error, which is the
+        # defect this class pins.
+        return np.linspace(3.0, 5.0, 11)
+
+    def _model(self, wl: np.ndarray) -> InterpolatedAtmosphere:
+        points = [
+            _make_point({"target_altitude_m": 0.0}, wl, np.exp(-self.A0 * wl)),
+            _make_point({"target_altitude_m": 1000.0}, wl, np.exp(-self.A1 * wl)),
+        ]
+        return InterpolatedAtmosphere(points, axes=["target_altitude_m"])
+
+    @staticmethod
+    def _geom(target_altitude_m: float) -> AtmosphericGeometry:
+        return AtmosphericGeometry(
+            sensor_altitude_m=35_000.0,
+            target_altitude_m=target_altitude_m,
+            path_zenith_rad=0.0,  # nadir: no CU-167 non-axis warning
+            solar_zenith_rad=0.0,
+        )
+
+    @pytest.mark.level0
+    def test_stored_grid_query_is_unchanged(self) -> None:
+        """(a) No resample needed ⇒ the CU-306 change is a no-op.
+
+        On the stored grid the geometry midpoint is the geometric mean of the
+        two node spectra, exactly as before CU-306.
+        """
+        wl = self._stored_wl()
+        model = self._model(wl)
+        got = model.build_state(wl, self._geom(500.0)).transmittance.values
+
+        expected = np.sqrt(np.exp(-self.A0 * wl) * np.exp(-self.A1 * wl))
+        np.testing.assert_allclose(got, expected, rtol=1e-15, atol=0.0)
+
+    @pytest.mark.level0
+    def test_offset_grid_midpoint_identity_analytic(self) -> None:
+        """(b) The analytic log-tau midpoint identity holds off-node.
+
+        With ln(tau) exactly linear in lam, the interpolated midpoint spectrum
+        is ``exp(-0.5 (a_0 + a_1) lam)`` at EVERY query wavelength — no
+        discretization residual is available to hide behind.  The pre-CU-306
+        linear-in-tau resample misses this by ~2 % at cell midpoints.
+        """
+        wl = self._stored_wl()
+        model = self._model(wl)
+        lam_off = 0.5 * (wl[:-1] + wl[1:])  # every stored cell's midpoint
+
+        got = model.build_state(lam_off, self._geom(500.0)).transmittance.values
+        expected = np.exp(-0.5 * (self.A0 + self.A1) * lam_off)
+
+        np.testing.assert_allclose(got, expected, rtol=1e-13, atol=0.0)
+
+    @pytest.mark.level0
+    def test_resample_is_geometric_mean_at_cell_midpoint(self) -> None:
+        """(b') Spectral geometric-mean identity, independent of the geometry axis.
+
+        At the midpoint of a stored wavelength cell, a log-linear resample
+        returns sqrt(tau_i * tau_i+1) of the two bracketing stored samples.
+        A linear-in-tau resample returns their arithmetic mean instead.
+        """
+        wl = self._stored_wl()
+        model = self._model(wl)
+        lam_off = 0.5 * (wl[:-1] + wl[1:])
+
+        # Query AT a stored node coordinate: geometry interpolation is exact,
+        # so the only operation under test is the spectral resample.
+        got = model.build_state(lam_off, self._geom(0.0)).transmittance.values
+        tau_nodes = np.exp(-self.A0 * wl)
+        expected = np.sqrt(tau_nodes[:-1] * tau_nodes[1:])
+
+        np.testing.assert_allclose(got, expected, rtol=1e-14, atol=0.0)
+
+    @pytest.mark.level0
+    def test_operations_commute(self) -> None:
+        """(b'') Resample-then-interpolate == interpolate-then-resample.
+
+        The invariant CU-306 restores: both operations are linear in ln(tau),
+        so their order cannot change the answer.
+        """
+        wl = self._stored_wl()
+        lam_off = 0.5 * (wl[:-1] + wl[1:])
+
+        interp_then_resample = self._model(wl).build_state(lam_off, self._geom(500.0))
+
+        # Same family, but each node spectrum resampled onto the query grid
+        # FIRST (in log-tau), then geometry-interpolated on that grid.
+        resampled_nodes = [np.exp(np.interp(lam_off, wl, -a * wl)) for a in (self.A0, self.A1)]
+        pre_resampled = InterpolatedAtmosphere(
+            [
+                _make_point({"target_altitude_m": 0.0}, lam_off, resampled_nodes[0]),
+                _make_point({"target_altitude_m": 1000.0}, lam_off, resampled_nodes[1]),
+            ],
+            axes=["target_altitude_m"],
+        )
+        resample_then_interp = pre_resampled.build_state(lam_off, self._geom(500.0))
+
+        np.testing.assert_allclose(
+            interp_then_resample.transmittance.values,
+            resample_then_interp.transmittance.values,
+            rtol=1e-14,
+            atol=0.0,
+        )
+
+    @pytest.mark.level0
+    def test_opaque_band_survives_the_log_resample(self) -> None:
+        """(c) tau = 0 bands: finite, non-negative, still opaque, never NaN.
+
+        The constructor floors stored tau at TAU_FLOOR (1e-30, OD ~ 69) before
+        taking the log, so an opaque band is carried through the resample as
+        that floor rather than as -inf.  Values above the floor are untouched.
+        """
+        wl = self._stored_wl()
+        tau0 = np.exp(-self.A0 * wl)
+        tau1 = np.exp(-self.A1 * wl)
+        opaque = wl >= 4.0
+        tau0 = np.where(opaque, 0.0, tau0)
+        tau1 = np.where(opaque, 0.0, tau1)
+
+        model = InterpolatedAtmosphere(
+            [
+                _make_point({"target_altitude_m": 0.0}, wl, tau0),
+                _make_point({"target_altitude_m": 1000.0}, wl, tau1),
+            ],
+            axes=["target_altitude_m"],
+        )
+        lam_off = 0.5 * (wl[:-1] + wl[1:])
+        got = model.build_state(lam_off, self._geom(500.0)).transmittance.values
+
+        assert np.all(np.isfinite(got))
+        assert np.all(got >= 0.0)
+        assert np.all(got <= 1.0)
+
+        # Query points bracketed by two opaque stored samples stay opaque
+        # (at the floor, not merely small).
+        deep = lam_off > 4.0
+        assert np.all(got[deep] <= 1e-29)
+
+        # Cells whose BOTH bracketing stored samples are transparent are
+        # untouched by the floor (the one cell straddling the band edge is
+        # legitimately dominated by its opaque endpoint and excluded).
+        clear = lam_off < 3.8
+        np.testing.assert_allclose(
+            got[clear],
+            np.exp(-0.5 * (self.A0 + self.A1) * lam_off[clear]),
+            rtol=1e-13,
+            atol=0.0,
+        )
+
+    @pytest.mark.level0
+    def test_resampled_tau_stays_within_bracketing_stored_values(self) -> None:
+        """(d) Bounds: a resampled tau lies between its bracketing stored taus.
+
+        Log-linear interpolation is monotone between the bracketing samples and
+        exp is monotone, so the resampled value can never over- or undershoot
+        them — and never leaves [0, 1].
+        """
+        wl = self._stored_wl()
+        model = self._model(wl)
+        # Dense query grid: several points inside every stored cell.
+        lam_q = np.linspace(wl[0], wl[-1], 401)
+        got = model.build_state(lam_q, self._geom(500.0)).transmittance.values
+
+        tau_mid_nodes = np.sqrt(np.exp(-self.A0 * wl) * np.exp(-self.A1 * wl))
+        idx = np.clip(np.searchsorted(wl, lam_q, side="right") - 1, 0, len(wl) - 2)
+        lo = np.minimum(tau_mid_nodes[idx], tau_mid_nodes[idx + 1])
+        hi = np.maximum(tau_mid_nodes[idx], tau_mid_nodes[idx + 1])
+
+        assert np.all(got >= lo - 1e-15)
+        assert np.all(got <= hi + 1e-15)
+        assert np.all(got >= 0.0)
+        assert np.all(got <= 1.0)
+
+    @pytest.mark.level1
+    def test_radiances_still_resample_linearly(self) -> None:
+        """Path radiance and downwelling emission are NOT Beer-Lambert.
+
+        They are additive quantities with no exponential path-length law, so
+        CU-306 leaves their resample linear.  Pinned here so a later change
+        cannot quietly log-resample them too.
+        """
+        wl = self._stored_wl()
+        lpath = np.exp(-self.A0 * wl)  # curved on purpose: linear != log here
+        points = [
+            _make_point(
+                {"target_altitude_m": 0.0},
+                wl,
+                np.full_like(wl, 0.5),
+                lpath=lpath,
+                ldown=lpath,
+            ),
+            _make_point(
+                {"target_altitude_m": 1000.0},
+                wl,
+                np.full_like(wl, 0.5),
+                lpath=lpath,
+                ldown=lpath,
+            ),
+        ]
+        model = InterpolatedAtmosphere(points, axes=["target_altitude_m"])
+        lam_off = 0.5 * (wl[:-1] + wl[1:])
+        state = model.build_state(lam_off, self._geom(500.0))
+
+        expected_linear = 0.5 * (lpath[:-1] + lpath[1:])  # arithmetic mean
+        np.testing.assert_allclose(
+            state.path_radiance.values, expected_linear, rtol=1e-14, atol=0.0
+        )
+        np.testing.assert_allclose(
+            state.atm_emission_down.values, expected_linear, rtol=1e-14, atol=0.0
+        )

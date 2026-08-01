@@ -89,9 +89,21 @@ class AtmosphericState:
 > band-mean τ vs −4% under the earlier linear-in-angle axis). Zenith nodes ≥ ~88.8°
 > are refused (sec diverges at the horizon).
 > **Query wavelength grid (CU-156, lifted 2026-07-18):** `build_state` serves any
-> query grid inside the stored spectral range by linearly resampling the
+> query grid inside the stored spectral range by resampling the
 > geometry-interpolated spectra (the `TabulatedAtmosphere` pattern); a query
 > extending outside the stored range fails loud — no spectral extrapolation.
+> **That resample runs in log-τ for transmittance (CU-306, 2026-08-01)** — the
+> same optical-depth space the geometry interpolation uses — so the two
+> operations are both linear in ln(τ), commute, and the answer no longer depends
+> on their order. Resampling linearly in τ instead cost up to ~2.8% relative τ
+> at off-node query wavelengths, i.e. on every chain grid that differs from the
+> stored one. `L_path` and `L_atm_down` resample **linearly**: they are additive
+> emission terms with no Beer-Lambert exponential in path length. τ = 0 bands are
+> safe in log space by construction — the constructor floors stored τ at
+> `TAU_FLOOR` (1e-30 ≡ OD ≈ 69) before taking the log, so ln(τ) is finite
+> everywhere and an opaque band resamples to that floor, never to −inf or NaN.
+> Note the scope: `tabulated` and `modtran` still resample τ linearly (one
+> resample, no operation order to get wrong).
 > **Airborne targets (Gap 94):** when the grid carries a `target_altitude_m` axis
 > (the shipped `midlat_summer_ladders/` family), `evaluate()` serves `h_tgt > 0`
 > with a real two-leg split from two queries at the same sensor/zenith coordinates —
@@ -124,7 +136,8 @@ class AtmosphericState:
 > `uplooking_column_product()` — the segment product for an up-looking observer
 > leg — refuses a down-looking one. The up-looking query takes its lower endpoint
 > from `los.h_sensor` (guardrail G2), interpolates 1-D over target altitude in
-> the same log-τ space, and refuses an off-vertical or elevated-endpoint query
+> the same log-τ space — and, since CU-306, resamples onto the chain grid in
+> that space too — and refuses an off-vertical or elevated-endpoint query
 > rather than approximating it (§4.2b).
 > The diagram and subsections below predate it; treat `interpolated` as a sixth box
 > feeding the same single `AtmosphericState` contract.

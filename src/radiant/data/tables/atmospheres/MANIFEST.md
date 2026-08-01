@@ -250,11 +250,14 @@ band-mean τ, vs −4% under the earlier linear-in-angle axis).
 
 - **Grid-match requirement (CU-156) — lifted 2026-07-18:**
   `InterpolatedAtmosphere.build_state` now serves any query wavelength
-  grid inside the stored spectral range by linear resampling of the
+  grid inside the stored spectral range by resampling the
   geometry-interpolated spectra (the `TabulatedAtmosphere` pattern);
   queries extending outside the stored range still fail loud. The
   historical restriction (query grid must equal the stored grid) no
-  longer applies.
+  longer applies. Since CU-306 (2026-08-01) that resample runs in
+  **log-τ** for transmittance — the same optical-depth space the
+  geometry interpolation uses, so the two commute — and linearly for
+  the radiances, which carry no Beer-Lambert path-length exponential.
 - **Chain consumption of `h_tgt > 0` — lifted 2026-07-18 (Gap 94):**
   `InterpolatedAtmosphere.evaluate` serves airborne targets from a
   `target_altitude_m` grid axis with a real two-leg up/full split, so

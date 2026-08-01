@@ -12,6 +12,12 @@ Interpolation strategy
   linearly with path length and absorber amount.  Interpolating in
   ln(tau) space preserves this linearity.  Values are clamped to
   ``[TAU_FLOOR, 1.0]`` before taking the log to avoid ``-inf``.
+  The **wavelength resample** onto a differing chain grid runs in the
+  same ln(tau) space (CU-306), so the geometry interpolation and the
+  spectral resample are both linear in optical depth and therefore
+  commute; resampling linearly in tau instead made the result depend
+  on the operation order, to up to ~2% relative tau at off-node query
+  wavelengths.
 
 - **Zenith-angle axes interpolate in airmass space** (CU-160):
   ``path_zenith_rad`` / ``solar_zenith_rad`` coordinates are mapped
@@ -25,8 +31,10 @@ Interpolation strategy
   horizon.
 
 - **Path radiance** (L_path) and **downwelling emission** (L_atm_down):
-  interpolated linearly.  These are additive quantities with no
-  multiplicative structure that would benefit from log-space.
+  interpolated linearly, and resampled onto the query wavelength grid
+  linearly.  These are additive quantities with no multiplicative
+  structure — no Beer-Lambert exponential in path length — that would
+  benefit from log-space, so CU-306 deliberately left them linear.
 
 - **No extrapolation**: query geometries outside the convex hull of
   available points always raise ``ValueError``.  We never silently
@@ -709,11 +717,12 @@ class InterpolatedAtmosphere:
         wavelength_um:
             Query wavelength grid.  May differ from the stored points'
             grid as long as it lies inside their spectral range: the
-            geometry-interpolated spectra are then linearly resampled
-            onto the query grid (CU-156, the same
-            ``SpectralData.resample`` pattern ``TabulatedAtmosphere``
-            uses).  A query extending outside the stored range fails
-            loud — extrapolation is never performed.
+            geometry-interpolated spectra are then resampled onto the
+            query grid (CU-156, the same ``SpectralData.resample``
+            pattern ``TabulatedAtmosphere`` uses) — transmittance in
+            log-tau, radiances linearly (CU-306).  A query extending
+            outside the stored range fails loud — extrapolation is
+            never performed.
         geometry:
             The query geometry.  Coordinates for each interpolation
             axis are extracted automatically.
@@ -786,19 +795,30 @@ class InterpolatedAtmosphere:
                     )
                 )
 
-        # Convert log-tau back to tau.
-        tau_interp = np.exp(log_tau_interp)
-        tau_interp = np.clip(tau_interp, 0.0, 1.0)
-
         # Clamp radiance to non-negative.
         lpath_interp = np.maximum(lpath_interp, 0.0)
         ldown_interp = np.maximum(ldown_interp, 0.0)
 
         if resample_needed:
             # CU-156: geometry interpolation ran on the stored grid; serve any
-            # query grid inside the stored spectral range by linear resampling
-            # (the TabulatedAtmosphere pattern). resample() fails loud on a
-            # query outside the stored range — no spectral extrapolation.
+            # query grid inside the stored spectral range by resampling (the
+            # TabulatedAtmosphere pattern). resample() fails loud on a query
+            # outside the stored range — no spectral extrapolation.
+            #
+            # CU-306: τ is resampled in **log-τ**, the same space the geometry
+            # interpolation runs in. Both operations are then linear in optical
+            # depth, so they commute and the answer no longer depends on their
+            # order; resampling linearly in τ instead cost up to ~2% relative
+            # τ error at off-node query wavelengths. Radiances stay LINEAR —
+            # L_path and L_atm_down are additive emission terms with no
+            # Beer-Lambert exponential in path length, so log-resampling them
+            # would have no physical basis.
+            #
+            # τ = 0 / underflow: the constructor already floors stored τ at
+            # TAU_FLOOR (1e-30 ≡ OD ≈ 69) before taking the log, so log_tau is
+            # finite everywhere by construction — an opaque band resamples as
+            # that floor, never as -inf, and exp() can return neither NaN nor
+            # inf. Values above the floor are carried through untouched.
             target = SpectralGrid(wavelengths_um=lam)
 
             def _to_query_grid(name: str, values: np.ndarray, unit: str) -> np.ndarray:
@@ -811,13 +831,19 @@ class InterpolatedAtmosphere:
                 )
                 return np.asarray(source.resample(target).values, dtype=np.float64)
 
-            tau_interp = _to_query_grid("atm.transmittance.interpolated", tau_interp, "")
+            log_tau_interp = _to_query_grid(
+                "atm.log_transmittance.interpolated", log_tau_interp, ""
+            )
             lpath_interp = _to_query_grid(
                 "atm.path_radiance.interpolated", lpath_interp, "W/m²/sr/µm"
             )
             ldown_interp = _to_query_grid(
                 "atm.emission_down.interpolated", ldown_interp, "W/m²/sr/µm"
             )
+
+        # Convert log-tau back to tau, on whichever grid it now lives on.
+        tau_interp = np.exp(log_tau_interp)
+        tau_interp = np.clip(tau_interp, 0.0, 1.0)
 
         provenance: dict[str, Any] = {
             "model": "interpolated",
@@ -857,7 +883,9 @@ class InterpolatedAtmosphere:
                 f"InterpolatedAtmosphere({self._grid_type}, n={self.n_points}, axes={self._axes})",
                 "tau interpolated in log-space (optical depth); "
                 "zenith axes in airmass sec(θ) space (CU-160)",
-                "L_path, L_atm_down interpolated linearly",
+                "tau resampled onto the query wavelength grid in log-space too, "
+                "so the two operations commute (CU-306)",
+                "L_path, L_atm_down interpolated and resampled linearly",
             ),
         )
 

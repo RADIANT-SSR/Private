@@ -5,7 +5,7 @@ How to build and inspect this point-source scenario in the RADIANT GUI.
 ## Open
 
 `File → Open` → `inputs/1.6_mwir_point_source_sda.yaml`. The chain evaluates
-warning-free; the Performance stage shows SNR ≈ 30.5 and detection range ≈ 1262 km.
+warning-free; the Performance stage shows SNR ≈ 25.8 and detection range ≈ 1522 km.
 
 ## Define the target by intensity (not radiance × area)
 

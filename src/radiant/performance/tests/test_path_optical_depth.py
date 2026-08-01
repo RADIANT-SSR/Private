@@ -82,10 +82,28 @@ class TestColumnExitGeometry:
         assert slant > vertical
 
     @pytest.mark.level0
-    def test_down_looking_los_is_rejected(self) -> None:
-        los = LineOfSightGeometry(h_tgt=0.0, h_sensor=5.0e5, theta_o=0.2)
-        with pytest.raises(PerformanceValidationError, match="up-looking"):
+    def test_level_los_is_rejected(self) -> None:
+        """A constant-altitude arm never crosses the shell (CU-263)."""
+        los = LineOfSightGeometry(h_tgt=1.0e4, h_sensor=1.0e4, theta_o=math.pi / 2.0)
+        with pytest.raises(PerformanceValidationError, match="level"):
             column_exit_range_m(los)
+
+    @pytest.mark.level0
+    def test_down_looking_nadir_exit_is_the_column_top(self) -> None:
+        """θ_o = 0 from a ground target ⇒ exit at h_atm_top − h_tgt exactly.
+
+        The down-looking ray's lower endpoint is the *target*, and its
+        target-referenced zenith is already the lower-endpoint zenith
+        (ADR-0011 decision 3), so no η conversion applies.
+        """
+        los = LineOfSightGeometry(h_tgt=0.0, h_sensor=5.0e5, theta_o=0.0)
+        assert column_exit_range_m(los) == pytest.approx(los.h_atm_top, rel=1e-9)
+
+    @pytest.mark.level0
+    def test_down_looking_slant_exit_exceeds_the_nadir_exit(self) -> None:
+        nadir = column_exit_range_m(LineOfSightGeometry(h_tgt=0.0, h_sensor=5.0e5, theta_o=0.0))
+        slant = column_exit_range_m(LineOfSightGeometry(h_tgt=0.0, h_sensor=5.0e5, theta_o=0.6))
+        assert slant > nadir
 
 
 class TestUpLookingVacuumTail:
@@ -182,10 +200,24 @@ class TestMonotonicityAndFailureModes:
             profile.optical_depth_at(bad)
 
     @pytest.mark.level0
-    def test_down_looking_is_rejected_by_the_resolver(self) -> None:
+    def test_down_looking_resolves_to_a_vacuum_tail(self) -> None:
+        """CU-263 (ex-CU-236): the down arm is resolved here, not refused."""
         los = LineOfSightGeometry(h_tgt=0.0, h_sensor=5.0e5, theta_o=0.2)
-        with pytest.raises(PerformanceValidationError, match="down-looking"):
-            resolve_path_optical_depth(los, 5.0e5, 0.4)
+        resolution = resolve_path_optical_depth(los, 5.1e5, 0.4)
+        assert resolution.ok
+        assert resolution.profile is not None
+        assert resolution.profile.topology == "down_vacuum_tail"
+        assert resolution.profile.extinction_per_m == 0.0
+
+    @pytest.mark.level0
+    def test_down_looking_from_inside_the_column_is_refused(self) -> None:
+        """An airborne sensor's receding leg is in air the metric layer cannot model."""
+        los = LineOfSightGeometry(h_tgt=0.0, h_sensor=8.0e3, theta_o=0.2)
+        resolution = resolve_path_optical_depth(los, 8.2e3, 0.4)
+        assert not resolution.ok
+        assert resolution.profile is None
+        assert resolution.failure_reason is not None
+        assert "down-looking" in resolution.failure_reason
 
     @pytest.mark.level0
     @pytest.mark.parametrize("bad_range", [0.0, -1.0, float("nan")])

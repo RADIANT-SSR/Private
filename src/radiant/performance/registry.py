@@ -144,8 +144,11 @@ _register(
         unit="m",
         description=(
             "Point-source detection range: the range at which SNR falls to "
-            "performance.detection_snr_threshold, inverse-square with constant "
-            "atmospheric extinction (Gap 77). Point-source regime only."
+            "performance.detection_snr_threshold, inverse-square with the "
+            "extinction the path actually has (Gap 77, GF-15). The criterion is "
+            "shot-consistent — S(R)/sqrt(S(R) + N0^2) with N0 the target-free "
+            "noise floor — so the answer does not depend on the range it was "
+            "evaluated from (CU-263). Point-source regime only."
         ),
         requires_metrics=frozenset({"snr"}),
         requires_stage_outputs=frozenset({("source", "range_m")}),

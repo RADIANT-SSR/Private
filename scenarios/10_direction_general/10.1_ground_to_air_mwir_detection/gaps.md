@@ -24,8 +24,9 @@ consumed by `radiant/performance/stage.py::_compute_detection_range_metric`
 `detection_range_result.ok` is `False`, with:
 
 > Detection range is not available for an up-looking path whose continuation is still
-> inside the atmosphere: the target sits at 10000 m and the ray leaves the modelled
-> column (h_atm_top = 100000 m) only at 115174 m, past the 11544 m reference range.
+> inside the atmosphere: the receding endpoint sits at 10000 m and the ray leaves the
+> modelled column (h_atm_top = 100000 m) only at 115174 m, past the 11544 m reference
+> range.
 > Extinction along that continuation varies with altitude, and the metric layer has no
 > altitude-resolved extinction profile to integrate — reusing the constant-extinction
 > model here is exactly the error finding GF-15 reports.

@@ -465,21 +465,25 @@ def _compute_detection_range_metric(
     branches in ``performance/``; this is the path topology, which is what the
     extinction model actually depends on):
 
-    ``down`` (and any run without a published direction)
-        The shipped constant-extinction solver, unchanged: α is derived from
-        the band-mean in-band transmittance over the source range
-        (α = −ln(τ̄)/R), exact in vacuum and first-order for atmospheric
-        paths. Migrating this arm would move every existing point-source
-        golden result and is an owner decision.
-
-    ``up`` / ``level`` (finding GF-15)
+    ``up`` / ``level`` / ``down`` (finding GF-15; ``down`` added by CU-263)
         The path-aware solver: τ(R) is evaluated along the actual ray by
         :mod:`radiant.performance.path_optical_depth`, which knows where the
         ray leaves the modelled column and stops accruing optical depth. When
-        that module cannot build a profile (an up-looking continuation still
-        inside the atmosphere), the result carries a ``failure_reason`` and no
-        metric is emitted — the constant-α model is *not* silently substituted
-        (Rule 17).
+        that module cannot build a profile (a continuation still inside the
+        atmosphere — an airborne sensor either way up), the result carries a
+        ``failure_reason`` and no metric is emitted; the constant-α model is
+        *not* silently substituted (Rule 17).
+
+    any run without a published LOS geometry
+        The constant-extinction fallback: α is derived from the band-mean
+        in-band transmittance over the source range (α = −ln(τ̄)/R), exact in
+        vacuum and first-order for atmospheric paths. This arm is reached only
+        when ``GeometryStage`` published no ``los_geometry`` — there is then no
+        ray to resolve a profile along.
+
+    Both arms solve the same shot-consistent criterion
+    ``S(R)/√(S(R) + N₀²) = threshold`` (CU-263), so the answer no longer depends
+    on the range the chain happened to evaluate at.
 
     Skips gracefully outside the point-source regime or when the inputs are
     unavailable.
@@ -507,10 +511,10 @@ def _compute_detection_range_metric(
     los = geo_out.get("los_geometry")
     direction = geo_out.get("los_direction")
 
-    if direction in ("up", "level") and isinstance(los, LineOfSightGeometry):
+    if direction in ("up", "level", "down") and isinstance(los, LineOfSightGeometry):
         # Optical depth over the measured leg. τ̄ outside (0, 1] means "no
         # usable atmospheric product" — treated as a transparent path, the
-        # same convention the down-looking arm uses for α = 0.
+        # same convention the constant-α fallback uses for α = 0.
         ref_od = 0.0
         if tau_bar is not None and 0.0 < tau_bar < 1.0:
             ref_od = -math.log(tau_bar)

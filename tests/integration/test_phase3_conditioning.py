@@ -31,12 +31,15 @@ flag still wins.
 derivation and raises a ``GeometrySpecificationError`` naming *both* labels when
 it does not.
 
-**E. Path-aware detection range** (finding GF-15).  Up-looking and level
-topologies are bounded above by the vacuum inverse-square answer; the bound is
-*attained* when the reference range already lies outside the modelled column,
-and is strictly below it when the ray keeps accruing optical depth.  The level
-arm additionally reproduces the constant-α Beer-Lambert solver to sub-metre
-agreement — the two models are the same model on a constant-density path.
+**E. Path-aware detection range** (finding GF-15; extended to the ``down``
+topology and re-anchored on the shot-consistent criterion by CU-263,
+2026-08-01).  Every topology is bounded above by the vacuum inverse-square
+answer ``R_ref √(S_ref/S*)``; the bound is *attained* when the receding leg
+already lies outside the modelled column (up-looking above ``h_atm_top``, and
+every spaceborne down-looking sensor), and is strictly below it when the ray
+keeps accruing optical depth.  The level arm additionally reproduces the
+constant-α Beer-Lambert solver to sub-metre agreement — the two models are the
+same model on a constant-density path.
 
 Every numeric assertion here is an independent hand calculation (recorded beside
 it), never a value produced by another RADIANT module.
@@ -56,6 +59,7 @@ from radiant.core.parameters import ParameterSet
 from radiant.geometry.errors import GeometrySpecificationError
 from radiant.io.results import ChainResult
 from radiant.performance.detection_beer_lambert import detection_range_beer_lambert
+from radiant.performance.path_optical_depth import resolve_path_optical_depth
 from radiant.performance.scene_relevance import (
     GROUND_PROJECTION_METRICS,
     TARGET_PLANE_METRICS,
@@ -685,9 +689,20 @@ class TestSceneClassAssertion:
 # ---------------------------------------------------------------------------
 
 
-def _vacuum_bound_m(ref_range_m: float, snr_ref: float, threshold: float) -> float:
-    r"""R_vac = R_ref √(SNR_ref / threshold) — the zero-extinction inverse-square answer."""
-    return ref_range_m * math.sqrt(snr_ref / threshold)
+def _vacuum_bound_m(
+    ref_range_m: float, signal_e: float, total_noise_e: float, threshold: float
+) -> float:
+    r"""R_vac = R_ref √(S_ref/S*) — the zero-extinction inverse-square answer.
+
+    Re-anchored 2026-08-01 (CU-263): the detection criterion is shot-consistent,
+    so the signal the threshold demands is the positive root of
+    :math:`S^2 - T^2 S - T^2 N_0^2 = 0` with :math:`N_0^2 = \sigma_{ref}^2 -
+    S_{ref}`, not the frozen-noise product :math:`T\sigma_{ref}`.
+    """
+    floor_sq = total_noise_e * total_noise_e - signal_e
+    t2 = threshold * threshold
+    signal_at_threshold = 0.5 * (t2 + math.sqrt(t2 * t2 + 4.0 * t2 * floor_sq))
+    return ref_range_m * math.sqrt(signal_e / signal_at_threshold)
 
 
 @pytest.mark.level2
@@ -699,7 +714,7 @@ class TestPathAwareDetectionRange:
 
         τ stops accruing at ``h_atm_top``, so for every R beyond R_ref the ratio
         τ(R)/τ(R_ref) is exactly 1 and the solve degenerates to pure
-        inverse-square.  Truth anchor: R = R_ref √(SNR_ref/5).
+        inverse-square.  Truth anchor: R = R_ref √(S_ref/S*).
 
         Run on the turbulence-free variant of the scene: an r₀ = 6 cm blur on a
         1 m aperture collapses EE_box by ~70×, which drops this point source
@@ -710,8 +725,10 @@ class TestPathAwareDetectionRange:
         result = sst.stage_outputs["performance"]["detection_range_result"]
         assert result.ok, result.failure_reason
         ref_range_m = float(sst.stage_outputs["geometry"]["slant_range_m"])
-        snr_ref = float(sst.metrics["snr"])
-        bound_m = _vacuum_bound_m(ref_range_m, snr_ref, 5.0)
+        snr_result = sst.stage_outputs["performance"]["snr_result"]
+        bound_m = _vacuum_bound_m(
+            ref_range_m, float(snr_result.signal_e), float(snr_result.noise_e), 5.0
+        )
         assert result.range_m == pytest.approx(bound_m, abs=1.0)  # solver tol_m
         assert result.range_m <= bound_m * (1.0 + 1e-9)
 
@@ -721,12 +738,17 @@ class TestPathAwareDetectionRange:
         result = session.run(air_to_air_params(session))
         detection = result.stage_outputs["performance"]["detection_range_result"]
         assert detection.ok, detection.failure_reason
-        bound_m = _vacuum_bound_m(A2A_RANGE_M, float(result.metrics["snr"]), 5.0)
+        snr_result = result.stage_outputs["performance"]["snr_result"]
+        bound_m = _vacuum_bound_m(
+            A2A_RANGE_M, float(snr_result.signal_e), float(snr_result.noise_e), 5.0
+        )
         assert detection.range_m < bound_m
-        # Hand check: SNR_ref ≈ 11.6 ⇒ R_vac ≈ 50 km · √2.325 ≈ 76.2 km, and the
-        # attenuated answer lands near 65.9 km — a 14 % shortfall, not a rounding
-        # difference.
-        assert detection.range_m / bound_m == pytest.approx(0.864, rel=0.02)
+        # The attenuated answer is a fixed fraction of the vacuum bound for this
+        # arm — a 14 % shortfall, not a rounding difference. CU-263 lengthened
+        # both the bound and the attenuated answer (the target's own shot noise
+        # is most of the noise power here), so the ratio barely moved: 0.864 →
+        # 0.860 re-measured. The bar is the shortfall, and it survives.
+        assert detection.range_m / bound_m == pytest.approx(0.860, rel=0.02)
 
     def test_level_arm_reproduces_the_constant_alpha_solver(self) -> None:
         r"""Cross-model: the level arm *is* the constant-extinction model.
@@ -766,14 +788,25 @@ class TestPathAwareDetectionRange:
         assert path_aware.range_m == pytest.approx(reference.range_m, abs=1.0)
         assert abs(path_aware.range_m - reference.range_m) < 0.6  # measured 0.48 m
 
-    def test_down_looking_still_uses_the_constant_alpha_arm(self) -> None:
-        """Scope: the shipped down-looking solver is deliberately untouched."""
+    def test_down_looking_now_takes_the_path_aware_arm(self) -> None:
+        """Scope, re-anchored 2026-08-01 (CU-263, folding ex-CU-236).
+
+        The down arm used to be routed to the constant-α solver deliberately;
+        it now goes through the path-aware one like every other topology. A
+        spaceborne sensor sits above ``h_atm_top``, so its receding leg is
+        vacuum and the profile's extinction is exactly zero — which is the
+        physics ex-CU-236 said the constant-α extrapolation got wrong.
+        """
         session = RadiantSession(wavelength_um=MWIR_WL)
         params = session.default_params()
         params.set("source.target.temperature", 500.0)
         params.set("source.target.emissivity", 0.90)
         params.set("source.scene_type", "point_source")
-        params.set("geometry.target.projected_area_m2", 1.0e-4)
+        # 0.05 m² keeps the target unresolved (√A_t/d = 0.04·PSF_FWHM, inside the
+        # 0.1 point-source guard) while putting it above threshold at the
+        # reference range, which the shot-consistent solve needs to report a
+        # range at all. The 1e-4 m² the scope-only version used sat at SNR 0.05.
+        params.set("geometry.target.projected_area_m2", 0.05)
         params.set("atmosphere.model", "simple")
         params.set("atmosphere.standard_atmosphere", "midlat_summer")
         params.set("geometry.sensor_altitude_m", 5.0e5)
@@ -784,7 +817,20 @@ class TestPathAwareDetectionRange:
         result = session.run(params)
         assert result.stage_outputs["geometry"]["los_direction"] == "down"
         detection = result.stage_outputs["performance"]["detection_range_result"]
-        # The down-looking arm reports a result (ok or a named failure); what
-        # matters here is that it exists and was produced without the path-aware
-        # profile, i.e. the topology dispatch did not capture the legacy case.
         assert detection is not None
+        assert detection.ok, detection.failure_reason
+
+        los = result.stage_outputs["geometry"]["los_geometry"]
+        ref_range_m = float(result.stage_outputs["source"]["range_m"])
+        profile = resolve_path_optical_depth(los, ref_range_m, 0.5).profile
+        assert profile is not None
+        assert profile.topology == "down_vacuum_tail"
+
+        # The answer is the vacuum bound: the receding leg accrues no further
+        # optical depth, so the constant-α extrapolation it replaced is strictly
+        # shorter (ex-CU-236's direction).
+        snr_result = result.stage_outputs["performance"]["snr_result"]
+        bound_m = _vacuum_bound_m(
+            ref_range_m, float(snr_result.signal_e), float(snr_result.noise_e), 5.0
+        )
+        assert detection.range_m == pytest.approx(bound_m, abs=1.0)

@@ -344,49 +344,69 @@ ERF comes from `EffectivePSF.erf(axis)` per RADIANT_Spatial_Complete.md. By defi
 
 > **Implementation status (2026-07-11, Gap 77):** wired in-chain as the
 > `detection_range_m` metric, computed only in the point-source regime.
-> `PerformanceStage._compute_detection_range_metric` bisects the
-> Beer-Lambert solver (`performance.detection_beer_lambert`) using the
-> current signal/noise at `source.range_m` as the reference and
-> `performance.detection_snr_threshold` (default 5.0) as the target. The
-> extinction is **constant**: `α = −ln(τ̄)/R` from the band-mean in-band
-> transmittance — exact in vacuum (α = 0, pure inverse-square) and a
-> first-order model for atmospheric paths. The full geometry-aware
-> spherical-Earth slant-path solve (α varying along the path, τ_atm(R)
-> recomputed per range) described below is the deferred refinement.
+> `PerformanceStage._compute_detection_range_metric` bisects for the range at
+> which SNR falls to `performance.detection_snr_threshold` (default 5.0), using
+> the current signal/noise at `source.range_m` as the reference.
 >
 > **Update (2026-07-27, Geometry Flexibility Phase 3, finding GF-15):** the
-> helper now dispatches on the **derived LOS direction** that `GeometryStage`
+> helper dispatches on the **derived LOS direction** that `GeometryStage`
 > publishes (`stage_outputs["geometry"]["los_direction"]`) — not on the scene
 > class, which guardrail G3 forbids branching on inside `performance/`.
-> `down` (and any run without a published direction) takes the constant-α
-> solver above, unchanged and bit-identical. `up` and `level` take the
-> **path-aware** solver `performance.detection_path_aware`, whose τ(R) comes
-> from `performance.path_optical_depth` — a piecewise profile that knows where
+>
+> **Update (2026-08-01, CU-263 including folded ex-CU-236) — results-affecting.**
+> Two changes, one PR:
+>
+> 1. **Shot-consistent noise.** All solvers used to hold the *total* noise at
+>    its reference-range value while scaling the signal outward, which made the
+>    reported range depend on the range it was evaluated from (123.4 km
+>    referenced at 25 km vs 182.5 km at 100 km, one unchanged configuration).
+>    The criterion is now `S(R)/√(S(R) + N₀²) = threshold` with
+>    `N₀² = σ_ref² − S_ref` the target-free floor
+>    (`performance.detection_noise_floor`, `performance.detection_shot_consistent_snr`).
+>    Both forms agree exactly at the reference range, so the correction is zero
+>    there and grows outward; it always **lengthens** the reported range and
+>    vanishes as `S_ref/N₀² → 0`. Measured on shipped scenarios: +15.20 % (10.4
+>    LEO→GEO vacuum), +31.71 % (10.2 air-to-air level arm).
+> 2. **The `down` arm is path-aware.** All three topologies now take the
+>    path-aware solver `performance.detection_path_aware` over
+>    `performance.path_optical_depth`. The constant-α solver
+>    `performance.detection_beer_lambert` remains the signal law for the
+>    no-`los_geometry` fallback and for direct callers.
+>
+> `performance.path_optical_depth` builds a piecewise profile that knows where
 > the ray leaves the modelled column (`h_atm_top`) and stops accruing optical
-> depth there. Its search bound is analytic rather than a fixed ceiling: since
+> depth there. Ranges are measured from the ray's **lower endpoint** — the
+> sensor when looking up, the target when looking down (ADR-0011 decision 3) —
+> so the continuation always climbs into thinner air and then vacuum. Solvable
+> shapes: a **level** arm (constant altitude ⇒ constant density ⇒ constant
+> extinction is the arm model's *own* assumption, so it is exact, bounded by the
+> ADR-0011 2 km tangent-sag ceiling ≈ 319 km); an **up-** or **down-looking**
+> path whose receding endpoint already sits at or above `h_atm_top` (vacuum
+> tail, exact — this covers every spaceborne sensor); and a **transparent**
+> path. A path whose continuation is still inside the column is **refused** with
+> a named `failure_reason` (ADR-B result-typed failure) rather than answered
+> with the constant-α model — that substitution is exactly the error GF-15 and
+> ex-CU-236 report. Down-looking, the refused case is the airborne sensor
+> (`h_sensor < h_atm_top` with `τ̄ < 1`), which consequently emits no
+> `detection_range_m`.
+>
+> The search bound is analytic rather than a fixed ceiling: since
 > τ(R)/τ(R_ref) ≤ 1 always, the detection range can never exceed the vacuum
-> answer `R_ref·√(SNR_ref/threshold)`, which makes the bisection bracket
-> provably root-containing. Three path shapes are solvable — a **level** arm
-> (constant altitude ⇒ constant density ⇒ constant extinction is the arm
-> model's *own* assumption, so it is exact, bounded by the ADR-0011 2 km
-> tangent-sag ceiling ≈ 319 km), an **up-looking** path whose target already
-> sits at or above `h_atm_top` (vacuum tail, exact), and a **transparent**
-> path. An up-looking path whose continuation is still inside the column is
-> **refused** with a named `failure_reason` (ADR-B result-typed failure) rather
-> than answered with the constant-α model — that substitution is exactly the
-> error GF-15 reports. Migrating the down-looking arm would move every existing
-> point-source golden result and is an owner decision.
+> answer `R_ref·√(S_ref/S*)`, which makes the bisection bracket provably
+> root-containing.
 
-**Formula:** Solve for the range R at which SNR equals the user's `performance.detection_snr_threshold`:
+**Formula:** Solve for the range R at which SNR equals the user's `performance.detection_snr_threshold` T:
 ```
-S(R) = S_ref · (R_ref / R)² · exp(−α · (R − R_ref))      # constant-α (implemented)
-R_detect = R such that S(R) / σ_noise = threshold
+S(R)   = S_ref · (R_ref / R)² · τ(R)/τ(R_ref)     # τ ratio from path_optical_depth,
+                                                  # or exp(−α·(R − R_ref)) for constant α
+N₀²    = σ_ref² − S_ref                           # target-free noise floor [e-²]
+R_detect = R such that S(R) / √(S(R) + N₀²) = T
 ```
-The design target recomputes `τ_atm(R)` along the slant path each iteration; the framework solves either form with a 1-D bisection.
+The criterion inverts in closed form — `S* = ½(T² + √(T⁴ + 4T²N₀²))` is the signal the threshold demands — so in vacuum `R = R_ref·√(S_ref/S*)` exactly, and the bisection is only needed when the path attenuates.
 
-**Required inputs:** point-source signal + noise from the chain, `source.range_m`, band-mean `tau_atm`, `performance.detection_snr_threshold`.
+**Required inputs:** point-source signal + total noise from the chain (from the *same* evaluation — σ² < S is refused), `source.range_m`, band-mean `tau_atm`, the published `los_geometry`, `performance.detection_snr_threshold`.
 
-**Regimes:** point only (raises NaN otherwise).
+**Regimes:** point only (metric absent otherwise).
 
 **Unit:** m.
 
@@ -394,6 +414,8 @@ The design target recomputes `τ_atm(R)` along the slant path each iteration; th
 
 **Failure modes:**
 - No solution in bracket → NaN with reason "target not detectable at any range" or "target detectable at all ranges."
+- Continuation still inside the modelled column → NaN with a named reason; no metric emitted.
+- `σ_ref² < S_ref` (signal and noise from different operating points) → NaN with a named reason.
 - Atmospheric model is `tabulated` (geometry-frozen) → NaN with reason "detection range requires geometry-aware atmosphere."
 
 ### 4.13 Saturation margin (well, ADC)

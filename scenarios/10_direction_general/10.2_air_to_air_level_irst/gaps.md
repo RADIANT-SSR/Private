@@ -62,9 +62,16 @@ relying on the (inert) guard.
 ## Gap B — `detection_range_m` holds total noise constant, so it depends on the range it is evaluated at
 
 **Severity**: Medium
-**Status**: OPEN
+**Status**: RESOLVED 2026-08-01 — promoted to CU-263 and fixed there. The solvers
+now use the shot-consistent criterion `S(R)/√(S(R) + N₀²) = threshold` with
+`N₀² = σ_ref² − S_ref` the target-free floor (option (a) of the suggested fix,
+in the exact form option (c) asked for). Re-measured on this sweep: the spread
+is **1.00×** (198.6 km referenced at 25 km, 198.9 km at 100 km) and the nominal
+50 km answer moved **150.9 km → 198.8 km (+31.7 %)**. The record below is the
+original finding as filed.
 **File**: `src/radiant/performance/detection_generic.py`,
-`src/radiant/performance/detection_path_aware.py`
+`src/radiant/performance/detection_path_aware.py`,
+`src/radiant/performance/detection_beer_lambert.py`
 
 **Description.** The detection-range solvers scale the signal along the path,
 $S(R) = S_{ref}(R_{ref}/R)^2\,\tau(R)/\tau(R_{ref})$, while holding the **total**
@@ -83,6 +90,12 @@ as the target recedes, and the answer becomes strongly reference-dependent.
 a factor 1.48 spread for one design against one target. Re-solving against the
 target-free floor (70.2 e⁻ rms) gives 200.2 km.
 
+*Post-fix (2026-08-01):* 198.6 km referenced at 25 km, 198.8 km at 50 km,
+198.9 km at 100 km — a 1.00× spread. The 0.4 km residual is the band-mean τ
+model's own reference dependence (α_eff 0.01812 → 0.01809 km⁻¹), not the noise
+treatment. The 200.2 km floor-only solve is now an upper bound the chain sits
+0.7 % below, because the chain keeps the target's residual shot noise.
+
 **Why it matters.** Detection range is the headline number for an IRST. A
 metric whose value depends on where the analyst happened to place the target is
 not usable as a figure of merit, and nothing in the result object says so.
@@ -96,9 +109,11 @@ metric record (a `reference_range_m` field plus a note), or (c) solve against
 the target-independent noise floor and document that as the definition. Any of
 the three; silently returning a reference-dependent number is the problem.
 
-**Workaround used.** The runner prints the noise decomposition at both ends of
-the sweep, explains the mechanism, and re-solves against the target-free floor
-to publish the number an engineer would actually quote.
+**Workaround used (superseded by the fix).** The runner printed the noise
+decomposition at both ends of the sweep, explained the mechanism, and re-solved
+against the target-free floor to publish the number an engineer would actually
+quote. It now prints the same decomposition as *evidence that the fix holds*,
+with the floor-only solve retained as a cross-check bound.
 
 ---
 

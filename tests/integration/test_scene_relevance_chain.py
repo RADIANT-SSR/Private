@@ -267,7 +267,14 @@ class TestPathAwareDetectionRange:
         return session.run(params)
 
     def test_vacuum_up_looking_solves_the_inverse_square_closed_form(self) -> None:
-        """Anchor: τ ≡ 1 ⇒ R_det = R_ref √(SNR_ref / threshold), exactly."""
+        """Anchor: τ ≡ 1 ⇒ R_det = R_ref √(S_ref/S*), exactly.
+
+        Re-anchored 2026-08-01 (CU-263): the criterion is shot-consistent, so
+        the signal the threshold demands is S* = ½(T² + √(T⁴ + 4T²N₀²)) rather
+        than the frozen-noise product T·σ_ref. Both reduce to the same thing
+        when the target's own shot noise is negligible; here it is 51 % of the
+        noise power, which is why the closed form had to move with the solver.
+        """
         result = self._leo_to_geo()
         assert result.stage_outputs["geometry"]["los_direction"] == "up"
         assert result.stage_outputs["geometry"]["scene_class"] == "space_to_space"
@@ -276,8 +283,10 @@ class TestPathAwareDetectionRange:
             pytest.skip(f"scene not detectable end-to-end: {detection.failure_reason}")
         snr_result = result.stage_outputs["performance"]["snr_result"]
         ref_range_m = float(result.stage_outputs["source"]["range_m"])
-        snr_ref = snr_result.signal_e / snr_result.noise_e
-        expected = ref_range_m * math.sqrt(snr_ref / detection.snr_threshold)
+        floor_sq = snr_result.noise_e**2 - snr_result.signal_e
+        t2 = detection.snr_threshold**2
+        signal_at_threshold = 0.5 * (t2 + math.sqrt(t2 * t2 + 4.0 * t2 * floor_sq))
+        expected = ref_range_m * math.sqrt(snr_result.signal_e / signal_at_threshold)
         assert detection.range_m == pytest.approx(expected, rel=1e-5)
 
     def test_in_column_up_looking_path_is_refused_with_a_named_reason(self) -> None:

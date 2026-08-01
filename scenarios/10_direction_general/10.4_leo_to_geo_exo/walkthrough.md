@@ -157,7 +157,7 @@ triangle.
 | quantization noise | 1.761 | e- RMS |
 | **Total noise** | **48.014** | e- RMS |
 | **SNR** | **24.52** | — |
-| **Detection range** (SNR = 5) | **78 139** | km |
+| **Detection range** (SNR = 5) | **90 015** | km |
 | NEDT (reported, but not a meaningful figure of merit here — see below) | 1005 | mK |
 
 NEDT is printed because the metric layer computes it, but it should not be read
@@ -172,9 +172,10 @@ Earth, so past the GEO bus it exits into deep space and the background is
 rule of ADR-0011 decision 9 in action — hits Earth → ground, exits the
 atmosphere → cold space, grazes the limb → raise.
 
-Detection range is 2.21× the LEO→GEO range: the geostationary belt sits
+Detection range is 2.55× the LEO→GEO range: the geostationary belt sits
 comfortably inside this sensor's single-frame detection horizon for the assumed
-signature.
+signature. (It was 2.21× before CU-263 fixed the frozen-noise criterion on
+2026-08-01 — see cross-check 4.)
 
 ![SNR vs range](outputs/10.4_snr_vs_range_detection.png)
 
@@ -213,10 +214,10 @@ background-free (cold space) and dark-current-limited.
 | 5 | 0.075 | 0.46 | 0.2232 | 0.00075 | 0.46 | < R_GEO |
 | 25 | 0.375 | 2.17 | 0.2198 | 0.00375 | 2.21 | < R_GEO |
 | 50 | 0.751 | 3.98 | 0.2123 | 0.00751 | 4.17 | < R_GEO |
-| 100 | 1.502 | 6.51 | 0.1877 | 0.01502 | 7.59 | 43 461 |
-| 250 | 3.754 | **7.97** | 0.1025 | 0.03754 | 15.37 | 61 866 |
-| 500 | 7.508 | 7.61 | 0.0542 | 0.07508 | **24.52** | **78 139** |
-| 1000 | 15.016 | 6.61 | 0.0274 | 0.15016 | 37.31 | 96 388 |
+| 100 | 1.502 | 6.51 | 0.1877 | 0.01502 | 7.59 | 44 507 |
+| 250 | 3.754 | **7.97** | 0.1025 | 0.03754 | 15.37 | 67 430 |
+| 500 | 7.508 | 7.61 | 0.0542 | 0.07508 | **24.52** | **90 015** |
+| 1000 | 15.016 | 6.61 | 0.0274 | 0.15016 | 37.31 | 116 869 |
 
 `< R_GEO` is not a crash and not a NaN: the metric layer's result-typed failure
 (ADR-B / Rule 17 carve-out) reports that the SNR at the GEO range is already
@@ -313,9 +314,10 @@ the single-temperature grey-body target and could raise the in-band intensity by
 an order of magnitude near a specular flash; (ii) the co-planar co-rotating
 assumption sets the LOS rate — an inclined LEO plane crossing the GEO belt has a
 larger relative velocity and hence more smear; (iii) the detection-range solver
-freezes the noise at the reference range (see §7 and `gaps.md`), which makes
-$R_\mathrm{det}$ conservative wherever signal shot noise is a significant share
-of the noise power, as it is here (51 %).
+extrapolates one band-mean signal law outward — exact in this vacuum scene, but
+a first-order model on any path with structure. (The frozen-noise limitation this
+list carried until 2026-08-01 is gone: CU-263 made the criterion shot-consistent,
+which is what moved $R_\mathrm{det}$ from 78 139 km to 90 015 km here.)
 
 ---
 
@@ -375,34 +377,42 @@ introduce a real weighting difference between the two models.
 
 ### Cross-check 4 — closed-form detection range, two noise models
 
-(a) *RADIANT's solver model* — the noise argument is a scalar frozen at the
-reference range, so $\mathrm{SNR}(R) = S_\mathrm{ref}(R_\mathrm{ref}/R)^2/\sigma_\mathrm{ref}$
+(a) *RADIANT's solver model* (shot-noise-consistent since CU-263, 2026-08-01) —
+as the target dims, its own shot noise falls with it, so
+$\sigma^2(R) = S(R) + N_0^2$ with $N_0^2 = \sigma_\mathrm{ref}^2 - S_\mathrm{ref}$
+the target-free floor, and the threshold signal is the positive root
+$S_\mathrm{det} = \tfrac12\big(T^2 + \sqrt{T^4 + 4T^2N_0^2}\big)$, giving
+$R_\mathrm{det} = R_\mathrm{ref}\sqrt{S_\mathrm{ref}/S_\mathrm{det}}$ in vacuum:
+
+| | Value |
+|---|---:|
+| $N_0^2$ (target-free noise power) | 1 128.10 e-² |
+| $N_0$ | 33.5872 e- RMS |
+| $S_\mathrm{det}$ | 180.90 e- |
+| Closed form | 90 015.265 km |
+| RADIANT bisection | 90 015.265 km |
+| Relative difference | **+0.000000 %** |
+
+The solver is verified against a closed form that needs no root finding at all.
+
+(b) *The superseded frozen-noise model* — the noise argument was a scalar frozen
+at the reference range, so $\mathrm{SNR}(R) = S_\mathrm{ref}(R_\mathrm{ref}/R)^2/\sigma_\mathrm{ref}$
 and $R_\mathrm{det} = R_\mathrm{ref}\sqrt{\mathrm{SNR}_\mathrm{ref}/T}$:
 
 | | Value |
 |---|---:|
+| Signal demanded at threshold, $T\sigma_\mathrm{ref}$ | 240.07 e- (vs 180.90 e- above) |
 | Closed form | 78 138.863 km |
-| RADIANT bisection | 78 138.863 km |
-| Relative difference | **+0.000000 %** |
+| vs RADIANT | **−13.19 %** |
 
-The solver is verified against its own model to the bisection tolerance.
-
-(b) *Shot-noise-consistent model* — as the target dims, its own shot noise falls
-with it, so $\sigma^2(R) = S(R) + N_0^2$ and
-$S_\mathrm{det} = \tfrac12\big(T^2 + \sqrt{T^4 + 4T^2N_0^2}\big)$:
-
-| | Value |
-|---|---:|
-| $N_0^2$ (range-independent noise power) | 1 128.10 e-² |
-| $S_\mathrm{det}$ | 180.90 e- |
-| Closed form | 90 015.265 km |
-| vs RADIANT | **+15.20 %** |
-
-Signal shot noise is 51 % of the noise power at the reference range, so the
-frozen-noise assumption is not negligible: RADIANT's detection range is
-**conservative by 15 %** for this scene. This is a property of the shipped
-solver, not of the up-looking geometry, and it applies identically to every
-down-looking point-source scenario. Logged in `gaps.md`.
+Signal shot noise is 51 % of the noise power at the reference range, so freezing
+it was not negligible: the shipped answer was **conservative by 15.2 %** for this
+scene, and worse, it depended on the range the chain was evaluated at. The two
+models agree *exactly* at the reference range — $\sigma_\mathrm{ref}^2 =
+S_\mathrm{ref} + N_0^2$ is the definition of $N_0$ — and diverge outward, which
+is why the correction is always a lengthening and vanishes for a
+background-limited chain. Filed as CU-263 from this scenario and 10.2
+independently; fixed 2026-08-01.
 
 ### Cross-check 5 — Gap 111 two-door agreement
 
@@ -454,8 +464,10 @@ UserWarnings.
 
 Full detail in `gaps.md`. Three items, none of them blocking:
 
-1. **Detection-range solver freezes the noise at the reference range** — makes
-   $R_\mathrm{det}$ 15.2 % conservative here. Not specific to up-looking.
+1. ~~**Detection-range solver freezes the noise at the reference range** — makes
+   $R_\mathrm{det}$ 15.2 % conservative here. Not specific to up-looking.~~
+   **RESOLVED 2026-08-01 (CU-263):** the criterion is now shot-consistent;
+   $R_\mathrm{det}$ moved 78 139 km → 90 015 km (+15.20 %) on this scene.
 2. **No inertial-velocity door for the sensor endpoint in the kinematics model**
    — `geometry.ground_speed_m_s` is defined as the *ground-track* speed, which
    is the wrong quantity for a space target. Using the framework's V6

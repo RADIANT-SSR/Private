@@ -30,10 +30,10 @@ are regenerate-on-demand and not committed (`docs/OPERATING_MODEL.md` Rule 26 �
   maximum at 250 ms.
 - **`10.4_snr_vs_range_detection.png`** — point-source SNR vs sensor-to-target
   range [km, log-log] for the rate-tracked 500 ms case, with **both** noise
-  models drawn (RADIANT's frozen-noise solver model and the shot-noise-consistent
-  model, see `gaps.md` G10.4-1), the SNR = 5 detection threshold, the LEO→GEO
-  range marker at 35 286 km and the solved `detection_range_m` marker at
-  78 139 km.
+  models drawn (RADIANT's shot-noise-consistent solver model and the superseded
+  frozen-noise model, see `gaps.md` G10.4-1), the SNR = 5 detection threshold, the
+  LEO→GEO range marker at 35 286 km and the solved `detection_range_m` marker at
+  90 015 km.
 - **`10.4_near_pi_geometry_family.png`** — two panels vs the sensor-side path
   zenith ζ_low [deg]: (left) θ_o and η [deg] with the π and π/2 reference lines,
   showing both angles staying obtuse across the whole family; (right) slant range

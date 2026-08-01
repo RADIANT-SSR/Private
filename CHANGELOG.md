@@ -230,6 +230,23 @@ retroactively reconstructed.
   Beer-Lambert exponential in path length, so their resample deliberately stays linear.
   Opaque bands are unaffected: the constructor's existing `TAU_FLOOR` (1e-30 ≡ OD ≈ 69)
   clamp keeps ln(τ) finite, so a τ = 0 band resamples to the floor, never to NaN or −inf.
+- **Results-affecting: the folded (aliased) MTF now replicates at the sampling frequency
+  `f_s = 2·f_Nyquist`, not at `f_Nyquist` (CU-209).** `compute_folded_mtf` shifted the
+  aliasing replicas by `k·f_Nyquist`, so at `f = f_Nyquist` the `k = −1` copy landed on DC
+  and added `MTF(0) = 1` to every system, sampled or not. **`mtf_folded_at_nyquist` and
+  `alias_fraction_at_nyquist` therefore drop for every scenario**, with two distinct
+  magnitudes: an *oversampled* design (optics cut off below Nyquist) goes from ≈ 1 to ≈ 0 —
+  the dual-band example's LWIR configuration (Q = 2.22) reads 0.995689 → 9.72747e-16
+  (−100 %); an *undersampled* design loses the spurious unit DC term and settles at twice
+  the pre-sampling MTF at Nyquist — the same example's MWIR configuration (Q = 0.944) reads
+  1.52851 → 0.533365 (−65 %, = 2 × 0.266683) with the alias fraction 0.825528 → 0.500004,
+  and scenario 3.4's nadir case 1.4475 → 0.4544 with alias fraction 0.8430 → 0.5000.
+  Values above 1.0, which the old form produced routinely, are now the exception rather
+  than the rule. No golden baseline, snapshot, or `*.gui.expected.json` carries either key,
+  so no baseline was re-reviewed. **Caveat, unchanged by this fix:** for an oversampled
+  band `alias_fraction_at_nyquist` divides ~1e-16 by ~1e-16 and reports meaningless float
+  noise (0.944 in the LWIR case) — read the absolute folded value there; whether the alias
+  fraction needs an absolute floor is deliberately left open.
 
 - **Results-affecting (up-looking scenes): the sky background no longer depends on where
   along the ray the target sits (CU-254).** The per-segment single-effective-temperature

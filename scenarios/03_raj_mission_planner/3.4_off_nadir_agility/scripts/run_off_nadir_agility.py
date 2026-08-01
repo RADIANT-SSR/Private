@@ -666,8 +666,13 @@ def main() -> None:
         folded_at_ny = r_nadir.metrics.get("mtf_folded_at_nyquist", 0.0)
         print(f"\n  --- Folded MTF ---")
         print(f"  Folded MTF at Nyquist: {folded_at_ny:.4f} [--]")
-        print(f"  Note: Folded MTF > 1.0 indicates aliasing is significant.")
         print(f"  Alias fraction:        {r_nadir.metrics.get('alias_fraction_at_nyquist', 0.0):.4f} [--]")
+        print(f"  Note: the alias fraction is the diagnostic — it is the share of")
+        print(f"  the folded response at Nyquist that came from above-Nyquist scene")
+        print(f"  content. Sampling replicates at f_s = 2 x f_Nyquist, so at Nyquist")
+        print(f"  the k = -1 replica lands back on f_Nyquist and the folded value is")
+        print(f"  twice the pre-sampling MTF there (alias fraction -> 0.5) whenever")
+        print(f"  the optics still pass energy above Nyquist.")
 
     # ---------------------------------------------------------------------------
     # Step 10: Plots

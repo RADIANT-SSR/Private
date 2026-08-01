@@ -4,6 +4,12 @@ Truth anchors:
 1. Analytical Gaussian MTF: exp(-a*f^2) folded sum computable analytically
 2. Well-sampled limit: Q >> 1 → folded = optical (alias fraction ≈ 0)
 3. Holst Ch.7: sinc detector MTF aliasing behaviour
+4. Analytic 1-D aperture (triangle) MTF, 1 - f/f_c: exact rational folded
+   values at f = f_Nyquist for a band-limited (oversampled) and an
+   above-Nyquist (undersampled) cutoff — CU-209.
+
+Sampling replicates the pre-sampling spectrum at multiples of the **sampling**
+frequency f_s = 1/pitch = 2*f_Nyquist, not at multiples of f_Nyquist (CU-209).
 
 See RADIANT_Spatial_Complete.md and Holst, "Electro-Optical Imaging System
 Performance", Chapter 7.
@@ -19,6 +25,7 @@ from radiant.performance.folded_mtf import FoldedMTFResult, compute_folded_mtf
 # Reference system constants
 PIXEL_PITCH_M = 18e-6
 F_NYQUIST = 1.0 / (2.0 * PIXEL_PITCH_M)  # ~27778 cycles/m
+F_SAMPLE = 1.0 / PIXEL_PITCH_M  # = 2 * F_NYQUIST — the replication period
 
 
 def _gaussian_mtf(freq: np.ndarray, sigma: float) -> np.ndarray:
@@ -27,16 +34,25 @@ def _gaussian_mtf(freq: np.ndarray, sigma: float) -> np.ndarray:
 
 
 def _gaussian_folded_analytical(
-    freq: np.ndarray, sigma: float, f_ny: float, n_folds: int
+    freq: np.ndarray, sigma: float, f_sample: float, n_folds: int
 ) -> np.ndarray:
     """Analytical folded Gaussian MTF by direct summation.
 
-    MTF_folded(f) = Σ_{k=-N}^{N} exp(-2*pi^2*sigma^2*(f+k*f_ny)^2)
+    MTF_folded(f) = Σ_{k=-N}^{N} exp(-2*pi^2*sigma^2*(f+k*f_sample)^2)
     """
     result = np.zeros_like(freq)
     for k in range(-n_folds, n_folds + 1):
-        result += _gaussian_mtf(np.abs(freq + k * f_ny), sigma)
+        result += _gaussian_mtf(np.abs(freq + k * f_sample), sigma)
     return result
+
+
+def _triangle_mtf(freq: np.ndarray, f_cutoff: float) -> np.ndarray:
+    """Analytic 1-D (slit-aperture) diffraction MTF: max(1 - f/f_c, 0).
+
+    Exactly reproduced by linear interpolation on any grid containing the
+    kink at ``f_cutoff``, so the folded sums below are exact rationals.
+    """
+    return np.maximum(1.0 - freq / f_cutoff, 0.0)
 
 
 class TestGaussianMTFAnalytical:
@@ -55,7 +71,7 @@ class TestGaussianMTFAnalytical:
         mtf_optical = _gaussian_mtf(freq, sigma)
 
         result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
-        expected = _gaussian_folded_analytical(freq, sigma, F_NYQUIST, n_folds=3)
+        expected = _gaussian_folded_analytical(freq, sigma, F_SAMPLE, n_folds=3)
 
         # Compare only in baseband [0, f_Ny].
         baseband = freq <= F_NYQUIST
@@ -69,7 +85,7 @@ class TestGaussianMTFAnalytical:
         mtf_optical = _gaussian_mtf(freq, sigma)
 
         result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
-        expected = _gaussian_folded_analytical(freq, sigma, F_NYQUIST, n_folds=3)
+        expected = _gaussian_folded_analytical(freq, sigma, F_SAMPLE, n_folds=3)
 
         # 5 representative baseband frequencies.
         baseband_idx = np.where(freq <= F_NYQUIST)[0]
@@ -78,6 +94,87 @@ class TestGaussianMTFAnalytical:
             assert result.mtf_folded[idx] == pytest.approx(expected[idx], rel=1e-3), (
                 f"Mismatch at freq index {idx}"
             )
+
+
+class TestReplicationAtNyquist:
+    """Truth anchor 4 (CU-209): the replication period is f_s = 2*f_Nyquist.
+
+    Both anchors use the analytic 1-D aperture MTF ``1 - f/f_c``, evaluated at
+    ``f = f_Nyquist`` — the frequency at which ``mtf_folded_at_nyquist`` and
+    ``alias_fraction_at_nyquist`` are sampled.  Shifting by ``k*f_Nyquist``
+    instead puts the ``k = -1`` replica on DC, which contributes ``MTF(0) = 1``
+    to every system; the expected values below are the hand-summed correct
+    ones and are not reachable that way.
+    """
+
+    @pytest.mark.level0
+    def test_oversampled_folded_is_zero_at_nyquist(self) -> None:
+        """Band-limited optics (f_c = f_Ny/2): nothing to alias, folded = 0.
+
+        Hand sum at ``f = f_Ny`` with replication at ``f_s = 2*f_Ny``:
+          k =  0 → MTF(f_Ny)      = 0   (above cutoff)
+          k = -1 → MTF(|f_Ny − 2 f_Ny|) = MTF(f_Ny) = 0
+          k = ±2, ±3 → 3 f_Ny, 5 f_Ny, 7 f_Ny → 0
+          total = 0 exactly.
+        The absolute value is the anchor (per the CU-209 owner ruling); the
+        alias fraction is deliberately not asserted here, because 0/0 is
+        floor-dependent and whether ``alias_fraction`` needs an absolute floor
+        is a separate question.
+        """
+        f_cutoff = 0.5 * F_NYQUIST
+        freq = np.linspace(0.0, 6.0, 1201) * F_NYQUIST
+        mtf_optical = _triangle_mtf(freq, f_cutoff)
+        idx_ny = int(np.argmin(np.abs(freq - F_NYQUIST)))
+
+        result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
+
+        assert result.mtf_folded[idx_ny] == pytest.approx(0.0, abs=1e-12)
+
+    @pytest.mark.level0
+    def test_undersampled_folded_at_nyquist_is_double_optical(self) -> None:
+        """Cutoff at 3*f_Ny (Q = 2/3): folded = optical + the k = −1 replica.
+
+        Hand sum at ``f = f_Ny`` with ``f_c = 3 f_Ny`` and ``f_s = 2 f_Ny``:
+          k =  0 → MTF(f_Ny)            = 1 − 1/3 = 2/3
+          k = -1 → MTF(|f_Ny − 2 f_Ny|) = MTF(f_Ny) = 2/3
+          k = +1 → MTF(3 f_Ny)          = 0        (at cutoff)
+          k = -2 → MTF(3 f_Ny)          = 0
+          k = ±3, +2 → 5 f_Ny, 7 f_Ny   = 0
+          total = 4/3;  alias fraction = (4/3 − 2/3)/(4/3) = 1/2 exactly.
+        At Nyquist the −1 replica always lands back on ``f_Ny``, so the folded
+        value there is exactly twice the optical MTF — the doubling the
+        dual-band example shows (0.533365 = 2 × 0.266683).
+        """
+        f_cutoff = 3.0 * F_NYQUIST
+        freq = np.linspace(0.0, 6.0, 1201) * F_NYQUIST
+        mtf_optical = _triangle_mtf(freq, f_cutoff)
+        idx_ny = int(np.argmin(np.abs(freq - F_NYQUIST)))
+
+        result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
+
+        assert result.mtf_folded[idx_ny] == pytest.approx(4.0 / 3.0, rel=1e-12)
+        assert result.mtf_folded[idx_ny] == pytest.approx(2.0 * mtf_optical[idx_ny], rel=1e-12)
+        assert result.alias_fraction[idx_ny] == pytest.approx(0.5, rel=1e-12)
+
+    @pytest.mark.level0
+    def test_undersampled_folded_at_half_nyquist(self) -> None:
+        """Off-Nyquist anchor pinning the replication period itself.
+
+        ``f = 0.5 f_Ny``, ``f_c = 3 f_Ny``, ``f_s = 2 f_Ny``:
+          k =  0 → MTF(0.5 f_Ny) = 1 − 1/6  = 5/6
+          k = -1 → MTF(1.5 f_Ny) = 1 − 1/2  = 1/2
+          k = +1 → MTF(2.5 f_Ny) = 1 − 5/6  = 1/6
+          k = -2 → MTF(3.5 f_Ny) = 0;  higher orders 0
+          total = 3/2 exactly.
+        """
+        f_cutoff = 3.0 * F_NYQUIST
+        freq = np.linspace(0.0, 6.0, 1201) * F_NYQUIST
+        mtf_optical = _triangle_mtf(freq, f_cutoff)
+        idx_half = int(np.argmin(np.abs(freq - 0.5 * F_NYQUIST)))
+
+        result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
+
+        assert result.mtf_folded[idx_half] == pytest.approx(1.5, rel=1e-12)
 
 
 class TestWellSampledLimit:
@@ -117,13 +214,19 @@ class TestWellSampledLimit:
 
 
 class TestUndersampledBehaviour:
-    """Undersampled (Q < 1): folded MTF > optical MTF."""
+    """Undersampled (Q < 1): folded MTF > optical MTF.
+
+    The optical MTF must be supplied out past the first replica
+    (``2 * f_Nyquist``) for there to be anything to alias — frequencies
+    beyond the supplied grid interpolate to zero.  These grids run to
+    ``4 * f_Nyquist`` and the assertions are restricted to the baseband.
+    """
 
     @pytest.mark.level1
     def test_folded_ge_optical(self) -> None:
         """Folded MTF >= optical MTF at all frequencies."""
         sigma = 0.3 / (2.0 * np.pi * F_NYQUIST)  # broad — extends beyond f_Ny
-        freq = np.linspace(0, F_NYQUIST, 200)
+        freq = np.linspace(0, 4 * F_NYQUIST, 800)
         mtf_optical = _gaussian_mtf(freq, sigma)
 
         result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
@@ -134,27 +237,29 @@ class TestUndersampledBehaviour:
     def test_alias_fraction_positive(self) -> None:
         """Undersampled: alias fraction > 0 in the passband."""
         sigma = 0.3 / (2.0 * np.pi * F_NYQUIST)
-        freq = np.linspace(0, F_NYQUIST, 200)
+        freq = np.linspace(0, 4 * F_NYQUIST, 800)
         mtf_optical = _gaussian_mtf(freq, sigma)
 
         result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
 
-        # At least some frequencies should have non-zero alias fraction.
-        assert np.any(result.alias_fraction > 0.01)
+        # At least some baseband frequencies should have non-zero alias fraction.
+        baseband = freq <= F_NYQUIST
+        assert np.any(result.alias_fraction[baseband] > 0.01)
 
     @pytest.mark.level1
     def test_folded_at_zero_freq_equals_optical(self) -> None:
-        """At f=0, aliased copies contribute at ±f_Ny, ±2*f_Ny, etc.
+        """At f=0, aliased copies contribute at ±2*f_Ny, ±4*f_Ny, etc.
         For broad MTF, these are non-zero, so folded(0) > optical(0)."""
         sigma = 0.3 / (2.0 * np.pi * F_NYQUIST)
-        freq = np.linspace(0, F_NYQUIST, 200)
+        freq = np.linspace(0, 4 * F_NYQUIST, 800)
         mtf_optical = _gaussian_mtf(freq, sigma)
 
         result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
 
         # For very broad MTF, folded(0) > optical(0) = 1.0 (audit B1-8: was
-        # >=, which a no-op folded==optical also passes; the aliased ±f_Ny
-        # copies make this strict — here folded(0) ≈ 2.91).
+        # >=, which a no-op folded==optical also passes; the aliased ±2*f_Ny
+        # and ±4*f_Ny copies make this strict — here folded(0) ≈ 3.64;
+        # the ±6*f_Ny copies fall outside the supplied grid and read zero).
         assert result.mtf_folded[0] > mtf_optical[0]
 
 
@@ -224,7 +329,7 @@ class TestAliasFraction:
     def test_alias_fraction_bounded(self) -> None:
         """Alias fraction should be in [0, 1]."""
         sigma = 0.3 / (2.0 * np.pi * F_NYQUIST)
-        freq = np.linspace(0, F_NYQUIST, 200)
+        freq = np.linspace(0, 4 * F_NYQUIST, 800)
         mtf_optical = _gaussian_mtf(freq, sigma)
 
         result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)

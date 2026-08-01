@@ -234,3 +234,209 @@ class TestIntensityDoorExtentConflicts:
         with pytest.raises(ParameterBoundsError) as evaluated:
             s.evaluate()
         assert str(seam.value) == str(evaluated.value)
+
+
+def _thermal_surface_cleared() -> Sensor:
+    """The shipped MWIR example with its (ε, T) surface reset back to DEFAULT.
+
+    Every door below is mutually exclusive with the legacy (ε, T) surface, so
+    the YAML's own ε and T have to go before a *different* pair can be the
+    conflict under test.
+    """
+    s = Sensor.from_yaml(_MWIR_YAML).reset("source.target.temperature")
+    return s.reset("source.target.emissivity")
+
+
+@pytest.mark.level1
+class TestBrightnessPlusRadianceTemperature:
+    """CU-293 — the S11 + S12 pair is refused at *both* entry points.
+
+    Before CU-293 the S11 builder dispatched first and never checked S12, so
+    ``evaluate()`` silently ignored a user-supplied ``radiance_temperature_K``
+    (Rule 17) while the CU-244 seam already rejected the pair.  Owner ruling
+    2026-08-01, same class as CU-256/CU-264: over-specification raises.
+    """
+
+    @staticmethod
+    def _pair(s: Sensor) -> Sensor:
+        s.set("source.target.brightness_temperature_K", 320.0)  # K
+        s.set("source.target.radiance_temperature_K", 300.0)  # K
+        s.set("source.target.radiance_temperature_band_lo_um", 3.0)  # µm
+        s.set("source.target.radiance_temperature_band_hi_um", 5.0)  # µm
+        return s
+
+    def test_seam_raises(self) -> None:
+        s = self._pair(Sensor())
+        with pytest.raises(ParameterBoundsError, match="mutually exclusive"):
+            s.validate_target_spec()
+
+    def test_evaluate_raises(self) -> None:
+        """The defect: this evaluated cleanly before CU-293, T_R discarded."""
+        s = self._pair(_thermal_surface_cleared())
+        with pytest.raises(ParameterBoundsError, match="mutually exclusive"):
+            s.evaluate()
+
+    def test_same_error_from_seam_and_evaluate(self) -> None:
+        s = self._pair(_thermal_surface_cleared())
+        with pytest.raises(ParameterBoundsError) as seam:
+            s.validate_target_spec()
+        with pytest.raises(ParameterBoundsError) as evaluated:
+            s.evaluate()
+        assert str(seam.value) == str(evaluated.value)
+
+    def test_error_names_both_surfaces_and_is_actionable(self) -> None:
+        s = self._pair(Sensor())
+        with pytest.raises(ParameterBoundsError) as excinfo:
+            s.validate_target_spec()
+        exc = excinfo.value
+        assert exc.what and exc.why and exc.action  # Rule 15 fields populated
+        assert "brightness_temperature" in exc.what
+        assert "radiance_temperature" in exc.what
+        assert "S11" in exc.what and "S12" in exc.what
+        assert exc.context["radiance_temperature_K_set"] is True
+
+    def test_band_edges_are_not_required_for_the_refusal(self) -> None:
+        """Exclusivity is over ``radiance_temperature_K`` alone.
+
+        The band-edge *completeness* check is the inferrer's (module scope:
+        over-specification only), so an S11 + bare-T_R pair is still a
+        conflict even though the S12 spec is incomplete.
+        """
+        s = Sensor()
+        s.set("source.target.brightness_temperature_K", 320.0)  # K
+        s.set("source.target.radiance_temperature_K", 300.0)  # K
+        with pytest.raises(ParameterBoundsError, match="S11 vs S12"):
+            s.validate_target_spec()
+
+    def test_each_surface_alone_still_passes(self) -> None:
+        a = Sensor().set("source.target.brightness_temperature_K", 320.0)  # K
+        a.validate_target_spec()
+        b = Sensor().set("source.target.radiance_temperature_K", 300.0)  # K
+        b.set("source.target.radiance_temperature_band_lo_um", 3.0)  # µm
+        b.set("source.target.radiance_temperature_band_hi_um", 5.0)  # µm
+        b.validate_target_spec()
+
+
+@pytest.mark.level1
+class TestMovedIntensityDoorGuards:
+    """CU-293 (ex-CU-294) — the S8/S10/S10b guards now also run at the seam.
+
+    These conflicts always raised at ``evaluate()``; what CU-294 recorded is
+    that they were *inlined* in the inferrer, so the GUI's clone-validate edit
+    discipline could commit a config it already knew was invalid.  Each case
+    below asserts both entry points and their text identity.
+    """
+
+    @pytest.fixture()
+    def intensity_csv(self, tmp_path: Path) -> Path:
+        p = tmp_path / "I_source.csv"
+        p.write_text(
+            "wavelength_um,intensity_W_per_sr_per_um\n3.0,10.0\n5.5,10.0\n",
+            encoding="utf-8",
+        )
+        return p
+
+    @pytest.fixture()
+    def radiance_csv(self, tmp_path: Path) -> Path:
+        p = tmp_path / "L_source.csv"
+        p.write_text(
+            "wavelength_um,L_W_per_m2_per_sr_per_um\n3.0,4.0\n5.5,6.0\n",
+            encoding="utf-8",
+        )
+        return p
+
+    @staticmethod
+    def _assert_both_doors_agree(configure: object) -> ParameterBoundsError:
+        """Seam and evaluate both raise, with character-identical text."""
+        assert callable(configure)
+        seam_sensor = configure(_thermal_surface_cleared())
+        with pytest.raises(ParameterBoundsError) as seam:
+            seam_sensor.validate_target_spec()
+        eval_sensor = configure(_thermal_surface_cleared())
+        with pytest.raises(ParameterBoundsError) as evaluated:
+            eval_sensor.evaluate()
+        assert str(seam.value) == str(evaluated.value)
+        return seam.value
+
+    # --- S8 (user_radiance_path) --------------------------------------------
+
+    def test_s8_plus_epsilon_T(self, radiance_csv: Path) -> None:
+        def configure(s: Sensor) -> Sensor:
+            s.set("source.target.user_radiance_path", str(radiance_csv))
+            s.set("source.target.temperature", 300.0)  # K
+            return s
+
+        exc = self._assert_both_doors_agree(configure)
+        assert "user_radiance_path" in exc.what
+        assert "source.target.temperature" in exc.what
+
+    def test_s8_plus_s10_csv(self, radiance_csv: Path, intensity_csv: Path) -> None:
+        def configure(s: Sensor) -> Sensor:
+            s.set("source.target.user_radiance_path", str(radiance_csv))
+            s.set("source.target.user_intensity_path", str(intensity_csv))
+            return s
+
+        exc = self._assert_both_doors_agree(configure)
+        assert "S8 vs S10" in exc.what
+
+    # --- S10b (point_intensity_*) -------------------------------------------
+
+    def test_s10b_blackbody_plus_scalar(self) -> None:
+        def configure(s: Sensor) -> Sensor:
+            s.set("source.scene_type", "point_source")
+            s.set("source.target.point_intensity_temperature_K", 500.0)  # K
+            s.set("source.target.point_intensity_band_W_per_sr", 25.0)  # W/sr
+            return s
+
+        exc = self._assert_both_doors_agree(configure)
+        assert "point_intensity_temperature_K" in exc.what
+        assert "point_intensity_band_W_per_sr" in exc.what
+
+    def test_s10b_plus_epsilon_T(self) -> None:
+        def configure(s: Sensor) -> Sensor:
+            s.set("source.scene_type", "point_source")
+            s.set("source.target.point_intensity_temperature_K", 500.0)  # K
+            s.set("source.target.emissivity", 0.9)
+            return s
+
+        exc = self._assert_both_doors_agree(configure)
+        assert "point-intensity" in exc.what
+        assert "emissivity" in exc.what
+
+    def test_s10b_plus_s10_csv(self, intensity_csv: Path) -> None:
+        def configure(s: Sensor) -> Sensor:
+            s.set("source.scene_type", "point_source")
+            s.set("source.target.point_intensity_band_W_per_sr", 25.0)  # W/sr
+            s.set("source.target.user_intensity_path", str(intensity_csv))
+            return s
+
+        exc = self._assert_both_doors_agree(configure)
+        assert "user_intensity_path" in exc.what
+
+    # --- S10 (user_intensity_path) ------------------------------------------
+
+    def test_s10_plus_epsilon_T(self, intensity_csv: Path) -> None:
+        def configure(s: Sensor) -> Sensor:
+            s.set("source.scene_type", "point_source")
+            s.set("source.target.user_intensity_path", str(intensity_csv))
+            s.set("source.target.temperature", 300.0)  # K
+            return s
+
+        exc = self._assert_both_doors_agree(configure)
+        assert "user_intensity_path" in exc.what
+        assert "source.target.temperature" in exc.what
+
+    # --- still-clean single-door specs --------------------------------------
+
+    def test_single_s8_door_passes(self, radiance_csv: Path) -> None:
+        s = Sensor().set("source.target.user_radiance_path", str(radiance_csv))
+        s.validate_target_spec()
+
+    def test_single_s10b_blackbody_door_passes(self) -> None:
+        s = Sensor().set("source.target.point_intensity_temperature_K", 500.0)  # K
+        s.set("source.target.point_intensity_area_m2", 0.36)  # m²
+        s.validate_target_spec()
+
+    def test_single_s10_door_passes(self, intensity_csv: Path) -> None:
+        s = Sensor().set("source.target.user_intensity_path", str(intensity_csv))
+        s.validate_target_spec()

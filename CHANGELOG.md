@@ -116,6 +116,33 @@ retroactively reconstructed.
   Evaluate-time checks are unchanged (defence in depth); no computed results change.
 
 ### Changed
+- **BREAKING — a brightness-temperature + radiance-temperature pair now raises at
+  `evaluate()` (CU-293, owner ruling 2026-08-01).** Setting both
+  `source.target.brightness_temperature_K` (or `_path`) **and**
+  `source.target.radiance_temperature_K` used to evaluate cleanly: the S11 door
+  dispatches first and had no S12 guard, so the radiance temperature the user supplied
+  was **silently discarded** and the run reported results for the brightness temperature
+  alone (Rule 17). S11 and S12 are parallel user-entry forms for the same thermal
+  target, so the pair is an over-specification and now raises an actionable
+  `ParameterBoundsError` naming both surfaces — same ruling class as CU-256/CU-264.
+  **Remedy: unset one surface** — keep `brightness_temperature_*` for a λ-resolved
+  `T_B(λ)`, or `radiance_temperature_K` + its band edges for a scalar band-averaged
+  `T_R`. `Sensor.validate_target_spec()` already refused this pair, so the change is to
+  `evaluate()` only, and the two now raise the identical message. Sweep: **no shipped
+  scenario or example sets either surface**, so nothing in the repo changes behaviour.
+  No computed result moves for any config that keeps running.
+- **The S8, S10 and S10b door-exclusivity guards now also run at the resolve-time seam
+  (CU-293, ex-CU-294).** `source.target.user_radiance_path` + (ε, T), `user_radiance_path`
+  + `user_intensity_path`, the two point-intensity modes
+  (`point_intensity_temperature_K` + `point_intensity_band_W_per_sr`) together, and
+  `user_intensity_path` / `point_intensity_*` + (ε, T) were rejected only at `evaluate()`
+  because their guards were inlined in the inferrer; they moved to
+  `radiant.source.target_spec` (`check_user_radiance_conflicts`,
+  `check_point_intensity_conflicts`, `check_user_intensity_conflicts`) and are registered
+  in `Sensor.validate_target_spec()`. **Remedy is unchanged** — unset one of the paired
+  surfaces — but a GUI edit that introduces one of these pairs is now rejected at commit
+  time rather than accepted and failed at Evaluate. Their `what=` prefix follows the
+  CU-295 convention (`"source.target_spec: "`). No computed result moves.
 - **BREAKING — `SpectralData.plot()` returns the `Figure`, not the `Axes`, and builds it
   unregistered (CU-286).** `radiant.core.spectral.SpectralData.plot(ax=None)` used to do
   `_, ax = plt.subplots()` and hand back only the `Axes`, so the figure it created was a

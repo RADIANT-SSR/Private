@@ -637,10 +637,19 @@ class Sensor:
         Covered exclusivity families: the reflectance/albedo aliases (scalar
         and ``_path`` forms), ρ vs the legacy (ε, T) thermal surface, ρ vs the
         S8/S10 absolute radiance/intensity paths, ρ vs the S11/S12
-        brightness/radiance-temperature forms, and the S11/S12 internal
-        pairings. Completeness ("this form still needs its band edges") is
-        deliberately not checked here — a half-entered spec is a legitimate
+        brightness/radiance-temperature forms, the S11/S12 internal pairings,
+        the S10/S10b intensity door vs a declared target extent (CU-256), and —
+        since CU-293 — the S8, S10 and S10b doors' own pairings: S8 vs (ε, T),
+        S8 vs S10, the two point-intensity modes against each other, and S10 /
+        S10b vs (ε, T). Completeness ("this form still needs its band edges")
+        is deliberately not checked here — a half-entered spec is a legitimate
         intermediate state, and ``evaluate()`` reports what is missing.
+
+        CU-293 also made the two entry points symmetric: every pair this seam
+        refuses, ``evaluate()`` refuses too, with the identical message. The
+        one prior exception — an S11 + S12 pair, which raised here but
+        evaluated silently because the S11 builder dispatched first without an
+        S12 guard — is closed.
 
         Raises
         ------

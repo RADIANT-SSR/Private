@@ -438,8 +438,8 @@ radiance/intensity paths, ρ vs the S11/S12 brightness/radiance-temperature
 forms, and the S11/S12 internal pairings.
 
 These guards live in `radiant.source.target_spec` (one door-check function per
-spec door, run in the inferrer's dispatch order S11 → S12 → S4/S5/S6) and are
-called from **two** places:
+spec door, run in the inferrer's dispatch order S11 → S12 → S4/S5/S6 → S8 →
+S10b → S10) and are called from **two** places:
 
 1. **Evaluate time** — the source inferrer's door builders call the door
    checks at the same points the historical inline blocks occupied, so
@@ -463,6 +463,21 @@ Completeness checks ("S12 also needs its band edges") are deliberately **not**
 part of the seam: a half-entered spec is a legitimate intermediate state while
 a user types, and `evaluate()` remains the surface that reports what is
 missing.
+
+**The two entry points are symmetric (CU-293, owner ruling 2026-08-01).** They
+were not, on landing: CU-244 left the S8, S10 and S10b door guards inlined in
+the inferrer — so a conflict entered purely through those doors slipped past
+the GUI editor and failed only at `evaluate()` — and the S11 door had no guard
+against its S12 twin at all, so a `brightness_temperature_*` +
+`radiance_temperature_K` pair *raised at the seam but evaluated silently*, the
+S11 builder dispatching first and discarding the radiance-temperature surface
+(a Rule-17 violation). CU-293 moved the three remaining door blocks into
+`check_user_radiance_conflicts` / `check_point_intensity_conflicts` /
+`check_user_intensity_conflicts` and added the missing S11-vs-S12 guard to
+`check_brightness_temperature_conflicts`. Every door is now guarded against
+every rival from both sides, so whichever door dispatches first, the same pair
+is refused with the same message at both entry points. The seam is no longer
+documented as stricter than `evaluate()` anywhere — that asymmetry is gone.
 
 ---
 

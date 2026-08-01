@@ -90,11 +90,11 @@ Stage 0: resolves the scene-geometry input mode and publishes LOS + derived
 quantities. The θ_o-based spherical-triangle math lives in
 `core/viewing_triangle.py` (core, like its η-based siblings in `core/geometry.py`).
 
-### `source/` — 18 source + 32 tests
+### `source/` — 18 source + 33 tests
 
 Stage 1: target + background spectral radiance. The largest physics package because of the spec-form fan-out (S1-S9), shape catalog, BRDF models, and converters.
 
-Top-level: `stage.py`, `_inferrer.py` (spec-form router), `_schema.py`, `target_spec.py` (door exclusivity guards, shared with the CU-244 resolve-time seam), `protocol.py`, plus per-spec-form modules (`emitted.py`, `reflected.py`, `combined.py`, `composite.py`, `tabulated.py`, `solar.py`, `material.py`, `shape.py`, `sub_pixel.py`, `point_source_blackbody.py`, `point_source_direct.py`, `brdf_lambertian.py`, `brdf_phong.py`).
+Top-level: `stage.py`, `_inferrer.py` (spec-form router), `_schema.py`, `target_spec.py` (door exclusivity guards, shared with the CU-244 resolve-time seam; CU-293 completed the extraction, so no exclusivity guard is left inlined in `_inferrer.py`), `protocol.py`, plus per-spec-form modules (`emitted.py`, `reflected.py`, `combined.py`, `composite.py`, `tabulated.py`, `solar.py`, `material.py`, `shape.py`, `sub_pixel.py`, `point_source_blackbody.py`, `point_source_direct.py`, `brdf_lambertian.py`, `brdf_phong.py`).
 
 Subpackages:
 ```

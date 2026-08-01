@@ -1,7 +1,17 @@
 # Backlog Reduction Plan
 
-**Status:** Active — opened 2026-07-28. Supersedes `docs/archive/CU_Autonomous_Cleanup_Plan.md`,
-whose charter (the 48 CUs open on 2026-07-19) was fulfilled 2026-07-20.
+> **HISTORICAL** — archived 2026-08-01 (owner-directed), superseded by
+> `docs/plans/Backlog_Closeout_Plan.md`. Its charter — the 62-CU backlog of
+> 2026-07-28, organized as three tracks — was consumed by the week's closures
+> (Track A complete, most of Track B landed) and restructured by the
+> 2026-07-31 two-tier tracking ratification, which folded the surviving
+> Track-C families into five family-head CUs and demoted the sub-CU tail to
+> `Findings_Log.md`. The wave tables below reference entry IDs as they stood
+> on 2026-07-30; the registry is the authority on their current state.
+
+**Status:** Superseded — opened 2026-07-28, archived 2026-08-01. Superseded
+`docs/archive/CU_Autonomous_Cleanup_Plan.md`, whose charter (the 48 CUs open on
+2026-07-19) was fulfilled 2026-07-20.
 
 > **2026-07-31 update — two-tier tracking ratification.** The owner ratified a new
 > tracking/closure strategy (CLAUDE.md Rules 21/22, OPERATING_MODEL §2–§3): four-test CU

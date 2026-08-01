@@ -141,7 +141,7 @@ numbers. **No RADIANT source file was modified by this scenario.**
 | Field | Value |
 |---|---|
 | **Found in** | Scenario 10.3, `outputs/signature_and_column_transmittance.png` |
-| **Status** | OPEN (low) |
+| **Status** | RESOLVED 2026-08-01 (CU-267) — `_region_params` now joins the region coefficients across each edge with a C¹ smoothstep ramp of half-width 0.02 µm, so τ(λ) is continuous and no longer sampling-grid-dependent. This scenario's SNR moved +0.003 %. |
 | **Severity** | Low — cosmetic in this scenario, real for narrow-band work |
 | **Description** | `simple.py::_CALIBRATED_GAS_REGIONS` is a step table; `k_h2o` jumps 0.0025 → 0.1245 at the 0.70 µm boundary, producing a visible step in τ(λ) from 0.728 to 0.617 across one grid point. Any band edge placed near a region boundary, or any narrow band straddling one, inherits the step. |
 | **Workaround** | None needed here (the band is broad and the step is ~11 % of τ at one wavelength). |

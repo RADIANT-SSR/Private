@@ -3,7 +3,7 @@
   "title": "UAV altitude trade \u2014 2000 m reference altitude",
   "metrics": {
     "snr": 3105.8777160565696,
-    "nedt_K": 0.02136175743732448,
+    "nedt_K": 0.021364641582359074,
     "niirs": null
   },
   "notes": "Runner's reference altitude (2 km). NOT re-centered: the 16 ms frame is the microbolometer's thermal time constant (NETD is quoted at it) and cannot move, while the photon-model signal (~5.5e9 e-) is 55x the schema's max full well \u2014 so the well/ADC saturation warning is a photon-FPA check misapplied to a bolometer, not a re-centerable operating point. See Gap 101; the scenario's real metric is the delta-T-vs-NETD detection threshold, which is unaffected (CU-170)."

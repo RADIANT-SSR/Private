@@ -202,7 +202,12 @@ CELL28_PINNED = {
     # well-mixed O₃/CO₂ floor exists; at this 2 km midlat_summer column the
     # band-integrated dS/dT and noise mix shift slightly. −2.4%
     # (was 0.20840328308841266).
-    "nedt_K": 0.2034629042771887,
+    # NEDT + L_aperture repinned 2026-08-01 (CU-267 gas-region blend): the
+    # region table is no longer read as a step function — the coefficients
+    # are joined across each region edge by a C¹ smoothstep ramp of
+    # half-width 0.02 µm. NEDT +0.026% (was 0.2034629042771887); SNR and
+    # MTF unchanged (this cell saturates, and MTF is spatial).
+    "nedt_K": 0.20351546333106751,
     # MTF@Nyquist repinned 2026-07-10 (CU-003 option a): the pixel-aperture
     # kernel is now area-integrated (anti-aliased edges) instead of a binary
     # mask that quantised the rect width to the sample grid. The old kernel
@@ -223,12 +228,25 @@ CELL28_PINNED = {
     # +2.74 ppm at 8 µm, +1.74 at 9, +1.11 at 10, +0.77 at 11, +0.53 at 12,
     # +0.29 ppm at 13 µm. That ordering is the physical check that this repin is the
     # Rayleigh term and nothing else — a bug elsewhere would not sort by λ^-4.
+    # Repinned 2026-08-01 (CU-267 gas-region blend). Three of these six
+    # anchors — 8.0, 10.0 and 12.0 µm — sit EXACTLY on a gas-region edge,
+    # where the pre-blend value was the arbitrary one-sided pick (the
+    # half-open ``lam >= lo & lam < hi`` mask handed the edge wholly to the
+    # upper region). Blended, each edge carries the mean of the two regions'
+    # coefficients, so these three move by the half-step the discontinuity
+    # used to hide: 8 µm −54.9% (the upper region's low 0.2751 floor_od is
+    # now averaged with the 7.50–8.00 region's 0.9424), 10 µm −3.5%,
+    # 12 µm +16.4% (the 12.00–14.29 CO₂-wing floor 0.5956 is averaged with
+    # 10–12's 0.0471, so τ rises). The sign is set by which side of the edge
+    # absorbs more, not by the blend. The three interior anchors — 9, 11 and
+    # 13 µm — are BIT-IDENTICAL, which is the check that this repin is the
+    # edge blend and nothing else.
     "L_aperture_W_m2_sr_um": {
-        8.0: 6.643159211627895,
+        8.0: 2.9931228252539825,
         9.0: 7.1932115500743015,
-        10.0: 7.751581606124174,
+        10.0: 7.4795423998873565,
         11.0: 7.477528784720062,
-        12.0: 5.112161696354939,
+        12.0: 5.950324696756001,
         13.0: 4.6907893682809565,
     },
 }

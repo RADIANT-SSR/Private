@@ -109,39 +109,6 @@ by name in check 8 — that list is frozen and must never grow.
 - [ ] Replace unasserted evaluate-all waits with scheduled-state asserts (`_debounce.isActive()` fails if the transaction stops scheduling), keeping the full-pass wait only in the tests that read `window.last_run`.
 - [ ] Retire the load-sensitive 20 s `waitSignal` gate flake (from [[CU-314]]) — removing the wall-clock wait removes the flake; widening the timeout only hides it.
 
-### CU-267 — Simple-model gas-region table is piecewise-constant, so τ(λ) steps discontinuously at region edges
-
-**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
-**Status**: Open — **measured across the whole table, 2026-07-30** (analysis-only pass, branch `analysis/atmo-2026-07-30`). **The step is confirmed, and the 0.70 µm edge the entry names is the third-*smallest* of the fourteen.** Vertical ground → 700 km, θ_o = 0, rural-23, midlat_summer PWV 2.92 cm, τ_up evaluated ±1e-9 µm either side of each `hi_um`:
-**Owner ruling (2026-08-01)**: approved — adopt the hw = 0.02 µm C¹ smoothstep blend this entry measured (≤ 0.7 % band-mean τ on the six straddling shipped bands, exactly 0 on interior bands).
-
-| edge [µm] | k_H2O lo→hi | floor_OD lo→hi | τ below | τ above | Δτ | rel |
-|---|---|---|---|---|---|---|
-| 0.45 | 0.0000→0.0025 | 0.0000→0.0000 | 0.609247 | 0.605374 | −0.003873 | −0.64 % |
-| 0.70 | 0.0025→0.1245 | 0.0000→0.0000 | 0.824152 | 0.680287 | −0.143866 | −17.46 % |
-| 1.30 | 0.1245→1.0933 | 0.0000→0.0000 | 0.764954 | 0.197539 | −0.567415 | −74.18 % |
-| 1.50 | 1.0933→0.0282 | 0.0000→0.0133 | 0.200055 | 0.881041 | +0.680986 | +340.40 % |
-| 1.75 | 0.0282→1.1186 | 0.0133→0.0000 | 0.890645 | 0.233132 | −0.657513 | −73.82 % |
-| 2.05 | 1.1186→0.0320 | 0.0000→0.0725 | 0.235205 | 0.827919 | +0.592714 | +252.00 % |
-| 2.40 | 0.0320→0.9666 | 0.0725→0.7434 | 0.833784 | 0.079252 | −0.754532 | −90.49 % |
-| 3.10 | 0.9666→0.5824 | 0.7434→0.1366 | 0.079942 | 0.330011 | +0.250069 | +312.81 % |
-| 3.50 | 0.5824→0.0944 | 0.1366→0.4497 | 0.331062 | 0.500298 | +0.169237 | +51.12 % |
-| 5.00 | 0.0944→1.7850 | 0.4497→1.3543 | 0.503748 | 0.010935 | −0.492812 | −97.83 % |
-| 7.50 | 1.7850→0.9210 | 1.3543→0.9424 | 0.010936 | 0.057940 | +0.047005 | +429.84 % |
-| 8.00 | 0.9210→0.0877 | 0.9424→0.2751 | 0.057940 | 0.533682 | +0.475741 | +821.09 % |
-| 10.00 | 0.0877→0.0602 | 0.2751→0.0471 | 0.533682 | 0.636775 | +0.103093 | +19.32 % |
-| 12.00 | 0.0602→0.1398 | 0.0471→0.5956 | 0.636775 | 0.254203 | −0.382572 | −60.08 % |
-
-Largest **absolute** steps: 2.40 µm (Δτ = −0.7545), 1.50 µm (+0.6810), 1.75 µm (−0.6575), 2.05 µm (+0.5927), 1.30 µm (−0.5674), 5.00 µm (−0.4928), 8.00 µm (+0.4757). Largest **relative**: 8.00 µm (+821 %). Every edge steps; only 0.45 µm is under 1 %. The entry's cited 0.728 → 0.617 at 0.70 µm is the same feature at a different configuration (−15.2 % rel; us_standard/PWV 1.4 cm gives 0.826648 → 0.718135, −13.13 %) — **confirmed, not exact-reproduced, and configuration-dependent by design**.
-
-**Shipped bands that sit on or across an edge.** Filter edges that land *exactly* on a region boundary: 0.45, 0.70, 3.50, 5.00, 8.00, 10.00, 12.00 µm — all shipped. Bands that *straddle* one: 0.5–0.8 (crosses 0.70), 0.4–0.9 (0.45 and 0.70), 3.0–5.0 (3.10 and 3.50), 8.0–12.0 (10.00), 8.0–14.0 (10.00, 12.00), 11.5–12.5 (12.00). Interior controls that cross nothing: 3.7–4.8 and 10.6–11.2. **Grid dependence measured directly** (band-mean τ_up, N = 31 vs N = 1001 sample points): straddling bands move **0.324 % (0.5–0.8), 0.351 % (0.4–0.9), 0.772 % (8–12), 0.964 % (8–14), 1.389 % (11.5–12.5), 1.830 % (3.0–5.0)**; the two interior controls move **exactly 0.000 %**. That is the reader-reproducible form of the symptom: a band's transmittance depends on how finely it is sampled, and only because it crosses an edge.
-
-**Recommended blend width and results impact.** A C¹ smoothstep ramp on `(floor_od, k_h2o, b_h2o)` of half-width **hw = 0.02 µm** (full width 0.04 µm — ~3 % of the narrowest region, 0.20 µm at 1.30–1.50 µm, so no two ramps overlap) moves band-mean τ_up by **−0.204 % (0.5–0.8), −0.121 % (0.4–0.9), −0.711 % (3.0–5.0), −0.245 % (8–12), −0.170 % (8–14), −0.193 % (11.5–12.5)** and **exactly 0.000 %** on both interior controls. hw = 0.01 µm halves those; hw = 0.05 µm roughly triples them (−0.51 % on 0.5–0.8, −1.79 % on 3.0–5.0) and begins to smear real band structure. **So hw = 0.02 µm is the recommendation**: sub-1 % results impact on every shipped band, zero impact on any band that does not cross an edge, and it removes the grid dependence entirely. Note the ramp is *always* one-signed downward in these bands (blending fills the low-τ side of a step faster than it empties the high-τ side), so a re-baseline is a small uniform τ reduction, not a scatter. **Results-affecting** at the ≤ 0.7 % level for the six straddling shipped bands, no-op for the rest.
-**File**: `src/radiant/atmosphere/simple.py::_CALIBRATED_GAS_REGIONS` (step table; e.g. k_H2O 0.0025 → 0.1245 at the 0.70 µm edge).
-**Symptom**: τ(λ) steps 0.728 → 0.617 across one grid point at 0.70 µm (visible in scenario 10.3's committed transmittance figure); any band edge near a region boundary inherits the step.
-**Why it still matters**: narrow-band work near a region edge sees a discontinuous, grid-dependent transmittance.
-**Suggested fix**: (b) stand-alone — blend region coefficients across a small transition width (results-affecting at the ~1 % level near edges only). Effort S–M; category C. Related: CU-161, [[CU-253]].
-
 ### CU-239 — Interpolated-library selection is an operator trap: a magic axes string stands in for a family picker, and mismatches surface as an evaluate-time crash dialog
 
 **Discovered**: operator session (owner driving the GUI), 2026-07-27 — LEO nadir → 20 km sub-pixel target, the textbook interpolated-library scenario (deck G4's exact geometry), failed at evaluate with the "Unexpected Error" dialog because `atmosphere.interpolation_axes` still carried its `path_zenith_rad` default; the fix required knowing to type `sensor_altitude_m,target_altitude_m` into a free-text field.
@@ -269,6 +236,40 @@ i.e. the moment a scenario puts a *cold, low-emissivity* body on an elevated run
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-267 — Simple-model gas-region table is piecewise-constant, so τ(λ) steps discontinuously at region edges — RESOLVED 2026-08-01 (commit trailer)
+
+**Discovered**: Scenario 10.3 (branch `gf/phase5-validation`), 2026-07-28.
+**Status**: RESOLVED 2026-08-01, closed by the `CU-Closes: 267` trailer commit. — *(prior)* Open — **measured across the whole table, 2026-07-30** (analysis-only pass, branch `analysis/atmo-2026-07-30`). **The step is confirmed, and the 0.70 µm edge the entry names is the third-*smallest* of the fourteen.** Vertical ground → 700 km, θ_o = 0, rural-23, midlat_summer PWV 2.92 cm, τ_up evaluated ±1e-9 µm either side of each `hi_um`:
+**Owner ruling (2026-08-01)**: approved — adopt the hw = 0.02 µm C¹ smoothstep blend this entry measured (≤ 0.7 % band-mean τ on the six straddling shipped bands, exactly 0 on interior bands).
+
+| edge [µm] | k_H2O lo→hi | floor_OD lo→hi | τ below | τ above | Δτ | rel |
+|---|---|---|---|---|---|---|
+| 0.45 | 0.0000→0.0025 | 0.0000→0.0000 | 0.609247 | 0.605374 | −0.003873 | −0.64 % |
+| 0.70 | 0.0025→0.1245 | 0.0000→0.0000 | 0.824152 | 0.680287 | −0.143866 | −17.46 % |
+| 1.30 | 0.1245→1.0933 | 0.0000→0.0000 | 0.764954 | 0.197539 | −0.567415 | −74.18 % |
+| 1.50 | 1.0933→0.0282 | 0.0000→0.0133 | 0.200055 | 0.881041 | +0.680986 | +340.40 % |
+| 1.75 | 0.0282→1.1186 | 0.0133→0.0000 | 0.890645 | 0.233132 | −0.657513 | −73.82 % |
+| 2.05 | 1.1186→0.0320 | 0.0000→0.0725 | 0.235205 | 0.827919 | +0.592714 | +252.00 % |
+| 2.40 | 0.0320→0.9666 | 0.0725→0.7434 | 0.833784 | 0.079252 | −0.754532 | −90.49 % |
+| 3.10 | 0.9666→0.5824 | 0.7434→0.1366 | 0.079942 | 0.330011 | +0.250069 | +312.81 % |
+| 3.50 | 0.5824→0.0944 | 0.1366→0.4497 | 0.331062 | 0.500298 | +0.169237 | +51.12 % |
+| 5.00 | 0.0944→1.7850 | 0.4497→1.3543 | 0.503748 | 0.010935 | −0.492812 | −97.83 % |
+| 7.50 | 1.7850→0.9210 | 1.3543→0.9424 | 0.010936 | 0.057940 | +0.047005 | +429.84 % |
+| 8.00 | 0.9210→0.0877 | 0.9424→0.2751 | 0.057940 | 0.533682 | +0.475741 | +821.09 % |
+| 10.00 | 0.0877→0.0602 | 0.2751→0.0471 | 0.533682 | 0.636775 | +0.103093 | +19.32 % |
+| 12.00 | 0.0602→0.1398 | 0.0471→0.5956 | 0.636775 | 0.254203 | −0.382572 | −60.08 % |
+
+Largest **absolute** steps: 2.40 µm (Δτ = −0.7545), 1.50 µm (+0.6810), 1.75 µm (−0.6575), 2.05 µm (+0.5927), 1.30 µm (−0.5674), 5.00 µm (−0.4928), 8.00 µm (+0.4757). Largest **relative**: 8.00 µm (+821 %). Every edge steps; only 0.45 µm is under 1 %. The entry's cited 0.728 → 0.617 at 0.70 µm is the same feature at a different configuration (−15.2 % rel; us_standard/PWV 1.4 cm gives 0.826648 → 0.718135, −13.13 %) — **confirmed, not exact-reproduced, and configuration-dependent by design**.
+
+**Shipped bands that sit on or across an edge.** Filter edges that land *exactly* on a region boundary: 0.45, 0.70, 3.50, 5.00, 8.00, 10.00, 12.00 µm — all shipped. Bands that *straddle* one: 0.5–0.8 (crosses 0.70), 0.4–0.9 (0.45 and 0.70), 3.0–5.0 (3.10 and 3.50), 8.0–12.0 (10.00), 8.0–14.0 (10.00, 12.00), 11.5–12.5 (12.00). Interior controls that cross nothing: 3.7–4.8 and 10.6–11.2. **Grid dependence measured directly** (band-mean τ_up, N = 31 vs N = 1001 sample points): straddling bands move **0.324 % (0.5–0.8), 0.351 % (0.4–0.9), 0.772 % (8–12), 0.964 % (8–14), 1.389 % (11.5–12.5), 1.830 % (3.0–5.0)**; the two interior controls move **exactly 0.000 %**. That is the reader-reproducible form of the symptom: a band's transmittance depends on how finely it is sampled, and only because it crosses an edge.
+
+**Recommended blend width and results impact.** A C¹ smoothstep ramp on `(floor_od, k_h2o, b_h2o)` of half-width **hw = 0.02 µm** (full width 0.04 µm — ~3 % of the narrowest region, 0.20 µm at 1.30–1.50 µm, so no two ramps overlap) moves band-mean τ_up by **−0.204 % (0.5–0.8), −0.121 % (0.4–0.9), −0.711 % (3.0–5.0), −0.245 % (8–12), −0.170 % (8–14), −0.193 % (11.5–12.5)** and **exactly 0.000 %** on both interior controls. hw = 0.01 µm halves those; hw = 0.05 µm roughly triples them (−0.51 % on 0.5–0.8, −1.79 % on 3.0–5.0) and begins to smear real band structure. **So hw = 0.02 µm is the recommendation**: sub-1 % results impact on every shipped band, zero impact on any band that does not cross an edge, and it removes the grid dependence entirely. Note the ramp is *always* one-signed downward in these bands (blending fills the low-τ side of a step faster than it empties the high-τ side), so a re-baseline is a small uniform τ reduction, not a scatter. **Results-affecting** at the ≤ 0.7 % level for the six straddling shipped bands, no-op for the rest.
+**File**: `src/radiant/atmosphere/simple.py::_CALIBRATED_GAS_REGIONS` (step table; e.g. k_H2O 0.0025 → 0.1245 at the 0.70 µm edge).
+**Symptom**: τ(λ) steps 0.728 → 0.617 across one grid point at 0.70 µm (visible in scenario 10.3's committed transmittance figure); any band edge near a region boundary inherits the step.
+**Why it still matters**: narrow-band work near a region edge sees a discontinuous, grid-dependent transmittance.
+**Suggested fix**: (b) stand-alone — blend region coefficients across a small transition width (results-affecting at the ~1 % level near edges only). Effort S–M; category C. Related: CU-161, [[CU-253]].
+**Resolution**: C¹ smoothstep blend with hw = `GAS_REGION_BLEND_HALF_WIDTH_UM` = 0.02 µm on `(floor_od, k_h2o, b_h2o)` inside `_region_params`, centred so the edge value is the exact mean of the two regions (bit-exact hand anchors at 4 edges); implemented as an overwrite on the piecewise pass so region interiors are bit-identical. Blend-impact reproduced against this entry's table: three bands exact (−0.204 %, −0.121 %, −0.193 %), all six straddling bands one-signed downward ≤ 0.71 %, both interior controls exactly 0.000 %. 40 Level-0 tests (33 fail unblended, verified by short-circuit); no-overlap invariant tested (narrowest region = 5× the full ramp width). §5.3 refresh: MWIR golden (signal −1.22 %, SNR −0.61 % — the √signal consistency check), Option-C Cell 28 pins (8/10/12 µm on-edge values move −54.9 %/−3.5 %/+16.4 % because the old half-open mask handed each edge wholly to its upper region; 9/11/13 µm bit-identical — the discriminating check), chain-spatial pin, and 26 of 34 GUI baselines (all ≤ 1.04 %); 10.2 regenerated on the post-CU-263 merged tree (detection_range_m 198 814.752 → 197 900.031 m composing both fixes). **One claim of this entry corrected**: the blend removes the *discontinuity* — band-mean τ now converges under grid refinement — but at N = 31 the 8–12/8–14 µm quadrature spread grows (1.77 → 3.28 %, 1.47 → 3.44 %); "removes the grid dependence entirely" was an over-claim, recorded in `RADIANT_Atmosphere.md`'s fragility paragraph. Results-affecting CHANGELOG entry; hw is a documented module constant (the `KOSCHMIEDER` precedent), not a schema parameter. The broken baseline-emitter path found during the sweep is [[CU-319]].
 
 ### CU-301 — `geometry.site_elevation_m` has no GUI entry point — RESOLVED 2026-08-01 (commit trailer)
 

@@ -307,8 +307,17 @@ class TestSNRUnchanged:
         correction scenario 6.2 measured: midlat_summer MWIR τ was −41%
         vs real MODTRAN). SNR 604.97 → 945.94 (+56%, toward the
         MODTRAN-anchored truth).
+
+        Repinned 2026-08-01 (CU-267): the gas-region coefficients are now
+        joined across each region edge by a C¹ smoothstep ramp of
+        half-width 0.02 µm instead of stepping, so τ(λ) is continuous and
+        band-mean τ no longer depends on the sampling grid. This band's
+        two endpoints sit exactly on region edges, so the inboard half of
+        each ramp falls inside the band and band-mean τ_up drops slightly:
+        SNR 945.94 → 939.99 (−0.63%, signal-shot-limited so it tracks
+        √signal).
         """
-        expected_snr = 945.936088266035
+        expected_snr = 939.9885091250444
         assert result.metrics["snr"] == pytest.approx(expected_snr, rel=1e-3)
 
 

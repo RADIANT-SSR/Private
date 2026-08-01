@@ -2,9 +2,9 @@
   "id": "1.4",
   "title": "TDI pushbroom \u2014 baseline config (N_tdi=1 reference)",
   "metrics": {
-    "snr": 37.121605827556955,
-    "nedt_K": 0.11146699909748131,
-    "niirs": 4.858581586490574
+    "snr": 37.23906858222102,
+    "nedt_K": 0.11113940134322871,
+    "niirs": 4.860720620279457
   },
   "notes": "Runner's module-level base_config (nominal); the N_tdi sweep varies from here. NIIRS is the scenario's headline trade metric, so allow_extrapolated=true opts the baseline into the GIQE-5 rating past its SNR-calibration envelope (CU-166/CU-170)."
 }

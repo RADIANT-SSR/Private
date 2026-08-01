@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-319 — `emit_gui_yaml.py` cannot rebuild 8 of the 34 GUI baselines, and a batch run that fails still exits 0
+
+**Discovered**: CU-267 §5.3 sweep (branch `atmo/cu-267-gas-region-blend`), 2026-08-01.
+**Status**: Open.
+**File**: `scenarios/tools/gui_baselines.py` (module-level-constant reach); `scenarios/tools/emit_gui_yaml.py` (exit code).
+**Symptom**: regenerating baselines for `1.3, 1.4, 3.2, 3.4, 5.1, 5.2, 5.3, 5.4` fails with `AttributeError: module 'scenrunner_<slug>' has no attribute '<name>'` (`base_config`, `T_nominal`, `baseline_vis_km`, `pitches_um`, `band_min_um`): `gui_baselines.py` reaches for module-level constants that the CU-164 guard pass (2026-07-29) moved inside those runners' `main()`, so the side-effect-free import never binds them. Verified pre-existing on the unmodified base commit. Worse, `emit_gui_yaml.py` prints `[FAIL]` per scenario and **exits 0**, so a batch regeneration looks successful while leaving the 8 stale.
+**Why it still matters**: Rule-21 intake test 3 (blocking) — this is the documented §5.3 baseline-refresh path, and a quarter of the shipped baselines cannot use it; the silent exit-0 means the breakage is invisible exactly when the protocol is exercised. The CU-267 refresh had to work around it by re-snapshotting from the committed `.gui.yaml` payloads.
+**Suggested fix**: (b) stand-alone, S — teach `gui_baselines.py` entries for those 8 scenarios to read their constants through the factory/accessor surface the guarded runners now expose (the CU-164 4.3 `radiance_csv()` precedent), and make `emit_gui_yaml.py` exit non-zero when any scenario fails. Effort S; category A. Related: [[CU-164]], [[CU-267]], CU-273.
+
 ### CU-318 — The `emissivity_path` door's exclusivity guard is still inlined; `emissivity_path` + scalar emissivity reaches evaluate unrefused at the seam
 
 **Discovered**: CU-293 closure (branch `source/cu-293-target-spec-doors`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).

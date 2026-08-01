@@ -117,8 +117,11 @@ from radiant.source.tabulated import TabulatedRadianceSource
 from radiant.source.target_spec import (
     check_brightness_temperature_conflicts,
     check_intensity_door_extent_conflicts,
+    check_point_intensity_conflicts,
     check_radiance_temperature_conflicts,
     check_reflectance_conflicts,
+    check_user_intensity_conflicts,
+    check_user_radiance_conflicts,
 )
 
 logger = logging.getLogger(__name__)
@@ -1028,65 +1031,20 @@ def _maybe_build_from_user_radiance(
     S9 (T5AtAperture) domain and bypasses atmospheric transport.  The
     mutual-exclusion guards against every other spec form ((ε, T),
     ρ/albedo, S11 T_B, S12 T_R) are owned by the respective helpers
-    (each rejects S8 symmetrically); this helper only needs to guard
-    the legacy (ε, T) surface for the case where S8 is the only
-    fast-path candidate.
+    (each rejects S8 symmetrically); the guards this door owns — the
+    legacy (ε, T) surface, and S10 — live in
+    :func:`radiant.source.target_spec.check_user_radiance_conflicts`
+    (CU-293), shared with the resolve-time seam.
     """
     path_rv = params.get_resolved("source.target.user_radiance_path")
     path_user = path_rv.provenance is not Provenance.DEFAULT and bool(path_rv.value)
     if not path_user:
         return None
 
-    if _is_user_set(params, "source.target.temperature") or _is_user_set(
-        params, "source.target.emissivity"
-    ):
-        raise ParameterBoundsError(
-            what=(
-                "source._inferrer: user_radiance_path is mutually "
-                "exclusive with source.target.temperature / "
-                "source.target.emissivity"
-            ),
-            why=(
-                "S8 supplies an absolute radiance already at the target "
-                "plane; combining it with (ε, T) over-specifies the "
-                "target radiance (RADIANT would have two inconsistent "
-                "ways to compute L_t_source)."
-            ),
-            action=(
-                "Remove source.target.temperature and .emissivity when "
-                "using source.target.user_radiance_path; or remove "
-                "user_radiance_path to use the legacy (ε, T) form."
-            ),
-            context={
-                "temperature_set": _is_user_set(params, "source.target.temperature"),
-                "emissivity_set": _is_user_set(params, "source.target.emissivity"),
-            },
-        )
-
-    if _is_user_set(params, "source.target.user_intensity_path"):
-        raise ParameterBoundsError(
-            what=(
-                "source._inferrer: user_radiance_path is mutually "
-                "exclusive with user_intensity_path (S8 vs S10)"
-            ),
-            why=(
-                "S8 supplies radiance L_t_source [W/m²/sr/µm] at the "
-                "target plane for resolved targets; S10 supplies "
-                "intensity I_t_source [W/sr/µm] for point-source targets. "
-                "They are different radiometric quantities for different "
-                "regimes — combining them over-specifies the target."
-            ),
-            action=(
-                "Pick one user-entry surface: user_radiance_path for "
-                "resolved targets (S8), or user_intensity_path for "
-                "point-source targets (S10)."
-            ),
-            context={
-                "user_intensity_path": params.get_resolved(
-                    "source.target.user_intensity_path"
-                ).value,
-            },
-        )
+    # CU-293 (folded CU-294): the exclusivity guards for this door live in
+    # radiant.source.target_spec (shared with the resolve-time seam
+    # Sensor.validate_target_spec) — same order, same what/why/action.
+    check_user_radiance_conflicts(params)
 
     csv_path = str(path_rv.value)
 
@@ -1150,7 +1108,10 @@ def _maybe_build_from_point_intensity(
     Both build ``I(λ)`` on the chain grid and route through
     :func:`user_intensity_to_descriptor` (so CSV / blackbody / scalar converge on one
     T7 path). ``scene_type='point_source'`` is enforced there. Set-detection is
-    provenance-based; the two modes and the (ε, T)/CSV paths are mutually exclusive.
+    provenance-based; the two modes and the (ε, T)/CSV paths are mutually exclusive —
+    those guards live in
+    :func:`radiant.source.target_spec.check_point_intensity_conflicts` (CU-293),
+    shared with the resolve-time seam.
     """
     bb_set = _is_user_set(params, "source.target.point_intensity_temperature_K")
     scalar_set = _is_user_set(params, "source.target.point_intensity_band_W_per_sr")
@@ -1161,41 +1122,10 @@ def _maybe_build_from_point_intensity(
     # its fictitious reference area (which would silently discard the extent).
     check_intensity_door_extent_conflicts(params)
 
-    if bb_set and scalar_set:
-        raise ParameterBoundsError(
-            what=(
-                "source._inferrer: point_intensity_temperature_K (blackbody) and "
-                "point_intensity_band_W_per_sr (scalar) are both set"
-            ),
-            why="They are two mutually-exclusive ways to define the same point-source intensity.",
-            action=(
-                "Set exactly one: point_intensity_temperature_K (+area, emissivity) for a "
-                "blackbody emitter, or point_intensity_band_W_per_sr for a band flux."
-            ),
-            context={},
-        )
-    for other, label in (
-        ("source.target.temperature", "temperature"),
-        ("source.target.emissivity", "emissivity"),
-        ("source.target.user_intensity_path", "user_intensity_path"),
-    ):
-        if _is_user_set(params, other):
-            raise ParameterBoundsError(
-                what=(
-                    "source._inferrer: point-intensity inputs are mutually exclusive with "
-                    f"source.target.{label}"
-                ),
-                why=(
-                    "The point-intensity path supplies an absolute I(λ) at the target plane; "
-                    "combining it with a surface-radiance (ε, T) or the CSV intensity path "
-                    "over-specifies the target."
-                ),
-                action=(
-                    f"Remove source.target.{label}, or drop the point_intensity_* params to "
-                    "use that form instead."
-                ),
-                context={"conflicting_param": f"source.target.{label}"},
-            )
+    # CU-293 (folded CU-294): the remaining exclusivity guards for this door
+    # live in radiant.source.target_spec (shared with the resolve-time seam
+    # Sensor.validate_target_spec) — same order, same what/why/action.
+    check_point_intensity_conflicts(params)
 
     lam = np.asarray(wavelength_um, dtype=np.float64)
     if bb_set:
@@ -1269,9 +1199,10 @@ def _maybe_build_from_user_intensity(
     ``target_location == 'at_aperture'`` and ``scene_type != 'point_source'``
     are rejected by the converter.  Mutual-exclusion guards against
     every other spec form are owned by the respective helpers (each
-    rejects S10 symmetrically); this helper only needs to guard the
-    legacy (ε, T) surface for the case where S10 is the only fast-path
-    candidate.
+    rejects S10 symmetrically); the guard this door owns — the legacy
+    (ε, T) surface — lives in
+    :func:`radiant.source.target_spec.check_user_intensity_conflicts`
+    (CU-293), shared with the resolve-time seam.
     """
     path_rv = params.get_resolved("source.target.user_intensity_path")
     path_user = path_rv.provenance is not Provenance.DEFAULT and bool(path_rv.value)
@@ -1282,31 +1213,10 @@ def _maybe_build_from_user_intensity(
     # its fictitious reference area (which would silently discard the extent).
     check_intensity_door_extent_conflicts(params)
 
-    if _is_user_set(params, "source.target.temperature") or _is_user_set(
-        params, "source.target.emissivity"
-    ):
-        raise ParameterBoundsError(
-            what=(
-                "source._inferrer: user_intensity_path is mutually "
-                "exclusive with source.target.temperature / "
-                "source.target.emissivity"
-            ),
-            why=(
-                "S10 supplies an absolute intensity already at the "
-                "target plane; combining it with (ε, T) over-specifies "
-                "the target (RADIANT would have two inconsistent ways "
-                "to compute the at-aperture signal)."
-            ),
-            action=(
-                "Remove source.target.temperature and .emissivity when "
-                "using source.target.user_intensity_path; or remove "
-                "user_intensity_path to use the legacy (ε, T) form."
-            ),
-            context={
-                "temperature_set": _is_user_set(params, "source.target.temperature"),
-                "emissivity_set": _is_user_set(params, "source.target.emissivity"),
-            },
-        )
+    # CU-293 (folded CU-294): the remaining exclusivity guard for this door
+    # lives in radiant.source.target_spec (shared with the resolve-time seam
+    # Sensor.validate_target_spec) — same what/why/action.
+    check_user_intensity_conflicts(params)
 
     csv_path = str(path_rv.value)
 

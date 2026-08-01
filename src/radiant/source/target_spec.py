@@ -21,10 +21,21 @@ Two entry points:
   here; the identity that matters (seam error == evaluate error) is unaffected
   because both callers read these same functions.
 * :func:`validate_target_spec` runs the doors in the inferrer's dispatch order
-  (S11 → S12 → S4/S5/S6 → S10/S10b) and is the single seam the API exposes.
-  CU-256 added :func:`check_intensity_door_extent_conflicts` here as the
-  intended extension point predicted by the CU-244 docstring; future door
-  guards slot in the same way.
+  (S11 → S12 → S4/S5/S6 → S8 → S10b → S10) and is the single seam the API
+  exposes.  CU-256 added :func:`check_intensity_door_extent_conflicts` here as
+  the intended extension point predicted by the CU-244 docstring; CU-293 (with
+  the folded CU-294) completed the extraction by moving the last three inlined
+  door blocks — S8 :func:`check_user_radiance_conflicts`, S10b
+  :func:`check_point_intensity_conflicts`, S10
+  :func:`check_user_intensity_conflicts` — and by adding the S11-vs-S12 guard
+  the S11 door had always been missing.  Future door guards slot in the same
+  way.
+
+Every door is now symmetric: whichever door dispatches first, the same pair is
+refused with the same class of message.  Before CU-293 the S11 door alone had
+no S12 guard, so a ``brightness_temperature_* + radiance_temperature_K`` pair
+raised at this seam but *evaluated silently* — the S11 builder dispatched
+first and discarded the radiance-temperature surface (Rule 17).
 
 Scope: **over-specification only.**  Completeness checks (e.g. "S12 requires
 the band edges") stay in the inferrer — a half-entered spec is a legitimate
@@ -46,8 +57,11 @@ from radiant.source._schema import validate_reflectance_albedo_exclusive
 __all__ = [
     "check_brightness_temperature_conflicts",
     "check_intensity_door_extent_conflicts",
+    "check_point_intensity_conflicts",
     "check_radiance_temperature_conflicts",
     "check_reflectance_conflicts",
+    "check_user_intensity_conflicts",
+    "check_user_radiance_conflicts",
     "validate_target_spec",
 ]
 
@@ -130,7 +144,9 @@ def check_brightness_temperature_conflicts(params: ParameterSet) -> None:
     No-op when neither S11 surface is user-set.  Guard order (and text) is
     exactly the pre-CU-244 inline order in
     ``_inferrer._maybe_build_from_brightness_temperature``: K+path both set,
-    then (ε, T), then S8, then S10, then ρ-family.
+    then (ε, T), then S8, then S10, then ρ-family — with the S12 guard CU-293
+    appended last, mirroring the position the S11 guard already occupies in
+    :func:`check_radiance_temperature_conflicts`.
     """
     t_b_k_user = _is_user_set(params, "source.target.brightness_temperature_K")
     t_b_path_user = _is_user_set_nonempty(params, "source.target.brightness_temperature_path")
@@ -257,6 +273,35 @@ def check_brightness_temperature_conflicts(params: ParameterSet) -> None:
             context={
                 "reflectance_set": _is_user_set(params, "source.target.reflectance"),
                 "albedo_set": _is_user_set(params, "source.target.albedo"),
+            },
+        )
+
+    # CU-293 (owner ruling 2026-08-01): the S11 door was the one door with no
+    # guard against its S12 twin.  Because the inferrer dispatches S11 first,
+    # its absence meant a user-supplied radiance temperature was silently
+    # discarded at evaluate() while this same seam already refused the pair —
+    # the two entry points disagreed.  Exclusivity is over
+    # ``radiance_temperature_K`` alone: the S12 band edges are a completeness
+    # requirement, which stays with the inferrer (module scope, above).
+    if _is_user_set(params, "source.target.radiance_temperature_K"):
+        raise ParameterBoundsError(
+            what=(
+                "source.target_spec: brightness_temperature is mutually "
+                "exclusive with radiance_temperature_K (S11 vs S12)"
+            ),
+            why=(
+                "S11 and S12 are parallel user-entry forms for the same "
+                "thermal target; combining them over-specifies the "
+                "source surface."
+            ),
+            action=(
+                "Pick one: brightness_temperature_* for a λ-resolved "
+                "T_B(λ), or radiance_temperature_K + band for a scalar "
+                "band-averaged T_R."
+            ),
+            context={
+                "radiance_temperature_K_set": True,
+                "radiance_temperature_K": _value_of(params, "source.target.radiance_temperature_K"),
             },
         )
 
@@ -467,6 +512,168 @@ def check_intensity_door_extent_conflicts(params: ParameterSet) -> None:
     )
 
 
+def check_user_radiance_conflicts(params: ParameterSet) -> None:
+    """S8 door: raise if ``user_radiance_path`` is paired with a rival surface.
+
+    CU-293 (folded CU-294).  No-op when ``user_radiance_path`` is not user-set
+    or is empty.  Guard order (and text, modulo the CU-295 module prefix) is
+    exactly the pre-extraction inline order in
+    ``_inferrer._maybe_build_from_user_radiance``: (ε, T), then S10.
+
+    The S8-vs-ρ and S8-vs-S11/S12 pairs are not repeated here — the ρ-family,
+    S11 and S12 doors each already reject S8 symmetrically, and
+    :func:`validate_target_spec` runs those first (inferrer dispatch order), so
+    the seam and ``evaluate()`` raise the same error for those pairs.
+    """
+    if not _is_user_set_nonempty(params, "source.target.user_radiance_path"):
+        return
+
+    if _is_user_set(params, "source.target.temperature") or _is_user_set(
+        params, "source.target.emissivity"
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source.target_spec: user_radiance_path is mutually "
+                "exclusive with source.target.temperature / "
+                "source.target.emissivity"
+            ),
+            why=(
+                "S8 supplies an absolute radiance already at the target "
+                "plane; combining it with (ε, T) over-specifies the "
+                "target radiance (RADIANT would have two inconsistent "
+                "ways to compute L_t_source)."
+            ),
+            action=(
+                "Remove source.target.temperature and .emissivity when "
+                "using source.target.user_radiance_path; or remove "
+                "user_radiance_path to use the legacy (ε, T) form."
+            ),
+            context={
+                "temperature_set": _is_user_set(params, "source.target.temperature"),
+                "emissivity_set": _is_user_set(params, "source.target.emissivity"),
+            },
+        )
+
+    if _is_user_set(params, "source.target.user_intensity_path"):
+        raise ParameterBoundsError(
+            what=(
+                "source.target_spec: user_radiance_path is mutually "
+                "exclusive with user_intensity_path (S8 vs S10)"
+            ),
+            why=(
+                "S8 supplies radiance L_t_source [W/m²/sr/µm] at the "
+                "target plane for resolved targets; S10 supplies "
+                "intensity I_t_source [W/sr/µm] for point-source targets. "
+                "They are different radiometric quantities for different "
+                "regimes — combining them over-specifies the target."
+            ),
+            action=(
+                "Pick one user-entry surface: user_radiance_path for "
+                "resolved targets (S8), or user_intensity_path for "
+                "point-source targets (S10)."
+            ),
+            context={
+                "user_intensity_path": _value_of(params, "source.target.user_intensity_path"),
+            },
+        )
+
+
+def check_point_intensity_conflicts(params: ParameterSet) -> None:
+    """S10b door: raise if a point-intensity surface is paired with a rival.
+
+    CU-293 (folded CU-294).  No-op when neither point-intensity mode is
+    user-set.  Guard order (and text, modulo the CU-295 module prefix) is
+    exactly the pre-extraction inline order in
+    ``_inferrer._maybe_build_from_point_intensity``: the two modes both set
+    (blackbody ``point_intensity_temperature_K`` vs scalar
+    ``point_intensity_band_W_per_sr``), then (ε, T), then the S10 CSV.
+
+    The declared-extent conflict is a separate rule with its own owner ruling
+    and lives in :func:`check_intensity_door_extent_conflicts`; the inferrer
+    calls that one first, and so does :func:`validate_target_spec`.
+    """
+    bb_set = _is_user_set(params, "source.target.point_intensity_temperature_K")
+    scalar_set = _is_user_set(params, "source.target.point_intensity_band_W_per_sr")
+    if not bb_set and not scalar_set:
+        return
+
+    if bb_set and scalar_set:
+        raise ParameterBoundsError(
+            what=(
+                "source.target_spec: point_intensity_temperature_K (blackbody) and "
+                "point_intensity_band_W_per_sr (scalar) are both set"
+            ),
+            why="They are two mutually-exclusive ways to define the same point-source intensity.",
+            action=(
+                "Set exactly one: point_intensity_temperature_K (+area, emissivity) for a "
+                "blackbody emitter, or point_intensity_band_W_per_sr for a band flux."
+            ),
+            context={},
+        )
+
+    for other, label in (
+        ("source.target.temperature", "temperature"),
+        ("source.target.emissivity", "emissivity"),
+        ("source.target.user_intensity_path", "user_intensity_path"),
+    ):
+        if _is_user_set(params, other):
+            raise ParameterBoundsError(
+                what=(
+                    "source.target_spec: point-intensity inputs are mutually exclusive with "
+                    f"source.target.{label}"
+                ),
+                why=(
+                    "The point-intensity path supplies an absolute I(λ) at the target plane; "
+                    "combining it with a surface-radiance (ε, T) or the CSV intensity path "
+                    "over-specifies the target."
+                ),
+                action=(
+                    f"Remove source.target.{label}, or drop the point_intensity_* params to "
+                    "use that form instead."
+                ),
+                context={"conflicting_param": f"source.target.{label}"},
+            )
+
+
+def check_user_intensity_conflicts(params: ParameterSet) -> None:
+    """S10 door: raise if ``user_intensity_path`` is paired with (ε, T).
+
+    CU-293 (folded CU-294).  No-op when ``user_intensity_path`` is not user-set
+    or is empty.  Text is the pre-extraction inline text in
+    ``_inferrer._maybe_build_from_user_intensity`` modulo the CU-295 module
+    prefix.  Every other S10 pairing (ρ-family, S11, S12, S8, S10b) is rejected
+    symmetrically by the door that owns it, which dispatches first.
+    """
+    if not _is_user_set_nonempty(params, "source.target.user_intensity_path"):
+        return
+
+    if _is_user_set(params, "source.target.temperature") or _is_user_set(
+        params, "source.target.emissivity"
+    ):
+        raise ParameterBoundsError(
+            what=(
+                "source.target_spec: user_intensity_path is mutually "
+                "exclusive with source.target.temperature / "
+                "source.target.emissivity"
+            ),
+            why=(
+                "S10 supplies an absolute intensity already at the "
+                "target plane; combining it with (ε, T) over-specifies "
+                "the target (RADIANT would have two inconsistent ways "
+                "to compute the at-aperture signal)."
+            ),
+            action=(
+                "Remove source.target.temperature and .emissivity when "
+                "using source.target.user_intensity_path; or remove "
+                "user_intensity_path to use the legacy (ε, T) form."
+            ),
+            context={
+                "temperature_set": _is_user_set(params, "source.target.temperature"),
+                "emissivity_set": _is_user_set(params, "source.target.emissivity"),
+            },
+        )
+
+
 def check_reflectance_conflicts(params: ParameterSet) -> None:
     """S4/S5/S6 door: raise if a reflectance surface is paired with a rival surface.
 
@@ -597,21 +804,22 @@ def validate_target_spec(params: ParameterSet) -> None:
     """Raise :class:`ParameterBoundsError` if the target spec is over-specified.
 
     Runs the per-door exclusivity guards in the inferrer's dispatch order
-    (S11 → S12 → S4/S5/S6 → S10/S10b), so whenever ``evaluate()`` would raise an
-    exclusivity error via ``_inferrer._build_target_descriptor``, the first
-    error raised here is that same error — same what/why/action.  A no-op on a
-    cleanly specified (or not-yet-complete) target: completeness is
+    (S11 → S12 → S4/S5/S6 → S8 → S10b → S10), so whenever ``evaluate()`` would
+    raise an exclusivity error via ``_inferrer._build_target_descriptor``, the
+    first error raised here is that same error — same what/why/action.  A no-op
+    on a cleanly specified (or not-yet-complete) target: completeness is
     deliberately out of scope.
 
-    One known corner where this seam is *stricter* than ``evaluate()``: an
-    S11 + S12 pair (brightness_temperature_* AND radiance_temperature_K).
-    The inferrer's S11 builder dispatches first and does not check S12, so at
-    evaluate time the radiance-temperature surface is silently ignored (a
-    latent Rule-17 gap discovered during CU-244);
-    this seam runs every door's guards and correctly rejects the pair with
-    the S12-door text.
+    CU-293 closed the last gap in that equivalence.  This seam used to be
+    *stricter* than ``evaluate()`` for an S11 + S12 pair, because the inferrer's
+    S11 builder dispatched first and had no S12 guard; that guard now exists
+    (:func:`check_brightness_temperature_conflicts`), so the two entry points
+    agree on every pair the doors know about.
     """
     check_brightness_temperature_conflicts(params)
     check_radiance_temperature_conflicts(params)
     check_reflectance_conflicts(params)
+    check_user_radiance_conflicts(params)
     check_intensity_door_extent_conflicts(params)
+    check_point_intensity_conflicts(params)
+    check_user_intensity_conflicts(params)

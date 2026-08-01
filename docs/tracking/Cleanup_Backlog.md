@@ -84,22 +84,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: the standing project rule is that every scenario's GUI workflow is documented and drivable; a results-affecting turbulence parameter that an operator cannot enter in the GUI fails that. Elevated-site seeing is the SST case Gap 110 shipped for, and it is a GUI-driven workflow.
 **Suggested fix**: (b) small stand-alone GUI task — a field on the geometry or turbulence view (unit-bearing, entry/display symmetric per the display-units rule), following the `scene_class_panel.py` precedent. Category D. Related: [[CU-262]], Gap 110.
 
-### CU-293 — S11 dispatches before S12 without checking it, so a brightness+radiance-temperature pair is silently ignored at evaluate
-
-**Discovered**: Overnight backlog run, CU-244 close-out, 2026-07-30 — measured while building the resolve-time seam.
-**Status**: Open.
-**Owner ruling (2026-08-01)**: approved — evaluate refuses the brightness+radiance-temperature pair, and the remaining inlined intensity-door guards (folded ex-CU-294) move to the resolve-time seam. Same ruling class as CU-256/CU-264: over-specification raises. CHANGELOG under Changed + scenarios/examples sweep first.
-**File**: `src/radiant/source/_inferrer.py` (S11 builder `_maybe_build_from_brightness_temperature`; the unreachable S12 check in `_maybe_build_from_radiance_temperature`).
-**Symptom**: with **both** `brightness_temperature_K` and `radiance_temperature_K` (+ its band edges) user-set, `evaluate()` raises nothing — the S11 builder dispatches first and does not check S12, so the radiance-temperature surface the user supplied is **silently ignored**. Measured: the new [[CU-244]] seam raises the S11-vs-S12 error, `evaluate()` completes. The S12-side check exists but is unreachable for this pair.
-**Why it still matters**: Rule 17 — a user-supplied surface is discarded with no warning, and the two entry points now disagree (the door is deliberately stricter than evaluate, documented in `validate_target_spec`'s docstring, but that asymmetry is a stopgap not a design).
-**Suggested fix**: (a) inline, S — add the S12 conflict check to the S11 builder so evaluate refuses the pair too, then drop the docstring's asymmetry note. **Behaviour-changing** at evaluate (configs that run today by silently ignoring a surface will raise) → CHANGELOG under **Changed** per Rule 29b, and worth a `scenarios/`/`examples/` sweep first, same caveat as [[CU-256]]/[[CU-264]]. Category B. Related: [[CU-244]], [[CU-256]].
-
-**Family head (2026-07-31 triage)** — the target-spec door family (Rule 21 family-CU provision). One PR, one `scenarios/`+`examples/` sweep. Checklist:
-
-- [ ] S12 conflict check in the S11 builder so evaluate refuses the brightness+radiance-temperature pair (this entry; behaviour-changing → CHANGELOG).
-- [ ] Extract the inlined point-intensity / user-intensity / user-radiance exclusivity guards into `target_spec.check_*` and register them in `validate_target_spec`, exactly as CU-244 did for S4/S5/S6/S11/S12 (from [[CU-294]]).
-- [ ] Drop `validate_target_spec`'s documented door-vs-evaluate asymmetry note once both land.
-
 ### CU-289 — GUI transaction tests await a full re-evaluation pass they mostly do not assert on
 
 **Discovered**: [[CU-249]] resolution (branch `test/cu-249`), 2026-07-29.
@@ -322,6 +306,23 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-293 — S11 dispatches before S12 without checking it, so a brightness+radiance-temperature pair is silently ignored at evaluate — RESOLVED 2026-08-01 (commit trailer)
+
+**Discovered**: Overnight backlog run, CU-244 close-out, 2026-07-30 — measured while building the resolve-time seam.
+**Status**: RESOLVED 2026-08-01, closed by the `CU-Closes: 293` trailer commit (family head, incl. folded ex-CU-294).
+**Owner ruling (2026-08-01)**: approved — evaluate refuses the brightness+radiance-temperature pair, and the remaining inlined intensity-door guards (folded ex-CU-294) move to the resolve-time seam. Same ruling class as CU-256/CU-264: over-specification raises. CHANGELOG under Changed + scenarios/examples sweep first.
+**File**: `src/radiant/source/_inferrer.py` (S11 builder `_maybe_build_from_brightness_temperature`; the unreachable S12 check in `_maybe_build_from_radiance_temperature`).
+**Symptom**: with **both** `brightness_temperature_K` and `radiance_temperature_K` (+ its band edges) user-set, `evaluate()` raises nothing — the S11 builder dispatches first and does not check S12, so the radiance-temperature surface the user supplied is **silently ignored**. Measured: the new [[CU-244]] seam raises the S11-vs-S12 error, `evaluate()` completes. The S12-side check exists but is unreachable for this pair.
+**Why it still matters**: Rule 17 — a user-supplied surface is discarded with no warning, and the two entry points now disagree (the door is deliberately stricter than evaluate, documented in `validate_target_spec`'s docstring, but that asymmetry is a stopgap not a design).
+**Suggested fix**: (a) inline, S — add the S12 conflict check to the S11 builder so evaluate refuses the pair too, then drop the docstring's asymmetry note. **Behaviour-changing** at evaluate (configs that run today by silently ignoring a surface will raise) → CHANGELOG under **Changed** per Rule 29b, and worth a `scenarios/`/`examples/` sweep first, same caveat as [[CU-256]]/[[CU-264]]. Category B. Related: [[CU-244]], [[CU-256]].
+
+**Family head (2026-07-31 triage)** — the target-spec door family (Rule 21 family-CU provision). One PR, one `scenarios/`+`examples/` sweep. Checklist:
+
+- [x] S12 conflict check in the S11 builder so evaluate refuses the brightness+radiance-temperature pair (this entry; behaviour-changing → CHANGELOG).
+- [x] Extract the inlined point-intensity / user-intensity / user-radiance exclusivity guards into `target_spec.check_*` and register them in `validate_target_spec`, exactly as CU-244 did for S4/S5/S6/S11/S12 (from [[CU-294]]).
+- [x] Drop `validate_target_spec`'s documented door-vs-evaluate asymmetry note once both land.
+**Resolution**: evaluate now refuses the brightness+radiance-temperature pair — the S11-vs-S12 exclusivity check was appended to `check_brightness_temperature_conflicts`, which the S11 builder now calls, so seam and evaluate raise the identical `ParameterBoundsError` (asserted dynamically). The three remaining inlined intensity-door guards moved verbatim to `target_spec.check_user_radiance_conflicts` / `check_point_intensity_conflicts` / `check_user_intensity_conflicts` and are registered in `validate_target_spec` in inferrer dispatch order (ex-CU-294); the documented door-vs-evaluate asymmetry note is dropped. Sweep first: zero occurrences of the newly-raising pairs in 235 scenario/example files; all 67 shipped YAMLs pass the seam. Build-identity pinned by SHA-256 digests of each door's output arrays (bit-identical); 86/86 goldens unchanged. 9 of 13 new tests fail on the old code. CHANGELOG under Changed (behaviour-changing refusals); four architecture docs updated in lock-step. The one door still inlined (`emissivity_path` + scalar emissivity, unnamed by this family) is promoted separately.
 
 ### CU-263 — Detection-range solvers freeze total noise at the reference range, making the metric reference-range-dependent — RESOLVED 2026-08-01 (commit trailer)
 

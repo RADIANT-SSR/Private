@@ -24,10 +24,12 @@ not a second API surface: the worker still performs exactly one ``evaluate_all()
 call (one GUI action ↔ one API call, GUI plan §4.1).
 
 Warning capture lives in the API, not here: ``evaluate_all`` opens a
-per-configuration ``warnings.catch_warnings`` window and records each
-configuration's warnings on ``ConfigRun.warnings`` (already re-logged there), so a
-second capture in this module would double-count them and destroy the
-per-configuration attribution.
+per-configuration, **thread-local** capture window
+(``radiant.api._warning_capture``, CU-110) and records each configuration's
+warnings on ``ConfigRun.warnings`` (already re-logged there), so a second capture
+in this module would double-count them and destroy the per-configuration
+attribution. Because the capture is thread-local, this worker running beside a
+sweep/solve/evaluate-all dialog worker no longer cross-attributes warnings.
 """
 
 from __future__ import annotations

@@ -244,7 +244,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 24 source + 18 tests
+### `api/` — 25 source + 19 tests
 
 Public scripting API.
 
@@ -270,6 +270,7 @@ api/
 ├── config_io.py           # config-document facade for structured configuration
 ├── errors.py              # stage-scoped RADIANT error types (Rule 15)
 ├── _progress.py           # private — progress/cancellation plumbing (Gap 72)
+├── _warning_capture.py    # private — thread-local warning capture for evaluate_all (CU-110)
 └── _param_registry.py     # private — assembles the master schema
 ```
 
@@ -315,6 +316,7 @@ gui/
 │   ├── matplotlib_canvas.py                 # MatplotlibCanvas
 │   ├── message_item.py                      # MessageItem
 │   ├── messages_panel.py                    # MessagesPanel
+│   ├── metric_group_cards.py                # MetricGroupCards
 │   ├── mtf_overlay_dialog.py                # MtfOverlayDialog
 │   ├── mtf_panel.py                         # MtfPanel
 │   ├── noise_budget_panel.py                # NoiseBudgetPanel
@@ -336,6 +338,7 @@ gui/
 │   ├── right_rail.py                        # RightRail
 │   ├── run_button.py                        # RunButton
 │   ├── saturation_banner.py                 # SaturationBanner
+│   ├── scene_class_panel.py                 # SceneClassPanel — derived/asserted scene class (ADR-0011 d.8)
 │   ├── schema_browser_dialog.py             # SchemaBrowserDialog
 │   ├── script_editor.py                     # ScriptEditor
 │   ├── script_tab.py                        # ScriptTab
@@ -343,6 +346,7 @@ gui/
 │   ├── scripting_window.py                  # ScriptingWindow
 │   ├── scoped_parameter_command.py          # ScopedParameterCommand — scope+value undo (4b)
 │   ├── set_parameter_command.py             # SetParameterCommand
+│   ├── site_elevation_panel.py              # SiteElevationPanel — geometry.site_elevation_m entry (CU-301)
 │   ├── solve_dialog.py                      # SolveDialog
 │   ├── source_inputs_form.py                # SourceInputsForm
 │   ├── spectral_integration_inputs_form.py  # SpectralIntegrationInputsForm

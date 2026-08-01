@@ -11,6 +11,7 @@ single-configuration case, and the ``compare`` adapter.
 from __future__ import annotations
 
 import logging
+import threading
 import warnings
 from collections.abc import Callable
 from pathlib import Path
@@ -957,6 +958,45 @@ class TestWarningAttribution:
         before = list(warnings.filters)
         _evaluate_all(cs)
         assert list(warnings.filters) == before
+
+    def test_two_concurrent_passes_do_not_cross_attribute(self, monkeypatch: Any) -> None:
+        """Two ``evaluate_all`` passes on two threads keep their warnings apart (CU-110).
+
+        The GUI starts sweep / solve / evaluate-all dialog workers that are not
+        serialised against the main window's evaluation worker, so two passes
+        really can be inside the capture window at once. The barrier makes that
+        overlap deterministic (no sleeps): neither thread warns until both have
+        opened their capture.
+        """
+        both_inside = threading.Barrier(2, timeout=30.0)
+        original = ConfigurationSet.sensor_for
+
+        def warning_sensor_for(self: ConfigurationSet, name: str) -> Sensor:
+            sensor = original(self, name)
+            both_inside.wait()
+            warnings.warn(f"probe from {name}", UserWarning, stacklevel=1)
+            return sensor
+
+        monkeypatch.setattr(ConfigurationSet, "sensor_for", warning_sensor_for)
+        runs: dict[str, ConfigSetRunResult] = {}
+        errors: list[BaseException] = []
+
+        def run_pass(tag: str) -> None:
+            try:
+                runs[tag] = ConfigurationSet(_sensor(), names=[tag]).evaluate_all()
+            except BaseException as exc:  # noqa: BLE001 — surfaced on the main thread
+                errors.append(exc)
+                both_inside.abort()
+
+        threads = [threading.Thread(target=run_pass, args=(tag,)) for tag in ("left", "right")]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=120.0)
+
+        assert not errors, errors
+        assert runs["left"].entry_for("left").warnings == ("UserWarning: probe from left",)
+        assert runs["right"].entry_for("right").warnings == ("UserWarning: probe from right",)
 
 
 # ---------------------------------------------------------------------------

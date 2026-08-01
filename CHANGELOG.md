@@ -21,6 +21,19 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`geometry.site_elevation_m` has a GUI entry point (CU-301).** The Geometry screen's
+  Inputs tab gains a site-elevation card below the input-mode forms. The parameter is a
+  standalone scene fact rather than an input-mode door, so the manifest-driven forms
+  deliberately do not render it (schema tag `non_mode`) — which left a results-affecting
+  turbulence parameter (CU-262: the Hufnagel-Valley Cn² surface term is evaluated at
+  `h − site_elevation_m`, so an elevated site keeps its own boundary layer) reachable only
+  from YAML or the scripting API. The card is the same shared `FieldRow` +
+  `ParameterEditorDialog` as every other field: the value displays and is entered in the
+  row's chosen unit (enter 2.5 km, the model stores 2500 m, the row reads 2.5 km back),
+  each accepted edit is one validated `sensor.set` that marks results stale, and a
+  rejected value never touches the live sensor. **No computed result moves** — this adds a
+  way to reach an existing parameter, not a new parameter or a new default.
+
 - **`optics.pupil_npix` and `optics.psf_oversample` — the PSF/MTF FFT grid is now
   tuneable (CU-288).** Formerly hardcoded (128 / 8) in `optics/stage.py`, and the
   dominant cost of every chain evaluation (~3.1 s of a 4.2 s five-evaluate GUI profile).

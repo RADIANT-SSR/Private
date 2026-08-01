@@ -1184,12 +1184,19 @@ class TestElevatedTargetGroundVectors:
 
 
 class TestDownLookingRegression:
-    """ADR-0011 Phase 4, hard constraint: the DOWN-looking layout is bit-for-bit unchanged.
+    """Pinned DOWN-looking layout — a moved glyph or re-anchored sun fails here.
 
-    The generalized compositions may only *add* branches. These values were captured from
-    the pre-change ``build_scene`` for :meth:`ViewerState.default` and are pinned here, so
-    any drift in the original layout — a moved glyph, a re-anchored sun, a changed target
-    lift — fails immediately rather than silently restyling every existing scene.
+    These values were captured from the ADR-0011 Phase-4 ``build_scene`` for
+    :meth:`ViewerState.default` and are pinned so drift in the original layout — a moved
+    glyph, a re-anchored sun, a changed target lift — fails immediately rather than
+    silently restyling every existing scene.
+
+    **CU-250 reset (2026-08-01).** The sensor glyph moved off the off-nadir η ray onto the
+    path-zenith ``theta_o_dir`` ray, which is the vertex it is placed from. The pinned
+    numbers below are *unchanged* by that move, because ``ViewerState.default`` is an 8 km
+    down-looking scene where θ_o and η agree to ~0.03° — by construction. A case where the
+    two genuinely differ (``space_to_ground_down``, θ_o = 25° at 705 km) is asserted in
+    :class:`TestDownLookingGlyphRay`, which is where the reset actually bites.
     """
 
     def test_default_state_scene_fields_are_pinned(self) -> None:
@@ -1221,10 +1228,13 @@ class TestDownLookingRegression:
         assert scene.show_target_altitude is False
         assert scene.level_sag_label is None
 
-    def test_eta_ray_is_the_sensor_placement_ray_when_down_looking(self) -> None:
-        """The off-nadir arc still rides the SENSOR→TARGET vector (no visual change)."""
-        scene = build_scene(ViewerState.default())
-        assert np.allclose(scene.eta_dir, scene.sensor_dir, atol=1e-15)
+    def test_default_states_two_rays_coincide_because_its_angles_do(self) -> None:
+        """θ_o = η = 20° in the default state, so the CU-250 reset moves nothing here."""
+        state = ViewerState.default()
+        assert state.theta_o_rad == pytest.approx(state.observer_look_angle_rad, abs=1e-15)
+        scene = build_scene(state)
+        assert np.allclose(scene.eta_dir, scene.theta_o_dir, atol=1e-15)
+        assert np.allclose(scene.sensor_dir, scene.theta_o_dir, atol=1e-15)
 
     def test_airborne_target_layout_unchanged(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """A down-looking elevated target keeps its lift, ground vectors, and h_t pill."""
@@ -1258,6 +1268,78 @@ class TestDownLookingRegression:
         assert legacy.los_direction == "down"
         scene = build_scene(legacy)
         assert np.allclose(scene.sensor_pos, build_scene(base).sensor_pos, atol=1e-15)
+        # No stage θ_o at all: the glyph keeps the η ray rather than lying on the zenith.
+        assert legacy.theta_o_rad == 0.0
+        assert np.allclose(scene.sensor_dir, scene.eta_dir, atol=1e-15)
+
+
+class TestDownLookingGlyphRay:
+    """CU-250: the down-looking sensor glyph rides ``theta_o_dir``, not the η ray.
+
+    η is subtended at the SENSOR vertex and θ_o at the TARGET vertex; on a curved Earth
+    they differ by the central angle. The glyph is placed *from the target*, so placing it
+    along η put the glyph ray and every target-anchored arc on visibly different lines.
+    ``space_to_ground_down`` is a real 705 km triangle (η solved from θ_o with the core law
+    of sines), so the two rays are ~2° apart here — enough that every assertion below is a
+    genuine discriminator, not a tolerance artefact.
+    """
+
+    @staticmethod
+    def _down_scene() -> tuple[ViewerState, SchematicScene]:
+        state, _geo = _case_state_and_geometry("space_to_ground_down")
+        return state, build_scene(state)
+
+    def test_the_case_really_separates_the_two_rays(self) -> None:
+        """Guard on the fixture: η and θ_o must differ, or the tests below prove nothing."""
+        state, scene = self._down_scene()
+        separation_deg = abs(math.degrees(state.theta_o_rad - state.observer_look_angle_rad))
+        assert separation_deg > 2.0
+        assert not np.allclose(scene.eta_dir, scene.theta_o_dir, atol=1e-3)
+
+    def test_glyph_lies_on_the_path_zenith_ray(self) -> None:
+        """Geometry-level: the sensor position is θ_o's ray scaled by the fixed radius."""
+        _state, scene = self._down_scene()
+        assert np.allclose(scene.sensor_dir, scene.theta_o_dir, atol=1e-15)
+        assert np.allclose(scene.sensor_pos, scene.theta_o_dir * _SENSOR_DIST, atol=1e-15)
+
+    def test_glyph_is_not_on_the_eta_ray(self) -> None:
+        """The pre-CU-250 placement is now excluded, not merely tolerated."""
+        _state, scene = self._down_scene()
+        assert not np.allclose(scene.sensor_dir, scene.eta_dir, atol=1e-3)
+
+    def test_glyph_ray_subtends_the_stage_theta_o_from_the_zenith(self) -> None:
+        """The angle the drawn glyph ray makes with the local zenith IS the stage θ_o."""
+        state, scene = self._down_scene()
+        zenith = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+        unit = scene.sensor_dir / float(np.linalg.norm(scene.sensor_dir))
+        subtended = math.acos(float(np.clip(np.dot(unit, zenith), -1.0, 1.0)))
+        assert subtended == pytest.approx(state.theta_o_rad, abs=1e-12)
+
+    @pytest.mark.parametrize("name", ["path_zenith", "lower_zenith"])
+    def test_target_apex_arcs_now_land_on_the_glyph_ray(self, qtbot, name: str) -> None:  # type: ignore[no-untyped-def]
+        """The arcs the target subtends end on the drawn glyph ray — CU-250's whole point.
+
+        Down-looking, the target IS the lower endpoint, so ζ_low is θ_o read there; both
+        arcs therefore sweep to the same ray the glyph now sits on. The arc's far endpoint
+        is compared as a *direction* from its apex, since the two arcs use different radii.
+        """
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        _state, scene = self._down_scene()
+        points = canvas._arc_points(scene, name)  # noqa: SLF001
+        assert points
+        apex = canvas._arc_apex(scene, name)  # noqa: SLF001
+        far = points[-1] - apex
+        far_unit = far / float(np.linalg.norm(far))
+        glyph_unit = scene.sensor_dir / float(np.linalg.norm(scene.sensor_dir))
+        assert np.allclose(far_unit, glyph_unit, atol=1e-9)
+
+    def test_eta_arc_keeps_its_own_ray(self) -> None:
+        """The η annotation is still drawn at its own stage angle, untouched by the move."""
+        state, scene = self._down_scene()
+        zenith = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+        subtended = math.acos(float(np.clip(np.dot(scene.eta_dir, zenith), -1.0, 1.0)))
+        assert subtended == pytest.approx(state.observer_look_angle_rad, abs=1e-12)
 
 
 class TestUpLookingComposition:

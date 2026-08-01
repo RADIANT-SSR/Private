@@ -284,7 +284,9 @@ class SchematicScene:
     from ``sensor_dir`` (which only places the sensor glyph) because η, θ_o, and ζ_low are
     read at *different vertices* of the same viewing triangle and differ by the Earth-centre
     central angle; the schematic's single shared zenith cannot merge them without
-    misreporting one (§6.3 — the stage owns every displayed angle).
+    misreporting one (§6.3 — the stage owns every displayed angle). ``sensor_dir`` is the
+    **θ_o** ray in every composition (CU-250): the glyph is placed *from the target*, the
+    vertex θ_o is subtended at, so the glyph ray and the target-anchored arcs coincide.
     """
 
     sun_dir: np.ndarray
@@ -302,7 +304,7 @@ class SchematicScene:
     is_point: bool
     altitude_km: float
     target_altitude_km: float
-    eta_dir: np.ndarray  # off-nadir η arc ray (identical to sensor_dir when down-looking)
+    eta_dir: np.ndarray  # off-nadir η arc ray, read at the SENSOR vertex
     theta_o_dir: np.ndarray  # path-zenith θ_o arc ray, at the target
     zeta_low_dir: np.ndarray  # lower-endpoint ζ_low arc ray, at whichever endpoint is lower
     # Projected-area leader label (CU-168): "A_t  240 m²  ·  1.5 px" when a target
@@ -536,9 +538,12 @@ def build_scene(state: ViewerState) -> SchematicScene:
     **Composition is keyed by the stage-derived ``los_direction``** (ADR-0011 decision 1 —
     derived from the altitude pair, never a user switch):
 
-    * ``"down"`` — the original layout, unchanged bit-for-bit: the target sits at the scene
-      origin (lifted to ``_TARGET_AIRBORNE_Z`` when airborne) and the sensor is placed from
-      the origin along the off-nadir ray at ``_SENSOR_DIST``.
+    * ``"down"`` — the target sits at the scene origin (lifted to ``_TARGET_AIRBORNE_Z``
+      when airborne) and the sensor is placed from the origin along the **θ_o** ray at
+      ``_SENSOR_DIST`` (CU-250 — θ_o is the zenith subtended at the target, which is the
+      vertex the glyph is placed from; it was the off-nadir η ray, read at the *other*
+      vertex, until then). A state with no stage θ_o falls back to the η ray, which for a
+      genuine vertical path is the same vector.
     * ``"up"`` — the SENSOR is the path's lower endpoint. It is anchored at the height
       :func:`_lower_endpoint_z` gives for the scene class (on the ground plane for a ground
       observer, lifted otherwise) and the target is carried *above* it along the θ_o ray, so
@@ -555,9 +560,11 @@ def build_scene(state: ViewerState) -> SchematicScene:
     # populated (the dataclass contract) but nothing sun-derived is drawn.
 
     sun_dir = dir_from_az_zen(sun_az, sun_zen)
-    # One ray per stage-backed zenith annotation, each at its own stage angle (§6.3). For a
-    # down-looking scene ``eta_dir`` IS the sensor placement ray, so that layout is
-    # untouched; θ_o and ζ_low get their own rays because they are read at other vertices.
+    # One ray per stage-backed zenith annotation, each at its own stage angle (§6.3): η is
+    # read at the SENSOR vertex, θ_o and ζ_low at the target/lower one, and they differ by
+    # the Earth-centre central angle. The sensor GLYPH rides ``theta_o_dir`` in every
+    # composition (CU-250), because it is placed *from the target*, which is where θ_o is
+    # subtended — so the glyph ray and the target-anchored arcs share one vertex.
     eta_dir = dir_from_az_zen(0.0, sen_zen)
     theta_o_dir = dir_from_az_zen(0.0, math.degrees(state.theta_o_rad))
     zeta_low_rad = angle_catalog.lower_zenith_rad(
@@ -581,7 +588,15 @@ def build_scene(state: ViewerState) -> SchematicScene:
         # opposite scene azimuth from the target-anchored arcs.
         zeta_low_dir = dir_from_az_zen(180.0, math.degrees(zeta_low_rad))
     else:
-        sensor_dir = eta_dir
+        # The sensor is placed FROM the target, so its ray is the target-side path zenith
+        # θ_o, not the sensor-vertex off-nadir η (CU-250). The two differ by the
+        # Earth-centre central angle (~2.2° for a 705 km LEO scene), which is exactly the
+        # mismatch that used to leave the θ_o and ζ_low arcs off the drawn glyph ray.
+        # A state carrying no stage θ_o at all (a partial or pre-ADR-0011 result, where the
+        # field falls back to 0) keeps the η ray: θ_o = 0 exactly means a vertical path, and
+        # a vertical path has η = 0 too, so for a genuine nadir scene the two rays are the
+        # same vector — the fallback is a no-op there and the pre-Phase-4 layout elsewhere.
+        sensor_dir = theta_o_dir if state.theta_o_rad > 0.0 else eta_dir
         sensor_pos = sensor_dir * _SENSOR_DIST
         sun_pos = sun_dir * _SUN_DIST
         target_z = _TARGET_AIRBORNE_Z if airborne else 0.0
@@ -1061,8 +1076,10 @@ class SchematicView(QWidget):
         ray (``eta_dir`` / ``theta_o_dir`` / ``zeta_low_dir``), not to the sensor-glyph
         placement ray: η, θ_o and ζ_low are read at different vertices of the viewing
         triangle and differ by the Earth-centre central angle, so sharing one ray would
-        put a stage-true number on a visibly wrong arc (§6.3). For a down-looking scene
-        ``eta_dir`` is the placement ray, so that arc is unchanged.
+        put a stage-true number on a visibly wrong arc (§6.3). The sensor glyph rides
+        ``theta_o_dir`` in every composition (CU-250), so the θ_o and ζ_low arcs coincide
+        with the drawn glyph ray and only the η arc — read at the sensor vertex — departs
+        from it.
 
         Sun-derived arcs (θ_s, Δφ, phase) are not drawable in a night scene — there is
         no sun to measure against, so they return empty rather than a fabricated angle.

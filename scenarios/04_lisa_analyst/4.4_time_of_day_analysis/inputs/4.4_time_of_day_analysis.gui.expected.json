@@ -2,8 +2,8 @@
   "id": "4.4",
   "title": "Time-of-day analysis \u2014 300 K, emissivity 0.9 pixel",
   "metrics": {
-    "snr": 1582.5168230451309,
-    "nedt_K": 0.03931116098953519,
+    "snr": 1581.95375366215,
+    "nedt_K": 0.03933137844699277,
     "niirs": null
   },
   "notes": "Nominal 300 K surface, emissivity 0.9. The 0.1 ms integration keeps the well ~43% full (linear contrast); the GUI baseline adds a well-matched gain (400 e-/DN) so the 14-bit ADC spans the 6 Me- well instead of clipping (CU-170)."

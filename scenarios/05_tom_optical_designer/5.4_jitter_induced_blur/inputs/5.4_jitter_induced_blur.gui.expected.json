@@ -2,9 +2,9 @@
   "id": "5.4",
   "title": "Jitter tolerance \u2014 nominal base config",
   "metrics": {
-    "snr": 61.07793135072493,
-    "nedt_K": 0.056743770501740086,
-    "niirs": 6.169642320595607
+    "snr": 61.44838727973897,
+    "nedt_K": 0.05654185513660065,
+    "niirs": 6.173736519241571
   },
   "notes": "Runner's module-level base_config; the sweep varies jitter RMS."
 }

@@ -209,6 +209,27 @@ _CALIBRATED_GAS_REGIONS: tuple[_GasRegion, ...] = (
     _GasRegion(lo_um=12.00, hi_um=14.29, floor_od=0.5956, k_h2o=0.1398, b_h2o=1.583),
 )
 
+# Half-width [µm] of the C¹ smoothstep ramp that joins one gas region's
+# coefficients to the next (CU-267, owner-ratified 2026-08-01).
+#
+# Read literally the region table is piecewise-constant, so τ(λ) stepped
+# discontinuously at all fourteen interior edges (measured −90 % at
+# 2.40 µm, +821 % relative at 8.00 µm), and any band-mean τ straddling an
+# edge therefore depended on how finely the band was sampled — 1.83 %
+# between N = 31 and N = 1001 for the 3.0–5.0 µm band, exactly 0 for
+# bands that cross no edge. The ramp removes the discontinuity without
+# touching region interiors.
+#
+# hw = 0.02 µm (full width 0.04 µm) is the measured compromise: it moves
+# band-mean τ_up by ≤ 0.71 % on the six shipped bands that straddle an
+# edge and by exactly 0 on those that do not. hw = 0.01 µm halves that;
+# hw = 0.05 µm roughly triples it and starts smearing real band
+# structure. The full width must stay below the narrowest region
+# (0.20 µm, 1.30–1.50 µm) so no two ramps overlap and every region keeps
+# a strip of its exactly-calibrated coefficients — pinned by
+# ``tests/test_gas_region_blend.py::test_blend_ramps_never_overlap``.
+GAS_REGION_BLEND_HALF_WIDTH_UM: float = 0.02
+
 # Sea-level air temperature [K] per standard-atmosphere profile.
 # Values from U.S. Committee on Extension to the Standard Atmosphere
 # (COESA) 1976 supplements for the five non-US profiles; us_standard
@@ -541,6 +562,27 @@ class SimpleAtmosphere:
     def _region_params(wavelength_um: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Per-wavelength (floor_od, k_h2o, b_h2o) from the region table.
 
+        The table is piecewise-constant, but the coefficients are joined
+        across each interior region edge by a C¹ smoothstep ramp of
+        half-width ``GAS_REGION_BLEND_HALF_WIDTH_UM`` (CU-267). Within
+        ``|λ − λ_edge| < hw``,
+
+            u = 0.5 + (λ − λ_edge) / (2·hw)     ∈ (0, 1)
+            S(u) = u²·(3 − 2u)
+            c(λ) = c_lo + (c_hi − c_lo)·S(u)
+
+        so ``S(0) = 0``, ``S(1) = 1``, ``S'(0) = S'(1) = 0`` — the ramp
+        meets the flat calibrated regions with matching value *and*
+        slope — and ``S(0.5) = 0.5``, i.e. the edge itself carries the
+        arithmetic mean of the two regions' coefficients. Outside the
+        ramps nothing is touched: a wavelength at or beyond ``hw`` from
+        every edge keeps the bit-identical calibrated value, so bands
+        that cross no edge are unaffected. Ramps cannot overlap because
+        every region is wider than ``2·hw`` (narrowest 0.20 µm).
+
+        Without the ramp τ(λ) stepped discontinuously at every edge and
+        a band-mean τ straddling one depended on the sampling grid.
+
         Wavelengths beyond the table's ends clamp to the first/last
         region (the table spans 0.30–14.29 µm; anything outside carries
         that edge region's calibration — documented fragility, the
@@ -560,6 +602,20 @@ class SimpleAtmosphere:
             floor[mask] = region.floor_od
             k[mask] = region.k_h2o
             b[mask] = region.b_h2o
+
+        hw = GAS_REGION_BLEND_HALF_WIDTH_UM
+        for lo_region, hi_region in zip(
+            _CALIBRATED_GAS_REGIONS[:-1], _CALIBRATED_GAS_REGIONS[1:], strict=True
+        ):
+            edge_um = hi_region.lo_um
+            in_ramp = (lam > edge_um - hw) & (lam < edge_um + hw)
+            if not np.any(in_ramp):
+                continue
+            u = 0.5 + (lam[in_ramp] - edge_um) / (2.0 * hw)
+            s = u * u * (3.0 - 2.0 * u)
+            floor[in_ramp] = lo_region.floor_od + (hi_region.floor_od - lo_region.floor_od) * s
+            k[in_ramp] = lo_region.k_h2o + (hi_region.k_h2o - lo_region.k_h2o) * s
+            b[in_ramp] = lo_region.b_h2o + (hi_region.b_h2o - lo_region.b_h2o) * s
         return floor, k, b
 
     def _h2o_vertical_od(self, wavelength_um: np.ndarray, col_h2o_km: float) -> np.ndarray:

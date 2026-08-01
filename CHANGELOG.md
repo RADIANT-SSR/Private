@@ -156,6 +156,30 @@ retroactively reconstructed.
   surfaces — but a GUI edit that introduces one of these pairs is now rejected at commit
   time rather than accepted and failed at Evaluate. Their `what=` prefix follows the
   CU-295 convention (`"source.target_spec: "`). No computed result moves.
+- **Results-affecting: the simple atmosphere's calibrated gas-region table is no longer
+  read as a step function — region coefficients are blended across each edge (CU-267).**
+  `_CALIBRATED_GAS_REGIONS` is piecewise-constant in `(floor_od, k_h2o, b_h2o)`, so
+  `SimpleAtmosphere` used to step τ(λ) discontinuously at all fourteen interior region
+  edges (measured −90 % at 2.40 µm, +821 % relative at 8.00 µm), which made a band-mean τ
+  that straddled an edge depend on how finely the band was sampled — 1.83 % between 31 and
+  1001 sample points on 3.0–5.0 µm, exactly 0 for bands crossing no edge. The three
+  coefficients are now joined across each edge by a C¹ smoothstep ramp of half-width
+  0.02 µm (full width 0.04 µm), so τ(λ) is continuous with continuous slope and the grid
+  dependence at the edge is gone.
+  **Direction and magnitude:** band-mean τ_up moves **down** on every shipped band that
+  straddles an edge, by ≤ 0.71 % — −0.20 % (0.5–0.8 µm), −0.12 % (0.4–0.9), −0.71 %
+  (3.0–5.0), −0.27 % (8–12), −0.21 % (8–14), −0.19 % (11.5–12.5) — and by **exactly zero**
+  on bands that cross no edge (3.7–4.8 and 10.6–11.2 µm are bit-identical). Region
+  interiors are untouched by construction: only λ within 0.02 µm of an edge sees a
+  different coefficient. Downstream, the 34 shipped scenario GUI baselines move on 26 of
+  them by ≤ 1.04 % (largest: scenario 10.1 SNR −1.03 %, NEDT +0.98 %); the MWIR LEO minimal
+  golden moves signal_e −1.22 %, SNR −0.61 %. A **single wavelength sitting exactly on an
+  edge** can move much further (Cell-28 L_aperture at 8.0 µm −54.9 %, at 12.0 µm +16.4 %),
+  because the pre-blend value there was the arbitrary one-sided pick — the half-open
+  region mask handed each edge wholly to its upper region — and is now the two regions'
+  mean. Only `atmosphere.model = "simple"` is affected (and the CU-226 hybrid's simple
+  companion legs); tabulated/MODTRAN-derived atmospheres carry their own τ.
+
 - **BREAKING — `SpectralData.plot()` returns the `Figure`, not the `Axes`, and builds it
   unregistered (CU-286).** `radiant.core.spectral.SpectralData.plot(ax=None)` used to do
   `_, ax = plt.subplots()` and hand back only the `Axes`, so the figure it created was a

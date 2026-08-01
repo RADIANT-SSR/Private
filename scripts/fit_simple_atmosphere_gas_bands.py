@@ -25,6 +25,26 @@ Usage::
     python scripts/fit_simple_atmosphere_gas_bands.py
 
 Prints the ``_CALIBRATED_GAS_REGIONS`` table to paste into simple.py.
+
+**The consumer no longer reads this table as a step function (CU-267).**
+``SimpleAtmosphere._region_params`` joins ``(floor_od, k_h2o, b_h2o)``
+across every interior region edge with a C¹ smoothstep ramp of half-width
+``GAS_REGION_BLEND_HALF_WIDTH_UM`` (0.02 µm), so τ(λ) is continuous and a
+band-mean τ no longer depends on the sampling grid. Two consequences for
+anyone re-running this fit:
+
+- **Every region must stay wider than 2·hw = 0.04 µm.** Below that the two
+  edge ramps of a region overlap and its calibrated coefficients are never
+  reached anywhere. Changing ``REGIONS`` below to a finer partition is
+  therefore not free — ``test_gas_region_blend.py::
+  test_blend_ramps_never_overlap`` fails, and the fix is a decision (narrow
+  the blend, or coarsen the partition), not a table paste.
+- **The fitted coefficients are still region-mean values**, exactly as this
+  script derives them; the blend touches only the 0.04 µm neighbourhood of
+  each edge and leaves region interiors bit-identical. So a refit does not
+  need to compensate for the blend — but a refit that *moves* an edge moves
+  the ramp with it, and the shipped golden baselines will move at the
+  ≤ 1 % level for any band that straddles the new edge.
 """
 
 from __future__ import annotations

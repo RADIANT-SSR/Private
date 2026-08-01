@@ -84,7 +84,7 @@ angle:
 | EE(1x1) | 0.4143 | -- | |
 | Well margin | 15.1 | dB | |
 | Dynamic range | 56.6 | dB | |
-| Folded MTF@Ny | 1.4475 | -- | Indicates aliasing |
+| Folded MTF@Ny | 0.4544 | -- | ≈ 2× the pre-sampling MTF at Nyquist; alias fraction 0.5000 |
 | MTF budget | See table | -- | Per-component decomposition |
 
 ### RADIANT MTF Budget at Nyquist (Nadir)
@@ -287,7 +287,11 @@ comparison script in the session record for commit-linked provenance.
 - RER is now available via `result.metrics["rer"]` -- 0.5372
 - MTF budget is now available via `result.stage_outputs["performance"]["mtf_budget"]`
 - Well margin is now available via `result.metrics["well_margin_dB"]` -- 15.1 dB
-- Folded MTF is now available via `result.metrics["mtf_folded_at_nyquist"]` -- 1.4475
+- Folded MTF is now available via `result.metrics["mtf_folded_at_nyquist"]` -- 0.4544, with
+  `alias_fraction_at_nyquist` = 0.5000. Sampling replicates the pre-sampling spectrum at the
+  sampling frequency `f_s = 2 × f_Nyquist` (CU-209), so at Nyquist the `k = -1` replica lands
+  back on `f_Nyquist` and the folded value is twice the pre-sampling MTF there — half of the
+  apparent response at Nyquist is aliased content, which is what the 0.5 alias fraction says.
 
 ## Outputs
 

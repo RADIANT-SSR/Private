@@ -2,12 +2,19 @@
 
 For undersampled detectors (Q < 1), scene spatial frequencies above the
 Nyquist frequency fold back into the baseband, creating spurious apparent
-contrast.  The folded MTF captures this aliasing by summing all aliased
-copies of the optical MTF::
+contrast.  Sampling on a pitch ``p`` replicates the pre-sampling spectrum at
+integer multiples of the **sampling** frequency ``f_s = 1 / p``, so the
+folded MTF sums the aliased copies at that spacing::
 
-    MTF_folded(f) = Σ_{k=-N}^{+N}  MTF_optical(|f + k × f_Nyquist|)
+    MTF_folded(f) = Σ_{k=-N}^{+N}  MTF_optical(|f + k × f_s|)
 
-where ``f_Nyquist = 1 / (2 × pixel_pitch)``.
+where ``f_s = 2 × f_Nyquist`` and ``f_Nyquist = 1 / (2 × pixel_pitch)``.
+
+Replicating at ``f_Nyquist`` instead would place the ``k = -1`` copy on DC
+at ``f = f_Nyquist`` and add ``MTF(0) = 1`` to every system, sampled or not
+(CU-209).  At ``f = f_Nyquist`` the ``k = -1`` copy correctly lands back on
+``f_Nyquist``, so the folded value there is twice the optical MTF whenever
+the higher orders are negligible.
 
 For well-sampled systems (Q >> 1), the optical MTF falls to zero well
 below ``f_Nyquist``, so the folded MTF equals the optical MTF.
@@ -63,8 +70,9 @@ def compute_folded_mtf(
     """Compute the aliased (folded) MTF.
 
     Sums ``2 * n_folds + 1`` copies of the optical MTF shifted by
-    integer multiples of ``f_Nyquist``.  The optical MTF is interpolated
-    (zero outside its defined range) at each shifted frequency.
+    integer multiples of the sampling frequency ``f_s = 2 * f_Nyquist``.
+    The optical MTF is interpolated (zero outside its defined range) at
+    each shifted frequency.
 
     Parameters
     ----------
@@ -119,12 +127,14 @@ def compute_folded_mtf(
             n_folds=0,
         )
 
-    # Accumulate folded MTF: sum MTF_optical(|f + k*f_Nyquist|)
-    # for k = -n_folds ... +n_folds.
+    # Accumulate folded MTF: sum MTF_optical(|f + k*f_sample|) for
+    # k = -n_folds ... +n_folds, where f_sample = 2 * f_Nyquist is the
+    # frequency at which sampling replicates the spectrum (CU-209).
+    f_sample_cy_m = 2.0 * f_nyquist_cy_m
     mtf_folded = np.zeros_like(freq_cy_m)
 
     for k in range(-n_folds, n_folds + 1):
-        shifted_freq = np.abs(freq_cy_m + k * f_nyquist_cy_m)
+        shifted_freq = np.abs(freq_cy_m + k * f_sample_cy_m)
         # Interpolate optical MTF at shifted frequencies.
         # Values outside the defined range are zero (MTF→0 beyond cutoff).
         mtf_shifted = np.interp(

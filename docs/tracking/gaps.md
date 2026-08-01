@@ -218,7 +218,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Effort** | Medium — requires folded-MTF math and decision on where in the chain to apply. |
 | **Scenarios blocked** | None (pre-sampling MTF is still useful). |
 | **Rerun after fix** | Scenario 5.2 |
-| **Resolution** | New `performance/folded_mtf.py` computes MTF_folded(f) = Σ MTF_optical(|f + k·f_Ny|) for k=-3..+3. Returns `FoldedMTFResult` with folded MTF, alias fraction. Wired into `_compute_spatial_metrics` — always computed, stored as `folded_mtf_x/y` stage outputs and `mtf_folded_at_nyquist`, `alias_fraction_at_nyquist` metrics. |
+| **Resolution** | New `performance/folded_mtf.py` computes MTF_folded(f) = Σ MTF_optical(\|f + k·f_s\|) for k=-3..+3, where f_s = 2·f_Ny is the sampling frequency at which sampling replicates the spectrum (corrected from k·f_Ny by CU-209, 2026-08-01). Returns `FoldedMTFResult` with folded MTF, alias fraction. Wired into `_compute_spatial_metrics` — always computed, stored as `folded_mtf_x/y` stage outputs and `mtf_folded_at_nyquist`, `alias_fraction_at_nyquist` metrics. |
 
 ---
 

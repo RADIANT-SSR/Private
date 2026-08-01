@@ -28,7 +28,7 @@ the scenario was first written:
 | Well margin | `result.metrics["well_margin_dB"]` | 14.7 [dB] | |
 | Dynamic range | `result.metrics["dynamic_range_dB"]` | 53.4 [dB] | |
 | MTF budget | `result.stage_outputs["performance"]["mtf_budget"]` | See table | Per-component MTF at Nyquist |
-| Folded MTF | `result.metrics["mtf_folded_at_nyquist"]` | 1.5114 [--] | Indicates aliasing |
+| Folded MTF | `result.metrics["mtf_folded_at_nyquist"]` | 0.4544 [--] | ≈ 2× pre-sampling MTF at Nyquist; alias fraction 0.5000 (CU-209) |
 | Noise terms | `result.noise_terms` | See breakdown | Per-source noise in e- |
 
 ## RADIANT MTF Budget at Nyquist (nadir)

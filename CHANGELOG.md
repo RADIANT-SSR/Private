@@ -210,6 +210,50 @@ retroactively reconstructed.
   exercised it tested the deprecated function itself.
 
 ### Fixed
+- **Results-affecting (every point-source `detection_range_m`): the detection criterion
+  is shot-noise-consistent, and the down-looking arm is path-aware (CU-263, folding
+  ex-CU-236).** Two coupled changes in one owner-gated PR:
+  1. All three solvers held the **total** noise at its reference-range value while
+     scaling the signal outward, so the reported range depended on the range the chain
+     happened to be evaluated at — 123.4 km referenced at 25 km against 182.5 km at
+     100 km for one unchanged air-to-air configuration (1.48×). The target's own shot
+     variance in electrons *is* the signal, so it falls as the target dims. The
+     criterion is now `S(R)/√(S(R) + N₀²) = threshold` with `N₀² = σ_ref² − S_ref` the
+     target-free floor (new `performance/detection_noise_floor.py` and
+     `performance/detection_shot_consistent_snr.py`, which also owns the closed form
+     `S* = ½(T² + √(T⁴ + 4T²N₀²))` — in vacuum the answer is `R_ref√(S_ref/S*)` with no
+     root finding). Both forms agree exactly at the reference range, so the correction
+     is zero there, grows outward, **always lengthens** the range, and vanishes for a
+     background-limited chain.
+  2. The `down` topology now goes through `performance/detection_path_aware.py` like
+     `up` and `level` (ex-CU-236): extinction past the reference range is resolved along
+     the actual ray instead of extrapolated from one constant `α = −ln τ̄ / R_ref`, which
+     over-attenuates a receding sensor whose extra path is in thinner air and then
+     vacuum. `performance/path_optical_depth.py` measures ranges from the ray's **lower
+     endpoint** — the target when looking down, the sensor when looking up.
+
+  **Direction and magnitude — detection ranges lengthen everywhere, most for bright
+  targets referenced close in.** Measured on shipped scenarios: 10.4 LEO→GEO vacuum
+  **78 138.9 → 90 015.3 km (+15.20 %)**; 10.2 air-to-air level arm at its 50 km
+  reference **150.949 → 198.815 km (+31.71 %)**, and the 25 km-to-100 km spread across
+  that sweep collapses from 1.48× to **1.00×**; 1.6 MWIR SDA (down-looking, both changes)
+  **1 198.9 → 1 522.1 km (+26.96 %)**. Scenario 4.1's matrix does **not** move — it
+  bisects a script-side SCNR in the sub-pixel regime and never enters a solver (verified
+  by tripwire over all 144 cells).
+
+  **What to watch:** (a) a down-looking scene whose **sensor is inside the atmosphere**
+  (`h_sensor < h_atm_top` with `τ̄ < 1`) now emits **no** `detection_range_m` — the
+  continuation runs through altitude-varying extinction the metric layer cannot
+  integrate, so it is a named `failure_reason` on `detection_range_result` rather than a
+  constant-α guess (Rule 17; the same refusal up-looking scenes have had since GF-15).
+  Spaceborne down-looking sensors are unaffected — they sit above `h_atm_top`, so the
+  receding leg is exact vacuum. (b) `detection_range_beer_lambert` and
+  `detection_range_path_aware` now require the signal and total noise to come from the
+  **same** evaluation: `σ_ref² < S_ref` has no target-free floor and returns a named
+  failure instead of a number. (c) `detection_range_generic`'s signature changed — it
+  takes a **signal**-vs-range callable plus `noise_floor_e` in place of an
+  SNR-vs-range callable, so no caller can reintroduce a frozen-noise SNR.
+
 - **Results-affecting (interpolated atmosphere on a non-matching chain grid): τ is now
   resampled onto the chain's wavelength grid in log-τ, not linearly in τ (CU-306).**
   `InterpolatedAtmosphere.build_state` interpolated the run family in log-τ (correct —

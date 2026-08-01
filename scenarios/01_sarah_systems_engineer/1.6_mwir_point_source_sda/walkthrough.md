@@ -64,10 +64,18 @@ Run `scripts/run_point_source_sda.py` (or `Sensor.from_yaml(...).evaluate()`):
 | Metric | Value | Units |
 |---|---|---|
 | Regime | point_source | — |
-| Signal | 24,345 | e⁻ |
-| **SNR** | **30.5** | — |
-| **Detection range** (SNR = 6) | **1262** | km |
+| Signal | 21,229 | e⁻ |
+| **SNR** | **25.8** | — |
+| **Detection range** (SNR = 6) | **1522** | km |
 | Sampling Q (band center) | 1.42 | — |
+
+*(Refreshed 2026-08-01. The **detection range** moved 1,199 → 1,522 km in this
+refresh: CU-263 made the criterion shot-consistent and routed the down-looking
+arm through the path-aware solver, whose receding leg from a 700 km sensor is
+exact vacuum. The **signal and SNR** columns were already stale against `main`
+before that change — 24,345 e⁻ / 30.5 against the 21,229 e⁻ / 25.8 the runner
+produces today — and are corrected here rather than left mixed; that drift comes
+from earlier landed work, not from CU-263.)*
 
 Sanity: signal scales **linearly** with `point_intensity_area_m2`, `_emissivity`,
 and `I` (2× intensity → 2× signal), and inverse-square with range — the

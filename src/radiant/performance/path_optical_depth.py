@@ -10,12 +10,15 @@ Why this exists
 ---------------
 ``detection_range_beer_lambert`` models the whole path with one constant
 extinction :math:`\\alpha = -\\ln\\bar\\tau / R_{ref}` and integrates
-:math:`e^{-\\alpha R}`.  For a down-looking scene that is the shipped,
-golden-baselined model and is **not** touched.  For the topologies Phases 1–2
-opened it is the wrong shape: an up-looking ray leaves the modelled column
-entirely at a finite range, past which *no* further extinction accrues, so a
-constant-:math:`\\alpha` extrapolation under-estimates the detection range
-without bound.
+:math:`e^{-\\alpha R}`.  That is the wrong shape for *any* path that leaves the
+atmosphere: a ray leaves the modelled column entirely at a finite range, past
+which *no* further extinction accrues, so a constant-:math:`\\alpha`
+extrapolation under-estimates the detection range without bound.
+
+Ranges are measured **from the ray's lower endpoint**, which stays put while the
+other endpoint recedes upward: the sensor for an up-looking path, the target for
+a down-looking one (ADR-0011 decision 3).  The continuation therefore always
+climbs into thinner air and eventually vacuum, whichever way the scene looks.
 
 The profile here is piecewise in exactly the way the path is:
 
@@ -47,24 +50,26 @@ either empty or exactly constant:
     limb-like transit the model refuses — hence
     :data:`LEVEL_ARM_MAX_RANGE_M`.
 
-``up`` with the target at or above the column top
+``up`` or ``down`` with the receding endpoint at or above the column top
     The ray has already left the atmosphere at the reference range, so the
-    middle piece is empty and the tail is exact vacuum.  This covers
+    middle piece is empty and the tail is exact vacuum.  Up-looking this covers
     ground-to-space, air-to-space and space-to-space (the SST and LEO→GEO
-    classes).
+    classes); down-looking it covers every space-based sensor, which is above
+    ``h_atm_top`` by construction.
 
-``up`` through a transparent path (:math:`\\bar\\tau = 1`)
+``up`` or ``down`` through a transparent path (:math:`\\bar\\tau = 1`)
     Vacuum everywhere; :math:`\\mathrm{OD} \\equiv 0` exactly.
 
-``up`` with an attenuating continuation still inside the column
+``up`` or ``down`` with an attenuating continuation still inside the column
     **Refused** — :func:`resolve_path_optical_depth` returns a resolution with
     a ``failure_reason`` naming the missing input.  Rule 17: silently reusing
     the constant-:math:`\\alpha` model here would be the very error GF-15
     reports, dressed as an answer.  Closing it needs the atmosphere stage to
     publish the segment-resolved extinction profile along the LOS; that is
-    tracked as a CU, not papered over here.
-
-Down-looking lines of sight never reach this module.
+    tracked as a CU, not papered over here.  Down-looking, this is the airborne
+    sensor case: the extra path is above the aircraft, where the extinction is a
+    small fraction of the reference leg's mean and constant-:math:`\\alpha` is
+    worst.
 """
 
 from __future__ import annotations
@@ -125,8 +130,9 @@ class PathOpticalDepthProfile:
         Upper bound of the profile's validity [m] — the geometry beyond it is
         outside the modelled topology (level-arm sag ceiling), or ``inf``.
     topology:
-        ``"level"`` | ``"up_vacuum_tail"`` | ``"vacuum"`` — which of the cases
-        in the module docstring produced this profile.
+        ``"level"`` | ``"up_vacuum_tail"`` | ``"down_vacuum_tail"`` |
+        ``"vacuum"`` — which of the cases in the module docstring produced this
+        profile.
     """
 
     ref_range_m: float
@@ -189,7 +195,7 @@ class PathOpticalDepthResolution:
 
 
 def column_exit_range_m(los: LineOfSightGeometry) -> float:
-    """Range from the **sensor** at which an up-looking ray crosses ``h_atm_top`` [m].
+    """Range from the ray's **lower endpoint** at which it crosses ``h_atm_top`` [m].
 
     On a spherical Earth the radius along the ray at arc-free distance *s* from
     the lower endpoint (radius :math:`r_0`, local zenith :math:`\\zeta_0`) is
@@ -201,34 +207,48 @@ def column_exit_range_m(los: LineOfSightGeometry) -> float:
     .. math:: s = -r_0\\cos\\zeta_0
               + \\sqrt{r_0^2\\cos^2\\zeta_0 + r_{top}^2 - r_0^2}.
 
-    For an up-looking line of sight the sensor **is** the lower endpoint
-    (ADR-0011 decision 3) and its look-direction zenith is
-    :math:`\\zeta_0 = \\pi - \\eta`, with :math:`\\eta` the sensor-side interior
-    angle measured from nadir (the convention
-    :mod:`radiant.atmosphere.observer_leg` also uses).  At :math:`\\theta_o=\\pi`
-    (straight up) this reduces to ``h_atm_top - h_sensor`` exactly.
+    Which endpoint is the lower one follows ADR-0011 decision 3:
+
+    ``up`` (``h_sensor < h_tgt``)
+        The **sensor** is the lower endpoint and its look-direction zenith is
+        :math:`\\zeta_0 = \\pi - \\eta`, with :math:`\\eta` the sensor-side
+        interior angle measured from nadir (the convention
+        :mod:`radiant.atmosphere.observer_leg` also uses).  At
+        :math:`\\theta_o = \\pi` (straight up) this reduces to
+        ``h_atm_top - h_sensor`` exactly.
+
+    ``down`` (``h_sensor > h_tgt``)
+        The **target** is the lower endpoint and its local zenith along the ray
+        towards the sensor is :math:`\\theta_o` itself — the target-referenced
+        angle is already the lower-endpoint zenith for this topology.  At
+        :math:`\\theta_o = 0` (nadir view) this reduces to
+        ``h_atm_top - h_tgt`` exactly.
 
     Raises
     ------
     PerformanceValidationError
-        If *los* is not up-looking, or carries no sensor altitude.
+        If *los* is level (a constant-altitude arm never crosses the shell), or
+        carries no sensor altitude.
     """
-    if los.los_direction != "up":
+    if los.los_direction == "level":
         raise PerformanceValidationError(
-            f"column_exit_range_m: line of sight is {los.los_direction!r}; the "
-            "column-exit range is defined for an up-looking ray, whose lower "
-            "endpoint is the sensor."
+            "column_exit_range_m: line of sight is 'level'; a constant-altitude "
+            "arm never crosses h_atm_top, so it has no column-exit range."
         )
     if los.h_sensor is None:
         raise PerformanceValidationError(
             "column_exit_range_m: the line of sight carries no sensor altitude "
             "(h_sensor is None), so the ray's lower endpoint is unknown."
         )
+    if los.los_direction == "down":
+        # Target-referenced θ_o IS the lower-endpoint zenith here, so no
+        # conversion is needed (ADR-0011 decision 3; CU-223 documents the same
+        # coincidence for the MODTRAN deck geometry).
+        return slant_range_to_shell_m(los.h_tgt, los.theta_o, los.h_atm_top)
     # CU-237: the intersection itself is shared spherical geometry, not a
     # metrics computation — it lives in core and is the same root
     # viewing_triangle.solve_from_lower_zenith takes. What stays here is the
-    # part that *is* specific to this call: the up-looking validation above and
-    # the η → ζ_low conversion below.
+    # part that *is* specific to this call: the η → ζ_low conversion below.
     eta = eta_from_theta_o(los.theta_o, los.h_sensor, los.h_tgt)
     return slant_range_to_shell_m(los.h_sensor, math.pi - eta, los.h_atm_top)
 
@@ -238,14 +258,13 @@ def resolve_path_optical_depth(
     ref_range_m: float,
     ref_optical_depth: float,
 ) -> PathOpticalDepthResolution:
-    """Build the path optical-depth profile for an up-looking or level LOS.
+    """Build the path optical-depth profile for any resolved LOS topology.
 
     Parameters
     ----------
     los:
-        The line of sight ``GeometryStage`` published.  Must be ``"up"`` or
-        ``"level"``; a down-looking path keeps the shipped constant-extinction
-        solver and never arrives here.
+        The line of sight ``GeometryStage`` published — ``"up"``, ``"level"``
+        or ``"down"``.  All three arrive here since CU-263 folded ex-CU-236.
     ref_range_m:
         Slant range at which ``ref_optical_depth`` was measured [m], > 0.
     ref_optical_depth:
@@ -260,15 +279,9 @@ def resolve_path_optical_depth(
     Raises
     ------
     PerformanceValidationError
-        On a down-looking LOS or non-physical arguments — those are caller
-        errors, not un-modellable physics.
+        On non-physical arguments — those are caller errors, not un-modellable
+        physics.
     """
-    if los.los_direction == "down":
-        raise PerformanceValidationError(
-            "resolve_path_optical_depth: the down-looking topology keeps the "
-            "shipped constant-extinction solver (detection_beer_lambert); "
-            "migrating it is an owner decision because it moves golden results."
-        )
     if not math.isfinite(ref_range_m) or ref_range_m <= 0.0:
         raise PerformanceValidationError(
             f"resolve_path_optical_depth: ref_range_m = {ref_range_m} must be a "
@@ -297,7 +310,7 @@ def resolve_path_optical_depth(
             )
         )
 
-    # Up-looking.
+    # Up-looking or down-looking: the receding endpoint climbs out of the column.
     if ref_optical_depth == 0.0:
         return PathOpticalDepthResolution(
             profile=PathOpticalDepthProfile(
@@ -312,8 +325,9 @@ def resolve_path_optical_depth(
 
     exit_range_m = column_exit_range_m(los)
     if exit_range_m <= ref_range_m:
-        # The ray is already outside the modelled column at the target: every
-        # further metre is vacuum, so the optical depth is frozen. Exact.
+        # The ray is already outside the modelled column at the receding
+        # endpoint: every further metre is vacuum, so the optical depth is
+        # frozen. Exact.
         return PathOpticalDepthResolution(
             profile=PathOpticalDepthProfile(
                 ref_range_m=ref_range_m,
@@ -321,23 +335,31 @@ def resolve_path_optical_depth(
                 extinction_per_m=0.0,
                 column_exit_range_m=ref_range_m,
                 max_valid_range_m=math.inf,
-                topology="up_vacuum_tail",
+                topology=f"{los.los_direction}_vacuum_tail",
             )
         )
 
+    if los.los_direction == "up":
+        receding_h_m = los.h_tgt
+        article = "an"
+    else:
+        # column_exit_range_m above already rejected a missing sensor altitude.
+        assert los.h_sensor is not None
+        receding_h_m = los.h_sensor
+        article = "a"
     return PathOpticalDepthResolution(
         profile=None,
         failure_reason=(
-            "Detection range is not available for an up-looking path whose "
-            f"continuation is still inside the atmosphere: the target sits at "
-            f"{los.h_tgt:.0f} m and the ray leaves the modelled column "
-            f"(h_atm_top = {los.h_atm_top:.0f} m) only at "
+            f"Detection range is not available for {article} {los.los_direction}-looking "
+            "path whose continuation is still inside the atmosphere: the "
+            f"receding endpoint sits at {receding_h_m:.0f} m and the ray leaves "
+            f"the modelled column (h_atm_top = {los.h_atm_top:.0f} m) only at "
             f"{exit_range_m:.0f} m, past the {ref_range_m:.0f} m reference "
             "range. Extinction along that continuation varies with altitude, "
             "and the metric layer has no altitude-resolved extinction profile "
             "to integrate — reusing the constant-extinction model here is "
-            "exactly the error finding GF-15 reports. Place the target at or "
-            "above h_atm_top, use a level or down-looking geometry, or read "
+            "exactly the error finding GF-15 reports. Place the receding "
+            "endpoint at or above h_atm_top, use a level geometry, or read "
             "SNR/SCNR directly."
         ),
     )

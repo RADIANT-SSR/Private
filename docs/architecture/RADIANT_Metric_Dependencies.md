@@ -344,7 +344,9 @@ R_detect
 
 New ★ over SNR: a *point-source* target (i.e., `target.input_path = DIRECT_INTENSITY` or `INTEGRATED_OBJECT_INTENSITY`). Tabulated atmosphere is forbidden — bisection over range needs a re-evaluable atmosphere.
 
-**Extinction model depends on the path topology (Geometry Flexibility Phase 3, GF-15).** The dependency set above is unchanged for a `down` path, which keeps the constant-α solver. An `up` or `level` path additionally depends on `stage_outputs["geometry"]["los_geometry"]` (both endpoint altitudes + the lower-endpoint zenith), because τ(R) is then evaluated piecewise along the actual ray by `performance/path_optical_depth.py`. That dependency is on the **derived LOS direction**, never on the scene class — guardrail G3 forbids scene-class branches inside `performance/`. An up-looking path whose continuation is still inside the modelled column yields a named `failure_reason` and no metric.
+**Extinction model depends on the path topology (Geometry Flexibility Phase 3, GF-15; extended to `down` by CU-263 on 2026-08-01).** Every resolved path — `up`, `level` and `down` — depends additionally on `stage_outputs["geometry"]["los_geometry"]` (both endpoint altitudes + the lower-endpoint zenith), because τ(R) is evaluated piecewise along the actual ray by `performance/path_optical_depth.py`. That dependency is on the **derived LOS direction**, never on the scene class — guardrail G3 forbids scene-class branches inside `performance/`. Only a run with no published `los_geometry` falls back to the constant-α solver. A path whose continuation is still inside the modelled column (an airborne sensor, either way up) yields a named `failure_reason` and no metric.
+
+**Noise is range-dependent (CU-263).** The solve consumes `σ_total_e` *and* the reference signal together, because the criterion is `S(R)/√(S(R) + N₀²)` with `N₀² = σ_ref² − S_ref`; the two must come from the same chain evaluation or the decomposition is refused.
 
 ### 3.12b Target-plane sample distance (non-ground counterpart of GSD)
 

@@ -21,17 +21,18 @@ Rule 25, one registry per concern). This file is the per-scenario record.
 | Field | Value |
 |---|---|
 | **Found in** | Scenario 10.4 (Raj/SDA — LEO → GEO point-source detection range) |
-| **Status** | WORKAROUND (quantified in the scenario; no code change made) |
+| **Status** | RESOLVED 2026-08-01 — promoted to CU-263 and fixed there (shot-consistent criterion in all three solvers). The record below is the original finding as filed; the resolution is in the last two rows. |
 | **Severity** | Medium — biases a shipped headline metric |
 | **Description** | `performance/detection_path_aware.py` and `detection_beer_lambert.py` both take `noise_e` as a **scalar** frozen at the reference range, so the solved SNR-vs-range function is `S(R)/σ_ref`. Physically the target's own shot noise falls as the target dims, so `σ²(R) = S(R) + N₀²`. The frozen-noise model therefore under-reports the detection range wherever signal shot noise is a significant share of the noise power. |
-| **Quantified here** | Signal shot noise is **51 %** of the noise power at the reference range. RADIANT reports `detection_range_m` = 78 138.9 km; the shot-noise-consistent closed form gives 90 015.3 km — RADIANT is **15.2 % conservative**. |
+| **Quantified here** | Signal shot noise is **51 %** of the noise power at the reference range. RADIANT reported `detection_range_m` = 78 138.9 km; the shot-noise-consistent closed form gives 90 015.3 km — RADIANT was **15.2 % conservative**. |
 | **Not caused by this scenario's geometry** | The same scalar-noise contract is used by the down-looking Beer-Lambert arm, so every shipped point-source scenario carries the same bias. This scenario merely made it visible because the vacuum path removes every other confound. |
 | **Workaround** | The runner prints both closed forms side by side (cross-check 4) and states which model RADIANT used, so the reported number is never mistaken for the shot-noise-consistent one. No code was changed. |
 | **Impact** | `detection_range_m` only. SNR, NEDT, MTF, EE and every geometry output are unaffected. |
 | **Fix location** | `src/radiant/performance/detection_generic.py` (callback contract), `detection_path_aware.py`, `detection_beer_lambert.py` — the noise argument would become a callable of range, or split into `signal_shot_scaling` + `fixed_noise_e²`. |
 | **Effort** | Small–medium. The bisection is unchanged; the change is the SNR-vs-range closure plus a golden-baseline review (it *moves* every existing `detection_range_m` golden, so it is an owner decision, not an inline fix). |
 | **Scenarios affected** | Every point-source scenario reporting `detection_range_m` (1.1, 4.1, 10.4, …). |
-| **Rerun after fix** | 10.4 — cross-check 4(b) should then agree to solver tolerance instead of +15.2 %. |
+| **Rerun after fix** | Done 2026-08-01. Cross-check 4(a) is now the shot-consistent model and agrees with the solver to **+0.000000 %**; 4(b) records the superseded frozen-noise closed form at −13.19 %. `detection_range_m` = **90 015.265 km** (was 78 138.863 km, **+15.20 %**), and the integration-time sweep moved with it (100 ms 43 461 → 44 507 km, 250 ms 61 866 → 67 430 km, 1000 ms 96 388 → 116 869 km). |
+| **Resolution** | CU-263, 2026-08-01. `detection_noise_floor.py` owns `N₀² = σ_ref² − S_ref`; `detection_shot_consistent_snr.py` owns `S/√(S + N₀²)` and its analytic inverse `S* = ½(T² + √(T⁴ + 4T²N₀²))`; all three solvers root-find on it. The reference-range-invariance test is the acceptance criterion. |
 
 ---
 

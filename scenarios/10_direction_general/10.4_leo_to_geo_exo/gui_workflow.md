@@ -198,8 +198,8 @@ only as leader-label text; direction is faithful.
 - **Outputs readout** (every value with its unit):
   - Regime badge: **Point source** (final, from OpticsStage)
   - `SNR` = 24.52 [--]
-  - `detection_range_m` = 7.814 × 10⁷ m (display in km via the unit selector —
-    78 139 km; the GUI shows the analyst's chosen unit, no mental maths)
+  - `detection_range_m` = 9.002 × 10⁷ m (display in km via the unit selector —
+    90 015 km; the GUI shows the analyst's chosen unit, no mental maths)
   - `target_plane_sample_distance_geometric_mean_m` = 302.45 m
   - `nedt_K` = 1.005 K — present, but the GUI should not headline it for a
     point-source scene (it is a pixel-filling contrast sensitivity; this target
@@ -298,7 +298,7 @@ only as leader-label text; direction is faithful.
 | 16 | Angular rates selectable in µrad/s as well as rad/s (display-unit symmetry) | Must | R-UNITS hard rule |
 | 17 | Sweep charts draw the π/2 horizon-guard band on any angle axis | Should | Makes the ADR-0011 guard visible |
 | 18 | Selecting a sweep point re-binds the Schematic tab and the scene-class chip | Should | Sweeps may cross class boundaries |
-| 19 | Detection-range card names the solver's noise model (frozen at the reference range) | Should | Gap G10.4-1 — the number is 15 % conservative here |
+| 19 | Detection-range card names the solver's noise model (shot-consistent, σ²(R) = S(R) + N₀²) | Should | Gap G10.4-1 closed by CU-263 2026-08-01; the card should still say which model produced the number |
 | 20 | Sensor-endpoint velocity entry distinct from ground-track speed for space targets | Should | Gap G10.4-2 — blocked on a schema addition |
 
 ---

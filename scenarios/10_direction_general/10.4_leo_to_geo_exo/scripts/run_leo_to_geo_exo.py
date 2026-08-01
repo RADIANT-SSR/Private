@@ -679,44 +679,47 @@ def main() -> None:  # noqa: PLR0915 - a scenario driver is a linear narrative
 
     # Independent closed forms for the detection range in vacuum.
     thr = cin["snr_threshold"]
-    # (a) RADIANT's own model: total noise is HELD at its reference-range value,
-    #     so SNR(R) = S_ref (R_ref/R)^2 / sigma_ref and the solution is closed-form.
-    hand_det_fixed_m = slant_m * math.sqrt(snr / thr)
-    # (b) Shot-noise-consistent model: as the target dims, its own shot noise falls
-    #     with it, so sigma(R)^2 = S(R) + N0^2 with N0^2 the range-independent part.
+    # (a) Shot-noise-consistent model - RADIANT's model since CU-263: as the target
+    #     dims, its own shot noise falls with it, so sigma(R)^2 = S(R) + N0^2 with
+    #     N0^2 the range-independent (target-free) part of the noise power.
     n0_sq = sigma_total**2 - signal_e  # e-^2
     s_det = 0.5 * (thr**2 + math.sqrt(thr**4 + 4.0 * thr**2 * n0_sq))
     hand_det_shot_m = slant_m * math.sqrt(signal_e / s_det)
+    # (b) The superseded frozen-noise model: total noise HELD at its reference-range
+    #     value, so SNR(R) = S_ref (R_ref/R)^2 / sigma_ref.
+    hand_det_fixed_m = slant_m * math.sqrt(snr / thr)
     print("\n  CROSS-CHECK 4 (closed-form detection range, vacuum - two noise models):")
     print(
-        "    (a) RADIANT's solver model - noise frozen at the reference range:"
-        "\n        SNR(R) = S_ref (R_ref/R)^2 / sigma_ref  =>  R_det = R_ref sqrt(SNR_ref / T)"
+        "    (a) RADIANT's solver model - shot-noise-consistent, sigma(R)^2 = S(R) + N0^2:"
+        "\n        S_det = (T^2 + sqrt(T^4 + 4 T^2 N0^2)) / 2,  R_det = R_ref sqrt(S_ref/S_det)"
     )
-    print(f"        Closed form                      : {hand_det_fixed_m / 1e3:,.3f} km")
+    print(f"        N0^2 (target-free noise power)   : {n0_sq:,.2f} e-^2")
+    print(f"        N0   (target-free noise)         : {math.sqrt(n0_sq):,.4f} e- rms")
+    print(f"        S_det (signal at threshold)      : {s_det:,.2f} e-")
+    print(f"        Closed form                      : {hand_det_shot_m / 1e3:,.3f} km")
     print(f"        RADIANT bisection                : {det_m / 1e3:,.3f} km")
     print(
-        f"        Relative difference              : {(hand_det_fixed_m / det_m - 1) * 100:+.6f} %"
+        f"        Relative difference              : {(hand_det_shot_m / det_m - 1) * 100:+.6f} %"
         "  <- solver verified"
     )
     print(
-        "\n    (b) Shot-noise-consistent model - sigma(R)^2 = S(R) + N0^2:"
-        "\n        S_det = (T^2 + sqrt(T^4 + 4 T^2 N0^2)) / 2,  R_det = R_ref sqrt(S_ref/S_det)"
+        "\n    (b) The SUPERSEDED frozen-noise model - noise held at the reference range:"
+        "\n        SNR(R) = S_ref (R_ref/R)^2 / sigma_ref  =>  R_det = R_ref sqrt(SNR_ref / T)"
     )
-    print(f"        N0^2 (range-independent noise)   : {n0_sq:,.2f} e-^2")
-    print(f"        S_det (signal at threshold)      : {s_det:,.2f} e-")
-    print(f"        Closed form                      : {hand_det_shot_m / 1e3:,.3f} km")
+    print(f"        Signal demanded at threshold     : {thr * sigma_total:,.2f} e-"
+          f"  (vs {s_det:,.2f} e- above)")
+    print(f"        Closed form                      : {hand_det_fixed_m / 1e3:,.3f} km")
     print(
-        f"        vs RADIANT                       : {(hand_det_shot_m / det_m - 1) * 100:+.2f} %"
+        f"        vs RADIANT                       : {(hand_det_fixed_m / det_m - 1) * 100:+.2f} %"
     )
     print(
         f"    Signal shot noise is {100.0 * signal_e / sigma_total**2:.0f} % of the"
-        " noise power here, so the frozen-noise"
-        "\n    assumption is NOT negligible: RADIANT's detection range is conservative by"
-        f" {(hand_det_shot_m / det_m - 1) * 100:.0f} %"
-        "\n    for this scene. It is a documented property of the shipped solver (the noise"
-        "\n    argument is a scalar, not a function of range), recorded in gaps.md - NOT a"
-        "\n    defect introduced by the up-looking geometry, and it applies identically to"
-        "\n    every down-looking point-source scenario."
+        " noise power here, so freezing it was NOT"
+        "\n    negligible: the shipped answer was conservative by"
+        f" {(det_m / hand_det_fixed_m - 1) * 100:.0f} % for this scene, and the"
+        "\n    metric it produced depended on the range it was evaluated at (CU-263, fixed"
+        "\n    2026-08-01). The two models agree exactly AT the reference range, because"
+        "\n    sigma_ref^2 = S_ref + N0^2 is the definition of N0; they diverge outward."
     )
     print(
         f"\n    Context: R_det is {det_m / slant_m:.2f}x the LEO->GEO range. The GEO belt is"
@@ -1017,18 +1020,22 @@ def _make_figures(
     ranges_m = np.logspace(math.log10(5.0e6), math.log10(3.0e8), 400)
     signal_r = signal_e * (slant_m / ranges_m) ** 2
     n0_sq = sigma_total_e**2 - signal_e
-    snr_fixed = signal_r / sigma_total_e  # RADIANT solver: noise frozen at R_ref
-    snr_shot = signal_r / np.sqrt(signal_r + n0_sq)  # shot-noise-consistent
+    snr_fixed = signal_r / sigma_total_e  # superseded: noise frozen at R_ref
+    snr_shot = signal_r / np.sqrt(signal_r + n0_sq)  # RADIANT solver (CU-263)
     fig, ax = plt.subplots(figsize=(9.0, 6.0))
-    ax.loglog(
-        ranges_m / 1e3, snr_fixed, "b-", lw=2, label="RADIANT solver: noise frozen at $R_{ref}$"
-    )
     ax.loglog(
         ranges_m / 1e3,
         snr_shot,
+        "b-",
+        lw=2,
+        label=r"RADIANT solver: $\sigma^2(R)=S(R)+N_0^2$",
+    )
+    ax.loglog(
+        ranges_m / 1e3,
+        snr_fixed,
         "m--",
         lw=1.6,
-        label=r"Shot-noise-consistent: $\sigma^2(R)=S(R)+N_0^2$",
+        label="Superseded frozen-noise model: noise held at $R_{ref}$",
     )
     ax.axhline(5.0, color="red", ls="--", label="Detection threshold SNR = 5")
     ax.axvline(

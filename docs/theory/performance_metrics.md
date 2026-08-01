@@ -157,23 +157,40 @@ budget to NEDT/SNR thresholds (`minimum_resolvable.py`).
 
 ## 6. Detection range
 
-**Equation.** For a point source with atmospheric extinction, the SNR-vs-range equation
-mixes $1/R_s^2$ geometric falloff with Beer–Lambert transmission
-$e^{-\alpha R_s}$; RADIANT solves
+**Equation.** For a point source with atmospheric extinction, the signal-vs-range
+equation mixes $1/R_s^2$ geometric falloff with transmission along the path,
+$S(R) = S_{ref}(R_{ref}/R)^2\,\tau(R)/\tau(R_{ref})$. The noise is **not** frozen at the
+reference range: the target's own shot variance in electrons is the signal itself, so
 
-$$\mathrm{SNR}(R_s) = \mathrm{SNR}_{threshold}$$
+$$\sigma^2(R) = S(R) + N_0^2, \qquad N_0^2 = \sigma_{ref}^2 - S_{ref}$$
 
-by bisection (constant extinction coefficient $\alpha$, point-source regime only;
-threshold parameter default 5.0). A generic solver variant handles the no-atmosphere
-case.
+with $N_0$ the target-free floor (background shot, dark, read, kTC, quantisation).
+RADIANT solves
+
+$$\frac{S(R)}{\sqrt{S(R) + N_0^2}} = \mathrm{SNR}_{threshold}$$
+
+by bisection (point-source regime only; threshold parameter default 5.0). The criterion
+inverts in closed form — the signal a threshold $T$ demands is
+$S^* = \tfrac12\left(T^2 + \sqrt{T^4 + 4T^2N_0^2}\right)$, so in vacuum the answer is
+$R = R_{ref}\sqrt{S_{ref}/S^*}$ with no root finding at all. Both forms agree at
+$R_{ref}$ by construction, so the answer no longer depends on the range the chain was
+evaluated at (CU-263; the superseded frozen-noise form solved $S(R)/\sigma_{ref} = T$
+and gave 123.4 km referenced at 25 km against 182.5 km referenced at 100 km for one
+unchanged configuration).
 
 **Pitfalls.** Applying extended-scene SNR to the point-source range equation; forgetting
 that EE_box and jitter enter through the signal chain, not as post-hoc factors; α from a
-band-average τ over a very different path length.
+band-average τ over a very different path length; passing a signal and a total noise from
+different operating points, which leaves $\sigma^2 - S$ negative and is refused.
 
-**In RADIANT.** `performance/detection_beer_lambert.py::detection_range_beer_lambert`,
-`detection_generic.py`, `detection.py` (dispatch) · anchored by
-`performance/tests/test_detection.py`, `tests/integration/test_detection_range_chain.py`.
+**In RADIANT.** `performance/detection_beer_lambert.py::detection_range_beer_lambert`
+(constant-α signal law), `detection_path_aware.py::detection_range_path_aware`
+(path-resolved τ(R)), `detection_generic.py::detection_range_generic` (root finder),
+`detection_noise_floor.py::target_free_noise_floor_e`,
+`detection_shot_consistent_snr.py::shot_consistent_snr` / `threshold_signal_e`,
+`detection.py` (result type) · anchored by `performance/tests/test_detection.py`,
+`test_detection_path_aware.py`, `test_detection_noise_floor.py`,
+`test_detection_shot_consistent_snr.py`, `tests/integration/test_detection_range_chain.py`.
 **References.** [Holst 2008].
 
 ---

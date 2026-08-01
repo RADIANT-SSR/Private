@@ -616,19 +616,21 @@ def sweep(c: dict[str, float | str]) -> list[dict[str, Any]]:
 def _print_detection_range_discussion(
     rows: list[dict[str, Any]], c: dict[str, float | str]
 ) -> None:
-    """Why detection_range_m moves with the range it is evaluated at."""
+    """Why detection_range_m no longer moves with the range it is evaluated at."""
     near, far = rows[0], rows[-1]
     threshold = float(c["snr_threshold"])
-    print("\n    Non-obvious result — detection_range_m depends on WHERE it is evaluated:")
+    print("\n    Non-obvious result — detection_range_m is now reference-range INVARIANT:")
     print(f"      referenced at {near['range_m'] / 1000.0:>5.0f} km -> "
           f"{near['detection_range_m'] / 1000.0:6.1f} km")
     print(f"      referenced at {far['range_m'] / 1000.0:>5.0f} km -> "
           f"{far['detection_range_m'] / 1000.0:6.1f} km  "
           f"({far['detection_range_m'] / near['detection_range_m']:.2f}x)")
     print("      The path-aware solver scales the SIGNAL along the path")
-    print("      (S(R) = S_ref (R_ref/R)^2 tau(R)/tau(R_ref)) while holding the TOTAL")
-    print("      noise at its reference value. That is exact in a background-limited")
-    print("      system. This one is not background limited at short range:")
+    print("      (S(R) = S_ref (R_ref/R)^2 tau(R)/tau(R_ref)) AND the target's own")
+    print("      shot noise with it: sigma(R)^2 = S(R) + N0^2, with N0 the")
+    print("      target-free floor. Before CU-263 the TOTAL noise was frozen at its")
+    print("      reference value, which is exact only in a background-limited system.")
+    print("      This one is not background limited at short range:")
     print(f"      {'range [km]':>11s} {'total noise':>12s} {'signal shot':>12s} "
           f"{'target-free':>12s}")
     print(f"      {'':>11s} {'[e- rms]':>12s} {'[e- rms]':>12s} {'[e- rms]':>12s}")
@@ -637,11 +639,17 @@ def _print_detection_range_discussion(
         print(f"      {entry['range_m'] / 1000.0:>11.0f} {entry['noise_e']:>12.1f} "
               f"{shot:>12.1f} {entry['target_free_noise_e']:>12.1f}")
     print("      At 25 km the noise is almost entirely the TARGET'S OWN shot noise,")
-    print("      which vanishes as the target recedes — so freezing it makes the")
-    print("      25 km answer strongly pessimistic. The far-field answer is the")
-    print("      trustworthy one, and even it is slightly pessimistic.")
+    print("      which vanishes as the target recedes — freezing it used to make the")
+    print("      25 km answer strongly pessimistic (123.4 km against 182.5 km from the")
+    print("      100 km row, a 1.48x spread on one unchanged design). The residual")
+    print(f"      spread above is {abs(far['detection_range_m'] - near['detection_range_m']) / 1000.0:.1f}"
+          " km, and it is the band-mean tau model's own")
+    print("      reference dependence (alpha_eff moves in the 5th digit across the")
+    print("      sweep), not the noise treatment.")
 
-    # Target-free (background + read + quantisation + dark) noise floor solve.
+    # Target-free (background + read + quantisation + dark) noise floor solve —
+    # the fully floor-limited bound the shot-consistent answer approaches from
+    # below (it keeps the target's residual shot noise, which the bound drops).
     noise_floor_e = far["target_free_noise_e"]
     alpha_per_m = far["alpha_eff_per_km"] / 1000.0
     signal_ref_e = far["signal_e"]
@@ -658,16 +666,19 @@ def _print_detection_range_discussion(
             lo_m = mid_m
         else:
             hi_m = mid_m
-    print(f"\n      Re-solved against the TARGET-FREE noise floor of "
-          f"{noise_floor_e:.1f} e- rms")
+    floor_only_km = 0.5 * (lo_m + hi_m) / 1000.0
+    print(f"\n      Cross-check — re-solved against the TARGET-FREE noise floor of "
+          f"{noise_floor_e:.1f} e- rms alone")
     print("      (sky background shot + read + quantisation + dark, i.e. every noise")
     print("      term that does not vanish with the target):")
-    print(f"        detection range = {0.5 * (lo_m + hi_m) / 1000.0:.1f} km "
-          f"at SNR = {threshold:.0f}")
-    print("      That is the number an IRST engineer would quote for this design")
-    print("      against this target, on the simple model. The MODTRAN anchor in")
-    print("      section 6 says the real MWIR arm is more transparent still, so even")
-    print("      this is a floor, not a ceiling.")
+    print(f"        detection range = {floor_only_km:.1f} km at SNR = {threshold:.0f}")
+    print("      That is the fully floor-limited bound — it drops the target's own")
+    print("      residual shot noise entirely, so it sits just ABOVE the chain's")
+    print(f"      answer ({far['detection_range_m'] / 1000.0:.1f} km). The two now agree to "
+          f"{100.0 * abs(floor_only_km * 1000.0 / far['detection_range_m'] - 1.0):.1f} %,")
+    print("      which is the check that the shot-consistent solve is doing what it")
+    print("      claims. The MODTRAN anchor in section 6 says the real MWIR arm is")
+    print("      more transparent still, so even this is a floor, not a ceiling.")
 
 
 def print_horizon_guard(rows: list[dict[str, Any]], c: dict[str, float | str]) -> None:

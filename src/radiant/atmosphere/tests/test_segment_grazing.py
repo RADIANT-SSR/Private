@@ -131,28 +131,26 @@ class TestCrossModelConsistency:
         np.testing.assert_allclose(od_grazing, od_column, rtol=0.01)
 
     @pytest.mark.level0
-    def test_diverges_past_the_ceiling_and_the_column_form_overstates(
+    def test_past_the_hand_over_the_two_evaluators_are_the_same_integral(
         self, atm: SimpleAtmosphere, wl: np.ndarray
     ) -> None:
-        """At 89° the plane-parallel form **overstates** the true slant column ~2×.
+        """At 89° the column form **is** this module's integral, bit for bit.
 
-        This is the quantitative statement of *why* ``ColumnSegmentSpec``
-        refuses past 89.5° and this module exists.
+        History, because the assertion has changed twice.  Before CU-274 the
+        column form switched to a root-form "spherical correction" past 80°
+        that under-counted the air (grazing/column ≈ 2.9).  CU-274 deleted that
+        branch, leaving ``sec ζ`` over the whole domain, which at 89° over-counted
+        by about a factor of two (grazing/column ≈ 0.51) — an honest
+        plane-parallel answer used outside its validity window, tracked as
+        CU-275.  CU-224's hand-over closes it: past ``SPHERICAL_SWITCH_RAD``
+        ``column_segment_optical_depth`` routes to the very same per-species
+        spherical integral this module uses, so the two agree exactly.
 
-        The sign flipped with CU-274.  Before it, the column form switched to a
-        root-form "spherical correction" past 80° that under-counted the air
-        (grazing/column ≈ 2.9 — the column was ~3× too *thin*).  That branch was
-        the geometric chord of a 100 km slab rather than a density-weighted
-        path, and it made transmittance discontinuous at 80°, so it was
-        deleted; the column form is now ``sec ζ`` throughout, which at 89°
-        over-counts (grazing/column ≈ 0.51 — the column is ~2× too *thick*,
-        because ``sec 89° = 57.3`` against a true molecular air mass of 26.8 and
-        a still-tighter water-vapour one).  Either way the two disagree by
-        about a factor of two at 89°, which is the point.
-
-        The near-horizon direction is now the conservative one — too much air
-        means pessimistic transmittance and pessimistic SNR, rather than the
-        optimistic answer the root form gave.
+        The quantitative statement of *how wrong* ``sec ζ`` was — 3.8 % at 80°,
+        13 % at 85°, 237 % at 89.4° — now lives against the plane-parallel
+        primitive itself, in ``test_near_horizon_air_mass.py``, which is where
+        it belongs now that no shipped caller uses that primitive near the
+        horizon.
         """
         z = math.radians(89.0)
         r_tan = R_EARTH_M * math.sin(z)
@@ -160,8 +158,7 @@ class TestCrossModelConsistency:
         od_column, _, _ = column_segment_optical_depth(
             atm, wl, ColumnSegmentSpec(h_low_m=0.0, h_high_m=H_ATM_TOP_M, zeta_low_rad=z)
         )
-        ratio = float(np.median(od_grazing / od_column))
-        assert 0.45 < ratio < 0.60
+        np.testing.assert_array_equal(od_grazing, od_column)
 
     @pytest.mark.level0
     def test_agrees_at_the_eighty_degree_hand_over(

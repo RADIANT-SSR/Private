@@ -82,6 +82,12 @@ import numpy as np
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere._sensor_endpoint import require_sensor_altitude_m
 from radiant.atmosphere.errors import AtmosphereValidationError
+from radiant.atmosphere.near_horizon_air_mass import (
+    apply_species_air_mass,
+    is_near_horizon,
+    near_horizon_species_air_mass,
+    tangent_radius_m,
+)
 from radiant.atmosphere.omega0_eff import omega0_eff
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
@@ -972,7 +978,22 @@ class SimpleAtmosphere:
         # For h_tgt == 0 we retain the exact legacy construction
         # (target_altitude_m=0.0) so Cell 28 / Cell 58 anchors remain
         # bit-exact at rtol=1e-6.
-        if h_tgt == 0.0:
+        #
+        # Near-horizon hand-over (CU-224 / ex-CU-275).  Past
+        # SPHERICAL_SWITCH_RAD (80°) the observer and solar columns leave the
+        # plane-parallel air mass behind and take the exact spherical slant
+        # integral — the same hand-over the up-looking sky has had since
+        # CU-225 / CU-274, and for the same reason: sec ζ over-states the
+        # near-horizon column by 3.8 % at 80°, 13 % at 85° and 237 % at 89.4°,
+        # and over-states it *differently* per species (water vapour and
+        # molecular air are 2.3× apart in error at 89.4°), so no single
+        # corrected scalar can serve.  Inside the band the plane-parallel
+        # factor is used unchanged, bit for bit, which is what keeps every
+        # shipped baseline still (nothing ships past 37.5° LOS / 40° solar).
+        near_horizon_up = is_near_horizon(los.theta_o)
+        if near_horizon_up:
+            airmass_up = 1.0  # placeholder; the per-species masses below apply
+        elif h_tgt == 0.0:
             # Exact legacy path (bit-invariant for the h_tgt=0 anchors).
             airmass_up = (
                 los.path_airmass_up
@@ -998,12 +1019,9 @@ class SimpleAtmosphere:
             ).air_mass()
 
         # For the sun down-leg, the equivalent "airmass_down" is sec(θ_s)
-        # with a spherical correction past 80°.  Reuse the same
-        # AtmosphericGeometry class, with target_altitude_m = h_tgt (A3;
-        # 0 for the legacy h_tgt=0 path) and sensor_altitude_m = h_atm_top
-        # as the "upper endpoint" of the solar column.  Use params
-        # fallback when the LOS does not carry theta_s (shadow-mode
-        # legacy parity).
+        # with a spherical correction, taken over the h_tgt → h_atm_top
+        # column.  Use params fallback when the LOS does not carry theta_s
+        # (shadow-mode legacy parity).
         if los.theta_s is not None:
             theta_s_effective = los.theta_s
         else:
@@ -1011,13 +1029,20 @@ class SimpleAtmosphere:
                 theta_s_effective = float(params.get("geometry.solar_zenith_rad"))
             except (KeyError, TypeError):
                 theta_s_effective = 0.0
-        if math.cos(theta_s_effective) > 0.0:
-            sun_geom = AtmosphericGeometry(
+        sun_is_up = math.cos(theta_s_effective) > 0.0
+        near_horizon_sun = sun_is_up and is_near_horizon(theta_s_effective)
+        if near_horizon_sun:
+            # The spherical route carries no zenith ceiling, so the 89.5° clamp
+            # the plane-parallel construction needed is retired with it — and
+            # 89.5° was the worst possible place to clamp, being exactly where
+            # sec ζ is most wrong (237 % high at 89.4°).
+            airmass_sun = 1.0  # placeholder; the per-species masses below apply
+        elif sun_is_up:
+            airmass_sun = AtmosphericGeometry(
                 sensor_altitude_m=los.h_atm_top,
                 target_altitude_m=h_tgt,
-                path_zenith_rad=min(theta_s_effective, ZENITH_CEILING_RAD_SIMPLE),
-            )
-            airmass_sun = sun_geom.air_mass()
+                path_zenith_rad=theta_s_effective,
+            ).air_mass()
         else:
             airmass_sun = 1.0  # vertical column — irrelevant when sun term is zero
 
@@ -1033,13 +1058,33 @@ class SimpleAtmosphere:
         col_aer_up = self._column_length_km(h_tgt, h_sensor_m, H_AER_M)
         col_h2o_up = self._column_length_km(h_tgt, h_sensor_m, H_H2O_M)
 
-        od_vert_up = (
-            sigma_mol_0 * col_mol_up
-            + sigma_aer_0 * col_aer_up
-            + self._h2o_vertical_od(lam, col_h2o_up)
-            + self._gas_floor_vertical_od(lam, col_mol_up)
-        )
-        od_slant_up = od_vert_up * airmass_up
+        od_mol_up = sigma_mol_0 * col_mol_up
+        od_aer_up = sigma_aer_0 * col_aer_up
+        od_h2o_up = self._h2o_vertical_od(lam, col_h2o_up)
+        od_gas_up = self._gas_floor_vertical_od(lam, col_mol_up)
+        od_vert_up = od_mol_up + od_aer_up + od_h2o_up + od_gas_up
+        if near_horizon_up:
+            masses_up = near_horizon_species_air_mass(
+                tangent_radius_m(h_tgt, los.theta_o),
+                h_tgt,
+                h_sensor_m,
+                col_mol_km=col_mol_up,
+                col_aer_km=col_aer_up,
+                col_h2o_km=col_h2o_up,
+                scale_height_mol_m=H_MOL_M,
+                scale_height_aer_m=H_AER_M,
+                scale_height_h2o_m=H_H2O_M,
+            )
+            airmass_up = masses_up.m_mol
+            od_slant_up = apply_species_air_mass(
+                masses_up,
+                od_vert_mol=od_mol_up,
+                od_vert_aer=od_aer_up,
+                od_vert_h2o=od_h2o_up,
+                od_vert_gas=od_gas_up,
+            )
+        else:
+            od_slant_up = od_vert_up * airmass_up
         tau_up = np.exp(-od_slant_up)
 
         # Sun-leg column length: [h_tgt, h_atm_top].  For h_tgt=0 this
@@ -1047,13 +1092,33 @@ class SimpleAtmosphere:
         col_mol_sun = self._column_length_km(h_tgt, los.h_atm_top, H_MOL_M)
         col_aer_sun = self._column_length_km(h_tgt, los.h_atm_top, H_AER_M)
         col_h2o_sun = self._column_length_km(h_tgt, los.h_atm_top, H_H2O_M)
-        od_vert_sun = (
-            sigma_mol_0 * col_mol_sun
-            + sigma_aer_0 * col_aer_sun
-            + self._h2o_vertical_od(lam, col_h2o_sun)
-            + self._gas_floor_vertical_od(lam, col_mol_sun)
-        )
-        od_slant_sun = od_vert_sun * airmass_sun
+        od_mol_sun = sigma_mol_0 * col_mol_sun
+        od_aer_sun = sigma_aer_0 * col_aer_sun
+        od_h2o_sun = self._h2o_vertical_od(lam, col_h2o_sun)
+        od_gas_sun = self._gas_floor_vertical_od(lam, col_mol_sun)
+        od_vert_sun = od_mol_sun + od_aer_sun + od_h2o_sun + od_gas_sun
+        if near_horizon_sun:
+            masses_sun = near_horizon_species_air_mass(
+                tangent_radius_m(h_tgt, theta_s_effective),
+                h_tgt,
+                los.h_atm_top,
+                col_mol_km=col_mol_sun,
+                col_aer_km=col_aer_sun,
+                col_h2o_km=col_h2o_sun,
+                scale_height_mol_m=H_MOL_M,
+                scale_height_aer_m=H_AER_M,
+                scale_height_h2o_m=H_H2O_M,
+            )
+            airmass_sun = masses_sun.m_mol
+            od_slant_sun = apply_species_air_mass(
+                masses_sun,
+                od_vert_mol=od_mol_sun,
+                od_vert_aer=od_aer_sun,
+                od_vert_h2o=od_h2o_sun,
+                od_vert_gas=od_gas_sun,
+            )
+        else:
+            od_slant_sun = od_vert_sun * airmass_sun
         tau_sun = np.exp(-od_slant_sun)
 
         # tau_full_up: the ground-to-sensor column, used by the background
@@ -1066,13 +1131,39 @@ class SimpleAtmosphere:
             col_mol_full = self._column_length_km(0.0, h_sensor_m, H_MOL_M)
             col_aer_full = self._column_length_km(0.0, h_sensor_m, H_AER_M)
             col_h2o_full = self._column_length_km(0.0, h_sensor_m, H_H2O_M)
-            od_vert_full = (
-                sigma_mol_0 * col_mol_full
-                + sigma_aer_0 * col_aer_full
-                + self._h2o_vertical_od(lam, col_h2o_full)
-                + self._gas_floor_vertical_od(lam, col_mol_full)
-            )
-            od_slant_full = od_vert_full * airmass_up
+            od_mol_full = sigma_mol_0 * col_mol_full
+            od_aer_full = sigma_aer_0 * col_aer_full
+            od_h2o_full = self._h2o_vertical_od(lam, col_h2o_full)
+            od_gas_full = self._gas_floor_vertical_od(lam, col_mol_full)
+            od_vert_full = od_mol_full + od_aer_full + od_h2o_full + od_gas_full
+            if near_horizon_up:
+                # Same ray, rooted at the ground: r·sin ζ is invariant along a
+                # straight line, but this column starts at MSL rather than at
+                # the target, so its perigee is taken from the ground endpoint
+                # at the same look angle.  That is the exact analogue of the
+                # plane-parallel branch, which applies sec θ_o to the ground
+                # column, and it keeps tau_full_up independent of h_tgt as the
+                # field's contract requires.
+                masses_full = near_horizon_species_air_mass(
+                    tangent_radius_m(0.0, los.theta_o),
+                    0.0,
+                    h_sensor_m,
+                    col_mol_km=col_mol_full,
+                    col_aer_km=col_aer_full,
+                    col_h2o_km=col_h2o_full,
+                    scale_height_mol_m=H_MOL_M,
+                    scale_height_aer_m=H_AER_M,
+                    scale_height_h2o_m=H_H2O_M,
+                )
+                od_slant_full = apply_species_air_mass(
+                    masses_full,
+                    od_vert_mol=od_mol_full,
+                    od_vert_aer=od_aer_full,
+                    od_vert_h2o=od_h2o_full,
+                    od_vert_gas=od_gas_full,
+                )
+            else:
+                od_slant_full = od_vert_full * airmass_up
             tau_full_up = np.exp(-od_slant_full)
 
         # --- E_TOA from core solar spectrum ---
@@ -1285,10 +1376,3 @@ class SimpleAtmosphere:
             L_path_up=L_path_up,
             L_path_full=L_path_full,
         )
-
-
-# Re-export the spherical ceiling so evaluate() above can clamp sun zenith
-# without importing from protocol.py inside the method body.
-from radiant.atmosphere.protocol import (  # noqa: E402  # circular-avoidance re-export
-    ZENITH_CEILING_RAD as ZENITH_CEILING_RAD_SIMPLE,
-)

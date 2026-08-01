@@ -291,9 +291,29 @@ It was not an air mass. It is the *geometric chord* of a slab of thickness Δh o
 | 85° | 11.47371 | 7.06683 | 10.14005 |
 | 89.4° | 95.49471 | 10.68472 | 28.37722 |
 
-The root form was 14 % low at 80.1°, 30 % at 85° and 62 % at 89.4°, and it made the air mass **drop 18 % across its own switch** — transmittance discontinuous in look angle for every scene class, on an ordinary down-looking column. Removing it makes the model continuous, monotone in ζ, and consistent with the rest of `SimpleAtmosphere`, which is plane-parallel throughout (vertical columns × one air mass, mean-altitude species weights, target-anchored emission height). No shipped scenario exceeds 37.5° LOS zenith or 40° solar zenith, so nothing moved.
+The root form was 14 % low at 80.1°, 30 % at 85° and 62 % at 89.4°, and it made the air mass **drop 18 % across its own switch** — transmittance discontinuous in look angle for every scene class, on an ordinary down-looking column. Removing it makes the model continuous, monotone in ζ, and consistent with the rest of `SimpleAtmosphere`, which was plane-parallel throughout at that date (vertical columns × one air mass, mean-altitude species weights, target-anchored emission height). No shipped scenario exceeds 37.5° LOS zenith or 40° solar zenith, so nothing moved.
 
-Accuracy past 80° is bought by **routing elsewhere**, not by patching this formula: the exact spherical slant integral is `segment_grazing.py` (§4.2g), and callers that have that route take it at `SPHERICAL_SWITCH_RAD` = 80°. The up-looking sky background does. The down-looking column and the solar column do not, so they now *overestimate* the near-horizon air mass (+13 % at 85°, +237 % at 89.4°) rather than underestimating it — a pessimistic SNR rather than an optimistic one, tracked as CU-275. `ZENITH_CEILING_RAD` = 89.5° still bounds the domain, and its docstring's "the model is not trustworthy in that regime" is what these numbers quantify.
+Accuracy past 80° is bought by **routing elsewhere**, not by patching this formula: the exact spherical slant integral is `grazing_column.py`, and callers take it at `SPHERICAL_SWITCH_RAD` = 80°. `AtmosphericGeometry.air_mass()` stays the honest plane-parallel primitive it now is; nothing calls it past 80° any more.
+
+**Every column now takes that route (CU-224 / ex-CU-275, 2026-08-01).** The up-looking sky background hand-over landed with CU-225/CU-274; the down-looking observer column and the solar column kept `sec ζ` over their whole legal domain and therefore *overestimated* the near-horizon air mass — by +3.8 % at 80°, +13 % at 85° and +237 % at 89.4°. Both now hand over at the same 80°, through the shared `near_horizon_air_mass.py`:
+
+| site | inside the band (ζ ≤ 80°) | past it |
+|---|---|---|
+| `segment_simple.column_segment_optical_depth` | `od_vert × air_mass()`, unchanged | per-species spherical |
+| `SimpleAtmosphere.evaluate` — `tau_up`, `tau_full_up` | `od_vert × air_mass()`, unchanged | per-species spherical |
+| `SimpleAtmosphere.evaluate` — `tau_sun` | `od_vert × air_mass()`, unchanged | per-species spherical |
+
+Three consequences worth stating plainly.
+
+*It is per species, not one corrected scalar.* Water vapour's 2 km profile hugs the tangent point far harder than the 8 km molecular one: at 89.4° `sec ζ` overstates molecular air by 237 % but water by only 104 %, a 2.3× divergence. Each species carries `m_i = S_i(r₀; h_lo→h_hi; H_i) / col_i`; the well-mixed-gas floor rides on `m_mol`, because CU-161 defines it as a fraction of the molecular column.
+
+*The direction is toward more signal.* The plane-parallel form was pessimistic near the horizon, so transmittance and SNR move **up** past 80° and never down.
+
+*It is a step, not a blend.* Straddling 80° by a thousandth of a degree on a ground → 100 km column, optical depth drops **2.0 %** (median over 0.4–14 µm; 2.9 % worst wavelength) and transmittance rises **10.6 %** median (up to 49 % where the column is nearly opaque, because τ is exponential in a large OD). That is the plane-parallel model's own error at the point where it is retired — the same shape the sky's 0.64 % radiance step has carried since CU-225, and about five times smaller *in the exponent* than the 18 % air-mass drop that got the root form deleted. Removing it entirely would mean using the spherical integral at every zenith, which moves every existing down-looking baseline and is a separate, owner-gated decision.
+
+*The solar column's 89.5° clamp is retired with it.* The plane-parallel construction had to clamp θ_s at `ZENITH_CEILING_RAD` because `AtmosphericGeometry` refuses past it — which is the worst possible place to clamp, being exactly where `sec ζ` is most wrong. The spherical route has no ceiling, so a twilight scene at θ_s = 89.9° now gets its own column instead of the 89.5° one. `ZENITH_CEILING_RAD` still bounds `path_zenith_rad`, so the *observer* domain is unchanged.
+
+**Anchoring status.** The spherical integral is anchored analytically (Chapman's grazing limit, `grazing_column.py`) but the near-horizon **transmittance** is not yet anchored against a MODTRAN run at those angles — the twilight/refraction calibration pair is a batch-2 deck. Refraction is also unmodelled and is the dominant geometric error inside the horizon guard's warn band, so numbers past ~85° are a better-conditioned model, not a validated one.
 
 ### 4.2a Exo-altitude targets — the vacuum target leg (Gap 95)
 

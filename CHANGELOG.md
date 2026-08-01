@@ -129,6 +129,32 @@ retroactively reconstructed.
   Evaluate-time checks are unchanged (defence in depth); no computed results change.
 
 ### Changed
+- **Results-affecting: the down-looking and solar columns hand over to the exact spherical
+  slant integral past 80° zenith (CU-224 checklist / ex-CU-275, owner ruling 2026-08-01).**
+  `SimpleAtmosphere.evaluate`'s observer column (`tau_up`, `tau_full_up`), its solar column
+  (`tau_sun`), and `segment_simple.column_segment_optical_depth` used `sec ζ` over their whole
+  legal domain. Near the horizon the plane-parallel answer diverges: `sec ζ` over-states the
+  air mass by **3.8 % at 80°, 13 % at 85° and 237 % at 89.4°**, and over-states it
+  *differently per species* (water vapour and molecular air are 2.3× apart in error at
+  89.4°). All three now take the same 80° hand-over the up-looking sky has had since
+  CU-225/CU-274, through the new `atmosphere/near_horizon_air_mass.py`, with a **per-species**
+  effective air mass. **Direction and magnitude:** transmittance and SNR move **up** past 80°
+  and never down — median τ rises 10.6 % on a ground → 100 km column at the switch itself,
+  and by a factor of ~3 in optical depth at 89.4°. **Affected scenes:** any scene past 80°
+  LOS zenith or 80° solar zenith on `atmosphere.model = "simple"`. **No shipped golden or
+  scenario baseline moves** — nothing that ships exceeds 37.5° LOS or 40° solar zenith, and
+  at or below 80° the optical depth is bit-for-bit what it was.
+  - The solar column's 89.5° clamp is **retired**: the plane-parallel construction had to
+    clamp θ_s at `ZENITH_CEILING_RAD`, which is exactly where `sec ζ` is most wrong, so a
+    twilight scene at θ_s = 89.9° now gets its own column instead of the 89.5° one.
+    `ZENITH_CEILING_RAD` still bounds `path_zenith_rad`; the observer domain is unchanged.
+  - **Removed:** the module-level alias `radiant.atmosphere.simple.ZENITH_CEILING_RAD_SIMPLE`,
+    which existed only to serve that clamp. Import `ZENITH_CEILING_RAD` from
+    `radiant.atmosphere.protocol` instead.
+  - The near-horizon transmittance is **not yet MODTRAN-anchored** at those angles (the
+    twilight/refraction calibration pair is a batch-2 deck) and refraction remains unmodelled,
+    so past ~85° this is a better-conditioned model, not a validated one.
+
 - **Results-affecting: the single-scatter sky's species split is weighted at the segment's
   lower endpoint, not at its arithmetic-mean altitude (CU-224 checklist / ex-CU-260, owner
   ruling 2026-08-01).** `segment_simple.py` sets the ω₀ and P(Θ) species proportions of the

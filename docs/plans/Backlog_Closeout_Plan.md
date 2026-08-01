@@ -23,15 +23,17 @@ guess) on anything that crosses an unruled decision. The meta-work moratorium st
 
 ## Work packages, in run order
 
-**P0 — Batch-2 upwelling deck matrix (unblocks P5; owner in the loop).**
-No upwelling deck block exists in `docs/plans/modtran_run_matrix.csv` (it ends at the
-L-block), and no tape7 delivery newer than the 2026-07-26 K/L set is on this machine —
-see the batch-2 status note on [[CU-224]]. First act of the run: define and render the
-upwelling deck set (down-looking counterparts at the up-looking ladder rungs, the
-emission-height thermal anchors for `L_path_up`, and the deferred batch-2 items §4.2b
-already names: the sec-space zenith axis and the refraction/twilight calibration pairs),
-hand the deck files to the owner, and proceed with P1–P4 while MODTRAN runs. If the
-owner's completed batch-2 output files surface first, P0 collapses to ingestion.
+**P0 — Batch-2 deck matrix (unblocks P5; owner in the loop).**
+"Batch 2" was never rendered into deck rows — all 88 rows of
+`docs/plans/modtran_run_matrix.csv` are run and ingested (the 2026-07-26 K/L delivery was
+Geometry-Flexibility batch 1), and batch 2 exists only as prose in the archived plan's
+close-out and the [[CU-224]] deferral records (status note there, resolved 2026-08-01).
+First act of the run: author and render the batch-2 deck set — the SST full-column
+ladder, the twilight/refraction on/off calibration pair, the sec-space zenith axis
+(§4.2b GF-10), the upwelling/emission-height anchors for `L_path_up`, and
+opportunistically [[CU-181]]'s elevated-rung downwelling — append the rows to the matrix
+(the source of truth for what the owner runs), and hand the deck files over. P1–P4
+proceed while MODTRAN runs.
 
 **P1 — Independent results-affecting fixes** (each its own branch; rulings on the entries):
 [[CU-209]] folded-MTF replication at `2·f_Nyquist`; [[CU-267]] gas-region smoothstep blend

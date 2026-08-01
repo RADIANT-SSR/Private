@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-315 — `alias_fraction_at_nyquist` reports float noise for oversampled bands (no absolute floor)
+
+**Discovered**: CU-209 closure (branch `perf/cu-209-folded-mtf`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).
+**Status**: Open — needs an owner ruling on the floor semantics before any code moves.
+**File**: `src/radiant/performance/folded_mtf.py:139-143` (`alias_fraction = (folded − optical)/folded`, guarded only by `folded > 0.0`, which ~1e-16 passes).
+**Symptom**: for optics that cut off below pixel Nyquist, folded and optical MTF at `f_Nyquist` are both ~1e-16, and the ratio is float noise: the dual-band example's LWIR configuration (Q = 2.22) prints `alias_fraction_at_nyquist` = 0.944314 where the physical answer is 0. The CU-209 fix deliberately anchored the oversampled Level-0 case on the absolute folded value and left this open; the CHANGELOG and the example's printed note carry the caveat.
+**Why it still matters**: a shipped metric rendered in the GUI Performance dashboard reads "94 % aliased" on a design with nothing to alias — the one Spatial-MTF number an operator would use to judge sampling adequacy is the one that lies in the best-sampled regime.
+**Suggested fix**: (b) stand-alone, S — owner ruling between (i) an absolute floor on the denominator (report 0 when the folded MTF at the sample frequency is below a documented epsilon) and (ii) a result-typed `failure_reason` per the Rule-17 metric-layer carve-out ("alias fraction undefined: optics cut off below Nyquist"). **Results-affecting** for the one metric on oversampled configurations either way. Category B. Related: [[CU-209]].
+
 ### CU-306 — `InterpolatedAtmosphere.build_state` interpolates in log-tau then resamples in linear tau
 
 **Discovered**: Overnight backlog run, CU-226 close-out, 2026-07-30 — measured while anchoring [[CU-226]].

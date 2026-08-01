@@ -17,12 +17,14 @@ from radiant.atmosphere.segment_simple import (
     column_segment_optical_depth,
     evaluate_column_segment,
 )
+from radiant.atmosphere.segment_single_scatter import cos_scattering_angle
 from radiant.atmosphere.segment_thermal import segment_thermal_emission
 from radiant.atmosphere.segments import ColumnSegmentSpec
-from radiant.atmosphere.simple import SimpleAtmosphere
+from radiant.atmosphere.simple import H_H2O_M, H_MOL_M, SimpleAtmosphere
 from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError
+from radiant.core.solar import toa_solar_equivalent_radiance
 
 
 def _grid() -> np.ndarray:
@@ -310,3 +312,104 @@ def test_evaluation_is_deterministic() -> None:
     np.testing.assert_array_equal(a.tau, b.tau)
     np.testing.assert_array_equal(a.L_toward_upper, b.L_toward_upper)
     np.testing.assert_array_equal(a.L_toward_lower, b.L_toward_lower)
+
+
+# ---------------------------------------------------------------------------
+# Species split at the lower endpoint (CU-260, adopted 2026-08-01)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level0
+def test_species_weights_are_taken_at_the_lower_endpoint() -> None:
+    """The single-scatter species split is weighted at ``h_low``, not at the mean.
+
+    Level 0: the ω₀ and P(Θ) weights are rebuilt here from the atmosphere's own
+    per-species coefficients evaluated **at the segment's lower endpoint**, and
+    the scattered radiance is reassembled from the documented closed form
+    ``L = E_sun/(4π) · cos θ_s · ω₀ · P(Θ) · (1 − τ)``.  The evaluator must
+    reproduce it exactly.
+
+    Fails on the pre-CU-260 implementation, which weighted at
+    ``0.5·(h_low + h_high)``: on this 0 → 60 km column the mean altitude is
+    30 km, where the aerosol coefficient has underflowed to zero.
+    """
+    lam = _grid()
+    atm = _atm()
+    h_low, h_high = 0.0, 6.0e4
+    theta_s = math.radians(30.0)
+    spec = ColumnSegmentSpec(h_low_m=h_low, h_high_m=h_high, zeta_low_rad=0.0)
+    q = evaluate_column_segment(atm, lam, spec, theta_s_rad=theta_s)
+
+    _od, _am, lengths = column_segment_optical_depth(atm, lam, spec)
+    tau = np.exp(-_od)
+    col_mol = lengths["col_length_mol_km"]
+    col_h2o = lengths["col_length_h2o_km"]
+    sigma_mol = atm._rayleigh_extinction_km(lam, h_low)
+    sigma_aer = atm._aerosol_extinction_km(lam, h_low)
+    sigma_h2o = (atm._h2o_vertical_od(lam, col_h2o) / col_h2o) * math.exp(-h_low / H_H2O_M)
+    sigma_gas = (atm._gas_floor_vertical_od(lam, col_mol) / col_mol) * math.exp(-h_low / H_MOL_M)
+    omega0 = atm._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o, sigma_gas)
+    cos_dn = cos_scattering_angle(0.0, theta_s, 0.0, "toward_lower")
+    phase = atm._single_scatter_phase_function(cos_dn, sigma_mol, sigma_aer)
+    expected_scatter = (
+        toa_solar_equivalent_radiance(lam) * math.cos(theta_s) * omega0 * phase * (1.0 - tau) / 4.0
+    )
+    thermal = segment_thermal_emission(lam, tau, atm._downwelling_effective_temperature_K(h_low))
+    np.testing.assert_allclose(q.L_toward_lower, thermal + expected_scatter, rtol=1e-12, atol=0.0)
+    assert q.provenance["weight_altitude_m"] == pytest.approx(h_low, abs=0.0)
+
+
+@pytest.mark.level0
+def test_a_tall_ground_rooted_column_keeps_its_aerosol() -> None:
+    """A 0 → 100 km column still scatters like a hazy atmosphere (CU-260).
+
+    The defect this replaces: weighting at the 50 km arithmetic mean made every
+    aerosol and water coefficient underflow, so ω₀ evaluated to exactly 1 (no
+    absorption at all) and the phase function collapsed to the isotropic-Rayleigh
+    forward value of 1.5 — the sky scattered as if ``visibility_km`` had never
+    been set.  Weighted at the ground the Henyey-Greenstein forward peak survives.
+    """
+    lam = _grid()
+    atm = _atm()
+    spec = ColumnSegmentSpec(h_low_m=0.0, h_high_m=1.0e5, zeta_low_rad=0.0)
+    q = evaluate_column_segment(atm, lam, spec, theta_s_rad=math.radians(30.0))
+    sigma_mol = atm._rayleigh_extinction_km(lam, 0.0)
+    sigma_aer = atm._aerosol_extinction_km(lam, 0.0)
+    cos_dn = cos_scattering_angle(0.0, math.radians(30.0), 0.0, "toward_lower")
+    phase = atm._single_scatter_phase_function(cos_dn, sigma_mol, sigma_aer)
+    vis = lam < 0.7
+    # Forward-peaked, i.e. well above the isotropic-Rayleigh 1.5 the collapsed
+    # split produced.
+    assert float(np.min(phase[vis])) > 3.0
+    assert q.provenance["weight_altitude_m"] == 0.0
+
+
+@pytest.mark.level0
+def test_a_tall_column_keeps_its_forward_scattering_peak() -> None:
+    """The aerosol forward peak survives on a tall ground-rooted column (CU-260).
+
+    Isolates the *angular* half of the defect from the optical-depth half.  With
+    ``ζ = 0`` the segment transmittance does not depend on the solar zenith, so
+
+        L_scat(θ_s) / cos θ_s  ∝  P(cos Θ),   cos Θ_toward_lower = cos θ_s
+
+    and the ratio between a forward geometry (θ_s = 0, cos Θ = 1) and an oblique
+    one (θ_s = 60°, cos Θ = 0.5) is exactly ``P(1) / P(0.5)``.  For a pure
+    Rayleigh scatterer that is ``1.5 / 0.9375 = 1.6``; with the ground aerosol
+    alive (Henyey-Greenstein, g = 0.7) it is far larger.
+
+    Under the arithmetic-mean split the 50 km weight altitude killed the aerosol
+    outright, so this ratio collapsed onto the Rayleigh 1.6 whatever the user set
+    ``visibility_km`` to.
+    """
+    lam = _grid()
+    atm = _atm()
+    spec = ColumnSegmentSpec(h_low_m=0.0, h_high_m=1.0e5, zeta_low_rad=0.0)
+    dark = evaluate_column_segment(atm, lam, spec, theta_s_rad=None)
+    fwd = evaluate_column_segment(atm, lam, spec, theta_s_rad=0.0)
+    obl = evaluate_column_segment(atm, lam, spec, theta_s_rad=math.radians(60.0))
+    vis = (lam > 0.45) & (lam < 0.7)
+    scat_fwd = (fwd.L_toward_lower - dark.L_toward_lower)[vis] / 1.0
+    scat_obl = (obl.L_toward_lower - dark.L_toward_lower)[vis] / math.cos(math.radians(60.0))
+    ratio = float(np.median(scat_fwd / scat_obl))
+    assert ratio > 3.0, f"phase ratio {ratio:.3f} is at the aerosol-free Rayleigh value"

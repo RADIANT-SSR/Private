@@ -775,12 +775,49 @@ integral rather than by an air mass that was 14–62 % low there. The residual
 0.64 % is the plane-parallel model's own error where it is retired; the
 underlying optical depths differ by 2.8 % at 80° and by a factor of two at 89°.
 
-Closing the residual entirely would mean using the grazing form at *every*
-zenith. That is deferred, not forgotten: the two evaluators weight their species
-split at different altitudes (`segment_grazing` at the arc's lower end,
-`segment_simple` at the segment mean), which leaves the thermal products
-agreeing to ≤ 0.65 % but moves the provisional VIS scattered sky by up to 10×.
-Choosing between them is a modelling decision, not a formula swap — CU-260.
+**The species split is weighted at the lower endpoint (CU-260, adopted
+2026-08-01).** Both evaluators now take the *relative* species proportions that
+set ω₀ and P(Θ) at the segment's **lower endpoint** — the densest air in the
+path, the end the `L_toward_lower` product emerges from, and what
+`segment_grazing.py` and `level_arm.py` already did. `segment_simple.py` used
+the segment's *arithmetic-mean* altitude until this date, which for any column
+taller than ≈ 40 km put the weights above the altitude where the aerosol and
+water coefficients underflow: ω₀ evaluated to exactly 1 (no absorption at all)
+and the Henyey-Greenstein forward peak collapsed onto the isotropic-Rayleigh
+1.5, so a tall column scattered as if the atmosphere held no aerosol whatever
+`visibility_km` said.
+
+Anchored against the shipped `midlat_summer_uplooking_ladder` MODTRAN family
+(ground sensor, ζ = 0°, θ_s = 30°, five non-degenerate rungs), band-mean
+MODTRAN/model at the worst rung:
+
+| band | arithmetic mean (retired) | lower endpoint (shipped) |
+|---|---|---|
+| VIS 0.45–0.85 µm | 3.085× | **1.360×** |
+| NIR 0.85–1.40 µm | 3.024× | **1.262×** |
+| SWIR 1.4–2.5 µm | 8.712× | **1.666×** |
+| MWIR 3–5 µm | 2.404× | **2.334×** |
+| LWIR 8–12 µm | 1.885× | 1.885× (identical to 4e-4 — thermal control) |
+
+Lower-endpoint weighting is closer on 18 of the 25 rung × band cells and its
+overall RMS |ln ratio| is half the retired form's (0.351 against 0.717); the off-band
+thermal region is inert to the choice, which is the condition the adoption
+criterion required. The anchors are frozen in
+`tests/integration/test_species_split_anchors.py`. Note what this does *not*
+claim: the single-scatter source still under-predicts the daytime VIS/NIR sky by
+tens of percent, which is what the sub-3 µm provisional warning above says.
+
+The alignment also removes the *species-split* half of the 80° hand-over step —
+VIS band-mean grazing/column was 2.12× at ζ = 0° and 9.91× at 30° and is now
+1.000 and 1.007 — but not all of it. The residual step at the hand-over is
+**1.063× VIS**, **0.996× MWIR**, **0.994× LWIR** (measured 2026-08-01, ground to
+`h_atm_top`, θ_s = 30°). What remains is not the weight altitude: the two
+evaluators linearise the CU-161 water curve of growth and gas floor against
+*different reference columns* — `segment_simple` against the vertical column,
+`segment_grazing` against the slant one — and because the curve of growth is
+sub-linear that changes the effective water weight by `(m_h2o)^(b−1)` and
+therefore ω₀ wherever water absorbs (the step is < 0.5 % below 0.68 µm and ≈ 30 %
+above it). Recorded as a finding, not closed here.
 
 ### 4.3 How geometry feeds each model
 

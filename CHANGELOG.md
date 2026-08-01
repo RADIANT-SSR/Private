@@ -129,6 +129,25 @@ retroactively reconstructed.
   Evaluate-time checks are unchanged (defence in depth); no computed results change.
 
 ### Changed
+- **Results-affecting: the single-scatter sky's species split is weighted at the segment's
+  lower endpoint, not at its arithmetic-mean altitude (CU-224 checklist / ex-CU-260, owner
+  ruling 2026-08-01).** `segment_simple.py` sets the ω₀ and P(Θ) species proportions of the
+  up-looking and level **sky background** at the column's lower endpoint, which is what
+  `segment_grazing.py` and `level_arm.py` already did — the three evaluators now weight
+  alike. The retired mean-altitude form put the weights above the altitude where the
+  aerosol and water coefficients underflow for any column taller than ≈ 40 km, so ω₀
+  became exactly 1 and the Henyey-Greenstein forward peak collapsed onto the
+  isotropic-Rayleigh 1.5: a tall column scattered as if `visibility_km` had never been set.
+  **Direction and magnitude:** the daytime VIS/NIR/SWIR sky **increases**, by up to 2.3×
+  on a ground-rooted 0–20 km column (band-mean MODTRAN/model at that rung goes 3.085× →
+  1.342× VIS, 3.024× → 1.262× NIR, 8.712× → 1.666× SWIR at the worst rung); MWIR moves ≤ 20 %,
+  LWIR ≤ 4e-4 (thermal-dominated, inert to the choice). **Affected scenes:** up-looking and
+  level scenes on `atmosphere.model = "simple"` with the sun above the local horizon and a
+  grid below 3 µm. **No shipped golden or scenario baseline moves** — every shipped
+  up/level scene is either night (10.1, 10.2) or has the sun below the horizon (10.3).
+  Anchored against the shipped `midlat_summer_uplooking_ladder` MODTRAN family;
+  the anchors are frozen in `tests/integration/test_species_split_anchors.py`.
+
 - **BREAKING — a brightness-temperature + radiance-temperature pair now raises at
   `evaluate()` (CU-293, owner ruling 2026-08-01).** Setting both
   `source.target.brightness_temperature_K` (or `_path`) **and**

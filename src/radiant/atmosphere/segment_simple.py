@@ -258,7 +258,21 @@ def _single_scatter_terms(
     theta_s_rad: float | None,
     delta_phi_rad: float,
 ) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
-    """Directional scattered-solar radiances and their provenance."""
+    """Directional scattered-solar radiances and their provenance.
+
+    Species weights are taken at the segment's **lower** endpoint (CU-260,
+    adopted 2026-08-01 against the shipped ``midlat_summer_uplooking_ladder``
+    MODTRAN family).  The retired alternative weighted at the arithmetic-mean
+    altitude, which for any column taller than ~40 km put the weights above the
+    altitude where the aerosol and water coefficients underflow: ω₀ went to
+    exactly 1 and the Henyey-Greenstein forward peak collapsed to the isotropic
+    Rayleigh 1.5, so a tall column scattered as if the atmosphere held no
+    aerosol at all whatever ``visibility_km`` said.  Measured against all five
+    non-degenerate ladder rungs (band-mean ``MODTRAN / model``, worst rung):
+    VIS 3.09× → 1.36×, NIR 3.02× → 1.26×, SWIR 8.71× → 1.67×, MWIR 2.40× →
+    2.33×, LWIR unchanged to 4e-4 (thermal-dominated control).  The anchors are
+    frozen in ``tests/integration/test_species_split_anchors.py``.
+    """
     prov: dict[str, Any] = {"theta_s_rad": theta_s_rad, "delta_phi_rad": delta_phi_rad}
     if theta_s_rad is None:
         prov["scattered_solar"] = "omitted (no solar geometry supplied)"
@@ -272,20 +286,22 @@ def _single_scatter_terms(
         zeros = np.zeros_like(lam)
         return zeros, zeros.copy(), prov
 
-    # Mean-altitude species weights — the same construction ``simple.py`` uses
-    # for its SSA / phase-function weights: absolute ODs come from the column
-    # integral, but the *relative* species split is taken at the path-mean
-    # altitude, where the ratio is representative.
-    mean_alt_m = 0.5 * (spec.h_low_m + spec.h_high_m)
+    # Lower-endpoint species weights (CU-260, adopted 2026-08-01).  Absolute ODs
+    # come from the column integral; the *relative* species split is taken at the
+    # segment's lower endpoint, which is both the densest air in the column and
+    # the end the ``L_toward_lower`` product emerges from — the same choice
+    # ``segment_grazing`` and ``level_arm`` already make, so all three evaluators
+    # now weight alike and the 80° hand-over carries no species-split step.
+    weight_alt_m = spec.h_low_m
     col_mol = lengths["col_length_mol_km"]
     col_h2o = lengths["col_length_h2o_km"]
-    sigma_mol = atmosphere._rayleigh_extinction_km(lam, mean_alt_m)
-    sigma_aer = atmosphere._aerosol_extinction_km(lam, mean_alt_m)
+    sigma_mol = atmosphere._rayleigh_extinction_km(lam, weight_alt_m)
+    sigma_aer = atmosphere._aerosol_extinction_km(lam, weight_alt_m)
     sigma_h2o = (atmosphere._h2o_vertical_od(lam, col_h2o) / max(col_h2o, 1e-12)) * math.exp(
-        -mean_alt_m / H_H2O_M
+        -weight_alt_m / H_H2O_M
     )
     sigma_gas = (atmosphere._gas_floor_vertical_od(lam, col_mol) / max(col_mol, 1e-12)) * math.exp(
-        -mean_alt_m / H_MOL_M
+        -weight_alt_m / H_MOL_M
     )
 
     omega0 = atmosphere._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o, sigma_gas)
@@ -294,7 +310,7 @@ def _single_scatter_terms(
     cos_dn = cos_scattering_angle(spec.zeta_low_rad, theta_s_rad, delta_phi_rad, "toward_lower")
     prov["cos_scatter_toward_upper"] = cos_up
     prov["cos_scatter_toward_lower"] = cos_dn
-    prov["mean_altitude_m"] = mean_alt_m
+    prov["weight_altitude_m"] = weight_alt_m
 
     phase_up = atmosphere._single_scatter_phase_function(cos_up, sigma_mol, sigma_aer)
     phase_dn = atmosphere._single_scatter_phase_function(cos_dn, sigma_mol, sigma_aer)

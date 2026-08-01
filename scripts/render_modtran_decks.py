@@ -100,6 +100,40 @@ def _rendered_card3_angle_deg(tape5: str) -> float:
     return float(tape5.splitlines()[4].split()[2])
 
 
+def _blank_zenith_caveat(row: dict[str, str]) -> str:
+    """Explain a blank ``path_zenith_deg_radiant`` for the row that has one.
+
+    Two different situations leave the column blank, and they need
+    different instructions:
+
+    * **IEMSCT=3** (Block E, solar-irradiance mode) — RADIANT's
+      line-of-sight zenith concept does not apply to a ground-level
+      irradiance calculation at all, so there is nothing to write.
+    * **A path RADIANT cannot carry** (batch-2 Block Q twilight tangent
+      transits) — the geometry is a real line of sight, but its
+      lower-endpoint zenith exceeds ``protocol.ZENITH_CEILING_RAD``
+      (89.5°), which ``AtmosphericGeometry`` refuses. The column is blank
+      because the value is unrepresentable, not because it is meaningless,
+      and the deck must be hand-edited from ``modtran_angle_at_h1_deg``
+      before it is run.
+
+    Both render Card-3 ANGLE as a 0 placeholder, so the manifest has to say
+    which one it is.
+    """
+    if int(row["iemsct"]) == 3:
+        return (
+            "IEMSCT=3 irradiance mode: path_zenith_rad not "
+            "physically meaningful here (ANGLE driven by solar "
+            "geometry instead); rendered as 0"
+        )
+    return (
+        "path_zenith_deg_radiant blank: this row's lower-endpoint zenith "
+        "is past AtmosphericGeometry's 89.5 deg ceiling (a tangent/limb "
+        "transit), so RADIANT cannot carry it; rendered as 0 — hand-set "
+        "Card 3 ANGLE from modtran_angle_at_h1_deg before running"
+    )
+
+
 def _angle_caveat(row: dict[str, str], rendered_angle_deg: float) -> str:
     """Flag rows where the deck's ANGLE differs from the matrix's
     hand-worked H1-relative column.
@@ -156,10 +190,14 @@ def main() -> None:
         rendered_angle_deg = _rendered_card3_angle_deg(tape5)
         caveats = []
         if not row["path_zenith_deg_radiant"].strip():
+            caveats.append(_blank_zenith_caveat(row))
+        support = row["deck_builder_support"].strip()
+        if support != "current":
             caveats.append(
-                "IEMSCT=3 irradiance mode: path_zenith_rad not "
-                "physically meaningful here (ANGLE driven by solar "
-                "geometry instead); rendered as 0"
+                f"deck_builder_support={support!r}: this row is NOT fully "
+                "expressible by render_tape5 — the rendered deck needs a "
+                "hand edit before it is run. See the row's notes column in "
+                "docs/plans/modtran_run_matrix.csv"
             )
         angle_note = _angle_caveat(row, rendered_angle_deg)
         if angle_note:

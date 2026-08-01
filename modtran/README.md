@@ -14,19 +14,20 @@ stay clearly separated:
    used to close Gap 38/39/CU-011, which need an independent reference,
    not RADIANT's own (however carefully sourced) approximation.
 
-RADIANT has never had real MODTRAN output pass through its parser —
-every `.tp7` used in the committed test suite today is a hand-authored
-minimal fixture. Nothing in this repository fabricates a tape7 and
-presents it as MODTRAN-equivalent physics; the `synthetic/` files are
-loudly labeled and physically documented as a lesser tier (see below).
+Real MODTRAN 6 output has passed through RADIANT's parser since the
+2026-07-17 delivery, and the batch-1 up-looking / horizontal set followed
+on 2026-07-26; the staged runs live gitignored under `real_runs/` with
+their checksums committed at `real_runs_MANIFEST.sha256`. Nothing in this
+repository fabricates a tape7 and presents it as MODTRAN-equivalent
+physics; the `synthetic/` files are loudly labeled and physically
+documented as a lesser tier (see below).
 
 ## What's here
 
-- `decks/` — 39 rendered tape5 input decks, one per row of
+- `decks/` — 125 rendered tape5 input decks, one per row of
   `docs/plans/modtran_run_matrix.csv`, plus `decks/MANIFEST.md`
   cross-referencing each deck to its run's purpose and any known
-  caveats (e.g. CU-065's unverified Card 3 ANGLE convention).
-  **Not committed** — regenerate with:
+  caveats. **Not committed** — regenerate with:
 
   ```
   python scripts/render_modtran_decks.py
@@ -37,7 +38,8 @@ loudly labeled and physically documented as a lesser tier (see below).
   preserve in git; the generator script and the CSV are canonical
   (Rule 26/27).
 
-- `synthetic/` — 39 synthetic tape7 **outputs**, one per run, built from
+- `synthetic/` — 39 synthetic tape7 **outputs**, one per batch-0 run
+  (blocks A–H only), built from
   real HITRAN line-by-line molecular transmittance (via RADIS) on an
   independently-built layered atmosphere, plus a simplified (not
   independent) aerosol/scattering term. **Not committed** — regenerate
@@ -69,17 +71,81 @@ directory:
 
 `decks/MANIFEST.md` (regenerated each run) flags, per deck:
 
-- **CU-065** (deferred): Card 3's `ANGLE` field has not been verified
-  against the real MODTRAN H1-relative zenith convention. Every deck
-  in this directory currently writes RADIANT's own line-of-sight
-  zenith directly; the matrix's `modtran_angle_at_h1_deg` column
-  records what the correct value is believed to be if it differs.
-  Verify against the MODTRAN manual before trusting any rendered
-  `ANGLE` field.
+- **Card 3 `ANGLE`** is written at the **H1** (sensor) convention while
+  the matrix's `path_zenith_deg_radiant` is the path's **lower-endpoint**
+  zenith. Down-looking (H1 above H2) the two differ by
+  `ANGLE = 180° − zenith`; up-looking (H1 at or below H2) the sensor *is*
+  the lower endpoint and `ANGLE = zenith` unchanged; ITYPE=1 writes the
+  literal 90°. The convention was confirmed by three-way agreement
+  (`render_tape5` == the matrix's hand-worked `modtran_angle_at_h1_deg`
+  column == the delivered tape7 Card-3 echoes) across the delivered runs,
+  K7 closing the elevated-lower-endpoint half (CU-065 resolved).
 - IEMSCT=3 (solar-irradiance mode, Block E) rows have no meaningful
   `path_zenith_rad` — RADIANT's line-of-sight concept doesn't apply to
   a ground-level irradiance calculation — and render it as a 0
   placeholder.
+- Any row whose `deck_builder_support` is not `current` is **not fully
+  expressible** by `render_tape5`. Its deck still renders (so the rest of
+  the card image is right) but needs a hand edit before it is run; the
+  manifest flags it and the row's `notes` column says exactly what to
+  change. Batch 2 has four such rows — see below.
 
 See `docs/tracking/Cleanup_Backlog.md` for CU-063/064/065/066/067/068/069,
 all discovered while building this staging area.
+
+## Batch 2 — what to run (37 decks, rows M1…Q8)
+
+Batch 2 is the deck set the archived `Geometry_Flexibility_Plan.md` close-out
+deferred: it anchors the ground-to-space (SST) class, grows the up-looking
+family a zenith axis, supplies the upwelling emission anchor
+`RADIANT_Atmosphere.md` §3.1 is missing, makes the elevated-target
+downwelling altitude-dependent, and calibrates the provisional horizon-guard
+thresholds. Batch 1 (rows A1…L25) is complete; nothing here re-runs a
+delivered geometry.
+
+**Run every deck in `decks/` whose run_id starts with M, N, O, P or Q** —
+37 decks. Regenerate them first with `python scripts/render_modtran_decks.py`
+(they are gitignored, not committed). Every deck uses the same spectral
+window as batch 1 (700–25 000 cm⁻¹ at 1.0 cm⁻¹ DV/FWHM, i.e. 0.4–14.3 µm),
+so run time per deck is comparable.
+
+| Block | Decks | What it is | Why |
+|-------|-------|-----------|-----|
+| **M** | M1–M8 (8) | Ground sensor up-looking, full column to space, LOS zenith 0 / 60 / 70.529 / 75.522 / 78.463 / 85 / 88 / 89.5° | The SST anchor class, on a fan spaced uniformly in **sec ζ** (1, 2, 3, 4, 5) plus three near-horizontal probes. The sec = 1.5 rung is the already-delivered H5. |
+| **N** | N1–N10 (10) | Ground sensor up-looking to 1 / 3 / 5 / 10 / 20 km, at 48.2° and 60° | Gives the shipped `midlat_summer_uplooking_ladder` a **zenith axis**. Rectangular grid: 5 targets × 3 sec rungs (1.0 = the delivered K1–K5, 1.4999, 2.0). |
+| **O** | O1–O5 (5) | Sensor at 1 / 5 / 10 / 10 / 100 km looking **down** at ground | The upwelling half of matched direction pairs, so the `L_path_up` missing-emission asymmetry can be *closed* rather than measured one-sided. |
+| **P** | P1–P6 (6) | Up-looking at 48.2° from an **elevated** endpoint: 1 / 5 / 10 / 20 / 29 / 50 km | Makes `atm_emission_down` altitude-dependent instead of the ground-level H5 constant every elevated node carries today. |
+| **Q** | Q1–Q8 (8) | Long horizontal paths at 5 km (71.4 / 150 / 319.3 / 500 km range), a refraction on/off pair, and two twilight tangent transits | Calibrates the provisional horizon-guard thresholds (Δh ≈ 100 m compute / ≈ 2 km raise) and gives the twilight `τ_sun` transit its first anchor. |
+
+**Four Q rows need a hand edit before running** (their
+`deck_builder_support` says so, and `decks/MANIFEST.md` flags them):
+
+- **Q5** — byte-identical to `Q3.tp5` on purpose. Disable MODTRAN's ray
+  bending for this run only, then run it. `Q3 − Q5` is the interior-tangent
+  half of the refraction on/off pair.
+- **Q6** — byte-identical to `M8.tp5` on purpose. Same: refraction off.
+  `M8 − Q6` is the endpoint-minimum half.
+- **Q7 / Q8** — set Card 3 `ANGLE` to `93.000` / `96.000` and `LENN` to `1`
+  (long path through the tangent point). `render_tape5` cannot write an
+  `ANGLE` past 90° because `AtmosphericGeometry` refuses a lower-endpoint
+  zenith past 89.5°, so the deck renders `ANGLE 0.000` as a placeholder and
+  the true value lives in the matrix's `modtran_angle_at_h1_deg` column.
+
+Please **record which refraction switch you used for Q5/Q6** in
+`real_runs/README.md` — RADIANT has no way to infer it from the tape7.
+
+**Where the outputs go.** Stage every delivered `.tp7` flat in
+`modtran/real_runs/` named `<run_id>.tp7` (e.g. `real_runs/M1.tp7`), exactly
+as batch 1 is staged — that directory is gitignored, so the data never
+enters git. Then regenerate the committed checksums:
+
+```
+python scripts/gen_modtran_manifest.py
+python scripts/gen_modtran_manifest.py --check
+```
+
+Nothing else needs doing on delivery: the repackaging into
+`data/atmospheres/` NPZ families and the promotion of the
+`test_fixture`-marked runs into `tests/integration/fixtures/modtran/` are
+coding tasks that run against the staged set (the `destination` column of
+`docs/plans/modtran_run_matrix.csv` says which run goes where).

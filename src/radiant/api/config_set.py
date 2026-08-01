@@ -57,6 +57,7 @@ from typing import Any, ClassVar
 
 from radiant.api._param_registry import build_parameter_set
 from radiant.api._progress import CancelFn, ProgressFn, check_cancel
+from radiant.api._warning_capture import capture_warnings
 from radiant.api.compare import ComparisonResult, compare_configs
 from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
@@ -830,8 +831,8 @@ class ConfigurationSet:
         Warning capture and attribution
         -------------------------------
         Each configuration is evaluated inside its own
-        ``warnings.catch_warnings(record=True)`` window with
-        ``simplefilter("always")``, and the warnings raised in that window are
+        :func:`~radiant.api._warning_capture.capture_warnings` window, and the
+        warnings raised on **this thread** in that window are
         recorded on that configuration's :attr:`ConfigRun.warnings`. Because
         the window spans exactly one configuration's materialization and
         ``evaluate()``, **a warning raised by configuration X is attributed to
@@ -857,21 +858,17 @@ class ConfigurationSet:
         warnings instead can evaluate configurations itself via
         :meth:`sensor_for`.
 
-        Note that ``catch_warnings`` mutates process-global filter state, so
-        this method must not run concurrently with another ``catch_warnings``
-        user in the same process. Evaluation here is strictly sequential, and
-        the GUI's main window serialises its own evaluations (it defers a
-        re-run while a worker ``isRunning``). A GUI worker driving
-        ``evaluate_all`` therefore needs no capture of its own — the
-        per-configuration attribution it wants is already on the result.
-
-        **The single-worker premise is narrower than it looks (CU-110).** The
-        main window's guard covers only *its* worker; the sweep, solve and
-        comparison dialogs each start their own ``QThread`` on a cloned sensor
-        and are not serialised against it. Two concurrent evaluations that both
-        reach this method would race on the global filter. This citation
-        previously named ``radiant.gui.workers.EvaluationWorker``, a class that
-        no longer exists — see CU-110 for the open re-audit.
+        **Capture is thread-local (CU-110).** The capture list belongs to the
+        calling thread, so two concurrent evaluations — the GUI main window's
+        worker plus any of the sweep / solve / evaluate-all dialog workers,
+        which are not serialised against it — each record only their own
+        warnings, and a warning raised on a thread with no capture open still
+        reaches the ambient ``showwarning`` handler instead of being swallowed
+        into somebody else's window. The only process-global state left is the
+        ``"always"`` filter action, which every concurrent capture wants
+        identically and which is reference-counted under a lock, so one
+        evaluation's exit can no longer clobber another's filter state. See
+        :mod:`radiant.api._warning_capture`.
 
         Parameters
         ----------
@@ -899,8 +896,7 @@ class ConfigurationSet:
         """
         result: ChainResult | None = None
         error: RadiantError | None = None
-        with warnings.catch_warnings(record=True) as captured:
-            warnings.simplefilter("always")
+        with capture_warnings() as captured:
             try:
                 result = self.sensor_for(name).evaluate()
             except RadiantError as exc:

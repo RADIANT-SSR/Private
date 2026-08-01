@@ -92,7 +92,8 @@ class StageSubView:
     ----------
     title:
         The tab label.
-    scene_class_panel, geometry_form, geometry_readout, geometry_viewer, mtf_panel, \
+    scene_class_panel, geometry_form, site_elevation_panel, geometry_readout, \
+    geometry_viewer, mtf_panel, \
     noise_panel, outputs, \
     metrics, plots, plot_columns, panel_placement, note:
         The same section fields as :class:`StageComposition`, scoped to this tab.
@@ -104,6 +105,7 @@ class StageSubView:
     title: str
     scene_class_panel: bool = False
     geometry_form: bool = False
+    site_elevation_panel: bool = False
     geometry_readout: bool = False
     geometry_viewer: bool = False
     source_inputs: bool = False
@@ -157,6 +159,10 @@ class StageComposition:
     geometry_form:
         Show the stage-0 input-mode forms — the mode selectors + schema-driven fields
         (Geometry only; the arch-doc §4.4 "Inputs" section, GUI plan Phase 5).
+    site_elevation_panel:
+        Show the site-elevation card — the one ``non_mode`` geometry scene fact
+        (``geometry.site_elevation_m``), which the mode-manifest forms therefore cannot
+        render (Geometry "Inputs", below the mode forms; CU-301/CU-262).
     geometry_readout:
         Show the geometry angle/range readout (Geometry only).
     geometry_viewer:
@@ -240,6 +246,7 @@ class StageComposition:
     title: str
     scene_class_panel: bool = False
     geometry_form: bool = False
+    site_elevation_panel: bool = False
     geometry_readout: bool = False
     geometry_viewer: bool = False
     source_inputs: bool = False
@@ -310,7 +317,9 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
     # Stage-0 is a two-tab composite (GUI plan Phase 7 "Inputs | Schematic" split): an
     # "Inputs" tab with the scene-class steering card (Geometry-Flexibility Phase 4 —
     # the derived class, the optional assertion, the metrics that class defaults off),
-    # then the input-mode forms (§4.4 Inputs, Phase 5) + the derived angles/ranges
+    # then the input-mode forms (§4.4 Inputs, Phase 5), the site-elevation card (the one
+    # ``non_mode`` scene fact, which the manifest-driven forms cannot render — CU-301),
+    # + the derived angles/ranges
     # readout, and a "Schematic" tab with the embedded 2D geometry schematic viewer
     # (ADR-0007, superseded 2026-07-14 — 2D orthographic Qt schematic).
     # The tabbed sub-view hook renders them as a QTabWidget. The scene-class card leads
@@ -323,6 +332,7 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
                 title="Inputs",
                 scene_class_panel=True,
                 geometry_form=True,
+                site_elevation_panel=True,
                 geometry_readout=True,
             ),
             StageSubView(title="Schematic", geometry_viewer=True),

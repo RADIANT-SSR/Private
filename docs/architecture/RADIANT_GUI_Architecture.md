@@ -232,12 +232,13 @@ recorded on the returned `ConfigSetRunResult` (Rule 17), and the window decides 
 show it (§4.5).
 
 **Warning capture lives in the API, not the worker.** `evaluate_all` opens one
-`warnings.catch_warnings(record=True)` + `simplefilter("always")` window **per
-configuration** and records that configuration's warnings on `ConfigRun.warnings`
-(re-logging them as well, so nothing is dropped). The GUI worker therefore captures
-nothing of its own: a second capture would double-count the warnings and destroy the
-per-configuration attribution. CU-110 (the process-global filter mutation being safe only
-under the single-worker invariant) travels with the capture to `api/config_set.py`.
+**thread-local** capture window (`radiant.api._warning_capture`) **per configuration** and
+records that configuration's warnings on `ConfigRun.warnings` (re-logging them as well, so
+nothing is dropped). The GUI worker therefore captures nothing of its own: a second capture
+would double-count the warnings and destroy the per-configuration attribution. Because the
+capture is thread-local (CU-110), the main-window worker running beside a sweep / solve /
+evaluate-all dialog worker no longer cross-attributes warnings, and a warning raised on a
+thread with no capture open still reaches the ambient handler.
 
 **Thread isolation (as shipped, GUI plan Phase 3; set-level since Phase 4a).** The main
 window hands the worker a private `config_set.clone()` taken on the GUI thread at schedule
@@ -361,7 +362,7 @@ from the *whole run*, not per stage:
 - **green / ok** — the run finished with **no** chain warnings.
 - **yellow / warn** — the run finished but carried **at least one** chain warning.
   Warnings are **not** attributed to a single stage: the captured warnings are free text
-  (`warnings.catch_warnings`, arch doc §4.4) and not reliably mappable to one stage, so
+  (`radiant.api._warning_capture`, arch doc §4.4) and not reliably mappable to one stage, so
   v1 marks **every** dot yellow on any warning. Per-stage warning attribution is deferred.
 - **red / err** — the evaluation raised. The failing stage is **not** identified: the
   public exception surface does not reliably carry the originating stage, so v1 marks
@@ -983,7 +984,7 @@ not exist — filed in `docs/tracking/gaps.md`). Plots marked [exists] are the s
 
 | Stage | Ratified content | Classification |
 |-------|------------------|----------------|
-| **Geometry** | Two tabs: **Inputs** (scene-class steering card + stage-0 input-mode forms + derived-angle readout) and **Schematic** (the 2D schematic viewer, §6) | **[exists]** The Inputs tab leads with the **scene-class steering card** (`SceneClassPanel`, Geometry-Flexibility Phase 4 / ADR-0011 decision 8): the **derived** class chip read verbatim from `stage_outputs["geometry"]` (`scene_class` + `observer_class`/`target_class`; a neutral placeholder pre-evaluate), the optional **`geometry.scene_class` assertion** (the mission-type entry point — a shared `FieldRow` + `ParameterEditorDialog`, one `sensor.set` per edit; asserting steers defaults and is validated against the derivation at the next evaluate), and the **relevance preview** — the metrics the displayed class turns off by default, read through the `radiant.api.scene_relevance` bridge (guardrail G3 — one declarative map, never transcribed GUI-side) with human labels from `metric_format`, plus the note that an explicitly-set `performance.metrics.*` group flag always wins (Gap 96 override semantics). An asserted-vs-derived `GeometrySpecificationError` tints the card in-context (`[state="conflict"]`, the `geoModeFamily` pattern) with the error's what-line beside the chip. Full per-input mission-type gating remains Gap 85. Below it: `GeometryModeForm` (mode selectors + schema-driven fields, one `sensor.set` per edit; labels re-worded direction-general per ADR-0011 — "Path zenith at lower endpoint (V1)", "Off-boresight angle (V2)", "Elevation angle, signed (V4)") + frame-grouped readout from `stage_outputs["geometry"]` (symbols + units, verbatim); over/under-spec errors highlight the offending selector. The **Schematic** tab embeds `GeometryViewer` (§6.9, incl. the Phase-4 up-looking/level compositions) |
+| **Geometry** | Two tabs: **Inputs** (scene-class steering card + stage-0 input-mode forms + site-elevation card + derived-angle readout) and **Schematic** (the 2D schematic viewer, §6) | **[exists]** The Inputs tab leads with the **scene-class steering card** (`SceneClassPanel`, Geometry-Flexibility Phase 4 / ADR-0011 decision 8): the **derived** class chip read verbatim from `stage_outputs["geometry"]` (`scene_class` + `observer_class`/`target_class`; a neutral placeholder pre-evaluate), the optional **`geometry.scene_class` assertion** (the mission-type entry point — a shared `FieldRow` + `ParameterEditorDialog`, one `sensor.set` per edit; asserting steers defaults and is validated against the derivation at the next evaluate), and the **relevance preview** — the metrics the displayed class turns off by default, read through the `radiant.api.scene_relevance` bridge (guardrail G3 — one declarative map, never transcribed GUI-side) with human labels from `metric_format`, plus the note that an explicitly-set `performance.metrics.*` group flag always wins (Gap 96 override semantics). An asserted-vs-derived `GeometrySpecificationError` tints the card in-context (`[state="conflict"]`, the `geoModeFamily` pattern) with the error's what-line beside the chip. Full per-input mission-type gating remains Gap 85. Below it: `GeometryModeForm` (mode selectors + schema-driven fields, one `sensor.set` per edit; labels re-worded direction-general per ADR-0011 — "Path zenith at lower endpoint (V1)", "Off-boresight angle (V2)", "Elevation angle, signed (V4)"). Below the mode forms: the **site-elevation card** (`SiteElevationPanel`, CU-301) carrying `geometry.site_elevation_m` — the one `geometry.*` parameter the mode manifest cannot render, because it is a standalone scene fact rather than an input-mode door (the schema tags it `non_mode`, the tag both manifest-coverage drift tests subtract). It is the same shared `FieldRow` + `ParameterEditorDialog` as every other field, so the value shows and is entered in the row's session display unit (an analyst working in feet never converts), one `sensor.set` per accepted edit, rejected values never reaching the live sensor. It is results-affecting: the Hufnagel-Valley Cn² surface term is evaluated at `h − site_elevation_m` (CU-262), and against a tabulated or direct Cn² profile it is inert and the run warns (CU-302). Then the frame-grouped readout from `stage_outputs["geometry"]` (symbols + units, verbatim); over/under-spec errors highlight the offending selector. The **Schematic** tab embeds `GeometryViewer` (§6.9, incl. the Phase-4 up-looking/level compositions) |
 | **Source** | Target radiance plot | **[SHIPPED — GUI plan Phase PS-1; retabbed by owner walkthrough items 5 + 6]** `result.plot.spectral_source_emission()` — draws the pre-atmosphere `at_source_target` frame (emitted+reflected radiance leaving the target, before the up-leg), persisted by AtmosphereStage. It is the Source stage's **primary** center plot. `spectral_source()` (at-aperture) is **no longer** shown on any Source tab: it is post-atmosphere, and the Atmosphere view owns that step |
 | **Source** | Background radiance plot | **[SHIPPED — GUI plan Phase PS-1]** same accessor draws the optional `at_source_background` arm alongside the target |
 | **Source** | Reflective view — ρ(λ) and the radiance it produces | **[SHIPPED — owner walkthrough item 6]** The *Target — reflective* tab is a surface-property instrument: `result.plot.target_reflectance()` (ρ(λ), dimensionless, from `stage_outputs["source"]["reflectance"]`) leads, with `result.plot.spectral_reflected_radiance()` (`frames["at_source_target_reflected"]`) beside it — cause and effect in one row. Both reflectance **input** surfaces are mounted: the scalar `source.target.reflectance` and the λ-dependent `source.target.reflectance_path` CSV (mutually exclusive; since CU-244 the editor's clone-validate calls the resolve-time seam `Sensor.validate_target_spec()`, so an over-specified pair is rejected **at commit time** with the same what/why/action the evaluate-time path produces — the inferrer-time check remains as defence in depth, and a conflict that pre-exists on the live sensor still surfaces through the actionable evaluate dialog + Messages rather than blocking unrelated edits). The three `geometry.solar_*` rows stay on the tab **read-only** (`FieldRow.set_read_only`) with the Geometry stage named as their owner — they explain a dark reflected term without offering a second editor for a Geometry-owned parameter |
@@ -1059,8 +1060,8 @@ that lands.
 
 **Messages.** Warnings and errors, replacing the old floating warning strip. Chain
 `UserWarning`s (saturation clip, NIIRS extrapolation, …) are captured by
-`ConfigurationSet.evaluate_all` (`warnings.catch_warnings(record=True)` +
-`simplefilter("always")` per configuration, so the process-wide filter cannot suppress
+`ConfigurationSet.evaluate_all` (one thread-local `radiant.api._warning_capture` window
+per configuration, under the `"always"` action, so the process-wide filter cannot suppress
 them and none is deduplicated — §3.2) and delivered with the result; the panel reads
 `⚠ N warnings` with the first inline and, clicked, lists every message verbatim (the
 shipped `WarningListDialog`). Captured warnings are also re-logged, so nothing is
@@ -1325,8 +1326,16 @@ applying PBR materials or realistic shading; keep the schematic line-art aesthet
   assert a ground interaction the scene does not have. The legend rows match what is drawn.
 - **Composition keyed by the stage-derived `los_direction`** (Geometry-Flexibility Phase 4,
   ADR-0011 decisions 1/8 — read verbatim from `stage_outputs["geometry"]`, never re-derived):
-  the original **down-looking** layout (bit-identical to pre-Phase-4, proven by a pinned
-  regression test and a byte-identical render-parity check); an **up-looking** layout in
+  the original **down-looking** layout, whose scene fields are held by a pinned regression
+  test (`TestDownLookingRegression`) — Phase 4 kept it bit-identical to pre-Phase-4, and
+  CU-250 then moved **one** thing: the sensor glyph rides the target-side path-zenith
+  `theta_o_dir` ray instead of the sensor-vertex off-nadir `eta_dir` one, so the glyph ray
+  and the target-anchored θ_o / ζ_low arcs coincide in all three compositions. The glyph is
+  placed *from the target*, which is the vertex θ_o is subtended at; the two rays differ by
+  the Earth-centre central angle (~2.2° for a 705 km scene). A state carrying no stage θ_o
+  (a partial or pre-ADR-0011 result) keeps the η ray, which for a genuine vertical path is
+  the same vector. No displayed **number** changed — the arcs already swept to their own
+  rays. There is an **up-looking** layout in
   which the SENSOR is the path's lower endpoint — sitting *on* the ground plane for a
   `ground` observer class, lifted to the fixed abstract off-ground height otherwise — with
   the target carried above it along the θ_o ray so the SENSOR→TARGET vector ascends; and a
@@ -1547,7 +1556,10 @@ PyVista/VTK, no physics stage):
   (`eta_dir` / `theta_o_dir` / `zeta_low_dir`): η, θ_o and ζ_low are read at different
   vertices of the viewing triangle and differ by the Earth-centre central angle, so sharing
   one ray would pin a stage-true number on a visibly wrong arc; the ζ_low arc moves to the
-  sensor glyph when the sensor is the lower endpoint (`_arc_apex`). Orthographic yaw/pitch
+  sensor glyph when the sensor is the lower endpoint (`_arc_apex`). The **sensor glyph
+  itself** rides `theta_o_dir` in every composition (CU-250) — it is placed from the target,
+  the vertex θ_o is subtended at — so only the η arc departs from the drawn glyph ray.
+  Orthographic yaw/pitch
   by mouse drag. Hosts the interactive `AngleToggleOverlay` as a bottom-left child widget
   (mirroring the top-left VECTORS legend), repositioned in `resizeEvent`.
 - **`angle_overlay.py`** — the interactive `AngleToggleOverlay` reveal selector: one

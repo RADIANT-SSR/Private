@@ -255,9 +255,9 @@ dropped, never zero-filled); any other exception is a bug and propagates.
 | `run.warnings` / `run.n_warnings` | Name → messages for the configurations that warned (quiet ones are absent), and the total count. |
 | `run.summary()` | Plain-text triage view, one line per configuration in evaluation order: name, `ok` / `FAILED`, the headline metrics **with the units the metric registry declares for them** or the failure's `what` line, a warning count, and a `*` on the baseline. A headline metric a configuration did not compute is omitted from its line, never rendered as zero (Rule 17). It is a summary, not the comparison surface — use `compare()` for aligned values and deltas. |
 
-**Warning attribution.** `evaluate_all` opens a `warnings.catch_warnings(record=True)`
-window with `simplefilter("always")` around **each** configuration's materialization and
-`evaluate()`. A warning raised by configuration *X* is therefore attributed to *X* and to
+**Warning attribution.** `evaluate_all` opens a **thread-local** capture window
+(`radiant.api._warning_capture.capture_warnings`) around **each** configuration's
+materialization and `evaluate()`. A warning raised by configuration *X* is therefore attributed to *X* and to
 nothing else — a saturation warning from one band never reads as a property of the study.
 Captured warnings are **not** re-raised into the caller's warning filters; they are
 recorded on the result *and* re-emitted through `logging` (`radiant.api.config_set`), so
@@ -265,11 +265,18 @@ nothing is discarded. That is not the Rule 17 silent-failure pattern, which forb
 *dropping* a signal: the signal is promoted from a process-global side channel to named,
 per-configuration data on the object the caller already inspects — the same treatment
 `failures` gives errors. A caller that wants ordinary Python-level warnings evaluates
-configurations itself via `sensor_for(name).evaluate()`. Because `catch_warnings` mutates
-process-global filter state, `evaluate_all` must not run concurrently with another
-`catch_warnings` user in the same process; evaluation here is strictly sequential, and a
-GUI worker driving `evaluate_all` needs **no** capture of its own — the per-configuration
-attribution it wants is already on the result.
+configurations itself via `sensor_for(name).evaluate()`.
+
+The capture list belongs to the **calling thread** (CU-110), so two `evaluate_all` passes
+running concurrently — the GUI's main-window worker beside a sweep / solve /
+evaluate-all dialog worker, none of which are serialized against each other — each record
+only their own warnings, and a warning raised on a thread with **no** capture open still
+reaches the ambient `showwarning` handler rather than being swallowed into somebody else's
+window (Rule 17). The one piece of process-global state left is the `"always"` filter
+action, which every concurrent capture wants identically and which is reference-counted
+under a lock, so one pass's exit cannot clobber another's filter state. A GUI worker
+driving `evaluate_all` needs **no** capture of its own — the per-configuration attribution
+it wants is already on the result.
 
 **Failed configurations and `compare()`.** `compare()` refuses to build a matrix with a
 missing column: it raises `ConfigSetError` **naming** the failed configurations. The

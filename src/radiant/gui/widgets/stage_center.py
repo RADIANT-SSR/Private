@@ -79,6 +79,7 @@ from radiant.gui.widgets.platform_inputs_form import PlatformInputsForm
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
 from radiant.gui.widgets.readout_inputs_form import ReadoutInputsForm
 from radiant.gui.widgets.scene_class_panel import SceneClassPanel
+from radiant.gui.widgets.site_elevation_panel import SiteElevationPanel
 from radiant.gui.widgets.source_inputs_form import SourceInputsForm
 from radiant.gui.widgets.spectral_integration_inputs_form import SpectralIntegrationInputsForm
 
@@ -304,6 +305,10 @@ class StagePane(QWidget):
         # forms and populated from each result's geometry stage outputs.
         self._scene_class_panels: list[SceneClassPanel] = []
         self._geometry_forms: list[GeometryModeForm] = []
+        # The one ``non_mode`` geometry scene fact (CU-301): site elevation is not a door
+        # onto any canonical viewing quantity, so the manifest-driven mode forms cannot
+        # render it and it gets its own card, on the scene-class card's precedent.
+        self._site_elevation_panels: list[SiteElevationPanel] = []
         self._geometry_readouts: list[GeometryReadout] = []
         self._geometry_viewers: list[GeometryViewer] = []
         self._geometry_panels: list[GeometryAnglePanel] = []
@@ -531,6 +536,14 @@ class StagePane(QWidget):
             geometry_form.parameterEdited.connect(self.parameterEdited)
             layout.addWidget(geometry_form)
             self._geometry_forms.append(geometry_form)
+        if spec.site_elevation_panel:
+            # Below the mode forms: the doors are typed first, then the standalone scene
+            # fact. One sensor.set per accepted edit, relayed through the standard
+            # parameterEdited pipeline so results go stale and a re-evaluate is scheduled.
+            site_elevation_panel = SiteElevationPanel(parent)
+            site_elevation_panel.parameterEdited.connect(self.parameterEdited)
+            layout.addWidget(site_elevation_panel)
+            self._site_elevation_panels.append(site_elevation_panel)
         if spec.geometry_readout:
             # No inner scroll here: the readout sizes to its full content and the pane's
             # outer scroll owns scrolling, so one full-height scrollbar spans the whole
@@ -720,6 +733,11 @@ class StagePane(QWidget):
         return self._geometry_forms[0] if self._geometry_forms else None
 
     @property
+    def site_elevation_panel(self) -> SiteElevationPanel | None:
+        """The site-elevation card, if this stage has one (Geometry 'Inputs', CU-301)."""
+        return self._site_elevation_panels[0] if self._site_elevation_panels else None
+
+    @property
     def geometry_readout(self) -> GeometryReadout | None:
         """The geometry angle readout, if this stage has one."""
         return self._geometry_readouts[0] if self._geometry_readouts else None
@@ -801,6 +819,8 @@ class StagePane(QWidget):
         self._last_result = None
         for scene_class_panel in self._scene_class_panels:
             scene_class_panel.bind_sensor(sensor, display_units)
+        for site_elevation_panel in self._site_elevation_panels:
+            site_elevation_panel.bind_sensor(sensor, display_units)
         for form in self._geometry_forms:
             form.bind_sensor(sensor, display_units)
         for source_form in self._source_forms:
@@ -864,11 +884,14 @@ class StagePane(QWidget):
         Both the Inputs-tab form and the Schematic-tab form read the one live sensor, so a
         value edited on either surface (or in the parameter tree) is reflected on both after
         the next clean evaluation, keeping the two tabs in sync. The scene-class card's
-        assertion field re-reads on the same beat — an assertion set in the parameter tree
-        shows on the Geometry screen immediately, exactly like a mode field (CU-121).
+        assertion field and the site-elevation card re-read on the same beat — a value set
+        in the parameter tree shows on the Geometry screen immediately, exactly like a mode
+        field (CU-121, CU-301).
         """
         for scene_class_panel in self._scene_class_panels:
             scene_class_panel.refresh()
+        for site_elevation_panel in self._site_elevation_panels:
+            site_elevation_panel.refresh()
         for form in self._geometry_forms:
             form.refresh()
 

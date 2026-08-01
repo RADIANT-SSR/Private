@@ -83,16 +83,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: a shipped metric rendered in the GUI Performance dashboard reads "94 % aliased" on a design with nothing to alias — the one Spatial-MTF number an operator would use to judge sampling adequacy is the one that lies in the best-sampled regime.
 **Suggested fix**: (b) stand-alone, S — owner ruling between (i) an absolute floor on the denominator (report 0 when the folded MTF at the sample frequency is below a documented epsilon) and (ii) a result-typed `failure_reason` per the Rule-17 metric-layer carve-out ("alias fraction undefined: optics cut off below Nyquist"). **Results-affecting** for the one metric on oversampled configurations either way. Category B. Related: [[CU-209]].
 
-### CU-301 — `geometry.site_elevation_m` has no GUI entry point
-
-**Discovered**: Overnight backlog run, CU-262 close-out, 2026-07-30.
-**Status**: Open.
-**Owner ruling (2026-08-01)**: approved — the field lives on the geometry screen (the `scene_class_panel.py` precedent), unit-bearing and entry/display symmetric per the display-units rule.
-**File**: `src/radiant/gui/widgets/` (geometry screen); `src/radiant/geometry/tests/test_mode_manifest.py::_NON_MODE_PARAMS`.
-**Symptom**: the GUI's geometry screen renders from the mode manifest, and [[CU-262]]'s new parameter is correctly excluded from it (it is not an input-mode door) — which leaves it reachable only from YAML or the scripting API. It sits exactly where `geometry.scene_class` sat before that parameter got its bespoke `scene_class_panel.py`.
-**Why it still matters**: the standing project rule is that every scenario's GUI workflow is documented and drivable; a results-affecting turbulence parameter that an operator cannot enter in the GUI fails that. Elevated-site seeing is the SST case Gap 110 shipped for, and it is a GUI-driven workflow.
-**Suggested fix**: (b) small stand-alone GUI task — a field on the geometry or turbulence view (unit-bearing, entry/display symmetric per the display-units rule), following the `scene_class_panel.py` precedent. Category D. Related: [[CU-262]], Gap 110.
-
 ### CU-289 — GUI transaction tests await a full re-evaluation pass they mostly do not assert on
 
 **Discovered**: [[CU-249]] resolution (branch `test/cu-249`), 2026-07-29.
@@ -142,16 +132,6 @@ Largest **absolute** steps: 2.40 µm (Δτ = −0.7545), 1.50 µm (+0.6810), 1.7
 **Symptom**: τ(λ) steps 0.728 → 0.617 across one grid point at 0.70 µm (visible in scenario 10.3's committed transmittance figure); any band edge near a region boundary inherits the step.
 **Why it still matters**: narrow-band work near a region edge sees a discontinuous, grid-dependent transmittance.
 **Suggested fix**: (b) stand-alone — blend region coefficients across a small transition width (results-affecting at the ~1 % level near edges only). Effort S–M; category C. Related: CU-161, [[CU-253]].
-
-### CU-250 — Down-looking schematic places the sensor glyph along the η ray from the target apex (vertex mismatch)
-
-**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, viewer agent finding), 2026-07-28.
-**Status**: Open.
-**Owner ruling (2026-08-01)**: approved — place the down-looking sensor glyph on the `theta_o_dir` ray so glyph ray and target-apex arcs coincide; reset the screenshot-parity expectations in the same PR.
-**File**: `src/radiant/gui/viewer/schematic_view.py::build_scene` (down-looking branch).
-**Symptom**: the down-looking layout places the sensor from the target at zenith angle η — but η is the angle at the *sensor* vertex; the target-side zenith is θ_o (differs by the Earth-centre central angle, ~2.2° for a 705 km LEO scene). Phase 4 worked around it by giving every stage-backed arc its own ray (η, θ_o, ζ_low each swept to their own direction), so **no displayed number is wrong** — but the glyph-placement ray itself is the η ray at the wrong vertex. Pre-existing; retained because bit-identical down-looking composition was a Phase-4 hard constraint.
-**Why it still matters**: purely visual coherence — a future pass could place the down-looking sensor along `theta_o_dir` so glyph ray and target-apex arcs coincide in all three compositions.
-**Suggested fix**: (b) stand-alone small task, owner-visible (changes existing down-looking pixels, so it needs the screenshot-parity expectation reset). Effort S; category A.
 
 ### CU-239 — Interpolated-library selection is an operator trap: a magic axes string stands in for a family picker, and mismatches surface as an evaluate-time crash dialog
 
@@ -259,21 +239,6 @@ i.e. the moment a scenario puts a *cold, low-emissivity* body on an elevated run
 **Why it still matters**: The owner's long-standing vision is a MATLAB-like command window; the REPL delivers the core interactive loop (query `result`, `sensor.set`, plot, Refresh) but not the polished editing/completion of a Jupyter widget. The unused pin is minor dead install weight (parallel to CU-134's pyvista pins).
 **Suggested fix**: (b) stand-alone task — restore the qtconsole in-process kernel path once a headless test strategy for the in-process kernel exists (or accept manual-verify for that path), binding the same namespace; keep the REPL as the graceful fallback when qtconsole import fails. If the kernel path is declined for v1, (c) drop the `qtconsole` pin alongside CU-134 in the next `pyproject` touch. Effort M; category D. Re-audit at GUI plan Phase 9 (closeout / `pyproject` housekeeping).
 
-### CU-110 — `EvaluationWorker` warning capture mutates the process-global `warnings` filter; safe only under the single-worker invariant
-
-**Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2 (in-GUI warnings), 2026-07-13
-**Status**: Open — **re-audited 2026-07-28 (Backlog-Reduction Batch 3); the deferral's premise is stale in two concrete ways and the risk surface has moved.**
-
-1. **The named class is gone.** `radiant.gui.workers.EvaluationWorker` no longer exists. The surviving process-global `catch_warnings` is `radiant.api.config_set.ConfigurationSet._evaluate_one`, whose docstring still cited the removed class as its safety justification — a dangling citation, corrected in this pass.
-2. **"At most one evaluation worker" is narrower than stated.** `main_window._start_worker` serialises only *its own* worker (`if self._worker.isRunning(): self._rerun_pending = True`). There are now **four** worker classes — `ConfigSetEvaluationWorker`, `_SweepWorker`, `_SolveWorker`, `_EvaluateAllWorker` — and the latter three are started by dialogs on cloned sensors with no serialisation against the main worker. A sweep opened while a debounced re-evaluation is in flight gives two concurrent chain runs; if both reach `_evaluate_one`, they race on the global filter.
-
-Not yet demonstrated to misbehave (the race needs both workers inside the capture window simultaneously, and a sweep over a plain sensor may not enter `_evaluate_one` at all), so this stays Open rather than becoming a defect — but it is no longer "correct today because there is only one worker". **Re-audit trigger changed**: not "when concurrent evaluation lands" (it has), but the next PR touching `gui/workers.py`, any dialog worker, or `config_set._evaluate_one`. Re-audit date: 2026-08-31.
-**Re-audited 2026-07-25** (multi-config Phase 4a, gating stage "GUI evaluate loop" landed): the capture **moved out of the GUI** into `ConfigurationSet.evaluate_all` (`_evaluate_one`), which opens one `catch_warnings` window per configuration; `radiant.gui.workers` no longer captures at all. The fragility is unchanged in kind (still a process-global filter mutation, still safe only under the single-worker invariant) and is now additionally relied on across N sequential configurations in one pass. Still Open, same gating condition, same fix; re-audit next when a concurrent evaluation path lands.
-**File**: `src/radiant/api/config_set.py` (`ConfigurationSet._evaluate_one` uses `warnings.catch_warnings(record=True)` + `simplefilter("always")`; was `radiant.gui.workers.EvaluationWorker.run` before 2026-07-25).
-**Symptom**: `warnings.catch_warnings` saves/restores the **module-global** filter list and `showwarning`; if two chain evaluations ever run concurrently (two worker threads), one worker's enter/exit can clobber the other's filter state, losing or mis-capturing warnings, and the capture itself is not thread-safe against a concurrent `warnings.warn`.
-**Why it still matters**: Rule 17 requires warnings to be surfaced, never swallowed. The current single-worker coalescing (`_evaluate_now` re-issues rather than parallelises) makes this safe, but that invariant is implicit; the moment a second concurrent evaluation path is added (the Sweep/MC tabs are v1.1), warning capture silently races.
-**Suggested fix**: stand-alone task (gated) — when concurrent evaluation is introduced, replace the global-filter capture with a thread-local `showwarning` hook installed for the duration of the run (or serialise capture behind a lock), so each worker captures only its own warnings. Effort S; category A (no physics/results; behaviour-preserving under the current single-worker path).
-
 ### CU-087 — MODTRAN import surface residue: parsed tape7 columns dropped; binary-flavor ModtranConfig knobs unwired
 
 **Discovered**: CU-086 re-audit of the landed MODTRAN rework (`d56fd9c`), 2026-07-11
@@ -295,6 +260,44 @@ Not yet demonstrated to misbehave (the race needs both workers inside the captur
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-301 — `geometry.site_elevation_m` has no GUI entry point — RESOLVED 2026-08-01 (commit trailer)
+
+**Discovered**: Overnight backlog run, CU-262 close-out, 2026-07-30.
+**Status**: RESOLVED 2026-08-01, closed by the `CU-Closes: 301` trailer commit.
+**Owner ruling (2026-08-01)**: approved — the field lives on the geometry screen (the `scene_class_panel.py` precedent), unit-bearing and entry/display symmetric per the display-units rule.
+**File**: `src/radiant/gui/widgets/` (geometry screen); `src/radiant/geometry/tests/test_mode_manifest.py::_NON_MODE_PARAMS`.
+**Symptom**: the GUI's geometry screen renders from the mode manifest, and [[CU-262]]'s new parameter is correctly excluded from it (it is not an input-mode door) — which leaves it reachable only from YAML or the scripting API. It sits exactly where `geometry.scene_class` sat before that parameter got its bespoke `scene_class_panel.py`.
+**Why it still matters**: the standing project rule is that every scenario's GUI workflow is documented and drivable; a results-affecting turbulence parameter that an operator cannot enter in the GUI fails that. Elevated-site seeing is the SST case Gap 110 shipped for, and it is a GUI-driven workflow.
+**Suggested fix**: (b) small stand-alone GUI task — a field on the geometry or turbulence view (unit-bearing, entry/display symmetric per the display-units rule), following the `scene_class_panel.py` precedent. Category D. Related: [[CU-262]], Gap 110.
+**Resolution**: bespoke `site_elevation_panel.py` card on the Geometry Inputs sub-view (the `scene_class_panel.py` precedent): shared `FieldRow` + `ParameterEditorDialog`, one validated `sensor.set` per accepted edit through the clone-validate seam, joins `bind_sensor`/`refresh_geometry_forms`. Display-unit symmetry tested as a closed loop (2.5 typed in km → 2500.0 m on the `Sensor` surface → reads back "2.5 km"); every rendered value unit-bearing. Mode-manifest exclusion invariant re-asserted, `_NON_MODE_PARAMS` untouched; no `_schema.py` change. 19 tests; CHANGELOG under Added (new GUI surface, no computed result moves); `RADIANT_GUI_Architecture.md` lock-step.
+
+### CU-250 — Down-looking schematic places the sensor glyph along the η ray from the target apex (vertex mismatch) — RESOLVED 2026-08-01 (commit trailer)
+
+**Discovered**: Geometry-Flexibility Phase 4 (branch `gf/phase4-gui`, viewer agent finding), 2026-07-28.
+**Status**: RESOLVED 2026-08-01, closed by the `CU-Closes: 250` trailer commit.
+**Owner ruling (2026-08-01)**: approved — place the down-looking sensor glyph on the `theta_o_dir` ray so glyph ray and target-apex arcs coincide; reset the screenshot-parity expectations in the same PR.
+**File**: `src/radiant/gui/viewer/schematic_view.py::build_scene` (down-looking branch).
+**Symptom**: the down-looking layout places the sensor from the target at zenith angle η — but η is the angle at the *sensor* vertex; the target-side zenith is θ_o (differs by the Earth-centre central angle, ~2.2° for a 705 km LEO scene). Phase 4 worked around it by giving every stage-backed arc its own ray (η, θ_o, ζ_low each swept to their own direction), so **no displayed number is wrong** — but the glyph-placement ray itself is the η ray at the wrong vertex. Pre-existing; retained because bit-identical down-looking composition was a Phase-4 hard constraint.
+**Why it still matters**: purely visual coherence — a future pass could place the down-looking sensor along `theta_o_dir` so glyph ray and target-apex arcs coincide in all three compositions.
+**Suggested fix**: (b) stand-alone small task, owner-visible (changes existing down-looking pixels, so it needs the screenshot-parity expectation reset). Effort S; category A.
+**Resolution**: the down-looking sensor glyph now rides `theta_o_dir` (one line: `sensor_dir = theta_o_dir if state.theta_o_rad > 0.0 else eta_dir`), so glyph ray and target-apex arcs coincide; arc math untouched. The θ_o = 0 fallback is provably a no-op for genuine nadir scenes (η = 0 there too) and preserves the layout for partial results (the zero/absent sentinel ambiguity is a Findings-Log line). Screenshot-parity reset: no image-baseline mechanism exists — the pinned `TestDownLookingRegression` values are unchanged (the default state has θ_o = η = 20°, where the rays coincide); the old η-ray-identity test is replaced by one asserting *why* the pin holds, and 7 new geometry-level tests on a real 705 km triangle (5 fail on the old code). Visual-only — no CHANGELOG entry.
+
+### CU-110 — `EvaluationWorker` warning capture mutates the process-global `warnings` filter; safe only under the single-worker invariant — RESOLVED 2026-08-01 (commit trailer)
+
+**Discovered**: GUI Development Plan Phase 3 checkpoint punch-list round 2 (in-GUI warnings), 2026-07-13
+**Status**: RESOLVED 2026-08-01, closed by the `CU-Closes: 110` trailer commit. — *(prior)* Open — **re-audited 2026-07-28 (Backlog-Reduction Batch 3); the deferral's premise is stale in two concrete ways and the risk surface has moved.**
+
+1. **The named class is gone.** `radiant.gui.workers.EvaluationWorker` no longer exists. The surviving process-global `catch_warnings` is `radiant.api.config_set.ConfigurationSet._evaluate_one`, whose docstring still cited the removed class as its safety justification — a dangling citation, corrected in this pass.
+2. **"At most one evaluation worker" is narrower than stated.** `main_window._start_worker` serialises only *its own* worker (`if self._worker.isRunning(): self._rerun_pending = True`). There are now **four** worker classes — `ConfigSetEvaluationWorker`, `_SweepWorker`, `_SolveWorker`, `_EvaluateAllWorker` — and the latter three are started by dialogs on cloned sensors with no serialisation against the main worker. A sweep opened while a debounced re-evaluation is in flight gives two concurrent chain runs; if both reach `_evaluate_one`, they race on the global filter.
+
+Not yet demonstrated to misbehave (the race needs both workers inside the capture window simultaneously, and a sweep over a plain sensor may not enter `_evaluate_one` at all), so this stays Open rather than becoming a defect — but it is no longer "correct today because there is only one worker". **Re-audit trigger changed**: not "when concurrent evaluation lands" (it has), but the next PR touching `gui/workers.py`, any dialog worker, or `config_set._evaluate_one`. Re-audit date: 2026-08-31.
+**Re-audited 2026-07-25** (multi-config Phase 4a, gating stage "GUI evaluate loop" landed): the capture **moved out of the GUI** into `ConfigurationSet.evaluate_all` (`_evaluate_one`), which opens one `catch_warnings` window per configuration; `radiant.gui.workers` no longer captures at all. The fragility is unchanged in kind (still a process-global filter mutation, still safe only under the single-worker invariant) and is now additionally relied on across N sequential configurations in one pass. Still Open, same gating condition, same fix; re-audit next when a concurrent evaluation path lands.
+**File**: `src/radiant/api/config_set.py` (`ConfigurationSet._evaluate_one` uses `warnings.catch_warnings(record=True)` + `simplefilter("always")`; was `radiant.gui.workers.EvaluationWorker.run` before 2026-07-25).
+**Symptom**: `warnings.catch_warnings` saves/restores the **module-global** filter list and `showwarning`; if two chain evaluations ever run concurrently (two worker threads), one worker's enter/exit can clobber the other's filter state, losing or mis-capturing warnings, and the capture itself is not thread-safe against a concurrent `warnings.warn`.
+**Why it still matters**: Rule 17 requires warnings to be surfaced, never swallowed. The current single-worker coalescing (`_evaluate_now` re-issues rather than parallelises) makes this safe, but that invariant is implicit; the moment a second concurrent evaluation path is added (the Sweep/MC tabs are v1.1), warning capture silently races.
+**Suggested fix**: stand-alone task (gated) — when concurrent evaluation is introduced, replace the global-filter capture with a thread-local `showwarning` hook installed for the duration of the run (or serialise capture behind a lock), so each worker captures only its own warnings. Effort S; category A (no physics/results; behaviour-preserving under the current single-worker path).
+**Resolution**: `ConfigurationSet._evaluate_one` now uses the new `api/_warning_capture.capture_warnings` — a per-thread stack of capture lists behind one dispatching `showwarning`: each thread records only its own warnings, captures nest, and a warning on a thread with no open capture is forwarded to the pre-install handler (Rule 17 — strictly better than `catch_warnings`, which ate it into an unrelated window). The one necessarily process-global piece — the `simplefilter("always")` filter — is reference-counted under a lock (first capture installs, last restores), closing the exact clobber this entry names; CPython has no per-thread filters, so this is the floor. 10 new tests with Barrier-synchronized concurrency (no sleeps); the 3 concurrency tests fail under the old `catch_warnings` implementation, the 7 single-thread tests pass under both (behavior preservation). Private module — no CHANGELOG entry.
 
 ### CU-257 — Point-source validity guard compares against the optics-only PSF FWHM, ignoring turbulence — CLOSED 2026-08-01 (commit trailer)
 

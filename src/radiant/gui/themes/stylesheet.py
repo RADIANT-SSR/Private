@@ -544,6 +544,29 @@ QLabel#sceneClassNote {{
     padding-top: 2px;
 }}
 
+/* -- Site-elevation card (CU-301, Geometry Inputs below the mode forms) --- *
+ * The one geometry parameter the mode manifest cannot render (it is a scene
+ * fact, not an input-mode door), so it gets a card of its own. Deliberately the
+ * same panel fill / border / title treatment as sceneClassCard so the two
+ * bespoke Geometry cards read as one family; no conflict state — a site
+ * elevation cannot contradict another input, it is only ever inert (a non-HV
+ * Cn2 profile), which the run reports as a warning. */
+QWidget#siteElevationCard {{
+    background-color: {t.panel_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+}}
+QLabel#siteElevationTitle {{
+    color: {t.ink_2};
+    font-size: 11px;
+    font-weight: 600;
+}}
+QLabel#siteElevationNote {{
+    color: {t.muted};
+    font-size: 11px;
+    padding-top: 2px;
+}}
+
 /* -- Configured-parameter marker (ADR-0010 D-2, multi-configuration 4b) - *
  * The small red "C" on any parameter that carries one value per configuration.
  * Same `err` red as every other "look here" surface, in both themes; hidden

@@ -61,80 +61,185 @@ from radiant.api import Sensor, compare_mtf
 from radiant.io.measurement import load_measured_curve
 
 
+# ---------------------------------------------------------------------------
+# Step 1: Read Karen's spreadsheet + the slanted-edge tool's CSV export
+# ---------------------------------------------------------------------------
+
+INPUT_FILE = Path(__file__).parent.parent / "inputs" / "karen_mtf_lab_data.xlsx"
+MEASURED_CSV = Path(__file__).parent.parent / "inputs" / "karen_measured_mtf.csv"
+
+wb_in = openpyxl.load_workbook(INPUT_FILE)
+
+# --- System configuration ---
+ws_sys = wb_in["System Configuration"]
+specs: dict[str, object] = {}
+units: dict[str, str] = {}
+
+# Read each section (skip section headers that have colored background)
+for row in ws_sys.iter_rows(min_row=5, max_col=4, values_only=False):
+    name = row[0].value
+    value = row[1].value
+    if name and value is not None and not isinstance(value, str) or (
+        isinstance(value, str) and value not in ("", "—")
+    ):
+        try:
+            specs[name] = float(value)
+        except (ValueError, TypeError):
+            specs[name] = value
+        units[name] = str(row[2].value) if row[2].value else "—"
+
+# --- Measured MTF: vendor CSV via radiant.io (Gap 30) ---
+# The slanted-edge tool exports a comment-headed two-column CSV;
+# load_measured_curve handles comments/header detection and validates
+# ascending, numeric, de-duplicated frequency values.
+measured_curve = load_measured_curve(MEASURED_CSV, x_unit="cy/mm")
+
+meas_freq_cy_mm_arr = measured_curve.x
+meas_mtf_arr = measured_curve.y
+meas_freq_cy_m = meas_freq_cy_mm_arr * 1000.0  # cy/mm → cy/m (for analytic curves)
+meas_freq_cy_mm = list(meas_freq_cy_mm_arr)
+
+# --- As-built WFE ---
+ws_wfe = wb_in["As-Built WFE"]
+wfe_specs: dict[str, object] = {}
+for row in ws_wfe.iter_rows(min_row=5, max_col=4, values_only=False):
+    name = row[0].value
+    value = row[1].value
+    if name and value is not None:
+        try:
+            wfe_specs[name] = float(value)
+        except (ValueError, TypeError):
+            wfe_specs[name] = value
+
+# --- Focus position ---
+ws_focus = wb_in["Focus Position"]
+focus_specs: dict[str, object] = {}
+for row in ws_focus.iter_rows(min_row=5, max_col=4, values_only=False):
+    name = row[0].value
+    value = row[1].value
+    if name and value is not None:
+        try:
+            focus_specs[name] = float(value)
+        except (ValueError, TypeError):
+            focus_specs[name] = value
+
+# --- Defocus sweep values ---
+defocus_sweep_um: list[float] = []
+for row in ws_focus.iter_rows(min_row=14, max_col=1, values_only=True):
+    if row[0] is not None:
+        try:
+            defocus_sweep_um.append(float(row[0]))
+        except (ValueError, TypeError):
+            pass
+
+
+# ---------------------------------------------------------------------------
+# Step 2: Convert to RADIANT canonical units
+# ---------------------------------------------------------------------------
+
+aperture_m = float(specs["Aperture diameter"]) / 100.0        # cm → m
+focal_length_m = float(specs["Effective focal length"]) / 100.0  # cm → m
+f_number = float(specs["f-number"])
+transmission = float(specs["Optical transmission"]) / 100.0   # % → fraction
+optics_temp_K = float(specs["Optics temperature"]) + 273.15   # °C → K
+obscuration = float(specs["Central obscuration"]) / 100.0     # % → fraction
+
+filter_min_nm = float(specs["Filter min"])
+filter_max_nm = float(specs["Filter max"])
+filter_min_um = filter_min_nm / 1000.0                        # nm → µm
+filter_max_um = filter_max_nm / 1000.0
+band_center_um = (filter_min_um + filter_max_um) / 2.0
+test_wavelength_nm = float(specs["MTF test wavelength"])
+test_wavelength_um = test_wavelength_nm / 1000.0
+
+pixel_pitch_um = float(specs["Pixel pitch"])
+pixel_pitch_m = pixel_pitch_um * 1e-6                         # µm → m
+fill_factor = float(specs["Fill factor"]) / 100.0             # % → fraction
+qe = float(specs["Quantum efficiency"]) / 100.0               # % → fraction
+dark_rate = float(specs["Dark current"])
+det_temp_K = float(specs["Operating temperature"])
+read_noise = float(specs["Read noise"])
+fwc = float(specs["Full well capacity"])
+adc_bits = int(specs["ADC bits"])
+gain = float(specs["System gain"])
+ipc_coupling = float(specs["IPC coupling"]) / 100.0           # % → fraction
+
+t_int_ms = float(specs["Integration time"])
+t_int_s = t_int_ms / 1000.0                                   # ms → s
+
+wfe_rms_waves = float(wfe_specs["Total WFE RMS"])
+wfe_ref_nm = float(wfe_specs["WFE reference wavelength"])
+wfe_ref_um = wfe_ref_nm / 1000.0                              # nm → µm
+
+defocus_um = float(focus_specs["Defocus from best focus"])
+defocus_m = defocus_um * 1e-6                                 # µm → m
+
+# Derived parameters
+f_nyquist_cy_m = 1.0 / (2.0 * pixel_pitch_m)
+f_nyquist_cy_mm = f_nyquist_cy_m / 1000.0
+f_cutoff_cy_m = 1.0 / (test_wavelength_um * 1e-6 * f_number)
+f_cutoff_cy_mm = f_cutoff_cy_m / 1000.0
+Q = band_center_um * f_number / pixel_pitch_um
+airy_diam_um = 2.44 * band_center_um * f_number
+
+
+# Lab configuration: no atmosphere, no geometry (bench test)
+config = {
+    "source": {
+        "target": {"temperature": 300.0, "emissivity": 0.90},
+        "background": {"temperature": 295.0, "emissivity": 0.95},
+    },
+    "atmosphere": {
+        "model": "exo",
+    },
+    "geometry": {
+        "sensor_altitude_m": 0.0,
+        "path_zenith_rad": 0.0,
+        "solar_zenith_rad": 0.5,
+    },
+    "platform": {
+        # Stage-7 stop-gap (registry Gap 42): "exo" routes through the
+        # no_atmosphere 'space' sub-case, whose Earth-limb check requires
+        # a positive user-set platform.h_sensor [m above MSL]. 1.0 m ≈
+        # bench height; feeds only the limb check, no radiometric effect.
+        "h_sensor": 1.0,
+    },
+    "optics": {
+        "aperture_diameter_m": aperture_m,
+        "focal_length_m": focal_length_m,
+        "transmission_scalar": transmission,
+        "optics_temperature_K": optics_temp_K,
+        "wfe_rms_waves": wfe_rms_waves,
+        "obscuration_ratio": obscuration,
+        "defocus_um": defocus_um,
+    },
+    "detector": {
+        "pixel_pitch_x_um": pixel_pitch_um,
+        "pixel_pitch_y_um": pixel_pitch_um,
+        "qe_value": qe,
+        "dark_rate_e_per_s": dark_rate,
+        "detector_temperature_K": det_temp_K,
+        "fill_factor": fill_factor,
+        "ipc_coupling": ipc_coupling,
+    },
+    "spectral_integration": {
+        "filter_min_um": filter_min_um,
+        "filter_max_um": filter_max_um,
+        "integration_time_s": t_int_s,
+    },
+    "readout": {
+        "read_noise_e_rms": read_noise,
+        "full_well_capacity_e": fwc,
+        "gain_e_per_dn": gain,
+        "adc_bits": adc_bits,
+    },
+}
+
+
 def main() -> None:
     """Run the scenario analysis."""
-    # ---------------------------------------------------------------------------
-    # Step 1: Read Karen's spreadsheet + the slanted-edge tool's CSV export
-    # ---------------------------------------------------------------------------
-
-    INPUT_FILE = Path(__file__).parent.parent / "inputs" / "karen_mtf_lab_data.xlsx"
-    MEASURED_CSV = Path(__file__).parent.parent / "inputs" / "karen_measured_mtf.csv"
     OUTPUT_FILE = Path(__file__).parent.parent / "outputs" / "mtf_comparison_results.xlsx"
     PLOT_DIR = Path(__file__).parent.parent / "outputs"
-
-    wb_in = openpyxl.load_workbook(INPUT_FILE)
-
-    # --- System configuration ---
-    ws_sys = wb_in["System Configuration"]
-    specs: dict[str, object] = {}
-    units: dict[str, str] = {}
-
-    # Read each section (skip section headers that have colored background)
-    for row in ws_sys.iter_rows(min_row=5, max_col=4, values_only=False):
-        name = row[0].value
-        value = row[1].value
-        if name and value is not None and not isinstance(value, str) or (
-            isinstance(value, str) and value not in ("", "—")
-        ):
-            try:
-                specs[name] = float(value)
-            except (ValueError, TypeError):
-                specs[name] = value
-            units[name] = str(row[2].value) if row[2].value else "—"
-
-    # --- Measured MTF: vendor CSV via radiant.io (Gap 30) ---
-    # The slanted-edge tool exports a comment-headed two-column CSV;
-    # load_measured_curve handles comments/header detection and validates
-    # ascending, numeric, de-duplicated frequency values.
-    measured_curve = load_measured_curve(MEASURED_CSV, x_unit="cy/mm")
-
-    meas_freq_cy_mm_arr = measured_curve.x
-    meas_mtf_arr = measured_curve.y
-    meas_freq_cy_m = meas_freq_cy_mm_arr * 1000.0  # cy/mm → cy/m (for analytic curves)
-    meas_freq_cy_mm = list(meas_freq_cy_mm_arr)
-
-    # --- As-built WFE ---
-    ws_wfe = wb_in["As-Built WFE"]
-    wfe_specs: dict[str, object] = {}
-    for row in ws_wfe.iter_rows(min_row=5, max_col=4, values_only=False):
-        name = row[0].value
-        value = row[1].value
-        if name and value is not None:
-            try:
-                wfe_specs[name] = float(value)
-            except (ValueError, TypeError):
-                wfe_specs[name] = value
-
-    # --- Focus position ---
-    ws_focus = wb_in["Focus Position"]
-    focus_specs: dict[str, object] = {}
-    for row in ws_focus.iter_rows(min_row=5, max_col=4, values_only=False):
-        name = row[0].value
-        value = row[1].value
-        if name and value is not None:
-            try:
-                focus_specs[name] = float(value)
-            except (ValueError, TypeError):
-                focus_specs[name] = value
-
-    # --- Defocus sweep values ---
-    defocus_sweep_um: list[float] = []
-    for row in ws_focus.iter_rows(min_row=14, max_col=1, values_only=True):
-        if row[0] is not None:
-            try:
-                defocus_sweep_um.append(float(row[0]))
-            except (ValueError, TypeError):
-                pass
 
     print("=" * 80)
     print("SCENARIO 7.3: MTF Measurement vs. Prediction")
@@ -161,54 +266,6 @@ def main() -> None:
     for k, v in focus_specs.items():
         print(f"  {k:<35s}: {v}")
 
-    # ---------------------------------------------------------------------------
-    # Step 2: Convert to RADIANT canonical units
-    # ---------------------------------------------------------------------------
-
-    aperture_m = float(specs["Aperture diameter"]) / 100.0        # cm → m
-    focal_length_m = float(specs["Effective focal length"]) / 100.0  # cm → m
-    f_number = float(specs["f-number"])
-    transmission = float(specs["Optical transmission"]) / 100.0   # % → fraction
-    optics_temp_K = float(specs["Optics temperature"]) + 273.15   # °C → K
-    obscuration = float(specs["Central obscuration"]) / 100.0     # % → fraction
-
-    filter_min_nm = float(specs["Filter min"])
-    filter_max_nm = float(specs["Filter max"])
-    filter_min_um = filter_min_nm / 1000.0                        # nm → µm
-    filter_max_um = filter_max_nm / 1000.0
-    band_center_um = (filter_min_um + filter_max_um) / 2.0
-    test_wavelength_nm = float(specs["MTF test wavelength"])
-    test_wavelength_um = test_wavelength_nm / 1000.0
-
-    pixel_pitch_um = float(specs["Pixel pitch"])
-    pixel_pitch_m = pixel_pitch_um * 1e-6                         # µm → m
-    fill_factor = float(specs["Fill factor"]) / 100.0             # % → fraction
-    qe = float(specs["Quantum efficiency"]) / 100.0               # % → fraction
-    dark_rate = float(specs["Dark current"])
-    det_temp_K = float(specs["Operating temperature"])
-    read_noise = float(specs["Read noise"])
-    fwc = float(specs["Full well capacity"])
-    adc_bits = int(specs["ADC bits"])
-    gain = float(specs["System gain"])
-    ipc_coupling = float(specs["IPC coupling"]) / 100.0           # % → fraction
-
-    t_int_ms = float(specs["Integration time"])
-    t_int_s = t_int_ms / 1000.0                                   # ms → s
-
-    wfe_rms_waves = float(wfe_specs["Total WFE RMS"])
-    wfe_ref_nm = float(wfe_specs["WFE reference wavelength"])
-    wfe_ref_um = wfe_ref_nm / 1000.0                              # nm → µm
-
-    defocus_um = float(focus_specs["Defocus from best focus"])
-    defocus_m = defocus_um * 1e-6                                 # µm → m
-
-    # Derived parameters
-    f_nyquist_cy_m = 1.0 / (2.0 * pixel_pitch_m)
-    f_nyquist_cy_mm = f_nyquist_cy_m / 1000.0
-    f_cutoff_cy_m = 1.0 / (test_wavelength_um * 1e-6 * f_number)
-    f_cutoff_cy_mm = f_cutoff_cy_m / 1000.0
-    Q = band_center_um * f_number / pixel_pitch_um
-    airy_diam_um = 2.44 * band_center_um * f_number
 
     print(f"\n=== Converted to RADIANT Canonical Units ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit':<12s}  {'Conversion'}")
@@ -242,57 +299,6 @@ def main() -> None:
     print(f"  RADIANT PREDICTION — AS-BUILT SYSTEM")
     print(f"{'=' * 80}")
 
-    # Lab configuration: no atmosphere, no geometry (bench test)
-    config = {
-        "source": {
-            "target": {"temperature": 300.0, "emissivity": 0.90},
-            "background": {"temperature": 295.0, "emissivity": 0.95},
-        },
-        "atmosphere": {
-            "model": "exo",
-        },
-        "geometry": {
-            "sensor_altitude_m": 0.0,
-            "path_zenith_rad": 0.0,
-            "solar_zenith_rad": 0.5,
-        },
-        "platform": {
-            # Stage-7 stop-gap (registry Gap 42): "exo" routes through the
-            # no_atmosphere 'space' sub-case, whose Earth-limb check requires
-            # a positive user-set platform.h_sensor [m above MSL]. 1.0 m ≈
-            # bench height; feeds only the limb check, no radiometric effect.
-            "h_sensor": 1.0,
-        },
-        "optics": {
-            "aperture_diameter_m": aperture_m,
-            "focal_length_m": focal_length_m,
-            "transmission_scalar": transmission,
-            "optics_temperature_K": optics_temp_K,
-            "wfe_rms_waves": wfe_rms_waves,
-            "obscuration_ratio": obscuration,
-            "defocus_um": defocus_um,
-        },
-        "detector": {
-            "pixel_pitch_x_um": pixel_pitch_um,
-            "pixel_pitch_y_um": pixel_pitch_um,
-            "qe_value": qe,
-            "dark_rate_e_per_s": dark_rate,
-            "detector_temperature_K": det_temp_K,
-            "fill_factor": fill_factor,
-            "ipc_coupling": ipc_coupling,
-        },
-        "spectral_integration": {
-            "filter_min_um": filter_min_um,
-            "filter_max_um": filter_max_um,
-            "integration_time_s": t_int_s,
-        },
-        "readout": {
-            "read_noise_e_rms": read_noise,
-            "full_well_capacity_e": fwc,
-            "gain_e_per_dn": gain,
-            "adc_bits": adc_bits,
-        },
-    }
 
     sensor = Sensor.from_dict(config)
     r = sensor.evaluate()

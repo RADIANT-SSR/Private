@@ -89,6 +89,8 @@ offnadir_rad = offnadir_deg * math.pi / 180.0                       # deg → ra
 # Atmosphere baseline
 std_atmo = str(atmo_specs["Standard atmosphere"])
 aerosol_type = str(atmo_specs["Aerosol type"])
+baseline_vis_km = float(atmo_specs["Baseline visibility"])
+baseline_pwv_cm = float(atmo_specs["Baseline PWV"])
 
 # Scene
 target_temp_K = float(atmo_specs["Target temperature"])
@@ -214,8 +216,6 @@ def main() -> None:
     for k, v in sweep_specs.items():
         print(f"  {k}: {v} {sweep_units.get(k, '')}")
     f_number = float(sensor_specs["f-number"])
-    baseline_vis_km = float(atmo_specs["Baseline visibility"])
-    baseline_pwv_cm = float(atmo_specs["Baseline PWV"])
 
     # Sweep parameters
     niirs_req = float(sweep_specs["Minimum NIIRS"])

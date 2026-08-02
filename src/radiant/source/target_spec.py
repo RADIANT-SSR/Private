@@ -21,21 +21,26 @@ Two entry points:
   here; the identity that matters (seam error == evaluate error) is unaffected
   because both callers read these same functions.
 * :func:`validate_target_spec` runs the doors in the inferrer's dispatch order
-  (S11 → S12 → S4/S5/S6 → S8 → S10b → S10) and is the single seam the API
-  exposes.  CU-256 added :func:`check_intensity_door_extent_conflicts` here as
-  the intended extension point predicted by the CU-244 docstring; CU-293 (with
-  the folded CU-294) completed the extraction by moving the last three inlined
-  door blocks — S8 :func:`check_user_radiance_conflicts`, S10b
+  (S11 → S12 → S4/S5/S6 → S8 → S10b → S10 → S1-with-ε(λ)) and is the single
+  seam the API exposes.  CU-256 added
+  :func:`check_intensity_door_extent_conflicts` here as the intended extension
+  point predicted by the CU-244 docstring; CU-293 (with the folded CU-294)
+  moved three more inlined door blocks — S8
+  :func:`check_user_radiance_conflicts`, S10b
   :func:`check_point_intensity_conflicts`, S10
-  :func:`check_user_intensity_conflicts` — and by adding the S11-vs-S12 guard
-  the S11 door had always been missing.  Future door guards slot in the same
+  :func:`check_user_intensity_conflicts` — and added the S11-vs-S12 guard the
+  S11 door had always been missing; CU-318 moved the last one, the ε(λ) door's
+  :func:`check_emissivity_path_conflicts`.  Future door guards slot in the same
   way.
 
-Every door is now symmetric: whichever door dispatches first, the same pair is
-refused with the same class of message.  Before CU-293 the S11 door alone had
-no S12 guard, so a ``brightness_temperature_* + radiance_temperature_K`` pair
-raised at this seam but *evaluated silently* — the S11 builder dispatched
-first and discarded the radiance-temperature surface (Rule 17).
+Every door is now registered here: whichever door dispatches first, the same
+pair is refused with the same message at both entry points.  Before CU-293 the
+S11 door alone had no S12 guard, so a ``brightness_temperature_* +
+radiance_temperature_K`` pair raised at this seam but *evaluated silently* —
+the S11 builder dispatched first and discarded the radiance-temperature
+surface (Rule 17).  Before CU-318 the ε(λ) door's guard was still inlined, so
+its one unique pair (``emissivity_path`` + scalar ``source.target.emissivity``)
+refused only at ``evaluate()``.
 
 Scope: **over-specification only.**  Completeness checks (e.g. "S12 requires
 the band edges") stay in the inferrer — a half-entered spec is a legitimate
@@ -56,6 +61,7 @@ from radiant.source._schema import validate_reflectance_albedo_exclusive
 
 __all__ = [
     "check_brightness_temperature_conflicts",
+    "check_emissivity_path_conflicts",
     "check_intensity_door_extent_conflicts",
     "check_point_intensity_conflicts",
     "check_radiance_temperature_conflicts",
@@ -64,6 +70,22 @@ __all__ = [
     "check_user_radiance_conflicts",
     "validate_target_spec",
 ]
+
+# Surfaces that over-specify the S1-with-ε(λ) thermal target opened by
+# ``source.target.emissivity_path`` (Gap 47).  Order is the pre-extraction
+# inline order in ``_inferrer._load_emissivity_on_grid`` (CU-318).
+_EMISSIVITY_PATH_CONFLICTS: tuple[str, ...] = (
+    "source.target.emissivity",
+    "source.target.reflectance",
+    "source.target.albedo",
+    "source.target.reflectance_path",
+    "source.target.albedo_path",
+    "source.target.brightness_temperature_K",
+    "source.target.brightness_temperature_path",
+    "source.target.radiance_temperature_K",
+    "source.target.user_radiance_path",
+    "source.target.user_intensity_path",
+)
 
 # The three user-entry surfaces that open the S10/S10b intensity door
 # (:class:`~radiant.core.descriptors.T7IntensityAtSource`).
@@ -800,11 +822,46 @@ def check_reflectance_conflicts(params: ParameterSet) -> None:
         )
 
 
+def check_emissivity_path_conflicts(params: ParameterSet) -> None:
+    """S1-with-ε(λ) door: raise if ``emissivity_path`` is paired with a rival surface.
+
+    CU-318.  No-op when ``emissivity_path`` is not user-set or is empty.  Guard
+    order (and text, modulo the CU-295 module prefix) is exactly the
+    pre-extraction inline order in ``_inferrer._load_emissivity_on_grid``: the
+    single :data:`_EMISSIVITY_PATH_CONFLICTS` sweep, first hit wins.
+
+    Most of those pairs are already refused by the rival door's own symmetric
+    guard, which :func:`validate_target_spec` runs first (inferrer dispatch
+    order — the ε(λ) door dispatches last, after S10).  The pair unique to this
+    door is ``emissivity_path`` + scalar ``source.target.emissivity``: before
+    CU-318 it reached only ``evaluate()``.
+    """
+    if not _is_user_set_nonempty(params, "source.target.emissivity_path"):
+        return
+    csv_path = str(_value_of(params, "source.target.emissivity_path"))
+
+    for other in _EMISSIVITY_PATH_CONFLICTS:
+        if _is_user_set(params, other):
+            raise ParameterBoundsError(
+                what=(
+                    "source.target_spec: source.target.emissivity_path is "
+                    f"mutually exclusive with {other}"
+                ),
+                why=(
+                    "emissivity_path defines a thermal target via ε(λ)·B(T); "
+                    "combining it with a scalar-ε, reflective, radiance, or "
+                    "brightness/radiance-temperature surface over-specifies the target."
+                ),
+                action=f"Set either source.target.emissivity_path or {other}, not both.",
+                context={"emissivity_path": csv_path, "conflict": other},
+            )
+
+
 def validate_target_spec(params: ParameterSet) -> None:
     """Raise :class:`ParameterBoundsError` if the target spec is over-specified.
 
     Runs the per-door exclusivity guards in the inferrer's dispatch order
-    (S11 → S12 → S4/S5/S6 → S8 → S10b → S10), so whenever ``evaluate()`` would
+    (S11 → S12 → S4/S5/S6 → S8 → S10b → S10 → S1-with-ε(λ)), so whenever ``evaluate()`` would
     raise an exclusivity error via ``_inferrer._build_target_descriptor``, the
     first error raised here is that same error — same what/why/action.  A no-op
     on a cleanly specified (or not-yet-complete) target: completeness is
@@ -814,7 +871,11 @@ def validate_target_spec(params: ParameterSet) -> None:
     *stricter* than ``evaluate()`` for an S11 + S12 pair, because the inferrer's
     S11 builder dispatched first and had no S12 guard; that guard now exists
     (:func:`check_brightness_temperature_conflicts`), so the two entry points
-    agree on every pair the doors know about.
+    agree on every pair the doors know about.  CU-318 closed the mirror-image
+    gap: the ε(λ) door's guard was still inlined in the inferrer, so
+    ``emissivity_path`` + scalar ``source.target.emissivity`` — the one pair no
+    other door refuses symmetrically — reached only ``evaluate()``.  It is now
+    :func:`check_emissivity_path_conflicts`, last in dispatch order.
     """
     check_brightness_temperature_conflicts(params)
     check_radiance_temperature_conflicts(params)
@@ -823,3 +884,4 @@ def validate_target_spec(params: ParameterSet) -> None:
     check_intensity_door_extent_conflicts(params)
     check_point_intensity_conflicts(params)
     check_user_intensity_conflicts(params)
+    check_emissivity_path_conflicts(params)

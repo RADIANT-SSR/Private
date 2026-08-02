@@ -116,6 +116,7 @@ from radiant.source.shape import TargetShape
 from radiant.source.tabulated import TabulatedRadianceSource
 from radiant.source.target_spec import (
     check_brightness_temperature_conflicts,
+    check_emissivity_path_conflicts,
     check_intensity_door_extent_conflicts,
     check_point_intensity_conflicts,
     check_radiance_temperature_conflicts,
@@ -1280,20 +1281,6 @@ def _maybe_build_from_user_intensity(
     )
 
 
-_EMISSIVITY_PATH_CONFLICTS = (
-    "source.target.emissivity",
-    "source.target.reflectance",
-    "source.target.albedo",
-    "source.target.reflectance_path",
-    "source.target.albedo_path",
-    "source.target.brightness_temperature_K",
-    "source.target.brightness_temperature_path",
-    "source.target.radiance_temperature_K",
-    "source.target.user_radiance_path",
-    "source.target.user_intensity_path",
-)
-
-
 def _validate_emissivity_csv(eps_values: np.ndarray, *, csv_path: str) -> None:
     """Raise on ε outside ``[0, 1]`` at the CSV boundary (Rule 15, Gap 47)."""
     if eps_values.size == 0:
@@ -1321,25 +1308,17 @@ def _load_emissivity_on_grid(
     Raises if emissivity_path is combined with any conflicting surface — the
     thermal spectral-emissivity target is a single spec form (S1 with ε(λ)),
     so scalar ε, reflective, radiance, and brightness/radiance-temperature
-    surfaces would over-specify it.
+    surfaces would over-specify it.  CU-318 moved that exclusivity guard into
+    :func:`radiant.source.target_spec.check_emissivity_path_conflicts`, so it
+    also runs at the resolve-time seam; the call below keeps the evaluate-time
+    refusal (defence in depth) at the exact point the inline block occupied.
     """
     if not _is_user_set(params, "source.target.emissivity_path"):
         return None
     csv_path = str(params.get("source.target.emissivity_path"))
     if not csv_path:
         return None
-    for other in _EMISSIVITY_PATH_CONFLICTS:
-        if _is_user_set(params, other):
-            raise ParameterBoundsError(
-                what=f"source.target.emissivity_path is mutually exclusive with {other}",
-                why=(
-                    "emissivity_path defines a thermal target via ε(λ)·B(T); "
-                    "combining it with a scalar-ε, reflective, radiance, or "
-                    "brightness/radiance-temperature surface over-specifies the target."
-                ),
-                action=f"Set either source.target.emissivity_path or {other}, not both.",
-                context={"emissivity_path": csv_path, "conflict": other},
-            )
+    check_emissivity_path_conflicts(params)
     eps_native = load_two_column_csv(
         csv_path,
         value_unit="",

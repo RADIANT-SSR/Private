@@ -148,22 +148,44 @@ def emit_one(scen: GuiScenario) -> dict[str, float | None]:
 
 
 def main(argv: list[str]) -> int:
+    """Emit every requested baseline; return non-zero if any scenario failed.
+
+    The exit code is the gate (CU-319). This used to return 0 unconditionally,
+    printing ``[FAIL]`` per broken scenario, so a batch regeneration driven from
+    a script or CI looked successful while leaving those baselines stale — the
+    breakage was invisible exactly when the §5.3 refresh protocol was exercised.
+    """
     wanted = set(argv[1:])
     scenarios = [s for s in REGISTRY if not wanted or s.id in wanted]
     if not scenarios:
         print(f"no registered scenarios match {sorted(wanted)}", file=sys.stderr)
         return 2
+    failed: list[str] = []
     for scen in scenarios:
         try:
             snap = emit_one(scen)
         except Exception as exc:  # noqa: BLE001 — surface which scenario broke
             print(f"[FAIL] {scen.id:>4}  {type(exc).__name__}: {exc}")
+            failed.append(scen.id)
             continue
         metric_str = "  ".join(
             f"{k}={v:.4g}" if isinstance(v, float) else f"{k}=—" for k, v in snap.items()
         )
-        rel = scen.yaml_path.relative_to(Path(__file__).resolve().parents[2])
+        # Repo-relative for readability; absolute for a baseline rooted elsewhere.
+        repo_root = Path(__file__).resolve().parents[2]
+        rel = (
+            scen.yaml_path.relative_to(repo_root)
+            if scen.yaml_path.is_relative_to(repo_root)
+            else scen.yaml_path
+        )
         print(f"[ ok ] {scen.id:>4}  ->  {rel}   ({metric_str})")
+    if failed:
+        print(
+            f"\n{len(failed)} of {len(scenarios)} scenarios failed to emit: "
+            f"{', '.join(failed)}",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 

@@ -82,6 +82,41 @@ def band_radiance(T: float) -> float:
     return float(np.trapezoid(float(specs["Blackbody emissivity"]) * B, wl_um))
 
 
+gain_e_per_dn = float(specs["System gain"])
+t_int_s = float(specs["Integration time"]) / 1000.0  # ms → s
+tau = float(specs["Optical transmission"]) / 100.0
+optics_eps = float(specs["Optics emissivity"]) / 100.0
+
+sensor = Sensor()
+sensor.set("optics.aperture_diameter_m", float(specs["Aperture diameter"]), unit="cm")
+sensor.set("optics.focal_length_m", float(specs["Focal length"]), unit="cm")
+sensor.set("optics.transmission_scalar", float(specs["Optical transmission"]), unit="%")
+sensor.set("optics.scalar_emissivity", optics_eps)  # Kirchhoff: 1 − τ (Gap 37)
+sensor.set("optics.nearfield_fraction", float(specs["Nearfield fraction"]))
+sensor.set("optics.optics_temperature_K", float(specs["Optics temperature"]) + 273.15)
+sensor.set("detector.pixel_pitch_x_um", float(specs["Pixel pitch"]))
+sensor.set("detector.pixel_pitch_y_um", float(specs["Pixel pitch"]))
+sensor.set("detector.qe_value", float(specs["Quantum efficiency"]), unit="%")
+sensor.set("detector.dark_rate_e_per_s", float(specs["Dark current"]))
+sensor.set("detector.detector_temperature_K", float(specs["Operating temperature"]))
+sensor.set("source.target.temperature", 300.0)  # swept below
+sensor.set("source.target.emissivity", float(specs["Blackbody emissivity"]))
+sensor.set("source.background.temperature", float(specs["Lab ambient temperature"]) + 273.15)
+sensor.set("source.background.emissivity", float(specs["Lab ambient emissivity"]))
+sensor.set("atmosphere.model", "exo")  # bench path, no atmosphere
+# 1.0 m ≈ bench height: the exo backend routes through the no_atmosphere
+# 'space' sub-case, whose Earth-limb check needs a positive sensor altitude
+# (ADR-0006: one canonical altitude; platform.h_sensor alias folded, CU-090).
+sensor.set("geometry.sensor_altitude_m", 1.0)
+sensor.set("spectral_integration.filter_min_um", band_min_um)
+sensor.set("spectral_integration.filter_max_um", band_max_um)
+sensor.set("spectral_integration.integration_time_s", t_int_s)
+sensor.set("readout.read_noise_e_rms", float(specs["Read noise (CDS)"]))
+sensor.set("readout.gain_e_per_dn", gain_e_per_dn)
+sensor.set("readout.adc_bits", int(specs["ADC resolution"]))
+sensor.set("readout.full_well_capacity_e", float(specs["Full well capacity"]))
+
+
 def main() -> None:
     """Run the scenario analysis."""
     OUTPUTS = Path(__file__).parent.parent / "outputs"
@@ -106,39 +141,6 @@ def main() -> None:
     print(f"  {'-' * 9}  {'-' * 12}")
     for t, d in zip(bb_temps, dn_measured):
         print(f"  {t:>9.1f}  {d:>12.1f}")
-    gain_e_per_dn = float(specs["System gain"])
-    t_int_s = float(specs["Integration time"]) / 1000.0  # ms → s
-    tau = float(specs["Optical transmission"]) / 100.0
-    optics_eps = float(specs["Optics emissivity"]) / 100.0
-
-    sensor = Sensor()
-    sensor.set("optics.aperture_diameter_m", float(specs["Aperture diameter"]), unit="cm")
-    sensor.set("optics.focal_length_m", float(specs["Focal length"]), unit="cm")
-    sensor.set("optics.transmission_scalar", float(specs["Optical transmission"]), unit="%")
-    sensor.set("optics.scalar_emissivity", optics_eps)  # Kirchhoff: 1 − τ (Gap 37)
-    sensor.set("optics.nearfield_fraction", float(specs["Nearfield fraction"]))
-    sensor.set("optics.optics_temperature_K", float(specs["Optics temperature"]) + 273.15)
-    sensor.set("detector.pixel_pitch_x_um", float(specs["Pixel pitch"]))
-    sensor.set("detector.pixel_pitch_y_um", float(specs["Pixel pitch"]))
-    sensor.set("detector.qe_value", float(specs["Quantum efficiency"]), unit="%")
-    sensor.set("detector.dark_rate_e_per_s", float(specs["Dark current"]))
-    sensor.set("detector.detector_temperature_K", float(specs["Operating temperature"]))
-    sensor.set("source.target.temperature", 300.0)  # swept below
-    sensor.set("source.target.emissivity", float(specs["Blackbody emissivity"]))
-    sensor.set("source.background.temperature", float(specs["Lab ambient temperature"]) + 273.15)
-    sensor.set("source.background.emissivity", float(specs["Lab ambient emissivity"]))
-    sensor.set("atmosphere.model", "exo")  # bench path, no atmosphere
-    # 1.0 m ≈ bench height: the exo backend routes through the no_atmosphere
-    # 'space' sub-case, whose Earth-limb check needs a positive sensor altitude
-    # (ADR-0006: one canonical altitude; platform.h_sensor alias folded, CU-090).
-    sensor.set("geometry.sensor_altitude_m", 1.0)
-    sensor.set("spectral_integration.filter_min_um", band_min_um)
-    sensor.set("spectral_integration.filter_max_um", band_max_um)
-    sensor.set("spectral_integration.integration_time_s", t_int_s)
-    sensor.set("readout.read_noise_e_rms", float(specs["Read noise (CDS)"]))
-    sensor.set("readout.gain_e_per_dn", gain_e_per_dn)
-    sensor.set("readout.adc_bits", int(specs["ADC resolution"]))
-    sensor.set("readout.full_well_capacity_e", float(specs["Full well capacity"]))
 
     print(f"\n=== Converted to RADIANT canonical units (Sensor.set unit-aware, Gap 6) ===")
     print(f"  Aperture {sensor.get('optics.aperture_diameter_m'):.3f} m | "

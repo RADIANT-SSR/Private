@@ -57,28 +57,103 @@ from radiant.core.solar import toa_solar_spectral_irradiance
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 
 
+# ---------------------------------------------------------------------------
+# Step 1: Read the spreadsheet
+# ---------------------------------------------------------------------------
+
+INPUT_FILE = Path(__file__).parent.parent / "inputs" / "dr_chen_sensor_parameters.xlsx"
+
+wb = openpyxl.load_workbook(INPUT_FILE)
+ws = wb["Sensor Parameters"]
+
+# Parse the parameter table into a dict keyed by parameter name
+params_raw: dict[str, float] = {}
+for row in ws.iter_rows(min_row=5, max_col=4, values_only=False):
+    name_cell = row[0].value
+    value_cell = row[1].value
+    if name_cell and value_cell is not None:
+        # Skip section headers (blue-filled rows)
+        if row[0].fill and row[0].fill.start_color and row[0].fill.start_color.rgb == "004472C4":
+            continue
+        params_raw[name_cell] = float(value_cell)
+
+
+# ---------------------------------------------------------------------------
+# Step 2: Convert to RADIANT canonical units
+# ---------------------------------------------------------------------------
+
+# Optics
+aperture_m = params_raw["Aperture diameter"] / 100.0          # cm -> m
+f_number = params_raw["Focal ratio (f/#)"]
+focal_length_m = f_number * aperture_m                         # derived: f = f/# x D
+transmission = params_raw["Optical transmission"] / 100.0      # % -> fraction
+optics_temp_K = params_raw["Optics temperature"]
+
+# Detector
+pixel_pitch_m = params_raw["Pixel pitch"] * 1e-6              # um -> m
+pixel_pitch_um = params_raw["Pixel pitch"]                     # keep for RADIANT input
+qe = params_raw["Quantum efficiency"] / 100.0                 # % -> fraction
+dark_rate = params_raw["Dark current"]                         # already e-/s
+operating_temp = params_raw["Operating temperature"]           # already K
+fwc = params_raw["Full well capacity"]                         # already e-
+
+# Readout
+read_noise = params_raw["Read noise"]                          # already e- RMS
+adc_bits = int(params_raw["ADC bits"])
+gain = params_raw["System gain"]                               # already e-/DN
+
+# Scene
+target_temp = params_raw["Target temperature"]                 # already K
+target_emiss = params_raw["Target emissivity"]                 # dimensionless
+bg_temp = params_raw["Background temperature"]                 # already K
+bg_emiss = params_raw["Background emissivity"]                 # dimensionless
+
+# Spectral
+band_min = params_raw["Band minimum"]                          # already um
+band_max = params_raw["Band maximum"]                          # already um
+t_int = params_raw["Integration time"] / 1000.0                # ms -> s
+
+# Geometry
+altitude_m = params_raw["Sensor altitude"] * 1000.0            # km -> m
+
+
+sensor = Sensor()
+# Vendor/lab units — converted by the unit-aware boundary (Gap 6):
+sensor.set("optics.aperture_diameter_m", params_raw["Aperture diameter"], unit="cm")
+sensor.set("optics.transmission_scalar", params_raw["Optical transmission"], unit="%")
+sensor.set("detector.qe_value", params_raw["Quantum efficiency"], unit="%")
+sensor.set("spectral_integration.integration_time_s",
+           params_raw["Integration time"], unit="ms")
+sensor.set("geometry.sensor_altitude_m", params_raw["Sensor altitude"], unit="km")
+# Stage-7 precondition: exo routes through the no_atmosphere 'space'
+# sub-case, whose Earth-limb check needs the sensor altitude. This sensor
+# has a genuine platform altitude (8 km — the exo model treats the path as
+# vacuum), so h_sensor is the real value, not a placeholder (unlike the
+# 7.x bench scenarios — registry Gap 42).
+# Already-canonical values — set without a unit tag:
+sensor.set("optics.focal_length_m", focal_length_m)  # derived: f/# × D
+sensor.set("optics.optics_temperature_K", optics_temp_K)
+sensor.set("detector.pixel_pitch_x_um", pixel_pitch_um)
+sensor.set("detector.pixel_pitch_y_um", pixel_pitch_um)
+sensor.set("detector.dark_rate_e_per_s", dark_rate)
+sensor.set("detector.detector_temperature_K", operating_temp)
+sensor.set("source.target.temperature", target_temp)
+sensor.set("source.target.emissivity", target_emiss)
+sensor.set("source.background.temperature", bg_temp)
+sensor.set("source.background.emissivity", bg_emiss)
+sensor.set("atmosphere.model", "exo")  # Above the atmosphere — vacuum path
+sensor.set("spectral_integration.filter_min_um", band_min)
+sensor.set("spectral_integration.filter_max_um", band_max)
+sensor.set("readout.read_noise_e_rms", read_noise)
+sensor.set("readout.gain_e_per_dn", gain)
+sensor.set("readout.adc_bits", adc_bits)
+sensor.set("readout.full_well_capacity_e", fwc)
+sensor.set("performance.niirs.allow_extrapolated", True)
+
+
 def main() -> None:
     """Run the scenario analysis."""
-    # ---------------------------------------------------------------------------
-    # Step 1: Read the spreadsheet
-    # ---------------------------------------------------------------------------
-
-    INPUT_FILE = Path(__file__).parent.parent / "inputs" / "dr_chen_sensor_parameters.xlsx"
     OUTPUT_FILE = Path(__file__).parent.parent / "outputs" / "verification_results.xlsx"
-
-    wb = openpyxl.load_workbook(INPUT_FILE)
-    ws = wb["Sensor Parameters"]
-
-    # Parse the parameter table into a dict keyed by parameter name
-    params_raw: dict[str, float] = {}
-    for row in ws.iter_rows(min_row=5, max_col=4, values_only=False):
-        name_cell = row[0].value
-        value_cell = row[1].value
-        if name_cell and value_cell is not None:
-            # Skip section headers (blue-filled rows)
-            if row[0].fill and row[0].fill.start_color and row[0].fill.start_color.rgb == "004472C4":
-                continue
-            params_raw[name_cell] = float(value_cell)
 
     print("=" * 95)
     print("  SCENARIO 6.3: Noise Model Verification — Analytic vs. RADIANT")
@@ -111,43 +186,6 @@ def main() -> None:
     print(f"  {'Sensor altitude':<30s} {params_raw['Sensor altitude']:>12.1f}  km")
     print(f"  {'Look angle':<30s} {params_raw['Look angle']:>12.1f}  deg")
 
-    # ---------------------------------------------------------------------------
-    # Step 2: Convert to RADIANT canonical units
-    # ---------------------------------------------------------------------------
-
-    # Optics
-    aperture_m = params_raw["Aperture diameter"] / 100.0          # cm -> m
-    f_number = params_raw["Focal ratio (f/#)"]
-    focal_length_m = f_number * aperture_m                         # derived: f = f/# x D
-    transmission = params_raw["Optical transmission"] / 100.0      # % -> fraction
-    optics_temp_K = params_raw["Optics temperature"]
-
-    # Detector
-    pixel_pitch_m = params_raw["Pixel pitch"] * 1e-6              # um -> m
-    pixel_pitch_um = params_raw["Pixel pitch"]                     # keep for RADIANT input
-    qe = params_raw["Quantum efficiency"] / 100.0                 # % -> fraction
-    dark_rate = params_raw["Dark current"]                         # already e-/s
-    operating_temp = params_raw["Operating temperature"]           # already K
-    fwc = params_raw["Full well capacity"]                         # already e-
-
-    # Readout
-    read_noise = params_raw["Read noise"]                          # already e- RMS
-    adc_bits = int(params_raw["ADC bits"])
-    gain = params_raw["System gain"]                               # already e-/DN
-
-    # Scene
-    target_temp = params_raw["Target temperature"]                 # already K
-    target_emiss = params_raw["Target emissivity"]                 # dimensionless
-    bg_temp = params_raw["Background temperature"]                 # already K
-    bg_emiss = params_raw["Background emissivity"]                 # dimensionless
-
-    # Spectral
-    band_min = params_raw["Band minimum"]                          # already um
-    band_max = params_raw["Band maximum"]                          # already um
-    t_int = params_raw["Integration time"] / 1000.0                # ms -> s
-
-    # Geometry
-    altitude_m = params_raw["Sensor altitude"] * 1000.0            # km -> m
 
     print("\n=== Step 2: Converted to RADIANT canonical units ===")
     print(f"  {'Parameter':<30s} {'Value':>14s}  {'Unit':<15s}  {'Conversion'}")
@@ -175,38 +213,6 @@ def main() -> None:
     print(f"  {'Integration time':<30s} {t_int:>14.6f}  {'s':<15s}  ms / 1000")
     print(f"  {'Sensor altitude':<30s} {altitude_m:>14.1f}  {'m':<15s}  km x 1000")
 
-    sensor = Sensor()
-    # Vendor/lab units — converted by the unit-aware boundary (Gap 6):
-    sensor.set("optics.aperture_diameter_m", params_raw["Aperture diameter"], unit="cm")
-    sensor.set("optics.transmission_scalar", params_raw["Optical transmission"], unit="%")
-    sensor.set("detector.qe_value", params_raw["Quantum efficiency"], unit="%")
-    sensor.set("spectral_integration.integration_time_s",
-               params_raw["Integration time"], unit="ms")
-    sensor.set("geometry.sensor_altitude_m", params_raw["Sensor altitude"], unit="km")
-    # Stage-7 precondition: exo routes through the no_atmosphere 'space'
-    # sub-case, whose Earth-limb check needs the sensor altitude. This sensor
-    # has a genuine platform altitude (8 km — the exo model treats the path as
-    # vacuum), so h_sensor is the real value, not a placeholder (unlike the
-    # 7.x bench scenarios — registry Gap 42).
-    # Already-canonical values — set without a unit tag:
-    sensor.set("optics.focal_length_m", focal_length_m)  # derived: f/# × D
-    sensor.set("optics.optics_temperature_K", optics_temp_K)
-    sensor.set("detector.pixel_pitch_x_um", pixel_pitch_um)
-    sensor.set("detector.pixel_pitch_y_um", pixel_pitch_um)
-    sensor.set("detector.dark_rate_e_per_s", dark_rate)
-    sensor.set("detector.detector_temperature_K", operating_temp)
-    sensor.set("source.target.temperature", target_temp)
-    sensor.set("source.target.emissivity", target_emiss)
-    sensor.set("source.background.temperature", bg_temp)
-    sensor.set("source.background.emissivity", bg_emiss)
-    sensor.set("atmosphere.model", "exo")  # Above the atmosphere — vacuum path
-    sensor.set("spectral_integration.filter_min_um", band_min)
-    sensor.set("spectral_integration.filter_max_um", band_max)
-    sensor.set("readout.read_noise_e_rms", read_noise)
-    sensor.set("readout.gain_e_per_dn", gain)
-    sensor.set("readout.adc_bits", adc_bits)
-    sensor.set("readout.full_well_capacity_e", fwc)
-    sensor.set("performance.niirs.allow_extrapolated", True)
 
     # --- Step 3a: cross-check RADIANT's boundary conversion vs the script's ---
     print("\n=== Step 3a: Unit-aware boundary conversion cross-check (Gap 6) ===")

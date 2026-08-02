@@ -115,25 +115,39 @@ def derived_radiance_path(label: str) -> Path:
     return DERIVED / f"L_{label.lower().replace(' ', '_')}.csv"
 
 
+def committed_radiance_path(label: str) -> Path:
+    """The committed ``inputs/`` counterpart of a derived radiance CSV (CU-273)."""
+    return INPUTS / derived_radiance_path(label).name
+
+
 def radiance_csv(label: str) -> Path:
-    """Return the derived radiance CSV for ``label``, read from disk on demand.
+    """Return the radiance CSV for ``label``, read from disk on demand.
 
     The CSVs are *written* by :func:`main` (Step 2) and only *read* here, so
     importing this module for its config factory derives nothing, prints
     nothing and writes nothing. ``outputs/derived/`` is gitignored (Rule 26),
-    so a checkout that has never run the scenario has no CSV to read — say so
-    plainly rather than failing later inside the chain.
+    so a checkout that has never run the scenario has no derived CSV — but the
+    one the GUI baseline references is committed under ``inputs/`` (CU-180 /
+    CU-273, which is where ``emit_gui_yaml.py`` repoints it anyway), so fall
+    back to that copy rather than refusing (CU-319: the refusal made this
+    scenario's baseline unbuildable on a clean tree). Only when neither exists
+    is there nothing to read — say so plainly rather than failing later inside
+    the chain.
     """
     path = derived_radiance_path(label)
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"derived radiance CSV not found: {path}\n"
-            f"  Why: outputs/derived/ is generated (gitignored), and it is written by\n"
-            f"       this script's main() — importing the module no longer derives it.\n"
-            f"  Fix: run the generator once, then retry:\n"
-            f"       python {Path(__file__).name}   (from {Path(__file__).parent})"
-        )
-    return path
+    if path.is_file():
+        return path
+    committed = committed_radiance_path(label)
+    if committed.is_file():
+        return committed
+    raise FileNotFoundError(
+        f"radiance CSV not found for {label!r}: neither {path} (derived) nor\n"
+        f"  {committed} (committed).\n"
+        f"  Why: outputs/derived/ is generated (gitignored), and it is written by\n"
+        f"       this script's main() — importing the module no longer derives it.\n"
+        f"  Fix: run the generator once, then retry:\n"
+        f"       python {Path(__file__).name}   (from {Path(__file__).parent})"
+    )
 
 
 # ---------------------------------------------------------------------------

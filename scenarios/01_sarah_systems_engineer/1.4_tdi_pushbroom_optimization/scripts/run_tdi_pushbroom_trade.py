@@ -47,36 +47,155 @@ import matplotlib.pyplot as plt
 from radiant.api import Sensor
 
 
+# ---------------------------------------------------------------------------
+# Step 1: Read Sarah's spreadsheet
+#
+# Module scope by CU-164's contract (imports, constants, input loading and the
+# config factories live here; every imperative/printing statement is in main()).
+# CU-319: the CU-164 pass moved this block, the unit conversions and
+# ``base_config`` into main(), which left ``scenarios/tools/gui_baselines.py``
+# reaching for module attributes that no longer existed, so this scenario's GUI
+# baseline could not be re-emitted.  Reading the workbook prints nothing and
+# writes nothing, so it is import-safe here.
+# ---------------------------------------------------------------------------
+
+INPUT_FILE = Path(__file__).parent.parent / "inputs" / "sarah_tdi_pushbroom_data.xlsx"
+
+wb_in = openpyxl.load_workbook(INPUT_FILE)
+
+ws_sys = wb_in["System Parameters"]
+specs: dict[str, object] = {}
+units: dict[str, str] = {}
+for row in ws_sys.iter_rows(min_row=2, max_col=4, values_only=False):
+    name = row[0].value
+    value = row[1].value
+    if name and value is not None:
+        try:
+            specs[name] = float(value)
+        except (ValueError, TypeError):
+            specs[name] = value
+        units[name] = str(row[2].value) if row[2].value else "--"
+
+ws_tdi = wb_in["TDI Sweep"]
+tdi_values: list[int] = []
+for row in ws_tdi.iter_rows(min_row=2, max_col=1, values_only=True):
+    if row[0] is not None:
+        tdi_values.append(int(row[0]))
+
+# ---------------------------------------------------------------------------
+# Step 2: Convert to RADIANT canonical units and derive orbital parameters
+# ---------------------------------------------------------------------------
+
+aperture_m = float(specs["Aperture diameter"]) / 100.0         # cm -> m
+focal_length_m = float(specs["Focal length"]) / 100.0          # cm -> m
+f_number = float(specs["f-number"])
+transmission = float(specs["Optical transmission"]) / 100.0    # % -> frac
+optics_temp_K = float(specs["Optics temperature"]) + 273.15    # C -> K
+wfe_waves = float(specs["WFE RMS"])
+obscuration = float(specs["Central obscuration"]) / 100.0      # % -> frac
+
+pixel_pitch_um = float(specs["Pixel pitch"])
+pixel_pitch_m = pixel_pitch_um * 1e-6
+qe = float(specs["Quantum efficiency"]) / 100.0                # % -> frac
+dark_rate = float(specs["Dark current"])
+read_noise = float(specs["Read noise"])
+fwc = float(specs["Full well capacity"])
+gain = float(specs["Gain"])
+adc_bits = int(specs["ADC bits"])
+
+band_min_nm = float(specs["Filter min"])
+band_max_nm = float(specs["Filter max"])
+band_min_um = band_min_nm / 1000.0                             # nm -> um
+band_max_um = band_max_nm / 1000.0
+band_center_um = (band_min_um + band_max_um) / 2.0
+
+target_refl = float(specs["Target reflectance"])
+bg_refl = float(specs["Background reflectance"])
+solar_zenith_deg = float(specs["Solar zenith angle"])
+solar_zenith_rad = solar_zenith_deg * math.pi / 180.0
+
+altitude_km = float(specs["Orbit altitude"])
+altitude_m = altitude_km * 1000.0
+v_orbital = float(specs["Orbital velocity"])
+visibility_km = float(specs["Visibility"])
+pwv_mm = float(specs["PWV"])
+
+tdi_misalign_pix = float(specs["TDI misalignment"])
+
+# Derived orbital parameters
+R_earth_m = 6_371_000.0
+v_ground = v_orbital * R_earth_m / (R_earth_m + altitude_m)
+gsd_m = pixel_pitch_m * altitude_m / focal_length_m
+line_period_s = gsd_m / v_ground
+ifov_urad = pixel_pitch_m / focal_length_m * 1e6
+f_nyquist = 1.0 / (2.0 * pixel_pitch_m)  # cycles/m on focal plane
+Q = band_center_um * f_number / pixel_pitch_um
+airy_diam_um = 2.44 * band_center_um * f_number
+
+# Smear MTF at Nyquist (1 pixel of smear per line — constant for all N_tdi)
+smear_mtf_nyquist = abs(np.sinc(f_nyquist * pixel_pitch_m))
+
+# ---------------------------------------------------------------------------
+# Base RADIANT config (N_tdi set per sweep point)
+# ---------------------------------------------------------------------------
+
+# VNIR reflected solar scene — Kirchhoff: reflectance = 1 - emissivity
+# For target reflectance 0.15 → emissivity = 0.85
+# Thermal emission at 300 K is negligible in VNIR, signal is from solar reflection
+target_temp_K = 300.0
+bg_temp_K = 295.0
+target_emissivity = 1.0 - target_refl   # Kirchhoff: ε = 1 - ρ
+bg_emissivity = 1.0 - bg_refl
+
+base_config = {
+    "source": {
+        "target": {"temperature": target_temp_K, "emissivity": target_emissivity},
+        "background": {"temperature": bg_temp_K, "emissivity": bg_emissivity},
+    },
+    "atmosphere": {
+        "model": "simple",
+        "standard_atmosphere": "midlat_summer",
+    },
+    "geometry": {
+        "sensor_altitude_m": altitude_m,
+        "path_zenith_rad": 0.0,
+        "solar_zenith_rad": solar_zenith_rad,
+    },
+    "optics": {
+        "aperture_diameter_m": aperture_m,
+        "focal_length_m": focal_length_m,
+        "transmission_scalar": transmission,
+        "optics_temperature_K": optics_temp_K,
+        "wfe_rms_waves": wfe_waves,
+        "obscuration_ratio": obscuration,
+    },
+    "detector": {
+        "pixel_pitch_x_um": pixel_pitch_um,
+        "pixel_pitch_y_um": pixel_pitch_um,
+        "qe_value": qe,
+        "dark_rate_e_per_s": dark_rate,
+        "detector_temperature_K": 293.0,
+    },
+    "spectral_integration": {
+        "filter_min_um": band_min_um,
+        "filter_max_um": band_max_um,
+        "integration_time_s": line_period_s,
+    },
+    "readout": {
+        "read_noise_e_rms": read_noise,
+        "full_well_capacity_e": fwc,
+        "gain_e_per_dn": gain,
+        "adc_bits": adc_bits,
+        "tdi_mode": "analog",
+    },
+    "performance": {"niirs": {"allow_extrapolated": True}},
+}
+
+
 def main() -> None:
     """Run the scenario analysis."""
-    # ---------------------------------------------------------------------------
-    # Step 1: Read Sarah's spreadsheet
-    # ---------------------------------------------------------------------------
-
-    INPUT_FILE = Path(__file__).parent.parent / "inputs" / "sarah_tdi_pushbroom_data.xlsx"
     OUTPUT_FILE = Path(__file__).parent.parent / "outputs" / "tdi_pushbroom_results.xlsx"
     PLOT_DIR = Path(__file__).parent.parent / "outputs"
-
-    wb_in = openpyxl.load_workbook(INPUT_FILE)
-
-    ws_sys = wb_in["System Parameters"]
-    specs: dict[str, object] = {}
-    units: dict[str, str] = {}
-    for row in ws_sys.iter_rows(min_row=2, max_col=4, values_only=False):
-        name = row[0].value
-        value = row[1].value
-        if name and value is not None:
-            try:
-                specs[name] = float(value)
-            except (ValueError, TypeError):
-                specs[name] = value
-            units[name] = str(row[2].value) if row[2].value else "--"
-
-    ws_tdi = wb_in["TDI Sweep"]
-    tdi_values: list[int] = []
-    for row in ws_tdi.iter_rows(min_row=2, max_col=1, values_only=True):
-        if row[0] is not None:
-            tdi_values.append(int(row[0]))
 
     print("=" * 80)
     print("SCENARIO 1.4: TDI Pushbroom Optimization — Line Rate vs. SNR")
@@ -88,59 +207,6 @@ def main() -> None:
 
     print(f"\n=== TDI Sweep Points ===")
     print(f"  N_tdi = {tdi_values}")
-
-    # ---------------------------------------------------------------------------
-    # Step 2: Convert to RADIANT canonical units and derive orbital parameters
-    # ---------------------------------------------------------------------------
-
-    aperture_m = float(specs["Aperture diameter"]) / 100.0         # cm -> m
-    focal_length_m = float(specs["Focal length"]) / 100.0          # cm -> m
-    f_number = float(specs["f-number"])
-    transmission = float(specs["Optical transmission"]) / 100.0    # % -> frac
-    optics_temp_K = float(specs["Optics temperature"]) + 273.15    # C -> K
-    wfe_waves = float(specs["WFE RMS"])
-    obscuration = float(specs["Central obscuration"]) / 100.0      # % -> frac
-
-    pixel_pitch_um = float(specs["Pixel pitch"])
-    pixel_pitch_m = pixel_pitch_um * 1e-6
-    qe = float(specs["Quantum efficiency"]) / 100.0                # % -> frac
-    dark_rate = float(specs["Dark current"])
-    read_noise = float(specs["Read noise"])
-    fwc = float(specs["Full well capacity"])
-    gain = float(specs["Gain"])
-    adc_bits = int(specs["ADC bits"])
-
-    band_min_nm = float(specs["Filter min"])
-    band_max_nm = float(specs["Filter max"])
-    band_min_um = band_min_nm / 1000.0                             # nm -> um
-    band_max_um = band_max_nm / 1000.0
-    band_center_um = (band_min_um + band_max_um) / 2.0
-
-    target_refl = float(specs["Target reflectance"])
-    bg_refl = float(specs["Background reflectance"])
-    solar_zenith_deg = float(specs["Solar zenith angle"])
-    solar_zenith_rad = solar_zenith_deg * math.pi / 180.0
-
-    altitude_km = float(specs["Orbit altitude"])
-    altitude_m = altitude_km * 1000.0
-    v_orbital = float(specs["Orbital velocity"])
-    visibility_km = float(specs["Visibility"])
-    pwv_mm = float(specs["PWV"])
-
-    tdi_misalign_pix = float(specs["TDI misalignment"])
-
-    # Derived orbital parameters
-    R_earth_m = 6_371_000.0
-    v_ground = v_orbital * R_earth_m / (R_earth_m + altitude_m)
-    gsd_m = pixel_pitch_m * altitude_m / focal_length_m
-    line_period_s = gsd_m / v_ground
-    ifov_urad = pixel_pitch_m / focal_length_m * 1e6
-    f_nyquist = 1.0 / (2.0 * pixel_pitch_m)  # cycles/m on focal plane
-    Q = band_center_um * f_number / pixel_pitch_um
-    airy_diam_um = 2.44 * band_center_um * f_number
-
-    # Smear MTF at Nyquist (1 pixel of smear per line — constant for all N_tdi)
-    smear_mtf_nyquist = abs(np.sinc(f_nyquist * pixel_pitch_m))
 
     print(f"\n=== Converted to RADIANT Canonical Units ===")
     print(f"  {'Parameter':<30s} {'Value':>14s}  {'Unit':<10s}  {'Conversion'}")
@@ -164,62 +230,6 @@ def main() -> None:
     print(f"  Airy disk:           {airy_diam_um:.1f} [um] ({airy_diam_um/pixel_pitch_um:.2f} pixels)")
     print(f"  Smear MTF@Nyquist:   {smear_mtf_nyquist:.4f} [--] (1 pixel/line, constant)")
     print(f"  TDI misalignment:    {tdi_misalign_pix:.2f} [pixels/stage]")
-
-    # ---------------------------------------------------------------------------
-    # Step 3: Build base RADIANT config (N_tdi set per sweep point)
-    # ---------------------------------------------------------------------------
-
-    # VNIR reflected solar scene — Kirchhoff: reflectance = 1 - emissivity
-    # For target reflectance 0.15 → emissivity = 0.85
-    # Thermal emission at 300 K is negligible in VNIR, signal is from solar reflection
-    target_temp_K = 300.0
-    bg_temp_K = 295.0
-    target_emissivity = 1.0 - target_refl   # Kirchhoff: ε = 1 - ρ
-    bg_emissivity = 1.0 - bg_refl
-
-    base_config = {
-        "source": {
-            "target": {"temperature": target_temp_K, "emissivity": target_emissivity},
-            "background": {"temperature": bg_temp_K, "emissivity": bg_emissivity},
-        },
-        "atmosphere": {
-            "model": "simple",
-            "standard_atmosphere": "midlat_summer",
-        },
-        "geometry": {
-            "sensor_altitude_m": altitude_m,
-            "path_zenith_rad": 0.0,
-            "solar_zenith_rad": solar_zenith_rad,
-        },
-        "optics": {
-            "aperture_diameter_m": aperture_m,
-            "focal_length_m": focal_length_m,
-            "transmission_scalar": transmission,
-            "optics_temperature_K": optics_temp_K,
-            "wfe_rms_waves": wfe_waves,
-            "obscuration_ratio": obscuration,
-        },
-        "detector": {
-            "pixel_pitch_x_um": pixel_pitch_um,
-            "pixel_pitch_y_um": pixel_pitch_um,
-            "qe_value": qe,
-            "dark_rate_e_per_s": dark_rate,
-            "detector_temperature_K": 293.0,
-        },
-        "spectral_integration": {
-            "filter_min_um": band_min_um,
-            "filter_max_um": band_max_um,
-            "integration_time_s": line_period_s,
-        },
-        "readout": {
-            "read_noise_e_rms": read_noise,
-            "full_well_capacity_e": fwc,
-            "gain_e_per_dn": gain,
-            "adc_bits": adc_bits,
-            "tdi_mode": "analog",
-        },
-        "performance": {"niirs": {"allow_extrapolated": True}},
-    }
 
     print(f"\n=== RADIANT Configuration ===")
     print(f"  Integration time per line: {line_period_s*1e3:.4f} [ms]")

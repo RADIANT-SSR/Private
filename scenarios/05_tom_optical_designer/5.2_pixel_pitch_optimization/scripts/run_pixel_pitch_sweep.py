@@ -47,60 +47,96 @@ import matplotlib.pyplot as plt
 from radiant.api import Sensor
 
 
+# ---------------------------------------------------------------------------
+# Step 1: Read Tom's spreadsheet
+# ---------------------------------------------------------------------------
+# Three sheets:
+#   "Optical Design Summary" — telescope and scene parameters
+#   "Candidate Detectors"    — 6 pixel pitches with matched detector specs
+#   "Performance Requirements" — pass/fail thresholds
+
+INPUT_FILE = Path(__file__).parent.parent / "inputs" / "tom_pixel_pitch_trade.xlsx"
+
+wb = openpyxl.load_workbook(INPUT_FILE)
+
+# --- Parse Optical Design Summary ---
+ws_opt = wb["Optical Design Summary"]
+opt_specs: dict[str, object] = {}
+for row in ws_opt.iter_rows(min_row=6, max_col=4, values_only=False):
+    name = row[0].value
+    value = row[1].value
+    if name and value is not None:
+        fill = row[0].fill
+        if fill and fill.start_color and fill.start_color.rgb == "002E75B6":
+            continue
+        opt_specs[name] = value
+
+# --- Parse Candidate Detectors ---
+# This sheet has a header row with pitch labels, then parameter rows.
+# Layout: [Parameter, 8µm, 12µm, 15µm, 18µm, 24µm, 30µm, Unit]
+ws_det = wb["Candidate Detectors"]
+
+# Read the pitch values from row 4 (header), columns B-G
+pitches_um: list[float] = []
+for col in range(2, 8):
+    cell_val = ws_det.cell(row=4, column=col).value
+    if cell_val and "µm" in str(cell_val):
+        pitches_um.append(float(str(cell_val).replace("µm", "").strip()))
+
+# Read parameter rows into a dict of lists
+det_table: dict[str, list] = {}
+for row in ws_det.iter_rows(min_row=5, max_col=8, values_only=True):
+    param_name = row[0]
+    if param_name and row[1] is not None:
+        values = [row[i] for i in range(1, 7)]
+        det_table[param_name] = values
+
+# --- Parse Performance Requirements ---
+ws_req = wb["Performance Requirements"]
+reqs: dict[str, object] = {}
+for row in ws_req.iter_rows(min_row=5, max_col=4, values_only=True):
+    if row[0] and row[1] is not None:
+        reqs[row[0]] = row[1]
+
+
+# ---------------------------------------------------------------------------
+# Step 2: Convert to RADIANT canonical units
+# ---------------------------------------------------------------------------
+
+# Optics — Zemax uses mm
+aperture_m = float(opt_specs["Entrance pupil diameter"]) / 1000.0   # mm → m
+focal_length_m = float(opt_specs["Effective focal length"]) / 1000.0  # mm → m
+f_number = float(opt_specs["f-number (working)"])
+transmission = float(opt_specs["Optical transmission"]) / 100.0     # % → fraction
+optics_temp_K = float(opt_specs["Optics temperature"])              # already K
+wfe_waves = float(opt_specs["WFE (RMS, on-axis)"])                  # already waves
+
+# Spectral — nm → µm
+lambda_center_nm = float(opt_specs["Band center wavelength"])
+lambda_center_um = lambda_center_nm / 1000.0                        # nm → µm
+band_min_nm = float(opt_specs["Filter cut-on"])
+band_max_nm = float(opt_specs["Filter cut-off"])
+band_min_um = band_min_nm / 1000.0                                  # nm → µm
+band_max_um = band_max_nm / 1000.0                                  # nm → µm
+
+# Scene
+target_temp = float(opt_specs["Target temperature"])                # already K
+target_emiss = float(opt_specs["Target emissivity"])
+bg_temp = float(opt_specs["Background temperature"])                # already K
+bg_emiss = float(opt_specs["Background emissivity"])
+
+# Geometry
+altitude_km = float(opt_specs["Orbit altitude"])
+altitude_m = altitude_km * 1000.0                                   # km → m
+
+# Airy disk
+airy_diam_um = float(opt_specs["Airy disk diameter"])               # µm
+
+
 def main() -> None:
     """Run the scenario analysis."""
-    # ---------------------------------------------------------------------------
-    # Step 1: Read Tom's spreadsheet
-    # ---------------------------------------------------------------------------
-    # Three sheets:
-    #   "Optical Design Summary" — telescope and scene parameters
-    #   "Candidate Detectors"    — 6 pixel pitches with matched detector specs
-    #   "Performance Requirements" — pass/fail thresholds
-
-    INPUT_FILE = Path(__file__).parent.parent / "inputs" / "tom_pixel_pitch_trade.xlsx"
     OUTPUT_FILE = Path(__file__).parent.parent / "outputs" / "pixel_pitch_trade_results.xlsx"
     PLOT_DIR = Path(__file__).parent.parent / "outputs"
-
-    wb = openpyxl.load_workbook(INPUT_FILE)
-
-    # --- Parse Optical Design Summary ---
-    ws_opt = wb["Optical Design Summary"]
-    opt_specs: dict[str, object] = {}
-    for row in ws_opt.iter_rows(min_row=6, max_col=4, values_only=False):
-        name = row[0].value
-        value = row[1].value
-        if name and value is not None:
-            fill = row[0].fill
-            if fill and fill.start_color and fill.start_color.rgb == "002E75B6":
-                continue
-            opt_specs[name] = value
-
-    # --- Parse Candidate Detectors ---
-    # This sheet has a header row with pitch labels, then parameter rows.
-    # Layout: [Parameter, 8µm, 12µm, 15µm, 18µm, 24µm, 30µm, Unit]
-    ws_det = wb["Candidate Detectors"]
-
-    # Read the pitch values from row 4 (header), columns B-G
-    pitches_um: list[float] = []
-    for col in range(2, 8):
-        cell_val = ws_det.cell(row=4, column=col).value
-        if cell_val and "µm" in str(cell_val):
-            pitches_um.append(float(str(cell_val).replace("µm", "").strip()))
-
-    # Read parameter rows into a dict of lists
-    det_table: dict[str, list] = {}
-    for row in ws_det.iter_rows(min_row=5, max_col=8, values_only=True):
-        param_name = row[0]
-        if param_name and row[1] is not None:
-            values = [row[i] for i in range(1, 7)]
-            det_table[param_name] = values
-
-    # --- Parse Performance Requirements ---
-    ws_req = wb["Performance Requirements"]
-    reqs: dict[str, object] = {}
-    for row in ws_req.iter_rows(min_row=5, max_col=4, values_only=True):
-        if row[0] and row[1] is not None:
-            reqs[row[0]] = row[1]
 
     print("=== Optical Design Summary (Zemax output) ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit'}")
@@ -135,38 +171,6 @@ def main() -> None:
             print(f"  {v:>10}", end="")
         print()
 
-    # ---------------------------------------------------------------------------
-    # Step 2: Convert to RADIANT canonical units
-    # ---------------------------------------------------------------------------
-
-    # Optics — Zemax uses mm
-    aperture_m = float(opt_specs["Entrance pupil diameter"]) / 1000.0   # mm → m
-    focal_length_m = float(opt_specs["Effective focal length"]) / 1000.0  # mm → m
-    f_number = float(opt_specs["f-number (working)"])
-    transmission = float(opt_specs["Optical transmission"]) / 100.0     # % → fraction
-    optics_temp_K = float(opt_specs["Optics temperature"])              # already K
-    wfe_waves = float(opt_specs["WFE (RMS, on-axis)"])                  # already waves
-
-    # Spectral — nm → µm
-    lambda_center_nm = float(opt_specs["Band center wavelength"])
-    lambda_center_um = lambda_center_nm / 1000.0                        # nm → µm
-    band_min_nm = float(opt_specs["Filter cut-on"])
-    band_max_nm = float(opt_specs["Filter cut-off"])
-    band_min_um = band_min_nm / 1000.0                                  # nm → µm
-    band_max_um = band_max_nm / 1000.0                                  # nm → µm
-
-    # Scene
-    target_temp = float(opt_specs["Target temperature"])                # already K
-    target_emiss = float(opt_specs["Target emissivity"])
-    bg_temp = float(opt_specs["Background temperature"])                # already K
-    bg_emiss = float(opt_specs["Background emissivity"])
-
-    # Geometry
-    altitude_km = float(opt_specs["Orbit altitude"])
-    altitude_m = altitude_km * 1000.0                                   # km → m
-
-    # Airy disk
-    airy_diam_um = float(opt_specs["Airy disk diameter"])               # µm
 
     print("\n=== Converted to RADIANT canonical units ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit':<15s}  {'Conversion'}")

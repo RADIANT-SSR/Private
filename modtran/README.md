@@ -134,6 +134,27 @@ so run time per deck is comparable.
 Please **record which refraction switch you used for Q5/Q6** in
 `real_runs/README.md` — RADIANT has no way to infer it from the tape7.
 
+**Owner deck audit, 2026-08-02.** The 33 rows M1–M8, N1–N10, O1–O5, P1–P6,
+Q1–Q4 were audited safe and run as-is; these are the only rows the CU-224
+gated half (P5), CU-181, and the sec-space axis actually need. The four
+hand-edit rows are held back pending special handling:
+
+- **Q5/Q6** — run **only** with a real ray-bending control; a byte-duplicate
+  of Q3/M8 would deliver an exactly-zero refraction delta that reads as
+  "refraction is negligible at the threshold". If the MODTRAN build exposes
+  no such switch, skip both permanently — the horizon-guard thresholds then
+  stay guard-banded per ADR-0011 decision 5 (the current documented state).
+- **Q7/Q8** — MODTRAN's handling of the below-horizon sun (solar zenith
+  93°/96°) in the radiance path is unverified. The anchor these runs exist
+  for is **τ_sun only** (the LOS *is* the solar path; the deliverable is the
+  TOT TRANS column), so the solar source function never enters the needed
+  product. Probe protocol: if the IEMSCT=2 deck runs, the transmittance
+  column is trustworthy regardless of the solar-source question; if MODTRAN
+  rejects or mishandles it, rerun the same hand-edited geometry with
+  **IEMSCT = 0** (transmittance-only) and record the mode deviation in
+  `real_runs/README.md`. Sanity checks either way: TOT TRANS nonzero and
+  below the M8 (89.5°) column band-for-band, and Q8 below Q7.
+
 **Where the outputs go.** Stage every delivered `.tp7` flat in
 `modtran/real_runs/` named `<run_id>.tp7` (e.g. `real_runs/M1.tp7`), exactly
 as batch 1 is staged — that directory is gitignored, so the data never

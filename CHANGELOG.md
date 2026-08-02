@@ -202,6 +202,76 @@ retroactively reconstructed.
   MODTRAN's real decay over 0→50 km is 142×/442×, one-to-two orders less than the
   entry's analytic table, which had been computed from `SimpleAtmosphere`'s own
   `E_sky_thermal` rather than from an independent reference.
+- **Results-affecting (up-looking / level sky at ζ > 0 only): one curve-of-growth
+  linearisation convention across all three path evaluators (CU-320).** `segment_simple`
+  linearised the CU-161 water curve of growth and the well-mixed-gas floor against the
+  **vertical** column while `segment_grazing` and `level_whole_path` used the **slant** one.
+  Because `OD_h2o = k·w^b` is sub-linear, the two differ by `m_h2o^(b−1)` in the effective
+  water weight and therefore in ω₀ wherever water absorbs — which was the whole of the
+  surviving 80° hand-over step. `segment_simple` now uses the slant column, the amount the
+  path actually traverses, and `column_segment_optical_depth` publishes `slant_column_*_km`
+  provenance under the same key names the near-horizon branch already used.
+  **Direction and magnitude:** the 80° grazing/column hand-over step falls from 1.078 (VIS),
+  1.568 (NIR), 1.497 (SWIR), 1.024 (MWIR), 0.998 (LWIR) to 0.995/0.995/0.992/0.998/0.998 —
+  within 0.8 % and, more usefully, the same size in every band. Up-looking scattered sky moves
+  at any ζ > 0 (e.g. band-mean model/MODTRAN at ζ = 60° against the new M2 run: VIS
+  0.734 → 0.762, NIR 0.993 → 1.226, SWIR 1.447 → 1.778, MWIR 1.221 → 1.254, LWIR unchanged);
+  at ζ = 0 the air mass is exactly 1 and the result is bit-identical, so the K-ladder
+  species-split anchors and every shipped baseline are unmoved. **This is a consistency fix,
+  not an accuracy one** — against the M-block the overall RMS |ln ratio| is 0.316 → 0.318, a
+  wash: VIS and NIR improve, SWIR and MWIR degrade slightly, and what is left is the
+  single-scatter source's own limits (§3.1).
+- **A ground-to-space up-looking scene now runs against a full-column interpolated run family,
+  and is refused against a partial-column one (CU-224 checklist / ex-CU-308).** The exo branch
+  of `uplooking_quantities._illumination_products` substitutes the exact vacuum identity
+  (`τ_sun ≡ 1`, `E_sky ≡ 0`) when the target sits at or above `h_atm_top`; with a
+  library-backed observer leg, whether that identity may be *composed* with the MODTRAN leg
+  depends on how far up the backing family actually measured, and the family now answers that
+  itself through the new `InterpolatedAtmosphere.uplooking_target_ceiling_m`.
+  **New capability:** a family whose ceiling reaches `h_atm_top` integrated the entire column,
+  so the remaining path to an exo target is vacuum and the composed observer leg is
+  *identically* that family's own top-of-column run. `InterpolatedAtmosphere` serves such a
+  target from the ceiling node — the target-axis mirror of the sensor-axis vacuum equivalence
+  it already shipped for the ladders' 40,000 km node — and records it in the segment
+  provenance under `exo_target_vacuum_clamp`. This makes `midlat_summer_sst_column_fan` and
+  `midlat_summer_uplooking_sensor_ladder` reachable for the ground-to-space scenes they were
+  built for; every such scene previously raised.
+  **New refusal:** a family whose ceiling stops inside the atmosphere (the 20 km
+  `midlat_summer_uplooking_ladder` and `midlat_summer_uplooking_zenith_fan`) raises an
+  actionable `ParameterBoundsError` naming its measured ceiling and the full-column families
+  that do serve the scene, instead of the family's own out-of-hull error. The clamp is gated
+  at `h_atm_top` and nowhere else — a 50 km target through a 20 km ladder still fails the hull
+  check, unchanged.
+  **No existing computed result moves:** every endo-target scene, every down-looking scene and
+  `atmosphere.model='simple'` are untouched; the two affected cases previously raised rather
+  than returning a number.
+- **Results-affecting: down-looking path radiance now carries the atmosphere's own thermal
+  emission (CU-224).** `SimpleAtmosphere.evaluate`'s `L_path_up` and `L_path_full` were
+  single-scatter **solar only**, so a pure-thermal LWIR down-looking scene had
+  `L_path_up ≡ 0` exactly while the up-looking segment evaluators carried the Kirchhoff
+  term `(1 − τ)·B(λ, T_eff)` — one column of air read in the two directions differed by
+  three to four orders of magnitude. Both products now add that same term, reusing
+  `atmosphere/segment_thermal.py` and the CU-155 emission-height helper at each column's
+  **lower** endpoint (`h_tgt` for the target leg, the ground for the full column); nothing
+  new is fitted and no transmittance moves (τ stays bit-identical — the term is additive on
+  radiance alone). Upwelling MWIR/LWIR path radiance is emission-dominated, not
+  scatter-dominated, so this is a first-order correction, not a refinement.
+  **Anchored** against the batch-2 O-block upwelling MODTRAN runs (O1–O5, each the
+  direction partner of an already-delivered up-looking run on the identical column):
+  band-mean model/MODTRAN thermal path radiance moves from 2e-3…3e-8 to **0.42–2.42**
+  (MWIR 3–5 µm) and **0.53–1.43** (LWIR 8–12 µm) — the same band the up-looking side
+  already occupies on those columns, so the residual is the shared CU-155/CU-161
+  spectral-shape and one-temperature-graybody approximation, not a direction-specific
+  defect. The up/down thermal asymmetry drops from 2e2…4e7 to 1.00–1.44 against MODTRAN's
+  measured 1.006–2.34.
+  **Direction and magnitude:** every down-looking MWIR/LWIR result **increases**, by more
+  the longer and warmer the column. MWIR LEO golden `signal_e` +53.5 %, `snr` +23.9 %
+  (971.93 → 1204.28); Option-C Cell 28 (2 km LWIR) `L_aperture` +20 % to +171 % across
+  8–13 µm and NEDT +0.63 %; the 17 shipped GUI baselines that moved run from +0.08 %
+  (1.3, a cold high-altitude MWIR band) to +59.2 % SNR (8.2), with NEDT falling
+  correspondingly (−0.008 % to −38.4 %). Scenes with no atmosphere between target and
+  sensor (exo, vacuum, `h_tgt → h_sensor`) are unchanged: `τ → 1` makes the term exactly
+  zero.
 - **Results-affecting: the level-topology sky background is evaluated as one whole traversed
   path (CU-224 checklist / ex-CU-276, owner ruling 2026-08-01).** The level branch of
   `uplooking_quantities` composed the sky as `L_arm→sensor + τ_arm · L_continuation`, joined

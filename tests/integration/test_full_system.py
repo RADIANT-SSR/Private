@@ -244,9 +244,23 @@ class TestSweeps:
     """Verify sweeps produce physically correct trends."""
 
     def test_snr_increases_with_aperture(self) -> None:
-        """Larger aperture → more signal → higher SNR."""
+        """Larger aperture → more signal → higher SNR.
+
+        The well is widened past ``_base_params``' 2e6 e- for this sweep
+        only (CU-224, 2026-08-02). The trend under test is the
+        photon-limited one; once the pixel saturates, ``signal_e`` clips to
+        the well and SNR flattens at ≈ √FWC by construction — a modelled
+        behaviour with its own explicit ``UserWarning`` (Gap 65), not a
+        violation of this trend. CU-224 added the atmosphere's own thermal
+        emission to the down-looking path radiance, which raised this
+        8 km MWIR scene's flux enough that the top two rungs (0.40 and
+        0.50 m) clipped against the old well. Widening the well keeps the
+        sweep inside the regime the assertion is about instead of
+        weakening the assertion.
+        """
         session = RadiantSession(wavelength_um=WL)
         ps = _base_params(session)
+        ps.set("readout.full_well_capacity_e", 1.0e8)
         ps.resolve()
 
         result = sweep(
@@ -261,9 +275,15 @@ class TestSweeps:
         assert np.all(diffs > 0), f"SNR not monotonically increasing: {result.metric_values}"
 
     def test_snr_increases_with_t_int(self) -> None:
-        """Longer integration → more signal → higher SNR."""
+        """Longer integration → more signal → higher SNR.
+
+        Well widened for the same reason as the aperture sweep above
+        (CU-224): the 10 and 20 ms rungs clipped once the down-looking
+        path radiance gained its thermal term.
+        """
         session = RadiantSession(wavelength_um=WL)
         ps = _base_params(session)
+        ps.set("readout.full_well_capacity_e", 1.0e8)
         ps.resolve()
 
         result = sweep(

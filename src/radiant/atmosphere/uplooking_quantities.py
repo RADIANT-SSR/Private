@@ -251,6 +251,16 @@ class UplookingColumnBackend(Protocol):
     def uplooking_companion(self) -> object | None:
         """Backend serving the illumination and sky-continuation legs."""
 
+    @property
+    def uplooking_target_ceiling_m(self) -> float | None:
+        """Highest target altitude the family's own runs measure [m MSL].
+
+        ``None`` when the family records nothing about its upper endpoint.
+        :func:`_refuse_library_backed_exo_target` keys the full-column /
+        partial-column split on this value — it is the backend's own answer,
+        so no caller has to know family names.
+        """
+
     def uplooking_column_product(self, wavelength_um: np.ndarray, los: Any) -> Any:
         """The sensor→target column segment (τ and ``L_toward_lower``)."""
 
@@ -316,8 +326,10 @@ def evaluate_uplooking_topology(
     ------
     ParameterBoundsError
         If *los* is down-looking, if the backend cannot serve the topology,
-        or if the LOS continuation is a limb-crossing column (B4, declined
-        for v1.x — ADR-0011 decision 5).
+        if the target is at or above ``h_atm_top`` while the observer leg comes
+        from a run family that stops inside the column
+        (:func:`_refuse_library_backed_exo_target`), or if the LOS continuation
+        is a limb-crossing column (B4, declined for v1.x — ADR-0011 decision 5).
     """
     backends = _resolve_backends(model)
     if backends is None:
@@ -362,6 +374,14 @@ def evaluate_uplooking_topology(
     lam = np.asarray(wavelength_um, dtype=np.float64)
     h_atm_top = float(los.h_atm_top)
     theta_s = los.theta_s
+
+    # Validate before compute (Rule 16): the exo-target admissibility of a
+    # library-backed observer leg is knowable from the LOS and the family's own
+    # ceiling, so it is settled BEFORE any leg is evaluated.  Ordering matters
+    # — evaluating the observer leg first would let a partial-column family's
+    # own out-of-hull error surface instead of this refusal, which is the one
+    # that names why the composition is inadmissible and which families serve it.
+    _refuse_library_backed_exo_target(backends, los, h_atm_top)
 
     # ---------------------------------------------------------------
     # 1. Observer leg — the target ↔ sensor segment.
@@ -658,6 +678,94 @@ def _validate_library_segment(tau: np.ndarray, radiance: np.ndarray, lam: np.nda
             action="Inspect the run family NPZ path_radiance_toward_lower arrays.",
             context={"min": rad_min},
         )
+
+
+def _refuse_library_backed_exo_target(
+    backends: _Backends,
+    los: LineOfSightGeometry,
+    h_atm_top_m: float,
+) -> None:
+    """Admit or refuse a library-backed observer leg whose target is exo.
+
+    CU-224 checklist item (ex-CU-308).  ``_illumination_products``' exo branch
+    substitutes the exact vacuum identity (``τ_sun ≡ 1``, ``E_sky ≡ 0``) for
+    the proxy down-looking evaluation.  That is correct for the *illumination*
+    and says nothing on its own about the composition it lands in, so with a
+    library-backed observer leg the join between the two at the top of the
+    modelled column needs an anchor.  Whether one exists is a property of the
+    **backing family**, and the family answers it itself
+    (``uplooking_target_ceiling_m``) — no family names appear here.
+
+    **Full column (ceiling ≥ h_atm_top) — permitted.**  MODTRAN's atmosphere
+    ends at ``h_atm_top``.  A family whose measured target-axis ceiling reaches
+    it has integrated the *entire* column, and the remaining path up to an exo
+    target is vacuum: zero extinction, zero emission.  The composed observer
+    leg for any ``h_tgt > h_atm_top`` is therefore **identically** the family's
+    own top-of-column run — the anchor the refusal used to demand is the family
+    itself, and the composition is exact rather than merely plausible.  The
+    query side of this is
+    :meth:`~radiant.atmosphere.interpolated.InterpolatedAtmosphere._vacuum_clamped_target_m`,
+    the target-axis mirror of the sensor-axis identity the same module already
+    ships (the ladders' 40 000 km duplicate node).  Shipped families that
+    qualify today: the batch-2 M column fan and P sensor ladder, both rendered
+    ground/elevated → 100 km.
+
+    **Partial column (ceiling < h_atm_top, or unknown) — refused.**  Such a
+    family stops inside the atmosphere.  Between its top rung and the exo target
+    lies real, unmeasured air, and nothing in the family measures it; composing
+    its top rung with the vacuum identity would join a measured leg to an
+    invented one and report the result as ordinary.  So it is refused, loudly,
+    naming the measured ceiling and the full-column families that do serve the
+    scene (Rule 17 — a refusal, not an approximation).  This is the arm the
+    20 km K ladder and N zenith fan take.
+
+    ``atmosphere.model='simple'`` has ``backends.column is None`` and is
+    untouched — its exo path stays exactly as CU-226 left it.
+    """
+    if backends.column is None or los.h_tgt < h_atm_top_m:
+        return
+    ceiling_m = backends.column.uplooking_target_ceiling_m
+    if ceiling_m is not None and ceiling_m >= h_atm_top_m:
+        # The family measured the whole column; the rest of the path is vacuum.
+        return
+    measured = "unrecorded" if ceiling_m is None else f"{ceiling_m:.0f} m"
+    raise ParameterBoundsError(
+        what=(
+            f"AtmosphereStage: up-looking target at h_tgt = {los.h_tgt:.0f} m is at or "
+            f"above h_atm_top = {h_atm_top_m:.0f} m while the observer leg is served "
+            "by an interpolated run family"
+        ),
+        why=(
+            "The composition has no anchor. The observer leg would come from the "
+            "MODTRAN family while the target's illumination collapses to the exo "
+            "vacuum identity (tau_sun = 1, E_sky = 0), and the join between the two "
+            "at the top of the modelled column has never been validated against a "
+            f"run: this family's own measured target ceiling is {measured}, BELOW "
+            "h_atm_top, so it stops inside the atmosphere and real, unmeasured air "
+            "lies between its top rung and the target (CU-224, ex-CU-308). A family "
+            "that DOES reach h_atm_top is a different case — it measured the entire "
+            "column, the rest of the path is vacuum, and the composed answer is "
+            "identically its own top-of-column run, so that case is served. "
+            "Answering here anyway would compose a measured leg with an unvalidated "
+            "one and report it as an ordinary result."
+        ),
+        action=(
+            "Use atmosphere.model='simple' for this scene (one consistent model "
+            "throughout, exo illumination included), lower the target below "
+            "h_atm_top, or point atmosphere.interpolated_data_dir at a FULL-COLUMN "
+            "up-looking family whose runs reach h_atm_top (shipped: "
+            "midlat_summer_sst_column_fan for a ground observer at LOS zenith "
+            "0-78.5 degrees, midlat_summer_uplooking_sensor_ladder for an observer "
+            "at 0-100 km at the 48.2-degree diffusivity angle)."
+        ),
+        context={
+            "h_tgt": los.h_tgt,
+            "h_atm_top": h_atm_top_m,
+            "h_sensor": los.h_sensor,
+            "column_backend": type(backends.column).__name__,
+            "family_target_ceiling_m": ceiling_m,
+        },
+    )
 
 
 def _illumination_products(

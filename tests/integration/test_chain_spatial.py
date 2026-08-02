@@ -316,8 +316,17 @@ class TestSNRUnchanged:
         each ramp falls inside the band and band-mean τ_up drops slightly:
         SNR 945.94 → 939.99 (−0.63%, signal-shot-limited so it tracks
         √signal).
+
+        Repinned 2026-08-02 (CU-224): the simple model's down-looking path
+        radiance now carries the Kirchhoff thermal emission of the column
+        it traverses, ``(1 − τ_up)·B(λ, T_eff(h_tgt))``, alongside the
+        single-scatter solar term it had before. Upwelling MWIR/LWIR path
+        radiance is emission-dominated, and this scene had none of it. The
+        added flux is real signal in an extended-scene regime, so SNR
+        939.99 → 1178.65 (+25.4%, signal-shot-limited so it tracks
+        √signal).
         """
-        expected_snr = 939.9885091250444
+        expected_snr = 1178.6529007091276
         assert result.metrics["snr"] == pytest.approx(expected_snr, rel=1e-3)
 
 

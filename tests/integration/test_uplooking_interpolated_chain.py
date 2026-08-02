@@ -130,6 +130,115 @@ class TestTheSplitIsDeclared:
         assert not any("TWO atmosphere models" in m for m in messages)
 
 
+class TestGroundToSpaceReachesTheFullColumnFamily:
+    """The capability the batch-2 M block shipped for (CU-224 checklist, ex-CU-308).
+
+    ``midlat_summer_sst_column_fan`` is a ground observer's *whole* column,
+    ground → the 100 km atmosphere top. It was built for ground-to-SPACE
+    scenes — targets at 400 km and beyond — and until now the up-looking
+    topology refused every one of them, because a library-backed observer leg
+    with ``h_tgt ≥ h_atm_top`` was refused outright.
+
+    The refusal now asks the family how far up it measured. This one measured
+    the entire column, so the remaining path to the target is vacuum and the
+    composed observer leg is *identically* the family's own top-of-column run —
+    which is what the second test here checks against the delivered M1 tape7's
+    stored τ, not against another RADIANT computation.
+    """
+
+    _FAN_DIR = (
+        Path(__file__).resolve().parents[2]
+        / "src"
+        / "radiant"
+        / "data"
+        / "tables"
+        / "atmospheres"
+        / "midlat_summer_sst_column_fan"
+    )
+    #: The M1 run — vertical, ground → 100 km. The fan's ζ = 0 node.
+    _M1_NPZ = _FAN_DIR / "z00.000.npz"
+    _EXO_TARGET_M = 400_000.0
+
+    @pytest.fixture(scope="class")
+    def exo(self):  # type: ignore[no-untyped-def]
+        """A ground sensor looking straight up at a 400 km target."""
+        sensor = (
+            Sensor.load(_CONFIG)
+            .set("geometry.sensor_altitude_m", 0.0)
+            .set("geometry.target_altitude_m", self._EXO_TARGET_M)
+            .set("atmosphere.model", "interpolated")
+            .set("atmosphere.interpolation_axes", "path_zenith_rad")
+            .set("atmosphere.interpolated_data_dir", str(self._FAN_DIR))
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result = sensor.evaluate()
+        return result, [str(w.message) for w in caught]
+
+    def test_the_chain_completes_with_finite_products(self, exo) -> None:  # type: ignore[no-untyped-def]
+        result, _ = exo
+        assert result.metrics.get("snr") is not None
+        q = result.stage_outputs["atmosphere"]["atm_quantities"]
+        for field in ("tau_up", "tau_full_up", "L_path_up", "L_path_full", "E_TOA"):
+            values = np.asarray(getattr(q, field))
+            assert np.all(np.isfinite(values)), field
+
+    def test_the_illumination_is_the_exo_vacuum_identity(self, exo) -> None:  # type: ignore[no-untyped-def]
+        """Above the atmosphere there is no column over the target: τ_sun ≡ 1, E_sky ≡ 0."""
+        q = exo[0].stage_outputs["atmosphere"]["atm_quantities"]
+        np.testing.assert_array_equal(np.asarray(q.tau_sun), np.ones_like(q.wavelength_um))
+        np.testing.assert_array_equal(np.asarray(q.E_sky_scattered), np.zeros_like(q.wavelength_um))
+        np.testing.assert_array_equal(np.asarray(q.E_sky_thermal), np.zeros_like(q.wavelength_um))
+
+    def test_the_observer_leg_is_the_m1_full_column_run(self, exo) -> None:  # type: ignore[no-untyped-def]
+        """The measured anchor: the composed answer IS the delivered M1 column.
+
+        Nothing in the composition interpolates *toward* the exo target and
+        nothing extrapolates past the fan's top: the vacuum identity says the
+        answer is the ζ = 0 node itself, carried onto the chain grid in log-τ
+        (CU-306's convention, the same space the geometry interpolation uses).
+        """
+        q = exo[0].stage_outputs["atmosphere"]["atm_quantities"]
+        lam = np.asarray(q.wavelength_um, dtype=np.float64)
+        with np.load(self._M1_NPZ, allow_pickle=True) as data:
+            wl_n = np.asarray(data["wavelength_um"], dtype=np.float64)
+            tau_n = np.asarray(data["transmittance"], dtype=np.float64)
+            l_n = np.asarray(data["path_radiance_toward_lower"], dtype=np.float64)
+        tau_expected = np.exp(np.interp(lam, wl_n, np.log(np.clip(tau_n, TAU_FLOOR, 1.0))))
+        assert np.asarray(q.tau_up) == pytest.approx(tau_expected, abs=1e-12)
+        assert np.asarray(q.L_path_up) == pytest.approx(np.interp(lam, wl_n, l_n), abs=1e-12)
+
+    def test_the_split_and_the_clamp_are_both_declared(self, exo) -> None:  # type: ignore[no-untyped-def]
+        """Rule 16 / the CU-224 ratification condition: both are inspectable."""
+        result, messages = exo
+        topology = result.stage_outputs["atmosphere"]["topology_provenance"]
+        assert "InterpolatedAtmosphere" in topology["backend_split"]
+        assert "companion" in topology["backend_split"]
+        assert any("TWO atmosphere models" in m for m in messages)
+        segment = topology["observer_segment_provenance"]
+        assert segment["target_ceiling_m"] == pytest.approx(100_000.0, abs=0.0)
+        assert segment["target_altitude_served_m"] == pytest.approx(100_000.0, abs=0.0)
+        assert "vacuum" in segment["exo_target_vacuum_clamp"]
+
+    def test_the_partial_column_ladder_still_refuses_the_same_scene(self) -> None:
+        """Same scene, a family that stops at 20 km: refused, not clamped."""
+        from radiant.core.parameters import ParameterBoundsError
+
+        sensor = (
+            Sensor.load(_CONFIG)
+            .set("geometry.sensor_altitude_m", 0.0)
+            .set("geometry.target_altitude_m", self._EXO_TARGET_M)
+            .set("atmosphere.model", "interpolated")
+            .set("atmosphere.interpolation_axes", "target_altitude_m")
+        )
+        with (
+            warnings.catch_warnings(),
+            pytest.raises(ParameterBoundsError, match="at or above h_atm_top"),
+        ):
+            warnings.simplefilter("ignore")
+            sensor.evaluate()
+
+
 class TestDownLookingUntouched:
     def test_down_looking_interpolated_takes_no_companion(self) -> None:
         """A down-looking family must not acquire a second backend (zero drift)."""

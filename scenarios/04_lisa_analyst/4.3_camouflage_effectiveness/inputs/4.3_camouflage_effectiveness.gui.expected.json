@@ -2,9 +2,9 @@
   "id": "4.3",
   "title": "Camouflage effectiveness \u2014 bare vehicle, LWIR FLIR at nadir",
   "metrics": {
-    "snr": 1842.5855136297523,
-    "contrast_snr": 1842.5855136297523,
-    "nedt_K": 0.033270721301978154
+    "snr": 1971.5968112076837,
+    "contrast_snr": 1971.5968112076837,
+    "nedt_K": 0.031102824389938378
   },
   "notes": "Bare oxidized-steel vehicle vs scrub, LWIR FLIR at nadir. The YAML references a derived radiance CSV; run the runner once to generate it before re-emitting this baseline (CU-164)."
 }

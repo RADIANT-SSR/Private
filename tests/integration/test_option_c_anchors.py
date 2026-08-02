@@ -207,7 +207,16 @@ CELL28_PINNED = {
     # are joined across each region edge by a C¹ smoothstep ramp of
     # half-width 0.02 µm. NEDT +0.026% (was 0.2034629042771887); SNR and
     # MTF unchanged (this cell saturates, and MTF is spatial).
-    "nedt_K": 0.20351546333106751,
+    # NEDT + L_aperture repinned 2026-08-02 (CU-224 down-looking path
+    # thermal emission): SimpleAtmosphere.evaluate's L_path_up now carries
+    # the Kirchhoff term (1 − τ_up)·B(λ, T_eff(h_tgt)) of the same column
+    # alongside its single-scatter solar term — until now the down-looking
+    # side had no emission at all while the up-looking segment evaluators
+    # did.  This is a 2 km midlat_summer LWIR column, where the added
+    # emission is first-order: NEDT +0.63% (was 0.20351546333106751).
+    # SNR unchanged (this cell saturates, so snr ≈ √FWC is
+    # scene-independent) and MTF unchanged (spatial).
+    "nedt_K": 0.20478844358107973,
     # MTF@Nyquist repinned 2026-07-10 (CU-003 option a): the pixel-aperture
     # kernel is now area-integrated (anti-aliased edges) instead of a binary
     # mask that quantised the rect width to the sample grid. The old kernel
@@ -241,13 +250,20 @@ CELL28_PINNED = {
     # absorbs more, not by the blend. The three interior anchors — 9, 11 and
     # 13 µm — are BIT-IDENTICAL, which is the check that this repin is the
     # edge blend and nothing else.
+    # Repinned 2026-08-02 (CU-224). Every anchor rises, and the ordering is
+    # the physical check: the increment is (1 − τ_up)·B(λ, 292.85 K), so it
+    # is largest where the column is most opaque and smallest in the clean
+    # 9–11 µm window — +171.0% at 8 µm (the 8 µm region edge is the most
+    # absorbing point in the band), +27.6% at 9, +24.4% at 10, +20.4% at 11,
+    # +41.1% at 12 and +63.9% at 13 µm (the CO₂ 15 µm wing). A defect
+    # elsewhere would not sort by column opacity.
     "L_aperture_W_m2_sr_um": {
-        8.0: 2.9931228252539825,
-        9.0: 7.1932115500743015,
-        10.0: 7.4795423998873565,
-        11.0: 7.477528784720062,
-        12.0: 5.950324696756001,
-        13.0: 4.6907893682809565,
+        8.0: 8.111996691988045,
+        9.0: 9.174821706581744,
+        10.0: 9.30209808751487,
+        11.0: 9.005763833360962,
+        12.0: 8.393136012209359,
+        13.0: 7.6862798185098935,
     },
 }
 

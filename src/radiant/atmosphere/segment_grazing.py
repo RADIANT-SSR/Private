@@ -313,8 +313,12 @@ def _grazing_single_scatter_terms(
     Species weights are taken at the arc's **lower** end rather than at its
     mean altitude: a grazing arc is dominated by the densest air it passes
     through, which sits at the near end, and the single-scatter source
-    ``(1 − τ)`` is generated there too.  (``segment_simple`` uses the mean
-    altitude because a non-grazing column is spread far more evenly.)
+    ``(1 − τ)`` is generated there too.  ``segment_simple`` has weighted the
+    same way since CU-260, and since CU-320 it also linearises the CU-161 water
+    curve of growth against the **slant** column as this module does — the two
+    evaluators now share one convention end to end, which is what collapsed the
+    80° hand-over step to ≤ 0.8 % in every band (``RADIANT_Atmosphere.md``
+    §4.2g).
     """
     prov: dict[str, Any] = {"theta_s_rad": theta_s_rad, "delta_phi_rad": delta_phi_rad}
     if theta_s_rad is None:

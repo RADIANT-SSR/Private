@@ -34,10 +34,17 @@ with four contributions:
 This cut implements the full §3.1 simple-model triple:
 
 - **``τ_atm(λ)``** via Beer-Lambert on the three extinction species.
-- **``L_path(λ)``** via the single-scatter approximation, using a
-  5778 K blackbody TOA solar spectrum from ``radiant.core.solar`` and
-  a weighted two-component phase function (Rayleigh for molecular,
-  Henyey-Greenstein with ``g = 0.7`` for aerosol).
+- **``L_path(λ)``** as the sum of two terms on one column: the
+  single-scatter solar approximation, using a 5778 K blackbody TOA
+  solar spectrum from ``radiant.core.solar`` and a weighted
+  two-component phase function (Rayleigh for molecular,
+  Henyey-Greenstein with ``g = 0.7`` for aerosol); **plus** the
+  Kirchhoff thermal emission ``(1 − τ)·B(λ, T_eff)`` of that same
+  column (CU-224), ``T_eff`` from the CU-155 emission-height helper at
+  the column's lower endpoint. In MWIR/LWIR the emission term
+  dominates — before CU-224 it was absent here while the up-looking
+  segment evaluators carried it, and one column of air read in the two
+  directions differed by three to four orders of magnitude.
 - **``L_atm_down(λ)``** via the graybody ``(1 − τ_vert^D) · B(λ, T_eff)``
   (CU-155) with ``T_eff`` the standard-atmosphere temperature a small
   emission-height offset above the TARGET (plane-parallel troposphere,
@@ -93,6 +100,7 @@ from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
 )
+from radiant.atmosphere.segment_thermal import segment_thermal_emission
 from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError, ParameterSet
@@ -872,10 +880,12 @@ class SimpleAtmosphere:
         - ``tau_full_up`` = exp(−airmass_up · ∫_{0}^{h_sensor} k(λ,z) dz) —
           the ground-to-sensor column used by the background branch.  This
           is **independent of** ``h_tgt`` by construction.
-        - ``L_path_up`` = single-scatter integral from h_tgt to h_sensor
-          (uses (1 − τ_up)).
-        - ``L_path_full`` = single-scatter integral from 0 to h_sensor
-          (uses (1 − τ_full_up)).
+        - ``L_path_up`` = single-scatter solar integral from h_tgt to
+          h_sensor (uses (1 − τ_up)) **plus** the Kirchhoff thermal
+          emission ``(1 − τ_up)·B(λ, T_eff(h_tgt))`` of the same column
+          (CU-224).
+        - ``L_path_full`` = the same pair on the 0 → h_sensor column
+          (uses (1 − τ_full_up) and ``T_eff(0)``).
         - ``E_sky_scattered = E_TOA · cos(θ_s) · ω₀ · (1 − τ_down,vert)``
           on the h_tgt→h_sensor vertical column (same slab as thermal)
           (Stage 6, ADR-0002).  Degrades to 0 as cos θ_s → 0 (sun below
@@ -1238,14 +1248,45 @@ class SimpleAtmosphere:
             L_path_vals = np.maximum(L_path_vals, 0.0)
         else:
             L_path_vals = np.zeros_like(lam)
-        L_path_up = L_path_vals
 
-        # L_path_full: the background-branch single-scatter radiance,
-        # integrated over the full ground-to-sensor column.  For h_tgt=0
-        # this is identically L_path_up (preserved via .copy()).  For
-        # h_tgt > 0 we need the single-scatter integral over [0, h_sensor],
-        # which uses (1 − τ_full_up) and the mean-altitude weights for
-        # that full column.
+        # --- Kirchhoff thermal emission of the same column (CU-224) ---
+        # Upwelling path radiance in MWIR/LWIR is emission-dominated, not
+        # scatter-dominated.  Until CU-224 this term was absent on the
+        # down-looking side while the up-looking segment evaluators carried
+        # it, so one column of air read in the two directions differed by
+        # three to four orders of magnitude.  The term is the same
+        # ``segment_thermal_emission`` the up-looking side uses — the module
+        # is imported, not re-derived (Rule 19/27) — with ``T_eff`` from the
+        # same CU-155 emission-height helper evaluated at the column's LOWER
+        # endpoint, which for the target leg is ``h_tgt``.  Emissivity is
+        # derived from the segment's own transmittance (Rule 5); it is never
+        # an independent input.
+        #
+        # Anchored 2026-08-02 against the batch-2 O-block upwelling runs
+        # (O1–O5, each the direction partner of a delivered up-looking run on
+        # the identical column).  Band-mean model/MODTRAN thermal path
+        # radiance after the fix: MWIR 3–5 µm 0.416 / 1.065 / 2.016 / 2.251 /
+        # 2.424 and LWIR 8–12 µm 0.535 / 1.111 / 1.327 / 1.353 / 1.431 for
+        # O1 (1 km nadir) / O2 (5 km nadir) / O3 (10 km, 48.2°) / O4 (10 km,
+        # 60°) / O5 (100 km, 48.2°) — versus 2e-3 … 3e-8 before.  The band is
+        # the same one the up-looking side sits in on the identical columns
+        # (0.458 … 1.491 MWIR, 0.532 … 1.265 LWIR), i.e. the residual is the
+        # shared CU-155/CU-161 spectral-shape and one-temperature-graybody
+        # approximation, not a direction-specific defect.  See
+        # ``segment_thermal`` for the size of the one-temperature assumption.
+        L_path_up_thermal = segment_thermal_emission(
+            lam, tau_up, self._downwelling_effective_temperature_K(h_tgt)
+        )
+        L_path_up = L_path_vals + L_path_up_thermal
+
+        # L_path_full: the background-branch path radiance (single-scatter
+        # solar + CU-224 thermal emission), integrated over the full
+        # ground-to-sensor column.  For h_tgt=0 this is identically
+        # L_path_up (preserved via .copy()) — same column, same τ, and the
+        # emission temperature is the same helper at the same lower endpoint
+        # (0 m).  For h_tgt > 0 we need the integral over [0, h_sensor],
+        # which uses (1 − τ_full_up), the mean-altitude weights for that
+        # full column, and the ground-endpoint emission temperature.
         if h_tgt == 0.0:
             L_path_full = L_path_up.copy()
         else:
@@ -1294,6 +1335,11 @@ class SimpleAtmosphere:
                 L_path_full = np.maximum(L_path_full_vals, 0.0)
             else:
                 L_path_full = np.zeros_like(lam)
+            # Same Kirchhoff term on the ground→sensor column: τ_full_up with
+            # T_eff at *its* lower endpoint, the ground (CU-224).
+            L_path_full = L_path_full + segment_thermal_emission(
+                lam, tau_full_up, self._downwelling_effective_temperature_K(0.0)
+            )
 
         # --- E_sky_thermal: (1 − τ_sky,vert^D) · π · B(T(h_tgt + z_em)) (CU-155) ---
         # τ_sky,vert is the VERTICAL transmittance of the target→h_atm_top

@@ -413,3 +413,124 @@ def test_a_tall_column_keeps_its_forward_scattering_peak() -> None:
     scat_obl = (obl.L_toward_lower - dark.L_toward_lower)[vis] / math.cos(math.radians(60.0))
     ratio = float(np.median(scat_fwd / scat_obl))
     assert ratio > 3.0, f"phase ratio {ratio:.3f} is at the aerosol-free Rayleigh value"
+
+
+# ---------------------------------------------------------------------------
+# CU-320 — one linearisation reference column across all three evaluators
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level0
+def test_curve_of_growth_is_linearised_against_the_slant_column() -> None:
+    """ω₀'s water and gas weights use the SLANT column, not the vertical one.
+
+    The CU-161 water term is a curve of growth ``OD = k·w^b`` with ``b < 1`` in
+    the saturated bands, so evaluating it at the vertical amount and at the
+    traversed amount are different models — they differ by ``m_h2o^(b−1)`` in
+    the effective weight and therefore in ω₀.  ``segment_grazing`` and
+    ``level_whole_path`` have always used the slant column; ``segment_simple``
+    used the vertical one until CU-320, which was the whole of the surviving
+    80° hand-over step.
+
+    Fails on the pre-CU-320 implementation: at ζ = 60° the air mass is ≈ 2, so
+    the hand value below is built on twice the water the retired form used.
+    """
+    lam = _grid()
+    atm = _atm()
+    h_low, h_high = 0.0, 2.0e4
+    zeta = math.radians(60.0)
+    theta_s = math.radians(30.0)
+    spec = ColumnSegmentSpec(h_low_m=h_low, h_high_m=h_high, zeta_low_rad=zeta)
+    q = evaluate_column_segment(atm, lam, spec, theta_s_rad=theta_s)
+
+    od, air_mass, lengths = column_segment_optical_depth(atm, lam, spec)
+    tau = np.exp(-od)
+    # Hand-built slant columns: one air mass serves every species inside 80°.
+    s_mol = lengths["col_length_mol_km"] * air_mass
+    s_h2o = lengths["col_length_h2o_km"] * air_mass
+    assert lengths["slant_column_mol_km"] == pytest.approx(s_mol, rel=1e-12)
+    assert lengths["slant_column_h2o_km"] == pytest.approx(s_h2o, rel=1e-12)
+    assert air_mass > 1.9  # ζ = 60° really is ~2 air masses
+
+    sigma_mol = atm._rayleigh_extinction_km(lam, h_low)
+    sigma_aer = atm._aerosol_extinction_km(lam, h_low)
+    sigma_h2o = (atm._h2o_vertical_od(lam, s_h2o) / s_h2o) * math.exp(-h_low / H_H2O_M)
+    sigma_gas = (atm._gas_floor_vertical_od(lam, s_mol) / s_mol) * math.exp(-h_low / H_MOL_M)
+    omega0 = atm._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o, sigma_gas)
+    cos_dn = cos_scattering_angle(zeta, theta_s, 0.0, "toward_lower")
+    phase = atm._single_scatter_phase_function(cos_dn, sigma_mol, sigma_aer)
+    expected_scatter = (
+        toa_solar_equivalent_radiance(lam) * math.cos(theta_s) * omega0 * phase * (1.0 - tau) / 4.0
+    )
+    thermal = segment_thermal_emission(lam, tau, atm._downwelling_effective_temperature_K(h_low))
+    np.testing.assert_allclose(q.L_toward_lower, thermal + expected_scatter, rtol=1e-12, atol=0.0)
+
+
+@pytest.mark.level0
+def test_vertical_column_is_untouched_by_the_slant_convention() -> None:
+    """Zero drift at ζ = 0: air mass is exactly 1, so slant is the vertical column.
+
+    This is what keeps the P4 K-ladder species-split anchors
+    (``tests/integration/test_species_split_anchors.py``, every rung rendered at
+    ζ = 0°) bit-identical across CU-320.
+    """
+    lam = _grid()
+    atm = _atm()
+    spec = ColumnSegmentSpec(h_low_m=0.0, h_high_m=2.0e4, zeta_low_rad=0.0)
+    _od, air_mass, lengths = column_segment_optical_depth(atm, lam, spec)
+    assert air_mass == pytest.approx(1.0, abs=0.0)
+    for species in ("mol", "aer", "h2o"):
+        assert lengths[f"slant_column_{species}_km"] == pytest.approx(
+            lengths[f"col_length_{species}_km"], abs=0.0
+        )
+
+
+@pytest.mark.level0
+def test_eighty_degree_handover_step_is_small_in_every_band() -> None:
+    """The two evaluators agree at the hand-over to better than 1 % (CU-320).
+
+    Band-mean grazing/column at ζ = 80°, ground to ``h_atm_top``, θ_s = 30°.
+    Before CU-320 the step was 1.078 (VIS), 1.568 (NIR), 1.497 (SWIR), 1.024
+    (MWIR) and 0.998 (LWIR) — a spectral artefact of two evaluators evaluating
+    one sub-linear law at two different column amounts.  What is left is the
+    plane-parallel air mass's own error where it is retired, and it is the same
+    size in every band, which is the point.
+    """
+    from radiant.atmosphere.near_horizon_air_mass import tangent_radius_m
+    from radiant.atmosphere.protocol import H_ATM_TOP_M
+    from radiant.atmosphere.segment_grazing import evaluate_grazing_segment
+
+    lam = np.concatenate([np.linspace(0.40, 2.60, 221), np.linspace(2.65, 14.20, 232)])
+    atm = _atm()
+    zeta = math.radians(80.0)
+    theta_s = math.radians(30.0)
+    col = evaluate_column_segment(
+        atm,
+        lam,
+        ColumnSegmentSpec(h_low_m=0.0, h_high_m=H_ATM_TOP_M, zeta_low_rad=zeta),
+        theta_s_rad=theta_s,
+    )
+    gra = evaluate_grazing_segment(
+        atm,
+        lam,
+        r_tangent_m=tangent_radius_m(0.0, zeta),
+        h_low_m=0.0,
+        h_high_m=H_ATM_TOP_M,
+        zeta_low_rad=zeta,
+        theta_s_rad=theta_s,
+    )
+
+    def _band_mean(values: np.ndarray, lo: float, hi: float) -> float:
+        mask = np.logical_and(lam >= lo, lam <= hi)
+        return float(np.trapezoid(values[mask], lam[mask]) / (lam[mask][-1] - lam[mask][0]))
+
+    bands = {
+        "VIS": (0.45, 0.85),
+        "NIR": (0.85, 1.40),
+        "SWIR": (1.4, 2.5),
+        "MWIR": (3.0, 5.0),
+        "LWIR": (8.0, 13.0),
+    }
+    for name, (lo, hi) in bands.items():
+        step = _band_mean(gra.L_toward_lower, lo, hi) / _band_mean(col.L_toward_lower, lo, hi)
+        assert 0.99 < step < 1.01, f"{name} hand-over step {step:.4f} is outside 1 %"

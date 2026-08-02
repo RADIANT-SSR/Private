@@ -233,7 +233,18 @@ def test_slant_block_decks_still_match_their_delivered_card3() -> None:
         deck_fields = [
             float(tok) for tok in _render_row(row).splitlines()[_CARD3_DECK_LINE].split()[:3]
         ]
-        assert deck_fields == pytest.approx(_card3_echo(run_id)[:3], abs=1.0e-6), run_id
+        if row["deck_builder_support"].strip() == "tangent_transit_angle_gt_90":
+            # Q7/Q8: the renderer writes an ANGLE placeholder of 0.000 because
+            # AtmosphericGeometry refuses a lower-endpoint zenith past 89.5°,
+            # and the operator hand-sets Card-3 ANGLE (+ LENN=1) before the
+            # run.  The three-way agreement therefore runs against the
+            # matrix's hand-edit instruction, not the deck placeholder: the
+            # delivered echo must carry H1/H2 from the deck and ANGLE from
+            # ``modtran_angle_at_h1_deg`` — proving the hand edit was applied.
+            expected = deck_fields[:2] + [float(row["modtran_angle_at_h1_deg"])]
+            assert _card3_echo(run_id)[:3] == pytest.approx(expected, abs=1.0e-6), run_id
+        else:
+            assert deck_fields == pytest.approx(_card3_echo(run_id)[:3], abs=1.0e-6), run_id
         checked += 1
     assert checked >= 60, f"only {checked} slant runs compared — staged set shrank?"
 

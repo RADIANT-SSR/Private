@@ -17,3 +17,19 @@ goldens in `tests/integration/test_modtran_real_runs.py`.
 
 Boost-ladder expansion deliveries (G7–G11, I1–I9, H5, J1–J2 — 17 runs,
 plan §3) land here as `<run_id>.tp7` alongside the originals.
+
+## Batch-2 delivery (2026-08-02)
+
+35 of the 37 batch-2 rows delivered (M1–M8, N1–N10, O1–O5, P1–P6, Q1–Q4,
+Q7, Q8), run on the owner's MODTRAN machine and transferred by folder copy
+(`~/Downloads/20260802` + `20260802_2`). All 35 parse through `Tape7Reader`
+(25 976 spectral points each, τ ∈ [0, 1], no NaN).
+
+- **Q5/Q6 were not run** (refraction on/off pair): the owner's deck audit
+  found no refraction switch was exercised, and running them without one
+  would duplicate Q3/M8 with a meaningless zero delta — per the batch-2 run
+  note, the horizon-guard thresholds stay guard-banded (ADR-0011 decision 5).
+- **Q7/Q8 hand-edits verified** in the tape7 card echoes: Q7 H1=20 km,
+  ANGLE=93.000, LENN=1, path 1439.94 km; Q8 H1=50 km, ANGLE=96.000, LENN=1,
+  path 1744.52 km; both IEMSCT=2 (the below-horizon-sun radiance path ran;
+  the τ_sun anchor reads TOT TRANS, which is solar-source-independent).

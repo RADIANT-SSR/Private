@@ -152,8 +152,15 @@ hand-edit rows are held back pending special handling:
   column is trustworthy regardless of the solar-source question; if MODTRAN
   rejects or mishandles it, rerun the same hand-edited geometry with
   **IEMSCT = 0** (transmittance-only) and record the mode deviation in
-  `real_runs/README.md`. Sanity checks either way: TOT TRANS nonzero and
-  below the M8 (89.5°) column band-for-band, and Q8 below Q7.
+  `real_runs/README.md`. Sanity check: TOT TRANS nonzero, **well above**
+  the M8 (89.5°) column, and Q8 above Q7 — the transits never descend
+  below their tangent heights (~11.2 km Q7 / ~14.9 km Q8), so they see
+  only thin high-altitude air, while M8 grazes from sea level (τ ≈ 0).
+  (An earlier revision of this note had both orderings inverted; the
+  2026-08-02 delivery measured VIS/MWIR/LWIR band-mean τ of
+  0.156/0.390/0.550 for Q7 and 0.215/0.556/0.603 for Q8 vs
+  1e-6/0.001/0.000 for M8, with the ANGLE=93/96 + LENN=1 hand-edits
+  confirmed in the tape7 card echoes.)
 
 **Where the outputs go.** Stage every delivered `.tp7` flat in
 `modtran/real_runs/` named `<run_id>.tp7` (e.g. `real_runs/M1.tp7`), exactly

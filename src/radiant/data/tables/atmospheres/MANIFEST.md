@@ -1,11 +1,14 @@
 # Shipped Atmosphere Library — Manifest
 
 **Generator:** `scripts/build_atmosphere_library.py` reading the real
-MODTRAN run set staged (gitignored) under `modtran/real_runs/`
+MODTRAN run set tracked under `modtran/real_runs/`
 (`docs/plans/modtran_run_matrix.csv`: the 39-run base delivered
 2026-07-17 + the 17-run boost-ladder expansion — G7–G11, I1–I9, H5,
 J1–J2 — delivered 2026-07-20 + the Geometry-Flexibility batch-1 K block
-K1–K7, delivered 2026-07-26, of which K1–K5 build the up-looking family).
+K1–K7, delivered 2026-07-26, of which K1–K5 build the up-looking family
++ **batch 2** — M1–M8, N1–N10, O1–O5, P1–P6, Q1–Q4, Q7–Q8, delivered
+2026-08-02, which add three up-looking families, one down-looking
+upwelling grid, and the altitude-resolved downwelling of CU-181).
 Regenerate with:
 
 ```
@@ -39,11 +42,30 @@ declared solar geometry adopts the recorded sun — no warning), and a
 query sensor above a recorded at-/above-TOA (100 km) sensor is exempt —
 the added path is vacuum, the column identical.
 
-**Up-looking NPZ format (GF-10):** the one up-looking family replaces
+**Up-looking NPZ format (GF-10):** every up-looking family replaces
 `path_radiance` with `path_radiance_toward_lower` [W/m²/sr/µm] (the
 *downward* product), omits `atm_emission_down`, and adds a
 `los_direction = "up"` marker. `TabulatedAtmosphere.from_npz` cannot read
 these files by design — see `midlat_summer_uplooking_ladder/` below.
+Four up-looking families ship: the vertical K ladder, the batch-2 zenith
+fan, the batch-2 SST full-column fan, and the batch-2 elevated-observer
+ladder.
+
+**Downwelling is altitude-resolved (CU-181, batch 2):** a down-looking
+node's `atm_emission_down` is the up-looking 48.2° diffusivity-angle sky
+radiance **at that node's target altitude** — `E_sky_thermal = π·L` is
+the sky irradiance falling on the target, so the target altitude is the
+physically meaningful key. It is interpolated from the measured rung
+ladder H5 (0 km) + P1–P6 (1/5/10/20/29/50 km) by
+`scripts/downwelling_altitude.py`: `ln L` piecewise linear in altitude
+inside the measured span, the top-two-rung slope (clamped non-increasing)
+above it, and exactly zero at the 100 km atmosphere top, where an
+observer has no sky above it. Before batch 2 the single ground-level H5
+value was attached to every node; ground-target nodes are therefore
+byte-identical and only elevated-target nodes moved. Measured decay of
+the shipped `atm_emission_down` across 0 → 50 km: **142×** (3–5 µm band
+mean) and **442×** (8–12 µm) — see "Known limitations" for why that is
+one-to-two orders less than CU-181's analytic table predicted.
 
 ## Families
 
@@ -53,7 +75,7 @@ these files by design — see `midlat_summer_uplooking_ladder/` below.
 |------|-----|---------------|--------------------|
 | `us_standard.npz` | A1 | 100 km → 0, nadir | H2 (up-looking, 48.2° diffusivity angle) |
 | `tropical.npz` | A2 | 100 km → 0, nadir | H4 (48.2°) |
-| `midlat_summer.npz` | A3 | 100 km → 0, nadir | — (no H-run; loads as zeros) |
+| `midlat_summer.npz` | A3 | 100 km → 0, nadir | H5 (48.2°) |
 | `midlat_winter.npz` | A4 | 100 km → 0, nadir | — |
 | `subarctic_summer.npz` | A5 | 100 km → 0, nadir | — |
 | `subarctic_winter.npz` | A6 | 100 km → 0, nadir | — |
@@ -225,6 +247,117 @@ non-exponentiality, the same effect measured on the L grid. That is why an
 off-vertical up-looking interpolated query **raises** instead of applying
 the sec-law: see "Known limitations" below.
 
+### `midlat_summer_uplooking_zenith_fan/` — 2-D grid over `(target_altitude_m, path_zenith_rad)`, **up-looking**
+
+18 nodes = 6 target altitudes (0/1/3/5/10/20 km) × 3 lower-endpoint
+zeniths. Ground observer (0 km) throughout, `midlat_summer`.
+
+| Zenith | sec ζ | Runs (targets 1/3/5/10/20 km) |
+|--------|-------|-------------------------------|
+| 0° | 1.0000 | K1–K5 (batch 1, not re-run — Rule 27) |
+| 48.2° | 1.4999 | N1–N5 |
+| 60° | 2.0000 | N6–N10 |
+
+The `target = 0` row at every zenith is the **synthesized zero-length
+identity** (τ ≡ 1, `L_toward_lower` ≡ 0): a target at the observer's own
+altitude has no air between the endpoints, at any zenith. It closes the
+grid's bottom row exactly, the same way the boost ladder's 100 km vacuum
+rung closes its top.
+
+**This is the family that closes the GF-10 deferral.** Before batch 2 an
+off-vertical up-looking interpolated query was *refused* (see "Known
+limitations"); this family carries a `path_zenith_rad` axis, so the query
+is served, interpolating in airmass sec(ζ) space like every down-looking
+fan (CU-160). Three sec rungs is the minimum that can *test* linearity in
+sec rather than assume it. The refusal survives, narrowed, for up-looking
+families that carry no zenith axis — the K ladder and the P ladder below.
+
+**Hull ends at 20 km and at sec 2.0.** A target above 20 km or a zenith
+past 60° is refused, not extrapolated. K6 (10 km at 45°) still sits off
+this grid and stays a holdout spot check.
+
+### `midlat_summer_sst_column_fan/` — 1-D grid over `path_zenith_rad`, **up-looking**, full column
+
+A ground observer's whole column to the 100 km atmosphere top — the SST
+(space surveillance) anchor family, `midlat_summer`.
+
+| File | Run | Zenith | sec ζ |
+|------|-----|--------|-------|
+| `z00.000.npz` | M1 | 0° | 1.0 |
+| `z48.200.npz` | H5 | 48.2° | 1.5 |
+| `z60.000.npz` | M2 | 60° | 2.0 |
+| `z70.529.npz` | M3 | 70.529° | 3.0 |
+| `z75.522.npz` | M4 | 75.522° | 4.0 |
+| `z78.463.npz` | M5 | 78.463° | 5.0 |
+
+A uniform sec ladder 1…5, which is what makes the CU-160 interpolation
+coordinate evenly sampled rather than crowded near nadir.
+
+**M6–M8 (85°/88°/89.5°, sec 11.5/28.7/114.6) are `dev_only` and do not
+ship.** They sit outside the uniform ladder and, for M7/M8, at or past
+`InterpolatedAtmosphere`'s 88.8° airmass ceiling, where the sec-space
+mapping is unvalidated; shipping them would put an unvalidated coordinate
+inside a hull the interpolator is allowed to traverse. They remain
+staged run data for the near-horizon air-mass work (CU-320).
+
+**Reachable only through an explicit `atmosphere.interpolated_data_dir`.**
+Its `(up, path_zenith_rad)` signature is free, but `path_zenith_rad` is
+the *schema default* for `atmosphere.interpolation_axes`, so publishing it
+as a default-dispatch row would turn today's actionable refusal for an
+up-looking scene that never touched the axes parameter into a silent
+dispatch onto a family whose target altitude is fixed at 100 km. It is
+listed in `EXPLICIT_DIR_FAMILIES` instead, so the GUI picker still offers
+it by name and writes the directory (the ex-CU-296 pattern).
+
+### `midlat_summer_uplooking_sensor_ladder/` — 1-D grid over `sensor_altitude_m`, **up-looking**
+
+An *elevated* observer's full column to the 100 km top at the fixed 48.2°
+diffusivity angle: the batch-2 P block plus H5.
+
+| File | Run | Observer altitude |
+|------|-----|-------------------|
+| `s000.npz` | H5 | 0 km (ground) |
+| `s001.npz` | P1 | 1 km |
+| `s005.npz` | P2 | 5 km |
+| `s010.npz` | P3 | 10 km |
+| `s020.npz` | P4 | 20 km |
+| `s029.npz` | P5 | 29 km |
+| `s050.npz` | P6 | 50 km |
+| `s100.npz` | — | 100 km, synthesized zero-length identity |
+
+These are the same runs the CU-181 downwelling ladder is built from; here
+they are library nodes in their own right (the run matrix's P-row note
+asked for `tau_total` precisely so they could be).
+
+**One zenith only.** The family carries no `path_zenith_rad` axis, so a
+query at any other zenith is refused with a message naming the 48.2° it
+*is* rendered at and pointing at `midlat_summer_sst_column_fan` (which
+carries the axis) or `atmosphere.model = "simple"`.
+
+### `midlat_summer_upwelling_offnadir/` — 2-D grid over `(sensor_altitude_m, path_zenith_rad)`
+
+9 nodes = 3 sensor altitudes × 3 LOS zeniths, **ground target**,
+down-looking, `midlat_summer`. The upwelling reciprocals of the
+up-looking columns, and the emission-height anchors CU-224's down-looking
+thermal term needs.
+
+| Sensor | 0° | 48.2° | 60° |
+|--------|----|-------|-----|
+| 10 km | J1 | O3 | O4 |
+| 100 km | A3 | O5 | I5 |
+| 40 000 km (GEO) | A3 | O5 | I5 (orbital duplicates) |
+
+The recorded `path_zenith_rad` is the run matrix's
+`path_zenith_deg_radiant` — the **lower-endpoint (ground) zenith**, the
+same convention every other family records. MODTRAN's Card-3 ANGLE on
+these decks is `180° −` that (180 / 131.8 / 120), which is exactly the
+ex-CU-223 conversion; a builder that fed `los.theta_o` straight through
+would have written the wrong number, and
+`tests/integration/test_batch2_atmosphere_families.py` asserts it did not.
+
+O1 (1 km) and O2 (5 km) are nadir-only — they have no zenith column, so
+they cannot join this rectangular grid and ship under `validation/`.
+
 ### `validation/` — off-grid points (NOT interpolation nodes)
 
 | File | Run | Geometry |
@@ -232,11 +365,15 @@ the sec-law: see "Known limitations" below.
 | `C7.npz` | C7 | 35 km → 10 km at 45° LOS zenith |
 | `G6.npz` | G6 | 100 km → 10 km at 45° |
 | `H1.npz` | H1 | ground → 100 km up-looking, nadir |
+| `O1.npz` | O1 | 1 km → ground, nadir (down-looking partner of K1) |
+| `O2.npz` | O2 | 5 km → ground, nadir (down-looking partner of K3) |
 
 C7/G6 would add a third, two-point axis to the ladder grid — too sparse
 to interpolate honestly, so they ship as point data for validating the
 θ×h_tgt coupling of any future partial-column model. H1 is the nadir
-up-looking downwelling anchor (H2's 48.2° sibling).
+up-looking downwelling anchor (H2's 48.2° sibling). O1/O2 are the matched
+down-looking partners of the K1/K3 up-looking columns: τ must match
+(reciprocity) while path radiance must not (CU-224's asymmetry).
 
 ## Interpolation-space note (CU-160, 2026-07-17)
 
@@ -264,27 +401,47 @@ band-mean τ, vs −4% under the earlier linear-in-angle axis).
   the ladders are reachable from a chain run (targets 0–29 km; the
   boost families extend this to 0–100 km; beyond the hull still refuses
   — no extrapolation). CU-011's binary flavor remains open.
-- **Elevated-target downwelling (CU-181)** — constant-per-family H-run
-  value over-states downwelling at elevated targets; see the boost
-  families' simplification note above.
+- **Elevated-target downwelling (CU-181) — resolved into data 2026-08-02,
+  with one modelled band left.** The constant-per-family H-run value is
+  gone: every down-looking node now carries the measured downwelling at
+  its own target altitude (see the NPZ-format note above). What remains
+  modelled rather than measured is the band **above 50 km** — the 60/80 km
+  boost rungs, extrapolated on the 29→50 km log slope as the run matrix
+  directs, with the slope clamped non-increasing because no residual
+  column can gain emitters with altitude. Those nodes are an upper bound,
+  in the same conservative direction as the constant they replace and
+  ~150× smaller. Below 50 km every node is measured.
+  **The entry's ≳10⁴ acceptance criterion is NOT met, and should not be.**
+  MODTRAN says the real midlat_summer downwelling falls 142× (3–5 µm) and
+  442× (8–12 µm) across 0 → 50 km. CU-181's 16 579× figure came from
+  `SimpleAtmosphere.evaluate`'s own `E_sky_thermal` — RADIANT predicting
+  itself — whose water-dominated column collapses far faster than the real
+  stratospheric CO₂/O₃ emission does. The MWIR profile is also **not
+  monotonic**: the 29 km rung is brighter than the 20 km one, which is why
+  the interpolation assumes no monotonicity.
 - **Aerosol/visibility variants (Blocks D/E) deliberately do not ship** —
   condition-specific studies, regenerate-on-demand (plan §7.2).
-- **No up-looking zenith fan (GF-10)** — `midlat_summer_uplooking_ladder`
-  is vertical-only, so an off-vertical up-looking *interpolated* query
-  raises and names `atmosphere.model = "simple"` (which serves any
-  up-looking zenith through the segment evaluators). Mapping off-vertical
-  up-looking queries into airmass sec(ζ) space, as the down-looking
-  off-nadir family does, is **deferred** until an up-looking zenith fan is
-  run: measured against the K6 45° holdout, the sec-law prediction from
-  the vertical node is 0.1–2.5 % low in band-mean τ, so applying it
-  silently would be a quiet ~2 % LWIR error on every slant up-looking
-  scene.
-- **No up-looking sensor-altitude axis** — the K family is rendered from
-  ground level. An elevated lower endpoint (air-to-air up-looking) is
-  refused with a 1 m tolerance rather than warned: the lowest 100 m alone
-  carry ≈8 % of the aerosol column (H_aer = 1.2 km) and ≈5 % of the water
-  column (H_H2O = 2 km). K7 (5 km → 15 km at 45°) is the delivered anchor
-  for that family when it is run.
+- **Up-looking zenith fan (GF-10) — landed 2026-08-02.**
+  `midlat_summer_uplooking_zenith_fan` (targets 0–20 km × sec ζ 1.0–2.0)
+  and `midlat_summer_sst_column_fan` (full column × sec ζ 1–5) carry a
+  `path_zenith_rad` axis and serve off-vertical up-looking queries in
+  airmass sec(ζ) space, as the down-looking off-nadir family does. The
+  refusal survives, **narrowed**: an up-looking family with no zenith axis
+  (`midlat_summer_uplooking_ladder` at vertical,
+  `midlat_summer_uplooking_sensor_ladder` at 48.2°) still raises for any
+  other zenith rather than applying the sec law from its one rendered
+  column — measured against the K6 45° holdout, that prediction is
+  0.1–2.5 % low in band-mean τ, so applying it silently would be a quiet
+  ~2 % LWIR error. The message now names the fans as the remedy.
+- **Up-looking sensor-altitude axis — partial (2026-08-02).**
+  `midlat_summer_uplooking_sensor_ladder` gives the *full column to the
+  100 km top* an observer-altitude axis (0–50 km, at 48.2° only). The
+  partial-column families (K ladder, zenith fan) are still rendered from
+  ground level, and an elevated lower endpoint on them is refused with a
+  1 m tolerance rather than warned: the lowest 100 m alone carry ≈8 % of
+  the aerosol column (H_aer = 1.2 km) and ≈5 % of the water column
+  (H_H2O = 2 km). K7 (5 km → 15 km at 45°) is the delivered anchor for an
+  elevated-endpoint *partial*-column family when it is run.
 - **Up-looking families carry one direction only** — the K runs measure the
   downwelling radiance at the ground observer; the reverse-direction
   product for the same column is a separate run set (the reciprocal F/J
@@ -308,7 +465,18 @@ actionable no-family error listing every row of this table.
 | down | `sensor_altitude_m,target_altitude_m` | `midlat_summer_ladders` (0–29 km) |
 | down | `sensor_altitude_m` | `midlat_summer_sensor_ladder` |
 | down | `sensor_altitude_m,target_altitude_m,path_zenith_rad` | `midlat_summer_boost_offnadir` |
+| down | `sensor_altitude_m,path_zenith_rad` | `midlat_summer_upwelling_offnadir` |
 | up | `target_altitude_m` | `midlat_summer_uplooking_ladder` |
+| up | `target_altitude_m,path_zenith_rad` | `midlat_summer_uplooking_zenith_fan` |
+| up | `sensor_altitude_m` | `midlat_summer_uplooking_sensor_ladder` |
+
+Two bundled families are reachable **only** through an explicit
+`atmosphere.interpolated_data_dir` (`EXPLICIT_DIR_FAMILIES`):
+`midlat_summer_boost_ladder`, whose 2-axis signature is owned by
+`midlat_summer_ladders`, and `midlat_summer_sst_column_fan`, whose
+signature is free but is the *schema default* axes string, so publishing
+it would silently widen an existing refusal. The GUI family picker offers
+both by name and writes the directory.
 
 No `level` family ships: a constant-altitude path is served by the
 level-arm segment evaluator on `atmosphere.model = "simple"`, and the
@@ -337,3 +505,14 @@ axes, and the pin between the loader's pre-chain direction rule and
 `tests/integration/test_uplooking_horizontal_anchors.py` — the
 `skipif`-guarded K6 45° coupling characterization against the delivered
 tape7 (needs `modtran/real_runs/`).
+`tests/integration/test_batch2_atmosphere_families.py` — the batch-2
+ingestion contract: every delivered Card-3 echo against the run matrix on
+the ex-CU-223 lower-endpoint convention, every new family's grid shape and
+sec ladder, node-exact and sec-space off-node queries, the dev-only M6–M8
+exclusion, and the CU-181 per-rung downwelling table (including the
+byte-identity of every ground-target node with the old H5 constant).
+`tests/integration/test_batch2_fixture_anchors.py` — full-resolution
+parse-level anchors for the five promoted fixtures (M1, N4, N9, O1, P1);
+see `tests/integration/fixtures/modtran/MANIFEST.md`.
+`scripts/test_downwelling_altitude.py` — Level-0 tests of the CU-181
+altitude interpolation itself, against hand-computed values.

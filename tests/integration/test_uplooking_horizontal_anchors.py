@@ -246,7 +246,10 @@ def test_slant_block_decks_still_match_their_delivered_card3() -> None:
         else:
             assert deck_fields == pytest.approx(_card3_echo(run_id)[:3], abs=1.0e-6), run_id
         checked += 1
-    assert checked >= 60, f"only {checked} slant runs compared — staged set shrank?"
+    # Batch 1 put 60 slant runs on the floor; the 2026-08-02 batch-2 delivery
+    # (M1–M8, N1–N10, O1–O5, P1–P6, Q7–Q8 — Q1–Q4 are ITYPE=1 and are swept by
+    # test_batch2_atmosphere_families.py instead) raised the staged count to 94.
+    assert checked >= 94, f"only {checked} slant runs compared — staged set shrank?"
 
 
 @pytest.mark.level2

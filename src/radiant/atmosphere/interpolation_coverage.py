@@ -191,20 +191,62 @@ SHIPPED_FAMILIES: tuple[ShippedFamily, ...] = (
             "(LOS zenith 0 degrees)"
         ),
     ),
+    ShippedFamily(
+        name="midlat_summer_uplooking_zenith_fan",
+        los_direction="up",
+        interpolation_axes="target_altitude_m,path_zenith_rad",
+        profile="midlat_summer",
+        coverage=(
+            "ground sensor (0 km) looking up at targets 0-20 km, LOS zenith "
+            "0-60 degrees (sec 1.0-2.0 at the sensor)"
+        ),
+    ),
+    ShippedFamily(
+        name="midlat_summer_uplooking_sensor_ladder",
+        los_direction="up",
+        interpolation_axes="sensor_altitude_m",
+        profile="midlat_summer",
+        coverage=(
+            "observer 0-100 km looking up the full column to the 100 km "
+            "atmosphere top, fixed 48.2 degrees LOS zenith (the diffusivity angle)"
+        ),
+    ),
+    ShippedFamily(
+        name="midlat_summer_upwelling_offnadir",
+        los_direction="down",
+        interpolation_axes="sensor_altitude_m,path_zenith_rad",
+        profile="midlat_summer",
+        coverage=(
+            "ground targets only (target altitude fixed at 0 km), sensor 10 km / "
+            "100 km / 40000 km (GEO), LOS zenith 0-60 degrees"
+        ),
+    ),
 )
 
 
-#: Bundled families that **no** ``(direction, axes)`` key can select, because
-#: another family already owns their signature. They are reachable only through an
-#: explicit ``atmosphere.interpolated_data_dir`` (:attr:`ShippedFamily.bundled_dir`),
-#: and they are deliberately kept out of :data:`SHIPPED_FAMILIES` so the loader's
-#: derived default-dispatch table, the coverage refusals, and every existing
-#: 2-axis result stay exactly as they are.
+#: Bundled families that **no** ``(direction, axes)`` key may select — either
+#: because another family already owns their signature, or because publishing
+#: the signature would silently widen an existing refusal. They are reachable
+#: only through an explicit ``atmosphere.interpolated_data_dir``
+#: (:attr:`ShippedFamily.bundled_dir`), and they are deliberately kept out of
+#: :data:`SHIPPED_FAMILIES` so the loader's derived default-dispatch table, the
+#: coverage refusals, and every existing result stay exactly as they are.
 #:
-#: ``midlat_summer_boost_ladder`` is the whole list today: 24 committed MODTRAN
-#: runs (nadir, targets 0–100 km) that shipped in 2026-07 with no discoverable
-#: route (ex-CU-296). Publishing the row here is what lets the GUI family picker
-#: offer it *by name* and write the directory for the operator.
+#: * ``midlat_summer_boost_ladder`` — 24 committed MODTRAN runs (nadir, targets
+#:   0–100 km) that shipped in 2026-07 with no discoverable route (ex-CU-296).
+#:   Its ``(down, sensor_altitude_m,target_altitude_m)`` signature is owned by
+#:   ``midlat_summer_ladders``; publishing it would re-baseline every existing
+#:   2-axis result.
+#: * ``midlat_summer_sst_column_fan`` — the batch-2 M block. Its signature
+#:   ``(up, path_zenith_rad)`` is free, but ``path_zenith_rad`` is the schema
+#:   **default** for ``atmosphere.interpolation_axes``, so publishing it would
+#:   turn today's actionable refusal for an up-looking scene that never touched
+#:   the axes parameter into a silent dispatch onto a family whose target
+#:   altitude is fixed at the 100 km atmosphere top. The family is a full-column
+#:   SST anchor and is adopted deliberately, by name, never by default.
+#:
+#: Publishing a row here is what lets the GUI family picker offer it *by name*
+#: and write the directory for the operator.
 EXPLICIT_DIR_FAMILIES: tuple[ShippedFamily, ...] = (
     ShippedFamily(
         name="midlat_summer_boost_ladder",
@@ -214,6 +256,17 @@ EXPLICIT_DIR_FAMILIES: tuple[ShippedFamily, ...] = (
         coverage=(
             "targets 0-100 km (12 rungs through the boost band), sensor 100 km / "
             "40000 km (GEO), nadir only (LOS zenith 0 degrees)"
+        ),
+        explicit_dir_only=True,
+    ),
+    ShippedFamily(
+        name="midlat_summer_sst_column_fan",
+        los_direction="up",
+        interpolation_axes="path_zenith_rad",
+        profile="midlat_summer",
+        coverage=(
+            "ground sensor (0 km) looking up the full column to the 100 km "
+            "atmosphere top, LOS zenith 0-78.5 degrees (sec 1.0-5.0)"
         ),
         explicit_dir_only=True,
     ),

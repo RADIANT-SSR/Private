@@ -21,6 +21,31 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Four new shipped atmosphere families from the MODTRAN batch-2 delivery
+  (run-matrix rows M1–Q8, delivered 2026-08-02).** Three up-looking:
+  `midlat_summer_uplooking_zenith_fan` (ground observer, targets 0–20 km × LOS
+  zenith 0°/48.2°/60°, i.e. a uniform sec ζ = 1.0/1.4999/2.0 ladder — axes
+  `target_altitude_m,path_zenith_rad`), `midlat_summer_uplooking_sensor_ladder`
+  (an *elevated* observer's full column to the 100 km atmosphere top, observer
+  0–50 km at the 48.2° diffusivity angle — axes `sensor_altitude_m`), and
+  `midlat_summer_sst_column_fan` (ground observer's full column at sec ζ = 1…5,
+  the space-surveillance anchor; reachable only through an explicit
+  `atmosphere.interpolated_data_dir`, because its axes string is the schema
+  default and publishing it would silently widen an existing refusal). One
+  down-looking: `midlat_summer_upwelling_offnadir` (ground target, sensor
+  10 km / 100 km / 40 000 km × LOS zenith 0°/48.2°/60° — axes
+  `sensor_altitude_m,path_zenith_rad`). **No existing result moves**: every new
+  family takes a `(direction, axes)` key no shipped family had, so the loader's
+  existing dispatch is untouched.
+- **Off-vertical up-looking interpolated queries are served, not refused
+  (GF-10).** An up-looking family that carries a `path_zenith_rad` axis now
+  interpolates the zenith in airmass sec(ζ) space, exactly as the down-looking
+  fans do (CU-160). The refusal is narrowed rather than removed: an up-looking
+  family with no zenith axis still raises for any zenith other than the one it
+  was rendered at, and the message now names the new fans as the remedy
+  alongside `atmosphere.model = "simple"`. The near-horizon rungs M6–M8
+  (85°/88°/89.5°) were run but are deliberately **not** shipped — past the 88.8°
+  airmass ceiling the sec-space mapping is unvalidated.
 - **The interpolated atmosphere library is picked from a list, not typed as a key
   (CU-239).** The Atmosphere screen's *Interpolated run matrix* group leads with a family
   picker built from `radiant.api.shipped_atmosphere_families()`: one row per bundled
@@ -159,6 +184,24 @@ retroactively reconstructed.
   Evaluate-time checks are unchanged (defence in depth); no computed results change.
 
 ### Changed
+- **Results-affecting: the shipped atmosphere library's `atm_emission_down` is
+  altitude-resolved (CU-181).** A down-looking node's downwelling sky radiance is
+  now the measured value at *that node's target altitude*, interpolated from the
+  H5 (ground) + P1–P6 (1/5/10/20/29/50 km) MODTRAN rung ladder, instead of the
+  single ground-level H5 value the library attached to every node. **Direction
+  and magnitude:** elevated-target nodes fall — by 1.4× at a 1 km target rising
+  to 142× at 50 km (3–5 µm band mean; 1.7× to 442× at 8–12 µm) — and the 100 km
+  atmosphere-top rung becomes exactly zero (an observer there has no sky above
+  it). Ground-target nodes are **byte-identical**, so `midlat_summer_sensor_ladder`,
+  `us_standard_zenith_fan`, `profiles/`, and every ladder's 0 km target rung do
+  not move; no golden baseline changes. The exposure this closes is the reflected
+  sky term on a cold, low-emissivity body at altitude, where CU-181 measured the
+  old constant at up to +2 567 % apparent radiance. Nodes above 50 km remain
+  modelled (log-linear on the 29→50 km slope, clamped non-increasing) rather than
+  measured. **CU-181's ≳10⁴ acceptance criterion is not met and should not be**:
+  MODTRAN's real decay over 0→50 km is 142×/442×, one-to-two orders less than the
+  entry's analytic table, which had been computed from `SimpleAtmosphere`'s own
+  `E_sky_thermal` rather than from an independent reference.
 - **Results-affecting: the level-topology sky background is evaluated as one whole traversed
   path (CU-224 checklist / ex-CU-276, owner ruling 2026-08-01).** The level branch of
   `uplooking_quantities` composed the sky as `L_arm→sensor + τ_arm · L_continuation`, joined

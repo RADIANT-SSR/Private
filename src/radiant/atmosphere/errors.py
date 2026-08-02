@@ -11,16 +11,31 @@ keep working unchanged.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Final
 
 from radiant.core.exceptions import RadiantError
 
 __all__ = [
+    "COVERAGE_REFUSAL_SURFACE",
+    "COVERAGE_SURFACE_KEY",
     "AtmosphereCapabilityError",
     "AtmosphereValidationError",
     "AtmosphereStateError",
     "TurbulenceSpecificationError",
+    "is_coverage_refusal",
 ]
+
+#: ``context`` key marking an error as an interpolated-library coverage refusal.
+#: Some of those refusals are raised as :class:`ParameterBoundsError` (the
+#: up-looking topology's exo-target guard and its backend-admissibility guard,
+#: which are parameter-shaped) rather than as one of this module's classes, so a
+#: caller that routes by exception type alone would miss them.  The marker is
+#: machine-readable context, never message text — routing must not depend on
+#: wording that is free to change (CU-322).
+COVERAGE_SURFACE_KEY: Final[str] = "refusal_surface"
+
+#: The value :data:`COVERAGE_SURFACE_KEY` carries for those refusals.
+COVERAGE_REFUSAL_SURFACE: Final[str] = "atmosphere.coverage"
 
 
 class AtmosphereValidationError(RadiantError, ValueError):
@@ -105,3 +120,32 @@ class AtmosphereCapabilityError(RadiantError, NotImplementedError):
         if action:
             parts.append(f"Action: {action}")
         super().__init__(" | ".join(parts))
+
+
+def is_coverage_refusal(exc: BaseException) -> bool:
+    """True when *exc* is an atmosphere **coverage** refusal, not a bad parameter.
+
+    The distinction a message surface needs (CU-322).  A coverage refusal says
+    "the configured atmosphere backend has no measured column for this scene" —
+    the scene is legal, the inputs are legal, and the remedy is a different
+    family or ``atmosphere.model='simple'``.  It belongs beside the atmosphere
+    inputs as an advisory, not in a modal that reads "Parameter Rejected /
+    Cannot set …", which is the wording for an input the framework refused to
+    accept.
+
+    Two ways to qualify, both structural — never message text:
+
+    * an :class:`AtmosphereCapabilityError` or :class:`AtmosphereValidationError`
+      (the whole class in both cases: every site that raises them is refusing an
+      atmosphere *configuration*, not rejecting a parameter assignment), or
+    * any error carrying ``context[COVERAGE_SURFACE_KEY] ==
+      COVERAGE_REFUSAL_SURFACE`` — the marker the up-looking topology's guards
+      set on the :class:`~radiant.core.parameters.ParameterBoundsError` they
+      raise.
+    """
+    if isinstance(exc, (AtmosphereCapabilityError, AtmosphereValidationError)):
+        return True
+    context = getattr(exc, "context", None)
+    if not isinstance(context, dict):
+        return False
+    return bool(context.get(COVERAGE_SURFACE_KEY) == COVERAGE_REFUSAL_SURFACE)

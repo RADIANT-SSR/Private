@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from radiant.api.atmosphere_families import is_atmosphere_coverage_refusal
 from radiant.api.build_info import build_info
 from radiant.api.config_set import ConfigSetError, ConfigSetRunResult, ConfigurationSet
 from radiant.api.sensor import Sensor
@@ -966,6 +967,15 @@ class RADIANTMainWindow(QMainWindow):
         profile-change caveat, in the Messages rail while the operator is still on the
         Atmosphere screen, instead of ~1 s later as a failed evaluation (CU-239).
 
+        **One advisory per scene** (CU-322). Two things can be wrong and the operator
+        needs to be told the *first* one only: the axes may not reach a family at all
+        (``validate_atmosphere_coverage``), or they may reach one that then refuses this
+        particular query. The second case used to arrive as a sequence of refusals, one
+        per gate, collected by re-evaluating — an error wall in place of a fact. Here it
+        is one sentence naming the closest miss, from
+        ``Sensor.atmosphere_family_suggestion()``, which has already pre-validated the
+        whole catalogue against the scene.
+
         The advisory owns only the item it put there: it is cleared when the config
         becomes coverable again, and it never overwrites or clears an error some other
         surface reported. An unresolvable mid-edit config is skipped — there is no
@@ -974,6 +984,16 @@ class RADIANTMainWindow(QMainWindow):
         sensor = self._sensor
         messages = self._right_rail.messages
         if sensor is None or not self._sensor_can_resolve(sensor):
+            return
+        # Order matters. When the bundled library serves this scene at all, the
+        # axes check is the useful message — it names the exact string to set.
+        # When nothing serves it, that message is noise: it would send the
+        # operator to set an axes string that lands on another refusal, which is
+        # the wall CU-322 measured. The gap takes precedence there.
+        advisory = self._no_family_advisory(sensor)
+        if advisory is not None:
+            self._coverage_advisory = advisory
+            messages.set_error(advisory)
             return
         try:
             sensor.validate_atmosphere_coverage()
@@ -985,6 +1005,21 @@ class RADIANTMainWindow(QMainWindow):
             if messages.error is self._coverage_advisory:
                 messages.set_error(None)
             self._coverage_advisory = None
+
+    def _no_family_advisory(self, sensor: Sensor) -> BaseException | None:
+        """The single "nothing in the bundled library serves this scene" advisory.
+
+        Only for ``atmosphere.model = 'interpolated'``: every other backend serves any
+        geometry, so there is nothing to advise about. The text, the units and the
+        remedy all come from the API's suggestion result — the GUI names no family,
+        no altitude and no angle of its own (one action ↔ one API call).
+        """
+        try:
+            if str(sensor.get("atmosphere.model")) != "interpolated":
+                return None
+            return sensor.atmosphere_family_suggestion().advisory_error()
+        except (KeyError, RadiantError):
+            return None
 
     def _on_compound_parameter_edited(self, dotpaths: list[str]) -> None:
         """Record a multi-dot-path edit (e.g. a shape pick + seeded dims) as one undo step.
@@ -1372,6 +1407,17 @@ class RADIANTMainWindow(QMainWindow):
         The error also surfaces in the right-rail *Messages* panel (§4.5, now carrying
         errors as well as warnings) and the still-displayed Pinned cards flip to their
         ``→?`` stale marker (§8.4), consistent with the stale plot notice.
+
+        **Atmosphere coverage refusals get no modal** (CU-322). A refusal from the
+        interpolated backend says the bundled library holds no measured column for this
+        scene — the inputs are all legal, and the remedy is a different family or
+        ``atmosphere.model='simple'``. Rendering that as *Parameter Rejected / Cannot
+        set "evaluate"* miscategorised it as a bad input and, because the refusals fire
+        one gate at a time, turned an honest capability limit into a wall of modals. The
+        error still lands in the Messages rail beside the atmosphere inputs, with its
+        full what/why/action, and the picker's own advisory names the gap. Routing is by
+        exception type and structured context (``is_atmosphere_coverage_refusal``),
+        never by message text. Genuine parameter rejections keep the modal.
         """
         self._stage_strip.set_all_status("err")
         self._central.mark_stale()
@@ -1383,6 +1429,13 @@ class RADIANTMainWindow(QMainWindow):
         # inputs conflict (GUI plan Phase 5 task 3). Purely a locator — the actionable text
         # is still shown below and in the Messages panel; no GUI-side geometry validation.
         self._highlight_geometry_conflict(exc)
+        if is_atmosphere_coverage_refusal(exc):
+            self._coverage_advisory = exc
+            self.statusBar().showMessage(
+                "The atmosphere library does not cover this scene — see Messages "
+                "(the previous result is shown, stale)"
+            )
+            return
         if isinstance(exc, RadiantError):
             exec_dialog(ActionableErrorDialog(exc, "evaluate", self))
         else:

@@ -47,25 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-322 — Switching a shipped scenario to the interpolated model is a sequential error wall; the suggestion machinery recommends families that then refuse
-
-**Discovered**: operator session (owner driving the GUI on scenario 10.3), 2026-08-02 — confirmed by a scripted sweep of all 38 shipped GUI YAMLs.
-**Status**: Open.
-**File**: `src/radiant/api/sensor.py` (`suggested_atmosphere_family`); `src/radiant/gui/widgets/atmosphere_family_picker.py`; `src/radiant/gui/main_window.py` (the evaluate-time coverage refusal path); `scenarios/*/gui_workflow.md`.
-**Symptom**: measured 2026-08-02 on main `4c78797`: 25 of 38 shipped scenarios CAN switch to interpolated and evaluate with the right family, but the operator path never reaches it first-try. Three compounding defects: (1) `suggested_atmosphere_family()` does not pre-validate the full query — it suggested a family whose evaluation then refuses (10.1: vertical-only ladder suggested at ζ = 29.9° when the zenith fan covers it; 10.3: cannot suggest the SST column fan at all because explicit-dir families are outside its axes-string reasoning); (2) each gate fires sequentially (wrong-axes refusal → exo-guard refusal → lower-endpoint refusal on 10.3), so the operator sees an error wall instead of the one real gap; (3) an evaluate-time coverage refusal renders as a "Parameter Rejected / Cannot set \"evaluate\"" dialog instead of the Messages-rail advisory built for it (CU-239). The 12 genuinely-uncovered scenes (ground/low sensors below the 3 km ladder floor) get the same wall.
-**Why it still matters**: workflow-visible (Rule 21 test 4) — the owner hit it on the flagship SST scene the same day the SST family shipped; the interpolated backend's honest Rule-17 refusals read as breakage, so measured-data capability goes unused.
-
-**Family head (2026-08-02)** — the interpolated-switch operator-experience family. Checklist:
-
-- [ ] `suggested_atmosphere_family()` pre-validates the complete query (direction, axes, target ceiling, **lower endpoint**) before recommending, and covers `EXPLICIT_DIR_FAMILIES` by name + dir — it must never name a family the chain would refuse.
-- [ ] The picker pre-selects the pre-validated suggestion (SST fan reachable first-try on scenes it serves).
-- [ ] Evaluate-time coverage/guard refusals route to the Messages-rail advisory path, not the "Parameter Rejected / Cannot set \"evaluate\"" dialog.
-- [ ] One advisory per scene naming the FIRST real gap (family floor, ceiling, angle) — no sequential error walls.
-- [ ] Each scenario's `gui_workflow.md` states its interpolated availability (which family, or which specific gap).
-
-**Acceptance criterion**: opening any of the 38 shipped scenarios and switching to interpolated either works first-try or produces exactly one advisory naming the specific missing coverage. (With today's data: 25 first-try, 13 single-advisory — 10.3 joins the first group when the M9–M13 site-elevation rungs are run.)
-**Suggested fix**: (b) stand-alone GUI/API package. Effort M; category D. Related: [[CU-239]], [[CU-224]], CU-167.
-
 ### CU-321 — One-temperature graybody over-predicts MWIR path thermal ~2× on tall columns, both directions equally (now anchorable)
 
 **Discovered**: CU-224 P5a anchoring (branch `atmo/cu-224-lpath-thermal`), 2026-08-02.
@@ -150,6 +131,26 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-322 — Switching a shipped scenario to the interpolated model is a sequential error wall; the suggestion machinery recommends families that then refuse — RESOLVED 2026-08-02 (commit trailer)
+
+**Discovered**: operator session (owner driving the GUI on scenario 10.3), 2026-08-02 — confirmed by a scripted sweep of all 38 shipped GUI YAMLs.
+**Status**: RESOLVED 2026-08-02, closed by the `CU-Closes: 322` trailer commit.
+**File**: `src/radiant/api/sensor.py` (`suggested_atmosphere_family`); `src/radiant/gui/widgets/atmosphere_family_picker.py`; `src/radiant/gui/main_window.py` (the evaluate-time coverage refusal path); `scenarios/*/gui_workflow.md`.
+**Symptom**: measured 2026-08-02 on main `4c78797`: 25 of 38 shipped scenarios CAN switch to interpolated and evaluate with the right family, but the operator path never reaches it first-try. Three compounding defects: (1) `suggested_atmosphere_family()` does not pre-validate the full query — it suggested a family whose evaluation then refuses (10.1: vertical-only ladder suggested at ζ = 29.9° when the zenith fan covers it; 10.3: cannot suggest the SST column fan at all because explicit-dir families are outside its axes-string reasoning); (2) each gate fires sequentially (wrong-axes refusal → exo-guard refusal → lower-endpoint refusal on 10.3), so the operator sees an error wall instead of the one real gap; (3) an evaluate-time coverage refusal renders as a "Parameter Rejected / Cannot set \"evaluate\"" dialog instead of the Messages-rail advisory built for it (CU-239). The 12 genuinely-uncovered scenes (ground/low sensors below the 3 km ladder floor) get the same wall.
+**Why it still matters**: workflow-visible (Rule 21 test 4) — the owner hit it on the flagship SST scene the same day the SST family shipped; the interpolated backend's honest Rule-17 refusals read as breakage, so measured-data capability goes unused.
+
+**Family head (2026-08-02)** — the interpolated-switch operator-experience family. Checklist:
+
+- [x] `suggested_atmosphere_family()` pre-validates the complete query (direction, axes, target ceiling, **lower endpoint**) before recommending, and covers `EXPLICIT_DIR_FAMILIES` by name + dir — it must never name a family the chain would refuse.
+- [x] The picker pre-selects the pre-validated suggestion (SST fan reachable first-try on scenes it serves).
+- [x] Evaluate-time coverage/guard refusals route to the Messages-rail advisory path, not the "Parameter Rejected / Cannot set \"evaluate\"" dialog.
+- [x] One advisory per scene naming the FIRST real gap (family floor, ceiling, angle) — no sequential error walls.
+- [x] Each scenario's `gui_workflow.md` states its interpolated availability (which family, or which specific gap).
+
+**Acceptance criterion**: opening any of the 38 shipped scenarios and switching to interpolated either works first-try or produces exactly one advisory naming the specific missing coverage. (With today's data: 25 first-try, 13 single-advisory — 10.3 joins the first group when the M9–M13 site-elevation rungs are run.)
+**Suggested fix**: (b) stand-alone GUI/API package. Effort M; category D. Related: [[CU-239]], [[CU-224]], CU-167.
+**Resolution**: new `atmosphere/family_suitability.py` (Rule 19) answers the complete question — which family will the chain actually serve this LOS with, and if none, what is the FIRST real gap — by reproducing every chain refusal (direction, target axis, exo ceiling, zenith hull, target hull after the vacuum clamp, lower endpoint) from each family's own node geometry, tolerances imported from `interpolated.py`, explicit-dir families included. Surfaced as `Sensor.atmosphere_family_suggestion()` (structured result: family | gap, `vacuum_path`, advisory text; `suggested_atmosphere_family()` kept signature-compatible). Picker pre-selects the pre-validated proposal (explicit-dir by name+dir); evaluate-time coverage/guard refusals route to the Messages-rail advisory via `is_atmosphere_coverage_refusal()` instead of the "Parameter Rejected / Cannot set 'evaluate'" modal (fail-on-old-code proven: old path showed 1 modal on 10.1); when nothing serves, the gap advisory pre-empts the axes-refusal wall. All 38 `gui_workflow.md` files carry an interpolated-availability note (10.3's names the 900 m site gap and the M9–M13 future decks). **Acceptance met at 26 first-try / 12 single-advisory** — the entry's 25/13 was the pre-fix measurement; fixing defect (1), the 10.1 zenith-fan mis-suggestion, moves it to first-try (pinned with scenario IDs in `tests/integration/test_interpolated_switch_sweep.py`; no previously-working scenario lost its family). One deliberate strictness: a beyond-tolerance non-axis mismatch disqualifies a family for *recommendation* though the chain only warns — recommending the wrong measured column silently would recreate the trap. Two sub-advisory leftovers are Findings-Log lines (the `recommended_axes` remedy text lags the selector — an atmosphere-can't-see-LOS design question; the picker's coverage line on wholly-vacuum paths).
 
 ### CU-224 — `SimpleAtmosphere.evaluate`'s `L_path_up` is single-scatter solar only, so up-looking and down-looking path radiance use different physics — RESOLVED 2026-08-02 (commit trailer)
 

@@ -106,3 +106,7 @@ Sarah needs to find the optimal N_tdi for her VNIR pushbroom imager. The GUI sho
   - Signal: e- and ke-
 - Log x-axis for N_tdi plots (powers of 2 spacing)
 - Color-coded saturation status throughout
+
+## Interpolated-atmosphere availability
+
+Switching **Atmosphere → Model** to `interpolated` works first try on this scene. The picker pre-selects **`midlat_summer_sensor_ladder`** (profile `midlat_summer`, down-looking; covers ground targets only (target altitude fixed at 0 km), sensor 3-100 km plus 40000 km (GEO), nadir only (LOS zenith 0 degrees)); *Use this family* writes `atmosphere.interpolation_axes = 'sensor_altitude_m'`. `Sensor.atmosphere_family_suggestion()` is the same answer from a script.

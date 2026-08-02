@@ -236,3 +236,7 @@ print(f"NIIRS: {result.metrics.get('niirs', 'N/A')} [--]")
 | Performance metrics dashboard | High | -- |
 | Interactive hover tooltips on MTF curves | Low | -- |
 | One-click comparison report export | Low | -- |
+
+## Interpolated-atmosphere availability
+
+No bundled interpolated-atmosphere family serves this scene: 'midlat_summer_sensor_ladder' covers sensor_altitude 3 km to 40000 km; this scene asks for 1 m, below the family's runs. Switching **Atmosphere → Model** to `interpolated` therefore produces exactly one Messages-rail advisory saying so — not a sequence of refusals — and the scene stays on `atmosphere.model = 'simple'`, which serves any geometry.

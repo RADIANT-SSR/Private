@@ -151,3 +151,7 @@ mtf_budget.per_term_at_nyquist    # dict of all MTF terms
 3. **Noise visualization** — the script prints a text table. GUI shows an interactive chart.
 4. **Comparison workflow** — the script required writing ~50 lines of comparison code. GUI has it built in.
 5. **Metrics dashboard** — NEDT, NIIRS, GSD, Q, MTF budget are now computed by RADIANT but require explicit code to access. GUI displays all metrics in a unified dashboard automatically.
+
+## Interpolated-atmosphere availability
+
+Switching **Atmosphere → Model** to `interpolated` works first try on this scene. The picker pre-selects **`midlat_summer_sensor_ladder`** (profile `midlat_summer`, down-looking; covers ground targets only (target altitude fixed at 0 km), sensor 3-100 km plus 40000 km (GEO), nadir only (LOS zenith 0 degrees)); *Use this family* writes `atmosphere.interpolation_axes = 'sensor_altitude_m'`. `Sensor.atmosphere_family_suggestion()` is the same answer from a script.

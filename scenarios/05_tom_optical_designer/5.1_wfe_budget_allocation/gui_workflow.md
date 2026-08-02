@@ -155,3 +155,7 @@ Tom needs to determine how much wavefront error his 40 cm Cassegrain can tolerat
 - Color-coded quality bands throughout
 - Strehl scale always 0--1.0
 - NIIRS shows absolute value and delta from baseline
+
+## Interpolated-atmosphere availability
+
+Switching **Atmosphere → Model** to `interpolated` works first try on this scene. The picker pre-selects **`midlat_summer_sensor_ladder`** (profile `midlat_summer`, down-looking; covers ground targets only (target altitude fixed at 0 km), sensor 3-100 km plus 40000 km (GEO), nadir only (LOS zenith 0 degrees)); *Use this family* writes `atmosphere.interpolation_axes = 'sensor_altitude_m'`. `Sensor.atmosphere_family_suggestion()` is the same answer from a script.

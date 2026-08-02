@@ -2,7 +2,10 @@
 
 from radiant.api._progress import OperationCancelledError
 from radiant.api.atmosphere_families import (
+    AtmosphereFamilySuggestion,
+    FamilyGap,
     ShippedFamily,
+    is_atmosphere_coverage_refusal,
     shipped_atmosphere_families,
     shipped_family_for_axes,
     suggested_interpolation_axes,
@@ -60,7 +63,10 @@ __all__ = [
     "ConfigSetRunResult",
     "ConfigRun",
     "ConfigSetError",
+    "AtmosphereFamilySuggestion",
+    "FamilyGap",
     "ShippedFamily",
+    "is_atmosphere_coverage_refusal",
     "shipped_atmosphere_families",
     "shipped_family_for_axes",
     "suggested_interpolation_axes",

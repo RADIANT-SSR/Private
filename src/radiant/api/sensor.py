@@ -33,6 +33,15 @@ from radiant.api.session import RadiantSession
 from radiant.api.solve import SolveResult, solve_for
 from radiant.api.sweep import Sweep2DResult, SweepResult, sweep, sweep_2d
 from radiant.api.tolerance import MonteCarloResult, monte_carlo
+from radiant.atmosphere.family_suitability import (
+    AtmosphereFamilySuggestion,
+)
+from radiant.atmosphere.family_suitability import (
+    family_suitability as _family_suitability,
+)
+from radiant.atmosphere.family_suitability import (
+    select_atmosphere_family as _select_atmosphere_family,
+)
 from radiant.atmosphere.interpolation_coverage import (
     ShippedFamily,
 )
@@ -40,14 +49,10 @@ from radiant.atmosphere.interpolation_coverage import (
     check_interpolation_coverage as _check_interpolation_coverage,
 )
 from radiant.atmosphere.interpolation_coverage import (
-    family_for as _family_for,
-)
-from radiant.atmosphere.interpolation_coverage import (
     profile_change_warning as _profile_change_warning,
 )
-from radiant.atmosphere.interpolation_coverage import (
-    recommended_axes as _recommended_axes,
-)
+from radiant.core.exceptions import RadiantError
+from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.orbit import ground_track_speed_m_s
 from radiant.core.parameters import (
     ParameterDef,
@@ -56,6 +61,7 @@ from radiant.core.parameters import (
     ResolvedValue,
     Tolerance,
 )
+from radiant.geometry.modes import resolve_solar, resolve_viewing
 from radiant.io.config import (
     load_config,
     read_radiant_meta,
@@ -705,41 +711,107 @@ class Sensor:
         self._ensure_resolved()
         _check_interpolation_coverage(self._params)
 
+    def _line_of_sight(self) -> LineOfSightGeometry | None:
+        """The scene's resolved LOS, built exactly as ``GeometryStage`` builds it.
+
+        The one derivation of ``theta_o``: reading ``geometry.path_zenith_rad``
+        off the parameter set instead would be a *different number* on every
+        spherical scene — a 30.0000° input resolves to a 29.9482° zenith at the
+        lower endpoint on scenario 10.1 — and a family keyed to one rendered
+        zenith is refused on exactly that difference (CU-322).
+
+        ``None`` when the geometry cannot be resolved (an unregistered schema, a
+        half-entered config, an over-specified viewing mode). No physics runs
+        here and nothing is mutated.
+        """
+        self._ensure_resolved()
+        try:
+            viewing = resolve_viewing(self._params)
+            solar = resolve_solar(self._params)
+            return LineOfSightGeometry(
+                h_tgt=viewing.h_target_m,
+                h_sensor=viewing.h_sensor_m,
+                theta_o=viewing.theta_o_rad,
+                theta_s=solar.theta_s_rad,
+                delta_phi=solar.delta_phi_rad,
+            )
+        except (KeyError, RadiantError, TypeError, ValueError):
+            return None
+
+    def atmosphere_family_suggestion(self) -> AtmosphereFamilySuggestion:
+        """The pre-validated bundled-family recommendation for this scene (CU-322).
+
+        The full-query form of :meth:`suggested_atmosphere_family`: it walks the
+        bundled catalogue in precedence order and returns the first family whose
+        **complete** query the chain would accept — direction, axes, LOS zenith,
+        target ceiling (including the up-looking exo guard) and the family's own
+        rendered lower endpoint. ``explicit_dir_only`` families are candidates
+        like any other; adopting one means writing
+        :attr:`~radiant.atmosphere.interpolation_coverage.ShippedFamily.bundled_dir`
+        into ``atmosphere.interpolated_data_dir`` as well as the axes.
+
+        When no family serves the scene, the result's ``family`` is ``None`` and
+        its ``gap`` names the **closest miss** — one structured reason, with
+        :attr:`~radiant.atmosphere.family_suitability.AtmosphereFamilySuggestion.advisory_text`
+        rendering it as one unit-bearing sentence and ``advisory_error()``
+        returning the same thing in actionable what/why/action form for a message
+        surface. That replaces the sequential wall of refusals an operator used to
+        collect one gate at a time.
+
+        A **recommendation only** — this method writes nothing, because adopting a
+        family can change the run's atmosphere profile
+        (:meth:`atmosphere_profile_change_warning` renders that caveat).
+
+        For an unresolvable geometry the result is an empty suggestion (no family,
+        no gap): there is no scene yet to recommend for.
+        """
+        los = self._line_of_sight()
+        if los is None:
+            return AtmosphereFamilySuggestion(
+                family=None, gap=None, considered=(), los_direction="unknown"
+            )
+        return _select_atmosphere_family(los)
+
     def suggested_atmosphere_family(self) -> ShippedFamily | None:
         """The bundled interpolation family this scene's geometry calls for (CU-239).
 
-        Derived, never guessed: the line-of-sight direction and the target
-        altitude decide which axes a shipped family must carry (up-looking ⇒
-        ``target_altitude_m``; down-looking above the surface ⇒ a target-altitude
-        axis, plus ``path_zenith_rad`` off-nadir; a ground target ⇒ the zenith fan
-        off-nadir, the sensor ladder at nadir).
+        Since CU-322 this is the **pre-validated** recommendation — the family
+        returned here is one the chain will actually serve, never one it would
+        then refuse — and it may be an ``explicit_dir_only`` row, which no axes
+        string can reach. It is the ``family`` field of
+        :meth:`atmosphere_family_suggestion`; call that instead when the *reason*
+        for a ``None`` matters.
 
         A **recommendation only** — this method writes nothing, because adopting a
         family can change the run's atmosphere profile
         (:meth:`atmosphere_profile_change_warning` renders that caveat). Callers
-        write ``atmosphere.interpolation_axes`` themselves.
+        write ``atmosphere.interpolation_axes`` (and, for an ``explicit_dir_only``
+        family, ``atmosphere.interpolated_data_dir``) themselves.
 
-        ``None`` when no shipped family serves the geometry (e.g. a level
-        line of sight) or the geometry altitudes are not registered.
+        ``None`` when no bundled family serves the geometry (e.g. a level line of
+        sight, or a sensor below every family's rendered floor) or the geometry
+        cannot be resolved.
         """
-        self._ensure_resolved()
-        try:
-            h_sensor = float(self._params.get("geometry.sensor_altitude_m"))
-            h_tgt = float(self._params.get("geometry.target_altitude_m"))
-        except (KeyError, TypeError, ValueError):
+        return self.atmosphere_family_suggestion().family
+
+    def atmosphere_family_gap(self, family: ShippedFamily) -> str | None:
+        """Why *family* cannot serve this scene, or ``None`` when it can (CU-322).
+
+        The per-family form of :meth:`atmosphere_family_suggestion`: the same
+        complete-query check, asked of one named family instead of the catalogue.
+        A picker uses it to say whether the row the operator is looking at — or
+        the one already configured — actually covers the scene, without setting a
+        parameter to find out.
+
+        The returned sentence carries its units (m, km, degrees). ``None`` when
+        the family serves the scene **and** when the geometry cannot be resolved
+        (there is no scene yet to answer for).
+        """
+        los = self._line_of_sight()
+        if los is None:
             return None
-        try:
-            theta_o = float(self._params.get("geometry.path_zenith_rad"))
-        except (KeyError, TypeError, ValueError):
-            theta_o = 0.0
-        if h_sensor > h_tgt:
-            direction = "down"
-        elif h_sensor < h_tgt:
-            direction = "up"
-        else:
-            return None
-        axes = _recommended_axes(direction, h_tgt, theta_o)
-        return None if axes is None else _family_for(direction, axes)
+        suitability = _family_suitability(family, los)
+        return None if suitability.gap is None else suitability.gap.text
 
     def atmosphere_profile_change_warning(self, family: ShippedFamily) -> str | None:
         """Warn text if adopting *family* would change the requested profile (CU-239).

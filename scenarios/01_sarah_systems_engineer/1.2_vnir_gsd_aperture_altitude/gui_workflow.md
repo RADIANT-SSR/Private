@@ -71,3 +71,7 @@ Requirements this implies:
 - The GUI should surface the **sampling regime** (detector- vs
   diffraction-limited) as a color band or annotation, since it is the
   qualitative takeaway of the trade — see the framework gap in `gaps.md`.
+
+## Interpolated-atmosphere availability
+
+Switching **Atmosphere → Model** to `interpolated` works first try on this scene. The picker pre-selects **`midlat_summer_sensor_ladder`** (profile `midlat_summer`, down-looking; covers ground targets only (target altitude fixed at 0 km), sensor 3-100 km plus 40000 km (GEO), nadir only (LOS zenith 0 degrees)); *Use this family* writes `atmosphere.interpolation_axes = 'sensor_altitude_m'`. `Sensor.atmosphere_family_suggestion()` is the same answer from a script.

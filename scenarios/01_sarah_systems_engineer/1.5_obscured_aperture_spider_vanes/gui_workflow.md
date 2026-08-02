@@ -58,3 +58,7 @@ Requirements this implies:
 - Once an **arbitrary-pupil-mask** import lands (see `gaps.md` Gap 54), the
   GUI should let Sarah load a measured pupil image instead of only the
   parametric obscuration+spider shapes.
+
+## Interpolated-atmosphere availability
+
+Switching **Atmosphere → Model** to `interpolated` works first try on this scene. The picker pre-selects **`midlat_summer_sensor_ladder`** (profile `midlat_summer`, down-looking; covers ground targets only (target altitude fixed at 0 km), sensor 3-100 km plus 40000 km (GEO), nadir only (LOS zenith 0 degrees)); *Use this family* writes `atmosphere.interpolation_axes = 'sensor_altitude_m'`. `Sensor.atmosphere_family_suggestion()` is the same answer from a script.

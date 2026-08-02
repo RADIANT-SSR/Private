@@ -104,3 +104,7 @@ Karen, test engineer. She has TVAC NEDT measurements from an as-built MWIR senso
 5. **Sensitivity tornado chart** — ranking parameters by NEDT impact for design guidance
 6. **Nominal vs. as-built comparison** — quantifying performance degradation from spec deviations
 7. **Unit conversion from lab conventions** — cm, %, nm, ms, °C all converted at import
+
+## Interpolated-atmosphere availability
+
+No bundled interpolated-atmosphere family serves this scene: 'midlat_summer_sensor_ladder' covers sensor_altitude 3 km to 40000 km; this scene asks for 1 m, below the family's runs. Switching **Atmosphere → Model** to `interpolated` therefore produces exactly one Messages-rail advisory saying so — not a sequence of refusals — and the scene stays on `atmosphere.model = 'simple'`, which serves any geometry.

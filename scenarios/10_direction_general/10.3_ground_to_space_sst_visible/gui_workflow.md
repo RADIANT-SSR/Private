@@ -311,3 +311,7 @@ sensor.sweep("geometry.path_zenith_rad",
 | 13 | Live shadow-height readout as solar depression is dragged | Could | **new** |
 | 14 | Greyed metric rows explain "off by scene class" and link to the steering card | Should | **new** (today they are simply absent) |
 | 15 | Refuse/warn behaviour of the horizon guard surfaces in Messages + highlights the offending mode selector | Must | **exists** (Messages + `geoModeFamily` conflict tint) |
+
+## Interpolated-atmosphere availability
+
+No bundled interpolated-atmosphere family serves this scene: 'midlat_summer_sst_column_fan' is rendered from a fixed lower endpoint at 0 m and carries no 'sensor_altitude_m' axis; this scene asks for 900 m (rows M9-M13 of docs/plans/modtran_run_matrix.csv are the authored, not-yet-run decks that lift this fan's lower endpoint to a 900 m elevated site). Switching **Atmosphere → Model** to `interpolated` therefore produces exactly one Messages-rail advisory saying so — not a sequence of refusals — and the scene stays on `atmosphere.model = 'simple'`, which serves any geometry.

@@ -43,3 +43,7 @@ generator with a settable seed; a read-out of the reliable-detection and
   GUI can only show the 1-D scripted strip.
 - **Bias between AUC and operating-point P_d** should be shown together so a
   user doesn't read a high AUC as "will detect at my P_fa budget."
+
+## Interpolated-atmosphere availability
+
+Switching **Atmosphere → Model** to `interpolated` works first try on this scene. The picker pre-selects **`midlat_summer_sensor_ladder`** (profile `midlat_summer`, down-looking; covers ground targets only (target altitude fixed at 0 km), sensor 3-100 km plus 40000 km (GEO), nadir only (LOS zenith 0 degrees)); *Use this family* writes `atmosphere.interpolation_axes = 'sensor_altitude_m'`. `Sensor.atmosphere_family_suggestion()` is the same answer from a script.

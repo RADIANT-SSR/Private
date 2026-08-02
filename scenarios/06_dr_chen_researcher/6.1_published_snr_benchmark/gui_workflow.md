@@ -56,3 +56,7 @@ Requirements this implies:
   core validation loop, packaging what this scenario does by hand.
 - The **noise-budget breakdown** must be exposed per contributor so a
   failing benchmark is diagnosable (which noise term drives the residual).
+
+## Interpolated-atmosphere availability
+
+No bundled interpolated-atmosphere family serves this scene: 'midlat_summer_sensor_ladder' covers sensor_altitude 3 km to 40000 km; this scene asks for 1 km, below the family's runs. Switching **Atmosphere → Model** to `interpolated` therefore produces exactly one Messages-rail advisory saying so — not a sequence of refusals — and the scene stays on `atmosphere.model = 'simple'`, which serves any geometry.

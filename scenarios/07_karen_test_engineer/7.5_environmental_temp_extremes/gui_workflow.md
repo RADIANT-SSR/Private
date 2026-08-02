@@ -66,3 +66,7 @@ for T, J in zip(jdark.x, jdark.y):
 | QE-vs-dark impact card | Medium | — |
 | Spec compliance table + margin + recommendation | High | — |
 | NEDT output (with Gap 43 caveat chip) | High | **CLOSED** (metrics["nedt_K"]) |
+
+## Interpolated-atmosphere availability
+
+No bundled interpolated-atmosphere family serves this scene: 'midlat_summer_sensor_ladder' covers sensor_altitude 3 km to 40000 km; this scene asks for 1 m, below the family's runs. Switching **Atmosphere → Model** to `interpolated` therefore produces exactly one Messages-rail advisory saying so — not a sequence of refusals — and the scene stays on `atmosphere.model = 'simple'`, which serves any geometry.

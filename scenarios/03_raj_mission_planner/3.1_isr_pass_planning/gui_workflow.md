@@ -70,3 +70,7 @@ Requirements this implies:
   view: shade the agility-reachable corridor differently from the
   NIIRS-quality corridor, since the takeaway of this scenario is that they
   differ.
+
+## Interpolated-atmosphere availability
+
+Switching **Atmosphere → Model** to `interpolated` works first try on this scene. The picker pre-selects **`us_standard_zenith_fan`** (profile `us_standard`, down-looking; covers ground targets only (target altitude fixed at 0 km), sensor at 100 km, LOS zenith 0-60 degrees); *Use this family* writes `atmosphere.interpolation_axes = 'path_zenith_rad'`. `Sensor.atmosphere_family_suggestion()` is the same answer from a script.

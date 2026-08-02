@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-320 — `segment_simple` linearises the water curve of growth against a different reference column than `segment_grazing` and `level_whole_path`
+
+**Discovered**: CU-224 P4 execution (branch `atmo/cu-224-unblocked-half`), 2026-08-01.
+**Status**: Open — results-affecting only for ζ > 80° up-looking sky; no shipped scene reaches it.
+**File**: `src/radiant/atmosphere/segment_simple.py` (vertical-reference linearisation); `segment_grazing.py` / `level_whole_path.py` (slant convention).
+**Symptom**: the CU-161 water curve of growth (`OD = k·w^b`, b < 1) and gas floor are linearised against the **vertical** column in `segment_simple` but the **slant** column in `segment_grazing` and the new `level_whole_path` — the sub-linear exponent makes the effective water weight differ by `m_h2o^(b−1)`, and ω₀ with it. Measured as the whole of the surviving 80° sky hand-over step (ground → `h_atm_top`, θ_s = 30°): **VIS 1.063×, NIR 1.463×, MWIR 1.036×, LWIR 0.993×**. The P4 species-split adoption closed the weight-*altitude* half (VIS grazing/column 2.12× → 1.000 at ζ = 0); this reference-column half is the remainder. `level_whole_path` deliberately adopted the slant convention so the level↔grazing zero-arm identity is exact — which makes `segment_simple` the odd one out of three.
+**Why it still matters**: results-affecting (intake test 1) for near-horizon up-looking sky radiance, and a cross-evaluator consistency defect in exactly the regime the batch-2 M6–M8 decks will anchor. Recorded in `RADIANT_Atmosphere.md` §4.2g.
+**Suggested fix**: (b) stand-alone, S–M — move `segment_simple`'s linearisation to the slant column (one convention across all three evaluators), re-anchor against the K-ladder rungs, and re-measure the 80° hand-over step (expected to shrink toward the ≤ 1.04× the other bands show). Natural companion to the P5/batch-2 ingestion since M6–M8 anchor the same regime. Effort S–M; category C. Related: [[CU-224]], [[CU-260]] (folded), CU-161.
+
 ### CU-319 — `emit_gui_yaml.py` cannot rebuild 8 of the 34 GUI baselines, and a batch run that fails still exits 0
 
 **Discovered**: CU-267 §5.3 sweep (branch `atmo/cu-267-gas-region-blend`), 2026-08-01.

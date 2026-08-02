@@ -300,15 +300,19 @@ class TestUndoAcrossSwitch:
         before = cs.base.inputs()[_APERTURE]
 
         window.sensor.set(_APERTURE, 0.5)
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.parameter_panel.parameterEdited.emit(_APERTURE)
+        # Both the edit and the undo apply synchronously and this test reads only the
+        # synchronous surfaces (``cs.base.inputs()``, ``window.sensor``), so the
+        # contract owed is that each *schedules* a re-evaluation — asserted directly
+        # rather than by awaiting a pass whose result is never read (CU-289/CU-314).
+        window.parameter_panel.parameterEdited.emit(_APERTURE)
+        assert window.evaluation_scheduled is True
         assert cs.base.inputs()[_APERTURE] == pytest.approx(0.5, rel=1e-12)
 
         window.configuration_bar.buttons[1].click()  # display LWIR
         assert window.action("edit.undo").isEnabled()
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()
+        window.action("edit.undo").trigger()
+        assert window.evaluation_scheduled is True
 
         assert cs.base.inputs()[_APERTURE] == pytest.approx(before, rel=1e-12)
         # The restored shared value shows on the (now LWIR) displayed sensor.

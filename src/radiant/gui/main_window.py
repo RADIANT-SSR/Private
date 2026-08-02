@@ -283,6 +283,9 @@ class RADIANTMainWindow(QMainWindow):
         # GT-1: the last completed sweep (SweepResult | Sweep2DResult), for export.
         self.last_sweep_result: object | None = None
         self._evaluation_count: int = 0
+        # The config-time atmosphere-coverage refusal this window put in the Messages
+        # rail on edit (CU-239), so it can be cleared again — and only it (Rule 17).
+        self._coverage_advisory: BaseException | None = None
 
         self.setObjectName("radiantMainWindow")
         self.setWindowTitle(self._compose_title())
@@ -949,8 +952,39 @@ class RADIANTMainWindow(QMainWindow):
         self._push_edit_command(dotpath)
         self._mark_dirty()
         self._stage_strip.set_all_status("stale")
+        self._refresh_coverage_advisory()
         self.statusBar().showMessage(f"Edited {dotpath} — re-evaluating…")
         self._debounce.start()
+
+    def _refresh_coverage_advisory(self) -> None:
+        """Surface the interpolated-atmosphere coverage refusal on edit, not at Evaluate.
+
+        The scene ↔ ``atmosphere.interpolation_axes`` mismatch is knowable the moment
+        both are set (Rule 16), and ``Sensor.validate_atmosphere_coverage()`` is the
+        config-time seam that decides it — no chain, no file, no mutation. Running it
+        after every edit puts the refusal, with the exact axes string to use and any
+        profile-change caveat, in the Messages rail while the operator is still on the
+        Atmosphere screen, instead of ~1 s later as a failed evaluation (CU-239).
+
+        The advisory owns only the item it put there: it is cleared when the config
+        becomes coverable again, and it never overwrites or clears an error some other
+        surface reported. An unresolvable mid-edit config is skipped — there is no
+        scene to check yet, and the debounced evaluation reports what is missing.
+        """
+        sensor = self._sensor
+        messages = self._right_rail.messages
+        if sensor is None or not self._sensor_can_resolve(sensor):
+            return
+        try:
+            sensor.validate_atmosphere_coverage()
+        except RadiantError as exc:
+            self._coverage_advisory = exc
+            messages.set_error(exc)
+            return
+        if self._coverage_advisory is not None:
+            if messages.error is self._coverage_advisory:
+                messages.set_error(None)
+            self._coverage_advisory = None
 
     def _on_compound_parameter_edited(self, dotpaths: list[str]) -> None:
         """Record a multi-dot-path edit (e.g. a shape pick + seeded dims) as one undo step.
@@ -971,6 +1005,7 @@ class RADIANTMainWindow(QMainWindow):
             self._push_edit_command(dotpaths[0])
         self._mark_dirty()
         self._stage_strip.set_all_status("stale")
+        self._refresh_coverage_advisory()
         self.statusBar().showMessage(f"Edited {dotpaths[0]} — re-evaluating…")
         self._debounce.start()
 
@@ -1045,6 +1080,20 @@ class RADIANTMainWindow(QMainWindow):
         additional completed evaluation.
         """
         return self._evaluation_count
+
+    @property
+    def evaluation_scheduled(self) -> bool:
+        """True while a debounced re-evaluation is pending but has not started (CU-289).
+
+        The read-only view of the single-shot debounce timer. An edit or a
+        configuration transaction that changes the study **must** leave this true;
+        one that changes nothing must leave it false. Tests assert the scheduled
+        state instead of awaiting a full evaluate-all pass whose result they never
+        read — the assert still fails if a transaction stops scheduling, so it is
+        not an assert-on-nothing, and it removes the wall-clock dependence that made
+        the merge gate load-sensitive (CU-314).
+        """
+        return bool(self._debounce.isActive())
 
     @property
     def debounce_interval_ms(self) -> int:

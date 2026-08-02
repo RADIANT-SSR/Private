@@ -444,6 +444,9 @@ class StagePane(QWidget):
             # the τ_atm/L_path + before/after radiance plots refresh (edit-and-watch).
             atmosphere_form = AtmosphereInputsForm(parent)
             atmosphere_form.parameterEdited.connect(self.parameterEdited)
+            # Choosing a bundled library family can write both the axes and the run-matrix
+            # directory (CU-239), which must reverse as one undo step.
+            atmosphere_form.compoundParameterEdited.connect(self.compoundParameterEdited)
             layout.addWidget(atmosphere_form)
             self._atmosphere_forms.append(atmosphere_form)
         if spec.optics_inputs:

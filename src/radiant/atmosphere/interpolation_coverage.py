@@ -38,11 +38,15 @@ mutates a :class:`~radiant.core.parameters.ParameterSet`.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from radiant.atmosphere.errors import AtmosphereCapabilityError, AtmosphereValidationError
 from radiant.core.parameters import ParameterSet, Provenance
 
 __all__ = [
+    "BUNDLED_ATMOSPHERES_DIR",
+    "BUNDLED_FAMILIES",
+    "EXPLICIT_DIR_FAMILIES",
     "SHIPPED_FAMILIES",
     "ShippedFamily",
     "check_interpolation_coverage",
@@ -52,6 +56,16 @@ __all__ = [
     "recommended_axes",
     "shipped_family_catalogue_text",
 ]
+
+#: The shipped MODTRAN-derived atmosphere library, bundled inside the package at
+#: ``src/radiant/data/tables/atmospheres/`` so a wheel install carries it
+#: (parents[1] == the ``radiant`` package root; same relative pattern as
+#: ``radiant.data.library``). Rule 30: no repo-root path assumption, no string
+#: path concatenation. :mod:`radiant.atmosphere.loaders` imports this rather
+#: than re-deriving it (Rule 27 — one canonical version).
+BUNDLED_ATMOSPHERES_DIR: Path = (
+    Path(__file__).resolve().parents[1] / "data" / "tables" / "atmospheres"
+)
 
 
 @dataclass(frozen=True)
@@ -74,6 +88,14 @@ class ShippedFamily:
         ``atmosphere.standard_atmosphere`` enum value.
     coverage:
         Plain-language coverage line, units always explicit.
+    explicit_dir_only:
+        ``True`` for a bundled family whose ``(direction, axes)`` signature is
+        already owned by another family, so no axes string can select it and it
+        is reachable **only** through an explicit
+        ``atmosphere.interpolated_data_dir`` (ex-CU-296). Such a row is absent
+        from the loader's default-dispatch table by construction: it lives in
+        :data:`EXPLICIT_DIR_FAMILIES`, never in :data:`SHIPPED_FAMILIES`. A
+        caller adopting one MUST write :attr:`bundled_dir` as well as the axes.
     """
 
     name: str
@@ -81,6 +103,7 @@ class ShippedFamily:
     interpolation_axes: str
     profile: str
     coverage: str
+    explicit_dir_only: bool = False
 
     @property
     def summary(self) -> str:
@@ -90,6 +113,17 @@ class ShippedFamily:
             f"[{self.los_direction}-looking, profile '{self.profile}', "
             f"axes '{self.interpolation_axes}']"
         )
+
+    @property
+    def bundled_dir(self) -> str:
+        """This family's directory inside the packaged library, as a path string.
+
+        The value to write into ``atmosphere.interpolated_data_dir``. Required
+        for an :attr:`explicit_dir_only` family and optional for every other one
+        (leaving the parameter empty lets the loader's ``(direction, axes)``
+        dispatch find the same directory).
+        """
+        return str(BUNDLED_ATMOSPHERES_DIR / self.name)
 
 
 #: The bundled MODTRAN-derived interpolation families, one row per
@@ -106,7 +140,9 @@ class ShippedFamily:
 #: ``midlat_summer_ladders`` (§4.1, no re-baseline), so nadir 0–100 km coverage is
 #: reached either through the 3-axis off-nadir family (which carries the 0-degree
 #: column) or through an explicit ``atmosphere.interpolated_data_dir``. Adding a
-#: row for it would silently re-baseline every existing 2-axis result.
+#: row *here* would silently re-baseline every existing 2-axis result; it is
+#: instead listed in :data:`EXPLICIT_DIR_FAMILIES` so a picker can still offer it
+#: by name (ex-CU-296).
 SHIPPED_FAMILIES: tuple[ShippedFamily, ...] = (
     ShippedFamily(
         name="us_standard_zenith_fan",
@@ -156,6 +192,38 @@ SHIPPED_FAMILIES: tuple[ShippedFamily, ...] = (
         ),
     ),
 )
+
+
+#: Bundled families that **no** ``(direction, axes)`` key can select, because
+#: another family already owns their signature. They are reachable only through an
+#: explicit ``atmosphere.interpolated_data_dir`` (:attr:`ShippedFamily.bundled_dir`),
+#: and they are deliberately kept out of :data:`SHIPPED_FAMILIES` so the loader's
+#: derived default-dispatch table, the coverage refusals, and every existing
+#: 2-axis result stay exactly as they are.
+#:
+#: ``midlat_summer_boost_ladder`` is the whole list today: 24 committed MODTRAN
+#: runs (nadir, targets 0–100 km) that shipped in 2026-07 with no discoverable
+#: route (ex-CU-296). Publishing the row here is what lets the GUI family picker
+#: offer it *by name* and write the directory for the operator.
+EXPLICIT_DIR_FAMILIES: tuple[ShippedFamily, ...] = (
+    ShippedFamily(
+        name="midlat_summer_boost_ladder",
+        los_direction="down",
+        interpolation_axes="sensor_altitude_m,target_altitude_m",
+        profile="midlat_summer",
+        coverage=(
+            "targets 0-100 km (12 rungs through the boost band), sensor 100 km / "
+            "40000 km (GEO), nadir only (LOS zenith 0 degrees)"
+        ),
+        explicit_dir_only=True,
+    ),
+)
+
+#: Every bundled family, default-dispatch rows first — the catalogue a picker
+#: enumerates. :func:`family_for` and the loader's dispatch table deliberately
+#: read :data:`SHIPPED_FAMILIES` instead, because only those rows are selectable
+#: by axes alone.
+BUNDLED_FAMILIES: tuple[ShippedFamily, ...] = SHIPPED_FAMILIES + EXPLICIT_DIR_FAMILIES
 
 
 def normalize_axes(axes_str: str) -> str:

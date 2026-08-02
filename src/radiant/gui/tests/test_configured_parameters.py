@@ -101,15 +101,23 @@ def _field_rows(window: RADIANTMainWindow, dotpath: str) -> list[FieldRow]:
 
 
 def _act(qtbot, window: RADIANTMainWindow, action) -> None:  # type: ignore[no-untyped-def]
-    """Run a scope-changing *action* and wait out the evaluation it schedules.
+    """Run a scope-changing *action* and assert it scheduled the re-evaluation.
 
     Every configure / un-configure / configured-value write marks results stale and
-    starts the 200 ms debounce, so a test that returns without awaiting the run would
-    tear its window down with a worker mid-flight. Awaiting keeps the offscreen session
-    the same shape a real one has.
+    arms the single-shot debounce; the scope change itself is applied synchronously.
+    No test in this file reads ``window.last_run`` or ``window.last_result``, so
+    awaiting the pass spent ≈2 s per call on a result nobody inspected (CU-289, owner
+    ruling 2026-08-01). Asserting the *scheduled* state keeps the contract that a
+    scope change really does trigger a re-evaluation — the assert fails the moment an
+    action stops scheduling — without the wall-clock dependence that made the merge
+    gate load-sensitive (CU-314).
+
+    Not awaiting is safe: the debounce is a single-shot ``QTimer`` parented to the
+    window, so a pending one has started no worker and dies with the window at
+    teardown. ``qtbot`` never gets a turn of the event loop in between.
     """
-    with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-        action()
+    action()
+    assert window.evaluation_scheduled is True
 
 
 def _configured(window: RADIANTMainWindow, dotpath: str) -> tuple[Any, ...]:
@@ -293,8 +301,7 @@ class TestPerConfigurationEditor:
         assert _configured(window, _FILTER_MIN) == pytest.approx((3.6, 9.0), rel=1e-12)
         assert window._undo_stack.count() == depth + 1  # one step, not two
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()
+        _act(qtbot, window, lambda: window.action("edit.undo").trigger())
         assert _configured(window, _FILTER_MIN) == pytest.approx(before, rel=1e-12)
 
     def test_editing_one_row_changes_only_that_column(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -437,8 +444,7 @@ class TestConfigureFromTheEditorDialog:
         assert _APERTURE not in cs.base.inputs()  # single-store invariant (D-B)
         assert window._undo_stack.count() == depth + 1
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()
+        _act(qtbot, window, lambda: window.action("edit.undo").trigger())
 
         assert cs.is_configured(_APERTURE) is False
         assert cs.base.inputs()[_APERTURE] == pytest.approx(before, rel=1e-12)
@@ -507,8 +513,7 @@ class TestInlineEditScope:
         lwir_before = _configured(window, _FILTER_MIN)[1]
 
         window.sensor.set(_FILTER_MIN, 3.7)
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.parameter_panel.parameterEdited.emit(_FILTER_MIN)
+        _act(qtbot, window, lambda: window.parameter_panel.parameterEdited.emit(_FILTER_MIN))
 
         assert _configured(window, _FILTER_MIN) == pytest.approx((3.7, lwir_before), rel=1e-12)
         assert _FILTER_MIN not in cs.base.inputs()
@@ -519,8 +524,7 @@ class TestInlineEditScope:
     def test_inline_edit_updates_the_badge_tooltip(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         window = _open_study(qtbot, tmp_path)
         window.sensor.set(_FILTER_MIN, 3.7)
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.parameter_panel.parameterEdited.emit(_FILTER_MIN)
+        _act(qtbot, window, lambda: window.parameter_panel.parameterEdited.emit(_FILTER_MIN))
         assert "MWIR: 3.7 um" in window.parameter_panel.configured_tooltip(_FILTER_MIN)
 
 
@@ -536,16 +540,14 @@ class TestScopedUndoRedo:
         _act(qtbot, window, lambda: window.configuration_scope.request_configure(_APERTURE))
         assert cs.is_configured(_APERTURE) is True
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()
+        _act(qtbot, window, lambda: window.action("edit.undo").trigger())
 
         # Scope restored: back in the base store, not in the configured table.
         assert cs.is_configured(_APERTURE) is False
         assert cs.base.inputs()[_APERTURE] == pytest.approx(shared_before, rel=1e-12)
         assert window.parameter_panel.is_configured_row(_APERTURE) is False
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.redo").trigger()
+        _act(qtbot, window, lambda: window.action("edit.redo").trigger())
 
         assert cs.is_configured(_APERTURE) is True
         assert _configured(window, _APERTURE) == pytest.approx(
@@ -563,15 +565,13 @@ class TestScopedUndoRedo:
         _act(qtbot, window, lambda: window.configuration_scope.request_unconfigure(_FILTER_MIN))
         assert cs.is_configured(_FILTER_MIN) is False
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()
+        _act(qtbot, window, lambda: window.action("edit.undo").trigger())
 
         assert cs.is_configured(_FILTER_MIN) is True
         assert _configured(window, _FILTER_MIN) == pytest.approx(column_before, rel=1e-12)
         assert _FILTER_MIN not in cs.base.inputs()
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.redo").trigger()
+        _act(qtbot, window, lambda: window.action("edit.redo").trigger())
 
         assert cs.is_configured(_FILTER_MIN) is False
         assert cs.base.inputs()[_FILTER_MIN] == pytest.approx(column_before[0], rel=1e-12)
@@ -585,18 +585,15 @@ class TestScopedUndoRedo:
         column_before = _configured(window, _FILTER_MIN)
 
         window.sensor.set(_FILTER_MIN, 3.7)
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.parameter_panel.parameterEdited.emit(_FILTER_MIN)
+        _act(qtbot, window, lambda: window.parameter_panel.parameterEdited.emit(_FILTER_MIN))
         assert window.action("edit.undo").isEnabled()
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()
+        _act(qtbot, window, lambda: window.action("edit.undo").trigger())
 
         assert cs.is_configured(_FILTER_MIN) is True  # scope preserved
         assert _configured(window, _FILTER_MIN) == pytest.approx(column_before, rel=1e-12)
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.redo").trigger()
+        _act(qtbot, window, lambda: window.action("edit.redo").trigger())
 
         assert _configured(window, _FILTER_MIN) == pytest.approx((3.7, column_before[1]), rel=1e-12)
 
@@ -607,12 +604,10 @@ class TestScopedUndoRedo:
         _act(qtbot, window, lambda: window._commit_configured_values(_FILTER_MIN, [3.6, 9.0]))
         assert _configured(window, _FILTER_MIN) == pytest.approx((3.6, 9.0), rel=1e-12)
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()
+        _act(qtbot, window, lambda: window.action("edit.undo").trigger())
         assert _configured(window, _FILTER_MIN) == pytest.approx(column_before, rel=1e-12)
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.redo").trigger()
+        _act(qtbot, window, lambda: window.action("edit.redo").trigger())
         assert _configured(window, _FILTER_MIN) == pytest.approx((3.6, 9.0), rel=1e-12)
 
     def test_configure_undo_of_a_defaulted_parameter_leaves_it_defaulted(  # type: ignore[no-untyped-def]
@@ -634,8 +629,7 @@ class TestScopedUndoRedo:
         _act(qtbot, window, lambda: window.configuration_scope.request_configure(defaulted))
         assert cs.is_configured(defaulted) is True
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()
+        _act(qtbot, window, lambda: window.action("edit.undo").trigger())
 
         assert cs.is_configured(defaulted) is False
         assert defaulted not in cs.base.inputs()
@@ -648,16 +642,12 @@ class TestScopedUndoRedo:
         aperture_before = cs.base.inputs()[_APERTURE]
 
         window.sensor.set(_APERTURE, 0.5)
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.parameter_panel.parameterEdited.emit(_APERTURE)
+        _act(qtbot, window, lambda: window.parameter_panel.parameterEdited.emit(_APERTURE))
         window.sensor.set(_FILTER_MIN, 3.7)
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.parameter_panel.parameterEdited.emit(_FILTER_MIN)
+        _act(qtbot, window, lambda: window.parameter_panel.parameterEdited.emit(_FILTER_MIN))
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()  # the configured edit
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()  # the shared edit
+        _act(qtbot, window, lambda: window.action("edit.undo").trigger())  # the configured edit
+        _act(qtbot, window, lambda: window.action("edit.undo").trigger())  # the shared edit
 
         assert cs.base.inputs()[_APERTURE] == pytest.approx(aperture_before, rel=1e-12)
         assert _configured(window, _FILTER_MIN)[0] == pytest.approx(3.5, rel=1e-12)
@@ -698,10 +688,8 @@ class TestSingleConfigurationZeroRegression:
         before = cs.base.inputs()[_APERTURE]
 
         window.sensor.set(_APERTURE, 0.42)
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.parameter_panel.parameterEdited.emit(_APERTURE)
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()
+        _act(qtbot, window, lambda: window.parameter_panel.parameterEdited.emit(_APERTURE))
+        _act(qtbot, window, lambda: window.action("edit.undo").trigger())
 
         assert shown == []
         assert cs.base.inputs()[_APERTURE] == pytest.approx(before, rel=1e-12)

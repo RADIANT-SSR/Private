@@ -367,14 +367,26 @@ suggested_interpolation_axes("down", 20_000.0, 0.0)   # 'sensor_altitude_m,targe
 
 | Function | Purpose |
 |----------|---------|
-| `shipped_atmosphere_families()` | Every bundled family as a `ShippedFamily` — `name`, `los_direction`, `interpolation_axes` (the exact string to write), `profile` (an `atmosphere.standard_atmosphere` enum value), `coverage` (plain language, units always explicit — km, degrees), and a `summary` one-liner suitable as a picker label. `radiant.atmosphere.loaders`' default-family dispatch table is derived from the same rows, so there is one authority. |
-| `shipped_family_for_axes(los_direction, interpolation_axes)` | The family a pair selects, or `None` if unshipped. Direction is part of the key: an up-looking family carries the *downwelling* column and cannot substitute for a down-looking one. |
+| `shipped_atmosphere_families()` | Every bundled family as a `ShippedFamily` — `name`, `los_direction`, `interpolation_axes` (the exact string to write), `profile` (an `atmosphere.standard_atmosphere` enum value), `coverage` (plain language, units always explicit — km, degrees), `explicit_dir_only`, `bundled_dir`, and a `summary` one-liner suitable as a picker label. `radiant.atmosphere.loaders`' default-family dispatch table is derived from the **default-dispatch subset** of these rows, so there is one authority. |
+| `shipped_family_for_axes(los_direction, interpolation_axes)` | The family a pair selects, or `None` if unshipped. Direction is part of the key: an up-looking family carries the *downwelling* column and cannot substitute for a down-looking one. Never returns an `explicit_dir_only` row — no axes key reaches one. |
 | `suggested_interpolation_axes(los_direction, target_altitude_m, path_zenith_rad)` | The axes string a shipped family covers for this scene — up-looking ⇒ `target_altitude_m`; down-looking with an above-ground target ⇒ the 2-axis ladders at nadir, the 3-axis boost family off-nadir; ground target ⇒ the sensor ladder at nadir, the zenith fan off-nadir. `None` for a level LOS. |
+| `s.suggested_atmosphere_family()` | The same recommendation derived from a `Sensor`'s own resolved geometry, as a `ShippedFamily` (`None` for a level LOS or unregistered altitudes). The one call a family picker needs — the caller never re-derives the LOS direction. |
+| `s.atmosphere_profile_change_warning(family)` | The sentence to show beside `family` when adopting it would change an explicitly-set `atmosphere.standard_atmosphere`; `None` when there is no explicit request to contradict or it already matches. |
 
 A **recommendation only** — nothing here writes a parameter. Adopting a family can change the
 run's atmosphere profile (the shipped families are not all one profile), so the caller writes
 `interpolation_axes` itself and `Sensor.validate_atmosphere_coverage()` supplies the
 profile-change caveat when the family's `profile` differs from `atmosphere.standard_atmosphere`.
+
+**`explicit_dir_only` rows.** A bundled family whose `(los_direction, interpolation_axes)`
+signature another family already owns cannot be selected by an axes string at all: writing
+that string selects the *other* family. Such a row is published with `explicit_dir_only = True`
+and is adopted by writing its `bundled_dir` into `atmosphere.interpolated_data_dir` as well as
+its axes. `midlat_summer_boost_ladder` (24 runs, nadir, targets 0–100 km) is the only one
+today — it shares the 2-axis ladders' key, which stays with the 0–29 km ladders so no existing
+2-axis result is re-baselined (ex-CU-296). It is deliberately absent from the loader's
+dispatch table and from every coverage-refusal listing, which enumerate only what an axes key
+can reach.
 
 ---
 

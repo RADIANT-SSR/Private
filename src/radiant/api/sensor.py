@@ -34,7 +34,19 @@ from radiant.api.solve import SolveResult, solve_for
 from radiant.api.sweep import Sweep2DResult, SweepResult, sweep, sweep_2d
 from radiant.api.tolerance import MonteCarloResult, monte_carlo
 from radiant.atmosphere.interpolation_coverage import (
+    ShippedFamily,
+)
+from radiant.atmosphere.interpolation_coverage import (
     check_interpolation_coverage as _check_interpolation_coverage,
+)
+from radiant.atmosphere.interpolation_coverage import (
+    family_for as _family_for,
+)
+from radiant.atmosphere.interpolation_coverage import (
+    profile_change_warning as _profile_change_warning,
+)
+from radiant.atmosphere.interpolation_coverage import (
+    recommended_axes as _recommended_axes,
 )
 from radiant.core.orbit import ground_track_speed_m_s
 from radiant.core.parameters import (
@@ -692,6 +704,54 @@ class Sensor:
         """
         self._ensure_resolved()
         _check_interpolation_coverage(self._params)
+
+    def suggested_atmosphere_family(self) -> ShippedFamily | None:
+        """The bundled interpolation family this scene's geometry calls for (CU-239).
+
+        Derived, never guessed: the line-of-sight direction and the target
+        altitude decide which axes a shipped family must carry (up-looking ⇒
+        ``target_altitude_m``; down-looking above the surface ⇒ a target-altitude
+        axis, plus ``path_zenith_rad`` off-nadir; a ground target ⇒ the zenith fan
+        off-nadir, the sensor ladder at nadir).
+
+        A **recommendation only** — this method writes nothing, because adopting a
+        family can change the run's atmosphere profile
+        (:meth:`atmosphere_profile_change_warning` renders that caveat). Callers
+        write ``atmosphere.interpolation_axes`` themselves.
+
+        ``None`` when no shipped family serves the geometry (e.g. a level
+        line of sight) or the geometry altitudes are not registered.
+        """
+        self._ensure_resolved()
+        try:
+            h_sensor = float(self._params.get("geometry.sensor_altitude_m"))
+            h_tgt = float(self._params.get("geometry.target_altitude_m"))
+        except (KeyError, TypeError, ValueError):
+            return None
+        try:
+            theta_o = float(self._params.get("geometry.path_zenith_rad"))
+        except (KeyError, TypeError, ValueError):
+            theta_o = 0.0
+        if h_sensor > h_tgt:
+            direction = "down"
+        elif h_sensor < h_tgt:
+            direction = "up"
+        else:
+            return None
+        axes = _recommended_axes(direction, h_tgt, theta_o)
+        return None if axes is None else _family_for(direction, axes)
+
+    def atmosphere_profile_change_warning(self, family: ShippedFamily) -> str | None:
+        """Warn text if adopting *family* would change the requested profile (CU-239).
+
+        ``None`` when ``atmosphere.standard_atmosphere`` was never user-set (there
+        is no explicit request to contradict) or already matches the profile the
+        family's runs were rendered with. Non-``None`` is a caller-surfaced
+        sentence — choosing a family must never silently change the atmosphere the
+        operator asked for. Never mutates and never suppresses.
+        """
+        self._ensure_resolved()
+        return _profile_change_warning(self._params, family)
 
     def evaluate(
         self,

@@ -102,13 +102,26 @@ def _manage(  # type: ignore[no-untyped-def]
     *,
     accept: bool = True,
     changes: bool = True,
+    full_pass: bool = False,
 ) -> ConfigurationManagerDialog:
     """Drive Edit → Configurations… for real, running *script* on the live dialog.
 
     The window's own handler is exercised end to end — only the modal loop is
-    replaced, so the clone/shape/undo path under test is the shipped one. *changes*
-    says whether the transaction is expected to schedule a re-evaluation (a
-    no-op transaction schedules none, and awaiting one would hang).
+    replaced, so the clone/shape/undo path under test is the shipped one.
+
+    *changes* says whether the transaction is expected to schedule a re-evaluation,
+    and is **asserted both ways** through :attr:`RADIANTMainWindow.evaluation_scheduled`:
+    a shape change must arm the debounce, a no-op transaction must leave it disarmed
+    (CU-289 owner ruling, 2026-08-01). Asserting the scheduled state rather than
+    awaiting the pass itself is what these tests actually owe — every one of them
+    then asserts on synchronously-applied ``ConfigurationSet`` state or on a window
+    surface ``_apply_shape_change`` refreshes *before* the debounce starts, so the
+    awaited pass' result was discarded at ≈2 s per test and made the merge gate
+    load-sensitive (CU-314). The debounce is a single-shot ``QTimer`` parented to the
+    window, so a pending one starts no worker: it dies with the window at teardown.
+
+    *full_pass* keeps the real wait, and belongs only to a test that reads
+    ``window.last_run`` — the one surface that does not exist until the pass lands.
     """
     holder: list[ConfigurationManagerDialog] = []
     original_init = ConfigurationManagerDialog.__init__
@@ -124,11 +137,12 @@ def _manage(  # type: ignore[no-untyped-def]
 
     monkeypatch.setattr(ConfigurationManagerDialog, "__init__", _init)
     monkeypatch.setattr(ConfigurationManagerDialog, "exec", _exec)
-    if changes and accept:
+    if full_pass:
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             window.action("edit.configurations").trigger()
     else:
         window.action("edit.configurations").trigger()
+        assert window.evaluation_scheduled is (changes and accept)
     return holder[0]
 
 
@@ -278,9 +292,9 @@ class TestCrudDrivesTheApi:
         monkeypatch.setattr(ConfigurationManagerDialog, "__init__", _init)
         monkeypatch.setattr(ConfigurationManagerDialog, "exec", _exec)
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.configuration_bar.manage_button.click()
+        window.configuration_bar.manage_button.click()
 
+        assert window.evaluation_scheduled is True
         assert len(holder) == 1
         assert cs.names() == ("MWIR", "LWIR", "SWIR")
 
@@ -300,6 +314,31 @@ class TestCrudDrivesTheApi:
 
         assert cs.names() == ("MWIR", "LWIR")
         assert window.action("edit.undo").isEnabled() is False
+
+    def test_the_scheduled_state_assert_catches_a_transaction_that_stops_scheduling(  # type: ignore[no-untyped-def]
+        self, qtbot, tmp_path, monkeypatch
+    ) -> None:
+        """Meta-test (CU-289): ``evaluation_scheduled`` is not an assert-on-nothing.
+
+        The whole file's transaction coverage now rests on the claim that a shape
+        change arms the debounce. Break exactly that — neuter the timer's ``start``
+        so ``_apply_shape_change`` schedules nothing while every other step of the
+        transaction still runs — and :func:`_manage`'s own assertion must fail. If it
+        did not, the 31 sibling tests would be asserting on a constant.
+        """
+        window = _open_study(qtbot, tmp_path)
+        cs = window.configuration_set
+        assert cs is not None
+        _answer_name(monkeypatch, "SWIR")
+        monkeypatch.setattr(window._debounce, "start", lambda *args: None)
+
+        with pytest.raises(AssertionError):
+            _manage(qtbot, window, monkeypatch, lambda d: d.action_button("add").click())
+
+        # The transaction itself still landed — only the scheduling was broken, which
+        # is what makes this a test of the assert rather than of the transaction.
+        assert cs.names() == ("MWIR", "LWIR", "SWIR")
+        assert window.evaluation_scheduled is False
 
 
 class TestGuardsAreActionable:
@@ -534,7 +573,9 @@ class TestWavelengthPointsRow:
             editor.setText("64")
             editor.editingFinished.emit()
 
-        _manage(qtbot, window, monkeypatch, _script)
+        # The one transaction test that reads ``window.last_run``, so the one that
+        # keeps the real evaluate-all wait (CU-289 owner ruling).
+        _manage(qtbot, window, monkeypatch, _script, full_pass=True)
 
         run = window.last_run
         assert run is not None
@@ -666,8 +707,8 @@ class TestUndoRedoOfTheTransaction:
         _manage(qtbot, window, monkeypatch, _script)
         assert cs.names() == ("MWIR",)
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()
+        window.action("edit.undo").trigger()
+        assert window.evaluation_scheduled is True
 
         assert cs.names() == ("MWIR", "LWIR")
         assert cs.configured()[_FILTER_MIN] == pytest.approx(before_min, rel=1e-12)
@@ -676,8 +717,8 @@ class TestUndoRedoOfTheTransaction:
         # The selector came back with the restored study.
         assert window.configuration_bar.names == ("MWIR", "LWIR")
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.redo").trigger()
+        window.action("edit.redo").trigger()
+        assert window.evaluation_scheduled is True
 
         assert cs.names() == ("MWIR",)
         assert window.configuration_bar.names == ("MWIR",)
@@ -700,8 +741,8 @@ class TestUndoRedoOfTheTransaction:
         assert cs.names() == ("LWIR-B", "MWIR")
         assert cs.baseline == "LWIR-B"
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()
+        window.action("edit.undo").trigger()
+        assert window.evaluation_scheduled is True
 
         assert cs.names() == ("MWIR", "LWIR")
         assert cs.baseline == "MWIR"
@@ -709,8 +750,8 @@ class TestUndoRedoOfTheTransaction:
         assert cs.configured()[_FILTER_MIN] == pytest.approx((3.5, 8.0), rel=1e-12)
         assert window.configuration_bar.names == ("MWIR", "LWIR")
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.redo").trigger()
+        window.action("edit.redo").trigger()
+        assert window.evaluation_scheduled is True
 
         assert cs.names() == ("LWIR-B", "MWIR")
         assert cs.baseline == "LWIR-B"
@@ -727,8 +768,8 @@ class TestUndoRedoOfTheTransaction:
         _manage(qtbot, window, monkeypatch, lambda d: d.action_button("add").click())
         assert len(cs) == 2
 
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            window.action("edit.undo").trigger()
+        window.action("edit.undo").trigger()
+        assert window.evaluation_scheduled is True
 
         assert cs.names() == ("Configuration 1",)
         assert window.configuration_bar.names == ("Configuration 1",)
@@ -781,8 +822,9 @@ class TestConfiguredValuesDisplayUnit:
         editor = rows.editor(0)
         assert isinstance(editor, QLineEdit)
         editor.setText("450")
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            dialog.apply(close=False)
+        dialog.apply(close=False)
+        # The write is synchronous; only the re-evaluation it schedules is not (CU-289).
+        assert window.evaluation_scheduled is True
 
         assert cs.configured()[_ALTITUDE] == pytest.approx((450_000.0, 600_000.0), rel=1e-12)
 

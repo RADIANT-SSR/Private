@@ -890,15 +890,25 @@ tens of percent, which is what the sub-3 µm provisional warning above says.
 
 The alignment also removes the *species-split* half of the 80° hand-over step —
 VIS band-mean grazing/column was 2.12× at ζ = 0° and 9.91× at 30° and is now
-1.000 and 1.007 — but not all of it. The residual step at the hand-over is
-**1.063× VIS**, **0.996× MWIR**, **0.994× LWIR** (measured 2026-08-01, ground to
-`h_atm_top`, θ_s = 30°). What remains is not the weight altitude: the two
-evaluators linearise the CU-161 water curve of growth and gas floor against
-*different reference columns* — `segment_simple` against the vertical column,
-`segment_grazing` against the slant one — and because the curve of growth is
-sub-linear that changes the effective water weight by `(m_h2o)^(b−1)` and
-therefore ω₀ wherever water absorbs (the step is < 0.5 % below 0.68 µm and ≈ 30 %
-above it). Recorded as a finding, not closed here.
+1.000 and 1.007 — but not all of it. Band-mean grazing/column at the 80°
+hand-over, ground to `h_atm_top`, θ_s = 30°, measured 2026-08-01:
+
+| band | step |
+|---|---:|
+| VIS 0.45–0.85 µm | 1.063 |
+| NIR 0.85–1.40 µm | **1.463** |
+| MWIR 3–5 µm | 1.036 |
+| LWIR 8–13 µm | 0.993 |
+
+What remains is not the weight *altitude*: the two evaluators linearise the
+CU-161 water curve of growth and the gas floor against **different reference
+columns** — `segment_simple` against the vertical column, `segment_grazing`
+against the slant one — and because the curve of growth is sub-linear
+(`OD = k·w^b`, `b < 1`) that scales the effective water weight by `m_h2o^(b−1)`,
+and therefore ω₀, wherever water absorbs. Below 0.68 µm the step is < 0.5 %;
+above it, where the water bands bite, it reaches 30–46 %. Recorded as a finding
+against the ζ > 80° sky only — no shipped scene reaches that band, and the
+thermal step (0.7 % LWIR) is unchanged from what CU-225 left.
 
 ### 4.3 How geometry feeds each model
 

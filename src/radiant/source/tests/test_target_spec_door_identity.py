@@ -1,10 +1,11 @@
-"""Build-identity pins for the target-spec doors (CU-293).
+"""Build-identity pins for the target-spec doors (CU-293, CU-318).
 
 CU-293 moved the last inlined door-exclusivity guards out of
 :mod:`radiant.source._inferrer` into :mod:`radiant.source.target_spec` and
-added the missing S11-vs-S12 guard.  Every one of those edits is a *refusal*
-change: a cleanly specified single-surface target must still build the exact
-same descriptor, byte for byte.
+added the missing S11-vs-S12 guard; CU-318 moved the one door CU-293 did not
+name, the ``emissivity_path`` ε(λ) door.  Every one of those edits is a
+*refusal* change: a cleanly specified single-surface target must still build
+the exact same descriptor, byte for byte.
 
 These tests pin that.  Each canonical spec below drives
 :func:`radiant.source._inferrer.infer_descriptors` and asserts on the
@@ -12,8 +13,8 @@ descriptor variant plus a SHA-256 of the raw ``float64`` bytes of the spectral
 array the door produced.  The digests were captured on the pre-CU-293 tree, so
 a change to any door's *construction* path — not just its guards — fails here.
 
-Rule 18: written and run against the pre-change tree first (all four digests
-reproduced), then the guards were moved.
+Rule 18: written and run against the pre-change tree first (all digests
+reproduced there), then the guards were moved.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ import pytest
 from radiant.api._param_registry import build_parameter_set
 from radiant.core.descriptors import (
     T1Thermal,
+    T3Mixed,
     T6TabulatedAtSource,
     T7IntensityAtSource,
 )
@@ -110,6 +112,25 @@ class TestSingleSurfaceDoorsBuildIdentically:
         assert target.L_t_source is not None
         assert _digest(target.L_t_source) == (
             "c7964915ee6575ae9099a252d472b233a0ddf90c2ecf3a7cf57b14d1d3a9217d"
+        )
+
+    def test_s1_emissivity_path(self, tmp_path: Path) -> None:
+        """CU-318: the ε(λ) door still resamples the same emissivity onto the grid."""
+        csv = tmp_path / "eps.csv"
+        csv.write_text(
+            "wavelength_um,emissivity\n3.0,0.80\n5.0,0.92\n",
+            encoding="utf-8",
+        )
+        params = _base_params()
+        params.set("source.scene_type", "extended")
+        params.set("source.target.temperature", 310.0)  # K
+        params.set("source.target.emissivity_path", str(csv))
+        target, _bg, _los = infer_descriptors(_resolved(params), _WL_MWIR)
+        assert isinstance(target, T3Mixed)
+        assert target.T_t == pytest.approx(310.0, rel=1e-15)  # K
+        assert target.epsilon is not None
+        assert _digest(target.epsilon) == (
+            "3c7a465a875c992d94e256b48cb954ba5e0cc093e289b6e62469d7614979571e"
         )
 
     def test_s10b_point_intensity_blackbody(self) -> None:

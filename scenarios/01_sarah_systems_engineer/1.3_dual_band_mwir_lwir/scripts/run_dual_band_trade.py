@@ -86,6 +86,7 @@ focal_m = shared["Focal length"] / 100.0                 # cm → m
 gsd_m = det["MWIR"]["Pixel pitch"] * 1e-6 * altitude_m / focal_m
 footprint_m2 = gsd_m**2
 fill = shared["Hotspot area"] / footprint_m2
+T_nominal = shared["Hotspot temperature (nominal)"]
 
 
 # ---------------------------------------------------------------------------
@@ -192,7 +193,6 @@ def main() -> None:
 
     warnings.filterwarnings("ignore")
 
-    T_nominal = shared["Hotspot temperature (nominal)"]
     results = {}
     for band in ("MWIR", "LWIR"):
         print(f"\n=== Running RADIANT — {band} option at T_hotspot = {T_nominal:.0f} K ===")

@@ -440,3 +440,144 @@ class TestMovedIntensityDoorGuards:
     def test_single_s10_door_passes(self, intensity_csv: Path) -> None:
         s = Sensor().set("source.target.user_intensity_path", str(intensity_csv))
         s.validate_target_spec()
+
+
+@pytest.mark.level1
+class TestEmissivityPathDoor:
+    """CU-318 — the S1-with-ε(λ) door's guard now runs at the seam too.
+
+    It was the last door whose exclusivity guard was inlined in the inferrer
+    (CU-293 moved the other three but did not name this one).  The pair
+    **unique** to this door — ``emissivity_path`` + scalar
+    ``source.target.emissivity`` — reached only ``evaluate()`` before CU-318,
+    so the GUI clone-validate seam (CU-244) let an operator commit it.  That
+    pair is asserted symmetric (seam and evaluate, identical text).
+
+    The other nine rivals in the guard's list all *open a door of their own*
+    that the inferrer dispatches before the ε(λ) door, so at ``evaluate()``
+    they never reach this guard — the ε(λ) surface is discarded in silence
+    (measured 2026-08-02; the CU-318 entry's "caught earlier by other doors'
+    symmetric guards" holds only for the two rivals whose own door raises for
+    an unrelated reason).  The seam is therefore deliberately **stricter** than
+    ``evaluate()`` for those pairs: it refuses an over-specified spec the
+    inferrer would silently narrow.  Only the seam side is asserted below —
+    pinning the evaluate-side silence would freeze a Rule-17 defect.
+    """
+
+    @pytest.fixture()
+    def eps_csv(self, tmp_path: Path) -> Path:
+        p = tmp_path / "eps.csv"
+        p.write_text(
+            "wavelength_um,emissivity\n3.0,0.80\n5.5,0.92\n",
+            encoding="utf-8",
+        )
+        return p
+
+    @pytest.fixture()
+    def radiance_csv(self, tmp_path: Path) -> Path:
+        p = tmp_path / "L_source.csv"
+        p.write_text(
+            "wavelength_um,L_W_per_m2_per_sr_per_um\n3.0,4.0\n5.5,6.0\n",
+            encoding="utf-8",
+        )
+        return p
+
+    @pytest.fixture()
+    def intensity_csv(self, tmp_path: Path) -> Path:
+        p = tmp_path / "I_source.csv"
+        p.write_text(
+            "wavelength_um,intensity_W_per_sr_per_um\n3.0,10.0\n5.5,10.0\n",
+            encoding="utf-8",
+        )
+        return p
+
+    # --- the pair unique to this door ---------------------------------------
+
+    def test_scalar_emissivity_pair_raises_at_the_seam(self, eps_csv: Path) -> None:
+        """The defect: this passed the seam before CU-318."""
+        s = Sensor().set("source.target.emissivity_path", str(eps_csv))
+        s.set("source.target.emissivity", 0.95)
+        with pytest.raises(ParameterBoundsError, match="mutually exclusive"):
+            s.validate_target_spec()
+
+    def test_scalar_emissivity_pair_raises_at_evaluate(self, eps_csv: Path) -> None:
+        s = _thermal_surface_cleared()
+        s.set("source.target.emissivity_path", str(eps_csv))
+        s.set("source.target.emissivity", 0.95)
+        with pytest.raises(ParameterBoundsError, match="mutually exclusive"):
+            s.evaluate()
+
+    def test_same_error_from_seam_and_evaluate(self, eps_csv: Path) -> None:
+        def configure() -> Sensor:
+            s = _thermal_surface_cleared()
+            s.set("source.target.emissivity_path", str(eps_csv))
+            s.set("source.target.emissivity", 0.95)
+            return s
+
+        with pytest.raises(ParameterBoundsError) as seam:
+            configure().validate_target_spec()
+        with pytest.raises(ParameterBoundsError) as evaluated:
+            configure().evaluate()
+        assert str(seam.value) == str(evaluated.value)
+
+    def test_error_is_actionable_and_names_both_surfaces(self, eps_csv: Path) -> None:
+        s = Sensor().set("source.target.emissivity_path", str(eps_csv))
+        s.set("source.target.emissivity", 0.95)
+        with pytest.raises(ParameterBoundsError) as excinfo:
+            s.validate_target_spec()
+        exc = excinfo.value
+        assert exc.what and exc.why and exc.action  # Rule 15 fields populated
+        assert "emissivity_path" in exc.what
+        assert "source.target.emissivity" in exc.what
+        assert exc.context["conflict"] == "source.target.emissivity"
+
+    # --- every other rival in the guard's list is refused at the seam --------
+
+    @pytest.mark.parametrize(
+        ("conflict", "value"),
+        [
+            ("source.target.reflectance", 0.3),
+            ("source.target.albedo", 0.3),
+            ("source.target.brightness_temperature_K", 320.0),  # K
+            ("source.target.radiance_temperature_K", 300.0),  # K
+        ],
+    )
+    def test_scalar_rivals_refused_at_the_seam(
+        self, eps_csv: Path, conflict: str, value: float
+    ) -> None:
+        s = Sensor().set("source.target.emissivity_path", str(eps_csv))
+        s.set(conflict, value)
+        with pytest.raises(ParameterBoundsError):
+            s.validate_target_spec()
+
+    def test_path_rivals_refused_at_the_seam(
+        self,
+        eps_csv: Path,
+        radiance_csv: Path,
+        intensity_csv: Path,
+        rho_csv: Path,
+        tmp_path: Path,
+    ) -> None:
+        t_b_csv = tmp_path / "T_b.csv"
+        t_b_csv.write_text(
+            "wavelength_um,brightness_temperature_K\n3.0,320.0\n5.5,320.0\n",
+            encoding="utf-8",
+        )
+        for conflict, path in (
+            ("source.target.reflectance_path", rho_csv),
+            ("source.target.albedo_path", rho_csv),
+            ("source.target.brightness_temperature_path", t_b_csv),
+            ("source.target.user_radiance_path", radiance_csv),
+            ("source.target.user_intensity_path", intensity_csv),
+        ):
+            s = Sensor().set("source.target.emissivity_path", str(eps_csv))
+            s.set(conflict, str(path))
+            with pytest.raises(ParameterBoundsError):
+                s.validate_target_spec()
+
+    # --- clean single-door spec ---------------------------------------------
+
+    def test_single_emissivity_path_door_passes(self, eps_csv: Path) -> None:
+        s = Sensor().set("source.target.emissivity_path", str(eps_csv))
+        s.set("source.target.temperature", 300.0)  # K
+        s.validate_target_spec()

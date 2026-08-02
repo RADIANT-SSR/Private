@@ -389,9 +389,15 @@ PYTHONPATH=./src python scenarios/tools/emit_gui_yaml.py          # all scenario
 PYTHONPATH=./src python scenarios/tools/emit_gui_yaml.py 10.1     # one, by id
 ```
 
-Three things about it are load-bearing:
+Four things about it are load-bearing:
 
-- **Pass an id when only one scenario legitimately moved.** Regenerating all 34 hides which
+- **Check the exit code — the emitter exits 1 if any scenario failed** (CU-319). It used to
+  print `[FAIL] <id>` per broken scenario and still return 0, so a batch regeneration looked
+  successful while leaving those baselines stale. `test_gui_baseline_is_rebuildable_from_its_runner`
+  is the pytest-side guard: it builds each registry entry's Sensor straight from its runner,
+  which the reload tests cannot do (they read the committed YAML, so they stay green while the
+  path that *produces* it is broken — the failure mode CU-319 recorded).
+- **Pass an id when only one scenario legitimately moved.** Regenerating all 38 hides which
   ones the change actually touched, which is the review signal.
 - **`PYTHONPATH=./src` is required inside a `git worktree`.** The emitter imports `radiant`,
   and the editable install's `.pth` pins that to whichever checkout ran `pip install -e .` —

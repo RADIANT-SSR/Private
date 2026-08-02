@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-323 — `evaluate()` silently discards `emissivity_path` when any of nine rival doors dispatches first
+
+**Discovered**: CU-318 closure (branch `fix/cu-319-318`), 2026-08-02 — measured while moving the guard; refutes CU-318's "caught by symmetric guards" premise.
+**Status**: Open — needs the CU-293 ruling class extended (over-specification raises at evaluate) to nine more pairs.
+**File**: `src/radiant/source/_inferrer.py` (dispatch order: ρ / albedo / S8 / S10 / S10b / S11 / S12 / brightness-path doors all dispatch before the ε(λ) door).
+**Symptom**: with `emissivity_path` set alongside any of nine rival surfaces, the rival door builds first and `evaluate()` completes with the user's ε(λ) surface silently ignored (Rule 17) — the same defect class CU-293 closed for the S11+S12 pair. The resolve-time seam already refuses all nine (CU-318 registered the full guard there), so the door is deliberately stricter than evaluate — the documented stopgap asymmetry, reintroduced for one door.
+**Why it still matters**: a user-supplied spectral surface is discarded with no warning at the entry point scripts use; the GUI seam catches it but the scripting API does not.
+**Suggested fix**: (b) small — add the `emissivity_path` rival check to each of the nine doors' evaluate-side guards (or one shared pre-dispatch check), exactly as CU-293 did for S11→S12; behaviour-changing at evaluate → CHANGELOG under Changed + the standard `scenarios/`+`examples/` sweep (the CU-318 sweep already shows all 67 shipped YAMLs pass the seam, so zero shipped configs would newly raise). Effort S; category B. Related: [[CU-318]], [[CU-293]], [[CU-244]].
+
 ### CU-321 — One-temperature graybody over-predicts MWIR path thermal ~2× on tall columns, both directions equally (now anchorable)
 
 **Discovered**: CU-224 P5a anchoring (branch `atmo/cu-224-lpath-thermal`), 2026-08-02.
@@ -55,24 +64,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Symptom**: with the CU-224 thermal term landed, both directions show the same residual against the batch-2 anchors: MWIR model/MODTRAN reaches 2.02–2.42 on the tall columns (O3/O4/O5 down-looking; H5 up-looking shows 1.49 on the same column class) while LWIR sits at 1.33–1.43. The signature is the documented one-temperature-graybody + region-flat spectral-shape approximation (CU-155/CU-161), not a direction-specific defect — the down-looking and up-looking residuals track each other on identical columns.
 **Why it still matters**: results-affecting (intake test 1) for MWIR path-radiance-dominated scenes if fixed; and for the first time it is *anchorable* — O1–O5 + K/N/H give matched direction pairs across five rungs, so a height- or direction-resolved `T_eff` can be fit against measured data instead of invented.
 **Suggested fix**: (b) stand-alone, M — height-resolved emission temperature (two-slab or pressure-weighted `T_eff(λ)`) fit against the O/K/N/H pairs, both directions in one model per Rule 27. Recorded as a Known limitation in `RADIANT_Atmosphere.md` §3.1 until then. Effort M; category C. Related: [[CU-224]], CU-155, CU-161.
-
-### CU-319 — `emit_gui_yaml.py` cannot rebuild 8 of the 34 GUI baselines, and a batch run that fails still exits 0
-
-**Discovered**: CU-267 §5.3 sweep (branch `atmo/cu-267-gas-region-blend`), 2026-08-01.
-**Status**: Open.
-**File**: `scenarios/tools/gui_baselines.py` (module-level-constant reach); `scenarios/tools/emit_gui_yaml.py` (exit code).
-**Symptom** *(updated 2026-08-02: 4.3 is a ninth broken baseline, different failure mode — its runner refuses at import with the CU-164 lazy-load error "run the generator once, then retry" on a clean tree, so the emitter cannot rebuild it either)*: regenerating baselines for `1.3, 1.4, 3.2, 3.4, 5.1, 5.2, 5.3, 5.4` fails with `AttributeError: module 'scenrunner_<slug>' has no attribute '<name>'` (`base_config`, `T_nominal`, `baseline_vis_km`, `pitches_um`, `band_min_um`): `gui_baselines.py` reaches for module-level constants that the CU-164 guard pass (2026-07-29) moved inside those runners' `main()`, so the side-effect-free import never binds them. Verified pre-existing on the unmodified base commit. Worse, `emit_gui_yaml.py` prints `[FAIL]` per scenario and **exits 0**, so a batch regeneration looks successful while leaving the 8 stale.
-**Why it still matters**: Rule-21 intake test 3 (blocking) — this is the documented §5.3 baseline-refresh path, and a quarter of the shipped baselines cannot use it; the silent exit-0 means the breakage is invisible exactly when the protocol is exercised. The CU-267 refresh had to work around it by re-snapshotting from the committed `.gui.yaml` payloads.
-**Suggested fix**: (b) stand-alone, S — teach `gui_baselines.py` entries for those 8 scenarios to read their constants through the factory/accessor surface the guarded runners now expose (the CU-164 4.3 `radiance_csv()` precedent), and make `emit_gui_yaml.py` exit non-zero when any scenario fails. Effort S; category A. Related: [[CU-164]], [[CU-267]], CU-273.
-
-### CU-318 — The `emissivity_path` door's exclusivity guard is still inlined; `emissivity_path` + scalar emissivity reaches evaluate unrefused at the seam
-
-**Discovered**: CU-293 closure (branch `source/cu-293-target-spec-doors`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).
-**Status**: Open.
-**File**: `src/radiant/source/_inferrer.py:1283,1331` (`_EMISSIVITY_PATH_CONFLICTS`, `_load_emissivity_on_grid`).
-**Symptom**: the S1-with-ε(λ) `emissivity_path` door is the one remaining door whose exclusivity guard is inlined in the builder, so it is not registered in `validate_target_spec` and does not reject at the resolve-time seam. Most of its pairs (ρ, S8, S10, S11, S12) are caught earlier by other doors' symmetric guards; **`emissivity_path` + scalar `source.target.emissivity` is unique to it and reaches only `evaluate()`** — the same class of defect ex-CU-294 closed for the intensity doors, on a door neither CU-293 nor CU-294 named.
-**Why it still matters**: workflow-visible (Rule 21 intake test 4) — the GUI parameter editor's clone-validate seam (CU-244) is exactly what this door bypasses, so a GUI operator can commit the conflicting pair and hit the refusal only at Evaluate.
-**Suggested fix**: (a)/(b) small — extract the guard into `target_spec.check_emissivity_path_conflicts`, register it in `validate_target_spec` in dispatch order, same verbatim-move pattern as CU-293. Refusal-only; no golden movement expected. Effort S; category B. Related: [[CU-293]], [[CU-244]].
 
 ### CU-317 — Scenario 4.1's committed detection matrix no longer matches its own runner (qualitative drift from earlier landed physics)
 
@@ -138,6 +129,26 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-319 — `emit_gui_yaml.py` cannot rebuild 8 of the 34 GUI baselines, and a batch run that fails still exits 0 — RESOLVED 2026-08-02 (commit trailer)
+
+**Discovered**: CU-267 §5.3 sweep (branch `atmo/cu-267-gas-region-blend`), 2026-08-01.
+**Status**: RESOLVED 2026-08-02, closed by the `CU-Closes: 319` trailer commit.
+**File**: `scenarios/tools/gui_baselines.py` (module-level-constant reach); `scenarios/tools/emit_gui_yaml.py` (exit code).
+**Symptom** *(updated 2026-08-02: 4.3 is a ninth broken baseline, different failure mode — its runner refuses at import with the CU-164 lazy-load error "run the generator once, then retry" on a clean tree, so the emitter cannot rebuild it either)*: regenerating baselines for `1.3, 1.4, 3.2, 3.4, 5.1, 5.2, 5.3, 5.4` fails with `AttributeError: module 'scenrunner_<slug>' has no attribute '<name>'` (`base_config`, `T_nominal`, `baseline_vis_km`, `pitches_um`, `band_min_um`): `gui_baselines.py` reaches for module-level constants that the CU-164 guard pass (2026-07-29) moved inside those runners' `main()`, so the side-effect-free import never binds them. Verified pre-existing on the unmodified base commit. Worse, `emit_gui_yaml.py` prints `[FAIL]` per scenario and **exits 0**, so a batch regeneration looks successful while leaving the 8 stale.
+**Why it still matters**: Rule-21 intake test 3 (blocking) — this is the documented §5.3 baseline-refresh path, and a quarter of the shipped baselines cannot use it; the silent exit-0 means the breakage is invisible exactly when the protocol is exercised. The CU-267 refresh had to work around it by re-snapshotting from the committed `.gui.yaml` payloads.
+**Suggested fix**: (b) stand-alone, S — teach `gui_baselines.py` entries for those 8 scenarios to read their constants through the factory/accessor surface the guarded runners now expose (the CU-164 4.3 `radiance_csv()` precedent), and make `emit_gui_yaml.py` exit non-zero when any scenario fails. Effort S; category A. Related: [[CU-164]], [[CU-267]], CU-273.
+**Resolution**: the blast radius was 13 of 38, not 9 — four more runners (6.3, 7.2, 7.3, 7.4) failed identically and were never listed. Root cause: the CU-164 guard pass over-rotated past its own contract (input loading, unit conversions and config dicts belong at module scope with the factories) — those blocks moved back verbatim, nothing that prints/plots/writes moved with them, bare imports stay inert, and all 13 runners' stdout is byte-identical pre/post. 4.3's `radiance_csv()` falls back to the committed `inputs/` copy (the file CU-273 repoints baselines at anyway), actionable error retained. `emit_gui_yaml.py` exits 1 on any failure, ids to stderr. Acceptance proven: 38× `[ok]`, exit 0, ZERO baseline rewrites (byte-identical metrics); `verify_gui_yaml` 38/38. New per-scenario rebuildability tests fail 14 ways on the old code — the existing reload tests read the committed YAML and could never catch a broken producer.
+
+### CU-318 — The `emissivity_path` door's exclusivity guard is still inlined; `emissivity_path` + scalar emissivity reaches evaluate unrefused at the seam — RESOLVED 2026-08-02 (commit trailer)
+
+**Discovered**: CU-293 closure (branch `source/cu-293-target-spec-doors`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).
+**Status**: RESOLVED 2026-08-02, closed by the `CU-Closes: 318` trailer commit. **One premise of this entry was refuted at closure**: the rival pairs are NOT "caught earlier by other doors' symmetric guards" — nine of ten rivals dispatch first and silently discard `emissivity_path` at evaluate; the evaluate-side silence is promoted as [[CU-323]].
+**File**: `src/radiant/source/_inferrer.py:1283,1331` (`_EMISSIVITY_PATH_CONFLICTS`, `_load_emissivity_on_grid`).
+**Symptom**: the S1-with-ε(λ) `emissivity_path` door is the one remaining door whose exclusivity guard is inlined in the builder, so it is not registered in `validate_target_spec` and does not reject at the resolve-time seam. Most of its pairs (ρ, S8, S10, S11, S12) are caught earlier by other doors' symmetric guards; **`emissivity_path` + scalar `source.target.emissivity` is unique to it and reaches only `evaluate()`** — the same class of defect ex-CU-294 closed for the intensity doors, on a door neither CU-293 nor CU-294 named.
+**Why it still matters**: workflow-visible (Rule 21 intake test 4) — the GUI parameter editor's clone-validate seam (CU-244) is exactly what this door bypasses, so a GUI operator can commit the conflicting pair and hit the refusal only at Evaluate.
+**Suggested fix**: (a)/(b) small — extract the guard into `target_spec.check_emissivity_path_conflicts`, register it in `validate_target_spec` in dispatch order, same verbatim-move pattern as CU-293. Refusal-only; no golden movement expected. Effort S; category B. Related: [[CU-293]], [[CU-244]].
+**Resolution**: `_EMISSIVITY_PATH_CONFLICTS` (all 10 entries, order preserved) and the guard loop moved verbatim into `target_spec.check_emissivity_path_conflicts` (CU-295 `what=` prefix only), registered last in `validate_target_spec` (ε(λ) dispatches after S10); `_load_emissivity_on_grid` calls it at the exact former site. The unique pair (`emissivity_path` + scalar emissivity) refuses at seam and evaluate with identical text. For the nine rival pairs the seam is deliberately STRICTER than evaluate — it refuses an over-specified spec the inferrer would silently narrow — and the docs state that residual asymmetry rather than claiming symmetry; making evaluate refuse too is [[CU-323]] (needs the CU-293 ruling class extended). Fifth SHA-256 build-identity pin captured on the pre-change tree; 8 of 13 new tests fail on old code; 112 goldens unchanged; all 67 shipped YAMLs pass the seam. CHANGELOG under Changed.
 
 ### CU-322 — Switching a shipped scenario to the interpolated model is a sequential error wall; the suggestion machinery recommends families that then refuse — RESOLVED 2026-08-02 (commit trailer)
 

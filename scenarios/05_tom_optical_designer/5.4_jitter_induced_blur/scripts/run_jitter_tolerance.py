@@ -50,22 +50,134 @@ def _read_sheet(ws, min_row: int = 5):
     return specs, units
 
 
+# ---------------------------------------------------------------------------
+# Step 1: Read Tom's spreadsheet
+# ---------------------------------------------------------------------------
+
+INPUT_FILE = Path(__file__).parent.parent / "inputs" / "tom_jitter_tolerance_data.xlsx"
+
+wb = openpyxl.load_workbook(INPUT_FILE)
+
+
+opt_specs, opt_units = _read_sheet(wb["Optical System"])
+det_specs, det_units = _read_sheet(wb["Detector & Readout"])
+sweep_specs, sweep_units = _read_sheet(wb["Jitter Sweep"])
+
+
+# ---------------------------------------------------------------------------
+# Step 2: Convert to RADIANT canonical units
+# ---------------------------------------------------------------------------
+
+aperture_m = float(opt_specs["Aperture diameter"]) / 100.0       # cm -> m
+focal_length_m = float(opt_specs["Focal length"]) / 100.0        # cm -> m
+f_number = float(opt_specs["f-number"])
+transmission = float(opt_specs["Optical transmission"]) / 100.0  # % -> frac
+optics_temp_K = float(opt_specs["Optics temperature"]) + 273.15  # C -> K
+wfe_waves = float(opt_specs["WFE RMS"])
+obscuration = float(opt_specs["Central obscuration"]) / 100.0    # % -> frac
+
+band_min_um = float(opt_specs["Filter cut-on"]) / 1000.0         # nm -> um
+band_max_um = float(opt_specs["Filter cut-off"]) / 1000.0        # nm -> um
+band_center_um = float(opt_specs["Band center"]) / 1000.0        # nm -> um
+
+altitude_m = float(opt_specs["Orbit altitude"]) * 1000.0         # km -> m
+offnadir_rad = float(opt_specs["Off-nadir angle"]) * math.pi / 180.0
+
+target_temp_K = float(opt_specs["Target temperature"])
+bg_temp_K = float(opt_specs["Background temperature"])
+target_refl = float(opt_specs["Target reflectance"])
+bg_refl = float(opt_specs["Background reflectance"])
+solar_zenith_rad = float(opt_specs["Solar zenith angle"]) * math.pi / 180.0
+
+pixel_pitch_um = float(det_specs["Pixel pitch"])
+pixel_pitch_m = pixel_pitch_um * 1e-6
+qe = float(det_specs["Quantum efficiency"]) / 100.0              # % -> frac
+dark_rate = float(det_specs["Dark current"])
+operating_temp_K = float(det_specs["Operating temperature"])
+ipc_coupling = float(det_specs["IPC coupling"]) / 100.0          # % -> frac
+
+read_noise = float(det_specs["Read noise"])
+fwc = float(det_specs["Full well capacity"])
+adc_bits = int(det_specs["ADC resolution"])
+gain = float(det_specs["System gain"])
+t_int_s = float(det_specs["Integration time"]) / 1000.0          # ms -> s
+
+jitter_min_urad = float(sweep_specs["Jitter RMS min"])
+jitter_max_urad = float(sweep_specs["Jitter RMS max"])
+n_sweep = int(sweep_specs["Number of sweep points"])
+delta_niirs_1 = float(sweep_specs["NIIRS degradation threshold 1"])
+delta_niirs_2 = float(sweep_specs["NIIRS degradation threshold 2"])
+niirs_floor = float(sweep_specs["Minimum acceptable NIIRS"])
+
+# Derived quantities
+ifov_urad = pixel_pitch_um / (focal_length_m * 1e6) * 1e6  # um/m -> urad
+ifov_rad = pixel_pitch_m / focal_length_m
+gsd_m = pixel_pitch_m * altitude_m / focal_length_m
+airy_diam_um = 2.44 * band_center_um * f_number
+Q = band_center_um * f_number / pixel_pitch_um
+f_nyquist = 1.0 / (2.0 * pixel_pitch_m)  # cycles/m
+
+
+# ---------------------------------------------------------------------------
+# Step 3: Build base RADIANT config (jitter set per sweep point)
+# ---------------------------------------------------------------------------
+
+base_config = {
+    "source": {
+        "target": {"temperature": target_temp_K, "emissivity": target_refl},
+        "background": {"temperature": bg_temp_K, "emissivity": bg_refl},
+    },
+    "atmosphere": {
+        "model": "simple",
+        "standard_atmosphere": "midlat_summer",
+    },
+    "geometry": {
+        "sensor_altitude_m": altitude_m,
+        "path_zenith_rad": offnadir_rad,
+        "solar_zenith_rad": solar_zenith_rad,
+    },
+    "optics": {
+        "aperture_diameter_m": aperture_m,
+        "focal_length_m": focal_length_m,
+        "transmission_scalar": transmission,
+        "optics_temperature_K": optics_temp_K,
+        "wfe_rms_waves": wfe_waves,
+        "obscuration_ratio": obscuration,
+    },
+    "platform": {
+        "jitter_rms_urad": 0.0,  # overridden per sweep point
+    },
+    "detector": {
+        "pixel_pitch_x_um": pixel_pitch_um,
+        "pixel_pitch_y_um": pixel_pitch_um,
+        "qe_value": qe,
+        "dark_rate_e_per_s": dark_rate,
+        "detector_temperature_K": operating_temp_K,
+        "ipc_coupling": ipc_coupling,
+    },
+    "spectral_integration": {
+        "filter_min_um": band_min_um,
+        "filter_max_um": band_max_um,
+        "integration_time_s": t_int_s,
+    },
+    "readout": {
+        "read_noise_e_rms": read_noise,
+        "gain_e_per_dn": gain,
+        "adc_bits": adc_bits,
+        "full_well_capacity_e": fwc,
+    },
+    # CU-178: the baseline is in the GIQE-5 envelope, but at high jitter RER
+    # falls below 0.20 and the applicability gate returns NIIRS N/A — opt into
+    # the extrapolated NIIRS so the degradation trend continues across the full
+    # sweep (read the sub-0.20-RER tail as a relative trend, not a calibrated NIIRS).
+    "performance": {"niirs": {"allow_extrapolated": True}},
+}
+
+
 def main() -> None:
     """Run the scenario analysis."""
-    # ---------------------------------------------------------------------------
-    # Step 1: Read Tom's spreadsheet
-    # ---------------------------------------------------------------------------
-
-    INPUT_FILE = Path(__file__).parent.parent / "inputs" / "tom_jitter_tolerance_data.xlsx"
     OUTPUT_FILE = Path(__file__).parent.parent / "outputs" / "jitter_tolerance_results.xlsx"
     PLOT_DIR = Path(__file__).parent.parent / "outputs"
-
-    wb = openpyxl.load_workbook(INPUT_FILE)
-
-
-    opt_specs, opt_units = _read_sheet(wb["Optical System"])
-    det_specs, det_units = _read_sheet(wb["Detector & Readout"])
-    sweep_specs, sweep_units = _read_sheet(wb["Jitter Sweep"])
 
     print("=" * 80)
     print("SCENARIO 5.4: Jitter Tolerance — Line-of-Sight Stability Requirements")
@@ -83,58 +195,6 @@ def main() -> None:
     for k, v in sweep_specs.items():
         print(f"  {k}: {v} {sweep_units.get(k, '')}")
 
-    # ---------------------------------------------------------------------------
-    # Step 2: Convert to RADIANT canonical units
-    # ---------------------------------------------------------------------------
-
-    aperture_m = float(opt_specs["Aperture diameter"]) / 100.0       # cm -> m
-    focal_length_m = float(opt_specs["Focal length"]) / 100.0        # cm -> m
-    f_number = float(opt_specs["f-number"])
-    transmission = float(opt_specs["Optical transmission"]) / 100.0  # % -> frac
-    optics_temp_K = float(opt_specs["Optics temperature"]) + 273.15  # C -> K
-    wfe_waves = float(opt_specs["WFE RMS"])
-    obscuration = float(opt_specs["Central obscuration"]) / 100.0    # % -> frac
-
-    band_min_um = float(opt_specs["Filter cut-on"]) / 1000.0         # nm -> um
-    band_max_um = float(opt_specs["Filter cut-off"]) / 1000.0        # nm -> um
-    band_center_um = float(opt_specs["Band center"]) / 1000.0        # nm -> um
-
-    altitude_m = float(opt_specs["Orbit altitude"]) * 1000.0         # km -> m
-    offnadir_rad = float(opt_specs["Off-nadir angle"]) * math.pi / 180.0
-
-    target_temp_K = float(opt_specs["Target temperature"])
-    bg_temp_K = float(opt_specs["Background temperature"])
-    target_refl = float(opt_specs["Target reflectance"])
-    bg_refl = float(opt_specs["Background reflectance"])
-    solar_zenith_rad = float(opt_specs["Solar zenith angle"]) * math.pi / 180.0
-
-    pixel_pitch_um = float(det_specs["Pixel pitch"])
-    pixel_pitch_m = pixel_pitch_um * 1e-6
-    qe = float(det_specs["Quantum efficiency"]) / 100.0              # % -> frac
-    dark_rate = float(det_specs["Dark current"])
-    operating_temp_K = float(det_specs["Operating temperature"])
-    ipc_coupling = float(det_specs["IPC coupling"]) / 100.0          # % -> frac
-
-    read_noise = float(det_specs["Read noise"])
-    fwc = float(det_specs["Full well capacity"])
-    adc_bits = int(det_specs["ADC resolution"])
-    gain = float(det_specs["System gain"])
-    t_int_s = float(det_specs["Integration time"]) / 1000.0          # ms -> s
-
-    jitter_min_urad = float(sweep_specs["Jitter RMS min"])
-    jitter_max_urad = float(sweep_specs["Jitter RMS max"])
-    n_sweep = int(sweep_specs["Number of sweep points"])
-    delta_niirs_1 = float(sweep_specs["NIIRS degradation threshold 1"])
-    delta_niirs_2 = float(sweep_specs["NIIRS degradation threshold 2"])
-    niirs_floor = float(sweep_specs["Minimum acceptable NIIRS"])
-
-    # Derived quantities
-    ifov_urad = pixel_pitch_um / (focal_length_m * 1e6) * 1e6  # um/m -> urad
-    ifov_rad = pixel_pitch_m / focal_length_m
-    gsd_m = pixel_pitch_m * altitude_m / focal_length_m
-    airy_diam_um = 2.44 * band_center_um * f_number
-    Q = band_center_um * f_number / pixel_pitch_um
-    f_nyquist = 1.0 / (2.0 * pixel_pitch_m)  # cycles/m
 
     print("\n=== Converted to RADIANT canonical units ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit':<15s}  {'Conversion'}")
@@ -158,61 +218,6 @@ def main() -> None:
     print(f"  Airy disk:        {airy_diam_um:.1f} um")
     print(f"  Q (sampling):     {Q:.2f} [--] ({'well-sampled' if Q > 1 else 'undersampled'})")
     print(f"  f_Nyquist:        {f_nyquist:.0f} cy/m ({f_nyquist/1000:.1f} cy/mm)")
-
-    # ---------------------------------------------------------------------------
-    # Step 3: Build base RADIANT config (jitter set per sweep point)
-    # ---------------------------------------------------------------------------
-
-    base_config = {
-        "source": {
-            "target": {"temperature": target_temp_K, "emissivity": target_refl},
-            "background": {"temperature": bg_temp_K, "emissivity": bg_refl},
-        },
-        "atmosphere": {
-            "model": "simple",
-            "standard_atmosphere": "midlat_summer",
-        },
-        "geometry": {
-            "sensor_altitude_m": altitude_m,
-            "path_zenith_rad": offnadir_rad,
-            "solar_zenith_rad": solar_zenith_rad,
-        },
-        "optics": {
-            "aperture_diameter_m": aperture_m,
-            "focal_length_m": focal_length_m,
-            "transmission_scalar": transmission,
-            "optics_temperature_K": optics_temp_K,
-            "wfe_rms_waves": wfe_waves,
-            "obscuration_ratio": obscuration,
-        },
-        "platform": {
-            "jitter_rms_urad": 0.0,  # overridden per sweep point
-        },
-        "detector": {
-            "pixel_pitch_x_um": pixel_pitch_um,
-            "pixel_pitch_y_um": pixel_pitch_um,
-            "qe_value": qe,
-            "dark_rate_e_per_s": dark_rate,
-            "detector_temperature_K": operating_temp_K,
-            "ipc_coupling": ipc_coupling,
-        },
-        "spectral_integration": {
-            "filter_min_um": band_min_um,
-            "filter_max_um": band_max_um,
-            "integration_time_s": t_int_s,
-        },
-        "readout": {
-            "read_noise_e_rms": read_noise,
-            "gain_e_per_dn": gain,
-            "adc_bits": adc_bits,
-            "full_well_capacity_e": fwc,
-        },
-        # CU-178: the baseline is in the GIQE-5 envelope, but at high jitter RER
-        # falls below 0.20 and the applicability gate returns NIIRS N/A — opt into
-        # the extrapolated NIIRS so the degradation trend continues across the full
-        # sweep (read the sub-0.20-RER tail as a relative trend, not a calibrated NIIRS).
-        "performance": {"niirs": {"allow_extrapolated": True}},
-    }
 
     # ---------------------------------------------------------------------------
     # Step 4: Run RADIANT at zero jitter (baseline)

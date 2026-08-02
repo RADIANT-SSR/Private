@@ -141,55 +141,164 @@ def swath_width(altitude_m: float, theta_rad: float,
     return n_pixels_cross * gsd_x
 
 
+# ---------------------------------------------------------------------------
+# Step 1: Read Raj's spreadsheet
+# ---------------------------------------------------------------------------
+
+INPUT_FILE = Path(__file__).parent.parent / "inputs" / "raj_off_nadir_data.xlsx"
+
+wb_in = openpyxl.load_workbook(INPUT_FILE)
+
+# --- Sensor Configuration ---
+ws_sys = wb_in["Sensor Configuration"]
+specs: dict[str, object] = {}
+units: dict[str, str] = {}
+for row in ws_sys.iter_rows(min_row=5, max_col=4, values_only=False):
+    name = row[0].value
+    value = row[1].value
+    if name and value is not None and not isinstance(value, str) or (
+        isinstance(value, str) and value not in ("", "—")
+    ):
+        try:
+            specs[name] = float(value)
+        except (ValueError, TypeError):
+            specs[name] = value
+        units[name] = str(row[2].value) if row[2].value else "—"
+
+# --- Orbit & Geometry ---
+ws_geo = wb_in["Orbit & Geometry"]
+geo_specs: dict[str, object] = {}
+for row in ws_geo.iter_rows(min_row=5, max_col=4, values_only=False):
+    name = row[0].value
+    value = row[1].value
+    if name and value is not None:
+        try:
+            geo_specs[name] = float(value)
+        except (ValueError, TypeError):
+            geo_specs[name] = value
+
+# --- Off-Nadir Sweep ---
+ws_sweep = wb_in["Off-Nadir Sweep"]
+angles_deg: list[float] = []
+for row in ws_sweep.iter_rows(min_row=5, max_col=1, values_only=True):
+    if row[0] is not None:
+        try:
+            angles_deg.append(float(row[0]))
+        except (ValueError, TypeError):
+            pass
+
+
+# ---------------------------------------------------------------------------
+# Step 2: Convert to RADIANT canonical units
+# ---------------------------------------------------------------------------
+
+aperture_m = float(specs["Aperture diameter"]) / 100.0       # cm → m
+focal_length_m = float(specs["Focal length"]) / 100.0        # cm → m
+f_number = float(specs["f-number"])
+transmission = float(specs["Optical transmission"]) / 100.0  # % → fraction
+optics_temp_K = float(specs["Optics temperature"]) + 273.15  # °C → K
+obscuration = float(specs["Central obscuration"]) / 100.0    # % → fraction
+wfe_rms = float(specs["WFE RMS"])
+
+filter_min_nm = float(specs["Filter min"])
+filter_max_nm = float(specs["Filter max"])
+filter_min_um = filter_min_nm / 1000.0                       # nm → µm
+filter_max_um = filter_max_nm / 1000.0
+band_center_um = (filter_min_um + filter_max_um) / 2.0
+
+pixel_pitch_um = float(specs["Pixel pitch"])
+pixel_pitch_m = pixel_pitch_um * 1e-6                        # µm → m
+fill_factor = float(specs["Fill factor"]) / 100.0            # % → fraction
+qe = float(specs["Quantum efficiency"]) / 100.0              # % → fraction
+dark_rate = float(specs["Dark current"])
+det_temp_K = float(specs["Operating temperature"])
+read_noise = float(specs["Read noise"])
+fwc = float(specs["Full well capacity"])
+adc_bits = int(specs["ADC bits"])
+gain = float(specs["System gain"])
+ipc_coupling = float(specs["IPC coupling"]) / 100.0          # % → fraction
+t_int_ms = float(specs["Integration time"])
+t_int_s = t_int_ms / 1000.0                                  # ms → s
+
+altitude_km = float(geo_specs["Altitude"])
+altitude_m = altitude_km * 1000.0                            # km → m
+solar_zenith_deg = float(geo_specs["Solar zenith angle"])
+solar_zenith_rad = solar_zenith_deg * math.pi / 180.0        # deg → rad
+
+target_refl = float(geo_specs["Target reflectance"])
+bg_refl = float(geo_specs["Background reflectance"])
+target_temp_K = float(geo_specs["Target temperature"])
+bg_temp_K = float(geo_specs["Background temperature"])
+target_emissivity = 1.0 - target_refl
+bg_emissivity = 1.0 - bg_refl
+
+# Derived nadir parameters
+gsd_nadir_m = pixel_pitch_m * altitude_m / focal_length_m
+ifov_urad = pixel_pitch_m / focal_length_m * 1e6
+Q = band_center_um * f_number / pixel_pitch_um
+f_nyquist_cy_m = 1.0 / (2.0 * pixel_pitch_m)
+
+
+# ---------------------------------------------------------------------------
+# Step 4: Build base RADIANT config
+# ---------------------------------------------------------------------------
+
+base_config = {
+    "source": {
+        "target": {"temperature": target_temp_K, "emissivity": target_emissivity},
+        "background": {"temperature": bg_temp_K, "emissivity": bg_emissivity},
+    },
+    "atmosphere": {
+        "model": "simple",
+        "standard_atmosphere": "midlat_summer",
+    },
+    "geometry": {
+        "sensor_altitude_m": altitude_m,
+        "path_zenith_rad": 0.0,  # overridden per sweep point
+        "solar_zenith_rad": solar_zenith_rad,
+    },
+    "optics": {
+        "aperture_diameter_m": aperture_m,
+        "focal_length_m": focal_length_m,
+        "transmission_scalar": transmission,
+        "optics_temperature_K": optics_temp_K,
+        "wfe_rms_waves": wfe_rms,
+        "obscuration_ratio": obscuration,
+    },
+    "detector": {
+        "pixel_pitch_x_um": pixel_pitch_um,
+        "pixel_pitch_y_um": pixel_pitch_um,
+        "qe_value": qe,
+        "dark_rate_e_per_s": dark_rate,
+        "detector_temperature_K": det_temp_K,
+        "fill_factor": fill_factor,
+        "ipc_coupling": ipc_coupling,
+    },
+    "spectral_integration": {
+        "filter_min_um": filter_min_um,
+        "filter_max_um": filter_max_um,
+        "integration_time_s": t_int_s,
+    },
+    "readout": {
+        "read_noise_e_rms": read_noise,
+        "full_well_capacity_e": fwc,
+        "gain_e_per_dn": gain,
+        "adc_bits": adc_bits,
+    },
+    # CU-178: this MWIR recon config sits above the GIQE-5 SNR envelope, so the
+    # CU-166 applicability gate returns NIIRS N/A by default. This scenario's
+    # whole story is the NIIRS-vs-off-nadir trend, so opt into the extrapolated
+    # GIQE-5-form rating (documented as a relative trend in the walkthrough).
+    "performance": {
+        "niirs": {"allow_extrapolated": True},
+    },
+}
+
+
 def main() -> None:
     """Run the scenario analysis."""
-    # ---------------------------------------------------------------------------
-    # Step 1: Read Raj's spreadsheet
-    # ---------------------------------------------------------------------------
-
-    INPUT_FILE = Path(__file__).parent.parent / "inputs" / "raj_off_nadir_data.xlsx"
     OUTPUT_FILE = Path(__file__).parent.parent / "outputs" / "off_nadir_results.xlsx"
     PLOT_DIR = Path(__file__).parent.parent / "outputs"
-
-    wb_in = openpyxl.load_workbook(INPUT_FILE)
-
-    # --- Sensor Configuration ---
-    ws_sys = wb_in["Sensor Configuration"]
-    specs: dict[str, object] = {}
-    units: dict[str, str] = {}
-    for row in ws_sys.iter_rows(min_row=5, max_col=4, values_only=False):
-        name = row[0].value
-        value = row[1].value
-        if name and value is not None and not isinstance(value, str) or (
-            isinstance(value, str) and value not in ("", "—")
-        ):
-            try:
-                specs[name] = float(value)
-            except (ValueError, TypeError):
-                specs[name] = value
-            units[name] = str(row[2].value) if row[2].value else "—"
-
-    # --- Orbit & Geometry ---
-    ws_geo = wb_in["Orbit & Geometry"]
-    geo_specs: dict[str, object] = {}
-    for row in ws_geo.iter_rows(min_row=5, max_col=4, values_only=False):
-        name = row[0].value
-        value = row[1].value
-        if name and value is not None:
-            try:
-                geo_specs[name] = float(value)
-            except (ValueError, TypeError):
-                geo_specs[name] = value
-
-    # --- Off-Nadir Sweep ---
-    ws_sweep = wb_in["Off-Nadir Sweep"]
-    angles_deg: list[float] = []
-    for row in ws_sweep.iter_rows(min_row=5, max_col=1, values_only=True):
-        if row[0] is not None:
-            try:
-                angles_deg.append(float(row[0]))
-            except (ValueError, TypeError):
-                pass
 
     print("=" * 80)
     print("SCENARIO 3.4: Off-Nadir Performance Degradation")
@@ -206,55 +315,6 @@ def main() -> None:
     print(f"\n=== Off-Nadir Sweep ===")
     print(f"  Angles: {angles_deg} [deg]")
 
-    # ---------------------------------------------------------------------------
-    # Step 2: Convert to RADIANT canonical units
-    # ---------------------------------------------------------------------------
-
-    aperture_m = float(specs["Aperture diameter"]) / 100.0       # cm → m
-    focal_length_m = float(specs["Focal length"]) / 100.0        # cm → m
-    f_number = float(specs["f-number"])
-    transmission = float(specs["Optical transmission"]) / 100.0  # % → fraction
-    optics_temp_K = float(specs["Optics temperature"]) + 273.15  # °C → K
-    obscuration = float(specs["Central obscuration"]) / 100.0    # % → fraction
-    wfe_rms = float(specs["WFE RMS"])
-
-    filter_min_nm = float(specs["Filter min"])
-    filter_max_nm = float(specs["Filter max"])
-    filter_min_um = filter_min_nm / 1000.0                       # nm → µm
-    filter_max_um = filter_max_nm / 1000.0
-    band_center_um = (filter_min_um + filter_max_um) / 2.0
-
-    pixel_pitch_um = float(specs["Pixel pitch"])
-    pixel_pitch_m = pixel_pitch_um * 1e-6                        # µm → m
-    fill_factor = float(specs["Fill factor"]) / 100.0            # % → fraction
-    qe = float(specs["Quantum efficiency"]) / 100.0              # % → fraction
-    dark_rate = float(specs["Dark current"])
-    det_temp_K = float(specs["Operating temperature"])
-    read_noise = float(specs["Read noise"])
-    fwc = float(specs["Full well capacity"])
-    adc_bits = int(specs["ADC bits"])
-    gain = float(specs["System gain"])
-    ipc_coupling = float(specs["IPC coupling"]) / 100.0          # % → fraction
-    t_int_ms = float(specs["Integration time"])
-    t_int_s = t_int_ms / 1000.0                                  # ms → s
-
-    altitude_km = float(geo_specs["Altitude"])
-    altitude_m = altitude_km * 1000.0                            # km → m
-    solar_zenith_deg = float(geo_specs["Solar zenith angle"])
-    solar_zenith_rad = solar_zenith_deg * math.pi / 180.0        # deg → rad
-
-    target_refl = float(geo_specs["Target reflectance"])
-    bg_refl = float(geo_specs["Background reflectance"])
-    target_temp_K = float(geo_specs["Target temperature"])
-    bg_temp_K = float(geo_specs["Background temperature"])
-    target_emissivity = 1.0 - target_refl
-    bg_emissivity = 1.0 - bg_refl
-
-    # Derived nadir parameters
-    gsd_nadir_m = pixel_pitch_m * altitude_m / focal_length_m
-    ifov_urad = pixel_pitch_m / focal_length_m * 1e6
-    Q = band_center_um * f_number / pixel_pitch_um
-    f_nyquist_cy_m = 1.0 / (2.0 * pixel_pitch_m)
 
     print(f"\n=== Converted to RADIANT Canonical Units ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit':<12s}  {'Conversion'}")
@@ -297,60 +357,6 @@ def main() -> None:
         print(f"  {angle_deg:>8.0f}  {sr / 1000:>14.1f}  {am:>10.4f}  {gr / 1000:>14.1f}  "
               f"{gsd_x:>10.2f}  {gsd_y:>10.2f}")
 
-    # ---------------------------------------------------------------------------
-    # Step 4: Build base RADIANT config
-    # ---------------------------------------------------------------------------
-
-    base_config = {
-        "source": {
-            "target": {"temperature": target_temp_K, "emissivity": target_emissivity},
-            "background": {"temperature": bg_temp_K, "emissivity": bg_emissivity},
-        },
-        "atmosphere": {
-            "model": "simple",
-            "standard_atmosphere": "midlat_summer",
-        },
-        "geometry": {
-            "sensor_altitude_m": altitude_m,
-            "path_zenith_rad": 0.0,  # overridden per sweep point
-            "solar_zenith_rad": solar_zenith_rad,
-        },
-        "optics": {
-            "aperture_diameter_m": aperture_m,
-            "focal_length_m": focal_length_m,
-            "transmission_scalar": transmission,
-            "optics_temperature_K": optics_temp_K,
-            "wfe_rms_waves": wfe_rms,
-            "obscuration_ratio": obscuration,
-        },
-        "detector": {
-            "pixel_pitch_x_um": pixel_pitch_um,
-            "pixel_pitch_y_um": pixel_pitch_um,
-            "qe_value": qe,
-            "dark_rate_e_per_s": dark_rate,
-            "detector_temperature_K": det_temp_K,
-            "fill_factor": fill_factor,
-            "ipc_coupling": ipc_coupling,
-        },
-        "spectral_integration": {
-            "filter_min_um": filter_min_um,
-            "filter_max_um": filter_max_um,
-            "integration_time_s": t_int_s,
-        },
-        "readout": {
-            "read_noise_e_rms": read_noise,
-            "full_well_capacity_e": fwc,
-            "gain_e_per_dn": gain,
-            "adc_bits": adc_bits,
-        },
-        # CU-178: this MWIR recon config sits above the GIQE-5 SNR envelope, so the
-        # CU-166 applicability gate returns NIIRS N/A by default. This scenario's
-        # whole story is the NIIRS-vs-off-nadir trend, so opt into the extrapolated
-        # GIQE-5-form rating (documented as a relative trend in the walkthrough).
-        "performance": {
-            "niirs": {"allow_extrapolated": True},
-        },
-    }
 
     # ---------------------------------------------------------------------------
     # Step 5: Sweep off-nadir angle

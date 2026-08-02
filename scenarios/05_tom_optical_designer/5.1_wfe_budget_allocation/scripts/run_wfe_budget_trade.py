@@ -56,47 +56,156 @@ from radiant.io.config import load_config
 from radiant.io.zemax_zernike import load_zemax_zernike
 
 
+# ---------------------------------------------------------------------------
+# Step 1: Read Tom's spreadsheet
+#
+# Module scope by CU-164's contract (imports, constants, input loading and the
+# config factories live here; every imperative/printing statement is in main()).
+# CU-319: the CU-164 pass moved this block, the unit conversions and
+# ``base_config`` into main(), which left ``scenarios/tools/gui_baselines.py``
+# reaching for module attributes that no longer existed, so this scenario's GUI
+# baseline could not be re-emitted.  Reading the workbook prints nothing and
+# writes nothing, so it is import-safe here.
+# ---------------------------------------------------------------------------
+
+INPUT_FILE = Path(__file__).parent.parent / "inputs" / "tom_wfe_budget_data.xlsx"
+ZEMAX_FILE = Path(__file__).parent.parent / "inputs" / "tom_zernike_zemax.txt"
+
+wb_in = openpyxl.load_workbook(INPUT_FILE)
+
+ws_sys = wb_in["Optical System"]
+specs: dict[str, object] = {}
+units: dict[str, str] = {}
+for row in ws_sys.iter_rows(min_row=2, max_col=4, values_only=False):
+    name = row[0].value
+    value = row[1].value
+    if name and value is not None:
+        try:
+            specs[name] = float(value)
+        except (ValueError, TypeError):
+            specs[name] = value
+        units[name] = str(row[2].value) if row[2].value else "--"
+
+ws_wfe = wb_in["WFE Sweep"]
+wfe_values: list[float] = []
+for row in ws_wfe.iter_rows(min_row=2, max_col=1, values_only=True):
+    if row[0] is not None:
+        wfe_values.append(float(row[0]))
+
+# Also read Zernike reference data for display
+ws_zern = wb_in["Zernike Coefficients"]
+zernike_data: list[tuple[int, str, float]] = []
+for row in ws_zern.iter_rows(min_row=2, max_col=4, values_only=True):
+    if row[0] is not None and row[2] is not None:
+        try:
+            zernike_data.append((int(row[0]), str(row[1]), float(row[2])))
+        except (ValueError, TypeError):
+            pass
+
+# ---------------------------------------------------------------------------
+# Step 2: Convert to RADIANT canonical units
+# ---------------------------------------------------------------------------
+
+aperture_m = float(specs["Aperture diameter"]) / 100.0          # cm -> m
+focal_length_m = float(specs["Focal length"]) / 100.0           # cm -> m
+f_number = float(specs["f-number"])
+transmission = float(specs["Optical transmission"]) / 100.0     # % -> frac
+optics_temp_K = float(specs["Optics temperature"]) + 273.15     # C -> K
+obscuration = float(specs["Central obscuration"]) / 100.0       # % -> frac
+wfe_ref_nm = float(specs["WFE reference wavelength"])
+wfe_ref_um = wfe_ref_nm / 1000.0                                # nm -> um
+
+pixel_pitch_um = float(specs["Pixel pitch"])
+pixel_pitch_m = pixel_pitch_um * 1e-6
+qe = float(specs["Quantum efficiency"]) / 100.0                 # % -> frac
+dark_rate = float(specs["Dark current"])
+read_noise = float(specs["Read noise"])
+fwc = float(specs["Full well capacity"])
+gain = float(specs["Gain"])
+adc_bits = int(specs["ADC bits"])
+
+band_min_nm = float(specs["Filter min"])
+band_max_nm = float(specs["Filter max"])
+band_min_um = band_min_nm / 1000.0                              # nm -> um
+band_max_um = band_max_nm / 1000.0
+band_center_um = (band_min_um + band_max_um) / 2.0
+
+target_refl = float(specs["Target reflectance"])
+bg_refl = float(specs["Background reflectance"])
+solar_zenith_deg = float(specs["Solar zenith angle"])
+solar_zenith_rad = solar_zenith_deg * math.pi / 180.0
+
+altitude_km = float(specs["Orbit altitude"])
+altitude_m = altitude_km * 1000.0
+
+t_int_ms = float(specs["Integration time"])
+t_int_s = t_int_ms / 1000.0                                     # ms -> s
+
+# Derived parameters
+gsd_m = pixel_pitch_m * altitude_m / focal_length_m
+ifov_urad = pixel_pitch_m / focal_length_m * 1e6
+Q = band_center_um * f_number / pixel_pitch_um
+airy_diam_um = 2.44 * band_center_um * f_number
+f_nyquist = 1.0 / (2.0 * pixel_pitch_m)  # cycles/m on focal plane
+
+# ---------------------------------------------------------------------------
+# Base RADIANT config (WFE set per sweep point)
+# ---------------------------------------------------------------------------
+
+# Kirchhoff: reflectance = 1 - emissivity
+target_temp_K = 300.0
+bg_temp_K = 295.0
+target_emissivity = 1.0 - target_refl
+bg_emissivity = 1.0 - bg_refl
+
+base_config = {
+    "source": {
+        "target": {"temperature": target_temp_K, "emissivity": target_emissivity},
+        "background": {"temperature": bg_temp_K, "emissivity": bg_emissivity},
+    },
+    "atmosphere": {
+        "model": "simple",
+        "standard_atmosphere": "midlat_summer",
+    },
+    "geometry": {
+        "sensor_altitude_m": altitude_m,
+        "path_zenith_rad": 0.0,
+        "solar_zenith_rad": solar_zenith_rad,
+    },
+    "optics": {
+        "aperture_diameter_m": aperture_m,
+        "focal_length_m": focal_length_m,
+        "transmission_scalar": transmission,
+        "optics_temperature_K": optics_temp_K,
+        "wfe_rms_waves": 0.0,  # overridden per sweep point
+        "obscuration_ratio": obscuration,
+    },
+    "detector": {
+        "pixel_pitch_x_um": pixel_pitch_um,
+        "pixel_pitch_y_um": pixel_pitch_um,
+        "qe_value": qe,
+        "dark_rate_e_per_s": dark_rate,
+        "detector_temperature_K": 263.0,  # cooled CCD
+    },
+    "spectral_integration": {
+        "filter_min_um": band_min_um,
+        "filter_max_um": band_max_um,
+        "integration_time_s": t_int_s,
+    },
+    "readout": {
+        "read_noise_e_rms": read_noise,
+        "full_well_capacity_e": fwc,
+        "gain_e_per_dn": gain,
+        "adc_bits": adc_bits,
+    },
+    "performance": {"niirs": {"allow_extrapolated": True}},
+}
+
+
 def main() -> None:
     """Run the scenario analysis."""
-    # ---------------------------------------------------------------------------
-    # Step 1: Read Tom's spreadsheet
-    # ---------------------------------------------------------------------------
-
-    INPUT_FILE = Path(__file__).parent.parent / "inputs" / "tom_wfe_budget_data.xlsx"
-    ZEMAX_FILE = Path(__file__).parent.parent / "inputs" / "tom_zernike_zemax.txt"
     OUTPUT_FILE = Path(__file__).parent.parent / "outputs" / "wfe_budget_results.xlsx"
     PLOT_DIR = Path(__file__).parent.parent / "outputs"
-
-    wb_in = openpyxl.load_workbook(INPUT_FILE)
-
-    ws_sys = wb_in["Optical System"]
-    specs: dict[str, object] = {}
-    units: dict[str, str] = {}
-    for row in ws_sys.iter_rows(min_row=2, max_col=4, values_only=False):
-        name = row[0].value
-        value = row[1].value
-        if name and value is not None:
-            try:
-                specs[name] = float(value)
-            except (ValueError, TypeError):
-                specs[name] = value
-            units[name] = str(row[2].value) if row[2].value else "--"
-
-    ws_wfe = wb_in["WFE Sweep"]
-    wfe_values: list[float] = []
-    for row in ws_wfe.iter_rows(min_row=2, max_col=1, values_only=True):
-        if row[0] is not None:
-            wfe_values.append(float(row[0]))
-
-    # Also read Zernike reference data for display
-    ws_zern = wb_in["Zernike Coefficients"]
-    zernike_data: list[tuple[int, str, float]] = []
-    for row in ws_zern.iter_rows(min_row=2, max_col=4, values_only=True):
-        if row[0] is not None and row[2] is not None:
-            try:
-                zernike_data.append((int(row[0]), str(row[1]), float(row[2])))
-            except (ValueError, TypeError):
-                pass
 
     print("=" * 80)
     print("SCENARIO 5.1: WFE Budget Allocation — How Much Aberration Can I Tolerate?")
@@ -163,52 +272,6 @@ def main() -> None:
     print(f"  (RSS headroom — an assembly/thermal contributor of up to this RMS")
     print(f"   can be added before the λ/14 allocation is exceeded.)")
 
-    # ---------------------------------------------------------------------------
-    # Step 2: Convert to RADIANT canonical units
-    # ---------------------------------------------------------------------------
-
-    aperture_m = float(specs["Aperture diameter"]) / 100.0          # cm -> m
-    focal_length_m = float(specs["Focal length"]) / 100.0           # cm -> m
-    f_number = float(specs["f-number"])
-    transmission = float(specs["Optical transmission"]) / 100.0     # % -> frac
-    optics_temp_K = float(specs["Optics temperature"]) + 273.15     # C -> K
-    obscuration = float(specs["Central obscuration"]) / 100.0       # % -> frac
-    wfe_ref_nm = float(specs["WFE reference wavelength"])
-    wfe_ref_um = wfe_ref_nm / 1000.0                                # nm -> um
-
-    pixel_pitch_um = float(specs["Pixel pitch"])
-    pixel_pitch_m = pixel_pitch_um * 1e-6
-    qe = float(specs["Quantum efficiency"]) / 100.0                 # % -> frac
-    dark_rate = float(specs["Dark current"])
-    read_noise = float(specs["Read noise"])
-    fwc = float(specs["Full well capacity"])
-    gain = float(specs["Gain"])
-    adc_bits = int(specs["ADC bits"])
-
-    band_min_nm = float(specs["Filter min"])
-    band_max_nm = float(specs["Filter max"])
-    band_min_um = band_min_nm / 1000.0                              # nm -> um
-    band_max_um = band_max_nm / 1000.0
-    band_center_um = (band_min_um + band_max_um) / 2.0
-
-    target_refl = float(specs["Target reflectance"])
-    bg_refl = float(specs["Background reflectance"])
-    solar_zenith_deg = float(specs["Solar zenith angle"])
-    solar_zenith_rad = solar_zenith_deg * math.pi / 180.0
-
-    altitude_km = float(specs["Orbit altitude"])
-    altitude_m = altitude_km * 1000.0
-
-    t_int_ms = float(specs["Integration time"])
-    t_int_s = t_int_ms / 1000.0                                     # ms -> s
-
-    # Derived parameters
-    gsd_m = pixel_pitch_m * altitude_m / focal_length_m
-    ifov_urad = pixel_pitch_m / focal_length_m * 1e6
-    Q = band_center_um * f_number / pixel_pitch_um
-    airy_diam_um = 2.44 * band_center_um * f_number
-    f_nyquist = 1.0 / (2.0 * pixel_pitch_m)  # cycles/m on focal plane
-
     print(f"\n=== Converted to RADIANT Canonical Units ===")
     print(f"  {'Parameter':<30s} {'Value':>14s}  {'Unit':<10s}  {'Conversion'}")
     print(f"  {'-' * 30} {'-' * 14}  {'-' * 10}  {'-' * 20}")
@@ -262,59 +325,6 @@ def main() -> None:
     print(f"\n  Note: Strehl at operating wavelength ({band_center_um*1000:.0f} nm) is higher")
     print(f"  than at reference (633 nm) because the same physical OPD is a smaller")
     print(f"  fraction of the longer wavelength.")
-
-    # ---------------------------------------------------------------------------
-    # Step 4: Build base RADIANT config (WFE set per sweep point)
-    # ---------------------------------------------------------------------------
-
-    # Kirchhoff: reflectance = 1 - emissivity
-    target_temp_K = 300.0
-    bg_temp_K = 295.0
-    target_emissivity = 1.0 - target_refl
-    bg_emissivity = 1.0 - bg_refl
-
-    base_config = {
-        "source": {
-            "target": {"temperature": target_temp_K, "emissivity": target_emissivity},
-            "background": {"temperature": bg_temp_K, "emissivity": bg_emissivity},
-        },
-        "atmosphere": {
-            "model": "simple",
-            "standard_atmosphere": "midlat_summer",
-        },
-        "geometry": {
-            "sensor_altitude_m": altitude_m,
-            "path_zenith_rad": 0.0,
-            "solar_zenith_rad": solar_zenith_rad,
-        },
-        "optics": {
-            "aperture_diameter_m": aperture_m,
-            "focal_length_m": focal_length_m,
-            "transmission_scalar": transmission,
-            "optics_temperature_K": optics_temp_K,
-            "wfe_rms_waves": 0.0,  # overridden per sweep point
-            "obscuration_ratio": obscuration,
-        },
-        "detector": {
-            "pixel_pitch_x_um": pixel_pitch_um,
-            "pixel_pitch_y_um": pixel_pitch_um,
-            "qe_value": qe,
-            "dark_rate_e_per_s": dark_rate,
-            "detector_temperature_K": 263.0,  # cooled CCD
-        },
-        "spectral_integration": {
-            "filter_min_um": band_min_um,
-            "filter_max_um": band_max_um,
-            "integration_time_s": t_int_s,
-        },
-        "readout": {
-            "read_noise_e_rms": read_noise,
-            "full_well_capacity_e": fwc,
-            "gain_e_per_dn": gain,
-            "adc_bits": adc_bits,
-        },
-        "performance": {"niirs": {"allow_extrapolated": True}},
-    }
 
     print(f"\n=== RADIANT Configuration ===")
     print(f"  Integration time: {t_int_s*1e3:.1f} [ms]")

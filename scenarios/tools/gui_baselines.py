@@ -554,8 +554,10 @@ REGISTRY: list[GuiScenario] = [
             "4.3_camouflage_effectiveness",
             "run_camouflage_analysis.py",
             # The per-material radiance CSVs live in the (gitignored) outputs/
-            # derived/ tree; ``radiance_csv`` reads one on demand and says how to
-            # regenerate them if the runner has never been run here (CU-164). The
+            # derived/ tree; ``radiance_csv`` reads one on demand, falling back to
+            # the committed inputs/ copy on a tree that has never run the scenario
+            # (CU-164 made it lazy, CU-319 gave it the committed fallback — which
+            # is the file this baseline is repointed at anyway, per CU-273). The
             # bare-vehicle case at nadir over the full 8-12 um LWIR band is the
             # reference the camo options compare against.
             lambda m: m.build_sensor(m.radiance_csv("Bare vehicle"), 8.0, 12.0, 0.0),
@@ -563,8 +565,8 @@ REGISTRY: list[GuiScenario] = [
         metrics=("snr", "contrast_snr", "nedt_K"),
         notes=(
             "Bare oxidized-steel vehicle vs scrub, LWIR FLIR at nadir. The YAML "
-            "references a derived radiance CSV; run the runner once to generate it "
-            "before re-emitting this baseline (CU-164)."
+            "references the committed inputs/ copy of the derived radiance CSV, so "
+            "the baseline re-emits on a clean checkout (CU-319)."
         ),
     ),
     GuiScenario(

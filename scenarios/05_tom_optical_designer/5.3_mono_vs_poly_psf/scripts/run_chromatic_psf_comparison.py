@@ -173,6 +173,18 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
+f_number = design["f-number (working)"]
+wfe_waves = design["WFE (RMS, on-axis)"]
+
+lambda_center_nm = design["Band center wavelength"]
+filter_min_nm = design["Filter cut-on"]
+filter_max_nm = design["Filter cut-off"]
+
+lambda_center_um = lambda_center_nm / 1000.0  # nm → µm
+band_min_um = filter_min_nm / 1000.0     # nm → µm
+band_max_um = filter_max_nm / 1000.0     # nm → µm
+
+
 def main() -> None:
     """Run the scenario analysis."""
     if not xlsx_path.exists():
@@ -188,17 +200,6 @@ def main() -> None:
     for k, v in design.items():
         print(f"  {k}: {v}")
     print()
-    f_number = design["f-number (working)"]
-    wfe_waves = design["WFE (RMS, on-axis)"]
-
-    lambda_center_nm = design["Band center wavelength"]
-    filter_min_nm = design["Filter cut-on"]
-    filter_max_nm = design["Filter cut-off"]
-
-    lambda_center_um = lambda_center_nm / 1000.0  # nm → µm
-    band_min_um = filter_min_nm / 1000.0     # nm → µm
-    band_max_um = filter_max_nm / 1000.0     # nm → µm
-
     print("Unit conversions (boundary):")
     print(f"  Aperture:     {aperture_mm} mm → {aperture_m} m")
     print(f"  Focal length: {focal_length_mm} mm → {focal_length_m} m")

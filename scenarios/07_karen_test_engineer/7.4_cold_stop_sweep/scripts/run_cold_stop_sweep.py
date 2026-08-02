@@ -75,60 +75,178 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 
 
+# ---------------------------------------------------------------------------
+# Step 1: Read Karen's spreadsheet
+# ---------------------------------------------------------------------------
+# Karen has three sheets:
+#   "Instrument Spec Sheet"    — vendor specs in lab/vendor units
+#   "Background Measurements"  — lab data at various cold stop positions
+#   "Performance Requirements" — pass/fail thresholds
+
+INPUT_FILE = Path(__file__).parent.parent / "inputs" / "karen_cold_stop_data.xlsx"
+
+wb = openpyxl.load_workbook(INPUT_FILE)
+
+# --- Parse Instrument Spec Sheet ---
+# Layout: rows with [Parameter, Value, Unit, Notes], with blue section headers
+
+ws_spec = wb["Instrument Spec Sheet"]
+specs: dict[str, object] = {}
+for row in ws_spec.iter_rows(min_row=6, max_col=4, values_only=False):
+    name = row[0].value
+    value = row[1].value
+    if name and value is not None:
+        # Skip section headers (blue-filled rows)
+        fill = row[0].fill
+        if fill and fill.start_color and fill.start_color.rgb == "002E75B6":
+            continue
+        specs[name] = value
+
+# --- Parse Background Measurements sheet ---
+# Layout: [Test Point, Cold Stop Position [mm], Mean Bkg Signal [DN],
+#          Bkg Noise [DN], Mean Bkg Signal [e⁻], Notes]
+
+ws_meas = wb["Background Measurements"]
+lab_data: list[dict] = []
+for row in ws_meas.iter_rows(min_row=6, max_col=6, values_only=True):
+    if row[0] and row[1] is not None and isinstance(row[1], (int, float)):
+        lab_data.append({
+            "test_id": row[0],
+            "position_mm": float(row[1]),
+            "dn_mean": float(row[2]),
+            "dn_sigma": float(row[3]),
+            "bkg_e": float(row[4]),
+            "notes": row[5] or "",
+        })
+
+# --- Parse Performance Requirements sheet ---
+
+ws_req = wb["Performance Requirements"]
+reqs: dict[str, object] = {}
+for row in ws_req.iter_rows(min_row=5, max_col=4, values_only=True):
+    if row[0] and row[1] is not None:
+        reqs[row[0]] = row[1]
+
+
+# ---------------------------------------------------------------------------
+# Step 2: Convert to RADIANT canonical units
+# ---------------------------------------------------------------------------
+# RADIANT expects: meters, fractions, seconds, µm, K, e⁻/s
+# Karen's spreadsheet has: cm, mm, %, °C, nm, ms, fA/pixel
+
+# Optics
+aperture_m = float(specs["Primary aperture diameter"]) / 100.0    # cm → m
+focal_length_m = float(specs["Effective focal length"]) / 1000.0  # mm → m
+f_number = float(specs["f-number"])                                # dimensionless
+transmission = float(specs["End-to-end optical transmission"]) / 100.0  # % → fraction
+optics_temp_K = float(specs["Optics barrel temperature"]) + 273.15     # °C → K
+cold_stop_design = float(specs["Cold stop design efficiency"]) / 100.0  # % → fraction
+# RADIANT convention (Gap 12): nearfield_fraction is the LEAKAGE fraction,
+# i.e. 1 − vendor "cold stop efficiency" (where 100% efficient = full blocking).
+nearfield_design = 1.0 - cold_stop_design                          # vendor % → leakage fraction
+# Kirchhoff-derived lumped-train emissivity (Gap 37): the warm train is
+# reflective, so the non-transmitted fraction is absorbed → ε = 1 − τ.
+# (optics.scalar_emissivity requires ε + τ ≤ 1; equality holds here.)
+optics_emissivity = 1.0 - transmission                             # derived, not an input
+wfe_waves = float(specs["WFE (RMS)"])                              # already in waves
+
+# Detector
+pixel_pitch_um = float(specs["Pixel pitch"])                       # already µm
+pixel_pitch_m = pixel_pitch_um * 1e-6                              # µm → m
+qe = float(specs["Average QE (in-band)"]) / 100.0                 # % → fraction
+# Dark current: fA/pixel → e⁻/s
+# I_dark [fA] = Q_dark [e⁻/s] × q_e [C]
+# Q_dark [e⁻/s] = I_dark [fA] × 1e-15 / 1.602e-19
+dark_fA = float(specs["Dark current (mean)"])
+dark_rate_e_per_s = dark_fA * 1e-15 / 1.602e-19                   # fA → e⁻/s
+operating_temp_K = float(specs["Operating temperature"])           # already K
+fwc = float(specs["Full well capacity"])                           # already e⁻
+read_noise = float(specs["Read noise (CDS)"])                      # already e⁻ RMS
+adc_bits = int(specs["ADC resolution"])                            # already bits
+gain = float(specs["System gain"])                                 # already e⁻/DN
+
+# Calibration source — Karen's blackbody in TVAC
+bb_temp_K = float(specs["Blackbody temperature"]) + 273.15        # °C → K
+bb_emiss = float(specs["Blackbody emissivity"])                    # dimensionless
+shroud_temp_K = float(specs["Chamber shroud temperature"]) + 273.15  # °C → K
+shroud_emiss = float(specs["Chamber shroud emissivity"])           # dimensionless
+
+# Spectral — vendor gives band edges in nm
+band_str = str(specs["Cold filter passband"])
+band_parts = band_str.replace("–", "-").replace("—", "-").split("-")
+band_min_nm = float(band_parts[0].strip())
+band_max_nm = float(band_parts[1].strip())
+band_min_um = band_min_nm / 1000.0                                # nm → µm
+band_max_um = band_max_nm / 1000.0                                # nm → µm
+
+# Integration time
+t_int_s = float(specs["Integration time"]) / 1000.0               # ms → s
+
+# Geometry — lab test, blackbody at 1.5 m
+source_dist_m = float(specs["Source distance"])                    # already m
+
+
+config = {
+    "source": {
+        "target": {
+            "temperature": bb_temp_K,
+            "emissivity": bb_emiss,
+        },
+        "background": {
+            "temperature": shroud_temp_K,
+            "emissivity": shroud_emiss,
+        },
+    },
+    "atmosphere": {
+        "model": "exo",   # Vacuum — TVAC chamber, no atmosphere
+    },
+    "geometry": {
+        "sensor_altitude_m": 0.0,   # Lab test — not orbital
+    },
+    "platform": {
+        # Stage-7 stop-gap: the "exo" backend routes through the
+        # no_atmosphere 'space' sub-case, whose Earth-limb intercept check
+        # requires a positive user-set platform.h_sensor [m above MSL].
+        # 1.0 m ≈ optical-bench height; the value feeds only the
+        # limb-clearance check (no radiometric effect in this lab setup).
+        "h_sensor": 1.0,
+    },
+    "optics": {
+        "aperture_diameter_m": aperture_m,
+        "focal_length_m": focal_length_m,
+        "transmission_scalar": transmission,
+        "scalar_emissivity": optics_emissivity,    # ε = 1 − τ (Kirchhoff, Gap 37)
+        "optics_temperature_K": optics_temp_K,
+        "nearfield_fraction": 1.0,   # Baseline: no cold stop (max leakage)
+    },
+    "detector": {
+        "pixel_pitch_x_um": pixel_pitch_um,
+        "pixel_pitch_y_um": pixel_pitch_um,
+        "qe_value": qe,
+        "dark_rate_e_per_s": dark_rate_e_per_s,
+        "detector_temperature_K": operating_temp_K,
+    },
+    "spectral_integration": {
+        "filter_min_um": band_min_um,
+        "filter_max_um": band_max_um,
+        "integration_time_s": t_int_s,
+    },
+    "readout": {
+        "read_noise_e_rms": read_noise,
+        "gain_e_per_dn": gain,
+        "adc_bits": adc_bits,
+        "full_well_capacity_e": fwc,
+    },
+    # CU-178: config outside the GIQE-5 envelope → NIIRS N/A by default; opt into
+    # the extrapolated NIIRS trend (read as relative, not calibrated). Propagates to
+    # config_shuttered via the per-dict copy below.
+    "performance": {"niirs": {"allow_extrapolated": True}},
+}
+
+
 def main() -> None:
     """Run the scenario analysis."""
-    # ---------------------------------------------------------------------------
-    # Step 1: Read Karen's spreadsheet
-    # ---------------------------------------------------------------------------
-    # Karen has three sheets:
-    #   "Instrument Spec Sheet"    — vendor specs in lab/vendor units
-    #   "Background Measurements"  — lab data at various cold stop positions
-    #   "Performance Requirements" — pass/fail thresholds
-
-    INPUT_FILE = Path(__file__).parent.parent / "inputs" / "karen_cold_stop_data.xlsx"
     OUTPUT_FILE = Path(__file__).parent.parent / "outputs" / "cold_stop_sweep_results.xlsx"
-
-    wb = openpyxl.load_workbook(INPUT_FILE)
-
-    # --- Parse Instrument Spec Sheet ---
-    # Layout: rows with [Parameter, Value, Unit, Notes], with blue section headers
-
-    ws_spec = wb["Instrument Spec Sheet"]
-    specs: dict[str, object] = {}
-    for row in ws_spec.iter_rows(min_row=6, max_col=4, values_only=False):
-        name = row[0].value
-        value = row[1].value
-        if name and value is not None:
-            # Skip section headers (blue-filled rows)
-            fill = row[0].fill
-            if fill and fill.start_color and fill.start_color.rgb == "002E75B6":
-                continue
-            specs[name] = value
-
-    # --- Parse Background Measurements sheet ---
-    # Layout: [Test Point, Cold Stop Position [mm], Mean Bkg Signal [DN],
-    #          Bkg Noise [DN], Mean Bkg Signal [e⁻], Notes]
-
-    ws_meas = wb["Background Measurements"]
-    lab_data: list[dict] = []
-    for row in ws_meas.iter_rows(min_row=6, max_col=6, values_only=True):
-        if row[0] and row[1] is not None and isinstance(row[1], (int, float)):
-            lab_data.append({
-                "test_id": row[0],
-                "position_mm": float(row[1]),
-                "dn_mean": float(row[2]),
-                "dn_sigma": float(row[3]),
-                "bkg_e": float(row[4]),
-                "notes": row[5] or "",
-            })
-
-    # --- Parse Performance Requirements sheet ---
-
-    ws_req = wb["Performance Requirements"]
-    reqs: dict[str, object] = {}
-    for row in ws_req.iter_rows(min_row=5, max_col=4, values_only=True):
-        if row[0] and row[1] is not None:
-            reqs[row[0]] = row[1]
 
     print("=== Instrument Spec Sheet (vendor units) ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit'}")
@@ -158,62 +276,6 @@ def main() -> None:
     for req_name, req_val in reqs.items():
         print(f"  {req_name:<45s}  {req_val}")
 
-    # ---------------------------------------------------------------------------
-    # Step 2: Convert to RADIANT canonical units
-    # ---------------------------------------------------------------------------
-    # RADIANT expects: meters, fractions, seconds, µm, K, e⁻/s
-    # Karen's spreadsheet has: cm, mm, %, °C, nm, ms, fA/pixel
-
-    # Optics
-    aperture_m = float(specs["Primary aperture diameter"]) / 100.0    # cm → m
-    focal_length_m = float(specs["Effective focal length"]) / 1000.0  # mm → m
-    f_number = float(specs["f-number"])                                # dimensionless
-    transmission = float(specs["End-to-end optical transmission"]) / 100.0  # % → fraction
-    optics_temp_K = float(specs["Optics barrel temperature"]) + 273.15     # °C → K
-    cold_stop_design = float(specs["Cold stop design efficiency"]) / 100.0  # % → fraction
-    # RADIANT convention (Gap 12): nearfield_fraction is the LEAKAGE fraction,
-    # i.e. 1 − vendor "cold stop efficiency" (where 100% efficient = full blocking).
-    nearfield_design = 1.0 - cold_stop_design                          # vendor % → leakage fraction
-    # Kirchhoff-derived lumped-train emissivity (Gap 37): the warm train is
-    # reflective, so the non-transmitted fraction is absorbed → ε = 1 − τ.
-    # (optics.scalar_emissivity requires ε + τ ≤ 1; equality holds here.)
-    optics_emissivity = 1.0 - transmission                             # derived, not an input
-    wfe_waves = float(specs["WFE (RMS)"])                              # already in waves
-
-    # Detector
-    pixel_pitch_um = float(specs["Pixel pitch"])                       # already µm
-    pixel_pitch_m = pixel_pitch_um * 1e-6                              # µm → m
-    qe = float(specs["Average QE (in-band)"]) / 100.0                 # % → fraction
-    # Dark current: fA/pixel → e⁻/s
-    # I_dark [fA] = Q_dark [e⁻/s] × q_e [C]
-    # Q_dark [e⁻/s] = I_dark [fA] × 1e-15 / 1.602e-19
-    dark_fA = float(specs["Dark current (mean)"])
-    dark_rate_e_per_s = dark_fA * 1e-15 / 1.602e-19                   # fA → e⁻/s
-    operating_temp_K = float(specs["Operating temperature"])           # already K
-    fwc = float(specs["Full well capacity"])                           # already e⁻
-    read_noise = float(specs["Read noise (CDS)"])                      # already e⁻ RMS
-    adc_bits = int(specs["ADC resolution"])                            # already bits
-    gain = float(specs["System gain"])                                 # already e⁻/DN
-
-    # Calibration source — Karen's blackbody in TVAC
-    bb_temp_K = float(specs["Blackbody temperature"]) + 273.15        # °C → K
-    bb_emiss = float(specs["Blackbody emissivity"])                    # dimensionless
-    shroud_temp_K = float(specs["Chamber shroud temperature"]) + 273.15  # °C → K
-    shroud_emiss = float(specs["Chamber shroud emissivity"])           # dimensionless
-
-    # Spectral — vendor gives band edges in nm
-    band_str = str(specs["Cold filter passband"])
-    band_parts = band_str.replace("–", "-").replace("—", "-").split("-")
-    band_min_nm = float(band_parts[0].strip())
-    band_max_nm = float(band_parts[1].strip())
-    band_min_um = band_min_nm / 1000.0                                # nm → µm
-    band_max_um = band_max_nm / 1000.0                                # nm → µm
-
-    # Integration time
-    t_int_s = float(specs["Integration time"]) / 1000.0               # ms → s
-
-    # Geometry — lab test, blackbody at 1.5 m
-    source_dist_m = float(specs["Source distance"])                    # already m
 
     print("\n=== Converted to RADIANT canonical units ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit':<15s}  {'Conversion'}")
@@ -241,62 +303,6 @@ def main() -> None:
     print(f"  {'Band':<35s} {band_min_um:>6.2f}–{band_max_um:<6.2f}  {'µm':<15s}  nm ÷ 1000")
     print(f"  {'Integration time':<35s} {t_int_s:>14.6f}  {'s':<15s}  ms ÷ 1000")
 
-    config = {
-        "source": {
-            "target": {
-                "temperature": bb_temp_K,
-                "emissivity": bb_emiss,
-            },
-            "background": {
-                "temperature": shroud_temp_K,
-                "emissivity": shroud_emiss,
-            },
-        },
-        "atmosphere": {
-            "model": "exo",   # Vacuum — TVAC chamber, no atmosphere
-        },
-        "geometry": {
-            "sensor_altitude_m": 0.0,   # Lab test — not orbital
-        },
-        "platform": {
-            # Stage-7 stop-gap: the "exo" backend routes through the
-            # no_atmosphere 'space' sub-case, whose Earth-limb intercept check
-            # requires a positive user-set platform.h_sensor [m above MSL].
-            # 1.0 m ≈ optical-bench height; the value feeds only the
-            # limb-clearance check (no radiometric effect in this lab setup).
-            "h_sensor": 1.0,
-        },
-        "optics": {
-            "aperture_diameter_m": aperture_m,
-            "focal_length_m": focal_length_m,
-            "transmission_scalar": transmission,
-            "scalar_emissivity": optics_emissivity,    # ε = 1 − τ (Kirchhoff, Gap 37)
-            "optics_temperature_K": optics_temp_K,
-            "nearfield_fraction": 1.0,   # Baseline: no cold stop (max leakage)
-        },
-        "detector": {
-            "pixel_pitch_x_um": pixel_pitch_um,
-            "pixel_pitch_y_um": pixel_pitch_um,
-            "qe_value": qe,
-            "dark_rate_e_per_s": dark_rate_e_per_s,
-            "detector_temperature_K": operating_temp_K,
-        },
-        "spectral_integration": {
-            "filter_min_um": band_min_um,
-            "filter_max_um": band_max_um,
-            "integration_time_s": t_int_s,
-        },
-        "readout": {
-            "read_noise_e_rms": read_noise,
-            "gain_e_per_dn": gain,
-            "adc_bits": adc_bits,
-            "full_well_capacity_e": fwc,
-        },
-        # CU-178: config outside the GIQE-5 envelope → NIIRS N/A by default; opt into
-        # the extrapolated NIIRS trend (read as relative, not calibrated). Propagates to
-        # config_shuttered via the per-dict copy below.
-        "performance": {"niirs": {"allow_extrapolated": True}},
-    }
 
     print("\n=== Running RADIANT baseline (nearfield_fraction = 1.0, no cold stop) ===")
     sensor = Sensor.from_dict(config)

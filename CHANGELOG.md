@@ -198,6 +198,17 @@ retroactively reconstructed.
   Evaluate-time checks are unchanged (defence in depth); no computed results change.
 
 ### Changed
+- **`Sensor.validate_target_spec()` now refuses an over-specified `source.target.emissivity_path`
+  spec at the resolve-time seam (CU-318).** The ε(λ) door was the last one whose exclusivity
+  guard was inlined in the source inferrer, so it ran only at `evaluate()`. It moved verbatim to
+  `radiant.source.target_spec.check_emissivity_path_conflicts` and is registered last in
+  `validate_target_spec` — the position the door occupies in dispatch order. Behaviour change at
+  the seam: `emissivity_path` paired with scalar `source.target.emissivity`, a ρ-family surface,
+  S8, S10, S11 or S12 now raises `ParameterBoundsError` at resolve time (and so at the GUI
+  parameter editor's clone-validate commit), where it previously passed. Evaluate-time refusals
+  are unchanged apart from the CU-295 module prefix now opening the message
+  (`"source.target_spec: …"`). No computed result moves — refusal-only; all 67 shipped YAML
+  configs still pass the seam.
 - **`Sensor.suggested_atmosphere_family()` never recommends a family the chain would
   refuse (CU-322).** Same signature, pre-validated answer. It now (a) derives the LOS
   zenith from the resolved line of sight rather than reading `geometry.path_zenith_rad`

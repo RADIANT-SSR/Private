@@ -47,6 +47,25 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-322 — Switching a shipped scenario to the interpolated model is a sequential error wall; the suggestion machinery recommends families that then refuse
+
+**Discovered**: operator session (owner driving the GUI on scenario 10.3), 2026-08-02 — confirmed by a scripted sweep of all 38 shipped GUI YAMLs.
+**Status**: Open.
+**File**: `src/radiant/api/sensor.py` (`suggested_atmosphere_family`); `src/radiant/gui/widgets/atmosphere_family_picker.py`; `src/radiant/gui/main_window.py` (the evaluate-time coverage refusal path); `scenarios/*/gui_workflow.md`.
+**Symptom**: measured 2026-08-02 on main `4c78797`: 25 of 38 shipped scenarios CAN switch to interpolated and evaluate with the right family, but the operator path never reaches it first-try. Three compounding defects: (1) `suggested_atmosphere_family()` does not pre-validate the full query — it suggested a family whose evaluation then refuses (10.1: vertical-only ladder suggested at ζ = 29.9° when the zenith fan covers it; 10.3: cannot suggest the SST column fan at all because explicit-dir families are outside its axes-string reasoning); (2) each gate fires sequentially (wrong-axes refusal → exo-guard refusal → lower-endpoint refusal on 10.3), so the operator sees an error wall instead of the one real gap; (3) an evaluate-time coverage refusal renders as a "Parameter Rejected / Cannot set \"evaluate\"" dialog instead of the Messages-rail advisory built for it (CU-239). The 12 genuinely-uncovered scenes (ground/low sensors below the 3 km ladder floor) get the same wall.
+**Why it still matters**: workflow-visible (Rule 21 test 4) — the owner hit it on the flagship SST scene the same day the SST family shipped; the interpolated backend's honest Rule-17 refusals read as breakage, so measured-data capability goes unused.
+
+**Family head (2026-08-02)** — the interpolated-switch operator-experience family. Checklist:
+
+- [ ] `suggested_atmosphere_family()` pre-validates the complete query (direction, axes, target ceiling, **lower endpoint**) before recommending, and covers `EXPLICIT_DIR_FAMILIES` by name + dir — it must never name a family the chain would refuse.
+- [ ] The picker pre-selects the pre-validated suggestion (SST fan reachable first-try on scenes it serves).
+- [ ] Evaluate-time coverage/guard refusals route to the Messages-rail advisory path, not the "Parameter Rejected / Cannot set \"evaluate\"" dialog.
+- [ ] One advisory per scene naming the FIRST real gap (family floor, ceiling, angle) — no sequential error walls.
+- [ ] Each scenario's `gui_workflow.md` states its interpolated availability (which family, or which specific gap).
+
+**Acceptance criterion**: opening any of the 38 shipped scenarios and switching to interpolated either works first-try or produces exactly one advisory naming the specific missing coverage. (With today's data: 25 first-try, 13 single-advisory — 10.3 joins the first group when the M9–M13 site-elevation rungs are run.)
+**Suggested fix**: (b) stand-alone GUI/API package. Effort M; category D. Related: [[CU-239]], [[CU-224]], CU-167.
+
 ### CU-321 — One-temperature graybody over-predicts MWIR path thermal ~2× on tall columns, both directions equally (now anchorable)
 
 **Discovered**: CU-224 P5a anchoring (branch `atmo/cu-224-lpath-thermal`), 2026-08-02.

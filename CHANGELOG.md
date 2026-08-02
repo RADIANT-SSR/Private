@@ -186,8 +186,9 @@ retroactively reconstructed.
 
 - **Results-affecting: the single-scatter sky's species split is weighted at the segment's
   lower endpoint, not at its arithmetic-mean altitude (CU-224 checklist / ex-CU-260, owner
-  ruling 2026-08-01).** `segment_simple.py` sets the ω₀ and P(Θ) species proportions of the
-  up-looking and level **sky background** at the column's lower endpoint, which is what
+  ruling 2026-08-01).** `segment_simple.py` sets the ω₀ and P(Θ) species proportions of every column
+  segment — the up-looking **observer leg** and the up-looking / level **sky background**
+  alike — at the column's lower endpoint, which is what
   `segment_grazing.py` and `level_arm.py` already did — the three evaluators now weight
   alike. The retired mean-altitude form put the weights above the altitude where the
   aerosol and water coefficients underflow for any column taller than ≈ 40 km, so ω₀

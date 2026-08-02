@@ -1,6 +1,8 @@
+> **HISTORICAL — archived 2026-08-01 (completed by the coding agent, single-day orchestrated run).** All eight actionable packages executed and merged: P0 batch-2 deck set (`960876f`), P1 CU-209/267/306, P2 CU-263 (incl. ex-236), P3 CU-293 (incl. ex-294), P4 CU-224 unblocked half, P6 CU-289/239/301/250/110, P7 CU-164, P8 CU-257. P5 (CU-224 gated half) carries a refreshed explicit gate on the entry — the batch-2 decks are staged; the tape7 delivery re-opens it. Findings promoted during the run: CU-315–320. Parked entries (CU-011/087/138) untouched, triggers carried forward.
+
 # Backlog Closeout Plan
 
-**Status:** Active — opened 2026-08-01. Supersedes `docs/archive/Backlog_Reduction_Plan.md`
+**Status:** Complete — opened 2026-08-01, completed 2026-08-01. Supersedes `docs/archive/Backlog_Reduction_Plan.md`
 (archived same day; its 2026-07-28 charter was consumed by that week's closures and the
 2026-07-31 two-tier tracking ratification).
 

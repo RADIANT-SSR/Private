@@ -160,16 +160,17 @@ def warn_if_scattered_sky_provisional(
     """Emit the plan §8.3 provisional-scattered-sky warning when applicable.
 
     Public because the band-gating *policy* must be applied wherever a sky
-    radiance is produced, not only where this module produces it (CU-260):
-    :mod:`radiant.atmosphere.uplooking_quantities` calls it directly on the
-    near-horizon branch, where the sky comes from
-    :mod:`radiant.atmosphere.segment_grazing` and never passes through
-    :func:`sky_radiance_along_los`.  Keeping the predicate here — rather than
-    duplicating it at each production site — is what stops the two from
+    radiance is produced, not only where this module produces it (CU-260).
+    :mod:`radiant.atmosphere.uplooking_quantities` calls it directly at the two
+    production sites whose sky never passes through
+    :func:`sky_radiance_along_los`: the near-horizon branch, served by
+    :mod:`radiant.atmosphere.segment_grazing`, and the level branch, served by
+    :mod:`radiant.atmosphere.level_whole_path`.  Keeping the predicate here —
+    rather than duplicating it at each production site — is what stops them from
     drifting apart.
 
-    Exactly one call fires per scene: the two production branches are
-    mutually exclusive.
+    Exactly one call fires per scene: the three production branches (column,
+    near-horizon arc, level whole path) are mutually exclusive.
     """
     if theta_s_rad is None:
         return

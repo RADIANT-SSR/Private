@@ -108,7 +108,7 @@ source/shapes/         # box, cone, cylinder, flat_plate, sphere — projected_a
                        # implementations for sub-pixel target geometry
 ```
 
-### `atmosphere/` — 36 source + 40 tests
+### `atmosphere/` — 37 source + 41 tests
 
 Stage 2: τ_atm, L_path, L_atm.
 
@@ -127,6 +127,7 @@ atmosphere/
 ├── interpolated.py      # spectral interpolation helpers
 ├── interpolation_coverage.py  # shipped-family catalogue + config-time scene↔axes check (CU-239)
 ├── near_horizon_air_mass.py  # per-species effective air mass past the 80° hand-over (CU-224)
+├── level_whole_path.py  # the whole traversed level LOS as one optical path (CU-224)
 ├── turbulence.py        # Kolmogorov long-exposure turbulence MTF
 ├── cn2_profiles.py      # Cn²(h) profile family contract + selector
 ├── cn2_hufnagel_valley.py  # Hufnagel-Valley Cn²(h) preset (HV-5/7 defaults)

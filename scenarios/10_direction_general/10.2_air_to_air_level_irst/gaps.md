@@ -66,8 +66,8 @@ relying on the (inert) guard.
 now use the shot-consistent criterion `S(R)/√(S(R) + N₀²) = threshold` with
 `N₀² = σ_ref² − S_ref` the target-free floor (option (a) of the suggested fix,
 in the exact form option (c) asked for). Re-measured on this sweep: the spread
-is **1.00×** (198.6 km referenced at 25 km, 198.9 km at 100 km) and the nominal
-50 km answer moved **150.9 km → 198.8 km (+31.7 %)**. The record below is the
+is **1.00×** (197.6 km referenced at 25 km, 198.2 km at 100 km) and the nominal
+50 km answer moved **150.9 km → 197.9 km (+31.1 %)**. The record below is the
 original finding as filed.
 **File**: `src/radiant/performance/detection_generic.py`,
 `src/radiant/performance/detection_path_aware.py`,
@@ -90,8 +90,8 @@ as the target recedes, and the answer becomes strongly reference-dependent.
 a factor 1.48 spread for one design against one target. Re-solving against the
 target-free floor (70.2 e⁻ rms) gives 200.2 km.
 
-*Post-fix (2026-08-01):* 198.6 km referenced at 25 km, 198.8 km at 50 km,
-198.9 km at 100 km — a 1.00× spread. The 0.4 km residual is the band-mean τ
+*Post-fix (2026-08-01):* 197.6 km referenced at 25 km, 197.9 km at 50 km,
+198.2 km at 100 km — a 1.00× spread. The 0.6 km residual is the band-mean τ
 model's own reference dependence (α_eff 0.01812 → 0.01809 km⁻¹), not the noise
 treatment. The 200.2 km floor-only solve is now an upper bound the chain sits
 0.7 % below, because the chain keeps the target's residual shot noise.

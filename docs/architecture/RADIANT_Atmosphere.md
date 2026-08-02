@@ -722,18 +722,56 @@ the MODTRAN H-runs anchor. The `SkyBackground` arm is consequently a
 **pass-through** — `τ ≡ 1`, `L_path ≡ 0` — and must not consult `τ_full_up` /
 `L_path_full` at all.
 
-**The level topology still composes.** A level ray is tangent at the chord
-*midpoint*, so the sensor sits on its descending half and a single sensor-rooted
-ascending arc would omit the constant-altitude arm entirely: measured in
-sea-level-equivalent molecular column, such an arc recovers 98.6 % of the true
-traversed path for an 8 km arm at ground level, 83.0 % for 100 km at 3 km, and
-75.1 % for 150 km at 10 km. Nothing evaluates "constant-altitude arm then
-ascending arc" as one segment (`LevelArmSpec` and `segment_grazing.py` are
-different computations, Rule 19), so the level branch keeps
-`L_arm→sensor + τ_arm · L_continuation(target→top)`, computed at the production
-site in `uplooking_quantities._level_sky_at_aperture`. It is geometrically
-complete, it is numerically what assembly used to build, and no level scene
-moved. It also keeps the CU-254 target-position dependence, tracked as CU-276.
+**The level topology is one whole path too (CU-224 / ex-CU-276, 2026-08-01).**
+It used to compose `L_arm→sensor + τ_arm · L_continuation(target→top)`, joined at
+the target plane, because nothing in RADIANT could evaluate "constant-altitude
+arm then ascending arc" as one segment. `atmosphere/level_whole_path.py` now can,
+and `uplooking_quantities._level_sky_at_aperture` calls it once.
+
+The path is the real one: a level ray is tangent at the chord **midpoint**, so
+the sensor sits on its descending half, and the traversed column is, per species,
+`S_i = 2·S(r_p; h_p→h_arm) + S(r_p; h_arm→h_top)` about the chord perigee
+`r_p = √(r_arm² − (L/2)²)`. Rooting a single ascending arc at the sensor — the
+up-looking branch's shape — would have dropped the arm entirely: such an arc
+recovers only **83.0 %** of the true traversed molecular column for a 100 km arm
+at 3 km and **75.1 %** for 150 km at 10 km. (The 8 km-at-sea-level row is
+degenerate and inverts to 1.014: its perigee is 1.3 m *below* the ellipsoid, so
+the model clamps the integration floor at MSL and warns.)
+
+Two things the fix does, and one it turns out not to do:
+
+- It removes the target-plane **join**, so the sky is one segment with one τ and
+  one `T_eff` — the CU-254 shape.
+- It removes the level arm's **constant-density approximation** from the sky
+  path: the true chord dips below its endpoints and samples denser air.
+- It does **not** remove a CU-254-sized temperature non-additivity, because there
+  never was one here. Both composed sub-segments were keyed to the *same*
+  altitude (`h_arm`), so both carried the identical `T_eff` — measured 227.850 K
+  either side of the join on the 10.2 configuration. CU-276 filed the defect as
+  "the same non-additive-graybody mechanism CU-254 measured at 12.3 %"; measured,
+  the level join's cost is far smaller.
+
+Measured whole-path / composed band-mean sky radiance, midlat_summer rural 23 km:
+
+| altitude | arm | sag | MWIR 3.5–5 µm | LWIR 8–12 µm | VIS 0.45–0.85 µm, θ_s = 30° |
+|---|---|---|---|---|---|
+| 0 m | 8 km | 1.3 m | 1.00000 | 1.00000 | 2.433 |
+| 3 km | 100 km | 196 m | 1.00000 | 1.00183 | 2.085 |
+| 10 km | 50 km | 49 m | 1.00002 | 1.00032 | 1.125 |
+| 10 km | 150 km | 441 m | 1.00017 | 1.00609 | 1.259 |
+| 15 km | 100 km | 196 m | 1.00078 | 1.00248 | 1.155 |
+
+So the thermal bands move by ≤ 0.6 % (they saturate: both forms tend to
+`B(T_eff)`), while a **daytime VIS/NIR** level sky moves by 1.13× to 2.43×,
+because the composed form multiplied the continuation's scattered term by `τ_arm`
+and weighted the two halves separately. `level_arm.py` is **not** superseded by
+this module (Rule 27): it still computes the observer leg — the τ that attenuates
+the target and the `L_path` that adds to it — which is a different path between
+different endpoints.
+
+A zero-length arm reduces the whole-path evaluator **exactly** to
+`segment_grazing.evaluate_grazing_segment` at ζ = π/2, so the level and ascending
+sky topologies join without a step.
 
 Two things it is **not**:
 

@@ -2,9 +2,9 @@
   "id": "10.2",
   "title": "Air-to-air level IRST \u2014 horizontal arm, target kinematics",
   "metrics": {
-    "snr": 282.8023208926127,
-    "contrast_snr": 282.8023208926127,
-    "detection_range_m": 197900.031129053,
+    "snr": 282.80224590038495,
+    "contrast_snr": 282.80224590038495,
+    "detection_range_m": 197899.51752931994,
     "geometry.theta_o_rad": 1.5747142180279186,
     "geometry.slant_range_m": 49999.99999999926
   },

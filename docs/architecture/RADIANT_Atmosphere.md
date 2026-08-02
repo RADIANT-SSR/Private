@@ -461,6 +461,29 @@ it is never silent: a `UserWarning` is raised, an INFO record is logged, and
 `stage_outputs["atmosphere"]["topology_provenance"]["backend_split"]` names which
 leg came from which model.
 
+**Owner-ratified 2026-08-01 (CU-224 checklist, ex-CU-305): the hybrid stands as
+shipped.** It is a modelling judgement rather than a mechanical one, so it was
+put to the owner with the divergence measured — observer leg, 3–5 µm, ground to
+10 km:
+
+| quantity | run family | `SimpleAtmosphere` companion | difference |
+|---|---:|---:|---:|
+| `tau` | 0.4725 | 0.5715 | −17.3 % |
+| `L` [W/m²/sr/µm] | 0.5414 | 0.3995 | +35.5 % |
+| SNR | 1152.72 | 1207.21 | −4.5 % |
+
+Where the two models must agree — `tau_sun`, `E_TOA`, `E_sky_scattered`,
+`E_sky_thermal`, all served by the companion alone — they are bit-identical. The
+ratification is **conditional on the compromise staying declared**: the
+`UserWarning`, the INFO record and the `backend_split` marker are part of what
+was ratified and must not be softened into silence.
+
+Re-audit condition, and only this one: the split exists because an up-looking run
+family is one leg of data. A family that is self-contained — carrying its own
+solar column and its own sensor → `h_atm_top` sky — or a scene whose target is a
+blackbody, where the illumination terms vanish, makes the companion unnecessary
+*for that scene*, and the split should be dropped there rather than declared.
+
 `SegmentQuantities` is deliberately **not** the observer-leg type on this path.
 That contract carries both directional radiances and an up-looking family
 measures only `L_toward_lower`; the composition never needs the other direction,

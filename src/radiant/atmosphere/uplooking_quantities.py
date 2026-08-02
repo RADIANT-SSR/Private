@@ -132,6 +132,24 @@ refusing the scene outright, is what CU-226 was filed to remove; the other
 alternative, zeroing the legs the family lacks, would be a silently wrong
 answer that inflates SNR.
 
+**Owner-ratified 2026-08-01 (CU-224 checklist, ex-CU-305).**  The hybrid stands
+as shipped.  It is a modelling judgement, not a mechanical one, so it was put to
+the owner with the divergence measured: on the observer leg at 3–5 µm, ground to
+10 km, ``tau`` 0.4725 (family) against 0.5715 (companion), −17.3 %; ``L`` 0.5414
+against 0.3995 W/m²/sr/µm, +35.5 %; SNR 1152.72 against 1207.21, −4.5 %.  Where
+the two models must agree — ``tau_sun``, ``E_TOA``, ``E_sky_scattered``,
+``E_sky_thermal``, all served by the companion alone — they are bit-identical.
+The ratification is conditional on the compromise staying **declared**: the
+``UserWarning``, the INFO record and the ``backend_split`` provenance marker are
+part of what was ratified and must not be softened into silence.
+
+Re-audit condition: this arrangement exists only because an up-looking run
+family carries one leg of data.  A future family that is self-contained — one
+that carries its own solar column and its own sensor→``h_atm_top`` sky, or a
+scene whose target is a blackbody, where the illumination terms vanish — makes
+the companion unnecessary for that scene, and the split should be dropped there
+rather than declared.  Nothing else re-opens it.
+
 Zero drift
 ----------
 Every entry point here refuses a down-looking LOS.  Nothing in this module is

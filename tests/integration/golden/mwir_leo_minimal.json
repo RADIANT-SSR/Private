@@ -12,16 +12,16 @@
       "performance"
     ],
     "generated_by": "scripts/update_golden.py",
-    "notes": "CU-267 refresh (2026-08-01). The calibrated gas-region table is no longer read as a step function: the (floor_od, k_h2o, b_h2o) coefficients are joined across each region edge by a C1 smoothstep ramp of half-width 0.02 um, so tau(lambda) is continuous and a band-mean tau no longer depends on the sampling grid. This 3.5-5.0 um band sits with both endpoints exactly on region edges (3.50 and 5.00 um), so the 0.02 um inboard half of each ramp lies inside the band and band-mean tau_up falls slightly: signal_e -1.22% (956457.32 -> 944766.14 e-), snr -0.61% (977.93 -> 971.93, signal-shot-limited so it moves as sqrt(signal)). Bands crossing no edge are bit-identical. | CU-155 refresh (2026-07-18). E_sky_thermal rebuilt: target-anchored emission temperature T(h_tgt + 200 m) with flux-diffusivity exponent D = 1.1 on the target->h_atm_top vertical column, fit to the real MODTRAN 6 up-looking H-runs (pre-fix the model evaluated T at 0.5*h_sensor, clamping the space column to 216.65 K: MWIR downwelling ~40x low). The eps=0.95 target's Kirchhoff-reflected sky term rises accordingly: signal_e +1.48% (936848 -> 950709 e-), snr +0.74% (967.85 -> 974.99). | CU-007 refresh (2026-04-27). Pre-CU-007 chain routed MWIR \u03b5+T scenes to T1Thermal (pure-emit). Post-CU-007 routes them to T3Mixed (emit + Kirchhoff-reflected sky); \u03b5=0.95 \u21d2 \u03c1=0.05 lifts signal_e by ~5.5% (750264 \u2192 791901 e-) and snr by 866 \u2192 890 (signal-shot-limited regime). Hot-target opt-out lives at source.target.is_hot_target. Pre-CU-007 history: Stage 4 Option C (2026-04-19) dropped the legacy scalar L_background term (Decision #13/#15), lifting snr from 666.21 to 866.11.",
-    "last_updated": "2026-08-01T17:17:18.046962+00:00"
+    "notes": "CU-224 refresh (2026-08-02). Results-affecting: SimpleAtmosphere.evaluate's down-looking path radiance now carries the Kirchhoff thermal emission term (1 - tau)*B(lambda, T_eff) of the same column, alongside the single-scatter solar term it had before. Until now the down-looking side had NO emission at all while the up-looking segment evaluators did, so one column of air read in the two directions differed by three to four orders of magnitude; upwelling MWIR/LWIR path radiance is emission-dominated, not scatter-dominated. Anchored against the batch-2 O-block upwelling MODTRAN runs (O1-O5, each the direction partner of a delivered up-looking run on the identical column): band-mean model/MODTRAN thermal path radiance moves from 2e-3...3e-8 to 0.42-2.42 (MWIR 3-5 um) and 0.53-1.43 (LWIR 8-12 um), the same band the up-looking side already sits in. This 3.5-5.0 um nadir 8 km scene gains the whole 0-8 km column's MWIR emission: signal_e +53.5% (944766.14 -> 1450410.41 e-), snr +23.9% (971.93 -> 1204.28, signal-shot-limited so it tracks sqrt(signal)). | CU-267 refresh (2026-08-01). The calibrated gas-region table is no longer read as a step function: the (floor_od, k_h2o, b_h2o) coefficients are joined across each region edge by a C1 smoothstep ramp of half-width 0.02 um, so tau(lambda) is continuous and a band-mean tau no longer depends on the sampling grid. This 3.5-5.0 um band sits with both endpoints exactly on region edges (3.50 and 5.00 um), so the 0.02 um inboard half of each ramp lies inside the band and band-mean tau_up falls slightly: signal_e -1.22% (956457.32 -> 944766.14 e-), snr -0.61% (977.93 -> 971.93, signal-shot-limited so it moves as sqrt(signal)). Bands crossing no edge are bit-identical. | CU-155 refresh (2026-07-18). E_sky_thermal rebuilt: target-anchored emission temperature T(h_tgt + 200 m) with flux-diffusivity exponent D = 1.1 on the target->h_atm_top vertical column, fit to the real MODTRAN 6 up-looking H-runs (pre-fix the model evaluated T at 0.5*h_sensor, clamping the space column to 216.65 K: MWIR downwelling ~40x low). The eps=0.95 target's Kirchhoff-reflected sky term rises accordingly: signal_e +1.48% (936848 -> 950709 e-), snr +0.74% (967.85 -> 974.99). | CU-007 refresh (2026-04-27). Pre-CU-007 chain routed MWIR \u03b5+T scenes to T1Thermal (pure-emit). Post-CU-007 routes them to T3Mixed (emit + Kirchhoff-reflected sky); \u03b5=0.95 \u21d2 \u03c1=0.05 lifts signal_e by ~5.5% (750264 \u2192 791901 e-) and snr by 866 \u2192 890 (signal-shot-limited regime). Hot-target opt-out lives at source.target.is_hot_target. Pre-CU-007 history: Stage 4 Option C (2026-04-19) dropped the legacy scalar L_background term (Decision #13/#15), lifting snr from 666.21 to 866.11.",
+    "last_updated": "2026-08-02T17:07:21.174399+00:00"
   },
   "signal_e": {
-    "value": 944766.1446623323,
+    "value": 1450410.4127833873,
     "unit": "e-",
     "provenance": "chain output, T3Mixed routing \u2014 target = \u03b5\u00b7B(T_t) + (1\u2212\u03b5)\u00b7E_sky/\u03c0"
   },
   "e_rate_per_s": {
-    "value": 188953228.93246645,
+    "value": 290082082.55667746,
     "unit": "e-/s",
     "provenance": "signal_e / t_int = 791901.07 / 0.005"
   },
@@ -36,7 +36,7 @@
     "provenance": "hand calculation: (18e-6)^2 / 1.20^2 = 2.25e-10 sr (unchanged by CU-007)"
   },
   "noise_shot": {
-    "value": 971.9908151121246,
+    "value": 1204.3298604549284,
     "unit": "e- RMS",
     "provenance": "sqrt(signal_e) = sqrt(791901.07) = 889.89 (lifted by reflected term)"
   },
@@ -56,12 +56,12 @@
     "provenance": "hand calculation: gain / sqrt(12) = 32.0 / sqrt(12) = 9.2376 (unchanged by CU-007)"
   },
   "noise_rss": {
-    "value": 972.0478270104129,
+    "value": 1204.3758741010718,
     "unit": "e- RMS",
     "provenance": "RSS of 16 noise terms: dominated by signal_shot (889.9); background_shot=0 (extended terrestrial has no BackgroundDescriptor); nearfield_shot=0 (simple refractive eps=0)."
   },
   "snr": {
-    "value": 971.9338065576599,
+    "value": 1204.2838485667542,
     "unit": "dimensionless",
     "provenance": "signal_e_final / sigma_total_e = 791901.07 / 889.95 = 889.83 (signal-shot-limited)"
   }

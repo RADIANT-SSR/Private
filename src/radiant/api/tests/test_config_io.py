@@ -135,19 +135,33 @@ class TestSensorAttach:
         s.set_optical_elements(_train())
         with_train = s.evaluate()
         # Two physical consequences of attaching the 0.97·0.96·0.90 train:
-        # (1) the SCENE-transmitted signal drops (lossier than the scalar
-        #     default), and (2) the warm elements EMIT per Kirchhoff
-        #     (ε = 1 − T − R), appearing as a new nearfield term. Total
-        #     signal/SNR may move either way in the MWIR — the emission
-        #     gain can outweigh a small throughput deficit — so the
-        #     assertion is on the decomposed components, not raw SNR
-        #     (pre-CU-161 the raw-SNR inequality held only marginally and
-        #     flipped with the atmosphere recalibration).
+        # (1) the SCENE-transmitted signal moves by the ratio of the train's
+        #     throughput to the scalar the YAML declares, and (2) the warm
+        #     elements EMIT per Kirchhoff (ε = 1 − T − R), appearing as a new
+        #     nearfield term. The assertion is on the decomposed components,
+        #     not raw SNR (pre-CU-161 the raw-SNR inequality held only
+        #     marginally and flipped with the atmosphere recalibration).
+        #
+        # Corrected 2026-08-02 (CU-224 §5.3 sweep). This test used to assert
+        # ``signal_e − nearfield_e`` fell, calling it "throughput loss". Both
+        # halves were wrong: ``signal_e`` is the SCENE integral alone (the
+        # nearfield term is published beside it and enters the well
+        # downstream), so subtracting ``nearfield_e`` from it subtracts a
+        # term that was never added; and the train's 0.97·0.96·0.90 = 0.83808
+        # is HIGHER than the example's ``transmission_scalar: 0.70``, so the
+        # scene signal must RISE, not fall. The old inequality passed only
+        # because the spurious constant subtraction happened to outweigh the
+        # +19.7 % gain on the then-smaller signal; CU-224's added path
+        # radiance grew the signal 53.5 % and the coincidence expired. The
+        # replacement pins the throughput ratio itself, which is a stronger
+        # statement than either inequality.
         si_base = baseline.stage_outputs["spectral_integration"]
         si_train = with_train.stage_outputs["spectral_integration"]
-        scene_base = float(si_base["signal_e"]) - float(si_base["nearfield_e"])
-        scene_train = float(si_train["signal_e"]) - float(si_train["nearfield_e"])
-        assert scene_train < scene_base  # throughput loss is real
+        scene_base = float(si_base["signal_e"])
+        scene_train = float(si_train["signal_e"])
+        tau_scalar = 0.70  # examples/mwir_leo_minimal.yaml
+        tau_train = 0.97 * 0.96 * 0.90
+        assert scene_train / scene_base == pytest.approx(tau_train / tau_scalar, rel=1e-4)
         assert float(si_train["nearfield_e"]) > 0.0  # Kirchhoff emission present
         assert float(si_base["nearfield_e"]) == 0.0  # scalar path has no train
 

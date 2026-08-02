@@ -187,11 +187,27 @@ $$u(\lambda) = \mathrm{clip}\!\left(\tfrac{1}{2} + \frac{\lambda - \lambda_{\tex
 
 Cross-validated against the five non-calibration profile anchors (A2–A6) to ≤ ±0.012 band-mean τ in the water-relevant windows. **Known fragilities** (documented, unfixed): region-flat spectral shape (no 4.3 µm notch structure) away from the 0.04 µm edge ramps; the airmass factor stays linear while real saturated bands grow sub-linearly off-nadir (measured: MWIR OD ×1.18 at 45° vs Beer's ×1.41); λ outside 0.30–14.29 µm clamps to the edge regions' calibration; VIS aerosol absolute OD remains ~2× high at rural-23 (scenario 3.4's finding — aerosol was deliberately not recalibrated here). The edge ramp removes the *discontinuity*, not the underlying region-flat approximation: a spectral feature narrower than 0.04 µm sitting on a region edge is still not resolved, and a band-mean sampled more coarsely than the 0.04 µm ramp width still under-resolves the ramp itself.
 
-**Path radiance** for the simple model uses a single-scatter approximation:
+**Path radiance** for the simple model is the sum of two terms on one and the same column — a single-scatter solar term and a Kirchhoff thermal-emission term:
 ```
-L_path(λ) = [E_sun(λ) / (4π)] · cos(θ_sun) · ω₀(λ) · P(θ_scatter) · [1 − τ_atm(λ)]
+L_path(λ)      = L_path,scat(λ) + L_path,therm(λ)
+L_path,scat(λ) = [E_sun(λ) / (4π)] · cos(θ_sun) · ω₀(λ) · P(θ_scatter) · [1 − τ_atm(λ)]
+L_path,therm(λ) = [1 − τ_atm(λ)] · B(λ, T_eff(h_low))
 ```
-where `E_sun(λ)` is the TOA solar spectral irradiance and the `4π` is the full-sphere phase function normalization. With `ω₀ = 0.95` (rural), `0.85` (urban), `0.99` (maritime), and a Henyey-Greenstein phase function with `g = 0.7` (`simple.HG_ASYMMETRY`). This is good to ±30% in VIS/SWIR and is intentionally crude; users who need better path radiance use MODTRAN.
+where `E_sun(λ)` is the TOA solar spectral irradiance and the `4π` is the full-sphere phase function normalization. With `ω₀ = 0.95` (rural), `0.85` (urban), `0.99` (maritime), and a Henyey-Greenstein phase function with `g = 0.7` (`simple.HG_ASYMMETRY`). The scattered term is good to ±30% in VIS/SWIR and is intentionally crude; users who need better path radiance use MODTRAN.
+
+The thermal term is the same `atmosphere/segment_thermal.py` the up-looking segment evaluators use — one module, called from both directions (Rule 19) — with emissivity derived from the column's own transmittance (Kirchhoff, Rule 5; never an independent input) and `T_eff` from the CU-155 emission-height helper evaluated at the column's **lower** endpoint: `h_tgt` for the target leg (`L_path_up`), the ground for the background leg (`L_path_full`). It applies whether or not the sun is up — a night down-looking scene has scattered ≡ 0 and thermal > 0.
+
+> **CU-224 (2026-08-02).** Until this date the down-looking side had the scattered term **only**, so a pure-thermal LWIR down-looking scene had `L_path ≡ 0` exactly while the up-looking segment evaluators carried `(1 − τ)·B`, and one column of air read in the two directions differed by three to four orders of magnitude. Upwelling MWIR/LWIR path radiance is emission-dominated, not scatter-dominated, so this was a missing first-order term rather than an accuracy limit. Anchored against the batch-2 O-block upwelling MODTRAN runs (O1–O5, each the direction partner of an already-delivered up-looking run on the identical column, midlat_summer, θ_s = 30°), band-mean model/MODTRAN thermal path radiance:
+>
+> | run | column | MWIR 3–5 µm | LWIR 8–12 µm |
+> |---|---|---:|---:|
+> | O1 | 1 km → ground, nadir | 0.416 | 0.535 |
+> | O2 | 5 km → ground, nadir | 1.065 | 1.111 |
+> | O3 | 10 km → ground, ζ = 48.2° | 2.016 | 1.327 |
+> | O4 | 10 km → ground, ζ = 60° | 2.251 | 1.353 |
+> | O5 | 100 km → ground, ζ = 48.2° | 2.424 | 1.431 |
+>
+> (before the fix: 2e-3 … 3e-8). That is the same parity band the up-looking side sits in on the identical columns — 0.458/0.804/1.337/1.204/1.491 MWIR and 0.532/1.056/1.218/1.226/1.265 LWIR against K1/K3/N4/N9/H5 — so what remains is the shared CU-155/CU-161 spectral-shape and one-temperature-graybody residual, not a direction-specific defect. **Known limitation:** the model over-states the tall-column MWIR by ~2.0–2.4× because the whole column emits at the lower endpoint's temperature; the MWIR opacity of a 10–100 km column sits mostly in cold high air. The one-temperature graybody's directional error is quantified in `segment_thermal.py`'s docstring; a direction- and height-dependent emission temperature is the follow-on. The transmittances are untouched — the term is additive on radiance alone, and `τ_up` stays bit-identical to the up-looking segment's `τ` (Level-0 test).
 
 **Atmospheric thermal emission** for the simple model uses a target-anchored graybody (CU-155, recalibrated 2026-07-18):
 ```
@@ -349,7 +365,12 @@ exactly the published fields — with no arithmetic performed at all:
   vacuum identities too (`τ_full_up ≡ 1`, `L_path_full ≡ 0`, `E_sky ≡ 0`,
   `E_TOA` still from `radiant.core.solar`). This is the up-looking
   space-to-space case (LEO→GEO). An up-looking path whose lower endpoint is
-  still inside the column (ground/air → satellite) is **refused** — see §4.2b.
+  still inside the column (ground/air → satellite) does **not** take this
+  shortcut — the observer leg runs through real atmosphere — and is routed to
+  the §4.2b up-looking composition instead, where the illumination collapses to
+  the same vacuum identity while the observer leg is evaluated properly. With a
+  library-backed observer leg that composition is admitted only for a
+  full-column family; see the exo paragraph in §4.2b.
 - Works for every backend, including single-column file imports (tape7,
   tabulated) that refuse endo-atmospheric elevated targets — in this regime one
   column is all the physics needs.
@@ -493,6 +514,48 @@ family is one leg of data. A family that is self-contained — carrying its own
 solar column and its own sensor → `h_atm_top` sky — or a scene whose target is a
 blackbody, where the illumination terms vanish, makes the companion unnecessary
 *for that scene*, and the split should be dropped there rather than declared.
+
+**The exo-target case: served by a full-column family, refused by a partial-column one
+(CU-224 checklist, ex-CU-308, 2026-08-02).**
+When the target sits at or above `h_atm_top`, `_illumination_products` substitutes the exact
+vacuum identity (`τ_sun ≡ 1`, `E_sky ≡ 0`) for the down-looking proxy. That identity is right
+for the illumination and says nothing on its own about the composition it lands in, so with a
+library-backed observer leg the join between the two at the top of the modelled column needs an
+anchor. Whether one exists is a property of the **backing family**, and
+`uplooking_quantities._refuse_library_backed_exo_target` asks the family itself —
+`InterpolatedAtmosphere.uplooking_target_ceiling_m`, the highest target altitude its own runs
+measure, read from the `target_altitude_m` axis hull when the family carries that axis and from
+the recorded fixed value when it does not. No family names appear in the guard.
+
+- **Full column (ceiling ≥ `h_atm_top`) — permitted.** MODTRAN's atmosphere ends at
+  `h_atm_top`. A family whose ceiling reaches it integrated the *entire* column, and the
+  remaining path up to an exo target is vacuum: zero extinction, zero emission. The composed
+  observer leg for any `h_tgt > h_atm_top` is therefore **identically** the family's own
+  top-of-column run — the anchor the refusal demanded is the family. The query side is
+  `InterpolatedAtmosphere._vacuum_clamped_target_m`, which serves such a target from the
+  ceiling node instead of failing the hull check: the **target-axis mirror** of the sensor-axis
+  vacuum equivalence the same module already ships (the ladders' 40,000 km duplicate node), both
+  gated on the shared `_VACUUM_EQUIVALENT_ALTITUDE_M`. It is recorded in the segment provenance
+  under `exo_target_vacuum_clamp` (Rule 16). Shipped families that qualify:
+  `midlat_summer_sst_column_fan` (ground → 100 km, LOS zenith 0–78.5°) and
+  `midlat_summer_uplooking_sensor_ladder` (observer 0–100 km at 48.2°) — this is the
+  ground-to-space capability the batch-2 M block was built for.
+- **Partial column (ceiling < `h_atm_top`, or unrecorded) — refused.** Such a family stops
+  inside the atmosphere, and real, unmeasured air lies between its top rung and the target.
+  Composing its top rung with the vacuum identity would join a measured leg to an invented one,
+  so it raises an actionable `ParameterBoundsError` naming the measured ceiling and the
+  full-column families that do serve the scene (Rule 17 — a refusal, not an approximation).
+  This is the arm the 20 km `midlat_summer_uplooking_ladder` and
+  `midlat_summer_uplooking_zenith_fan` take.
+
+The clamp is gated at `h_atm_top` and nowhere else: a 50 km target through a 20 km ladder is
+40 km of real atmosphere and still fails the family's own hull check, unchanged.
+`test_uplooking_backend_dispatch.py` asserts the invariant against the committed node sets —
+every bundled up-looking family either stays below `h_atm_top` *and* refuses an exo target, or
+reaches it *and* satisfies the identity (composed products at the column top and at 400 km
+bit-identical). That is what fails for a future family that reaches the top without the
+identity holding. `atmosphere.model = "simple"` has no column backend and keeps the vacuum
+identity unchanged.
 
 `SegmentQuantities` is deliberately **not** the observer-leg type on this path.
 That contract carries both directional radiances and an up-looking family
@@ -900,25 +963,73 @@ tens of percent, which is what the sub-3 µm provisional warning above says.
 
 The alignment also removes the *species-split* half of the 80° hand-over step —
 VIS band-mean grazing/column was 2.12× at ζ = 0° and 9.91× at 30° and is now
-1.000 and 1.007 — but not all of it. Band-mean grazing/column at the 80°
-hand-over, ground to `h_atm_top`, θ_s = 30°, measured 2026-08-01:
+1.000 and 1.007 — but not all of it.
 
-| band | step |
-|---|---:|
-| VIS 0.45–0.85 µm | 1.063 |
-| NIR 0.85–1.40 µm | **1.463** |
-| MWIR 3–5 µm | 1.036 |
-| LWIR 8–13 µm | 0.993 |
+**One linearisation convention across all three evaluators (CU-320, 2026-08-02).**
+What survived the CU-260 alignment was not the weight *altitude* but the
+reference column: `segment_simple` linearised the CU-161 water curve of growth
+and the gas floor against the **vertical** column while `segment_grazing` and
+`level_whole_path` used the **slant** one. Because the curve of growth is
+sub-linear (`OD = k·w^b`, `b < 1`) that scales the effective water weight by
+`m_h2o^(b−1)`, and ω₀ with it, wherever water absorbs. `segment_simple` now uses
+the slant column too — the traversed amount, which is what the linearisation is
+of — so the convention is the same in all three, and `column_segment_optical_depth`
+publishes `slant_column_*_km` provenance under the same key names the
+near-horizon branch already used. Band-mean grazing/column at the 80° hand-over,
+ground to `h_atm_top`, θ_s = 30°:
 
-What remains is not the weight *altitude*: the two evaluators linearise the
-CU-161 water curve of growth and the gas floor against **different reference
-columns** — `segment_simple` against the vertical column, `segment_grazing`
-against the slant one — and because the curve of growth is sub-linear
-(`OD = k·w^b`, `b < 1`) that scales the effective water weight by `m_h2o^(b−1)`,
-and therefore ω₀, wherever water absorbs. Below 0.68 µm the step is < 0.5 %;
-above it, where the water bands bite, it reaches 30–46 %. Recorded as a finding
-against the ζ > 80° sky only — no shipped scene reaches that band, and the
-thermal step (0.7 % LWIR) is unchanged from what CU-225 left.
+| band | before (2026-08-01) | after (CU-320) |
+|---|---:|---:|
+| VIS 0.45–0.85 µm | 1.078 | **0.995** |
+| NIR 0.85–1.40 µm | 1.568 | **0.995** |
+| SWIR 1.4–2.5 µm | 1.497 | **0.992** |
+| MWIR 3–5 µm | 1.024 | **0.998** |
+| LWIR 8–13 µm | 0.998 | **0.998** |
+
+The step is now within 0.8 % in every band and, more to the point, *uniform*
+across them: what is left is the plane-parallel air mass's own error where it is
+retired, not a spectral artefact of two evaluators disagreeing about what column
+a sub-linear law is evaluated at. At ζ = 0 the air mass is exactly 1, so slant ≡
+vertical and the whole K-ladder is bit-identical — the P4 species-split anchors
+in `tests/integration/test_species_split_anchors.py` pass unchanged, and the
+level↔grazing zero-arm identity is untouched (both sides already used the slant
+convention).
+
+> **What this change is and is not.** It is a *consistency* fix. Against the new
+> batch-2 M-block (ground → 100 km up-looking sky at ζ = 0/60/70.5/75.5/78.5°,
+> midlat_summer, θ_s = 30°, model/MODTRAN band means) the overall RMS |ln ratio|
+> is a wash — **0.316 → 0.318**: NIR improves sharply (0.278 → 0.098) and VIS
+> improves (0.513 → 0.461), while SWIR degrades (0.290 → 0.449) and MWIR
+> slightly (0.177 → 0.199); LWIR is identical (thermal control). That is the
+> expected shape: with the convention divergence removed, what is left is the
+> single-scatter source's own accuracy limits — the ~2×-high rural VIS aerosol
+> OD and the region-flat spectral shape §3.1 records — which no choice of
+> reference column can fix. The M-block is also the **first anchor past 60°**;
+> degradation toward the horizon is visible and real (VIS model/MODTRAN falls
+> from 0.76 at ζ = 0 to 0.55 at 78.5°, 0.55–0.59 in the grazing band at
+> 85/88/89.5°, i.e. the daytime VIS sky is under-predicted by roughly a factor
+> of two near the horizon), and the sub-3 µm provisional-sky warning above is
+> what says so to an operator.
+
+**Near-horizon anchors, ζ = 85/88/89.5° (M6–M8, first runs past 60°).** These
+exercise the grazing evaluator, which CU-320 does not touch, and are recorded
+here because nothing anchored that band before. Band-mean model/MODTRAN, ground
+→ 100 km, θ_s = 30°:
+
+| band | 85° (M6) | 88° (M7) | 89.5° (M8) |
+|---|---:|---:|---:|
+| VIS 0.45–0.85 µm | 0.549 | 0.568 | 0.589 |
+| NIR 0.85–1.40 µm | 0.931 | 0.918 | 0.972 |
+| SWIR 1.4–2.5 µm | 1.254 | 1.181 | 1.206 |
+| MWIR 3–5 µm | 1.138 | 1.083 | 1.071 |
+| LWIR 8–13 µm | 1.058 | 1.021 | 1.011 |
+
+The thermal bands are the model's best region here — LWIR within 6 % and MWIR
+within 14 % all the way to the 89.5° ceiling, *better* than the 1.16–1.28 the
+same bands show inside 80°, because a near-horizon path saturates toward
+`B(T_eff)` and the graybody's ceiling is exact. The scattered bands are the weak
+ones, VIS worst at ~0.55–0.59. Still results-affecting for the ζ > 80° sky only
+in the sense CU-320 filed; no shipped scene reaches past 40° LOS zenith.
 
 ### 4.3 How geometry feeds each model
 
@@ -934,6 +1045,8 @@ The simple model and the MODTRAN interface both *recompute* their outputs whenev
 ### 4.4 Reciprocity and the upwelling/downwelling distinction
 
 For unpolarized broadband radiation in a plane-parallel atmosphere, transmittance is reciprocal: `τ(sensor → target) = τ(target → sensor)`. RADIANT exploits this — only one transmittance is computed per slant path. Path radiance is *not* reciprocal: the sensor-bound (`L_path`, "upwelling") and source-bound (`L_atm_down`, "downwelling") radiances differ because of the geometry of where the scattering and emission happen. Both are computed independently, and they are not interchanged.
+
+Non-reciprocal does not mean *different physics*. Since CU-224 both directions carry the same two terms — single-scatter solar plus Kirchhoff emission `(1 − τ)·B(λ, T_eff)` (§3.1) — and differ only in the scattering angle and the emission-height endpoint. Before that the down-looking side had no emission term at all, which made the same column read three to four orders of magnitude dimmer looking down than looking up in the thermal bands. Measured against the batch-2 direction pairs (O1–O5 against K1/K3/N4/N9/H5, identical columns run both ways), MODTRAN's own band-mean up/down thermal-path-radiance ratio is 1.006–1.14 (LWIR) and 1.07–2.34 (MWIR); RADIANT now gives 1.000–1.007 and 1.18–1.44 against the 2e2–4e7 it gave before. The model still under-states the true directional spread — the one-temperature graybody makes emission direction-symmetric by construction and only the scattering term breaks the symmetry — but it is the right order, which the previous form was not.
 
 `L_atm_down` (surfaced in `AtmosphericQuantities` as the `E_sky_thermal` / `E_sky_scattered` **irradiance** pair) is consumed by the reflected-diffuse term of the target and ground-background arms, and by any `ReflectedSolarSource` whose downwelling spectrum is tied to the atmospheric model rather than to a top-of-atmosphere standard. The atmosphere module *produces* it; it does not consume it.
 

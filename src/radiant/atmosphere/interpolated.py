@@ -38,7 +38,12 @@ Interpolation strategy
 
 - **No extrapolation**: query geometries outside the convex hull of
   available points always raise ``ValueError``.  We never silently
-  invent atmospheric data beyond the calibration range.
+  invent atmospheric data beyond the calibration range.  The single
+  query served from outside the node span is not an exception to that
+  rule but an application of it: an endpoint above the top of the
+  modelled atmosphere is separated from a node there by **vacuum**, so
+  the node's column is the exact answer rather than an extrapolated one
+  (:data:`_VACUUM_EQUIVALENT_ALTITUDE_M`, one clamp per axis).
 
 Grid detection
 --------------
@@ -173,12 +178,24 @@ FAMILY_DIRECTIONS: frozenset[str] = frozenset({"down", "up"})
 # float slack: geometry hands vertical paths theta_o = π exactly.
 _UPLOOKING_FIXED_ZENITH_TOL_RAD: float = 1e-6
 
-# MODTRAN's atmosphere ends at 100 km: a sensor at or above this altitude
-# sees the identical column as any higher sensor (the added path is
-# vacuum). A query sensor ABOVE a recorded at-or-above-TOA sensor is
-# therefore physically exact, not a mismatch — the same identity that
-# justifies the ladders' 40,000 km duplicate node.
-_VACUUM_EQUIVALENT_SENSOR_M: float = 100_000.0
+# MODTRAN's atmosphere ends at 100 km: everything above it is vacuum — zero
+# extinction, zero emission — so moving an endpoint from this altitude to any
+# higher one adds nothing to the column. Two queries are therefore physically
+# EXACT rather than mismatches or extrapolations, one per axis:
+#
+# * **sensor axis** — a query sensor ABOVE a recorded at-or-above-TOA sensor
+#   sees the identical column (:meth:`InterpolatedAtmosphere._warn_ignored_geometry`).
+#   This is the identity that justifies the ladders' 40,000 km duplicate node.
+# * **target axis** — for an up-looking family whose own runs REACH this
+#   altitude, a query target above the family ceiling is served by the ceiling
+#   node (:meth:`InterpolatedAtmosphere._vacuum_clamped_target_m`). Same
+#   physics, other end of the path: the family measured the entire column, and
+#   the extra path to an exo target is vacuum.
+#
+# A family whose ceiling is BELOW this altitude gets neither clamp — it never
+# measured the whole column, so a query past its top rung is extrapolation and
+# is refused (Rule 17).
+_VACUUM_EQUIVALENT_ALTITUDE_M: float = 100_000.0
 
 
 def _axis_to_interp_space(axis: str, values: np.ndarray | float) -> np.ndarray | float:
@@ -595,7 +612,7 @@ class InterpolatedAtmosphere:
             query_val = float(getattr(geometry, field))
             if (
                 field == "sensor_altitude_m"
-                and reference >= _VACUUM_EQUIVALENT_SENSOR_M
+                and reference >= _VACUUM_EQUIVALENT_ALTITUDE_M
                 and query_val > reference
             ):
                 # Query sensor above a recorded at-/above-TOA sensor: the
@@ -703,6 +720,58 @@ class InterpolatedAtmosphere:
     def uplooking_companion(self) -> object | None:
         """Backend serving the illumination and sky legs of an up-looking scene (CU-226)."""
         return self._uplooking_companion
+
+    @property
+    def uplooking_target_ceiling_m(self) -> float | None:
+        """Highest target altitude this family's own runs measure [m MSL].
+
+        The family's honest answer to "how far up did you integrate?", read off
+        the node set rather than off a family name — the two ways a family can
+        pin its upper endpoint are both covered:
+
+        * ``target_altitude_m`` **is** an interpolation axis (the K ladder, the
+          batch-2 N zenith fan): the ceiling is the top of that axis's hull;
+        * it is a recorded **non-axis** field (the batch-2 M column fan and P
+          sensor ladder, both rendered at a fixed 100 km upper endpoint): the
+          ceiling is that recorded value, which the constructor has already
+          validated as constant across the points.
+
+        ``None`` when the family records nothing about its upper endpoint —
+        the callers (:meth:`_vacuum_clamped_target_m` and the topology layer's
+        exo guard) then take the conservative branch and refuse rather than
+        assume a ceiling.
+
+        This is the seam the up-looking topology's exo-target guard keys on:
+        a family whose ceiling reaches ``h_atm_top`` measured the entire
+        column, so the vacuum identity above it applies (see
+        :data:`_VACUUM_EQUIVALENT_ALTITUDE_M`); one whose ceiling is below it
+        did not.
+        """
+        if "target_altitude_m" in self._axes:
+            return float(self.coordinate_bounds()["target_altitude_m"][1])
+        return self._non_axis_recorded.get("target_altitude_m")
+
+    def _vacuum_clamped_target_m(self, h_tgt_m: float) -> float:
+        """Target-altitude coordinate to query for an upper endpoint at *h_tgt_m*.
+
+        The target-axis half of the vacuum-equivalence identity
+        (:data:`_VACUUM_EQUIVALENT_ALTITUDE_M`), the mirror of the sensor-axis
+        clamp in :meth:`_warn_ignored_geometry`.  For a family whose runs reach
+        the top of the modelled atmosphere, a target above that ceiling is
+        separated from the ceiling by vacuum — zero extinction, zero emission —
+        so the column is *identically* the ceiling node's.  Serving it from the
+        ceiling is exact, not an approximation and not an extrapolation.
+
+        The clamp is deliberately gated on the ceiling being at or above
+        :data:`_VACUUM_EQUIVALENT_ALTITUDE_M`.  A partial-column family (the
+        20 km ladders) gets no clamp: the air between its top rung and the
+        query target is real, unmeasured atmosphere, so the query stays out of
+        hull and :meth:`build_state` refuses it (Rule 17 — no extrapolation).
+        """
+        ceiling = self.uplooking_target_ceiling_m
+        if ceiling is None or ceiling < _VACUUM_EQUIVALENT_ALTITUDE_M or h_tgt_m <= ceiling:
+            return h_tgt_m
+        return ceiling
 
     def coordinate_bounds(self) -> dict[str, tuple[float, float]]:
         """Return the min/max coordinate range for each axis."""
@@ -966,6 +1035,12 @@ class InterpolatedAtmosphere:
         extrapolation outside the hull, and a query wavelength grid inside the
         stored spectral range resampled by :meth:`build_state`.
 
+        The one query that reaches past the family's top rung and is still
+        served is an **exo target above a full-column family**: see
+        :meth:`_vacuum_clamped_target_m`.  That is the vacuum-equivalence
+        identity, not an extrapolation, and it is recorded in the returned
+        provenance under ``exo_target_vacuum_clamp``.
+
         Parameters
         ----------
         wavelength_um:
@@ -1028,9 +1103,16 @@ class InterpolatedAtmosphere:
                 "run family covering it, or use atmosphere.model='simple'."
             )
 
+        # Target-axis vacuum equivalence (:data:`_VACUUM_EQUIVALENT_ALTITUDE_M`).
+        # A full-column family measured up to the top of the atmosphere; the
+        # path from there to an exo target is vacuum, so the ceiling node IS
+        # the answer. A partial-column family is left alone and the query falls
+        # out of hull below.
+        target_query_m = self._vacuum_clamped_target_m(float(los.h_tgt))
+
         query_geometry = AtmosphericGeometry(
             sensor_altitude_m=h_sensor_m,
-            target_altitude_m=float(los.h_tgt),
+            target_altitude_m=target_query_m,
             path_zenith_rad=abs(zeta_low_rad),
             solar_zenith_rad=(
                 float(los.theta_s)
@@ -1056,7 +1138,15 @@ class InterpolatedAtmosphere:
             "grid_type": self._grid_type,
             "n_points": self.n_points,
             "radiance_product": "L_toward_lower",
+            "target_ceiling_m": self.uplooking_target_ceiling_m,
+            "target_altitude_served_m": target_query_m,
         }
+        if target_query_m != float(los.h_tgt):
+            provenance["exo_target_vacuum_clamp"] = (
+                f"target at {float(los.h_tgt):.0f} m is above this family's measured "
+                f"column top {target_query_m:.0f} m; the intervening path is vacuum, so "
+                "the top-of-column run IS the answer (exact identity, not extrapolation)"
+            )
         return UplookingColumnProduct(
             wavelength_um=np.asarray(state.transmittance.wavelength_um, dtype=np.float64),
             tau=np.asarray(state.transmittance.values, dtype=np.float64),

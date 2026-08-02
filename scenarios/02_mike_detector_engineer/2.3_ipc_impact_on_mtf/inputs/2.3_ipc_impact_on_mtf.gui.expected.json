@@ -2,9 +2,9 @@
   "id": "2.3",
   "title": "IPC impact on MTF \u2014 2% IPC baseline",
   "metrics": {
-    "snr": 717.5881022932667,
-    "nedt_K": 0.04142191609986141,
-    "niirs": 4.720812381285629
+    "snr": 837.0707471084135,
+    "nedt_K": 0.03565270834670385,
+    "niirs": 4.825089113860544
   },
   "notes": "Nominal 2% inter-pixel capacitance fraction. GUI baseline uses a well-matched gain (110 e-/DN vs the runner's 1.2) so the 14-bit ADC spans the 1.8 Me- well instead of clipping the signal (CU-170)."
 }

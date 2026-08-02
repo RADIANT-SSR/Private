@@ -179,6 +179,15 @@ def column_segment_optical_depth(
         path_zenith_rad=spec.zeta_low_rad,
     ).air_mass()
 
+    # Slant columns under the same key names the near-horizon branch publishes
+    # (CU-320).  One air mass serves every species here, so these are the
+    # vertical columns scaled by it — the *traversed* amounts, which is what
+    # the curve-of-growth linearisation in ``_single_scatter_terms`` must be
+    # evaluated at if the three evaluators are to share one convention.
+    provenance["slant_column_mol_km"] = col_mol * air_mass
+    provenance["slant_column_aer_km"] = col_aer * air_mass
+    provenance["slant_column_h2o_km"] = col_h2o * air_mass
+
     return np.asarray(od_vert * air_mass, dtype=np.float64), air_mass, provenance
 
 
@@ -341,9 +350,16 @@ def _single_scatter_terms(
     # the end the ``L_toward_lower`` product emerges from — the same choice
     # ``segment_grazing`` and ``level_arm`` already make, so all three evaluators
     # now weight alike and the 80° hand-over carries no species-split step.
+    #
+    # The curve of growth is linearised against the **slant** column (CU-320,
+    # 2026-08-02), which is what ``segment_grazing`` and ``level_whole_path``
+    # already do.  Until then this evaluator alone used the vertical column, and
+    # because ``OD_h2o = k·w^b`` is sub-linear the two differ by ``m_h2o^(b−1)``
+    # in the effective water weight — and in ω₀ with it, wherever water absorbs.
+    # That was the whole of the surviving 80° hand-over step.
     weight_alt_m = spec.h_low_m
-    col_mol = lengths["col_length_mol_km"]
-    col_h2o = lengths["col_length_h2o_km"]
+    col_mol = lengths["slant_column_mol_km"]
+    col_h2o = lengths["slant_column_h2o_km"]
     sigma_mol = atmosphere._rayleigh_extinction_km(lam, weight_alt_m)
     sigma_aer = atmosphere._aerosol_extinction_km(lam, weight_alt_m)
     sigma_h2o = (atmosphere._h2o_vertical_od(lam, col_h2o) / max(col_h2o, 1e-12)) * math.exp(

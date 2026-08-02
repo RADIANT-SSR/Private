@@ -381,8 +381,9 @@ def _whole_path_single_scatter_terms(
     the dense air along the arm rather than by the thin continuation above it.
 
     The CU-161 water and gas terms are linearised against the path's own
-    **slant** columns, which is the convention
-    :mod:`radiant.atmosphere.segment_grazing` uses.  That choice is what makes a
+    **slant** columns, which since CU-320 is the convention all three path
+    evaluators share — :mod:`radiant.atmosphere.segment_grazing` and
+    :mod:`radiant.atmosphere.segment_simple`.  That choice is what makes a
     zero-length arm reduce to the grazing evaluator array-for-array, i.e. what
     makes the level and ascending sky topologies join without a step; it differs
     from :mod:`radiant.atmosphere.level_arm`, which linearises against the

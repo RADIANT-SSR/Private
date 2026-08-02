@@ -52,6 +52,12 @@ from typing import Any
 
 import numpy as np
 
+from radiant.atmosphere.near_horizon_air_mass import (
+    apply_species_air_mass,
+    is_near_horizon,
+    near_horizon_species_air_mass,
+    tangent_radius_m,
+)
 from radiant.atmosphere.protocol import H_ATM_TOP_M, AtmosphericGeometry
 from radiant.atmosphere.segment_single_scatter import (
     COS_HORIZON_TOLERANCE,
@@ -94,16 +100,31 @@ def column_segment_optical_depth(
 ) -> tuple[np.ndarray, float, dict[str, float]]:
     """Slant optical depth of a column segment [dimensionless].
 
-    Returns ``(od_slant, air_mass, column_lengths_km)`` where ``od_slant`` is
-    the wavelength-resolved slant optical depth, ``air_mass`` the
-    dimensionless plane-parallel-with-spherical-correction factor at the
-    lower-endpoint zenith, and ``column_lengths_km`` the per-species
-    density-weighted column lengths [km] (provenance).
+    Returns ``(od_slant, air_mass, provenance)`` where ``od_slant`` is the
+    wavelength-resolved slant optical depth, ``air_mass`` the dimensionless
+    factor actually applied to the molecular column, and ``provenance`` the
+    per-species density-weighted column lengths [km] plus, past the
+    near-horizon hand-over, the spherical slant columns and per-species air
+    masses that replaced the single plane-parallel factor.
 
     The vertical optical depth is the sum of the four CU-161 species terms
-    evaluated over ``[h_low, h_high]``; the slant depth is that times the
-    air mass.  For a zero-thickness segment every column length is exactly
-    zero and the optical depth is exactly zero.
+    evaluated over ``[h_low, h_high]``.  How it becomes a *slant* depth
+    depends on the lower-endpoint zenith:
+
+    * **at or below** :data:`~radiant.atmosphere.protocol.SPHERICAL_SWITCH_RAD`
+      (80°) — one plane-parallel-with-spherical-correction air mass from
+      :meth:`~radiant.atmosphere.protocol.AtmosphericGeometry.air_mass`,
+      multiplying the summed vertical depth.  Unchanged, bit for bit;
+    * **past 80°** — a per-species effective air mass from the exact spherical
+      slant integral (:mod:`radiant.atmosphere.near_horizon_air_mass`), because
+      ``sec ζ`` over-states the near-horizon column by 3.8 % at 80° rising to
+      237 % at 89.4°, and over-states it *differently* per species (2.3× apart
+      between water vapour and molecular air at 89.4°).  This is the same
+      hand-over the up-looking sky has taken since CU-225 / CU-274, now given
+      to the down-looking and solar columns as well (CU-224 / ex-CU-275).
+
+    For a zero-thickness segment every column length is exactly zero and the
+    optical depth is exactly zero.
     """
     lam = np.asarray(wavelength_um, dtype=np.float64)
     h_low = spec.h_low_m
@@ -113,12 +134,40 @@ def column_segment_optical_depth(
     col_aer = atmosphere._column_length_km(h_low, h_high, H_AER_M)
     col_h2o = atmosphere._column_length_km(h_low, h_high, H_H2O_M)
 
-    od_vert = (
-        atmosphere._rayleigh_extinction_km(lam, 0.0) * col_mol
-        + atmosphere._aerosol_extinction_km(lam, 0.0) * col_aer
-        + atmosphere._h2o_vertical_od(lam, col_h2o)
-        + atmosphere._gas_floor_vertical_od(lam, col_mol)
-    )
+    od_vert_mol = atmosphere._rayleigh_extinction_km(lam, 0.0) * col_mol
+    od_vert_aer = atmosphere._aerosol_extinction_km(lam, 0.0) * col_aer
+    od_vert_h2o = atmosphere._h2o_vertical_od(lam, col_h2o)
+    od_vert_gas = atmosphere._gas_floor_vertical_od(lam, col_mol)
+
+    provenance = {
+        "col_length_mol_km": col_mol,
+        "col_length_aer_km": col_aer,
+        "col_length_h2o_km": col_h2o,
+    }
+
+    if is_near_horizon(spec.zeta_low_rad):
+        masses = near_horizon_species_air_mass(
+            tangent_radius_m(h_low, spec.zeta_low_rad),
+            h_low,
+            h_high,
+            col_mol_km=col_mol,
+            col_aer_km=col_aer,
+            col_h2o_km=col_h2o,
+            scale_height_mol_m=H_MOL_M,
+            scale_height_aer_m=H_AER_M,
+            scale_height_h2o_m=H_H2O_M,
+        )
+        od_slant = apply_species_air_mass(
+            masses,
+            od_vert_mol=od_vert_mol,
+            od_vert_aer=od_vert_aer,
+            od_vert_h2o=od_vert_h2o,
+            od_vert_gas=od_vert_gas,
+        )
+        provenance.update(masses.as_provenance())
+        return od_slant, masses.m_mol, provenance
+
+    od_vert = od_vert_mol + od_vert_aer + od_vert_h2o + od_vert_gas
 
     # Air mass at the LOWER endpoint (ADR-0011 decision 3).  The existing
     # AtmosphericGeometry places the lower endpoint in ``target_altitude_m``
@@ -130,12 +179,7 @@ def column_segment_optical_depth(
         path_zenith_rad=spec.zeta_low_rad,
     ).air_mass()
 
-    lengths = {
-        "col_length_mol_km": col_mol,
-        "col_length_aer_km": col_aer,
-        "col_length_h2o_km": col_h2o,
-    }
-    return np.asarray(od_vert * air_mass, dtype=np.float64), air_mass, lengths
+    return np.asarray(od_vert * air_mass, dtype=np.float64), air_mass, provenance
 
 
 def evaluate_column_segment(
@@ -212,10 +256,15 @@ def evaluate_column_segment(
             provenance=provenance,
         )
 
-    od_slant, air_mass, lengths = column_segment_optical_depth(atmosphere, lam, spec)
+    od_slant, air_mass, od_provenance = column_segment_optical_depth(atmosphere, lam, spec)
     tau = np.exp(-od_slant)
     provenance["air_mass"] = air_mass
-    provenance.update(lengths)
+    provenance["air_mass_form"] = (
+        "spherical per-species (near-horizon hand-over)"
+        if is_near_horizon(spec.zeta_low_rad)
+        else "plane-parallel with spherical correction"
+    )
+    provenance.update(od_provenance)
 
     # --- Thermal: Kirchhoff emissivity on the segment's own τ (Rule 5) ---
     t_eff_K = atmosphere._downwelling_effective_temperature_K(spec.h_low_m)
@@ -228,7 +277,7 @@ def evaluate_column_segment(
         lam,
         spec,
         tau,
-        lengths,
+        od_provenance,
         theta_s_rad=theta_s_rad,
         delta_phi_rad=delta_phi_rad,
     )
@@ -258,7 +307,21 @@ def _single_scatter_terms(
     theta_s_rad: float | None,
     delta_phi_rad: float,
 ) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
-    """Directional scattered-solar radiances and their provenance."""
+    """Directional scattered-solar radiances and their provenance.
+
+    Species weights are taken at the segment's **lower** endpoint (CU-260,
+    adopted 2026-08-01 against the shipped ``midlat_summer_uplooking_ladder``
+    MODTRAN family).  The retired alternative weighted at the arithmetic-mean
+    altitude, which for any column taller than ~40 km put the weights above the
+    altitude where the aerosol and water coefficients underflow: ω₀ went to
+    exactly 1 and the Henyey-Greenstein forward peak collapsed to the isotropic
+    Rayleigh 1.5, so a tall column scattered as if the atmosphere held no
+    aerosol at all whatever ``visibility_km`` said.  Measured against all five
+    non-degenerate ladder rungs (band-mean ``MODTRAN / model``, worst rung):
+    VIS 3.09× → 1.36×, NIR 3.02× → 1.26×, SWIR 8.71× → 1.67×, MWIR 2.40× →
+    2.33×, LWIR unchanged to 4e-4 (thermal-dominated control).  The anchors are
+    frozen in ``tests/integration/test_species_split_anchors.py``.
+    """
     prov: dict[str, Any] = {"theta_s_rad": theta_s_rad, "delta_phi_rad": delta_phi_rad}
     if theta_s_rad is None:
         prov["scattered_solar"] = "omitted (no solar geometry supplied)"
@@ -272,20 +335,22 @@ def _single_scatter_terms(
         zeros = np.zeros_like(lam)
         return zeros, zeros.copy(), prov
 
-    # Mean-altitude species weights — the same construction ``simple.py`` uses
-    # for its SSA / phase-function weights: absolute ODs come from the column
-    # integral, but the *relative* species split is taken at the path-mean
-    # altitude, where the ratio is representative.
-    mean_alt_m = 0.5 * (spec.h_low_m + spec.h_high_m)
+    # Lower-endpoint species weights (CU-260, adopted 2026-08-01).  Absolute ODs
+    # come from the column integral; the *relative* species split is taken at the
+    # segment's lower endpoint, which is both the densest air in the column and
+    # the end the ``L_toward_lower`` product emerges from — the same choice
+    # ``segment_grazing`` and ``level_arm`` already make, so all three evaluators
+    # now weight alike and the 80° hand-over carries no species-split step.
+    weight_alt_m = spec.h_low_m
     col_mol = lengths["col_length_mol_km"]
     col_h2o = lengths["col_length_h2o_km"]
-    sigma_mol = atmosphere._rayleigh_extinction_km(lam, mean_alt_m)
-    sigma_aer = atmosphere._aerosol_extinction_km(lam, mean_alt_m)
+    sigma_mol = atmosphere._rayleigh_extinction_km(lam, weight_alt_m)
+    sigma_aer = atmosphere._aerosol_extinction_km(lam, weight_alt_m)
     sigma_h2o = (atmosphere._h2o_vertical_od(lam, col_h2o) / max(col_h2o, 1e-12)) * math.exp(
-        -mean_alt_m / H_H2O_M
+        -weight_alt_m / H_H2O_M
     )
     sigma_gas = (atmosphere._gas_floor_vertical_od(lam, col_mol) / max(col_mol, 1e-12)) * math.exp(
-        -mean_alt_m / H_MOL_M
+        -weight_alt_m / H_MOL_M
     )
 
     omega0 = atmosphere._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o, sigma_gas)
@@ -294,7 +359,7 @@ def _single_scatter_terms(
     cos_dn = cos_scattering_angle(spec.zeta_low_rad, theta_s_rad, delta_phi_rad, "toward_lower")
     prov["cos_scatter_toward_upper"] = cos_up
     prov["cos_scatter_toward_lower"] = cos_dn
-    prov["mean_altitude_m"] = mean_alt_m
+    prov["weight_altitude_m"] = weight_alt_m
 
     phase_up = atmosphere._single_scatter_phase_function(cos_up, sigma_mol, sigma_aer)
     phase_dn = atmosphere._single_scatter_phase_function(cos_dn, sigma_mol, sigma_aer)

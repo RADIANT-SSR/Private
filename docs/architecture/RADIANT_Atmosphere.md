@@ -291,9 +291,29 @@ It was not an air mass. It is the *geometric chord* of a slab of thickness Δh o
 | 85° | 11.47371 | 7.06683 | 10.14005 |
 | 89.4° | 95.49471 | 10.68472 | 28.37722 |
 
-The root form was 14 % low at 80.1°, 30 % at 85° and 62 % at 89.4°, and it made the air mass **drop 18 % across its own switch** — transmittance discontinuous in look angle for every scene class, on an ordinary down-looking column. Removing it makes the model continuous, monotone in ζ, and consistent with the rest of `SimpleAtmosphere`, which is plane-parallel throughout (vertical columns × one air mass, mean-altitude species weights, target-anchored emission height). No shipped scenario exceeds 37.5° LOS zenith or 40° solar zenith, so nothing moved.
+The root form was 14 % low at 80.1°, 30 % at 85° and 62 % at 89.4°, and it made the air mass **drop 18 % across its own switch** — transmittance discontinuous in look angle for every scene class, on an ordinary down-looking column. Removing it makes the model continuous, monotone in ζ, and consistent with the rest of `SimpleAtmosphere`, which was plane-parallel throughout at that date (vertical columns × one air mass, mean-altitude species weights, target-anchored emission height). No shipped scenario exceeds 37.5° LOS zenith or 40° solar zenith, so nothing moved.
 
-Accuracy past 80° is bought by **routing elsewhere**, not by patching this formula: the exact spherical slant integral is `segment_grazing.py` (§4.2g), and callers that have that route take it at `SPHERICAL_SWITCH_RAD` = 80°. The up-looking sky background does. The down-looking column and the solar column do not, so they now *overestimate* the near-horizon air mass (+13 % at 85°, +237 % at 89.4°) rather than underestimating it — a pessimistic SNR rather than an optimistic one, tracked as CU-275. `ZENITH_CEILING_RAD` = 89.5° still bounds the domain, and its docstring's "the model is not trustworthy in that regime" is what these numbers quantify.
+Accuracy past 80° is bought by **routing elsewhere**, not by patching this formula: the exact spherical slant integral is `grazing_column.py`, and callers take it at `SPHERICAL_SWITCH_RAD` = 80°. `AtmosphericGeometry.air_mass()` stays the honest plane-parallel primitive it now is; nothing calls it past 80° any more.
+
+**Every column now takes that route (CU-224 / ex-CU-275, 2026-08-01).** The up-looking sky background hand-over landed with CU-225/CU-274; the down-looking observer column and the solar column kept `sec ζ` over their whole legal domain and therefore *overestimated* the near-horizon air mass — by +3.8 % at 80°, +13 % at 85° and +237 % at 89.4°. Both now hand over at the same 80°, through the shared `near_horizon_air_mass.py`:
+
+| site | inside the band (ζ ≤ 80°) | past it |
+|---|---|---|
+| `segment_simple.column_segment_optical_depth` | `od_vert × air_mass()`, unchanged | per-species spherical |
+| `SimpleAtmosphere.evaluate` — `tau_up`, `tau_full_up` | `od_vert × air_mass()`, unchanged | per-species spherical |
+| `SimpleAtmosphere.evaluate` — `tau_sun` | `od_vert × air_mass()`, unchanged | per-species spherical |
+
+Three consequences worth stating plainly.
+
+*It is per species, not one corrected scalar.* Water vapour's 2 km profile hugs the tangent point far harder than the 8 km molecular one: at 89.4° `sec ζ` overstates molecular air by 237 % but water by only 104 %, a 2.3× divergence. Each species carries `m_i = S_i(r₀; h_lo→h_hi; H_i) / col_i`; the well-mixed-gas floor rides on `m_mol`, because CU-161 defines it as a fraction of the molecular column.
+
+*The direction is toward more signal.* The plane-parallel form was pessimistic near the horizon, so transmittance and SNR move **up** past 80° and never down.
+
+*It is a step, not a blend.* Straddling 80° by a thousandth of a degree on a ground → 100 km column, optical depth drops **2.0 %** (median over 0.4–14 µm; 2.9 % worst wavelength) and transmittance rises **10.6 %** median (up to 49 % where the column is nearly opaque, because τ is exponential in a large OD). That is the plane-parallel model's own error at the point where it is retired — the same shape the sky's 0.64 % radiance step has carried since CU-225, and about five times smaller *in the exponent* than the 18 % air-mass drop that got the root form deleted. Removing it entirely would mean using the spherical integral at every zenith, which moves every existing down-looking baseline and is a separate, owner-gated decision.
+
+*The solar column's 89.5° clamp is retired with it.* The plane-parallel construction had to clamp θ_s at `ZENITH_CEILING_RAD` because `AtmosphericGeometry` refuses past it — which is the worst possible place to clamp, being exactly where `sec ζ` is most wrong. The spherical route has no ceiling, so a twilight scene at θ_s = 89.9° now gets its own column instead of the 89.5° one. `ZENITH_CEILING_RAD` still bounds `path_zenith_rad`, so the *observer* domain is unchanged.
+
+**Anchoring status.** The spherical integral is anchored analytically (Chapman's grazing limit, `grazing_column.py`) but the near-horizon **transmittance** is not yet anchored against a MODTRAN run at those angles — the twilight/refraction calibration pair is a batch-2 deck. Refraction is also unmodelled and is the dominant geometric error inside the horizon guard's warn band, so numbers past ~85° are a better-conditioned model, not a validated one.
 
 ### 4.2a Exo-altitude targets — the vacuum target leg (Gap 95)
 
@@ -440,6 +460,29 @@ independently-calibrated models in one answer is a real modelling compromise, so
 it is never silent: a `UserWarning` is raised, an INFO record is logged, and
 `stage_outputs["atmosphere"]["topology_provenance"]["backend_split"]` names which
 leg came from which model.
+
+**Owner-ratified 2026-08-01 (CU-224 checklist, ex-CU-305): the hybrid stands as
+shipped.** It is a modelling judgement rather than a mechanical one, so it was
+put to the owner with the divergence measured — observer leg, 3–5 µm, ground to
+10 km:
+
+| quantity | run family | `SimpleAtmosphere` companion | difference |
+|---|---:|---:|---:|
+| `tau` | 0.4725 | 0.5715 | −17.3 % |
+| `L` [W/m²/sr/µm] | 0.5414 | 0.3995 | +35.5 % |
+| SNR | 1152.72 | 1207.21 | −4.5 % |
+
+Where the two models must agree — `tau_sun`, `E_TOA`, `E_sky_scattered`,
+`E_sky_thermal`, all served by the companion alone — they are bit-identical. The
+ratification is **conditional on the compromise staying declared**: the
+`UserWarning`, the INFO record and the `backend_split` marker are part of what
+was ratified and must not be softened into silence.
+
+Re-audit condition, and only this one: the split exists because an up-looking run
+family is one leg of data. A family that is self-contained — carrying its own
+solar column and its own sensor → `h_atm_top` sky — or a scene whose target is a
+blackbody, where the illumination terms vanish, makes the companion unnecessary
+*for that scene*, and the split should be dropped there rather than declared.
 
 `SegmentQuantities` is deliberately **not** the observer-leg type on this path.
 That contract carries both directional radiances and an up-looking family
@@ -702,18 +745,56 @@ the MODTRAN H-runs anchor. The `SkyBackground` arm is consequently a
 **pass-through** — `τ ≡ 1`, `L_path ≡ 0` — and must not consult `τ_full_up` /
 `L_path_full` at all.
 
-**The level topology still composes.** A level ray is tangent at the chord
-*midpoint*, so the sensor sits on its descending half and a single sensor-rooted
-ascending arc would omit the constant-altitude arm entirely: measured in
-sea-level-equivalent molecular column, such an arc recovers 98.6 % of the true
-traversed path for an 8 km arm at ground level, 83.0 % for 100 km at 3 km, and
-75.1 % for 150 km at 10 km. Nothing evaluates "constant-altitude arm then
-ascending arc" as one segment (`LevelArmSpec` and `segment_grazing.py` are
-different computations, Rule 19), so the level branch keeps
-`L_arm→sensor + τ_arm · L_continuation(target→top)`, computed at the production
-site in `uplooking_quantities._level_sky_at_aperture`. It is geometrically
-complete, it is numerically what assembly used to build, and no level scene
-moved. It also keeps the CU-254 target-position dependence, tracked as CU-276.
+**The level topology is one whole path too (CU-224 / ex-CU-276, 2026-08-01).**
+It used to compose `L_arm→sensor + τ_arm · L_continuation(target→top)`, joined at
+the target plane, because nothing in RADIANT could evaluate "constant-altitude
+arm then ascending arc" as one segment. `atmosphere/level_whole_path.py` now can,
+and `uplooking_quantities._level_sky_at_aperture` calls it once.
+
+The path is the real one: a level ray is tangent at the chord **midpoint**, so
+the sensor sits on its descending half, and the traversed column is, per species,
+`S_i = 2·S(r_p; h_p→h_arm) + S(r_p; h_arm→h_top)` about the chord perigee
+`r_p = √(r_arm² − (L/2)²)`. Rooting a single ascending arc at the sensor — the
+up-looking branch's shape — would have dropped the arm entirely: such an arc
+recovers only **83.0 %** of the true traversed molecular column for a 100 km arm
+at 3 km and **75.1 %** for 150 km at 10 km. (The 8 km-at-sea-level row is
+degenerate and inverts to 1.014: its perigee is 1.3 m *below* the ellipsoid, so
+the model clamps the integration floor at MSL and warns.)
+
+Two things the fix does, and one it turns out not to do:
+
+- It removes the target-plane **join**, so the sky is one segment with one τ and
+  one `T_eff` — the CU-254 shape.
+- It removes the level arm's **constant-density approximation** from the sky
+  path: the true chord dips below its endpoints and samples denser air.
+- It does **not** remove a CU-254-sized temperature non-additivity, because there
+  never was one here. Both composed sub-segments were keyed to the *same*
+  altitude (`h_arm`), so both carried the identical `T_eff` — measured 227.850 K
+  either side of the join on the 10.2 configuration. CU-276 filed the defect as
+  "the same non-additive-graybody mechanism CU-254 measured at 12.3 %"; measured,
+  the level join's cost is far smaller.
+
+Measured whole-path / composed band-mean sky radiance, midlat_summer rural 23 km:
+
+| altitude | arm | sag | MWIR 3.5–5 µm | LWIR 8–12 µm | VIS 0.45–0.85 µm, θ_s = 30° |
+|---|---|---|---|---|---|
+| 0 m | 8 km | 1.3 m | 1.00000 | 1.00000 | 2.433 |
+| 3 km | 100 km | 196 m | 1.00000 | 1.00183 | 2.085 |
+| 10 km | 50 km | 49 m | 1.00002 | 1.00032 | 1.125 |
+| 10 km | 150 km | 441 m | 1.00017 | 1.00609 | 1.259 |
+| 15 km | 100 km | 196 m | 1.00078 | 1.00248 | 1.155 |
+
+So the thermal bands move by ≤ 0.6 % (they saturate: both forms tend to
+`B(T_eff)`), while a **daytime VIS/NIR** level sky moves by 1.13× to 2.43×,
+because the composed form multiplied the continuation's scattered term by `τ_arm`
+and weighted the two halves separately. `level_arm.py` is **not** superseded by
+this module (Rule 27): it still computes the observer leg — the τ that attenuates
+the target and the `L_path` that adds to it — which is a different path between
+different endpoints.
+
+A zero-length arm reduces the whole-path evaluator **exactly** to
+`segment_grazing.evaluate_grazing_segment` at ζ = π/2, so the level and ascending
+sky topologies join without a step.
 
 Two things it is **not**:
 
@@ -775,12 +856,59 @@ integral rather than by an air mass that was 14–62 % low there. The residual
 0.64 % is the plane-parallel model's own error where it is retired; the
 underlying optical depths differ by 2.8 % at 80° and by a factor of two at 89°.
 
-Closing the residual entirely would mean using the grazing form at *every*
-zenith. That is deferred, not forgotten: the two evaluators weight their species
-split at different altitudes (`segment_grazing` at the arc's lower end,
-`segment_simple` at the segment mean), which leaves the thermal products
-agreeing to ≤ 0.65 % but moves the provisional VIS scattered sky by up to 10×.
-Choosing between them is a modelling decision, not a formula swap — CU-260.
+**The species split is weighted at the lower endpoint (CU-260, adopted
+2026-08-01).** Both evaluators now take the *relative* species proportions that
+set ω₀ and P(Θ) at the segment's **lower endpoint** — the densest air in the
+path, the end the `L_toward_lower` product emerges from, and what
+`segment_grazing.py` and `level_arm.py` already did. `segment_simple.py` used
+the segment's *arithmetic-mean* altitude until this date, which for any column
+taller than ≈ 40 km put the weights above the altitude where the aerosol and
+water coefficients underflow: ω₀ evaluated to exactly 1 (no absorption at all)
+and the Henyey-Greenstein forward peak collapsed onto the isotropic-Rayleigh
+1.5, so a tall column scattered as if the atmosphere held no aerosol whatever
+`visibility_km` said.
+
+Anchored against the shipped `midlat_summer_uplooking_ladder` MODTRAN family
+(ground sensor, ζ = 0°, θ_s = 30°, five non-degenerate rungs), band-mean
+MODTRAN/model at the worst rung:
+
+| band | arithmetic mean (retired) | lower endpoint (shipped) |
+|---|---|---|
+| VIS 0.45–0.85 µm | 3.085× | **1.360×** |
+| NIR 0.85–1.40 µm | 3.024× | **1.262×** |
+| SWIR 1.4–2.5 µm | 8.712× | **1.666×** |
+| MWIR 3–5 µm | 2.404× | **2.334×** |
+| LWIR 8–12 µm | 1.885× | 1.885× (identical to 4e-4 — thermal control) |
+
+Lower-endpoint weighting is closer on 18 of the 25 rung × band cells and its
+overall RMS |ln ratio| is half the retired form's (0.351 against 0.717); the off-band
+thermal region is inert to the choice, which is the condition the adoption
+criterion required. The anchors are frozen in
+`tests/integration/test_species_split_anchors.py`. Note what this does *not*
+claim: the single-scatter source still under-predicts the daytime VIS/NIR sky by
+tens of percent, which is what the sub-3 µm provisional warning above says.
+
+The alignment also removes the *species-split* half of the 80° hand-over step —
+VIS band-mean grazing/column was 2.12× at ζ = 0° and 9.91× at 30° and is now
+1.000 and 1.007 — but not all of it. Band-mean grazing/column at the 80°
+hand-over, ground to `h_atm_top`, θ_s = 30°, measured 2026-08-01:
+
+| band | step |
+|---|---:|
+| VIS 0.45–0.85 µm | 1.063 |
+| NIR 0.85–1.40 µm | **1.463** |
+| MWIR 3–5 µm | 1.036 |
+| LWIR 8–13 µm | 0.993 |
+
+What remains is not the weight *altitude*: the two evaluators linearise the
+CU-161 water curve of growth and the gas floor against **different reference
+columns** — `segment_simple` against the vertical column, `segment_grazing`
+against the slant one — and because the curve of growth is sub-linear
+(`OD = k·w^b`, `b < 1`) that scales the effective water weight by `m_h2o^(b−1)`,
+and therefore ω₀, wherever water absorbs. Below 0.68 µm the step is < 0.5 %;
+above it, where the water bands bite, it reaches 30–46 %. Recorded as a finding
+against the ζ > 80° sky only — no shipped scene reaches that band, and the
+thermal step (0.7 % LWIR) is unchanged from what CU-225 left.
 
 ### 4.3 How geometry feeds each model
 

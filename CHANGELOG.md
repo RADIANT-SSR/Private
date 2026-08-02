@@ -129,6 +129,81 @@ retroactively reconstructed.
   Evaluate-time checks are unchanged (defence in depth); no computed results change.
 
 ### Changed
+- **Results-affecting: the level-topology sky background is evaluated as one whole traversed
+  path (CU-224 checklist / ex-CU-276, owner ruling 2026-08-01).** The level branch of
+  `uplooking_quantities` composed the sky as `L_arm→sensor + τ_arm · L_continuation`, joined
+  at the target plane, because nothing could evaluate "constant-altitude arm then ascending
+  arc" as one segment. New module `atmosphere/level_whole_path.py` does: it integrates the
+  real traversed path — descending half-chord, ascending half-chord, ascending continuation
+  — about the chord's true perigee `r_p = √(r_arm² − (L/2)²)`, per species. That removes the
+  target-plane join *and* the level arm's constant-density approximation from the sky path.
+  A zero-length arm now reduces exactly to `segment_grazing.evaluate_grazing_segment` at
+  ζ = π/2, so the level and ascending sky topologies join with no step.
+  **Direction and magnitude:** the level sky **increases**. Thermal bands move ≤ 0.6 %
+  (they saturate toward `B(T_eff)`); a **daytime VIS/NIR** level sky moves **1.13× to 2.43×**,
+  because the retired form multiplied the continuation's scattered term by `τ_arm` and
+  weighted the two halves separately. **Affected scenes:** level topology on
+  `atmosphere.model = "simple"` (an up-looking *interpolated* scene refuses a level path
+  outright).
+  - **One shipped baseline moves: scenario 10.2** (air-to-air level IRST, MWIR night, where
+    the thermal bands saturate): `snr` 282.8023208926127 → 282.80224590038495,
+    `detection_range_m` 197 900.031129053 m → 197 899.51752931994 m (−0.51 m, −2.6e-6
+    relative). Its `.gui.expected.json` and walkthrough numbers are refreshed in this PR.
+  - `level_arm.py` is **not** superseded (Rule 27): it still computes the observer leg — the
+    τ that attenuates the target and the `L_path` that adds to it — which is a different
+    path between different endpoints.
+  - Correction to the filed defect: the level join did **not** carry a CU-254-sized
+    temperature non-additivity. Both composed sub-segments were keyed to the same altitude
+    and therefore the same `T_eff` (measured 227.850 K either side of the join on 10.2), so
+    the mechanism CU-276 named was absent; what the fix removes is the constant-density arm
+    and the split-weighted scattering.
+
+- **Results-affecting: the down-looking and solar columns hand over to the exact spherical
+  slant integral past 80° zenith (CU-224 checklist / ex-CU-275, owner ruling 2026-08-01).**
+  `SimpleAtmosphere.evaluate`'s observer column (`tau_up`, `tau_full_up`), its solar column
+  (`tau_sun`), and `segment_simple.column_segment_optical_depth` used `sec ζ` over their whole
+  legal domain. Near the horizon the plane-parallel answer diverges: `sec ζ` over-states the
+  air mass by **3.8 % at 80°, 13 % at 85° and 237 % at 89.4°**, and over-states it
+  *differently per species* (water vapour and molecular air are 2.3× apart in error at
+  89.4°). All three now take the same 80° hand-over the up-looking sky has had since
+  CU-225/CU-274, through the new `atmosphere/near_horizon_air_mass.py`, with a **per-species**
+  effective air mass. **Direction and magnitude:** transmittance and SNR move **up** past 80°
+  and never down — median τ rises 10.6 % on a ground → 100 km column at the switch itself,
+  and by a factor of ~3 in optical depth at 89.4°. **Affected scenes:** any scene past 80°
+  LOS zenith or 80° solar zenith on `atmosphere.model = "simple"`. **No shipped golden or
+  scenario baseline moves** — nothing that ships exceeds 37.5° LOS or 40° solar zenith, and
+  at or below 80° the optical depth is bit-for-bit what it was.
+  - The solar column's 89.5° clamp is **retired**: the plane-parallel construction had to
+    clamp θ_s at `ZENITH_CEILING_RAD`, which is exactly where `sec ζ` is most wrong, so a
+    twilight scene at θ_s = 89.9° now gets its own column instead of the 89.5° one.
+    `ZENITH_CEILING_RAD` still bounds `path_zenith_rad`; the observer domain is unchanged.
+  - **Removed:** the module-level alias `radiant.atmosphere.simple.ZENITH_CEILING_RAD_SIMPLE`,
+    which existed only to serve that clamp. Import `ZENITH_CEILING_RAD` from
+    `radiant.atmosphere.protocol` instead.
+  - The near-horizon transmittance is **not yet MODTRAN-anchored** at those angles (the
+    twilight/refraction calibration pair is a batch-2 deck) and refraction remains unmodelled,
+    so past ~85° this is a better-conditioned model, not a validated one.
+
+- **Results-affecting: the single-scatter sky's species split is weighted at the segment's
+  lower endpoint, not at its arithmetic-mean altitude (CU-224 checklist / ex-CU-260, owner
+  ruling 2026-08-01).** `segment_simple.py` sets the ω₀ and P(Θ) species proportions of every column
+  segment — the up-looking **observer leg** and the up-looking / level **sky background**
+  alike — at the column's lower endpoint, which is what
+  `segment_grazing.py` and `level_arm.py` already did — the three evaluators now weight
+  alike. The retired mean-altitude form put the weights above the altitude where the
+  aerosol and water coefficients underflow for any column taller than ≈ 40 km, so ω₀
+  became exactly 1 and the Henyey-Greenstein forward peak collapsed onto the
+  isotropic-Rayleigh 1.5: a tall column scattered as if `visibility_km` had never been set.
+  **Direction and magnitude:** the daytime VIS/NIR/SWIR sky **increases**, by up to 2.3×
+  on a ground-rooted 0–20 km column (band-mean MODTRAN/model at that rung goes 3.085× →
+  1.342× VIS, 3.024× → 1.262× NIR, 8.712× → 1.666× SWIR at the worst rung); MWIR moves ≤ 20 %,
+  LWIR ≤ 4e-4 (thermal-dominated, inert to the choice). **Affected scenes:** up-looking and
+  level scenes on `atmosphere.model = "simple"` with the sun above the local horizon and a
+  grid below 3 µm. **No shipped golden or scenario baseline moves** — every shipped
+  up/level scene is either night (10.1, 10.2) or has the sun below the horizon (10.3).
+  Anchored against the shipped `midlat_summer_uplooking_ladder` MODTRAN family;
+  the anchors are frozen in `tests/integration/test_species_split_anchors.py`.
+
 - **BREAKING — a brightness-temperature + radiance-temperature pair now raises at
   `evaluate()` (CU-293, owner ruling 2026-08-01).** Setting both
   `source.target.brightness_temperature_K` (or `_path`) **and**

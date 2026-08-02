@@ -58,7 +58,10 @@ from typing import Any
 
 import numpy as np
 
-from radiant.atmosphere.grazing_column import grazing_slant_column_km
+from radiant.atmosphere.near_horizon_air_mass import (
+    apply_species_air_mass,
+    near_horizon_species_air_mass,
+)
 from radiant.atmosphere.segment_simple import DEFAULT_H_ATM_TOP_M
 from radiant.atmosphere.segment_single_scatter import (
     COS_HORIZON_TOLERANCE,
@@ -133,32 +136,32 @@ def grazing_segment_optical_depth(
     col_mol = atmosphere._column_length_km(h_low_m, h_high_m, H_MOL_M)
     col_aer = atmosphere._column_length_km(h_low_m, h_high_m, H_AER_M)
     col_h2o = atmosphere._column_length_km(h_low_m, h_high_m, H_H2O_M)
-    s_mol = grazing_slant_column_km(r_tangent_m, h_low_m, h_high_m, H_MOL_M)
-    s_aer = grazing_slant_column_km(r_tangent_m, h_low_m, h_high_m, H_AER_M)
-    s_h2o = grazing_slant_column_km(r_tangent_m, h_low_m, h_high_m, H_H2O_M)
 
-    m_mol = s_mol / col_mol if col_mol > 0.0 else 1.0
-    m_aer = s_aer / col_aer if col_aer > 0.0 else 1.0
-    m_h2o = s_h2o / col_h2o if col_h2o > 0.0 else 1.0
-
-    od = (
-        atmosphere._rayleigh_extinction_km(lam, 0.0) * col_mol * m_mol
-        + atmosphere._aerosol_extinction_km(lam, 0.0) * col_aer * m_aer
-        + atmosphere._h2o_vertical_od(lam, col_h2o) * m_h2o
-        + atmosphere._gas_floor_vertical_od(lam, col_mol) * m_mol
+    masses = near_horizon_species_air_mass(
+        r_tangent_m,
+        h_low_m,
+        h_high_m,
+        col_mol_km=col_mol,
+        col_aer_km=col_aer,
+        col_h2o_km=col_h2o,
+        scale_height_mol_m=H_MOL_M,
+        scale_height_aer_m=H_AER_M,
+        scale_height_h2o_m=H_H2O_M,
+    )
+    od = apply_species_air_mass(
+        masses,
+        od_vert_mol=atmosphere._rayleigh_extinction_km(lam, 0.0) * col_mol,
+        od_vert_aer=atmosphere._aerosol_extinction_km(lam, 0.0) * col_aer,
+        od_vert_h2o=atmosphere._h2o_vertical_od(lam, col_h2o),
+        od_vert_gas=atmosphere._gas_floor_vertical_od(lam, col_mol),
     )
     geometry = {
         "col_length_mol_km": col_mol,
         "col_length_aer_km": col_aer,
         "col_length_h2o_km": col_h2o,
-        "slant_column_mol_km": s_mol,
-        "slant_column_aer_km": s_aer,
-        "slant_column_h2o_km": s_h2o,
-        "air_mass_mol": m_mol,
-        "air_mass_aer": m_aer,
-        "air_mass_h2o": m_h2o,
+        **masses.as_provenance(),
     }
-    return np.asarray(od, dtype=np.float64), geometry
+    return od, geometry
 
 
 def evaluate_grazing_segment(

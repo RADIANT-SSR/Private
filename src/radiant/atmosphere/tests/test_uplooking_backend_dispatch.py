@@ -17,6 +17,7 @@ the *dispatch* contract:
 
 from __future__ import annotations
 
+import logging
 import math
 
 import numpy as np
@@ -172,6 +173,24 @@ class TestObserverLegComesFromTheFamily:
         assert sky.shape == _WL.shape
         assert np.all(sky >= 0.0)
         assert float(sky.max()) > 0.0
+
+    def test_the_split_is_also_logged_at_info(self, params, caplog) -> None:  # type: ignore[no-untyped-def]
+        """All three declarations, not two (CU-224 ratification condition).
+
+        The hybrid was owner-ratified 2026-08-01 **conditional on staying
+        declared**: ``UserWarning`` + INFO log record + ``backend_split``
+        provenance marker.  The warning and the marker have their own tests
+        above; this pins the third, so softening any one of them fails a test
+        rather than passing quietly.
+        """
+        with (
+            caplog.at_level(logging.INFO, logger="radiant.atmosphere.uplooking_quantities"),
+            pytest.warns(UserWarning, match="TWO atmosphere models"),
+        ):
+            evaluate_uplooking_topology(_family(companion=_simple()), _WL, _los(), params)
+        assert any("backend" in record.getMessage().lower() for record in caplog.records), (
+            "the hybrid split must leave an INFO record, not only a warning"
+        )
 
 
 class TestZeroDriftForSimple:

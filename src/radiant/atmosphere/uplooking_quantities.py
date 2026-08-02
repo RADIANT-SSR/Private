@@ -132,6 +132,24 @@ refusing the scene outright, is what CU-226 was filed to remove; the other
 alternative, zeroing the legs the family lacks, would be a silently wrong
 answer that inflates SNR.
 
+**Owner-ratified 2026-08-01 (CU-224 checklist, ex-CU-305).**  The hybrid stands
+as shipped.  It is a modelling judgement, not a mechanical one, so it was put to
+the owner with the divergence measured: on the observer leg at 3–5 µm, ground to
+10 km, ``tau`` 0.4725 (family) against 0.5715 (companion), −17.3 %; ``L`` 0.5414
+against 0.3995 W/m²/sr/µm, +35.5 %; SNR 1152.72 against 1207.21, −4.5 %.  Where
+the two models must agree — ``tau_sun``, ``E_TOA``, ``E_sky_scattered``,
+``E_sky_thermal``, all served by the companion alone — they are bit-identical.
+The ratification is conditional on the compromise staying **declared**: the
+``UserWarning``, the INFO record and the ``backend_split`` provenance marker are
+part of what was ratified and must not be softened into silence.
+
+Re-audit condition: this arrangement exists only because an up-looking run
+family carries one leg of data.  A future family that is self-contained — one
+that carries its own solar column and its own sensor→``h_atm_top`` sky, or a
+scene whose target is a blackbody, where the illumination terms vanish — makes
+the companion unnecessary for that scene, and the split should be dropped there
+rather than declared.  Nothing else re-opens it.
+
 Zero drift
 ----------
 Every entry point here refuses a down-looking LOS.  Nothing in this module is
@@ -152,6 +170,7 @@ import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.level_arm import evaluate_level_arm
+from radiant.atmosphere.level_whole_path import evaluate_level_whole_path
 from radiant.atmosphere.observer_leg import ObserverLeg, observer_leg_from_los
 from radiant.atmosphere.protocol import SPHERICAL_SWITCH_RAD
 from radiant.atmosphere.segment_grazing import evaluate_grazing_segment
@@ -166,7 +185,7 @@ from radiant.atmosphere.solar_shadow import sunlit
 from radiant.atmosphere.solar_transit import twilight_solar_transmittance
 from radiant.core.constants import R_EARTH_M
 from radiant.core.los_geometry import LineOfSightGeometry
-from radiant.core.los_termination import LosTermination, classify_los_termination
+from radiant.core.los_termination import classify_los_termination
 from radiant.core.parameters import ParameterBoundsError, ParameterSet
 from radiant.core.solar import toa_solar_spectral_irradiance
 
@@ -869,8 +888,6 @@ def _sky_radiance_at_aperture(
             atmosphere,
             lam,
             leg,
-            segment,
-            termination,
             theta_s_rad=theta_s_rad,
             delta_phi_seg_rad=delta_phi_seg,
             h_atm_top_m=h_atm_top_m,
@@ -902,45 +919,47 @@ def _level_sky_at_aperture(
     atmosphere: SimpleAtmosphere,
     lam: np.ndarray,
     leg: ObserverLeg,
-    segment: _ObserverSegment,
-    termination: LosTermination,
     *,
     theta_s_rad: float | None,
     delta_phi_seg_rad: float,
     h_atm_top_m: float,
 ) -> tuple[np.ndarray, str]:
-    """``L_arm→sensor + τ_arm · L_continuation`` for a level LOS.
+    """One whole-path evaluation for a level LOS (CU-224, ex-CU-276).
 
-    The two-segment composition, kept deliberately — see
-    :func:`_sky_radiance_at_aperture` for why a sensor-rooted single arc
-    cannot express a level path (it drops the constant-altitude arm, up to
-    25 % of the traversed column).  Numerically identical to what the
-    ``SkyBackground`` assembly arm used to compute for this topology, so no
-    level scene moves.
+    The level branch used to compose ``L_arm→sensor + τ_arm · L_continuation``,
+    joined at the target plane.  That join carried the CU-254 non-additivity:
+    each segment emits at its own ``T_eff`` with its own species weights, so
+    where the target sat changed the background behind it.  It survived CU-254
+    only because no evaluator could express "constant-altitude arm then
+    ascending arc" as one path; :mod:`radiant.atmosphere.level_whole_path` now
+    can, and the sky is evaluated once, about the chord's real perigee.
     """
     assert isinstance(leg.spec, LevelArmSpec)  # caller-enforced branch invariant
-    # Level: sensor, target and arm all sit at the one altitude, so the
-    # continuation starts there too.
     h_arm = leg.spec.altitude_m
-    continuation, cont_note = _ascending_sky(
+    if h_arm >= h_atm_top_m:
+        return (
+            np.zeros_like(lam),
+            "level path above h_atm_top — the whole LOS is vacuum, sky radiance ≡ 0",
+        )
+    # The band-gating policy applies wherever a sky radiance is produced, not
+    # only where ``sky_radiance_along_los`` produces it (CU-260).
+    warn_if_scattered_sky_provisional(lam, theta_s_rad)
+    whole = evaluate_level_whole_path(
         atmosphere,
         lam,
-        h_low_m=h_arm,
-        zeta_low_rad=termination.continuation_zeta_rad,
-        r_tangent_m=termination.tangent_radius_m,
-        origin="the target",
+        altitude_m=h_arm,
+        arm_length_m=leg.spec.length_m,
         theta_s_rad=theta_s_rad,
-        delta_phi_seg_rad=delta_phi_seg_rad,
+        delta_phi_rad=delta_phi_seg_rad,
         h_atm_top_m=h_atm_top_m,
     )
-    tau_arm = segment.tau
-    L_arm = segment.L_toward_sensor
-    sky = L_arm + tau_arm * continuation
+    perigee_m = float(whole.provenance["perigee_altitude_m"])
     note = (
-        f"level composition at {h_arm:.0f} m MSL: constant-altitude arm toward "
-        f"the sensor + arm transmittance × [{cont_note}]"
+        f"level whole-path sky at {h_arm:.0f} m MSL: one segment spanning the "
+        f"{leg.spec.length_m:.0f} m constant-altitude arm and the ascending "
+        f"continuation to cold space, about the chord perigee at {perigee_m:.1f} m MSL"
     )
-    return np.asarray(sky, dtype=np.float64), note
+    return np.asarray(whole.L_toward_lower, dtype=np.float64), note
 
 
 def _ascending_sky(

@@ -16,7 +16,7 @@ stay clearly separated:
 
 Real MODTRAN 6 output has passed through RADIANT's parser since the
 2026-07-17 delivery, and the batch-1 up-looking / horizontal set followed
-on 2026-07-26; the staged runs live gitignored under `real_runs/` with
+on 2026-07-26; the staged runs live tracked in git under `real_runs/` (owner decision 2026-08-02 — irreplaceable source data) with
 their checksums committed at `real_runs_MANIFEST.sha256`. Nothing in this
 repository fabricates a tape7 and presents it as MODTRAN-equivalent
 physics; the `synthetic/` files are loudly labeled and physically
@@ -157,8 +157,9 @@ hand-edit rows are held back pending special handling:
 
 **Where the outputs go.** Stage every delivered `.tp7` flat in
 `modtran/real_runs/` named `<run_id>.tp7` (e.g. `real_runs/M1.tp7`), exactly
-as batch 1 is staged — that directory is gitignored, so the data never
-enters git. Then regenerate the committed checksums:
+as batch 1 is staged — the directory is tracked in git as of 2026-08-02
+(owner decision: the outputs are irreplaceable source data), so commit the
+delivered files. Then regenerate the committed checksums:
 
 ```
 python scripts/gen_modtran_manifest.py

@@ -54,24 +54,17 @@ scenarios/*/*/outputs/*.xlsx
 # per docs/plans/MODTRAN_Run_Matrix_Plan.md §7, not here.
 modtran/decks/
 
-# Real MODTRAN outputs — gitignored local staging for the 2026-07-17
-# run set (39 tape7 + 4 E-block flux CSVs, ~296 MB). NOT a permanent
-# home: once the parser reads them and golden tests pass, the fixture
-# subset is committed to tests/integration/fixtures/modtran/ and the
-# shipped subset repackaged into data/atmospheres/ per plan §7. These
-# cannot be regenerated locally (no MODTRAN binary), so preserve them.
-# See modtran/real_runs/README.md for the provenance manifest.
-# Both forms: 'real_runs/' ignores the directory contents; bare
-# 'real_runs' also refuses a FILE or SYMLINK at that path — a tracked
-# symlink slipped through the dir-only pattern on 2026-07-20 and its
-# checkout clobbered the ignored (irreplaceable) staged delivery.
-# Integrity: the SHA-256 checksums of the staged data are committed as the
-# SIBLING file 'modtran/real_runs_MANIFEST.sha256' (outside this ignore, so
-# the dir+symlink guard above stays intact) — regenerate/verify via
-# scripts/gen_modtran_manifest.py, gated by tests/integration/test_modtran_manifest.py
-# (CU-174). Keep a second copy of the original delivery outside the repo.
-modtran/real_runs/
-modtran/real_runs
+# Real MODTRAN outputs (modtran/real_runs/) are TRACKED as of 2026-08-02
+# (owner decision): they are owner-produced source data that cannot be
+# regenerated from this repo (no MODTRAN binary; hours of owner runtime),
+# which is exactly the Rule-26 cause for committing. Their generator record
+# is docs/plans/modtran_run_matrix.csv + the rendered decks; delivery
+# integrity stays checksummed in modtran/real_runs_MANIFEST.sha256
+# (scripts/gen_modtran_manifest.py, gated by
+# tests/integration/test_modtran_manifest.py, CU-174). The pre-2026-08-02
+# ignore existed to protect an untracked staging area — tracking replaces
+# that protection with git itself (the 2026-07-20 symlink-clobber incident
+# class is gone: 'git restore' recovers the data).
 
 # Synthetic (NOT real) tape7 outputs — deterministic from
 # modtran_run_matrix.csv via scripts/generate_synthetic_tape7.py;

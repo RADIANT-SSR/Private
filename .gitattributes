@@ -27,3 +27,11 @@
 *.otf   -text
 *.woff  -text
 *.woff2 -text
+
+# Real MODTRAN delivery (tracked 2026-08-02, owner decision) — byte-exact.
+# The delivered outputs are CRLF as MODTRAN wrote them, and
+# modtran/real_runs_MANIFEST.sha256 checksums those exact bytes. Never
+# normalize: an LF rewrite would silently diverge every file from its
+# committed checksum (the CU-150 rule protects generated text; this
+# protects delivered source data by the opposite means).
+modtran/real_runs/** -text

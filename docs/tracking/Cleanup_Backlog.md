@@ -83,6 +83,13 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: Rule 26/24 — a committed analyst-facing product contradicts its own generator; an operator reading the walkthrough draws conclusions ("not detectable") the current model no longer supports. Passes intake tests 1 (a refresh changes committed numbers) and 4 (workflow-visible).
 **Suggested fix**: (b) stand-alone — re-run the 4.1 runner, regenerate matrix + figures under Rule 26, refresh the walkthrough with attribution (bisect which landed change moved the rows — candidates include the CU-253-adjacent VIS work, CU-262 turbulence, CU-254/255 atmosphere fixes), and note it in the CHANGELOG only if the attribution finds an unrecorded results-affecting landing. Effort M; category D. Related: [[CU-263]] (discovery), CU-291 (the byte-reproducibility log line).
 
+**Family head (2026-08-02)** — the scenario-walkthrough drift family (Rule 21 family-CU provision). The 2026-08-02 thermal-term landing (CU-224) legitimately moved 17 scenarios' baselines (+7–59 % SNR) under §5.3, but walkthrough/gaps prose was outside that sweep — so the drift this entry records for 4.1 now exists across roughly a third of the suite, created by correct physics landings whose §5.3 discipline covers machine baselines only. One sweep, one attribution discipline. Checklist:
+
+- [ ] 4.1's re-run refresh with attribution of the pre-2026-08-01 drift (this entry's original scope; CU-263 was tripwire-excluded — candidates are the other Results-affecting landings between its last refresh and discovery).
+- [ ] Full-suite walkthrough/gaps refresh: re-run every runner, refresh every stale table/number to the runner's actual output with an attribution line naming the Results-affecting CHANGELOG entries that moved it; figures per Rule 26 (byte-restore where content-equivalent, per the CU-291 log line).
+- [ ] Zero `.gui.expected.json` movement asserted — baselines are current on `main`; a baseline that moves during this sweep is unrecorded drift and stops the sweep.
+
+
 ### CU-316 — Tabulated and MODTRAN backends resample tau linearly, diverging from the interpolated backend's log-tau convention
 
 **Discovered**: CU-306 closure (branch `atmo/cu-306-logtau-resample`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).

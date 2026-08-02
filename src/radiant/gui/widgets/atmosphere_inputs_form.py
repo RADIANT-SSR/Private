@@ -46,6 +46,7 @@ from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 from radiant.core.exceptions import RadiantError
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.param_format import field_display_text
+from radiant.gui.widgets.atmosphere_family_picker import AtmosphereFamilyPicker
 from radiant.gui.widgets.field_row import (
     LABEL_COLUMN_WIDTH,
     VALUE_BOX_MAX,
@@ -88,10 +89,12 @@ _TABULATED_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Downwelling file (optional)", "atmosphere.tabulated_downwelling_file"),
 )
 
-# Interpolated run-matrix knobs — shown when model == "interpolated".
+# Interpolated run-matrix knobs — shown when model == "interpolated". The axes row is
+# deliberately absent: ``atmosphere.interpolation_axes`` is written by the
+# AtmosphereFamilyPicker mounted at the head of this group (CU-239), which also owns the
+# free-text escape hatch for a run matrix outside the bundled catalogue.
 _INTERPOLATED_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Run-matrix directory", "atmosphere.interpolated_data_dir"),
-    ("Interpolation axes", "atmosphere.interpolation_axes"),
     ("Interpolation method", "atmosphere.interpolation_method"),
 )
 
@@ -125,9 +128,15 @@ class AtmosphereInputsForm(QWidget):
         Emitted with the dot-path after an accepted edit, so the host window can refresh
         the parameter tree, this form, and schedule a re-evaluation — the same contract
         as every other Inputs form.
+    compoundParameterEdited(list):
+        Emitted with the dot-paths one user action wrote when there is more than one —
+        choosing a library family can write both ``atmosphere.interpolation_axes`` and
+        ``atmosphere.interpolated_data_dir`` (CU-239). The host records them as a single
+        undo step, exactly as for the geometry shape picker (CU-141).
     """
 
     parameterEdited = Signal(str)
+    compoundParameterEdited = Signal(list)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -173,6 +182,15 @@ class AtmosphereInputsForm(QWidget):
         self._groups["interpolated"] = self._add_group(
             box, card, "Interpolated run matrix", _INTERPOLATED_FIELDS
         )
+        # The family picker leads the interpolated group: the bundled library is a closed
+        # catalogue, so it is chosen from a list (with its coverage and profile shown)
+        # rather than reconstructed as a free-text axes key (CU-239). It writes
+        # interpolation_axes — and interpolated_data_dir for a family no axes key reaches
+        # (ex-CU-296) — as one compound edit.
+        interpolated_box = self._groups["interpolated"].layout()
+        self._family_picker = AtmosphereFamilyPicker(self._groups["interpolated"])
+        self._family_picker.parametersEdited.connect(self._after_family_choice)
+        interpolated_box.insertWidget(1, self._family_picker)
         # The exo note (shown only for the vacuum model).
         self._exo_note = QLabel(_EXO_NOTE, card)
         self._exo_note.setObjectName("stageCenterNote")
@@ -225,6 +243,7 @@ class AtmosphereInputsForm(QWidget):
         """Bind the live *sensor* and the shared *display_units* store, then refresh."""
         self._sensor = sensor
         self._display_units = display_units
+        self._family_picker.bind_sensor(sensor, display_units)
         self.refresh()
 
     def refresh(self) -> None:
@@ -235,6 +254,7 @@ class AtmosphereInputsForm(QWidget):
         """
         for dotpath, row in self._rows.items():
             row.set_value_text(self._value_text(dotpath))
+        self._family_picker.refresh()
 
         model = self._current_model()
         active = _MODEL_GROUPS.get(model, "simple") if model is not None else None
@@ -285,6 +305,19 @@ class AtmosphereInputsForm(QWidget):
         self.refresh()
         self.parameterEdited.emit(dotpath)
 
+    def _after_family_choice(self, dotpaths: list[str]) -> None:
+        """Relay the picker's write: one dot-path is an ordinary edit, several a compound.
+
+        Routing a single write through ``parameterEdited`` keeps a one-parameter family
+        choice indistinguishable from any other edit (no empty undo macro), while a
+        two-parameter choice reverses in one step (CU-141).
+        """
+        self.refresh()
+        if len(dotpaths) == 1:
+            self.parameterEdited.emit(dotpaths[0])
+        elif dotpaths:
+            self.compoundParameterEdited.emit(list(dotpaths))
+
     # -- accessors (tests) ----------------------------------------------------
 
     def field_dotpaths(self) -> tuple[str, ...]:
@@ -298,6 +331,11 @@ class AtmosphereInputsForm(QWidget):
     def group_visible(self, key: str) -> bool:
         """Whether the model group *key* is currently shown (tests)."""
         return self._groups[key].isVisible()
+
+    @property
+    def family_picker(self) -> AtmosphereFamilyPicker:
+        """The interpolated-library family picker (CU-239)."""
+        return self._family_picker
 
 
 __all__ = ["AtmosphereInputsForm"]

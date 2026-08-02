@@ -16,7 +16,7 @@ whose numbers always carry units (km, degrees).
 from __future__ import annotations
 
 from radiant.atmosphere.interpolation_coverage import (
-    SHIPPED_FAMILIES as _SHIPPED_FAMILIES,
+    BUNDLED_FAMILIES as _BUNDLED_FAMILIES,
 )
 from radiant.atmosphere.interpolation_coverage import (
     ShippedFamily,
@@ -39,8 +39,16 @@ def shipped_atmosphere_families() -> tuple[ShippedFamily, ...]:
     exposes ``name``, ``los_direction``, ``interpolation_axes`` (the exact
     string to write), ``profile``, ``coverage`` (units explicit) and a
     ``summary`` one-liner suitable as a picker label.
+
+    Rows with ``explicit_dir_only = True`` are bundled families whose
+    ``(direction, axes)`` signature another family already owns, so writing
+    their ``interpolation_axes`` alone selects the *other* family: adopting one
+    means writing ``bundled_dir`` into ``atmosphere.interpolated_data_dir`` as
+    well. ``midlat_summer_boost_ladder`` is the only such row today — 24
+    committed MODTRAN runs that no axes key could reach until this catalogue
+    published them (ex-CU-296).
     """
-    return _SHIPPED_FAMILIES
+    return _BUNDLED_FAMILIES
 
 
 def shipped_family_for_axes(los_direction: str, interpolation_axes: str) -> ShippedFamily | None:

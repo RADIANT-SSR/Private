@@ -28,6 +28,7 @@ import numpy as np
 
 from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.interpolation_coverage import (
+    BUNDLED_ATMOSPHERES_DIR,
     SHIPPED_FAMILIES,
     check_interpolation_coverage,
     shipped_family_catalogue_text,
@@ -40,10 +41,11 @@ if TYPE_CHECKING:  # type-only: keeps scipy out of this module's import cost
 logger = logging.getLogger(__name__)
 
 #: The shipped MODTRAN-derived atmosphere library, bundled inside the package at
-#: ``src/radiant/data/tables/atmospheres/`` so a wheel install carries it
-#: (parents[1] == ``radiant`` package root; same relative pattern as
-#: ``radiant.data.library``). Rule 30: no repo-root path assumption.
-_SHIPPED_ATMOSPHERES_DIR = Path(__file__).resolve().parents[1] / "data" / "tables" / "atmospheres"
+#: ``src/radiant/data/tables/atmospheres/``. Owned by
+#: :data:`radiant.atmosphere.interpolation_coverage.BUNDLED_ATMOSPHERES_DIR`, which
+#: the catalogue also uses to render each family's ``bundled_dir`` — one canonical
+#: version (Rule 27), one place a packaging change has to be made.
+_SHIPPED_ATMOSPHERES_DIR = BUNDLED_ATMOSPHERES_DIR
 
 #: Shipped library family to use when ``atmosphere.interpolated_data_dir`` is
 #: left unset, keyed by ``(los_direction, normalized interpolation_axes)``.

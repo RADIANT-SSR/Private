@@ -21,6 +21,36 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **The interpolated atmosphere library is picked from a list, not typed as a key
+  (CU-239).** The Atmosphere screen's *Interpolated run matrix* group leads with a family
+  picker built from `radiant.api.shipped_atmosphere_families()`: one row per bundled
+  family with its rendered profile and a plain-language coverage line in operator units
+  (km, degrees). Choosing a row writes `atmosphere.interpolation_axes` — and
+  `atmosphere.interpolated_data_dir` where the family needs one — as derived values, in a
+  single undo step. The family the resolved scene calls for is marked *(recommended for
+  this scene)* and, when what is configured cannot serve the scene, pre-selected as a
+  **proposal** that an explicit *Use this family* click applies: choosing a family can
+  change the atmosphere profile, so it is never written behind the operator's back, and
+  the profile-change caveat shows beside the row whenever it would. *Custom axes…
+  (advanced)* keeps the old free-text field for a run matrix outside the catalogue.
+  **`midlat_summer_boost_ladder` is now reachable**: its 24 committed MODTRAN runs
+  (nadir, targets 0–100 km) share the 2-axis ladders' `(direction, axes)` key, so no axes
+  string could ever select them; the picker offers the family by name and writes its
+  bundled directory. **No computed result moves** — the loader's default-family dispatch,
+  and therefore every existing 2-axis result, is untouched; this adds a way to reach data
+  that already shipped.
+- **`Sensor.suggested_atmosphere_family()` and
+  `Sensor.atmosphere_profile_change_warning(family)` (CU-239).** The first derives the
+  bundled family a scene calls for from the sensor's own resolved geometry (a
+  recommendation — it writes nothing); the second renders the sentence to show when
+  adopting a family would change an explicitly-set `atmosphere.standard_atmosphere`.
+  `shipped_atmosphere_families()` now also lists families reachable only through an
+  explicit directory, each carrying `explicit_dir_only` and `bundled_dir`.
+- **The atmosphere coverage check now fires on edit, not only at Evaluate (CU-239).** A
+  scene/axes mismatch appears in the GUI Messages rail — with the exact axes string to
+  set — the moment the offending parameter is edited, and clears again when the config is
+  fixed, instead of arriving ~1 s later as a failed evaluation.
+
 - **`geometry.site_elevation_m` has a GUI entry point (CU-301).** The Geometry screen's
   Inputs tab gains a site-elevation card below the input-mode forms. The parameter is a
   standalone scene fact rather than an input-mode door, so the manifest-driven forms

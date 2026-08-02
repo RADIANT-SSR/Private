@@ -134,6 +134,8 @@ so run time per deck is comparable.
 Please **record which refraction switch you used for Q5/Q6** in
 `real_runs/README.md` — RADIANT has no way to infer it from the tape7.
 
+**Pending future runs (owner-ratified 2026-08-02, CU-181 closure):** rows **P7/P8** (60/80 km elevated-endpoint downwelling) — two decks that replace the modelled 60/80 km rungs of the downwelling ladder with measured values, whenever MODTRAN is next fired up. They are the only unrun rows besides Q5/Q6.
+
 **Owner deck audit, 2026-08-02.** The 33 rows M1–M8, N1–N10, O1–O5, P1–P6,
 Q1–Q4 were audited safe and run as-is; these are the only rows the CU-224
 gated half (P5), CU-181, and the sec-space axis actually need. The four

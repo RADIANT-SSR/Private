@@ -1,7 +1,7 @@
 """Build the shipped atmosphere library from the real MODTRAN run set.
 
-Repackages the 2026-07-17 MODTRAN 6 run matrix (staged, gitignored, in
-``modtran/real_runs/``) into the committed NPZ library under
+Repackages the MODTRAN 6 run matrix (tracked in git under
+``modtran/real_runs/`` since 2026-08-02) into the committed NPZ library under
 ``data/atmospheres/`` per ``docs/archive/MODTRAN_Run_Matrix_Plan.md`` §7.2.
 
 Families produced (see ``data/atmospheres/MANIFEST.md`` for the full
@@ -43,15 +43,46 @@ design record):
   physical quantity from every other family's upwelling ``path_radiance``,
   so it uses a different NPZ key and is refused by the down-looking
   loaders. See :mod:`radiant.atmosphere.interpolated` and the MANIFEST.
+- ``midlat_summer_uplooking_zenith_fan/`` — the batch-2 N block plus the
+  K ladder as a 2-D up-looking grid over
+  ``(target_altitude_m, path_zenith_rad)``: targets 0/1/3/5/10/20 km ×
+  lower-endpoint zenith 0° / 48.2° / 60° (sec ζ = 1 / 1.4999 / 2). The
+  zenith axis interpolates in sec-space (CU-160); it is the axis the
+  vertical-only up-looking refusal was waiting for (GF-10).
+- ``midlat_summer_sst_column_fan/``   — the batch-2 M block plus H5: a
+  ground observer's **full column to space** (0 → 100 km) as a 1-D
+  up-looking grid over ``path_zenith_rad`` at sec ζ = 1/1.5/2/3/4/5. The
+  SST anchor family. M6–M8 (85/88/89.5°) are ``dev_only`` in the run
+  matrix and are deliberately NOT shipped — the sec-space mapping is
+  unvalidated past the 88.8° airmass ceiling.
+- ``midlat_summer_uplooking_sensor_ladder/`` — the batch-2 P block plus
+  H5: an **elevated** observer's full column to space at the 48.2°
+  diffusivity angle, as a 1-D up-looking grid over ``sensor_altitude_m``
+  (0/1/5/10/20/29/50 km) plus the synthesized zero-length node at the
+  100 km atmosphere top. These are the same runs the CU-181 downwelling
+  ladder is built from.
+- ``midlat_summer_upwelling_offnadir/`` — the batch-2 O block plus J1/A3/I5:
+  a down-looking **ground-target** grid over
+  ``(sensor_altitude_m, path_zenith_rad)`` — sensor 10/100 km (+ the
+  orbital duplicate) × LOS zenith 0° / 48.2° / 60°. The upwelling
+  reciprocals of the up-looking columns, and the emission-height anchors
+  CU-224's down-looking thermal term needs.
 - ``validation/``                     — off-grid single points (C7, G6 at
-  45°; H1 nadir up-looking) kept as data but NOT interpolation nodes.
+  45°; H1 nadir up-looking; O1/O2, the 1 km and 5 km nadir upwelling
+  anchors that have no zenith column and so cannot join the rectangular
+  O grid) kept as data but NOT interpolation nodes.
   K6 (the up-looking 45° coupling anchor) is deliberately **not** shipped:
   it is a holdout, consumed only by the ``skipif``-guarded characterization
   test against the staged tape7.
 
-All midlat_summer families carry the H5 up-looking 48.2° downwelling as
-``atm_emission_down`` (boost plan §4.4); see the MANIFEST for the
-elevated-target simplification note.
+Downwelling (``atm_emission_down``, CU-181). Every down-looking
+midlat_summer node carries the up-looking 48.2° diffusivity-angle sky
+radiance **at that node's target altitude**, interpolated from the
+measured rung ladder H5 (0 km) + P1–P6 (1/5/10/20/29/50 km) by
+:func:`scripts.downwelling_altitude.downwelling_at_altitude`. Before
+batch 2 the single ground-level H5 value was attached to every node
+regardless of target altitude; ground-target nodes are therefore
+unchanged and only elevated-target nodes move.
 
 Spectral treatment: every array is slit-degraded with a triangular
 FWHM = 5 cm⁻¹ kernel on the native uniform 1 cm⁻¹ wavenumber grid, then
@@ -75,12 +106,14 @@ import numpy as np
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
+sys.path.insert(0, str(REPO))
 
 from radiant.atmosphere.interpolated import (  # noqa: E402
     FAMILY_DIRECTION_KEY,
     UPLOOKING_RADIANCE_KEY,
 )
 from radiant.atmosphere.modtran import Tape7Reader  # noqa: E402
+from scripts.downwelling_altitude import downwelling_at_altitude  # noqa: E402
 
 REAL_RUNS = REPO / "modtran" / "real_runs"
 OUT_ROOT = REPO / "src" / "radiant" / "data" / "tables" / "atmospheres"
@@ -136,6 +169,22 @@ DOWNWELLING_RUNS: dict[str, str] = {
     "us_standard": "H2",
     "tropical": "H4",
     "midlat_summer": "H5",
+}
+
+# CU-181: measured midlat_summer downwelling rung ladder — the sky radiance an
+# observer at each altitude sees looking up at the 48.2° diffusivity angle.
+# H5 is the ground rung (already shipped); P1–P6 are the batch-2 P block, run
+# at the identical profile/aerosol/visibility/angle with only the lower
+# endpoint lifted. Ordered ascending in altitude, which
+# ``downwelling_at_altitude`` requires. run -> observer altitude [km].
+DOWNWELLING_RUNGS: dict[str, float] = {
+    "H5": 0.0,
+    "P1": 1.0,
+    "P2": 5.0,
+    "P3": 10.0,
+    "P4": 20.0,
+    "P5": 29.0,
+    "P6": 50.0,
 }
 
 # Zenith fan (us_standard full column): run -> RADIANT LOS zenith [rad].
@@ -250,6 +299,76 @@ UPLOOKING_SENSOR_KM = 0.0
 # target below the 1 km bottom rung interpolates instead of being refused.
 UPLOOKING_ZERO_LENGTH_TARGET_KM = 0.0
 
+# --- Batch-2 families (2026-08-02 delivery) --------------------------------
+
+# N block + K block: the up-looking zenith fan. run -> (target km, zenith deg).
+# The rectangular grid InterpolatedAtmosphere needs is targets {0,1,3,5,10,20}
+# km × lower-endpoint zenith {0, 48.2, 60}° (sec ζ = 1 / 1.4999 / 2); the ζ = 0
+# column is the delivered K ladder (Rule 27 — not re-run), the other two are
+# N1–N5 and N6–N10. Three sec rungs is the minimum that can *test* linearity in
+# sec rather than assume it (CU-160). The target = 0 row at every zenith is the
+# synthesized zero-length identity, added below.
+UPLOOKING_ZENITH_FAN: dict[str, tuple[float, float]] = {
+    "K1": (1.0, 0.0),
+    "K2": (3.0, 0.0),
+    "K3": (5.0, 0.0),
+    "K4": (10.0, 0.0),
+    "K5": (20.0, 0.0),
+    "N1": (1.0, 48.2),
+    "N2": (3.0, 48.2),
+    "N3": (5.0, 48.2),
+    "N4": (10.0, 48.2),
+    "N5": (20.0, 48.2),
+    "N6": (1.0, 60.0),
+    "N7": (3.0, 60.0),
+    "N8": (5.0, 60.0),
+    "N9": (10.0, 60.0),
+    "N10": (20.0, 60.0),
+}
+UPLOOKING_FAN_ZENITHS_DEG: tuple[float, ...] = (0.0, 48.2, 60.0)
+
+# M block + H5: the SST full-column fan, ground observer → 100 km.
+# run -> lower-endpoint zenith [deg]; sec ζ = 1 / 1.5 / 2 / 3 / 4 / 5.
+# M6–M8 (85/88/89.5°, sec 11.5/28.7/114.6) are ``dev_only`` in the run matrix
+# and are NOT shipped: they sit outside the uniform sec ladder and, for M7/M8,
+# at or past InterpolatedAtmosphere's 88.8° airmass ceiling, where the sec-space
+# mapping is unvalidated. They are physics anchors, not library nodes.
+SST_COLUMN_FAN: dict[str, float] = {
+    "M1": 0.0,
+    "H5": 48.2,
+    "M2": 60.0,
+    "M3": 70.529,
+    "M4": 75.522,
+    "M5": 78.463,
+}
+SST_TARGET_KM = 100.0
+
+# P block + H5: the elevated-observer full-column ladder at the 48.2°
+# diffusivity angle. run -> observer (lower endpoint) altitude [km]. Same runs
+# as DOWNWELLING_RUNGS — there they supply another family's ``atm_emission_down``,
+# here they are library nodes in their own right (run matrix P-row note).
+UPLOOKING_SENSOR_LADDER: dict[str, float] = dict(DOWNWELLING_RUNGS)
+UPLOOKING_SENSOR_LADDER_ZENITH_DEG = 48.2
+
+# O block + J1/A3/I5: the down-looking upwelling grid over
+# (sensor altitude, LOS zenith) for a GROUND target.
+# run -> (sensor km, zenith deg). The zenith is the run matrix's
+# ``path_zenith_deg_radiant`` — the LOWER-endpoint (ground) zenith, the same
+# convention every other family records (ex-CU-223); MODTRAN's Card-3 ANGLE for
+# these rows is 180° − that, which is why the deck echoes read 180/131.8/120.
+# O1 (1 km) and O2 (5 km) are nadir-only and have no zenith column, so they
+# cannot join this rectangular grid — they ship under validation/ instead.
+UPWELLING_OFFNADIR: dict[str, tuple[float, float]] = {
+    "J1": (10.0, 0.0),
+    "O3": (10.0, 48.2),
+    "O4": (10.0, 60.0),
+    "A3": (100.0, 0.0),
+    "O5": (100.0, 48.2),
+    "I5": (100.0, 60.0),
+}
+UPWELLING_OFFNADIR_ZENITHS_DEG: tuple[float, ...] = (0.0, 48.2, 60.0)
+UPWELLING_OFFNADIR_SENSORS_KM: tuple[float, ...] = (10.0, 100.0)
+
 # Self-describing direction marker written into every up-looking NPZ.  The key
 # and value come from the runtime module that reads them, so builder and
 # loader cannot drift apart (Rule 26: the artifact names its generator, and
@@ -263,6 +382,11 @@ VALIDATION: dict[str, tuple[float, float, float]] = {
     "C7": (35.0, 10.0, 45.0 * _DEG),
     "G6": (100.0, 10.0, 45.0 * _DEG),
     "H1": (0.0, 100.0, 0.0),
+    # Batch-2 O block, nadir rungs: matched down-looking partners of the K1/K3
+    # up-looking columns. Nadir-only, so they cannot join the rectangular
+    # (sensor × zenith) upwelling grid; shipped as data, not as grid nodes.
+    "O1": (1.0, 0.0, 0.0),
+    "O2": (5.0, 0.0, 0.0),
 }
 
 
@@ -295,15 +419,35 @@ def _load_downwelling(run: str) -> np.ndarray:
     return np.maximum(_degrade(l_path), 0.0)
 
 
+class _DownwellingLadder:
+    """The measured downwelling-vs-altitude ladder for one profile (CU-181).
+
+    Loads the rung runs once and answers ``at(target_km)`` for every node the
+    families need. The physics lives in
+    :func:`scripts.downwelling_altitude.downwelling_at_altitude`; this class is
+    only the MODTRAN-reading shell around it (Rule 19).
+    """
+
+    def __init__(self, rungs: dict[str, float]) -> None:
+        ordered = sorted(rungs.items(), key=lambda item: item[1])
+        self.altitudes_km = np.array([alt for _run, alt in ordered], dtype=np.float64)
+        self.runs = [run for run, _alt in ordered]
+        self.values = np.vstack([_load_downwelling(run) for run in self.runs])
+
+    def at(self, target_km: float) -> np.ndarray:
+        """Downwelling sky radiance [W/m²/sr/µm] at a target altitude [km]."""
+        return downwelling_at_altitude(self.altitudes_km, self.values, target_km)
+
+
 def _vacuum_arrays(wl: np.ndarray, downwelling: np.ndarray) -> dict[str, np.ndarray]:
     """Synthesized vacuum node: τ ≡ 1, L_path ≡ 0 (boost plan §4.2).
 
     A physical identity (no absorbing column above the atmosphere top),
-    not fabricated data. ``atm_emission_down`` carries the family's H-run
-    downwelling so the interpolated downwelling is continuous across the
-    target axis — the up-path identity (τ, L_path) is what closes the
-    Gap 95 exo handoff; the downwelling is the constant-per-family
-    simplification documented in the MANIFEST.
+    not fabricated data. ``atm_emission_down`` is the caller's
+    altitude-resolved downwelling at the same node — at the 100 km
+    atmosphere top that is the matching identity, exactly zero: an observer
+    there has no sky above it (CU-181; before batch 2 this node carried the
+    ground-level H5 constant, the entry's worst single case).
     """
     return {
         "wavelength_um": np.asarray(wl, dtype=np.float64),
@@ -402,14 +546,21 @@ def main() -> int:
             geometry=_full_geometry(100.0, 0.0, zenith_rad),
         )
 
-    # H5 up-looking 48.2° downwelling — attached to EVERY midlat_summer
-    # family node (ladders, boost, off-nadir, sensor-ladder; plan §4.4).
-    ms_down = _load_downwelling("H5")
+    # Altitude-resolved up-looking 48.2° downwelling — attached to EVERY
+    # down-looking midlat_summer family node at that node's TARGET altitude
+    # (CU-181; plan §4.4 attached the ground rung alone).
+    ms_down = _DownwellingLadder(DOWNWELLING_RUNGS)
+    print(
+        "Downwelling ladder (CU-181): rungs "
+        + ", ".join(
+            f"{run}@{alt:g} km" for run, alt in zip(ms_down.runs, ms_down.altitudes_km, strict=True)
+        )
+    )
 
     print("Ladders (midlat_summer, interpolated over sensor x target altitude):")
     for run, (sensor_km, target_km) in LADDER.items():
         arrays = _load_degraded(run)
-        arrays["atm_emission_down"] = ms_down  # plan §4.4 (was zero pre-boost)
+        arrays["atm_emission_down"] = ms_down.at(target_km)  # CU-181
         _save(
             OUT_ROOT / "midlat_summer_ladders" / f"s{sensor_km:05.0f}_t{target_km:02.0f}.npz",
             arrays,
@@ -429,7 +580,7 @@ def main() -> int:
     ref_wl: np.ndarray | None = None
     for run, target_km in BOOST_LADDER.items():
         arrays = _load_degraded(run)
-        arrays["atm_emission_down"] = ms_down
+        arrays["atm_emission_down"] = ms_down.at(target_km)
         if ref_wl is None:
             ref_wl = arrays["wavelength_um"]
         for sensor_km in (BOOST_SENSOR_KM, ORBITAL_NODE_KM):
@@ -441,7 +592,7 @@ def main() -> int:
                 geometry=_full_geometry(sensor_km, target_km, 0.0),
             )
     assert ref_wl is not None
-    vac = _vacuum_arrays(ref_wl, ms_down)
+    vac = _vacuum_arrays(ref_wl, ms_down.at(VACUUM_TARGET_KM))
     for sensor_km in (BOOST_SENSOR_KM, ORBITAL_NODE_KM):
         _save(
             OUT_ROOT
@@ -454,7 +605,7 @@ def main() -> int:
     print("Off-nadir boost grid (midlat_summer, sensor 100 km, zenith 0/45/60 + orbital):")
     for run, (target_km, zenith_deg) in BOOST_OFFNADIR.items():
         arrays = _load_degraded(run)
-        arrays["atm_emission_down"] = ms_down
+        arrays["atm_emission_down"] = ms_down.at(target_km)
         for sensor_km in (BOOST_SENSOR_KM, ORBITAL_NODE_KM):
             _save(
                 OUT_ROOT
@@ -479,7 +630,9 @@ def main() -> int:
     print("Sensor ladder (midlat_summer, ground target, nadir, 3-100 km + orbital):")
     for run, sensor_km in SENSOR_LADDER.items():
         arrays = _load_degraded(run)
-        arrays["atm_emission_down"] = ms_down
+        # Ground target on every rung, so the CU-181 ladder returns the ground
+        # rung (H5) here — this family's downwelling is unchanged by batch 2.
+        arrays["atm_emission_down"] = ms_down.at(0.0)
         _save(
             OUT_ROOT / "midlat_summer_sensor_ladder" / f"s{sensor_km:05.0f}.npz",
             arrays,
@@ -488,7 +641,7 @@ def main() -> int:
     # Orbital-hull duplicate of the 100 km (= TOA) node (A3), so LEO/GEO
     # sensors fall inside the 1-D hull (vacuum above TOA — exact).
     a3_arrays = _load_degraded("A3")
-    a3_arrays["atm_emission_down"] = ms_down
+    a3_arrays["atm_emission_down"] = ms_down.at(0.0)
     _save(
         OUT_ROOT / "midlat_summer_sensor_ladder" / f"s{ORBITAL_NODE_KM:05.0f}.npz",
         a3_arrays,
@@ -516,6 +669,86 @@ def main() -> int:
         geometry=_full_geometry(UPLOOKING_SENSOR_KM, UPLOOKING_ZERO_LENGTH_TARGET_KM, 0.0),
         markers=UPLOOKING_MARKERS,
     )
+
+    print("Up-looking zenith fan (midlat_summer, ground sensor, targets 0-20 km x sec 1/1.5/2):")
+    fan_ref_wl: np.ndarray | None = None
+    for run, (target_km, zenith_deg) in UPLOOKING_ZENITH_FAN.items():
+        arrays = _load_uplooking_degraded(run)
+        if fan_ref_wl is None:
+            fan_ref_wl = arrays["wavelength_um"]
+        _save(
+            OUT_ROOT
+            / "midlat_summer_uplooking_zenith_fan"
+            / f"t{target_km:03.0f}_z{zenith_deg:04.1f}.npz",
+            arrays,
+            geometry=_full_geometry(UPLOOKING_SENSOR_KM, target_km, zenith_deg * _DEG),
+            markers=UPLOOKING_MARKERS,
+        )
+    assert fan_ref_wl is not None
+    # Zero-length identity at every zenith column: a target at the sensor's own
+    # altitude has no air between the endpoints at ANY zenith (τ ≡ 1, L ≡ 0),
+    # which is what closes the fan's rectangular grid at its target = 0 row.
+    for zenith_deg in UPLOOKING_FAN_ZENITHS_DEG:
+        _save(
+            OUT_ROOT
+            / "midlat_summer_uplooking_zenith_fan"
+            / f"t{UPLOOKING_ZERO_LENGTH_TARGET_KM:03.0f}_z{zenith_deg:04.1f}.npz",
+            _uplooking_zero_length_arrays(fan_ref_wl),
+            geometry=_full_geometry(
+                UPLOOKING_SENSOR_KM, UPLOOKING_ZERO_LENGTH_TARGET_KM, zenith_deg * _DEG
+            ),
+            markers=UPLOOKING_MARKERS,
+        )
+
+    print("SST column fan (midlat_summer, ground sensor -> 100 km, sec 1/1.5/2/3/4/5):")
+    for run, zenith_deg in SST_COLUMN_FAN.items():
+        _save(
+            OUT_ROOT / "midlat_summer_sst_column_fan" / f"z{zenith_deg:06.3f}.npz",
+            _load_uplooking_degraded(run),
+            geometry=_full_geometry(UPLOOKING_SENSOR_KM, SST_TARGET_KM, zenith_deg * _DEG),
+            markers=UPLOOKING_MARKERS,
+        )
+
+    print("Up-looking sensor ladder (midlat_summer, observer 0-50 km -> 100 km at 48.2 deg):")
+    up_ladder_ref_wl: np.ndarray | None = None
+    for run, sensor_km in UPLOOKING_SENSOR_LADDER.items():
+        arrays = _load_uplooking_degraded(run)
+        if up_ladder_ref_wl is None:
+            up_ladder_ref_wl = arrays["wavelength_um"]
+        _save(
+            OUT_ROOT / "midlat_summer_uplooking_sensor_ladder" / f"s{sensor_km:03.0f}.npz",
+            arrays,
+            geometry=_full_geometry(
+                sensor_km, SST_TARGET_KM, UPLOOKING_SENSOR_LADDER_ZENITH_DEG * _DEG
+            ),
+            markers=UPLOOKING_MARKERS,
+        )
+    assert up_ladder_ref_wl is not None
+    # Observer AT the atmosphere top: zero-length column (τ ≡ 1, L ≡ 0), the
+    # same identity as the fan's target = 0 row, at the other end of the axis.
+    _save(
+        OUT_ROOT / "midlat_summer_uplooking_sensor_ladder" / f"s{SST_TARGET_KM:03.0f}.npz",
+        _uplooking_zero_length_arrays(up_ladder_ref_wl),
+        geometry=_full_geometry(
+            SST_TARGET_KM, SST_TARGET_KM, UPLOOKING_SENSOR_LADDER_ZENITH_DEG * _DEG
+        ),
+        markers=UPLOOKING_MARKERS,
+    )
+
+    print("Upwelling off-nadir grid (midlat_summer, ground target, sensor 10/100 km + orbital):")
+    ground_down = ms_down.at(0.0)
+    for run, (sensor_km, zenith_deg) in UPWELLING_OFFNADIR.items():
+        arrays = _load_degraded(run)
+        arrays["atm_emission_down"] = ground_down  # ground target: the H5 rung
+        sensors = (sensor_km, ORBITAL_NODE_KM) if sensor_km == BOOST_SENSOR_KM else (sensor_km,)
+        for out_sensor_km in sensors:
+            _save(
+                OUT_ROOT
+                / "midlat_summer_upwelling_offnadir"
+                / f"s{out_sensor_km:05.0f}_z{zenith_deg:04.1f}.npz",
+                arrays,
+                geometry=_full_geometry(out_sensor_km, 0.0, zenith_deg * _DEG),
+            )
 
     print("Validation points (off-grid, not interpolation nodes):")
     for run, (sensor_km, target_km, zenith_rad) in VALIDATION.items():

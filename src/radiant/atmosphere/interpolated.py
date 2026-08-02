@@ -52,8 +52,10 @@ Family direction (Geometry-Flexibility Phase 2, GF-10)
 ------------------------------------------------------
 Every family shipped before Phase 2 is **down-looking**: its radiance
 product is the upwelling path radiance a sensor above the column sees.
-The K-block ``midlat_summer_uplooking_ladder`` family is the first
-**up-looking** one, and its radiance product is the *downward* path
+The K-block ``midlat_summer_uplooking_ladder`` family was the first
+**up-looking** one (the batch-2 delivery added three more — a zenith fan,
+a full-column zenith fan, and an elevated-observer ladder), and its
+radiance product is the *downward* path
 radiance a sensor below the column sees — ``L_toward_lower`` in the
 :mod:`radiant.atmosphere.segments` vocabulary.  Those are different
 physical quantities, so they are kept apart at every level:
@@ -161,12 +163,15 @@ FAMILY_DIRECTION_KEY: str = "los_direction"
 #: (and default) value; ``"up"`` is the Phase-2 K-block family.
 FAMILY_DIRECTIONS: frozenset[str] = frozenset({"down", "up"})
 
-# An up-looking column family is rendered at ONE lower-endpoint zenith
-# (the K ladder is vertical). Anything off it would need a sec-space zenith
-# fan of up-looking runs, which is not shipped, so the query is refused
-# rather than served from the vertical column (Rule 17). The tolerance is
-# pure float slack: geometry hands vertical paths theta_o = π exactly.
-_UPLOOKING_VERTICAL_TOL_RAD: float = 1e-6
+# An up-looking family WITHOUT a ``path_zenith_rad`` axis is rendered at ONE
+# lower-endpoint zenith — the K ladder at vertical, the batch-2 P ladder at the
+# 48.2° diffusivity angle. Serving any other zenith from it would need a
+# sec-space fan the family does not carry, so the query is refused rather than
+# approximated (Rule 17). A family that DOES carry the axis (the batch-2 N fan
+# and M column fan) interpolates the zenith in sec(ζ) space like every
+# down-looking fan (CU-160) and never reaches this check. The tolerance is pure
+# float slack: geometry hands vertical paths theta_o = π exactly.
+_UPLOOKING_FIXED_ZENITH_TOL_RAD: float = 1e-6
 
 # MODTRAN's atmosphere ends at 100 km: a sensor at or above this altitude
 # sees the identical column as any higher sensor (the added path is
@@ -645,6 +650,55 @@ class InterpolatedAtmosphere:
             f"substituted for one another. {action}"
         )
 
+    def _require_uplooking_zenith_is_servable(
+        self, zeta_low_rad: float, theta_o_rad: float
+    ) -> None:
+        """Refuse an up-looking zenith the loaded family cannot represent.
+
+        A family carrying a ``path_zenith_rad`` axis (the batch-2 N zenith fan
+        and M column fan) serves any zenith inside its node span, interpolating
+        in airmass ``sec(ζ)`` space exactly as the down-looking fans do
+        (CU-160); the hull check in :meth:`build_state` is then the only guard
+        needed, and this method is a no-op.
+
+        A family *without* that axis is rendered at a single lower-endpoint
+        zenith — vertical for the K ladder, 48.2° for the batch-2 P ladder — and
+        any other zenith is a different column.  Serving it from the rendered
+        one via the sec law would be up to ~2.5 % low in band-mean LWIR τ
+        (measured against the K6 45° holdout), so it is refused, not
+        approximated (Rule 17).
+        """
+        if "path_zenith_rad" in self._axes:
+            return
+        rendered_rad = self._non_axis_recorded.get("path_zenith_rad", 0.0)
+        if abs(abs(zeta_low_rad) - rendered_rad) <= _UPLOOKING_FIXED_ZENITH_TOL_RAD:
+            return
+        if rendered_rad <= _UPLOOKING_FIXED_ZENITH_TOL_RAD:
+            rendered = (
+                "The loaded up-looking family is a VERTICAL partial-column "
+                "ladder — one lower-endpoint zenith only — and it carries no "
+                "'path_zenith_rad' axis to interpolate over"
+            )
+        else:
+            rendered = (
+                "The loaded up-looking family is rendered at the single "
+                f"lower-endpoint zenith {math.degrees(rendered_rad):.4f}° and "
+                "carries no 'path_zenith_rad' axis to interpolate over"
+            )
+        raise AtmosphereValidationError(
+            "InterpolatedAtmosphere.uplooking_column_product: the query "
+            f"lower-endpoint zenith is {math.degrees(abs(zeta_low_rad)):.4f}° "
+            f"(theta_o = {theta_o_rad:.6f} rad; vertical up-looking is "
+            f"theta_o = π). {rendered}, so this query cannot be served from it "
+            "— mapping it through airmass sec(ζ) space would be up to ~2.5% low "
+            "in band-mean LWIR τ (the K6 45° holdout). Point "
+            "atmosphere.interpolated_data_dir at an up-looking family that "
+            "carries a zenith axis (shipped: midlat_summer_uplooking_zenith_fan "
+            "for targets 0-20 km, midlat_summer_sst_column_fan for the full "
+            "column to space), or use atmosphere.model='simple', which serves "
+            "any up-looking zenith through the segment evaluators."
+        )
+
     @property
     def uplooking_companion(self) -> object | None:
         """Backend serving the illumination and sky legs of an up-looking scene (CU-226)."""
@@ -907,9 +961,10 @@ class InterpolatedAtmosphere:
         two.)
 
         Interpolation conventions are the family-wide ones: τ in log-τ
-        (optical-depth) space, radiance linearly, no extrapolation outside the
-        hull, and a query wavelength grid inside the stored spectral range
-        resampled by :meth:`build_state`.
+        (optical-depth) space, radiance linearly, the zenith axis (when the
+        family carries one) in airmass ``sec(ζ)`` space (CU-160), no
+        extrapolation outside the hull, and a query wavelength grid inside the
+        stored spectral range resampled by :meth:`build_state`.
 
         Parameters
         ----------
@@ -923,10 +978,12 @@ class InterpolatedAtmosphere:
         Raises
         ------
         AtmosphereValidationError
-            If the family is not up-looking; if *los* is not up-looking; if
-            the LOS is not vertical (no up-looking zenith fan is shipped); if
-            the LOS carries no ``h_sensor``; or if ``h_sensor`` departs from
-            the family's rendered lower endpoint.
+            If the family is not up-looking; if *los* is not up-looking; if the
+            query zenith is not one the family can represent (a family with no
+            ``path_zenith_rad`` axis serves only its single rendered zenith —
+            see :meth:`_require_uplooking_zenith_is_servable`); if the LOS
+            carries no ``h_sensor``; or if ``h_sensor`` departs from the
+            family's rendered lower endpoint.
         """
         self._require_family_direction("up", "InterpolatedAtmosphere.uplooking_column_product")
 
@@ -947,22 +1004,7 @@ class InterpolatedAtmosphere:
         # ζ_low = π − θ_o: the zenith of the up-going ray at the sensor, which
         # is the segment's lower endpoint.
         zeta_low_rad = math.pi - float(los.theta_o)
-        if abs(zeta_low_rad) > _UPLOOKING_VERTICAL_TOL_RAD:
-            raise AtmosphereValidationError(
-                "InterpolatedAtmosphere.uplooking_column_product: the query is "
-                f"{math.degrees(zeta_low_rad):.4f}° off vertical at the sensor "
-                f"(theta_o = {los.theta_o:.6f} rad; vertical up-looking is "
-                "theta_o = π). The shipped up-looking family is a VERTICAL "
-                "partial-column ladder — one lower-endpoint zenith only — and "
-                "there is no up-looking zenith fan to interpolate over, so an "
-                "off-vertical query cannot be served from it. Mapping "
-                "off-vertical up-looking queries into airmass sec(ζ) space is "
-                "deferred until such a fan is run (plan §4 Phase 2, GF-10; the "
-                "K6 45° deck is the coupling anchor for that work, measured at "
-                "up to ~2.5% band-mean τ deviation from the sec-law "
-                "prediction). Use atmosphere.model='simple', which serves any "
-                "up-looking zenith through the segment evaluators."
-            )
+        self._require_uplooking_zenith_is_servable(zeta_low_rad, float(los.theta_o))
 
         # The family is rendered at ONE lower endpoint (the K ladder: ground).
         # Serving a different one would silently swap in a different column —

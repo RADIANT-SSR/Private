@@ -314,3 +314,7 @@ only as leader-label text; direction is faithful.
 - Exo/vacuum atmosphere presentation with identity-preserving tooltips
 - Gap 111 K1/K2 kinematics doors with provenance-resolved mode reporting
 - Two-axis sweeps with live threshold re-solve and schematic re-binding
+
+## Interpolated-atmosphere availability
+
+Switching **Atmosphere → Model** to `interpolated` works first try — but no MODTRAN data is used: both endpoints sit at or above the 100 km top of the modelled atmosphere, so the whole path is vacuum and the transmittance / path-radiance products are exact identities, whichever backend is selected. The picker pre-selects **`midlat_summer_uplooking_ladder`** so the axes parameter carries a valid value; its coverage line describes the family, not this scene.

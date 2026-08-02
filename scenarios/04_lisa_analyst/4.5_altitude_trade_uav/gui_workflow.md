@@ -58,3 +58,7 @@ Requirements this implies:
   the uncooled-detector workflow this scenario exercises.
 - A **detection-ceiling readout** (apparent ΔT vs threshold·NETD across an
   altitude sweep) should be a first-class panel for UAV ISR planning.
+
+## Interpolated-atmosphere availability
+
+No bundled interpolated-atmosphere family serves this scene: 'midlat_summer_sensor_ladder' covers sensor_altitude 3 km to 40000 km; this scene asks for 2 km, below the family's runs. Switching **Atmosphere → Model** to `interpolated` therefore produces exactly one Messages-rail advisory saying so — not a sequence of refusals — and the scene stays on `atmosphere.model = 'simple'`, which serves any geometry.

@@ -148,3 +148,7 @@ sol.solution, sol.achieved, sol.n_evaluations
 7. **Sub-case transparency** — surface the exo→space masquerade and auto-filled `geometry.sensor_altitude_m` placeholder (registry Gap 42)
 8. **Noise budget breakdown** — show that nearfield is not the dominant noise contributor
 9. **Metrics dashboard** — NEDT, Strehl, Q, MTF budget, well margin displayed automatically; N/A states explained
+
+## Interpolated-atmosphere availability
+
+No bundled interpolated-atmosphere family serves this scene: 'midlat_summer_sensor_ladder' covers sensor_altitude 3 km to 40000 km; this scene asks for 1 m, below the family's runs. Switching **Atmosphere → Model** to `interpolated` therefore produces exactly one Messages-rail advisory saying so — not a sequence of refusals — and the scene stays on `atmosphere.model = 'simple'`, which serves any geometry.

@@ -183,12 +183,17 @@ class AtmosphereFamilyPicker(QWidget):
 
         self._combo.setEnabled(True)
         self._configured = self._configured_family()
-        if self._recommended is not None and not self._scene_is_covered():
+        if self._recommended is not None and not self._configured_serves_scene():
             # What is configured cannot serve this scene — the CU-239 reproduction
             # (default ``path_zenith_rad`` axes under a 20 km target). Pre-select the
             # family the scene calls for as a *proposal*: shown, named, and costed, but
             # not written, because adopting it can change the atmosphere profile. Rule
             # 17 — the mismatch is stated, never silently patched over.
+            #
+            # Since CU-322 the recommendation is pre-validated end to end, so what is
+            # pre-selected is a family the chain will actually serve — including an
+            # ``explicit_dir_only`` row, which no axes string can reach and which the
+            # old axes-string recommendation could therefore never name.
             self._pending = True
             self._select(self._recommended)
         elif self._configured is not None:
@@ -336,6 +341,29 @@ class AtmosphereFamilyPicker(QWidget):
             return False
         return True
 
+    def _configured_serves_scene(self) -> bool:
+        """Whether what is configured *today* would actually evaluate for this scene.
+
+        Two questions, both needed (CU-322). ``validate_atmosphere_coverage`` decides
+        whether the axes string reaches a family at all; ``atmosphere_family_gap``
+        decides whether the family it reaches can serve this particular query. The
+        second was the missing half: an up-looking scene at ζ = 29.9° with
+        ``interpolation_axes = 'target_altitude_m'`` passes the first check — the axes
+        do name a shipped family — and is then refused at evaluate, because that family
+        is the *vertical-only* ladder. Either failure pre-selects the recommendation
+        as a proposal.
+        """
+        if not self._scene_is_covered():
+            return False
+        sensor = self._sensor
+        configured = self._configured
+        if sensor is None or configured is None:
+            return True
+        try:
+            return sensor.atmosphere_family_gap(configured) is None
+        except RadiantError:
+            return True
+
     def _refresh_detail(self) -> None:
         """Re-render the coverage line, the profile caveat, and the apply affordance."""
         family = self.selected_family()
@@ -359,6 +387,12 @@ class AtmosphereFamilyPicker(QWidget):
                 f" Not applied yet — {current} does not cover this scene; "
                 "click “Use this family” to write it."
             )
+        gap = self._family_gap(family)
+        if gap:
+            # The highlighted row cannot serve this scene: say so here rather than
+            # letting the operator discover it at Evaluate (CU-322). Units are the
+            # API's — km / degrees — never re-derived here.
+            text += f" Does not serve this scene: {gap}."
         self._coverage.setText(text)
 
         caveat = self._profile_caveat(family)
@@ -370,6 +404,16 @@ class AtmosphereFamilyPicker(QWidget):
             self._warning.hide()
 
         self._apply.setVisible(self._pending)
+
+    def _family_gap(self, family: ShippedFamily) -> str | None:
+        """The API's one-sentence reason *family* cannot serve this scene, or ``None``."""
+        sensor = self._sensor
+        if sensor is None:
+            return None
+        try:
+            return sensor.atmosphere_family_gap(family)
+        except RadiantError:
+            return None
 
     def _profile_caveat(self, family: ShippedFamily) -> str | None:
         """The API's profile-change sentence for *family*, or ``None``."""

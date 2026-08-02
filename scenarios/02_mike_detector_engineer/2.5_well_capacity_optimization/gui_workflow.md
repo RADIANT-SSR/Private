@@ -135,3 +135,7 @@ Mike, detector engineer. He has a 640x512 MWIR HgCdTe FPA with 2M e- FWC in an f
 7. **"What-if" sliders** — drag FWC, SNR threshold, well fill limit to explore design space
 8. **Solution recommendation cards** — suggesting HDR modes, spectral narrowing when single-frame DR is insufficient
 9. **Spreadsheet-driven trade study** — importing sweep definition, requirements, and scene temperatures from Excel
+
+## Interpolated-atmosphere availability
+
+No bundled interpolated-atmosphere family serves this scene: 'midlat_summer_sensor_ladder' covers sensor_altitude 3 km to 40000 km; this scene asks for 1 m, below the family's runs. Switching **Atmosphere → Model** to `interpolated` therefore produces exactly one Messages-rail advisory saying so — not a sequence of refusals — and the scene stays on `atmosphere.model = 'simple'`, which serves any geometry.

@@ -21,6 +21,20 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`Sensor.atmosphere_family_suggestion()` — the pre-validated interpolated-family
+  recommendation (CU-322).** Returns an `AtmosphereFamilySuggestion` (`family`, `gap`,
+  `considered`, `los_direction`, `vacuum_path`, plus `serves` / `advisory_text` /
+  `advisory_error()`), which walks the bundled catalogue and returns the first family
+  whose **complete** query the chain would accept — direction, axes, LOS zenith, target
+  ceiling (including the up-looking exo guard) and the family's own rendered lower
+  endpoint. When nothing serves the scene it carries one structured `FamilyGap` naming
+  the closest miss with units, instead of leaving the caller to collect one refusal per
+  gate. Companion additions: `Sensor.atmosphere_family_gap(family)` (the same check for
+  one named family) and `radiant.api.is_atmosphere_coverage_refusal(exc)` (whether an
+  error is an atmosphere-coverage refusal rather than a rejected parameter — structural,
+  never message text). New module `radiant.atmosphere.family_suitability`; new
+  `ShippedFamily.pending_runs` field naming authored-but-unrun MODTRAN rows that would
+  widen a family (today: the SST column fan's M9–M13 elevated-site decks).
 - **Four new shipped atmosphere families from the MODTRAN batch-2 delivery
   (run-matrix rows M1–Q8, delivered 2026-08-02).** Three up-looking:
   `midlat_summer_uplooking_zenith_fan` (ground observer, targets 0–20 km × LOS
@@ -184,6 +198,28 @@ retroactively reconstructed.
   Evaluate-time checks are unchanged (defence in depth); no computed results change.
 
 ### Changed
+- **`Sensor.suggested_atmosphere_family()` never recommends a family the chain would
+  refuse (CU-322).** Same signature, pre-validated answer. It now (a) derives the LOS
+  zenith from the resolved line of sight rather than reading `geometry.path_zenith_rad`
+  — the two differ on a spherical scene, and a family rendered at one fixed zenith is
+  refused on exactly that difference; (b) can return an `explicit_dir_only` family,
+  which no axes string reaches; and (c) returns `None`, with a reason available from
+  `atmosphere_family_suggestion()`, where it used to name a family that then refused.
+  Measured over the 38 shipped GUI scenarios: 26 now switch to `atmosphere.model =
+  'interpolated'` and evaluate first try (was 25 — scenario 10.1 was recommended the
+  vertical-only up-looking ladder at ζ = 29.9°, which the zenith fan covers), and the
+  remaining 12 produce exactly one advisory naming the missing coverage. **No computed
+  result moves** — the recommendation writes nothing, and every scenario that already
+  had a working family keeps it.
+- **GUI: an atmosphere coverage refusal is an advisory, not a "Parameter Rejected"
+  modal (CU-322).** `RADIANTMainWindow` routes any refusal
+  `is_atmosphere_coverage_refusal()` recognises to the Messages rail and the status bar
+  with no modal; the modal stays for inputs the framework genuinely rejected. The
+  family picker pre-selects the pre-validated recommendation (including explicit-dir
+  families, by name), says on the highlighted row when it cannot serve the scene, and
+  proposes a replacement when the *configured* family cannot — which the axes-only
+  coverage check could not detect. When no bundled family serves the scene, the
+  Messages rail carries one gap advisory in place of the axes-coverage refusal.
 - **Results-affecting: the shipped atmosphere library's `atm_emission_down` is
   altitude-resolved (CU-181).** A down-looking node's downwelling sky radiance is
   now the measured value at *that node's target altitude*, interpolated from the

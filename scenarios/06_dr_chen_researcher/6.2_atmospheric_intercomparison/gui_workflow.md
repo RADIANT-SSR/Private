@@ -61,3 +61,7 @@ Requirements this implies:
 - **Per-band error analysis** ("where does the simple model break
   down?", catalog's own phrasing) is not built — would need a spectral
   residual view with configurable band edges.
+
+## Interpolated-atmosphere availability
+
+Switching **Atmosphere → Model** to `interpolated` works first try on this scene. The picker pre-selects **`midlat_summer_sensor_ladder`** (profile `midlat_summer`, down-looking; covers ground targets only (target altitude fixed at 0 km), sensor 3-100 km plus 40000 km (GEO), nadir only (LOS zenith 0 degrees)); *Use this family* writes `atmosphere.interpolation_axes = 'sensor_altitude_m'`. `Sensor.atmosphere_family_suggestion()` is the same answer from a script.

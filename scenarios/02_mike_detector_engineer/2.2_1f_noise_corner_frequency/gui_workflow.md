@@ -96,3 +96,7 @@ Mike, detector engineer. He has a 640×512 LWIR HgCdTe staring array with measur
 5. **Corner frequency model comparison** — showing RADIANT's overestimate vs. physically accurate result
 6. **BLIP assessment** — automatic detection that photon noise dominates, 1/f is negligible
 7. **LWIR-specific guidance** — FWC-limited integration time, large background flux context
+
+## Interpolated-atmosphere availability
+
+No bundled interpolated-atmosphere family serves this scene: 'midlat_summer_sensor_ladder' covers sensor_altitude 3 km to 40000 km; this scene asks for 1 m, below the family's runs. Switching **Atmosphere → Model** to `interpolated` therefore produces exactly one Messages-rail advisory saying so — not a sequence of refusals — and the scene stays on `atmosphere.model = 'simple'`, which serves any geometry.

@@ -108,7 +108,7 @@ source/shapes/         # box, cone, cylinder, flat_plate, sphere — projected_a
                        # implementations for sub-pixel target geometry
 ```
 
-### `atmosphere/` — 37 source + 42 tests
+### `atmosphere/` — 38 source + 43 tests
 
 Stage 2: τ_atm, L_path, L_atm.
 
@@ -126,6 +126,8 @@ atmosphere/
 ├── tabulated.py         # user-supplied tabulated τ(λ) / L_path(λ)
 ├── interpolated.py      # spectral interpolation helpers
 ├── interpolation_coverage.py  # shipped-family catalogue + config-time scene↔axes check (CU-239)
+├── family_suitability.py  # pre-validated family selection: can this family serve this LOS,
+                       # and if none can, the one gap worth naming (CU-322)
 ├── near_horizon_air_mass.py  # per-species effective air mass past the 80° hand-over (CU-224)
 ├── level_whole_path.py  # the whole traversed level LOS as one optical path (CU-224)
 ├── turbulence.py        # Kolmogorov long-exposure turbulence MTF

@@ -96,6 +96,13 @@ class ShippedFamily:
         from the loader's default-dispatch table by construction: it lives in
         :data:`EXPLICIT_DIR_FAMILIES`, never in :data:`SHIPPED_FAMILIES`. A
         caller adopting one MUST write :attr:`bundled_dir` as well as the axes.
+    pending_runs:
+        One line naming MODTRAN run-matrix rows that are **authored but not yet
+        run** and would widen this family's coverage, or ``None``. A gap whose
+        fix is already scheduled reads very differently from one that is not, so
+        :mod:`radiant.atmosphere.family_suitability` appends this to the advisory
+        when this family is the closest miss (CU-322). Prose only — nothing
+        dispatches on it.
     """
 
     name: str
@@ -104,6 +111,7 @@ class ShippedFamily:
     profile: str
     coverage: str
     explicit_dir_only: bool = False
+    pending_runs: str | None = None
 
     @property
     def summary(self) -> str:
@@ -269,6 +277,11 @@ EXPLICIT_DIR_FAMILIES: tuple[ShippedFamily, ...] = (
             "atmosphere top, LOS zenith 0-78.5 degrees (sec 1.0-5.0)"
         ),
         explicit_dir_only=True,
+        pending_runs=(
+            "rows M9-M13 of docs/plans/modtran_run_matrix.csv are the authored, "
+            "not-yet-run decks that lift this fan's lower endpoint to a 900 m "
+            "elevated site"
+        ),
     ),
 )
 

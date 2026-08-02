@@ -169,6 +169,7 @@ from typing import Any, Protocol, runtime_checkable
 import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
+from radiant.atmosphere.errors import COVERAGE_REFUSAL_SURFACE, COVERAGE_SURFACE_KEY
 from radiant.atmosphere.level_arm import evaluate_level_arm
 from radiant.atmosphere.level_whole_path import evaluate_level_whole_path
 from radiant.atmosphere.observer_leg import ObserverLeg, observer_leg_from_los
@@ -360,6 +361,10 @@ def evaluate_uplooking_topology(
                 "down-looking geometry with the current backend."
             ),
             context={
+                # CU-322: a backend that cannot serve this topology is an
+                # atmosphere-coverage refusal, not a rejected parameter — the
+                # marker routes it to the advisory surface (errors.is_coverage_refusal).
+                COVERAGE_SURFACE_KEY: COVERAGE_REFUSAL_SURFACE,
                 "model": type(model).__name__,
                 "h_sensor": los.h_sensor,
                 "h_tgt": los.h_tgt,
@@ -599,6 +604,8 @@ def _library_observer_segment(
                 "raise the target above the sensor to make the path up-looking."
             ),
             context={
+                # CU-322: routes to the advisory surface (errors.is_coverage_refusal).
+                COVERAGE_SURFACE_KEY: COVERAGE_REFUSAL_SURFACE,
                 "h_sensor": los.h_sensor,
                 "h_tgt": los.h_tgt,
                 "altitude_m": leg.spec.altitude_m,
@@ -759,6 +766,8 @@ def _refuse_library_backed_exo_target(
             "at 0-100 km at the 48.2-degree diffusivity angle)."
         ),
         context={
+            # CU-322: routes to the advisory surface (errors.is_coverage_refusal).
+            COVERAGE_SURFACE_KEY: COVERAGE_REFUSAL_SURFACE,
             "h_tgt": los.h_tgt,
             "h_atm_top": h_atm_top_m,
             "h_sensor": los.h_sensor,

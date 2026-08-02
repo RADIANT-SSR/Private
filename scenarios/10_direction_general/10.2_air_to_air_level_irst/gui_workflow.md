@@ -307,3 +307,7 @@ scripted paths produce interchangeable artifacts.
 | 10 | Tooltip on a suppressed metric explaining *why* it is off | Should | Not implemented — would read the same relevance map |
 | 11 | Click a Messages row to select the sweep point that raised it | Could | Not implemented |
 | 12 | Schematic annotation for the target-plane sample distance | Could | Not implemented — the air-target analogue of the GSD footprint cue |
+
+## Interpolated-atmosphere availability
+
+No bundled interpolated-atmosphere family serves this scene: no bundled interpolation family is rendered for a level-looking line of sight. Switching **Atmosphere → Model** to `interpolated` therefore produces exactly one Messages-rail advisory saying so — not a sequence of refusals — and the scene stays on `atmosphere.model = 'simple'`, which serves any geometry.

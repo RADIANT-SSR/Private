@@ -122,3 +122,7 @@ Tom, optical designer. He has a VNIR panchromatic imager (50 cm, f/10, 8 um CCD)
 7. **GIQE-5 term decomposition** -- showing which term drives NIIRS and how jitter only affects RER
 8. **"Why?" explanation panels** -- contextual physics explanations (long focal length amplification, jitter vs. noise independence)
 9. **Auto-range detection** -- automatic sweep range selection based on quick coarse sweep
+
+## Interpolated-atmosphere availability
+
+Switching **Atmosphere → Model** to `interpolated` works first try on this scene. The picker pre-selects **`midlat_summer_sensor_ladder`** (profile `midlat_summer`, down-looking; covers ground targets only (target altitude fixed at 0 km), sensor 3-100 km plus 40000 km (GEO), nadir only (LOS zenith 0 degrees)); *Use this family* writes `atmosphere.interpolation_axes = 'sensor_altitude_m'`. `Sensor.atmosphere_family_suggestion()` is the same answer from a script.

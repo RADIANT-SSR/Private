@@ -144,3 +144,7 @@ Raj, mission planner. He has a baselined MWIR reconnaissance sensor on a 500 km 
 7. **Briefing-ready export** — PowerPoint-formatted traffic-light table for program reviews
 8. **Weather-robustness score** — quantifying how much NIIRS varies across weather conditions
 9. **"What-if" sliders** — exploring GSD and SNR impact on NIIRS without rerunning evaluations
+
+## Interpolated-atmosphere availability
+
+Switching **Atmosphere → Model** to `interpolated` works first try on this scene. The picker pre-selects **`midlat_summer_sensor_ladder`** (profile `midlat_summer`, down-looking; covers ground targets only (target altitude fixed at 0 km), sensor 3-100 km plus 40000 km (GEO), nadir only (LOS zenith 0 degrees)); *Use this family* writes `atmosphere.interpolation_axes = 'sensor_altitude_m'`. `Sensor.atmosphere_family_suggestion()` is the same answer from a script.

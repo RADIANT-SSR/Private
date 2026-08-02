@@ -269,3 +269,7 @@ result.stage_outputs["performance"]["detection_range_result"].failure_reason
 | 10 | Absent metrics shown with their `failure_reason` in the Messages panel, never blank | High | Needed for scenario G10.1-1 to be readable in the GUI |
 | 11 | `UserWarning`s (horizon shoulder, saturation) surfaced in Messages, not swallowed | High | Shipped — Messages panel |
 | 12 | Detection-range walk-the-ray helper available from the scripting window | Low | Scenario-side today (`run_ground_to_air_mwir_detection.py`); see gap G10.1-1 |
+
+## Interpolated-atmosphere availability
+
+Switching **Atmosphere → Model** to `interpolated` works first try on this scene. The picker pre-selects **`midlat_summer_uplooking_zenith_fan`** (profile `midlat_summer`, up-looking; covers ground sensor (0 km) looking up at targets 0-20 km, LOS zenith 0-60 degrees (sec 1.0-2.0 at the sensor)); *Use this family* writes `atmosphere.interpolation_axes = 'target_altitude_m,path_zenith_rad'`. `Sensor.atmosphere_family_suggestion()` is the same answer from a script.

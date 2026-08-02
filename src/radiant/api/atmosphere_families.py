@@ -15,6 +15,11 @@ whose numbers always carry units (km, degrees).
 
 from __future__ import annotations
 
+from radiant.atmosphere.errors import is_coverage_refusal as _is_coverage_refusal
+from radiant.atmosphere.family_suitability import (
+    AtmosphereFamilySuggestion,
+    FamilyGap,
+)
 from radiant.atmosphere.interpolation_coverage import (
     BUNDLED_FAMILIES as _BUNDLED_FAMILIES,
 )
@@ -25,11 +30,32 @@ from radiant.atmosphere.interpolation_coverage import (
 )
 
 __all__ = [
+    "AtmosphereFamilySuggestion",
+    "FamilyGap",
     "ShippedFamily",
+    "is_atmosphere_coverage_refusal",
     "shipped_atmosphere_families",
     "shipped_family_for_axes",
     "suggested_interpolation_axes",
 ]
+
+
+def is_atmosphere_coverage_refusal(exc: BaseException) -> bool:
+    """True when *exc* is an atmosphere **coverage** refusal, not a bad parameter.
+
+    The seam a message surface routes on (CU-322). A coverage refusal says the
+    configured atmosphere backend holds no measured column for this scene: the
+    scene is legal, the inputs are legal, and the remedy is a different family or
+    ``atmosphere.model='simple'``. It belongs beside the atmosphere inputs as an
+    advisory, never in a modal headed "Parameter Rejected / Cannot set …", which
+    is the wording for an input the framework refused to accept.
+
+    Structural, never message text — see
+    :func:`radiant.atmosphere.errors.is_coverage_refusal` for the two ways an
+    error qualifies. This is the published alias, because the GUI may import
+    :mod:`radiant.api` and :mod:`radiant.core` only.
+    """
+    return _is_coverage_refusal(exc)
 
 
 def shipped_atmosphere_families() -> tuple[ShippedFamily, ...]:

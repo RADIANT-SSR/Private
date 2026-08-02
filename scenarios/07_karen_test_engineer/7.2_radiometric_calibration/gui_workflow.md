@@ -72,3 +72,7 @@ a, b = np.polyfit(dn_pred, cal.y, 1)   # gain scale, offset [DN]
 | Responsivity / linearity / uncertainty panels | Medium | Registry Gap 46 (GUI computes) |
 | Self-emission derivation panel (ε = 1 − τ) | Medium | **CLOSED** (Gap 37) |
 | "Apply calibration" provenance-tracked action | Medium | — |
+
+## Interpolated-atmosphere availability
+
+No bundled interpolated-atmosphere family serves this scene: 'midlat_summer_sensor_ladder' covers sensor_altitude 3 km to 40000 km; this scene asks for 1 m, below the family's runs. Switching **Atmosphere → Model** to `interpolated` therefore produces exactly one Messages-rail advisory saying so — not a sequence of refusals — and the scene stays on `atmosphere.model = 'simple'`, which serves any geometry.

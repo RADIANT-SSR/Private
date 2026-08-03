@@ -475,24 +475,25 @@ S11 builder dispatching first and discarding the radiance-temperature surface
 `check_user_radiance_conflicts` / `check_point_intensity_conflicts` /
 `check_user_intensity_conflicts` and added the missing S11-vs-S12 guard to
 `check_brightness_temperature_conflicts`. CU-318 moved the last inlined door
-guard, the ε(λ) door's `check_emissivity_path_conflicts` (registered last, the
-position that door occupies in dispatch). Every door guard is now registered at
-both entry points, so a pair either door knows about is refused with the same
-message at both.
+guard, the ε(λ) door's `check_emissivity_path_conflicts`. Every door guard is
+now registered at both entry points, so a pair either door knows about is
+refused with the same message at both.
 
-**One residual asymmetry, measured 2026-08-02 (CU-318).** The ε(λ) door
-dispatches *after* every other door, and nine of the ten surfaces its guard
-lists open a door of their own. At `evaluate()` those doors return first, so
-the ε(λ) guard is never reached and `source.target.emissivity_path` is
-discarded in silence (a Rule-17 defect of the same class CU-293 closed for
-S11/S12 — not introduced by CU-318, only made visible by it). At the seam the
-guard runs unconditionally, so the seam **refuses** those pairs while
-`evaluate()` narrows them silently. The refusal is the correct behaviour of the
-two; making `evaluate()` agree means adding an `emissivity_path` rival to each
-of the other doors' guards, which widens refusals at evaluate and needs the
-same owner ruling CU-293 took. The pair unique to the ε(λ) door
-(`emissivity_path` + scalar `source.target.emissivity`) *is* symmetric: since
-CU-318 both entry points refuse it with identical text.
+**The last asymmetry is closed (CU-323, owner ruling 2026-08-02).** CU-318
+measured one residual case: the ε(λ) door dispatches *after* every other door,
+and nine of the ten surfaces its guard lists open a door of their own, so at
+`evaluate()` those doors returned first, the ε(λ) guard was never reached, and
+`source.target.emissivity_path` was discarded in silence (a Rule-17 defect of
+the same class CU-293 closed for S11/S12) while the seam refused the same
+pairs. The owner extended the CU-293 ruling class: refusal is the correct
+behaviour, so `check_emissivity_path_conflicts` is no longer a per-door guard
+sitting last in dispatch order — it is a **pre-dispatch** check, run first in
+`validate_target_spec` and first in `_inferrer._build_target_descriptor`. It is
+a no-op unless `emissivity_path` is user-set and non-empty, so no single-door
+spec can newly raise (measured at the ruling: none of the 67 shipped YAML
+configs sets the surface). Running it in the same position at both entry points
+also makes them report the same *first* error for a config that over-specifies
+in more than one way, not just for a two-surface pair.
 
 ---
 

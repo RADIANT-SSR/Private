@@ -20,8 +20,9 @@ Two entry points:
   the check.  CU-295 retargeted that prefix to ``"source.target_spec: "``
   here; the identity that matters (seam error == evaluate error) is unaffected
   because both callers read these same functions.
-* :func:`validate_target_spec` runs the doors in the inferrer's dispatch order
-  (S11 → S12 → S4/S5/S6 → S8 → S10b → S10 → S1-with-ε(λ)) and is the single
+* :func:`validate_target_spec` runs the ε(λ) pre-dispatch guard first (CU-323),
+  then the doors in the inferrer's dispatch order
+  (S11 → S12 → S4/S5/S6 → S8 → S10b → S10), and is the single
   seam the API exposes.  CU-256 added
   :func:`check_intensity_door_extent_conflicts` here as the intended extension
   point predicted by the CU-244 docstring; CU-293 (with the folded CU-294)
@@ -40,7 +41,11 @@ radiance_temperature_K`` pair raised at this seam but *evaluated silently* —
 the S11 builder dispatched first and discarded the radiance-temperature
 surface (Rule 17).  Before CU-318 the ε(λ) door's guard was still inlined, so
 its one unique pair (``emissivity_path`` + scalar ``source.target.emissivity``)
-refused only at ``evaluate()``.
+refused only at ``evaluate()``.  Before CU-323 the mirror case still stood: the
+ε(λ) door dispatches *last*, so its nine other rivals each built the target
+first and discarded the ε(λ) surface in silence at ``evaluate()`` while the
+seam refused them.  :func:`check_emissivity_path_conflicts` now runs
+pre-dispatch at both entry points, so no ``emissivity_path`` pair is asymmetric.
 
 Scope: **over-specification only.**  Completeness checks (e.g. "S12 requires
 the band edges") stay in the inferrer — a half-entered spec is a legitimate
@@ -830,11 +835,14 @@ def check_emissivity_path_conflicts(params: ParameterSet) -> None:
     pre-extraction inline order in ``_inferrer._load_emissivity_on_grid``: the
     single :data:`_EMISSIVITY_PATH_CONFLICTS` sweep, first hit wins.
 
-    Most of those pairs are already refused by the rival door's own symmetric
-    guard, which :func:`validate_target_spec` runs first (inferrer dispatch
-    order — the ε(λ) door dispatches last, after S10).  The pair unique to this
-    door is ``emissivity_path`` + scalar ``source.target.emissivity``: before
-    CU-318 it reached only ``evaluate()``.
+    CU-323 made this a **pre-dispatch** check rather than a door guard: it runs
+    first in :func:`validate_target_spec` and first in
+    ``_inferrer._build_target_descriptor``.  The ε(λ) door dispatches last, so
+    nine of its ten rivals open a door that builds the target before this guard
+    would ever have run at ``evaluate()`` — the ε(λ) surface was silently
+    discarded (Rule 17).  Only the tenth pair (``emissivity_path`` + scalar
+    ``source.target.emissivity``) has no rival door of its own; that is the one
+    CU-318 made symmetric.
     """
     if not _is_user_set_nonempty(params, "source.target.emissivity_path"):
         return
@@ -874,9 +882,19 @@ def validate_target_spec(params: ParameterSet) -> None:
     agree on every pair the doors know about.  CU-318 closed the mirror-image
     gap: the ε(λ) door's guard was still inlined in the inferrer, so
     ``emissivity_path`` + scalar ``source.target.emissivity`` — the one pair no
-    other door refuses symmetrically — reached only ``evaluate()``.  It is now
-    :func:`check_emissivity_path_conflicts`, last in dispatch order.
+    other door refuses symmetrically — reached only ``evaluate()``.
+
+    CU-323 closed the last asymmetry, the nine *other* ``emissivity_path``
+    pairs: each rival opens a door the inferrer dispatches before the ε(λ)
+    door, so the rival built the target and the ε(λ) surface was discarded in
+    silence (Rule 17).  :func:`check_emissivity_path_conflicts` is therefore no
+    longer a per-door guard sitting last in dispatch order — it is a
+    **pre-dispatch** check, run first here and first in
+    ``_inferrer._build_target_descriptor``.  Running it in the same position at
+    both entry points is what makes them report the same *first* error even for
+    a config that over-specifies in more than one way.
     """
+    check_emissivity_path_conflicts(params)
     check_brightness_temperature_conflicts(params)
     check_radiance_temperature_conflicts(params)
     check_reflectance_conflicts(params)
@@ -884,4 +902,3 @@ def validate_target_spec(params: ParameterSet) -> None:
     check_intensity_door_extent_conflicts(params)
     check_point_intensity_conflicts(params)
     check_user_intensity_conflicts(params)
-    check_emissivity_path_conflicts(params)

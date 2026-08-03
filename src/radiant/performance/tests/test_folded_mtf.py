@@ -117,9 +117,8 @@ class TestReplicationAtNyquist:
           k = ±2, ±3 → 3 f_Ny, 5 f_Ny, 7 f_Ny → 0
           total = 0 exactly.
         The absolute value is the anchor (per the CU-209 owner ruling); the
-        alias fraction is deliberately not asserted here, because 0/0 is
-        floor-dependent and whether ``alias_fraction`` needs an absolute floor
-        is a separate question.
+        alias fraction there is anchored separately by
+        ``TestAliasFractionFloor`` (CU-315).
         """
         f_cutoff = 0.5 * F_NYQUIST
         freq = np.linspace(0.0, 6.0, 1201) * F_NYQUIST
@@ -175,6 +174,117 @@ class TestReplicationAtNyquist:
         result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
 
         assert result.mtf_folded[idx_half] == pytest.approx(1.5, rel=1e-12)
+
+
+class TestAliasFractionFloor:
+    """CU-315: an absolute floor on the folded MTF below which the alias
+    fraction is reported as exactly zero.
+
+    ``alias_fraction = (folded − optical)/folded`` is a ratio of two numbers
+    that both vanish for optics cutting off below Nyquist, so without a floor
+    it divides float noise by float noise.  The floor is
+    ``ALIAS_FRACTION_MTF_FLOOR`` = 1e-9 of the DC response ``MTF(0) = 1``.
+    """
+
+    @pytest.mark.level0
+    def test_oversampled_alias_fraction_is_exactly_zero_at_nyquist(self) -> None:
+        """Band-limited optics (f_c = f_Ny/2): folded = 0 → alias fraction 0.
+
+        Same hand-summed configuration as
+        ``test_oversampled_folded_is_zero_at_nyquist``: every replica lands
+        above the cutoff, so the folded response at ``f_Ny`` is zero and there
+        is no aliased energy to report.
+        """
+        f_cutoff = 0.5 * F_NYQUIST
+        freq = np.linspace(0.0, 6.0, 1201) * F_NYQUIST
+        mtf_optical = _triangle_mtf(freq, f_cutoff)
+        idx_ny = int(np.argmin(np.abs(freq - F_NYQUIST)))
+
+        result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
+
+        assert result.alias_fraction[idx_ny] == 0.0
+
+    @pytest.mark.level0
+    def test_oversampled_with_roundoff_residue_reports_zero(self) -> None:
+        """The dual-band LWIR condition: 0/0 at the 1e-16 level → 0.
+
+        A pupil-autocorrelation MTF does not return *identically* zero above
+        cutoff — it carries a ~1e-16 round-off residue, so both the optical
+        and the folded value at ``f_Ny`` are float noise and their ratio is an
+        arbitrary number in [0, 1] (0.944314 in the shipped dual-band example,
+        ~0.83 on the deterministic residue used here).  With the floor the
+        answer is the physical one: an oversampled design aliases nothing.
+        """
+        f_cutoff = 0.5 * F_NYQUIST
+        freq = np.linspace(0.0, 6.0, 1201) * F_NYQUIST
+        residue = 1.0e-16 * (1.0 + 0.5 * np.sin(freq / F_NYQUIST))
+        mtf_optical = _triangle_mtf(freq, f_cutoff) + residue
+        idx_ny = int(np.argmin(np.abs(freq - F_NYQUIST)))
+
+        result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
+
+        assert result.mtf_folded[idx_ny] < 1e-14  # numerically nothing
+        assert result.mtf_folded[idx_ny] > 0.0  # but not identically zero
+        assert result.alias_fraction[idx_ny] == 0.0
+
+    @pytest.mark.level0
+    def test_floored_where_folded_below_epsilon(self) -> None:
+        """A genuinely aliased shape scaled below the floor reports zero.
+
+        The triangle with ``f_c = 3 f_Ny`` folds to ``4/3 × A`` at ``f_Ny``
+        with an exact alias fraction of 1/2 at any amplitude ``A``.  Scaled to
+        ``A = 0.375e-9`` the folded value is ``0.5e-9`` — below the 1e-9 floor
+        — so the reported fraction is 0, not 1/2.
+        """
+        amplitude = 0.375e-9
+        f_cutoff = 3.0 * F_NYQUIST
+        freq = np.linspace(0.0, 6.0, 1201) * F_NYQUIST
+        mtf_optical = amplitude * _triangle_mtf(freq, f_cutoff)
+        idx_ny = int(np.argmin(np.abs(freq - F_NYQUIST)))
+
+        result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
+
+        assert result.mtf_folded[idx_ny] == pytest.approx(0.5e-9, rel=1e-12)
+        assert result.alias_fraction[idx_ny] == 0.0
+
+    @pytest.mark.level0
+    def test_marginal_case_just_above_epsilon_is_untouched(self) -> None:
+        """The same shape at ``A = 1.5e-9`` (folded = 2e-9 > floor) keeps 1/2.
+
+        The floor must not eat real fractions: one power of ten above the
+        epsilon the exact 1/2 anchor still holds to full double precision.
+        """
+        amplitude = 1.5e-9
+        f_cutoff = 3.0 * F_NYQUIST
+        freq = np.linspace(0.0, 6.0, 1201) * F_NYQUIST
+        mtf_optical = amplitude * _triangle_mtf(freq, f_cutoff)
+        idx_ny = int(np.argmin(np.abs(freq - F_NYQUIST)))
+
+        result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
+
+        assert result.mtf_folded[idx_ny] == pytest.approx(2.0e-9, rel=1e-12)
+        assert result.alias_fraction[idx_ny] == pytest.approx(0.5, rel=1e-9)
+
+    @pytest.mark.level0
+    def test_undersampled_fractions_are_bit_identical(self) -> None:
+        """Above the floor the array is bit-for-bit the unfloored ratio.
+
+        Recomputes ``(folded − optical)/folded`` from the returned folded
+        curve with the identical operations and asserts exact equality, so any
+        rescaling, clipping, or reordering introduced by the floor would fail.
+        """
+        f_cutoff = 3.0 * F_NYQUIST
+        freq = np.linspace(0.0, 6.0, 1201) * F_NYQUIST
+        mtf_optical = _triangle_mtf(freq, f_cutoff)
+
+        result = compute_folded_mtf(freq, mtf_optical, F_NYQUIST, n_folds=3)
+
+        above = result.mtf_folded > 1e-9
+        expected = (result.mtf_folded[above] - mtf_optical[above]) / result.mtf_folded[above]
+        assert np.array_equal(result.alias_fraction[above], expected)
+        # And every sample of this undersampled case is above the floor
+        # except where the folded response is identically zero.
+        assert np.all(result.alias_fraction[~above] == 0.0)
 
 
 class TestWellSampledLimit:

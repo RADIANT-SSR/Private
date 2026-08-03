@@ -455,13 +455,13 @@ class TestEmissivityPathDoor:
 
     The other nine rivals in the guard's list all *open a door of their own*
     that the inferrer dispatches before the ε(λ) door, so at ``evaluate()``
-    they never reach this guard — the ε(λ) surface is discarded in silence
+    they never reached this guard — the ε(λ) surface was discarded in silence
     (measured 2026-08-02; the CU-318 entry's "caught earlier by other doors'
     symmetric guards" holds only for the two rivals whose own door raises for
-    an unrelated reason).  The seam is therefore deliberately **stricter** than
-    ``evaluate()`` for those pairs: it refuses an over-specified spec the
-    inferrer would silently narrow.  Only the seam side is asserted below —
-    pinning the evaluate-side silence would freeze a Rule-17 defect.
+    an unrelated reason).  The seam was therefore deliberately **stricter**
+    than ``evaluate()`` for those pairs until CU-323 made the guard
+    pre-dispatch; only the seam side is asserted below, with the evaluate side
+    of those nine pairs in :class:`TestEmissivityPathRivalsAtEvaluate`.
     """
 
     @pytest.fixture()
@@ -581,3 +581,134 @@ class TestEmissivityPathDoor:
         s = Sensor().set("source.target.emissivity_path", str(eps_csv))
         s.set("source.target.temperature", 300.0)  # K
         s.validate_target_spec()
+
+
+@pytest.mark.level1
+class TestEmissivityPathRivalsAtEvaluate:
+    """CU-323 — ``evaluate()`` refuses all nine rival pairs, as the seam does.
+
+    Each of these nine surfaces opens a door the inferrer dispatches *before*
+    the ε(λ) door, so before CU-323 the rival door built the target and the
+    user's ``emissivity_path`` was discarded in silence (Rule 17) — the same
+    defect class CU-293 closed for the S11 + S12 pair, and the residual
+    asymmetry CU-318 documented rather than closed.  Owner ruling 2026-08-02:
+    extend the CU-293 class; evaluate refuses exactly as the seam does, with
+    the same error text.
+
+    The tenth pair (scalar ``source.target.emissivity``) is the one CU-318
+    already made symmetric and is asserted above.
+    """
+
+    @pytest.fixture()
+    def rivals(self, tmp_path: Path) -> dict[str, object]:
+        """The nine rival surfaces, each with a valid value for its type."""
+        rho = tmp_path / "rho_rival.csv"
+        rho.write_text(
+            "wavelength_um,reflectance\n3.0,0.30\n5.5,0.30\n",
+            encoding="utf-8",
+        )
+        t_b = tmp_path / "T_b_rival.csv"
+        t_b.write_text(
+            "wavelength_um,brightness_temperature_K\n3.0,320.0\n5.5,320.0\n",
+            encoding="utf-8",
+        )
+        radiance = tmp_path / "L_rival.csv"
+        radiance.write_text(
+            "wavelength_um,L_W_per_m2_per_sr_per_um\n3.0,4.0\n5.5,6.0\n",
+            encoding="utf-8",
+        )
+        intensity = tmp_path / "I_rival.csv"
+        intensity.write_text(
+            "wavelength_um,intensity_W_per_sr_per_um\n3.0,10.0\n5.5,10.0\n",
+            encoding="utf-8",
+        )
+        return {
+            "source.target.reflectance": 0.3,
+            "source.target.albedo": 0.3,
+            "source.target.reflectance_path": str(rho),
+            "source.target.albedo_path": str(rho),
+            "source.target.brightness_temperature_K": 320.0,  # K
+            "source.target.brightness_temperature_path": str(t_b),
+            "source.target.radiance_temperature_K": 300.0,  # K
+            "source.target.user_radiance_path": str(radiance),
+            "source.target.user_intensity_path": str(intensity),
+        }
+
+    @staticmethod
+    def _configure(eps_csv: Path, conflict: str, value: object) -> Sensor:
+        s = _thermal_surface_cleared()
+        s.set("source.target.emissivity_path", str(eps_csv))
+        s.set(conflict, value)
+        return s
+
+    @pytest.fixture()
+    def eps_csv(self, tmp_path: Path) -> Path:
+        p = tmp_path / "eps_rival.csv"
+        p.write_text(
+            "wavelength_um,emissivity\n3.0,0.80\n5.5,0.92\n",
+            encoding="utf-8",
+        )
+        return p
+
+    @pytest.mark.parametrize(
+        "conflict",
+        [
+            "source.target.reflectance",
+            "source.target.albedo",
+            "source.target.reflectance_path",
+            "source.target.albedo_path",
+            "source.target.brightness_temperature_K",
+            "source.target.brightness_temperature_path",
+            "source.target.radiance_temperature_K",
+            "source.target.user_radiance_path",
+            "source.target.user_intensity_path",
+        ],
+    )
+    def test_rival_pair_refused_at_evaluate(
+        self, eps_csv: Path, rivals: dict[str, object], conflict: str
+    ) -> None:
+        """The defect: each of these evaluated silently, ε(λ) discarded."""
+        s = self._configure(eps_csv, conflict, rivals[conflict])
+        with pytest.raises(ParameterBoundsError) as excinfo:
+            s.evaluate()
+        assert "emissivity_path" in excinfo.value.what
+        assert excinfo.value.context["conflict"] == conflict
+
+    @pytest.mark.parametrize(
+        "conflict",
+        [
+            "source.target.reflectance",
+            "source.target.albedo",
+            "source.target.reflectance_path",
+            "source.target.albedo_path",
+            "source.target.brightness_temperature_K",
+            "source.target.brightness_temperature_path",
+            "source.target.radiance_temperature_K",
+            "source.target.user_radiance_path",
+            "source.target.user_intensity_path",
+        ],
+    )
+    def test_same_error_from_seam_and_evaluate(
+        self, eps_csv: Path, rivals: dict[str, object], conflict: str
+    ) -> None:
+        """Text identity, the CU-293 pattern: same what/why/action, verbatim."""
+        with pytest.raises(ParameterBoundsError) as seam:
+            self._configure(eps_csv, conflict, rivals[conflict]).validate_target_spec()
+        with pytest.raises(ParameterBoundsError) as evaluated:
+            self._configure(eps_csv, conflict, rivals[conflict]).evaluate()
+        assert str(seam.value) == str(evaluated.value)
+
+    def test_rival_door_alone_still_evaluates(self, rivals: dict[str, object]) -> None:
+        """Without ``emissivity_path`` the rival door is untouched: no refusal.
+
+        The guard is gated on the ε(λ) surface being user-set, so adding it
+        ahead of dispatch cannot make a single-door spec raise.
+        """
+        s = _thermal_surface_cleared()
+        s.set(
+            "source.target.brightness_temperature_K",
+            rivals["source.target.brightness_temperature_K"],
+        )
+        s.validate_target_spec()
+        result = s.evaluate()
+        assert result.metrics["snr"] > 0.0

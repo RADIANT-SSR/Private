@@ -333,7 +333,11 @@ $$\mathrm{MTF}_{fold}(\nu) = \sum_{k=-N}^{+N} \mathrm{MTF}_{opt}\!\left(\left|\n
 At $\nu = \nu_{Nyq}$ the $k = -1$ replica lands back on $\nu_{Nyq}$, so the folded value
 there is twice the pre-sampling MTF (alias fraction $\to 1/2$) whenever the higher orders
 are negligible — and it is *zero* for optics that cut off below Nyquist, which is the
-oversampled sanity check. GIQE consumes RER from the PSF path and the MTF budget per
+oversampled sanity check. The alias fraction
+$(\mathrm{MTF}_{fold} - \mathrm{MTF}_{opt})/\mathrm{MTF}_{fold}$ is evaluated only where
+$\mathrm{MTF}_{fold} > 10^{-9}$ of its DC value; below that floor both terms are
+round-off, and the reported fraction is exactly zero — an oversampled design has no
+aliased energy (CU-315). GIQE consumes RER from the PSF path and the MTF budget per
 `theory/performance_metrics.md`.
 
 **Pitfalls.** "Q = 1 critical" is a different (sampling-frequency) convention — RADIANT's

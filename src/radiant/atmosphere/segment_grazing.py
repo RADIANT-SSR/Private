@@ -68,7 +68,7 @@ from radiant.atmosphere.segment_single_scatter import (
     cos_scattering_angle,
     segment_single_scatter_radiance,
 )
-from radiant.atmosphere.segment_thermal import segment_thermal_emission
+from radiant.atmosphere.segment_thermal import directional_segment_thermal
 from radiant.atmosphere.segments import (
     SegmentQuantities,
     validate_wavelength_grid,
@@ -91,12 +91,15 @@ def grazing_segment_optical_depth(
     r_tangent_m: float,
     h_low_m: float,
     h_high_m: float,
-) -> tuple[np.ndarray, dict[str, float]]:
+) -> tuple[np.ndarray, dict[str, float], dict[str, np.ndarray]]:
     """Slant optical depth of an ascending grazing arc [dimensionless].
 
-    Returns ``(od_slant, geometry)`` where ``geometry`` carries the per-species
-    vertical columns, spherical slant columns and the effective air masses
-    that relate them (provenance).
+    Returns ``(od_slant, geometry, species_od)`` where ``geometry`` carries the
+    per-species vertical columns, spherical slant columns and the effective air
+    masses that relate them (provenance), and ``species_od`` the four slant
+    per-species optical depths keyed by
+    :data:`radiant.atmosphere.segment_thermal.SPECIES_KEYS` (they sum to
+    ``od_slant``; the CU-321 emission weighting needs the split).
 
     Construction — deliberately the *same* one
     :func:`radiant.atmosphere.segment_simple.column_segment_optical_depth`
@@ -148,12 +151,16 @@ def grazing_segment_optical_depth(
         scale_height_aer_m=H_AER_M,
         scale_height_h2o_m=H_H2O_M,
     )
+    od_vert_mol = atmosphere._rayleigh_extinction_km(lam, 0.0) * col_mol
+    od_vert_aer = atmosphere._aerosol_extinction_km(lam, 0.0) * col_aer
+    od_vert_h2o = atmosphere._h2o_vertical_od(lam, col_h2o)
+    od_vert_gas = atmosphere._gas_floor_vertical_od(lam, col_mol)
     od = apply_species_air_mass(
         masses,
-        od_vert_mol=atmosphere._rayleigh_extinction_km(lam, 0.0) * col_mol,
-        od_vert_aer=atmosphere._aerosol_extinction_km(lam, 0.0) * col_aer,
-        od_vert_h2o=atmosphere._h2o_vertical_od(lam, col_h2o),
-        od_vert_gas=atmosphere._gas_floor_vertical_od(lam, col_mol),
+        od_vert_mol=od_vert_mol,
+        od_vert_aer=od_vert_aer,
+        od_vert_h2o=od_vert_h2o,
+        od_vert_gas=od_vert_gas,
     )
     geometry = {
         "col_length_mol_km": col_mol,
@@ -161,7 +168,13 @@ def grazing_segment_optical_depth(
         "col_length_h2o_km": col_h2o,
         **masses.as_provenance(),
     }
-    return od, geometry
+    species_od = {
+        "mol": od_vert_mol * masses.m_mol,
+        "aer": od_vert_aer * masses.m_aer,
+        "h2o": od_vert_h2o * masses.m_h2o,
+        "gas": od_vert_gas * masses.m_mol,
+    }
+    return od, geometry, species_od
 
 
 def evaluate_grazing_segment(
@@ -261,13 +274,26 @@ def evaluate_grazing_segment(
             provenance=provenance,
         )
 
-    od, columns = grazing_segment_optical_depth(atmosphere, lam, r_tangent_m, h_low_m, h_high_m)
+    od, columns, species_od = grazing_segment_optical_depth(
+        atmosphere, lam, r_tangent_m, h_low_m, h_high_m
+    )
     tau = np.exp(-od)
     provenance.update(columns)
 
-    t_eff_K = atmosphere._downwelling_effective_temperature_K(h_low_m)
-    provenance["t_eff_K"] = t_eff_K
-    thermal = segment_thermal_emission(lam, tau, t_eff_K)
+    # Height-resolved emission temperature, once per escape end (CU-321).  The
+    # arc's air is distributed along the arc rather than along the vertical
+    # between its endpoints, so the weighting is an approximation here — the
+    # documented fragility in ``emission_temperature`` — but the *total* optical
+    # depth, and hence the emissivity, is exact.
+    thermal_toward_upper, thermal_toward_lower = directional_segment_thermal(
+        atmosphere,
+        lam,
+        tau,
+        h_low_m=h_low_m,
+        h_high_m=h_high_m,
+        species_od=species_od,
+        provenance=provenance,
+    )
 
     scat_up, scat_dn, scatter_prov = _grazing_single_scatter_terms(
         atmosphere,
@@ -285,8 +311,8 @@ def evaluate_grazing_segment(
     return SegmentQuantities(
         wavelength_um=lam,
         tau=tau,
-        L_toward_upper=thermal + scat_up,
-        L_toward_lower=thermal + scat_dn,
+        L_toward_upper=thermal_toward_upper + scat_up,
+        L_toward_lower=thermal_toward_lower + scat_dn,
         provenance=provenance,
     )
 

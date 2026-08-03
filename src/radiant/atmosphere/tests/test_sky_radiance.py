@@ -109,7 +109,11 @@ def test_sky_radiance_never_exceeds_the_planck_ceiling() -> None:
     lam = _thermal_grid()
     atm = _atm()
     sky = sky_radiance_along_los(atm, lam, 0.0, math.radians(85.0))
-    ceiling = planck_spectral_radiance(lam, atm._downwelling_effective_temperature_K(0.0))
+    # The ceiling is the warmest air the path contains — sea level, since the
+    # column is rooted at the ground.  Since CU-321 the emission temperature is
+    # height-resolved and strictly below it, so this bound is the loose one it
+    # was always meant to be.
+    ceiling = planck_spectral_radiance(lam, float(atm._profile_temperature_K(np.asarray(0.0))))
     assert np.all(sky <= ceiling + 1e-12)
 
 

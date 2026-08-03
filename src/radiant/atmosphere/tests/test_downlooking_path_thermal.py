@@ -25,7 +25,10 @@ import math
 import numpy as np
 import pytest
 
-from radiant.atmosphere.segment_simple import evaluate_column_segment
+from radiant.atmosphere.segment_simple import (
+    column_segment_optical_depth,
+    evaluate_column_segment,
+)
 from radiant.atmosphere.segments import ColumnSegmentSpec
 from radiant.atmosphere.simple import SimpleAtmosphere
 from radiant.core.constants import c, h, k_B
@@ -49,7 +52,31 @@ def _lwir_grid() -> np.ndarray:
     return np.linspace(8.0, 12.0, 41)
 
 
-def _planck_from_constants(lam_um: np.ndarray, t_K: float) -> np.ndarray:
+def _column_t_eff(
+    atm: SimpleAtmosphere,
+    lam: np.ndarray,
+    h_low_m: float,
+    h_high_m: float,
+    zeta_rad: float,
+    escape: str,
+) -> np.ndarray:
+    """The CU-321 height-resolved T_eff(λ) for a plain column [K]."""
+    _od, _am, _lengths, species_od = column_segment_optical_depth(
+        atm, lam, ColumnSegmentSpec(h_low_m=h_low_m, h_high_m=h_high_m, zeta_low_rad=zeta_rad)
+    )
+    return atm._segment_emission_temperature_K(
+        lam,
+        h_low_m=h_low_m,
+        h_high_m=h_high_m,
+        od_slant_mol=species_od["mol"],
+        od_slant_aer=species_od["aer"],
+        od_slant_h2o=species_od["h2o"],
+        od_slant_gas=species_od["gas"],
+        escape=escape,
+    )
+
+
+def _planck_from_constants(lam_um: np.ndarray, t_K: np.ndarray | float) -> np.ndarray:
     """B(λ, T) [W/m²/sr/µm] from the Planck law written out longhand.
 
     Independent of ``radiant.core.blackbody`` on purpose (Rule 18): the test
@@ -70,11 +97,13 @@ def _planck_from_constants(lam_um: np.ndarray, t_K: float) -> np.ndarray:
 
 @pytest.mark.level0
 def test_pure_thermal_downlooking_column_emits_kirchhoff_graybody() -> None:
-    """Sun below the horizon ⇒ ``L_path_up == (1 − τ_up)·B(λ, T_eff)`` exactly.
+    """Sun below the horizon ⇒ ``L_path_up == (1 − τ_up)·B(λ, T_eff(λ))``.
 
-    ``T_eff`` is the CU-155 emission-height temperature at the column's
-    **lower** endpoint — the target — which is the same helper, evaluated at
-    the same endpoint, that ``segment_thermal`` uses for the up-looking side.
+    ``T_eff(λ)`` is the CU-321 height-resolved emission temperature of the
+    ``[h_tgt, h_sensor]`` column, escaping at the SENSOR end — the same model,
+    evaluated on the same column, that the up-looking segment evaluators use
+    with ``escape="lower"``.  Emissivity is still ``1 − τ`` on the column's own
+    transmittance (Kirchhoff, Rule 5).
     """
     lam = _lwir_grid()
     atm = _atm()
@@ -87,25 +116,33 @@ def test_pure_thermal_downlooking_column_emits_kirchhoff_graybody() -> None:
     )
     q = atm.evaluate(lam, los, params=None)  # type: ignore[arg-type]
 
-    # Hand value: T_eff = 294.15 K (midlat_summer sea level) − 6.5e-3 K/m ·
-    # 200 m emission-height offset = 292.85 K.
-    t_eff = 294.15 - 6.5e-3 * 200.0
-    assert atm._downwelling_effective_temperature_K(0.0) == pytest.approx(t_eff, abs=1e-12)
-
+    t_eff = _column_t_eff(atm, lam, 0.0, 1.0e4, math.radians(30.0), "upper")
     expected = (1.0 - q.tau_up) * _planck_from_constants(lam, t_eff)
     np.testing.assert_allclose(q.L_path_up, expected, rtol=1e-12, atol=0.0)
     # h_tgt == 0 ⇒ the full-column product is the same column.
     np.testing.assert_allclose(q.L_path_full, expected, rtol=1e-12, atol=0.0)
 
+    # …and the value really is height-resolved: strictly colder than the
+    # near-surface air the pre-CU-321 model used for the whole column, and
+    # inside the column's own temperature range.  This is the assertion that
+    # fails on the old code.
+    t_ground = 294.15  # midlat_summer sea level, ICAO
+    t_top = 294.15 - 6.5e-3 * 1.0e4
+    assert np.all(t_eff < t_ground - 1.0)
+    assert np.all(t_eff > t_top)
+    # It is also genuinely spectral — an opaque channel and a window channel
+    # emit from different altitudes.
+    assert float(np.max(t_eff) - np.min(t_eff)) > 1.0
+
 
 @pytest.mark.level0
 def test_full_column_thermal_uses_the_ground_as_its_lower_endpoint() -> None:
-    """For an elevated target ``L_path_full``'s T_eff is the **ground** value.
+    """For an elevated target ``L_path_full`` spans the deeper column.
 
     ``L_path_up`` spans ``[h_tgt, h_sensor]`` and ``L_path_full`` spans
     ``[0, h_sensor]``, so the two carry different emission temperatures — each
-    one the CU-155 helper at its own lower endpoint.  Nothing new is invented
-    for the down-looking direction (Rule 27).
+    the CU-321 model over its own column, both escaping at the sensor end.
+    Nothing new is invented for the down-looking direction (Rule 27).
     """
     lam = _lwir_grid()
     atm = _atm()
@@ -118,9 +155,10 @@ def test_full_column_thermal_uses_the_ground_as_its_lower_endpoint() -> None:
     )
     q = atm.evaluate(lam, los, params=None)  # type: ignore[arg-type]
 
-    t_up = atm._downwelling_effective_temperature_K(3.0e3)
-    t_full = atm._downwelling_effective_temperature_K(0.0)
-    assert t_full > t_up  # the ground column is warmer than the 3 km one
+    t_up = _column_t_eff(atm, lam, 3.0e3, 1.0e4, 0.0, "upper")
+    t_full = _column_t_eff(atm, lam, 0.0, 1.0e4, 0.0, "upper")
+    # The ground-rooted column reaches into warmer air than the 3 km one.
+    assert np.all(t_full > t_up)
 
     np.testing.assert_allclose(
         q.L_path_up, (1.0 - q.tau_up) * _planck_from_constants(lam, t_up), rtol=1e-12, atol=0.0
@@ -228,7 +266,7 @@ def test_sun_below_horizon_branch_is_thermal_not_zero() -> None:
     assert np.all(q.L_path_up > 0.0)
     assert np.all(q.L_path_full > 0.0)
 
-    t_eff = atm._downwelling_effective_temperature_K(0.0)
+    t_eff = _column_t_eff(atm, lam, 0.0, 1.0e4, 0.0, "upper")
     np.testing.assert_allclose(
         q.L_path_up,
         (1.0 - q.tau_up) * _planck_from_constants(lam, t_eff),

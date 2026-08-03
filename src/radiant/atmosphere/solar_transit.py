@@ -179,8 +179,8 @@ def twilight_solar_transmittance(
 
     # Outgoing arc: tangent point → target.  Zero length when the sun sits
     # exactly on the horizontal (r_0 == R_E + h_tgt).
-    od_out, _ = grazing_segment_optical_depth(atmosphere, lam, r_0, h_tan, h_tgt_m)
+    od_out, _, _ = grazing_segment_optical_depth(atmosphere, lam, r_0, h_tan, h_tgt_m)
     # Incoming arc: tangent point → top of the modelled column.
-    od_in, _ = grazing_segment_optical_depth(atmosphere, lam, r_0, h_tan, h_atm_top_m)
+    od_in, _, _ = grazing_segment_optical_depth(atmosphere, lam, r_0, h_tan, h_atm_top_m)
 
     return np.asarray(np.exp(-(od_out + od_in)), dtype=np.float64)

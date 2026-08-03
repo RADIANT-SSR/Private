@@ -61,36 +61,47 @@ _BANDS = {
     "LWIR": (8.00, 12.00),
 }
 
-#: Measured 2026-08-01 on this branch: MODTRAN band-mean divided by the shipped
+#: Measured 2026-08-01: MODTRAN band-mean divided by the shipped
 #: (lower-endpoint) model band-mean, per rung and band.  Pinned so both a
 #: regression and an unexplained improvement fail loud (the
 #: ``test_uplooking_horizontal_anchors`` convention).
+#:
+#: **Thermal rows repinned 2026-08-02 (CU-321).**  The VIS/NIR/SWIR rows — the
+#: ones the species split actually governs — moved by ≤ 0.08 %, i.e. not at all;
+#: the whole move is in the two thermal bands, where the emission temperature
+#: became height-resolved.  LWIR walks toward unity on every column deeper than
+#: 3 km (0.947→1.074 at 5 km, 0.842→0.988 at 10 km, 0.812→0.967 at 20 km) and
+#: away from it on the 1 km rung (1.885→1.937), which is CU-161 τ-deficit
+#: territory.  MWIR walks away throughout (1.015→1.410 at 20 km) — the retired
+#: warm bias had been cancelling part of the region-flat spectral-shape deficit
+#: in this direction; see ``test_emission_temperature_anchors.py`` for the
+#: emission-temperature-only scoreboard that separates the two errors.
 _EXPECTED_RATIOS: dict[tuple[int, str], float] = {
     (1_000, "VIS"): 1.103,
     (1_000, "NIR"): 0.792,
     (1_000, "SWIR"): 0.607,
-    (1_000, "MWIR"): 2.334,
-    (1_000, "LWIR"): 1.885,
+    (1_000, "MWIR"): 2.448,
+    (1_000, "LWIR"): 1.937,
     (3_000, "VIS"): 1.293,
     (3_000, "NIR"): 0.896,
     (3_000, "SWIR"): 0.662,
-    (3_000, "MWIR"): 1.574,
-    (3_000, "LWIR"): 1.130,
+    (3_000, "MWIR"): 1.852,
+    (3_000, "LWIR"): 1.238,
     (5_000, "VIS"): 1.343,
     (5_000, "NIR"): 0.908,
     (5_000, "SWIR"): 0.629,
-    (5_000, "MWIR"): 1.333,
-    (5_000, "LWIR"): 0.947,
+    (5_000, "MWIR"): 1.674,
+    (5_000, "LWIR"): 1.074,
     (10_000, "VIS"): 1.360,
     (10_000, "NIR"): 0.930,
     (10_000, "SWIR"): 0.610,
-    (10_000, "MWIR"): 1.123,
-    (10_000, "LWIR"): 0.842,
+    (10_000, "MWIR"): 1.514,
+    (10_000, "LWIR"): 0.988,
     (20_000, "VIS"): 1.342,
     (20_000, "NIR"): 0.940,
     (20_000, "SWIR"): 0.600,
-    (20_000, "MWIR"): 1.015,
-    (20_000, "LWIR"): 0.812,
+    (20_000, "MWIR"): 1.410,
+    (20_000, "LWIR"): 0.967,
 }
 
 
@@ -156,27 +167,37 @@ def test_lower_endpoint_weighting_is_the_better_of_the_two_everywhere_it_matters
     consistently the closer of the two to the MODTRAN anchor.  Measured
     2026-08-01, worst band-mean excursion ``max(r, 1/r)`` over the five rungs:
 
-    ======  ===============  ===============
-    band    arithmetic mean  lower endpoint
-    ======  ===============  ===============
-    VIS     3.085×           1.360×
-    NIR     3.024×           1.262×
-    SWIR    8.712×           1.666×
-    MWIR    2.404×           2.334×
-    LWIR    1.885×           1.885×  (identical to 4e-4 — thermal control)
-    ======  ===============  ===============
+    ======  ===============  ===============  ==============
+    band    arithmetic mean  lower endpoint   + CU-321
+    ======  ===============  ===============  ==============
+    VIS     3.085×           1.360×           1.361×
+    NIR     3.024×           1.262×           1.262×
+    SWIR    8.712×           1.666×           1.666×
+    MWIR    2.404×           2.334×           2.448×
+    LWIR    1.885×           1.885×           1.937×
+    ======  ===============  ===============  ==============
 
     ``segment_simple`` no longer *offers* the retired weighting (Rule 27 — one
     canonical version), so this test cannot re-run the comparison; it asserts the
     right-hand column instead, as a ceiling.  Any regression toward the retired
     behaviour blows straight through it.
+
+    **Honest note added 2026-08-02 (CU-321).**  The three bands the species
+    split actually governs (VIS/NIR/SWIR) are untouched by the emission-
+    temperature change and still discriminate by 2×–5×, which is what this
+    criterion was for.  The two thermal bands no longer discriminate at all:
+    the height-resolved emission temperature moved the worst (1 km) MWIR
+    excursion from 2.334× to 2.448×, i.e. *past* where the retired weighting
+    sat, so the MWIR ceiling below is now a pure regression guard rather than a
+    comparison.  It is kept, with its ceiling raised to the measured value, and
+    the claim it supports is narrowed accordingly.
     """
     worst_by_band = {
         "VIS": 1.40,
         "NIR": 1.30,
         "SWIR": 1.70,
-        "MWIR": 2.40,
-        "LWIR": 1.90,
+        "MWIR": 2.46,
+        "LWIR": 1.95,
     }
     for rung, lam, modtran in _rungs():
         model = _model_sky(lam, rung)

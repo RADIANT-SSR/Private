@@ -32,7 +32,7 @@ transcribed into the run script.
   sensor sized below full well, the metric reproduced an explicit two-run
   differencing to the digit (MWIR 26.2 = 26.2, LWIR 133.7 = 133.7). Those two
   figures are the historical cross-check, not current output; the current
-  contrast SNRs are MWIR 36.5 and LWIR 99.1 (the runner no longer prints the
+  contrast SNRs are MWIR 38.1 and LWIR 101.3 (the runner no longer prints the
   two-run comparison, so the identity is not re-verified in this refresh).
 - **Solar independence (analytic, `core.blackbody`).** Band-integrated
   thermal emitted radiance `ε·∫B(λ,T)dλ` vs the reflected-solar radiance a
@@ -54,24 +54,22 @@ metric drifts (a CU, filed).
 
 | Band | SNR | Contrast SNR | NEDT (mK) | ΔT/NEDT | MRT@Nyq (K) |
 |------|-----|--------------|-----------|---------|-------------|
-| MWIR | 391.8 | 36.5 | 69.5 | 101× | 0.383 |
-| LWIR | 2835.8 | 99.1 | 21.1 | 331× | 0.343 |
+| MWIR | 375.7 | 38.1 | 72.5 | 97× | 0.399 |
+| LWIR | 2776.4 | 101.3 | 21.6 | 324× | 0.350 |
 
 *Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-18 — these were the explicitly pre-CU-161 figures this file's own
-postscript flagged as stale). Two movers, both in-window:*
-*(a) CU-161's curve-of-growth water refit corrected the MWIR τ that the
-real-MODTRAN note below measured as 2.2× too absorbing on this 4.1 cm tropical
-column, which is most of the MWIR SNR jump 166.9 → 391.8;*
-*(b) CU-224 — down-looking `(1−τ)·B` path emission on this `simple`-atmosphere
-airborne scene — adds signal in both bands but also raises the background and
-its shot floor. That second effect is why LWIR's **contrast** SNR falls
-(133.7 → 99.1) even as its plain SNR rises (2290.1 → 2835.8): a differential
-metric pays the higher noise floor without gaining from the common-mode
-radiance. CU-267 contributes ≤ 0.71 % (MWIR) / 0.27 % (LWIR) of τ reduction.*
+2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the down-looking
+`(1−τ)·B` path emission CU-224 added is now emitted at a height-resolved
+`T_eff(λ)` over the 0 → 3 km column rather than at its near-surface
+temperature, so it falls back part of the way: plain SNR MWIR 391.8 → 375.7
+and LWIR 2835.8 → 2776.4, NEDT MWIR 69.5 → 72.5 mK and LWIR 21.1 → 21.6 mK.
+The **contrast** SNRs move the other way (MWIR 36.5 → 38.1, LWIR 99.1 → 101.3)
+for the same reason they fell under CU-224: a differential metric pays the
+background shot floor without gaining from common-mode radiance, so lowering
+that floor helps it. All four verdicts are unchanged, and every margin is wide.*
 
-- Both bands detect the 7 K contrast with **wide margin** — ΔT is 101×
-  (MWIR) to 331× (LWIR) the NEDT, and the smallest resolvable ΔT at Nyquist
+- Both bands detect the 7 K contrast with **wide margin** — ΔT is 97×
+  (MWIR) to 324× (LWIR) the NEDT, and the smallest resolvable ΔT at Nyquist
   (MRT) is well under 1 K ≪ 7 K.
 - **LWIR wins on every figure.** Near a 290 K scene the Planck peak sits at
   ~10 µm, so LWIR collects far more thermal photons — lower NEDT, higher
@@ -99,15 +97,16 @@ radiance. CU-267 contributes ≤ 0.71 % (MWIR) / 0.27 % (LWIR) of τ reduction.*
 ### 3. Background-temperature envelope
 
 Terrain LST over the scene: 287.6–288.6 K (mean 288.1 K, 10 samples). Across
-the whole envelope the MWIR contrast SNR stays ≥ 33 (33.1 at the hottest
-background, 288.6 K, where ΔT is smallest; 38.7 at the coolest) — far above
+the whole envelope the MWIR contrast SNR stays ≥ 34 (34.6 at the hottest
+background, 288.6 K, where ΔT is smallest; 40.4 at the coolest) — far above
 the confident-detection threshold (SNR ≈ 6, Rose criterion). LWIR spans
-87.6–106.8 over the same envelope. The verdict is robust to background
+89.5–109.2 over the same envelope. The verdict is robust to background
 variation across the map.
 
 *Floor refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-18, floor ≥ 24). Same movers as the detectability table: CU-161 and
-CU-224.*
+2026-08-02, floor ≥ 33). Same mover as the detectability table: CU-321's
+height-resolved emission temperature, which lowers the background shot floor a
+differential metric pays.*
 
 **Verdict: YES.** Nighttime imaging is feasible; MWIR detects the 7 K scene
 with wide margin and is fully solar-independent; LWIR is the stronger band.
@@ -174,7 +173,7 @@ note records the accuracy context. Anchor: `modtran/real_runs/F1.tp7`.
   literal values date from before CU-161/CU-224.
 - **LWIR NEDT < MWIR NEDT near 290 K** — consistent with the Planck peak at
   ~10 µm; LWIR photon flux from a 290 K surface exceeds MWIR by ~an order of
-  magnitude, matching the SNR ratio (2836 vs 392, i.e. ×7.2).
+  magnitude, matching the SNR ratio (2776 vs 376, i.e. ×7.4).
 - **Solar/thermal ratios** match the textbook crossover: the MWIR
   emitted-vs-reflected crossover for terrestrial temperatures sits inside
   3–5 µm, so a 295 K surface in-band is emission-dominated but only modestly
@@ -188,6 +187,7 @@ pre-CU-161 record and is retained as a dated comparison, not as current output.
 The refreshed run partly confirms this note's forecast: the MWIR-vs-LWIR
 contrast-SNR ratio did narrow, from 5.1:1 (pre-fix model) to 2.7:1 (current
 model), against the ≈2:1 this note projected from τ-scaling alone. The MWIR
-contrast SNR itself came in at 36.5 rather than the projected ≈58, because the
-τ-scaling forecast did not anticipate CU-224's path-emission term raising the
-background shot floor alongside the signal.
+contrast SNR itself came in at 38.1 rather than the projected ≈58, because the
+τ-scaling forecast did not anticipate the path-emission term raising the
+background shot floor alongside the signal (CU-224; CU-321's height-resolved
+emission temperature since gave a little of that back, 36.5 → 38.1).

@@ -89,7 +89,9 @@ MODTRAN data and might want the original geometry too.
   cancellation kept SNR residuals (±8%) decoupled from τ residuals. CU-224
   (2026-08-02) gave the `simple` down-looking path its `(1−τ)·B(λ,T_eff)`
   emission term, which does *not* cancel between target and background;
-  SNR residuals moved to −9.0%…−32.3% and now rank with `(1−τ)`, i.e. with
-  the τ residual. The durable lesson is the one underneath both versions:
+  SNR residuals moved to −9.0%…−32.3% and began ranking with `(1−τ)`, i.e. with
+  the τ residual. CU-321 (same day) halved the amplitude by emitting that term
+  at a height-resolved `T_eff(λ)` — residuals are now −6.5%…−16.4% — without
+  changing the ranking, so the lesson stands at half the size. The durable lesson is the one underneath both versions:
   ask a stakeholder *which* downstream metric they mean by "atmosphere
   accuracy", because attenuation and path emission propagate differently.

@@ -53,8 +53,8 @@ class TestTwoArmDecomposition:
         theta_s = math.pi / 2.0 + math.radians(5.0)
         r_0 = (R_EARTH_M + h_tgt) * math.sin(theta_s)
         h_tan = r_0 - R_EARTH_M
-        od_out, _ = grazing_segment_optical_depth(atm, wl, r_0, h_tan, h_tgt)
-        od_in, _ = grazing_segment_optical_depth(atm, wl, r_0, h_tan, H_ATM_TOP_M)
+        od_out, _, _ = grazing_segment_optical_depth(atm, wl, r_0, h_tan, h_tgt)
+        od_in, _, _ = grazing_segment_optical_depth(atm, wl, r_0, h_tan, H_ATM_TOP_M)
         expected = np.exp(-(od_out + od_in))
         np.testing.assert_array_equal(
             twilight_solar_transmittance(atm, wl, h_tgt, theta_s, h_atm_top_m=H_ATM_TOP_M),
@@ -80,7 +80,7 @@ class TestTwoArmDecomposition:
         theta_s = math.pi / 2.0 + 1e-12
         tau = twilight_solar_transmittance(atm, wl, h_tgt, theta_s, h_atm_top_m=H_ATM_TOP_M)
         r_0 = R_EARTH_M + h_tgt
-        od_single, _ = grazing_segment_optical_depth(atm, wl, r_0, h_tgt, H_ATM_TOP_M)
+        od_single, _, _ = grazing_segment_optical_depth(atm, wl, r_0, h_tgt, H_ATM_TOP_M)
         np.testing.assert_allclose(tau, np.exp(-od_single), rtol=1e-9)
 
 

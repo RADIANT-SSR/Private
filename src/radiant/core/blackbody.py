@@ -64,29 +64,34 @@ _X_OVERFLOW: float = 700.0
 
 def planck_spectral_radiance(
     wavelength_um: np.ndarray | float,
-    temperature_K: float,
+    temperature_K: np.ndarray | float,
 ) -> np.ndarray:
     """Planck spectral radiance ``B(λ, T)`` in W/m²/sr/µm.
 
     Parameters
     ----------
     wavelength_um:
-        Wavelength(s) in µm. Scalar or 1-D array. All values must be
+        Wavelength(s) in µm. Scalar or array. All values must be
         strictly positive.
     temperature_K:
-        Absolute temperature in kelvin. Must be ``≥ 0``. ``T = 0``
-        returns exactly zero radiance.
+        Absolute temperature in kelvin. Either a scalar — the usual case,
+        one temperature for the whole spectrum — or an array broadcastable
+        against ``wavelength_um``, which is how a **spectrally resolved**
+        emission temperature is evaluated (``T_eff(λ)``, CU-321). Must be
+        ``≥ 0`` everywhere; ``T = 0`` returns exactly zero radiance there.
 
     Returns
     -------
     numpy.ndarray
-        Spectral radiance in W/m²/sr/µm, same shape as
-        ``wavelength_um`` (1-D, even for scalar input).
+        Spectral radiance in W/m²/sr/µm, of the broadcast shape of
+        ``wavelength_um`` and ``temperature_K`` (1-D for scalar
+        wavelength input with a scalar temperature).
 
     Raises
     ------
-    ValueError
-        If ``temperature_K < 0`` or any wavelength is ``≤ 0``.
+    CoreValidationError
+        If any temperature is ``< 0``, any wavelength is ``≤ 0``, or the
+        two arguments do not broadcast against one another.
 
     Notes
     -----
@@ -94,10 +99,15 @@ def planck_spectral_radiance(
     Rayleigh–Jeans regime. The Wien tail is truncated to zero for
     ``hc/(λ k_B T) > 700`` to prevent overflow — this is safely in the
     region where the true value is below float64 underflow anyway.
+
+    The scalar-temperature path is bit-identical to the pre-CU-321
+    implementation: broadcasting a 0-d temperature changes no arithmetic.
     """
-    if temperature_K < 0.0:
+    temp = np.asarray(temperature_K, dtype=np.float64)
+    if np.any(temp < 0.0):
+        shown: float | np.ndarray = float(temp) if temp.ndim == 0 else temp[temp < 0.0][0]
         raise CoreValidationError(
-            f"planck_spectral_radiance: temperature_K = {temperature_K} K is invalid. "
+            f"planck_spectral_radiance: temperature_K = {shown} K is invalid. "
             "Planck's law requires non-negative absolute temperature. "
             "Set temperature_K ≥ 0 (use 0 for a zero-radiance source)."
         )
@@ -110,19 +120,30 @@ def planck_spectral_radiance(
             f"value ({bad} µm). All wavelengths must be strictly positive."
         )
 
-    # T = 0 K → zero radiance everywhere (limit of Planck as T → 0⁺).
-    if temperature_K == 0.0:
-        return np.zeros_like(lam_um)
+    try:
+        lam_b, temp_b = np.broadcast_arrays(lam_um, temp)
+    except ValueError as exc:
+        raise CoreValidationError(
+            f"planck_spectral_radiance: temperature_K of shape {temp.shape} does not "
+            f"broadcast against wavelength_um of shape {lam_um.shape}. Pass a scalar "
+            "temperature, or one array per wavelength."
+        ) from exc
+
+    # Allocate output; T = 0 K → zero radiance (limit of Planck as T → 0⁺),
+    # and the Wien tail is filled with zero as well.
+    result = np.zeros(lam_b.shape, dtype=np.float64)
+    hot = temp_b > 0.0
+    if not np.any(hot):
+        return result
 
     # Convert µm → m for the canonical formula.
-    lam_m = lam_um * 1.0e-6
+    lam_m = lam_b * 1.0e-6
 
     # Dimensionless argument x = hc / (λ k_B T) = c₂ / (λ_µm · T)
     # (Using c₂ = hc/k_B in µm·K is equivalent and avoids a rounding step.)
-    x = hc_over_kB / (lam_m * temperature_K)
+    x = np.full(lam_b.shape, np.inf, dtype=np.float64)
+    x[hot] = hc_over_kB / (lam_m[hot] * temp_b[hot])
 
-    # Allocate output; fill Wien-tail points with zero.
-    result = np.zeros_like(lam_um)
     safe = x < _X_OVERFLOW
     if not np.any(safe):
         return result

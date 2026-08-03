@@ -182,24 +182,30 @@ def test_toward_lower_radiance_vs_k_ladder() -> None:
     ``SegmentQuantities.L_toward_lower``.  This is the first time this
     product has a direct truth anchor.
 
-    Measured 2026-07-26, band-integrated (MODTRAN | model) [W/m²/sr]:
+    Measured 2026-07-26, repinned 2026-08-02 (CU-321).  Band-integrated
+    (MODTRAN | model) [W/m²/sr] on the height-resolved emission temperature:
 
-        8–12 µm:  7.084|3.724  10.337|9.097  10.863|11.409  11.135|13.161  11.320|13.883
-        3–5  µm:  0.648|0.237   0.774|0.426   0.795|0.518    0.802|0.625    0.803|0.696
+        8–12 µm:  7.084|3.649  10.337|8.338  10.863|10.101  11.135|11.259
+                  11.320|11.689
+        3–5  µm:  0.648|0.232   0.774|0.358   0.795|0.399    0.802|0.439
+                  0.803|0.470
 
     The shallow-column deficit is the same τ deficit as Anchor 1 (too little
-    absorbing column ⇒ too little emitting column); the deep-column LWIR
-    excess is the one-temperature graybody's warm bias (T_eff is the
-    near-surface air, but a 20 km column emits partly from cold air aloft).
+    absorbing column ⇒ too little emitting column).  The deep-column LWIR
+    excess this record carried before CU-321 (1.05/1.18/1.23×) *was* the
+    one-temperature graybody's warm bias, and resolving the emission
+    temperature in altitude removes it (0.93/1.01/1.03×).  The MWIR fell with
+    it (0.65/0.78/0.87 → 0.50/0.55/0.59): the warm bias had been partly
+    cancelling the CU-161 region-flat spectral-shape deficit in this direction.
     """
     atm = _k_l_atmosphere()
     cases = [
         # (run, h_high_m, LWIR ref, MWIR ref, LWIR ratio, MWIR ratio)
-        ("K1", 1.0e3, 7.084, 0.6476, 0.53, 0.37),
-        ("K2", 3.0e3, 10.337, 0.7736, 0.88, 0.55),
-        ("K3", 5.0e3, 10.863, 0.7950, 1.05, 0.65),
-        ("K4", 1.0e4, 11.135, 0.8022, 1.18, 0.78),
-        ("K5", 2.0e4, 11.320, 0.8027, 1.23, 0.87),
+        ("K1", 1.0e3, 7.084, 0.6476, 0.52, 0.36),
+        ("K2", 3.0e3, 10.337, 0.7736, 0.81, 0.46),
+        ("K3", 5.0e3, 10.863, 0.7950, 0.93, 0.50),
+        ("K4", 1.0e4, 11.135, 0.8022, 1.01, 0.55),
+        ("K5", 2.0e4, 11.320, 0.8027, 1.03, 0.59),
     ]
     for run, h_high_m, lwir_ref, mwir_ref, lwir_ratio, mwir_ratio in cases:
         lam, _tau, l_thermal = _read(run)
@@ -232,27 +238,30 @@ def test_sky_radiance_vs_uplooking_h_runs() -> None:
     from the hemispheric ``E_sky_thermal`` flux those constants were fit
     through (that path is untouched and unchanged — zero drift).
 
-    Measured 2026-07-26, band-integrated π·L (MODTRAN thermal | model)
-    [W/m²]:
+    Measured 2026-07-26, repinned 2026-08-02 (CU-321).  Band-integrated π·L
+    (MODTRAN thermal | model) [W/m²]:
 
-        H2 us_standard   8–12 µm  20.85 | 33.13  (1.59×)   3–5 µm  1.82 | 2.11  (1.16×)
-        H4 tropical      8–12 µm  66.75 | 81.70  (1.22×)   3–5 µm  3.65 | 3.79  (1.04×)
+        H2 us_standard   8–12 µm  20.85 | 26.24  (1.26×)   3–5 µm  1.82 | 1.37  (0.76×)
+        H4 tropical      8–12 µm  66.75 | 72.11  (1.08×)   3–5 µm  3.65 | 2.75  (0.75×)
 
-    The LWIR over-prediction is the segment model's deliberate design
-    choice: emissivity is ``1 − τ`` on the segment's *own* slant
-    transmittance (Kirchhoff, Rule 5), whereas CU-155's flux product used a
-    fitted diffusivity exponent D = 1.1 — smaller than the 1.50 airmass at
-    48.2° — which partly cancelled the warm single-temperature bias.  A
-    directional product cannot inherit that cancellation without decoupling
-    its emissivity from its own transmittance, which the segment contract
-    forbids.  The residual is the same warm-graybody bias Anchor 2
-    quantifies on the deep K columns.
+    Before CU-321 these read 1.59/1.16 and 1.22/1.04: the whole 100 km column
+    emitted at near-surface temperature.  Resolving the emission temperature in
+    altitude cuts the LWIR over-prediction by two thirds and turns the MWIR from
+    a small over-prediction into a ~25 % under-prediction — the CU-161
+    region-flat spectral-shape deficit, which the retired warm bias had been
+    masking here.
+
+    Emissivity is still ``1 − τ`` on the segment's *own* slant transmittance
+    (Kirchhoff, Rule 5).  CU-155's hemispheric flux product uses a fitted
+    diffusivity exponent D = 1.1 together with its own emission-height offset;
+    a directional product cannot inherit that pair without decoupling its
+    emissivity from its own transmittance, which the segment contract forbids.
     """
     zeta = math.radians(48.2)
     cases = [
         # (run, profile, LWIR π·L ref, MWIR π·L ref, LWIR ratio, MWIR ratio)
-        ("H2", "us_standard", 20.85, 1.820, 1.59, 1.16),
-        ("H4", "tropical", 66.75, 3.651, 1.22, 1.04),
+        ("H2", "us_standard", 20.85, 1.820, 1.26, 0.76),
+        ("H4", "tropical", 66.75, 3.651, 1.08, 0.75),
     ]
     for run, profile, lwir_ref, mwir_ref, lwir_ratio, mwir_ratio in cases:
         lam, _tau, l_thermal = _read(run)

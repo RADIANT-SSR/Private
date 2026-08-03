@@ -155,10 +155,18 @@ def test_thermal_arm_is_exactly_symmetric() -> None:
     atm = _atm()
     q = evaluate_level_arm(atm, lam, LevelArmSpec(3.0e3, 2.5e4), theta_s_rad=None)
     np.testing.assert_array_equal(q.L_toward_upper, q.L_toward_lower)
-    t_eff = atm._downwelling_effective_temperature_K(3.0e3)
+    # CU-321: an arm is isothermal, so the height-resolved emission temperature
+    # collapses to the profile temperature at the arm altitude — exactly, in
+    # both directions.  It is 1.3 K warmer than the retired value, which
+    # evaluated the profile a CU-155 emission-height offset ABOVE the arm; that
+    # offset is fit for the hemispheric sky flux and does not belong here.
+    t_eff = 288.15 - 6.5e-3 * 3.0e3  # us_standard sea level, ICAO lapse
+    assert t_eff == pytest.approx(268.65, abs=1e-12)
     np.testing.assert_array_equal(
         q.L_toward_lower, (1.0 - q.tau) * planck_spectral_radiance(lam, t_eff)
     )
+    assert q.provenance["t_eff_toward_lower_K_min"] == pytest.approx(t_eff, abs=1e-12)
+    assert q.provenance["t_eff_toward_lower_K_max"] == pytest.approx(t_eff, abs=1e-12)
 
 
 @pytest.mark.level0

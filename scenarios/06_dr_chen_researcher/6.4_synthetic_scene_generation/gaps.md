@@ -49,15 +49,16 @@ plus geometry, not a missing feature.
   P_fa = 1e-4 is 0.26 — separation is good, but a strict false-alarm
   budget costs detections. The scenario surfaces both so the distinction
   isn't lost.
-- **Shot-noise-limited background** (σ = 738 e- on 5.34×10⁵ e-): read noise
+- **Shot-noise-limited background** (σ = 722 e- on 5.10×10⁵ e-): read noise
   (100 e-) and dark (500 e-) are negligible here; detectability is set by
   photon statistics, so the only lever on the floor is collecting-area ×
   integration-time (i.e. range dilution).
 
 *Figures refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-09). Mover: CU-224's down-looking `(1−τ)·B(λ,T_eff)` path-radiance
-term raised the background pixel and hence the shot-noise floor; see the
-walkthrough's results tables for the sign discussion.*
+2026-08-02, pre-CU-321). Mover: **CU-321** — the CU-224 path-radiance term is
+now emitted at a height-resolved `T_eff(λ)`, which lowers the background pixel
+and its shot-noise floor by 4.6 % / 2.2 %; see the walkthrough's results tables
+for the sign discussion.*
 
 ## Catalog status
 

@@ -2,8 +2,8 @@
   "id": "6.2",
   "title": "Atmospheric intercomparison \u2014 US Standard, SimpleAtmosphere",
   "metrics": {
-    "snr": 711.3542767393557,
-    "nedt_K": 0.03945051419503607,
+    "snr": 650.4419800385308,
+    "nedt_K": 0.0431098441662036,
     "niirs": null
   },
   "notes": "SimpleAtmosphere at us_standard; the MODTRAN tape7 arm needs staged files."

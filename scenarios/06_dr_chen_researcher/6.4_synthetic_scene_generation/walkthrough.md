@@ -55,27 +55,26 @@ Sensor: 5 cm aperture, f/20, 25 µm pitch (25 µrad IFOV), LWIR 8–12 µm,
 
 | Target | Range | GSD | Fill frac | Contrast (e-) | Contrast SNR | P_d @ P_fa 1e-4 |
 |---|---|---|---|---|---|---|
-| T1 | 10 km | 0.25 m | 1.00 (resolved) | 351 031 | 475.5 | 1.000 |
-| T2 | 20 km | 0.50 m | 1.00 (resolved) | 248 037 | 336.0 | 1.000 |
-| T3 | 50 km | 1.25 m | 1.00 (resolved) | 185 400 | 251.2 | 1.000 |
-| T4 | 100 km | 2.50 m | 1.00 (resolved) | 152 975 | 207.2 | 1.000 |
-| T5 | 200 km | 5.00 m | 0.36 (sub-pixel) | 36 379 | 49.3 | 1.000 |
+| T1 | 10 km | 0.25 m | 1.00 (resolved) | 351 031 | 486.5 | 1.000 |
+| T2 | 20 km | 0.50 m | 1.00 (resolved) | 248 037 | 346.1 | 1.000 |
+| T3 | 50 km | 1.25 m | 1.00 (resolved) | 185 400 | 259.2 | 1.000 |
+| T4 | 100 km | 2.50 m | 1.00 (resolved) | 152 975 | 213.9 | 1.000 |
+| T5 | 200 km | 5.00 m | 0.36 (sub-pixel) | 36 379 | 50.9 | 1.000 |
 
 *Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-09). Dominant mover: CU-224 — down-looking path radiance now carries
-`(1−τ)·B(λ,T_eff)`, which lifts the background pixel by +18.7 % and its
-shot-noise floor by +8.7 %. CU-267's gas-region blend contributes a further
-−0.27 % on τ over 8–12 µm. **Note the sign:** CU-224 is documented as
-*raising* SNR, and it does raise the chain's own `snr` metric — but this
-scenario's figure of merit is a script-derived **contrast** SNR,
-`ff·(S_tgt − S_bg)/σ`. The added path emission is common to target and
-background so it cancels out of the numerator, while it still inflates σ.
-Contrast SNR therefore falls where chain SNR rises; the two are not in
-conflict.*
+2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the `(1−τ)·B` path term
+is now emitted at a height-resolved `T_eff(λ)` over the column instead of at
+its near-surface temperature, which lowers the background pixel by −4.6 % and
+its shot-noise floor by −2.2 %. The **contrast** column is bit-identical: the
+path radiance is common to target and background and cancels in the numerator.
+**Note the sign, again:** CU-321 lowers the chain's own `snr` metric but
+*raises* this scenario's contrast SNR, for exactly the mirror-image reason
+CU-224 did the reverse — a differential metric pays the noise floor without
+gaining from common-mode radiance, so a lower floor helps it.*
 
-Background pixel: 5.343×10⁵ e-, σ = 738 e- — **shot-noise-limited**. Every
+Background pixel: 5.099×10⁵ e-, σ = 722 e- — **shot-noise-limited**. Every
 nominal target is 15–40 K hotter than the background, so contrast SNR runs
-49–476. **All five are trivially detected** — the correct answer for a hot,
+51–487. **All five are trivially detected** — the correct answer for a hot,
 resolved (or barely-diluted) target with this sensor. A ROC of just these
 five is uninformative: every curve is pinned in the top-left corner.
 
@@ -87,25 +86,25 @@ down through the informative band:
 
 | Range | GSD | Fill frac | Contrast (e-) | Contrast SNR | ROC AUC | P_d @ P_fa 1e-4 |
 |---|---|---|---|---|---|---|
-| 200 km | 5.0 m | 0.360 | 36 379 | 49.3 | 1.0000 | 1.000 |
-| 500 km | 12.5 m | 0.0576 | 5 821 | 7.9 | 1.0000 | 1.000 |
-| 800 km | 20.0 m | 0.0225 | 2 274 | 3.1 | 0.9853 | **0.262** |
-| 1100 km | 27.5 m | 0.0119 | 1 203 | 1.6 | 0.8753 | 0.018 |
-| 1300 km | 32.5 m | 0.0085 | 861 | 1.2 | 0.7953 | 0.005 |
-| 1500 km | 37.5 m | 0.0064 | 647 | 0.88 | 0.7322 | 0.002 |
-| 2000 km | 50.0 m | 0.0036 | 364 | 0.49 | 0.6363 | 0.001 |
+| 200 km | 5.0 m | 0.360 | 36 379 | 50.9 | 1.0000 | 1.000 |
+| 500 km | 12.5 m | 0.0576 | 5 821 | 8.1 | 1.0000 | 1.000 |
+| 800 km | 20.0 m | 0.0225 | 2 274 | 3.2 | 0.9877 | **0.295** |
+| 1100 km | 27.5 m | 0.0119 | 1 203 | 1.7 | 0.8828 | 0.021 |
+| 1300 km | 32.5 m | 0.0085 | 861 | 1.2 | 0.8027 | 0.006 |
+| 1500 km | 37.5 m | 0.0064 | 647 | 0.90 | 0.7387 | 0.002 |
+| 2000 km | 50.0 m | 0.0036 | 364 | 0.51 | 0.6405 | 0.001 |
 
-*Same refresh and same dominant mover as the table above (CU-224). The
-deeper noise floor pulls both headline ranges in by roughly 3–14 %.*
+*Same refresh and same dominant mover as the table above (CU-321). The
+shallower noise floor pushes both headline ranges back out by ~0.2–1.6 %.*
 
-- **Reliable detection (P_d ≥ 0.9 @ P_fa 1e-4) holds out to ≈ 533 km**;
-  the **50/50 range is ≈ 687 km**. Between them is the operating band where
+- **Reliable detection (P_d ≥ 0.9 @ P_fa 1e-4) holds out to ≈ 534 km**;
+  the **50/50 range is ≈ 698 km**. Between them is the operating band where
   a detection algorithm actually earns its keep.
 - Note the gap between AUC and the strict-P_fa `P_d`: at 800 km the AUC is
-  still 0.985 (good *separation*) but `P_d` at P_fa = 1e-4 is only 0.26.
+  still 0.988 (good *separation*) but `P_d` at P_fa = 1e-4 is only 0.29.
   Choosing a strict false-alarm budget costs detections — exactly the
-  trade Dr. Chen tunes. (This point used to read 0.996 / 0.49, i.e. "about
-  a coin flip"; post-CU-224 it is closer to one detection in four.)
+  trade Dr. Chen tunes. (Pre-CU-224 this point read 0.996 / 0.49, "about a
+  coin flip"; it is now about one detection in three.)
 
 ### Simulated scene strip (fig 1)
 

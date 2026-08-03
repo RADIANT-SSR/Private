@@ -198,6 +198,44 @@ retroactively reconstructed.
   Evaluate-time checks are unchanged (defence in depth); no computed results change.
 
 ### Changed
+- **Results-affecting: atmospheric path thermal emission is now emitted at a
+  height-resolved, spectrally resolved temperature `T_eff(λ)` (CU-321).** The Kirchhoff
+  term `(1 − τ)·B` that CU-224 added to the down-looking side, and that the up-looking
+  segment evaluators have always carried, used **one** temperature per segment — the
+  profile temperature at its lower endpoint. A tall column is not isothermal, and it is
+  not isothermal in a *spectrally structured* way: an opaque channel emits from wherever
+  its own optical depth reaches unity as seen by the observer, a transparent one from the
+  whole column weighted by absorber density. `atmosphere/emission_temperature.py` now
+  supplies the temperature that makes the one-slab form reproduce the layered formal
+  solution of the segment's own air, evaluated once per escape end. **Every τ in the model
+  is bit-identical** — only the altitude the emission is weighted at changes — and an
+  isothermal (level) segment returns its own temperature exactly, so level arms are
+  unaffected. No new parameter: the pressure-broadening scale heights are derived
+  (`α ∝ ρ_absorber·p_air`, so the well-mixed floor emits on 4 km against its 8 km density
+  profile and water on 1.6 km against its 2 km) and the sub-layer count is a
+  convergence-tested quadrature.
+
+  **Direction and magnitude.** Down-looking MWIR path thermal **drops** on tall columns,
+  which is what this fixes: band-mean model/MODTRAN parity against the batch-2 O-block
+  goes 2.01/2.25/2.42× → **1.14/1.22/1.22×** (O3/O4/O5) and LWIR 1.33/1.35/1.43× →
+  **1.06/1.06/1.09×**. Up-looking path thermal drops too — LWIR walks onto unity
+  (K5 1.230 → 1.033, H5 1.263 → 1.074, H1 1.530 → 1.189) while MWIR falls further *below*
+  it (K5 0.878 → 0.586, H5 1.041 → 0.721). Over the 25-run anchor set the RMS |ln ratio|
+  is LWIR 0.330 → **0.269** (−19 %) and MWIR 0.474 → **0.522** (+10 %). The MWIR cost is
+  un-masking, not new error: scored against MODTRAN's own recovered emission temperature
+  the model was up to 25 K too warm and is now within 11 K everywhere (RMS 9.5/10.4 K →
+  4.3/3.2 K), and with MODTRAN's own emissivity substituted the radiance RMS |ln ratio|
+  improves 0.287 → 0.148. The retired warm bias had been partly cancelling the CU-161
+  region-flat spectral-shape deficit in the up-looking direction; that deficit is now
+  visible rather than hidden, and it is the named remaining limitation.
+
+  **What moves in shipped configs.** Every `atmosphere.model = "simple"` scene with a
+  thermal path-radiance contribution. MWIR LEO golden: `signal_e` −13.2 %, SNR −6.8 %
+  (1204.28 → 1122.18). Option-C Cell 28 (2 km LWIR): NEDT −0.007 %, at-aperture radiance
+  −1.0 % to −6.4 % across 8–13 µm. Chain-spatial SNR pin 1178.65 → 1094.62 (−7.1 %).
+  Nineteen scenario GUI baselines move, between −11 % and +11 % in SNR (down-looking
+  scenes lose path signal; the up-looking 10.1 detection scene *gains* SNR 130.1 → 144.6
+  because its background falls). Level-path and exo scenes are unaffected.
 - **`evaluate()` now refuses every over-specified `source.target.emissivity_path` pair, as
   the seam already did (CU-323).** The ε(λ) door dispatches last, so nine of its ten rival
   surfaces — `source.target.reflectance`, `albedo`, `reflectance_path`, `albedo_path`,

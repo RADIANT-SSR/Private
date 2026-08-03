@@ -70,28 +70,30 @@ differential.)
 
 | Local time | T_target | T_background | ΔT | Contrast SNR | Detectable? |
 |-----------|----------|--------------|-----|--------------|-------------|
-| 00:00 | 285.0 K | 289.1 K | −4.06 K | −98.0 | yes (cold target) |
-| 06:00 | 292.0 K | 289.1 K | +2.97 K | +18.5 | yes |
-| 12:00 | 309.0 K | 298.9 K | +10.06 K | +140.3 | yes (hot target) |
-| 18:00 | 302.0 K | 298.9 K | +3.03 K | +17.8 | yes |
-| 21:00 | 292.0 K | 294.0 K | −1.98 K | −65.9 | yes |
+| 00:00 | 285.0 K | 289.1 K | −4.06 K | −98.7 | yes (cold target) |
+| 06:00 | 292.0 K | 289.1 K | +2.97 K | +18.6 | yes |
+| 12:00 | 309.0 K | 298.9 K | +10.06 K | +141.1 | yes (hot target) |
+| 18:00 | 302.0 K | 298.9 K | +3.03 K | +17.9 | yes |
+| 21:00 | 292.0 K | 294.0 K | −1.98 K | −66.4 | yes |
 
 *Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-17). Dominant mover: CU-224 — down-looking `(1−τ)·B` path emission on
-this `simple`-atmosphere LWIR scene raises the background and its shot noise,
-so the differenced contrast SNR falls ~6–7 % at every hour, while median NEDT
-improves (39 → 36.4 mK) on the extra signal. CU-267 accounts for −0.27 % of τ
-on 8–12 µm. **Every structural result is bit-for-bit unchanged** — both
-temperature crossovers, both radiance crossovers, and both washout windows sit
-where they did, which is the point the scenario exists to make: τ and path
-radiance scale the contrast but cannot move its zeros.*
+2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the down-looking
+`(1−τ)·B` path emission is now emitted at a height-resolved `T_eff(λ)` over the
+0 → 3 km column instead of at its near-surface temperature, so the background
+and its shot noise fall and the differenced contrast SNR rises ~0.6 % at every
+hour, while median NEDT eases 36.4 → 36.7 mK on the slightly lower signal.
+**Every structural result is bit-for-bit unchanged** — both temperature
+crossovers, both radiance crossovers, and both washout windows sit where they
+did, which is the point the scenario exists to make: τ and path radiance scale
+the contrast but cannot move its zeros. That invariant has now survived two
+consecutive atmosphere landings in opposite directions.*
 
 - **Physical-temperature crossovers (ΔT = 0):** 04:12 and 19:48.
 - **Radiance crossovers (contrast = 0):** 05:12 and 18:48 — **offset ~1 h**
   from the temperature crossovers.
 - **Detectability washout windows (|contrast SNR| < 10):** ≈05:30–06:00
   and ≈18:30–19:00 (~30 min each, limited by the 0.5 h profile grid).
-- **Median NEDT across the day: 36.4 mK, nearly constant.** The washout is
+- **Median NEDT across the day: 36.7 mK, nearly constant.** The washout is
   *not* a sensor-sensitivity effect — the detector is just as sensitive at
   crossover as at noon. It is a **scene-contrast** effect: there is simply
   no signal to detect when the two surfaces radiate equally.

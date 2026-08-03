@@ -60,14 +60,18 @@ a `performance/` + `atmosphere/` task, not a scenario one.
 **Status**: **RESOLVED 2026-07-29** (commit `5c0f3dd`, CU-254). The sky is now one whole-path
 evaluation rooted at the **sensor**, and the `SkyBackground` assembly arm passes it through
 instead of re-propagating it, so the background is a property of the ray as this entry says
-it must be. Re-measured on the shipped config at vertical pointing (runner §5b, 2026-08-02):
-2.0375e5 e⁻ at target altitudes of 10, 20, 40, 60 and 99 km — identical to the printed
-precision, against the 1.7528e5 / 1.9415e5 / 2.0130e5 spread recorded below, i.e. the
-≈ 3.5 % optimism this entry predicted, removed. Headline metrics at the ζ_low = 30° nominal
-moved with it: sky background 1.942e5 → 2.239e5 e⁻, SNR 136.40 → 130.10, NEDT
-648.1 → 679.0 mK (CU-254 carried most of it; CU-267's MWIR τ reduction added the last
-≈ 1 %). The `.gui.expected.json` baseline was regenerated and `walkthrough.md` was
-refreshed from the unmodified runner on 2026-08-02, so both are current.
+it must be. Re-measured on the shipped config at vertical pointing (runner §5b, re-run
+2026-08-02 under the CU-321 sweep): **1.3537e5 e⁻** at target altitudes of 10, 20, 40, 60
+and 99 km — identical to the printed precision, against the 1.7528e5 / 1.9415e5 / 2.0130e5
+spread recorded below, i.e. the ≈ 3.5 % optimism this entry predicted, removed. The
+flatness is what this entry is about and it is unaffected by anything since; the absolute
+level has moved twice. Headline metrics at the ζ_low = 30° nominal: sky background
+1.942e5 → 2.239e5 (CU-254 + CU-267) → **1.508e5 e⁻** (CU-321), SNR 136.40 → 130.10 →
+**144.61**, NEDT 648.1 → 679.0 → **610.9 mK**. CU-321 lowered the sky by emitting the
+up-looking column at a height-resolved `T_eff(λ)` instead of its near-surface temperature;
+in a point-source scene that raises SNR, because the target term does not move with it.
+The `.gui.expected.json` baseline was regenerated and `walkthrough.md` refreshed from the
+unmodified runner on 2026-08-02 in the CU-321 PR, so both are current.
 **Where**: `radiant/atmosphere/uplooking_quantities.py::_sky_radiance_at_aperture` (was
 `sky_radiance.py` + `segment_simple.py` composition)
 

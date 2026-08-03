@@ -66,11 +66,20 @@ interpolation method itself.
 |----------|---------------------------|---------------|
 | 30° (B1, exact) | 0.5329 | — |
 | 45° (B2, exact) | 0.4988 | — |
-| 37.5°, interpolated (airmass axis, CU-160) | 0.5185 | 556.2 |
-| 37.5°, naive nearest-neighbor (45°) | 0.4988 | 545.7 |
+| 37.5°, interpolated (airmass axis, CU-160) | 0.5185 | 552.1 |
+| 37.5°, naive nearest-neighbor (45°) | 0.4988 | 541.6 |
 
 - **The interpolated point sits correctly between the two bracketing
   values and on the expected monotonic curve** (`fig1`).
+*SNR column refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-08-02, pre-CU-321). The two transmittance columns come from the
+interpolated MODTRAN family and are bit-identical; the chain SNRs fall 0.7 %
+because the target's own illumination and the sky terms that the `simple`
+companion supplies alongside an interpolated family now use the height-resolved
+emission temperature (CU-321). The interpolation conclusion — the whole point of
+the scenario — is unaffected: the −1.9 % nearest-neighbor SNR error is
+unchanged to two figures.*
+
 - **Nearest-neighbor error at this query point**: −3.8% transmittance,
   −1.9% SNR — roughly 3× larger than the synthetic-era numbers
   suggested (real MODTRAN's angle dependence in this band is stronger

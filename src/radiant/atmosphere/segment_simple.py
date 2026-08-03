@@ -19,9 +19,9 @@ calls the CU-161-calibrated pieces directly:
     The CU-161 curve-of-growth water term and the well-mixed-gas floor.
 ``_single_scattering_albedo`` / ``_single_scatter_phase_function``
     The ω₀ and P(Θ) weights for the single-scatter source.
-``_downwelling_effective_temperature_K``
-    The CU-155 emission-height temperature, evaluated at the segment's
-    **lower** endpoint.
+``_segment_emission_temperature_K``
+    The CU-321 height-resolved emission temperature ``T_eff(λ)`` of the
+    segment, evaluated once per escape end.
 
 Because the optical depth is built from exactly those functions with exactly
 the same endpoints and the same
@@ -41,8 +41,8 @@ Direction conventions
 (``RADIANT_Atmosphere.md`` §4.4).  ``L_toward_upper`` and ``L_toward_lower``
 are separate products; see
 :mod:`radiant.atmosphere.segment_single_scatter` for the scattering-angle
-flip and :mod:`radiant.atmosphere.segment_thermal` for the shared graybody
-temperature and the size of the directional thermal approximation.
+flip and :mod:`radiant.atmosphere.segment_thermal` for the two directional
+graybody temperatures and what they are measured against.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ from radiant.atmosphere.segment_single_scatter import (
     cos_scattering_angle,
     segment_single_scatter_radiance,
 )
-from radiant.atmosphere.segment_thermal import segment_thermal_emission
+from radiant.atmosphere.segment_thermal import directional_segment_thermal
 from radiant.atmosphere.segments import (
     ColumnSegmentSpec,
     SegmentQuantities,
@@ -97,15 +97,19 @@ def column_segment_optical_depth(
     atmosphere: SimpleAtmosphere,
     wavelength_um: np.ndarray,
     spec: ColumnSegmentSpec,
-) -> tuple[np.ndarray, float, dict[str, float]]:
+) -> tuple[np.ndarray, float, dict[str, float], dict[str, np.ndarray]]:
     """Slant optical depth of a column segment [dimensionless].
 
-    Returns ``(od_slant, air_mass, provenance)`` where ``od_slant`` is the
-    wavelength-resolved slant optical depth, ``air_mass`` the dimensionless
-    factor actually applied to the molecular column, and ``provenance`` the
-    per-species density-weighted column lengths [km] plus, past the
-    near-horizon hand-over, the spherical slant columns and per-species air
-    masses that replaced the single plane-parallel factor.
+    Returns ``(od_slant, air_mass, provenance, species_od)`` where ``od_slant``
+    is the wavelength-resolved slant optical depth, ``air_mass`` the
+    dimensionless factor actually applied to the molecular column,
+    ``provenance`` the per-species density-weighted column lengths [km] plus,
+    past the near-horizon hand-over, the spherical slant columns and
+    per-species air masses that replaced the single plane-parallel factor, and
+    ``species_od`` the four **slant** per-species optical depths keyed by
+    :data:`radiant.atmosphere.segment_thermal.SPECIES_KEYS` (they sum to
+    ``od_slant``; the CU-321 emission weighting needs the split to place each
+    species' opacity on its own vertical profile).
 
     The vertical optical depth is the sum of the four CU-161 species terms
     evaluated over ``[h_low, h_high]``.  How it becomes a *slant* depth
@@ -165,7 +169,17 @@ def column_segment_optical_depth(
             od_vert_gas=od_vert_gas,
         )
         provenance.update(masses.as_provenance())
-        return od_slant, masses.m_mol, provenance
+        return (
+            od_slant,
+            masses.m_mol,
+            provenance,
+            {
+                "mol": od_vert_mol * masses.m_mol,
+                "aer": od_vert_aer * masses.m_aer,
+                "h2o": od_vert_h2o * masses.m_h2o,
+                "gas": od_vert_gas * masses.m_mol,
+            },
+        )
 
     od_vert = od_vert_mol + od_vert_aer + od_vert_h2o + od_vert_gas
 
@@ -188,7 +202,17 @@ def column_segment_optical_depth(
     provenance["slant_column_aer_km"] = col_aer * air_mass
     provenance["slant_column_h2o_km"] = col_h2o * air_mass
 
-    return np.asarray(od_vert * air_mass, dtype=np.float64), air_mass, provenance
+    return (
+        np.asarray(od_vert * air_mass, dtype=np.float64),
+        air_mass,
+        provenance,
+        {
+            "mol": od_vert_mol * air_mass,
+            "aer": od_vert_aer * air_mass,
+            "h2o": od_vert_h2o * air_mass,
+            "gas": od_vert_gas * air_mass,
+        },
+    )
 
 
 def evaluate_column_segment(
@@ -265,7 +289,9 @@ def evaluate_column_segment(
             provenance=provenance,
         )
 
-    od_slant, air_mass, od_provenance = column_segment_optical_depth(atmosphere, lam, spec)
+    od_slant, air_mass, od_provenance, species_od = column_segment_optical_depth(
+        atmosphere, lam, spec
+    )
     tau = np.exp(-od_slant)
     provenance["air_mass"] = air_mass
     provenance["air_mass_form"] = (
@@ -276,9 +302,19 @@ def evaluate_column_segment(
     provenance.update(od_provenance)
 
     # --- Thermal: Kirchhoff emissivity on the segment's own τ (Rule 5) ---
-    t_eff_K = atmosphere._downwelling_effective_temperature_K(spec.h_low_m)
-    provenance["t_eff_K"] = t_eff_K
-    thermal = segment_thermal_emission(lam, tau, t_eff_K)
+    # One height-resolved emission-temperature model, evaluated once per escape
+    # end (CU-321): a tall column's emission escapes from cold air aloft going
+    # up and from warm air near the ground going down, and the measured MODTRAN
+    # asymmetry on one and the same column is a factor 1.5 in the MWIR.
+    thermal_toward_upper, thermal_toward_lower = directional_segment_thermal(
+        atmosphere,
+        lam,
+        tau,
+        h_low_m=spec.h_low_m,
+        h_high_m=spec.h_high_m,
+        species_od=species_od,
+        provenance=provenance,
+    )
 
     # --- Single-scatter solar, resolved per travel direction ---
     scat_up, scat_dn, scatter_prov = _single_scatter_terms(
@@ -295,8 +331,8 @@ def evaluate_column_segment(
     return SegmentQuantities(
         wavelength_um=lam,
         tau=tau,
-        L_toward_upper=thermal + scat_up,
-        L_toward_lower=thermal + scat_dn,
+        L_toward_upper=thermal_toward_upper + scat_up,
+        L_toward_lower=thermal_toward_lower + scat_dn,
         provenance=provenance,
     )
 

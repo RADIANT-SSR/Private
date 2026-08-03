@@ -97,11 +97,11 @@ Raj, mission planner. He has a baselined MWIR reconnaissance sensor on a 500 km 
     - Constant: +9.57
     - GSD term: −3.32 × log₁₀(295.3 in) = −8.20 ← dominates
     - RER term: +3.32 × log₁₀(0.596) = −0.75
-    - SNR term: +1.559 × log₁₀(554.8) = +4.28
+    - SNR term: +1.559 × log₁₀(500.8) = +4.21
     - H term: −0.334 × H
     - G term: −0.01 × G
   - **"What limits NIIRS?" panel**: Highlights GSD as the binding constraint. Shows that even infinite SNR can only reach NIIRS ≈ 4.9 at this GSD.
-  - **"How to reach NIIRS = 5.0" recommendation**: "Reduce GSD to ≤ 5.5 m (requires focal length ≥ 1.6 m or lower orbit)"
+  - **"How to reach NIIRS = 5.0" recommendation**: "Reduce GSD to ≤ 5.4 m (requires focal length ≥ 1.7 m or lower orbit)"
 
 - **Interactive features**:
   - "What if GSD were...?" slider: adjust GSD and see NIIRS update

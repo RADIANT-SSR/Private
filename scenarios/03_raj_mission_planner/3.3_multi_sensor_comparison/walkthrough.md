@@ -29,20 +29,23 @@ the workbook, which is the RADIANT-facing input.
 
 | Metric | Vendor A | Vendor B | Vendor C |
 |--------|----------|----------|----------|
-| SNR | 1272 | **2449** | 538 |
-| NIIRS | 4.89 | 4.54 | **4.95** |
-| NEDT [mK] | 21.6 | **11.4** | 51.1 |
+| SNR | 1160 | **2449** | 491 |
+| NIIRS | 4.83 | 4.54 | **4.89** |
+| NEDT [mK] | 23.7 | **11.4** | 56.0 |
 | GSD [m] | 9.0 | 19.2 | **3.4** |
 | MTF@Nyquist | 0.27 | **0.43** | 0.00 |
 
 *Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-22). Dominant mover: CU-224 — down-looking `(1−τ)·B` path emission on
-this `simple`-atmosphere MWIR scene. It lifts Vendors A and C (both 3.7–4.8 µm)
-by ~23 % in SNR and cuts their NEDT ~18 %, but moves Vendor B (3.0–5.0 µm) by
-only +0.08 % — the very bottom of CU-224's own stated +0.08 … +59.2 % range.
-Vendor B is also the only band CU-267's gas-region blend touches (−0.71 % τ on
-3.0–5.0 µm; exactly zero on 3.7–4.8 µm). GSD and MTF@Nyquist are geometric and
-did not move.*
+2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the `(1−τ)·B` path
+emission CU-224 added is now emitted at a height-resolved `T_eff(λ)` over the
+600 km column instead of at its near-surface temperature, so it gives back part
+of what CU-224 added on the two narrow-band vendors: A (3.7–4.8 µm) SNR
+1272 → 1160 (−8.8 %) and NEDT 21.6 → 23.7 mK, C (3.7–4.8 µm) SNR 538 → 491
+(−8.7 %) and NEDT 51.1 → 56.0 mK. Vendor B (3.0–5.0 µm) is unmoved to four
+figures — the same band that CU-224 barely touched, for the same reason. GSD and
+MTF@Nyquist are geometric and are bit-identical. **Verdicts unchanged:** C still
+fails NEDT ≤ 50 mK (and now by a wider margin), B still wins SNR and NEDT, C
+still wins GSD and NIIRS.*
 
 **Compliance matrix (vs requirements):**
 
@@ -67,11 +70,12 @@ did not move.*
   (small 10 µm pixel) but its pixel so oversamples the f/5 optics that
   MTF@Nyquist collapses to 0 (Q ≫ 2) and its warmer/lower-QE detector
   fails NEDT. **Vendor A** is the balanced middle — 4/5 compliant.
-- **Vendor C's NEDT failure is now marginal, not comfortable.** At 51.1 mK
-  it misses the ≤ 50 mK requirement by 2 %, where the pre-refresh figure of
-  62.7 mK missed it by 25 %. The verdict is unchanged (still FAIL, still
-  2/5), but a modest integration-time or QE improvement would now close it —
-  a different procurement conversation than before.
+- **Vendor C's NEDT failure is real but close.** At 56.0 mK it misses the
+  ≤ 50 mK requirement by 12 %. Its history is worth quoting to a vendor: the
+  pre-CU-224 model read 62.7 mK (miss by 25 %), CU-224's path emission pulled it
+  to 51.1 mK (miss by 2 %), and CU-321's colder, height-resolved emission
+  temperature settled it at 56.0 mK. The verdict never changed (FAIL, 2/5), but
+  the size of the fix a vendor would have to find did — quote 12 %, not 2 %.
 - **Highest-leverage +10 % improvement (all vendors): GSD or RER**, each
   ≈ +0.14 NIIRS, versus only +0.07 for SNR — because NIIRS is logarithmic
   in SNR (already high) but responds strongly to resolution. Spending on

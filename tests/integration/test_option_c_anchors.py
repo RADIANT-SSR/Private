@@ -216,7 +216,14 @@ CELL28_PINNED = {
     # emission is first-order: NEDT +0.63% (was 0.20351546333106751).
     # SNR unchanged (this cell saturates, so snr ≈ √FWC is
     # scene-independent) and MTF unchanged (spatial).
-    "nedt_K": 0.20478844358107973,
+    # NEDT + L_aperture repinned 2026-08-02 (CU-321 height-resolved emission
+    # temperature): the path-thermal term added by CU-224 is now emitted at
+    # T_eff(λ) resolved over the 0 → 2 km column rather than at the
+    # near-surface temperature of its lower endpoint, so it falls slightly.
+    # NEDT −0.0069% (was 0.20478844358107973) — the emission enters NEDT only
+    # through the noise mix here, and this cell is saturation-limited.
+    # SNR bit-identical (saturated) and MTF bit-identical to 2.5e-16 (spatial).
+    "nedt_K": 0.20477427606154244,
     # MTF@Nyquist repinned 2026-07-10 (CU-003 option a): the pixel-aperture
     # kernel is now area-integrated (anti-aliased edges) instead of a binary
     # mask that quantised the rect width to the sample grid. The old kernel
@@ -257,13 +264,26 @@ CELL28_PINNED = {
     # absorbing point in the band), +27.6% at 9, +24.4% at 10, +20.4% at 11,
     # +41.1% at 12 and +63.9% at 13 µm (the CO₂ 15 µm wing). A defect
     # elsewhere would not sort by column opacity.
+    # Repinned 2026-08-02 (CU-321). Every anchor falls, by between 1.0 % and
+    # 6.4 %, and the ordering is again the physical check: the CU-224
+    # increment was (1 − τ_up)·B(λ, 292.85 K) with the near-surface
+    # temperature applied to the whole 2 km column; it is now
+    # (1 − τ_up)·B(λ, T_eff(λ)) with T_eff resolved over that column, so the
+    # drop is largest exactly where the column is most opaque and the
+    # emission therefore comes from highest — −6.37% at 8 µm (the most
+    # absorbing point in the band), −1.67% at 9, −1.35% at 10, −1.04% at 11
+    # (the clean window, where the emission is spread over the whole column
+    # and the height resolution matters least), −1.77% at 12 and −2.31% at
+    # 13 µm (the CO₂ 15 µm wing). The anti-correlation with the CU-224
+    # increment is the check that this repin is the emission temperature and
+    # nothing else.
     "L_aperture_W_m2_sr_um": {
-        8.0: 8.111996691988045,
-        9.0: 9.174821706581744,
-        10.0: 9.30209808751487,
-        11.0: 9.005763833360962,
-        12.0: 8.393136012209359,
-        13.0: 7.6862798185098935,
+        8.0: 7.595494531222535,
+        9.0: 9.021609739786324,
+        10.0: 9.176842696287318,
+        11.0: 8.912094189127012,
+        12.0: 8.244719031125895,
+        13.0: 7.5085432507086844,
     },
 }
 

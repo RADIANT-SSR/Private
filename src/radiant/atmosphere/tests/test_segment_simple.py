@@ -35,6 +35,27 @@ def _atm() -> SimpleAtmosphere:
     return SimpleAtmosphere()
 
 
+def _thermal_toward_lower(
+    atm: SimpleAtmosphere, lam: np.ndarray, spec: ColumnSegmentSpec, tau: np.ndarray
+) -> np.ndarray:
+    """``(1 − τ)·B(λ, T_eff(λ))`` for the down-going product (CU-321)."""
+    _od, _am, _lengths, species_od = column_segment_optical_depth(atm, lam, spec)
+    return segment_thermal_emission(
+        lam,
+        tau,
+        atm._segment_emission_temperature_K(
+            lam,
+            h_low_m=spec.h_low_m,
+            h_high_m=spec.h_high_m,
+            od_slant_mol=species_od["mol"],
+            od_slant_aer=species_od["aer"],
+            od_slant_h2o=species_od["h2o"],
+            od_slant_gas=species_od["gas"],
+            escape="lower",
+        ),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Vacuum limits — exact, not approximate
 # ---------------------------------------------------------------------------
@@ -96,7 +117,7 @@ def test_tau_is_one_function_keyed_to_the_lower_endpoint() -> None:
     with pytest.raises(ParameterBoundsError):
         ColumnSegmentSpec(h_low_m=1.2e4, h_high_m=1.0e3, zeta_low_rad=math.radians(35.0))
     # τ from the direct optical-depth helper matches the evaluated field.
-    od, air_mass, _lengths = column_segment_optical_depth(atm, lam, spec)
+    od, air_mass, _lengths, _species = column_segment_optical_depth(atm, lam, spec)
     np.testing.assert_array_equal(q.tau, np.exp(-od))
     assert air_mass == pytest.approx(1.0 / math.cos(math.radians(35.0)), rel=1e-9)
 
@@ -105,7 +126,7 @@ def test_tau_is_one_function_keyed_to_the_lower_endpoint() -> None:
 def test_vertical_segment_airmass_is_exactly_one() -> None:
     lam = _grid()
     spec = ColumnSegmentSpec(h_low_m=0.0, h_high_m=1.0e4, zeta_low_rad=0.0)
-    _od, air_mass, _lengths = column_segment_optical_depth(_atm(), lam, spec)
+    _od, air_mass, _lengths, _species = column_segment_optical_depth(_atm(), lam, spec)
     assert air_mass == 1.0
 
 
@@ -205,20 +226,36 @@ def test_tau_decreases_with_path_water() -> None:
 
 @pytest.mark.level0
 def test_pure_thermal_segment_is_kirchhoff_graybody() -> None:
-    """With no sun, both directional products are exactly (1 − τ)·B(T_eff).
+    """With no sun, each directional product is exactly (1 − τ)·B(T_eff(λ)).
 
     Emissivity is derived from the segment's own transmittance (Rule 5);
-    there is no independent emissivity input anywhere in this path.
+    there is no independent emissivity input anywhere in this path.  Since
+    CU-321 the two directions carry *different* T_eff — the emission of a
+    10 km column escapes from colder air going up than going down — so the
+    check is per direction, against the emission-temperature model itself.
     """
     lam = _grid()
     atm = _atm()
     spec = ColumnSegmentSpec(h_low_m=0.0, h_high_m=1.0e4, zeta_low_rad=math.radians(20.0))
     q = evaluate_column_segment(atm, lam, spec, theta_s_rad=None)
-    t_eff = atm._downwelling_effective_temperature_K(0.0)
-    expected = (1.0 - q.tau) * planck_spectral_radiance(lam, t_eff)
-    np.testing.assert_array_equal(q.L_toward_upper, expected)
-    np.testing.assert_array_equal(q.L_toward_lower, expected)
-    assert q.provenance["t_eff_K"] == pytest.approx(t_eff, abs=0.0)
+    _od, _am, _lengths, species_od = column_segment_optical_depth(atm, lam, spec)
+    for escape, product in (("upper", q.L_toward_upper), ("lower", q.L_toward_lower)):
+        t_eff = atm._segment_emission_temperature_K(
+            lam,
+            h_low_m=0.0,
+            h_high_m=1.0e4,
+            od_slant_mol=species_od["mol"],
+            od_slant_aer=species_od["aer"],
+            od_slant_h2o=species_od["h2o"],
+            od_slant_gas=species_od["gas"],
+            escape=escape,
+        )
+        np.testing.assert_array_equal(product, (1.0 - q.tau) * planck_spectral_radiance(lam, t_eff))
+    # The species split really does sum to the segment optical depth.
+    np.testing.assert_allclose(np.exp(-sum(species_od.values())), q.tau, rtol=1e-12, atol=0.0)
+    # Up-going emission comes from colder air than down-going on a tall column.
+    assert q.provenance["t_eff_toward_upper_K_max"] < q.provenance["t_eff_toward_lower_K_max"]
+    assert float(np.max(q.L_toward_upper)) < float(np.max(q.L_toward_lower))
 
 
 @pytest.mark.level0
@@ -340,7 +377,7 @@ def test_species_weights_are_taken_at_the_lower_endpoint() -> None:
     spec = ColumnSegmentSpec(h_low_m=h_low, h_high_m=h_high, zeta_low_rad=0.0)
     q = evaluate_column_segment(atm, lam, spec, theta_s_rad=theta_s)
 
-    _od, _am, lengths = column_segment_optical_depth(atm, lam, spec)
+    _od, _am, lengths, _species = column_segment_optical_depth(atm, lam, spec)
     tau = np.exp(-_od)
     col_mol = lengths["col_length_mol_km"]
     col_h2o = lengths["col_length_h2o_km"]
@@ -354,7 +391,7 @@ def test_species_weights_are_taken_at_the_lower_endpoint() -> None:
     expected_scatter = (
         toa_solar_equivalent_radiance(lam) * math.cos(theta_s) * omega0 * phase * (1.0 - tau) / 4.0
     )
-    thermal = segment_thermal_emission(lam, tau, atm._downwelling_effective_temperature_K(h_low))
+    thermal = _thermal_toward_lower(atm, lam, spec, tau)
     np.testing.assert_allclose(q.L_toward_lower, thermal + expected_scatter, rtol=1e-12, atol=0.0)
     assert q.provenance["weight_altitude_m"] == pytest.approx(h_low, abs=0.0)
 
@@ -443,7 +480,7 @@ def test_curve_of_growth_is_linearised_against_the_slant_column() -> None:
     spec = ColumnSegmentSpec(h_low_m=h_low, h_high_m=h_high, zeta_low_rad=zeta)
     q = evaluate_column_segment(atm, lam, spec, theta_s_rad=theta_s)
 
-    od, air_mass, lengths = column_segment_optical_depth(atm, lam, spec)
+    od, air_mass, lengths, _species = column_segment_optical_depth(atm, lam, spec)
     tau = np.exp(-od)
     # Hand-built slant columns: one air mass serves every species inside 80°.
     s_mol = lengths["col_length_mol_km"] * air_mass
@@ -462,7 +499,7 @@ def test_curve_of_growth_is_linearised_against_the_slant_column() -> None:
     expected_scatter = (
         toa_solar_equivalent_radiance(lam) * math.cos(theta_s) * omega0 * phase * (1.0 - tau) / 4.0
     )
-    thermal = segment_thermal_emission(lam, tau, atm._downwelling_effective_temperature_K(h_low))
+    thermal = _thermal_toward_lower(atm, lam, spec, tau)
     np.testing.assert_allclose(q.L_toward_lower, thermal + expected_scatter, rtol=1e-12, atol=0.0)
 
 
@@ -477,7 +514,7 @@ def test_vertical_column_is_untouched_by_the_slant_convention() -> None:
     lam = _grid()
     atm = _atm()
     spec = ColumnSegmentSpec(h_low_m=0.0, h_high_m=2.0e4, zeta_low_rad=0.0)
-    _od, air_mass, lengths = column_segment_optical_depth(atm, lam, spec)
+    _od, air_mass, lengths, _species = column_segment_optical_depth(atm, lam, spec)
     assert air_mass == pytest.approx(1.0, abs=0.0)
     for species in ("mol", "aer", "h2o"):
         assert lengths[f"slant_column_{species}_km"] == pytest.approx(

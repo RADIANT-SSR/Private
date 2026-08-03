@@ -88,3 +88,8 @@ scenarios/04_lisa_analyst/4.3_camouflage_effectiveness/outputs/derived/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/worktrees/
+
+# Impeccable design-tool context (untracked: repo root is a closed set per OPERATING_MODEL §1)
+PRODUCT.md
+DESIGN.md
+.impeccable/

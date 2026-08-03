@@ -50,6 +50,7 @@ from radiant.atmosphere.errors import (
     AtmosphereStateError,
     AtmosphereValidationError,
 )
+from radiant.atmosphere.log_tau_resample import resample_transmittance
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
@@ -1599,17 +1600,21 @@ class ModtranAtmosphere:
                 "model": "modtran",
                 "cache_key": f"tape7-file:{up.content_key}",
             }
+            # CU-316: τ carried onto the chain grid in log-τ (Beer-Lambert),
+            # the CU-306 convention now shared by every backend.  L_path
+            # below stays linear — additive emission, no exponential law.
             tau_up = np.asarray(
-                SpectralData(
-                    name="atm.transmittance.modtran_up",
-                    wavelength_um=up.wavelength_um,
-                    values=up.transmittance,
-                    unit="",
-                    source=f"MODTRAN tape7 up-leg import: {up.source_path}",
-                    source_parameters=up_provenance,
-                )
-                .resample(target_grid)
-                .values,
+                resample_transmittance(
+                    SpectralData(
+                        name="atm.transmittance.modtran_up",
+                        wavelength_um=up.wavelength_um,
+                        values=up.transmittance,
+                        unit="",
+                        source=f"MODTRAN tape7 up-leg import: {up.source_path}",
+                        source_parameters=up_provenance,
+                    ),
+                    target_grid,
+                ).values,
                 dtype=np.float64,
             )
             lpath_up = np.asarray(
@@ -1631,10 +1636,12 @@ class ModtranAtmosphere:
 
         if self._tape7_sun_import is not None:
             # CU-011 (file flavor): tau_sun from the sun-leg file's
-            # transmittance, resampled to the chain grid.  Deliberately
-            # NOT clipped — an out-of-range file fails loud in
+            # transmittance, resampled to the chain grid in log-τ (CU-316).
+            # Deliberately NOT clipped — an out-of-range file fails loud in
             # AtmosphericQuantities.__post_init__ (Rule 17; cf. CU-071
-            # on the up-leg builder's legacy clamp).
+            # on the up-leg builder's legacy clamp), and the log-τ resample
+            # floors only at TAU_FLOOR so an over-unity column still reaches
+            # that check.
             sun = self._tape7_sun_import
             sun_sd = SpectralData(
                 name="atm.transmittance.modtran_sun",
@@ -1647,7 +1654,9 @@ class ModtranAtmosphere:
                     "cache_key": f"tape7-file:{sun.content_key}",
                 },
             )
-            tau_sun = np.asarray(sun_sd.resample(target_grid).values, dtype=np.float64)
+            tau_sun = np.asarray(
+                resample_transmittance(sun_sd, target_grid).values, dtype=np.float64
+            )
         else:
             # No sun-leg data: alias τ_sun onto the up-leg transmittance
             # (identical to the full column without an up-leg import).
@@ -1752,7 +1761,8 @@ class ModtranAtmosphere:
             source_parameters={"model": "modtran", "cache_key": cache_key},
         )
 
-        tau_resampled = tau_sd.resample(target_grid)
+        # CU-316: τ in log-τ (Beer-Lambert), path radiance linearly.
+        tau_resampled = resample_transmittance(tau_sd, target_grid)
         lp_resampled = lp_sd.resample(target_grid)
 
         # MODTRAN tape7 does not provide a separate downwelling column in

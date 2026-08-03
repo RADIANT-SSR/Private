@@ -5,6 +5,14 @@ emission from CSV or NPZ files.  The data are geometry-agnostic: the loaded
 values are returned verbatim for any query geometry, resampled to the
 requested wavelength grid via ``SpectralData.resample()``.
 
+Transmittance is resampled in **log-τ** (CU-316) — see
+:mod:`radiant.atmosphere.log_tau_resample` — so a query grid that differs
+from the file's grid gets the Beer-Lambert-consistent geometric mean
+rather than the arithmetic mean, and the same stored column reads
+identically through every backend.  Path radiance and downwelling
+emission resample linearly: they are additive, not exponential in path
+length.  A query on the file's own grid is a bit-identical no-op.
+
 Per ``docs/architecture/RADIANT_Atmosphere.md`` section 3.2 the tabulated model does NOT
 rescale with geometry.  Users who need geometry-dependent interpolation
 between multiple tabulated runs should use
@@ -31,6 +39,7 @@ import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere.errors import AtmosphereCapabilityError, AtmosphereValidationError
+from radiant.atmosphere.log_tau_resample import resample_transmittance
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
@@ -388,9 +397,9 @@ class TabulatedAtmosphere:
     ) -> AtmosphericState:
         """Return the tabulated data resampled to *wavelength_um*.
 
-        The loaded data are resampled onto the requested wavelength grid
-        via linear interpolation.  Extrapolation beyond the source data
-        range raises ``ValueError``.
+        The loaded data are resampled onto the requested wavelength grid —
+        transmittance in log-τ, the radiances linearly (CU-316).
+        Extrapolation beyond the source data range raises ``ValueError``.
 
         The *geometry* is recorded on the returned
         :class:`AtmosphericState` for downstream use but does **not**
@@ -418,7 +427,11 @@ class TabulatedAtmosphere:
 
         target_grid = SpectralGrid(wavelengths_um=lam)
 
-        tau_resampled = self.transmittance_data.resample(target_grid)
+        # CU-316: τ is carried onto the chain grid in log-τ (Beer-Lambert;
+        # the CU-306 convention, now universal across the backends).  The
+        # radiances stay linear — additive emission terms, no exponential
+        # path-length law.
+        tau_resampled = resample_transmittance(self.transmittance_data, target_grid)
         lpath_resampled = self.path_radiance_data.resample(target_grid)
         ldown_resampled = self.atm_emission_down_data.resample(target_grid)
 
@@ -451,6 +464,8 @@ class TabulatedAtmosphere:
             derivation_chain=(
                 f"TabulatedAtmosphere(source={self.source_path})",
                 "Geometry-agnostic: values not rescaled with viewing geometry",
+                "tau resampled onto the query wavelength grid in log-space "
+                "(CU-316); L_path, L_atm_down resampled linearly",
             ),
         )
 
@@ -466,7 +481,8 @@ class TabulatedAtmosphere:
         fields are populated as follows:
 
         - ``tau_sun == tau_up == tau_full_up`` = the single tabulated
-          ``transmittance`` resampled to the chain grid.  The legacy
+          ``transmittance`` resampled to the chain grid in log-τ
+          (CU-316; :mod:`radiant.atmosphere.log_tau_resample`).  The legacy
           pipeline collapsed both legs into one factor; the tabulated
           files carry the same collapse.  A UserWarning is emitted so
           the caller sees that the two-leg split has been degraded.
@@ -527,7 +543,11 @@ class TabulatedAtmosphere:
         )
 
         target_grid = SpectralGrid(wavelengths_um=lam)
-        tau = np.asarray(self.transmittance_data.resample(target_grid).values, dtype=np.float64)
+        # CU-316: log-τ resample, as in build_state.
+        tau = np.asarray(
+            resample_transmittance(self.transmittance_data, target_grid).values,
+            dtype=np.float64,
+        )
         lpath = np.asarray(self.path_radiance_data.resample(target_grid).values, dtype=np.float64)
         ldown = np.asarray(
             self.atm_emission_down_data.resample(target_grid).values, dtype=np.float64

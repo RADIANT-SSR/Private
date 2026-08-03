@@ -50,12 +50,14 @@ nav:
     - Scripting: guides/scripting.md
     - Parameter Reference: guides/parameter_reference.md
     - Regime Selection: guides/regime_selection.md
+    - Atmosphere Selection: guides/atmosphere_selection.md
     - Trade Studies: guides/trade_studies.md
     - Scenario Testing: guides/scenario_testing.md
     - Scenario Catalog: guides/scenario_catalog.md
   - Theory:
     - Radiometric Chain: theory/radiometric_chain.md
     - Geometry & Sampling: theory/geometry.md
+    - Atmosphere Models: theory/atmosphere_models.md
     - Spatial Model: theory/spatial_model.md
     - Noise Model: theory/noise_model.md
     - Performance Metrics: theory/performance_metrics.md
@@ -86,6 +88,8 @@ nav:
     - File Tree: architecture/RADIANT_File_Tree.md
     - GUI Architecture (deferred): architecture/RADIANT_GUI_Architecture.md
     - Plugins (deferred): architecture/RADIANT_Plugins.md
+  - Validation:
+    - Atmosphere / MODTRAN Parity: validation/atmosphere_modtran_parity.md
   - Decision Records:
     - Index: adr/README.md
     - 0001 Scope and Constraints: adr/0001-scope-and-constraints.md

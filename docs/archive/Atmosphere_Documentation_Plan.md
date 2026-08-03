@@ -1,8 +1,20 @@
 # Atmosphere Documentation Plan
 
-**Status:** Active — opened 2026-08-03 (owner-chartered in session; scope ratified verbally:
-"draft the plan and then let's execute", with the explicit constraint **docs-only — no code,
-no tests, no `src/` edits of any kind**).
+> **HISTORICAL — COMPLETE** — archived 2026-08-03, completed by the coding agent.
+> All three work packages landed: **P-D1** (theory + validation extraction) merged as
+> `b76700f9`; **P-D2** (operator selection guide) merged as `104c6d7d`, owner-ratified
+> 2026-08-03; **P-D3** (architecture-doc slim, mkdocs nav, this archival) merged with the
+> moved-section ledger in its commit message. The four documents the plan created or
+> reshaped are `docs/architecture/RADIANT_Atmosphere.md` (contract),
+> `docs/theory/atmosphere_models.md` (physics),
+> `docs/validation/atmosphere_modtran_parity.md` (measured accuracy), and
+> `docs/guides/atmosphere_selection.md` (operator choice). This document is retained as the
+> design record; it is no longer live.
+
+**Status:** Complete — opened 2026-08-03 (owner-chartered in session; scope ratified
+verbally: "draft the plan and then let's execute", with the explicit constraint
+**docs-only — no code, no tests, no `src/` edits of any kind**), archived 2026-08-03 on
+P-D3's merge.
 
 ## Charter
 

@@ -1312,6 +1312,9 @@ def _load_emissivity_on_grid(
     :func:`radiant.source.target_spec.check_emissivity_path_conflicts`, so it
     also runs at the resolve-time seam; the call below keeps the evaluate-time
     refusal (defence in depth) at the exact point the inline block occupied.
+    CU-323 additionally runs that guard *before* dispatch in
+    :func:`_build_target_descriptor` — this door is reached only when no rival
+    door dispatched, so the call below can no longer be the first one to fire.
     """
     if not _is_user_set(params, "source.target.emissivity_path"):
         return None
@@ -1365,6 +1368,21 @@ def _build_target_descriptor(
     scene_type, target_location, no_atmosphere_subcase, h_tgt:
         Resolved axes from the other inferrer helpers.
     """
+    # Pre-dispatch: the ε(λ) door's exclusivity guard (CU-323).
+    #
+    # ``source.target.emissivity_path`` is the *last* door in dispatch order, so
+    # nine of its ten rival surfaces open a door that builds the target first —
+    # and the user's ε(λ) surface was then discarded in silence (Rule 17), the
+    # same defect class CU-293 closed for the S11 + S12 pair.  Running the
+    # single shared guard ahead of dispatch refuses all ten pairs here exactly
+    # as the seam refuses them (owner ruling 2026-08-02, CU-323).  It is a
+    # no-op unless ``emissivity_path`` is user-set and non-empty, so no
+    # single-door spec can newly raise.  ``validate_target_spec`` runs the same
+    # guard in the same (first) position, which is what makes the two entry
+    # points report the *same* first error for every config, not just for a
+    # two-surface pair.
+    check_emissivity_path_conflicts(params)
+
     # S11 fast path — user-supplied brightness temperature.
     s11 = _maybe_build_from_brightness_temperature(
         params=params,

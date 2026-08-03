@@ -28,6 +28,7 @@ import pytest
 from radiant.api._param_registry import build_parameter_set
 from radiant.core.descriptors import (
     T1Thermal,
+    T2Reflective,
     T3Mixed,
     T6TabulatedAtSource,
     T7IntensityAtSource,
@@ -131,6 +132,40 @@ class TestSingleSurfaceDoorsBuildIdentically:
         assert target.epsilon is not None
         assert _digest(target.epsilon) == (
             "3c7a465a875c992d94e256b48cb954ba5e0cc093e289b6e62469d7614979571e"
+        )
+
+    def test_s4_scalar_reflectance(self) -> None:
+        """CU-323: the reflectance door still materialises the same ρ(λ).
+
+        Added with CU-323, which put a shared pre-dispatch guard call ahead of
+        *every* door in ``_build_target_descriptor``; this door and the S10 CSV
+        door below were the two the CU-293/CU-318 pins did not cover.  Digest
+        captured on the pre-CU-323 tree.
+        """
+        params = _base_params()
+        params.set("source.scene_type", "extended")
+        params.set("source.target.reflectance", 0.30)
+        target, _bg, _los = infer_descriptors(_resolved(params), _WL_MWIR)
+        assert isinstance(target, T2Reflective)
+        assert _digest(target.rho.reflectance) == (
+            "e218cd8201fc38096796573328b45c9618792502800de37724564773a61c5713"
+        )
+
+    def test_s10_user_intensity_path(self, tmp_path: Path) -> None:
+        """CU-323: the S10 CSV intensity door still resamples identically."""
+        csv = tmp_path / "I_source.csv"
+        csv.write_text(
+            "wavelength_um,intensity_W_per_sr_per_um\n3.0,10.0\n5.0,12.0\n",
+            encoding="utf-8",
+        )
+        params = _base_params()
+        params.set("source.scene_type", "point_source")
+        params.set("source.target.user_intensity_path", str(csv))
+        target, _bg, _los = infer_descriptors(_resolved(params), _WL_MWIR)
+        assert isinstance(target, T7IntensityAtSource)
+        assert target.I_t_source is not None
+        assert _digest(target.I_t_source) == (
+            "ec2cb1c877d5cbcd2576fe7878a4393a7f39d0c524c0df07563f4491ce178467"
         )
 
     def test_s10b_point_intensity_blackbody(self) -> None:

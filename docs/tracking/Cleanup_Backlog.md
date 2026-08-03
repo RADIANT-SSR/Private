@@ -47,15 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-323 — `evaluate()` silently discards `emissivity_path` when any of nine rival doors dispatches first
-
-**Discovered**: CU-318 closure (branch `fix/cu-319-318`), 2026-08-02 — measured while moving the guard; refutes CU-318's "caught by symmetric guards" premise.
-**Status**: Open — **Owner ruling (2026-08-02): approved** — extend the CU-293 ruling class: `evaluate()` refuses all nine `emissivity_path` rival pairs exactly as the seam does (measured: zero shipped configs newly raise). CHANGELOG under Changed.
-**File**: `src/radiant/source/_inferrer.py` (dispatch order: ρ / albedo / S8 / S10 / S10b / S11 / S12 / brightness-path doors all dispatch before the ε(λ) door).
-**Symptom**: with `emissivity_path` set alongside any of nine rival surfaces, the rival door builds first and `evaluate()` completes with the user's ε(λ) surface silently ignored (Rule 17) — the same defect class CU-293 closed for the S11+S12 pair. The resolve-time seam already refuses all nine (CU-318 registered the full guard there), so the door is deliberately stricter than evaluate — the documented stopgap asymmetry, reintroduced for one door.
-**Why it still matters**: a user-supplied spectral surface is discarded with no warning at the entry point scripts use; the GUI seam catches it but the scripting API does not.
-**Suggested fix**: (b) small — add the `emissivity_path` rival check to each of the nine doors' evaluate-side guards (or one shared pre-dispatch check), exactly as CU-293 did for S11→S12; behaviour-changing at evaluate → CHANGELOG under Changed + the standard `scenarios/`+`examples/` sweep (the CU-318 sweep already shows all 67 shipped YAMLs pass the seam, so zero shipped configs would newly raise). Effort S; category B. Related: [[CU-318]], [[CU-293]], [[CU-244]].
-
 ### CU-321 — One-temperature graybody over-predicts MWIR path thermal ~2× on tall columns, both directions equally (now anchorable)
 
 **Discovered**: CU-224 P5a anchoring (branch `atmo/cu-224-lpath-thermal`), 2026-08-02.
@@ -73,15 +64,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Symptom**: after CU-306, the same stored MODTRAN column yields slightly different tau depending on which backend serves it: the interpolated backend carries tau to the chain grid in log-tau (Beer-Lambert-consistent), while `TabulatedAtmosphere` and `ModtranAtmosphere` still resample linearly in tau. Measured on the shipped ladders: up to ~1.5 % relative tau difference at a 200-point MWIR chain grid. Not an operation-order defect (those backends perform one resample; there is nothing to commute) — a convention divergence.
 **Why it still matters**: cross-backend comparisons (the exact workflow the interpolated backend exists for — fast path vs tabulated truth) now carry a ~1 % model-independent discrepancy that is pure resampling convention; it lands exactly at the magnitude of the physics differences those comparisons are meant to expose.
 **Suggested fix**: (b) stand-alone, S–M — adopt log-tau resampling for the tau-like arrays in both backends (radiances stay linear), with the same `TAU_FLOOR` guard and a §5.3 sweep of any golden anchored on those backends (the MODTRAN-backed integration anchors will move at the ~1 % level). **Results-affecting** for tabulated/MODTRAN-served scenes on non-matching chain grids. Category C. Related: [[CU-306]], [[CU-156]].
-
-### CU-315 — `alias_fraction_at_nyquist` reports float noise for oversampled bands (no absolute floor)
-
-**Discovered**: CU-209 closure (branch `perf/cu-209-folded-mtf`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).
-**Status**: Open — **Owner ruling (2026-08-02): approved, option (i)** — absolute floor: when the folded MTF at Nyquist is below a documented epsilon, `alias_fraction_at_nyquist` reports 0 (an oversampled design has no aliased energy). Results-affecting for the one metric on oversampled configurations.
-**File**: `src/radiant/performance/folded_mtf.py:139-143` (`alias_fraction = (folded − optical)/folded`, guarded only by `folded > 0.0`, which ~1e-16 passes).
-**Symptom**: for optics that cut off below pixel Nyquist, folded and optical MTF at `f_Nyquist` are both ~1e-16, and the ratio is float noise: the dual-band example's LWIR configuration (Q = 2.22) prints `alias_fraction_at_nyquist` = 0.944314 where the physical answer is 0. The CU-209 fix deliberately anchored the oversampled Level-0 case on the absolute folded value and left this open; the CHANGELOG and the example's printed note carry the caveat.
-**Why it still matters**: a shipped metric rendered in the GUI Performance dashboard reads "94 % aliased" on a design with nothing to alias — the one Spatial-MTF number an operator would use to judge sampling adequacy is the one that lies in the best-sampled regime.
-**Suggested fix**: (b) stand-alone, S — owner ruling between (i) an absolute floor on the denominator (report 0 when the folded MTF at the sample frequency is below a documented epsilon) and (ii) a result-typed `failure_reason` per the Rule-17 metric-layer carve-out ("alias fraction undefined: optics cut off below Nyquist"). **Results-affecting** for the one metric on oversampled configurations either way. Category B. Related: [[CU-209]].
 
 ### CU-138 — Scripting console ships as a `code.InteractiveConsole` REPL, not the preferred `qtconsole` in-process Jupyter kernel
 
@@ -113,6 +95,26 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-323 — `evaluate()` silently discards `emissivity_path` when any of nine rival doors dispatches first — RESOLVED 2026-08-02 (commit trailer)
+
+**Discovered**: CU-318 closure (branch `fix/cu-319-318`), 2026-08-02 — measured while moving the guard; refutes CU-318's "caught by symmetric guards" premise.
+**Status**: RESOLVED 2026-08-02, closed by the `CU-Closes: 323` trailer commit. **Owner ruling (2026-08-02): approved** — extend the CU-293 ruling class: `evaluate()` refuses all nine `emissivity_path` rival pairs exactly as the seam does (measured: zero shipped configs newly raise). CHANGELOG under Changed.
+**File**: `src/radiant/source/_inferrer.py` (dispatch order: ρ / albedo / S8 / S10 / S10b / S11 / S12 / brightness-path doors all dispatch before the ε(λ) door).
+**Symptom**: with `emissivity_path` set alongside any of nine rival surfaces, the rival door builds first and `evaluate()` completes with the user's ε(λ) surface silently ignored (Rule 17) — the same defect class CU-293 closed for the S11+S12 pair. The resolve-time seam already refuses all nine (CU-318 registered the full guard there), so the door is deliberately stricter than evaluate — the documented stopgap asymmetry, reintroduced for one door.
+**Why it still matters**: a user-supplied spectral surface is discarded with no warning at the entry point scripts use; the GUI seam catches it but the scripting API does not.
+**Suggested fix**: (b) small — add the `emissivity_path` rival check to each of the nine doors' evaluate-side guards (or one shared pre-dispatch check), exactly as CU-293 did for S11→S12; behaviour-changing at evaluate → CHANGELOG under Changed + the standard `scenarios/`+`examples/` sweep (the CU-318 sweep already shows all 67 shipped YAMLs pass the seam, so zero shipped configs would newly raise). Effort S; category B. Related: [[CU-318]], [[CU-293]], [[CU-244]].
+**Resolution**: one shared pre-dispatch call — `check_emissivity_path_conflicts` runs FIRST at both entry points (`_build_target_descriptor` and `validate_target_spec`), one source of truth covering all ten pairs, identical first-error for every config (not just two-surface pairs). All nine rival pairs refuse at evaluate with text character-identical to the seam (dynamic assertion, 9×); 18 of 19 new tests fail on the old code; two new SHA-256 build-identity pins captured pre-change (seven total pass); 67 shipped YAMLs sweep clean — zero newly raise, reproducing the CU-318 measurement. The CU-318 residual-asymmetry paragraphs in three architecture docs now record it closed. CHANGELOG under Changed.
+
+### CU-315 — `alias_fraction_at_nyquist` reports float noise for oversampled bands (no absolute floor) — RESOLVED 2026-08-02 (commit trailer)
+
+**Discovered**: CU-209 closure (branch `perf/cu-209-folded-mtf`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).
+**Status**: RESOLVED 2026-08-02, closed by the `CU-Closes: 315` trailer commit. **Owner ruling (2026-08-02): approved, option (i)** — absolute floor: when the folded MTF at Nyquist is below a documented epsilon, `alias_fraction_at_nyquist` reports 0 (an oversampled design has no aliased energy). Results-affecting for the one metric on oversampled configurations.
+**File**: `src/radiant/performance/folded_mtf.py:139-143` (`alias_fraction = (folded − optical)/folded`, guarded only by `folded > 0.0`, which ~1e-16 passes).
+**Symptom**: for optics that cut off below pixel Nyquist, folded and optical MTF at `f_Nyquist` are both ~1e-16, and the ratio is float noise: the dual-band example's LWIR configuration (Q = 2.22) prints `alias_fraction_at_nyquist` = 0.944314 where the physical answer is 0. The CU-209 fix deliberately anchored the oversampled Level-0 case on the absolute folded value and left this open; the CHANGELOG and the example's printed note carry the caveat.
+**Why it still matters**: a shipped metric rendered in the GUI Performance dashboard reads "94 % aliased" on a design with nothing to alias — the one Spatial-MTF number an operator would use to judge sampling adequacy is the one that lies in the best-sampled regime.
+**Suggested fix**: (b) stand-alone, S — owner ruling between (i) an absolute floor on the denominator (report 0 when the folded MTF at the sample frequency is below a documented epsilon) and (ii) a result-typed `failure_reason` per the Rule-17 metric-layer carve-out ("alias fraction undefined: optics cut off below Nyquist"). **Results-affecting** for the one metric on oversampled configurations either way. Category B. Related: [[CU-209]].
+**Resolution**: `ALIAS_FRACTION_MTF_FLOOR = 1e-9` (of the DC response) — 180 dB below unit contrast, six decades above the folded sum's arithmetic round-off floor (~1e-15) and six below the cancellation-noise threshold, so it suppresses nothing physical; bracketing argument documented at the constant, in the docstrings, and in `docs/theory/spatial_model.md` §10. Applied per-frequency across the whole array (the metric's meaning is frequency-independent; the old `> 0.0` guard was already per-frequency). Measured: dual-band LWIR `alias_fraction_at_nyquist` 0.944314 → 0 exactly (end-to-end), MWIR 0.500004 bit-unchanged, scenario 3.4 untouched; above-floor fractions verified bit-identical to the unfloored ratio. No golden, snapshot, or GUI baseline carries the key (re-swept), so §5.3 not triggered; Results-affecting CHANGELOG entry. The floor is a float64-robustness module constant (the `TAU_FLOOR` treatment), not a schema parameter.
 
 ### CU-317 — Scenario 4.1's committed detection matrix no longer matches its own runner (qualitative drift from earlier landed physics) — RESOLVED 2026-08-02 (commit trailer)
 

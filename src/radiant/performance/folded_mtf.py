@@ -24,6 +24,11 @@ folded response is due to aliasing rather than true signal::
 
     alias_fraction(f) = (MTF_folded(f) - MTF_optical(f)) / MTF_folded(f)
 
+Both terms of that ratio vanish for optics that cut off below Nyquist, so it
+is evaluated only where the folded response is above an absolute floor;
+below it the alias fraction is reported as exactly zero (CU-315, see
+``ALIAS_FRACTION_MTF_FLOOR``).
+
 Reference: Holst, *Electro-Optical Imaging System Performance*, Ch. 7.
 """
 
@@ -35,6 +40,25 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.performance.errors import PerformanceValidationError
+
+#: Absolute floor on the folded MTF below which the alias fraction is
+#: reported as exactly zero (CU-315).
+#:
+#: MTF is normalized to ``MTF(0) = 1``, so this is a fraction of the DC
+#: response: a folded response 1e-9 of DC is 180 dB down — no instrument
+#: measures it and no scene content survives it, so an oversampled design
+#: whose optics cut off below Nyquist has, physically, no aliased energy.
+#: The value sits between two hard bounds.  Below it, the folded sum of
+#: ``2·n_folds + 1`` interpolated terms carries an absolute round-off floor of
+#: order ``(2 n_folds + 1) · eps ≈ 1e-15``, so ``(folded − optical)/folded``
+#: is noise divided by noise and returns an arbitrary number in [0, 1] (the
+#: dual-band example's LWIR band read 0.944314 this way).  Above it, the
+#: ratio is still accurate: at ``folded = 1e-9`` the double-precision
+#: cancellation error in ``folded − optical`` is ~``eps/folded ≈ 1e-7``
+#: relative, six orders below the reported fraction.  1e-9 is therefore six
+#: decades clear of the arithmetic noise and nine decades below unit
+#: contrast — no physically meaningful alias fraction is suppressed.
+ALIAS_FRACTION_MTF_FLOOR: float = 1e-9
 
 
 @dataclass(frozen=True)
@@ -50,7 +74,9 @@ class FoldedMTFResult:
     alias_fraction:
         Fraction of folded MTF due to aliasing at each frequency.
         Zero for well-sampled systems, approaches 1.0 when aliasing
-        dominates.
+        dominates.  Exactly zero at every frequency where the folded MTF
+        is at or below ``ALIAS_FRACTION_MTF_FLOOR`` — an oversampled
+        design carries no aliased energy (CU-315).
     n_folds:
         Number of fold orders summed (±n_folds).
     """
@@ -146,11 +172,14 @@ def compute_folded_mtf(
         )
         mtf_folded += mtf_shifted
 
-    # Alias fraction = (folded - optical) / folded.
-    # Avoid division by zero where folded MTF is zero.
+    # Alias fraction = (folded - optical) / folded, evaluated only where the
+    # folded response is physically present.  Where it is below
+    # ALIAS_FRACTION_MTF_FLOOR (which includes folded == 0 exactly) the ratio
+    # would divide round-off by round-off, so the fraction is reported as
+    # zero: there is no folded energy, hence none of it is aliased (CU-315).
     alias_fraction = np.zeros_like(mtf_folded)
-    nonzero = mtf_folded > 0.0
-    alias_fraction[nonzero] = (mtf_folded[nonzero] - mtf_values[nonzero]) / mtf_folded[nonzero]
+    resolved = mtf_folded > ALIAS_FRACTION_MTF_FLOOR
+    alias_fraction[resolved] = (mtf_folded[resolved] - mtf_values[resolved]) / mtf_folded[resolved]
 
     return FoldedMTFResult(
         freq=freq_cy_m.copy(),

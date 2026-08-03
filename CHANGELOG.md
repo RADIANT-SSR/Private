@@ -198,6 +198,20 @@ retroactively reconstructed.
   Evaluate-time checks are unchanged (defence in depth); no computed results change.
 
 ### Changed
+- **`evaluate()` now refuses every over-specified `source.target.emissivity_path` pair, as
+  the seam already did (CU-323).** The ε(λ) door dispatches last, so nine of its ten rival
+  surfaces — `source.target.reflectance`, `albedo`, `reflectance_path`, `albedo_path`,
+  `brightness_temperature_K`, `brightness_temperature_path`, `radiance_temperature_K`,
+  `user_radiance_path`, `user_intensity_path` — opened a door that built the target first
+  and the user's ε(λ) CSV was **silently discarded** (Rule 17), while
+  `Sensor.validate_target_spec()` refused the same pairs. Extending the CU-293 ruling
+  class, `target_spec.check_emissivity_path_conflicts` is now a **pre-dispatch** check run
+  first at both entry points instead of a per-door guard registered last: all ten pairs
+  raise `ParameterBoundsError` at `evaluate()` with text identical to the seam's. Remedy
+  for anyone hitting the new refusal: set either `emissivity_path` or the rival surface,
+  not both — the error names the pair. No computed result moves (refusal-only, and the
+  guard is a no-op unless `emissivity_path` is user-set and non-empty); none of the 67
+  shipped YAML configs sets that surface, so none newly raises.
 - **`Sensor.validate_target_spec()` now refuses an over-specified `source.target.emissivity_path`
   spec at the resolve-time seam (CU-318).** The ε(λ) door was the last one whose exclusivity
   guard was inlined in the source inferrer, so it ran only at `evaluate()`. It moved verbatim to
@@ -539,6 +553,19 @@ retroactively reconstructed.
   exercised it tested the deprecated function itself.
 
 ### Fixed
+- **Results-affecting: `alias_fraction_at_nyquist` reports 0 for oversampled
+  configurations instead of float noise (CU-315).** The fraction
+  `(folded − optical)/folded` was evaluated wherever the folded MTF was merely
+  non-zero, so for optics that cut off below Nyquist it divided ~1e-16 by ~1e-16 and
+  returned an arbitrary number — the dual-band example's two LWIR configurations
+  (Q = 2.22) printed **0.944314, now 0.0**. The ratio is now evaluated only where the
+  folded MTF exceeds `folded_mtf.ALIAS_FRACTION_MTF_FLOOR` = 1e-9 of the DC response
+  `MTF(0) = 1`; below that floor (at any frequency, not just Nyquist) the reported
+  fraction is exactly zero, which is the physical answer — an oversampled design
+  aliases nothing. Undersampled values are untouched bit-for-bit: the same example's
+  MWIR configuration stays at 0.500004 and scenario 3.4's nadir case at 0.5000. This
+  closes the caveat the CU-209 entry below left open. No golden baseline, snapshot, or
+  `*.gui.expected.json` carries the key, so no baseline was re-reviewed.
 - **Results-affecting (every point-source `detection_range_m`): the detection criterion
   is shot-noise-consistent, and the down-looking arm is path-aware (CU-263, folding
   ex-CU-236).** Two coupled changes in one owner-gated PR:

@@ -50,7 +50,8 @@ summary (26 first-try / 12 single-advisory, from the sweep test), and a catalog 
 operator-visible warnings and refusals with their meaning and remedy (hybrid two-model
 warning, CU-167 non-axis mismatch, provisional VIS sky, coverage/ceiling/lower-endpoint
 refusals, the exo guard's two arms). **The owner reads this document before it merges** —
-it encodes judgment about what an operator should reach for.
+it encodes judgment about what an operator should reach for. **Ratified by the owner
+2026-08-03 ("guide ratified", in session) — merged on that ratification.**
 
 **P-D3 — Slim the architecture doc (after D1/D2 merge).**
 `RADIANT_Atmosphere.md` returns to the architecture contract: products and the

@@ -90,11 +90,13 @@ Running RADIANT at each frame rate with `flicker_K = 25000` and without:
 
 | Frame Rate | NEDT (no 1/f) [mK] | NEDT (with 1/f) [mK] | Δ NEDT [mK] | Δ [%] |
 |-----------|--------------------|--------------------|------------|-------|
-| 30 Hz | 27.4 | 27.8 | 0.4 | 1.5% |
-| 60 Hz | 27.4 | 27.7 | 0.3 | 1.1% |
-| 120 Hz | 27.4 | 27.7 | 0.3 | 1.1% |
+| 30 Hz | 27.4 | 27.8 | 0.4 | 1.4% |
+| 60 Hz | 27.4 | 27.7 | 0.3 | 1.2% |
+| 120 Hz | 27.4 | 27.7 | 0.3 | 1.0% |
 
 **1/f noise adds only 0.3–0.4 mK to NEDT** — about 1% degradation. The reason: signal photon shot noise completely dominates the noise budget in this shot-noise-limited LWIR system.
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage 2026-07-09). No in-window Results-affecting landing touches this scene — the bench is `atmosphere.model = "exo"`, extended regime, 8–10 µm, so CU-224 (down-looking `simple` path radiance), CU-267 (`simple` gas-region blend) and CU-253 (VIS/NIR Rayleigh) all exclude it by their own scope statements. The values corrected here (f_low-sweep NEDT, well-fill fraction, 60 Hz Δ%) are leftovers the 2026-07-09 CU-059 refresh missed, not physics movement: they contradicted this document's own §Step 2 / §Step 4 tables, which were already current.*
 
 ### Step 4: Noise Breakdown at 60 Hz
 
@@ -112,7 +114,7 @@ Running RADIANT at each frame rate with `flicker_K = 25000` and without:
 
 ### Step 5: f_low Sweep
 
-The analytic sweep of f_low from 1 Hz to 500 Hz shows the full sensitivity curve. NEDT ranges from 38.03 mK (at 1 Hz) to 37.70 mK (at 500 Hz) — a total variation of only 0.33 mK across the entire range. This confirms that 1/f noise is irrelevant for NEDT in this BLIP-limited system.
+The analytic sweep of f_low from 1 Hz to 500 Hz shows the full sensitivity curve. NEDT ranges from 28.00 mK (at 1 Hz) to 27.55 mK (at 500 Hz) — a total variation of only 0.45 mK across the entire range. This confirms that 1/f noise is irrelevant for NEDT in this BLIP-limited system.
 
 ### Step 6: When 1/f WOULD Matter
 
@@ -126,13 +128,13 @@ For Mike's LWIR system, none of these apply. The photon noise from the warm back
 
 ## Key Takeaways
 
-1. **1/f noise is negligible for NEDT in BLIP-limited LWIR systems.** The 0.2 mK penalty (0.6%) at 60 Hz is well within measurement uncertainty. Mike does not need to worry about 1/f noise for NEDT specification.
+1. **1/f noise is negligible for NEDT in BLIP-limited LWIR systems.** The 0.3 mK penalty (1.2%) at 60 Hz is well within measurement uncertainty. Mike does not need to worry about 1/f noise for NEDT specification.
 
 2. **The logarithmic dependence is weak.** Going from 30 Hz to 120 Hz (4× frame rate) only reduces σ_1f by 15%. Frame rate has minimal impact on 1/f noise contribution.
 
 3. **RADIANT overestimates 1/f by 64–170%** because it does not model the corner frequency cutoff. The flicker model integrates K/f over the full [f_low, f_high] band, even though physically the 1/f PSD transitions to white noise above f_c = 200 Hz.
 
-4. **LWIR integration times are FWC-limited, not frame-rate-limited.** At f/2 with a 300 K scene in 8–10 µm, the well fills to 46% in just 100 µs. All three frame rates use the same 100 µs integration time because the well capacity — not the frame period — limits exposure.
+4. **LWIR integration times are FWC-limited, not frame-rate-limited.** At f/2 with a 300 K scene in 8–10 µm, the well fills to 22.2% in just 100 µs. All three frame rates use the same 100 µs integration time because the well capacity — not the frame period — limits exposure.
 
 5. **Signal shot noise dominates.** `signal_shot` alone accounts for 92.5% of the noise variance — the LWIR scene is bright enough that photon statistics swamp read, quantization, and 1/f noise. In the extended regime there is no separate background_shot term (Decision #13); the whole-FOV radiance is captured in `signal_shot`.
 

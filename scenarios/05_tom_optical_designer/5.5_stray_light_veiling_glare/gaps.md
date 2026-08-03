@@ -46,7 +46,7 @@ Pairs with Gap 58 (raster reader) for map ingestion.
   physics bug does the most damage, so it deserves a Level-0 consistency test
   (`stray_e = vgf·signal_e`), which now exists.
 - **Veiling glare vs out-of-field stray are different magnitudes.** For this
-  scene 3 % veiling glare is a ~4 % SNR nick, but 2.5 W/m² of out-of-field
+  scene 3 % veiling glare is a ~5 % SNR nick, but 2.5 W/m² of out-of-field
   stray costs a full NIIRS level. The design driver is the absolute stray,
   not the VGI.
 - **Contrast SNR degrades through noise, not signal.** A uniform pedestal

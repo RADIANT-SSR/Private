@@ -2,29 +2,26 @@
 
 ## Gap 1: IPC kernel applied at PSF sample spacing instead of pixel pitch
 **Severity**: Medium
-**Status**: OPEN (partially fixed — IPC is wired in but kernel sampling is incorrect)
-**Description**: RADIANT now wires IPC into the signal chain: `DetectorStage` generates
+**Status**: CLOSED (kernel sampling corrected; native convolution now matches the analytic form)
+**Description**: RADIANT wires IPC into the signal chain: `DetectorStage` generates
 the 3x3 IPC kernel and `PerformanceStage` convolves it with the EffectivePSF via
-`with_kernel()`. However, the 3x3 IPC kernel is defined on the **pixel grid** (one
-sample per pixel), while the EffectivePSF is on a **finer sub-pixel grid** (many samples
-per pixel). The `with_kernel()` method pads the 3x3 kernel into the PSF grid and
-convolves at the PSF sample spacing, making the IPC effect orders of magnitude smaller
-than it should be.
+`with_kernel()`. An earlier build convolved the pixel-grid kernel at the *PSF* sample
+spacing rather than at pixel pitch, making the IPC effect orders of magnitude smaller
+than it should be (at alpha = 5%: analytic 0.2025 vs native 0.2514 on that build's
+0.2532 baseline).
 
-Evidence: At IPC alpha = 5%, the analytic MTF_IPC at Nyquist should be 0.80 (= 1 - 4*0.05),
-reducing system MTF from 0.2532 to ~0.2025. But the native convolution produces 0.2514
-(less than 1% reduction). The MTF product path correctly computes `mtf_ipc_x = 0.80` via
-the analytic formula, causing the dual-path consistency check to fail at alpha > 2.5%.
+Evidence of closure: at the current baseline system MTF of 0.2668, the native
+convolution tracks `MTF_system_no_IPC * (1 - 4*alpha)` to within rounding across the
+full 0–5% sweep — Δ = 0.0000 at alpha = 0%, 0.0002 at 2%, and a worst case of 0.0005 at
+alpha = 5% (native 0.2139 vs analytic 0.2134). The dual-path consistency check no longer
+fails at high alpha.
 
-**Fix**: The IPC kernel must be upsampled to the PSF sample grid before convolution.
-Each pixel-width step in the IPC kernel maps to `pixel_pitch / sample_spacing` samples
-in the PSF. Alternatively, apply IPC as a pixel-domain operation after resampling the
-PSF to pixel pitch, then resample back.
+**Cross-check retained**: `MTF_system_with_IPC = MTF_system_no_IPC * (1 - 4*alpha)` at
+Nyquist is exact for the nearest-neighbor 4-connected kernel and remains a useful hand
+validation. The script now quotes RADIANT's native values for the requirements analysis
+and reports the analytic form alongside them as a cross-check.
 
-**Workaround**: Multiply RADIANT's baseline system MTF by the analytic IPC MTF formula:
-`MTF_system_with_IPC = MTF_system_no_IPC * (1 - 4*alpha)` at Nyquist. This is exact
-for the nearest-neighbor 4-connected kernel. The script uses this approach for the
-requirements analysis.
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage 2026-07-22 for the walkthrough; this file was not refreshed in that pass). The values corrected here are pre-2026-07-22 kernel-sampling residue, not movement from any in-window Results-affecting landing.*
 
 ## Gap 2: SNR = 0 at orbital altitude (FIXED)
 **Severity**: High (was blocking)

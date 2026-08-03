@@ -5,7 +5,7 @@ Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R). Registry mirror:
 
 ## Summary
 System: 30 cm f/4 MWIR (3.5–5.0 µm), 18 µm HgCdTe at 77 K, 293 K optics, 8 km airborne, exo atmosphere; GSD = 0.12 m, Q = 0.944.
-All six hand-verifiable noise terms now PASS at **0.00%**: the refreshed hand model integrates photons spectrally and includes the Kirchhoff reflected-solar term (ρ = 1 − ε under the space sub-case's TOA solar illumination), matching RADIANT's signal to < 0.01% (1,640,137 vs 1,640,136 e⁻). background_shot = 0 on both sides (extended regime skips the scene-background photon stream by design, matrix Decision #13). Total RSS: 1280.83 vs 1280.83 e⁻ RMS. SNR 1280.52 vs 1280.52 (0.00%). NEDT 20.76 (RADIANT) vs 23.92 mK (exact hand) — 13.2%, root-caused and filed as **registry Gap 43**.
+All six hand-verifiable noise terms now PASS at **0.00%**: the refreshed hand model integrates photons spectrally and includes the Kirchhoff reflected-solar term (ρ = 1 − ε under the space sub-case's TOA solar illumination), matching RADIANT's signal to < 0.01% (1,640,135 vs 1,640,136 e⁻). background_shot = 0 on both sides (extended regime skips the scene-background photon stream by design, matrix Decision #13). Total RSS: 1280.83 vs 1280.83 e⁻ RMS. SNR 1280.52 vs 1280.52 (0.00%). NEDT 21.79 (RADIANT) vs 23.92 mK (exact hand) — 8.91%, root-caused and filed as **registry Gap 43**.
 Parameters entered RADIANT in vendor units via `Sensor.set(..., unit=)` (Gap 6), cross-checked against script conversions to 1e-12.
 
 ## Gap Closure Status
@@ -18,9 +18,16 @@ Parameters entered RADIANT in vendor units via `Sensor.set(..., unit=)` (Gap 6),
 | 4 | dS/dT (responsivity derivative) not exposed | Low | Open | NEDT verification must rebuild dL/dT via finite-difference Planck integration; only end-to-end NEDT is cross-checkable, not RADIANT's internal spectral derivative. Same as scenario 7.1 Gap 4 |
 | 5 | MTF budget only reachable via stage_outputs | Low | Open | Script reaches into `result.stage_outputs["performance"]["mtf_budget"]` and reconstructs x/y pairs by string-parsing `*_x`/`*_y` key suffixes; no first-class per-axis budget accessor |
 | 6 | Spreadsheet parameters with no config pass-through | Low | Open | "Number of optical elements" (informational only in scalar mode), "Number of TDI stages" (`readout.n_tdi` exists in the schema but the script never passes it; value = 1 so benign), "Look angle" (0° nadir; not wired into the config). All are read and printed but silently ignored — a non-default spreadsheet value would not change the result |
-| 7 | NEDT stage uses the single-λ Planck-factor approximation | Medium | Open — **registry Gap 43** (filed this refresh) | `nedt.compute_nedt_from_snr` reads 13.2% low here (20.76 vs 23.92 mK exact): its SNR includes the temperature-independent reflected-solar signal, inflating apparent thermal sensitivity. Exact path `nedt.compute_nedt` exists but unwired |
+| 7 | NEDT stage uses the single-λ Planck-factor approximation | Medium | Open — **registry Gap 43** (filed this refresh) | `nedt.compute_nedt_from_snr` reads 8.91% low here (21.79 vs 23.92 mK exact): its SNR includes the temperature-independent reflected-solar signal, inflating apparent thermal sensitivity. Exact path `nedt.compute_nedt` exists but unwired |
 | — | Unit-aware input (registry Gap 6) | Medium | **CLOSED** (exercised this refresh) | `Sensor.set(value, unit="cm"/"%"/"ms"/"km")`; Step 3a cross-check vs script conversions matches to 1e-12 |
-| — | NEDT / NIIRS / GSD / Strehl / Q / MTF-budget metric exposure | Medium | **CLOSED** | All exposed: `result.metrics["nedt_K"]` = 20.76 mK, `["niirs"]` = 11.10, `["gsd_geometric_mean_m"]` = 0.12 m, `["strehl"]` = 1.0, `["q_center"]` = 0.9444; `mtf_budget.per_term_at_nyquist` with 8 terms |
+| — | NEDT / NIIRS / GSD / Strehl / Q / MTF-budget metric exposure | Medium | **CLOSED** | All exposed: `result.metrics["nedt_K"]` = 21.79 mK, `["niirs"]` = 11.12, `["gsd_geometric_mean_m"]` = 0.12 m, `["strehl"]` = 1.0, `["q_center"]` = 0.9444; `mtf_budget.per_term_at_nyquist` with 8 terms |
+
+*Figures refreshed 2026-08-02 from the unmodified runner. The NEDT and
+NIIRS values above (20.76 mK / 13.2% / 11.10) were stale against this
+scenario's **own** walkthrough, which the 2026-07-22 CU-176 refresh
+updated without touching this file — the movement predates the doc window
+and is not attributable to any recent Results-affecting landing. The only
+in-window change to this vacuum-path scenario is EE (1×1), via CU-188.*
 
 ## Non-Gap Observations
 

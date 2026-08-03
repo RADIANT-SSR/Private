@@ -2,9 +2,13 @@
 
 ## Summary
 MWIR sensor at 500 km LEO, 7.5 m GSD.
-Baseline (visibility = 23 km, PWV = 1.4 cm): NIIRS = 4.29, SNR = 369.6, τ_band = 0.524.
-All 8 named weather conditions meet NIIRS ≥ 4.0. Weather-induced NIIRS variation = 0.17.
+Baseline (visibility = 23 km, PWV = 1.4 cm): NIIRS = 4.56, SNR = 554.8, τ_band = 0.5517.
+All 8 named weather conditions meet NIIRS ≥ 4.0. Weather-induced NIIRS variation = 0.02.
 None reach the NIIRS ≥ 5.0 goal — GSD, not weather, is the binding constraint.
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22). Dominant mover: CU-224 — down-looking `(1−τ)·B` path emission
+raises MWIR signal ~60 % and SNR ~27 %; CU-267 accounts for the ≤ 0.8 % τ shift.*
 
 ## Gap Closure Status
 
@@ -26,10 +30,12 @@ None reach the NIIRS ≥ 5.0 goal — GSD, not weather, is the binding constrain
 ### Observation
 Noise budget at baseline:
 ```
-signal_shot:      497.6 e⁻ RMS (55.2%)
-background_shot:  448.0 e⁻ RMS (44.7%)
-nearfield_shot:     0.0 e⁻ RMS (0.0%)  ← should be ~200–300 e⁻
+signal_shot:      555.2 e⁻ RMS (99.9%)
+read_noise:        18.0 e⁻ RMS ( 0.1%)
+nearfield_shot:     0.0 e⁻ RMS ( 0.0%)  ← should be ~200–300 e⁻
 ```
+(The separate `background_shot` term shown in earlier vintages of this file no
+longer exists — the extended MWIR scene is one radiance field, ADR-0002 #13.)
 
 ### Root Cause
 Scalar transmission mode lumps all optics into a single τ and applies Kirchhoff for a **refractive** element (ε = 1 − T − R = 0). Mirrors have ε = 1 − R and should contribute self-emission at 293 K in the 3.5–5.0 µm band.
@@ -45,8 +51,8 @@ Scalar transmission mode lumps all optics into a single τ and applies Kirchhoff
 ## Non-Gap Observations
 
 - MWIR robustness to weather is real physics — Angstrom exponent α ≈ 1.3 makes aerosol extinction ~13× weaker in MWIR than visible.
-- NIIRS ≥ 5.0 unachievable at 7.5 m GSD regardless of weather. Reaching it requires GSD ≤ ~2.5 m — a larger telescope (f ~ 3.6 m vs current 1.2 m).
-- Photon-noise-limited budget (signal + background = 99.9%) correctly identified.
+- NIIRS ≥ 5.0 unachievable at 7.5 m GSD regardless of weather. Reaching it requires GSD ≤ ~5.5 m — a longer telescope (f ~ 1.6 m vs current 1.2 m). (Earlier vintages of this line quoted ~2.5 m / f ~3.6 m; that did not follow from the GIQE-5 GSD term, and CU-224's higher SNR relaxes it further.)
+- Photon-noise-limited budget (`signal_shot` alone = 99.9%) correctly identified.
 - Weather effect on NIIRS enters entirely through SNR term (GIQE coefficient 1.559) — GSD and RER are fixed by geometry/optics.
 
 ---

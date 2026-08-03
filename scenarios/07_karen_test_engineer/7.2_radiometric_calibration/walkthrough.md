@@ -86,9 +86,18 @@ fraction of a small signal.
 
 ### Responsivity
 
-dDN/dT rises from 33 DN/K (280 K) to 122 DN/K (360 K) — the Planck
+dDN/dT rises from 42.47 DN/K (280 K) to 198.15 DN/K (360 K) — the Planck
 derivative steepens with temperature. Radiance responsivity (slope of DN
 vs band radiance): **1,059 DN/(W/m²/sr)** predicted.
+
+*Responsivity figures refreshed 2026-08-02 from the unmodified runner
+(previous vintage 2026-07-12); the predicted-DN table above was already
+current and did not move. No Results-affecting landing accounts for the
+change — this is an exo/vacuum bench scene, which every in-window landing's
+scope statement excludes (CU-224 leaves exo/vacuum exactly unchanged; CU-267
+and CU-253 are `simple`-atmosphere only). The stale pair were local Planck
+derivatives; the runner reports the secant dDN/dT across the 20 K set-point
+spacing, consistent with the DN table it sits under.*
 
 ### Linearity
 

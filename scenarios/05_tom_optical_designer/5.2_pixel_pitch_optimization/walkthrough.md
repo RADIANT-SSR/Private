@@ -69,15 +69,23 @@ Results:
 
 | Pitch [µm] | Q    | SNR    | MTF@Nyq | EE 1×1 | NIIRS | NEDT [mK] | Signal [e⁻] |
 |-------------|------|--------|---------|--------|-------|-----------|-------------|
-| 8           | 2.12 | 199.8  | 0.000   | 0.164  | 4.3   | 149.4     | 40,000      |
-| 12          | 1.42 | 346.2  | 0.115   | 0.309  | 4.5   | 86.2      | 120,000     |
-| 15          | 1.13 | 499.7  | 0.203   | 0.389  | 4.7   | 59.7      | 250,000     |
-| 18          | 0.94 | 706.9  | 0.267   | 0.483  | 4.8   | 42.2      | 500,000     |
-| 24          | 0.71 | 950.7  | 0.355   | 0.565  | 4.7   | 31.4      | 904,280     |
-| 30          | 0.57 | 1171.2 | 0.409   | 0.623  | 4.6   | 25.5      | 1,372,568   |
+| 8           | 2.12 | 199.8  | 0.000   | 0.146  | 4.3   | 149.7     | 40,000      |
+| 12          | 1.42 | 346.2  | 0.115   | 0.269  | 4.5   | 86.4      | 120,000     |
+| 15          | 1.13 | 499.7  | 0.203   | 0.350  | 4.7   | 59.9      | 250,000     |
+| 18          | 0.94 | 706.9  | 0.267   | 0.414  | 4.8   | 42.3      | 500,000     |
+| 24          | 0.71 | 1095.2 | 0.355   | 0.510  | 4.8   | 27.3      | 1,200,000   |
+| 30          | 0.57 | 1358.8 | 0.409   | 0.572  | 4.7   | 22.0      | 1,846,988   |
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22). Dominant movers: CU-224 — down-looking path radiance now carries
+`(1−τ)·B(λ,T_eff)`, which raised this MWIR scene's collected signal enough that
+the 24 µm pixel now clips at its 1,200,000 e⁻ well (SNR 950.7 → 1095.2) and the
+30 µm signal rose 1,372,568 → 1,846,988 e⁻ (+34.5 %); and CU-188 —
+cell-area-overlap EE_box, which lowered EE 1×1 at every pitch by ~11–13 %.
+MTF@Nyquist and the 8–18 µm SNRs (all well-clipped) are unchanged.*
 
 The trends are clear:
-- **Signal scales roughly as p²** — the 30 µm pixel collects ~34× more photons than the 8 µm pixel (whose well saturates and clips at 40,000 e⁻, so the ratio understates the raw p²·QE collection). This is the dominant driver of SNR.
+- **Signal scales roughly as p²** — the 30 µm pixel collects ~46× more photons than the 8 µm pixel (whose well saturates and clips at 40,000 e⁻, so the ratio understates the raw p²·QE collection). This is the dominant driver of SNR.
 - **SNR increases with pitch** — larger pixels win on sensitivity.
 - **MTF at Nyquist decreases with smaller pitch** — counterintuitively, the 8 µm pixel has MTF = 0 at Nyquist. This is because at Q = 2.12, the Nyquist frequency (62.5 cy/mm) is well beyond the optical cutoff, so there is no modulation at that frequency. The MTF is zero because the optics can't produce contrast at such a high spatial frequency.
 - **EE 1×1 decreases with smaller pitch** — the Airy disk spreads across many pixels at small pitch, so each pixel captures less of the total PSF energy.
@@ -87,29 +95,28 @@ The trends are clear:
 | Pitch | GSD < 10 m | MTF ≥ 0.10 | EE ≥ 0.30 | SNR ≥ 100 | Verdict |
 |-------|------------|------------|-----------|-----------|---------|
 | 8 µm  | PASS       | FAIL       | FAIL      | PASS      | FAIL (MTF, EE) |
-| 12 µm | PASS       | PASS       | PASS      | PASS      | **ALL PASS** |
+| 12 µm | PASS       | PASS       | FAIL      | PASS      | FAIL (EE) |
 | 15 µm | PASS       | PASS       | PASS      | PASS      | **ALL PASS** |
 | 18 µm | PASS       | PASS       | PASS      | PASS      | **ALL PASS** |
 | 24 µm | FAIL       | PASS       | PASS      | PASS      | FAIL (GSD) |
 | 30 µm | FAIL       | PASS       | PASS      | PASS      | FAIL (GSD) |
 
-Three candidates pass: 12, 15, and 18 µm. The 8 µm pixel fails on three metrics — it's too small for this f/4 system. The 24 and 30 µm pixels exceed the GSD requirement.
+Two candidates pass: 15 and 18 µm. The 8 µm pixel fails on two spatial metrics — it's too small for this f/4 system. The 12 µm pixel is the marginal case: its EE 1×1 of 0.269 sits just under the 0.30 floor, so it now fails where it previously passed (the cell-area-overlap EE_box of CU-188 lowered every EE 1×1 by ~11–13 %, and 12 µm had only ~3 % of margin). The 24 and 30 µm pixels exceed the GSD requirement.
 
 ### Step 5: Optimal Selection
 
-Among the three compliant candidates, a simple figure of merit (SNR / GSD — higher is better, favoring both high sensitivity and fine resolution) selects **18 µm** as the optimal pixel pitch:
+Among the two compliant candidates, a simple figure of merit (SNR / GSD — higher is better, favoring both high sensitivity and fine resolution) selects **18 µm** as the optimal pixel pitch:
 
 | Pitch [µm] | Q    | GSD [m] | SNR   | NIIRS | NEDT [mK] | FoM (SNR/GSD) |
 |-------------|------|---------|-------|-------|-----------|----------------|
-| 12          | 1.42 | 5.0     | 346.2 | 4.5   | 86.2      | 69.2           |
-| 15          | 1.13 | 6.2     | 499.7 | 4.7   | 59.7      | 80.6           |
-| 18          | 0.94 | 7.5     | 706.9 | 4.8   | 42.2      | **94.3**       |
+| 15          | 1.13 | 6.2     | 499.7 | 4.7   | 59.9      | 80.0           |
+| 18          | 0.94 | 7.5     | 706.9 | 4.8   | 42.3      | **94.3**       |
 
 The 18 µm pixel has Q = 0.94 — slightly undersampled but with excellent SNR margin (707 vs. 100 requirement) and GSD margin (7.5 m vs. 10 m limit). It's the classic engineering trade-off: slightly sacrificing sampling adequacy for a large gain in sensitivity.
 
 ## Key Takeaways
 
-1. **Q = 0.94 (18 µm) is the sweet spot for this f/4 MWIR system.** Slightly undersampled, but the SNR gain from larger pixels far outweighs the modest aliasing risk. The MTF at Nyquist (0.267) and EE 1×1 (0.483) are both well above requirements.
+1. **Q = 0.94 (18 µm) is the sweet spot for this f/4 MWIR system.** Slightly undersampled, but the SNR gain from larger pixels far outweighs the modest aliasing risk. The MTF at Nyquist (0.267) and EE 1×1 (0.414) are both well above requirements.
 
 2. **Oversampling is expensive in SNR.** The 8 µm pixel (Q = 2.12) is severely oversampled — it has 3.3 m GSD but can barely meet the SNR requirement. Signal scales as p², so halving the pixel pitch quarters the signal. Going from 18 to 8 µm reduces signal by 5×.
 

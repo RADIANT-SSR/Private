@@ -131,8 +131,26 @@ by running the script.)
 
 SNR falls 9.9× over a 4× range increase — steeper than inverse-square because
 the band transmittance falls from 0.634 to 0.162 over the same span. No pixel
-saturates anywhere in the sweep (well margin 5.5 dB at the near end), and no
-warning other than the horizon guard is raised at any point.
+saturates anywhere in the sweep (well margin 5.5 dB at the near end).
+
+**One warning other than the horizon guard is raised, at every sweep point.**
+The runner classifies it as UNEXPECTED and prints it in full:
+
+> `optics.optics_temperature_K = 250 K is set, but in scalar transmission mode
+> the optics' self-emission is ε·B(λ, T_optics) with ε = optics.scalar_emissivity,
+> which is 0 (the default 'refractive lump' assumption). The temperature
+> therefore contributes nothing: this scene evaluates identically at any optics
+> temperature.`
+
+This is CU-261/265's inert-optics-temperature warning, and it is telling the
+truth about *this* configuration: the vendor table's −23.15 °C optics
+temperature (§2) is carried through the config but is radiometrically inert,
+because the scenario models the refractive head as a scalar transmission lump
+with `scalar_emissivity = 0` rather than as a Kirchhoff-derived element list.
+Every number in this walkthrough is therefore independent of the optics
+temperature. The scenario config is left unmodified rather than silenced — the
+warning is the correct Rule-17 report of an over-specified input, not a defect
+to suppress.
 
 **Non-obvious result — `detection_range_m` is reference-range invariant**
 (197.6 km referenced at 25 km, 198.2 km referenced at 100 km, a factor 1.00).
@@ -182,7 +200,11 @@ The verbatim `UserWarning` on the 100 km arm:
 > 9804.1 m. Computing anyway, but atmospheric refraction is NOT modelled in
 > v1.x and is the dominant geometric error in this band (hard guard at ±0.5° /
 > 2000 m tangent depression; thresholds provisional pending Phase 2 MODTRAN
-> calibration).`
+> calibration). Size of the omission: under the standard k = 1.33
+> effective-radius model this path would bottom out at 146.9 m rather than
+> 195.9 m below its lower endpoint, i.e. the air this path is sampled through
+> sits on average ~32.6 m lower than the true refracted ray's — so the band
+> transmittance is biased slightly low.`
 
 **What it caveats, quantified.** RADIANT models no refraction at all
 (ADR-0011 decision 5). Refraction bends the ray downward, conventionally
@@ -190,7 +212,7 @@ absorbed into an effective Earth radius $kR_E$; with the standard $k = 4/3$ the
 sag becomes $\Delta h/k = 146.9$ m instead of 195.9 m, so the modelled ray
 samples air an average of **32.6 m lower** than the real one (2/3 of the
 difference — the mean of a parabolic sag). With a density scale height of
-6.5 km and a band optical depth of 1.810 on that arm, that altitude error is
+6.5 km and a band optical depth of 1.818 on that arm, that altitude error is
 worth
 
 $$\frac{\delta\tau}{\tau} \approx \tau_{od}\,\frac{\delta z}{H} = \mathbf{0.91\ \%}$$
@@ -251,31 +273,44 @@ ITYPE=1 horizontal decks **L16–L20** (`docs/plans/modtran_run_matrix.csv`),
 H1 = H2 = 10 km, Card-3 RANGE = L, identical profile / aerosol / visibility.
 Both sides are band-mean transmittance (dimensionless).
 
+*Numbers refreshed 2026-08-02 from the unmodified runner with
+`modtran/real_runs/L16–L20` staged (previous vintage 2026-08-01, when the
+model-τ column had gone stale for want of the run set). Dominant mover: CU-267 —
+the gas-region C1 smoothstep blend raises the model's band extinction ≈ 0.7 % in
+both bands. The MODTRAN columns are delivered measurements and do not move.*
+
 **MWIR 3.5–5.0 µm — this sensor's own band:**
 
 | run | range [km] | MODTRAN τ | model τ | ratio | difference [%] | α MODTRAN [1/km] | α model [1/km] |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| L16 | 5 | 0.7621 | 0.9130 | 1.198 | +19.8 | 0.05434 | 0.01820 |
-| L17 | 10 | 0.7230 | 0.8339 | 1.153 | +15.3 | 0.03243 | 0.01816 |
-| L18 | 25 | 0.6535 | 0.6356 | 0.973 | −2.7 | 0.01701 | 0.01813 |
-| L19 | 50 | 0.5810 | 0.4044 | 0.696 | −30.4 | 0.01086 | 0.01811 |
-| L20 | 100 | 0.4894 | 0.1637 | 0.334 | −66.6 | 0.00715 | 0.01810 |
+| L16 | 5 | 0.7621 | 0.9124 | 1.197 | +19.7 | 0.05434 | 0.01833 |
+| L17 | 10 | 0.7230 | 0.8328 | 1.152 | +15.2 | 0.03243 | 0.01830 |
+| L18 | 25 | 0.6535 | 0.6335 | 0.969 | −3.1 | 0.01701 | 0.01826 |
+| L19 | 50 | 0.5810 | 0.4021 | 0.692 | −30.8 | 0.01086 | 0.01822 |
+| L20 | 100 | 0.4894 | 0.1623 | 0.332 | −66.8 | 0.00715 | 0.01818 |
 
 **LWIR 8–12 µm — reference band:**
 
 | run | range [km] | MODTRAN τ | model τ | ratio | difference [%] | α MODTRAN [1/km] | α model [1/km] |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| L16 | 5 | 0.9725 | 0.9686 | 0.996 | −0.4 | 0.00557 | 0.00637 |
-| L17 | 10 | 0.9521 | 0.9409 | 0.988 | −1.2 | 0.00491 | 0.00609 |
-| L18 | 25 | 0.9064 | 0.8648 | 0.954 | −4.6 | 0.00393 | 0.00581 |
-| L19 | 50 | 0.8567 | 0.7579 | 0.885 | −11.5 | 0.00309 | 0.00554 |
-| L20 | 100 | 0.7950 | 0.6006 | 0.756 | −24.4 | 0.00229 | 0.00510 |
+| L16 | 5 | 0.9725 | 0.9684 | 0.996 | −0.4 | 0.00557 | 0.00642 |
+| L17 | 10 | 0.9521 | 0.9405 | 0.988 | −1.2 | 0.00491 | 0.00613 |
+| L18 | 25 | 0.9064 | 0.8639 | 0.953 | −4.7 | 0.00393 | 0.00585 |
+| L19 | 50 | 0.8567 | 0.7565 | 0.883 | −11.7 | 0.00309 | 0.00558 |
+| L20 | 100 | 0.7950 | 0.5987 | 0.753 | −24.7 | 0.00229 | 0.00513 |
 
-The LWIR ratios reproduce, to three figures, the values pinned in
+The MWIR α model column is now the same quantity the sweep table in §4.2 reports
+as `α_eff` (0.01826 km⁻¹ at 25 km, 0.01818 km⁻¹ at 100 km) — the two agree to
+the printed digit, which is the check that §4.5 and §4.2 are evaluating one
+atmosphere and not two.
+
+The LWIR ratios reproduce the values pinned in
 `tests/integration/test_uplooking_horizontal_anchors.py::
 test_level_arm_vs_the_full_horizontal_grid` for the 10 km row
-(0.996 / 0.988 / 0.954 / 0.885 / 0.756) — the scenario and the golden test are
-measuring the same thing on the same runs.
+(0.996 / 0.988 / 0.954 / 0.885 / 0.756) to within 0.003 — exactly for the two
+short arms, and inside that test's ±0.03 band for all five. The scenario and the
+golden test are measuring the same thing on the same runs; the pins are a
+pre-CU-267 vintage and now sit ≈ 0.002 high at the long end.
 
 **Expected residual, and why it is one-sided at long range.** A band-averaged
 transmittance is not multiplicative in path length. Within a band the strong
@@ -318,10 +353,11 @@ long end of the sweep are **pessimistic**. Usable band on this evidence: within
   ground target would have selected `GroundBackground`. This is the
   direction-general behaviour; nothing in the scenario asks for it.
 - **Metric relevance (guardrail G3):** for an **air** target the whole
-  ground-projection family defaults off — `gsd_cross_track_m`,
+  ground-projection family defaults off — eleven metrics: `gsd_cross_track_m`,
   `gsd_along_track_m`, `gsd_geometric_mean_m`, `ground_range_m`,
   `swath_width_m`, `access_rate_m2_s`, `diffraction_limit_ground_m`,
-  `max_integration_time_s`, `niirs`, `niirs_extrapolated` — all verified absent
+  `diffraction_limit_target_plane_m`, `max_integration_time_s`, `niirs`,
+  `niirs_extrapolated` — all verified absent
   from `result.metrics`. In their place
   `target_plane_sample_distance_{x,y,geometric_mean}_m` default **on**, all
   = 2.2222 m at 50 km. There is no ground plane at an airborne target to
@@ -344,7 +380,7 @@ Five, all computed inside the runner so they cannot drift from the results:
 |---|---|---|---|---|
 | 1 | Level-arm θ_o closed form, $\pi/2 + \varphi/2$ with $\varphi = 2\arcsin(d/2r)$ | 1.574714218 rad | 1.574714218 rad | 0.00e+00 |
 | 2 | Tangent depression $L^2/8r$ at 25 / 50 / 100 km | 12.24 / 48.97 / 195.89 m | 12.24 / 48.97 / 195.90 m | ≤ 1.5e−05 |
-| 3 | Point-source signal scaling $S \propto I\tau(R)/R^2$: $S(50)/S(25)$ | 0.159044 | 0.159046 | 1.2e−05 |
+| 3 | Point-source signal scaling $S \propto I\tau(R)/R^2$: $S(50)/S(25)$ | 0.158672 | 0.158558 | 7.2e−04 |
 | 4 | Relative LOS rate $\lvert \mathbf v_{rel}\times\hat u\rvert / R$ | 0.010904566 rad/s | 0.010904566 rad/s | 1.5e−14 |
 | 5 | Target-plane sample distance $p\,d/f$ | 2.222222 m | 2.222222 m | 1.5e−14 |
 | 6 | MODTRAN L16–L20 band-mean τ (§4.5) | see tables | see tables | LWIR ratios match the pinned golden test to 3 figures |
@@ -366,8 +402,15 @@ max |FFT(PSF) - prod(MTF)| x: 0.001041 (dimensionless)
 max |FFT(PSF) - prod(MTF)| y: 0.001025 (dimensionless)
 tolerance:                    0.020000
 consistency WARNING log records emitted: 0
-non-horizon Python warnings at the nominal point: 0
+non-horizon Python warnings at the nominal point: 1
+  - optics.optics_temperature_K = 250 K is set, but in scalar transmission
+    mode the optics' self-emission is ε·B(λ, T_optics) with
+    ε = optics.scalar_emissivity, which is 0 …
 ```
+
+The single non-horizon warning is the inert-optics-temperature report discussed
+in §4.2; it is a configuration caveat, not a consistency failure, and no
+`consistency_check` log record was emitted.
 
 **Verdict: SILENT for the `air_to_air` level arm.** The residual (1.0e−03) is
 20× inside the 2e−02 tolerance and is the ordinary discretisation floor. Both

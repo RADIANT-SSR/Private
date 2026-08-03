@@ -58,13 +58,22 @@ the run script as constants so the run is self-contained and reproducible.
 
 | Off-nadir | GSD | NIIRS | SNR | Ground range | Swath |
 |-----------|-----|-------|-----|--------------|-------|
-| 0° | 0.65 m | 6.77 | 83.8 | 0 km | 5.2 km |
-| 15° | 0.68 m | 6.73 | 87.5 | 146 km | 5.4 km |
-| 30° | 0.80 m | 6.53 | 90.0 | 312 km | 5.9 km |
-| 45° | 1.05 m | 6.13 | 90.8 | 527 km | 7.1 km |
+| 0° | 0.65 m | 6.76 | 83.2 | 0 km | 5.2 km |
+| 15° | 0.68 m | 6.71 | 84.8 | 146 km | 5.4 km |
+| 30° | 0.80 m | 6.50 | 86.0 | 312 km | 5.9 km |
+| 45° | 1.05 m | 6.10 | 86.6 | 527 km | 7.1 km |
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22). Dominant mover: CU-253 — the 8×-too-large Rayleigh optical depth
+was corrected, raising τ and halving `E_sky_scattered` in this 0.45–0.70 µm
+reflective band, which trims SNR by 0.7 % at nadir and 4.6 % at 45° (the
+scattered-sky term contributed more at longer slant paths, so its removal
+flattens the off-nadir SNR rise); CU-267's gas-region blend contributes a
+further ≤ 0.2 % τ reduction in this band. CU-224 is not a factor — Planck
+emission is negligible at 0.45–0.70 µm.*
 
 - **GSD grows with off-nadir angle** (roughly ∝ 1/cos² through the slant-
-  range and projection stretch), dragging NIIRS from 6.77 at nadir to 6.13
+  range and projection stretch), dragging NIIRS from 6.76 at nadir to 6.10
   at 45°. The **NIIRS floor of 6.0 is met across the entire 0–45° slew
   range** — the quality limit no longer binds inside the agility envelope.
 - **SNR rises slightly** off-nadir — the ground footprint per pixel grows
@@ -75,7 +84,7 @@ the run script as constants so the run is self-contained and reproducible.
   ≈104,000 km² per daylight pass.
 - **Key planning insight:** at this configuration the spacecraft can *slew*
   to 45° (527 km cross-track reach) and still *image at spec* over that
-  whole range — NIIRS = 6.13 at the 45° agility limit, just above the 6.0
+  whole range — NIIRS = 6.10 at the 45° agility limit, just above the 6.0
   floor. Agility, not image quality, sets the usable access corridor here;
   a tighter NIIRS floor (or a longer slant path) would reintroduce a
   quality-limited corridor narrower than the slew envelope.

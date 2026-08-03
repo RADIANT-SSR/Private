@@ -29,11 +29,20 @@ the workbook, which is the RADIANT-facing input.
 
 | Metric | Vendor A | Vendor B | Vendor C |
 |--------|----------|----------|----------|
-| SNR | 1035 | **2447** | 438 |
-| NIIRS | 4.75 | 4.54 | **4.81** |
-| NEDT [mK] | 26.5 | **11.4** | 62.7 |
+| SNR | 1272 | **2449** | 538 |
+| NIIRS | 4.89 | 4.54 | **4.95** |
+| NEDT [mK] | 21.6 | **11.4** | 51.1 |
 | GSD [m] | 9.0 | 19.2 | **3.4** |
 | MTF@Nyquist | 0.27 | **0.43** | 0.00 |
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22). Dominant mover: CU-224 — down-looking `(1−τ)·B` path emission on
+this `simple`-atmosphere MWIR scene. It lifts Vendors A and C (both 3.7–4.8 µm)
+by ~23 % in SNR and cuts their NEDT ~18 %, but moves Vendor B (3.0–5.0 µm) by
+only +0.08 % — the very bottom of CU-224's own stated +0.08 … +59.2 % range.
+Vendor B is also the only band CU-267's gas-region blend touches (−0.71 % τ on
+3.0–5.0 µm; exactly zero on 3.7–4.8 µm). GSD and MTF@Nyquist are geometric and
+did not move.*
 
 **Compliance matrix (vs requirements):**
 
@@ -58,6 +67,11 @@ the workbook, which is the RADIANT-facing input.
   (small 10 µm pixel) but its pixel so oversamples the f/5 optics that
   MTF@Nyquist collapses to 0 (Q ≫ 2) and its warmer/lower-QE detector
   fails NEDT. **Vendor A** is the balanced middle — 4/5 compliant.
+- **Vendor C's NEDT failure is now marginal, not comfortable.** At 51.1 mK
+  it misses the ≤ 50 mK requirement by 2 %, where the pre-refresh figure of
+  62.7 mK missed it by 25 %. The verdict is unchanged (still FAIL, still
+  2/5), but a modest integration-time or QE improvement would now close it —
+  a different procurement conversation than before.
 - **Highest-leverage +10 % improvement (all vendors): GSD or RER**, each
   ≈ +0.14 NIIRS, versus only +0.07 for SNR — because NIIRS is logarithmic
   in SNR (already high) but responds strongly to resolution. Spending on

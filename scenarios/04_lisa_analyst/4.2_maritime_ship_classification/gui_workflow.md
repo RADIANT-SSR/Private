@@ -38,7 +38,7 @@ Lisa's core ask is an interactive command window (per the GUI vision memo):
 276.0
 >>> from radiant.core.constants import R_EARTH_M
 >>> sqrt(2 * R_EARTH_M * 5000) / 1e3         # horizon at 5 km
-252.9
+252.4
 ```
 
 Requirements this implies:

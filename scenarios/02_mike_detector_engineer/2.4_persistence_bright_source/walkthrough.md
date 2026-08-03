@@ -42,8 +42,10 @@ below one LSB (`gain_e_per_dn` = 100 e⁻).
 | 1 | 2250 | 22.5 | 47.4 | 58.4 |
 | 4 | 828 | 8.3 | 28.8 | 58.8 |
 | 8 | 218 | 2.2 | 14.8 | 58.9 |
-| 11 | ~95 | ~0.9 | ~9.7 | 59.0 |
+| 11 | ~80 | ~0.8 | ~9.0 | 59.0 |
 | 17 | 11 | 0.1 | 3.3 | 59.0 |
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage 2026-07-08). Only the frame-11 row moved: it is interpolated by hand (the runner prints frames 1–9, 13 and 17), and its previous values were an arithmetic slip, not physics movement — no in-window Results-affecting landing touches this scenario, which is a closed-form `radiant.detector.persistence_sequence` calculation with no atmosphere, optics, or chain radiometry in the loop. Frames-to-clear is unchanged at 11, since residual(10) = 112.0 e⁻ > 1 LSB > residual(11) = 80.3 e⁻.*
 
 - **Frames to clear below 1 LSB: 11** (~183 ms of dead time after a bright
   hit before the ghost is sub-LSB).

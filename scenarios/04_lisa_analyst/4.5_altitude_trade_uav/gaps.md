@@ -22,11 +22,14 @@ scenario is its second consumer (6.1 the first).
 ## Friction / lessons
 
 - **The UAV IR altitude ceiling is resolution-limited, not
-  atmosphere-limited.** Over 1–11 km the atmospheric transmission only
-  drops 0.94 → 0.87, while the sub-pixel fill fraction collapses ∝1/alt².
-  The apparent-contrast trade must model the fill-fraction dilution;
-  attributing lost detection to "atmosphere" would mis-diagnose the fix
-  (longer focal length, not a clearer sky).
+  atmosphere-limited.** Over 1–11 km the atmospheric transmission drops
+  0.92 → 0.69 (×1.34), while the sub-pixel fill fraction collapses ∝1/alt²
+  (×28.6) — dilution outweighs attenuation ~21:1. The apparent-contrast trade
+  must model the fill-fraction dilution; attributing lost detection to
+  "atmosphere" would mis-diagnose the fix (longer focal length, not a clearer
+  sky). *τ figures refreshed 2026-08-02 from the unmodified runner (previous
+  vintage 2026-07-08, 0.94 → 0.87); mover CU-161 (`0aebdda`). The conclusion
+  holds but the margin is narrower, and the detection ceiling moved 8.5 → 7.5 km.*
 - **NETD → NEP needs a dP/dT.** The optical-power temperature derivative
   comes from the chain's exact `dS/dT` (Gap 43) via
   `dP/dT = dS/dT · hc/(QE·λ·t_int)`. Reusing the Gap 43 output kept the

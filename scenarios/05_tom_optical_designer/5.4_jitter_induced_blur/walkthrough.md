@@ -42,19 +42,26 @@ This is more accurate than the analytic erfinv/erf approach used in the first ve
 ## Baseline Results (Zero Jitter)
 | Parameter | Value | Unit |
 |---|---|---|
-| Signal | 8,672 | e- (8.7% well) |
-| Total noise | 93.3 | e- RMS |
-| SNR | 93.0 | -- |
+| Signal | 3,804 | e- (3.8% well) |
+| Total noise | 61.9 | e- RMS |
+| SNR | 61.4 | -- |
 | MTF@Nyquist | 0.2330 | -- |
 | RER | 0.5483 | -- |
-| NIIRS | 6.45 | -- |
+| NIIRS | 6.17 | -- |
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22). Dominant mover: CU-253 — the Rayleigh optical depth was 8× too
+large, halving `E_sky_scattered` and taking this VNIR scene's SNR 93.0 → 61.4
+(−34 %), exactly the figure the CU-253 CHANGELOG entry names for 5.4. NIIRS
+follows through the GIQE-5 SNR term. Every spatial metric (MTF@Nyquist, RER,
+jitter MTF, σ_fp) is unchanged — jitter physics did not move.*
 
 ### Noise Budget
 | Noise Term | sigma [e- RMS] | Fraction [%] |
 |---|---|---|
-| signal_shot | 93.1 | 99.7 |
-| read_noise | 5.0 | 0.3 |
-| quantization | 1.9 | 0.0 |
+| signal_shot | 61.7 | 99.3 |
+| read_noise | 5.0 | 0.7 |
+| quantization | 1.9 | 0.1 |
 | dark_shot | 0.1 | 0.0 |
 
 Signal shot noise dominates almost entirely. There is **no separate background_shot term** — the extended scene is one radiance field, so its shot noise is `signal_shot` alone (ADR-0002 Decision #13). This is a photon-noise-limited system where read noise is negligible.
@@ -62,20 +69,20 @@ Signal shot noise dominates almost entirely. There is **no separate background_s
 ## Key Results
 
 ### SNR Invariance
-SNR is exactly 93.0 [--] at every sweep point (spread = 0.0000). This confirms the fundamental physics: jitter blurs the image but doesn't affect photon counts or noise. NIIRS degrades entirely through the RER term.
+SNR is exactly 61.4 [--] at every sweep point (spread = 0.0000). This confirms the fundamental physics: jitter blurs the image but doesn't affect photon counts or noise. NIIRS degrades entirely through the RER term.
 
 ### Jitter Sweep
 | Jitter [urad] | sigma_fp [pixels] | MTF_jitter@Nyq [--] | MTF_sys@Nyq [--] | RER [--] | NIIRS [--] | delta_NIIRS [--] |
 |---|---|---|---|---|---|---|
-| 0.0 | 0.000 | 1.0000 | 0.2330 | 0.5483 | 6.45 | +0.00 |
-| 0.2 | 0.125 | 0.9258 | 0.2157 | 0.5359 | 6.42 | -0.03 |
-| 0.6 | 0.375 | 0.4996 | 0.1164 | 0.4614 | 6.21 | -0.25 |
-| 0.8 | 0.500 | 0.2912 | 0.0679 | 0.4178 | 6.06 | -0.39 |
-| 1.0 | 0.625 | 0.1455 | 0.0339 | 0.3773 | 5.91 | -0.54 |
-| 1.6 | 1.000 | 0.0072 | 0.0017 | 0.2837 | 5.50 | -0.95 |
-| 2.0 | 1.250 | 0.0004 | 0.0001 | 0.2409 | 5.27 | -1.19 |
-| 3.0 | 1.875 | 0.0000 | 0.0000 | 0.1730 | 4.79 | -1.66 |
-| 5.0 | 3.125 | 0.0000 | 0.0000 | 0.1097 | 4.13 | -2.32 |
+| 0.0 | 0.000 | 1.0000 | 0.2330 | 0.5483 | 6.17 | +0.00 |
+| 0.2 | 0.125 | 0.9258 | 0.2157 | 0.5359 | 6.14 | -0.03 |
+| 0.6 | 0.375 | 0.4996 | 0.1164 | 0.4614 | 5.92 | -0.25 |
+| 0.8 | 0.500 | 0.2912 | 0.0679 | 0.4178 | 5.78 | -0.39 |
+| 1.0 | 0.625 | 0.1455 | 0.0339 | 0.3773 | 5.63 | -0.54 |
+| 1.6 | 1.000 | 0.0072 | 0.0017 | 0.2838 | 5.22 | -0.95 |
+| 2.0 | 1.250 | 0.0004 | 0.0001 | 0.2409 | 4.99 | -1.19 |
+| 3.0 | 1.875 | 0.0000 | 0.0000 | 0.1730 | 4.51 | -1.66 |
+| 5.0 | 3.125 | 0.0000 | 0.0000 | 0.1097 | 3.85 | -2.32 |
 
 At jitter ≥ ~2.6 µrad the RER falls below 0.20 — outside the GIQE-5 calibration
 envelope — so the NIIRS values in the tail are the **extrapolated** GIQE-5-form
@@ -87,7 +94,12 @@ relative degradation trend, not a calibrated rating.
 |---|---|---|---|
 | delta_NIIRS = -0.5 | 0.9 | 4.7 | 0.59 |
 | delta_NIIRS = -1.0 | 1.7 | 8.4 | 1.05 |
-| NIIRS = 6.0 floor | 0.9 | 4.4 | 0.55 |
+| NIIRS = 6.0 floor | 0.5 | 2.4 | 0.30 |
+
+The NIIRS = 6.0 floor is now the *binding* constraint, tightening from 0.9 to
+0.5 µrad: CU-253 lowered the zero-jitter NIIRS from 6.45 to 6.17, so the design
+starts only 0.17 grades above the floor instead of 0.45. The two ΔNIIRS
+thresholds are relative and therefore unmoved.
 
 ### Jitter in Context
 | Jitter [urad] | Fraction of IFOV | sigma_fp [pixels] | MTF@Nyq [--] | delta_NIIRS [--] |
@@ -129,7 +141,7 @@ This is a fundamental consequence of long-focal-length design. The same 1 urad j
 ### How Jitter Degrades Image Quality
 1. **Jitter MTF**: MTF_jitter(f) = exp(-2 pi^2 sigma^2 f^2). This is a Gaussian low-pass filter. It kills high spatial frequencies exponentially. By 1 IFOV of jitter (1.6 urad), the jitter MTF at Nyquist is only 0.007 -- essentially zero high-frequency content survives.
 
-2. **System MTF**: The total system MTF is the product of all MTF contributors. The baseline system MTF at Nyquist is 0.241 (from optics + detector + aberrations). At 1 urad jitter, the system MTF drops to 0.035 -- an 85% reduction.
+2. **System MTF**: The total system MTF is the product of all MTF contributors. The baseline system MTF at Nyquist is 0.2330 (from optics + detector + aberrations). At 1 urad jitter, the system MTF drops to 0.0339 -- an 85% reduction.
 
 3. **RER (Relative Edge Response)**: RER measures how sharp edges appear. Baseline RER = 0.548; at 1 urad jitter, RER drops to 0.377 (computed via full ePSF convolution, not the Gaussian approximation).
 
@@ -142,13 +154,13 @@ Jitter is random pointing wander during the integration time. It spreads the ima
 - For extended scenes (which GIQE-5 assumes), the average signal per pixel is unchanged
 - Therefore SNR (for extended-scene NIIRS) is unaffected by jitter
 
-The script explicitly verified this: SNR spread across all 51 sweep points is exactly 0.0000.
+The script explicitly verified this: SNR is 61.45 at every one of the 51 sweep points, spread exactly 0.0000.
 
 **Caveat**: For point-source detection, jitter does reduce per-pixel SNR because it spreads the PSF. This analysis is specific to the GIQE-5/NIIRS regime which assumes extended targets.
 
 ### The Undersampling Challenge
 This system has Q = 0.72 (undersampled). The Airy disk (14 um) is 1.75 pixels across, so the optics deliver more resolution than the detector can capture. This means:
-- The baseline MTF at Nyquist (0.373) is already limited by the pixel aperture
+- The baseline MTF at Nyquist (0.2330) is already limited by the pixel aperture
 - There is aliased energy beyond Nyquist
 - Jitter actually reduces aliasing (by killing high frequencies before they alias), but this doesn't help because the GIQE-5 equation uses the system MTF at Nyquist, not aliased MTF
 
@@ -157,8 +169,8 @@ The total jitter from all sources adds in quadrature (RSS):
 
 sigma_total^2 = sigma_RW^2 + sigma_solar^2 + sigma_cryo^2 + sigma_struct^2 + sigma_ACS^2
 
-For sigma_total <= 0.8 urad (the dNIIRS = -0.5 threshold):
-- If 5 sources contribute equally: each gets sqrt(0.8^2 / 5) = 0.36 urad
+For sigma_total <= 0.9 urad (the dNIIRS = -0.5 threshold):
+- If 5 sources contribute equally: each gets sqrt(0.9^2 / 5) = 0.40 urad
 - Rule of thumb: dominant source gets ~60% of budget, others share the rest
 - Reaction wheel balance (1--5 urad typical) is the biggest risk -- isolators or low-disturbance wheels are essential
 - ACS residual (0.5--5 urad typical) is the second risk -- requires high-bandwidth star tracker + gyro loop

@@ -56,28 +56,35 @@ scenario 6.1's pattern for a self-contained, reproducible run).
 
 ---
 
-## Results (real MODTRAN 6; re-run 2026-07-22, CU-176)
+## Results (real MODTRAN 6; re-run 2026-08-02)
 
 | Profile | τ SimpleAtmosphere [-] | τ MODTRAN 6 [-] | τ residual | SNR Simple [-] | SNR MODTRAN [-] | SNR residual |
 |---------|------------------------|------------------|------------|----------------|------------------|----------------|
-| us_standard | 0.554 | 0.517 | −7.3% | 583.9 | 575.9 | −1.4% |
-| tropical | 0.467 | 0.421 | −10.7% | 537.1 | 582.5 | +7.8% |
-| midlat_summer | 0.501 | 0.458 | −9.4% | 555.6 | 579.5 | +4.1% |
-| midlat_winter | 0.578 | 0.544 | −6.2% | 594.4 | 574.0 | −3.6% |
-| subarctic_summer | 0.529 | 0.492 | −7.5% | 569.9 | 570.7 | +0.1% |
-| subarctic_winter | 0.599 | 0.571 | −4.8% | 604.6 | 582.3 | −3.8% |
+| us_standard | 0.552 | 0.517 | −6.8% | 711.4 | 575.9 | −23.5% |
+| tropical | 0.463 | 0.421 | −9.8% | 770.6 | 582.5 | −32.3% |
+| midlat_summer | 0.498 | 0.458 | −8.7% | 736.0 | 579.5 | −27.0% |
+| midlat_winter | 0.576 | 0.544 | −5.8% | 658.3 | 574.0 | −14.7% |
+| subarctic_summer | 0.526 | 0.492 | −6.9% | 701.7 | 570.7 | −23.0% |
+| subarctic_winter | 0.597 | 0.571 | −4.6% | 634.7 | 582.3 | −9.0% |
 
-**This table is the CU-161 acceptance evidence.** The first real-data
-run of this scenario (2026-07-17) found residuals spanning **−43% to
-+62%** — SimpleAtmosphere over-responding to profile water in both
-directions. The gas-band recalibration that finding triggered (CU-161,
-landed 2026-07-18: curve-of-growth water + well-mixed CO₂/N₂O floor,
-fit to the D-block water ladder) collapses the residuals **6×, to a
-uniform −5%…−11%**, and SNR residuals from −29%…−4% to within ±8%. The small
-remaining τ offset is systematic (simple slightly transparent — largely
-the band-mean comparison convention this script uses) rather than
-profile-dependent: the water physics now scales correctly across
-climates.
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22). The **MODTRAN 6 columns did not move at all** — they are
+measured tape7 data. Every change is on the model side. Dominant mover:
+CU-224 — the `simple` down-looking path now carries `(1−τ)·B(λ,T_eff)`,
+which the MODTRAN arm already had from its measured path radiance; this
+raises SNR Simple by +5.0 % … +43.5 %. CU-267's gas-region C1 blend
+accounts for the small τ Simple decrease (−0.71 % on 3.0–5.0 µm).*
+
+**This table is the CU-161 acceptance evidence for the τ columns.** The
+first real-data run of this scenario (2026-07-17) found τ residuals
+spanning **−43% to +62%** — SimpleAtmosphere over-responding to profile
+water in both directions. The gas-band recalibration that finding
+triggered (CU-161, landed 2026-07-18: curve-of-growth water + well-mixed
+CO₂/N₂O floor, fit to the D-block water ladder) collapses them **6×, to a
+uniform −4.6%…−9.8%**. The small remaining τ offset is systematic (simple
+slightly transparent — largely the band-mean comparison convention this
+script uses) rather than profile-dependent: the water physics now scales
+correctly across climates.
 
 (residual = (MODTRAN − Simple) / MODTRAN, %; τ is the 3.5–5.0 µm
 band-mean total transmittance, dimensionless; SNR is the full-chain
@@ -87,14 +94,23 @@ extended-scene contrast SNR, dimensionless)
   over-responded to profile water in both directions (τ span 0.16–0.81
   vs real 0.42–0.57; +62% tropical, −43% subarctic_winter) because its
   linear-in-w Lorentzian fit attributed the MWIR's saturated CO₂ floor
-  to water. The recalibrated model spans 0.47–0.60 — matching real
+  to water. The recalibrated model spans 0.46–0.60 — matching real
   MODTRAN's narrow climate spread.
-- **SNR residuals (−4% to +8%) are smaller than the worst τ residuals
-  and don't track them** (tropical: worst τ, best SNR). The
-  extended-scene contrast term attenuates target and background by the
-  same τ, cancelling much of the transmittance error in the signal
-  ratio; what survives is mostly the path-radiance and noise-floor
-  difference. Real-MODTRAN SNR is nearly profile-independent (571–582)
+- **SNR residuals (−9.0% to −32.3%) are now larger than the τ residuals,
+  and they DO track them** (tropical is worst on both). This reverses the
+  finding this scenario reported through 2026-07-22, and the reversal is
+  the CU-224 signature: the path-radiance term the `simple` arm gained
+  scales as `(1−τ)`, so the more opaque the profile, the more emission it
+  adds. Ranking the SNR Simple increase by `(1−τ)` is monotonic —
+  subarctic_winter `(1−τ)=0.40` → +5.0%, midlat_winter 0.43 → +10.7%,
+  us_standard 0.45 → +21.8%, subarctic_summer 0.47 → +23.1%,
+  midlat_summer 0.50 → +32.5%, tropical 0.54 → +43.5%.
+- **The residuals are now one-sided.** Simple over-predicts SNR against
+  MODTRAN for every profile, where before the errors straddled zero. The
+  extended-scene contrast cancellation that used to mask the τ error is
+  still present, but it no longer dominates: the added path emission does
+  not cancel between target and background, so it survives into the
+  ratio. Real-MODTRAN SNR remains nearly profile-independent (571–582)
   — consistent with its narrow τ range.
 
 ---
@@ -112,12 +128,16 @@ extended-scene contrast SNR, dimensionless)
   contrast radiance difference, not absolute τ. A sub-pixel or
   point-source regime would weight the atmosphere differently
   (EE_box and absolute signal, not contrast cancellation).
-- **SNR is far less sensitive to atmosphere-model choice than raw
-  transmittance is**, for an extended-scene contrast measurement. A
-  scenario asking "how much does my *transmittance estimate* change"
-  and one asking "how much does my *SNR prediction* change" have
-  different answers — worth remembering when scoping which metric
-  matters for a given decision.
+- **SNR is now *more* sensitive to atmosphere-model choice than raw
+  transmittance is**, for this extended-scene contrast measurement — the
+  opposite of what this scenario concluded before CU-224. A scenario
+  asking "how much does my *transmittance estimate* change" and one
+  asking "how much does my *SNR prediction* change" still have different
+  answers; the lesson survives, but the direction has flipped. The reason
+  is that an atmosphere model contributes two separable things —
+  attenuation (τ, which largely cancels in a contrast ratio) and its own
+  emission (path radiance, which does not). Judging a model by τ alone
+  understates its effect on a thermal SNR prediction.
 - **Full-well saturation silently erased the atmosphere signal on the
   first (synthetic-era) attempt** — see gaps.md's "Friction" section;
   the fix (shorter integration time) is the same lesson scenario 6.1

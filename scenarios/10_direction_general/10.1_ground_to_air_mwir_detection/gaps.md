@@ -60,13 +60,14 @@ a `performance/` + `atmosphere/` task, not a scenario one.
 **Status**: **RESOLVED 2026-07-29** (commit `5c0f3dd`, CU-254). The sky is now one whole-path
 evaluation rooted at the **sensor**, and the `SkyBackground` assembly arm passes it through
 instead of re-propagating it, so the background is a property of the ray as this entry says
-it must be. Re-measured on the shipped config at fixed pointing: 2.214790e5 e⁻ at target
-altitudes of 10, 20, 50 and 99 km — identical to the last digit, against the 1.94207e5 /
-2.14046e5 / 2.21479e5 spread recorded below. Headline metrics moved with it: SNR
-136.424 → 131.465, NEDT 0.648013 → 0.672457 K, i.e. the ≈ 3.5 % optimism this entry
-predicted, removed. The `.gui.expected.json` baseline was regenerated; **the numeric tables
-in `walkthrough.md` are from the pre-fix run and are stale until the scenario is re-run** —
-the `background [e⁻]`, `SNR` and `NEDT` columns of its zenith sweep are the affected ones.
+it must be. Re-measured on the shipped config at vertical pointing (runner §5b, 2026-08-02):
+2.0375e5 e⁻ at target altitudes of 10, 20, 40, 60 and 99 km — identical to the printed
+precision, against the 1.7528e5 / 1.9415e5 / 2.0130e5 spread recorded below, i.e. the
+≈ 3.5 % optimism this entry predicted, removed. Headline metrics at the ζ_low = 30° nominal
+moved with it: sky background 1.942e5 → 2.239e5 e⁻, SNR 136.40 → 130.10, NEDT
+648.1 → 679.0 mK (CU-254 carried most of it; CU-267's MWIR τ reduction added the last
+≈ 1 %). The `.gui.expected.json` baseline was regenerated and `walkthrough.md` was
+refreshed from the unmodified runner on 2026-08-02, so both are current.
 **Where**: `radiant/atmosphere/uplooking_quantities.py::_sky_radiance_at_aperture` (was
 `sky_radiance.py` + `segment_simple.py` composition)
 
@@ -117,7 +118,7 @@ is vertical-only, and an off-vertical query raises `AtmosphereValidationError` n
 **Why it matters.** Every point of this scenario except ζ_low = 0 is off-vertical, so
 the tabulated (MODTRAN-anchored) atmosphere is unusable for the whole sweep and the
 scenario is confined to `atmosphere.model = "simple"` — which is exactly the model whose
-+17 % to +30 % MWIR τ excess §10 of the walkthrough measures. The refusal is well
++9 % to +30 % MWIR τ excess §10 of the walkthrough measures. The refusal is well
 justified: `test_k6_uplooking_zenith_coupling_characterization` measures the sec-law
 error at 0.14 % (VIS) to 2.16 % (LWIR), i.e. small but not negligible, and a silent
 mapping would be a Rule-17 violation.
@@ -165,7 +166,7 @@ correct, or both raise.
 * **`geometry.scene_class` assertion** — accepts the agreeing label silently, raises
   `GeometrySpecificationError` naming asserted *and* derived plus both altitudes on
   disagreement. Exactly ADR-0011 decision 8.
-* **Metric relevance + Gap-96 override** — the class turns 10 ground-projection metrics
+* **Metric relevance + Gap-96 override** — the class turns 11 ground-projection metrics
   off by default; an explicit `performance.metrics.sampling` flag wins in both
   directions; GSD stays absent under force-enable because it is *undefined* at
   `incidence_angle_rad ≥ π/2`, which is a computability gate rather than a relevance
@@ -176,5 +177,5 @@ correct, or both raise.
   7.671 × 10⁻⁴ against a 2.0 × 10⁻² tolerance.
 * **SCNR ≡ SNR in the point-source regime** — a definitional identity, not a bug (the
   point-source signal is already background-subtracted).
-* **NEDT of 454–3269 mK** — correct for a 0.5 ms track camera against a dim MWIR sky;
+* **NEDT of 474–3432 mK** — correct for a 0.5 ms track camera against a dim MWIR sky;
   NEDT is background-referenced and is not this sensor's requirement metric.

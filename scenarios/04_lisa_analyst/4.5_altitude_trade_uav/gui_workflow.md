@@ -35,10 +35,10 @@ Lisa's core ask is an interactive command window (per the GUI vision memo):
 >>> # vendor NETD → D*
 >>> nep = nep_from_netd(50e-3, dp_dt)          # dp_dt from the chain dS/dT
 >>> dstar_from_nep(nep, (17e-4)**2, integrating_bandwidth_hz(16e-3))
-1.34e9
+1.243e9
 >>> # altitude ceiling
 >>> ceiling(target=1.0, dT=4.0, netd=50e-3, ifov=486e-6)
-8.5   # km
+7.5   # km  (refreshed 2026-08-02, was 8.5 — CU-161)
 ```
 
 Requirements this implies:

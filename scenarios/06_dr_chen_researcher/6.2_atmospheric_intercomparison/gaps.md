@@ -19,11 +19,14 @@ demonstration, not a validated benchmark"). The real MODTRAN 6 run set
 the staged real data (synthetic remains the loud fallback for bare
 clones), the walkthrough's results table and figures are regenerated
 from the real runs, and the residuals are now a validated
-SimpleAtmosphere-vs-MODTRAN measure. Headline finding: SimpleAtmosphere
-over-responds to profile PWV (in-band τ spans 0.16–0.81 vs real
-MODTRAN's 0.42–0.57; nearly exact at us_standard, ±40–60% at the
-climate extremes). The "band-averaging divergence worth a follow-up"
-below is thereby confirmed and quantified.
+SimpleAtmosphere-vs-MODTRAN measure. Headline finding **as of that
+2026-07-17 run** (i.e. before CU-161): SimpleAtmosphere over-responded to
+profile PWV — in-band τ spanned 0.16–0.81 vs real MODTRAN's 0.42–0.57,
+nearly exact at us_standard but ±40–60% at the climate extremes. The
+"band-averaging divergence worth a follow-up" below was thereby confirmed
+and quantified. CU-161 (2026-07-18) then recalibrated the gas bands and
+collapsed that spread; the current model spans τ 0.46–0.60 with residuals
+of −4.6%…−9.8%, per the walkthrough's results table.
 
 ---
 
@@ -80,8 +83,13 @@ MODTRAN data and might want the original geometry too.
   item: **always check `well_status` before trusting a "no effect"
   result.** (Recurred a third time in scenario 8.2 — escalated to
   Gap 65 in `docs/tracking/gaps.md`.)
-- **SNR residuals do not track transmittance residuals.** Initially
-  expected the two to move together; the extended-scene contrast
-  term's target/background cancellation means they don't. Worth
-  remembering when a stakeholder asks for "the atmosphere accuracy"
-  without specifying which downstream metric they actually care about.
+- **SNR residuals track transmittance residuals after all — but only
+  once the model emits.** Through 2026-07-22 this scenario recorded the
+  opposite lesson: the extended-scene contrast term's target/background
+  cancellation kept SNR residuals (±8%) decoupled from τ residuals. CU-224
+  (2026-08-02) gave the `simple` down-looking path its `(1−τ)·B(λ,T_eff)`
+  emission term, which does *not* cancel between target and background;
+  SNR residuals moved to −9.0%…−32.3% and now rank with `(1−τ)`, i.e. with
+  the τ residual. The durable lesson is the one underneath both versions:
+  ask a stakeholder *which* downstream metric they mean by "atmosphere
+  accuracy", because attenuation and path emission propagate differently.

@@ -5,10 +5,19 @@ Executed 2026-07-08 (Phase T3). Registry mirror: `docs/tracking/gaps.md`
 
 ## Summary
 TVAC FPA-temperature sweep 70–95 K imaging a 300 K shroud. Measured J(T)
-turns super-Arrhenius above ~88 K (+736% over the cold-side Arrhenius fit
-at 95 K); dark shot climbs from ~1 to 467 e⁻, dragging SNR 829→683 and NEDT
-32→39 mK. QE falls 9% while dark rises 294,612× — dark dominates. Spec (SNR
-≥ 750, NEDT ≤ 35 mK) holds to 92 K; recommended set point 89 K (3 K guard).
+turns super-Arrhenius above ~88 K (+735.8% over the cold-side Arrhenius fit
+at 95 K); dark shot climbs from 0.9 to 466.5 e⁻ RMS, dragging SNR 828.6→683.2
+and NEDT 33.44→40.55 mK. QE falls 9% while dark rises 294,612× — dark
+dominates. Spec (SNR ≥ 750, NEDT ≤ 35 mK) holds to 88 K (NEDT 34.98 mK);
+recommended set point 85 K (3 K guard).
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-08); `walkthrough.md` was already current and did not move. No
+Results-affecting landing accounts for the change — this is an exo/vacuum
+bench scene, which every in-window landing's scope statement excludes (CU-224
+leaves exo/vacuum exactly unchanged; CU-267 and CU-253 are `simple`-atmosphere
+only). This summary had simply never been refreshed to the compliance edge the
+walkthrough already reported.*
 
 ## Gap Closure Status (catalog "Gaps revealed" list)
 
@@ -44,6 +53,7 @@ QE with `detector.detector_temperature_K` automatically. Related to Gap 47
 - **NEDT carries the Gap 43 single-λ caveat** (the reflected-solar
   component of that caveat is absent — exo bench, thermal target); the
   dark-driven NEDT *trend* is robust regardless.
-- **The guard band is physics, not padding**: at the 92 K compliance edge
-  the NEDT slope is ~2 mK/K and steepening, so 89 K (flat part) is where
-  real margin lives.
+- **The guard band is physics, not padding**: at the 88 K compliance edge the
+  margin is ~0 mK (NEDT 34.98 mK against a 35 mK spec) and the NEDT slope
+  steepens from ~0.25 mK/K there to ~1.4 mK/K past 92 K, so 85 K (flat part,
+  NEDT 34.59 mK) is where real margin lives.

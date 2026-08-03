@@ -90,11 +90,11 @@ as the target recedes, and the answer becomes strongly reference-dependent.
 a factor 1.48 spread for one design against one target. Re-solving against the
 target-free floor (70.2 e⁻ rms) gives 200.2 km.
 
-*Post-fix (2026-08-01):* 197.6 km referenced at 25 km, 197.9 km at 50 km,
-198.2 km at 100 km — a 1.00× spread. The 0.6 km residual is the band-mean τ
-model's own reference dependence (α_eff 0.01812 → 0.01809 km⁻¹), not the noise
-treatment. The 200.2 km floor-only solve is now an upper bound the chain sits
-0.7 % below, because the chain keeps the target's residual shot noise.
+*Post-fix (re-measured 2026-08-02):* 197.6 km referenced at 25 km, 197.9 km at
+50 km, 198.2 km at 100 km — a 1.00× spread. The 0.6 km residual is the band-mean
+τ model's own reference dependence (α_eff 0.01826 → 0.01818 km⁻¹), not the noise
+treatment. The floor-only solve now returns 199.5 km — an upper bound the chain
+sits 0.7 % below, because the chain keeps the target's residual shot noise.
 
 **Why it matters.** Detection range is the headline number for an IRST. A
 metric whose value depends on where the analyst happened to place the target is
@@ -134,7 +134,7 @@ and carry an unsized caveat.
 **Workaround used.** The runner sizes it: with the standard $k = 4/3$
 effective-Earth factor the tangent sag at 100 km falls from 195.9 m to 146.9 m,
 the modelled ray samples air ~32.6 m lower than the real one on average, and
-with $H_\rho = 6.5$ km and a band optical depth of 1.810 that is worth
+with $H_\rho = 6.5$ km and a band optical depth of 1.818 that is worth
 **0.91 %** in band transmittance — two orders of magnitude smaller than the
 band-model error Gap D measures on the same arm. The scenario proceeds and says
 so.
@@ -165,8 +165,8 @@ visibility, rural aerosol):
 
 | band | α(5 km)/α(100 km), MODTRAN | α(5 km)/α(100 km), model | model/MODTRAN τ at 100 km |
 |---|---:|---:|---:|
-| MWIR 3.5–5.0 µm | 7.60× | 1.01× | **0.334** (−66.6 %) |
-| LWIR 8–12 µm | 2.43× | 1.25× | 0.756 (−24.4 %) |
+| MWIR 3.5–5.0 µm | 7.60× | 1.01× | **0.332** (−66.8 %) |
+| LWIR 8–12 µm | 2.43× | 1.25× | 0.753 (−24.7 %) |
 
 **Impact.** SNR, contrast SNR and detection range at long range on any level (or
 near-level) MWIR arm. The error is one-sided: the model is too opaque, so

@@ -60,6 +60,12 @@ and figure are regenerated from the real data. Headline: real maritime
 in-band τ = 0.432 vs SimpleAtmosphere's 0.239 (~45% too absorbing —
 consistent with scenario 6.2's PWV over-response finding), detection
 range 2114 vs 1690 km (+25%).
+**Current values (re-run 2026-08-02):** τ 0.4319 (MODTRAN — a measured
+constant, unmoved) vs 0.4593 (SimpleAtmosphere, now the *more* transparent
+of the two after the CU-155/CU-161 water recalibration and CU-267's
+gas-region blend), detection range 2239.7 vs 2415.6 km. The sign of the gap
+has reversed since the 2026-07-17 snapshot above; the gap itself stays
+resolved.
 
 ---
 

@@ -55,7 +55,7 @@ Raj, mission planner. He has a baselined MWIR reconnaissance sensor on a 500 km 
   3. **Transmittance vs. Visibility**: Band-mean τ_atm plotted on same x-axis, showing atmospheric transmission curve.
 
 - **Interactive features**:
-  - Hover on NIIRS curve: tooltip shows "At 10 km visibility: NIIRS = 4.47, SNR = 337.1, τ = 0.515"
+  - Hover on NIIRS curve: tooltip shows "At 10 km visibility: NIIRS = 4.56, SNR = 554.0, τ = 0.542"
   - Drag threshold line up/down to explore different requirements
   - Click "Why is NIIRS flat?" button: explanation panel shows that MWIR aerosol extinction is ~13× weaker than visible due to Angstrom exponent
   - Toggle between visibility units: km, miles, nautical miles
@@ -64,12 +64,12 @@ Raj, mission planner. He has a baselined MWIR reconnaissance sensor on a 500 km 
 - **Action**: View > Water Vapor Analysis
 - **GUI components (3 interactive charts)**:
   1. **NIIRS vs. PWV**: Line plot showing NIIRS degradation with increasing water vapor. ΔNIIRS annotation from driest to wettest.
-  2. **Transmittance vs. PWV**: Band-mean τ drops from 0.79 to 0.11 — dramatic 7× reduction. Highlighted as the dominant atmospheric effect.
+  2. **Transmittance vs. PWV**: Band-mean τ drops from 0.593 to 0.440 across 0.5–5.0 cm — a ≈1.3× reduction. Highlighted as the largest *transmittance* lever in this band, though CU-224's path emission refills most of the lost signal so it is not the largest NIIRS lever.
   3. **Signal Breakdown vs. PWV**: Stacked area chart showing how target signal, background signal, and path radiance change with PWV.
 
 - **Interactive features**:
   - PWV slider: drag to see all metrics update in real time
-  - Hover on τ curve: "At PWV = 3.0 cm, τ = 0.25 — 75% of target signal absorbed"
+  - Hover on τ curve: "At PWV = 3.1 cm, τ = 0.493 — 51% of target signal absorbed"
   - "Why doesn't NIIRS track τ?" button: explanation that NIIRS ∝ log₁₀(SNR), and noise also decreases with τ, muting the effect
   - Named condition markers overlaid on curve (vertical lines at PWV = 0.5, 0.8, 1.0, 1.4, etc.)
 
@@ -82,7 +82,7 @@ Raj, mission planner. He has a baselined MWIR reconnaissance sensor on a 500 km 
     - Red: NIIRS < threshold
   - **2D heatmap**: Visibility (y-axis) × PWV (x-axis), cells colored by NIIRS value. Contour lines at NIIRS = 4.0 and 5.0 overlaid.
   - **Summary banner**: "GO at all 8 named conditions. NIIRS goal (5.0) NOT achievable — limited by 7.5 m GSD."
-  - **Weather-robustness score**: "Total NIIRS variation: 0.18 across all conditions — sensor is weather-robust"
+  - **Weather-robustness score**: "Total NIIRS variation: 0.02 across all conditions — sensor is weather-robust"
 
 - **Interactive features**:
   - Click any table cell: drill down to full noise budget at that condition
@@ -96,12 +96,12 @@ Raj, mission planner. He has a baselined MWIR reconnaissance sensor on a 500 km 
   - **GIQE-5 term decomposition bar chart**: Shows contribution of each term:
     - Constant: +9.57
     - GSD term: −3.32 × log₁₀(295.3 in) = −8.20 ← dominates
-    - RER term: +3.32 × log₁₀(0.708) = −0.50
-    - SNR term: +1.559 × log₁₀(338) = +3.94
+    - RER term: +3.32 × log₁₀(0.596) = −0.75
+    - SNR term: +1.559 × log₁₀(554.8) = +4.28
     - H term: −0.334 × H
     - G term: −0.01 × G
   - **"What limits NIIRS?" panel**: Highlights GSD as the binding constraint. Shows that even infinite SNR can only reach NIIRS ≈ 4.9 at this GSD.
-  - **"How to reach NIIRS = 5.0" recommendation**: "Reduce GSD to ≤ 2.5 m (requires focal length ≥ 3.6 m or lower orbit)"
+  - **"How to reach NIIRS = 5.0" recommendation**: "Reduce GSD to ≤ 5.5 m (requires focal length ≥ 1.6 m or lower orbit)"
 
 - **Interactive features**:
   - "What if GSD were...?" slider: adjust GSD and see NIIRS update

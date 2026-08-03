@@ -134,8 +134,8 @@ itself.
 
 **Script window commands:**
 ```python
-result.metrics["nedt_K"]          # 0.02818 K
-result.metrics["niirs"]           # 10.89
+result.metrics["nedt_K"]          # 0.02179 K
+result.metrics["niirs"]           # 11.12
 result.metrics["gsd_geometric_mean_m"]  # 0.12 m
 result.metrics["q_center"]        # 0.9444
 mtf_budget = result.stage_outputs["performance"]["mtf_budget"]

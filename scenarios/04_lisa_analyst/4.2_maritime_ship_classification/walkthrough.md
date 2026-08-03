@@ -28,7 +28,7 @@ each ship is derived in the run script as √(length · height), the standard
 1. **Resolution (Johnson):** `R_task = √(L·H) / (2 · IFOV · N50_task)`.
    The range at which the sensor resolves the task's required cycles across
    the ship. IFOV here = 15 µm / 1.2 m = **12.5 µrad**.
-2. **Horizon:** `√(2·R_E·h) = 253 km` for the 5 km platform. An airborne
+2. **Horizon:** `√(2·R_E·h) = 252 km` for the 5 km platform. An airborne
    sensor cannot see a sea-level waterline beyond this, at any resolution.
 
 The **binding range** for each task is `min(resolution range, horizon)`.
@@ -44,14 +44,22 @@ Identification range (the hardest task) and its binding limit:
 | Small boat | 3.5 m | 22 km | **resolution** (close to 22 km) |
 | Patrol craft | 13.4 m | 84 km | **resolution** (close to 84 km) |
 | Corvette | 30.0 m | 188 km | **resolution** (close to 188 km) |
-| Frigate | 44.2 m | 276 km | **horizon** (253 km) |
-| Destroyer | 52.8 m | 330 km | **horizon** (253 km) |
-| Container ship | 94.9 m | 593 km | **horizon** (253 km) |
+| Frigate | 44.2 m | 276 km | **horizon** (252 km) |
+| Destroyer | 52.8 m | 330 km | **horizon** (252 km) |
+| Container ship | 94.9 m | 593 km | **horizon** (252 km) |
+
+*Numbers checked 2026-08-02 against the unmodified runner (previous vintage
+2026-07-08). Every DRI resolution range is unchanged — this scenario is pure
+geometry (target size, IFOV, N50) with no chain run, so none of the in-window
+Results-affecting landings can reach it. The one correction is the geometric
+horizon, 253 → 252 km: `√(2·R_EARTH_M·h)` with `R_EARTH_M = 6.371e6 m` and
+h = 5 km gives 252.4 km. The old 253 km was a mis-rounding in the document, not
+a model change; no in-window landing accounts for it. No binding limit flips.*
 
 - **The fleet splits at the frigate.** Ships with a critical dimension
   above ~44 m are **horizon-limited** for identification — the sensor has
   ample resolution, and line-of-sight is the wall. Smaller craft are
-  **resolution-limited** — even when they are within the 253 km horizon,
+  **resolution-limited** — even when they are within the 252 km horizon,
   they subtend too few pixels to identify, so Lisa must close range.
 - For **detection**, every ship except the small boat is horizon-limited:
   a UAV can detect any patrol-craft-or-larger vessel out to the horizon.
@@ -76,7 +84,7 @@ Identification range (the hardest task) and its binding limit:
 - **The horizon is geometric.** `√(2·R_E·h)` neglects atmospheric
   refraction (~+8 %) and the ship's freeboard (a 30 m container stack is
   visible ~20 km beyond a waterline). Both *extend* the true horizon, so
-  the 253 km figure is a conservative floor.
+  the 252 km figure is a conservative floor.
 - **No chain run is needed.** DRI ranges are pure geometry (target size,
   IFOV, N50); the signal chain would only enter through a contrast/MTF
   extension. This is an analysis scenario over the new model.

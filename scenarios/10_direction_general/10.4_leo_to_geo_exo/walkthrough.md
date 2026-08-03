@@ -248,12 +248,13 @@ grazes the limb.
 
 ### 4.5 Scene-class metric relevance (guardrail G3)
 
-`radiant.api.scene_relevance.default_off_metrics("space_to_space")` turns ten
+`radiant.api.scene_relevance.default_off_metrics("space_to_space")` turns eleven
 metrics off by *default*:
 
-`access_rate_m2_s`, `diffraction_limit_ground_m`, `ground_range_m`,
-`gsd_along_track_m`, `gsd_cross_track_m`, `gsd_geometric_mean_m`,
-`max_integration_time_s`, `niirs`, `niirs_extrapolated`, `swath_width_m`
+`access_rate_m2_s`, `diffraction_limit_ground_m`,
+`diffraction_limit_target_plane_m`, `ground_range_m`, `gsd_along_track_m`,
+`gsd_cross_track_m`, `gsd_geometric_mean_m`, `max_integration_time_s`, `niirs`,
+`niirs_extrapolated`, `swath_width_m`
 
 The runner verifies that none of them appears in `result.metrics`. Every one
 projects the sample footprint onto the *target's* ground plane through
@@ -450,13 +451,33 @@ $\theta_o = \pi - \arcsin\!\big((r_\mathrm{LEO}/r_\mathrm{GEO})\sin\zeta_\mathrm
 | max abs error x / y | 2.325 × 10⁻⁴ / 9.725 × 10⁻⁵ MTF units |
 | tolerance | 2.0 × 10⁻² MTF units |
 | margin | 86× |
-| UserWarnings raised by the nominal chain | 0 |
+| UserWarnings raised by the nominal chain | 1 (see below — not a consistency warning) |
 
 **The dual-path consistency check stayed silent for this scene class.** The
 up-looking `space_to_space` path adds no spatial degradation to one path without
 the other; the PSF path and the MTF product agree with 86× margin against the
-Rule-4 tolerance. The open-loop (heavily smeared) variant also produced zero
-UserWarnings.
+Rule-4 tolerance.
+
+The one `UserWarning` the nominal chain raises — and the open-loop variant raises
+the same one — is CU-261/265's inert-optics-temperature report:
+
+> `optics.optics_temperature_K = 180 K is set, but in scalar transmission mode the
+> optics' self-emission is ε·B(λ, T_optics) with ε = optics.scalar_emissivity,
+> which is 0 …`
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-08-01). No computed value moved: CU-224 is exactly zero on a vacuum path
+(τ → 1 makes the thermal term vanish) and CU-253/CU-267 touch only columns this
+scene does not have. The only changes are this warning count, which CU-261/265
+introduced, and the metric-relevance list in §4.5.*
+
+The warning is telling the truth about §2.1's 180 K bench temperature: with the
+optical train entered as a scalar transmission lump (`scalar_emissivity` = 0) the
+bench temperature is radiometrically inert, so every number in this walkthrough is
+independent of it. Note that the runner's own §12 "parameters that do not matter"
+list still says the 180 K self-emission "is NOT zero and is left in the budget";
+that line predates the warning and is wrong — the term is identically zero. The
+scenario config is left unmodified rather than silenced.
 
 ---
 

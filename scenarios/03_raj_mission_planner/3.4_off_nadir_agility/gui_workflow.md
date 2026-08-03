@@ -93,10 +93,10 @@ gsd_cross = pixel_pitch_m * slant_range_m / focal_length_m
 2. Dashboard displays all available metrics for nadir baseline:
 
 **Spatial Metrics Panel:**
-- Strehl: 0.9169 [--]
-- RER: 0.5592 [--]
-- FWHM_x: 8.55 [um]
-- EE(1x1): 0.4490 [--]
+- Strehl: 0.9065 [--]
+- RER: 0.5372 [--]
+- FWHM_x: 8.95 [um]
+- EE(1x1): 0.3634 [--]
 - Q (center/min/max): 0.844 / 0.562 / 1.125 [--]
 
 **MTF Budget Panel:**
@@ -106,14 +106,18 @@ gsd_cross = pixel_pitch_m * slant_range_m / focal_length_m
 - Alias fraction: 0.5000 [--] (half the apparent response at Nyquist is aliased)
 
 **Radiometric Metrics Panel:**
-- SNR: 85.8 [--]
-- NEDT: 49.2 [mK]
-- Well margin: 14.7 [dB]
-- Dynamic range: 53.4 [dB]
+- SNR: 86.8 [--]
+- NEDT: 46.5 [mK]
+- Well margin: 20.5 [dB]
+- Dynamic range: 59.3 [dB]
 
 **Image Quality Panel:**
 - GSD (cross/along): 1.37 / 1.37 [m]
-- NIIRS: 5.65 [--]
+- NIIRS: 5.60 [--]
+
+*(Panel values refreshed 2026-08-02 from the unmodified runner — this file had
+been carrying an older run vintage than `walkthrough.md`. Dominant mover:
+**CU-253**; see the walkthrough's sweep-table note.)*
 
 **Noise Panel:**
 - Signal shot: 121.40 [e-], Background shot: 121.40 [e-]

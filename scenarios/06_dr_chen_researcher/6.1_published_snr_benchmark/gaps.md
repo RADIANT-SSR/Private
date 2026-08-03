@@ -27,11 +27,15 @@ scenario (and 4.5) are the first consumers.
   *computed* total noise (converted to D*) against the datasheet. Noted so
   the next author doesn't repeat it.
 - **LWIR staring FPAs are integration-time-limited.** At f/2 on a 300 K
-  scene the well saturated in ~50 µs; the benchmark uses 30 µs (well 60 %).
+  scene the well saturated in ~50 µs; the benchmark uses 30 µs (well 63 %).
   Same lesson as the T3/T4 thermal scenarios — size t_int to the flux.
 - **System D* < datasheet peak D*** for a background-limited detector. The
-  −10 % residual is physics (BLIP), not a model error; the scenario reports
+  −13 % residual is physics (BLIP), not a model error; the scenario reports
   it honestly rather than tuning the datasheet to match.
+
+*Figures refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-08); the well fraction and D* residual both moved with CU-224's
+down-looking `(1−τ)·B(λ,T_eff)` path-radiance term.*
 
 ---
 

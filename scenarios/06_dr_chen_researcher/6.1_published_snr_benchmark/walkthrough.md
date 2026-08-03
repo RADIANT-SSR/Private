@@ -44,18 +44,25 @@ value from Gap 43). Both are compared to the datasheet.
 
 | Metric | Datasheet | Chain | Residual | Verdict (±15%) |
 |--------|-----------|-------|----------|----------------|
-| D* [Jones] | 2.00 × 10¹¹ | 1.79 × 10¹¹ | **−10.3 %** | PASS |
-| NETD [mK] | 25.0 | 25.5 | **+1.9 %** | PASS |
+| D* [Jones] | 2.00 × 10¹¹ | 1.74 × 10¹¹ | **−13.0 %** | PASS |
+| NETD [mK] | 25.0 | 24.6 | **−1.6 %** | PASS |
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-08). Dominant mover: CU-224 — down-looking path radiance now carries
+`(1−τ)·B(λ,T_eff)`, which raises the in-band signal of this 8–12 µm
+`simple`-atmosphere nadir scene (6.0 × 10⁶ → 6.35 × 10⁶ e⁻) and with it the
+BLIP shot noise. CU-267's gas-region blend contributes a further −0.27 % on
+τ over 8–12 µm.*
 
 - **RADIANT reproduces the published performance within tolerance** — the
   noise model, propagated from components (dark, read) plus scene photon
-  shot noise, lands within ~10 % of the datasheet D* and ~2 % of the NETD.
-- **The chain is photon-shot- (BLIP-) limited**: total noise σ_e = 2444 e⁻
-  ≈ √signal (2443 e⁻). So the *system* D* reflects the background-limited
-  detectivity at these conditions, which is slightly below the peak D* the
-  datasheet quotes — hence the −10 % (honest, and the expected direction).
+  shot noise, lands within ~13 % of the datasheet D* and ~2 % of the NETD.
+- **The chain is photon-shot- (BLIP-) limited**: total noise σ_e = 2520 e⁻
+  ≈ √signal (2519 e⁻). So the *system* D* reflects the background-limited
+  detectivity at these conditions, which is below the peak D* the
+  datasheet quotes — hence the −13 % (honest, and the expected direction).
 - **The datasheet D* implies 2193 e⁻ of total noise** at the reference
-  bandwidth (via D* → NEP → σ_e); the chain's 2444 e⁻ is 11 % higher,
+  bandwidth (via D* → NEP → σ_e); the chain's 2520 e⁻ is 15 % higher,
   consistent with the D* residual.
 
 ---
@@ -64,8 +71,10 @@ value from Gap 43). Both are compared to the datasheet.
 
 - **D* is background-dependent at the system level.** The datasheet peak D*
   is a near-intrinsic figure; a real system operating against a 300 K scene
-  is photon-shot-limited, so its effective D* is lower. The −10 % residual
-  is this effect, not a model error.
+  is photon-shot-limited, so its effective D* is lower. The −13 % residual
+  is this effect, not a model error — and it widened (from −10 %) precisely
+  because CU-224 added the atmosphere's own `(1−τ)·B` emission to the
+  down-looking background, deepening the BLIP floor this system sits on.
 - **Noise bandwidth vs integration time.** `Δf = 1/(2·t_int)` is the
   equivalent noise bandwidth of an integrating detector — the convention
   linking a per-frame electron count to the per-√Hz D* definition. The
@@ -73,7 +82,7 @@ value from Gap 43). Both are compared to the datasheet.
 - **NETD uses the exact dS/dT** (Gap 43), so the NETD comparison is against
   RADIANT's best thermal-sensitivity estimate, not the single-λ
   approximation.
-- **Regime = EXTENDED** (the 300 K scene fills the pixel), well 60 % (the
+- **Regime = EXTENDED** (the 300 K scene fills the pixel), well 63 % (the
   30 µs integration is chosen to stay unsaturated on the intense LWIR flux
   — itself a lesson: LWIR staring FPAs are integration-time-limited).
 

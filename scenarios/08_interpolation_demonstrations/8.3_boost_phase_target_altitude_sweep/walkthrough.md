@@ -43,20 +43,27 @@ invents a number for a band it has no data for.
 
 | Target altitude [km] | Band | τ_up (3–5 µm) [-] | SNR [-] |
 |---:|:--:|---:|---:|
-| 0 | interpolated | 0.4152 | 325.45 |
-| 1 | interpolated | 0.4886 | 352.97 |
-| 5 | interpolated | 0.7001 | 423.85 |
-| 10 | interpolated | 0.8106 | 460.47 |
-| 20 | interpolated | 0.8945 | 494.68 |
-| 29 | interpolated | 0.9425 | 518.17 |
+| 0 | interpolated | 0.4143 | 304.33 |
+| 1 | interpolated | 0.4877 | 330.11 |
+| 5 | interpolated | 0.6998 | 396.70 |
+| 10 | interpolated | 0.8105 | 431.10 |
+| 20 | interpolated | 0.8944 | 463.19 |
+| 29 | interpolated | 0.9425 | 485.23 |
 | 40 | pending | — | PENDING (G7–G11) |
 | 50 | pending | — | PENDING (G7–G11) |
 | 60 | pending | — | PENDING (G7–G11) |
 | 80 | pending | — | PENDING (G7–G11) |
-| 100 | vacuum | 1.0000 | 630.11 |
-| 150 | vacuum | 1.0000 | 720.68 |
-| 200 | vacuum | 1.0000 | 841.35 |
-| 300 | vacuum | 1.0000 | 1263.32 |
+| 100 | vacuum | 1.0000 | 590.18 |
+| 150 | vacuum | 1.0000 | 675.08 |
+| 200 | vacuum | 1.0000 | 788.19 |
+| 300 | vacuum | 1.0000 | 1183.67 |
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-18). Dominant mover: CU-188 — the cell-area-overlap EE_box removed an
+O(dx) box-edge over-statement, which cuts sub-pixel SNR by ≈ 6.4 % uniformly at
+every rung including the vacuum ones, where τ_up ≡ 1 and no atmosphere term can
+be responsible. CU-306's log-τ resample accounts for the rest: τ_up falls by
+0.22 % at 0 km, tapering to bit-identical at the 29 km node.*
 
 *(These absolute numbers are illustrative — the `midlat_summer_ladders` family
 ships slit-degraded to 5 cm⁻¹ FWHM and its 0–29 km values are the frozen shipped
@@ -67,13 +74,13 @@ rungs may shift slightly and the 29–100 km rungs fill in.)*
 
 ## Physics / modeling notes
 
-- **τ_up rises monotonically over 0–29 km** (0.4152 → 0.9425): as the booster
+- **τ_up rises monotonically over 0–29 km** (0.4143 → 0.9425): as the booster
   climbs, less absorbing column sits above it, so more of its MWIR emission
   reaches the sensor. The monotone-in-altitude check passes.
 - **τ_up ≡ 1.0000 above 100 km** is the Gap 95 vacuum leg: a target at or above
   the atmosphere top sees no atmosphere, served exactly by code (`exo_target.py`),
   no run required.
-- **SNR keeps rising across the vacuum leg** (630 → 1263 over 100 → 300 km) even
+- **SNR keeps rising across the vacuum leg** (590 → 1184 over 100 → 300 km) even
   though τ_up is pinned at 1. That is **not** an atmosphere effect — it is the
   **closing slant range**: R = sensor − target altitude (nadir) shrinks from
   400 km to 200 km, the plume's pixel fill fraction grows, and the sub-pixel

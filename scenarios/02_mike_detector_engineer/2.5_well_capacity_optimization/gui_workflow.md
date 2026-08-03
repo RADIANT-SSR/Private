@@ -56,7 +56,7 @@ Mike, detector engineer. He has a 640x512 MWIR HgCdTe FPA with 2M e- FWC in an f
   3. **Well Fill Bar Chart**: At selected t_int, bar chart showing well fill for each temperature. Bars colored green/yellow/red by saturation status. FWC = 2M e- labeled on y-axis.
 
 - **Interactive features**:
-  - Click on heatmap cell: tooltip shows "400 K at 100 µs → 63.5% well fill (1,270,000 e- / 2,000,000 e-)"
+  - Click on heatmap cell: tooltip shows "400 K at 82.8 µs → 63.5% well fill (1,270,000 e- / 2,000,000 e-)"
   - Drag vertical cursor on line plot to select operating t_int — bar chart updates in real time
   - Click any temperature curve to highlight it and dim others
   - Toggle "Show signal [e-]" vs. "Show well fill [%]" on y-axis
@@ -65,7 +65,7 @@ Mike, detector engineer. He has a 640x512 MWIR HgCdTe FPA with 2M e- FWC in an f
 ## Step 5: SNR Analysis
 - **Action**: View > SNR Analysis
 - **GUI components (2 interactive charts)**:
-  1. **SNR vs. t_int for Cold Target**: SNR curve for 200 K with horizontal threshold line at SNR = 10. Intersection point annotated: "SNR ≥ 10 at t_int ≥ 2.83 ms". Shaded region below threshold = "insufficient SNR".
+  1. **SNR vs. t_int for Cold Target**: SNR curve for 200 K with horizontal threshold line at SNR = 10. Intersection point annotated: "SNR ≥ 10 at t_int ≥ 103.2 µs". Shaded region below threshold = "insufficient SNR".
   2. **Dynamic Range Window**: For each t_int, shows the range of temperatures that satisfy BOTH constraints (SNR ≥ 10 on coldest AND well fill < 90% on hottest). Window width = achievable dynamic range.
 
 - **Interactive features**:
@@ -94,11 +94,11 @@ Mike, detector engineer. He has a 640x512 MWIR HgCdTe FPA with 2M e- FWC in an f
     | Scene Temp [K] | t_int for 70% fill | SNR at that t_int [—] |
     |---|---|---|
     | 200 | ~256 ms (extrapolated) | — |
-    | 280 | 3.53 ms | 841 |
-    | 400 | 103 µs | 1231 |
+    | 280 | 3.53 ms | 1307.6 |
+    | 400 | 103 µs | 1257.7 |
     | 1000 | < 1 µs (saturated) | — |
   - **Feasibility indicator**: Green checkmark for temperatures that can be imaged, red X for always-saturated
-  - **Recommendation panel**: "At t_int = 1 ms: SNR(200 K) = 6.6 (FAIL). At t_int = 2.83 ms: SNR(200 K) = 11.1 (PASS), but max unsaturated temp = 280 K."
+  - **Recommendation panel**: "At t_int = 1 ms: SNR(200 K) = 61.7 (PASS), max unsaturated temp = 300 K. At t_int = 2.83 ms: SNR(200 K) = 117.9 (PASS), but max unsaturated temp drops to 280 K."
   - **Solution suggestions**: expandable cards for HDR, dual-integration, spectral narrowing, gain switching — each with a "Simulate this" button that opens a new analysis mode
 
 ## Step 8: Performance Metrics Dashboard

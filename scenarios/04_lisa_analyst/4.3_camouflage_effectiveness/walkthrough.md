@@ -48,22 +48,37 @@ runs: `SCNR = |S_option − S_scrub| / noise_scrub`.
 
 | Option | Contrast [e⁻] | SCNR | Well fill [%] | Signature reduction |
 |--------|--------------:|-----:|--------------:|--------------------:|
-| Bare vehicle | +1,860,247 | 1,450.4 | 28.8 | — |
-| Camo net A (ε≈0.60) | −512,481 | 399.6 | 9.0 | 72.5% |
-| Camo net B (shaped) | −274,894 | 214.3 | 11.0 | 85.2% |
-| **Camo net C (ε≈0.93)** | **+83,183** | **64.9** | 14.0 | **95.5%** |
+| Bare vehicle | +1,856,985 | 1,270.8 | 32.8 | — |
+| Camo net A (ε≈0.60) | −511,831 | 350.3 | 13.1 | 72.4% |
+| Camo net B (shaped) | −274,225 | 187.7 | 15.1 | 85.2% |
+| **Camo net C (ε≈0.93)** | **+83,059** | **56.8** | 18.0 | **95.5%** |
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22). Dominant mover: CU-224 — down-looking `(1−τ)·B` path emission on
+this `simple`-atmosphere LWIR scene. Note the signature: the **contrast**
+column barely moves (≤ 0.25 %), because CU-224 adds the same path radiance to
+the option pixel and the scrub pixel and it cancels in the difference — but the
+**SCNR** column drops ~12–13 % across the board, because the denominator is the
+scrub-scene shot noise, which rises with the added background. Well fill rises
+~4 points per option for the same reason. CU-267 contributes −0.27 % of τ on
+8–12 µm. Every ranking and every "best band" verdict is unchanged.*
 
 ### Sub-band (which half detects each option best?)
 
 | Option | 8–10 µm SCNR | 10–12 µm SCNR | Best |
 |--------|-------------:|--------------:|------|
-| Bare vehicle | 1,136.3 | 898.5 | 8–10 µm |
-| Net A | 264.7 | 291.0 | 10–12 µm |
-| Net B | 264.3 | 46.2 | 8–10 µm |
-| Net C | 48.1 | 42.6 | 8–10 µm |
+| Bare vehicle | 986.1 | 799.0 | 8–10 µm |
+| Net A | 229.8 | 258.8 | 10–12 µm |
+| Net B | 229.4 | 41.1 | 8–10 µm |
+| Net C | 41.8 | 37.9 | 8–10 µm |
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22). Same mover as the nadir table: CU-224 raises the scrub background
+and its shot noise, so every sub-band SCNR falls ~11–13 %. No "Best" column
+entry changes.*
 
 Net B's shaping is visible: its high 10–12 µm emissivity matches the
-background well there (SCNR 46), but its low 8–10 µm reads cold (SCNR 264).
+background well there (SCNR 41), but its low 8–10 µm reads cold (SCNR 229).
 A sensor confined to one half-band would rank the nets differently than
 the full FLIR — the reason spectral, not scalar, emissivity matters.
 

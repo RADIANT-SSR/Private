@@ -16,17 +16,21 @@ the scenario was first written:
 
 | Metric | API Key | Value (nadir) | Notes |
 |--------|---------|---------------|-------|
-| NEDT | `result.metrics["nedt_K"]` | 49.2 [mK] | Noise-equivalent delta temperature |
-| NIIRS | `result.metrics["niirs"]` | 5.65 [--] | GIQE-5 rating (nadir only) |
+*(Values refreshed 2026-08-02 from the unmodified runner — this table had been
+carrying an older run vintage than `walkthrough.md`. Dominant mover: **CU-253**;
+see the walkthrough's sweep-table note.)*
+
+| NEDT | `result.metrics["nedt_K"]` | 46.5 [mK] | Noise-equivalent delta temperature |
+| NIIRS | `result.metrics["niirs"]` | 5.60 [--] | GIQE-5 rating (nadir only) |
 | GSD (cross) | `result.metrics["gsd_cross_track_m"]` | 1.37 [m] | Nadir GSD |
 | GSD (along) | `result.metrics["gsd_along_track_m"]` | 1.37 [m] | Nadir GSD |
 | GSD (GM) | `result.metrics["gsd_geometric_mean_m"]` | 1.37 [m] | Geometric mean |
 | Q (center) | `result.metrics["q_center"]` | 0.844 [--] | Sampling parameter |
 | Q (min/max) | `result.metrics["q_min"]`, `["q_max"]` | 0.562 / 1.125 [--] | Over band |
-| Strehl | `result.metrics["strehl"]` | 0.9169 [--] | From EffectivePSF |
-| RER | `result.metrics["rer"]` | 0.5592 [--] | Relative edge response |
-| Well margin | `result.metrics["well_margin_dB"]` | 14.7 [dB] | |
-| Dynamic range | `result.metrics["dynamic_range_dB"]` | 53.4 [dB] | |
+| Strehl | `result.metrics["strehl"]` | 0.9065 [--] | From EffectivePSF |
+| RER | `result.metrics["rer"]` | 0.5372 [--] | Relative edge response |
+| Well margin | `result.metrics["well_margin_dB"]` | 20.5 [dB] | |
+| Dynamic range | `result.metrics["dynamic_range_dB"]` | 59.3 [dB] | |
 | MTF budget | `result.stage_outputs["performance"]["mtf_budget"]` | See table | Per-component MTF at Nyquist |
 | Folded MTF | `result.metrics["mtf_folded_at_nyquist"]` | 0.4544 [--] | ≈ 2× pre-sampling MTF at Nyquist; alias fraction 0.5000 (CU-209) |
 | Noise terms | `result.noise_terms` | See breakdown | Per-source noise in e- |

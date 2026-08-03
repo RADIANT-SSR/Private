@@ -32,7 +32,7 @@ How Raj would run the nighttime-feasibility study in the RADIANT GUI.
 >>> s.set("atmosphere.precipitable_water_cm", 4.1)   # must set humidity too
 >>> m = s.evaluate().metrics
 >>> m["contrast_snr"], m["nedt_K"], m["mrt_at_nyquist_K"]
-(133.7, 0.0269, 0.399)
+(99.1, 0.0211, 0.343)   # LWIR; refreshed 2026-08-02 (CU-161 + CU-224)
 ```
 
 Requirements: contrast-reference scene callable from the window; NEDT/MRT in

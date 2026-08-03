@@ -119,12 +119,27 @@ pill reads `Δh  49 m`.
 
 | Range [km] | θ_o [deg] | Δh [m] | guard | τ MWIR [–] | signal [e⁻] | noise [e⁻ rms] | SNR [–] | det. range [km] | well margin [dB] |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 25 | 90.11224 | 12.2 | clean | 0.6335 | 5.3375e5 | 733.9 | 727.2 | 197.6 | 5.5 |
-| 40 | 90.17958 | 31.3 | clean | 0.4822 | 1.5862e5 | 404.4 | 392.2 | 197.8 | 16.0 |
-| 50 | 90.22448 | 49.0 | clean | 0.4021 | 8.4631e4 | 299.3 | 282.8 | 197.9 | 21.4 |
-| 70 | 90.31427 | 96.0 | clean | 0.2797 | 3.0025e4 | 187.0 | 160.6 | 198.1 | 30.5 |
-| 75 | 90.33672 | 110.2 | **warn** | 0.2554 | 2.3886e4 | 169.7 | 140.7 | 198.1 | 32.4 |
-| 100 | 90.44896 | 195.9 | **warn** | 0.1623 | 8.5374e3 | 116.1 | 73.6 | 198.2 | 41.4 |
+| 25 | 90.11224 | 12.2 | clean | 0.6335 | 5.3375e5 | 733.7 | 727.5 | 198.9 | 5.5 |
+| 40 | 90.17958 | 31.3 | clean | 0.4822 | 1.5862e5 | 404.0 | 392.6 | 199.0 | 16.0 |
+| 50 | 90.22448 | 49.0 | clean | 0.4021 | 8.4631e4 | 298.7 | 283.3 | 199.0 | 21.4 |
+| 70 | 90.31427 | 96.0 | clean | 0.2797 | 3.0025e4 | 186.3 | 161.2 | 199.0 | 30.5 |
+| 75 | 90.33672 | 110.2 | **warn** | 0.2554 | 2.3886e4 | 169.0 | 141.3 | 199.0 | 32.4 |
+| 100 | 90.44896 | 195.9 | **warn** | 0.1623 | 8.5374e3 | 115.4 | 74.0 | 198.7 | 41.4 |
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the height-resolved
+emission temperature. This is a **level** path, and a level arm is isothermal,
+so the arm's own `T_eff` collapses to the exact profile temperature at 10 km
+and its thermal emission is untouched by the layering; what moves is the
+**sky background** behind the target, which comes from the whole traversed
+level path (`level_whole_path`, CU-224) and does span altitudes. Its emission
+falls slightly, taking ~0.3 % off the noise column, so SNR and detection range
+edge **up** (nominal 50 km: SNR 282.8 → 283.3, range 197.9 → 199.0 km). The
+signal and τ columns are bit-identical. One second-order consequence worth
+noting: the arm's `T_eff` also lost the CU-155 200 m emission-height offset
+(it was fit for the hemispheric sky flux, not for a directional arm), which is
+a 1.3 K change in the arm's graybody temperature — visible only in the fifth
+digit here.*
 
 (The full 16-row table is in `outputs/10.2_air_to_air_results.xlsx`, regenerated
 by running the script.)
@@ -153,7 +168,7 @@ warning is the correct Rule-17 report of an over-specified input, not a defect
 to suppress.
 
 **Non-obvious result — `detection_range_m` is reference-range invariant**
-(197.6 km referenced at 25 km, 198.2 km referenced at 100 km, a factor 1.00).
+(198.9 km referenced at 25 km, 198.7 km referenced at 100 km, a factor 1.00).
 The path-aware solver scales the *signal* along the path,
 $S(R) = S_{ref}(R_{ref}/R)^2\,\tau(R)/\tau(R_{ref})$, **and the target's own
 shot noise with it**: $\sigma^2(R) = S(R) + N_0^2$, with $N_0$ the target-free
@@ -163,22 +178,22 @@ short range:
 
 | range [km] | total noise [e⁻ rms] | of which target shot [e⁻ rms] | target-free floor [e⁻ rms] |
 |---:|---:|---:|---:|
-| 25 | 733.9 | 730.6 | 70.1 |
-| 100 | 116.1 | 92.4 | 70.2 |
+| 25 | 733.7 | 730.6 | 67.5 |
+| 100 | 115.4 | 92.4 | 69.2 |
 
 At 25 km the noise is almost entirely the *target's own* shot noise, which
 vanishes as the target recedes. Freezing it used to make the near-field answer
 strongly pessimistic — **123.4 km referenced at 25 km against 182.5 km
 referenced at 100 km, a 1.48× spread on one unchanged design**, which is what
-CU-263 was filed against. The nominal 50 km answer moved **150.9 km → 197.9 km
-(+31.1 %)** with the fix. The residual 0.6 km spread across the sweep is the
+CU-263 was filed against. The nominal 50 km answer moved **150.9 km → 199.0 km
+(+31.9 %)** with the fix. The residual 0.3 km spread across the sweep is the
 band-mean τ model's own reference dependence ($\alpha_{eff}$ moves in the fifth
 digit, 0.01826 → 0.01818 km⁻¹), not the noise treatment.
 
 Cross-check: re-solving against the target-free floor **alone** (sky background
-shot + read + quantisation + dark = **70.2 e⁻ rms**, dropping the target's own
-residual shot noise entirely) gives **199.5 km at SNR = 5** — the fully
-floor-limited bound, which must sit just *above* the chain's 198.2 km. They
+shot + read + quantisation + dark = **69.2 e⁻ rms**, dropping the target's own
+residual shot noise entirely) gives **200.1 km at SNR = 5** — the fully
+floor-limited bound, which must sit just *above* the chain's 198.7 km. They
 agree to 0.7 %. That is the number an IRST engineer would quote for this design
 against this target on the simple model, and the shipped metric now reproduces
 it.
@@ -432,7 +447,7 @@ scenario's own record of the finding survives:
    own shot noise, so the metric depends on the range it is evaluated at (1.48×
    across this sweep).~~ **RESOLVED 2026-08-01 (CU-263):** the solvers now use
    $\sigma^2(R) = S(R) + N_0^2$; the spread across this sweep is 1.00× and the
-   nominal answer moved 150.9 km → 197.9 km.
+   nominal answer moved 150.9 km → 199.0 km.
 3. **No refraction model** — guard-banded by design (ADR-0011 decision 5), but
    the scenario has to estimate the excluded effect itself to know whether the
    warning matters.

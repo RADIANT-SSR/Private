@@ -2,8 +2,8 @@
   "id": "8.1",
   "title": "Off-nadir interpolation \u2014 query angle, SimpleAtmosphere",
   "metrics": {
-    "snr": 697.993172439943,
-    "nedt_K": 0.040229940302817006,
+    "snr": 622.3194814929961,
+    "nedt_K": 0.045081379875143476,
     "niirs": null
   },
   "notes": "Query off-nadir angle; SimpleAtmosphere (tape7 family not portable)."

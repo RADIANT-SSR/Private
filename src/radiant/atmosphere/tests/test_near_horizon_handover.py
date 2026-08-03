@@ -77,7 +77,7 @@ def _vertical_od(atm: SimpleAtmosphere, lam: np.ndarray, h_low: float, h_high: f
 
 
 def _column_od(zenith_deg: float, h_low: float = 0.0, h_high: float = _H_TOP_M) -> np.ndarray:
-    od, _am, _lengths = column_segment_optical_depth(
+    od, _am, _lengths, _species = column_segment_optical_depth(
         _atm(),
         _grid(),
         ColumnSegmentSpec(h_low_m=h_low, h_high_m=h_high, zeta_low_rad=math.radians(zenith_deg)),

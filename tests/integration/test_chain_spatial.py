@@ -325,8 +325,17 @@ class TestSNRUnchanged:
         added flux is real signal in an extended-scene regime, so SNR
         939.99 → 1178.65 (+25.4%, signal-shot-limited so it tracks
         √signal).
+
+        Repinned 2026-08-02 (CU-321): that path-thermal term is now emitted
+        at a height-resolved ``T_eff(λ)`` over the column rather than at the
+        near-surface temperature of its lower endpoint. This is a 0 → 8 km
+        MWIR column, and the CO₂/water opacity that dominates it is spread
+        over the whole 8 km rather than concentrated at the surface, so the
+        emission falls: SNR 1178.65 → 1094.62 (−7.1%,
+        signal-shot-limited so it tracks √signal — a −13.7% move in the
+        path-radiance flux).
         """
-        expected_snr = 1178.6529007091276
+        expected_snr = 1094.6241994560291
         assert result.metrics["snr"] == pytest.approx(expected_snr, rel=1e-3)
 
 

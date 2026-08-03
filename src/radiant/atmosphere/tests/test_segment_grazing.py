@@ -25,6 +25,7 @@ from radiant.atmosphere.segment_simple import (
 )
 from radiant.atmosphere.segments import ColumnSegmentSpec, SegmentQuantities
 from radiant.atmosphere.simple import SimpleAtmosphere
+from radiant.core.blackbody import planck_spectral_radiance
 from radiant.core.constants import R_EARTH_M
 from radiant.core.parameters import ParameterBoundsError
 
@@ -66,9 +67,18 @@ class TestContract:
         assert float(q.L_toward_lower.min()) >= 0.0
 
     @pytest.mark.level0
-    def test_thermal_only_split_is_symmetric(self, atm: SimpleAtmosphere, wl: np.ndarray) -> None:
-        """With no sun the two directions are identical element-for-element:
-        a segment has one temperature and one τ."""
+    def test_thermal_only_split_is_ordered_by_escape_direction(
+        self, atm: SimpleAtmosphere, wl: np.ndarray
+    ) -> None:
+        """With no sun the two directions share one τ but not one temperature.
+
+        Until CU-321 they were identical element-for-element, because the whole
+        arc emitted at its lower-endpoint temperature.  A 1 km → 100 km arc is
+        not isothermal: going DOWN the emission escapes from the warm air at
+        the near end, going UP it escapes from cold air aloft, so
+        ``L_toward_lower > L_toward_upper`` everywhere in the thermal window,
+        and both stay under the blackbody ceiling at the warmest air on the arc.
+        """
         q = evaluate_grazing_segment(
             atm,
             wl,
@@ -77,7 +87,12 @@ class TestContract:
             h_high_m=H_ATM_TOP_M,
             zeta_low_rad=math.pi / 2.0,
         )
-        np.testing.assert_array_equal(q.L_toward_upper, q.L_toward_lower)
+        np.testing.assert_array_equal(q.tau, q.tau)  # one τ, by construction
+        assert np.all(q.L_toward_lower > q.L_toward_upper)
+        ceiling = planck_spectral_radiance(
+            wl, float(atm._profile_temperature_K(np.asarray(1_000.0)))
+        )
+        assert np.all(q.L_toward_lower <= ceiling + 1e-12)
 
     @pytest.mark.level0
     def test_scattering_splits_the_two_directions(self, atm: SimpleAtmosphere) -> None:
@@ -124,8 +139,8 @@ class TestCrossModelConsistency:
         h_low, h_high = 0.0, H_ATM_TOP_M
         z = math.radians(zenith_deg)
         r_tan = (R_EARTH_M + h_low) * math.sin(z)
-        od_grazing, _ = grazing_segment_optical_depth(atm, wl, r_tan, h_low, h_high)
-        od_column, _, _ = column_segment_optical_depth(
+        od_grazing, _, _ = grazing_segment_optical_depth(atm, wl, r_tan, h_low, h_high)
+        od_column, _, _, _ = column_segment_optical_depth(
             atm, wl, ColumnSegmentSpec(h_low_m=h_low, h_high_m=h_high, zeta_low_rad=z)
         )
         np.testing.assert_allclose(od_grazing, od_column, rtol=0.01)
@@ -154,8 +169,8 @@ class TestCrossModelConsistency:
         """
         z = math.radians(89.0)
         r_tan = R_EARTH_M * math.sin(z)
-        od_grazing, _ = grazing_segment_optical_depth(atm, wl, r_tan, 0.0, H_ATM_TOP_M)
-        od_column, _, _ = column_segment_optical_depth(
+        od_grazing, _, _ = grazing_segment_optical_depth(atm, wl, r_tan, 0.0, H_ATM_TOP_M)
+        od_column, _, _, _ = column_segment_optical_depth(
             atm, wl, ColumnSegmentSpec(h_low_m=0.0, h_high_m=H_ATM_TOP_M, zeta_low_rad=z)
         )
         np.testing.assert_array_equal(od_grazing, od_column)
@@ -180,8 +195,8 @@ class TestCrossModelConsistency:
         """
         z = math.radians(80.0)
         r_tan = R_EARTH_M * math.sin(z)
-        od_grazing, _ = grazing_segment_optical_depth(atm, wl, r_tan, 0.0, H_ATM_TOP_M)
-        od_column, _, _ = column_segment_optical_depth(
+        od_grazing, _, _ = grazing_segment_optical_depth(atm, wl, r_tan, 0.0, H_ATM_TOP_M)
+        od_column, _, _, _ = column_segment_optical_depth(
             atm, wl, ColumnSegmentSpec(h_low_m=0.0, h_high_m=H_ATM_TOP_M, zeta_low_rad=z)
         )
         np.testing.assert_allclose(od_grazing, od_column, rtol=0.03)

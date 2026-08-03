@@ -73,19 +73,22 @@ Results:
 | 12          | 1.42 | 346.2  | 0.115   | 0.269  | 4.5   | 86.4      | 120,000     |
 | 15          | 1.13 | 499.7  | 0.203   | 0.350  | 4.7   | 59.9      | 250,000     |
 | 18          | 0.94 | 706.9  | 0.267   | 0.414  | 4.8   | 42.3      | 500,000     |
-| 24          | 0.71 | 1095.2 | 0.355   | 0.510  | 4.8   | 27.3      | 1,200,000   |
-| 30          | 0.57 | 1358.8 | 0.409   | 0.572  | 4.7   | 22.0      | 1,846,988   |
+| 24          | 0.71 | 1028.7 | 0.355   | 0.510  | 4.8   | 29.1      | 1,058,743   |
+| 30          | 0.57 | 1267.4 | 0.409   | 0.572  | 4.7   | 23.6      | 1,607,021   |
 
 *Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-22). Dominant movers: CU-224 — down-looking path radiance now carries
-`(1−τ)·B(λ,T_eff)`, which raised this MWIR scene's collected signal enough that
-the 24 µm pixel now clips at its 1,200,000 e⁻ well (SNR 950.7 → 1095.2) and the
-30 µm signal rose 1,372,568 → 1,846,988 e⁻ (+34.5 %); and CU-188 —
-cell-area-overlap EE_box, which lowered EE 1×1 at every pitch by ~11–13 %.
-MTF@Nyquist and the 8–18 µm SNRs (all well-clipped) are unchanged.*
+2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the down-looking
+path-thermal term is now emitted at a height-resolved `T_eff(λ)` over the
+500 km column instead of at its near-surface temperature, so this MWIR scene's
+collected signal falls. Only the two largest pitches move: the 24 µm pixel
+comes back **off** its 1,200,000 e⁻ well (1,058,743 e⁻, SNR 1095.2 → 1028.7)
+and the 30 µm signal falls 1,846,988 → 1,607,021 e⁻ (−13.0 %). The 8–18 µm
+rows are bit-identical because they are well-clipped at every pitch, and
+MTF@Nyquist and EE 1×1 are spatial and untouched. No compliance verdict and no
+recommendation changes.*
 
 The trends are clear:
-- **Signal scales roughly as p²** — the 30 µm pixel collects ~46× more photons than the 8 µm pixel (whose well saturates and clips at 40,000 e⁻, so the ratio understates the raw p²·QE collection). This is the dominant driver of SNR.
+- **Signal scales roughly as p²** — the 30 µm pixel collects ~40× more photons than the 8 µm pixel (whose well saturates and clips at 40,000 e⁻, so the ratio understates the raw p²·QE collection). This is the dominant driver of SNR.
 - **SNR increases with pitch** — larger pixels win on sensitivity.
 - **MTF at Nyquist decreases with smaller pitch** — counterintuitively, the 8 µm pixel has MTF = 0 at Nyquist. This is because at Q = 2.12, the Nyquist frequency (62.5 cy/mm) is well beyond the optical cutoff, so there is no modulation at that frequency. The MTF is zero because the optics can't produce contrast at such a high spatial frequency.
 - **EE 1×1 decreases with smaller pitch** — the Airy disk spreads across many pixels at small pitch, so each pixel captures less of the total PSF energy.

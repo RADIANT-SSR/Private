@@ -70,13 +70,14 @@ the chain's own spherical viewing triangle (`slant_range_from_theta_o_m`).
 
 ## Key Results (detection range [km slant], SCNR ≥ 5)
 
-> **Matrix refreshed 2026-08-02 from the unmodified runner — two epochs of
-> drift, both attributed below.** The previous vintage was 2026-07-22 (CU-176 +
+> **Matrix refreshed 2026-08-02 from the unmodified runner — three epochs of
+> drift, all attributed below.** The previous vintage was 2026-07-22 (CU-176 +
 > CU-182). Between then and 2026-08-01 the matrix drifted *qualitatively*
 > without anyone re-running it — that drift is what CU-317 was originally filed
-> against — and on 2026-08-02 it moved again, further and in the opposite
-> direction. See **Drift archaeology** below the tables for which landing did
-> what and why the other candidates are excluded.
+> against; on 2026-08-02 CU-224 moved it again, further and in the opposite
+> direction; and later the same day CU-321 gave part of that back. See **Drift
+> archaeology** below the tables for which landing did what and why the other
+> candidates are excluded.
 
 **Sensor A — MWIR smallsat (16.7 m GSD, 278 m² footprint):** the coarse
 GSD gives a huge pixel footprint, so in the three temperate columns only the
@@ -86,30 +87,31 @@ path, three more large targets clear it —
 
 | Target | clear | haze | trop_haze | arctic |
 |--------|------:|-----:|----------:|-------:|
-| Fuel bladder farm | 678 | 656 | 515 | 1,005 |
+| Fuel bladder farm | 821 | 810 | 739 | 1,061* |
 | Transport aircraft | — | — | — | 1,061* |
-| Fast attack craft | — | — | — | 744 |
-| Patrol boat | — | — | — | 515 |
+| Fast attack craft | — | — | — | 790 |
+| Patrol boat | — | — | — | 535 |
 | (all others) | — not detectable — | | | |
 
 **Sensor B — MWIR flagship (4.0 m GSD, 16 m² footprint):** the small
-footprint gives high fill, so every target is detectable in the clear and
-arctic columns; only the two hardest ground vehicles drop out under haze —
+footprint gives high fill, so **every target is detectable in every
+condition** — five of the twelve out to the swath edge in the two clearest
+columns —
 
 | Target | clear | haze | trop_haze | arctic |
 |--------|------:|-----:|----------:|-------:|
-| Fuel bladder farm | 972 | 941 | 769 | 1,061* |
-| Patrol boat | 924 | 896 | 721 | 1,061* |
-| Fast attack craft | 851 | 826 | 658 | 1,061* |
-| Fighter aircraft | 778 | 762 | 572 | 1,061* |
-| Towed artillery | 774 | 765 | 697 | 1,061* |
-| Transport aircraft | 774 | 758 | 566 | 1,061* |
-| SAM TEL | 754 | 742 | 587 | 1,061* |
-| Cargo truck | 676 | 667 | 611 | 944 |
-| Small UAV | 606 | 600 | 550 | 839 |
-| APC | 593 | 588 | 540 | 808 |
-| Technical (pickup) | 514 | 509 | — | 681 |
-| MBT tank | 503 | — | — | 837 |
+| Fuel bladder farm | 1,061* | 1,061* | 1,055 | 1,061* |
+| Patrol boat | 1,061* | 1,061* | 1,001 | 1,061* |
+| Fast attack craft | 1,061* | 1,061* | 926 | 1,061* |
+| Fighter aircraft | 1,061* | 1,061* | 821 | 1,061* |
+| Transport aircraft | 1,061* | 1,061* | 813 | 1,061* |
+| Towed artillery | 896 | 883 | 802 | 1,061* |
+| SAM TEL | 870 | 858 | 780 | 1,061* |
+| Cargo truck | 773 | 763 | 697 | 1,029 |
+| MBT tank | 695 | 688 | 556 | 901 |
+| Small UAV | 688 | 681 | 624 | 901 |
+| APC | 673 | 666 | 611 | 865 |
+| Technical (pickup) | 576 | 570 | 527 | 718 |
 
 **Sensor C — LWIR wide (12.1 m GSD):** ships and the largest air targets
 reach or approach the swath edge; SAM TEL and towed artillery now detect only
@@ -118,20 +120,20 @@ in the arctic column; small ground vehicles fall below threshold everywhere —
 | Target | clear | haze | trop_haze | arctic |
 |--------|------:|-----:|----------:|-------:|
 | Transport aircraft | 1,061* | 1,061* | 1,061* | 1,061* |
-| Fast attack craft | 1,061* | 1,061* | 912 | 1,061* |
-| Fuel bladder farm | 1,061* | 1,061* | 912 | 1,061* |
-| Fighter aircraft | 870 | 858 | 731 | 1,061* |
-| Patrol boat | 782 | 773 | 663 | 1,061* |
-| SAM TEL | — | — | — | 553 |
-| Towed artillery | — | — | — | 513 |
+| Fast attack craft | 1,061* | 1,061* | 965 | 1,061* |
+| Fuel bladder farm | 1,061* | 1,061* | 1,015 | 1,061* |
+| Fighter aircraft | 921 | 910 | 773 | 1,061* |
+| Patrol boat | 828 | 817 | 700 | 1,061* |
+| SAM TEL | — | — | — | 563 |
+| Towed artillery | — | — | — | 521 |
 | (MBT, APC, Cargo, Technical, Small UAV) | — not detectable — | | | |
 
 `*` = swath-edge limited (SCNR ≥ 5 out to the 66° θ_o practical edge, slant
 1,061 km). `—` = not detectable in that cell.
 
-**Worst-case target: MBT tank** — mean 112 km across all 12
-sensor×atmosphere cells, detectable only on the flagship and only in the
-clear and arctic columns. **Easiest: fuel bladder farm** (mean 891 km).
+**Worst-case target: Technical (pickup)** — mean 199 km across all 12
+sensor×atmosphere cells, detectable only on the flagship. **Easiest: fuel
+bladder farm** (mean 989 km).
 
 ## Drift archaeology — which landings moved this matrix
 
@@ -176,59 +178,81 @@ assumption:
   τ term on these bands — a contributor to the third digit, not to a
   detectable/not-detectable flip.
 
-**Epoch 2 — 2026-08-02.** **CU-224** landed the down-looking thermal path
-term, and it dominates everything above: `L_path_up` now carries
-`(1 − τ)·B(λ, T_eff)`, which had been absent entirely, so the in-pixel
-background rises — and with it the 2 % scene-clutter term that this matrix is
-*limited by*. Ranges shorten across the board (hardest-target mean
-251 → 112 km; sensor C's MBT returns to "not detectable"; sensor B's MBT
-965 → 837 km in the arctic column and drops out of haze altogether). It also
-restores the condition axis: because the added term scales with how much warm
-air is in the path, the cold, dry `arctic_clear` column now stands far above
-the three temperate ones instead of matching them.
+**Epoch 2 — 2026-08-02 (CU-224).** **CU-224** landed the down-looking thermal
+path term: `L_path_up` now carries `(1 − τ)·B(λ, T_eff)`, which had been absent
+entirely, so the in-pixel background rose — and with it the 2 % scene-clutter
+term this matrix is *limited by*. Ranges shortened across the board
+(hardest-target mean 251 → 112 km; sensor C's MBT returned to "not detectable";
+sensor B's MBT 965 → 837 km in the arctic column and dropped out of haze
+altogether). It also restored the condition axis: because the added term scales
+with how much warm air is in the path, the cold, dry `arctic_clear` column
+pulled far ahead of the three temperate ones instead of matching them.
+
+**Epoch 3 — 2026-08-02 (CU-321).** **CU-321** re-emits that same term at a
+height-resolved `T_eff(λ)` over the column instead of at the column's
+near-surface temperature. A 500 km path is mostly cold air, so the background
+and its clutter fall back part of the way, and the ranges lengthen again:
+hardest-target mean **112 → 199 km**, sensor B recovers *every* target in
+*every* condition (MBT 837 → 901 km arctic, and back into haze at 688 km),
+sensor A gains the arctic patrol boat and fast attack craft, and sensor C's
+ships and air targets all lengthen by 5–10 %. Two qualitative verdicts move
+with it, and both are corrected in the text above: the **hardest target flips
+back from the MBT tank to the Technical pickup** — the EE_box null moved again
+— and sensor B's "only the two hardest ground vehicles drop out under haze"
+becomes "nothing drops out anywhere". The condition axis CU-224 restored
+survives at reduced amplitude: `arctic_clear` still leads every temperate
+column, by 25–35 % rather than by a detectability flip.
 
 ## Physics Discussion
 
 **Aperture buys targets, size buys range.** Sensor B's 4 m GSD (16 m²
 footprint) fills a pixel with far smaller targets than sensor A's 16.7 m
-GSD (278 m²), so B detects **all twelve** targets in the clear and arctic
-columns, while A's coarse footprint clears only the single largest (fuel
+GSD (278 m²), so B detects **all twelve** targets in **every** condition
+column, while A's coarse footprint clears only the single largest (fuel
 bladder farm) except in the cold arctic column. Within a sensor, bigger
-targets detect farther (fuel bladder farm 972 km in clear vs the MBT tank's
-503 km on B) because fill stays near 1 out to longer slant ranges before the
-growing footprint dilutes it.
+targets detect farther (fuel bladder farm to the 1,061 km swath edge in clear
+vs the Technical pickup's 576 km on B) because fill stays near 1 out to longer
+slant ranges before the growing footprint dilutes it.
 
-**Why the MBT tank is universally hardest — EE_box occlusion.** The
+**Why the Technical pickup is universally hardest — EE_box occlusion.** The
 sub-pixel contrast is `ff·(L_target·EE_box − L_bg)`: the target's compact
 energy is EE_box-weighted (its PSF spills to neighbouring pixels) while the
 uniform in-pixel background it OCCLUDES is not. Detectability is therefore set
 by how far the target pixel departs from background *in either direction*,
-times fill fraction — not by `ε·B(T)·A`. The MBT tank (28 m², ε 0.90, 310 K)
-is the target whose `L_target·EE_box` lands closest to `L_bg` after weighting,
-so its pixel departs least and it is hardest to separate: mean 112 km, and it
-falls out entirely on the LWIR sensor. Counterintuitively the *cooler* Small
-UAV (12 m², 294 K) reaches farther on B (606 km clear) than the warmer, larger
-MBT: the cooler radiance lands *farther* from the weighted-background null.
-This is correct single-pixel radiometry; a multi-pixel matched filter (summing
-the target energy that EE_box spread to neighbours) would recover the MBT — a
-performance-model refinement beyond this single-pixel SCNR (noted in gaps.md).
+times fill fraction — not by `ε·B(T)·A`. The Technical pickup (10 m², ε 0.88,
+303 K) is the target whose `L_target·EE_box` lands closest to `L_bg` after
+weighting, so its pixel departs least and it is hardest to separate: mean
+199 km, and it falls out entirely on the LWIR sensor. What the ordering is
+*not* is a size or temperature ranking: the cool 12 m² Small UAV (294 K) and
+the hot 28 m² MBT tank (310 K) sit within 1 % of each other on sensor B
+(688 vs 695 km clear) and both beat the smaller, cooler Technical, because what
+sets detectability is distance from the weighted-background null. This is
+correct single-pixel radiometry; a multi-pixel
+matched filter (summing the target energy that EE_box spread to neighbours)
+would recover the hardest targets — a performance-model refinement beyond this
+single-pixel SCNR (noted in gaps.md).
 
-*(Which target sits at the null is itself model-dependent, and it has moved:
-the Technical pickup held this position in the 2026-07-22 matrix. CU-188
-re-weighted EE_box and CU-224 raised `L_bg`, and between them the null moved
-onto the MBT. The mechanism the section describes is unchanged; the target it
-lands on is not a stable property of the target library.)*
+*(Which target sits at the null is itself model-dependent, and it has moved
+twice: the Technical pickup held this position in the 2026-07-22 matrix,
+CU-188's EE_box re-weighting plus CU-224's higher `L_bg` moved the null onto
+the MBT tank, and CU-321's colder path emission — lowering `L_bg` again — moved
+it back to the Technical. The mechanism the section describes is unchanged; the
+target it lands on is not a stable property of the target library, and should
+not be quoted as one.)*
 
 **Atmosphere reranks both bands again.** The 2026-07-22 matrix was nearly
 condition-independent — MBT tank 776/778/778/776, APC 817/817/815/819 across
 clear/haze/tropical_haze/arctic — and this section previously concluded that
-the condition axis had become a weak discriminator. **CU-224 reversed that.**
-Because the down-looking path now carries its own thermal emission, the
-in-pixel background (and its 2 % clutter) scales with how much warm air the
-path contains, so the cold, dry `arctic_clear` column pulls decisively ahead:
-sensor B's MBT runs 503 (clear) / not detectable (haze) / not detectable
-(tropical_haze) / 837 km (arctic), and sensor A detects three extra targets in
-the arctic column that it cannot see in any temperate one. What the CU-155/161
+the condition axis had become a weak discriminator. **CU-224 reversed that,
+and CU-321 halved the amplitude without undoing it.** Because the down-looking
+path carries its own thermal emission, the in-pixel background (and its 2 %
+clutter) scales with how much warm air the path contains, so the cold, dry
+`arctic_clear` column stays ahead: sensor B's MBT runs 695 (clear) / 688 (haze)
+/ 556 (tropical_haze) / 901 km (arctic), and sensor A detects three extra
+targets in the arctic column that it cannot see in any temperate one. Under
+CU-224 alone the same row read 503 / — / — / 837 km; the ordering is the same
+physics, the detectability flips were an artefact of emitting the whole column
+at its warmest temperature. What the CU-155/161
 recalibration removed was the *parametric water over-response* — a spurious
 clear→tropical collapse — and that remains removed; what has returned is a
 real, physically-sourced condition dependence of the opposite origin
@@ -326,8 +350,15 @@ being re-run — first under CU-188's EE_box re-weighting, then decisively under
 CU-224's down-looking thermal path term — and the drift was qualitative, not
 cosmetic: the hardest target changed identity (Technical pickup → MBT tank),
 the hardest-target mean ran 229 → 251 → 112 km, and the "atmosphere barely
-reranks" conclusion reversed. Both epochs are attributed under **Drift
+reranks" conclusion reversed. All epochs are attributed under **Drift
 archaeology** above. The swath edge (1,061 km) and every geometry column are
 unchanged. Nothing in this scenario's machine baseline covers the matrix — it
 is a script-side SCNR bisection — which is why two results-affecting landings
 passed through it unremarked.
+
+**Postscript (2026-08-02, CU-321):** regenerated a third time in the same PR
+as the landing, under the discipline CU-317 established. The height-resolved
+emission temperature moved the hardest-target mean 112 → 199 km and flipped the
+hardest target back to the Technical pickup; every table, both figures and the
+two qualitative claims above were updated with it. This is what the CU-317
+lesson looks like applied at landing time rather than archaeologically.

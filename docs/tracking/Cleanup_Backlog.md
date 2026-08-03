@@ -47,14 +47,18 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-321 — One-temperature graybody over-predicts MWIR path thermal ~2× on tall columns, both directions equally (now anchorable)
+### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
-**Discovered**: CU-224 P5a anchoring (branch `atmo/cu-224-lpath-thermal`), 2026-08-02.
-**Status**: Open — **Owner ruling (2026-08-02): approved** — fit a height-resolved `T_eff` (two-slab or pressure-weighted, `T_eff(λ)`) against the O/K/N/H matched pairs, ONE model for both directions (Rule 27); results-affecting for MWIR path-radiance scenes → §5.3 sweep.
-**File**: `src/radiant/atmosphere/segment_thermal.py` (`_downwelling_effective_temperature_K`, the CU-155 one-temperature machinery).
-**Symptom**: with the CU-224 thermal term landed, both directions show the same residual against the batch-2 anchors: MWIR model/MODTRAN reaches 2.02–2.42 on the tall columns (O3/O4/O5 down-looking; H5 up-looking shows 1.49 on the same column class) while LWIR sits at 1.33–1.43. The signature is the documented one-temperature-graybody + region-flat spectral-shape approximation (CU-155/CU-161), not a direction-specific defect — the down-looking and up-looking residuals track each other on identical columns.
-**Why it still matters**: results-affecting (intake test 1) for MWIR path-radiance-dominated scenes if fixed; and for the first time it is *anchorable* — O1–O5 + K/N/H give matched direction pairs across five rungs, so a height- or direction-resolved `T_eff` can be fit against measured data instead of invented.
-**Suggested fix**: (b) stand-alone, M — height-resolved emission temperature (two-slab or pressure-weighted `T_eff(λ)`) fit against the O/K/N/H pairs, both directions in one model per Rule 27. Recorded as a Known limitation in `RADIANT_Atmosphere.md` §3.1 until then. Effort M; category C. Related: [[CU-224]], CU-155, CU-161.
+**Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).
+**Status**: Open — refinement family on the just-landed `emission_temperature.py`; none is operator-visible today.
+**File**: `src/radiant/atmosphere/segment_thermal.py` (`_downwelling_effective_temperature_K`, `z_em = 200 m`); `emission_temperature.py` (gas-floor species lump; arc geometry).
+**Why it still matters**: each item is results-affecting if pursued (intake test 1), and each is the next accuracy increment on the CU-321 machinery now that the O/K/N/H anchors exist. Checklist:
+
+- [ ] Re-fit or retire the `z_em = 200 m` proxy — `E_sky_thermal` is its one remaining consumer, and the layered solution can now compute what it approximates.
+- [ ] Split O₃ (peaks ~25 km) out of the well-mixed gas floor so 9.6 µm emission is placed at its real altitude rather than too low.
+- [ ] Distribute opacity along the grazing **arc** rather than the vertical — currently unmeasured because no anchor exercises a grazing thermal product; needs an anchor first (a future near-horizon thermal deck or an M6–M8-based check).
+
+**Suggested fix**: (b) stand-alone family PR when scheduled; each item re-anchored against the batch-2 pairs. Effort M total; category C. Related: [[CU-321]], CU-155, CU-161.
 
 ### CU-138 — Scripting console ships as a `code.InteractiveConsole` REPL, not the preferred `qtconsole` in-process Jupyter kernel
 
@@ -86,6 +90,16 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-321 — One-temperature graybody over-predicts MWIR path thermal ~2× on tall columns, both directions equally (now anchorable) — RESOLVED 2026-08-03 (commit trailer)
+
+**Discovered**: CU-224 P5a anchoring (branch `atmo/cu-224-lpath-thermal`), 2026-08-02.
+**Status**: RESOLVED 2026-08-03, closed by the `CU-Closes: 321` trailer commit. **Owner ruling (2026-08-02): approved** — fit a height-resolved `T_eff` (two-slab or pressure-weighted, `T_eff(λ)`) against the O/K/N/H matched pairs, ONE model for both directions (Rule 27); results-affecting for MWIR path-radiance scenes → §5.3 sweep.
+**File**: `src/radiant/atmosphere/segment_thermal.py` (`_downwelling_effective_temperature_K`, the CU-155 one-temperature machinery).
+**Symptom**: with the CU-224 thermal term landed, both directions show the same residual against the batch-2 anchors: MWIR model/MODTRAN reaches 2.02–2.42 on the tall columns (O3/O4/O5 down-looking; H5 up-looking shows 1.49 on the same column class) while LWIR sits at 1.33–1.43. The signature is the documented one-temperature-graybody + region-flat spectral-shape approximation (CU-155/CU-161), not a direction-specific defect — the down-looking and up-looking residuals track each other on identical columns.
+**Why it still matters**: results-affecting (intake test 1) for MWIR path-radiance-dominated scenes if fixed; and for the first time it is *anchorable* — O1–O5 + K/N/H give matched direction pairs across five rungs, so a height- or direction-resolved `T_eff` can be fit against measured data instead of invented.
+**Suggested fix**: (b) stand-alone, M — height-resolved emission temperature (two-slab or pressure-weighted `T_eff(λ)`) fit against the O/K/N/H pairs, both directions in one model per Rule 27. Recorded as a Known limitation in `RADIANT_Atmosphere.md` §3.1 until then. Effort M; category C. Related: [[CU-224]], CU-155, CU-161.
+**Resolution**: new `atmosphere/emission_temperature.py` — the escape-resolved layered formal solution of the non-scattering LTE transfer equation: L = Σ B(T_i)(1−e^{−δ_i})e^{−c_i} with layers ordered from the escape end, weights telescoping exactly to 1−τ, so T_eff(λ) = B⁻¹⟨B⟩ and the one-slab Kirchhoff structure (Rule 5) is untouched — τ bit-identical everywhere, isothermal exact, `escape` is geometry not a direction fork (Rule 27). Closed form, zero fitted coefficients (pressure-broadened absorbers at the harmonic ρ·p scale height: gas 8→4 km, water 2→1.6 km; scatterers keep density heights); 32-layer quadrature converged to 0.016 K. Beats the ruled two-slab (quadrature-starved, 0.5506 RMS) and three other candidates — the direction-blind OD-weighted form fails decisively (+72 % MWIR), the measurement that forces escape into the model. Parity: the filed defect collapses (down-looking tall-column MWIR 2.01/2.25/2.42 → 1.14/1.22/1.22), LWIR RMS −19 %, deep columns −26 %, direction-balanced −16 %, temperature recovery ΔT_max 25.2→10.4 K (MWIR) / 23.2→9.5 K (LWIR). **Honest cost**: shallow up-looking MWIR ratio parity worsens (flat-set MWIR RMS +10 %) — un-masking, not new error: the retired warm bias was cancelling the CU-161 region-flat spectral-shape deficit (with MODTRAN's own emissivity substituted, radiance RMS improves 0.287 → 0.148); both scoreboards pinned in `test_emission_temperature_anchors.py`. §5.3: MWIR golden SNR −6.8 %, chain-spatial pin −7.1 %, Cell 28 L_aperture −1.0…−6.4 %, 19 GUI baselines (−11…+11 %), K/N/H integration anchors repinned; all 19 moved scenarios' walkthroughs refreshed with CU-321 attribution in the same PR (the CU-317 lesson as law). Results-affecting CHANGELOG entry. Follow-on refinements (z_em proxy re-fit, O₃ emission altitude, grazing-arc opacity distribution) are [[CU-324]].
 
 ### CU-316 — Tabulated and MODTRAN backends resample tau linearly, diverging from the interpolated backend's log-tau convention — RESOLVED 2026-08-02 (commit trailer)
 

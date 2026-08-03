@@ -88,6 +88,7 @@ import numpy as np
 
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere._sensor_endpoint import require_sensor_altitude_m
+from radiant.atmosphere.emission_temperature import segment_emission_temperature_K
 from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.near_horizon_air_mass import (
     apply_species_air_mass,
@@ -550,6 +551,60 @@ class SimpleAtmosphere:
         omega0[safe] = scat[safe] / ext[safe]
         return omega0
 
+    def _profile_temperature_K(self, altitude_m: np.ndarray) -> np.ndarray:
+        """Air temperature ``T(h)`` [K] on the fixed-lapse ICAO profile.
+
+        The single lapse implementation in this class: sea-level temperature
+        from the selected standard-atmosphere profile, the 6.5 K/km ICAO
+        tropospheric lapse up to the 11 km tropopause, isothermal above it,
+        and floored at the 216.65 K tropopause temperature.  Negative
+        altitudes clamp to sea level.
+
+        This is the profile the CU-321 height-resolved emission temperature
+        integrates over, and the profile
+        :meth:`_downwelling_effective_temperature_K` evaluates at one offset
+        altitude — one lapse model, two consumers (Rule 27).
+        """
+        h = np.clip(np.asarray(altitude_m, dtype=np.float64), 0.0, _TROPOPAUSE_H_M)
+        t_sea = _T_SEA_LEVEL_K[self.standard_atmosphere]
+        return np.maximum(t_sea - _LAPSE_RATE_K_PER_M * h, _TROPOPAUSE_T_K)
+
+    def _segment_emission_temperature_K(
+        self,
+        wavelength_um: np.ndarray,
+        *,
+        h_low_m: float,
+        h_high_m: float,
+        od_slant_mol: np.ndarray,
+        od_slant_aer: np.ndarray,
+        od_slant_h2o: np.ndarray,
+        od_slant_gas: np.ndarray,
+        escape: str,
+    ) -> np.ndarray:
+        """Height-resolved emission temperature ``T_eff(λ)`` [K] (CU-321).
+
+        Thin adapter onto
+        :func:`radiant.atmosphere.emission_temperature.segment_emission_temperature_K`
+        that supplies this model's three density scale heights and its
+        temperature profile.  Every path-thermal call site — down-looking
+        ``evaluate`` and all four segment evaluators — goes through it, so
+        there is one emission-temperature model for both directions.
+        """
+        return segment_emission_temperature_K(
+            wavelength_um,
+            h_low_m=h_low_m,
+            h_high_m=h_high_m,
+            od_slant_mol=od_slant_mol,
+            od_slant_aer=od_slant_aer,
+            od_slant_h2o=od_slant_h2o,
+            od_slant_gas=od_slant_gas,
+            scale_height_mol_m=H_MOL_M,
+            scale_height_aer_m=H_AER_M,
+            scale_height_h2o_m=H_H2O_M,
+            temperature_profile=self._profile_temperature_K,
+            escape=escape,  # type: ignore[arg-type]
+        )
+
     def _downwelling_effective_temperature_K(self, target_altitude_m: float) -> float:
         """Effective sky-emission temperature at the target [K] (CU-155).
 
@@ -565,12 +620,16 @@ class SimpleAtmosphere:
         the tropopause — the measured ~5×/40× LWIR/MWIR deficit against
         the real up-looking H-runs.) Negative target altitudes clamp
         to 0 m.
+
+        **Scope since CU-321 (2026-08-02):** this helper serves the
+        hemispheric ``E_sky_thermal`` flux only. Its ``z_em`` offset is fit
+        *jointly* with the diffusivity exponent ``D`` through that one
+        formula, so it is not transferable to a directional product. The
+        path-radiance thermal term — both directions — now takes its
+        temperature from :meth:`_segment_emission_temperature_K`.
         """
         h_eval_m = max(0.0, target_altitude_m) + _ESKY_EMISSION_HEIGHT_M
-        h_eval_m = min(h_eval_m, _TROPOPAUSE_H_M)
-        t_sea = _T_SEA_LEVEL_K[self.standard_atmosphere]
-        t_eff = t_sea - _LAPSE_RATE_K_PER_M * h_eval_m
-        return max(t_eff, _TROPOPAUSE_T_K)
+        return float(self._profile_temperature_K(np.asarray(h_eval_m)))
 
     @staticmethod
     def _region_params(wavelength_um: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -1093,8 +1152,12 @@ class SimpleAtmosphere:
                 od_vert_h2o=od_h2o_up,
                 od_vert_gas=od_gas_up,
             )
+            # Per-species slant depths for the CU-321 emission weighting; the
+            # gas floor rides m_mol exactly as apply_species_air_mass does.
+            m_mol_up, m_aer_up, m_h2o_up = masses_up.m_mol, masses_up.m_aer, masses_up.m_h2o
         else:
             od_slant_up = od_vert_up * airmass_up
+            m_mol_up = m_aer_up = m_h2o_up = airmass_up
         tau_up = np.exp(-od_slant_up)
 
         # Sun-leg column length: [h_tgt, h_atm_top].  For h_tgt=0 this
@@ -1172,8 +1235,14 @@ class SimpleAtmosphere:
                     od_vert_h2o=od_h2o_full,
                     od_vert_gas=od_gas_full,
                 )
+                m_mol_full, m_aer_full, m_h2o_full = (
+                    masses_full.m_mol,
+                    masses_full.m_aer,
+                    masses_full.m_h2o,
+                )
             else:
                 od_slant_full = od_vert_full * airmass_up
+                m_mol_full = m_aer_full = m_h2o_full = airmass_up
             tau_full_up = np.exp(-od_slant_full)
 
         # --- E_TOA from core solar spectrum ---
@@ -1256,26 +1325,37 @@ class SimpleAtmosphere:
         # it, so one column of air read in the two directions differed by
         # three to four orders of magnitude.  The term is the same
         # ``segment_thermal_emission`` the up-looking side uses — the module
-        # is imported, not re-derived (Rule 19/27) — with ``T_eff`` from the
-        # same CU-155 emission-height helper evaluated at the column's LOWER
-        # endpoint, which for the target leg is ``h_tgt``.  Emissivity is
+        # is imported, not re-derived (Rule 19/27) — with ``T_eff(λ)`` from
+        # the same height-resolved emission-temperature model both directions
+        # use (CU-321), evaluated with ``escape="upper"``: this is the
+        # radiance that leaves the column at the SENSOR end.  Emissivity is
         # derived from the segment's own transmittance (Rule 5); it is never
         # an independent input.
         #
         # Anchored 2026-08-02 against the batch-2 O-block upwelling runs
         # (O1–O5, each the direction partner of a delivered up-looking run on
         # the identical column).  Band-mean model/MODTRAN thermal path
-        # radiance after the fix: MWIR 3–5 µm 0.416 / 1.065 / 2.016 / 2.251 /
-        # 2.424 and LWIR 8–12 µm 0.535 / 1.111 / 1.327 / 1.353 / 1.431 for
-        # O1 (1 km nadir) / O2 (5 km nadir) / O3 (10 km, 48.2°) / O4 (10 km,
-        # 60°) / O5 (100 km, 48.2°) — versus 2e-3 … 3e-8 before.  The band is
-        # the same one the up-looking side sits in on the identical columns
-        # (0.458 … 1.491 MWIR, 0.532 … 1.265 LWIR), i.e. the residual is the
-        # shared CU-155/CU-161 spectral-shape and one-temperature-graybody
-        # approximation, not a direction-specific defect.  See
-        # ``segment_thermal`` for the size of the one-temperature assumption.
+        # radiance, one-temperature (CU-224) → height-resolved (CU-321):
+        # MWIR 3–5 µm 0.407→0.380, 1.057→0.731, 2.013→1.138, 2.249→1.218,
+        # 2.435→1.203 and LWIR 8–12 µm 0.533→0.517, 1.109→0.947,
+        # 1.326→1.053, 1.352→1.058, 1.439→1.087 for O1 (1 km nadir) / O2
+        # (5 km nadir) / O3 (10 km, 48.2°) / O4 (10 km, 60°) / O5 (100 km,
+        # 48.2°) — versus 2e-3 … 3e-8 before CU-224 added the term at all.
+        # What remains is the CU-161 region-flat spectral shape, which the
+        # shallow-column rungs are dominated by.
         L_path_up_thermal = segment_thermal_emission(
-            lam, tau_up, self._downwelling_effective_temperature_K(h_tgt)
+            lam,
+            tau_up,
+            self._segment_emission_temperature_K(
+                lam,
+                h_low_m=h_tgt,
+                h_high_m=h_sensor_m,
+                od_slant_mol=od_mol_up * m_mol_up,
+                od_slant_aer=od_aer_up * m_aer_up,
+                od_slant_h2o=od_h2o_up * m_h2o_up,
+                od_slant_gas=od_gas_up * m_mol_up,
+                escape="upper",
+            ),
         )
         L_path_up = L_path_vals + L_path_up_thermal
 
@@ -1335,10 +1415,22 @@ class SimpleAtmosphere:
                 L_path_full = np.maximum(L_path_full_vals, 0.0)
             else:
                 L_path_full = np.zeros_like(lam)
-            # Same Kirchhoff term on the ground→sensor column: τ_full_up with
-            # T_eff at *its* lower endpoint, the ground (CU-224).
+            # Same Kirchhoff term on the ground→sensor column (CU-224): its own
+            # τ_full_up, and its own height-resolved T_eff(λ) over [0, h_sensor]
+            # escaping at the sensor end (CU-321).
             L_path_full = L_path_full + segment_thermal_emission(
-                lam, tau_full_up, self._downwelling_effective_temperature_K(0.0)
+                lam,
+                tau_full_up,
+                self._segment_emission_temperature_K(
+                    lam,
+                    h_low_m=0.0,
+                    h_high_m=h_sensor_m,
+                    od_slant_mol=od_mol_full * m_mol_full,
+                    od_slant_aer=od_aer_full * m_aer_full,
+                    od_slant_h2o=od_h2o_full * m_h2o_full,
+                    od_slant_gas=od_gas_full * m_mol_full,
+                    escape="upper",
+                ),
             )
 
         # --- E_sky_thermal: (1 − τ_sky,vert^D) · π · B(T(h_tgt + z_em)) (CU-155) ---

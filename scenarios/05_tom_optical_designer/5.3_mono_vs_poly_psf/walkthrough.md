@@ -40,20 +40,20 @@ The script runs RADIANT at 5 individual wavelengths (3.5, 4.0, 4.25, 4.5, 5.0 µ
 
 | λ [µm] | MTF@Nyq | EE 1×1 | EE 3×3 | RER   | FWHM [µm] | SNR |
 |---------|---------|--------|--------|-------|------------|-----|
-| 3.50    | 0.328   | 0.478  | 0.899  | 0.660 | 19.5       | 94  |
-| 4.00    | 0.290   | 0.442  | 0.885  | 0.628 | 20.5       | 161 |
-| 4.25    | 0.267   | 0.414  | 0.878  | 0.610 | 21.3       | 201 |
-| 4.50    | 0.248   | 0.396  | 0.871  | 0.599 | 22.0       | 243 |
-| 5.00    | 0.210   | 0.358  | 0.858  | 0.568 | 23.6       | 296 |
+| 3.50    | 0.328   | 0.478  | 0.899  | 0.660 | 19.5       | 88  |
+| 4.00    | 0.290   | 0.442  | 0.885  | 0.628 | 20.5       | 151 |
+| 4.25    | 0.267   | 0.414  | 0.878  | 0.610 | 21.3       | 187 |
+| 4.50    | 0.248   | 0.396  | 0.871  | 0.599 | 22.0       | 226 |
+| 5.00    | 0.210   | 0.358  | 0.858  | 0.568 | 23.6       | 244 |
 
 *Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-22). Dominant mover: CU-224 — down-looking path radiance now carries
-`(1−τ)·B(λ,T_eff)`, lifting the per-band SNR by 13–47 % (largest at 5.0 µm,
-where the added thermal path term is strongest). EE 1×1 moved separately under
-CU-188 (cell-area-overlap EE_box). MTF@Nyquist, RER and FWHM are unchanged at
-every wavelength.*
+2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the `(1−τ)·B` path term
+is now emitted at a height-resolved `T_eff(λ)` over the column, which lowers
+the per-band SNR by 6–18 %, most at 5.0 µm where the path term is largest and
+the emission altitude therefore matters most. MTF@Nyquist, EE 1×1, RER and
+FWHM are spatial and bit-identical at every wavelength.*
 
-The trends are monotonic: shorter wavelengths give better MTF and EE (tighter PSF concentrates more energy), but worse SNR (fewer photons in a narrow band at shorter wavelengths for a thermal source — a 300 K target emits far more MWIR photons at 5 µm than at 3.5 µm). RER (relative edge response) is now also extracted at each wavelength. With CU-224's path-radiance term in place the SNR column is now monotonic in λ across the whole band; the previous vintage showed a spurious dip at 5.0 µm (208 at 4.50 µm vs 202 at 5.00 µm).
+The trends are monotonic: shorter wavelengths give better MTF and EE (tighter PSF concentrates more energy), but worse SNR (fewer photons in a narrow band at shorter wavelengths for a thermal source — a 300 K target emits far more MWIR photons at 5 µm than at 3.5 µm). RER (relative edge response) is now also extracted at each wavelength. The SNR column stays monotonic in λ across the whole band under CU-321 as it did under CU-224; the pre-CU-224 vintage showed a spurious dip at 5.0 µm (208 at 4.50 µm vs 202 at 5.00 µm), and that remains gone.
 
 ### Step 2: Full-Band Comparison — Mono vs. Poly
 
@@ -64,17 +64,18 @@ RADIANT's `optics.psf_n_wavelengths` parameter controls the PSF model:
 | PSF Model | MTF@Nyq | EE 1×1 | EE 3×3 | RER   | FWHM [µm] | SNR | NEDT [mK] | NIIRS |
 |-----------|---------|--------|--------|-------|------------|-----|-----------|-------|
 | Mono (N=1)  | 0.267 | 0.414 | 0.878 | 0.610 | 21.3 | 707 | 42.3 | 4.8 |
-| Poly (N=5)  | 0.243 | 0.391 | 0.870 | 0.593 | 21.6 | 707 | 42.3 | 4.7 |
-| Poly (N=11) | 0.246 | 0.394 | 0.871 | 0.595 | 21.2 | 707 | 42.3 | 4.7 |
-| Poly (N=21) | 0.247 | 0.394 | 0.871 | 0.596 | 21.3 | 707 | 42.3 | 4.7 |
+| Poly (N=5)  | 0.247 | 0.395 | 0.871 | 0.596 | 21.3 | 707 | 42.3 | 4.7 |
+| Poly (N=11) | 0.248 | 0.396 | 0.871 | 0.596 | 21.1 | 707 | 42.3 | 4.7 |
+| Poly (N=21) | 0.248 | 0.396 | 0.871 | 0.596 | 21.2 | 707 | 42.3 | 4.7 |
 
 *Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-22). The polychromatic rows moved on CU-224: the poly PSF is weighted
-by the in-band photon flux, and adding the `(1−τ)·B(λ,T_eff)` path term
-re-weighted that spectrum toward the long-wavelength end. The mono (N=1) row's
-spatial metrics are weighting-independent and so are unchanged apart from
-EE 1×1, which moved under CU-188 (cell-area-overlap EE_box). SNR is
-well-clipped at 500,000 e⁻ and unchanged.*
+2026-08-02, pre-CU-321). The polychromatic rows moved again, for the same
+reason they moved on CU-224: the poly PSF is weighted by the in-band photon
+flux, and CU-321's height-resolved emission temperature re-weights that
+spectrum — this time back toward the short-wavelength end, so the poly metrics
+move a little closer to the mono ones. The mono (N=1) row is bit-identical
+(its spatial metrics are weighting-independent). SNR is well-clipped at
+500,000 e⁻ and unchanged.*
 
 ### Step 3: Quantify the Error
 
@@ -82,14 +83,14 @@ The chromaticism error from monochromatic analysis (relative to poly N=11):
 
 | Metric | Mono vs. Poly Error |
 |--------|---------------------|
-| MTF at Nyquist | +8.4% (mono overstates) |
-| EE 1×1 | +5.2% (mono overstates) |
-| EE 3×3 | +0.9% (negligible) |
-| RER | +2.6% (small) |
-| FWHM | +0.3% (negligible) |
+| MTF at Nyquist | +7.6% (mono overstates) |
+| EE 1×1 | +4.7% (mono overstates) |
+| EE 3×3 | +0.8% (negligible) |
+| RER | +2.3% (small) |
+| FWHM | +0.8% (negligible) |
 | SNR | +0.0% (no effect — SNR is radiometric, not spatial) |
 
-The largest error is now in MTF at Nyquist (+8.4%), with EE 1×1 second at +5.2%. Monochromatic analysis tells Tom that 41.4% of a point source's energy falls in a single pixel, when the true value is 39.4%. That is still a meaningful difference for point source detection sensitivity, but the ranking has flipped from the previous vintage, where EE 1×1 (+9.5%) led and MTF (+5.4%) followed — CU-224's re-weighting of the photon-flux spectrum shifted the polychromatic MTF more than it shifted the polychromatic EE.
+The largest error is in MTF at Nyquist (+7.6%), with EE 1×1 second at +4.7%. Monochromatic analysis tells Tom that 41.4% of a point source's energy falls in a single pixel, when the true value is 39.6%. That is still a meaningful difference for point-source detection sensitivity. The MTF-leads-EE ranking, which first appeared when CU-224 re-weighted the photon-flux spectrum, survives CU-321's re-weighting in the opposite direction — both errors shrank by about a tenth and neither overtook the other.
 
 ### Step 4: Convergence Check
 
@@ -97,7 +98,7 @@ N=11 vs N=21 agrees well within 1% on all metrics (MTF 0.32%, EE 1×1 0.22%, FWH
 
 ## Key Takeaways
 
-1. **Monochromatic PSF overstates spatial performance by up to ~8%.** For this 3.5–5.0 µm band, MTF at Nyquist is overstated by 8.4% and EE 1×1 by 5.2%. The error is systematic — monochromatic always overstates because band-center is sharper than the flux-weighted average.
+1. **Monochromatic PSF overstates spatial performance by up to ~8%.** For this 3.5–5.0 µm band, MTF at Nyquist is overstated by 7.6% and EE 1×1 by 4.7%. The error is systematic — monochromatic always overstates because band-center is sharper than the flux-weighted average.
 
 2. **SNR is unaffected.** The PSF model choice does not change SNR because SNR in extended-scene regime depends on total signal and noise, not the PSF shape. The signal is the same regardless of how the PSF is computed.
 
@@ -105,7 +106,7 @@ N=11 vs N=21 agrees well within 1% on all metrics (MTF 0.32%, EE 1×1 0.22%, FWH
 
 4. **N=11 wavelengths is sufficient** for this band. Convergence is achieved within ~0.3% of the N=21 result. N=5 also gives similar results (within ~1–2% of N=11).
 
-5. **The FWHM result.** Polychromatic FWHM (21.2 µm) is marginally smaller than monochromatic (21.3 µm), a 0.3% difference — small enough to be a wash at this band ratio. The polychromatic PSF has a tighter core from the short-wavelength contributions but broader wings from the long-wavelength contributions. FWHM measures only the core width, so the sharper short-wavelength PSFs hold the FWHM roughly level while the broader wings reduce EE 1×1. (At the previous vintage this difference read 2.0%; CU-224's flux re-weighting all but cancelled it.)
+5. **The FWHM result.** Polychromatic FWHM (21.1 µm) is marginally smaller than monochromatic (21.3 µm), a 0.8% difference — small enough to be a wash at this band ratio. The polychromatic PSF has a tighter core from the short-wavelength contributions but broader wings from the long-wavelength contributions. FWHM measures only the core width, so the sharper short-wavelength PSFs hold the FWHM roughly level while the broader wings reduce EE 1×1. (Pre-CU-224 this difference read 2.0%; CU-224's flux re-weighting all but cancelled it, and CU-321's re-weighting brings a little of it back.)
 
 6. **For Tom's design review**: the 18 µm pixel still passes all requirements under polychromatic analysis. MTF at Nyquist drops from 0.267 to 0.246 (requirement: ≥ 0.10) and EE 1×1 drops from 0.414 to 0.394 (requirement: ≥ 0.30). Both are still above thresholds, though EE 1×1 now clears its floor by 31% rather than the 47% of the previous vintage.
 

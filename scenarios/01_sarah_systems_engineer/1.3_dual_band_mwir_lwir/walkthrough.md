@@ -42,26 +42,28 @@ original execution left it at the default 1.0, overstating the fire signal
 ~3× and pulling the saturation temperatures down).
 
 *Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-22, CU-176). The background side is dominated by **CU-224** — a
-down-looking column now carries its own thermal emission `(1−τ)·B(λ,T_eff)`,
-which had been absent, so the forest background and its 3 % clutter rise ~57 %
-in both bands (LWIR clutter 36 880 → 57 466 e⁻ RMS). The target side falls:
-**CU-188**'s cell-area-overlap EE_box weighting removed an O(dx) box-edge bias
-that over-stated sub-pixel signal (its CHANGELOG entry measures 1.3 at
-SNR −5.3 % / NEDT +5.6 %), and **CU-267**'s gas-region blend takes another
-−0.71 % off band-mean τ on 3–5 µm and −0.27 % on 8–12 µm.*
+2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the down-looking
+path-thermal term CU-224 added is now emitted at a height-resolved `T_eff(λ)`
+over the 0 → 10 km column instead of at its near-surface temperature, so the
+forest background falls back part of the way CU-224 raised it (pixel signal
+LWIR 3 139 542 → 3 009 637 e⁻, MWIR 229 779 → 228 451 e⁻) and its 3 % clutter
+with it (LWIR 57 466 → 53 569 e⁻ RMS). The fire contrast is unchanged
+(220 943 / 1 223 998 e⁻ — the target is a hotspot, not the atmosphere), so the
+whole move is background-side and it goes the *helpful* way for LWIR: SCNR
+21.3 → 22.8. The MWIR band is barely touched (SCNR 393.6 → 408.2) because its
+column was never emission-dominated at 10 km.*
 
 | Quantity | MWIR | LWIR |
 |----------|-----:|-----:|
-| Pixel signal [e⁻] | 229,779 | 3,139,542 |
+| Pixel signal [e⁻] | 228,451 | 3,009,637 |
 | Contrast (fire − forest) [e⁻] | 220,943 | 1,223,998 |
-| Well fill [%] | 5.7 | 26.2 |
-| Total noise [e⁻ RMS] | 561.4 | 57,510.7 |
-| — of which clutter [e⁻ RMS] | 265.1 | 57,466.3 |
-| SNR [--] | 464.3 | 1,389.1 |
-| Contrast SNR [--] | 446.5 | 541.6 |
-| **SCNR (incl. clutter) [--]** | **393.6** | **21.3** |
-| NEDT [mK] (Gap 43 approximation) | 230.0 | 161.8 |
+| Well fill [%] | 5.7 | 25.1 |
+| Total noise [e⁻ RMS] | 541.2 | 53,614.4 |
+| — of which clutter [e⁻ RMS] | 225.2 | 53,569.2 |
+| SNR [--] | 464.2 | 1,366.9 |
+| Contrast SNR [--] | 448.9 | 555.9 |
+| **SCNR (incl. clutter) [--]** | **408.2** | **22.8** |
+| NEDT [mK] (Gap 43 approximation) | 230.0 | 164.5 |
 
 ### Spectral contrast (hand Planck, ASTER ε_bg(λ))
 
@@ -76,21 +78,23 @@ different signal-to-clutter.
 
 | T_fire [K] | MWIR SCNR | sat? | LWIR SCNR | sat? | P_d MWIR | P_d LWIR |
 |-----------:|----------:|:----:|----------:|:----:|:--------:|:--------:|
-| 400 | 38.1 | no | 1.0 | no | 1.000 | **0.000** |
-| 500 | 175.1 | no | 9.8 | no | 1.000 | 1.000 |
-| 600 | 393.6 | no | 21.3 | no | 1.000 | 1.000 |
-| 800 | 914.2 | no | 49.6 | no | 1.000 | 1.000 |
-| 1000 | 1,457.4 | no | 82.4 | no | 1.000 | 1.000 |
-| 1200 | 1,998.9 | **YES** | 117.8 | no | 1.000 | 1.000 |
+| 400 | 42.8 | no | 1.1 | no | 1.000 | **0.000** |
+| 500 | 188.2 | no | 10.5 | no | 1.000 | 1.000 |
+| 600 | 408.2 | no | 22.8 | no | 1.000 | 1.000 |
+| 800 | 924.4 | no | 53.2 | no | 1.000 | 1.000 |
+| 1000 | 1,464.4 | no | 88.4 | no | 1.000 | 1.000 |
+| 1200 | 2,004.0 | **YES** | 126.3 | no | 1.000 | 1.000 |
 
 MWIR detects the 5 m² fire with P_d ≈ 1 at every temperature; **LWIR
 misses the coolest fires** — at 400 K its SCNR is 1.0, far below the
 4.75σ threshold, and P_d collapses to 0.000. The band discriminator is
 sharper than it was before CU-224: raising the LWIR background raised its
-clutter with it, so the coolest-fire LWIR SCNR fell 2.8 → 1.0 and the 400 K
-P_d 0.023 → 0.000. MWIR still saturates first — at ≈1200 K, where the fire
-signal reaches 98 % of the 4,000,000 e⁻ well even in fire mode; LWIR does
-not saturate anywhere in the swept range (26 % well fill at 600 K). Above the
+clutter with it, so the coolest-fire LWIR SCNR fell 2.8 → 1.0, and CU-321's
+partial give-back only takes it to 1.1 — still far below the 4.75σ threshold,
+P_d still 0.000. The verdict is unchanged; the margin is not. MWIR still
+saturates first — at ≈1200 K, where the fire signal reaches 98 % of the
+4,000,000 e⁻ well even in fire mode; LWIR does not saturate anywhere in the
+swept range (25 % well fill at 600 K). Above the
 MWIR saturation point the radiometry clips and in-band fire temperature
 cannot be retrieved.
 

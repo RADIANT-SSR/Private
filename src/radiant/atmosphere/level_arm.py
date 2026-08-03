@@ -90,7 +90,7 @@ from radiant.atmosphere.segment_single_scatter import (
     cos_scattering_angle,
     segment_single_scatter_radiance,
 )
-from radiant.atmosphere.segment_thermal import segment_thermal_emission
+from radiant.atmosphere.segment_thermal import directional_segment_thermal
 from radiant.atmosphere.segments import (
     LevelArmSpec,
     SegmentQuantities,
@@ -233,9 +233,20 @@ def evaluate_level_arm(
     tau = np.exp(-alpha_total * length_km)
     provenance["length_km"] = length_km
 
-    t_eff_K = atmosphere._downwelling_effective_temperature_K(spec.altitude_m)
-    provenance["t_eff_K"] = t_eff_K
-    thermal = segment_thermal_emission(lam, tau, t_eff_K)
+    # A level arm is isothermal, so the CU-321 height-resolved model collapses
+    # to the exact single temperature T(h_arm) — the same value in both
+    # directions, and no quadrature is run (``h_low == h_high``).  What changes
+    # against the pre-CU-321 code is only that the CU-155 `z_em` offset, fit
+    # for the hemispheric sky flux, no longer leaks into a directional product.
+    thermal_toward_upper, thermal_toward_lower = directional_segment_thermal(
+        atmosphere,
+        lam,
+        tau,
+        h_low_m=spec.altitude_m,
+        h_high_m=spec.altitude_m,
+        species_od={key: value * length_km for key, value in per_species.items()},
+        provenance=provenance,
+    )
 
     scat_up, scat_dn, scatter_prov = _arm_single_scatter_terms(
         atmosphere,
@@ -250,8 +261,8 @@ def evaluate_level_arm(
     return SegmentQuantities(
         wavelength_um=lam,
         tau=tau,
-        L_toward_upper=thermal + scat_up,
-        L_toward_lower=thermal + scat_dn,
+        L_toward_upper=thermal_toward_upper + scat_up,
+        L_toward_lower=thermal_toward_lower + scat_dn,
         provenance=provenance,
     )
 

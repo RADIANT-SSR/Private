@@ -44,25 +44,26 @@ value from Gap 43). Both are compared to the datasheet.
 
 | Metric | Datasheet | Chain | Residual | Verdict (±15%) |
 |--------|-----------|-------|----------|----------------|
-| D* [Jones] | 2.00 × 10¹¹ | 1.74 × 10¹¹ | **−13.0 %** | PASS |
-| NETD [mK] | 25.0 | 24.6 | **−1.6 %** | PASS |
+| D* [Jones] | 2.00 × 10¹¹ | 1.74 × 10¹¹ | **−12.9 %** | PASS |
+| NETD [mK] | 25.0 | 24.6 | **−1.5 %** | PASS |
 
 *Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-08). Dominant mover: CU-224 — down-looking path radiance now carries
-`(1−τ)·B(λ,T_eff)`, which raises the in-band signal of this 8–12 µm
-`simple`-atmosphere nadir scene (6.0 × 10⁶ → 6.35 × 10⁶ e⁻) and with it the
-BLIP shot noise. CU-267's gas-region blend contributes a further −0.27 % on
-τ over 8–12 µm.*
+2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the `(1−τ)·B` path term
+is now emitted at a height-resolved `T_eff(λ)` over the column instead of at
+its near-surface temperature, which lowers the in-band signal of this 8–12 µm
+`simple`-atmosphere nadir scene (6.35 × 10⁶ → 6.34 × 10⁶ e⁻) and with it the
+BLIP shot noise. Both residuals move by ~0.1 point; both verdicts and the whole
+benchmark conclusion are unchanged.*
 
 - **RADIANT reproduces the published performance within tolerance** — the
   noise model, propagated from components (dark, read) plus scene photon
   shot noise, lands within ~13 % of the datasheet D* and ~2 % of the NETD.
-- **The chain is photon-shot- (BLIP-) limited**: total noise σ_e = 2520 e⁻
-  ≈ √signal (2519 e⁻). So the *system* D* reflects the background-limited
+- **The chain is photon-shot- (BLIP-) limited**: total noise σ_e = 2518 e⁻
+  ≈ √signal (2518 e⁻). So the *system* D* reflects the background-limited
   detectivity at these conditions, which is below the peak D* the
   datasheet quotes — hence the −13 % (honest, and the expected direction).
 - **The datasheet D* implies 2193 e⁻ of total noise** at the reference
-  bandwidth (via D* → NEP → σ_e); the chain's 2520 e⁻ is 15 % higher,
+  bandwidth (via D* → NEP → σ_e); the chain's 2518 e⁻ is 15 % higher,
   consistent with the D* residual.
 
 ---

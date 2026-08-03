@@ -389,11 +389,11 @@ _K_LADDER: list[
         tuple[float, float],
     ]
 ] = [  # noqa: E501
-    ("K1", 0.0, 1.0e3, 0.0, 0.7811, 0.5813, 7.084, 0.6476, (1.138, 1.299), (0.526, 0.366)),
-    ("K2", 0.0, 3.0e3, 0.0, 0.6698, 0.4777, 10.337, 0.7736, (1.092, 1.306), (0.880, 0.551)),
-    ("K3", 0.0, 5.0e3, 0.0, 0.6481, 0.4499, 10.863, 0.7950, (1.024, 1.259), (1.050, 0.651)),
-    ("K4", 0.0, 1.0e4, 0.0, 0.6307, 0.4284, 11.135, 0.8022, (0.971, 1.173), (1.182, 0.779)),
-    ("K5", 0.0, 2.0e4, 0.0, 0.6014, 0.4196, 11.320, 0.8027, (0.983, 1.100), (1.226, 0.867)),
+    ("K1", 0.0, 1.0e3, 0.0, 0.7811, 0.5813, 7.084, 0.6476, (1.138, 1.299), (0.515, 0.358)),
+    ("K2", 0.0, 3.0e3, 0.0, 0.6698, 0.4777, 10.337, 0.7736, (1.092, 1.306), (0.807, 0.463)),
+    ("K3", 0.0, 5.0e3, 0.0, 0.6481, 0.4499, 10.863, 0.7950, (1.024, 1.259), (0.930, 0.502)),
+    ("K4", 0.0, 1.0e4, 0.0, 0.6307, 0.4284, 11.135, 0.8022, (0.971, 1.173), (1.011, 0.547)),
+    ("K5", 0.0, 2.0e4, 0.0, 0.6014, 0.4196, 11.320, 0.8027, (0.983, 1.100), (1.033, 0.586)),
 ]
 
 
@@ -415,12 +415,21 @@ def test_k_ladder_segment_characterization() -> None:
       too little of the near-surface continuum.  MWIR stays 1.10–1.31× high
       throughout — the documented CU-161 region-flat spectral-shape
       limitation.
-    * **L_toward_lower** — the new up-path product runs from 0.53× at 1 km to
-      1.23× at 20 km in the LWIR: the shallow deficit is the τ deficit
+    * **L_toward_lower** — the up-path product runs from 0.52× at 1 km to
+      1.03× at 20 km in the LWIR: the shallow deficit is the τ deficit
       (Kirchhoff — too little absorbing column means too little emitting
-      column), and the deep excess is the single-temperature graybody's warm
-      bias (a 20 km column emits partly from cold air aloft).  MWIR is low
-      everywhere (0.37→0.87×), the same spectral-shape limitation seen in τ.
+      column).  MWIR is low everywhere (0.36→0.59×), the same spectral-shape
+      limitation seen in τ.
+
+      **Repinned 2026-08-02 (CU-321).** The deep-column LWIR excess this record
+      used to carry (1.05/1.18/1.23× at 5/10/20 km) was the single-temperature
+      graybody's warm bias, and the height-resolved emission temperature removes
+      it: 0.93/1.01/1.03×.  The MWIR moved the other way (0.65/0.78/0.87 →
+      0.50/0.55/0.59) because the retired warm bias was partly *cancelling* the
+      CU-161 region-flat spectral-shape deficit on this direction; the emission
+      temperature itself is measurably closer to MODTRAN's own (see
+      ``test_emission_temperature_anchors.py``), and the shape error is now
+      visible rather than hidden.
 
     The tolerances are ±0.04 on τ ratios and ±0.06 on radiance ratios — the
     band the measured values sit in with margin for grid/interpolation noise,

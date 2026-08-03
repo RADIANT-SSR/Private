@@ -34,8 +34,10 @@ scenario (and 4.5) are the first consumers.
   it honestly rather than tuning the datasheet to match.
 
 *Figures refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-08); the well fraction and D* residual both moved with CU-224's
-down-looking `(1−τ)·B(λ,T_eff)` path-radiance term.*
+2026-08-02, pre-CU-321); the well fraction and D* residual moved by ~0.1 point
+with CU-321's height-resolved emission temperature on the CU-224 path-radiance
+term. Both verdicts (PASS/PASS) and the −13 % BLIP interpretation are
+unchanged.*
 
 ---
 

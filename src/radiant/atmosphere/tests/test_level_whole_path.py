@@ -110,7 +110,7 @@ def test_slant_columns_are_two_halves_plus_the_continuation(
     Assembled here independently from the spherical slant integral, so this is a
     statement about the *path*, not a re-run of the implementation.
     """
-    _od, masses, geometry = level_whole_path_optical_depth(
+    _od, masses, geometry, _species = level_whole_path_optical_depth(
         _atm(), _grid(), altitude_m=altitude_m, arm_length_m=arm_m
     )
     r_p = level_path_perigee_radius_m(altitude_m, arm_m)
@@ -180,20 +180,39 @@ def test_a_longer_arm_traverses_more_air() -> None:
 
 @pytest.mark.level0
 def test_the_whole_path_emits_one_graybody() -> None:
-    """``L = (1 − τ)·B(T_eff(h_arm))`` for a dark scene — exactly one emitter.
+    """``L = (1 − τ)·B(T_eff(λ))`` for a dark scene — exactly one emitter.
 
     The two-segment composition this replaces emitted twice, at two different
-    effective temperatures, joined at the target plane.  One segment, one τ, one
-    ``T_eff``: that identity is what removes the CU-254 non-additivity.
+    effective temperatures, joined at the target plane.  One segment, one τ,
+    one emission-temperature model: that identity is what removes the CU-254
+    non-additivity, and it survives CU-321 — the temperature is now resolved in
+    altitude *within* the one segment, not split across two of them.
     """
     lam = _grid()
     atm = _atm()
-    q = evaluate_level_whole_path(atm, lam, altitude_m=10_000.0, arm_length_m=50_000.0)
+    altitude_m, arm_m = 10_000.0, 50_000.0
+    q = evaluate_level_whole_path(atm, lam, altitude_m=altitude_m, arm_length_m=arm_m)
+    _od, _masses, geometry, species_od = level_whole_path_optical_depth(
+        atm, lam, altitude_m=altitude_m, arm_length_m=arm_m
+    )
     expected = segment_thermal_emission(
-        lam, q.tau, atm._downwelling_effective_temperature_K(10_000.0)
+        lam,
+        q.tau,
+        atm._segment_emission_temperature_K(
+            lam,
+            h_low_m=float(geometry["integration_floor_m"]),
+            h_high_m=_TOP,
+            od_slant_mol=species_od["mol"],
+            od_slant_aer=species_od["aer"],
+            od_slant_h2o=species_od["h2o"],
+            od_slant_gas=species_od["gas"],
+            escape="lower",
+        ),
     )
     np.testing.assert_allclose(q.L_toward_lower, expected, rtol=1e-12, atol=0.0)
-    np.testing.assert_array_equal(q.L_toward_lower, q.L_toward_upper)
+    # The path spans 10 km → 100 km, so it is NOT isothermal and the two escape
+    # ends differ; the sensor end (lower) sees the warmer air.
+    assert np.all(q.L_toward_lower >= q.L_toward_upper)
 
 
 @pytest.mark.level0
@@ -222,7 +241,17 @@ def test_it_differs_from_the_two_segment_composition_it_replaces() -> None:
     composed = arm.L_toward_upper + arm.tau * continuation.L_toward_lower
 
     mwir = (lam > 3.0) & (lam < 5.0)
-    assert float(np.median(composed[mwir])) < float(np.median(whole.L_toward_lower[mwir]))
+    assert float(np.median(composed[mwir])) != float(np.median(whole.L_toward_lower[mwir]))
+    # CU-321 flips the SIGN of this difference, and the reason is instructive:
+    # the retired composition emitted its arm at the near-surface-referenced
+    # CU-155 temperature over the whole 50 km arm, which for a 10 km arm is
+    # *warmer* than the height-resolved value the one-segment form now uses over
+    # the same air.  What CU-254 measured (an under-report) was the composition
+    # against the one-temperature whole path; against the height-resolved whole
+    # path the composition over-reports instead.  The invariant that survives —
+    # and the one this test exists for — is that the two are not the same
+    # number, i.e. the join is still not a no-op.
+    assert float(np.median(composed[mwir])) > float(np.median(whole.L_toward_lower[mwir]))
 
 
 # ---------------------------------------------------------------------------
@@ -269,7 +298,7 @@ def test_a_zero_length_arm_is_exactly_the_grazing_evaluator() -> None:
 def test_a_sea_level_arm_warns_that_its_perigee_is_clamped() -> None:
     """Rule 17: the clamp is announced, with its depth and its bounded size."""
     with pytest.warns(UserWarning, match="BELOW mean sea level"):
-        _od, _m, geometry = level_whole_path_optical_depth(
+        _od, _m, geometry, _species = level_whole_path_optical_depth(
             _atm(), _grid(), altitude_m=0.0, arm_length_m=8_000.0
         )
     assert geometry["perigee_altitude_m"] < 0.0

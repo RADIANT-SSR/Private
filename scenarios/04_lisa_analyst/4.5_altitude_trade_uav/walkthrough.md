@@ -47,9 +47,9 @@ Detection holds while `ff · ΔT · τ_atm ≥ threshold · NETD`. The
 
 | Quantity | Value |
 |----------|-------|
-| dP/dT (from the chain's dS/dT) | 1.530 × 10⁻¹⁰ W/K |
-| NEP = NETD · dP/dT | 7.648 × 10⁻¹² W |
-| **D\* = √(A·Δf)/NEP** | **1.243 × 10⁹ Jones** |
+| dP/dT (from the chain's dS/dT) | 1.517 × 10⁻¹⁰ W/K |
+| NEP = NETD · dP/dT | 7.584 × 10⁻¹² W |
+| **D\* = √(A·Δf)/NEP** | **1.253 × 10⁹ Jones** |
 
 *Numbers refreshed 2026-08-02 from the unmodified runner. This table's previous
 vintage is 2026-07-08 (`efea031`) — the 2026-07-20 commit on this file added
@@ -59,8 +59,12 @@ elevated-target support, which reshapes τ(λ) inside 8–14 µm and rebuilds ho
 sensor altitude enters the absorbing column. Note dP/dT rises 7.7 % while
 band-mean τ falls, so the driver is the spectral re-weighting inside the band
 (where dB/dT is large), not the τ level. CU-267 contributes −0.21 % of τ on
-8–14 µm. CU-224 does **not** reach this scenario's metric: apparent ΔT is
-`ff · ΔT · τ` with no radiance term for path emission to enter.*
+8–14 µm. Neither CU-224 nor CU-321 reaches this scenario's headline metric:
+apparent ΔT is `ff · ΔT · τ` with no radiance term for path emission to enter,
+and τ is untouched by both. They do reach this converter table, which runs
+through the chain's `dS/dT`: CU-321's height-resolved emission temperature
+moves dP/dT −0.85 % (1.530 → 1.517 × 10⁻¹⁰ W/K) and D\* +0.8 % with it. The
+altitude trade and the 7.5 km ceiling below are bit-identical.*
 
 D\* ≈ 10⁹ Jones is the textbook value for an uncooled microbolometer —
 about 100× below a cooled photon detector (scenario 6.1's 1.8 × 10¹¹). The

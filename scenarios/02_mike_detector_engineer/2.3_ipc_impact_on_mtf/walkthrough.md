@@ -48,15 +48,15 @@ RADIANT evaluates the full signal chain from source through atmosphere, optics, 
 
 The baseline results at 500 km with atmosphere:
 - System MTF at Nyquist: 0.2668 (above the 0.15 requirement)
-- SNR: 837.67 (well above the 100 requirement)
+- SNR: 781.17 (well above the 100 requirement)
 - EE 1x1: 0.4141 (below the 0.60 requirement — already fails at baseline)
 - GSD: 7.50 m (cross-track = along-track at nadir)
 - Q (sampling parameter): 0.944 (near-optimal Nyquist matching)
-- NEDT: 35.6 mK
-- NIIRS: 4.87
+- NEDT: 38.2 mK
+- NIIRS: 4.82
 - Strehl ratio: 1.000 (diffraction-limited, no WFE applied)
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage 2026-07-22). Dominant mover: CU-224 — down-looking path radiance now carries `(1−τ)·B(λ,T_eff)`, which raises the MWIR at-aperture signal on `atmosphere.model = "simple"`; SNR +16.0 % and NEDT −13.6 % move as exact inverses of one another, and NIIRS follows the SNR term. CU-267's gas-region blend (τ down ≤ 0.71 % on 3.0–5.0 µm) is a small second-order offset in the opposite direction. The EE 1×1 move (0.4826 → 0.4141) is spatial, not radiometric, and is **not accounted for by any single in-window Results-affecting landing** — CU-188's cell-area-overlap EE_box is scoped to the point-source/sub-pixel regimes and this scene is EXTENDED. System MTF at Nyquist did not move.*
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage 2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the down-looking path-thermal term is now emitted at a height-resolved `T_eff(λ)` over the 0 → 500 km column rather than at its near-surface temperature, so the MWIR at-aperture path radiance falls: SNR 837.67 → 781.17 (−6.7 %) and NEDT 35.6 → 38.2 mK (+7.3 %), again exact inverses of one another, with NIIRS 4.87 → 4.82 following the SNR term. Purely radiometric: MTF at Nyquist, EE 1×1, GSD, Q and Strehl are all bit-identical, which is the check that this is the atmosphere term and nothing spatial. The takeaways below are unchanged — the binding constraint is still EE 1×1 at baseline, and SNR is still ~8× its requirement.*
 
 The extended radiometric regime is active because the target (a 310 K ground scene) fills the entire pixel. In this regime, background temperature (295 K) only enters the contrast SNR calculation — it does not affect the primary signal or noise budget.
 

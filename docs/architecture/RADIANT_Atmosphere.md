@@ -210,23 +210,51 @@ Cross-validated against the five non-calibration profile anchors (A2–A6) to �
 ```
 L_path(λ)      = L_path,scat(λ) + L_path,therm(λ)
 L_path,scat(λ) = [E_sun(λ) / (4π)] · cos(θ_sun) · ω₀(λ) · P(θ_scatter) · [1 − τ_atm(λ)]
-L_path,therm(λ) = [1 − τ_atm(λ)] · B(λ, T_eff(h_low))
+L_path,therm(λ) = [1 − τ_atm(λ)] · B(λ, T_eff(λ))
 ```
 where `E_sun(λ)` is the TOA solar spectral irradiance and the `4π` is the full-sphere phase function normalization. With `ω₀ = 0.95` (rural), `0.85` (urban), `0.99` (maritime), and a Henyey-Greenstein phase function with `g = 0.7` (`simple.HG_ASYMMETRY`). The scattered term is good to ±30% in VIS/SWIR and is intentionally crude; users who need better path radiance use MODTRAN.
 
-The thermal term is the same `atmosphere/segment_thermal.py` the up-looking segment evaluators use — one module, called from both directions (Rule 19) — with emissivity derived from the column's own transmittance (Kirchhoff, Rule 5; never an independent input) and `T_eff` from the CU-155 emission-height helper evaluated at the column's **lower** endpoint: `h_tgt` for the target leg (`L_path_up`), the ground for the background leg (`L_path_full`). It applies whether or not the sun is up — a night down-looking scene has scattered ≡ 0 and thermal > 0.
+The thermal term is the same `atmosphere/segment_thermal.py` the up-looking segment evaluators use — one module, called from both directions (Rule 19) — with emissivity derived from the column's own transmittance (Kirchhoff, Rule 5; never an independent input). It applies whether or not the sun is up — a night down-looking scene has scattered ≡ 0 and thermal > 0.
 
-> **CU-224 (2026-08-02).** Until this date the down-looking side had the scattered term **only**, so a pure-thermal LWIR down-looking scene had `L_path ≡ 0` exactly while the up-looking segment evaluators carried `(1 − τ)·B`, and one column of air read in the two directions differed by three to four orders of magnitude. Upwelling MWIR/LWIR path radiance is emission-dominated, not scatter-dominated, so this was a missing first-order term rather than an accuracy limit. Anchored against the batch-2 O-block upwelling MODTRAN runs (O1–O5, each the direction partner of an already-delivered up-looking run on the identical column, midlat_summer, θ_s = 30°), band-mean model/MODTRAN thermal path radiance:
+**Emission temperature — height-resolved (CU-321, 2026-08-02).** `T_eff(λ)` comes from `atmosphere/emission_temperature.py`: the single temperature that makes this one-slab Kirchhoff form reproduce the **layered formal solution** of the segment's own non-isothermal air. Slice the segment into sub-layers of slant optical depth $\delta_i(\lambda)$ and temperature $T_i$, ordered from the end the radiation escapes; then
+
+$$L(\lambda) = \sum_i B(\lambda, T_i)\,\bigl(1 - e^{-\delta_i(\lambda)}\bigr)\,e^{-c_i(\lambda)}, \qquad c_i = \sum_{j<i}\delta_j,$$
+
+whose weights telescope to exactly $1 - \tau(\lambda)$, so $L = (1-\tau)\,\langle B\rangle$ and $T_{\text{eff}}(\lambda) = B^{-1}(\langle B\rangle)$ is bounded by the coldest and warmest layer in the segment. Three properties are structural, not fitted:
+
+- **the total optical depth is untouched** — only the altitude the emission is weighted at changes, so every τ in the model is bit-identical across CU-321;
+- **isothermal is exact** — a level arm returns its own profile temperature for every τ and both directions, so the level topologies keep a single exact graybody temperature;
+- **direction is geometry, not a fork** — `escape` names which endpoint the radiance leaves from. One model serves both directions (Rule 27); the down-looking `evaluate` term uses `escape="upper"` and the up-looking segment product `escape="lower"`. A direction-blind optical-depth-weighted mean temperature was measured against the same anchors and rejected (it *degrades* the MWIR everywhere; see below).
+
+Where the opacity sits in altitude is taken from first principles rather than fitted. The CU-161 curve of growth fixes each species' **total** column optical depth and says nothing about its vertical distribution, which is what the weighting needs. Scattering species (Rayleigh, aerosol) have extinction proportional to number density and keep their own density scale heights; pressure-broadened absorbers (the well-mixed-gas floor and water vapour) have a Lorentz absorption coefficient $\alpha \propto \rho_{\text{absorber}}\,p_{\text{air}}$ and therefore emit on the harmonic combination $(1/H_a + 1/H_{\text{air}})^{-1}$ — 4 km for the well-mixed floor against its 8 km density profile, 1.6 km for water against its 2 km. No coefficient here is fitted; the sub-layer count is a convergence-tested quadrature (max ΔT_eff 0.016 K against a 16× finer reference), so nothing in this model needs a `ParameterDef` (Rule 12).
+
+The retired form assigned the whole segment the CU-155 emission-height temperature at its **lower** endpoint. That helper survives, but only for the hemispheric `E_sky_thermal` flux below, whose `z_em` offset is fit *jointly* with a diffusivity exponent through that one formula and is not transferable to a directional product.
+
+> **CU-224 (2026-08-02).** Until this date the down-looking side had the scattered term **only**, so a pure-thermal LWIR down-looking scene had `L_path ≡ 0` exactly while the up-looking segment evaluators carried `(1 − τ)·B`, and one column of air read in the two directions differed by three to four orders of magnitude. Upwelling MWIR/LWIR path radiance is emission-dominated, not scatter-dominated, so this was a missing first-order term rather than an accuracy limit. The transmittances are untouched — the term is additive on radiance alone, and `τ_up` stays bit-identical to the up-looking segment's `τ` (Level-0 test).
 >
-> | run | column | MWIR 3–5 µm | LWIR 8–12 µm |
-> |---|---|---:|---:|
-> | O1 | 1 km → ground, nadir | 0.416 | 0.535 |
-> | O2 | 5 km → ground, nadir | 1.065 | 1.111 |
-> | O3 | 10 km → ground, ζ = 48.2° | 2.016 | 1.327 |
-> | O4 | 10 km → ground, ζ = 60° | 2.251 | 1.353 |
-> | O5 | 100 km → ground, ζ = 48.2° | 2.424 | 1.431 |
+> **CU-321 (2026-08-02) — measured parity, both directions.** The one-temperature graybody CU-224 shipped with over-stated the tall-column MWIR by 2.0–2.4×, because the whole column emitted at its lower endpoint's temperature while the MWIR opacity of a 10–100 km column sits mostly in cold high air. Replacing it with the height-resolved `T_eff(λ)` above gives, as band-mean model/MODTRAN thermal path radiance against the batch-2 direction pairs (midlat_summer unless noted, θ_s = 30°):
 >
-> (before the fix: 2e-3 … 3e-8). That is the same parity band the up-looking side sits in on the identical columns — 0.458/0.804/1.337/1.204/1.491 MWIR and 0.532/1.056/1.218/1.226/1.265 LWIR against K1/K3/N4/N9/H5 — so what remains is the shared CU-155/CU-161 spectral-shape and one-temperature-graybody residual, not a direction-specific defect. **Known limitation:** the model over-states the tall-column MWIR by ~2.0–2.4× because the whole column emits at the lower endpoint's temperature; the MWIR opacity of a 10–100 km column sits mostly in cold high air. The one-temperature graybody's directional error is quantified in `segment_thermal.py`'s docstring; a direction- and height-dependent emission temperature is the follow-on. The transmittances are untouched — the term is additive on radiance alone, and `τ_up` stays bit-identical to the up-looking segment's `τ` (Level-0 test).
+> | run | column | direction | MWIR 3–5 µm | LWIR 8–12 µm |
+> |---|---|---|---:|---:|
+> | O1 | ground ↔ 1 km, nadir | down | 0.407 → **0.380** | 0.533 → **0.517** |
+> | O2 | ground ↔ 5 km, nadir | down | 1.057 → **0.731** | 1.109 → **0.947** |
+> | O3 | ground ↔ 10 km, ζ = 48.2° | down | 2.013 → **1.141** | 1.326 → **1.055** |
+> | O4 | ground ↔ 10 km, ζ = 60° | down | 2.249 → **1.221** | 1.352 → **1.060** |
+> | O5 | ground ↔ 100 km, ζ = 48.2° | down | 2.422 → **1.217** | 1.430 → **1.093** |
+> | K1 | ground ↔ 1 km, nadir | up | 0.379 → **0.358** | 0.530 → **0.515** |
+> | K3 | ground ↔ 5 km, nadir | up | 0.664 → **0.502** | 1.054 → **0.930** |
+> | K5 | ground ↔ 20 km, nadir | up | 0.878 → **0.586** | 1.230 → **1.033** |
+> | N4 | ground ↔ 10 km, ζ = 48.2° | up | 0.926 → **0.660** | 1.216 → **1.050** |
+> | N9 | ground ↔ 10 km, ζ = 60° | up | 1.012 → **0.743** | 1.225 → **1.070** |
+> | H1 | ground ↔ 100 km, nadir, us_standard | up | 1.006 → **0.624** | 1.530 → **1.189** |
+> | H4 | ground ↔ 100 km, ζ = 48.2°, tropical | up | 1.046 → **0.754** | 1.226 → **1.080** |
+> | H5 | ground ↔ 100 km, ζ = 48.2° | up | 1.041 → **0.721** | 1.263 → **1.074** |
+>
+> (before CU-224 the down-looking column read 2e-3 … 3e-8 — no thermal term at all.) Over the full 25-run anchor set the RMS |ln ratio| goes **LWIR 0.330 → 0.269** and **MWIR 0.474 → 0.522**, i.e. LWIR improves 19 % and MWIR degrades 10 %; the direction-balanced score (the two directions weighted equally, which is what "one model for both directions" asks for) improves 0.484 → 0.409.
+>
+> **What the MWIR degradation is.** It is confined to the up-looking direction and is *un-masking*, not new error. MODTRAN reports τ and thermal path radiance separately, so its own emission temperature is recoverable as `B⁻¹(L/(1−τ))`; measured against that, the pre-CU-321 single temperature was up to **25 K** too warm and the height-resolved one is within **11 K** everywhere (RMS 9.5/10.4 K → 4.3/3.2 K, MWIR/LWIR). Scoring the radiance with MODTRAN's own emissivity — which isolates the temperature error from the τ error — the RMS |ln ratio| improves 0.287 → 0.148 across the set. The up-looking MWIR full-radiance ratio nonetheless falls because the retired warm bias had been partly cancelling the **CU-161 region-flat spectral-shape deficit** in that direction; removing the temperature error leaves the shape error visible. Both scoreboards are pinned in `tests/integration/test_emission_temperature_anchors.py`.
+>
+> **Known limitation (narrowed).** The residual is now the CU-161 region-flat spectral shape, not the emission temperature: the model under-reads up-looking MWIR thermal path radiance by 25–40 % on columns deeper than 5 km, and over-reads down-looking MWIR by ~20 % on tall ones. Fixing it needs spectral structure inside the calibrated regions (a line-resolved or sub-region opacity model), not a further temperature refinement. Above the tropopause the fixed-lapse profile is isothermal, so real stratospheric warming is not represented; a grazing arc's air is distributed along the arc rather than along the vertical between its endpoints, which makes the weighting approximate there (its total optical depth is still exact).
 
 **Atmospheric thermal emission** for the simple model uses a target-anchored graybody (CU-155, recalibrated 2026-07-18):
 ```
@@ -236,6 +264,8 @@ L_atm_down(λ)    = E_sky_thermal(λ) / π        (hemispheric-mean radiance)
 where `τ_sky,vert` is the **vertical** transmittance of the **target→h_atm_top** column (the sky the target actually sees — the sensor's altitude and viewing zenith deliberately do not enter a hemispheric flux at the target), `T(·)` is the fixed-lapse ICAO standard-atmosphere lookup (floored at the 216.65 K tropopause), and the two constants are fit jointly to the real MODTRAN 6 up-looking H-runs (H2 us_standard + H4 tropical, LWIR + MWIR band integrals): emission-height offset `z_em = 200 m` (downwelling is dominated by near-surface air; the E1 flux DOWN at 14.4 µm ≈ π·B(283 K)) and flux-diffusivity exponent `D = 1.1` (below the textbook Elsasser 1.66 because the CU-161 τ calibration to slant paths already absorbs part of the hemispheric weighting).
 
 > **Measured accuracy (CU-155, resolved 2026-07-18):** band-integrated model/MODTRAN ratios at the fit — H2 LWIR 1.24, H2 MWIR 0.70, H4 LWIR 1.41, H4 MWIR 1.34, versus 0.21 / 0.02 / 0.21 / 0.03 for the pre-fix model (which evaluated `T_atm_eff` at 0.5·h_sensor and clamped every space column to the tropopause). The residual ±40% tracks the CU-161 region-flat spectral-shape fragility, not temperature structure. Parity envelope pinned in `tests/integration/test_modtran_real_runs.py`; for higher fidelity use MODTRAN-derived data (Gap 81/CU-157 for the import path's own sky terms).
+>
+> **Scope narrowed 2026-08-02 (CU-321).** These constants and this accuracy statement now govern the hemispheric `E_sky_thermal` flux **only**, and the ratios above are unchanged by CU-321 — this product does not move. The `z_em = 200 m` offset is a proxy for the emission altitude and is fit *jointly* with `D = 1.1` through this one closed form; a directional path-radiance product cannot inherit that pair, so `L_path,therm` takes its temperature from the height-resolved model in §3.1 instead. The two coexist deliberately (Rule 27 does not apply — they are different products, not two versions of one).
 
 **Diffuse scattered-solar sky irradiance** for the simple model (Stage 6 / ADR-0002; ω₀ recalibrated 2026-07-20, Gap 38):
 ```

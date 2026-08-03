@@ -109,7 +109,7 @@ from radiant.atmosphere.segment_single_scatter import (
     cos_scattering_angle,
     segment_single_scatter_radiance,
 )
-from radiant.atmosphere.segment_thermal import segment_thermal_emission
+from radiant.atmosphere.segment_thermal import directional_segment_thermal
 from radiant.atmosphere.segments import SegmentQuantities, validate_wavelength_grid
 from radiant.atmosphere.simple import H_AER_M, H_H2O_M, H_MOL_M, SimpleAtmosphere
 from radiant.core.constants import R_EARTH_M
@@ -173,12 +173,15 @@ def level_whole_path_optical_depth(
     altitude_m: float,
     arm_length_m: float,
     h_atm_top_m: float = DEFAULT_H_ATM_TOP_M,
-) -> tuple[np.ndarray, SpeciesAirMass, dict[str, float]]:
+) -> tuple[np.ndarray, SpeciesAirMass, dict[str, float], dict[str, np.ndarray]]:
     """Slant optical depth of the whole traversed level path [dimensionless].
 
-    Returns ``(od_slant, masses, geometry)``.  See the module docstring for the
-    ``2·S(h_p→h_arm) + S(h_arm→h_top)`` construction and for the sub-surface
-    perigee clamp.
+    Returns ``(od_slant, masses, geometry, species_od)``.  See the module
+    docstring for the ``2·S(h_p→h_arm) + S(h_arm→h_top)`` construction and for
+    the sub-surface perigee clamp.  ``species_od`` is the four slant
+    per-species optical depths keyed by
+    :data:`radiant.atmosphere.segment_thermal.SPECIES_KEYS`; they sum to
+    ``od_slant`` and feed the CU-321 emission weighting.
 
     Warns
     -----
@@ -223,13 +226,23 @@ def level_whole_path_optical_depth(
         slant_column_aer_km=slants["aer"],
         slant_column_h2o_km=slants["h2o"],
     )
+    od_vert_mol = atmosphere._rayleigh_extinction_km(lam, 0.0) * columns["mol"]
+    od_vert_aer = atmosphere._aerosol_extinction_km(lam, 0.0) * columns["aer"]
+    od_vert_h2o = atmosphere._h2o_vertical_od(lam, columns["h2o"])
+    od_vert_gas = atmosphere._gas_floor_vertical_od(lam, columns["mol"])
     od = apply_species_air_mass(
         masses,
-        od_vert_mol=atmosphere._rayleigh_extinction_km(lam, 0.0) * columns["mol"],
-        od_vert_aer=atmosphere._aerosol_extinction_km(lam, 0.0) * columns["aer"],
-        od_vert_h2o=atmosphere._h2o_vertical_od(lam, columns["h2o"]),
-        od_vert_gas=atmosphere._gas_floor_vertical_od(lam, columns["mol"]),
+        od_vert_mol=od_vert_mol,
+        od_vert_aer=od_vert_aer,
+        od_vert_h2o=od_vert_h2o,
+        od_vert_gas=od_vert_gas,
     )
+    species_od = {
+        "mol": od_vert_mol * masses.m_mol,
+        "aer": od_vert_aer * masses.m_aer,
+        "h2o": od_vert_h2o * masses.m_h2o,
+        "gas": od_vert_gas * masses.m_mol,
+    }
     geometry = {
         "col_length_mol_km": columns["mol"],
         "col_length_aer_km": columns["aer"],
@@ -239,7 +252,7 @@ def level_whole_path_optical_depth(
         "tangent_depression_m": altitude_m - h_p,
         **masses.as_provenance(),
     }
-    return od, masses, geometry
+    return od, masses, geometry, species_od
 
 
 def evaluate_level_whole_path(
@@ -321,7 +334,7 @@ def evaluate_level_whole_path(
             provenance=provenance,
         )
 
-    od, masses, geometry = level_whole_path_optical_depth(
+    od, masses, geometry, species_od = level_whole_path_optical_depth(
         atmosphere,
         lam,
         altitude_m=altitude_m,
@@ -331,12 +344,21 @@ def evaluate_level_whole_path(
     tau = np.exp(-od)
     provenance.update(geometry)
 
-    # One graybody for the whole path — this is the point of the module.  The
-    # emission-height temperature is keyed to the sensor end, where the radiance
-    # emerges and where the CU-155 fit is referenced.
-    t_eff_K = atmosphere._downwelling_effective_temperature_K(altitude_m)
-    provenance["t_eff_K"] = t_eff_K
-    thermal = segment_thermal_emission(lam, tau, t_eff_K)
+    # One graybody for the whole path — this is the point of the module — but
+    # since CU-321 that graybody's temperature is height-resolved over the
+    # altitudes the path actually spans, from its perigee up to the top of the
+    # modelled column, rather than pinned to the sensor end.  ``escape="lower"``
+    # is the sensor end: the sky radiance the aperture measures emerges at the
+    # bottom of the ascending path.
+    thermal_toward_upper, thermal_toward_lower = directional_segment_thermal(
+        atmosphere,
+        lam,
+        tau,
+        h_low_m=float(geometry["integration_floor_m"]),
+        h_high_m=h_atm_top_m,
+        species_od=species_od,
+        provenance=provenance,
+    )
 
     scat_up, scat_dn, scatter_prov = _whole_path_single_scatter_terms(
         atmosphere,
@@ -352,8 +374,8 @@ def evaluate_level_whole_path(
     return SegmentQuantities(
         wavelength_um=lam,
         tau=tau,
-        L_toward_upper=thermal + scat_up,
-        L_toward_lower=thermal + scat_dn,
+        L_toward_upper=thermal_toward_upper + scat_up,
+        L_toward_lower=thermal_toward_lower + scat_dn,
         provenance=provenance,
     )
 

@@ -47,6 +47,52 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-325 — Sweep-dialog defect family: copy-as-script emits broken/non-reproducing scripts; Esc mid-run orphans the worker; log spacing silently axis-1-only
+
+**Discovered**: four-surface GUI design critique (dual-agent assessment, sweep dialog), 2026-08-03. Family head (Rule 21 family-CU provision).
+**Status**: Open
+**File**: `src/radiant/gui/widgets/sweep_dialog.py` (`:399` 2-D script interpolates undefined `values2`; `:391` 1-D script passes input-unit values to the canonical-unit API with only a "convert if needed" comment; `:214–216` no `closeEvent`/`reject` guard while `_SweepWorker` runs; `:283` `log=False` hardcoded for axis 2 while the checkbox label claims no scope).
+**Symptom**: "Copy as script" — the feature carrying the clickable=scriptable positioning claim — produces a 2-D script that raises `NameError` on paste and a 1-D script that silently computes a different sweep than the GUI ran; Esc/Close during a run closes the dialog with the QThread still sweeping (latent teardown crash); a 2-D log-spaced sweep is linear on axis 2 with no indication.
+**Why it still matters**: workflow-visible (intake test 4 — Sarah's 3–5×/week core workflow) and reproducibility-breaking: the emitted script is the recorded provenance of a trade study and it does not reproduce the plotted numbers.
+Checklist:
+- [ ] Emit a complete runnable script (both axes constructed, explicit unit conversion), round-trip-tested by exec'ing the emission
+- [ ] Guard `closeEvent`/`reject` while a worker runs (cancel-or-confirm)
+- [ ] Either apply log spacing to both axes or label/disable it as axis-1-only
+- [ ] Pre-validate range against `ParameterDef` bounds before launching (fail before point 1, not at it)
+**Suggested fix**: (b) stand-alone task. Effort M; category D.
+
+### CU-326 — Display-unit hard-rule violations family: card/badge unit disagreement, scientific notation for µm-scale lengths, canonical radians shown raw, unitless sweep axes
+
+**Discovered**: four-surface GUI design critique, 2026-08-03. Family head.
+**Status**: Open — one item owner-gated (global display-unit preference policy).
+**File**: `src/radiant/gui/metric_format.py` (`metric_value_display` `:199` skips `scale_for_display` while `badge_display` `:293` applies it); `src/radiant/gui/widgets/parameter_panel.py` (values render in canonical units — `1.5708 rad`, `0 m2`); `src/radiant/gui/widgets/sweep_dialog.py` (`:346` 1-D x-axis in canonical unit while entry is input unit; `:364–365` 2-D axes and metric colorbar carry no units).
+**Symptom**: NEDT shows **0.025 K** on the Performance card and **25 mK** on the pinned badge simultaneously; FWHM renders `2.13e−05 m` (21.3 µm); elevation angles display `1.5708 rad`; the sweep plot's axis unit differs from the unit the user typed; 2-D sweep axes are unit-less.
+**Why it still matters**: the owner's two hard rules (display in the user's chosen unit, entry/display symmetric; units on every output) are violated on the default results screen and the primary trade-study artifact — the numbers that go into design-review slides.
+Checklist:
+- [ ] Route card rendering through `scale_for_display` (one screen, one unit per metric)
+- [ ] Engineering-prefix formatter so µm/mK-scale values never render as `e−05`-style scientific notation
+- [ ] Owner ruling: global display-unit preference (angles in deg by default?) layered over the existing per-row override
+- [ ] Sweep plots labeled in the entry unit; every axis and colorbar unit-suffixed; `m²` not `m2`
+**Suggested fix**: (b) stand-alone task after the owner ruling on item 3. Effort M; category D.
+
+### CU-327 — Run button's documented stale→warn flip is unimplemented (aspirational-doc drift on the staleness trust signal)
+
+**Discovered**: four-surface GUI design critique, 2026-08-03.
+**Status**: Open
+**File**: `src/radiant/gui/themes/stylesheet.py` (`QPushButton#runButton` base+hover only, `:987–996` — no `[stale]` variant); `src/radiant/gui/main_window.py` (no caller sets a stale property on the run button).
+**Symptom**: arch doc §8.4 and DESIGN.md promise the Run button "flips to a `warn` background to signal re-evaluate" when results are stale; the button stays terracotta in every state. Staleness is carried only by stage dots, the status bar, and pinned-card `→?` glyphs.
+**Why it still matters**: workflow-visible (test 4) and Rule 20 drift — the staleness signal on the primary action is the product's trust boundary (an analyst pasting a stale SNR into a briefing is the failure mode the rail exists to prevent).
+**Suggested fix**: (a) inline-fix-now scale — add the `[stale="true"]` QSS variant + set/clear the property on edit/failure/success; optionally flip the label to "Re-evaluate F5". Effort S; category D.
+
+### CU-328 — All-Parameters panel: fixed 104/72 px value/source columns starve the name column — eight consecutive rows render identically as `target.shape…`
+
+**Discovered**: four-surface GUI design critique, 2026-08-03.
+**Status**: Open
+**File**: `src/radiant/gui/widgets/parameter_panel.py` (`:119–120` `_VALUE_COL_WIDTH = 104`, `_SOURCE_COL_WIDTH = 72`, applied at `:216–217`; name column is the stretch column and right-elides).
+**Symptom**: at the shipped ~360 px dock width, ~25 of ~33 visible geometry rows truncate mid-word and the eight `target.shape.*` parameters are visually indistinguishable (`target.shape…` × 8, differing only by value unit). The panel's discriminating content — the parameter name — is the element that clips first.
+**Why it still matters**: workflow-visible (test 4) — this is the "reach every parameter" surface for every persona, and rows cannot be told apart without hovering each one.
+**Suggested fix**: (b) stand-alone task — nest shared dot-path prefixes as tree children (`target.shape` → `length`/`width`/…), middle-elide names, shrink Source to a badge, make Value content-sized. Effort M; category D.
+
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).

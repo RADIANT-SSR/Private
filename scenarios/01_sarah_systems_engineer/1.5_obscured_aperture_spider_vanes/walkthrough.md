@@ -50,12 +50,22 @@ correctly attributed to EE/RER/SNR, not Strehl.
 
 | Configuration | SNR | EE_3×3 | RER | MTF@Nyq | Strehl |
 |---------------|-----|--------|-----|---------|--------|
-| Unobstructed | 88.0 | 0.867 | 0.583 | 0.229 | 1.000 |
-| Obscured only (ε=0.30) | 83.8 | 0.771 | 0.518 | 0.208 | 1.000 |
-| Obscured + 4× 3 cm spiders | 78.5 | 0.664 | 0.486 | 0.222 | 1.000 |
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22, CU-176). SNR moves by −1.5 % on every row and the spatial metrics by
+under 1 %: the mover is **CU-253**'s VIS/NIR Rayleigh correction, whose raised
+transmittance and halved scattered-sky term nearly cancel for this extended
+reflective pan scene, with **CU-267**'s gas-region blend (−0.20 % band-mean τ on
+0.5–0.8 µm) underneath. The comparison this scenario exists to make — aperture
+geometry against SNR/EE/RER — is unchanged, because every row moved together.*
+
+| Configuration | SNR | EE_3×3 | RER | MTF@Nyq | Strehl |
+|---------------|-----|--------|-----|---------|--------|
+| Unobstructed | 86.7 | 0.864 | 0.582 | 0.228 | 1.000 |
+| Obscured only (ε=0.30) | 82.5 | 0.763 | 0.517 | 0.207 | 1.000 |
+| Obscured + 4× 3 cm spiders | 77.3 | 0.657 | 0.485 | 0.221 | 1.000 |
 
 - Going from an ideal unobstructed aperture to the full Cassegrain costs
-  **11 % of SNR and 23 % of the 3×3 encircled energy.** The obscuration
+  **10.9 % of SNR and 24 % of the 3×3 encircled energy.** The obscuration
   alone accounts for most of the SNR loss (less area); the spiders add the
   diffraction-spike EE/RER penalty on top.
 - **Strehl is 1.000 throughout** — confirming it isolates WFE and is blind
@@ -66,10 +76,12 @@ correctly attributed to EE/RER/SNR, not Strehl.
 
 | Width | SNR | EE_3×3 | RER |
 |-------|-----|--------|-----|
-| 0 cm | 83.8 | 0.771 | 0.518 |
-| 2 cm | 80.3 | 0.690 | 0.494 |
-| 3 cm | 78.5 | 0.664 | 0.486 |
-| 5 cm | 74.7 | 0.613 | 0.470 |
+| 0 cm | 82.5 | 0.763 | 0.517 |
+| 1 cm | 80.8 | 0.736 | 0.509 |
+| 2 cm | 79.0 | 0.683 | 0.493 |
+| 3 cm | 77.3 | 0.657 | 0.485 |
+| 4 cm | 75.4 | 0.632 | 0.477 |
+| 5 cm | 73.5 | 0.607 | 0.469 |
 
 EE_3×3 and RER fall monotonically with strut width — each centimetre of
 strut scatters more core energy into the spikes and shaves more collecting
@@ -93,8 +105,8 @@ strut-free supports, quantifying the price of a robust secondary mount.
 
 - **Regime = EXTENDED.** The sunlit surface fills the pixel; the spatial
   metrics (EE, RER, MTF) are the point of interest here, not the regime.
-- **MTF@Nyquist is non-monotonic** across the three apertures (0.229 →
-  0.208 → 0.222). Obscuration and thin struts redistribute the MTF: the
+- **MTF@Nyquist is non-monotonic** across the three apertures (0.228 →
+  0.207 → 0.221). Obscuration and thin struts redistribute the MTF: the
   obscuration lowers mid frequencies but the thin high-contrast strut
   slice can nudge the on-axis Nyquist value back up. The robust,
   monotonic degradation signals are EE and RER, which is why the sweep

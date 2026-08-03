@@ -85,8 +85,11 @@ Rule 25, one registry per concern). This file is the per-scenario record.
 - **LOS-termination background** — `ColdSpaceBackground` with identically zero
   radiance, correctly selected without any scene-class branch.
 - **Rule-4 dual-path consistency** — passed on both axes with 86× margin, and
-  the nominal *and* heavily-smeared open-loop runs each raised zero
-  `UserWarning`s.
+  neither the nominal nor the heavily-smeared open-loop run raised a *consistency*
+  `UserWarning`. Each raises exactly one unrelated `UserWarning` (CU-261/265's
+  inert-optics-temperature report: `optics.optics_temperature_K = 180 K` is set
+  while `optics.scalar_emissivity` is 0, so the bench temperature contributes
+  nothing).
 - **Detection-range non-detection reporting** — short integration times report a
   result-typed failure with a `failure_reason`, not a silent NaN. Rule 17
   carve-out behaving as specified.

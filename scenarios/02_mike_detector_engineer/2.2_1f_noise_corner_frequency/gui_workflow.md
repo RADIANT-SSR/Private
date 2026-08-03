@@ -63,7 +63,7 @@ Mike, detector engineer. He has a 640×512 LWIR HgCdTe staring array with measur
 - **GUI components**:
   - Comparison table: σ_1f (full band) vs. σ_1f (corner-limited) at each frame rate, with overestimate %
   - Visual PSD with shaded overestimate region (area between f_corner and f_high that shouldn't be integrated as 1/f)
-  - Recommendation panel: "For this system, 1/f is 1.1% of noise variance — negligible for NEDT. BLIP-limited by photon noise."
+  - Recommendation panel: "For this system, 1/f is 2.3% of noise variance — negligible for NEDT. BLIP-limited by photon noise."
   - "When does 1/f matter?" reference: conditions where 1/f would be significant (low signal, very low frame rate, large K)
 
 ## Step 6: Performance Metrics Dashboard

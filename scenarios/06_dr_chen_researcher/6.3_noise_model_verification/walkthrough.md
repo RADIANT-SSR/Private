@@ -93,7 +93,7 @@ Deterministic terms (read noise, quantization = gain/sqrt(12)) are exact.
 
 signal_shot agrees to better than 0.01% once the hand model integrates
 photons spectrally and includes the reflected-solar term (1,506,203 thermal
-+ 133,934 solar = 1,640,137 e⁻ vs RADIANT 1,640,136 e⁻).
++ 133,931 solar = 1,640,135 e⁻ vs RADIANT 1,640,136 e⁻).
 
 background_shot = 0 **by design** in the extended regime: the 300 K target
 fills the pixel IFOV, so there is no separate scene-background photon stream
@@ -113,8 +113,18 @@ longer exists in extended regime.)
 | MTF at Nyquist | 0.2668 | -- | -- | -- |
 | Strehl | 1.0000 | -- | -- | -- |
 | Q (sampling) | 0.9444 | 0.9444 | -- | 0.00% |
-| EE (1x1) | 0.4826 | -- | -- | -- |
+| EE (1x1) | 0.4141 | -- | -- | -- |
 | Well margin | 1.72 | -- | dB | -- |
+
+*One value refreshed 2026-08-02 from the unmodified runner (previous
+vintage 2026-07-22): EE (1×1) 0.4826 → 0.4141. Mover: CU-188 —
+cell-area-overlap EE_box. Note the scope nuance: CU-188's stated scope is
+the point-source / sub-pixel regimes where EE_box is **applied** to the
+signal, and this scenario is EXTENDED, so its SNR and every noise term are
+bit-identical. Only the **reported** EE metric moved, because it is the
+output of the same recomputed EE_box. Everything else on this page —
+including the whole MTF budget and Strehl = 1.0 — is unchanged, as
+expected for an `exo` (vacuum) path that CU-224 and CU-267 cannot touch.*
 
 ### MTF Budget (at Nyquist)
 

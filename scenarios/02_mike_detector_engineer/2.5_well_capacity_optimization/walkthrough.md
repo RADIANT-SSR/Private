@@ -46,40 +46,45 @@ Mike, detector engineer. He has a MWIR HgCdTe FPA (640x512, 15 µm pitch, 2M e- 
 | t_int | Signal [e-] | Well Fill [%] | SNR [—] | Status |
 |---|---|---|---|---|
 | 1 µs | 5 | 0.0% | 0.1 | FAIL |
-| 200 µs | 1,096 | 0.1% | 3.5 | FAIL |
-| 1.17 ms | 6,415 | 0.3% | 8.5 | FAIL |
-| **1.82 ms** | **9,976** | **0.5%** | **10.5** | **PASS** ← |
-| **2.83 ms** | **15,516** | **0.8%** | **13.2** | **PASS** |
-| 40.09 ms | 219,550 | 11.0% | 49.5 | PASS |
+| 82.8 µs | 453 | 0.0% | 9.5 | FAIL |
+| **103.2 µs** | **565** | **0.0%** | **11.6** | **PASS** ← |
+| 200.2 µs | 1,096 | 0.1% | 20.3 | PASS |
+| 1.17 ms | 6,415 | 0.3% | 70.7 | PASS |
+| 2.83 ms | 15,516 | 0.8% | 117.9 | PASS |
+| 40.09 ms | 219,550 | 11.0% | 466.6 | PASS |
 
-**Result**: SNR ≥ 10 on the cold target requires t_int ≥ 1.82 ms.
+**Result**: SNR ≥ 10 on the cold target requires t_int ≥ 103.2 µs.
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage 2026-04-19). Dominant mover: the extended-regime consolidation of the separate `background_shot` photon term into `signal_shot` (ADR-0002 Decision #13) — the 696 e⁻ RMS background term the old noise budget carried no longer exists as a distinct contributor, which drops total noise at 200 K / 1 ms from ~700 e⁻ to 85.3 e⁻ and raises every cold-target SNR by roughly the same factor. This landing **predates the CU-317 attribution window** (the dated Results-affecting table begins 2026-07-16, the doc vintage is 2026-04-19), so it is named from the runner's own regime output rather than from that table. No in-window landing applies: the bench is `atmosphere.model = "exo"`, so CU-224 (down-looking `simple` path radiance), CU-267 (`simple` gas-region blend) and CU-253 (VIS/NIR Rayleigh) all exclude it by their own scope statements.*
 
 ### Dynamic Range Trade-Off
-At 1.82 ms (the minimum t_int for cold-target detection), the maximum scene temperature that stays below 90% well fill is ~300 K — barely above ambient. At 1 ms, the maximum is 300 K as well. The 200–1500 K dynamic range is **physically impossible** in a single integration.
+At 103.2 µs (the minimum t_int for cold-target detection), the maximum scene temperature that stays below 90% well fill is 400 K. At 1 ms it has fallen to 300 K — barely above ambient. The 200–1500 K dynamic range is **physically impossible** in a single integration.
 
 ### Integration Time for 70% Well Fill
 | Scene Temp [K] | t_int for 70% fill | SNR at that t_int [—] |
 |---|---|---|
 | 200 | ~256 ms (extrapolated) | — |
-| 280 | 3.53 ms | 841 |
-| 400 | 103 µs | 1231 |
-| 700 | 3.0 µs | 1284 |
-| 1000 | 1.0 µs | 1413 (saturated) |
-| 1500 | 1.0 µs | 1413 (saturated) |
+| 280 | 3.53 ms | 1307.6 |
+| 400 | 103 µs | 1257.7 |
+| 700 | 3.0 µs | 1284.4 |
+| 1000 | 1.0 µs | 1413.6 (saturated) |
+| 1500 | 1.0 µs | 1413.6 (saturated) |
 
 The 200 K target never reaches 70% well fill within the sweep range — it would need ~256 ms. Meanwhile 1000 K and 1500 K are already saturated at 1 µs.
 
 ### Noise Budget Comparison at 1 ms
 | Noise Term | 200 K [e- RMS] | 200 K Fraction | 400 K [e- RMS] | 400 K Fraction |
 |---|---|---|---|---|
-| background_shot | 696.0 | 98.5% | 696.0 | 19.5% |
-| signal_shot | 74.0 | 1.1% | 1414.2 | 80.4% |
-| quantization | 37.5 | 0.3% | 37.5 | 0.1% |
-| read_noise | 20.0 | 0.1% | 20.0 | 0.0% |
+| signal_shot | 74.0 | 75.2% | 1414.2 | 99.9% |
+| quantization | 37.5 | 19.3% | 37.5 | 0.1% |
+| read_noise | 20.0 | 5.5% | 20.0 | 0.0% |
 | dark_shot | 0.3 | 0.0% | 0.3 | 0.0% |
 | nearfield_shot | 0.0 | 0.0% | 0.0 | 0.0% |
+| **RSS TOTAL** | **85.3** | **100.0%** | **1414.9** | **100.0%** |
 
-**Regime transition**: At 200 K, the system is **BLIP** (background-limited) — 98.5% of noise variance comes from background photon noise, signal shot noise is only 1.1%. At 400 K, the system is **signal-shot-limited** — the target itself generates 80.4% of the noise.
+Signal at 1 ms is 5,476 e⁻ (0.3% well, SNR 64.2) for the 200 K target and 2,000,000 e⁻ (100.0% well — clipped, SNR 1413.6) for the 400 K target.
+
+**Regime transition**: There is **no separate `background_shot` term** — in the extended regime the scene is one radiance field, so the whole-FOV photon shot noise is carried by `signal_shot` alone (ADR-0002 Decision #13). Both targets are therefore nominally signal-shot-limited, but the *degree* differs sharply: at 200 K, `signal_shot` is 75.2% of the noise variance and the ROIC floor is still material — quantization (19.3%) plus read noise (5.5%) make up a quarter of the budget. At 400 K, `signal_shot` is 99.9% and the electronics are irrelevant. The cold end is where ROIC choices show up.
 
 **Note**: `nearfield_shot = 0` is a known scalar-mode limitation (Gap 7 below). Mirror self-emission from warm optics (293 K, 4 elements) should be a real contributor but is not modeled in scalar transmission mode. This means RADIANT under-predicts noise for cold targets in warm-optics MWIR systems.
 
@@ -91,14 +96,14 @@ This is physically correct: at 200 K in MWIR, the target emits very little compa
 A 1500 K blackbody radiates ~389× more MWIR power than a 200 K target. With a 2M e- well, there is no single integration time where the cold target generates ≥10 SNR while the hot target stays below saturation. This is a fundamental radiometric constraint, not a RADIANT limitation.
 
 ### Why Background Dominates for Cold Targets
-In the MWIR band (3.5–5.0 µm), room-temperature objects (280–293 K) emit substantially. The background (280 K) and warm optics (293 K, 4 optical elements) together produce far more photons than a 200 K target. This is why MWIR systems need cold shields (to block off-axis warm radiation) and why the noise floor is set by background + nearfield, not read noise or dark current.
+In the MWIR band (3.5–5.0 µm), room-temperature objects (280–293 K) emit substantially. The background (280 K) and warm optics (293 K, 4 optical elements) together produce far more photons than a 200 K target. This is why MWIR systems need cold shields (to block off-axis warm radiation). Note that RADIANT does not surface that warm flux as a separate noise line here: in the extended regime the whole-FOV radiance is carried by `signal_shot` (Decision #13), and the warm-optics contribution is missing entirely because scalar transmission mode sets `nearfield_shot = 0` (Gap 7). At 200 K / 1 ms the reported floor is therefore `signal_shot` 74.0 e⁻ plus a non-trivial ROIC contribution — quantization 37.5 e⁻ and read noise 20.0 e⁻ — for 85.3 e⁻ RMS total.
 
 ### Well Fill Physics
 RADIANT tracks signal electrons and clips at FWC. In reality, the detector well accumulates signal + background + nearfield + dark current photons together. For hot targets (≥400 K), signal dominates the well. For cold targets, background and nearfield photons dominate, but the signal is still distinguishable because the noise is √(total electrons) while the target signal adds coherently.
 
 ### Unused Parameters
 - **Dark current** (100 e-/s): negligible at all integration times in this sweep (max 5 e- at 50 ms). At 77 K operating temperature, dark current is irrelevant compared to photon noise.
-- **Read noise** (20 e- RMS): negligible compared to background shot noise (696 e- RMS at 1 ms). Only matters at very short integrations (< 1 µs).
+- **Read noise** (20 e- RMS): irrelevant on hot targets (0.0% of the 400 K noise variance at 1 ms) but *not* negligible on cold ones — 5.5% of the 200 K variance at 1 ms, where the 85.3 e⁻ RMS total is only ~4× the read noise. It dominates further down the sweep, at the shortest integrations.
 - **IPC coupling** (1%): slightly broadens the PSF, but this is an extended-scene scenario where IPC does not affect photometry.
 
 ## Gap Findings

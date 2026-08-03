@@ -57,24 +57,35 @@ Smear MTF (1 pixel/line motion during each TDI stage) and TDI misalignment MTF a
 ## Key Results
 
 ### TDI Sweep
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22, CU-176). Dominant mover: **CU-253** — the VIS/NIR molecular
+(Rayleigh) optical depth was 8× too large, and correcting it both raises
+transmittance and halves the scattered-sky irradiance illuminating this
+reflective 500–850 nm scene, so the net per-line signal falls. That entry names
+this scenario explicitly at SNR −29 %, which is what the N_tdi = 1 column shows
+(52.3 → 37.2). Halving the signal per line pushes the saturation knee out one
+sweep point, from N_tdi = 32 to 64.*
+
 | N_tdi | Signal [e-] | Well Fill [%] | SNR [--] | MTF@Nyq [--] | RER [--] | NIIRS [--] | Status |
 |---|---|---|---|---|---|---|---|
-| 1 | 2,940 | 4.9 | 52.3 | 0.1962 | 0.4884 | 5.09 | OK |
-| 2 | 5,881 | 9.8 | 75.3 | 0.1962 | 0.4884 | 5.34 | OK |
-| 4 | 11,762 | 19.6 | 107.4 | 0.1962 | 0.4884 | 5.58 | OK |
-| 8 | 23,524 | 39.2 | 152.6 | 0.1962 | 0.4884 | 5.82 | OK |
-| 16 | 47,048 | 78.4 | 216.4 | 0.1962 | 0.4884 | 6.05 | OK |
-| 32 | 60,000 | 100.0 | 244.5 | 0.1962 | 0.4884 | 6.13 | NEAR-SAT |
+| 1 | 1,584 | 2.6 | 37.2 | 0.1962 | 0.4884 | 4.86 | OK |
+| 2 | 3,168 | 5.3 | 54.4 | 0.1962 | 0.4884 | 5.12 | OK |
+| 4 | 6,336 | 10.6 | 78.2 | 0.1962 | 0.4884 | 5.36 | OK |
+| 8 | 12,671 | 21.1 | 111.6 | 0.1962 | 0.4884 | 5.60 | OK |
+| 16 | 25,342 | 42.2 | 158.5 | 0.1962 | 0.4884 | 5.84 | OK |
+| 32 | 50,685 | 84.5 | 224.6 | 0.1962 | 0.4884 | 6.08 | NEAR-SAT |
 | 64 | 60,000 | 100.0 | 244.5 | 0.1962 | 0.4884 | 6.13 | NEAR-SAT |
 | 96 | 60,000 | 100.0 | 244.5 | 0.1962 | 0.4884 | 6.13 | NEAR-SAT |
 | 128 | 60,000 | 100.0 | 244.5 | 0.1962 | 0.4884 | 6.13 | NEAR-SAT |
 
 ### Optimal N_tdi
-- **Peak NIIRS**: 6.13, reached at N_tdi = 32 and held (plateau) for all higher stages.
-- **Conservative choice**: N_tdi = 8 (NIIRS = 5.82, 39% well fill, comfortable margin).
-- **Sweet spot**: N_tdi = 16 (NIIRS = 6.05, 78% well fill) — within 0.08 NIIRS of the
-  plateau while staying just below full saturation.
-- **Saturation onset**: N_tdi = 32 (signal first clips at FWC = 60,000 e-).
+- **Peak NIIRS**: 6.13, reached at N_tdi = 64 and held (plateau) for all higher stages.
+- **Conservative choice**: N_tdi = 8 (NIIRS = 5.60, 21% well fill, comfortable margin).
+- **Sweet spot**: N_tdi = 16 (NIIRS = 5.84, 42% well fill) — within 0.29 NIIRS of the
+  plateau with substantial saturation margin.
+- **Saturation onset**: N_tdi = 64 (signal first clips at FWC = 60,000 e-); N_tdi = 32
+  runs at 84.5% well fill.
 
 Because this is an extended reflective scene, the background photon term is not a
 separate noise source (ADR-0002 Decision #13): the pixel sees one radiance field, so
@@ -85,27 +96,27 @@ there is no sharp peak to sit below.
 ### SNR Scaling
 | N_tdi | SNR [--] | SNR/SNR_1 | sqrt(N) | Regime |
 |---|---|---|---|---|
-| 1 | 52.3 | 1.00 | 1.00 | baseline |
-| 2 | 75.3 | 1.44 | 1.41 | shot-limited |
-| 4 | 107.4 | 2.06 | 2.00 | shot-limited |
-| 8 | 152.6 | 2.92 | 2.83 | shot-limited |
-| 16 | 216.4 | 4.14 | 4.00 | shot-limited |
-| 32 | 244.5 | 4.68 | 5.66 | saturated (plateau) |
-| 64–128 | 244.5 | 4.68 | — | saturated (plateau) |
+| 1 | 37.2 | 1.00 | 1.00 | baseline |
+| 2 | 54.4 | 1.46 | 1.41 | shot-limited |
+| 4 | 78.2 | 2.10 | 2.00 | shot-limited |
+| 8 | 111.6 | 3.00 | 2.83 | shot-limited |
+| 16 | 158.5 | 4.26 | 4.00 | shot-limited |
+| 32 | 224.6 | 6.03 | 5.66 | shot-limited |
+| 64–128 | 244.5 | 6.57 | — | saturated (plateau) |
 
 Below saturation, SNR scales as exactly sqrt(N_tdi) — the system is photon-shot-noise-
-limited (read noise = 15 e- is negligible against signal shot = 52–216 e-). At
+limited (read noise = 15 e- is negligible against signal shot = 40–225 e-). At
 saturation the signal caps at FWC and, with no background term to keep growing, the
 total noise caps at √FWC ≈ 245 e-, so **SNR plateaus at 244.5 rather than decreasing**.
 
 ### Noise Budget
 | Noise Term | N=1 [e-] | N=8 [e-] | N=16 [e-] | N=32 [e-] | N=128 [e-] |
 |---|---|---|---|---|---|
-| signal_shot | 55.8 | 157.9 | 223.4 | 244.9 | 244.9 |
+| signal_shot | 39.8 | 112.6 | 159.2 | 225.1 | 244.9 |
 | dark_shot | 0.0 | 0.1 | 0.1 | 0.2 | 0.4 |
 | read_noise | 15.0 | 15.0 | 15.0 | 15.0 | 15.0 |
 | quantization | 0.4 | 0.4 | 0.4 | 0.4 | 0.4 |
-| TOTAL (RSS) | 57.8 | 158.7 | 223.9 | 245.4 | 245.4 |
+| TOTAL (RSS) | 42.5 | 113.6 | 159.9 | 225.6 | 245.4 |
 
 Signal shot noise dominates throughout, scaling as √N below saturation. Read noise is
 constant at 15 e- (the analog-TDI advantage), and dark/quantization are negligible.
@@ -116,12 +127,17 @@ field, not a separable background (Decision #13). Past saturation, signal_shot c
 ### MTF Budget
 | N_tdi | MTF_opt [--] | MTF_smear [--] | MTF_misalign [--] | MTF_sys [--] | Misalign [pix] |
 |---|---|---|---|---|---|
-| 1 | 0.1821 | 0.6366 | 0.9959 | 0.1155 | 0.10 |
-| 8 | 0.1821 | 0.6366 | 0.9674 | 0.1122 | 0.28 |
-| 16 | 0.1821 | 0.6366 | 0.9355 | 0.1085 | 0.40 |
-| 32 | 0.1821 | 0.6366 | 0.8735 | 0.1013 | 0.57 |
-| 64 | 0.1821 | 0.6366 | 0.7568 | 0.0878 | 0.80 |
-| 128 | 0.1821 | 0.6366 | 0.5508 | 0.0639 | 1.13 |
+| 1 | 0.1962 | 0.6366 | 0.9959 | 0.1244 | 0.10 |
+| 8 | 0.1962 | 0.6366 | 0.9674 | 0.1209 | 0.28 |
+| 16 | 0.1962 | 0.6366 | 0.9355 | 0.1169 | 0.40 |
+| 32 | 0.1962 | 0.6366 | 0.8735 | 0.1091 | 0.57 |
+| 64 | 0.1962 | 0.6366 | 0.7568 | 0.0945 | 0.80 |
+| 128 | 0.1962 | 0.6366 | 0.5508 | 0.0688 | 1.13 |
+
+*(The MTF_opt column was a stale 0.1821 — an older vintage than the sweep table
+above it, which already carried 0.1962. Refreshed here so the two tables agree
+with each other and with the runner; MTF is geometry/optics-only and does not
+depend on the radiometric landings above.)*
 
 - **MTF_opt** (optics + detector + aberrations) is constant — does not depend on N_tdi
 - **MTF_smear** = 2/pi = 0.6366 (1 pixel/line motion, constant for all N_tdi)
@@ -150,12 +166,12 @@ term (Decision #13) — the noise stops growing too:
 
 So the NIIRS curve rises with √N up to saturation and then holds flat (no sharp peak,
 no degradation). For this system:
-- Signal per line: 3,118 e-
+- Signal per line: 1,584 e-
 - FWC: 60,000 e-
-- Theoretical max N_tdi (100% fill): 60,000 / 3,118 = 19.2
-- Saturation first reached at N_tdi = 32; NIIRS plateaus at 6.11 from there on
-- Practical choice: N_tdi = 16 (NIIRS 6.04, 83% fill) for peak quality with saturation
-  margin, or N_tdi = 8 (NIIRS 5.81, 42% fill) for an 80% conservative margin
+- Theoretical max N_tdi (100% fill): 60,000 / 1,584 = 37.9
+- Saturation first reached at N_tdi = 64; NIIRS plateaus at 6.13 from there on
+- Practical choice: N_tdi = 32 (NIIRS 6.08, 85% fill) for peak quality with saturation
+  margin, or N_tdi = 16 (NIIRS 5.84, 42% fill) for an 80% conservative margin
 
 (If the readout added digital-TDI read noise growth, or if a genuinely separable
 background dominated — e.g. a bright adjacent-scene sub-pixel case — the plateau would
@@ -179,7 +195,7 @@ At delta = 0.1 pixel/stage:
 - N_tdi=128: 1.13 pixel total → MTF_misalign = 0.55 (severe)
 
 ### Why NIIRS Doesn't Benefit from MTF Corrections
-In this scenario, NIIRS changes come entirely from the SNR term in GIQE-5 (1.559 x log10(SNR)). The RER term (3.32 x log10(RER)) is constant because RADIANT's ePSF does not include smear or TDI misalignment. Including these corrections would shift the absolute NIIRS values but would not change where the NIIRS plateau begins (which is set by the saturation onset at N_tdi = 32).
+In this scenario, NIIRS changes come entirely from the SNR term in GIQE-5 (1.559 x log10(SNR)). The RER term (3.32 x log10(RER)) is constant because RADIANT's ePSF does not include smear or TDI misalignment. Including these corrections would shift the absolute NIIRS values but would not change where the NIIRS plateau begins (which is set by the saturation onset at N_tdi = 64).
 
 ## Gap Findings
 

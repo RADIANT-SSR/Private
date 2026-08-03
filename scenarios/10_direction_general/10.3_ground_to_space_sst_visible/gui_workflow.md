@@ -152,7 +152,7 @@ The operator needs three readouts and one caveat:
 
 | Readout | Value | Why it matters here |
 |---|---|---|
-| τ_up(λ) plot | band-mean 0.5330; 0.4492 at 0.55 µm | the observer leg, telescope → h_atm_top |
+| τ_up(λ) plot | band-mean 0.8397; 0.8828 at 0.55 µm | the observer leg, telescope → h_atm_top |
 | τ_sun | 1.0000 | vacuum solar leg: the object is above h_atm_top |
 | r₀ | 19.820 cm at 0.650 µm | profile-driven (HV-5/7), not entered |
 
@@ -199,15 +199,15 @@ swath rows, and **with** the target-plane family:
 |---|---|
 | target-plane sample distance (x, y, geo-mean) | 1.10873 m at the object |
 | diffraction limit, angular | 0.7930 µrad |
-| SNR | 186.89 |
-| detection range | 4 519.0 km |
+| SNR | 232.38 |
+| detection range | 25 857.2 km |
 | Q_center | 0.433 |
 
 The *Interpretability* card is empty (NIIRS is off by class). The card must say
 **why** — "turned off by scene class `ground_to_space`" — with a link back to the
 Geometry steering card, not simply omit the rows.
 
-`nedt_K` (0.0227 K) is present because the thermal group is on by default; it is
+`nedt_K` (0.0168 K) is present because the thermal group is on by default; it is
 meaningless for a reflective VIS point source. A future refinement would let the
 scene-class relevance map default the thermal group off for a reflective target.
 

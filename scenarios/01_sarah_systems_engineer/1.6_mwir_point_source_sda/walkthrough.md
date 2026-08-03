@@ -64,18 +64,26 @@ Run `scripts/run_point_source_sda.py` (or `Sensor.from_yaml(...).evaluate()`):
 | Metric | Value | Units |
 |---|---|---|
 | Regime | point_source | — |
-| Signal | 21,229 | e⁻ |
-| **SNR** | **25.8** | — |
-| **Detection range** (SNR = 6) | **1522** | km |
+| Signal | 20,933 | e⁻ |
+| **SNR** | **17.67** | — |
+| **Detection range** (SNR = 6) | **1254.7** | km |
 | Sampling Q (band center) | 1.42 | — |
 
-*(Refreshed 2026-08-01. The **detection range** moved 1,199 → 1,522 km in this
-refresh: CU-263 made the criterion shot-consistent and routed the down-looking
+*(Refreshed 2026-08-02, superseding the 2026-08-01 CU-263 refresh below. The
+dominant mover is **CU-224**: a down-looking column now carries its own thermal
+emission, which this MWIR space-to-space geometry sees as extra background —
+the target signal is essentially unmoved (21,229 → 20,933 e⁻, the remaining
+−1.4 % being **CU-267**'s −0.71 % band-mean τ on 3–5 µm, which landed the same
+day as the previous refresh) while the noise floor rises, so SNR falls
+25.8 → 17.67 and the detection range shortens 1,522 → 1,254.7 km. CU-263 made
+detection ranges longer; CU-224 raises the floor they are measured against, and
+here the second effect is the larger.)*
+
+*(Prior refresh, 2026-08-01: the **detection range** moved 1,199 → 1,522 km
+because CU-263 made the criterion shot-consistent and routed the down-looking
 arm through the path-aware solver, whose receding leg from a 700 km sensor is
-exact vacuum. The **signal and SNR** columns were already stale against `main`
-before that change — 24,345 e⁻ / 30.5 against the 21,229 e⁻ / 25.8 the runner
-produces today — and are corrected here rather than left mixed; that drift comes
-from earlier landed work, not from CU-263.)*
+exact vacuum. The **signal and SNR** columns had been stale against `main` even
+before that — 24,345 e⁻ / 30.5 — and were corrected in the same pass.)*
 
 Sanity: signal scales **linearly** with `point_intensity_area_m2`, `_emissivity`,
 and `I` (2× intensity → 2× signal), and inverse-square with range — the

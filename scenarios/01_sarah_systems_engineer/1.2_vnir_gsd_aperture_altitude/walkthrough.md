@@ -69,11 +69,22 @@ optics as the orbit rises.
 
 ## Results (worst-case winter unless noted)
 
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22, CU-176). Dominant mover: CU-253, the VIS/NIR Rayleigh correction —
+molecular optical depth was 8× too large, so removing it raises transmittance
+**and** halves the scattered-sky irradiance. The two effects nearly cancel for
+this direct-sun-dominated reflective scene, which is why SNR moves only a few
+percent, and they cancel differently per season: the longer winter solar path
+gains more from the transmittance side (winter +2.8 %) than the near-overhead
+summer path loses on the sky side (summer −2.5 %). CU-267's gas-region blend
+contributes −0.20 % band-mean τ on this band. Q and the diffraction GSD are
+geometry-only and did not move.*
+
 | Aperture | 400 km | 500 km | 600 km |
 |----------|--------|--------|--------|
-| 20 cm | SNR 19.8, Q 2.30, diff-GSD 1.40 m | SNR 14.4, Q 2.88 | SNR 10.8, Q 3.45 |
-| 50 cm | SNR 60.3, Q 0.92, diff-GSD 0.56 m | SNR 47.1, Q 1.15, diff-GSD 0.70 m | SNR 38.1, Q 1.38 |
-| 80 cm | SNR 99.3, Q 0.57, diff-GSD 0.35 m | SNR 78.6, Q 0.72 | SNR 64.7, Q 0.86 |
+| 20 cm | SNR 20.5, Q 2.30, diff-GSD 1.40 m | SNR 14.9, Q 2.88 | SNR 11.3, Q 3.45 |
+| 50 cm | SNR 62.0, Q 0.92, diff-GSD 0.56 m | SNR 48.4, Q 1.15, diff-GSD 0.70 m | SNR 39.2, Q 1.38 |
+| 80 cm | SNR 102.0, Q 0.57, diff-GSD 0.35 m | SNR 80.7, Q 0.72 | SNR 66.5, Q 0.86 |
 
 - **The 20 cm aperture is diffraction-limited** everywhere (Q > 2.3,
   diffraction ground spot 1.4–2.1 m ≫ the 0.5 m pixel): the pixel is far
@@ -84,8 +95,8 @@ optics as the orbit rises.
   GSD. This is the efficient regime for a 0.5 m sample.
 - **The 50 cm aperture straddles the crossover** (Q ≈ 0.9–1.4) — near
   critical sampling, the usual sweet spot for a pan imager.
-- **Seasonal swing is 44%**: at the 50 cm / 500 km reference design SNR
-  runs 83.8 in summer (θ_z = 23°) down to **47.1 in winter (θ_z = 62°),
+- **Seasonal swing is 41%**: at the 50 cm / 500 km reference design SNR
+  runs 81.7 in summer (θ_z = 22.7°) down to **48.4 in winter (θ_z = 62.2°),
   which FAILS the SNR = 50 spec.** Sizing to the annual mean would ship a
   sensor that misses spec every winter — the worst-case-season floor is
   the correct sizing basis.

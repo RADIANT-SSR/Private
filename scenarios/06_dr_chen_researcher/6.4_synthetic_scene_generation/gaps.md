@@ -40,19 +40,24 @@ plus geometry, not a missing feature.
 ## Friction / lessons
 
 - **The nominal scene is "too easy."** All five targets are hot and
-  resolved (or barely diluted), so every contrast SNR is 59–548 and every
+  resolved (or barely diluted), so every contrast SNR is 49–476 and every
   P_d ≈ 1 — a ROC of just those five is uninformative. This is physically
   correct, not a bug. The scenario reports it honestly and adds a
   **detection-range sweep** (analytic, range-independent extended signal) to
-  reach the informative band (P_d 0.9 at ≈ 549 km, 50/50 at ≈ 796 km).
-- **AUC ≠ operating-point P_d.** At 800 km AUC is still 0.996 but P_d at
-  P_fa = 1e-4 is 0.49 — separation is excellent, but a strict false-alarm
+  reach the informative band (P_d 0.9 at ≈ 533 km, 50/50 at ≈ 687 km).
+- **AUC ≠ operating-point P_d.** At 800 km AUC is still 0.985 but P_d at
+  P_fa = 1e-4 is 0.26 — separation is good, but a strict false-alarm
   budget costs detections. The scenario surfaces both so the distinction
   isn't lost.
-- **Shot-noise-limited background** (σ = 679 e- on 4.5×10⁵ e-): read noise
+- **Shot-noise-limited background** (σ = 738 e- on 5.34×10⁵ e-): read noise
   (100 e-) and dark (500 e-) are negligible here; detectability is set by
   photon statistics, so the only lever on the floor is collecting-area ×
   integration-time (i.e. range dilution).
+
+*Figures refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-09). Mover: CU-224's down-looking `(1−τ)·B(λ,T_eff)` path-radiance
+term raised the background pixel and hence the shot-noise floor; see the
+walkthrough's results tables for the sign discussion.*
 
 ## Catalog status
 

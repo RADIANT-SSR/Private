@@ -65,28 +65,42 @@ Two residual caveats:
 
 ---
 
-## Results (aperture = 30 cm, mid-sweep; real MODTRAN 6, 2026-07-17)
+## Results (aperture = 30 cm, mid-sweep; real MODTRAN 6, D2 run set)
+
+*Numbers refreshed 2026-08-02 from the unmodified runner. The prior table was
+a pre-2026-07-18 vintage; the movement is dominated by CU-224 (down-looking
+path radiance now carries the atmosphere's own thermal emission — SimpleAtmosphere
+only, MWIR/LWIR up by more the longer and warmer the column), CU-263 (the
+shot-noise-consistent detection criterion, which lengthens every reported range),
+and CU-267 (the gas-region blend, −0.71 % band-mean τ on 3–5 µm). The MODTRAN
+column's τ is a measured constant and has not moved.*
 
 | Metric | SimpleAtmosphere | MODTRAN 6 (real D2) |
 |--------|-------------------|----------------------|
-| SNR [-] | 793.7 | 957.3 |
-| NEDT [K] | 0.0308 | 0.0253 |
-| NIIRS [-] | 4.45 | 4.58 |
-| Detection range @ SNR=5 [km] | 2120.7 | 2113.8 |
-| In-band transmittance [-] | 0.4626 | 0.4319 |
+| SNR [-] | 1152.37 | 917.36 |
+| NEDT [K] | 0.0220 | 0.0265 |
+| NIIRS [-] | 4.70 | 4.55 |
+| Detection range @ SNR=5 [km] | 2415.6 | 2239.7 |
+| In-band transmittance [-] | 0.4593 | 0.4319 |
 
-- **SimpleAtmosphere now agrees with MODTRAN to ~7% for this maritime
-  MWIR column** (τ̄ 0.463 vs 0.432 real, the parametric model slightly *more*
-  transparent). The earlier ~45% over-absorption was removed by the CU-155/161
-  water-ladder recalibration — scenario 6.2 is the dedicated validation, which
-  collapsed the τ residuals across all six profiles ~6× to a uniform −5…−11%
-  band; this run's −7% sits inside it. Detection range now nearly coincides
-  (2121 vs 2114 km, +0.3%), where the pre-recalibration model understated it
-  by ~25%.
-- **SNR: the parametric model now reads ~17% low** (794 vs 957): despite its
-  marginally higher transmittance, SimpleAtmosphere predicts a higher noise
-  floor here (NEDT 0.031 vs 0.025 K), so its SNR lands below MODTRAN's. τ, SNR,
-  and range still do not move together — quote the metric the decision needs.
+- **SimpleAtmosphere agrees with MODTRAN to ~6% on transmittance for this
+  maritime MWIR column** (τ̄ 0.4593 vs 0.4319 real, the parametric model
+  slightly *more* transparent). The earlier ~45% over-absorption was removed by
+  the CU-155/161 water-ladder recalibration — scenario 6.2 is the dedicated
+  validation, which collapsed the τ residuals across all six profiles ~6× to a
+  uniform −5…−11% band. Detection range now differs by +7.9% (2415.6 vs
+  2239.7 km), where the pre-recalibration model understated it by ~25%.
+- **SNR: the parametric model now reads ~26% high** (1152 vs 917), a reversal
+  of the ~17%-low reading this table carried before CU-224. Two things changed
+  together: SimpleAtmosphere's down-looking path radiance now carries the
+  Kirchhoff emission term it was missing (it was single-scatter solar only, so
+  a thermal MWIR down-looking column contributed almost nothing), and it is the
+  marginally more transparent of the two. Its noise floor is correspondingly
+  lower (NEDT 0.0220 vs 0.0265 K). The MODTRAN arm eased ~4% over the same
+  window from chain-side landings outside the atmosphere model — CU-224 does
+  not touch it, because that arm carries its own measured path radiance. τ,
+  SNR, and range still do not move together — quote the metric the decision
+  needs.
 - **This is the entire point of scenario 1.1's original gap**: before
   `Tape7Reader`/CU-066, RADIANT had no way to *consume* a colleague's
   MODTRAN tape7 at all — Sarah was stuck re-deriving atmosphere from the
@@ -100,14 +114,14 @@ Two residual caveats:
   f/# fixed at 2.5, so focal length scales with aperture. At fixed f/#,
   per-pixel étendue — and thus photon flux for both the sub-pixel target
   and the extended ocean background — is invariant with aperture. The
-  aperture benefit shows up entirely as resolution: NIIRS rises from 3.55
-  to 5.16 (real D2) as the diffraction-limited PSF shrinks. A genuine "SNR from a
+  aperture benefit shows up entirely as resolution: NIIRS rises from 3.53
+  to 5.13 (real D2) as the diffraction-limited PSF shrinks. A genuine "SNR from a
   bigger telescope" trade needs a fixed-focal-length (varying f/#) sweep,
   not a fixed-f/# aperture sweep — worth remembering for the next
   aperture trade study.
 - **Detection range is a Beer-Lambert point-source extrapolation**, not a
   full-chain re-evaluation at each range — it assumes the extinction
-  coefficient measured at 532 km holds out to ~2100–2120 km, which is
+  coefficient measured at 532 km holds out to ~2240–2420 km, which is
   unrealistic (curvature, refraction, and the actual atmosphere profile
   all change over that distance). Treat the range numbers as illustrating
   the *relative* SimpleAtmosphere-vs-MODTRAN sensitivity, not an
@@ -126,4 +140,9 @@ dataset" item closed 2026-07-17 (this upgrade), and the MODTRAN tape7
 *parsing* gap the original catalog entry flagged closed earlier
 (CU-066 + this scenario).
 
-**Postscript (2026-07-18):** the SimpleAtmosphere maritime over-absorption documented above was substantially corrected by CU-161 (commit `0aebdda`); committed comparison numbers reflect the pre-fix model — re-run for current behavior.
+**Postscript (2026-08-02):** the SimpleAtmosphere maritime over-absorption
+documented above was substantially corrected by CU-161 (commit `0aebdda`), and
+the comparison table has since been re-run against current `main` — it is no
+longer the pre-fix vintage. The prior "detection range nearly coincides"
+reading and the "parametric model reads 17% low" reading both belonged to that
+vintage and are superseded above.

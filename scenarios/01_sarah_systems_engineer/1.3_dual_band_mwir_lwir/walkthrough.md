@@ -41,48 +41,62 @@ regime weights the target by `source.target.fill_fraction` (CU-060 — the
 original execution left it at the default 1.0, overstating the fire signal
 ~3× and pulling the saturation temperatures down).
 
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22, CU-176). The background side is dominated by **CU-224** — a
+down-looking column now carries its own thermal emission `(1−τ)·B(λ,T_eff)`,
+which had been absent, so the forest background and its 3 % clutter rise ~57 %
+in both bands (LWIR clutter 36 880 → 57 466 e⁻ RMS). The target side falls:
+**CU-188**'s cell-area-overlap EE_box weighting removed an O(dx) box-edge bias
+that over-stated sub-pixel signal (its CHANGELOG entry measures 1.3 at
+SNR −5.3 % / NEDT +5.6 %), and **CU-267**'s gas-region blend takes another
+−0.71 % off band-mean τ on 3–5 µm and −0.27 % on 8–12 µm.*
+
 | Quantity | MWIR | LWIR |
 |----------|-----:|-----:|
-| Pixel signal [e⁻] | 253,351 | 2,606,566 |
-| Contrast (fire − forest) [e⁻] | 247,713 | 1,377,244 |
-| Well fill [%] | 6.3 | 21.7 |
-| Total noise [e⁻ RMS] | 542.1 | 36,932.3 |
-| — of which clutter [e⁻ RMS] | 169.1 | 36,879.6 |
-| SNR [--] | 491.9 | 1,321.8 |
-| Contrast SNR [--] | 481.0 | 698.4 |
-| **SCNR (incl. clutter) [--]** | **457.0** | **37.3** |
-| NEDT [mK] (Gap 43 approximation) | 217.0 | 169.7 |
+| Pixel signal [e⁻] | 229,779 | 3,139,542 |
+| Contrast (fire − forest) [e⁻] | 220,943 | 1,223,998 |
+| Well fill [%] | 5.7 | 26.2 |
+| Total noise [e⁻ RMS] | 561.4 | 57,510.7 |
+| — of which clutter [e⁻ RMS] | 265.1 | 57,466.3 |
+| SNR [--] | 464.3 | 1,389.1 |
+| Contrast SNR [--] | 446.5 | 541.6 |
+| **SCNR (incl. clutter) [--]** | **393.6** | **21.3** |
+| NEDT [mK] (Gap 43 approximation) | 230.0 | 161.8 |
 
 ### Spectral contrast (hand Planck, ASTER ε_bg(λ))
 
 Band-integrated ΔL(600 K): 373.6 W/m²/sr (MWIR) vs 382.0 W/m²/sr (LWIR) —
-nearly EQUAL in radiance. The trade is decided at the detector, not in
-ΔL: the 600 K Planck peak sits at 4.8 µm (inside MWIR), while LWIR sees
-the 300 K background ~10× brighter, so LWIR's clutter (3% of a huge
-background) is ~220× MWIR's. Same ΔL, wildly different signal-to-clutter.
+nearly EQUAL in radiance (these are hand-Planck values and did not move).
+The trade is decided at the detector, not in ΔL: the 600 K Planck peak sits
+at 4.8 µm (inside MWIR), while LWIR sees the 300 K background ~10× brighter,
+so LWIR's clutter (3% of a huge background) is ~217× MWIR's. Same ΔL, wildly
+different signal-to-clutter.
 
 ### Fire-temperature sweep (400–1200 K), P_fa = 1e-6
 
 | T_fire [K] | MWIR SCNR | sat? | LWIR SCNR | sat? | P_d MWIR | P_d LWIR |
 |-----------:|----------:|:----:|----------:|:----:|:--------:|:--------:|
-| 400 | 57.6 | no | 2.8 | no | 1.000 | **0.023** |
-| 500 | 225.4 | no | 17.8 | no | 1.000 | 1.000 |
-| 600 | 457.0 | no | 37.3 | no | 1.000 | 1.000 |
-| 800 | 993.6 | no | 85.6 | no | 1.000 | 1.000 |
-| 1000 | 1,559.7 | no | 141.5 | no | 1.000 | 1.000 |
-| 1200 | 2,248.7 | **YES** | 201.8 | no | 1.000 | 1.000 |
+| 400 | 38.1 | no | 1.0 | no | 1.000 | **0.000** |
+| 500 | 175.1 | no | 9.8 | no | 1.000 | 1.000 |
+| 600 | 393.6 | no | 21.3 | no | 1.000 | 1.000 |
+| 800 | 914.2 | no | 49.6 | no | 1.000 | 1.000 |
+| 1000 | 1,457.4 | no | 82.4 | no | 1.000 | 1.000 |
+| 1200 | 1,998.9 | **YES** | 117.8 | no | 1.000 | 1.000 |
 
 MWIR detects the 5 m² fire with P_d ≈ 1 at every temperature; **LWIR
-misses the coolest fires** — at 400 K its SCNR (2.8) falls below the
-4.75σ threshold and P_d collapses to 0.023. That is a real band
-discriminator the pixel-filling error had hidden (LWIR SCNR was
-overstated ~3×). With the correct 31% fill, saturation moves out to
-≈1200 K in **both** bands (from ≈800/900 K before the fix); above it the
-radiometry clips and in-band fire temperature cannot be retrieved.
+misses the coolest fires** — at 400 K its SCNR is 1.0, far below the
+4.75σ threshold, and P_d collapses to 0.000. The band discriminator is
+sharper than it was before CU-224: raising the LWIR background raised its
+clutter with it, so the coolest-fire LWIR SCNR fell 2.8 → 1.0 and the 400 K
+P_d 0.023 → 0.000. MWIR still saturates first — at ≈1200 K, where the fire
+signal reaches 98 % of the 4,000,000 e⁻ well even in fire mode; LWIR does
+not saturate anywhere in the swept range (26 % well fill at 600 K). Above the
+MWIR saturation point the radiometry clips and in-band fire temperature
+cannot be retrieved.
 
 ## Physics Discussion
 
-1. **Clutter, not noise, is the LWIR penalty.** LWIR total noise is ~68×
+1. **Clutter, not noise, is the LWIR penalty.** LWIR total noise is ~102×
    MWIR's, and 99.9% of it is scene clutter — 3% of a background that is
    an order of magnitude brighter in-band. MWIR detection rides on the
    Wien-side contrast steepness with a dim background underneath.
@@ -90,7 +104,7 @@ radiometry clips and in-band fire temperature cannot be retrieved.
    within 2% of each other at 600 K; a briefing chart that stopped at ΔL
    would call the bands equivalent. The chain comparison (photon
    conversion, per-band QE/dark/read, clutter) is what separates them.
-3. **NEDT favors LWIR (169.7 vs 217.0 mK)** — for mapping ambient-
+3. **NEDT favors LWIR (161.8 vs 230.0 mK)** — for mapping ambient-
    temperature scenes LWIR remains the right band; NEDT is the wrong
    figure of merit for fire *detection* (both values carry the Gap 43
    single-λ caveat; the reflected-solar component of that caveat is
@@ -102,14 +116,14 @@ radiometry clips and in-band fire temperature cannot be retrieved.
    ~2%, which flows straight into the clutter estimate.
 5. **Detection probability now discriminates at the cool end.** P_d =
    Q(4.75 − SCNR) saturates to 1 for SCNR ≳ 10, but the LWIR at a 400 K
-   smolder sits *below* threshold (SCNR 2.8 → P_d = 0.023) — LWIR misses
+   smolder sits *below* threshold (SCNR 1.0 → P_d = 0.000) — LWIR misses
    cool fires from 10 km at this fill. MWIR stays at P_d ≈ 1 everywhere.
    (ROC-grade detection modeling now exists — `performance.roc`, scenario
    6.4 — and could replace the single-threshold model here.)
 
 ## Recommendation
 
-**MWIR for detection** — SCNR is ≥11× LWIR's at every fire temperature (up to ~20× at the cool end),
+**MWIR for detection** — SCNR is ≥17× LWIR's at every fire temperature (up to ~38× at the cool end),
 LWIR misses 400 K smolders outright, and MWIR saturates first (from
 ≈1200 K, where its fire-mode signal reaches ~98% of the 4 Me⁻ well) while
 LWIR stays unsaturated across the swept range. Pair MWIR with sub-frame
@@ -135,7 +149,7 @@ converter gap is mooted by reading the comparison table directly.
 ## What Sarah Would Do Next
 
 1. **Size the MWIR fire-mode integration** against the hottest fire she
-   must retrieve (not just detect) — the 900 K clip point moves with t_int
+   must retrieve (not just detect) — the ≈1200 K clip point moves with t_int
 2. **Re-run the sweep at night vs day** (solar-reflected MWIR background
    changes the clutter picture for daytime smolder detection)
 3. **Feed the vendor QE curves through `load_qe_csv`** (scenario 2.1

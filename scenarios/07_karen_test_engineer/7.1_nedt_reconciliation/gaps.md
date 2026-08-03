@@ -1,9 +1,18 @@
 # Scenario 7.1 Gaps: Predicted vs. Measured NEDT Reconciliation
 
 ## Summary
-Predicted NEDT at 25°C = 100.57 mK, measured = 127.0 mK, gap = 26.43 mK.
-Noise is BLIP-dominated (signal_shot 53.8% + background_shot 46.1% = 99.9%).
-f-number is the most sensitive parameter (1.0065 mK per 1% change).
+Predicted NEDT at 25°C = 74.17 mK, measured = 127.0 mK, gap = 52.83 mK.
+Noise is signal-shot-dominated (signal_shot 99.9%; `background_shot` = 0 in
+the extended regime under Decision #13 — the blackbody fills the target pixel,
+so the 295 K shroud is not separably present there).
+f-number is the most sensitive parameter (0.7428 mK per 1% change).
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-08). No Results-affecting landing moved this scenario — it runs on
+`atmosphere.model = "exo"`, which every in-window landing's scope statement
+excludes (CU-224 leaves exo/vacuum paths exactly unchanged; CU-267 and CU-253
+are `simple`-atmosphere only). This summary had simply never been refreshed to
+the post-Decision-#13 prediction that `walkthrough.md` already carried.*
 
 ## Gap Closure Status (since previous run)
 
@@ -34,7 +43,7 @@ Mirrors have ε = 1 − R directly, not ε = 1 − T − R. The scalar mode cann
 
 ### Impact
 - Warm-optics MWIR/LWIR systems under-predict total background and total NEDT
-- Explains a portion of the 26.43 mK gap for Karen's TVAC test (primary optics at 22 °C)
+- Explains a portion of the 52.83 mK gap for Karen's TVAC test (primary optics at 22 °C)
 - Cold-stop sweeps (scenario 7.4) are non-functional in scalar mode — no nearfield to reduce
 
 ### Workarounds
@@ -48,7 +57,7 @@ Mirrors have ε = 1 − R directly, not ε = 1 − T − R. The scalar mode cann
 ## Non-Gap Observations
 
 - `nearfield_shot` = 0 in scalar transmission mode is **correct physics** under the refractive-lump assumption — it is a modeling-scope limitation, not a bug.
-- Measurements vs. prediction gap (26 mK at 25°C) most likely combines: (a) missing mirror self-emission (Gap 6), (b) spatial PRNU/DSNU inflating temporal NEDT, (c) TVAC chamber stray light, (d) blackbody calibration uncertainty (±0.02°C × dS/dT ≈ 100 e⁻).
+- Measurements vs. prediction gap (52.83 mK at 25°C) most likely combines: (a) missing mirror self-emission (Gap 6), (b) spatial PRNU/DSNU inflating temporal NEDT, (c) TVAC chamber stray light, (d) blackbody calibration uncertainty (±0.02°C × dS/dT ≈ 100 e⁻).
 - NEDT trend vs. BB temperature is correct (1/√signal behavior confirmed).
 
 ## Drift Fix 2026-07-07 — Stage-7 h_sensor precondition (registry Gap 42)

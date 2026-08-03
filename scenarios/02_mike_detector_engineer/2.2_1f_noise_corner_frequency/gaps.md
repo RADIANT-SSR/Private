@@ -1,9 +1,11 @@
 # Scenario 2.2 Gaps: 1/f Noise Corner Frequency
 
 ## Summary
-At 60 Hz: σ_1f = 332.5 e⁻, NEDT_1f = 4.21 mK (1.2% of total noise variance).
-Total NEDT at 60 Hz = 37.81 mK, of which 1/f adds 0.2 mK (0.6%).
+At 60 Hz: σ_1f = 332.5 e⁻, NEDT_1f = 4.21 mK (2.3% of total noise variance).
+Total NEDT at 60 Hz = 27.70 mK, of which 1/f adds 0.3 mK (1.2%).
 RADIANT overestimates σ_1f by ~92% because it does not cap the integration at the corner frequency.
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage 2026-07-09). No in-window Results-affecting landing covers this `exo`-atmosphere, extended-regime 8–10 µm bench; the corrected values are 2026-07-09 refresh residue, not physics movement.*
 
 ## Gap Closure Status
 
@@ -47,7 +49,7 @@ Default behavior unchanged if corner is None.
 
 ## Non-Gap Observations
 
-- 1/f noise is negligible in BLIP-limited LWIR NEDT (<1% penalty). Mike does not need to worry about 1/f for this spec.
+- 1/f noise is negligible in BLIP-limited LWIR NEDT (~1% penalty: 1.0–1.4% across 30–120 Hz). Mike does not need to worry about 1/f for this spec.
 - Logarithmic dependence on frame rate is real physics — a 4× frame rate change only shifts σ_1f by 15%.
 - LWIR integration time is FWC-limited (100 µs), not frame-rate-limited.
 

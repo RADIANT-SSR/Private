@@ -43,11 +43,14 @@ comparison.
 1. Click "Evaluate" to run the RADIANT signal chain
 2. System returns predicted MTF curve (128 points, 0 to ~510 cy/mm)
 3. GUI auto-displays predicted MTF overlaid on imported measurement
-4. Summary panel shows: MTF@Nyquist = 0.4080, Strehl = 0.8256, RER = 0.6825
-5. **Warning surfacing (CU-058):** this configuration (scalar WFE + defocus)
-   fires the Rule 4 dual-path consistency warning on every run. The GUI must
-   show it as a banner with a plain-language explanation and a "which output
-   should I trust?" note (PSF-path curves/metrics), not bury it in a log
+4. Summary panel shows: MTF@Nyquist = 0.4067, Strehl = 0.8206, RER = 0.6773
+5. **Warning surfacing (ex-CU-058):** this configuration (scalar WFE +
+   defocus) used to fire the Rule 4 dual-path consistency warning on every
+   run; since CU-058 was resolved (2026-07-09, defocus unified as pupil Z4 on
+   both paths) the check passes and no banner appears here. The GUI must still
+   show that warning as a banner with a plain-language explanation and a
+   "which output should I trust?" note (PSF-path curves/metrics), not bury it
+   in a log, for configurations that do trip it
 
 ### Step 4: MTF Overlay Plot
 
@@ -159,15 +162,15 @@ mtf_pixel = pixel_aperture_mtf_1d(meas_freq_cy_m, 10e-6)  # 10 um pixel
 2. Dashboard displays all available metrics in organized panels:
 
 **Spatial Metrics Panel:**
-- Strehl: 0.8256 [--]
-- RER: 0.6825 [--]
-- FWHM_x: 10.79 [um]
-- EE(1x1): 0.6580 [--]
+- Strehl: 0.8206 [--]
+- RER: 0.6773 [--]
+- FWHM_x: 10.18 [um]
+- EE(1x1): 0.5718 [--]
 - Q (center/min/max): 0.195 / 0.165 / 0.225 [--]
 
 **MTF Budget Panel:**
 - Table showing per-component MTF at Nyquist (x and y axes)
-- Optics: 0.8115, Pixel: 0.6364, IPC: 0.9602
+- Optics: 0.6699, Pixel: 0.6364, IPC: 0.9602
 - System product: 0.4961 [--]
 - Bar chart of MTF contributions (log scale)
 

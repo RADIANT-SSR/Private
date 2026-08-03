@@ -1,7 +1,7 @@
 # Scenario 2.3 Walkthrough: IPC Impact on MTF
 
 
-> **NIIRS applicability — engine update (CU-166).** Since this walkthrough was written, RADIANT added a metric-applicability gate: when one or more GIQE-5 inputs fall outside the calibration envelope — GSD 1.18–31.5 inch, RER 0.20–0.95, SNR 2–130 — the engine reports **NIIRS as N/A** by default instead of silently extrapolating. This configuration is outside that envelope, so the NIIRS values below are the **extrapolated** GIQE-5-form output: reproduce them with `performance.niirs.allow_extrapolated = true` and read them as a *relative trend, not a calibrated rating*. (The SNR/NEDT figures here predate later physics updates and are indicative; a full numeric refresh is tracked separately in the cleanup backlog. No IR-calibrated IIRS model yet — see `docs/tracking/gaps.md` Gap 100.)
+> **NIIRS applicability — engine update (CU-166).** Since this walkthrough was written, RADIANT added a metric-applicability gate: when one or more GIQE-5 inputs fall outside the calibration envelope — GSD 1.18–31.5 inch, RER 0.20–0.95, SNR 2–130 — the engine reports **NIIRS as N/A** by default instead of silently extrapolating. This configuration is outside that envelope, so the NIIRS values below are the **extrapolated** GIQE-5-form output: reproduce them with `performance.niirs.allow_extrapolated = true` and read them as a *relative trend, not a calibrated rating*. (The SNR/NEDT/NIIRS figures below were refreshed against the unmodified runner on 2026-08-02 under the CU-317 sweep. No IR-calibrated IIRS model yet — see `docs/tracking/gaps.md` Gap 100.)
 
 ## The Problem
 
@@ -48,13 +48,15 @@ RADIANT evaluates the full signal chain from source through atmosphere, optics, 
 
 The baseline results at 500 km with atmosphere:
 - System MTF at Nyquist: 0.2668 (above the 0.15 requirement)
-- SNR: 722 (well above the 100 requirement)
-- EE 1x1: 0.4826 (below the 0.60 requirement — already fails at baseline)
+- SNR: 837.67 (well above the 100 requirement)
+- EE 1x1: 0.4141 (below the 0.60 requirement — already fails at baseline)
 - GSD: 7.50 m (cross-track = along-track at nadir)
 - Q (sampling parameter): 0.944 (near-optimal Nyquist matching)
-- NEDT: 41.2 mK
-- NIIRS: 4.77
+- NEDT: 35.6 mK
+- NIIRS: 4.87
 - Strehl ratio: 1.000 (diffraction-limited, no WFE applied)
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage 2026-07-22). Dominant mover: CU-224 — down-looking path radiance now carries `(1−τ)·B(λ,T_eff)`, which raises the MWIR at-aperture signal on `atmosphere.model = "simple"`; SNR +16.0 % and NEDT −13.6 % move as exact inverses of one another, and NIIRS follows the SNR term. CU-267's gas-region blend (τ down ≤ 0.71 % on 3.0–5.0 µm) is a small second-order offset in the opposite direction. The EE 1×1 move (0.4826 → 0.4141) is spatial, not radiometric, and is **not accounted for by any single in-window Results-affecting landing** — CU-188's cell-area-overlap EE_box is scoped to the point-source/sub-pixel regimes and this scene is EXTENDED. System MTF at Nyquist did not move.*
 
 The extended radiometric regime is active because the target (a 310 K ground scene) fills the entire pixel. In this regime, background temperature (295 K) only enters the contrast SNR calculation — it does not affect the primary signal or noise budget.
 
@@ -74,7 +76,7 @@ The script sweeps IPC from 0% to 5% in 51 steps, running a full RADIANT evaluati
 
 ### Step 4: Find the Limit
 
-The sweep reveals that the **binding constraint is EE 1x1**, which already fails at baseline (0.4826 < 0.60 requirement) before any IPC is applied. The MTF requirement (>= 0.15) is comfortably met across the full 0-5% IPC range.
+The sweep reveals that the **binding constraint is EE 1x1**, which already fails at baseline (0.4141 < 0.60 requirement) before any IPC is applied. The MTF requirement (>= 0.15) is comfortably met across the full 0-5% IPC range.
 
 **Note (kernel sampling resolved)**: an earlier build applied the 3×3 IPC kernel at PSF sample spacing rather than pixel pitch, so RADIANT's native IPC MTF diverged from the analytic `1 − 4α` form (at alpha = 5%: analytic 0.2025 vs native 0.2514). The current build resolves this — the analytic cross-check now agrees with RADIANT's native convolution to within rounding (at alpha = 5%: analytic 0.2134 vs native 0.2139, Δ 0.0005).
 
@@ -84,7 +86,7 @@ RADIANT's native IPC MTF can now be quoted directly; the analytic `MTF_IPC = 1 -
 
 Mike measured MTF at Nyquist and EE 1x1 on all five detector samples in the lab. Comparing RADIANT's native predictions (with IPC convolved into the EffectivePSF) to these measurements serves as a sanity check on the analysis.
 
-The model consistently predicts higher MTF than the lab measurements (by 0.02 to 0.15 depending on the sample). This is expected — the lab measurements include additional degradation from the optical test bench, diffraction from the test setup, and detector-specific effects (like diagonal IPC coupling at 0.3%) that the simple 4-neighbor model does not capture. The model-vs-measurement gap grows with IPC, which is also expected since the simple model neglects higher-order coupling effects that become more significant at higher coupling fractions.
+The model predicts higher MTF than the lab measurements on the four lower-IPC samples (Δ = +0.126 at 1.2% IPC, +0.092 at 1.8%, +0.058 at 2.3%, +0.023 at 2.8%), and slightly *lower* MTF on the highest-IPC sample (Δ = −0.020 at 3.5%). The positive offset on the low-IPC samples is expected — the lab measurements include additional degradation from the optical test bench, diffraction from the test setup, and detector-specific effects (like diagonal IPC coupling at 0.3%) that the simple 4-neighbor model does not capture. The model-vs-measurement gap *narrows* monotonically with IPC and crosses zero near 3% coupling: the measured MTF falls off with IPC faster than the model does, so the two curves converge and then cross. RADIANT's predicted EE 1×1 (0.399 down to 0.369 across the five samples) sits well below the measured 0.820–0.650 throughout, consistent with the baseline EE deficit noted in Step 2.
 
 The trend (MTF decreasing with IPC) matches well, confirming that the model captures the dominant physics correctly.
 
@@ -100,7 +102,7 @@ The trend (MTF decreasing with IPC) matches well, confirming that the model capt
 
 ## Gaps Identified
 
-- **Gap 1 (IPC kernel sampling)**: PARTIALLY FIXED. IPC is now wired into the signal chain — `DetectorStage` generates the IPC kernel and `PerformanceStage` convolves it with the EffectivePSF. However, the 3x3 kernel is applied at PSF sample spacing rather than pixel pitch, making the effect negligible. The MTF product path correctly computes the analytic IPC MTF. The fix requires upsampling the IPC kernel to match the PSF grid spacing.
+- **Gap 1 (IPC kernel sampling)**: FIXED. IPC is wired into the signal chain — `DetectorStage` generates the IPC kernel and `PerformanceStage` convolves it with the EffectivePSF at pixel pitch. The native convolution now tracks the analytic `1 − 4α` form to within rounding across the whole sweep (largest divergence Δ = 0.0005 at alpha = 5%: native 0.2139 vs analytic 0.2134). See the resolved-kernel note in Step 4.
 
 - ~~**Gap 2 (SNR = 0 at orbital altitude)**: FIXED. The atmosphere model now uses column-integrated optical depth with proper exponential scale heights.~~
 
@@ -111,8 +113,8 @@ The trend (MTF decreasing with IPC) matches well, confirming that the model capt
 
 | Metric | Previous Status | Current Status |
 |--------|----------------|----------------|
-| NEDT | Not available | `result.metrics["nedt_K"]` = 41.2 mK |
-| NIIRS | Not available | `result.metrics["niirs"]` = 4.77 |
+| NEDT | Not available | `result.metrics["nedt_K"]` = 35.6 mK |
+| NIIRS | Not available | `result.metrics["niirs"]` = 4.87 |
 | GSD | Manual calculation | `result.metrics["gsd_cross_track_m"]` = 7.50 m |
 | Q parameter | Manual calculation | `result.metrics["q_center"]` = 0.944 |
 | Strehl | Not available | `result.metrics["strehl"]` = 1.000 |

@@ -6,12 +6,14 @@ scenario 4.3's subject; ROC-grade detection is planned T4 work).
 
 ## Summary
 5 m² hotspot vs 300 K conifer forest from 10 km (4 m GSD, 31% fill,
-sub-pixel with clutter σ = 0.03). At 600 K (CU-060 fill-corrected): MWIR
-SCNR 449 vs LWIR 38 — nearly equal band-integrated ΔL (374 vs 382
-W/m²/sr), but LWIR's clutter is 350× MWIR's because its 300 K background
-is ~10× brighter in-band. MWIR P_d ≈ 1 at 400–1200 K; LWIR misses 400 K
-smolders (P_d 0.057); both bands saturate from ≈1200 K at the fire-mode
-integrations. Recommendation: MWIR for detection.
+sub-pixel with clutter σ = 0.03). At 600 K: MWIR SCNR 393.6 vs LWIR 21.3 —
+nearly equal band-integrated ΔL (373.6 vs 382.0 W/m²/sr), but LWIR's clutter
+is ~217× MWIR's because its 300 K background is ~10× brighter in-band. MWIR
+P_d ≈ 1 at 400–1200 K; LWIR misses 400 K smolders (P_d 0.000); MWIR saturates
+from ≈1200 K at the fire-mode integrations while LWIR stays unsaturated across
+the swept range. Recommendation: MWIR for detection.
+*(Numbers refreshed 2026-08-02 from the unmodified runner; see walkthrough.md
+for the CU-224 / CU-188 / CU-267 attribution.)*
 
 ## CU-060 correction (2026-07-09)
 The first execution left `source.target.fill_fraction` at its default 1.0
@@ -51,7 +53,7 @@ in the temperature sweep as a first-class result (sat flags per point).
 ## Non-Gap Observations
 
 - **NEDT is the wrong figure of merit for fire detection** (LWIR wins
-  NEDT 89.9 vs 123.1 mK yet loses detection by 7×). The walkthrough spells
+  NEDT 161.8 vs 230.0 mK yet loses detection by ~18× in SCNR). The walkthrough spells
   out why; both NEDT values carry the Gap 43 single-λ caveat.
 - **Per-band background emissivity from the ASTER curve (0.9530 vs
   0.9821) differs by ~3%** — a shared scalar would bias each band's

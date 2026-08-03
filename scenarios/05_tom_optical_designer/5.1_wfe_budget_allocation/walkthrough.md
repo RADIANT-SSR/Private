@@ -8,9 +8,10 @@ prescription is now parsed from the Zemax text export via
 `load_zemax_zernike` (Gap 26), the allocation is a `radiant.api.ErrorBudget`
 (Gaps 23+28), and a Zernike-mode chain run compares the actual prescription
 against the scalar-RMS screen at the same total RMS. Numbers below were
-refreshed 2026-07-22 (CU-176) against the current engine; the post-recalibration
-VNIR chain (Gap 38 scattered-sky + CU-155/161) shifts SNR to 242.2 (from 250.6
-in the 2026-07-07 run). WFE-driven spatial trends are unchanged.
+refreshed 2026-08-02 against the current engine; the Rayleigh-optical-depth
+correction (CU-253) shifts SNR to 173.5 (from 242.2 in the 2026-07-22 run).
+WFE-driven spatial *trends* are unchanged — Strehl, MTF@Nyquist and RER are
+bit-identical to the previous vintage at every sweep point.
 
 ## Persona
 Tom, optical designer. He has a Zernike decomposition from Zemax for a 40 cm Cassegrain telescope (f/10, 35% linear obscuration) operating in VNIR (500--800 nm). He wants to determine how much total WFE RMS his design can tolerate before Strehl, MTF, EE, RER, and NIIRS degrade unacceptably.
@@ -106,10 +107,17 @@ before chain execution; there is no scalar-parameter path for Zernike mode).
 |--------|-----------------:|--------------:|---:|
 | Strehl [--] | 0.9174 | 0.9019 | +0.0156 |
 | MTF@Nyquist [--] | 0.2246 | 0.2297 | −0.0051 |
-| EE(1x1) [--] | 0.4378 | 0.4280 | +0.0099 |
+| EE(1x1) [--] | 0.3953 | 0.3868 | +0.0085 |
 | RER [--] | 0.5812 | 0.5526 | +0.0285 |
-| NIIRS [--] | 6.54 | 6.47 | +0.07 |
-| SNR [--] | 242.2 | 242.2 | 0 |
+| NIIRS [--] | 6.32 | 6.24 | +0.07 |
+| SNR [--] | 173.5 | 173.5 | 0 |
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22). Dominant mover: CU-253 — the Rayleigh optical depth was 8× too
+large, which halved `E_sky_scattered` and dropped this VNIR scene's SNR from
+242.2 to 173.5 (−28 %), carrying NIIRS down with it through the GIQE-5 SNR
+term. The EE columns moved separately under CU-188 (cell-area-overlap EE_box).
+Strehl, MTF@Nyquist and RER are unchanged.*
 
 Same total RMS, different modal mix, different metrics — the shape effect a
 single RMS number cannot capture. At this small RMS (Strehl ≈ 0.9) the
@@ -124,19 +132,19 @@ whenever one exists.
 ### WFE Sweep
 | WFE [waves] | Strehl [--] | MTF@Nyq [--] | EE(1x1) [--] | EE(3x3) [--] | RER [--] | NIIRS [--] |
 |---|---|---|---|---|---|---|
-| 0.000 | 1.0000 | 0.2546 | 0.4745 | 0.8877 | 0.6114 | 6.62 |
-| 0.020 | 0.9844 | 0.2506 | 0.4671 | 0.8739 | 0.6021 | 6.59 |
-| 0.040 | 0.9392 | 0.2392 | 0.4457 | 0.8337 | 0.5750 | 6.53 |
-| 0.060 | 0.8683 | 0.2212 | 0.4120 | 0.7709 | 0.5325 | 6.42 |
-| 0.071 | 0.8207 | 0.2092 | 0.3894 | 0.7286 | 0.5040 | 6.34 |
-| 0.080 | 0.7781 | 0.1984 | 0.3692 | 0.6909 | 0.4785 | 6.26 |
-| 0.100 | 0.6759 | 0.1725 | 0.3207 | 0.6001 | 0.4173 | 6.07 |
-| 0.120 | 0.5692 | 0.1455 | 0.2701 | 0.5054 | 0.3533 | 5.83 |
-| 0.140 | 0.4648 | 0.1191 | 0.2205 | 0.4127 | 0.2907 | 5.54 |
-| 0.160 | 0.3680 | 0.0944 | 0.1746 | 0.3268 | 0.2327 | 5.22 |
-| 0.180 | 0.2827 | 0.0726 | 0.1341 | 0.2510 | 0.1815 | 4.86 |
-| 0.200 | 0.2106 | 0.0540 | 0.0999 | 0.1871 | 0.1382 | 4.47 |
-| 0.250 | 0.0885 | 0.0223 | 0.0419 | 0.0790 | 0.0649 | 3.38 |
+| 0.000 | 1.0000 | 0.2546 | 0.4288 | 0.8833 | 0.6114 | 6.39 |
+| 0.020 | 0.9844 | 0.2506 | 0.4222 | 0.8696 | 0.6021 | 6.37 |
+| 0.040 | 0.9392 | 0.2392 | 0.4028 | 0.8296 | 0.5750 | 6.30 |
+| 0.060 | 0.8683 | 0.2212 | 0.3724 | 0.7671 | 0.5325 | 6.19 |
+| 0.071 | 0.8207 | 0.2092 | 0.3519 | 0.7250 | 0.5040 | 6.11 |
+| 0.080 | 0.7781 | 0.1984 | 0.3337 | 0.6874 | 0.4785 | 6.04 |
+| 0.100 | 0.6759 | 0.1725 | 0.2899 | 0.5972 | 0.4173 | 5.84 |
+| 0.120 | 0.5692 | 0.1455 | 0.2441 | 0.5029 | 0.3533 | 5.60 |
+| 0.140 | 0.4648 | 0.1191 | 0.1993 | 0.4106 | 0.2907 | 5.32 |
+| 0.160 | 0.3680 | 0.0944 | 0.1578 | 0.3251 | 0.2327 | 5.00 |
+| 0.180 | 0.2827 | 0.0726 | 0.1212 | 0.2497 | 0.1815 | 4.64 |
+| 0.200 | 0.2106 | 0.0540 | 0.0903 | 0.1861 | 0.1382 | 4.25 |
+| 0.250 | 0.0885 | 0.0223 | 0.0379 | 0.0786 | 0.0649 | 3.16 |
 
 ### NIIRS Thresholds
 | Degradation | WFE Threshold [waves] |
@@ -159,20 +167,20 @@ whenever one exists.
 ### Tom's Design Assessment
 - **Total Zernike RMS**: 0.0513 waves (run in Zernike mode, not just the nearest sweep point)
 - **Strehl**: 0.9174 (well above 0.80 diffraction limit; the structured prescription outperforms a random screen at the same RMS)
-- **dNIIRS**: -0.08 (Zernike mode) vs -0.15 (scalar screen at the same RMS)
+- **dNIIRS**: -0.07 (Zernike mode) vs -0.15 (scalar screen at the same RMS)
 - **Budget**: RSS 0.0513 vs allocation 0.0714 waves — within budget, 0.0497 waves RSS headroom for assembly/thermal terms
 - **Assessment**: Tom's WFE budget is well within diffraction-limited territory.
 
 ### Noise Budget (constant across sweep)
 | Noise Term | Value [e- RMS] | Fraction [%] |
 |---|---|---|
-| signal_shot | 242.3 | 100.0 |
+| signal_shot | 173.6 | 99.9 |
 | dark_shot | 0.1 | 0.0 |
-| read_noise | 5.0 | 0.0 |
+| read_noise | 5.0 | 0.1 |
 | quantization | 0.3 | 0.0 |
-| TOTAL (RSS) | 242.4 | 100.0 |
+| TOTAL (RSS) | 173.6 | 100.0 |
 
-Signal: 58,710 e-, SNR: 242.2. WFE does not affect noise — it degrades spatial metrics only. (The background-shot term present in the first run is now zero: in the extended regime RADIANT skips the separate scene-background photon term by design — matrix Decision #13.)
+Signal: 30,121 e-, SNR: 173.5. WFE does not affect noise — it degrades spatial metrics only. (The background-shot term present in the first run is now zero: in the extended regime RADIANT skips the separate scene-background photon term by design — matrix Decision #13.)
 
 ## Physics Discussion
 

@@ -35,7 +35,7 @@ limited form is the correct first layer and is clearly documented as such.
 
 - **The horizon, not resolution, binds for large targets.** A 12.5 µrad
   MWIR sensor resolves a frigate's identification cycles out to 276 km,
-  but the 5 km platform's geometric horizon is 253 km — so line-of-sight
+  but the 5 km platform's geometric horizon is 252 km — so line-of-sight
   is the operational limit for anything frigate-sized or larger. The
   scenario reports `min(DRI, horizon)` per task to make this explicit; a
   DRI-only answer would badly overstate large-ship ranges.

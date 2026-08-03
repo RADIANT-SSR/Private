@@ -210,10 +210,13 @@ only as leader-label text; direction is faithful.
 - **Noise budget panel**: signal shot 34.31, dark shot 22.36, read 25.00,
   quantization 1.76, total 48.01 e- RMS — and **background shot exactly 0 e-**,
   which the panel should annotate as "cold-space termination", not hide.
-- **Messages panel**: must be **empty** for this run. Zero UserWarnings, and the
-  Rule-4 dual-path consistency check passed (2.3 × 10⁻⁴ vs 2.0 × 10⁻² tolerance,
-  86× margin). If a Rule-4 warning ever appears on this scene class, a spatial
-  degradation has been added to one path and not the other.
+- **Messages panel**: must carry **exactly one** entry for this run —
+  CU-261/265's inert-optics-temperature report (`optics.optics_temperature_K =
+  180 K` is set while `optics.scalar_emissivity` is 0, so the bench temperature
+  contributes nothing). The Rule-4 dual-path consistency check passed
+  (2.3 × 10⁻⁴ vs 2.0 × 10⁻² tolerance, 86× margin) and contributes no message. If
+  a Rule-4 warning ever appears on this scene class, a spatial degradation has
+  been added to one path and not the other.
 
 ---
 

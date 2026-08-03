@@ -69,8 +69,8 @@ Sarah needs to find the optimal N_tdi for her VNIR pushbroom imager. The GUI sho
 - NIIRS vs N_tdi (log x-axis)
 - Mark peak NIIRS with green dashed line
 - Mark saturated points with red X markers
-- Annotation: "Peak NIIRS = 6.05 at N_tdi = 16"
-- Secondary annotation: "Conservative: N_tdi = 8, NIIRS = 5.81 (42% fill)"
+- Annotation: "Peak NIIRS = 6.13 at N_tdi = 64"
+- Secondary annotation: "Conservative: N_tdi = 8, NIIRS = 5.60 (21% fill)"
 
 ## Interactive Features
 
@@ -93,9 +93,9 @@ Sarah needs to find the optimal N_tdi for her VNIR pushbroom imager. The GUI sho
 
 ### Design Summary Panel
 - Auto-generated recommendation:
-  - "Optimal N_tdi: 16 (peak NIIRS = 6.05, 83% well fill)"
-  - "Conservative: N_tdi = 8 (NIIRS = 5.81, 42% well fill)"
-  - "Saturation onset: N_tdi > 19 (FWC / signal_per_line)"
+  - "Optimal N_tdi: 64 (peak NIIRS = 6.13, 100% well fill)"
+  - "Conservative: N_tdi = 16 (NIIRS = 5.84, 42% well fill)"
+  - "Saturation onset: N_tdi > 38 (FWC / signal_per_line)"
 - Export: PDF report, Excel spreadsheet
 
 ## Display Requirements

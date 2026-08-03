@@ -8,10 +8,16 @@ emissivity).
 Hot vehicle (380 K, oxidized steel ε≈0.80) vs three nets (draped, 310 K)
 against 305 K scrub (ε 0.96), LWIR FLIR 8–12 µm at 3 km. Camouflage is
 radiance MATCHING: net C (ε≈0.93, near the 0.96 scrub) cuts the signature
-95.5% (SCNR 1562→70); the intuitive low-ε net A over-corrects to a cold
-signature (72.1% reduction, residual −607k e⁻). Detection range edge-
+95.5% (SCNR 1270.8→56.8); the intuitive low-ε net A over-corrects to a cold
+signature (72.4% reduction, residual −512k e⁻). Detection range edge-
 limited for all (sensitive FLIR at 3 km) — camo reduces signature, not
 detectability.
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-22, which was itself stale against the 2026-07-22 walkthrough refresh).
+Dominant mover: CU-224 — added down-looking path emission raises the scrub
+background's shot noise, cutting every SCNR ~12 % while leaving the contrast
+electrons and the 95.5 % / 72.4 % reduction figures essentially unchanged.*
 
 ## Gap Closure Status (catalog "Gaps revealed" list)
 

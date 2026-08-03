@@ -47,14 +47,23 @@ purpose is measured-vs-predicted comparison, use the as-built Zernike
 prescription via `io.load_zemax_zernike` (Gap 26, closed — exercised in
 scenario 5.1).
 
-## Newly Available Metrics (unchanged from previous run)
+## Newly Available Metrics
 
 | Metric | API Key | Value (this scenario) | Notes |
 |--------|---------|----------------------|-------|
-| Strehl ratio | `result.metrics["strehl"]` | 0.8256 [--] | From EffectivePSF |
-| RER | `result.metrics["rer"]` | 0.6825 [--] | Relative edge response |
+| Strehl ratio | `result.metrics["strehl"]` | 0.8206 [--] | From EffectivePSF |
+| RER | `result.metrics["rer"]` | 0.6773 [--] | Relative edge response |
 | Q (center) | `result.metrics["q_center"]` | 0.195 [--] | Sampling parameter |
-| FWHM_x | `result.metrics["fwhm_x_m"]` | 10.79 [µm] | PSF full-width half-max |
+| FWHM_x | `result.metrics["fwhm_x_m"]` | 10.18 [µm] | PSF full-width half-max |
 | Well margin | `result.metrics["well_margin_dB"]` | 429.6 [dB] | Very large — lab test, near-zero signal |
 | Dynamic range | `result.metrics["dynamic_range_dB"]` | 83.2 [dB] | |
 | GSD / NIIRS / NEDT | — | None / None / N/A | Lab test (altitude = 0, no thermal scene in VNIR) |
+
+*Strehl, RER and FWHM_x refreshed 2026-08-02 from the unmodified runner
+(previous vintage 2026-07-07); they had drifted from the values
+`walkthrough.md` already carried under the CU-058 fix. No Results-affecting
+landing accounts for the change — this is an exo/vacuum VNIR bench scene, and
+CU-209 (the one in-window landing that touches MTF-at-Nyquist quantities)
+moves only `mtf_folded_at_nyquist` and `alias_fraction_at_nyquist`, neither of
+which this scenario reports; its system MTF@Nyquist (0.4067) and budget terms
+are bit-identical to the 2026-07-22 walkthrough refresh.*

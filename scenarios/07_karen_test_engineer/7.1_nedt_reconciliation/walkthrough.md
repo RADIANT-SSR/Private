@@ -152,12 +152,20 @@ Perturbing each parameter by ±1% reveals which parameters have the largest impa
 
 | Parameter | Sensitivity [mK / 1% change] | Direction |
 |-----------|-------------------------------|-----------|
-| f-number (via focal length) | 1.01 | ↑f/# → ↑NEDT |
-| QE | 0.50 | ↑QE → ↓NEDT |
-| Optical transmission | 0.50 | ↑τ → ↓NEDT |
-| Integration time | 0.50 | ↑t_int → ↓NEDT |
-| Read noise | 0.001 | negligible |
-| Dark current | 0.000 | negligible |
+| f-number (via focal length) | 0.7428 | ↑f/# → ↑NEDT |
+| QE | 0.3714 | ↑QE → ↓NEDT |
+| Optical transmission | 0.3714 | ↑τ → ↓NEDT |
+| Integration time | 0.3714 | ↑t_int → ↓NEDT |
+| Read noise | 0.0010 | negligible |
+| Dark current | 0.0000 | negligible |
+
+*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+2026-07-09). No Results-affecting landing moved this scenario — it runs on
+`atmosphere.model = "exo"`, and every in-window landing's own scope statement
+excludes it (CU-224 leaves exo/vacuum paths exactly unchanged; CU-267 and
+CU-253 are `simple`-atmosphere only). These sensitivities scale with the
+predicted NEDT and had been left carrying the pre-Decision-#13 ≈ 100.6 mK
+vintage while the rest of the walkthrough was refreshed to 74.17 mK.*
 
 f-number and optical transmission dominate because they directly scale the photon flux reaching the detector. In the shot-noise-limited regime, NEDT ∝ 1/√(signal), and signal ∝ τ/f#². Read noise and dark current are irrelevant because they are 1000× smaller than the photon shot noise.
 
@@ -197,4 +205,4 @@ See [gaps.md](gaps.md) for full detail with severity and status.
 - **Gap 2 (No built-in reconcile method)**: still open. Script computes σ_missing manually.
 - **Gap 4 (Internal dS/dT not exposed)**: still open. Finite-difference workaround used.
 - **Gap 5 (ROIC glow not modeled)**: still open. `glow_shot` noise term is always zero.
-- **Gap 6 (NEW — Nearfield = 0 in scalar mode)**: HIGH severity. Mirror self-emission not modeled in scalar transmission mode. `nearfield_shot = 0` even with warm optics at 295 K. Workaround: `key_elements` or `full_prescription` optical mode. This likely explains part of the 26 mK gap between predicted and measured NEDT.
+- **Gap 6 (NEW — Nearfield = 0 in scalar mode)**: HIGH severity. Mirror self-emission not modeled in scalar transmission mode. `nearfield_shot = 0` even with warm optics at 295 K. Workaround: `key_elements` or `full_prescription` optical mode. This likely explains part of the 52.83 mK gap between predicted and measured NEDT.

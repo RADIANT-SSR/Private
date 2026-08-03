@@ -46,17 +46,17 @@ Tom, optical designer. He has a VNIR panchromatic imager (50 cm, f/10, 8 um CCD)
   - Phase 2: Analytic jitter degradation (51 points, instant -- no RADIANT re-evaluation needed)
   - **Live-updating curves**: NIIRS vs. jitter and MTF vs. jitter populate as phase 2 computes
   - **Threshold crossing markers**: appear on curves as soon as interpolated jitter value is found
-  - **Baseline results banner**: SNR = 68.7, GSD = 0.80 m, RER = 0.649, MTF@Nyq = 0.373, NIIRS = 6.49
+  - **Baseline results banner**: SNR = 61.4, GSD = 0.80 m, RER = 0.5483, MTF@Nyq = 0.2330, NIIRS = 6.17
 
 ## Step 4: NIIRS vs. Jitter Visualization
 - **Action**: View > NIIRS Degradation
 - **GUI components (main chart + sidebar)**:
   1. **NIIRS vs. Jitter RMS**: Line plot with jitter on x-axis (urad) and NIIRS on y-axis. Three horizontal threshold lines: delta_NIIRS = -0.5 (orange), delta_NIIRS = -1.0 (red), NIIRS = 6.0 floor (dark red). Vertical annotation lines at threshold crossings with values labeled.
   2. **Secondary x-axis**: sigma_fp in pixels shown on top axis, so Tom sees both angular jitter and focal-plane blur simultaneously.
-  3. **delta_NIIRS annotation**: Text box showing "At 1.0 urad: NIIRS drops 0.51 grades (sigma = 0.62 pixels)"
+  3. **delta_NIIRS annotation**: Text box showing "At 1.0 urad: NIIRS drops 0.54 grades (sigma = 0.625 pixels)"
 
 - **Interactive features**:
-  - Hover on curve: tooltip shows "Jitter = 0.8 urad, sigma = 0.50 pix, RER = 0.505, NIIRS = 6.13, delta_NIIRS = -0.36"
+  - Hover on curve: tooltip shows "Jitter = 0.8 urad, sigma = 0.50 pix, RER = 0.4178, NIIRS = 5.78, delta_NIIRS = -0.39"
   - Drag threshold lines to explore different requirements
   - Toggle x-axis units: urad / pixels / fraction of IFOV
   - "Why is NIIRS so sensitive?" button: explanation panel shows GIQE-5 RER term dominance
@@ -92,8 +92,8 @@ Tom, optical designer. He has a VNIR panchromatic imager (50 cm, f/10, 8 um CCD)
   - **Term decomposition bar chart**: Shows contribution of each GIQE-5 term at baseline and at selected jitter level:
     - Constant: +9.57
     - GSD term: -3.32 x log10(GSD_inch) = -3.32 x log10(31.5) = -4.98
-    - RER term: +3.32 x log10(RER) varies from -0.62 (baseline) to deeper negative with jitter
-    - SNR term: +1.559 x log10(68.7) = +2.86 (unchanged by jitter)
+    - RER term: +3.32 x log10(RER) varies from -0.87 (baseline, RER = 0.5483) to deeper negative with jitter
+    - SNR term: +1.559 x log10(61.4) = +2.79 (unchanged by jitter)
     - H, G terms: small contributions
   - **Side-by-side comparison**: Baseline vs. jittered GIQE-5 breakdown, highlighting that only the RER term changes
   - **Sensitivity panel**: d(NIIRS)/d(RER) = 3.32/(RER x ln(10)) -- shows how steep the RER sensitivity is near the operating point

@@ -50,7 +50,7 @@ by name in check 8 — that list is frozen and must never grow.
 ### CU-323 — `evaluate()` silently discards `emissivity_path` when any of nine rival doors dispatches first
 
 **Discovered**: CU-318 closure (branch `fix/cu-319-318`), 2026-08-02 — measured while moving the guard; refutes CU-318's "caught by symmetric guards" premise.
-**Status**: Open — needs the CU-293 ruling class extended (over-specification raises at evaluate) to nine more pairs.
+**Status**: Open — **Owner ruling (2026-08-02): approved** — extend the CU-293 ruling class: `evaluate()` refuses all nine `emissivity_path` rival pairs exactly as the seam does (measured: zero shipped configs newly raise). CHANGELOG under Changed.
 **File**: `src/radiant/source/_inferrer.py` (dispatch order: ρ / albedo / S8 / S10 / S10b / S11 / S12 / brightness-path doors all dispatch before the ε(λ) door).
 **Symptom**: with `emissivity_path` set alongside any of nine rival surfaces, the rival door builds first and `evaluate()` completes with the user's ε(λ) surface silently ignored (Rule 17) — the same defect class CU-293 closed for the S11+S12 pair. The resolve-time seam already refuses all nine (CU-318 registered the full guard there), so the door is deliberately stricter than evaluate — the documented stopgap asymmetry, reintroduced for one door.
 **Why it still matters**: a user-supplied spectral surface is discarded with no warning at the entry point scripts use; the GUI seam catches it but the scripting API does not.
@@ -59,7 +59,7 @@ by name in check 8 — that list is frozen and must never grow.
 ### CU-321 — One-temperature graybody over-predicts MWIR path thermal ~2× on tall columns, both directions equally (now anchorable)
 
 **Discovered**: CU-224 P5a anchoring (branch `atmo/cu-224-lpath-thermal`), 2026-08-02.
-**Status**: Open — owner call on whether to pursue a height-resolved `T_eff`; the anchors to do it now exist.
+**Status**: Open — **Owner ruling (2026-08-02): approved** — fit a height-resolved `T_eff` (two-slab or pressure-weighted, `T_eff(λ)`) against the O/K/N/H matched pairs, ONE model for both directions (Rule 27); results-affecting for MWIR path-radiance scenes → §5.3 sweep.
 **File**: `src/radiant/atmosphere/segment_thermal.py` (`_downwelling_effective_temperature_K`, the CU-155 one-temperature machinery).
 **Symptom**: with the CU-224 thermal term landed, both directions show the same residual against the batch-2 anchors: MWIR model/MODTRAN reaches 2.02–2.42 on the tall columns (O3/O4/O5 down-looking; H5 up-looking shows 1.49 on the same column class) while LWIR sits at 1.33–1.43. The signature is the documented one-temperature-graybody + region-flat spectral-shape approximation (CU-155/CU-161), not a direction-specific defect — the down-looking and up-looking residuals track each other on identical columns.
 **Why it still matters**: results-affecting (intake test 1) for MWIR path-radiance-dominated scenes if fixed; and for the first time it is *anchorable* — O1–O5 + K/N/H give matched direction pairs across five rungs, so a height- or direction-resolved `T_eff` can be fit against measured data instead of invented.
@@ -68,7 +68,7 @@ by name in check 8 — that list is frozen and must never grow.
 ### CU-316 — Tabulated and MODTRAN backends resample tau linearly, diverging from the interpolated backend's log-tau convention
 
 **Discovered**: CU-306 closure (branch `atmo/cu-306-logtau-resample`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).
-**Status**: Open — backend-consistency question; needs an owner ruling on one convention across backends.
+**Status**: Open — **Owner ruling (2026-08-02): approved** — adopt log-τ resampling for the τ-like arrays in the tabulated and MODTRAN backends (radiances stay linear), same `TAU_FLOOR` guard as CU-306; §5.3 re-anchor of the MODTRAN-backed integration anchors (~1 % moves expected).
 **File**: `src/radiant/atmosphere/tabulated.py:421,530`; `src/radiant/atmosphere/modtran.py:1611` (linear-in-tau `SpectralData.resample` onto the chain grid).
 **Symptom**: after CU-306, the same stored MODTRAN column yields slightly different tau depending on which backend serves it: the interpolated backend carries tau to the chain grid in log-tau (Beer-Lambert-consistent), while `TabulatedAtmosphere` and `ModtranAtmosphere` still resample linearly in tau. Measured on the shipped ladders: up to ~1.5 % relative tau difference at a 200-point MWIR chain grid. Not an operation-order defect (those backends perform one resample; there is nothing to commute) — a convention divergence.
 **Why it still matters**: cross-backend comparisons (the exact workflow the interpolated backend exists for — fast path vs tabulated truth) now carry a ~1 % model-independent discrepancy that is pure resampling convention; it lands exactly at the magnitude of the physics differences those comparisons are meant to expose.
@@ -77,7 +77,7 @@ by name in check 8 — that list is frozen and must never grow.
 ### CU-315 — `alias_fraction_at_nyquist` reports float noise for oversampled bands (no absolute floor)
 
 **Discovered**: CU-209 closure (branch `perf/cu-209-folded-mtf`), 2026-08-01. Promoted from the 2026-08-01 Findings-Log line (struck in this commit).
-**Status**: Open — needs an owner ruling on the floor semantics before any code moves.
+**Status**: Open — **Owner ruling (2026-08-02): approved, option (i)** — absolute floor: when the folded MTF at Nyquist is below a documented epsilon, `alias_fraction_at_nyquist` reports 0 (an oversampled design has no aliased energy). Results-affecting for the one metric on oversampled configurations.
 **File**: `src/radiant/performance/folded_mtf.py:139-143` (`alias_fraction = (folded − optical)/folded`, guarded only by `folded > 0.0`, which ~1e-16 passes).
 **Symptom**: for optics that cut off below pixel Nyquist, folded and optical MTF at `f_Nyquist` are both ~1e-16, and the ratio is float noise: the dual-band example's LWIR configuration (Q = 2.22) prints `alias_fraction_at_nyquist` = 0.944314 where the physical answer is 0. The CU-209 fix deliberately anchored the oversampled Level-0 case on the absolute folded value and left this open; the CHANGELOG and the example's printed note carry the caveat.
 **Why it still matters**: a shipped metric rendered in the GUI Performance dashboard reads "94 % aliased" on a design with nothing to alias — the one Spatial-MTF number an operator would use to judge sampling adequacy is the one that lies in the best-sampled regime.

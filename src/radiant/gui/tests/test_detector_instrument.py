@@ -2,8 +2,9 @@
 
 The Detector stage's contextual center becomes a tabbed instrument (the §4.4 sub-view hook, as
 Optics): three tabs — **Inputs** (editable detector :class:`FieldRow`s + the scalar outputs
-readout), **Noise** (the ratified framework **pie** ``result.plot.noise_pie`` as the primary
-chart above the per-term table + click-to-explain, the bar suppressed), and **Detector + PSF**
+readout), **Noise** (the framework log-scale bar ``result.plot.noise_budget`` — replacing the
+pie retired by owner ruling 2026-08-03 — as the primary chart above the per-term table +
+click-to-explain, the panel's own bar suppressed), and **Detector + PSF**
 (the Qt-drawn pixel illustration beside ``result.plot.psf_pixel_grid`` — the PSF with the
 detector pixel grid overlaid). Every figure is one call on the bound ``result.plot.*`` accessor.
 Every test drives the real widgets on the shipped example config, offscreen.
@@ -70,10 +71,11 @@ class TestDetectorComposition:
         # Inputs: the editable detector form + the scalar outputs readout.
         assert subviews["Inputs"].detector_inputs is True
         assert subviews["Inputs"].outputs is True
-        # Noise: the per-term panel (bar suppressed) + the framework pie as the primary chart.
+        # Noise: the per-term panel (own bar suppressed) + the framework log-scale
+        # budget bar as the primary chart (pie retired, owner ruling 2026-08-03).
         assert subviews["Noise"].noise_panel is True
         assert subviews["Noise"].noise_panel_chart is False
-        assert [p.method for p in subviews["Noise"].plots] == ["noise_pie"]
+        assert [p.method for p in subviews["Noise"].plots] == ["noise_budget"]
         # Detector + PSF: the Qt illustration + the PSF-with-pixel-grid accessor.
         assert subviews["Detector + PSF"].detector_illustration is True
         # Item 19: the pixel illustration sits beside the kernel that pixel imposes,
@@ -95,10 +97,10 @@ class TestDetectorPane:
         assert pane.has_tabs
         assert pane.tab_titles() == _TAB_TITLES
 
-    def test_noise_pie_and_psf_grid_figures_render(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """Both plot sections (noise pie + PSF-with-grid) draw from their bound accessors."""
+    def test_noise_budget_and_psf_grid_figures_render(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Both plot sections (noise budget + PSF-with-grid) draw from their bound accessors."""
         pane = _detector_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
-        assert len(pane.plot_canvases) == 3  # noise pie + detector kernels + PSF grid
+        assert len(pane.plot_canvases) == 3  # noise budget + detector kernels + PSF grid
         assert all(c.has_figure() for c in pane.plot_canvases)
 
     def test_noise_table_present_with_units_and_bar_suppressed(  # type: ignore[no-untyped-def]

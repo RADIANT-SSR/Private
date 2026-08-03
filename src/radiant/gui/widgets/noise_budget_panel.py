@@ -134,11 +134,12 @@ class NoiseBudgetPanel(QWidget):
         self._canvas.setMinimumHeight(_CANVAS_MIN_HEIGHT)
 
         content_layout.addLayout(left, 1)
-        # The Detector view suppresses the embedded bar (``show_chart=False``): the noise
-        # **pie** (result.plot.noise_pie) is the primary chart there, drawn as its own section,
-        # so the bar would be a redundant second mark of the same data (owner: "a pie, not a
-        # bar"). The panel then contributes only the per-term table + click-to-explain, which
-        # take the full width. Every other consumer keeps the bar beside the table.
+        # The Detector view suppresses the embedded bar (``show_chart=False``): the framework
+        # noise budget (result.plot.noise_budget, log scale — the pie it replaced was retired
+        # by owner ruling 2026-08-03) is the primary chart there, drawn as its own section, so
+        # this bar would be a redundant second mark of the same data. The panel then
+        # contributes only the per-term table + click-to-explain, which take the full width.
+        # Every other consumer keeps the bar beside the table.
         if self._show_chart:
             content_layout.addWidget(self._canvas, 2)
         else:

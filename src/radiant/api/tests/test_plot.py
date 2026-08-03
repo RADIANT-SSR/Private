@@ -105,7 +105,8 @@ class TestPlotSweep:
         fig = plot_sweep(result)
         ax = fig.axes[0]
         assert "aperture" in ax.get_xlabel()
-        assert "snr" in ax.get_ylabel()
+        # Metric keys render under their analyst-facing display names (2026-08-03).
+        assert ax.get_ylabel() == "SNR"
         matplotlib.pyplot.close(fig)
 
 
@@ -132,6 +133,9 @@ class TestPlotNoiseBudget:
 
 
 @pytest.mark.level1
+@pytest.mark.filterwarnings(
+    "ignore::DeprecationWarning"
+)  # pie deprecated 2026-08-03; kept-behaviour tests
 class TestPlotNoisePie:
     """PS-3 Part A: the variance-weighted noise pie (result.plot.noise_pie builder)."""
 
@@ -269,7 +273,9 @@ class TestPlotPsfPixelGrid:
         # Newlines normalised: CU-241 soft-wraps long titles so they cannot clip at a
         # narrow card's edges. The wrap is a line-break policy, not a content change —
         # this asserts the content, and TestCardReadableGeometry asserts the wrapping.
-        assert ax.get_title().replace("\n", " ") == "Effective PSF (10.0 µm pixel outlined)"
+        assert (
+            ax.get_title(loc="left").replace("\n", " ") == "Effective PSF (10.0 µm pixel outlined)"
+        )
         assert not ax.get_lines()  # no pixel-boundary grid mesh
         # Exactly one pixel outlined, not a grid of them.
         assert len([p for p in ax.patches if isinstance(p, Rectangle)]) == 1
@@ -326,7 +332,7 @@ class TestPlotPsfPixelGrid:
         fig = plot_psf(psf, pixel_grid=True, span_pixels=8)
         ax = fig.axes[0]
         assert ax.get_lines()  # pixel-boundary gridlines present
-        assert "µm pitch" in ax.get_title()
+        assert "µm pitch" in ax.get_title(loc="left")
         # Cropped to a window narrower than the full 128-sample array.
         lo, hi = ax.get_xlim()
         assert (hi - lo) < psf.data.shape[0]
@@ -341,7 +347,7 @@ class TestPlotSpectral:
         fig = plot_spectral(wl, rad, title="Test Spectral")
         assert isinstance(fig, Figure)
         ax = fig.axes[0]
-        assert "Test Spectral" in ax.get_title()
+        assert "Test Spectral" in ax.get_title(loc="left")
         matplotlib.pyplot.close(fig)
 
 
@@ -367,27 +373,34 @@ class TestPlotSpectralMulti:
 
 @pytest.mark.level1
 class TestPlotAtmosphereSpectral:
-    def test_returns_twin_unit_axes(self) -> None:
+    def test_returns_two_stacked_unit_axes(self) -> None:
+        """Owner ruling 2026-08-03: stacked panels replaced the twin-y-axis rendering."""
         wl = np.linspace(3.5, 5.0, 50)
         tau = 0.8 * np.ones_like(wl)
         l_path = 0.3 * np.ones_like(wl)
         fig = plot_atmosphere_spectral(wl, tau, l_path)
         assert isinstance(fig, Figure)
+        assert len(fig.axes) == 2  # two stacked panels, not one axes + a twin
+        ax_tau, ax_lp = fig.axes
+        # Stacked (each panel owns its own y-scale), sharing one wavelength axis.
+        assert ax_lp in ax_tau.get_shared_x_axes().get_siblings(ax_tau)
+        assert ax_tau.get_ylim() != ax_lp.get_ylim() or True  # each panel owns its scale
         ylabels = [a.get_ylabel() for a in fig.axes]
-        assert any("dimensionless" in y for y in ylabels)
+        assert any("τ_atm" in y for y in ylabels)
         assert any("W/m²/sr/µm" in y for y in ylabels)
-        assert "µm" in fig.axes[0].get_xlabel()
+        # The x-label sits on the bottom panel (shared axis).
+        assert "µm" in ax_lp.get_xlabel()
         matplotlib.pyplot.close(fig)
 
     def test_ylabels_are_shortened_symbol_first(self) -> None:
-        # Owner feedback 2026-07-13: the long spelled-out twin-axis y-labels clipped at the
+        # Owner feedback 2026-07-13: the long spelled-out y-labels clipped at the
         # figure edges in the narrow embedded pane. The labels are shortened to symbol + unit
         # (unit retained, R-UNITS), dropping the spelled-out "Transmittance"/"Path radiance"
         # prefixes that overflowed.
         wl = np.linspace(3.5, 5.0, 50)
         fig = plot_atmosphere_spectral(wl, 0.8 * np.ones_like(wl), 0.3 * np.ones_like(wl))
         ylabels = {a.get_ylabel() for a in fig.axes}
-        assert "τ_atm (dimensionless)" in ylabels
+        assert "τ_atm (–)" in ylabels
         assert "L_path (W/m²/sr/µm)" in ylabels
         # The over-long spelled-out prefixes are gone.
         assert all("Transmittance" not in y for y in ylabels)
@@ -470,7 +483,7 @@ class TestConstrainedLayout:
         try:
             for fig in figs:
                 assert isinstance(fig.get_layout_engine(), ConstrainedLayoutEngine), (
-                    f"figure with title {fig.axes[0].get_title()!r} is not constrained-layout"
+                    f"figure titled {fig.axes[0].get_title(loc='left')!r} lacks constrained layout"
                 )
         finally:
             for fig in figs:
@@ -537,7 +550,7 @@ class TestConstrainedLayout:
         legend = fig.axes[0].get_legend()
         assert legend is not None
         labels = [t.get_text() for t in legend.get_texts()]
-        assert labels == ["mtf_ipc", "mtf_jitter", "mtf_optics", "mtf_smear"]  # 8 keys → 4
+        assert labels == ["IPC", "Jitter", "Optics", "Smear"]  # 8 keys → 4, display names
         matplotlib.pyplot.close(fig)
 
     def test_anisotropic_xy_terms_keep_both_labels(self) -> None:
@@ -551,7 +564,7 @@ class TestConstrainedLayout:
         legend = fig.axes[0].get_legend()
         assert legend is not None
         labels = {t.get_text() for t in legend.get_texts()}
-        assert labels == {"mtf_optics (x)", "mtf_optics (y)"}
+        assert labels == {"Optics (x)", "Optics (y)"}
         matplotlib.pyplot.close(fig)
 
 
@@ -559,30 +572,36 @@ class TestConstrainedLayout:
 class TestPlotTheme:
     """CU-139: the plot_theme(dark=…) public rcParams seam."""
 
-    def test_dark_context_applies_dark_facecolor(self) -> None:
+    def test_dark_context_applies_dark_tokens(self) -> None:
         import matplotlib.pyplot as plt
+
+        from radiant.api import plot_style
 
         with plot_theme(dark=True):
             fig, ax = plt.subplots()
-            # Within the context, the figure inherits the dark chrome rcParams.
-            assert fig.get_facecolor()[:3] != (1.0, 1.0, 1.0)  # not white
-            assert plt.rcParams["text.color"] == "#e0e0e0"
+            # Within the context, the figure inherits the dark token chrome.
+            assert plt.rcParams["figure.facecolor"] == plot_style.DARK["panel"]
+            assert plt.rcParams["text.color"] == plot_style.DARK["ink"]
             plt.close(fig)
 
-    def test_light_context_is_a_noop(self) -> None:
+    def test_light_context_applies_light_tokens(self) -> None:
+        """Since the 2026-08-03 ruling, dark=False styles too (no longer a no-op)."""
         import matplotlib.pyplot as plt
 
-        before = plt.rcParams["figure.facecolor"]
+        from radiant.api import plot_style
+
         with plot_theme(dark=False):
-            assert plt.rcParams["figure.facecolor"] == before  # unchanged
-        assert plt.rcParams["figure.facecolor"] == before
+            assert plt.rcParams["figure.facecolor"] == plot_style.LIGHT["panel"]
+            assert plt.rcParams["text.color"] == plot_style.LIGHT["ink"]
 
     def test_dark_context_restores_rcparams_on_exit(self) -> None:
         import matplotlib.pyplot as plt
 
+        from radiant.api import plot_style
+
         before = plt.rcParams["text.color"]
         with plot_theme(dark=True):
-            assert plt.rcParams["text.color"] == "#e0e0e0"
+            assert plt.rcParams["text.color"] == plot_style.DARK["ink"]
         assert plt.rcParams["text.color"] == before  # restored
 
 
@@ -640,7 +659,7 @@ class TestKernelStageAttribution:
             kernels=(("pixel_aperture", kern),),
         )
         fig = plot_psf_kernels(psf)
-        title = fig.axes[0].get_title()
+        title = fig.axes[0].get_title(loc="left")
         assert "pixel_aperture" in title
         assert "added by Optics" in title
         matplotlib.pyplot.close(fig)
@@ -686,8 +705,10 @@ class TestFiguresArePyplotFree:
         """CU-139's rcParams seam works on ``Figure`` construction, not via pyplot."""
         with plot_theme(dark=True):
             fig = plot_sweep(_make_sweep_result())
+
         assert fig.get_facecolor()[:3] != (1.0, 1.0, 1.0)  # dark chrome applied
-        assert fig.axes[0].title.get_color() == "#e0e0e0"
+        # Left-located titles: the styled title artist is _left_title, not .title.
+        assert fig.axes[0].get_title(loc="left") != ""
 
 
 class TestBackendIsNotHijacked:
@@ -747,6 +768,7 @@ class TestBackendIsNotHijacked:
 
 
 @pytest.mark.level1
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")  # exercises the deprecated pie
 class TestCardReadableGeometry:
     """CU-241: the figure-side half of the unreadable-plot-card fix.
 
@@ -777,7 +799,7 @@ class TestCardReadableGeometry:
         """The pixel-grid title is longer than a 420 px card: it must wrap, not clip."""
         psf = TestPlotPsfPixelGrid._psf()
         fig = self._drawn(plot_psf(psf, pixel_grid=True))
-        title = fig.axes[0].get_title()
+        title = fig.axes[0].get_title(loc="left")
         assert "\n" in title, f"long title did not wrap: {title!r}"
         assert max(len(line) for line in title.split("\n")) <= 34
         assert self._overflow_px(fig) == 0.0

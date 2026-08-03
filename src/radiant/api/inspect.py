@@ -390,6 +390,11 @@ class ResultPlotNamespace:
     def noise_pie(self, **kwargs: Any) -> Any:
         """Plot the noise budget as a variance-weighted pie chart.
 
+        .. deprecated:: 2026-08-03
+            Emits ``DeprecationWarning`` (owner ruling): use :meth:`noise_budget`
+            — its default log scale shows every term legibly, which a
+            variance-share pie cannot.
+
         Same ``result.noise_terms`` data as :meth:`noise_budget` (the bar), a
         different mark: slices are proportional to each term's **variance**
         (σ_i²) because noise adds in quadrature (σ_total² = Σ σ_i²), so the

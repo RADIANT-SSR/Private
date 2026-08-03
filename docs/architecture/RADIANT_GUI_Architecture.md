@@ -899,6 +899,19 @@ that used to sit in the badge row now live in the right-rail *Pinned* panel (§4
 each stage owns its own plot region. A metric that returns a result-typed failure (Rule 17
 carve-out) shows its `failure_reason`, not a blank.
 
+**Figure styling (owner ruling 2026-08-03 — reverses the original "figures are not
+restyled" stance).** Every `result.plot.*` figure is styled **API-wide** by the
+token-derived house style in `radiant.api.plot_style`: theme surfaces and hairlines, the
+Plex/fallback font stacks (mono for tick values), open top/right spines, a recessive grid,
+and a **CVD-validated categorical series palette** drawn from the configuration-accent hues
+in the fixed order blue → amber → teal → terracotta → purple → green (adjacent-pair
+colour-blind separation is test-enforced; the raw slot order fails deuteranopia). The GUI
+selects the variant through the existing `plot_theme(dark=…)` seam (CU-139), which since
+this ruling styles **both** variants — `dark=False` is no longer a no-op. The API mirror of
+the theme hexes cannot drift from `gui/themes/tokens.py`: equality is test-enforced
+(`test_plot_style.py`). Scripts, notebooks, and saved PNGs get the same styled figures —
+one look for every RADIANT number that leaves the tool.
+
 *As shipped (contextual-layout retrofit Step B, 2026-07-13).* `StageCenter` (a
 `QStackedWidget` of one `StagePane` per stage over a pre-evaluate placeholder) replaces the
 single-canvas swap. Each pane assembles the §4.4.1 composition from existing widgets: the
@@ -911,8 +924,8 @@ still navigates the left tree (the Phase-4A behaviour, preserved); the first eva
 lands the center on the default stage (**Performance** — the grouped metric readout,
 owner-slimmed 2026-07-25; the MTF figures live on the Optics MTF tab). Only **[exists]** surfaces are
 built here; the **[GAP 89–92]** / bespoke items (Optics pupil & coating maps, the Source
-pre-atmosphere emission spectrum, the per-λ noise spectrum, the Detector pie/illustration
-and PSF-grid overlay) remain separate later per-stage tasks. Platform is v1-minimal
+pre-atmosphere emission spectrum, the per-λ noise spectrum, the Detector noise-budget
+chart/illustration and PSF-grid overlay) remain separate later per-stage tasks. Platform is v1-minimal
 (owner-ratified, GUI plan Phase PS-5): editable schema-driven inputs (jitter/smear) beside
 the outputs readout and a themed note — Platform carries no MTF; no bespoke invented
 content. Readout began v1-minimal (read-noise/ADC/well) and was expanded per **Gap 102**
@@ -1023,7 +1036,7 @@ not exist — filed in `docs/tracking/gaps.md`). Plots marked [exists] are the s
 | **Detector** | Editable detector inputs + outputs | **[SHIPPED — GUI plan Phase PS-3; expanded to the full schema by GUI Capability Expansion plan GS-3]** `DetectorInputsForm` — **every** `detector.*` ParameterDef as shared `FieldRow`s (a manifest-equals-schema test enforces completeness), grouped: pixel geometry & temperature; QE (scalar / `qe_table_path` CSV import / temperature coefficients); dark current & glow (Arrhenius); 1/f noise (K + band); G-R & Johnson; FPN (PRNU/DSNU/clutter σ/`noise_regime`); persistence (fraction/τ/prior signal); IPC & diffusion. One `sensor.set` per edit (the edit+reject discipline), beside the scalar `OutputsReadout` (`signal_e`, `dark_e`, …, units from `api.stage_output_units`), in the Detector **Inputs** tab; editing re-evaluates and every tab refreshes (edit-and-watch) |
 | **Detector** | Detector illustration with size | **[SHIPPED — GUI plan Phase PS-3]** `DetectorIllustration` — a Qt-drawn, not-to-scale pixel schematic labelled with the pitch (`detector.pixel_pitch_x_um`/`pixel_pitch_y_um`, in µm) and `fill_factor`, drawn from the live parameters (like the geometry schematic; no framework plot needed), in the Detector **Detector + PSF** tab; editing the pitch/fill redraws it |
 | **Detector** | PSF with detector/pixel-grid overlay | **[SHIPPED — GUI plan Phase PS-3]** `result.plot.psf_pixel_grid()` — `psf()` with the detector pixel grid overlaid (a `plot_psf(pixel_grid=True)` draw over `EffectivePSF.pixel_pitch_m`/`sample_spacing_m`, cropped to the PSF core, pitch µm in the title), in the **Detector + PSF** tab |
-| **Detector** | Noise contributions as a **pie** chart | **[SHIPPED — GUI plan Phase PS-3, framework accessor]** `result.plot.noise_pie()` — the **primary** chart of the Detector **Noise** tab: a pie of `result.noise_terms` by **variance** share (σ_i²; noise adds in quadrature), each wedge labelled with its σ_i in e- RMS and % of variance. The ratified framework accessor (§8 decision 2), the pie sibling of the shipped `noise_budget()` bar; the per-term table + click-to-explain (`NoiseBudgetPanel`) sits alongside, the redundant bar suppressed |
+| **Detector** | Noise contributions chart | **[SHIPPED — GUI plan Phase PS-3; re-based on the budget bar by owner ruling 2026-08-03]** `result.plot.noise_budget()` — the **primary** chart of the Detector **Noise** tab: the log-scale per-term σ bar (every term legible across decades, mono value labels in e- RMS, dominant term accented; `scale="linear"` available on the accessor). It replaces the earlier `noise_pie()` primary — retired because a variance-share pie collapses everything but the dominant term into unreadable slivers; `noise_pie` now emits `DeprecationWarning`. The per-term table + click-to-explain (`NoiseBudgetPanel`) sits alongside, its own bar suppressed so the budget is drawn once |
 | **Readout** | Minimal for v1 | **[SHIPPED — GUI plan Phase PS-5, v1-minimal]** `ReadoutInputsForm` — `read_noise_e_rms` under a *Read noise* heading, `gain_e_per_dn` + `adc_bits` under an *ADC* heading, `full_well_capacity_e` under a *Full well* heading, as shared `FieldRow`s (one `sensor.set` per edit, the edit+reject discipline), beside the scalar `OutputsReadout` (`signal_dn_final` DN, `sigma_total_e`/`total_well_e` e-, `well_fill_fraction`, …; units from `api.stage_output_units`), the scalar noise budget (`result.plot.noise_budget()` — read noise + quantization live in this stage), and a themed *v1-minimal* note; editing re-evaluates and the outputs + noise budget refresh (edit-and-watch). Single flat pane |
 | **Performance** | Grouped metric readout | **[SHIPPED — GUI plan Phase PS-6; owner-shaped 2026-07-25 over two walkthrough rounds: the flat single-column readout read as a "wall of text"; the interim tabbed dashboard was then slimmed to just its All-metrics screen]** One flat pane: a compact **Compute:** toggle row (`PerformanceMetricsForm`, Gap 96: five checkboxes bound to the `performance.metrics.*` group flags; each toggle is one `sensor.set` + `parameterEdited`, and a deselected group stops its *computation*, not just its display) **ordered to match the card sections by construction** (both derive from `metric_format.METRIC_GROUP_HEADINGS` — geometry first, owner 2026-07-25), above the grouped metric cards (`MetricGroupCards`): one themed card per Gap-96 group in reading order — *Sampling / geometry*, *Spatial / MTF*, *Radiometric*, *Interpretability*, *Saturation* (+ a defensive *Other*) — two-up, every row a **human display label** (`metric_format.METRIC_DISPLAY_LABELS`, CI-checked to cover the taxonomy; never a raw registry key) with its registry unit (`ChainResult.metric_records()`, R-UNITS), rows in the table's physics order, pin affordances hover-revealed (§4.5 pin-any-metric retained). **No plots on this stage** (owner decision 2026-07-25): the system MTF and MTF budget live on the Optics **MTF** tab; plot tabs may return later via the sub-view hook (a data change). A **result-typed metric failure** (non-finite, Rule 17 carve-out) renders as `n/a (<failure_reason>)`, never a bare `nan`/blank. The metric-selection row is the only editable control (terminal stage). Presentation-only: the computed set and every value/unit are unchanged. **In a study (multi-configuration Phase 4d, §4.2e)** each card becomes a **metric × configuration matrix**: the same groups, the same rows in the same order, plus one column per configuration in **set order** with the selector band's accent chip on its header. Cells are **plain values only** (ADR-0010 D-9 — no delta, no best-mark), rendered by the same `metric_value_display` and so carrying the same registry units; `—` for a metric a configuration did not compute (Rule 17, never zero); a **failed** configuration keeps its column with a `✕` and the error's what-line on hover while the others keep their numbers; a configuration that warned gets a `⚠` pointing at its Messages entries. The cards lay out one-up in that mode. Values come from the retained `last_run` — rendering, including a selector switch, evaluates nothing. A **single-configuration** session renders exactly the pre-4d readout: no columns, no headers, no chips (tested) |
 
@@ -1034,8 +1047,8 @@ framework work is concentrated in **Optics diagnostics** (pupil map, coating spe
 an optional **spectral noise decomposition** — Gaps 89/90/92, all view/accessor additions
 over already-computed physics (no results change). The **Source pre-atmosphere emission
 frame** (Gap 91) is closed and shipped in the Source stage instrument (GUI plan Phase
-PS-1). The pie chart, detector schematic, and PSF-grid overlay are GUI-only reshapes; the
-per-scenario-type input gating rides on the still-deferred Gap 85.
+PS-1). The noise-budget chart, detector schematic, and PSF-grid overlay are GUI-only
+reshapes; the per-scenario-type input gating rides on the still-deferred Gap 85.
 
 ### 4.5 Right Rail (persistent): Pinned · Edit Config · Messages · Evaluate footer
 
@@ -1231,7 +1244,7 @@ are **relocated**, not removed. Precise mapping:
 | Floating chain-warning strip | Right-rail **Messages** panel (now carries errors too) (§4.5) |
 | **Spectral** detail tab | **Source / Atmosphere / Spectral Integration** center views (the spectral accessors) (§4.4.1) |
 | **MTF** detail tab | **Optics / Platform / Performance** center views (`mtf`, `mtf_budget`) (§4.4.1) |
-| **Noise Budget** detail tab | **Detector / Readout** center views (bar/pie of `noise_terms`) (§4.4.1) |
+| **Noise Budget** detail tab | **Detector / Readout** center views (log-scale bar of `noise_terms`) (§4.4.1) |
 | **Variable Explorer** detail tab | **Global Inspector** tool (§4.6) |
 | **YAML** detail tab (read-only) | Right-rail **Edit Config (YAML)** modal (now editable, re-parsed via `Sensor.load`) (§4.5) |
 | **Console** tab | **Global tool** — the Command Window of the separate scripting window (§4.6.1, Pass 1), reachable from Tools → Scripting Window (`Ctrl+Shift+P`). A REPL over `code.InteractiveConsole` (CU-138), not qtconsole; the earlier bottom-dock host is retired (Rule 27). |

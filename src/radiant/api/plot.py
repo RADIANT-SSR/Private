@@ -15,15 +15,18 @@ Usage::
 
 from __future__ import annotations
 
+import functools
 import logging
 import textwrap
 import warnings
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Final, Protocol, cast, runtime_checkable
+from typing import TYPE_CHECKING, Any, Final, ParamSpec, Protocol, TypeVar, cast, runtime_checkable
 
 import numpy as np
 import numpy.typing as npt
+
+from radiant.api import plot_style
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -32,6 +35,29 @@ if TYPE_CHECKING:
     from radiant.optics.psf.effective import EffectivePSF
 
 logger = logging.getLogger(__name__)
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def _styled(func: Callable[_P, _R]) -> Callable[_P, _R]:
+    """Run *func* under the RADIANT house style (owner ruling 2026-08-03).
+
+    Wraps the whole function body — not just figure creation — in an
+    ``rc_context`` built from :mod:`radiant.api.plot_style` for the active
+    theme variant, so every artist the function adds (including ones that read
+    ``rcParams`` mid-body) resolves against the styled values. Applied to every
+    public plot builder; :func:`plot_theme` selects the light/dark variant.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        plt = _require_matplotlib()
+        with plt.rc_context(plot_style.rcparams()):
+            return func(*args, **kwargs)
+
+    return wrapper
+
 
 # Default plotted window for a PSF, in detector pixels (±6). The PSF array covers
 # far more focal plane than the PSF occupies, so an uncropped render is a bright
@@ -85,45 +111,33 @@ def _wrapped_title(text: str) -> str:
     return "\n".join(lines)
 
 
-# Dark-theme matplotlib rcParams — chrome only (background, axes, text, ticks, grid).
-# Data-series colours keep matplotlib's cycle, which reads on both backgrounds.
-_DARK_RCPARAMS: dict[str, Any] = {
-    "figure.facecolor": "#1e1e1e",
-    "savefig.facecolor": "#1e1e1e",
-    "axes.facecolor": "#252526",
-    "axes.edgecolor": "#8a8a8a",
-    "axes.labelcolor": "#e0e0e0",
-    "axes.titlecolor": "#e0e0e0",
-    "text.color": "#e0e0e0",
-    "xtick.color": "#c0c0c0",
-    "ytick.color": "#c0c0c0",
-    "grid.color": "#3a3a3a",
-    "legend.facecolor": "#252526",
-    "legend.edgecolor": "#3a3a3a",
-}
-
-
 @contextmanager
 def plot_theme(dark: bool = False) -> Iterator[None]:
-    """Context manager applying a dark (or light) matplotlib chrome theme (CU-139).
+    """Context manager selecting the light or dark RADIANT plot theme (CU-139).
 
-    The public seam through which a GUI/notebook can request a dark-styled
-    ``result.plot.*`` figure without the GUI restyling the figure itself (keeps
-    one action ↔ one API call). Wrap figure production::
+    The public seam through which a GUI/notebook selects the theme variant for
+    ``result.plot.*`` figures (keeps one action ↔ one API call)::
 
         with plot_theme(dark=True):
             fig = result.plot.mtf()
 
-    ``dark=False`` is a no-op (matplotlib's default light chrome). Only figure
-    chrome (background, axes, text, ticks, grid) is themed; data-series colours are
-    unchanged, so the figures read on either background.
+    Since the 2026-08-03 owner ruling reversing the old "figures are not
+    restyled" stance (arch doc §4.4), **both** variants are fully styled from
+    the token-derived house style in :mod:`radiant.api.plot_style` — surfaces,
+    fonts, grid, spines, and the CVD-validated series palette. ``dark=False``
+    is therefore no longer a no-op: it applies the light variant, which is also
+    what every ``result.plot.*`` call uses outside any context. The manager
+    additionally applies the style to the surrounding ``rcParams`` context so
+    figures built directly with matplotlib inside the ``with`` block (GUI
+    dialogs, user scripts) inherit the same chrome.
     """
-    if not dark:
-        yield
-        return
-    plt = _require_matplotlib()
-    with plt.rc_context(_DARK_RCPARAMS):
-        yield
+    token = plot_style.set_dark(dark)
+    try:
+        plt = _require_matplotlib()
+        with plt.rc_context(plot_style.rcparams(dark)):
+            yield
+    finally:
+        plot_style.reset_dark(token)
 
 
 def _backend_already_selected(mpl: Any) -> bool:
@@ -213,8 +227,80 @@ class Plottable(Protocol):
 # ------------------------------------------------------------------
 
 
+# Metric display names for sweep axes/titles: the metric keys are lowercase
+# identifiers; the plots write the metric the way an analyst does. Unknown keys
+# fall through unchanged. Presentation-only.
+_METRIC_DISPLAY: Final[dict[str, str]] = {
+    "snr": "SNR",
+    "contrast_snr": "Contrast SNR",
+    "nedt": "NEDT",
+    "nedt_K": "NEDT (K)",
+    "niirs": "NIIRS",
+    "gsd": "GSD",
+}
+
+
+def _param_display(dotpath: str) -> str:
+    """Human axis label for a swept parameter, with its **schema** unit.
+
+    Resolves the :class:`~radiant.core.parameters.ParameterDef` through the
+    API's own registry so the printed unit is the canonical unit the schema
+    declares — never parsed out of the name (a wrong guessed unit would violate
+    the units-on-everything rule). The name's trailing unit suffix is dropped
+    only when it matches that schema unit (``aperture_diameter_m`` + unit
+    ``m`` → "aperture diameter (m)"). Any resolution failure falls back to the
+    raw dot-path, which is always truthful.
+    """
+    try:
+        from radiant.api._param_registry import build_parameter_set
+
+        pdef = build_parameter_set().parameter_defs()[dotpath]
+        unit = str(pdef.canonical_unit)
+    except Exception:  # noqa: BLE001 - presentation fallback, raw name is always valid
+        return dotpath
+    leaf = dotpath.rsplit(".", 1)[-1]
+    suffix = "_" + unit.lower().replace("µ", "u")
+    if leaf.lower().endswith(suffix):
+        leaf = leaf[: -len(suffix)]
+    label = leaf.replace("_", " ")
+    if unit and unit not in ("", "dimensionless", "none"):
+        return f"{label} ({unit})"
+    return label
+
+
+def _sweep_saturation_span(result: SweepResult) -> tuple[float, float] | None:
+    """The swept-value span whose points ran with a clipped full well, if any.
+
+    Reads ``well_status().status`` from the retained per-point results
+    (``keep_results=True``); returns ``None`` when results were not kept, no
+    point clipped, or any point predates the readout stage. Contiguity is not
+    assumed — the span reported is [first clipped value, last clipped value].
+    """
+    if not result.results:
+        return None
+    try:
+        clipped = [
+            float(v)
+            for v, r in zip(result.values, result.results, strict=True)
+            if r.well_status().status == "clipped"
+        ]
+    except KeyError:
+        return None
+    if not clipped:
+        return None
+    return min(clipped), max(clipped)
+
+
+@_styled
 def plot_sweep(result: SweepResult, **kwargs: Any) -> Figure:
     """Plot a 1-D sweep result.
+
+    The x-axis carries the swept parameter's schema unit (see
+    :func:`_param_display`); the metric renders under its analyst-facing name.
+    When the sweep retained per-point results and any point saturated the full
+    well, that value span is shaded in the warn tint and labelled — a flat-top
+    metric curve then reads as clipping, not physics (Gap 65's warning, made
+    visible in the figure itself; owner-approved 2026-08-03).
 
     Parameters
     ----------
@@ -228,15 +314,29 @@ def plot_sweep(result: SweepResult, **kwargs: Any) -> Figure:
     Figure
         A matplotlib Figure.
     """
+    tokens = plot_style.tokens()
+    metric = _METRIC_DISPLAY.get(result.metric_name, result.metric_name)
     fig, ax = _subplots()
+    sat = _sweep_saturation_span(result)
+    if sat is not None:
+        ax.axvspan(sat[0], sat[1], color=tokens["warn_soft"], zorder=0)
+        y0, y1 = float(np.min(result.metric_values)), float(np.max(result.metric_values))
+        ax.annotate(
+            "full well saturated —\nmetric clipped",
+            ((sat[0] + sat[1]) / 2.0, y0 + 0.12 * (y1 - y0)),
+            fontsize=8.5,
+            color=tokens["warn"],
+            ha="center",
+            fontweight="semibold",
+        )
     ax.plot(result.values, result.metric_values, "o-", **kwargs)
-    ax.set_xlabel(result.param_name)
-    ax.set_ylabel(result.metric_name)
-    ax.set_title(f"{result.metric_name} vs {result.param_name}")
-    ax.grid(True, alpha=0.3)
+    ax.set_xlabel(_param_display(result.param_name))
+    ax.set_ylabel(metric)
+    ax.set_title(f"{metric} vs. {_param_display(result.param_name)}")
     return cast("Figure", fig)
 
 
+@_styled
 def plot_sweep_2d(result: Sweep2DResult, **kwargs: Any) -> Figure:
     """Plot a 2-D sweep result as a filled contour.
 
@@ -252,26 +352,77 @@ def plot_sweep_2d(result: Sweep2DResult, **kwargs: Any) -> Figure:
     Figure
         A matplotlib Figure.
     """
+    metric = _METRIC_DISPLAY.get(result.metric_name, result.metric_name)
     fig, ax = _subplots()
     v1_grid, v2_grid = np.meshgrid(result.values1, result.values2, indexing="ij")
     cs = ax.contourf(v1_grid, v2_grid, result.grid, **kwargs)
-    fig.colorbar(cs, ax=ax, label=result.metric_name)
-    ax.set_xlabel(result.param1_name)
-    ax.set_ylabel(result.param2_name)
-    ax.set_title(f"{result.metric_name}")
+    fig.colorbar(cs, ax=ax, label=metric)
+    ax.set_xlabel(_param_display(result.param1_name))
+    ax.set_ylabel(_param_display(result.param2_name))
+    ax.set_title(metric)
     return cast("Figure", fig)
 
 
+# Analyst-facing display names for the chain's noise terms. Unknown names fall
+# through as ``name.replace("_", " ")`` so a new term is never mislabelled,
+# just un-prettified. Presentation-only.
+_NOISE_TERM_DISPLAY: Final[dict[str, str]] = {
+    "signal_shot": "Signal shot",
+    "background_shot": "Background shot",
+    "dark_shot": "Dark shot",
+    "glow_shot": "Glow shot",
+    "straylight_shot": "Straylight shot",
+    "nearfield_shot": "Near-field shot",
+    "read_noise": "Read noise",
+    "quantization": "Quantization",
+    "persistence_noise": "Persistence",
+    "clutter": "Clutter",
+    "dsnu": "DSNU",
+    "prnu": "PRNU",
+    "ktc_reset": "kTC reset",
+    "flicker_1f": "1/f flicker",
+    "johnson_noise": "Johnson",
+    "gr_noise": "G-R",
+}
+
+# Smallest σ a log-scale noise bar renders as a bar. Terms at or below the floor
+# cannot occupy meaningful log-axis length (and zero terms none at all), so they
+# move to the caption, which names every one of them — no information is lost,
+# it just moves where it fits (the same trade the pie's legend made, CU-241).
+# Presentation-only: it changes no computed value.
+_NOISE_BAR_FLOOR_E: Final[float] = 0.05
+
+
+def _noise_display(name: str) -> str:
+    """Analyst-facing label for a noise-term name."""
+    return _NOISE_TERM_DISPLAY.get(name, name.replace("_", " "))
+
+
+@_styled
 def plot_noise_budget(
     noise_terms: tuple[Any, ...] | list[Any],
+    scale: str = "log",
     **kwargs: Any,
 ) -> Figure:
-    """Plot a noise budget as a horizontal bar chart.
+    """Plot a noise budget as a horizontal bar chart, log x-axis by default.
+
+    The chain's noise terms span decades (a shot-dominated budget runs from
+    ~10³ e⁻ down to sub-e⁻ terms), so a linear axis renders every term but the
+    top two or three as invisible slivers — the exact per-term readability the
+    budget exists to provide. The default is therefore **logarithmic** with a
+    mono value label on every bar (units on everything); ``scale="linear"``
+    restores the proportional view (owner ruling 2026-08-03: switchable, log
+    default). The dominant term wears the accent; all others share one neutral
+    so magnitude, not hue, carries the comparison. On the log axis, terms at or
+    below :data:`_NOISE_BAR_FLOOR_E` move to the caption (each named); the
+    caption also carries the RSS total.
 
     Parameters
     ----------
     noise_terms:
         Tuple of :class:`NoiseTerm` objects.
+    scale:
+        ``"log"`` (default) or ``"linear"``.
     **kwargs:
         Passed to ``ax.barh()``.
 
@@ -279,21 +430,79 @@ def plot_noise_budget(
     -------
     Figure
         A matplotlib Figure.
+
+    Raises
+    ------
+    ApiValidationError
+        When *scale* is not ``"log"`` or ``"linear"``.
     """
+    from radiant.api.errors import ApiValidationError
+
+    if scale not in ("log", "linear"):
+        raise ApiValidationError(
+            f"plot_noise_budget: scale must be 'log' or 'linear', got {scale!r}."
+        )
+    tokens = plot_style.tokens()
+    mono = plot_style.mono_family()
+    pairs = sorted(
+        ((str(nt.name), float(nt.value_e)) for nt in noise_terms),
+        key=lambda nv: nv[1],
+        reverse=True,
+    )
+    total_rss = float(np.sqrt(sum(v * v for _, v in pairs)))
+    if scale == "log":
+        shown = [(n, v) for n, v in pairs if v > _NOISE_BAR_FLOOR_E]
+        hidden = [n for n, v in pairs if v <= _NOISE_BAR_FLOOR_E]
+        if not shown:  # every term at/below the floor — the floor is meaningless here
+            shown, hidden = pairs, []
+    else:
+        shown, hidden = pairs, []
+
     fig, ax = _subplots()
-    names = [nt.name for nt in noise_terms]
-    values = [nt.value_e for nt in noise_terms]
-    # Sort by magnitude
-    order = np.argsort(values)[::-1]
-    names_sorted = [names[i] for i in order]
-    values_sorted = [values[i] for i in order]
-    ax.barh(names_sorted, values_sorted, **kwargs)
-    ax.set_xlabel("Noise (e- RMS)")
-    ax.set_title("Noise Budget")
+    labels = [_noise_display(n) for n, _ in shown]
+    values = [v for _, v in shown]
+    colors = [tokens["accent"] if i == 0 else plot_style.OTHER_LIGHT for i in range(len(values))]
+    if plot_style.active_dark():
+        colors = [tokens["accent"] if i == 0 else plot_style.OTHER_DARK for i in range(len(values))]
+    kwargs.setdefault("color", colors)
+    kwargs.setdefault("height", 0.62)
+    bars = ax.barh(labels, values, **kwargs)
+    if scale == "log" and values:
+        ax.set_xscale("log")
+        ax.set_xlim(_NOISE_BAR_FLOOR_E, max(values) * 4.0)
+    ax.grid(axis="x", color=tokens["line"], linewidth=0.8)
+    ax.grid(axis="y", visible=False)
+    for bar, v in zip(bars, values, strict=True):
+        ax.annotate(
+            f"{v:,.0f} e⁻" if v >= 10 else f"{v:.3g} e⁻",
+            (v, bar.get_y() + bar.get_height() / 2.0),
+            xytext=(5, 0),
+            textcoords="offset points",
+            va="center",
+            fontsize=9,
+            fontfamily=mono,
+            color=tokens["ink"],
+        )
+    ax.set_xlabel("Noise (e⁻ RMS)")
+    ax.set_title("Noise budget — per-term σ" + (" (log scale)" if scale == "log" else ""))
     ax.invert_yaxis()
+    for tick in ax.get_xticklabels():
+        tick.set_fontfamily(mono)
+    caption = f"Total (RSS) {total_rss:,.0f} e⁻ RMS"
+    if hidden:
+        caption += "  ·  ≤ 0.05 e⁻ RMS (not drawn): " + ", ".join(_noise_display(n) for n in hidden)
+    fig.get_layout_engine().set(rect=(0.0, 0.09, 1.0, 0.91))
+    fig.text(
+        0.01,
+        0.012,
+        "\n".join(textwrap.wrap(caption, 96)),
+        fontsize=8.5,
+        color=tokens["muted"],
+    )
     return cast("Figure", fig)
 
 
+@_styled
 def plot_noise_pie(
     noise_terms: tuple[Any, ...] | list[Any],
     **kwargs: Any,
@@ -337,6 +546,14 @@ def plot_noise_pie(
     Figure
         A matplotlib Figure.
 
+    .. deprecated:: 2026-08-03
+        The pie is retired (owner ruling): noise terms span decades, and a
+        share-of-variance chart collapses everything but the dominant term
+        into invisible slivers — the common case is one wedge at ~100 %. Use
+        :func:`plot_noise_budget` (log scale, the default) instead, which
+        renders every term legibly with its σ in e⁻ RMS. This function warns
+        and will be removed after a deprecation period.
+
     Raises
     ------
     ApiValidationError
@@ -344,6 +561,14 @@ def plot_noise_pie(
         is no noise power to apportion).
     """
     from radiant.api.errors import ApiValidationError
+
+    warnings.warn(
+        "plot_noise_pie is deprecated (owner ruling 2026-08-03): use "
+        "plot_noise_budget instead — its default log scale shows every term's "
+        "σ legibly, which the variance pie cannot.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     kept = [(nt.name, float(nt.value_e)) for nt in noise_terms if float(nt.value_e) > 0.0]
     if not kept:
@@ -418,6 +643,7 @@ def plot_noise_pie(
     return cast("Figure", fig)
 
 
+@_styled
 def plot_mtf_budget(budget: Any, **kwargs: Any) -> Figure:
     """Plot per-contributor MTF at Nyquist as a grouped bar chart (Gap 19).
 
@@ -448,6 +674,7 @@ def plot_mtf_budget(budget: Any, **kwargs: Any) -> Figure:
     return cast("Figure", fig)
 
 
+@_styled
 def plot_psf(
     psf: EffectivePSF,
     *,
@@ -680,6 +907,7 @@ def _pupil_axes_labels(ax: Any, extent_m: float | None) -> dict[str, Any]:
     return {}
 
 
+@_styled
 def plot_pupil_amplitude(
     amplitude: npt.NDArray[np.float64],
     extent_m: float | None = None,
@@ -721,6 +949,7 @@ def plot_pupil_amplitude(
     return cast("Figure", fig)
 
 
+@_styled
 def plot_pupil_phase(
     phase_waves: npt.NDArray[np.float64],
     extent_m: float | None = None,
@@ -765,6 +994,7 @@ def plot_pupil_phase(
     return cast("Figure", fig)
 
 
+@_styled
 def plot_mtf_terms(
     mtf_terms: dict[str, npt.NDArray[np.float64]],
     spatial_freq: npt.NDArray[np.float64] | None = None,
@@ -781,18 +1011,32 @@ def plot_mtf_terms(
         Spatial frequency axis (cycles/mrad). If None, uses array index.
     nyquist_cycles_per_mrad:
         Detector Nyquist frequency in the plotted axis' units. When given (and
-        an explicit *spatial_freq* axis is in use) it is drawn as a **red dashed
-        vertical line** labelled with its value — the sampling limit against
-        which every roll-off is read (owner walkthrough item 12). ``None`` omits
-        the marker rather than guessing a pitch.
+        an explicit *spatial_freq* axis is in use) it is drawn as a dashed
+        vertical line in the ink tone, annotated in-plot with its value — the
+        sampling limit against which every roll-off is read (owner walkthrough
+        item 12). ``None`` omits the marker rather than guessing a pitch.
     **kwargs:
         Passed to ``ax.plot()``.
+
+    Notes
+    -----
+    Contributors that sit at ≈ 1.0 across the whole plotted band (min ≥ 0.995)
+    are **not drawn**: at unity they carry no budget information, and six of
+    them stacked on the top gridline made the overlay unreadable (they were
+    the bulk of the old ten-row legend). Every collapsed term is named in a
+    caption under the axes, so nothing is hidden — it moves where it fits
+    (owner-approved Tier-2 redesign, 2026-08-03). If *every* term is at unity
+    the plot draws them all rather than rendering empty. When four or fewer
+    curves remain they are also direct-labelled at the line; the legend stays
+    (it carries the anisotropic x/y distinctions, CU-117).
 
     Returns
     -------
     Figure
         A matplotlib Figure.
     """
+    tokens = plot_style.tokens()
+    mono = plot_style.mono_family()
     fig, ax = _subplots()
 
     def _x_axis(arr: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
@@ -818,25 +1062,66 @@ def plot_mtf_terms(
             order.append(base)
         grouped[base][axis] = mtf_terms[name]
 
+    # Analyst-facing display for an MTF term's base name: the ``mtf_`` prefix is
+    # dropped (the axes already say MTF), acronyms stay upper-case, underscores
+    # become spaces. Unknown shapes fall through un-prettified, never wrong.
+    _ACRONYMS = {"ipc": "IPC", "tdi": "TDI"}
+
+    def _term_display(base: str) -> str:
+        stem = base.removeprefix("mtf_")
+        if stem in _ACRONYMS:
+            return _ACRONYMS[stem]
+        return stem.replace("_", " ").capitalize() if stem else base
+
+    # Unity collapse (see Notes): a group is "at unity" when every one of its
+    # curves stays ≥ 0.995 across the plotted band.
+    def _is_unity(axes: dict[str, npt.NDArray[np.float64]]) -> bool:
+        return all(float(np.min(arr)) >= 0.995 for arr in axes.values())
+
+    unity = [base for base in order if _is_unity(grouped[base])]
+    active = [base for base in order if base not in unity]
+    if not active:  # everything at unity — draw them all rather than an empty plot
+        active, unity = order, []
+
     n_labels = 0
-    for base in order:
+    drawn: list[tuple[str, npt.NDArray[np.float64], npt.NDArray[np.float64], Any]] = []
+    for base in active:
         axes = grouped[base]
         xa, ya = axes.get("x"), axes.get("y")
         if xa is not None and ya is not None and np.allclose(xa, ya, atol=1e-9):
             # Isotropic contributor: one curve represents both axes — a single label.
-            ax.plot(_x_axis(xa), xa, label=base, **kwargs)
+            (line,) = ax.plot(_x_axis(xa), xa, label=_term_display(base), **kwargs)
+            drawn.append((_term_display(base), _x_axis(xa), xa, line))
             n_labels += 1
         elif xa is not None and ya is not None:
             # Anisotropic: keep both curves and both labels (honest — nothing merged away).
-            ax.plot(_x_axis(xa), xa, label=f"{base} (x)", **kwargs)
-            ax.plot(_x_axis(ya), ya, label=f"{base} (y)", **kwargs)
+            (line_x,) = ax.plot(_x_axis(xa), xa, label=f"{_term_display(base)} (x)", **kwargs)
+            (line_y,) = ax.plot(_x_axis(ya), ya, label=f"{_term_display(base)} (y)", **kwargs)
+            drawn.append((f"{_term_display(base)} (x)", _x_axis(xa), xa, line_x))
+            drawn.append((f"{_term_display(base)} (y)", _x_axis(ya), ya, line_y))
             n_labels += 2
         else:
             # A lone axis or an unsuffixed term (e.g. "system").
             for suffix, arr in axes.items():
-                label = base if not suffix else f"{base} ({suffix})"
-                ax.plot(_x_axis(arr), arr, label=label, **kwargs)
+                label = _term_display(base) if not suffix else f"{_term_display(base)} ({suffix})"
+                (line,) = ax.plot(_x_axis(arr), arr, label=label, **kwargs)
+                drawn.append((label, _x_axis(arr), arr, line))
                 n_labels += 1
+
+    # Direct labels at the line when the overlay is sparse enough to place them
+    # without collisions; the legend below still carries every entry.
+    if len(drawn) <= 4:
+        for i, (label, xs, ys, line) in enumerate(drawn):
+            j = min(len(xs) - 1, int(0.28 * len(xs)) + i * max(1, int(0.09 * len(xs))))
+            ax.annotate(
+                label,
+                (float(xs[j]), float(ys[j])),
+                xytext=(6, 6),
+                textcoords="offset points",
+                fontsize=9.5,
+                fontweight="semibold",
+                color=line.get_color(),
+            )
 
     # The detector sampling limit, marked on the axis every roll-off is read against
     # (owner walkthrough item 12). Drawn only with a real frequency axis — on the
@@ -844,18 +1129,36 @@ def plot_mtf_terms(
     if nyquist_cycles_per_mrad is not None and spatial_freq is not None:
         ax.axvline(
             float(nyquist_cycles_per_mrad),
-            color="red",
-            linestyle="--",
-            linewidth=1.2,
+            color=tokens["ink_2"],
+            linestyle=(0, (4, 3)),
+            linewidth=1.0,
             label=f"Nyquist ({nyquist_cycles_per_mrad:.3g} cycles/mrad)",
+        )
+        ax.annotate(
+            f"Nyquist\n{float(nyquist_cycles_per_mrad):.3g} cyc/mrad",
+            (float(nyquist_cycles_per_mrad), 1.0),
+            xytext=(6, -2),
+            textcoords="offset points",
+            fontsize=8.5,
+            color=tokens["ink_2"],
+            va="top",
+            fontfamily=mono,
         )
         n_labels += 1
 
     ax.set_xlabel("Spatial frequency (cycles/mrad)" if spatial_freq is not None else "Index")
     ax.set_ylabel("MTF")
-    ax.set_title("MTF Budget")
-    ax.grid(True, alpha=0.3)
+    ax.set_title("MTF budget — contributor terms")
     ax.set_ylim(0, 1.05)
+    if unity:
+        fig.get_layout_engine().set(rect=(0.0, 0.05, 1.0, 0.95))
+        fig.text(
+            0.01,
+            0.008,
+            "≈ 1.0 across band (not drawn): " + ", ".join(_term_display(u) for u in unity),
+            fontsize=8.5,
+            color=tokens["muted"],
+        )
     # Place the legend BELOW the axes in a compact multi-column block (constrained_layout
     # reserves the strip, so it re-fits on every resize). Unlike the previous inside
     # upper-right legend, a below-axes legend never blankets the curves in the GUI's narrow
@@ -873,6 +1176,7 @@ def plot_mtf_terms(
     return cast("Figure", fig)
 
 
+@_styled
 def plot_spectral(
     wavelength_um: npt.NDArray[np.float64],
     radiance: npt.NDArray[np.float64],
@@ -910,6 +1214,7 @@ def plot_spectral(
     return cast("Figure", fig)
 
 
+@_styled
 def plot_spectral_multi(
     wavelength_um: npt.NDArray[np.float64],
     series: dict[str, npt.NDArray[np.float64]],
@@ -954,6 +1259,7 @@ def plot_spectral_multi(
     return cast("Figure", fig)
 
 
+@_styled
 def plot_optical_throughput(
     wavelength_um: npt.NDArray[np.float64],
     tau_opt: npt.NDArray[np.float64],
@@ -994,6 +1300,7 @@ def plot_optical_throughput(
     return cast("Figure", fig)
 
 
+@_styled
 def plot_coating_spectra(
     series: dict[str, tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]],
     *,
@@ -1047,6 +1354,7 @@ def plot_coating_spectra(
     return cast("Figure", fig)
 
 
+@_styled
 def plot_atmosphere_spectral(
     wavelength_um: npt.NDArray[np.float64],
     tau_atm: npt.NDArray[np.float64],
@@ -1057,9 +1365,13 @@ def plot_atmosphere_spectral(
 ) -> Figure:
     """Plot atmospheric transmittance and path radiance vs wavelength.
 
-    Transmittance (dimensionless, [0, 1]) and path radiance
-    (W/m\u00b2/sr/\u00b5m) carry different units, so they render on twin y-axes
-    that are each unit-labelled (R-UNITS).
+    Transmittance (dimensionless, [0, 1]) and path radiance (W/m\u00b2/sr/\u00b5m)
+    carry different units, so each renders in its **own stacked panel** on the
+    shared wavelength axis, unit-labelled (R-UNITS). The old twin-y-axis
+    rendering was retired by owner ruling 2026-08-03: two unrelated scales
+    overlaid on one plot invite reading the curves' crossings, which mean
+    nothing. Each curve is direct-labelled in its own colour; no legend is
+    needed.
 
     Parameters
     ----------
@@ -1070,30 +1382,47 @@ def plot_atmosphere_spectral(
     l_path:
         Atmospheric path radiance L_path(\u03bb) [W/m\u00b2/sr/\u00b5m].
     title:
-        Plot title.
+        Plot title (drawn over the top panel).
     **kwargs:
         Passed to ``ax.plot()`` for both curves.
 
     Returns
     -------
     Figure
-        A matplotlib Figure.
+        A matplotlib Figure with two stacked, x-sharing axes.
     """
-    fig, ax_tau = _subplots()
-    (line_tau,) = ax_tau.plot(wavelength_um, tau_atm, color="C0", label="\u03c4_atm", **kwargs)
-    ax_tau.set_xlabel("Wavelength (\u00b5m)")
-    ax_tau.set_ylabel("\u03c4_atm (dimensionless)", color="C0")
-    ax_tau.tick_params(axis="y", labelcolor="C0")
+    series = plot_style.series()
+    fig, axes = _subplots(2, 1, sharex=True)
+    ax_tau, ax_lp = axes
+    ax_tau.plot(wavelength_um, tau_atm, color=series[0], **kwargs)
+    ax_tau.set_ylabel("\u03c4_atm (\u2013)")
     ax_tau.set_ylim(0.0, 1.05)
-    ax_tau.grid(True, alpha=0.3)
-
-    ax_lp = ax_tau.twinx()
-    (line_lp,) = ax_lp.plot(wavelength_um, l_path, color="C1", label="L_path", **kwargs)
-    ax_lp.set_ylabel("L_path (W/m\u00b2/sr/\u00b5m)", color="C1")
-    ax_lp.tick_params(axis="y", labelcolor="C1")
-
     ax_tau.set_title(title)
-    ax_tau.legend([line_tau, line_lp], ["\u03c4_atm", "L_path"], fontsize="small", loc="best")
+    mid = len(wavelength_um) // 2
+    ax_tau.annotate(
+        "\u03c4_atm",
+        (float(wavelength_um[mid]), float(tau_atm[mid])),
+        xytext=(0, 8),
+        textcoords="offset points",
+        fontsize=9.5,
+        fontweight="semibold",
+        color=series[0],
+        ha="center",
+    )
+    ax_lp.plot(wavelength_um, l_path, color=series[1], **kwargs)
+    ax_lp.set_ylabel("L_path (W/m\u00b2/sr/\u00b5m)")
+    ax_lp.set_xlabel("Wavelength (\u00b5m)")
+    k = int(len(wavelength_um) * 0.7)
+    ax_lp.annotate(
+        "L_path",
+        (float(wavelength_um[k]), float(l_path[k])),
+        xytext=(-4, 10),
+        textcoords="offset points",
+        fontsize=9.5,
+        fontweight="semibold",
+        color=series[1],
+        ha="right",
+    )
     return cast("Figure", fig)
 
 
@@ -1121,6 +1450,7 @@ def kernel_owner_stage(name: str) -> str:
     return _KERNEL_OWNER_STAGE.get(name, "?")
 
 
+@_styled
 def plot_psf_kernels(
     psf: EffectivePSF,
     names: tuple[str, ...] | None = None,

@@ -220,7 +220,7 @@ class TestPsfPixelGridAccessor:
         state = state.with_stage_output("optics", "effective_psf", psf)
         fig = ResultPlotNamespace(ChainResult(state)).psf_pixel_grid()
         assert fig.axes[0].get_lines()  # pixel-grid lines present
-        assert "µm pitch" in fig.axes[0].get_title()
+        assert "µm pitch" in fig.axes[0].get_title(loc="left")
 
     def test_raises_without_psf(self) -> None:
         state = ChainState(wavelength_um=np.linspace(3.5, 5.0, 6))
@@ -257,7 +257,7 @@ class TestPupilAccessors:
         cbar_labels = [a.get_ylabel() for a in fig.axes]
         assert any("transmission" in lbl for lbl in cbar_labels)
         assert "m)" in ax.get_xlabel()  # pupil x (m) — extent supplied
-        assert "apodization" in ax.get_title()
+        assert "apodization" in ax.get_title(loc="left")
 
     def test_amplitude_data_matches_output(self) -> None:
         result = _make_pupil_result()
@@ -270,7 +270,7 @@ class TestPupilAccessors:
         fig = ns.pupil_phase()
         cbar_labels = [a.get_ylabel() for a in fig.axes]
         assert any("waves" in lbl for lbl in cbar_labels)
-        assert "wavefront error" in fig.axes[0].get_title()
+        assert "wavefront error" in fig.axes[0].get_title(loc="left")
 
     def test_axes_fall_back_to_samples_without_extent(self) -> None:
         wl = np.linspace(3.5, 5.0, 10)
@@ -409,7 +409,7 @@ class TestSpectralAccessors:
         ax = fig.axes[0]
         assert "µm" in ax.get_xlabel()
         assert "W/m²/sr/µm" in ax.get_ylabel()
-        assert "before atmosphere" in ax.get_title()
+        assert "before atmosphere" in ax.get_title(loc="left")
 
     def test_source_emission_plots_target_and_background(self) -> None:
         result = _make_spectral_result(with_background=True)
@@ -465,13 +465,14 @@ class TestSpectralAccessors:
         with pytest.raises(ApiValidationError, match="at_source_target_reflected"):
             ns.spectral_reflected_radiance()
 
-    def test_atmosphere_returns_twin_unit_axes(self) -> None:
+    def test_atmosphere_returns_stacked_unit_axes(self) -> None:
         ns = ResultPlotNamespace(_make_spectral_result())
         fig = ns.spectral_atmosphere()
         ylabels = [a.get_ylabel() for a in fig.axes]
-        assert any("dimensionless" in y for y in ylabels)
+        assert any("τ_atm" in y for y in ylabels)
         assert any("W/m²/sr/µm" in y for y in ylabels)
-        assert "µm" in fig.axes[0].get_xlabel()
+        # The shared wavelength label sits on the bottom panel.
+        assert "µm" in fig.axes[-1].get_xlabel()
 
     def test_atmosphere_data_matches_outputs(self) -> None:
         result = _make_spectral_result()

@@ -72,4 +72,4 @@ class TestMtfBudgetReport:
 
         fig = ResultPlotNamespace(result).mtf_budget()
         assert fig is not None
-        assert fig.axes[0].get_title() == "MTF budget at Nyquist"
+        assert fig.axes[0].get_title(loc="left") == "MTF budget at Nyquist"

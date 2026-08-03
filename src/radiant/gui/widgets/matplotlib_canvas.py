@@ -13,10 +13,13 @@ the MTF overlay is the on-spec choice and, usefully for the D2 checkpoint, it
 visibly responds when the owner changes the aperture diameter. Phase 4 wires the
 stage strip and swaps this per active stage.
 
-The **figure itself is matplotlib's** — its colours are not restyled to the theme
-(arch doc §4.4). Only the widget *surround* (margins / border) is themed, via the
-``#matplotlibCanvas`` object name (GUI plan §4.9); this file holds no colour, font,
-or size literal.
+The **figure arrives already styled**: since the 2026-08-03 owner ruling (arch doc
+§4.4 "Figure styling"), every ``result.plot.*`` figure is rendered under the
+token-derived house style in ``radiant.api.plot_style``, with the light/dark variant
+selected by the producer through ``plot_theme(dark=…)`` (see ``StageCenter``). This
+widget still restyles nothing itself — only the *surround* (margins / border) is
+themed, via the ``#matplotlibCanvas`` object name (GUI plan §4.9); this file holds
+no colour, font, or size literal.
 """
 
 from __future__ import annotations

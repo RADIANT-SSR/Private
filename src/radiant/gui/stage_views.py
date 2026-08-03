@@ -216,8 +216,10 @@ class StageComposition:
         Noise Budget detail tab).
     noise_panel_chart:
         Whether the embedded noise panel shows its bar chart (default ``True``). The Detector
-        view sets it ``False`` so the noise **pie** (``result.plot.noise_pie``) is the primary
-        chart and the panel contributes only the table + click-to-explain (GUI plan Phase PS-3).
+        view sets it ``False`` so the framework **noise budget bar**
+        (``result.plot.noise_budget``, log scale — owner ruling 2026-08-03, replacing the
+        retired pie) is the primary chart and the panel contributes only the table +
+        click-to-explain (GUI plan Phase PS-3).
     outputs:
         Show a scalar readout of ``stage_outputs["<stage>"]`` (values with units).
     metrics:
@@ -564,12 +566,14 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
     # The Detector stage instrument (GUI plan Phase PS-3, arch doc §4.4.1 Detector rows): a
     # tabbed composite (the §4.4 sub-view hook, as Optics). Three tabs — editable detector
     # Inputs (QE / dark rate / pixel pitch x,y / fill factor / temperature) beside the scalar
-    # outputs (signal_e, dark_e, …); the Noise budget as the ratified framework **pie**
-    # (result.plot.noise_pie — slices ∝ variance, the primary chart) above the per-term table +
-    # click-to-explain (the bar is suppressed, noise_panel_chart=False); and the Detector +
-    # PSF tab — the Qt-drawn pixel illustration beside result.plot.psf_pixel_grid (the PSF with
-    # the detector pixel grid overlaid). Editing a detector input re-evaluates and every tab
-    # refreshes: the dark rate shifts the pie, the pixel pitch redraws the illustration + grid.
+    # outputs (signal_e, dark_e, …); the Noise budget as the framework **log-scale bar**
+    # (result.plot.noise_budget — every term legible, the primary chart; the pie was retired
+    # by owner ruling 2026-08-03) above the per-term table + click-to-explain (the panel's own
+    # bar stays suppressed, noise_panel_chart=False, so the budget is drawn once); and the
+    # Detector + PSF tab — the Qt-drawn pixel illustration beside result.plot.psf_pixel_grid
+    # (the PSF with the detector pixel grid overlaid). Editing a detector input re-evaluates
+    # and every tab refreshes: the dark rate shifts the budget, the pixel pitch redraws the
+    # illustration + grid.
     "detector": StageComposition(
         title="Detector",
         subviews=(
@@ -581,7 +585,7 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
                 noise_panel=True,
                 noise_panel_chart=False,
                 panel_placement=PANEL_BESIDE,
-                plots=(PlotSpec("Noise budget — share of variance", "noise_pie"),),
+                plots=(PlotSpec("Noise budget — per-term σ", "noise_budget"),),
             ),
             # Owner walkthrough item 19: the pixel picture sits *next to* the
             # convolution kernel that pixel imposes on the PSF, so cause and effect

@@ -667,26 +667,28 @@ Both return strings — `print()` them.
 
 matplotlib is an **optional** dependency; all plot helpers import it lazily and raise a clear `ImportError` if missing. Everything returns a `matplotlib.figure.Figure` — call `.savefig(...)` on it. Every returned figure uses matplotlib **constrained layout** (`Figure(layout="constrained")`), so titles, axis labels, and legends always keep a reserved margin and re-fit when the figure is resized (e.g. embedded in a GUI canvas) — no clipped titles on `savefig` or on window resize.
 
+**House style (owner ruling 2026-08-03).** Every plot helper renders under the token-derived RADIANT style in `radiant.api.plot_style` — theme surfaces and hairline open spines, Plex/fallback fonts (mono ticks and value labels), a recessive grid, left-located semibold titles, and a **CVD-validated categorical series palette** (fixed order blue → amber → teal → terracotta → purple → green; adjacent-pair colour-blind separation is test-enforced in `test_plot_style.py`). This is **API-wide**: scripts, notebooks, saved PNGs, and the GUI all get the same figures. The `plot_theme(dark=…)` context manager selects the light/dark variant (`from radiant.api.plot import plot_theme`); `dark=False` — the default everywhere — applies the light variant (it is no longer a no-op). The style's hex values mirror `gui/themes/tokens.py`; equality is test-enforced so the mirror cannot drift. Note that titles are **left-located**: read them back with `ax.get_title(loc="left")`.
+
 Returned figures are **not registered with `pyplot`** (CU-116): they are plain `Figure` objects, so `plt.get_fignums()` never lists them, `plt.gcf()` never returns one, and there is nothing to `plt.close()` — a figure is reclaimed when the caller drops its last reference. The caller owns the figure: save it, hand it to a GUI canvas, or display it (a returned `Figure` renders in a Jupyter cell on its own). `plt.show()` on a `result.plot.*` figure displays nothing regardless of backend, because an unregistered figure is not pyplot's to show — that is the CU-116 contract, not a consequence of the backend. It removes the process-global retention that made a GUI session holding one figure per stage trip matplotlib's 20-figure `max_open_warning`.
 
 `radiant.core.spectral.SpectralData.plot(ax=None)` follows the same convention (CU-286): it returns the `Figure`, unregistered when it built one, and returns the owning figure untouched when you pass your own `ax`.
 
 **The backend is the host process's choice, not RADIANT's** (CU-287). A plot call forces the non-interactive **Agg** backend only when nothing has selected one yet — a bare script or CI runner, where Agg is what keeps a headless run working. If you have already chosen a backend (`matplotlib.use(...)`, `%matplotlib qt`, a Qt GUI), RADIANT leaves it alone; earlier versions switched it to Agg on the first `result.plot.*` call.
 
-Axis labels use the **symbol + unit** form (e.g. `τ_atm (dimensionless)`, `L_path (W/m²/sr/µm)`, `Radiance (W/m²/sr/µm)`), never a spelled-out descriptive phrase — the unit is always retained (R-UNITS), but the long spelled-out prefix that overflowed a narrow embedded twin-axis pane is dropped.
+Axis labels use the **symbol + unit** form (e.g. `τ_atm (–)`, `L_path (W/m²/sr/µm)`, `Radiance (W/m²/sr/µm)`), never a spelled-out descriptive phrase — the unit is always retained (R-UNITS), but the long spelled-out prefix that overflowed a narrow embedded pane is dropped. `plot_sweep` / `plot_sweep_2d` axis labels resolve the swept parameter's **schema** canonical unit through the parameter registry (never parsed from the name) and render metrics under their analyst-facing names (`snr` → `SNR`).
 
 ### 5.1 Module functions — `radiant.api.plot`
 
 ```python
 from radiant.api.plot import (
-    plot_sweep,          # SweepResult → metric-vs-param line plot
+    plot_sweep,          # SweepResult → metric-vs-param line plot (full-well-clipped span shaded)
     plot_sweep_2d,       # Sweep2DResult → filled contour
-    plot_noise_budget,   # tuple of NoiseTerm → horizontal bar chart [e- RMS]
+    plot_noise_budget,   # tuple of NoiseTerm → horizontal bar [e- RMS]; scale="log" (default) | "linear"
     plot_psf,            # EffectivePSF → log-scaled 2-D image
-    plot_mtf_terms,      # {name: MTF array}, freq axis → all terms on one axis (see legend note)
+    plot_mtf_terms,      # {name: MTF array}, freq axis → contributor overlay (see legend note)
     plot_spectral,       # wavelength [µm], radiance → spectral line plot
     plot_spectral_multi, # wavelength [µm], {label: radiance} → multi-curve spectral plot
-    plot_atmosphere_spectral,  # wavelength [µm], τ_atm, L_path → twin-axis spectral plot
+    plot_atmosphere_spectral,  # wavelength [µm], τ_atm, L_path → two stacked, x-sharing panels
 )
 
 fig = plot_sweep(sweep)
@@ -702,8 +704,13 @@ fig = plot_spectral(frame.wavelength_um, frame.spectral_radiance,
 representative line), so a full 8-contributor × x/y overlay shows ~8 labels instead of 16;
 `_x`/`_y` that visibly differ keep both curves and both labels (a real anisotropy is never
 hidden). The legend is placed **below** the axes in a compact multi-column block (not inside
-the axes), so it never covers the curves in a narrow embedded pane. All contributor curves
-are always plotted — only the labelling is de-densified.
+the axes), so it never covers the curves in a narrow embedded pane. **Unity collapse
+(2026-08-03):** contributors sitting at ≈ 1.0 across the whole plotted band (min ≥ 0.995)
+are not drawn — at unity they carry no budget information and stacked unreadably on the top
+gridline — and are instead named in a caption under the axes; if every term is at unity they
+are all drawn rather than rendering empty. When four or fewer curves remain they are also
+direct-labelled at the line. The Nyquist marker draws in the ink tone with an in-plot
+mono annotation (it was a red dashed line).
 
 ### 5.2 Result plot namespace — `ResultPlotNamespace`
 
@@ -717,13 +724,13 @@ plots.psf()                # 2-D effective PSF (from stage_outputs["optics"]["ef
 plots.psf_pixel_grid()     # psf() + the detector pixel grid overlaid, cropped to the PSF core
 plots.pupil_amplitude()    # 2-D pupil apodization/amplitude map [transmission, dimensionless] (Gap 89)
 plots.pupil_phase()        # 2-D pupil wavefront-error map [waves] (Gap 89)
-plots.noise_budget()       # horizontal bar chart of result.noise_terms [e- RMS]
-plots.noise_pie()          # pie of result.noise_terms by VARIANCE share (σ_i²; e- RMS on labels)
+plots.noise_budget()       # horizontal bar of result.noise_terms [e- RMS]; log x default, scale="linear" opt
+plots.noise_pie()          # DEPRECATED 2026-08-03 (warns): use noise_budget() — pie kept during deprecation
 plots.mtf()                # all MTF terms vs spatial frequency [cycles/mrad]
 plots.mtf_budget()         # per-contributor MTF-at-Nyquist bar chart (Gap 19)
 plots.spectral_source()          # target (+ background) at-aperture radiance vs λ [W/m²/sr/µm]
 plots.spectral_source_emission() # target (+ background) PRE-atmosphere source radiance vs λ [W/m²/sr/µm]
-plots.spectral_atmosphere()      # τ_atm(λ) [dimensionless] + L_path(λ) [W/m²/sr/µm] on twin axes
+plots.spectral_atmosphere()      # τ_atm(λ) [–] + L_path(λ) [W/m²/sr/µm], two stacked panels
 plots.spectral_inband()          # band-filtered post-optics radiance vs λ [W/m²/sr/µm]
 plots.optical_throughput()       # system τ_opt(λ) vs λ [dimensionless] (Gap 90)
 plots.coating_spectra()          # per-element R / T / ε vs λ [dimensionless] (Gap 90)
@@ -738,7 +745,7 @@ recomputation:
 | `spectral_source_emission()` | `frames["at_source_target"]` + optional `frames["at_source_background"]` | Gap 91 — the **pre-atmosphere** emitted+reflected radiance *leaving the source* (`L_source`), before the up-leg τ/L_path. AtmosphereStage persists it; `at_aperture_target ≈ τ_up · at_source_target + L_path_up`. Isolates what the target emits from what reaches the aperture. |
 | `target_reflectance()` | `stage_outputs["source"]["reflectance"]` | The target's resolved ρ(λ) [dimensionless] — the **surface property**, published by SourceStage for both reflective pathways (a user-supplied ρ or ρ(λ) CSV, and the Kirchhoff ρ = 1 − ε of a mixed target). Raises `ApiValidationError` for a target that carries no reflectance (pure-thermal, or a user-supplied radiance/intensity) rather than drawing a zero curve. |
 | `spectral_reflected_radiance()` | `frames["at_source_target_reflected"]` | The radiance that ρ(λ) *produces* under the scene illumination — direct solar + diffuse sky, no self-emission. Pairs with `target_reflectance()` as cause and effect on the GUI's reflective view. |
-| `spectral_atmosphere()` | `stage_outputs["atmosphere"]["tau_atm"]` + `["L_path"]` | Twin, unit-labelled y-axes (τ is dimensionless; L_path is W/m²/sr/µm). |
+| `spectral_atmosphere()` | `stage_outputs["atmosphere"]["tau_atm"]` + `["L_path"]` | Two stacked, x-sharing panels, each unit-labelled (τ is dimensionless; L_path is W/m²/sr/µm) — the twin-y-axis rendering was retired 2026-08-03 (two unrelated scales on one plot invite reading meaningless crossings). |
 | `spectral_inband()` | `frames["post_optics"]` | The band-filtered at-FPA radiance SpectralIntegrationStage integrates; the collapsed in-band scalar is a single value, not a spectrum. |
 
 The optics coating accessors (Gap 90) plot the stored optics `SpectralData`

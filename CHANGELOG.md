@@ -21,6 +21,43 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Token-derived house style for all `result.plot.*` figures (owner ruling
+  2026-08-03, reversing the "figures are not restyled" stance).** New module
+  `radiant.api.plot_style`: theme surfaces/fonts/grid/spines mirroring
+  `gui/themes/tokens.py` (equality test-enforced) plus a **CVD-validated**
+  categorical series palette (fixed order blue → amber → teal → terracotta →
+  purple → green; adjacent-pair colour-blind separation gated by test). Applied
+  **API-wide** — scripts, notebooks, saved PNGs, and the GUI render identically;
+  `plot_theme(dark=…)` now styles both variants (`dark=False` is no longer a
+  no-op). Figure titles are left-located (`ax.get_title(loc="left")`).
+- **`plot_noise_budget(scale="log"|"linear")`** — the noise budget bar is
+  log-scale by default so every term is legible across decades, with mono
+  value labels in e⁻ RMS, the dominant term accented, sub-floor (≤ 0.05 e⁻ RMS)
+  terms named in a caption, and the RSS total; `scale="linear"` restores the
+  proportional view.
+- **`plot_sweep` full-well saturation shading** — when a sweep retained
+  per-point results, the value span whose points ran with a clipped well
+  (`well_status() == "clipped"`, Gap 65) is shaded in the warn tint and
+  labelled, so a flat-top metric curve reads as clipping, not physics. Sweep
+  axes now carry the swept parameter's schema unit and analyst-facing metric
+  names (`snr` → `SNR`).
+
+### Changed
+- **`plot_atmosphere_spectral` renders as two stacked, x-sharing panels**
+  (τ_atm above, L_path below, direct-labelled) instead of twin y-axes on one
+  plot — two unrelated scales overlaid invite reading meaningless crossings.
+- **`plot_mtf_terms` collapses ≈-unity contributors to a caption** (min ≥ 0.995
+  across the band; all drawn if every term is at unity), direct-labels sparse
+  overlays (≤ 4 curves), and draws the Nyquist marker in the ink tone with an
+  in-plot annotation instead of a red dashed line.
+- **GUI Detector Noise tab primary chart is `noise_budget()`** (log-scale bar)
+  in place of the retired pie.
+
+### Deprecated
+- **`plot_noise_pie` / `result.plot.noise_pie()`** — emits `DeprecationWarning`
+  (owner ruling 2026-08-03): a variance-share pie collapses everything but the
+  dominant term into invisible slivers. Use `noise_budget()` (log default).
+
 - **`Sensor.atmosphere_family_suggestion()` — the pre-validated interpolated-family
   recommendation (CU-322).** Returns an `AtmosphereFamilySuggestion` (`family`, `gap`,
   `considered`, `los_direction`, `vacuum_path`, plus `serves` / `advisory_text` /

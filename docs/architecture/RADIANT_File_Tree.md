@@ -5,8 +5,8 @@
 **Source of truth:** `find src/radiant -name '*.py'` — this doc is a derived
 view, not a spec. When in doubt, run the find command.
 
-**Current file count:** 588 `.py` files under `src/radiant/` (325 source +
-221 test + 42 `__init__.py`), plus 41 integration tests under
+**Current file count:** 590 `.py` files under `src/radiant/` (326 source +
+222 test + 42 `__init__.py`), plus 41 integration tests under
 `tests/integration/` and 6 top-level test files (`tests/test_public_api.py`,
 `tests/test_exceptions.py`, `tests/test_provenance.py`,
 `tests/test_calibration_analysis.py`, `tests/test_error_budget.py`,
@@ -252,7 +252,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 25 source + 19 tests
+### `api/` — 26 source + 20 tests
 
 Public scripting API.
 
@@ -270,6 +270,7 @@ api/
 ├── compare.py             # predicted-vs-measured MTF comparison (Gap 30)
 ├── inspect.py             # post-run introspection helpers
 ├── plot.py                # plotting helpers (uses matplotlib if available)
+├── plot_style.py          # token-derived house style + CVD-validated series palette (2026-08-03)
 ├── units.py               # public unit-conversion helpers
 ├── metric_groups.py       # re-export bridge: performance metric-group taxonomy (Gap 96)
 ├── geometry_modes.py      # re-export bridge: ADR-0006 mode manifest (CU-120)

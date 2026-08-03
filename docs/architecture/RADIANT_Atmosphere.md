@@ -102,8 +102,27 @@ class AtmosphericState:
 > safe in log space by construction — the constructor floors stored τ at
 > `TAU_FLOOR` (1e-30 ≡ OD ≈ 69) before taking the log, so ln(τ) is finite
 > everywhere and an opaque band resamples to that floor, never to −inf or NaN.
-> Note the scope: `tabulated` and `modtran` still resample τ linearly (one
-> resample, no operation order to get wrong).
+>
+> **The log-τ resample convention is universal across the three file-backed
+> backends (CU-316, 2026-08-02).** `tabulated` and `modtran` used to resample τ
+> linearly — one resample each, so no operation order to get wrong, but a
+> different *convention*, and the same stored MODTRAN column therefore returned
+> different numbers depending on which backend served it (up to ~1.5% relative τ
+> on a 200-point MWIR chain grid). All three now carry every τ-like array
+> (`transmittance`, `τ_up`, `τ_sun`, `τ_full_up`) onto the chain grid through the
+> one implementation in `atmosphere/log_tau_resample.py`
+> (`resample_transmittance`), sharing the single `TAU_FLOOR` definition that
+> module owns. τ moved **down** by ≤ ~1.5% relative at low-τ wavelengths (the
+> geometric mean is ≤ the arithmetic mean); cross-backend τ now agrees to float
+> round-off. Scope of the convention, in both directions:
+> - **log-τ**: transmittance only, in every backend.
+> - **linear**: `L_path`, `L_atm_down`, and every irradiance — additive
+>   quantities with no Beer-Lambert structure.
+> - The floor is a *lower* clamp only. τ > 1 is not capped, so a mis-scaled file
+>   still fails loud in `AtmosphericQuantities.__post_init__` (Rule 17) instead of
+>   being snapped to a plausible value; negative τ raises in the resample itself.
+> - A query on the file's own grid short-circuits the log round trip and is
+>   **bit-identical** to the stored array.
 > **Airborne targets (Gap 94):** when the grid carries a `target_altitude_m` axis
 > (the shipped `midlat_summer_ladders/` family), `evaluate()` serves `h_tgt > 0`
 > with a real two-leg split from two queries at the same sensor/zenith coordinates —
@@ -229,7 +248,7 @@ on the same target→sensor vertical slab as `E_sky_thermal`. `ω₀_eff` is the
 
 ### 3.2 Tabulated
 
-The user provides `τ_atm(λ)` and `L_path(λ)` as files (CSV, ENVI .sli, or NumPy .npz). RADIANT loads them, validates monotonic ascending wavelength, interpolates onto the global grid, and uses them as-is. No physics is applied. The user owns the physics.
+The user provides `τ_atm(λ)` and `L_path(λ)` as files (CSV, ENVI .sli, or NumPy .npz). RADIANT loads them, validates monotonic ascending wavelength, interpolates onto the global grid, and uses them as-is. No physics is applied. The user owns the physics. The one convention RADIANT imposes on the way to the chain grid is the resample space (CU-316, §3 above): **transmittance in log-τ, the radiances linearly**; a query on the file's own grid is a bit-identical no-op.
 
 This is the escape hatch for:
 - Output from a higher-fidelity tool that is not MODTRAN (libRadtran, 6S, DIRSIG).
@@ -1069,7 +1088,7 @@ There are **two ways in**, with a fixed precedence:
 
 Setting `atmosphere.modtran.tape7_path` (with `atmosphere.model = "modtran"`) builds the atmospheric state from an existing tape7 file:
 
-- **Rule 6 boundary**: the file is parsed **before chain execution**, in `radiant.atmosphere.loaders._build_modtran`, via `Tape7Reader.to_radiant_units()`. The parsed arrays travel as a `Tape7Import` (frozen dataclass: four ascending-wavelength arrays + `source_path` + `content_key` = sha256(file bytes)[:16]) into `ModtranAtmosphere`, which resamples them to the chain grid exactly the way the binary path's cache-hit branch does. `AtmosphereStage` never reads the file; with `tape7_path` set, `modtran` counts as file-backed for the stage's Rule 6 refusal check (`loaders.model_requires_prebuild`).
+- **Rule 6 boundary**: the file is parsed **before chain execution**, in `radiant.atmosphere.loaders._build_modtran`, via `Tape7Reader.to_radiant_units()`. The parsed arrays travel as a `Tape7Import` (frozen dataclass: four ascending-wavelength arrays + `source_path` + `content_key` = sha256(file bytes)[:16]) into `ModtranAtmosphere`, which resamples them to the chain grid exactly the way the binary path's cache-hit branch does — every τ-like column (`transmittance`, and the two-leg `τ_up` / `τ_sun` below) in **log-τ** per the universal convention in §3, the radiances linearly. `AtmosphereStage` never reads the file; with `tape7_path` set, `modtran` counts as file-backed for the stage's Rule 6 refusal check (`loaders.model_requires_prebuild`).
 - **Precedence**: file set → file wins; binary, cache, and `allow_fallback` are irrelevant. File unset → §5.2–§5.5 behavior, bit-identical to before the import path existed.
 - **Geometry-agnostic**, like tabulated input (§3.2): the imported arrays are served as-is for any query geometry. The file encodes whatever geometry its MODTRAN run used; RADIANT does not re-scale it. Consequently an airborne target (`h_tgt > 0`) raises `NotImplementedError` **unless** a second target→sensor run is imported via `atmosphere.modtran.tape7_up_path` (Gap 94, below) — a single file cannot supply both the target-leg and the full-column transmittance the background branch needs (same restriction as `TabulatedAtmosphere`).
 - **Airborne-target two-leg split (Gap 94, file flavor)**: optionally, `atmosphere.modtran.tape7_up_path` names a second tape7 run along the target→sensor partial column (a deck with H2 = the target altitude, like the run matrix's C/G blocks). When set, `τ_up` and `L_path_up` come from that file's columns resampled to the chain grid, `tape7_path` keeps supplying the ground→sensor full column (`τ_full_up`, `L_path_full`), and airborne targets are accepted. Without a sun-leg file, `τ_sun` then aliases the up-leg `τ_up` under the collapse warning. RADIANT cannot verify the file's H2 against the scenario's `h_tgt` (a tape7 does not record its deck geometry) — the user owns that consistency, as with every file import. `tape7_up_path` without `tape7_path` is a configuration error.

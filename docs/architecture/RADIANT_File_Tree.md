@@ -108,7 +108,7 @@ source/shapes/         # box, cone, cylinder, flat_plate, sphere — projected_a
                        # implementations for sub-pixel target geometry
 ```
 
-### `atmosphere/` — 38 source + 43 tests
+### `atmosphere/` — 39 source + 44 tests
 
 Stage 2: τ_atm, L_path, L_atm.
 
@@ -125,6 +125,8 @@ atmosphere/
 ├── exo.py               # exo-atmosphere (vacuum) — τ=1, L_path=0
 ├── tabulated.py         # user-supplied tabulated τ(λ) / L_path(λ)
 ├── interpolated.py      # spectral interpolation helpers
+├── log_tau_resample.py  # Beer-Lambert-consistent log-τ spectral resample, shared by
+                       # the tabulated / MODTRAN / interpolated backends (CU-306, CU-316)
 ├── interpolation_coverage.py  # shipped-family catalogue + config-time scene↔axes check (CU-239)
 ├── family_suitability.py  # pre-validated family selection: can this family serve this LOS,
                        # and if none can, the one gap worth naming (CU-322)

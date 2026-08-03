@@ -93,6 +93,7 @@ from scipy.interpolate import LinearNDInterpolator, RegularGridInterpolator
 from radiant.atmosphere._quantities import AtmosphericQuantities
 from radiant.atmosphere._sensor_endpoint import require_sensor_altitude_m
 from radiant.atmosphere.errors import AtmosphereCapabilityError, AtmosphereValidationError
+from radiant.atmosphere.log_tau_resample import TAU_FLOOR
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
@@ -104,9 +105,12 @@ from radiant.core.spectral import SpectralData, SpectralGrid
 
 logger = logging.getLogger(__name__)
 
-# Minimum transmittance value before taking log, to avoid log(0) = -inf.
-# 1e-30 corresponds to OD ~ 69, well beyond any realistic atmosphere.
-TAU_FLOOR: float = 1e-30
+# TAU_FLOOR — the minimum transmittance before taking the log, so log(0) is
+# never -inf — is used below and imported above from
+# radiant.atmosphere.log_tau_resample, which owns the single definition:
+# CU-316 made the log-τ convention universal across the three backends, and
+# they must share one floor (Rule 27).  Importers of
+# `radiant.atmosphere.interpolated.TAU_FLOOR` are unaffected.
 
 # Geometry fields that can be used as interpolation axes.
 _GEOMETRY_FIELDS: frozenset[str] = frozenset(

@@ -2,7 +2,7 @@
 
 Category C validation for TabulatedAtmosphere:
 - Round-trip CSV and NPZ loading
-- Resampling correctness (linear interpolation)
+- Resampling correctness (log-τ for transmittance, linear for the radiances — CU-316)
 - Validation: non-ascending wavelength, tau out of bounds, negative radiance
 - Optional L_atm_down defaults to zeros
 - Extrapolation rejection
@@ -285,12 +285,22 @@ class TestResampling:
         )
 
     @pytest.mark.level0
-    def test_linear_interpolation_midpoint(
+    def test_interpolation_midpoint_is_geometric_in_tau_linear_in_radiance(
         self,
         tmp_path: Path,
         default_geometry: AtmosphericGeometry,
     ) -> None:
-        """Verify linear interpolation at the midpoint of two samples."""
+        """Midpoint convention: geometric mean for τ, arithmetic for L_path.
+
+        CU-316 re-anchor: τ at the cell midpoint was 0.6 (arithmetic mean of
+        0.8 and 0.4) under the pre-2026-08-02 linear-in-τ resample; it is now
+        ``sqrt(0.8 · 0.4)`` = 0.565685 — the Beer-Lambert answer, since it is
+        the optical depth, not τ, that is linear across the cell.  −5.7 % here
+        because this two-sample table is a deliberately extreme 2 µm cell; on
+        real stored grids the move is ≤ ~1.5 %.  Path radiance is unmoved: it
+        is an additive emission term with no exponential path-length law, so
+        it still interpolates linearly.
+        """
         wl = np.array([3.0, 5.0])
         tau = np.array([0.8, 0.4])
         lp = np.array([0.01, 0.05])
@@ -302,9 +312,15 @@ class TestResampling:
         query_wl = np.array([3.0, 4.0, 5.0])
         result = model.build_state(query_wl, default_geometry)
 
-        # Midpoint of linear interpolation.
-        assert result.transmittance.values[1] == pytest.approx(0.6, abs=1e-12)
+        assert result.transmittance.values[1] == pytest.approx(np.sqrt(0.32), abs=1e-12)
         assert result.path_radiance.values[1] == pytest.approx(0.03, abs=1e-12)
+
+        # Query points that coincide with stored samples are returned to
+        # within the exp(log(τ)) round-trip (a native-grid query short-circuits
+        # the round trip entirely and is bit-identical — see
+        # test_log_tau_resample.py).
+        assert result.transmittance.values[0] == pytest.approx(0.8, rel=1e-15)
+        assert result.transmittance.values[2] == pytest.approx(0.4, rel=1e-15)
 
 
 # ---------------------------------------------------------------------------

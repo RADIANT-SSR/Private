@@ -566,6 +566,24 @@ retroactively reconstructed.
   MWIR configuration stays at 0.500004 and scenario 3.4's nadir case at 0.5000. This
   closes the caveat the CU-209 entry below left open. No golden baseline, snapshot, or
   `*.gui.expected.json` carries the key, so no baseline was re-reviewed.
+- **Results-affecting (tabulated- and MODTRAN-served τ on a chain grid that differs from
+  the file's): the log-τ resample convention is now universal across all three
+  file-backed backends (CU-316).** CU-306 moved `InterpolatedAtmosphere`'s wavelength
+  resample into ln(τ) space — the Beer-Lambert space, where optical depth, not τ, is what
+  varies smoothly — but left `TabulatedAtmosphere` and `ModtranAtmosphere` resampling
+  linearly in τ, so *the same stored MODTRAN column returned different numbers depending
+  on which backend served it*: up to ~1.5 % relative τ on a 200-point MWIR chain grid,
+  landing exactly at the magnitude of the physics differences a fast-path-vs-tabulated
+  comparison exists to expose. All five τ-resample sites in those two backends
+  (`TabulatedAtmosphere.build_state` / `.evaluate`; `ModtranAtmosphere`'s primary column,
+  up-leg `τ_up`, and sun-leg `τ_sun`) now go through the shared
+  `radiant.atmosphere.log_tau_resample.resample_transmittance`, with the same
+  `TAU_FLOOR` = 1e-30 guard (opaque bands resample to the floor, never to −inf). **τ moves
+  down** — the geometric mean is ≤ the arithmetic mean — by ≤ ~1.5 % relative at low-τ
+  wavelengths on realistic grids, and the cross-backend divergence is eliminated (three
+  backends now agree to float round-off on one stored column). Radiances (`L_path`,
+  `L_atm_down`) deliberately stay linear: additive emission terms with no exponential
+  path-length law. A query on the file's own grid is a bit-identical no-op.
 - **Results-affecting (every point-source `detection_range_m`): the detection criterion
   is shot-noise-consistent, and the down-looking arm is path-aware (CU-263, folding
   ex-CU-236).** Two coupled changes in one owner-gated PR:

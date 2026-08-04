@@ -1016,6 +1016,27 @@ QPushButton#runButton[stale="true"]:hover {{
     background-color: {t.warn};
     border-color: {t.ink};
 }}
+/* The sweep dialog's Run button is that surface's one loud element (CU-325 —
+ * it previously matched no selector and rendered as a plain panel button). */
+QPushButton#sweepRunButton {{
+    background-color: {t.accent};
+    color: #ffffff;
+    border-color: {t.accent};
+    font-weight: 600;
+}}
+QPushButton#sweepRunButton:hover {{
+    background-color: {t.accent};
+    border-color: {t.ink};
+}}
+QPushButton#sweepRunButton:disabled {{
+    background-color: {t.panel_3};
+    color: {t.muted};
+    border-color: {t.line};
+}}
+QLabel#sweepStatusLabel {{
+    color: {t.muted};
+    font-size: 11px;
+}}
 
 /* -- Inputs: line edit, spin box (§8.3) -------------------------------- */
 QLineEdit, QSpinBox, QDoubleSpinBox, QPlainTextEdit, QTextEdit {{

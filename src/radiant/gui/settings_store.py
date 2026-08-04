@@ -23,6 +23,9 @@ never touches a developer's real settings.
 
 from __future__ import annotations
 
+import json
+from typing import Any
+
 from PySide6.QtCore import QSettings
 
 # The application-identity a default :class:`QSettings` is scoped to. Kept here (not a
@@ -39,6 +42,7 @@ _KEY_RECENT_SCRIPTS: str = "recent_scripts"
 _KEY_THEME: str = "theme"
 _KEY_PANEL: str = "panels"
 _KEY_ANGLES_DEG: str = "display_units/angles_in_degrees"
+_KEY_SWEEP_SPEC: str = "sweep/last_spec"
 
 
 class SettingsStore:
@@ -136,6 +140,28 @@ class SettingsStore:
     def set_angles_in_degrees(self, enabled: bool) -> None:
         """Persist the angles-in-degrees display preference (View-menu toggle)."""
         self._settings.setValue(_KEY_ANGLES_DEG, bool(enabled))
+
+    # -- sweep dialog (CU-325) ----------------------------------------------
+
+    def last_sweep_spec(self) -> dict[str, Any] | None:
+        """The persisted last-run sweep form contents, or ``None``.
+
+        Display-side fields only (parameter names, typed range strings, flags) —
+        never computed values. A corrupt entry reads as ``None`` rather than
+        raising (the dialog then falls back to current-value seeding).
+        """
+        raw = self._settings.value(_KEY_SWEEP_SPEC, None)
+        if raw is None:
+            return None
+        try:
+            spec = json.loads(str(raw))
+        except (json.JSONDecodeError, TypeError):
+            return None
+        return spec if isinstance(spec, dict) else None
+
+    def set_last_sweep_spec(self, spec: dict[str, Any]) -> None:
+        """Persist the sweep form contents that just ran (Sarah's re-open loop)."""
+        self._settings.setValue(_KEY_SWEEP_SPEC, json.dumps(spec))
 
     # -- panel visibility ---------------------------------------------------
 

@@ -20,6 +20,29 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **Results-affecting (GUI sweeps only): the Sweep dialog swept unit-converted
+  parameters at the wrong magnitude (CU-325).** The dialog pre-converted typed
+  ranges to canonical units, but `Sensor.sweep` interprets values in the
+  *input* unit — a pixel-pitch sweep typed in µm ran values 10⁶ smaller (or
+  failed the bounds check). Typed values now pass through untouched; scripted
+  and API sweeps were never affected.
+- **"Copy as script" now emits a complete, runnable, reproducing block
+  (CU-325).** The old 2-D emission referenced an undefined variable
+  (`NameError` on paste) and the 1-D block carried a "convert if needed"
+  caveat; both axes are now constructed with the exact typed endpoints.
+- **Esc/Close during a running sweep no longer orphans the worker thread
+  (CU-325)** — the dialog cancels, reports honestly, and closes on settle.
+
+### Changed
+- **Sweep dialog usability (CU-325/CU-326).** Ranges seed around the session's
+  current value (clamped to schema bounds) with the current value shown beside
+  the unit; the last-run spec persists across openings; log spacing is
+  per-axis; ranges validate against schema bounds before launch; plot axes
+  render in the entry units, unit-suffixed; the 2-D heatmap uses `pcolormesh`
+  (correct cells for log-spaced axes); metrics list under display names; the
+  Run button carries the accent; the idle progress bar is hidden.
+
 ### Added
 - **`midlat_summer_sst_column_fan_site900m` — the SST full column from a 900 m
   elevated site** (MODTRAN rows M9–M13, delivered 2026-08-03). Five nodes,

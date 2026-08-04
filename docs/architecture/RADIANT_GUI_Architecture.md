@@ -1901,19 +1901,35 @@ panel, labels, background) still follows the §8.1 tokens so the panel matches t
 plan):
 
 - **Parameter picker(s)**: every float `ParameterDef`, schema-driven; an optional second
-  parameter turns the run into a 2-D grid.
-- **Range entry in the parameter's input unit** (unit label beside the picker, R-UNITS);
-  converted once at the dialog boundary to canonical units (Rule 2). Linear or log spacing.
-- **Metric picker**: the live metric set from the last result (fallback `snr`).
+  parameter turns the run into a 2-D grid (Parameter 2 auto-nudges off a collision with
+  Parameter 1). On selection the range **seeds around the session's current value**
+  (×0.5–×1.5, clamped to the schema bounds) and the unit chip shows that value
+  (`[µm] · now 18`); the **last-run spec persists** across openings (CU-325 —
+  Sarah's re-open loop starts configured, not at an alphabetical default).
+- **Range entry in the parameter's input unit** (unit label beside the picker, R-UNITS),
+  passed to the API **as typed** — `Sensor.sweep` interprets values exactly as
+  `sensor.set` does, in the input unit, converting once inside the API (Rule 2; CU-325
+  fixed the dialog's former pre-conversion to canonical, which swept unit-converted
+  parameters at the wrong magnitude). Linear or log spacing, **per axis**. Ranges are
+  validated against the schema bounds **before** launch (fail at 0/N, endpoint named).
+- **Metric picker**: the live metric set from the last result (fallback `snr`), shown
+  under display names (`SNR`), keyed by registry name.
 - **Execution**: `Sensor.sweep` / `sweep_2d` on a **clone** (a trade study never mutates the
   session config), on a worker `QThread` with the Gap 72 `progress(done,total)` / `cancel()`
-  hooks driving a progress bar. **Cancel is a first-class outcome**: the API returns no partial
-  results by contract and the dialog reports "Cancelled at k/N — no partial results" honestly.
-- **Result**: 1-D curve (log x when log-spaced) or 2-D heatmap with colorbar into the dialog
-  canvas; the completed `SweepResult`/`Sweep2DResult` is retained on the main window
-  (`last_sweep_result`) for export (`to_csv`, Gap 88 surfaces).
-- **Copy as script**: emits the equivalent `sensor.sweep(...)` one-liner to the clipboard —
-  the dialog-to-console graduation path (owner-shaped D3: the GUI teaches the API).
+  hooks driving a progress bar (hidden until a run exists). **Cancel is a first-class
+  outcome**: the API returns no partial results by contract and the dialog reports
+  "Cancelled at k/N — no partial results" honestly. **Esc/Close mid-run never orphans the
+  worker** (CU-325): the dialog requests a cancel and closes itself when the run settles.
+- **Result**: 1-D curve (log x when log-spaced) or 2-D `pcolormesh` heatmap with colorbar
+  (correct cell placement for log-spaced axes, which the old `imshow` extent silently
+  mis-mapped), axes **in the entry units and unit-suffixed** (CU-326); the completed
+  `SweepResult`/`Sweep2DResult` is retained on the main window (`last_sweep_result`) for
+  export (`to_csv`, Gap 88 surfaces).
+- **Copy as script**: emits a complete, runnable reproduction block — both axes
+  constructed with the typed endpoints, unit in a comment — so pasting reproduces the
+  plotted numbers exactly (CU-325; the old 2-D emission referenced an undefined variable
+  and the 1-D one carried a "convert if needed" caveat). The dialog-to-console graduation
+  path (owner-shaped D3: the GUI teaches the API).
 
 Monte Carlo / Batch deliberately have **no dialogs** (owner D3): they are console workflows;
 their Run-menu items become script scaffolds (GT-2).

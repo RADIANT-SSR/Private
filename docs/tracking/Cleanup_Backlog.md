@@ -75,24 +75,6 @@ Checklist:
 - [ ] Sweep plots labeled in the entry unit; every axis and colorbar unit-suffixed; `m²` not `m2`
 **Suggested fix**: (b) stand-alone task after the owner ruling on item 3. Effort M; category D.
 
-### CU-327 — Run button's documented stale→warn flip is unimplemented (aspirational-doc drift on the staleness trust signal)
-
-**Discovered**: four-surface GUI design critique, 2026-08-03.
-**Status**: Open
-**File**: `src/radiant/gui/themes/stylesheet.py` (`QPushButton#runButton` base+hover only, `:987–996` — no `[stale]` variant); `src/radiant/gui/main_window.py` (no caller sets a stale property on the run button).
-**Symptom**: arch doc §8.4 and DESIGN.md promise the Run button "flips to a `warn` background to signal re-evaluate" when results are stale; the button stays terracotta in every state. Staleness is carried only by stage dots, the status bar, and pinned-card `→?` glyphs.
-**Why it still matters**: workflow-visible (test 4) and Rule 20 drift — the staleness signal on the primary action is the product's trust boundary (an analyst pasting a stale SNR into a briefing is the failure mode the rail exists to prevent).
-**Suggested fix**: (a) inline-fix-now scale — add the `[stale="true"]` QSS variant + set/clear the property on edit/failure/success; optionally flip the label to "Re-evaluate F5". Effort S; category D.
-
-### CU-328 — All-Parameters panel: fixed 104/72 px value/source columns starve the name column — eight consecutive rows render identically as `target.shape…`
-
-**Discovered**: four-surface GUI design critique, 2026-08-03.
-**Status**: Open
-**File**: `src/radiant/gui/widgets/parameter_panel.py` (`:119–120` `_VALUE_COL_WIDTH = 104`, `_SOURCE_COL_WIDTH = 72`, applied at `:216–217`; name column is the stretch column and right-elides).
-**Symptom**: at the shipped ~360 px dock width, ~25 of ~33 visible geometry rows truncate mid-word and the eight `target.shape.*` parameters are visually indistinguishable (`target.shape…` × 8, differing only by value unit). The panel's discriminating content — the parameter name — is the element that clips first.
-**Why it still matters**: workflow-visible (test 4) — this is the "reach every parameter" surface for every persona, and rows cannot be told apart without hovering each one.
-**Suggested fix**: (b) stand-alone task — nest shared dot-path prefixes as tree children (`target.shape` → `length`/`width`/…), middle-elide names, shrink Source to a badge, make Value content-sized. Effort M; category D.
-
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).
@@ -136,6 +118,24 @@ Checklist:
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-327 — Run button's documented stale→warn flip is unimplemented (aspirational-doc drift on the staleness trust signal) — RESOLVED 2026-08-03 (commit trailer)
+
+**Discovered**: four-surface GUI design critique, 2026-08-03.
+**Status**: RESOLVED 2026-08-03, closed by the `CU-Closes: 327` trailer commit (same-day fix per the (a) inline-fix-now recommendation).
+**File**: `src/radiant/gui/themes/stylesheet.py`; `src/radiant/gui/main_window.py`; `src/radiant/gui/widgets/run_button.py`.
+**Symptom**: arch doc §8.4 and DESIGN.md promise the Run button "flips to a `warn` background to signal re-evaluate" when results are stale; the button stayed terracotta in every state.
+**Why it still matters**: workflow-visible (test 4) and Rule 20 drift — the staleness signal on the primary action is the product's trust boundary.
+**Resolution**: `RunButton.set_stale()` + the `[stale="true"]` QSS variant (warn fill, both themes by construction) + label/tooltip flip to "Re-evaluate  F5"; wired at all seven staleness-transition sites in `main_window.py` (five all-stale markings, the failure path, cleared on success). Three new tests in `test_evaluate_loop.py` pin fresh→edit-stale→re-evaluate-fresh and the QSS variant's presence in both themes. Docs were already correct — code caught up; no doc change (drift removed, not moved).
+
+### CU-328 — All-Parameters panel: fixed 104/72 px value/source columns starve the name column — eight consecutive rows render identically as `target.shape…` — RESOLVED 2026-08-03 (commit trailer)
+
+**Discovered**: four-surface GUI design critique, 2026-08-03.
+**Status**: RESOLVED 2026-08-03, closed by the `CU-Closes: 328` trailer commit.
+**File**: `src/radiant/gui/widgets/parameter_panel.py`.
+**Symptom**: at the shipped ~360 px dock width, ~25 of ~33 visible geometry rows truncated mid-word and the eight `target.shape.*` parameters were visually indistinguishable.
+**Why it still matters**: workflow-visible (test 4) — the "reach every parameter" surface for every persona.
+**Resolution**: the fixed widths are gone — Value and Source columns are `ResizeToContents` (content-sized, so the stretch Name column absorbs every spare pixel) and the tree elides **middle**, so any name that still cannot fit keeps its discriminating suffix (`target.shape….length_m`-style) instead of losing it. The heavier options from the suggested fix (nesting dot-path prefixes as tree children, Source-as-badge) were not needed to resolve the symptom and remain available as future design work.
 
 ### CU-321 — One-temperature graybody over-predicts MWIR path thermal ~2× on tall columns, both directions equally (now anchorable) — RESOLVED 2026-08-03 (commit trailer)
 

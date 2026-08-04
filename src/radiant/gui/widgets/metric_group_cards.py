@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QColor, QEnterEvent, QPixmap
 from PySide6.QtWidgets import (
+    QGraphicsOpacityEffect,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -95,7 +96,10 @@ class _MetricRow(QWidget):
         name.setObjectName("outputsRowLabel")
         self._value = QLabel(value_text, self)
         self._value.setObjectName("outputsRowValue")
-        self._value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self._value.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
         self._value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
         self._pin = QToolButton(self)
@@ -103,9 +107,17 @@ class _MetricRow(QWidget):
         self._pin.setText(_PIN_GLYPH)
         self._pin.setToolTip("Pin this value to the right rail")
         self._pin.clicked.connect(self.pinClicked)
-        # Hover-revealed (owner: 36 always-on pins were visual noise). Hidden via a
-        # transparent state, not setVisible(False), so the row height never jumps.
+        # Hover-revealed (owner: 36 always-on pins were visual noise). The width is
+        # RESERVED permanently and only the glyph's visibility toggles — the earlier
+        # max-width 0↔unbounded toggle shifted the value label leftward under the
+        # reader's eyes on every hover (2026-08-03 critique). Reveal also follows
+        # keyboard focus: a zero-affordance hover-only control was unreachable
+        # without a mouse.
         self._pin.setAutoRaise(True)
+        self._pin.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self._pin.setAccessibleName(f"Pin {label} to the right rail")
+        self._pin.focusInEvent = self._pin_focus_in  # type: ignore[method-assign]
+        self._pin.focusOutEvent = self._pin_focus_out  # type: ignore[method-assign]
         self._set_pin_shown(False)
 
         layout.addWidget(name)
@@ -114,15 +126,31 @@ class _MetricRow(QWidget):
         layout.addWidget(self._pin)
 
     def _set_pin_shown(self, shown: bool) -> None:
-        """Show/hide the pin without changing the row's layout size."""
-        self._pin.setMaximumWidth(16777215 if shown else 0)
+        """Show/hide the pin glyph without changing the row's layout geometry."""
+        # Transparent text, not width collapse: the reserved slot keeps the value
+        # label's x-position fixed whether or not the pin is revealed.
+        effect = self._pin.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(self._pin)
+            self._pin.setGraphicsEffect(effect)
+        effect.setOpacity(1.0 if shown else 0.0)
+
+    def _pin_focus_in(self, event: Any) -> None:
+        self._set_pin_shown(True)
+        QToolButton.focusInEvent(self._pin, event)
+
+    def _pin_focus_out(self, event: Any) -> None:
+        if not self.underMouse():
+            self._set_pin_shown(False)
+        QToolButton.focusOutEvent(self._pin, event)
 
     def enterEvent(self, event: QEnterEvent) -> None:  # noqa: N802 — Qt override
         self._set_pin_shown(True)
         super().enterEvent(event)
 
     def leaveEvent(self, event: Any) -> None:  # noqa: N802 — Qt override
-        self._set_pin_shown(False)
+        if not self._pin.hasFocus():
+            self._set_pin_shown(False)
         super().leaveEvent(event)
 
     # -- accessors (tests) --------------------------------------------------
@@ -163,6 +191,10 @@ class _MetricLabel(QWidget):
         self._pin.setText(_PIN_GLYPH)
         self._pin.setToolTip("Pin this value to the right rail")
         self._pin.setAutoRaise(True)
+        self._pin.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self._pin.setAccessibleName(f"Pin {label} to the right rail")
+        self._pin.focusInEvent = self._pin_focus_in  # type: ignore[method-assign]
+        self._pin.focusOutEvent = self._pin_focus_out  # type: ignore[method-assign]
         self._pin.clicked.connect(self.pinClicked)
         self._set_pin_shown(False)
 
@@ -171,15 +203,33 @@ class _MetricLabel(QWidget):
         layout.addWidget(self._pin)
 
     def _set_pin_shown(self, shown: bool) -> None:
-        """Show/hide the pin without changing the cell's layout size."""
-        self._pin.setMaximumWidth(16777215 if shown else 0)
+        """Show/hide the pin glyph without changing the cell's layout geometry.
+
+        Same reserved-slot treatment as :class:`_MetricRow` (2026-08-03 critique):
+        opacity toggles, geometry never moves, keyboard focus reveals.
+        """
+        effect = self._pin.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(self._pin)
+            self._pin.setGraphicsEffect(effect)
+        effect.setOpacity(1.0 if shown else 0.0)
+
+    def _pin_focus_in(self, event: Any) -> None:
+        self._set_pin_shown(True)
+        QToolButton.focusInEvent(self._pin, event)
+
+    def _pin_focus_out(self, event: Any) -> None:
+        if not self.underMouse():
+            self._set_pin_shown(False)
+        QToolButton.focusOutEvent(self._pin, event)
 
     def enterEvent(self, event: QEnterEvent) -> None:  # noqa: N802 — Qt override
         self._set_pin_shown(True)
         super().enterEvent(event)
 
     def leaveEvent(self, event: Any) -> None:  # noqa: N802 — Qt override
-        self._set_pin_shown(False)
+        if not self._pin.hasFocus():
+            self._set_pin_shown(False)
         super().leaveEvent(event)
 
     @property

@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.gui.dialog_lifetime import exec_dialog
-from radiant.gui.metric_format import BADGE_METRICS
+from radiant.gui.metric_format import BADGE_METRICS, metric_display_label
 from radiant.gui.widgets.pin_picker_dialog import PinPickerDialog
 from radiant.gui.widgets.pinned_card import PinnedCard
 
@@ -164,6 +164,11 @@ class PinnedPanel(QWidget):
         self._add_button = QPushButton(_ADD_LABEL, self)
         self._add_button.setObjectName("pinAddButton")
         self._add_button.clicked.connect(self._on_add_clicked)
+        # Disabled until a result exists: the picker reads the metric surface, so a
+        # pre-evaluate click used to be a silent no-op — a dead-looking control
+        # (2026-08-03 critique). The state carries its own explanation.
+        self._add_button.setEnabled(False)
+        self._add_button.setToolTip("Pin a metric — evaluate first (F5)")
         layout.addWidget(self._add_button)
 
         layout.addStretch(1)
@@ -192,6 +197,8 @@ class PinnedPanel(QWidget):
     def update_from_result(self, result: ChainResult) -> None:
         """Store *result* and refresh every card's value from its metric surface."""
         self._result = result
+        self._add_button.setEnabled(True)
+        self._add_button.setToolTip("Pin a metric from the last result to this rail")
         for card in self._cards.values():
             card.update_from_result(result)
 
@@ -283,7 +290,9 @@ class PinnedPanel(QWidget):
         if exec_dialog(dialog) == QDialog.DialogCode.Accepted:
             key = dialog.selected_key()
             if key is not None:
-                self.pin(key, key)
+                # Human display label, same as the metric cards — a picker-added pin
+                # used to read as the raw registry key (2026-08-03 critique).
+                self.pin(key, metric_display_label(key))
 
 
 __all__ = ["PinnedPanel"]

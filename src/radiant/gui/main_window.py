@@ -873,6 +873,7 @@ class RADIANTMainWindow(QMainWindow):
         Phase 8 — explicit, not magic). Refresh (or a normal Evaluate) clears it.
         """
         self._stage_strip.set_all_status("stale")
+        self._right_rail.run_button.set_stale(True)
         self.statusBar().showMessage("Console changed the session — Refresh to re-read it")
 
     def _refresh_from_console(self) -> None:
@@ -953,6 +954,7 @@ class RADIANTMainWindow(QMainWindow):
         self._push_edit_command(dotpath)
         self._mark_dirty()
         self._stage_strip.set_all_status("stale")
+        self._right_rail.run_button.set_stale(True)
         self._refresh_coverage_advisory()
         self.statusBar().showMessage(f"Edited {dotpath} — re-evaluating…")
         self._debounce.start()
@@ -1040,6 +1042,7 @@ class RADIANTMainWindow(QMainWindow):
             self._push_edit_command(dotpaths[0])
         self._mark_dirty()
         self._stage_strip.set_all_status("stale")
+        self._right_rail.run_button.set_stale(True)
         self._refresh_coverage_advisory()
         self.statusBar().showMessage(f"Edited {dotpaths[0]} — re-evaluating…")
         self._debounce.start()
@@ -1365,6 +1368,7 @@ class RADIANTMainWindow(QMainWindow):
         # documented decision). Done before the plot render so the health reflects the
         # run even if the figure fails.
         self._stage_strip.set_all_status("warn" if warnings else "ok")
+        self._right_rail.run_button.set_stale(False)
         try:
             self._central.show_result(result)
         except Exception as exc:  # rendering the API's own figure — surface, never swallow
@@ -1420,6 +1424,7 @@ class RADIANTMainWindow(QMainWindow):
         never by message text. Genuine parameter rejections keep the modal.
         """
         self._stage_strip.set_all_status("err")
+        self._right_rail.run_button.set_stale(True)
         self._central.mark_stale()
         self._right_rail.pinned.set_stale(True)
         self._right_rail.messages.set_error(exc)
@@ -2560,6 +2565,7 @@ class RADIANTMainWindow(QMainWindow):
             self._refresh_snapshot()
         self._mark_dirty()
         self._stage_strip.set_all_status("stale")
+        self._right_rail.run_button.set_stale(True)
         self._debounce.start()
 
     def _apply_scope_change(self, dotpath: str) -> None:
@@ -2614,6 +2620,7 @@ class RADIANTMainWindow(QMainWindow):
                 self._input_snapshot[dotpath] = value
         self._mark_dirty()
         self._stage_strip.set_all_status("stale")
+        self._right_rail.run_button.set_stale(True)
         self.statusBar().showMessage(f"{dotpath} — re-evaluating…")
         self._debounce.start()
 

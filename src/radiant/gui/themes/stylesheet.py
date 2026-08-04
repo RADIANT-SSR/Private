@@ -636,8 +636,11 @@ QLabel#railSectionTitle {{
     font-size: 11px;
     font-weight: 600;
 }}
+/* Count subtitles ("1 pinned", "clean"): `muted`, not `muted-2` — the lighter
+ * step pixel-measured 2.79:1 against the rail surface, well under the 4.5:1
+ * AA floor at this size (2026-08-03 critique, right rail). */
 QLabel#railSectionCount {{
-    color: {t.muted_2};
+    color: {t.muted};
     font-size: 10.5px;
 }}
 
@@ -686,9 +689,11 @@ QToolButton#pinnedCardUnpin {{
     border-radius: {tokens.RADIUS_CHIP};
     padding: 1px 4px;
 }}
+/* Hover steps to the emphasized hairline + ink, not the accent — terracotta is
+ * reserved for the primary action (One Loud Element; 2026-08-03 critique). */
 QToolButton#pinnedCardUnpin:hover {{
-    color: {t.accent};
-    border-color: {t.accent};
+    color: {t.ink};
+    border-color: {t.line_2};
 }}
 QPushButton#pinAddButton {{
     color: {t.muted};
@@ -699,8 +704,8 @@ QPushButton#pinAddButton {{
     text-align: left;
 }}
 QPushButton#pinAddButton:hover {{
-    color: {t.accent};
-    border-color: {t.accent};
+    color: {t.ink};
+    border-color: {t.line_2};
 }}
 
 /* Edit Config (YAML) button — focus-token primary action (§4.5) */
@@ -733,18 +738,25 @@ QLabel#messageItem {{
     font-size: 11px;
     font-weight: 600;
 }}
+/* Severity is carried by the border, tint, and leading glyph; the message TEXT
+ * reads in ink — warn-on-warn-soft measured ≈3.2:1 at this size (fails AA), and
+ * a warning the analyst cannot read is a silent failure by another route
+ * (2026-08-03 critique, right rail). */
 QLabel#messageItem[severity="warning"] {{
     background-color: {t.warn_soft};
-    color: {t.warn};
+    color: {t.ink};
     border-color: {t.warn};
 }}
 QLabel#messageItem[severity="error"] {{
     background-color: {t.err_soft};
-    color: {t.err};
+    color: {t.ink};
     border-color: {t.err};
 }}
 QLabel#messageItem:hover {{
     border-color: {t.ink};
+}}
+QLabel#messageItem:focus {{
+    border-color: {t.focus};
 }}
 QLabel#messagesEmpty, QLabel#pinPickerEmpty {{
     color: {t.muted};
@@ -992,6 +1004,16 @@ QPushButton#runButton {{
 }}
 QPushButton#runButton:hover {{
     background-color: {t.accent};
+    border-color: {t.ink};
+}}
+/* Stale results (arch doc §8.4, CU-327): the primary action itself signals
+ * "these numbers predate the last edit" by flipping to the warn fill. */
+QPushButton#runButton[stale="true"] {{
+    background-color: {t.warn};
+    border-color: {t.warn};
+}}
+QPushButton#runButton[stale="true"]:hover {{
+    background-color: {t.warn};
     border-color: {t.ink};
 }}
 

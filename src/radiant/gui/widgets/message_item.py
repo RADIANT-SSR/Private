@@ -14,7 +14,7 @@ colour/font/size literal.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import QLabel, QWidget
 
 # Severity tokens (drive the QSS variant + the leading glyph).
@@ -57,12 +57,27 @@ class MessageItem(QLabel):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         glyph = _GLYPH.get(severity, "")
         self.setText(f"{glyph}  {text}" if glyph else text)
+        # Keyboard access (2026-08-03 critique): the Messages panel is the sole
+        # surface where run warnings appear, so its rows must be reachable and
+        # activatable without a mouse. Focus ring comes from the QSS :focus rule;
+        # the accessible name spells the severity out instead of leaving a
+        # screen reader to guess it from a glyph.
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAccessibleName(f"{severity}: {text}")
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802 (Qt override)
         """Emit :attr:`clicked` on a left click (opens the full message view)."""
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
         super().mousePressEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 (Qt override)
+        """Return/Enter/Space activate the row, mirroring the click path."""
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
+            self.clicked.emit()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
 
 __all__ = ["MessageItem", "SEVERITY_WARNING", "SEVERITY_ERROR"]

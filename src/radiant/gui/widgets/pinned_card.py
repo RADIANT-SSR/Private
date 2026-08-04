@@ -38,8 +38,9 @@ if TYPE_CHECKING:
 _AWAITING_VALUE: str = "—"
 # Appended to a stale value (§8.4): "this number predates the last evaluation".
 _STALE_MARKER: str = " →?"
-# The unpin affordance glyph (a pencil in the wireframe's card corner).
-_UNPIN_GLYPH: str = "✎"
+# The unpin affordance glyph. The wireframe's pencil was replaced 2026-08-03
+# (critique): ✎ is the universal *edit* glyph, and this action *removes* the card.
+_UNPIN_GLYPH: str = "✕"
 
 
 class PinnedCard(QFrame):

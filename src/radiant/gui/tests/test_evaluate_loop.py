@@ -292,3 +292,39 @@ def test_driven_dotpaths_exist_in_schema(dotpath: str) -> None:
     """Guard: the dotpaths these tests drive are real schema parameters."""
     sensor = Sensor.load(_EXAMPLE)
     assert dotpath in sensor.parameter_defs()
+
+
+class TestStaleRunButton:
+    """CU-327: the Run button carries the staleness trust signal (arch doc §8.4)."""
+
+    def test_fresh_after_evaluate(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A clean evaluated window shows the accent Evaluate state."""
+        window = _load_window(qtbot)
+        button = window.right_rail.run_button
+        assert not button.is_stale()
+        assert button.text().startswith("Evaluate")
+
+    def test_edit_flips_to_stale_and_reevaluate_clears_it(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """An edit flips the button to the warn Re-evaluate state; success clears it."""
+        window = _load_window(qtbot)
+        button = window.right_rail.run_button
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.parameter_panel.parameterEdited.emit(_APERTURE)
+            # Stale flips synchronously with the edit, before the debounced run lands.
+            assert button.is_stale()
+            assert button.text().startswith("Re-evaluate")
+            assert bool(button.property("stale")) is True
+
+        assert not button.is_stale()
+        assert button.text().startswith("Evaluate")
+
+    def test_stylesheet_carries_the_stale_variant(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The [stale="true"] QSS variant exists in both themes (warn fill)."""
+        from radiant.gui.themes import tokens
+        from radiant.gui.themes.stylesheet import build_stylesheet
+
+        for theme in (tokens.LIGHT, tokens.DARK):
+            sheet = build_stylesheet(theme)
+            assert 'QPushButton#runButton[stale="true"]' in sheet
+            assert theme.warn in sheet

@@ -114,11 +114,6 @@ _DOTPATH_ROLE = DOTPATH_ROLE
 
 _EMPTY_MESSAGE = "No configuration loaded — open a YAML to inspect parameters"
 
-# Compact fixed widths (px, layout geometry — not design tokens) for the Value and
-# Source columns, so the stretchy Parameter column keeps the most room in the dock.
-_VALUE_COL_WIDTH = 104
-_SOURCE_COL_WIDTH = 72
-
 
 class ParameterPanel(QWidget):
     """Filter box + schema-driven Parameter/Value/Source tree, editable (Task B).
@@ -206,15 +201,20 @@ class ParameterPanel(QWidget):
         # Double-click on any column other than Value opens the detail editor dialog.
         self._tree.doubleClicked.connect(self._on_double_click)
 
-        # Give the (often long) parameter names the stretch space; keep the Value
-        # and Source columns compact so, in the narrow dock, names truncate last.
+        # Give the (often long) parameter names the stretch space; size Value and
+        # Source to their actual content so the name column absorbs every spare
+        # pixel. The former fixed 104/72 px columns starved the names at the
+        # shipped dock width — ~25 of ~33 visible geometry rows right-elided, and
+        # the eight `target.shape.*` rows rendered identically as `target.shape…`
+        # (CU-328). Middle elision keeps the discriminating *suffix* visible on
+        # any name that still cannot fit; Value never elides in practice because
+        # its column is content-sized.
+        self._tree.setTextElideMode(Qt.TextElideMode.ElideMiddle)
         header = self._tree.header()
         header.setStretchLastSection(False)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
-        self._tree.setColumnWidth(1, _VALUE_COL_WIDTH)
-        self._tree.setColumnWidth(2, _SOURCE_COL_WIDTH)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
 
         self._empty_msg = QLabel(_EMPTY_MESSAGE, self)
         self._empty_msg.setObjectName("parameterEmptyMsg")

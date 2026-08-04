@@ -21,6 +21,25 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **The Run button now carries the staleness trust signal (CU-327).** When results
+  predate the last edit — or the last run failed — the right-rail Evaluate button
+  flips to the warn fill and reads "Re-evaluate  F5", clearing on the next clean
+  run. This implements the behavior arch doc §8.4 had documented since Phase 1.
+
+### Changed
+- **All-Parameters panel columns no longer truncate parameter names (CU-328).**
+  Value and Source columns are content-sized (previously fixed 104/72 px) and
+  names elide in the middle, so the discriminating suffix always survives — the
+  eight `target.shape.*` rows no longer render identically.
+- **GUI accessibility pass (2026-08-03 critique):** Messages rows are keyboard-
+  focusable and activate on Return/Space with severity spelled out for screen
+  readers, and their text reads in ink (warn-on-warn-soft failed WCAG AA);
+  rail count subtitles moved up one contrast step; metric-card pin affordances
+  keep a reserved slot (no value jitter on hover) and reveal on keyboard focus;
+  "+ Pin…" is disabled with an explanatory tooltip until a result exists;
+  picker-added pins show the metric's display label instead of its raw key;
+  the unpin glyph is ✕ (was the edit-pencil ✎); unpin/+Pin hovers no longer
+  borrow the accent (One Loud Element).
 - **Token-derived house style for all `result.plot.*` figures (owner ruling
   2026-08-03, reversing the "figures are not restyled" stance).** New module
   `radiant.api.plot_style`: theme surfaces/fonts/grid/spines mirroring

@@ -343,6 +343,7 @@ gui/
 │   ├── pinned_panel.py                      # PinnedPanel
 │   ├── platform_inputs_form.py              # PlatformInputsForm
 │   ├── plot_placeholder.py                  # PlotPlaceholder
+│   ├── provenance_pill_delegate.py          # ProvenancePillDelegate — §8.4 Source-column pill
 │   ├── python_highlighter.py                # PythonHighlighter
 │   ├── readout_inputs_form.py               # ReadoutInputsForm
 │   ├── right_rail.py                        # RightRail

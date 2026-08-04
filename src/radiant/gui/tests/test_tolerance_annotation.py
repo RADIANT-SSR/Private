@@ -106,18 +106,32 @@ class TestScaffolds:
 class TestRelevanceBadging:
     """GT-7 (Gap 85 close-out): the All-Parameters tree badges excluded rows."""
 
-    def test_declared_extended_badges_subpixel_rows(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_declared_extended_dims_subpixel_rows(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Excluded rows dim (muted foreground + value tooltip), not a value-cell suffix.
+
+        The old ``(n/a: <type>)`` text lived inside the Value column and blew a
+        content-sized column wide open, starving the names (2026-08-03 critique;
+        owner-hit on scenario 10.1). The affordance is now the dimmed row; the
+        sentence lives in the tooltip.
+        """
+        from radiant.gui.themes.stylesheet import active_theme
+
         window = self._window_for_badging(qtbot)
         window.sensor.set("source.scene_type", "extended")
         window._parameter_panel.populate(window.sensor)  # noqa: SLF001
         items = window._parameter_panel._items  # noqa: SLF001
-        # Sub-pixel-only knobs badge; regime-independent + matching rows do not.
-        assert "(n/a: extended)" in items["source.target.fill_fraction"].text(1)
-        assert "(n/a: extended)" in items["geometry.target.shape"].text(1)
-        assert "(n/a" not in items["source.contrast_reference.temperature"].text(1)
-        assert "(n/a" not in items["source.target.temperature"].text(1)
-        # The selector itself never badges (the way back out).
-        assert "(n/a" not in items["source.scene_type"].text(1)
+        dim = active_theme().muted_2
+        # Sub-pixel-only knobs dim + explain; regime-independent rows do not.
+        excluded = items["source.target.fill_fraction"]
+        assert "(n/a" not in excluded.text(1)  # the suffix is gone for good
+        assert excluded.foreground(0).color().name() == dim
+        assert "extended" in excluded.toolTip(1)
+        assert items["geometry.target.shape"].foreground(0).color().name() == dim
+        included = items["source.contrast_reference.temperature"]
+        assert included.toolTip(1) == ""
+        assert included.foreground(0).color().name() != dim
+        # The selector itself never dims (the way back out).
+        assert items["source.scene_type"].foreground(0).color().name() != dim
 
     def test_auto_badges_nothing(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         window = self._window_for_badging(qtbot)

@@ -21,7 +21,20 @@ TARGET_TEMPERATURE = ParameterDef(
     input_unit="K",
     default=300.0,
     bounds=(0.0, 5000.0),
-    tags=frozenset({"thermal", "source", "target", "regime:extended", "regime:sub_pixel"}),
+    tags=frozenset(
+        {
+            "thermal",
+            "source",
+            "target",
+            "regime:extended",
+            "regime:sub_pixel",
+            # CU-329: the surface-radiance (ε, T) door is also a legal point-source
+            # specification (intensity = L·A_proj) — the S10 point-intensity door's
+            # documented mutually-exclusive alternative. Excluding it here made the
+            # GUI grey out the exact parameters driving a running point_source scene.
+            "regime:point_source",
+        }
+    ),
     default_justification=(
         "300 K is Earth ambient — a neutral default for terrestrial thermal "
         "imaging scenarios. User overrides for specific scenes."
@@ -39,7 +52,20 @@ TARGET_EMISSIVITY = ParameterDef(
     input_unit="",
     default=0.95,
     bounds=(0.0, 1.0),
-    tags=frozenset({"thermal", "source", "target", "regime:extended", "regime:sub_pixel"}),
+    tags=frozenset(
+        {
+            "thermal",
+            "source",
+            "target",
+            "regime:extended",
+            "regime:sub_pixel",
+            # CU-329: the surface-radiance (ε, T) door is also a legal point-source
+            # specification (intensity = L·A_proj) — the S10 point-intensity door's
+            # documented mutually-exclusive alternative. Excluding it here made the
+            # GUI grey out the exact parameters driving a running point_source scene.
+            "regime:point_source",
+        }
+    ),
     default_justification=(
         "0.95 is typical for painted / oxidized natural surfaces in the LWIR "
         "and a conservative non-unity default."

@@ -13,10 +13,9 @@ All drive the real widgets on the shipped example config, offscreen.
 
 from __future__ import annotations
 
+import math
 import warnings
 from pathlib import Path
-
-import math
 
 import pytest
 

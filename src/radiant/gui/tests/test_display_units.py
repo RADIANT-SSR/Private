@@ -73,7 +73,6 @@ class TestPanelDisplaysDegrees:
         )
         assert panel.display_unit(dotpath) == "deg"
         # Editor seed value is the degrees number (entry/display symmetric).
-        pdef = sensor.parameter_def(dotpath)
         shown = panel._input_value_for(dotpath)
         raw = sensor.get_input(dotpath)
         if raw is not None and shown is not None:

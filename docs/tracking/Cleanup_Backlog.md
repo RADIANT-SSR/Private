@@ -47,15 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-329 — Point-source scenes grey out the surface-radiance (ε, T) inputs that are actively driving the run — regime tags exclude a legitimate point-source door
-
-**Discovered**: owner GUI session (scenario 10.1 ground-to-air MWIR), 2026-08-03 — the owner asked why target temperature/emissivity were disabled while the emission plot was visibly computed from them.
-**Status**: Open
-**File**: `src/radiant/source/_schema.py` (`source.target.temperature_K` / `source.target.emissivity` tagged `regime:extended, regime:sub_pixel` only); the GT-7/Gap-85 relevance gating dims/disables accordingly.
-**Symptom**: with `scene_type='point_source'`, the Source stage's thermal form disables temperature/emissivity and the tree appends `(n/a: point_source)` — yet the surface-radiance path is a documented, legal point-source specification (the S10 point-intensity door's own docstring names it as the mutually-exclusive alternative), the scenario's config sets it, and the chain consumes it (the on-screen emission curve is ε·B(λ,T)).
-**Why it still matters**: workflow-visible (intake test 4 — the owner hit it in a run scenario): the GUI claims "not applicable" about the two parameters generating the displayed result, steering analysts away from a valid input path.
-**Suggested fix**: (a) inline-fix-now — add `regime:point_source` to the surface-path thermal params (both doors visibly legal; the existing mutual-exclusion validation still arbitrates), and/or have the disabled form state the active door. Effort S; category D.
-
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).
@@ -99,6 +90,16 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-329 — Point-source scenes grey out the surface-radiance (ε, T) inputs that are actively driving the run — regime tags exclude a legitimate point-source door — RESOLVED 2026-08-03 (commit trailer)
+
+**Discovered**: owner GUI session (scenario 10.1 ground-to-air MWIR), 2026-08-03 — the owner asked why target temperature/emissivity were disabled while the emission plot was visibly computed from them.
+**Status**: RESOLVED 2026-08-03, closed by the `CU-Closes: 329` trailer commit (same-day (a) inline fix, branch `gui/param-panel-finish`).
+**File**: `src/radiant/source/_schema.py` (`source.target.temperature_K` / `source.target.emissivity` tagged `regime:extended, regime:sub_pixel` only); the GT-7/Gap-85 relevance gating dims/disables accordingly.
+**Symptom**: with `scene_type='point_source'`, the Source stage's thermal form disables temperature/emissivity and the tree appends `(n/a: point_source)` — yet the surface-radiance path is a documented, legal point-source specification (the S10 point-intensity door's own docstring names it as the mutually-exclusive alternative), the scenario's config sets it, and the chain consumes it (the on-screen emission curve is ε·B(λ,T)).
+**Why it still matters**: workflow-visible (intake test 4 — the owner hit it in a run scenario): the GUI claims "not applicable" about the two parameters generating the displayed result, steering analysts away from a valid input path.
+**Suggested fix**: (a) inline-fix-now — add `regime:point_source` to the surface-path thermal params (both doors visibly legal; the existing mutual-exclusion validation still arbitrates), and/or have the disabled form state the active door. Effort S; category D.
+**Resolution**: `regime:point_source` added to `source.target.temperature_K` and `source.target.emissivity` (the only two params carrying the extended+sub_pixel pair) with a comment recording why; the GT-7 relevance gating now leaves the (ε, T) door live in point-source scenes, and the existing mutual-exclusion validation continues to arbitrate between it and the S10 point-intensity door. Landed with the parameter-panel batch that also replaced the `(n/a: …)` value-suffix with row dimming + tooltip.
 
 ### CU-325 — Sweep-dialog defect family: copy-as-script emits broken/non-reproducing scripts; Esc mid-run orphans the worker; log spacing silently axis-1-only — RESOLVED 2026-08-03 (commit trailer)
 

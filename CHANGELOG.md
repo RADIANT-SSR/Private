@@ -21,6 +21,22 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Fixed
+- **Point-source scenes no longer grey out the surface-radiance (ε, T) inputs
+  that drive them (CU-329).** `source.target.temperature_K`/`emissivity` now
+  carry `regime:point_source`: the surface-radiance door is a documented legal
+  point-source specification (intensity = L·A_proj), and the GUI was disabling
+  the exact parameters producing the on-screen emission curve.
+- **All-Parameters regime exclusion reads as a dimmed row + tooltip, not a
+  value-cell suffix.** The old `(n/a: <scene>)` text inside the Value column
+  blew the content-sized column open and starved the parameter names (the
+  truncation regression the owner hit on scenario 10.1).
+
+### Changed
+- **All-Parameters panel polish (2026-08-03 critique P1s).** Values render
+  mono and right-aligned (digits line up like a calibrated column);
+  provenance renders as the §8.4 pill for changed/derived rows with "default"
+  receding; a **Changed only** toggle beside the filter shows just the
+  user-set/config rows — the deviation from default is the configuration.
 - **Results-affecting (GUI sweeps only): the Sweep dialog swept unit-converted
   parameters at the wrong magnitude (CU-325).** The dialog pre-converted typed
   ranges to canonical units, but `Sensor.sweep` interprets values in the

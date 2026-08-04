@@ -52,9 +52,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QCheckBox,
+    QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
@@ -79,6 +82,8 @@ from radiant.gui.param_format import (
     safe_provenance,
 )
 from radiant.gui.target_spec_guard import introduced_target_spec_conflict
+from radiant.gui.themes.fonts import mono_font
+from radiant.gui.themes.stylesheet import active_theme
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.configure_menu import add_configuration_actions
 from radiant.gui.widgets.configured_name_delegate import (
@@ -90,9 +95,9 @@ from radiant.gui.widgets.parameter_delegate import (
     DOTPATH_ROLE,
     ERROR_ROLE,
     ParameterEditDelegate,
-    ReadOnlyCellDelegate,
 )
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
+from radiant.gui.widgets.provenance_pill_delegate import ProvenancePillDelegate
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
 
 if TYPE_CHECKING:
@@ -166,6 +171,16 @@ class ParameterPanel(QWidget):
         self._filter.setClearButtonEnabled(True)
         self._filter.textChanged.connect(self._apply_filter)
 
+        # "Changed only" (2026-08-03 critique): for a ~200-parameter instrument
+        # the deviation from default IS the configuration — one click shows just
+        # the rows the analyst (or the config file) actually set.
+        self._changed_only = QCheckBox("Changed only", self)
+        self._changed_only.setObjectName("parameterChangedOnly")
+        self._changed_only.setToolTip(
+            "Show only parameters set by the user or the config file (hide defaults)"
+        )
+        self._changed_only.toggled.connect(lambda _c: self._apply_filter(self._filter.text()))
+
         self._tree = QTreeWidget(self)
         self._tree.setObjectName("parameterTree")
         self._tree.setColumnCount(len(_COLUMNS))
@@ -195,7 +210,7 @@ class ParameterPanel(QWidget):
         # double-click there opens the full ParameterEditorDialog instead (§4.3). The
         # Parameter column additionally paints the configured "C" immediately right of
         # the name text (owner 2026-07-26) — a decoration icon can only sit left of it.
-        self._readonly_delegate = ReadOnlyCellDelegate(self._tree)
+        self._readonly_delegate = ProvenancePillDelegate(self._tree)
         self._name_delegate = ConfiguredNameDelegate(self._tree)
         self._tree.setItemDelegateForColumn(0, self._name_delegate)
         self._tree.setItemDelegateForColumn(2, self._readonly_delegate)
@@ -228,7 +243,13 @@ class ParameterPanel(QWidget):
         self._error_banner.setWordWrap(True)
         self._error_banner.setVisible(False)
 
-        layout.addWidget(self._filter)
+        filter_row = QWidget(self)
+        filter_layout = QHBoxLayout(filter_row)
+        filter_layout.setContentsMargins(0, 0, 0, 0)
+        filter_layout.setSpacing(6)
+        filter_layout.addWidget(self._filter, 1)
+        filter_layout.addWidget(self._changed_only)
+        layout.addWidget(filter_row)
         layout.addWidget(self._tree, 1)
         layout.addWidget(self._empty_msg, 1)
         layout.addWidget(self._error_banner)
@@ -429,14 +450,31 @@ class ParameterPanel(QWidget):
         # exclude it — textual badge + tooltip, theme-neutral, never hidden and never
         # blocked (the tree stays the escape hatch; the stage forms do the disabling).
         excluded_by = self._regime_exclusion(sensor, dotpath)
-        if excluded_by is not None:
-            value_text = f"{value_text}  (n/a: {excluded_by})"
 
         # Leaf label is the dot-path remainder after the namespace prefix.
         leaf = dotpath.split(".", 1)[1] if "." in dotpath else dotpath
         item = QTreeWidgetItem([leaf, value_text, provenance_label(provenance)])
         item.setData(0, _DOTPATH_ROLE, dotpath)
         item.setToolTip(0, f"{dotpath}\n{pdef.description}" if pdef.description else dotpath)
+        # Values are always mono (§8.2), right-aligned so digits line up like a
+        # calibrated column (2026-08-03 critique — the value column previously
+        # inherited the proportional UI face).
+        item.setFont(1, mono_font())
+        item.setTextAlignment(1, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        # Regime exclusion (GT-7/Gap 85) reads as a *dimmed* row + tooltip, not a
+        # suffix inside the value cell — the old "(n/a: <type>)" text blew the
+        # content-sized Value column wide open and starved the names (2026-08-03
+        # critique; the owner hit it live on scenario 10.1). Never hidden, never
+        # blocked — the dimming is the affordance, the tooltip is the sentence.
+        if excluded_by is not None:
+            dim = QColor(active_theme().muted_2)
+            for column in range(3):
+                item.setForeground(column, dim)
+            item.setToolTip(
+                1,
+                f"Not applicable for a declared '{excluded_by}' scene "
+                "(regime tags) — the value is kept but unused in this regime.",
+            )
         # The configured-parameter marker (Phase 4b): a small red "C" whose tooltip
         # lists every configuration's value with units (ADR-0010 D-2).
         self._apply_badge(item, dotpath)
@@ -786,12 +824,16 @@ class ParameterPanel(QWidget):
     # -- filtering ----------------------------------------------------------
 
     def _apply_filter(self, text: str) -> None:
-        """Show only rows whose full dot-path contains *text* (case-insensitive).
+        """Show rows matching *text* (case-insensitive) and the changed-only toggle.
 
         A namespace group hides when the query excludes all its children and shows
-        (expanded) otherwise; an empty query restores the full tree.
+        (expanded) otherwise; an empty query restores the full tree. With
+        "Changed only" checked, rows whose provenance is default/derived/blank
+        hide too — the deviation from default is the configuration.
         """
         query = text.strip().lower()
+        changed_only = self._changed_only.isChecked()
+        narrowed = bool(query) or changed_only
         for i in range(self._tree.topLevelItemCount()):
             group = self._tree.topLevelItem(i)
             visible_children = 0
@@ -799,10 +841,15 @@ class ParameterPanel(QWidget):
                 child = group.child(j)
                 dotpath = str(child.data(0, _DOTPATH_ROLE))
                 matches = query in dotpath.lower() if query else True
+                if matches and changed_only:
+                    token = (
+                        safe_provenance(self._sensor, dotpath) if self._sensor is not None else ""
+                    )
+                    matches = token in ("user_set", "config_file")
                 child.setHidden(not matches)
                 visible_children += int(matches)
-            group.setHidden(bool(query) and visible_children == 0)
-            if query:
+            group.setHidden(narrowed and visible_children == 0)
+            if narrowed:
                 group.setExpanded(True)
 
     # -- empty / populated state -------------------------------------------

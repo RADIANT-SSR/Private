@@ -202,3 +202,45 @@ class TestParamFormatHelpers:
         assert got[0] == "geometry"
         assert got.index("source") < got.index("optics")
         assert got[-1] == "zzz"  # unknown namespace appended last
+
+
+class TestChangedOnlyToggle:
+    """2026-08-03 critique: one click shows the deviation from default."""
+
+    def test_changed_only_shows_config_and_user_rows(
+        self, panel: ParameterPanel, sensor: Sensor
+    ) -> None:
+        panel._changed_only.setChecked(True)  # noqa: SLF001
+        visible = panel.visible_dotpaths()
+        assert visible  # the example config sets parameters
+        for dotpath in visible:
+            assert safe_provenance(sensor, dotpath) in ("user_set", "config_file"), dotpath
+
+    def test_unchecking_restores_the_full_tree(self, panel: ParameterPanel, sensor: Sensor) -> None:
+        full = panel.row_dotpaths()
+        panel._changed_only.setChecked(True)  # noqa: SLF001
+        assert panel.visible_dotpaths() < full
+        panel._changed_only.setChecked(False)  # noqa: SLF001
+        assert panel.visible_dotpaths() == full
+
+    def test_composes_with_the_text_filter(self, panel: ParameterPanel, sensor: Sensor) -> None:
+        panel._changed_only.setChecked(True)  # noqa: SLF001
+        panel.filter_box.setText("geometry")
+        for dotpath in panel.visible_dotpaths():
+            assert dotpath.startswith("geometry.")
+            assert safe_provenance(sensor, dotpath) in ("user_set", "config_file")
+
+
+class TestValueColumnTypography:
+    """§8.2: values are always mono, right-aligned like a calibrated column."""
+
+    def test_value_cells_are_mono_and_right_aligned(
+        self, panel: ParameterPanel, sensor: Sensor
+    ) -> None:
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QFontInfo
+
+        dotpath = next(iter(panel.row_dotpaths()))
+        item = panel._items[dotpath]  # noqa: SLF001
+        assert QFontInfo(item.font(1)).fixedPitch()
+        assert item.textAlignment(1) & Qt.AlignmentFlag.AlignRight

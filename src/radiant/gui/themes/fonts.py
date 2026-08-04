@@ -103,3 +103,34 @@ def resolve_fonts_in(sheet: str) -> str:
     return sheet.replace(tokens.FONT_SANS, resolve_stack(tokens.FONT_SANS, available)).replace(
         tokens.FONT_MONO, resolve_stack(tokens.FONT_MONO, available)
     )
+
+
+def mono_font(point_size: float | None = None) -> QFont:  # noqa: F821 — runtime import
+    """A :class:`QFont` for the design mono stack's first available family.
+
+    The sanctioned way for a widget to put the §8.2 "values are always mono"
+    rule on text Qt cannot reach through QSS (e.g. a specific QTreeWidget
+    column, which has no stylesheet selector). Resolution mirrors
+    :func:`resolve_stack`: the first installed family in ``tokens.FONT_MONO``
+    wins, falling back to Qt's fixed-pitch default when none is. *point_size*
+    None keeps the application's current size.
+    """
+    from PySide6.QtGui import QFont, QFontDatabase
+
+    from radiant.gui.themes import tokens
+
+    available = _available_families()
+    family: str | None = None
+    if available is not None:
+        for token in tokens.FONT_MONO.split(","):
+            entry = token.strip()
+            if entry.startswith('"') and entry.strip('"') in available:
+                family = entry.strip('"')
+                break
+    if family is None:
+        font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+    else:
+        font = QFont(family)
+    if point_size is not None:
+        font.setPointSizeF(point_size)
+    return font

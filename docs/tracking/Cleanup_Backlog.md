@@ -47,34 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-325 — Sweep-dialog defect family: copy-as-script emits broken/non-reproducing scripts; Esc mid-run orphans the worker; log spacing silently axis-1-only
-
-**Discovered**: four-surface GUI design critique (dual-agent assessment, sweep dialog), 2026-08-03. Family head (Rule 21 family-CU provision).
-**Status**: Open
-**File**: `src/radiant/gui/widgets/sweep_dialog.py` (`:399` 2-D script interpolates undefined `values2`; `:391` 1-D script passes input-unit values to the canonical-unit API with only a "convert if needed" comment; `:214–216` no `closeEvent`/`reject` guard while `_SweepWorker` runs; `:283` `log=False` hardcoded for axis 2 while the checkbox label claims no scope).
-**Symptom**: "Copy as script" — the feature carrying the clickable=scriptable positioning claim — produces a 2-D script that raises `NameError` on paste and a 1-D script that silently computes a different sweep than the GUI ran; Esc/Close during a run closes the dialog with the QThread still sweeping (latent teardown crash); a 2-D log-spaced sweep is linear on axis 2 with no indication.
-**Why it still matters**: workflow-visible (intake test 4 — Sarah's 3–5×/week core workflow) and reproducibility-breaking: the emitted script is the recorded provenance of a trade study and it does not reproduce the plotted numbers.
-Checklist:
-- [ ] Emit a complete runnable script (both axes constructed, explicit unit conversion), round-trip-tested by exec'ing the emission
-- [ ] Guard `closeEvent`/`reject` while a worker runs (cancel-or-confirm)
-- [ ] Either apply log spacing to both axes or label/disable it as axis-1-only
-- [ ] Pre-validate range against `ParameterDef` bounds before launching (fail before point 1, not at it)
-**Suggested fix**: (b) stand-alone task. Effort M; category D.
-
-### CU-326 — Display-unit hard-rule violations family: card/badge unit disagreement, scientific notation for µm-scale lengths, canonical radians shown raw, unitless sweep axes
-
-**Discovered**: four-surface GUI design critique, 2026-08-03. Family head.
-**Status**: Open — three of four checklist items landed (branch `gui/cu-326-display-units`); the sweep-axis item rides with CU-325's dialog work and closes the family. **Owner ruling (2026-08-03): approved** — global display-unit preference, degrees + smart prefixes: angles display in degrees by default (schema `rad` only), lengths auto-prefix, per-row overrides stay on top, settings-persisted; display-only per Rule 2.
-**File**: `src/radiant/gui/metric_format.py` (`metric_value_display` `:199` skips `scale_for_display` while `badge_display` `:293` applies it); `src/radiant/gui/widgets/parameter_panel.py` (values render in canonical units — `1.5708 rad`, `0 m2`); `src/radiant/gui/widgets/sweep_dialog.py` (`:346` 1-D x-axis in canonical unit while entry is input unit; `:364–365` 2-D axes and metric colorbar carry no units).
-**Symptom**: NEDT shows **0.025 K** on the Performance card and **25 mK** on the pinned badge simultaneously; FWHM renders `2.13e−05 m` (21.3 µm); elevation angles display `1.5708 rad`; the sweep plot's axis unit differs from the unit the user typed; 2-D sweep axes are unit-less.
-**Why it still matters**: the owner's two hard rules (display in the user's chosen unit, entry/display symmetric; units on every output) are violated on the default results screen and the primary trade-study artifact — the numbers that go into design-review slides.
-Checklist:
-- [x] Route card rendering through `scale_for_display` (one screen, one unit per metric)
-- [x] Engineering-prefix formatter so µm/mK-scale values never render as `e−05`-style scientific notation
-- [x] Owner ruling received and implemented: global display-unit preference (angles in deg by default) layered over the existing per-row override, View-menu toggle, settings-persisted; `m²`/`µm` typeset via `pretty_unit`
-- [ ] Sweep plots labeled in the entry unit; every axis and colorbar unit-suffixed (lands with CU-325's dialog rework)
-**Suggested fix**: (b) stand-alone task after the owner ruling on item 3. Effort M; category D.
-
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).
@@ -118,6 +90,36 @@ Checklist:
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-325 — Sweep-dialog defect family: copy-as-script emits broken/non-reproducing scripts; Esc mid-run orphans the worker; log spacing silently axis-1-only — RESOLVED 2026-08-03 (commit trailer)
+
+**Discovered**: four-surface GUI design critique (dual-agent assessment, sweep dialog), 2026-08-03. Family head (Rule 21 family-CU provision).
+**Status**: RESOLVED 2026-08-03, closed by the `CU-Closes: 325` trailer commit (branch `gui/cu-325-sweep`).
+**File**: `src/radiant/gui/widgets/sweep_dialog.py` (`:399` 2-D script interpolates undefined `values2`; `:391` 1-D script passes input-unit values to the canonical-unit API with only a "convert if needed" comment; `:214–216` no `closeEvent`/`reject` guard while `_SweepWorker` runs; `:283` `log=False` hardcoded for axis 2 while the checkbox label claims no scope).
+**Symptom**: "Copy as script" — the feature carrying the clickable=scriptable positioning claim — produces a 2-D script that raises `NameError` on paste and a 1-D script that silently computes a different sweep than the GUI ran; Esc/Close during a run closes the dialog with the QThread still sweeping (latent teardown crash); a 2-D log-spaced sweep is linear on axis 2 with no indication.
+**Why it still matters**: workflow-visible (intake test 4 — Sarah's 3–5×/week core workflow) and reproducibility-breaking: the emitted script is the recorded provenance of a trade study and it does not reproduce the plotted numbers.
+Checklist:
+- [x] Emit a complete runnable script (both axes constructed, explicit unit conversion), round-trip-tested by exec'ing the emission
+- [x] Guard `closeEvent`/`reject` while a worker runs (cancel-or-confirm)
+- [x] Either apply log spacing to both axes or label/disable it as axis-1-only
+- [x] Pre-validate range against `ParameterDef` bounds before launching (fail before point 1, not at it)
+**Suggested fix**: (b) stand-alone task. Effort M; category D.
+**Resolution**: all four checklist items landed, plus two findings made during the fix. (1) **Results-affecting discovery**: the dialog pre-converted typed ranges to canonical units, but `Sensor.sweep` interprets values as `sensor.set` does — in the *input* unit — so any GUI sweep of a unit-converted parameter (pixel pitch µm, jitter µrad) ran at the wrong magnitude or died on the bounds check; typed values now pass through untouched and the emitted script reproduces them exactly (round-trip `exec` tested). (2) The 2-D heatmap moved from `imshow`+linear extent (silently mis-placed cells for log-spaced axes) to `pcolormesh` with real coordinates. Also landed: per-axis log spacing, pre-launch bounds validation, cancel-then-close guard on Esc/close, current-value range seeding, last-spec persistence (`SettingsStore`), display-name metrics, idle-hidden progress bar, idle canvas hint, and the accent `#sweepRunButton` (the surface's One Loud Element). 9 new tests in `test_sweep_dialog.py`.
+
+### CU-326 — Display-unit hard-rule violations family: card/badge unit disagreement, scientific notation for µm-scale lengths, canonical radians shown raw, unitless sweep axes — RESOLVED 2026-08-03 (commit trailer)
+
+**Discovered**: four-surface GUI design critique, 2026-08-03. Family head.
+**Status**: RESOLVED 2026-08-03, closed by the `CU-Closes: 326` trailer commit (items 1–3 on branch `gui/cu-326-display-units`, item 4 with CU-325's dialog rework). **Owner ruling (2026-08-03): approved** — global display-unit preference, degrees + smart prefixes: angles display in degrees by default (schema `rad` only), lengths auto-prefix, per-row overrides stay on top, settings-persisted; display-only per Rule 2.
+**File**: `src/radiant/gui/metric_format.py` (`metric_value_display` `:199` skips `scale_for_display` while `badge_display` `:293` applies it); `src/radiant/gui/widgets/parameter_panel.py` (values render in canonical units — `1.5708 rad`, `0 m2`); `src/radiant/gui/widgets/sweep_dialog.py` (`:346` 1-D x-axis in canonical unit while entry is input unit; `:364–365` 2-D axes and metric colorbar carry no units).
+**Symptom**: NEDT shows **0.025 K** on the Performance card and **25 mK** on the pinned badge simultaneously; FWHM renders `2.13e−05 m` (21.3 µm); elevation angles display `1.5708 rad`; the sweep plot's axis unit differs from the unit the user typed; 2-D sweep axes are unit-less.
+**Why it still matters**: the owner's two hard rules (display in the user's chosen unit, entry/display symmetric; units on every output) are violated on the default results screen and the primary trade-study artifact — the numbers that go into design-review slides.
+Checklist:
+- [x] Route card rendering through `scale_for_display` (one screen, one unit per metric)
+- [x] Engineering-prefix formatter so µm/mK-scale values never render as `e−05`-style scientific notation
+- [x] Owner ruling received and implemented: global display-unit preference (angles in deg by default) layered over the existing per-row override, View-menu toggle, settings-persisted; `m²`/`µm` typeset via `pretty_unit`
+- [x] Sweep plots labeled in the entry unit; every axis and colorbar unit-suffixed (landed with CU-325's dialog rework)
+**Suggested fix**: (b) stand-alone task after the owner ruling on item 3. Effort M; category D.
+**Resolution**: one `scale_for_display` seam feeds cards and badges (one metric, one unit, one screen) with automatic engineering prefixes; `radiant.gui.display_units` carries the ruled global preference (rad→deg default, View-menu toggle, persisted) resolved identically at display, editor seeding, and commit interpretation; `pretty_unit` typesets ASCII exponents; sweep axes render in the entry unit, unit-suffixed. 15 tests in `test_display_units.py` + the sweep-axis tests.
 
 ### CU-327 — Run button's documented stale→warn flip is unimplemented (aspirational-doc drift on the staleness trust signal) — RESOLVED 2026-08-03 (commit trailer)
 

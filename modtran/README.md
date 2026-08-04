@@ -134,7 +134,7 @@ so run time per deck is comparable.
 Please **record which refraction switch you used for Q5/Q6** in
 `real_runs/README.md` — RADIANT has no way to infer it from the tape7.
 
-**Pending future runs (owner-ratified 2026-08-02):** rows **P7/P8** (60/80 km elevated-endpoint downwelling, CU-181 closure) and **M9–M13** (the SST full-column sec fan re-rooted at a 900 m site elevation, CU-322 intake — scenario 10.3's mountaintop geometry). Seven decks total, whenever MODTRAN is next fired up. They are the only unrun rows besides Q5/Q6.
+**Delivered 2026-08-03:** rows **P7/P8** (60/80 km elevated-endpoint downwelling) and **M9–M13** (the 900 m-site SST sec fan) landed via the owner's GitHub upload. **Q5/Q6 are now the only unrun rows** (the refraction pair — runnable only with a real ray-bending switch; the horizon-guard thresholds stay guard-banded without them).
 
 **Owner deck audit, 2026-08-02.** The 33 rows M1–M8, N1–N10, O1–O5, P1–P6,
 Q1–Q4 were audited safe and run as-is; these are the only rows the CU-224

@@ -75,7 +75,7 @@ improvement all fail loud rather than silently re-baselining the record.
 | **P** elevated downwelling | P1–P8 | Sky radiance at 48.2° from elevated lower endpoints 1–80 km; **P7/P8 the 60/80 km rungs** | **6/8** | fixture + library |
 | **Q** horizon guard / twilight | Q1–Q8 | Long horizontal arms past the sag thresholds (Q1–Q4), the **refraction on/off pair (Q5/Q6)**, twilight tangent transits (Q7/Q8) | **6/8** | dev |
 
-**Counts.** 132 authored rows; **123 delivered tape7 runs** plus 4 Block-E flux sidecars =
+**Counts.** 132 authored rows; **130 delivered tape7 runs** plus 4 Block-E flux sidecars =
 127 delivered artifacts. Batch 1 (A–L) is 88 rows, all delivered 2026-07-17 / 2026-07-26.
 Batch 2 as authored at delivery (M1–M8, N, O, P1–P6, Q) is 37 rows, of which 35 were
 delivered 2026-08-02. Seven further rows were authored *after* that delivery and are

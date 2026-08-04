@@ -142,7 +142,9 @@ class ShippedFamily:
 #:
 #: Data, not branches: adding a family is a row here and nowhere else.
 #:
-#: One shipped directory is deliberately absent — ``midlat_summer_boost_ladder``
+#: Three shipped directories are deliberately absent from this tuple and listed
+#: in :data:`EXPLICIT_DIR_FAMILIES` instead; the reasons are enumerated there.
+#: The original one is ``midlat_summer_boost_ladder``
 #: (nadir, targets 0–100 km, boost expansion plan §4.7). The 2-axis
 #: ``sensor_altitude_m,target_altitude_m`` key stays on the 0–29 km
 #: ``midlat_summer_ladders`` (§4.1, no re-baseline), so nadir 0–100 km coverage is
@@ -252,6 +254,13 @@ SHIPPED_FAMILIES: tuple[ShippedFamily, ...] = (
 #:   the axes parameter into a silent dispatch onto a family whose target
 #:   altitude is fixed at the 100 km atmosphere top. The family is a full-column
 #:   SST anchor and is adopted deliberately, by name, never by default.
+#: * ``midlat_summer_sst_column_fan_site900m`` — the M9–M13 follow-on: the same
+#:   full column from a 900 m elevated site. Explicit-dir for **both** of the
+#:   reasons above at once — its ``(up, path_zenith_rad)`` signature is the
+#:   schema default *and* is already claimed by the 0 m fan, so the two could
+#:   not be told apart by an axes string even if the default were not in play.
+#:   Which lower endpoint a scene needs is a physical fact about the site, never
+#:   something to guess: the fans are chosen by name.
 #:
 #: Publishing a row here is what lets the GUI family picker offer it *by name*
 #: and write the directory for the operator.
@@ -277,11 +286,18 @@ EXPLICIT_DIR_FAMILIES: tuple[ShippedFamily, ...] = (
             "atmosphere top, LOS zenith 0-78.5 degrees (sec 1.0-5.0)"
         ),
         explicit_dir_only=True,
-        pending_runs=(
-            "rows M9-M13 of docs/plans/modtran_run_matrix.csv are the authored, "
-            "not-yet-run decks that lift this fan's lower endpoint to a 900 m "
-            "elevated site"
+    ),
+    ShippedFamily(
+        name="midlat_summer_sst_column_fan_site900m",
+        los_direction="up",
+        interpolation_axes="path_zenith_rad",
+        profile="midlat_summer",
+        coverage=(
+            "elevated-site sensor (0.9 km, i.e. a 900 m mountaintop) looking up "
+            "the full column to the 100 km atmosphere top, LOS zenith "
+            "0-78.5 degrees (sec 1.0-5.0)"
         ),
+        explicit_dir_only=True,
     ),
 )
 

@@ -21,6 +21,25 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`midlat_summer_sst_column_fan_site900m` — the SST full column from a 900 m
+  elevated site** (MODTRAN rows M9–M13, delivered 2026-08-03). Five nodes,
+  lower endpoint 0.9 km → 100 km atmosphere top, LOS zenith 0–78.5°
+  (sec 1–5). Shipped as a **sibling** of `midlat_summer_sst_column_fan` rather
+  than a sensor-altitude axis on it: the 0 m fan is unchanged, byte for byte.
+  Like the 0 m fan it is `explicit_dir_only` — `path_zenith_rad` is the schema
+  default for `atmosphere.interpolation_axes` and the signature is already
+  claimed — so it is adopted by name, through
+  `atmosphere.interpolated_data_dir`, never by default dispatch. Elevation is
+  worth a lot: band-mean 8–12 µm τ of the full column is 0.702 from 900 m
+  against 0.583 from sea level at nadir, and 0.302 against 0.137 at sec 5.
+  With it, **27 of the 38 shipped GUI scenarios now switch to
+  `atmosphere.model = "interpolated"` and evaluate first try** (was 26);
+  scenario 10.3, the 900 m mountaintop SST scene, is the one that moved, which
+  completes the CU-322 acceptance criterion. The remaining 11 still produce
+  exactly one advisory. No existing scenario changed families.
+- **Two further measured rungs on `midlat_summer_uplooking_sensor_ladder`** —
+  60 km and 80 km (MODTRAN P7/P8), so the observer-altitude axis is measured to
+  80 km instead of interpolating the whole 50 → 100 km span in one step.
 - **Global display-unit preference — angles in degrees (CU-326, owner-ruled).**
   Parameters whose schema unit is `rad` now display, seed their editors, and
   interpret typed values in **degrees** everywhere (parameter tree, stage
@@ -77,6 +96,23 @@ retroactively reconstructed.
   names (`snr` → `SNR`).
 
 ### Changed
+- **Results-affecting: the 60 km and 80 km `atm_emission_down` rungs are now
+  measured, not modelled** (MODTRAN P7/P8, delivered 2026-08-03). They were a
+  log-linear extrapolation on the measured 29 → 50 km slope, clamped
+  non-increasing; the measurement shows that slope badly under-predicted the
+  collapse above 50 km. The shipped values **fall**: 3–5 µm band mean by
+  **10.6×** at 60 km and **8 791×** at 80 km; 8–12 µm by 4.9× and 349×.
+  Direction: downwelling at high-altitude targets decreases. Ten NPZ nodes
+  moved (`midlat_summer_boost_ladder` targets 60/80 km and
+  `midlat_summer_boost_offnadir` target 80 km, at both sensor rungs); the other
+  136 shipped nodes are SHA-256 identical, so **every rung at or below 50 km,
+  and every ground-target node, is unchanged**. Per the CU-181 carve-out this
+  is observable only in a **reflective elevated-target** scene above 50 km —
+  none of which ships — because for a self-emitting body the reflected-sky term
+  is bounded at ≲ 1e−3 of its own radiance. Zero golden-baseline movement.
+  The only band still extrapolated is an off-node query strictly between 80 km
+  and the 100 km atmosphere top, bracketed by a measured value below and the
+  exact-zero identity above; no shipped family holds a node there.
 - **`plot_atmosphere_spectral` renders as two stacked, x-sharing panels**
   (τ_atm above, L_path below, direct-labelled) instead of twin y-axes on one
   plot — two unrelated scales overlaid invite reading meaningless crossings.

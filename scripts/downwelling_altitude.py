@@ -23,11 +23,10 @@ Per wavelength, ``ln L`` is piecewise linear in altitude:
   the 29 km rung brighter than the 20 km one).
 * **above the top measured rung** — linear extrapolation of ``ln L`` using the
   slope of the top **two** rungs, clamped to be non-increasing per wavelength.
-  This is the run matrix's own instruction for the 60/80 km nodes ("interpolate
-  from the 29/50 km rungs rather than being run"), and it is the weakest link in
-  the model: see the caveat below.  The clamp exists because a *rising* measured
-  slope is real inside the span (stratospheric CO₂/O₃) but cannot continue above
-  it — there is strictly less air above 50 km than above 29 km.
+  It is the weakest link in the model: see the caveat below.  The clamp exists
+  because a *rising* measured slope is real inside the span (stratospheric
+  CO₂/O₃) but cannot continue above the top rung — there is strictly less air
+  above it than below it.
 * **at or above the atmosphere top** — exactly ``0``.  An observer at the top of
   the modelled atmosphere has no sky above it, so the downwelling vanishes
   identically.  This is a physical identity of the same class as the library's
@@ -35,13 +34,27 @@ Per wavelength, ``ln L`` is piecewise linear in altitude:
 
 Caveat on the extrapolated band
 -------------------------------
-The 29 → 50 km log slope is band-dependent and, in the MWIR, shallow: the
-measured 3–5 µm downwelling falls only ~1.4× across that span, so extrapolating
-it to 80 km leaves a value ~220× below ground where the physics says far less
-air is left.  The extrapolated nodes are therefore an **upper** bound, in the
-same (conservative) direction as the constant they replace, and 120× smaller.
-Below 50 km — every node any shipped family actually interpolates through for
-boost work — the values are measured, not modelled.
+Only the band **above the top measured rung** is modelled.  With the P7/P8
+follow-on (2026-08-03) the measured ladder reaches 80 km, so that band is
+80 → 100 km, and no node any shipped family holds falls inside it: the boost
+families' rungs are 60 km and 80 km (both measured now) and 100 km (the exact
+zero identity), so the extrapolation is reached only by an off-node query
+between 80 and 100 km.  Such a query is bracketed by two things that are not
+modelled — a measured value at 80 km and exactly zero at the atmosphere top —
+so its error is bounded by the measured 80 km value itself.
+
+Historical note, because it sizes what the follow-on bought: before P7/P8 the
+top measured rung was 50 km and the 60/80 km library nodes were extrapolated on
+the 29 → 50 km slope.  That slope is shallow in the MWIR — the measured 3–5 µm
+downwelling falls only ~1.4× across 29 → 50 km, held up by stratospheric CO₂/O₃
+emission — and continuing it upward under-predicted the collapse that actually
+happens above 50 km.  Measured against P7/P8, the extrapolation over-stated the
+3–5 µm value by **10.6×** at 60 km and **8 791×** at 80 km (8–12 µm: 4.9× and
+349×): conservative in direction, as this docstring claimed, but the MWIR band
+whose slope made the model look benign is the one it got most wrong.  The
+non-increasing clamp, by contrast, was confirmed — the measured profile really
+does fall monotonically through 50 → 60 → 80 km.  Full table in
+``docs/validation/atmosphere_modtran_parity.md`` §2.5.
 
 Units: altitudes in **km** (the run matrix's unit, and the unit the caller's
 node names carry); radiance in **W/m²/sr/µm**.

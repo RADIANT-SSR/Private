@@ -69,24 +69,25 @@ improvement all fail loud rather than silently re-baselining the record.
 | **J** airborne sensor ladder | J1–J2 | 10 km / 20 km sensor → ground, nadir (the K-block reciprocity partners) | 2/2 | library |
 | **K** up-looking partial column | K1–K7 | Ground sensor → targets 1–20 km vertical, plus two 45° slants (K7 elevated lower endpoint) | 7/7 | fixture + library |
 | **L** horizontal path | L1–L25 | ITYPE=1 5×5 grid: altitude 0/3/5/10/15 km × range 5–100 km | 25/25 | dev |
-| **M** SST full-column fan | M1–M13 | Ground sensor → 100 km top, uniform sec ladder; M6–M8 the 85/88/89.5° probes; **M9–M13 the 900 m elevated-site mirror** | **8/13** | library (M6–M8 dev) |
+| **M** SST full-column fan | M1–M13 | Ground sensor → 100 km top, uniform sec ladder; M6–M8 the 85/88/89.5° probes; M9–M13 the 900 m elevated-site mirror | 13/13 | library (M6–M8 dev) |
 | **N** up-looking zenith fan | N1–N10 | Targets 1–20 km × lower-endpoint zenith 48.2°/60° (rectangular with K) | 10/10 | fixture + library |
 | **O** upwelling emission anchor | O1–O5 | Down-looking partners of K/N/H on identical columns — the direction-pair set | 5/5 | fixture + library |
-| **P** elevated downwelling | P1–P8 | Sky radiance at 48.2° from elevated lower endpoints 1–80 km; **P7/P8 the 60/80 km rungs** | **6/8** | fixture + library |
+| **P** elevated downwelling | P1–P8 | Sky radiance at 48.2° from elevated lower endpoints 1–80 km; P7/P8 the 60/80 km rungs | 8/8 | fixture + library |
 | **Q** horizon guard / twilight | Q1–Q8 | Long horizontal arms past the sag thresholds (Q1–Q4), the **refraction on/off pair (Q5/Q6)**, twilight tangent transits (Q7/Q8) | **6/8** | dev |
 
 **Counts.** 132 authored rows; **130 delivered tape7 runs** plus 4 Block-E flux sidecars =
-127 delivered artifacts. Batch 1 (A–L) is 88 rows, all delivered 2026-07-17 / 2026-07-26.
+134 delivered artifacts. Batch 1 (A–L) is 88 rows, all delivered 2026-07-17 / 2026-07-26.
 Batch 2 as authored at delivery (M1–M8, N, O, P1–P6, Q) is 37 rows, of which 35 were
-delivered 2026-08-02. Seven further rows were authored *after* that delivery and are
-unrun: M9–M13 (2026-08-02, CU-322 intake) and P7/P8 (2026-08-02, CU-181 closure).
+delivered 2026-08-02. Seven further rows were authored *after* that delivery — M9–M13
+(CU-322 intake) and P7/P8 (CU-181 closure) — and were delivered 2026-08-03 and ingested the
+same day: M9–M13 as the sibling family `midlat_summer_sst_column_fan_site900m`, P7/P8 as the
+measured 60/80 km rungs of the CU-181 downwelling ladder (and as two further nodes of
+`midlat_summer_uplooking_sensor_ladder`, which is built from the same runs).
 
-**The nine pending rows, and why:**
+**The two pending rows, and why:**
 
 | Rows | Why pending |
 |---|---|
-| M9–M13 | Authored after the batch-2 delivery. They mirror the delivered M-fan with the lower endpoint lifted to 900 m — the elevated-site SST geometry. At ingestion they either add a sensor axis to `midlat_summer_sst_column_fan` or ship as a sibling family. |
-| P7, P8 | Authored at CU-181 closure. The shipped 60 km and 80 km downwelling rungs are currently **modelled** (log-linear extrapolation on the measured 29→50 km slope, clamped non-increasing); these runs replace them with measurements. |
 | Q5, Q6 | **Deck-builder gap.** `render_tape5` has no refraction field, so RADIANT cannot express the refraction-OFF leg: Q5.tp5 renders byte-identical to Q3.tp5 and Q6.tp5 to M8.tp5 on purpose. The operator must disable MODTRAN's ray-bending for those two runs and record which switch was used. Q3−Q5 is the interior-tangent half of the refraction calibration; M8−Q6 the endpoint-minimum half at the 0.5° raise-band edge. |
 
 Q7/Q8 (twilight tangent transits) *were* delivered, with Card-3 ANGLE hand-set to 93°/96°
@@ -95,7 +96,7 @@ by the Card-3 echo sweep. Both rows are `dev_only`: no family ingests them and n
 radiometric parity test consumes them, so the twilight branch's transmittance is still
 unanchored (§3).
 
-*Enforced by:* `tests/integration/test_batch2_atmosphere_families.py` (the 35-row delivered
+*Enforced by:* `tests/integration/test_batch2_atmosphere_families.py` (the 42-row delivered
 count, the ITYPE=1 sweep, the family↔matrix cross-check),
 `tests/integration/test_uplooking_horizontal_anchors.py::test_slant_block_decks_still_match_their_delivered_card3`
 (≥ 94 slant rows, including the Q7/Q8 hand-edit verification),
@@ -396,12 +397,31 @@ Shipped `atm_emission_down` band means [W/m²/sr/µm] and decay ratio to the gro
 | 35 | 4.343333e−3 | 121.7 | 4.425610e−2 | 84.19 | 2 541 |
 | 40 | 3.999377e−3 | 132.1 | 2.529624e−2 | 147.3 | — |
 | **50** | 3.709306e−3 | **142.5** | 8.426179e−3 | **442.2** | **16 579** |
-| 60 † | 3.387948e−3 | 156.0 | 2.865881e−3 | 1 300 | — |
-| 80 † | 3.021602e−3 | 174.9 | 3.471554e−4 | 1.073e+4 | 766 300 |
+| **60** ‡ | 3.191869e−4 | **1 656** | 5.835672e−4 | **6 385** | — |
+| **80** ‡ | 3.437181e−7 | 1.537e+6 | 9.954564e−7 | 3.743e+6 | 766 300 |
 | 100 | 0 (exact) | ∞ | 0 (exact) | ∞ | 6.44e+7 |
 
-† modelled by log-linear extrapolation on the measured 29 → 50 km slope, clamped
-non-increasing. P7/P8 replace them with measurements when run.
+‡ **measured** since the 2026-08-03 P7/P8 delivery. These two rungs were previously
+*modelled* — log-linear extrapolation on the measured 29 → 50 km slope, clamped
+non-increasing — and the measurement shows how badly that slope under-predicted the
+collapse above 50 km:
+
+| Rung | Band | Modelled (retired) | Measured (P7/P8) | Model / measured | Model error |
+|---:|---|---:|---:|---:|---:|
+| 60 km | 3–5 µm | 3.387948e−3 | 3.191869e−4 | **10.61×** | +961 % |
+| 60 km | 8–12 µm | 2.865881e−3 | 5.835672e−4 | 4.91× | +391 % |
+| 80 km | 3–5 µm | 3.021602e−3 | 3.437181e−7 | **8 791×** | +879 000 % |
+| 80 km | 8–12 µm | 3.471554e−4 | 9.954564e−7 | 349× | +34 774 % |
+
+The model was wrong in the direction `scripts/downwelling_altitude.py` claimed for it —
+*over*-stating, i.e. conservative for a reflected-sky term — but by up to four orders of
+magnitude, and worst in the MWIR, where the shallow stratospheric CO₂/O₃ slope it
+extrapolated from is exactly the feature that does **not** persist above 50 km. Two
+assumptions it made are confirmed by the measurement: the profile really is non-increasing
+through 50 → 60 → 80 km (the slope clamp was right), and the 100 km identity really is the
+limit the measured rungs approach. What remains modelled is only an off-node query strictly
+between 80 km and 100 km, bracketed by a measured value below and exactly zero above; no
+shipped family holds a node there.
 
 Three findings the runs contradict the entry on:
 
@@ -423,11 +443,14 @@ The exposure that motivated the fix, also measured: with the constant in place, 
 **+2 567 %** (26×), while a hot boost body (1200 K, ε = 0.9) moved by ≤ 7.0e−4 %.
 
 *Record:* CU-181, resolved 2026-08-02; owner ruling 2026-08-02 retiring the $10^4$
-criterion and ratifying the modelled 60/80 km rungs pending P7/P8.
+criterion and ratifying the then-modelled 60/80 km rungs pending P7/P8 — which were
+delivered and ingested 2026-08-03, closing that ratification.
 *Enforced by:* `tests/integration/test_batch2_atmosphere_families.py` (the altitude-resolved
 downwelling, the measured decay pinned against the entry's own table, 12 distinct arrays
-where there was 1, ground-target nodes byte-identical). Independently reproduced from the
-shipped NPZs 2026-08-03, all digits.
+where there was 1, ground-target nodes byte-identical, the retired extrapolation's error
+ratios pinned in both bands). The P7/P8 regeneration moved exactly the 10 NPZ nodes at
+target 60 km and 80 km; the other 136 shipped nodes are SHA-256 identical, so every rung at
+or below 50 km — and every ground-target node — is unchanged.
 
 ### 2.6 Transmittance parity — columns, slants and arms
 
@@ -766,8 +789,8 @@ Each entry names what is not measured or not modelled, and where it is tracked.
 | 4 | **Emission-placement refinements.** (a) the $z_{em} = 200$ m downwelling proxy, now computable rather than approximated; (b) O₃ lumped with the well-mixed gases, so 9.6 µm emission is placed too low; (c) grazing arcs distribute opacity vertically rather than along the arc. | Each results-affecting if pursued; none operator-visible today. | **CU-324, Open** (family head, three checklist items). |
 | 5 | **Grazing thermal is unanchored.** No delivered deck exercises a grazing *thermal* product, so item 4(c) is unmeasured. | Unknown — needs an anchor before it can be sized. | CU-324 checklist item 3 (an anchor is named as a prerequisite). |
 | 6 | **sec-space is unvalidated past 88.8°.** The interpolation coordinate diverges at the horizon and is refused there. | M6–M8 (85/88/89.5°) were run and *are* usable as physics anchors (§2.4), but are excluded from every shipped node set, so the interpolated backend cannot serve that band at all. | `_MAX_ZENITH_RAD` refusal in `interpolated.py`; M6–M8 marked `dev_only` in the run matrix. |
-| 7 | **No elevated-site SST column.** The SST full-column fan has its lower endpoint at 0 m; a 900 m observatory/SST site is not measured. | Unquantified — M9–M13 mirror the delivered fan at 900 m specifically to size it. | Run-matrix rows M9–M13 (authored 2026-08-02 at CU-322 intake); surfaced programmatically as the `pending_runs` field on `midlat_summer_sst_column_fan`. |
-| 8 | **Modelled 60/80 km downwelling rungs.** Log-linear extrapolation on the measured 29 → 50 km slope, clamped non-increasing. | The measured profile is non-monotonic in the MWIR below 50 km, so the extrapolation's shape assumption is not verified above it. | Owner ruling 2026-08-02 (ratified pending measurement); run-matrix rows P7/P8. |
+| 7 | **Only two site elevations have a full-column family.** 0 m (`midlat_summer_sst_column_fan`) and 900 m (`midlat_summer_sst_column_fan_site900m`, M9–M13, ingested 2026-08-03). Neither carries a `sensor_altitude_m` axis, so no third elevation can be interpolated. | Sized by the pair: at nadir the 900 m column transmits 0.702 band-mean 8–12 µm against the 0 m column's 0.583, and at sec 5 it is 0.302 against 0.137 — i.e. the lowest 900 m of air is worth +0.12 to +0.16 in band-mean LWIR τ, which is why a site elevation cannot be ignored. A site at any other elevation is `simple`. | The two families' node geometry; `tests/integration/test_batch2_atmosphere_families.py::TestSstColumnFanSite900m`. The `pending_runs` advisory on the 0 m fan was retired when M9–M13 landed. |
+| 8 | **Downwelling above 80 km is modelled.** Every rung at or below 80 km is measured since P7/P8 landed (2026-08-03); only an off-node query strictly between 80 km and the 100 km atmosphere top is still log-linear extrapolation. | Bounded rather than open-ended: such a query is bracketed by a measured 80 km value below and the exact-zero identity above, and **no shipped family holds a node in that band**. The retired 60/80 km extrapolation had over-stated the measured values by 10.6× and 8 791× (MWIR) — see §2.5 — which is the size of the error this delivery removed. | §2.5 model-vs-measured table; `tests/integration/test_batch2_atmosphere_families.py::TestCu181AltitudeDependentDownwelling`. Closes the owner's 2026-08-02 ratification-pending-measurement ruling. |
 | 9 | **Long-range MWIR horizontal paths.** The analytic arm's $\tau(2L) = \tau(L)^2$ collapses against a band model. | model/MODTRAN 1.09 → 0.01 over 5 → 100 km at 3 km altitude in the MWIR (§2.6); LWIR degrades to 0.82. | Measured and documented; the remedy is a MODTRAN or interpolated backend. No A5 horizontal library family is built. |
 | 10 | **Airmass linearity on saturated bands.** The air-mass factor stays linear while real saturated bands grow sub-linearly off-nadir. | Measured MWIR OD ×1.18 at 45° against Beer's ×1.41. | CU-161 fragility list, `RADIANT_Atmosphere.md` §3.1. |
 | 11 | **Twilight transit is unanchored.** Q7/Q8 were delivered but are `dev_only` — no family or parity test consumes them. | The transit carries 30–70 air masses, where both the exponential τ and the unmodelled refraction are at their worst. Treat as an order-of-magnitude bound. | `RADIANT_Atmosphere.md` §4.2e PROVISIONAL banner; run-matrix rows Q7/Q8. |

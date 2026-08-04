@@ -314,4 +314,29 @@ sensor.sweep("geometry.path_zenith_rad",
 
 ## Interpolated-atmosphere availability
 
-No bundled interpolated-atmosphere family serves this scene: 'midlat_summer_sst_column_fan' is rendered from a fixed lower endpoint at 0 m and carries no 'sensor_altitude_m' axis; this scene asks for 900 m (rows M9-M13 of docs/plans/modtran_run_matrix.csv are the authored, not-yet-run decks that lift this fan's lower endpoint to a 900 m elevated site). Switching **Atmosphere → Model** to `interpolated` therefore produces exactly one Messages-rail advisory saying so — not a sequence of refusals — and the scene stays on `atmosphere.model = 'simple'`, which serves any geometry.
+**Served, first try, since 2026-08-03.** Switching **Atmosphere → Model** to `interpolated`
+now lands on `midlat_summer_sst_column_fan_site900m` — the SST full column to the 100 km
+atmosphere top rendered from this scene's own 900 m site, LOS zenith 0–78.5° (sec 1.0–5.0).
+It is an **explicit-dir** family, so the picker writes both
+`atmosphere.interpolation_axes = 'path_zenith_rad'` and the family's
+`atmosphere.interpolated_data_dir`; the pre-validated suggestion does this in one action.
+
+This scene was the worked example of the CU-322 advisory wall. Until the M9–M13 decks were
+run it produced exactly one Messages-rail advisory — the 0 m-rendered fan against a 900 m
+telescope — naming those rows so a scheduled gap did not read as an absent capability. They
+were delivered and ingested, and the advisory is gone.
+
+Two things to keep telling the operator, because neither is visible in the number:
+
+- **The result is a hybrid (CU-226).** Only the observer leg comes from the run family. The
+  target's illumination and the sky continuation come from the `SimpleAtmosphere` companion,
+  because an up-looking run family carries neither. The run emits that as a `UserWarning`
+  and records it in `result.inspect()` under
+  `stage_outputs['atmosphere']['topology_provenance']['backend_split']`.
+- **The 700 km target is served by the vacuum-clamp identity, not by extrapolation.** The
+  family measures the column to 100 km; above that the path is vacuum, so the top-of-column
+  run *is* the answer exactly. Provenance records this under `exo_target_vacuum_clamp`.
+
+Measured on the shipped library: SNR = **218.0**. The scenario's own baseline stays on
+`atmosphere.model = 'simple'` and is unchanged — `interpolated` is an operator choice here,
+not the scene's default.

@@ -680,6 +680,7 @@ Shipped families, with their axes and direction:
 | `midlat_summer_uplooking_zenith_fan` | up | `target_altitude_m,path_zenith_rad` | ground sensor, targets 0–20 km, $\zeta$ 0–60° |
 | `midlat_summer_uplooking_sensor_ladder` | up | `sensor_altitude_m` | observer 0–100 km, full column, fixed 48.2° |
 | `midlat_summer_sst_column_fan` | up | `path_zenith_rad` | ground sensor, full column, $\zeta$ 0–78.5° (sec 1–5); explicit-dir only |
+| `midlat_summer_sst_column_fan_site900m` | up | `path_zenith_rad` | 900 m site, full column, $\zeta$ 0–78.5° (sec 1–5); explicit-dir only |
 
 Direction is a first-class property. An up-looking run measures one travel direction, so an
 up-looking family stores its radiance under a **different NPZ key**
@@ -687,7 +688,13 @@ up-looking family stores its radiance under a **different NPZ key**
 different query entry point; the two entry points refuse each other's families rather than
 reading the wrong product.
 
-*Record:* GF-10 (shipped 2026-07-26, batch-2 families 2026-08-02); library provenance in
+The two SST fans differ only in their rendered lower endpoint (0 m and 900 m) and are
+**siblings, not one family with a sensor axis**: two rungs cannot be interpolated between,
+the 900 m block has no 48.2° rung to make a rectangular grid with, and the 0 m fan had to
+stay byte-identical. A site at any other elevation is served by `simple`.
+
+*Record:* GF-10 (shipped 2026-07-26, batch-2 families 2026-08-02, the 900 m SST fan
+2026-08-03); library provenance in
 `src/radiant/data/tables/atmospheres/MANIFEST.md`.
 *Enforced by:* `tests/integration/test_shipped_atmosphere_library.py`,
 `tests/integration/test_batch2_atmosphere_families.py`,

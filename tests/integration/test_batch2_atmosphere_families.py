@@ -50,8 +50,12 @@ _LIB = _REPO_ROOT / "src" / "radiant" / "data" / "tables" / "atmospheres"
 _CARD3_ECHO_LINE = 5
 
 #: The batch-2 block letters and the number of rows delivered for each.
-_BATCH2_BLOCKS = {"M": 8, "N": 10, "O": 5, "P": 6, "Q": 6}
-_BATCH2_DELIVERED = sum(_BATCH2_BLOCKS.values())  # 35 (Q5/Q6 not run)
+#: 2026-08-03: the follow-on rows landed — M9–M13 (the 900 m-site SST fan,
+#: CU-322 intake) and P7/P8 (the 60/80 km downwelling rungs, CU-181 closure) —
+#: so M grows 8 → 13 and P 6 → 8. Q5/Q6 (the refraction pair) remain the only
+#: recorded gaps.
+_BATCH2_BLOCKS = {"M": 13, "N": 10, "O": 5, "P": 8, "Q": 6}
+_BATCH2_DELIVERED = sum(_BATCH2_BLOCKS.values())  # 42 (Q5/Q6 not run)
 
 _DEG = math.pi / 180.0
 

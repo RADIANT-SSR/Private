@@ -481,10 +481,13 @@ class TestRelevanceGating:
         form_ps = self._form(qtbot, ps)
         for dotpath in intensity_paths:
             assert form_ps.row(dotpath).isEnabled(), dotpath
-        # Conversely the surface-radiance (ε, T) rows gate OFF — they are not the
-        # point-source input (a point source is defined by intensity).
-        assert not form_ps.row("source.target.temperature").isEnabled()
-        assert not form_ps.row("source.target.emissivity").isEnabled()
+        # The surface-radiance (ε, T) rows stay ENABLED too (CU-329): they are the
+        # S10 door's documented mutually-exclusive alternative — a point source may
+        # be specified as I = L·A_proj — and the owner hit the old greying on a
+        # scenario whose emission curve those very fields were driving. The
+        # existing mutual-exclusion validation arbitrates between the two doors.
+        assert form_ps.row("source.target.temperature").isEnabled()
+        assert form_ps.row("source.target.emissivity").isEnabled()
 
         ext = Sensor.from_yaml(_EXAMPLE)
         ext.set("source.scene_type", "extended")

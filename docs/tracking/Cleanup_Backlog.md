@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-329 — Point-source scenes grey out the surface-radiance (ε, T) inputs that are actively driving the run — regime tags exclude a legitimate point-source door
+
+**Discovered**: owner GUI session (scenario 10.1 ground-to-air MWIR), 2026-08-03 — the owner asked why target temperature/emissivity were disabled while the emission plot was visibly computed from them.
+**Status**: Open
+**File**: `src/radiant/source/_schema.py` (`source.target.temperature_K` / `source.target.emissivity` tagged `regime:extended, regime:sub_pixel` only); the GT-7/Gap-85 relevance gating dims/disables accordingly.
+**Symptom**: with `scene_type='point_source'`, the Source stage's thermal form disables temperature/emissivity and the tree appends `(n/a: point_source)` — yet the surface-radiance path is a documented, legal point-source specification (the S10 point-intensity door's own docstring names it as the mutually-exclusive alternative), the scenario's config sets it, and the chain consumes it (the on-screen emission curve is ε·B(λ,T)).
+**Why it still matters**: workflow-visible (intake test 4 — the owner hit it in a run scenario): the GUI claims "not applicable" about the two parameters generating the displayed result, steering analysts away from a valid input path.
+**Suggested fix**: (a) inline-fix-now — add `regime:point_source` to the surface-path thermal params (both doors visibly legal; the existing mutual-exclusion validation still arbitrates), and/or have the disabled form state the active door. Effort S; category D.
+
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).

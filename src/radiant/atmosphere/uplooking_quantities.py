@@ -762,7 +762,9 @@ def _refuse_library_backed_exo_target(
             "h_atm_top, or point atmosphere.interpolated_data_dir at a FULL-COLUMN "
             "up-looking family whose runs reach h_atm_top (shipped: "
             "midlat_summer_sst_column_fan for a ground observer at LOS zenith "
-            "0-78.5 degrees, midlat_summer_uplooking_sensor_ladder for an observer "
+            "0-78.5 degrees, midlat_summer_sst_column_fan_site900m for a 900 m "
+            "elevated site over the same zeniths, "
+            "midlat_summer_uplooking_sensor_ladder for an observer "
             "at 0-100 km at the 48.2-degree diffusivity angle)."
         ),
         context={

@@ -50,6 +50,7 @@ _GROUND_TO_SPACE = (
 )
 
 _SST_FAN = "midlat_summer_sst_column_fan"
+_SST_FAN_900M = "midlat_summer_sst_column_fan_site900m"
 _UP_LADDER = "midlat_summer_uplooking_ladder"
 _UP_ZENITH_FAN = "midlat_summer_uplooking_zenith_fan"
 
@@ -96,6 +97,24 @@ class TestPickerPreSelection:
         assert picker.recommended_family is not None
         assert picker.recommended_family.name == _SST_FAN
         assert picker.recommended_family.explicit_dir_only is True
+        assert picker.is_proposal_pending is True
+
+    def test_the_shipped_900_m_site_preselects_the_sibling_fan(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """10.3 exactly as shipped, since the M9-M13 decks landed (2026-08-03).
+
+        Same scene as the test above but at its real 900 m telescope elevation,
+        which used to be the CU-322 advisory's worked example. The picker now
+        names the sibling fan rendered from that site — a second
+        ``explicit_dir_only`` row with the *same* axes string as the 0 m fan,
+        which is precisely why neither can be reached by axes alone.
+        """
+        sensor = _interpolated(_GROUND_TO_SPACE)
+        picker = _picker(qtbot, sensor)
+
+        assert picker.recommended_family is not None
+        assert picker.recommended_family.name == _SST_FAN_900M
+        assert picker.recommended_family.explicit_dir_only is True
+        assert picker.recommended_family.interpolation_axes == "path_zenith_rad"
         assert picker.is_proposal_pending is True
 
     def test_applying_the_sst_proposal_writes_the_bundled_directory(self, qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -167,23 +186,32 @@ class TestOneAdvisoryPerScene:
             pass
         return window
 
-    def test_the_elevated_sst_site_names_the_site_elevation_gap(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """10.3 as shipped: 900 m against a fan rendered from 0 m, plus M9-M13."""
+    def test_an_unrendered_site_elevation_names_the_site_elevation_gap(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """10.3's geometry lifted to 4.2 km: past every rendered lower endpoint.
+
+        This was 10.3 as shipped, at its own 900 m site, until the M9-M13 decks
+        landed (2026-08-03) and gave that elevation its own fan. The gap it
+        demonstrated is real for any *other* elevation, because neither SST fan
+        carries a ``sensor_altitude_m`` axis — two rendered sites are not an
+        axis to interpolate a third from. The advisory still names the closest
+        miss with its units rather than replaying every family's refusal.
+        """
         window = self._window(qtbot, _GROUND_TO_SPACE)
         assert window.right_rail.messages.has_error() is False
 
+        window.sensor.set("geometry.sensor_altitude_m", 4200.0)
         window.sensor.set("atmosphere.model", "interpolated")
         window.parameter_panel.parameterEdited.emit("atmosphere.model")
 
         assert window.right_rail.messages.has_error() is True
         text = str(window.right_rail.messages.error)
         assert _SST_FAN in text
-        assert "900 m" in text
-        assert "M9-M13" in text
+        assert "4.2 km" in text
 
     def test_the_advisory_clears_when_the_scene_becomes_servable(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """It owns only the item it placed (Rule 17: the state stays honest)."""
         window = self._window(qtbot, _GROUND_TO_SPACE)
+        window.sensor.set("geometry.sensor_altitude_m", 4200.0)
         window.sensor.set("atmosphere.model", "interpolated")
         window.parameter_panel.parameterEdited.emit("atmosphere.model")
         assert window.right_rail.messages.has_error() is True

@@ -27,7 +27,8 @@ holds it.
 | Down-looking, elevated target (boost, aircraft, balloon) | `interpolated` | `midlat_summer_ladders` (0–29 km, nadir) or `midlat_summer_boost_offnadir` (0–100 km, ζ 0–60°) |
 | Up-looking from the ground at a target 0–20 km | `interpolated` | `midlat_summer_uplooking_zenith_fan` (ζ 0–60°) — but read §5 on the hybrid split |
 | Up-looking from the ground through the whole column to space | `interpolated`, explicit dir | `midlat_summer_sst_column_fan`, ζ 0–78.5° |
-| Up-looking from an **elevated site** (any sensor above ~1 m) | `simple` | No bundled family is rendered from a lifted lower endpoint; rows M9–M13 are authored, unrun (§4) |
+| Up-looking from a **900 m site** through the whole column to space | `interpolated`, explicit dir | `midlat_summer_sst_column_fan_site900m`, ζ 0–78.5° |
+| Up-looking from any **other elevated site** | `simple` | Only 0 m and 900 m lower endpoints are rendered; there is no sensor-altitude axis to interpolate a third site from (§4) |
 | Sensor below 3 km looking down (ground test, tower, low UAV) | `simple` | Below every down-looking family's rendered floor (§4) |
 | Level / horizontal path (air-to-air, ground-to-ground) | `simple` | No bundled family is rendered for a level line of sight, and one cannot be interpolated from a column ladder (theory §3.7) |
 | Grazing, ζ ≥ 88.8° | `simple` only, and read §6 | The interpolation coordinate $\sec\zeta$ diverges and is refused there (parity §3 item 6) |
@@ -173,8 +174,9 @@ description are all derived from it.
 |---|---|---|---:|---|
 | `midlat_summer_uplooking_ladder` | `target_altitude_m` | `midlat_summer` | 6 | ground sensor (0 km) looking up at targets 0-20 km, vertical only (LOS zenith 0 degrees) |
 | `midlat_summer_uplooking_zenith_fan` | `target_altitude_m,path_zenith_rad` | `midlat_summer` | 18 | ground sensor (0 km) looking up at targets 0-20 km, LOS zenith 0-60 degrees (sec 1.0-2.0 at the sensor) |
-| `midlat_summer_uplooking_sensor_ladder` | `sensor_altitude_m` | `midlat_summer` | 8 | observer 0-100 km looking up the full column to the 100 km atmosphere top, fixed 48.2 degrees LOS zenith (the diffusivity angle) |
+| `midlat_summer_uplooking_sensor_ladder` | `sensor_altitude_m` | `midlat_summer` | 10 | observer 0-100 km looking up the full column to the 100 km atmosphere top, fixed 48.2 degrees LOS zenith (the diffusivity angle) |
 | `midlat_summer_sst_column_fan` **(explicit dir)** | `path_zenith_rad` | `midlat_summer` | 6 | ground sensor (0 km) looking up the full column to the 100 km atmosphere top, LOS zenith 0-78.5 degrees (sec 1.0-5.0) |
+| `midlat_summer_sst_column_fan_site900m` **(explicit dir)** | `path_zenith_rad` | `midlat_summer` | 5 | elevated-site sensor (0.9 km, i.e. a 900 m mountaintop) looking up the full column to the 100 km atmosphere top, LOS zenith 0-78.5 degrees (sec 1.0-5.0) |
 
 **Direction is not a preference, it is a different product.** An up-looking family stores
 its radiance under a different NPZ key (`path_radiance_toward_lower`) and is served through
@@ -184,7 +186,7 @@ reading the wrong quantity (theory §3.1).
 **Nodes** above is the family's actual run count, read from its shipped NPZ `geometry`
 dicts. Every family is rendered at solar zenith 30°, relative azimuth 0°.
 
-### Why two families are explicit-dir only
+### Why three families are explicit-dir only
 
 `explicit_dir_only = True` means **no axes string can select this family**. Adopting it
 requires writing `atmosphere.interpolated_data_dir` (the family's `bundled_dir`) as well as
@@ -200,8 +202,15 @@ the axes. The GUI picker does both for you in one compound edit.
   touched the axes parameter, into a silent dispatch onto a family whose target altitude is
   fixed at the 100 km atmosphere top. It is a full-column SST anchor and is adopted
   deliberately, by name, never by default.
+- **`midlat_summer_sst_column_fan_site900m`** — the same column from a 900 m site, and
+  explicit-dir for both of the above reasons at once: `path_zenith_rad` is the schema
+  default *and* the signature is already claimed by the 0 m fan, so the two could not be
+  told apart by an axes string even if the default were not in play. Which lower endpoint a
+  scene needs is a physical fact about the site — a 900 m column omits the densest 900 m of
+  air, worth roughly +0.12 in band-mean 8–12 µm τ at nadir — so the fans are chosen by name,
+  never guessed.
 
-Both are offered by the picker; neither is reachable from a YAML that sets only the axes.
+All three are offered by the picker; none is reachable from a YAML that sets only the axes.
 
 ---
 
@@ -209,20 +218,22 @@ Both are offered by the picker; neither is reachable from a YAML that sets only 
 
 Switch any of the 38 shipped GUI scenarios to `atmosphere.model = interpolated` and one of
 two things happens: it works on the first try with the suggested family, or it produces
-exactly one advisory naming the specific missing coverage. **26 first-try, 12 advisory.**
+exactly one advisory naming the specific missing coverage. **27 first-try, 11 advisory.**
 Pinned by scenario id — not by count — in
-`tests/integration/test_interpolated_switch_sweep.py`, measured 2026-08-02.
+`tests/integration/test_interpolated_switch_sweep.py`, measured 2026-08-03 (10.3 moved into
+the first group when the M9–M13 site-elevation decks were ingested).
 
-### The 26 that work first try
+### The 27 that work first try
 
 | Family the scene lands on | Scenarios |
 |---|---|
 | `midlat_summer_sensor_ladder` | 1.2, 1.3, 1.4, 1.5, 2.3, 3.2, 3.3, 3.4, 3.5, 4.1, 4.3, 4.4, 5.1, 5.2, 5.3, 5.4, 5.5, 6.2, 6.3, 6.4, 8.2 (21) |
 | `us_standard_zenith_fan` | 1.1, 3.1, 8.1 (3) |
 | `midlat_summer_uplooking_zenith_fan` | 10.1 (ground → air at ζ = 29.9°) |
+| `midlat_summer_sst_column_fan_site900m` | 10.3 (900 m mountaintop SST → 700 km target) |
 | `midlat_summer_uplooking_ladder` | 10.4 (LEO → GEO — a wholly-vacuum path; no backend is consulted, the family is only the parameter's carrier) |
 
-### The 12 that get one advisory, and why
+### The 11 that get one advisory, and why
 
 | Scenario | Gap kind | The gap, as the operator sees it |
 |---|---|---|
@@ -231,21 +242,22 @@ Pinned by scenario id — not by count — in
 | 6.1 | `sensor_altitude` | same — sensor at **1 km** |
 | 4.5 | `sensor_altitude` | same — UAV at **2 km** |
 | 10.2 | `direction` | no bundled interpolation family is rendered for a **level-looking** line of sight |
-| 10.3 | `sensor_altitude` | `midlat_summer_sst_column_fan` is rendered from a fixed lower endpoint at 0 m and carries no `sensor_altitude_m` axis; this scene asks for **900 m** *(rows M9-M13 of `docs/plans/modtran_run_matrix.csv` are the authored, not-yet-run decks that lift this fan's lower endpoint to a 900 m elevated site)* |
 
 ### What unblocks each group
 
-- **The 11 low-sensor scenes (1 m – 2 km).** The down-looking sensor ladder's hull starts at
-  3 km; the SST fan is rendered from 0 m and carries no sensor axis. Nothing about these is
+- **The 10 low-sensor scenes (1 m – 2 km).** The down-looking sensor ladder's hull starts at
+  3 km; neither SST fan carries a sensor axis. Nothing about these is
   a defect — no MODTRAN run below 3 km down-looking (other than the F block's 3 km rung) has
   been ingested into a family. Until one is, `simple` is the answer, and for a
   ground-to-ground or near-ground path it is also the physically honest one.
-- **10.3, the 900 m observatory.** Blocked on the SST fan's fixed 0 m lower endpoint.
-  **Rows M9–M13** of the run matrix are already authored for exactly this geometry —
-  they mirror the delivered M-fan with the lower endpoint lifted to 900 m. When run, they
-  either add a `sensor_altitude_m` axis to `midlat_summer_sst_column_fan` or ship as a
-  sibling family. A scheduled gap, not an absent capability: the advisory says so, because
-  the family carries that sentence in its `pending_runs` field.
+- **10.3, the 900 m observatory — no longer blocked.** It was, on the SST fan's fixed 0 m
+  lower endpoint, and the advisory named rows M9–M13 as the scheduled fix. Those decks were
+  delivered and ingested on 2026-08-03 as the sibling family
+  `midlat_summer_sst_column_fan_site900m` (a sibling rather than a sensor axis: the 0 m fan
+  had to stay byte-identical, and the two blocks do not share a sec ladder — the 900 m block
+  has no 48.2° rung, because H5 is a ground run with no elevated sibling). The scene now
+  evaluates first-try. **An elevated site other than 0 m or 900 m is still `simple`**: two
+  rungs is not a sensor axis, and neither fan will interpolate one.
 - **10.2, the level line of sight.** Blocked on there being no level family at all, and one
   cannot be interpolated from a column ladder: a level arm has zero vertical extent and a
   local zenith of $\pi/2$ everywhere, so no rung of a ladder is that path (theory §3.7). The
@@ -394,7 +406,8 @@ the 48.2° P sensor ladder), queried at any other lower-endpoint zenith than its
 ~2.5 % low in band-mean LWIR τ, measured against the K6 45° holdout.
 *Remedy, quoted from the error:* point `interpolated_data_dir` at an up-looking family that
 carries a zenith axis — `midlat_summer_uplooking_zenith_fan` for targets 0–20 km,
-`midlat_summer_sst_column_fan` for the full column to space — or use
+`midlat_summer_sst_column_fan` for the full column to space from the ground,
+`midlat_summer_sst_column_fan_site900m` for the same column from a 900 m site — or use
 `atmosphere.model='simple'`, which serves any up-looking zenith through the segment
 evaluators.
 *This is the mis-suggestion CU-322 fixed:* scenario 10.1 used to be handed the vertical
@@ -407,8 +420,11 @@ ladder at ζ = 29.9° and then refused. The pre-validated suggestion now names t
 else is a different column, and near the ground the difference is large — the lowest 100 m
 carry ~8 % of the aerosol column (H_aer = 1.2 km) and ~5 % of the water column
 (H_H2O = 2 km). That is why this is a refusal and not a warning.
-*Remedy:* add `sensor_altitude_m` to the axes with a run family covering it, or use `simple`.
-*This is scenario 10.3's gap* — the 900 m site against a 0 m-rendered fan.
+*Remedy:* add `sensor_altitude_m` to the axes with a run family covering it, or pick the
+fan rendered from the site you have, or use `simple`.
+*This was scenario 10.3's gap* — the 900 m site against a 0 m-rendered fan — and it is why
+the M9–M13 delivery shipped as a second fan rather than being folded into the first: with no
+sensor axis, the only way to serve a different lower endpoint is to have run it.
 
 **R7 — Exo target above a partial-column family (the exo guard).**
 The guard has **two arms** and asks the family, never a hard-coded name
@@ -420,7 +436,8 @@ measure):
   node and the clamp is recorded in provenance under `exo_target_vacuum_clamp`. Measured:
   composed products at 100 km / 400 km / GEO are bit-identical, τ agrees with the stored M1
   full-column run to 5.6e−17 (parity §2.10). The qualifying families are
-  `midlat_summer_sst_column_fan` and `midlat_summer_uplooking_sensor_ladder`.
+  `midlat_summer_sst_column_fan`, `midlat_summer_sst_column_fan_site900m`, and
+  `midlat_summer_uplooking_sensor_ladder`.
 - *Refusing arm* — the ceiling is below 100 km, or unrecorded. Real, unmeasured air lies
   between the family's top rung and the target; composing a measured leg with an invented
   one and reporting it as ordinary is what the refusal prevents. The 20 km ladder and zenith
@@ -502,14 +519,15 @@ an operator's choice:
   $\tau(2L) = \tau(L)^2$ collapses against a band model: 1.09 at 5 km range down to 0.01 at 100 km,
   at 3 km altitude. LWIR degrades more gently, to 0.82. No horizontal library family is
   built, so the remedy is a MODTRAN backend. *(parity §3 item 9)*
-- **Two downwelling rungs are modelled, not measured** — the 60 km and 80 km altitude
-  rungs of the down-looking families' `atm_emission_down` come from a log-linear
-  extrapolation on the measured 29 → 50 km slope, clamped non-increasing. The measured
-  profile is non-monotonic in the MWIR below 50 km, so the extrapolation's shape assumption
-  is not verified. Owner-ratified pending run-matrix rows P7/P8. *(parity §3 item 8)*
-- **No elevated-site full-column family** — the SST fan's lower endpoint is 0 m; a 900 m
-  observatory is not measured. Rows M9–M13 are authored for exactly that. *(parity §3 item 7;
-  §4 above)*
+- **Downwelling above 80 km is modelled, not measured** — every `atm_emission_down` rung
+  at or below 80 km is now a MODTRAN run (P7/P8 landed 2026-08-03 and replaced the modelled
+  60/80 km values, which had over-stated the measured ones by 10.6× and 8 791× in the MWIR).
+  Only an off-node query strictly between 80 km and the 100 km atmosphere top is still
+  extrapolated, and it is bracketed by a measured value below and the exact zero identity
+  above. No shipped family holds a node in that band. *(parity §3 item 8)*
+- **Only two site elevations have a full-column family** — 0 m and 900 m. Neither fan
+  carries a `sensor_altitude_m` axis, so a site at any other elevation is `simple`.
+  *(parity §3 item 7; §4 above)*
 - **Twilight is unanchored** — the tangent-transit decks were delivered but no family or
   parity test consumes them, and the transit carries 30–70 air masses where both the
   exponential τ and the unmodelled refraction are at their worst. Treat as an

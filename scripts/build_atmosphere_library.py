@@ -55,12 +55,20 @@ design record):
   SST anchor family. M6–M8 (85/88/89.5°) are ``dev_only`` in the run
   matrix and are deliberately NOT shipped — the sec-space mapping is
   unvalidated past the 88.8° airmass ceiling.
+- ``midlat_summer_sst_column_fan_site900m/`` — the 2026-08-03 follow-on
+  M9–M13 block: the **same** full-column fan with the lower endpoint
+  lifted to a 900 m elevated site (0.9 → 100 km), sec ζ = 1/2/3/4/5.  A
+  sibling family, not a sensor axis on the 0 m fan: the 0 m fan stays
+  byte-identical (its own tape7s are untouched), and the two fans do not
+  share a sec ladder — the 900 m block has no 48.2° rung, because H5 is a
+  ground run with no elevated sibling.
 - ``midlat_summer_uplooking_sensor_ladder/`` — the batch-2 P block plus
   H5: an **elevated** observer's full column to space at the 48.2°
   diffusivity angle, as a 1-D up-looking grid over ``sensor_altitude_m``
-  (0/1/5/10/20/29/50 km) plus the synthesized zero-length node at the
-  100 km atmosphere top. These are the same runs the CU-181 downwelling
-  ladder is built from.
+  (0/1/5/10/20/29/50/60/80 km) plus the synthesized zero-length node at
+  the 100 km atmosphere top. These are the same runs the CU-181
+  downwelling ladder is built from; the 60/80 km rungs are the 2026-08-03
+  P7/P8 follow-on.
 - ``midlat_summer_upwelling_offnadir/`` — the batch-2 O block plus J1/A3/I5:
   a down-looking **ground-target** grid over
   ``(sensor_altitude_m, path_zenith_rad)`` — sensor 10/100 km (+ the
@@ -78,11 +86,17 @@ design record):
 Downwelling (``atm_emission_down``, CU-181). Every down-looking
 midlat_summer node carries the up-looking 48.2° diffusivity-angle sky
 radiance **at that node's target altitude**, interpolated from the
-measured rung ladder H5 (0 km) + P1–P6 (1/5/10/20/29/50 km) by
+measured rung ladder H5 (0 km) + P1–P8 (1/5/10/20/29/50/60/80 km) by
 :func:`scripts.downwelling_altitude.downwelling_at_altitude`. Before
 batch 2 the single ground-level H5 value was attached to every node
 regardless of target altitude; ground-target nodes are therefore
-unchanged and only elevated-target nodes move.
+unchanged and only elevated-target nodes move. The 2026-08-03 P7/P8
+follow-on replaced the two **modelled** rungs (60/80 km, previously
+log-linear on the measured 29→50 km slope) with measured runs, so every
+node at or below 80 km is now measured. Only the 80–100 km band is still
+modelled, bounded above by the measured 80 km value and below by the
+exact-zero identity at the atmosphere top — and no shipped family holds a
+node inside it.
 
 Spectral treatment: every array is slit-degraded with a triangular
 FWHM = 5 cm⁻¹ kernel on the native uniform 1 cm⁻¹ wavenumber grid, then
@@ -173,10 +187,14 @@ DOWNWELLING_RUNS: dict[str, str] = {
 
 # CU-181: measured midlat_summer downwelling rung ladder — the sky radiance an
 # observer at each altitude sees looking up at the 48.2° diffusivity angle.
-# H5 is the ground rung (already shipped); P1–P6 are the batch-2 P block, run
-# at the identical profile/aerosol/visibility/angle with only the lower
-# endpoint lifted. Ordered ascending in altitude, which
-# ``downwelling_at_altitude`` requires. run -> observer altitude [km].
+# H5 is the ground rung (already shipped); P1–P8 are the P block, run at the
+# identical profile/aerosol/visibility/angle with only the lower endpoint
+# lifted. P1–P6 landed with batch 2 (2026-08-02); P7/P8 (60/80 km) are the
+# 2026-08-03 follow-on that replaced the last two MODELLED rungs with measured
+# ones — see ``scripts/downwelling_altitude.py`` for what "modelled" meant and
+# for the 80–100 km band that is still the only extrapolated one. Ordered
+# ascending in altitude, which ``downwelling_at_altitude`` requires.
+# run -> observer altitude [km].
 DOWNWELLING_RUNGS: dict[str, float] = {
     "H5": 0.0,
     "P1": 1.0,
@@ -185,6 +203,8 @@ DOWNWELLING_RUNGS: dict[str, float] = {
     "P4": 20.0,
     "P5": 29.0,
     "P6": 50.0,
+    "P7": 60.0,
+    "P8": 80.0,
 }
 
 # Zenith fan (us_standard full column): run -> RADIANT LOS zenith [rad].
@@ -342,6 +362,28 @@ SST_COLUMN_FAN: dict[str, float] = {
     "M5": 78.463,
 }
 SST_TARGET_KM = 100.0
+
+# M9–M13 (2026-08-03 follow-on): the SAME full-column fan re-rendered from a
+# 900 m elevated site — scenario 10.3's mountaintop SST telescope, which the
+# 0 m fan cannot serve because the lowest layers carry ~8 % of the aerosol
+# column (run-matrix M9 note). run -> lower-endpoint zenith [deg].
+#
+# A **sibling family**, not a sensor-altitude axis on ``SST_COLUMN_FAN``. Three
+# reasons, in order of weight: (1) the matrix note requires the 0 m fan to stay
+# byte-identical, and a shared family would re-key every one of its nodes;
+# (2) the two blocks do not share a sec ladder — the 900 m block has no 48.2°
+# (sec 1.4999) rung, because H5 is a ground run with no elevated sibling, so a
+# 2-D (sensor × zenith) grid over the union would not be rectangular and
+# ``InterpolatedAtmosphere`` requires rectangular; (3) two rungs is too coarse
+# an axis to interpolate site elevation on anyway. sec ζ = 1/2/3/4/5.
+SST_COLUMN_FAN_SITE900M: dict[str, float] = {
+    "M9": 0.0,
+    "M10": 60.0,
+    "M11": 70.529,
+    "M12": 75.522,
+    "M13": 78.463,
+}
+SST_SITE900M_SENSOR_KM = 0.9
 
 # P block + H5: the elevated-observer full-column ladder at the 48.2°
 # diffusivity angle. run -> observer (lower endpoint) altitude [km]. Same runs
@@ -709,7 +751,16 @@ def main() -> int:
             markers=UPLOOKING_MARKERS,
         )
 
-    print("Up-looking sensor ladder (midlat_summer, observer 0-50 km -> 100 km at 48.2 deg):")
+    print("SST column fan, 900 m site (midlat_summer, 0.9 -> 100 km, sec 1/2/3/4/5):")
+    for run, zenith_deg in SST_COLUMN_FAN_SITE900M.items():
+        _save(
+            OUT_ROOT / "midlat_summer_sst_column_fan_site900m" / f"z{zenith_deg:06.3f}.npz",
+            _load_uplooking_degraded(run),
+            geometry=_full_geometry(SST_SITE900M_SENSOR_KM, SST_TARGET_KM, zenith_deg * _DEG),
+            markers=UPLOOKING_MARKERS,
+        )
+
+    print("Up-looking sensor ladder (midlat_summer, observer 0-80 km -> 100 km at 48.2 deg):")
     up_ladder_ref_wl: np.ndarray | None = None
     for run, sensor_km in UPLOOKING_SENSOR_LADDER.items():
         arrays = _load_uplooking_degraded(run)

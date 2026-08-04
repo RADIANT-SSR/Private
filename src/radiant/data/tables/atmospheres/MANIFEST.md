@@ -47,16 +47,16 @@ the added path is vacuum, the column identical.
 *downward* product), omits `atm_emission_down`, and adds a
 `los_direction = "up"` marker. `TabulatedAtmosphere.from_npz` cannot read
 these files by design — see `midlat_summer_uplooking_ladder/` below.
-Four up-looking families ship: the vertical K ladder, the batch-2 zenith
-fan, the batch-2 SST full-column fan, and the batch-2 elevated-observer
-ladder.
+Five up-looking families ship: the vertical K ladder, the batch-2 zenith
+fan, the batch-2 SST full-column fan, its 900 m-site sibling (M9–M13,
+2026-08-03), and the batch-2 elevated-observer ladder.
 
 **Downwelling is altitude-resolved (CU-181, batch 2):** a down-looking
 node's `atm_emission_down` is the up-looking 48.2° diffusivity-angle sky
 radiance **at that node's target altitude** — `E_sky_thermal = π·L` is
 the sky irradiance falling on the target, so the target altitude is the
 physically meaningful key. It is interpolated from the measured rung
-ladder H5 (0 km) + P1–P6 (1/5/10/20/29/50 km) by
+ladder H5 (0 km) + P1–P8 (1/5/10/20/29/50/60/80 km) by
 `scripts/downwelling_altitude.py`: `ln L` piecewise linear in altitude
 inside the measured span, the top-two-rung slope (clamped non-increasing)
 above it, and exactly zero at the 100 km atmosphere top, where an
@@ -66,6 +66,14 @@ byte-identical and only elevated-target nodes moved. Measured decay of
 the shipped `atm_emission_down` across 0 → 50 km: **142×** (3–5 µm band
 mean) and **442×** (8–12 µm) — see "Known limitations" for why that is
 one-to-two orders less than CU-181's analytic table predicted.
+
+The **P7/P8 follow-on (2026-08-03)** replaced the last two modelled rungs
+(60 km and 80 km, previously log-linear on the 29 → 50 km slope) with
+measured runs. The model had over-stated them by 10.6× and 8 791× in the
+3–5 µm band; ten NPZ nodes moved (boost ladder targets 60/80 km, off-nadir
+target 80 km, both sensor rungs each) and every other shipped node stayed
+SHA-256 identical. The only band still extrapolated is an off-node query
+strictly between 80 km and 100 km, where no shipped family holds a node.
 
 ## Families
 
@@ -309,6 +317,43 @@ dispatch onto a family whose target altitude is fixed at 100 km. It is
 listed in `EXPLICIT_DIR_FAMILIES` instead, so the GUI picker still offers
 it by name and writes the directory (the ex-CU-296 pattern).
 
+### `midlat_summer_sst_column_fan_site900m/` — 1-D grid over `path_zenith_rad`, **up-looking**, full column from 900 m
+
+The same full column, rendered from a **900 m elevated site** — the
+mountaintop SST geometry of scenario 10.3, which the 0 m fan cannot
+represent. M9–M13, delivered 2026-08-03.
+
+| File | Run | Zenith | sec ζ |
+|------|-----|--------|-------|
+| `z00.000.npz` | M9  | 0° | 1.0 |
+| `z60.000.npz` | M10 | 60° | 2.0 |
+| `z70.529.npz` | M11 | 70.529° | 3.0 |
+| `z75.522.npz` | M12 | 75.522° | 4.0 |
+| `z78.463.npz` | M13 | 78.463° | 5.0 |
+
+**A sibling family, not a sensor axis on the 0 m fan.** Three reasons, in
+order of weight: the run matrix's own ingestion condition is that the 0 m
+fan stay byte-identical, and a shared family would re-key every one of its
+nodes; the two blocks do not share a sec ladder, because the 0 m fan's
+sec 1.4999 rung is H5, a ground run with no elevated sibling, so a
+2-D (sensor × zenith) grid over the union would not be rectangular and
+`InterpolatedAtmosphere` requires rectangular; and two rungs is too coarse
+an axis to interpolate site elevation on in any case.
+
+**Why the elevation matters enough to run five decks for it.** The lowest
+900 m of air is the densest part of the column — the M9 run-matrix note
+sizes it at ~8 % of the aerosol column. Band-mean 8–12 µm τ of the full
+column, 900 m site against the 0 m site: 0.702 vs 0.583 at nadir, and
+0.302 vs 0.137 at sec 5. Substituting one for the other is not a small
+error, which is why the lower-endpoint mismatch is a refusal rather than a
+warning.
+
+**Reachable only through an explicit `atmosphere.interpolated_data_dir`**,
+for both of the 0 m fan's reasons at once: `path_zenith_rad` is the schema
+default, *and* the signature is already claimed by the 0 m fan. Which
+lower endpoint a scene needs is a physical fact about the site, never
+something dispatch can guess.
+
 ### `midlat_summer_uplooking_sensor_ladder/` — 1-D grid over `sensor_altitude_m`, **up-looking**
 
 An *elevated* observer's full column to the 100 km top at the fixed 48.2°
@@ -323,16 +368,23 @@ diffusivity angle: the batch-2 P block plus H5.
 | `s020.npz` | P4 | 20 km |
 | `s029.npz` | P5 | 29 km |
 | `s050.npz` | P6 | 50 km |
+| `s060.npz` | P7 | 60 km |
+| `s080.npz` | P8 | 80 km |
 | `s100.npz` | — | 100 km, synthesized zero-length identity |
 
 These are the same runs the CU-181 downwelling ladder is built from; here
 they are library nodes in their own right (the run matrix's P-row note
-asked for `tau_total` precisely so they could be).
+asked for `tau_total` precisely so they could be). The builder states that
+identity in code — `UPLOOKING_SENSOR_LADDER = dict(DOWNWELLING_RUNGS)` —
+so the P7/P8 follow-on added the 60 km and 80 km rungs here at the same
+time it made them measured there. The 50 → 100 km span is now measured at
+two interior points instead of being crossed by a single interpolation.
 
 **One zenith only.** The family carries no `path_zenith_rad` axis, so a
 query at any other zenith is refused with a message naming the 48.2° it
-*is* rendered at and pointing at `midlat_summer_sst_column_fan` (which
-carries the axis) or `atmosphere.model = "simple"`.
+*is* rendered at and pointing at `midlat_summer_sst_column_fan` or
+`midlat_summer_sst_column_fan_site900m` (which carry the axis) or
+`atmosphere.model = "simple"`.
 
 ### `midlat_summer_upwelling_offnadir/` — 2-D grid over `(sensor_altitude_m, path_zenith_rad)`
 
@@ -402,15 +454,21 @@ band-mean τ, vs −4% under the earlier linear-in-angle axis).
   boost families extend this to 0–100 km; beyond the hull still refuses
   — no extrapolation). CU-011's binary flavor remains open.
 - **Elevated-target downwelling (CU-181) — resolved into data 2026-08-02,
-  with one modelled band left.** The constant-per-family H-run value is
+  fully measured 2026-08-03.** The constant-per-family H-run value is
   gone: every down-looking node now carries the measured downwelling at
-  its own target altitude (see the NPZ-format note above). What remains
-  modelled rather than measured is the band **above 50 km** — the 60/80 km
-  boost rungs, extrapolated on the 29→50 km log slope as the run matrix
-  directs, with the slope clamped non-increasing because no residual
-  column can gain emitters with altitude. Those nodes are an upper bound,
-  in the same conservative direction as the constant they replace and
-  ~150× smaller. Below 50 km every node is measured.
+  its own target altitude (see the NPZ-format note above). The last
+  modelled band closed with P7/P8: the 60 km and 80 km rungs were
+  extrapolated on the 29→50 km log slope (clamped non-increasing, because
+  no residual column can gain emitters with altitude) and are now MODTRAN
+  runs. The measurement vindicated the clamp and condemned the slope — the
+  extrapolation over-stated the true 3–5 µm downwelling by **10.6×** at
+  60 km and **8 791×** at 80 km, because the shallow stratospheric CO₂/O₃
+  slope it continued is precisely the feature that stops above 50 km. It
+  erred conservatively, as documented, but not by a little. **Every rung
+  at or below 80 km is now measured**; the only extrapolated band left is
+  an off-node query strictly between 80 km and the 100 km atmosphere top,
+  bracketed by a measured value below and the exact-zero identity above,
+  and no shipped family holds a node there.
   **The entry's ≳10⁴ acceptance criterion is NOT met, and should not be.**
   MODTRAN says the real midlat_summer downwelling falls 142× (3–5 µm) and
   442× (8–12 µm) across 0 → 50 km. CU-181's 16 579× figure came from
@@ -423,7 +481,8 @@ band-mean τ, vs −4% under the earlier linear-in-angle axis).
   condition-specific studies, regenerate-on-demand (plan §7.2).
 - **Up-looking zenith fan (GF-10) — landed 2026-08-02.**
   `midlat_summer_uplooking_zenith_fan` (targets 0–20 km × sec ζ 1.0–2.0)
-  and `midlat_summer_sst_column_fan` (full column × sec ζ 1–5) carry a
+  and the two SST fans (full column × sec ζ 1–5, from 0 m and from 900 m)
+  carry a
   `path_zenith_rad` axis and serve off-vertical up-looking queries in
   airmass sec(ζ) space, as the down-looking off-nadir family does. The
   refusal survives, **narrowed**: an up-looking family with no zenith axis
@@ -433,9 +492,13 @@ band-mean τ, vs −4% under the earlier linear-in-angle axis).
   column — measured against the K6 45° holdout, that prediction is
   0.1–2.5 % low in band-mean τ, so applying it silently would be a quiet
   ~2 % LWIR error. The message now names the fans as the remedy.
-- **Up-looking sensor-altitude axis — partial (2026-08-02).**
+- **Up-looking sensor-altitude axis — partial (2026-08-02, extended
+  2026-08-03).**
   `midlat_summer_uplooking_sensor_ladder` gives the *full column to the
-  100 km top* an observer-altitude axis (0–50 km, at 48.2° only). The
+  100 km top* an observer-altitude axis (0–100 km with measured rungs to
+  80 km, at 48.2° only). Off that angle, only two site elevations are
+  rendered — the 0 m and 900 m SST fans — and neither carries a sensor
+  axis, so a third elevation cannot be interpolated. The
   partial-column families (K ladder, zenith fan) are still rendered from
   ground level, and an elevated lower endpoint on them is refused with a
   1 m tolerance rather than warned: the lowest 100 m alone carry ≈8 % of
@@ -470,13 +533,15 @@ actionable no-family error listing every row of this table.
 | up | `target_altitude_m,path_zenith_rad` | `midlat_summer_uplooking_zenith_fan` |
 | up | `sensor_altitude_m` | `midlat_summer_uplooking_sensor_ladder` |
 
-Two bundled families are reachable **only** through an explicit
+Three bundled families are reachable **only** through an explicit
 `atmosphere.interpolated_data_dir` (`EXPLICIT_DIR_FAMILIES`):
 `midlat_summer_boost_ladder`, whose 2-axis signature is owned by
-`midlat_summer_ladders`, and `midlat_summer_sst_column_fan`, whose
+`midlat_summer_ladders`; `midlat_summer_sst_column_fan`, whose
 signature is free but is the *schema default* axes string, so publishing
-it would silently widen an existing refusal. The GUI family picker offers
-both by name and writes the directory.
+it would silently widen an existing refusal; and
+`midlat_summer_sst_column_fan_site900m`, which is both — the schema
+default *and* a signature the 0 m fan already claims. The GUI family
+picker offers all three by name and writes the directory.
 
 No `level` family ships: a constant-altitude path is served by the
 level-arm segment evaluator on `atmosphere.model = "simple"`, and the

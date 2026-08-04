@@ -19,15 +19,24 @@ scenario whose geometry moves, or a change to the suitability rules all shift
 which list a scenario belongs to — and each of those is a decision, not a
 detail, so the pin has to be updated deliberately.
 
-**Why 26/12 and not the entry's 25/13.**  The entry's numbers were measured on
-`main` *before* this fix, using the pre-CU-322 recommendation: 25 scenarios
-happened to be handed a family that worked and 13 were not.  Scenario 10.1 is in
-the second group only because it was recommended the vertical-only up-looking
-ladder at ζ = 29.9°; the zenith fan covers it, which is the mis-suggestion the
-entry names as defect (1).  Fixing it moves 10.1 across, so the post-fix split is
-26 first-try and 12 advisory.  The 12 are the same scenes the entry calls
-"genuinely uncovered": 11 ground/low sensors below the 3 km sensor-ladder floor,
-plus the level-LOS scene no family is rendered for.
+**Why 27/11, and the two moves that got here.**  The CU-322 entry measured 25/13
+on `main` *before* the fix, using the pre-CU-322 recommendation.  Two scenarios
+have moved across since, each for a named reason:
+
+* **10.1**, at CU-322 closure (26/12): it was in the advisory group only because
+  it was recommended the vertical-only up-looking ladder at ζ = 29.9°; the
+  zenith fan covers it, which is the mis-suggestion the entry names as defect
+  (1).
+* **10.3**, on 2026-08-03 (27/11): the entry's own worked example, and the last
+  clause of its acceptance criterion — *"10.3 joins the first group when the
+  M9–M13 site-elevation rungs are run."*  Those decks were delivered and
+  ingested as ``midlat_summer_sst_column_fan_site900m``, so the 900 m
+  mountaintop site the 0 m SST fan could not represent is now a rendered lower
+  endpoint.  Nothing about the selector changed; the data did.
+
+The remaining 11 are the scenes the entry calls "genuinely uncovered": 10 ground
+or low sensors below the 3 km sensor-ladder floor, plus the level-LOS scene no
+family is rendered for.
 """
 
 from __future__ import annotations
@@ -72,14 +81,17 @@ FIRST_TRY: dict[str, str] = {
     # 10.1 is the entry's defect (1): the vertical-only ladder was recommended
     # at zeta = 29.9 degrees; the zenith fan is what covers it.
     "10.1": "midlat_summer_uplooking_zenith_fan",
+    # 10.3 is the entry's worked example, served since the M9-M13 decks landed
+    # (2026-08-03): the SST full column from its own 900 m site.
+    "10.3": "midlat_summer_sst_column_fan_site900m",
     # 10.4 is a wholly-vacuum LEO->GEO path: both endpoints sit above
     # h_atm_top, so no backend is consulted at all.
     "10.4": "midlat_summer_uplooking_ladder",
 }
 
 #: Scenarios no bundled family serves, with the ``FamilyGap.kind`` each one's
-#: single advisory carries.  Eleven ground/low sensors below the 3 km floor of
-#: the sensor ladder, plus one level line of sight.
+#: single advisory carries.  Ten ground/low sensors below the 3 km floor of the
+#: sensor ladder, plus one level line of sight.
 SINGLE_ADVISORY: dict[str, str] = {
     "2.1": "sensor_altitude",
     "2.2": "sensor_altitude",
@@ -92,7 +104,6 @@ SINGLE_ADVISORY: dict[str, str] = {
     "7.4": "sensor_altitude",
     "7.5": "sensor_altitude",
     "10.2": "direction",
-    "10.3": "sensor_altitude",
 }
 
 
@@ -113,8 +124,8 @@ def test_every_shipped_gui_scenario_is_classified() -> None:
     assert len(_YAML_BY_ID) == len(_gui_yamls()), "duplicate scenario ids under scenarios/"
     assert ids == set(FIRST_TRY) | set(SINGLE_ADVISORY)
     assert not set(FIRST_TRY) & set(SINGLE_ADVISORY)
-    assert len(FIRST_TRY) == 26
-    assert len(SINGLE_ADVISORY) == 12
+    assert len(FIRST_TRY) == 27
+    assert len(SINGLE_ADVISORY) == 11
 
 
 @pytest.mark.golden
@@ -176,26 +187,56 @@ def test_uncovered_scene_gets_one_structured_advisory(scenario_id: str) -> None:
     assert error.action and "simple" in error.action
 
 
-def test_scenario_10_3_names_the_sst_fan_site_elevation_gap() -> None:
-    """10.3's advisory is the SST fan's lower endpoint, not the ladder's ceiling.
+@pytest.mark.golden
+def test_scenario_10_3_is_served_from_its_own_900_m_site_fan() -> None:
+    """The CU-322 acceptance criterion's last clause, completing.
 
-    The entry's worked example.  Three families refuse this scene for three
-    different reasons; the one worth telling the operator is the *closest* miss —
-    the SST column fan, which serves the geometry in every respect but is rendered
-    from a 0 m site while this scene's telescope sits at 900 m.  The authored
-    M9-M13 rows are named so a scheduled gap does not read as an absent one.
+    The entry's worked example.  Until 2026-08-03 three families refused this
+    scene and the advisory named the closest miss — the SST column fan, which
+    served the geometry in every respect but was rendered from a 0 m site while
+    this scene's telescope sits at 900 m — together with the authored M9-M13
+    rows, so a scheduled gap did not read as an absent one.  Those rows were
+    run and ingested as ``midlat_summer_sst_column_fan_site900m``, so the scene
+    is now served first-try: no advisory, and the chain evaluates.
+
+    The provenance is asserted, not just the metric, because *how* it is served
+    is the physics claim: the 900 m lower endpoint is a rendered node, and the
+    700 km target is reached by the exo vacuum-clamp identity off the family's
+    100 km column top rather than by extrapolating past it.
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        suggestion = Sensor.load(_YAML_BY_ID["10.3"]).atmosphere_family_suggestion()
+        sensor = Sensor.load(_YAML_BY_ID["10.3"])
+        suggestion = sensor.atmosphere_family_suggestion()
 
-    text = suggestion.advisory_text or ""
-    assert "midlat_summer_sst_column_fan" in text
-    assert "900 m" in text
-    assert "M9-M13" in text
-    assert suggestion.gap is not None
-    assert suggestion.gap.context["rendered"] == pytest.approx(0.0, abs=1e-9)
-    assert suggestion.gap.context["query"] == pytest.approx(900.0, abs=1e-6)
+        assert suggestion.serves
+        assert suggestion.advisory_text is None
+        assert suggestion.gap is None
+        family = suggestion.family
+        assert family is not None
+        assert family.name == "midlat_summer_sst_column_fan_site900m"
+        assert family.explicit_dir_only
+
+        run = Sensor.load(_YAML_BY_ID["10.3"])
+        run.set("atmosphere.model", "interpolated")
+        run.set("atmosphere.interpolation_axes", family.interpolation_axes)
+        run.set("atmosphere.interpolated_data_dir", family.bundled_dir)
+        result = run.evaluate()
+
+    assert result.metrics["snr"] == pytest.approx(218.0267, rel=1e-4)
+
+    provenance = result.stage_outputs["atmosphere"]["topology_provenance"]
+    segment = provenance["observer_segment_provenance"]
+    assert segment["model"] == "interpolated"
+    assert segment["h_low_m"] == pytest.approx(900.0, abs=1e-9)
+    assert segment["n_points"] == 5
+    assert segment["target_ceiling_m"] == pytest.approx(100_000.0, abs=1e-9)
+    assert segment["target_altitude_served_m"] == pytest.approx(100_000.0, abs=1e-9)
+    assert "exact identity, not extrapolation" in segment["exo_target_vacuum_clamp"]
+    # CU-226: the observer leg is measured, the illumination legs are not, and
+    # the result says so rather than presenting one self-consistent model.
+    assert "InterpolatedAtmosphere up-looking run family" in provenance["backend_split"]
+    assert "SimpleAtmosphere companion" in provenance["backend_split"]
 
 
 def test_scenario_10_1_is_the_zenith_fan_not_the_vertical_ladder() -> None:

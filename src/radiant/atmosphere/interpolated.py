@@ -716,7 +716,9 @@ class InterpolatedAtmosphere:
             "atmosphere.interpolated_data_dir at an up-looking family that "
             "carries a zenith axis (shipped: midlat_summer_uplooking_zenith_fan "
             "for targets 0-20 km, midlat_summer_sst_column_fan for the full "
-            "column to space), or use atmosphere.model='simple', which serves "
+            "column to space from the ground, midlat_summer_sst_column_fan_site900m "
+            "for the same column from a 900 m site), "
+            "or use atmosphere.model='simple', which serves "
             "any up-looking zenith through the segment evaluators."
         )
 

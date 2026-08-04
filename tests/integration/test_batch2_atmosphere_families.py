@@ -1,10 +1,11 @@
 """Integration: the batch-2 MODTRAN delivery — new families, CU-181, ex-CU-223.
 
 The batch-2 run set (``docs/plans/modtran_run_matrix.csv`` rows M1–Q8, delivered
-2026-08-02, 35 of the 37 authored rows — Q5/Q6 gated on a real refraction
-switch) is ingested by ``scripts/build_atmosphere_library.py`` into four new
-families plus an altitude-resolved ``atm_emission_down`` on the pre-existing
-down-looking ones.  This module owns the ingestion contract:
+2026-08-02, plus the 2026-08-03 M9–M13 / P7–P8 follow-on: 42 of the 44 authored
+rows — Q5/Q6 gated on a real refraction switch) is ingested by
+``scripts/build_atmosphere_library.py`` into five new families plus an
+altitude-resolved ``atm_emission_down`` on the pre-existing down-looking ones.
+This module owns the ingestion contract:
 
 1. **ex-CU-223 — the deck-geometry convention.**  Every batch-2 row's delivered
    Card-3 echo must match the run matrix, and every family builder must key its
@@ -26,6 +27,7 @@ from __future__ import annotations
 
 import csv
 import math
+import re
 from pathlib import Path
 
 import numpy as np
@@ -55,7 +57,8 @@ _CARD3_ECHO_LINE = 5
 #: so M grows 8 → 13 and P 6 → 8. Q5/Q6 (the refraction pair) remain the only
 #: recorded gaps.
 _BATCH2_BLOCKS = {"M": 13, "N": 10, "O": 5, "P": 8, "Q": 6}
-_BATCH2_DELIVERED = sum(_BATCH2_BLOCKS.values())  # 42 (Q5/Q6 not run)
+#: Counts are DELIVERED rows, not authored: Q is 6 of its 8 (Q5/Q6 unrun).
+_BATCH2_DELIVERED = sum(_BATCH2_BLOCKS.values())  # 42
 
 _DEG = math.pi / 180.0
 
@@ -129,13 +132,14 @@ def _node_geometries(subdir: str) -> list[dict[str, float]]:
 
 @pytest.mark.level2
 def test_every_batch2_row_was_delivered_or_is_a_recorded_gap() -> None:
-    """35 of 37 batch-2 rows landed; every undelivered row is a *recorded* gap.
+    """42 of 44 batch-2 rows landed; every undelivered row is a *recorded* gap.
 
     Two recorded shapes exist: the Q5/Q6 refraction pair (not runnable
     without a ray-bending switch, ``deck_builder_support`` says so) and
-    owner-ratified FUTURE RUN rows authored after the delivery (P7/P8, the
-    CU-181 closure's 60/80 km downwelling rungs), which carry the literal
-    ``FUTURE RUN`` marker in their notes column. Anything else missing is a
+    owner-ratified rows authored after a delivery and still unrun, which carry
+    the literal ``FUTURE RUN`` marker in their notes column. The two blocks
+    that used that marker — M9-M13 and P7/P8 — were delivered 2026-08-03, so
+    Q5/Q6 are the only rows this loop sees today. Anything else missing is a
     delivery regression.
     """
     rows = _matrix_rows()
@@ -149,6 +153,35 @@ def test_every_batch2_row_was_delivered_or_is_a_recorded_gap() -> None:
             or "FUTURE RUN" in rows[run_id]["notes"]
         )
         assert recorded, f"unrecorded missing batch-2 row: {run_id}"
+
+
+@pytest.mark.level2
+def test_no_family_advertises_pending_runs_that_have_already_been_delivered() -> None:
+    """``ShippedFamily.pending_runs`` must name decks that have NOT landed.
+
+    The field exists so an advisory can say "this gap is already scheduled"
+    (CU-322). That reads as a lie the moment the decks arrive:
+    ``midlat_summer_sst_column_fan`` advertised rows M9-M13 until 2026-08-03,
+    when those decks were delivered and ingested as the sibling 900 m family —
+    at which point the coverage was shipped, not pending. This asserts the
+    catalogue cannot drift back into that state.
+    """
+    from radiant.api import shipped_atmosphere_families
+
+    rows = _matrix_rows()
+    checked = 0
+    for family in shipped_atmosphere_families():
+        if family.pending_runs is None:
+            continue
+        named = [rid for rid in rows if re.search(rf"\b{rid}\b", family.pending_runs)]
+        assert named, f"{family.name}: pending_runs names no run-matrix row"
+        for run_id in named:
+            assert not (_REAL_RUNS / f"{run_id}.tp7").exists(), (
+                f"{family.name} advertises {run_id} as pending, but its tape7 is delivered"
+            )
+        checked += 1
+    # Vacuous today by design — no bundled family has an outstanding deck.
+    assert checked == 0
 
 
 @pytest.mark.level2
@@ -223,6 +256,7 @@ def test_staged_itype1_rows_all_reproduce_their_delivered_range() -> None:
     [
         ("UPLOOKING_ZENITH_FAN", "midlat_summer_uplooking_zenith_fan"),
         ("SST_COLUMN_FAN", "midlat_summer_sst_column_fan"),
+        ("SST_COLUMN_FAN_SITE900M", "midlat_summer_sst_column_fan_site900m"),
         ("UPLOOKING_SENSOR_LADDER", "midlat_summer_uplooking_sensor_ladder"),
         ("UPWELLING_OFFNADIR", "midlat_summer_upwelling_offnadir"),
     ],
@@ -249,7 +283,7 @@ def test_family_builders_key_their_nodes_to_the_matrix_lower_endpoint_zenith(
         zenith_deg = spec[-1] if isinstance(spec, tuple) else 48.2
         if family_map == "UPLOOKING_SENSOR_LADDER":
             zenith_deg = builder.UPLOOKING_SENSOR_LADDER_ZENITH_DEG
-        elif family_map == "SST_COLUMN_FAN":
+        elif family_map in ("SST_COLUMN_FAN", "SST_COLUMN_FAN_SITE900M"):
             zenith_deg = spec
         matrix_zenith = float(row["path_zenith_deg_radiant"])
         assert zenith_deg == pytest.approx(matrix_zenith, abs=1e-6), (
@@ -423,6 +457,150 @@ class TestSstColumnFan:
         assert _band_mean(wl, product.tau, 3.5, 4.1) == pytest.approx(0.779188, abs=5e-3)
 
 
+class TestSstColumnFanSite900m:
+    """M9–M13: the same full column, lower endpoint lifted to a 900 m site.
+
+    The 2026-08-03 follow-on. Shipped as a **sibling** family rather than a
+    sensor-altitude axis on the 0 m fan, so the 0 m fan's nodes are untouched —
+    that byte-identity is asserted here, because it is the run matrix's own
+    ingestion condition and the thing a shared-family design would have broken.
+    """
+
+    _SUBDIR = "midlat_summer_sst_column_fan_site900m"
+    _GROUND_SUBDIR = "midlat_summer_sst_column_fan"
+    _AXES = ["path_zenith_rad"]
+
+    #: Band-mean τ of the shipped 900 m nodes, measured 2026-08-03 from the
+    #: delivered M9–M13 tape7s, paired with the 0 m fan's value at the same
+    #: zenith. Both sides pinned: the elevated column must be more transparent,
+    #: and by *this* much.
+    _TAU_812 = {
+        0.0: (0.701797, 0.582762),
+        60.0: (0.551899, 0.390255),
+        70.529: (0.445634, 0.270337),
+        75.522: (0.365102, 0.191127),
+        78.463: (0.302072, 0.137167),
+    }
+
+    @pytest.mark.level2
+    def test_the_sec_ladder_is_the_five_m9_m13_rungs_with_no_diffusivity_rung(self) -> None:
+        """sec ζ = 1/2/3/4/5 — and deliberately **no** 48.2° (sec 1.4999) rung.
+
+        The 0 m fan gets its sec 1.5 rung from H5, a ground run; there is no
+        900 m sibling of H5, so this fan's ladder is M9–M13 exactly. Asserting
+        the absence matters: silently borrowing H5 here would put a 0 m column
+        inside a 900 m family's hull.
+        """
+        zeniths = sorted({round(g["path_zenith_rad"], 9) for g in _node_geometries(self._SUBDIR)})
+        secs = [1.0 / math.cos(z) for z in zeniths]
+        assert secs == pytest.approx([1.0, 2.0, 3.0, 4.0, 5.0], abs=2e-3)
+        assert not any(abs(z / _DEG - 48.2) < 1e-3 for z in zeniths)
+
+    @pytest.mark.level2
+    def test_every_node_is_rendered_from_the_900_m_lower_endpoint(self) -> None:
+        geoms = _node_geometries(self._SUBDIR)
+        assert len(geoms) == 5
+        assert all(g["sensor_altitude_m"] == pytest.approx(900.0, abs=1e-9) for g in geoms)
+        assert all(g["target_altitude_m"] == pytest.approx(100_000.0, abs=1e-9) for g in geoms)
+
+    @pytest.mark.level2
+    def test_the_ground_fan_is_byte_identical(self) -> None:
+        """The matrix's ingestion condition: 'keep the 0 m fan byte-identical'.
+
+        A sensor-altitude axis on the existing family would have re-keyed and
+        rewritten all six of its nodes; a sibling family cannot touch them. The
+        node count and the delivered-run pairing are what would move.
+        """
+        ground = _node_geometries(self._GROUND_SUBDIR)
+        assert len(ground) == 6
+        assert all(g["sensor_altitude_m"] == 0.0 for g in ground)
+        recorded = sorted(round(g["path_zenith_rad"] / _DEG, 3) for g in ground)
+        assert recorded == [0.0, 48.2, 60.0, 70.529, 75.522, 78.463]
+
+    @pytest.mark.level2
+    @pytest.mark.parametrize("zenith_deg", sorted(_TAU_812))
+    def test_node_exact_transmittance_beats_the_ground_site_at_every_zenith(
+        self, zenith_deg: float
+    ) -> None:
+        """Node-exact query, and the physics the whole family exists for.
+
+        900 m of elevation removes the densest 900 m of the column — the layers
+        holding most of the water vapour and, per the M9 run-matrix note, ~8 %
+        of the aerosol — so the elevated column must transmit strictly more at
+        every air mass. That is why 10.3's mountaintop site cannot be served by
+        the 0 m fan.
+        """
+        family = _uplooking_family(self._SUBDIR, self._AXES)
+        wl = family.wavelength_um
+        product = family.uplooking_column_product(
+            wl,
+            LineOfSightGeometry(
+                theta_o=math.pi - zenith_deg * _DEG, h_tgt=100_000.0, h_sensor=900.0
+            ),
+        )
+        want_elevated, want_ground = self._TAU_812[zenith_deg]
+        tau = _band_mean(wl, product.tau, 8.0, 12.0)
+        assert tau == pytest.approx(want_elevated, abs=5e-3)
+        assert tau > want_ground
+
+    @pytest.mark.level2
+    def test_the_lower_endpoint_node_is_the_m9_vertical_column(self) -> None:
+        """The sec = 1 rung, which is the endpoint 10.3's 20° query sits beside."""
+        family = _uplooking_family(self._SUBDIR, self._AXES)
+        wl = family.wavelength_um
+        product = family.uplooking_column_product(
+            wl, LineOfSightGeometry(theta_o=math.pi, h_tgt=100_000.0, h_sensor=900.0)
+        )
+        assert _band_mean(wl, product.tau, 8.0, 12.0) == pytest.approx(0.701797, abs=5e-3)
+        assert _band_mean(wl, product.tau, 3.5, 4.1) == pytest.approx(0.832601, abs=5e-3)
+
+    @pytest.mark.level2
+    def test_off_node_zenith_interpolates_inside_the_sec_hull(self) -> None:
+        """Scenario 10.3's own 20° query: between the sec 1 and sec 2 rungs.
+
+        Bracketed by the two node values rather than pinned to a fabricated
+        number — the interpolation contract is monotone in air mass, and 20°
+        (sec 1.064) must land very close to the vertical rung.
+        """
+        family = _uplooking_family(self._SUBDIR, self._AXES)
+        wl = family.wavelength_um
+
+        def tau_at(zenith_deg: float) -> float:
+            return _band_mean(
+                wl,
+                family.uplooking_column_product(
+                    wl,
+                    LineOfSightGeometry(
+                        theta_o=math.pi - zenith_deg * _DEG, h_tgt=100_000.0, h_sensor=900.0
+                    ),
+                ).tau,
+                8.0,
+                12.0,
+            )
+
+        mid = tau_at(20.0)
+        assert tau_at(60.0) < mid < tau_at(0.0)
+        assert 1.0 / math.cos(20.0 * _DEG) == pytest.approx(1.0642, abs=1e-4)
+
+    @pytest.mark.level2
+    def test_beyond_the_sec_5_hull_is_refused_not_extrapolated(self) -> None:
+        """79.5° is past the sec-5 top rung (78.463°) and still expressible.
+
+        The probe angle is deliberately just outside the hull rather than far
+        outside it: for a 900 m lower endpoint and a 100 km upper one, the
+        spherical viewing triangle admits a lower-endpoint zenith only up to
+        ~79.97° (past that the target→sensor ray's perigee sits above the
+        sensor and ``LineOfSightGeometry`` refuses first, which would test the
+        wrong layer). The family's own hull stops well inside that limit.
+        """
+        family = _uplooking_family(self._SUBDIR, self._AXES)
+        with pytest.raises(AtmosphereValidationError, match="outside the available range"):
+            family.uplooking_column_product(
+                family.wavelength_um,
+                LineOfSightGeometry(theta_o=math.pi - 79.5 * _DEG, h_tgt=100_000.0, h_sensor=900.0),
+            )
+
+
 class TestUplookingSensorLadder:
     """P block + H5: an elevated observer's full column at the 48.2° angle."""
 
@@ -431,9 +609,17 @@ class TestUplookingSensorLadder:
 
     @pytest.mark.level2
     def test_rungs_are_the_p_block_plus_the_zero_length_top(self) -> None:
+        """P1–P8 + H5 + the synthesized top. 60/80 km are the P7/P8 follow-on.
+
+        This family and the CU-181 downwelling ladder are the *same* runs
+        (``UPLOOKING_SENSOR_LADDER = dict(DOWNWELLING_RUNGS)``), so the two
+        measured rungs that closed CU-181's modelled band are library nodes
+        here too — the 50 → 100 km span is now measured at two interior points
+        instead of being spanned by one interpolation.
+        """
         geoms = _node_geometries(self._SUBDIR)
         sensors = sorted(g["sensor_altitude_m"] / 1000.0 for g in geoms)
-        assert sensors == [0.0, 1.0, 5.0, 10.0, 20.0, 29.0, 50.0, 100.0]
+        assert sensors == [0.0, 1.0, 5.0, 10.0, 20.0, 29.0, 50.0, 60.0, 80.0, 100.0]
         assert all(g["target_altitude_m"] == 100_000.0 for g in geoms)
         assert all(g["path_zenith_rad"] == pytest.approx(48.2 * _DEG, abs=1e-9) for g in geoms)
 
@@ -442,7 +628,7 @@ class TestUplookingSensorLadder:
         family = _uplooking_family(self._SUBDIR, self._AXES)
         wl = family.wavelength_um
         previous = 0.0
-        for sensor_km in (0.0, 1.0, 5.0, 10.0, 20.0, 29.0, 50.0):
+        for sensor_km in (0.0, 1.0, 5.0, 10.0, 20.0, 29.0, 50.0, 60.0, 80.0):
             product = family.uplooking_column_product(
                 wl,
                 LineOfSightGeometry(
@@ -550,7 +736,8 @@ class TestUpwellingOffnadir:
 class TestCu181AltitudeDependentDownwelling:
     #: Measured 2026-08-02 from the shipped boost-ladder NPZs: 3-5 µm and
     #: 8-12 µm band-mean ``atm_emission_down`` [W/m²/sr/µm] per target rung,
-    #: and the decay ratio to the ground rung.
+    #: and the decay ratio to the ground rung. The 60 and 80 km rows were
+    #: re-measured 2026-08-03 when P7/P8 replaced their modelled values.
     _EXPECTED = {
         0: (5.284379e-01, 3.726067e00, 1.000, 1.000),
         1: (3.742912e-01, 2.203498e00, 1.412, 1.691),
@@ -561,8 +748,17 @@ class TestCu181AltitudeDependentDownwelling:
         35: (4.343333e-03, 4.425610e-02, 121.7, 84.19),
         40: (3.999377e-03, 2.529624e-02, 132.1, 147.3),
         50: (3.709306e-03, 8.426179e-03, 142.5, 442.2),
-        60: (3.387948e-03, 2.865881e-03, 156.0, 1300.0),
-        80: (3.021602e-03, 3.471554e-04, 174.9, 1.073e4),
+        60: (3.191869e-04, 5.835672e-04, 1656.0, 6385.0),
+        80: (3.437181e-07, 9.954564e-07, 1.537e6, 3.743e6),
+    }
+
+    #: The values the 60/80 km rungs carried while they were MODELLED (the
+    #: log-linear extrapolation on the measured 29→50 km slope, clamped
+    #: non-increasing), and which P7/P8 retired. Kept so the test below can
+    #: state how wrong the model was rather than merely that it changed.
+    _RETIRED_MODEL = {
+        60: (3.387948e-03, 2.865881e-03),
+        80: (3.021602e-03, 3.471554e-04),
     }
 
     def _rungs(self) -> dict[int, tuple[np.ndarray, np.ndarray]]:
@@ -638,13 +834,41 @@ class TestCu181AltitudeDependentDownwelling:
         assert decay_mwir > 100.0
 
     @pytest.mark.level2
-    def test_downwelling_is_non_increasing_above_the_measured_span(self) -> None:
-        """No residual column gains emitters with altitude (the slope clamp)."""
+    def test_downwelling_is_non_increasing_through_the_measured_ladder(self) -> None:
+        """No residual column gains emitters with altitude — now *measured*.
+
+        Before P7/P8 this held above 50 km by construction (the extrapolator's
+        slope clamp). It now holds because MODTRAN says so at 60 and 80 km,
+        which is the stronger statement: the clamp was an assumption and the
+        measurement agrees with it.
+        """
         rungs = self._rungs()
-        _wl, top_measured = rungs[50]
-        for target_km in (60, 80):
-            _w, ld = rungs[target_km]
-            assert np.all(ld <= top_measured + 1e-12), target_km
+        _wl, at50 = rungs[50]
+        _w60, at60 = rungs[60]
+        _w80, at80 = rungs[80]
+        assert np.all(at60 <= at50 + 1e-12)
+        assert np.all(at80 <= at60 + 1e-12)
+
+    @pytest.mark.level2
+    @pytest.mark.parametrize("target_km", (60, 80))
+    def test_the_retired_extrapolation_over_stated_the_measured_rung(self, target_km: int) -> None:
+        """How wrong the pre-P7/P8 model was, pinned in both bands.
+
+        The 29 → 50 km log slope is shallow — especially in the MWIR, where the
+        stratospheric CO₂/O₃ layers hold the sky up — so continuing it upward
+        under-predicted the collapse that actually happens above 50 km. The
+        model was wrong in the conservative (over-stating) direction, which is
+        what ``scripts/downwelling_altitude.py`` claimed for it, but by 10× at
+        60 km and by nearly 10⁴× at 80 km in the MWIR.
+        """
+        wl, ld = self._rungs()[target_km]
+        model35, model812 = self._RETIRED_MODEL[target_km]
+        meas35 = _band_mean(wl, ld, 3.0, 5.0)
+        meas812 = _band_mean(wl, ld, 8.0, 12.0)
+        assert model35 > meas35 and model812 > meas812
+        expected = {60: (10.61, 4.911), 80: (8791.0, 348.7)}[target_km]
+        assert model35 / meas35 == pytest.approx(expected[0], rel=5e-3)
+        assert model812 / meas812 == pytest.approx(expected[1], rel=5e-3)
 
     @pytest.mark.level2
     def test_the_mwir_rise_at_29_km_is_preserved_not_smoothed_away(self) -> None:

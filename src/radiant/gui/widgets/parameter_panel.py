@@ -67,6 +67,7 @@ from PySide6.QtWidgets import (
 
 from radiant.core.exceptions import RadiantError
 from radiant.gui.dialog_lifetime import exec_dialog
+from radiant.gui.display_units import global_display_unit
 from radiant.gui.param_format import (
     DERIVED_BADGE,
     display_in_unit,
@@ -470,10 +471,7 @@ class ParameterPanel(QWidget):
         QSettings persistence).
         """
         assert self._sensor is not None
-        override = self._display_units.get(dotpath)
-        if override is not None:
-            return override
-        return self._sensor.parameter_def(dotpath).input_unit
+        return self._effective_display_unit(dotpath, self._sensor.parameter_def(dotpath))
 
     @staticmethod
     def _regime_exclusion(sensor: Sensor, dotpath: str) -> str | None:
@@ -498,6 +496,19 @@ class ParameterPanel(QWidget):
             return None
         return declared
 
+    def _effective_display_unit(self, dotpath: str, pdef: ParameterDef) -> str:
+        """The unit this row displays, seeds its editor in, and interprets typing in.
+
+        Resolution order (owner ruling 2026-08-03, CU-326): per-row override →
+        global preference (:func:`~radiant.gui.display_units.global_display_unit`,
+        angles in degrees by default) → schema ``input_unit``. One resolver for
+        all three sites keeps entry and display symmetric by construction.
+        """
+        override = self._display_units.get(dotpath)
+        if override is not None:
+            return override
+        return global_display_unit(pdef.input_unit or "") or pdef.input_unit
+
     def _display_value_and_unit(
         self,
         sensor: Sensor,
@@ -506,16 +517,16 @@ class ParameterPanel(QWidget):
     ) -> tuple[Any, str]:
         """The (value, unit) pair to show for a row, honouring its display-unit choice.
 
-        With no override (or an override equal to the schema input_unit) this is the
-        resolved input-unit value and the input_unit — the original behaviour. With an
-        override it re-expresses the value in that unit through the public registry
-        seam (:func:`~radiant.gui.param_format.display_in_unit`); if that unit is not
+        The unit comes from :meth:`_effective_display_unit` (per-row override →
+        global preference → schema input_unit). When it differs from the schema
+        unit the value is re-expressed through the public registry seam
+        (:func:`~radiant.gui.param_format.display_in_unit`); if that unit is not
         soundly convertible (unregistered / offset unit) it **falls back** to the
         canonical/input unit for that row rather than inventing a conversion (Rule 2).
         """
         input_value = self._resolved_value(sensor, dotpath)
-        target = self._display_units.get(dotpath)
-        if target is None or target == pdef.input_unit:
+        target = self._effective_display_unit(dotpath, pdef)
+        if target == pdef.input_unit:
             return input_value, pdef.input_unit
         try:
             value = display_in_unit(input_value, pdef.input_unit, target, pdef.canonical_unit)
@@ -553,18 +564,20 @@ class ParameterPanel(QWidget):
         inline and in a modal; unexpected errors get a traceback dialog (Rules 15/17).
 
         The typed number is interpreted in the row's **display unit** (owner feedback
-        2026-07-13): when the row carries a display-unit override the value is written
-        with ``unit=<display_unit>`` so the API performs the single Rule-2 conversion
-        (type 550 into a km-displaying row → 550000 m canonical). With no override the
-        value is written unit-less, exactly as before.
+        2026-07-13; extended to the global preference by the 2026-08-03 CU-326
+        ruling): when the row's effective display unit differs from the schema
+        input unit — a per-row override, or the global angles-in-degrees default —
+        the value is written with ``unit=<display_unit>`` so the API performs the
+        single Rule-2 conversion (type 45 into a deg-displaying rad row → 0.7854
+        rad canonical). Otherwise the value is written unit-less, exactly as before.
         """
         sensor = self._sensor
         if sensor is None:
             return
 
-        unit = self._display_units.get(dotpath)
         pdef = sensor.parameter_def(dotpath)
-        write_unit = unit if (unit is not None and unit != pdef.input_unit) else None
+        unit = self._effective_display_unit(dotpath, pdef)
+        write_unit = unit if unit != pdef.input_unit else None
 
         trial = sensor.clone()
         try:

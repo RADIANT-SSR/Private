@@ -21,6 +21,21 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Global display-unit preference — angles in degrees (CU-326, owner-ruled).**
+  Parameters whose schema unit is `rad` now display, seed their editors, and
+  interpret typed values in **degrees** everywhere (parameter tree, stage
+  forms, editor dialogs); `mrad`/`µrad` parameters keep their schema units.
+  Per-row unit overrides still win; a persisted View → *Angles in Degrees*
+  toggle restores schema units. Display-only — canonical storage and the API
+  are unchanged (Rule 2).
+
+### Changed
+- **One metric, one unit, everywhere (CU-326).** The Performance cards now
+  route through the same display scaling as the pinned badges (NEDT reads
+  25 mK on both, not 0.025 K on one and 25 mK on the other), and metrics
+  whose magnitude would render in scientific notation get an automatic
+  engineering prefix (a 2.13e−05 m FWHM reads 21.3 µm). ASCII exponent units
+  render typeset across the GUI: `m2` → `m²`, `um` → `µm`, `urad` → `µrad`.
 - **The Run button now carries the staleness trust signal (CU-327).** When results
   predate the last edit — or the last run failed — the right-rail Evaluate button
   flips to the warn fill and reads "Re-evaluate  F5", clearing on the next clean

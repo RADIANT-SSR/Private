@@ -64,15 +64,15 @@ Checklist:
 ### CU-326 — Display-unit hard-rule violations family: card/badge unit disagreement, scientific notation for µm-scale lengths, canonical radians shown raw, unitless sweep axes
 
 **Discovered**: four-surface GUI design critique, 2026-08-03. Family head.
-**Status**: Open — one item owner-gated (global display-unit preference policy).
+**Status**: Open — three of four checklist items landed (branch `gui/cu-326-display-units`); the sweep-axis item rides with CU-325's dialog work and closes the family. **Owner ruling (2026-08-03): approved** — global display-unit preference, degrees + smart prefixes: angles display in degrees by default (schema `rad` only), lengths auto-prefix, per-row overrides stay on top, settings-persisted; display-only per Rule 2.
 **File**: `src/radiant/gui/metric_format.py` (`metric_value_display` `:199` skips `scale_for_display` while `badge_display` `:293` applies it); `src/radiant/gui/widgets/parameter_panel.py` (values render in canonical units — `1.5708 rad`, `0 m2`); `src/radiant/gui/widgets/sweep_dialog.py` (`:346` 1-D x-axis in canonical unit while entry is input unit; `:364–365` 2-D axes and metric colorbar carry no units).
 **Symptom**: NEDT shows **0.025 K** on the Performance card and **25 mK** on the pinned badge simultaneously; FWHM renders `2.13e−05 m` (21.3 µm); elevation angles display `1.5708 rad`; the sweep plot's axis unit differs from the unit the user typed; 2-D sweep axes are unit-less.
 **Why it still matters**: the owner's two hard rules (display in the user's chosen unit, entry/display symmetric; units on every output) are violated on the default results screen and the primary trade-study artifact — the numbers that go into design-review slides.
 Checklist:
-- [ ] Route card rendering through `scale_for_display` (one screen, one unit per metric)
-- [ ] Engineering-prefix formatter so µm/mK-scale values never render as `e−05`-style scientific notation
-- [ ] Owner ruling: global display-unit preference (angles in deg by default?) layered over the existing per-row override
-- [ ] Sweep plots labeled in the entry unit; every axis and colorbar unit-suffixed; `m²` not `m2`
+- [x] Route card rendering through `scale_for_display` (one screen, one unit per metric)
+- [x] Engineering-prefix formatter so µm/mK-scale values never render as `e−05`-style scientific notation
+- [x] Owner ruling received and implemented: global display-unit preference (angles in deg by default) layered over the existing per-row override, View-menu toggle, settings-persisted; `m²`/`µm` typeset via `pretty_unit`
+- [ ] Sweep plots labeled in the entry unit; every axis and colorbar unit-suffixed (lands with CU-325's dialog rework)
 **Suggested fix**: (b) stand-alone task after the owner ruling on item 3. Effort M; category D.
 
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically

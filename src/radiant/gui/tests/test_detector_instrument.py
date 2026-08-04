@@ -138,7 +138,9 @@ class TestDetectorPane:
         for _label, dotpath in _DETECTOR_FIELDS:
             assert isinstance(form.row(dotpath), FieldRow)
         # The pixel pitch carries its unit (R-UNITS): reads in µm.
-        assert form.field_value_text("detector.pixel_pitch_x_um").endswith("um")
+        assert form.field_value_text("detector.pixel_pitch_x_um").endswith(
+            "µm"
+        )  # pretty_unit, CU-326
 
     def test_outputs_readout_shows_detector_scalars_with_units(  # type: ignore[no-untyped-def]
         self, qtbot

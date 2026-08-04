@@ -493,7 +493,7 @@ class TestRenamePropagates:
 
         assert window.configuration_bar.names == ("MWIR", "LWIR-B")
         assert [b.text() for b in window.configuration_bar.buttons] == ["MWIR", "LWIR-B"]
-        assert "LWIR-B: 8 um" in window.configuration_scope.summary(_FILTER_MIN)
+        assert "LWIR-B: 8 µm" in window.configuration_scope.summary(_FILTER_MIN)
         assert "LWIR-B" in window.parameter_panel.configured_tooltip(_FILTER_MIN)
         # The name-keyed wavelength-points entry moved with the name (CU-210 reader).
         assert cs.wavelength_points("LWIR-B") == 120

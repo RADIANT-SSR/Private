@@ -297,6 +297,7 @@ gui/
 ├── main_window.py       # RADIANTMainWindow(QMainWindow) — menus, stage strip, docks
 ├── config_scope.py      # ConfigurationScope — configured-parameter badges + scope actions (4b)
 ├── dialog_lifetime.py   # exec_dialog(dialog) — run a modal loop, then free the dialog (CU-216)
+├── display_units.py     # global display-unit preference (angles→deg default) + pretty_unit (CU-326)
 ├── document_yaml.py     # is_study / serialize_document / load_document_from_text (4e)
 ├── target_spec_guard.py # introduced_target_spec_conflict — CU-244 differential door guard shared by both clone-validate edit paths
 ├── tolerance_units.py   # Qt-free: per-field tolerance unit conversion (std=difference, low/high=absolute, sigma=dimensionless)

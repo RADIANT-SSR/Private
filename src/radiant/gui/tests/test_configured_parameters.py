@@ -162,7 +162,7 @@ class TestConfigureAction:
         """The owner's spec: 'MWIR: 3.5 um · LWIR: 8 um' — set order, units, all N."""
         window = _open_study(qtbot, tmp_path)
         summary = window.configuration_scope.summary(_FILTER_MIN)
-        assert summary == "MWIR: 3.5 um · LWIR: 8 um"
+        assert summary == "MWIR: 3.5 µm · LWIR: 8 µm"  # µm typeset via pretty_unit (CU-326)
         assert summary in window.parameter_panel.configured_tooltip(_FILTER_MIN)
         rows = _field_rows(window, _FILTER_MIN)
         assert rows
@@ -171,8 +171,8 @@ class TestConfigureAction:
     def test_badge_tooltip_tracks_a_value_edit_live(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         window = _open_study(qtbot, tmp_path)
         _act(qtbot, window, lambda: window._commit_configured_values(_FILTER_MIN, [3.6, 8.0]))
-        assert window.configuration_scope.summary(_FILTER_MIN) == "MWIR: 3.6 um · LWIR: 8 um"
-        assert "3.6 um" in window.parameter_panel.configured_tooltip(_FILTER_MIN)
+        assert window.configuration_scope.summary(_FILTER_MIN) == "MWIR: 3.6 µm · LWIR: 8 µm"
+        assert "3.6 µm" in window.parameter_panel.configured_tooltip(_FILTER_MIN)
 
     def test_configuring_an_already_configured_parameter_is_refused(  # type: ignore[no-untyped-def]
         self, qtbot, tmp_path
@@ -234,7 +234,7 @@ class TestUnconfigure:
         window.configuration_scope.request_unconfigure(_FILTER_MIN)
 
         assert len(asked) == 1
-        assert "MWIR's value, 3.5 um" in asked[0]
+        assert "MWIR's value, 3.5 µm" in asked[0]
         # Cancelled — nothing changed.
         cs = window.configuration_set
         assert cs is not None
@@ -525,7 +525,7 @@ class TestInlineEditScope:
         window = _open_study(qtbot, tmp_path)
         window.sensor.set(_FILTER_MIN, 3.7)
         _act(qtbot, window, lambda: window.parameter_panel.parameterEdited.emit(_FILTER_MIN))
-        assert "MWIR: 3.7 um" in window.parameter_panel.configured_tooltip(_FILTER_MIN)
+        assert "MWIR: 3.7 µm" in window.parameter_panel.configured_tooltip(_FILTER_MIN)
 
 
 class TestScopedUndoRedo:
@@ -725,7 +725,7 @@ class TestThemeTogglesRepaintPaintedMarkers:
         assert window.configuration_bar.accent_for("MWIR") != light_accent
         # The configured badges survived the repaint.
         assert window.parameter_panel.is_configured_row(_FILTER_MIN) is True
-        assert window.configuration_scope.summary(_FILTER_MIN) == "MWIR: 3.5 um · LWIR: 8 um"
+        assert window.configuration_scope.summary(_FILTER_MIN) == "MWIR: 3.5 µm · LWIR: 8 µm"
 
 
 class TestConfiguredPathKeepsItsPicker:

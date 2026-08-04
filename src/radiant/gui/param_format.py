@@ -28,6 +28,7 @@ from radiant.api.session import RadiantSession
 from radiant.api.units import convert, inverse_convert
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterDef
+from radiant.gui.display_units import global_display_unit, pretty_unit
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
@@ -69,7 +70,9 @@ def format_value(value: Any, unit: str) -> str:
         text = f"{value:g}"
     else:
         text = str(value)
-    return f"{text} {unit}" if unit else text
+    # Typeset exponent units for display (m2 → m², CU-326): schema strings stay
+    # ASCII; only the rendered text is prettified.
+    return f"{text} {pretty_unit(unit)}" if unit else text
 
 
 def display_in_unit(
@@ -142,8 +145,12 @@ def field_display_text(
         # cannot resolve yet (a blank File → New) — the field shows unset, not a crash
         # (found 2026-07-16 with the CU-140 guard tests).
         value = None
+    # Per-row override → global preference (angles in degrees by default,
+    # CU-326 owner ruling) → schema input_unit; same chain as the panel rows.
     target = display_units.get(dotpath)
-    if target is None or target == pdef.input_unit:
+    if target is None:
+        target = global_display_unit(pdef.input_unit or "") or pdef.input_unit
+    if target == pdef.input_unit:
         return format_value(value, pdef.input_unit)
     try:
         shown = display_in_unit(value, pdef.input_unit, target, pdef.canonical_unit)

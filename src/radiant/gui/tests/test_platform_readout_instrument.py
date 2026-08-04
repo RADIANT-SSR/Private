@@ -127,7 +127,7 @@ class TestPlatformPane:
         for _label, dotpath in (*_JITTER_FIELDS, *_MOTION_FIELDS):
             assert isinstance(form.row(dotpath), FieldRow)
         # Jitter reads in µrad, ground velocity in m/s (R-UNITS: every value carries its unit).
-        assert form.field_value_text(_JITTER_RMS).endswith("urad")
+        assert form.field_value_text(_JITTER_RMS).endswith("µrad")  # pretty_unit, CU-326
         assert form.field_value_text("platform.ground_velocity_m_s").endswith("m/s")
 
     def test_outputs_readout_shows_platform_scalars_with_units(  # type: ignore[no-untyped-def]

@@ -90,6 +90,7 @@ from radiant.core.parameters import ParameterBoundsError
 from radiant.core.units import convert
 from radiant.gui.config_scope import scope_of
 from radiant.gui.dialog_lifetime import exec_dialog
+from radiant.gui.display_units import global_display_unit
 from radiant.gui.param_format import (
     DERIVED_BADGE,
     display_in_unit,
@@ -210,10 +211,17 @@ class ParameterEditorDialog(QDialog):
         self._dotpath = dotpath
         self._on_committed = on_committed
         self._pdef: ParameterDef = sensor.parameter_def(dotpath)
-        # The unit the Current line / editor / bounds open displayed in. Validated for
-        # sound convertibility (falls back to input_unit) so no downstream conversion
+        # The unit the Current line / editor / bounds open displayed in. With no
+        # per-row choice the global preference applies (angles in degrees by
+        # default — CU-326 owner ruling), so the dialog opens in the same unit the
+        # row displays wherever it was launched from. Validated for sound
+        # convertibility (falls back to input_unit) so no downstream conversion
         # can raise. Only meaningful for numeric params; "" for the rest.
-        self._display_unit: str = self._sound_display_unit(display_unit or self._pdef.input_unit)
+        self._display_unit: str = self._sound_display_unit(
+            display_unit
+            or global_display_unit(self._pdef.input_unit or "")
+            or self._pdef.input_unit
+        )
 
         # Read-only when the value is derived from a consistency group (⚡): the dialog
         # opens informative but the editors stay disabled (arch doc §4.3, Rule 4).

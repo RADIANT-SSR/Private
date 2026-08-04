@@ -71,7 +71,15 @@ class TestSchemaMatch:
 
 class TestRowRendering:
     def test_dimensional_rows_carry_their_unit(self, panel: ParameterPanel, sensor: Sensor) -> None:
-        """Every dimensional value row shows its schema unit suffix (R-UNITS)."""
+        """Every dimensional value row shows its **effective display** unit (R-UNITS).
+
+        Since CU-326 the effective unit is the global preference's choice for
+        rad-unit rows (degrees, the owner-ruled default) and the schema
+        ``input_unit`` otherwise; ASCII exponent units render typeset (µm, m²).
+        """
+        from radiant.gui.display_units import pretty_unit
+        from radiant.gui.param_format import display_in_unit
+
         checked = 0
         for dotpath, pdef in sensor.parameter_defs().items():
             if not pdef.input_unit:
@@ -79,9 +87,16 @@ class TestRowRendering:
             text = panel.value_text(dotpath)
             if text == UNSET_TEXT or text.endswith(UNSET_TEXT):
                 continue  # unresolved (required-unless superseded) — no value/unit
-            assert pdef.input_unit in text, f"{dotpath}: unit {pdef.input_unit!r} missing"
-            # The rendered value equals the formatting helper's output.
-            expected = format_value(sensor.get_input(dotpath), pdef.input_unit)
+            effective = panel.display_unit(dotpath)
+            assert pretty_unit(effective) in text, f"{dotpath}: display unit {effective!r} missing"
+            # The rendered value equals the formatting helper's output in that unit.
+            raw = sensor.get_input(dotpath)
+            shown = (
+                display_in_unit(raw, pdef.input_unit, effective, pdef.canonical_unit)
+                if effective != pdef.input_unit
+                else raw
+            )
+            expected = format_value(shown, effective)
             assert text.endswith(expected)
             checked += 1
         assert checked > 0  # the example has dimensional parameters

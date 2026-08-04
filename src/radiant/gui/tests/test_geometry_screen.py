@@ -19,6 +19,7 @@ These drive the real widgets on the shipped example config, offscreen. The contr
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import pytest
@@ -271,16 +272,21 @@ class TestGeometryModeForm:
             form = _bound_form(qtbot, sensor)
             # The sensor reflects the set (round-trip via the public surface).
             assert sensor.get_input(dotpath) == pytest.approx(value, rel=1e-9)
-            # The form detected the mode and shows the value (formatted with its unit).
+            # The form detected the mode and shows the value in its effective
+            # display unit — degrees for rad-unit params (CU-326 preference).
             assert form.active_mode("viewing") == mode_key
             unit = sensor.parameter_def(dotpath).input_unit
-            assert form.field_value_text(dotpath) == format_value(value, unit)
+            if unit == "rad":
+                assert form.field_value_text(dotpath) == format_value(math.degrees(value), "deg")
+            else:
+                assert form.field_value_text(dotpath) == format_value(value, unit)
 
     def test_values_carry_units(self, qtbot, sensor: Sensor) -> None:  # type: ignore[no-untyped-def]
         """A dimensional field shows its unit suffix (R-UNITS)."""
         form = _bound_form(qtbot, sensor)
         assert form.field_value_text("geometry.sensor_altitude_m").endswith("m")
-        assert form.field_value_text("geometry.solar_zenith_rad").endswith("rad")
+        # rad-unit fields display in degrees (CU-326 global preference).
+        assert form.field_value_text("geometry.solar_zenith_rad").endswith("deg")
 
     def test_display_unit_store_is_shared(self, qtbot, sensor: Sensor) -> None:  # type: ignore[no-untyped-def]
         """A display unit in the shared store re-expresses the value (owner feedback)."""

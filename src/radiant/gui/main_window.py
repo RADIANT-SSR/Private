@@ -49,6 +49,7 @@ from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
 from radiant.gui.config_scope import ConfigurationScope
 from radiant.gui.dialog_lifetime import exec_dialog
+from radiant.gui.display_units import set_angles_in_degrees
 from radiant.gui.document_yaml import is_study
 from radiant.gui.errors import GuiValidationError
 from radiant.gui.geometry_modes import implicated_families
@@ -2656,6 +2657,19 @@ class RADIANTMainWindow(QMainWindow):
         rail_action.setChecked(rail_visible)
         rail_action.toggled.connect(self._on_toggle_rail)
 
+        # Angles-in-degrees display toggle (CU-326 owner ruling: ON by default,
+        # persisted). Display-only — canonical storage untouched (Rule 2); the
+        # panel, stage forms, and editor dialogs all read the same module state,
+        # so entry and display stay symmetric on toggle.
+        angles_action = self._add_action(
+            self._view_menu, "view.angles_deg", "Angles in Degrees", enabled=True
+        )
+        angles_action.setCheckable(True)
+        angles_enabled = self._settings.angles_in_degrees()
+        set_angles_in_degrees(angles_enabled)
+        angles_action.setChecked(angles_enabled)
+        angles_action.toggled.connect(self._on_toggle_angles_deg)
+
         # Stage-jump shortcuts (Ctrl+1..9 → the nine signal-chain stages, arch doc §10).
         stage_menu = self._view_menu.addMenu("Go to Stage")
         for index, namespace in enumerate(STAGE_NAMESPACES, start=1):
@@ -2709,6 +2723,19 @@ class RADIANTMainWindow(QMainWindow):
         """Show/hide the right rail and persist the choice."""
         self._right_rail_dock.setVisible(visible)
         self._settings.set_panel_visible("right_rail", visible)
+
+    def _on_toggle_angles_deg(self, enabled: bool) -> None:
+        """Flip the global angles-in-degrees display preference (CU-326).
+
+        Persists the choice, installs the module state every display surface
+        reads, and re-renders the parameter tree + stage forms so every visible
+        angle re-expresses immediately. Values are untouched (display-only,
+        Rule 2); an open editor keeps the unit it was opened with.
+        """
+        self._settings.set_angles_in_degrees(enabled)
+        set_angles_in_degrees(enabled)
+        self._parameter_panel.populate(self._sensor)
+        self._central.stage_center.refresh_forms()
 
     @staticmethod
     def _evaluated_message(result: ChainResult) -> str:

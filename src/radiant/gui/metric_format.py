@@ -32,6 +32,7 @@ import math
 from typing import TYPE_CHECKING, Any, Final
 
 from radiant.api.metric_groups import group_of
+from radiant.gui.display_units import pretty_unit
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -206,7 +207,11 @@ def metric_value_display(result: ChainResult, rec: Any) -> str:
     ``OutputsReadout`` metrics path so every metric surface formats identically.)
     """
     if math.isfinite(rec.value):
-        return format_metric_value(rec.value, rec.unit)
+        # Route through the same display scaling as the badge path (CU-326: the
+        # card and the pinned rail used to disagree — 0.025 K here, 25 mK there,
+        # on the same screen).
+        value, unit = scale_for_display(rec.name, rec.value, rec.unit)
+        return format_metric_value(value, unit)
     reason = metric_failure_reason(result, rec.name) or "unavailable (non-finite result)"
     return f"{NOT_AVAILABLE} ({reason})"
 
@@ -221,19 +226,43 @@ _METRIC_DISPLAY_SCALE: Final[dict[str, tuple[str, float]]] = {
 }
 
 
+# Engineering-prefix bands for metrics whose canonical magnitude is illegible in
+# the base unit (CU-326: "2.13e−05 m" is 21.3 µm to any optical engineer). Bands
+# are chosen so ordinary chain magnitudes never rescale (a 0.12 m GSD stays m; a
+# 300 K temperature stays K) — only the awkward small tail gets a prefix.
+_AUTO_PREFIX: Final[dict[str, tuple[tuple[float, float, str], ...]]] = {
+    # unit → ((threshold_below, factor, display_unit), …) checked in order.
+    "m": (
+        (1e-7, 1e9, "nm"),
+        (1e-4, 1e6, "µm"),
+        (1e-2, 1e3, "mm"),
+    ),
+    "K": ((1e-1, 1e3, "mK"),),
+}
+
+
 def scale_for_display(metric_key: str, value: float, unit: str) -> tuple[float, str]:
     """Return *(value, unit)* rescaled to the metric's preferred display prefix (CU-108).
 
-    Consults the single :data:`_METRIC_DISPLAY_SCALE` table. Metrics with no entry
-    are returned unchanged (the registry unit is the default), so only opted-in
-    metrics — NEDT today — rescale. The scaled unit string lives here, never in a
-    widget (R-UNITS, GUI plan §4.6).
+    Consults the :data:`_METRIC_DISPLAY_SCALE` table first (explicit per-metric
+    choices win); with no entry, the :data:`_AUTO_PREFIX` bands apply an
+    engineering prefix when the magnitude would otherwise render in scientific
+    notation (CU-326). Zero and non-finite values never rescale (a prefix on an
+    exact 0 is noise). The scaled unit string lives here, never in a widget
+    (R-UNITS, GUI plan §4.6). Both the metric cards and the pinned-badge path
+    call this, so one metric shows one unit everywhere on screen.
     """
     scale = _METRIC_DISPLAY_SCALE.get(metric_key)
-    if scale is None:
-        return value, unit
-    display_unit, factor = scale
-    return value * factor, display_unit
+    if scale is not None:
+        display_unit, factor = scale
+        return value * factor, display_unit
+    bands = _AUTO_PREFIX.get(unit)
+    if bands and math.isfinite(value) and value != 0.0:
+        magnitude = abs(value)
+        for threshold, factor, display_unit in bands:
+            if magnitude < threshold:
+                return value * factor, display_unit
+    return value, unit
 
 
 def format_metric_value(value: float, unit: str) -> str:
@@ -246,7 +275,7 @@ def format_metric_value(value: float, unit: str) -> str:
     """
     text = f"{value:.4g}"
     if unit and unit not in _BARE_UNITS:
-        return f"{text} {unit}"
+        return f"{text} {pretty_unit(unit)}"
     return text
 
 

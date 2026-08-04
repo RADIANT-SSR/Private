@@ -16,6 +16,8 @@ from __future__ import annotations
 import warnings
 from pathlib import Path
 
+import math
+
 import pytest
 
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
@@ -178,16 +180,19 @@ class TestSchematicTabIsEditable:
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             schematic_form._open_editor(dotpath)  # noqa: SLF001 — exercises the commit path
 
-        # Exactly one set on the live sensor, for the edited parameter.
+        # Exactly one set on the live sensor, for the edited parameter. The typed
+        # 0.45 is interpreted in the editor's display unit — degrees under the
+        # CU-326 global preference — and stored canonically in radians.
         assert set_calls.count(dotpath) == 1
-        assert window.sensor.get_input(dotpath) == pytest.approx(0.45, rel=1e-9)
+        assert window.sensor.get_input(dotpath) == pytest.approx(math.radians(0.45), rel=1e-9)
 
         # The schematic visibly redrew from the new geometry.
         after = canvas.grab().toImage()
         assert before != after
 
-        # Both tabs' forms reflect the new value after the clean re-run (in sync).
-        expected = format_value(0.45, window.sensor.parameter_def(dotpath).input_unit)
+        # Both tabs' forms reflect the new value after the clean re-run (in sync),
+        # displayed in degrees (the CU-326 global preference).
+        expected = format_value(0.45, "deg")
         assert pane.geometry_form.field_value_text(dotpath) == expected  # type: ignore[union-attr]
         assert schematic_form.field_value_text(dotpath) == expected
 
@@ -290,7 +295,8 @@ class TestTargetFieldEditing:
         dotpath = "geometry.target.shape_yaw_rad"
         sensor, _pane, set_calls, edited = self._edit_via_dialog(qtbot, monkeypatch, dotpath, "0.3")
         assert set_calls.count(dotpath) == 1
-        assert float(sensor.get_input(dotpath)) == pytest.approx(0.3, rel=1e-9)
+        # Typed 0.3 reads as 0.3° (deg display, CU-326); stored canonical is rad.
+        assert float(sensor.get_input(dotpath)) == pytest.approx(math.radians(0.3), rel=1e-9)
         assert edited == [dotpath]
 
     def test_panel_field_reflects_committed_value(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]

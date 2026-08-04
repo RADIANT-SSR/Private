@@ -500,7 +500,11 @@ scoped undo step. The API validates the whole column before replacing it, so a r
 value leaves the set untouched (no half-commit) and the rejection, which names the
 offending configuration, renders inline while the dialog stays open (Rules 15/17). The
 rows work in the **parameter row's display unit** — whatever unit the analyst chose for
-that dot-path (`ParameterPanel.display_units`), falling back to the schema `input_unit` —
+that dot-path (`ParameterPanel.display_units`), falling back to the **global display-unit
+preference** (`radiant.gui.display_units`, CU-326 owner ruling 2026-08-03: angles render
+in **degrees** by default — only schema `rad` remaps, `mrad`/`µrad` stay as authored; a
+persisted View → *Angles in Degrees* toggle turns it off; display-only, canonical storage
+untouched per Rule 2) and then to the schema `input_unit` —
 labelled on every row, and the dialog's single unit selector governs the whole column
 (one schema entry ⇒ one dimension) rather than a per-row unit. Changing it *reinterprets*
 what is typed, exactly as it does in the single-value path; the conversion still happens
@@ -984,9 +988,15 @@ persistence across sessions remains Phase 9 (CU-115, persistence clause).
 SNR ← `snr`, NEDT ← `nedt_K`, NIIRS ← `niirs`, GSD ← `gsd_geometric_mean_m`, MTF@Nyquist ←
 `mtf_at_nyquist` — and their **units sourced from `ChainResult.metric_records()`** (never
 hardcoded) are unchanged; they are simply *relocated* from a fixed row into the pinnable
-rail (§4.5) and the Performance stage view (§4.4.1). NEDT renders in its canonical unit
-**K**; a per-metric display-scaling nicety (mK, µrad, …) remains CU-108. A pure ratio /
-rating-scale unit (`dimensionless`, `NIIRS level`) renders as a bare number.
+rail (§4.5) and the Performance stage view (§4.4.1). Display scaling (CU-108, extended by
+CU-326): **every** metric surface — the cards and the pinned badges — routes through one
+`scale_for_display` seam, so a metric shows one unit everywhere on screen. NEDT renders
+**mK**; metrics with no explicit table entry get an **engineering prefix automatically**
+when the base-unit magnitude would render in scientific notation (m → mm/µm/nm below
+1e-2/1e-4/1e-7; K → mK below 0.1; zero never rescales), so a 2.13e−05 m FWHM reads
+21.3 µm. ASCII exponent unit strings render typeset (`m2` → `m²`, `um` → `µm` —
+`display_units.pretty_unit`). A pure ratio / rating-scale unit (`dimensionless`,
+`NIIRS level`) renders as a bare number.
 
 **Saturation banner (retained).** The full-well **saturation banner** (§7.2 row 8, owner
 amendment 2) remains a persistent, non-dismissible banner shown whenever

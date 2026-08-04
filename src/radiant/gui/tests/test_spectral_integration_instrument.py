@@ -111,7 +111,7 @@ class TestSpectralPane:
         for _label, dotpath in _FILTER_FIELDS:
             assert isinstance(form.row(dotpath), FieldRow)
         # The band edges carry their unit (R-UNITS): µm.
-        assert form.field_value_text(_FILTER_MAX).endswith("um")
+        assert form.field_value_text(_FILTER_MAX).endswith("µm")  # pretty_unit, CU-326
 
     def test_integration_time_is_not_duplicated_here(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Owner walkthrough item 21: integration time is edited on Readout, not here.

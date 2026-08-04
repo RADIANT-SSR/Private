@@ -38,6 +38,7 @@ _KEY_RECENT: str = "recent_files"
 _KEY_RECENT_SCRIPTS: str = "recent_scripts"
 _KEY_THEME: str = "theme"
 _KEY_PANEL: str = "panels"
+_KEY_ANGLES_DEG: str = "display_units/angles_in_degrees"
 
 
 class SettingsStore:
@@ -122,6 +123,19 @@ class SettingsStore:
     def set_theme_name(self, name: str) -> None:
         """Persist the chosen theme *name* (the View-menu toggle's choice)."""
         self._settings.setValue(_KEY_THEME, str(name))
+
+    # -- display units (CU-326) ---------------------------------------------
+
+    def angles_in_degrees(self) -> bool:
+        """Whether angles display in degrees (owner-ruled shipped default: True)."""
+        raw = self._settings.value(_KEY_ANGLES_DEG, True)
+        if isinstance(raw, bool):
+            return raw
+        return str(raw).lower() in ("true", "1")
+
+    def set_angles_in_degrees(self, enabled: bool) -> None:
+        """Persist the angles-in-degrees display preference (View-menu toggle)."""
+        self._settings.setValue(_KEY_ANGLES_DEG, bool(enabled))
 
     # -- panel visibility ---------------------------------------------------
 

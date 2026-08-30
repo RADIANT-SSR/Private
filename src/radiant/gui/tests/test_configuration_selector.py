@@ -337,3 +337,30 @@ class TestSelectorTheming:
         for theme in (LIGHT, DARK):
             assert len(theme.config_accents) >= ConfigurationSet.MAX_CONFIGS
             assert len(set(theme.config_accents)) == len(theme.config_accents)
+
+
+class TestConfigurationBarStacksAboveStrip:
+    """CU-331: the selector band must sit ABOVE the stage strip, never beside it.
+
+    Qt lays multiple top-area docks out side by side by default; with ≥6
+    configurations that pushed the stage chips off the right edge. The window
+    now splits the two docks vertically, so the bar takes a thin band of its
+    own and the strip keeps the full width — what §4.2b always specified.
+    """
+
+    def test_bar_dock_sits_above_the_stage_strip_not_beside_it(  # type: ignore[no-untyped-def]
+        self, qtbot, tmp_path
+    ) -> None:
+        window = _open_study(qtbot, tmp_path)
+        window.resize(1100, 800)
+        window.show()
+        qtbot.waitExposed(window)
+        bar = window._configuration_bar_dock.geometry()
+        strip = window._stage_strip_dock.geometry()
+        # Stacked: the bar ends before the strip begins, and both share the
+        # left edge. Side-by-side fails both (disjoint x-ranges, same y-band).
+        assert bar.bottom() <= strip.top()
+        assert abs(bar.left() - strip.left()) <= 1
+        # The strip keeps (essentially) the full window width — the defect
+        # was the bar stealing horizontal room from the chips.
+        assert strip.width() >= window.width() * 0.9

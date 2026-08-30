@@ -41,6 +41,10 @@ retroactively reconstructed.
   logged). No library code changed; no existing result moves.
 
 ### Fixed
+- **The configuration selector no longer pushes the stage strip off-screen
+  (CU-331).** Qt laid the two top bands out side by side, so an 8-configuration
+  study clipped stages 4–9 at laptop widths; the bar now stacks in its own thin
+  band above the strip, as the GUI architecture doc always specified.
 - **Point-source scenes no longer grey out the surface-radiance (ε, T) inputs
   that drive them (CU-329).** `source.target.temperature_K`/`emissivity` now
   carry `regime:point_source`: the surface-radiance door is a documented legal

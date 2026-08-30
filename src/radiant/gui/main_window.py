@@ -769,6 +769,11 @@ class RADIANTMainWindow(QMainWindow):
         dock.setWidget(strip)
         self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, dock)
         self._stage_strip_dock = dock
+        # Stack the configuration bar ABOVE this strip (CU-331). Qt lays multiple
+        # top-area docks out SIDE BY SIDE by default, so with ≥6 configurations the
+        # bar pushed the stage chips off the right edge; the explicit vertical split
+        # makes the layout match what §4.2b (and the builder above) always claimed.
+        self.splitDockWidget(self._configuration_bar_dock, dock, Qt.Orientation.Vertical)
 
     def _build_central_area(self) -> None:
         """The central canvas: KPI badge row above the plot placeholder (§4.4).

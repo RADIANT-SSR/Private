@@ -47,16 +47,25 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-330 — The CU-161 gas table's 8–10 µm region is one flat slab, hiding the 9.6 µm O₃ band from τ and blocking its emission placement
+
+**Discovered**: CU-324 item-2 measurement (branch `atmo/cu-324-emission-placement`), 2026-08-29.
+**Status**: Open — **Owner ruling (2026-08-29): approved, scheduled** — split the region at the 9.6 µm feature and re-fit against the delivered τ data.
+**File**: `src/radiant/atmosphere/simple.py::_CALIBRATED_GAS_REGIONS` (the 8.00–10.00 µm row); `scripts/fit_simple_atmosphere_gas_bands.py` (the fit machinery to re-run).
+**Symptom**: the 8–10 µm region carries one flat `(floor_od, k_h2o, b_h2o)` triple across a band containing the 9.6 µm O₃ feature, so τ has no identifiable ozone structure there. Downstream, CU-324's measured 9.4–9.9 µm path-thermal warm bias (RMS 0.1519, up to 1.44×, one-sided on 12 of 14 matched pairs) cannot be fixed: any O₃ emission-placement split is one free parameter with nothing on the τ side to pin it (measured: share 0.1→1.0 sweeps the parity 0.1363→0.1731 with an unconstrained optimum at 0.5).
+**Why it still matters**: results-affecting on τ in the 8–10 µm band once fixed (intake test 1) and the explicit unblocking condition for CU-324 item 2; narrow-band LWIR work near 9.6 µm currently carries both a τ-structure gap and the ~15 % warm path-thermal bias it hides.
+**Suggested fix**: (b) stand-alone, M — re-run the CU-161 fit with a finer partition splitting at ~9.4/9.9 µm (the O₃ band edges) against the delivered K/O/H τ data (all in-repo; no new MODTRAN runs needed), preserving the CU-267 blend invariants (no-overlap: the new regions must stay ≥ 2·hw wide); then re-measure CU-324 item 2 with the identifiable band. Careful §5.3 — every 8–12/8–14 µm band-mean moves. Category C. Related: [[CU-324]], CU-161, CU-267.
+
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).
-**Status**: Open — refinement family on the just-landed `emission_temperature.py`; none is operator-visible today.
+**Status**: Open — **all three items measured 2026-08-29** (evidence pinned by 9 tests; zero physics adopted — the measurements ruled against or gated each). Live actions: item 1's D-swap (owner-approved, in work), item 2 gated on [[CU-330]], item 3 gated on the R1–R3 delivery. Re-audit at whichever lands first.
 **File**: `src/radiant/atmosphere/segment_thermal.py` (`_downwelling_effective_temperature_K`, `z_em = 200 m`); `emission_temperature.py` (gas-floor species lump; arc geometry).
 **Why it still matters**: each item is results-affecting if pursued (intake test 1), and each is the next accuracy increment on the CU-321 machinery now that the O/K/N/H anchors exist. Checklist:
 
-- [ ] Re-fit or retire the `z_em = 200 m` proxy — `E_sky_thermal` is its one remaining consumer, and the layered solution can now compute what it approximates.
-- [ ] Split O₃ (peaks ~25 km) out of the well-mixed gas floor so 9.6 µm emission is placed at its real altitude rather than too low.
-- [ ] Distribute opacity along the grazing **arc** rather than the vertical — currently unmeasured because no anchor exercises a grazing thermal product; needs an anchor first (a future near-horizon thermal deck or an M6–M8-based check).
+- [ ] ~~Re-fit or retire the `z_em = 200 m` proxy~~ **MEASURED 2026-08-29 (branch `atmo/cu-324-emission-placement`): premise REFUTED** — the layered form loses to the proxy on the 9-rung measured ladder (temperature-isolated: proxy 0.2354 vs layered 0.3152 RMS; the proxy's fitted warm bias compensates the MWIR τ-shape error, the CU-321 un-masking pattern; full tables in `atmosphere_modtran_parity.md` §2.14a). What the measurement DID find: the emissivity exponent `_ESKY_DIFFUSIVITY_D = 1.1` (fit against only H2/H4, pre-P-ladder) loses to the geometric sec 48.2° = 1.4966 across all 9 rungs (RMS 2.0776 → 1.9233). **Owner ruling (2026-08-29): approved — swap D to sec 48.2°** (one constant; results-affecting on every reflected-sky term → §5.3). The item's action is now the D-swap; the layered replacement is declined by measurement.
+- [ ] Split O₃ (peaks ~25 km) out of the well-mixed gas floor so 9.6 µm emission is placed at its real altitude rather than too low. **MEASURED 2026-08-29: real and one-sided** (warm on 12 of 14 matched pairs at 9.4–9.9 µm, RMS 0.1519, up to 1.44×, invisible inside the 8–12 µm band mean) **but unidentifiable** — the CU-161 τ table's flat 8–10 µm region leaves the O₃ share a free parameter (best split recovers 0.1519 → 0.1000 at share 0.5, an unconstrained fit). **Gated on [[CU-330]]** (the τ-side 9.6 µm region split, owner-scheduled 2026-08-29); re-audit at its landing.
+- [ ] Distribute opacity along the grazing **arc** rather than the vertical. **MEASURED 2026-08-29: M6–M8 cannot discriminate** (max placement effect 1.2 % |ln| under a 3–6 % model residual; along-arc marginally WORSE on those anchors, RMS 0.0464 → 0.0524 — a ground-rooted column already concentrates opacity at the escape end). Anchor decks **R1–R3** authored into the run matrix (tangent-rooted ascending arcs at 5/8/10 km, modelled separation up to 16.1 %); **owner-confirmed for the next MODTRAN session 2026-08-29**. Gated on their delivery; a delivery tripwire test stands.
 
 **Suggested fix**: (b) stand-alone family PR when scheduled; each item re-anchored against the batch-2 pairs. Effort M total; category C. Related: [[CU-321]], CU-155, CU-161.
 

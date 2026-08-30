@@ -408,3 +408,29 @@ class TestFrozenLabelColumn:
             assert abs(label_y - cell_y) <= 2, f"row {key!r} drifted {label_y - cell_y}px"
             checked += 1
         assert checked >= 5
+
+    def test_value_area_fills_the_card_width(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """CU-333: the scroll area must take the card's width, not its size hint.
+
+        The CU-332 rework passed an alignment flag to ``addWidget``, which opts
+        the widget out of stretching entirely — every card showed one clipped
+        configuration column beside dead whitespace.
+        """
+        window = _open_three_band(qtbot, tmp_path)
+        window.resize(1200, 800)
+        cards = _cards(window)
+        window.show()
+        qtbot.waitExposed(window)
+        for scroll in self._scrolls(cards):
+            card = scroll.parentWidget()
+            # The empty second grid column must not steal pane width from the card…
+            assert card.width() >= cards.width() * 0.9, (
+                f"matrix card is {card.width()}px in a {cards.width()}px pane — "
+                "the two-up flow's empty grid column is taking half the width"
+            )
+            # …and at 1200 px a three-configuration value grid must fit unclipped.
+            content_w = scroll.widget().sizeHint().width()
+            assert scroll.viewport().width() >= content_w, (
+                f"value viewport {scroll.viewport().width()}px clips its "
+                f"{content_w}px content — the scroll area is not stretching"
+            )

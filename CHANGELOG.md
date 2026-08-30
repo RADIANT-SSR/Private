@@ -41,6 +41,10 @@ retroactively reconstructed.
   logged). No library code changed; no existing result moves.
 
 ### Fixed
+- **Matrix cards use the full Performance pane again (CU-333).** The CU-332
+  frozen-label rework exposed a latent layout bug: the empty second card-grid
+  column took half the pane in study sessions, clipping the value area to one
+  configuration column. Column stretches are now mode-dependent.
 - **Scrolling a wide Performance matrix no longer loses the metric labels
   (CU-332).** Each group card now freezes the metric-label column and scrolls
   only the configuration columns beside it (row heights synchronized, all

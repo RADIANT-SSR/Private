@@ -47,7 +47,7 @@ def _mirror_entry(value: Any) -> dict[str, Any]:
 
 def _title(fig: Any) -> str:
     ax = fig.axes[0]
-    return ax.get_title() or ax.get_title(loc="left") or ax.get_title(loc="right")
+    return str(ax.get_title() or ax.get_title(loc="left") or ax.get_title(loc="right"))
 
 
 class TestNativeGrid:

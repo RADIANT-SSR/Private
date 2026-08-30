@@ -41,6 +41,11 @@ retroactively reconstructed.
   logged). No library code changed; no existing result moves.
 
 ### Fixed
+- **Scrolling a wide Performance matrix no longer loses the metric labels
+  (CU-332).** Each group card now freezes the metric-label column and scrolls
+  only the configuration columns beside it (row heights synchronized, all
+  cards' scrollbars linked); an 8-configuration study previously showed bare
+  numbers once scrolled.
 - **The configuration selector no longer pushes the stage strip off-screen
   (CU-331).** Qt laid the two top bands out side by side, so an 8-configuration
   study clipped stages 4–9 at laptop widths; the bar now stacks in its own thin

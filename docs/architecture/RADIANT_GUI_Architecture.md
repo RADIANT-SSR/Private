@@ -660,6 +660,14 @@ nothing else. Rendering a study — including switching the displayed configurat
 **runs no physics**; a pass made stale by an edit is covered by the ordinary 200 ms
 debounce and the existing staleness affordances (§3.3).
 
+**The metric-label column is frozen (CU-332).** A matrix wider than the pane scrolls
+its configuration columns *under* the label column, never past it: each card is a
+fixed label grid beside a horizontal scroll area holding only the header + value
+columns, with per-row heights force-synchronized between the two sides and every
+card's scrollbar linked so the surface scrolls as one. Pre-fix, the whole card slid
+sideways and an 8-configuration study showed bare numbers with the row names
+off-screen (owner-hit, scenario 9.4).
+
 **The presentation model is Qt-free.** `gui/metric_matrix.py` turns the run into a
 `MetricMatrix` (columns × grouped rows, each cell a text + tooltip); `MetricGroupCards`
 only lays it out. Every rule below is therefore unit-tested without a widget, and both

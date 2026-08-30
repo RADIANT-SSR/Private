@@ -70,7 +70,7 @@ Run `scripts/run_point_source_sda.py` (or `Sensor.from_yaml(...).evaluate()`):
 | Sampling Q (band center) | 1.42 | — |
 
 *(Refreshed 2026-08-29. Two components, and only the smaller one is CU-324's.
-**Pre-existing drift — attributed by the CU-331 bisect (2026-08-29) to CU-321,
+**Pre-existing drift — attributed by the CU-334 bisect (2026-08-29) to CU-321,
 commit `6cf6eaa9`, landed 2026-08-03:** this table read SNR 17.67 / range
 1,254.7 km, but the unmodified runner on the pre-CU-324 tree gave 20.35 /
 1,347.8 km. CU-321 made the atmosphere's own thermal emission height- and

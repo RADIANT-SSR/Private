@@ -21,7 +21,7 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
-- **Results-affecting (late attribution, CU-331): scenario 1.6's MWIR point-source
+- **Results-affecting (late attribution, CU-334): scenario 1.6's MWIR point-source
   SDA numbers moved on 2026-08-03 with CU-321, and were not recorded at the time.**
   A bisect of 1.6's runner over every `main` landing between the 2026-08-02
   walkthrough refresh and 2026-08-29 pins the movement to a single commit —
@@ -99,7 +99,7 @@ retroactively reconstructed.
   cards' scrollbars linked); an 8-configuration study previously showed bare
   numbers once scrolled.
 - **The configuration selector no longer pushes the stage strip off-screen
-  (CU-331).** Qt laid the two top bands out side by side, so an 8-configuration
+  (CU-334).** Qt laid the two top bands out side by side, so an 8-configuration
   study clipped stages 4–9 at laptop widths; the bar now stacks in its own thin
   band above the strip, as the GUI architecture doc always specified.
 - **Point-source scenes no longer grey out the surface-radiance (ε, T) inputs
@@ -463,7 +463,7 @@ retroactively reconstructed.
   Nineteen scenario GUI baselines move, between −11 % and +11 % in SNR (down-looking
   scenes lose path signal; the up-looking 10.1 detection scene *gains* SNR 130.1 → 144.6
   because its background falls). Level-path and exo scenes are unaffected.
-  *(Corrected 2026-08-29 by the CU-331 bisect — see the CU-331 entry at the top of
+  *(Corrected 2026-08-29 by the CU-334 bisect — see the CU-334 entry at the top of
   `[Unreleased]`. The measured span across shipped scenario configurations is
   −14.9 % to +15.2 %, and a twentieth scene moved: 1.6, +15.2 % SNR, which had no
   GUI baseline and so was missed by this PR's refresh sweep.)*

@@ -20,6 +20,17 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **Scenario 9.4 — Landsat 9 OLI-2** (`scenarios/09_flagship_missions/9.4_landsat_oli2_snr/`):
+  first scenario to exercise the full per-element optical prescription (Mode 5) —
+  four protected-silver mirrors, AR window, and per-band interference filters, all
+  **synthetic coating curves** (generator: `scripts/gen_oli2_coatings.py`) — and the
+  first flagship use of an ADR-0010 configuration set (all eight 30 m bands as one
+  study via a shared composite butcher-block filter element; pan standalone, Gap 103).
+  Nine-band SNR @ L_typ anchored to the published OLI requirement tables
+  (`docs/validation/landsat_oli2_source_data.md`; offline-compiled, verification pass
+  logged). No library code changed; no existing result moves.
+
 ### Fixed
 - **Point-source scenes no longer grey out the surface-radiance (ε, T) inputs
   that drive them (CU-329).** `source.target.temperature_K`/`emissivity` now

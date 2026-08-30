@@ -266,13 +266,15 @@ def test_esky_thermal_simple_vs_modtran_characterization() -> None:
     now:
 
                              at the fit    2026-08-29 (post-CU-324 swap)
-        H2 us_standard LWIR   1.24          1.594
+        H2 us_standard LWIR   1.24          1.619
         H2 us_standard MWIR   0.70          0.869
-        H4 tropical    LWIR   1.41          1.226
+        H4 tropical    LWIR   1.41          1.231
         H4 tropical    MWIR   1.34          0.928
 
     Two things moved these off their fit-time values: the τ recalibrations
-    since (τ_sky enters the emissivity), and the CU-324 exponent swap
+    since (τ_sky enters the emissivity — most recently CU-330's ozone region
+    split, which lifts the two LWIR ratios by 1.6 % and 0.4 % and leaves both
+    MWIR ratios bit-identical), and the CU-324 exponent swap
     (D = 1.1 → sec 48.2° = 1.50030), which raises all four. H2 and H4 are
     the two decks D = 1.1 was FITTED against, so the swap must look like a
     regression here; the criterion it was judged on is the nine-rung ladder
@@ -341,7 +343,9 @@ def test_esky_thermal_simple_vs_modtran_characterization() -> None:
 
         # The measured points themselves, pinned tighter than the envelope so a
         # silent drift inside it still fails (2026-08-29, post-swap).
-        expected = {"H2": (1.594, 0.869), "H4": (1.226, 0.928)}[run]
+        # Repinned 2026-08-29 (CU-330 ozone region split): LWIR 1.594 → 1.619
+        # (H2) and 1.226 → 1.231 (H4); both MWIR values are bit-identical.
+        expected = {"H2": (1.619, 0.869), "H4": (1.231, 0.928)}[run]
         assert lwir_simple / lwir_ref == pytest.approx(expected[0], abs=0.005)
         assert mwir_simple / mwir_ref == pytest.approx(expected[1], abs=0.005)
 
@@ -395,24 +399,35 @@ _DOWNWELLING_LADDER: dict[str, float] = {
 #: values are in the trailing comment on each row — every rung rises by the same
 #: factor family (``≈ sec/1.1`` where the column is optically thin), which is the
 #: whole content of the swap.
+#: **LWIR column repinned 2026-08-29 (CU-330 ozone region split).**  Every MWIR
+#: value is BIT-IDENTICAL — the split touches only 8–10 µm — and every LWIR value
+#: rises, by +0.6 % at the ground rung and by +26 to +28 % at the stratospheric
+#: ones.  The gradient is the physics: the sky column above a 50–80 km target is
+#: nearly transparent, so its residual opacity is almost all well-mixed gas, and
+#: the ozone band is the largest single piece of that.  Nearer the ground water
+#: dominates the LWIR and the ozone addition is a small correction.
 _LADDER_PARITY: dict[str, tuple[float, float]] = {
-    "H5": (1.041, 1.263),  # was (0.864, 1.020)
-    "P1": (0.9735, 1.286),  # was (0.7914, 1.006)
-    "P2": (0.8353, 1.558),  # was (0.6463, 1.173)
-    "P3": (0.5824, 0.7057),  # was (0.4386, 0.5243)
-    "P4": (0.3381, 0.2354),  # was (0.2497, 0.1733)
-    "P5": (0.08183, 0.1178),  # was (0.06014, 0.08649)
-    "P6": (0.008033, 0.08879),  # was (0.005891, 0.06510)
-    "P7": (0.02678, 0.3655),  # was (0.01963, 0.2680)
-    "P8": (2.286, 16.26),  # was (1.676, 11.92)
+    "H5": (1.041, 1.271),  # pre-CU-330 LWIR 1.263; pre-CU-324 (0.864, 1.020)
+    "P1": (0.9735, 1.307),  # pre-CU-330 LWIR 1.286; pre-CU-324 (0.7914, 1.006)
+    "P2": (0.8353, 1.721),  # pre-CU-330 LWIR 1.558; pre-CU-324 (0.6463, 1.173)
+    "P3": (0.5824, 0.8445),  # pre-CU-330 LWIR 0.7057; pre-CU-324 (0.4386, 0.5243)
+    "P4": (0.3381, 0.2965),  # pre-CU-330 LWIR 0.2354; pre-CU-324 (0.2497, 0.1733)
+    "P5": (0.08183, 0.1504),  # pre-CU-330 LWIR 0.1178; pre-CU-324 (0.06014, 0.08649)
+    "P6": (0.008033, 0.114),  # pre-CU-330 LWIR 0.08879; pre-CU-324 (0.005891, 0.06510)
+    "P7": (0.02678, 0.4696),  # pre-CU-330 LWIR 0.3655; pre-CU-324 (0.01963, 0.2680)
+    "P8": (2.286, 20.89),  # pre-CU-330 LWIR 16.26; pre-CU-324 (1.676, 11.92)
 }
 
 #: RMS |ln(model / π·L_MODTRAN)| over the nine rungs × both bands, and over the
 #: four tropospheric rungs alone.  Measured 2026-08-29; the retired D = 1.1 gave
 #: 2.0776 and 0.4167 respectively.  These two numbers are the CU-324 item-1
 #: ruling's evidence, restated against the shipped code rather than a candidate.
-_LADDER_RMS_COMPOSITE = 1.9233
-_LADDER_RMS_TROPOSPHERIC = 0.3087
+#: Repinned 2026-08-29 (CU-330): composite 1.9233 → 1.8985 (better), tropospheric
+#: 0.3087 → 0.3122 (marginally worse).  Both moves are small against the CU-324
+#: item-1 evidence they carry — the retired D = 1.1 gave 2.0776 and 0.4167 — so
+#: the ruling's margin is intact in both directions.
+_LADDER_RMS_COMPOSITE = 1.8985
+_LADDER_RMS_TROPOSPHERIC = 0.3122
 _TROPOSPHERIC_RUNGS = ("H5", "P1", "P2", "P3")
 
 

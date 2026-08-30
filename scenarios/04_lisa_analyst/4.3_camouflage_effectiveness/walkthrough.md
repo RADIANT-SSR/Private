@@ -48,13 +48,15 @@ runs: `SCNR = |S_option − S_scrub| / noise_scrub`.
 
 | Option | Contrast [e⁻] | SCNR | Well fill [%] | Signature reduction |
 |--------|--------------:|-----:|--------------:|--------------------:|
-| Bare vehicle | +1,856,985 | 1,285.9 | 32.4 | — |
-| Camo net A (ε≈0.60) | −511,831 | 354.4 | 12.7 | 72.4% |
-| Camo net B (shaped) | −274,225 | 189.9 | 14.7 | 85.2% |
-| **Camo net C (ε≈0.93)** | **+83,059** | **57.5** | 17.6 | **95.5%** |
+| Bare vehicle | +1,851,019 | 1,282.4 | 32.3 | — |
+| Camo net A (ε≈0.60) | −509,543 | 353.0 | 12.7 | 72.5% |
+| Camo net B (shaped) | −273,017 | 189.1 | 14.6 | 85.3% |
+| **Camo net C (ε≈0.93)** | **+82,721** | **57.3** | 17.6 | **95.5%** |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the down-looking
+*Numbers refreshed 2026-08-29 from the unmodified runner — **CU-330**, the
+9.6 µm ozone region split, worth −0.2 % to −0.4 % on contrast and SCNR here and
+nothing at all on the geometry columns; previous vintage 2026-08-02. Dominant
+mover across the history: **CU-321** — the down-looking
 `(1−τ)·B` path emission is now emitted at a height-resolved `T_eff(λ)` over the
 0 → 3 km column instead of at its near-surface temperature, so the scrub
 background falls slightly and the SCNR denominator with it. The signature is
@@ -68,13 +70,15 @@ unchanged.*
 
 | Option | 8–10 µm SCNR | 10–12 µm SCNR | Best |
 |--------|-------------:|--------------:|------|
-| Bare vehicle | 1,000.0 | 806.5 | 8–10 µm |
-| Net A | 233.0 | 261.2 | 10–12 µm |
-| Net B | 232.6 | 41.4 | 8–10 µm |
-| Net C | 42.3 | 38.3 | 8–10 µm |
+| Bare vehicle | 994.8 | 806.7 | 8–10 µm |
+| Net A | 230.9 | 261.3 | 10–12 µm |
+| Net B | 231.6 | 41.5 | 8–10 µm |
+| Net C | 42.0 | 38.3 | 8–10 µm |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Same mover as the nadir table: CU-321 lowers the scrub
+*Numbers refreshed 2026-08-29 from the unmodified runner (**CU-330** — note the
+8–10 µm column moves and the 10–12 µm column essentially does not, which is the
+split's own signature; previous vintage 2026-08-02). Dominant historical mover
+as for the nadir table: CU-321 lowers the scrub
 background and its shot noise, so every sub-band SCNR rises ~1 %. No "Best"
 column entry changes.*
 

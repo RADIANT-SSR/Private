@@ -70,14 +70,19 @@ differential.)
 
 | Local time | T_target | T_background | ΔT | Contrast SNR | Detectable? |
 |-----------|----------|--------------|-----|--------------|-------------|
-| 00:00 | 285.0 K | 289.1 K | −4.06 K | −98.7 | yes (cold target) |
-| 06:00 | 292.0 K | 289.1 K | +2.97 K | +18.6 | yes |
-| 12:00 | 309.0 K | 298.9 K | +10.06 K | +141.1 | yes (hot target) |
-| 18:00 | 302.0 K | 298.9 K | +3.03 K | +17.9 | yes |
-| 21:00 | 292.0 K | 294.0 K | −1.98 K | −66.4 | yes |
+| 00:00 | 285.0 K | 289.1 K | −4.06 K | −98.1 | yes (cold target) |
+| 06:00 | 292.0 K | 289.1 K | +2.97 K | +18.5 | yes |
+| 12:00 | 309.0 K | 298.9 K | +10.06 K | +140.4 | yes (hot target) |
+| 18:00 | 302.0 K | 298.9 K | +3.03 K | +17.8 | yes |
+| 21:00 | 292.0 K | 294.0 K | −1.98 K | −66.0 | yes |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the down-looking
+*Numbers refreshed 2026-08-29 from the unmodified runner — **CU-330**, the
+9.6 µm ozone region split, worth −0.5 % on contrast SNR at every hour and
+nothing on the temperatures; previous vintage 2026-08-02. The invariant this
+scenario exists to demonstrate survives it too: both temperature crossovers,
+both radiance crossovers and both washout windows are bit-identical, because a
+τ change scales the contrast and cannot move its zeros. Dominant historical
+mover: **CU-321** — the down-looking
 `(1−τ)·B` path emission is now emitted at a height-resolved `T_eff(λ)` over the
 0 → 3 km column instead of at its near-surface temperature, so the background
 and its shot noise fall and the differenced contrast SNR rises ~0.6 % at every

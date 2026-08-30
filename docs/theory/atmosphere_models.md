@@ -136,7 +136,7 @@ behaviour and the once-per-run warning).
 ### 2.4 Water vapour — the curve of growth
 
 Water vapour is **not** linear in Beer's law over a real band, because the strong lines
-saturate long before the windows between them do. The calibrated model is a 15-region
+saturate long before the windows between them do. The calibrated model is a 17-region
 curve of growth:
 
 $$\mathrm{OD}_{\mathrm{h2o}}(\lambda) \;=\; k(\lambda)\,w_{\mathrm{eff}}^{\,b(\lambda)}$$
@@ -168,7 +168,7 @@ Generator `scripts/fit_simple_atmosphere_gas_bands.py`.
 
 ### 2.5 The well-mixed-gas absorption floor
 
-Each of the same 15 regions carries a **water-independent** vertical optical depth — the
+Each of the same 17 regions carries a **water-independent** vertical optical depth — the
 CO₂ 4.3 µm and 15 µm bands, N₂O, the O₃ 9.6 µm band, and O₂ / CH₄ overtones — in excess
 of what Rayleigh and aerosol already supply:
 
@@ -187,23 +187,48 @@ The calibrated table, exactly as shipped (`_CALIBRATED_GAS_REGIONS`):
 | 0.45–0.70 | 0.0000 | 0.0025 | 0.874 | 3.50–5.00 | 0.4497 | 0.0944 | 0.808 |
 | 0.70–1.30 | 0.0000 | 0.1245 | 0.434 | 5.00–7.50 | 1.3543 | 1.7850 | 0.530 |
 | 1.30–1.50 | 0.0000 | 1.0933 | 0.327 | 7.50–8.00 | 0.9424 | 0.9210 | 0.673 |
-| 1.50–1.75 | 0.0133 | 0.0282 | 0.645 | 8.00–10.00 | 0.2751 | 0.0877 | 1.268 |
-| 1.75–2.05 | 0.0000 | 1.1186 | 0.216 | 10.00–12.00 | 0.0471 | 0.0602 | 1.750 |
-| 2.05–2.40 | 0.0725 | 0.0320 | 0.843 | 12.00–14.29 | 0.5956 | 0.1398 | 1.583 |
-| 2.40–3.10 | 0.7434 | 0.9666 | 0.560 | | | | |
+| 1.50–1.75 | 0.0133 | 0.0282 | 0.645 | **8.00–9.40** | **0.1494** | **0.0992** | **1.204** |
+| 1.75–2.05 | 0.0000 | 1.1186 | 0.216 | **9.40–9.90** | **0.8877** | **0.0409** | **1.701** |
+| 2.05–2.40 | 0.0725 | 0.0320 | 0.843 | **9.90–10.00** | **0.3013** | **0.0379** | **1.805** |
+| 2.40–3.10 | 0.7434 | 0.9666 | 0.560 | 10.00–12.00 | 0.0471 | 0.0602 | 1.750 |
+| | | | | 12.00–14.29 | 0.5956 | 0.1398 | 1.583 |
 
 Spectral shape *within* a region is flat: the model's contract is band-integrated
 fidelity, not line structure. Wavelengths outside 0.30–14.29 µm clamp to the edge regions'
 calibration.
 
-*Record:* CU-161, resolved 2026-07-18.
+**The three bold rows are the CU-330 ozone split** (2026-08-29). Until then one flat row
+spanned 8.00–10.00 µm — a 2 µm slab covering both the clean window and the O₃ ν₂
+fundamental — so the model carried no identifiable ozone opacity: on a nadir full column
+$\tau(9.60)$ and $\tau(8.70)$ agreed to six figures. Re-running the same fit on a
+partition cut at the band edges the delivered ladder shows (water-free OD rises
+$0.24 \to 0.89$ across 9.372–9.416 µm and falls $0.52 \to 0.33$ across 9.901–9.911 µm)
+gives a band-core floor **5.9× the adjacent window's**, which is the ozone. Two
+consequences follow directly from the table:
+
+- The **ozone share of the in-feature floor is now arithmetic**, not fitted:
+  $(0.8877 - 0.1494)/0.8877 = 0.832$, the band-core floor above the continuum floor the
+  neighbouring window measures. That is the free parameter CU-324 item 2 was missing.
+- The floor still rides the **molecular** scale height, so the identified ozone is placed
+  at ~8 km rather than ~25 km. Full columns barely notice; partial columns do (parity
+  document §2.14(b)). Placing it is CU-324 item 2, which this split unblocks and does not
+  itself perform.
+
+Every other row is the original CU-161 vintage and was not re-run.
+
+*Record:* CU-161, resolved 2026-07-18; 8–10 µm re-partitioned by CU-330, 2026-08-29
+(owner-scheduled).
 *Enforced by:* `src/radiant/atmosphere/tests/test_gas_region_blend.py::test_interior_wavelengths_keep_exact_table_coefficients`
-(the table is read back from the model, so a silent edit fails).
+(the table is read back from the model, so a silent edit fails);
+`src/radiant/atmosphere/tests/test_gas_region_o3_split.py` (the partition, the ozone
+contrast, the derived share, the blend at the two new edges);
+`tests/integration/test_gas_region_o3_fit_cu330.py` (the three rows re-derived from the
+delivered ladder, and the τ parity before and after).
 
 ### 2.6 The region-edge smoothstep blend
 
 The table is piecewise-constant, but it is **not** read as a step function. Across each of
-the fourteen interior region edges the three coefficients
+the sixteen interior region edges the three coefficients
 $c \in \{\mathrm{floor\_od},\,k,\,b\}$ are joined by a $C^1$ smoothstep ramp of half-width
 $h_w = 0.02$ µm (full width 0.04 µm):
 
@@ -220,9 +245,9 @@ $k$ evaluates to $(0.0025 + 0.1245)/2 = 0.0635$ exactly.
 
 Outside the ramps nothing changes: a $\lambda$ at or beyond $h_w$ from every edge keeps
 the bit-identical calibrated coefficient. Every region is wider than $2 h_w$ — the
-narrowest is 0.20 µm at 1.30–1.50 µm, five times the full ramp width — so no two ramps
-overlap, which is the invariant that stops a future refit from silently invalidating the
-blend.
+narrowest is 0.10 µm at 9.90–10.00 µm, two and a half times the full ramp width (it was
+0.20 µm at 1.30–1.50 µm before CU-330 added the ozone tail) — so no two ramps overlap,
+which is the invariant that stops a future refit from silently invalidating the blend.
 
 Read literally, the step table made $\tau(\lambda)$ jump at every edge and made a band-mean
 $\tau$ that straddled an edge **sampling-grid-dependent**. Both effects, and the size of
@@ -943,7 +968,8 @@ Recorded here because a physics document that omits its own boundaries is mislea
 item's tracking home is named; the *measured* consequences are in the parity document §3.
 
 - **Line structure inside a calibrated region.** The simple model's spectral shape is flat
-  within each of the 15 regions (CU-161); the 0.04 µm edge ramps remove the discontinuity,
+  within each of the 17 regions (CU-161, CU-330); the 0.04 µm edge ramps remove the
+  discontinuity,
   not the underlying flatness. This is now the named dominant residual of the thermal path
   radiance (CU-321 closure).
 - **Multiple scattering.** The single-scatter source under-predicts the daytime VIS/NIR sky
@@ -968,17 +994,18 @@ item's tracking home is named; the *measured* consequences are in the parity doc
   and exactly 0 at 15 km for the isothermal reason above); run-matrix rows R1–R3 are
   authored for that geometry and unrun.
 - **O₃ emission altitude.** The well-mixed-gas floor lumps CO₂/N₂O/CH₄ with O₃, which peaks
-  near 25 km, so 9.6 µm emission is placed too low (CU-324). Measured 2026-08-29 on the
-  fourteen matched pairs: the 9.4–9.9 µm feature is biased warm on every one of them
-  (RMS $|\ln$ ratio$|$ 0.1519, reaching 1.44× on the deepest column) while the LWIR band
-  mean that contains it reads 0.2611 — the error hides in a band mean because the feature
-  is 0.5 µm of 4 µm. Splitting the placement onto an ozone layer recovers it (0.1519 →
-  0.1000), but the improvement is governed by a single free parameter — the ozone share of
-  the gas-floor OD — that the CU-161 table cannot supply, because its 8.00–10.00 µm region
-  is 2 µm wide and flat and so contains no identifiable ozone band. The layer's centre and
-  width are almost unobservable by comparison (0.1011–0.1117 across 20–30 km centres and
-  3–8 km widths), again because the profile is isothermal wherever the layer sits.
-  Unblocking this needs the $\tau$ side first: a 9.6 µm region in the CU-161 table.
+  near 25 km, so 9.6 µm emission is placed too low (CU-324 item 2). The τ side is now
+  fixed: CU-330 split the 8–10 µm region at the band edges (§2.5), so the ozone share of
+  the in-feature floor is arithmetic — $0.832$ — rather than a free parameter. The
+  *placement* is not: the identified opacity still rides the molecular scale height, so
+  the model puts ozone near 8 km instead of 25 km. Re-measured 2026-08-29 on the fourteen
+  matched pairs with the split table in place, the 9.4–9.9 µm feature reads RMS
+  $|\ln$ ratio$|$ 0.3581 (it was 0.1519 when the flat slab under-supplied the in-band
+  opacity), and moving the τ-determined share onto a 25 km layer recovers it to 0.1456 —
+  within 7 % of the sweep's unconstrained best, 0.1365 at share 0.70. The remaining
+  degeneracy in the layer's centre and width is unchanged in kind (0.133–0.191 across
+  20–30 km centres and 3–8 km widths) because the profile is isothermal wherever the layer
+  sits. Full tables in the parity document §2.14(b).
 - **Polarization, 3D/heterogeneous atmospheres, time dependence, adjacency, aurora/airglow,
   cloud microphysics.** Out of scope for v1 (`RADIANT_Atmosphere.md` §11).
 

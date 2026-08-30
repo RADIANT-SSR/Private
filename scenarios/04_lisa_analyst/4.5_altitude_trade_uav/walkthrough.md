@@ -47,9 +47,9 @@ Detection holds while `ff · ΔT · τ_atm ≥ threshold · NETD`. The
 
 | Quantity | Value |
 |----------|-------|
-| dP/dT (from the chain's dS/dT) | 1.517 × 10⁻¹⁰ W/K |
-| NEP = NETD · dP/dT | 7.584 × 10⁻¹² W |
-| **D\* = √(A·Δf)/NEP** | **1.253 × 10⁹ Jones** |
+| dP/dT (from the chain's dS/dT) | 1.516 × 10⁻¹⁰ W/K |
+| NEP = NETD · dP/dT | 7.579 × 10⁻¹² W |
+| **D\* = √(A·Δf)/NEP** | **1.254 × 10⁹ Jones** |
 
 *Numbers refreshed 2026-08-02 from the unmodified runner. This table's previous
 vintage is 2026-07-08 (`efea031`) — the 2026-07-20 commit on this file added
@@ -74,15 +74,17 @@ NETD spec is simply the practical way vendors carry that sensitivity.
 
 | Altitude | GSD | Fill fraction | τ_atm | Apparent ΔT | Detect? |
 |----------|-----|---------------|-------|-------------|---------|
-| 1 km | 0.49 m | 1.000 | 0.922 | 3688 mK | yes |
-| 3 km | 1.46 m | 0.471 | 0.810 | 1526 mK | yes |
-| 5 km | 2.43 m | 0.170 | 0.753 | 510 mK | yes |
-| 7 km | 3.40 m | 0.087 | 0.720 | 249 mK | yes |
-| 9 km | 4.37 m | 0.052 | 0.700 | 146 mK | **no** |
-| 11 km | 5.34 m | 0.035 | 0.686 | 96 mK | no |
+| 1 km | 0.49 m | 1.000 | 0.921 | 3682 mK | yes |
+| 3 km | 1.46 m | 0.471 | 0.807 | 1520 mK | yes |
+| 5 km | 2.43 m | 0.170 | 0.748 | 508 mK | yes |
+| 7 km | 3.40 m | 0.087 | 0.715 | 248 mK | yes |
+| 9 km | 4.37 m | 0.052 | 0.695 | 145 mK | **no** |
+| 11 km | 5.34 m | 0.035 | 0.681 | 95 mK | no |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-08). Dominant mover: **CU-161** (`0aebdda`, 2026-07-18) — gas-band
+*Numbers refreshed 2026-08-29 (CU-330, the 9.6 µm ozone region split: τ_atm
+falls 0.1–0.7 % on every rung, apparent ΔT with it, and the 7.5 km detection
+ceiling below is unchanged); previously 2026-08-02. Dominant mover across the
+whole history remains **CU-161** (`0aebdda`, 2026-07-18) — gas-band
 recalibration + Gap 94 elevated-target support. Its visible signature is the
 shape of the τ_atm column: the old curve went nearly flat above 5 km
 (0.878 → 0.869 across 5–11 km, as if the whole absorbing column sat below the

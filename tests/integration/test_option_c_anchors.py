@@ -223,7 +223,12 @@ CELL28_PINNED = {
     # NEDT −0.0069% (was 0.20478844358107973) — the emission enters NEDT only
     # through the noise mix here, and this cell is saturation-limited.
     # SNR bit-identical (saturated) and MTF bit-identical to 2.5e-16 (spatial).
-    "nedt_K": 0.20477427606154244,
+    # NEDT + L_aperture repinned 2026-08-29 (CU-330 ozone region split): the
+    # flat 8.00–10.00 µm gas region is now three regions cut at the measured
+    # O₃ ν₂ band edges (8.00–9.40 / 9.40–9.90 / 9.90–10.00 µm).  NEDT
+    # −0.0025% (was 0.20477427606154244); SNR bit-identical (saturated) and
+    # MTF unchanged to 2.5e-16 (spatial).
+    "nedt_K": 0.2047691425997142,
     # MTF@Nyquist repinned 2026-07-10 (CU-003 option a): the pixel-aperture
     # kernel is now area-integrated (anti-aliased edges) instead of a binary
     # mask that quantised the rect width to the sample grid. The old kernel
@@ -277,10 +282,21 @@ CELL28_PINNED = {
     # 13 µm (the CO₂ 15 µm wing). The anti-correlation with the CU-224
     # increment is the check that this repin is the emission temperature and
     # nothing else.
+    # Repinned 2026-08-29 (CU-330 ozone region split). Only the three anchors
+    # INSIDE the re-partitioned span move — 8 µm +0.196%, 9 µm +0.166%,
+    # 10 µm +0.406% — and 11, 12 and 13 µm are BIT-IDENTICAL, which is the
+    # discriminating check that this repin is the 8–10 µm partition and
+    # nothing else.  All three rise because the split raises the effective
+    # in-band floor (the retired slab fitted −ln⟨τ⟩ over a span containing a
+    # deep 0.5 µm feature and so under-stated the opacity), which lifts the
+    # atmosphere's own emission at this 2 km midlat_summer column more than
+    # it cuts the transmitted target term.  9 µm sits in the clean window
+    # (floor 0.2751 → 0.1494) and 10 µm on the new tail/next-region edge
+    # (mean of 0.3013 and 0.0471 instead of 0.2751 and 0.0471).
     "L_aperture_W_m2_sr_um": {
-        8.0: 7.595494531222535,
-        9.0: 9.021609739786324,
-        10.0: 9.176842696287318,
+        8.0: 7.6104125917765595,
+        9.0: 9.036575382924653,
+        10.0: 9.214110229405719,
         11.0: 8.912094189127012,
         12.0: 8.244719031125895,
         13.0: 7.5085432507086844,

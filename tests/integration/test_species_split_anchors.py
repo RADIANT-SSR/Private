@@ -76,32 +76,40 @@ _BANDS = {
 #: warm bias had been cancelling part of the region-flat spectral-shape deficit
 #: in this direction; see ``test_emission_temperature_anchors.py`` for the
 #: emission-temperature-only scoreboard that separates the two errors.
+#: **LWIR rows repinned 2026-08-29 (CU-330 ozone region split).**  The MWIR and
+#: the three reflective rows are bit-identical — the split touches only
+#: 8–10 µm — and every LWIR rung moves DOWN by 0.3–1.7 %: 1.937→1.932 (1 km),
+#: 1.238→1.225, 1.074→1.059, 0.988→0.971, 0.967→0.950 (20 km).  The model gains
+#: in-band opacity, so its own emission rises and the MODTRAN/model ratio falls.
+#: Three of the five rungs move toward unity and the two deepest move past it.
+#: The LWIR ceiling in the adoption-criterion test below (1.95) is unchanged and
+#: still binds: the worst excursion falls 1.937 -> 1.932.
 _EXPECTED_RATIOS: dict[tuple[int, str], float] = {
     (1_000, "VIS"): 1.103,
     (1_000, "NIR"): 0.792,
     (1_000, "SWIR"): 0.607,
     (1_000, "MWIR"): 2.448,
-    (1_000, "LWIR"): 1.937,
+    (1_000, "LWIR"): 1.932,
     (3_000, "VIS"): 1.293,
     (3_000, "NIR"): 0.896,
     (3_000, "SWIR"): 0.662,
     (3_000, "MWIR"): 1.852,
-    (3_000, "LWIR"): 1.238,
+    (3_000, "LWIR"): 1.225,
     (5_000, "VIS"): 1.343,
     (5_000, "NIR"): 0.908,
     (5_000, "SWIR"): 0.629,
     (5_000, "MWIR"): 1.674,
-    (5_000, "LWIR"): 1.074,
+    (5_000, "LWIR"): 1.059,
     (10_000, "VIS"): 1.360,
     (10_000, "NIR"): 0.930,
     (10_000, "SWIR"): 0.610,
     (10_000, "MWIR"): 1.514,
-    (10_000, "LWIR"): 0.988,
+    (10_000, "LWIR"): 0.971,
     (20_000, "VIS"): 1.342,
     (20_000, "NIR"): 0.940,
     (20_000, "SWIR"): 0.600,
     (20_000, "MWIR"): 1.410,
-    (20_000, "LWIR"): 0.967,
+    (20_000, "LWIR"): 0.950,
 }
 
 
@@ -174,7 +182,7 @@ def test_lower_endpoint_weighting_is_the_better_of_the_two_everywhere_it_matters
     NIR     3.024×           1.262×           1.262×
     SWIR    8.712×           1.666×           1.666×
     MWIR    2.404×           2.334×           2.448×
-    LWIR    1.885×           1.885×           1.937×
+    LWIR    1.885×           1.885×           1.932×
     ======  ===============  ===============  ==============
 
     ``segment_simple`` no longer *offers* the retired weighting (Rule 27 — one

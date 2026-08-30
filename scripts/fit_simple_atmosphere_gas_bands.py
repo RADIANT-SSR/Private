@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import sys
 import warnings
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -76,7 +77,11 @@ SEGMENTS: tuple[tuple[float, float], ...] = (
     (3.50, 5.00),
     (5.00, 7.50),
     (7.50, 8.00),
-    (8.00, 10.00),
+    # CU-330 split the former single 8.00–10.00 µm row at the measured
+    # O₃ ν₂ band edges: the clean window, the band core, and the tail.
+    (8.00, 9.40),
+    (9.40, 9.90),
+    (9.90, 10.00),
     (10.00, 12.00),
     (12.00, 14.29),
 )
@@ -93,8 +98,21 @@ def _band_od(wl: np.ndarray, tau: np.ndarray, lo: float, hi: float) -> float:
 
 
 def _model_nonwater_od() -> dict[tuple[float, float], float]:
-    """Current model's non-water band OD (w→0) at the anchor geometry."""
+    """Pre-existing Rayleigh+aerosol band OD (w→0) at the anchor geometry.
+
+    "Pre-existing" means *excluding* the calibrated gas floor this script
+    derives. When CU-161 first ran, ``floor_od`` did not exist and the
+    model's w→0 transmittance was Rayleigh + aerosol by construction.
+    Now that the floors ship, evaluating the model as-is returns
+    ``Rayleigh + aerosol + floor_od`` and ``floor_add`` would come out
+    ≈ 0 for every region — the generator would silently zero its own
+    table on a re-run. The regions are therefore zeroed-floor for the
+    duration of this evaluation, which restores the original convention
+    exactly (same code path, the one term removed) and makes the script
+    reproduce the table it generated.
+    """
     from radiant.api.session import RadiantSession
+    from radiant.atmosphere import simple as simple_mod
     from radiant.atmosphere.simple import SimpleAtmosphere
     from radiant.core.los_geometry import LineOfSightGeometry
 
@@ -123,11 +141,28 @@ def _model_nonwater_od() -> dict[tuple[float, float], float]:
         params.set(key, val)
     params.resolve()
     atm = SimpleAtmosphere(precipitable_water_cm=1e-9)
-    los = LineOfSightGeometry(h_tgt=0.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=None, delta_phi=None)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        q = atm.evaluate(wl, los, params)
-    tau = np.asarray(q.tau_up)
+    # ADR-0011: the sensor endpoint travels on the LOS contract. The anchor
+    # geometry is the nadir full column ground → 100 km (`h_sensor` = the
+    # column top), matching the `geometry.sensor_altitude_m` set above.
+    los = LineOfSightGeometry(
+        h_tgt=0.0,
+        h_sensor=100_000.0,
+        theta_o=0.0,
+        h_atm_top=1.0e5,
+        theta_s=None,
+        delta_phi=None,
+    )
+    shipped_regions = simple_mod._CALIBRATED_GAS_REGIONS
+    simple_mod._CALIBRATED_GAS_REGIONS = tuple(
+        replace(region, floor_od=0.0) for region in shipped_regions
+    )
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            q = atm.evaluate(wl, los, params)
+        tau = np.asarray(q.tau_up)
+    finally:
+        simple_mod._CALIBRATED_GAS_REGIONS = shipped_regions
     return {seg: _band_od(wl, tau, *seg) for seg in SEGMENTS}
 
 
@@ -181,7 +216,15 @@ def main() -> int:
     # Cross-validation: reconstruct each profile anchor's per-window τ from
     # the fit (floor_add + nonwater ≈ OD0) and compare.
     print("\nCross-validation (fit τ − real τ), water-relevant windows:")
-    checks = [(0.70, 1.30), (1.50, 1.75), (3.50, 5.00), (8.00, 10.00), (10.00, 12.00)]
+    checks = [
+        (0.70, 1.30),
+        (1.50, 1.75),
+        (3.50, 5.00),
+        (8.00, 9.40),
+        (9.40, 9.90),
+        (9.90, 10.00),
+        (10.00, 12.00),
+    ]
     for run, w in PROFILES:
         deltas = []
         for lo, hi in checks:

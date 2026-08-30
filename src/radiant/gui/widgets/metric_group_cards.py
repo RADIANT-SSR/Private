@@ -43,6 +43,8 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QScrollArea,
+    QStyle,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -368,6 +370,7 @@ class MetricGroupCards(QWidget):
         self._headers: dict[str, _ColumnHeader] = {}
         self._labels: dict[str, _MetricLabel] = {}
         self._columns: tuple[str, ...] = ()
+        self._matrix_scrolls: list[QScrollArea] = []
 
     # -- result delivery ----------------------------------------------------
 
@@ -424,7 +427,16 @@ class MetricGroupCards(QWidget):
         rows: tuple[Any, ...],
         accents: Mapping[str, str],
     ) -> QWidget:
-        """One themed group card holding a metric × configuration grid."""
+        """One themed group card: frozen metric labels beside scrolling value columns.
+
+        CU-332: labels and values live in two height-synchronized grids. The
+        label grid never scrolls; only the value grid (headers + cells) sits
+        inside a per-card horizontal scroll area, so a matrix wider than the
+        pane slides its configuration columns under a fixed metric-label
+        column instead of carrying the row names off-screen. Every card's
+        scrollbar is linked through :meth:`_sync_matrix_scrolls`, so the
+        surface still scrolls as one.
+        """
         card = QWidget(self)
         card.setObjectName("geoModeFamily")
         card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -437,33 +449,112 @@ class MetricGroupCards(QWidget):
         head.setObjectName("geoModeGroupHeading")
         box.addWidget(head)
 
-        grid = QGridLayout()
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(14)
-        grid.setVerticalSpacing(4)
-        grid.setColumnStretch(0, 1)
+        body = QHBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(14)
+
+        label_host = QWidget(card)
+        label_grid = QGridLayout(label_host)
+        label_grid.setContentsMargins(0, 0, 0, 0)
+        label_grid.setHorizontalSpacing(0)
+        label_grid.setVerticalSpacing(4)
+
+        value_host = QWidget(card)
+        value_grid = QGridLayout(value_host)
+        value_grid.setContentsMargins(0, 0, 0, 0)
+        value_grid.setHorizontalSpacing(14)
+        value_grid.setVerticalSpacing(4)
+        # Leading stretch column: when the columns fit the viewport they stay
+        # right-packed against the card edge (the pre-CU-332 look); once they
+        # overflow, surplus is zero and the stretch is inert.
+        value_grid.setColumnStretch(0, 1)
+
+        header_spacer = QWidget(label_host)
+        label_grid.addWidget(header_spacer, 0, 0)
+        header_widgets: list[QWidget] = []
         for index, column in enumerate(columns):
-            header = _ColumnHeader(column, accents.get(column.name), card)
-            grid.addWidget(header, 0, index + 1)
+            header = _ColumnHeader(column, accents.get(column.name), value_host)
+            value_grid.addWidget(header, 0, index + 1)
+            header_widgets.append(header)
             self._headers[column.name] = header
 
+        label_widgets: list[_MetricLabel] = []
+        row_cells: list[list[QLabel]] = []
         for row_index, row in enumerate(rows, start=1):
-            label = _MetricLabel(row.label, card)
+            label = _MetricLabel(row.label, label_host)
             label.pinClicked.connect(
                 lambda k=row.key, la=row.label: self.pinMetricRequested.emit(k, la)
             )
-            grid.addWidget(label, row_index, 0)
+            label_grid.addWidget(label, row_index, 0)
             self._labels[row.key] = label
+            label_widgets.append(label)
+            cells: list[QLabel] = []
             for index, (column, cell) in enumerate(zip(columns, row.cells, strict=True)):
-                value = QLabel(cell.text, card)
+                value = QLabel(cell.text, value_host)
                 value.setObjectName("outputsRowValue" if cell.is_value else "metricCellAbsent")
                 value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
                 value.setToolTip(cell.tooltip)
-                grid.addWidget(value, row_index, index + 1)
+                value_grid.addWidget(value, row_index, index + 1)
                 self._cells[(row.key, column.name)] = value
-        box.addLayout(grid)
+                cells.append(value)
+            row_cells.append(cells)
+
+        # Park any vertical surplus (the reserved scrollbar strip, rounding) in an
+        # empty stretch row at the bottom: with every real row at a fixed height and
+        # no stretch target, QGridLayout would otherwise spread the surplus BETWEEN
+        # the rows — walking the value rows out of register with the label column,
+        # which has no surplus to spread.
+        value_grid.setRowStretch(len(rows) + 1, 1)
+        label_grid.setRowStretch(len(rows) + 1, 1)
+
+        # Two grids stay row-aligned only by force: same vertical spacing plus
+        # equal fixed heights per row (labels carry a pin button and can out-size
+        # a bare value QLabel, so neither side's natural height can be trusted).
+        if header_widgets:
+            header_h = max(widget.sizeHint().height() for widget in header_widgets)
+            header_spacer.setFixedHeight(header_h)
+            # Pin the headers to the same number: QSS polish can re-size a
+            # header after this method runs, and any one-sided growth walks the
+            # label column out of register with its rows.
+            for widget in header_widgets:
+                widget.setFixedHeight(header_h)
+        for label, cells in zip(label_widgets, row_cells, strict=True):
+            heights = [label.sizeHint().height(), *(cell.sizeHint().height() for cell in cells)]
+            row_h = max(heights)
+            label.setFixedHeight(row_h)
+            for cell in cells:
+                cell.setFixedHeight(row_h)
+
+        scroll = QScrollArea(card)
+        scroll.setObjectName("metricMatrixScroll")
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setWidgetResizable(True)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setWidget(value_host)
+        # Reserve the content height plus the as-needed bar's extent up front, so
+        # the bar's appearance never squeezes the last metric row.
+        bar_extent = scroll.style().pixelMetric(QStyle.PixelMetric.PM_ScrollBarExtent, None, scroll)
+        scroll.setMinimumHeight(value_host.sizeHint().height() + bar_extent + 2)
+        scroll.horizontalScrollBar().valueChanged.connect(self._sync_matrix_scrolls)
+        self._matrix_scrolls.append(scroll)
+
+        body.addWidget(label_host, 0, Qt.AlignmentFlag.AlignTop)
+        body.addWidget(scroll, 1, Qt.AlignmentFlag.AlignTop)
+        box.addLayout(body)
         return card
+
+    def _sync_matrix_scrolls(self, value: int) -> None:
+        """One horizontal position for every card — the matrix scrolls as one surface.
+
+        Safe against feedback: ``setValue`` on an already-matching bar emits no
+        ``valueChanged``, so propagation terminates after one fan-out.
+        """
+        for scroll in self._matrix_scrolls:
+            bar = scroll.horizontalScrollBar()
+            if bar.value() != value:
+                bar.setValue(value)
 
     def _build_card(self, heading: str, records: tuple[Any, ...], result: ChainResult) -> QWidget:
         """One themed group card: an uppercase heading over its metric rows."""
@@ -544,6 +635,7 @@ class MetricGroupCards(QWidget):
         self._headers.clear()
         self._labels.clear()
         self._columns = ()
+        self._matrix_scrolls.clear()
         while self._grid.count():
             item = self._grid.takeAt(0)
             widget = item.widget()

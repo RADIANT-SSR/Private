@@ -47,15 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-332 — Performance matrix cards scroll the metric-label column off-screen — a scrolled 8-configuration matrix shows bare numbers
-
-**Discovered**: Scenario 9.4 GUI review (owner, 2026-08-29) — second owner-hit defect from the first 8-configuration study (after CU-331).
-**Status**: Open — in work 2026-08-29.
-**File**: `src/radiant/gui/widgets/metric_group_cards.py::_build_matrix_card` (one QGridLayout: labels in column 0, configuration columns beside; the Performance pane's outer scroll area carries everything sideways together).
-**Symptom**: with 8 configurations the matrix is wider than the pane; scrolling right to reach the later bands carries the metric-label column (and the row's unit context) off the left edge, leaving unlabeled value rows — only the per-cell tooltip still says which metric a number belongs to.
-**Why it still matters**: workflow-visible (intake test 4) — the owner hit it reading scenario 9.4's SWIR columns; cross-configuration comparison is the whole point of the matrix, and it goes unreadable exactly when the set is large enough to need scrolling.
-**Suggested fix**: (a) inline-fix-now, M — frozen-column split per card: metric labels stay in a fixed left column outside a per-card horizontal `QScrollArea` that holds only the header + value columns; force per-row height sync between the two sides; link all cards' horizontal scrollbars so the surface still scrolls as one. Assert label-column immobility and scroll sync in a GUI test. Category A (presentation only).
-
 ### CU-330 — The CU-161 gas table's 8–10 µm region is one flat slab, hiding the 9.6 µm O₃ band from τ and blocking its emission placement
 
 **Discovered**: CU-324 item-2 measurement (branch `atmo/cu-324-emission-placement`), 2026-08-29.
@@ -108,6 +99,16 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-332 — Performance matrix cards scroll the metric-label column off-screen — a scrolled 8-configuration matrix shows bare numbers — RESOLVED 2026-08-29 (commit trailer)
+
+**Discovered**: Scenario 9.4 GUI review (owner, 2026-08-29) — second owner-hit defect from the first 8-configuration study (after CU-331).
+**Status**: RESOLVED 2026-08-29, closed by the `CU-Closes: 332` trailer commit (same-day (a) inline fix, branch `gui/cu-332-frozen-labels`).
+**File**: `src/radiant/gui/widgets/metric_group_cards.py::_build_matrix_card` (one QGridLayout: labels in column 0, configuration columns beside; the Performance pane's outer scroll area carries everything sideways together).
+**Symptom**: with 8 configurations the matrix is wider than the pane; scrolling right to reach the later bands carries the metric-label column (and the row's unit context) off the left edge, leaving unlabeled value rows — only the per-cell tooltip still says which metric a number belongs to.
+**Why it still matters**: workflow-visible (intake test 4) — the owner hit it reading scenario 9.4's SWIR columns; cross-configuration comparison is the whole point of the matrix, and it goes unreadable exactly when the set is large enough to need scrolling.
+**Suggested fix**: (a) inline-fix-now, M — frozen-column split per card: metric labels stay in a fixed left column outside a per-card horizontal `QScrollArea` that holds only the header + value columns; force per-row height sync between the two sides; link all cards' horizontal scrollbars so the surface still scrolls as one. Assert label-column immobility and scroll sync in a GUI test. Category A (presentation only).
+**Resolution**: `_build_matrix_card` rebuilt as a frozen label grid beside a per-card horizontal `QScrollArea` holding only the header + value columns; per-row heights pinned equal on both sides (headers included — QSS polish re-sizes them one-sidedly otherwise) and the reserved scrollbar strip parked in a bottom stretch row so QGridLayout cannot spread it between rows; all cards' scrollbars linked (`_sync_matrix_scrolls`). Three regression tests (frozen structure — verified red pre-fix; cross-card scroll sync; label/row alignment). Presentation only, no computed value moves.
 
 ### CU-331 — The configuration bar docks beside the stage strip, not above it — 8 configurations push the stage chips off-screen — RESOLVED 2026-08-29 (commit trailer)
 

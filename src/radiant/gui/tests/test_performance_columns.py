@@ -346,3 +346,65 @@ class TestSingleConfigurationZeroRegression:
         with qtbot.waitSignal(cards.pinMetricRequested, timeout=1000) as blocker:
             row.pin_button.click()
         assert blocker.args[0] == _GSD
+
+
+class TestFrozenLabelColumn:
+    """CU-332: the metric-label column must stay put while configurations scroll.
+
+    With 8 configurations the matrix outgrows the pane; pre-fix, the whole card
+    grid scrolled sideways and carried the row labels off-screen. Now only the
+    header + value columns live inside each card's horizontal scroll area, the
+    label column is force-height-synced beside it, and every card's scrollbar
+    is linked so the surface scrolls as one.
+    """
+
+    def _scrolls(self, cards: MetricGroupCards) -> list[Any]:
+        from PySide6.QtWidgets import QScrollArea
+
+        return list(cards.findChildren(QScrollArea, "metricMatrixScroll"))
+
+    def test_labels_frozen_values_scrollable(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = _open_three_band(qtbot, tmp_path)
+        cards = _cards(window)
+        scrolls = self._scrolls(cards)
+        assert scrolls, "matrix cards must carry their horizontal scroll areas"
+        for label in cards._labels.values():
+            assert not any(s.isAncestorOf(label) for s in scrolls)
+        for cell in cards._cells.values():
+            assert any(s.isAncestorOf(cell) for s in scrolls)
+
+    def test_cards_scroll_as_one_surface(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = _open_three_band(qtbot, tmp_path)
+        cards = _cards(window)
+        scrolls = self._scrolls(cards)
+        assert len(scrolls) >= 2, "the study renders multiple group cards"
+        # Force a scrollable range regardless of the test screen's width.
+        for scroll in scrolls:
+            scroll.setFixedWidth(120)
+        window.show()
+        qtbot.waitExposed(window)
+        first = scrolls[0].horizontalScrollBar()
+        assert first.maximum() > 0
+        target = min(30, first.maximum())
+        first.setValue(target)
+        for other in scrolls[1:]:
+            bar = other.horizontalScrollBar()
+            if bar.maximum() >= target:
+                assert bar.value() == target
+
+    def test_labels_align_with_their_rows(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = _open_three_band(qtbot, tmp_path)
+        cards = _cards(window)
+        window.show()
+        qtbot.waitExposed(window)
+        name = cards._columns[0]
+        checked = 0
+        for key, label in cards._labels.items():
+            cell = cards._cells.get((key, name))
+            if cell is None:
+                continue
+            label_y = label.mapTo(cards, label.rect().center()).y()
+            cell_y = cell.mapTo(cards, cell.rect().center()).y()
+            assert abs(label_y - cell_y) <= 2, f"row {key!r} drifted {label_y - cell_y}px"
+            checked += 1
+        assert checked >= 5

@@ -252,7 +252,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 26 source + 20 tests
+### `api/` — 27 source + 21 tests
 
 Public scripting API.
 
@@ -270,6 +270,7 @@ api/
 ├── compare.py             # predicted-vs-measured MTF comparison (Gap 30)
 ├── inspect.py             # post-run introspection helpers
 ├── plot.py                # plotting helpers (uses matplotlib if available)
+├── coating_detail.py      # single-element coating detail figure, native source grid (Gap 116)
 ├── plot_style.py          # token-derived house style + CVD-validated series palette (2026-08-03)
 ├── units.py               # public unit-conversion helpers
 ├── metric_groups.py       # re-export bridge: performance metric-group taxonomy (Gap 96)

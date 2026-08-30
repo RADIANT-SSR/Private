@@ -505,7 +505,7 @@ an operator's choice:
   horizon, and the rural VIS aerosol optical depth is itself ~2× high. Quantitative
   VIS/NIR sky-background work needs a measured backend. *(parity §3 items 2 and 14)*
 - **MWIR thermal path radiance carries a spectral-shape residual on `simple`** — the model
-  is flat within each of 15 calibrated regions, which under-reads up-looking MWIR by 25–40 %
+  is flat within each of 17 calibrated regions, which under-reads up-looking MWIR by 25–40 %
   on columns deeper than 5 km and over-reads down-looking MWIR by ~20 % on tall ones. This
   is now the *named dominant residual* after the height-resolved emission temperature
   landed; it is a recorded model limitation, not scheduled debt. *(parity §3 item 1)*

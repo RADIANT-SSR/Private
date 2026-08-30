@@ -41,8 +41,14 @@ regime weights the target by `source.target.fill_fraction` (CU-060 — the
 original execution left it at the default 1.0, overstating the fire signal
 ~3× and pulling the saturation temperatures down).
 
-*Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-324). One mover, and it is small here: **CU-324** made
+*Numbers refreshed 2026-08-29 from the unmodified runner. Two movers, both
+small here, both landed 2026-08-29. **CU-330** split the flat 8–10 µm gas region
+at the 9.6 µm ozone band, giving the LWIR column real in-band opacity: pixel
+signal 3 011 064 → 2 996 449 e⁻ (−0.5 %), clutter 53 631 → 53 377 e⁻ RMS, SNR
+1 367.0 → 1 363.6, NEDT 164.5 → 164.7 mK. **Every MWIR figure in this table is
+bit-identical**, which is the split's signature — it touches 8–10 µm and nothing
+else — and no verdict moves. The earlier mover, from the pre-CU-324 vintage of
+2026-08-02: **CU-324** made
 `E_sky_thermal`'s flux-diffusivity exponent the geometric `sec 48.2° = 1.50030`
 instead of the CU-155 fitted `D = 1.1`, lifting the sky the ε < 1 forest floor
 reflects. Everything moves in the fourth significant figure — pixel signal LWIR
@@ -60,15 +66,15 @@ rather than the column's near-surface temperature, which took pixel signal LWIR
 
 | Quantity | MWIR | LWIR |
 |----------|-----:|-----:|
-| Pixel signal [e⁻] | 228,481 | 3,011,064 |
-| Contrast (fire − forest) [e⁻] | 220,950 | 1,223,350 |
-| Well fill [%] | 5.7 | 25.1 |
-| Total noise [e⁻ RMS] | 541.6 | 53,676.6 |
-| — of which clutter [e⁻ RMS] | 225.9 | 53,631.4 |
-| SNR [--] | 464.2 | 1,367.0 |
-| Contrast SNR [--] | 448.9 | 555.4 |
+| Pixel signal [e⁻] | 228,481 | 2,996,449 |
+| Contrast (fire − forest) [e⁻] | 220,950 | 1,217,206 |
+| Well fill [%] | 5.7 | 25.0 |
+| Total noise [e⁻ RMS] | 541.6 | 53,422.5 |
+| — of which clutter [e⁻ RMS] | 225.9 | 53,377.3 |
+| SNR [--] | 464.2 | 1,363.6 |
+| Contrast SNR [--] | 448.9 | 553.9 |
 | **SCNR (incl. clutter) [--]** | **408.0** | **22.8** |
-| NEDT [mK] (Gap 43 approximation) | 230.0 | 164.5 |
+| NEDT [mK] (Gap 43 approximation) | 230.0 | 164.7 |
 
 ### Spectral contrast (hand Planck, ASTER ε_bg(λ))
 
@@ -87,8 +93,8 @@ different signal-to-clutter.
 | 500 | 188.0 | no | 10.5 | no | 1.000 | 1.000 |
 | 600 | 408.0 | no | 22.8 | no | 1.000 | 1.000 |
 | 800 | 924.2 | no | 53.2 | no | 1.000 | 1.000 |
-| 1000 | 1,464.3 | no | 88.3 | no | 1.000 | 1.000 |
-| 1200 | 2,003.9 | **YES** | 126.2 | no | 1.000 | 1.000 |
+| 1000 | 1,464.3 | no | 88.4 | no | 1.000 | 1.000 |
+| 1200 | 2,003.9 | **YES** | 126.4 | no | 1.000 | 1.000 |
 
 MWIR detects the 5 m² fire with P_d ≈ 1 at every temperature; **LWIR
 misses the coolest fires** — at 400 K its SCNR is 1.0, far below the

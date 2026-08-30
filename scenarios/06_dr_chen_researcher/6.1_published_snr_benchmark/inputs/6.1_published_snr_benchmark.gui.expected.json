@@ -2,8 +2,8 @@
   "id": "6.1",
   "title": "Published SNR benchmark \u2014 datasheet sensor",
   "metrics": {
-    "snr": 2510.2271735490526,
-    "nedt_K": 0.024683116988211354,
+    "snr": 2509.6058305447864,
+    "nedt_K": 0.024688333439624656,
     "niirs": null
   },
   "notes": "Fixed datasheet-benchmark configuration. The 30 us integration is chosen to stay unsaturated on the intense LWIR flux (well ~61%); the GUI baseline adds a well-matched gain (640 e-/DN) so the 14-bit ADC spans the 1e7 e- well instead of clipping (CU-170)."

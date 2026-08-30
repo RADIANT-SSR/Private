@@ -135,14 +135,19 @@ in the arctic column; small ground vehicles fall below threshold everywhere —
 | Transport aircraft | 1,061* | 1,061* | 1,061* | 1,061* |
 | Fast attack craft | 1,061* | 1,061* | 969 | 1,061* |
 | Fuel bladder farm | 1,061* | 1,061* | 1,019 | 1,061* |
-| Fighter aircraft | 924 | 912 | 774 | 1,061* |
-| Patrol boat | 828 | 819 | 703 | 1,061* |
-| SAM TEL | — | — | — | 564 |
-| Towed artillery | — | — | — | 522 |
+| Fighter aircraft | 924 | 912 | 771 | 1,061* |
+| Patrol boat | 828 | 817 | 700 | 1,061* |
+| SAM TEL | — | — | — | 561 |
+| Towed artillery | — | — | — | 520 |
 | (MBT, APC, Cargo, Technical, Small UAV) | — not detectable — | | | |
 
 `*` = swath-edge limited (SCNR ≥ 5 out to the 66° θ_o practical edge, slant
 1,061 km). `—` = not detectable in that cell.
+
+*LWIR detection ranges refreshed 2026-08-29 from the unmodified runner —
+**CU-330**, the 9.6 µm ozone region split: the model gains in-band opacity, so
+every LWIR range shortens by 2–3 km (0.3–0.6 %). The MWIR columns and every
+detect/no-detect verdict in the matrix are unchanged.*
 
 **Worst-case target: Technical (pickup)** — mean 199 km across all 12
 sensor×atmosphere cells, detectable only on the flagship. **Easiest: fuel

@@ -198,6 +198,25 @@ HG_ASYMMETRY: float = 0.7
 # Regions where the pre-existing Rayleigh+aerosol terms already meet or
 # exceed the measured floor (VIS/UV — the aerosol there over-absorbs,
 # see scenario 3.4's validation note) get floor_od = 0, never negative.
+#
+# Vintage per row (Rule 26 — the generator is named above; what differs
+# is *when* each row was last run through it):
+#
+# - 8.00–9.40 / 9.40–9.90 / 9.90–10.00 µm: regenerated 2026-08-29
+#   (CU-330). The former single 8.00–10.00 µm row was one flat 2 µm slab
+#   spanning both the clean window and the 9.6 µm O₃ ν₂ fundamental, so
+#   τ carried no identifiable ozone structure at all — measured on the
+#   shipped table, τ(9.60 µm) and τ(8.70 µm) agreed to six figures on a
+#   nadir full column. Splitting at the band edges the delivered ladder
+#   shows (water-free OD rises 0.24 → 0.89 across 9.372 → 9.416 µm and
+#   falls 0.52 → 0.33 across 9.901 → 9.911 µm) resolves it: the band
+#   core's floor stands 5.9× the adjacent window's, which is the ozone.
+# - every other row: the original CU-161 vintage (2026-07-17), NOT
+#   re-run by CU-330. Re-running them today would move the VIS/NIR rows,
+#   because CU-253 later cut the Rayleigh optical depth ~8× and the
+#   floors those rows carry were calibrated against the pre-CU-253
+#   extinction — recorded in ``docs/tracking/Findings_Log.md``
+#   (2026-08-29), and out of CU-330's authorised scope.
 @dataclass(frozen=True)
 class _GasRegion:
     lo_um: float
@@ -220,7 +239,11 @@ _CALIBRATED_GAS_REGIONS: tuple[_GasRegion, ...] = (
     _GasRegion(lo_um=3.50, hi_um=5.00, floor_od=0.4497, k_h2o=0.0944, b_h2o=0.808),
     _GasRegion(lo_um=5.00, hi_um=7.50, floor_od=1.3543, k_h2o=1.7850, b_h2o=0.530),
     _GasRegion(lo_um=7.50, hi_um=8.00, floor_od=0.9424, k_h2o=0.9210, b_h2o=0.673),
-    _GasRegion(lo_um=8.00, hi_um=10.00, floor_od=0.2751, k_h2o=0.0877, b_h2o=1.268),
+    # CU-330: the former single 8.00–10.00 µm row split at the measured
+    # O₃ ν₂ band edges — clean window / band core / long-wave tail.
+    _GasRegion(lo_um=8.00, hi_um=9.40, floor_od=0.1494, k_h2o=0.0992, b_h2o=1.204),
+    _GasRegion(lo_um=9.40, hi_um=9.90, floor_od=0.8877, k_h2o=0.0409, b_h2o=1.701),
+    _GasRegion(lo_um=9.90, hi_um=10.00, floor_od=0.3013, k_h2o=0.0379, b_h2o=1.805),
     _GasRegion(lo_um=10.00, hi_um=12.00, floor_od=0.0471, k_h2o=0.0602, b_h2o=1.750),
     _GasRegion(lo_um=12.00, hi_um=14.29, floor_od=0.5956, k_h2o=0.1398, b_h2o=1.583),
 )
@@ -241,8 +264,9 @@ _CALIBRATED_GAS_REGIONS: tuple[_GasRegion, ...] = (
 # edge and by exactly 0 on those that do not. hw = 0.01 µm halves that;
 # hw = 0.05 µm roughly triples it and starts smearing real band
 # structure. The full width must stay below the narrowest region
-# (0.20 µm, 1.30–1.50 µm) so no two ramps overlap and every region keeps
-# a strip of its exactly-calibrated coefficients — pinned by
+# (0.10 µm, the 9.90–10.00 µm ozone tail since CU-330; it was 0.20 µm at
+# 1.30–1.50 µm before) so no two ramps overlap and every region keeps a
+# strip of its exactly-calibrated coefficients — pinned by
 # ``tests/test_gas_region_blend.py::test_blend_ramps_never_overlap``.
 GAS_REGION_BLEND_HALF_WIDTH_UM: float = 0.02
 

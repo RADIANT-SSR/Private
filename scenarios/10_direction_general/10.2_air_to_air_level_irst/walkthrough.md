@@ -308,11 +308,20 @@ both bands. The MODTRAN columns are delivered measurements and do not move.*
 
 | run | range [km] | MODTRAN τ | model τ | ratio | difference [%] | α MODTRAN [1/km] | α model [1/km] |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| L16 | 5 | 0.9725 | 0.9684 | 0.996 | −0.4 | 0.00557 | 0.00642 |
-| L17 | 10 | 0.9521 | 0.9405 | 0.988 | −1.2 | 0.00491 | 0.00613 |
-| L18 | 25 | 0.9064 | 0.8639 | 0.953 | −4.7 | 0.00393 | 0.00585 |
-| L19 | 50 | 0.8567 | 0.7565 | 0.883 | −11.7 | 0.00309 | 0.00558 |
-| L20 | 100 | 0.7950 | 0.5987 | 0.753 | −24.7 | 0.00229 | 0.00513 |
+| L16 | 5 | 0.9725 | 0.9634 | 0.991 | −0.9 | 0.00557 | 0.00745 |
+| L17 | 10 | 0.9521 | 0.9324 | 0.979 | −2.1 | 0.00491 | 0.00700 |
+| L18 | 25 | 0.9064 | 0.8539 | 0.942 | −5.8 | 0.00393 | 0.00632 |
+| L19 | 50 | 0.8567 | 0.7566 | 0.883 | −11.7 | 0.00309 | 0.00558 |
+| L20 | 100 | 0.7950 | 0.6257 | 0.787 | −21.3 | 0.00229 | 0.00469 |
+
+*LWIR table refreshed 2026-08-29 from the unmodified runner — **CU-330**, the
+9.6 µm ozone region split. The model gains real in-band opacity, so its α model
+column rises 9–16 % and every model τ falls; the MODTRAN columns are delivered
+measurements and are untouched, as is the entire MWIR table above (the split
+touches only 8–10 µm). Net effect on the disagreement: it shrinks at long range
+(L20 ratio 0.753 → 0.787) and grows slightly at short range (L16 0.996 → 0.991),
+which is the expected sign — the model was short of band opacity, and adding it
+helps most where the path is long enough for that shortfall to compound.*
 
 The MWIR α model column is now the same quantity the sweep table in §4.2 reports
 as `α_eff` (0.01826 km⁻¹ at 25 km, 0.01818 km⁻¹ at 100 km) — the two agree to
@@ -322,10 +331,10 @@ atmosphere and not two.
 The LWIR ratios reproduce the values pinned in
 `tests/integration/test_uplooking_horizontal_anchors.py::
 test_level_arm_vs_the_full_horizontal_grid` for the 10 km row
-(0.996 / 0.988 / 0.954 / 0.885 / 0.756) to within 0.003 — exactly for the two
-short arms, and inside that test's ±0.03 band for all five. The scenario and the
-golden test are measuring the same thing on the same runs; the pins are a
-pre-CU-267 vintage and now sit ≈ 0.002 high at the long end.
+(0.991 / 0.979 / 0.942 / 0.883 / 0.787) to within 0.001 — the scenario and the
+golden test are measuring the same thing on the same runs. Both were refreshed
+together by CU-330 on 2026-08-29; before that the pins were a pre-CU-267 vintage
+sitting ≈ 0.002 high at the long end, and that gap is now closed.
 
 **Expected residual, and why it is one-sided at long range.** A band-averaged
 transmittance is not multiplicative in path length. Within a band the strong
@@ -339,7 +348,7 @@ measure that on both sides:
 | band | α(5 km)/α(100 km), MODTRAN | α(5 km)/α(100 km), model |
 |---|---:|---:|
 | MWIR 3.5–5.0 µm | **7.60×** | 1.01× |
-| LWIR 8–12 µm | **2.43×** | 1.25× |
+| LWIR 8–12 µm | **2.43×** | 1.59× |
 
 In the MWIR the simple model's $k(\lambda)$ is essentially **flat** across
 3.5–5.0 µm — the documented CU-161 region-flat spectral-shape limitation — so
@@ -347,7 +356,12 @@ its band mean stays very nearly exponential (α drifts 1 % over a 20× path) and
 it cannot reproduce MODTRAN's saturation at all. In the LWIR the model carries
 some spectral structure and recovers part of the effect, but still far too
 little. Real MWIR line structure (the CO₂ 4.3 µm band and dense H₂O lines
-cutting the window) is what MODTRAN has and the model does not.
+cutting the window) is what MODTRAN has and the model does not. *The LWIR figure
+moved 1.25× → 1.59× on 2026-08-29 (CU-330): splitting the 8–10 µm region at the
+ozone band gave the model real in-band structure where it had a flat average, and
+it recovers correspondingly more of MODTRAN's saturation. That is the same
+mechanism this paragraph names, applied once — a direct measurement of what a
+finer partition buys.*
 
 **Direction of the consequence for this scenario:** the model is progressively
 *too opaque* as the arm lengthens, so RADIANT's SNR and detection range at the

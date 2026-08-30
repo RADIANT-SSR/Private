@@ -23,13 +23,20 @@ Item 1 — the ``z_em = 200 m`` downwelling proxy
 
 Item 2 — O₃ lumped into the well-mixed gas floor
     The 9.4–9.9 µm ozone feature is measurably mis-placed: the current form
-    runs warm on every matched pair.  A split does improve it (0.1519 →
-    0.1000 RMS |ln ratio|), but only through a single free parameter — the
-    ozone share of the gas-floor OD — which the CU-161 region table cannot
-    supply, because its 8.00–10.00 µm region is 2 µm wide and flat and
-    therefore contains no identifiable ozone band.  Only the *before* side is
-    pinned here (it is the side shipped code computes); the measured after
-    side lives in ``docs/validation/atmosphere_modtran_parity.md`` §2.
+    runs warm on every matched pair.  A split does improve it, but when this was
+    first measured it did so only through a single free parameter — the ozone
+    share of the gas-floor OD — which the then-current CU-161 region table could
+    not supply, because its 8.00–10.00 µm region was 2 µm wide and flat and so
+    contained no identifiable ozone band.
+
+    **CU-330 (2026-08-29) removed that blocker** by splitting the region at the
+    measured band edges.  The share is now arithmetic on the table — the
+    in-feature floor above the adjacent clean window's, 0.832 — rather than
+    fitted, and scored against the emission parity it was *not* fitted to it
+    lands within 7 % of that parity's own optimum.  The emission split itself is
+    still unimplemented and remains item 2's action, so what this module pins is
+    still the *before* side; the after side lives in
+    ``docs/validation/atmosphere_modtran_parity.md`` §2.14(b) and §2.15.
 
 Item 3 — grazing-arc opacity distribution
     M6–M8 were evaluated as candidate anchors and cannot discriminate: at
@@ -217,11 +224,17 @@ def _e_sky_variant(
 #: ships since the 2026-08-29 owner ruling; ``(D, z_em)`` is the retired CU-155
 #: fit.  The ordering is the finding: the exponent carries the whole gain, and
 #: the layered temperature costs against either exponent.
+#: Repinned 2026-08-29 (CU-330 ozone region split — the 8–10 µm gas region is
+#: now three regions cut at the O₃ band edges, so every LWIR sky column carries
+#: slightly different opacity).  All four corners improve by 1–2 % and the
+#: ORDERING — which is what the item-1 ruling rests on — is unchanged:
+#: (D, z_em) 2.0776 → 2.0416, (sec, z_em) 1.9233 → 1.8985,
+#: (D, layered) 2.1080 → 2.0703, (sec, layered) 1.9385 → 1.9121.
 _LADDER_RMS = {
-    ("D", "z_em"): 2.0776,
-    ("sec", "z_em"): 1.9233,
-    ("D", "layered"): 2.1080,
-    ("sec", "layered"): 1.9385,
+    ("D", "z_em"): 2.0416,
+    ("sec", "z_em"): 1.8985,
+    ("D", "layered"): 2.0703,
+    ("sec", "layered"): 1.9121,
 }
 
 #: The corner that ships (CU-324 item 1's ruled outcome).
@@ -362,8 +375,18 @@ _MATCHED_PAIRS: dict[str, tuple[str, str, float, float, float]] = {
 #: the fourteen matched pairs, in the O₃ feature and in the whole LWIR band.  The
 #: feature is three times worse than the band that contains it — the asymmetry
 #: that makes the mis-placement worth a CU rather than a shrug.
-_O3_FEATURE_RMS_SHIPPED = 0.1519
-_LWIR_BAND_RMS_SHIPPED = 0.2611
+#: Repinned 2026-08-29 (CU-330).  The feature reads much worse than it did, and
+#: the increase is the finding rather than a regression in what this measures:
+#: the retired flat 8.00–10.00 µm region carried only 0.2751 of in-band floor OD
+#: where the O₃ band actually holds 0.8877, so it under-supplied the very opacity
+#: whose mis-placement this test reads.  With the band identified, the warm bias
+#: it was always hiding shows at full size — 0.1519 → 0.3581, worst pair
+#: 1.44× → 1.95× (H1) — while the LWIR band mean containing it barely moves
+#: (0.2611 → 0.2632), which is the same concealment the second test asserts.
+#: Fixing it is CU-324 item 2's own action, which CU-330 unblocked by making the
+#: O₃ share arithmetic (0.832) rather than free.
+_O3_FEATURE_RMS_SHIPPED = 0.3581
+_LWIR_BAND_RMS_SHIPPED = 0.2632
 
 
 def _model_thermal(run: str, lam: np.ndarray) -> np.ndarray:

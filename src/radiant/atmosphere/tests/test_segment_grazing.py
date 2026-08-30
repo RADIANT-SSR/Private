@@ -192,6 +192,21 @@ class TestCrossModelConsistency:
         scale height hugs the curve harder still).  The *sky radiance* step is
         smaller than the OD step because the product saturates as ``1 − τ``:
         band-mean 0.64 % LWIR, 0.36 % MWIR, 0.47 % VIS from the ground.
+
+        **Re-measured 2026-08-29 (CU-330 ozone region split): worst-case 3.4 %,
+        at 9.6 µm.**  The geometric error itself did not change — what changed
+        is which species dominates the optical depth where the comparison is
+        read.  The parenthesis above is the reason, run in reverse: water hugs
+        the curve on a 2 km scale height, the well-mixed gas floor rides the
+        8 km molecular one, and the plane-parallel ``sec`` over-estimates most
+        for the species that reaches highest.  Before the split the 8–10 µm
+        opacity was mostly water and the ratio sat at 0.979 across the whole
+        band; now the ozone core is gas-floor-dominated and reads 0.966 while
+        every wavelength outside it is unmoved (8.0 µm 0.982→0.983, 11 µm
+        0.98755 both, 12 µm 0.98114 both, 13 µm 0.97877 both).  The tolerance
+        is the measurement, so it moves with it — and it is still the statement
+        that the two forms agree to a few percent at the hand-over, which is
+        what the hand-over rests on.
         """
         z = math.radians(80.0)
         r_tan = R_EARTH_M * math.sin(z)
@@ -199,7 +214,11 @@ class TestCrossModelConsistency:
         od_column, _, _, _ = column_segment_optical_depth(
             atm, wl, ColumnSegmentSpec(h_low_m=0.0, h_high_m=H_ATM_TOP_M, zeta_low_rad=z)
         )
-        np.testing.assert_allclose(od_grazing, od_column, rtol=0.03)
+        np.testing.assert_allclose(od_grazing, od_column, rtol=0.035)
+        # Outside the ozone core the agreement is the pre-CU-330 one: this is
+        # what says the loosened bound is the O₃ band and not a general drift.
+        outside = (wl < 9.35) | (wl > 9.95)
+        np.testing.assert_allclose(od_grazing[outside], od_column[outside], rtol=0.03)
 
     @pytest.mark.level0
     def test_radiance_agrees_with_the_column_evaluator_at_moderate_zenith(

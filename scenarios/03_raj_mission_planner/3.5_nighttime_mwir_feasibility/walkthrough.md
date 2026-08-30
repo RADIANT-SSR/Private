@@ -32,7 +32,7 @@ transcribed into the run script.
   sensor sized below full well, the metric reproduced an explicit two-run
   differencing to the digit (MWIR 26.2 = 26.2, LWIR 133.7 = 133.7). Those two
   figures are the historical cross-check, not current output; the current
-  contrast SNRs are MWIR 38.1 and LWIR 101.3 (the runner no longer prints the
+  contrast SNRs are MWIR 38.1 and LWIR 100.9 (the runner no longer prints the
   two-run comparison, so the identity is not re-verified in this refresh).
 - **Solar independence (analytic, `core.blackbody`).** Band-integrated
   thermal emitted radiance `ε·∫B(λ,T)dλ` vs the reflected-solar radiance a
@@ -55,10 +55,13 @@ metric drifts (a CU, filed).
 | Band | SNR | Contrast SNR | NEDT (mK) | ΔT/NEDT | MRT@Nyq (K) |
 |------|-----|--------------|-----------|---------|-------------|
 | MWIR | 375.7 | 38.1 | 72.5 | 97× | 0.399 |
-| LWIR | 2776.4 | 101.3 | 21.6 | 324× | 0.350 |
+| LWIR | 2776.2 | 100.9 | 21.6 | 324× | 0.350 |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the down-looking
+*Numbers refreshed 2026-08-29 from the unmodified runner — **CU-330**, the
+9.6 µm ozone region split, which moves the LWIR column only and only in the
+fourth figure (plain SNR 2776.4 → 2776.2, contrast SNR 101.3 → 100.9, NEDT
+unchanged at 21.6 mK) and leaves every MWIR figure bit-identical. Previous
+vintage 2026-08-02. Dominant historical mover: **CU-321** — the down-looking
 `(1−τ)·B` path emission CU-224 added is now emitted at a height-resolved
 `T_eff(λ)` over the 0 → 3 km column rather than at its near-surface
 temperature, so it falls back part of the way: plain SNR MWIR 391.8 → 375.7
@@ -100,7 +103,7 @@ Terrain LST over the scene: 287.6–288.6 K (mean 288.1 K, 10 samples). Across
 the whole envelope the MWIR contrast SNR stays ≥ 34 (34.6 at the hottest
 background, 288.6 K, where ΔT is smallest; 40.4 at the coolest) — far above
 the confident-detection threshold (SNR ≈ 6, Rose criterion). LWIR spans
-89.5–109.2 over the same envelope. The verdict is robust to background
+89.2–108.7 over the same envelope. The verdict is robust to background
 variation across the map.
 
 *Floor refreshed 2026-08-02 from the unmodified runner (previous vintage

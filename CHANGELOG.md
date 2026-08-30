@@ -21,6 +21,37 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Results-affecting: the 8–10 µm gas region is split at the 9.6 µm ozone band
+  (CU-330, owner-scheduled 2026-08-29).** `SimpleAtmosphere`'s calibrated gas table
+  carried one flat region across 8.00–10.00 µm — a 2 µm slab spanning both the clean
+  window and the O₃ ν₂ fundamental — so the model had no identifiable ozone opacity
+  anywhere: on a nadir full column `τ(9.60 µm)` and `τ(8.70 µm)` agreed to six
+  figures. The CU-161 fit was re-run, unchanged, on a partition cut at the band edges
+  the delivered MODTRAN ladder shows, giving three rows in place of one:
+  8.00–9.40 µm `(0.1494, 0.0992, 1.204)`, 9.40–9.90 µm `(0.8877, 0.0409, 1.701)`,
+  9.90–10.00 µm `(0.3013, 0.0379, 1.805)`. The table now has 17 regions and 16
+  interior blend edges.
+  **Direction and magnitude:** the model gains in-band optical depth (the retired slab
+  fitted `−ln⟨τ⟩` over a span containing a deep 0.5 µm feature and so understated it),
+  so τ falls and the atmosphere's own emission rises inside 8–10 µm. Nothing outside
+  8–10 µm moves at all — every MWIR quantity in the sweep is bit-identical, as are the
+  11, 12 and 13 µm anchors. Band-mean τ parity against 13 full-column MODTRAN anchors
+  improves 4.0× in the clean window (RMS |ln ratio| 0.1606 → 0.0397) and 3.2× in the
+  ozone band (0.5637 → 0.1747); 8–12 µm improves 0.0510 → 0.0482.
+  Downstream: Cell 28 `L_aperture` +0.20 % at 8 µm, +0.17 % at 9 µm, +0.41 % at 10 µm
+  and bit-identical at 11/12/13 µm, `nedt_K` −0.0025 %; the MWIR LEO golden is
+  untouched; five scenario GUI baselines move (`snr` −0.03 % to −0.36 %, largest 6.4
+  922.13 → 918.80), and the 25-cell horizontal-arm τ grid moves 0.2–3.1 %.
+  **One product gets worse, deliberately:** 9.4–9.9 µm *path-thermal* parity on the
+  fourteen matched pairs reads RMS |ln ratio| 0.3581 against 0.1519 before, because the
+  flat slab had been under-supplying the very opacity whose known mis-placement carries
+  that error. The 8–12 µm band mean is essentially unmoved (0.2611 → 0.2632), so no
+  standard LWIR band regresses. Placing the opacity at its real altitude is CU-324
+  item 2, which this change unblocks by making the ozone share of the well-mixed floor
+  arithmetic — `(0.8877 − 0.1494)/0.8877 = 0.832` — instead of a free parameter.
+  Measured against the emission parity it was not fitted to, that share lands within
+  7 % of the parity's own optimum. Full tables: `docs/validation/atmosphere_modtran_parity.md`
+  §2.15 (τ) and §2.14(b) (the re-measured item-2 sweep).
 - **Results-affecting (late attribution, CU-334): scenario 1.6's MWIR point-source
   SDA numbers moved on 2026-08-03 with CU-321, and were not recorded at the time.**
   A bisect of 1.6's runner over every `main` landing between the 2026-08-02

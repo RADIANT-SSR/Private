@@ -491,32 +491,40 @@ _L_RANGES_KM = (5, 10, 25, 50, 100)
 # (altitude km, range km) -> (run, MODTRAN band-mean τ 8–12 µm, model/MODTRAN
 # ratio), measured 2026-07-26 over all 25 delivered horizontal runs.
 _L_GRID_LWIR: dict[tuple[int, int], tuple[str, float, float]] = {
-    (0, 5): ("L1", 0.2719, 1.263),
-    (0, 10): ("L2", 0.0916, 1.290),
-    (0, 25): ("L3", 0.0052, 0.931),
+    (0, 5): ("L1", 0.2719, 1.255),
+    (0, 10): ("L2", 0.0916, 1.281),
+    (0, 25): ("L3", 0.0052, 0.945),
     (0, 50): ("L4", 0.0001, 0.314),
     (0, 100): ("L5", 0.0000, 0.018),
-    (3, 5): ("L6", 0.8194, 1.028),
-    (3, 10): ("L7", 0.7054, 1.014),
-    (3, 25): ("L8", 0.4766, 0.951),
-    (3, 50): ("L9", 0.2673, 0.873),
-    (3, 100): ("L10", 0.0952, 0.815),
-    (5, 5): ("L11", 0.9304, 0.992),
-    (5, 10): ("L12", 0.8829, 0.970),
-    (5, 25): ("L13", 0.7769, 0.893),
-    (5, 50): ("L14", 0.6554, 0.781),
-    (5, 100): ("L15", 0.4988, 0.638),
-    (10, 5): ("L16", 0.9725, 0.996),
-    (10, 10): ("L17", 0.9521, 0.988),
-    (10, 25): ("L18", 0.9064, 0.954),
-    (10, 50): ("L19", 0.8567, 0.885),
-    (10, 100): ("L20", 0.7950, 0.756),
-    (15, 5): ("L21", 0.9663, 1.017),
-    (15, 10): ("L22", 0.9456, 1.023),
-    (15, 25): ("L23", 0.9082, 1.018),
-    (15, 50): ("L24", 0.8733, 0.984),
-    (15, 100): ("L25", 0.8319, 0.901),
+    (3, 5): ("L6", 0.8194, 1.019),
+    (3, 10): ("L7", 0.7054, 1.002),
+    (3, 25): ("L8", 0.4766, 0.945),
+    (3, 50): ("L9", 0.2673, 0.886),
+    (3, 100): ("L10", 0.0952, 0.829),
+    (5, 5): ("L11", 0.9304, 0.984),
+    (5, 10): ("L12", 0.8829, 0.958),
+    (5, 25): ("L13", 0.7769, 0.885),
+    (5, 50): ("L14", 0.6554, 0.793),
+    (5, 100): ("L15", 0.4988, 0.667),
+    (10, 5): ("L16", 0.9725, 0.991),
+    (10, 10): ("L17", 0.9521, 0.979),
+    (10, 25): ("L18", 0.9064, 0.942),
+    (10, 50): ("L19", 0.8567, 0.883),
+    (10, 100): ("L20", 0.7950, 0.787),
+    (15, 5): ("L21", 0.9663, 1.014),
+    (15, 10): ("L22", 0.9456, 1.017),
+    (15, 25): ("L23", 0.9082, 1.007),
+    (15, 50): ("L24", 0.8733, 0.973),
+    (15, 100): ("L25", 0.8319, 0.904),
 }
+
+#: **LWIR ratio column repinned 2026-08-29 (CU-330 ozone region split).**  All
+#: 23 non-opaque cells move, by 0.2-3.1 %, because the 8-12 um band mean now
+#: carries the real 9.4-9.9 um ozone opacity instead of a flat average.  The
+#: MODTRAN tau_ref column is untouched (it is the delivered data).  The shape
+#: the test asserts independently of these pins -- monotone degradation with
+#: range in every altitude row -- survives unchanged, which is the check that
+#: this is a level shift and not a structural break.
 
 
 @pytest.mark.level2
@@ -529,8 +537,9 @@ def test_level_arm_vs_the_full_horizontal_grid() -> None:
     just one convenient cell.  Units: dimensionless band-mean τ over
     8–12 µm; altitudes km; ranges km.
 
-    Measured 2026-07-26.  Read down a column and the model degrades with
-    range; read across a row and it improves with altitude.  The extreme is
+    Measured 2026-07-26; LWIR ratios re-measured 2026-08-29 (CU-330).  Read
+    down a column and the model degrades with range; read across a row and it
+    improves with altitude.  The extreme is
     the sea-level row, where by 50–100 km MODTRAN's τ has fallen to 1e-4 and
     below and the two models are comparing near-zeros (ratio 0.31 → 0.018) —
     that cell is a *documented breakdown*, not a usable operating point, and
@@ -568,7 +577,7 @@ def test_level_arm_vs_the_full_horizontal_grid() -> None:
     # Beyond the 5 km cell the arm's exponential outruns MODTRAN's
     # sub-exponential band saturation monotonically in every altitude row.
     # The 5 km cell itself is *not* part of the monotone run — at 15 km
-    # altitude it sits below its 10 km neighbour (1.017 vs 1.023), because
+    # altitude it sits below its 10 km neighbour (1.014 vs 1.017), because
     # over so short an arm the ratio is dominated by the model's own
     # extinction-coefficient offset rather than by path-length saturation.
     for altitude_km in _L_ALTITUDES_KM:

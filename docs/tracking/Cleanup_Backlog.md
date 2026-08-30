@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-331 — The configuration bar docks beside the stage strip, not above it — 8 configurations push the stage chips off-screen
+
+**Discovered**: Scenario 9.4 GUI review (owner, 2026-08-29) — first 8-configuration study file (`oli2_30m_bands_study.yaml`).
+**Status**: Open — in work 2026-08-29.
+**File**: `src/radiant/gui/main_window.py::_build_configuration_bar` (and `_build_stage_strip`).
+**Symptom**: the configuration selector and the 9-chip signal-chain strip render side by side in one top band; with 8 configurations the chips push stages 4–9 off the right edge. The builder's own comment (and `RADIANT_GUI_Architecture.md` §4.2b) say the bar sits in its own thin dock **above** the stage strip — but `QMainWindow.addDockWidget` lays multiple top-area docks out side by side by default; stacking needs an explicit `splitDockWidget(bar_dock, strip_dock, Qt.Vertical)`. Unnoticed until now because the example studies carried 2–3 configurations.
+**Why it still matters**: workflow-visible (intake test 4) — the owner hit it opening the first flagship study; with the strip clipped, stages Optics through Performance are unreachable by mouse in any ≥6-configuration session at laptop widths.
+**Suggested fix**: (a) inline-fix-now, S — after both docks exist, call `splitDockWidget` with `Qt.Orientation.Vertical` so the code does what its comment and the arch doc already claim; assert the vertical arrangement in a GUI test. Category A (no computed results touched).
+
 ### CU-330 — The CU-161 gas table's 8–10 µm region is one flat slab, hiding the 9.6 µm O₃ band from τ and blocking its emission placement
 
 **Discovered**: CU-324 item-2 measurement (branch `atmo/cu-324-emission-placement`), 2026-08-29.

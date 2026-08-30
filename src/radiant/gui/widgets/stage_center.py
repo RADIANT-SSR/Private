@@ -880,6 +880,8 @@ class StagePane(QWidget):
         dark = theme.name == "dark"
         for section in self._plot_sections:
             section.set_dark(dark)
+        for element_editor in self._element_editors:
+            element_editor.set_dark(dark)
 
     def refresh_geometry_forms(self) -> None:
         """Re-read every geometry input form from the bound sensor (Inputs + Schematic tabs).

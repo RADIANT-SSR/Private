@@ -1668,7 +1668,7 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | | |
 |---|---|
 | **Found in** | Scenario 9.4 GUI review (owner, 2026-08-29) — promoted from the 2026-08-29 Findings_Log line. |
-| **Status** | OPEN — in work 2026-08-29 |
+| **Status** | DELIVERED 2026-08-29 — `radiant.api.plot_coating_detail` (native-grid assembly, `api/coating_detail.py`) + `plot_element_coating` renderer (per-quantity autoscaled panels, evaluation band shaded) + Elements-tab selection-driven detail pane with draft preview (`entries=` override) and actionable-message fallback. |
 | **Description** | The Optics stage's "Coating spectra" plot overlays every element's R/T/ε resampled onto the active configuration's chain grid, on a shared fixed [0,1] axis. Percent-level coating dispersion is invisible (four mirror-R curves + window-T stack into one line near 1) and a curve's full native extent (e.g. 9.4's 0.4–2.5 µm protected-Ag model, −12.6% four-mirror cross-band swing) cannot be seen at all — the run grid clips it to the band span. |
 | **Impact** | An operator reviewing a per-element prescription (Mode 5) cannot verify any individual coating model from the GUI — the exact workflow scenario 9.4 introduces. |
 | **Suggested fix** | Selecting an element in the element editor shows a detail plot of that element alone: R/T/ε on the **native source grid** (spectral file / inline table full extent; scalars flat across the run band), autoscaled y, with the active configuration's evaluation span shaded for context. GUI is a view over the scripting API, so the plot lands as a public `plots.*` function first. Effort S–M; category D. |

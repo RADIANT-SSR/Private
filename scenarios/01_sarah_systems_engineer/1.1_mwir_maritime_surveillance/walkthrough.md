@@ -67,25 +67,29 @@ Two residual caveats:
 
 ## Results (aperture = 30 cm, mid-sweep; real MODTRAN 6, D2 run set)
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Two movers, one per column. **SimpleAtmosphere
-(CU-321):** the path-thermal term CU-224 added is now emitted at a
-height-resolved `T_eff(λ)` over the column rather than at the near-surface
-temperature of its lower endpoint, so this 500 km MWIR column's path radiance
-falls — SNR 1152.37 → 980.55 (−14.9 %), NEDT 0.0220 → 0.0256 K, NIIRS 4.70 →
-4.59, range 2415.6 → 2344.6 km. Its τ is untouched (0.4593, bit-identical:
-CU-321 redistributes emission in altitude and changes no optical depth).
-**MODTRAN 6 (CU-316):** the tape7 backend now resamples τ in log-τ like every
-other backend, which moves the measured column's band-mean τ 0.4319 → 0.4277
-and with it SNR 917.36 → 916.18 and range 2239.7 → 2227.3 km. CU-321 does not
-touch that arm — it carries its own measured path radiance.*
+*Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
+2026-08-02, pre-CU-324). One mover, and only in the SimpleAtmosphere column.
+**CU-324:** `E_sky_thermal`'s flux-diffusivity exponent is now the geometric
+`sec 48.2° = 1.50030` — the secant of the angle every up-looking MODTRAN deck in
+the downwelling reference set was run at — instead of the CU-155 fitted
+`D = 1.1`. The sky's effective emissivity rises, so the ε = 0.95 hull's
+Kirchhoff-reflected sky term rises with it: SNR 980.55 → 1001.47 (+2.1 %),
+NEDT 0.0256 → 0.0251 K, NIIRS 4.59 → 4.61, range 2344.6 → 2356.7 km. τ is
+untouched (0.4593, bit-identical — the swap changes the downwelling emissivity,
+not any optical depth). The **MODTRAN 6** column does not move at all: it
+carries its own measured downwelling, so no fitted or derived sky constant
+reaches it.*
+
+*Prior vintage, for the trend: the 2026-08-02 refresh moved the Simple column
+under CU-321 (SNR 1152.37 → 980.55) and the MODTRAN column under CU-316
+(τ 0.4319 → 0.4277, SNR 917.36 → 916.18, range 2239.7 → 2227.3 km).*
 
 | Metric | SimpleAtmosphere | MODTRAN 6 (real D2) |
 |--------|-------------------|----------------------|
-| SNR [-] | 980.55 | 916.18 |
-| NEDT [K] | 0.0256 | 0.0266 |
-| NIIRS [-] | 4.59 | 4.55 |
-| Detection range @ SNR=5 [km] | 2344.6 | 2227.3 |
+| SNR [-] | 1001.47 | 916.18 |
+| NEDT [K] | 0.0251 | 0.0266 |
+| NIIRS [-] | 4.61 | 4.55 |
+| Detection range @ SNR=5 [km] | 2356.7 | 2227.3 |
 | In-band transmittance [-] | 0.4593 | 0.4277 |
 
 - **SimpleAtmosphere agrees with MODTRAN to ~7% on transmittance for this
@@ -93,17 +97,19 @@ touch that arm — it carries its own measured path radiance.*
   slightly *more* transparent). The earlier ~45% over-absorption was removed by
   the CU-155/161 water-ladder recalibration — scenario 6.2 is the dedicated
   validation, which collapsed the τ residuals across all six profiles ~6× to a
-  uniform −5…−11% band. Detection range now differs by +5.3% (2344.6 vs
+  uniform −5…−11% band. Detection range now differs by +5.8% (2356.7 vs
   2227.3 km), where the pre-recalibration model understated it by ~25%.
-- **SNR: the parametric model reads ~7% high** (981 vs 916). Its history in
-  three steps: it read ~17% *low* before CU-224 (no down-looking path emission
+- **SNR: the parametric model reads ~9% high** (1001 vs 916). Its history in
+  four steps: it read ~17% *low* before CU-224 (no down-looking path emission
   at all), swung to ~26% high when CU-224 added that emission at the column's
-  near-surface temperature, and settled at ~7% high once CU-321 resolved the
+  near-surface temperature, settled at ~7% high once CU-321 resolved the
   emission temperature in altitude — a 100 km MWIR column emits mostly from
-  cold air aloft, not from the boundary layer. The remaining gap is the
-  parametric model being marginally the more transparent of the two, and its
-  noise floor is correspondingly lower (NEDT 0.0256 vs 0.0266 K). τ, SNR, and
-  range still do not move together — quote the metric the decision needs.
+  cold air aloft, not from the boundary layer — and rose to ~9% high when
+  CU-324 made the downwelling exponent geometric, which lifts the reflected-sky
+  term of this ρ = 0.05 hull. The remaining gap is the parametric model being
+  marginally the more transparent of the two, and its noise floor is
+  correspondingly lower (NEDT 0.0251 vs 0.0266 K). τ, SNR, and range still do
+  not move together — quote the metric the decision needs.
 - **This is the entire point of scenario 1.1's original gap**: before
   `Tape7Reader`/CU-066, RADIANT had no way to *consume* a colleague's
   MODTRAN tape7 at all — Sarah was stuck re-deriving atmosphere from the

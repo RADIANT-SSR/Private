@@ -39,56 +39,61 @@ Raj, mission planner. He has a baselined MWIR reconnaissance sensor on a 500 km 
 ### Visibility Sweep (PWV = 1.4 cm)
 | Visibility [km] | τ_band [—] | Signal [e-] | SNR [—] | NIIRS [—] |
 |---|---|---|---|---|
-| 2.0 | 0.4737 | 239,971 | 489.5 | 4.47 |
-| 5.3 | 0.5256 | 247,490 | 497.1 | 4.48 |
-| 23.1 | 0.5517 | 251,214 | 500.8 | 4.49 |
-| 100.0 | 0.5579 | 252,095 | 501.7 | 4.49 |
+| 2.0 | 0.4737 | 240,680 | 490.2 | 4.47 |
+| 5.3 | 0.5256 | 248,256 | 497.8 | 4.48 |
+| 23.1 | 0.5517 | 252,002 | 501.6 | 4.49 |
+| 100.0 | 0.5579 | 252,888 | 502.5 | 4.49 |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the `(1−τ)·B` path-thermal
-term CU-224 added is now emitted at a height-resolved `T_eff(λ)` over the
-column instead of at its near-surface temperature, so this extended MWIR
-`simple`-atmosphere scene gives back about a third of what CU-224 added: signal
-308,240 → 251,214 e⁻ at baseline (−18.5 %) and SNR 554.8 → 500.8 (−9.7 %). The
-τ_band column is bit-identical — CU-321 redistributes emission in altitude and
-changes no optical depth, which is the check that this move is the emission
-term and nothing else.*
+*Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
+2026-08-02, pre-CU-324). One mover: **CU-324** — `E_sky_thermal`'s
+flux-diffusivity exponent is now the geometric `sec 48.2° = 1.50030` (the secant
+of the angle the up-looking MODTRAN downwelling decks were run at) rather than
+the CU-155 fitted `D = 1.1`, so the sky this ε < 1 ground scene reflects is
+brighter: signal 251,214 → 252,002 e⁻ at baseline (+0.31 %) and SNR
+500.8 → 501.6 (+0.16 %, the √signal scaling). The τ_band column is
+bit-identical — the swap changes the downwelling emissivity and no optical
+depth, which is the check that this move is the sky term and nothing else.
+NIIRS moves in the third decimal and rounds unchanged at every visibility.*
+
+*Prior vintage, for the trend: the 2026-08-02 refresh was dominated by CU-321
+(height-resolved path-emission temperature), signal 308,240 → 251,214 e⁻ and
+SNR 554.8 → 500.8.*
 
 **Key finding**: NIIRS barely changes with visibility (4.47 → 4.49 across entire range). MWIR aerosol scattering is negligible because the Angstrom exponent (α ≈ 1.3) causes extinction to scale as λ^(-1.3), making 4.2 µm aerosol extinction ~13× weaker than at 0.55 µm. Visibility affects visible-band sensors far more than MWIR.
 
 ### PWV Sweep (visibility = 23 km)
 | PWV [cm] | τ_band [—] | Signal [e-] | SNR [—] | NIIRS [—] | ΔNIIRS [—] |
 |---|---|---|---|---|---|
-| 0.50 | 0.5930 | 258,362 | 507.9 | 4.50 | +0.00 |
-| 1.46 | 0.5491 | 250,761 | 500.4 | 4.49 | -0.01 |
-| 3.07 | 0.4930 | 240,936 | 490.4 | 4.47 | -0.02 |
-| 5.00 | 0.4397 | 231,395 | 480.6 | 4.46 | -0.04 |
+| 0.50 | 0.5930 | 259,182 | 508.7 | 4.50 | +0.00 |
+| 1.46 | 0.5491 | 251,547 | 501.1 | 4.49 | -0.01 |
+| 3.07 | 0.4930 | 241,661 | 491.2 | 4.48 | -0.02 |
+| 5.00 | 0.4397 | 232,043 | 481.3 | 4.46 | -0.04 |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the `(1−τ)·B`
-path-emission term still grows as τ falls and still refills part of what the
-water vapour takes away, but it now does so at a colder, height-resolved
-emission temperature, so it refills *less*. The PWV response therefore comes
-part-way back: the NIIRS swing across 0.5 → 5.0 cm is 0.04, against 0.02
-before CU-321 and 0.10 before CU-224.*
+*Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
+2026-08-02, pre-CU-324). One mover: **CU-324**'s geometric downwelling exponent
+lifts every row by +0.15 to +0.31 % in signal. It does not change the *shape* of
+the PWV response — the NIIRS swing across 0.5 → 5.0 cm is still 0.04 (against
+0.02 before CU-321 and 0.10 before CU-224) — because the sky term rises across
+the whole sweep rather than differentially with column water.*
 
 **Key finding**: PWV still edges out visibility as the larger effect, but both are still small. After the CU-161 curve-of-growth water refit (commit `0aebdda`), band-mean transmittance drops only from 0.59 to 0.44 (≈1.3× reduction) as PWV goes from dry desert to tropical humid — the saturated MWIR H₂O bands grow sub-linearly with absorber amount, not the ∝-PWV optical depth the old linear-Beer model produced (which read a spurious 7× drop). NIIRS falls 0.04 across the full PWV range: NIIRS depends on log₁₀(SNR), and SNR moves only ~5.4% (507.9 → 480.6) because signal and its shot noise both drop (SNR ∝ √signal) *and* because the path-emission term rises as τ falls, refilling part of the lost signal — less of it since CU-321 put that emission at a colder height-resolved temperature.
 
 ### Named Weather Conditions — Go/No-Go
 | Condition | Visibility [km] | PWV [cm] | τ_band [—] | SNR [—] | NIIRS [—] | Status |
 |---|---|---|---|---|---|---|
-| Arctic dry | 50 | 0.5 | 0.5977 | 508.5 | 4.50 | GO |
-| Crystal clear | 100 | 0.8 | 0.5844 | 506.2 | 4.50 | GO |
-| Clear | 50 | 1.0 | 0.5732 | 504.4 | 4.49 | GO |
-| Standard | 23 | 1.4 | 0.5517 | 500.8 | 4.49 | GO |
-| Light haze | 10 | 2.0 | 0.5188 | 495.4 | 4.48 | GO |
-| Moderate haze | 5 | 3.0 | 0.4700 | 487.1 | 4.47 | GO |
-| Heavy haze | 2 | 4.0 | 0.4000 | 475.4 | 4.45 | GO |
-| Tropical humid | 10 | 5.0 | 0.4314 | 479.4 | 4.46 | GO |
+| Arctic dry | 50 | 0.5 | 0.5977 | 509.4 | 4.50 | GO |
+| Crystal clear | 100 | 0.8 | 0.5844 | 507.0 | 4.50 | GO |
+| Clear | 50 | 1.0 | 0.5732 | 505.2 | 4.49 | GO |
+| Standard | 23 | 1.4 | 0.5517 | 501.6 | 4.49 | GO |
+| Light haze | 10 | 2.0 | 0.5188 | 496.1 | 4.48 | GO |
+| Moderate haze | 5 | 3.0 | 0.4700 | 487.8 | 4.47 | GO |
+| Heavy haze | 2 | 4.0 | 0.4000 | 476.1 | 4.45 | GO |
+| Tropical humid | 10 | 5.0 | 0.4314 | 480.0 | 4.46 | GO |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Dominant mover: **CU-321** (height-resolved emission
-temperature on the CU-224 path-thermal term); τ_band is bit-identical.*
+*Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
+2026-08-02, pre-CU-324). One mover: **CU-324** (geometric `sec 48.2°`
+downwelling exponent, +0.7 to +0.9 SNR counts per row); τ_band is
+bit-identical, and every GO/NO-GO verdict is unchanged.*
 
 **Result**: All 8 conditions are GO — NIIRS ≥ 4.0 at every weather condition tested. However, **no condition meets the NIIRS ≥ 5.0 goal**. The best case (Arctic dry) only reaches 4.50. The NIIRS goal of 5.0 is unachievable with 7.5 m GSD regardless of weather. Weather-induced NIIRS variation = 0.05 — with the path-emission term partly refilling what the atmosphere absorbs, weather remains a very weak driver in this band.
 
@@ -98,19 +103,19 @@ All 36 grid cells meet NIIRS ≥ 4.0 (100% GO rate). The whole grid spans just 4
 ### Noise Budget at Baseline (23 km, 1.4 cm)
 | Noise Term | σ [e- RMS] | Fraction [%] |
 |---|---|---|
-| signal_shot | 501.2 | 99.8 |
+| signal_shot | 502.0 | 99.8 |
 | read_noise | 18.0 | 0.1 |
 | quantization | 9.2 | 0.0 |
 | dark_shot | 0.4 | 0.0 |
 | nearfield_shot | 0.0 | 0.0 |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the colder,
-height-resolved path emission lowers the signal and with it `signal_shot`
-∝ √signal (555.2 → 501.2 e⁻ RMS); the fixed read and quantization terms are
-untouched and so rise very slightly as a fraction.*
+*Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
+2026-08-02, pre-CU-324). One mover: **CU-324** — the brighter reflected sky
+raises the signal and with it `signal_shot` ∝ √signal (501.2 → 502.0 e⁻ RMS);
+the fixed read and quantization terms are untouched and so fall very slightly
+as a fraction, which the 99.8 % rounding does not resolve.*
 
-Signal shot noise dominates almost entirely (99.8%). Read noise and dark current are negligible at this signal level. There is **no separate background_shot term** — the extended MWIR scene is one radiance field, so its shot noise is `signal_shot` alone (ADR-0002 Decision #13). Removing the previously-equal background term is what raised SNR versus older baselines. **Note**: `nearfield_shot = 0` — scalar-mode refractive-lump assumption does not model mirror self-emission (see Gap 8). Baseline signal = 251,210 e⁻, total noise = 501.6 e⁻ RMS, SNR = 500.8, NIIRS = 4.49, RER = 0.5964, MTF@Nyquist = 0.2509 (RER and MTF unchanged — CU-321, like CU-224 before it, is purely radiometric).
+Signal shot noise dominates almost entirely (99.8%). Read noise and dark current are negligible at this signal level. There is **no separate background_shot term** — the extended MWIR scene is one radiance field, so its shot noise is `signal_shot` alone (ADR-0002 Decision #13). Removing the previously-equal background term is what raised SNR versus older baselines. **Note**: `nearfield_shot = 0` — scalar-mode refractive-lump assumption does not model mirror self-emission (see Gap 8). Baseline signal = 251,999 e⁻, total noise = 502.4 e⁻ RMS, SNR = 501.6, NIIRS = 4.49, RER = 0.5964, MTF@Nyquist = 0.2509 (RER and MTF unchanged — CU-324, like CU-321 and CU-224 before it, is purely radiometric).
 
 ## Physics Discussion
 

@@ -202,8 +202,10 @@ Contract properties this document owns:
   the hemispheric `E_sky_scattered` closed form.
 - **Two emission-temperature models coexist deliberately**, for the same reason: the
   height-resolved `atmosphere/emission_temperature.py` serves the directional
-  `L_path,therm`, while the jointly-fitted `z_em`/`D` pair serves the hemispheric
-  `E_sky_thermal` flux and cannot be inherited by a directional product.
+  `L_path,therm`, while the fitted `z_em` offset serves the hemispheric `E_sky_thermal`
+  flux and cannot be inherited by a directional product. Its companion exponent `D` is
+  **not** fitted — since CU-324 (2026-08-29) it is the geometric `sec 48.2°`, the secant of
+  the diffusivity angle the up-looking reference decks were run at.
 - **No `ParameterDef` for the emission quadrature** (Rule 12): its sub-layer count is a
   convergence-tested numerical parameter, not a tuneable physical quantity.
 

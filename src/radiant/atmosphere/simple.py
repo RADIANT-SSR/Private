@@ -48,11 +48,12 @@ This cut implements the full §3.1 simple-model triple:
 - **``L_atm_down(λ)``** via the graybody ``(1 − τ_vert^D) · B(λ, T_eff)``
   (CU-155) with ``T_eff`` the standard-atmosphere temperature a small
   emission-height offset above the TARGET (plane-parallel troposphere,
-  fixed 6.5 K/km lapse, floored at the ICAO tropopause 216.65 K) and
-  ``D`` a flux-diffusivity exponent — both fit to the real MODTRAN 6
-  up-looking H-runs (see the ``_ESKY_*`` constants). The sensor
-  altitude does not enter: the sky a target sees is independent of
-  where the sensor flies.
+  fixed 6.5 K/km lapse, floored at the ICAO tropopause 216.65 K) —
+  fit to the real MODTRAN 6 up-looking H-runs — and ``D`` the
+  flux-diffusivity exponent ``sec 48.2°``, the secant of the angle
+  those up-looking decks were run at (CU-324, 2026-08-29; see the
+  ``_ESKY_*`` constants). The sensor altitude does not enter: the sky
+  a target sees is independent of where the sensor flies.
 
 Assumptions
 -----------
@@ -281,7 +282,8 @@ _LAPSE_RATE_K_PER_M: float = 6.5e-3  # 6.5 K / km
 _TROPOPAUSE_T_K: float = 216.65  # ICAO isothermal tropopause temperature
 _TROPOPAUSE_H_M: float = 11_000.0
 
-# --- CU-155: downwelling sky-emission calibration (fit 2026-07-18) ---
+# --- CU-155: downwelling sky-emission calibration (fit 2026-07-18; the
+# --- exponent re-derived geometrically 2026-08-29, CU-324 item 1) ---
 # E_sky_thermal = (1 − τ_sky,vert^D) · π · B(T(h_tgt + z_em)), where τ_sky,vert
 # is the VERTICAL transmittance of the target→h_atm_top column — the sky the
 # target actually sees. Two things deliberately do NOT enter: the sensor
@@ -298,19 +300,52 @@ _TROPOPAUSE_H_M: float = 11_000.0
 #
 #   z_em = 200 m  — emission-height offset: downwelling is dominated by
 #                   near-surface air (the E1 flux DOWN at 14.4 µm ≈ π·B(283 K)).
-#   D    = 1.1    — flux-diffusivity exponent on the vertical transmittance.
-#                   The textbook Elsasser value is 1.66; the fitted value is
-#                   lower because the CU-161 gas-band τ calibration (fit to
-#                   slant-path transmission) already absorbs part of the
-#                   hemispheric weighting in the LWIR window.
 #
-# Fit result, band-integrated model/MODTRAN (8–12 µm | 3–5 µm):
+# Fit result at the 2026-07-18 fit (both constants fitted; band-integrated
+# model/MODTRAN, 8–12 µm | 3–5 µm):
 #   H2 us_standard 1.24 | 0.70    H4 tropical 1.41 | 1.34
 # vs 0.21 | 0.018 and 0.21 | 0.026 before the fix. The residual ±40% tracks
 # the CU-161 region-flat spectral-shape fragility, not temperature structure
 # (an opacity-dependent spectral emission-height variant measured worse).
+#
+# --- The flux-diffusivity exponent D (CU-324 item 1, owner-ratified 2026-08-29)
+# D is no longer fitted. It is the secant of the **diffusivity angle the entire
+# downwelling reference set was run at**: every H- and P-block deck is an
+# up-looking MODTRAN run at 48.2°, and the quantity the model is scored against
+# is π·L(48.2°) — the hemispheric-flux proxy, itself validated to ~15% against
+# the E1 flux table's true hemispheric DOWN. Scoring against a 48.2° pencil and
+# then weighting the emissivity by anything other than sec 48.2° mixes two
+# different hemispheric approximations; taking the exponent from the reference
+# geometry makes it a geometric identity with no free parameter.
+#
+# The retired value was D = 1.1, fitted 2026-07-18 against H2 and H4 alone —
+# the only up-looking decks that existed then. The nine-rung P ladder
+# (H5 + P1–P8: 0/1/5/10/20/29/50/60/80 km) that would have constrained it
+# postdates that fit by six weeks, and on it the geometric value wins:
+#
+#   RMS |ln(model / π·L_MODTRAN)|, 9 rungs × {3–5, 8–12} µm
+#     D = 1.1 (retired)      2.0776        tropospheric rungs only  0.4167
+#     D = sec 48.2° (ships)  1.9233                                 0.3087
+#
+# (Composite RMS is dominated by the P6–P8 rungs, where a 50–80 km target sees
+# a near-vacuum sky and both forms under-predict by orders of magnitude; the
+# tropospheric-only figure is the one that describes a scene anybody images.)
+# The measurement is pinned in tests/integration/test_emission_placement_cu324.py
+# and tabulated in docs/validation/atmosphere_modtran_parity.md §2.14(a).
+#
+# Note the textbook Elsasser diffusivity factor 1.66 is sec 53.13°, a different
+# angle and a different approximation; it is not what this reference set uses.
 _ESKY_EMISSION_HEIGHT_M: float = 200.0
-_ESKY_DIFFUSIVITY_D: float = 1.1
+
+#: The MODTRAN Card-3 ANGLE every up-looking downwelling deck was run at.  The
+#: decks state it in degrees; canonical storage is radians (Rule 2 — converted
+#: once, here, never inside the physics below).
+_ESKY_DIFFUSIVITY_ANGLE_RAD: float = math.radians(48.2)
+
+#: Flux-diffusivity exponent on the vertical transmittance = sec(anchor angle)
+#: = 1.50030…  Derived, never a literal, so the constant cannot drift from the
+#: angle it means.
+_ESKY_DIFFUSIVITY_D: float = 1.0 / math.cos(_ESKY_DIFFUSIVITY_ANGLE_RAD)
 
 
 # ---------------------------------------------------------------------------
@@ -622,9 +657,10 @@ class SimpleAtmosphere:
         to 0 m.
 
         **Scope since CU-321 (2026-08-02):** this helper serves the
-        hemispheric ``E_sky_thermal`` flux only. Its ``z_em`` offset is fit
-        *jointly* with the diffusivity exponent ``D`` through that one
-        formula, so it is not transferable to a directional product. The
+        hemispheric ``E_sky_thermal`` flux only. Its ``z_em`` offset was fit
+        through that one closed form (originally jointly with the exponent
+        ``D``, which since CU-324 is the geometric ``sec 48.2°`` rather than a
+        fitted value), so it is not transferable to a directional product. The
         path-radiance thermal term — both directions — now takes its
         temperature from :meth:`_segment_emission_temperature_K`.
         """
@@ -880,8 +916,8 @@ class SimpleAtmosphere:
 
         # Graybody downwelling (CU-155): L_atm_down(λ) = (1 − τ_vert^D) ·
         # B(λ, T_eff) — hemispheric-mean sky radiance at the target. The
-        # VERTICAL optical depth with the fitted flux-diffusivity exponent
-        # D gives the slab's hemispheric emissivity (the slant/airmass
+        # VERTICAL optical depth with the flux-diffusivity exponent
+        # D = sec 48.2° gives the slab's hemispheric emissivity (the slant/airmass
         # factor belongs to the sensor's beam, not the sky's flux); T_eff
         # is target-anchored (see _downwelling_effective_temperature_K).
         # At τ_vert = 1 (exo / zero column) this is exactly zero; at
@@ -1437,9 +1473,9 @@ class SimpleAtmosphere:
         # τ_sky,vert is the VERTICAL transmittance of the target→h_atm_top
         # column (od_vert_sun) — the sky the target actually sees; the
         # sensor's altitude and zenith do not enter a hemispheric flux at
-        # the target. D (flux-diffusivity exponent) and the emission-height
-        # offset in T_eff are fit to the real MODTRAN up-looking H-runs —
-        # see the _ESKY_* constants. As h_tgt → h_atm_top the sky column
+        # the target. The emission-height offset in T_eff is fit to the real
+        # MODTRAN up-looking H-runs; D is the secant of the angle those decks
+        # were run at (CU-324) — see the _ESKY_* constants. As h_tgt → h_atm_top the sky column
         # collapses, τ_sky,vert → 1, and E_sky_thermal → 0 exactly (the
         # vacuum limit, Anchor 2, is preserved).
         # tau_down_vertical (target→sensor column) is kept for the

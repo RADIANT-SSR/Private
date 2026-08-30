@@ -2,9 +2,9 @@
   "id": "1.1",
   "title": "MWIR maritime surveillance \u2014 aperture trade (30 cm baseline)",
   "metrics": {
-    "snr": 980.5479050945168,
-    "nedt_K": 0.02562246181004905,
-    "niirs": 4.592115380564282
+    "snr": 1001.4706541697977,
+    "nedt_K": 0.025108970619379615,
+    "niirs": 4.606410493297802
   },
   "notes": "Baseline = 30 cm aperture, SimpleAtmosphere (maritime aerosol). The MODTRAN-D2 tape7 variant needs a staged file; the console script shows how to switch to it."
 }

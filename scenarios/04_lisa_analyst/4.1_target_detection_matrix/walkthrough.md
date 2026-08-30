@@ -70,14 +70,27 @@ the chain's own spherical viewing triangle (`slant_range_from_theta_o_m`).
 
 ## Key Results (detection range [km slant], SCNR ≥ 5)
 
-> **Matrix refreshed 2026-08-02 from the unmodified runner — three epochs of
-> drift, all attributed below.** The previous vintage was 2026-07-22 (CU-176 +
-> CU-182). Between then and 2026-08-01 the matrix drifted *qualitatively*
-> without anyone re-running it — that drift is what CU-317 was originally filed
-> against; on 2026-08-02 CU-224 moved it again, further and in the opposite
-> direction; and later the same day CU-321 gave part of that back. See **Drift
-> archaeology** below the tables for which landing did what and why the other
-> candidates are excluded.
+> **Matrix refreshed 2026-08-29 from the unmodified runner. One mover:
+> CU-324.** `E_sky_thermal`'s flux-diffusivity exponent became the geometric
+> `sec 48.2° = 1.50030` — the secant of the angle every up-looking MODTRAN deck
+> in the downwelling reference set was run at — instead of the CU-155 fitted
+> `D = 1.1`, so the sky every ε < 1 target and the ground background reflect is
+> brighter. Because the detection criterion is the *signed* sub-pixel contrast
+> `ff·(L_target·EE_box − L_bg)` and both terms rise, the matrix moves both ways
+> and by ≲ 1 % almost everywhere: most cells shift 0–4 km, no cell changes
+> detectable/not-detectable status, and the hardest and easiest targets are
+> unchanged. The two visible exceptions are sensor B's **transport aircraft**
+> (1,061* → 1,047 clear, 1,061* → 1,022 haze, 813 → 737 tropical_haze) and
+> **fighter aircraft** (1,061* → 1,059, 1,061* → 1,029, 821 → 753) — the two
+> coldest, lowest-emissivity targets (ε 0.30 / 0.35 at 295 K), which sit *below*
+> the weighted-background null, so a brighter reflected sky moves them back
+> toward it and shortens their range. Same sign-dependence as the CU-188 epoch
+> below, opposite direction.
+>
+> Prior vintage 2026-08-02, and the archaeology for it, below: the matrix had
+> three earlier epochs of drift (CU-188, then CU-224, then CU-321) — see **Drift
+> archaeology** for which landing did what and why the other candidates are
+> excluded.
 
 **Sensor A — MWIR smallsat (16.7 m GSD, 278 m² footprint):** the coarse
 GSD gives a huge pixel footprint, so in the three temperate columns only the
@@ -87,31 +100,31 @@ path, three more large targets clear it —
 
 | Target | clear | haze | trop_haze | arctic |
 |--------|------:|-----:|----------:|-------:|
-| Fuel bladder farm | 821 | 810 | 739 | 1,061* |
+| Fuel bladder farm | 823 | 813 | 742 | 1,061* |
 | Transport aircraft | — | — | — | 1,061* |
-| Fast attack craft | — | — | — | 790 |
-| Patrol boat | — | — | — | 535 |
+| Fast attack craft | — | — | — | 788 |
+| Patrol boat | — | — | — | 534 |
 | (all others) | — not detectable — | | | |
 
 **Sensor B — MWIR flagship (4.0 m GSD, 16 m² footprint):** the small
 footprint gives high fill, so **every target is detectable in every
-condition** — five of the twelve out to the swath edge in the two clearest
+condition** — three of the twelve out to the swath edge in the two clearest
 columns —
 
 | Target | clear | haze | trop_haze | arctic |
 |--------|------:|-----:|----------:|-------:|
-| Fuel bladder farm | 1,061* | 1,061* | 1,055 | 1,061* |
-| Patrol boat | 1,061* | 1,061* | 1,001 | 1,061* |
-| Fast attack craft | 1,061* | 1,061* | 926 | 1,061* |
-| Fighter aircraft | 1,061* | 1,061* | 821 | 1,061* |
-| Transport aircraft | 1,061* | 1,061* | 813 | 1,061* |
-| Towed artillery | 896 | 883 | 802 | 1,061* |
-| SAM TEL | 870 | 858 | 780 | 1,061* |
-| Cargo truck | 773 | 763 | 697 | 1,029 |
-| MBT tank | 695 | 688 | 556 | 901 |
-| Small UAV | 688 | 681 | 624 | 901 |
-| APC | 673 | 666 | 611 | 865 |
-| Technical (pickup) | 576 | 570 | 527 | 718 |
+| Fuel bladder farm | 1,061* | 1,061* | 1,059 | 1,061* |
+| Patrol boat | 1,061* | 1,061* | 998 | 1,061* |
+| Fast attack craft | 1,061* | 1,061* | 924 | 1,061* |
+| Fighter aircraft | 1,059 | 1,029 | 753 | 1,061* |
+| Transport aircraft | 1,047 | 1,022 | 737 | 1,061* |
+| Towed artillery | 893 | 883 | 800 | 1,061* |
+| SAM TEL | 870 | 858 | 782 | 1,061* |
+| Cargo truck | 773 | 763 | 699 | 1,029 |
+| MBT tank | 696 | 688 | 560 | 901 |
+| Small UAV | 686 | 678 | 621 | 901 |
+| APC | 673 | 666 | 612 | 865 |
+| Technical (pickup) | 575 | 570 | 527 | 718 |
 
 **Sensor C — LWIR wide (12.1 m GSD):** ships and the largest air targets
 reach or approach the swath edge; SAM TEL and towed artillery now detect only
@@ -120,12 +133,12 @@ in the arctic column; small ground vehicles fall below threshold everywhere —
 | Target | clear | haze | trop_haze | arctic |
 |--------|------:|-----:|----------:|-------:|
 | Transport aircraft | 1,061* | 1,061* | 1,061* | 1,061* |
-| Fast attack craft | 1,061* | 1,061* | 965 | 1,061* |
-| Fuel bladder farm | 1,061* | 1,061* | 1,015 | 1,061* |
-| Fighter aircraft | 921 | 910 | 773 | 1,061* |
-| Patrol boat | 828 | 817 | 700 | 1,061* |
-| SAM TEL | — | — | — | 563 |
-| Towed artillery | — | — | — | 521 |
+| Fast attack craft | 1,061* | 1,061* | 969 | 1,061* |
+| Fuel bladder farm | 1,061* | 1,061* | 1,019 | 1,061* |
+| Fighter aircraft | 924 | 912 | 774 | 1,061* |
+| Patrol boat | 828 | 819 | 703 | 1,061* |
+| SAM TEL | — | — | — | 564 |
+| Towed artillery | — | — | — | 522 |
 | (MBT, APC, Cargo, Technical, Small UAV) | — not detectable — | | | |
 
 `*` = swath-edge limited (SCNR ≥ 5 out to the 66° θ_o practical edge, slant
@@ -133,7 +146,7 @@ in the arctic column; small ground vehicles fall below threshold everywhere —
 
 **Worst-case target: Technical (pickup)** — mean 199 km across all 12
 sensor×atmosphere cells, detectable only on the flagship. **Easiest: fuel
-bladder farm** (mean 989 km).
+bladder farm** (mean 990 km).
 
 ## Drift archaeology — which landings moved this matrix
 

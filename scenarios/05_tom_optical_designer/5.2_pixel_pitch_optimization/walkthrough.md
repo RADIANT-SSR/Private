@@ -73,19 +73,24 @@ Results:
 | 12          | 1.42 | 346.2  | 0.115   | 0.269  | 4.5   | 86.4      | 120,000     |
 | 15          | 1.13 | 499.7  | 0.203   | 0.350  | 4.7   | 59.9      | 250,000     |
 | 18          | 0.94 | 706.9  | 0.267   | 0.414  | 4.8   | 42.3      | 500,000     |
-| 24          | 0.71 | 1028.7 | 0.355   | 0.510  | 4.8   | 29.1      | 1,058,743   |
-| 30          | 0.57 | 1267.4 | 0.409   | 0.572  | 4.7   | 23.6      | 1,607,021   |
+| 24          | 0.71 | 1029.8 | 0.355   | 0.510  | 4.8   | 29.1      | 1,060,886   |
+| 30          | 0.57 | 1268.7 | 0.409   | 0.572  | 4.7   | 23.6      | 1,610,274   |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the down-looking
-path-thermal term is now emitted at a height-resolved `T_eff(λ)` over the
-500 km column instead of at its near-surface temperature, so this MWIR scene's
-collected signal falls. Only the two largest pitches move: the 24 µm pixel
-comes back **off** its 1,200,000 e⁻ well (1,058,743 e⁻, SNR 1095.2 → 1028.7)
-and the 30 µm signal falls 1,846,988 → 1,607,021 e⁻ (−13.0 %). The 8–18 µm
-rows are bit-identical because they are well-clipped at every pitch, and
-MTF@Nyquist and EE 1×1 are spatial and untouched. No compliance verdict and no
-recommendation changes.*
+*Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
+2026-08-02, pre-CU-324). One mover: **CU-324** — `E_sky_thermal`'s
+flux-diffusivity exponent is now the geometric `sec 48.2° = 1.50030` rather than
+the CU-155 fitted `D = 1.1`, so the sky this ε < 1 scene reflects is brighter
+and its collected signal rises. Only the two largest pitches move, and only in
+the fourth figure: 24 µm 1,058,743 → 1,060,886 e⁻ (SNR 1028.7 → 1029.8) and
+30 µm 1,607,021 → 1,610,274 e⁻ (SNR 1267.4 → 1268.7), both +0.2 %. The 8–18 µm
+rows are bit-identical because they are well-clipped at every pitch — the extra
+signal is thrown away by the clip — and MTF@Nyquist and EE 1×1 are spatial and
+untouched. No compliance verdict and no recommendation changes.*
+
+*Prior vintage, for the trend: the 2026-08-02 refresh was CU-321's
+height-resolved path-emission temperature, which took the 24 µm pixel off its
+1,200,000 e⁻ well (SNR 1095.2 → 1028.7) and the 30 µm signal
+1,846,988 → 1,607,021 e⁻.*
 
 The trends are clear:
 - **Signal scales roughly as p²** — the 30 µm pixel collects ~40× more photons than the 8 µm pixel (whose well saturates and clips at 40,000 e⁻, so the ratio understates the raw p²·QE collection). This is the dominant driver of SNR.

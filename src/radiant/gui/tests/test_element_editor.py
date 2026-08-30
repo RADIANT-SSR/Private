@@ -202,3 +202,50 @@ class TestKindColumn:
         # entries() carries kind for the refractive row only.
         entry = editor.entries()[0]
         assert entry["kind"] == kind.currentText()
+
+
+class TestCoatingDetail:
+    """Gap 116: selecting a row draws that element's coating model."""
+
+    def test_no_selection_shows_prompt(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        editor = OpticalElementEditor()
+        qtbot.addWidget(editor)
+        editor.bind_sensor(Sensor.from_yaml(_EXAMPLE), {})
+        assert editor.detail_message.isVisible() or not editor.detail_canvas.isVisible()
+        assert "Select an element" in editor.detail_message.text()
+
+    def test_selecting_a_row_renders_the_detail_figure(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        editor = OpticalElementEditor()
+        qtbot.addWidget(editor)
+        editor.show()
+        editor.bind_sensor(Sensor.from_yaml(_EXAMPLE), {})
+        editor._add_mirror.click()
+        editor.table.setCurrentCell(0, 0)
+        editor.refresh_coating_detail()
+        assert editor.detail_canvas.isVisible()
+        assert not editor.detail_message.isVisible()
+
+    def test_draft_row_previews_before_apply(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The detail reads the table (entries= override), not the applied document."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        editor = OpticalElementEditor()
+        qtbot.addWidget(editor)
+        editor.show()
+        editor.bind_sensor(sensor, {})
+        editor._add_mirror.click()
+        assert sensor.optical_elements() is None  # nothing applied yet
+        editor.table.setCurrentCell(0, 0)
+        editor.refresh_coating_detail()
+        assert editor.detail_canvas.isVisible()
+
+    def test_unparsable_draft_shows_actionable_message(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        editor = OpticalElementEditor()
+        qtbot.addWidget(editor)
+        editor.show()
+        editor.bind_sensor(Sensor.from_yaml(_EXAMPLE), {})
+        editor._add_mirror.click()
+        editor.table.item(0, 3).setText("no_such_coating.csv")
+        editor.table.setCurrentCell(0, 0)
+        editor.refresh_coating_detail()
+        assert not editor.detail_canvas.isVisible()
+        assert "not found" in editor.detail_message.text()

@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Per-element coating detail view (Gap 116).** Selecting a row in the Optics
+  Elements tab now draws that element's R/T/ε on the coating's **native source
+  grid** (full stored extent, not the run band), one autoscaled panel per
+  quantity, with the evaluation band shaded — percent-level coating dispersion
+  that the fixed-[0,1] all-element overlay flattens is now inspectable, and a
+  draft row previews before Apply. New public API:
+  `radiant.api.plot_coating_detail(sensor, name, *, entries=None)` and the
+  `plot_element_coating` renderer in `radiant.api.plot`. No computed result
+  changes.
 - **Scenario 9.4 — Landsat 9 OLI-2** (`scenarios/09_flagship_missions/9.4_landsat_oli2_snr/`):
   first scenario to exercise the full per-element optical prescription (Mode 5) —
   four protected-silver mirrors, AR window, and per-band interference filters, all

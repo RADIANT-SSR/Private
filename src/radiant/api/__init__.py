@@ -10,6 +10,7 @@ from radiant.api.atmosphere_families import (
     shipped_family_for_axes,
     suggested_interpolation_axes,
 )
+from radiant.api.coating_detail import plot_coating_detail
 from radiant.api.compare import (
     ComparisonError,
     ComparisonResult,
@@ -58,6 +59,7 @@ __all__ = [
     "MtfComparisonResult",
     "ElementPreview",
     "preview_optical_elements",
+    "plot_coating_detail",
     "normalize_element_document",
     "ConfigurationSet",
     "ConfigSetRunResult",

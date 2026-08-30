@@ -1355,6 +1355,87 @@ def plot_coating_spectra(
 
 
 @_styled
+def plot_element_coating(
+    series: dict[str, tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]],
+    *,
+    element_name: str,
+    eval_span_um: tuple[float, float] | None = None,
+    native_grid: bool = True,
+    **kwargs: Any,
+) -> Figure:
+    """Plot one element's coating detail — each quantity in its own autoscaled panel.
+
+    The all-element overlay (:func:`plot_coating_spectra`) shares one fixed
+    [0, 1] axis across every curve, which flattens percent-level coating
+    dispersion (a 0.95→0.99 mirror curve reads as a straight line) — Gap 116.
+    This detail view isolates **one** element and gives each non-trivial
+    quantity (R, T, ε) its **own stacked panel with an autoscaled y-axis**, so
+    the coating's spectral structure is visible at its natural scale. When the
+    curves come from the coating's native source grid, the panels show the
+    full stored extent; the chain's evaluation band is shaded on every panel
+    so the used portion stays identifiable.
+
+    Parameters
+    ----------
+    series:
+        Mapping ``symbol -> (wavelength_um [µm], values [dimensionless])`` for
+        the quantities to draw (e.g. ``{"R": ..., "ε": ...}``). One panel per
+        entry, in mapping order; must be non-empty.
+    element_name:
+        Element name, drawn in the figure title.
+    eval_span_um:
+        Optional ``(λ_min, λ_max)`` [µm] evaluation band, shaded on every
+        panel for context.
+    native_grid:
+        Whether the curves carry their native source grid (subtitle reads
+        "native source grid") or were broadcast onto the evaluation band
+        ("evaluation-band grid").
+    **kwargs:
+        Passed to ``ax.plot()`` for every curve.
+
+    Returns
+    -------
+    Figure
+        A matplotlib Figure with one x-sharing panel per quantity.
+    """
+    from radiant.api.errors import ApiValidationError
+
+    if not series:
+        raise ApiValidationError(
+            "plot_element_coating: series is empty — at least one non-zero "
+            "R/T/ε curve is required to draw a coating detail panel."
+        )
+    colors = plot_style.series()
+    fig, axes = _subplots(len(series), 1, sharex=True, squeeze=False)
+    grid_note = "native source grid" if native_grid else "evaluation-band grid"
+    for i, (ax, (symbol, (wavelength_um, values))) in enumerate(
+        zip(axes[:, 0], series.items(), strict=True)
+    ):
+        ax.plot(wavelength_um, values, color=colors[i % len(colors)], **kwargs)
+        ax.set_ylabel(f"{symbol} (–)")
+        ax.grid(True, alpha=0.3)
+        # Autoscale with padding — the point of the detail view. A flat curve
+        # still gets a visible band rather than a degenerate axis.
+        vmin = float(np.min(values))
+        vmax = float(np.max(values))
+        pad = max(0.01, 0.08 * (vmax - vmin))
+        ax.set_ylim(max(0.0, vmin - pad), min(1.05, vmax + pad))
+        if eval_span_um is not None:
+            ax.axvspan(
+                eval_span_um[0],
+                eval_span_um[1],
+                alpha=0.12,
+                color="grey",
+                label="evaluation band" if i == 0 else None,
+            )
+    axes[0, 0].set_title(f"Coating detail — {element_name} ({grid_note})")
+    if eval_span_um is not None:
+        axes[0, 0].legend(loc="best", fontsize="small", frameon=False)
+    axes[-1, 0].set_xlabel("Wavelength (µm)")
+    return cast("Figure", fig)
+
+
+@_styled
 def plot_atmosphere_spectral(
     wavelength_um: npt.NDArray[np.float64],
     tau_atm: npt.NDArray[np.float64],

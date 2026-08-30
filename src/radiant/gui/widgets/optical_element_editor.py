@@ -47,10 +47,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from radiant.api.coating_detail import plot_coating_detail
 from radiant.api.config_io import preview_optical_elements
+from radiant.api.plot import plot_theme
 from radiant.core.exceptions import RadiantError
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
+from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
 from radiant.gui.widgets.spectral_table_dialog import SpectralTableDialog
 
 if TYPE_CHECKING:
@@ -83,6 +86,14 @@ _KIND_CHOICES: Final[tuple[str, ...]] = (
     "beamsplitter",
     "dewar_window",
 )
+
+_DETAIL_TITLE = "Coating detail — R / T / ε on the coating's own grid (Gap 116)"
+_DETAIL_PROMPT = (
+    "Select an element row to see its coating model — each quantity on an "
+    "autoscaled panel, over the curve's full stored wavelength extent."
+)
+# Tall enough for two stacked autoscaled panels; the figure follows the widget.
+_DETAIL_MIN_HEIGHT = 260
 
 _COL_NAME = 0
 _COL_TRANSFER = 1
@@ -208,6 +219,27 @@ class OpticalElementEditor(QWidget):
         self._spectrum.clicked.connect(self._edit_spectrum)
         self._apply.clicked.connect(self.apply_train)
 
+        # Coating detail (Gap 116): selecting a row draws that element's R/T/ε on its
+        # native source grid, one autoscaled panel per quantity — the inspection view
+        # the fixed-[0,1] all-element overlay cannot provide. Reads the TABLE's current
+        # entries (drafts included, via the `entries=` override), so a row previews
+        # before Apply; an unparsable draft shows the io parser's actionable message.
+        self._dark = False
+        detail_title = QLabel(_DETAIL_TITLE, card)
+        detail_title.setObjectName("stagePlotTitle")
+        box.addWidget(detail_title)
+        self._detail_canvas = MatplotlibCanvas(card)
+        self._detail_canvas.setMinimumHeight(_DETAIL_MIN_HEIGHT)
+        self._detail_canvas.setVisible(False)
+        self._detail_message = QLabel(_DETAIL_PROMPT, card)
+        self._detail_message.setObjectName("stagePlotMessage")
+        self._detail_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._detail_message.setWordWrap(True)
+        box.addWidget(self._detail_canvas, 1)
+        box.addWidget(self._detail_message)
+        self._table.itemSelectionChanged.connect(self.refresh_coating_detail)
+        self.elementsApplied.connect(lambda _path: self.refresh_coating_detail())
+
         layout.addWidget(card)
 
     # -- binding --------------------------------------------------------------
@@ -228,9 +260,64 @@ class OpticalElementEditor(QWidget):
             for entry in document:
                 self._append_row(entry)
             self._refresh_derived_emissivity(document)
+        self.refresh_coating_detail()
 
     def refresh(self) -> None:
         """No-op on re-evaluation (the table is an editor, not a readout)."""
+
+    # -- coating detail (Gap 116) ----------------------------------------------
+
+    def refresh_coating_detail(self) -> None:
+        """Draw the selected row's coating detail, or an actionable message.
+
+        One GUI action ↔ one API call: the selection maps to
+        :func:`radiant.api.plot_coating_detail` with the table's current
+        entries passed as the document override, so an unapplied draft row is
+        inspectable before Apply. A row the io parser rejects (bad path,
+        malformed value) shows the parser's actionable message in place of the
+        figure — never a blank pane, never a crash (Rule 15/17).
+        """
+        row = self._table.currentRow()
+        if self._sensor is None or row < 0 or row >= self._table.rowCount():
+            self._show_detail_message(_DETAIL_PROMPT)
+            return
+        entries = self.entries()
+        name = str(entries[row].get("name", "")).strip()
+        if not name:
+            self._show_detail_message("Name this element to plot its coating detail.")
+            return
+        try:
+            with plot_theme(dark=self._dark):
+                figure = plot_coating_detail(self._sensor, name, entries=entries)
+        except RadiantError as exc:
+            self._show_detail_message(str(exc))
+            return
+        self._detail_message.setVisible(False)
+        self._detail_canvas.setVisible(True)
+        self._detail_canvas.show_figure(figure)
+
+    def _show_detail_message(self, text: str) -> None:
+        self._detail_message.setText(text)
+        self._detail_message.setVisible(True)
+        self._detail_canvas.setVisible(False)
+
+    def set_dark(self, dark: bool) -> None:
+        """Adopt the dark/light plot theme; re-render the detail if one is shown."""
+        if dark == self._dark:
+            return
+        self._dark = dark
+        if self._detail_canvas.isVisible():
+            self.refresh_coating_detail()
+
+    @property
+    def detail_canvas(self) -> MatplotlibCanvas:
+        """The coating-detail figure canvas (test seam)."""
+        return self._detail_canvas
+
+    @property
+    def detail_message(self) -> QLabel:
+        """The coating-detail message label (test seam)."""
+        return self._detail_message
 
     # -- table mechanics ------------------------------------------------------
 

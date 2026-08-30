@@ -689,6 +689,7 @@ from radiant.api.plot import (
     plot_spectral,       # wavelength [µm], radiance → spectral line plot
     plot_spectral_multi, # wavelength [µm], {label: radiance} → multi-curve spectral plot
     plot_atmosphere_spectral,  # wavelength [µm], τ_atm, L_path → two stacked, x-sharing panels
+    plot_element_coating,      # {symbol: (λ, values)} → one autoscaled panel per R/T/ε quantity (Gap 116)
 )
 
 fig = plot_sweep(sweep)
@@ -697,6 +698,27 @@ fig.savefig("snr_vs_aperture.png")
 frame = result.frames["at_aperture"]
 fig = plot_spectral(frame.wavelength_um, frame.spectral_radiance,
                     title="At-aperture spectral radiance")
+```
+
+**`plot_coating_detail(sensor, element_name, *, entries=None)` — sensor-bound coating
+inspection (Gap 116, `radiant.api.coating_detail`; exported from `radiant.api`).** The
+result-bound `coating_spectra()` overlay draws every element resampled onto the run's chain
+grid on one fixed [0, 1] axis — correct for "what did the chain use", but it clips each
+curve to the evaluation band and flattens percent-level dispersion. `plot_coating_detail`
+is the inspection view: **one** element from the sensor's attached ADR-0009 document, its
+R/T/ε on the **native source grid** (spectral file / inline table full stored extent), one
+autoscaled panel per non-zero quantity, with the evaluation band shaded for context.
+Scalar-valued properties have no grid of their own and draw flat across the evaluation band
+(the figure subtitle says which grid it used). `entries=` overrides the attached document
+with in-memory entry dicts — the GUI Elements tab passes its unapplied table so a draft row
+previews before Apply. Raises `ApiValidationError` when no document is available or the
+name is unknown (listing the available names); an invalid entry raises the io parser's own
+actionable `ElementConfigError` (single validation authority).
+
+```python
+from radiant.api import plot_coating_detail
+
+fig = plot_coating_detail(sensor, "M1")   # full 0.4–2.5 µm coating model, autoscaled
 ```
 
 **`plot_mtf_terms` legend (CU-117).** A contributor's along-track (`_x`) and cross-track

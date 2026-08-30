@@ -479,8 +479,44 @@ of the hemispheric weighting.
 Because $z_{em}$ and $D$ are fit jointly *through this one closed form*, a directional
 path-radiance product cannot inherit the pair. That is why §2.10's height-resolved model
 and this fitted graybody coexist deliberately: they are different products, not two
-versions of one (Rule 27 does not apply). Re-fitting or retiring $z_{em}$ now that the
-layered solution can compute what it approximates is a tracked refinement (CU-324).
+versions of one (Rule 27 does not apply).
+
+**Why the layered solution did not replace it (CU-324 item 1, measured 2026-08-29).** The
+obvious refinement is to compute the downwelling directly — evaluate the sky column's
+emergent radiance at the 48.2° diffusivity angle escaping toward the ground, $\pi L(48.2°)$,
+from §2.10's machinery — and retire both fitted constants. It was measured against the
+nine-rung P-block ladder (H5 + P1–P8: measured hemispheric-proxy downwelling at
+0/1/5/10/20/29/50/60/80 km) and **not adopted**. The decisive numbers are the four corners
+of (emissivity exponent) × (emission temperature), as RMS $|\ln(\text{model} / \pi
+L_{\text{MODTRAN}})|$ over nine rungs × two bands:
+
+| emissivity exponent | $T(h+z_{em})$ | layered $T_{\text{eff}}$ |
+|---|---|---|
+| $D = 1.1$ (fitted, **ships**) | **2.0776** | 2.1080 |
+| $\sec 48.2° = 1.4966$ (the ladder's own) | 1.9233 | 1.9385 |
+
+The composite swap does beat what ships (2.0776 → 1.9385), but the gain belongs entirely to
+the *exponent*: against either exponent the layered temperature costs, and the best corner
+keeps $z_{em}$. Restricted to the four tropospheric rungs — the only ones where the two
+temperatures differ at all, because the ICAO profile is isothermal above the tropopause and
+returns 222.65 K for every stratospheric rung either way — the layered form is worse still
+(0.3087 → 0.4771).
+
+Borrowing MODTRAN's own emissivity to isolate the temperature (the CU-321 attribution
+metric) shows *why*, and the answer is band-split rather than uniform: over the eight
+tropospheric band-means the layered temperature is a **3.8× improvement in the LWIR**
+(RMS $|\ln|$ 0.3110 → 0.0827; the near-surface proxy runs 5–22 K too warm on a
+semi-transparent window that genuinely samples the whole column) and a **3.7× degradation
+in the MWIR** (0.1187 → 0.4380, running 3.5–10.6 K too cold). The MWIR loss is the CU-321
+un-masking pattern again: with the region-flat 3–5 µm gas floor supplying too little
+opacity, the layered weighting reaches too high into cold air, and the fitted warm bias was
+compensating for a $\tau$-shape error rather than for a temperature error. Adopting the
+layered form would ship a variant strictly worse than the $(\sec, z_{em})$ corner already
+available, so the item is flagged for an owner ruling on the exponent alone rather than
+closed by a code change.
+
+*Enforced by:* `tests/integration/test_emission_placement_cu324.py` (all four corners, and
+the assertion that the baseline corner is bit-identical to what ships).
 
 **Scattered.** On the same vertical slab:
 
@@ -891,12 +927,33 @@ item's tracking home is named; the *measured* consequences are in the parity doc
   geometric error inside the horizon guard's warn band, and the on/off calibration decks
   (Q5/Q6) are unrun.
 - **Stratospheric structure.** The fixed-lapse ICAO profile is isothermal above the
-  tropopause, so real stratospheric warming is not represented (CU-324).
+  tropopause, so real stratospheric warming is not represented (CU-324). Measured on the
+  P ladder: MODTRAN's recovered emission temperature reaches 268 K at the 50 km stratopause
+  and falls to 178 K at 80 km, while the profile answers 222.65 K at every one of those
+  altitudes. This is why the five stratospheric rungs of the downwelling ladder are
+  insensitive to *any* emission-placement choice — every candidate form returns the same
+  temperature there — and why they carry no information about §2.11's fitted constants.
 - **Grazing-arc opacity distribution.** A grazing arc's air lies along the arc, not along
   the vertical between its endpoints; the emission weighting is approximate there, though
-  the *total* optical depth is exact (CU-324).
+  the *total* optical depth is exact (CU-324). Measured 2026-08-29: on a ground-rooted
+  column at 85/88/89.5° (M6–M8) the two placements differ by ≤ 1.2 % in band-mean thermal
+  radiance — under the 3–6 % model/MODTRAN residual there, so those runs cannot settle it.
+  The effect is only measurable on an arc rooted at an elevated tangent point *below* the
+  tropopause (modelled separation 7.9 %/9.8 % at 5 km, 16.1 %/13.1 % at 8 km, MWIR/LWIR,
+  and exactly 0 at 15 km for the isothermal reason above); run-matrix rows R1–R3 are
+  authored for that geometry and unrun.
 - **O₃ emission altitude.** The well-mixed-gas floor lumps CO₂/N₂O/CH₄ with O₃, which peaks
-  near 25 km, so 9.6 µm emission is placed too low (CU-324).
+  near 25 km, so 9.6 µm emission is placed too low (CU-324). Measured 2026-08-29 on the
+  fourteen matched pairs: the 9.4–9.9 µm feature is biased warm on every one of them
+  (RMS $|\ln$ ratio$|$ 0.1519, reaching 1.44× on the deepest column) while the LWIR band
+  mean that contains it reads 0.2611 — the error hides in a band mean because the feature
+  is 0.5 µm of 4 µm. Splitting the placement onto an ozone layer recovers it (0.1519 →
+  0.1000), but the improvement is governed by a single free parameter — the ozone share of
+  the gas-floor OD — that the CU-161 table cannot supply, because its 8.00–10.00 µm region
+  is 2 µm wide and flat and so contains no identifiable ozone band. The layer's centre and
+  width are almost unobservable by comparison (0.1011–0.1117 across 20–30 km centres and
+  3–8 km widths), again because the profile is isothermal wherever the layer sits.
+  Unblocking this needs the $\tau$ side first: a 9.6 µm region in the CU-161 table.
 - **Polarization, 3D/heterogeneous atmospheres, time dependence, adjacency, aurora/airglow,
   cloud microphysics.** Out of scope for v1 (`RADIANT_Atmosphere.md` §11).
 

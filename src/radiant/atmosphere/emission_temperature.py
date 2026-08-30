@@ -90,13 +90,37 @@ the same standing as ``grazing_column.QUADRATURE_INTERVALS``).
 
 Fragilities
 -----------
+All three were measured against the delivered MODTRAN run set at CU-324
+(2026-08-29).  None was adopted; the numbers and the rulings are in
+``docs/validation/atmosphere_modtran_parity.md`` §2.14, and they are pinned by
+``tests/integration/test_emission_placement_cu324.py``.
+
 * the ICAO fixed-lapse profile the caller supplies is isothermal above the
-  tropopause, so real stratospheric warming is not represented;
+  tropopause, so real stratospheric warming is not represented.  This is the
+  *dominant* fragility of the three, because it makes the other two partly
+  unobservable: MODTRAN's recovered emission temperature reaches 268 K at the
+  50 km stratopause and 178 K at 80 km where the profile answers 222.65 K
+  everywhere, so any redistribution of opacity above 11 km leaves ``T_eff``
+  bit-unchanged;
 * a grazing arc's air is distributed along the arc, not along the vertical
   between its endpoints; the vertical weighting used here is an approximation
-  there (the *total* optical depth is still exact);
+  there (the *total* optical depth is still exact).  Measured worth ≤ 1.2 % in
+  band-mean thermal radiance on the M6–M8 ground-rooted fan at 85/88/89.5° —
+  under the 3–6 % model/MODTRAN residual there, so those runs cannot settle it.
+  It is worth 8–16 % on an arc rooted at a tangent point at 5–10 km, and
+  exactly nothing at 15 km for the isothermal reason above; run-matrix rows
+  R1–R3 are authored for that geometry and unrun;
 * the well-mixed-gas floor lumps CO₂/N₂O/CH₄ (well mixed) with O₃ (not), so
-  the 9.6 µm ozone emission is placed too low.
+  the 9.6 µm ozone emission is placed too low.  Measured: the 9.4–9.9 µm
+  feature is biased warm on 12 of the 14 matched pairs (RMS |ln ratio| 0.1519,
+  up to 1.44× on the deepest column) while the 8–12 µm band mean containing it
+  reads 0.2611 — the error hides in the band average.  Splitting O₃ onto its
+  own layer recovers a third of it, but the improvement is governed by one free
+  parameter — the ozone share of the gas-floor OD — which the CU-161 region
+  table cannot supply, because its 8.00–10.00 µm region is 2 µm wide and flat
+  and so contains no identifiable ozone band.  Fixing that region is the
+  prerequisite; doing the split first would put the first fitted coefficient
+  into this module, against the construction stated above.
 """
 
 from __future__ import annotations

@@ -1663,6 +1663,16 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Workaround** | Never set `circular_orbit` for a space target; compute both inertial speeds (core.orbit) and enter the relative rate through K1 — scenario 10.4's pattern, verified against the K2 door. |
 | **Suggested fix** | An inertial-velocity door (or an orbit-aware K0 branch keyed on `target_class == "space"` — as data, per G3) deriving the relative LOS rate from both endpoints' orbital motion. Effort M; category C. Related: Gap 111, CU-268. |
 
+## Gap 116: No per-element coating detail view — the coating plot shows all elements on the chain grid with a fixed [0,1] axis, so a single coating's model is uninspectable
+
+| | |
+|---|---|
+| **Found in** | Scenario 9.4 GUI review (owner, 2026-08-29) — promoted from the 2026-08-29 Findings_Log line. |
+| **Status** | OPEN — in work 2026-08-29 |
+| **Description** | The Optics stage's "Coating spectra" plot overlays every element's R/T/ε resampled onto the active configuration's chain grid, on a shared fixed [0,1] axis. Percent-level coating dispersion is invisible (four mirror-R curves + window-T stack into one line near 1) and a curve's full native extent (e.g. 9.4's 0.4–2.5 µm protected-Ag model, −12.6% four-mirror cross-band swing) cannot be seen at all — the run grid clips it to the band span. |
+| **Impact** | An operator reviewing a per-element prescription (Mode 5) cannot verify any individual coating model from the GUI — the exact workflow scenario 9.4 introduces. |
+| **Suggested fix** | Selecting an element in the element editor shows a detail plot of that element alone: R/T/ε on the **native source grid** (spectral file / inline table full extent; scalars flat across the run band), autoscaled y, with the active configuration's evaluation span shaded for context. GUI is a view over the scripting API, so the plot lands as a public `plots.*` function first. Effort S–M; category D. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |

@@ -47,7 +47,7 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-331 — Scenario 1.6's results moved ~15 % unrecorded by a landing between 2026-08-02 and 2026-08-29
+### CU-334 — Scenario 1.6's results moved ~15 % unrecorded by a landing between 2026-08-02 and 2026-08-29
 
 **Discovered**: CU-324 D-swap walkthrough sweep (branch `atmo/cu-324-d-swap`), 2026-08-29 — the old-code (pre-swap, current-main) runner gave SNR 20.35 / detection range 1 347.8 km while the committed walkthrough read 17.67 / 1 254.7 km from its 2026-08-02 refresh.
 **Status**: Open — needs a bisect and attribution; the walkthrough itself is now refreshed (the drift is recorded there with the two components separated), but the *cause* is an unattributed results-affecting landing.

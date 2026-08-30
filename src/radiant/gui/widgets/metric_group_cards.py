@@ -384,6 +384,10 @@ class MetricGroupCards(QWidget):
         from scratch on every result — the readout is a pure view.
         """
         self._clear()
+        # Two-up flow: both grid columns share the width (CU-333: mode-dependent —
+        # matrix mode zeroes column 1, so re-assert on every single-model render).
+        for column in range(_COLUMNS):
+            self._grid.setColumnStretch(column, 1)
         for index, (heading, records) in enumerate(grouped_metric_records(result.metric_records())):
             card = self._build_card(heading, records, result)
             self._grid.addWidget(
@@ -413,6 +417,14 @@ class MetricGroupCards(QWidget):
         """
         self._clear()
         self._columns = matrix.names
+        # One-up flow (CU-333): every matrix card lives in grid column 0. The
+        # constructor gave BOTH columns stretch 1 for the two-up single-model flow,
+        # and with the CU-332 scroll area no longer forcing the card's width, the
+        # empty column 1 was silently taking half the pane — a half-width card
+        # showing one clipped configuration column.
+        self._grid.setColumnStretch(0, 1)
+        for column in range(1, _COLUMNS):
+            self._grid.setColumnStretch(column, 0)
         for index, (heading, rows) in enumerate(matrix.groups):
             card = self._build_matrix_card(heading, matrix.columns, rows, accents)
             self._grid.addWidget(
@@ -541,7 +553,12 @@ class MetricGroupCards(QWidget):
         self._matrix_scrolls.append(scroll)
 
         body.addWidget(label_host, 0, Qt.AlignmentFlag.AlignTop)
-        body.addWidget(scroll, 1, Qt.AlignmentFlag.AlignTop)
+        # No alignment flag here (CU-333): aligning a widget in a box layout opts
+        # it out of stretching on BOTH axes, which pinned the scroll area at its
+        # size hint — one clipped column beside dead whitespace. The stretch
+        # factor needs the cell unaligned to fill the card's width; vertical
+        # surplus is already parked in the grids' bottom stretch rows.
+        body.addWidget(scroll, 1)
         box.addLayout(body)
         return card
 

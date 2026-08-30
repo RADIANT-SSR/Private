@@ -252,10 +252,11 @@ def test_sky_radiance_vs_uplooking_h_runs() -> None:
     masking here.
 
     Emissivity is still ``1 − τ`` on the segment's *own* slant transmittance
-    (Kirchhoff, Rule 5).  CU-155's hemispheric flux product uses a fitted
-    diffusivity exponent D = 1.1 together with its own emission-height offset;
-    a directional product cannot inherit that pair without decoupling its
-    emissivity from its own transmittance, which the segment contract forbids.
+    (Kirchhoff, Rule 5).  The hemispheric flux product raises its transmittance
+    to a diffusivity exponent — ``sec 48.2°`` since CU-324, the fitted
+    ``D = 1.1`` before it — alongside its own emission-height offset; a
+    directional product cannot inherit that without decoupling its emissivity
+    from its own transmittance, which the segment contract forbids.
     """
     zeta = math.radians(48.2)
     cases = [

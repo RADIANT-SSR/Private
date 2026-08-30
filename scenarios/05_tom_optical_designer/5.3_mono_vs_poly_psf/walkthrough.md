@@ -42,16 +42,22 @@ The script runs RADIANT at 5 individual wavelengths (3.5, 4.0, 4.25, 4.5, 5.0 µ
 |---------|---------|--------|--------|-------|------------|-----|
 | 3.50    | 0.328   | 0.478  | 0.899  | 0.660 | 19.5       | 88  |
 | 4.00    | 0.290   | 0.442  | 0.885  | 0.628 | 20.5       | 151 |
-| 4.25    | 0.267   | 0.414  | 0.878  | 0.610 | 21.3       | 187 |
-| 4.50    | 0.248   | 0.396  | 0.871  | 0.599 | 22.0       | 226 |
+| 4.25    | 0.267   | 0.414  | 0.878  | 0.610 | 21.3       | 188 |
+| 4.50    | 0.248   | 0.396  | 0.871  | 0.599 | 22.0       | 227 |
 | 5.00    | 0.210   | 0.358  | 0.858  | 0.568 | 23.6       | 244 |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the `(1−τ)·B` path term
-is now emitted at a height-resolved `T_eff(λ)` over the column, which lowers
-the per-band SNR by 6–18 %, most at 5.0 µm where the path term is largest and
-the emission altitude therefore matters most. MTF@Nyquist, EE 1×1, RER and
-FWHM are spatial and bit-identical at every wavelength.*
+*Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
+2026-08-02, pre-CU-324). One mover: **CU-324** — `E_sky_thermal`'s
+flux-diffusivity exponent is now the geometric `sec 48.2° = 1.50030` rather than
+the CU-155 fitted `D = 1.1`, which lifts the reflected-sky term by well under
+1 % per band. Only two rows cross a rounding boundary in this integer SNR
+column (4.25 µm 187 → 188, 4.50 µm 226 → 227); the other three are unchanged as
+printed. MTF@Nyquist, EE 1×1, RER and FWHM are spatial and bit-identical at
+every wavelength.*
+
+*Prior vintage, for the trend: the 2026-08-02 refresh was CU-321's
+height-resolved path-emission temperature, which lowered the per-band SNR by
+6–18 %, most at 5.0 µm.*
 
 The trends are monotonic: shorter wavelengths give better MTF and EE (tighter PSF concentrates more energy), but worse SNR (fewer photons in a narrow band at shorter wavelengths for a thermal source — a 300 K target emits far more MWIR photons at 5 µm than at 3.5 µm). RER (relative edge response) is now also extracted at each wavelength. The SNR column stays monotonic in λ across the whole band under CU-321 as it did under CU-224; the pre-CU-224 vintage showed a spurious dip at 5.0 µm (208 at 4.50 µm vs 202 at 5.00 µm), and that remains gone.
 

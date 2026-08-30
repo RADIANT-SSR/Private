@@ -65,11 +65,23 @@ Run `scripts/run_point_source_sda.py` (or `Sensor.from_yaml(...).evaluate()`):
 |---|---|---|
 | Regime | point_source | — |
 | Signal | 20,933 | e⁻ |
-| **SNR** | **17.67** | — |
-| **Detection range** (SNR = 6) | **1254.7** | km |
+| **SNR** | **20.31** | — |
+| **Detection range** (SNR = 6) | **1346.6** | km |
 | Sampling Q (band center) | 1.42 | — |
 
-*(Refreshed 2026-08-02, superseding the 2026-08-01 CU-263 refresh below. The
+*(Refreshed 2026-08-29. Two components, and only the smaller one is CU-324's.
+**Pre-existing drift, unattributed:** this table read SNR 17.67 / range
+1,254.7 km, but the unmodified runner on the pre-CU-324 tree gave 20.35 /
+1,347.8 km — the numbers had gone stale against `main` under a landing between
+2026-08-02 and 2026-08-29 that nobody re-ran this scenario for. The signal
+column, 20,933 e⁻, is unchanged throughout. **CU-324:** `E_sky_thermal`'s
+flux-diffusivity exponent became the geometric `sec 48.2° = 1.50030` instead of
+the CU-155 fitted `D = 1.1`, which raises the sky background this space-to-space
+MWIR geometry sees and so lowers SNR a shade — 20.35 → 20.31, range 1,347.8 →
+1,346.6 km. The target term is a declared point intensity and does not move at
+all; the entire CU-324 effect here is on the background.)*
+
+*(Prior refresh, 2026-08-02, superseding the 2026-08-01 CU-263 refresh below. The
 dominant mover is **CU-224**: a down-looking column now carries its own thermal
 emission, which this MWIR space-to-space geometry sees as extra background —
 the target signal is essentially unmoved (21,229 → 20,933 e⁻, the remaining

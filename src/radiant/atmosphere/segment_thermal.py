@@ -32,8 +32,9 @@ temperature.  That is exact for a level arm and harmless for a few-km column,
 but it over-stated the down-looking 3–5 µm path thermal by 2.0–2.4× on the
 tall MODTRAN columns (O3/O4/O5) because the MWIR emission of a 10–100 km
 column escapes from cold air aloft.  The CU-155 helper survives only for the
-hemispheric ``E_sky_thermal`` flux, whose fitted diffusivity exponent is
-calibrated jointly with its emission-height offset.
+hemispheric ``E_sky_thermal`` flux, whose emission-height offset is calibrated
+through that one closed form (its companion diffusivity exponent has been the
+geometric ``sec 48.2°`` since CU-324, 2026-08-29).
 
 Direction
 ---------

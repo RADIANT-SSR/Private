@@ -11,12 +11,15 @@ Item 1 — the ``z_em = 200 m`` downwelling proxy
     48.2° diffusivity angle).  The layered replacement — the sky column's
     emergent radiance at 48.2° escaping toward the ground, ``π·L``, straight
     off the shipped :func:`SimpleAtmosphere._segment_emission_temperature_K` —
-    does beat the proxy on the raw ladder (RMS |ln ratio| 2.0776 → 1.9385).
-    But the decomposition below shows the whole gain belongs to the
+    does beat the then-shipped form on the raw ladder (RMS |ln ratio| 2.0776 →
+    1.9385).  But the decomposition below shows the whole gain belongs to the
     **emissivity exponent** (the CU-155 fitted ``D = 1.1`` → the anchor's own
-    ``sec 48.2° = 1.4966``), not to the layered temperature: holding the
+    ``sec 48.2° = 1.50030``), not to the layered temperature: holding the
     exponent fixed and swapping only the temperature makes the ladder *worse*.
-    Not adopted; the exponent finding is flagged for an owner ruling.
+    The layered form was therefore not adopted; the **exponent** was ruled on
+    separately by the owner (2026-08-29) and swapped, so the corner that ships
+    is now ``(sec, z_em)`` — the best of the four.  The ranking assertions
+    below are unchanged by that; they are what the ruling rests on.
 
 Item 2 — O₃ lumped into the well-mixed gas floor
     The 9.4–9.9 µm ozone feature is measurably mis-placed: the current form
@@ -80,6 +83,11 @@ _O3_FEATURE = (9.4, 9.9)
 #: the measured hemispheric-flux proxy (H5/P-block convention).
 _DIFFUSIVITY_ANGLE_DEG = 48.2
 _SEC_DIFFUSIVITY = 1.0 / math.cos(math.radians(_DIFFUSIVITY_ANGLE_DEG))
+
+#: The retired CU-155 fitted exponent.  Kept as a literal here, not imported:
+#: the point of the 2×2 is to compare the fitted value against the geometric
+#: one, and since 2026-08-29 the geometric one is what ``simple.py`` exports.
+_FITTED_D_CU155 = 1.1
 
 #: Top of the modelled column [m] — the ladder's own upper endpoint.
 _H_ATM_TOP_M = 1.0e5
@@ -163,7 +171,11 @@ def _sky_species_od(
 
 
 def _e_sky_shipped(atm: SimpleAtmosphere, lam: np.ndarray, h_tgt_m: float) -> np.ndarray:
-    """The shipped CU-155 form: ``(1 − e^{−D·τ_vert})·π·B(T(h + z_em))``."""
+    """The shipped form: ``(1 − e^{−D·τ_vert})·π·B(T(h + z_em))``.
+
+    ``D`` is read from the library, so this tracks whatever ships; since
+    CU-324 that is ``sec 48.2°``.
+    """
     od = _sky_species_od(atm, lam, h_tgt_m)
     od_vert = od["mol"] + od["aer"] + od["h2o"] + od["gas"]
     t_eff = atm._downwelling_effective_temperature_K(h_tgt_m)
@@ -175,13 +187,13 @@ def _e_sky_variant(
 ) -> np.ndarray:
     """``π·L`` for one corner of the 2×2 (emissivity exponent) × (temperature).
 
-    ``slant`` swaps the fitted ``D = 1.1`` for the ladder's own
+    ``slant`` swaps the retired fitted ``D = 1.1`` for the ladder's own
     ``sec 48.2°``; ``layered`` swaps ``T(h + z_em)`` for the CU-321 layered
     solution of the same column escaping toward the ground.
     """
     od = _sky_species_od(atm, lam, h_tgt_m)
     od_vert = od["mol"] + od["aer"] + od["h2o"] + od["gas"]
-    exponent = _SEC_DIFFUSIVITY if slant else _ESKY_DIFFUSIVITY_D
+    exponent = _SEC_DIFFUSIVITY if slant else _FITTED_D_CU155
     emissivity = -np.expm1(-exponent * od_vert)
     if layered:
         slant_od = {key: value * _SEC_DIFFUSIVITY for key, value in od.items()}
@@ -201,8 +213,9 @@ def _e_sky_variant(
 
 
 #: Measured 2026-08-29 on the delivered ladder: RMS |ln(model/π·L_MODTRAN)| over
-#: all nine rungs × both bands, per corner of the 2×2.  ``(D, z_em)`` is what
-#: ships.  The ordering is the finding: the exponent carries the whole gain, and
+#: all nine rungs × both bands, per corner of the 2×2.  ``(sec, z_em)`` is what
+#: ships since the 2026-08-29 owner ruling; ``(D, z_em)`` is the retired CU-155
+#: fit.  The ordering is the finding: the exponent carries the whole gain, and
 #: the layered temperature costs against either exponent.
 _LADDER_RMS = {
     ("D", "z_em"): 2.0776,
@@ -210,6 +223,9 @@ _LADDER_RMS = {
     ("D", "layered"): 2.1080,
     ("sec", "layered"): 1.9385,
 }
+
+#: The corner that ships (CU-324 item 1's ruled outcome).
+_SHIPPED_CORNER = ("sec", "z_em")
 
 
 @pytest.mark.level2
@@ -221,6 +237,13 @@ def test_the_downwelling_ladder_ranks_the_four_candidate_forms() -> None:
     it, so adopting the layered downwelling would ship a form strictly worse
     than one already available.  Whichever corner wins, the layered temperature
     is the losing factor.
+
+    Since the 2026-08-29 ruling the winning corner is also the shipped one, so
+    the last assertion below is no longer "what we could have had" but "what we
+    have": if the exponent ever regressed to the fitted ``D = 1.1`` this test
+    fails on the ranking *and*
+    :func:`test_the_shipped_downwelling_form_is_what_the_ladder_comparison_used`
+    fails on the identity.
     """
     atm = _atm("midlat_summer")
     measured: dict[tuple[str, str], list[float]] = {key: [] for key in _LADDER_RMS}
@@ -251,24 +274,34 @@ def test_the_downwelling_ladder_ranks_the_four_candidate_forms() -> None:
         "the layered temperature must still cost against the fitted D exponent"
     )
     assert rms[("sec", "z_em")] < rms[("D", "z_em")], (
-        "the fitted D = 1.1 exponent must still lose to the ladder's own sec 48.2°"
+        "the retired D = 1.1 exponent must still lose to the ladder's own sec 48.2°"
+    )
+    assert rms[_SHIPPED_CORNER] == min(rms.values()), (
+        "the corner that ships is no longer the best of the four — re-open CU-324 item 1"
     )
 
 
 @pytest.mark.level2
 def test_the_shipped_downwelling_form_is_what_the_ladder_comparison_used() -> None:
-    """``_e_sky_variant(D, z_em)`` is bit-identical to the shipped CU-155 form.
+    """``_e_sky_variant(sec, z_em)`` is bit-identical to the shipped form.
 
     Without this the 2×2 above could rank four forms none of which is the one
-    that ships, and the ruling would be about nothing.
+    that ships, and the ruling would be about nothing.  The identity moved
+    corner on 2026-08-29 with the exponent swap — the library's
+    ``_ESKY_DIFFUSIVITY_D`` is now ``sec 48.2°``, so the shipped form *is* the
+    ladder's winning corner rather than its baseline.
     """
+    assert _ESKY_DIFFUSIVITY_D == _SEC_DIFFUSIVITY, (
+        "the shipped exponent is no longer the ladder's own sec 48.2° — the "
+        "2×2 corner labels below would be lying"
+    )
     atm = _atm("midlat_summer")
     for run, h_tgt_m in _DOWNWELLING_LADDER.items():
         lam, _tau, _l_mod = _read(run)
         np.testing.assert_array_equal(
-            _e_sky_variant(atm, lam, h_tgt_m, slant=False, layered=False),
+            _e_sky_variant(atm, lam, h_tgt_m, slant=True, layered=False),
             _e_sky_shipped(atm, lam, h_tgt_m),
-            err_msg=f"{run}: the 2×2 baseline corner drifted from the shipped form",
+            err_msg=f"{run}: the 2×2 shipped corner drifted from the shipped form",
         )
 
 

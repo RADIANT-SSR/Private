@@ -470,16 +470,32 @@ $$E_{\text{sky,thermal}}(\lambda) \;=\; \left[1 - \tau_{\text{sky,vert}}(\lambda
 L_{\text{atm,down}}(\lambda) \;=\; \frac{E_{\text{sky,thermal}}(\lambda)}{\pi}$$
 
 $T(\cdot)$ is the fixed-lapse ICAO standard-atmosphere lookup (6.5 K/km, floored at the
-216.65 K tropopause above 11 km). The two constants are fit **jointly** to the real
-up-looking MODTRAN H-runs: emission-height offset $z_{em} = 200$ m (downwelling is
-dominated by near-surface air) and flux-diffusivity exponent $D = 1.1$ — below the textbook
-Elsasser 1.66 because the curve-of-growth calibration to slant paths already absorbs part
-of the hemispheric weighting.
+216.65 K tropopause above 11 km). The emission-height offset $z_{em} = 200$ m is fitted to
+the real up-looking MODTRAN H-runs (downwelling is dominated by near-surface air).
 
-Because $z_{em}$ and $D$ are fit jointly *through this one closed form*, a directional
-path-radiance product cannot inherit the pair. That is why §2.10's height-resolved model
-and this fitted graybody coexist deliberately: they are different products, not two
-versions of one (Rule 27 does not apply).
+**The flux-diffusivity exponent $D$ is not fitted.** Since CU-324 (owner-ratified
+2026-08-29) it is a geometric identity,
+
+$$D \;=\; \sec 48.2° \;=\; 1.50030\ldots,$$
+
+the secant of the diffusivity angle the entire downwelling reference set was run at: every
+H- and P-block deck is an up-looking MODTRAN run at 48.2°, and the quantity this model is
+scored against is $\pi L(48.2°)$ — the hemispheric-flux proxy, itself validated to ~15 %
+against the E1 flux table's true hemispheric DOWN. Scoring against a 48.2° pencil and then
+weighting the emissivity by any other factor mixes two different hemispheric
+approximations; taking the exponent from the reference geometry removes a free parameter
+instead of re-tuning one. (The textbook Elsasser diffusivity factor 1.66 is $\sec 53.13°$ —
+a different angle and a different approximation, not what this reference set uses.)
+
+The retired value was $D = 1.1$, fitted 2026-07-18 jointly with $z_{em}$ against H2 and H4
+alone, the only up-looking decks that then existed. The nine-rung P ladder that would have
+constrained it postdates that fit by six weeks, and on it the geometric value wins — the
+measurement below.
+
+Because $z_{em}$ is fitted *through this one closed form*, a directional path-radiance
+product still cannot inherit it. That is why §2.10's height-resolved model and this
+graybody coexist deliberately: they are different products, not two versions of one
+(Rule 27 does not apply).
 
 **Why the layered solution did not replace it (CU-324 item 1, measured 2026-08-29).** The
 obvious refinement is to compute the downwelling directly — evaluate the sky column's
@@ -492,12 +508,12 @@ L_{\text{MODTRAN}})|$ over nine rungs × two bands:
 
 | emissivity exponent | $T(h+z_{em})$ | layered $T_{\text{eff}}$ |
 |---|---|---|
-| $D = 1.1$ (fitted, **ships**) | **2.0776** | 2.1080 |
-| $\sec 48.2° = 1.4966$ (the ladder's own) | 1.9233 | 1.9385 |
+| $D = 1.1$ (fitted, retired) | 2.0776 | 2.1080 |
+| $\sec 48.2° = 1.50030$ (the ladder's own, **ships**) | **1.9233** | 1.9385 |
 
-The composite swap does beat what ships (2.0776 → 1.9385), but the gain belongs entirely to
-the *exponent*: against either exponent the layered temperature costs, and the best corner
-keeps $z_{em}$. Restricted to the four tropospheric rungs — the only ones where the two
+The composite swap does beat what was then shipped (2.0776 → 1.9385), but the gain belongs
+entirely to the *exponent*: against either exponent the layered temperature costs, and the
+best corner keeps $z_{em}$. Restricted to the four tropospheric rungs — the only ones where the two
 temperatures differ at all, because the ICAO profile is isothermal above the tropopause and
 returns 222.65 K for every stratospheric rung either way — the layered form is worse still
 (0.3087 → 0.4771).
@@ -512,11 +528,20 @@ un-masking pattern again: with the region-flat 3–5 µm gas floor supplying too
 opacity, the layered weighting reaches too high into cold air, and the fitted warm bias was
 compensating for a $\tau$-shape error rather than for a temperature error. Adopting the
 layered form would ship a variant strictly worse than the $(\sec, z_{em})$ corner already
-available, so the item is flagged for an owner ruling on the exponent alone rather than
-closed by a code change.
+available, so the layered temperature was declined and the **exponent alone** was put to
+the owner — who approved it on 2026-08-29. The shipped form is now that best corner.
+
+Results effect of the swap: the downwelling effective emissivity rises everywhere, by
+$\sec/1.1 = 1.364\times$ in the optically thin limit and asymptotically not at all where
+the sky column already saturates, so every reflected-sky term rises. Scored on the two
+decks $D = 1.1$ was fitted against (H2/H4, §2.7 of the parity record) the MWIR moves toward
+unity and the LWIR further above it — the expected shape of retiring a fit on its own fit
+set, and not the criterion; the criterion is the nine-rung ladder the fit never saw.
 
 *Enforced by:* `tests/integration/test_emission_placement_cu324.py` (all four corners, and
-the assertion that the baseline corner is bit-identical to what ships).
+the assertion that its $(\sec, z_{em})$ corner is bit-identical to what ships) and
+`tests/integration/test_modtran_real_runs.py::test_esky_thermal_vs_the_nine_rung_downwelling_ladder`
+(the shipped `evaluate` against all nine rungs, both bands, plus both RMS aggregates).
 
 **Scattered.** On the same vertical slab:
 
@@ -536,8 +561,8 @@ column $\omega_0$ over-predicted diffuse sky irradiance by $\approx 1.3\times$ (
 to $\approx 5\times$ (SWIR urban).
 
 *Record:* CU-155, resolved 2026-07-18 (commit `77d8ad2`), scope narrowed to this product by
-CU-321 on 2026-08-02; Gap 38 (2026-07-20) for $\omega_{0,\text{eff}}$; CU-324 for the
-$z_{em}$ refinement.
+CU-321 on 2026-08-02; Gap 38 (2026-07-20) for $\omega_{0,\text{eff}}$; CU-324 item 1 for
+the $z_{em}$ refinement (declined) and the $D$ swap (adopted 2026-08-29).
 *Enforced by:* `tests/integration/test_modtran_real_runs.py` (the H2/H4 parity envelope and
 the $\omega_{0,\text{eff}}$ re-derivation guard),
 `src/radiant/atmosphere/tests/test_omega0_eff.py`,

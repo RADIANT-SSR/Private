@@ -60,23 +60,28 @@ scenario 6.1's pattern for a self-contained, reproducible run).
 
 | Profile | τ SimpleAtmosphere [-] | τ MODTRAN 6 [-] | τ residual | SNR Simple [-] | SNR MODTRAN [-] | SNR residual |
 |---------|------------------------|------------------|------------|----------------|------------------|----------------|
-| us_standard | 0.552 | 0.517 | −6.8% | 650.4 | 572.0 | −13.7% |
-| tropical | 0.463 | 0.421 | −9.8% | 674.4 | 579.2 | −16.4% |
-| midlat_summer | 0.498 | 0.458 | −8.7% | 656.7 | 575.9 | −14.0% |
-| midlat_winter | 0.576 | 0.544 | −5.8% | 624.4 | 570.4 | −9.5% |
-| subarctic_summer | 0.526 | 0.492 | −6.9% | 639.8 | 566.8 | −12.9% |
-| subarctic_winter | 0.597 | 0.571 | −4.6% | 617.4 | 579.5 | −6.5% |
+| us_standard | 0.552 | 0.517 | −6.8% | 651.3 | 572.0 | −13.9% |
+| tropical | 0.463 | 0.421 | −9.8% | 675.5 | 579.2 | −16.6% |
+| midlat_summer | 0.498 | 0.458 | −8.7% | 657.7 | 575.9 | −14.2% |
+| midlat_winter | 0.576 | 0.544 | −5.8% | 624.8 | 570.4 | −9.5% |
+| subarctic_summer | 0.526 | 0.492 | −6.9% | 640.6 | 566.8 | −13.0% |
+| subarctic_winter | 0.597 | 0.571 | −4.6% | 617.6 | 579.5 | −6.6% |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Two movers, one per arm. **SNR Simple (CU-321):** the
-`(1−τ)·B` path emission is now emitted at a height-resolved `T_eff(λ)` over the
-column instead of at its near-surface temperature, so it falls by 6–12 % —
-most on the wettest, most opaque profiles, which is the same `(1−τ)` ordering
-CU-224 raised it by. The **τ Simple** column is bit-identical (CU-321 changes no
-optical depth). **SNR MODTRAN (CU-316):** the tape7 backend now resamples τ in
-log-τ like every other backend, which moves the measured arm by 0.5–0.7 %
-(575.9 → 572.0 on us_standard); its **τ MODTRAN** column is unchanged at three
-decimals.*
+*Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
+2026-08-02, pre-CU-324). One mover, in the Simple arm only. **CU-324:**
+`E_sky_thermal`'s flux-diffusivity exponent became the geometric
+`sec 48.2° = 1.50030` instead of the CU-155 fitted `D = 1.1`, so the reflected-sky
+term of this ε < 1 scene rises and SNR Simple rises with it — by +0.04 % on the
+driest profile (subarctic_winter 617.4 → 617.6) to +0.17 % on the wettest
+(tropical 674.4 → 675.5). The ordering is the `(1 − τ_sky^D)` one: a wetter,
+more opaque sky column has more downwelling to gain. The **τ Simple** column is
+bit-identical — the swap changes the downwelling emissivity, not any optical
+depth — and the **MODTRAN** arm does not move at all, because it carries its own
+measured downwelling.*
+
+*Prior vintage, for the trend: the 2026-08-02 refresh moved SNR Simple down
+6–12 % under CU-321 (height-resolved path-emission temperature) and the MODTRAN
+arm 0.5–0.7 % under CU-316 (log-τ resampling, 575.9 → 572.0 on us_standard).*
 
 **This table is the CU-161 acceptance evidence for the τ columns.** The
 first real-data run of this scenario (2026-07-17) found τ residuals
@@ -99,7 +104,7 @@ extended-scene contrast SNR, dimensionless)
   linear-in-w Lorentzian fit attributed the MWIR's saturated CO₂ floor
   to water. The recalibrated model spans 0.46–0.60 — matching real
   MODTRAN's narrow climate spread.
-- **SNR residuals (−6.5% to −16.4%) are now comparable to the τ residuals,
+- **SNR residuals (−6.6% to −16.6%) are now comparable to the τ residuals,
   and they DO track them** (tropical is worst on both, subarctic_winter best on
   both). This is still the reversal of the pre-CU-224 finding, at about half the
   amplitude: the path-radiance term the `simple` arm carries scales as `(1−τ)`,

@@ -13,6 +13,7 @@ the plan §4 "free integration test requiring no extra runs".
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import numpy as np
@@ -187,6 +188,42 @@ def _band_integral(wl: np.ndarray, values: np.ndarray, lo_um: float, hi_um: floa
     return float(np.trapezoid(values[band], wl[band]))
 
 
+def _resolved_esky_params(wl: np.ndarray, profile: str) -> object:
+    """A resolved ``ParameterSet`` for a simple-backend ``E_sky_thermal`` read.
+
+    Only the atmosphere entries matter to the quantity under test; everything
+    else is present because ``resolve()`` requires a closed configuration.
+    Shared by the two E_sky_thermal parity tests so they cannot drift apart in
+    anything except the profile.
+    """
+    from radiant.api.session import RadiantSession
+    from radiant.atmosphere.simple import PROFILE_PWV_CM
+
+    session = RadiantSession(wavelength_um=wl)
+    params = session.default_params()
+    params.set("source.target.temperature", 300.0)
+    params.set("source.target.emissivity", 0.95)
+    params.set("atmosphere.model", "simple")
+    params.set("atmosphere.standard_atmosphere", profile)
+    params.set("atmosphere.precipitable_water_cm", PROFILE_PWV_CM[profile])
+    params.set("geometry.sensor_altitude_m", 100_000.0)
+    params.set("optics.aperture_diameter_m", 0.08)
+    params.set("optics.focal_length_m", 0.20)
+    params.set("optics.transmission_scalar", 0.60)
+    params.set("detector.pixel_pitch_x_um", 17.0)
+    params.set("detector.pixel_pitch_y_um", 17.0)
+    params.set("detector.qe_value", 0.55)
+    params.set("detector.dark_rate_e_per_s", 1000.0)
+    params.set("spectral_integration.filter_min_um", float(wl[0]))
+    params.set("spectral_integration.filter_max_um", float(wl[-1]))
+    params.set("spectral_integration.integration_time_s", 0.015)
+    params.set("readout.read_noise_e_rms", 20.0)
+    params.set("readout.gain_e_per_dn", 2.0)
+    params.set("readout.adc_bits", 14)
+    params.resolve()
+    return params
+
+
 def _modtran_esky_thermal(run: str) -> tuple[np.ndarray, np.ndarray]:
     """E_sky_thermal from an up-looking H-run: π·L_sky at the 48.2°
     diffusivity angle approximates the hemispheric downwelling flux."""
@@ -225,23 +262,31 @@ def test_esky_thermal_simple_vs_modtran_characterization() -> None:
     0.5·h_sensor clamping to the 216.65 K tropopause + vertical-beam
     emissivity) is closed by the target-anchored, H-run-fit model
     E = (1 − τ_sky,vert^D)·π·B(T(h_tgt + z_em)) (see the _ESKY_*
-    constants in simple.py). Measured parity at the fit (2026-07-18,
-    band-integrated model/MODTRAN):
+    constants in simple.py). Band-integrated model/MODTRAN, at the fit and
+    now:
 
-        H2 us_standard: LWIR 1.24, MWIR 0.70
-        H4 tropical:    LWIR 1.41, MWIR 1.34
+                             at the fit    2026-08-29 (post-CU-324 swap)
+        H2 us_standard LWIR   1.24          1.594
+        H2 us_standard MWIR   0.70          0.869
+        H4 tropical    LWIR   1.41          1.226
+        H4 tropical    MWIR   1.34          0.928
 
-    The pinned envelope below carries margin around those points; the
-    residual ±40% is the CU-161 region-flat spectral-shape fragility
+    Two things moved these off their fit-time values: the τ recalibrations
+    since (τ_sky enters the emissivity), and the CU-324 exponent swap
+    (D = 1.1 → sec 48.2° = 1.50030), which raises all four. H2 and H4 are
+    the two decks D = 1.1 was FITTED against, so the swap must look like a
+    regression here; the criterion it was judged on is the nine-rung ladder
+    below, which the fit never saw.
+
+    The residual ±40% is the CU-161 region-flat spectral-shape fragility
     (documented in simple.py), not temperature structure. This test pins
     BOTH sides: the MODTRAN reference magnitudes (stable goldens) and the
-    parity envelope — a regression toward the old deficit OR an
-    unexplained improvement both fail loud and force this record and the
-    CU-155 Resolved entry to be updated together.
+    parity — the envelope for the regime, and the four measured points to
+    ±0.005 so a drift *inside* the envelope cannot pass unnoticed, which is
+    how the H4 row above reached 1.03/0.78 from 1.41/1.34 unrecorded.
     """
     import warnings as _warnings
 
-    from radiant.api.session import RadiantSession
     from radiant.atmosphere.simple import PROFILE_PWV_CM, SimpleAtmosphere
     from radiant.core.los_geometry import LineOfSightGeometry
 
@@ -259,28 +304,7 @@ def test_esky_thermal_simple_vs_modtran_characterization() -> None:
 
         # Simple backend at the matching geometry: ground target, space
         # sensor (full column), matching profile + profile-coupled PWV.
-        session = RadiantSession(wavelength_um=wl)
-        params = session.default_params()
-        params.set("source.target.temperature", 300.0)
-        params.set("source.target.emissivity", 0.95)
-        params.set("atmosphere.model", "simple")
-        params.set("atmosphere.standard_atmosphere", profile)
-        params.set("atmosphere.precipitable_water_cm", PROFILE_PWV_CM[profile])
-        params.set("geometry.sensor_altitude_m", 100_000.0)
-        params.set("optics.aperture_diameter_m", 0.08)
-        params.set("optics.focal_length_m", 0.20)
-        params.set("optics.transmission_scalar", 0.60)
-        params.set("detector.pixel_pitch_x_um", 17.0)
-        params.set("detector.pixel_pitch_y_um", 17.0)
-        params.set("detector.qe_value", 0.55)
-        params.set("detector.dark_rate_e_per_s", 1000.0)
-        params.set("spectral_integration.filter_min_um", float(wl[0]))
-        params.set("spectral_integration.filter_max_um", float(wl[-1]))
-        params.set("spectral_integration.integration_time_s", 0.015)
-        params.set("readout.read_noise_e_rms", 20.0)
-        params.set("readout.gain_e_per_dn", 2.0)
-        params.set("readout.adc_bits", 14)
-        params.resolve()
+        params = _resolved_esky_params(wl, profile)
 
         atm = SimpleAtmosphere(
             standard_atmosphere=profile,
@@ -301,19 +325,172 @@ def test_esky_thermal_simple_vs_modtran_characterization() -> None:
         lwir_simple = _band_integral(wl, quantities.E_sky_thermal, 8.0, 12.0)
         mwir_simple = _band_integral(wl, quantities.E_sky_thermal, 3.0, 5.0)
 
-        # The CU-155 parity envelope (fit 2026-07-18, margin around the
-        # measured ratios): simple/MODTRAN in [1.0, 1.6] LWIR,
-        # [0.55, 1.5] MWIR for these profiles.
-        assert 1.0 < lwir_simple / lwir_ref < 1.6, (
+        # The parity envelope, re-measured 2026-08-29 after the CU-324
+        # exponent swap (D = 1.1 → sec 48.2° = 1.50030): simple/MODTRAN in
+        # [1.1, 1.8] LWIR, [0.7, 1.2] MWIR for these profiles.
+        assert 1.1 < lwir_simple / lwir_ref < 1.8, (
             f"{run}/{profile}: LWIR E_sky_thermal ratio "
-            f"{lwir_simple / lwir_ref:.3f} outside the CU-155 parity "
+            f"{lwir_simple / lwir_ref:.3f} outside the parity "
             "envelope — if the downwelling model changed, update this "
             "record and the CU-155 Resolved entry together."
         )
-        assert 0.55 < mwir_simple / mwir_ref < 1.5, (
+        assert 0.7 < mwir_simple / mwir_ref < 1.2, (
             f"{run}/{profile}: MWIR E_sky_thermal ratio "
-            f"{mwir_simple / mwir_ref:.3f} outside the CU-155 parity envelope."
+            f"{mwir_simple / mwir_ref:.3f} outside the parity envelope."
         )
+
+        # The measured points themselves, pinned tighter than the envelope so a
+        # silent drift inside it still fails (2026-08-29, post-swap).
+        expected = {"H2": (1.594, 0.869), "H4": (1.226, 0.928)}[run]
+        assert lwir_simple / lwir_ref == pytest.approx(expected[0], abs=0.005)
+        assert mwir_simple / mwir_ref == pytest.approx(expected[1], abs=0.005)
+
+
+# ---------------------------------------------------------------------------
+# E_sky_thermal against the nine-rung downwelling ladder (CU-324 item 1)
+# ---------------------------------------------------------------------------
+
+
+def _modtran_esky_thermal_only(run: str) -> tuple[np.ndarray, np.ndarray]:
+    """``(wavelength_um, π·L_thermal)`` — the *thermal* column alone [W/m²/µm].
+
+    Distinct from :func:`_modtran_esky_thermal`, which returns MODTRAN's
+    thermal **+ scattered** path radiance.  Against a purely thermal model
+    quantity the scattered part is contamination: at the ground-rooted
+    midlat_summer rungs it inflates the 3–5 µm reference by ~18 % (H5) while
+    leaving 8–12 µm untouched to 3e−4.  The CU-324 ladder measurement used the
+    thermal column, so this is what reproduces it.
+
+    The ``× ν²`` factor is the same canonical conversion
+    :meth:`Tape7Reader.to_radiant_units` documents (the spectral Jacobian
+    ``ν²/1e4`` times the ``1e4`` W/cm² → W/m² factor), applied to the one
+    column that method sums away.
+    """
+    native = Tape7Reader(_REAL_RUNS / f"{run}.tp7").parse()
+    nu = native.wavenumber_cm1
+    keep = nu > 0.0
+    nu = nu[keep]
+    lam = 1.0e4 / nu
+    order = np.argsort(lam)
+    return lam[order], np.pi * (native.path_thermal_radiance[keep] * nu**2)[order]
+
+
+#: run -> target altitude [m].  H5 is the 0 km rung; P1–P8 lift it to
+#: 1/5/10/20/29/50/60/80 km.  All nine are up-looking midlat_summer decks at the
+#: 48.2° diffusivity angle, so π·L is the hemispheric-flux proxy throughout.
+_DOWNWELLING_LADDER: dict[str, float] = {
+    "H5": 0.0,
+    "P1": 1.0e3,
+    "P2": 5.0e3,
+    "P3": 1.0e4,
+    "P4": 2.0e4,
+    "P5": 2.9e4,
+    "P6": 5.0e4,
+    "P7": 6.0e4,
+    "P8": 8.0e4,
+}
+
+#: Measured 2026-08-29 with the shipped ``D = sec 48.2°``: ``run -> (MWIR, LWIR)``
+#: band-integrated ``E_sky_thermal`` / ``π·L_MODTRAN``.  The retired ``D = 1.1``
+#: values are in the trailing comment on each row — every rung rises by the same
+#: factor family (``≈ sec/1.1`` where the column is optically thin), which is the
+#: whole content of the swap.
+_LADDER_PARITY: dict[str, tuple[float, float]] = {
+    "H5": (1.041, 1.263),  # was (0.864, 1.020)
+    "P1": (0.9735, 1.286),  # was (0.7914, 1.006)
+    "P2": (0.8353, 1.558),  # was (0.6463, 1.173)
+    "P3": (0.5824, 0.7057),  # was (0.4386, 0.5243)
+    "P4": (0.3381, 0.2354),  # was (0.2497, 0.1733)
+    "P5": (0.08183, 0.1178),  # was (0.06014, 0.08649)
+    "P6": (0.008033, 0.08879),  # was (0.005891, 0.06510)
+    "P7": (0.02678, 0.3655),  # was (0.01963, 0.2680)
+    "P8": (2.286, 16.26),  # was (1.676, 11.92)
+}
+
+#: RMS |ln(model / π·L_MODTRAN)| over the nine rungs × both bands, and over the
+#: four tropospheric rungs alone.  Measured 2026-08-29; the retired D = 1.1 gave
+#: 2.0776 and 0.4167 respectively.  These two numbers are the CU-324 item-1
+#: ruling's evidence, restated against the shipped code rather than a candidate.
+_LADDER_RMS_COMPOSITE = 1.9233
+_LADDER_RMS_TROPOSPHERIC = 0.3087
+_TROPOSPHERIC_RUNGS = ("H5", "P1", "P2", "P3")
+
+
+@pytest.mark.level2
+def test_esky_thermal_vs_the_nine_rung_downwelling_ladder() -> None:
+    """The shipped ``E_sky_thermal`` against every measured downwelling rung.
+
+    The CU-155 fit saw two decks (H2, H4, both ground-rooted).  The P block
+    added seven elevated rungs six weeks later, and CU-324 item 1 measured the
+    exponent against all nine: the geometric ``sec 48.2°`` beats the fitted
+    ``D = 1.1`` (composite RMS |ln ratio| 2.0776 → 1.9233; tropospheric-only
+    0.4167 → 0.3087), which is the measurement the owner ruled on 2026-08-29.
+
+    This test drives the **shipped** ``SimpleAtmosphere.evaluate`` — not a
+    reimplementation — so it is the anchor for the swapped constant rather than
+    a record of the study that motivated it.  Both aggregates and every
+    individual rung are pinned: an exponent regression moves all eighteen ratios
+    in the same direction at once, and a spectral-shape regression moves them
+    apart.
+
+    The composite RMS is dominated by P6–P8, where a 50–80 km target sees a
+    near-vacuum sky and the closed form under-predicts by two to three orders of
+    magnitude (P8's 16× over-prediction is the same story inverted, against a
+    3e−6 W/m² reference).  The tropospheric figure is the one that describes a
+    scene anybody images; both are pinned so neither can be quietly traded for
+    the other.
+    """
+    import warnings as _warnings
+
+    from radiant.atmosphere.simple import PROFILE_PWV_CM, SimpleAtmosphere
+    from radiant.core.los_geometry import LineOfSightGeometry
+
+    atm = SimpleAtmosphere(
+        standard_atmosphere="midlat_summer",
+        precipitable_water_cm=PROFILE_PWV_CM["midlat_summer"],
+        visibility_km=23.0,
+        aerosol_type="rural",
+    )
+
+    log_all: list[float] = []
+    log_tropospheric: list[float] = []
+    for run, h_tgt_m in _DOWNWELLING_LADDER.items():
+        wl, esky_mod = _modtran_esky_thermal_only(run)
+
+        # E_sky_thermal reads none of the sensor parameters; they exist only so
+        # resolve() closes.  The geometry the backend uses is the LOS below.
+        params = _resolved_esky_params(wl, "midlat_summer")
+
+        los = LineOfSightGeometry(
+            h_tgt=h_tgt_m,
+            h_sensor=1.0e5,
+            theta_o=0.0,
+            h_atm_top=1.0e5,
+        )
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("ignore")
+            quantities = atm.evaluate(wl, los, params)
+
+        for band, expected in zip(((3.0, 5.0), (8.0, 12.0)), _LADDER_PARITY[run], strict=True):
+            reference = _band_integral(wl, esky_mod, *band)
+            assert reference > 0.0, f"{run}: MODTRAN π·L band integral is not positive"
+            ratio = _band_integral(wl, quantities.E_sky_thermal, *band) / reference
+            assert ratio == pytest.approx(expected, rel=0.01), (
+                f"{run} {band[0]:g}–{band[1]:g} µm E_sky_thermal parity moved: "
+                f"{ratio:.5g} vs pinned {expected:.5g}"
+            )
+            log_all.append(math.log(ratio))
+            if run in _TROPOSPHERIC_RUNGS:
+                log_tropospheric.append(math.log(ratio))
+
+    rms_all = math.sqrt(float(np.mean(np.square(log_all))))
+    rms_tropospheric = math.sqrt(float(np.mean(np.square(log_tropospheric))))
+    assert rms_all == pytest.approx(_LADDER_RMS_COMPOSITE, abs=0.002)
+    assert rms_tropospheric == pytest.approx(_LADDER_RMS_TROPOSPHERIC, abs=0.002)
+    # The swap's whole justification, as an assertion: both aggregates must stay
+    # below what the retired D = 1.1 scored on this same ladder.
+    assert rms_all < 2.0776
+    assert rms_tropospheric < 0.4167
 
 
 # ---------------------------------------------------------------------------

@@ -20,6 +20,28 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Results-affecting: the downwelling flux-diffusivity exponent is now geometric,
+  not fitted (CU-324 item 1, owner-ratified 2026-08-29).** `E_sky_thermal` used the
+  CU-155 fitted `D = 1.1`; it now uses `sec 48.2° = 1.50030`, the secant of the
+  diffusivity angle every up-looking MODTRAN deck in its reference set was run at.
+  **Direction and magnitude:** the sky's effective emissivity rises everywhere —
+  `E_sky_thermal` increases by up to `sec/1.1 = 1.364×` where the sky column is
+  optically thin, tapering to no change where it already saturates. Every
+  reflected-sky term rises with it, so scenes with a reflective target or background
+  under sky gain signal; purely emissive targets and every directional path-radiance
+  product are untouched (they never used this exponent). Measured band-integrated
+  `E_sky_thermal` rises +20–28 % (LWIR) and +19–23 % (MWIR) on the H2/H4 columns.
+  Downstream: the MWIR LEO golden moves `signal_e` +0.32 % and `snr` +0.16 %; ten
+  scenario GUI baselines and nine scenario walkthroughs move, the largest being
+  1.1 (`snr` 980.55 → 1001.47, +2.1 %). Scenario 4.1's detection matrix moves both
+  ways because its criterion is a signed contrast: sub-background targets (ε 0.30–0.35
+  at 295 K) lose range as the reflected sky brightens. Parity against the nine-rung
+  measured downwelling ladder improves: RMS |ln(model/MODTRAN)| 2.0776 → 1.9233 over
+  9 rungs × 2 bands, and 0.4167 → 0.3087 over the tropospheric rungs alone. The
+  retired value had been fitted against two ground-rooted decks six weeks before that
+  ladder existed.
+
 ### Added
 - **Scenario 9.4 — Landsat 9 OLI-2** (`scenarios/09_flagship_missions/9.4_landsat_oli2_snr/`):
   first scenario to exercise the full per-element optical prescription (Mode 5) —

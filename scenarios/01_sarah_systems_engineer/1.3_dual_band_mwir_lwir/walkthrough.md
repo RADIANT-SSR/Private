@@ -41,28 +41,33 @@ regime weights the target by `source.target.fill_fraction` (CU-060 — the
 original execution left it at the default 1.0, overstating the fire signal
 ~3× and pulling the saturation temperatures down).
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the down-looking
-path-thermal term CU-224 added is now emitted at a height-resolved `T_eff(λ)`
-over the 0 → 10 km column instead of at its near-surface temperature, so the
-forest background falls back part of the way CU-224 raised it (pixel signal
-LWIR 3 139 542 → 3 009 637 e⁻, MWIR 229 779 → 228 451 e⁻) and its 3 % clutter
-with it (LWIR 57 466 → 53 569 e⁻ RMS). The fire contrast is unchanged
-(220 943 / 1 223 998 e⁻ — the target is a hotspot, not the atmosphere), so the
-whole move is background-side and it goes the *helpful* way for LWIR: SCNR
-21.3 → 22.8. The MWIR band is barely touched (SCNR 393.6 → 408.2) because its
-column was never emission-dominated at 10 km.*
+*Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
+2026-08-02, pre-CU-324). One mover, and it is small here: **CU-324** made
+`E_sky_thermal`'s flux-diffusivity exponent the geometric `sec 48.2° = 1.50030`
+instead of the CU-155 fitted `D = 1.1`, lifting the sky the ε < 1 forest floor
+reflects. Everything moves in the fourth significant figure — pixel signal LWIR
+3 009 637 → 3 011 064 e⁻, MWIR 228 451 → 228 481 e⁻; clutter LWIR 53 569 →
+53 631 e⁻ RMS — and because the background and its 3 % clutter rise together,
+the LWIR SCNR is unchanged at 22.8 while the MWIR falls a tick, 408.2 → 408.0.
+The fire contrast barely moves (220 943 → 220 950 e⁻ MWIR; 1 223 998 →
+1 223 350 e⁻ LWIR): the target is a hotspot, not the sky. **No verdict in this
+document changes.**
+
+Prior vintage, for the trend: the 2026-08-02 refresh was dominated by CU-321 —
+the down-looking path-thermal term emitted at a height-resolved `T_eff(λ)`
+rather than the column's near-surface temperature, which took pixel signal LWIR
+3 139 542 → 3 009 637 e⁻ and LWIR SCNR 21.3 → 22.8.*
 
 | Quantity | MWIR | LWIR |
 |----------|-----:|-----:|
-| Pixel signal [e⁻] | 228,451 | 3,009,637 |
-| Contrast (fire − forest) [e⁻] | 220,943 | 1,223,998 |
+| Pixel signal [e⁻] | 228,481 | 3,011,064 |
+| Contrast (fire − forest) [e⁻] | 220,950 | 1,223,350 |
 | Well fill [%] | 5.7 | 25.1 |
-| Total noise [e⁻ RMS] | 541.2 | 53,614.4 |
-| — of which clutter [e⁻ RMS] | 225.2 | 53,569.2 |
-| SNR [--] | 464.2 | 1,366.9 |
-| Contrast SNR [--] | 448.9 | 555.9 |
-| **SCNR (incl. clutter) [--]** | **408.2** | **22.8** |
+| Total noise [e⁻ RMS] | 541.6 | 53,676.6 |
+| — of which clutter [e⁻ RMS] | 225.9 | 53,631.4 |
+| SNR [--] | 464.2 | 1,367.0 |
+| Contrast SNR [--] | 448.9 | 555.4 |
+| **SCNR (incl. clutter) [--]** | **408.0** | **22.8** |
 | NEDT [mK] (Gap 43 approximation) | 230.0 | 164.5 |
 
 ### Spectral contrast (hand Planck, ASTER ε_bg(λ))
@@ -78,12 +83,12 @@ different signal-to-clutter.
 
 | T_fire [K] | MWIR SCNR | sat? | LWIR SCNR | sat? | P_d MWIR | P_d LWIR |
 |-----------:|----------:|:----:|----------:|:----:|:--------:|:--------:|
-| 400 | 42.8 | no | 1.1 | no | 1.000 | **0.000** |
-| 500 | 188.2 | no | 10.5 | no | 1.000 | 1.000 |
-| 600 | 408.2 | no | 22.8 | no | 1.000 | 1.000 |
-| 800 | 924.4 | no | 53.2 | no | 1.000 | 1.000 |
-| 1000 | 1,464.4 | no | 88.4 | no | 1.000 | 1.000 |
-| 1200 | 2,004.0 | **YES** | 126.3 | no | 1.000 | 1.000 |
+| 400 | 42.7 | no | 1.1 | no | 1.000 | **0.000** |
+| 500 | 188.0 | no | 10.5 | no | 1.000 | 1.000 |
+| 600 | 408.0 | no | 22.8 | no | 1.000 | 1.000 |
+| 800 | 924.2 | no | 53.2 | no | 1.000 | 1.000 |
+| 1000 | 1,464.3 | no | 88.3 | no | 1.000 | 1.000 |
+| 1200 | 2,003.9 | **YES** | 126.2 | no | 1.000 | 1.000 |
 
 MWIR detects the 5 m² fire with P_d ≈ 1 at every temperature; **LWIR
 misses the coolest fires** — at 400 K its SCNR is 1.0, far below the

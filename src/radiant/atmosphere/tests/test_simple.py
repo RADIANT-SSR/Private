@@ -724,7 +724,7 @@ def test_l_atm_down_truth_anchor_opaque_limit() -> None:
     # is effectively opaque (curve-of-growth-bounded OD ≈ 6.2 → τ ≈ 2.1e-3).
     assert np.all(tau < 2.5e-3)
     # Graybody identity holds exactly: L_atm_down = (1 − τ_vert^D) · B
-    # with the CU-155 flux-diffusivity exponent D.
+    # with the shipped flux-diffusivity exponent D (sec 48.2° since CU-324).
     from radiant.atmosphere.simple import _ESKY_DIFFUSIVITY_D
 
     np.testing.assert_allclose(
@@ -768,6 +768,81 @@ def test_t_atm_eff_truth_anchor_lookup() -> None:
     assert atm._downwelling_effective_temperature_K(30_000.0) == pytest.approx(216.65, rel=1e-9)
     # Negative target altitude clamps to ground + offset.
     assert atm._downwelling_effective_temperature_K(-500.0) == pytest.approx(286.85, rel=1e-9)
+
+
+@pytest.mark.level0
+def test_esky_diffusivity_exponent_is_the_secant_of_the_anchor_angle() -> None:
+    """``D = sec 48.2° = 1.50030…`` — geometric, not fitted (CU-324 item 1).
+
+    The exponent is the secant of the one angle the whole downwelling
+    reference set was run at: every H/P-block deck is an up-looking MODTRAN
+    run at 48.2°, and ``π·L(48.2°)`` is the hemispheric-flux proxy the model
+    is scored against.  Taking the emissivity exponent from that same angle
+    is therefore a geometric identity, not a free parameter — which is the
+    whole point of the swap away from the CU-155 fitted ``D = 1.1``.
+
+    The expected value here is a hand calculation, independent of the
+    module: ``cos(48.2°) = cos(0.841248…rad) = 0.6665324…`` →
+    ``sec = 1.5003020…``.  (Prose in several documents rounded this to
+    "1.4966", which is ``sec 48.09°``; the code always used the true
+    secant, and this test is what pins it.)
+    """
+    from radiant.atmosphere.simple import (
+        _ESKY_DIFFUSIVITY_ANGLE_RAD,
+        _ESKY_DIFFUSIVITY_D,
+    )
+
+    angle_rad = float(_ESKY_DIFFUSIVITY_ANGLE_RAD)
+    exponent = float(_ESKY_DIFFUSIVITY_D)
+
+    # The anchor angle itself — 48.2° as the MODTRAN Card-3 ANGLE decks state
+    # it, stored in canonical radians (Rule 2: converted once, at definition).
+    assert angle_rad == pytest.approx(0.8412486, abs=1e-7)
+    assert math.degrees(angle_rad) == pytest.approx(48.2, abs=1e-12)
+
+    # D is the secant of that angle, to the last bit.
+    assert exponent == 1.0 / math.cos(math.radians(48.2))
+    assert exponent == pytest.approx(1.5003020, abs=1e-7)
+
+    # It is emphatically not the retired CU-155 fitted value, and it sits
+    # below the textbook Elsasser 1.66 (the diffusivity angle for which is
+    # 53.13°, not 48.2° — the two are different approximations).
+    assert exponent > 1.1
+    assert exponent < 1.0 / math.cos(math.radians(53.13))
+
+
+@pytest.mark.level0
+def test_esky_thermal_uses_the_secant_exponent_on_the_vertical_column() -> None:
+    """``E_sky = (1 − e^{−D·τ_od})·π·B`` with ``D = sec 48.2°`` (CU-324).
+
+    Level 0 on the shipped equation rather than on the constant: a hand-built
+    optical depth is pushed through ``evaluate`` and the emissivity is checked
+    against ``1 − exp(−sec 48.2° · od_vert)`` computed here from the state's
+    own vertical transmittance.  With the old ``D = 1.1`` the emissivity is
+    smaller at every wavelength, so this fails loudly on the pre-swap code.
+    """
+    from radiant.core.blackbody import planck_spectral_radiance
+
+    atm = SimpleAtmosphere(
+        visibility_km=23.0,
+        precipitable_water_cm=1.4,
+        standard_atmosphere="us_standard",
+    )
+    grid = np.array([8.5, 10.0, 11.5])
+    state = atm.build_state(grid, _vertical_geometry(4_000.0))
+
+    tau_vert = state.transmittance.values
+    d_sec = 1.0 / math.cos(math.radians(48.2))
+    planck = planck_spectral_radiance(grid, 288.15 - 6.5 * 0.2)
+
+    np.testing.assert_allclose(
+        state.atm_emission_down.values,
+        (1.0 - tau_vert**d_sec) * planck,
+        rtol=1e-9,
+    )
+    # Direction of the swap, asserted rather than asserted-about: the same
+    # column under the retired D = 1.1 emits strictly less.
+    assert np.all(state.atm_emission_down.values > (1.0 - tau_vert**1.1) * planck)
 
 
 @pytest.mark.level0

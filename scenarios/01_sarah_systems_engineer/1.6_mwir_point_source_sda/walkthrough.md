@@ -70,11 +70,23 @@ Run `scripts/run_point_source_sda.py` (or `Sensor.from_yaml(...).evaluate()`):
 | Sampling Q (band center) | 1.42 | — |
 
 *(Refreshed 2026-08-29. Two components, and only the smaller one is CU-324's.
-**Pre-existing drift, unattributed:** this table read SNR 17.67 / range
+**Pre-existing drift — attributed by the CU-334 bisect (2026-08-29) to CU-321,
+commit `6cf6eaa9`, landed 2026-08-03:** this table read SNR 17.67 / range
 1,254.7 km, but the unmodified runner on the pre-CU-324 tree gave 20.35 /
-1,347.8 km — the numbers had gone stale against `main` under a landing between
-2026-08-02 and 2026-08-29 that nobody re-ran this scenario for. The signal
-column, 20,933 e⁻, is unchanged throughout. **CU-324:** `E_sky_thermal`'s
+1,347.8 km. CU-321 made the atmosphere's own thermal emission height- and
+wavelength-resolved, so this down-looking MWIR column no longer emits at its
+near-surface endpoint temperature: the band-mean path radiance falls
+0.4806 → 0.2545 W/m²/sr/µm, and the emission temperature inverted from
+`L_path = (1 − τ)·B(λ, T_eff)` goes 292.9 → 277.4 K at 4.0 µm — and stops being
+spectrally flat (277.4 K at 4.0 µm vs 276.8 K at 4.5 µm, where before both read
+292.9 K). Nothing else in the scene moves: τ is identical to 13 significant
+figures, the declared point intensity is untouched, and `background_shot`
+(1,171.9 → 1,014.1 e⁻) is the only noise term that changes — so SNR rises
++15.2 % and the detection range +7.4 %. That is the intended direction of the
+CU-321 fix; the same mechanism raises scenario 10.1's SNR 130.1 → 144.6, which
+CU-321 did record. 1.6 was missed by its refresh sweep because it is the one
+moved scenario with no `gui.expected.json` baseline for that sweep to key on.
+The signal column, 20,933 e⁻, is unchanged throughout. **CU-324:** `E_sky_thermal`'s
 flux-diffusivity exponent became the geometric `sec 48.2° = 1.50030` instead of
 the CU-155 fitted `D = 1.1`, which raises the sky background this space-to-space
 MWIR geometry sees and so lowers SNR a shade — 20.35 → 20.31, range 1,347.8 →

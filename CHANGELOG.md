@@ -21,6 +21,32 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Results-affecting (late attribution, CU-334): scenario 1.6's MWIR point-source
+  SDA numbers moved on 2026-08-03 with CU-321, and were not recorded at the time.**
+  A bisect of 1.6's runner over every `main` landing between the 2026-08-02
+  walkthrough refresh and 2026-08-29 pins the movement to a single commit —
+  `6cf6eaa9` (merge `2192eac8`), the CU-321 height-resolved emission temperature —
+  with every other candidate in that window (CU-315/CU-323, CU-316, the CU-325
+  sweep-dialog family, the CU-329 point-source (ε, T) door un-grey, the display-unit
+  preference) leaving 1.6 bit-identical. **Direction and magnitude:** SNR
+  17.6717 → 20.3494 (**+15.2 %**) and detection range 1 254.70 → 1 347.81 km
+  (**+7.4 %**). The signal is untouched (20 932.83 e⁻ to all digits — the target is a
+  declared point intensity) and so is τ (identical to 13 significant figures); the
+  whole movement is the background. Down-looking band-mean path radiance falls
+  0.4806 → 0.2545 W/m²/sr/µm because the column stops emitting at its near-surface
+  endpoint temperature — the emission temperature inverted from
+  `L_path = (1 − τ)·B(λ, T_eff)` goes 292.9 → 277.4 K at 4.0 µm and becomes
+  spectrally structured — so `background_shot`, the only noise term that moves,
+  falls 1 171.9 → 1 014.1 e⁻ RMS. **This is the intended direction of the CU-321
+  fix**, by the same mechanism CU-321 already recorded for scenario 10.1
+  (SNR 130.1 → 144.6). What was missed is the §5.3 refresh: 1.6 is the only one of
+  the 20 scenario configurations that moved whose walkthrough was not re-run in that
+  PR, because it is the only moved scenario with no `gui.expected.json` baseline for
+  the sweep to key on. Its walkthrough is now refreshed and attributed. This also
+  corrects the range quoted in the CU-321 entry below: the measured SNR movement
+  across shipped scenario configurations spans **−14.9 % (1.1) to +15.2 % (1.6)**,
+  not the "−11 % to +11 %" recorded there. No library code changed with this entry;
+  the numbers on `main` are unchanged by it.
 - **Results-affecting: the downwelling flux-diffusivity exponent is now geometric,
   not fitted (CU-324 item 1, owner-ratified 2026-08-29).** `E_sky_thermal` used the
   CU-155 fitted `D = 1.1`; it now uses `sec 48.2° = 1.50030`, the secant of the
@@ -73,7 +99,7 @@ retroactively reconstructed.
   cards' scrollbars linked); an 8-configuration study previously showed bare
   numbers once scrolled.
 - **The configuration selector no longer pushes the stage strip off-screen
-  (CU-331).** Qt laid the two top bands out side by side, so an 8-configuration
+  (CU-334).** Qt laid the two top bands out side by side, so an 8-configuration
   study clipped stages 4–9 at laptop widths; the bar now stacks in its own thin
   band above the strip, as the GUI architecture doc always specified.
 - **Point-source scenes no longer grey out the surface-radiance (ε, T) inputs
@@ -437,6 +463,10 @@ retroactively reconstructed.
   Nineteen scenario GUI baselines move, between −11 % and +11 % in SNR (down-looking
   scenes lose path signal; the up-looking 10.1 detection scene *gains* SNR 130.1 → 144.6
   because its background falls). Level-path and exo scenes are unaffected.
+  *(Corrected 2026-08-29 by the CU-334 bisect — see the CU-334 entry at the top of
+  `[Unreleased]`. The measured span across shipped scenario configurations is
+  −14.9 % to +15.2 %, and a twentieth scene moved: 1.6, +15.2 % SNR, which had no
+  GUI baseline and so was missed by this PR's refresh sweep.)*
 - **`evaluate()` now refuses every over-specified `source.target.emissivity_path` pair, as
   the seam already did (CU-323).** The ε(λ) door dispatches last, so nine of its ten rival
   surfaces — `source.target.reflectance`, `albedo`, `reflectance_path`, `albedo_path`,

@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-333 — The CU-332 frozen-label rework collapses the matrix value area to its minimum width — one clipped configuration column in a full-width card
+
+**Discovered**: Scenario 9.4 GUI review (owner, 2026-08-29) — first launch of the CU-332 build (`c7adb55b`).
+**Status**: Open — in work 2026-08-29.
+**File**: `src/radiant/gui/widgets/metric_group_cards.py::_build_matrix_card` (`body.addWidget(scroll, 1, Qt.AlignmentFlag.AlignTop)`).
+**Symptom**: every matrix card renders the frozen label column correctly but squeezes the scrolling value area to its size hint (~88 px measured in a 388 px card) — one clipped configuration column beside dead whitespace. Cause: passing an alignment flag to `QBoxLayout.addWidget` opts the widget out of stretching in **both** axes, so the stretch factor of 1 never applies and the scroll area sits at its minimal hint.
+**Why it still matters**: workflow-visible (intake test 4) — the owner hit it on the first launch of the fixed build; the matrix is unreadable in the opposite way to CU-332 (columns clipped instead of labels lost).
+**Suggested fix**: (a) inline-fix-now, S — drop the alignment flag (`body.addWidget(scroll, 1)`); vertical surplus is already parked in the grids' bottom stretch rows. Add the missing width assertion to the CU-332 test class (no test asserted the value area actually uses the card's width). Category A.
+
 ### CU-330 — The CU-161 gas table's 8–10 µm region is one flat slab, hiding the 9.6 µm O₃ band from τ and blocking its emission placement
 
 **Discovered**: CU-324 item-2 measurement (branch `atmo/cu-324-emission-placement`), 2026-08-29.

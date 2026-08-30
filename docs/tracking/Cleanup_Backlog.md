@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-332 — Performance matrix cards scroll the metric-label column off-screen — a scrolled 8-configuration matrix shows bare numbers
+
+**Discovered**: Scenario 9.4 GUI review (owner, 2026-08-29) — second owner-hit defect from the first 8-configuration study (after CU-331).
+**Status**: Open — in work 2026-08-29.
+**File**: `src/radiant/gui/widgets/metric_group_cards.py::_build_matrix_card` (one QGridLayout: labels in column 0, configuration columns beside; the Performance pane's outer scroll area carries everything sideways together).
+**Symptom**: with 8 configurations the matrix is wider than the pane; scrolling right to reach the later bands carries the metric-label column (and the row's unit context) off the left edge, leaving unlabeled value rows — only the per-cell tooltip still says which metric a number belongs to.
+**Why it still matters**: workflow-visible (intake test 4) — the owner hit it reading scenario 9.4's SWIR columns; cross-configuration comparison is the whole point of the matrix, and it goes unreadable exactly when the set is large enough to need scrolling.
+**Suggested fix**: (a) inline-fix-now, M — frozen-column split per card: metric labels stay in a fixed left column outside a per-card horizontal `QScrollArea` that holds only the header + value columns; force per-row height sync between the two sides; link all cards' horizontal scrollbars so the surface still scrolls as one. Assert label-column immobility and scroll sync in a GUI test. Category A (presentation only).
+
 ### CU-331 — The configuration bar docks beside the stage strip, not above it — 8 configurations push the stage chips off-screen
 
 **Discovered**: Scenario 9.4 GUI review (owner, 2026-08-29) — first 8-configuration study file (`oli2_30m_bands_study.yaml`).

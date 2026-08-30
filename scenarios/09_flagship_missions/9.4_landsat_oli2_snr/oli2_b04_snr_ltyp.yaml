@@ -1,0 +1,66 @@
+# RADIANT config — schema v1
+# External-validation scenario 9.4: Landsat 9 OLI-2 Red (B4) SNR @ L_typ.
+# Provenance (every value cited): docs/validation/landsat_oli2_source_data.md
+#   Requirement: SNR >= 90 @ L_typ = 22 W/m²/sr/µm [Irons 2012].
+#   L8 OLI measured on-orbit: ~225 (published, recalled ±15%) [Morfitt 2015];
+#   OLI-2 equal or slightly better [Barsi 2024].
+# Design mirrors scenario 9.1: flat user-radiance = L_typ through a vacuum (exo) —
+# validates aperture-to-electrons radiometry at the radiance the requirement is
+# defined at. The differentiator vs 9.1: the optical train is a full per-element
+# prescription (4 protected-Ag mirrors + FPA window + this band's interference
+# filter), every curve synthetic (generator: scripts/gen_oli2_coatings.py).
+# CSV paths resolve relative to this file's directory.
+
+source:
+  scene_type: extended            # uniform scene fills the pixel — OLI SNR is defined per detector on a uniform scene
+  target_location: auto
+  target:
+    user_radiance_path: data/l_typ_b04.csv  # flat 22 W/m²/sr/µm [Irons 2012]
+
+atmosphere:
+  model: exo                      # vacuum — the requirement is at-aperture
+
+geometry:
+  sensor_altitude_m: 705000.0     # m — published orbit [Irons 2012]
+  target_altitude_m: 0.0
+
+optics:
+  aperture_diameter_m: 0.135      # m — published (recalled ±5 mm) [Knight 2014]
+  focal_length_m: 0.886           # m — published (recalled ±10 mm); GSD-self-consistent
+
+detector:
+  pixel_pitch_x_um: 36          # µm — published (recalled) [Knight 2014]
+  pixel_pitch_y_um: 36
+  qe_value: 0.87                  # - ASSUMPTION, band-avg Si PIN (envelope ±0.15)
+  dark_rate_e_per_s: 100       # e-/s — assumption; non-binding at 210 K FPA (Si PIN)
+
+spectral_integration:
+  filter_min_um: 0.636000            # µm — published 50% band edges [Irons 2012]
+  filter_max_um: 0.673000
+  integration_time_s: 3.600000e-03      # s — published (recalled ±0.4 ms) [Knight 2014]
+
+readout:
+  n_tdi: 1                        # pushbroom, no TDI — published architecture
+  read_noise_e_rms: 200.0         # e- RMS — assumption (envelope 100–400; shot-dominated at L_typ)
+  full_well_capacity_e: 2000000.0 # e- — analysis mode: sized above signal(L_typ)·4, never clips
+  adc_bits: 14                    # — published (OLI-2; OLI was 12) [Barsi 2024]
+  gain_e_per_dn: 122.0703125      # e-/DN — full well / 2^14
+
+# Full per-element prescription (Mode 5). Emissivity is Kirchhoff-derived per element
+# (Rule 5): mirrors ε = 1−R, refractive ε = 1−T. All curves SYNTHETIC — anchors and
+# envelopes in docs/validation/landsat_oli2_source_data.md §Synthetic optical
+# prescription. Element temperatures/geometry are assumption-class; thermal
+# self-emission is many orders below L_typ at λ ≤ 2.3 µm (non-binding).
+optical_elements:
+  - {name: M1, transfer_mode: REFLECTIVE, kind: MIRROR, reflectance: data/mirror_protected_ag.csv,
+     temperature_K: 293.0, diameter_m: 0.15, distance_to_fpa_m: 0.90}
+  - {name: M2, transfer_mode: REFLECTIVE, kind: MIRROR, reflectance: data/mirror_protected_ag.csv,
+     temperature_K: 293.0, diameter_m: 0.06, distance_to_fpa_m: 0.70}
+  - {name: M3, transfer_mode: REFLECTIVE, kind: MIRROR, reflectance: data/mirror_protected_ag.csv,
+     temperature_K: 293.0, diameter_m: 0.10, distance_to_fpa_m: 0.50}
+  - {name: M4, transfer_mode: REFLECTIVE, kind: MIRROR, reflectance: data/mirror_protected_ag.csv,
+     temperature_K: 293.0, diameter_m: 0.08, distance_to_fpa_m: 0.30}
+  - {name: fpa_window, transfer_mode: REFRACTIVE, kind: WINDOW, transmittance: data/fpa_window_ar.csv,
+     temperature_K: 240.0, diameter_m: 0.05, distance_to_fpa_m: 0.02}
+  - {name: filter_b04, transfer_mode: REFRACTIVE, kind: FILTER, transmittance: data/filter_b04.csv,
+     temperature_K: 210.0, diameter_m: 0.05, distance_to_fpa_m: 0.005}

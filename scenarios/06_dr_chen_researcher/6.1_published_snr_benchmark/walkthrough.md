@@ -47,8 +47,14 @@ value from Gap 43). Both are compared to the datasheet.
 | D* [Jones] | 2.00 × 10¹¹ | 1.74 × 10¹¹ | **−12.9 %** | PASS |
 | NETD [mK] | 25.0 | 24.6 | **−1.5 %** | PASS |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the `(1−τ)·B` path term
+*Re-verified 2026-08-30 against the unmodified runner after **CU-324 item 2**,
+the 9.6 µm ozone emission-placement split. It moves this scene by one part in
+10⁵ — signal 6.336 → 6.335 × 10⁶ e⁻ — and **every printed figure in this table
+and in the bullets below is unchanged**, including σ_e = 2 518 e⁻, D* =
+1.742 × 10¹¹ Jones and NETD = 24.62 mK. Recorded rather than silently skipped
+because the scene is an 8–12 µm nadir column and therefore in the split's
+population; it simply sits four orders below the table's precision. Previous
+substantive vintage 2026-08-02. Dominant mover: **CU-321** — the `(1−τ)·B` path term
 is now emitted at a height-resolved `T_eff(λ)` over the column instead of at
 its near-surface temperature, which lowers the in-band signal of this 8–12 µm
 `simple`-atmosphere nadir scene (6.35 × 10⁶ → 6.34 × 10⁶ e⁻) and with it the

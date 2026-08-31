@@ -74,7 +74,7 @@ _ANCHORS: dict[str, tuple[str, str, float, float, float, float, float, float, fl
         0.24971,
         2.58134,
         0.731,
-        0.959,
+        0.938,
     ),  # 1.057 1.109
     "O3": (
         "upper",
@@ -85,7 +85,7 @@ _ANCHORS: dict[str, tuple[str, str, float, float, float, float, float, float, fl
         0.20690,
         3.34029,
         1.141,
-        1.058,
+        0.995,
     ),  # 2.013 1.326
     "O4": (
         "upper",
@@ -96,7 +96,7 @@ _ANCHORS: dict[str, tuple[str, str, float, float, float, float, float, float, fl
         0.21804,
         3.92765,
         1.221,
-        1.059,
+        0.997,
     ),  # 2.249 1.352
     "O5": (
         "upper",
@@ -107,7 +107,7 @@ _ANCHORS: dict[str, tuple[str, str, float, float, float, float, float, float, fl
         0.19268,
         3.26974,
         1.217,
-        1.094,
+        1.010,
     ),  # 2.422 1.430
     # --- up-looking vertical K ladder ---
     "K1": (
@@ -119,7 +119,7 @@ _ANCHORS: dict[str, tuple[str, str, float, float, float, float, float, float, fl
         0.32380,
         1.77099,
         0.358,
-        0.517,
+        0.516,
     ),  # 0.379 0.530
     "K3": (
         "lower",
@@ -130,7 +130,7 @@ _ANCHORS: dict[str, tuple[str, str, float, float, float, float, float, float, fl
         0.39748,
         2.71558,
         0.502,
-        0.943,
+        0.925,
     ),  # 0.664 1.054
     "K5": (
         "lower",
@@ -141,7 +141,7 @@ _ANCHORS: dict[str, tuple[str, str, float, float, float, float, float, float, fl
         0.40129,
         2.83007,
         0.586,
-        1.052,
+        0.979,
     ),  # 0.878 1.230
     # --- up-looking zenith fan (the O3/O4 direction partners) ---
     "N4": (
@@ -153,7 +153,7 @@ _ANCHORS: dict[str, tuple[str, str, float, float, float, float, float, float, fl
         0.45003,
         3.64284,
         0.660,
-        1.062,
+        1.016,
     ),  # 0.926 1.216
     "N9": (
         "lower",
@@ -164,7 +164,7 @@ _ANCHORS: dict[str, tuple[str, str, float, float, float, float, float, float, fl
         0.48478,
         4.33517,
         0.743,
-        1.079,
+        1.037,
     ),  # 1.012 1.225
     "N10": (
         "lower",
@@ -175,11 +175,11 @@ _ANCHORS: dict[str, tuple[str, str, float, float, float, float, float, float, fl
         0.48502,
         4.37991,
         0.784,
-        1.097,
+        1.041,
     ),  # 1.090 1.260
     # --- up-looking full columns, three profiles ---
-    "H1": ("lower", "us_standard", 0.0, 1.0e5, 0.0, 0.25659, 1.24809, 0.624, 1.243),  # 1.006 1.530
-    "H4": ("lower", "tropical", 0.0, 1.0e5, 48.2, 0.58099, 5.31164, 0.754, 1.089),  # 1.046 1.226
+    "H1": ("lower", "us_standard", 0.0, 1.0e5, 0.0, 0.25659, 1.24809, 0.624, 1.055),  # 1.006 1.530
+    "H4": ("lower", "tropical", 0.0, 1.0e5, 48.2, 0.58099, 5.31164, 0.754, 1.050),  # 1.046 1.226
     "H5": (
         "lower",
         "midlat_summer",
@@ -189,7 +189,7 @@ _ANCHORS: dict[str, tuple[str, str, float, float, float, float, float, float, fl
         0.45048,
         3.72670,
         0.721,
-        1.086,
+        1.019,
     ),  # 1.041 1.263
 }
 
@@ -290,7 +290,7 @@ def test_lwir_parity_improves_or_holds_on_every_anchor() -> None:
     """LWIR was the constraint on the CU-321 ruling: improve or hold.
 
     Measured band-RMS |ln ratio| over these fourteen anchors: **0.3342 before,
-    0.2632 after** — a 21 % improvement.  Honest accounting of where it does
+    0.2522 after** — a 25 % improvement.  Honest accounting of where it does
     not improve: three rungs move slightly *away* from unity, and all three are
     shallow columns (O1 and K1 are 1 km, K3 is 5 km) whose residual is the
     CU-161 region-flat τ deficit — too little absorbing column ⇒ too little
@@ -298,13 +298,19 @@ def test_lwir_parity_improves_or_holds_on_every_anchor() -> None:
     warm bias there costs 2–3 % in |ln ratio|, against 25–34 % won on the deep
     columns the CU was filed about.  The bound below pins that cost.
 
-    The ``after`` figures repinned 2026-08-29 (CU-330 ozone region split): the
-    post value rose 0.2611 → 0.2632 because every LWIR column now carries the
-    real 9.4–9.9 µm ozone opacity instead of a flat under-supplied average, so
-    the emission it drives grows.  The CU-321 ruling this test guards is
-    untouched — the improvement over ``pre`` is still 21 %, and the MWIR
-    ratios (the direction the CU was filed about) are bit-identical, since the
-    split touches only 8–10 µm.
+    Repinned twice since the CU-321 landing, in opposite directions, and the
+    pair is the whole story of the ozone defect:
+
+    * 2026-08-29 (CU-330, the τ side): 0.2611 → 0.2632.  Every LWIR column
+      began carrying the real 9.4–9.9 µm ozone opacity instead of a flat
+      under-supplied average, and — still placed as though well mixed — it
+      emitted from air several kilometres too warm.  Identifying the opacity
+      without placing it made the band-mean marginally *worse*.
+    * 2026-08-30 (CU-324 item 2, the emission side): 0.2632 → **0.2522**, the
+      best this scoreboard has read.  The same opacity now emits from the
+      25 km ozone layer, and ten of the fourteen rungs move toward unity —
+      H1 1.243 → 1.055 is the largest.  The MWIR ratios are unmoved: the
+      split touches only 9.4–9.9 µm.
     """
     pre = {
         "O1": 0.533,
@@ -338,7 +344,7 @@ def test_lwir_parity_improves_or_holds_on_every_anchor() -> None:
     rms_post = math.sqrt(float(np.mean(np.square(logs_post))))
     assert rms_post < rms_pre
     assert rms_pre == pytest.approx(0.3342, abs=0.002)
-    assert rms_post == pytest.approx(0.2632, abs=0.002)
+    assert rms_post == pytest.approx(0.2522, abs=0.002)
 
 
 @pytest.mark.level2

@@ -208,6 +208,14 @@ Contract properties this document owns:
   the diffusivity angle the up-looking reference decks were run at.
 - **No `ParameterDef` for the emission quadrature** (Rule 12): its sub-layer count is a
   convergence-tested numerical parameter, not a tuneable physical quantity.
+- **Ozone is placed on a layer, not a scale height** (CU-324 item 2, 2026-08-30): inside
+  the 9.40–9.90 µm O₃ ν₂ region the calibrated gas floor is partitioned before it is
+  placed, with the ozone share on a 25 km Gaussian layer and the remainder on the 4 km
+  pressure-broadened profile. The share is **not** a coefficient in the emission model —
+  `atmosphere/ozone_placement.py` derives it from the τ table as the band's floor in
+  excess of its clean-window neighbour's, so it tracks any re-fit and inherits the CU-267
+  blend ramps rather than carrying a second copy of them. τ is untouched: this is a
+  redistribution in altitude, like every other placement rule here.
 
 **Known fragilities**, named here and sized in the parity document: region-flat spectral
 shape inside each calibrated region; linear air-mass scaling on saturated bands; edge-region

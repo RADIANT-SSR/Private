@@ -890,7 +890,11 @@ Direction of the results change: the downwelling effective emissivity rises ever
 thin limit and asymptotically not at all where the column already saturates. Every
 reflected-sky term rises with it.
 
-**(b) O₃ lumped into the well-mixed gas floor** — the fourteen matched pairs read in the
+**(b) O₃ lumped into the well-mixed gas floor** — **the one refinement of the three that
+was eventually adopted**, landed 2026-08-30 (CU-324 item 2). The measurement history below
+is left intact because the adoption rests on it; the shipped numbers are in the last block.
+
+The fourteen matched pairs read in the
 9.4–9.9 µm O₃ feature rather than in the whole LWIR band, model / MODTRAN:
 
 | Run | dir | MODTRAN 9.6 µm | shipped | O₃-split | LWIR shipped | LWIR split |
@@ -910,8 +914,16 @@ reflected-sky term rises with it.
 | H4 | lower | 5.0792 | 1.123 | 0.971 | 1.080 | 1.062 |
 | H5 | lower | 4.0707 | 1.064 | 0.840 | 1.074 | 1.043 |
 
-The "O₃-split" column places 100 % of the in-feature gas-floor OD on a Chapman layer at
-25 km. The defect is real and one-sided — twelve of fourteen pairs over-predict, worst on
+The "O₃-split" column places 100 % of the in-feature gas-floor OD on a **Gaussian layer of
+standard deviation 5 km centred at 25 km**. (The 2026-08-29 measurement pass described this
+as a "Chapman layer"; the 2026-08-30 implementation re-derived the layer shape from this
+section's own centre/width grid and the label was wrong. A Gaussian with $\sigma =$ the
+tabulated width reproduces all nine corners of the grid below to a mean absolute 0.004 in
+RMS $|\ln|$, including the discriminating 30 km / 3 km corner; a true Chapman production
+profile $\exp(1 - y - e^{-y})$ with $H =$ the width misses them by 0.046 and degenerates
+entirely at narrow widths, where its razor-sharp underside leaves partial columns with no
+overlap at all. The numbers in this section are Gaussian numbers; only the prose was
+wrong.) The defect is real and one-sided — twelve of fourteen pairs over-predict, worst on
 the deepest columns (O5 1.44×) — which is the signature of emission placed too low. The
 feature's RMS $|\ln$ ratio$|$ is 0.1519 against 0.2611 for the LWIR band mean containing
 it, i.e. a 15 % error hiding inside a 4 µm average because the feature is 0.5 µm wide.
@@ -958,9 +970,9 @@ The earlier expectation of "1.0 by construction" was wrong by the continuum's sh
 ozone *band* still sits on top of the same CO₂/N₂O/CH₄ floor its neighbours carry, so the
 excess, not the total, is the ozone.
 
-The sweep re-run with the split table — same fourteen matched pairs, same Chapman layer at
-25 km, same construction, total optical depth asserted bit-identical to the shipped one at
-every share:
+The sweep re-run with the split table — same fourteen matched pairs, same 25 km / 5 km
+Gaussian layer, same construction, total optical depth asserted bit-identical to the
+shipped one at every share:
 
 | O₃ share of the in-feature gas floor | 0.0 | 0.2 | 0.4 | 0.6 | **0.70** | 0.8 | **0.832** | 0.9 | 1.0 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -991,17 +1003,65 @@ The layer's own geometry stays weakly observable, as before, but less so than it
 | 25 km | 0.1457 | 0.1456 | 0.1329 |
 | 30 km | 0.1913 | 0.1483 | 0.1381 |
 
-**Ruling: the τ-side blocker is discharged; the emission split itself remains unimplemented
-and is CU-324 item 2's own action.** CU-330 deliberately did not implement it — a τ
-recalibration and an emission-placement change are separate results-affecting movements and
-are not landed in one PR. What CU-330 does hand item 2 is a share it no longer has to fit.
+**Ruling (2026-08-29): the τ-side blocker is discharged; the emission split itself is
+CU-324 item 2's own action.** CU-330 deliberately did not implement it — a τ recalibration
+and an emission-placement change are separate results-affecting movements and are not
+landed in one PR. What CU-330 handed item 2 is a share it no longer has to fit. Until it
+landed, 9.4–9.9 µm path-thermal parity was *worse* than before CU-330 (0.1519 → 0.3581) —
+a deliberate interim regression, recorded on both CUs, that the block below clears.
 
-**The cost of landing the τ side first, stated plainly.** Until item 2 lands, 9.4–9.9 µm
-path-thermal parity is *worse* than it was: RMS 0.1519 → 0.3581 on these fourteen pairs.
-The 8–12 µm band mean is essentially unmoved (0.2611 → 0.2632) and every τ product
-improves (§2.15), so nothing an operator reads on a standard LWIR band regresses — but a
-narrow-band product centred on the ozone feature does, and it stays that way until the
-opacity is placed at its real altitude.
+#### The shipped placement (CU-324 item 2, landed 2026-08-30)
+
+**Owner go (2026-08-30):** implement at the τ-derived share (zero-fit construction),
+measure the parity at both it and the independent optimum, and stop-and-flag if the derived
+share materially underperforms. It does not.
+
+The construction that ships derives the share **in code** from the two committed table
+rows rather than carrying the 0.832 decimal (`atmosphere/ozone_placement.py`): the model
+evaluates the blended floor twice — once as shipped, once with the band row carrying its
+clean-window neighbour's floor — and takes $1 - \text{continuum}/\text{floor}$. So the
+share is 0.8317 today, it follows any re-fit of either row automatically, and it inherits
+the CU-267 smoothstep at 9.40 and 9.90 µm instead of needing a second ramp implementation
+(the earlier sweeps used a hard band edge; the difference is 0.1391 → 0.1389).
+
+Measured on the same fourteen matched pairs, model / MODTRAN in the feature:
+
+| | un-split (share 0) | **shipped** (τ-derived 0.8317, blended) | free optimum (0.80) | at the 2026-08-29 optimum (0.70) |
+|---|---:|---:|---:|---:|
+| 9.4–9.9 µm RMS $|\ln|$ | 0.3581 | **0.1389** | 0.1347 | 0.1382 |
+| 8–12 µm RMS $|\ln|$ | 0.2632 | **0.2522** | 0.2525 | 0.2533 |
+| pairs biased warm | 12/14 | **5/14** | 6/14 | 9/14 |
+
+**The derived share lands 3.1 % above the free optimum** — inside the ruling's 15 % bar by
+a factor of five, so no flag. The one-sidedness that made this a defect is gone: 12 of 14
+pairs over-predicted, 5 do now, and the worst pair falls 1.95× → 1.27×. The feature
+improves 2.6×; the 8–12 µm band mean containing it moves 4 %, which is the same concealment
+asymmetry §2.14(b) opened with, read in the other direction.
+
+The blend also re-measures the layer geometry at the shipped share, and it stays weakly
+observable — the whole grid spans 0.133–0.146, so the 25 km / 5 km physical choice costs
+2.4 % against the grid's own best and is not worth tuning:
+
+| centre / width (shipped, blended share) | 3 km | 5 km | 8 km |
+|---|---:|---:|---:|
+| 20 km | 0.1432 | 0.1357 | 0.1400 |
+| 25 km | 0.1445 | **0.1389** | 0.1383 |
+| 30 km | 0.1459 | 0.1405 | 0.1380 |
+
+**Blast radius.** Wherever the share is zero — any wavelength grid that does not reach
+9.4–9.9 µm — no layer species is constructed and $T_{\text{eff}}$ is bit-identical to the
+pre-CU-324 four-species form. On a grid that *does* reach the band, the layer contributes
+sub-layer edges that also refine the quadrature elsewhere; measured on the deepest anchor
+columns that is $\le 0.004$ K at off-band wavelengths, four times below the 0.016 K
+discretisation error the shipped layer count already carries. The MWIR is unmoved on every
+anchor.
+
+**Where it does not help.** The three shallow rungs (1–5 km columns) move slightly *away*
+from unity in the LWIR — the same rungs §2.15 flags on the τ side. The calibrated floor
+rides the molecular scale height, so a 0–5 km column is handed ozone opacity it does not
+physically hold; placing that opacity correctly makes the τ-side mis-attribution visible
+instead of cancelling it. That is a τ-table limitation, not a placement one, and it is the
+open half of the ozone story.
 
 **(c) Grazing-arc opacity distribution** — M6–M8 evaluated as candidate anchors, model /
 MODTRAN band-mean thermal radiance, vertical (shipped) against along-arc placement:
@@ -1034,13 +1094,19 @@ tropopause is as blind as M6–M8. Run-matrix rows **R1–R3** (5 / 8 / 10 km ta
 endpoints, ANGLE 90°, `midlat_summer` rural 23 km to 100 km) were authored for this and are
 unrun; the item is gated on them, not declined.
 
-*Record:* CU-324, measured 2026-08-29. No placement refinement adopted; the item-1
-emissivity exponent adopted the same day on a separate owner ruling, and item 2's τ-side
-blocker discharged the same day by CU-330 (§2.15).
+*Record:* CU-324, measured 2026-08-29. Of the three placement refinements, **item 2 was
+adopted 2026-08-30** (this section's shipped block); item 1's layered downwelling was
+declined by measurement, though the emissivity exponent it isolated was adopted 2026-08-29
+on a separate owner ruling; item 3 remains gated on R1–R3.
 *Enforced by:* `tests/integration/test_emission_placement_cu324.py` — the four-corner
 downwelling ranking, the assertion that its $(\sec, z_{em})$ corner is bit-identical to the
-shipped form, the one-sided O₃ warm bias and its concealment inside the LWIR band mean, the
-M6–M8 residual-exceeds-signal arithmetic, and a delivery tripwire on R1–R3;
+shipped form, the shipped O₃ parity and the collapse of its one-sided warm bias, the
+re-derived free optimum and the ruling's 15 % stop-and-flag tolerance, the concealment
+inside the LWIR band mean, the M6–M8 residual-exceeds-signal arithmetic, and a delivery
+tripwire on R1–R3;
+`src/radiant/atmosphere/tests/test_ozone_placement.py` for the share's derivation from the
+table rows, its continuity across both CU-267 ramps, τ bit-identity under a placement
+change, and the emission-altitude sign in both directions;
 `tests/integration/test_modtran_real_runs.py::test_esky_thermal_vs_the_nine_rung_downwelling_ladder`
 for the adopted exponent against the shipped `evaluate`;
 `src/radiant/atmosphere/tests/test_simple.py` for the constant's derivation from the anchor
@@ -1135,7 +1201,7 @@ Each entry names what is not measured or not modelled, and where it is tracked.
 | 1 | **Region-flat spectral shape.** No line structure inside the 17 calibrated regions; the 0.04 µm edge ramps remove the discontinuity, not the flatness. Now the *named dominant residual* of the thermal path radiance. CU-330 is the one place a region was subdivided to resolve a real feature (the 9.6 µm O₃ band, §2.15) — a precedent for the fix, not the fix. | Under-reads up-looking MWIR thermal by 25–40 % on columns deeper than 5 km; over-reads down-looking MWIR by ~20 % on tall ones. Fixing needs a line-resolved or sub-region opacity model, not a further temperature refinement. | CU-161 resolution + `RADIANT_Atmosphere.md` §3.1 fragility paragraph. **No open registry entry** — a recorded model limitation, not scheduled debt. |
 | 2 | **Provisional single-scatter VIS/NIR sky.** Multiple scattering dominates the daytime sky below ~3 µm. | Under-predicts the daytime VIS sky by roughly **2×** near the horizon (model/MODTRAN 0.55–0.59 at 85–89.5°, 0.76 at ζ = 0). Also the ~2×-high rural VIS aerosol OD. | Gap 38; the sub-3 µm `UserWarning` (`SCATTERED_SKY_PROVISIONAL_MAX_UM`) is the operator-facing statement. |
 | 3 | **Refraction is unmodelled and guard-banded.** The geometry is unrefracted. | ~0.5° of refractive lift near the horizon — comparable to the 0.5° raise band itself. The dominant geometric error inside the horizon guard's warn band, so numbers past ~85° are a better-conditioned model, not a validated one. | ADR-0011 decision 5; the on/off calibration pair Q5/Q6 is **unrun** (deck-builder gap, §1). |
-| 4 | **Emission-placement refinements — all three now measured, none adopted (§2.14).** (a) the $z_{em} = 200$ m downwelling proxy; (b) O₃ lumped with the well-mixed gases, so 9.6 µm emission is placed too low; (c) grazing arcs distribute opacity vertically rather than along the arc. | (a) The layered replacement loses: it is worse than the $(\sec 48.2°, z_{em})$ corner on the P ladder (1.9385 vs 1.9233) and worse than the proxy on the tropospheric T_eff-only metric (0.3152 vs 0.2354), improving the LWIR 3.8× but degrading the MWIR 3.7×. Separately measured and **owner-ratified 2026-08-29 — adopted**: the fitted $D = 1.1$ exponent loses to the ladder's own $\sec 48.2° = 1.50030$ (composite 2.0776 → 1.9233; tropospheric-only 0.4167 → 0.3087), and the exponent is now geometric rather than fitted. (b) Real and one-sided — 9.4–9.9 µm biased warm on 12 of 14 pairs. The τ-side blocker is **discharged** (CU-330, §2.15): the share is now arithmetic on the split table, 0.832, and scoring it against the emission parity — which it was not fitted to — lands within 7 % of that parity's own optimum (0.1456 vs 0.1365 at 0.70). Placing the opacity is still unimplemented, and until it is, the feature reads RMS 0.3581 against the pre-CU-330 0.1519, because the flat slab had been under-supplying the in-band opacity that carries the error. (c) ≤ 1.2 % on M6–M8, under the 3–6 % residual there. | **CU-324, Open** (family head). Item (a)'s exponent ruling is discharged (swapped 2026-08-29); its layered-temperature half is declined by measurement. Item (b) is **unblocked** (CU-330 landed the 9.6 µm region 2026-08-29) and is now an open action with no free parameter; item (c) is gated on R1–R3. |
+| 4 | **Emission-placement refinements — all three measured; one adopted (§2.14).** (a) the $z_{em} = 200$ m downwelling proxy; (b) O₃ lumped with the well-mixed gases, so 9.6 µm emission was placed too low — **CLOSED 2026-08-30**; (c) grazing arcs distribute opacity vertically rather than along the arc. | (a) The layered replacement loses: it is worse than the $(\sec 48.2°, z_{em})$ corner on the P ladder (1.9385 vs 1.9233) and worse than the proxy on the tropospheric T_eff-only metric (0.3152 vs 0.2354), improving the LWIR 3.8× but degrading the MWIR 3.7×. Separately measured and **owner-ratified 2026-08-29 — adopted**: the fitted $D = 1.1$ exponent loses to the ladder's own $\sec 48.2° = 1.50030$ (composite 2.0776 → 1.9233; tropospheric-only 0.4167 → 0.3087), and the exponent is now geometric rather than fitted. (b) **No longer a limitation.** The τ-derived share of the in-band gas floor (0.8317, arithmetic on two committed table rows) now rides a 25 km Gaussian ozone layer: 9.4–9.9 µm RMS $|\ln|$ 0.3581 → 0.1389, warm pairs 12/14 → 5/14, 3.1 % off the free optimum it was never fitted to. What survives is narrower and belongs to the τ table, not the placement — see entry 15. (c) ≤ 1.2 % on M6–M8, under the 3–6 % residual there. | **CU-324, Open** (family head), items (a) and (b) discharged. (a)'s exponent was swapped 2026-08-29 and its layered-temperature half declined by measurement; **(b) landed 2026-08-30**; (c) is gated on R1–R3. |
 | 5 | **Grazing thermal is anchored only where the anchors are blind.** M6–M8 do exercise a grazing thermal product, but their own 3–6 % residual exceeds the 1.2 % placement effect, so they cannot settle item 4(c). | Sized by proxy instead: modelled along-arc ÷ vertical separation is 2.9 %/2.4 % at a 2 km tangent endpoint, 7.9 %/9.8 % at 5 km, 16.1 %/13.1 % at 8 km (MWIR/LWIR) and exactly 0 at 15 km, where the ICAO profile is isothermal. | CU-324 checklist item 3. Run-matrix rows **R1–R3** authored 2026-08-29 for the discriminating geometry (tangent-rooted arcs at 5/8/10 km, ANGLE 90°); **unrun**. A delivery tripwire fails when their tape7s land. |
 | 6 | **sec-space is unvalidated past 88.8°.** The interpolation coordinate diverges at the horizon and is refused there. | M6–M8 (85/88/89.5°) were run and *are* usable as physics anchors (§2.4), but are excluded from every shipped node set, so the interpolated backend cannot serve that band at all. | `_MAX_ZENITH_RAD` refusal in `interpolated.py`; M6–M8 marked `dev_only` in the run matrix. |
 | 7 | **Only two site elevations have a full-column family.** 0 m (`midlat_summer_sst_column_fan`) and 900 m (`midlat_summer_sst_column_fan_site900m`, M9–M13, ingested 2026-08-03). Neither carries a `sensor_altitude_m` axis, so no third elevation can be interpolated. | Sized by the pair: at nadir the 900 m column transmits 0.702 band-mean 8–12 µm against the 0 m column's 0.583, and at sec 5 it is 0.302 against 0.137 — i.e. the lowest 900 m of air is worth +0.12 to +0.16 in band-mean LWIR τ, which is why a site elevation cannot be ignored. A site at any other elevation is `simple`. | The two families' node geometry; `tests/integration/test_batch2_atmosphere_families.py::TestSstColumnFanSite900m`. The `pending_runs` advisory on the 0 m fan was retired when M9–M13 landed. |
@@ -1146,6 +1212,7 @@ Each entry names what is not measured or not modelled, and where it is tracked.
 | 12 | **`theta_s` stripped for pure-thermal targets.** A `T1Thermal` target has its solar geometry stripped upstream, and the sky background is a second consumer of it, so a pure-thermal target on a VIS/NIR grid gets a thermal-only sky at noon — and no provisional warning, because the trigger condition is never met. | The scattered sky component is absent for that scene class. | Documented in `RADIANT_Atmosphere.md` §4.2g and pinned as a characterization by `tests/integration/test_direction_aware_atmosphere.py::TestProvisionalScatteredSkyWarning`. **No registry entry.** |
 | 13 | **Aerosol Ångström law beyond 5 µm.** Frozen at its 5 µm value rather than decaying. | A deliberate clamp toward physical behaviour, warned once per run; a tabulated IR aerosol cross-section remains the higher-fidelity alternative. | CU-088, resolved 2026-07-12; `RADIANT_Atmosphere.md` §12 open question 2. |
 | 14 | **VIS aerosol absolute OD.** Not recalibrated by the CU-161 gas-band pass. | ~2× high at rural-23. | CU-161 fragility list; Gap 38. |
+| 15 | **Ozone opacity rides the molecular scale height on the τ side.** The calibrated `floor_od` is apportioned to a partial column by the fraction $\text{col}_{\text{mol}}/H_{\text{mol}}$, so a 0–5 km column is handed 9.6 µm ozone opacity that is not physically there. The emission side now places whatever ozone a segment is given at 25 km (§2.14b), which makes the τ-side mis-attribution visible instead of cancelling it. Two further narrowings sit alongside: the 9.90–10.00 µm long-wave tail (floor 0.3013, 3.3× its continuum) is still placed as well mixed, and the ICAO profile is isothermal above 11 km, so the layer's own centre/width remain weakly observable. | Shallow-column LWIR: model/MODTRAN moves away from unity on the 1/3/5 km rungs (§2.3, e.g. 1.059 → 1.079 at 5 km) while the 10 and 20 km rungs move toward it (0.950 → 1.020). Full columns are unaffected — that is the geometry the floor was fitted at. Layer geometry is worth ≤ 2.4 % across the measured 20–30 km × 3–8 km grid. | **No open registry entry.** The remedy is an ozone-aware *vertical* apportionment on the τ side (a per-species profile in the region table), which is CU-161-scale work, not a placement refinement. §2.15's partial-column row is the same finding read on τ. |
 
 ---
 

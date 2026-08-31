@@ -84,32 +84,44 @@ _BANDS = {
 #: Three of the five rungs move toward unity and the two deepest move past it.
 #: The LWIR ceiling in the adoption-criterion test below (1.95) is unchanged and
 #: still binds: the worst excursion falls 1.937 -> 1.932.
+#: **LWIR rows repinned again 2026-08-30 (CU-324 item 2, the O₃ placement
+#: split).**  The MWIR and the three reflective rows are again bit-identical.
+#: These are MODTRAN/model ratios on an UP-looking sky column, so the ozone
+#: opacity moving from 4 km to the 25 km layer cools its emission and the ratio
+#: rises: 1.932→1.934 (1 km), 1.225→1.235, 1.059→1.079, 0.971→1.022,
+#: 0.950→1.020 (20 km).  The two deepest rungs move TOWARD unity (|ln| 0.029→
+#: 0.022 and 0.051→0.020) and the three shallow ones away, which is the same
+#: split §2.15 records on the τ side: a 1–5 km column is handed ozone opacity
+#: it does not physically hold (the calibrated floor rides the molecular scale
+#: height), and placing that opacity correctly makes the mis-attribution
+#: visible instead of cancelling it.  The 1.95 ceiling still binds: the worst
+#: excursion is 1.934.
 _EXPECTED_RATIOS: dict[tuple[int, str], float] = {
     (1_000, "VIS"): 1.103,
     (1_000, "NIR"): 0.792,
     (1_000, "SWIR"): 0.607,
     (1_000, "MWIR"): 2.448,
-    (1_000, "LWIR"): 1.932,
+    (1_000, "LWIR"): 1.934,
     (3_000, "VIS"): 1.293,
     (3_000, "NIR"): 0.896,
     (3_000, "SWIR"): 0.662,
     (3_000, "MWIR"): 1.852,
-    (3_000, "LWIR"): 1.225,
+    (3_000, "LWIR"): 1.235,
     (5_000, "VIS"): 1.343,
     (5_000, "NIR"): 0.908,
     (5_000, "SWIR"): 0.629,
     (5_000, "MWIR"): 1.674,
-    (5_000, "LWIR"): 1.059,
+    (5_000, "LWIR"): 1.079,
     (10_000, "VIS"): 1.360,
     (10_000, "NIR"): 0.930,
     (10_000, "SWIR"): 0.610,
     (10_000, "MWIR"): 1.514,
-    (10_000, "LWIR"): 0.971,
+    (10_000, "LWIR"): 1.022,
     (20_000, "VIS"): 1.342,
     (20_000, "NIR"): 0.940,
     (20_000, "SWIR"): 0.600,
     (20_000, "MWIR"): 1.410,
-    (20_000, "LWIR"): 0.950,
+    (20_000, "LWIR"): 1.020,
 }
 
 

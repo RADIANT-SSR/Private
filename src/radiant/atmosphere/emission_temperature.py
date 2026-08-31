@@ -82,8 +82,15 @@ distribution from first principles:
   :func:`pressure_broadened_scale_height_m` of the absorber's own scale
   height and air's.  For the well-mixed floor this halves 8 km to 4 km; for
   water it takes 2 km to 1.6 km.
+* **layered absorbers** (ozone) — a species produced photochemically in the
+  mid stratosphere is not on any exponential at all, so
+  :class:`LayerSpecies` places it on a Gaussian layer instead of a scale
+  height.  Since CU-324 the 9.6 µm ozone share of the gas floor rides one;
+  which share, and the layer's geometry, are
+  :mod:`radiant.atmosphere.ozone_placement`'s subject, not this module's.
 
-No coefficient here is fitted.  Both scale-height rules are derived, and the
+No coefficient here is fitted.  Both scale-height rules are derived, the
+layer's geometry is a published profile rather than a tuned one, and the
 layer quadrature below is a convergence-tested numerical parameter, not a
 tuning knob — so nothing in this module needs a ``ParameterDef`` (Rule 12,
 the same standing as ``grazing_column.QUADRATURE_INTERVALS``).
@@ -110,17 +117,17 @@ All three were measured against the delivered MODTRAN run set at CU-324
   It is worth 8–16 % on an arc rooted at a tangent point at 5–10 km, and
   exactly nothing at 15 km for the isothermal reason above; run-matrix rows
   R1–R3 are authored for that geometry and unrun;
-* the well-mixed-gas floor lumps CO₂/N₂O/CH₄ (well mixed) with O₃ (not), so
-  the 9.6 µm ozone emission is placed too low.  Measured: the 9.4–9.9 µm
-  feature is biased warm on 12 of the 14 matched pairs (RMS |ln ratio| 0.1519,
-  up to 1.44× on the deepest column) while the 8–12 µm band mean containing it
-  reads 0.2611 — the error hides in the band average.  Splitting O₃ onto its
-  own layer recovers a third of it, but the improvement is governed by one free
-  parameter — the ozone share of the gas-floor OD — which the CU-161 region
-  table cannot supply, because its 8.00–10.00 µm region is 2 µm wide and flat
-  and so contains no identifiable ozone band.  Fixing that region is the
-  prerequisite; doing the split first would put the first fitted coefficient
-  into this module, against the construction stated above.
+* the 9.90–10.00 µm long-wave ozone tail still rides the well-mixed
+  placement.  Its calibrated floor stands 3.3× its continuum neighbour's, so
+  part of it is ozone too, but CU-324 item 2 scoped the split to the band
+  core (:data:`~radiant.atmosphere.ozone_placement.OZONE_BAND_UM`) the parity
+  is measured in.  A narrow-band product centred on 9.95 µm still places its
+  ozone at 4 km.
+
+*(The third fragility of the original three — O₃ lumped into the well-mixed
+floor — was the CU-324 item-2 defect this module's* :class:`LayerSpecies`
+*now fixes; see* ``docs/validation/atmosphere_modtran_parity.md`` *§2.14(b)
+for the before/after parity.)*
 """
 
 from __future__ import annotations
@@ -138,7 +145,9 @@ from radiant.core.parameters import ParameterBoundsError
 
 __all__ = [
     "EMISSION_LAYERS_PER_SPECIES",
+    "LAYER_SPECIES_HALF_SPAN_WIDTHS",
     "EmissionSpecies",
+    "LayerSpecies",
     "emission_weighted_temperature",
     "pressure_broadened_scale_height_m",
     "segment_emission_temperature_K",
@@ -152,6 +161,13 @@ __all__ = [
 #: 32 is the first value whose discretisation error is two orders of magnitude
 #: below the model's own ~4 K accuracy against MODTRAN.
 EMISSION_LAYERS_PER_SPECIES: int = 32
+
+#: How far either side of a :class:`LayerSpecies` centre its own sub-layer grid
+#: reaches, in layer widths.  A Gaussian holds 1 − 6.3e-5 of its column inside
+#: ±4σ, so a grid spanning ±4σ resolves the layer wherever the layer is
+#: resolvable at all; outside that span the weighting is flat to within the
+#: quadrature's own error and the other species' edges already cover it.
+LAYER_SPECIES_HALF_SPAN_WIDTHS: float = 4.0
 
 #: Escape ends a segment's two directional radiance products emerge from.
 EscapeEnd = Literal["upper", "lower"]
@@ -177,6 +193,46 @@ class EmissionSpecies:
 
     scale_height_m: float
     optical_depth: np.ndarray
+
+
+@dataclass(frozen=True)
+class LayerSpecies:
+    """A species whose opacity sits in a layer rather than on a scale height.
+
+    Ozone is the case that forced this: it is produced photochemically in the
+    mid stratosphere, so its absorption coefficient has a peak, not a surface
+    maximum, and no exponential describes it.  The placement profile is a
+    Gaussian in altitude,
+
+        ``ρ(z) ∝ exp( −½ ((z − centre_m) / width_m)² )``,
+
+    and — exactly as for :class:`EmissionSpecies` — only the *distribution* of
+    the species' optical depth is modelled here.  The total is taken as given
+    and is never changed.
+
+    A segment that does not reach the layer still receives the species' whole
+    optical depth (the caller's τ model decided the segment carries it); the
+    weighting then concentrates it at whichever end of the segment is nearest
+    the layer centre, which is the correct limit of the same integral.
+
+    Attributes
+    ----------
+    centre_m:
+        Altitude of the layer's peak [m], finite.
+    width_m:
+        Gaussian standard deviation of the layer [m], ``> 0``.
+    optical_depth:
+        The species' slant optical depth over the whole segment
+        [dimensionless], one value per wavelength, ``≥ 0``.
+    """
+
+    centre_m: float
+    width_m: float
+    optical_depth: np.ndarray
+
+
+#: Either placement law a species' opacity can follow.
+PlacedSpecies = EmissionSpecies | LayerSpecies
 
 
 def pressure_broadened_scale_height_m(
@@ -214,10 +270,10 @@ def pressure_broadened_scale_height_m(
 def _layer_edges_m(
     h_low_m: float,
     h_high_m: float,
-    scale_heights_m: Sequence[float],
+    species: Sequence[PlacedSpecies],
     layers_per_species: int,
 ) -> np.ndarray:
-    """Ascending sub-layer edges [m] resolving every species' own column.
+    """Ascending sub-layer edges [m] resolving every species' own profile.
 
     For each distinct scale height ``H`` the segment is cut into
     ``layers_per_species`` slabs of equal ``∫exp(−h/H) dh``; the union of
@@ -225,9 +281,19 @@ def _layer_edges_m(
     tall segment seen through a 1.2 km aerosol profile) is therefore still
     resolved where it matters, without forcing the others onto a grid tuned
     for it.
+
+    A :class:`LayerSpecies` contributes a uniform grid across the part of the
+    segment within :data:`LAYER_SPECIES_HALF_SPAN_WIDTHS` widths of its centre
+    — an equal-column grid would be pointless for a profile that is flat on
+    both sides of its peak, and unrepresentable in the far tail where the
+    Gaussian CDF underflows.  A segment that does not overlap the layer's span
+    contributes nothing: there is no structure there to resolve.
     """
     edges: list[float] = [h_low_m, h_high_m]
-    for scale_height_m in sorted(set(scale_heights_m)):
+    scale_heights_m = {
+        member.scale_height_m for member in species if isinstance(member, EmissionSpecies)
+    }
+    for scale_height_m in sorted(scale_heights_m):
         u_lo = -math.expm1(-h_low_m / scale_height_m)
         u_hi = -math.expm1(-h_high_m / scale_height_m)
         u = np.linspace(u_lo, u_hi, layers_per_species + 1)
@@ -236,7 +302,50 @@ def _layer_edges_m(
         # h_high_m by the clip below).
         u = np.clip(u, None, 1.0 - 1.0e-16)
         edges.extend((-scale_height_m * np.log1p(-u)).tolist())
+    for member in species:
+        if not isinstance(member, LayerSpecies):
+            continue
+        half_span_m = LAYER_SPECIES_HALF_SPAN_WIDTHS * member.width_m
+        span_lo = max(h_low_m, member.centre_m - half_span_m)
+        span_hi = min(h_high_m, member.centre_m + half_span_m)
+        if span_hi <= span_lo:
+            continue
+        edges.extend(np.linspace(span_lo, span_hi, layers_per_species + 1).tolist())
     return np.unique(np.clip(np.asarray(edges, dtype=np.float64), h_low_m, h_high_m))
+
+
+def _column_fraction(
+    member: PlacedSpecies,
+    lower: np.ndarray,
+    upper: np.ndarray,
+) -> np.ndarray | None:
+    """Per-layer share of one species' column [-], summing to 1, or ``None``.
+
+    ``None`` means the species' column underflows over this segment and there
+    is nothing to place — only reachable for an exponential profile, whose
+    closed-form column difference can round to zero (a 1.2 km aerosol profile
+    above 60 km).  A :class:`LayerSpecies` always answers a distribution: its
+    weights are built in the log domain precisely so that a layer 10 tail
+    widths away from the segment still normalises instead of underflowing to a
+    zero column and silently dropping its opacity.
+    """
+    if isinstance(member, EmissionSpecies):
+        column = np.exp(-lower / member.scale_height_m) - np.exp(-upper / member.scale_height_m)
+        total = float(column.sum())
+        if total <= 0.0:
+            return None
+        return np.asarray(column / total, dtype=np.float64)
+
+    # Midpoint quadrature of ∫ρ dz per layer, carried in the log domain.  The
+    # log-sum-exp normalisation is what makes it exact for a far-off layer: the
+    # weights are ratios of Gaussians, and only their *differences* in the
+    # exponent survive, however small the absolute densities are.
+    midpoint = 0.5 * (lower + upper)
+    reduced = (midpoint - member.centre_m) / member.width_m
+    log_weight = -0.5 * reduced * reduced + np.log(upper - lower)
+    log_weight -= float(log_weight.max())
+    weight = np.exp(log_weight)
+    return np.asarray(weight / weight.sum(), dtype=np.float64)
 
 
 def emission_weighted_temperature(
@@ -244,7 +353,7 @@ def emission_weighted_temperature(
     *,
     h_low_m: float,
     h_high_m: float,
-    species: Sequence[EmissionSpecies],
+    species: Sequence[PlacedSpecies],
     temperature_profile: Callable[[np.ndarray], np.ndarray],
     escape: EscapeEnd,
     layers_per_species: int = EMISSION_LAYERS_PER_SPECIES,
@@ -260,9 +369,10 @@ def emission_weighted_temperature(
         (isothermal) case and returns ``temperature_profile(h_low_m)``
         exactly, whatever the opacity.
     species:
-        One :class:`EmissionSpecies` per contributing species.  Their optical
-        depths sum to the segment's slant optical depth; this function never
-        changes that sum.
+        One :class:`EmissionSpecies` or :class:`LayerSpecies` per contributing
+        species, according to which placement law its opacity follows.  Their
+        optical depths sum to the segment's slant optical depth; this function
+        never changes that sum.
     temperature_profile:
         ``T(h)`` [K] on an array of altitudes [m] — the caller's atmospheric
         profile.  Must return strictly positive temperatures.
@@ -283,9 +393,10 @@ def emission_weighted_temperature(
     ------
     ParameterBoundsError
         On inverted endpoints, an empty species list, a shape mismatch, a
-        negative optical depth, a non-positive scale height, a bad ``escape``
-        value, a non-positive ``layers_per_species``, or a temperature profile
-        that returns a non-positive or non-finite temperature.
+        negative optical depth, a non-positive scale height, a non-positive or
+        non-finite layer geometry, a bad ``escape`` value, a non-positive
+        ``layers_per_species``, or a temperature profile that returns a
+        non-positive or non-finite temperature.
     """
     lam = np.asarray(wavelength_um, dtype=np.float64)
     if escape not in ("upper", "lower"):
@@ -344,15 +455,29 @@ def emission_weighted_temperature(
                 action="Fix the optical-depth computation that produced it.",
                 context={"min": float(np.nanmin(od)), "max": float(np.nanmax(od))},
             )
-        if not math.isfinite(member.scale_height_m) or member.scale_height_m <= 0.0:
+        if isinstance(member, EmissionSpecies):
+            if not math.isfinite(member.scale_height_m) or member.scale_height_m <= 0.0:
+                raise ParameterBoundsError(
+                    what=(
+                        f"emission_weighted_temperature: species[{index}].scale_height_m = "
+                        f"{member.scale_height_m} m is not positive"
+                    ),
+                    why="An exponential profile needs a positive scale height.",
+                    action="Pass the species' absorption-coefficient scale height in metres.",
+                    context={"scale_height_m": member.scale_height_m},
+                )
+        elif not math.isfinite(member.centre_m) or not (
+            math.isfinite(member.width_m) and member.width_m > 0.0
+        ):
             raise ParameterBoundsError(
                 what=(
-                    f"emission_weighted_temperature: species[{index}].scale_height_m = "
-                    f"{member.scale_height_m} m is not positive"
+                    f"emission_weighted_temperature: species[{index}] layer geometry "
+                    f"(centre = {member.centre_m} m, width = {member.width_m} m) is not "
+                    "a finite layer of positive width"
                 ),
-                why="An exponential profile needs a positive scale height.",
-                action="Pass the species' absorption-coefficient scale height in metres.",
-                context={"scale_height_m": member.scale_height_m},
+                why="A Gaussian layer needs a finite centre and a positive standard deviation.",
+                action="Pass the layer's centre altitude and width in metres.",
+                context={"centre_m": member.centre_m, "width_m": member.width_m},
             )
 
     # --- Level (isothermal) segment: exact, no quadrature -------------------
@@ -360,9 +485,7 @@ def emission_weighted_temperature(
         t_level = _validated_profile(temperature_profile, np.array([h_low_m], dtype=np.float64))
         return np.full_like(lam, float(t_level[0]))
 
-    edges = _layer_edges_m(
-        h_low_m, h_high_m, [member.scale_height_m for member in species], layers_per_species
-    )
+    edges = _layer_edges_m(h_low_m, h_high_m, species, layers_per_species)
     if edges.size < 2:  # pragma: no cover - guarded by h_high_m > h_low_m above
         t_level = _validated_profile(temperature_profile, np.array([h_low_m], dtype=np.float64))
         return np.full_like(lam, float(t_level[0]))
@@ -376,15 +499,12 @@ def emission_weighted_temperature(
     # equal to the segment optical depth the caller already computed.
     layer_od = np.zeros((lower.size, lam.size), dtype=np.float64)
     for member in species:
-        column = np.exp(-lower / member.scale_height_m) - np.exp(-upper / member.scale_height_m)
-        total = float(column.sum())
-        if total <= 0.0:
+        fraction = _column_fraction(member, lower, upper)
+        if fraction is None:
             # The species' column underflows over this segment (e.g. a 1.2 km
             # aerosol profile above 60 km): it carries no opacity to place.
             continue
-        layer_od += (column / total)[:, None] * np.asarray(member.optical_depth, dtype=np.float64)[
-            None, :
-        ]
+        layer_od += fraction[:, None] * np.asarray(member.optical_depth, dtype=np.float64)[None, :]
 
     # Vacuum fallback (below): the densest air in the segment, which is the
     # pre-CU-321 CU-155 convention and keeps the two continuous.
@@ -426,6 +546,9 @@ def segment_emission_temperature_K(
     od_slant_aer: np.ndarray,
     od_slant_h2o: np.ndarray,
     od_slant_gas: np.ndarray,
+    ozone_share: np.ndarray,
+    ozone_layer_centre_m: float,
+    ozone_layer_width_m: float,
     scale_height_mol_m: float,
     scale_height_aer_m: float,
     scale_height_h2o_m: float,
@@ -433,35 +556,78 @@ def segment_emission_temperature_K(
     escape: EscapeEnd,
     layers_per_species: int = EMISSION_LAYERS_PER_SPECIES,
 ) -> np.ndarray:
-    """``T_eff(λ)`` [K] for a ``SimpleAtmosphere`` four-species segment.
+    """``T_eff(λ)`` [K] for a ``SimpleAtmosphere`` segment.
 
-    The adapter every call site uses, so the broadening rule lives in exactly
-    one place: Rayleigh and aerosol keep their density scale heights (their
-    extinction is proportional to number density), while the well-mixed-gas
-    floor and water vapour are placed on the pressure-broadened profile
-    :func:`pressure_broadened_scale_height_m` gives — 4 km and 1.6 km against
-    the shipped 8 km / 2 km density profiles.
+    The adapter every call site uses, so the placement rules live in exactly
+    one place:
 
-    ``od_slant_*`` are the four species' slant optical depths over the whole
+    * Rayleigh and aerosol keep their density scale heights (their extinction
+      is proportional to number density);
+    * water vapour and the well-mixed part of the gas floor go on the
+      pressure-broadened profile :func:`pressure_broadened_scale_height_m`
+      gives — 1.6 km and 4 km against the shipped 2 km / 8 km density
+      profiles;
+    * the ozone part of the gas floor — ``ozone_share · od_slant_gas``, the
+      share being read off the τ table by
+      :func:`radiant.atmosphere.ozone_placement.ozone_share_of_gas_floor` —
+      goes on a :class:`LayerSpecies` at ``ozone_layer_centre_m``.
+
+    The split is a partition: the well-mixed remainder is
+    ``od_slant_gas − ozone_share · od_slant_gas``, so the gas floor's total is
+    conserved and the segment's optical depth is untouched, exactly as for
+    every other placement decision in this module.  Where the share is zero
+    everywhere — any grid that does not reach the 9.6 µm band — no layer
+    species is constructed at all and the result is bit-identical to the
+    four-species form that preceded CU-324.
+
+    ``od_slant_*`` are the species' slant optical depths over the whole
     segment, exactly as the caller's optical-depth routine already computed
     them; their sum is left untouched.
     """
+    share = np.asarray(ozone_share, dtype=np.float64)
+    od_gas = np.asarray(od_slant_gas, dtype=np.float64)
+    if share.shape != od_gas.shape:
+        raise ParameterBoundsError(
+            what=(
+                f"segment_emission_temperature_K: ozone_share shape {share.shape} does "
+                f"not match od_slant_gas shape {od_gas.shape}"
+            ),
+            why="The ozone share apportions the gas floor wavelength by wavelength.",
+            action="Evaluate the share on the same wavelength grid as the optical depths.",
+            context={"share_shape": share.shape, "od_gas_shape": od_gas.shape},
+        )
+    if not np.all(np.isfinite(share)) or float(share.min()) < 0.0 or float(share.max()) > 1.0:
+        raise ParameterBoundsError(
+            what=(
+                "segment_emission_temperature_K: ozone_share leaves [0, 1] "
+                f"(min {float(np.nanmin(share))}, max {float(np.nanmax(share))})"
+            ),
+            why="A share partitions one optical depth into two; it cannot be negative or > 1.",
+            action="Take the share from ozone_placement.ozone_share_of_gas_floor.",
+            context={"min": float(np.nanmin(share)), "max": float(np.nanmax(share))},
+        )
+
+    od_ozone = share * od_gas
+    species: tuple[PlacedSpecies, ...] = (
+        EmissionSpecies(scale_height_mol_m, od_slant_mol),
+        EmissionSpecies(scale_height_aer_m, od_slant_aer),
+        EmissionSpecies(
+            pressure_broadened_scale_height_m(scale_height_h2o_m, scale_height_mol_m),
+            od_slant_h2o,
+        ),
+        EmissionSpecies(
+            pressure_broadened_scale_height_m(scale_height_mol_m, scale_height_mol_m),
+            od_gas - od_ozone if np.any(od_ozone > 0.0) else od_slant_gas,
+        ),
+    )
+    if np.any(od_ozone > 0.0):
+        species = (*species, LayerSpecies(ozone_layer_centre_m, ozone_layer_width_m, od_ozone))
+
     return emission_weighted_temperature(
         wavelength_um,
         h_low_m=h_low_m,
         h_high_m=h_high_m,
-        species=(
-            EmissionSpecies(scale_height_mol_m, od_slant_mol),
-            EmissionSpecies(scale_height_aer_m, od_slant_aer),
-            EmissionSpecies(
-                pressure_broadened_scale_height_m(scale_height_h2o_m, scale_height_mol_m),
-                od_slant_h2o,
-            ),
-            EmissionSpecies(
-                pressure_broadened_scale_height_m(scale_height_mol_m, scale_height_mol_m),
-                od_slant_gas,
-            ),
-        ),
+        species=species,
         temperature_profile=temperature_profile,
         escape=escape,
         layers_per_species=layers_per_species,

@@ -133,25 +133,31 @@ in the arctic column; small ground vehicles fall below threshold everywhere —
 | Target | clear | haze | trop_haze | arctic |
 |--------|------:|-----:|----------:|-------:|
 | Transport aircraft | 1,061* | 1,061* | 1,061* | 1,061* |
-| Fast attack craft | 1,061* | 1,061* | 969 | 1,061* |
-| Fuel bladder farm | 1,061* | 1,061* | 1,019 | 1,061* |
-| Fighter aircraft | 924 | 912 | 771 | 1,061* |
-| Patrol boat | 828 | 817 | 700 | 1,061* |
-| SAM TEL | — | — | — | 561 |
-| Towed artillery | — | — | — | 520 |
+| Fast attack craft | 1,061* | 1,061* | 981 | 1,061* |
+| Fuel bladder farm | 1,061* | 1,061* | 1,029 | 1,061* |
+| Fighter aircraft | 938 | 926 | 782 | 1,061* |
+| Patrol boat | 841 | 830 | 711 | 1,061* |
+| SAM TEL | — | — | — | 565 |
+| Towed artillery | — | — | — | 523 |
 | (MBT, APC, Cargo, Technical, Small UAV) | — not detectable — | | | |
 
 `*` = swath-edge limited (SCNR ≥ 5 out to the 66° θ_o practical edge, slant
 1,061 km). `—` = not detectable in that cell.
 
-*LWIR detection ranges refreshed 2026-08-29 from the unmodified runner —
-**CU-330**, the 9.6 µm ozone region split: the model gains in-band opacity, so
-every LWIR range shortens by 2–3 km (0.3–0.6 %). The MWIR columns and every
-detect/no-detect verdict in the matrix are unchanged.*
+*LWIR detection ranges refreshed 2026-08-30 from the unmodified runner —
+**CU-324 item 2**, the 9.6 µm ozone emission-placement split: the ozone share
+of the gas floor now emits from the 25 km layer rather than 4 km of
+near-surface air, so the LWIR path radiance competing with every target falls
+and every LWIR range LENGTHENS by 4–14 km (0.6–1.6 %) — the opposite sign to
+CU-330's τ-side landing, and roughly twice its size. The MWIR columns are
+bit-identical (the split touches 9.4–9.9 µm) and every detect/no-detect
+verdict in the matrix is unchanged. Previous vintage 2026-08-29 —
+**CU-330**, the 9.6 µm ozone region split: the model gained in-band opacity,
+so every LWIR range shortened by 2–3 km (0.3–0.6 %).*
 
 **Worst-case target: Technical (pickup)** — mean 199 km across all 12
 sensor×atmosphere cells, detectable only on the flagship. **Easiest: fuel
-bladder farm** (mean 990 km).
+bladder farm** (mean 991 km).
 
 ## Drift archaeology — which landings moved this matrix
 

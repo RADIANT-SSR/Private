@@ -21,22 +21,25 @@ Item 1 — the ``z_em = 200 m`` downwelling proxy
     is now ``(sec, z_em)`` — the best of the four.  The ranking assertions
     below are unchanged by that; they are what the ruling rests on.
 
-Item 2 — O₃ lumped into the well-mixed gas floor
-    The 9.4–9.9 µm ozone feature is measurably mis-placed: the current form
-    runs warm on every matched pair.  A split does improve it, but when this was
-    first measured it did so only through a single free parameter — the ozone
-    share of the gas-floor OD — which the then-current CU-161 region table could
-    not supply, because its 8.00–10.00 µm region was 2 µm wide and flat and so
-    contained no identifiable ozone band.
+Item 2 — O₃ lumped into the well-mixed gas floor — **LANDED 2026-08-30**
+    The 9.4–9.9 µm ozone feature was measurably mis-placed: the un-split form
+    ran warm on twelve of the fourteen matched pairs.  A split improved it, but
+    when first measured it did so only through a single free parameter — the
+    ozone share of the gas-floor OD — which the then-current CU-161 region
+    table could not supply, because its 8.00–10.00 µm region was 2 µm wide and
+    flat and so contained no identifiable ozone band.
 
     **CU-330 (2026-08-29) removed that blocker** by splitting the region at the
-    measured band edges.  The share is now arithmetic on the table — the
-    in-feature floor above the adjacent clean window's, 0.832 — rather than
-    fitted, and scored against the emission parity it was *not* fitted to it
-    lands within 7 % of that parity's own optimum.  The emission split itself is
-    still unimplemented and remains item 2's action, so what this module pins is
-    still the *before* side; the after side lives in
-    ``docs/validation/atmosphere_modtran_parity.md`` §2.14(b) and §2.15.
+    measured band edges, making the share arithmetic on the table — the
+    in-feature floor above the adjacent clean window's, 0.8317 — rather than
+    fitted.  **The placement landed 2026-08-30** on the owner's go: that share
+    of the in-band gas floor rides a 25 km ozone layer, the remainder keeps the
+    well-mixed pressure-broadened placement, and the share follows the CU-267
+    smoothstep at the band edges so the placement is continuous in λ.  Measured
+    on the same fourteen pairs: RMS |ln ratio| 0.3581 → 0.1389, warm pairs
+    12/14 → 5/14, and the τ-derived share lands 3.1 % off the free optimum it
+    was never fitted to.  The tables are in
+    ``docs/validation/atmosphere_modtran_parity.md`` §2.14(b).
 
 Item 3 — grazing-arc opacity distribution
     M6–M8 were evaluated as candidate anchors and cannot discriminate: at
@@ -56,11 +59,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from radiant.atmosphere.emission_temperature import segment_emission_temperature_K
 from radiant.atmosphere.modtran import Tape7Reader
 from radiant.atmosphere.near_horizon_air_mass import (
     apply_species_air_mass,
     near_horizon_species_air_mass,
 )
+from radiant.atmosphere.ozone_placement import OZONE_LAYER_CENTRE_M, OZONE_LAYER_WIDTH_M
 from radiant.atmosphere.segment_simple import column_segment_optical_depth
 from radiant.atmosphere.segments import ColumnSegmentSpec
 from radiant.atmosphere.simple import (
@@ -230,11 +235,17 @@ def _e_sky_variant(
 #: ORDERING — which is what the item-1 ruling rests on — is unchanged:
 #: (D, z_em) 2.0776 → 2.0416, (sec, z_em) 1.9233 → 1.8985,
 #: (D, layered) 2.1080 → 2.0703, (sec, layered) 1.9385 → 1.9121.
+#: Repinned again 2026-08-30 (CU-324 item 2, the O₃ placement split).  Only the
+#: two ``layered`` corners move — they are the ones that call the emission
+#: temperature — and by under 0.1 %: (D, layered) 2.0703 → 2.0724,
+#: (sec, layered) 1.9121 → 1.9115.  The two ``z_em`` corners, one of which is
+#: the shipped form, are bit-identical.  The ordering the ruling rests on is
+#: unchanged.
 _LADDER_RMS = {
     ("D", "z_em"): 2.0416,
     ("sec", "z_em"): 1.8985,
-    ("D", "layered"): 2.0703,
-    ("sec", "layered"): 1.9121,
+    ("D", "layered"): 2.0724,
+    ("sec", "layered"): 1.9115,
 }
 
 #: The corner that ships (CU-324 item 1's ruled outcome).
@@ -371,22 +382,36 @@ _MATCHED_PAIRS: dict[str, tuple[str, str, float, float, float]] = {
     "H5": ("lower", "midlat_summer", 0.0, 1.0e5, 48.2),
 }
 
-#: Measured 2026-08-29: RMS |ln ratio| of the shipped model against MODTRAN over
-#: the fourteen matched pairs, in the O₃ feature and in the whole LWIR band.  The
-#: feature is three times worse than the band that contains it — the asymmetry
-#: that makes the mis-placement worth a CU rather than a shrug.
-#: Repinned 2026-08-29 (CU-330).  The feature reads much worse than it did, and
-#: the increase is the finding rather than a regression in what this measures:
-#: the retired flat 8.00–10.00 µm region carried only 0.2751 of in-band floor OD
-#: where the O₃ band actually holds 0.8877, so it under-supplied the very opacity
-#: whose mis-placement this test reads.  With the band identified, the warm bias
-#: it was always hiding shows at full size — 0.1519 → 0.3581, worst pair
-#: 1.44× → 1.95× (H1) — while the LWIR band mean containing it barely moves
-#: (0.2611 → 0.2632), which is the same concealment the second test asserts.
-#: Fixing it is CU-324 item 2's own action, which CU-330 unblocked by making the
-#: O₃ share arithmetic (0.832) rather than free.
-_O3_FEATURE_RMS_SHIPPED = 0.3581
-_LWIR_BAND_RMS_SHIPPED = 0.2632
+#: The two historical readings of the un-split placement, kept as the record of
+#: what item 2 fixed.  Neither is reproducible from the shipped code any more —
+#: the split ships — so both are asserted indirectly, through the improvement
+#: factor the shipped number has to beat.
+#:
+#: * ``0.1519`` — measured 2026-08-29 against the *pre*-CU-330 τ table, whose
+#:   flat 8.00–10.00 µm slab carried only 0.2751 of in-band floor OD where the
+#:   band actually holds 0.8877.  It under-supplied the opacity and thereby
+#:   under-supplied the error.
+#: * ``0.3581`` — the same measurement after CU-330 identified the band.  With
+#:   the real opacity present but still riding the well-mixed 4 km profile, the
+#:   warm bias showed at full size (worst pair 1.44× → 1.95×, H1) while the
+#:   LWIR band mean containing it barely moved (0.2611 → 0.2632).  This was the
+#:   deliberate interim regression CU-330 recorded and this item clears.
+_O3_FEATURE_RMS_BEFORE_CU330 = 0.1519
+_O3_FEATURE_RMS_UNSPLIT = 0.3581
+
+#: Measured 2026-08-30 on the shipped split: RMS |ln ratio| over the fourteen
+#: matched pairs, in the O₃ feature and in the whole LWIR band.
+_O3_FEATURE_RMS_SHIPPED = 0.1389
+_LWIR_BAND_RMS_SHIPPED = 0.2522
+
+#: The independent optimum of the same parity, and the ruling's tolerance.
+#: The owner's 2026-08-30 go was "implement at the τ-derived share, stop and
+#: flag if the derived share materially underperforms (> 15 % worse than the
+#: optimum)".  Measured: the flat-band sweep bottoms at 0.1347 (share 0.80),
+#: and the shipped derived share lands 3.1 % above it — a share read off two
+#: τ-table entries, scored against a parity it was never fitted to.
+_O3_FEATURE_RMS_OPTIMUM = 0.1347
+_DERIVED_SHARE_TOLERANCE = 0.15
 
 
 def _model_thermal(run: str, lam: np.ndarray) -> np.ndarray:
@@ -407,37 +432,121 @@ def _model_thermal(run: str, lam: np.ndarray) -> np.ndarray:
     return (1.0 - np.exp(-od)) * _planck(lam, t_eff)
 
 
-@pytest.mark.level2
-def test_the_ozone_feature_is_biased_warm_on_every_matched_pair() -> None:
-    """9.4–9.9 µm parity of the shipped gas-floor placement.
-
-    Every one of the fourteen pairs over-predicts, and the deep columns worst
-    (O5 reaches 1.44×) — the signature of emission placed too low, i.e. too
-    warm, which is exactly what lumping O₃ with the well-mixed gases at the
-    pressure-broadened 4 km scale height does to a band whose real emission
-    sits near 25 km.  A one-sided bias is the evidence; a two-sided scatter
-    would have been noise.
-    """
+def _feature_ratios() -> list[float]:
     ratios = []
     for run in _MATCHED_PAIRS:
         lam, _tau, l_mod = _read(run)
-        ratio = _band_mean(lam, _model_thermal(run, lam), *_O3_FEATURE) / _band_mean(
-            lam, l_mod, *_O3_FEATURE
+        ratios.append(
+            _band_mean(lam, _model_thermal(run, lam), *_O3_FEATURE)
+            / _band_mean(lam, l_mod, *_O3_FEATURE)
         )
-        ratios.append(ratio)
-    assert min(ratios) > 0.80, f"an O₃-feature ratio fell out of the measured band: {min(ratios)}"
-    warm = [r for r in ratios if r > 1.0]
-    assert len(warm) >= 12, f"the warm bias broke up: only {len(warm)}/14 pairs over-predict"
-    assert _rms_log(ratios) == pytest.approx(_O3_FEATURE_RMS_SHIPPED, abs=0.002)
+    return ratios
 
 
 @pytest.mark.level2
-def test_the_ozone_feature_error_hides_inside_the_lwir_band_mean() -> None:
-    """Why the CU-321 LWIR scoreboard never saw this.
+def test_the_ozone_placement_split_removed_the_one_sided_warm_bias() -> None:
+    """9.4–9.9 µm parity of the **shipped** placement, after item 2 landed.
 
-    The feature is 0.5 µm of a 4 µm band, so a placement error worth 15 % there
-    is worth ~3 % in the band mean the CU-321 anchors report.  This is the
-    measurement that justifies anchoring item 2 on the sub-band.
+    The defect was a one-sided warm bias: with O₃ lumped into the well-mixed
+    floor at the pressure-broadened 4 km scale height, twelve of the fourteen
+    pairs over-predicted and the deepest columns worst (1.95× on H1) — the
+    signature of emission placed too low.  Placing the τ-derived ozone share
+    on the 25 km layer cuts the RMS by 2.6× and breaks the one-sidedness: five
+    pairs run warm, nine cool, which is scatter rather than bias.
+
+    A regression that re-lumps ozone fails on all three assertions at once —
+    the RMS, the improvement factor, and the warm/cool balance.
+    """
+    ratios = _feature_ratios()
+    assert min(ratios) > 0.70, f"an O₃-feature ratio fell out of the measured band: {min(ratios)}"
+    warm = [r for r in ratios if r > 1.0]
+    assert 3 <= len(warm) <= 8, (
+        f"{len(warm)}/14 pairs over-predict — the bias is one-sided again, as it was at 12/14"
+    )
+    assert _rms_log(ratios) == pytest.approx(_O3_FEATURE_RMS_SHIPPED, abs=0.002)
+    assert _rms_log(ratios) < _O3_FEATURE_RMS_UNSPLIT / 2.0, (
+        "the split no longer halves the un-split parity — the placement has regressed"
+    )
+    # It also beats the reading from before the τ side was identified at all,
+    # which the CU-330 interim regression had temporarily undone.
+    assert _rms_log(ratios) < _O3_FEATURE_RMS_BEFORE_CU330
+
+
+@pytest.mark.level2
+def test_the_tau_derived_share_lands_within_the_ruling_tolerance_of_the_optimum() -> None:
+    """The zero-fit claim, as a measurement rather than an assertion of intent.
+
+    The ozone share is arithmetic on two committed τ-table entries; it was
+    never fitted to this parity.  Scoring it *against* this parity, and against
+    the best any share achieves on it, is what makes it a corroborated number
+    rather than a tuned one — and it is the owner's stop-and-flag criterion:
+    if the derived share is ever more than 15 % worse than the free optimum,
+    the construction has stopped being defensible and item 2 re-opens.
+
+    The optimum is re-derived here from a three-point bracket rather than
+    trusted from the comment, so the tolerance is measured on every run.
+    """
+    shipped = _rms_log(_feature_ratios())
+    bracket = [_rms_log(_flat_share_ratios(share)) for share in (0.70, 0.80, 0.90)]
+    optimum = min(bracket)
+    assert optimum == pytest.approx(_O3_FEATURE_RMS_OPTIMUM, abs=0.002)
+    assert bracket[1] < bracket[0] and bracket[1] < bracket[2], (
+        "the sweep no longer brackets its optimum at share 0.80 — re-measure"
+    )
+    penalty = shipped / optimum - 1.0
+    assert penalty < _DERIVED_SHARE_TOLERANCE, (
+        f"the τ-derived share is {penalty:.1%} worse than the free optimum, past the "
+        f"{_DERIVED_SHARE_TOLERANCE:.0%} the 2026-08-30 ruling allows — stop and flag"
+    )
+
+
+def _flat_share_ratios(share: float) -> list[float]:
+    """Feature ratios with a flat share across the band, bypassing the table.
+
+    The comparison arm for the test above: the same placement machinery driven
+    by a chosen constant instead of by the τ table's own arithmetic.
+    """
+    ratios = []
+    for run in _MATCHED_PAIRS:
+        escape, profile, h_low, h_high, zeta_deg = _MATCHED_PAIRS[run]
+        lam, _tau, l_mod = _read(run)
+        atm = _atm(profile)
+        spec = ColumnSegmentSpec(
+            h_low_m=h_low, h_high_m=h_high, zeta_low_rad=math.radians(zeta_deg)
+        )
+        od, _air_mass, _lengths, species_od = column_segment_optical_depth(atm, lam, spec)
+        t_eff = segment_emission_temperature_K(
+            lam,
+            h_low_m=h_low,
+            h_high_m=h_high,
+            od_slant_mol=species_od["mol"],
+            od_slant_aer=species_od["aer"],
+            od_slant_h2o=species_od["h2o"],
+            od_slant_gas=species_od["gas"],
+            ozone_share=np.where((lam >= _O3_FEATURE[0]) & (lam <= _O3_FEATURE[1]), share, 0.0),
+            ozone_layer_centre_m=OZONE_LAYER_CENTRE_M,
+            ozone_layer_width_m=OZONE_LAYER_WIDTH_M,
+            scale_height_mol_m=H_MOL_M,
+            scale_height_aer_m=H_AER_M,
+            scale_height_h2o_m=H_H2O_M,
+            temperature_profile=atm._profile_temperature_K,
+            escape=escape,
+        )
+        model = (1.0 - np.exp(-od)) * _planck(lam, t_eff)
+        ratios.append(_band_mean(lam, model, *_O3_FEATURE) / _band_mean(lam, l_mod, *_O3_FEATURE))
+    return ratios
+
+
+@pytest.mark.level2
+def test_the_ozone_feature_error_hid_inside_the_lwir_band_mean() -> None:
+    """Why the CU-321 LWIR scoreboard never saw this — and still would not.
+
+    The feature is 0.5 µm of a 4 µm band, so the placement change worth 2.6× in
+    the feature is worth 4 % in the band mean the CU-321 anchors report
+    (0.2632 → 0.2522).  That asymmetry is the measurement justifying anchoring
+    item 2 on the sub-band, and it cuts both ways: it is also why a narrow-band
+    product centred on 9.6 µm carried a 15 % error that no broad-band
+    scoreboard could have reported.
     """
     lwir = []
     for run in _MATCHED_PAIRS:
@@ -448,6 +557,10 @@ def test_the_ozone_feature_error_hides_inside_the_lwir_band_mean() -> None:
     assert _rms_log(lwir) == pytest.approx(_LWIR_BAND_RMS_SHIPPED, abs=0.002)
     # The feature is a *sub*-band: it must be narrow enough to be masked.
     assert (_O3_FEATURE[1] - _O3_FEATURE[0]) < 0.2 * (_LWIR[1] - _LWIR[0])
+    # The band mean moved by under a tenth of what the feature moved.
+    band_move = abs(_LWIR_BAND_RMS_SHIPPED - 0.2632)
+    feature_move = abs(_O3_FEATURE_RMS_SHIPPED - _O3_FEATURE_RMS_UNSPLIT)
+    assert band_move < 0.1 * feature_move
 
 
 # ---------------------------------------------------------------------------

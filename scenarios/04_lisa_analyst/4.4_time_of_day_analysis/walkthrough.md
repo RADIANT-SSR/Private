@@ -70,15 +70,19 @@ differential.)
 
 | Local time | T_target | T_background | ΔT | Contrast SNR | Detectable? |
 |-----------|----------|--------------|-----|--------------|-------------|
-| 00:00 | 285.0 K | 289.1 K | −4.06 K | −98.1 | yes (cold target) |
+| 00:00 | 285.0 K | 289.1 K | −4.06 K | −98.3 | yes (cold target) |
 | 06:00 | 292.0 K | 289.1 K | +2.97 K | +18.5 | yes |
-| 12:00 | 309.0 K | 298.9 K | +10.06 K | +140.4 | yes (hot target) |
+| 12:00 | 309.0 K | 298.9 K | +10.06 K | +140.6 | yes (hot target) |
 | 18:00 | 302.0 K | 298.9 K | +3.03 K | +17.8 | yes |
 | 21:00 | 292.0 K | 294.0 K | −1.98 K | −66.0 | yes |
 
-*Numbers refreshed 2026-08-29 from the unmodified runner — **CU-330**, the
+*Numbers refreshed 2026-08-30 from the unmodified runner — **CU-324 item 2**,
+the 9.6 µm ozone emission-placement split, worth +0.1 % on contrast SNR at
+every hour (the background and its shot noise fall when the ozone band emits
+from 25 km) and nothing on the temperatures. Previous vintage 2026-08-29 —
+**CU-330**, the
 9.6 µm ozone region split, worth −0.5 % on contrast SNR at every hour and
-nothing on the temperatures; previous vintage 2026-08-02. The invariant this
+nothing on the temperatures. The invariant this
 scenario exists to demonstrate survives it too: both temperature crossovers,
 both radiance crossovers and both washout windows are bit-identical, because a
 τ change scales the contrast and cannot move its zeros. Dominant historical
@@ -90,8 +94,8 @@ hour, while median NEDT eases 36.4 → 36.7 mK on the slightly lower signal.
 **Every structural result is bit-for-bit unchanged** — both temperature
 crossovers, both radiance crossovers, and both washout windows sit where they
 did, which is the point the scenario exists to make: τ and path radiance scale
-the contrast but cannot move its zeros. That invariant has now survived two
-consecutive atmosphere landings in opposite directions.*
+the contrast but cannot move its zeros. That invariant has now survived three
+consecutive atmosphere landings, in alternating directions.*
 
 - **Physical-temperature crossovers (ΔT = 0):** 04:12 and 19:48.
 - **Radiance crossovers (contrast = 0):** 05:12 and 18:48 — **offset ~1 h**

@@ -108,7 +108,7 @@ source/shapes/         # box, cone, cylinder, flat_plate, sphere — projected_a
                        # implementations for sub-pixel target geometry
 ```
 
-### `atmosphere/` — 40 source + 46 tests
+### `atmosphere/` — 41 source + 47 tests
 
 Stage 2: τ_atm, L_path, L_atm.
 
@@ -134,6 +134,8 @@ atmosphere/
 ├── level_whole_path.py  # the whole traversed level LOS as one optical path (CU-224)
 ├── emission_temperature.py  # height-resolved T_eff(λ) of a path segment — the layered
                        # formal solution behind the Kirchhoff thermal term (CU-321)
+├── ozone_placement.py   # ozone share of the calibrated gas floor (arithmetic on the τ
+                       # table) + the 25 km layer it is placed on (CU-324 item 2)
 ├── turbulence.py        # Kolmogorov long-exposure turbulence MTF
 ├── cn2_profiles.py      # Cn²(h) profile family contract + selector
 ├── cn2_hufnagel_valley.py  # Hufnagel-Valley Cn²(h) preset (HV-5/7 defaults)

@@ -119,12 +119,12 @@ pill reads `Δh  49 m`.
 
 | Range [km] | θ_o [deg] | Δh [m] | guard | τ MWIR [–] | signal [e⁻] | noise [e⁻ rms] | SNR [–] | det. range [km] | well margin [dB] |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 25 | 90.11224 | 12.2 | clean | 0.6334 | 5.3375e5 | 733.7 | 727.5 | 198.9 | 5.5 |
-| 40 | 90.17958 | 31.3 | clean | 0.4821 | 1.5862e5 | 404.0 | 392.6 | 198.9 | 16.0 |
-| 50 | 90.22448 | 49.0 | clean | 0.4020 | 8.4631e4 | 298.7 | 283.3 | 198.9 | 21.5 |
-| 70 | 90.31427 | 96.0 | clean | 0.2796 | 3.0025e4 | 186.2 | 161.2 | 198.9 | 30.5 |
-| 75 | 90.33672 | 110.2 | **warn** | 0.2554 | 2.3886e4 | 169.0 | 141.3 | 198.9 | 32.4 |
-| 100 | 90.44896 | 195.9 | **warn** | 0.1623 | 8.5374e3 | 115.4 | 74.0 | 198.7 | 41.4 |
+| 25 | 90.11224 | 12.2 | clean | 0.6335 | 5.3371e5 | 733.7 | 727.5 | 198.9 | 5.5 |
+| 40 | 90.17958 | 31.3 | clean | 0.4821 | 1.5860e5 | 404.0 | 392.6 | 199.0 | 16.0 |
+| 50 | 90.22448 | 49.0 | clean | 0.4020 | 8.4616e4 | 298.7 | 283.3 | 199.0 | 21.5 |
+| 70 | 90.31427 | 96.0 | clean | 0.2796 | 3.0017e4 | 186.2 | 161.2 | 199.0 | 30.5 |
+| 75 | 90.33672 | 110.2 | **warn** | 0.2554 | 2.3879e4 | 169.0 | 141.3 | 198.9 | 32.4 |
+| 100 | 90.44896 | 195.9 | **warn** | 0.1623 | 8.5343e3 | 115.4 | 74.0 | 198.7 | 41.4 |
 
 *Numbers refreshed 2026-08-30. One mover since the previous vintage: **CU-335**
 re-fitted the calibrated gas table's VIS/NIR/SWIR rows against the post-CU-253
@@ -133,6 +133,14 @@ Rayleigh. This is a 3–5 µm level path, so the reach is the λ⁻⁴ tail in t
 (0.4021 → 0.4020 at 50 km), the nominal detection range 199.0 → 198.9 km
 (−0.05 %), and the effective extinction coefficient α_eff rises in the fifth
 digit (0.01822 → 0.01823 km⁻¹ at 50 km). No verdict moves.*
+
+*Composed with CU-335 on the merged tree, 2026-08-31: CU-335 and CU-324 item 2 were
+each measured on a tree that did not contain the other, and re-running on `main` with
+both present moves the fourth significant figure back — τ at 25 km 0.6334 → 0.6335,
+every signal rung by ≈ 4 × 10⁻⁵ relative (50 km: 8.4631e4 → 8.4616e4 e⁻), and the
+detection range at the 40/50/70 km rungs 198.9 → 199.0 km, i.e. the −0.05 % step the
+CU-335 branch measured is cancelled on the composed tree. τ, noise, SNR and well
+margin at every other rung, and every verdict in this document, are unchanged.*
 
 *Prior vintage, 2026-08-02, pre-CU-321. Dominant mover: **CU-321** — the height-resolved
 emission temperature. This is a **level** path, and a level arm is isothermal,
@@ -195,7 +203,7 @@ referenced at 100 km, a 1.48× spread on one unchanged design**, which is what
 CU-263 was filed against. The nominal 50 km answer moved **150.9 km → 199.0 km
 (+31.9 %)** with the fix. The residual 0.3 km spread across the sweep is the
 band-mean τ model's own reference dependence ($\alpha_{eff}$ moves in the fifth
-digit, 0.01827 → 0.01819 km⁻¹), not the noise treatment.
+digit, 0.01826 → 0.01818 km⁻¹), not the noise treatment.
 
 Cross-check: re-solving against the target-free floor **alone** (sky background
 shot + read + quantisation + dark = **69.2 e⁻ rms**, dropping the target's own
@@ -331,9 +339,12 @@ which is the expected sign — the model was short of band opacity, and adding i
 helps most where the path is long enough for that shortfall to compound.*
 
 The MWIR α model column is now the same quantity the sweep table in §4.2 reports
-as `α_eff` (0.01827 km⁻¹ at 25 km, 0.01819 km⁻¹ at 100 km) — the two agree to
-the printed digit, which is the check that §4.5 and §4.2 are evaluating one
-atmosphere and not two.
+as `α_eff` (0.01826 km⁻¹ at 25 km, 0.01818 km⁻¹ at 100 km) — the two agree to
+0.06 %, which is the check that §4.5 and §4.2 are evaluating one atmosphere and
+not two. (They no longer agree to the last *printed* digit, as they did before the
+2026-08-31 composition: §4.2 band-averages τ on the chain's own wavelength grid and
+§4.5 on the MODTRAN deck's wavenumber grid, so a band mean over a spectrum that has
+just gained structure need not land on the same fifth digit twice.)
 
 The LWIR ratios reproduce the values pinned in
 `tests/integration/test_uplooking_horizontal_anchors.py::

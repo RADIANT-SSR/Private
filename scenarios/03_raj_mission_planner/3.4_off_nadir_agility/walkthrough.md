@@ -102,11 +102,18 @@ angle:
 
 | Source | Value [e-] |
 |--------|-----------|
-| Signal shot | 86.98 |
+| Signal shot | 57.81 |
 | Dark shot | 0.12 |
 | Read noise | 6.00 |
 | Quantization | 1.44 |
 | Nearfield shot | 0.00 |
+
+*Signal shot refreshed 2026-08-31 from the unmodified runner: 86.98 → 57.81 e⁻.
+This table was the one **CU-335** missed — the re-fit dropped nadir band-mean τ
+0.7243 → 0.6488 and with it the signal, so `signal_shot ∝ √signal` fell in step
+with the SNR (86.8 → 57.5) that the sweep table below already records. The three
+signal-independent terms are untouched, which is the check that this is the same
+radiometric mover and nothing detector-side.*
 
 Note: there is **no separate background_shot term** — this extended scene is one
 radiance field, so its shot noise is `signal_shot` alone (ADR-0002 Decision #13).
@@ -191,7 +198,7 @@ and does not compute along-track GSD separately.
 A surprising result: SNR *increases* from 57.5 at nadir to 68.7 at 45 deg.
 This is counterintuitive but physically correct.  The mechanism:
 
-1. **Atmospheric transmission decreases** (-12% at 45 deg) → fewer target photons
+1. **Atmospheric transmission decreases** (-15.9% at 45 deg) → fewer target photons
 2. **Path radiance increases** with longer path → more background photons reach sensor
 3. **Total at-aperture flux increases** because path radiance adds more photons
    than the transmission loss removes
@@ -225,11 +232,11 @@ which degrades along-track resolution disproportionately.
 
 ### Atmospheric Transmission
 
-Band-mean transmission drops from 0.6488 at nadir to 0.5455 at 45 deg (-12%).  The
+Band-mean transmission drops from 0.6488 at nadir to 0.5455 at 45 deg (-15.9%).  The
 physics:
 
 - Air mass = sec(theta) at 45 deg = 1.414 (flat-Earth) → 1.358 (spherical)
-- τ(45 deg) ≈ τ(nadir)^(air_mass) = 0.6488^1.358 ≈ 0.559, against the 0.546 the
+- τ(45 deg) ≈ τ(nadir)^(air_mass) = 0.6488^1.358 ≈ 0.556, against the 0.546 the
   chain reports — the small shortfall is the band-mean of a λ-dependent τ not being
   exactly the band-mean τ raised to the air mass
 - This is consistent with Beer-Lambert exponential absorption

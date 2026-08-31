@@ -117,9 +117,16 @@ The trend (MTF decreasing with IPC) matches well, confirming that the model capt
 
 | Metric | Previous Status | Current Status |
 |--------|----------------|----------------|
-| NEDT | Not available | `result.metrics["nedt_K"]` = 35.6 mK |
-| NIIRS | Not available | `result.metrics["niirs"]` = 4.87 |
+| NEDT | Not available | `result.metrics["nedt_K"]` = 38.1 mK |
+| NIIRS | Not available | `result.metrics["niirs"]` = 4.82 |
 | GSD | Manual calculation | `result.metrics["gsd_cross_track_m"]` = 7.50 m |
 | Q parameter | Manual calculation | `result.metrics["q_center"]` = 0.944 |
 | Strehl | Not available | `result.metrics["strehl"]` = 1.000 |
 | MTF budget | Not available | `mtf_budget.per_term_at_nyquist` with per-component values |
+
+*NEDT and NIIRS refreshed 2026-08-31 from the unmodified runner. This table was
+written when the two metrics first became available and kept their then-current
+values (35.6 mK / 4.87) through the CU-321/324/335 refreshes that moved them;
+the body of this walkthrough already carried 38.1 mK / 4.82. The columns record
+metric *availability*, not a result — the values are quoted only as evidence the
+metric exists, and they now match the runner again.*

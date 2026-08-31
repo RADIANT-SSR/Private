@@ -49,8 +49,18 @@ SNR 1 363.6 → 1 357.8, NEDT 164.7 → 165.4 mK. The **verdict improves slightl
 in LWIR's favour and for the reason the band trade is about: a smaller background
 carries proportionally less 3 % clutter, so LWIR SCNR rises 22.8 → 23.2 at 600 K
 and 126.4 → 128.8 at 1200 K while the fire contrast (1 217 206 e⁻) does not move
-at all. **Every MWIR figure is bit-identical** — the split touches 9.4–9.9 µm and
-nothing else — and the 400 K LWIR miss is unchanged at SCNR 1.1, P_d 0.000.
+at all. **Every MWIR figure was bit-identical on the branch** — the split touches
+9.4–9.9 µm and nothing else — and the 400 K LWIR miss is unchanged at SCNR 1.1,
+P_d 0.000.
+
+*Composed with CU-335 on the merged tree, 2026-08-31: re-run on `main` after both
+siblings landed, the MWIR column is no longer bit-identical — it moves in the fifth
+significant figure (pixel signal 228 481 → 228 465 e⁻, contrast 220 950 → 220 935 e⁻,
+SCNR at 1200 K 2 003.9 → 2 003.8, i.e. ~7 × 10⁻⁵ relative). CU-324 item 2 and CU-335
+were each measured against a tree that did not contain the other; CU-335's λ⁻⁴ tail
+reaches the 3.5–5.0 µm floors, which is the MWIR path the branch-side measurement
+could not see. No SCNR, P_d, saturation temperature or verdict in this document
+changes.*
 
 Prior vintage, refreshed 2026-08-29. Two movers, both
 small here, both landed 2026-08-29. **CU-330** split the flat 8–10 µm gas region
@@ -77,8 +87,8 @@ rather than the column's near-surface temperature, which took pixel signal LWIR
 
 | Quantity | MWIR | LWIR |
 |----------|-----:|-----:|
-| Pixel signal [e⁻] | 228,481 | 2,962,748 |
-| Contrast (fire − forest) [e⁻] | 220,950 | 1,217,206 |
+| Pixel signal [e⁻] | 228,465 | 2,962,748 |
+| Contrast (fire − forest) [e⁻] | 220,935 | 1,217,206 |
 | Well fill [%] | 5.7 | 24.7 |
 | Total noise [e⁻ RMS] | 541.6 | 52,411.7 |
 | — of which clutter [e⁻ RMS] | 225.9 | 52,366.3 |
@@ -105,7 +115,7 @@ different signal-to-clutter.
 | 600 | 408.0 | no | 23.2 | no | 1.000 | 1.000 |
 | 800 | 924.2 | no | 54.2 | no | 1.000 | 1.000 |
 | 1000 | 1,464.3 | no | 90.1 | no | 1.000 | 1.000 |
-| 1200 | 2,003.9 | **YES** | 128.8 | no | 1.000 | 1.000 |
+| 1200 | 2,003.8 | **YES** | 128.8 | no | 1.000 | 1.000 |
 
 MWIR detects the 5 m² fire with P_d ≈ 1 at every temperature; **LWIR
 misses the coolest fires** — at 400 K its SCNR is 1.0, far below the

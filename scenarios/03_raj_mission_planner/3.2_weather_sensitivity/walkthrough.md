@@ -53,6 +53,13 @@ signal by 14 e⁻ in 252,000, SNR and NIIRS unmoved at the quoted precision. Eve
 GO/NO-GO verdict, every ΔNIIRS and the whole 36-cell grid are unchanged. Recorded
 because the table moved, not because the scenario did.*
 
+*Composed with CU-335 on the merged tree, 2026-08-31: CU-335 and CU-324 item 2 were
+each measured against a tree that did not contain the other, and on `main` with both
+present the fourth decimal moves once more — PWV-sweep τ 0.5929 → 0.5930 at 0.50 cm
+and 0.4929 → 0.4930 at 3.07 cm, and the baseline noise-budget signal 251,999 →
+251,985 e⁻ (≈ 6 × 10⁻⁵ relative). The visibility sweep, the named-condition table,
+the 36-cell grid and every GO verdict are unchanged.*
+
 *Prior vintage, 2026-08-29 (pre-CU-324). Numbers from the unmodified runner (previous vintage
 2026-08-02, pre-CU-324). One mover: **CU-324** — `E_sky_thermal`'s
 flux-diffusivity exponent is now the geometric `sec 48.2° = 1.50030` (the secant
@@ -73,9 +80,9 @@ SNR 554.8 → 500.8.*
 ### PWV Sweep (visibility = 23 km)
 | PWV [cm] | τ_band [—] | Signal [e-] | SNR [—] | NIIRS [—] | ΔNIIRS [—] |
 |---|---|---|---|---|---|
-| 0.50 | 0.5929 | 259,167 | 508.7 | 4.50 | +0.00 |
+| 0.50 | 0.5930 | 259,167 | 508.7 | 4.50 | +0.00 |
 | 1.46 | 0.5490 | 251,533 | 501.1 | 4.49 | -0.01 |
-| 3.07 | 0.4929 | 241,647 | 491.2 | 4.48 | -0.02 |
+| 3.07 | 0.4930 | 241,647 | 491.2 | 4.48 | -0.02 |
 | 5.00 | 0.4396 | 232,030 | 481.3 | 4.46 | -0.04 |
 
 *Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
@@ -124,7 +131,7 @@ raises the signal and with it `signal_shot` ∝ √signal (501.2 → 502.0 e⁻ 
 the fixed read and quantization terms are untouched and so fall very slightly
 as a fraction, which the 99.8 % rounding does not resolve.*
 
-Signal shot noise dominates almost entirely (99.8%). Read noise and dark current are negligible at this signal level. There is **no separate background_shot term** — the extended MWIR scene is one radiance field, so its shot noise is `signal_shot` alone (ADR-0002 Decision #13). Removing the previously-equal background term is what raised SNR versus older baselines. **Note**: `nearfield_shot = 0` — scalar-mode refractive-lump assumption does not model mirror self-emission (see Gap 8). Baseline signal = 251,999 e⁻, total noise = 502.4 e⁻ RMS, SNR = 501.6, NIIRS = 4.49, RER = 0.5964, MTF@Nyquist = 0.2509 (RER and MTF unchanged — CU-324, like CU-321 and CU-224 before it, is purely radiometric).
+Signal shot noise dominates almost entirely (99.8%). Read noise and dark current are negligible at this signal level. There is **no separate background_shot term** — the extended MWIR scene is one radiance field, so its shot noise is `signal_shot` alone (ADR-0002 Decision #13). Removing the previously-equal background term is what raised SNR versus older baselines. **Note**: `nearfield_shot = 0` — scalar-mode refractive-lump assumption does not model mirror self-emission (see Gap 8). Baseline signal = 251,985 e⁻, total noise = 502.4 e⁻ RMS, SNR = 501.6, NIIRS = 4.49, RER = 0.5964, MTF@Nyquist = 0.2509 (RER and MTF unchanged — CU-324, like CU-321 and CU-224 before it, is purely radiometric).
 
 ## Physics Discussion
 

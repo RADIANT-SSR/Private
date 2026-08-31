@@ -39,12 +39,21 @@ Raj, mission planner. He has a baselined MWIR reconnaissance sensor on a 500 km 
 ### Visibility Sweep (PWV = 1.4 cm)
 | Visibility [km] | τ_band [—] | Signal [e-] | SNR [—] | NIIRS [—] |
 |---|---|---|---|---|
-| 2.0 | 0.4737 | 240,680 | 490.2 | 4.47 |
-| 5.3 | 0.5256 | 248,256 | 497.8 | 4.48 |
-| 23.1 | 0.5517 | 252,002 | 501.6 | 4.49 |
-| 100.0 | 0.5579 | 252,888 | 502.5 | 4.49 |
+| 2.0 | 0.4736 | 240,667 | 490.2 | 4.47 |
+| 5.3 | 0.5256 | 248,242 | 497.8 | 4.48 |
+| 23.1 | 0.5516 | 251,988 | 501.6 | 4.49 |
+| 100.0 | 0.5578 | 252,874 | 502.5 | 4.49 |
 
-*Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
+*Numbers refreshed 2026-08-30. One mover across all four tables in this
+document: **CU-335** re-fitted the calibrated gas table's VIS/NIR/SWIR rows
+against the post-CU-253 Rayleigh. This is a 3–5 µm scene, so its reach is the
+λ⁻⁴ tail in the 2.40–5.00 µm floors (+0.0010 / +0.0005 / +0.0001 OD): band-mean
+τ falls in the fourth decimal (0.5517 → 0.5516 at the standard condition),
+signal by 14 e⁻ in 252,000, SNR and NIIRS unmoved at the quoted precision. Every
+GO/NO-GO verdict, every ΔNIIRS and the whole 36-cell grid are unchanged. Recorded
+because the table moved, not because the scenario did.*
+
+*Prior vintage, 2026-08-29 (pre-CU-324). Numbers from the unmodified runner (previous vintage
 2026-08-02, pre-CU-324). One mover: **CU-324** — `E_sky_thermal`'s
 flux-diffusivity exponent is now the geometric `sec 48.2° = 1.50030` (the secant
 of the angle the up-looking MODTRAN downwelling decks were run at) rather than
@@ -64,10 +73,10 @@ SNR 554.8 → 500.8.*
 ### PWV Sweep (visibility = 23 km)
 | PWV [cm] | τ_band [—] | Signal [e-] | SNR [—] | NIIRS [—] | ΔNIIRS [—] |
 |---|---|---|---|---|---|
-| 0.50 | 0.5930 | 259,182 | 508.7 | 4.50 | +0.00 |
-| 1.46 | 0.5491 | 251,547 | 501.1 | 4.49 | -0.01 |
-| 3.07 | 0.4930 | 241,661 | 491.2 | 4.48 | -0.02 |
-| 5.00 | 0.4397 | 232,043 | 481.3 | 4.46 | -0.04 |
+| 0.50 | 0.5929 | 259,167 | 508.7 | 4.50 | +0.00 |
+| 1.46 | 0.5490 | 251,533 | 501.1 | 4.49 | -0.01 |
+| 3.07 | 0.4929 | 241,647 | 491.2 | 4.48 | -0.02 |
+| 5.00 | 0.4396 | 232,030 | 481.3 | 4.46 | -0.04 |
 
 *Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
 2026-08-02, pre-CU-324). One mover: **CU-324**'s geometric downwelling exponent
@@ -81,13 +90,13 @@ the whole sweep rather than differentially with column water.*
 ### Named Weather Conditions — Go/No-Go
 | Condition | Visibility [km] | PWV [cm] | τ_band [—] | SNR [—] | NIIRS [—] | Status |
 |---|---|---|---|---|---|---|
-| Arctic dry | 50 | 0.5 | 0.5977 | 509.4 | 4.50 | GO |
+| Arctic dry | 50 | 0.5 | 0.5976 | 509.3 | 4.50 | GO |
 | Crystal clear | 100 | 0.8 | 0.5844 | 507.0 | 4.50 | GO |
-| Clear | 50 | 1.0 | 0.5732 | 505.2 | 4.49 | GO |
-| Standard | 23 | 1.4 | 0.5517 | 501.6 | 4.49 | GO |
+| Clear | 50 | 1.0 | 0.5731 | 505.2 | 4.49 | GO |
+| Standard | 23 | 1.4 | 0.5516 | 501.6 | 4.49 | GO |
 | Light haze | 10 | 2.0 | 0.5188 | 496.1 | 4.48 | GO |
 | Moderate haze | 5 | 3.0 | 0.4700 | 487.8 | 4.47 | GO |
-| Heavy haze | 2 | 4.0 | 0.4000 | 476.1 | 4.45 | GO |
+| Heavy haze | 2 | 4.0 | 0.4000 | 476.0 | 4.45 | GO |
 | Tropical humid | 10 | 5.0 | 0.4314 | 480.0 | 4.46 | GO |
 
 *Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage

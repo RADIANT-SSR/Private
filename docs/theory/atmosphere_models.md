@@ -183,21 +183,49 @@ The calibrated table, exactly as shipped (`_CALIBRATED_GAS_REGIONS`):
 
 | Region [µm] | `floor_od` | $k$ | $b$ | Region [µm] | `floor_od` | $k$ | $b$ |
 |---|---:|---:|---:|---|---:|---:|---:|
-| 0.30–0.45 | 0.0000 | 0.0000 | 1.000 | 3.10–3.50 | 0.1366 | 0.5824 | 0.457 |
-| 0.45–0.70 | 0.0000 | 0.0025 | 0.874 | 3.50–5.00 | 0.4497 | 0.0944 | 0.808 |
-| 0.70–1.30 | 0.0000 | 0.1245 | 0.434 | 5.00–7.50 | 1.3543 | 1.7850 | 0.530 |
+| 0.30–0.45 | 0.0000 | 0.0000 | 1.000 | **3.10–3.50** | **0.1371** | 0.5824 | 0.457 |
+| **0.45–0.70** | **0.1597** | 0.0025 | 0.874 | **3.50–5.00** | **0.4498** | 0.0944 | 0.808 |
+| **0.70–1.30** | **0.0517** | 0.1245 | 0.434 | 5.00–7.50 | 1.3543 | 1.7850 | 0.530 |
 | 1.30–1.50 | 0.0000 | 1.0933 | 0.327 | 7.50–8.00 | 0.9424 | 0.9210 | 0.673 |
-| 1.50–1.75 | 0.0133 | 0.0282 | 0.645 | **8.00–9.40** | **0.1494** | **0.0992** | **1.204** |
-| 1.75–2.05 | 0.0000 | 1.1186 | 0.216 | **9.40–9.90** | **0.8877** | **0.0409** | **1.701** |
-| 2.05–2.40 | 0.0725 | 0.0320 | 0.843 | **9.90–10.00** | **0.3013** | **0.0379** | **1.805** |
-| 2.40–3.10 | 0.7434 | 0.9666 | 0.560 | 10.00–12.00 | 0.0471 | 0.0602 | 1.750 |
+| **1.50–1.75** | **0.0219** | 0.0282 | 0.645 | 8.00–9.40 | 0.1494 | 0.0992 | 1.204 |
+| 1.75–2.05 | 0.0000 | 1.1186 | 0.216 | 9.40–9.90 | 0.8877 | 0.0409 | 1.701 |
+| **2.05–2.40** | **0.0749** | 0.0320 | 0.843 | 9.90–10.00 | 0.3013 | 0.0379 | 1.805 |
+| **2.40–3.10** | **0.7444** | 0.9666 | 0.560 | 10.00–12.00 | 0.0471 | 0.0602 | 1.750 |
 | | | | | 12.00–14.29 | 0.5956 | 0.1398 | 1.583 |
 
 Spectral shape *within* a region is flat: the model's contract is band-integrated
 fidelity, not line structure. Wavelengths outside 0.30–14.29 µm clamp to the edge regions'
 calibration.
 
-**The three bold rows are the CU-330 ozone split** (2026-08-29). Until then one flat row
+**The six bold `floor_od` values are the CU-335 re-fit** (2026-08-30). Those rows had
+been fitted on 2026-07-17 against a Rayleigh optical depth ~8× too large; because
+`floor_add` is the measured opacity *in excess of* Rayleigh + aerosol and is clamped at
+zero rather than allowed to go negative, the two visible rows clamped. CU-253 cut
+Rayleigh on 2026-07-28 and the fit was never re-run, so the model was ~15 % too
+transmissive in the visible until the re-fit. Only `floor_od` moves — $k$ and $b$ are
+solved in closed form from the MODTRAN ladder alone and never see the RADIANT model, so
+their bit-identity across the re-fit is the check that the calibration *reference*
+changed and the fit did not. Everything from 5.00 µm up, including the CU-330 ozone
+triple, is bit-identical; the 2.40–5.00 µm motion is the Rayleigh $\lambda^{-4}$ tail at
+$\le 0.001$ optical depths. Measured at the fit's own anchor (us_standard, rural 23 km,
+nadir full column) the model's 0.45–0.70 µm band optical depth went from 0.320 against
+MODTRAN's 0.456 to 0.476, and RMS band-mean τ parity over thirteen full-column anchors
+improved 5.3× on 0.45–0.70 µm and 4.2× on 0.40–0.90 µm.
+
+Two residuals are recorded rather than tuned away. First, `floor_add` is defined against
+a non-water reference the generator measures on a uniform-$\lambda$ grid while the
+ladder's band OD comes off the tape7 grid, which is uniform in wavenumber; where the
+spectrum is steep the two band means differ, and the difference lands in the floor
+(+0.022 OD at 0.45–0.70 µm, +0.011 at 0.70–1.30 µm, $\le 0.0004$ beyond 1.3 µm). That
+is why 0.70–1.30 µm parity moves slightly the *wrong* way (0.0312 → 0.0402) while the
+visible improves 5.3×. Second, 0.16 optical depths is far more than real 0.45–0.70 µm
+gas chemistry supplies — the O₃ Chappuis band contributes ~0.03 — so part of the visible
+floor is standing in for an aerosol-model deficit. The band total is right; the
+attribution between gas and aerosol is not resolved by this fit. Both are in the parity
+document's limitations register.
+
+**The 8.00–9.40 / 9.40–9.90 / 9.90–10.00 µm partition is the CU-330 ozone split**
+(2026-08-29). Until then one flat row
 spanned 8.00–10.00 µm — a 2 µm slab covering both the clean window and the O₃ ν₂
 fundamental — so the model carried no identifiable ozone opacity: on a nadir full column
 $\tau(9.60)$ and $\tau(8.70)$ agreed to six figures. Re-running the same fit on a
@@ -214,16 +242,24 @@ consequences follow directly from the table:
   document §2.14(b)). Placing it is CU-324 item 2, which this split unblocks and does not
   itself perform.
 
-Every other row is the original CU-161 vintage and was not re-run.
+**The whole table is now one vintage** — regenerated 2026-08-30 from a single run of the
+generator, which reproduces the CU-330 rows bit-for-bit. The per-row vintage split that
+stood between 2026-08-29 and 2026-08-30 is closed.
 
-*Record:* CU-161, resolved 2026-07-18; 8–10 µm re-partitioned by CU-330, 2026-08-29
-(owner-scheduled).
+*Record:* CU-161, resolved 2026-07-18; 8–10 µm re-partitioned by CU-330, 2026-08-29;
+VIS/NIR/SWIR floors re-fitted by CU-335, 2026-08-30 (both owner-scheduled).
 *Enforced by:* `src/radiant/atmosphere/tests/test_gas_region_blend.py::test_interior_wavelengths_keep_exact_table_coefficients`
 (the table is read back from the model, so a silent edit fails);
+`src/radiant/atmosphere/tests/test_gas_region_visnir_refit.py` (all seventeen rows
+pinned to the generator's output, the $k$/$b$ bit-identity, the $\ge$ 5 µm bit-identity,
+and the blend invariants under the new floors);
 `src/radiant/atmosphere/tests/test_gas_region_o3_split.py` (the partition, the ozone
 contrast, the derived share, the blend at the two new edges);
-`tests/integration/test_gas_region_o3_fit_cu330.py` (the three rows re-derived from the
-delivered ladder, and the τ parity before and after).
+`tests/integration/test_gas_region_o3_fit_cu330.py` (the three ozone rows re-derived
+from the delivered ladder, and the τ parity before and after);
+`tests/integration/test_gas_region_visnir_refit_cu335.py` (the five moved rows
+re-derived, the A1 anchor gap, the mixed-grid residual, and the τ parity before and
+after).
 
 ### 2.6 The region-edge smoothstep blend
 
@@ -241,7 +277,9 @@ c(\lambda) \;=\; c_{lo} + (c_{hi} - c_{lo})\,S(u)$$
 with $S(0) = 0$, $S(1) = 1$, $S'(0) = S'(1) = 0$ — the ramp meets the flat calibrated
 regions with matching value *and* slope — and $S(\tfrac12) = \tfrac12$, so the edge itself
 carries the exact arithmetic mean of the two regions. At the 0.70 µm edge, for instance,
-$k$ evaluates to $(0.0025 + 0.1245)/2 = 0.0635$ exactly.
+$k$ evaluates to $(0.0025 + 0.1245)/2 = 0.0635$ exactly and, since CU-335, `floor_od`
+to $(0.1597 + 0.0517)/2 = 0.1057$ (it was $(0 + 0)/2 = 0$ before the re-fit, so this
+edge now carries real work).
 
 Outside the ramps nothing changes: a $\lambda$ at or beyond $h_w$ from every edge keeps
 the bit-identical calibrated coefficient. Every region is wider than $2 h_w$ — the

@@ -69,22 +69,24 @@ optics as the orbit rises.
 
 ## Results (worst-case winter unless noted)
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-22, CU-176). Dominant mover: CU-253, the VIS/NIR Rayleigh correction —
-molecular optical depth was 8× too large, so removing it raises transmittance
-**and** halves the scattered-sky irradiance. The two effects nearly cancel for
-this direct-sun-dominated reflective scene, which is why SNR moves only a few
-percent, and they cancel differently per season: the longer winter solar path
-gains more from the transmittance side (winter +2.8 %) than the near-overhead
-summer path loses on the sky side (summer −2.5 %). CU-267's gas-region blend
-contributes −0.20 % band-mean τ on this band. Q and the diffraction GSD are
-geometry-only and did not move.*
+*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
+2026-08-02). Sole mover: **CU-335**, the VIS/NIR re-fit of the calibrated
+gas-band table. CU-161 fitted this band's well-mixed floor in 2026-07 against a
+Rayleigh optical depth ~8× too large, so it clamped to zero; CU-253 corrected
+Rayleigh and the fit was never re-run, leaving the model too transmissive here.
+The re-fit puts `floor_od` = 0.1597 on 0.45–0.70 µm and 0.0517 on 0.70–1.30 µm,
+which takes band-mean τ down ~11 % and SNR with it — **−17 % at every cell of
+the aperture × altitude grid** (50 cm / 500 km: 48.4 → 39.8). Q and the
+diffraction GSD are geometry-only and did not move; the seasonal swing widens
+41 % → 43 % because the longer winter path carries more of the new floor.
+The verdict hardens rather than flips: the reference 50 cm design already
+failed the winter SNR = 50 spec, and now fails it by more.*
 
 | Aperture | 400 km | 500 km | 600 km |
 |----------|--------|--------|--------|
-| 20 cm | SNR 20.5, Q 2.30, diff-GSD 1.40 m | SNR 14.9, Q 2.88 | SNR 11.3, Q 3.45 |
-| 50 cm | SNR 62.0, Q 0.92, diff-GSD 0.56 m | SNR 48.4, Q 1.15, diff-GSD 0.70 m | SNR 39.2, Q 1.38 |
-| 80 cm | SNR 102.0, Q 0.57, diff-GSD 0.35 m | SNR 80.7, Q 0.72 | SNR 66.5, Q 0.86 |
+| 20 cm | SNR 16.1, Q 2.30, diff-GSD 1.40 m | SNR 11.5, Q 2.88 | SNR 8.6, Q 3.45 |
+| 50 cm | SNR 51.4, Q 0.92, diff-GSD 0.56 m | SNR 39.8, Q 1.15, diff-GSD 0.70 m | SNR 32.0, Q 1.38 |
+| 80 cm | SNR 85.5, Q 0.57, diff-GSD 0.35 m | SNR 67.4, Q 0.72 | SNR 55.3, Q 0.86 |
 
 - **The 20 cm aperture is diffraction-limited** everywhere (Q > 2.3,
   diffraction ground spot 1.4–2.1 m ≫ the 0.5 m pixel): the pixel is far
@@ -95,13 +97,14 @@ geometry-only and did not move.*
   GSD. This is the efficient regime for a 0.5 m sample.
 - **The 50 cm aperture straddles the crossover** (Q ≈ 0.9–1.4) — near
   critical sampling, the usual sweet spot for a pan imager.
-- **Seasonal swing is 41%**: at the 50 cm / 500 km reference design SNR
-  runs 81.7 in summer (θ_z = 22.7°) down to **48.4 in winter (θ_z = 62.2°),
+- **Seasonal swing is 43%**: at the 50 cm / 500 km reference design SNR
+  runs 69.7 in summer (θ_z = 22.7°) down to **39.8 in winter (θ_z = 62.2°),
   which FAILS the SNR = 50 spec.** Sizing to the annual mean would ship a
   sensor that misses spec every winter — the worst-case-season floor is
   the correct sizing basis.
-- **Minimum aperture climbs with altitude**: 45 cm at 400 km → 65 cm at
-  600 km to hold the SNR spec at fixed GSD.
+- **Minimum aperture climbs with altitude**: 50 cm at 400 km → 75 cm at
+  600 km to hold the SNR spec at fixed GSD (CU-335 moved the whole ladder
+  up one to two 5 cm steps; it was 45 → 65 cm).
 
 ---
 

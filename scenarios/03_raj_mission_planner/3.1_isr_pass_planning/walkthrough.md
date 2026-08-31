@@ -58,36 +58,43 @@ the run script as constants so the run is self-contained and reproducible.
 
 | Off-nadir | GSD | NIIRS | SNR | Ground range | Swath |
 |-----------|-----|-------|-----|--------------|-------|
-| 0° | 0.65 m | 6.76 | 83.2 | 0 km | 5.2 km |
-| 15° | 0.68 m | 6.71 | 84.8 | 146 km | 5.4 km |
-| 30° | 0.80 m | 6.50 | 86.0 | 312 km | 5.9 km |
-| 45° | 1.05 m | 6.10 | 86.6 | 527 km | 7.1 km |
+| 0° | 0.65 m | 6.65 | 70.9 | 0 km | 5.2 km |
+| 15° | 0.68 m | 6.59 | 71.6 | 146 km | 5.4 km |
+| 30° | 0.80 m | 6.37 | 71.4 | 312 km | 5.9 km |
+| 45° | 1.05 m | 5.95 | 69.9 | 527 km | 7.1 km |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-22). Dominant mover: CU-253 — the 8×-too-large Rayleigh optical depth
-was corrected, raising τ and halving `E_sky_scattered` in this 0.45–0.70 µm
-reflective band, which trims SNR by 0.7 % at nadir and 4.6 % at 45° (the
-scattered-sky term contributed more at longer slant paths, so its removal
-flattens the off-nadir SNR rise); CU-267's gas-region blend contributes a
-further ≤ 0.2 % τ reduction in this band. CU-224 is not a factor — Planck
-emission is negligible at 0.45–0.70 µm.*
+*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
+2026-08-02). Sole mover: **CU-335** — the calibrated gas table's 0.45–0.70 and
+0.70–1.30 µm well-mixed floors had been fitted against a pre-CU-253 Rayleigh
+optical depth ~8× too large and so clamped to zero; the re-fit sets them to
+0.1597 and 0.0517, and this 0.45–0.70 µm reflective scene loses ~11 % of its
+band-mean τ on the view leg and again on the solar leg. **SNR falls 15–19 %**
+(nadir 83.2 → 70.9, 45° 86.6 → 69.9) and NIIRS follows through the GIQE-5 SNR
+term (nadir 6.76 → 6.65, 45° 6.10 → 5.95). GSD, ground range and swath are
+geometry-only and bit-identical.*
+
+**The planning verdict flips.** Before the re-fit NIIRS held above the 6.0 floor
+across the whole 0–45° slew, so agility alone set the corridor. It now crosses
+the floor at **42°**, which narrows the quality-limited access half-width from
+527 km to **478 km** (−9 %). The scenario's structural conclusion — that the
+corridor is set by whichever of agility and image quality binds first — is
+unchanged; which one binds is what moved.
 
 - **GSD grows with off-nadir angle** (roughly ∝ 1/cos² through the slant-
-  range and projection stretch), dragging NIIRS from 6.76 at nadir to 6.10
-  at 45°. The **NIIRS floor of 6.0 is met across the entire 0–45° slew
-  range** — the quality limit no longer binds inside the agility envelope.
+  range and projection stretch), dragging NIIRS from 6.65 at nadir to 5.95
+  at 45°. The **NIIRS floor of 6.0 is crossed at 42°**, inside the 45° agility
+  envelope — the quality limit binds first.
 - **SNR rises slightly** off-nadir — the ground footprint per pixel grows
   faster than the slant-range path loss for this extended sunlit scene, so
   each pixel collects more photons. Image *quality* (NIIRS/GSD) still
   degrades because resolution, not SNR, is the binding term.
 - **Coverage:** nadir swath 5.2 km, area-coverage rate **35.9 km²/s**,
   ≈104,000 km² per daylight pass.
-- **Key planning insight:** at this configuration the spacecraft can *slew*
-  to 45° (527 km cross-track reach) and still *image at spec* over that
-  whole range — NIIRS = 6.10 at the 45° agility limit, just above the 6.0
-  floor. Agility, not image quality, sets the usable access corridor here;
-  a tighter NIIRS floor (or a longer slant path) would reintroduce a
-  quality-limited corridor narrower than the slew envelope.
+- **Key planning insight:** the spacecraft can *slew* to 45° (527 km
+  cross-track reach) but can only *image at spec* out to 42° (478 km) —
+  NIIRS = 5.95 at the 45° agility limit, just below the 6.0 floor. Image
+  quality, not agility, sets the usable access corridor here, and the last
+  3° of slew buys reach the imagery cannot use.
 
 ---
 
@@ -111,8 +118,8 @@ emission is negligible at 0.45–0.70 µm.*
   fires correctly, and the runner opts into the extrapolated trend via
   `performance.niirs.allow_extrapolated` (CU-178). The NIIRS values in the
   off-nadir tail carry reduced confidence and are read as a relative trend;
-  the floor is met across the full 0–45° slew here, so no in-range crossing
-  is reported.
+  the floor is crossed at 42°, inside the slew range, so the runner reports an
+  in-range quality limit (CU-335; it reported none before).
 
 ---
 

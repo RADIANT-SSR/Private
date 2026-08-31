@@ -42,24 +42,34 @@ This is more accurate than the analytic erfinv/erf approach used in the first ve
 ## Baseline Results (Zero Jitter)
 | Parameter | Value | Unit |
 |---|---|---|
-| Signal | 3,804 | e- (3.8% well) |
-| Total noise | 61.9 | e- RMS |
-| SNR | 61.4 | -- |
+| Signal | 2,020 | e- (2.0% well) |
+| Total noise | 45.3 | e- RMS |
+| SNR | 44.6 | -- |
 | MTF@Nyquist | 0.2330 | -- |
 | RER | 0.5483 | -- |
-| NIIRS | 6.17 | -- |
+| NIIRS | 5.96 | -- |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-22). Dominant mover: CU-253 — the Rayleigh optical depth was 8× too
+*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
+2026-08-02). Sole mover: **CU-335** — the calibrated gas table's 0.45–0.70 and
+0.70–1.30 µm well-mixed floors had been fitted against a pre-CU-253 Rayleigh
+optical depth ~8× too large and so clamped to zero; the re-fit sets them to
+0.1597 and 0.0517. **SNR 61.4 → 44.6 (−27 %)**, signal 3,804 → 2,020 e⁻, NIIRS
+5.96 at zero jitter (was 6.17). Every spatial metric (MTF@Nyquist, RER, jitter
+MTF, σ_fp) is bit-identical — jitter physics did not move, and the ΔNIIRS
+column is likewise unchanged at every sweep point. **One verdict flips**: the
+NIIRS = 6.0 floor is now unreachable at any jitter (see below).*
+
+*Prior vintage, for the trend: the 2026-08-02 refresh was dominated by CU-253 —
+the Rayleigh optical depth was 8× too
 large, halving `E_sky_scattered` and taking this VNIR scene's SNR 93.0 → 61.4
 (−34 %), exactly the figure the CU-253 CHANGELOG entry names for 5.4. NIIRS
 follows through the GIQE-5 SNR term. Every spatial metric (MTF@Nyquist, RER,
-jitter MTF, σ_fp) is unchanged — jitter physics did not move.*
+jitter MTF, σ_fp) was unchanged — jitter physics did not move.*
 
 ### Noise Budget
 | Noise Term | sigma [e- RMS] | Fraction [%] |
 |---|---|---|
-| signal_shot | 61.7 | 99.3 |
+| signal_shot | 44.9 | 98.6 |
 | read_noise | 5.0 | 0.7 |
 | quantization | 1.9 | 0.1 |
 | dark_shot | 0.1 | 0.0 |
@@ -69,20 +79,20 @@ Signal shot noise dominates almost entirely. There is **no separate background_s
 ## Key Results
 
 ### SNR Invariance
-SNR is exactly 61.4 [--] at every sweep point (spread = 0.0000). This confirms the fundamental physics: jitter blurs the image but doesn't affect photon counts or noise. NIIRS degrades entirely through the RER term.
+SNR is exactly 44.6 [--] at every sweep point (spread = 0.0000). This confirms the fundamental physics: jitter blurs the image but doesn't affect photon counts or noise. NIIRS degrades entirely through the RER term.
 
 ### Jitter Sweep
 | Jitter [urad] | sigma_fp [pixels] | MTF_jitter@Nyq [--] | MTF_sys@Nyq [--] | RER [--] | NIIRS [--] | delta_NIIRS [--] |
 |---|---|---|---|---|---|---|
-| 0.0 | 0.000 | 1.0000 | 0.2330 | 0.5483 | 6.17 | +0.00 |
-| 0.2 | 0.125 | 0.9258 | 0.2157 | 0.5359 | 6.14 | -0.03 |
-| 0.6 | 0.375 | 0.4996 | 0.1164 | 0.4614 | 5.92 | -0.25 |
-| 0.8 | 0.500 | 0.2912 | 0.0679 | 0.4178 | 5.78 | -0.39 |
-| 1.0 | 0.625 | 0.1455 | 0.0339 | 0.3773 | 5.63 | -0.54 |
-| 1.6 | 1.000 | 0.0072 | 0.0017 | 0.2838 | 5.22 | -0.95 |
-| 2.0 | 1.250 | 0.0004 | 0.0001 | 0.2409 | 4.99 | -1.19 |
-| 3.0 | 1.875 | 0.0000 | 0.0000 | 0.1730 | 4.51 | -1.66 |
-| 5.0 | 3.125 | 0.0000 | 0.0000 | 0.1097 | 3.85 | -2.32 |
+| 0.0 | 0.000 | 1.0000 | 0.2330 | 0.5483 | 5.96 | +0.00 |
+| 0.2 | 0.125 | 0.9258 | 0.2157 | 0.5359 | 5.92 | -0.03 |
+| 0.6 | 0.375 | 0.4996 | 0.1164 | 0.4614 | 5.71 | -0.25 |
+| 0.8 | 0.500 | 0.2912 | 0.0679 | 0.4178 | 5.57 | -0.39 |
+| 1.0 | 0.625 | 0.1455 | 0.0339 | 0.3773 | 5.42 | -0.54 |
+| 1.6 | 1.000 | 0.0072 | 0.0017 | 0.2838 | 5.01 | -0.95 |
+| 2.0 | 1.250 | 0.0004 | 0.0001 | 0.2409 | 4.77 | -1.19 |
+| 3.0 | 1.875 | 0.0000 | 0.0000 | 0.1730 | 4.29 | -1.66 |
+| 5.0 | 3.125 | 0.0000 | 0.0000 | 0.1097 | 3.64 | -2.32 |
 
 At jitter ≥ ~2.6 µrad the RER falls below 0.20 — outside the GIQE-5 calibration
 envelope — so the NIIRS values in the tail are the **extrapolated** GIQE-5-form
@@ -94,12 +104,16 @@ relative degradation trend, not a calibrated rating.
 |---|---|---|---|
 | delta_NIIRS = -0.5 | 0.9 | 4.7 | 0.59 |
 | delta_NIIRS = -1.0 | 1.7 | 8.4 | 1.05 |
-| NIIRS = 6.0 floor | 0.5 | 2.4 | 0.30 |
+| NIIRS = 6.0 floor | not reachable | — | — |
 
-The NIIRS = 6.0 floor is now the *binding* constraint, tightening from 0.9 to
-0.5 µrad: CU-253 lowered the zero-jitter NIIRS from 6.45 to 6.17, so the design
-starts only 0.17 grades above the floor instead of 0.45. The two ΔNIIRS
-thresholds are relative and therefore unmoved.
+**The NIIRS = 6.0 floor is no longer reachable at any jitter.** CU-253 lowered
+the zero-jitter NIIRS 6.45 → 6.17 and CU-335 took it to 5.96, which is below the
+floor with the optics perfectly stable — so the runner now reports "floor not
+reached in sweep range" where it previously reported a 0.5 µrad jitter budget.
+The design's shortfall is radiometric, not a pointing problem: at this signal
+level no jitter specification recovers the grade, and the fix is aperture,
+integration time or band, not stability. The two ΔNIIRS thresholds are relative
+and therefore unmoved.
 
 ### Jitter in Context
 | Jitter [urad] | Fraction of IFOV | sigma_fp [pixels] | MTF@Nyq [--] | delta_NIIRS [--] |
@@ -154,7 +168,7 @@ Jitter is random pointing wander during the integration time. It spreads the ima
 - For extended scenes (which GIQE-5 assumes), the average signal per pixel is unchanged
 - Therefore SNR (for extended-scene NIIRS) is unaffected by jitter
 
-The script explicitly verified this: SNR is 61.45 at every one of the 51 sweep points, spread exactly 0.0000.
+The script explicitly verified this: SNR is 44.63 at every one of the 51 sweep points, spread exactly 0.0000.
 
 **Caveat**: For point-source detection, jitter does reduce per-pixel SNR because it spreads the PSF. This analysis is specific to the GIQE-5/NIIRS regime which assumes extended targets.
 

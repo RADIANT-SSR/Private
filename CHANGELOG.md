@@ -21,6 +21,47 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Results-affecting: the calibrated gas table's VIS/NIR/SWIR floors are re-fitted
+  against the corrected Rayleigh (CU-335, owner-approved 2026-08-30) — VIS SNRs drop
+  5–35 %.** `SimpleAtmosphere`'s well-mixed-gas floor is defined as the measured band
+  opacity *in excess of* what Rayleigh and aerosol already supply, clamped at zero
+  rather than allowed to go negative. CU-161 fitted it on 2026-07-17 against a
+  Rayleigh optical depth ~8× too large, so every floor below 1.5 µm clamped; CU-253
+  corrected Rayleigh on 2026-07-28 and the fit was never re-run, leaving the model
+  ~15 % too transmissive in the visible. This is the follow-through: the same
+  generator, the same three-point closed form, the same D4/A1/D5 water ladder.
+  Only `floor_od` moves — `k_h2o` and `b_h2o` are solved from the MODTRAN band
+  optical depths alone and are bit-identical on all seventeen rows:
+  0.45–0.70 µm `0.0000 → 0.1597`, 0.70–1.30 µm `0.0000 → 0.0517`,
+  1.50–1.75 µm `0.0133 → 0.0219`, 2.05–2.40 µm `0.0725 → 0.0749`, and the Rayleigh
+  λ⁻⁴ tail at 2.40–3.10 / 3.10–3.50 / 3.50–5.00 µm (`+0.0010 / +0.0005 / +0.0001`).
+  Every row from 5.00 µm up, including CU-330's three ozone rows, is bit-identical.
+  **Direction and magnitude:** uniformly **less transmissive** in the VIS/NIR — band-mean
+  τ on 0.45–0.85 µm falls ~11 % on a full column — so VIS SNRs **drop**. Measured on the
+  scenario sweep: 1.2 −15 % at every aperture × altitude cell, 1.4 −40 % (and the TDI
+  saturation knee moves 64 → 96), 1.5 −14.8 %, 3.1 −15 %, 3.4 −34 %, 5.1 −33 %,
+  5.4 −27 %, 5.5 contrast SNR **+1.8 %** (the background pedestal falls with the target),
+  10.3 −4.9 %. MWIR and LWIR products move by ≤ 0.01 % (the λ⁻⁴ tail) and 22 of the 43
+  scenario runners are byte-identical. Three verdicts move: 3.1's NIIRS ≥ 6 access
+  corridor narrows 527 → 478 km (the quality limit now binds inside the 45° agility
+  envelope), 5.4's NIIRS = 6.0 floor becomes unreachable at any jitter, and 10.3's
+  published astronomical-extinction anchor flips PASS → FAIL (0.127 → 0.282 mag/airmass
+  against a published 0.12–0.20 band — the model's configured rural-23 aerosol is
+  dirtier than the good-site literature that band is quoted for; the MODTRAN anchor on
+  the same band improved 5.3× in the same change).
+  **Parity:** band-mean τ against the thirteen full-column MODTRAN anchors improves
+  **5.3×** on 0.45–0.70 µm (RMS |ln ratio| 0.1556 → 0.0294), **4.2×** on 0.40–0.90 µm
+  and **2.5×** on 0.45–0.85 µm; the MWIR and LWIR controls are unchanged to the metric's
+  0.002 resolution. Two residuals are recorded rather than tuned: 0.70–1.30 µm parity
+  moves the wrong way (0.0312 → 0.0402) because the generator's non-water reference is
+  measured on a uniform-λ grid while the ladder's band OD comes off the tape7 grid
+  (+0.011 OD of over-supply there, +0.022 in the visible), and 0.16 optical depths is
+  more than real 0.45–0.70 µm gas chemistry supplies, so part of the visible floor is an
+  aerosol deficit wearing a gas label. Both are in the parity document's limitations
+  register (items 14 and 15); correcting either changes CU-161's calibration convention
+  and needs its own authorisation.
+  The table is now a single vintage — one generator run reproduces all seventeen rows,
+  CU-330's included — so the per-row vintage split beside it is closed.
 - **Results-affecting: the 8–10 µm gas region is split at the 9.6 µm ozone band
   (CU-330, owner-scheduled 2026-08-29).** `SimpleAtmosphere`'s calibrated gas table
   carried one flat region across 8.00–10.00 µm — a 2 µm slab spanning both the clean

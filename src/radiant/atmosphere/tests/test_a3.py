@@ -464,7 +464,7 @@ class TestAnchor3HandCalculatedOD:
         """Backend τ_up at λ=4µm, h_tgt=10km, nadir must match hand calc.
 
         Computes OD_mol + OD_aer + OD_gas by hand (closed-form column
-        integrals; the CU-161 well-mixed floor is 0.4497 × col_mol/8 km
+        integrals; the CU-161 well-mixed floor is 0.4498 × col_mol/8 km
         in the 3.5–5 µm region), then checks the small residual equals
         the calibrated water term for the thin 10–100 km water column.
         """
@@ -497,10 +497,10 @@ class TestAnchor3HandCalculatedOD:
         tau_4um = float(q.tau_up[100])
         od_total_backend = -math.log(tau_4um)
         # CU-161: 4 µm is in the 3.5–5 µm region — the residual above
-        # mol+aer is the well-mixed floor (0.4497 · col_mol/8 km) plus a
+        # mol+aer is the well-mixed floor (0.4498 · col_mol/8 km) plus a
         # tiny water term for the near-dry 10–100 km water column
         # (w_eff = 1.4 · col_h2o/2 km ≈ 0.009 cm → OD ≈ 2e-3).
-        od_gas = 0.4497 * (col_mol_km / (H_MOL_M / 1000.0))
+        od_gas = 0.4498 * (col_mol_km / (H_MOL_M / 1000.0))
         col_h2o_km = (H_H2O_M / 1000.0) * (math.exp(-h_low / H_H2O_M) - math.exp(-h_high / H_H2O_M))
         w_eff = 1.4 * col_h2o_km / (H_H2O_M / 1000.0)
         od_h2o = 0.0944 * w_eff**0.808

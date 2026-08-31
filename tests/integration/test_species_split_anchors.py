@@ -84,6 +84,18 @@ _BANDS = {
 #: Three of the five rungs move toward unity and the two deepest move past it.
 #: The LWIR ceiling in the adoption-criterion test below (1.95) is unchanged and
 #: still binds: the worst excursion falls 1.937 -> 1.932.
+#: **VIS/NIR/SWIR rows repinned 2026-08-30 (CU-335 VIS/NIR re-fit).**  The two
+#: thermal rows are bit-identical except 20 km MWIR (1.410 → 1.409, the
+#: Rayleigh λ⁻⁴ tail in the 2.4–5 µm floors); the reflective rows are where the
+#: change lands.  VIS moves toward unity on every rung — 1.103→1.082 (1 km),
+#: 1.293→1.216, 1.343→1.217, 1.360→1.166, 1.342→1.107 (20 km) — so the worst
+#: VIS excursion falls 1.360 → 1.217 and the deepest columns improve most,
+#: which is the signature of a column-proportional opacity that was missing.
+#: NIR and SWIR move slightly *away* on the deeper rungs (NIR 0.930→0.875 at
+#: 10 km, SWIR 0.610→0.602), worst excursions 1.262→1.266 and 1.666→1.698 —
+#: both still inside the ceilings below, and both traceable to the generator's
+#: mixed-grid non-water reference over-supplying those two floors (recorded at
+#: ``tests/integration/test_gas_region_visnir_refit_cu335.py``).
 #: **LWIR rows repinned again 2026-08-30 (CU-324 item 2, the O₃ placement
 #: split).**  The MWIR and the three reflective rows are again bit-identical.
 #: These are MODTRAN/model ratios on an UP-looking sky column, so the ozone
@@ -97,30 +109,30 @@ _BANDS = {
 #: visible instead of cancelling it.  The 1.95 ceiling still binds: the worst
 #: excursion is 1.934.
 _EXPECTED_RATIOS: dict[tuple[int, str], float] = {
-    (1_000, "VIS"): 1.103,
-    (1_000, "NIR"): 0.792,
+    (1_000, "VIS"): 1.082,
+    (1_000, "NIR"): 0.790,
     (1_000, "SWIR"): 0.607,
     (1_000, "MWIR"): 2.448,
     (1_000, "LWIR"): 1.934,
-    (3_000, "VIS"): 1.293,
-    (3_000, "NIR"): 0.896,
-    (3_000, "SWIR"): 0.662,
+    (3_000, "VIS"): 1.216,
+    (3_000, "NIR"): 0.880,
+    (3_000, "SWIR"): 0.658,
     (3_000, "MWIR"): 1.852,
     (3_000, "LWIR"): 1.235,
-    (5_000, "VIS"): 1.343,
-    (5_000, "NIR"): 0.908,
-    (5_000, "SWIR"): 0.629,
+    (5_000, "VIS"): 1.217,
+    (5_000, "NIR"): 0.880,
+    (5_000, "SWIR"): 0.624,
     (5_000, "MWIR"): 1.674,
     (5_000, "LWIR"): 1.079,
-    (10_000, "VIS"): 1.360,
-    (10_000, "NIR"): 0.930,
-    (10_000, "SWIR"): 0.610,
+    (10_000, "VIS"): 1.166,
+    (10_000, "NIR"): 0.875,
+    (10_000, "SWIR"): 0.602,
     (10_000, "MWIR"): 1.514,
     (10_000, "LWIR"): 1.022,
-    (20_000, "VIS"): 1.342,
-    (20_000, "NIR"): 0.940,
-    (20_000, "SWIR"): 0.600,
-    (20_000, "MWIR"): 1.410,
+    (20_000, "VIS"): 1.107,
+    (20_000, "NIR"): 0.865,
+    (20_000, "SWIR"): 0.589,
+    (20_000, "MWIR"): 1.409,
     (20_000, "LWIR"): 1.020,
 }
 
@@ -187,15 +199,15 @@ def test_lower_endpoint_weighting_is_the_better_of_the_two_everywhere_it_matters
     consistently the closer of the two to the MODTRAN anchor.  Measured
     2026-08-01, worst band-mean excursion ``max(r, 1/r)`` over the five rungs:
 
-    ======  ===============  ===============  ==============
-    band    arithmetic mean  lower endpoint   + CU-321
-    ======  ===============  ===============  ==============
-    VIS     3.085×           1.360×           1.361×
-    NIR     3.024×           1.262×           1.262×
-    SWIR    8.712×           1.666×           1.666×
-    MWIR    2.404×           2.334×           2.448×
-    LWIR    1.885×           1.885×           1.932×
-    ======  ===============  ===============  ==============
+    ======  ===============  ==============  ========  ========
+    band    arithmetic mean  lower endpoint  + CU-321  + CU-335
+    ======  ===============  ==============  ========  ========
+    VIS     3.085×           1.360×          1.361×    1.217×
+    NIR     3.024×           1.262×          1.262×    1.266×
+    SWIR    8.712×           1.666×          1.666×    1.698×
+    MWIR    2.404×           2.334×          2.448×    2.448×
+    LWIR    1.885×           1.885×          1.932×    1.932×
+    ======  ===============  ==============  ========  ========
 
     ``segment_simple`` no longer *offers* the retired weighting (Rule 27 — one
     canonical version), so this test cannot re-run the comparison; it asserts the
@@ -211,6 +223,13 @@ def test_lower_endpoint_weighting_is_the_better_of_the_two_everywhere_it_matters
     sat, so the MWIR ceiling below is now a pure regression guard rather than a
     comparison.  It is kept, with its ceiling raised to the measured value, and
     the claim it supports is narrowed accordingly.
+
+    **CU-335 (2026-08-30).**  The VIS/NIR/SWIR re-fit moves the three bands
+    this criterion is actually about, and it moves VIS decisively toward unity
+    (1.361× → 1.217×) while NIR and SWIR drift out by ≤ 0.04×.  Every ceiling
+    below is unchanged and every one still holds; SWIR is now the tight one at
+    1.698× against a 1.70× ceiling, so a further SWIR-side degradation will
+    fail here rather than pass quietly.
     """
     worst_by_band = {
         "VIS": 1.40,

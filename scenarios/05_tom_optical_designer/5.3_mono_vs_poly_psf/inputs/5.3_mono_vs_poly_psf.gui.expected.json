@@ -2,9 +2,9 @@
   "id": "5.3",
   "title": "Chromatic PSF \u2014 monochromatic baseline (single wavelength)",
   "metrics": {
-    "snr": 553.6157660199191,
-    "nedt_K": 0.05399558024884325,
-    "niirs": 4.588964500238854
+    "snr": 553.595549522671,
+    "nedt_K": 0.0539975873021172,
+    "niirs": 4.588939775266331
   },
   "notes": "Single-wavelength (mono) PSF baseline; poly variant raises psf_n_wavelengths. GUI baseline shortens integration to 1 ms (well ~52%) and uses a well-matched gain (32 e-/DN) so the 14-bit ADC no longer clips at the runner's 2 ms point (CU-170)."
 }

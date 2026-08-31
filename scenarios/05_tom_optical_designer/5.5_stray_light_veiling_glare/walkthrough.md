@@ -48,12 +48,27 @@ model the veiling-glare MTF / contrast-modulation reduction (gaps.md, Gap 60).
 
 | Case | Stray e- | SNR | Contrast SNR | NIIRS | ΔNIIRS |
 |------|----------|-----|--------------|-------|--------|
-| Clean | 0 | 546.7 | 213.9 | 11.052 | — |
-| Veiling glare 3 % (native mode) | 3.32×10⁴ | 518.8 | 204.0 | 11.017 | −0.035 |
-| Out-of-field 2.5 W/m² | 5.52×10⁶ | 124.3 | 48.6 | 10.049 | **−1.003** |
+| Clean | 0 | 546.7 | 217.7 | 11.052 | — |
+| Veiling glare 3 % (native mode) | 2.86×10⁴ | 522.5 | 209.0 | 11.022 | −0.031 |
+| Out-of-field 2.5 W/m² | 5.52×10⁶ | 124.3 | 49.5 | 10.049 | **−1.003** |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-22). Dominant mover: CU-253 — the Rayleigh optical depth was 8× too
+*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
+2026-08-02). Sole mover: **CU-335** — the calibrated gas table's 0.45–0.70 and
+0.70–1.30 µm well-mixed floors were re-fitted against the post-CU-253 Rayleigh
+(0.0000 → 0.1597 / 0.0517). This VNIR scene loses ~14 % of both its target and
+its background signal (9.530e+05 / 5.207e+05 e⁻ where it read 1.108e+06 /
+6.126e+05), and the 3 % veiling-glare pedestal shrinks with the signal it is
+defined against (3.32×10⁴ → 2.86×10⁴ stray e⁻). **Extended-scene SNR and NIIRS
+are bit-identical**, because the target pixel is well-saturated (FWC
+3.0×10⁵ e⁻) and SNR is pinned at √FWC; **contrast SNR rises 213.9 → 217.7
+(+1.8 %)**, because the target and background pedestals fall together and the
+difference signal loses proportionally less than the shot noise does. Tom's
+verdict is unchanged: 3 % veiling glare stays inside the ΔNIIRS ≤ 0.2 /
+contrast-SNR ≥ 50 budget, and the 2.5 W/m² out-of-field case still costs a full
+NIIRS level.*
+
+*Prior vintage, for the trend: the 2026-08-02 refresh was dominated by CU-253 —
+the Rayleigh optical depth was 8× too
 large, and correcting it shrank the sky-scattered/path pedestal that is common
 to the rooftop (ρ = 0.30) and vegetation (ρ = 0.15) pixels. The
 background/target signal ratio therefore fell from 0.73 toward the pure-albedo

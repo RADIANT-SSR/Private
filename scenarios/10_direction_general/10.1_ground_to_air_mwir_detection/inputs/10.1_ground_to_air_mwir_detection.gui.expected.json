@@ -2,9 +2,9 @@
   "id": "10.1",
   "title": "Ground-to-air MWIR detection \u2014 up-looking, sky background",
   "metrics": {
-    "snr": 144.6092569102895,
-    "contrast_snr": 144.6092569102895,
-    "nedt_K": 0.6109248339501283,
+    "snr": 144.59261030681694,
+    "contrast_snr": 144.59261030681694,
+    "nedt_K": 0.610999290213958,
     "geometry.theta_o_rad": 2.6188984378211106,
     "geometry.slant_range_m": 11543.990971290506
   },

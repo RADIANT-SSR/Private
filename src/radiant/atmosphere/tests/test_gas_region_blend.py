@@ -215,7 +215,7 @@ def test_interior_wavelengths_keep_exact_table_coefficients() -> None:
 @pytest.mark.parametrize(
     ("band", "expected"),
     [
-        ((3.7, 4.8), (0.4497, 0.0944, 0.808)),  # interior of 3.50–5.00 µm
+        ((3.7, 4.8), (0.4498, 0.0944, 0.808)),  # interior of 3.50–5.00 µm
         ((10.6, 11.2), (0.0471, 0.0602, 1.750)),  # interior of 10.00–12.00 µm
     ],
 )
@@ -261,7 +261,8 @@ def test_edge_value_is_the_mean_of_the_two_regions(edge_um: float) -> None:
     c(λ_edge) = c_lo + (c_hi − c_lo)·0.5 = (c_lo + c_hi)/2.
 
     Worked example at the 0.70 µm edge: k_h2o = (0.0025 + 0.1245)/2
-    = 0.0635 per cm^b; floor_od = (0.0 + 0.0)/2 = 0.0; b_h2o
+    = 0.0635 per cm^b; floor_od = (0.1597 + 0.0517)/2 = 0.1057 (both
+    rows shipped at 0.0000 until the CU-335 re-fit); b_h2o
     = (0.874 + 0.434)/2 = 0.654.
     """
     lo_region, hi_region = _region_pair(edge_um)
@@ -279,9 +280,16 @@ def test_edge_value_is_the_mean_of_the_two_regions(edge_um: float) -> None:
 
 @pytest.mark.level0
 def test_edge_midpoint_hand_value_at_0p70_um() -> None:
-    """The 0.70 µm anchor written out longhand (no table lookup)."""
+    """The 0.70 µm anchor written out longhand (no table lookup).
+
+    ``floor_od`` here was 0.0 until CU-335 (2026-08-30): both the
+    0.45–0.70 and 0.70–1.30 µm rows shipped at the zero clamp, because
+    CU-161 calibrated them against a Rayleigh optical depth ~8× too
+    large.  The re-fit lifts them to 0.1597 and 0.0517, so the edge now
+    carries their mean, 0.1057.
+    """
     floor, k, b = _coeffs(np.array([0.70]))
-    assert float(floor[0]) == pytest.approx(0.0, abs=1e-15)
+    assert float(floor[0]) == pytest.approx(0.1057, rel=1e-14, abs=1e-15)
     assert float(k[0]) == pytest.approx(0.0635, rel=1e-14)
     assert float(b[0]) == pytest.approx(0.654, rel=1e-14)
 

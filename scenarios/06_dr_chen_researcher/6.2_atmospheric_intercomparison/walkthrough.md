@@ -67,8 +67,16 @@ scenario 6.1's pattern for a self-contained, reproducible run).
 | subarctic_summer | 0.526 | 0.492 | −6.9% | 640.6 | 566.8 | −13.0% |
 | subarctic_winter | 0.597 | 0.571 | −4.6% | 617.6 | 579.5 | −6.6% |
 
-*Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-324). One mover, in the Simple arm only. **CU-324:**
+*Numbers refreshed 2026-08-30. One mover since the previous vintage:
+**CU-335** re-fitted the calibrated gas table's VIS/NIR/SWIR rows against the
+post-CU-253 Rayleigh. This is an 8–12 µm intercomparison, so the reach is the
+λ⁻⁴ tail in the 2.40–5.00 µm floors: every profile's band-mean τ and SNR moves
+in the fourth decimal / fifth figure (us_standard τ 0.5517 → 0.5516,
+SNR 651.31 → 651.28), which is below the printed precision of every table in
+this document. No profile ordering, no Simple-vs-MODTRAN residual and no verdict
+changes.*
+
+*Prior vintage, 2026-08-29, pre-CU-324. One mover, in the Simple arm only. **CU-324:**
 `E_sky_thermal`'s flux-diffusivity exponent became the geometric
 `sec 48.2° = 1.50030` instead of the CU-155 fitted `D = 1.1`, so the reflected-sky
 term of this ε < 1 scene rises and SNR Simple rises with it — by +0.04 % on the

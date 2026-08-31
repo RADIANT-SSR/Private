@@ -48,24 +48,29 @@ correctly attributed to EE/RER/SNR, not Strehl.
 
 ### Aperture comparison
 
-| Configuration | SNR | EE_3×3 | RER | MTF@Nyq | Strehl |
-|---------------|-----|--------|-----|---------|--------|
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-07-22, CU-176). SNR moves by −1.5 % on every row and the spatial metrics by
-under 1 %: the mover is **CU-253**'s VIS/NIR Rayleigh correction, whose raised
-transmittance and halved scattered-sky term nearly cancel for this extended
-reflective pan scene, with **CU-267**'s gas-region blend (−0.20 % band-mean τ on
-0.5–0.8 µm) underneath. The comparison this scenario exists to make — aperture
-geometry against SNR/EE/RER — is unchanged, because every row moved together.*
+*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
+2026-08-02). Sole mover: **CU-335**, the VIS/NIR re-fit of the calibrated
+gas-band table — the 0.45–0.70 and 0.70–1.30 µm well-mixed floors had been
+calibrated against a pre-CU-253 Rayleigh optical depth ~8× too large and so
+clamped to zero, and the re-fit puts them at 0.1597 and 0.0517. **SNR falls
+−14.8 % on every row** (unobstructed 86.7 → 74.0); every spatial metric —
+EE_3×3, RER, MTF@Nyquist, Strehl — is bit-identical, because the change is
+purely radiometric. The comparison this scenario exists to make — aperture
+geometry against SNR/EE/RER — is unchanged, because every row moved together.
+Prior vintage: the 2026-08-02 refresh moved SNR −1.5 % per row under CU-253 and
+CU-267.*
 
 | Configuration | SNR | EE_3×3 | RER | MTF@Nyq | Strehl |
 |---------------|-----|--------|-----|---------|--------|
-| Unobstructed | 86.7 | 0.864 | 0.582 | 0.228 | 1.000 |
-| Obscured only (ε=0.30) | 82.5 | 0.763 | 0.517 | 0.207 | 1.000 |
-| Obscured + 4× 3 cm spiders | 77.3 | 0.657 | 0.485 | 0.221 | 1.000 |
+
+| Configuration | SNR | EE_3×3 | RER | MTF@Nyq | Strehl |
+|---------------|-----|--------|-----|---------|--------|
+| Unobstructed | 74.0 | 0.864 | 0.582 | 0.228 | 1.000 |
+| Obscured only (ε=0.30) | 70.4 | 0.763 | 0.517 | 0.207 | 1.000 |
+| Obscured + 4× 3 cm spiders | 65.8 | 0.657 | 0.485 | 0.221 | 1.000 |
 
 - Going from an ideal unobstructed aperture to the full Cassegrain costs
-  **10.9 % of SNR and 24 % of the 3×3 encircled energy.** The obscuration
+  **11.1 % of SNR and 24 % of the 3×3 encircled energy.** The obscuration
   alone accounts for most of the SNR loss (less area); the spiders add the
   diffraction-spike EE/RER penalty on top.
 - **Strehl is 1.000 throughout** — confirming it isolates WFE and is blind
@@ -76,12 +81,12 @@ geometry against SNR/EE/RER — is unchanged, because every row moved together.*
 
 | Width | SNR | EE_3×3 | RER |
 |-------|-----|--------|-----|
-| 0 cm | 82.5 | 0.763 | 0.517 |
-| 1 cm | 80.8 | 0.736 | 0.509 |
-| 2 cm | 79.0 | 0.683 | 0.493 |
-| 3 cm | 77.3 | 0.657 | 0.485 |
-| 4 cm | 75.4 | 0.632 | 0.477 |
-| 5 cm | 73.5 | 0.607 | 0.469 |
+| 0 cm | 70.4 | 0.763 | 0.517 |
+| 1 cm | 68.9 | 0.736 | 0.509 |
+| 2 cm | 67.4 | 0.683 | 0.493 |
+| 3 cm | 65.8 | 0.657 | 0.485 |
+| 4 cm | 64.2 | 0.632 | 0.477 |
+| 5 cm | 62.6 | 0.607 | 0.469 |
 
 EE_3×3 and RER fall monotonically with strut width — each centimetre of
 strut scatters more core energy into the spikes and shaves more collecting

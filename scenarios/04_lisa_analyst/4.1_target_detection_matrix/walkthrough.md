@@ -70,8 +70,15 @@ the chain's own spherical viewing triangle (`slant_range_from_theta_o_m`).
 
 ## Key Results (detection range [km slant], SCNR ≥ 5)
 
-> **Matrix refreshed 2026-08-29 from the unmodified runner. One mover:
-> CU-324.** `E_sky_thermal`'s flux-diffusivity exponent became the geometric
+> **Matrix refreshed 2026-08-30 from the unmodified runner. One mover:
+> CU-335** — the calibrated gas table's VIS/NIR/SWIR rows were re-fitted against
+> the post-CU-253 Rayleigh. Every sensor here is MWIR or LWIR, so the reach is
+> only the λ⁻⁴ tail in the 2.40–5.00 µm floors (≤ 0.001 OD): **one cell in the
+> whole 12 × 4 × 3 matrix moves**, sensor A's small UAV, 686 → 685 km. Nothing
+> else changes to the printed precision and no status flips.
+>
+> **Prior vintage 2026-08-29. One mover: CU-324.**
+> `E_sky_thermal`'s flux-diffusivity exponent became the geometric
 > `sec 48.2° = 1.50030` — the secant of the angle every up-looking MODTRAN deck
 > in the downwelling reference set was run at — instead of the CU-155 fitted
 > `D = 1.1`, so the sky every ε < 1 target and the ground background reflect is
@@ -122,7 +129,7 @@ columns —
 | SAM TEL | 870 | 858 | 782 | 1,061* |
 | Cargo truck | 773 | 763 | 699 | 1,029 |
 | MBT tank | 696 | 688 | 560 | 901 |
-| Small UAV | 686 | 678 | 621 | 901 |
+| Small UAV | 685 | 678 | 621 | 901 |
 | APC | 673 | 666 | 612 | 865 |
 | Technical (pickup) | 575 | 570 | 527 | 718 |
 

@@ -73,14 +73,22 @@ Results:
 | 12          | 1.42 | 346.2  | 0.115   | 0.269  | 4.5   | 86.4      | 120,000     |
 | 15          | 1.13 | 499.7  | 0.203   | 0.350  | 4.7   | 59.9      | 250,000     |
 | 18          | 0.94 | 706.9  | 0.267   | 0.414  | 4.8   | 42.3      | 500,000     |
-| 24          | 0.71 | 1029.8 | 0.355   | 0.510  | 4.8   | 29.1      | 1,060,886   |
-| 30          | 0.57 | 1268.7 | 0.409   | 0.572  | 4.7   | 23.6      | 1,610,274   |
+| 24          | 0.71 | 1029.7 | 0.355   | 0.510  | 4.8   | 29.1      | 1,060,809   |
+| 30          | 0.57 | 1268.6 | 0.409   | 0.572  | 4.7   | 23.6      | 1,610,156   |
 
-*Numbers refreshed 2026-08-29 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-324). One mover: **CU-324** — `E_sky_thermal`'s
-flux-diffusivity exponent is now the geometric `sec 48.2° = 1.50030` rather than
+*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
+2026-08-29). One mover: **CU-335** — the gas table's VIS/NIR/SWIR rows were
+re-fitted against the post-CU-253 Rayleigh. This is an 8–12 µm scene, so the
+reach is only the λ⁻⁴ tail in the 2.40–5.00 µm floors: the same two largest
+pitches move in the seventh figure (24 µm 1,060,886 → 1,060,809 e⁻,
+SNR 1029.8 → 1029.7; 30 µm 1,610,274 → 1,610,156 e⁻, SNR 1268.7 → 1268.6),
+7 parts per million. No verdict moves.*
+
+*Prior vintage, 2026-08-29 (pre-CU-324). One mover: **CU-324** —
+`E_sky_thermal`'s
+flux-diffusivity exponent became the geometric `sec 48.2° = 1.50030` rather than
 the CU-155 fitted `D = 1.1`, so the sky this ε < 1 scene reflects is brighter
-and its collected signal rises. Only the two largest pitches move, and only in
+and its collected signal rises. Only the two largest pitches moved, and only in
 the fourth figure: 24 µm 1,058,743 → 1,060,886 e⁻ (SNR 1028.7 → 1029.8) and
 30 µm 1,607,021 → 1,610,274 e⁻ (SNR 1267.4 → 1268.7), both +0.2 %. The 8–18 µm
 rows are bit-identical because they are well-clipped at every pitch — the extra

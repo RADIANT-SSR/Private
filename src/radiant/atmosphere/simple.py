@@ -199,30 +199,46 @@ HG_ASYMMETRY: float = 0.7
 # Generator: ``scripts/fit_simple_atmosphere_gas_bands.py`` — closed-form
 # fits to the real MODTRAN 6 water ladder D4/A1/D5 (us_standard,
 # rural 23 km, H₂O ×0.5/×1/×2, 2026-07-17 run set), cross-validated
-# against the five other standard-profile anchors to ≤ ±0.012 τ in the
-# water-relevant windows (worst: NIR on the driest profile, −0.034).
-# Regions where the pre-existing Rayleigh+aerosol terms already meet or
-# exceed the measured floor (VIS/UV — the aerosol there over-absorbs,
-# see scenario 3.4's validation note) get floor_od = 0, never negative.
+# against the five other standard-profile anchors in the water-relevant
+# windows. Regions where the pre-existing Rayleigh+aerosol terms already
+# meet or exceed the measured floor (the 0.30–0.45 µm row — the rural-23
+# aerosol there over-absorbs, see scenario 3.4's validation note) get
+# floor_od = 0, never negative.
 #
-# Vintage per row (Rule 26 — the generator is named above; what differs
-# is *when* each row was last run through it):
+# Vintage (Rule 26 — the generator is named above; what differs is *when*
+# each row was last run through it): the whole table is one vintage,
+# regenerated 2026-08-30 (CU-335) from a single generator run. Two
+# earlier re-fits are folded into it and reproduce bit-for-bit:
 #
-# - 8.00–9.40 / 9.40–9.90 / 9.90–10.00 µm: regenerated 2026-08-29
-#   (CU-330). The former single 8.00–10.00 µm row was one flat 2 µm slab
-#   spanning both the clean window and the 9.6 µm O₃ ν₂ fundamental, so
-#   τ carried no identifiable ozone structure at all — measured on the
-#   shipped table, τ(9.60 µm) and τ(8.70 µm) agreed to six figures on a
-#   nadir full column. Splitting at the band edges the delivered ladder
-#   shows (water-free OD rises 0.24 → 0.89 across 9.372 → 9.416 µm and
-#   falls 0.52 → 0.33 across 9.901 → 9.911 µm) resolves it: the band
-#   core's floor stands 5.9× the adjacent window's, which is the ozone.
-# - every other row: the original CU-161 vintage (2026-07-17), NOT
-#   re-run by CU-330. Re-running them today would move the VIS/NIR rows,
-#   because CU-253 later cut the Rayleigh optical depth ~8× and the
-#   floors those rows carry were calibrated against the pre-CU-253
-#   extinction — recorded in ``docs/tracking/Findings_Log.md``
-#   (2026-08-29), and out of CU-330's authorised scope.
+# - CU-330 (2026-08-29) split the former single 8.00–10.00 µm row — one
+#   flat 2 µm slab spanning both the clean window and the 9.6 µm O₃ ν₂
+#   fundamental, so τ carried no identifiable ozone structure at all
+#   (τ(9.60 µm) and τ(8.70 µm) agreed to six figures on a nadir full
+#   column). The edges 9.40 / 9.90 µm are where the delivered ladder
+#   puts them (water-free OD rises 0.24 → 0.89 across 9.372 → 9.416 µm
+#   and falls 0.52 → 0.33 across 9.901 → 9.911 µm); the band core's floor
+#   stands 5.9× the adjacent window's, which is the ozone.
+# - CU-335 (2026-08-30) re-fitted the rows CU-330 left at their CU-161
+#   vintage. Those floors had been calibrated on 2026-07-17 against a
+#   Rayleigh optical depth ~8× too large, so ``floor_add`` clamped to
+#   zero below 1.5 µm; CU-253 cut Rayleigh on 2026-07-28 and the fit was
+#   never re-run, leaving the model ~15 % too transmissive in the
+#   visible. Only ``floor_od`` moves (``k_h2o`` / ``b_h2o`` are solved
+#   from the MODTRAN ladder alone and never see the model), and only
+#   below 5 µm: 0.45–0.70 µm 0.0000 → 0.1597, 0.70–1.30 µm 0.0000 →
+#   0.0517, 1.50–1.75 µm 0.0133 → 0.0219, 2.05–2.40 µm 0.0725 → 0.0749,
+#   and ≤ 0.001 at 2.40–5.00 µm (the Rayleigh λ⁻⁴ tail). Every row from
+#   5.00 µm up, including CU-330's three, is bit-identical.
+#
+# Known residual (CU-335, recorded not tuned): ``floor_add`` is defined
+# against a non-water reference the generator measures on a uniform-λ
+# grid, while the ladder's band OD comes off the tape7 grid, which is
+# uniform in wavenumber. Where the spectrum is steep the two band means
+# differ, and the difference lands in the floor: +0.022 OD at
+# 0.45–0.70 µm, +0.011 at 0.70–1.30 µm, ≤ 0.0004 beyond 1.3 µm. That is
+# why 0.70–1.30 µm band-mean τ parity moves slightly the wrong way while
+# the visible improves 5.3×. Fixing it means changing CU-161's
+# calibration convention, which is a new calibration, not a re-run.
 @dataclass(frozen=True)
 class _GasRegion:
     lo_um: float
@@ -234,15 +250,15 @@ class _GasRegion:
 
 _CALIBRATED_GAS_REGIONS: tuple[_GasRegion, ...] = (
     _GasRegion(lo_um=0.30, hi_um=0.45, floor_od=0.0000, k_h2o=0.0000, b_h2o=1.000),
-    _GasRegion(lo_um=0.45, hi_um=0.70, floor_od=0.0000, k_h2o=0.0025, b_h2o=0.874),
-    _GasRegion(lo_um=0.70, hi_um=1.30, floor_od=0.0000, k_h2o=0.1245, b_h2o=0.434),
+    _GasRegion(lo_um=0.45, hi_um=0.70, floor_od=0.1597, k_h2o=0.0025, b_h2o=0.874),
+    _GasRegion(lo_um=0.70, hi_um=1.30, floor_od=0.0517, k_h2o=0.1245, b_h2o=0.434),
     _GasRegion(lo_um=1.30, hi_um=1.50, floor_od=0.0000, k_h2o=1.0933, b_h2o=0.327),
-    _GasRegion(lo_um=1.50, hi_um=1.75, floor_od=0.0133, k_h2o=0.0282, b_h2o=0.645),
+    _GasRegion(lo_um=1.50, hi_um=1.75, floor_od=0.0219, k_h2o=0.0282, b_h2o=0.645),
     _GasRegion(lo_um=1.75, hi_um=2.05, floor_od=0.0000, k_h2o=1.1186, b_h2o=0.216),
-    _GasRegion(lo_um=2.05, hi_um=2.40, floor_od=0.0725, k_h2o=0.0320, b_h2o=0.843),
-    _GasRegion(lo_um=2.40, hi_um=3.10, floor_od=0.7434, k_h2o=0.9666, b_h2o=0.560),
-    _GasRegion(lo_um=3.10, hi_um=3.50, floor_od=0.1366, k_h2o=0.5824, b_h2o=0.457),
-    _GasRegion(lo_um=3.50, hi_um=5.00, floor_od=0.4497, k_h2o=0.0944, b_h2o=0.808),
+    _GasRegion(lo_um=2.05, hi_um=2.40, floor_od=0.0749, k_h2o=0.0320, b_h2o=0.843),
+    _GasRegion(lo_um=2.40, hi_um=3.10, floor_od=0.7444, k_h2o=0.9666, b_h2o=0.560),
+    _GasRegion(lo_um=3.10, hi_um=3.50, floor_od=0.1371, k_h2o=0.5824, b_h2o=0.457),
+    _GasRegion(lo_um=3.50, hi_um=5.00, floor_od=0.4498, k_h2o=0.0944, b_h2o=0.808),
     _GasRegion(lo_um=5.00, hi_um=7.50, floor_od=1.3543, k_h2o=1.7850, b_h2o=0.530),
     _GasRegion(lo_um=7.50, hi_um=8.00, floor_od=0.9424, k_h2o=0.9210, b_h2o=0.673),
     # CU-330: the former single 8.00–10.00 µm row split at the measured

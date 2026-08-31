@@ -2,9 +2,9 @@
   "id": "1.2",
   "title": "VNIR GSD trade \u2014 50 cm aperture, 500 km reference point",
   "metrics": {
-    "snr": 70.9865972147376,
-    "nedt_K": 0.05032099990846889,
-    "niirs": 6.974149643655149
+    "snr": 60.23036716162756,
+    "nedt_K": 0.05909572582893286,
+    "niirs": 6.862898081798818
   },
   "notes": "Reference aperture/altitude; solar zenith 40 deg (representative daytime)."
 }

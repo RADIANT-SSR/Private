@@ -219,9 +219,12 @@ Contract properties this document owns:
 
 **Known fragilities**, named here and sized in the parity document: region-flat spectral
 shape inside each calibrated region; linear air-mass scaling on saturated bands; edge-region
-clamping outside 0.30–14.29 µm; VIS aerosol absolute optical depth. Cross-validated against
-the five non-calibration profile anchors (A2–A6) to ≤ ±0.012 band-mean τ in the
-water-relevant windows.
+clamping outside 0.30–14.29 µm; the VIS band's gas-versus-aerosol attribution (CU-335 fixed
+the band *total* — within 4 % of MODTRAN at the anchor, from 30 % under — but assigned the
+correction to the well-mixed gas floor, which carries more than 0.45–0.70 µm gas chemistry
+supplies); and the generator's mixed-grid non-water reference, which biases the VIS/NIR
+floors high by +0.022 / +0.011 optical depths. Cross-validated against
+the five non-calibration profile anchors (A2–A6) in the water-relevant windows.
 
 **Inputs** (§6.2): `atmosphere.visibility_km`, `atmosphere.aerosol_type`,
 `atmosphere.precipitable_water_cm`, `atmosphere.standard_atmosphere`.

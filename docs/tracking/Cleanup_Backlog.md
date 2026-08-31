@@ -47,14 +47,23 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-335 — The gas table's VIS/NIR rows were calibrated against the pre-CU-253 8× Rayleigh and never re-fit — the model is ~17 % too transmissive in the visible
+### CU-336 — The gas-fit generator measures its non-water reference on a uniform-λ grid while band ODs come off the tape7 wavenumber grid, biasing every fitted floor high
 
-**Discovered**: CU-330 generator repair (branch `atmo/cu-330-o3-region`), 2026-08-30 — the first successful re-run of `fit_simple_atmosphere_gas_bands.py` since ADR-0011.
-**Status**: Open — **Owner ruling (2026-08-30): approved, scheduled** — re-fit the VIS/NIR/SWIR rows with the repaired generator against the delivered anchors; full §5.3.
-**File**: `src/radiant/atmosphere/simple.py::_CALIBRATED_GAS_REGIONS` (the 0.45–0.70 and 0.70–1.30 µm rows, plus smaller drifts at 1.50–1.75/2.05–2.40/2.40–3.10 µm); `scripts/fit_simple_atmosphere_gas_bands.py` (now runnable and idempotent).
-**Symptom**: those rows were fit 2026-07-17 when the Rayleigh OD was ~8× too large (pre-CU-253), so their `floor_add` clamped to zero; CU-253 then cut Rayleigh 8× and the fit was never re-run. The repaired generator refits 0.45–0.70 µm to `floor_od` 0.1597 against the shipped 0.0000 (0.70–1.30 µm: 0.0517 vs 0.0000). Measured at the A1 anchor: model band-OD 0.293 vs MODTRAN 0.453 over 0.45–0.70 µm — **~17 % too transmissive in the VIS**.
-**Why it still matters**: results-affecting (intake test 1) for every VIS/NIR simple-model scene — the same population CU-253 moved; scenario 9.1 (Sentinel-2) and 10.3's VIS band are the flagship consumers. The CU-330 landing deliberately did NOT sweep this in (only the authorized 8–10 µm row was regenerated); the vintage split is documented beside the table.
-**Suggested fix**: (b) stand-alone, M — re-run the repaired fit for the VIS/NIR/SWIR rows against the delivered anchors, full §5.3 (every VIS/NIR golden and baseline moves; direction: less transmissive, VIS SNRs drop), walkthrough refreshes with attribution. Category C. Related: [[CU-330]], CU-253, CU-161.
+**Discovered**: CU-335 re-fit (branch `atmo/cu-335-visnir-refit`), 2026-08-30 — root-caused while explaining the 0.70–1.30 µm parity degradation.
+**Status**: Open.
+**File**: `scripts/fit_simple_atmosphere_gas_bands.py` (reference-grid construction).
+**Symptom**: measured offset **+0.022 OD at 0.45–0.70 µm, +0.011 at 0.70–1.30 µm, ≤ 0.0004 beyond 1.3 µm** — always toward an over-large floor, because the λ⁻⁴-steep Rayleigh term integrates differently on the two grids. Post-CU-335 the VIS bias is no longer one-sided, so RMS parity slightly degrades at 0.70–1.30 µm (0.0312 → 0.0402) even as the bias falls ~3×.
+**Why it still matters**: results-affecting (intake test 1) — fixing the grid convention moves every fitted floor a little, VIS most; it is also the residual behind the A1 anchor's remaining +4.3 %.
+**Suggested fix**: (b) small — evaluate the non-water reference on the tape7 wavenumber grid (or band-integrate both on one grid), re-run the generator, §5.3 the small VIS movement. Effort S; category C. Related: [[CU-335]], CU-161.
+
+### CU-337 — ~5× more visible "gas" floor than real gas chemistry: part of the fitted VIS floor is an aerosol deficit wearing a gas label
+
+**Discovered**: CU-335 re-fit (branch `atmo/cu-335-visnir-refit`), 2026-08-30.
+**Status**: Open — attribution/model-structure question; needs an owner ruling on whether to pursue.
+**File**: `src/radiant/atmosphere/simple.py` (aerosol model vs `_CALIBRATED_GAS_REGIONS` 0.45–0.70 µm row).
+**Symptom**: the fitted VIS floor (0.1597 OD) is ~5× the real gas chemistry in that window (O₃ Chappuis ≈ 0.03 OD): the fit is absorbing an aerosol-model deficit (Koschmieder/Ångström under-supplying rural-23 extinction at 550 nm vs MODTRAN) into the gas floor. τ parity is right; the *attribution* is wrong, which surfaces wherever aerosol and gas must be separated (visibility sweeps hold the "gas" floor fixed while scaling the aerosol RADIANT thinks it has; scenario 10.3's extinction-anchor reconciliation leans on exactly this seam).
+**Why it still matters**: results-affecting for visibility-parameterized VIS scenes if fixed (intake test 1); it is also the honest answer behind the 10.3 anchor question.
+**Suggested fix**: (b) stand-alone, M — fit the aerosol model's VIS deficit explicitly (an Ångström correction against the delivered anchors), then re-fit the gas floors with the aerosol corrected; the floors should fall toward chemical reality (~0.03). Owner-gated. Category C. Related: [[CU-335]], [[CU-336]], CU-253, scenario 10.3.
 
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
@@ -99,6 +108,16 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-335 — The gas table's VIS/NIR rows were calibrated against the pre-CU-253 8× Rayleigh and never re-fit — the model is ~17 % too transmissive in the visible — RESOLVED 2026-08-30 (commit trailer)
+
+**Discovered**: CU-330 generator repair (branch `atmo/cu-330-o3-region`), 2026-08-30 — the first successful re-run of `fit_simple_atmosphere_gas_bands.py` since ADR-0011.
+**Status**: RESOLVED 2026-08-30, closed by the `CU-Closes: 335` trailer commit. **Owner ruling (2026-08-30): approved, scheduled.**
+**File**: `src/radiant/atmosphere/simple.py::_CALIBRATED_GAS_REGIONS` (the 0.45–0.70 and 0.70–1.30 µm rows, plus smaller drifts at 1.50–1.75/2.05–2.40/2.40–3.10 µm); `scripts/fit_simple_atmosphere_gas_bands.py` (now runnable and idempotent).
+**Symptom**: those rows were fit 2026-07-17 when the Rayleigh OD was ~8× too large (pre-CU-253), so their `floor_add` clamped to zero; CU-253 then cut Rayleigh 8× and the fit was never re-run. The repaired generator refits 0.45–0.70 µm to `floor_od` 0.1597 against the shipped 0.0000 (0.70–1.30 µm: 0.0517 vs 0.0000). Measured at the A1 anchor: model band-OD 0.293 vs MODTRAN 0.453 over 0.45–0.70 µm — **~17 % too transmissive in the VIS**.
+**Why it still matters**: results-affecting (intake test 1) for every VIS/NIR simple-model scene — the same population CU-253 moved; scenario 9.1 (Sentinel-2) and 10.3's VIS band are the flagship consumers. The CU-330 landing deliberately did NOT sweep this in (only the authorized 8–10 µm row was regenerated); the vintage split is documented beside the table.
+**Suggested fix**: (b) stand-alone, M — re-run the repaired fit for the VIS/NIR/SWIR rows against the delivered anchors, full §5.3 (every VIS/NIR golden and baseline moves; direction: less transmissive, VIS SNRs drop), walkthrough refreshes with attribution. Category C. Related: [[CU-330]], CU-253, CU-161.
+**Resolution**: full generator re-run — VIS floor lands at **0.1597** and NIR at **0.0517**, exactly the CU-330 predictions; `k_h2o`/`b_h2o` bit-identical on all 17 rows (closed-form from MODTRAN alone). One deliberate charter deviation: three MWIR rows move ≤ 0.001 OD (the genuine Rayleigh λ⁻⁴ tail) — the full generator output shipped rather than a cherry-pick, closing the table's vintage split (one vintage, one reproducing run; bit-identity asserted at λ ≥ 5 µm incl. the CU-330 triple). A1-anchor error −29.8 % → **+4.3 %** (~7×); VIS band parity 5.3× better full-column, 6.8× partial; up-looking VIS sky worst excursion 1.361× → 1.217×; MWIR/LWIR controls unchanged. §5.3: 21 of 43 scenarios moved (VIS SNRs drop 5–40 %; four verdict flips incl. 3.1's corridor 527 → 478 km and 1.4's saturation knee 64 → 96), 23 baselines + 21 walkthroughs refreshed with attribution, three tight new VIS Level-0 anchors added, one SWIR anchor gate set per-anchor 0.025 with the degradation recorded. 10.3's published-extinction anchor flips PASS → FAIL — reconciled (the published band is for clean observatory sites; the scenario runs rural-23 at 900 m) and left as an owner scenario decision. Residuals promoted: the mixed-grid floor bias is [[CU-336]], the aerosol-vs-gas attribution is [[CU-337]]. Figures deliberately deferred to a single post-landing regeneration pass (logged).
 
 ### CU-330 — The CU-161 gas table's 8–10 µm region is one flat slab, hiding the 9.6 µm O₃ band from τ and blocking its emission placement — RESOLVED 2026-08-30 (commit trailer)
 

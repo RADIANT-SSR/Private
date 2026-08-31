@@ -502,8 +502,17 @@ The full register is parity §3, with magnitudes and tracking homes. The subset 
 an operator's choice:
 
 - **Daytime VIS/NIR sky is provisional on `simple`** — under-reads by roughly 2× near the
-  horizon, and the rural VIS aerosol optical depth is itself ~2× high. Quantitative
-  VIS/NIR sky-background work needs a measured backend. *(parity §3 items 2 and 14)*
+  horizon. Quantitative VIS/NIR sky-background work needs a measured backend.
+  *(parity §3 item 2)*
+- **VIS band transmittance is right in total but mis-attributed** — CU-335 (2026-08-30)
+  re-fitted the 0.45–0.70 and 0.70–1.30 µm well-mixed floors, which had been calibrated
+  against a pre-CU-253 Rayleigh optical depth ~8× too large and had clamped to zero. Band
+  totals now sit within 4 % of MODTRAN where they were 30 % under, and **VIS SNRs on
+  `simple` dropped 5–35 % as a result**; but ~0.13 of the 0.16 optical depths now carried
+  by the visible "gas" floor is really an aerosol deficit wearing a gas label. Anything
+  that separates gas from aerosol, or that is scored against a source assuming a cleaner
+  aerosol than the one you configured, will still disagree. *(parity §§2.16, 3 items 14
+  and 15)*
 - **MWIR thermal path radiance carries a spectral-shape residual on `simple`** — the model
   is flat within each of 17 calibrated regions, which under-reads up-looking MWIR by 25–40 %
   on columns deeper than 5 km and over-reads down-looking MWIR by ~20 % on tall ones. This

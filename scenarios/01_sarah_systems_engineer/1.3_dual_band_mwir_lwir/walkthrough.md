@@ -42,7 +42,12 @@ original execution left it at the default 1.0, overstating the fire signal
 ~3× and pulling the saturation temperatures down).
 
 *Numbers refreshed 2026-08-29 from the unmodified runner. Two movers, both
-small here, both landed 2026-08-29. **CU-330** split the flat 8–10 µm gas region
+small here. **CU-335** (2026-08-30) re-fitted the gas table's VIS/NIR/SWIR rows
+against the post-CU-253 Rayleigh; its MWIR reach is the λ⁻⁴ tail in the
+2.40–5.00 µm floors (≤ 0.001 OD), which moves MWIR pixel signal 228 481 →
+228 465 e⁻ and fire contrast 220 950 → 220 935 e⁻, i.e. −0.007 %. Every LWIR
+figure is bit-identical and no verdict moves. The two before it landed
+2026-08-29. **CU-330** split the flat 8–10 µm gas region
 at the 9.6 µm ozone band, giving the LWIR column real in-band opacity: pixel
 signal 3 011 064 → 2 996 449 e⁻ (−0.5 %), clutter 53 631 → 53 377 e⁻ RMS, SNR
 1 367.0 → 1 363.6, NEDT 164.5 → 164.7 mK. **Every MWIR figure in this table is
@@ -66,8 +71,8 @@ rather than the column's near-surface temperature, which took pixel signal LWIR
 
 | Quantity | MWIR | LWIR |
 |----------|-----:|-----:|
-| Pixel signal [e⁻] | 228,481 | 2,996,449 |
-| Contrast (fire − forest) [e⁻] | 220,950 | 1,217,206 |
+| Pixel signal [e⁻] | 228,465 | 2,996,449 |
+| Contrast (fire − forest) [e⁻] | 220,935 | 1,217,206 |
 | Well fill [%] | 5.7 | 25.0 |
 | Total noise [e⁻ RMS] | 541.6 | 53,422.5 |
 | — of which clutter [e⁻ RMS] | 225.9 | 53,377.3 |

@@ -119,15 +119,22 @@ pill reads `Δh  49 m`.
 
 | Range [km] | θ_o [deg] | Δh [m] | guard | τ MWIR [–] | signal [e⁻] | noise [e⁻ rms] | SNR [–] | det. range [km] | well margin [dB] |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 25 | 90.11224 | 12.2 | clean | 0.6335 | 5.3375e5 | 733.7 | 727.5 | 198.9 | 5.5 |
-| 40 | 90.17958 | 31.3 | clean | 0.4822 | 1.5862e5 | 404.0 | 392.6 | 199.0 | 16.0 |
-| 50 | 90.22448 | 49.0 | clean | 0.4021 | 8.4631e4 | 298.7 | 283.3 | 199.0 | 21.4 |
-| 70 | 90.31427 | 96.0 | clean | 0.2797 | 3.0025e4 | 186.3 | 161.2 | 199.0 | 30.5 |
-| 75 | 90.33672 | 110.2 | **warn** | 0.2554 | 2.3886e4 | 169.0 | 141.3 | 199.0 | 32.4 |
+| 25 | 90.11224 | 12.2 | clean | 0.6334 | 5.3375e5 | 733.7 | 727.5 | 198.9 | 5.5 |
+| 40 | 90.17958 | 31.3 | clean | 0.4821 | 1.5862e5 | 404.0 | 392.6 | 198.9 | 16.0 |
+| 50 | 90.22448 | 49.0 | clean | 0.4020 | 8.4631e4 | 298.7 | 283.3 | 198.9 | 21.5 |
+| 70 | 90.31427 | 96.0 | clean | 0.2796 | 3.0025e4 | 186.2 | 161.2 | 198.9 | 30.5 |
+| 75 | 90.33672 | 110.2 | **warn** | 0.2554 | 2.3886e4 | 169.0 | 141.3 | 198.9 | 32.4 |
 | 100 | 90.44896 | 195.9 | **warn** | 0.1623 | 8.5374e3 | 115.4 | 74.0 | 198.7 | 41.4 |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
-2026-08-02, pre-CU-321). Dominant mover: **CU-321** — the height-resolved
+*Numbers refreshed 2026-08-30. One mover since the previous vintage: **CU-335**
+re-fitted the calibrated gas table's VIS/NIR/SWIR rows against the post-CU-253
+Rayleigh. This is a 3–5 µm level path, so the reach is the λ⁻⁴ tail in the
+2.40–5.00 µm floors: τ falls in the fourth decimal at every range rung
+(0.4021 → 0.4020 at 50 km), the nominal detection range 199.0 → 198.9 km
+(−0.05 %), and the effective extinction coefficient α_eff rises in the fifth
+digit (0.01822 → 0.01823 km⁻¹ at 50 km). No verdict moves.*
+
+*Prior vintage, 2026-08-02, pre-CU-321. Dominant mover: **CU-321** — the height-resolved
 emission temperature. This is a **level** path, and a level arm is isothermal,
 so the arm's own `T_eff` collapses to the exact profile temperature at 10 km
 and its thermal emission is untouched by the layering; what moves is the
@@ -188,11 +195,11 @@ referenced at 100 km, a 1.48× spread on one unchanged design**, which is what
 CU-263 was filed against. The nominal 50 km answer moved **150.9 km → 199.0 km
 (+31.9 %)** with the fix. The residual 0.3 km spread across the sweep is the
 band-mean τ model's own reference dependence ($\alpha_{eff}$ moves in the fifth
-digit, 0.01826 → 0.01818 km⁻¹), not the noise treatment.
+digit, 0.01827 → 0.01819 km⁻¹), not the noise treatment.
 
 Cross-check: re-solving against the target-free floor **alone** (sky background
 shot + read + quantisation + dark = **69.2 e⁻ rms**, dropping the target's own
-residual shot noise entirely) gives **200.1 km at SNR = 5** — the fully
+residual shot noise entirely) gives **200.0 km at SNR = 5** — the fully
 floor-limited bound, which must sit just *above* the chain's 198.7 km. They
 agree to 0.7 %. That is the number an IRST engineer would quote for this design
 against this target on the simple model, and the shipped metric now reproduces
@@ -299,10 +306,10 @@ both bands. The MODTRAN columns are delivered measurements and do not move.*
 | run | range [km] | MODTRAN τ | model τ | ratio | difference [%] | α MODTRAN [1/km] | α model [1/km] |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | L16 | 5 | 0.7621 | 0.9124 | 1.197 | +19.7 | 0.05434 | 0.01833 |
-| L17 | 10 | 0.7230 | 0.8328 | 1.152 | +15.2 | 0.03243 | 0.01830 |
-| L18 | 25 | 0.6535 | 0.6335 | 0.969 | −3.1 | 0.01701 | 0.01826 |
-| L19 | 50 | 0.5810 | 0.4021 | 0.692 | −30.8 | 0.01086 | 0.01822 |
-| L20 | 100 | 0.4894 | 0.1623 | 0.332 | −66.8 | 0.00715 | 0.01818 |
+| L17 | 10 | 0.7230 | 0.8327 | 1.152 | +15.2 | 0.03243 | 0.01831 |
+| L18 | 25 | 0.6535 | 0.6334 | 0.969 | −3.1 | 0.01701 | 0.01827 |
+| L19 | 50 | 0.5810 | 0.4020 | 0.692 | −30.8 | 0.01086 | 0.01823 |
+| L20 | 100 | 0.4894 | 0.1623 | 0.332 | −66.8 | 0.00715 | 0.01819 |
 
 **LWIR 8–12 µm — reference band:**
 
@@ -324,7 +331,7 @@ which is the expected sign — the model was short of band opacity, and adding i
 helps most where the path is long enough for that shortfall to compound.*
 
 The MWIR α model column is now the same quantity the sweep table in §4.2 reports
-as `α_eff` (0.01826 km⁻¹ at 25 km, 0.01818 km⁻¹ at 100 km) — the two agree to
+as `α_eff` (0.01827 km⁻¹ at 25 km, 0.01819 km⁻¹ at 100 km) — the two agree to
 the printed digit, which is the check that §4.5 and §4.2 are evaluating one
 atmosphere and not two.
 
@@ -409,7 +416,7 @@ Five, all computed inside the runner so they cannot drift from the results:
 |---|---|---|---|---|
 | 1 | Level-arm θ_o closed form, $\pi/2 + \varphi/2$ with $\varphi = 2\arcsin(d/2r)$ | 1.574714218 rad | 1.574714218 rad | 0.00e+00 |
 | 2 | Tangent depression $L^2/8r$ at 25 / 50 / 100 km | 12.24 / 48.97 / 195.89 m | 12.24 / 48.97 / 195.90 m | ≤ 1.5e−05 |
-| 3 | Point-source signal scaling $S \propto I\tau(R)/R^2$: $S(50)/S(25)$ | 0.158672 | 0.158558 | 7.2e−04 |
+| 3 | Point-source signal scaling $S \propto I\tau(R)/R^2$: $S(50)/S(25)$ | 0.158658 | 0.158544 | 7.2e−04 |
 | 4 | Relative LOS rate $\lvert \mathbf v_{rel}\times\hat u\rvert / R$ | 0.010904566 rad/s | 0.010904566 rad/s | 1.5e−14 |
 | 5 | Target-plane sample distance $p\,d/f$ | 2.222222 m | 2.222222 m | 1.5e−14 |
 | 6 | MODTRAN L16–L20 band-mean τ (§4.5) | see tables | see tables | LWIR ratios match the pinned golden test to 3 figures |

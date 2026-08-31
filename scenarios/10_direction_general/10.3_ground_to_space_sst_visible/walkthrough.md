@@ -7,7 +7,14 @@ atmosphere, scene-class metric conditioning, the Phase-4 GUI surfaces)
 **Runner:** `scripts/run_ground_to_space_sst_visible.py`
 **Module-level factory:** `make_sensor() -> Sensor`
 
-*Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
+*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
+2026-08-02). Sole mover since then: **CU-335**, the VIS/NIR re-fit of the
+calibrated gas table — SNR 232.38 → 220.98 (−4.9 %), band-mean τ_up
+0.8397 → 0.7619, and Anchor 2 (§10) flips back from PASS to **FAIL** (0.127 →
+0.282 mag/airmass). Read §10 Anchor 2: the flip is a site-aerosol mismatch, and
+the MODTRAN anchor on the same band improved 5.3× in the same change.*
+
+*Prior vintage, 2026-08-02 (previous
 2026-07-28). Dominant mover: CU-253 — the Rayleigh optical depth was 8× too
 large in the VIS, and correcting it raised this scenario's SNR +24 % and turned
 Anchor 2 (§10) from FAIL to PASS. Also in scope, and each flipping a verdict:
@@ -117,17 +124,30 @@ column τ_up(λ) this geometry produces.
 
 ## 4. Radiometry at the nominal tasking point
 
+*Numbers refreshed 2026-08-30 from the unmodified runner. Sole mover: **CU-335**
+— the calibrated gas table's 0.45–0.70 and 0.70–1.30 µm well-mixed floors had
+been fitted against a pre-CU-253 Rayleigh optical depth ~8× too large and so
+clamped to zero; the re-fit sets them to 0.1597 and 0.0517. Band-mean τ_up falls
+0.8397 → 0.7619 (−9.3 %), signal 54 035 → 48 868 e⁻, **SNR 232.38 → 220.98
+(−4.9 %)** and the SNR = 3 detection range 25 857 → 24 590 km (−4.9 %). The
+zenith ladder moves the same way at every rung, and the geometry, r₀ and EE_box
+columns are bit-identical. **One published-data verdict flips**: §"Anchor 2 —
+published astronomical extinction" goes from PASS to FAIL — read it, the
+reconciliation is that the model's site aerosol is dirtier than the good-site
+literature the anchor quotes, and the MODTRAN anchor on the same band improved
+5.3× in the same change.*
+
 | Quantity | Value | Unit |
 |---|---|---|
 | regime (final, `OpticsStage`) | `point_source` | — |
-| band-mean τ_up | 0.8397 | dimensionless |
-| τ_up at 0.55 µm | 0.8828 | dimensionless |
+| band-mean τ_up | 0.7619 | dimensionless |
+| τ_up at 0.55 µm | 0.7584 | dimensionless |
 | τ_sun (TOA → object) | 1.0000 | dimensionless (vacuum solar leg) |
 | Fried parameter r₀ (0.650 µm) | 19.820 | cm |
 | EE_box | 0.12075 | dimensionless |
-| signal, central pixel | 54 035 | e- |
-| SNR | 232.38 | dimensionless |
-| detection range (SNR = 3 threshold) | 25 857.2 | km |
+| signal, central pixel | 48 868 | e- |
+| SNR | 220.98 | dimensionless |
+| detection range (SNR = 3 threshold) | 24 589.8 | km |
 | sampling Q_center | 0.433 | dimensionless |
 | PSF FWHM (x) | 35.41 | µm on the focal plane |
 
@@ -220,7 +240,7 @@ unchanged while doubling D/r₀. The MTF consequence is severe —
 | PSF FWHM (x) | 35.41 µm | 15.24 µm |
 | RER | 0.3317 | 0.7704 |
 | EE 3×3 | 0.6246 | 0.9445 |
-| SNR | 232.38 | 537.02 |
+| SNR | 220.98 | 510.69 |
 
 — turbulence removes essentially all modulation at the sampling limit while the
 diffraction-limited system still carries 46 %. Note the "without turbulence" PSF
@@ -244,12 +264,12 @@ site runs 1.0–1.5″. **Treat the seeing here as optimistic by roughly 2×.**
 
 | ζ_low [deg] | θ_o [deg] | R [km] | airmass | band-mean τ | r₀ [cm] | SNR | PSF FWHM [µrad] |
 |---|---|---|---|---|---|---|---|
-| 0 | 180.0000 | 699.1 | 1.000 | 0.8485 | 20.573 | 254.13 | 3.433 |
-| 20 | 162.0489 | 739.2 | 1.064 | 0.8397 | 19.820 | 232.38 | 3.541 |
-| 40 | 144.6032 | 882.8 | 1.305 | 0.8077 | 17.533 | 173.20 | 3.933 |
-| 55 | 132.4248 | 1115.5 | 1.743 | 0.7531 | 14.739 | 114.59 | 4.589 |
-| 65 | 125.2440 | 1387.5 | 2.366 | 0.6828 | 12.271 | 74.75 | 5.427 |
-| 75 | 119.4918 | 1831.9 | 3.864 | 0.5430 | 9.143 | 38.46 | 7.160 |
+| 0 | 180.0000 | 699.1 | 1.000 | 0.7744 | 20.573 | 242.42 | 3.433 |
+| 20 | 162.0489 | 739.2 | 1.064 | 0.7619 | 19.820 | 220.98 | 3.541 |
+| 40 | 144.6032 | 882.8 | 1.305 | 0.7165 | 17.533 | 162.80 | 3.933 |
+| 55 | 132.4248 | 1115.5 | 1.743 | 0.6410 | 14.739 | 105.42 | 4.589 |
+| 65 | 125.2440 | 1387.5 | 2.366 | 0.5473 | 12.271 | 66.65 | 5.427 |
+| 75 | 119.4918 | 1831.9 | 3.864 | 0.3752 | 9.143 | 31.64 | 7.160 |
 
 θ_o = 180° at culmination is not a singularity — it is the ordinary vertical
 up-looking geometry with the object at the site's zenith, and ADR-0011's closed
@@ -269,12 +289,12 @@ thickness:
 
 | ζ_low [deg] | τ @ 0.55 µm | implied air mass |
 |---|---|---|
-| 76.0 | 0.61612 | 0.4843 |
-| 78.0 | 0.56919 | 0.5635 |
-| 79.9 | 0.51267 | 0.6681 |
-| **80.1** | **0.51633** | **0.6610** ← optical depth *dropped* as the path got longer |
-| 82.0 | 0.44721 | 0.8047 |
-| 85.0 | 0.29650 | 1.2157 |
+| 76.0 | 0.34157 | 1.0742 |
+| 78.0 | 0.28653 | 1.2499 |
+| 79.9 | 0.22721 | 1.4819 |
+| **80.1** | **0.23213** | **1.4605** ← optical depth *dropped* as the path got longer |
+| 82.0 | 0.16953 | 1.7747 |
+| 85.0 | 0.06975 | 2.6628 |
 
 Transmittance is therefore non-monotonic in zenith angle above 80°. **Every number
 reported in this scenario is at or below 75°**, where the flat-Earth branch is in
@@ -342,7 +362,7 @@ thermal and MODTRAN-anchored, which is why the band gate sits at 3 µm.
 
 **Consequence for this scenario's headline SNR:** the *nominal* run is still a
 sunless twilight scene through the intensity door, so its sky pedestal remains
-numerically zero and the SNR of 232.38 should still be read as *shot-noise-on-target
+numerically zero and the SNR of 220.98 should still be read as *shot-noise-on-target
 plus detector noise only*, not as an end-to-end SST link budget. What has changed is
 that the class can now express a sky at all — a daylight re-tasking of the same
 telescope carries one.
@@ -365,12 +385,12 @@ $$ S = t_{int}\,\eta_{QE}\,\mathrm{EE_{box}} \int \tau_{opt}(\lambda)\,\tau_{atm
 | EE_box | 0.120752 |
 | R | 739.156 km |
 | t_int | 5.0 ms |
-| **hand-computed signal** | **54 035.460 e-** |
-| **chain signal** | **54 035.460 e-** |
+| **hand-computed signal** | **48 867.921 e-** |
+| **chain signal** | **48 867.921 e-** |
 | relative difference | **0.000 × 10⁰** — PASS |
 
 Vacuum limit (τ_atm → 1 in the same integral): S_vac = 63 971.812 e-, and
-S_chain/S_vac = 0.844676, which equals the photon-weighted band-mean τ to
+S_chain/S_vac = 0.763898, which equals the photon-weighted band-mean τ to
 **0.000 × 10⁰**. So the chain applies the column transmittance exactly and
 multiplicatively, and the atmosphere-free answer is recoverable analytically.
 
@@ -382,7 +402,7 @@ dispatcher returns τ_up ≡ 1) **now completes**, and returns
 vacuum sky exactly zero rather than absent, which closes `gaps.md` G7 — the identity
 is now confirmed by a second chain run as well as analytically.
 
-### Anchor 2 — published astronomical extinction ✅ PASS (was ❌ FAIL; CU-253 fixed it)
+### Anchor 2 — published astronomical extinction ❌ FAIL (was ✅ PASS before CU-335)
 
 Broadband V-band zenith extinction at good astronomical sites is
 k_V ≈ 0.12–0.20 mag/airmass (Hardie 1962 photometric-reduction practice;
@@ -393,9 +413,43 @@ at typical observatories). A magnitude is −2.5 log₁₀ of a flux ratio, so
 | | value |
 |---|---|
 | published τ(0.55 µm) at zenith | 0.8318 – 0.8954 |
-| **RADIANT τ(0.55 µm) at zenith** | **0.8894** |
-| **RADIANT extinction** | **0.127 mag/airmass** |
-| verdict | **PASS — inside the published band** |
+| **RADIANT τ(0.55 µm) at zenith** | **0.7711** |
+| **RADIANT extinction** | **0.282 mag/airmass** |
+| verdict | **FAIL — 1.4× the top of the published band** |
+
+**This anchor flipped from PASS to FAIL when CU-335 landed (2026-08-30), and the
+flip is worth reading carefully, because the *other* anchor on the same band
+moved the opposite way.** CU-335 re-fitted the calibrated gas table's
+0.45–0.70 µm well-mixed floor from 0.0000 to 0.1597 optical depths, against the
+delivered MODTRAN 6 water ladder. Measured against MODTRAN at the fit's own
+anchor geometry (us_standard, rural 23 km, nadir full column), the model's
+0.45–0.70 µm band optical depth went from 30 % *under* the measurement to 4 %
+over it, and band-mean τ parity across thirteen full-column anchors improved
+5.3×. Measured against the astronomical k_V band on this scenario's site, the
+same change pushed the model from inside the band to 1.4× above its top.
+
+The two anchors are not describing the same atmosphere, which is the
+reconciliation:
+
+- The astronomical k_V = 0.12–0.20 band is quoted for **good observatory
+  sites** — high, dry, and with very clean aerosol. This scenario runs a
+  900 m site with **rural 23 km visibility**, whose aerosol alone carries
+  ~0.17 optical depths at 550 nm; a k_V of 0.12 is not physically reachable
+  with that aerosol in the column no matter what the gas term does.
+- The MODTRAN anchor is scored at *exactly* the aerosol and profile the model
+  is configured with, so it is the internally consistent comparison, and it is
+  the one CU-161's fit is defined against.
+
+What the flip therefore says is **not** "the VIS model got worse" but "this
+site's configured aerosol is dirtier than the good-site literature the anchor
+quotes". Choosing a cleaner visibility for the SST site would be the physically
+honest way to bring the two together, and that is a scenario-configuration
+question, not a model one — it is recorded here rather than silently re-tuned.
+One genuine caveat rides along: the fit assigns the whole reconciliation to the
+*gas* floor, and 0.16 optical depths is far more than real 0.45–0.70 µm gas
+chemistry supplies (the O₃ Chappuis band contributes ~0.03), so part of that
+floor is standing in for an aerosol-model deficit. The band total is right; the
+attribution between gas and aerosol is not resolved by this fit.
 
 **This anchor failed when the scenario was written, and the failure is what produced
 the fix.** `radiant.atmosphere.simple` used
@@ -416,7 +470,8 @@ MODTRAN calibration — anchored over 3–14 µm — never saw it. `gaps.md` G9 
 
 **Consequence for this scenario:** every τ, and therefore every SNR, in §4 and §8
 rose when CU-253 landed — the nominal SNR by **+24 %** (186.89 → 232.38) and the
-nominal band-mean τ_up from 0.5330 to 0.8397. The *trends* (monotone decay with
+nominal band-mean τ_up from 0.5330 to 0.8397; CU-335's gas-table re-fit has since
+taken them to 220.98 and 0.7619. The *trends* (monotone decay with
 airmass, the τ vs r₀ split) are unchanged in shape, but extinction is now much the
 smaller of the two decay mechanisms across the pass (§8).
 
@@ -429,8 +484,8 @@ smaller of the two decay mechanisms across the pass (§8).
 | irradiance at the aperture, I/R² | 1.6700 × 10⁻¹⁰ W/m² |
 | solar irradiance at 1 AU, S₀ | 1361.0 W/m² |
 | m = m_☉ − 2.5 log₁₀(E/S₀), m_☉ = −26.74 | **5.54 mag** above the atmosphere |
-| RADIANT column extinction on this path | 0.183 mag |
-| apparent magnitude at the site | 5.72 mag |
+| RADIANT column extinction on this path | 0.292 mag |
+| apparent magnitude at the site | 5.83 mag |
 
 Catalogued LEO objects of ~1 m² projected area at a few hundred to 1000 km routinely
 photometer at m_V ≈ 4–8 (the naked-eye-satellite regime). 5.54 mag is squarely inside
@@ -465,15 +520,20 @@ The ground-to-space full-column MODTRAN ladder for this class is **owner-run bat
 (ADR-0011 decision 10) and has not been delivered. **No MODTRAN comparison is
 reported.** When batch 2 lands, rerun this scenario and compare τ(λ) directly. The
 runner still prints the pre-CU-253 line predicting the simple model will read "~8×
-too opaque in the VIS Rayleigh term"; that prediction has been retired — Anchor 2 now
-passes against published extinction, and the batch-2 ladder is the remaining
-independent check rather than a confirmation of a known defect.
+too opaque in the VIS Rayleigh term"; that prediction has been retired — CU-253 fixed
+the Rayleigh term and CU-335 re-fitted the gas floors that had absorbed its error.
+**The batch-2 ladder is now the deciding check**, because the two anchors this
+scenario does have disagree: the model's 0.45–0.70 µm band optical depth is within
+4 % of the delivered MODTRAN water ladder at that ladder's own configuration, while
+Anchor 2's good-site astronomical extinction band says the same column is 1.4× too
+absorbing. A ground-to-space ladder run at *this* site's elevation and aerosol would
+settle which of the two this scenario should be scored against.
 
 ## 11. What does not affect the result
 
 - `source.target.temperature` / `emissivity` — unused; the intensity door takes I(λ)
   verbatim and no emission model runs.
-- `nedt_K` = 0.0168 K is meaningless here: it is dS/dT taken against the *default*
+- `nedt_K` = 0.0178 K is meaningless here: it is dS/dT taken against the *default*
   target temperature, a parameter this scene never sets. It is present because the
   thermal metric group is on by default.
 - `geometry.solar_azimuth_rad` enters only the single-scatter sky phase function,

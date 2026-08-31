@@ -1124,6 +1124,99 @@ measured band edges; both parity tables above, pinned to ±0.002);
 `src/radiant/atmosphere/tests/test_gas_region_o3_split.py` (the partition, the ozone
 contrast, the derived share, the blend at the two new edges).
 
+### 2.16 The VIS/NIR/SWIR floors — τ parity before and after the CU-335 re-fit
+
+CU-161 fitted the calibrated table on 2026-07-17 against a model whose Rayleigh optical
+depth was ~8× too large. `floor_add` is defined as the measured band opacity *in excess
+of* what Rayleigh and aerosol already supply, clamped at zero rather than allowed to go
+negative, so the inflated Rayleigh term drove every floor below 1.5 µm to the clamp.
+CU-253 corrected Rayleigh on 2026-07-28 and the fit was never re-run. CU-335 re-runs it,
+with the same generator, the same three-point closed form and the same D4/A1/D5 water
+ladder.
+
+**Per-row coefficients, before → after.** Only `floor_od` moves; $k$ and $b$ are solved
+from the MODTRAN band optical depths alone and are bit-identical on all seventeen rows.
+
+| Region [µm] | `floor_od` before | after | Δ |
+|---|---:|---:|---:|
+| 0.30–0.45 | 0.0000 | 0.0000 | 0 (still clamped — the rural-23 aerosol over-supplies this band) |
+| 0.45–0.70 | 0.0000 | **0.1597** | +0.1597 |
+| 0.70–1.30 | 0.0000 | **0.0517** | +0.0517 |
+| 1.30–1.50 | 0.0000 | 0.0000 | 0 (saturated branch, floor-free by construction) |
+| 1.50–1.75 | 0.0133 | **0.0219** | +0.0086 |
+| 1.75–2.05 | 0.0000 | 0.0000 | 0 (saturated branch) |
+| 2.05–2.40 | 0.0725 | **0.0749** | +0.0024 |
+| 2.40–3.10 | 0.7434 | **0.7444** | +0.0010 |
+| 3.10–3.50 | 0.1366 | **0.1371** | +0.0005 |
+| 3.50–5.00 | 0.4497 | **0.4498** | +0.0001 |
+| 5.00 µm and beyond (6 rows, incl. the CU-330 ozone triple) | — | — | **bit-identical** |
+
+The ordering VIS > NIR > SWIR > MWIR > 0 is the Rayleigh $\lambda^{-4}$ signature, which
+is the check that this re-fit followed a Rayleigh change and not, say, a change to the
+water ladder. Every floor moved *up*, so the model is uniformly less transmissive or
+unchanged — never more.
+
+**The A1 anchor.** Over 0.45–0.70 µm on the us_standard full column the model read band
+optical depth 0.320 against MODTRAN's 0.456 — τ 0.726 against 0.634, i.e. **14.6 % too
+transmissive**. After the re-fit it reads 0.476, a **4.3 % OD overshoot** (τ 1.9 % low).
+The residual overshoot is the mixed-grid artefact described below and is a seventh of the
+error it replaced.
+
+**Band-mean τ parity, model / MODTRAN, RMS $|\ln$ ratio$|$**, over the same thirteen
+full-column and twelve partial-column anchors §2.15 uses:
+
+| Band [µm] | full column, before | full column, after | partial column, before | partial column, after |
+|---|---:|---:|---:|---:|
+| 0.45–0.70 | 0.1556 | **0.0294** | 0.1456 | **0.0214** |
+| 0.40–0.90 | 0.1035 | **0.0244** | 0.0893 | **0.0266** |
+| 0.45–0.85 (standard VIS) | 0.1105 | **0.0440** | 0.0938 | **0.0434** |
+| 0.85–1.40 (standard NIR) | 0.0461 | **0.0314** | 0.0383 | 0.0634 |
+| 0.70–1.30 | 0.0312 | 0.0402 | 0.0263 | 0.0675 |
+| 1.40–2.50 (standard SWIR) | 0.0758 | 0.0815 | 0.1141 | 0.1192 |
+| 1.50–1.75 | 0.0366 | 0.0463 | 0.0500 | 0.0584 |
+| 2.05–2.40 | 0.0430 | 0.0457 | 0.0502 | 0.0526 |
+| 3.50–5.00 (MWIR control) | 0.1106 | **0.1107** | 0.1812 | **0.1812** |
+| 8.00–12.00 (LWIR control) | 0.0482 | **0.0482** | 0.1047 | **0.1047** |
+
+The two thermal controls are the discriminating rows: they are unchanged to the 0.002
+resolution this metric is pinned at, which says the movement is the VIS/NIR/SWIR floors
+and not the quadrature. The visible improves **5.3×** on the full columns and **6.8×** on
+the partial ones; the two composite bands the scenarios actually integrate over improve
+**4.2×** (0.40–0.90) and **2.5×** (0.45–0.85).
+
+**0.70–1.30 µm gets worse, and the reason is measured.** The generator evaluates its
+non-water reference on a uniform-$\lambda$ grid (3000 points over 0.30–14.29 µm) while
+the ladder's band optical depth comes off the tape7 grid, which is uniform in
+*wavenumber* and therefore weights the short-$\lambda$ end of a visible band more
+heavily. Where the spectrum is steep — Rayleigh goes as $\lambda^{-4}$ — the two band
+means disagree, and the difference lands in `floor_add`, always in the direction of an
+over-large floor: **+0.022 OD at 0.45–0.70 µm, +0.011 at 0.70–1.30 µm, $\le 0.0004$
+beyond 1.3 µm**. A tape7-grid-consistent reference would want ~0.0383 at 0.70–1.30 µm
+where the generator gives 0.0517. The old row was under by 0.0383 and the new one is over
+by 0.0134, so the *bias* falls ~3× while this particular RMS rises, because the residual
+is now spread unevenly across the profile anchors rather than sitting one-sided. It is
+recorded rather than corrected because correcting it means changing CU-161's calibration
+convention, which is a new calibration and needs its own authorisation.
+
+**A second residual, on attribution rather than magnitude.** 0.16 optical depths is far
+more than real 0.45–0.70 µm gas chemistry supplies — the O₃ Chappuis band contributes
+~0.03 and the O₂ B/A bands are narrow — so part of the visible floor is standing in for a
+deficit in the aerosol model rather than for gas. The band *total* is now right against
+MODTRAN; the split between gas and aerosol is not resolved by this fit, and the
+consequence shows up wherever a scenario is scored against a source that assumes a
+cleaner aerosol than the one configured (scenario 10.3's astronomical-extinction anchor
+flips PASS → FAIL on exactly this).
+
+*Record:* CU-335, owner-approved 2026-08-30, landed the same day. Results-affecting on
+every VIS/NIR simple-model product — direction: **less transmissive, VIS SNRs drop**; see
+the CHANGELOG entry for the moved goldens and scenario values.
+*Enforced by:* `tests/integration/test_gas_region_visnir_refit_cu335.py` (the five moved
+rows re-derived from the delivered ladder; the clamp mechanism reproduced by restoring
+the pre-CU-253 Rayleigh; the mixed-grid offsets; the A1 anchor; both parity tables above,
+pinned to ±0.002); `src/radiant/atmosphere/tests/test_gas_region_visnir_refit.py` (all
+seventeen shipped rows, the $k$/$b$ bit-identity, the $\ge$ 5 µm bit-identity, and the
+CU-267 blend invariants under the new floors).
+
 ---
 
 ## 3. Known limitations register
@@ -1133,7 +1226,7 @@ Each entry names what is not measured or not modelled, and where it is tracked.
 | # | Limitation | Magnitude | Tracking home |
 |---|---|---|---|
 | 1 | **Region-flat spectral shape.** No line structure inside the 17 calibrated regions; the 0.04 µm edge ramps remove the discontinuity, not the flatness. Now the *named dominant residual* of the thermal path radiance. CU-330 is the one place a region was subdivided to resolve a real feature (the 9.6 µm O₃ band, §2.15) — a precedent for the fix, not the fix. | Under-reads up-looking MWIR thermal by 25–40 % on columns deeper than 5 km; over-reads down-looking MWIR by ~20 % on tall ones. Fixing needs a line-resolved or sub-region opacity model, not a further temperature refinement. | CU-161 resolution + `RADIANT_Atmosphere.md` §3.1 fragility paragraph. **No open registry entry** — a recorded model limitation, not scheduled debt. |
-| 2 | **Provisional single-scatter VIS/NIR sky.** Multiple scattering dominates the daytime sky below ~3 µm. | Under-predicts the daytime VIS sky by roughly **2×** near the horizon (model/MODTRAN 0.55–0.59 at 85–89.5°, 0.76 at ζ = 0). Also the ~2×-high rural VIS aerosol OD. | Gap 38; the sub-3 µm `UserWarning` (`SCATTERED_SKY_PROVISIONAL_MAX_UM`) is the operator-facing statement. |
+| 2 | **Provisional single-scatter VIS/NIR sky.** Multiple scattering dominates the daytime sky below ~3 µm. | Under-predicts the daytime VIS sky by roughly **2×** near the horizon (model/MODTRAN 0.55–0.59 at 85–89.5°, 0.76 at ζ = 0). CU-335 improved the up-looking VIS sky's worst excursion 1.361× → 1.217× on the shipped ladder, so the residual is now the scattering treatment alone, not scattering plus a τ deficit. See also row 14 for the VIS band's opacity attribution. | Gap 38; the sub-3 µm `UserWarning` (`SCATTERED_SKY_PROVISIONAL_MAX_UM`) is the operator-facing statement. |
 | 3 | **Refraction is unmodelled and guard-banded.** The geometry is unrefracted. | ~0.5° of refractive lift near the horizon — comparable to the 0.5° raise band itself. The dominant geometric error inside the horizon guard's warn band, so numbers past ~85° are a better-conditioned model, not a validated one. | ADR-0011 decision 5; the on/off calibration pair Q5/Q6 is **unrun** (deck-builder gap, §1). |
 | 4 | **Emission-placement refinements — all three now measured, none adopted (§2.14).** (a) the $z_{em} = 200$ m downwelling proxy; (b) O₃ lumped with the well-mixed gases, so 9.6 µm emission is placed too low; (c) grazing arcs distribute opacity vertically rather than along the arc. | (a) The layered replacement loses: it is worse than the $(\sec 48.2°, z_{em})$ corner on the P ladder (1.9385 vs 1.9233) and worse than the proxy on the tropospheric T_eff-only metric (0.3152 vs 0.2354), improving the LWIR 3.8× but degrading the MWIR 3.7×. Separately measured and **owner-ratified 2026-08-29 — adopted**: the fitted $D = 1.1$ exponent loses to the ladder's own $\sec 48.2° = 1.50030$ (composite 2.0776 → 1.9233; tropospheric-only 0.4167 → 0.3087), and the exponent is now geometric rather than fitted. (b) Real and one-sided — 9.4–9.9 µm biased warm on 12 of 14 pairs. The τ-side blocker is **discharged** (CU-330, §2.15): the share is now arithmetic on the split table, 0.832, and scoring it against the emission parity — which it was not fitted to — lands within 7 % of that parity's own optimum (0.1456 vs 0.1365 at 0.70). Placing the opacity is still unimplemented, and until it is, the feature reads RMS 0.3581 against the pre-CU-330 0.1519, because the flat slab had been under-supplying the in-band opacity that carries the error. (c) ≤ 1.2 % on M6–M8, under the 3–6 % residual there. | **CU-324, Open** (family head). Item (a)'s exponent ruling is discharged (swapped 2026-08-29); its layered-temperature half is declined by measurement. Item (b) is **unblocked** (CU-330 landed the 9.6 µm region 2026-08-29) and is now an open action with no free parameter; item (c) is gated on R1–R3. |
 | 5 | **Grazing thermal is anchored only where the anchors are blind.** M6–M8 do exercise a grazing thermal product, but their own 3–6 % residual exceeds the 1.2 % placement effect, so they cannot settle item 4(c). | Sized by proxy instead: modelled along-arc ÷ vertical separation is 2.9 %/2.4 % at a 2 km tangent endpoint, 7.9 %/9.8 % at 5 km, 16.1 %/13.1 % at 8 km (MWIR/LWIR) and exactly 0 at 15 km, where the ICAO profile is isothermal. | CU-324 checklist item 3. Run-matrix rows **R1–R3** authored 2026-08-29 for the discriminating geometry (tangent-rooted arcs at 5/8/10 km, ANGLE 90°); **unrun**. A delivery tripwire fails when their tape7s land. |
@@ -1145,7 +1238,8 @@ Each entry names what is not measured or not modelled, and where it is tracked.
 | 11 | **Twilight transit is unanchored.** Q7/Q8 were delivered but are `dev_only` — no family or parity test consumes them. | The transit carries 30–70 air masses, where both the exponential τ and the unmodelled refraction are at their worst. Treat as an order-of-magnitude bound. | `RADIANT_Atmosphere.md` §4.2e PROVISIONAL banner; run-matrix rows Q7/Q8. |
 | 12 | **`theta_s` stripped for pure-thermal targets.** A `T1Thermal` target has its solar geometry stripped upstream, and the sky background is a second consumer of it, so a pure-thermal target on a VIS/NIR grid gets a thermal-only sky at noon — and no provisional warning, because the trigger condition is never met. | The scattered sky component is absent for that scene class. | Documented in `RADIANT_Atmosphere.md` §4.2g and pinned as a characterization by `tests/integration/test_direction_aware_atmosphere.py::TestProvisionalScatteredSkyWarning`. **No registry entry.** |
 | 13 | **Aerosol Ångström law beyond 5 µm.** Frozen at its 5 µm value rather than decaying. | A deliberate clamp toward physical behaviour, warned once per run; a tabulated IR aerosol cross-section remains the higher-fidelity alternative. | CU-088, resolved 2026-07-12; `RADIANT_Atmosphere.md` §12 open question 2. |
-| 14 | **VIS aerosol absolute OD.** Not recalibrated by the CU-161 gas-band pass. | ~2× high at rural-23. | CU-161 fragility list; Gap 38. |
+| 14 | **VIS band opacity is right in total, mis-attributed in detail.** CU-335 (§2.16) closed the *magnitude* error — the 0.45–0.70 µm band total now sits within 4 % of MODTRAN at the anchor geometry, against 30 % under before — but it did so by putting 0.1597 optical depths on the well-mixed **gas** floor, and real 0.45–0.70 µm gas chemistry supplies only ~0.03 (O₃ Chappuis, narrow O₂ B/A). The remainder is the aerosol model's own deficit, wearing a gas label. | Band total: within 4 % (was 30 % under). Attribution: ~0.13 of 0.16 optical depths is aerosol dressed as gas, so any product that separates the two — or is scored against a source assuming a *cleaner* aerosol than the one configured — reads wrong. Scenario 10.3's astronomical-extinction anchor flips PASS → FAIL on exactly this. | §2.16; Gap 38. Superseded the pre-CU-335 statement ("~2× high at rural-23"), whose sign the CU-253 Rayleigh correction had already reversed. |
+| 15 | **The gas-floor fit mixes two spectral grids.** `floor_add` is the ladder's band optical depth (tape7 grid, uniform in wavenumber) minus the model's non-water reference (uniform-λ grid). Where the spectrum is steep the two band means differ and the gap lands in the floor. | +0.022 OD at 0.45–0.70 µm, +0.011 at 0.70–1.30 µm, ≤ 0.0004 beyond 1.3 µm — always toward an over-large floor. It is why 0.70–1.30 µm band-mean τ parity moved 0.0312 → 0.0402 while the visible improved 5.3× (§2.16). | §2.16; pinned as a characterization by `tests/integration/test_gas_region_visnir_refit_cu335.py::test_the_nonwater_reference_grid_is_the_generators`. **No open registry entry** — correcting it changes CU-161's calibration convention and would need its own authorisation. |
 
 ---
 

@@ -48,14 +48,21 @@ runs: `SCNR = |S_option − S_scrub| / noise_scrub`.
 
 | Option | Contrast [e⁻] | SCNR | Well fill [%] | Signature reduction |
 |--------|--------------:|-----:|--------------:|--------------------:|
-| Bare vehicle | +1,851,019 | 1,282.4 | 32.3 | — |
-| Camo net A (ε≈0.60) | −509,543 | 353.0 | 12.7 | 72.5% |
-| Camo net B (shaped) | −273,017 | 189.1 | 14.6 | 85.3% |
-| **Camo net C (ε≈0.93)** | **+82,721** | **57.3** | 17.6 | **95.5%** |
+| Bare vehicle | +1,851,019 | 1,283.5 | 32.3 | — |
+| Camo net A (ε≈0.60) | −509,543 | 353.3 | 12.6 | 72.5% |
+| Camo net B (shaped) | −273,017 | 189.3 | 14.6 | 85.3% |
+| **Camo net C (ε≈0.93)** | **+82,721** | **57.4** | 17.6 | **95.5%** |
 
-*Numbers refreshed 2026-08-29 from the unmodified runner — **CU-330**, the
+*Numbers refreshed 2026-08-30 from the unmodified runner — **CU-324 item 2**,
+the 9.6 µm ozone emission-placement split, worth +0.1 % on SCNR here (the
+scrub background falls when its ozone band emits from 25 km, so the SCNR
+denominator falls with it) and nothing at all on the **contrast** column,
+which is bit-identical because the path radiance is common-mode and cancels
+in the two-run difference. Net A's well fill ticks 12.7 → 12.6 %. Every
+ranking and every signature-reduction percentage is unchanged. Previous
+vintage 2026-08-29 — **CU-330**, the
 9.6 µm ozone region split, worth −0.2 % to −0.4 % on contrast and SCNR here and
-nothing at all on the geometry columns; previous vintage 2026-08-02. Dominant
+nothing at all on the geometry columns. Dominant
 mover across the history: **CU-321** — the down-looking
 `(1−τ)·B` path emission is now emitted at a height-resolved `T_eff(λ)` over the
 0 → 3 km column instead of at its near-surface temperature, so the scrub
@@ -70,20 +77,23 @@ unchanged.*
 
 | Option | 8–10 µm SCNR | 10–12 µm SCNR | Best |
 |--------|-------------:|--------------:|------|
-| Bare vehicle | 994.8 | 806.7 | 8–10 µm |
-| Net A | 230.9 | 261.3 | 10–12 µm |
-| Net B | 231.6 | 41.5 | 8–10 µm |
-| Net C | 42.0 | 38.3 | 8–10 µm |
+| Bare vehicle | 996.7 | 806.7 | 8–10 µm |
+| Net A | 231.3 | 261.3 | 10–12 µm |
+| Net B | 232.1 | 41.5 | 8–10 µm |
+| Net C | 42.1 | 38.3 | 8–10 µm |
 
-*Numbers refreshed 2026-08-29 from the unmodified runner (**CU-330** — note the
-8–10 µm column moves and the 10–12 µm column essentially does not, which is the
-split's own signature; previous vintage 2026-08-02). Dominant historical mover
+*Numbers refreshed 2026-08-30 from the unmodified runner (**CU-324 item 2** —
+the 8–10 µm column moves and the 10–12 µm column is bit-identical, which is the
+placement split's own signature: the ozone band it moves is at 9.6 µm, inside
+the first sub-band and outside the second; previous vintage 2026-08-29,
+**CU-330**, whose τ-side split had the same signature and the opposite sign).
+Dominant historical mover
 as for the nadir table: CU-321 lowers the scrub
 background and its shot noise, so every sub-band SCNR rises ~1 %. No "Best"
 column entry changes.*
 
 Net B's shaping is visible: its high 10–12 µm emissivity matches the
-background well there (SCNR 41), but its low 8–10 µm reads cold (SCNR 233).
+background well there (SCNR 42), but its low 8–10 µm reads cold (SCNR 232).
 A sensor confined to one half-band would rank the nets differently than
 the full FLIR — the reason spectral, not scalar, emissivity matters.
 

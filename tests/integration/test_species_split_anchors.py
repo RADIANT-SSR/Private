@@ -96,32 +96,44 @@ _BANDS = {
 #: both still inside the ceilings below, and both traceable to the generator's
 #: mixed-grid non-water reference over-supplying those two floors (recorded at
 #: ``tests/integration/test_gas_region_visnir_refit_cu335.py``).
+#: **LWIR rows repinned again 2026-08-30 (CU-324 item 2, the O₃ placement
+#: split).**  The MWIR and the three reflective rows are again bit-identical.
+#: These are MODTRAN/model ratios on an UP-looking sky column, so the ozone
+#: opacity moving from 4 km to the 25 km layer cools its emission and the ratio
+#: rises: 1.932→1.934 (1 km), 1.225→1.235, 1.059→1.079, 0.971→1.022,
+#: 0.950→1.020 (20 km).  The two deepest rungs move TOWARD unity (|ln| 0.029→
+#: 0.022 and 0.051→0.020) and the three shallow ones away, which is the same
+#: split §2.15 records on the τ side: a 1–5 km column is handed ozone opacity
+#: it does not physically hold (the calibrated floor rides the molecular scale
+#: height), and placing that opacity correctly makes the mis-attribution
+#: visible instead of cancelling it.  The 1.95 ceiling still binds: the worst
+#: excursion is 1.934.
 _EXPECTED_RATIOS: dict[tuple[int, str], float] = {
     (1_000, "VIS"): 1.082,
     (1_000, "NIR"): 0.790,
     (1_000, "SWIR"): 0.607,
     (1_000, "MWIR"): 2.448,
-    (1_000, "LWIR"): 1.932,
+    (1_000, "LWIR"): 1.934,
     (3_000, "VIS"): 1.216,
     (3_000, "NIR"): 0.880,
     (3_000, "SWIR"): 0.658,
     (3_000, "MWIR"): 1.852,
-    (3_000, "LWIR"): 1.225,
+    (3_000, "LWIR"): 1.235,
     (5_000, "VIS"): 1.217,
     (5_000, "NIR"): 0.880,
     (5_000, "SWIR"): 0.624,
     (5_000, "MWIR"): 1.674,
-    (5_000, "LWIR"): 1.059,
+    (5_000, "LWIR"): 1.079,
     (10_000, "VIS"): 1.166,
     (10_000, "NIR"): 0.875,
     (10_000, "SWIR"): 0.602,
     (10_000, "MWIR"): 1.514,
-    (10_000, "LWIR"): 0.971,
+    (10_000, "LWIR"): 1.022,
     (20_000, "VIS"): 1.107,
     (20_000, "NIR"): 0.865,
     (20_000, "SWIR"): 0.589,
     (20_000, "MWIR"): 1.409,
-    (20_000, "LWIR"): 0.950,
+    (20_000, "LWIR"): 1.020,
 }
 
 

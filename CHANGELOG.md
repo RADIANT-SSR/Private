@@ -62,6 +62,43 @@ retroactively reconstructed.
   and needs its own authorisation.
   The table is now a single vintage — one generator run reproduces all seventeen rows,
   CU-330's included — so the per-row vintage split beside it is closed.
+- **Results-affecting: 9.6 µm ozone emission is now placed at the ozone layer, not on
+  the well-mixed gas profile (CU-324 item 2, owner-approved 2026-08-30).** The
+  height-resolved emission temperature placed the whole calibrated gas floor —
+  CO₂/N₂O/CH₄ *and* O₃ — on one pressure-broadened 4 km profile, so a band whose real
+  emission comes from the mid stratosphere was emitted from the first few kilometres of
+  air. Inside the 9.40–9.90 µm O₃ ν₂ region the floor is now partitioned: the ozone share
+  rides a Gaussian layer at 25 km (σ = 5 km, the US Standard Atmosphere ozone profile)
+  and the remainder keeps the 4 km placement.
+  **Zero fitted coefficients.** The share is computed from the τ table rather than
+  written down — the blended floor is evaluated twice, once as shipped and once with the
+  band row carrying its clean-window neighbour's floor, and the ozone is the excess:
+  `(0.8877 − 0.1494)/0.8877 = 0.8317` today, tracking any future re-fit automatically.
+  Because both floors pass through the same CU-267 smoothstep, the placement is
+  continuous in λ at 9.40 and 9.90 µm with no second ramp implementation.
+  **Direction and magnitude:** the 9.6 µm band emits from colder air, so LWIR path
+  thermal falls inside 9.4–9.9 µm. Against the fourteen matched MODTRAN pairs the
+  feature's RMS |ln ratio| improves 2.6× (0.3581 → 0.1389 — better than the 0.1519 that
+  preceded CU-330, so the interim regression that landing recorded is cleared), the
+  one-sided warm bias collapses (12/14 pairs over-predicting → 5/14, worst pair
+  1.95× → 1.27×), and the 8–12 µm band mean improves 0.2632 → 0.2522. The τ-derived
+  share lands 3.1 % off the free optimum it was never fitted to, inside the ruling's
+  15 % stop-and-flag bar by a factor of five. The 14-anchor LWIR thermal scoreboard
+  reads its best yet: 0.2632 → 0.2522 RMS, ten rungs moving toward unity (H1
+  1.243 → 1.055 is the largest). Up-looking sky radiance improves too: H2 1.26 → 1.12,
+  H4 1.08 → 1.05.
+  **Nothing outside the band moves.** Where the ozone share is zero — any grid that does
+  not reach 9.4–9.9 µm — no layer is constructed and the emission temperature is
+  bit-identical to the four-species form; every MWIR anchor ratio is unmoved, and τ is
+  untouched everywhere (this is a redistribution in altitude, not a change of opacity).
+  Downstream: Cell 28 `nedt_K` +0.0042 % with all six `L_aperture` anchors and `snr`
+  holding to the 1e-6 anchor tolerance; six scenario GUI baselines move (`snr` −0.005 %
+  to −2.37 %, largest 8.2 1656.94 → 1617.60; `nedt_K` +0.003 % to +2.64 %); the MWIR LEO
+  golden is untouched. Three shallow up-looking rungs (1/3/5 km) move slightly *away*
+  from unity, which is the τ table handing a low column ozone opacity it does not hold —
+  now visible instead of cancelled, and recorded as limitation 15 in
+  `docs/validation/atmosphere_modtran_parity.md` §3. The 9.90–10.00 µm long-wave tail is
+  deliberately out of scope and still placed as well mixed. Full tables: §2.14(b).
 - **Results-affecting: the 8–10 µm gas region is split at the 9.6 µm ozone band
   (CU-330, owner-scheduled 2026-08-29).** `SimpleAtmosphere`'s calibrated gas table
   carried one flat region across 8.00–10.00 µm — a 2 µm slab spanning both the clean

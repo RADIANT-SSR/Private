@@ -41,13 +41,19 @@ regime weights the target by `source.target.fill_fraction` (CU-060 — the
 original execution left it at the default 1.0, overstating the fire signal
 ~3× and pulling the saturation temperatures down).
 
-*Numbers refreshed 2026-08-29 from the unmodified runner. Two movers, both
-small here. **CU-335** (2026-08-30) re-fitted the gas table's VIS/NIR/SWIR rows
-against the post-CU-253 Rayleigh; its MWIR reach is the λ⁻⁴ tail in the
-2.40–5.00 µm floors (≤ 0.001 OD), which moves MWIR pixel signal 228 481 →
-228 465 e⁻ and fire contrast 220 950 → 220 935 e⁻, i.e. −0.007 %. Every LWIR
-figure is bit-identical and no verdict moves. The two before it landed
-2026-08-29. **CU-330** split the flat 8–10 µm gas region
+*Numbers refreshed 2026-08-30 from the unmodified runner. **CU-324 item 2** now
+places the 9.6 µm ozone share of the gas floor on the 25 km ozone layer instead
+of the 4 km well-mixed profile, so the LWIR column's own thermal emission falls:
+pixel signal 2 996 449 → 2 962 748 e⁻ (−1.1 %), clutter 53 377 → 52 366 e⁻ RMS,
+SNR 1 363.6 → 1 357.8, NEDT 164.7 → 165.4 mK. The **verdict improves slightly**
+in LWIR's favour and for the reason the band trade is about: a smaller background
+carries proportionally less 3 % clutter, so LWIR SCNR rises 22.8 → 23.2 at 600 K
+and 126.4 → 128.8 at 1200 K while the fire contrast (1 217 206 e⁻) does not move
+at all. **Every MWIR figure is bit-identical** — the split touches 9.4–9.9 µm and
+nothing else — and the 400 K LWIR miss is unchanged at SCNR 1.1, P_d 0.000.
+
+Prior vintage, refreshed 2026-08-29. Two movers, both
+small here, both landed 2026-08-29. **CU-330** split the flat 8–10 µm gas region
 at the 9.6 µm ozone band, giving the LWIR column real in-band opacity: pixel
 signal 3 011 064 → 2 996 449 e⁻ (−0.5 %), clutter 53 631 → 53 377 e⁻ RMS, SNR
 1 367.0 → 1 363.6, NEDT 164.5 → 164.7 mK. **Every MWIR figure in this table is
@@ -71,15 +77,15 @@ rather than the column's near-surface temperature, which took pixel signal LWIR
 
 | Quantity | MWIR | LWIR |
 |----------|-----:|-----:|
-| Pixel signal [e⁻] | 228,465 | 2,996,449 |
-| Contrast (fire − forest) [e⁻] | 220,935 | 1,217,206 |
-| Well fill [%] | 5.7 | 25.0 |
-| Total noise [e⁻ RMS] | 541.6 | 53,422.5 |
-| — of which clutter [e⁻ RMS] | 225.9 | 53,377.3 |
-| SNR [--] | 464.2 | 1,363.6 |
-| Contrast SNR [--] | 448.9 | 553.9 |
-| **SCNR (incl. clutter) [--]** | **408.0** | **22.8** |
-| NEDT [mK] (Gap 43 approximation) | 230.0 | 164.7 |
+| Pixel signal [e⁻] | 228,481 | 2,962,748 |
+| Contrast (fire − forest) [e⁻] | 220,950 | 1,217,206 |
+| Well fill [%] | 5.7 | 24.7 |
+| Total noise [e⁻ RMS] | 541.6 | 52,411.7 |
+| — of which clutter [e⁻ RMS] | 225.9 | 52,366.3 |
+| SNR [--] | 464.2 | 1,357.8 |
+| Contrast SNR [--] | 448.9 | 557.8 |
+| **SCNR (incl. clutter) [--]** | **408.0** | **23.2** |
+| NEDT [mK] (Gap 43 approximation) | 230.0 | 165.4 |
 
 ### Spectral contrast (hand Planck, ASTER ε_bg(λ))
 
@@ -95,11 +101,11 @@ different signal-to-clutter.
 | T_fire [K] | MWIR SCNR | sat? | LWIR SCNR | sat? | P_d MWIR | P_d LWIR |
 |-----------:|----------:|:----:|----------:|:----:|:--------:|:--------:|
 | 400 | 42.7 | no | 1.1 | no | 1.000 | **0.000** |
-| 500 | 188.0 | no | 10.5 | no | 1.000 | 1.000 |
-| 600 | 408.0 | no | 22.8 | no | 1.000 | 1.000 |
-| 800 | 924.2 | no | 53.2 | no | 1.000 | 1.000 |
-| 1000 | 1,464.3 | no | 88.4 | no | 1.000 | 1.000 |
-| 1200 | 2,003.9 | **YES** | 126.4 | no | 1.000 | 1.000 |
+| 500 | 188.0 | no | 10.7 | no | 1.000 | 1.000 |
+| 600 | 408.0 | no | 23.2 | no | 1.000 | 1.000 |
+| 800 | 924.2 | no | 54.2 | no | 1.000 | 1.000 |
+| 1000 | 1,464.3 | no | 90.1 | no | 1.000 | 1.000 |
+| 1200 | 2,003.9 | **YES** | 128.8 | no | 1.000 | 1.000 |
 
 MWIR detects the 5 m² fire with P_d ≈ 1 at every temperature; **LWIR
 misses the coolest fires** — at 400 K its SCNR is 1.0, far below the

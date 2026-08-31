@@ -238,11 +238,11 @@ def test_sky_radiance_vs_uplooking_h_runs() -> None:
     from the hemispheric ``E_sky_thermal`` flux those constants were fit
     through (that path is untouched and unchanged — zero drift).
 
-    Measured 2026-07-26, repinned 2026-08-02 (CU-321).  Band-integrated π·L
-    (MODTRAN thermal | model) [W/m²]:
+    Measured 2026-07-26, repinned 2026-08-02 (CU-321) and 2026-08-30 (CU-324
+    item 2).  Band-integrated π·L (MODTRAN thermal | model) [W/m²]:
 
-        H2 us_standard   8–12 µm  20.85 | 26.24  (1.26×)   3–5 µm  1.82 | 1.37  (0.76×)
-        H4 tropical      8–12 µm  66.75 | 72.11  (1.08×)   3–5 µm  3.65 | 2.75  (0.75×)
+        H2 us_standard   8–12 µm  20.85 | 23.36  (1.12×)   3–5 µm  1.82 | 1.37  (0.76×)
+        H4 tropical      8–12 µm  66.75 | 70.07  (1.05×)   3–5 µm  3.65 | 2.75  (0.75×)
 
     Before CU-321 these read 1.59/1.16 and 1.22/1.04: the whole 100 km column
     emitted at near-surface temperature.  Resolving the emission temperature in
@@ -250,6 +250,13 @@ def test_sky_radiance_vs_uplooking_h_runs() -> None:
     a small over-prediction into a ~25 % under-prediction — the CU-161
     region-flat spectral-shape deficit, which the retired warm bias had been
     masking here.
+
+    CU-324 item 2 (the O₃ placement split) then took the LWIR the rest of the
+    way: 1.26 → 1.12 on H2 and 1.08 → 1.05 on H4.  A ground observer looking up
+    through a full column sees the 9.6 µm band emitted from the 25 km ozone
+    layer instead of from 4 km of near-surface air, and the over-prediction
+    that remained was largely that.  The MWIR is untouched (0.76 → 0.76,
+    0.75 → 0.75): the split moves only 9.4–9.9 µm.
 
     Emissivity is still ``1 − τ`` on the segment's *own* slant transmittance
     (Kirchhoff, Rule 5).  The hemispheric flux product raises its transmittance
@@ -261,8 +268,8 @@ def test_sky_radiance_vs_uplooking_h_runs() -> None:
     zeta = math.radians(48.2)
     cases = [
         # (run, profile, LWIR π·L ref, MWIR π·L ref, LWIR ratio, MWIR ratio)
-        ("H2", "us_standard", 20.85, 1.820, 1.26, 0.76),
-        ("H4", "tropical", 66.75, 3.651, 1.08, 0.75),
+        ("H2", "us_standard", 20.85, 1.820, 1.12, 0.76),
+        ("H4", "tropical", 66.75, 3.651, 1.05, 0.75),
     ]
     for run, profile, lwir_ref, mwir_ref, lwir_ratio, mwir_ratio in cases:
         lam, _tau, l_thermal = _read(run)

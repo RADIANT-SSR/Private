@@ -228,7 +228,18 @@ CELL28_PINNED = {
     # O₃ ν₂ band edges (8.00–9.40 / 9.40–9.90 / 9.90–10.00 µm).  NEDT
     # −0.0025% (was 0.20477427606154244); SNR bit-identical (saturated) and
     # MTF unchanged to 2.5e-16 (spatial).
-    "nedt_K": 0.2047691425997142,
+    # NEDT repinned 2026-08-30 (CU-324 item 2, the O₃ emission-placement
+    # split): the 0.8317 τ-derived ozone share of the in-band gas floor now
+    # emits from the 25 km ozone layer instead of the 4 km pressure-broadened
+    # profile, so this 2 km midlat_summer column's path thermal falls inside
+    # 9.4–9.9 µm.  NEDT +0.0042% (was 0.2047691425997142).  This is the ONLY
+    # Cell 28 pin that moves: SNR is bit-identical (saturated), MTF is spatial,
+    # and all six L_aperture anchors hold to the 1e-6 anchor tolerance because
+    # none of the six sampled wavelengths falls inside the 9.4–9.9 µm band
+    # (8/9 µm sit in the clean window, 10–13 µm beyond the tail).  NEDT is a
+    # band integral and does see it — which is the discriminating check that
+    # this repin is the ozone band and nothing wider.
+    "nedt_K": 0.2047778207503249,
     # MTF@Nyquist repinned 2026-07-10 (CU-003 option a): the pixel-aperture
     # kernel is now area-integrated (anti-aliased edges) instead of a binary
     # mask that quantised the rect width to the sample grid. The old kernel

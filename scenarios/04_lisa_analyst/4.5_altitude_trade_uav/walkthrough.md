@@ -47,11 +47,18 @@ Detection holds while `ff · ΔT · τ_atm ≥ threshold · NETD`. The
 
 | Quantity | Value |
 |----------|-------|
-| dP/dT (from the chain's dS/dT) | 1.516 × 10⁻¹⁰ W/K |
-| NEP = NETD · dP/dT | 7.579 × 10⁻¹² W |
+| dP/dT (from the chain's dS/dT) | 1.515 × 10⁻¹⁰ W/K |
+| NEP = NETD · dP/dT | 7.576 × 10⁻¹² W |
 | **D\* = √(A·Δf)/NEP** | **1.254 × 10⁹ Jones** |
 
-*Numbers refreshed 2026-08-02 from the unmodified runner. This table's previous
+*Converter table refreshed 2026-08-30 from the unmodified runner — **CU-324
+item 2**, the 9.6 µm ozone emission-placement split, worth −0.05 % on dP/dT
+(1.516 → 1.515 × 10⁻¹⁰ W/K) and −0.04 % on NEP; D\* is unchanged to four
+figures. The split reaches this table only through the chain's `dS/dT`, and
+the altitude trade below is bit-identical for the same reason CU-224 and
+CU-321 never reached it: apparent ΔT is `ff · ΔT · τ`, and τ is a placement
+invariant. The rest of this table's history dates from the 2026-08-02
+refresh. This table's previous
 vintage is 2026-07-08 (`efea031`) — the 2026-07-20 commit on this file added
 only the Gap-101 note and did not re-baseline. Dominant mover: **CU-161**
 (commit `0aebdda`, 2026-07-18) — the gas-band recalibration plus Gap 94

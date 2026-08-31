@@ -496,6 +496,42 @@ coefficient:
 $$H_{\text{emit}} \;=\; \left(\frac{1}{H_a} + \frac{1}{H_{\text{air}}}\right)^{-1}$$
 
   which takes the well-mixed floor from 8 km to **4 km** and water from 2 km to **1.6 km**.
+- **Layered absorbers** (ozone, since CU-324) — a species produced photochemically in the
+  mid stratosphere has no scale height at all, so it is placed on a Gaussian layer instead:
+
+$$\rho_{\mathrm{O_3}}(z) \;\propto\; \exp\!\left(-\tfrac{1}{2}\left(\frac{z - z_0}{w}\right)^{2}\right),
+\qquad z_0 = 25\ \text{km},\ w = 5\ \text{km},$$
+
+  the US Standard Atmosphere ozone profile's peak and half-width.
+
+**The ozone split.** The calibrated `floor_od` is one number per spectral region covering
+CO₂, N₂O, CH₄ *and* O₃, and only the first three are well mixed. Inside the 9.40–9.90 µm
+O₃ $\nu_2$ region the floor is therefore partitioned before it is placed:
+
+$$\mathrm{share}_{\mathrm{O_3}}(\lambda) \;=\; 1 - \frac{\text{floor}_{\text{continuum}}(\lambda)}{\text{floor}(\lambda)}
+\;=\; \frac{0.8877 - 0.1494}{0.8877} \;=\; 0.8317
+\quad\text{inside the band},$$
+
+where $\text{floor}_{\text{continuum}}$ is the same region table evaluated with the band's
+row carrying its clean-window neighbour's floor. That share of the gas floor rides the
+ozone layer; the remainder keeps the 4 km pressure-broadened placement. Three properties
+follow:
+
+- **the share is arithmetic, not fitted** — it is read off the two committed table rows
+  (§2.5's 8.00–9.40 and 9.40–9.90 µm regions), so a re-fit moves it automatically and
+  there is no coefficient in the emission model to go stale. An absorption *band* stands
+  on top of the continuum its neighbours carry, so the excess — not the total — is ozone;
+- **placement is continuous in $\lambda$** — both floors pass through the same CU-267
+  smoothstep, so the share inherits its $C^1$ ramp at 9.40 and 9.90 µm rather than needing
+  a second ramp implementation that could drift from the first;
+- **$\tau$ is untouched** — the two parts sum to the floor the model already had. This is a
+  redistribution in altitude and nothing else, as every placement rule here is.
+
+Outside the band the share is exactly zero, no layer is constructed, and $T_{\text{eff}}$ is
+bit-identical to the four-species form. The 9.90–10.00 µm long-wave tail (floor 0.3013,
+3.3× its continuum) is a **documented exception**: part of it is ozone too, but CU-324
+item 2 scoped the split to the band core the parity is measured in, so a narrow-band
+product centred on 9.95 µm still places its ozone at 4 km.
 
 The sub-layer count is a convergence-tested quadrature parameter, not a tuning knob:
 `EMISSION_LAYERS_PER_SPECIES = 32`, whose discretisation error against a 512-per-species
@@ -511,8 +547,15 @@ NaN (Rule 17).
 *Record:* CU-321, resolved 2026-08-03 (owner-approved 2026-08-02), on top of CU-224
 (resolved 2026-08-02), which added the thermal term to the down-looking direction at all —
 before it, a pure-thermal LWIR down-looking scene had $L_{\text{path}} \equiv 0$ exactly.
+The ozone layer is CU-324 item 2, landed 2026-08-30 on the owner's go, unblocked by
+CU-330's τ-side region split; its parity is §2.14(b).
 *Enforced by:* `src/radiant/atmosphere/tests/test_emission_temperature.py` (the telescoping
-identity, the isothermal and vacuum limits, the layer-count convergence),
+identity, the isothermal and vacuum limits, the layer-count convergence, and the layer
+placement law — its Gaussian column weights against the analytic erf difference, its
+isothermal exactness, and the bit-identity of a zero share with the four-species form),
+`src/radiant/atmosphere/tests/test_ozone_placement.py` (the share derived from the table
+rows, its smoothstep continuity at both band edges, τ bit-identical under a placement
+change, and the sign — 9.6 µm emits colder than 9.0 µm on a tall column, both directions),
 `src/radiant/atmosphere/tests/test_downlooking_path_thermal.py` (the Planck form derived
 from first principles, $\tau$ untouched, the up/down asymmetry), and
 `tests/integration/test_emission_temperature_anchors.py` (the MODTRAN parity and

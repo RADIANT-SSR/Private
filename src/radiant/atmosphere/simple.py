@@ -83,6 +83,7 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any
 
 import numpy as np
@@ -98,6 +99,12 @@ from radiant.atmosphere.near_horizon_air_mass import (
     tangent_radius_m,
 )
 from radiant.atmosphere.omega0_eff import omega0_eff
+from radiant.atmosphere.ozone_placement import (
+    OZONE_LAYER_CENTRE_M,
+    OZONE_LAYER_WIDTH_M,
+    ozone_continuum_regions,
+    ozone_share_of_gas_floor,
+)
 from radiant.atmosphere.protocol import (
     AtmosphericGeometry,
     AtmosphericState,
@@ -388,6 +395,29 @@ _ESKY_DIFFUSIVITY_ANGLE_RAD: float = math.radians(48.2)
 _ESKY_DIFFUSIVITY_D: float = 1.0 / math.cos(_ESKY_DIFFUSIVITY_ANGLE_RAD)
 
 
+@lru_cache(maxsize=8)
+def _o3_continuum_regions(regions: tuple[_GasRegion, ...]) -> tuple[_GasRegion, ...]:
+    """``regions`` as it would read with no ozone in the 9.6 µm band.
+
+    The O₃ ν₂ core row carries its clean-window neighbour's ``floor_od``
+    instead of its own (CU-324 item 2).  Evaluating :meth:`_region_params`
+    against both tables and differencing gives the ozone share of the gas
+    floor, which is what tells the emission placement how much of that floor
+    belongs at 25 km rather than on the 4 km pressure-broadened profile.
+
+    **Derived from whatever table is live, at call time, never snapshotted at
+    import.** The share is *defined* as an excess over the calibration the
+    model is evaluating right now, so a snapshot silently decouples the two.
+    That is not hypothetical: ``scripts/fit_simple_atmosphere_gas_bands.py``
+    rebinds ``_CALIBRATED_GAS_REGIONS`` to zeroed floors for its non-water
+    reference evaluation, and an import-time snapshot survives that rebinding
+    and re-injects the shipped floors — the exact non-idempotency CU-330
+    repaired. The cache is keyed on the table's **value**, so a rebound global
+    always gets its own entry and correctness never depends on cache state.
+    """
+    return ozone_continuum_regions(regions)
+
+
 # ---------------------------------------------------------------------------
 # SimpleAtmosphere
 # ---------------------------------------------------------------------------
@@ -660,11 +690,24 @@ class SimpleAtmosphere:
 
         Thin adapter onto
         :func:`radiant.atmosphere.emission_temperature.segment_emission_temperature_K`
-        that supplies this model's three density scale heights and its
-        temperature profile.  Every path-thermal call site — down-looking
-        ``evaluate`` and all four segment evaluators — goes through it, so
-        there is one emission-temperature model for both directions.
+        that supplies this model's three density scale heights, its
+        temperature profile, and the ozone share of the gas floor.  Every
+        path-thermal call site — down-looking ``evaluate`` and all four
+        segment evaluators — goes through it, so there is one
+        emission-temperature model for both directions.
+
+        The ozone share (CU-324 item 2) is read off this model's own
+        calibrated table, as the 9.6 µm band's floor in excess of the
+        continuum its clean-window neighbour carries; that fraction of the
+        gas floor is placed on the stratospheric ozone layer and the
+        remainder keeps the well-mixed pressure-broadened placement. The
+        segment's optical depth is not touched — this is a placement, and τ
+        is bit-identical across it.
         """
+        floor, _k, _b = self._region_params(wavelength_um)
+        continuum_floor, _ck, _cb = self._region_params(
+            wavelength_um, _o3_continuum_regions(_CALIBRATED_GAS_REGIONS)
+        )
         return segment_emission_temperature_K(
             wavelength_um,
             h_low_m=h_low_m,
@@ -673,6 +716,9 @@ class SimpleAtmosphere:
             od_slant_aer=od_slant_aer,
             od_slant_h2o=od_slant_h2o,
             od_slant_gas=od_slant_gas,
+            ozone_share=ozone_share_of_gas_floor(floor, continuum_floor),
+            ozone_layer_centre_m=OZONE_LAYER_CENTRE_M,
+            ozone_layer_width_m=OZONE_LAYER_WIDTH_M,
             scale_height_mol_m=H_MOL_M,
             scale_height_aer_m=H_AER_M,
             scale_height_h2o_m=H_H2O_M,
@@ -708,7 +754,10 @@ class SimpleAtmosphere:
         return float(self._profile_temperature_K(np.asarray(h_eval_m)))
 
     @staticmethod
-    def _region_params(wavelength_um: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _region_params(
+        wavelength_um: np.ndarray,
+        regions: tuple[_GasRegion, ...] | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Per-wavelength (floor_od, k_h2o, b_h2o) from the region table.
 
         The table is piecewise-constant, but the coefficients are joined
@@ -736,15 +785,34 @@ class SimpleAtmosphere:
         region (the table spans 0.30–14.29 µm; anything outside carries
         that edge region's calibration — documented fragility, the
         anchors do not constrain it).
+
+        ``regions`` is a parameter only so the ozone placement (CU-324
+        item 2) can evaluate the same blend against
+        :func:`_o3_continuum_regions` — the identical table with the 9.6 µm
+        band read as pure continuum. Differencing two evaluations of *this*
+        function is what keeps the ozone share on the same C¹ ramp as the
+        floor it apportions, with no second ramp implementation to drift from
+        this one.
+
+        ``None`` means the live ``_CALIBRATED_GAS_REGIONS`` **read at call
+        time** — deliberately not a default argument, which Python binds once
+        at class-body evaluation. ``scripts/fit_simple_atmosphere_gas_bands.py``
+        rebinds that global to zeroed floors for its non-water reference
+        evaluation, and a default-argument snapshot silently ignores the
+        rebinding, re-including the very floors the generator is deriving and
+        refitting every one of them to ~0. That is the non-idempotency CU-330
+        repaired; it must not be reintroduced through this seam.
         """
+        if regions is None:
+            regions = _CALIBRATED_GAS_REGIONS
         lam = np.asarray(wavelength_um, dtype=np.float64)
         floor = np.empty_like(lam)
         k = np.empty_like(lam)
         b = np.empty_like(lam)
-        for i, region in enumerate(_CALIBRATED_GAS_REGIONS):
+        for i, region in enumerate(regions):
             if i == 0:
                 mask = lam < region.hi_um
-            elif i == len(_CALIBRATED_GAS_REGIONS) - 1:
+            elif i == len(regions) - 1:
                 mask = lam >= region.lo_um
             else:
                 mask = (lam >= region.lo_um) & (lam < region.hi_um)
@@ -753,9 +821,7 @@ class SimpleAtmosphere:
             b[mask] = region.b_h2o
 
         hw = GAS_REGION_BLEND_HALF_WIDTH_UM
-        for lo_region, hi_region in zip(
-            _CALIBRATED_GAS_REGIONS[:-1], _CALIBRATED_GAS_REGIONS[1:], strict=True
-        ):
+        for lo_region, hi_region in zip(regions[:-1], regions[1:], strict=True):
             edge_um = hi_region.lo_um
             in_ramp = (lam > edge_um - hw) & (lam < edge_um + hw)
             if not np.any(in_ramp):

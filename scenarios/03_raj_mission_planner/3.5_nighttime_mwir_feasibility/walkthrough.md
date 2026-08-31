@@ -32,7 +32,7 @@ transcribed into the run script.
   sensor sized below full well, the metric reproduced an explicit two-run
   differencing to the digit (MWIR 26.2 = 26.2, LWIR 133.7 = 133.7). Those two
   figures are the historical cross-check, not current output; the current
-  contrast SNRs are MWIR 38.1 and LWIR 100.9 (the runner no longer prints the
+  contrast SNRs are MWIR 38.1 and LWIR 101.0 (the runner no longer prints the
   two-run comparison, so the identity is not re-verified in this refresh).
 - **Solar independence (analytic, `core.blackbody`).** Band-integrated
   thermal emitted radiance `ε·∫B(λ,T)dλ` vs the reflected-solar radiance a
@@ -55,9 +55,16 @@ metric drifts (a CU, filed).
 | Band | SNR | Contrast SNR | NEDT (mK) | ΔT/NEDT | MRT@Nyq (K) |
 |------|-----|--------------|-----------|---------|-------------|
 | MWIR | 375.7 | 38.1 | 72.5 | 97× | 0.399 |
-| LWIR | 2776.2 | 100.9 | 21.6 | 324× | 0.350 |
+| LWIR | 2773.3 | 101.0 | 21.6 | 324× | 0.350 |
 
-*Numbers refreshed 2026-08-29 from the unmodified runner — **CU-330**, the
+*Numbers refreshed 2026-08-30 from the unmodified runner — **CU-324 item 2**,
+the 9.6 µm ozone emission-placement split, which again moves the LWIR column
+only and only in the fourth figure: plain SNR 2776.2 → 2773.3 (the LWIR
+column's own thermal emission falls when its ozone band emits from 25 km
+instead of 4 km), contrast SNR 100.9 → 101.0, NEDT unchanged at 21.6 mK,
+background envelope 89.2–108.7 → 89.3–108.8. Every MWIR figure is
+bit-identical and no verdict moves. Previous vintage 2026-08-29 — **CU-330**,
+the
 9.6 µm ozone region split, which moves the LWIR column only and only in the
 fourth figure (plain SNR 2776.4 → 2776.2, contrast SNR 101.3 → 100.9, NEDT
 unchanged at 21.6 mK) and leaves every MWIR figure bit-identical. Previous
@@ -103,7 +110,7 @@ Terrain LST over the scene: 287.6–288.6 K (mean 288.1 K, 10 samples). Across
 the whole envelope the MWIR contrast SNR stays ≥ 34 (34.6 at the hottest
 background, 288.6 K, where ΔT is smallest; 40.4 at the coolest) — far above
 the confident-detection threshold (SNR ≈ 6, Rose criterion). LWIR spans
-89.2–108.7 over the same envelope. The verdict is robust to background
+89.3–108.8 over the same envelope. The verdict is robust to background
 variation across the map.
 
 *Floor refreshed 2026-08-02 from the unmodified runner (previous vintage

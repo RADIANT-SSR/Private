@@ -139,14 +139,22 @@ def ozone_continuum_regions(regions: Sequence[_Region]) -> tuple[_Region, ...]:
     Only ``floor_od`` is substituted: the water coefficients are untouched
     because the water term is not what this module apportions.
 
+    A table whose band row carries *exactly* its window's floor is not an
+    error: there is then no excess, so no ozone to place, and the share this
+    function feeds comes out zero — the correct answer, not a degraded one.
+    That case is reached deliberately by
+    ``scripts/fit_simple_atmosphere_gas_bands.py``, which zeroes every floor
+    for its non-water reference evaluation; with no calibrated gas floor at
+    all there is by construction no ozone opacity to apportion.
+
     Raises
     ------
     ParameterBoundsError
         If the table has no region at :data:`OZONE_BAND_UM`, if that region is
-        the first in the table (no window below it to read the continuum from),
-        or if the band's floor does not stand above that window's — any of
-        which means the table no longer identifies an ozone band and the share
-        would be meaningless rather than merely wrong.
+        the first in the table (no window below it to read the continuum
+        from), or if the band's floor sits *below* that window's — a band that
+        absorbs less than its own continuum is not a band, and the share would
+        be negative rather than merely small.
     """
     lo_um, hi_um = OZONE_BAND_UM
     index = next(
@@ -175,15 +183,15 @@ def ozone_continuum_regions(regions: Sequence[_Region]) -> tuple[_Region, ...]:
         )
     window = regions[index - 1]
     band = regions[index]
-    if not band.floor_od > window.floor_od:
+    if band.floor_od < window.floor_od:
         raise ParameterBoundsError(
             what=(
                 f"ozone_continuum_regions: the {lo_um}–{hi_um} µm floor "
-                f"{band.floor_od} does not exceed the window floor {window.floor_od}"
+                f"{band.floor_od} sits below the window floor {window.floor_od}"
             ),
             why=(
                 "An absorption band stands above the continuum its neighbours carry; "
-                "a band at or below the window has no identifiable ozone in it."
+                "a band below its own window would give a negative ozone share."
             ),
             action=(
                 "Re-run the gas-band fit, or retire the ozone placement split if the "

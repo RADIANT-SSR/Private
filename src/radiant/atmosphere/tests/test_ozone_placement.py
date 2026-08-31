@@ -21,6 +21,7 @@ import math
 import numpy as np
 import pytest
 
+from radiant.atmosphere import simple as simple_mod
 from radiant.atmosphere.ozone_placement import (
     OZONE_BAND_UM,
     OZONE_LAYER_CENTRE_M,
@@ -32,10 +33,10 @@ from radiant.atmosphere.segment_simple import column_segment_optical_depth
 from radiant.atmosphere.segments import ColumnSegmentSpec
 from radiant.atmosphere.simple import (
     _CALIBRATED_GAS_REGIONS,
-    _O3_CONTINUUM_GAS_REGIONS,
     GAS_REGION_BLEND_HALF_WIDTH_UM,
     PROFILE_PWV_CM,
     SimpleAtmosphere,
+    _o3_continuum_regions,
 )
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError
@@ -51,8 +52,15 @@ def _atm(profile: str = "midlat_summer") -> SimpleAtmosphere:
 
 
 def _shipped_share(lam: np.ndarray) -> np.ndarray:
-    floor, _k, _b = SimpleAtmosphere._region_params(lam)
-    continuum, _ck, _cb = SimpleAtmosphere._region_params(lam, _O3_CONTINUUM_GAS_REGIONS)
+    """The share exactly as ``_segment_emission_temperature_K`` computes it.
+
+    Reads the table through the module (``simple_mod._CALIBRATED_GAS_REGIONS``)
+    rather than through this file's import, so that a monkeypatched table
+    reaches both floors — the library's own call-time semantics.
+    """
+    live = simple_mod._CALIBRATED_GAS_REGIONS
+    floor, _k, _b = SimpleAtmosphere._region_params(lam, live)
+    continuum, _ck, _cb = SimpleAtmosphere._region_params(lam, _o3_continuum_regions(live))
     return ozone_share_of_gas_floor(floor, continuum)
 
 
@@ -119,12 +127,11 @@ def test_the_share_is_exactly_zero_outside_the_ozone_band() -> None:
 @pytest.mark.level0
 def test_the_continuum_table_differs_from_the_shipped_one_in_exactly_one_row() -> None:
     """Only the band's ``floor_od`` is substituted — water coefficients stay."""
-    assert len(_O3_CONTINUUM_GAS_REGIONS) == len(_CALIBRATED_GAS_REGIONS)
+    continuum_regions = _o3_continuum_regions(_CALIBRATED_GAS_REGIONS)
+    assert len(continuum_regions) == len(_CALIBRATED_GAS_REGIONS)
     differing = [
         (shipped, continuum)
-        for shipped, continuum in zip(
-            _CALIBRATED_GAS_REGIONS, _O3_CONTINUUM_GAS_REGIONS, strict=True
-        )
+        for shipped, continuum in zip(_CALIBRATED_GAS_REGIONS, continuum_regions, strict=True)
         if shipped != continuum
     ]
     assert len(differing) == 1
@@ -157,10 +164,9 @@ def test_the_share_rides_the_same_smoothstep_the_floor_does(edge_um: float) -> N
         for a, b in zip(_CALIBRATED_GAS_REGIONS[:-1], _CALIBRATED_GAS_REGIONS[1:], strict=True)
         if b.lo_um == edge_um
     )
+    _o3c = _o3_continuum_regions(_CALIBRATED_GAS_REGIONS)
     lo_cont, hi_cont = next(
-        (a, b)
-        for a, b in zip(_O3_CONTINUUM_GAS_REGIONS[:-1], _O3_CONTINUUM_GAS_REGIONS[1:], strict=True)
-        if b.lo_um == edge_um
+        (a, b) for a, b in zip(_o3c[:-1], _o3c[1:], strict=True) if b.lo_um == edge_um
     )
 
     u = 0.5 + (lam - edge_um) / (2.0 * hw)
@@ -314,30 +320,147 @@ def test_the_layer_geometry_is_the_documented_stratospheric_profile() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _band_index() -> int:
+    return next(
+        i for i, r in enumerate(_CALIBRATED_GAS_REGIONS) if (r.lo_um, r.hi_um) == OZONE_BAND_UM
+    )
+
+
 @pytest.mark.level0
-def test_a_table_without_an_identifiable_ozone_band_is_refused() -> None:
-    """The pre-CU-330 flat slab, and a band that does not stand above its window.
+def test_a_table_with_no_ozone_band_row_is_refused() -> None:
+    """A re-partition that removes the band must raise, not point at nothing.
 
-    Both are the same failure — a table that cannot say what share of its
-    floor is ozone — and both must raise rather than silently return a share
-    of 0 (which would ship the un-split placement while looking correct).
+    This is the case where the share would be *meaningless*: the module is
+    configured for a region the table no longer has.  Same for a band with no
+    clean window below it to read the continuum from.
     """
-    import dataclasses
-
     flat = tuple(r for r in _CALIBRATED_GAS_REGIONS if (r.lo_um, r.hi_um) != OZONE_BAND_UM)
     with pytest.raises(ParameterBoundsError, match="no calibrated gas region spans"):
         ozone_continuum_regions(flat)
 
-    index = next(
-        i for i, r in enumerate(_CALIBRATED_GAS_REGIONS) if (r.lo_um, r.hi_um) == OZONE_BAND_UM
+    with pytest.raises(ParameterBoundsError, match="first region"):
+        ozone_continuum_regions(_CALIBRATED_GAS_REGIONS[_band_index() :])
+
+
+@pytest.mark.level0
+def test_a_band_below_its_own_continuum_is_refused() -> None:
+    """A negative excess is not a band — the one arithmetic case that must raise."""
+    import dataclasses
+
+    index = _band_index()
+    inverted = list(_CALIBRATED_GAS_REGIONS)
+    inverted[index] = dataclasses.replace(
+        inverted[index], floor_od=inverted[index - 1].floor_od - 0.01
     )
+    with pytest.raises(ParameterBoundsError, match="sits below the window floor"):
+        ozone_continuum_regions(tuple(inverted))
+
+
+@pytest.mark.level0
+def test_a_band_flat_against_its_window_gives_a_zero_share_not_an_error() -> None:
+    """No excess ⇒ no ozone to place ⇒ share 0.  This is correct, not degraded.
+
+    It is also load-bearing: ``fit_simple_atmosphere_gas_bands.py`` zeroes
+    **every** floor for its non-water reference evaluation, which flattens the
+    band against its window by construction.  Raising there would abort the
+    generator; returning 0 is the physically right answer, because a table
+    with no calibrated gas floor has no ozone opacity to apportion.
+    """
+    import dataclasses
+
+    index = _band_index()
     flattened = list(_CALIBRATED_GAS_REGIONS)
     flattened[index] = dataclasses.replace(flattened[index], floor_od=flattened[index - 1].floor_od)
-    with pytest.raises(ParameterBoundsError, match="does not exceed the window floor"):
-        ozone_continuum_regions(tuple(flattened))
+    continuum = ozone_continuum_regions(tuple(flattened))
+    lam = np.linspace(9.3, 10.0, 71)
+    floor, _k, _b = SimpleAtmosphere._region_params(lam, tuple(flattened))
+    cont_floor, _ck, _cb = SimpleAtmosphere._region_params(lam, continuum)
+    assert np.all(ozone_share_of_gas_floor(floor, cont_floor) == 0.0)
 
-    with pytest.raises(ParameterBoundsError, match="first region"):
-        ozone_continuum_regions(_CALIBRATED_GAS_REGIONS[index:])
+
+# ---------------------------------------------------------------------------
+# 5. Generator idempotency — the live table, read at call time
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level0
+def test_the_gas_floor_evaluation_reads_the_live_table_not_an_import_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Rebinding ``_CALIBRATED_GAS_REGIONS`` must reach every evaluation path.
+
+    ``scripts/fit_simple_atmosphere_gas_bands.py`` derives each region's
+    ``floor_od`` as the measured OD in excess of what Rayleigh + aerosol
+    already supply, and it isolates that "pre-existing" term by rebinding this
+    module's table to zeroed floors for the duration of one ``evaluate`` call.
+    Any evaluation path that captured the table at **import** — a default
+    argument, a module-level derived constant — silently ignores the
+    rebinding, re-includes the shipped floors in the reference, and refits
+    every floor to ~0: the generator zeroes its own table on a re-run.
+
+    CU-330 repaired exactly that non-idempotency; CU-324 item 2 reintroduced
+    it through the ``regions`` parameter's default argument (Python binds
+    defaults once, at class-body evaluation) and through a module-level ozone
+    continuum table. This test is the spec for both seams, held at the unit
+    level so it fails in a second rather than through a 25-anchor fit.
+    """
+    import dataclasses
+
+    lam = np.linspace(0.45, 12.0, 200)
+    zeroed = tuple(dataclasses.replace(r, floor_od=0.0) for r in _CALIBRATED_GAS_REGIONS)
+    monkeypatch.setattr("radiant.atmosphere.simple._CALIBRATED_GAS_REGIONS", zeroed)
+
+    # 1. The blended floor — the τ path the generator's reference runs through.
+    floor, _k, _b = SimpleAtmosphere._region_params(lam)
+    assert np.all(floor == 0.0), "the region table's floor survived the rebinding"
+
+    # 2. The partial-column gas OD built on it.
+    assert np.all(SimpleAtmosphere._gas_floor_vertical_od(lam, 8.0) == 0.0)
+
+    # 3. The ozone continuum table, derived from the live table rather than
+    #    snapshotted — with no floor anywhere there is no ozone to place.
+    continuum = _o3_continuum_regions(zeroed)
+    cont_floor, _ck, _cb = SimpleAtmosphere._region_params(lam, continuum)
+    assert np.all(ozone_share_of_gas_floor(floor, cont_floor) == 0.0)
+
+    # 4. And the whole thing evaluates rather than raising, which is what the
+    #    generator actually needs from it.
+    t_eff = _atm()._segment_emission_temperature_K(
+        lam,
+        h_low_m=0.0,
+        h_high_m=1.0e5,
+        od_slant_mol=np.full_like(lam, 0.1),
+        od_slant_aer=np.full_like(lam, 0.05),
+        od_slant_h2o=np.full_like(lam, 0.2),
+        od_slant_gas=np.zeros_like(lam),
+        escape="upper",
+    )
+    assert np.all(np.isfinite(t_eff))
+
+
+@pytest.mark.level0
+def test_restoring_the_table_restores_the_shipped_share(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The call-time derivation is memoised on the table's VALUE, not cached once.
+
+    A cache keyed on anything but the table's own value would hand the
+    restored table the zeroed table's continuum (or vice versa), which is the
+    same import-snapshot defect wearing a cache. Rebinding twice and reading
+    the share both times is what proves it.
+    """
+    import dataclasses
+
+    lam = np.linspace(9.3, 10.0, 71)
+    shipped_share = _shipped_share(lam)
+    assert float(shipped_share.max()) > 0.5
+
+    zeroed = tuple(dataclasses.replace(r, floor_od=0.0) for r in _CALIBRATED_GAS_REGIONS)
+    monkeypatch.setattr("radiant.atmosphere.simple._CALIBRATED_GAS_REGIONS", zeroed)
+    assert np.all(_shipped_share(lam) == 0.0)
+
+    monkeypatch.undo()
+    np.testing.assert_array_equal(_shipped_share(lam), shipped_share)
 
 
 @pytest.mark.level0

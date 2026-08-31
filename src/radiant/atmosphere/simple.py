@@ -83,6 +83,7 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any
 
 import numpy as np
@@ -393,15 +394,28 @@ _ESKY_DIFFUSIVITY_ANGLE_RAD: float = math.radians(48.2)
 #: angle it means.
 _ESKY_DIFFUSIVITY_D: float = 1.0 / math.cos(_ESKY_DIFFUSIVITY_ANGLE_RAD)
 
-#: The calibrated table as it would read with no ozone in the 9.6 µm band — the
-#: O₃ ν₂ core row carrying its clean-window neighbour's floor instead of its
-#: own (CU-324 item 2).  Evaluating ``_region_params`` against both tables and
-#: differencing gives the ozone share of the gas floor, which is what tells the
-#: emission placement how much of that floor belongs at 25 km rather than on
-#: the 4 km pressure-broadened profile.  Derived from the shipped table at
-#: import, so a re-fit of either row moves the share with it and there is no
-#: second copy of the number to go stale (Rule 27).
-_O3_CONTINUUM_GAS_REGIONS: tuple[_GasRegion, ...] = ozone_continuum_regions(_CALIBRATED_GAS_REGIONS)
+
+@lru_cache(maxsize=8)
+def _o3_continuum_regions(regions: tuple[_GasRegion, ...]) -> tuple[_GasRegion, ...]:
+    """``regions`` as it would read with no ozone in the 9.6 µm band.
+
+    The O₃ ν₂ core row carries its clean-window neighbour's ``floor_od``
+    instead of its own (CU-324 item 2).  Evaluating :meth:`_region_params`
+    against both tables and differencing gives the ozone share of the gas
+    floor, which is what tells the emission placement how much of that floor
+    belongs at 25 km rather than on the 4 km pressure-broadened profile.
+
+    **Derived from whatever table is live, at call time, never snapshotted at
+    import.** The share is *defined* as an excess over the calibration the
+    model is evaluating right now, so a snapshot silently decouples the two.
+    That is not hypothetical: ``scripts/fit_simple_atmosphere_gas_bands.py``
+    rebinds ``_CALIBRATED_GAS_REGIONS`` to zeroed floors for its non-water
+    reference evaluation, and an import-time snapshot survives that rebinding
+    and re-injects the shipped floors — the exact non-idempotency CU-330
+    repaired. The cache is keyed on the table's **value**, so a rebound global
+    always gets its own entry and correctness never depends on cache state.
+    """
+    return ozone_continuum_regions(regions)
 
 
 # ---------------------------------------------------------------------------
@@ -691,7 +705,9 @@ class SimpleAtmosphere:
         is bit-identical across it.
         """
         floor, _k, _b = self._region_params(wavelength_um)
-        continuum_floor, _ck, _cb = self._region_params(wavelength_um, _O3_CONTINUUM_GAS_REGIONS)
+        continuum_floor, _ck, _cb = self._region_params(
+            wavelength_um, _o3_continuum_regions(_CALIBRATED_GAS_REGIONS)
+        )
         return segment_emission_temperature_K(
             wavelength_um,
             h_low_m=h_low_m,
@@ -740,7 +756,7 @@ class SimpleAtmosphere:
     @staticmethod
     def _region_params(
         wavelength_um: np.ndarray,
-        regions: tuple[_GasRegion, ...] = _CALIBRATED_GAS_REGIONS,
+        regions: tuple[_GasRegion, ...] | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Per-wavelength (floor_od, k_h2o, b_h2o) from the region table.
 
@@ -770,14 +786,25 @@ class SimpleAtmosphere:
         that edge region's calibration — documented fragility, the
         anchors do not constrain it).
 
-        ``regions`` defaults to the shipped calibration and is a parameter
-        only so the ozone placement (CU-324 item 2) can evaluate the same
-        blend against ``_O3_CONTINUUM_GAS_REGIONS`` — the identical table
-        with the 9.6 µm band read as pure continuum. Differencing two
-        evaluations of *this* function is what keeps the ozone share on the
-        same C¹ ramp as the floor it apportions, with no second ramp
-        implementation to drift from this one.
+        ``regions`` is a parameter only so the ozone placement (CU-324
+        item 2) can evaluate the same blend against
+        :func:`_o3_continuum_regions` — the identical table with the 9.6 µm
+        band read as pure continuum. Differencing two evaluations of *this*
+        function is what keeps the ozone share on the same C¹ ramp as the
+        floor it apportions, with no second ramp implementation to drift from
+        this one.
+
+        ``None`` means the live ``_CALIBRATED_GAS_REGIONS`` **read at call
+        time** — deliberately not a default argument, which Python binds once
+        at class-body evaluation. ``scripts/fit_simple_atmosphere_gas_bands.py``
+        rebinds that global to zeroed floors for its non-water reference
+        evaluation, and a default-argument snapshot silently ignores the
+        rebinding, re-including the very floors the generator is deriving and
+        refitting every one of them to ~0. That is the non-idempotency CU-330
+        repaired; it must not be reintroduced through this seam.
         """
+        if regions is None:
+            regions = _CALIBRATED_GAS_REGIONS
         lam = np.asarray(wavelength_um, dtype=np.float64)
         floor = np.empty_like(lam)
         k = np.empty_like(lam)

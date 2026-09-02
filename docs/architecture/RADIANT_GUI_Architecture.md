@@ -900,7 +900,7 @@ of **mission-template cards** (display name, one-line blurb, mono specs line), a
 always-present **Blank config** card (the classic File → New blank-adopt), and the
 **Open recent** list. Templates are the **metadata-carrying** YAMLs under `examples/templates/` — six
 hand-authored archetypes (the Phase-2E configs sharing the directory are the
-source-inferrer golden corpus, invisible here; their relocation is CU-338) —
+source-inferrer golden corpus, invisible here; their relocation is CU-339) —
 discovered by the Qt-free `radiant.gui.mission_templates` seam, which reads each file's `_radiant.template` metadata (name / blurb / specs /
 `tune_next`) through `radiant.api.config_io.read_template_meta` (the GUI cannot
 import `radiant.io`). Off-repo (a wheel install) discovery degrades to an empty

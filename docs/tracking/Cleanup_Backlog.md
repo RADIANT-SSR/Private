@@ -47,7 +47,7 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-338 — `examples/templates/` doubles as the source-inferrer golden corpus: twelve Phase-2E configs are load-bearing test inputs wearing a user-facing home
+### CU-339 — `examples/templates/` doubles as the source-inferrer golden corpus: twelve Phase-2E configs are load-bearing test inputs wearing a user-facing home
 
 **Discovered**: mission-template welcome-screen build (branch `gui/mission-templates`), 2026-09-01 — the owner-ruled supersede of the Phase-2E starters broke collection: `src/radiant/source/tests/test_inferrer.py` parametrizes over them via `tests/integration/snapshots/option_c_baseline.yaml` (path-keyed), 12 descriptor snapshots live in `src/radiant/source/tests/snapshots/`, `src/radiant/data/tests/test_templates.py` tests the set directly, and four guides (`configuration`, `trade_studies`, `regime_selection`, + Config_Format) cite the files.
 **Status**: Open — the deletion was reverted; the 12 stay in place as corpus (invisible to the welcome screen, whose discovery requires `_radiant.template` metadata). The owner's one-user-facing-set intent holds; the *relocation* needs its own funded task.

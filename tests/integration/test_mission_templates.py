@@ -16,7 +16,7 @@ contract, enforced here so it cannot rot:
   degenerate one).
 
 Only metadata-carrying files are mission templates; the Phase-2E band/platform
-configs sharing the directory are the source-inferrer golden corpus (CU-338
+configs sharing the directory are the source-inferrer golden corpus (CU-339
 tracks their relocation to a fixtures home) and are exempt from this bar —
 the welcome screen's discovery filter already excludes them.
 """
@@ -35,6 +35,7 @@ _REPO = Path(__file__).resolve()
 while not (_REPO / "pyproject.toml").exists():
     _REPO = _REPO.parent
 _TEMPLATES = _REPO / "examples" / "templates"
+
 
 def _is_mission_template(path: Path) -> bool:
     return bool(read_radiant_meta(path).get("template"))

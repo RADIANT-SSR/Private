@@ -68,7 +68,7 @@ by name in check 8 — that list is frozen and must never grow.
 ### CU-337 — ~5× more visible "gas" floor than real gas chemistry: part of the fitted VIS floor is an aerosol deficit wearing a gas label
 
 **Discovered**: CU-335 re-fit (branch `atmo/cu-335-visnir-refit`), 2026-08-30.
-**Status**: Open — attribution/model-structure question; needs an owner ruling on whether to pursue.
+**Status**: Open — **Owner ruling (2026-09-01): approved, scheduled** — pursue after [[CU-336]] lands (the fit must run on the corrected grid): fit the aerosol VIS deficit explicitly (Ångström correction against the delivered anchors), re-fit the gas floors with aerosol corrected (expect them to fall toward chemical ~0.03), full §5.3; then re-check scenario 10.3's extinction anchor, which the 2026-09-01 measurement showed is unreachable (k_V floor 0.258 vs published ≤0.20) until this attribution is fixed.
 **File**: `src/radiant/atmosphere/simple.py` (aerosol model vs `_CALIBRATED_GAS_REGIONS` 0.45–0.70 µm row).
 **Symptom**: the fitted VIS floor (0.1597 OD) is ~5× the real gas chemistry in that window (O₃ Chappuis ≈ 0.03 OD): the fit is absorbing an aerosol-model deficit (Koschmieder/Ångström under-supplying rural-23 extinction at 550 nm vs MODTRAN) into the gas floor. τ parity is right; the *attribution* is wrong, which surfaces wherever aerosol and gas must be separated (visibility sweeps hold the "gas" floor fixed while scaling the aerosol RADIANT thinks it has; scenario 10.3's extinction-anchor reconciliation leans on exactly this seam).
 **Why it still matters**: results-affecting for visibility-parameterized VIS scenes if fixed (intake test 1); it is also the honest answer behind the 10.3 anchor question.

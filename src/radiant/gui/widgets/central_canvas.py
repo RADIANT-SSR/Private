@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QStackedLayout, QVBoxLayout, QWidget
 
 from radiant.gui.widgets.saturation_banner import SaturationBanner
 from radiant.gui.widgets.stage_center import StageCenter
@@ -52,12 +52,26 @@ class CentralCanvas(QWidget):
         # Preserve the shell's named region so the theme / layout contract holds.
         self.setObjectName("visualizationArea")
 
-        layout = QVBoxLayout(self)
+        outer = QStackedLayout(self)
+        outer.setStackingMode(QStackedLayout.StackingMode.StackOne)
+
+        # Page 0 — the welcome surface (§4.4a): shown while no configuration is
+        # loaded; the main window installs the widget and flips the pages.
+        self._welcome_host = QWidget(self)
+        self._welcome_layout = QVBoxLayout(self._welcome_host)
+        self._welcome_layout.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(self._welcome_host)
+
+        # Page 1 — the working canvas (banner + stale notice + stage center).
+        workspace = QWidget(self)
+        layout = QVBoxLayout(workspace)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        outer.addWidget(workspace)
+        self._pages = outer
 
-        self._saturation_banner = SaturationBanner(self)
-        self._stale_notice = QLabel(_STALE_NOTICE, self)
+        self._saturation_banner = SaturationBanner(workspace)
+        self._stale_notice = QLabel(_STALE_NOTICE, workspace)
         self._stale_notice.setObjectName("staleNotice")
         self._stale_notice.setWordWrap(True)
         self._stale_notice.setVisible(False)
@@ -65,11 +79,36 @@ class CentralCanvas(QWidget):
         # The per-stage contextual center: a placeholder pre-evaluate, then the selected
         # stage's composite. The last result and selected stage are remembered inside so
         # re-evaluations and stage clicks re-render the right composite.
-        self._stage_center = StageCenter(self)
+        self._stage_center = StageCenter(workspace)
 
         layout.addWidget(self._saturation_banner)
         layout.addWidget(self._stale_notice)
         layout.addWidget(self._stage_center, 1)
+        self._pages.setCurrentIndex(1)
+
+    # -- welcome page (§4.4a) ------------------------------------------------
+
+    def show_welcome(self, widget: QWidget) -> None:
+        """Install *widget* as the welcome surface and show it (no-config state).
+
+        Any previous welcome widget is released — the main window rebuilds it
+        each time so the recent list stays fresh.
+        """
+        while self._welcome_layout.count():
+            item = self._welcome_layout.takeAt(0)
+            old = item.widget()
+            if old is not None:
+                old.deleteLater()
+        self._welcome_layout.addWidget(widget)
+        self._pages.setCurrentIndex(0)
+
+    def show_workspace(self) -> None:
+        """Show the working canvas (a configuration is loaded)."""
+        self._pages.setCurrentIndex(1)
+
+    def is_welcome(self) -> bool:
+        """Whether the welcome surface is currently shown (tests)."""
+        return self._pages.currentIndex() == 0
 
     # -- accessors ----------------------------------------------------------
 

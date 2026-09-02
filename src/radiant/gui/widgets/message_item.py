@@ -20,8 +20,10 @@ from PySide6.QtWidgets import QLabel, QWidget
 # Severity tokens (drive the QSS variant + the leading glyph).
 SEVERITY_WARNING: str = "warning"
 SEVERITY_ERROR: str = "error"
+# Guidance rows (mission-template tune-next, §4.4a): informational, never alarming.
+SEVERITY_INFO: str = "info"
 
-_GLYPH: dict[str, str] = {SEVERITY_WARNING: "⚠", SEVERITY_ERROR: "⛌"}
+_GLYPH: dict[str, str] = {SEVERITY_WARNING: "⚠", SEVERITY_ERROR: "⛌", SEVERITY_INFO: "→"}
 
 
 class MessageItem(QLabel):
@@ -80,4 +82,4 @@ class MessageItem(QLabel):
         super().keyPressEvent(event)
 
 
-__all__ = ["MessageItem", "SEVERITY_WARNING", "SEVERITY_ERROR"]
+__all__ = ["MessageItem", "SEVERITY_WARNING", "SEVERITY_ERROR", "SEVERITY_INFO"]

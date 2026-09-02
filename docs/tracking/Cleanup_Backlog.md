@@ -47,6 +47,24 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-340 — Scenario 3.4's script-side "true along-track GSD" carries the θ_o-vs-η misread the chain retired, making every off-nadir comparison column pessimistic
+
+**Discovered**: 3.4 runner-prose cleanup (branch `scenarios/34-runner-prose`), 2026-09-01. Promoted from the same-day Findings-Log line (struck in this commit).
+**Status**: Open.
+**File**: `scenarios/03_raj_mission_planner/3.4_off_nadir_agility/scripts/run_off_nadir_agility.py::gsd_off_nadir` (the `asin((R_E+H)·sinθ/R_E)` sensor-side-η conversion).
+**Symptom**: the script's along-track projection converts the swept angle by the sensor-side-η rule while its own slant-range function and the chain read it as target-side θ_o (= the incidence angle) — the exact misread `65720f0d` (2026-07-12) removed from the chain. At 45° it divides by cos 50.7° instead of cos 45°: 2.94 m vs the chain's 2.63 m. Propagates into the printed `GSD_y`, `GSD GM`, `NIIRS (corrected)`, `dNIIRS` columns, fig2, fig4's GM panel, the results workbook, and the walkthrough tables — all pessimistic off-nadir.
+**Why it still matters**: workflow-visible (intake test 4) — the walkthrough's comparison tables carry the wrong along-track numbers; and with Gap 35 CLOSED the chain publishes the correct along-track GSD, so the script's local projection is a stale duplicate (Rule 27 candidate: consume the chain's value instead of recomputing).
+**Suggested fix**: (b) small — replace `gsd_off_nadir()`'s along-track branch with the chain's published values (or fix the cosine and keep it as an explicit cross-check), re-run, §5.3 the walkthrough tables + fig2/fig4 + workbook. Effort S; category C. Related: CU-096/097, `65720f0d`, Gap 35.
+
+### CU-339 — `examples/templates/` doubles as the source-inferrer golden corpus: twelve Phase-2E configs are load-bearing test inputs wearing a user-facing home
+
+**Discovered**: mission-template welcome-screen build (branch `gui/mission-templates`), 2026-09-01. **Renumbered from CU-338** (2026-09-01): two sessions minted CU-338 the same day; the emitter finding's stub (`07fec66d`) reached `origin/main` first and holds the number — this mint (`d31a7d2a`) raced the reservation (fetch-before-mint missed) and takes the next free ID. Any in-flight branch text citing CU-338 for the templates-corpus finding means this entry — the owner-ruled supersede of the Phase-2E starters broke collection: `src/radiant/source/tests/test_inferrer.py` parametrizes over them via `tests/integration/snapshots/option_c_baseline.yaml` (path-keyed), 12 descriptor snapshots live in `src/radiant/source/tests/snapshots/`, `src/radiant/data/tests/test_templates.py` tests the set directly, and four guides (`configuration`, `trade_studies`, `regime_selection`, + Config_Format) cite the files.
+**Status**: Open — the deletion was reverted; the 12 stay in place as corpus (invisible to the welcome screen, whose discovery requires `_radiant.template` metadata). The owner's one-user-facing-set intent holds; the *relocation* needs its own funded task.
+**File**: `examples/templates/*.yaml` (12 metadata-less configs) + the reference map above.
+**Symptom**: test corpus and user-facing starter configs share a directory and identity; deleting or editing a "template" silently moves golden inferrer baselines; the VNIR/SWIR reflective corpus members carry inference coverage the six mission templates do not duplicate.
+**Why it still matters**: blocking for any future reshaping of `examples/templates/` (intake test 3) and owner-gated (test 2): relocation touches the Option-C golden snapshot's path keys and four guides.
+**Suggested fix**: (b) stand-alone task — move the 12 to a fixtures home (e.g. `tests/integration/fixtures/inferrer_corpus/`), rewrite the snapshot path keys (values untouched, §5.3 note in the PR), repoint `test_templates.py` + the guides. Effort M; category A/D.
+
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).
@@ -64,7 +82,7 @@ by name in check 8 — that list is frozen and must never grow.
 ### CU-337 — ~5× more visible "gas" floor than real gas chemistry: part of the fitted VIS floor is an aerosol deficit wearing a gas label
 
 **Discovered**: CU-335 re-fit (branch `atmo/cu-335-visnir-refit`), 2026-08-30.
-**Status**: Open — attribution/model-structure question; needs an owner ruling on whether to pursue.
+**Status**: Open — **Owner ruling (2026-09-01): approved, scheduled** — pursue after [[CU-336]] lands (the fit must run on the corrected grid): fit the aerosol VIS deficit explicitly (Ångström correction against the delivered anchors), re-fit the gas floors with aerosol corrected (expect them to fall toward chemical ~0.03), full §5.3; then re-check scenario 10.3's extinction anchor, which the 2026-09-01 measurement showed is unreachable (k_V floor 0.258 vs published ≤0.20) until this attribution is fixed.
 **File**: `src/radiant/atmosphere/simple.py` (aerosol model vs `_CALIBRATED_GAS_REGIONS` 0.45–0.70 µm row).
 **Symptom**: the fitted VIS floor (0.1597 OD) is ~5× the real gas chemistry in that window (O₃ Chappuis ≈ 0.03 OD): the fit is absorbing an aerosol-model deficit (Koschmieder/Ångström under-supplying rural-23 extinction at 550 nm vs MODTRAN) into the gas floor. τ parity is right; the *attribution* is wrong, which surfaces wherever aerosol and gas must be separated (visibility sweeps hold the "gas" floor fixed while scaling the aerosol RADIANT thinks it has; scenario 10.3's extinction-anchor reconciliation leans on exactly this seam).
 **Why it still matters**: results-affecting for visibility-parameterized VIS scenes if fixed (intake test 1); it is also the honest answer behind the 10.3 anchor question.

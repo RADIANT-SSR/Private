@@ -9,8 +9,9 @@ Approach:
   At each angle, RADIANT evaluates the full signal chain with increased
   atmospheric path length and (where applicable) degraded geometry.
 
-  GSD at off-nadir is computed analytically in this script because RADIANT's
-  GSD metric only computes nadir GSD (Gap 33).  The formula:
+  GSD at off-nadir is also computed analytically in this script, as an
+  independent cross-check of the chain's own off-nadir GSD rather than a
+  substitute for it (Gap 33 closed 2026-07-12).  The formula:
     GSD_cross = p × slant_range / f
     GSD_along = p × slant_range / (f × cos(theta))
   where slant_range = H / cos(theta) for flat-Earth (valid to ~60 deg).
@@ -398,7 +399,7 @@ def main() -> None:
         gsd_radiant_x = r.metrics.get("gsd_cross_track_m", 0.0)
         gsd_radiant_y = r.metrics.get("gsd_along_track_m", 0.0)
 
-        # NIIRS — RADIANT computes from its own GSD (nadir only), so we note the gap
+        # NIIRS — RADIANT computes this from its own off-nadir GSD (Gap 33/34 closed)
         niirs_radiant = r.metrics.get("niirs", 0.0)
 
         # Atmospheric transmission (mean over band)
@@ -418,7 +419,7 @@ def main() -> None:
 
         # Corrected NIIRS using true off-nadir GSD
         # GIQE-5 (simplified): NIIRS = c0 + c1*log10(GSD_GM) + c2*log10(RER) + c3*SNR/G
-        # We'll recompute using the off-nadir GSD instead of RADIANT's nadir GSD
+        # We'll recompute using this script's GSD_GM instead of the chain's own
         gsd_gm = math.sqrt(gsd_x * gsd_y)  # geometric mean of cross/along GSD
 
         # GIQE-5 for VIS/NIR: a simplified approximation
@@ -581,9 +582,10 @@ def main() -> None:
     print(f"  RADIANT GSD vs. TRUE OFF-NADIR GSD")
     print(f"{'=' * 80}")
 
-    print(f"\n  RADIANT's GSD metric uses nadir formula: GSD = p × H / f")
-    print(f"  It does NOT account for path_zenith_rad (Gap 33).")
-    print(f"  True GSD scales with slant range: GSD = p × R / f")
+    print(f"\n  RADIANT's GSD metric reads path_zenith_rad: GSD = p × R / f")
+    print(f"  It tracks true cross-track GSD exactly — Gap 33 was closed by the")
+    print(f"  2026-07-12 ADR-0006 Phase-2 geometry landing, so the column below is")
+    print(f"  a regression cross-check, not a correction.")
 
     print(f"\n  {'Angle':>8s}  {'RADIANT GSD':>12s}  {'True GSD_x':>12s}  {'True GSD_y':>12s}  "
           f"{'Error':>8s}")
@@ -727,7 +729,7 @@ def main() -> None:
     ax2.plot(angles_arr, gsd_gm_arr, "gs--", linewidth=2, markersize=6,
              label="GSD geometric mean")
     ax2.plot(angles_arr, gsd_rad_arr, "k:", linewidth=1.5, alpha=0.5,
-             label="RADIANT GSD (nadir only)")
+             label="RADIANT GSD cross-track (chain)")
 
     ax2.axhline(gsd_nadir_m, color="gray", linestyle=":", alpha=0.3)
 
@@ -748,7 +750,7 @@ def main() -> None:
     ax3.plot(angles_arr, niirs_corr_arr, "bo-", linewidth=2, markersize=8,
              label="NIIRS (corrected for off-nadir GSD)")
     ax3.plot(angles_arr, niirs_rad_arr, "r^--", linewidth=1.5, markersize=6,
-             label="NIIRS (RADIANT — nadir GSD only)")
+             label="NIIRS (RADIANT — chain off-nadir GSD)")
 
     ax3.axhline(niirs_corr_arr[0], color="green", linestyle=":", alpha=0.4,
                 label=f"Nadir baseline = {niirs_corr_arr[0]:.2f}")
@@ -916,11 +918,16 @@ def main() -> None:
     print(f"  Well margin:       {baseline.get('well_margin_dB', 0.0):.1f} [dB]")
 
     print(f"\n  Limitations:")
-    print(f"    - RADIANT GSD metric does not account for off-nadir angle (Gap 33)")
-    print(f"    - NIIRS corrected using GSD scaling only — does not re-run GIQE-5")
-    print(f"      with true off-nadir GSD (Gap 34)")
-    print(f"    - No along-track vs cross-track GSD distinction in RADIANT (Gap 35)")
-    print(f"    - No swath width or access geometry calculator (Gap 36)")
+    print(f"    - This script rescales the chain's NIIRS by its own GSD ratio rather")
+    print(f"      than re-running GIQE-5; RADIANT's metrics['niirs'] already consumes")
+    print(f"      the off-nadir GSD (Gaps 33 and 34 closed).")
+    print(f"    - RADIANT reports cross- and along-track GSD separately (Gap 35 closed).")
+    print(f"      The along-track column above is this script's own projection and uses")
+    print(f"      a different incidence model than the chain's, so the two disagree.")
+    print(f"    - RADIANT provides ground-range, swath-width and access-rate metrics")
+    print(f"      (Gap 36 closed); this run computes swath and access locally because")
+    print(f"      the config sets neither detector.n_pixels_cross nor")
+    print(f"      geometry.ground_speed_m_s.")
     print(f"    - Earth curvature correction is applied to slant range but not")
     print(f"      to RADIANT's internal atmospheric path calculation (it uses its own)")
 

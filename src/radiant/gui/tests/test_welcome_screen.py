@@ -32,7 +32,7 @@ def _bare_window(qtbot) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
 
 
 def _welcome_widget(window: RADIANTMainWindow) -> WelcomeScreen:
-    widget = window.central_canvas._welcome_layout.itemAt(0).widget()  # noqa: SLF001
+    widget = window._welcome_overlay  # noqa: SLF001
     assert isinstance(widget, WelcomeScreen)
     return widget
 
@@ -62,7 +62,7 @@ class TestDiscovery:
 class TestWelcomeSurface:
     def test_bare_launch_shows_welcome_with_cards(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         window = _bare_window(qtbot)
-        assert window.central_canvas.is_welcome()
+        assert window.is_welcome()
         welcome = _welcome_widget(window)
         assert len(welcome.cards) == len(discover_templates())
         assert welcome.blank_card is not None
@@ -72,15 +72,15 @@ class TestWelcomeSurface:
     def test_blank_card_adopts_a_blank_sensor(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         window = _bare_window(qtbot)
         _welcome_widget(window).blank_card.click()
-        assert not window.central_canvas.is_welcome()
+        assert not window.is_welcome()
         assert window.sensor is not None
 
     def test_file_new_returns_to_welcome(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         window = _bare_window(qtbot)
         _welcome_widget(window).blank_card.click()
-        assert not window.central_canvas.is_welcome()
+        assert not window.is_welcome()
         window._on_new()  # noqa: SLF001 — clean state, no discard guard
-        assert window.central_canvas.is_welcome()
+        assert window.is_welcome()
         assert window.sensor is None
 
     def test_off_repo_welcome_still_offers_blank(self, qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -104,7 +104,7 @@ class TestTemplateFlow:
 
     def test_card_loads_evaluates_and_shows_workspace(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         window = self._pick_ground_to_air(qtbot)
-        assert not window.central_canvas.is_welcome()
+        assert not window.is_welcome()
         assert window.last_result is not None
         assert window.last_result.snr() > 0
 

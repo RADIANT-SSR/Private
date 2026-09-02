@@ -26,7 +26,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
     QApplication,
@@ -788,6 +788,49 @@ class RADIANTMainWindow(QMainWindow):
         central = CentralCanvas(self)
         self.setCentralWidget(central)
         self._central = central
+        # §4.4a: the welcome surface renders as a full-size child OVERLAY of the
+        # canvas, not a stacked page — an overlay participates in no layout, so
+        # the canvas geometry (stage center, frozen matrix columns) is untouched
+        # by construction. A QStackedWidget host measurably deferred the canvas
+        # page's layout one event-loop turn and drifted the performance-matrix
+        # frozen-label alignment 18 px at expose time.
+        self._welcome_overlay: QWidget | None = None
+        central.installEventFilter(self)
+
+    def eventFilter(self, watched, event):  # noqa: N802 — Qt override
+        """Keep the welcome overlay sized to the canvas (§4.4a)."""
+        if (
+            watched is getattr(self, "_central", None)
+            and self._welcome_overlay is not None
+            and event.type() == QEvent.Type.Resize
+        ):
+            self._welcome_overlay.setGeometry(self._central.rect())
+        return super().eventFilter(watched, event)
+
+    def is_welcome(self) -> bool:
+        """Whether the welcome surface is active (§4.4a).
+
+        Existence, not ``isVisible()`` — a child's visibility is False until the
+        window itself is shown, and the overlay is deleted the moment a
+        configuration is adopted, so existence is the truthful flag.
+        """
+        return self._welcome_overlay is not None
+
+    def _flip_to_welcome(self, widget: QWidget) -> None:
+        """Install *widget* as the welcome overlay (rebuilt per call)."""
+        if self._welcome_overlay is not None:
+            self._welcome_overlay.deleteLater()
+        widget.setParent(self._central)
+        widget.setGeometry(self._central.rect())
+        widget.show()
+        widget.raise_()
+        self._welcome_overlay = widget
+
+    def _flip_to_workspace(self) -> None:
+        """Hide + release the welcome overlay (a configuration is loaded)."""
+        if self._welcome_overlay is not None:
+            self._welcome_overlay.deleteLater()
+            self._welcome_overlay = None
 
     def _build_dock_panels(self) -> None:
         """Parameter (left) dock and the persistent right rail (§4.3, §4.5).
@@ -1173,7 +1216,7 @@ class RADIANTMainWindow(QMainWindow):
         welcome.templateChosen.connect(self._open_path)
         welcome.recentChosen.connect(self._open_path)
         welcome.blankRequested.connect(self._on_blank_config)
-        self._central.show_welcome(welcome)
+        self._flip_to_welcome(welcome)
         self.statusBar().showMessage(
             "Pick a mission template to start from a runnable scenario, or start blank"
         )
@@ -1719,7 +1762,7 @@ class RADIANTMainWindow(QMainWindow):
         # the one place the document changes — and re-set below when the newly
         # opened file carries a _radiant.template block.
         if sensor is not None:
-            self._central.show_workspace()
+            self._flip_to_workspace()
         self._right_rail.messages.set_guidance(())
         if path is not None:
             try:

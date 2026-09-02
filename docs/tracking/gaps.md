@@ -543,7 +543,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Effort** | Small — slant range formula already exists in atmosphere module. |
 | **Resolution** | Added `path_zenith_rad` parameter to `compute_gsd()`. Uses spherical-Earth ray-sphere intersection (`core.geometry.slant_range_spherical_m`) for correct slant range. Default zenith=0 preserves nadir behavior. Note: the original gap description's reference values (815 km slant, 1.86 m GSD) used the atmospheric slant-path formula, not geometric ray-sphere intersection. Correct values at 45°/600 km: slant = 892 km, cross-track GSD = 2.68 m. |
 | **Scenarios blocked** | None (workaround available). |
-| **Rerun after fix** | Scenario 3.4 |
+| **Rerun after fix** | Scenario 3.4 — **rerun 2026-09-01, gap confirmed wholly delivered.** `gsd_cross_track_m` matches that scenario's independent spherical-Earth cross-track GSD to a worst residual of 1.4e-13 % at every angle 0–45°, so no script-side correction survives. The chain-side closure is `65720f0d` (2026-07-12, CU-096/CU-097, ADR-0006 Phase 2), which replaced the θ_o-vs-η misread this row's own reference values still carry — at `path_zenith_rad = 45°` the shipped chain returns slant 814.8 km / cross-track 1.86 m (θ_o at the ground target), not the 892 km / 2.68 m quoted above (that pair reads 45° as the sensor-side η). |
 
 ---
 
@@ -560,7 +560,7 @@ After a gap is fixed, rerun the originating scenario to verify the fix.
 | **Effort** | None beyond Gap 33. |
 | **Resolution** | Resolved automatically by Gap 33 fix. NIIRS reads GSD from `state.metrics`, which now reflects off-nadir corrected values when `geometry.path_zenith_rad` is set. |
 | **Scenarios blocked** | None. |
-| **Rerun after fix** | Scenario 3.4 |
+| **Rerun after fix** | Scenario 3.4 — **rerun 2026-09-01, gap confirmed wholly delivered on the GSD side.** With Gap 33 verified exact there, `result.metrics["niirs"]` consumes the true off-nadir GSD; the residual correction the 3.4 runner still applies is the along-track/geometric-mean term, which belongs to Gap 35, not here. |
 
 ---
 

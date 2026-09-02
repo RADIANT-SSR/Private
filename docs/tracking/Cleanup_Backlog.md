@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-338 — `examples/templates/` doubles as the source-inferrer golden corpus: twelve Phase-2E configs are load-bearing test inputs wearing a user-facing home
+
+**Discovered**: mission-template welcome-screen build (branch `gui/mission-templates`), 2026-09-01 — the owner-ruled supersede of the Phase-2E starters broke collection: `src/radiant/source/tests/test_inferrer.py` parametrizes over them via `tests/integration/snapshots/option_c_baseline.yaml` (path-keyed), 12 descriptor snapshots live in `src/radiant/source/tests/snapshots/`, `src/radiant/data/tests/test_templates.py` tests the set directly, and four guides (`configuration`, `trade_studies`, `regime_selection`, + Config_Format) cite the files.
+**Status**: Open — the deletion was reverted; the 12 stay in place as corpus (invisible to the welcome screen, whose discovery requires `_radiant.template` metadata). The owner's one-user-facing-set intent holds; the *relocation* needs its own funded task.
+**File**: `examples/templates/*.yaml` (12 metadata-less configs) + the reference map above.
+**Symptom**: test corpus and user-facing starter configs share a directory and identity; deleting or editing a "template" silently moves golden inferrer baselines; the VNIR/SWIR reflective corpus members carry inference coverage the six mission templates do not duplicate.
+**Why it still matters**: blocking for any future reshaping of `examples/templates/` (intake test 3) and owner-gated (test 2): relocation touches the Option-C golden snapshot's path keys and four guides.
+**Suggested fix**: (b) stand-alone task — move the 12 to a fixtures home (e.g. `tests/integration/fixtures/inferrer_corpus/`), rewrite the snapshot path keys (values untouched, §5.3 note in the PR), repoint `test_templates.py` + the guides. Effort M; category A/D.
+
 ### CU-338 — `emit_gui_yaml.py` run bare from a worktree silently rebuilds baselines against the primary checkout's library
 
 **Discovered**: twice on 2026-08-30/31, independently, by the CU-335 and CU-324-item-2 agents — each caught it only after 15 baselines were rewritten with foreign numbers, all reporting `[ ok ]`.
@@ -68,7 +77,7 @@ by name in check 8 — that list is frozen and must never grow.
 ### CU-337 — ~5× more visible "gas" floor than real gas chemistry: part of the fitted VIS floor is an aerosol deficit wearing a gas label
 
 **Discovered**: CU-335 re-fit (branch `atmo/cu-335-visnir-refit`), 2026-08-30.
-**Status**: Open — attribution/model-structure question; needs an owner ruling on whether to pursue.
+**Status**: Open — **Owner ruling (2026-09-01): approved, scheduled** — pursue after [[CU-336]] lands (the fit must run on the corrected grid): fit the aerosol VIS deficit explicitly (Ångström correction against the delivered anchors), re-fit the gas floors with aerosol corrected (expect them to fall toward chemical ~0.03), full §5.3; then re-check scenario 10.3's extinction anchor, which the 2026-09-01 measurement showed is unreachable (k_V floor 0.258 vs published ≤0.20) until this attribution is fixed.
 **File**: `src/radiant/atmosphere/simple.py` (aerosol model vs `_CALIBRATED_GAS_REGIONS` 0.45–0.70 µm row).
 **Symptom**: the fitted VIS floor (0.1597 OD) is ~5× the real gas chemistry in that window (O₃ Chappuis ≈ 0.03 OD): the fit is absorbing an aerosol-model deficit (Koschmieder/Ångström under-supplying rural-23 extinction at 550 nm vs MODTRAN) into the gas floor. τ parity is right; the *attribution* is wrong, which surfaces wherever aerosol and gas must be separated (visibility sweeps hold the "gas" floor fixed while scaling the aerosol RADIANT thinks it has; scenario 10.3's extinction-anchor reconciliation leans on exactly this seam).
 **Why it still matters**: results-affecting for visibility-parameterized VIS scenes if fixed (intake test 1); it is also the honest answer behind the 10.3 anchor question.

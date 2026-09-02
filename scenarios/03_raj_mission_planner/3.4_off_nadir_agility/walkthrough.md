@@ -56,7 +56,9 @@ angle:
 
 1. RADIANT evaluates the full signal chain (atmosphere uses increased air mass)
 2. Script computes true off-nadir GSD (cross-track and along-track) using
-   spherical-Earth slant range — RADIANT's GSD metric only computes nadir GSD
+   spherical-Earth slant range, independently of the chain — this is now a
+   *cross-check* of RADIANT's own `gsd_cross_track_m` rather than a
+   substitute for it (see "RADIANT GSD vs. True Off-Nadir GSD" below)
 3. NIIRS is corrected using the true GSD via the GIQE-5 GSD scaling term
 
 ## Results
@@ -65,8 +67,8 @@ angle:
 
 | Gap # | Description | Previous Status | Current Status | Notes |
 |-------|-------------|-----------------|----------------|-------|
-| 33    | GSD not adjusted for off-nadir angle | OPEN | OPEN | RADIANT now provides nadir GSD via `gsd_cross_track_m` but does not adjust for look angle |
-| 34    | NIIRS not recomputed with off-nadir GSD | OPEN | OPEN | RADIANT now provides nadir NIIRS via `result.metrics["niirs"]` but does not adjust for look angle |
+| 33    | GSD not adjusted for off-nadir angle | OPEN | **CLOSED** | `gsd_cross_track_m` tracks the scenario's independent spherical-Earth cross-track GSD to +0.0 % at every swept angle (owner-ruled retired 2026-09-01) |
+| 34    | NIIRS not recomputed with off-nadir GSD | OPEN | **CLOSED** | `result.metrics["niirs"]` consumes the off-nadir GSD above; the script's residual correction is now the along-track/geometric-mean difference only (Gap 35), not a nadir-GSD fix |
 | 35    | No along-track vs cross-track GSD at off-nadir | OPEN | OPEN | Both GSD axes equal in RADIANT |
 | 36    | No swath width / access geometry calculator | OPEN | OPEN | Must compute externally |
 
@@ -174,22 +176,56 @@ falls from +4.0 % to −0.5 %.*
 
 ### RADIANT GSD vs. True Off-Nadir GSD
 
+*Table refreshed 2026-09-01 from the unmodified runner, under an owner ruling that
+also retires this section's finding. The previous vintage read RADIANT GSD
+1.47/1.53/1.61/1.71/1.85/2.04 m at 20–45° with a "+9.6 % at 45 deg" overestimate;
+those numbers are gone, not merely re-rounded.*
+
 | Angle [deg] | RADIANT GSD [m] | True Cross [m] | True Along [m] | Error [%] |
 |-------------|-----------------|----------------|-----------------|-----------|
 | 0           | 1.37            | 1.37           | 1.37            | +0.0      |
-| 5           | 1.38            | 1.38           | 1.38            | +0.1      |
-| 10          | 1.39            | 1.39           | 1.42            | +0.3      |
-| 15          | 1.42            | 1.42           | 1.48            | +0.6      |
-| 20          | 1.47            | 1.45           | 1.56            | +1.2      |
-| 25          | 1.53            | 1.50           | 1.69            | +2.0      |
-| 30          | 1.61            | 1.56           | 1.87            | +3.1      |
-| 35          | 1.71            | 1.64           | 2.11            | +4.5      |
-| 40          | 1.85            | 1.74           | 2.45            | +6.6      |
-| 45          | 2.04            | 1.86           | 2.94            | +9.6      |
+| 5           | 1.38            | 1.38           | 1.38            | +0.0      |
+| 10          | 1.39            | 1.39           | 1.42            | +0.0      |
+| 15          | 1.42            | 1.42           | 1.48            | +0.0      |
+| 20          | 1.45            | 1.45           | 1.56            | +0.0      |
+| 25          | 1.50            | 1.50           | 1.69            | +0.0      |
+| 30          | 1.56            | 1.56           | 1.87            | +0.0      |
+| 35          | 1.64            | 1.64           | 2.11            | +0.0      |
+| 40          | 1.74            | 1.74           | 2.45            | +0.0      |
+| 45          | 1.86            | 1.86           | 2.94            | +0.0      |
 
-RADIANT's GSD metric now partially accounts for off-nadir geometry (values increase
-with angle), but it overestimates cross-track GSD at large angles (+9.6% at 45 deg)
-and does not compute along-track GSD separately.
+**The finding this section used to carry is retired: RADIANT's `gsd_cross_track_m`
+now tracks true cross-track GSD exactly.** The "error" column is not a rounded
+agreement — at full precision the worst residual across the sweep is
+1.4 × 10⁻¹³ %, i.e. the two are the same float to within double-precision
+round-off. (The runner's `%+.1f` formatting prints `-0.0` at 20° and 40°, which is
+the sign of a −1.4 × 10⁻¹³ % residual, not a real deficit.) That is expected once
+you see *why*: the script's own `slant_range_spherical()` and RADIANT's
+`core.viewing_triangle` are the same law-of-cosines solution of the same triangle
+on the same R_E = 6371 km, both referencing the swept zenith to the path's **lower**
+endpoint — the ground target. Two independent implementations of one geometry, so
+exact agreement is the correct result, and the cross-check now earns its keep as a
+regression guard rather than as a workaround.
+
+**Attribution.** The retired discrepancy was not a rounding drift; it was a
+convention error with a signature. The old column is reproduced *digit for digit*
+by `p · R(η) / f`, where `R(η)` is the ray-sphere slant range for the swept angle
+read as the **sensor-side** off-nadir angle η (1.3714, 1.3772, 1.3946, 1.4246,
+1.4687, 1.5290, 1.6093, 1.7148, 1.8540, **2.0409** m) — exactly the θ_o-vs-η
+misread that **CU-096 / CU-097** identified. It was closed by
+`65720f0d` (2026-07-12), *"downstream stages consume published geometry
+(ADR-0006, Phase 2)"*, in which PerformanceStage stopped re-deriving geometry from
+`geometry.path_zenith_rad` misread as η and began consuming the slant range and
+incidence angle GeometryStage publishes from the canonical target-side θ_o. The
+CHANGELOG entry for that landing is flagged *"Results-affecting (off-nadir
+configurations only)"* and predicted precisely this: values that scale with slant
+range shrink off-nadir. This walkthrough simply was not re-run against it.
+
+**What remains open is Gap 35, not Gap 33.** The `True Along` column above is the
+script's own ground-projection estimate and still differs from RADIANT's
+`gsd_along_track_m` (2.63 m vs 2.94 m at 45°, ≈ 10 %), because the two use
+different incidence models. The along-track axis, not the cross-track one, is where
+this scenario still adds something the chain does not.
 
 ## Physics Discussion
 
@@ -307,8 +343,8 @@ comparison script in the session record for commit-linked provenance.
 
 | Gap # | Description | Status | Impact |
 |-------|-------------|--------|--------|
-| 33    | GSD not fully adjusted for off-nadir angle | OPEN (partial) | RADIANT GSD now changes with angle but overestimates at large angles (+9.6% at 45 deg) and does not split cross/along |
-| 34    | NIIRS not recomputed with off-nadir GSD | OPEN (partial) | RADIANT now provides nadir NIIRS (5.32) but does not correct for off-nadir GSD |
+| 33    | GSD not adjusted for off-nadir angle | **CLOSED** (verified on this scenario 2026-09-01) | None. `gsd_cross_track_m` equals this scenario's independent spherical-Earth cross-track GSD to 1.4e-13 % across 0–45°; closed by `65720f0d` (CU-096/CU-097, ADR-0006 Phase 2) |
+| 34    | NIIRS not recomputed with off-nadir GSD | **CLOSED** (verified on this scenario 2026-09-01) | None from the GSD side. `result.metrics["niirs"]` reads the off-nadir GSD; the script's remaining NIIRS correction is the along-track/geometric-mean term, which is Gap 35 |
 | 35    | No along-track vs cross-track GSD at off-nadir | OPEN | Both GSD axes equal in RADIANT; no ground projection correction |
 | 36    | No swath width / access geometry calculator | OPEN | Must compute externally |
 
@@ -344,7 +380,9 @@ comparison script in the session record for commit-linked provenance.
    at off-nadir angles — the atmospheric veiling effect reduces contrast
 3. **Compare MWIR performance at off-nadir** — MWIR has stronger atmospheric
    absorption, so the transmission penalty at off-nadir would be more severe
-4. **Request RADIANT add off-nadir GSD** (Gap 33) so the full chain gives
-   correct NIIRS at any look angle without manual correction
+4. **Drop the manual cross-track GSD correction** — Gap 33 is closed, so the full
+   chain already gives the correct cross-track GSD and NIIRS at any look angle.
+   What is still worth requesting is the **along-track** projection (Gap 35), the
+   only axis on which the script and the chain still disagree
 
 **Postscript (2026-07-18):** CU-161 (commit `0aebdda`) recalibrated the gas/water optical depths; the absolute-OD excess noted above is reduced in the IR bands (VIS aerosol untouched). Committed numbers reflect the pre-fix model.

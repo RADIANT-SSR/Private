@@ -48,14 +48,6 @@ by name in check 8 — that list is frozen and must never grow.
 ## Open
 
 ### CU-340 — Scenario 3.4's script-side "true along-track GSD" carries the θ_o-vs-η misread the chain retired, making every off-nadir comparison column pessimistic
-
-**Discovered**: 3.4 runner-prose cleanup (branch `scenarios/34-runner-prose`), 2026-09-01. Promoted from the same-day Findings-Log line (struck in this commit).
-**Status**: Open.
-**File**: `scenarios/03_raj_mission_planner/3.4_off_nadir_agility/scripts/run_off_nadir_agility.py::gsd_off_nadir` (the `asin((R_E+H)·sinθ/R_E)` sensor-side-η conversion).
-**Symptom**: the script's along-track projection converts the swept angle by the sensor-side-η rule while its own slant-range function and the chain read it as target-side θ_o (= the incidence angle) — the exact misread `65720f0d` (2026-07-12) removed from the chain. At 45° it divides by cos 50.7° instead of cos 45°: 2.94 m vs the chain's 2.63 m. Propagates into the printed `GSD_y`, `GSD GM`, `NIIRS (corrected)`, `dNIIRS` columns, fig2, fig4's GM panel, the results workbook, and the walkthrough tables — all pessimistic off-nadir.
-**Why it still matters**: workflow-visible (intake test 4) — the walkthrough's comparison tables carry the wrong along-track numbers; and with Gap 35 CLOSED the chain publishes the correct along-track GSD, so the script's local projection is a stale duplicate (Rule 27 candidate: consume the chain's value instead of recomputing).
-**Suggested fix**: (b) small — replace `gsd_off_nadir()`'s along-track branch with the chain's published values (or fix the cosine and keep it as an explicit cross-check), re-run, §5.3 the walkthrough tables + fig2/fig4 + workbook. Effort S; category C. Related: CU-096/097, `65720f0d`, Gap 35.
-
 ### CU-339 — `examples/templates/` doubles as the source-inferrer golden corpus: twelve Phase-2E configs are load-bearing test inputs wearing a user-facing home
 
 **Discovered**: mission-template welcome-screen build (branch `gui/mission-templates`), 2026-09-01. **Renumbered from CU-338** (2026-09-01): two sessions minted CU-338 the same day; the emitter finding's stub (`07fec66d`) reached `origin/main` first and holds the number — this mint (`d31a7d2a`) raced the reservation (fetch-before-mint missed) and takes the next free ID. Any in-flight branch text citing CU-338 for the templates-corpus finding means this entry — the owner-ruled supersede of the Phase-2E starters broke collection: `src/radiant/source/tests/test_inferrer.py` parametrizes over them via `tests/integration/snapshots/option_c_baseline.yaml` (path-keyed), 12 descriptor snapshots live in `src/radiant/source/tests/snapshots/`, `src/radiant/data/tests/test_templates.py` tests the set directly, and four guides (`configuration`, `trade_studies`, `regime_selection`, + Config_Format) cite the files.

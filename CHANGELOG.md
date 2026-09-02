@@ -20,6 +20,24 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **Mission-template welcome screen (GUI, §4.4a — owner-confirmed brief).** With
+  no configuration loaded, the central canvas shows six hand-authored mission
+  templates (ground→air MWIR detection, LEO thermal mapping, maritime sub-pixel
+  LWIR, lab blackbody calibration, airborne LWIR surveillance, SDA
+  space-to-space) as one-click cards beside Blank config and Open recent.
+  Picking a card runs the ordinary open pipeline, auto-evaluates, and surfaces
+  the template's tune-next parameters as clickable guidance rows in Messages
+  that reveal the named row in the parameter tree. Every template is CI-gated
+  to load, evaluate warning-free, and derive its declared regime.
+- **`radiant.api.config_io.read_template_meta(path)`** — the
+  `_radiant.template` metadata block of a config without loading a sensor.
+
+### Changed
+- **File → New returns to the welcome screen** (after the unsaved-edits
+  guard); its Blank config card performs the previous blank-adopt exactly.
+
+
 ### Changed
 - **Results-affecting: the calibrated gas table's VIS/NIR/SWIR floors are re-fitted
   against the corrected Rayleigh (CU-335, owner-approved 2026-08-30) — VIS SNRs drop

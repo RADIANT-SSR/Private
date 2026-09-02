@@ -1,0 +1,60 @@
+# RADIANT mission template — SDA Space-to-Space
+# Space-domain awareness: a LEO sensor tracking a sunlit-free (night-side)
+# thermal point object near GEO through vacuum. Values derive from the
+# owner-validated scenario 10.4 (LEO→GEO exo family): 280 K / ε 0.85 bus with
+# 20 m² projected area, 0.35 m obscured telescope at 180 K optics, low-noise
+# 14-bit readout, slow LOS rate for a near-geosynchronous object.
+_radiant:
+  format: 1
+  template:
+    name: "SDA Space-to-Space"
+    blurb: "LEO sensor tracking a thermal point object near GEO through vacuum."
+    specs: "MWIR 3.5–5 µm · LEO→GEO exo path · point source"
+    tune_next:
+      - geometry.target.projected_area_m2
+      - source.target.temperature
+      - geometry.target_altitude_m
+      - optics.aperture_diameter_m
+      - spectral_integration.integration_time_s
+atmosphere:
+  model: exo
+detector:
+  dark_rate_e_per_s: 1000.0
+  detector_temperature_K: 80.0
+  pixel_pitch_x_um: 18.0
+  pixel_pitch_y_um: 18.0
+  qe_value: 0.75
+geometry:
+  los_angular_rate_rad_s: 1.2870938232603674e-06
+  path_zenith_rad: 0.0
+  scene_class: space_to_space
+  sensor_altitude_m: 500000.0
+  solar_illumination: night
+  target:
+    projected_area_m2: 20.0
+  target_altitude_m: 35786000.0
+optics:
+  aperture_diameter_m: 0.35
+  focal_length_m: 2.1
+  obscuration_ratio: 0.25
+  optics_temperature_K: 180.0
+  scalar_emissivity: 0.4      # Kirchhoff-consistent with T=0.6 in scalar mode — makes
+                              # the 180 K optics' self-emission term real, not silent
+  transmission_scalar: 0.6
+  wfe_rms_waves: 0.05
+performance:
+  detection_snr_threshold: 5.0
+readout:
+  adc_bits: 14
+  full_well_capacity_e: 100000.0
+  gain_e_per_dn: 6.1
+  read_noise_e_rms: 25.0
+source:
+  scene_type: point_source
+  target:
+    emissivity: 0.85
+    temperature: 280.0
+spectral_integration:
+  filter_min_um: 3.5
+  filter_max_um: 5.0
+  integration_time_s: 0.5    # s — a tracking stare; clears the 5.0 detection threshold

@@ -758,6 +758,85 @@ QLabel#messageItem:hover {{
 QLabel#messageItem:focus {{
     border-color: {t.focus};
 }}
+/* Guidance rows (§4.4a mission templates): informational focus-token voice —
+ * never the warn/err alarm registers. */
+QLabel#messageItem[severity="info"] {{
+    background-color: {t.focus_soft};
+    color: {t.ink};
+    border-color: {t.focus};
+}}
+/* Welcome screen (§4.4a): the no-config state as the onboarding surface. */
+#welcomeScreen, #welcomeScroll, #welcomeScroll QWidget {{
+    background-color: {t.bg};
+}}
+QLabel#welcomeTitle {{
+    color: {t.ink};
+    font-size: 18px;
+    font-weight: 600;
+}}
+QLabel#welcomeSubtitle {{
+    color: {t.muted};
+    font-size: 12px;
+}}
+QPushButton#welcomeCard, QPushButton#welcomeBlankCard {{
+    background-color: {t.panel};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_PANEL};
+    padding: {tokens.PAD_PANEL};
+    text-align: left;
+    min-height: 96px;
+    min-width: 220px;
+}}
+QPushButton#welcomeCard:hover, QPushButton#welcomeBlankCard:hover {{
+    border-color: {t.line_2};
+    background-color: {t.panel_2};
+}}
+QPushButton#welcomeCard:focus, QPushButton#welcomeBlankCard:focus {{
+    border-color: {t.focus};
+    outline: none;
+}}
+QPushButton#welcomeBlankCard {{
+    background-color: {t.panel_2};
+}}
+QLabel#welcomeCardName {{
+    color: {t.ink};
+    font-size: 14px;
+    font-weight: 600;
+    background: transparent;
+}}
+QLabel#welcomeCardBlurb {{
+    color: {t.muted};
+    font-size: 11px;
+    background: transparent;
+}}
+QLabel#welcomeCardSpecs {{
+    color: {t.ink_2};
+    font-family: {tokens.FONT_MONO};
+    font-size: 10.5px;
+    background: transparent;
+}}
+QLabel#welcomeRecentTitle {{
+    color: {t.muted};
+    font-size: 10.5px;
+    font-weight: 500;
+    margin-top: 8px;
+}}
+QPushButton#welcomeRecentRow {{
+    background-color: transparent;
+    border: none;
+    color: {t.focus};
+    text-align: left;
+    padding: 3px 2px;
+    font-family: {tokens.FONT_MONO};
+    font-size: 11.5px;
+}}
+QPushButton#welcomeRecentRow:hover {{
+    color: {t.ink};
+}}
+QPushButton#welcomeRecentRow:focus {{
+    color: {t.ink};
+    outline: none;
+}}
 QLabel#messagesEmpty, QLabel#pinPickerEmpty {{
     color: {t.muted};
     font-size: 11px;

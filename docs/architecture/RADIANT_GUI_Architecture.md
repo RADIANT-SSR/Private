@@ -892,6 +892,30 @@ canonical, row shows `550 km`). The unit suffix is always part of the displayed 
 (R-UNITS). The preference is **session-scoped**; QSettings persistence across launches
 arrives in Phase 9. Loading a new sensor resets the preferences.
 
+### 4.4a Welcome Screen — mission templates at the no-config state (owner-confirmed brief 2026-08-31)
+
+With no configuration loaded (a bare launch, or File → New after the unsaved-edits
+guard) the central canvas shows the **welcome screen** instead of dead space: a grid
+of **mission-template cards** (display name, one-line blurb, mono specs line), an
+always-present **Blank config** card (the classic File → New blank-adopt), and the
+**Open recent** list. Templates are the **metadata-carrying** YAMLs under `examples/templates/` — six
+hand-authored archetypes (the Phase-2E configs sharing the directory are the
+source-inferrer golden corpus, invisible here; their relocation is CU-339) —
+discovered by the Qt-free `radiant.gui.mission_templates` seam, which reads each file's `_radiant.template` metadata (name / blurb / specs /
+`tune_next`) through `radiant.api.config_io.read_template_meta` (the GUI cannot
+import `radiant.io`). Off-repo (a wheel install) discovery degrades to an empty
+grid: Blank + Recent only.
+
+Activating a card is **File → Open with a known path** — the ordinary
+`ConfigurationSet.load` pipeline, one action ↔ one API call; there is no
+template-specific load path. The template then auto-evaluates (< 1 s), and its
+3–5 `tune_next` parameters surface as **guidance rows** in the Messages panel —
+info-severity (`focus` tokens, → glyph), never the warn/err alarm registers,
+each clickable to reveal + select that row in the All-Parameters tree. Guidance
+clears when the next document is adopted. The truth bar for the template set —
+every template loads, evaluates warning-free, carries complete metadata, and
+derives the regime it declares — is CI (`tests/integration/test_mission_templates.py`).
+
 ### 4.4 Center: Contextual Stage View
 
 The center column shows the **selected stage's view and nothing else**. Every stage view

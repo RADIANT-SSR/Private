@@ -42,7 +42,10 @@ class TestMainWindowGuard:
         )
         window._on_new()  # noqa: SLF001
         assert asked == []  # clean state: no prompt, New proceeded
-        assert window.sensor is not None
+        # §4.4a: File → New lands on the welcome surface (no sensor); its
+        # Blank config card performs the old blank-adopt.
+        assert window.sensor is None
+        assert window.is_welcome()
 
     def test_cancel_keeps_dirty_sensor(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
         window = _window(qtbot)

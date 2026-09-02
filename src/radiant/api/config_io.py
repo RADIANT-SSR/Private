@@ -8,7 +8,7 @@ the io parsers. The GUI cannot import ``radiant.io`` (import contract);
 it previews and commits documents through here, and validation happens
 in exactly one place: :func:`radiant.io.element_config.parse_element_entries`.
 
-Two operations:
+Three operations:
 
 - :func:`preview_optical_elements` — parse a document and return
   displayable per-element summaries **without mutating any sensor**
@@ -17,6 +17,9 @@ Two operations:
   its relative spectral-file references to absolute paths so the stored
   document evaluates and round-trips independently of the current
   working directory (consumed by ``Sensor.set_optical_elements``).
+- :func:`read_template_meta` — the ``_radiant.template`` metadata block
+  of a config file (mission-template name/blurb/specs/tune_next, §4.4a
+  welcome screen) without loading a sensor.
 
 Emissivity in previews is the element's Kirchhoff-derived value
 (Rule 5) — it is reported, never accepted as an input here.
@@ -203,6 +206,21 @@ def normalize_element_document(
                 clean[key] = str((root / value).resolve())
         normalized.append(clean)
     return normalized
+
+
+def read_template_meta(path: str | Path) -> dict[str, Any]:
+    """The ``_radiant.template`` metadata block of *path* (or ``{}``).
+
+    The GUI's welcome screen and post-load guidance read mission-template
+    metadata through this seam (the GUI cannot import ``radiant.io``).
+    Raises :class:`radiant.io.config.ConfigError` on unreadable YAML,
+    mirroring :func:`radiant.io.config.read_radiant_meta`; a config with no
+    template block returns ``{}``.
+    """
+    from radiant.io.config import read_radiant_meta
+
+    meta = read_radiant_meta(path).get("template", {})
+    return dict(meta) if isinstance(meta, dict) else {}
 
 
 __all__ = [

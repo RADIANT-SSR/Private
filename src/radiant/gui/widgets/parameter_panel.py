@@ -821,6 +821,24 @@ class ParameterPanel(QWidget):
         self.populate(self._sensor)
         self.parameterEdited.emit(dotpath)
 
+    def reveal_row(self, dotpath: str) -> None:
+        """Scroll to, select, and focus the row for *dotpath* (guidance jump, §4.4a).
+
+        Expands the owning namespace group first so the row is genuinely
+        visible; an unknown dot-path is a silent no-op (the guidance test
+        upstream guarantees known paths — this is display plumbing, not
+        validation).
+        """
+        item = self._items.get(dotpath)
+        if item is None:
+            return
+        parent = item.parent()
+        if parent is not None:
+            parent.setExpanded(True)
+        self._tree.scrollToItem(item)
+        self._tree.setCurrentItem(item)
+        self._tree.setFocus(Qt.FocusReason.OtherFocusReason)
+
     # -- filtering ----------------------------------------------------------
 
     def _apply_filter(self, text: str) -> None:

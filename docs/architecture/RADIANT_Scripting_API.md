@@ -309,6 +309,10 @@ Full contract: `RADIANT_Config_Format.md` §4.4.
 
 ### 2.6 Optical-Element Documents — `radiant.api.config_io` (ADR-0009, 2026-07-16)
 
+> Since 2026-09-01 the module also carries `read_template_meta(path)` — the
+> `_radiant.template` metadata block (mission-template name/blurb/specs/tune_next,
+> GUI arch §4.4a) without loading a sensor; `{}` when absent.
+
 The config-document facade: structured configuration is authored as **declarative documents**
 (the `optical_elements:` entry dicts of `RADIANT_Config_Format.md` §1.8) and bridged to the io
 parsers here — the GUI cannot import `radiant.io` (import contract), and validation lives in

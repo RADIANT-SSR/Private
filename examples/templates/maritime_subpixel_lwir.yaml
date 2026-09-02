@@ -1,0 +1,57 @@
+# RADIANT mission template — Maritime Sub-pixel LWIR
+# A space-based LWIR search sensor detecting a vessel that only partially fills
+# a pixel against a cooler sea: the sub-pixel contrast regime. From 500 km with
+# a 25 µm pitch behind 0.5 m focal length the ground sample is ~25 m; a 60 m
+# cargo vessel (600 m² projected, equivalent extent ~49 µrad) sits squarely in
+# the sub-pixel band (0.5–2× the effective PSF FWHM of ~51 µrad). 285 K sea
+# (ε 0.98), 295 K vessel (ε 0.90), 8–12 µm, 65 K detector, 20 Me- well.
+_radiant:
+  format: 1
+  template:
+    name: "Maritime Sub-pixel LWIR"
+    blurb: "Space-based LWIR search: a vessel part-filling a pixel against the sea."
+    specs: "LWIR 8–12 µm · 500 km LEO · sub-pixel vessel"
+    tune_next:
+      - source.target.fill_fraction
+      - source.target.temperature
+      - source.background.temperature
+      - geometry.target.projected_area_m2
+      - optics.aperture_diameter_m
+atmosphere:
+  model: simple
+  standard_atmosphere: midlat_summer
+  aerosol_type: maritime
+  visibility_km: 23.0
+detector:
+  dark_rate_e_per_s: 1.0e6
+  detector_temperature_K: 65.0
+  pixel_pitch_x_um: 25.0
+  pixel_pitch_y_um: 25.0
+  qe_value: 0.75
+geometry:
+  sensor_altitude_m: 500000.0
+  target:
+    projected_area_m2: 600.0   # m² — 60 m × 10 m cargo vessel; extent ≈ 0.96× EPSF FWHM
+optics:
+  aperture_diameter_m: 0.5    # m — PSF FWHM ~21 µrad @ 10 µm sits below the vessel's
+                              # ~24.5 µrad extent (sub-pixel needs PSF < target < pixel)
+  focal_length_m: 0.50        # m — f/1, the classic fast LWIR imager
+  transmission_scalar: 0.75
+readout:
+  adc_bits: 14
+  full_well_capacity_e: 2.0e7
+  gain_e_per_dn: 1220.0
+  read_noise_e_rms: 500.0
+source:
+  scene_type: sub_pixel
+  target:
+    emissivity: 0.90
+    temperature: 295.0
+    fill_fraction: 0.5    # representative per-pixel fill for a vessel spanning ~2 samples
+  background:
+    emissivity: 0.98
+    temperature: 285.0
+spectral_integration:
+  filter_min_um: 8.0
+  filter_max_um: 12.0
+  integration_time_s: 0.000025  # s — 25 µs; the f/1 LWIR background fills ~half the well

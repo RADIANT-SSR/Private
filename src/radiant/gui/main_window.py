@@ -26,7 +26,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
     QApplication,
@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
 
 from radiant.api.atmosphere_families import is_atmosphere_coverage_refusal
 from radiant.api.build_info import build_info
+from radiant.api.config_io import read_template_meta
 from radiant.api.config_set import ConfigSetError, ConfigSetRunResult, ConfigurationSet
 from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
@@ -83,6 +84,7 @@ from radiant.gui.widgets.set_parameter_command import SetParameterCommand
 from radiant.gui.widgets.stage_strip import STAGE_NAMESPACES, StageStrip
 from radiant.gui.widgets.sweep_dialog import SweepDialog
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
+from radiant.gui.widgets.welcome_screen import WelcomeScreen
 from radiant.gui.widgets.yaml_editor_dialog import YamlEditorDialog
 from radiant.gui.workers import ConfigSetEvaluationWorker
 
@@ -336,6 +338,9 @@ class RADIANTMainWindow(QMainWindow):
                     "Configuration incomplete — set required parameters, then Evaluate "
                     "(F5) to see what is still missing"
                 )
+        else:
+            # Bare launch (§4.4a): the no-config state IS the onboarding surface.
+            self._show_welcome()
 
     # -- public accessors ---------------------------------------------------
 
@@ -783,6 +788,49 @@ class RADIANTMainWindow(QMainWindow):
         central = CentralCanvas(self)
         self.setCentralWidget(central)
         self._central = central
+        # §4.4a: the welcome surface renders as a full-size child OVERLAY of the
+        # canvas, not a stacked page — an overlay participates in no layout, so
+        # the canvas geometry (stage center, frozen matrix columns) is untouched
+        # by construction. A QStackedWidget host measurably deferred the canvas
+        # page's layout one event-loop turn and drifted the performance-matrix
+        # frozen-label alignment 18 px at expose time.
+        self._welcome_overlay: QWidget | None = None
+        central.installEventFilter(self)
+
+    def eventFilter(self, watched, event):  # noqa: N802 — Qt override
+        """Keep the welcome overlay sized to the canvas (§4.4a)."""
+        if (
+            watched is getattr(self, "_central", None)
+            and self._welcome_overlay is not None
+            and event.type() == QEvent.Type.Resize
+        ):
+            self._welcome_overlay.setGeometry(self._central.rect())
+        return super().eventFilter(watched, event)
+
+    def is_welcome(self) -> bool:
+        """Whether the welcome surface is active (§4.4a).
+
+        Existence, not ``isVisible()`` — a child's visibility is False until the
+        window itself is shown, and the overlay is deleted the moment a
+        configuration is adopted, so existence is the truthful flag.
+        """
+        return self._welcome_overlay is not None
+
+    def _flip_to_welcome(self, widget: QWidget) -> None:
+        """Install *widget* as the welcome overlay (rebuilt per call)."""
+        if self._welcome_overlay is not None:
+            self._welcome_overlay.deleteLater()
+        widget.setParent(self._central)
+        widget.setGeometry(self._central.rect())
+        widget.show()
+        widget.raise_()
+        self._welcome_overlay = widget
+
+    def _flip_to_workspace(self) -> None:
+        """Hide + release the welcome overlay (a configuration is loaded)."""
+        if self._welcome_overlay is not None:
+            self._welcome_overlay.deleteLater()
+            self._welcome_overlay = None
 
     def _build_dock_panels(self) -> None:
         """Parameter (left) dock and the persistent right rail (§4.3, §4.5).
@@ -813,6 +861,9 @@ class RADIANTMainWindow(QMainWindow):
         # window opens the editor against the live sensor.
         right_rail = RightRail(self)
         right_rail.editConfigRequested.connect(self._on_edit_config_requested)
+        # A tune-next guidance row (§4.4a mission templates) jumps to its
+        # parameter: reveal the tree row and make sure the dock is visible.
+        right_rail.messages.guidanceClicked.connect(self._on_guidance_clicked)
         rail_dock = QDockWidget("", self)
         rail_dock.setObjectName("rightRailDock")
         rail_dock.setTitleBarWidget(QWidget(rail_dock))  # hide the dock title bar
@@ -1153,6 +1204,32 @@ class RADIANTMainWindow(QMainWindow):
     def last_result(self) -> ChainResult | None:
         """The most recent successful :class:`~radiant.api.ChainResult`, if any."""
         return self._last_result
+
+    def _show_welcome(self) -> None:
+        """Show the welcome surface — mission cards + Blank + Recent (§4.4a).
+
+        Rebuilt on every call so the recent list and the template set stay
+        fresh; the central canvas owns the page flip. Shown only in the
+        no-configuration state (bare launch, or File → New after the guard).
+        """
+        welcome = WelcomeScreen(recent_files=self._settings.recent_files())
+        welcome.templateChosen.connect(self._open_path)
+        welcome.recentChosen.connect(self._open_path)
+        welcome.blankRequested.connect(self._on_blank_config)
+        self._flip_to_welcome(welcome)
+        self.statusBar().showMessage(
+            "Pick a mission template to start from a runnable scenario, or start blank"
+        )
+
+    def _on_blank_config(self) -> None:
+        """The welcome screen's Blank card — the classic File → New behaviour."""
+        self._adopt_sensor(Sensor(), path=None, dirty=False, add_recent=False, evaluate=False)
+        self.statusBar().showMessage("New configuration — edit parameters, then Evaluate")
+
+    def _on_guidance_clicked(self, dotpath: str) -> None:
+        """Jump to *dotpath* in the All-Parameters tree (guidance rows, §4.4a)."""
+        self._parameter_dock.setVisible(True)
+        self._parameter_panel.reveal_row(dotpath)
 
     def _wire_evaluate_loop(self) -> None:
         """Enable and connect Evaluate (F5 / Run button) and the debounce timer.
@@ -1679,6 +1756,24 @@ class RADIANTMainWindow(QMainWindow):
         self._refresh_configuration_bar()
         self._config_scope.bind(config_set)
         self._parameter_panel.populate(sensor)
+        # Page flip (§4.4a): a loaded configuration shows the workspace; adopting
+        # None (File → New's guard-passed reset) leaves the caller to show the
+        # welcome surface. Guidance from any previous template is cleared here —
+        # the one place the document changes — and re-set below when the newly
+        # opened file carries a _radiant.template block.
+        if sensor is not None:
+            self._flip_to_workspace()
+        self._right_rail.messages.set_guidance(())
+        if path is not None:
+            try:
+                tune_next = tuple(read_template_meta(path).get("tune_next") or ())
+            except RadiantError:
+                tune_next = ()
+            if tune_next and sensor is not None:
+                defs = sensor.parameter_defs()
+                self._right_rail.messages.set_guidance(
+                    [(f"Tune next — {d}", d) for d in tune_next if d in defs]
+                )
         self._central.stage_center.bind_sensor(sensor, self._parameter_panel.display_units)
         self._console.bind_sensor(sensor)
         # The console's `configs` is the *document*, so it is rebound exactly here —
@@ -1741,11 +1836,15 @@ class RADIANTMainWindow(QMainWindow):
         return True
 
     def _on_new(self) -> None:
-        """File → New: open a blank config (guarded against losing unsaved edits, CU-140)."""
+        """File → New: return to the welcome surface (guarded, CU-140; §4.4a).
+
+        The mission cards + Blank config replace the old silent blank-adopt;
+        the Blank card performs exactly the previous behaviour.
+        """
         if not self._confirm_discard_edits():
             return
-        self._adopt_sensor(Sensor(), path=None, dirty=False, add_recent=False, evaluate=False)
-        self.statusBar().showMessage("New configuration — edit parameters, then Evaluate")
+        self._adopt_sensor(None, path=None, dirty=False, add_recent=False, evaluate=False)
+        self._show_welcome()
 
     def _on_open(self) -> None:
         """File → Open: pick a YAML and load it (guarded, CU-140)."""

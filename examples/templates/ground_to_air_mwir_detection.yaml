@@ -1,0 +1,59 @@
+# RADIANT mission template — Ground→Air MWIR Detection
+# A ground sensor searching for a hot airborne point target (engine-heated
+# airframe) through a slant atmospheric path, at night. Values derive from the
+# owner-validated scenario 10.1 (direction-general family): 550 K / ε 0.9
+# target (hot exhaust-adjacent surfaces), 60° zenith slant to 10 km altitude,
+# a compact 10 cm f/2 MWIR sensor with high-flux well/readout settings.
+_radiant:
+  format: 1
+  template:
+    name: "Ground → Air MWIR Detection"
+    blurb: "Ground sensor, hot airborne point target through a slant path at night."
+    specs: "MWIR 3–5 µm · up-looking 60° zenith · point source"
+    tune_next:
+      - geometry.target_altitude_m
+      - geometry.path_zenith_rad
+      - source.target.temperature
+      - atmosphere.visibility_km
+      - spectral_integration.integration_time_s
+atmosphere:
+  model: simple
+  standard_atmosphere: midlat_summer
+  aerosol_type: rural
+  visibility_km: 23.0
+detector:
+  dark_rate_e_per_s: 50000.0
+  detector_temperature_K: 80.0
+  pixel_pitch_x_um: 15.0
+  pixel_pitch_y_um: 15.0
+  qe_value: 0.75
+geometry:
+  path_zenith_rad: 1.0471975511965976   # 60 deg — a realistic search elevation
+  sensor_altitude_m: 0.0
+  solar_illumination: night
+  target:
+    projected_area_m2: 0.0028274333882308137   # 6 cm-radius disk (hot spot)
+  target_altitude_m: 10000.0
+optics:
+  aperture_diameter_m: 0.1
+  focal_length_m: 0.2
+  nearfield_fraction: 0.1
+  optics_temperature_K: 293.15
+  scalar_emissivity: 0.25
+  transmission_scalar: 0.75
+performance:
+  detection_snr_threshold: 5.0
+readout:
+  adc_bits: 16
+  full_well_capacity_e: 11000000.0
+  gain_e_per_dn: 200.0
+  read_noise_e_rms: 250.0
+source:
+  scene_type: point_source
+  target:
+    emissivity: 0.9
+    temperature: 550.0
+spectral_integration:
+  filter_min_um: 3.0
+  filter_max_um: 5.0
+  integration_time_s: 0.0005

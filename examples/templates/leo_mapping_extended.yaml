@@ -1,0 +1,46 @@
+# RADIANT mission template — LEO Thermal Mapping
+# A LEO push-broom thermal mapper viewing an extended 300 K terrestrial scene
+# at nadir from 500 km. Optics/detector values follow the repo's reference MWIR
+# chain (mwir_leo_minimal lineage) scaled to true orbital altitude: 0.5 m f/4
+# telescope, 18 µm HgCdTe at 80 K, integration sized against the 2 Me- well.
+_radiant:
+  format: 1
+  template:
+    name: "LEO Thermal Mapping"
+    blurb: "Push-broom MWIR mapper over an extended 300 K scene from 500 km."
+    specs: "MWIR 3.5–5 µm · 500 km nadir · extended scene"
+    tune_next:
+      - optics.aperture_diameter_m
+      - geometry.sensor_altitude_m
+      - spectral_integration.integration_time_s
+      - detector.pixel_pitch_x_um
+      - source.target.temperature
+atmosphere:
+  model: simple
+  standard_atmosphere: midlat_summer
+detector:
+  dark_rate_e_per_s: 100.0
+  detector_temperature_K: 80.0
+  pixel_pitch_x_um: 18.0
+  pixel_pitch_y_um: 18.0
+  qe_value: 0.70
+geometry:
+  sensor_altitude_m: 500000.0   # nadir view (the default geometry, as the reference example)
+optics:
+  aperture_diameter_m: 0.5
+  focal_length_m: 2.0
+  transmission_scalar: 0.70
+readout:
+  adc_bits: 16
+  full_well_capacity_e: 2000000.0
+  gain_e_per_dn: 32.0
+  read_noise_e_rms: 5.0
+source:
+  scene_type: extended
+  target:
+    emissivity: 0.95
+    temperature: 300.0
+spectral_integration:
+  filter_min_um: 3.5
+  filter_max_um: 5.0
+  integration_time_s: 0.002

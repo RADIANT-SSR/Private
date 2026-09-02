@@ -31,12 +31,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
 from radiant.gui.widgets.message_item import (
     SEVERITY_ERROR,
+    SEVERITY_INFO,
     SEVERITY_WARNING,
     MessageItem,
 )
@@ -53,11 +55,19 @@ def _payload_what(exc: BaseException) -> str:
 class MessagesPanel(QWidget):
     """The Messages rail section: clickable warning + error rows (arch doc §4.5).
 
+    Signals
+    -------
+    guidanceClicked(str):
+        A tune-next guidance row (§4.4a mission templates) was activated; the
+        argument is the parameter dot-path to reveal.
+
     Parameters
     ----------
     parent:
         The owning widget, if any.
     """
+
+    guidanceClicked = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -66,6 +76,7 @@ class MessagesPanel(QWidget):
         self._warnings: list[str] = []
         self._error: BaseException | None = None
         self._config_errors: dict[str, BaseException] = {}
+        self._guidance: list[tuple[str, str]] = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -163,11 +174,23 @@ class MessagesPanel(QWidget):
         self._config_errors = dict(failures)
         self._rebuild()
 
+    def set_guidance(self, entries: Sequence[tuple[str, str]]) -> None:
+        """Replace the tune-next guidance rows (§4.4a mission templates).
+
+        Each entry is ``(display_text, dotpath)``; activating a row emits
+        :attr:`guidanceClicked` with the dot-path. Guidance is informational —
+        it never counts toward the warning/error tally and survives clean
+        re-evaluations until the next configuration load replaces or clears it.
+        """
+        self._guidance = [(str(t), str(d)) for t, d in entries]
+        self._rebuild()
+
     def clear(self) -> None:
-        """Clear every message (warnings, error, per-configuration failures)."""
+        """Clear every message (warnings, error, per-configuration failures, guidance)."""
         self._warnings = []
         self._error = None
         self._config_errors = {}
+        self._guidance = []
         self._rebuild()
 
     # -- internal -----------------------------------------------------------
@@ -179,6 +202,11 @@ class MessagesPanel(QWidget):
             widget = item.widget()
             if widget is not None:
                 widget.deleteLater()
+
+        for text, dotpath in self._guidance:
+            row = MessageItem(text, SEVERITY_INFO, self._items_host)
+            row.clicked.connect(lambda _c=False, d=dotpath: self.guidanceClicked.emit(d))
+            self._items_layout.addWidget(row)
 
         for message in self._warnings:
             row = MessageItem(message, SEVERITY_WARNING, self._items_host)
@@ -199,7 +227,12 @@ class MessagesPanel(QWidget):
             )
             self._items_layout.addWidget(row)
 
-        has_any = bool(self._warnings) or self._error is not None or bool(self._config_errors)
+        has_any = (
+            bool(self._warnings)
+            or self._error is not None
+            or bool(self._config_errors)
+            or bool(self._guidance)
+        )
         self._empty.setVisible(not has_any)
         self._update_count()
 

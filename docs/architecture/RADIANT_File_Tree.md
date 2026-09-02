@@ -299,6 +299,7 @@ gui/
 ├── config_scope.py      # ConfigurationScope — configured-parameter badges + scope actions (4b)
 ├── dialog_lifetime.py   # exec_dialog(dialog) — run a modal loop, then free the dialog (CU-216)
 ├── display_units.py     # global display-unit preference (angles→deg default) + pretty_unit (CU-326)
+├── mission_templates.py # Qt-free mission-template discovery (§4.4a welcome screen)
 ├── document_yaml.py     # is_study / serialize_document / load_document_from_text (4e)
 ├── target_spec_guard.py # introduced_target_spec_conflict — CU-244 differential door guard shared by both clone-validate edit paths
 ├── tolerance_units.py   # Qt-free: per-field tolerance unit conversion (std=difference, low/high=absolute, sigma=dimensionless)
@@ -369,6 +370,7 @@ gui/
 │   ├── sweep_dialog.py                      # SweepDialog
 │   ├── target_shape_panel.py                # TargetShapePanel
 │   ├── unexpected_error_dialog.py           # UnexpectedErrorDialog
+│   ├── welcome_screen.py                    # WelcomeScreen — §4.4a mission cards + Blank + Recent
 │   ├── warning_list_dialog.py               # WarningListDialog
 │   ├── workspace_panel.py                   # WorkspacePanel
 │   └── yaml_editor_dialog.py                # YamlEditorDialog

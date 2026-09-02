@@ -1,0 +1,48 @@
+# RADIANT mission template — Airborne LWIR Surveillance
+# A surveillance aircraft imaging extended terrain in the LWIR from 8 km.
+# 290 K ground (ε 0.95, natural terrain), 8–12 µm, the LWIR detector chain of
+# the maritime template (25 µm, 65 K, 20 Me- well) behind a 20 cm f/3 optic —
+# a general wide-area thermal mapper.
+_radiant:
+  format: 1
+  template:
+    name: "Airborne LWIR Surveillance"
+    blurb: "Wide-area thermal imaging of extended terrain from an 8 km platform."
+    specs: "LWIR 8–12 µm · 8 km airborne · extended scene"
+    tune_next:
+      - geometry.sensor_altitude_m
+      - optics.aperture_diameter_m
+      - source.target.temperature
+      - spectral_integration.integration_time_s
+      - atmosphere.visibility_km
+atmosphere:
+  model: simple
+  standard_atmosphere: midlat_summer
+  aerosol_type: rural
+  visibility_km: 23.0
+detector:
+  dark_rate_e_per_s: 1.0e6
+  detector_temperature_K: 65.0
+  pixel_pitch_x_um: 25.0
+  pixel_pitch_y_um: 25.0
+  qe_value: 0.75
+geometry:
+  sensor_altitude_m: 8000.0
+optics:
+  aperture_diameter_m: 0.20
+  focal_length_m: 0.60
+  transmission_scalar: 0.75
+readout:
+  adc_bits: 14
+  full_well_capacity_e: 2.0e7
+  gain_e_per_dn: 1220.0
+  read_noise_e_rms: 500.0
+source:
+  scene_type: extended
+  target:
+    emissivity: 0.95
+    temperature: 290.0
+spectral_integration:
+  filter_min_um: 8.0
+  filter_max_um: 12.0
+  integration_time_s: 0.0002   # s — LWIR flux fills ~half the 20 Me- well

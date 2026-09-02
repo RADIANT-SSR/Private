@@ -103,6 +103,17 @@ every phase:
    the owner's click-path for the bespoke interactions no headless harness can judge
    (legibility, chip distinguishability, scroll feel).
 
+**Per-iteration live review (owner-ratified 2026-09-01), the working mode for every GUI
+task in this plan:** the change is built in an isolated worktree and iterated with
+targeted widget tests only; before any merge, the real GUI is launched **from the branch
+on the owner's machine**, preloaded with the demo scenario and a short click script of
+what to verify; feedback loops through relaunches (seconds, no batteries). Only after the
+owner's approval does the scoped GUI battery run, followed by merge. Screenshot
+before/after artifact pages substitute when the owner is away. Layer 3 above is the final
+acceptance signature; this working mode is how each iteration earns the right to reach
+it — no user-visible GUI change merges unseen (the CU-332→333 lesson: offscreen asserts
+verify structure, not "looks right").
+
 ### 4a. Elements-tab scope in a study (open decision)
 
 What does the Elements tab show/edit once trains can differ per configuration?
@@ -209,3 +220,4 @@ Phase 2 ≈ 1–2 days including tests; Phase 3 ≈ half a day.
 | Override mechanism (§3a) — replace-by-name recommended | **Open** — ratify before Phase 2 starts |
 | GUI Elements-tab scope (§4a) — effective-train + badge, shared-only Apply recommended | **Open** — ratify before Phase 2 starts |
 | GUI verification model — three layers per phase (§4b–4d), owner walkthrough as plan acceptance | Set by this revision (2026-09-01, owner-directed) |
+| Per-iteration live review loop (§4 working mode) — launch from branch on the owner's machine before merge; battery after approval | **Ratified** (owner, 2026-09-01) |

@@ -10,7 +10,8 @@ prescription is now parsed from the Zemax text export via
 against the scalar-RMS screen at the same total RMS. Numbers below were
 refreshed 2026-08-02 against the current engine; the Rayleigh-optical-depth
 correction (CU-253) shifted SNR to 173.5 (from 242.2 in the 2026-07-22 run);
-the CU-335 gas-table re-fit then took it to 115.4.
+the CU-335 gas-table re-fit then took it to 115.4, and the CU-336 grid-convention
+correction to that same fit brought it back to 120.2.
 WFE-driven spatial *trends* are unchanged — Strehl, MTF@Nyquist and RER are
 bit-identical to the previous vintage at every sweep point.
 
@@ -110,22 +111,26 @@ before chain execution; there is no scalar-parameter path for Zernike mode).
 | MTF@Nyquist [--] | 0.2246 | 0.2297 | −0.0051 |
 | EE(1x1) [--] | 0.3953 | 0.3868 | +0.0085 |
 | RER [--] | 0.5812 | 0.5526 | +0.0285 |
-| NIIRS [--] | 6.04 | 5.97 | +0.07 |
-| SNR [--] | 115.4 | 115.4 | 0 |
+| NIIRS [--] | 6.07 | 6.00 | +0.07 |
+| SNR [--] | 120.2 | 120.2 | 0 |
 
-*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
-2026-08-02). Sole mover: **CU-335** — the calibrated gas table's 0.45–0.70 and
-0.70–1.30 µm well-mixed floors had been fitted against a pre-CU-253 Rayleigh
-optical depth ~8× too large and so clamped to zero; the re-fit sets them to
-0.1597 and 0.0517, and this VNIR scene loses band-mean τ on both the solar and
-the view leg. **SNR falls 173.5 → 115.4 (−33 %)**, signal 30,121 → 13,352 e⁻,
-and NIIRS follows through the GIQE-5 SNR term at every sweep point (WFE = 0:
-6.39 → 6.11). Every spatial column — Strehl, MTF@Nyquist, EE(1×1), EE(3×3),
-RER — is bit-identical, which is the check that this is a radiometric change
-and nothing optical. **The scenario's conclusions are unchanged**: the WFE
-thresholds (−0.25 NIIRS at 0.071 waves, −0.50 at 0.100, −1.00 at 0.140) are
-identical, because they are set by the spatial terms, and Tom's prescription
-still sits inside budget at Strehl 0.9174.*
+*Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
+2026-08-30). Sole mover: **CU-336** — the same fit's grid convention was
+corrected (`floor_add` had been subtracting a uniform-λ non-water reference from
+a wavenumber-grid ladder optical depth), so the two floors come down to 0.1375
+and 0.0402 and this VNIR scene gains band-mean τ back on both the solar and the
+view leg. **SNR rises 115.4 → 120.2 (+4.2 %)**, signal 13,352 → 14,468 e⁻, and
+NIIRS follows through the GIQE-5 SNR term at every sweep point (WFE = 0:
+6.11 → 6.14). Every spatial column — Strehl, MTF@Nyquist, EE(1×1), EE(3×3),
+RER — is bit-identical, which is the check that this is a radiometric change and
+nothing optical. **The scenario's conclusions are unchanged**: the WFE thresholds
+(−0.25 NIIRS at 0.071 waves, −0.50 at 0.100, −1.00 at 0.140) are identical,
+because they are set by the spatial terms, and Tom's prescription still sits
+inside budget at Strehl 0.9174.*
+
+*Prior vintage, 2026-08-30. **CU-335** put those two floors on the table for the
+first time (0.1597 / 0.0517): SNR fell 173.5 → 115.4 (−33 %), signal
+30,121 → 13,352 e⁻, and NIIRS at WFE = 0 went 6.39 → 6.11.*
 
 *Prior vintage, for the trend: the 2026-08-02 refresh was dominated by CU-253 —
 the Rayleigh optical depth was 8× too
@@ -147,19 +152,19 @@ whenever one exists.
 ### WFE Sweep
 | WFE [waves] | Strehl [--] | MTF@Nyq [--] | EE(1x1) [--] | EE(3x3) [--] | RER [--] | NIIRS [--] |
 |---|---|---|---|---|---|---|
-| 0.000 | 1.0000 | 0.2546 | 0.4288 | 0.8833 | 0.6114 | 6.11 |
-| 0.020 | 0.9844 | 0.2506 | 0.4222 | 0.8696 | 0.6021 | 6.09 |
-| 0.040 | 0.9392 | 0.2392 | 0.4028 | 0.8296 | 0.5750 | 6.03 |
-| 0.060 | 0.8683 | 0.2212 | 0.3724 | 0.7671 | 0.5325 | 5.92 |
-| 0.071 | 0.8207 | 0.2092 | 0.3519 | 0.7250 | 0.5040 | 5.84 |
-| 0.080 | 0.7781 | 0.1984 | 0.3337 | 0.6874 | 0.4785 | 5.76 |
-| 0.100 | 0.6759 | 0.1725 | 0.2899 | 0.5972 | 0.4173 | 5.56 |
-| 0.120 | 0.5692 | 0.1455 | 0.2441 | 0.5029 | 0.3533 | 5.32 |
-| 0.140 | 0.4648 | 0.1191 | 0.1993 | 0.4106 | 0.2907 | 5.04 |
-| 0.160 | 0.3680 | 0.0944 | 0.1578 | 0.3251 | 0.2327 | 4.72 |
-| 0.180 | 0.2827 | 0.0726 | 0.1212 | 0.2497 | 0.1815 | 4.36 |
-| 0.200 | 0.2106 | 0.0540 | 0.0903 | 0.1861 | 0.1382 | 3.97 |
-| 0.250 | 0.0885 | 0.0223 | 0.0379 | 0.0786 | 0.0649 | 2.88 |
+| 0.000 | 1.0000 | 0.2546 | 0.4288 | 0.8833 | 0.6114 | 6.14 |
+| 0.020 | 0.9844 | 0.2506 | 0.4222 | 0.8696 | 0.6021 | 6.12 |
+| 0.040 | 0.9392 | 0.2392 | 0.4028 | 0.8296 | 0.5750 | 6.05 |
+| 0.060 | 0.8683 | 0.2212 | 0.3724 | 0.7671 | 0.5325 | 5.94 |
+| 0.071 | 0.8207 | 0.2092 | 0.3519 | 0.7250 | 0.5040 | 5.86 |
+| 0.080 | 0.7781 | 0.1984 | 0.3337 | 0.6874 | 0.4785 | 5.79 |
+| 0.100 | 0.6759 | 0.1725 | 0.2899 | 0.5972 | 0.4173 | 5.59 |
+| 0.120 | 0.5692 | 0.1455 | 0.2441 | 0.5029 | 0.3533 | 5.35 |
+| 0.140 | 0.4648 | 0.1191 | 0.1993 | 0.4106 | 0.2907 | 5.07 |
+| 0.160 | 0.3680 | 0.0944 | 0.1578 | 0.3251 | 0.2327 | 4.75 |
+| 0.180 | 0.2827 | 0.0726 | 0.1212 | 0.2497 | 0.1815 | 4.39 |
+| 0.200 | 0.2106 | 0.0540 | 0.0903 | 0.1861 | 0.1382 | 4.00 |
+| 0.250 | 0.0885 | 0.0223 | 0.0379 | 0.0786 | 0.0649 | 2.91 |
 
 ### NIIRS Thresholds
 | Degradation | WFE Threshold [waves] |
@@ -189,13 +194,13 @@ whenever one exists.
 ### Noise Budget (constant across sweep)
 | Noise Term | Value [e- RMS] | Fraction [%] |
 |---|---|---|
-| signal_shot | 115.6 | 99.8 |
+| signal_shot | 120.3 | 99.8 |
 | dark_shot | 0.1 | 0.0 |
 | read_noise | 5.0 | 0.2 |
 | quantization | 0.3 | 0.0 |
-| TOTAL (RSS) | 115.7 | 100.0 |
+| TOTAL (RSS) | 120.4 | 100.0 |
 
-Signal: 13,352 e-, SNR: 115.4. WFE does not affect noise — it degrades spatial metrics only. (The background-shot term present in the first run is now zero: in the extended regime RADIANT skips the separate scene-background photon term by design — matrix Decision #13.)
+Signal: 14,468 e-, SNR: 120.2. WFE does not affect noise — it degrades spatial metrics only. (The background-shot term present in the first run is now zero: in the extended regime RADIANT skips the separate scene-background photon term by design — matrix Decision #13.)
 
 ## Physics Discussion
 

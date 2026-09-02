@@ -64,16 +64,21 @@ Run `scripts/run_point_source_sda.py` (or `Sensor.from_yaml(...).evaluate()`):
 | Metric | Value | Units |
 |---|---|---|
 | Regime | point_source | — |
-| Signal | 20,931 | e⁻ |
-| **SNR** | **20.31** | — |
-| **Detection range** (SNR = 6) | **1346.5** | km |
+| Signal | 20,939 | e⁻ |
+| **SNR** | **20.32** | — |
+| **Detection range** (SNR = 6) | **1346.7** | km |
 | Sampling Q (band center) | 1.42 | — |
 
-*(Refreshed 2026-08-30. One mover: **CU-335** re-fitted the calibrated gas
-table's VIS/NIR/SWIR rows against the post-CU-253 Rayleigh. This is a 3–5 µm
-scene, so the reach is the λ⁻⁴ tail in the 2.40–5.00 µm floors (≤ 0.001 OD):
-signal 20,933 → 20,931 e⁻, range 1,346.6 → 1,346.5 km, SNR unmoved at the
-quoted precision. Under one part in ten thousand.)*
+*(Refreshed 2026-09-01. One mover: **CU-336** corrected the gas fit's grid
+convention — `floor_add` had been subtracting a band optical depth measured on a
+uniform-λ grid from one measured on MODTRAN's wavenumber grid. This is a 3–5 µm
+scene, so the reach is again the λ⁻⁴ tail (3.50–5.00 µm floor 0.4498 → 0.4494 OD):
+signal 20,931 → 20,939 e⁻, SNR 20.31 → 20.32, range 1,346.5 → 1,346.7 km. Four
+parts in ten thousand.)*
+
+*(Prior refresh, 2026-08-30. **CU-335** re-fitted the calibrated gas table's
+VIS/NIR/SWIR rows against the post-CU-253 Rayleigh; the same λ⁻⁴ tail moved
+signal 20,933 → 20,931 e⁻ and range 1,346.6 → 1,346.5 km.)*
 
 *(Prior refresh, 2026-08-29. Two components, and only the smaller one is CU-324's.
 **Pre-existing drift — attributed by the CU-334 bisect (2026-08-29) to CU-321,

@@ -27,9 +27,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from _local_radiant import ensure_local_radiant
 from _runner_import import import_runner
 
-from radiant.api import Sensor
+# CU-338: this module is where the tools' `radiant` import actually happens, so
+# the guard runs here too — a future entry point that forgets the call is still
+# covered the moment it imports the registry.
+ensure_local_radiant()
+
+from radiant.api import Sensor  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 SCENARIOS = REPO / "scenarios"

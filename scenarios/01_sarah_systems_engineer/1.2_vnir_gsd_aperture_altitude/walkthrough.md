@@ -69,24 +69,30 @@ optics as the orbit rises.
 
 ## Results (worst-case winter unless noted)
 
-*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
-2026-08-02). Sole mover: **CU-335**, the VIS/NIR re-fit of the calibrated
-gas-band table. CU-161 fitted this band's well-mixed floor in 2026-07 against a
-Rayleigh optical depth ~8× too large, so it clamped to zero; CU-253 corrected
-Rayleigh and the fit was never re-run, leaving the model too transmissive here.
-The re-fit puts `floor_od` = 0.1597 on 0.45–0.70 µm and 0.0517 on 0.70–1.30 µm,
-which takes band-mean τ down ~11 % and SNR with it — **−17 % at every cell of
-the aperture × altitude grid** (50 cm / 500 km: 48.4 → 39.8). Q and the
-diffraction GSD are geometry-only and did not move; the seasonal swing widens
-41 % → 43 % because the longer winter path carries more of the new floor.
-The verdict hardens rather than flips: the reference 50 cm design already
-failed the winter SNR = 50 spec, and now fails it by more.*
+*Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
+2026-08-30). Sole mover: **CU-336**, the grid-convention correction to the same
+gas-band fit CU-335 re-ran. `floor_add` is a difference of two band optical
+depths and the two were measured on different spectral grids — the ladder's on
+MODTRAN's wavenumber grid, the model's non-water reference on a uniform-λ one —
+so every floor came out high. Correcting it takes the 0.45–0.70 µm floor
+0.1597 → 0.1375 and the 0.70–1.30 µm floor 0.0517 → 0.0402, i.e. this band
+becomes slightly *more* transmissive again: **+2.0 % SNR at every cell of the
+aperture × altitude grid** (50 cm / 500 km: 39.8 → 40.6). Q and the diffraction
+GSD are geometry-only and did not move; the seasonal swing holds at 43 %.
+The verdict does not flip — the reference 50 cm design still fails the winter
+SNR = 50 spec, now at 40.6 rather than 39.8.*
+
+*Prior vintage, 2026-08-30. **CU-335** re-fitted this band's well-mixed floor
+against the post-CU-253 Rayleigh — CU-161 had fitted it in 2026-07 against a
+Rayleigh optical depth ~8× too large, so it clamped to zero and the model ran
+too transmissive here. That step was **−17 % at every cell** (50 cm / 500 km:
+48.4 → 39.8) and widened the seasonal swing 41 % → 43 %.*
 
 | Aperture | 400 km | 500 km | 600 km |
 |----------|--------|--------|--------|
-| 20 cm | SNR 16.1, Q 2.30, diff-GSD 1.40 m | SNR 11.5, Q 2.88 | SNR 8.6, Q 3.45 |
-| 50 cm | SNR 51.4, Q 0.92, diff-GSD 0.56 m | SNR 39.8, Q 1.15, diff-GSD 0.70 m | SNR 32.0, Q 1.38 |
-| 80 cm | SNR 85.5, Q 0.57, diff-GSD 0.35 m | SNR 67.4, Q 0.72 | SNR 55.3, Q 0.86 |
+| 20 cm | SNR 16.5, Q 2.30, diff-GSD 1.40 m | SNR 11.8, Q 2.88 | SNR 8.8, Q 3.45 |
+| 50 cm | SNR 52.4, Q 0.92, diff-GSD 0.56 m | SNR 40.6, Q 1.15, diff-GSD 0.70 m | SNR 32.7, Q 1.38 |
+| 80 cm | SNR 87.0, Q 0.57, diff-GSD 0.35 m | SNR 68.7, Q 0.72 | SNR 56.3, Q 0.86 |
 
 - **The 20 cm aperture is diffraction-limited** everywhere (Q > 2.3,
   diffraction ground spot 1.4–2.1 m ≫ the 0.5 m pixel): the pixel is far
@@ -98,7 +104,7 @@ failed the winter SNR = 50 spec, and now fails it by more.*
 - **The 50 cm aperture straddles the crossover** (Q ≈ 0.9–1.4) — near
   critical sampling, the usual sweet spot for a pan imager.
 - **Seasonal swing is 43%**: at the 50 cm / 500 km reference design SNR
-  runs 69.7 in summer (θ_z = 22.7°) down to **39.8 in winter (θ_z = 62.2°),
+  runs 70.8 in summer (θ_z = 22.7°) down to **40.6 in winter (θ_z = 62.2°),
   which FAILS the SNR = 50 spec.** Sizing to the annual mean would ship a
   sensor that misses spec every winter — the worst-case-season floor is
   the correct sizing basis.

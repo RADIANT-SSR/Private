@@ -1285,6 +1285,119 @@ CU-267 blend invariants under the new floors).
 
 ---
 
+### 2.16a The gas fit's grid convention — τ parity before and after CU-336
+
+§2.16 shipped with a named residual: `floor_add` is a *difference* of two band optical
+depths, and the two were not measured the same way. The ladder's comes off MODTRAN's
+native grid, uniform in wavenumber at 1 cm⁻¹ (so $\Delta\lambda \propto \lambda^2$ — dense
+in the blue, sparse in the LWIR); the model's non-water reference was evaluated on
+`linspace(0.30, 14.29, 3000)`, uniform in $\lambda$. Both band optical depths are formed
+as $-\ln$ of the *unweighted* mean of the samples inside the band, so the two grids weight
+a band differently, and for the $\lambda^{-4}$-steep Rayleigh term the disagreement is
+large and one-signed. CU-336 evaluates the reference on the ladder's own grid.
+
+**Per-row coefficients, CU-335 → CU-336.** $k$ and $b$ are bit-identical a second time —
+they are solved from the MODTRAN band optical depths alone and never see the model.
+
+| Region [µm] | `floor_od` CU-335 | CU-336 | Δ | measured grid offset |
+|---|---:|---:|---:|---:|
+| 0.30–0.45 | 0.0000 | **0.1262** | +0.1262 | coverage, not weighting — see below |
+| 0.45–0.70 | 0.1597 | **0.1375** | −0.0222 | −0.0222 |
+| 0.70–1.30 | 0.0517 | **0.0402** | −0.0115 | −0.0114 |
+| 1.50–1.75 | 0.0219 | **0.0217** | −0.0002 | −0.0003 |
+| 2.05–2.40 | 0.0749 | **0.0747** | −0.0002 | −0.0002 |
+| 2.40–3.10 | 0.7444 | **0.7440** | −0.0004 | −0.0004 |
+| 3.10–3.50 | 0.1371 | **0.1370** | −0.0001 | −0.0001 |
+| 3.50–5.00 | 0.4498 | **0.4494** | −0.0004 | −0.0004 |
+| 5.00 µm and beyond (6 rows, incl. the CU-330 ozone triple) | — | — | **bit-identical** | ≤ 0.0000 |
+
+The two visible rows land at the CU-335 value *minus the offset CU-335 itself measured*,
+to the fourth decimal. That is the check that the change was the grid and nothing else.
+
+**The first row is a coverage fix, not a weighting one.** The delivered tape7 grid starts
+at 0.374953 µm, so the measured 0.30–0.45 µm optical depth was always the 0.375–0.45 µm
+mean while the reference spanned the whole region — including 0.30–0.375 µm, where
+Rayleigh alone is enormous. §2.16 read the resulting clamp as the rural-23 aerosol
+over-supplying the band; measured over the same interval the reference is 0.642 against
+the ladder's 0.768, and the row carries 0.1262. Two things say this is right rather than
+an artifact of extrapolating a sub-range fit:
+
+- it lands within 0.014 OD of the 0.45–0.70 µm floor, replacing an artificial 0.16 OD
+  step at the 0.45 µm edge with a continuous short-wavelength deficit — and whatever
+  supplies that deficit (limitation 14 says most of it is the aerosol model) does not
+  know where a table boundary is;
+- measured on its own band, 0.375–0.45 µm full-column parity improves **8×**
+  (RMS $|\ln$ ratio$|$ 0.1369 → 0.0170; partial columns 0.1519 → 0.0357), and the signed
+  residual was one-signed at +0.075 to +0.19 in $\ln$ — 8–21 % too transmissive — on
+  **every one** of the thirteen full-column anchors before the change.
+
+*Residual limitation:* the row is fitted from 0.375–0.45 µm and applied across
+0.30–0.45 µm. No anchor data exists below 0.374953 µm.
+
+**The A1 anchor.** Over 0.45–0.70 µm on the us_standard full column the model reads band
+optical depth **0.4566** against MODTRAN's 0.4561 — a **0.1 %** overshoot, from 4.3 %
+under CU-335 and 30 % under before it. Two independent measurements agreeing to a part in
+a thousand is the strongest single statement that the mixed grid was the whole residual.
+
+**Band-mean τ parity, model / MODTRAN, RMS $|\ln$ ratio$|$**, over the same anchors §2.16
+uses. The CU-161 and CU-335 columns are §2.16's; the third is CU-336's.
+
+| Band [µm] | full: CU-161 | CU-335 | **CU-336** | partial: CU-161 | CU-335 | **CU-336** |
+|---|---:|---:|---:|---:|---:|---:|
+| 0.45–0.70 | 0.1556 | 0.0294 | **0.0111** | 0.1456 | 0.0214 | **0.0180** |
+| 0.40–0.90 | 0.1035 | 0.0244 | 0.0292 | 0.0893 | 0.0266 | 0.0298 |
+| 0.45–0.85 (standard VIS) | 0.1105 | 0.0440 | **0.0244** | 0.0938 | 0.0434 | **0.0274** |
+| 0.85–1.40 (standard NIR) | 0.0461 | 0.0314 | **0.0254** | 0.0383 | 0.0634 | — |
+| 0.70–1.30 | 0.0312 | 0.0402 | **0.0286** | 0.0263 | 0.0675 | **0.0567** |
+| 1.50–1.75 | 0.0366 | 0.0463 | **0.0461** | 0.0500 | 0.0584 | — |
+| 2.05–2.40 | 0.0430 | 0.0457 | **0.0455** | 0.0502 | 0.0526 | — |
+| 3.50–5.00 (MWIR control) | 0.1106 | 0.1107 | **0.1103** | 0.1812 | 0.1812 | **0.1810** |
+| 8.00–12.00 (LWIR control) | 0.0482 | 0.0482 | **0.0482** | 0.1047 | 0.1047 | **0.1047** |
+
+The two thermal controls are again unchanged to the 0.002 resolution this metric is
+pinned at, which says the movement is the VIS/NIR floors and not the quadrature.
+
+**0.70–1.30 µm recovers, which is what this CU was opened for.** CU-335 degraded it
+0.0312 → 0.0402 while cutting the underlying bias ~3×, because the residual stopped being
+one-sided. With the convention corrected the row lands at the 0.0402 floor a
+ladder-grid-consistent reference wants, and the parity comes back to **0.0286** — past the
+CU-161 starting point, not merely past CU-335's.
+
+**0.40–0.90 µm gives a little back, and it is a lost cancellation rather than a lost
+accuracy.** Its two halves are each far more accurate than before — 0.40–0.45 µm from
+8–21 % too transmissive to inside 0.4 %, and 0.45–0.90 µm improving throughout — but the
+old band mean was partly right *because* a one-sided positive error over the narrow blue
+end offset a small negative one over the rest. Sub-band accuracy is the physics; a band
+mean that was right by cancellation was not. Even so the band is 3.5× better than the
+CU-161 vintage.
+
+**What moved elsewhere.** The species-split up-looking sky anchors (§2.3) drift *away*
+from unity by ≤ 2 % — worst VIS excursion 1.217× → 1.231×, NIR unchanged at 1.266×, SWIR
+at 1.697× — because a single-scatter source in a column with less absorbing opacity emits
+and scatters less. All five adoption ceilings are unchanged and all five still hold. The
+CU-161 water-ladder anchor test was itself sampling the model on a uniform-$\lambda$ grid
+against ν-weighted truth constants — the same defect, in the test — and is now sampled in
+wavenumber; nine of its ten anchors improve (the exception is the 2.8 cm 8–12 µm rung,
++0.0028 → −0.0037, an order inside its gate), and the per-anchor 0.025 tolerance CU-335
+had to open at 1.5–2.4 µm is retired back to the suite's ±0.02.
+
+**Idempotency.** With the corrected table shipped, `fit_simple_atmosphere_gas_bands.py`
+reproduces its own output bit-for-bit — the property CU-330 repaired and CU-335 preserved.
+
+*Record:* CU-336, 2026-09-01. Results-affecting on every VIS/NIR simple-model product —
+direction: **more transmissive in the visible above 0.45 µm, less below it**; see the
+CHANGELOG entry for the moved goldens and scenario values.
+*Enforced by:* `tests/integration/test_gas_region_visnir_refit_cu335.py` (the moved rows
+re-derived on the ladder's grid, the recorded offsets, the A1 anchor, and both parity
+tables at all three vintages, pinned to ±0.002);
+`src/radiant/atmosphere/tests/test_gas_fit_grid_convention.py` (the convention as a
+Level-0 invariant, with no MODTRAN dependency: a known optical depth is recovered exactly
+when both sides share a grid and wrong by precisely the offset when they do not);
+`src/radiant/atmosphere/tests/test_gas_region_visnir_refit.py` (all seventeen shipped
+rows and the blend invariants under the corrected floors).
+
+---
+
 ## 3. Known limitations register
 
 Each entry names what is not measured or not modelled, and where it is tracked.
@@ -1304,8 +1417,9 @@ Each entry names what is not measured or not modelled, and where it is tracked.
 | 11 | **Twilight transit is unanchored.** Q7/Q8 were delivered but are `dev_only` — no family or parity test consumes them. | The transit carries 30–70 air masses, where both the exponential τ and the unmodelled refraction are at their worst. Treat as an order-of-magnitude bound. | `RADIANT_Atmosphere.md` §4.2e PROVISIONAL banner; run-matrix rows Q7/Q8. |
 | 12 | **`theta_s` stripped for pure-thermal targets.** A `T1Thermal` target has its solar geometry stripped upstream, and the sky background is a second consumer of it, so a pure-thermal target on a VIS/NIR grid gets a thermal-only sky at noon — and no provisional warning, because the trigger condition is never met. | The scattered sky component is absent for that scene class. | Documented in `RADIANT_Atmosphere.md` §4.2g and pinned as a characterization by `tests/integration/test_direction_aware_atmosphere.py::TestProvisionalScatteredSkyWarning`. **No registry entry.** |
 | 13 | **Aerosol Ångström law beyond 5 µm.** Frozen at its 5 µm value rather than decaying. | A deliberate clamp toward physical behaviour, warned once per run; a tabulated IR aerosol cross-section remains the higher-fidelity alternative. | CU-088, resolved 2026-07-12; `RADIANT_Atmosphere.md` §12 open question 2. |
-| 14 | **VIS band opacity is right in total, mis-attributed in detail.** CU-335 (§2.16) closed the *magnitude* error — the 0.45–0.70 µm band total now sits within 4 % of MODTRAN at the anchor geometry, against 30 % under before — but it did so by putting 0.1597 optical depths on the well-mixed **gas** floor, and real 0.45–0.70 µm gas chemistry supplies only ~0.03 (O₃ Chappuis, narrow O₂ B/A). The remainder is the aerosol model's own deficit, wearing a gas label. | Band total: within 4 % (was 30 % under). Attribution: ~0.13 of 0.16 optical depths is aerosol dressed as gas, so any product that separates the two — or is scored against a source assuming a *cleaner* aerosol than the one configured — reads wrong. Scenario 10.3's astronomical-extinction anchor flips PASS → FAIL on exactly this. | §2.16; Gap 38. Superseded the pre-CU-335 statement ("~2× high at rural-23"), whose sign the CU-253 Rayleigh correction had already reversed. |
-| 15 | **The gas-floor fit mixes two spectral grids.** `floor_add` is the ladder's band optical depth (tape7 grid, uniform in wavenumber) minus the model's non-water reference (uniform-λ grid). Where the spectrum is steep the two band means differ and the gap lands in the floor. | +0.022 OD at 0.45–0.70 µm, +0.011 at 0.70–1.30 µm, ≤ 0.0004 beyond 1.3 µm — always toward an over-large floor. It is why 0.70–1.30 µm band-mean τ parity moved 0.0312 → 0.0402 while the visible improved 5.3× (§2.16). | §2.16; pinned as a characterization by `tests/integration/test_gas_region_visnir_refit_cu335.py::test_the_nonwater_reference_grid_is_the_generators`. **No open registry entry** — correcting it changes CU-161's calibration convention and would need its own authorisation. |
+| 14 | **VIS band opacity is right in total, mis-attributed in detail.** CU-335 (§2.16) closed the *magnitude* error — the 0.45–0.70 µm band total now sits within 4 % of MODTRAN at the anchor geometry, against 30 % under before — but it did so by putting optical depths on the well-mixed **gas** floor that real 0.45–0.70 µm gas chemistry cannot supply — it gives only ~0.03 (O₃ Chappuis, narrow O₂ B/A). The remainder is the aerosol model's own deficit, wearing a gas label. CU-336 (2026-09-01) trimmed the row 0.1597 → 0.1375 and, in the same pass, put 0.1262 on the 0.30–0.45 µm row — a near-continuous short-λ deficit across the 0.45 µm edge, which is what an aerosol mismatch looks like and what a gas band does not. | Band total: within 0.1 % at the A1 anchor (was 30 % under). Attribution: ~0.11 of 0.14 optical depths is aerosol dressed as gas, so any product that separates the two — or is scored against a source assuming a *cleaner* aerosol than the one configured — reads wrong. Scenario 10.3's astronomical-extinction anchor flips PASS → FAIL on exactly this. | §2.16 and §2.16a; Gap 38. Superseded the pre-CU-335 statement ("~2× high at rural-23"), whose sign the CU-253 Rayleigh correction had already reversed. |
+| 15 | ~~**The gas-floor fit mixes two spectral grids.**~~ **CLOSED 2026-09-01 (CU-336).** The reference is now evaluated on the ladder's own grid, so `floor_add` is a difference of two like-for-like band means. What survives is narrower and is recorded as limitation 16: the 0.30–0.45 µm row is fitted from 0.375–0.45 µm, the delivered decks carrying nothing below 0.374953 µm. | Was +0.022 OD at 0.45–0.70 µm and +0.011 at 0.70–1.30 µm, always toward an over-large floor. Removing it took the A1 anchor's band-OD error 4.3 % → 0.1 %, recovered the 0.70–1.30 µm parity 0.0402 → 0.0286 (past its 0.0312 pre-CU-335 value) and improved 0.45–0.70 µm a further 2.6× (§2.16a). | §2.16a; CU-336, resolved 2026-09-01. |
+| 16 | **The 0.30–0.45 µm row is calibrated on 62 % of its own span.** The delivered tape7 grid starts at 0.374953 µm, so the row's `floor_od` (0.1262) is the 0.375–0.45 µm band mean applied across 0.30–0.45 µm. | Unmeasurable with the present run set. Bounded by physics rather than by data: the deficit the floor absorbs grows toward the blue (it tracks a Rayleigh/aerosol mismatch), so a flat extrapolation under-states it below 0.375 µm rather than over-stating it. On the part of the row that *is* measured, parity improves 8× (0.1369 → 0.0170 RMS). | §2.16a. **No open registry entry** — closing it needs MODTRAN decks below 0.375 µm, not a code change. |
 | 14 | **VIS aerosol absolute OD.** Not recalibrated by the CU-161 gas-band pass. | ~2× high at rural-23. | CU-161 fragility list; Gap 38. |
 | 15 | **Ozone opacity rides the molecular scale height on the τ side.** The calibrated `floor_od` is apportioned to a partial column by the fraction $\text{col}_{\text{mol}}/H_{\text{mol}}$, so a 0–5 km column is handed 9.6 µm ozone opacity that is not physically there. The emission side now places whatever ozone a segment is given at 25 km (§2.14b), which makes the τ-side mis-attribution visible instead of cancelling it. Two further narrowings sit alongside: the 9.90–10.00 µm long-wave tail (floor 0.3013, 3.3× its continuum) is still placed as well mixed, and the ICAO profile is isothermal above 11 km, so the layer's own centre/width remain weakly observable. | Shallow-column LWIR: model/MODTRAN moves away from unity on the 1/3/5 km rungs (§2.3, e.g. 1.059 → 1.079 at 5 km) while the 10 and 20 km rungs move toward it (0.950 → 1.020). Full columns are unaffected — that is the geometry the floor was fitted at. Layer geometry is worth ≤ 2.4 % across the measured 20–30 km × 3–8 km grid. | **No open registry entry.** The remedy is an ozone-aware *vertical* apportionment on the τ side (a per-species profile in the region table), which is CU-161-scale work, not a placement refinement. §2.15's partial-column row is the same finding read on τ. |
 

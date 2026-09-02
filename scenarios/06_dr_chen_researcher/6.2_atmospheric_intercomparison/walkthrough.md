@@ -63,18 +63,25 @@ scenario 6.1's pattern for a self-contained, reproducible run).
 | us_standard | 0.552 | 0.517 | −6.8% | 651.3 | 572.0 | −13.9% |
 | tropical | 0.463 | 0.421 | −9.8% | 675.5 | 579.2 | −16.6% |
 | midlat_summer | 0.498 | 0.458 | −8.7% | 657.7 | 575.9 | −14.2% |
-| midlat_winter | 0.576 | 0.544 | −5.8% | 624.8 | 570.4 | −9.5% |
+| midlat_winter | 0.576 | 0.544 | −5.9% | 624.9 | 570.4 | −9.6% |
 | subarctic_summer | 0.526 | 0.492 | −6.9% | 640.6 | 566.8 | −13.0% |
-| subarctic_winter | 0.597 | 0.571 | −4.6% | 617.6 | 579.5 | −6.6% |
+| subarctic_winter | 0.598 | 0.571 | −4.7% | 617.7 | 579.5 | −6.6% |
 
-*Numbers refreshed 2026-08-30. One mover since the previous vintage:
-**CU-335** re-fitted the calibrated gas table's VIS/NIR/SWIR rows against the
-post-CU-253 Rayleigh. This is an 8–12 µm intercomparison, so the reach is the
-λ⁻⁴ tail in the 2.40–5.00 µm floors: every profile's band-mean τ and SNR moves
-in the fourth decimal / fifth figure (us_standard τ 0.5517 → 0.5516,
-SNR 651.31 → 651.28), which is below the printed precision of every table in
-this document. No profile ordering, no Simple-vs-MODTRAN residual and no verdict
-changes.*
+*Numbers refreshed 2026-09-01. One mover since the previous vintage:
+**CU-336** corrected the gas fit's grid convention, so the floors CU-335 had
+over-fitted come down. This is an 8–12 µm intercomparison, so the reach is again
+the λ⁻⁴ tail (3.50–5.00 µm floor 0.4498 -> 0.4494 OD): every profile's band-mean
+τ and SNR moves in the fourth decimal / fifth figure (us_standard τ
+0.5516 -> 0.5518, SNR 651.28 -> 651.37). Two rows cross a rounding boundary in
+the printed columns — midlat_winter's τ residual −5.8 % -> −5.9 % and SNR
+residual −9.5 % -> −9.6 %, subarctic_winter's τ 0.597 -> 0.598 and residual
+−4.6 % -> −4.7 % — so the acceptance band below reads −4.7…−9.8 % rather than
+−4.6…−9.8 %. No profile ordering and no verdict changes.*
+
+*Prior vintage, 2026-08-30. **CU-335** re-fitted the calibrated gas table's
+VIS/NIR/SWIR rows against the post-CU-253 Rayleigh; the same λ⁻⁴ tail moved
+us_standard τ 0.5517 → 0.5516 and SNR 651.31 → 651.28, below the printed
+precision everywhere.*
 
 *Prior vintage, 2026-08-29, pre-CU-324. One mover, in the Simple arm only. **CU-324:**
 `E_sky_thermal`'s flux-diffusivity exponent became the geometric
@@ -97,7 +104,7 @@ spanning **−43% to +62%** — SimpleAtmosphere over-responding to profile
 water in both directions. The gas-band recalibration that finding
 triggered (CU-161, landed 2026-07-18: curve-of-growth water + well-mixed
 CO₂/N₂O floor, fit to the D-block water ladder) collapses them **6×, to a
-uniform −4.6%…−9.8%**. The small remaining τ offset is systematic (simple
+uniform −4.7%…−9.8%**. The small remaining τ offset is systematic (simple
 slightly transparent — largely the band-mean comparison convention this
 script uses) rather than profile-dependent: the water physics now scales
 correctly across climates.

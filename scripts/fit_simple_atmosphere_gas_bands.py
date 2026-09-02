@@ -20,6 +20,29 @@ Anchors are band means of ``Tape7Reader.to_radiant_units`` transmittance
 over the staged run set (``modtran/real_runs/``, gitignored, 2026-07-17).
 Cross-validation against the six profile anchors (A2–A6) is printed.
 
+**One grid, both sides (CU-336).** ``floor_add`` is a *difference* of two band
+ODs — the measured one and the model's non-water reference — so the two must be
+measured the same way or the difference carries the discrepancy between the two
+measurements. They were not: the reference was evaluated on a uniform-λ grid
+(``linspace(0.30, 14.29, 3000)``) while the measured ODs come off MODTRAN's
+native grid, which is uniform in **wavenumber** (1 cm⁻¹, so Δλ ∝ λ² — dense in
+the blue, sparse in the LWIR). Since :func:`_band_od` is an unweighted mean over
+the samples inside the band, the two grids weight a band differently, and for
+the λ⁻⁴-steep Rayleigh term that difference is large: the reference came out
+**0.0222 OD low at 0.45–0.70 µm and 0.0114 low at 0.70–1.30 µm** (≤ 0.0004
+beyond 1.3 µm), biasing those floors high by the same amount. The reference is
+now evaluated on the tape7 grid itself, so both sides share one grid, one band
+mask, and one estimator; the anchor grid is asserted identical across the staged
+runs before it is used.
+
+That convention also fixes a *coverage* mismatch in the first region: the tape7
+grid starts at 0.374953 µm, so the measured 0.30–0.45 µm OD was always the
+0.375–0.45 µm mean while the reference spanned the full 0.30–0.45 µm — including
+0.30–0.375 µm, where Rayleigh alone is enormous. The inflated reference masked a
+real deficit; on the shared grid the 0.30–0.45 µm row picks up a floor. Note the
+residual limitation: that row is fitted from 0.375–0.45 µm and applied across
+0.30–0.45 µm (no anchor data exists below 0.375 µm).
+
 Usage::
 
     python scripts/fit_simple_atmosphere_gas_bands.py
@@ -97,7 +120,7 @@ def _band_od(wl: np.ndarray, tau: np.ndarray, lo: float, hi: float) -> float:
     return -float(np.log(max(float(tau[band].mean()), 1e-9)))
 
 
-def _model_nonwater_od() -> dict[tuple[float, float], float]:
+def _model_nonwater_od(wl: np.ndarray) -> dict[tuple[float, float], float]:
     """Pre-existing Rayleigh+aerosol band OD (w→0) at the anchor geometry.
 
     "Pre-existing" means *excluding* the calibrated gas floor this script
@@ -110,13 +133,15 @@ def _model_nonwater_od() -> dict[tuple[float, float], float]:
     duration of this evaluation, which restores the original convention
     exactly (same code path, the one term removed) and makes the script
     reproduce the table it generated.
+
+    ``wl`` is the grid to evaluate on [µm], and the caller passes the tape7
+    grid the measured band ODs come off (CU-336 — see the module docstring).
     """
     from radiant.api.session import RadiantSession
     from radiant.atmosphere import simple as simple_mod
     from radiant.atmosphere.simple import SimpleAtmosphere
     from radiant.core.los_geometry import LineOfSightGeometry
 
-    wl = np.linspace(0.30, 14.29, 3000)
     session = RadiantSession(wavelength_um=wl)
     params = session.default_params()
     for key, val in [
@@ -176,7 +201,24 @@ def main() -> int:
         wl, tau, _, _ = Tape7Reader(REAL_RUNS / f"{run}.tp7").to_radiant_units()
         spectra[run] = (wl, tau)
 
-    nonwater = _model_nonwater_od()
+    # CU-336: the non-water reference is measured on the same grid as the band
+    # ODs it is subtracted from. Every staged run is one MODTRAN spectral setup
+    # (1 cm⁻¹, 0.374953–14.388489 µm), so there is a single anchor grid — but
+    # say so out loud rather than assume it, because a future run set mixing
+    # resolutions would silently reintroduce the very bias this closes.
+    anchor_grid = spectra["A1"][0]
+    for run, (wl_run, _tau) in spectra.items():
+        if wl_run.shape != anchor_grid.shape or not np.array_equal(wl_run, anchor_grid):
+            print(
+                f"ERROR: {run}.tp7 is on a different spectral grid than A1.tp7 "
+                f"({wl_run.size} vs {anchor_grid.size} points). The fit subtracts a "
+                "model band OD from a measured one, so both must be measured on one "
+                "grid (CU-336). Re-run the staged decks with a single spectral setup, "
+                "or extend this script to resample onto a common grid.",
+                file=sys.stderr,
+            )
+            return 1
+    nonwater = _model_nonwater_od(anchor_grid)
 
     rows = []
     print(f"{'segment':16} {'OD0':>7} {'k':>8} {'b':>6} {'nonwater':>9} {'floor_add':>9}")

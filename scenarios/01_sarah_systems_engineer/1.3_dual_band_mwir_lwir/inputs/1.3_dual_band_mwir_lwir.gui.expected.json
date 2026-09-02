@@ -2,8 +2,8 @@
   "id": "1.3",
   "title": "Dual-band MWIR/LWIR \u2014 MWIR option at nominal hotspot T",
   "metrics": {
-    "snr": 464.1774991797478,
-    "nedt_K": 0.22997801570691168,
+    "snr": 464.2452128516586,
+    "nedt_K": 0.22994441514362413,
     "niirs": null
   },
   "notes": "MWIR band at the nominal hotspot temperature from the runner's spec sheet."

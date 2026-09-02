@@ -385,8 +385,8 @@ LEO minimal golden under `tests/integration/golden/`. The **scenario GUI baselin
 `tests/integration/test_gui_baselines.py` (CU-179) — regenerate with a different command:
 
 ```bash
-PYTHONPATH=./src python scenarios/tools/emit_gui_yaml.py          # all scenarios
-PYTHONPATH=./src python scenarios/tools/emit_gui_yaml.py 10.1     # one, by id
+python scenarios/tools/emit_gui_yaml.py          # all scenarios
+python scenarios/tools/emit_gui_yaml.py 10.1     # one, by id
 ```
 
 Four things about it are load-bearing:
@@ -399,12 +399,17 @@ Four things about it are load-bearing:
   path that *produces* it is broken — the failure mode CU-319 recorded).
 - **Pass an id when only one scenario legitimately moved.** Regenerating all 38 hides which
   ones the change actually touched, which is the review signal.
-- **`PYTHONPATH=./src` is required inside a `git worktree`.** The emitter imports `radiant`,
-  and the editable install's `.pth` pins that to whichever checkout ran `pip install -e .` —
-  normally the primary tree. Without it you regenerate baselines against *unfixed* library
-  code and the diff looks clean. (`pytest` is immune: `pythonpath = ["src", "."]` in
-  `pyproject.toml` is rootdir-relative. `ruff` and `mypy` take explicit paths. `lint-imports`
-  is **not** immune — it resolves `radiant` by import, so it needs the same prefix.)
+- **The tools resolve their own tree, and refuse if they cannot** (CU-338). The emitter
+  imports `radiant`, and the editable install's `.pth` pins that to whichever checkout ran
+  `pip install -e .` — normally the primary tree. Run bare from a `git worktree` it therefore
+  used to compose the *primary* tree's physics into this tree's baselines and print `[ ok ]`;
+  that corrupted 15 baselines twice on 2026-08-30/31. Every `scenarios/tools` entry point now
+  calls `scenarios/tools/_local_radiant.ensure_local_radiant()` before importing the registry,
+  which prepends `<repo root>/src` and then raises `ForeignRadiantError` if `radiant.__file__`
+  still lands outside the invoking tree. **No `PYTHONPATH` prefix is needed for these tools.**
+  (`pytest` was always immune: `pythonpath = ["src", "."]` in `pyproject.toml` is
+  rootdir-relative. `ruff` and `mypy` take explicit paths. `lint-imports` is **not** immune —
+  it resolves `radiant` by import, so it still needs `PYTHONPATH=./src` in a worktree.)
 - **The emitter repoints generated inputs at their committed counterparts** and raises
   `UnreloadableBaselineError` if none exists (CU-273). A baseline that references the
   scenario's gitignored `outputs/` tree reloads only in the tree that just ran the scenario;

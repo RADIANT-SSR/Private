@@ -48,24 +48,29 @@ model the veiling-glare MTF / contrast-modulation reduction (gaps.md, Gap 60).
 
 | Case | Stray e- | SNR | Contrast SNR | NIIRS | ΔNIIRS |
 |------|----------|-----|--------------|-------|--------|
-| Clean | 0 | 546.7 | 217.7 | 11.052 | — |
-| Veiling glare 3 % (native mode) | 2.86×10⁴ | 522.5 | 209.0 | 11.022 | −0.031 |
-| Out-of-field 2.5 W/m² | 5.52×10⁶ | 124.3 | 49.5 | 10.049 | **−1.003** |
+| Clean | 0 | 546.7 | 217.4 | 11.052 | — |
+| Veiling glare 3 % (native mode) | 2.92×10⁴ | 522.0 | 208.6 | 11.021 | −0.031 |
+| Out-of-field 2.5 W/m² | 5.52×10⁶ | 124.3 | 49.4 | 10.049 | **−1.003** |
 
-*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
-2026-08-02). Sole mover: **CU-335** — the calibrated gas table's 0.45–0.70 and
-0.70–1.30 µm well-mixed floors were re-fitted against the post-CU-253 Rayleigh
-(0.0000 → 0.1597 / 0.0517). This VNIR scene loses ~14 % of both its target and
-its background signal (9.530e+05 / 5.207e+05 e⁻ where it read 1.108e+06 /
-6.126e+05), and the 3 % veiling-glare pedestal shrinks with the signal it is
-defined against (3.32×10⁴ → 2.86×10⁴ stray e⁻). **Extended-scene SNR and NIIRS
-are bit-identical**, because the target pixel is well-saturated (FWC
-3.0×10⁵ e⁻) and SNR is pinned at √FWC; **contrast SNR rises 213.9 → 217.7
-(+1.8 %)**, because the target and background pedestals fall together and the
-difference signal loses proportionally less than the shot noise does. Tom's
-verdict is unchanged: 3 % veiling glare stays inside the ΔNIIRS ≤ 0.2 /
-contrast-SNR ≥ 50 budget, and the 2.5 W/m² out-of-field case still costs a full
-NIIRS level.*
+*Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
+2026-08-30). Sole mover: **CU-336** — the same fit's grid convention was
+corrected, so the two floors come down to 0.1375 and 0.0402 and this VNIR scene
+recovers ~2 % of both its target and its background signal (9.729e+05 /
+5.319e+05 e⁻ where it read 9.530e+05 / 5.207e+05), with the 3 % veiling-glare
+pedestal growing with the signal it is defined against
+(2.86×10⁴ -> 2.92×10⁴ stray e⁻). **Extended-scene SNR and NIIRS are
+bit-identical** in the clean case, because the target pixel is well-saturated
+(FWC 3.0×10⁵ e⁻) and SNR is pinned at √FWC; **contrast SNR eases 217.7 -> 217.4
+(−0.15 %)**, the mirror of the CU-335 move for the same reason — the two
+pedestals rise together and the difference signal gains proportionally less than
+the shot noise does. Tom's verdict is unchanged: 3 % veiling glare stays inside
+the ΔNIIRS ≤ 0.2 / contrast-SNR ≥ 50 budget, and the 2.5 W/m² out-of-field case
+still costs a full NIIRS level.*
+
+*Prior vintage, 2026-08-30. **CU-335** put those two floors on the table for the
+first time (0.0000 → 0.1597 / 0.0517): target/background signal fell
+1.108e+06 / 6.126e+05 → 9.530e+05 / 5.207e+05 e⁻ and contrast SNR rose
+213.9 → 217.7 (+1.8 %).*
 
 *Prior vintage, for the trend: the 2026-08-02 refresh was dominated by CU-253 —
 the Rayleigh optical depth was 8× too
@@ -77,7 +82,7 @@ are unchanged because the target pixel is well-saturated (FWC 3.0×10⁵ e⁻), 
 SNR is pinned at the well-limited √FWC value regardless of collected signal.*
 
 Section 2 verifies the fixed `veiling_glare` mode: at VGI 10 % it yields
-`stray_e = 1.108×10⁵ e- = 0.10 × signal` — exactly the identity.
+`stray_e = 9.729×10⁴ e- = 0.10 × signal` — exactly the identity.
 
 - **3 % veiling glare is a mild penalty** — ~3 % of the signal added as a
   stray pedestal, costing ~5 % of the contrast SNR and 0.035 NIIRS.
@@ -115,7 +120,7 @@ clean vs +2.5 W/m² — stray shot noise dwarfs read+dark).
   injected irradiance (calibration 2.209×10⁶ e- per W/m²); 2.5 W/m² → 5.52×10⁶
   e-, matching 2.5 × the unit-irradiance run.
 - **Fixed `veiling_glare` mode reproduces the identity**: native stray_e at
-  VGI 10 % equals 0.10 × signal to the digit (1.108×10⁵ e-). The pre-fix bug
+  VGI 10 % equals 0.10 × signal to the digit (9.729×10⁴ e-). The pre-fix bug
   under-counted by (pitch/D)²·(4/π) — the exact solid-angle ratio (CU-062,
   resolved 8cb0448).
 - **Contrast unchanged by a common pedestal**: the target−background signal

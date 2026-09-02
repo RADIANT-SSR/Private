@@ -39,6 +39,54 @@ retroactively reconstructed.
 
 
 ### Changed
+- **Results-affecting: the calibrated gas table is re-fitted with both sides of the
+  floor measured on one spectral grid (CU-336) — small VIS τ *increase* above 0.45 µm,
+  a decrease below it.** `floor_add` is a *difference* of two band optical depths: the
+  MODTRAN ladder's, and the model's own non-water (Rayleigh + aerosol) reference. The
+  two were not measured the same way. The ladder's comes off MODTRAN's native grid,
+  uniform in **wavenumber** at 1 cm⁻¹ (so Δλ ∝ λ²), while
+  `scripts/fit_simple_atmosphere_gas_bands.py` evaluated its reference on a uniform-λ
+  grid; both band optical depths are `−ln` of an *unweighted* mean of the samples in the
+  band, so for the λ⁻⁴-steep Rayleigh term the two weightings disagree, always toward an
+  over-large floor. CU-335 measured and recorded that bias as its own residual; this is
+  the fix. The generator now evaluates the reference on the ladder's grid and asserts
+  the staged runs share one before using it. `k_h2o` and `b_h2o` are bit-identical on
+  all seventeen rows a second time, and everything from 5.00 µm up — including CU-330's
+  ozone triple — is unmoved again.
+  **Floors, CU-335 → CU-336:** 0.45–0.70 µm `0.1597 → 0.1375` (−0.0222), 0.70–1.30 µm
+  `0.0517 → 0.0402` (−0.0115) — exactly the offsets CU-335 measured — plus ≤ 0.0004 at
+  1.50–5.00 µm. The same convention also removed a *coverage* mismatch in the first row:
+  the delivered tape7 grid starts at 0.374953 µm, so the measured 0.30–0.45 µm optical
+  depth was always the 0.375–0.45 µm mean while the reference spanned the whole region,
+  including 0.30–0.375 µm where Rayleigh alone is enormous. That inflated reference, not
+  the aerosol, is what held the row at the zero clamp; it now reads
+  `0.0000 → 0.1262`, within 0.014 OD of the 0.45–0.70 µm floor, replacing an artificial
+  0.16 OD step at the 0.45 µm edge with a continuous short-λ deficit.
+  **Direction and magnitude:** **more transmissive above 0.45 µm, less transmissive
+  below it.** VIS/NIR SNRs **rise** 0.4–5.8 % (1.2 +2.0 % at every aperture × altitude cell,
+  1.4 +5.8 % and per-line signal +9.1 %, 1.5 +1.5 %, 3.1 +1.6…2.0 %, 3.4 +4.0 %,
+  5.1 +4.2 %, 5.4 +2.2 %, 10.3 +0.4 %); 5.5's contrast SNR eases −0.15 % (the mirror of
+  the CU-335 move — both pedestals rise together). MWIR and LWIR products move by
+  ≤ 0.03 % (the Rayleigh λ⁻⁴ tail: 3.50–5.00 µm floor 0.4498 → 0.4494). Nineteen of the 43
+  scenarios moved — their committed figures re-render differently, and scenario figures are
+  pixel-reproducible on a fixed tree — so the other 24 are unchanged. **No verdict flips** — 3.1's 42° NIIRS-floor
+  crossing and 478 km corridor, 1.4's N_tdi = 96 saturation knee, 5.4's out-of-reach
+  NIIRS = 6.0 floor and 10.3's failing published-extinction anchor all stand, the last
+  easing 0.282 → 0.261 mag/airmass against a published 0.12–0.20 band.
+  **Parity:** at the fit's own A1 anchor the model's 0.45–0.70 µm band optical depth
+  reads 0.4566 against MODTRAN's 0.4561 — **0.1 %**, from 4.3 % under CU-335 and 30 %
+  before it. Band-mean τ over the thirteen full-column anchors improves a further
+  **2.6×** on 0.45–0.70 µm (RMS |ln ratio| 0.0294 → 0.0111, 14× since CU-161), **1.8×**
+  on 0.45–0.85 µm and **1.2×** on 0.85–1.40 µm, and the 0.70–1.30 µm row CU-335 degraded
+  **recovers past its starting point** (0.0402 → 0.0286 against 0.0312). The MWIR and
+  LWIR controls are unchanged to the metric's 0.002 resolution. Two trades are recorded
+  rather than tuned: the 0.40–0.90 µm composite reads 0.0244 → 0.0292 because its
+  0.40–0.45 µm half was 8–21 % too transmissive on every anchor and is now inside
+  0.4 %, so what the band mean loses is a cancellation, not accuracy (the sub-band itself
+  improves 8×); and the up-looking single-scatter sky anchors drift ≤ 2 % away from unity
+  (worst VIS excursion 1.217× → 1.231×) because a column with less absorbing opacity
+  scatters less — every adoption ceiling still holds. The remaining VIS floor is still
+  more than gas chemistry supplies; that attribution is CU-337.
 - **Results-affecting: the calibrated gas table's VIS/NIR/SWIR floors are re-fitted
   against the corrected Rayleigh (CU-335, owner-approved 2026-08-30) — VIS SNRs drop
   5–35 %.** `SimpleAtmosphere`'s well-mixed-gas floor is defined as the measured band

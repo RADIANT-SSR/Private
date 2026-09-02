@@ -53,6 +53,15 @@ at all. **Every MWIR figure was bit-identical on the branch** — the split touc
 9.4–9.9 µm and nothing else — and the 400 K LWIR miss is unchanged at SCNR 1.1,
 P_d 0.000.
 
+*Numbers refreshed 2026-09-01 from the unmodified runner. **CU-336** corrected the
+gas fit's grid convention, which reaches this scene only through the 3.50–5.00 µm
+floor (0.4498 -> 0.4494 OD) — the same λ⁻⁴ tail the CU-335 composition moved, now
+moving back. The **LWIR column is bit-identical**; the MWIR column moves in the
+fifth significant figure (pixel signal 228 465 -> 228 529 e⁻, contrast
+220 935 -> 220 998 e⁻, SCNR at 1200 K 2 003.8 -> 2 004.4, NEDT 230.0 -> 229.9 mK,
+i.e. ~3 x 10⁻⁴ relative). No SCNR verdict, P_d, saturation temperature or
+recommendation moves.*
+
 *Composed with CU-335 on the merged tree, 2026-08-31: re-run on `main` after both
 siblings landed, the MWIR column is no longer bit-identical — it moves in the fifth
 significant figure (pixel signal 228 481 → 228 465 e⁻, contrast 220 950 → 220 935 e⁻,
@@ -87,15 +96,15 @@ rather than the column's near-surface temperature, which took pixel signal LWIR
 
 | Quantity | MWIR | LWIR |
 |----------|-----:|-----:|
-| Pixel signal [e⁻] | 228,465 | 2,962,748 |
-| Contrast (fire − forest) [e⁻] | 220,935 | 1,217,206 |
+| Pixel signal [e⁻] | 228,529 | 2,962,748 |
+| Contrast (fire − forest) [e⁻] | 220,998 | 1,217,206 |
 | Well fill [%] | 5.7 | 24.7 |
 | Total noise [e⁻ RMS] | 541.6 | 52,411.7 |
 | — of which clutter [e⁻ RMS] | 225.9 | 52,366.3 |
 | SNR [--] | 464.2 | 1,357.8 |
 | Contrast SNR [--] | 448.9 | 557.8 |
 | **SCNR (incl. clutter) [--]** | **408.0** | **23.2** |
-| NEDT [mK] (Gap 43 approximation) | 230.0 | 165.4 |
+| NEDT [mK] (Gap 43 approximation) | 229.9 | 165.4 |
 
 ### Spectral contrast (hand Planck, ASTER ε_bg(λ))
 
@@ -113,9 +122,9 @@ different signal-to-clutter.
 | 400 | 42.7 | no | 1.1 | no | 1.000 | **0.000** |
 | 500 | 188.0 | no | 10.7 | no | 1.000 | 1.000 |
 | 600 | 408.0 | no | 23.2 | no | 1.000 | 1.000 |
-| 800 | 924.2 | no | 54.2 | no | 1.000 | 1.000 |
-| 1000 | 1,464.3 | no | 90.1 | no | 1.000 | 1.000 |
-| 1200 | 2,003.8 | **YES** | 128.8 | no | 1.000 | 1.000 |
+| 800 | 924.3 | no | 54.2 | no | 1.000 | 1.000 |
+| 1000 | 1,464.5 | no | 90.1 | no | 1.000 | 1.000 |
+| 1200 | 2,004.4 | **YES** | 128.8 | no | 1.000 | 1.000 |
 
 MWIR detects the 5 m² fire with P_d ≈ 1 at every temperature; **LWIR
 misses the coolest fires** — at 400 K its SCNR is 1.0, far below the
@@ -140,7 +149,7 @@ cannot be retrieved.
    within 2% of each other at 600 K; a briefing chart that stopped at ΔL
    would call the bands equivalent. The chain comparison (photon
    conversion, per-band QE/dark/read, clutter) is what separates them.
-3. **NEDT favors LWIR (161.8 vs 230.0 mK)** — for mapping ambient-
+3. **NEDT favors LWIR (165.4 vs 229.9 mK)** — for mapping ambient-
    temperature scenes LWIR remains the right band; NEDT is the wrong
    figure of merit for fire *detection* (both values carry the Gap 43
    single-λ caveat; the reflected-solar component of that caveat is

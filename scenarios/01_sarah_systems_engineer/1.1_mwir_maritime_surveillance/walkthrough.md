@@ -67,15 +67,20 @@ Two residual caveats:
 
 ## Results (aperture = 30 cm, mid-sweep; real MODTRAN 6, D2 run set)
 
-*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
-2026-08-29). One mover, and only in the SimpleAtmosphere column. **CU-335**
-re-fitted the calibrated gas table's VIS/NIR/SWIR rows against the post-CU-253
-Rayleigh. This is a 3–5 µm scene, so the only reach is the λ⁻⁴ tail in the
-2.40–5.00 µm floors (+0.0010 / +0.0005 / +0.0001 OD): τ̄ 0.4593 → 0.4592,
-SNR 1001.47 → 1001.45, range 2356.7 → 2356.5 km, NEDT and NIIRS unmoved at the
-quoted precision. Two parts in 100 000 — recorded because the table moved, not
-because the scenario did. The **MODTRAN 6** column is bit-identical: it carries
-its own measured τ.*
+*Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
+2026-08-30). One mover, and only in the SimpleAtmosphere column. **CU-336**
+corrected the gas fit's grid convention: `floor_add` had been subtracting a
+band optical depth measured on a uniform-λ grid from one measured on MODTRAN's
+wavenumber grid, so every floor came out high. This is a 3–5 µm scene, so the
+only reach is the same λ⁻⁴ tail CU-335 moved the other way — the 3.50–5.00 µm
+floor drops 0.4498 → 0.4494 OD: τ̄ 0.4592 → 0.4594, SNR 1001.45 → 1001.55,
+range 2356.5 → 2357.2 km, NEDT and NIIRS unmoved at the quoted precision. One
+part in 10 000 — recorded because the table moved, not because the scenario
+did. The **MODTRAN 6** column is bit-identical: it carries its own measured τ.*
+
+*Prior vintage, 2026-08-30. **CU-335** re-fitted the calibrated gas table's
+VIS/NIR/SWIR rows against the post-CU-253 Rayleigh, and the same λ⁻⁴ tail moved
+τ̄ 0.4593 → 0.4592, SNR 1001.47 → 1001.45, range 2356.7 → 2356.5 km.*
 
 *Prior vintage, 2026-08-29 (pre-CU-324). **CU-324:** `E_sky_thermal`'s
 flux-diffusivity exponent became the geometric
@@ -95,18 +100,18 @@ under CU-321 (SNR 1152.37 → 980.55) and the MODTRAN column under CU-316
 
 | Metric | SimpleAtmosphere | MODTRAN 6 (real D2) |
 |--------|-------------------|----------------------|
-| SNR [-] | 1001.45 | 916.18 |
+| SNR [-] | 1001.55 | 916.18 |
 | NEDT [K] | 0.0251 | 0.0266 |
 | NIIRS [-] | 4.61 | 4.55 |
-| Detection range @ SNR=5 [km] | 2356.5 | 2227.3 |
-| In-band transmittance [-] | 0.4592 | 0.4277 |
+| Detection range @ SNR=5 [km] | 2357.2 | 2227.3 |
+| In-band transmittance [-] | 0.4594 | 0.4277 |
 
 - **SimpleAtmosphere agrees with MODTRAN to ~7% on transmittance for this
-  maritime MWIR column** (τ̄ 0.4592 vs 0.4277 real, the parametric model
+  maritime MWIR column** (τ̄ 0.4594 vs 0.4277 real, the parametric model
   slightly *more* transparent). The earlier ~45% over-absorption was removed by
   the CU-155/161 water-ladder recalibration — scenario 6.2 is the dedicated
   validation, which collapsed the τ residuals across all six profiles ~6× to a
-  uniform −5…−11% band. Detection range now differs by +5.8% (2356.5 vs
+  uniform −5…−11% band. Detection range now differs by +5.8% (2357.2 vs
   2227.3 km), where the pre-recalibration model understated it by ~25%.
 - **SNR: the parametric model reads ~9% high** (1001 vs 916). Its history in
   four steps: it read ~17% *low* before CU-224 (no down-looking path emission

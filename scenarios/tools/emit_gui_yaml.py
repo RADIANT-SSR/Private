@@ -26,6 +26,10 @@ from pathlib import Path
 # Allow ``from _runner_import import ...`` / ``from gui_baselines import ...``
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from _local_radiant import ensure_local_radiant  # noqa: E402
+
+ensure_local_radiant()  # CU-338: this checkout's radiant, or refuse
+
 from gui_baselines import REGISTRY, GuiScenario  # noqa: E402
 
 
@@ -181,8 +185,7 @@ def main(argv: list[str]) -> int:
         print(f"[ ok ] {scen.id:>4}  ->  {rel}   ({metric_str})")
     if failed:
         print(
-            f"\n{len(failed)} of {len(scenarios)} scenarios failed to emit: "
-            f"{', '.join(failed)}",
+            f"\n{len(failed)} of {len(scenarios)} scenarios failed to emit: {', '.join(failed)}",
             file=sys.stderr,
         )
         return 1

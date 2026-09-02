@@ -58,30 +58,37 @@ the run script as constants so the run is self-contained and reproducible.
 
 | Off-nadir | GSD | NIIRS | SNR | Ground range | Swath |
 |-----------|-----|-------|-----|--------------|-------|
-| 0° | 0.65 m | 6.65 | 70.9 | 0 km | 5.2 km |
-| 15° | 0.68 m | 6.59 | 71.6 | 146 km | 5.4 km |
-| 30° | 0.80 m | 6.37 | 71.4 | 312 km | 5.9 km |
-| 45° | 1.05 m | 5.95 | 69.9 | 527 km | 7.1 km |
+| 0° | 0.65 m | 6.67 | 72.0 | 0 km | 5.2 km |
+| 15° | 0.68 m | 6.60 | 72.8 | 146 km | 5.4 km |
+| 30° | 0.80 m | 6.38 | 72.7 | 312 km | 5.9 km |
+| 45° | 1.05 m | 5.97 | 71.3 | 527 km | 7.1 km |
 
-*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
-2026-08-02). Sole mover: **CU-335** — the calibrated gas table's 0.45–0.70 and
-0.70–1.30 µm well-mixed floors had been fitted against a pre-CU-253 Rayleigh
-optical depth ~8× too large and so clamped to zero; the re-fit sets them to
-0.1597 and 0.0517, and this 0.45–0.70 µm reflective scene loses ~11 % of its
-band-mean τ on the view leg and again on the solar leg. **SNR falls 15–19 %**
-(nadir 83.2 → 70.9, 45° 86.6 → 69.9) and NIIRS follows through the GIQE-5 SNR
-term (nadir 6.76 → 6.65, 45° 6.10 → 5.95). GSD, ground range and swath are
-geometry-only and bit-identical.*
+*Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
+2026-08-30). Sole mover: **CU-336** — the same fit's grid convention was
+corrected (`floor_add` had been subtracting a uniform-λ non-water reference from
+a wavenumber-grid ladder optical depth, biasing every floor high), so the two
+rows come down to 0.1375 and 0.0402 and this 0.45–0.70 µm reflective scene gains
+back ~2 % of band-mean τ on the view leg and again on the solar leg. **SNR rises
+1.6–2.0 %** (nadir 70.9 → 72.0, 45° 69.9 → 71.3) and NIIRS follows through the
+GIQE-5 SNR term (nadir 6.65 → 6.67, 45° 5.95 → 5.97). GSD, ground range and swath
+are geometry-only and bit-identical, and **the 42° NIIRS-floor crossing and the
+478 km corridor do not move** — the SNR term contributes 1.559·log₁₀(SNR), so a
+2 % SNR change is 0.013 NIIRS, an order below the 0.42 the slew costs.*
 
-**The planning verdict flips.** Before the re-fit NIIRS held above the 6.0 floor
-across the whole 0–45° slew, so agility alone set the corridor. It now crosses
-the floor at **42°**, which narrows the quality-limited access half-width from
-527 km to **478 km** (−9 %). The scenario's structural conclusion — that the
-corridor is set by whichever of agility and image quality binds first — is
-unchanged; which one binds is what moved.
+*Prior vintage, 2026-08-30. **CU-335** put those two floors on the table for the
+first time (0.1597 / 0.0517): SNR fell 15–19 % (nadir 83.2 → 70.9, 45°
+86.6 → 69.9), NIIRS followed (nadir 6.76 → 6.65, 45° 6.10 → 5.95), and that is
+the change that moved the corridor from agility-limited to quality-limited.*
+
+**The planning verdict is the CU-335 one, and CU-336 does not disturb it.**
+Before CU-335 NIIRS held above the 6.0 floor across the whole 0–45° slew, so
+agility alone set the corridor; it crosses the floor at **42°**, which narrows
+the quality-limited access half-width from 527 km to **478 km** (−9 %). The
+scenario's structural conclusion — that the corridor is set by whichever of
+agility and image quality binds first — is unchanged.
 
 - **GSD grows with off-nadir angle** (roughly ∝ 1/cos² through the slant-
-  range and projection stretch), dragging NIIRS from 6.65 at nadir to 5.95
+  range and projection stretch), dragging NIIRS from 6.67 at nadir to 5.97
   at 45°. The **NIIRS floor of 6.0 is crossed at 42°**, inside the 45° agility
   envelope — the quality limit binds first.
 - **SNR rises slightly** off-nadir — the ground footprint per pixel grows
@@ -92,7 +99,7 @@ unchanged; which one binds is what moved.
   ≈104,000 km² per daylight pass.
 - **Key planning insight:** the spacecraft can *slew* to 45° (527 km
   cross-track reach) but can only *image at spec* out to 42° (478 km) —
-  NIIRS = 5.95 at the 45° agility limit, just below the 6.0 floor. Image
+  NIIRS = 5.97 at the 45° agility limit, just below the 6.0 floor. Image
   quality, not agility, sets the usable access corridor here, and the last
   3° of slew buys reach the imagery cannot use.
 

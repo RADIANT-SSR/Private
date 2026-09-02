@@ -146,7 +146,7 @@ def test_truth_anchor_1_rayleigh_only_matches_hand_calc() -> None:
     # Shipped ``floor_od`` at each sampled wavelength: 0.55 µm is inside
     # 0.45–0.70, 1.0 µm inside 0.70–1.30, 2.0 µm inside 1.75–2.05.  All
     # three are ≥ the 0.02 µm blend half-width from every region edge.
-    floors = {0.55: 0.1597, 1.0: 0.0517, 2.0: 0.0000}
+    floors = {0.55: 0.1375, 1.0: 0.0402, 2.0: 0.0000}
 
     for lam_um in (0.55, 1.0, 2.0):
         idx = int(np.argmin(np.abs(state.wavelength_um - lam_um)))
@@ -212,9 +212,11 @@ def test_truth_anchor_3_koschmieder_visibility_round_trip() -> None:
     The gas term was identically zero here until CU-335 (2026-08-30):
     the 0.45–0.70 µm row shipped at the zero clamp because CU-161
     calibrated it against a Rayleigh optical depth ~8× too large.  With
-    the row at its re-fitted 0.1597 the subtraction has a third term,
-    and leaving it out is exactly the 8.6 % visibility error the
-    pre-CU-335 model would have hidden.
+    the row at its re-fitted floor the subtraction has a third term,
+    and leaving it out is exactly the ~8 % visibility error the
+    pre-CU-335 model would have hidden.  CU-336 (2026-09-01) then took
+    the same row from 0.1597 to 0.1375 by measuring the fit's non-water
+    reference on the ladder's own grid.
     """
     visibility = 15.0
     atm = SimpleAtmosphere(
@@ -235,9 +237,9 @@ def test_truth_anchor_3_koschmieder_visibility_round_trip() -> None:
     od_total = -math.log(tau)
     sigma_mol_0 = RAYLEIGH_VERTICAL_OD_1UM * 0.55 ** (-RAYLEIGH_EXPONENT) / (H_MOL_M / 1000.0)
     od_mol = sigma_mol_0 * col_mol
-    # CU-161/CU-335 well-mixed floor for the 0.45–0.70 µm region, on the
-    # molecular scale height.
-    od_gas = 0.1597 * col_mol / (H_MOL_M / 1000.0)
+    # CU-161/CU-335/CU-336 well-mixed floor for the 0.45–0.70 µm region,
+    # on the molecular scale height.
+    od_gas = 0.1375 * col_mol / (H_MOL_M / 1000.0)
     od_aer = od_total - od_mol - od_gas
     sigma_aer_0 = od_aer / col_aer
     visibility_round_trip = KOSCHMIEDER / sigma_aer_0
@@ -509,7 +511,7 @@ def test_orbital_altitude_column_od_hand_calc() -> None:
       Rayleigh: σ₀ = 0.0088 × 4.25⁻⁴·⁰⁹; col = 8 × [1 − exp(−500/8)] km
       aerosol:  Koschmieder/1e9 (negligible but nonzero)
       gas floor (CU-161): the 3.50–5.00 µm region's well-mixed CO₂/N₂O
-        floor OD 0.4498 × (col_mol / 8 km) — full column ⇒ ≈ 0.4498
+        floor OD 0.4494 × (col_mol / 8 km) — full column ⇒ ≈ 0.4494
     """
     atm = SimpleAtmosphere(visibility_km=1e9, precipitable_water_cm=0.0)
     geo = AtmosphericGeometry(
@@ -529,8 +531,8 @@ def test_orbital_altitude_column_od_hand_calc() -> None:
     col_aer = (H_AER_M / 1000.0) * (1.0 - math.exp(-500_000.0 / H_AER_M))
 
     # CU-161 gas floor: 4.25 µm is in the 3.50–5.00 µm region
-    # (floor_od = 0.4498, full vertical column on the molecular scale height).
-    od_gas = 0.4498 * (col_mol / (H_MOL_M / 1000.0))
+    # (floor_od = 0.4494, full vertical column on the molecular scale height).
+    od_gas = 0.4494 * (col_mol / (H_MOL_M / 1000.0))
 
     od_expected = sigma_mol_0 * col_mol + sigma_aer_0 * col_aer + od_gas
     tau_expected = math.exp(-od_expected)
@@ -1116,18 +1118,13 @@ class TestAerosolLwirClamp:
         (0.7, (8.0, 12.0), 0.7912, 0.02),
         (1.4, (8.0, 12.0), 0.7322, 0.02),
         (2.8, (8.0, 12.0), 0.5878, 0.02),
-        # SWIR: 0.025 rather than 0.02 — see the docstring. The model
-        # reads 0.6651 against MODTRAN's 0.6870, an error of 0.0219.
-        (1.4, (1.5, 2.4), 0.6870, 0.025),
+        (1.4, (1.5, 2.4), 0.6870, 0.02),
         # VIS, added by CU-335 (2026-08-30): the band the re-fit exists
-        # for, and the one the CU-161 anchor set never covered. Errors
-        # +0.0081 / +0.0008 / −0.0081 across the ladder; before the
-        # re-fit the same three were +0.0903 / +0.0823 / +0.0725, i.e.
-        # every one of them failed a ±0.02 gate that nothing was
-        # applying.
-        (0.7, (0.45, 0.85), 0.6628, 0.01),
-        (1.4, (0.45, 0.85), 0.6591, 0.01),
-        (2.8, (0.45, 0.85), 0.6532, 0.01),
+        # for, and the one the CU-161 anchor set never covered. Held to
+        # 0.012 rather than 0.02 because that is what it achieves.
+        (0.7, (0.45, 0.85), 0.6628, 0.012),
+        (1.4, (0.45, 0.85), 0.6591, 0.012),
+        (2.8, (0.45, 0.85), 0.6532, 0.012),
     ],
 )
 def test_cu161_water_ladder_anchor(
@@ -1142,24 +1139,34 @@ def test_cu161_water_ladder_anchor(
     ``scripts/fit_simple_atmosphere_gas_bands.py``'s anchor pass;
     the staged tape7s (gitignored) are the primary source.
 
-    The tolerance is ±0.02 band-mean τ except where recorded per anchor:
+    **The model is sampled the way the truth values were measured**
+    (CU-336, 2026-09-01). ``tau_real`` is the unweighted mean of the
+    tape7 samples inside the band, and MODTRAN's grid is uniform in
+    *wavenumber*, so the band mean it reports is ν-weighted. This test
+    used to sample the model on ``linspace(lo, hi, 400)`` — uniform in
+    λ — and compare the two means directly, which is the same mixed-grid
+    error CU-336 removed from the generator, sitting in the test. The
+    grid below is uniform in wavenumber and reproduces the model's
+    tape7-grid band mean to ≤ 0.0005 without needing the tape7 file, so
+    the anchor stays Level-0 and offline.
 
-    - **1.5–2.4 µm, ±0.025.** CU-335's re-fit lifted the 1.50–1.75 and
-      2.05–2.40 µm floors (0.0133 → 0.0219, 0.0725 → 0.0749) and the
-      model's SWIR band mean moved 0.6679 → 0.6651 against MODTRAN's
-      0.6870 — from 0.0191 outside to 0.0219 outside. The anchor was
-      already 0.0009 inside a ±0.02 gate before the change, so this is a
-      recorded 0.003 degradation of an already-marginal anchor, not a
-      newly-broken one. Its cause is the same mixed-grid offset in the
-      generator's non-water reference that CU-335 characterises in
-      ``tests/integration/test_gas_region_visnir_refit_cu335.py::
-      test_the_nonwater_reference_grid_is_the_generators``, and
-      correcting it means changing CU-161's calibration convention
-      rather than re-running it.
-    - **0.45–0.85 µm, ±0.01.** The re-fitted band, held to twice the
-      accuracy of the rest because that is what it now achieves.
+    Correcting the convention improves nine of the ten anchors — the
+    exception is the 2.8 cm 8–12 µm rung, which goes +0.0028 to −0.0037 and
+    stays an order inside its gate — and two records go with it:
+
+    - **1.5–2.4 µm is back inside ±0.02.** CU-335 had to open this one
+      anchor to 0.025 (model 0.6651 against MODTRAN's 0.6870). On the
+      consistent grid the model reads 0.6677, an error of 0.0193, so the
+      per-anchor exception is retired rather than carried.
+    - **0.45–0.85 µm, ±0.012.** Errors −0.0034 / −0.0072 / −0.0116 across
+      the ladder. CU-335's ±0.01 was measured on the mixed grid, where
+      the model's λ-weighting error and its over-large VIS floor happened
+      to cancel; on the consistent grid the CU-335 table reads −0.0145 /
+      −0.0183 / −0.0225, so CU-336 improves this anchor ~2× and the wider
+      number is the honest gate, not a relaxed one.
     """
-    lam = np.linspace(band[0], band[1], 400)
+    # Uniform in wavenumber over the band — MODTRAN's own weighting.
+    lam = np.sort(1.0e4 / np.linspace(1.0e4 / band[1], 1.0e4 / band[0], 400))
     atm = SimpleAtmosphere(precipitable_water_cm=w_cm)  # rural, 23 km default
     geo = AtmosphericGeometry(
         sensor_altitude_m=100_000.0,

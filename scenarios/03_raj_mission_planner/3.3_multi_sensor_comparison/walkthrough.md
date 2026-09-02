@@ -35,11 +35,15 @@ the workbook, which is the RADIANT-facing input.
 | GSD [m] | 9.0 | 19.2 | **3.4** |
 | MTF@Nyquist | 0.27 | **0.43** | 0.00 |
 
-*Re-run 2026-08-30 after **CU-335** re-fitted the calibrated gas table's
-VIS/NIR/SWIR rows against the post-CU-253 Rayleigh. The MWIR sensors here reach
-only the λ⁻⁴ tail in the 2.40–5.00 µm floors, so every number in this document
-is unchanged at its printed precision (the underlying SNR moves 1154.66 →
-1154.63, three parts in 100 000). No table below was edited.*
+*Re-run 2026-09-01 after **CU-336** corrected the gas fit's grid convention. The
+MWIR sensors here reach only the λ⁻⁴ tail (3.50–5.00 µm floor 0.4498 -> 0.4494 OD),
+so every number in this document is unchanged at its printed precision — Vendor A
+SNR reads 1160.455, NEDT 23.683 mK against the 1160 / 23.7 the table carries. No
+table below was edited.*
+
+*Prior vintage, 2026-08-30. **CU-335** re-fitted the calibrated gas table's
+VIS/NIR/SWIR rows against the post-CU-253 Rayleigh, and the same λ⁻⁴ tail left
+every printed number here unchanged.*
 
 *Prior vintage, 2026-08-02, pre-CU-321. Dominant mover: **CU-321** — the `(1−τ)·B` path
 emission CU-224 added is now emitted at a height-resolved `T_eff(λ)` over the

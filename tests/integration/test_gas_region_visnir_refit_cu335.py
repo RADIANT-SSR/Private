@@ -19,13 +19,21 @@ need the delivered MODTRAN run set:
 (b) **The A1 anchor gap.**  The defect's headline measurement: over
     0.45–0.70 µm on the us_standard full column the model read band-OD 0.320
     against MODTRAN's 0.456 — τ 0.726 against 0.634, i.e. 14.6 % too
-    transmissive.  After the re-fit the model reads 0.476, a 4.3 % OD
-    overshoot (τ 1.9 % low).
+    transmissive.  After the re-fit the model read 0.476, a 4.3 % OD
+    overshoot, and after CU-336 it reads 0.457 — 0.1 %.
 
-(c) **Band-mean τ parity, before and after**, against the thirteen full-column
-    and twelve partial-column anchors.  The visible improves 5.3× and the
-    composite 0.40–0.90 µm band 4.2×; 0.70–1.30 µm gets *worse*, and the
-    reason is measured and recorded here rather than left as noise.
+(c) **Band-mean τ parity across all three vintages**, against the thirteen
+    full-column and twelve partial-column anchors.
+
+**CU-336 (2026-09-01) is composed on top and this module tracks the composed
+table.**  CU-335 recorded, as its own residual, that ``floor_add`` subtracts a
+band optical depth measured on a uniform-λ grid from one measured on MODTRAN's
+native wavenumber grid, biasing every floor high by +0.0222 OD at 0.45–0.70 µm
+and +0.0114 at 0.70–1.30 µm.  The generator now measures both on the ladder's
+grid.  The 0.70–1.30 µm parity CU-335 degraded (0.0312 → 0.0402) recovers past
+its starting point (0.0286), the visible improves a further 2.6×, and the
+0.30–0.45 µm row comes off the zero clamp — the same correction removed a
+*coverage* mismatch there, the tape7 grid starting at 0.374953 µm.
 """
 
 from __future__ import annotations
@@ -56,8 +64,12 @@ _LADDER: tuple[tuple[str, float], ...] = (("D4", 0.7), ("A1", 1.4), ("D5", 2.8))
 #: Exponent guard, as in the generator.
 _B_MIN, _B_MAX = 0.10, 2.50
 
-#: The five rows CU-335 moved, and the floor each shipped with *before*.
+#: The rows the composed CU-335 + CU-336 re-fit moved off their CU-161
+#: vintage, and the floor each shipped with *before*.  CU-336 added the
+#: 0.30–0.45 µm row: the coverage half of the grid correction took it off
+#: the zero clamp.
 _MOVED: dict[tuple[float, float], float] = {
+    (0.30, 0.45): 0.0000,
     (0.45, 0.70): 0.0000,
     (0.70, 1.30): 0.0000,
     (1.50, 1.75): 0.0133,
@@ -65,10 +77,15 @@ _MOVED: dict[tuple[float, float], float] = {
     (2.40, 3.10): 0.7434,
 }
 
-#: The generator's non-water reference grid: uniform in λ over the table's
-#: full span.  Reproduced here because the floor is defined *relative* to it
-#: — see ``test_the_nonwater_reference_grid_is_the_generators``.
-_GENERATOR_GRID = np.linspace(0.30, 14.29, 3000)
+#: The generator's non-water reference grid **since CU-336**: the tape7 grid
+#: itself, so the reference and the ladder's band OD share one weighting.
+#: Read from A1 at use time; every staged run carries the same grid.
+_REFERENCE_RUN = "A1"
+
+#: The grid the generator used *before* CU-336: uniform in λ over the table's
+#: full span.  Kept because the difference between the two is the bias — see
+#: ``test_the_nonwater_reference_grid_is_the_ladders``.
+_PRE_CU336_GRID = np.linspace(0.30, 14.29, 3000)
 
 
 def _spectrum(run: str) -> tuple[np.ndarray, np.ndarray]:
@@ -117,7 +134,12 @@ def _closed_form_od0(lo: float, hi: float) -> tuple[float, float, float]:
     """
     od = [_band_od(*_spectrum(run), lo, hi) for run, _w in _LADDER]
     first, second = od[1] - od[0], od[2] - od[1]
-    assert first > 1e-4, f"{lo}–{hi} µm shows no water response; the closed form does not apply"
+    if first <= 1e-4:
+        # The generator's no-measurable-water branch: the band's optical
+        # depth is water-independent, so the whole of it is the floor and
+        # the water term is switched off.  0.30–0.45 µm is the only row in
+        # the table that takes it.
+        return od[1], 0.0, 1.0
     b = float(np.clip(math.log2(max(second, 1e-9) / first), _B_MIN, _B_MAX))
     k = first / (1.4**b - 0.7**b)
     return od[0] - k * 0.7**b, k, b
@@ -146,7 +168,8 @@ def test_the_moved_row_reproduces_from_the_delivered_ladder(
     is an equality check up to the rounding the generator applies.
     """
     od0, k_h2o, b_h2o = _closed_form_od0(*band)
-    floor_add = max(od0 - _nonwater_od(monkeypatch, _GENERATOR_GRID, band), 0.0)
+    reference_grid, _tau = _spectrum(_REFERENCE_RUN)
+    floor_add = max(od0 - _nonwater_od(monkeypatch, reference_grid, band), 0.0)
     shipped = _region(*band)
     assert floor_add == pytest.approx(shipped.floor_od, abs=5.0e-5)
     assert k_h2o == pytest.approx(shipped.k_h2o, abs=5.0e-5)
@@ -167,7 +190,8 @@ def test_the_pre_cu253_rayleigh_is_what_clamped_the_vis_floor(
     """
     band = (0.45, 0.70)
     od0, _k, _b = _closed_form_od0(*band)
-    nonwater = _nonwater_od(monkeypatch, _GENERATOR_GRID, band)
+    reference_grid, _tau = _spectrum(_REFERENCE_RUN)
+    nonwater = _nonwater_od(monkeypatch, reference_grid, band)
     # Rayleigh dominates the non-water OD in the visible; scaling the whole
     # reference by 8 is a lower bound on the pre-CU-253 value, and even that
     # bound already exceeds OD0.
@@ -176,35 +200,35 @@ def test_the_pre_cu253_rayleigh_is_what_clamped_the_vis_floor(
 
 
 @pytest.mark.level2
-def test_the_nonwater_reference_grid_is_the_generators(
+def test_the_nonwater_reference_grid_is_the_ladders(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The floor is grid-relative, and the grid is a uniform-λ one.
+    """The floor is grid-relative, and the grid is now the ladder's (CU-336).
 
-    The generator measures its non-water reference on a uniform 3000-point
-    λ grid while the ladder's band OD comes off the tape7 grid, which is
-    uniform in *wavenumber* and therefore weights the short-λ end of a VIS
-    band more heavily.  Where the spectrum is steep — Rayleigh goes as
-    $\\lambda^{-4}$ — the two disagree, and the difference lands in the
-    floor: +0.022 OD at 0.45–0.70 µm and +0.011 at 0.70–1.30 µm, both in
-    the direction of an over-large floor.  Beyond 1.3 µm it is ≤ 0.0004.
+    The generator used to measure its non-water reference on a uniform
+    3000-point λ grid while the ladder's band OD came off the tape7 grid,
+    which is uniform in *wavenumber* and therefore weights the short-λ end
+    of a VIS band more heavily.  Where the spectrum is steep — Rayleigh
+    goes as $\\lambda^{-4}$ — the two disagree, and the difference landed in
+    the floor: +0.022 OD at 0.45–0.70 µm and +0.011 at 0.70–1.30 µm, both
+    in the direction of an over-large floor.  Beyond 1.3 µm it is ≤ 0.0004.
 
-    Pinned as a characterization, not a target: the mixed-grid convention is
-    CU-161's and CU-335 deliberately did not change it (a new convention
-    would be a new calibration, not a re-run).  This test is what makes the
-    residual visible instead of silent — it is the measured reason the
-    0.70–1.30 µm parity moves the wrong way in
-    ``test_the_nir_window_parity_degrades_and_why``.
+    Both halves are pinned.  The offsets are what CU-335 recorded and
+    CU-336 removed, so they stay measured here; and the reference is now
+    read on the tape7 grid, which is what makes ``floor_add`` a difference
+    of two like-for-like band means.  The 0.70–1.30 µm parity that moved
+    the wrong way under CU-335 recovers in
+    ``test_the_nir_window_parity_recovers``.
     """
-    tape7_grid, _tau = _spectrum("A1")
+    tape7_grid, _tau = _spectrum(_REFERENCE_RUN)
     for band, expected in (
         ((0.45, 0.70), 0.0222),
         ((0.70, 1.30), 0.0114),
         ((3.50, 5.00), 0.0004),
     ):
-        generator = _nonwater_od(monkeypatch, _GENERATOR_GRID, band)
+        pre_cu336 = _nonwater_od(monkeypatch, _PRE_CU336_GRID, band)
         native = _nonwater_od(monkeypatch, tape7_grid, band)
-        assert native - generator == pytest.approx(expected, abs=0.002)
+        assert native - pre_cu336 == pytest.approx(expected, abs=0.002)
 
 
 # ---------------------------------------------------------------------------
@@ -271,14 +295,16 @@ def _model_tau(run: str) -> tuple[np.ndarray, np.ndarray]:
 
 @pytest.mark.level2
 def test_the_a1_visible_band_od_gap_closes() -> None:
-    """0.45–0.70 µm at A1: 0.320 → 0.476 against MODTRAN's 0.456.
+    """0.45–0.70 µm at A1: 0.320 → 0.476 → 0.457 against MODTRAN's 0.456.
 
-    This is the number the CU-335 entry was opened on.  Before the re-fit
+    This is the number the CU-335 entry was opened on.  Before that re-fit
     the model under-read the band's optical depth by 30 % (τ 14.6 % high);
-    after it, it over-reads by 4.3 % (τ 1.9 % low).  The residual overshoot
-    is the mixed-grid artifact characterised above — the floor is fitted
+    after it, it over-read by 4.3 % (τ 1.9 % low).  That residual overshoot
+    was the mixed-grid artifact characterised above — the floor was fitted
     against a uniform-λ non-water reference and evaluated here on the tape7
-    grid — and it is a seventh of the error it replaced.
+    grid — and CU-336 removed it: the model now reads 0.4566, **0.1 %**
+    over.  Two independent measurements agreeing to a part in a thousand is
+    the strongest single statement that the grid was the whole residual.
     """
     reference_wl, reference_tau = _spectrum("A1")
     modtran_od = _band_od(reference_wl, reference_tau, 0.45, 0.70)
@@ -286,38 +312,39 @@ def test_the_a1_visible_band_od_gap_closes() -> None:
     model_od = _band_od(model_wl, model_tau, 0.45, 0.70)
 
     assert modtran_od == pytest.approx(0.4561, abs=0.002)
-    assert model_od == pytest.approx(0.4757, abs=0.002)
-    assert abs(model_od / modtran_od - 1.0) < 0.06
+    assert model_od == pytest.approx(0.4566, abs=0.002)
+    assert abs(model_od / modtran_od - 1.0) < 0.01
 
 
 # ---------------------------------------------------------------------------
 # (c) Band-mean τ parity — the results record
 # ---------------------------------------------------------------------------
 
-#: Measured 2026-08-30 — RMS |ln(model/MODTRAN)| of band-mean τ over the
-#: thirteen full-column anchors, before (the CU-161 vintage floors) and after
-#: the re-fit.
-_TAU_PARITY_FULL_COLUMN: dict[tuple[float, float], tuple[float, float]] = {
-    (0.45, 0.70): (0.1556, 0.0294),
-    (0.70, 1.30): (0.0312, 0.0402),
-    (0.45, 0.85): (0.1105, 0.0440),
-    (0.85, 1.40): (0.0461, 0.0314),
-    (0.40, 0.90): (0.1035, 0.0244),
-    (1.50, 1.75): (0.0366, 0.0463),
-    (2.05, 2.40): (0.0430, 0.0457),
-    (3.50, 5.00): (0.1106, 0.1107),
-    (8.00, 12.00): (0.0482, 0.0482),
+#: RMS |ln(model/MODTRAN)| of band-mean τ over the thirteen full-column
+#: anchors, at each of the three table vintages: the CU-161 floors, the
+#: CU-335 re-fit (measured 2026-08-30), and the CU-336 grid correction
+#: (measured 2026-09-01).  The assertion pins the last.
+_TAU_PARITY_FULL_COLUMN: dict[tuple[float, float], tuple[float, float, float]] = {
+    (0.45, 0.70): (0.1556, 0.0294, 0.0111),
+    (0.70, 1.30): (0.0312, 0.0402, 0.0286),
+    (0.45, 0.85): (0.1105, 0.0440, 0.0244),
+    (0.85, 1.40): (0.0461, 0.0314, 0.0254),
+    (0.40, 0.90): (0.1035, 0.0244, 0.0292),
+    (1.50, 1.75): (0.0366, 0.0463, 0.0461),
+    (2.05, 2.40): (0.0430, 0.0457, 0.0455),
+    (3.50, 5.00): (0.1106, 0.1107, 0.1103),
+    (8.00, 12.00): (0.0482, 0.0482, 0.0482),
 }
 
 #: The same measurement over the twelve partial-column anchors (K/N/O
 #: ground-to-air rungs).
-_TAU_PARITY_PARTIAL_COLUMN: dict[tuple[float, float], tuple[float, float]] = {
-    (0.45, 0.70): (0.1456, 0.0214),
-    (0.70, 1.30): (0.0263, 0.0675),
-    (0.45, 0.85): (0.0938, 0.0434),
-    (0.40, 0.90): (0.0893, 0.0266),
-    (3.50, 5.00): (0.1812, 0.1812),
-    (8.00, 12.00): (0.1047, 0.1047),
+_TAU_PARITY_PARTIAL_COLUMN: dict[tuple[float, float], tuple[float, float, float]] = {
+    (0.45, 0.70): (0.1456, 0.0214, 0.0180),
+    (0.70, 1.30): (0.0263, 0.0675, 0.0567),
+    (0.45, 0.85): (0.0938, 0.0434, 0.0274),
+    (0.40, 0.90): (0.0893, 0.0266, 0.0298),
+    (3.50, 5.00): (0.1812, 0.1812, 0.1810),
+    (8.00, 12.00): (0.1047, 0.1047, 0.1047),
 }
 
 
@@ -343,12 +370,12 @@ def _rms_parity(runs: frozenset[str] | set[str], band: tuple[float, float]) -> f
 def test_band_mean_tau_parity_against_the_full_column_anchors(band: tuple[float, float]) -> None:
     """Band-mean τ parity, pinned at the measured post-refit value.
 
-    Both sides of the CU-335 record are here: the dict carries the before
-    value for the reader, and the assertion pins the after value the shipped
-    table produces.
+    All three vintages are here: the dict carries the CU-161 and CU-335
+    values for the reader, and the assertion pins the CU-336 value the
+    shipped table produces.
     """
-    _before, after = _TAU_PARITY_FULL_COLUMN[band]
-    assert _rms_parity(_FULL_COLUMN, band) == pytest.approx(after, abs=0.002)
+    _cu161, _cu335, cu336 = _TAU_PARITY_FULL_COLUMN[band]
+    assert _rms_parity(_FULL_COLUMN, band) == pytest.approx(cu336, abs=0.002)
 
 
 @pytest.mark.level2
@@ -358,21 +385,26 @@ def test_band_mean_tau_parity_against_the_partial_column_anchors(
 ) -> None:
     """The same measurement on the ground-to-air rungs."""
     partial = frozenset(_ANCHORS) - _FULL_COLUMN
-    _before, after = _TAU_PARITY_PARTIAL_COLUMN[band]
-    assert _rms_parity(partial, band) == pytest.approx(after, abs=0.002)
+    _cu161, _cu335, cu336 = _TAU_PARITY_PARTIAL_COLUMN[band]
+    assert _rms_parity(partial, band) == pytest.approx(cu336, abs=0.002)
 
 
 @pytest.mark.level2
-def test_the_visible_parity_improves_by_more_than_five_times() -> None:
-    """The headline result, stated as an ordering.
+def test_the_visible_parity_improves_across_both_refits() -> None:
+    """The headline result, stated as an ordering over the two vintages.
 
-    0.45–0.70 µm improves 5.3× on the full columns and 6.8× on the partial
-    ones; the two composite visible bands the scenarios actually integrate
-    over — 0.40–0.90 and 0.45–0.85 µm — improve 4.2× and 2.5×.
+    0.45–0.70 µm improves 5.3× on the full columns under CU-335 and a
+    further 2.6× under CU-336, 14× end to end; 0.45–0.85 µm improves 4.5×
+    end to end.  0.40–0.90 µm is the one composite that gives a little back
+    at the second step — see
+    ``test_the_composite_vis_band_loses_a_cancellation``.
     """
-    for band, factor in (((0.45, 0.70), 5.0), ((0.40, 0.90), 4.0), ((0.45, 0.85), 2.4)):
-        before, after = _TAU_PARITY_FULL_COLUMN[band]
-        assert before / after > factor, f"{band} improved only {before / after:.2f}×"
+    for band, factor in (((0.45, 0.70), 12.0), ((0.45, 0.85), 4.0)):
+        cu161, _cu335, cu336 = _TAU_PARITY_FULL_COLUMN[band]
+        assert cu161 / cu336 > factor, f"{band} improved only {cu161 / cu336:.2f}× since CU-161"
+    for band in ((0.45, 0.70), (0.45, 0.85), (0.85, 1.40), (0.70, 1.30)):
+        _cu161, cu335, cu336 = _TAU_PARITY_FULL_COLUMN[band]
+        assert cu336 < cu335, f"{band} did not improve across CU-336: {cu335} -> {cu336}"
 
 
 @pytest.mark.level2
@@ -380,33 +412,51 @@ def test_bands_beyond_3um_are_parity_identical() -> None:
     """MWIR and LWIR parity does not move — the change is a VIS/NIR one.
 
     The floors there moved by ≤ 0.001 OD (the Rayleigh tail), which is below
-    the 0.002 resolution this parity metric is pinned at.
+    the 0.002 resolution this parity metric is pinned at.  True of CU-335
+    and of CU-336 separately, so it is asserted against both.
     """
     for band in ((3.50, 5.00), (8.00, 12.00)):
-        before, after = _TAU_PARITY_FULL_COLUMN[band]
-        assert abs(after - before) <= 0.002
+        cu161, cu335, cu336 = _TAU_PARITY_FULL_COLUMN[band]
+        assert abs(cu335 - cu161) <= 0.002
+        assert abs(cu336 - cu335) <= 0.002
 
 
 @pytest.mark.level2
-def test_the_nir_window_parity_degrades_and_why() -> None:
-    """0.70–1.30 µm gets worse: 0.0312 → 0.0402 full column, and that is honest.
+def test_the_nir_window_parity_recovers() -> None:
+    """0.70–1.30 µm: 0.0312 → 0.0402 under CU-335, back to 0.0286 under CU-336.
 
-    The re-fit hands this row a floor of 0.0517 where a tape7-grid-consistent
-    reference would want ~0.0383 — the +0.0114 mixed-grid offset pinned in
-    ``test_the_nonwater_reference_grid_is_the_generators``.  The old row was
-    under by 0.0383 and the new one is over by 0.0134, so the *bias* falls by
-    ~3× while this particular RMS rises, because the residual is now spread
-    unevenly across the profile anchors rather than sitting one-sided.
-
-    Recorded rather than tuned away: correcting it means changing CU-161's
-    non-water reference grid, which is a new calibration convention and needs
-    its own authorisation.  Kept as a pinned characterization so the trade is
-    visible to whoever takes that on.
+    This row is the reason CU-336 exists.  CU-335 handed it a floor of
+    0.0517 where a ladder-grid-consistent reference wants 0.0402 — the
+    +0.0114 offset pinned in ``test_the_nonwater_reference_grid_is_the_ladders``
+    — and the RMS rose even though the *bias* fell ~3×, because the residual
+    stopped being one-sided.  With the convention corrected the floor lands
+    at that 0.0402 and the parity comes back past where it started: better
+    than the CU-161 vintage, not merely better than CU-335.
     """
-    before, after = _TAU_PARITY_FULL_COLUMN[(0.70, 1.30)]
-    assert after > before
-    # Still small in absolute terms — 4 % on a band mean — and an order below
-    # the visible error the same change removes.
-    assert after < 0.05
-    vis_before, vis_after = _TAU_PARITY_FULL_COLUMN[(0.45, 0.70)]
-    assert (vis_before - vis_after) > 10.0 * (after - before)
+    cu161, cu335, cu336 = _TAU_PARITY_FULL_COLUMN[(0.70, 1.30)]
+    assert cu335 > cu161, "the CU-335 degradation this CU was opened on is gone from the record"
+    assert cu336 < cu335, "CU-336 did not recover the NIR window"
+    assert cu336 < cu161, "CU-336 recovered the degradation but not past the CU-161 baseline"
+
+
+@pytest.mark.level2
+def test_the_composite_vis_band_loses_a_cancellation() -> None:
+    """0.40–0.90 µm reads slightly worse (0.0244 → 0.0292), and it is not a regression.
+
+    Its two halves are each far more accurate than before: 0.40–0.45 µm was
+    8–21 % too transmissive on every one of the thirteen full-column
+    anchors under CU-335 — the 0.30–0.45 µm row was pinned at the zero clamp
+    by the coverage mismatch — and lands inside 0.4 % under CU-336.  What
+    the composite loses is the cancellation between that one-sided positive
+    error and the small negative one over 0.45–0.90 µm.  Sub-band accuracy
+    is the physics; a band mean that was right by cancellation was not.
+
+    The bands that contain no such cancellation (every one asserted in
+    ``test_the_visible_parity_improves_across_both_refits``) improve, and
+    even this one is 3.5× better than the CU-161 vintage.
+    """
+    cu161, cu335, cu336 = _TAU_PARITY_FULL_COLUMN[(0.40, 0.90)]
+    assert cu336 > cu335
+    assert cu161 / cu336 > 3.0
+    # The narrower band that carries the correction is the one to check.
+    assert _rms_parity(_FULL_COLUMN, (0.40, 0.45)) < 0.02

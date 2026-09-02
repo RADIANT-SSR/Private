@@ -46,11 +46,15 @@ The script runs RADIANT at 5 individual wavelengths (3.5, 4.0, 4.25, 4.5, 5.0 µ
 | 4.50    | 0.248   | 0.396  | 0.871  | 0.599 | 22.0       | 227 |
 | 5.00    | 0.210   | 0.358  | 0.858  | 0.568 | 23.6       | 244 |
 
-*Re-run 2026-08-30 after **CU-335** re-fitted the calibrated gas table's
-VIS/NIR/SWIR rows against the post-CU-253 Rayleigh. This is an 8–12 µm scene, so
-it reaches only the λ⁻⁴ tail in the 2.40–5.00 µm floors: SNR moves
-553.62 → 553.60 and NIIRS 4.5890 → 4.5889, below the printed precision of every
-table here. No table below was edited.*
+*Re-run 2026-09-01 after **CU-336** corrected the gas fit's grid convention. This
+is an 8–12 µm scene, so it reaches only the λ⁻⁴ tail (3.50–5.00 µm floor
+0.4498 -> 0.4494 OD), below the printed precision of every table here — the
+per-λ SNR column and the mono/poly comparison are both unchanged as printed. No
+table below was edited.*
+
+*Prior vintage, 2026-08-30. **CU-335** re-fitted the calibrated gas table's
+VIS/NIR/SWIR rows against the post-CU-253 Rayleigh; the same λ⁻⁴ tail moved SNR
+553.62 → 553.60 and NIIRS 4.5890 → 4.5889, also below the printed precision.*
 
 *Prior vintage, 2026-08-29, pre-CU-324. One mover: **CU-324** — `E_sky_thermal`'s
 flux-diffusivity exponent became the geometric `sec 48.2° = 1.50030` rather than

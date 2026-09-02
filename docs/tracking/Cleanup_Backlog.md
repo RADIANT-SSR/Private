@@ -57,33 +57,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: blocking for any future reshaping of `examples/templates/` (intake test 3) and owner-gated (test 2): relocation touches the Option-C golden snapshot's path keys and four guides.
 **Suggested fix**: (b) stand-alone task — move the 12 to a fixtures home (e.g. `tests/integration/fixtures/inferrer_corpus/`), rewrite the snapshot path keys (values untouched, §5.3 note in the PR), repoint `test_templates.py` + the guides. Effort M; category A/D.
 
-### CU-338 — `emit_gui_yaml.py` run bare from a worktree silently rebuilds baselines against the primary checkout's library
-
-**Discovered**: twice on 2026-08-30/31, independently, by the CU-335 and CU-324-item-2 agents — each caught it only after 15 baselines were rewritten with foreign numbers, all reporting `[ ok ]`.
-**Status**: Open.
-**File**: `scenarios/tools/emit_gui_yaml.py` (and every `scenarios/tools` entry point that imports `radiant`).
-**Symptom**: the documented §5.3 refresh command (`python scenarios/tools/emit_gui_yaml.py <ids>`) resolves `radiant` through the editable-install `.pth` to the **primary checkout's** `src/`, not the invoking worktree's — the CLAUDE.md worktree caveat applying to the refresh protocol itself. From a worktree mid-change (the §5.3 protocol's whole use case) it silently composes another tree's physics into this tree's baselines and reports success. `PYTHONPATH=./src` is the workaround; nothing enforces it.
-**Why it still matters**: workflow-visible and protocol-blocking (intake tests 3/4) — it corrupted baselines twice in two days, caught only by agent diligence; a less careful pass would have merged foreign numbers.
-**Suggested fix**: (a) small — the tools resolve their own repo root and prepend `<root>/src` to `sys.path` ahead of site-packages (or refuse loudly when `radiant.__file__` is outside the invoking tree). Effort S; category A. Related: the CLAUDE.md editable-install caveat, CU-319.
-
-### CU-336 — The gas-fit generator measures its non-water reference on a uniform-λ grid while band ODs come off the tape7 wavenumber grid, biasing every fitted floor high
-
-**Discovered**: CU-335 re-fit (branch `atmo/cu-335-visnir-refit`), 2026-08-30 — root-caused while explaining the 0.70–1.30 µm parity degradation.
-**Status**: Open.
-**File**: `scripts/fit_simple_atmosphere_gas_bands.py` (reference-grid construction).
-**Symptom**: measured offset **+0.022 OD at 0.45–0.70 µm, +0.011 at 0.70–1.30 µm, ≤ 0.0004 beyond 1.3 µm** — always toward an over-large floor, because the λ⁻⁴-steep Rayleigh term integrates differently on the two grids. Post-CU-335 the VIS bias is no longer one-sided, so RMS parity slightly degrades at 0.70–1.30 µm (0.0312 → 0.0402) even as the bias falls ~3×.
-**Why it still matters**: results-affecting (intake test 1) — fixing the grid convention moves every fitted floor a little, VIS most; it is also the residual behind the A1 anchor's remaining +4.3 %.
-**Suggested fix**: (b) small — evaluate the non-water reference on the tape7 wavenumber grid (or band-integrate both on one grid), re-run the generator, §5.3 the small VIS movement. Effort S; category C. Related: [[CU-335]], CU-161.
-
-### CU-337 — ~5× more visible "gas" floor than real gas chemistry: part of the fitted VIS floor is an aerosol deficit wearing a gas label
-
-**Discovered**: CU-335 re-fit (branch `atmo/cu-335-visnir-refit`), 2026-08-30.
-**Status**: Open — **Owner ruling (2026-09-01): approved, scheduled** — pursue after [[CU-336]] lands (the fit must run on the corrected grid): fit the aerosol VIS deficit explicitly (Ångström correction against the delivered anchors), re-fit the gas floors with aerosol corrected (expect them to fall toward chemical ~0.03), full §5.3; then re-check scenario 10.3's extinction anchor, which the 2026-09-01 measurement showed is unreachable (k_V floor 0.258 vs published ≤0.20) until this attribution is fixed.
-**File**: `src/radiant/atmosphere/simple.py` (aerosol model vs `_CALIBRATED_GAS_REGIONS` 0.45–0.70 µm row).
-**Symptom**: the fitted VIS floor (0.1597 OD) is ~5× the real gas chemistry in that window (O₃ Chappuis ≈ 0.03 OD): the fit is absorbing an aerosol-model deficit (Koschmieder/Ångström under-supplying rural-23 extinction at 550 nm vs MODTRAN) into the gas floor. τ parity is right; the *attribution* is wrong, which surfaces wherever aerosol and gas must be separated (visibility sweeps hold the "gas" floor fixed while scaling the aerosol RADIANT thinks it has; scenario 10.3's extinction-anchor reconciliation leans on exactly this seam).
-**Why it still matters**: results-affecting for visibility-parameterized VIS scenes if fixed (intake test 1); it is also the honest answer behind the 10.3 anchor question.
-**Suggested fix**: (b) stand-alone, M — fit the aerosol model's VIS deficit explicitly (an Ångström correction against the delivered anchors), then re-fit the gas floors with the aerosol corrected; the floors should fall toward chemical reality (~0.03). Owner-gated. Category C. Related: [[CU-335]], [[CU-336]], CU-253, scenario 10.3.
-
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).
@@ -96,6 +69,16 @@ by name in check 8 — that list is frozen and must never grow.
 - [ ] Distribute opacity along the grazing **arc** rather than the vertical. **MEASURED 2026-08-29: M6–M8 cannot discriminate** (max placement effect 1.2 % |ln| under a 3–6 % model residual; along-arc marginally WORSE on those anchors, RMS 0.0464 → 0.0524 — a ground-rooted column already concentrates opacity at the escape end). Anchor decks **R1–R3** authored into the run matrix (tangent-rooted ascending arcs at 5/8/10 km, modelled separation up to 16.1 %); **owner-confirmed for the next MODTRAN session 2026-08-29**. Gated on their delivery; a delivery tripwire test stands.
 
 **Suggested fix**: (b) stand-alone family PR when scheduled; each item re-anchored against the batch-2 pairs. Effort M total; category C. Related: [[CU-321]], CU-155, CU-161.
+**Resolution**: the non-water reference now evaluates on the tape7 wavenumber grid itself (one argument threaded through; water solve and cross-validation untouched; `main()` asserts the staged runs share one grid). Floors move by exactly the measured offsets (0.45–0.70 µm 0.1597 → 0.1375, 0.70–1.30 µm 0.0517 → 0.0402; λ ≥ 1.5 µm ≤ 0.0004); the 0.70–1.30 parity recovers past its pre-CU-335 value (0.0402 → 0.0286) and the A1 anchor lands at **+0.1 %**. One unanticipated coverage fix, evidence-backed: the 0.30–0.45 µm row (tape7 coverage starts at 0.375 µm) gains a 0.1262 floor — 8× parity improvement on its own band, the one-signed 8–21 % transmissive bias on all 13 full-column anchors removed, fitted-from-0.375 limitation recorded. Generator idempotent bit-for-bit; the CU-335 per-anchor tolerance exception is RETIRED to ±0.02 (the same grid defect lived in that test's sampling — fixed in passing, nine of ten anchors improve). §5.3: 22 baselines, 38 figures, 20 walkthroughs with attribution; **no verdict flips**; 10.3's anchor eases 0.282 → 0.261 mag/airmass and correctly stays FAIL pending [[CU-337]]. Results-affecting CHANGELOG entry.
+
+### CU-337 — ~5× more visible "gas" floor than real gas chemistry: part of the fitted VIS floor is an aerosol deficit wearing a gas label
+
+**Discovered**: CU-335 re-fit (branch `atmo/cu-335-visnir-refit`), 2026-08-30.
+**Status**: Open — **Owner ruling (2026-09-01): approved, scheduled** — pursue after [[CU-336]] lands (the fit must run on the corrected grid): fit the aerosol VIS deficit explicitly (Ångström correction against the delivered anchors), re-fit the gas floors with aerosol corrected (expect them to fall toward chemical ~0.03), full §5.3; then re-check scenario 10.3's extinction anchor, which the 2026-09-01 measurement showed is unreachable (k_V floor 0.258 vs published ≤0.20) until this attribution is fixed.
+**File**: `src/radiant/atmosphere/simple.py` (aerosol model vs `_CALIBRATED_GAS_REGIONS` 0.45–0.70 µm row).
+**Symptom**: the fitted VIS floor (0.1597 OD) is ~5× the real gas chemistry in that window (O₃ Chappuis ≈ 0.03 OD): the fit is absorbing an aerosol-model deficit (Koschmieder/Ångström under-supplying rural-23 extinction at 550 nm vs MODTRAN) into the gas floor. τ parity is right; the *attribution* is wrong, which surfaces wherever aerosol and gas must be separated (visibility sweeps hold the "gas" floor fixed while scaling the aerosol RADIANT thinks it has; scenario 10.3's extinction-anchor reconciliation leans on exactly this seam).
+**Why it still matters**: results-affecting for visibility-parameterized VIS scenes if fixed (intake test 1); it is also the honest answer behind the 10.3 anchor question.
+**Suggested fix**: (b) stand-alone, M — fit the aerosol model's VIS deficit explicitly (an Ångström correction against the delivered anchors), then re-fit the gas floors with the aerosol corrected; the floors should fall toward chemical reality (~0.03). Owner-gated. Category C. Related: [[CU-335]], [[CU-336]], CU-253, scenario 10.3.
 
 ### CU-138 — Scripting console ships as a `code.InteractiveConsole` REPL, not the preferred `qtconsole` in-process Jupyter kernel
 
@@ -127,6 +110,25 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-338 — `emit_gui_yaml.py` run bare from a worktree silently rebuilds baselines against the primary checkout's library — RESOLVED 2026-09-01 (commit trailer)
+
+**Discovered**: twice on 2026-08-30/31, independently, by the CU-335 and CU-324-item-2 agents — each caught it only after 15 baselines were rewritten with foreign numbers, all reporting `[ ok ]`.
+**Status**: RESOLVED 2026-09-01, closed by the `CU-Closes: 338` trailer commit.
+**File**: `scenarios/tools/emit_gui_yaml.py` (and every `scenarios/tools` entry point that imports `radiant`).
+**Symptom**: the documented §5.3 refresh command (`python scenarios/tools/emit_gui_yaml.py <ids>`) resolves `radiant` through the editable-install `.pth` to the **primary checkout's** `src/`, not the invoking worktree's — the CLAUDE.md worktree caveat applying to the refresh protocol itself. From a worktree mid-change (the §5.3 protocol's whole use case) it silently composes another tree's physics into this tree's baselines and reports success. `PYTHONPATH=./src` is the workaround; nothing enforces it.
+**Why it still matters**: workflow-visible and protocol-blocking (intake tests 3/4) — it corrupted baselines twice in two days, caught only by agent diligence; a less careful pass would have merged foreign numbers.
+**Suggested fix**: (a) small — the tools resolve their own repo root and prepend `<root>/src` to `sys.path` ahead of site-packages (or refuse loudly when `radiant.__file__` is outside the invoking tree). Effort S; category A. Related: the CLAUDE.md editable-install caveat, CU-319.
+**Resolution**: shared `scenarios/tools/_local_radiant.py::ensure_local_radiant()` prepends the invoking tree's `src` and raises `ForeignRadiantError` (Rule-15 four-field message naming both trees, the CU, and the fix) unless `radiant.__file__` resolves locally — wired into all five entry points AND `gui_baselines.py` itself, so a future tool is covered at registry import. Proven by subprocess against a poisoned decoy on `PYTHONPATH` (resolves local anyway), a foreign-module monkeypatch (refused, message asserted), a namespace-package edge (refused), and an AST sweep pinning that no tools module imports radiant unguarded. §5.3's documented command drops the `PYTHONPATH` prefix; the live re-proof ran the CU-336 baseline regeneration bare — 38/38 [ok] against the worktree's own physics.
+
+### CU-336 — The gas-fit generator measures its non-water reference on a uniform-λ grid while band ODs come off the tape7 wavenumber grid, biasing every fitted floor high — RESOLVED 2026-09-01 (commit trailer)
+
+**Discovered**: CU-335 re-fit (branch `atmo/cu-335-visnir-refit`), 2026-08-30 — root-caused while explaining the 0.70–1.30 µm parity degradation.
+**Status**: RESOLVED 2026-09-01, closed by the `CU-Closes: 336` trailer commit.
+**File**: `scripts/fit_simple_atmosphere_gas_bands.py` (reference-grid construction).
+**Symptom**: measured offset **+0.022 OD at 0.45–0.70 µm, +0.011 at 0.70–1.30 µm, ≤ 0.0004 beyond 1.3 µm** — always toward an over-large floor, because the λ⁻⁴-steep Rayleigh term integrates differently on the two grids. Post-CU-335 the VIS bias is no longer one-sided, so RMS parity slightly degrades at 0.70–1.30 µm (0.0312 → 0.0402) even as the bias falls ~3×.
+**Why it still matters**: results-affecting (intake test 1) — fixing the grid convention moves every fitted floor a little, VIS most; it is also the residual behind the A1 anchor's remaining +4.3 %.
+**Suggested fix**: (b) small — evaluate the non-water reference on the tape7 wavenumber grid (or band-integrate both on one grid), re-run the generator, §5.3 the small VIS movement. Effort S; category C. Related: [[CU-335]], CU-161.
 
 ### CU-335 — The gas table's VIS/NIR rows were calibrated against the pre-CU-253 8× Rayleigh and never re-fit — the model is ~17 % too transmissive in the visible — RESOLVED 2026-08-30 (commit trailer)
 

@@ -15,16 +15,31 @@ fitted from the MODTRAN ladder alone and never see the model's Rayleigh
 term, so their bit-identity across the re-fit is the check that the
 re-fit changed the calibration reference and not the fit.
 
+**CU-336 (2026-09-01) is composed on top and this module tracks the
+composed table.**  ``floor_add`` is a difference of two band optical
+depths, and CU-335 recorded as its residual that the two were measured on
+different grids — the ladder's on MODTRAN's native wavenumber grid, the
+model's non-water reference on a uniform-λ one — biasing every floor high
+by a measured +0.0222 OD at 0.45–0.70 µm and +0.0114 at 0.70–1.30 µm.
+The generator now measures both on the ladder's grid.  ``k``/``b`` are
+untouched a second time; the VIS/NIR floors come down by exactly those
+offsets; and the 0.30–0.45 µm row comes off the zero clamp, because the
+same correction removed a *coverage* mismatch there (the tape7 grid
+starts at 0.374953 µm, so that row's measured OD never covered the part
+of the region where the old reference was largest).
+
 Coverage:
 
 (a) **the shipped table** — every row's three coefficients pinned to the
     generator's printed output, so a hand edit or a partial paste fails;
 (b) **what moved and what did not** — ``k``/``b`` bit-identical on all
-    seventeen rows; floors bit-identical from 5.00 µm up (including the
-    CU-330 ozone triple); the VIS/NIR floors lifted off the zero clamp;
-(c) **direction and magnitude** — every moved floor moved *up* (less
-    transmissive), by the CU-330-predicted amounts, and the residual
-    MWIR motion is the Rayleigh $\\lambda^{-4}$ tail at ≤ 0.001 OD;
+    seventeen rows across both re-fits; floors bit-identical from 5.00 µm
+    up (including the CU-330 ozone triple); the VIS/NIR floors off the
+    zero clamp, and the UV row with them;
+(c) **direction and magnitude** — the VIS/NIR floors land at CU-335's
+    value minus CU-335's own measured grid offset; the two visible rows
+    carry 83 % of the motion since CU-161; the residual MWIR motion is
+    the Rayleigh $\\lambda^{-4}$ tail at ≤ 0.001 OD, now signed both ways;
 (d) **the CU-267 blend invariants survive the re-fit** — no ramp
     overlap, continuity at every edge, and the exact arithmetic-mean
     edge value with the new floors.
@@ -45,20 +60,20 @@ from radiant.atmosphere.simple import (
 
 HW: float = GAS_REGION_BLEND_HALF_WIDTH_UM
 
-#: The shipped table after the CU-335 re-fit, exactly as
-#: ``scripts/fit_simple_atmosphere_gas_bands.py`` prints it:
-#: ``(lo_um, hi_um, floor_od, k_h2o, b_h2o)``.
+#: The shipped table after the CU-335 re-fit **and the CU-336 grid
+#: correction**, exactly as ``scripts/fit_simple_atmosphere_gas_bands.py``
+#: prints it: ``(lo_um, hi_um, floor_od, k_h2o, b_h2o)``.
 EXPECTED_TABLE: tuple[tuple[float, float, float, float, float], ...] = (
-    (0.30, 0.45, 0.0000, 0.0000, 1.000),
-    (0.45, 0.70, 0.1597, 0.0025, 0.874),
-    (0.70, 1.30, 0.0517, 0.1245, 0.434),
+    (0.30, 0.45, 0.1262, 0.0000, 1.000),
+    (0.45, 0.70, 0.1375, 0.0025, 0.874),
+    (0.70, 1.30, 0.0402, 0.1245, 0.434),
     (1.30, 1.50, 0.0000, 1.0933, 0.327),
-    (1.50, 1.75, 0.0219, 0.0282, 0.645),
+    (1.50, 1.75, 0.0217, 0.0282, 0.645),
     (1.75, 2.05, 0.0000, 1.1186, 0.216),
-    (2.05, 2.40, 0.0749, 0.0320, 0.843),
-    (2.40, 3.10, 0.7444, 0.9666, 0.560),
-    (3.10, 3.50, 0.1371, 0.5824, 0.457),
-    (3.50, 5.00, 0.4498, 0.0944, 0.808),
+    (2.05, 2.40, 0.0747, 0.0320, 0.843),
+    (2.40, 3.10, 0.7440, 0.9666, 0.560),
+    (3.10, 3.50, 0.1370, 0.5824, 0.457),
+    (3.50, 5.00, 0.4494, 0.0944, 0.808),
     (5.00, 7.50, 1.3543, 1.7850, 0.530),
     (7.50, 8.00, 0.9424, 0.9210, 0.673),
     (8.00, 9.40, 0.1494, 0.0992, 1.204),
@@ -222,16 +237,35 @@ def test_the_vis_and_nir_floors_are_off_the_zero_clamp() -> None:
 
 
 @pytest.mark.level0
-def test_the_uv_row_stays_clamped_because_the_aerosol_still_over_absorbs() -> None:
-    """0.30–0.45 µm keeps ``floor_od = 0`` — the clamp still binds there.
+def test_the_uv_row_carries_the_deficit_the_range_mismatch_used_to_mask() -> None:
+    """0.30–0.45 µm is off the clamp too — a CU-336 consequence, not CU-335's.
 
-    The generator measures ``OD0 = 0.768`` against a model non-water
-    ``0.859`` at 0.30–0.45 µm: even after the Rayleigh cut the rural-23
-    aerosol alone over-supplies the band, so ``floor_add`` clamps.  That
-    over-absorption is the separately-recorded VIS aerosol limitation,
-    not something a gas floor may cancel by going negative.
+    Under CU-335 this row read ``OD0 = 0.768`` against a model non-water
+    ``0.859`` and clamped, which was read at the time as the rural-23
+    aerosol over-supplying the band.  It was an artifact of *where* the
+    two numbers were measured: the tape7 grid starts at 0.374953 µm, so
+    ``OD0`` was always the 0.375–0.45 µm mean while the reference spanned
+    the whole 0.30–0.45 µm row — including 0.30–0.375 µm, where Rayleigh
+    alone is enormous.  Measured over the same interval the reference is
+    0.642, and the row carries a real 0.126 OD deficit.
     """
-    assert _region(0.30, 0.45).floor_od == 0.0
+    assert _region(0.30, 0.45).floor_od > 0.0
+
+
+@pytest.mark.level0
+def test_the_uv_and_vis_floors_are_continuous_across_the_045um_edge() -> None:
+    """0.30–0.45 and 0.45–0.70 µm now agree to 0.014 OD, where they differed by 0.16.
+
+    Whatever the short-λ deficit is — CU-337 says most of it is the
+    aerosol model, not gas chemistry — it is a smooth function of
+    wavelength, so a table that puts 0.0000 on one side of 0.45 µm and
+    0.1597 on the other is describing the measurement convention, not the
+    atmosphere.  The corrected grid removes that step, which is the
+    strongest physical evidence that the convention was the defect.
+    """
+    uv = _region(0.30, 0.45).floor_od
+    vis = _region(0.45, 0.70).floor_od
+    assert abs(vis - uv) < 0.02, f"0.45 µm edge still steps {uv} -> {vis}"
 
 
 # ----------------------------------------------------------------------
@@ -240,79 +274,95 @@ def test_the_uv_row_stays_clamped_because_the_aerosol_still_over_absorbs() -> No
 
 
 @pytest.mark.level0
-def test_no_floor_decreased_so_the_model_is_never_more_transmissive() -> None:
-    """Every moved floor moved up: τ falls or holds, never rises.
+def test_the_net_change_since_cu161_is_still_less_transmissive() -> None:
+    """Against the CU-161 vintage every floor is still up, bar the MWIR tail.
 
-    Correcting an over-estimated Rayleigh term removes opacity the
-    model was supplying for free, and the fit hands the same opacity
-    back through the floor.  A floor that *fell* would mean the re-fit
-    had found the old model under-absorbing, which contradicts the
-    sign of the CU-253 correction.
+    CU-335 handed back the opacity an over-large Rayleigh term had been
+    supplying for free, so its floors could only rise.  CU-336 then took
+    some of that back — the mixed-grid offsets — so the *composed* change
+    is no longer monotone.  It is still one-signed everywhere that
+    matters: only 3.50–5.00 µm ends below its CU-161 value, by 0.0003 OD,
+    which is inside the Rayleigh-tail bound the next test pins.
     """
-    for region in _CALIBRATED_GAS_REGIONS:
-        before = FLOOR_BEFORE[(region.lo_um, region.hi_um)]
-        assert region.floor_od >= before, (
-            f"{region.lo_um}–{region.hi_um} µm floor fell {before} → {region.floor_od}"
-        )
+    fell = {
+        (r.lo_um, r.hi_um): (FLOOR_BEFORE[(r.lo_um, r.hi_um)], r.floor_od)
+        for r in _CALIBRATED_GAS_REGIONS
+        if r.floor_od < FLOOR_BEFORE[(r.lo_um, r.hi_um)]
+    }
+    assert set(fell) == {(3.50, 5.00)}, f"unexpected rows below their CU-161 value: {fell}"
+    assert FLOOR_BEFORE[(3.50, 5.00)] - _region(3.50, 5.00).floor_od < 1.05e-3
 
 
 @pytest.mark.level0
 @pytest.mark.parametrize(
-    ("band", "predicted"),
+    ("band", "cu335_value", "measured_offset"),
     [
-        ((0.45, 0.70), 0.1597),
-        ((0.70, 1.30), 0.0517),
+        ((0.45, 0.70), 0.1597, 0.0222),
+        ((0.70, 1.30), 0.0517, 0.0114),
     ],
 )
-def test_the_vis_nir_floors_land_where_cu330_predicted(
-    band: tuple[float, float], predicted: float
+def test_the_vis_nir_floors_come_down_by_the_measured_grid_offset(
+    band: tuple[float, float], cu335_value: float, measured_offset: float
 ) -> None:
-    """CU-330 measured these two floors before CU-335 was authorised.
+    """CU-336's whole claim, as arithmetic on two independently-measured numbers.
 
-    The 2026-08-29 generator repair printed 0.1597 and 0.0517 for the
-    two rows and recorded them in the CU-335 entry as the expected
-    landing point.  Re-deriving them a day later on the same ladder
-    must reproduce them, or the ladder or the model moved underneath
-    the measurement.
+    CU-335 shipped these rows at 0.1597 and 0.0517 and recorded, as its
+    residual, exactly how much of that was the mixed-grid artifact:
+    +0.0222 OD at 0.45–0.70 µm and +0.0114 at 0.70–1.30 µm, measured by
+    evaluating the same non-water reference on both grids.  Correcting
+    the convention must therefore land the floors at ``cu335_value −
+    offset`` and nowhere else — if it lands somewhere else, the fix
+    changed something besides the grid.
+
+    Tolerance is the rounding the three published 4-decimal quantities
+    carry between them (±1.5e-4): the NIR row lands at 0.0402 against a
+    0.0517 − 0.0114 = 0.0403 arithmetic, because the offset's own fourth
+    decimal is 0.01145 rounded down.
     """
-    assert _region(*band).floor_od == pytest.approx(predicted, abs=5.0e-5)
+    assert _region(*band).floor_od == pytest.approx(cu335_value - measured_offset, abs=1.5e-4)
 
 
 @pytest.mark.level0
 def test_the_mwir_rows_move_only_by_the_rayleigh_tail() -> None:
     """2.40–5.00 µm moves, but by ≤ 0.001 OD — the $\\lambda^{-4}$ tail.
 
-    These three rows are *not* bit-identical across the re-fit, which
-    the CU-335 charter did not anticipate.  The motion is real and it is
-    tiny: Rayleigh's vertical OD is ~$3\\times10^{-4}$ at 2.4 µm and
-    ~$4\\times10^{-5}$ at 4 µm, so removing 7/8 of it leaves a few parts
-    in ten thousand of optical depth to reassign to the floor.  At
-    0.001 OD the induced τ change is 0.1 %, below every golden tolerance
-    in the suite.  Pinned as a bound so a future re-fit that moves them
-    by more than the tail cannot pass silently.
+    These three rows are *not* bit-identical across CU-335 + CU-336,
+    which the CU-335 charter did not anticipate.  The motion is real and
+    it is tiny: Rayleigh's vertical OD is ~$3\\times10^{-4}$ at 2.4 µm and
+    ~$4\\times10^{-5}$ at 4 µm, so an 8× correction to it — and a re-grid
+    of the band mean that measures it — leaves a few parts in ten
+    thousand of optical depth to reassign to the floor.  At 0.001 OD the
+    induced τ change is 0.1 %, below every golden tolerance in the suite.
+    Signed both ways now: CU-336 moved 2.40–3.10 and 3.10–3.50 µm down by
+    0.0004 and 0.0001 from their CU-335 values and 3.50–5.00 µm down by
+    0.0004, which is what puts the last of the three under its CU-161
+    value.  Pinned as a magnitude bound so a future re-fit that moves
+    them by more than the tail cannot pass silently.
     """
     for lo_um, hi_um in ((2.40, 3.10), (3.10, 3.50), (3.50, 5.00)):
         delta = _region(lo_um, hi_um).floor_od - FLOOR_BEFORE[(lo_um, hi_um)]
-        assert 0.0 < delta <= 1.05e-3, f"{lo_um}–{hi_um} µm moved {delta:+.4f}, not a Rayleigh tail"
+        assert abs(delta) <= 1.05e-3, f"{lo_um}–{hi_um} µm moved {delta:+.4f}, not a Rayleigh tail"
 
 
 @pytest.mark.level0
-def test_the_vis_floor_dominates_the_change() -> None:
-    """0.45–0.70 µm carries 62 % of the total floor motion in the table.
+def test_the_two_visible_rows_dominate_the_change() -> None:
+    """0.30–0.70 µm carries 83 % of the total floor motion in the table.
 
-    Rayleigh's $\\lambda^{-4}$ makes the correction overwhelmingly a
-    visible-band effect; the ordering (VIS > NIR > SWIR > MWIR > 0) is
-    the signature that this re-fit followed a Rayleigh change and not,
-    say, a change to the water ladder.
+    Rayleigh's $\\lambda^{-4}$ makes both the CU-253 correction and the
+    grid-weighting artifact overwhelmingly short-wavelength effects, so
+    the two visible rows must dominate and the ordering must fall away
+    monotonically with wavelength.  A table whose largest motion sat in
+    the SWIR would mean something other than Rayleigh had moved.
     """
     moved = {
         (r.lo_um, r.hi_um): r.floor_od - FLOOR_BEFORE[(r.lo_um, r.hi_um)]
         for r in _CALIBRATED_GAS_REGIONS
     }
     total = sum(moved.values())
-    assert moved[(0.45, 0.70)] / total > 0.6
-    assert moved[(0.45, 0.70)] > moved[(0.70, 1.30)] > moved[(1.50, 1.75)]
-    assert moved[(1.50, 1.75)] > moved[(2.05, 2.40)] > moved[(2.40, 3.10)]
+    assert (moved[(0.30, 0.45)] + moved[(0.45, 0.70)]) / total > 0.8
+    assert moved[(0.45, 0.70)] > moved[(0.30, 0.45)] > moved[(0.70, 1.30)]
+    assert moved[(0.70, 1.30)] > moved[(1.50, 1.75)] > moved[(2.05, 2.40)]
+    assert moved[(2.05, 2.40)] > moved[(2.40, 3.10)] > moved[(3.50, 5.00)]
 
 
 @pytest.mark.level0
@@ -388,15 +438,16 @@ def test_the_floor_is_continuous_across_every_edge(edge_um: float) -> None:
 
 @pytest.mark.level0
 def test_the_070um_edge_carries_the_new_arithmetic_mean_floor() -> None:
-    """Hand anchor: floor at 0.70 µm is (0.1597 + 0.0517)/2 = 0.1057.
+    """Hand anchor: floor at 0.70 µm is (0.1375 + 0.0402)/2 = 0.08885.
 
-    Before CU-335 this same hand value was (0.0 + 0.0)/2 = 0.0 — the
-    docstring anchor in ``test_gas_region_blend.py`` says so.  The edge
-    is the one place the two re-fitted rows meet, so it is the sharpest
+    Before CU-335 this same hand value was (0.0 + 0.0)/2 = 0.0 and after
+    it (0.1597 + 0.0517)/2 = 0.1057 — the docstring anchor in
+    ``test_gas_region_blend.py`` tracks the same number.  The edge is the
+    one place the two re-fitted rows meet, so it is the sharpest
     single-number statement that both moved.
     """
     floor, _k, _b = _coeffs(np.array([0.70]))
-    assert float(floor[0]) == pytest.approx(0.1057, rel=1e-12, abs=1e-15)
+    assert float(floor[0]) == pytest.approx(0.08885, rel=1e-12, abs=1e-15)
 
 
 @pytest.mark.level0

@@ -2,7 +2,7 @@
 
 **Status:** Draft
 **Owner trigger:** 2026-09-01 — "OLI is the perfect test case. What all needs to be updated?" after scenario 9.4's 8-band study hit both v1 limits on the first flagship use.
-**Ratified inputs:** cap 8 → **12** (owner, 2026-09-01). **Open for ratification:** the override mechanism (§3a) and the GUI Elements-tab scope (§4a).
+**Ratified inputs (all decisions closed, owner 2026-09-01):** cap 8 → **12**; override mechanism = **replace-by-name** (§3a); Elements-tab scope = **full per-configuration editing** (§4a). Ready for execution.
 **Delivers:** Gap 103 (per-configuration prescriptions, DEFERRED → PLANNED with this document); the ADR-0010 D-E cap amendment; scenario 9.4 as the acceptance showcase — all nine OLI-2 bands in one study file.
 
 ---
@@ -38,12 +38,12 @@ in three test files, documented in four docs.
 
 Gate: full battery (touches `api/` + `io/` + `gui/`).
 
-## 3. Phase 2 — per-configuration optical elements (Gap 103 v1.1) (effort M)
+## 3. Phase 2 — per-configuration optical elements (Gap 103 v1.1) (effort M–L: full GUI authoring included per §4a)
 
-### 3a. The one open design decision — override mechanism
+### 3a. Override mechanism — RATIFIED: replace-by-name (owner, 2026-09-01)
 
 The `configurations:` section gains an `optical_elements:` sub-key mapping member name →
-override. Three candidate semantics; **recommendation: replace-by-name**.
+override. Three candidates were considered; the owner ratified **replace-by-name** (1).
 
 1. **Replace-by-name (recommended).** An override is a list of complete element entries;
    each entry **replaces** the shared-document entry with the same `name`. A name with no
@@ -114,19 +114,27 @@ acceptance signature; this working mode is how each iteration earns the right to
 it — no user-visible GUI change merges unseen (the CU-332→333 lesson: offscreen asserts
 verify structure, not "looks right").
 
-### 4a. Elements-tab scope in a study (open decision)
+### 4a. Elements-tab scope — RATIFIED: full per-configuration editing (owner, 2026-09-01)
 
-What does the Elements tab show/edit once trains can differ per configuration?
+The owner ratified the larger scope: overrides are **authorable in the GUI**, not just
+visible. Design (executor + live review refine the details):
 
-- **v1.1 recommended scope:** the tab renders the **active configuration's effective
-  train**; rows swapped in by an override carry an "overridden — <configuration>" badge.
-  **Apply keeps editing the shared document only** (today's behavior, unchanged); authoring
-  an override happens in YAML / scripting for now, and a follow-up gap tracks full override
-  editing in the GUI. Cheap, honest, and the coating-detail pane (Gap 116) automatically
-  shows the effective per-band filter.
-- Alternative (larger): a per-configuration edit mode on the tab (scope selector shared vs
-  this-configuration), mirroring ADR-0010 D-8 inline-edit semantics. Defer unless the
-  YAML-first workflow proves painful.
+- **Study sessions gain a scope control on the Elements tab**: "Editing: shared train /
+  this configuration (<name>)" — mirroring ADR-0010 D-8's displayed-configuration edit
+  semantics. Plain single-model sessions see no control and are pixel-for-pixel unchanged
+  (the Phase-4d zero-regression pattern).
+- **Shared mode** (default): today's behavior — the table edits the shared document; rows
+  overridden by the *active* configuration render with an "overridden" badge so a shared
+  edit that an override masks is never a silent surprise.
+- **This-configuration mode**: the table shows the active configuration's **effective
+  train**; Apply computes the per-element diff against the shared document and commits it
+  as that configuration's replace-by-name override list (one API call —
+  `set_element_override`); a row identical to its shared entry stores no override. A
+  badged row carries a **"revert to shared"** affordance (`clear_element_override` when
+  the last override row for that member reverts).
+- **Coating detail (Gap 116)** follows the effective element in both modes.
+- Undo: element-document commits are non-scalar edits and stay outside the undo stack
+  (the documented `ELEMENT_EDIT_PATH` limitation, unchanged in scope here).
 
 ### 4b. Phase 1 GUI — the 12-configuration authoring and reading workflow
 
@@ -157,6 +165,10 @@ active configuration, override badge, re-render on configuration switch (the tab
 | Apply on the shared document while overrides exist preserves the overrides (no silent clobber) | `test_config_set.py` + a window-level case |
 | A member's invalid override is that member's failure: named in `radiant validate` and attributed in Messages, never a modal for a non-displayed configuration | extend the Phase-4a failure-attribution tests |
 | Evaluate-all runs every member with its own train (different filter ⇒ provably different SNR column) | window-level matrix assertion on a two-member override study |
+| **Authoring in the GUI**: scope control appears only in a study; switch to this-configuration mode, edit the filter row, Apply → `sensor_for(active)` uses the override and the file round-trips it | new study-window authoring test (`test_element_editor.py`) |
+| Revert-to-shared on a badged row clears the override (last row reverting clears the member's entry entirely) | same class |
+| Shared-mode Apply with overrides present: badges persist, overrides untouched, and the shared edit shows through in members that don't override that element | same class |
+| Single-model session: no scope control, byte-identical editor behavior (zero-regression) | extend the existing editor tests |
 
 ### 4d. Phase 3 GUI — end-to-end acceptance on the real scenario
 
@@ -195,7 +207,7 @@ active configuration, override badge, re-render on configuration switch (the tab
 Phase 1 and Phase 2 are independent PRs (1 does not block 2, but the showcase needs both).
 Each phase: one branch, full battery (api/io/gui surfaces), lock-step docs in the same PR,
 merge, push. Phase 3 is scenario + docs (scenario gates). Estimated: Phase 1 ≈ half a day;
-Phase 2 ≈ 1–2 days including tests; Phase 3 ≈ half a day.
+Phase 2 ≈ 2–3 days including tests and the §4a authoring UI; Phase 3 ≈ half a day.
 
 ## 7. Risks and watch items
 
@@ -217,7 +229,7 @@ Phase 2 ≈ 1–2 days including tests; Phase 3 ≈ half a day.
 | Decision | State |
 |---|---|
 | Cap value = 12 | **Ratified** (owner, 2026-09-01) |
-| Override mechanism (§3a) — replace-by-name recommended | **Open** — ratify before Phase 2 starts |
-| GUI Elements-tab scope (§4a) — effective-train + badge, shared-only Apply recommended | **Open** — ratify before Phase 2 starts |
+| Override mechanism (§3a) = replace-by-name | **Ratified** (owner, 2026-09-01) |
+| GUI Elements-tab scope (§4a) = full per-configuration editing (scope control, diff-based Apply, revert-to-shared) | **Ratified** (owner, 2026-09-01 — larger than the recommended minimal scope, deliberately) |
 | GUI verification model — three layers per phase (§4b–4d), owner walkthrough as plan acceptance | Set by this revision (2026-09-01, owner-directed) |
 | Per-iteration live review loop (§4 working mode) — launch from branch on the owner's machine before merge; battery after approval | **Ratified** (owner, 2026-09-01) |

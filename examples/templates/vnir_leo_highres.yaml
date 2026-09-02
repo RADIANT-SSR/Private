@@ -1,0 +1,35 @@
+# RADIANT template: vnir_leo_highres
+# High-resolution VNIR from LEO — 0.50m aperture, 0.45–0.70 µm
+# Panchromatic high-GSD imaging satellite.
+
+source:
+  target:
+    temperature: 300.0        # K (ground target)
+    emissivity: 0.10
+
+atmosphere:
+  standard_atmosphere: midlat_summer
+
+geometry:
+  sensor_altitude_m: 600000.0  # m (600 km LEO)
+
+optics:
+  aperture_diameter_m: 0.50   # m
+  focal_length_m: 5.00        # m  (f/10)
+  transmission_scalar: 0.75
+
+detector:
+  pixel_pitch_x_um: 8.0       # µm
+  pixel_pitch_y_um: 8.0       # µm
+  qe_value: 0.80
+  dark_rate_e_per_s: 15.0     # e-/s
+
+spectral_integration:
+  filter_min_um: 0.45          # µm
+  filter_max_um: 0.70          # µm
+  integration_time_s: 0.0005   # s  (0.5 ms)
+
+readout:
+  read_noise_e_rms: 4.0       # e- RMS
+  gain_e_per_dn: 1.0          # e-/DN
+  adc_bits: 12

@@ -15,8 +15,10 @@ contract, enforced here so it cannot rot:
 * the headline SNR is finite and positive (a representative scenario, not a
   degenerate one).
 
-The set superseded the legacy Phase-2E band/platform starters (owner ruling
-2026-08-31, Rule 27 — git history is the archive).
+Only metadata-carrying files are mission templates; the Phase-2E band/platform
+configs sharing the directory are the source-inferrer golden corpus (CU-338
+tracks their relocation to a fixtures home) and are exempt from this bar —
+the welcome screen's discovery filter already excludes them.
 """
 
 from __future__ import annotations
@@ -34,10 +36,14 @@ while not (_REPO / "pyproject.toml").exists():
     _REPO = _REPO.parent
 _TEMPLATES = _REPO / "examples" / "templates"
 
-TEMPLATE_PATHS = sorted(_TEMPLATES.glob("*.yaml"))
+def _is_mission_template(path: Path) -> bool:
+    return bool(read_radiant_meta(path).get("template"))
+
+
+TEMPLATE_PATHS = sorted(p for p in _TEMPLATES.glob("*.yaml") if _is_mission_template(p))
 
 # The welcome screen needs a non-degenerate card set; the brief ships six.
-_MIN_TEMPLATES = 3
+_MIN_TEMPLATES = 6  # the brief ships six
 
 
 def test_the_template_set_exists() -> None:

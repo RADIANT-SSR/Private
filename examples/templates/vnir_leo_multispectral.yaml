@@ -1,0 +1,35 @@
+# RADIANT template: vnir_leo_multispectral
+# VNIR multispectral from LEO — 0.30m aperture, 0.5–0.9 µm
+# Landsat-class moderate-resolution land imaging.
+
+source:
+  target:
+    temperature: 300.0        # K (ground target)
+    emissivity: 0.10
+
+atmosphere:
+  standard_atmosphere: midlat_summer
+
+geometry:
+  sensor_altitude_m: 705000.0  # m (705 km)
+
+optics:
+  aperture_diameter_m: 0.30   # m
+  focal_length_m: 1.50        # m  (f/5.0)
+  transmission_scalar: 0.78
+
+detector:
+  pixel_pitch_x_um: 12.0      # µm
+  pixel_pitch_y_um: 12.0      # µm
+  qe_value: 0.82
+  dark_rate_e_per_s: 20.0     # e-/s
+
+spectral_integration:
+  filter_min_um: 0.5           # µm
+  filter_max_um: 0.9           # µm
+  integration_time_s: 0.002    # s
+
+readout:
+  read_noise_e_rms: 5.0       # e- RMS
+  gain_e_per_dn: 1.0          # e-/DN
+  adc_bits: 12

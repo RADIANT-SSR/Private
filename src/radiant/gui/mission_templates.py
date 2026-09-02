@@ -89,9 +89,9 @@ def discover_templates(directory: Path | None = None) -> tuple[TemplateInfo, ...
             logger.warning("mission template %s unreadable, skipped: %s", path.name, exc)
             continue
         if not isinstance(meta, dict) or not meta.get("name"):
-            logger.warning(
-                "mission template %s carries no _radiant.template.name, skipped", path.name
-            )
+            # Expected for the inferrer-corpus files sharing the directory
+            # (CU-338): not templates, silently invisible to the welcome screen.
+            logger.debug("config %s carries no _radiant.template metadata, skipped", path.name)
             continue
         tune_next = meta.get("tune_next") or ()
         found.append(

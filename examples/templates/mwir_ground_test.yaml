@@ -1,0 +1,35 @@
+# RADIANT template: mwir_ground_test
+# Ground-based MWIR test bench — 0.05m aperture, 3.5–5.0 µm
+# Lab/range testing: short range, controlled conditions.
+
+source:
+  target:
+    temperature: 350.0        # K (heated test target)
+    emissivity: 0.95
+
+atmosphere:
+  standard_atmosphere: midlat_summer
+
+geometry:
+  sensor_altitude_m: 100.0    # m (100 m range)
+
+optics:
+  aperture_diameter_m: 0.05   # m
+  focal_length_m: 0.10        # m  (f/2.0)
+  transmission_scalar: 0.80
+
+detector:
+  pixel_pitch_x_um: 15.0      # µm
+  pixel_pitch_y_um: 15.0      # µm
+  qe_value: 0.72
+  dark_rate_e_per_s: 100.0    # e-/s
+
+spectral_integration:
+  filter_min_um: 3.5           # µm
+  filter_max_um: 5.0           # µm
+  integration_time_s: 0.010    # s
+
+readout:
+  read_noise_e_rms: 5.0       # e- RMS
+  gain_e_per_dn: 1.0          # e-/DN
+  adc_bits: 16

@@ -1,0 +1,49 @@
+# RADIANT mission template — Lab Blackbody Calibration
+# Karen's bench: the sensor stares at an extended calibration blackbody across
+# a short horizontal lab path (negligible atmosphere at 5 m), predicting NEDT
+# for comparison against measurement. 350 K cavity blackbody (ε 0.99), the
+# same reference MWIR chain as the flight templates so lab-vs-flight deltas
+# isolate the scene, not the instrument.
+_radiant:
+  format: 1
+  template:
+    name: "Lab Blackbody Calibration"
+    blurb: "Bench NEDT prediction: extended cavity blackbody across a 5 m lab path."
+    specs: "MWIR 3.5–5 µm · 5 m horizontal path · extended blackbody"
+    tune_next:
+      - source.target.temperature
+      - detector.detector_temperature_K
+      - spectral_integration.integration_time_s
+      - readout.read_noise_e_rms
+      - detector.qe_value
+atmosphere:
+  model: simple
+  standard_atmosphere: midlat_summer
+detector:
+  dark_rate_e_per_s: 100.0
+  detector_temperature_K: 80.0
+  pixel_pitch_x_um: 18.0
+  pixel_pitch_y_um: 18.0
+  qe_value: 0.70
+geometry:
+  sensor_altitude_m: 100.0   # m — a bench above MSL keeps the level-path chord clean
+  target_altitude_m: 100.0
+  target_range_m: 5.0
+optics:
+  aperture_diameter_m: 0.30
+  focal_length_m: 1.20
+  transmission_scalar: 0.70
+readout:
+  adc_bits: 16
+  full_well_capacity_e: 2000000.0
+  gain_e_per_dn: 32.0
+  read_noise_e_rms: 5.0
+source:
+  scene_type: extended
+  target:
+    emissivity: 0.99
+    temperature: 350.0
+spectral_integration:
+  filter_min_um: 3.5
+  filter_max_um: 5.0
+  integration_time_s: 0.001

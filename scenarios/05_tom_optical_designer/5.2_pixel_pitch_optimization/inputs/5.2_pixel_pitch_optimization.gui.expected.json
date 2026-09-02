@@ -2,8 +2,8 @@
   "id": "5.2",
   "title": "Pixel-pitch sweep \u2014 mid pixel-pitch baseline",
   "metrics": {
-    "snr": 553.595549522671,
-    "nedt_K": 0.0539975873021172,
+    "snr": 553.6761593619377,
+    "nedt_K": 0.053989599093692935,
     "niirs": null
   },
   "notes": "Middle pixel-pitch row of the sweep (transcribes the loop body). GUI baseline shortens integration to 1 ms (well ~52% vs clipping at the runner's 2 ms) and uses a well-matched gain (32 e-/DN) so the 14-bit ADC no longer clips (CU-170)."

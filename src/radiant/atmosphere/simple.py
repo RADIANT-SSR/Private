@@ -202,13 +202,13 @@ HG_ASYMMETRY: float = 0.7
 # rural 23 km, H₂O ×0.5/×1/×2, 2026-07-17 run set), cross-validated
 # against the five other standard-profile anchors in the water-relevant
 # windows. Regions where the pre-existing Rayleigh+aerosol terms already
-# meet or exceed the measured floor (the 0.30–0.45 µm row — the rural-23
-# aerosol there over-absorbs, see scenario 3.4's validation note) get
-# floor_od = 0, never negative.
+# meet or exceed the measured floor get floor_od = 0, never negative
+# (today only the two saturated water bands 1.30–1.50 and 1.75–2.05 µm,
+# where the closed form refits floor-free).
 #
 # Vintage (Rule 26 — the generator is named above; what differs is *when*
 # each row was last run through it): the whole table is one vintage,
-# regenerated 2026-08-30 (CU-335) from a single generator run. Two
+# regenerated 2026-09-01 (CU-336) from a single generator run. Three
 # earlier re-fits are folded into it and reproduce bit-for-bit:
 #
 # - CU-330 (2026-08-29) split the former single 8.00–10.00 µm row — one
@@ -230,16 +230,30 @@ HG_ASYMMETRY: float = 0.7
 #   0.0517, 1.50–1.75 µm 0.0133 → 0.0219, 2.05–2.40 µm 0.0725 → 0.0749,
 #   and ≤ 0.001 at 2.40–5.00 µm (the Rayleigh λ⁻⁴ tail). Every row from
 #   5.00 µm up, including CU-330's three, is bit-identical.
+# - CU-336 (2026-09-01) fixed the calibration convention CU-335 recorded
+#   as a residual: ``floor_add`` is a difference of two band ODs, and the
+#   non-water reference was measured on a uniform-λ grid while the
+#   ladder's band OD comes off the tape7 grid, which is uniform in
+#   wavenumber (1 cm⁻¹, Δλ ∝ λ²). For the λ⁻⁴-steep Rayleigh term the two
+#   weightings disagree, always toward an over-large floor, and the
+#   generator now evaluates the reference on the tape7 grid itself.
+#   ``k_h2o``/``b_h2o`` again bit-identical on all seventeen rows.
+#   Floors: 0.45–0.70 µm 0.1597 → 0.1375 (−0.0222) and 0.70–1.30 µm
+#   0.0517 → 0.0402 (−0.0115) — exactly the offsets CU-335 measured —
+#   with ≤ 0.0004 at 1.50–5.00 µm and bit-identity from 5.00 µm up.
+#   The same convention removed a *coverage* mismatch in the first row:
+#   the tape7 grid starts at 0.374953 µm, so the measured 0.30–0.45 µm OD
+#   was always the 0.375–0.45 µm mean while the reference spanned the
+#   full region including 0.30–0.375 µm, where Rayleigh alone is
+#   enormous. The inflated reference is what held that row at the zero
+#   clamp; on the shared grid it reads 0.0000 → 0.1262, which lands
+#   within 0.014 OD of the 0.45–0.70 µm floor and so replaces an
+#   artificial 0.16 OD step at the 0.45 µm edge with the continuous
+#   short-λ deficit CU-337 is about.
 #
-# Known residual (CU-335, recorded not tuned): ``floor_add`` is defined
-# against a non-water reference the generator measures on a uniform-λ
-# grid, while the ladder's band OD comes off the tape7 grid, which is
-# uniform in wavenumber. Where the spectrum is steep the two band means
-# differ, and the difference lands in the floor: +0.022 OD at
-# 0.45–0.70 µm, +0.011 at 0.70–1.30 µm, ≤ 0.0004 beyond 1.3 µm. That is
-# why 0.70–1.30 µm band-mean τ parity moves slightly the wrong way while
-# the visible improves 5.3×. Fixing it means changing CU-161's
-# calibration convention, which is a new calibration, not a re-run.
+# Known limitation (CU-336, recorded not tuned): the 0.30–0.45 µm row is
+# fitted from 0.375–0.45 µm — the delivered decks carry no data below
+# 0.374953 µm — and applied across the whole region.
 @dataclass(frozen=True)
 class _GasRegion:
     lo_um: float
@@ -250,16 +264,16 @@ class _GasRegion:
 
 
 _CALIBRATED_GAS_REGIONS: tuple[_GasRegion, ...] = (
-    _GasRegion(lo_um=0.30, hi_um=0.45, floor_od=0.0000, k_h2o=0.0000, b_h2o=1.000),
-    _GasRegion(lo_um=0.45, hi_um=0.70, floor_od=0.1597, k_h2o=0.0025, b_h2o=0.874),
-    _GasRegion(lo_um=0.70, hi_um=1.30, floor_od=0.0517, k_h2o=0.1245, b_h2o=0.434),
+    _GasRegion(lo_um=0.30, hi_um=0.45, floor_od=0.1262, k_h2o=0.0000, b_h2o=1.000),
+    _GasRegion(lo_um=0.45, hi_um=0.70, floor_od=0.1375, k_h2o=0.0025, b_h2o=0.874),
+    _GasRegion(lo_um=0.70, hi_um=1.30, floor_od=0.0402, k_h2o=0.1245, b_h2o=0.434),
     _GasRegion(lo_um=1.30, hi_um=1.50, floor_od=0.0000, k_h2o=1.0933, b_h2o=0.327),
-    _GasRegion(lo_um=1.50, hi_um=1.75, floor_od=0.0219, k_h2o=0.0282, b_h2o=0.645),
+    _GasRegion(lo_um=1.50, hi_um=1.75, floor_od=0.0217, k_h2o=0.0282, b_h2o=0.645),
     _GasRegion(lo_um=1.75, hi_um=2.05, floor_od=0.0000, k_h2o=1.1186, b_h2o=0.216),
-    _GasRegion(lo_um=2.05, hi_um=2.40, floor_od=0.0749, k_h2o=0.0320, b_h2o=0.843),
-    _GasRegion(lo_um=2.40, hi_um=3.10, floor_od=0.7444, k_h2o=0.9666, b_h2o=0.560),
-    _GasRegion(lo_um=3.10, hi_um=3.50, floor_od=0.1371, k_h2o=0.5824, b_h2o=0.457),
-    _GasRegion(lo_um=3.50, hi_um=5.00, floor_od=0.4498, k_h2o=0.0944, b_h2o=0.808),
+    _GasRegion(lo_um=2.05, hi_um=2.40, floor_od=0.0747, k_h2o=0.0320, b_h2o=0.843),
+    _GasRegion(lo_um=2.40, hi_um=3.10, floor_od=0.7440, k_h2o=0.9666, b_h2o=0.560),
+    _GasRegion(lo_um=3.10, hi_um=3.50, floor_od=0.1370, k_h2o=0.5824, b_h2o=0.457),
+    _GasRegion(lo_um=3.50, hi_um=5.00, floor_od=0.4494, k_h2o=0.0944, b_h2o=0.808),
     _GasRegion(lo_um=5.00, hi_um=7.50, floor_od=1.3543, k_h2o=1.7850, b_h2o=0.530),
     _GasRegion(lo_um=7.50, hi_um=8.00, floor_od=0.9424, k_h2o=0.9210, b_h2o=0.673),
     # CU-330: the former single 8.00–10.00 µm row split at the measured

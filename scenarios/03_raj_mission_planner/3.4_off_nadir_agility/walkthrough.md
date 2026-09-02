@@ -76,16 +76,21 @@ angle:
 
 | Metric | Value | Unit | Notes |
 |--------|-------|------|-------|
+<<<<<<< HEAD
 | NEDT | 66.0 | mK | Noise-equivalent delta temperature |
 | NIIRS | 5.32 | -- | GIQE-5, extrapolated (see banner); nadir point of the sweep |
+=======
+| NEDT | 64.0 | mK | Noise-equivalent delta temperature |
+| NIIRS | 5.35 | -- | GIQE-5 (nadir only) |
+>>>>>>> 26245007
 | GSD (RADIANT) | 1.37 | m | Nadir, cross-track |
 | Q (center) | 0.844 | -- | Slightly undersampled |
 | Q (min/max) | 0.562 / 1.125 | -- | Over band |
 | Strehl | 0.9065 | -- | Near diffraction-limited |
 | RER | 0.5372 | -- | Relative edge response |
 | EE(1x1) | 0.3634 | -- | |
-| Well margin | 27.6 | dB | |
-| Dynamic range | 62.8 | dB | |
+| Well margin | 26.9 | dB | |
+| Dynamic range | 62.4 | dB | |
 | Folded MTF@Ny | 0.4544 | -- | ≈ 2× the pre-sampling MTF at Nyquist; alias fraction 0.5000 |
 | MTF budget | See table | -- | Per-component decomposition |
 
@@ -104,18 +109,18 @@ angle:
 
 | Source | Value [e-] |
 |--------|-----------|
-| Signal shot | 57.81 |
+| Signal shot | 60.14 |
 | Dark shot | 0.12 |
 | Read noise | 6.00 |
 | Quantization | 1.44 |
 | Nearfield shot | 0.00 |
 
-*Signal shot refreshed 2026-08-31 from the unmodified runner: 86.98 → 57.81 e⁻.
-This table was the one **CU-335** missed — the re-fit dropped nadir band-mean τ
-0.7243 → 0.6488 and with it the signal, so `signal_shot ∝ √signal` fell in step
-with the SNR (86.8 → 57.5) that the sweep table below already records. The three
-signal-independent terms are untouched, which is the check that this is the same
-radiometric mover and nothing detector-side.*
+*Signal shot refreshed 2026-09-01 from the unmodified runner: 57.81 → 60.14 e⁻,
+tracking `signal_shot ∝ √signal` with the SNR (57.5 → 59.8) the sweep table below
+records under **CU-336**. The three signal-independent terms are untouched, which
+is the check that this is the same radiometric mover and nothing detector-side.
+The 2026-08-31 refresh before it caught the table up on **CU-335**
+(86.98 → 57.81 e⁻), which that sweep had missed.*
 
 Note: there is **no separate background_shot term** — this extended scene is one
 radiance field, so its shot noise is `signal_shot` alone (ADR-0002 Decision #13).
@@ -144,35 +149,39 @@ along-track GSD is 2.94 m (+114%).
 
 ### Performance Sweep
 
-*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
-2026-08-02). Sole mover: **CU-335** — the calibrated gas table's 0.45–0.70 and
-0.70–1.30 µm well-mixed floors had been fitted against a pre-CU-253 Rayleigh
-optical depth ~8× too large and so clamped to zero; the re-fit sets them to
-0.1597 and 0.0517. Nadir band-mean τ on this 450–900 nm band falls
-0.7243 → 0.6488 (−10.4 %), **SNR falls ~34 %** (nadir 86.8 → 57.5), NEDT rises
-with it (46.5 → 66.0 mK) and NIIRS follows through the GIQE-5 SNR term
-(5.60 → 5.32 at nadir, 4.71 → 4.42 at 45°). The geometry columns (slant range,
-air mass, ground range, GSD) are bit-identical. Both structural conclusions
-hold: SNR still *rises* with off-nadir angle (57.5 → 68.7, +19.6 %) because the
-growing ground footprint outruns the path loss, and the NIIRS penalty at 45° is
-still −0.90. The MODTRAN comparison below improves — the τ ratio error at 45°
-falls from +4.0 % to −0.5 %.*
+*Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
+2026-08-30). Sole mover: **CU-336** — the same fit's grid convention was
+corrected. `floor_add` had been subtracting a non-water reference measured on a
+uniform-λ grid from a ladder optical depth measured on MODTRAN's wavenumber
+grid, so the CU-335 floors came out high; corrected they read 0.1375 and 0.0402.
+Nadir band-mean τ on this 450–900 nm band rises 0.6488 → 0.6594 (+1.6 %),
+**SNR rises ~4 %** (nadir 57.5 → 59.8), NEDT falls with it (66.0 → 64.0 mK) and
+NIIRS follows through the GIQE-5 SNR term (5.32 → 5.35 at nadir, 4.42 → 4.45 at
+45°). The geometry columns (slant range, air mass, ground range, GSD) are
+bit-identical. Both structural conclusions hold: SNR still *rises* with
+off-nadir angle (59.8 → 71.6, +19.8 %) because the growing ground footprint
+outruns the path loss, and the NIIRS penalty at 45° is still −0.90.*
+
+*Prior vintage, 2026-08-30. **CU-335** put those two floors on the table for the
+first time (0.1597 / 0.0517, against a pre-CU-253 Rayleigh ~8× too large that
+had clamped them to zero): nadir τ fell 0.7243 → 0.6488 (−10.4 %), SNR ~34 %
+(86.8 → 57.5), NEDT rose 46.5 → 66.0 mK and NIIRS 5.60 → 5.32 at nadir.*
 
 *Prior vintage, for the trend: the 2026-08-02 refresh was dominated by CU-253
 (nadir τ 0.4903 → 0.7243, SNR −27 %) with CU-267 −0.12 % underneath.*
 
 | Angle [deg] | Tau (mean) | SNR   | GSD GM [m] | NIIRS (corr) | NEDT [mK] | dNIIRS |
 |-------------|------------|-------|------------|--------------|-----------|--------|
-| 0           | 0.6488     | 57.5  | 1.37       | 5.32         | 66.0      | 0.00   |
-| 5           | 0.6477     | 58.7  | 1.38       | 5.33         | 64.6      | +0.00  |
-| 10          | 0.6445     | 60.0  | 1.40       | 5.31         | 63.2      | -0.02  |
-| 15          | 0.6392     | 61.3  | 1.45       | 5.26         | 61.9      | -0.06  |
-| 20          | 0.6314     | 62.5  | 1.51       | 5.20         | 60.7      | -0.12  |
-| 25          | 0.6210     | 63.8  | 1.59       | 5.11         | 59.5      | -0.22  |
-| 30          | 0.6078     | 65.0  | 1.71       | 4.99         | 58.4      | -0.34  |
-| 35          | 0.5912     | 66.2  | 1.86       | 4.84         | 57.4      | -0.49  |
-| 40          | 0.5707     | 67.5  | 2.06       | 4.65         | 56.3      | -0.67  |
-| 45          | 0.5455     | 68.7  | 2.34       | 4.42         | 55.3      | -0.90  |
+| 0           | 0.6594     | 59.8  | 1.37       | 5.35         | 64.0      | 0.00   |
+| 5           | 0.6583     | 61.1  | 1.38       | 5.35         | 62.7      | +0.00  |
+| 10          | 0.6552     | 62.5  | 1.40       | 5.33         | 61.3      | -0.02  |
+| 15          | 0.6500     | 63.8  | 1.45       | 5.29         | 60.1      | -0.06  |
+| 20          | 0.6424     | 65.1  | 1.51       | 5.22         | 58.9      | -0.13  |
+| 25          | 0.6322     | 66.4  | 1.59       | 5.13         | 57.8      | -0.22  |
+| 30          | 0.6192     | 67.7  | 1.71       | 5.01         | 56.7      | -0.34  |
+| 35          | 0.6029     | 69.0  | 1.86       | 4.86         | 55.6      | -0.49  |
+| 40          | 0.5828     | 70.3  | 2.06       | 4.68         | 54.6      | -0.67  |
+| 45          | 0.5581     | 71.6  | 2.34       | 4.45         | 53.6      | -0.90  |
 
 ### RADIANT GSD vs. True Off-Nadir GSD
 
@@ -241,7 +250,7 @@ the chain, not to re-derive it.
 
 ### Why SNR Increases with Off-Nadir Angle
 
-A surprising result: SNR *increases* from 57.5 at nadir to 68.7 at 45 deg.
+A surprising result: SNR *increases* from 59.8 at nadir to 71.6 at 45 deg.
 This is counterintuitive but physically correct.  The mechanism:
 
 1. **Atmospheric transmission decreases** (-15.9% at 45 deg) → fewer target photons

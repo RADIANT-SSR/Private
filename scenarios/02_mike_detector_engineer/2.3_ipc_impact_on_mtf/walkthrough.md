@@ -48,7 +48,7 @@ RADIANT evaluates the full signal chain from source through atmosphere, optics, 
 
 The baseline results at 500 km with atmosphere:
 - System MTF at Nyquist: 0.2668 (above the 0.15 requirement)
-- SNR: 782.72 (well above the 100 requirement)
+- SNR: 782.84 (well above the 100 requirement)
 - EE 1x1: 0.4141 (below the 0.60 requirement — already fails at baseline)
 - GSD: 7.50 m (cross-track = along-track at nadir)
 - Q (sampling parameter): 0.944 (near-optimal Nyquist matching)
@@ -56,7 +56,9 @@ The baseline results at 500 km with atmosphere:
 - NIIRS: 4.82
 - Strehl ratio: 1.000 (diffraction-limited, no WFE applied)
 
-*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage 2026-08-29). One mover: **CU-335** — the calibrated gas table's VIS/NIR/SWIR rows were re-fitted against the post-CU-253 Rayleigh. This is an 8–12 µm scene, so the only reach is the λ⁻⁴ tail in the 2.40–5.00 µm floors (≤ 0.001 OD, carried in through the scene's out-of-band shoulder): SNR 782.75 → 782.72, background 5.109e+05 → 5.108e+05 e⁻, NEDT and NIIRS unmoved at the quoted precision. Four parts in a million — recorded because the table moved, not because the scenario did.*
+*Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage 2026-08-30). One mover: **CU-336** — the gas fit's grid convention was corrected, so the floors CU-335 had over-fitted come down. This is an 8–12 µm scene, so the only reach is again the λ⁻⁴ tail in the 2.40–5.00 µm floors (3.50–5.00 µm 0.4498 → 0.4494 OD, carried in through the scene's out-of-band shoulder): SNR 782.72 → 782.84, NEDT and NIIRS unmoved at the quoted precision. Under two parts in ten thousand — recorded because the table moved, not because the scenario did.*
+
+*Prior vintage, 2026-08-30. **CU-335** — the calibrated gas table's VIS/NIR/SWIR rows were re-fitted against the post-CU-253 Rayleigh. This is an 8–12 µm scene, so the only reach is the λ⁻⁴ tail in the 2.40–5.00 µm floors (≤ 0.001 OD, carried in through the scene's out-of-band shoulder): SNR 782.75 → 782.72, background 5.109e+05 → 5.108e+05 e⁻, NEDT and NIIRS unmoved at the quoted precision. Four parts in a million — recorded because the table moved, not because the scenario did.*
 
 *Prior vintage, 2026-08-29 (pre-CU-324). **CU-324** — `E_sky_thermal`'s flux-diffusivity exponent became the geometric `sec 48.2° = 1.50030`, the secant of the angle every up-looking MODTRAN deck in the downwelling reference set was run at, rather than the CU-155 fitted `D = 1.1`. The sky the ε < 1 ground scene reflects gets brighter, so SNR 781.17 → 782.75 (+0.20 %) and NEDT 38.2 → 38.1 mK, exact inverses of one another as always; NIIRS holds at 4.82. Purely radiometric — MTF at Nyquist, EE 1×1, GSD, Q and Strehl are bit-identical, which is the check that this is an atmosphere term and nothing spatial. The takeaways below are unchanged: the binding constraint is still EE 1×1 at baseline, and SNR is still ~8× its requirement.*
 

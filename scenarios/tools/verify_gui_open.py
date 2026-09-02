@@ -37,6 +37,10 @@ os.environ.setdefault("MPLBACKEND", "Agg")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from _local_radiant import ensure_local_radiant  # noqa: E402
+
+ensure_local_radiant()  # CU-338: this checkout's radiant, or refuse
+
 from gui_baselines import REGISTRY, GuiScenario  # noqa: E402
 
 _TRACEBACK_MARKER = "Traceback (most recent call last)"

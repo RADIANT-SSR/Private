@@ -119,20 +119,24 @@ pill reads `Δh  49 m`.
 
 | Range [km] | θ_o [deg] | Δh [m] | guard | τ MWIR [–] | signal [e⁻] | noise [e⁻ rms] | SNR [–] | det. range [km] | well margin [dB] |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 25 | 90.11224 | 12.2 | clean | 0.6335 | 5.3371e5 | 733.7 | 727.5 | 198.9 | 5.5 |
-| 40 | 90.17958 | 31.3 | clean | 0.4821 | 1.5860e5 | 404.0 | 392.6 | 199.0 | 16.0 |
-| 50 | 90.22448 | 49.0 | clean | 0.4020 | 8.4616e4 | 298.7 | 283.3 | 199.0 | 21.5 |
-| 70 | 90.31427 | 96.0 | clean | 0.2796 | 3.0017e4 | 186.2 | 161.2 | 199.0 | 30.5 |
-| 75 | 90.33672 | 110.2 | **warn** | 0.2554 | 2.3879e4 | 169.0 | 141.3 | 198.9 | 32.4 |
-| 100 | 90.44896 | 195.9 | **warn** | 0.1623 | 8.5343e3 | 115.4 | 74.0 | 198.7 | 41.4 |
+| 25 | 90.11224 | 12.2 | clean | 0.6337 | 5.3390e5 | 733.8 | 727.6 | 199.0 | 5.5 |
+| 40 | 90.17958 | 31.3 | clean | 0.4824 | 1.5869e5 | 404.1 | 392.7 | 199.1 | 16.0 |
+| 50 | 90.22448 | 49.0 | clean | 0.4023 | 8.4677e4 | 298.8 | 283.4 | 199.1 | 21.4 |
+| 70 | 90.31427 | 96.0 | clean | 0.2799 | 3.0047e4 | 186.3 | 161.3 | 199.1 | 30.4 |
+| 75 | 90.33672 | 110.2 | **warn** | 0.2556 | 2.3905e4 | 169.1 | 141.4 | 199.0 | 32.4 |
+| 100 | 90.44896 | 195.9 | **warn** | 0.1625 | 8.5466e3 | 115.5 | 74.0 | 198.8 | 41.4 |
 
-*Numbers refreshed 2026-08-30. One mover since the previous vintage: **CU-335**
-re-fitted the calibrated gas table's VIS/NIR/SWIR rows against the post-CU-253
-Rayleigh. This is a 3–5 µm level path, so the reach is the λ⁻⁴ tail in the
-2.40–5.00 µm floors: τ falls in the fourth decimal at every range rung
-(0.4021 → 0.4020 at 50 km), the nominal detection range 199.0 → 198.9 km
-(−0.05 %), and the effective extinction coefficient α_eff rises in the fifth
-digit (0.01822 → 0.01823 km⁻¹ at 50 km). No verdict moves.*
+*Numbers refreshed 2026-09-01. One mover since the previous vintage: **CU-336**
+corrected the gas fit's grid convention, so the floors CU-335 had over-fitted
+come down. This is a 3–5 µm level path, so the reach is again the λ⁻⁴ tail
+(3.50–5.00 µm floor 0.4498 -> 0.4494 OD), running the other way: τ rises in the
+fourth decimal at every range rung (0.4020 -> 0.4023 at 50 km), the nominal
+detection range 198.9 -> 199.1 km (+0.1 %), and α_eff falls in the fifth digit
+(0.01823 -> 0.01821 km⁻¹ at 50 km). No verdict moves.*
+
+*Prior vintage, 2026-08-30. **CU-335** re-fitted the calibrated gas table's
+VIS/NIR/SWIR rows against the post-CU-253 Rayleigh; the same λ⁻⁴ tail took τ
+0.4021 → 0.4020 at 50 km and the nominal detection range 199.0 → 198.9 km.*
 
 *Composed with CU-335 on the merged tree, 2026-08-31: CU-335 and CU-324 item 2 were
 each measured on a tree that did not contain the other, and re-running on `main` with
@@ -149,7 +153,7 @@ and its thermal emission is untouched by the layering; what moves is the
 **sky background** behind the target, which comes from the whole traversed
 level path (`level_whole_path`, CU-224) and does span altitudes. Its emission
 falls slightly, taking ~0.3 % off the noise column, so SNR and detection range
-edge **up** (nominal 50 km: SNR 282.8 → 283.3, range 197.9 → 199.0 km). The
+edge **up** (nominal 50 km: SNR 282.8 → 283.4, range 197.9 → 199.1 km). The
 signal and τ columns are bit-identical. One second-order consequence worth
 noting: the arm's `T_eff` also lost the CU-155 200 m emission-height offset
 (it was fit for the hemispheric sky flux, not for a directional arm), which is
@@ -160,7 +164,7 @@ digit here.*
 by running the script.)
 
 SNR falls 9.9× over a 4× range increase — steeper than inverse-square because
-the band transmittance falls from 0.634 to 0.162 over the same span. No pixel
+the band transmittance falls from 0.634 to 0.163 over the same span. No pixel
 saturates anywhere in the sweep (well margin 5.5 dB at the near end).
 
 **One warning other than the horizon guard is raised, at every sweep point.**
@@ -183,7 +187,7 @@ warning is the correct Rule-17 report of an over-specified input, not a defect
 to suppress.
 
 **Non-obvious result — `detection_range_m` is reference-range invariant**
-(198.9 km referenced at 25 km, 198.7 km referenced at 100 km, a factor 1.00).
+(199.0 km referenced at 25 km, 198.8 km referenced at 100 km, a factor 1.00).
 The path-aware solver scales the *signal* along the path,
 $S(R) = S_{ref}(R_{ref}/R)^2\,\tau(R)/\tau(R_{ref})$, **and the target's own
 shot noise with it**: $\sigma^2(R) = S(R) + N_0^2$, with $N_0$ the target-free
@@ -193,14 +197,14 @@ short range:
 
 | range [km] | total noise [e⁻ rms] | of which target shot [e⁻ rms] | target-free floor [e⁻ rms] |
 |---:|---:|---:|---:|
-| 25 | 733.7 | 730.6 | 67.5 |
-| 100 | 115.4 | 92.4 | 69.2 |
+| 25 | 733.8 | 730.7 | 67.5 |
+| 100 | 115.5 | 92.5 | 69.2 |
 
 At 25 km the noise is almost entirely the *target's own* shot noise, which
 vanishes as the target recedes. Freezing it used to make the near-field answer
 strongly pessimistic — **123.4 km referenced at 25 km against 182.5 km
 referenced at 100 km, a 1.48× spread on one unchanged design**, which is what
-CU-263 was filed against. The nominal 50 km answer moved **150.9 km → 199.0 km
+CU-263 was filed against. The nominal 50 km answer moved **150.9 km → 199.1 km
 (+31.9 %)** with the fix. The residual 0.3 km spread across the sweep is the
 band-mean τ model's own reference dependence ($\alpha_{eff}$ moves in the fifth
 digit, 0.01826 → 0.01818 km⁻¹), not the noise treatment.

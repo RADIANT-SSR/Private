@@ -73,16 +73,20 @@ Results:
 | 12          | 1.42 | 346.2  | 0.115   | 0.269  | 4.5   | 86.4      | 120,000     |
 | 15          | 1.13 | 499.7  | 0.203   | 0.350  | 4.7   | 59.9      | 250,000     |
 | 18          | 0.94 | 706.9  | 0.267   | 0.414  | 4.8   | 42.3      | 500,000     |
-| 24          | 0.71 | 1029.7 | 0.355   | 0.510  | 4.8   | 29.1      | 1,060,809   |
-| 30          | 0.57 | 1268.6 | 0.409   | 0.572  | 4.7   | 23.6      | 1,610,156   |
+| 24          | 0.71 | 1029.9 | 0.355   | 0.510  | 4.8   | 29.1      | 1,061,117   |
+| 30          | 0.57 | 1268.8 | 0.409   | 0.572  | 4.7   | 23.6      | 1,610,625   |
 
-*Numbers refreshed 2026-08-30 from the unmodified runner (previous vintage
-2026-08-29). One mover: **CU-335** — the gas table's VIS/NIR/SWIR rows were
-re-fitted against the post-CU-253 Rayleigh. This is an 8–12 µm scene, so the
-reach is only the λ⁻⁴ tail in the 2.40–5.00 µm floors: the same two largest
-pitches move in the seventh figure (24 µm 1,060,886 → 1,060,809 e⁻,
-SNR 1029.8 → 1029.7; 30 µm 1,610,274 → 1,610,156 e⁻, SNR 1268.7 → 1268.6),
-7 parts per million. No verdict moves.*
+*Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
+2026-08-30). One mover: **CU-336** — the gas fit's grid convention was corrected,
+so the floors CU-335 had over-fitted come down. This is an 8–12 µm scene, so the
+reach is again only the λ⁻⁴ tail (3.50–5.00 µm floor 0.4498 -> 0.4494 OD): the
+same two largest pitches move in the seventh figure (24 µm
+1,060,809 -> 1,061,117 e⁻, SNR 1029.7 -> 1029.9; 30 µm 1,610,156 -> 1,610,625 e⁻,
+SNR 1268.6 -> 1268.8), 3 parts in 10 000. No verdict moves.*
+
+*Prior vintage, 2026-08-30. **CU-335** re-fitted the gas table's VIS/NIR/SWIR
+rows against the post-CU-253 Rayleigh; the same two pitches moved
+1,060,886 -> 1,060,809 e⁻ and 1,610,274 -> 1,610,156 e⁻.*
 
 *Prior vintage, 2026-08-29 (pre-CU-324). One mover: **CU-324** —
 `E_sky_thermal`'s

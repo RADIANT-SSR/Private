@@ -898,10 +898,10 @@ With no configuration loaded (a bare launch, or File → New after the unsaved-e
 guard) the central canvas shows the **welcome screen** instead of dead space: a grid
 of **mission-template cards** (display name, one-line blurb, mono specs line), an
 always-present **Blank config** card (the classic File → New blank-adopt), and the
-**Open recent** list. Templates are the YAMLs under `examples/templates/` — six
-hand-authored archetypes that superseded the Phase-2E starters (owner ruling
-2026-08-31, Rule 27) — discovered by the Qt-free `radiant.gui.mission_templates`
-seam, which reads each file's `_radiant.template` metadata (name / blurb / specs /
+**Open recent** list. Templates are the **metadata-carrying** YAMLs under `examples/templates/` — six
+hand-authored archetypes (the Phase-2E configs sharing the directory are the
+source-inferrer golden corpus, invisible here; their relocation is CU-338) —
+discovered by the Qt-free `radiant.gui.mission_templates` seam, which reads each file's `_radiant.template` metadata (name / blurb / specs /
 `tune_next`) through `radiant.api.config_io.read_template_meta` (the GUI cannot
 import `radiant.io`). Off-repo (a wheel install) discovery degrades to an empty
 grid: Blank + Recent only.

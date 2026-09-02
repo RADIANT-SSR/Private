@@ -37,10 +37,6 @@ retroactively reconstructed.
 - **File → New returns to the welcome screen** (after the unsaved-edits
   guard); its Blank config card performs the previous blank-adopt exactly.
 
-### Removed
-- **The twelve Phase-2E starter configs under `examples/templates/`** —
-  superseded by the six mission templates (owner ruling 2026-08-31, Rule 27;
-  git history is the archive).
 
 ### Changed
 - **Results-affecting: the calibrated gas table's VIS/NIR/SWIR floors are re-fitted

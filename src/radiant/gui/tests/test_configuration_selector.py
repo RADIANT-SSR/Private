@@ -32,6 +32,7 @@ from radiant.api.sensor import Sensor
 from radiant.gui.main_window import RADIANTMainWindow
 from radiant.gui.themes import DARK, LIGHT
 from radiant.gui.widgets import actionable_error_dialog as aed
+from radiant.gui.widgets.configuration_bar import ConfigurationBar
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
 
@@ -39,7 +40,7 @@ _FILTER_MIN = "spectral_integration.filter_min_um"
 _FILTER_MAX = "spectral_integration.filter_max_um"
 _APERTURE = "optics.aperture_diameter_m"
 
-_WAIT_MS = 20000  # headroom over an 8-configuration evaluate-all pass
+_WAIT_MS = 20000  # headroom over a full-cap (12-configuration) evaluate-all pass
 
 
 def _dual_band_study(tmp_path: Path) -> Path:
@@ -60,6 +61,35 @@ def _dual_band_study(tmp_path: Path) -> Path:
 def _open_study(qtbot, tmp_path: Path) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
     """Open the two-configuration study in a window and await its first pass."""
     path = _dual_band_study(tmp_path)
+    window = RADIANTMainWindow(config_set=ConfigurationSet.load(path), path=str(path))
+    qtbot.addWidget(window)
+    with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+        pass
+    return window
+
+
+def _full_cap_names() -> list[str]:
+    """One name per allowed configuration — a study filled to ``MAX_CONFIGS``."""
+    return [f"B{index + 1:02d}" for index in range(ConfigurationSet.MAX_CONFIGS)]
+
+
+def _full_cap_study(tmp_path: Path) -> Path:
+    """Write a study holding the cap's worth of configurations and return its path.
+
+    The members differ only by name — this is a selector-band fixture, not a
+    physics one — and the shared grid is coarsened so the twelve-configuration
+    evaluate-all pass this drives stays inside ``_WAIT_MS``.
+    """
+    cs = ConfigurationSet(Sensor.load(_EXAMPLE), names=_full_cap_names())
+    cs.set_wavelength_points(None, 40)
+    path = tmp_path / "full_cap_study.yaml"
+    cs.save(path)
+    return path
+
+
+def _open_full_cap_study(qtbot, tmp_path: Path) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
+    """Open the full-cap study in a window and await its first pass."""
+    path = _full_cap_study(tmp_path)
     window = RADIANTMainWindow(config_set=ConfigurationSet.load(path), path=str(path))
     qtbot.addWidget(window)
     with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
@@ -333,10 +363,77 @@ class TestSelectorTheming:
         assert len(set(accents)) == len(accents)
 
     def test_accent_tuple_covers_every_allowed_configuration(self) -> None:
-        """MAX_CONFIGS configurations must all get a colour, in both themes."""
+        """MAX_CONFIGS configurations must all get a colour, in both themes.
+
+        The cap moved 8 → 12 (owner-ratified 2026-09-01), so the palette owes
+        twelve **pairwise distinct** entries per theme. Perceptual and CVD
+        spacing is a design-time check (plan §7), not a numeric assertion here;
+        what the suite can hold is that no two slots collide outright.
+        """
         for theme in (LIGHT, DARK):
             assert len(theme.config_accents) >= ConfigurationSet.MAX_CONFIGS
             assert len(set(theme.config_accents)) == len(theme.config_accents)
+            in_use = theme.config_accents[: ConfigurationSet.MAX_CONFIGS]
+            assert len(set(in_use)) == ConfigurationSet.MAX_CONFIGS == 12
+
+    def test_accent_slots_keep_their_index_across_a_theme_toggle(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Slot N draws ``config_accents[N]`` of whichever theme is active.
+
+        That index-for-index identity is the whole contract a theme toggle owes
+        the band: a configuration keeps its *position's* hue, so the chips do not
+        re-shuffle under the user when the theme flips. Asserted on a bare bar —
+        accent assignment is positional (:meth:`ConfigurationBar.accent_for`) and
+        needs no session, so a full-cap window's evaluate-all would buy nothing.
+        """
+        bar = ConfigurationBar()
+        qtbot.addWidget(bar)
+        names = _full_cap_names()
+        bar.set_configurations(names, names[0])
+        assert len(bar.buttons) == ConfigurationSet.MAX_CONFIGS
+
+        per_theme: dict[str, list[str]] = {}
+        for theme in (LIGHT, DARK, LIGHT):  # toggle there and back
+            bar.set_theme(theme)
+            accents = [bar.accent_for(name) for name in names]
+            assert accents == list(theme.config_accents[: len(names)])
+            assert len(set(accents)) == len(names)
+            per_theme[theme.name] = accents
+        assert per_theme[LIGHT.name] != per_theme[DARK.name]  # the hues do change
+
+
+class TestSelectorBandAtTheFullCap:
+    """A study filled to ``MAX_CONFIGS`` (12) must render every member as a tab.
+
+    The cap moved 8 → 12 (owner-ratified 2026-09-01). The band's failure mode at
+    the new size is not a crash but a *silent* one — tabs that stop being built,
+    or accents that wrap and collide — so this drives the real window on a
+    twelve-configuration study and asserts every tab exists, carries its own
+    accent, and actually selects its configuration when clicked.
+    """
+
+    def test_twelve_configurations_all_render_as_reachable_tabs(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = _open_full_cap_study(qtbot, tmp_path)
+        cs = window.configuration_set
+        assert cs is not None
+        assert len(cs) == ConfigurationSet.MAX_CONFIGS == 12
+
+        bar = window.configuration_bar
+        assert bar.isVisibleTo(window) is True
+        assert bar.names == cs.names()
+        assert [button.text() for button in bar.buttons] == list(cs.names())
+        assert all(button.isEnabled() for button in bar.buttons)
+
+        # No wrap-around collision: twelve tabs, twelve distinct chips.
+        accents = [bar.accent_for(name) for name in bar.names]
+        assert len(set(accents)) == ConfigurationSet.MAX_CONFIGS
+
+        # Every tab is reachable — the last one, past the old cap, selects its
+        # configuration and the window follows it.
+        last = cs.names()[-1]
+        bar.buttons[-1].click()
+        assert cs.active == last
+        assert bar.active_name == last
+        assert window.sensor is not None
 
 
 class TestConfigurationBarStacksAboveStrip:
@@ -363,4 +460,23 @@ class TestConfigurationBarStacksAboveStrip:
         assert abs(bar.left() - strip.left()) <= 1
         # The strip keeps (essentially) the full window width — the defect
         # was the bar stealing horizontal room from the chips.
+        assert strip.width() >= window.width() * 0.9
+
+    def test_the_stacked_band_absorbs_a_full_cap_of_tabs(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """Twelve tabs stay in the band's own row and still leave the strip its width.
+
+        Whether twelve *named* tabs also fit the band's width at laptop size is a
+        separate, honest question (plan §7 watch item) — if they overflow, that is
+        a defect filed then. What must hold today is the CU-331 invariant itself:
+        the band never grows sideways into the stage strip, however many tabs it holds.
+        """
+        window = _open_full_cap_study(qtbot, tmp_path)
+        assert len(window.configuration_bar.buttons) == ConfigurationSet.MAX_CONFIGS
+        window.resize(1100, 800)
+        window.show()
+        qtbot.waitExposed(window)
+        bar = window._configuration_bar_dock.geometry()
+        strip = window._stage_strip_dock.geometry()
+        assert bar.bottom() <= strip.top()
+        assert abs(bar.left() - strip.left()) <= 1
         assert strip.width() >= window.width() * 0.9

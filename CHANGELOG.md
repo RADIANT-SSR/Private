@@ -21,6 +21,26 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Per-configuration optical elements** (Gap 103 v1.1, ADR-0010 D-7
+  supersession, owner-ratified 2026-09-02). A study's `configurations:` section
+  gains an `optical_elements:` sub-key — **replace-by-name** overrides: complete
+  entries replacing the shared document's entries of the same name, validated at
+  load through the single io element-parser authority (Kirchhoff included) with
+  the owning configuration named. New scripting API on `ConfigurationSet`:
+  `set_element_override` / `clear_element_override` / `element_overrides` /
+  `effective_optical_elements`; `sensor_for` and `evaluate_all` pick up each
+  member's effective train automatically. GUI Elements tab gains an edit-scope
+  control (*Shared document* / *This configuration*): effective-train rendering
+  with "overridden — <configuration>" badges, and diff-based Apply that stores
+  exactly the entries differing from the shared train (edit-back-to-equal drops
+  the override). Element addition/removal per configuration remains excluded.
+
+### Fixed
+- **Elements-tab Apply no longer loses the train edit in a study session.**
+  Previously Apply wrote the element document to the displayed configuration's
+  throwaway materialization, so in any session with configured values the edit
+  vanished on the next selector switch; Apply now targets the study document
+  (shared train or the active configuration's overrides, per the scope control).
 - **Mission-template welcome screen (GUI, §4.4a — owner-confirmed brief).** With
   no configuration loaded, the central canvas shows six hand-authored mission
   templates (ground→air MWIR detection, LEO thermal mapping, maritime sub-pixel

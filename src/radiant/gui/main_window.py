@@ -73,6 +73,7 @@ from radiant.gui.widgets.configure_menu import (
 )
 from radiant.gui.widgets.explain_dialog import ExplainDialog
 from radiant.gui.widgets.inspector_dialog import InspectorDialog
+from radiant.gui.widgets.optical_element_editor import ELEMENT_EDIT_PATH
 from radiant.gui.widgets.parameter_panel import ParameterPanel
 from radiant.gui.widgets.right_rail import RightRail
 from radiant.gui.widgets.scene_class_panel import names_scene_class_assertion
@@ -1111,10 +1112,35 @@ class RADIANTMainWindow(QMainWindow):
         live sensor, so the live sensor is guaranteed to resolve cleanly here — the tree is
         safely repopulated so it reflects the new geometry value. Then the shared post-edit
         handling (stale dots + debounced re-evaluate) runs.
+
+        An **element-train** commit in a study is the one edit that lands on the document
+        rather than on the displayed sensor (Gap 103 v1.1: the shared ``optical_elements``
+        document, or the active configuration's overrides). The displayed sensor is a
+        materialization, so it would keep the pre-Apply train until the next selector
+        switch; it is re-materialized here, which is also what re-renders the Elements tab
+        with the new override badges.
         """
+        if dotpath == ELEMENT_EDIT_PATH and not self._is_degenerate():
+            self._resync_display_sensor()
         if self._sensor is not None:
             self._parameter_panel.populate(self._sensor)
         self._on_parameter_edited(dotpath)
+
+    def _resync_display_sensor(self) -> None:
+        """Re-materialize the displayed configuration after a document-level edit.
+
+        The same work a selector switch does, minus the switch: the displayed sensor is
+        rebuilt from the (just-edited) document and every panel re-binds. A configuration
+        that no longer resolves is reported in Messages rather than swallowed (Rule 17) —
+        the previously displayed sensor stays on screen, and the debounced evaluation
+        reports it again with the configuration named.
+        """
+        try:
+            self._sensor = self._materialize_display_sensor()
+        except RadiantError as exc:
+            self._right_rail.messages.set_error(self._underlying(exc))
+            return
+        self._rebind_display_sensor()
 
     def _on_stage_selected(self, namespace: str) -> None:
         """Handle a stage-strip click: select the chip, navigate, swap the canvas.

@@ -1673,6 +1673,17 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Impact** | An operator reviewing a per-element prescription (Mode 5) cannot verify any individual coating model from the GUI — the exact workflow scenario 9.4 introduces. |
 | **Suggested fix** | Selecting an element in the element editor shows a detail plot of that element alone: R/T/ε on the **native source grid** (spectral file / inline table full extent; scalars flat across the run band), autoscaled y, with the active configuration's evaluation span shaded for context. GUI is a view over the scripting API, so the plot lands as a public `plots.*` function first. Effort S–M; category D. |
 
+## Gap 117: No digital-pixel ROIC (DROIC) readout model — counter-based dynamic range, packet quantization, and residue readout are inexpressible
+
+| | |
+|---|---|
+| **Found in** | Owner request (high-dynamic-range focal-plane discussion), 2026-09-02. |
+| **Status** | PLANNED (`docs/plans/Digital_Pixel_Readout_Plan.md`, Draft 2026-09-02 — awaiting owner ratification of its §8 decisions) |
+| **Description** | The readout stage models an analog charge-well ROIC only: saturation is `readout.full_well_capacity_e` (`readout/saturation.py`), quantization noise derives from `readout.adc_bits` + `readout.gain_e_per_dn` applied to the analog signal (`readout/adc.py`), and TDI carries the analog mis-registration MTF (`readout/tdi_mtf.py`). A digital-pixel ROIC (MIT Lincoln Laboratory DFPA lineage; Senseeker-class commercial parts; in-pixel comparator + N-bit counter + charge-subtraction reset, usually with analog residue readout) obeys different physics: effective well = 2^N_counter × charge packet (≈130–650 Me- for a 16-bit counter at 2–10 ke-/count), quantization noise = packet/√12 unless the residue is read, true saturation set by comparator/reset dead time (a max count rate, not a capacitor), and count-domain TDI. None of this is expressible in the current schema. |
+| **Impact** | High-dynamic-range sensor concepts built on counting DROICs cannot be modeled: the analog well model understates saturation by 1–2 orders of magnitude and misstates the low-flux noise floor (packet quantization vs residue read), so dynamic range, SNR-vs-flux, and NEDT predictions are wrong for this entire detector class. |
+| **Workaround** | Set `readout.full_well_capacity_e` to the counter-equivalent well (2^N × packet, in e-) and `readout.adc_bits` high enough that analog quantization is negligible. Captures the high-flux shot-noise-limited regime only; wrong at low flux (no packet-quantization/residue model) and no dead-time flux ceiling. |
+| **Suggested fix** | A readout-architecture mode (`analog_well` \| `digital_counting`, as data) with DROIC parameters: counter bits, charge packet size (e-/count), residue-readout flag, max count rate; new saturation and quantization-noise branches plus a count-domain TDI variant. Effort M–L; category C. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |

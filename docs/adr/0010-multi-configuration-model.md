@@ -167,6 +167,14 @@ could silently reverse:
   knobs (WFE, f/#, transmission, temperatures) are ordinary configurable parameters and cover
   the near-term as-built workflow. A per-configuration element document is an additive later
   extension of the section format, gap-tracked at close-out.
+
+  > **Superseded (2026-09-02, owner-ratified):** v1.1 landed — the anticipated additive
+  > extension is `configurations.optical_elements`, **replace-by-name** overrides of
+  > individual shared entries (complete entries, single io validation authority; the
+  > "whole-document vs patching" question this ADR left open is resolved in favor of
+  > neither: entry-level replacement). The shared document remains the single stated
+  > train; addition/removal per configuration stays out of scope. See
+  > `docs/plans/Configuration_Set_Expansion_Plan.md` §3 (Gap 103).
 - **D-8 — Inline edit is scoped to the displayed configuration.** Editing a configured
   parameter in a stage form or the parameter panel while configuration $X$ is displayed edits
   **$X$'s value only** (CODE V behavior). The per-parameter table is the all-$N$ editor.

@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-342 — `radiant gui <study.yaml>` refuses configuration-set files: the CLI loads via `Sensor.from_yaml` while the GUI's own File → Open handles both document kinds
+
+**Discovered**: Configuration Set Expansion Plan Phase 1 live-review launch (branch `cfgset/phase1-cap12`), 2026-09-02.
+**Status**: Investigating — inline fix in work on the discovering branch.
+**File**: `src/radiant/cli/gui.py:66` (`_load_sensor` → `Sensor.from_yaml` only); `src/radiant/gui/app.py:36` (`launch_gui` takes no `config_set`).
+**Symptom**: `radiant gui study.yaml` on any file carrying a `configurations:` section exits with the `ConfigError` telling the user to use `ConfigurationSet.load` — the GUI never opens; the same file opens fine through the GUI's File → Open (`main_window._open_path`, which uses the one-reader `ConfigurationSet.load` dispatch).
+**Why it still matters**: blocking (intake test 3) for the ratified live-GUI review loop, whose prescribed command is `radiant gui <file>` on a study; workflow-visible (test 4) for any analyst launching a study from the shell — scenario 9.4's all-bands file will be one.
+**Suggested fix**: (a) inline-fix-now — CLI loads through `ConfigurationSet.load` (the API decides the document kind, same as `_open_path`); `launch_gui` gains a `config_set` parameter forwarded to `RADIANTMainWindow`. Effort S; category A/D.
+
 ### CU-341 — Configuration bar cannot absorb 12 tabs at laptop width: no wrap, scroll, or overflow affordance on the selector band
 
 **Discovered**: Configuration Set Expansion Plan Phase 1 (branch `cfgset/phase1-cap12`), 2026-09-02 — the plan §7 watch item, measured real during the 8 → 12 cap raise.

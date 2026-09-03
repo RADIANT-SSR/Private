@@ -14,6 +14,10 @@ from radiant.api.session import RadiantSession
 from radiant.cli._common import coerce_value, parse_overrides, set_option
 from radiant.cli._study import SECTION_KEY, die, is_study, load_study
 from radiant.io.config import ConfigError, load_config, unattached_section_error
+from radiant.io.configured_elements import (
+    configured_rows_need_a_configuration_set,
+    has_configured_rows,
+)
 from radiant.io.element_config import ElementConfigError
 
 
@@ -52,7 +56,14 @@ def validate(config: str, overrides: tuple[str, ...]) -> None:
     except ConfigError as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
-    if "optical_elements" in sections:
+    if has_configured_rows(sections.get("optical_elements")):
+        # Configured rows carry one entry per configuration, so they are only
+        # meaningful as part of a study — and there the study loader validates
+        # them (density, entries, Kirchhoff) naming the row and the member.
+        if not is_study(sections):
+            click.echo(f"Error: {configured_rows_need_a_configuration_set(config_path)}", err=True)
+            sys.exit(1)
+    elif "optical_elements" in sections:
         try:
             normalize_element_document(sections["optical_elements"], base_dir=config_path.parent)
         except ElementConfigError as exc:

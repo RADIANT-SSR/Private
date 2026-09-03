@@ -23,6 +23,10 @@ from radiant.cli._study import (
     not_a_study_error,
 )
 from radiant.io.config import ConfigError, load_config, unattached_section_error
+from radiant.io.configured_elements import (
+    configured_rows_need_a_configuration_set,
+    has_configured_rows,
+)
 from radiant.io.element_config import ElementConfigError, parse_element_entries
 from radiant.io.results import ChainResult
 
@@ -159,6 +163,10 @@ def run(
         return
     if configuration is not None:
         die(not_a_study_error(config, configuration))
+    if has_configured_rows(sections.get("optical_elements")):
+        # Configured element rows belong to a study; without a `configurations:`
+        # section they name configurations that do not exist (Rule 15/17).
+        die(str(configured_rows_need_a_configuration_set(config)))
 
     # Any other section the CLI cannot act on is an error, never a silent drop.
     unattached = sorted(set(sections) - {"optical_elements", SECTION_KEY})

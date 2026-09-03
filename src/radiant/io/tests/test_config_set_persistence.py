@@ -326,13 +326,13 @@ class TestConfiguredFilePathPortability:
 
 
 # ---------------------------------------------------------------------------
-# Per-configuration optical elements (Gap 103 v1.1 — replace-by-name)
+# Configured optical-element rows (Gap 103 v1.1 — plan §3a-bis)
 # ---------------------------------------------------------------------------
 
 
-def _mirror(**fields: Any) -> dict[str, Any]:
+def _mirror(name: str = "M1", **fields: Any) -> dict[str, Any]:
     entry: dict[str, Any] = {
-        "name": "M1",
+        "name": name,
         "transfer_mode": "REFLECTIVE",
         "reflectance": 0.97,
         "temperature_K": 293.0,
@@ -341,9 +341,9 @@ def _mirror(**fields: Any) -> dict[str, Any]:
     return entry
 
 
-def _filter(**fields: Any) -> dict[str, Any]:
+def _filter(name: str = "band_filter", **fields: Any) -> dict[str, Any]:
     entry: dict[str, Any] = {
-        "name": "band_filter",
+        "name": name,
         "transfer_mode": "REFRACTIVE",
         "kind": "FILTER",
         "transmittance": 0.90,
@@ -354,42 +354,83 @@ def _filter(**fields: Any) -> dict[str, Any]:
 
 
 def _banded(names: list[str]) -> ConfigurationSet:
-    """A study whose base carries a two-element shared train."""
+    """A study whose base carries a two-row shared train: [M1, band_filter]."""
     base = Sensor.from_yaml(_MWIR_YAML, wavelength_points=40)
     base.set_optical_elements([_mirror(), _filter()])
     return ConfigurationSet(base, names=names)
 
 
+def _banded_configured(names: list[str], **by_member: float) -> ConfigurationSet:
+    """`_banded` with row 1 configured and each member given a transmittance."""
+    cs = _banded(names)
+    cs.configure_element(1)
+    for member, value in by_member.items():
+        cs.set_element_for(1, member, _filter(transmittance=value))
+    return cs
+
+
 @pytest.mark.level1
-class TestElementOverridePersistence:
-    def test_overrides_round_trip(self, tmp_path: Path) -> None:
-        cs = _banded(["A", "B"])
-        cs.set_element_override("B", [_filter(transmittance=0.40)])
+class TestConfiguredElementPersistence:
+    def test_configured_rows_round_trip(self, tmp_path: Path) -> None:
+        cs = _banded_configured(["A", "B"], B=0.40)
         loaded = ConfigurationSet.load(cs.save(tmp_path / "study.yaml"))
 
-        assert loaded.element_overrides("A") is None
-        stored = loaded.element_overrides("B")
-        assert stored is not None and stored[0]["name"] == "band_filter"
-        assert stored[0]["transmittance"] == pytest.approx(0.40, rel=1e-12)
-        # The shared document is written once, not per configuration.
-        assert [e["name"] for e in loaded.base.optical_elements() or []] == ["M1", "band_filter"]
+        assert loaded.element_count() == 2
+        assert loaded.configured_element_indices() == (1,)
+        assert not loaded.is_element_configured(0)
+        assert loaded.element_for(1, "A")["transmittance"] == pytest.approx(0.90, rel=1e-12)
+        assert loaded.element_for(1, "B")["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        # The shared row is stated once, not per configuration.
+        shared = loaded.base.optical_elements()
+        assert shared is not None and [e["name"] for e in shared] == ["M1"]
 
-    def test_document_shape(self, tmp_path: Path) -> None:
-        """The study states only what differs: one entry under the owning member."""
+    def test_document_shape_is_positional_and_in_place(self, tmp_path: Path) -> None:
+        cs = _banded_configured(["A", "B"], B=0.40)
+        doc = _read(cs.save(tmp_path / "study.yaml"))["optical_elements"]
+        assert len(doc) == 2
+        assert doc[0]["name"] == "M1"  # shared row, unchanged and unwrapped
+        assert set(doc[1]) == {"configured"}  # configured row: only that key
+        assert set(doc[1]["configured"]) == {"A", "B"}  # dense
+        assert doc[1]["configured"]["B"]["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        # The superseded sub-key is gone from the section.
+        assert "optical_elements" not in _read(cs.save(tmp_path / "study.yaml"))["configurations"]
+
+    def test_a_shared_only_document_writes_the_plain_form(self, tmp_path: Path) -> None:
+        doc = _read(_banded(["A", "B"]).save(tmp_path / "study.yaml"))["optical_elements"]
+        assert [e["name"] for e in doc] == ["M1", "band_filter"]
+
+    def test_mixed_shared_and_configured_rows_keep_their_order(self, tmp_path: Path) -> None:
+        base = Sensor.from_yaml(_MWIR_YAML, wavelength_points=40)
+        base.set_optical_elements([_mirror(), _filter(), _mirror("M2")])
+        cs = ConfigurationSet(base, names=["A", "B"])
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(name="filter_b", transmittance=0.40))
+        loaded = ConfigurationSet.load(cs.save(tmp_path / "study.yaml"))
+        assert [e["name"] for e in loaded.effective_optical_elements("A") or []] == [
+            "M1",
+            "band_filter",
+            "M2",
+        ]
+        assert [e["name"] for e in loaded.effective_optical_elements("B") or []] == [
+            "M1",
+            "filter_b",
+            "M2",
+        ]
+
+    def test_every_row_configured_round_trips(self, tmp_path: Path) -> None:
         cs = _banded(["A", "B"])
-        cs.set_element_override("B", [_filter(transmittance=0.40)])
-        section = _read(cs.save(tmp_path / "study.yaml"))["configurations"]
-        assert set(section["optical_elements"]) == {"B"}
-        assert len(section["optical_elements"]["B"]) == 1
-        assert section["optical_elements"]["B"][0]["name"] == "band_filter"
-
-    def test_no_override_writes_no_sub_key(self, tmp_path: Path) -> None:
-        section = _read(_banded(["A", "B"]).save(tmp_path / "study.yaml"))["configurations"]
-        assert "optical_elements" not in section
+        cs.configure_element(0)
+        cs.configure_element(1)
+        loaded = ConfigurationSet.load(cs.save(tmp_path / "study.yaml"))
+        assert loaded.base.optical_elements() is None
+        assert loaded.configured_element_indices() == (0, 1)
+        assert [e["name"] for e in loaded.effective_optical_elements("B") or []] == [
+            "M1",
+            "band_filter",
+        ]
 
     def test_metrics_reproduce_after_round_trip(self, tmp_path: Path) -> None:
-        cs = _banded(["A", "B"])
-        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        cs = _banded_configured(["A", "B"], B=0.40)
         loaded = ConfigurationSet.load(cs.save(tmp_path / "study.yaml"))
         for name in cs.names():
             before = cs.sensor_for(name).evaluate().metrics["snr"]
@@ -400,6 +441,11 @@ class TestElementOverridePersistence:
             > cs.sensor_for("B").evaluate().metrics["snr"]
         )
 
+    def test_to_yaml_matches_the_saved_document(self, tmp_path: Path) -> None:
+        cs = _banded_configured(["A", "B"], B=0.40)
+        path = cs.save(tmp_path / "study.yaml")
+        assert yaml.safe_load(cs.to_yaml(relative_to=tmp_path)) == _read(path)
+
     def test_spectral_file_paths_relativize_and_resolve(self, tmp_path: Path) -> None:
         data = tmp_path / "data"
         data.mkdir()
@@ -407,47 +453,57 @@ class TestElementOverridePersistence:
         csv.write_text("3.0,0.40\n5.0,0.45\n", encoding="utf-8")
 
         cs = _banded(["A", "B"])
-        cs.set_element_override("B", [_filter(transmittance=str(csv.resolve()))])
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=str(csv.resolve())))
         path = cs.save(tmp_path / "cfg" / "study.yaml")
 
-        stored = _read(path)["configurations"]["optical_elements"]["B"][0]["transmittance"]
+        stored = _read(path)["optical_elements"][1]["configured"]["B"]["transmittance"]
         assert stored == "../data/coating.csv"  # relative, forward slashes (Rule 30)
 
         loaded = ConfigurationSet.load(path)
-        back = loaded.element_overrides("B")
-        assert back is not None
-        assert Path(back[0]["transmittance"]) == csv.resolve()
+        assert Path(loaded.element_for(1, "B")["transmittance"]) == csv.resolve()
 
 
 @pytest.mark.level1
-class TestElementOverrideLoadValidation:
+class TestConfiguredElementLoadValidation:
+    """Every binding rule fails at load, naming the file, the row, and the member."""
+
     @staticmethod
-    def _write(tmp_path: Path, overrides: dict[str, Any], shared: Any = None) -> Path:
+    def _write(tmp_path: Path, elements: Any, names: Any = ("A", "B")) -> Path:
         doc: dict[str, Any] = {
             "spectral_integration": {"filter_min_um": 3.7, "filter_max_um": 4.8},
-            "optical_elements": [_mirror(), _filter()] if shared is None else shared,
-            "configurations": {"names": ["A", "B"], "optical_elements": overrides},
+            "optical_elements": elements,
+            "configurations": {"names": list(names)},
         }
         path = tmp_path / "study.yaml"
         path.write_text(yaml.dump(doc, sort_keys=True), encoding="utf-8", newline="\n")
         return path
 
-    def test_non_member_key(self, tmp_path: Path) -> None:
-        path = self._write(tmp_path, {"SWIR": [_filter(transmittance=0.4)]})
+    def test_missing_member_is_a_density_error(self, tmp_path: Path) -> None:
+        path = self._write(tmp_path, [_mirror(), {"configured": {"A": _filter()}}])
         with pytest.raises(ConfigError) as exc:
             ConfigurationSet.load(path)
         msg = str(exc.value)
-        assert "study.yaml" in msg and "'SWIR'" in msg
+        assert "study.yaml" in msg and "row 1" in msg and "missing ['B']" in msg
 
-    def test_element_name_not_in_the_shared_document(self, tmp_path: Path) -> None:
-        path = self._write(tmp_path, {"B": [_mirror(name="M9")]})
+    def test_non_member_key_is_an_error(self, tmp_path: Path) -> None:
+        path = self._write(
+            tmp_path,
+            [_mirror(), {"configured": {"A": _filter(), "B": _filter(), "SWIR": _filter()}}],
+        )
+        with pytest.raises(ConfigError) as exc:
+            ConfigurationSet.load(path)
+        assert "unknown ['SWIR']" in str(exc.value)
+
+    def test_bad_entry_names_the_member(self, tmp_path: Path) -> None:
+        bad = {"name": "band_filter", "transfer_mode": "REFRACTIVE"}
+        path = self._write(tmp_path, [_mirror(), {"configured": {"A": _filter(), "B": bad}}])
         with pytest.raises(ConfigError) as exc:
             ConfigurationSet.load(path)
         msg = str(exc.value)
-        assert "study.yaml" in msg and "optical_elements.B" in msg and "'M9'" in msg
-        assert "never adds one" in msg
+        assert "row 1" in msg and "configuration 'B'" in msg and "transmittance" in msg
 
-    def test_kirchhoff_violating_entry_names_the_configuration(self, tmp_path: Path) -> None:
+    def test_kirchhoff_violation_is_caught_at_load(self, tmp_path: Path) -> None:
         bad = {
             "name": "band_filter",
             "transfer_mode": "REFRACTIVE",
@@ -460,23 +516,11 @@ class TestElementOverrideLoadValidation:
             "thickness_m": 0.01,
             "temperature_K": 290.0,
         }
-        path = self._write(tmp_path, {"B": [bad]})
+        path = self._write(tmp_path, [_mirror(), {"configured": {"A": _filter(), "B": bad}}])
         with pytest.raises(ConfigError) as exc:
             ConfigurationSet.load(path)
         msg = str(exc.value)
-        assert "study.yaml" in msg and "optical_elements.B" in msg
-        assert "R + T" in msg
-
-    def test_override_without_a_shared_document(self, tmp_path: Path) -> None:
-        doc: dict[str, Any] = {
-            "spectral_integration": {"filter_min_um": 3.7, "filter_max_um": 4.8},
-            "configurations": {"names": ["A", "B"], "optical_elements": {"B": [_filter()]}},
-        }
-        path = tmp_path / "study.yaml"
-        path.write_text(yaml.dump(doc, sort_keys=True), encoding="utf-8", newline="\n")
-        with pytest.raises(ConfigError) as exc:
-            ConfigurationSet.load(path)
-        assert "no 'optical_elements' document" in str(exc.value)
+        assert "configuration 'B'" in msg and "R + T" in msg
 
     def test_relative_spectral_file_resolves_against_the_config_dir(self, tmp_path: Path) -> None:
         cfg = tmp_path / "cfg"
@@ -484,16 +528,40 @@ class TestElementOverrideLoadValidation:
         (cfg / "coating.csv").write_text("3.0,0.4\n5.0,0.5\n", encoding="utf-8")
         doc: dict[str, Any] = {
             "spectral_integration": {"filter_min_um": 3.7, "filter_max_um": 4.8},
-            "optical_elements": [_mirror(), _filter()],
-            "configurations": {
-                "names": ["A", "B"],
-                "optical_elements": {"B": [_filter(transmittance="coating.csv")]},
-            },
+            "optical_elements": [
+                _mirror(),
+                {
+                    "configured": {
+                        "A": _filter(),
+                        "B": _filter(transmittance="coating.csv"),
+                    }
+                },
+            ],
+            "configurations": {"names": ["A", "B"]},
         }
         path = cfg / "study.yaml"
         path.write_text(yaml.dump(doc, sort_keys=True), encoding="utf-8", newline="\n")
 
         loaded = ConfigurationSet.load(path)
-        stored = loaded.element_overrides("B")
-        assert stored is not None
-        assert Path(stored[0]["transmittance"]) == (cfg / "coating.csv").resolve()
+        assert Path(loaded.element_for(1, "B")["transmittance"]) == (cfg / "coating.csv").resolve()
+
+    def test_configured_rows_without_a_section_are_refused(self, tmp_path: Path) -> None:
+        """A configured row's members *are* the configurations — no section, no meaning."""
+        doc: dict[str, Any] = {
+            "spectral_integration": {"filter_min_um": 3.7, "filter_max_um": 4.8},
+            "optical_elements": [_mirror(), {"configured": {"A": _filter()}}],
+        }
+        path = tmp_path / "study.yaml"
+        path.write_text(yaml.dump(doc, sort_keys=True), encoding="utf-8", newline="\n")
+        with pytest.raises(ConfigError, match="ConfigurationSet.load"):
+            ConfigurationSet.load(path)
+
+    def test_a_plain_sensor_load_refuses_configured_rows(self, tmp_path: Path) -> None:
+        path = self._write(tmp_path, [_mirror(), {"configured": {"A": _filter(), "B": _filter()}}])
+        for load in (
+            lambda: Sensor.load(path),
+            lambda: Sensor.from_yaml(path),
+        ):
+            with pytest.raises(ConfigError) as exc:
+                load()
+            assert "ConfigurationSet.load(path)" in str(exc.value)

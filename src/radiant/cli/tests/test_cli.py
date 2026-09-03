@@ -975,41 +975,35 @@ class TestRunStudyConfigFiles:
         assert "filter_min_um" in result.output
 
 
-class TestStudyElementOverrides:
-    """Per-configuration optical elements reach the CLI through ConfigurationSet.
+class TestStudyConfiguredElements:
+    """Configured element rows reach the CLI through `ConfigurationSet` (Gap 103 v1.1).
 
-    Nothing in `cli/` is structurally aware of the override — `run` materializes
-    through `sensor_for` and `validate` through `validate_all`, so both pick the
-    per-configuration train up for free. These tests pin that.
+    Nothing in `cli/` is structurally aware of them — `run` materializes through
+    `sensor_for` and `validate` through `validate_all`, so both pick up each
+    configuration's own train for free. These tests pin that.
     """
 
-    _SHARED_TRAIN = """
-optical_elements:
-  - {name: M1, transfer_mode: REFLECTIVE, reflectance: 0.97, temperature_K: 293.0}
-  - {name: band_filter, transfer_mode: REFRACTIVE, kind: FILTER, transmittance: 0.90,
-     temperature_K: 240.0}
-"""
-
-    @classmethod
-    def _study(cls, tmp_path: Path, override: str) -> Path:
+    @staticmethod
+    def _study(tmp_path: Path, elements: str) -> Path:
         return _write_study(
             tmp_path,
             strip_band=False,
             section=(
-                cls._SHARED_TRAIN
-                + "\nconfigurations:\n  names: [A, B]\n  optical_elements:\n"
-                + override
+                "\noptical_elements:\n"
+                "  - {name: M1, transfer_mode: REFLECTIVE, reflectance: 0.97,\n"
+                "     temperature_K: 293.0}\n" + elements + "\nconfigurations:\n  names: [A, B]\n"
             ),
         )
 
     @pytest.mark.level2
-    def test_run_uses_the_overriding_configuration_s_train(
-        self, runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_run_uses_the_configuration_s_own_row(self, runner: CliRunner, tmp_path: Path) -> None:
         study = self._study(
             tmp_path,
-            "    B:\n      - {name: band_filter, transfer_mode: REFRACTIVE, kind: FILTER,\n"
-            "         transmittance: 0.30, temperature_K: 240.0}\n",
+            "  - configured:\n"
+            "      A: {name: filter_a, transfer_mode: REFRACTIVE, kind: FILTER,\n"
+            "          transmittance: 0.90, temperature_K: 240.0}\n"
+            "      B: {name: filter_b, transfer_mode: REFRACTIVE, kind: FILTER,\n"
+            "          transmittance: 0.30, temperature_K: 240.0}\n",
         )
         a = runner.invoke(cli, ["run", str(study), "--configuration", "A"])
         b = runner.invoke(cli, ["run", str(study), "--configuration", "B"])
@@ -1017,18 +1011,58 @@ optical_elements:
         assert _extract_snr(a.output) > _extract_snr(b.output)
 
     @pytest.mark.level1
-    def test_validate_surfaces_a_bad_override_naming_the_configuration(
+    def test_validate_surfaces_a_sparse_row_naming_the_missing_configuration(
         self, runner: CliRunner, tmp_path: Path
     ) -> None:
         study = self._study(
             tmp_path,
-            "    B:\n      - {name: no_such_element, transfer_mode: REFLECTIVE,\n"
-            "         reflectance: 0.5, temperature_K: 290.0}\n",
+            "  - configured:\n"
+            "      A: {name: filter_a, transfer_mode: REFRACTIVE, kind: FILTER,\n"
+            "          transmittance: 0.90, temperature_K: 240.0}\n",
         )
         result = runner.invoke(cli, ["validate", str(study)])
         assert result.exit_code != 0
-        assert "optical_elements.B" in result.output
-        assert "no_such_element" in result.output
+        assert "row 1" in result.output
+        assert "missing ['B']" in result.output
+
+    @pytest.mark.level1
+    def test_configured_rows_without_a_section_are_refused_by_both_commands(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """No `configurations:` section means the row's members name nothing."""
+        body = _write_study(
+            tmp_path,
+            strip_band=False,
+            section=(
+                "\noptical_elements:\n"
+                "  - {name: M1, transfer_mode: REFLECTIVE, reflectance: 0.97,\n"
+                "     temperature_K: 293.0}\n"
+                "  - configured:\n"
+                "      A: {name: filter_a, transfer_mode: REFRACTIVE, kind: FILTER,\n"
+                "          transmittance: 0.90, temperature_K: 240.0}\n"
+            ),
+            name="plain.yaml",
+        )
+        for argv in (["run", str(body)], ["validate", str(body)]):
+            result = runner.invoke(cli, argv)
+            assert result.exit_code != 0
+            assert "ConfigurationSet.load(path)" in result.output
+
+    @pytest.mark.level1
+    def test_validate_surfaces_a_bad_entry_naming_the_configuration(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        study = self._study(
+            tmp_path,
+            "  - configured:\n"
+            "      A: {name: filter_a, transfer_mode: REFRACTIVE, kind: FILTER,\n"
+            "          transmittance: 0.90, temperature_K: 240.0}\n"
+            "      B: {name: filter_b, transfer_mode: REFLECTIVE, reflectance: 1.5,\n"
+            "          temperature_K: 240.0}\n",
+        )
+        result = runner.invoke(cli, ["validate", str(study)])
+        assert result.exit_code != 0
+        assert "configuration 'B'" in result.output
 
 
 class TestValidateStudyConfigFiles:

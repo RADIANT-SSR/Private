@@ -69,6 +69,10 @@ from radiant.io.config import (
     serialize_config,
     unattached_section_error,
 )
+from radiant.io.configured_elements import (
+    configured_rows_need_a_configuration_set,
+    has_configured_rows,
+)
 from radiant.io.element_config import parse_element_entries
 from radiant.io.results import ChainResult
 from radiant.source.target_spec import validate_target_spec as _validate_target_spec
@@ -146,7 +150,7 @@ class Sensor:
         sensor = cls(wavelength_points=wavelength_points)
         sections: dict[str, Any] = {}
         load_config(Path(path), sensor._params, sections_out=sections)
-        if "optical_elements" in sections:
+        if _sensor_attaches_elements(sections, sections_out, path):
             sensor.set_optical_elements(
                 sections.pop("optical_elements"), base_dir=Path(path).parent
             )
@@ -181,7 +185,7 @@ class Sensor:
         sensor = cls(wavelength_points=wavelength_points)
         sections: dict[str, Any] = {}
         load_config(data, sensor._params, sections_out=sections)
-        if "optical_elements" in sections:
+        if _sensor_attaches_elements(sections, sections_out, None):
             sensor.set_optical_elements(sections.pop("optical_elements"))
         _dispatch_unattached_sections(sections, sections_out, None)
         return sensor
@@ -588,11 +592,25 @@ class Sensor:
         Element emissivity is Kirchhoff-derived by construction — it is
         never an input field (Rule 5).
 
+        A **configured** element row (``{configured: {...}}``, Gap 103 v1.1) is
+        refused here: it carries one entry per configuration of a configuration
+        set, which a bare ``Sensor`` has no notion of. Configure a row through
+        :meth:`ConfigurationSet.configure_element
+        <radiant.api.config_set.ConfigurationSet.configure_element>`.
+
         Returns ``self`` for method chaining.
         """
         if entries is None:
             self._element_document = None
             return self
+        if has_configured_rows(entries):
+            raise ApiValidationError(
+                "Sensor.set_optical_elements: the document holds configured element row(s) "
+                "('configured:'), which carry one entry per configuration of a configuration "
+                "set (Gap 103 v1.1). A Sensor holds one train. Attach the shared rows here and "
+                "configure a row with ConfigurationSet.configure_element(index), or materialize "
+                "a configuration with cs.sensor_for(name), which attaches its resolved train."
+            )
         self._element_document = normalize_element_document(
             [dict(entry) for entry in entries], base_dir=base_dir
         )
@@ -1206,6 +1224,29 @@ class Sensor:
         return _extract, metric_key
 
 
+def _sensor_attaches_elements(
+    sections: dict[str, Any],
+    sections_out: dict[str, Any] | None,
+    path: str | Path | None,
+) -> bool:
+    """Whether this ``Sensor`` may attach the loaded ``optical_elements`` document.
+
+    It may, unless the document holds **configured rows** (Gap 103 v1.1): those
+    carry one entry per configuration of a configuration set, which a bare
+    ``Sensor`` has no notion of. Such a document is left in *sections* for the
+    opted-in caller (``ConfigurationSet.load``) to split; a caller that did not
+    opt in gets the actionable refusal rather than a parse error about a missing
+    ``name`` field (Rule 15/17 — never a silent drop, never a misleading error).
+    """
+    if "optical_elements" not in sections:
+        return False
+    if not has_configured_rows(sections["optical_elements"]):
+        return True
+    if sections_out is None:
+        raise configured_rows_need_a_configuration_set(path)
+    return False
+
+
 def _dispatch_unattached_sections(
     sections: dict[str, Any],
     sections_out: dict[str, Any] | None,
@@ -1213,10 +1254,12 @@ def _dispatch_unattached_sections(
 ) -> None:
     """Hand over — or refuse — structured sections a ``Sensor`` does not attach.
 
-    A ``Sensor`` attaches ``optical_elements`` itself; anything left (today the
-    ``configurations:`` section of a configuration set) either goes to an
-    opted-in caller or raises the actionable io error naming the loader that can
-    read it. Never a silent drop (Rule 17).
+    A ``Sensor`` attaches ``optical_elements`` itself unless it holds configured
+    rows (see :func:`_sensor_attaches_elements`); anything left — the
+    ``configurations:`` section of a configuration set, and a configured-row
+    element document beside it — either goes to an opted-in caller or raises the
+    actionable io error naming the loader that can read it. Never a silent drop
+    (Rule 17).
     """
     if not sections:
         return

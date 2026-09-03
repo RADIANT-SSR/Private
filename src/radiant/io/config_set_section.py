@@ -20,10 +20,6 @@ Document form::
         spectral_integration.filter_min_um: [3.95, 8.0]
         spectral_integration.filter_max_um: [4.45, 12.0]
         detector.qe_value: [0.75, 0.62]
-      optical_elements:             # optional; member name -> replace-by-name
-        LWIR:                       #   overrides of the shared element document
-          - {name: band_filter, transfer_mode: REFRACTIVE, kind: FILTER,
-             transmittance: data/filter_lwir.csv, temperature_K: 240.0}
 
 Binding rules, all enforced here at **load** time with a
 :class:`~radiant.io.config.ConfigError` naming the config file, the
@@ -39,27 +35,20 @@ configuration, and the parameter:
   the existing did-you-mean suggestion).
 - A dot-path may appear in the shared body **or** in ``parameters``, never both
   (the ADR-0010 D-B single-store invariant, checked at load).
-- ``optical_elements``: optional mapping of member name → a non-empty list of
-  **complete** element entries. Semantics are **replace-by-name** (Gap 103 v1.1,
-  owner-ratified 2026-09-02): each entry replaces the shared ``optical_elements``
-  document's entry of the same ``name``; every other shared entry is inherited,
-  in shared order. An entry naming no shared element is an **error** — adding or
-  removing elements per configuration is a different feature, deliberately
-  excluded, and a silent add would make the effective train unpredictable
-  (Rule 17). Each entry is re-validated through
-  :func:`radiant.io.element_config.parse_element_entries` (the single validation
-  authority, Kirchhoff included), so a bad override fails at load with the
-  owning configuration named — never at evaluation.
 - ``is_file_path`` values inside the section relativize on save and resolve on
   load against the config file's own directory, exactly like shared values
-  (CU-177 — the same :mod:`radiant.io.config` helpers). The spectral-file
-  references inside override entries
-  (:data:`radiant.io.element_config.SPECTRAL_FILE_KEYS`) get the same treatment.
+  (CU-177 — the same :mod:`radiant.io.config` helpers).
+
+Per-configuration **optical elements** are not part of this section: an element
+row configures inside the shared ``optical_elements`` document itself, in place
+and positionally (:mod:`radiant.io.configured_elements`, Gap 103 v1.1,
+owner-ratified 2026-09-02). The superseded ``configurations.optical_elements``
+sub-key never shipped and is not accepted — a file carrying it fails with this
+section's ordinary unknown-key error.
 
 This module owns only the section's syntax and its cross-field invariants; the
 values' type / bounds / enum validation is the ordinary parameter path inside
-``ConfigurationSet`` (there is no second validation authority), and element
-entries go to the io element parser for the same reason.
+``ConfigurationSet`` (there is no second validation authority).
 """
 
 from __future__ import annotations
@@ -69,10 +58,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterSet
 from radiant.io.config import ConfigError, relativize_file_value, resolve_file_value
-from radiant.io.element_config import SPECTRAL_FILE_KEYS, validate_element_entry
 
 __all__ = [
     "SECTION_KEY",
@@ -86,9 +73,7 @@ SECTION_KEY = "configurations"
 
 # Recognised keys inside the section — anything else is a typo or a newer
 # format, and is an error rather than a silent drop (Rule 17).
-_ALLOWED_KEYS = frozenset(
-    {"names", "active", "baseline", "wavelength_points", "parameters", "optical_elements"}
-)
+_ALLOWED_KEYS = frozenset({"names", "active", "baseline", "wavelength_points", "parameters"})
 
 # Fallback cardinality cap. The single source of truth is
 # ``ConfigurationSet.MAX_CONFIGS`` (ADR-0010 D-E), which the api layer passes in;
@@ -114,11 +99,6 @@ class ConfigurationsSection:
     parameters:
         Canonical dot-path → one value per configuration, in **input units**,
         aligned with *names*.
-    optical_elements:
-        Member name → that configuration's replace-by-name overrides of the
-        shared ``optical_elements`` document: complete element entries, each
-        replacing the shared entry of the same ``name``. Members without an
-        override are absent (they inherit the shared document entirely).
     """
 
     names: tuple[str, ...]
@@ -126,7 +106,6 @@ class ConfigurationsSection:
     baseline: str
     wavelength_points: Mapping[str, int] = field(default_factory=dict)
     parameters: Mapping[str, tuple[Any, ...]] = field(default_factory=dict)
-    optical_elements: Mapping[str, tuple[dict[str, Any], ...]] = field(default_factory=dict)
 
 
 def parse_configurations_section(
@@ -134,7 +113,6 @@ def parse_configurations_section(
     params: ParameterSet,
     *,
     shared_inputs: Mapping[str, Any] | None = None,
-    shared_element_names: Sequence[str] | None = None,
     path: str | Path | None = None,
     base_dir: Path | None = None,
     max_configurations: int = _DEFAULT_MAX_CONFIGURATIONS,
@@ -153,12 +131,6 @@ def parse_configurations_section(
         The explicit inputs of the shared body (``Sensor.inputs()``). A dot-path
         present in both stores violates the ADR-0010 D-B single-store invariant
         and raises.
-    shared_element_names:
-        The ``name`` of every entry in the shared ``optical_elements`` document,
-        in document order. An override entry naming an element that is not in
-        this list raises (replace-by-name never adds). ``None`` means "the caller
-        does not know the shared document" and skips the cross-check — a bare
-        io-level call; ``ConfigurationSet.load`` always passes it.
     path:
         Config file path, reported in every error.
     base_dir:
@@ -204,20 +176,12 @@ def parse_configurations_section(
         path=path,
         base_dir=base_dir,
     )
-    optical_elements = _parse_optical_elements(
-        raw.get("optical_elements"),
-        names,
-        shared_element_names=shared_element_names,
-        path=path,
-        base_dir=base_dir,
-    )
     return ConfigurationsSection(
         names=names,
         active=active,
         baseline=baseline,
         wavelength_points=wavelength_points,
         parameters=parameters,
-        optical_elements=optical_elements,
     )
 
 
@@ -231,16 +195,13 @@ def serialize_configurations_section(
 
     The inverse of :func:`parse_configurations_section`. ``relative_to`` (the
     directory the config file will live in) rewrites absolute ``is_file_path``
-    values — and the spectral-file references inside element overrides — to
-    relative form, exactly as the shared body's values are written (CU-177);
-    ``None`` leaves them as stored, matching ``Sensor.to_yaml``.
+    values to relative form, exactly as the shared body's values are written
+    (CU-177); ``None`` leaves them as stored, matching ``Sensor.to_yaml``.
 
-    Optional keys are omitted when empty, so a set with no configured parameters,
-    no per-configuration grids, and no element overrides writes just
-    ``names``/``active``/``baseline``.
+    Optional keys are omitted when empty, so a set with no configured parameters
+    and no per-configuration grids writes just ``names``/``active``/``baseline``.
     """
     _check_dense(section, path=None)
-    _check_override_members(section, path=None)
     defs = params.parameter_defs()
     out: dict[str, Any] = {
         "names": list(section.names),
@@ -260,27 +221,6 @@ def serialize_configurations_section(
             else:
                 table[dotpath] = list(values)
         out["parameters"] = table
-    if section.optical_elements:
-        out["optical_elements"] = {
-            name: [_relativize_entry(entry, relative_to) for entry in entries]
-            for name, entries in sorted(section.optical_elements.items())
-        }
-    return out
-
-
-def _relativize_entry(entry: Mapping[str, Any], relative_to: Path | None) -> dict[str, Any]:
-    """One override entry with its spectral-file references made relative (CU-177).
-
-    ``relative_to=None`` copies the entry unchanged (paths as stored), matching
-    ``Sensor.to_yaml``. Inline spectral tables and scalars are not strings and
-    pass through :func:`~radiant.io.config.relativize_file_value` untouched.
-    """
-    out = dict(entry)
-    if relative_to is None:
-        return out
-    for key in SPECTRAL_FILE_KEYS:
-        if key in out:
-            out[key] = relativize_file_value(out[key], relative_to)
     return out
 
 
@@ -468,118 +408,6 @@ def _parse_parameters(
     return out
 
 
-def _parse_optical_elements(
-    raw: Any,
-    names: tuple[str, ...],
-    *,
-    shared_element_names: Sequence[str] | None,
-    path: str | Path | None,
-    base_dir: Path | None,
-) -> dict[str, tuple[dict[str, Any], ...]]:
-    """Validate the ``optical_elements`` sub-key (replace-by-name overrides)."""
-    if raw is None:
-        return {}
-    if not isinstance(raw, Mapping):
-        raise ConfigError(
-            f"'{SECTION_KEY}.optical_elements' must be a mapping of configuration name to a "
-            f"list of complete element entries, got {type(raw).__name__}. Configurations "
-            "without an entry inherit the shared 'optical_elements' document.",
-            path=path,
-        )
-    known = None if shared_element_names is None else list(shared_element_names)
-    out: dict[str, tuple[dict[str, Any], ...]] = {}
-    for config, entries in raw.items():
-        if config not in names:
-            raise ConfigError(
-                f"'{SECTION_KEY}.optical_elements' names configuration {config!r}, which is "
-                f"not in '{SECTION_KEY}.names' ({list(names)}). Only a member of the set can "
-                "carry a per-configuration element train.",
-                path=path,
-            )
-        out[str(config)] = _parse_override_entries(
-            entries, str(config), known=known, path=path, base_dir=base_dir
-        )
-    return out
-
-
-def _parse_override_entries(
-    entries: Any,
-    config: str,
-    *,
-    known: list[str] | None,
-    path: str | Path | None,
-    base_dir: Path | None,
-) -> tuple[dict[str, Any], ...]:
-    """One configuration's override list: complete, named, shared-matching entries."""
-    where = f"'{SECTION_KEY}.optical_elements.{config}'"
-    if isinstance(entries, (str, bytes)) or not isinstance(entries, Sequence) or not entries:
-        raise ConfigError(
-            f"{where} must be a non-empty list of complete element entries, got "
-            f"{type(entries).__name__} {entries!r}. An override replaces shared entries by "
-            f"'name'; to give configuration {config!r} the shared document unchanged, omit it "
-            "from 'optical_elements' entirely.",
-            path=path,
-        )
-    seen: list[str] = []
-    parsed: list[dict[str, Any]] = []
-    for index, entry in enumerate(entries):
-        if not isinstance(entry, Mapping):
-            raise ConfigError(
-                f"{where} entry {index} must be a mapping (one complete element entry), got "
-                f"{type(entry).__name__}.",
-                path=path,
-            )
-        resolved = _resolve_entry(entry, base_dir)
-        name = resolved.get("name")
-        if not isinstance(name, str) or not name.strip():
-            raise ConfigError(
-                f"{where} entry {index} has no 'name' — an override replaces the shared "
-                "element of the same name, so the name is what binds it to the shared "
-                "document. Give the entry the name of the shared element it replaces.",
-                path=path,
-            )
-        if name in seen:
-            raise ConfigError(
-                f"{where} overrides element {name!r} twice. An element is overridden **or** "
-                "inherited in a configuration, never both — one entry per element name.",
-                path=path,
-            )
-        if known is not None and name not in known:
-            raise ConfigError(
-                f"{where} overrides element {name!r}, which is not in the shared "
-                f"'optical_elements' document ({known}). A per-configuration override "
-                "**replaces** a shared element by name; it never adds one, because adding or "
-                "removing elements per configuration would make each configuration's train "
-                "unpredictable from the shared document. Rename the entry to a shared "
-                "element, or add the element to the shared document first.",
-                path=path,
-            )
-        # Single validation authority: the same parser (Kirchhoff included) the
-        # shared document faces. A bad override fails here, at load, naming the
-        # configuration — never at evaluation.
-        try:
-            validate_element_entry(resolved, base_dir=base_dir)
-        except RadiantError as exc:
-            raise ConfigError(
-                f"{where} entry {index} (element {name!r}) is not a valid optical element: {exc}",
-                path=path,
-            ) from exc
-        seen.append(name)
-        parsed.append(resolved)
-    return tuple(parsed)
-
-
-def _resolve_entry(entry: Mapping[str, Any], base_dir: Path | None) -> dict[str, Any]:
-    """One override entry with its relative spectral-file references resolved (CU-177)."""
-    out = dict(entry)
-    if base_dir is None:
-        return out
-    for key in SPECTRAL_FILE_KEYS:
-        if key in out:
-            out[key] = resolve_file_value(out[key], base_dir)
-    return out
-
-
 def _canonical_dotpath(dotpath: str, params: ParameterSet, *, path: str | Path | None) -> str:
     """Canonical schema name for *dotpath*, or a ConfigError with did-you-mean."""
     try:
@@ -602,15 +430,3 @@ def _check_dense(section: ConfigurationsSection, *, path: str | Path | None) -> 
                 "write a sparse configuration table (ADR-0010 D-A).",
                 path=path,
             )
-
-
-def _check_override_members(section: ConfigurationsSection, *, path: str | Path | None) -> None:
-    """Guard element overrides against a non-member key on the way out."""
-    strays = sorted(set(section.optical_elements) - set(section.names))
-    if strays:
-        raise ConfigError(
-            f"'{SECTION_KEY}.optical_elements' holds override(s) for {strays}, which are not "
-            f"configurations of this set {list(section.names)} — refusing to write an "
-            "override no configuration can claim.",
-            path=path,
-        )

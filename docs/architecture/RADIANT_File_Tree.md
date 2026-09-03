@@ -221,7 +221,7 @@ Stage 8: SNR, NEDT, NEDL, NEDR, NIIRS, GIQE, IIRS, MTF system + budget, detectio
 
 Notable modules: `stage.py`, `registry.py`, `system_mtf.py`, `mtf_budget.py`, `folded_mtf.py`, `qsample.py`, `consistency_check.py` (PSF/MTF dual-path agreement), `snr.py`, `nedt.py`, `nedl.py`, `nedr.py`, `niirs.py`, `giqe.py`, `iirs.py`, `gsd.py`, `ground_range.py`, `swath_width.py`, `access_rate.py`, `target_plane_sample_distance.py` (non-ground counterpart of GSD, GF-13), `scene_relevance.py` (the one declarative scene-class → metric-relevance map, guardrail G3), `detection.py`, `detection_generic.py` (root finder + criterion), `detection_beer_lambert.py` (constant-α signal law), `detection_path_aware.py` (path-resolved τ(R); all three topologies since CU-263), `detection_noise_floor.py` (N₀² = σ_ref² − S_ref), `detection_shot_consistent_snr.py` (S/√(S+N₀²) and its analytic inverse), `path_optical_depth.py` (piecewise τ(R) along the LOS), `dynamic_range.py`, `saturation_metrics.py`, `well_margin.py`, `adc_margin.py`, `contrast_snr.py`, `strehl.py` (wraps the optics Strehl into a metric), `turbulence_mtf_term.py`.
 
-### `io/` — 11 source + 13 tests
+### `io/` — 12 source + 14 tests
 
 I/O layer: YAML config, results container.
 
@@ -229,6 +229,7 @@ I/O layer: YAML config, results container.
 io/
 ├── config.py              # YAML sensor/scenario config loader → ParameterSet
 ├── element_config.py      # optical-element list config
+├── configured_elements.py # `- configured:` element rows (per-configuration entries, Gap 103)
 └── results.py             # ChainResult: signal_at, noise_at, snr/nedt/niirs accessors
 ```
 

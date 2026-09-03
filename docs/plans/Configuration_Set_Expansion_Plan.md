@@ -1,8 +1,8 @@
 # Configuration Set Expansion Plan — 12-Member Cap + Per-Configuration Optical Elements
 
-**Status:** Draft
+**Status:** Active
 **Owner trigger:** 2026-09-01 — "OLI is the perfect test case. What all needs to be updated?" after scenario 9.4's 8-band study hit both v1 limits on the first flagship use.
-**Ratified inputs:** cap 8 → **12** (owner, 2026-09-01). **Open for ratification:** the override mechanism (§3, one decision) and the GUI editing scope (§4, one decision).
+**Ratified inputs:** cap 8 → **12** (owner, 2026-09-01); override mechanism = **replace-by-name** (§3a, owner, 2026-09-02); GUI editing scope = **full per-configuration Elements-tab editing** (§4a, owner, 2026-09-02). No decisions remain open.
 **Delivers:** Gap 103 (per-configuration prescriptions, DEFERRED → PLANNED with this document); the ADR-0010 D-E cap amendment; scenario 9.4 as the acceptance showcase — all nine OLI-2 bands in one study file.
 
 ---
@@ -40,12 +40,12 @@ Gate: full battery (touches `api/` + `io/` + `gui/`).
 
 ## 3. Phase 2 — per-configuration optical elements (Gap 103 v1.1) (effort M)
 
-### 3a. The one open design decision — override mechanism
+### 3a. Override mechanism — ratified: replace-by-name (owner, 2026-09-02)
 
 The `configurations:` section gains an `optical_elements:` sub-key mapping member name →
-override. Three candidate semantics; **recommendation: replace-by-name**.
+override. Three candidate semantics were weighed; **replace-by-name is ratified**.
 
-1. **Replace-by-name (recommended).** An override is a list of complete element entries;
+1. **Replace-by-name (ratified).** An override is a list of complete element entries;
    each entry **replaces** the shared-document entry with the same `name`. A name with no
    shared-document match is an error (no silent adds; adding/removing elements per
    configuration is a different feature, deliberately excluded). The shared train is stated
@@ -80,26 +80,57 @@ configurations:
 | Materialization | `api/config_set.py` | store overrides; `sensor_for(i)` builds the *effective* document (shared entries, overridden ones swapped by name) and attaches via the existing `Sensor.set_optical_elements` — no new attachment path, Rule 6 unchanged; new API pair `set_element_override(name, entries)` / `clear_element_override(name)` + accessor; `save`/`load` round-trip; `validate()` covers every member's effective document |
 | Single-store analog | `api/config_set.py` | invariant: an element name is overridden in a configuration **or** inherited — never both ambiguously; enforced by construction (dict keyed by member → list keyed by element name, dense entries) |
 | CLI | none structural | `radiant run --configuration` and `radiant validate` already route through `ConfigurationSet`; validate's per-member lines gain element errors for the member that owns them |
-| GUI | `gui/widgets/optical_element_editor.py` + host | see §4 — scope decision |
-| Tests | `io` section tests (round-trip, non-member key, unknown element name, bad entry, path resolution); `api/tests/test_config_set.py` (effective-document materialization, evaluate-all with per-member trains, save/load, coating-detail interplay); GUI test per §4 scope |
+| GUI | `gui/widgets/optical_element_editor.py` + host | see §4a — full per-configuration editing (ratified scope) |
+| Tests | `io` section tests (round-trip, non-member key, unknown element name, bad entry, path resolution); `api/tests/test_config_set.py` (effective-document materialization, evaluate-all with per-member trains, save/load, coating-detail interplay); GUI tests per §4c matrix |
 | Docs (Rule 20) | `RADIANT_Config_Format.md` §1.9 (sub-key spec + binding rules table row); `RADIANT_Scripting_API.md` §2.5c; `RADIANT_GUI_Architecture.md` Elements-tab row; **ADR-0010**: D-7 gains a dated supersession note pointing here (the ADR's "whole-document vs patching" open decision is resolved by §3a's ratification) |
 | Registries | Gap 103 → RESOLVED at delivery (this plan is its PLANNED disposition today); CHANGELOG Added (Rule 29b/c) |
 
 Gate: full battery.
 
-## 4. GUI editing scope (second open decision)
+## 4. GUI editing scope — ratified: full per-configuration editing
 
-What does the Elements tab show/edit in a study once trains can differ per configuration?
+### 4a. Ratified scope (owner, 2026-09-02)
 
-- **v1.1 recommended scope:** the tab renders the **active configuration's effective
-  train**; rows swapped in by an override carry an "overridden — <configuration>" badge.
-  **Apply keeps editing the shared document only** (today's behavior, unchanged); authoring
-  or editing an override happens in YAML / scripting for now, and a follow-up gap tracks
-  full override editing in the GUI. Cheap, honest, and the coating-detail pane (Gap 116)
-  automatically shows the effective per-band filter.
-- Alternative (larger): a per-configuration edit mode on the tab (scope selector shared vs
-  this-configuration), mirroring ADR-0010 D-8 inline-edit semantics. Defer unless the
-  YAML-first workflow proves painful.
+The Elements tab gains a **scope control** — *Shared document* vs *This configuration* —
+mirroring ADR-0010 D-8 inline-edit semantics. In both scopes the tab renders the **active
+configuration's effective train**; rows swapped in by an override carry an
+"overridden — <configuration>" badge, and the coating-detail pane (Gap 116) shows the
+effective per-band element for the active configuration.
+
+- **Shared scope:** Apply edits the shared `optical_elements` document — today's behavior,
+  unchanged. Overrides are never touched from this scope.
+- **This-configuration scope:** Apply **diffs** the edited effective train against the
+  shared document and stores exactly the changed entries as replace-by-name overrides for
+  the active configuration (§3a semantics — complete entries, re-validated by the io
+  parser). An entry edited back to equality with its shared counterpart drops its
+  override. Diff-based Apply keeps the persisted YAML minimal — the study states only what
+  differs. Element addition/removal remains excluded in both scopes (§7 watch item).
+
+The lighter v1.1 alternative (badge-only rendering, shared-only Apply, YAML-first override
+authoring) was considered and superseded by this ratification.
+
+### 4b. Phase-1 GUI test matrix
+
+| Test | File | Asserts |
+|---|---|---|
+| Accent coverage | `gui/tests/test_configuration_selector.py` | accent tuple length ≥ `MAX_CONFIGS` (12) in **both** themes; same index = same hue across theme toggle |
+| Chip distinguishability | same | the 12 accents are pairwise distinct strings in each theme (perceptual/CVD spacing is validated at design time per §7, not asserted numerically) |
+| Selector band at 12 | `gui/tests/test_configuration_selector.py` | a 12-member set renders 12 tabs; CU-331 stacked band absorbs them (no crash, all tabs reachable) |
+| Manager dialog cap | `gui/tests/test_configuration_manager.py` | add-row enabled at 11, disabled/refused at 12 with explanatory text quoting the cap |
+| Cap boundary (api) | `api/tests/test_config_set.py` | 12th accepted; 13th raises the actionable error naming 12 |
+
+### 4c. Phase-2 GUI test matrix
+
+| Test | Asserts |
+|---|---|
+| Scope control default | tab opens in Shared scope; single-configuration (non-study) files show no scope control |
+| Effective-train render | switching active configuration re-renders the effective train; overridden rows carry the badge, inherited rows do not |
+| Shared Apply untouched | Apply in Shared scope edits the shared document only; existing overrides survive verbatim |
+| Diff-based Apply | in This-configuration scope, editing one element and applying stores exactly one replace-by-name override for the active member |
+| Override drop on equality | editing an overridden entry back to shared equality and applying clears that override |
+| Validation routing | an invalid override edit surfaces the io parser's error naming the configuration; nothing is stored |
+| Coating-detail pane | shows the effective (overridden) element for the active configuration |
+| Round-trip | GUI-authored overrides save/load identically via `io/config_set_section.py` (CU-177 path relativization included) |
 
 ## 5. Phase 3 — the OLI showcase (acceptance case; effort S once 1+2 land)
 
@@ -146,5 +177,5 @@ Phase 2 ≈ 1–2 days including tests; Phase 3 ≈ half a day.
 | Decision | State |
 |---|---|
 | Cap value = 12 | **Ratified** (owner, 2026-09-01) |
-| Override mechanism (§3a) — replace-by-name recommended | **Open** — ratify before Phase 2 starts |
-| GUI editing scope (§4) — effective-train + badge, shared-only Apply recommended | **Open** — ratify before Phase 2 starts |
+| Override mechanism (§3a) = replace-by-name | **Ratified** (owner, 2026-09-02) |
+| GUI editing scope (§4a) = full per-configuration editing — scope control, diff-based override Apply | **Ratified** (owner, 2026-09-02; supersedes the v1.1 badge-only recommendation) |

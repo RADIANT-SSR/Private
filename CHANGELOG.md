@@ -27,6 +27,14 @@ retroactively reconstructed.
   follow the constant, and both themes carry twelve position-stable accent hues
   (slots 0–7 unchanged). Existing files load unchanged; not results-affecting.
 
+### Fixed
+- **`radiant gui <study.yaml>` now opens configuration-set files** (CU-342).
+  The CLI loads every file through `ConfigurationSet.load` — the same
+  one-reader dispatch as the GUI's File → Open — so a study launches with its
+  full set and selector band instead of exiting with the `Sensor.from_yaml`
+  refusal. `launch_gui` gained a keyword-only `config_set` parameter (public
+  surface, Rule 29b).
+
 ### Added
 - **Mission-template welcome screen (GUI, §4.4a — owner-confirmed brief).** With
   no configuration loaded, the central canvas shows six hand-authored mission

@@ -1333,8 +1333,16 @@ launch_gui(s)                                     # opens the GUI on the current
 
 > The prior draft referenced a `sensor.gui()` convenience method; **no such method
 > exists on `Sensor`** and none is planned for v1. The ratified entry point is
-> `launch_gui(sensor: Sensor | None)` (GUI plan §4.2). A `Sensor.gui()` sugar wrapper,
-> if ever added, is out of v1 scope.
+> `launch_gui(sensor: Sensor | None, path: str | None = None, *, config_set:
+> ConfigurationSet | None = None)` (GUI plan §4.2; `config_set` added by CU-342 for the
+> study hand-off — pass at most one of `sensor` / `config_set`). A `Sensor.gui()` sugar
+> wrapper, if ever added, is out of v1 scope.
+
+**CLI → GUI.** `radiant gui <file>` loads every file through `ConfigurationSet.load` —
+the API decides the document kind (CU-342), the same one-reader dispatch as File → Open:
+a study file (`configurations:` section) launches as the full set with the selector band
+visible; a plain config launches as the degenerate one-configuration session. Before
+CU-342 the CLI used `Sensor.from_yaml` and refused study files at the shell.
 
 **GUI → script hand-off.** In the scripting window's Command Window (§4.6.1, the separate
 global tool) `sensor` and `result` are live references to the current GUI objects; any scripting-API call

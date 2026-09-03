@@ -40,7 +40,40 @@ Gate: full battery (touches `api/` + `io/` + `gui/`).
 
 ## 3. Phase 2 — per-configuration optical elements (Gap 103 v1.1) (effort M)
 
-### 3a. Override mechanism — ratified: replace-by-name (owner, 2026-09-02)
+### 3a-bis. RE-RATIFIED during Phase-2 live review (owner, 2026-09-02, supersedes §3a/§4a below): configured element rows
+
+The replace-by-name override model below was built (chunks 2a/2b), live-reviewed the same
+day, and **superseded before merge** on the owner's live-review verdict: the scope-control /
+diff-Apply / locked-row machinery tripped its first real operator three times, and the
+parallel "override" vocabulary duplicated the configured-parameter mental model. Ratified
+replacement — **an element row configures like a parameter**:
+
+- **Configure a row** (GUI action or API): the row gains the red **C** and carries one
+  **complete entry per configuration** — dense, every member present, exactly like a
+  configured parameter's value list (ADR-0010 D-A). Unconfigure collapses to the kept
+  member's entry (default configuration #1, D-6 parity).
+- **Row identity is positional** (owner-ratified with consequence flagged: the **name
+  configures too** — a band may name row 4 differently; cross-band legends/errors then
+  name different things). The train's *structure* stays shared: same row count, same
+  order, in every configuration — no per-band addition/removal, as before.
+- **D-8 inline edit**: editing a configured row while configuration X is displayed edits
+  X's entry only. No scope control, no locked rows, no diff-based Apply, no
+  edit-back-to-equality magic.
+- **YAML: in-place positional form** — the shared `optical_elements:` list stays the
+  skeleton; a configured row is written as `- configured: {member: entry, ...}` at its
+  position (single-store: a configured row's entries live only there; dense checked at
+  load; every entry re-validated through the io element parser, Kirchhoff included;
+  CU-177 path relativize/resolve parity).
+- Scripting API mirrors the parameter trio: `configure_element(index)` /
+  `set_element_for(index, config, entry)` / `element_for(index, config)` /
+  `unconfigure_element(index, keep=None)` + `is_element_configured(index)`;
+  `effective_optical_elements(name)` and `sensor_for` semantics unchanged.
+- §4c GUI test matrix re-targets accordingly: configure/unconfigure round-trip, red C on
+  configured rows only, D-8 per-band editing, dense YAML round-trip, load-time
+  validation naming the member, coating-detail pane per-band. The §4a scope-control
+  matrix rows are void.
+
+### 3a. Override mechanism — SUPERSEDED (was: replace-by-name, owner, 2026-09-02 morning; see §3a-bis)
 
 The `configurations:` section gains an `optical_elements:` sub-key mapping member name →
 override. Three candidate semantics were weighed; **replace-by-name is ratified**.
@@ -87,9 +120,13 @@ configurations:
 
 Gate: full battery.
 
-## 4. GUI editing scope — ratified: full per-configuration editing
+## 4. GUI editing scope — SUPERSEDED by §3a-bis (configured element rows)
 
-### 4a. Ratified scope (owner, 2026-09-02)
+> **2026-09-02 live-review re-ratification:** the scope-control model below was built and
+> then superseded before merge — see §3a-bis for the ratified replacement (red C on
+> configured rows, D-8 inline edit, no scope control). Kept for the decision record.
+
+### 4a. Superseded scope (owner, 2026-09-02 morning)
 
 The Elements tab gains a **scope control** — *Shared document* vs *This configuration* —
 mirroring ADR-0010 D-8 inline-edit semantics. In both scopes the tab renders the **active
@@ -177,5 +214,7 @@ Phase 2 ≈ 1–2 days including tests; Phase 3 ≈ half a day.
 | Decision | State |
 |---|---|
 | Cap value = 12 | **Ratified** (owner, 2026-09-01) |
-| Override mechanism (§3a) = replace-by-name | **Ratified** (owner, 2026-09-02) |
-| GUI editing scope (§4a) = full per-configuration editing — scope control, diff-based override Apply | **Ratified** (owner, 2026-09-02; supersedes the v1.1 badge-only recommendation) |
+| Override mechanism (§3a) = replace-by-name | ~~Ratified (owner, 2026-09-02 morning)~~ **Superseded same day** by §3a-bis |
+| GUI editing scope (§4a) = scope control + diff-based override Apply | ~~Ratified (owner, 2026-09-02 morning)~~ **Superseded same day** by §3a-bis |
+| Per-configuration elements = **configured element rows** (§3a-bis): dense per-member entries, red C, D-8 inline edit, positional row identity | **Ratified** (owner live review, 2026-09-02) |
+| Name configures with the row (positional identity; cross-band naming may differ — consequence flagged and accepted) | **Ratified** (owner, 2026-09-02) |

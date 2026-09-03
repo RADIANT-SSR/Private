@@ -1,6 +1,6 @@
 # Digital-Pixel ROIC (DROIC) Readout Capability — Development and Test Plan
 
-**Status:** Active — §8 decisions ratified by the owner 2026-09-02 (D2 amended in discussion: DN follows the residue flag).
+**Status:** Active — §8 decisions D1–D5 ratified by the owner 2026-09-02 (D2 amended in discussion: DN follows the residue flag). Up/down counting folded in as Phase 4 (v1.1) with decisions D6–D7, owner-ratified 2026-09-02 — supersedes D1's original "own gap" deferral.
 
 **Date:** 2026-09-02
 **Gap:** 117 (`docs/tracking/gaps.md`)
@@ -44,6 +44,10 @@ default (zero golden-result change).
   saturation bound $f_\mathrm{max} \cdot t_\mathrm{int} \cdot Q_\mathrm{pkt}$.
 - Count-domain TDI: `readout.n_tdi` scaling unchanged; TDI mis-registration MTF retained
   (it is a sampling-timing effect, not a charge-transfer effect — §4, decision D4).
+- **Up/down counting (Phase 4, v1.1):** signed modulo accumulation with an up (scene) and
+  down (reference) phase — in-pixel background subtraction for dim point-source targets
+  against a bright common background (§2.5). Reference model per D6; capacity constraint
+  moves from rollover to the differential (±$2^{N-1}$ counts).
 - DN output semantics: DN is the digitization of the total signal
   $Q_\mathrm{pkt} \cdot n_\mathrm{counts} + Q_\mathrm{res}$, following the residue flag —
   residue read on: combined word
@@ -53,9 +57,10 @@ default (zero golden-result change).
   configurations — §8 D2.
 - GUI surface for the new parameters (Phase 3).
 
-**Out of scope (v1)** — each becomes a Findings-Log line or Gap at Phase 0 close if the
-owner wants it tracked: up/down counting and in-pixel background subtraction (modulo
-arithmetic as a feature); in-pixel filtering / count-shift orthogonal-transfer TDI MTF
+**Out of scope** — each becomes a Findings-Log line or Gap at Phase 0 close if the
+owner wants it tracked: general in-pixel temporal filtering beyond the single up/down
+background-subtraction cycle (multi-tap filters, in-pixel ΔF change detection);
+count-shift orthogonal-transfer TDI MTF
 modeling beyond the retained mis-registration term; comparator threshold non-uniformity
 as a residual-NU noise term (v1 assumes NUC-calibrated, §6 assumptions); ROIC
 self-emission / glow as a background term; per-pixel packet-size dispersion.
@@ -100,7 +105,42 @@ term governs). Both bounds clip through the existing well-saturation warning pat
 `adc_well_match_ratio` and the ADC/well mismatch warning are meaningless under counting
 and are suppressed for this architecture (the counter *is* the ADC).
 
-### 2.4 What is deliberately unchanged
+### 2.4 Up/down counting (Phase 4)
+
+The counter becomes a **signed modulo accumulator**: it increments during the scene
+phase ($t_\mathrm{up}$) and decrements during the reference phase ($t_\mathrm{down}$),
+ending at the differential. The driving use case is **dim point-source detection
+against a bright common background** — the pedestal (background + dark, which cancels
+in the mean for $t_\mathrm{up} = t_\mathrm{down}$) is removed before readout, and the
+counter's full range is spent on the target signal.
+
+- **Reference flux (D6):** in sub-pixel / point-source regimes the chain already
+  computes target and background as separate radiometric terms, so the down phase
+  integrates the chain's own **background term** (the physical "background-only
+  estimate" a real system gets from a defocused or temporally adjacent sample). A
+  `user_level` fallback (reference charge rate in e-/s) covers extended-scene use,
+  where a separate background term does not exist.
+- **Mean:** $\Delta Q = Q_\mathrm{target}$ for equal phases and reference =
+  background (background and dark cancel).
+- **Noise — the mean cancels, the noise does not:**
+  $\sigma^2_\mathrm{shot} = Q_\mathrm{up} + Q_\mathrm{down}$ (e-²) — background shot
+  noise is paid in both phases (up to $\sqrt{2}$ penalty vs a noiseless reference);
+  packet-reset and counting-chain terms likewise accrue over both phases. Any model
+  subtracting the mean without adding reference-phase noise is flattering and
+  forbidden here.
+- **Capacity:** rollover during the up phase is *not* a failure — modulo wrap during
+  up is unwound during down. The bounds become
+  $|\Delta Q| \le 2^{N-1} \cdot Q_\mathrm{pkt}$ (signed differential) plus the
+  unchanged dead-time flux ceiling per phase. `saturation_mechanism` gains
+  `"differential_overflow"`.
+- **DN:** the signed differential, following the D2 residue-flag semantics (signed
+  combined word when residue is read).
+- **Metrics:** the SNR numerator is unchanged (already the target signal in e-);
+  up/down enters as new noise-budget terms plus the different saturation bound. NEDT
+  in this mode is the differential NEDT — one-line clarification in
+  `RADIANT_Metrics.md`, not a new metric.
+
+### 2.5 What is deliberately unchanged
 
 - The MTF product path: detector aperture, diffusion, IPC, jitter, smear MTFs are
   upstream/parallel and untouched. TDI mis-registration MTF is retained (D4). **No new
@@ -119,6 +159,10 @@ and are suppressed for this architecture (the counter *is* the ADC).
 | `readout.count_packet_e` | float | e-/count | None (required when counting) | bounds (0, 1e7] |
 | `readout.residue_readout` | bool | — | True | residue ADC uses existing `adc_bits`/`gain_e_per_dn` semantics scoped to $Q_\mathrm{pkt}$ full scale |
 | `readout.max_count_rate_hz` | float | Hz | None | None ⇒ no dead-time ceiling |
+| `readout.counting_mode` | enum | — | `"up"` | `up` \| `up_down` (Phase 4); `up_down` requires `architecture = "digital_counting"` |
+| `readout.reference_source` | enum | — | `"background_term"` | `background_term` \| `user_level` (Phase 4, D6); `background_term` valid only in sub-pixel / point-source regimes |
+| `readout.reference_rate_e_per_s` | float | e-/s | None | required iff `reference_source = "user_level"` (Phase 4) |
+| `readout.reference_integration_s` | float | s | None | down-phase duration; None ⇒ equal to the scene integration time (Phase 4, D7) |
 
 Validation (Rule 16): counting-only parameters set while `architecture = "analog_well"`
 raise an actionable `ParameterEnumError`-family error (over-specification, same posture as
@@ -134,6 +178,7 @@ explicitly set (schema default passes silently).
 |------|-------------|
 | `readout/counting_well.py` | effective well + dead-time ceiling → $Q_\mathrm{sat}$, count conversion |
 | `readout/counting_quantization.py` | quantization noise branch (packet vs residue-ADC) |
+| `readout/updown_differential.py` | Phase 4: differential signal, wrap-capacity check, reference-phase noise terms |
 | `readout/stage.py` | dispatch on `readout.architecture` (modified; analog path code untouched) |
 
 `saturation.py` and `adc.py` are not modified — the counting branch calls its own modules
@@ -165,8 +210,19 @@ Phase 0 ⇒ **full GUI suite runs on every phase** per the `_schema.py` rule).
   before the owner has seen the running branch.** `gui_workflow.md` addendum for the
   first DROIC scenario.
 
+- **Phase 4 — Up/down counting, v1.1 (Category C).** `updown_differential.py` per §2.4:
+  signed-differential capacity bound replacing the rollover clip, reference-phase flux
+  from the chain's background term (D6) or `user_level` fallback, reference shot-noise
+  and doubled packet-reset budget entries, signed DN. Level-0 tests first; truth anchors
+  §7 (4–6). GUI increment: `counting_mode` selector + reference group on the Phase 3
+  panel, shown only under `up_down` (live-review loop applies again). Lock-step:
+  `RADIANT_Metrics.md` differential-NEDT clarification. CHANGELOG entry (results-affecting
+  for `up_down` configurations only).
+
 A validation scenario (Senseeker-class MWIR DROIC vs the same FPA on an analog ROIC —
-DR, SNR-vs-flux, NEDT comparison) rides with Phase 2 as the workflow-visible test.
+DR, SNR-vs-flux, NEDT comparison) rides with Phase 2 as the workflow-visible test. A
+second scenario (dim point-source target on a bright background, `up` vs `up_down` —
+the differential-capacity and √2-reference-noise trade made visible) rides with Phase 4.
 
 ---
 
@@ -182,6 +238,14 @@ DR, SNR-vs-flux, NEDT comparison) rides with Phase 2 as the workflow-visible tes
   $Q_\mathrm{pkt} \gg$ comparator noise.
 - **Uniform in-pixel flux over $t_\mathrm{int}$** for the dead-time bound (worst-case DC
   comparison, not pulse-shaped).
+- **Independent reference realization (Phase 4):** the down-phase background sample is
+  statistically independent of the up-phase background (shot noise adds in quadrature,
+  no correlation credit). *Breaks:* a temporally overlapping or spatially shared
+  reference would partially correlate; v1.1 takes the conservative independent case.
+  *Detected:* documented limitation.
+- **Static scene across both phases (Phase 4):** background mean is identical in up and
+  down phases; scene drift between phases leaks into the differential as signal. v1.1
+  does not model drift. *Detected:* documented limitation.
 
 ---
 
@@ -197,6 +261,18 @@ DR, SNR-vs-flux, NEDT comparison) rides with Phase 2 as the workflow-visible tes
    Kelly et al., Lincoln Laboratory Journal 2013): published counter depth / packet size /
    dynamic-range figures reproduced within the paper's stated precision.
 
+Phase 4 adds:
+
+4. **Hand calculation** — differential wrap arithmetic: background exceeding the counter
+   range (e.g. $10^5$ counts up through a 16-bit counter) unwound by the down phase to an
+   exact small differential; capacity edge cases at $\pm 2^{15}$ counts.
+5. **Analytic vs Monte Carlo** — differential noise $\sigma^2 = Q_\mathrm{up} +
+   Q_\mathrm{down}$ against a two-phase floor-model simulation (`rel=1e-2`), including
+   the $\sqrt{2}$ background-noise penalty vs a noiseless-reference control.
+6. **Literature** — MIT Lincoln Laboratory DFPA up/down background-subtraction
+   demonstrations (Schultz et al., *Lincoln Laboratory Journal* 20(2), 2014):
+   published subtraction-mode dynamic-range figures reproduced within stated precision.
+
 Plus the Category C dimensional audit (e- → counts → DN chain) and cross-model
 consistency: `digital_counting` with $Q_\mathrm{pkt} \to$ full-well-equivalent, residue
 on, must converge to the analog path's SNR within stated tolerance in the shot-limited
@@ -208,8 +284,10 @@ regime.
 
 | # | Question | Ruling |
 |---|----------|--------|
-| D1 | Counter rollover: clip-as-saturation vs modulo (up/down counting is the real part's feature) | **Clip in v1**; modulo/up-down counting deferred as its own gap, filed at Phase 0 |
+| D1 | Counter rollover: clip-as-saturation vs modulo (up/down counting is the real part's feature) | **Clip in v1** (`counting_mode = "up"`). *Deferral amended 2026-09-02: up/down counting is folded into this plan as Phase 4 (D6–D7) rather than filed as its own gap.* |
 | D2 | DN semantics under counting | **DN follows the residue flag**: DN = digitized total ($Q_\mathrm{pkt} \cdot n + Q_\mathrm{res}$). Residue on → combined word ($n \cdot 2^{M} + \mathrm{DN}_\mathrm{res}$, gain $Q_\mathrm{pkt}/2^{M}$ e-/DN); residue off → bare counter (gain $Q_\mathrm{pkt}$ e-/DN). *Amended from the original counter-only proposal: counter-only DN is quantized in packet steps, contradicting the noise budget whenever the residue is read. The owner's framing — total = well depth × counter + final well reading — is this model.* |
 | D3 | `read_noise_e_rms` meaning under counting: reuse as counting-chain per-frame noise vs new parameter | **Reuse** — one fewer parameter; documented reinterpretation |
 | D4 | TDI mis-registration MTF under count-domain TDI: retain or zero | **Retain** — timing mis-registration exists regardless of charge vs count transfer; it stays the one MTF-only term |
 | D5 | Phase 3 GUI in this plan vs folded into the next GUI expansion plan | **In this plan** — small surface, one panel group |
+| D6 | Up/down reference-frame model: user-specified level, two-configuration set (Gap 105 dependency), or the chain's own background term | **Background term** (sub-pixel / point-source regimes — the dim-point-source use case that motivates the mode), with `user_level` fallback for extended-scene; no Gap 105 dependency. Ratified 2026-09-02 |
+| D7 | Up/down phase durations: fixed-equal vs parameterized | **Parameterized** (`readout.reference_integration_s`), equal-to-scene default. Ratified 2026-09-02 |

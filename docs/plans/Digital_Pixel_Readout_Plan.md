@@ -1,6 +1,6 @@
 # Digital-Pixel ROIC (DROIC) Readout Capability — Development and Test Plan
 
-**Status:** Draft — awaiting owner ratification of §8 proposed decisions.
+**Status:** Active — §8 decisions ratified by the owner 2026-09-02 (D2 amended in discussion: DN follows the residue flag).
 
 **Date:** 2026-09-02
 **Gap:** 117 (`docs/tracking/gaps.md`)
@@ -44,8 +44,13 @@ default (zero golden-result change).
   saturation bound $f_\mathrm{max} \cdot t_\mathrm{int} \cdot Q_\mathrm{pkt}$.
 - Count-domain TDI: `readout.n_tdi` scaling unchanged; TDI mis-registration MTF retained
   (it is a sampling-timing effect, not a charge-transfer effect — §4, decision D4).
-- DN output semantics: reported DN = counter value (residue folded into the noise budget,
-  not a second DN word) — §8 D2.
+- DN output semantics: DN is the digitization of the total signal
+  $Q_\mathrm{pkt} \cdot n_\mathrm{counts} + Q_\mathrm{res}$, following the residue flag —
+  residue read on: combined word
+  ($\mathrm{DN} = n_\mathrm{counts} \cdot 2^{M} + \mathrm{DN}_\mathrm{res}$, $M$ =
+  `readout.adc_bits`, gain $Q_\mathrm{pkt}/2^{M}$ e-/DN); residue off: bare counter
+  (gain $Q_\mathrm{pkt}$ e-/DN). DN and the noise budget are self-consistent in both
+  configurations — §8 D2.
 - GUI surface for the new parameters (Phase 3).
 
 **Out of scope (v1)** — each becomes a Findings-Log line or Gap at Phase 0 close if the
@@ -199,12 +204,12 @@ regime.
 
 ---
 
-## 8. Owner decisions required before Phase 0
+## 8. Owner decisions — ratified 2026-09-02
 
-| # | Question | Proposed |
-|---|----------|----------|
-| D1 | Counter rollover: clip-as-saturation vs modulo (up/down counting is the real part's feature) | **Clip in v1**; modulo/up-down counting deferred as its own gap |
-| D2 | DN semantics: counter value as DN vs synthesized combined word (counter + residue) | **Counter = DN**; residue affects noise budget only |
+| # | Question | Ruling |
+|---|----------|--------|
+| D1 | Counter rollover: clip-as-saturation vs modulo (up/down counting is the real part's feature) | **Clip in v1**; modulo/up-down counting deferred as its own gap, filed at Phase 0 |
+| D2 | DN semantics under counting | **DN follows the residue flag**: DN = digitized total ($Q_\mathrm{pkt} \cdot n + Q_\mathrm{res}$). Residue on → combined word ($n \cdot 2^{M} + \mathrm{DN}_\mathrm{res}$, gain $Q_\mathrm{pkt}/2^{M}$ e-/DN); residue off → bare counter (gain $Q_\mathrm{pkt}$ e-/DN). *Amended from the original counter-only proposal: counter-only DN is quantized in packet steps, contradicting the noise budget whenever the residue is read. The owner's framing — total = well depth × counter + final well reading — is this model.* |
 | D3 | `read_noise_e_rms` meaning under counting: reuse as counting-chain per-frame noise vs new parameter | **Reuse** — one fewer parameter; documented reinterpretation |
 | D4 | TDI mis-registration MTF under count-domain TDI: retain or zero | **Retain** — timing mis-registration exists regardless of charge vs count transfer; it stays the one MTF-only term |
 | D5 | Phase 3 GUI in this plan vs folded into the next GUI expansion plan | **In this plan** — small surface, one panel group |

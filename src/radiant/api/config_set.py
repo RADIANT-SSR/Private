@@ -25,10 +25,19 @@ Validation, bounds, enums, consistency groups, and defaults therefore all run
 per configuration inside the existing ``ParameterSet.resolve()`` — there is no
 second resolution engine and ``radiant.core`` is not modified.
 
+Optical elements (Gap 103 v1.1, owner-ratified 2026-09-02) follow the same
+"state only what differs" philosophy: the ``optical_elements`` document is
+shared, and a configuration may carry **replace-by-name overrides** —
+complete entries that replace the shared entries of the same ``name``, every
+other shared entry inherited in shared order. An element is overridden or
+inherited in a configuration, never ambiguously both, and an override never
+adds or removes an element (:meth:`ConfigurationSet.set_element_override`).
+
 Persistence (ADR-0010 D-D) is one file per study: the shared base serialized
 exactly as ``Sensor.save`` writes it, plus a ``configurations:`` structured
 section carrying names, active/baseline, per-configuration ``wavelength_points``,
-and the configured table (:mod:`radiant.io.config_set_section`). A config file
+the configured table, and any element overrides
+(:mod:`radiant.io.config_set_section`). A config file
 with no section is byte-for-byte today's format, and loading a section-bearing
 file through bare ``Sensor.load`` raises with a "load it with
 ``ConfigurationSet.load``" message rather than dropping the study.
@@ -47,6 +56,7 @@ Example::
 
 from __future__ import annotations
 
+import copy as _copy
 import logging
 import warnings
 from collections.abc import Mapping, Sequence
@@ -59,6 +69,7 @@ from radiant.api._param_registry import build_parameter_set
 from radiant.api._progress import CancelFn, ProgressFn, check_cancel
 from radiant.api._warning_capture import capture_warnings
 from radiant.api.compare import ComparisonResult, compare_configs
+from radiant.api.config_io import normalize_element_document
 from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterSet, Provenance
@@ -351,6 +362,7 @@ class ConfigurationSet:
         self._base: Sensor = base
         self._names: list[str] = list(chosen)
         self._configured: dict[str, tuple[Any, ...]] = {}
+        self._element_overrides: dict[str, list[dict[str, Any]]] = {}
         self._wl_points: dict[str, int] = {}
         self._shared_wl_points: int | None = None
         self._baseline: str = self._names[0]
@@ -406,9 +418,9 @@ class ConfigurationSet:
         """Return an independent copy of this set — base, table, and designations.
 
         The copy owns ``base.clone()``, its own configured table, its own
-        wavelength-point overrides, and the same ``active`` / ``baseline``
-        designations. Nothing is shared: editing either set afterwards leaves
-        the other untouched.
+        wavelength-point overrides, its own per-configuration optical-element
+        overrides, and the same ``active`` / ``baseline`` designations. Nothing
+        is shared: editing either set afterwards leaves the other untouched.
 
         This is the set-level counterpart of :meth:`Sensor.clone` and exists for
         the same reason — **thread isolation**. The GUI hands its evaluation
@@ -422,6 +434,7 @@ class ConfigurationSet:
         """
         copy = ConfigurationSet(self._base.clone(), names=tuple(self._names))
         copy._configured = dict(self._configured)
+        copy._element_overrides = _copy.deepcopy(self._element_overrides)
         copy._wl_points = dict(self._wl_points)
         copy._shared_wl_points = self._shared_wl_points
         copy._baseline = self._baseline
@@ -439,6 +452,13 @@ class ConfigurationSet:
         (density, D-A): copied from *copy_from* when given — the duplicate
         route — otherwise from the **first** configuration, matching the D-6
         "configuration #1 is the reference" convention.
+
+        Per-configuration state that is *not* dense — the wavelength-point
+        override and the optical-element overrides — is copied from *copy_from*
+        when it has one, and is otherwise absent: the new configuration inherits
+        the shared grid and the shared element document. That asymmetry is the
+        model's, not an omission: a configured parameter has no shared value to
+        fall back on, while an un-overridden element train does.
         """
         self._check_name(name)
         if name in self._names:
@@ -469,6 +489,8 @@ class ConfigurationSet:
             self._configured[dotpath] = (*values, values[seed_index])
         if copy_from is not None and copy_from in self._wl_points:
             self._wl_points[name] = self._wl_points[copy_from]
+        if copy_from is not None and copy_from in self._element_overrides:
+            self._element_overrides[name] = _copy.deepcopy(self._element_overrides[copy_from])
 
     def remove(self, name: str) -> None:
         """Remove configuration *name* and drop its column of configured values.
@@ -490,6 +512,7 @@ class ConfigurationSet:
         for dotpath, values in list(self._configured.items()):
             self._configured[dotpath] = values[:index] + values[index + 1 :]
         self._wl_points.pop(name, None)
+        self._element_overrides.pop(name, None)
         if self._active == name:
             self._active = self._names[0]
         if self._baseline == name:
@@ -509,6 +532,8 @@ class ConfigurationSet:
         self._names[index] = new
         if old in self._wl_points:
             self._wl_points[new] = self._wl_points.pop(old)
+        if old in self._element_overrides:
+            self._element_overrides[new] = self._element_overrides.pop(old)
         if self._active == old:
             self._active = new
         if self._baseline == old:
@@ -756,6 +781,190 @@ class ConfigurationSet:
         self._wl_points[config] = n
 
     # ------------------------------------------------------------------
+    # Per-configuration optical elements (Gap 103 v1.1)
+    # ------------------------------------------------------------------
+
+    def element_overrides(self, name: str) -> list[dict[str, Any]] | None:
+        """Configuration *name*'s optical-element overrides, or ``None``.
+
+        ``None`` means the configuration **inherits** the shared
+        ``optical_elements`` document entirely — the same "inherits, rather than
+        happens to match" distinction :meth:`wavelength_points` draws. Otherwise
+        a copy of the stored replace-by-name entries (complete entries, normalized
+        with absolute spectral-file references), in the order they were set.
+
+        Raises :class:`ConfigSetError` when *name* is not a configuration.
+        """
+        self._index(name, "element_overrides")
+        entries = self._element_overrides.get(name)
+        return None if entries is None else _copy.deepcopy(entries)
+
+    def set_element_override(
+        self,
+        name: str,
+        entries: Sequence[Mapping[str, Any]],
+        *,
+        base_dir: str | Path | None = None,
+    ) -> None:
+        """Give configuration *name* per-configuration optical elements.
+
+        *entries* is a non-empty list of **complete** element entries — the same
+        entry dicts the ``optical_elements:`` document carries. Semantics are
+        **replace-by-name** (Gap 103 v1.1, owner-ratified 2026-09-02): each entry
+        replaces the shared document's entry of the same ``name``; every shared
+        entry not named is inherited, in shared order. An entry naming no shared
+        element is refused — an override never *adds* or *removes* an element,
+        because a configuration's train must stay predictable from the shared
+        document plus its overrides.
+
+        The call **replaces** this configuration's override list wholesale (it is
+        not merged into an existing one), so the analog of the D-B single-store
+        invariant holds by construction: within a configuration an element is
+        overridden **or** inherited, never ambiguously both. Overriding the same
+        element name twice in one call is refused rather than last-wins.
+
+        Every entry is validated immediately through the io element parser —
+        the single validation authority, Kirchhoff included (Rule 5) — and
+        normalized, so relative spectral-file references under *base_dir*
+        (default: the current directory, as ``Sensor.set_optical_elements``)
+        become absolute and the stored override survives a save to any directory.
+        A rejected entry stores nothing.
+
+        Read it back with :meth:`element_overrides`, drop it with
+        :meth:`clear_element_override`, and see the resulting train with
+        :meth:`effective_optical_elements`.
+        """
+        self._index(name, "set_element_override")
+        shared = self._base.optical_elements()
+        if shared is None:
+            raise ConfigSetError(
+                what=f"configuration {name!r}: cannot override optical elements — the set's "
+                "base sensor has no 'optical_elements' document",
+                why="an override **replaces** a shared element by name (Gap 103 v1.1); with no "
+                "shared document there is nothing to replace, and storing the entries would "
+                "silently turn the override into the whole train",
+                action="Attach the shared train first with cs.base.set_optical_elements([...]), "
+                f"then override the entries configuration {name!r} changes.",
+                context={"configuration": name},
+            )
+        listed = [dict(entry) for entry in entries]
+        if not listed:
+            raise ConfigSetError(
+                what=f"configuration {name!r}: an element override needs at least one entry",
+                why="an empty override says nothing — a configuration that changes no element "
+                "inherits the shared document",
+                action=f"Pass the entries {name!r} changes, or call "
+                f"clear_element_override({name!r}) to inherit the shared document.",
+                context={"configuration": name},
+            )
+        known = [str(entry.get("name")) for entry in shared]
+        seen: list[str] = []
+        for entry in listed:
+            element = entry.get("name")
+            if not isinstance(element, str) or not element.strip():
+                raise ConfigSetError(
+                    what=f"configuration {name!r}: an override entry has no 'name'",
+                    why="the name is what binds an override to the shared element it replaces",
+                    action=f"Give the entry the 'name' of the shared element it replaces "
+                    f"(shared elements are {known}).",
+                    context={"configuration": name, "shared_elements": known},
+                )
+            if element in seen:
+                raise ConfigSetError(
+                    what=f"configuration {name!r} overrides element {element!r} twice",
+                    why="an element is overridden or inherited in a configuration, never both — "
+                    "two entries for one name would make the effective train order-dependent",
+                    action=f"Keep one entry for {element!r}.",
+                    context={"configuration": name, "element": element},
+                )
+            if element not in known:
+                raise ConfigSetError(
+                    what=f"configuration {name!r} overrides element {element!r}, which is not in "
+                    "the shared 'optical_elements' document",
+                    why="a per-configuration override replaces a shared element by name; it "
+                    "never adds one, because adding or removing elements per configuration "
+                    "would make each configuration's train unpredictable from the shared "
+                    "document (Gap 103 v1.1)",
+                    action=f"Use one of the shared element names {known}, or add the element to "
+                    "the shared document with cs.base.set_optical_elements([...]) first.",
+                    context={"configuration": name, "element": element, "shared_elements": known},
+                )
+            seen.append(element)
+        try:
+            normalized = normalize_element_document(listed, base_dir=base_dir)
+        except RadiantError as exc:
+            raise ConfigSetError(
+                what=f"configuration {name!r}: the element override is not a valid "
+                "optical-element document",
+                why=str(exc),
+                action=f"Fix the entry and set the override again; configuration {name!r} keeps "
+                "the train it had until the whole override validates.",
+                context={"configuration": name},
+            ) from exc
+        self._element_overrides[name] = normalized
+
+    def clear_element_override(self, name: str) -> None:
+        """Drop configuration *name*'s element overrides — it inherits the shared train.
+
+        Idempotent: clearing a configuration that carries no override is a no-op,
+        not an error, mirroring ``set_wavelength_points(name, None)``. Every
+        editable per-configuration setting needs a way back.
+
+        Raises :class:`ConfigSetError` when *name* is not a configuration.
+        """
+        self._index(name, "clear_element_override")
+        self._element_overrides.pop(name, None)
+
+    def effective_optical_elements(self, name: str) -> list[dict[str, Any]] | None:
+        """The element document configuration *name* actually evaluates with.
+
+        The shared document in shared order, with this configuration's
+        replace-by-name overrides swapped in — what :meth:`sensor_for` attaches.
+        ``None`` when the base carries no shared document (and therefore no
+        configuration can carry an override).
+
+        The read surface a display layer needs: rendering a configuration's train
+        must not go through :meth:`sensor_for`, which resolves the whole parameter
+        set and can raise for reasons that have nothing to do with the optics.
+
+        Raises :class:`ConfigSetError` when an override names an element the
+        shared document no longer holds — reachable only by editing the base's
+        document behind the set's back (``cs.base.set_optical_elements(...)``),
+        exactly like the parameter-store clash :meth:`sensor_for` checks. Silently
+        dropping the orphaned override would evaluate a train the study does not
+        describe (Rule 17).
+        """
+        self._index(name, "effective_optical_elements")
+        shared = self._base.optical_elements()
+        if shared is None:
+            if name in self._element_overrides:
+                raise ConfigSetError(
+                    what=f"configuration {name!r} overrides optical elements, but the base "
+                    "sensor no longer has an 'optical_elements' document",
+                    why="the overrides replace shared elements by name; with the shared "
+                    "document gone there is nothing left for them to replace",
+                    action=f"Re-attach the shared train with cs.base.set_optical_elements([...]), "
+                    f"or call clear_element_override({name!r}).",
+                    context={"configuration": name},
+                )
+            return None
+        overrides = {str(entry["name"]): entry for entry in self._element_overrides.get(name, [])}
+        shared_names = [str(entry.get("name")) for entry in shared]
+        orphans = sorted(set(overrides) - set(shared_names))
+        if orphans:
+            raise ConfigSetError(
+                what=f"configuration {name!r} overrides element(s) {orphans}, which the shared "
+                "'optical_elements' document no longer holds",
+                why="the shared document was replaced after the override was set; a "
+                "replace-by-name override with no shared counterpart has nothing to replace, "
+                "and dropping it would silently evaluate a train the study does not describe",
+                action=f"Re-set the override against the current shared elements "
+                f"{shared_names}, or call clear_element_override({name!r}).",
+                context={"configuration": name, "elements": orphans, "shared": shared_names},
+            )
+        return [_copy.deepcopy(overrides.get(str(entry.get("name")), entry)) for entry in shared]
+
+    # ------------------------------------------------------------------
     # Materialization and evaluation
     # ------------------------------------------------------------------
 
@@ -767,6 +976,13 @@ class ConfigurationSet:
         ``resolved()``/``explain()`` name the owning configuration) and its
         wavelength point count in force. It is fully independent: later edits
         to the set do not reach it, and edits to it do not reach the set.
+
+        When the configuration carries optical-element overrides, its
+        :meth:`effective_optical_elements` document is attached through the
+        ordinary ``Sensor.set_optical_elements`` — the one attachment path, so
+        the overridden train is parsed, injected, and persisted exactly as a
+        shared one. A configuration with no override keeps the cloned base's
+        document untouched.
 
         The parameter set is resolved here, so an over-constrained consistency
         group or an unsatisfiable requirement inside this configuration raises
@@ -781,6 +997,19 @@ class ConfigurationSet:
         )
         for dotpath, values in self._configured.items():
             sensor.set(dotpath, values[index], source=f"config:{name}")
+        if name in self._element_overrides:
+            effective = self.effective_optical_elements(name)
+            try:
+                sensor.set_optical_elements(effective)
+            except RadiantError as exc:
+                raise ConfigSetError(
+                    what=f"configuration {name!r}: its optical-element override does not attach",
+                    why=str(exc),
+                    action=f"Fix the override entries of configuration {name!r} "
+                    f"(cs.set_element_override({name!r}, [...])), or clear it to inherit the "
+                    "shared element document.",
+                    context={"configuration": name},
+                ) from exc
         try:
             sensor.resolve()
         except RadiantError as exc:
@@ -801,6 +1030,11 @@ class ConfigurationSet:
         :class:`~radiant.core.exceptions.RadiantError` it fails with, so a GUI
         can show a per-row status without any configuration's failure hiding
         another's.
+
+        Because it goes through :meth:`sensor_for`, each configuration's
+        **effective** optical-element document is attached and parsed here too:
+        a configuration whose element override no longer matches the shared
+        document, or whose entries no longer parse, reports under its own name.
         """
         status: dict[str, RadiantError | None] = {}
         for name in self._names:
@@ -960,8 +1194,8 @@ class ConfigurationSet:
         The shared body loads exactly as ``Sensor.load`` loads it (parameters,
         tolerances, ``_radiant.wavelength_points``, any ``optical_elements``
         document); the ``configurations:`` section then supplies the names,
-        ``active``/``baseline``, per-configuration ``wavelength_points``, and the
-        configured table.
+        ``active``/``baseline``, per-configuration ``wavelength_points``, the
+        configured table, and any per-configuration element overrides.
 
         A config file **without** the section is a valid input: it loads as the
         degenerate one-configuration set (named ``"Configuration 1"``), which is
@@ -973,7 +1207,9 @@ class ConfigurationSet:
         empty names, more than :attr:`MAX_CONFIGS` names, an unknown dot-path
         (with did-you-mean), a dot-path present in both the shared body and the
         section (ADR-0010 D-B), an ``active``/``baseline`` that names no member,
-        and any configured value the schema rejects.
+        any configured value the schema rejects, and any element override that
+        names a non-member, names an element the shared document does not hold,
+        or fails the io element parser (Kirchhoff included).
         """
         src = Path(path)
         sections: dict[str, Any] = {}
@@ -982,10 +1218,14 @@ class ConfigurationSet:
         if raw is None:
             # Plain config file: the single-configuration set == the bare Sensor.
             return cls(base)
+        shared_doc = base.optical_elements()
         section = parse_configurations_section(
             raw,
             build_parameter_set(),
             shared_inputs=base.inputs(),
+            shared_element_names=(
+                None if shared_doc is None else [str(entry.get("name")) for entry in shared_doc]
+            ),
             path=src,
             base_dir=src.parent,
             max_configurations=cls.MAX_CONFIGS,
@@ -996,6 +1236,11 @@ class ConfigurationSet:
                 cs.configure(dotpath, values)
             for name, n_points in section.wavelength_points.items():
                 cs.set_wavelength_points(name, n_points)
+            for name, entries in section.optical_elements.items():
+                # The section parser resolved the entries' spectral-file
+                # references against the config file's directory (CU-177), so
+                # they are absolute here and base_dir cannot change them.
+                cs.set_element_override(name, entries)
             cs.active = section.active
             cs.baseline = section.baseline
         except ConfigSetError as exc:
@@ -1012,15 +1257,16 @@ class ConfigurationSet:
         (``wavelength_points`` = the shared point count, tolerances), and the
         ``optical_elements`` section when one is attached — plus the
         ``configurations:`` section. :meth:`load` restores names and order, the
-        configured table, ``active``/``baseline``, and every wavelength point
-        count.
+        configured table, ``active``/``baseline``, every wavelength point count,
+        and every per-configuration element override.
 
         The section is written even for a single-configuration set with an empty
         configured table: the file then differs from ``Sensor.save`` output by
         the section alone, and the configuration's **name** survives the round
         trip (omitting it would silently rename it on reload).
 
-        ``is_file_path`` values inside the section are written relative to the
+        ``is_file_path`` values inside the section — including the spectral-file
+        references inside element overrides — are written relative to the
         destination directory, exactly like shared file-path values (CU-177).
         """
         out = Path(path)
@@ -1070,6 +1316,9 @@ class ConfigurationSet:
             baseline=self._baseline,
             wavelength_points=dict(self._wl_points),
             parameters=dict(self._configured),
+            optical_elements={
+                name: tuple(entries) for name, entries in self._element_overrides.items()
+            },
         )
         return serialize_configurations_section(
             section, build_parameter_set(), relative_to=relative_to

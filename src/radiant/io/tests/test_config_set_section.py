@@ -3,6 +3,10 @@
 Covers the load-time validation matrix of `docs/archive/Multi_Configuration_Plan.md`
 §6 Phase 2 at the io level: every violation is a `ConfigError` naming the config
 file, the configuration, and the parameter — never a padded or dropped value.
+
+The `optical_elements` sub-key (per-configuration replace-by-name overrides,
+Gap 103 v1.1) is covered by `TestOpticalElementOverrides` against
+`docs/plans/Configuration_Set_Expansion_Plan.md` §3a/§3b.
 """
 
 from __future__ import annotations
@@ -30,6 +34,22 @@ def _minimal(**overrides: Any) -> dict[str, Any]:
     raw: dict[str, Any] = {"names": ["MWIR", "LWIR"]}
     raw.update(overrides)
     return raw
+
+
+def _mirror(name: str = "M1", **fields: Any) -> dict[str, Any]:
+    """A complete reflective element entry (the shape an override carries)."""
+    entry: dict[str, Any] = {
+        "name": name,
+        "transfer_mode": "REFLECTIVE",
+        "reflectance": 0.97,
+        "temperature_K": 293.0,
+    }
+    entry.update(fields)
+    return entry
+
+
+# Element names the shared `optical_elements` document is taken to hold.
+_SHARED_ELEMENTS = ("M1", "band_filter")
 
 
 # ---------------------------------------------------------------------------
@@ -278,3 +298,212 @@ class TestSerializeRoundTrip:
 
     def test_section_key_constant(self) -> None:
         assert SECTION_KEY == "configurations"
+
+
+# ---------------------------------------------------------------------------
+# Per-configuration optical elements (Gap 103 v1.1 — replace-by-name)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.level0
+class TestOpticalElementOverrides:
+    def test_override_parses_and_keeps_the_entries(self) -> None:
+        raw = _minimal(optical_elements={"LWIR": [_mirror(reflectance=0.80)]})
+        section = parse_configurations_section(
+            raw, _params(), shared_element_names=_SHARED_ELEMENTS, path="study.yaml"
+        )
+        assert set(section.optical_elements) == {"LWIR"}
+        (entry,) = section.optical_elements["LWIR"]
+        assert entry["name"] == "M1"
+        assert entry["reflectance"] == pytest.approx(0.80, rel=1e-12)
+
+    def test_members_without_an_override_are_absent(self) -> None:
+        raw = _minimal(optical_elements={"LWIR": [_mirror()]})
+        section = parse_configurations_section(
+            raw, _params(), shared_element_names=_SHARED_ELEMENTS
+        )
+        assert "MWIR" not in section.optical_elements
+
+    def test_no_sub_key_is_an_empty_mapping(self) -> None:
+        section = parse_configurations_section(_minimal(), _params())
+        assert dict(section.optical_elements) == {}
+
+    def test_round_trip_through_serialize(self) -> None:
+        section = ConfigurationsSection(
+            names=("MWIR", "LWIR"),
+            active="MWIR",
+            baseline="MWIR",
+            optical_elements={"LWIR": (_mirror(reflectance=0.80),)},
+        )
+        doc = serialize_configurations_section(section, _params())
+        again = parse_configurations_section(doc, _params(), shared_element_names=_SHARED_ELEMENTS)
+        assert again == section
+
+    def test_non_member_key_is_an_error_naming_the_configuration(self) -> None:
+        raw = _minimal(optical_elements={"SWIR": [_mirror()]})
+        with pytest.raises(ConfigError) as exc:
+            parse_configurations_section(
+                raw, _params(), shared_element_names=_SHARED_ELEMENTS, path="study.yaml"
+            )
+        msg = str(exc.value)
+        assert "study.yaml" in msg
+        assert "'SWIR'" in msg and "MWIR" in msg
+
+    def test_unknown_element_name_is_an_error(self) -> None:
+        """Replace-by-name never adds: a non-matching name is refused (§3a)."""
+        raw = _minimal(optical_elements={"LWIR": [_mirror(name="M9")]})
+        with pytest.raises(ConfigError) as exc:
+            parse_configurations_section(
+                raw, _params(), shared_element_names=_SHARED_ELEMENTS, path="study.yaml"
+            )
+        msg = str(exc.value)
+        assert "study.yaml" in msg
+        assert "LWIR" in msg and "'M9'" in msg
+        assert "never adds" in msg
+
+    def test_unknown_element_name_is_not_checked_without_the_shared_document(self) -> None:
+        """A bare io call that does not know the shared document skips the cross-check."""
+        raw = _minimal(optical_elements={"LWIR": [_mirror(name="M9")]})
+        section = parse_configurations_section(raw, _params())
+        assert section.optical_elements["LWIR"][0]["name"] == "M9"
+
+    def test_entry_failing_the_element_parser_names_the_configuration(self) -> None:
+        raw = _minimal(optical_elements={"LWIR": [_mirror(reflectance=1.5)]})
+        with pytest.raises(ConfigError) as exc:
+            parse_configurations_section(
+                raw, _params(), shared_element_names=_SHARED_ELEMENTS, path="study.yaml"
+            )
+        msg = str(exc.value)
+        assert "study.yaml" in msg
+        assert "optical_elements.LWIR" in msg and "'M1'" in msg
+        assert "reflectance values must be in [0, 1]" in msg
+
+    def test_kirchhoff_violation_is_caught_at_load(self) -> None:
+        """The single validation authority runs here — Kirchhoff included (Rule 5)."""
+        bad = {
+            "name": "band_filter",
+            "transfer_mode": "REFRACTIVE",
+            "R1": 0.6,
+            "T1": 0.6,
+            "R2": 0.02,
+            "T2": 0.98,
+            "alpha": 0.0,
+            "n_refr": 1.5,
+            "thickness_m": 0.01,
+            "temperature_K": 290.0,
+        }
+        raw = _minimal(optical_elements={"LWIR": [bad]})
+        with pytest.raises(ConfigError) as exc:
+            parse_configurations_section(
+                raw, _params(), shared_element_names=_SHARED_ELEMENTS, path="study.yaml"
+            )
+        msg = str(exc.value)
+        assert "LWIR" in msg and "band_filter" in msg
+        assert "R + T" in msg
+
+    def test_entry_missing_a_required_field_is_an_error(self) -> None:
+        raw = _minimal(optical_elements={"LWIR": [{"name": "M1", "transfer_mode": "REFLECTIVE"}]})
+        with pytest.raises(ConfigError, match="missing required field 'reflectance'"):
+            parse_configurations_section(
+                raw, _params(), shared_element_names=_SHARED_ELEMENTS, path="study.yaml"
+            )
+
+    def test_entry_without_a_name_is_an_error(self) -> None:
+        entry = _mirror()
+        del entry["name"]
+        raw = _minimal(optical_elements={"LWIR": [entry]})
+        with pytest.raises(ConfigError, match="has no 'name'"):
+            parse_configurations_section(raw, _params(), shared_element_names=_SHARED_ELEMENTS)
+
+    def test_same_element_overridden_twice_is_an_error(self) -> None:
+        raw = _minimal(optical_elements={"LWIR": [_mirror(), _mirror(reflectance=0.5)]})
+        with pytest.raises(ConfigError, match="overrides element 'M1' twice"):
+            parse_configurations_section(raw, _params(), shared_element_names=_SHARED_ELEMENTS)
+
+    def test_empty_override_list_is_an_error(self) -> None:
+        raw = _minimal(optical_elements={"LWIR": []})
+        with pytest.raises(ConfigError, match="must be a non-empty list"):
+            parse_configurations_section(raw, _params(), shared_element_names=_SHARED_ELEMENTS)
+
+    def test_override_not_a_list_is_an_error(self) -> None:
+        raw = _minimal(optical_elements={"LWIR": _mirror()})
+        with pytest.raises(ConfigError, match="must be a non-empty list"):
+            parse_configurations_section(raw, _params(), shared_element_names=_SHARED_ELEMENTS)
+
+    def test_entry_not_a_mapping_is_an_error(self) -> None:
+        raw = _minimal(optical_elements={"LWIR": ["M1"]})
+        with pytest.raises(ConfigError, match="must be a mapping"):
+            parse_configurations_section(raw, _params(), shared_element_names=_SHARED_ELEMENTS)
+
+    def test_sub_key_not_a_mapping_is_an_error(self) -> None:
+        with pytest.raises(ConfigError, match="optical_elements' must be a mapping"):
+            parse_configurations_section(_minimal(optical_elements=[_mirror()]), _params())
+
+    def test_serialize_refuses_an_override_for_a_non_member(self) -> None:
+        section = ConfigurationsSection(
+            names=("A",),
+            active="A",
+            baseline="A",
+            optical_elements={"B": (_mirror(),)},
+        )
+        with pytest.raises(ConfigError, match="no configuration can claim"):
+            serialize_configurations_section(section, _params())
+
+
+@pytest.mark.level1
+class TestOverrideFilePathParity:
+    """CU-177 parity for the spectral-file references inside override entries."""
+
+    def test_relative_spectral_files_resolve_against_the_config_dir(self, tmp_path: Path) -> None:
+        data = tmp_path / "data"
+        data.mkdir()
+        (data / "coating.csv").write_text("3.0,0.9\n5.0,0.8\n", encoding="utf-8")
+        raw = _minimal(
+            optical_elements={"LWIR": [_mirror(reflectance="data/coating.csv")]},
+        )
+        section = parse_configurations_section(
+            raw,
+            _params(),
+            shared_element_names=_SHARED_ELEMENTS,
+            path=tmp_path / "study.yaml",
+            base_dir=tmp_path,
+        )
+        stored = section.optical_elements["LWIR"][0]["reflectance"]
+        assert Path(stored).is_absolute()
+        assert Path(stored) == (data / "coating.csv").resolve()
+
+    def test_a_missing_spectral_file_fails_at_load(self, tmp_path: Path) -> None:
+        raw = _minimal(optical_elements={"LWIR": [_mirror(reflectance="data/nope.csv")]})
+        with pytest.raises(ConfigError, match="Spectral data file not found"):
+            parse_configurations_section(
+                raw,
+                _params(),
+                shared_element_names=_SHARED_ELEMENTS,
+                path=tmp_path / "study.yaml",
+                base_dir=tmp_path,
+            )
+
+    def test_absolute_spectral_files_relativize_on_serialize(self, tmp_path: Path) -> None:
+        abs_path = (tmp_path / "data" / "coating.csv").resolve()
+        section = ConfigurationsSection(
+            names=("A",),
+            active="A",
+            baseline="A",
+            optical_elements={"A": (_mirror(reflectance=str(abs_path)),)},
+        )
+        out = serialize_configurations_section(section, _params(), relative_to=tmp_path / "cfg")
+        stored = out["optical_elements"]["A"][0]["reflectance"]
+        assert stored == "../data/coating.csv"  # forward slashes (Rule 30)
+
+    def test_scalar_and_inline_values_are_untouched_by_relativize(self, tmp_path: Path) -> None:
+        inline = {"wavelength_um": [3.0, 5.0], "values": [0.9, 0.8]}
+        section = ConfigurationsSection(
+            names=("A",),
+            active="A",
+            baseline="A",
+            optical_elements={"A": (_mirror(reflectance=inline), _mirror(name="band_filter"))},
+        )
+        out = serialize_configurations_section(section, _params(), relative_to=tmp_path)
+        entries = out["optical_elements"]["A"]
+        assert entries[0]["reflectance"] == inline
+        assert entries[1]["reflectance"] == pytest.approx(0.97, rel=1e-12)

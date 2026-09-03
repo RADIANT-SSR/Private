@@ -226,7 +226,11 @@ resolution engine, and `radiant.core` is untouched.
 | `cs.set_wavelength_points(config, n)` | Spectral grid point count for one configuration, or the shared default with `config=None`. `n=None` **clears** rather than sets — a named configuration goes back to the shared default, and `config=None, n=None` drops the set-level default so the base sensor's own count is the shared default again. The grid *span* is already per configuration for free — each materialized sensor spans its own resolved band (ADR-0010 D-F). |
 | `cs.wavelength_points(config=None)` | Read it back (CU-210). `config=None` returns the **shared default in force** — the set-level default when one was set, else `cs.base.wavelength_points` — and is always an `int`. `config=<name>` returns that configuration's **override**, or `None` when it inherits the shared default; that `None` is the distinction a display surface needs ("inherits" is not "happens to equal the default"). Raises `ConfigSetError` for an unknown name. |
 | `cs.clone()` | An independent copy of the whole set: cloned base, copied configured table, wavelength-point overrides (per configuration **and** shared), `active`/`baseline`. The set-level counterpart of `Sensor.clone()`; nothing is shared afterwards in either direction. Use it for thread isolation (the GUI hands its evaluate-all worker `cs.clone()` taken on the GUI thread) or before a destructive what-if. Hand-rolling a copy from the public accessors is possible since `wavelength_points()` landed (CU-210) but is not equivalent — it must re-apply the configured table, both kinds of wavelength-point state, and both designations without dropping one. |
-| `cs.sensor_for(name)` | Materialize a configuration as an isolated `Sensor` (resolved here, so a per-configuration consistency-group error surfaces named). Later edits to the set do not reach it, and vice versa. |
+| `cs.set_element_override(name, entries, *, base_dir=None)` | Give one configuration **replace-by-name** optical-element overrides (Gap 103 v1.1): a non-empty list of *complete* element entries, each replacing the shared `optical_elements` entry of the same `name`. The call replaces that configuration's whole override list — never merges into it — so an element is overridden **or** inherited, never ambiguously both. Refused (nothing stored) when the base has no shared document, an entry names no shared element (an override never adds or removes an element), one element is overridden twice, or an entry fails the io element parser — Kirchhoff included (Rule 5). `base_dir` resolves relative spectral-file references, exactly as `Sensor.set_optical_elements`. |
+| `cs.clear_element_override(name)` | Drop that configuration's overrides — it inherits the shared train again. Idempotent, like `set_wavelength_points(name, None)`. |
+| `cs.element_overrides(name)` | The stored override entries (a copy), or `None` when the configuration **inherits** the shared document — the same "inherits, not happens-to-match" distinction `wavelength_points(name)` draws. |
+| `cs.effective_optical_elements(name)` | The document that configuration actually evaluates with: the shared entries in shared order, with its overrides swapped in. `None` when the base carries no element document. The read surface for display: it does not resolve the parameter set the way `sensor_for` does. Raises `ConfigSetError` naming the configuration if an override was orphaned by an edit to the base's document (Rule 17 — never silently dropped). |
+| `cs.sensor_for(name)` | Materialize a configuration as an isolated `Sensor` (resolved here, so a per-configuration consistency-group error surfaces named). A configuration with element overrides gets its **effective** document attached through the ordinary `Sensor.set_optical_elements`; one without keeps the shared document untouched. Later edits to the set do not reach it, and vice versa. |
 | `cs.validate_all()` | `{name: None or RadiantError}` in set order — resolve-only, **no physics**. One configuration's failure never hides another's. |
 | `cs.evaluate_all(*, progress=None, cancel=None)` | Evaluate every configuration, **active first**. Returns `ConfigSetRunResult`. Same `progress(done, total)` / `cancel()` contract as `sweep` (§2.3). Each configuration is evaluated inside its **own** warning-capture window, so the warnings it raises land on its `ConfigRun.warnings` and on no other (see below). |
 | `cs.compare(run)` | Adapt a run into `compare_configs` (§2.5b): columns in **set order** = `cs.names()` (stable when `active` changes), delta reference = the index of `cs.baseline`. **Raises** `ConfigSetError` naming any failed configuration rather than dropping its column (see below). |
@@ -296,10 +300,29 @@ names the configuration — including configured values rejected at **edit time*
 A set with one configuration and an empty configured table is observably identical to the
 bare `Sensor` it wraps — that degenerate case is the ordinary single-model session.
 
+**Per-configuration optical elements** (Gap 103 v1.1, owner-ratified 2026-09-02) follow the
+same "state only what differs" philosophy as configured parameters: the element train is
+shared and stated once, and a configuration lists only the entries it replaces.
+
+```python
+cs.base.set_optical_elements([m1, band_filter])              # the shared train
+cs.set_element_override("B2_Blue", [dict(band_filter, transmittance="filter_b02.csv")])
+cs.effective_optical_elements("B2_Blue")   # [m1, the B2 filter] — shared order
+cs.effective_optical_elements("B1_CA")     # the shared train, inherited unchanged
+```
+
+Overrides travel with their configuration through `rename` (the key moves), `remove` (it is
+dropped), `add(copy_from=X)` (duplicated from X), `reorder` (keyed by name, so nothing moves),
+and `clone` (deep-copied). `add()` **without** `copy_from` gives the new configuration no
+override — unlike a configured parameter, an un-overridden element train has a shared value to
+fall back on. `evaluate_all` and `validate_all` pick the per-configuration trains up through
+`sensor_for`, and `save`/`load` round-trip them in the `configurations.optical_elements`
+sub-key (`RADIANT_Config_Format.md` §1.9), spectral-file paths included (CU-177).
+
 **Out of the v1 model:** per-configuration tolerance distributions, per-configuration
-stage-output injections, per-configuration optical-element documents (ADR-0010 D-7), and
-sweeps of a whole set. Tolerances, the `optical_elements` document, and the default
-`wavelength_points` are shared state on the base.
+stage-output injections, per-configuration *addition or removal* of optical elements
+(replace-by-name only), and sweeps of a whole set. Tolerances, the shared `optical_elements`
+document, and the default `wavelength_points` are shared state on the base.
 
 **From the CLI:** `radiant run study.yaml --configuration NAME` materializes one
 configuration and runs it (the flag is required for a study config file and rejected for a

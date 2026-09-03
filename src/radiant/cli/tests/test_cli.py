@@ -975,6 +975,62 @@ class TestRunStudyConfigFiles:
         assert "filter_min_um" in result.output
 
 
+class TestStudyElementOverrides:
+    """Per-configuration optical elements reach the CLI through ConfigurationSet.
+
+    Nothing in `cli/` is structurally aware of the override — `run` materializes
+    through `sensor_for` and `validate` through `validate_all`, so both pick the
+    per-configuration train up for free. These tests pin that.
+    """
+
+    _SHARED_TRAIN = """
+optical_elements:
+  - {name: M1, transfer_mode: REFLECTIVE, reflectance: 0.97, temperature_K: 293.0}
+  - {name: band_filter, transfer_mode: REFRACTIVE, kind: FILTER, transmittance: 0.90,
+     temperature_K: 240.0}
+"""
+
+    @classmethod
+    def _study(cls, tmp_path: Path, override: str) -> Path:
+        return _write_study(
+            tmp_path,
+            strip_band=False,
+            section=(
+                cls._SHARED_TRAIN
+                + "\nconfigurations:\n  names: [A, B]\n  optical_elements:\n"
+                + override
+            ),
+        )
+
+    @pytest.mark.level2
+    def test_run_uses_the_overriding_configuration_s_train(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        study = self._study(
+            tmp_path,
+            "    B:\n      - {name: band_filter, transfer_mode: REFRACTIVE, kind: FILTER,\n"
+            "         transmittance: 0.30, temperature_K: 240.0}\n",
+        )
+        a = runner.invoke(cli, ["run", str(study), "--configuration", "A"])
+        b = runner.invoke(cli, ["run", str(study), "--configuration", "B"])
+        assert a.exit_code == 0 and b.exit_code == 0, a.output + b.output
+        assert _extract_snr(a.output) > _extract_snr(b.output)
+
+    @pytest.mark.level1
+    def test_validate_surfaces_a_bad_override_naming_the_configuration(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        study = self._study(
+            tmp_path,
+            "    B:\n      - {name: no_such_element, transfer_mode: REFLECTIVE,\n"
+            "         reflectance: 0.5, temperature_K: 290.0}\n",
+        )
+        result = runner.invoke(cli, ["validate", str(study)])
+        assert result.exit_code != 0
+        assert "optical_elements.B" in result.output
+        assert "no_such_element" in result.output
+
+
 class TestValidateStudyConfigFiles:
     """`radiant validate study.yaml` validates every configuration (validate_all)."""
 

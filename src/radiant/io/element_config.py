@@ -28,8 +28,30 @@ from radiant.optics.element_factories import (
     make_refractive_cavity_element,
     make_refractive_element,
 )
+from radiant.optics.errors import OpticsValidationError
 
 logger = logging.getLogger(__name__)
+
+# Entry keys whose string values are spectral-file references (resolved against
+# the document's base directory by this parser). The one list every consumer
+# reads — the api document facade (``radiant.api.config_io``) absolutizes these
+# keys, and the ``configurations:`` section serializer relativizes them (CU-177
+# parity), so a key added here is picked up by both without drift.
+SPECTRAL_FILE_KEYS: tuple[str, ...] = (
+    "reflectance",
+    "transmittance",
+    "R1",
+    "T1",
+    "R2",
+    "T2",
+    "alpha",
+    "n_refr",
+)
+
+# Broadcast grid for validating a *scalar-only* entry that arrives without a
+# band. Any grid broadcasts a scalar losslessly; the full RADIANT VIS–LWIR span
+# is used so the choice is visible rather than arbitrary.
+FALLBACK_GRID_UM: np.ndarray = np.linspace(0.4, 20.0, 101)
 
 
 class ElementConfigError(RadiantError, ValueError):
@@ -307,6 +329,46 @@ def parse_element_entries(
             )
         elements.append(_parse_element(entry, wavelength_um, config_dir))
     return elements
+
+
+def validate_element_entry(
+    entry: dict[str, Any],
+    *,
+    wavelength_um: np.ndarray | None = None,
+    base_dir: str | Path | None = None,
+) -> OpticalElement:
+    """Parse **one** element entry for validation, on a grid it cannot fail.
+
+    The band-agnostic entry point onto :func:`parse_element_entries` (still the
+    single validation authority — this is one call into it, not a second
+    parser). It exists because authoring-time validation has no band: a caller
+    holding an entry dict — the GUI preview, ``Sensor.set_optical_elements``
+    normalization, or a per-configuration override in the ``configurations:``
+    section — must be able to reject a malformed or Kirchhoff-violating entry
+    without asserting which band it will later be evaluated on.
+
+    With an explicit *wavelength_um* the entry parses (and resamples) onto that
+    grid — the in-band view. Without one it parses on its **native** grid, so a
+    spectral table keeps its own span and a 3–5 µm coating table does not fail
+    against a 0.4–20 µm default (band coverage is checked at evaluate time
+    against the sensor band, not here); only a scalar-only entry, which has no
+    native grid, falls back to :data:`FALLBACK_GRID_UM`.
+
+    Raises
+    ------
+    ElementConfigError, radiant.optics.errors.OpticsValidationError
+        On any invalid entry — the same errors, with the same messages, that
+        attach time raises.
+    """
+    if wavelength_um is not None:
+        return parse_element_entries([entry], wavelength_um, base_dir=base_dir)[0]
+    try:
+        return parse_element_entries([entry], None, base_dir=base_dir)[0]
+    except OpticsValidationError as exc:
+        if "wavelength_um is required" not in str(exc):
+            raise
+        # Scalar-only entry: any grid broadcasts it losslessly.
+        return parse_element_entries([entry], FALLBACK_GRID_UM, base_dir=base_dir)[0]
 
 
 def load_element_list(

@@ -278,10 +278,50 @@ Binding rules, all enforced at load with a `ConfigError` naming the config file,
 | A dot-path is in the shared body **or** in `parameters`, never both | the single-store invariant (ADR-0010 D-B) — the shared value would be silently shadowed |
 | Values are **input-unit scalars** | type/bounds/enum are validated on the ordinary parameter path, per configuration |
 | `is_file_path` values relativize on save and resolve on load against the config file's directory | — (CU-177 parity with shared values) |
+| `optical_elements`: optional mapping of member name → replace-by-name element overrides | non-member key, an entry naming no shared element, an entry the element parser rejects (see below) |
+
+#### Per-configuration optical elements — `configurations.optical_elements` (Gap 103 v1.1, 2026-09-02)
+
+The `optical_elements` document (§1.8) stays **shared** and is stated once. A configuration
+may replace individual entries of it, keyed by configuration name:
+
+```yaml
+optical_elements:                 # the shared train — stated once
+  - {name: M1, transfer_mode: REFLECTIVE, reflectance: 0.97, temperature_K: 293.0}
+  - {name: band_filter, transfer_mode: REFRACTIVE, kind: FILTER,
+     transmittance: data/filter_b01.csv, temperature_K: 240.0}
+
+configurations:
+  names: [B1_CA, B2_Blue]
+  optical_elements:               # optional; member name → replace-by-name overrides
+    B2_Blue:
+      - {name: band_filter, transfer_mode: REFRACTIVE, kind: FILTER,
+         transmittance: data/filter_b02.csv, temperature_K: 240.0}
+    # B1_CA is absent — it inherits the shared train unchanged
+```
+
+Semantics are **replace-by-name** (owner-ratified 2026-09-02): each override entry is a
+**complete** element entry that replaces the shared entry with the same `name`; every shared
+entry not named is inherited, **in shared order**. There is no field-level merge, so there is
+no patch-resolution semantics; and an override never *adds* or *removes* an element, so a
+configuration's train is always the shared document with named entries swapped. The effective
+train of a configuration is what `ConfigurationSet.sensor_for(name)` attaches and what
+`cs.effective_optical_elements(name)` reports.
+
+Binding rules, all enforced at load with a `ConfigError` naming the config file and the
+configuration:
+
+| Rule | Violation |
+|---|---|
+| `optical_elements`: mapping of **member name** → non-empty list of complete element entries | non-member key, non-mapping, empty list, non-mapping entry |
+| Each entry carries a `name` that **matches a shared element** | a missing `name`; a name not in the shared `optical_elements` document (replace-by-name never adds); the same name twice in one configuration (overridden **or** inherited, never both) |
+| Each entry re-validates through the element parser (`io/element_config.py`) — Kirchhoff included (Rule 5) | any entry the shared document's own parser would reject, failing at **load** rather than at evaluation |
+| Overrides require a shared `optical_elements` document | an override in a config file whose body has no element document |
+| Spectral-file references inside an entry relativize on save and resolve on load against the config file's directory | — (CU-177 parity with configured values) |
 
 Loader behavior (Rule 17 — never a silent skip): `ConfigurationSet.load(path)` reads the whole document (shared body, `_radiant` meta, `optical_elements`, and this section); `ConfigurationSet.save(path)` writes it. A section-bearing config file loaded through `Sensor.load` / `Sensor.from_yaml` / `Sensor.from_dict` or a bare `load_config` raises an actionable `ConfigError` — "this config file is a configuration set — load it with `ConfigurationSet.load(path)`" — rather than running one config file's shared body as if it were the whole study. A caller that knows how to handle the section opts in via `sections_out=` (the ADR-0009 mechanism), which is what `ConfigurationSet.load` does — and which `radiant run` / `radiant validate` do on the caller's behalf (§4.4). The `radiant explain` / `sweep` / `compare` / `tolerance` subcommands load through `Sensor.from_yaml` and therefore still raise that error on a study config file.
 
-Scope, and what stays shared: tolerance distributions and `_radiant.wavelength_points` are the **shared** defaults (per-configuration tolerances are out of the v1 model); the `optical_elements` document is shared across all configurations (ADR-0010 D-7, per-configuration prescriptions deferred to v1.1); stage-output injections (Gap 68) have no YAML form and are unaffected.
+Scope, and what stays shared: tolerance distributions and `_radiant.wavelength_points` are the **shared** defaults (per-configuration tolerances are out of the v1 model); the `optical_elements` document is shared across all configurations, with per-configuration **replace-by-name overrides** of individual entries (the sub-key above — Gap 103 v1.1, the additive extension ADR-0010 D-7 anticipated; element *addition and removal* per configuration remain out of scope); stage-output injections (Gap 68) have no YAML form and are unaffected.
 
 **Backward compatibility is structural, not a migration:** a config file with no `configurations:` key is byte-for-byte today's format and loads everywhere unchanged — registering the key changed no existing output. `ConfigurationSet.save` always writes the section, including for the degenerate single-configuration set with an empty table (the file then differs from `Sensor.save` output by the section alone), so the file is self-identifying as a study and the configuration's name survives the round trip. `ConfigurationSet.load` accepts a config file with **no** section and returns that degenerate one-configuration set.
 

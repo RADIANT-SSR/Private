@@ -1137,3 +1137,280 @@ class TestFailedConfigurationErgonomics:
         assert "warning" in marked[0]
         assert "warning" not in next(ln for ln in lines if ln.startswith("matched"))
         assert "baseline: 'mismatched'" in lines[-1]
+
+
+# ---------------------------------------------------------------------------
+# Per-configuration optical elements (Gap 103 v1.1 — replace-by-name)
+# ---------------------------------------------------------------------------
+
+
+def _mirror(name: str = "M1", **fields: Any) -> dict[str, Any]:
+    """A complete reflective element entry."""
+    entry: dict[str, Any] = {
+        "name": name,
+        "transfer_mode": "REFLECTIVE",
+        "reflectance": 0.97,
+        "temperature_K": 293.0,
+    }
+    entry.update(fields)
+    return entry
+
+
+def _filter(**fields: Any) -> dict[str, Any]:
+    """A complete refractive filter entry (the element a band study swaps)."""
+    entry: dict[str, Any] = {
+        "name": "band_filter",
+        "transfer_mode": "REFRACTIVE",
+        "kind": "FILTER",
+        "transmittance": 0.90,
+        "temperature_K": 240.0,
+    }
+    entry.update(fields)
+    return entry
+
+
+def _set_with_train(*names: str, points: int = _WL_POINTS) -> ConfigurationSet:
+    """A set whose base carries a two-element shared train."""
+    base = _sensor(points)
+    base.set_optical_elements([_mirror(), _filter()])
+    return ConfigurationSet(base, names=list(names))
+
+
+class TestElementOverrideApi:
+    def test_set_and_read_back(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        stored = cs.element_overrides("B")
+        assert stored is not None and len(stored) == 1
+        assert stored[0]["name"] == "band_filter"
+        assert stored[0]["transmittance"] == pytest.approx(0.40, rel=1e-12)
+
+    def test_a_configuration_without_an_override_reads_none(self) -> None:
+        """None means 'inherits', not 'happens to equal the shared train'."""
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        assert cs.element_overrides("A") is None
+
+    def test_accessor_returns_a_copy(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        stored = cs.element_overrides("B")
+        assert stored is not None
+        stored[0]["transmittance"] = 0.01
+        assert cs.element_overrides("B")[0]["transmittance"] == pytest.approx(  # type: ignore[index]
+            0.40, rel=1e-12
+        )
+
+    def test_clear_restores_inheritance_and_is_idempotent(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        cs.clear_element_override("B")
+        assert cs.element_overrides("B") is None
+        cs.clear_element_override("B")  # no-op, not an error
+        assert cs.element_overrides("B") is None
+
+    def test_set_replaces_the_whole_override_list(self) -> None:
+        """An element is overridden or inherited — a second call is not a merge."""
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_mirror(reflectance=0.5), _filter(transmittance=0.4)])
+        cs.set_element_override("B", [_filter(transmittance=0.2)])
+        stored = cs.element_overrides("B")
+        assert stored is not None
+        assert [e["name"] for e in stored] == ["band_filter"]
+
+    def test_unknown_configuration_raises(self) -> None:
+        cs = _set_with_train("A", "B")
+        calls: list[Callable[[], Any]] = [
+            lambda: cs.set_element_override("SWIR", [_filter()]),
+            lambda: cs.clear_element_override("SWIR"),
+            lambda: cs.element_overrides("SWIR"),
+            lambda: cs.effective_optical_elements("SWIR"),
+        ]
+        for call in calls:
+            with pytest.raises(ConfigSetError, match="no configuration named 'SWIR'"):
+                call()
+
+    def test_override_of_an_element_not_in_the_shared_document_is_refused(self) -> None:
+        cs = _set_with_train("A", "B")
+        with pytest.raises(ConfigSetError) as exc:
+            cs.set_element_override("B", [_mirror(name="M9")])
+        assert "'B'" in str(exc.value) and "'M9'" in str(exc.value)
+        assert "never adds one" in str(exc.value)
+        assert cs.element_overrides("B") is None  # nothing stored
+
+    def test_override_without_a_shared_document_is_refused(self) -> None:
+        cs = _set("A", "B")
+        with pytest.raises(ConfigSetError, match="has no 'optical_elements' document"):
+            cs.set_element_override("B", [_filter()])
+
+    def test_duplicate_element_name_in_one_override_is_refused(self) -> None:
+        cs = _set_with_train("A", "B")
+        with pytest.raises(ConfigSetError, match="overrides element 'band_filter' twice"):
+            cs.set_element_override("B", [_filter(), _filter(transmittance=0.3)])
+
+    def test_empty_override_is_refused(self) -> None:
+        cs = _set_with_train("A", "B")
+        with pytest.raises(ConfigSetError, match="at least one entry"):
+            cs.set_element_override("B", [])
+
+    def test_entry_without_a_name_is_refused(self) -> None:
+        cs = _set_with_train("A", "B")
+        entry = _filter()
+        del entry["name"]
+        with pytest.raises(ConfigSetError, match="has no 'name'"):
+            cs.set_element_override("B", [entry])
+
+    def test_invalid_entry_is_refused_at_edit_time_naming_the_configuration(self) -> None:
+        cs = _set_with_train("A", "B")
+        with pytest.raises(ConfigSetError) as exc:
+            cs.set_element_override("B", [_mirror(reflectance=1.5)])
+        assert "'B'" in str(exc.value)
+        assert "reflectance values must be in [0, 1]" in str(exc.value)
+        assert cs.element_overrides("B") is None
+
+
+class TestEffectiveElementDocument:
+    def test_overridden_entry_is_swapped_in_and_the_rest_inherited(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        effective = cs.effective_optical_elements("B")
+        assert effective is not None
+        assert [e["name"] for e in effective] == ["M1", "band_filter"]  # shared order
+        assert effective[0]["reflectance"] == pytest.approx(0.97, rel=1e-12)  # inherited
+        assert effective[1]["transmittance"] == pytest.approx(0.40, rel=1e-12)  # overridden
+
+    def test_a_configuration_without_an_override_gets_the_shared_document(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        effective = cs.effective_optical_elements("A")
+        assert effective is not None
+        assert effective[1]["transmittance"] == pytest.approx(0.90, rel=1e-12)
+
+    def test_no_shared_document_reads_none(self) -> None:
+        assert _set("A").effective_optical_elements("A") is None
+
+    def test_an_orphaned_override_raises_rather_than_being_dropped(self) -> None:
+        """The base's document edited behind the set's back (Rule 17)."""
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        cs.base.set_optical_elements([_mirror()])  # band_filter is gone
+        with pytest.raises(ConfigSetError) as exc:
+            cs.effective_optical_elements("B")
+        assert "'B'" in str(exc.value) and "band_filter" in str(exc.value)
+
+    def test_a_dropped_shared_document_with_a_live_override_raises(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        cs.base.set_optical_elements(None)
+        with pytest.raises(ConfigSetError, match="no longer has an 'optical_elements'"):
+            cs.effective_optical_elements("B")
+        assert cs.effective_optical_elements("A") is None
+
+
+class TestElementOverrideMaterialization:
+    def test_sensor_for_attaches_the_effective_train(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        doc_a = cs.sensor_for("A").optical_elements()
+        doc_b = cs.sensor_for("B").optical_elements()
+        assert doc_a is not None and doc_b is not None
+        assert doc_a[1]["transmittance"] == pytest.approx(0.90, rel=1e-12)
+        assert doc_b[1]["transmittance"] == pytest.approx(0.40, rel=1e-12)
+
+    def test_materialized_sensors_are_independent_of_the_set(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        sensor = cs.sensor_for("B")
+        cs.set_element_override("B", [_filter(transmittance=0.10)])
+        assert sensor.optical_elements()[1]["transmittance"] == pytest.approx(  # type: ignore[index]
+            0.40, rel=1e-12
+        )
+
+    def test_evaluate_all_uses_the_per_configuration_train(self) -> None:
+        """A dimmer filter in one configuration lowers only that configuration's SNR."""
+        cs = _set_with_train("A", "B")
+        run = _evaluate_all(cs)
+        shared_snr = {n: run.result_for(n).metrics["snr"] for n in cs.names()}
+        assert shared_snr["A"] == pytest.approx(shared_snr["B"], rel=1e-12)
+
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        run = _evaluate_all(cs)
+        assert run.n_failed == 0
+        assert run.result_for("A").metrics["snr"] == pytest.approx(shared_snr["A"], rel=1e-12)
+        assert run.result_for("B").metrics["snr"] < 0.9 * shared_snr["B"]
+
+    def test_validate_all_reports_an_override_failure_under_its_own_configuration(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        cs.base.set_optical_elements([_mirror()])  # orphans B's override
+        status = cs.validate_all()
+        assert status["A"] is None
+        assert isinstance(status["B"], ConfigSetError)
+        assert "band_filter" in str(status["B"])
+
+    def test_an_override_for_every_configuration_evaluates(self) -> None:
+        """The cap-of-entries edge: every member carries its own train."""
+        names = [f"C{i}" for i in range(ConfigurationSet.MAX_CONFIGS)]
+        cs = _set_with_train(*names)
+        for i, name in enumerate(names):
+            cs.set_element_override(name, [_filter(transmittance=0.30 + 0.05 * i)])
+        run = _evaluate_all(cs)
+        assert run.n_failed == 0
+        snrs = [run.result_for(n).metrics["snr"] for n in names]
+        assert snrs == sorted(snrs)  # brighter filter -> higher SNR, monotonically
+
+
+class TestElementOverrideCrud:
+    def test_add_with_copy_from_duplicates_the_override(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        cs.add("C", copy_from="B")
+        stored = cs.element_overrides("C")
+        assert stored is not None
+        assert stored[0]["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        # A copy, not a shared reference.
+        cs.set_element_override("C", [_filter(transmittance=0.10)])
+        assert cs.element_overrides("B")[0]["transmittance"] == pytest.approx(  # type: ignore[index]
+            0.40, rel=1e-12
+        )
+
+    def test_add_without_copy_from_inherits_the_shared_train(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("A", [_filter(transmittance=0.40)])
+        cs.add("C")
+        assert cs.element_overrides("C") is None
+
+    def test_rename_carries_the_override(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        cs.rename("B", "LWIR")
+        assert cs.element_overrides("LWIR") is not None
+        with pytest.raises(ConfigSetError, match="no configuration named 'B'"):
+            cs.element_overrides("B")
+
+    def test_remove_drops_the_override(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        cs.remove("B")
+        cs.add("B")
+        assert cs.element_overrides("B") is None
+
+    def test_reorder_keeps_overrides_with_their_configurations(self) -> None:
+        cs = _set_with_train("A", "B", "C")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        cs.reorder(["C", "B", "A"])
+        assert cs.element_overrides("B") is not None
+        assert cs.element_overrides("A") is None and cs.element_overrides("C") is None
+
+    def test_clone_copies_overrides_independently(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.set_element_override("B", [_filter(transmittance=0.40)])
+        copy = cs.clone()
+        assert copy.element_overrides("B")[0]["transmittance"] == pytest.approx(  # type: ignore[index]
+            0.40, rel=1e-12
+        )
+        copy.set_element_override("B", [_filter(transmittance=0.10)])
+        copy.clear_element_override("B")
+        assert cs.element_overrides("B")[0]["transmittance"] == pytest.approx(  # type: ignore[index]
+            0.40, rel=1e-12
+        )

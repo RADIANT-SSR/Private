@@ -58,6 +58,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -65,6 +66,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QToolTip,
     QVBoxLayout,
     QWidget,
 )
@@ -142,6 +144,11 @@ _OVERRIDE_TOOLTIP_SHARED = (
     "{element} is overridden in {name}. Shared-document Apply keeps the shared entry and "
     "leaves the override untouched — pick the This configuration scope to edit it."
 )
+_LOCKED_CELL_TOOLTIP = (
+    "{value}\n\n{element} is overridden in {name}, so this row is read-only in the "
+    "Shared document scope. Switch Edit scope to “This configuration” to edit it."
+)
+_EPS_TOOLTIP = "ε is Kirchhoff-derived (1 − R − T) — read-only (Rule 5)."
 _OVERRIDE_TOOLTIP_CONFIGURATION = (
     "{element} is overridden in {name} — this row replaces the shared entry of that name."
 )
@@ -373,6 +380,7 @@ class OpticalElementEditor(QWidget):
         box.addWidget(self._detail_message)
         self._table.itemSelectionChanged.connect(self.refresh_coating_detail)
         self._table.itemSelectionChanged.connect(self._sync_selection_actions)
+        self._table.cellDoubleClicked.connect(self._on_cell_double_clicked)
         self._scope_combo.currentIndexChanged.connect(self._on_scope_changed)
         self.elementsApplied.connect(lambda _path: self.refresh_coating_detail())
 
@@ -555,19 +563,38 @@ class OpticalElementEditor(QWidget):
             name = self._cell_text(row, _COL_NAME)
             marked = name in overridden
             locked = marked and not per_configuration
-            self._set_row_locked(row, locked=locked, name_locked=per_configuration)
+            self._set_row_locked(
+                row, locked=locked, name_locked=per_configuration, overridden_in=active
+            )
             tooltip = (
                 _OVERRIDE_TOOLTIP_CONFIGURATION if per_configuration else _OVERRIDE_TOOLTIP_SHARED
             ).format(element=name, name=active)
             self._set_row_badge(row, name, active if marked else None, tooltip)
         self._sync_selection_actions()
 
-    def _set_row_locked(self, row: int, *, locked: bool, name_locked: bool) -> None:
-        """Make *row*'s cells read-only (or editable again) for the current scope."""
+    def _set_row_locked(
+        self, row: int, *, locked: bool, name_locked: bool, overridden_in: str = ""
+    ) -> None:
+        """Make *row*'s cells read-only (or editable again) for the current scope.
+
+        A locked cell keeps its full value visible in the tooltip and gains one
+        line of *why* — a dead cell with no explanation reads as a broken GUI
+        (owner live-review, 2026-09-02), so the lock always says who overrides
+        the row and which scope edits it.
+        """
+        element = self._cell_text(row, _COL_NAME)
         for col in (_COL_VALUE, _COL_TEMP, _COL_DIAM, _COL_DIST):
             item = self._table.item(row, col)
             if item is not None:
                 self._set_editable(item, not locked)
+                if locked:
+                    item.setToolTip(
+                        _LOCKED_CELL_TOOLTIP.format(
+                            value=item.text(), element=element, name=overridden_in
+                        )
+                    )
+                else:
+                    item.setToolTip(item.text())
         name_item = self._table.item(row, _COL_NAME)
         if name_item is not None:
             self._set_editable(name_item, not (locked or name_locked))
@@ -582,6 +609,23 @@ class OpticalElementEditor(QWidget):
                 # Never a blanket re-enable: Kind stays locked to "mirror" on a
                 # REFLECTIVE row whatever the scope is.
                 self._sync_kind_combo(kind, transfer.currentText())
+
+    def _on_cell_double_clicked(self, row: int, col: int) -> None:
+        """A double-click on a read-only cell shows its full value and the why.
+
+        On an editable cell Qt opens the inline editor and this handler has
+        nothing to add. On a locked cell nothing would happen at all — a dead
+        double-click on a cell whose text is visibly truncated (a spectral-CSV
+        path) reads as a broken GUI (owner live-review, 2026-09-02) — so the
+        cell's tooltip (full value + who overrides it + which scope edits it)
+        is shown immediately at the cursor instead.
+        """
+        item = self._table.item(row, col)
+        if item is None or bool(item.flags() & Qt.ItemFlag.ItemIsEditable):
+            return
+        tooltip = item.toolTip() or item.text()
+        if tooltip:
+            QToolTip.showText(QCursor.pos(), tooltip, self._table)
 
     @staticmethod
     def _set_editable(item: QTableWidgetItem, editable: bool) -> None:
@@ -720,7 +764,12 @@ class OpticalElementEditor(QWidget):
             spectrum = value
             value = f"spectral ({len(value.get('wavelength_um', ()))} pts)"
 
-        self._table.setItem(row, _COL_NAME, QTableWidgetItem(str(entry.get("name", ""))))
+        name_item = QTableWidgetItem(str(entry.get("name", "")))
+        # The full text as a tooltip on every value-bearing cell: a spectral-CSV
+        # path is longer than its column and the badge can crowd the name, so the
+        # hover is the guaranteed way to read what the cell actually holds.
+        name_item.setToolTip(name_item.text())
+        self._table.setItem(row, _COL_NAME, name_item)
 
         transfer_combo = QComboBox(self._table)
         transfer_combo.addItems(list(_TRANSFER_CHOICES))
@@ -740,6 +789,7 @@ class OpticalElementEditor(QWidget):
         self._sync_kind_combo(kind_combo, transfer)
 
         value_item = QTableWidgetItem(str(value))
+        value_item.setToolTip(str(value))
         if spectrum is not None:
             value_item.setData(_SPECTRUM_ROLE, spectrum)
         self._table.setItem(row, _COL_VALUE, value_item)
@@ -752,6 +802,7 @@ class OpticalElementEditor(QWidget):
         )
         eps_item = QTableWidgetItem("—")
         eps_item.setFlags(eps_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        eps_item.setToolTip(_EPS_TOOLTIP)
         self._table.setItem(row, _COL_EPS, eps_item)
 
     @staticmethod

@@ -426,3 +426,70 @@ class TestRoundTrip:
         # And the reloaded document renders the same way in a fresh editor.
         reopened = _bind(qtbot, reloaded)
         assert reopened.override_badge_text(_row_of(reopened, _FILTER)) == "overridden — MWIR"
+
+
+class TestLockedRowDiscoverability:
+    """A locked cell must stay inspectable (owner live-review, 2026-09-02).
+
+    The lock is the design; the dead-end was the defect: an overridden row in the
+    Shared scope showed a truncated CSV path with no tooltip, a disabled Spectrum
+    button, and a double-click that did nothing. Every value cell now carries its
+    full text as a tooltip; a locked cell's tooltip adds who overrides it and which
+    scope edits it, and a double-click on any read-only cell pops that text.
+    """
+
+    def test_value_cells_always_tooltip_their_full_text(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        editor = _bind(qtbot, _study())
+        row = _row_of(editor, _FILTER)
+        item = editor._table.item(row, _COL_VALUE)  # noqa: SLF001
+        assert item is not None
+        assert item.toolTip() == item.text() == "0.9"
+
+    def test_locked_cell_tooltip_names_the_override_and_the_way_out(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        config_set = _study(MWIR=_cold_filter())
+        editor = _bind(qtbot, config_set)
+        row = _row_of(editor, _FILTER)
+        item = editor._table.item(row, _COL_VALUE)  # noqa: SLF001
+        assert item is not None
+        tip = item.toolTip()
+        assert tip.startswith(item.text())  # the full value survives the lock
+        assert _FILTER in tip and "MWIR" in tip
+        assert "This configuration" in tip  # the way out is named
+
+    def test_unlocking_restores_the_plain_value_tooltip(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        config_set = _study(MWIR=_cold_filter())
+        editor = _bind(qtbot, config_set)
+        _choose_configuration_scope(editor)  # per-configuration scope: row editable
+        row = _row_of(editor, _FILTER)
+        item = editor._table.item(row, _COL_VALUE)  # noqa: SLF001
+        assert item is not None
+        assert item.toolTip() == item.text()
+
+    def test_double_click_on_a_locked_cell_shows_the_tooltip(  # type: ignore[no-untyped-def]
+        self, qtbot, monkeypatch
+    ) -> None:
+        from radiant.gui.widgets import optical_element_editor as mod
+
+        shown: list[str] = []
+        monkeypatch.setattr(
+            mod.QToolTip, "showText", lambda _pos, text, *_a, **_k: shown.append(text)
+        )
+        config_set = _study(MWIR=_cold_filter())
+        editor = _bind(qtbot, config_set)
+        row = _row_of(editor, _FILTER)
+        editor._on_cell_double_clicked(row, _COL_VALUE)  # noqa: SLF001
+        assert len(shown) == 1
+        assert "MWIR" in shown[0] and "0.55" in shown[0]
+
+    def test_double_click_on_an_editable_cell_shows_nothing(  # type: ignore[no-untyped-def]
+        self, qtbot, monkeypatch
+    ) -> None:
+        from radiant.gui.widgets import optical_element_editor as mod
+
+        shown: list[str] = []
+        monkeypatch.setattr(
+            mod.QToolTip, "showText", lambda _pos, text, *_a, **_k: shown.append(text)
+        )
+        editor = _bind(qtbot, _study())
+        editor._on_cell_double_clicked(_row_of(editor, _FILTER), _COL_VALUE)  # noqa: SLF001
+        assert shown == []  # Qt's inline editor owns the editable case

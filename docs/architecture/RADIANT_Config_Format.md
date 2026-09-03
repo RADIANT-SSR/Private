@@ -66,7 +66,7 @@ Scientific notation (`1.5e6`) is acceptable for large values. Units go in the na
 
 ### 1.3 Variable Substitution
 
-> **Not the multi-configuration feature (ADR-0010, 2026-07-25):** `_extends`/`_imports`/`_vars` are *file-composition* directives — one config file built from several. A **configuration set** (§1.9) is the unrelated in-file feature: one config file holding up to 8 named configurations of the same problem, via the `configurations:` structured section. Configuration sets do **not** use, need, or imply `_extends`; the directives below remain unimplemented and still raise.
+> **Not the multi-configuration feature (ADR-0010, 2026-07-25):** `_extends`/`_imports`/`_vars` are *file-composition* directives — one config file built from several. A **configuration set** (§1.9) is the unrelated in-file feature: one config file holding up to 12 named configurations of the same problem, via the `configurations:` structured section. Configuration sets do **not** use, need, or imply `_extends`; the directives below remain unimplemented and still raise.
 
 > **Implementation status (2026-07-06):** `_vars`, `_extends`, and `_imports` (§1.3–1.5) are **design targets, not implemented**. The current loader (`radiant/io/config.py`) **raises `ConfigError`** when any of these top-level keys is present (CU-050; previously they were silently stripped, which loaded the config with the directive ignored — a Rule 17 antipattern). Inline the parent/imported values into a single complete config. There is no CLI `--var` flag. Do not rely on these features until this banner is removed.
 
@@ -255,7 +255,7 @@ optics:
   aperture_diameter_m: 0.30       # shared: one value for every configuration
 
 configurations:
-  names: [MWIR, LWIR]             # 1–8, unique, non-empty; defines the column order
+  names: [MWIR, LWIR]             # 1–12, unique, non-empty; defines the column order
   active: MWIR                    # GUI resume state   (optional; default names[0])
   baseline: MWIR                  # delta reference    (optional; default names[0])
   wavelength_points:              # optional; omitted names use _radiant.wavelength_points
@@ -270,7 +270,7 @@ Binding rules, all enforced at load with a `ConfigError` naming the config file,
 
 | Rule | Violation |
 |---|---|
-| `names`: 1–8 unique, non-empty strings | missing/empty list, duplicate name, 9th name, non-string |
+| `names`: 1–12 unique, non-empty strings | missing/empty list, duplicate name, 13th name, non-string |
 | `active` / `baseline` optional, each names a member | a name not in `names` |
 | `wavelength_points`: mapping of member name → `int >= 2` | non-member key, `< 2`, non-integer |
 | `parameters`: mapping of dot-path → list, **every list length = `len(names)`** | a short or long list — dense by construction (ADR-0010 D-A), never padded |

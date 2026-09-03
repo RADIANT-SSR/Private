@@ -262,7 +262,7 @@ delta_snr = r_upgrade.metrics["snr"] - r_base.metrics["snr"]
 ## Configuration Sets
 
 Cloning gives you two independent sensors. A `ConfigurationSet` instead keeps
-**one** document with up to eight named *configurations* of the same problem: a
+**one** document with up to twelve named *configurations* of the same problem: a
 parameter is **shared** by default and carries one value per configuration only
 once you `configure()` it. Shared edits move every configuration at once, and
 the whole study saves as a single config file.

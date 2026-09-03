@@ -602,7 +602,7 @@ per-configuration **wavelength-points** override, and a live **status**.
 **A private working copy.** The dialog edits `config_set.clone()` and hands the window a
 whole study *shape* on OK. Two things follow. Cancel is exactly "discard the clone" — no
 partial application and no undo entry. And every guard the analyst meets is the **API's
-own** — a ninth configuration, a duplicate or empty name, removing the last one — raised
+own** — a thirteenth configuration, a duplicate or empty name, removing the last one — raised
 by the real call on the clone and rendered inline as its what/why/action; the dialog
 duplicates no validation.
 
@@ -1853,14 +1853,26 @@ keyword `#d69fd8` / `#8a2a8e` · string `#97c49e` / `#2f6b3a` · number `#e0a075
 red `#ec6a5e` · yellow `#f4bf4f` · green `#61c555`. These are the window-decoration
 dots only; **stage health dots use the themed `ok`/`warn`/`err`/`stale` tokens** above.
 
-**Configuration accents** (`config_accents`, multi-configuration Phase 4a) — eight hues,
-one per configuration **slot** (`ConfigurationSet.MAX_CONFIGS` = 8), assigned by position
+**Configuration accents** (`config_accents`, multi-configuration Phase 4a) — twelve hues,
+one per configuration **slot** (`ConfigurationSet.MAX_CONFIGS` = 12), assigned by position
 in the set so a configuration keeps its colour, and index-for-index across the two themes
 so it survives a theme toggle. Dark / light: `#86a8df` / `#2f5aa8` · `#e08157` /
 `#b8431a` · `#7fb987` / `#2f7a3a` · `#c79ad8` / `#7a3a8e` · `#e0b249` / `#a97c14` ·
-`#6fc0c0` / `#1f7a7a` · `#e07fa4` / `#a8305a` · `#a8b0be` / `#5a6270`. Used by the master
-configuration selector (§4.2b) and, since Phase 4d, the per-configuration Performance
-column headers (§4.2e), which read their hue off the selector so the two cannot drift.
+`#6fc0c0` / `#1f7a7a` · `#e07fa4` / `#a8305a` · `#a8b0be` / `#5a6270` · `#8977cf` /
+`#39297a` · `#8eb54a` / `#4c671e` · `#cf6ebe` / `#812271` · `#89d2b7` / `#298e69`. Used by
+the master configuration selector (§4.2b) and, since Phase 4d, the per-configuration
+Performance column headers (§4.2e), which read their hue off the selector so the two
+cannot drift.
+
+Slots 0–7 are the original eight and are **frozen** — a saved study's colour identity is
+its slot, so a re-hue would silently re-colour existing work. Slots 8–11 arrived with the
+8 → 12 cap (owner-ratified 2026-09-01) and sit in the four widest gaps of the existing hue
+circle (indigo 252°, olive 82°, magenta 310°, emerald 158°). Because a red-green confusion
+collapses the warm and green families onto one yellow axis, each new hue also carries a
+**lightness** offset from both of its hue neighbours — the second channel that keeps the
+twelve chips pairwise separable under deuteranopia and protanopia. Every chip clears the
+3:1 non-text contrast bar across all of the `configurationTab` background states its chip
+is drawn on (`panel`, `panel_3` on hover, `focus_soft` when checked).
 
 ### 8.2 Typography
 

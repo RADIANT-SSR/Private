@@ -153,7 +153,7 @@ delta_mtf = r2.metrics["mtf_at_nyquist"] - r1.metrics["mtf_at_nyquist"]
 **Question**: "I have one telescope operated three ways --- how do the numbers
 line up side by side, and how do I keep the shared parts shared?"
 
-A **configuration set** is one modeling problem carrying up to eight named
+A **configuration set** is one modeling problem carrying up to twelve named
 **configurations** of itself. Every parameter is **shared** (one value for all
 configurations) until you explicitly `configure()` it, at which point it carries
 one value per configuration --- densely, never sparsely. Editing a shared
@@ -243,7 +243,7 @@ document as a string without touching disk.
 | **Sweep** (`sweep`, `sweep_2d`) | A **continuous axis** --- SNR vs. aperture from 0.10 m to 0.60 m in 20 steps. One parameter (or two) varies, the answer is a curve or a surface, and no individual point deserves a name. |
 
 If you find yourself naming sweep points, you want a configuration set; if you
-find yourself adding a ninth configuration to trace out a trend, you want a
+find yourself adding a thirteenth configuration to trace out a trend, you want a
 sweep.
 
 ### From the CLI and the GUI

@@ -1,4 +1,4 @@
-"""Configuration sets — one study holding up to eight named configurations.
+"""Configuration sets — one study holding up to twelve named configurations.
 
 Implements the core model of ADR-0010 (CODE V zoom-configuration semantics):
 a **shared base** :class:`~radiant.api.sensor.Sensor` plus a **dense configured
@@ -316,7 +316,7 @@ def _headline(result: ChainResult) -> str:
 
 
 class ConfigurationSet:
-    """Up to eight named configurations of one modeling problem (ADR-0010).
+    """Up to twelve named configurations of one modeling problem (ADR-0010).
 
     Parameters
     ----------
@@ -337,7 +337,13 @@ class ConfigurationSet:
     like a bare ``Sensor`` — that degenerate case is today's single-model app.
     """
 
-    MAX_CONFIGS: ClassVar[int] = 8
+    # The single source of truth for the ADR-0010 D-E cardinality cap (raised
+    # 8 → 12, owner-ratified 2026-09-01). Every refusal message below derives
+    # its number from this constant, so the cap moves by editing one line.
+    # ``radiant.io.config_set_section._DEFAULT_MAX_CONFIGURATIONS`` mirrors it
+    # for bare io-level section loads (this class passes ``MAX_CONFIGS`` in on
+    # every load it drives) — the two must be changed together.
+    MAX_CONFIGS: ClassVar[int] = 12
 
     def __init__(self, base: Sensor, names: Sequence[str] | None = None) -> None:
         if not isinstance(base, Sensor):

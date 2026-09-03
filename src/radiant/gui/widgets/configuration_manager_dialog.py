@@ -26,7 +26,7 @@ change it.
 window a :class:`~radiant.gui.widgets.configuration_shape_command.ConfigurationShape`
 only when the user accepts. Two things follow. First, Cancel is exactly "throw the
 clone away" — nothing partially applied, no undo entry. Second, every guard the
-analyst meets is the **API's own** — a ninth configuration, a duplicate or empty name,
+analyst meets is the **API's own** — a thirteenth configuration, a duplicate or empty name,
 removing the last one — raised by the real ``ConfigurationSet`` call on the clone and
 rendered here as its what/why/action (Rules 15/17). This file duplicates none of that
 validation.

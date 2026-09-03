@@ -20,6 +20,13 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Configuration-set capacity raised 8 → 12** (`ConfigurationSet.MAX_CONFIGS`,
+  ADR-0010 D-E amendment, owner-ratified 2026-09-01). A thirteenth configuration
+  now raises the actionable cap error; the GUI selector band and manager dialog
+  follow the constant, and both themes carry twelve position-stable accent hues
+  (slots 0–7 unchanged). Existing files load unchanged; not results-affecting.
+
 ### Added
 - **Mission-template welcome screen (GUI, §4.4a — owner-confirmed brief).** With
   no configuration loaded, the central canvas shows six hand-authored mission

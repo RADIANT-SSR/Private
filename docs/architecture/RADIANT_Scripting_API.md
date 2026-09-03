@@ -210,7 +210,7 @@ resolution engine, and `radiant.core` is untouched.
 | Member | Description |
 |--------|-------------|
 | `ConfigurationSet(base, names=None)` | Wrap a `Sensor` as the shared base. `names` defaults to a single `"Configuration 1"`. The base is **owned**, not copied — pass `sensor.clone()` to keep an independent handle. |
-| `ConfigurationSet.MAX_CONFIGS` | `8`. A ninth configuration raises `ConfigSetError` (ADR-0010 D-E). |
+| `ConfigurationSet.MAX_CONFIGS` | `12`. A thirteenth configuration raises `ConfigSetError` (ADR-0010 D-E; raised 8 → 12, owner-ratified 2026-09-01). |
 | `cs.base` | The shared base `Sensor`. Editing it (`cs.base.set(...)`) edits the shared value of a parameter that is *not* configured. |
 | `cs.names()` / `len(cs)` / `name in cs` | Configuration names in set order; count; membership. |
 | `cs.add(name, *, copy_from=None)` | Append a configuration. Every configured parameter gains a value: copied from `copy_from` (the duplicate route), else from **configuration #1**. |
@@ -1284,7 +1284,7 @@ Multi-configuration studies (§2.5c):
 
 ```python
 from radiant.api import (
-    ConfigurationSet,     # up to 8 named configurations over one shared base Sensor
+    ConfigurationSet,     # up to 12 named configurations over one shared base Sensor
     ConfigSetRunResult,   # from cs.evaluate_all()
     ConfigRun,            # one configuration's (name, result | error)
     ConfigSetError,       # RadiantError subclass; every message names the configuration

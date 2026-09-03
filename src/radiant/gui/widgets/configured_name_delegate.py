@@ -11,6 +11,11 @@ marker reads as a suffix of the parameter it marks, matching the per-stage form 
 It extends :class:`~radiant.gui.widgets.parameter_delegate.ReadOnlyCellDelegate`, so the
 Parameter column keeps its existing contract of never opening an in-place editor (a
 double-click there opens the full Parameter Editor instead, §4.3).
+:class:`EditableConfiguredNameDelegate` is the same marker for a column that *is* edited
+in place — the Elements tab's Name column, whose text is part of a configured element
+row's entry (Gap 103 v1.1) — and lives here rather than in its own module because the
+two share every line of the placement decision (Rule 19's coupled-computation case; the
+same reason :mod:`~radiant.gui.widgets.parameter_delegate` holds two delegates).
 
 :meth:`ConfiguredNameDelegate.badge_rect` is the placement decision, factored out of
 :meth:`paint` so it is assertable without a rendered window (the tests check that the
@@ -26,7 +31,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QModelIndex, QRect, Qt
 from PySide6.QtGui import QFontMetrics, QPainter
-from PySide6.QtWidgets import QStyle, QStyleOptionViewItem
+from PySide6.QtWidgets import QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget
 
 from radiant.gui.widgets.configured_badge import configured_badge_icon
 from radiant.gui.widgets.parameter_delegate import ReadOnlyCellDelegate
@@ -90,4 +95,31 @@ class ConfiguredNameDelegate(ReadOnlyCellDelegate):
         configured_badge_icon().paint(painter, rect)
 
 
-__all__ = ["BADGE_PX", "CONFIGURED_ROLE", "ConfiguredNameDelegate"]
+class EditableConfiguredNameDelegate(ConfiguredNameDelegate):
+    """The same painted "C", on a column whose cells keep their inline editor.
+
+    The parameter tree's name column deliberately never opens an in-place editor, so
+    :class:`ConfiguredNameDelegate` inherits that refusal. The Elements tab's Name
+    column is the opposite case: an element row's ``name`` is part of its entry and
+    therefore **configures with the row** (positional row identity, Gap 103 v1.1), so
+    the cell must stay editable while carrying the marker. Restoring
+    ``QStyledItemDelegate``'s default editor is the whole difference — badge glyph,
+    colour, and placement are inherited unchanged, so the two surfaces cannot drift.
+    """
+
+    def createEditor(  # noqa: N802 (Qt override name)
+        self,
+        parent: QWidget,
+        option: QStyleOptionViewItem,
+        index: QModelIndex,
+    ) -> QWidget:
+        """The column's ordinary in-place editor (skipping the read-only refusal)."""
+        return QStyledItemDelegate.createEditor(self, parent, option, index)
+
+
+__all__ = [
+    "BADGE_PX",
+    "CONFIGURED_ROLE",
+    "ConfiguredNameDelegate",
+    "EditableConfiguredNameDelegate",
+]

@@ -5,11 +5,10 @@ Capability Expansion plan Phase GS-4 (audit O-1: per-element %R/%T/temperature m
 the audit's flagship optics gap). It edits the **declarative element document** — the same
 entry dicts the ``optical_elements:`` YAML section carries — never physics objects: rows
 are (name, transfer mode, kind, R-or-T value, temperature, geometry), *Apply* serializes
-the table to entries and commits through exactly **one API call**,
-:meth:`Sensor.set_optical_elements` (validate-and-attach through the io parser — the single
-validation authority, Kirchhoff checks included — then persisted by ``Sensor.save``,
-ADR-0009 D4). The optics stage runs full-prescription on the next evaluation and the
-Throughput tab's coating-spectra figure reflects the authored train.
+the table to entries and commits through the API (validate-and-attach through the io
+parser — the single validation authority, Kirchhoff checks included — then persisted by
+``Sensor.save``, ADR-0009 D4). The optics stage runs full-prescription on the next
+evaluation and the Throughput tab's coating-spectra figure reflects the authored train.
 
 **Emissivity is derived, never an input (Rule 5).** The ε column is **read-only**, filled
 from :func:`radiant.api.preview_optical_elements` (band-mean Kirchhoff ε: 1 − R for
@@ -27,26 +26,33 @@ Applying emits :attr:`elementsApplied`, which the host relays through the standa
 ``optics_config.element_list`` identifies the edit; it is not a scalar parameter, so no
 undo command is recorded (documented Phase-9 limitation for non-scalar edits).
 
-**Per-configuration elements (Gap 103 v1.1, owner-ratified 2026-09-02).** In a
-multi-member study the tab renders the **active configuration's effective train** —
-``ConfigurationSet.effective_optical_elements(active)``, i.e. the shared document with
-that configuration's replace-by-name overrides swapped in — and a **scope control**
-chooses what *Apply* writes:
+**Configured element rows (Gap 103 v1.1, owner-ratified 2026-09-02 in live review).** In a
+multi-member study a **row configures exactly like a parameter**. The tab always renders
+the displayed configuration's effective train
+(``ConfigurationSet.effective_optical_elements(active)``), and:
 
-* *Shared document* — the shared ``optical_elements`` document, exactly as a
-  single-configuration session behaves. Rows an override swapped in are shown (badged)
-  but **locked**, and Apply writes their **shared** entry back, so a shared edit can
-  neither absorb an override's values nor disturb the override itself.
-* *This configuration* — Apply **diffs** the edited train against the shared document
-  and stores exactly the changed entries through one
-  ``ConfigurationSet.set_element_override(active, changed)`` call; an entry edited back
-  to equality with its shared counterpart drops out, and an empty diff calls
-  ``clear_element_override(active)`` so the configuration inherits again. Element
-  addition, removal, and reordering are structural properties of the shared train, so
-  those affordances are disabled in this scope (an override replaces a shared element by
-  name — it never adds or removes one).
+* **Right-click a row** for the two actions the parameter surfaces offer — *Configure
+  across configurations…* (:meth:`ConfigurationSet.configure_element`, which seeds every
+  configuration with the row's current shared entry, so nothing changes until one is
+  edited) and *Un-configure row (keep <first>'s entry)…*
+  (:meth:`ConfigurationSet.unconfigure_element`, D-6 keep-first, behind the same
+  value-stating confirmation the parameter collapse uses).
+* A configured row carries the **red "C"** after its name — the one configured-badge
+  glyph, painted by
+  :class:`~radiant.gui.widgets.configured_name_delegate.EditableConfiguredNameDelegate`
+  so the Name cell stays editable (the name is part of the entry and configures with the
+  row — row identity is **positional**).
+* **D-8 inline edit:** editing any cell of a configured row and applying writes that
+  configuration's entry only (:meth:`ConfigurationSet.set_element_for`); every other
+  configuration's entry is untouched. Editing a shared row writes the shared document,
+  which every configuration inherits.
+* The train's **structure is shared**: the row count and order are the same in every
+  configuration, so Add / Remove / reorder change every member. A configured row keeps
+  its position, so an edit that would shift one is refused *before* it is made — the
+  button is disabled with the reason and the way out (un-configure the row first).
 
-A single-configuration session shows no scope control and behaves exactly as before.
+A single-configuration session shows no row menu, no badges, and no study note, and
+behaves exactly as it did before this feature.
 
 All colour/typography comes from the QSS theme via object names; one widget class per
 file (Rule 19).
@@ -54,19 +60,19 @@ file (Rule 19).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QCursor
+from PySide6.QtCore import QPoint, QSignalBlocker, Qt, Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
+    QMenu,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QToolTip,
     QVBoxLayout,
     QWidget,
 )
@@ -77,6 +83,11 @@ from radiant.api.plot import plot_theme
 from radiant.core.exceptions import RadiantError
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
+from radiant.gui.widgets.configure_menu import CONFIGURE_TEXT, unconfigure_element_text
+from radiant.gui.widgets.configured_name_delegate import (
+    CONFIGURED_ROLE,
+    EditableConfiguredNameDelegate,
+)
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
 from radiant.gui.widgets.spectral_table_dialog import SpectralTableDialog
 
@@ -93,6 +104,13 @@ ELEMENT_EDIT_PATH: Final[str] = "optics_config.element_list"
 # "spectral (N pts)" sentinel; the dict itself rides in this role).
 _SPECTRUM_ROLE: Final[int] = int(Qt.ItemDataRole.UserRole) + 1
 _SPECTRUM_SENTINEL: Final[str] = "spectral ("
+
+# Item-data role carrying the **document position** a table row was rendered from —
+# the row's identity, since row identity is positional (Gap 103 v1.1). A row the
+# operator has just added carries :data:`_NEW_ROW` until an Apply puts it in the
+# document. Kept on the Name cell, beside CONFIGURED_ROLE.
+_ORIGIN_ROLE: Final[int] = int(Qt.ItemDataRole.UserRole) + 3
+_NEW_ROW: Final[int] = -1
 
 _TITLE = "Optical element train — per-element R/T, temperature, geometry (ε derived)"
 _HINT = (
@@ -115,53 +133,49 @@ _KIND_CHOICES: Final[tuple[str, ...]] = (
     "dewar_window",
 )
 
-# -- per-configuration scope (Gap 103 v1.1) ---------------------------------------
-# The two scopes an Apply can target in a multi-member study, in combo order. The
-# labels are the owner-ratified wording (plan §4a, 2026-09-02).
-_SCOPE_LABEL: Final[str] = "Edit scope:"
-_SCOPE_SHARED: Final[str] = "Shared document"
-_SCOPE_CONFIGURATION: Final[str] = "This configuration"
-_SCOPE_INDEX_SHARED: Final[int] = 0
-_SCOPE_INDEX_CONFIGURATION: Final[int] = 1
-_SCOPE_COMBO_TOOLTIP = (
-    "Which document Apply writes: the shared optical_elements train every configuration "
-    "inherits, or this configuration's replace-by-name overrides."
+# -- configured element rows (Gap 103 v1.1) ---------------------------------------
+# Shown only in a multi-member study, where "which configuration does this row belong
+# to" is a real question. A single-configuration session never sees any of it.
+_STUDY_NOTE = (
+    "Showing {name}'s train. Right-click a row to configure it across configurations: a "
+    "configured row (red C) carries one complete entry per configuration, and editing it "
+    "here edits {name}'s entry only. Row count and order are shared by every "
+    "configuration."
 )
-_SCOPE_NOTE_SHARED = (
-    "Apply edits the shared train every configuration inherits. Rows {name} overrides are "
-    "shown for context and locked here. Switching scope re-reads the train from the "
-    "document, so Apply before you switch."
+_CONFIGURED_TOOLTIP = "configured — one entry per configuration; editing edits {name} only"
+_CONFIGURE_ROW_TOOLTIP = (
+    "Give this row one complete entry per configuration, seeded from its current shared "
+    "entry — nothing changes until you edit one. The entry's name configures with the row."
 )
-_SCOPE_NOTE_CONFIGURATION = (
-    "Apply stores only the entries that differ from the shared train as {name}'s overrides; "
-    "an entry edited back to the shared values drops its override. Switching scope re-reads "
-    "the train from the document, so Apply before you switch."
+_NEW_ROW_HINT = (
+    "Apply the train first: a row can be configured only once it is part of the element document."
 )
-# The per-row marker for an entry an override swapped in, in the configured-badge
-# family (same QSS rule, so it matches the red "C" in both themes).
-_OVERRIDE_BADGE = "overridden — {name}"
-_OVERRIDE_TOOLTIP_SHARED = (
-    "{element} is overridden in {name}. Shared-document Apply keeps the shared entry and "
-    "leaves the override untouched — pick the This configuration scope to edit it."
+_UNCONFIGURE_TITLE = "Un-configure element row"
+_UNCONFIGURE_BODY = (
+    "Un-configure element row {row}?\n\n"
+    "Every configuration will share {kept}'s entry, {entry}. The other configurations' "
+    "entries ({summary}) are discarded."
 )
-_LOCKED_CELL_TOOLTIP = (
-    "{value}\n\n{element} is overridden in {name}, so this row is read-only in the "
-    "Shared document scope. Switch Edit scope to “This configuration” to edit it."
+_REMOVE_CONFIGURED_TITLE = "Remove a configured element row"
+_REMOVE_CONFIGURED_BODY = (
+    "Remove element row {row}?\n\n"
+    "The row is configured — every configuration carries its own entry ({summary}). "
+    "Applying the train removes the row, and all of those entries, from every "
+    "configuration."
 )
+_REMOVE_BLOCKED_TOOLTIP = (
+    "Element row {row} below is configured, and a configured row keeps its position in "
+    "the train. Un-configure it (right-click it) before removing a row above it."
+)
+_MOVE_BLOCKED_TOOLTIP = (
+    "Element row {row} is configured, and a configured row keeps its position in the "
+    "train. Un-configure it (right-click it) before reordering across it."
+)
+# Separator between per-configuration items in a confirmation's entry list, matching
+# the configured-parameter badge tooltips (ConfigurationScope.summary).
+_SUMMARY_SEPARATOR = " · "
+
 _EPS_TOOLTIP = "ε is Kirchhoff-derived (1 − R − T) — read-only (Rule 5)."
-_OVERRIDE_TOOLTIP_CONFIGURATION = (
-    "{element} is overridden in {name} — this row replaces the shared entry of that name."
-)
-_STRUCTURE_TOOLTIP = (
-    "Adding, removing, or reordering elements changes the shared train: an override "
-    "replaces a shared element by name and never adds or removes one. Pick the Shared "
-    "document scope."
-)
-_REMOVE_OVERRIDDEN_TOOLTIP = (
-    "{element} is overridden in {name}; removing it from the shared train would leave that "
-    "override with nothing to replace. Edit it back to the shared values in the This "
-    "configuration scope first."
-)
 
 _DETAIL_TITLE = "Coating detail — R / T / ε on the coating's own grid (Gap 116)"
 _DETAIL_PROMPT = (
@@ -211,52 +225,16 @@ _NEW_REFRACTIVE: Final[dict[str, Any]] = {
 }
 
 
-def _canonical(value: Any) -> Any:
-    """A comparable, order-independent form of an element-document value.
-
-    Dicts compare by sorted key (so key order never decides equality), sequences
-    elementwise, and every number as a ``float`` (so a shared ``293`` and an edited
-    ``293.0`` are the same temperature). Everything else compares as-is.
-
-    Numbers compare **exactly** — no tolerance. Both sides of the diff are the same
-    entries rendered to text and parsed back (``repr`` round-trips a Python float
-    exactly), so an untouched row is bit-identical, and a tolerance would silently
-    swallow a small deliberate edit rather than store it (Rule 17).
-    """
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, Mapping):
-        return tuple(sorted(((str(k), _canonical(v)) for k, v in value.items()), key=_first))
-    if isinstance(value, (list, tuple)):
-        return tuple(_canonical(item) for item in value)
-    return value
-
-
-def _first(pair: tuple[str, Any]) -> str:
-    """Sort key for :func:`_canonical`'s mapping items (the key, never the value)."""
-    return pair[0]
-
-
-def _entries_equal(entry: Mapping[str, Any], shared: Mapping[str, Any] | None) -> bool:
-    """True when *entry* says exactly what the shared document's *shared* entry says.
-
-    ``None`` (no shared entry of that name) is never equal: such an entry is a
-    structural change the override mechanism refuses, and the API names it.
-    """
-    return shared is not None and _canonical(entry) == _canonical(shared)
-
-
 class OpticalElementEditor(QWidget):
     """The element-train table editor: rows ⇌ the declarative element document.
 
     Signals
     -------
     elementsApplied(str):
-        Emitted with :data:`ELEMENT_EDIT_PATH` after a successful Apply (the one
-        ``sensor.set_optical_elements`` call), so the host marks state stale and
-        schedules a re-evaluation — the same contract as ``parameterEdited``.
+        Emitted with :data:`ELEMENT_EDIT_PATH` after a successful Apply, and after a
+        row is configured or un-configured — every one of those writes the element
+        document, so the host marks state stale and schedules a re-evaluation, the
+        same contract as ``parameterEdited``.
     """
 
     elementsApplied = Signal(str)
@@ -297,33 +275,24 @@ class OpticalElementEditor(QWidget):
         hint.setWordWrap(True)
         box.addWidget(hint)
 
-        # The scope control (Gap 103 v1.1): shown only for a multi-member study, where
-        # "which document does Apply write" is a real question. A single-configuration
-        # session never sees it and keeps today's one-document behaviour.
-        self._scope_row = QWidget(card)
-        scope_layout = QHBoxLayout(self._scope_row)
-        scope_layout.setContentsMargins(0, 0, 0, 0)
-        scope_layout.setSpacing(6)
-        scope_caption = QLabel(_SCOPE_LABEL, self._scope_row)
-        scope_caption.setObjectName("stageCenterNote")
-        self._scope_combo = QComboBox(self._scope_row)
-        self._scope_combo.setObjectName("elementScopeCombo")
-        self._scope_combo.addItems([_SCOPE_SHARED, _SCOPE_CONFIGURATION])
-        self._scope_combo.setToolTip(_SCOPE_COMBO_TOOLTIP)
-        self._scope_note = QLabel("", self._scope_row)
-        self._scope_note.setObjectName("stageCenterNote")
-        self._scope_note.setWordWrap(True)
-        scope_layout.addWidget(scope_caption)
-        scope_layout.addWidget(self._scope_combo)
-        scope_layout.addWidget(self._scope_note, 1)
-        self._scope_row.setVisible(False)
-        box.addWidget(self._scope_row)
+        # The study note (Gap 103 v1.1): shown only for a multi-member study, where a row
+        # can be configured. A single-configuration session never sees it.
+        self._study_note = QLabel("", card)
+        self._study_note.setObjectName("stageCenterNote")
+        self._study_note.setWordWrap(True)
+        self._study_note.setVisible(False)
+        box.addWidget(self._study_note)
 
         self._table = QTableWidget(0, len(_HEADERS), card)
         self._table.setObjectName("elementTable")
         self._table.setHorizontalHeaderLabels(list(_HEADERS))
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.verticalHeader().setVisible(False)
+        # The red "C" rides after the name text, painted by the delegate, so the Name
+        # cell keeps its inline editor (the name configures with the row).
+        self._name_delegate = EditableConfiguredNameDelegate(self._table)
+        self._table.setItemDelegateForColumn(_COL_NAME, self._name_delegate)
+        self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         box.addWidget(self._table)
 
         buttons = QWidget(card)
@@ -380,8 +349,7 @@ class OpticalElementEditor(QWidget):
         box.addWidget(self._detail_message)
         self._table.itemSelectionChanged.connect(self.refresh_coating_detail)
         self._table.itemSelectionChanged.connect(self._sync_selection_actions)
-        self._table.cellDoubleClicked.connect(self._on_cell_double_clicked)
-        self._scope_combo.currentIndexChanged.connect(self._on_scope_changed)
+        self._table.customContextMenuRequested.connect(self._on_context_menu)
         self.elementsApplied.connect(lambda _path: self.refresh_coating_detail())
 
         layout.addWidget(card)
@@ -406,9 +374,9 @@ class OpticalElementEditor(QWidget):
         """Give the tab the session's configuration scope (Gap 103 v1.1).
 
         The scope is the read side of the study document: it answers *is this a
-        multi-member study*, *which configuration is active*, and *what does it
-        override*. The tab re-reads the train through it, so the scope control appears
-        (and the effective train renders) as soon as a study is the open document.
+        multi-member study* and *which configuration is displayed*. The tab re-reads the
+        train through it, so the row actions appear (and the displayed configuration's
+        train renders) as soon as a study is the open document.
 
         Handed over by the host's one ``bind_configuration_scope`` fan-out, exactly as
         the per-stage form fields get theirs — the scope object is stable for the life
@@ -435,16 +403,16 @@ class OpticalElementEditor(QWidget):
     def refresh(self) -> None:
         """No-op on re-evaluation (the table is an editor, not a readout)."""
 
-    # -- per-configuration scope (Gap 103 v1.1) --------------------------------
+    # -- the session document --------------------------------------------------
 
     def _bound_set(self) -> ConfigurationSet | None:
         """The session document, whatever its size (``None`` when none is bound).
 
-        Whose element document the tab reads and a shared Apply writes. In a plain
-        session the set's base **is** the displayed sensor, so reading and writing
-        through it is the same object and the same behaviour as before; where the two
-        differ — any set whose displayed sensor is a materialization — the document is
-        the one that survives, and the throwaway is not it (Rule 17).
+        Whose element document the tab reads and an Apply writes. In a plain session the
+        set's base **is** the displayed sensor, so reading and writing through it is the
+        same object and the same behaviour as before; where the two differ — any set
+        whose displayed sensor is a materialization — the document is the one that
+        survives, and the throwaway is not it (Rule 17).
         """
         scope = self._scope
         return None if scope is None else scope.configuration_set
@@ -452,45 +420,28 @@ class OpticalElementEditor(QWidget):
     def _study_set(self) -> ConfigurationSet | None:
         """The session's set when it is a **multi-member** study, else ``None``.
 
-        The gate on everything per-configuration: the scope control, the badges, and
-        the override routing. A one-configuration set is deliberately excluded — it has
-        no second member to differ from, so a per-configuration override would say
-        nothing the shared document does not already say.
+        The gate on everything per-configuration: the row menu, the badges, and the
+        study note. A one-configuration set is deliberately excluded — it has no second
+        member to differ from, so a configured row would say nothing the shared document
+        does not already say.
         """
         config_set = self._bound_set()
         if config_set is None or len(config_set.names()) <= 1:
             return None
         return config_set
 
-    def _override_target(self) -> str | None:
-        """The configuration an Apply would override, or ``None`` for a shared Apply."""
-        config_set = self._study_set()
-        if config_set is None:
-            return None
-        if self._scope_combo.currentIndex() != _SCOPE_INDEX_CONFIGURATION:
-            return None
-        return config_set.active
-
-    def _overridden_names(self) -> set[str]:
-        """Element names the active configuration overrides (empty outside a study)."""
-        config_set = self._study_set()
-        if config_set is None:
-            return set()
-        entries = config_set.element_overrides(config_set.active)
-        return {str(entry.get("name")) for entry in entries or ()}
-
     def _document_entries(self) -> tuple[list[dict[str, Any]], str]:
         """The entries to render, plus any advisory the API raised reading them.
 
-        With a set bound that is the active configuration's **effective** train (shared
-        document, overrides swapped in, shared order) — which for a plain session is
-        simply the displayed sensor's own document, since the set's base is that sensor.
-        The one way the read can fail is an override whose shared counterpart has gone —
-        reachable only by replacing the base document behind the set's back (a console
-        ``set_optical_elements``). The tab then falls back to the shared train so it
-        stays usable, and returns the API's actionable message so it is shown rather
-        than swallowed (Rule 17); the same error also names the configuration on the
-        next evaluation.
+        With a set bound that is the displayed configuration's **effective** train (the
+        shared skeleton with each configured row resolved to that configuration's entry)
+        — which for a plain session is simply the displayed sensor's own document, since
+        the set's base is that sensor. The one way the read can fail is a configured row
+        left without a position — reachable only by replacing the base document behind
+        the set's back (a console ``set_optical_elements``). The tab then falls back to
+        the shared rows so it stays usable, and returns the API's actionable message so
+        it is shown rather than swallowed (Rule 17); the same error also names the
+        configuration on the next evaluation.
         """
         config_set = self._bound_set()
         if config_set is None:
@@ -510,192 +461,234 @@ class OpticalElementEditor(QWidget):
         self._reload(entries)
         if entries:
             self._refresh_derived_emissivity(entries)
-        self._sync_scope_control()
-        self._apply_scope_state()
+        self._sync_study_note()
+        self._refresh_configured_marks()
         self.refresh_coating_detail()
         if advisory:
             self._show_detail_message(advisory)
 
-    def _sync_scope_control(self) -> None:
-        """Show/hide the scope control and word its note for the active configuration."""
+    def _sync_study_note(self) -> None:
+        """Show the study note (naming the displayed configuration) only in a study."""
         config_set = self._study_set()
-        self._scope_row.setVisible(config_set is not None)
-        if config_set is None:
-            self._scope_combo.setCurrentIndex(_SCOPE_INDEX_SHARED)
-            self._scope_note.setText("")
-            return
-        note = (
-            _SCOPE_NOTE_CONFIGURATION
-            if self._scope_combo.currentIndex() == _SCOPE_INDEX_CONFIGURATION
-            else _SCOPE_NOTE_SHARED
+        self._study_note.setVisible(config_set is not None)
+        self._study_note.setText(
+            "" if config_set is None else _STUDY_NOTE.format(name=config_set.active)
         )
-        self._scope_note.setText(note.format(name=config_set.active))
 
-    def _on_scope_changed(self, index: int) -> None:
-        """Re-read the train for the newly chosen scope (the note says this happens)."""
-        del index  # the scope is read back from the combo
-        self._reload_from_document()
+    # -- configured rows -------------------------------------------------------
 
-    def _apply_scope_state(self) -> None:
-        """Badge overridden rows and lock what the current scope may not edit.
+    def _configured_positions(self) -> frozenset[int]:
+        """Document positions that carry one entry per configuration.
 
-        Two locks, both structural rather than cosmetic:
-
-        * **Shared scope, overridden row** — the row shows the *override's* values, which
-          do not belong to the shared document. It is read-only, and a shared Apply
-          writes its shared entry back (:meth:`_shared_document_from_table`), so a shared
-          edit can neither absorb an override's values nor silently drop the operator's
-          typing into a document that will not keep it.
-        * **This-configuration scope** — add / remove / reorder and the Name cells are
-          disabled: an override replaces a shared element **by name**, so a new name, a
-          missing row, or a different order has nowhere to land and would be a silent
-          no-op (or an API refusal) at Apply.
+        Read from the bound set whatever its size — not from :meth:`_study_set` — because
+        this is the document's own single store, and a commit that mistook a configured
+        row for a shared one would write it into both. (A one-configuration set is never
+        *offered* the configure action; a script can still have configured a row in one,
+        and the tab must still commit it correctly.)
         """
-        config_set = self._study_set()
-        target = self._override_target()
-        per_configuration = target is not None
-        active = config_set.active if config_set is not None else ""
-        overridden = self._overridden_names()
-        for button in (self._add_mirror, self._add_refractive, self._up, self._down):
-            button.setEnabled(not per_configuration)
-            button.setToolTip("" if not per_configuration else _STRUCTURE_TOOLTIP)
+        config_set = self._bound_set()
+        if config_set is None:
+            return frozenset()
+        return frozenset(config_set.configured_element_indices())
+
+    def _origin(self, row: int) -> int:
+        """The document position *row* was rendered from (:data:`_NEW_ROW` if unapplied)."""
+        item = self._table.item(row, _COL_NAME)
+        if item is None:
+            return _NEW_ROW
+        stored = item.data(_ORIGIN_ROLE)
+        return int(stored) if isinstance(stored, int) else _NEW_ROW
+
+    def _is_configured_row(self, row: int) -> bool:
+        """True when table *row* renders a configured document row."""
+        return self._origin(row) in self._configured_positions()
+
+    def _refresh_configured_marks(self) -> None:
+        """Mark every configured row with the red "C" and its tooltip; sync the buttons.
+
+        The marker is the one configured-badge glyph (``CONFIGURED_ROLE`` + the painting
+        delegate), so it is the same red, weight, and placement — immediately right of
+        the name — the parameter tree and the per-stage forms use. The Name cell's
+        tooltip keeps the full name and gains the one line of *what configured means
+        here*, so a truncated column is still readable.
+        """
+        config_set = self._bound_set()
+        active = "" if config_set is None else config_set.active
+        configured = self._configured_positions()
         for row in range(self._table.rowCount()):
-            name = self._cell_text(row, _COL_NAME)
-            marked = name in overridden
-            locked = marked and not per_configuration
-            self._set_row_locked(
-                row, locked=locked, name_locked=per_configuration, overridden_in=active
+            item = self._table.item(row, _COL_NAME)
+            if item is None:
+                continue
+            marked = self._origin(row) in configured
+            item.setData(CONFIGURED_ROLE, True if marked else None)
+            item.setToolTip(
+                f"{item.text()}\n\n{_CONFIGURED_TOOLTIP.format(name=active)}"
+                if marked
+                else item.text()
             )
-            tooltip = (
-                _OVERRIDE_TOOLTIP_CONFIGURATION if per_configuration else _OVERRIDE_TOOLTIP_SHARED
-            ).format(element=name, name=active)
-            self._set_row_badge(row, name, active if marked else None, tooltip)
+        self._table.viewport().update()
         self._sync_selection_actions()
 
-    def _set_row_locked(
-        self, row: int, *, locked: bool, name_locked: bool, overridden_in: str = ""
-    ) -> None:
-        """Make *row*'s cells read-only (or editable again) for the current scope.
+    def _sync_selection_actions(self) -> None:
+        """Enable the structure buttons only where the edit is expressible.
 
-        A locked cell keeps its full value visible in the tooltip and gains one
-        line of *why* — a dead cell with no explanation reads as a broken GUI
-        (owner live-review, 2026-09-02), so the lock always says who overrides
-        the row and which scope edits it.
+        Row identity is positional and a configured row keeps its position, so an edit
+        that would **shift** a configured row cannot be written: removing a row above one
+        would move it, and reordering across one would swap it out of its own slot. Those
+        are refused here — before the operator invests any typing — with the reason and
+        the way out (un-configure that row first), rather than accepted and rejected at
+        Apply. Everything else is enabled: Add appends at the end of the train, which
+        shifts nothing, and Remove of a configured row is allowed behind a confirmation.
         """
-        element = self._cell_text(row, _COL_NAME)
-        for col in (_COL_VALUE, _COL_TEMP, _COL_DIAM, _COL_DIST):
-            item = self._table.item(row, col)
-            if item is not None:
-                self._set_editable(item, not locked)
-                if locked:
-                    item.setToolTip(
-                        _LOCKED_CELL_TOOLTIP.format(
-                            value=item.text(), element=element, name=overridden_in
-                        )
-                    )
-                else:
-                    item.setToolTip(item.text())
-        name_item = self._table.item(row, _COL_NAME)
-        if name_item is not None:
-            self._set_editable(name_item, not (locked or name_locked))
-        transfer = self._table.cellWidget(row, _COL_TRANSFER)
-        kind = self._table.cellWidget(row, _COL_KIND)
-        if isinstance(transfer, QComboBox):
-            transfer.setEnabled(not locked)
-        if isinstance(kind, QComboBox):
-            if locked:
-                kind.setEnabled(False)
-            elif isinstance(transfer, QComboBox):
-                # Never a blanket re-enable: Kind stays locked to "mirror" on a
-                # REFLECTIVE row whatever the scope is.
-                self._sync_kind_combo(kind, transfer.currentText())
-
-    def _on_cell_double_clicked(self, row: int, col: int) -> None:
-        """A double-click on a read-only cell shows its full value and the why.
-
-        On an editable cell Qt opens the inline editor and this handler has
-        nothing to add. On a locked cell nothing would happen at all — a dead
-        double-click on a cell whose text is visibly truncated (a spectral-CSV
-        path) reads as a broken GUI (owner live-review, 2026-09-02) — so the
-        cell's tooltip (full value + who overrides it + which scope edits it)
-        is shown immediately at the cursor instead.
-        """
-        item = self._table.item(row, col)
-        if item is None or bool(item.flags() & Qt.ItemFlag.ItemIsEditable):
+        row = self._table.currentRow()
+        count = self._table.rowCount()
+        if not (0 <= row < count):
+            self._remove.setEnabled(False)
+            self._up.setEnabled(False)
+            self._down.setEnabled(False)
+            self._spectrum.setEnabled(False)
             return
-        tooltip = item.toolTip() or item.text()
-        if tooltip:
-            QToolTip.showText(QCursor.pos(), tooltip, self._table)
+        self._spectrum.setEnabled(True)
+        below = [r for r in range(row + 1, count) if self._is_configured_row(r)]
+        self._set_structure_action(
+            self._remove, blocked_by=below[0] if below else None, tooltip=_REMOVE_BLOCKED_TOOLTIP
+        )
+        self._set_structure_action(
+            self._up, blocked_by=self._move_blocker(row, -1), tooltip=_MOVE_BLOCKED_TOOLTIP
+        )
+        self._set_structure_action(
+            self._down, blocked_by=self._move_blocker(row, +1), tooltip=_MOVE_BLOCKED_TOOLTIP
+        )
+
+    def _move_blocker(self, row: int, delta: int) -> int | None:
+        """The configured row a move of *row* by *delta* would shift, if any."""
+        target = row + delta
+        if not (0 <= target < self._table.rowCount()):
+            return None
+        for candidate in (row, target):
+            if self._is_configured_row(candidate):
+                return self._origin(candidate)
+        return None
 
     @staticmethod
-    def _set_editable(item: QTableWidgetItem, editable: bool) -> None:
-        """Flip *item*'s editable flag (the ε cell is read-only by construction)."""
-        if editable:
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-        else:
-            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+    def _set_structure_action(button: QPushButton, *, blocked_by: int | None, tooltip: str) -> None:
+        """Enable *button*, or disable it saying which configured row blocks it."""
+        button.setEnabled(blocked_by is None)
+        button.setToolTip("" if blocked_by is None else tooltip.format(row=blocked_by))
 
-    def _set_row_badge(self, row: int, name: str, config: str | None, tooltip: str) -> None:
-        """Mark *row* as overridden by *config* (or clear the mark when ``None``).
+    # -- the row menu (configure / un-configure) --------------------------------
 
-        The marker is the configured-badge family — a ``QLabel`` carrying the
-        ``configuredBadge`` object name, so it is the same red, weight, and font the
-        red "C" uses in both themes (GUI plan §4.9: no colour literal here). It rides
-        as a cell widget over the Name cell, whose item still holds the plain element
-        name, so :meth:`entries` keeps reading the document's name and not the badge.
-        """
-        if config is None:
-            self._table.removeCellWidget(row, _COL_NAME)
+    def _on_context_menu(self, position: QPoint) -> None:
+        """Pop the row menu for the row under the cursor (study sessions only)."""
+        row = self._table.rowAt(position.y())
+        if row < 0:
             return
-        host = QWidget(self._table)
-        host.setToolTip(tooltip)
-        row_layout = QHBoxLayout(host)
-        row_layout.setContentsMargins(4, 0, 4, 0)
-        row_layout.setSpacing(6)
-        name_label = QLabel(name, host)
-        badge = QLabel(_OVERRIDE_BADGE.format(name=config), host)
-        badge.setObjectName("configuredBadge")
-        row_layout.addWidget(name_label)
-        row_layout.addWidget(badge)
-        row_layout.addStretch(1)
-        self._table.setCellWidget(row, _COL_NAME, host)
+        menu = self.row_menu(row)
+        if menu is None:
+            return
+        menu.exec(self._table.viewport().mapToGlobal(position))
 
-    def _sync_selection_actions(self) -> None:
-        """Enable the selection-driven buttons only where they are a legal edit.
+    def row_menu(self, row: int) -> QMenu | None:
+        """The configure / un-configure menu for table *row* (``None`` outside a study).
 
-        *Remove* is refused in the This-configuration scope (structure is shared) and,
-        in the Shared scope, on a row some configuration overrides — removing that
-        shared element would leave the override with nothing to replace. *Spectrum…*
-        writes into a value cell, so it follows the row's lock: on a locked row the
-        edit would be substituted away at Apply, and a button that discards what it
-        collects is worse than one that is disabled.
+        The element-row counterpart of
+        :func:`~radiant.gui.widgets.configure_menu.add_configuration_actions`, and it
+        takes its labels from that module so the two menus keep one vocabulary. A row
+        that is not yet in the document (just added, not applied) shows the configure
+        action **disabled with the reason** rather than absent — a silently missing
+        action leaves the analyst guessing (Rule 17's spirit for UI state).
         """
         config_set = self._study_set()
-        row = self._table.currentRow()
-        name = self._cell_text(row, _COL_NAME) if 0 <= row < self._table.rowCount() else ""
-        per_configuration = self._override_target() is not None
-        overridden = config_set is not None and name in self._overridden_names()
-        locked = overridden and not per_configuration
-        self._spectrum.setEnabled(not locked)
-        self._spectrum.setToolTip(
-            _OVERRIDE_TOOLTIP_SHARED.format(
-                element=name, name="" if config_set is None else config_set.active
-            )
-            if locked
-            else _SPECTRUM_TOOLTIP
+        if config_set is None or not (0 <= row < self._table.rowCount()):
+            return None
+        menu = QMenu(self)
+        menu.setToolTipsVisible(True)
+        origin = self._origin(row)
+        if origin == _NEW_ROW:
+            action = QAction(CONFIGURE_TEXT, menu)
+            action.setEnabled(False)
+            action.setToolTip(_NEW_ROW_HINT)
+            action.setStatusTip(_NEW_ROW_HINT)
+        elif origin in self._configured_positions():
+            action = QAction(unconfigure_element_text(config_set.names()[0]), menu)
+            action.triggered.connect(lambda: self._unconfigure_row(row))
+        else:
+            action = QAction(CONFIGURE_TEXT, menu)
+            action.setToolTip(_CONFIGURE_ROW_TOOLTIP)
+            action.triggered.connect(lambda: self._configure_row(row))
+        menu.addAction(action)
+        return menu
+
+    def _configure_row(self, row: int) -> None:
+        """Configure element row *row* across every configuration — one API call.
+
+        ``configure_element`` seeds **every** configuration with the row's current shared
+        entry and moves it out of the shared document (the element analog of ADR-0010
+        D-B), so the promotion changes no result. The table then re-reads the document,
+        which is what shows the red "C".
+        """
+        config_set = self._study_set()
+        origin = self._origin(row)
+        if config_set is None or origin == _NEW_ROW:
+            return
+        try:
+            config_set.configure_element(origin)
+        except RadiantError as exc:
+            exec_dialog(ActionableErrorDialog(exc, ELEMENT_EDIT_PATH, self))
+            return
+        self._reload_from_document()
+        self.elementsApplied.emit(ELEMENT_EDIT_PATH)
+
+    def _unconfigure_row(self, row: int) -> None:
+        """Collapse a configured row back to one shared entry, keeping #1's (D-6).
+
+        The confirmation **names the entry that survives and the ones that are
+        discarded** before anything happens: collapsing silently changes the optics of
+        every configuration that did not hold that entry, and that is never allowed to
+        be a surprise — the same contract the configured-parameter collapse honours.
+        """
+        config_set = self._study_set()
+        origin = self._origin(row)
+        if config_set is None or origin not in self._configured_positions():
+            return
+        kept_name = config_set.names()[0]
+        answer = QMessageBox.question(
+            self,
+            _UNCONFIGURE_TITLE,
+            _UNCONFIGURE_BODY.format(
+                row=origin,
+                kept=kept_name,
+                entry=self._entry_name(config_set, origin, kept_name),
+                summary=self._entry_summary(config_set, origin),
+            ),
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
         )
-        if per_configuration:
-            self._remove.setEnabled(False)
-            self._remove.setToolTip(_STRUCTURE_TOOLTIP)
+        if answer != QMessageBox.StandardButton.Ok:
             return
-        if overridden and config_set is not None:
-            self._remove.setEnabled(False)
-            self._remove.setToolTip(
-                _REMOVE_OVERRIDDEN_TOOLTIP.format(element=name, name=config_set.active)
-            )
+        try:
+            config_set.unconfigure_element(origin)
+        except RadiantError as exc:
+            exec_dialog(ActionableErrorDialog(exc, ELEMENT_EDIT_PATH, self))
             return
-        self._remove.setEnabled(True)
-        self._remove.setToolTip("")
+        self._reload_from_document()
+        self.elementsApplied.emit(ELEMENT_EDIT_PATH)
+
+    @staticmethod
+    def _entry_name(config_set: ConfigurationSet, index: int, member: str) -> str:
+        """The element name *member* gives configured row *index*."""
+        return str(config_set.element_for(index, member).get("name", ""))
+
+    def _entry_summary(self, config_set: ConfigurationSet, index: int) -> str:
+        """``"MWIR: band_filter · LWIR: cirrus_filter"`` — every configuration's entry.
+
+        Names only: the entry's ``name`` is what identifies it to the analyst (and it
+        configures with the row, so it may legitimately differ per configuration), while
+        listing whole entries would bury that in a wall of fields.
+        """
+        return _SUMMARY_SEPARATOR.join(
+            f"{name}: {self._entry_name(config_set, index, name)}" for name in config_set.names()
+        )
 
     # -- coating detail (Gap 116) ----------------------------------------------
 
@@ -705,9 +698,10 @@ class OpticalElementEditor(QWidget):
         One GUI action ↔ one API call: the selection maps to
         :func:`radiant.api.plot_coating_detail` with the table's current
         entries passed as the document override, so an unapplied draft row is
-        inspectable before Apply. A row the io parser rejects (bad path,
-        malformed value) shows the parser's actionable message in place of the
-        figure — never a blank pane, never a crash (Rule 15/17).
+        inspectable before Apply — and, in a study, the entries are the displayed
+        configuration's, so a configured row plots *its* coating. A row the io parser
+        rejects (bad path, malformed value) shows the parser's actionable message in
+        place of the figure — never a blank pane, never a crash (Rule 15/17).
         """
         row = self._table.currentRow()
         if self._sensor is None or row < 0 or row >= self._table.rowCount():
@@ -753,7 +747,13 @@ class OpticalElementEditor(QWidget):
 
     # -- table mechanics ------------------------------------------------------
 
-    def _append_row(self, entry: dict[str, Any]) -> None:
+    def _append_row(self, entry: dict[str, Any], origin: int) -> None:
+        # Silence the table while the row is half-built: Qt emits selection changes
+        # during a structural mutation, and this widget's own listeners read the table
+        # back (the coating-detail pane serializes every row), which asserts on a row
+        # whose cell widgets are not there yet. Blocking, then refreshing explicitly,
+        # is what keeps a listener from ever seeing a half-mutated table.
+        blocker = QSignalBlocker(self._table)
         row = self._table.rowCount()
         self._table.insertRow(row)
 
@@ -766,9 +766,12 @@ class OpticalElementEditor(QWidget):
 
         name_item = QTableWidgetItem(str(entry.get("name", "")))
         # The full text as a tooltip on every value-bearing cell: a spectral-CSV
-        # path is longer than its column and the badge can crowd the name, so the
-        # hover is the guaranteed way to read what the cell actually holds.
+        # path is longer than its column, so the hover is the guaranteed way to read
+        # what the cell actually holds.
         name_item.setToolTip(name_item.text())
+        # Row identity is positional, so every row remembers the document position it
+        # came from; a row added here has none until an Apply puts it in the document.
+        name_item.setData(_ORIGIN_ROLE, origin)
         self._table.setItem(row, _COL_NAME, name_item)
 
         transfer_combo = QComboBox(self._table)
@@ -804,6 +807,7 @@ class OpticalElementEditor(QWidget):
         eps_item.setFlags(eps_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
         eps_item.setToolTip(_EPS_TOOLTIP)
         self._table.setItem(row, _COL_EPS, eps_item)
+        del blocker  # the row is complete: signals flow again
 
     @staticmethod
     def _sync_kind_combo(kind_combo: QComboBox, transfer_text: str) -> None:
@@ -828,31 +832,71 @@ class OpticalElementEditor(QWidget):
                 kind_combo.removeItem(mirror_idx)
 
     def _add_row(self, entry: dict[str, Any]) -> None:
-        """Append a new draft row and re-apply the scope's locks/badges to the table."""
-        self._append_row(entry)
-        self._apply_scope_state()
+        """Append a new draft row — a **shared** row of the train, in every configuration.
+
+        The train's structure is shared, so a row added here belongs to every
+        configuration; it is seeded shared, and configuring it is a separate, explicit
+        act (the row menu). Appending at the end shifts no configured row, so it is
+        always expressible.
+        """
+        self._append_row(entry, _NEW_ROW)
+        self._refresh_configured_marks()
 
     def _remove_current(self) -> None:
+        """Drop the selected row from the train — for a configured row, behind a confirm.
+
+        Removing a configured row discards **every** configuration's entry for it, which
+        is the same irreversible per-configuration loss the un-configure collapse asks
+        about, so it asks in the same way and names the entries at stake.
+        """
         row = self._table.currentRow()
-        if row >= 0:
-            self._table.removeRow(row)
-            self._apply_scope_state()
+        if row < 0:
+            return
+        config_set = self._bound_set()
+        origin = self._origin(row)
+        if config_set is not None and origin in self._configured_positions():
+            answer = QMessageBox.question(
+                self,
+                _REMOVE_CONFIGURED_TITLE,
+                _REMOVE_CONFIGURED_BODY.format(
+                    row=origin, summary=self._entry_summary(config_set, origin)
+                ),
+                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel,
+            )
+            if answer != QMessageBox.StandardButton.Ok:
+                return
+        blocker = QSignalBlocker(self._table)
+        self._table.removeRow(row)
+        del blocker
+        self._refresh_configured_marks()
+        self.refresh_coating_detail()
 
     def _move_current(self, delta: int) -> None:
         row = self._table.currentRow()
         target = row + delta
         if row < 0 or not (0 <= target < self._table.rowCount()):
             return
-        entries = self.entries()
-        entries[row], entries[target] = entries[target], entries[row]
-        self._reload(entries)
-        self._apply_scope_state()
+        rows = self._rows()
+        rows[row], rows[target] = rows[target], rows[row]
+        self._reload_rows(rows)
+        self._refresh_configured_marks()
         self._table.setCurrentCell(target, _COL_NAME)
 
+    def _rows(self) -> list[tuple[dict[str, Any], int]]:
+        """The table as (entry, document position) pairs — identity travels with the row."""
+        return [(entry, self._origin(row)) for row, entry in enumerate(self.entries())]
+
     def _reload(self, entries: list[dict[str, Any]]) -> None:
+        """Render *entries* as the document's rows 0…n−1 (the document is the identity)."""
+        self._reload_rows([(entry, index) for index, entry in enumerate(entries)])
+
+    def _reload_rows(self, rows: list[tuple[dict[str, Any], int]]) -> None:
+        blocker = QSignalBlocker(self._table)
         self._table.setRowCount(0)
-        for entry in entries:
-            self._append_row(entry)
+        for entry, origin in rows:
+            self._append_row(entry, origin)
+        del blocker
 
     # -- document assembly ----------------------------------------------------
 
@@ -938,28 +982,21 @@ class OpticalElementEditor(QWidget):
         value_item.setData(_SPECTRUM_ROLE, spectrum)
         value_item.setText(f"spectral ({len(spectrum['wavelength_um'])} pts)")
 
-    # -- commit (one API call) -------------------------------------------------
+    # -- commit ---------------------------------------------------------------
 
     def apply_train(self) -> bool:
-        """Commit the table — one API call, chosen by the current scope.
+        """Commit the table — one user action, the document's own write path.
 
-        * *This configuration* scope (multi-member study only): one
-          ``set_element_override`` — or ``clear_element_override`` when nothing differs
-          — see :meth:`_apply_configuration_override`.
-        * Otherwise the **shared** document: one ``set_optical_elements`` on the set's
-          base, with any overridden row's shared entry written back in place of the
-          locked display values, so existing overrides survive verbatim. In a plain
-          session the base **is** the displayed sensor, so this is today's call on
-          today's object; where they differ (any set whose displayed sensor is a
-          materialization) the document is what survives the next switch, and the
-          throwaway is not.
-        * With no set bound at all (a bare-sensor binding): one
-          ``Sensor.set_optical_elements`` on the live sensor.
+        * **No set bound** (a bare-sensor binding) or a **single-configuration session**:
+          one ``Sensor.set_optical_elements`` — today's behaviour, unchanged.
+        * **A study**: the shared skeleton goes to one ``set_optical_elements`` on the
+          set's base, and each configured row's edited entry goes to one
+          ``set_element_for(row, displayed, entry)`` — the displayed configuration only
+          (D-8). See :meth:`_apply_study`.
 
-        Success re-reads the table from the document (so a new override's badge appears
-        immediately), refills the derived-ε column, and emits :attr:`elementsApplied`;
-        a rejection shows the actionable error dialog and stores nothing (fail-fast in
-        the API).
+        Success re-reads the table from the document, refills the derived-ε column, and
+        emits :attr:`elementsApplied`; a rejection shows the actionable error dialog and
+        stores nothing.
         """
         sensor = self._sensor
         if sensor is None:
@@ -967,14 +1004,11 @@ class OpticalElementEditor(QWidget):
         config_set = self._bound_set()
         if config_set is None:
             return self._apply_to_sensor(sensor)
-        if self._override_target() is not None:
-            return self._apply_configuration_override(config_set)
-        if self._study_set() is None:
-            # One member: no override can exist, so there is nothing to substitute and
-            # nothing to re-derive — the table *is* the document. Same call, same
-            # object as before in a plain session (the base is the displayed sensor).
+        if self._study_set() is None and not config_set.configured_element_indices():
+            # One member and no configured row: the table *is* the document. Same call,
+            # same object as before in a plain session (the base is the displayed sensor).
             return self._apply_to_sensor(config_set.base)
-        return self._apply_shared_document(config_set)
+        return self._apply_study(config_set)
 
     def _apply_to_sensor(self, sensor: Sensor) -> bool:
         """The single-document path: attach the table to *sensor* (today's behaviour).
@@ -995,11 +1029,49 @@ class OpticalElementEditor(QWidget):
         self.elementsApplied.emit(ELEMENT_EDIT_PATH)
         return True
 
-    def _apply_shared_document(self, config_set: ConfigurationSet) -> bool:
-        """Write the shared train of a study — overrides untouched."""
-        entries = self._shared_document_from_table(config_set)
+    def _apply_study(self, config_set: ConfigurationSet) -> bool:
+        """Write a study's train: the shared skeleton, plus the displayed member's entries.
+
+        The table renders the displayed configuration's effective train, so its rows split
+        cleanly by the document's own single store (Gap 103 v1.1):
+
+        * a **shared** row belongs to the shared document — all of them go, in table
+          order, to one ``set_optical_elements`` on the base, which is what every
+          configuration inherits;
+        * a **configured** row belongs to the per-configuration table — its edited entry
+          goes to ``set_element_for(row, displayed, entry)``, so the other
+          configurations' entries stay verbatim (D-8);
+        * a configured row the operator **removed** is collapsed first
+          (``unconfigure_element``) and then simply left out of the skeleton, which is
+          what drops it from every configuration.
+
+        Every entry is validated through the io parser **before** anything is written, so
+        a rejected train stores nothing — including the rows that would have been written
+        ahead of the offending one. The rejection an invalid configured row shows is the
+        API's own, which names the configuration it belongs to.
+        """
+        active = config_set.active
+        rows = self._rows()
+        configured = self._configured_positions()
+        kept = {origin for _entry, origin in rows if origin in configured}
+        skeleton = [entry for entry, origin in rows if origin not in kept]
+
+        invalid = self._first_invalid(rows)
+        if invalid is not None:
+            index, rejection = invalid
+            entry, origin = rows[index]
+            if origin in kept:
+                rejection = self._member_rejection(config_set, origin, entry) or rejection
+            exec_dialog(ActionableErrorDialog(rejection, ELEMENT_EDIT_PATH, self))
+            return False
+
         try:
-            config_set.base.set_optical_elements(entries if entries else None)
+            for origin in sorted(configured - kept, reverse=True):
+                config_set.unconfigure_element(origin)
+            config_set.base.set_optical_elements(skeleton or None)
+            for entry, origin in rows:
+                if origin in kept:
+                    config_set.set_element_for(origin, active, entry)
         except RadiantError as exc:
             exec_dialog(ActionableErrorDialog(exc, ELEMENT_EDIT_PATH, self))
             return False
@@ -1007,68 +1079,41 @@ class OpticalElementEditor(QWidget):
         self.elementsApplied.emit(ELEMENT_EDIT_PATH)
         return True
 
-    def _shared_document_from_table(self, config_set: ConfigurationSet) -> list[dict[str, Any]]:
-        """The table as a **shared** document: overridden rows keep their shared entry.
+    @staticmethod
+    def _first_invalid(
+        rows: list[tuple[dict[str, Any], int]],
+    ) -> tuple[int, RadiantError] | None:
+        """The first row the io parser rejects, with its error (``None`` when all pass).
 
-        The table renders the effective train, so an overridden row displays the
-        override's values. Those values belong to one configuration, not to the shared
-        document, and writing them into it would silently promote a band-specific entry
-        to every configuration. The row is locked in this scope for exactly that reason;
-        here its shared counterpart is substituted back so the write is a true
-        shared-only edit.
+        The gate that makes a study Apply all-or-nothing: the per-row writes below it
+        cannot be rolled back, so nothing is written until every row has been through the
+        single validation authority (Kirchhoff included, Rule 5).
         """
-        shared = {
-            str(entry.get("name")): entry for entry in config_set.base.optical_elements() or []
-        }
-        overridden = self._overridden_names()
-        return [
-            shared[str(entry.get("name"))]
-            if str(entry.get("name")) in overridden and str(entry.get("name")) in shared
-            else entry
-            for entry in self.entries()
-        ]
+        for index, (entry, _origin) in enumerate(rows):
+            try:
+                normalize_element_document([dict(entry)])
+            except RadiantError as exc:
+                return index, exc
+        return None
 
-    def _apply_configuration_override(self, config_set: ConfigurationSet) -> bool:
-        """Store the table's *difference* from the shared train as the active override.
+    @staticmethod
+    def _member_rejection(
+        config_set: ConfigurationSet, origin: int, entry: dict[str, Any]
+    ) -> RadiantError | None:
+        """The API's own rejection of *entry* for a configured row (naming the member).
 
-        The diff is per entry, by name, against the shared document, on the entries the
-        API itself would store: the table is normalized through the same
-        ``normalize_element_document`` the API applies, so a relative spectral-file path
-        and its absolutized shared counterpart compare equal instead of reading as an
-        edit. Entries that match their shared counterpart drop out; an empty diff clears
-        the override so the configuration inherits again (there is no such thing as an
-        override that changes nothing).
-
-        A table the io parser rejects has no meaningful diff, so the **whole** table
-        goes to the API, which refuses it with the io parser's message and the
-        configuration named — and stores nothing.
+        The gate above holds the io parser's error, which does not know whose entry it
+        is. Routing the offending entry through the call that owns it — ``set_element_for``,
+        which validates through the same parser and stores nothing on failure — produces
+        the message the analyst needs: the configuration is named. ``None`` only if that
+        call unexpectedly accepts the entry, in which case the caller shows the parser's
+        own error rather than nothing.
         """
-        name = config_set.active
-        edited = self.entries()
-        shared = {
-            str(entry.get("name")): entry for entry in config_set.base.optical_elements() or []
-        }
         try:
-            normalized = normalize_element_document([dict(entry) for entry in edited])
-        except RadiantError:
-            changed = edited
-        else:
-            changed = [
-                raw
-                for raw, entry in zip(edited, normalized, strict=True)
-                if not _entries_equal(entry, shared.get(str(entry.get("name"))))
-            ]
-        try:
-            if changed:
-                config_set.set_element_override(name, changed)
-            else:
-                config_set.clear_element_override(name)
+            config_set.set_element_for(origin, config_set.active, entry)
         except RadiantError as exc:
-            exec_dialog(ActionableErrorDialog(exc, ELEMENT_EDIT_PATH, self))
-            return False
-        self._reload_from_document()
-        self.elementsApplied.emit(ELEMENT_EDIT_PATH)
-        return True
+            return exc
+        return None
 
     def _refresh_derived_emissivity(self, entries: list[dict[str, Any]]) -> None:
         """Fill the read-only ε column from the facade preview (Rule 5 — derived only)."""
@@ -1091,22 +1136,18 @@ class OpticalElementEditor(QWidget):
         return self._apply
 
     @property
-    def scope_selector(self) -> QComboBox:
-        """The Shared-document / This-configuration scope combo (tests)."""
-        return self._scope_combo
+    def study_note(self) -> QLabel:
+        """The study note — hidden outside a multi-member study (tests)."""
+        return self._study_note
 
     @property
-    def scope_row(self) -> QWidget:
-        """The scope control's row — hidden outside a multi-member study (tests)."""
-        return self._scope_row
+    def name_delegate(self) -> EditableConfiguredNameDelegate:
+        """The Name column's badge-painting delegate (tests)."""
+        return self._name_delegate
 
-    def override_badge_text(self, row: int) -> str | None:
-        """*row*'s override badge text, or ``None`` when the row is inherited (tests)."""
-        host = self._table.cellWidget(row, _COL_NAME)
-        if host is None:
-            return None
-        badge = host.findChild(QLabel, "configuredBadge")
-        return None if badge is None else badge.text()
+    def is_row_configured(self, row: int) -> bool:
+        """True when *row* renders a configured document row — the red "C" (tests)."""
+        return self._is_configured_row(row)
 
 
 __all__ = ["OpticalElementEditor", "ELEMENT_EDIT_PATH"]

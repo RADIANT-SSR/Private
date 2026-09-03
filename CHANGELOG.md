@@ -21,26 +21,39 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
-- **Per-configuration optical elements** (Gap 103 v1.1, ADR-0010 D-7
-  supersession, owner-ratified 2026-09-02). A study's `configurations:` section
-  gains an `optical_elements:` sub-key — **replace-by-name** overrides: complete
-  entries replacing the shared document's entries of the same name, validated at
-  load through the single io element-parser authority (Kirchhoff included) with
-  the owning configuration named. New scripting API on `ConfigurationSet`:
-  `set_element_override` / `clear_element_override` / `element_overrides` /
-  `effective_optical_elements`; `sensor_for` and `evaluate_all` pick up each
-  member's effective train automatically. GUI Elements tab gains an edit-scope
-  control (*Shared document* / *This configuration*): effective-train rendering
-  with "overridden — <configuration>" badges, and diff-based Apply that stores
-  exactly the entries differing from the shared train (edit-back-to-equal drops
-  the override). Element addition/removal per configuration remains excluded.
+- **Per-configuration optical elements — configured element rows** (Gap 103
+  v1.1, ADR-0010 D-7 supersession, owner-ratified 2026-09-02 in live review). A
+  **row** of the shared `optical_elements:` document can be configured, exactly
+  as a parameter can: it then carries one complete entry per configuration —
+  dense, every member present — written in place in the YAML as
+  `- configured: {member: entry, …}` and re-validated at load through the single
+  io element-parser authority (Kirchhoff included) with the owning configuration
+  named. Row identity is **positional**: the row count and order are shared by
+  every configuration, and the entry's `name` configures with the row. New
+  scripting API on `ConfigurationSet`: `configure_element` / `set_element_for` /
+  `element_for` / `unconfigure_element(keep=)` / `is_element_configured` /
+  `configured_element_indices` / `element_count` / `effective_optical_elements`;
+  `sensor_for` and `evaluate_all` pick up each member's effective train
+  automatically. In the GUI Elements tab a study's rows carry the same
+  right-click *Configure across configurations…* / *Un-configure row (keep
+  <first>'s entry)…* actions and the same red "C" as a configured parameter;
+  editing a configured row's cell writes the **displayed** configuration's entry
+  only (ADR-0010 D-8), while a shared row writes the document every
+  configuration inherits. Per-configuration addition or removal of a row remains
+  excluded — structure is shared.
 
 ### Fixed
 - **Elements-tab Apply no longer loses the train edit in a study session.**
   Previously Apply wrote the element document to the displayed configuration's
   throwaway materialization, so in any session with configured values the edit
   vanished on the next selector switch; Apply now targets the study document
-  (shared train or the active configuration's overrides, per the scope control).
+  (the shared skeleton, plus the displayed configuration's entry for each
+  configured row).
+- **Elements tab: removing a row no longer breaks the coating-detail pane.** Qt
+  emits the selection change *during* the row removal, so the pane serialized a
+  table whose cell widgets were already gone and raised inside the Qt event
+  loop; the table is now silenced across every structural mutation and refreshed
+  once it is complete.
 - **Mission-template welcome screen (GUI, §4.4a — owner-confirmed brief).** With
   no configuration loaded, the central canvas shows six hand-authored mission
   templates (ground→air MWIR detection, LEO thermal mapping, maritime sub-pixel

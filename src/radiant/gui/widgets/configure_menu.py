@@ -4,7 +4,10 @@ Two surfaces offer the configure/edit/un-configure actions on a parameter — th
 all-parameters tree (§4.3) and every per-stage form field (§4.4, via
 :class:`~radiant.gui.widgets.field_row.FieldRow`). Their wording, order, and
 enablement live here so the two can never drift into two different vocabularies for
-the same three API calls.
+the same three API calls. A third surface — the Elements tab's row menu (Gap 103
+v1.1) — configures an element **row** rather than a parameter, and takes its two
+labels from here for the same reason (:data:`CONFIGURE_TEXT` verbatim and
+:func:`unconfigure_element_text`).
 
 The actions are pure intent: each routes through the
 :class:`~radiant.gui.config_scope.ConfigurationScope`, whose only listener is the main
@@ -60,6 +63,19 @@ def unconfigure_text(first_name: str) -> str:
     return f"Un-configure (keep {first_name}'s value)…"
 
 
+def unconfigure_element_text(first_name: str) -> str:
+    """The un-configure label for an **element row**, naming the kept entry (D-6).
+
+    The Elements tab's row menu (Gap 103 v1.1) offers the same two actions on an
+    element row that :func:`add_configuration_actions` offers on a parameter, and
+    ``CONFIGURE_TEXT`` is shared verbatim. Only the collapse differs in noun: a
+    configured row keeps one configuration's complete **entry**, not a value. The
+    wording lives here with the parameter labels so the two menus can never drift
+    into two vocabularies for the same D-6 rule.
+    """
+    return f"Un-configure row (keep {first_name}'s entry)…"
+
+
 def add_configuration_actions(menu: QMenu, scope: ConfigurationScope, dotpath: str) -> None:
     """Append the configure / edit-values / un-configure actions for *dotpath* to *menu*.
 
@@ -94,5 +110,6 @@ __all__ = [
     "EDIT_VALUES_TEXT",
     "SINGLE_CONFIGURATION_HINT",
     "add_configuration_actions",
+    "unconfigure_element_text",
     "unconfigure_text",
 ]

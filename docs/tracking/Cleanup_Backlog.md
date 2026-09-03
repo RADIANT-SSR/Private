@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-343 — `Sensor.save` writes the shared `optical_elements` document's spectral-file paths absolute: the one CU-177 hole left, and it makes saved element-bearing configs machine-specific
+
+**Discovered**: Configuration Set Expansion Plan Phase 2 chunk 2a (branch `cfgset/phase2-elements`), 2026-09-02 — surfaced by building CU-177 parity for the new per-configuration override entries, which *do* relativize; the shared document they override does not.
+**Status**: Open.
+**File**: `src/radiant/api/sensor.py` (`_sections`) + `src/radiant/io/config.py` (`serialize_config`) — the `optical_elements` document is written with its normalized **absolute** spectral-file references verbatim.
+**Symptom**: save a config whose element train references a transmittance/reflectance CSV, move the file (or the repo) to another machine or path, load — the element file reference dangles. Every parameter-level `is_file_path` value (CU-177) and every override entry (Gap 103 v1.1) relativizes on save and resolves on load; the shared element document is the one store that does not. A study file can carry both forms at once.
+**Why it still matters**: workflow-visible (intake test 4) — scenario studies with per-band filter CSVs are exactly this file shape, and Rule 30 makes cross-machine portability a stated requirement; the asymmetry with the override path also confuses hand-editors of saved YAML.
+**Suggested fix**: (b) stand-alone task — route the shared document through the same relativize-on-save / resolve-on-load helpers (`SPECTRAL_FILE_KEYS` is now public in `io/element_config.py`); one golden-file review per `RADIANT_Testing_Validation.md` §5.3 since saved baselines change form. Effort S; category A/D.
+
 ### CU-342 — `radiant gui <study.yaml>` refuses configuration-set files: the CLI loads via `Sensor.from_yaml` while the GUI's own File → Open handles both document kinds
 
 **Discovered**: Configuration Set Expansion Plan Phase 1 live-review launch (branch `cfgset/phase1-cap12`), 2026-09-02.

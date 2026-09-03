@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-341 — Configuration bar cannot absorb 12 tabs at laptop width: no wrap, scroll, or overflow affordance on the selector band
+
+**Discovered**: Configuration Set Expansion Plan Phase 1 (branch `cfgset/phase1-cap12`), 2026-09-02 — the plan §7 watch item, measured real during the 8 → 12 cap raise.
+**Status**: Open.
+**File**: `src/radiant/gui/widgets/configuration_bar.py:87` (plain `QHBoxLayout`, no wrap), `:214` (tabs `insertWidget`'d into the single row); `src/radiant/gui/main_window.py:684` (`dock.setWidget(bar)` propagates the bar's `minimumSizeHint` to the window minimum).
+**Symptom**: offscreen measurement — 12 OLI-style tab names (`B1_CA`…`B9_Cirrus`…) force a **1344 px** minimum bar width (911 px at 8 generic tabs); a 12-member study exceeds a 1280-wide window before the parameter dock and right rail are counted. CU-331's stacked band fixed vertical stacking only, not horizontal overflow.
+**Why it still matters**: workflow-visible (intake test 4) the moment a 9+-member study opens on a laptop — scenario 9.4's all-bands file (plan Phase 3) is exactly that study.
+**Suggested fix**: (b) stand-alone task — scroll or overflow affordance on the band (elide/scroll/"+N" per plan §7: "scroll or overflow affordance on the bar", explicitly not pre-built into Phase 1). Effort S–M; category A.
+
 ### CU-340 — Scenario 3.4's script-side "true along-track GSD" carries the θ_o-vs-η misread the chain retired, making every off-nadir comparison column pessimistic
 ### CU-339 — `examples/templates/` doubles as the source-inferrer golden corpus: twelve Phase-2E configs are load-bearing test inputs wearing a user-facing home
 

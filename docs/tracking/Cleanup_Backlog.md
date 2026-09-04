@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-344 — Elements-tab commits are not entry-faithful: the table injects geometry defaults and drops refractive reflectance, silently changing the physics of rows the operator never touched
+
+**Discovered**: Configuration Set Expansion Phase-2 live review (branch `cfgset/phase2-elements`), 2026-09-03 — the owner's M2 0.97 → 0.5 edit read SNR 220.5 [-] through the GUI-committed document vs 58.5 [-] through the same document authored via the scripting API; an entry-by-entry diff shows the GUI adds `diameter_m: 0.1` / `distance_to_fpa_m: 1.0` to every row that never specified them, drops `reflectance` (0.02) from refractive rows (the single R/T value cell has no home for a refractive row's R), and rewrites `kind` case.
+**Status**: Investigating — fix in work on the discovering branch (blocks the Phase-2 merge).
+**File**: `src/radiant/gui/widgets/optical_element_editor.py` (row build displays invented defaults; `entries()` serializes the displayed cells, not the source entry).
+**Symptom**: any commit from the tab (formerly Apply, now every completed edit) rewrites *all* rows from their table rendering — entries gain keys they never had and lose keys the table cannot display, so an edit to one row mutates the physics of untouched rows. Results-affecting (intake test 1) and workflow-visible (test 4).
+**Why it still matters**: element geometry keys engage the emission-coupling model and refractive R feeds Kirchhoff ε = 1 − T − R; both move computed SNR/NEDT. The tab violates its own contract ("table rows ⇌ the `optical_elements:` entry dicts").
+**Suggested fix**: (a) inline-fix-now — carry each row's source entry (item-data role); serialization = source entry overlaid with only the cells the operator actually edited; cells for absent keys render blank and write nothing; refractive R survives untouched through the overlay. Test: commit after a single-row edit leaves every other row byte-identical. Effort S–M; category A/D.
+
 ### CU-343 — `Sensor.save` writes the shared `optical_elements` document's spectral-file paths absolute: the one CU-177 hole left, and it makes saved element-bearing configs machine-specific
 
 **Discovered**: Configuration Set Expansion Plan Phase 2 chunk 2a (branch `cfgset/phase2-elements`), 2026-09-02 — surfaced by building CU-177 parity for the new per-configuration override entries, which *do* relativize; the shared document they override does not.

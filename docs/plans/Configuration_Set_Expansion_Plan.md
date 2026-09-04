@@ -59,6 +59,15 @@ replacement — **an element row configures like a parameter**:
 - **D-8 inline edit**: editing a configured row while configuration X is displayed edits
   X's entry only. No scope control, no locked rows, no diff-based Apply, no
   edit-back-to-equality magic.
+- **Commit-on-edit (owner-ratified 2026-09-03, second live-review day):** the Elements
+  tab commits like every other parameter surface — a completed cell edit, combo change,
+  CSV pick, spectrum OK, add, remove, or reorder writes the document immediately and the
+  evaluation follows; the ADR-0009 D4 *Apply train* button is removed. A transiently
+  invalid row (mid-restructure, e.g. a REFLECTIVE→REFRACTIVE flip before the value cell
+  is retyped) stays a visible pending draft with the parser's message shown inline (not
+  a modal), and commits on the next edit that validates. Rationale: the batched-Apply
+  model silently held drafts that looked committed — the owner configured a row, edited
+  0.97 → 0.5, saw no SNR change, and lost the edit on navigation.
 - **YAML: in-place positional form** — the shared `optical_elements:` list stays the
   skeleton; a configured row is written as `- configured: {member: entry, ...}` at its
   position (single-store: a configured row's entries live only there; dense checked at

@@ -596,3 +596,53 @@ class TestConfigureButton:
         monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Ok)
         editor._configure.click()  # noqa: SLF001
         assert config_set.configured_element_indices() == ()
+
+
+class TestBrowseSpectralFile:
+    """The CSV file… button (owner live-review, 2026-09-03).
+
+    Typing a path or scalar stays legal; the button is the navigable route to a
+    saved spectral CSV. The picked path lands in the value cell exactly as if
+    typed — the io parser stays the single validator, at Apply — and replaces any
+    inline λ-table on the cell.
+    """
+
+    def test_pick_writes_the_cell_and_clears_an_inline_table(  # type: ignore[no-untyped-def]
+        self, qtbot, monkeypatch, tmp_path
+    ) -> None:
+        from radiant.gui.widgets import optical_element_editor as mod
+
+        csv = tmp_path / "filter_b2.csv"
+        csv.write_text("3.4,0.1\n5.0,0.9\n", encoding="utf-8")
+        editor = _bind(qtbot, _study())
+        editor._table.selectRow(_FILTER_ROW)  # noqa: SLF001
+        item = editor._table.item(_FILTER_ROW, 3)  # noqa: SLF001
+        item.setData(mod._SPECTRUM_ROLE, {"wavelength_um": [3.4, 5.0], "values": [0.5, 0.5]})  # noqa: SLF001
+        monkeypatch.setattr(
+            mod.QFileDialog,
+            "getOpenFileName",
+            staticmethod(lambda *a, **k: (str(csv), "CSV files (*.csv)")),
+        )
+        editor._browse.click()  # noqa: SLF001
+        assert item.text() == str(csv)
+        assert item.toolTip() == str(csv)
+        assert item.data(mod._SPECTRUM_ROLE) is None  # noqa: SLF001
+
+    def test_cancel_changes_nothing(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets import optical_element_editor as mod
+
+        editor = _bind(qtbot, _study())
+        editor._table.selectRow(_FILTER_ROW)  # noqa: SLF001
+        before = editor._table.item(_FILTER_ROW, 3).text()  # noqa: SLF001
+        monkeypatch.setattr(
+            mod.QFileDialog, "getOpenFileName", staticmethod(lambda *a, **k: ("", ""))
+        )
+        editor._browse.click()  # noqa: SLF001
+        assert editor._table.item(_FILTER_ROW, 3).text() == before  # noqa: SLF001
+
+    def test_lands_enabled_with_the_first_row_selected(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Auto-selection (2026-09-03) makes every selection-driven button live at bind."""
+        editor = _bind(qtbot, _study())
+        assert editor._table.currentRow() == 0  # noqa: SLF001
+        assert editor._browse.isEnabled() is True  # noqa: SLF001
+        assert editor._configure.isEnabled() is True  # noqa: SLF001

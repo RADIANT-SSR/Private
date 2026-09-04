@@ -60,12 +60,14 @@ file (Rule 19).
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
 
 from PySide6.QtCore import QPoint, QSignalBlocker, Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QComboBox,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QMenu,
@@ -114,14 +116,15 @@ _NEW_ROW: Final[int] = -1
 
 _TITLE = "Optical element train — per-element R/T, temperature, geometry (ε derived)"
 _HINT = (
-    "R/T cells take a scalar (0.97), a spectral-CSV path, or an inline λ-table "
-    "(Spectrum… button). ε is Kirchhoff-derived "
+    "R/T cells take a scalar (0.97), a saved spectral CSV (CSV file… button, or type the "
+    "path), or an inline λ-table (Spectrum… button). ε is Kirchhoff-derived "
     "(read-only). Kind is a descriptive label for refractive elements (legend/reporting; "
     "the physics comes from R/T and temperature) — a REFLECTIVE row is always a mirror. "
     "Apply commits the train (one API call); Save persists it in the config."
 )
 
 _SPECTRUM_TOOLTIP = "Define the selected row's R/T as an inline λ-table (type or paste)"
+_BROWSE_TOOLTIP = "Choose a saved spectral CSV (wavelength_um, value) for the selected row's R/T"
 
 _TRANSFER_CHOICES: Final[tuple[str, ...]] = ("REFLECTIVE", "REFRACTIVE")
 # Refractive kinds (a REFLECTIVE row is always a mirror; the factory sets it).
@@ -137,10 +140,10 @@ _KIND_CHOICES: Final[tuple[str, ...]] = (
 # Shown only in a multi-member study, where "which configuration does this row belong
 # to" is a real question. A single-configuration session never sees any of it.
 _STUDY_NOTE = (
-    "Showing {name}'s train. Right-click a row to configure it across configurations: a "
-    "configured row (red C) carries one complete entry per configuration, and editing it "
-    "here edits {name}'s entry only. Row count and order are shared by every "
-    "configuration."
+    "Showing {name}'s train. Select a row and use the Configure button (or right-click) "
+    "to configure it across configurations: a configured row (red C) carries one complete "
+    "entry per configuration, and editing it here edits {name}'s entry only. Row count "
+    "and order are shared by every configuration."
 )
 _CONFIGURED_TOOLTIP = "configured — one entry per configuration; editing edits {name} only"
 _CONFIGURE_BUTTON_TOOLTIP_NO_ROW = "Select a row to configure it across configurations"
@@ -307,6 +310,8 @@ class OpticalElementEditor(QWidget):
         self._down = QPushButton("↓", buttons)
         self._spectrum = QPushButton("Spectrum…", buttons)
         self._spectrum.setToolTip(_SPECTRUM_TOOLTIP)
+        self._browse = QPushButton("CSV file…", buttons)
+        self._browse.setToolTip(_BROWSE_TOOLTIP)
         # The visible twin of the row menu's configure / un-configure action (owner
         # live-review 2026-09-03: a right-click-only affordance is invisible — the
         # button is how an operator *finds* row configuration; the menu remains for
@@ -323,6 +328,7 @@ class OpticalElementEditor(QWidget):
             self._up,
             self._down,
             self._spectrum,
+            self._browse,
             self._configure,
         ):
             button_row.addWidget(b)
@@ -336,6 +342,7 @@ class OpticalElementEditor(QWidget):
         self._up.clicked.connect(lambda: self._move_current(-1))
         self._down.clicked.connect(lambda: self._move_current(+1))
         self._spectrum.clicked.connect(self._edit_spectrum)
+        self._browse.clicked.connect(self._browse_spectral_file)
         self._configure.clicked.connect(self._toggle_configure_current)
         self._apply.clicked.connect(self.apply_train)
 
@@ -608,11 +615,13 @@ class OpticalElementEditor(QWidget):
             self._up.setEnabled(False)
             self._down.setEnabled(False)
             self._spectrum.setEnabled(False)
+            self._browse.setEnabled(False)
             self._configure.setEnabled(False)
             self._configure.setText(CONFIGURE_TEXT)
             self._configure.setToolTip(_CONFIGURE_BUTTON_TOOLTIP_NO_ROW)
             return
         self._spectrum.setEnabled(True)
+        self._browse.setEnabled(True)
         self._sync_configure_button(row)
         below = [r for r in range(row + 1, count) if self._is_configured_row(r)]
         self._set_structure_action(
@@ -1046,6 +1055,43 @@ class OpticalElementEditor(QWidget):
             self._table.setItem(row, _COL_VALUE, value_item)
         value_item.setData(_SPECTRUM_ROLE, spectrum)
         value_item.setText(f"spectral ({len(spectrum['wavelength_um'])} pts)")
+
+    def _browse_spectral_file(self) -> None:
+        """Pick a spectral CSV for the selected row's R/T with a file dialog.
+
+        Typing a path into the value cell stays legal, but navigating to a saved
+        file is the ergonomic route (owner live-review, 2026-09-03). The chosen
+        path lands in the cell exactly as if typed — the io parser remains the
+        one validator, at Apply — and replaces any inline λ-table on the cell
+        (one value form per row at a time, mirroring how typing over the cell
+        behaves). The dialog starts where the current value points, so re-picking
+        a neighbouring band's file is one click, not a filesystem walk.
+        """
+        row = self._table.currentRow()
+        if row < 0:
+            return
+        value_item = self._table.item(row, _COL_VALUE)
+        current = value_item.text() if value_item is not None else ""
+        start_dir = ""
+        if current and not current.startswith(_SPECTRUM_SENTINEL):
+            parent = Path(current).expanduser().parent
+            if parent.is_dir():
+                start_dir = str(parent)
+        name = self._cell_text(row, _COL_NAME) or f"element {row}"
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            f"Spectral R/T for {name} — two-column CSV (wavelength_um, value)",
+            start_dir,
+            "CSV files (*.csv);;All files (*)",
+        )
+        if not filename:
+            return
+        if value_item is None:
+            value_item = QTableWidgetItem()
+            self._table.setItem(row, _COL_VALUE, value_item)
+        value_item.setData(_SPECTRUM_ROLE, None)
+        value_item.setText(filename)
+        value_item.setToolTip(filename)
 
     # -- commit ---------------------------------------------------------------
 

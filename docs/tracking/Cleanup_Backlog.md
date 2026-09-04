@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-345 — Rule-4 dual-path consistency check exceeds its 2e-2 tolerance (max_err ≈ 2.02e-2) on an OLI-2 band of the 9.4 all-bands study — a new worst-case discretization residual on a flagship scenario
+
+**Discovered**: Configuration Set Expansion Phase 3 (branch `cfgset/phase3-oli`), 2026-09-03 — the all-bands parity run prints `Dual-path MTF consistency check FAILED: max_err=0.0202 (tol=0.0200)` on one band; identical on the standalone side (pre-existing physics behavior, not introduced by the study — the parity is bit-exact).
+**Status**: Open.
+**File**: `src/radiant/performance/consistency_check.py` (tolerance, CU-003/CU-045 history: worst measured full-chain residual was ~1e-2, tolerance carries ~2× margin); the triggering configuration is f/6.6 with 36 µm pitch — heavily undersampled (PSF ~1.0 samples across the Airy FWHM, per the run's own warning).
+**Symptom**: the CLAUDE.md Rule 4 invariant warning fires on a shipped flagship scenario at a 1% overshoot of tolerance; every 9.4 run prints it.
+**Why it still matters**: workflow-visible (intake test 4 — an operator running the flagship scenario sees a rule-invariant FAILED line) and owner-gated (test 2 — either the discretization residual at extreme undersampling is understood and the tolerance/margin is re-ratified, or a real path divergence hides under "expected residual"; CLAUDE.md documents the tolerance rationale, so moving it is an architectural-rule edit).
+**Suggested fix**: (b) stand-alone task — reproduce on the minimal undersampled config, decompose the residual (pixel-kernel area integration vs FFT grid at Q≈0.94), and either fix the discretization or present the owner a re-ratification case with measurements. Effort M; category C.
+
 ### CU-343 — `Sensor.save` writes the shared `optical_elements` document's spectral-file paths absolute: the one CU-177 hole left, and it makes saved element-bearing configs machine-specific
 
 **Discovered**: Configuration Set Expansion Plan Phase 2 chunk 2a (branch `cfgset/phase2-elements`), 2026-09-02 — surfaced by building CU-177 parity for the new per-configuration override entries, which *do* relativize; the shared document they override does not.

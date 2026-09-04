@@ -35,7 +35,7 @@ from radiant.core.noise_budget import (
     TEMPORAL_TERMS,
     NoiseBudget,
 )
-from radiant.core.parameters import ParameterSet, UnknownParameterError
+from radiant.core.parameters import ParameterSet, Provenance, UnknownParameterError
 from radiant.core.radiometry import NoiseTerm
 from radiant.readout.binning_offchip import (
     offchip_scale_read_noise,
@@ -70,6 +70,68 @@ from radiant.readout.tdi_scaling import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Parameters meaningful only under readout.architecture = "digital_counting"
+# (Gap 117, docs/plans/Digital_Pixel_Readout_Plan.md §3). Explicitly setting
+# any of them under "analog_well" is an over-specification error, the same
+# posture as Rule 5's reflectance-plus-emissivity rejection.
+_COUNTING_ONLY_PARAMS: tuple[str, ...] = (
+    "readout.counter_bits",
+    "readout.count_packet_e",
+    "readout.residue_readout",
+    "readout.max_count_rate_hz",
+)
+
+
+def _is_explicitly_set(params: ParameterSet, name: str) -> bool:
+    """True when *name* was supplied by the user/config rather than defaulted."""
+    return params.get_resolved(name).provenance is not Provenance.DEFAULT
+
+
+def _validate_architecture_params(params: ParameterSet, architecture: str) -> None:
+    """Cross-parameter validation for the readout-architecture dispatch (Rule 16).
+
+    - ``analog_well``: no counting-only parameter may be explicitly set.
+    - ``digital_counting``: ``count_packet_e`` is required (> 0), and
+      ``full_well_capacity_e`` may not be explicitly set — the effective well
+      is 2^counter_bits x count_packet_e, so an explicit analog full well
+      over-specifies the system (its schema default passes silently).
+    """
+    if architecture == "analog_well":
+        over_specified = [p for p in _COUNTING_ONLY_PARAMS if _is_explicitly_set(params, p)]
+        if over_specified:
+            raise ReadoutValidationError(
+                f"ReadoutStage: counting-only parameter(s) {over_specified} are "
+                f"explicitly set while readout.architecture = 'analog_well'. "
+                f"These parameters describe the digital-pixel (DROIC) counting "
+                f"chain and have no meaning for an analog charge well — setting "
+                f"them over-specifies the readout. Either set "
+                f"readout.architecture = 'digital_counting' or remove the "
+                f"counting parameter(s)."
+            )
+        return
+
+    # digital_counting
+    if _is_explicitly_set(params, "readout.full_well_capacity_e"):
+        fwc = params.get("readout.full_well_capacity_e")
+        raise ReadoutValidationError(
+            f"ReadoutStage: readout.full_well_capacity_e = {fwc:.4g} e- is "
+            f"explicitly set while readout.architecture = 'digital_counting'. "
+            f"Under counting the effective well is 2^counter_bits x "
+            f"count_packet_e — an independent analog full well over-specifies "
+            f"the system. Remove full_well_capacity_e (or select "
+            f"readout.architecture = 'analog_well')."
+        )
+    count_packet_e: float = params.get("readout.count_packet_e")
+    if count_packet_e <= 0.0:
+        raise ReadoutValidationError(
+            "ReadoutStage: readout.count_packet_e is required when "
+            "readout.architecture = 'digital_counting' — the charge packet per "
+            "count sets the effective well (2^counter_bits x count_packet_e) "
+            "and the quantization noise, and it has no sensible default. Set "
+            "readout.count_packet_e to the ROIC's charge-subtraction quantum "
+            "in e- (> 0)."
+        )
 
 
 def _scale_noise_term(
@@ -167,6 +229,24 @@ class ReadoutStage:
         return "readout"
 
     def run(self, state: ChainState, params: ParameterSet) -> ChainState:
+        # ---- Architecture dispatch (Gap 117 Phase 0) ----
+        # Validate the architecture-scoped parameter combination before any
+        # physics runs (Rule 16), then dispatch. The digital_counting branch
+        # is schema-only until Phase 1 of the plan lands; the analog_well
+        # branch below is byte-for-byte the pre-dispatch behavior.
+        architecture: str = params.get("readout.architecture")
+        _validate_architecture_params(params, architecture)
+        if architecture == "digital_counting":
+            raise ReadoutValidationError(
+                "ReadoutStage: readout.architecture = 'digital_counting' is not "
+                "implemented yet — Phase 1 of "
+                "docs/plans/Digital_Pixel_Readout_Plan.md (counting-well and "
+                "quantization physics) has not landed. The parameters are "
+                "accepted and validated so configs can be authored ahead of "
+                "time, but the chain cannot run them. Use "
+                "readout.architecture = 'analog_well' until Phase 1 merges."
+            )
+
         # ---- 0. Read detector stage outputs ----
         det_out = state.stage_outputs.get("detector", {})
         signal_e: float = det_out.get("signal_e", 0.0)

@@ -72,6 +72,115 @@ FULL_WELL_CAPACITY_E = ParameterDef(
 )
 
 # ---------------------------------------------------------------------------
+# Readout architecture — digital-pixel (DROIC) counting parameters
+# (Gap 117, docs/plans/Digital_Pixel_Readout_Plan.md §3. Phase 0: schema +
+# dispatch skeleton only; digital_counting physics lands in Phase 1.)
+# ---------------------------------------------------------------------------
+
+ARCHITECTURE = ParameterDef(
+    name="readout.architecture",
+    description=(
+        "Readout architecture: 'analog_well' (charge integration into a "
+        "full well, existing path) or 'digital_counting' (in-pixel "
+        "comparator + counter with charge-subtraction reset, DROIC/DFPA). "
+        "Under 'digital_counting' the counting parameters below replace "
+        "full_well_capacity_e; ReadoutStage rejects mixed specifications."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="analog_well",
+    enum_values=("analog_well", "digital_counting"),
+    tags=frozenset({"readout", "architecture"}),
+    default_justification=(
+        "Analog charge-well ROICs are the existing modeled path and the "
+        "most common architecture; the default preserves all prior results."
+    ),
+)
+
+COUNTER_BITS = ParameterDef(
+    name="readout.counter_bits",
+    description=(
+        "In-pixel counter bit depth N for digital_counting. Effective well "
+        "= 2^N x count_packet_e; counter rollover is treated as saturation "
+        "(clip) in v1. Counting-only: rejected under analog_well."
+    ),
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=16,
+    bounds=(1, 32),
+    tags=frozenset({"readout", "counting"}),
+    default_justification=(
+        "16-bit counters are typical of MIT/LL DFPA and Senseeker-class DROICs."
+    ),
+)
+
+COUNT_PACKET_E = ParameterDef(
+    name="readout.count_packet_e",
+    description=(
+        "Charge packet per count [e-/count] for digital_counting: the "
+        "charge-subtraction quantum removed from the well at each "
+        "comparator trip. Default 0.0 means 'unset'; the parameter is "
+        "required (> 0) when architecture = 'digital_counting'. "
+        "Counting-only: rejected under analog_well."
+    ),
+    dtype=float,
+    canonical_unit="e-",
+    input_unit="e-",
+    default=0.0,
+    bounds=(0.0, 1.0e7),
+    tags=frozenset({"readout", "counting"}),
+    default_justification=(
+        "0.0 = unset: there is no sensible universal packet size, so it is "
+        "required whenever digital_counting is selected (plan D-spec: no "
+        "default). The 0.0 sentinel keeps analog_well configs resolvable."
+    ),
+)
+
+RESIDUE_READOUT = ParameterDef(
+    name="readout.residue_readout",
+    description=(
+        "Digital_counting only: read the analog residue (sub-packet charge) "
+        "after the counter word. True: residue passes through the existing "
+        "ADC model (adc_bits / gain scoped to a count_packet_e full scale) "
+        "and DN is the combined word. False: DN is the bare counter and "
+        "quantization noise is count_packet_e/sqrt(12). Counting-only: "
+        "rejected under analog_well."
+    ),
+    dtype=bool,
+    canonical_unit="",
+    input_unit="",
+    default=True,
+    tags=frozenset({"readout", "counting"}),
+    default_justification=(
+        "Fielded DROICs typically digitize the residue; it removes the "
+        "packet-sized quantization penalty at low flux."
+    ),
+)
+
+MAX_COUNT_RATE_HZ = ParameterDef(
+    name="readout.max_count_rate_hz",
+    description=(
+        "Comparator dead-time flux ceiling [Hz] for digital_counting: "
+        "maximum in-pixel count rate. Gives a second saturation bound "
+        "max_count_rate_hz x t_int x count_packet_e. Default 0.0 means "
+        "'unset' (no dead-time ceiling; counter rollover governs). "
+        "Counting-only: rejected under analog_well."
+    ),
+    dtype=float,
+    canonical_unit="Hz",
+    input_unit="Hz",
+    default=0.0,
+    bounds=(0.0, 1.0e12),
+    tags=frozenset({"readout", "counting"}),
+    default_justification=(
+        "0.0 = unset: no dead-time ceiling (plan spec: None => no ceiling); "
+        "the rollover bound alone governs saturation."
+    ),
+)
+
+# ---------------------------------------------------------------------------
 # CDS
 # ---------------------------------------------------------------------------
 
@@ -261,6 +370,11 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     GAIN_E_PER_DN,
     ADC_BITS,
     FULL_WELL_CAPACITY_E,
+    ARCHITECTURE,
+    COUNTER_BITS,
+    COUNT_PACKET_E,
+    RESIDUE_READOUT,
+    MAX_COUNT_RATE_HZ,
     CDS_ENABLED,
     NODE_CAPACITANCE_F,
     N_TDI,

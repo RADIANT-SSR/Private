@@ -20,6 +20,18 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **Digital-pixel readout schema (Gap 117, plan Phase 0)** — five new public
+  parameters: `readout.architecture` (`analog_well` | `digital_counting`,
+  default `analog_well`), `readout.counter_bits`, `readout.count_packet_e`,
+  `readout.residue_readout`, `readout.max_count_rate_hz`. `digital_counting`
+  is **schema-only until plan Phase 1**: `ReadoutStage` validates the
+  combination (counting-only parameters rejected under `analog_well`;
+  `count_packet_e` required and explicit `full_well_capacity_e` rejected
+  under `digital_counting`) and then raises an actionable not-implemented
+  error before any physics. The `analog_well` default is unchanged — zero
+  effect on existing results.
+
 ### Changed
 - **Scenario 9.4 ships the OLI-2 all-bands study** — `oli2_all_bands_study.yaml`
   replaces the 8-band `oli2_30m_bands_study.yaml` workaround: all nine bands

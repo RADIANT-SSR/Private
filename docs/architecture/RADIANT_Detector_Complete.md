@@ -260,6 +260,8 @@ Two saturation points: **well** (step 3) and **ADC** (step 8). They are checked 
 
 **ADC ↔ well matching (`gain_e_per_dn`, `adc_bits`, `full_well_capacity_e` stay independent).** The ADC full-scale in electrons is `(2^bits − 1) · gain_e_per_dn`. A *matched* ADC digitizes exactly the full well, i.e. `gain_e_per_dn = full_well / 2^bits`. This is an **engineering design target, not a physical law** — unlike emissivity (`ε = 1 − R`, Kirchhoff, which Rule 5 forces to derive), a fielded FPA legitimately runs a **non-matched** ADC (a deep well digitized only in part, or a shallow well oversampled by a high-bit-depth converter). RADIANT therefore keeps the three as independent inputs and does **not** derive gain. Instead it publishes read-only diagnostics so the match is visible: `adc_full_scale_e = (2^bits−1)·gain`, `matched_gain_e_per_dn = full_well / 2^bits`, and `adc_well_match_ratio = adc_full_scale_e / full_well` (1.0 = matched; < 1 the ADC cannot reach the full well; > 1 wasted ADC range). An **egregious** mismatch (ratio outside 0.1–10 — e.g. an 8-bit ADC at 1 e-/DN on a 1 Me- well reaching 0.03 % of it) additionally emits a `UserWarning` pointing at the matched gain; a matched or merely-suboptimal ADC stays quiet.
 
+**Readout architecture dispatch (Gap 117, `docs/plans/Digital_Pixel_Readout_Plan.md`).** `readout.architecture` selects between `analog_well` (the canonical chain above, the default — zero behavior change) and `digital_counting` (digital-pixel ROIC: in-pixel comparator + N-bit counter with charge-subtraction reset). `ReadoutStage` validates the architecture-scoped parameter combination before any physics runs (Rule 16): the counting-only parameters (`counter_bits`, `count_packet_e`, `residue_readout`, `max_count_rate_hz`) are rejected if explicitly set under `analog_well` (over-specification, same posture as Rule 5); under `digital_counting`, `count_packet_e` is required (> 0) and an explicitly set `full_well_capacity_e` is rejected — the effective well is `2^counter_bits · count_packet_e`, so an independent analog full well over-specifies the system (the schema default passes silently). **Phase 0 status:** the `digital_counting` branch is schema-only — after validation it raises an actionable error naming the plan's Phase 1; counting physics (counting well, quantization branch, dead-time ceiling) lands with Phase 1.
+
 The "read noise injection happens ONCE" rule is the reason TDI gets a √N_tdi SNR improvement: the signal accumulates as N_tdi (analog) but the read noise is added once at the end. If anyone tries to add read noise before TDI accumulation, the chain has a sign of degradation and the test suite catches it.
 
 ---
@@ -394,14 +396,21 @@ section is the authoritative, reconciled inventory (verified against
 
 **IPC (1):** `ipc_coupling`.
 
-### 11.2 `readout.*` — 16 parameters
+### 11.2 `readout.*` — 22 parameters
 
 **Read / CDS (4):** `read_noise_e_rms`, `cds_enabled`,
 `node_capacitance_F`, `electronics_sigma_um`.
 
 **ADC and gain (2):** `gain_e_per_dn`, `adc_bits`.
 
-**Well (1):** `full_well_capacity_e`.
+**Well (1):** `full_well_capacity_e` (analog_well only — rejected if
+explicitly set under `digital_counting`).
+
+**Architecture / digital-pixel counting (5, Gap 117 — see §6 dispatch):**
+`architecture`, `counter_bits`, `count_packet_e`, `residue_readout`,
+`max_count_rate_hz`. Schema-only until Digital_Pixel_Readout_Plan Phase 1
+lands; the four counting-only parameters are rejected if explicitly set
+under `analog_well`.
 
 **TDI (3):** `n_tdi`, `tdi_misalign_pixels`, `tdi_mode`.
 
@@ -409,6 +418,9 @@ section is the authoritative, reconciled inventory (verified against
 `binning_y_offchip`.
 
 **Coadds (2):** `n_coadds`, `coadd_mode`.
+
+**Timing (1):** `frame_period_s` (previously omitted from this inventory —
+the pre-Gap-117 heading said 16 while the schema held 17).
 
 ### 11.3 Designed but not implemented
 

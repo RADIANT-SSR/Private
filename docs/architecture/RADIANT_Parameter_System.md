@@ -170,7 +170,19 @@ detector.n_pixels_cross               # int (cross-track)
 readout.read_noise_e_rms              # e- RMS
 readout.gain_e_per_dn                 # e-/DN
 readout.adc_bits                      # int
-readout.full_well_capacity_e          # e-
+readout.full_well_capacity_e          # e- (analog_well only — rejected if explicitly set under digital_counting)
+readout.architecture                  # enum: "analog_well", "digital_counting" — DROIC dispatch (Gap 117;
+                                      #   digital_counting is schema-only until Digital_Pixel_Readout_Plan Phase 1
+                                      #   lands: ReadoutStage validates the parameters, then raises an actionable
+                                      #   not-implemented error before any physics)
+readout.counter_bits                  # int — in-pixel counter depth N; effective well = 2^N × count_packet_e
+                                      #   (counting-only: rejected if explicitly set under analog_well)
+readout.count_packet_e                # e- per count — charge-subtraction quantum (counting-only; REQUIRED > 0
+                                      #   when architecture = digital_counting; schema default 0.0 = unset sentinel)
+readout.residue_readout               # bool — read the analog residue through the existing ADC model
+                                      #   (counting-only)
+readout.max_count_rate_hz             # Hz — comparator dead-time flux ceiling (counting-only; 0.0 = unset
+                                      #   ⇒ no ceiling, counter rollover governs)
 readout.cds_enabled                   # int (1 = yes, 0 = no; dtype=int, default 1)
 readout.n_tdi                         # int
 readout.n_coadds                      # int

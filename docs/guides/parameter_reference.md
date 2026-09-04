@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 187**
+**Total parameters: 192**
 
 ## source
 
@@ -196,20 +196,25 @@
 | Parameter | Type | Default | Input Unit | Bounds | Description |
 |-----------|------|---------|------------|--------|-------------|
 | `readout.adc_bits` | int | 16 | --- | (4, 32) | ADC bit depth. |
+| `readout.architecture` | str | analog_well | --- | --- | Readout architecture: 'analog_well' (charge integration into a full well, existing path) or 'digital_counting' (in-pixel comparator + counter with charge-subtraction reset, DROIC/DFPA). Under 'digital_counting' the counting parameters below replace full_well_capacity_e; ReadoutStage rejects mixed specifications. |
 | `readout.binning_x_offchip` | int | 1 | --- | (1, 64) | Off-chip binning factor along x. 1 = no binning. |
 | `readout.binning_x_onchip` | int | 1 | --- | (1, 64) | On-chip binning factor along x. 1 = no binning. |
 | `readout.binning_y_offchip` | int | 1 | --- | (1, 64) | Off-chip binning factor along y. 1 = no binning. |
 | `readout.binning_y_onchip` | int | 1 | --- | (1, 64) | On-chip binning factor along y. 1 = no binning. |
 | `readout.cds_enabled` | int | 1 | --- | --- | Correlated double sampling enabled (1=yes, 0=no). |
 | `readout.coadd_mode` | str | sum | --- | --- | Coadd combination mode: 'sum', 'average', or 'median'. |
+| `readout.count_packet_e` | float | 0.0 | e- | (0.0, 10000000.0) | Charge packet per count [e-/count] for digital_counting: the charge-subtraction quantum removed from the well at each comparator trip. Default 0.0 means 'unset'; the parameter is required (> 0) when architecture = 'digital_counting'. Counting-only: rejected under analog_well. |
+| `readout.counter_bits` | int | 16 | --- | (1, 32) | In-pixel counter bit depth N for digital_counting. Effective well = 2^N x count_packet_e; counter rollover is treated as saturation (clip) in v1. Counting-only: rejected under analog_well. |
 | `readout.electronics_sigma_um` | float | 0.0 | um | (0.0, 100.0) | Electronics MTF: equivalent Gaussian blur sigma on the focal plane [µm] from finite amplifier bandwidth at the pixel clock rate. Blurs the readout (cross-scan, x) axis only. Zero (default) = ideal electronics, no blur. Enters both the EffectivePSF (kernel) and the MTF product (analytic term) per Rule 4. |
 | `readout.frame_period_s` | float | 0.0 | s | (0.0, 1000000.0) | Frame period [s]: the time between frame starts, stored independently of the integration time (spectral_integration.integration_time_s) per RADIANT_Conventions.md §4. Frame rate = 1/frame_period and duty cycle = t_int/frame_period are derived by radiant.readout.frame_timing and published in stage_outputs['readout']. Default 0.0 means 'unset': the frame period defaults to the integration time (frame rate = 1/t_int, duty cycle = 1.0) with a logged warning. A duty cycle > 1 (integration longer than the frame period) is rejected. |
 | `readout.full_well_capacity_e` | float | 100000.0 | --- | (100.0, 1000000000000.0) | Full well capacity per pixel [e-]. |
 | `readout.gain_e_per_dn` | float | 1.0 | e-/DN | (0.001, 1000000.0) | System conversion gain: electrons per digital number (LSB). |
+| `readout.max_count_rate_hz` | float | 0.0 | Hz | (0.0, 1000000000000.0) | Comparator dead-time flux ceiling [Hz] for digital_counting: maximum in-pixel count rate. Gives a second saturation bound max_count_rate_hz x t_int x count_packet_e. Default 0.0 means 'unset' (no dead-time ceiling; counter rollover governs). Counting-only: rejected under analog_well. |
 | `readout.n_coadds` | int | 1 | --- | (1, 10000) | Number of coadded frames. 1 = no coadd. |
 | `readout.n_tdi` | int | 1 | --- | (1, 1000) | Number of TDI stages. 1 = no TDI. |
 | `readout.node_capacitance_F` | float | 0.0 | F | (0.0, 1e-09) | Sense-node capacitance [F]. Zero disables kTC noise. |
 | `readout.read_noise_e_rms` | float | 5.0 | e- | (0.0, 10000.0) | Per-frame read noise delivered to the signal path [e- RMS]. |
+| `readout.residue_readout` | bool | True | --- | --- | Digital_counting only: read the analog residue (sub-packet charge) after the counter word. True: residue passes through the existing ADC model (adc_bits / gain scoped to a count_packet_e full scale) and DN is the combined word. False: DN is the bare counter and quantization noise is count_packet_e/sqrt(12). Counting-only: rejected under analog_well. |
 | `readout.tdi_misalign_pixels` | float | 0.0 | --- | (0.0, 10.0) | Cross-scan TDI misalignment in pixel units. Zero = perfect alignment. |
 | `readout.tdi_mode` | str | analog | --- | --- | TDI readout mode: 'analog' (single readout after charge accumulation) or 'digital' (each stage read independently, summed digitally). |
 

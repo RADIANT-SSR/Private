@@ -197,9 +197,11 @@ noise/
 └── other.py              # 1/f, glow, persistence, etc.
 ```
 
-### `readout/` — 13 source + 10 tests
+### `readout/` — 13 source + 11 tests
 
-Stage 7: TDI, ADC, gain, read noise, binning, coadds, saturation.
+Stage 7: TDI, ADC, gain, read noise, binning, coadds, saturation. The
+architecture dispatch (`readout.architecture`, Gap 117) lives in `stage.py`;
+its schema/validation tests are `tests/test_architecture.py`.
 
 ```
 readout/

@@ -55,16 +55,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Symptom**: save a config whose element train references a transmittance/reflectance CSV, move the file (or the repo) to another machine or path, load — the element file reference dangles. Every parameter-level `is_file_path` value (CU-177) and every override entry (Gap 103 v1.1) relativizes on save and resolves on load; the shared element document is the one store that does not. A study file can carry both forms at once.
 **Why it still matters**: workflow-visible (intake test 4) — scenario studies with per-band filter CSVs are exactly this file shape, and Rule 30 makes cross-machine portability a stated requirement; the asymmetry with the override path also confuses hand-editors of saved YAML.
 **Suggested fix**: (b) stand-alone task — route the shared document through the same relativize-on-save / resolve-on-load helpers (`SPECTRAL_FILE_KEYS` is now public in `io/element_config.py`); one golden-file review per `RADIANT_Testing_Validation.md` §5.3 since saved baselines change form. Effort S; category A/D.
-
-### CU-342 — `radiant gui <study.yaml>` refuses configuration-set files: the CLI loads via `Sensor.from_yaml` while the GUI's own File → Open handles both document kinds
-
-**Discovered**: Configuration Set Expansion Plan Phase 1 live-review launch (branch `cfgset/phase1-cap12`), 2026-09-02.
-**Status**: Investigating — inline fix in work on the discovering branch.
-**File**: `src/radiant/cli/gui.py:66` (`_load_sensor` → `Sensor.from_yaml` only); `src/radiant/gui/app.py:36` (`launch_gui` takes no `config_set`).
-**Symptom**: `radiant gui study.yaml` on any file carrying a `configurations:` section exits with the `ConfigError` telling the user to use `ConfigurationSet.load` — the GUI never opens; the same file opens fine through the GUI's File → Open (`main_window._open_path`, which uses the one-reader `ConfigurationSet.load` dispatch).
-**Why it still matters**: blocking (intake test 3) for the ratified live-GUI review loop, whose prescribed command is `radiant gui <file>` on a study; workflow-visible (test 4) for any analyst launching a study from the shell — scenario 9.4's all-bands file will be one.
-**Suggested fix**: (a) inline-fix-now — CLI loads through `ConfigurationSet.load` (the API decides the document kind, same as `_open_path`); `launch_gui` gains a `config_set` parameter forwarded to `RADIANTMainWindow`. Effort S; category A/D.
-
 ### CU-341 — Configuration bar cannot absorb 12 tabs at laptop width: no wrap, scroll, or overflow affordance on the selector band
 
 **Discovered**: Configuration Set Expansion Plan Phase 1 (branch `cfgset/phase1-cap12`), 2026-09-02 — the plan §7 watch item, measured real during the 8 → 12 cap raise.
@@ -147,6 +137,13 @@ by name in check 8 — that list is frozen and must never grow.
 **Symptom**: any commit from the tab (formerly Apply, now every completed edit) rewrites *all* rows from their table rendering — entries gain keys they never had and lose keys the table cannot display, so an edit to one row mutates the physics of untouched rows. Results-affecting (intake test 1) and workflow-visible (test 4).
 **Why it still matters**: element geometry keys engage the emission-coupling model and refractive R feeds Kirchhoff ε = 1 − T − R; both move computed SNR/NEDT. The tab violates its own contract ("table rows ⇌ the `optical_elements:` entry dicts").
 **Suggested fix**: (a) inline-fix-now — carry each row's source entry (item-data role); serialization = source entry overlaid with only the cells the operator actually edited; cells for absent keys render blank and write nothing; refractive R survives untouched through the overlay. Test: commit after a single-row edit leaves every other row byte-identical. Effort S–M; category A/D.
+### CU-342 — `radiant gui <study.yaml>` refuses configuration-set files: the CLI loads via `Sensor.from_yaml` while the GUI's own File → Open handles both document kinds — RESOLVED 2026-09-02 (commit trailer)
+
+**Resolution**: the CLI now loads every file through `ConfigurationSet.load` (the API decides the document kind, the same one-reader dispatch as `main_window._open_path`) and `launch_gui` gained a keyword-only `config_set` parameter forwarded to `RADIANTMainWindow`; a study file launches as the full set, a plain config as the degenerate one-member set, and the no-config flow keeps its blank editable session (now set-shaped). CLI suite covers all four paths.
+**Discovered**: Configuration Set Expansion Plan Phase 1 live-review launch (branch `cfgset/phase1-cap12`), 2026-09-02.
+**Status**: Resolved 2026-09-02, same branch — blocking (intake test 3) for the ratified live-GUI review loop and workflow-visible (test 4) at any shell launch of a study.
+**File**: `src/radiant/cli/gui.py` (`_load_config_set`); `src/radiant/gui/app.py` (`launch_gui(config_set=...)`).
+**Symptom (was)**: `radiant gui study.yaml` on any `configurations:`-bearing file exited with the `ConfigError` telling the user to use `ConfigurationSet.load`; the same file opened fine through File → Open.
 
 ### CU-338 — `emit_gui_yaml.py` run bare from a worktree silently rebuilds baselines against the primary checkout's library — RESOLVED 2026-09-01 (commit trailer)
 

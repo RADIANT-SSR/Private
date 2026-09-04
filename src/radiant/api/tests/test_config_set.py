@@ -347,15 +347,18 @@ class TestCrud:
             cs.add("C", copy_from="ZZ")
         assert cs.names() == ("A", "B")
 
-    def test_ninth_configuration_rejected_actionably(self) -> None:
-        cs = _set(*[f"c{i}" for i in range(8)])
+    def test_cap_accepts_the_twelfth_and_rejects_the_thirteenth_actionably(self) -> None:
+        """The ADR-0010 D-E cap (8 → 12, owner-ratified 2026-09-01) is reachable."""
+        assert ConfigurationSet.MAX_CONFIGS == 12
+        cs = _set(*[f"c{i}" for i in range(11)])
+        cs.add("c11")  # the twelfth — the cap itself is a legal set size
         assert len(cs) == ConfigurationSet.MAX_CONFIGS
-        with pytest.raises(ConfigSetError, match="at most 8") as excinfo:
-            cs.add("c8")
-        assert excinfo.value.context["max"] == 8
+        with pytest.raises(ConfigSetError, match="at most 12") as excinfo:
+            cs.add("c12")
+        assert excinfo.value.context["max"] == 12
         assert excinfo.value.action
-        with pytest.raises(ConfigSetError, match="at most 8"):
-            ConfigurationSet(_sensor(), names=[f"c{i}" for i in range(9)])
+        with pytest.raises(ConfigSetError, match="at most 12"):
+            ConfigurationSet(_sensor(), names=[f"c{i}" for i in range(13)])
 
     def test_construction_rejects_duplicates_empty_and_blank_names(self) -> None:
         with pytest.raises(ConfigSetError, match="duplicate"):

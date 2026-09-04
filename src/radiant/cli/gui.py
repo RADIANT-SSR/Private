@@ -17,7 +17,7 @@ import click
 from radiant import RadiantError
 
 if TYPE_CHECKING:
-    from radiant.api.sensor import Sensor
+    from radiant.api.config_set import ConfigurationSet
 
 
 class GuiUnavailableError(RadiantError):
@@ -59,31 +59,35 @@ def gui(config: str | None) -> None:
             action='install it with: pip install "radiant[gui]"',
         ) from exc
 
-    sensor = _load_sensor(config)
-    sys.exit(launch_gui(sensor, path=config))
+    config_set = _load_config_set(config)
+    sys.exit(launch_gui(config_set=config_set, path=config))
 
 
-def _load_sensor(config: str | None) -> Sensor | None:
-    """Load a :class:`Sensor` from *config*, or return ``None`` for no config.
+def _load_config_set(config: str | None) -> ConfigurationSet:
+    """Load *config* as a :class:`ConfigurationSet`, or a blank one for no config.
 
-    ``Sensor`` is imported lazily inside the body (not at module load) so the CLI
-    stays importable and fast without touching the api layer until this command
-    actually runs. Errors surface as their native :class:`RadiantError`
-    subclasses.
+    Every file goes through :meth:`ConfigurationSet.load` — the API decides the
+    document kind (CU-342), exactly the one-reader dispatch the GUI's File → Open
+    uses: a study file (``configurations:`` section) loads as the full set, a
+    plain config as the degenerate one-configuration set. The api import is lazy
+    (inside the body, not at module load) so the CLI stays importable and fast
+    until this command actually runs. Errors surface as their native
+    :class:`RadiantError` subclasses.
     """
     if config is None:
         # From-scratch flow (owner report 2026-07-17): a bare `radiant gui` opens an
         # editable blank configuration (schema defaults, no file) — the File → New
         # state — instead of a dead window with everything disabled.
+        from radiant.api.config_set import ConfigurationSet
         from radiant.api.sensor import Sensor
 
-        return Sensor()
+        return ConfigurationSet(Sensor())
 
     config_path = Path(config)
     if not config_path.exists():
         click.echo(f"Error: file not found: {config_path}", err=True)
         sys.exit(1)
 
-    from radiant import Sensor
+    from radiant.api.config_set import ConfigurationSet
 
-    return Sensor.from_yaml(str(config_path))
+    return ConfigurationSet.load(str(config_path))

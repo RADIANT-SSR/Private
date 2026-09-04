@@ -134,6 +134,11 @@ the side-by-side Performance surface to a width that renders honestly. A ninth c
 is rejected with an actionable error. The degenerate case — one configuration, empty
 configured table — is observably identical to today's bare `Sensor`.
 
+> **Amendment (2026-09-01, owner-ratified):** cap raised $8 \to 12$ — scenario 9.4's
+> nine-band OLI-2 study exceeded 8 on the first flagship use. See
+> `docs/plans/Configuration_Set_Expansion_Plan.md` (Phase 1). The rationale above holds at
+> 12 (background pass ≈ 2.6 s); "a ninth configuration" reads "a thirteenth" accordingly.
+
 ### D-F. Per-configuration wavelength grids are in v1 (plan §3.4, D-5)
 
 The evaluation grid is already per-configuration for free: each materialized `Sensor` builds

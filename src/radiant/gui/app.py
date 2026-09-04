@@ -20,6 +20,7 @@ from radiant.gui.settings_store import SettingsStore
 from radiant.gui.themes import DARK, LIGHT, apply_theme
 
 if TYPE_CHECKING:
+    from radiant.api.config_set import ConfigurationSet
     from radiant.api.sensor import Sensor
 
 
@@ -33,7 +34,12 @@ def _persisted_theme(settings: SettingsStore):  # type: ignore[no-untyped-def]
     return DARK if settings.theme_name() == DARK.name else LIGHT
 
 
-def launch_gui(sensor: Sensor | None = None, path: str | None = None) -> int:
+def launch_gui(
+    sensor: Sensor | None = None,
+    path: str | None = None,
+    *,
+    config_set: ConfigurationSet | None = None,
+) -> int:
     """Launch the RADIANT desktop GUI and run the Qt event loop.
 
     Parameters
@@ -42,11 +48,20 @@ def launch_gui(sensor: Sensor | None = None, path: str | None = None) -> int:
         An already-configured :class:`~radiant.api.sensor.Sensor` to open the
         GUI on (the script → GUI hand-off, arch doc §5). ``None`` opens an empty
         window with no sensor loaded — the state after ``radiant gui`` with no
-        config argument.
+        config argument. Mutually exclusive with *config_set* (the window takes
+        at most one document).
     path:
-        The config path *sensor* was loaded from, if any — shown in the window
-        title (with the dirty marker) and seeded into the recent-files list. The
-        ``radiant gui <config>`` command passes it so the launched file is named.
+        The config path the document was loaded from, if any — shown in the
+        window title (with the dirty marker) and seeded into the recent-files
+        list. The ``radiant gui <config>`` command passes it so the launched
+        file is named.
+    config_set:
+        A ready-made :class:`~radiant.api.config_set.ConfigurationSet` to open
+        the GUI on — the study hand-off (CU-342). The CLI loads every file
+        through ``ConfigurationSet.load`` (the API decides the document kind,
+        same one-reader dispatch as the GUI's File → Open), so a study file
+        arrives here as the full set and a plain config as the degenerate
+        one-configuration set.
 
     Returns
     -------
@@ -71,13 +86,15 @@ def launch_gui(sensor: Sensor | None = None, path: str | None = None) -> int:
         # branch below) owns its own styling, so we do not override it there.
         app = QApplication([])
         apply_theme(app, _persisted_theme(settings))
-        window = RADIANTMainWindow(sensor=sensor, path=path, settings=settings)
+        window = RADIANTMainWindow(
+            sensor=sensor, path=path, settings=settings, config_set=config_set
+        )
         window.show()
         return int(app.exec())
 
     # A host (pytest-qt) already owns the loop; show the window, hand it back via
     # a reference the host holds, and do not block.
-    window = RADIANTMainWindow(sensor=sensor, path=path, settings=settings)
+    window = RADIANTMainWindow(sensor=sensor, path=path, settings=settings, config_set=config_set)
     window.show()
     _retain_window(existing, window)
     return 0

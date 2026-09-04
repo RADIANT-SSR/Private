@@ -20,6 +20,21 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Configuration-set capacity raised 8 → 12** (`ConfigurationSet.MAX_CONFIGS`,
+  ADR-0010 D-E amendment, owner-ratified 2026-09-01). A thirteenth configuration
+  now raises the actionable cap error; the GUI selector band and manager dialog
+  follow the constant, and both themes carry twelve position-stable accent hues
+  (slots 0–7 unchanged). Existing files load unchanged; not results-affecting.
+
+### Fixed
+- **`radiant gui <study.yaml>` now opens configuration-set files** (CU-342).
+  The CLI loads every file through `ConfigurationSet.load` — the same
+  one-reader dispatch as the GUI's File → Open — so a study launches with its
+  full set and selector band instead of exiting with the `Sensor.from_yaml`
+  refusal. `launch_gui` gained a keyword-only `config_set` parameter (public
+  surface, Rule 29b).
+
 ### Added
 - **Per-configuration optical elements — configured element rows** (Gap 103
   v1.1, ADR-0010 D-7 supersession, owner-ratified 2026-09-02 in live review). A

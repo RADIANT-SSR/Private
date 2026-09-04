@@ -7,7 +7,7 @@ Category D — the GUI half of plan §4 items 1 and 7 (`docs/archive/Multi_Confi
    Baseline are asserted through ``window.configuration_set`` state — never through
    widget internals — because the dialog's contract is "one action, one
    ``ConfigurationSet`` call".
-2. **Every guard is actionable.** A ninth configuration, a duplicate or empty name, and
+2. **Every guard is actionable.** A configuration past the cap, a duplicate or empty name, and
    removing the last configuration render the API's own what/why/action inline and
    change nothing.
 3. **Removing the displayed configuration** is allowed and states its policy: the
@@ -58,7 +58,7 @@ _FILTER_MAX = "spectral_integration.filter_max_um"
 _ALTITUDE = "geometry.sensor_altitude_m"
 _F_NUMBER = "optics.f_number"
 
-_WAIT_MS = 20000  # headroom over an 8-configuration evaluate-all pass
+_WAIT_MS = 20000  # headroom over a full-cap (12-configuration) evaluate-all pass
 
 
 # Window release is the session-wide ``_release_widgets`` fixture's job (conftest.py,
@@ -381,26 +381,43 @@ class TestGuardsAreActionable:
         assert cs.names() == ("MWIR", "LWIR")
         assert "non-empty string" in rendered[0]
 
-    def test_ninth_configuration_is_refused_naming_the_cap(  # type: ignore[no-untyped-def]
+    def test_configuration_past_the_cap_is_refused_naming_the_cap(  # type: ignore[no-untyped-def]
         self, qtbot, tmp_path, monkeypatch
     ) -> None:
+        """Add stays available up to the cap (12) and refuses the one past it.
+
+        The cap moved 8 → 12 (owner-ratified 2026-09-01), so this walks the add
+        flow to one *below* the cap, asserts the cap-filling add still works —
+        the failure mode of an off-by-one cap is a set that stops one short —
+        and only then asserts the refusal, which must quote the cap itself.
+        """
         window = _open_study(qtbot, tmp_path)
         cs = window.configuration_set
         assert cs is not None
         rendered: list[str] = []
 
         def _script(dialog: ConfigurationManagerDialog) -> None:
-            for index in range(7):  # 2 → 8 fills the set, the 9th must be refused
+            # 2 → 11: one below the cap.
+            for index in range(ConfigurationSet.MAX_CONFIGS - 3):
                 _answer_name(monkeypatch, f"extra{index}")
                 dialog.action_button("add").click()
+            assert len(dialog.names) == ConfigurationSet.MAX_CONFIGS - 1
+
+            # Adding while at 11 members still works — the 12th is accepted.
+            _answer_name(monkeypatch, "the-cap-itself")
+            dialog.action_button("add").click()
             assert len(dialog.names) == ConfigurationSet.MAX_CONFIGS
+            assert dialog.error_frame.isVisibleTo(dialog) is False
+
             _answer_name(monkeypatch, "one-too-many")
             dialog.action_button("add").click()
             rendered.append(_error_text(dialog))
+            assert dialog.error_frame.isVisibleTo(dialog)
 
         _manage(qtbot, window, monkeypatch, _script)
 
-        assert len(cs) == ConfigurationSet.MAX_CONFIGS
+        assert len(cs) == ConfigurationSet.MAX_CONFIGS == 12
+        assert "the-cap-itself" in cs.names()
         assert "one-too-many" not in cs.names()
         assert f"at most {ConfigurationSet.MAX_CONFIGS}" in rendered[0]
 

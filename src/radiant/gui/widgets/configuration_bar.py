@@ -142,7 +142,8 @@ class ConfigurationBar(QWidget):
         Assignment is by **position** in the set, so a configuration keeps its
         colour as long as its position holds, and the same position yields the
         matching hue in the light and dark token sets. A set larger than the
-        accent tuple (not reachable while ``MAX_CONFIGS`` is 8) wraps.
+        accent tuple (not reachable while ``MAX_CONFIGS`` is 12 and both themes
+        carry twelve accents) wraps.
         """
         accents = self._theme.config_accents
         index = self._names.index(name) if name in self._names else 0

@@ -224,7 +224,7 @@ rather than bundled.
 
 ## Configuration Sets --- Several Configurations in One File
 
-One config file can describe **one modeling problem in up to eight named
+One config file can describe **one modeling problem in up to twelve named
 variants of itself**: MWIR vs. LWIR on the same telescope, nominal vs.
 as-built, three off-nadir geometries. Add a top-level `configurations:` section
 and the file becomes a **study**.

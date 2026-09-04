@@ -76,9 +76,12 @@ SECTION_KEY = "configurations"
 _ALLOWED_KEYS = frozenset({"names", "active", "baseline", "wavelength_points", "parameters"})
 
 # Fallback cardinality cap. The single source of truth is
-# ``ConfigurationSet.MAX_CONFIGS`` (ADR-0010 D-E), which the api layer passes in;
-# this default only applies to a bare io-level call.
-_DEFAULT_MAX_CONFIGURATIONS = 8
+# ``ConfigurationSet.MAX_CONFIGS`` (ADR-0010 D-E, raised 8 → 12 owner-ratified
+# 2026-09-01), which the api layer passes in; this default only applies to a
+# bare io-level call. It is a *mirror*, not a second authority — this module may
+# not import ``radiant.api`` (the io layer sits below it), so the two constants
+# are kept in sync by hand and must always be changed together.
+_DEFAULT_MAX_CONFIGURATIONS = 12
 
 
 @dataclass(frozen=True)

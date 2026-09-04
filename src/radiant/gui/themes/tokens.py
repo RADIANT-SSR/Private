@@ -83,7 +83,7 @@ class Theme:
 
     # Per-configuration accents (§8.1, multi-configuration Phase 4a). One stable
     # colour per configuration slot, indexed by position in the configuration set
-    # (``ConfigurationSet.MAX_CONFIGS`` = 8, so exactly eight entries). The same
+    # (``ConfigurationSet.MAX_CONFIGS`` = 12, so exactly twelve entries). The same
     # index always yields the same hue in both themes, so a configuration keeps
     # its identity across a light/dark toggle. Used by the master configuration
     # selector, and (Phase 4d) the per-configuration Performance columns.
@@ -124,8 +124,34 @@ LIGHT = Theme(
     syntax_number="#a04018",
     syntax_function="#2a5abf",
     syntax_comment="#8a93a1",
-    # Eight configuration accents — saturated mid-darks that read against the
-    # light panel surfaces. Index 0 is the first configuration in set order.
+    # Twelve configuration accents — saturated mid-darks that read against the
+    # light panel surfaces. A chip is drawn on a ``configurationTab``, whose
+    # background cycles ``panel`` / ``panel_3`` (hover) / ``focus_soft``
+    # (checked); the worst of those four states is the contrast that matters,
+    # and every accent below holds >= 3:1 non-text contrast across all of them
+    # (the tightest is the pre-existing amber at 2.99:1). Index 0 is the first
+    # configuration in set order.
+    #
+    # Indices 0–7 are the original eight and are **frozen**: saved studies and
+    # walkthrough figures already read a configuration's identity off its slot
+    # colour, so a re-hue would silently re-colour existing work. Indices 8–11
+    # were added when ``MAX_CONFIGS`` went 8 → 12 (owner-ratified 2026-09-01),
+    # and were placed in the four widest gaps of the existing hue circle —
+    # indigo 252° (between blue 219° and purple 286°), olive 82° (between amber
+    # 42° and green 129°), magenta 310° (between purple 286° and pink 339°), and
+    # emerald 158° (between green 129° and teal 180°).
+    #
+    # Hue spacing alone does not survive a red-green confusion, which collapses
+    # the warm and the green families onto one yellow axis, so each new hue also
+    # carries a **lightness** offset from both of its hue neighbours — the second
+    # channel that stays legible under deuteranopia and protanopia: olive L 0.26
+    # sits below green 0.33 and amber 0.37; emerald L 0.36 above green 0.33 and
+    # teal 0.30; indigo L 0.32 below blue 0.42 and purple 0.39; magenta L 0.32
+    # below purple 0.39 and pink 0.42. Emerald is the tightest of the four — its
+    # lightness margin over green is only 0.03, so it leans on the 29°/22° hue
+    # separation from green/teal, which is the one pair a red-green confusion
+    # partially preserves (both read as desaturated cyan-greys of different
+    # value, not as two yellows).
     config_accents=(
         "#2f5aa8",
         "#b8431a",
@@ -135,6 +161,10 @@ LIGHT = Theme(
         "#1f7a7a",
         "#a8305a",
         "#5a6270",
+        "#39297a",
+        "#4c671e",
+        "#812271",
+        "#298e69",
     ),
 )
 
@@ -170,8 +200,17 @@ DARK = Theme(
     syntax_number="#e0a075",
     syntax_function="#9bb8e3",
     syntax_comment="#6a7385",
-    # The same eight hues lightened for the dark surfaces — index-for-index the
-    # light set, so a configuration's colour identity survives a theme toggle.
+    # The same twelve hues lightened for the dark surfaces — index-for-index the
+    # light set (same hue angle, lightness raised ~0.28 and saturation eased), so
+    # a configuration's colour identity survives a theme toggle. Indices 8–11 are
+    # the 8 → 12 extension and follow the light set's ordering within each hue
+    # family, so the CVD lightness channel described there reads the same way
+    # here: olive L 0.50 below green 0.61 and amber 0.58; emerald L 0.68 above
+    # green 0.61 and teal 0.59; indigo L 0.64 below blue 0.70 and purple 0.73;
+    # magenta L 0.62 below purple 0.73 and pink 0.69. Every chip clears 3:1
+    # across all four ``configurationTab`` background states (``panel`` /
+    # ``panel_3`` / ``focus_soft``); the tightest of the twelve is indigo at
+    # 3.82:1.
     config_accents=(
         "#86a8df",
         "#e08157",
@@ -181,6 +220,10 @@ DARK = Theme(
         "#6fc0c0",
         "#e07fa4",
         "#a8b0be",
+        "#8977cf",
+        "#8eb54a",
+        "#cf6ebe",
+        "#89d2b7",
     ),
 )
 

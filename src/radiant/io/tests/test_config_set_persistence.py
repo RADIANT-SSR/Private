@@ -278,10 +278,13 @@ class TestLoadValidation:
         with pytest.raises(ConfigError, match="detector.qe_valu"):
             ConfigurationSet.load(path)
 
-    def test_nine_configurations(self, tmp_path: Path) -> None:
-        path = self._write(tmp_path, {"names": [f"C{i}" for i in range(9)]})
-        with pytest.raises(ConfigError, match="maximum is 8"):
+    def test_configurations_past_the_cap(self, tmp_path: Path) -> None:
+        """13 names refuse at load; 12 (the cap itself, raised 8 → 12) load fine."""
+        path = self._write(tmp_path, {"names": [f"C{i}" for i in range(13)]})
+        with pytest.raises(ConfigError, match="maximum is 12"):
             ConfigurationSet.load(path)
+        at_cap = self._write(tmp_path, {"names": [f"D{i}" for i in range(12)]})
+        assert len(ConfigurationSet.load(at_cap)) == 12
 
     def test_out_of_bounds_configured_value(self, tmp_path: Path) -> None:
         """A schema-rejected value surfaces as a ConfigError naming file + config."""

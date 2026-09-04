@@ -143,6 +143,7 @@ _STUDY_NOTE = (
     "configuration."
 )
 _CONFIGURED_TOOLTIP = "configured — one entry per configuration; editing edits {name} only"
+_CONFIGURE_BUTTON_TOOLTIP_NO_ROW = "Select a row to configure it across configurations"
 _CONFIGURE_ROW_TOOLTIP = (
     "Give this row one complete entry per configuration, seeded from its current shared "
     "entry — nothing changes until you edit one. The entry's name configures with the row."
@@ -306,6 +307,13 @@ class OpticalElementEditor(QWidget):
         self._down = QPushButton("↓", buttons)
         self._spectrum = QPushButton("Spectrum…", buttons)
         self._spectrum.setToolTip(_SPECTRUM_TOOLTIP)
+        # The visible twin of the row menu's configure / un-configure action (owner
+        # live-review 2026-09-03: a right-click-only affordance is invisible — the
+        # button is how an operator *finds* row configuration; the menu remains for
+        # those who reach for it). Study sessions only; text follows the selection.
+        self._configure = QPushButton(CONFIGURE_TEXT, buttons)
+        self._configure.setVisible(False)
+        self._configure.setEnabled(False)
         self._apply = QPushButton("Apply train", buttons)
         self._apply.setObjectName("elementApplyButton")
         for b in (
@@ -315,6 +323,7 @@ class OpticalElementEditor(QWidget):
             self._up,
             self._down,
             self._spectrum,
+            self._configure,
         ):
             button_row.addWidget(b)
         button_row.addStretch(1)
@@ -327,6 +336,7 @@ class OpticalElementEditor(QWidget):
         self._up.clicked.connect(lambda: self._move_current(-1))
         self._down.clicked.connect(lambda: self._move_current(+1))
         self._spectrum.clicked.connect(self._edit_spectrum)
+        self._configure.clicked.connect(self._toggle_configure_current)
         self._apply.clicked.connect(self.apply_train)
 
         # Coating detail (Gap 116): selecting a row draws that element's R/T/ε on its
@@ -467,6 +477,48 @@ class OpticalElementEditor(QWidget):
         if advisory:
             self._show_detail_message(advisory)
 
+    def _sync_configure_button(self, row: int) -> None:
+        """Point the configure button at *row*: label, enablement, and tooltip.
+
+        Mirrors :meth:`row_menu`'s three states exactly — configured row offers the
+        D-6 un-configure, shared row offers configure, an unapplied new row shows
+        the configure label disabled with the apply-first hint.
+        """
+        config_set = self._study_set()
+        if config_set is None:
+            return
+        origin = self._origin(row)
+        if origin == _NEW_ROW:
+            self._configure.setText(CONFIGURE_TEXT)
+            self._configure.setEnabled(False)
+            self._configure.setToolTip(_NEW_ROW_HINT)
+        elif origin in self._configured_positions():
+            self._configure.setText(unconfigure_element_text(config_set.names()[0]))
+            self._configure.setEnabled(True)
+            self._configure.setToolTip(
+                "Collapse this row to one shared entry — the confirmation names what "
+                "is kept and what is discarded (D-6 keep-first)."
+            )
+        else:
+            self._configure.setText(CONFIGURE_TEXT)
+            self._configure.setEnabled(True)
+            self._configure.setToolTip(_CONFIGURE_ROW_TOOLTIP)
+
+    def _toggle_configure_current(self) -> None:
+        """The configure button: configure or un-configure the selected row.
+
+        Dispatches to the same handlers the row menu uses — the button and the menu
+        are one affordance with two entrances, so they can never disagree on
+        behavior or wording.
+        """
+        row = self._table.currentRow()
+        if not (0 <= row < self._table.rowCount()):
+            return
+        if self._origin(row) in self._configured_positions():
+            self._unconfigure_row(row)
+        else:
+            self._configure_row(row)
+
     def _sync_study_note(self) -> None:
         """Show the study note (naming the displayed configuration) only in a study."""
         config_set = self._study_set()
@@ -474,6 +526,7 @@ class OpticalElementEditor(QWidget):
         self._study_note.setText(
             "" if config_set is None else _STUDY_NOTE.format(name=config_set.active)
         )
+        self._configure.setVisible(config_set is not None)
 
     # -- configured rows -------------------------------------------------------
 
@@ -547,8 +600,12 @@ class OpticalElementEditor(QWidget):
             self._up.setEnabled(False)
             self._down.setEnabled(False)
             self._spectrum.setEnabled(False)
+            self._configure.setEnabled(False)
+            self._configure.setText(CONFIGURE_TEXT)
+            self._configure.setToolTip(_CONFIGURE_BUTTON_TOOLTIP_NO_ROW)
             return
         self._spectrum.setEnabled(True)
+        self._sync_configure_button(row)
         below = [r for r in range(row + 1, count) if self._is_configured_row(r)]
         self._set_structure_action(
             self._remove, blocked_by=below[0] if below else None, tooltip=_REMOVE_BLOCKED_TOOLTIP

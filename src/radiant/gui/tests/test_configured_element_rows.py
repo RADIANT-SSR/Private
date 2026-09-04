@@ -556,3 +556,43 @@ class TestHostReRendersOnSwitch:
 
         assert "LWIR" in editor.study_note.text()
         assert editor.entries()[_FILTER_ROW]["transmittance"] == pytest.approx(0.55, abs=1e-12)
+
+
+class TestConfigureButton:
+    """The visible twin of the row menu (owner live-review, 2026-09-03).
+
+    A right-click-only affordance is invisible — the operator's report was "I don't
+    see how you actually set one of these to be configured". The button next to
+    Spectrum… is the discoverable entrance; it dispatches to the same handlers as
+    the menu, so the two can never disagree.
+    """
+
+    def test_hidden_outside_a_study(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        editor = _bind(qtbot, None)
+        assert editor._configure.isVisibleTo(editor) is False  # noqa: SLF001
+
+    def test_visible_and_row_tracking_in_a_study(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        config_set = _study(configure=_FILTER_ROW)
+        editor = _bind(qtbot, config_set)
+        assert editor._configure.isVisibleTo(editor) is True  # noqa: SLF001
+        editor._table.selectRow(_MIRROR_ROW)  # noqa: SLF001
+        assert editor._configure.isEnabled()  # noqa: SLF001
+        assert editor._configure.text() == "Configure across configurations…"  # noqa: SLF001
+        editor._table.selectRow(_FILTER_ROW)  # noqa: SLF001
+        assert "Un-configure" in editor._configure.text()  # noqa: SLF001
+        assert "MWIR" in editor._configure.text()  # noqa: SLF001
+
+    def test_click_configures_and_unconfigures(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        from PySide6.QtWidgets import QMessageBox
+
+        config_set = _study()
+        editor = _bind(qtbot, config_set)
+        row = _FILTER_ROW
+        editor._table.selectRow(row)  # noqa: SLF001
+        editor._configure.click()  # noqa: SLF001
+        assert config_set.configured_element_indices() == (_FILTER_ROW,)
+        # Reload leaves the selection behind; re-select and collapse it again.
+        editor._table.selectRow(_FILTER_ROW)  # noqa: SLF001
+        monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Ok)
+        editor._configure.click()  # noqa: SLF001
+        assert config_set.configured_element_indices() == ()

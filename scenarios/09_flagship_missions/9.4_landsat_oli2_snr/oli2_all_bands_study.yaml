@@ -1,0 +1,120 @@
+# RADIANT config — schema v1 — CONFIGURATION SET (load with ConfigurationSet.load,
+# `radiant run <file> --configuration <name>`, or GUI File → Open).
+#
+# External-validation scenario 9.4: Landsat 9 OLI-2, ALL NINE bands as ONE
+# multi-configuration study (ADR-0010 + Gap 103 v1.1). One shared instrument —
+# telescope, coated optics train, FPA, readout — stated once; the nine bands differ
+# only where the hardware genuinely differs. That is the point of the model: the study
+# states what differs, not what is repeated.
+#
+# Provenance (every value cited): docs/validation/landsat_oli2_source_data.md
+# Requirements/L_typ per band [Irons 2012]; design [Knight 2014]; L8 on-orbit SNR
+# [Morfitt 2015]; OLI-2 [Barsi 2024]. Companion per-band configs (oli2_b0N_snr_ltyp.yaml)
+# are the per-band cross-checks: each configuration below reproduces its standalone to
+# rel < 1e-9 (scripts/check_all_bands_parity.py).
+#
+# PER-BAND FILTER (Gap 103 v1.1, owner-ratified 2026-09-02): the band filter is a
+# CONFIGURED ELEMENT ROW — row 5 of the shared optical_elements document carries one
+# complete entry per configuration, exactly as a configured parameter carries one value
+# per configuration. Each band therefore mounts its own synthesized interference strip
+# (data/filter_b01.csv … filter_b09.csv), which is what the real butcher-block FPA
+# assembly does spatially. The panchromatic band (B8) — whose filter overlaps green and
+# red, and whose pitch (18 µm) and line time (1.8 ms) differ — is an ordinary member of
+# this study; its differences are ordinary configured values.
+
+source:
+  scene_type: extended            # uniform scene fills the pixel in every configuration
+  target_location: auto
+
+atmosphere:
+  model: exo                      # vacuum — the requirement is defined at-aperture
+
+geometry:
+  sensor_altitude_m: 705000.0     # m — published orbit [Irons 2012]
+  target_altitude_m: 0.0
+
+optics:
+  aperture_diameter_m: 0.135      # m — published (recalled ±5 mm) [Knight 2014]
+  focal_length_m: 0.886           # m — published (recalled ±10 mm); GSD-self-consistent
+
+readout:
+  n_tdi: 1                        # pushbroom, no TDI — published architecture
+  read_noise_e_rms: 200.0         # e- RMS — assumption (envelope 100–400; shot-dominated at L_typ)
+  full_well_capacity_e: 2000000.0 # e- — analysis mode: sized above signal(L_typ)·4, never clips
+  adc_bits: 14                    # — published (OLI-2; OLI was 12) [Barsi 2024]
+  gain_e_per_dn: 122.0703125      # e-/DN — full well / 2^14
+
+# Full per-element prescription (Mode 5). Emissivity is Kirchhoff-derived per element
+# (Rule 5): mirrors ε = 1−R, refractive ε = 1−T. All curves SYNTHETIC — anchors and
+# envelopes in docs/validation/landsat_oli2_source_data.md §Synthetic optical
+# prescription. Element temperatures/geometry are assumption-class; thermal
+# self-emission is many orders below L_typ at λ ≤ 2.3 µm (non-binding).
+# Rows 0–4 are shared by all nine bands; row 5 (the band filter) is CONFIGURED.
+optical_elements:
+  - {name: M1, transfer_mode: REFLECTIVE, kind: MIRROR, reflectance: data/mirror_protected_ag.csv,
+     temperature_K: 293.0, diameter_m: 0.15, distance_to_fpa_m: 0.90}
+  - {name: M2, transfer_mode: REFLECTIVE, kind: MIRROR, reflectance: data/mirror_protected_ag.csv,
+     temperature_K: 293.0, diameter_m: 0.06, distance_to_fpa_m: 0.70}
+  - {name: M3, transfer_mode: REFLECTIVE, kind: MIRROR, reflectance: data/mirror_protected_ag.csv,
+     temperature_K: 293.0, diameter_m: 0.10, distance_to_fpa_m: 0.50}
+  - {name: M4, transfer_mode: REFLECTIVE, kind: MIRROR, reflectance: data/mirror_protected_ag.csv,
+     temperature_K: 293.0, diameter_m: 0.08, distance_to_fpa_m: 0.30}
+  - {name: fpa_window, transfer_mode: REFRACTIVE, kind: WINDOW, transmittance: data/fpa_window_ar.csv,
+     temperature_K: 240.0, diameter_m: 0.05, distance_to_fpa_m: 0.02}
+  - configured:                   # row 5 — the band filter, one complete entry per band
+      B1_CA: {name: filter_b01, transfer_mode: REFRACTIVE, kind: FILTER,
+              transmittance: data/filter_b01.csv,
+              temperature_K: 210.0, diameter_m: 0.05, distance_to_fpa_m: 0.005}
+      B2_Blue: {name: filter_b02, transfer_mode: REFRACTIVE, kind: FILTER,
+                transmittance: data/filter_b02.csv,
+                temperature_K: 210.0, diameter_m: 0.05, distance_to_fpa_m: 0.005}
+      B3_Green: {name: filter_b03, transfer_mode: REFRACTIVE, kind: FILTER,
+                 transmittance: data/filter_b03.csv,
+                 temperature_K: 210.0, diameter_m: 0.05, distance_to_fpa_m: 0.005}
+      B4_Red: {name: filter_b04, transfer_mode: REFRACTIVE, kind: FILTER,
+               transmittance: data/filter_b04.csv,
+               temperature_K: 210.0, diameter_m: 0.05, distance_to_fpa_m: 0.005}
+      B5_NIR: {name: filter_b05, transfer_mode: REFRACTIVE, kind: FILTER,
+               transmittance: data/filter_b05.csv,
+               temperature_K: 210.0, diameter_m: 0.05, distance_to_fpa_m: 0.005}
+      B6_SWIR1: {name: filter_b06, transfer_mode: REFRACTIVE, kind: FILTER,
+                 transmittance: data/filter_b06.csv,
+                 temperature_K: 210.0, diameter_m: 0.05, distance_to_fpa_m: 0.005}
+      B7_SWIR2: {name: filter_b07, transfer_mode: REFRACTIVE, kind: FILTER,
+                 transmittance: data/filter_b07.csv,
+                 temperature_K: 210.0, diameter_m: 0.05, distance_to_fpa_m: 0.005}
+      B8_Pan: {name: filter_b08, transfer_mode: REFRACTIVE, kind: FILTER,
+               transmittance: data/filter_b08.csv,
+               temperature_K: 210.0, diameter_m: 0.05, distance_to_fpa_m: 0.005}
+      B9_Cirrus: {name: filter_b09, transfer_mode: REFRACTIVE, kind: FILTER,
+                  transmittance: data/filter_b09.csv,
+                  temperature_K: 210.0, diameter_m: 0.05, distance_to_fpa_m: 0.005}
+
+configurations:
+  names: [B1_CA, B2_Blue, B3_Green, B4_Red, B5_NIR, B6_SWIR1, B7_SWIR2, B8_Pan, B9_Cirrus]
+  active: B4_Red
+  baseline: B4_Red
+  parameters:
+    # Flat L_typ per band [W/m²/sr/µm at authoring time — CSVs carry canonical units]:
+    #   40, 40, 30, 22, 14, 4.0, 1.7, 23, 6.0 [Irons 2012]
+    source.target.user_radiance_path:
+      [data/l_typ_b01.csv, data/l_typ_b02.csv, data/l_typ_b03.csv, data/l_typ_b04.csv,
+       data/l_typ_b05.csv, data/l_typ_b06.csv, data/l_typ_b07.csv, data/l_typ_b08.csv,
+       data/l_typ_b09.csv]
+    # Published 50% band edges [µm] [Irons 2012]:
+    spectral_integration.filter_min_um:
+      [0.435, 0.452, 0.533, 0.636, 0.851, 1.566, 2.107, 0.503, 1.363]
+    spectral_integration.filter_max_um:
+      [0.451, 0.512, 0.590, 0.673, 0.879, 1.651, 2.294, 0.676, 1.384]
+    # Band-average QE [-] — ASSUMPTION (±0.15): Si PIN (B1–B5, B8), HgCdTe (B6, B7, B9):
+    detector.qe_value: [0.70, 0.80, 0.85, 0.87, 0.78, 0.80, 0.75, 0.83, 0.80]
+    # Dark rate [e-/s] — assumption; Si PIN negligible, HgCdTe modest at 210 K FPA:
+    detector.dark_rate_e_per_s:
+      [100.0, 100.0, 100.0, 100.0, 100.0, 5.0e4, 5.0e4, 100.0, 5.0e4]
+    # Pixel pitch [µm] — published (recalled) [Knight 2014]; pan is the 15 m band:
+    detector.pixel_pitch_x_um: [36.0, 36.0, 36.0, 36.0, 36.0, 36.0, 36.0, 18.0, 36.0]
+    detector.pixel_pitch_y_um: [36.0, 36.0, 36.0, 36.0, 36.0, 36.0, 36.0, 18.0, 36.0]
+    # Integration time [s] — published (recalled ±0.4 ms) [Knight 2014];
+    # pan runs half the 30 m line time (2× line rate):
+    spectral_integration.integration_time_s:
+      [3.6e-03, 3.6e-03, 3.6e-03, 3.6e-03, 3.6e-03, 3.6e-03, 3.6e-03, 1.8e-03, 3.6e-03]

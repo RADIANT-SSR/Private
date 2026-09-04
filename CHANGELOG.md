@@ -21,6 +21,14 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Scenario 9.4 ships the OLI-2 all-bands study** — `oli2_all_bands_study.yaml`
+  replaces the 8-band `oli2_30m_bands_study.yaml` workaround: all nine bands
+  (pan included) in one file, the shared four-mirror + window train stated once,
+  the band filter as a configured element row (nine per-band interference-strip
+  CSVs), and per-band radiance/QE/edges/pan-timing as configured parameters.
+  Every band reproduces its standalone per-band file bit-exactly (rel diff
+  0.0); the composite butcher-block filter narrative retires. Completes and
+  archives `Configuration_Set_Expansion_Plan.md`.
 - **Configuration-set capacity raised 8 → 12** (`ConfigurationSet.MAX_CONFIGS`,
   ADR-0010 D-E amendment, owner-ratified 2026-09-01). A thirteenth configuration
   now raises the actionable cap error; the GUI selector band and manager dialog

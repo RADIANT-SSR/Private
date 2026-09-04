@@ -1,6 +1,13 @@
 # Configuration Set Expansion Plan — 12-Member Cap + Per-Configuration Optical Elements
 
-**Status:** Active
+> **⚠ HISTORICAL — COMPLETE.** Archived 2026-09-03, completed by branches
+> `cfgset/phase1-cap12` (cap 8 → 12), `cfgset/phase2-elements` (configured element rows —
+> the model as re-ratified in two days of owner live review, §3a-bis), and
+> `cfgset/phase3-oli` (the nine-band OLI-2 all-bands study, bit-exact parity with every
+> per-band standalone). Gap 103 CLOSED; CU-342/CU-344 closed en route; Gap 118 and
+> CU-341/CU-343/CU-345 minted as follow-ups.
+
+**Status:** Complete
 **Owner trigger:** 2026-09-01 — "OLI is the perfect test case. What all needs to be updated?" after scenario 9.4's 8-band study hit both v1 limits on the first flagship use.
 **Ratified inputs:** cap 8 → **12** (owner, 2026-09-01); override mechanism = **replace-by-name** (§3a, owner, 2026-09-02); GUI editing scope = **full per-configuration Elements-tab editing** (§4a, owner, 2026-09-02). No decisions remain open.
 **Delivers:** Gap 103 (per-configuration prescriptions, DEFERRED → PLANNED with this document); the ADR-0010 D-E cap amendment; scenario 9.4 as the acceptance showcase — all nine OLI-2 bands in one study file.

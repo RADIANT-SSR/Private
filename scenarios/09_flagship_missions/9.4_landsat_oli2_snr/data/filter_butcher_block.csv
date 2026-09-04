@@ -1,7 +1,9 @@
 # Synthetic OLI-2 butcher-block composite filter T(lambda) [-] vs [um]: pointwise
 # union (max) of the eight non-overlapping 30 m-band strips (B1-7, B9; pan excluded
-# - it overlaps green/red). Shared element for the study files; each configuration's
-# band edges select its strip (Gap 103 / ADR-0010 D-7 workaround).
+# - it overlaps green/red). HISTORICAL: it was the shared element of the D-7-era
+# study, whose per-configuration band edges selected its strip (Gap 103 workaround).
+# Since 2026-09-03 every band carries its own filter_b0N.csv entry on a configured
+# element row, and no config file references this curve.
 # Generator: scripts/gen_oli2_coatings.py.
 0.400,0.000100
 0.405,0.000100

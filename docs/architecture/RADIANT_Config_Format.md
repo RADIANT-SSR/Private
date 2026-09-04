@@ -242,7 +242,7 @@ onto the run grid, validate normalizes it and reports its errors.
 
 ### 1.9 Configuration Sets (`configurations`) — implemented (ADR-0010, 2026-07-25)
 
-The second registered structured section. It turns one config file into one **study**: the shared parameter document exactly as §1.7–1.8 describe it, plus the per-configuration state of a `ConfigurationSet` (`RADIANT_Scripting_API.md` §2.5c) — up to **8** named *configurations* of the same modeling problem (band variants, geometry variants, nominal vs. as-built).
+The second registered structured section. It turns one config file into one **study**: the shared parameter document exactly as §1.7–1.8 describe it, plus the per-configuration state of a `ConfigurationSet` (`RADIANT_Scripting_API.md` §2.5c) — up to **12** named *configurations* of the same modeling problem (band variants, geometry variants, nominal vs. as-built).
 
 Terminology (ADR-0010 D-10): the on-disk artifact is a **config file**; a **configuration** is a member of a configuration set.
 

@@ -4,24 +4,51 @@
 Capability Expansion plan Phase GS-4 (audit O-1: per-element %R/%T/temperature mapping —
 the audit's flagship optics gap). It edits the **declarative element document** — the same
 entry dicts the ``optical_elements:`` YAML section carries — never physics objects: rows
-are (name, transfer mode, kind, R-or-T value, temperature, geometry), *Apply* serializes
-the table to entries and commits through the API (validate-and-attach through the io
-parser — the single validation authority, Kirchhoff checks included — then persisted by
-``Sensor.save``, ADR-0009 D4). The optics stage runs full-prescription on the next
-evaluation and the Throughput tab's coating-spectra figure reflects the authored train.
+are (name, transfer mode, kind, R-or-T value, temperature, geometry), and every completed
+edit serializes the table to entries and commits through the API (validate-and-attach
+through the io parser — the single validation authority, Kirchhoff checks included — then
+persisted by ``Sensor.save``, ADR-0009 D4). The optics stage runs full-prescription on the
+next evaluation and the Throughput tab's coating-spectra figure reflects the authored
+train.
+
+**Commit-on-edit (owner-ratified 2026-09-03, superseding the ADR-0009 D4 *Apply train*
+button).** The tab commits like every other parameter surface: a finished cell edit, a
+transfer/kind combo change, a *CSV file…* pick, a *Spectrum…* OK, Add, Remove, and reorder
+each write the document immediately and the debounced evaluation follows. There is no
+Apply affordance. The batched model it replaces held drafts that *looked* committed — the
+owner configured a row, edited 0.97 → 0.5, saw no SNR change, and lost the edit on
+navigation (live review, 2026-09-03).
+
+A **transiently invalid row** (a REFLECTIVE→REFRACTIVE flip before the value cell is
+retyped, a CSV path that does not resolve) is neither stored nor discarded: it stays in
+the table as a visible **pending draft**, with the io parser's actionable message shown
+inline under the table — never a modal per keystroke — and it commits, whole train
+included, on the next edit that validates. Leaving the tab may discard a *pending* draft,
+which the inline message says; a valid edit can never be lost, because it committed the
+moment it was made. A genuine write rejection that is not row validity (a
+``ConfigSetError`` from a configured-row write) still raises the shared
+:class:`~radiant.gui.widgets.actionable_error_dialog.ActionableErrorDialog` and the table
+reverts to the stored document — the same contract a parameter field honours on rejected
+input.
+
+**Entry-faithful serialization (CU-344).** A row carries the document entry it was built
+from, and a commit is *that entry with only the table's own cells overlaid* — never a
+document rebuilt from the rendering. Cells for keys the entry does not carry are blank
+and write nothing (the io parser's defaults keep applying); keys the table has no column
+for ride through untouched; a combo never rewrites the source's spelling. Without this
+the tab rewrote every row on every commit — inventing geometry keys, dropping a
+refractive row's ``reflectance``, case-folding ``kind`` — so an edit to one row changed
+the physics of rows the operator never touched (measured: SNR 220.5 [-] vs 58.5 [-] on
+the same authored study).
 
 **Emissivity is derived, never an input (Rule 5).** The ε column is **read-only**, filled
 from :func:`radiant.api.preview_optical_elements` (band-mean Kirchhoff ε: 1 − R for
 mirrors, cavity/zero for refractive). There is no ε input anywhere in this editor.
 
 **R/T value cells** accept a scalar (``0.97``) or a spectral-CSV path (``coatings/au.csv``)
-— exactly the document schema; the io parser resolves and validates either form. A
-rejected document (missing field, Kirchhoff violation, bad file) surfaces the parser's
-actionable error in the shared
-:class:`~radiant.gui.widgets.actionable_error_dialog.ActionableErrorDialog`; the live
-sensor is never touched by an invalid Apply (fail-fast in ``set_optical_elements``).
+— exactly the document schema; the io parser resolves and validates either form.
 
-Applying emits :attr:`elementsApplied`, which the host relays through the standard
+Each commit emits :attr:`elementsApplied`, which the host relays through the standard
 ``parameterEdited`` pipeline (stale dots + debounced re-evaluation). The pseudo dot-path
 ``optics_config.element_list`` identifies the edit; it is not a scalar parameter, so no
 undo command is recorded (documented Phase-9 limitation for non-scalar edits).
@@ -42,8 +69,8 @@ the displayed configuration's effective train
   :class:`~radiant.gui.widgets.configured_name_delegate.EditableConfiguredNameDelegate`
   so the Name cell stays editable (the name is part of the entry and configures with the
   row — row identity is **positional**).
-* **D-8 inline edit:** editing any cell of a configured row and applying writes that
-  configuration's entry only (:meth:`ConfigurationSet.set_element_for`); every other
+* **D-8 inline edit:** editing any cell of a configured row writes that configuration's
+  entry only (:meth:`ConfigurationSet.set_element_for`), as the edit is made; every other
   configuration's entry is untouched. Editing a shared row writes the shared document,
   which every configuration inherits.
 * The train's **structure is shared**: the row count and order are the same in every
@@ -60,6 +87,9 @@ file (Rule 19).
 
 from __future__ import annotations
 
+import copy
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
 
@@ -108,11 +138,24 @@ _SPECTRUM_ROLE: Final[int] = int(Qt.ItemDataRole.UserRole) + 1
 _SPECTRUM_SENTINEL: Final[str] = "spectral ("
 
 # Item-data role carrying the **document position** a table row was rendered from —
-# the row's identity, since row identity is positional (Gap 103 v1.1). A row the
-# operator has just added carries :data:`_NEW_ROW` until an Apply puts it in the
-# document. Kept on the Name cell, beside CONFIGURED_ROLE.
+# the row's identity, since row identity is positional (Gap 103 v1.1). Every row has
+# one: a row the operator adds is appended, so it takes the position at the end of the
+# train, and it is in the document immediately (commit-on-edit, 2026-09-03) — there is
+# no unapplied limbo state. Kept on the Name cell, beside CONFIGURED_ROLE.
 _ORIGIN_ROLE: Final[int] = int(Qt.ItemDataRole.UserRole) + 3
-_NEW_ROW: Final[int] = -1
+
+# Item-data role carrying the **source entry** a table row was built from — a deep copy
+# of the document dict itself, not its rendering (CU-344). Serialization overlays the
+# cells the table owns onto this copy, so every key the table has no column for (a
+# refractive row's ``reflectance``, a cavity row's ``R1``/``T1``/``thickness_m``, any
+# future schema key) survives an edit to a neighbouring row verbatim. A freshly added
+# row's source is its Add template. Kept on the Name cell, beside the other two roles.
+_ENTRY_ROLE: Final[int] = int(Qt.ItemDataRole.UserRole) + 4
+
+# Sentinel for "this cell is empty", which is not the same as "this cell holds an empty
+# string": an empty cell means the entry does not carry the key at all, so serialization
+# writes none — the parser's own default applies, and it stays the parser's (CU-344).
+_ABSENT: Final[object] = object()
 
 _TITLE = "Optical element train — per-element R/T, temperature, geometry (ε derived)"
 _HINT = (
@@ -120,7 +163,14 @@ _HINT = (
     "path), or an inline λ-table (Spectrum… button). ε is Kirchhoff-derived "
     "(read-only). Kind is a descriptive label for refractive elements (legend/reporting; "
     "the physics comes from R/T and temperature) — a REFLECTIVE row is always a mirror. "
-    "Apply commits the train (one API call); Save persists it in the config."
+    "Every edit commits as you make it, like any other parameter; Save persists the "
+    "train in the config."
+)
+# Shown under the table while a row does not validate (commit-on-edit, 2026-09-03): the
+# draft is held, not stored and not silently dropped, and the way out is stated.
+_PENDING_NOTE = (
+    "\n\nNot committed — the train still holds its stored entry. Fix this row and the "
+    "whole train commits with your next edit; leaving this tab discards the invalid draft."
 )
 
 _SPECTRUM_TOOLTIP = "Define the selected row's R/T as an inline λ-table (type or paste)"
@@ -142,17 +192,15 @@ _KIND_CHOICES: Final[tuple[str, ...]] = (
 _STUDY_NOTE = (
     "Showing {name}'s train. Select a row and use the Configure button (or right-click) "
     "to configure it across configurations: a configured row (red C) carries one complete "
-    "entry per configuration, and editing it here edits {name}'s entry only. Row count "
-    "and order are shared by every configuration."
+    "entry per configuration, and editing it here edits {name}'s entry only — committed as "
+    "you edit, like any other parameter. Row count and order are shared by every "
+    "configuration."
 )
 _CONFIGURED_TOOLTIP = "configured — one entry per configuration; editing edits {name} only"
 _CONFIGURE_BUTTON_TOOLTIP_NO_ROW = "Select a row to configure it across configurations"
 _CONFIGURE_ROW_TOOLTIP = (
     "Give this row one complete entry per configuration, seeded from its current shared "
     "entry — nothing changes until you edit one. The entry's name configures with the row."
-)
-_NEW_ROW_HINT = (
-    "Apply the train first: a row can be configured only once it is part of the element document."
 )
 _UNCONFIGURE_TITLE = "Un-configure element row"
 _UNCONFIGURE_BODY = (
@@ -164,8 +212,7 @@ _REMOVE_CONFIGURED_TITLE = "Remove a configured element row"
 _REMOVE_CONFIGURED_BODY = (
     "Remove element row {row}?\n\n"
     "The row is configured — every configuration carries its own entry ({summary}). "
-    "Applying the train removes the row, and all of those entries, from every "
-    "configuration."
+    "Removing it drops the row, and all of those entries, from every configuration."
 )
 _REMOVE_BLOCKED_TOOLTIP = (
     "Element row {row} below is configured, and a configured row keeps its position in "
@@ -229,14 +276,30 @@ _NEW_REFRACTIVE: Final[dict[str, Any]] = {
 }
 
 
+def _preserve_case(chosen: str, source: Any) -> str:
+    """*chosen*, spelled as *source* spelled it when the two agree case-insensitively.
+
+    The combos carry one canonical spelling per choice (``REFLECTIVE``, ``filter``), so
+    round-tripping a document authored with another (``kind: FILTER``) through the table
+    would rewrite its case on every commit — a change to a row the operator did not edit,
+    which is the CU-344 failure mode in miniature. The parser is case-insensitive on both
+    fields, so the source spelling is kept whenever it means the same thing; an actual
+    change of choice writes the combo's own spelling.
+    """
+    if isinstance(source, str) and source.lower() == chosen.lower():
+        return source
+    return chosen
+
+
 class OpticalElementEditor(QWidget):
     """The element-train table editor: rows ⇌ the declarative element document.
 
     Signals
     -------
     elementsApplied(str):
-        Emitted with :data:`ELEMENT_EDIT_PATH` after a successful Apply, and after a
-        row is configured or un-configured — every one of those writes the element
+        Emitted with :data:`ELEMENT_EDIT_PATH` after every successful commit — a cell
+        edit, a combo change, a CSV pick, a spectrum, an add, a remove, a reorder, and
+        a row configure or un-configure — because each of those writes the element
         document, so the host marks state stale and schedules a re-evaluation, the
         same contract as ``parameterEdited``.
     """
@@ -248,6 +311,20 @@ class OpticalElementEditor(QWidget):
         self.setObjectName("opticalElementEditor")
 
         self._sensor: Sensor | None = None
+        # Commit-on-edit bookkeeping (2026-09-03).
+        #
+        # ``_suspended``: programmatic table mutations (rendering a row, refilling the
+        # derived-ε column, re-marking configured rows) go through :meth:`_silent`, which
+        # raises this counter — those are not operator edits and must never commit.
+        # ``_committing``: a commit is in flight, and the host re-materializes the
+        # displayed sensor on ``elementsApplied`` and re-binds this tab; the table is
+        # already the document we just wrote, so that re-entrant reload is skipped rather
+        # than fighting the in-progress edit.
+        # ``_pending_message``: the io-parser message of a draft that does not validate —
+        # held in the table, shown inline, committed by the next edit that validates.
+        self._suspended = 0
+        self._committing = False
+        self._pending_message = ""
         # The session's configuration scope (Gap 103 v1.1): the read side of the study
         # document. Held rather than the set itself, because the scope object is stable
         # across document adoptions while the set it carries is not.
@@ -319,8 +396,6 @@ class OpticalElementEditor(QWidget):
         self._configure = QPushButton(CONFIGURE_TEXT, buttons)
         self._configure.setVisible(False)
         self._configure.setEnabled(False)
-        self._apply = QPushButton("Apply train", buttons)
-        self._apply.setObjectName("elementApplyButton")
         for b in (
             self._add_mirror,
             self._add_refractive,
@@ -333,7 +408,6 @@ class OpticalElementEditor(QWidget):
         ):
             button_row.addWidget(b)
         button_row.addStretch(1)
-        button_row.addWidget(self._apply)
         box.addWidget(buttons)
 
         self._add_mirror.clicked.connect(lambda: self._add_row(dict(_NEW_MIRROR)))
@@ -344,7 +418,10 @@ class OpticalElementEditor(QWidget):
         self._spectrum.clicked.connect(self._edit_spectrum)
         self._browse.clicked.connect(self._browse_spectral_file)
         self._configure.clicked.connect(self._toggle_configure_current)
-        self._apply.clicked.connect(self.apply_train)
+        # Commit-on-edit: a finished cell edit is a completed operator edit, exactly like
+        # leaving a parameter field. Programmatic mutations run under :meth:`_silent`
+        # (which blocks the table's signals as well), so only real edits reach here.
+        self._table.itemChanged.connect(self._on_item_changed)
 
         # Coating detail (Gap 116): selecting a row draws that element's R/T/ε on its
         # native source grid, one autoscaled panel per quantity — the inspection view
@@ -382,9 +459,18 @@ class OpticalElementEditor(QWidget):
         active configuration (badges included). *display_units* is accepted for
         signature parity with the other Inputs forms; the table's engineering columns
         are canonical-unit by design (K, m).
+
+        A re-bind that arrives **during a commit** is the host's own re-materialization
+        of the displayed configuration (``elementsApplied`` → ``_resync_display_sensor``),
+        which now fires on every edit. The table is the document that was just written,
+        so it keeps its rows, its selection, and any cell the operator is still working
+        in; only the sensor pointer is refreshed. Re-rendering there would fight the edit
+        that caused it.
         """
         del display_units  # signature parity with the other Inputs forms
         self._sensor = sensor
+        if self._committing:
+            return
         self._reload_from_document()
 
     def set_configuration_scope(self, scope: ConfigurationScope | None) -> None:
@@ -472,9 +558,20 @@ class OpticalElementEditor(QWidget):
         return list(effective or []), ""
 
     def _reload_from_document(self) -> None:
-        """Re-render the table from the document (the one render path)."""
+        """Re-render the table from the document (the one render path).
+
+        Re-rendering discards any draft the table held — which is exactly what makes a
+        *pending* (invalid) draft transient, and is safe because every **valid** edit was
+        already committed when it was made (commit-on-edit, 2026-09-03).
+        """
         self._rendered_set = self._bound_set()
+        self._clear_pending()
         entries, advisory = self._document_entries()
+        # The row the operator was on survives the re-render: with commit-on-edit the
+        # host re-materializes (and so re-binds) after every edit, and a selection that
+        # jumped back to row 0 on each keystroke would take the coating-detail pane and
+        # the row actions with it.
+        previous = self._table.currentRow()
         self._reload(entries)
         if entries:
             self._refresh_derived_emissivity(entries)
@@ -486,8 +583,8 @@ class OpticalElementEditor(QWidget):
         # (owner live-review, 2026-09-03). Selecting row 0 costs nothing and
         # never overrides an operator choice — this is the reload path, where
         # any prior selection was just discarded with the old items anyway.
-        if self._table.rowCount() and self._table.currentRow() < 0:
-            self._table.selectRow(0)
+        if self._table.rowCount():
+            self._table.selectRow(previous if 0 <= previous < self._table.rowCount() else 0)
         self.refresh_coating_detail()
         if advisory:
             self._show_detail_message(advisory)
@@ -495,19 +592,14 @@ class OpticalElementEditor(QWidget):
     def _sync_configure_button(self, row: int) -> None:
         """Point the configure button at *row*: label, enablement, and tooltip.
 
-        Mirrors :meth:`row_menu`'s three states exactly — configured row offers the
-        D-6 un-configure, shared row offers configure, an unapplied new row shows
-        the configure label disabled with the apply-first hint.
+        Mirrors :meth:`row_menu`'s two states exactly — a configured row offers the
+        D-6 un-configure, a shared row offers configure. Every row is in the document
+        (an added row commits on the spot), so there is no third, disabled state.
         """
         config_set = self._study_set()
         if config_set is None:
             return
-        origin = self._origin(row)
-        if origin == _NEW_ROW:
-            self._configure.setText(CONFIGURE_TEXT)
-            self._configure.setEnabled(False)
-            self._configure.setToolTip(_NEW_ROW_HINT)
-        elif origin in self._configured_positions():
+        if self._origin(row) in self._configured_positions():
             self._configure.setText(unconfigure_element_text(config_set.names()[0]))
             self._configure.setEnabled(True)
             self._configure.setToolTip(
@@ -560,12 +652,10 @@ class OpticalElementEditor(QWidget):
         return frozenset(config_set.configured_element_indices())
 
     def _origin(self, row: int) -> int:
-        """The document position *row* was rendered from (:data:`_NEW_ROW` if unapplied)."""
+        """The document position table *row* was rendered from (its identity)."""
         item = self._table.item(row, _COL_NAME)
-        if item is None:
-            return _NEW_ROW
-        stored = item.data(_ORIGIN_ROLE)
-        return int(stored) if isinstance(stored, int) else _NEW_ROW
+        stored = None if item is None else item.data(_ORIGIN_ROLE)
+        return int(stored) if isinstance(stored, int) else row
 
     def _is_configured_row(self, row: int) -> bool:
         """True when table *row* renders a configured document row."""
@@ -583,17 +673,20 @@ class OpticalElementEditor(QWidget):
         config_set = self._bound_set()
         active = "" if config_set is None else config_set.active
         configured = self._configured_positions()
-        for row in range(self._table.rowCount()):
-            item = self._table.item(row, _COL_NAME)
-            if item is None:
-                continue
-            marked = self._origin(row) in configured
-            item.setData(CONFIGURED_ROLE, True if marked else None)
-            item.setToolTip(
-                f"{item.text()}\n\n{_CONFIGURED_TOOLTIP.format(name=active)}"
-                if marked
-                else item.text()
-            )
+        # Marking is a programmatic write (setData / setToolTip both emit itemChanged):
+        # silenced, or every re-mark would look like an operator edit and commit.
+        with self._silent():
+            for row in range(self._table.rowCount()):
+                item = self._table.item(row, _COL_NAME)
+                if item is None:
+                    continue
+                marked = self._origin(row) in configured
+                item.setData(CONFIGURED_ROLE, True if marked else None)
+                item.setToolTip(
+                    f"{item.text()}\n\n{_CONFIGURED_TOOLTIP.format(name=active)}"
+                    if marked
+                    else item.text()
+                )
         self._table.viewport().update()
         self._sync_selection_actions()
 
@@ -667,23 +760,16 @@ class OpticalElementEditor(QWidget):
 
         The element-row counterpart of
         :func:`~radiant.gui.widgets.configure_menu.add_configuration_actions`, and it
-        takes its labels from that module so the two menus keep one vocabulary. A row
-        that is not yet in the document (just added, not applied) shows the configure
-        action **disabled with the reason** rather than absent — a silently missing
-        action leaves the analyst guessing (Rule 17's spirit for UI state).
+        takes its labels from that module so the two menus keep one vocabulary. Every
+        row of the table is a row of the document — an added row commits when it is
+        added (2026-09-03) — so the action is always live.
         """
         config_set = self._study_set()
         if config_set is None or not (0 <= row < self._table.rowCount()):
             return None
         menu = QMenu(self)
         menu.setToolTipsVisible(True)
-        origin = self._origin(row)
-        if origin == _NEW_ROW:
-            action = QAction(CONFIGURE_TEXT, menu)
-            action.setEnabled(False)
-            action.setToolTip(_NEW_ROW_HINT)
-            action.setStatusTip(_NEW_ROW_HINT)
-        elif origin in self._configured_positions():
+        if self._origin(row) in self._configured_positions():
             action = QAction(unconfigure_element_text(config_set.names()[0]), menu)
             action.triggered.connect(lambda: self._unconfigure_row(row))
         else:
@@ -702,9 +788,9 @@ class OpticalElementEditor(QWidget):
         which is what shows the red "C".
         """
         config_set = self._study_set()
-        origin = self._origin(row)
-        if config_set is None or origin == _NEW_ROW:
+        if config_set is None:
             return
+        origin = self._origin(row)
         try:
             config_set.configure_element(origin)
         except RadiantError as exc:
@@ -771,12 +857,19 @@ class OpticalElementEditor(QWidget):
 
         One GUI action ↔ one API call: the selection maps to
         :func:`radiant.api.plot_coating_detail` with the table's current
-        entries passed as the document override, so an unapplied draft row is
-        inspectable before Apply — and, in a study, the entries are the displayed
-        configuration's, so a configured row plots *its* coating. A row the io parser
-        rejects (bad path, malformed value) shows the parser's actionable message in
-        place of the figure — never a blank pane, never a crash (Rule 15/17).
+        entries passed as the document override, so a draft row is inspectable as it is
+        typed — and, in a study, the entries are the displayed configuration's, so a
+        configured row plots *its* coating. A row the io parser rejects (bad path,
+        malformed value) shows the parser's actionable message in place of the figure —
+        never a blank pane, never a crash (Rule 15/17).
+
+        While a **pending draft** is held, that message owns this pane: it is the one
+        place the operator is told the train did not commit, so a selection change must
+        not quietly paint over it.
         """
+        if self._pending_message:
+            self._show_detail_message(self._pending_message)
+            return
         row = self._table.currentRow()
         if self._sensor is None or row < 0 or row >= self._table.rowCount():
             self._show_detail_message(_DETAIL_PROMPT)
@@ -792,14 +885,29 @@ class OpticalElementEditor(QWidget):
         except RadiantError as exc:
             self._show_detail_message(str(exc))
             return
+        self._apply_message_state()
         self._detail_message.setVisible(False)
         self._detail_canvas.setVisible(True)
         self._detail_canvas.show_figure(figure)
 
     def _show_detail_message(self, text: str) -> None:
+        """Show *text* under the table, in the warn register while a draft is pending.
+
+        The pending state is carried by a QSS ``state`` property (the ``geoModeFamily``
+        conflict-tint idiom), so the colour comes from the theme's warn token — no colour
+        literal in this widget (§8 theming).
+        """
         self._detail_message.setText(text)
+        self._apply_message_state()
         self._detail_message.setVisible(True)
         self._detail_canvas.setVisible(False)
+
+    def _apply_message_state(self) -> None:
+        """Re-polish the message label for the current pending state."""
+        self._detail_message.setProperty("state", "pending" if self._pending_message else "normal")
+        style = self._detail_message.style()
+        style.unpolish(self._detail_message)
+        style.polish(self._detail_message)
 
     def set_dark(self, dark: bool) -> None:
         """Adopt the dark/light plot theme; re-render the detail if one is shown."""
@@ -821,13 +929,43 @@ class OpticalElementEditor(QWidget):
 
     # -- table mechanics ------------------------------------------------------
 
-    def _append_row(self, entry: dict[str, Any], origin: int) -> None:
-        # Silence the table while the row is half-built: Qt emits selection changes
-        # during a structural mutation, and this widget's own listeners read the table
-        # back (the coating-detail pane serializes every row), which asserts on a row
-        # whose cell widgets are not there yet. Blocking, then refreshing explicitly,
-        # is what keeps a listener from ever seeing a half-mutated table.
+    @contextmanager
+    def _silent(self) -> Iterator[None]:
+        """Mutate the table programmatically without it reading as an operator edit.
+
+        Two things at once, because they are the same intent. The signal blocker keeps
+        this widget's own listeners from seeing a half-mutated table (Qt emits selection
+        changes mid-mutation, and the coating-detail pane serializes every row). The
+        ``_suspended`` counter keeps the same writes from **committing**: rendering a
+        row, refilling the derived-ε column, and re-marking configured rows all call
+        ``setText`` / ``setData`` / ``setToolTip``, every one of which emits
+        ``itemChanged`` — indistinguishable, without this, from the operator finishing an
+        edit (the commit-storm the reload path would otherwise be).
+        """
+        self._suspended += 1
         blocker = QSignalBlocker(self._table)
+        try:
+            yield
+        finally:
+            del blocker
+            self._suspended -= 1
+
+    def _append_row(self, entry: dict[str, Any], origin: int) -> None:
+        with self._silent():
+            self._build_row(entry, origin)
+
+    def _build_row(self, entry: dict[str, Any], origin: int) -> None:
+        """Render *entry* as a new last row, carrying the entry itself on the row.
+
+        Cells show what the entry **says**, and nothing else: a key the entry does not
+        carry renders as an empty cell, never as a plausible-looking number (CU-344).
+        The table cannot show the parser's defaults honestly — they are the parser's
+        (``temperature_K`` 0.0 K, ``diameter_m`` 1.0 m, ``distance_to_fpa_m`` 1.0 m,
+        applied at parse time), and the invented 293.0 / 0.1 / 1.0 the cells used to
+        show were neither those defaults nor the operator's authorship. An empty cell
+        is the true statement "this entry does not specify it", and it serializes back
+        to no key, so the parser's default keeps applying.
+        """
         row = self._table.rowCount()
         self._table.insertRow(row)
 
@@ -844,8 +982,12 @@ class OpticalElementEditor(QWidget):
         # what the cell actually holds.
         name_item.setToolTip(name_item.text())
         # Row identity is positional, so every row remembers the document position it
-        # came from; a row added here has none until an Apply puts it in the document.
+        # came from; a row added here takes the position it is appended at, and is in
+        # the document as soon as the append commits.
         name_item.setData(_ORIGIN_ROLE, origin)
+        # The source entry rides with the row (CU-344) — serialization overlays the
+        # table's own cells onto this copy rather than rebuilding the entry from them.
+        name_item.setData(_ENTRY_ROLE, copy.deepcopy(entry))
         self._table.setItem(row, _COL_NAME, name_item)
 
         transfer_combo = QComboBox(self._table)
@@ -864,64 +1006,77 @@ class OpticalElementEditor(QWidget):
             lambda text, combo=kind_combo: self._sync_kind_combo(combo, text)
         )
         self._sync_kind_combo(kind_combo, transfer)
+        # Commit-on-edit: a combo change is a completed edit. Connected **after** the
+        # seeding above, and after the kind-sync connection, so the commit sees the
+        # row the operator will see (a REFLECTIVE flip locks Kind to mirror first).
+        transfer_combo.currentTextChanged.connect(self._on_widget_edited)
+        kind_combo.currentTextChanged.connect(self._on_widget_edited)
 
         value_item = QTableWidgetItem(str(value))
         value_item.setToolTip(str(value))
         if spectrum is not None:
             value_item.setData(_SPECTRUM_ROLE, spectrum)
         self._table.setItem(row, _COL_VALUE, value_item)
-        self._table.setItem(
-            row, _COL_TEMP, QTableWidgetItem(str(entry.get("temperature_K", 293.0)))
-        )
-        self._table.setItem(row, _COL_DIAM, QTableWidgetItem(str(entry.get("diameter_m", 0.1))))
-        self._table.setItem(
-            row, _COL_DIST, QTableWidgetItem(str(entry.get("distance_to_fpa_m", 1.0)))
-        )
+        for column, key in (
+            (_COL_TEMP, "temperature_K"),
+            (_COL_DIAM, "diameter_m"),
+            (_COL_DIST, "distance_to_fpa_m"),
+        ):
+            stored = entry.get(key)
+            text = "" if stored is None else str(stored)
+            self._table.setItem(row, column, QTableWidgetItem(text))
         eps_item = QTableWidgetItem("—")
         eps_item.setFlags(eps_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
         eps_item.setToolTip(_EPS_TOOLTIP)
         self._table.setItem(row, _COL_EPS, eps_item)
-        del blocker  # the row is complete: signals flow again
 
-    @staticmethod
-    def _sync_kind_combo(kind_combo: QComboBox, transfer_text: str) -> None:
+    def _sync_kind_combo(self, kind_combo: QComboBox, transfer_text: str) -> None:
         """Lock Kind to "mirror" (disabled) on a REFLECTIVE row; free it on REFRACTIVE.
 
         Kind is a descriptive label for refractive elements; a reflective element is
         a mirror by construction, so showing an editable refractive kind there would
-        misstate the document (owner report 2026-07-16).
+        misstate the document (owner report 2026-07-16). The rewrite is silenced: it is
+        this widget correcting the row, not the operator editing Kind, so it must not
+        commit on its own — the transfer change that caused it does that, once, after
+        the row is consistent.
         """
-        reflective = transfer_text.upper() == "REFLECTIVE"
-        if reflective:
-            if kind_combo.findText("mirror") < 0:
-                kind_combo.insertItem(0, "mirror")
-            kind_combo.setCurrentText("mirror")
-            kind_combo.setEnabled(False)
-        else:
-            kind_combo.setEnabled(True)
-            mirror_idx = kind_combo.findText("mirror")
-            if mirror_idx >= 0:
-                if kind_combo.currentText() == "mirror":
-                    kind_combo.setCurrentText("lens")
-                kind_combo.removeItem(mirror_idx)
+        with self._silent():
+            reflective = transfer_text.upper() == "REFLECTIVE"
+            if reflective:
+                if kind_combo.findText("mirror") < 0:
+                    kind_combo.insertItem(0, "mirror")
+                kind_combo.setCurrentText("mirror")
+                kind_combo.setEnabled(False)
+            else:
+                kind_combo.setEnabled(True)
+                mirror_idx = kind_combo.findText("mirror")
+                if mirror_idx >= 0:
+                    if kind_combo.currentText() == "mirror":
+                        kind_combo.setCurrentText("lens")
+                    kind_combo.removeItem(mirror_idx)
 
     def _add_row(self, entry: dict[str, Any]) -> None:
-        """Append a new draft row — a **shared** row of the train, in every configuration.
+        """Append a row — a **shared** row of the train, in every configuration — and commit.
 
         The train's structure is shared, so a row added here belongs to every
         configuration; it is seeded shared, and configuring it is a separate, explicit
-        act (the row menu). Appending at the end shifts no configured row, so it is
-        always expressible.
+        act (the button or the row menu). Appending at the end shifts no configured row,
+        so it is always expressible, and it takes the document position at the end of the
+        train. The templates are complete, valid entries, so the append commits at once
+        (2026-09-03) — which is what makes the new row configurable immediately.
         """
-        self._append_row(entry, _NEW_ROW)
+        self._append_row(entry, self._table.rowCount())
         self._refresh_configured_marks()
+        self._table.selectRow(self._table.rowCount() - 1)
+        self._commit_structure()
 
     def _remove_current(self) -> None:
         """Drop the selected row from the train — for a configured row, behind a confirm.
 
         Removing a configured row discards **every** configuration's entry for it, which
         is the same irreversible per-configuration loss the un-configure collapse asks
-        about, so it asks in the same way and names the entries at stake.
+        about, so it asks in the same way and names the entries at stake. The confirmed
+        removal commits immediately.
         """
         row = self._table.currentRow()
         if row < 0:
@@ -940,11 +1095,11 @@ class OpticalElementEditor(QWidget):
             )
             if answer != QMessageBox.StandardButton.Ok:
                 return
-        blocker = QSignalBlocker(self._table)
-        self._table.removeRow(row)
-        del blocker
+        with self._silent():
+            self._table.removeRow(row)
         self._refresh_configured_marks()
         self.refresh_coating_detail()
+        self._commit_structure()
 
     def _move_current(self, delta: int) -> None:
         row = self._table.currentRow()
@@ -956,6 +1111,19 @@ class OpticalElementEditor(QWidget):
         self._reload_rows(rows)
         self._refresh_configured_marks()
         self._table.setCurrentCell(target, _COL_NAME)
+        self._commit_structure()
+
+    def _commit_structure(self) -> None:
+        """Commit a row add / remove / reorder, then re-read the document.
+
+        The re-read is what a cell edit does not need: a structural change renumbers
+        the document positions every row's identity is (a removed row leaves a hole in
+        the numbering the table would otherwise keep), so the table is re-rendered from
+        the document that was just written. A commit that could not be made leaves the
+        draft table standing as a pending draft, exactly as for a cell edit.
+        """
+        if self.apply_train():
+            self._reload_from_document()
 
     def _rows(self) -> list[tuple[dict[str, Any], int]]:
         """The table as (entry, document position) pairs — identity travels with the row."""
@@ -966,64 +1134,141 @@ class OpticalElementEditor(QWidget):
         self._reload_rows([(entry, index) for index, entry in enumerate(entries)])
 
     def _reload_rows(self, rows: list[tuple[dict[str, Any], int]]) -> None:
-        blocker = QSignalBlocker(self._table)
-        self._table.setRowCount(0)
-        for entry, origin in rows:
-            self._append_row(entry, origin)
-        del blocker
+        with self._silent():
+            self._table.setRowCount(0)
+            for entry, origin in rows:
+                self._build_row(entry, origin)
 
     # -- document assembly ----------------------------------------------------
 
     def entries(self) -> list[dict[str, Any]]:
-        """The table serialized to the declarative element document (verbatim cells).
+        """The table serialized to the declarative element document — entry-faithful.
+
+        Each row serializes as **its source entry with the table's own cells overlaid**
+        (CU-344), never as a document rebuilt from the rendering. That distinction is the
+        whole contract of this tab: the table has seven columns and the element schema has
+        many more keys, so a rebuild silently rewrites every row on every commit — it
+        invents the keys the columns default (geometry, temperature), drops the keys no
+        column shows (a refractive row's ``reflectance``, a cavity row's per-surface
+        fields), and rewrites the case of the ones it does show. Editing one row then
+        changes the physics of rows the operator never touched, which is exactly what
+        CU-344 measured (SNR 220.5 [-] vs 58.5 [-] on the same authored study).
+
+        What the table owns, and therefore overlays:
+
+        * ``name`` and ``transfer_mode`` (every row has both — the parser requires them);
+        * ``kind`` — refractive rows only, since a REFLECTIVE row is a mirror by
+          construction and its Kind combo is locked;
+        * the R-or-T value key, ``reflectance`` or ``transmittance`` per transfer mode;
+        * ``temperature_K``, ``diameter_m``, ``distance_to_fpa_m``.
+
+        Everything else rides through untouched. Case is preserved wherever the combo
+        agrees with the source case-insensitively, so a document authored with
+        ``kind: FILTER`` stays ``FILTER`` — a commit must not rewrite what it did not
+        edit, not even its spelling.
+
+        An **empty cell writes no key** (and a value typed into an empty cell writes one:
+        that is a real edit, and clearing a cell removes the key again). The io parser's
+        defaults then apply, which is what the blank cell was truthfully saying.
+
+        A **transfer-mode flip** is the one deliberate act that deletes: the old mode's
+        value key is removed and the new one written (a REFLECTIVE row must not carry a
+        stale ``transmittance``), and a flip to REFLECTIVE also drops ``kind``, which the
+        locked combo no longer describes.
 
         Value cells parse as float when numeric, otherwise pass through as a
-        spectral-CSV path string — the two forms the document schema accepts. No
-        physics validation happens here (the io parser owns it, on Apply).
+        spectral-CSV path string (or the inline λ-table held on the cell) — the three
+        forms the document schema accepts. No physics validation happens here (the io
+        parser owns it, before every commit).
         """
-        result: list[dict[str, Any]] = []
-        for row in range(self._table.rowCount()):
-            transfer_widget = self._table.cellWidget(row, _COL_TRANSFER)
-            kind_widget = self._table.cellWidget(row, _COL_KIND)
-            assert isinstance(transfer_widget, QComboBox)  # noqa: S101 — widget invariant
-            assert isinstance(kind_widget, QComboBox)  # noqa: S101 — widget invariant
-            transfer = transfer_widget.currentText()
-            entry: dict[str, Any] = {
-                "name": self._cell_text(row, _COL_NAME),
-                "transfer_mode": transfer,
-                "temperature_K": self._cell_number(row, _COL_TEMP),
-                "diameter_m": self._cell_number(row, _COL_DIAM),
-                "distance_to_fpa_m": self._cell_number(row, _COL_DIST),
-            }
-            # A value cell is: an inline λ-table (dict in _SPECTRUM_ROLE, cell shows
-            # the "spectral (N pts)" sentinel), a scalar when the text parses, or a
-            # spectral-CSV path string — the three forms the document schema accepts.
-            # Typing over the sentinel discards the stored table (the text wins).
-            value_item = self._table.item(row, _COL_VALUE)
-            stored = value_item.data(_SPECTRUM_ROLE) if value_item is not None else None
-            text = self._cell_text(row, _COL_VALUE)
-            value: Any
-            if isinstance(stored, dict) and text.startswith(_SPECTRUM_SENTINEL):
-                value = stored
-            else:
-                try:
-                    value = float(text)
-                except ValueError:
-                    value = text
-            if transfer == "REFLECTIVE":
-                entry["reflectance"] = value
-            else:
-                entry["kind"] = kind_widget.currentText()
-                entry["transmittance"] = value
-            result.append(entry)
-        return result
+        return [self._row_entry(row) for row in range(self._table.rowCount())]
+
+    def _row_entry(self, row: int) -> dict[str, Any]:
+        """One row's document entry: its source, overlaid with the cells the table owns."""
+        transfer_widget = self._table.cellWidget(row, _COL_TRANSFER)
+        kind_widget = self._table.cellWidget(row, _COL_KIND)
+        assert isinstance(transfer_widget, QComboBox)  # noqa: S101 — widget invariant
+        assert isinstance(kind_widget, QComboBox)  # noqa: S101 — widget invariant
+
+        source = self._source_entry(row)
+        entry = copy.deepcopy(source)
+        transfer = transfer_widget.currentText()
+        flipped = str(source.get("transfer_mode", transfer)).upper() != transfer.upper()
+
+        self._overlay(entry, "name", self._cell_scalar(row, _COL_NAME))
+        entry["transfer_mode"] = _preserve_case(transfer, source.get("transfer_mode"))
+        if transfer.upper() == "REFLECTIVE":
+            value_key, retired = "reflectance", ("transmittance", "kind")
+        else:
+            value_key, retired = "transmittance", ("reflectance",)
+            entry["kind"] = _preserve_case(kind_widget.currentText(), source.get("kind"))
+        if flipped:
+            for key in retired:
+                entry.pop(key, None)
+        self._overlay(entry, value_key, self._cell_value(row))
+        for column, key in (
+            (_COL_TEMP, "temperature_K"),
+            (_COL_DIAM, "diameter_m"),
+            (_COL_DIST, "distance_to_fpa_m"),
+        ):
+            self._overlay(entry, key, self._cell_scalar(row, column))
+        return entry
+
+    def _source_entry(self, row: int) -> dict[str, Any]:
+        """The document entry table *row* was built from (``{}`` for a row without one)."""
+        item = self._table.item(row, _COL_NAME)
+        stored = None if item is None else item.data(_ENTRY_ROLE)
+        return stored if isinstance(stored, dict) else {}
+
+    def _store_source_entries(self, entries: list[dict[str, Any]]) -> None:
+        """Re-seed each row's source from the entries just committed.
+
+        Keeps the carried source and the stored document in step, so the next edit
+        overlays onto what is actually stored — and so a transfer-mode flip retires the
+        old value key once, on the commit that made it, rather than on every commit
+        thereafter.
+        """
+        with self._silent():
+            for row, entry in enumerate(entries):
+                item = self._table.item(row, _COL_NAME)
+                if item is not None:
+                    item.setData(_ENTRY_ROLE, copy.deepcopy(entry))
+
+    @staticmethod
+    def _overlay(entry: dict[str, Any], key: str, value: Any) -> None:
+        """Write *key* from a cell — or drop it, when the cell is empty (CU-344)."""
+        if value is _ABSENT:
+            entry.pop(key, None)
+        else:
+            entry[key] = value
+
+    def _cell_value(self, row: int) -> Any:
+        """The R/T value cell as a document value.
+
+        An inline λ-table (dict in ``_SPECTRUM_ROLE``, cell showing the "spectral (N pts)"
+        sentinel), a scalar when the text parses, or a spectral-CSV path string — the
+        three forms the document schema accepts; ``_ABSENT`` when the cell is empty.
+        Typing over the sentinel discards the stored table (the text wins).
+        """
+        value_item = self._table.item(row, _COL_VALUE)
+        stored = value_item.data(_SPECTRUM_ROLE) if value_item is not None else None
+        text = self._cell_text(row, _COL_VALUE)
+        if isinstance(stored, dict) and text.startswith(_SPECTRUM_SENTINEL):
+            return stored
+        return self._as_scalar(text)
 
     def _cell_text(self, row: int, col: int) -> str:
         item = self._table.item(row, col)
         return item.text().strip() if item is not None else ""
 
-    def _cell_number(self, row: int, col: int) -> Any:
-        text = self._cell_text(row, col)
+    def _cell_scalar(self, row: int, col: int) -> Any:
+        """A cell as a document value: float, string, or ``_ABSENT`` when empty."""
+        return self._as_scalar(self._cell_text(row, col))
+
+    @staticmethod
+    def _as_scalar(text: str) -> Any:
+        if not text:
+            return _ABSENT
         try:
             return float(text)
         except ValueError:
@@ -1032,9 +1277,11 @@ class OpticalElementEditor(QWidget):
     def _edit_spectrum(self) -> None:
         """Open the λ-table dialog for the selected row's R/T value (type or paste).
 
-        OK stores the inline table on the cell (shown as "spectral (N pts)"); the
-        document form is `{"wavelength_um": [...], "values": [...]}` — the same
-        structure the YAML section carries, so it persists with the train.
+        OK stores the inline table on the cell (shown as "spectral (N pts)") and
+        commits; the document form is `{"wavelength_um": [...], "values": [...]}` — the
+        same structure the YAML section carries, so it persists with the train. The two
+        cell writes are silenced and followed by **one** commit, so a spectrum is one
+        edit, not two.
         """
         row = self._table.currentRow()
         if row < 0:
@@ -1050,11 +1297,13 @@ class OpticalElementEditor(QWidget):
         if exec_dialog(dialog) != int(dialog.DialogCode.Accepted):
             return
         spectrum = dialog.spectrum()
-        if value_item is None:
-            value_item = QTableWidgetItem()
-            self._table.setItem(row, _COL_VALUE, value_item)
-        value_item.setData(_SPECTRUM_ROLE, spectrum)
-        value_item.setText(f"spectral ({len(spectrum['wavelength_um'])} pts)")
+        with self._silent():
+            if value_item is None:
+                value_item = QTableWidgetItem()
+                self._table.setItem(row, _COL_VALUE, value_item)
+            value_item.setData(_SPECTRUM_ROLE, spectrum)
+            value_item.setText(f"spectral ({len(spectrum['wavelength_um'])} pts)")
+        self.apply_train()
 
     def _browse_spectral_file(self) -> None:
         """Pick a spectral CSV for the selected row's R/T with a file dialog.
@@ -1062,10 +1311,12 @@ class OpticalElementEditor(QWidget):
         Typing a path into the value cell stays legal, but navigating to a saved
         file is the ergonomic route (owner live-review, 2026-09-03). The chosen
         path lands in the cell exactly as if typed — the io parser remains the
-        one validator, at Apply — and replaces any inline λ-table on the cell
-        (one value form per row at a time, mirroring how typing over the cell
-        behaves). The dialog starts where the current value points, so re-picking
-        a neighbouring band's file is one click, not a filesystem walk.
+        one validator — and replaces any inline λ-table on the cell (one value
+        form per row at a time, mirroring how typing over the cell behaves). The
+        dialog starts where the current value points, so re-picking a
+        neighbouring band's file is one click, not a filesystem walk. The pick
+        commits on the spot; a file the parser cannot read leaves the picked path
+        in the cell as a pending draft with the parser's message, not a modal.
         """
         row = self._table.currentRow()
         if row < 0:
@@ -1086,61 +1337,110 @@ class OpticalElementEditor(QWidget):
         )
         if not filename:
             return
-        if value_item is None:
-            value_item = QTableWidgetItem()
-            self._table.setItem(row, _COL_VALUE, value_item)
-        value_item.setData(_SPECTRUM_ROLE, None)
-        value_item.setText(filename)
-        value_item.setToolTip(filename)
+        with self._silent():
+            if value_item is None:
+                value_item = QTableWidgetItem()
+                self._table.setItem(row, _COL_VALUE, value_item)
+            value_item.setData(_SPECTRUM_ROLE, None)
+            value_item.setText(filename)
+            value_item.setToolTip(filename)
+        self.apply_train()
 
-    # -- commit ---------------------------------------------------------------
+    # -- commit-on-edit --------------------------------------------------------
+
+    def _on_item_changed(self, item: QTableWidgetItem) -> None:
+        """A finished cell edit commits the train (commit-on-edit, 2026-09-03).
+
+        The delegate has already written the cell, so the table is what the operator
+        means; committing here is the element-document equivalent of a parameter field
+        losing focus. Programmatic writes never arrive (they run under :meth:`_silent`),
+        and the derived-ε column is read-only, so its refill cannot be an edit either.
+        """
+        if self._suspended or item.column() == _COL_EPS:
+            return
+        self.apply_train()
+
+    def _on_widget_edited(self, _text: str) -> None:
+        """A transfer- or kind-combo change commits the train."""
+        if self._suspended:
+            return
+        self.apply_train()
 
     def apply_train(self) -> bool:
-        """Commit the table — one user action, the document's own write path.
+        """Commit the table — the document's own write path, one edit at a time.
+
+        Named for what it does rather than for a button: the *Apply train* button was
+        retired on 2026-09-03 (one commit model, Rule 27) and this is the routine every
+        edit routes through.
 
         * **No set bound** (a bare-sensor binding) or a **single-configuration session**:
           one ``Sensor.set_optical_elements`` — today's behaviour, unchanged.
         * **A study**: the shared skeleton goes to one ``set_optical_elements`` on the
           set's base, and each configured row's edited entry goes to one
           ``set_element_for(row, displayed, entry)`` — the displayed configuration only
-          (D-8). See :meth:`_apply_study`.
+          (D-8). See :meth:`_write_study`.
 
-        Success re-reads the table from the document, refills the derived-ε column, and
-        emits :attr:`elementsApplied`; a rejection shows the actionable error dialog and
-        stores nothing.
+        Every row is validated through the io parser **first**, so a train that does not
+        yet describe a legal element stores nothing — not even the rows ahead of the
+        offending one — and becomes a visible **pending draft** instead of a modal
+        (:meth:`_show_pending`). Success clears any pending state, refills the derived-ε
+        column, and emits :attr:`elementsApplied`. A write that fails for a reason other
+        than row validity keeps the actionable dialog and reverts the table
+        (:meth:`_reject`).
+
+        The whole commit runs with ``_committing`` raised, because the host re-binds this
+        tab from inside the ``elementsApplied`` emission (it re-materializes the displayed
+        configuration): the table is already the document being written, so that re-entrant
+        reload is skipped rather than racing the edit that triggered it.
         """
         sensor = self._sensor
-        if sensor is None:
+        if sensor is None or self._committing:
             return False
+        entries = self.entries()
+        rejection = self._rejection(entries)
+        if rejection is not None:
+            self._show_pending(self._pending_text(rejection))
+            return False
+        self._committing = True
+        try:
+            if not self._write(entries):
+                return False
+            self._store_source_entries(entries)
+            self._clear_pending()
+            committed, _advisory = self._document_entries()
+            self._refresh_derived_emissivity(committed or entries)
+            self._refresh_configured_marks()
+            self.elementsApplied.emit(ELEMENT_EDIT_PATH)
+        finally:
+            self._committing = False
+        return True
+
+    def _write(self, entries: list[dict[str, Any]]) -> bool:
+        """Route the validated *entries* to the document that owns them."""
         config_set = self._bound_set()
         if config_set is None:
-            return self._apply_to_sensor(sensor)
+            sensor = self._sensor
+            return False if sensor is None else self._write_to_sensor(sensor, entries)
         if self._study_set() is None and not config_set.configured_element_indices():
             # One member and no configured row: the table *is* the document. Same call,
             # same object as before in a plain session (the base is the displayed sensor).
-            return self._apply_to_sensor(config_set.base)
-        return self._apply_study(config_set)
+            return self._write_to_sensor(config_set.base, entries)
+        return self._write_study(config_set, entries)
 
-    def _apply_to_sensor(self, sensor: Sensor) -> bool:
+    def _write_to_sensor(self, sensor: Sensor, entries: list[dict[str, Any]]) -> bool:
         """The single-document path: attach the table to *sensor* (today's behaviour).
 
         An empty table detaches the document (back to the scalar/params transmission
         mode).
         """
-        entries = self.entries()
         try:
-            if entries:
-                sensor.set_optical_elements(entries)
-                self._refresh_derived_emissivity(sensor.optical_elements() or entries)
-            else:
-                sensor.set_optical_elements(None)
+            sensor.set_optical_elements(entries or None)
         except RadiantError as exc:
-            exec_dialog(ActionableErrorDialog(exc, ELEMENT_EDIT_PATH, self))
+            self._reject(exc)
             return False
-        self.elementsApplied.emit(ELEMENT_EDIT_PATH)
         return True
 
-    def _apply_study(self, config_set: ConfigurationSet) -> bool:
+    def _write_study(self, config_set: ConfigurationSet, entries: list[dict[str, Any]]) -> bool:
         """Write a study's train: the shared skeleton, plus the displayed member's entries.
 
         The table renders the displayed configuration's effective train, so its rows split
@@ -1156,26 +1456,16 @@ class OpticalElementEditor(QWidget):
           (``unconfigure_element``) and then simply left out of the skeleton, which is
           what drops it from every configuration.
 
-        Every entry is validated through the io parser **before** anything is written, so
-        a rejected train stores nothing — including the rows that would have been written
-        ahead of the offending one. The rejection an invalid configured row shows is the
-        API's own, which names the configuration it belongs to.
+        Row validity was settled by :meth:`_rejection` before this runs, so a failure here
+        is the API refusing the *write* (a position that no longer exists, a configuration
+        that does not resolve) — the actionable-dialog-and-revert case.
         """
         active = config_set.active
-        rows = self._rows()
+        origins = [self._origin(row) for row in range(len(entries))]
+        rows = list(zip(entries, origins, strict=True))
         configured = self._configured_positions()
         kept = {origin for _entry, origin in rows if origin in configured}
         skeleton = [entry for entry, origin in rows if origin not in kept]
-
-        invalid = self._first_invalid(rows)
-        if invalid is not None:
-            index, rejection = invalid
-            entry, origin = rows[index]
-            if origin in kept:
-                rejection = self._member_rejection(config_set, origin, entry) or rejection
-            exec_dialog(ActionableErrorDialog(rejection, ELEMENT_EDIT_PATH, self))
-            return False
-
         try:
             for origin in sorted(configured - kept, reverse=True):
                 config_set.unconfigure_element(origin)
@@ -1184,28 +1474,63 @@ class OpticalElementEditor(QWidget):
                 if origin in kept:
                     config_set.set_element_for(origin, active, entry)
         except RadiantError as exc:
-            exec_dialog(ActionableErrorDialog(exc, ELEMENT_EDIT_PATH, self))
+            self._reject(exc)
             return False
-        self._reload_from_document()
-        self.elementsApplied.emit(ELEMENT_EDIT_PATH)
         return True
 
-    @staticmethod
-    def _first_invalid(
-        rows: list[tuple[dict[str, Any], int]],
-    ) -> tuple[int, RadiantError] | None:
-        """The first row the io parser rejects, with its error (``None`` when all pass).
+    def _reject(self, exc: RadiantError) -> None:
+        """A genuine write rejection: say so, and put the stored document back.
 
-        The gate that makes a study Apply all-or-nothing: the per-row writes below it
-        cannot be rolled back, so nothing is written until every row has been through the
-        single validation authority (Kirchhoff included, Rule 5).
+        Not the transiently-invalid-row case (that is a pending draft) — this is the API
+        refusing a write the table cannot fix by being typed into, so the table reverts to
+        what is stored, exactly as a parameter field snaps back to the stored value on
+        rejected input.
         """
-        for index, (entry, _origin) in enumerate(rows):
+        exec_dialog(ActionableErrorDialog(exc, ELEMENT_EDIT_PATH, self))
+        self._reload_from_document()
+
+    # -- pending drafts (transiently invalid rows) ------------------------------
+
+    def _rejection(self, entries: list[dict[str, Any]]) -> tuple[int | None, RadiantError] | None:
+        """The io parser's verdict on the table: ``(row, error)``, or ``None`` when clean.
+
+        Row by row first — so the message can be attributed to a row, and to the
+        configuration that owns it — then the document as a whole, which is where
+        cross-row rules (duplicate names) live. ``row`` is ``None`` for a whole-document
+        rejection. This is the single validation authority (Kirchhoff included, Rule 5)
+        and it runs before **anything** is written, so a train that does not validate
+        stores nothing.
+        """
+        if not entries:
+            return None
+        for index, entry in enumerate(entries):
             try:
                 normalize_element_document([dict(entry)])
             except RadiantError as exc:
                 return index, exc
+        try:
+            normalize_element_document([dict(entry) for entry in entries])
+        except RadiantError as exc:
+            return None, exc
         return None
+
+    def _pending_text(self, rejection: tuple[int | None, RadiantError]) -> str:
+        """The inline message for a pending draft: what is wrong, and what happens next.
+
+        For a configured row the parser's own error does not know whose entry it is, so
+        the offending entry is re-offered to the call that owns it —
+        ``set_element_for``, which validates through the same parser and stores nothing on
+        failure — purely to obtain the message that **names the configuration**.
+        """
+        index, exc = rejection
+        config_set = self._bound_set()
+        if index is not None and config_set is not None:
+            origin = self._origin(index)
+            if origin in self._configured_positions():
+                entries = self.entries()
+                if index < len(entries):
+                    exc = self._member_rejection(config_set, origin, entries[index]) or exc
+        return f"{exc}{_PENDING_NOTE}"
 
     @staticmethod
     def _member_rejection(
@@ -1213,12 +1538,8 @@ class OpticalElementEditor(QWidget):
     ) -> RadiantError | None:
         """The API's own rejection of *entry* for a configured row (naming the member).
 
-        The gate above holds the io parser's error, which does not know whose entry it
-        is. Routing the offending entry through the call that owns it — ``set_element_for``,
-        which validates through the same parser and stores nothing on failure — produces
-        the message the analyst needs: the configuration is named. ``None`` only if that
-        call unexpectedly accepts the entry, in which case the caller shows the parser's
-        own error rather than nothing.
+        ``None`` only if that call unexpectedly accepts the entry, in which case the
+        caller keeps the parser's own error rather than nothing.
         """
         try:
             config_set.set_element_for(origin, config_set.active, entry)
@@ -1226,13 +1547,30 @@ class OpticalElementEditor(QWidget):
             return exc
         return None
 
+    def _show_pending(self, message: str) -> None:
+        """Hold the draft: keep the table, show *message* inline, mark the state.
+
+        Never a modal — a dialog per keystroke is what makes a mid-restructure row
+        (REFLECTIVE→REFRACTIVE before the value is retyped) unusable. The draft stays
+        visible and editable, the message carries the parser's actionable text plus the
+        note that it is not committed, and the next edit that validates commits the whole
+        train (Rule 17: named, not swallowed).
+        """
+        self._pending_message = message
+        self._show_detail_message(message)
+
+    def _clear_pending(self) -> None:
+        """Drop the pending-draft state (it committed, or the draft was discarded)."""
+        self._pending_message = ""
+
     def _refresh_derived_emissivity(self, entries: list[dict[str, Any]]) -> None:
         """Fill the read-only ε column from the facade preview (Rule 5 — derived only)."""
         previews = preview_optical_elements(entries)
-        for row, preview in enumerate(previews):
-            item = self._table.item(row, _COL_EPS)
-            if item is not None:
-                item.setText(f"{preview.emissivity_mean:.4f}")
+        with self._silent():
+            for row, preview in enumerate(previews):
+                item = self._table.item(row, _COL_EPS)
+                if item is not None:
+                    item.setText(f"{preview.emissivity_mean:.4f}")
 
     # -- accessors (tests) ------------------------------------------------------
 
@@ -1242,9 +1580,9 @@ class OpticalElementEditor(QWidget):
         return self._table
 
     @property
-    def apply_button(self) -> QPushButton:
-        """The Apply button (tests)."""
-        return self._apply
+    def pending_message(self) -> str:
+        """The held draft's inline message — ``""`` when nothing is pending (tests)."""
+        return self._pending_message
 
     @property
     def study_note(self) -> QLabel:

@@ -1290,6 +1290,14 @@ QLabel#stagePlotMessage {{
     color: {t.muted};
     font-size: 12px;
 }}
+/* Pending element draft (Elements tab, commit-on-edit 2026-09-03): the row does not
+ * validate yet, so the train is held rather than stored or dropped. That is a state the
+ * analyst must resolve, so the parser's message carries the warn ink — the same register
+ * the stale/attention states use — instead of the muted advisory grey. */
+QLabel#stagePlotMessage[state="pending"] {{
+    color: {t.warn};
+    font-weight: 600;
+}}
 QLabel#outputsRowLabel {{
     color: {t.ink_2};
     font-size: 12px;

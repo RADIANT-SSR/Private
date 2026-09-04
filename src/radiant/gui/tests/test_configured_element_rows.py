@@ -8,6 +8,12 @@ un-configures a row through ``ConfigurationSet.configure_element`` /
 cells writes **that configuration's entry only** (D-8), leaving every other
 configuration's entry verbatim.
 
+**Commit-on-edit (owner-ratified 2026-09-03).** The tab has no Apply: every edit below
+commits as it is made, in a study exactly as in a single-configuration session, so each
+test asserts the document *immediately after the edit*. A row that does not validate is a
+held pending draft with the parser's message inline — naming the configuration when the
+row is configured — not a modal.
+
 These are the plan's re-targeted §4c matrix, driven on the real widget (and, where the
 contract is the host's, the real window) offscreen. A single-configuration session is
 asserted to show none of it and behave exactly as it did before.
@@ -167,24 +173,23 @@ class TestSingleConfigurationSessionIsUnchanged:
         assert editor.study_note.isHidden()
         assert editor.row_menu(_FILTER_ROW) is None
 
-    def test_plain_session_apply_is_unchanged(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """Zero regression: with no study, Apply is still one set_optical_elements."""
+    def test_plain_session_commit_is_unchanged(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Zero regression: with no study, an edit is still one set_optical_elements."""
         sensor = Sensor.load(_EXAMPLE)
         editor = OpticalElementEditor()
         qtbot.addWidget(editor)
         editor.bind_sensor(sensor, {})
         editor._add_mirror.click()  # noqa: SLF001
-        assert editor.apply_train()
         document = sensor.optical_elements()
         assert document is not None and len(document) == 1
 
-    def test_apply_lands_on_the_document_not_the_materialization(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_commit_lands_on_the_document_not_the_materialization(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """A one-member study displays a materialization; the train must reach the set.
 
         The displayed sensor of any set whose members carry configured values is a
         throwaway ``sensor_for`` materialization, which the next switch or evaluation
-        discards. Applying the train to it would silently lose the edit (Rule 17), so
-        Apply targets the set's base — the object ``save`` writes.
+        discards. Committing the train to it would silently lose the edit (Rule 17), so
+        the commit targets the set's base — the object ``save`` writes.
         """
         base = Sensor.load(_EXAMPLE)
         base.set_optical_elements(_SHARED_TRAIN)
@@ -198,7 +203,6 @@ class TestSingleConfigurationSessionIsUnchanged:
         editor.bind_sensor(config_set.sensor_for(config_set.active), {})
 
         editor.table.item(_MIRROR_ROW, _COL_TEMP).setText("275.0")
-        assert editor.apply_train()
         shared = config_set.base.optical_elements()
         assert shared is not None
         assert shared[0]["temperature_K"] == pytest.approx(275.0, abs=1e-12)
@@ -271,15 +275,28 @@ class TestConfigureRoundTrip:
         assert config_set.is_element_configured(_FILTER_ROW)
         assert editor.is_row_configured(_FILTER_ROW)
 
-    def test_an_unapplied_row_cannot_be_configured_yet_and_says_so(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        editor = _bind(qtbot, _study())
+    def test_an_added_row_is_in_the_document_and_configurable_at_once(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Commit-on-edit retires the unapplied-row limbo state (2026-09-03).
+
+        The Add templates are complete valid entries, so the append commits; the row is
+        therefore a row of the document immediately, and the configure action is live on
+        it — no "Apply the train first" hint, because there is no Apply.
+        """
+        config_set = _study()
+        editor = _bind(qtbot, config_set)
         editor._add_mirror.click()  # noqa: SLF001
-        menu = editor.row_menu(editor.table.rowCount() - 1)
+        new_row = editor.table.rowCount() - 1
+
+        assert config_set.element_count() == 3
+        menu = editor.row_menu(new_row)
         assert menu is not None
         action = menu.actions()[0]
         assert action.text() == CONFIGURE_TEXT
-        assert not action.isEnabled()
-        assert "Apply the train first" in action.toolTip()
+        assert action.isEnabled()
+
+        action.trigger()
+        assert config_set.is_element_configured(new_row)
+        assert editor.is_row_configured(new_row)
 
 
 class TestConfiguredBadge:
@@ -324,13 +341,15 @@ class TestConfiguredBadge:
 
 
 class TestInlineEditRouting:
-    """§4c: D-8 — an edit lands on the displayed configuration, or on the shared row."""
+    """§4c: D-8 — an edit lands on the displayed configuration, or on the shared row.
+
+    Commit-on-edit (2026-09-03): each edit below is asserted *without* any Apply.
+    """
 
     def test_editing_a_configured_row_edits_the_displayed_configuration_only(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         config_set = _study(configure=_FILTER_ROW)
         editor = _bind(qtbot, config_set)
         editor.table.item(_FILTER_ROW, _COL_VALUE).setText("0.55")
-        assert editor.apply_train()
 
         assert config_set.element_for(_FILTER_ROW, "MWIR")["transmittance"] == pytest.approx(
             0.55, abs=1e-12
@@ -348,7 +367,6 @@ class TestInlineEditRouting:
         config_set = _study(configure=_FILTER_ROW)
         editor = _bind(qtbot, config_set)
         editor.table.item(_FILTER_ROW, _COL_NAME).setText("filter_b02")
-        assert editor.apply_train()
 
         assert config_set.element_for(_FILTER_ROW, "MWIR")["name"] == "filter_b02"
         assert config_set.element_for(_FILTER_ROW, "LWIR")["name"] == _FILTER
@@ -357,7 +375,6 @@ class TestInlineEditRouting:
         config_set = _study(configure=_FILTER_ROW)
         editor = _bind(qtbot, config_set)
         editor.table.item(_MIRROR_ROW, _COL_TEMP).setText("275.0")
-        assert editor.apply_train()
 
         shared = config_set.base.optical_elements()
         assert shared is not None
@@ -370,52 +387,124 @@ class TestInlineEditRouting:
             assert effective[0]["temperature_K"] == pytest.approx(275.0, abs=1e-12)
             assert effective[1]["transmittance"] == pytest.approx(0.9, abs=1e-12)
 
-    def test_an_unedited_apply_changes_nothing(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_binding_and_rendering_write_nothing(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """No commit storm: a re-render is not an edit, in a study either."""
         config_set = _study(configure=_FILTER_ROW)
         before = {name: config_set.effective_optical_elements(name) for name in config_set.names()}
         editor = _bind(qtbot, config_set)
-        assert editor.apply_train()
+
+        writes: list[str] = []
+        monkeypatch.setattr(
+            type(config_set),
+            "set_element_for",
+            lambda self, *a, **k: writes.append("element_for"),
+        )
+        monkeypatch.setattr(
+            type(config_set.base),
+            "set_optical_elements",
+            lambda self, *a, **k: writes.append("shared"),
+        )
+
+        editor.bind_sensor(config_set.base, {})  # the host's re-render on a switch
+        editor.table.selectRow(_MIRROR_ROW)
+
+        assert writes == []
         for name in config_set.names():
             assert config_set.effective_optical_elements(name) == before[name]
 
-    def test_an_invalid_entry_names_the_configuration_and_stores_nothing(  # type: ignore[no-untyped-def]
+    def test_an_invalid_entry_pends_naming_the_configuration_and_stores_nothing(  # type: ignore[no-untyped-def]
         self, qtbot, monkeypatch
     ) -> None:
-        config_set = _study(configure=_FILTER_ROW)
-        editor = _bind(qtbot, config_set)
-        editor.table.item(_FILTER_ROW, _COL_VALUE).setText("no_such_filter.csv")
-        editor.table.item(_MIRROR_ROW, _COL_TEMP).setText("275.0")
-
+        """§3a-bis commit-on-edit: a bad configured entry is held, not modal, not stored."""
         from radiant.gui.widgets import optical_element_editor as oee
 
-        shown: list[Any] = []
-        monkeypatch.setattr(
-            oee.ActionableErrorDialog,
-            "__init__",
-            lambda self, exc, path, parent=None: shown.append(exc) or None,
-        )
-        monkeypatch.setattr(oee, "exec_dialog", lambda dialog: 0)
+        config_set = _study(configure=_FILTER_ROW)
+        editor = _bind(qtbot, config_set)
 
-        assert not editor.apply_train()
-        assert len(shown) == 1
-        assert "MWIR" in str(shown[0])
-        # Nothing was written — not even the valid shared row ahead of the bad one.
+        shown: list[Any] = []
+        monkeypatch.setattr(oee, "exec_dialog", lambda dialog: shown.append("modal") or 0)
+
+        editor.table.item(_FILTER_ROW, _COL_VALUE).setText("no_such_filter.csv")
+
+        assert shown == []  # a draft that does not validate is never a modal
+        assert "MWIR" in editor.pending_message  # the API's message names the member
+        assert "Not committed" in editor.pending_message
         assert config_set.element_for(_FILTER_ROW, "MWIR")["transmittance"] == pytest.approx(
             0.9, abs=1e-12
         )
+
+        # A second edit while the draft is pending stores nothing either — not even this
+        # valid shared row, because the train as a whole does not validate.
+        editor.table.item(_MIRROR_ROW, _COL_TEMP).setText("275.0")
+        assert editor.pending_message
         assert config_set.base.optical_elements()[0]["temperature_K"] == pytest.approx(
             293.0, abs=1e-12
         )
 
+        # The edit that makes the train valid commits both changes at once.
+        editor.table.item(_FILTER_ROW, _COL_VALUE).setText("0.55")
+
+        assert not editor.pending_message
+        assert shown == []
+        assert config_set.element_for(_FILTER_ROW, "MWIR")["transmittance"] == pytest.approx(
+            0.55, abs=1e-12
+        )
+        assert config_set.element_for(_FILTER_ROW, "LWIR")["transmittance"] == pytest.approx(
+            0.9, abs=1e-12
+        )
+        assert config_set.base.optical_elements()[0]["temperature_K"] == pytest.approx(
+            275.0, abs=1e-12
+        )
+
+    def test_a_value_the_parser_cannot_resolve_pends_until_it_is_retyped(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The mid-restructure case on a shared row: held in the table, then committed."""
+        config_set = _study()
+        editor = _bind(qtbot, config_set)
+        editor.table.item(_MIRROR_ROW, _COL_VALUE).setText("mirror_coating.csv")
+        assert editor.pending_message  # the path does not resolve — held, not stored
+        assert editor.table.item(_MIRROR_ROW, _COL_VALUE).text() == "mirror_coating.csv"
+
+        editor.table.item(_MIRROR_ROW, _COL_VALUE).setText("0.93")
+
+        assert not editor.pending_message
+        shared = config_set.base.optical_elements()
+        assert shared is not None
+        assert shared[_MIRROR_ROW]["reflectance"] == pytest.approx(0.93, abs=1e-12)
+
+    def test_a_configured_row_edit_writes_only_the_displayed_member(  # type: ignore[no-untyped-def]
+        self, qtbot, monkeypatch
+    ) -> None:
+        """D-8 at the call level: one set_element_for, for MWIR, per edit."""
+        config_set = _study(configure=_FILTER_ROW)
+        editor = _bind(qtbot, config_set)
+
+        seen: list[tuple[int, str]] = []
+        original = type(config_set).set_element_for
+
+        def _record(self: Any, index: int, config: str, entry: Any, **kwargs: Any) -> None:
+            seen.append((index, config))
+            original(self, index, config, entry, **kwargs)
+
+        monkeypatch.setattr(type(config_set), "set_element_for", _record)
+        editor.table.item(_FILTER_ROW, _COL_TEMP).setText("120.0")
+
+        assert seen == [(_FILTER_ROW, "MWIR")]
+        assert config_set.element_for(_FILTER_ROW, "LWIR")["temperature_K"] == pytest.approx(
+            240.0, abs=1e-12
+        )
+
 
 class TestSharedStructure:
-    """§3a-bis: row count and order are shared — add / remove change every member."""
+    """§3a-bis: row count and order are shared — add / remove change every member.
+
+    Each structural edit commits as it is made and the table re-reads the document
+    (a removal renumbers the positions row identity is).
+    """
 
     def test_adding_a_row_seeds_it_shared_for_every_configuration(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         config_set = _study(configure=_FILTER_ROW)
         editor = _bind(qtbot, config_set)
         editor._add_mirror.click()  # noqa: SLF001
-        assert editor.apply_train()
 
         assert config_set.element_count() == 3
         assert config_set.configured_element_indices() == (_FILTER_ROW,)
@@ -433,7 +522,6 @@ class TestSharedStructure:
 
         editor.table.setCurrentCell(_FILTER_ROW, _COL_NAME)
         editor._remove.click()  # noqa: SLF001
-        assert editor.apply_train()
 
         assert len(shown) == 1
         assert "MWIR: band_filter" in shown[0] and "LWIR: band_filter" in shown[0]
@@ -511,7 +599,6 @@ class TestRoundTrip:
         editor = _bind(qtbot, config_set)
         _configure_row(editor, _FILTER_ROW)
         editor.table.item(_FILTER_ROW, _COL_TEMP).setText("120.0")
-        assert editor.apply_train()
 
         path = tmp_path / "authored_study.yaml"
         config_set.save(path)
@@ -603,18 +690,19 @@ class TestBrowseSpectralFile:
 
     Typing a path or scalar stays legal; the button is the navigable route to a
     saved spectral CSV. The picked path lands in the value cell exactly as if
-    typed — the io parser stays the single validator, at Apply — and replaces any
-    inline λ-table on the cell.
+    typed — the io parser stays the single validator — replaces any inline λ-table
+    on the cell, and commits on the spot (2026-09-03).
     """
 
-    def test_pick_writes_the_cell_and_clears_an_inline_table(  # type: ignore[no-untyped-def]
+    def test_pick_writes_the_cell_clears_an_inline_table_and_commits(  # type: ignore[no-untyped-def]
         self, qtbot, monkeypatch, tmp_path
     ) -> None:
         from radiant.gui.widgets import optical_element_editor as mod
 
         csv = tmp_path / "filter_b2.csv"
         csv.write_text("3.4,0.1\n5.0,0.9\n", encoding="utf-8")
-        editor = _bind(qtbot, _study())
+        config_set = _study()
+        editor = _bind(qtbot, config_set)
         editor._table.selectRow(_FILTER_ROW)  # noqa: SLF001
         item = editor._table.item(_FILTER_ROW, 3)  # noqa: SLF001
         item.setData(mod._SPECTRUM_ROLE, {"wavelength_um": [3.4, 5.0], "values": [0.5, 0.5]})  # noqa: SLF001
@@ -627,6 +715,10 @@ class TestBrowseSpectralFile:
         assert item.text() == str(csv)
         assert item.toolTip() == str(csv)
         assert item.data(mod._SPECTRUM_ROLE) is None  # noqa: SLF001
+        # One pick, one commit — the picked file is in the document already.
+        shared = config_set.base.optical_elements()
+        assert shared is not None
+        assert str(shared[_FILTER_ROW]["transmittance"]) == str(csv)
 
     def test_cancel_changes_nothing(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
         from radiant.gui.widgets import optical_element_editor as mod
@@ -646,3 +738,118 @@ class TestBrowseSpectralFile:
         assert editor._table.currentRow() == 0  # noqa: SLF001
         assert editor._browse.isEnabled() is True  # noqa: SLF001
         assert editor._configure.isEnabled() is True  # noqa: SLF001
+
+
+class TestNoApplyButton:
+    """Commit-on-edit retires the Apply affordance entirely (Rule 27 — one commit model).
+
+    The owner's live-review verdict, 2026-09-03: "Why do we have this button? Why aren't
+    updates made when a value changes like all other parameters?"
+    """
+
+    def test_a_study_has_no_apply_button(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from PySide6.QtWidgets import QPushButton
+
+        editor = _bind(qtbot, _study(configure=_FILTER_ROW))
+        labels = [button.text() for button in editor.findChildren(QPushButton)]
+        assert not any("Apply" in label for label in labels), labels
+
+    def test_the_hint_says_edits_commit_as_they_are_made(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        editor = _bind(qtbot, _study())
+        hints = [label.text() for label in editor.findChildren(type(editor.study_note))]
+        assert any("commits as you make it" in text for text in hints), hints
+        assert "committed as you edit" in editor.study_note.text()
+
+
+class TestThreeBandStudyIsEntryFaithful:
+    """CU-344 on the shape that found it: a three-band study with configured rows.
+
+    The live-review reproduction, reduced to a fixture the repo owns. The document is the
+    scenario's: mirrors that specify **no** geometry keys, configured refractive rows that
+    carry a ``reflectance`` the table has no column for and an upper-case ``kind``, and
+    per-configuration spectral-CSV transmittances. Row 1 is configured **through the GUI**
+    and its value cell edited to 0.5; the committed effective train must equal, entry by
+    entry, the train the same two acts produce through the scripting API — which is the
+    oracle here precisely because it writes only what it is asked to.
+
+    Before the fix this diverged on every row (invented ``diameter_m``/
+    ``distance_to_fpa_m``, dropped ``reflectance``, ``FILTER`` → ``filter``), and the
+    invented ``diameter_m`` alone moved SNR from 58.5 [-] to 220.5 [-].
+    """
+
+    _EDITED_ROW = 1
+
+    @staticmethod
+    def _document(root: Path) -> Path:
+        """Write the scenario-shaped study (plus its per-band CSVs) under *root*."""
+        for band, value in (("b1", 0.88), ("b2", 0.86)):
+            (root / f"filter_{band}.csv").write_text(
+                f"# wavelength_um, transmittance\n3.0,{value}\n6.0,{value}\n",
+                encoding="utf-8",
+            )
+        # The band edges are configured below, so they must not also sit in the shared
+        # body (ADR-0010 D-B: a parameter is shared **or** configured, never both).
+        base = "\n".join(
+            line
+            for line in _EXAMPLE.read_text(encoding="utf-8").splitlines()
+            if "filter_min_um" not in line and "filter_max_um" not in line
+        )
+        study = root / "three_band_study.yaml"
+        study.write_text(
+            base + "\n" + "configurations:\n"
+            "  active: B1\n"
+            "  baseline: B1\n"
+            "  names: [B1, B2]\n"
+            "  parameters:\n"
+            "    spectral_integration.filter_min_um: [3.6, 4.0]\n"
+            "    spectral_integration.filter_max_um: [4.0, 4.4]\n"
+            "optical_elements:\n"
+            "- {name: M1_primary, transfer_mode: REFLECTIVE, reflectance: 0.97, "
+            "temperature_K: 293.0}\n"
+            "- {name: M2_secondary, transfer_mode: REFLECTIVE, reflectance: 0.97, "
+            "temperature_K: 293.0}\n"
+            "- configured:\n"
+            "    B1: {name: band_filter, transfer_mode: REFRACTIVE, kind: FILTER, "
+            "reflectance: 0.02, temperature_K: 240.0, transmittance: filter_b1.csv}\n"
+            "    B2: {name: band_filter, transfer_mode: REFRACTIVE, kind: FILTER, "
+            "reflectance: 0.02, temperature_K: 240.0, transmittance: filter_b2.csv}\n",
+            encoding="utf-8",
+        )
+        return study
+
+    def _reference(self, path: Path) -> list[dict[str, Any]]:
+        """The oracle: configure row 1 and set its reflectance to 0.5, via the API."""
+        config_set = ConfigurationSet.load(path)
+        config_set.configure_element(self._EDITED_ROW)
+        entry = dict(config_set.element_for(self._EDITED_ROW, config_set.active))
+        entry["reflectance"] = 0.5
+        config_set.set_element_for(self._EDITED_ROW, config_set.active, entry)
+        effective = config_set.effective_optical_elements(config_set.active)
+        assert effective is not None
+        return effective
+
+    def test_gui_commit_equals_the_api_authored_train(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        path = self._document(tmp_path)
+        reference = self._reference(path)
+
+        config_set = ConfigurationSet.load(path)
+        editor = _bind(qtbot, config_set)
+        _trigger(editor, self._EDITED_ROW, CONFIGURE_TEXT)
+        editor.table.item(self._EDITED_ROW, _COL_VALUE).setText("0.5")
+
+        committed = config_set.effective_optical_elements(config_set.active)
+        assert committed is not None
+        assert len(committed) == len(reference)
+        for index, (got, want) in enumerate(zip(committed, reference, strict=True)):
+            assert got == want, f"row {index} diverged from the API-authored entry"
+
+    def test_the_untouched_configuration_keeps_its_entries(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """The other band's train must not move when B1's row 1 is edited."""
+        path = self._document(tmp_path)
+        config_set = ConfigurationSet.load(path)
+        before = config_set.effective_optical_elements("B2")
+        editor = _bind(qtbot, config_set)
+        _trigger(editor, self._EDITED_ROW, CONFIGURE_TEXT)
+        editor.table.item(self._EDITED_ROW, _COL_VALUE).setText("0.5")
+
+        assert config_set.effective_optical_elements("B2") == before

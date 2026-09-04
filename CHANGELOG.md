@@ -42,7 +42,26 @@ retroactively reconstructed.
   configuration inherits. Per-configuration addition or removal of a row remains
   excluded — structure is shared.
 
+### Changed
+- **The Elements tab commits on edit, like every other parameter surface**
+  (owner-ratified 2026-09-03; the *Apply train* button is removed). A completed
+  cell edit, combo change, CSV pick, spectrum entry, add, remove, or reorder
+  writes the document immediately and the evaluation follows. A transiently
+  invalid row (e.g. a REFLECTIVE→REFRACTIVE flip before the value is retyped)
+  stays a visible pending draft with the parser's message shown inline and
+  commits with the next valid edit.
+
 ### Fixed
+- **Results-affecting: Elements-tab commits are now entry-faithful (CU-344).**
+  The table previously injected `diameter_m: 0.1` / `distance_to_fpa_m: 1.0`
+  into entries that never specified them, dropped a refractive row's
+  `reflectance`, and case-rewrote `kind` — on every commit, for rows the
+  operator never touched. Cells for keys an entry does not carry now render
+  blank and write nothing; unrepresented keys ride through untouched. Direction
+  and magnitude: GUI-committed studies with minimal-key element entries change
+  computed results toward the scripting-API answer for the same document — on
+  the three-band review scenario, SNR for the edited band moves from 220.5 to
+  58.5 (dimensionless), the faithfully-authored value.
 - **Elements-tab Apply no longer loses the train edit in a study session.**
   Previously Apply wrote the element document to the displayed configuration's
   throwaway materialization, so in any session with configured values the edit

@@ -1115,10 +1115,16 @@ class RADIANTMainWindow(QMainWindow):
 
         An **element-train** commit in a study is the one edit that lands on the document
         rather than on the displayed sensor (Gap 103 v1.1: the shared ``optical_elements``
-        document, or the active configuration's overrides). The displayed sensor is a
-        materialization, so it would keep the pre-Apply train until the next selector
+        document, or the active configuration's configured rows). The displayed sensor is a
+        materialization, so it would keep the pre-commit train until the next selector
         switch; it is re-materialized here, which is also what re-renders the Elements tab
-        with the new override badges.
+        with the new badges.
+
+        Since 2026-09-03 the Elements tab commits **on every edit** rather than on an Apply
+        click, so this path now runs per edit. The re-bind it triggers reaches the tab while
+        that commit is still in flight, and the tab skips it (the table already *is* the
+        document just written) — the host stays the one place the displayed sensor is
+        re-materialized, without re-rendering the table under the edit that caused it.
         """
         if dotpath == ELEMENT_EDIT_PATH and not self._is_degenerate():
             self._resync_display_sensor()

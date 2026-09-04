@@ -473,6 +473,14 @@ class OpticalElementEditor(QWidget):
             self._refresh_derived_emissivity(entries)
         self._sync_study_note()
         self._refresh_configured_marks()
+        # Land with a live selection: every selection-driven affordance (the
+        # configure button, Remove, Spectrum…, the coating-detail pane) is dead
+        # until a row is current, and a dead button reads as a broken GUI
+        # (owner live-review, 2026-09-03). Selecting row 0 costs nothing and
+        # never overrides an operator choice — this is the reload path, where
+        # any prior selection was just discarded with the old items anyway.
+        if self._table.rowCount() and self._table.currentRow() < 0:
+            self._table.selectRow(0)
         self.refresh_coating_detail()
         if advisory:
             self._show_detail_message(advisory)

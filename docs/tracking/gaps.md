@@ -1684,6 +1684,17 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Workaround** | Set `readout.full_well_capacity_e` to the counter-equivalent well (2^N × packet, in e-) and `readout.adc_bits` high enough that analog quantization is negligible. Captures the high-flux shot-noise-limited regime only; wrong at low flux (no packet-quantization/residue model) and no dead-time flux ceiling. |
 | **Suggested fix** | A readout-architecture mode (`analog_well` \| `digital_counting`, as data) with DROIC parameters: counter bits, charge packet size (e-/count), residue-readout flag, max count rate; new saturation and quantization-noise branches plus a count-domain TDI variant. Up/down counting (in-pixel background subtraction for dim point-source targets) is in scope as the plan's Phase 4 (owner-ratified 2026-09-02). Effort M–L; category C. |
 
+## Gap 118: One configuration set cannot hold structurally different optical trains — a whole-payload model (OLI-2 + TIRS-2 in one study) stops at the element-document skeleton
+
+| | |
+|---|---|
+| **Found in** | Configuration Set Expansion Phase-2/3 live review, 2026-09-03 — owner: "Its different optics but we wanted to have a single model for the entire payload. the multiconfigs enable this." The plan's §7 watch item ("structurally different trains per configuration... a new gap with its own design conversation") fired on its first real scenario: Landsat 9's full payload is OLI-2 (six-row reflective train: 4 protected-Ag mirrors + FPA window + band filter) plus TIRS-2 (a refractive germanium train, different element count and kinds). |
+| **Status** | OPEN — needs an owner design conversation before any implementation. |
+| **Description** | Configured element rows (Gap 103 v1.1, plan §3a-bis) hold the train **structure** shared: same row count, same order, in every configuration; a configured row swaps its *contents* per member, never its existence. Two instruments on one payload have different skeletons, so they cannot share one `optical_elements` document. Every *scalar* that distinguishes the instruments (aperture, focal length, pitch, QE, integration time, band edges) is already an ordinary configurable parameter — the train skeleton is the sole structural blocker to an 11-configuration whole-payload study. |
+| **Impact** | A payload with heterogeneous instruments (reflective VNIR/SWIR + refractive thermal, or any sensor with per-mode relay optics) must split into one study per instrument and compare across files, losing the single-document, single-evaluate-all workflow the multiconfiguration model exists to provide. |
+| **Suggested fix** | Design conversation first; candidate shapes to weigh: (a) configure the **whole element document** as a unit (per-configuration document swap — ADR-0010 D-7's rejected whole-document idea returns at the payload level, where restating a different instrument's train is not repetition); (b) **instrument groups** — configurations carry a group tag, each group owns a shared skeleton + configured rows within it; (c) fully per-configuration train length. Each option re-opens the GUI structure-shared invariants (Add/Remove/reorder semantics, the position-preserving-operation hole already logged in the Findings Log) and the effective-document read surface. |
+| **Workaround** | One study per instrument (9.4's OLI file + a TIRS study); shared spacecraft scalars duplicated; compare with `compare_configs` / Tools → Compare Config Files. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |

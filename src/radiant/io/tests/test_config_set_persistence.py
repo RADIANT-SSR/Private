@@ -323,3 +323,245 @@ class TestConfiguredFilePathPortability:
         values = loaded.configured()["detector.qe_table_path"]
         assert Path(values[0]) == csv_a.resolve()
         assert Path(values[1]) == csv_b.resolve()
+
+
+# ---------------------------------------------------------------------------
+# Configured optical-element rows (Gap 103 v1.1 — plan §3a-bis)
+# ---------------------------------------------------------------------------
+
+
+def _mirror(name: str = "M1", **fields: Any) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "name": name,
+        "transfer_mode": "REFLECTIVE",
+        "reflectance": 0.97,
+        "temperature_K": 293.0,
+    }
+    entry.update(fields)
+    return entry
+
+
+def _filter(name: str = "band_filter", **fields: Any) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "name": name,
+        "transfer_mode": "REFRACTIVE",
+        "kind": "FILTER",
+        "transmittance": 0.90,
+        "temperature_K": 240.0,
+    }
+    entry.update(fields)
+    return entry
+
+
+def _banded(names: list[str]) -> ConfigurationSet:
+    """A study whose base carries a two-row shared train: [M1, band_filter]."""
+    base = Sensor.from_yaml(_MWIR_YAML, wavelength_points=40)
+    base.set_optical_elements([_mirror(), _filter()])
+    return ConfigurationSet(base, names=names)
+
+
+def _banded_configured(names: list[str], **by_member: float) -> ConfigurationSet:
+    """`_banded` with row 1 configured and each member given a transmittance."""
+    cs = _banded(names)
+    cs.configure_element(1)
+    for member, value in by_member.items():
+        cs.set_element_for(1, member, _filter(transmittance=value))
+    return cs
+
+
+@pytest.mark.level1
+class TestConfiguredElementPersistence:
+    def test_configured_rows_round_trip(self, tmp_path: Path) -> None:
+        cs = _banded_configured(["A", "B"], B=0.40)
+        loaded = ConfigurationSet.load(cs.save(tmp_path / "study.yaml"))
+
+        assert loaded.element_count() == 2
+        assert loaded.configured_element_indices() == (1,)
+        assert not loaded.is_element_configured(0)
+        assert loaded.element_for(1, "A")["transmittance"] == pytest.approx(0.90, rel=1e-12)
+        assert loaded.element_for(1, "B")["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        # The shared row is stated once, not per configuration.
+        shared = loaded.base.optical_elements()
+        assert shared is not None and [e["name"] for e in shared] == ["M1"]
+
+    def test_document_shape_is_positional_and_in_place(self, tmp_path: Path) -> None:
+        cs = _banded_configured(["A", "B"], B=0.40)
+        doc = _read(cs.save(tmp_path / "study.yaml"))["optical_elements"]
+        assert len(doc) == 2
+        assert doc[0]["name"] == "M1"  # shared row, unchanged and unwrapped
+        assert set(doc[1]) == {"configured"}  # configured row: only that key
+        assert set(doc[1]["configured"]) == {"A", "B"}  # dense
+        assert doc[1]["configured"]["B"]["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        # The superseded sub-key is gone from the section.
+        assert "optical_elements" not in _read(cs.save(tmp_path / "study.yaml"))["configurations"]
+
+    def test_a_shared_only_document_writes_the_plain_form(self, tmp_path: Path) -> None:
+        doc = _read(_banded(["A", "B"]).save(tmp_path / "study.yaml"))["optical_elements"]
+        assert [e["name"] for e in doc] == ["M1", "band_filter"]
+
+    def test_mixed_shared_and_configured_rows_keep_their_order(self, tmp_path: Path) -> None:
+        base = Sensor.from_yaml(_MWIR_YAML, wavelength_points=40)
+        base.set_optical_elements([_mirror(), _filter(), _mirror("M2")])
+        cs = ConfigurationSet(base, names=["A", "B"])
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(name="filter_b", transmittance=0.40))
+        loaded = ConfigurationSet.load(cs.save(tmp_path / "study.yaml"))
+        assert [e["name"] for e in loaded.effective_optical_elements("A") or []] == [
+            "M1",
+            "band_filter",
+            "M2",
+        ]
+        assert [e["name"] for e in loaded.effective_optical_elements("B") or []] == [
+            "M1",
+            "filter_b",
+            "M2",
+        ]
+
+    def test_every_row_configured_round_trips(self, tmp_path: Path) -> None:
+        cs = _banded(["A", "B"])
+        cs.configure_element(0)
+        cs.configure_element(1)
+        loaded = ConfigurationSet.load(cs.save(tmp_path / "study.yaml"))
+        assert loaded.base.optical_elements() is None
+        assert loaded.configured_element_indices() == (0, 1)
+        assert [e["name"] for e in loaded.effective_optical_elements("B") or []] == [
+            "M1",
+            "band_filter",
+        ]
+
+    def test_metrics_reproduce_after_round_trip(self, tmp_path: Path) -> None:
+        cs = _banded_configured(["A", "B"], B=0.40)
+        loaded = ConfigurationSet.load(cs.save(tmp_path / "study.yaml"))
+        for name in cs.names():
+            before = cs.sensor_for(name).evaluate().metrics["snr"]
+            after = loaded.sensor_for(name).evaluate().metrics["snr"]
+            assert after == pytest.approx(before, rel=1e-12)
+        assert (
+            cs.sensor_for("A").evaluate().metrics["snr"]
+            > cs.sensor_for("B").evaluate().metrics["snr"]
+        )
+
+    def test_to_yaml_matches_the_saved_document(self, tmp_path: Path) -> None:
+        cs = _banded_configured(["A", "B"], B=0.40)
+        path = cs.save(tmp_path / "study.yaml")
+        assert yaml.safe_load(cs.to_yaml(relative_to=tmp_path)) == _read(path)
+
+    def test_spectral_file_paths_relativize_and_resolve(self, tmp_path: Path) -> None:
+        data = tmp_path / "data"
+        data.mkdir()
+        csv = data / "coating.csv"
+        csv.write_text("3.0,0.40\n5.0,0.45\n", encoding="utf-8")
+
+        cs = _banded(["A", "B"])
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=str(csv.resolve())))
+        path = cs.save(tmp_path / "cfg" / "study.yaml")
+
+        stored = _read(path)["optical_elements"][1]["configured"]["B"]["transmittance"]
+        assert stored == "../data/coating.csv"  # relative, forward slashes (Rule 30)
+
+        loaded = ConfigurationSet.load(path)
+        assert Path(loaded.element_for(1, "B")["transmittance"]) == csv.resolve()
+
+
+@pytest.mark.level1
+class TestConfiguredElementLoadValidation:
+    """Every binding rule fails at load, naming the file, the row, and the member."""
+
+    @staticmethod
+    def _write(tmp_path: Path, elements: Any, names: Any = ("A", "B")) -> Path:
+        doc: dict[str, Any] = {
+            "spectral_integration": {"filter_min_um": 3.7, "filter_max_um": 4.8},
+            "optical_elements": elements,
+            "configurations": {"names": list(names)},
+        }
+        path = tmp_path / "study.yaml"
+        path.write_text(yaml.dump(doc, sort_keys=True), encoding="utf-8", newline="\n")
+        return path
+
+    def test_missing_member_is_a_density_error(self, tmp_path: Path) -> None:
+        path = self._write(tmp_path, [_mirror(), {"configured": {"A": _filter()}}])
+        with pytest.raises(ConfigError) as exc:
+            ConfigurationSet.load(path)
+        msg = str(exc.value)
+        assert "study.yaml" in msg and "row 1" in msg and "missing ['B']" in msg
+
+    def test_non_member_key_is_an_error(self, tmp_path: Path) -> None:
+        path = self._write(
+            tmp_path,
+            [_mirror(), {"configured": {"A": _filter(), "B": _filter(), "SWIR": _filter()}}],
+        )
+        with pytest.raises(ConfigError) as exc:
+            ConfigurationSet.load(path)
+        assert "unknown ['SWIR']" in str(exc.value)
+
+    def test_bad_entry_names_the_member(self, tmp_path: Path) -> None:
+        bad = {"name": "band_filter", "transfer_mode": "REFRACTIVE"}
+        path = self._write(tmp_path, [_mirror(), {"configured": {"A": _filter(), "B": bad}}])
+        with pytest.raises(ConfigError) as exc:
+            ConfigurationSet.load(path)
+        msg = str(exc.value)
+        assert "row 1" in msg and "configuration 'B'" in msg and "transmittance" in msg
+
+    def test_kirchhoff_violation_is_caught_at_load(self, tmp_path: Path) -> None:
+        bad = {
+            "name": "band_filter",
+            "transfer_mode": "REFRACTIVE",
+            "R1": 0.6,
+            "T1": 0.6,
+            "R2": 0.02,
+            "T2": 0.98,
+            "alpha": 0.0,
+            "n_refr": 1.5,
+            "thickness_m": 0.01,
+            "temperature_K": 290.0,
+        }
+        path = self._write(tmp_path, [_mirror(), {"configured": {"A": _filter(), "B": bad}}])
+        with pytest.raises(ConfigError) as exc:
+            ConfigurationSet.load(path)
+        msg = str(exc.value)
+        assert "configuration 'B'" in msg and "R + T" in msg
+
+    def test_relative_spectral_file_resolves_against_the_config_dir(self, tmp_path: Path) -> None:
+        cfg = tmp_path / "cfg"
+        cfg.mkdir()
+        (cfg / "coating.csv").write_text("3.0,0.4\n5.0,0.5\n", encoding="utf-8")
+        doc: dict[str, Any] = {
+            "spectral_integration": {"filter_min_um": 3.7, "filter_max_um": 4.8},
+            "optical_elements": [
+                _mirror(),
+                {
+                    "configured": {
+                        "A": _filter(),
+                        "B": _filter(transmittance="coating.csv"),
+                    }
+                },
+            ],
+            "configurations": {"names": ["A", "B"]},
+        }
+        path = cfg / "study.yaml"
+        path.write_text(yaml.dump(doc, sort_keys=True), encoding="utf-8", newline="\n")
+
+        loaded = ConfigurationSet.load(path)
+        assert Path(loaded.element_for(1, "B")["transmittance"]) == (cfg / "coating.csv").resolve()
+
+    def test_configured_rows_without_a_section_are_refused(self, tmp_path: Path) -> None:
+        """A configured row's members *are* the configurations — no section, no meaning."""
+        doc: dict[str, Any] = {
+            "spectral_integration": {"filter_min_um": 3.7, "filter_max_um": 4.8},
+            "optical_elements": [_mirror(), {"configured": {"A": _filter()}}],
+        }
+        path = tmp_path / "study.yaml"
+        path.write_text(yaml.dump(doc, sort_keys=True), encoding="utf-8", newline="\n")
+        with pytest.raises(ConfigError, match="ConfigurationSet.load"):
+            ConfigurationSet.load(path)
+
+    def test_a_plain_sensor_load_refuses_configured_rows(self, tmp_path: Path) -> None:
+        path = self._write(tmp_path, [_mirror(), {"configured": {"A": _filter(), "B": _filter()}}])
+        for load in (
+            lambda: Sensor.load(path),
+            lambda: Sensor.from_yaml(path),
+        ):
+            with pytest.raises(ConfigError) as exc:
+                load()
+            assert "ConfigurationSet.load(path)" in str(exc.value)

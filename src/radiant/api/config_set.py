@@ -25,9 +25,21 @@ Validation, bounds, enums, consistency groups, and defaults therefore all run
 per configuration inside the existing ``ParameterSet.resolve()`` — there is no
 second resolution engine and ``radiant.core`` is not modified.
 
+Optical elements (Gap 103 v1.1, owner-ratified 2026-09-02 in live review) follow
+the *same* model rather than a parallel one: a **row** of the shared
+``optical_elements`` document can be **configured**, and then carries one
+complete entry per configuration — dense, every member present, exactly like a
+configured parameter's value list. Row identity is **positional**: the row count
+and order are shared by every configuration, and the entry's ``name`` configures
+with the row. The single-store invariant holds by construction — a configured
+row's entries live only in the per-configuration table, never also in the base's
+shared document (:meth:`ConfigurationSet.configure_element`).
+
 Persistence (ADR-0010 D-D) is one file per study: the shared base serialized
-exactly as ``Sensor.save`` writes it, plus a ``configurations:`` structured
-section carrying names, active/baseline, per-configuration ``wavelength_points``,
+exactly as ``Sensor.save`` writes it — with each configured element row written
+in place as ``- configured: {member: entry, ...}``
+(:mod:`radiant.io.configured_elements`) — plus a ``configurations:`` structured
+section carrying names, active/baseline, per-configuration ``wavelength_points``
 and the configured table (:mod:`radiant.io.config_set_section`). A config file
 with no section is byte-for-byte today's format, and loading a section-bearing
 file through bare ``Sensor.load`` raises with a "load it with
@@ -47,6 +59,7 @@ Example::
 
 from __future__ import annotations
 
+import copy as _copy
 import logging
 import warnings
 from collections.abc import Mapping, Sequence
@@ -59,6 +72,7 @@ from radiant.api._param_registry import build_parameter_set
 from radiant.api._progress import CancelFn, ProgressFn, check_cancel
 from radiant.api._warning_capture import capture_warnings
 from radiant.api.compare import ComparisonResult, compare_configs
+from radiant.api.config_io import normalize_element_document
 from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterSet, Provenance
@@ -68,6 +82,13 @@ from radiant.io.config_set_section import (
     ConfigurationsSection,
     parse_configurations_section,
     serialize_configurations_section,
+)
+from radiant.io.configured_elements import (
+    ElementDocument,
+    configured_rows_need_a_configuration_set,
+    merge_element_document,
+    resolve_element_document,
+    split_element_document,
 )
 from radiant.io.results import ChainResult
 
@@ -357,6 +378,11 @@ class ConfigurationSet:
         self._base: Sensor = base
         self._names: list[str] = list(chosen)
         self._configured: dict[str, tuple[Any, ...]] = {}
+        # Configured element rows: position in the FULL element document ->
+        # configuration name -> that configuration's complete entry (dense).
+        # The shared rows stay on the base sensor's document; a configured row
+        # is absent from it (single store).
+        self._element_rows: dict[int, dict[str, dict[str, Any]]] = {}
         self._wl_points: dict[str, int] = {}
         self._shared_wl_points: int | None = None
         self._baseline: str = self._names[0]
@@ -412,9 +438,9 @@ class ConfigurationSet:
         """Return an independent copy of this set — base, table, and designations.
 
         The copy owns ``base.clone()``, its own configured table, its own
-        wavelength-point overrides, and the same ``active`` / ``baseline``
-        designations. Nothing is shared: editing either set afterwards leaves
-        the other untouched.
+        wavelength-point overrides, its own configured element rows, and the same
+        ``active`` / ``baseline`` designations. Nothing is shared: editing either
+        set afterwards leaves the other untouched.
 
         This is the set-level counterpart of :meth:`Sensor.clone` and exists for
         the same reason — **thread isolation**. The GUI hands its evaluation
@@ -428,6 +454,7 @@ class ConfigurationSet:
         """
         copy = ConfigurationSet(self._base.clone(), names=tuple(self._names))
         copy._configured = dict(self._configured)
+        copy._element_rows = _copy.deepcopy(self._element_rows)
         copy._wl_points = dict(self._wl_points)
         copy._shared_wl_points = self._shared_wl_points
         copy._baseline = self._baseline
@@ -441,10 +468,18 @@ class ConfigurationSet:
     def add(self, name: str, *, copy_from: str | None = None) -> None:
         """Append a configuration named *name*.
 
-        Every configured parameter gains a value in the new configuration
-        (density, D-A): copied from *copy_from* when given — the duplicate
-        route — otherwise from the **first** configuration, matching the D-6
-        "configuration #1 is the reference" convention.
+        Every configured parameter **and every configured element row** gains an
+        entry in the new configuration (density, D-A): copied from *copy_from*
+        when given — the duplicate route — otherwise from the **first**
+        configuration, matching the D-6 "configuration #1 is the reference"
+        convention.
+
+        The wavelength-point override is the one piece of per-configuration state
+        that is *not* dense: it is copied from *copy_from* when it has one, and is
+        otherwise absent, so the new configuration inherits the shared grid. That
+        asymmetry is the model's, not an omission — a configured parameter or a
+        configured element row has no shared value to fall back on, while an
+        un-overridden grid density does.
         """
         self._check_name(name)
         if name in self._names:
@@ -470,9 +505,12 @@ class ConfigurationSet:
                 },
             )
         seed_index = 0 if copy_from is None else self._index(copy_from, "add")
+        seed_name = self._names[seed_index]
         self._names.append(name)
         for dotpath, values in list(self._configured.items()):
             self._configured[dotpath] = (*values, values[seed_index])
+        for entries in self._element_rows.values():
+            entries[name] = _copy.deepcopy(entries[seed_name])
         if copy_from is not None and copy_from in self._wl_points:
             self._wl_points[name] = self._wl_points[copy_from]
 
@@ -495,6 +533,8 @@ class ConfigurationSet:
         del self._names[index]
         for dotpath, values in list(self._configured.items()):
             self._configured[dotpath] = values[:index] + values[index + 1 :]
+        for entries in self._element_rows.values():
+            entries.pop(name, None)
         self._wl_points.pop(name, None)
         if self._active == name:
             self._active = self._names[0]
@@ -513,6 +553,11 @@ class ConfigurationSet:
                 context={"configuration": old, "new": new, "existing": list(self._names)},
             )
         self._names[index] = new
+        for row, entries in list(self._element_rows.items()):
+            # Re-key, keeping the entries in names() order (D-A alignment).
+            self._element_rows[row] = {
+                member: entries[old] if member == new else entries[member] for member in self._names
+            }
         if old in self._wl_points:
             self._wl_points[new] = self._wl_points.pop(old)
         if self._active == old:
@@ -523,8 +568,9 @@ class ConfigurationSet:
     def reorder(self, names: Sequence[str]) -> None:
         """Reorder the configurations; *names* must be a permutation of the current ones.
 
-        Every configured parameter's value column is permuted with the names,
-        so value/configuration alignment is preserved.
+        Every configured parameter's value column is permuted with the names, so
+        value/configuration alignment is preserved. Configured element rows are
+        keyed by configuration name, so they need only re-ordering to match.
         """
         wanted = list(names)
         if sorted(wanted) != sorted(self._names):
@@ -540,6 +586,8 @@ class ConfigurationSet:
         self._names = wanted
         for dotpath, values in list(self._configured.items()):
             self._configured[dotpath] = tuple(values[i] for i in permutation)
+        for row, entries in list(self._element_rows.items()):
+            self._element_rows[row] = {member: entries[member] for member in wanted}
 
     # ------------------------------------------------------------------
     # Configured parameters
@@ -762,6 +810,156 @@ class ConfigurationSet:
         self._wl_points[config] = n
 
     # ------------------------------------------------------------------
+    # Configured optical-element rows (Gap 103 v1.1)
+    # ------------------------------------------------------------------
+
+    def element_count(self) -> int:
+        """Number of rows in the shared element document (shared + configured).
+
+        ``0`` when the base carries no ``optical_elements`` document. The row
+        count and row order are shared by every configuration — configuring a
+        row changes *what is at that position*, never how many positions there
+        are — so this is the index domain of every ``*_element`` method.
+        """
+        return len(self._shared_element_rows()) + len(self._element_rows)
+
+    def configured_element_indices(self) -> tuple[int, ...]:
+        """Positions of the configured element rows, ascending."""
+        return tuple(sorted(self._element_rows))
+
+    def is_element_configured(self, index: int) -> bool:
+        """True when element row *index* carries one entry per configuration."""
+        return self._element_index(index, "is_element_configured") in self._element_rows
+
+    def configure_element(self, index: int) -> None:
+        """Promote element row *index* to a configured row (one entry per configuration).
+
+        Every configuration is seeded with a copy of the row's current **shared**
+        entry, so the promotion changes no result — exactly what
+        :meth:`configure` does for a parameter with no explicit values. Edit one
+        configuration's entry afterwards with :meth:`set_element_for`.
+
+        The single-store invariant (the element analog of ADR-0010 D-B) is
+        enforced by *moving* the row: its entry is removed from the base
+        sensor's shared document, so a row is shared **or** configured and can
+        never be both. Row identity is **positional**: the entry's ``name``
+        moves into the per-configuration table with the rest of the entry, so a
+        configuration may name this row differently (owner-ratified 2026-09-02).
+
+        Raises :class:`ConfigSetError` when the base has no element document,
+        when *index* is not a row of it, or when the row is already configured.
+        """
+        position = self._element_index(index, "configure_element")
+        if position in self._element_rows:
+            raise ConfigSetError(
+                what=f"element row {position} is already configured",
+                why="a configured row already carries one complete entry per configuration",
+                action=f"Edit a configuration's entry with set_element_for({position}, config, "
+                f"entry), or unconfigure_element({position}) first.",
+                context={"element_row": position},
+            )
+        shared = self._shared_element_rows()
+        entry = shared.pop(self._shared_position(position))
+        self._store_shared_element_rows(shared)
+        self._element_rows[position] = {name: _copy.deepcopy(entry) for name in self._names}
+
+    def unconfigure_element(self, index: int, *, keep: str | None = None) -> None:
+        """Collapse a configured element row back to one shared entry.
+
+        *keep* names the configuration whose entry survives as the shared entry.
+        The default — and what the GUI uses — is **configuration #1** (ADR-0010
+        D-6, the same convention :meth:`unconfigure` follows); ``keep=<name>`` is
+        a scripting-only override. The row returns to the base document at its
+        own position, so the document's length and order are unchanged.
+        """
+        position = self._require_configured_element(index, "unconfigure_element")
+        member = (
+            self._names[0]
+            if keep is None
+            else self._names[self._index(keep, "unconfigure_element")]
+        )
+        kept = self._element_rows[position][member]
+        shared = self._shared_element_rows()
+        slot = self._shared_position(position)
+        del self._element_rows[position]
+        shared.insert(slot, kept)
+        self._store_shared_element_rows(shared)
+
+    def element_for(self, index: int, config: str) -> dict[str, Any]:
+        """Configuration *config*'s complete entry for configured row *index* (a copy).
+
+        Raises :class:`ConfigSetError` when the row is not configured — a shared
+        row has one entry, read from ``cs.base.optical_elements()`` — or when
+        *config* names no configuration.
+        """
+        position = self._require_configured_element(index, "element_for")
+        self._index(config, "element_for")
+        return _copy.deepcopy(self._element_rows[position][config])
+
+    def set_element_for(
+        self,
+        index: int,
+        config: str,
+        entry: Mapping[str, Any],
+        *,
+        base_dir: str | Path | None = None,
+    ) -> None:
+        """Set one configuration's entry of configured element row *index*.
+
+        *entry* is a **complete** element entry — the same entry dict the
+        ``optical_elements:`` document carries — not a patch: there is no
+        field-level merge, so no patch-resolution semantics (the reason
+        ADR-0010 D-A rejected sparse overlays for parameters applies here).
+
+        The entry is validated immediately through the io element parser — the
+        single validation authority, Kirchhoff included (Rule 5) — and
+        normalized, so relative spectral-file references under *base_dir*
+        (default: the current directory, as ``Sensor.set_optical_elements``)
+        become absolute and the stored entry survives a save from any directory.
+        A rejected entry stores nothing.
+        """
+        position = self._require_configured_element(index, "set_element_for")
+        self._index(config, "set_element_for")
+        try:
+            normalized = normalize_element_document([dict(entry)], base_dir=base_dir)
+        except RadiantError as exc:
+            raise ConfigSetError(
+                what=f"configuration {config!r}: element row {position} is not a valid "
+                "optical-element entry",
+                why=str(exc),
+                action=f"Fix the entry and set it again; configuration {config!r} keeps the "
+                "entry it had until the new one validates.",
+                context={"configuration": config, "element_row": position},
+            ) from exc
+        self._element_rows[position][config] = normalized[0]
+
+    def effective_optical_elements(self, name: str) -> list[dict[str, Any]] | None:
+        """The element document configuration *name* actually evaluates with.
+
+        The shared document in document order, with every configured row
+        resolved to this configuration's entry — what :meth:`sensor_for`
+        attaches. ``None`` when the set carries no element document at all.
+
+        The read surface a display layer needs: rendering a configuration's
+        train must not go through :meth:`sensor_for`, which resolves the whole
+        parameter set and can raise for reasons that have nothing to do with the
+        optics.
+
+        Raises :class:`ConfigSetError` when the base's shared document was
+        replaced behind the set's back (``cs.base.set_optical_elements(...)``)
+        by a shorter one, leaving a configured row with no position — reachable
+        only that way, exactly like the parameter-store clash
+        :meth:`sensor_for` checks. Evaluating a train the study does not
+        describe would be a silent failure (Rule 17).
+        """
+        self._index(name, "effective_optical_elements")
+        self._check_element_positions(name)
+        shared = self._shared_element_rows()
+        if not shared and not self._element_rows:
+            return None
+        return resolve_element_document(shared, self._element_rows, name)
+
+    # ------------------------------------------------------------------
     # Materialization and evaluation
     # ------------------------------------------------------------------
 
@@ -773,6 +971,13 @@ class ConfigurationSet:
         ``resolved()``/``explain()`` name the owning configuration) and its
         wavelength point count in force. It is fully independent: later edits
         to the set do not reach it, and edits to it do not reach the set.
+
+        When the set carries configured element rows, this configuration's
+        :meth:`effective_optical_elements` document is attached through the
+        ordinary ``Sensor.set_optical_elements`` — the one attachment path, so
+        the resolved train is parsed, injected, and persisted exactly as a
+        shared one. With no configured row the cloned base's document (which is
+        then the whole train) is left untouched.
 
         The parameter set is resolved here, so an over-constrained consistency
         group or an unsatisfiable requirement inside this configuration raises
@@ -787,6 +992,19 @@ class ConfigurationSet:
         )
         for dotpath, values in self._configured.items():
             sensor.set(dotpath, values[index], source=f"config:{name}")
+        if self._element_rows:
+            effective = self.effective_optical_elements(name)
+            try:
+                sensor.set_optical_elements(effective)
+            except RadiantError as exc:
+                raise ConfigSetError(
+                    what=f"configuration {name!r}: its optical-element train does not attach",
+                    why=str(exc),
+                    action=f"Fix the entry of configuration {name!r} on the offending row "
+                    f"(cs.set_element_for(row, {name!r}, entry)), or unconfigure the row to go "
+                    "back to one shared entry.",
+                    context={"configuration": name},
+                ) from exc
         try:
             sensor.resolve()
         except RadiantError as exc:
@@ -807,6 +1025,12 @@ class ConfigurationSet:
         :class:`~radiant.core.exceptions.RadiantError` it fails with, so a GUI
         can show a per-row status without any configuration's failure hiding
         another's.
+
+        Because it goes through :meth:`sensor_for`, each configuration's
+        **effective** optical-element document is attached and parsed here too:
+        a configuration whose entry on a configured row no longer parses, or
+        whose configured rows no longer have positions in the base's shared
+        document, reports under its own name.
         """
         status: dict[str, RadiantError | None] = {}
         for name in self._names:
@@ -964,28 +1188,39 @@ class ConfigurationSet:
         """Load a configuration set from a config file written by :meth:`save`.
 
         The shared body loads exactly as ``Sensor.load`` loads it (parameters,
-        tolerances, ``_radiant.wavelength_points``, any ``optical_elements``
+        tolerances, ``_radiant.wavelength_points``, the ``optical_elements``
         document); the ``configurations:`` section then supplies the names,
         ``active``/``baseline``, per-configuration ``wavelength_points``, and the
-        configured table.
+        configured table. An ``optical_elements`` document holding **configured
+        rows** (``- configured: {member: entry, ...}``) is split here: its shared
+        rows attach to the base, its configured rows become this set's
+        per-configuration element table (:mod:`radiant.io.configured_elements`).
 
         A config file **without** the section is a valid input: it loads as the
         degenerate one-configuration set (named ``"Configuration 1"``), which is
         observably the bare ``Sensor`` it contains.
 
         Raises :class:`~radiant.io.config.ConfigError` — naming the config file,
-        the configuration, and the parameter — for every section violation:
-        a value list whose length is not the configuration count, duplicate or
-        empty names, more than :attr:`MAX_CONFIGS` names, an unknown dot-path
-        (with did-you-mean), a dot-path present in both the shared body and the
-        section (ADR-0010 D-B), an ``active``/``baseline`` that names no member,
-        and any configured value the schema rejects.
+        the configuration, and the parameter or element row — for every
+        violation: a value list whose length is not the configuration count,
+        duplicate or empty names, more than :attr:`MAX_CONFIGS` names, an unknown
+        dot-path (with did-you-mean), a dot-path present in both the shared body
+        and the section (ADR-0010 D-B), an ``active``/``baseline`` that names no
+        member, any configured value the schema rejects, and any configured
+        element row that is not dense over the configuration names, names a
+        non-member, or holds an entry the io element parser rejects (Kirchhoff
+        included).
         """
         src = Path(path)
         sections: dict[str, Any] = {}
         base = Sensor.load(src, sections_out=sections)
         raw = sections.get(SECTION_KEY)
+        # Present only when the element document holds configured rows: a plain
+        # document is attached by ``Sensor.load`` itself (api/sensor.py).
+        raw_elements = sections.get("optical_elements")
         if raw is None:
+            if raw_elements is not None:
+                raise configured_rows_need_a_configuration_set(src)
             # Plain config file: the single-configuration set == the bare Sensor.
             return cls(base)
         section = parse_configurations_section(
@@ -996,12 +1231,29 @@ class ConfigurationSet:
             base_dir=src.parent,
             max_configurations=cls.MAX_CONFIGS,
         )
+        element_doc: ElementDocument | None = None
+        if raw_elements is not None:
+            element_doc = split_element_document(
+                raw_elements,
+                member_names=section.names,
+                path=src,
+                base_dir=src.parent,
+            )
+            # The shared rows take the attach path they always take, so their
+            # relative spectral-file references resolve against the config file's
+            # own directory (CU-177); the configured entries were resolved by the
+            # splitter for the same reason.
+            base.set_optical_elements(list(element_doc.shared) or None, base_dir=src.parent)
         try:
             cs = cls(base, names=section.names)
             for dotpath, values in section.parameters.items():
                 cs.configure(dotpath, values)
             for name, n_points in section.wavelength_points.items():
                 cs.set_wavelength_points(name, n_points)
+            if element_doc is not None:
+                cs._element_rows = {
+                    index: dict(entries) for index, entries in element_doc.configured.items()
+                }
             cs.active = section.active
             cs.baseline = section.baseline
         except ConfigSetError as exc:
@@ -1016,25 +1268,25 @@ class ConfigurationSet:
         The document is exactly what ``Sensor.save`` writes for the shared base —
         explicit inputs in input units, the ``_radiant`` meta block
         (``wavelength_points`` = the shared point count, tolerances), and the
-        ``optical_elements`` section when one is attached — plus the
-        ``configurations:`` section. :meth:`load` restores names and order, the
-        configured table, ``active``/``baseline``, and every wavelength point
-        count.
+        ``optical_elements`` document when one is attached — plus the
+        ``configurations:`` section. A configured element row is written **in
+        place**, at its own position in that document, as
+        ``- configured: {member: entry, ...}``. :meth:`load` restores names and
+        order, the configured table, ``active``/``baseline``, every wavelength
+        point count, and every configured element row.
 
         The section is written even for a single-configuration set with an empty
         configured table: the file then differs from ``Sensor.save`` output by
         the section alone, and the configuration's **name** survives the round
         trip (omitting it would silently rename it on reload).
 
-        ``is_file_path`` values inside the section are written relative to the
-        destination directory, exactly like shared file-path values (CU-177).
+        ``is_file_path`` values inside the section — and the spectral-file
+        references inside a configured element entry — are written relative to
+        the destination directory, exactly like shared file-path values (CU-177).
         """
         out = Path(path)
-        return self._document_sensor().save(
-            out,
-            extra_sections={SECTION_KEY: self._section_document(relative_to=out.parent)},
-            validate=False,
-        )
+        sensor, sections = self._output_document(relative_to=out.parent)
+        return sensor.save(out, extra_sections=sections, validate=False)
 
     def to_yaml(self, *, relative_to: str | Path | None = None) -> str:
         """Serialize this set to a YAML **string** — the in-memory twin of :meth:`save`.
@@ -1049,12 +1301,32 @@ class ConfigurationSet:
         to persist (ADR-0010 D-B).
         """
         rel = Path(relative_to) if relative_to is not None else None
-        return self._document_sensor().to_yaml(
+        sensor, sections = self._output_document(relative_to=rel)
+        return sensor.to_yaml(
             scope="inputs",
             relative_to=rel,
-            extra_sections={SECTION_KEY: self._section_document(relative_to=rel)},
+            extra_sections=sections,
             validate=False,
         )
+
+    def _output_document(self, *, relative_to: Path | None) -> tuple[Sensor, dict[str, Any]]:
+        """The sensor to serialize, and the structured sections to write beside it.
+
+        With no configured element row the base serializes its own element
+        document, exactly as it always has. With one, the merged document
+        (shared rows plus ``configured:`` rows in place) is written as an explicit
+        section and the serializing sensor's own document is detached — a
+        ``Sensor`` may not hold a configured row (it has no configurations), and
+        writing both would state the shared rows twice.
+        """
+        sensor = self._document_sensor()
+        sections: dict[str, Any] = {SECTION_KEY: self._section_document(relative_to=relative_to)}
+        if self._element_rows:
+            sections["optical_elements"] = merge_element_document(
+                self._shared_element_rows(), self._element_rows, relative_to=relative_to
+            )
+            sensor = sensor.clone().set_optical_elements(None)
+        return sensor, sections
 
     def _document_sensor(self) -> Sensor:
         """The base as it should be serialized — carrying the shared point count.
@@ -1100,6 +1372,105 @@ class ConfigurationSet:
                 action=f"Use one of {list(self._names)}, or add({name!r}) first.",
                 context={"configuration": name, "existing": list(self._names)},
             ) from exc
+
+    # -- configured element rows ---------------------------------------
+
+    def _shared_element_rows(self) -> list[dict[str, Any]]:
+        """The base sensor's element document as a mutable list (``[]`` when none).
+
+        These are the document's **shared** rows only: a configured row has been
+        moved out of the base (single store), so this list is shorter than
+        :meth:`element_count` by the number of configured rows.
+        """
+        return self._base.optical_elements() or []
+
+    def _store_shared_element_rows(self, rows: Sequence[Mapping[str, Any]]) -> None:
+        """Write the shared rows back to the base sensor.
+
+        An empty list attaches ``None``, not ``[]``: a document with **every**
+        row configured has no shared rows, and an empty ``optical_elements``
+        document is not a legal element document (the io parser requires a
+        non-empty list).
+        """
+        self._base.set_optical_elements([dict(row) for row in rows] or None)
+
+    def _shared_position(self, index: int) -> int:
+        """Where full-document row *index* sits in the shared-rows list."""
+        return sum(1 for i in range(index) if i not in self._element_rows)
+
+    def _element_index(self, index: int, operation: str) -> int:
+        """Validate *index* against the element document, or an actionable error."""
+        if not isinstance(index, int) or isinstance(index, bool):
+            raise ConfigSetError(
+                what=f"{operation}: element row index must be an int, got {index!r}",
+                why="element rows are addressed by position — the row identity of a "
+                "configured element document (Gap 103 v1.1)",
+                action=f"Pass a row index in 0 … {max(self.element_count() - 1, 0)}.",
+                context={"element_row": index},
+            )
+        count = self.element_count()
+        if count == 0:
+            raise ConfigSetError(
+                what=f"{operation}: this set has no 'optical_elements' document",
+                why="an element row can only be configured inside a shared element document; "
+                "with no document there is no row to configure",
+                action="Attach the shared train first with cs.base.set_optical_elements([...]).",
+                context={"element_row": index},
+            )
+        if index < 0 or index >= count:
+            raise ConfigSetError(
+                what=f"{operation}: element row {index} is outside the document "
+                f"(it has {count} row(s))",
+                why="row identity is positional and the row count is shared by every "
+                "configuration — no configuration adds or removes a row",
+                action=f"Pass a row index in 0 … {count - 1}.",
+                context={"element_row": index, "count": count},
+            )
+        return index
+
+    def _require_configured_element(self, index: int, operation: str) -> int:
+        """Validate *index* and require that the row is configured."""
+        position = self._element_index(index, operation)
+        if position not in self._element_rows:
+            raise ConfigSetError(
+                what=f"{operation}: element row {position} is not configured",
+                why="only a configured row carries a per-configuration entry; a shared row has "
+                "one entry, read from cs.base.optical_elements()",
+                action=f"Call configure_element({position}) first, or edit the shared row with "
+                "cs.base.set_optical_elements([...]).",
+                context={
+                    "element_row": position,
+                    "configured_rows": list(self.configured_element_indices()),
+                },
+            )
+        return position
+
+    def _check_element_positions(self, name: str) -> None:
+        """Catch a configured row left position-less by an edit to the base document.
+
+        The set's own API moves rows between the two stores and always preserves
+        the document length, so it cannot create this state. Replacing the base's
+        document behind the set's back (``cs.base.set_optical_elements(...)``)
+        with a shorter one can — and the configured row would then have no
+        position in the train. Caught here rather than ignored (Rule 17), exactly
+        like the parameter clash :meth:`_check_single_store` catches.
+        """
+        if not self._element_rows:
+            return
+        total = len(self._shared_element_rows()) + len(self._element_rows)
+        stray = sorted(i for i in self._element_rows if i >= total)
+        if stray:
+            raise ConfigSetError(
+                what=f"configuration {name!r}: configured element row(s) {stray} are outside the "
+                f"element document, which now has {total} row(s)",
+                why="the base sensor's 'optical_elements' document was replaced by a shorter one "
+                "after the row was configured; a configured row with no position has nothing to "
+                "resolve, and dropping it would evaluate a train the study does not describe",
+                action="Re-attach a shared document with at least "
+                f"{max(stray) + 1 - len(self._element_rows)} shared row(s), or "
+                f"unconfigure_element({stray[0]}) first.",
+                context={"configuration": name, "element_rows": stray, "count": total},
+            )
 
     def _check_single_store(self, name: str) -> None:
         """Enforce ADR-0010 D-B: no dot-path in both the base and the configured table.

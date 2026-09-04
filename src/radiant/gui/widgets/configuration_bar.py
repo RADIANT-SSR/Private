@@ -47,9 +47,10 @@ _CHIP_PX: int = 10
 _MANAGE_GLYPH = "⚙"
 _MANAGE_TOOLTIP = "Add, rename, reorder, or remove configurations (Edit → Configurations…)"
 
-# Layout items pinned to the right of the tabs: the stretch and the manage button.
-# New tabs are inserted before them.
-_TRAILING_ITEMS: int = 2
+# Layout items pinned to the right of the tabs: just the stretch (the manage
+# button moved to the LEFT of the tabs, owner live-review 2026-09-03).
+# New tabs are inserted before it.
+_TRAILING_ITEMS: int = 1
 
 
 class ConfigurationBar(QWidget):
@@ -91,11 +92,12 @@ class ConfigurationBar(QWidget):
         self._label.setObjectName("configurationBarLabel")
         layout.addWidget(self._label)
         self._layout = layout
-        layout.addStretch(1)
 
-        # The manage affordance sits after the stretch, pinned to the right end, so
-        # adding tabs never pushes it around. It is built once and never rebuilt.
-        manage = QPushButton(_MANAGE_GLYPH, self)
+        # The manage affordance sits on the LEFT, right after the band label and
+        # before the tabs (owner live-review 2026-09-03: pinned at the far right
+        # end it was invisible — "its not clear"). Labeled, not a bare glyph, for
+        # the same reason. Built once and never rebuilt; tabs insert after it.
+        manage = QPushButton(f"{_MANAGE_GLYPH} Manage…", self)
         manage.setObjectName("configurationManageButton")
         manage.setFlat(True)
         manage.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -103,6 +105,8 @@ class ConfigurationBar(QWidget):
         manage.clicked.connect(self.manageRequested.emit)
         layout.addWidget(manage)
         self._manage_button = manage
+
+        layout.addStretch(1)
 
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)

@@ -857,10 +857,18 @@ class StagePane(QWidget):
         would silently miss any field a future form adds. The rows are built with their
         panes, so a walk at bind time sees all of them; each row then re-reads itself
         from the scope's ``changed`` signal.
+
+        The Optics **Elements** tab takes the same scope by name (Gap 103 v1.1). It is
+        not a ``FieldRow``, and what it needs from the scope is the study document
+        itself — which configuration is active and what that configuration overrides —
+        so it can render that configuration's effective element train and route its
+        Apply to the shared document or to the configuration's overrides.
         """
         self._config_scope = scope
         for row in self.findChildren(FieldRow):
             row.set_configuration_scope(scope)
+        for element_editor in self._element_editors:
+            element_editor.set_configuration_scope(scope)
 
     def set_theme(self, theme: Theme) -> None:
         """Re-theme this pane's custom-painted widgets + matplotlib figures (theme toggle).

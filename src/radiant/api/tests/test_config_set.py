@@ -1140,3 +1140,403 @@ class TestFailedConfigurationErgonomics:
         assert "warning" in marked[0]
         assert "warning" not in next(ln for ln in lines if ln.startswith("matched"))
         assert "baseline: 'mismatched'" in lines[-1]
+
+
+# ---------------------------------------------------------------------------
+# Configured optical-element rows (Gap 103 v1.1 — owner-ratified 2026-09-02)
+# ---------------------------------------------------------------------------
+
+
+def _mirror(name: str = "M1", **fields: Any) -> dict[str, Any]:
+    """A complete reflective element entry."""
+    entry: dict[str, Any] = {
+        "name": name,
+        "transfer_mode": "REFLECTIVE",
+        "reflectance": 0.97,
+        "temperature_K": 293.0,
+    }
+    entry.update(fields)
+    return entry
+
+
+def _filter(name: str = "band_filter", **fields: Any) -> dict[str, Any]:
+    """A complete refractive filter entry (the row a band study configures)."""
+    entry: dict[str, Any] = {
+        "name": name,
+        "transfer_mode": "REFRACTIVE",
+        "kind": "FILTER",
+        "transmittance": 0.90,
+        "temperature_K": 240.0,
+    }
+    entry.update(fields)
+    return entry
+
+
+def _set_with_train(*names: str, points: int = _WL_POINTS) -> ConfigurationSet:
+    """A set whose base carries a two-row shared train: [M1, band_filter]."""
+    base = _sensor(points)
+    base.set_optical_elements([_mirror(), _filter()])
+    return ConfigurationSet(base, names=list(names))
+
+
+class TestElementRowAddressing:
+    """Row identity is positional, and the count is shared by every configuration."""
+
+    def test_element_count_covers_shared_and_configured_rows(self) -> None:
+        cs = _set_with_train("A", "B")
+        assert cs.element_count() == 2
+        cs.configure_element(1)
+        assert cs.element_count() == 2  # configuring moves a row, never removes it
+
+    def test_no_document_means_no_rows(self) -> None:
+        assert ConfigurationSet(_sensor(), names=["A"]).element_count() == 0
+
+    def test_configured_indices_and_predicate(self) -> None:
+        cs = _set_with_train("A", "B")
+        assert cs.configured_element_indices() == ()
+        assert not cs.is_element_configured(1)
+        cs.configure_element(1)
+        assert cs.configured_element_indices() == (1,)
+        assert cs.is_element_configured(1) and not cs.is_element_configured(0)
+
+    def test_out_of_range_index_is_actionable(self) -> None:
+        cs = _set_with_train("A", "B")
+        for bad in (2, -1):
+            with pytest.raises(ConfigSetError, match="outside the document"):
+                cs.configure_element(bad)
+
+    def test_index_without_a_document_names_the_missing_document(self) -> None:
+        cs = ConfigurationSet(_sensor(), names=["A"])
+        with pytest.raises(ConfigSetError, match="no 'optical_elements' document"):
+            cs.configure_element(0)
+
+    def test_non_integer_index_is_refused(self) -> None:
+        cs = _set_with_train("A", "B")
+        with pytest.raises(ConfigSetError, match="must be an int"):
+            cs.configure_element("band_filter")  # type: ignore[arg-type]
+
+
+class TestConfigureElement:
+    def test_configure_seeds_every_member_with_the_shared_entry(self) -> None:
+        cs = _set_with_train("A", "B", "C")
+        cs.configure_element(1)
+        for name in cs.names():
+            entry = cs.element_for(1, name)
+            assert entry["name"] == "band_filter"
+            assert entry["transmittance"] == pytest.approx(0.90, rel=1e-12)
+
+    def test_configure_moves_the_row_out_of_the_base_document(self) -> None:
+        """Single store: the row's entry lives in one place, never two."""
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        shared = cs.base.optical_elements()
+        assert shared is not None
+        assert [e["name"] for e in shared] == ["M1"]
+
+    def test_configure_changes_no_result(self) -> None:
+        cs = _set_with_train("A", "B")
+        before = cs.sensor_for("B").evaluate().metrics["snr"]
+        cs.configure_element(1)
+        assert cs.sensor_for("B").evaluate().metrics["snr"] == pytest.approx(before, rel=1e-12)
+
+    def test_configuring_every_row_leaves_no_shared_document(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(0)
+        cs.configure_element(1)
+        assert cs.base.optical_elements() is None
+        assert cs.element_count() == 2
+        assert [e["name"] for e in cs.effective_optical_elements("A") or []] == [
+            "M1",
+            "band_filter",
+        ]
+
+    def test_configuring_twice_is_refused(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        with pytest.raises(ConfigSetError, match="already configured"):
+            cs.configure_element(1)
+
+    def test_positions_are_stable_across_configure(self) -> None:
+        """Row 2 stays row 2 after row 0 configures — the count never changes."""
+        base = _sensor()
+        base.set_optical_elements([_mirror(), _filter(), _mirror("M2")])
+        cs = ConfigurationSet(base, names=["A", "B"])
+        cs.configure_element(0)
+        cs.configure_element(2)
+        assert cs.configured_element_indices() == (0, 2)
+        assert [e["name"] for e in cs.effective_optical_elements("A") or []] == [
+            "M1",
+            "band_filter",
+            "M2",
+        ]
+
+
+class TestSetElementFor:
+    def test_set_and_read_back_one_member(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=0.40))
+        assert cs.element_for(1, "B")["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        assert cs.element_for(1, "A")["transmittance"] == pytest.approx(0.90, rel=1e-12)
+
+    def test_the_name_configures_with_the_row(self) -> None:
+        """Owner-ratified consequence: a member may name row 1 differently."""
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(name="filter_b02", transmittance=0.40))
+        assert cs.element_for(1, "A")["name"] == "band_filter"
+        assert cs.element_for(1, "B")["name"] == "filter_b02"
+        assert [e["name"] for e in cs.effective_optical_elements("B") or []] == [
+            "M1",
+            "filter_b02",
+        ]
+
+    def test_reads_are_copies(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.element_for(1, "B")["transmittance"] = 0.01
+        assert cs.element_for(1, "B")["transmittance"] == pytest.approx(0.90, rel=1e-12)
+
+    def test_a_shared_row_has_no_per_configuration_entry(self) -> None:
+        cs = _set_with_train("A", "B")
+        with pytest.raises(ConfigSetError, match="is not configured"):
+            cs.element_for(0, "A")
+        with pytest.raises(ConfigSetError, match="is not configured"):
+            cs.set_element_for(0, "A", _mirror())
+
+    def test_unknown_configuration_is_actionable(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        for call in (
+            lambda: cs.element_for(1, "SWIR"),
+            lambda: cs.set_element_for(1, "SWIR", _filter()),
+            lambda: cs.effective_optical_elements("SWIR"),
+        ):
+            with pytest.raises(ConfigSetError, match="no configuration named 'SWIR'"):
+                call()
+
+    def test_invalid_entry_is_refused_and_stores_nothing(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        with pytest.raises(ConfigSetError, match="not a valid optical-element entry"):
+            cs.set_element_for(1, "B", {"name": "band_filter"})  # no transfer_mode
+        assert cs.element_for(1, "B")["transmittance"] == pytest.approx(0.90, rel=1e-12)
+
+    def test_kirchhoff_violating_entry_is_refused(self) -> None:
+        """Rule 5 is enforced by the one io parser, at edit time."""
+        cs = _set_with_train("A", "B")
+        cs.configure_element(0)
+        with pytest.raises(ConfigSetError, match="not a valid optical-element entry"):
+            cs.set_element_for(0, "B", _mirror(reflectance=1.5))
+        assert cs.element_for(0, "B")["reflectance"] == pytest.approx(0.97, rel=1e-12)
+
+
+class TestUnconfigureElement:
+    def test_keep_defaults_to_configuration_one(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "A", _filter(transmittance=0.40))
+        cs.set_element_for(1, "B", _filter(transmittance=0.10))
+        cs.unconfigure_element(1)
+        shared = cs.base.optical_elements()
+        assert shared is not None
+        assert shared[1]["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        assert not cs.is_element_configured(1)
+
+    def test_keep_names_a_configuration(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=0.10))
+        cs.unconfigure_element(1, keep="B")
+        shared = cs.base.optical_elements()
+        assert shared is not None
+        assert shared[1]["transmittance"] == pytest.approx(0.10, rel=1e-12)
+
+    def test_row_returns_to_its_own_position(self) -> None:
+        base = _sensor()
+        base.set_optical_elements([_mirror(), _filter(), _mirror("M2")])
+        cs = ConfigurationSet(base, names=["A", "B"])
+        cs.configure_element(1)
+        cs.unconfigure_element(1)
+        shared = cs.base.optical_elements()
+        assert shared is not None
+        assert [e["name"] for e in shared] == ["M1", "band_filter", "M2"]
+
+    def test_unconfiguring_a_shared_row_is_refused(self) -> None:
+        cs = _set_with_train("A", "B")
+        with pytest.raises(ConfigSetError, match="is not configured"):
+            cs.unconfigure_element(0)
+
+    def test_unconfigure_with_an_unknown_keep_is_actionable(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        with pytest.raises(ConfigSetError, match="no configuration named 'SWIR'"):
+            cs.unconfigure_element(1, keep="SWIR")
+
+    def test_round_trip_configure_unconfigure_restores_the_document(self) -> None:
+        cs = _set_with_train("A", "B")
+        before = cs.base.optical_elements()
+        cs.configure_element(1)
+        cs.unconfigure_element(1)
+        assert cs.base.optical_elements() == before
+
+
+class TestEffectiveElementDocument:
+    def test_configured_rows_resolve_per_configuration(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=0.40))
+        doc_a = cs.effective_optical_elements("A")
+        doc_b = cs.effective_optical_elements("B")
+        assert doc_a is not None and doc_b is not None
+        assert [e["name"] for e in doc_a] == ["M1", "band_filter"]
+        assert doc_a[1]["transmittance"] == pytest.approx(0.90, rel=1e-12)
+        assert doc_b[1]["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        assert doc_a[0] == doc_b[0]  # the shared row is identical in both
+
+    def test_no_document_is_none(self) -> None:
+        assert ConfigurationSet(_sensor(), names=["A"]).effective_optical_elements("A") is None
+
+    def test_a_shorter_base_document_orphans_a_row_and_raises(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.base.set_optical_elements(None)  # behind the set's back
+        with pytest.raises(ConfigSetError, match="outside the element document"):
+            cs.effective_optical_elements("A")
+
+
+class TestElementMaterialization:
+    def test_each_configuration_attaches_its_own_train(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=0.40))
+        doc_a = cs.sensor_for("A").optical_elements()
+        doc_b = cs.sensor_for("B").optical_elements()
+        assert doc_a is not None and doc_b is not None
+        assert doc_a[1]["transmittance"] == pytest.approx(0.90, rel=1e-12)
+        assert doc_b[1]["transmittance"] == pytest.approx(0.40, rel=1e-12)
+
+    def test_materialized_sensors_are_independent_of_later_edits(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=0.40))
+        sensor = cs.sensor_for("B")
+        cs.set_element_for(1, "B", _filter(transmittance=0.10))
+        doc = sensor.optical_elements()
+        assert doc is not None
+        assert doc[1]["transmittance"] == pytest.approx(0.40, rel=1e-12)
+
+    def test_a_lower_transmittance_lowers_snr(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=0.40))
+        assert (
+            cs.sensor_for("A").evaluate().metrics["snr"]
+            > cs.sensor_for("B").evaluate().metrics["snr"]
+        )
+
+    def test_validate_all_reports_an_orphaned_row_per_configuration(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.base.set_optical_elements(None)
+        status = cs.validate_all()
+        assert set(status) == {"A", "B"}
+        assert all(err is not None for err in status.values())
+
+    def test_evaluate_all_runs_every_configured_train(self) -> None:
+        cs = _set_with_train("A", "B", "C")
+        cs.configure_element(1)
+        for i, name in enumerate(cs.names()):
+            cs.set_element_for(1, name, _filter(transmittance=0.30 + 0.20 * i))
+        run = cs.evaluate_all()
+        assert run.n_failed == 0
+        snrs = [run.result_for(name).metrics["snr"] for name in cs.names()]
+        assert snrs[0] < snrs[1] < snrs[2]
+
+
+class TestConfiguredElementCrud:
+    """add / remove / rename / reorder / clone keep every row dense and orphan-free."""
+
+    @staticmethod
+    def _members(cs: ConfigurationSet, row: int) -> list[str]:
+        """The stored key set of a configured row, in stored order.
+
+        Read from the private table on purpose: density ("every configuration
+        has an entry") is observable through `element_for`, but orphan-freedom
+        ("and *no other* key is stored") is not — an orphaned entry for a
+        removed configuration would be invisible from the public surface, which
+        is exactly the state these tests exist to rule out.
+        """
+        return list(cs._element_rows[row])
+
+    def test_add_seeds_from_configuration_one(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "A", _filter(transmittance=0.40))
+        cs.add("C")
+        assert cs.element_for(1, "C")["transmittance"] == pytest.approx(0.40, rel=1e-12)
+
+    def test_add_with_copy_from_seeds_from_that_configuration(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=0.10))
+        cs.add("C", copy_from="B")
+        assert cs.element_for(1, "C")["transmittance"] == pytest.approx(0.10, rel=1e-12)
+        # A copy, not an alias: editing C leaves B alone.
+        cs.set_element_for(1, "C", _filter(transmittance=0.05))
+        assert cs.element_for(1, "B")["transmittance"] == pytest.approx(0.10, rel=1e-12)
+
+    def test_remove_drops_that_configuration_s_entry(self) -> None:
+        cs = _set_with_train("A", "B", "C")
+        cs.configure_element(1)
+        cs.remove("B")
+        assert self._members(cs, 1) == ["A", "C"]
+        with pytest.raises(ConfigSetError, match="no configuration named 'B'"):
+            cs.element_for(1, "B")
+
+    def test_rename_rekeys_the_entry(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=0.40))
+        cs.rename("B", "LWIR")
+        assert cs.element_for(1, "LWIR")["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        assert self._members(cs, 1) == ["A", "LWIR"]
+
+    def test_reorder_keeps_entries_with_their_configurations(self) -> None:
+        cs = _set_with_train("A", "B", "C")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=0.40))
+        cs.reorder(["C", "B", "A"])
+        assert self._members(cs, 1) == ["C", "B", "A"]
+        assert cs.element_for(1, "B")["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        assert cs.element_for(1, "A")["transmittance"] == pytest.approx(0.90, rel=1e-12)
+
+    def test_rows_stay_dense_and_orphan_free_through_crud(self) -> None:
+        """Entries are keyed by member, so membership edits can leave no orphan."""
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.add("C", copy_from="B")
+        cs.rename("A", "A2")
+        cs.remove("B")
+        cs.reorder(["C", "A2"])
+        assert self._members(cs, 1) == ["C", "A2"]
+        assert cs.effective_optical_elements("C") is not None
+
+    def test_clone_copies_rows_independently(self) -> None:
+        cs = _set_with_train("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=0.40))
+        copy = cs.clone()
+        assert copy.element_for(1, "B")["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        copy.set_element_for(1, "B", _filter(transmittance=0.10))
+        copy.unconfigure_element(1)
+        assert cs.element_for(1, "B")["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        assert cs.is_element_configured(1)
+
+
+class TestSensorRefusesConfiguredRows:
+    """A bare `Sensor` holds one train and says so (Rule 15)."""
+
+    def test_set_optical_elements_refuses_a_configured_row(self) -> None:
+        with pytest.raises(ApiValidationError, match="configured element row"):
+            _sensor().set_optical_elements([_mirror(), {"configured": {"A": _filter()}}])

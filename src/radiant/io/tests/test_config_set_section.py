@@ -3,6 +3,11 @@
 Covers the load-time validation matrix of `docs/archive/Multi_Configuration_Plan.md`
 §6 Phase 2 at the io level: every violation is a `ConfigError` naming the config
 file, the configuration, and the parameter — never a padded or dropped value.
+
+Per-configuration **optical elements** are not part of this section: an element
+row configures in place inside the shared ``optical_elements`` document
+(`io/configured_elements.py`, plan §3a-bis), so the superseded
+``configurations.optical_elements`` sub-key is rejected here as an unknown key.
 """
 
 from __future__ import annotations
@@ -278,3 +283,22 @@ class TestSerializeRoundTrip:
 
     def test_section_key_constant(self) -> None:
         assert SECTION_KEY == "configurations"
+
+
+@pytest.mark.level0
+class TestSupersededSubKey:
+    """`configurations.optical_elements` never merged — it is an unknown key now.
+
+    The superseded replace-by-name model (plan §3a) put per-configuration element
+    overrides under this sub-key. §3a-bis replaced it with configured rows inside
+    the shared document before it shipped, so there is no back-compat to keep: a
+    file carrying it fails like any other typo, naming the recognised keys.
+    """
+
+    def test_sub_key_is_rejected_as_unknown(self) -> None:
+        raw = _minimal(optical_elements={"LWIR": [{"name": "band_filter"}]})
+        with pytest.raises(ConfigError) as exc:
+            parse_configurations_section(raw, _params())
+        msg = str(exc.value)
+        assert "unknown key(s) 'optical_elements'" in msg
+        assert "'parameters'" in msg  # the recognised-key list is quoted

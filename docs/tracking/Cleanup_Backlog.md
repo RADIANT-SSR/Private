@@ -47,6 +47,14 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-343 — `Sensor.save` writes the shared `optical_elements` document's spectral-file paths absolute: the one CU-177 hole left, and it makes saved element-bearing configs machine-specific
+
+**Discovered**: Configuration Set Expansion Plan Phase 2 chunk 2a (branch `cfgset/phase2-elements`), 2026-09-02 — surfaced by building CU-177 parity for the new per-configuration override entries, which *do* relativize; the shared document they override does not.
+**Status**: Open.
+**File**: `src/radiant/api/sensor.py` (`_sections`) + `src/radiant/io/config.py` (`serialize_config`) — the `optical_elements` document is written with its normalized **absolute** spectral-file references verbatim.
+**Symptom**: save a config whose element train references a transmittance/reflectance CSV, move the file (or the repo) to another machine or path, load — the element file reference dangles. Every parameter-level `is_file_path` value (CU-177) and every override entry (Gap 103 v1.1) relativizes on save and resolves on load; the shared element document is the one store that does not. A study file can carry both forms at once.
+**Why it still matters**: workflow-visible (intake test 4) — scenario studies with per-band filter CSVs are exactly this file shape, and Rule 30 makes cross-machine portability a stated requirement; the asymmetry with the override path also confuses hand-editors of saved YAML.
+**Suggested fix**: (b) stand-alone task — route the shared document through the same relativize-on-save / resolve-on-load helpers (`SPECTRAL_FILE_KEYS` is now public in `io/element_config.py`); one golden-file review per `RADIANT_Testing_Validation.md` §5.3 since saved baselines change form. Effort S; category A/D.
 ### CU-341 — Configuration bar cannot absorb 12 tabs at laptop width: no wrap, scroll, or overflow affordance on the selector band
 
 **Discovered**: Configuration Set Expansion Plan Phase 1 (branch `cfgset/phase1-cap12`), 2026-09-02 — the plan §7 watch item, measured real during the 8 → 12 cap raise.
@@ -120,6 +128,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Resolved
 
+### CU-344 — Elements-tab commits are not entry-faithful: the table injects geometry defaults and drops refractive reflectance, silently changing the physics of rows the operator never touched — RESOLVED 2026-09-03 (commit trailer)
+
+**Discovered**: Configuration Set Expansion Phase-2 live review (branch `cfgset/phase2-elements`), 2026-09-03 — the owner's M2 0.97 → 0.5 edit read SNR 220.5 [-] through the GUI-committed document vs 58.5 [-] through the same document authored via the scripting API; an entry-by-entry diff shows the GUI adds `diameter_m: 0.1` / `distance_to_fpa_m: 1.0` to every row that never specified them, drops `reflectance` (0.02) from refractive rows (the single R/T value cell has no home for a refractive row's R), and rewrites `kind` case.
+**Status**: Resolved 2026-09-03 on the discovering branch, same live-review day.
+**Resolution**: each table row carries its source entry (deepcopy on an item-data role); a commit is deepcopy(source) overlaid with only the cells the operator legitimately owns; cells for absent keys render blank and write nothing (io parser defaults keep applying — 0.0 K / 1.0 m / 1.0 m); no-column keys (refractive `reflectance`) ride through untouched; combos never case-rewrite; the transfer-mode flip is the one deliberate key deletion. Regression tests pin one-row-edit-leaves-others-byte-identical and the three-band GUI-vs-API oracle; the review scenario's GUI-committed SNR now matches the scripting API (58.5 [-], was 220.5 [-]). Results-affecting CHANGELOG entry in the same commit.
+**File**: `src/radiant/gui/widgets/optical_element_editor.py` (row build displays invented defaults; `entries()` serializes the displayed cells, not the source entry).
+**Symptom**: any commit from the tab (formerly Apply, now every completed edit) rewrites *all* rows from their table rendering — entries gain keys they never had and lose keys the table cannot display, so an edit to one row mutates the physics of untouched rows. Results-affecting (intake test 1) and workflow-visible (test 4).
+**Why it still matters**: element geometry keys engage the emission-coupling model and refractive R feeds Kirchhoff ε = 1 − T − R; both move computed SNR/NEDT. The tab violates its own contract ("table rows ⇌ the `optical_elements:` entry dicts").
+**Suggested fix**: (a) inline-fix-now — carry each row's source entry (item-data role); serialization = source entry overlaid with only the cells the operator actually edited; cells for absent keys render blank and write nothing; refractive R survives untouched through the overlay. Test: commit after a single-row edit leaves every other row byte-identical. Effort S–M; category A/D.
 ### CU-342 — `radiant gui <study.yaml>` refuses configuration-set files: the CLI loads via `Sensor.from_yaml` while the GUI's own File → Open handles both document kinds — RESOLVED 2026-09-02 (commit trailer)
 
 **Resolution**: the CLI now loads every file through `ConfigurationSet.load` (the API decides the document kind, the same one-reader dispatch as `main_window._open_path`) and `launch_gui` gained a keyword-only `config_set` parameter forwarded to `RADIANTMainWindow`; a study file launches as the full set, a plain config as the degenerate one-member set, and the no-config flow keeps its blank editable session (now set-shaped). CLI suite covers all four paths.

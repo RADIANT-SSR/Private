@@ -39,6 +39,13 @@ configuration, and the parameter:
   load against the config file's own directory, exactly like shared values
   (CU-177 — the same :mod:`radiant.io.config` helpers).
 
+Per-configuration **optical elements** are not part of this section: an element
+row configures inside the shared ``optical_elements`` document itself, in place
+and positionally (:mod:`radiant.io.configured_elements`, Gap 103 v1.1,
+owner-ratified 2026-09-02). The superseded ``configurations.optical_elements``
+sub-key never shipped and is not accepted — a file carrying it fails with this
+section's ordinary unknown-key error.
+
 This module owns only the section's syntax and its cross-field invariants; the
 values' type / bounds / enum validation is the ordinary parameter path inside
 ``ConfigurationSet`` (there is no second validation authority).

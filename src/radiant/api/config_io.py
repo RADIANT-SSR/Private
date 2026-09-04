@@ -36,27 +36,14 @@ import numpy as np
 import numpy.typing as npt
 
 from radiant.api.errors import ApiValidationError
-from radiant.io.element_config import parse_element_entries
+from radiant.io.element_config import SPECTRAL_FILE_KEYS, validate_element_entry
 from radiant.io.zemax_zernike import load_zemax_zernike
-from radiant.optics.errors import OpticsValidationError
 
 # Entry keys whose string values are spectral-file references (resolved
-# against base_dir by the io parser; absolutized by normalization).
-_SPECTRAL_FILE_KEYS: tuple[str, ...] = (
-    "reflectance",
-    "transmittance",
-    "R1",
-    "T1",
-    "R2",
-    "T2",
-    "alpha",
-    "n_refr",
-)
-
-# Default preview grid: the full RADIANT VIS-LWIR span. Band means in a
-# preview are computed on this grid unless the caller passes the band of
-# interest (the GUI passes the sensor's filter band).
-_PREVIEW_GRID_UM: npt.NDArray[np.float64] = np.linspace(0.4, 20.0, 101)
+# against base_dir by the io parser; absolutized by normalization). Owned by
+# the io parser so this facade and the ``configurations:`` section serializer
+# cannot drift from it.
+_SPECTRAL_FILE_KEYS: tuple[str, ...] = SPECTRAL_FILE_KEYS
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,23 +85,12 @@ def _parse_entry_for_display(
 ) -> Any:
     """Parse one entry for validation/preview, on its own spectral grid.
 
-    With an explicit *wavelength_um* the entry parses (and resamples) onto that
-    grid — the in-band view. Without one, the entry parses on its **native** grid
-    (a spectral table keeps its own span; band coverage is checked at evaluate
-    time against the sensor band, not here), falling back to the wide preview
-    grid only when the entry is scalar-only and needs a broadcast grid. This
-    keeps structural/Kirchhoff validation independent of any assumed band — a
-    3–5 µm coating table must not fail a 0.4–20 µm default (found 2026-07-16).
+    Thin alias over :func:`radiant.io.element_config.validate_element_entry`,
+    which owns the band-agnostic parse (native grid first, wide fallback grid
+    only for a scalar-only entry) so this facade and the ``configurations:``
+    section parser validate entries identically.
     """
-    if wavelength_um is not None:
-        return parse_element_entries([entry], wavelength_um, base_dir=base_dir)[0]
-    try:
-        return parse_element_entries([entry], None, base_dir=base_dir)[0]
-    except OpticsValidationError as exc:
-        if "wavelength_um is required" not in str(exc):
-            raise
-        # Scalar-only entry: any grid broadcasts it losslessly.
-        return parse_element_entries([entry], _PREVIEW_GRID_UM, base_dir=base_dir)[0]
+    return validate_element_entry(entry, wavelength_um=wavelength_um, base_dir=base_dir)
 
 
 def preview_optical_elements(

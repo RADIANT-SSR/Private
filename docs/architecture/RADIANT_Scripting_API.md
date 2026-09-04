@@ -200,6 +200,14 @@ explicit inputs *or* in the configured table, never both: `configure()` *moves* 
 `unconfigure()` collapses it back. A consistency-group member that should be **derived**
 is simply absent from both, exactly as for a bare `Sensor`.
 
+An **element row** follows the same model rather than a parallel one (Gap 103 v1.1,
+owner-ratified 2026-09-02 in live review): `configure_element(index)` moves a row of the
+shared `optical_elements` document into a per-configuration table where it carries one
+complete entry per configuration — dense, single-store, `unconfigure_element` collapsing it
+back. Row identity is **positional** (the row count and order are shared; the entry's `name`
+configures with the row), and the on-disk form is the in-place `- configured:` row of
+`RADIANT_Config_Format.md` §1.9.
+
 **Materialization** is the only evaluation route — `sensor_for(name)` is
 `base.clone()` with that configuration's values set (provenance `source="config:<name>"`,
 see `RADIANT_Parameter_System.md` § Provenance) and its wavelength point count in force.
@@ -213,7 +221,7 @@ resolution engine, and `radiant.core` is untouched.
 | `ConfigurationSet.MAX_CONFIGS` | `12`. A thirteenth configuration raises `ConfigSetError` (ADR-0010 D-E; raised 8 → 12, owner-ratified 2026-09-01). |
 | `cs.base` | The shared base `Sensor`. Editing it (`cs.base.set(...)`) edits the shared value of a parameter that is *not* configured. |
 | `cs.names()` / `len(cs)` / `name in cs` | Configuration names in set order; count; membership. |
-| `cs.add(name, *, copy_from=None)` | Append a configuration. Every configured parameter gains a value: copied from `copy_from` (the duplicate route), else from **configuration #1**. |
+| `cs.add(name, *, copy_from=None)` | Append a configuration. Every configured parameter **and every configured element row** gains an entry: copied from `copy_from` (the duplicate route), else from **configuration #1**. `remove` drops that configuration's entry from every row, and `rename`/`reorder` re-key and re-order them, so a row can never be left sparse or holding an entry for a configuration that no longer exists. |
 | `cs.remove(name)` | Remove a configuration and drop its column. The last one cannot be removed; an active/baseline designation moves to the first remaining configuration. |
 | `cs.rename(old, new)` / `cs.reorder(names)` | Rename in place; reorder by a **permutation** of the current names (value columns permute with them, so alignment is preserved). |
 | `cs.configured()` | Read-only mapping dot-path → tuple of one value per configuration (input units). |
@@ -225,13 +233,20 @@ resolution engine, and `radiant.core` is untouched.
 | `cs.baseline` / `cs.active` | The delta reference used by `compare`, and the displayed configuration (GUI state; evaluated first). Assigning a non-member raises `ConfigSetError`. |
 | `cs.set_wavelength_points(config, n)` | Spectral grid point count for one configuration, or the shared default with `config=None`. `n=None` **clears** rather than sets — a named configuration goes back to the shared default, and `config=None, n=None` drops the set-level default so the base sensor's own count is the shared default again. The grid *span* is already per configuration for free — each materialized sensor spans its own resolved band (ADR-0010 D-F). |
 | `cs.wavelength_points(config=None)` | Read it back (CU-210). `config=None` returns the **shared default in force** — the set-level default when one was set, else `cs.base.wavelength_points` — and is always an `int`. `config=<name>` returns that configuration's **override**, or `None` when it inherits the shared default; that `None` is the distinction a display surface needs ("inherits" is not "happens to equal the default"). Raises `ConfigSetError` for an unknown name. |
-| `cs.clone()` | An independent copy of the whole set: cloned base, copied configured table, wavelength-point overrides (per configuration **and** shared), `active`/`baseline`. The set-level counterpart of `Sensor.clone()`; nothing is shared afterwards in either direction. Use it for thread isolation (the GUI hands its evaluate-all worker `cs.clone()` taken on the GUI thread) or before a destructive what-if. Hand-rolling a copy from the public accessors is possible since `wavelength_points()` landed (CU-210) but is not equivalent — it must re-apply the configured table, both kinds of wavelength-point state, and both designations without dropping one. |
-| `cs.sensor_for(name)` | Materialize a configuration as an isolated `Sensor` (resolved here, so a per-configuration consistency-group error surfaces named). Later edits to the set do not reach it, and vice versa. |
+| `cs.clone()` | An independent copy of the whole set: cloned base, copied configured table, configured element rows, wavelength-point overrides (per configuration **and** shared), `active`/`baseline`. The set-level counterpart of `Sensor.clone()`; nothing is shared afterwards in either direction. Use it for thread isolation (the GUI hands its evaluate-all worker `cs.clone()` taken on the GUI thread) or before a destructive what-if. Hand-rolling a copy from the public accessors is possible since `wavelength_points()` landed (CU-210) but is not equivalent — it must re-apply the configured table, both kinds of wavelength-point state, and both designations without dropping one. |
+| `cs.element_count()` | Number of rows in the shared `optical_elements` document — shared **and** configured (`0` when there is none). The row count and order are shared by every configuration, so this is the index domain of every `*_element` method below. |
+| `cs.configured_element_indices()` / `cs.is_element_configured(index)` | Which rows carry one entry per configuration (ascending), and the per-row predicate — what a display surface reads to mark a row configured. |
+| `cs.configure_element(index)` | Promote element row *index* to a **configured row** (Gap 103 v1.1): it gains one **complete** entry per configuration, every one seeded with a copy of the row's current shared entry, so the promotion changes no result. The row's entry is *moved* out of `cs.base`'s document, so it is shared **or** configured, never both. Row identity is **positional**: the entry's `name` moves with it, so a configuration may name the row differently. Raises `ConfigSetError` when the set has no element document, when `index` is not a row of it, or when the row is already configured. |
+| `cs.unconfigure_element(index, *, keep=None)` | Collapse a configured row back to one shared entry, returned to **its own position** so the document's length and order are unchanged. `keep=None` keeps **configuration #1**'s entry (ADR-0010 D-6, what the GUI uses); `keep=<name>` is a scripting-only override. |
+| `cs.set_element_for(index, config, entry, *, base_dir=None)` | Set one configuration's entry of a configured row. `entry` is a **complete** element entry, not a patch — there is no field-level merge, so no patch-resolution semantics. Validated immediately through the io element parser, Kirchhoff included (Rule 5); a rejected entry stores nothing. `base_dir` resolves relative spectral-file references, exactly as `Sensor.set_optical_elements`. |
+| `cs.element_for(index, config)` | That configuration's entry for a configured row (a copy). Raises `ConfigSetError` when the row is shared — a shared row has one entry, read from `cs.base.optical_elements()`. |
+| `cs.effective_optical_elements(name)` | The document that configuration actually evaluates with: the skeleton in document order, with every configured row resolved to this configuration's entry. `None` when the set carries no element document. The read surface for display: it does not resolve the parameter set the way `sensor_for` does. Raises `ConfigSetError` naming the configuration if the base's document was replaced behind the set's back by a shorter one, leaving a configured row without a position (Rule 17 — never silently dropped). |
+| `cs.sensor_for(name)` | Materialize a configuration as an isolated `Sensor` (resolved here, so a per-configuration consistency-group error surfaces named). When the set has configured rows, that configuration's **effective** document is attached through the ordinary `Sensor.set_optical_elements`; with no configured row the cloned base's document (then the whole train) is left untouched. Later edits to the set do not reach it, and vice versa. |
 | `cs.validate_all()` | `{name: None or RadiantError}` in set order — resolve-only, **no physics**. One configuration's failure never hides another's. |
 | `cs.evaluate_all(*, progress=None, cancel=None)` | Evaluate every configuration, **active first**. Returns `ConfigSetRunResult`. Same `progress(done, total)` / `cancel()` contract as `sweep` (§2.3). Each configuration is evaluated inside its **own** warning-capture window, so the warnings it raises land on its `ConfigRun.warnings` and on no other (see below). |
 | `cs.compare(run)` | Adapt a run into `compare_configs` (§2.5b): columns in **set order** = `cs.names()` (stable when `active` changes), delta reference = the index of `cs.baseline`. **Raises** `ConfigSetError` naming any failed configuration rather than dropping its column (see below). |
-| `ConfigurationSet.load(path)` | Classmethod (ADR-0010 D-D). Load a study config file: the shared body exactly as `Sensor.load` reads it (parameters, tolerances, `_radiant.wavelength_points`, `optical_elements`) plus the `configurations:` section — names and order, `active`/`baseline`, per-configuration `wavelength_points`, and the configured table. A config file **without** the section loads as the degenerate one-configuration set. Every section violation raises `ConfigError` naming the config file, the configuration, and the parameter (`RADIANT_Config_Format.md` §1.9). |
-| `cs.save(path)` | Write the study as one config file and return the `Path`: the base serialized exactly as `Sensor.save` writes it, plus the `configurations:` section (always written — the file is then self-identifying and the configuration names survive). Configured `is_file_path` values relativize to the destination directory like shared ones (CU-177). |
+| `ConfigurationSet.load(path)` | Classmethod (ADR-0010 D-D). Load a study config file: the shared body exactly as `Sensor.load` reads it (parameters, tolerances, `_radiant.wavelength_points`, `optical_elements`) plus the `configurations:` section — names and order, `active`/`baseline`, per-configuration `wavelength_points`, and the configured table. An `optical_elements` document holding **configured rows** is split here: its shared rows attach to the base, its configured rows become the per-configuration element table. A config file **without** the section loads as the degenerate one-configuration set. Every violation raises `ConfigError` naming the config file and the configuration, plus the parameter or the element row (`RADIANT_Config_Format.md` §1.9). |
+| `cs.save(path)` | Write the study as one config file and return the `Path`: the base serialized exactly as `Sensor.save` writes it, plus the `configurations:` section (always written — the file is then self-identifying and the configuration names survive). A configured element row is written **in place**, at its own position in the `optical_elements` document, as `- configured: {member: entry, …}`. Configured `is_file_path` values — and the spectral-file references inside a configured element entry — relativize to the destination directory like shared ones (CU-177). |
 | `cs.to_yaml(relative_to=None)` | The in-memory twin of `save` — the same document as a string. `relative_to` is the directory the YAML is destined for (file-path values are written relative to it); omitted, paths are left as stored. There is no `scope="resolved"` export: it would put configured dot-paths in the shared body too, breaking the single-store invariant the file persists. |
 
 Persistence is one file per study. A config file with no `configurations:` key is byte-for-byte
@@ -296,10 +311,35 @@ names the configuration — including configured values rejected at **edit time*
 A set with one configuration and an empty configured table is observably identical to the
 bare `Sensor` it wraps — that degenerate case is the ordinary single-model session.
 
+**Configured optical-element rows** (Gap 103 v1.1, owner-ratified 2026-09-02 in live review)
+are *the same* model as configured parameters, not a parallel one: a **row** of the shared
+element document is promoted, and then carries one complete entry per configuration.
+
+```python
+cs.base.set_optical_elements([m1, band_filter])   # the shared train — 2 rows
+cs.configure_element(1)                           # row 1 configures; every member seeded
+cs.set_element_for(1, "B2_Blue", dict(band_filter, transmittance="filter_b02.csv"))
+
+cs.effective_optical_elements("B2_Blue")   # [m1, the B2 filter] — document order
+cs.effective_optical_elements("B1_CA")     # [m1, the seeded band_filter]
+cs.unconfigure_element(1)                  # back to one shared row (keeps configuration #1)
+```
+
+Row identity is **positional**: the row count and order are shared by every configuration, so
+no configuration adds or removes a row, and the entry's `name` configures with the row (a
+configuration may name row 1 differently — the consequence was flagged and accepted). Entries
+travel with their configuration through `rename` (re-keyed), `remove` (dropped), `add`
+(seeded from `copy_from` or configuration #1 — dense, like a configured parameter),
+`reorder` (re-ordered with the names), and `clone` (deep-copied), so a row is never sparse and
+never holds an entry for a configuration that no longer exists. `evaluate_all` and
+`validate_all` pick each configuration's train up through `sensor_for`, and `save`/`load`
+round-trip the rows **in place** in the `optical_elements` document
+(`RADIANT_Config_Format.md` §1.9), spectral-file paths included (CU-177).
+
 **Out of the v1 model:** per-configuration tolerance distributions, per-configuration
-stage-output injections, per-configuration optical-element documents (ADR-0010 D-7), and
-sweeps of a whole set. Tolerances, the `optical_elements` document, and the default
-`wavelength_points` are shared state on the base.
+stage-output injections, per-configuration *addition or removal* of optical-element rows
+(the row structure is shared), and sweeps of a whole set. Tolerances, the element document's
+row structure, and the default `wavelength_points` are shared state on the base.
 
 **From the CLI:** `radiant run study.yaml --configuration NAME` materializes one
 configuration and runs it (the flag is required for a study config file and rejected for a

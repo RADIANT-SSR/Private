@@ -172,6 +172,18 @@ could silently reverse:
   knobs (WFE, f/#, transmission, temperatures) are ordinary configurable parameters and cover
   the near-term as-built workflow. A per-configuration element document is an additive later
   extension of the section format, gap-tracked at close-out.
+
+  > **Superseded (2026-09-02, owner-ratified in live review):** v1.1 landed — a **row of
+  > the shared document configures like a parameter** (dense: one complete entry per
+  > member, written in place as `- configured: {member: entry, …}`; single io validation
+  > authority; D-6 keep-first collapse; D-8 inline edit in the GUI with the red C). Row
+  > identity is positional and the entry's `name` configures with the row — the owner
+  > accepted the cross-member naming consequence. The "whole-document vs patching"
+  > question this ADR left open is resolved in favor of neither: per-row configuration.
+  > (A same-day replace-by-name override design was built first and superseded before
+  > merge on live-review evidence.) Structure — row count and order — stays shared;
+  > per-member addition/removal stays out of scope. See
+  > `docs/plans/Configuration_Set_Expansion_Plan.md` §3a-bis (Gap 103).
 - **D-8 — Inline edit is scoped to the displayed configuration.** Editing a configured
   parameter in a stage form or the parameter panel while configuration $X$ is displayed edits
   **$X$'s value only** (CODE V behavior). The per-parameter table is the all-$N$ editor.

@@ -31,6 +31,7 @@ from radiant.gui.widgets.readout_inputs_form import (  # noqa: E402
     _ADC_FIELDS,
     _BINNING_FIELDS,
     _COADD_FIELDS,
+    _COUNTING_FIELDS,
     _NOISE_FIELDS,
     _TDI_FIELDS,
     _WELL_FIELDS,
@@ -260,3 +261,66 @@ class TestReadoutEditAndWatch:
         # The Outputs readout re-read the new total-noise value (still carries its unit).
         assert pane.outputs_readout is not None
         assert pane.outputs_readout.value_text("sigma_total_e").endswith("e-")
+
+
+# ---------------------------------------------------------------------------
+# Gap 117 Phase 3: architecture selector + contextual counting group
+# ---------------------------------------------------------------------------
+
+
+def _counting_sensor() -> Sensor:
+    """The example config switched to digital_counting (explicit FWC cleared)."""
+    sensor = Sensor.from_yaml(_EXAMPLE)
+    sensor.reset("readout.full_well_capacity_e")
+    sensor.set("readout.architecture", "digital_counting")
+    sensor.set("readout.count_packet_e", 5000.0)
+    return sensor
+
+
+class TestReadoutArchitectureGroup:
+    def test_analog_default_hides_counting_group(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Under analog_well the counting rows are hidden (the stage would
+        reject them as over-specification) and the analog well/gain show."""
+        pane = _pane(qtbot, "readout", Sensor.from_yaml(_EXAMPLE))
+        form = pane.readout_inputs_form
+        assert form is not None
+        assert isinstance(form.row("readout.architecture"), FieldRow)
+        assert "analog_well" in form.field_value_text("readout.architecture")
+        for _label, dotpath in _COUNTING_FIELDS:
+            assert form.row(dotpath).isHidden(), dotpath
+        assert not form.row("readout.full_well_capacity_e").isHidden()
+        assert not form.row("readout.gain_e_per_dn").isHidden()
+
+    def test_counting_shows_group_and_hides_analog_only_rows(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Under digital_counting the counting rows show; explicit-FWC and
+        conversion-gain rows hide (rejected / unused under counting)."""
+        pane = _pane(qtbot, "readout", _counting_sensor())
+        form = pane.readout_inputs_form
+        assert form is not None
+        assert "digital_counting" in form.field_value_text("readout.architecture")
+        for _label, dotpath in _COUNTING_FIELDS:
+            assert not form.row(dotpath).isHidden(), dotpath
+        assert form.row("readout.full_well_capacity_e").isHidden()
+        assert form.row("readout.gain_e_per_dn").isHidden()
+        # adc_bits stays visible: it is the residue-ADC depth under counting.
+        assert not form.row("readout.adc_bits").isHidden()
+
+    def test_counting_fields_render_values_with_units(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Display-units rule: the packet renders in e-, the rate in Hz."""
+        pane = _pane(qtbot, "readout", _counting_sensor())
+        form = pane.readout_inputs_form
+        assert form is not None
+        assert form.field_value_text("readout.count_packet_e").endswith("e-")
+        assert form.field_value_text("readout.max_count_rate_hz").endswith("Hz")
+        assert form.field_value_text("readout.counter_bits")  # non-empty int text
+        assert form.field_value_text("readout.residue_readout")  # bool text
+
+    def test_counting_outputs_surface_in_readout(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The counting stage outputs land in the Outputs readout with units."""
+        pane = _pane(qtbot, "readout", _counting_sensor())
+        readout = pane.outputs_readout
+        assert readout is not None
+        keys = readout.rendered_keys()
+        assert "counts" in keys
+        assert "effective_well_e" in keys
+        assert readout.value_text("effective_well_e").endswith("e-")

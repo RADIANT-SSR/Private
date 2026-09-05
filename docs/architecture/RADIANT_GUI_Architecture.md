@@ -970,6 +970,16 @@ content. Readout began v1-minimal (read-noise/ADC/well) and was expanded per **G
 timing (`readout.frame_period_s` beside the shared integration time; the derived
 `frame_rate_hz`/`duty_cycle` appear in the Outputs readout) — plus the scalar noise budget.
 `cds_enabled`/`node_capacitance_F`/`electronics_sigma_um` remain tree/YAML/scripting-only.
+**Gap 117 (plan Phase 3)** added the readout-architecture group at the top of the form: an
+`Architecture` selector (`readout.architecture`, enum → the shared editor's combo) and a
+**Digital counting** group (`counter_bits`/`count_packet_e`/`residue_readout`/
+`max_count_rate_hz`) shown **only** under `digital_counting` (contextual-relevance
+convention). The form mirrors the stage's Rule-16 validation instead of inviting a rejected
+edit: under `analog_well` the counting rows are hidden (explicit set → over-specification
+error); under `digital_counting` the `full_well_capacity_e` and `gain_e_per_dn` rows are
+hidden (explicit FWC rejected, gain unused — the D2 DN gain derives from the packet) while
+`adc_bits` stays visible as the residue-ADC depth. The counting stage outputs (`counts`,
+`effective_well_e` [e-], `saturation_mechanism`) surface in the Outputs readout.
 
 *Geometry Inputs section (shipped, GUI plan Phase 5, 2026-07-13).* The Geometry pane is the
 first to realise the §4.4 **Inputs** section: above its `GeometryReadout` it embeds a

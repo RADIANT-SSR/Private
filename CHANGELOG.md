@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Readout GUI: architecture selector + digital-counting group (Gap 117,
+  plan Phase 3)** — the Readout stage form gains an `Architecture` selector
+  and a counting parameter group (counter depth, charge packet [e-], residue
+  readout, max count rate [Hz]) shown only under `digital_counting`; the
+  full-well and conversion-gain rows hide under counting (the stage rejects /
+  ignores them), and the counting outputs (`counts`, `effective_well_e` [e-],
+  `saturation_mechanism`) surface in the stage's Outputs readout.
 - **Digital-pixel (DROIC) counting readout is live (Gap 117 DELIVERED, plan
   Phases 1–2)** — `readout.architecture = "digital_counting"` now runs the
   full chain: counting saturation `min(2^N·Q_pkt, f_max·t_int·Q_pkt)` with a

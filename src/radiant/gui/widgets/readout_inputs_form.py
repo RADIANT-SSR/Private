@@ -12,11 +12,21 @@ schema-driven rows, beside the scalar outputs (``signal_dn_final``, ``sigma_tota
 count or the gain and watch the noise budget and the DN output respond on the next
 evaluation.
 
-**The grouping.** Read noise / ADC / Full well / TDI / Co-adds / Binning / Acquisition
-headings are a presentation choice only, no schema change — the sensor dot-paths are the
-schema names verbatim — mirroring the Spectral-Integration form's grouped layout. The
-remaining readout schema parameters (``cds_enabled``, ``node_capacitance_F``,
-``electronics_sigma_um``) stay tree/YAML/scripting-only by scope (Gap 102 suggested fix).
+**The grouping.** Architecture / Digital counting / Read noise / ADC / Full well / TDI /
+Co-adds / Binning / Acquisition headings are a presentation choice only, no schema change —
+the sensor dot-paths are the schema names verbatim — mirroring the Spectral-Integration
+form's grouped layout. The remaining readout schema parameters (``cds_enabled``,
+``node_capacitance_F``, ``electronics_sigma_um``) stay tree/YAML/scripting-only by scope
+(Gap 102 suggested fix).
+
+**Architecture-contextual visibility (Gap 117, plan Phase 3).** The *Digital counting*
+group shows only under ``readout.architecture = "digital_counting"``, and the
+``full_well_capacity_e`` / ``gain_e_per_dn`` rows hide there — the form mirrors the
+stage's Rule-16 validation (counting rows under analog are an over-specification error;
+an explicit FWC under counting is rejected; the DN gain derives from the packet per
+ruling D2) instead of inviting a rejected edit. ``adc_bits`` stays visible under counting
+as the residue-ADC depth. Visibility re-applies on every :meth:`refresh`, so an
+architecture edit flips the groups on the next repaint.
 
 **Schema-driven, one API call per edit (Gap 70 / R-API).** Every field is built from and
 formatted through the public :class:`~radiant.api.sensor.Sensor` surface; editing a field
@@ -58,6 +68,30 @@ if TYPE_CHECKING:
 # schema (never transcribed) — only the human label + the grouping is a literal here (CU-120,
 # tracked with the geometry/source/optics/detector/spectral/platform manifests).
 _NOISE_FIELDS: Final[tuple[tuple[str, str], ...]] = (("Read noise", "readout.read_noise_e_rms"),)
+
+# Readout architecture selector (Gap 117, plan Phase 3): analog charge well vs
+# digital-pixel (DROIC) counting. The enum edits through the shared editor's combo.
+_ARCHITECTURE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Architecture", "readout.architecture"),
+)
+
+# Digital-counting knobs (Gap 117). Shown ONLY under architecture =
+# "digital_counting" (contextual-relevance convention) — the stage rejects them
+# as over-specification under "analog_well", so the form must not invite them.
+_COUNTING_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Counter depth", "readout.counter_bits"),
+    ("Charge packet", "readout.count_packet_e"),
+    ("Residue readout", "readout.residue_readout"),
+    ("Max count rate", "readout.max_count_rate_hz"),
+)
+
+# Analog-only rows hidden under digital_counting: an explicit full well is
+# rejected (the effective well is 2^N × packet) and the conversion gain is
+# unused (DN gain derives from the packet per ruling D2). adc_bits stays
+# visible — under counting it is the residue-ADC depth.
+_ANALOG_ONLY_DOTPATHS: Final[frozenset[str]] = frozenset(
+    {"readout.full_well_capacity_e", "readout.gain_e_per_dn"}
+)
 
 # The ADC knobs (conversion gain + bit depth).
 _ADC_FIELDS: Final[tuple[tuple[str, str], ...]] = (
@@ -105,7 +139,9 @@ _ACQUISITION_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Frame period", "readout.frame_period_s"),
 )
 
-_TITLE = "Readout — noise, ADC, full well & acquisition"
+_TITLE = "Readout — architecture, noise, ADC, well & acquisition"
+_ARCHITECTURE_HEADING = "Architecture"
+_COUNTING_HEADING = "Digital counting"
 _NOISE_HEADING = "Read noise"
 _ADC_HEADING = "ADC"
 _WELL_HEADING = "Full well"
@@ -160,6 +196,9 @@ class ReadoutInputsForm(QWidget):
         box.addWidget(title)
 
         self._rows: dict[str, FieldRow] = {}
+        self._headings: dict[str, QLabel] = {}
+        self._add_group(box, card, _ARCHITECTURE_HEADING, _ARCHITECTURE_FIELDS)
+        self._add_group(box, card, _COUNTING_HEADING, _COUNTING_FIELDS)
         self._add_group(box, card, _NOISE_HEADING, _NOISE_FIELDS)
         self._add_group(box, card, _ADC_HEADING, _ADC_FIELDS)
         self._add_group(box, card, _WELL_HEADING, _WELL_FIELDS)
@@ -181,6 +220,7 @@ class ReadoutInputsForm(QWidget):
         label = QLabel(heading, card)
         label.setObjectName("geoModeGroupHeading")
         box.addWidget(label)
+        self._headings[heading] = label
         for text, dotpath in fields:
             row = FieldRow(dotpath, text, self._open_editor)
             box.addWidget(row)
@@ -203,6 +243,32 @@ class ReadoutInputsForm(QWidget):
         """Re-read every field's value+unit text from the bound sensor (— if no sensor)."""
         for dotpath, row in self._rows.items():
             row.set_value_text(self._value_text(dotpath))
+        self._apply_architecture_visibility()
+
+    def _architecture(self) -> str:
+        """The resolved readout architecture ('analog_well' when unbound)."""
+        if self._sensor is None:
+            return "analog_well"
+        try:
+            return str(self._sensor.get("readout.architecture"))
+        except Exception:  # unresolved sensor — keep the analog default view
+            return "analog_well"
+
+    def _apply_architecture_visibility(self) -> None:
+        """Show only the parameter groups meaningful under the current architecture.
+
+        Counting rows are rejected by the stage under ``analog_well`` (Gap 117
+        over-specification posture) and an explicit full well / conversion gain
+        is rejected or unused under ``digital_counting`` — the form mirrors the
+        validation instead of inviting a rejected edit.
+        """
+        counting = self._architecture() == "digital_counting"
+        self._headings[_COUNTING_HEADING].setVisible(counting)
+        for _text, dotpath in _COUNTING_FIELDS:
+            self._rows[dotpath].setVisible(counting)
+        self._headings[_WELL_HEADING].setVisible(not counting)
+        for dotpath in _ANALOG_ONLY_DOTPATHS:
+            self._rows[dotpath].setVisible(not counting)
 
     def _value_text(self, dotpath: str) -> str:
         """The value+unit text for *dotpath* in its display unit (— if unset)."""

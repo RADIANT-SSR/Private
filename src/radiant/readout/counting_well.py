@@ -146,6 +146,33 @@ def counting_saturation(
     return q_rollover, "rollover"
 
 
+def packet_reset_noise_e(n_counts: int, sigma_ktc_e: float) -> float:
+    """Accumulated charge-subtraction reset noise ``√n_counts · σ_kTC`` [e- RMS].
+
+    Each comparator trip resets the integration node, injecting one kTC
+    noise sample; n independent resets accumulate in quadrature (plan §2.2).
+    The caller passes the per-reset kTC noise already CDS-gated (the raw
+    ``ktc_reset`` budget term is 0 when ``readout.cds_enabled`` — same gate).
+
+    Parameters
+    ----------
+    n_counts:
+        Number of comparator trips this integration, ≥ 0.
+    sigma_ktc_e:
+        Per-reset kTC noise [e- RMS], ≥ 0 (0 when CDS is on).
+    """
+    if n_counts < 0:
+        raise ReadoutValidationError(
+            f"n_counts = {n_counts} is invalid: the comparator trip count cannot be negative."
+        )
+    if not math.isfinite(sigma_ktc_e) or sigma_ktc_e < 0.0:
+        raise ReadoutValidationError(
+            f"sigma_ktc_e = {sigma_ktc_e} e- RMS is invalid: the per-reset "
+            f"kTC noise must be a non-negative finite value."
+        )
+    return math.sqrt(float(n_counts)) * sigma_ktc_e
+
+
 def convert_to_counts(charge_e: float, count_packet_e: float) -> CountConversion:
     """Convert integrated charge to counter word + analog residue (plan §2.1).
 

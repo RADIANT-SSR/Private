@@ -16,6 +16,7 @@ import pytest
 from radiant.core.constants import k_B, q
 from radiant.core.noise_budget import (
     ALL_NOISE_TERMS,
+    COUNTING_TERMS,
     SPATIAL_TERMS,
     TEMPORAL_TERMS,
     NoiseBudget,
@@ -341,8 +342,11 @@ class TestNoiseBudget:
 
     @pytest.mark.level1
     def test_all_16_terms_present(self) -> None:
+        # The raw detector budget always builds the historical 16 terms;
+        # the two COUNTING_TERMS (Gap 117) are readout-branch substitutions
+        # for "quantization"/"ktc_reset" and never appear here.
         budget = compute_noise_budget(signal_e=100.0)
-        assert set(budget.terms.keys()) == ALL_NOISE_TERMS
+        assert set(budget.terms.keys()) == ALL_NOISE_TERMS - COUNTING_TERMS
 
     @pytest.mark.level1
     def test_temporal_spatial_partition(self) -> None:

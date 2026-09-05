@@ -438,6 +438,13 @@ margin_adc_dB  = 20 · log10(adc_full_scale_dn / S_signal_dn)
 - `signal ≤ 0` (e.g., dark scene) → returns +∞ with reason "no signal."
 - Already-saturated config → returns negative dB and a warning.
 
+**Digital counting (Gap 117):** the well bound comes from the readout stage's
+published `full_well_capacity_e` output — under `analog_well` identical to the
+parameter; under `digital_counting` the counting saturation bound
+`min(2^N·Q_pkt, f_max·t_int·Q_pkt)` [e-]. `adc_margin_dB` is **not computed**
+under counting: the counter is the ADC, and rollover reports through the well
+margin and `readout.saturation_mechanism`.
+
 ### 4.14 Dynamic range
 
 **Formula:**
@@ -453,6 +460,10 @@ where `σ_temporal_dark` is the temporal noise evaluated at zero signal (dark fr
 **Unit:** dB.
 
 **Typical values:** 60–80 dB for science detectors; 50–60 dB for commercial.
+Digital-pixel (DROIC) readouts (Gap 117) reach 100+ dB: the FWC input is the
+readout-published well bound, which under `digital_counting` is the counting
+saturation bound `min(2^N·Q_pkt, f_max·t_int·Q_pkt)` [e-] rather than the
+analog well parameter.
 
 **Failure modes:** none.
 

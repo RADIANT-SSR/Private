@@ -174,20 +174,22 @@ class TestArchitectureValidation:
     @pytest.mark.level1
     def test_default_full_well_under_counting_passes_validation(self) -> None:
         """The schema *default* full well passes silently (plan §3) — the run
-        then stops at the Phase-1 not-implemented dispatch, not validation."""
+        proceeds into the counting branch and stops only on the bare state's
+        missing detector budget (Phase 2: dispatch is live)."""
         ps = _params(
             readout__architecture="digital_counting",
             readout__count_packet_e=5000.0,
         )
-        with pytest.raises(ReadoutValidationError, match="Phase 1"):
+        with pytest.raises(ReadoutValidationError, match="noise_budget_raw"):
             ReadoutStage().run(_state(), ps)
 
 
 class TestDispatchSkeleton:
     @pytest.mark.level1
-    def test_digital_counting_not_implemented(self) -> None:
-        """A fully valid counting config raises the actionable Phase-1 error
-        before any physics runs (the state has no detector outputs at all)."""
+    def test_digital_counting_dispatch_is_live(self) -> None:
+        """A fully valid counting config enters the counting branch (Phase 2):
+        on a bare state it fails on the missing detector budget, exactly like
+        the analog branch — not on a not-implemented error."""
         ps = _params(
             readout__architecture="digital_counting",
             readout__counter_bits=16,
@@ -195,11 +197,8 @@ class TestDispatchSkeleton:
             readout__residue_readout=True,
             readout__max_count_rate_hz=2.0e6,
         )
-        with pytest.raises(ReadoutValidationError) as exc:
+        with pytest.raises(ReadoutValidationError, match="noise_budget_raw"):
             ReadoutStage().run(_state(), ps)
-        msg = str(exc.value)
-        assert "docs/plans/Digital_Pixel_Readout_Plan.md" in msg
-        assert "analog_well" in msg  # actionable: names the workaround
 
     @pytest.mark.level1
     def test_analog_default_unaffected(self) -> None:

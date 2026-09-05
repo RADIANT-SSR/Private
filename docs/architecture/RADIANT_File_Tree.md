@@ -197,11 +197,12 @@ noise/
 └── other.py              # 1/f, glow, persistence, etc.
 ```
 
-### `readout/` — 13 source + 11 tests
+### `readout/` — 15 source + 13 tests
 
-Stage 7: TDI, ADC, gain, read noise, binning, coadds, saturation. The
-architecture dispatch (`readout.architecture`, Gap 117) lives in `stage.py`;
-its schema/validation tests are `tests/test_architecture.py`.
+Stage 7: TDI, ADC, gain, read noise, binning, coadds, saturation, and the
+digital-pixel counting model (Gap 117). The architecture dispatch
+(`readout.architecture`) lives in `stage.py`; its schema/validation tests
+are `tests/test_architecture.py`.
 
 ```
 readout/
@@ -214,6 +215,8 @@ readout/
 ├── coadds.py
 ├── binning_onchip.py
 ├── binning_offchip.py
+├── counting_well.py          # 2^N·Q_pkt effective well, dead-time ceiling, count conversion
+├── counting_quantization.py  # packet vs residue-ADC quantization branch
 └── saturation.py
 ```
 

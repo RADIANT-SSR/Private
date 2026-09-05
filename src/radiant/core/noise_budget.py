@@ -54,6 +54,12 @@ SPATIAL_TERMS: frozenset[str] = frozenset(
 
 ALL_NOISE_TERMS: frozenset[str] = TEMPORAL_TERMS | SPATIAL_TERMS
 
+#: The two digital-counting substitution terms (Gap 117). They are emitted by
+#: ReadoutStage's counting branch IN PLACE OF "quantization" / "ktc_reset" and
+#: never appear in the detector's raw budget — compute_noise_budget always
+#: builds exactly ALL_NOISE_TERMS − COUNTING_TERMS (the historical 16).
+COUNTING_TERMS: frozenset[str] = frozenset({"counting_quantization", "packet_reset"})
+
 
 # ---------------------------------------------------------------------------
 # NoiseBudget aggregator

@@ -288,20 +288,32 @@ def _compute_saturation_metrics(
 ) -> ChainState:
     """Compute well margin, ADC margin, and dynamic range."""
     ro_out = state.stage_outputs.get("readout", {})
+    architecture: str = ro_out.get("architecture", "analog_well")
 
-    # Well margin
+    # Well margin. The well bound comes from the readout stage's published
+    # value, not the raw parameter: under analog_well they are identical,
+    # while under digital_counting the published value is the counting
+    # saturation bound min(2^N·Q_pkt, f_max·t_int·Q_pkt) — the one
+    # consistent saturation signal (Gap 117, plan §2.3). The parameter
+    # remains the fallback for partial chains without readout outputs.
     signal_e_final = ro_out.get("signal_e_final")
-    try:
-        fwc_e: float = params.get("readout.full_well_capacity_e")
-    except (KeyError, TypeError):
-        fwc_e = 0.0
+    published_fwc = ro_out.get("full_well_capacity_e")
+    if published_fwc is not None:
+        fwc_e: float = published_fwc
+    else:
+        try:
+            fwc_e = params.get("readout.full_well_capacity_e")
+        except (KeyError, TypeError):
+            fwc_e = 0.0
 
     if signal_e_final is not None and fwc_e > 0.0:
         well_result = compute_well_margin(signal_e_final, fwc_e)
         if well_result.ok:
             state = state.with_metric("well_margin_dB", well_result.margin_dB)
 
-    # ADC margin
+    # ADC margin — analog only: under digital_counting the counter IS the
+    # ADC (rollover reports through the well/counting bound above), so a
+    # margin against 2^adc_bits − 1 would be meaningless (Gap 117).
     signal_dn = ro_out.get("signal_dn_pre_coadd")
     try:
         adc_bits: int = int(params.get("readout.adc_bits"))
@@ -309,6 +321,8 @@ def _compute_saturation_metrics(
     except (KeyError, TypeError):
         max_dn = 0
 
+    if architecture == "digital_counting":
+        max_dn = 0
     if signal_dn is not None and max_dn > 0:
         adc_result = compute_adc_margin(signal_dn, max_dn)
         if adc_result.ok:

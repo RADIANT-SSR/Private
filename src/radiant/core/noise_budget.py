@@ -34,6 +34,13 @@ TEMPORAL_TERMS: frozenset[str] = frozenset(
         "quantization",
         "persistence_noise",
         "glow_shot",
+        # Digital-pixel counting terms (Gap 117): under
+        # readout.architecture = "digital_counting" the ReadoutStage swaps
+        # "quantization" -> "counting_quantization" and "ktc_reset" ->
+        # "packet_reset" (sqrt(n_counts) x per-reset kTC). At most 16 terms
+        # are ever emitted per run — the swap keeps the count invariant.
+        "counting_quantization",
+        "packet_reset",
     }
 )
 

@@ -21,6 +21,19 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Digital-pixel (DROIC) counting readout is live (Gap 117 DELIVERED, plan
+  Phases 1–2)** — `readout.architecture = "digital_counting"` now runs the
+  full chain: counting saturation `min(2^N·Q_pkt, f_max·t_int·Q_pkt)` with a
+  published `saturation_mechanism` (`rollover` | `dead_time` | `none`), noise
+  budget entries `counting_quantization` (packet/√12 or residue-ADC LSB/√12)
+  and `packet_reset` (√n_counts × kTC, CDS-gated) replacing `quantization` /
+  `ktc_reset`, ruling-D2 DN semantics (combined word or bare counter), and
+  HDR dynamic range from the counting bound. `adc_margin_dB` and the ADC↔well
+  match diagnostics are suppressed under counting (the counter is the ADC);
+  new readout stage outputs `architecture`, `counts`, `count_packet_e`,
+  `effective_well_e`, `saturation_mechanism`. The `analog_well` default is
+  bit-for-bit unchanged (goldens untouched). Validation scenario:
+  `scenarios/02_mike_detector_engineer/2.6_droic_vs_analog_hdr/`.
 - **Digital-pixel readout schema (Gap 117, plan Phase 0)** — five new public
   parameters: `readout.architecture` (`analog_well` | `digital_counting`,
   default `analog_well`), `readout.counter_bits`, `readout.count_packet_e`,

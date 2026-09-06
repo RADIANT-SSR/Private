@@ -1705,6 +1705,17 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Impact** | Modeling a real sensor (GeoSnap-10/-18, FLIR Neutrino/Boson, RVS large-format, H2RG, sCMOS) requires per-study datasheet transcription — error-prone, unreviewable, and unreproducible across analysts. The Gap 117 digital-counting chain has no shipped exemplar part to exercise it. |
 | **Suggested fix** | FPA preset library: per-part YAML (parameter values + per-parameter source attribution + citations block), committed reference PDFs (owner-ratified 2026-09-06; needs Rule 26 carve-out + Operating Model home), `FPALibrary` loader in `radiant.data`, API preset-application semantics (preset seeds, user overrides win), GUI part selector + open-datasheet action. Effort M–L; category B/D. Plan: `docs/plans/FPA_Library_Plan.md`. |
 
+## Gap 120: No calibration model — post-NUC residual FPN, gain/offset drift, and cal-source uncertainty are inexpressible, so NEDT reports the temporal floor and integration gain averages down errors real systems cannot average
+
+| | |
+|---|---|
+| **Found in** | Owner request, 2026-09-06 — "Calibration is missing from RADIANT. Calibration errors can affect SNR calculations." Architecture direction (dedicated `CalibrationStage` + dedicated GUI screen) owner-shaped in the same discussion. |
+| **Status** | OPEN — plan drafted (`docs/plans/Calibration_Model_Plan.md`, Draft; owner-decision section pending ratification). |
+| **Description** | The noise budget treats all 16+2 terms as a-priori stochastic sources. `detector.prnu_pct` / `detector.dsnu_e_rms` are static non-uniformity inputs with no stated relationship to a calibration process — no NUC scheme (one-point/two-point), no cal-point placement, no drift-since-cal, no cal-source (blackbody T / emissivity) uncertainty. There is no bias/accuracy budget at all: `performance/temperature_retrieval.py` reports a retrieval with no accuracy statement, and nothing in `ChainState` can carry a systematic (non-RSS-able) error term. |
+| **Impact** | Three-fold. (1) Cooled staring IR systems are frequently calibration-limited: achieved NEDT is set by post-NUC residual FPN, not the temporal floor RADIANT computes — the tool systematically flatters designs. (2) Calibration residuals are correlated frame-to-frame and along-column, so TDI/coadd/binning √N averaging does not apply to them; the current model overstates integration gain exactly when an analyst leans on it. (3) Radiometric *accuracy* (gain/offset/cal-source bias, in % radiance or K at scene temperature) is a separate deliverable from *precision* (NEDT) and is inexpressible. |
+| **Suggested fix** | New terms-only `CalibrationStage` between Readout and Performance (PlatformStage precedent; preserves the GUI screen-per-stage invariant so calibration gets its own screen). `calibration.*` namespace with a scheme selector (`none`/`one_point`/`two_point`), post-NUC residual-FPN noise terms added *after* readout √N scaling (chain ordering enforces the no-averaging physics), `BiasTerm` accumulator on `ChainState` + a radiometric-accuracy performance metric (bias is never RSS'd into σ_total, type-enforced). Default `scheme=none` reproduces today's PRNU/DSNU behavior bit-identically. Effort L; Category B/C/D. Plan: `docs/plans/Calibration_Model_Plan.md`. |
+| **Workaround** | Hand-tune `detector.prnu_pct` to a guessed post-NUC residual; no workaround exists for the √N-exemption or the accuracy budget. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |

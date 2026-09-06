@@ -1,0 +1,57 @@
+fpa_preset: 1
+name: senseeker-magnesium-rp0092
+vendor: Senseeker Corp
+model: Magnesium MIL RP0092 (RP0092-D12x dual-polarity dual-band variant)
+part_class: cooled_ir_droic
+material: none (bare DPROIC - detector-agnostic; mates to any direct-injection-compatible single or dual-band IR detector)
+band: {label: "detector-dependent (bare ROIC; MW/LW direct-injection detectors)", cut_on_um: 2.0, cut_off_um: 14.0}
+description: >
+  1280x720, 12 um pitch true digital-pixel readout IC (DPROIC) with in-pixel
+  extended counting and digital residue conversion - the counting-architecture
+  reference part. Programmable well capacity 8 Me- to over 140 Me-, over
+  110 dB in-pixel dynamic range, global-shutter integrate-then-read. Delivered
+  in wafer form; US-Government-approved customers only. Detector-level
+  parameters (QE, dark, temperature) belong to the mated detector, not set here.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 12.0, unit: um, source: senseeker_page, basis: datasheet, location: "Specifications: 'Pixel pitch 12 um, dual-band'"}
+  detector.pixel_pitch_y_um:
+    {value: 12.0, unit: um, source: senseeker_page, basis: datasheet, location: "same (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 1280, unit: null, source: senseeker_page, basis: datasheet, location: "Specifications: 'Format (active) 1280 x 720' (horizontal count taken)"}
+  readout.architecture:
+    {value: digital_counting, unit: null, source: senseeker_page, basis: datasheet, location: "Specifications: 'Conversion: Digital pixel with extended counting' - true in-pixel counting DPROIC"}
+  readout.count_packet_e:
+    {value: 160.0, unit: "e-", source: senseeker_page, basis: datasheet, location: "Features: 'Programmable conversion gain as high as 1 LSB/160 e-' - 160 e- per count at maximum gain; coarser packets at lower gain settings"}
+  readout.counter_bits:
+    {value: 22, unit: null, source: senseeker_page, basis: datasheet, location: "Features: '22-bits of internal selectable range' (serialized output is 20 bits/pixel: 19 data + 1 flag)"}
+  readout.residue_readout:
+    {value: true, unit: null, source: senseeker_page, basis: datasheet, location: "Specifications: 'digital residue conversion based on 14-bit column-parallel digital engine'"}
+  readout.frame_period_s:
+    {value: 8.333e-3, unit: s, source: senseeker_page, basis: derived, location: "1 / (120 fps maximum full-frame rate); fast windows to 32x6 at 4.7 kfps (t_int 100 us)"}
+
+qe_table: null
+
+sources:
+  senseeker_page:
+    type: web_page
+    title: "Magnesium MIL RP0092 - Digital Pixel Readout IC (product page with specification table)"
+    publisher: Senseeker Corp
+    url: "https://www.senseeker.com/products/RP0092-D120.htm"
+    retrieved: "2026-09-06"
+
+notes: >
+  Bare ROIC: full_well_capacity_e is deliberately NOT set - capacity is
+  programmable from 8 Me- to over 140 Me- (vendor spec) and in counting
+  architecture the effective capacity is counter range x packet size, which
+  RADIANT's digital-counting chain computes from counter_bits and
+  count_packet_e; at 22 bits x 160 e-/count the ceiling is ~671 Me-, so the
+  vendor's '>140 Me-' envelope reflects analog/bias limits at particular gain
+  settings, not the counter. count_packet_e 160 is the FINEST (max-gain)
+  setting - coarser conversion gains give larger packets and larger range.
+  Band block is a placeholder envelope: the ROIC is detector-agnostic
+  (direct-injection MW/LW photodiodes, single or dual band); set band, QE,
+  dark, and temperature from the mated detector. Full datasheet is
+  request-gated; sales restricted to US-Government-approved customers.
+  Read noise (quantization + residue) is not published and not set.

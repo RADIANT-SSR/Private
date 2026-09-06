@@ -1,0 +1,31 @@
+# RADIANT config — generated from FPA preset 'sony-imx990-senswir' (format v1).
+# DO NOT EDIT: regenerate with `python scripts/gen_fpa_configs.py`.
+# Part: Sony Semiconductor Solutions IMX990 (SenSWIR; EMVA data from LUCID Atlas SWIR ATP013S) (swir)
+# Band: VIS-SWIR 0.4-1.7 um, 0.4-1.7 um
+# Values are in RADIANT input units (converted from the datasheet-native
+# units recorded in the preset). Per-parameter provenance:
+#   detector.dark_rate_e_per_s = 4000.0 1/s [datasheet: lucid_page]
+#   detector.dark_reference_temperature_K = 288.0 K [datasheet: lucid_page]
+#   detector.detector_temperature_K = 288.0 K [derived: lucid_page]
+#   detector.n_pixels_cross = 1296 [datasheet: sony_page]
+#   detector.pixel_pitch_x_um = 5.0 um [datasheet: sony_page]
+#   detector.pixel_pitch_y_um = 5.0 um [datasheet: sony_page]
+#   detector.qe_value = 77 % [datasheet: lucid_page]
+#   readout.adc_bits = 12 [datasheet: sony_page]
+#   readout.frame_period_s = 0.014085 s [derived: sony_page]
+#   readout.full_well_capacity_e = 143000.0 [datasheet: lucid_page]
+#   readout.read_noise_e_rms = 196.0 e- [datasheet: lucid_page]
+#
+detector:
+  dark_rate_e_per_s: 4000.0
+  dark_reference_temperature_K: 288.0
+  detector_temperature_K: 288.0
+  n_pixels_cross: 1296
+  pixel_pitch_x_um: 5.0
+  pixel_pitch_y_um: 5.0
+  qe_value: 0.77
+readout:
+  adc_bits: 12
+  frame_period_s: 0.014085
+  full_well_capacity_e: 143000.0
+  read_noise_e_rms: 196.0

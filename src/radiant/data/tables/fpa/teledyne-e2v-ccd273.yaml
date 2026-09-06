@@ -1,0 +1,62 @@
+fpa_preset: 1
+name: teledyne-e2v-ccd273
+vendor: Teledyne e2v
+model: CCD273-84 (Euclid VIS)
+part_class: scientific_visible
+material: silicon back-illuminated full-frame CCD (thinned to 40 um, 1500 ohm-cm Si)
+band: {label: "visible (optimized 550-900 nm; Si response)", cut_on_um: 0.3, cut_off_um: 1.0}
+description: >
+  4096x4132, 12 um pitch back-illuminated full-frame scientific CCD flown as the
+  Euclid VIS focal plane (36 devices). Four quadrants, each with its own readout
+  node; no antiblooming, simple pixel for calibratability; stitch blocks of
+  512x256 pixels. Values are the flight detector-chain performance from the
+  refereed instrument paper (Cropper et al. 2025).
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 12.0, unit: um, source: cropper2025, basis: paper, location: "Sect. 3.1.1: '4096x4132 12 um square pixels in four quadrants'"}
+  detector.pixel_pitch_y_um:
+    {value: 12.0, unit: um, source: cropper2025, basis: paper, location: "same line (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 4096, unit: null, source: cropper2025, basis: paper, location: "Table 2: 'Number of columns (width) 4096' (height 4132)"}
+  detector.qe_value:
+    {value: 94, unit: "%", source: cropper2025, basis: paper, location: "Sect. 3.1.1 / Fig. 7: flight-CCD average Detective Quantum Efficiency peaks at 94 % at 650 nm (spec: >83 % over 550-750 nm, >49 % at 900 nm)"}
+  detector.detector_temperature_K:
+    {value: 153.0, unit: K, source: cropper2025, basis: paper, location: "Sect. 3.1.1: 'The operating temperature selected is 153 K'; Sect. 4.2: detector plane held at 153 K"}
+  detector.dark_rate_e_per_s:
+    {value: 0.001, unit: "1/s", basis: assumed, note: "paper states only 'At 153 K, the dark noise within the pixel is negligible even after long exposures' (Sect. 3.1.1) and 'Dark current at operating temperature is negligible' (Sect. 6.1.1); 0.001 e-/s is an upper-bound placeholder consistent with <1 e- over a nominal ~566 s VIS exposure"}
+  detector.dark_reference_temperature_K:
+    {value: 153.0, unit: K, source: cropper2025, basis: paper, location: "the 'negligible' statement is made for the 153 K operating temperature"}
+  readout.full_well_capacity_e:
+    {value: 1.75e5, unit: null, source: cropper2025, basis: paper, location: "Sect. 3.1.1: serial-register charge handling 'specified as greater than 175 000 e-'; Sect. 6.1.1: flight pixel full wells 'above the minimum specification of 175 000 e-' (min spec taken)"}
+  readout.read_noise_e_rms:
+    {value: 4.5, unit: "e-", source: cropper2025, basis: paper, location: "Sect. 6.1.2: 'the complete detector chain is compliant with the readout noise at <= 4.5 e-' at the 70 kHz (14.3 us/pixel) readout rate"}
+  readout.gain_e_per_dn:
+    {value: 3.5, unit: "e-/DN", source: cropper2025, basis: paper, location: "Sect. 6.1.2: 'gain of 3.5 e- per least significant digital bit' as flown (designed-for value was 3.3)"}
+  readout.adc_bits:
+    {value: 16, unit: null, source: cropper2025, basis: paper, location: "Sect. 3.1.2: radiation-hard latch-up-resistant 16-bit ADC in the Readout Electronics"}
+
+qe_table: null
+
+sources:
+  cropper2025:
+    type: paper
+    title: "Euclid. II. The VIS instrument"
+    authors: "Euclid Collaboration: M. S. Cropper et al."
+    venue: "Astronomy & Astrophysics 697, A2"
+    year: 2025
+    doi: "10.1051/0004-6361/202450996"
+    url: "https://arxiv.org/pdf/2405.13492"
+    file: euclid_vis_instrument_cropper_aa_2025.pdf
+    retrieved: "2026-09-06"
+
+notes: >
+  Dark current is an assumed upper bound: the paper gives no numeric dark rate,
+  only 'negligible' at 153 K - do not use this preset for dark-limited studies
+  without a measured value. Full readout takes 72 s through 4 nodes at 70 kHz
+  per node (14.3 us/pixel, 4.02 ms row transfer); frame period is
+  observation-cadence dependent and deliberately not set. QE entry is the
+  flight-average DQE peak (94 % at 650 nm); band-average over 550-900 nm is
+  lower (>83 % spec 550-750 nm, falling to ~49 % at 900 nm) - use a qe_table
+  for spectrally resolved work. No antiblooming; charge-injection structure for
+  radiation-damage (CTI) calibration.

@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **FPA preset roster complete — tranches 2+3 (Gap 119, plan Phase 4)** —
+  fifteen more parts (21 total shipped): rvs-miri-si-as, rvs-virgo-2k,
+  senseeker-calcium-rp0033, lynred-daphnis-hd-mw, lynred-atto640,
+  flir-lepton-35, teledyne-e2v-ccd273, e2v-ccd42-40, sony-imx455,
+  sony-imx990-senswir, scd-blackbird-1920, teledyne-h4rg-10,
+  senseeker-magnesium-rp0092, gpixel-gsense400bsi, sony-imx250. Twelve more
+  hash-manifested reference PDFs. Every number read from a primary document
+  fetched 2026-09-06; assumed placeholders are flagged per-entry. The plan's
+  hold-list (Tau 2/2+, Oxygen RD0092, Neutrino SX12, BAE/DRS) stays held.
 - **FPA preset application (Gap 119, plan Phase 2)** — new config key
   `fpa: <part-name>` (applied by `Sensor.from_yaml`/`from_dict`/`load`) and
   `Sensor.apply_fpa(name)` / `Sensor.fpa_applications` /

@@ -1,0 +1,59 @@
+fpa_preset: 1
+name: e2v-ccd42-40
+vendor: Teledyne e2v (e2v technologies)
+model: CCD42-40, back-illuminated AIMO, ceramic package
+part_class: scientific_visible
+material: silicon back-illuminated CCD (AIMO - advanced inverted mode operation)
+band: {label: "UV-visible-NIR (QE table 350-900 nm; Si response)", cut_on_um: 0.35, cut_off_um: 1.06}
+description: >
+  2048x2052 (2048 H x 2048+4 V active), 13.5 um pitch back-illuminated AIMO
+  scientific CCD; classic ground- and space-astronomy workhorse. Two low-noise
+  output amplifiers with dual responsivity modes (low-noise 4.5 uV/e- /
+  high-signal 1.5 uV/e-). Analog output - ADC is in the camera controller.
+  Values are the vendor datasheet spec (A1A-100012 v9, 2016), low-noise mode.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 13.5, unit: um, source: ds2016, basis: datasheet, location: "General Data: 'Pixel size 13.5 x 13.5 um'"}
+  detector.pixel_pitch_y_um:
+    {value: 13.5, unit: um, source: ds2016, basis: datasheet, location: "same line (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 2048, unit: null, source: ds2016, basis: datasheet, location: "'Active pixels 2048 (H) x 2048+4 (V)' (horizontal count taken)"}
+  detector.fill_factor:
+    {value: 100, unit: "%", source: ds2016, basis: datasheet, location: "General Data: 'Fill factor 100%'"}
+  detector.qe_value:
+    {value: 85, unit: "%", source: ds2016, basis: datasheet, location: "Spectral Response at 238 K, midband-coated basic process: minimum QE 85 % at 500 and 650 nm (min spec; 20 % at 900 nm)"}
+  detector.detector_temperature_K:
+    {value: 253.0, unit: K, source: ds2016, basis: datasheet, location: "Temperature Limits: operating 153 min / 253 typical / 323 max K (typical taken; matches the read-noise reference temperature)"}
+  detector.dark_rate_e_per_s:
+    {value: 250.0, unit: "1/s", source: ds2016, basis: datasheet, location: "Performance: 'Dark signal at 293 K 250 typ / 500 max e-/pixel/s' (typical taken)"}
+  detector.dark_reference_temperature_K:
+    {value: 293.0, unit: K, source: ds2016, basis: datasheet, location: "same spec line; note 2 gives the scaling law Qd/Qd0 = 1.14e6 T^3 exp(-9080/T) for 230-300 K"}
+  readout.full_well_capacity_e:
+    {value: 1.0e5, unit: null, source: ds2016, basis: datasheet, location: "Performance: 'Peak charge storage 80,000 min / 100,000 typ e-/pixel' (typical taken; output node capacity 1,000,000 e-)"}
+  readout.read_noise_e_rms:
+    {value: 3.0, unit: "e-", source: ds2016, basis: datasheet, location: "Performance: 'Readout noise at 253 K, low noise mode: 3.0 typ / 4.5 max rms e-/pixel' at 20 kHz readout (typical taken; high-signal mode 6.0 e-)"}
+
+qe_table: null
+
+sources:
+  ds2016:
+    type: vendor_datasheet
+    title: "CCD42-40 Ceramic AIMO Back Illuminated Compact Package High Performance CCD Sensor (A1A-100012 Version 9)"
+    publisher: e2v technologies (uk) limited
+    year: 2016
+    url: "http://web.archive.org/web/20211207011528/https://www.teledyne-e2v.com/shared/content/resources/File/documents/Imaging%202017/CCDs%20-%20Full-Frame%20Spectroscopic%20%26%20Scientific/CCD42-40/3.%20BI,%20AIMO/1208.pdf"
+    file: e2v_ccd42_40_bi_aimo_datasheet_2016.pdf
+    retrieved: "2026-09-06"
+
+notes: >
+  Datasheet is delisted from the vendor site; retrieved via the Internet
+  Archive (Wayback, 2021-12-07 capture of the 2016 v9 document) - confirm
+  current availability/version with Teledyne e2v before hardware decisions.
+  Read noise is quoted at 253 K and 20 kHz in low-noise mode (4.5 uV/e-
+  responsivity); maximum readout is 3 MHz with higher noise. Dark rate scales
+  steeply with temperature per the note-2 law - at the 253 K typical operating
+  point the AIMO dark is orders of magnitude below the 293 K figure. QE is the
+  238 K minimum spec for the midband coating; broadband coating is 75 %
+  midband. Analog output: no gain_e_per_dn or adc_bits set - they belong to
+  the camera controller, not the CCD.

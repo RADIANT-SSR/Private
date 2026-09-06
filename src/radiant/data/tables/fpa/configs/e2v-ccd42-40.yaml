@@ -1,0 +1,29 @@
+# RADIANT config — generated from FPA preset 'e2v-ccd42-40' (format v1).
+# DO NOT EDIT: regenerate with `python scripts/gen_fpa_configs.py`.
+# Part: Teledyne e2v (e2v technologies) CCD42-40, back-illuminated AIMO, ceramic package (scientific_visible)
+# Band: UV-visible-NIR (QE table 350-900 nm; Si response), 0.35-1.06 um
+# Values are in RADIANT input units (converted from the datasheet-native
+# units recorded in the preset). Per-parameter provenance:
+#   detector.dark_rate_e_per_s = 250.0 1/s [datasheet: ds2016]
+#   detector.dark_reference_temperature_K = 293.0 K [datasheet: ds2016]
+#   detector.detector_temperature_K = 253.0 K [datasheet: ds2016]
+#   detector.fill_factor = 100 % [datasheet: ds2016]
+#   detector.n_pixels_cross = 2048 [datasheet: ds2016]
+#   detector.pixel_pitch_x_um = 13.5 um [datasheet: ds2016]
+#   detector.pixel_pitch_y_um = 13.5 um [datasheet: ds2016]
+#   detector.qe_value = 85 % [datasheet: ds2016]
+#   readout.full_well_capacity_e = 100000.0 [datasheet: ds2016]
+#   readout.read_noise_e_rms = 3.0 e- [datasheet: ds2016]
+#
+detector:
+  dark_rate_e_per_s: 250.0
+  dark_reference_temperature_K: 293.0
+  detector_temperature_K: 253.0
+  fill_factor: 1.0
+  n_pixels_cross: 2048
+  pixel_pitch_x_um: 13.5
+  pixel_pitch_y_um: 13.5
+  qe_value: 0.85
+readout:
+  full_well_capacity_e: 100000.0
+  read_noise_e_rms: 3.0

@@ -202,7 +202,10 @@ noise/
 Stage 7: TDI, ADC, gain, read noise, binning, coadds, saturation, and the
 digital-pixel counting model (Gap 117). The architecture dispatch
 (`readout.architecture`) lives in `stage.py`; its schema/validation tests
-are `tests/test_architecture.py`.
+are `tests/test_architecture.py`. `errors.py` adds
+`CountingConfigIncompleteError` (Gap 117 Phase 3) — the structural
+"mid-switch, packet not yet set" state that message surfaces route as an
+advisory (published via `api/readout_architecture.py`).
 
 ```
 readout/
@@ -258,7 +261,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 27 source + 21 tests
+### `api/` — 28 source + 21 tests
 
 Public scripting API.
 

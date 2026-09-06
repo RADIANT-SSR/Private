@@ -88,6 +88,7 @@ from radiant.api.units import units_for
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterBoundsError
 from radiant.core.units import convert
+from radiant.gui.architecture_switch import ARCHITECTURE_DOTPATH, apply_companion_resets
 from radiant.gui.config_scope import scope_of
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.display_units import global_display_unit
@@ -924,6 +925,14 @@ class ParameterEditorDialog(QDialog):
             self._sensor.set(self._dotpath, value, unit=unit)
         else:
             self._sensor.set(self._dotpath, value)
+        # Gap 117 (live-review fix 2026-09-06): a readout-architecture switch
+        # clears the explicit inputs the new architecture rejects (e.g. a
+        # config-pinned full_well_capacity_e under digital_counting) as part
+        # of the same logical action — otherwise the switch commits cleanly
+        # and the very next evaluation fails on parameters the form no longer
+        # even shows, surfacing as the "Cannot set 'evaluate'" modal.
+        if self._dotpath == ARCHITECTURE_DOTPATH:
+            apply_companion_resets(self._sensor, value)
         if write_tolerance is not None:
             write_tolerance()
 

@@ -970,6 +970,31 @@ content. Readout began v1-minimal (read-noise/ADC/well) and was expanded per **G
 timing (`readout.frame_period_s` beside the shared integration time; the derived
 `frame_rate_hz`/`duty_cycle` appear in the Outputs readout) — plus the scalar noise budget.
 `cds_enabled`/`node_capacitance_F`/`electronics_sigma_um` remain tree/YAML/scripting-only.
+**Gap 117 (plan Phase 3)** added the readout-architecture group at the top of the form: an
+`Architecture` selector (`readout.architecture`, enum → the shared editor's combo) and a
+**Digital counting** group (`counter_bits`/`count_packet_e`/`residue_readout`/
+`max_count_rate_hz`) shown **only** under `digital_counting` (contextual-relevance
+convention). The form mirrors the stage's Rule-16 validation instead of inviting a rejected
+edit: under `analog_well` the counting rows are hidden (explicit set → over-specification
+error); under `digital_counting` the `full_well_capacity_e` and `gain_e_per_dn` rows are
+hidden (explicit FWC rejected, gain unused — the D2 DN gain derives from the packet) while
+`adc_bits` stays visible as the residue-ADC depth. The counting stage outputs (`counts`,
+`effective_well_e` [e-], `saturation_mechanism`) surface in the Outputs readout.
+Two live-review fixes (2026-09-06) make the switch survivable on real configs: an
+architecture commit through the shared editor also **clears the explicit inputs the new
+architecture rejects** (`gui/architecture_switch.py` — e.g. a config-pinned
+`full_well_capacity_e` under `digital_counting`, and the counting quartet on the way
+back), one logical action so the very next evaluation cannot fail on parameters the form
+no longer shows; and the expected **mid-switch incompleteness** (packet not yet entered)
+routes to the Messages rail as an advisory via
+`api.readout_architecture.is_counting_config_incomplete` — the CU-322 structural-routing
+pattern, never message text — instead of the "Cannot set 'evaluate'" modal. The
+mixed-architecture over-specifications (`is_readout_architecture_conflict`) get the same
+evaluate-time advisory routing, because the state is reachable through surfaces the dialog
+seam cannot cover (console, YAML apply, undo/redo, an authored config); both advisory
+states mark only the readout chip `err` (the rest `stale`), and the readout form renders
+the 0.0-unset sentinels as words ("unset — required" for the packet, "none — no ceiling"
+for the count rate) rather than as zero-valued quantities.
 
 *Geometry Inputs section (shipped, GUI plan Phase 5, 2026-07-13).* The Geometry pane is the
 first to realise the §4.4 **Inputs** section: above its `GeometryReadout` it embeds a

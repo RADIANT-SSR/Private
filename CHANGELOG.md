@@ -21,6 +21,28 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Readout GUI: architecture selector + digital-counting group (Gap 117,
+  plan Phase 3)** — the Readout stage form gains an `Architecture` selector
+  and a counting parameter group (counter depth, charge packet [e-], residue
+  readout, max count rate [Hz]) shown only under `digital_counting`; the
+  full-well and conversion-gain rows hide under counting (the stage rejects /
+  ignores them), and the counting outputs (`counts`, `effective_well_e` [e-],
+  `saturation_mechanism`) surface in the stage's Outputs readout. Live-review
+  fixes (2026-09-06): an architecture switch clears the explicit inputs the
+  new architecture rejects (e.g. a config-pinned `full_well_capacity_e`) as
+  part of the same commit, and the expected mid-switch incompleteness (packet
+  not yet entered) routes to the Messages rail as an advisory instead of the
+  "Cannot set 'evaluate'" modal — carried by the new
+  `CountingConfigIncompleteError` (a `ReadoutValidationError` subclass) with
+  the structural predicate published as
+  `radiant.api.readout_architecture.is_counting_config_incomplete`. Third
+  pass: the mixed-architecture over-specifications are likewise typed
+  (`ArchitectureOverSpecificationError`, predicate
+  `is_readout_architecture_conflict`) so an evaluate-time occurrence from any
+  mutation surface (console, YAML, undo/redo, authored config) is an advisory
+  too; both advisory states paint only the readout chip red (others stale)
+  instead of the whole strip, and the 0.0-unset sentinels render as words
+  ("unset — required" / "none — no ceiling"), not as `0 e-` / `0 Hz`.
 - **Digital-pixel (DROIC) counting readout is live (Gap 117 DELIVERED, plan
   Phases 1–2)** — `readout.architecture = "digital_counting"` now runs the
   full chain: counting saturation `min(2^N·Q_pkt, f_max·t_int·Q_pkt)` with a

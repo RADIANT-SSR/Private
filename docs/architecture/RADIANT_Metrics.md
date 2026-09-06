@@ -148,6 +148,12 @@ fallback when no target temperature is available).
 - `dS/dT < 1e-12 e⁻/K` (effectively no thermal sensitivity at this wavelength) → NaN with reason "thermal contrast vanishes in band."
 - Reflective-band sensors (visible) on a 300 K target → very large value, computed honestly.
 
+**Up/down counting (Gap 117 Phase 4):** under `readout.counting_mode =
+"up_down"` this is the **differential** NEΔT — the same formula over the
+two-phase σ_total (which includes `reference_shot`, the doubled
+`packet_reset`, and the ×√2 counting-chain read), not a new metric
+(plan §2.4).
+
 ### 4.3 NEΔL — Noise-Equivalent Differential Radiance
 
 **Formula:**

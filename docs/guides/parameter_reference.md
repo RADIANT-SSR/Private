@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 192**
+**Total parameters: 196**
 
 ## source
 
@@ -205,6 +205,7 @@
 | `readout.coadd_mode` | str | sum | --- | --- | Coadd combination mode: 'sum', 'average', or 'median'. |
 | `readout.count_packet_e` | float | 0.0 | e- | (0.0, 10000000.0) | Charge packet per count [e-/count] for digital_counting: the charge-subtraction quantum removed from the well at each comparator trip. Default 0.0 means 'unset'; the parameter is required (> 0) when architecture = 'digital_counting'. Counting-only: rejected under analog_well. |
 | `readout.counter_bits` | int | 16 | --- | (1, 32) | In-pixel counter bit depth N for digital_counting. Effective well = 2^N x count_packet_e; counter rollover is treated as saturation (clip) in v1. Counting-only: rejected under analog_well. |
+| `readout.counting_mode` | str | up | --- | --- | Digital-counting accumulation mode (plan Phase 4, rulings D1/D6): 'up' — unsigned accumulation, counter rollover clips; 'up_down' — signed modulo accumulator that increments during the scene phase and decrements during a reference phase (in-pixel background subtraction for dim targets on a bright common background). Counting-only: rejected under analog_well; 'up_down' requires architecture = 'digital_counting'. |
 | `readout.electronics_sigma_um` | float | 0.0 | um | (0.0, 100.0) | Electronics MTF: equivalent Gaussian blur sigma on the focal plane [µm] from finite amplifier bandwidth at the pixel clock rate. Blurs the readout (cross-scan, x) axis only. Zero (default) = ideal electronics, no blur. Enters both the EffectivePSF (kernel) and the MTF product (analytic term) per Rule 4. |
 | `readout.frame_period_s` | float | 0.0 | s | (0.0, 1000000.0) | Frame period [s]: the time between frame starts, stored independently of the integration time (spectral_integration.integration_time_s) per RADIANT_Conventions.md §4. Frame rate = 1/frame_period and duty cycle = t_int/frame_period are derived by radiant.readout.frame_timing and published in stage_outputs['readout']. Default 0.0 means 'unset': the frame period defaults to the integration time (frame rate = 1/t_int, duty cycle = 1.0) with a logged warning. A duty cycle > 1 (integration longer than the frame period) is rejected. |
 | `readout.full_well_capacity_e` | float | 100000.0 | --- | (100.0, 1000000000000.0) | Full well capacity per pixel [e-]. |
@@ -214,6 +215,9 @@
 | `readout.n_tdi` | int | 1 | --- | (1, 1000) | Number of TDI stages. 1 = no TDI. |
 | `readout.node_capacitance_F` | float | 0.0 | F | (0.0, 1e-09) | Sense-node capacitance [F]. Zero disables kTC noise. |
 | `readout.read_noise_e_rms` | float | 5.0 | e- | (0.0, 10000.0) | Per-frame read noise delivered to the signal path [e- RMS]. |
+| `readout.reference_integration_s` | float | 0.0 | s | (0.0, 1000000.0) | Down-phase (reference) integration time [s] for counting_mode = 'up_down' (ruling D7: parameterized). Default 0.0 means 'unset': the down phase equals the scene integration time (spectral_integration.integration_time_s), the balanced case whose background and dark means cancel exactly. Meaningful only under 'up_down'. |
+| `readout.reference_rate_e_per_s` | float | 0.0 | e-/s | (0.0, 1000000000000000.0) | User-specified down-phase reference charge rate [e-/s] for reference_source = 'user_level' (plan Phase 4). Default 0.0 means 'unset'; required (> 0) when 'user_level' is selected. Meaningful only under counting_mode = 'up_down'. |
+| `readout.reference_source` | str | background_term | --- | --- | Down-phase reference flux model for counting_mode = 'up_down' (ruling D6): 'background_term' — the chain's own background radiometric term (valid only in sub-pixel / point-source regimes, where target and background are separate terms); 'user_level' — a user-specified reference charge rate (reference_rate_e_per_s), the extended-scene fallback. Meaningful only under 'up_down'. |
 | `readout.residue_readout` | bool | True | --- | --- | Digital_counting only: read the analog residue (sub-packet charge) after the counter word. True: residue passes through the existing ADC model (adc_bits / gain scoped to a count_packet_e full scale) and DN is the combined word. False: DN is the bare counter and quantization noise is count_packet_e/sqrt(12). Counting-only: rejected under analog_well. |
 | `readout.tdi_misalign_pixels` | float | 0.0 | --- | (0.0, 10.0) | Cross-scan TDI misalignment in pixel units. Zero = perfect alignment. |
 | `readout.tdi_mode` | str | analog | --- | --- | TDI readout mode: 'analog' (single readout after charge accumulation) or 'digital' (each stage read independently, summed digitally). |

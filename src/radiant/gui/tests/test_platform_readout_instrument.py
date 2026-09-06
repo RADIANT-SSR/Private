@@ -33,6 +33,7 @@ from radiant.gui.widgets.readout_inputs_form import (  # noqa: E402
     _COADD_FIELDS,
     _COUNTING_FIELDS,
     _NOISE_FIELDS,
+    _REFERENCE_FIELDS,
     _TDI_FIELDS,
     _WELL_FIELDS,
 )
@@ -493,3 +494,91 @@ class TestArchitectureConflictAdvisory:
         strip = window.stage_strip
         assert strip._by_namespace["readout"].status == "err"  # noqa: SLF001
         assert strip._by_namespace["geometry"].status == "stale"  # noqa: SLF001
+
+
+class TestUpDownGroup:
+    """Gap 117 Phase 4: counting-mode selector + contextual reference group."""
+
+    def _updown_sensor(self) -> Sensor:
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        sensor.reset("readout.full_well_capacity_e")
+        sensor.set("readout.architecture", "digital_counting")
+        sensor.set("readout.count_packet_e", 5000.0)
+        sensor.set("readout.counting_mode", "up_down")
+        return sensor
+
+    def test_reference_group_hidden_under_up_mode(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        pane = _pane(qtbot, "readout", _counting_sensor())  # mode defaults to "up"
+        form = pane.readout_inputs_form
+        assert form is not None
+        assert not form.row("readout.counting_mode").isHidden()
+        for _label, dotpath in _REFERENCE_FIELDS:
+            assert form.row(dotpath).isHidden(), dotpath
+
+    def test_reference_group_shown_under_up_down(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """background_term default: source + integration show; the user-level
+        rate row stays hidden. Bind without evaluating (extended example +
+        background_term would raise the D6 conflict advisory)."""
+        pane = StagePane("readout", STAGE_COMPOSITIONS["readout"])
+        qtbot.addWidget(pane)
+        pane.bind_sensor(self._updown_sensor(), {})
+        form = pane.readout_inputs_form
+        assert form is not None
+        assert not form.row("readout.reference_source").isHidden()
+        assert not form.row("readout.reference_integration_s").isHidden()
+        assert form.row("readout.reference_rate_e_per_s").isHidden()
+        # D7 equal-phase sentinel renders as words, not "0 s".
+        assert form.field_value_text("readout.reference_integration_s") == "equal to scene phase"
+
+    def test_rate_row_shown_under_user_level(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        sensor = self._updown_sensor()
+        sensor.set("readout.reference_source", "user_level")
+        pane = StagePane("readout", STAGE_COMPOSITIONS["readout"])
+        qtbot.addWidget(pane)
+        pane.bind_sensor(sensor, {})
+        form = pane.readout_inputs_form
+        assert form is not None
+        assert not form.row("readout.reference_rate_e_per_s").isHidden()
+        assert form.field_value_text("readout.reference_rate_e_per_s") == "unset — required"
+
+    def test_mode_switch_back_to_up_clears_reference_params(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """The Phase 4 companion reset: committing counting_mode = 'up'
+        through the editor clears the explicit reference inputs."""
+        from PySide6.QtWidgets import QComboBox
+
+        from radiant.gui.widgets import actionable_error_dialog as aed
+
+        modals: list[object] = []
+        monkeypatch.setattr(
+            aed.ActionableErrorDialog, "exec", lambda self: modals.append(self) or 0
+        )
+        window = _load_window(qtbot)
+        window.stage_strip.stageClicked.emit("readout")
+        form = window.central_canvas.stage_center.pane("readout").readout_inputs_form
+        assert form is not None
+        # Console-style setup into up_down with explicit reference params.
+        window.sensor.reset("readout.full_well_capacity_e")
+        window.sensor.set("readout.architecture", "digital_counting")
+        window.sensor.set("readout.count_packet_e", 5000.0)
+        window.sensor.set("readout.counting_mode", "up_down")
+        window.sensor.set("readout.reference_source", "user_level")
+        window.sensor.set("readout.reference_rate_e_per_s", 1.0e8)
+
+        from radiant.gui.widgets import readout_inputs_form as rif
+
+        def fake_exec(self):  # type: ignore[no-untyped-def]
+            editor = self.value_editor
+            assert isinstance(editor, QComboBox)
+            editor.setCurrentText("up")
+            self.apply(close=True)
+            return 0
+
+        monkeypatch.setattr(rif.ParameterEditorDialog, "exec", fake_exec)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            form._open_editor("readout.counting_mode")  # noqa: SLF001
+
+        assert window.sensor.get("readout.counting_mode") == "up"
+        assert "readout.reference_source" not in window.sensor.inputs()
+        assert "readout.reference_rate_e_per_s" not in window.sensor.inputs()
+        assert modals == []
+        assert window.last_result.stage_outputs["readout"]["architecture"] == "digital_counting"

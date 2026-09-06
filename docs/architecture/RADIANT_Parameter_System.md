@@ -183,6 +183,14 @@ readout.residue_readout               # bool — read the analog residue through
                                       #   (counting-only)
 readout.max_count_rate_hz             # Hz — comparator dead-time flux ceiling (counting-only; 0.0 = unset
                                       #   ⇒ no ceiling, counter rollover governs)
+readout.counting_mode                 # enum: "up", "up_down" — signed-differential background subtraction
+                                      #   (plan Phase 4, D1/D6; counting-only; reference params rejected under "up")
+readout.reference_source              # enum: "background_term" (sub-pixel/point-source only, D6),
+                                      #   "user_level" (extended-scene fallback); up_down-only
+readout.reference_rate_e_per_s        # e-/s — down-phase reference charge rate (REQUIRED > 0 under
+                                      #   "user_level"; 0.0 = unset sentinel); up_down-only
+readout.reference_integration_s       # s — down-phase duration (0.0 = unset ⇒ equal to the scene
+                                      #   integration time, D7); up_down-only
 readout.cds_enabled                   # int (1 = yes, 0 = no; dtype=int, default 1)
 readout.n_tdi                         # int
 readout.n_coadds                      # int

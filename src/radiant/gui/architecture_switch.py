@@ -33,37 +33,63 @@ _COUNTING_ONLY: Final[tuple[str, ...]] = (
     "readout.count_packet_e",
     "readout.residue_readout",
     "readout.max_count_rate_hz",
+    "readout.counting_mode",
+    "readout.reference_source",
+    "readout.reference_rate_e_per_s",
+    "readout.reference_integration_s",
 )
 
 #: Rejected when explicitly set under digital_counting (the effective well is
 #: 2^counter_bits × count_packet_e; the schema default passes silently).
 _ANALOG_ONLY: Final[tuple[str, ...]] = ("readout.full_well_capacity_e",)
 
+#: The counting-mode selector (plan Phase 4) — switching back to plain "up"
+#: rejects the explicit reference parameters, the same trap one level down.
+MODE_DOTPATH: Final[str] = "readout.counting_mode"
 
-def companion_resets_for(new_value: object) -> tuple[str, ...]:
-    """The dot-paths an architecture switch to *new_value* must clear."""
-    if new_value == "digital_counting":
-        return _ANALOG_ONLY
-    if new_value == "analog_well":
-        return _COUNTING_ONLY
+_UPDOWN_ONLY: Final[tuple[str, ...]] = (
+    "readout.reference_source",
+    "readout.reference_rate_e_per_s",
+    "readout.reference_integration_s",
+)
+
+#: The dot-paths whose editor commits carry companion resets.
+SWITCH_DOTPATHS: Final[frozenset[str]] = frozenset({ARCHITECTURE_DOTPATH, MODE_DOTPATH})
+
+
+def companion_resets_for(dotpath: str, new_value: object) -> tuple[str, ...]:
+    """The dot-paths a switch of *dotpath* to *new_value* must clear."""
+    if dotpath == ARCHITECTURE_DOTPATH:
+        if new_value == "digital_counting":
+            return _ANALOG_ONLY
+        if new_value == "analog_well":
+            return _COUNTING_ONLY
+    elif dotpath == MODE_DOTPATH and new_value == "up":
+        return _UPDOWN_ONLY
     return ()
 
 
-def apply_companion_resets(sensor: Sensor, new_value: object) -> tuple[str, ...]:
-    """Clear the explicit inputs the new architecture rejects; return those cleared.
+def apply_companion_resets(sensor: Sensor, dotpath: str, new_value: object) -> tuple[str, ...]:
+    """Clear the explicit inputs the new selection rejects; return those cleared.
 
     ``Sensor.reset`` on a parameter with no explicit input is a no-op, so this
-    is safe to call unconditionally after every architecture commit. The
-    returned tuple (possibly empty) names the parameters actually cleared, for
-    the caller's messaging surface.
+    is safe to call unconditionally after every switch commit. The returned
+    tuple (possibly empty) names the parameters actually cleared, for the
+    caller's messaging surface.
     """
     explicit = set(sensor.inputs())
     cleared: list[str] = []
-    for dotpath in companion_resets_for(new_value):
-        if dotpath in explicit:
-            sensor.reset(dotpath)
-            cleared.append(dotpath)
+    for name in companion_resets_for(dotpath, new_value):
+        if name in explicit:
+            sensor.reset(name)
+            cleared.append(name)
     return tuple(cleared)
 
 
-__all__ = ["ARCHITECTURE_DOTPATH", "apply_companion_resets", "companion_resets_for"]
+__all__ = [
+    "ARCHITECTURE_DOTPATH",
+    "MODE_DOTPATH",
+    "SWITCH_DOTPATHS",
+    "apply_companion_resets",
+    "companion_resets_for",
+]

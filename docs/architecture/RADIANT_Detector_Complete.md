@@ -262,6 +262,8 @@ Two saturation points: **well** (step 3) and **ADC** (step 8). They are checked 
 
 **Readout architecture dispatch (Gap 117, `docs/plans/Digital_Pixel_Readout_Plan.md`).** `readout.architecture` selects between `analog_well` (the canonical chain above, the default — zero behavior change) and `digital_counting` (digital-pixel ROIC: in-pixel comparator + N-bit counter with charge-subtraction reset). `ReadoutStage` validates the architecture-scoped parameter combination before any physics runs (Rule 16): the counting-only parameters (`counter_bits`, `count_packet_e`, `residue_readout`, `max_count_rate_hz`) are rejected if explicitly set under `analog_well` (over-specification, same posture as Rule 5); under `digital_counting`, `count_packet_e` is required (> 0) and an explicitly set `full_well_capacity_e` is rejected — the effective well is `2^counter_bits · count_packet_e`, so an independent analog full well over-specifies the system (the schema default passes silently). **The counting branch is live (plan Phase 2).** Under `digital_counting` the chain runs with these substitutions, everything upstream unchanged: saturation clips at `min(2^N·Q_pkt, f_max·t_int·Q_pkt)` [e-] through the same `check_well_saturation`, with `readout.saturation_mechanism` (`rollover` | `dead_time` | `none`) published alongside `well_status`; the noise budget swaps `quantization` → `counting_quantization` (packet/√12 bare, residue-ADC LSB/√12 with residue readout) and `ktc_reset` → `packet_reset` (√n_counts × σ_kTC, same CDS gate) — still at most 16 terms; DN follows ruling D2 (residue on: combined word at gain Q_pkt/2^M e-/DN; off: bare counter at Q_pkt e-/DN, published as the effective `gain_e_per_dn`); the ADC saturation check and the ADC↔well match diagnostics are suppressed (the counter *is* the ADC); the published `full_well_capacity_e` stage output carries the counting bound so every downstream well consumer (fill fraction, well margin, dynamic range, GUI banner) sees one consistent saturation signal. New stage outputs: `architecture`, `counts` [-], `count_packet_e` [e-], `effective_well_e` [e-], `saturation_mechanism`. Physics modules: `readout/counting_well.py`, `readout/counting_quantization.py`.
 
+**Up/down counting (plan Phase 4, rulings D6/D7).** `readout.counting_mode = "up_down"` turns the counter into a signed modulo accumulator: increment during the scene phase, decrement during a reference phase (`readout/updown_differential.py`). The reference integrates the chain's own background term (sub-pixel/point-source regimes, D6) or a user-specified rate (`reference_rate_e_per_s`, extended-scene fallback); the down-phase duration is `reference_integration_s` (unset ⇒ equal phases, D7). Counter wrap during the up phase is unwound by the down phase, so the capacity bound moves from rollover to the signed differential `|ΔQ| ≤ 2^(N−1)·Q_pkt` (`saturation_mechanism = "differential_overflow"`); the dead-time ceiling applies per phase. The mean cancels but the noise does not: the budget gains `reference_shot` = √Q_down (17 terms), `packet_reset` accrues over both phases' trips, and the counting-chain read is paid once per phase (×√2). DN is the signed differential at the D2 gain; `signal_e_final` (the SNR numerator) stays the scene-phase target signal. Extra outputs: `counting_mode`, `differential_e` [e-], `reference_charge_e` [e-], `reference_integration_s_used` [s].
+
 The "read noise injection happens ONCE" rule is the reason TDI gets a √N_tdi SNR improvement: the signal accumulates as N_tdi (analog) but the read noise is added once at the end. If anyone tries to add read noise before TDI accumulation, the chain has a sign of degradation and the test suite catches it.
 
 ---
@@ -396,7 +398,7 @@ section is the authoritative, reconciled inventory (verified against
 
 **IPC (1):** `ipc_coupling`.
 
-### 11.2 `readout.*` — 22 parameters
+### 11.2 `readout.*` — 26 parameters
 
 **Read / CDS (4):** `read_noise_e_rms`, `cds_enabled`,
 `node_capacitance_F`, `electronics_sigma_um`.
@@ -406,11 +408,12 @@ section is the authoritative, reconciled inventory (verified against
 **Well (1):** `full_well_capacity_e` (analog_well only — rejected if
 explicitly set under `digital_counting`).
 
-**Architecture / digital-pixel counting (5, Gap 117 — see §6 dispatch):**
+**Architecture / digital-pixel counting (9, Gap 117 — see §6 dispatch):**
 `architecture`, `counter_bits`, `count_packet_e`, `residue_readout`,
-`max_count_rate_hz`. Schema-only until Digital_Pixel_Readout_Plan Phase 1
-lands; the four counting-only parameters are rejected if explicitly set
-under `analog_well`.
+`max_count_rate_hz`, plus the Phase 4 up/down group `counting_mode`,
+`reference_source`, `reference_rate_e_per_s`, `reference_integration_s`.
+The counting-only parameters are rejected if explicitly set under
+`analog_well`; the reference trio likewise under `counting_mode = "up"`.
 
 **TDI (3):** `n_tdi`, `tdi_misalign_pixels`, `tdi_mode`.
 

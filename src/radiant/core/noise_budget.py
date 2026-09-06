@@ -41,6 +41,10 @@ TEMPORAL_TERMS: frozenset[str] = frozenset(
         # are ever emitted per run — the swap keeps the count invariant.
         "counting_quantization",
         "packet_reset",
+        # Up/down mode (plan Phase 4) adds the down-phase Poisson term
+        # "reference_shot" = sqrt(Q_down): the differential's mean cancels,
+        # its noise does not (17 terms under up_down).
+        "reference_shot",
     }
 )
 
@@ -58,7 +62,9 @@ ALL_NOISE_TERMS: frozenset[str] = TEMPORAL_TERMS | SPATIAL_TERMS
 #: ReadoutStage's counting branch IN PLACE OF "quantization" / "ktc_reset" and
 #: never appear in the detector's raw budget — compute_noise_budget always
 #: builds exactly ALL_NOISE_TERMS − COUNTING_TERMS (the historical 16).
-COUNTING_TERMS: frozenset[str] = frozenset({"counting_quantization", "packet_reset"})
+COUNTING_TERMS: frozenset[str] = frozenset(
+    {"counting_quantization", "packet_reset", "reference_shot"}
+)
 
 
 # ---------------------------------------------------------------------------

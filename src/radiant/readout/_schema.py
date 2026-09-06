@@ -180,6 +180,93 @@ MAX_COUNT_RATE_HZ = ParameterDef(
     ),
 )
 
+COUNTING_MODE = ParameterDef(
+    name="readout.counting_mode",
+    description=(
+        "Digital-counting accumulation mode (plan Phase 4, rulings D1/D6): "
+        "'up' — unsigned accumulation, counter rollover clips; 'up_down' — "
+        "signed modulo accumulator that increments during the scene phase "
+        "and decrements during a reference phase (in-pixel background "
+        "subtraction for dim targets on a bright common background). "
+        "Counting-only: rejected under analog_well; 'up_down' requires "
+        "architecture = 'digital_counting'."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="up",
+    enum_values=("up", "up_down"),
+    tags=frozenset({"readout", "counting"}),
+    default_justification=(
+        "Plain up-counting is the v1 baseline (ruling D1); up/down is the "
+        "v1.1 background-subtraction mode."
+    ),
+)
+
+REFERENCE_SOURCE = ParameterDef(
+    name="readout.reference_source",
+    description=(
+        "Down-phase reference flux model for counting_mode = 'up_down' "
+        "(ruling D6): 'background_term' — the chain's own background "
+        "radiometric term (valid only in sub-pixel / point-source regimes, "
+        "where target and background are separate terms); 'user_level' — a "
+        "user-specified reference charge rate (reference_rate_e_per_s), the "
+        "extended-scene fallback. Meaningful only under 'up_down'."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="background_term",
+    enum_values=("background_term", "user_level"),
+    tags=frozenset({"readout", "counting"}),
+    default_justification=(
+        "The dim-point-source use case that motivates up/down counting has "
+        "the chain's background term available (D6)."
+    ),
+)
+
+REFERENCE_RATE_E_PER_S = ParameterDef(
+    name="readout.reference_rate_e_per_s",
+    description=(
+        "User-specified down-phase reference charge rate [e-/s] for "
+        "reference_source = 'user_level' (plan Phase 4). Default 0.0 means "
+        "'unset'; required (> 0) when 'user_level' is selected. Meaningful "
+        "only under counting_mode = 'up_down'."
+    ),
+    dtype=float,
+    canonical_unit="e-/s",
+    input_unit="e-/s",
+    default=0.0,
+    bounds=(0.0, 1.0e15),
+    tags=frozenset({"readout", "counting"}),
+    default_justification=(
+        "0.0 = unset sentinel (plan spec: no default); required only when "
+        "user_level is selected, so background_term configs stay resolvable."
+    ),
+)
+
+REFERENCE_INTEGRATION_S = ParameterDef(
+    name="readout.reference_integration_s",
+    description=(
+        "Down-phase (reference) integration time [s] for counting_mode = "
+        "'up_down' (ruling D7: parameterized). Default 0.0 means 'unset': "
+        "the down phase equals the scene integration time "
+        "(spectral_integration.integration_time_s), the balanced case whose "
+        "background and dark means cancel exactly. Meaningful only under "
+        "'up_down'."
+    ),
+    dtype=float,
+    canonical_unit="s",
+    input_unit="s",
+    default=0.0,
+    bounds=(0.0, 1.0e6),
+    tags=frozenset({"readout", "counting"}),
+    default_justification=(
+        "0.0 = unset: equal-to-scene default (ruling D7) — the balanced "
+        "phase pair is the standard operating point."
+    ),
+)
+
 # ---------------------------------------------------------------------------
 # CDS
 # ---------------------------------------------------------------------------
@@ -375,6 +462,10 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     COUNT_PACKET_E,
     RESIDUE_READOUT,
     MAX_COUNT_RATE_HZ,
+    COUNTING_MODE,
+    REFERENCE_SOURCE,
+    REFERENCE_RATE_E_PER_S,
+    REFERENCE_INTEGRATION_S,
     CDS_ENABLED,
     NODE_CAPACITANCE_F,
     N_TDI,

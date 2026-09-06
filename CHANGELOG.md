@@ -21,6 +21,16 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **First shipped FPA presets — tranche 1 (Gap 119, plan Phase 1)** — six named
+  parts load from `radiant.data.FPALibrary`: `geosnap-18`, `geosnap-10`,
+  `flir-neutrino-lc`, `flir-boson-plus-640`, `teledyne-h2rg-2p5`, and
+  `dfpa-generic` (MIT LL DFPA paper anchor for the digital-counting class).
+  Each ships with per-parameter datasheet/paper attribution, a committed
+  reference PDF set under `docs/validation/fpa_datasheets/` (hash-manifested,
+  Rule 26(c)), and a generated loadable RADIANT config at
+  `src/radiant/data/tables/fpa/configs/<name>.yaml`
+  (`scripts/gen_fpa_configs.py`, freshness-gated). No default behavior
+  changes — presets act only when explicitly loaded/applied.
 - **FPA preset library, format + loader (Gap 119, plan Phase 0)** —
   `radiant.data.FPALibrary` / `FPAPreset` / `FPAPresetError` (public surface):
   named FPA/ROIC preset documents (`src/radiant/data/tables/fpa/*.yaml`,

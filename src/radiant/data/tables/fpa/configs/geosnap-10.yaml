@@ -1,0 +1,27 @@
+# RADIANT config — generated from FPA preset 'geosnap-10' (format v1).
+# DO NOT EDIT: regenerate with `python scripts/gen_fpa_configs.py`.
+# Part: Teledyne Space Imaging GeoSnap-10 (cooled_ir)
+# Band: custom-cutoff HgCdTe (VNIR-VLWIR), 0.4-14.0 um
+# Values are in RADIANT input units (converted from the datasheet-native
+# units recorded in the preset). Per-parameter provenance:
+#   detector.detector_temperature_K = 110.0 K [derived: leaflet2025]
+#   detector.n_pixels_cross = 4096 [datasheet: leaflet2025]
+#   detector.pixel_pitch_x_um = 10.0 um [datasheet: leaflet2025]
+#   detector.pixel_pitch_y_um = 10.0 um [datasheet: leaflet2025]
+#   detector.qe_value = 85 % [assumed: assumed (see preset note)]
+#   readout.adc_bits = 14 [datasheet: leaflet2025]
+#   readout.architecture = analog_well [derived: leaflet2025]
+#   readout.full_well_capacity_e = 8.0e5 [assumed: assumed (see preset note)]
+#   readout.read_noise_e_rms = 400.0 e- [assumed: assumed (see preset note)]
+#
+detector:
+  detector_temperature_K: 110.0
+  n_pixels_cross: 4096
+  pixel_pitch_x_um: 10.0
+  pixel_pitch_y_um: 10.0
+  qe_value: 0.85
+readout:
+  adc_bits: 14
+  architecture: analog_well
+  full_well_capacity_e: 8.0e5
+  read_noise_e_rms: 400.0

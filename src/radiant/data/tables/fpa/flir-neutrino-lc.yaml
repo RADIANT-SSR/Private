@@ -1,0 +1,66 @@
+fpa_preset: 1
+name: flir-neutrino-lc
+vendor: Teledyne FLIR
+model: Neutrino LC (SWaP+C series)
+part_class: cooled_ir
+material: "HOT MWIR MCT-class (ISR-series datasheet says 'HOT MWIR InSb' - see notes)"
+band: {label: MWIR, cut_on_um: 3.4, cut_off_um: 4.9}
+description: >
+  Cooled MWIR camera core: 640x512, 15 um pitch HOT FPA on the FLIR ISC0403
+  ROIC (direct-injection snapshot), linear micro-cooler. The best public
+  electron-domain record in the current FLIR core line (well capacity and
+  programmable integration-time range are published). Preset models the
+  FPA/ROIC through readout only - the core's lens/electronics are out of scope.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 15.0, unit: um, source: ogi2025, basis: datasheet, location: "'Sensor Size 640 x 512, 15 um pitch'"}
+  detector.pixel_pitch_y_um:
+    {value: 15.0, unit: um, source: ogi2025, basis: datasheet, location: "square pixel, same table"}
+  detector.n_pixels_cross:
+    {value: 640, unit: null, source: ogi2025, basis: datasheet, location: "640 x 512 VGA array (cross-track 640 taken)"}
+  readout.full_well_capacity_e:
+    {value: 7.0e6, unit: null, source: ogi2025, basis: datasheet, location: "'Well Capacity 7 x 10^6 electrons' (ISC0403; same ROIC as standard LC per page2019)"}
+  readout.architecture:
+    {value: analog_well, unit: null, source: ogi2025, basis: derived, location: "direct-injection CTIA-class analog ROIC (ISC0403), no in-pixel counter"}
+  detector.detector_temperature_K:
+    {value: 150.0, unit: K, basis: assumed, note: "vendor states 'HOT' (high operating temperature) with no kelvin figure anywhere public; HOT MCT class runs ~110-160 K - curator midrange placeholder"}
+  detector.qe_value:
+    {value: 80, unit: "%", basis: assumed, note: "not published; typical MWIR HOT MCT / InSb band-average - curator placeholder"}
+  readout.read_noise_e_rms:
+    {value: 500.0, unit: "e-", basis: assumed, note: "not published; at the NEdT test point (50 % of 7 Me- well) shot noise is ~1870 e- RMS, so read noise is subdominant - 500 e- is a curator placeholder consistent with the <25 mK NEdT"}
+  readout.frame_period_s:
+    {value: 1.6667e-2, unit: s, source: page2019, basis: derived, location: "1 / (60 Hz max frame rate)"}
+
+qe_table: null
+
+sources:
+  ogi2025:
+    type: vendor_datasheet
+    title: "Neutrino LC OGI Datasheet"
+    publisher: Teledyne FLIR
+    year: 2025
+    url: "https://flir.netx.net/file/asset/59789/original/attachment"
+    file: neutrino_lc_ogi_datasheet_2025.pdf
+    retrieved: "2026-09-06"
+  page2019:
+    type: web_page
+    title: "Neutrino SWaP+C Series - HOT FPA MWIR Camera Core, Model: Neutrino LC (product page, spec table)"
+    publisher: FLIR Systems
+    year: 2019
+    url: "http://web.archive.org/web/20190412075002/https://www.flir.com/products/neutrino-swapc-series"
+    retrieved: "2026-09-06"
+
+notes: >
+  Band 3.4 - >=4.9 um and NEdT <25 mK (50 % well fill, TBB = 30 degC, flood
+  mode) are from the archived standard-LC product page (page2019); the
+  committed PDF is the OGI variant (cold-filtered 3.2-3.4 um, <35 mK VGA /
+  <20 mK binned, f/1.59) which shares the ISC0403 ROIC and 7 Me- well - the LC
+  standard datasheet PDF is 404 live and was never archived. Cold shield f/5.5
+  standard (f/4, f/2.5 options). Integration time programmable 0.01-16 ms.
+  Material: the LC page says only 'HOT MWIR'; the 2026 Neutrino ISR-series
+  datasheet says 'HOT MWIR InSb' for the derived ISR cameras - InSb at HOT
+  temperatures is unusual (XBn/MCT is the typical HOT technology), so material
+  is recorded with that tension visible. Detector temperature, QE, and read
+  noise are curator placeholders (basis: assumed) - replace with programme
+  data.

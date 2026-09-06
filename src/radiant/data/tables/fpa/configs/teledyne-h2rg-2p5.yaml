@@ -1,0 +1,31 @@
+# RADIANT config — generated from FPA preset 'teledyne-h2rg-2p5' (format v1).
+# DO NOT EDIT: regenerate with `python scripts/gen_fpa_configs.py`.
+# Part: Teledyne Imaging Sensors H2RG (HAWAII-2RG), 2.5 um cutoff variant (scientific_visible)
+# Band: VIS-SWIR (2.5 um cutoff), 0.4-2.5 um
+# Values are in RADIANT input units (converted from the datasheet-native
+# units recorded in the preset). Per-parameter provenance:
+#   detector.dark_rate_e_per_s = 0.05 1/s [datasheet: ds2022]
+#   detector.dark_reference_temperature_K = 77.0 K [datasheet: ds2022]
+#   detector.detector_temperature_K = 77.0 K [datasheet: ds2022]
+#   detector.n_pixels_cross = 2048 [datasheet: ds2022]
+#   detector.pixel_pitch_x_um = 18.0 um [datasheet: ds2022]
+#   detector.pixel_pitch_y_um = 18.0 um [datasheet: ds2022]
+#   detector.qe_value = 80 % [datasheet: ds2022]
+#   readout.adc_bits = 16 [derived: ds2022]
+#   readout.cds_enabled = 1 [datasheet: ds2022]
+#   readout.full_well_capacity_e = 8.0e4 [datasheet: ds2022]
+#   readout.read_noise_e_rms = 18.0 e- [datasheet: ds2022]
+#
+detector:
+  dark_rate_e_per_s: 0.05
+  dark_reference_temperature_K: 77.0
+  detector_temperature_K: 77.0
+  n_pixels_cross: 2048
+  pixel_pitch_x_um: 18.0
+  pixel_pitch_y_um: 18.0
+  qe_value: 0.8
+readout:
+  adc_bits: 16
+  cds_enabled: 1
+  full_well_capacity_e: 8.0e4
+  read_noise_e_rms: 18.0

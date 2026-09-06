@@ -1,0 +1,64 @@
+fpa_preset: 1
+name: teledyne-h2rg-2p5
+vendor: Teledyne Imaging Sensors
+model: H2RG (HAWAII-2RG), 2.5 um cutoff variant
+part_class: scientific_visible
+material: substrate-removed HgCdTe hybrid (CdZnTe removed; visible response)
+band: {label: "VIS-SWIR (2.5 um cutoff)", cut_on_um: 0.4, cut_off_um: 2.5}
+description: >
+  2048x2048 (2040x2040 photosensitive + 4-wide reference-pixel border), 18 um
+  pitch HgCdTe hybrid; JWST NIRCam/NIRISS/NIRSpec and Euclid NISP heritage.
+  Values are the vendor specification for the 2.5 um cutoff variant; flight-
+  selected devices typically reach the 'goal' column or better (see notes).
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 18.0, unit: um, source: ds2022, basis: datasheet, location: "'Array Format 2048 x 2048 pixel, 18 um pitch'"}
+  detector.pixel_pitch_y_um:
+    {value: 18.0, unit: um, source: ds2022, basis: datasheet, location: "square pixel, same line"}
+  detector.n_pixels_cross:
+    {value: 2048, unit: null, source: ds2022, basis: datasheet, location: "2048 x 2048 (2040 x 2040 photosensitive)"}
+  detector.qe_value:
+    {value: 80, unit: "%", source: ds2022, basis: datasheet, location: "mean QE goal >=80 % @ 0.8-2.0 um (spec >=70 %); goal taken - see notes for flight-achieved"}
+  detector.detector_temperature_K:
+    {value: 77.0, unit: K, source: ds2022, basis: datasheet, location: "2.5 um column: dark-current spec quoted at 77 K"}
+  detector.dark_rate_e_per_s:
+    {value: 0.05, unit: "1/s", source: ds2022, basis: datasheet, location: "median dark current <=0.05 e-/s @ 77 K (goal <=0.01)"}
+  detector.dark_reference_temperature_K:
+    {value: 77.0, unit: K, source: ds2022, basis: datasheet, location: "same spec line"}
+  readout.full_well_capacity_e:
+    {value: 8.0e4, unit: null, source: ds2022, basis: datasheet, location: "well capacity >=80,000 e- (goal >=100,000) for the 2.5 um variant"}
+  readout.read_noise_e_rms:
+    {value: 18.0, unit: "e-", source: ds2022, basis: datasheet, location: "median CDS read noise <=18 e- @ 100 kHz pixel rate, 2.5 um column (goal <=12)"}
+  readout.cds_enabled:
+    {value: 1, unit: null, source: ds2022, basis: datasheet, location: "read-noise spec is defined for correlated double sampling"}
+  readout.adc_bits:
+    {value: 16, unit: null, source: ds2022, basis: derived, location: "no on-chip ADC (analog outputs); 16-bit when paired with the Teledyne SIDECAR ASIC, the standard system configuration"}
+
+qe_table: null
+
+sources:
+  ds2022:
+    type: vendor_datasheet
+    title: "Teledyne Imaging Sensors H2RG Visible & Infrared Focal Plane Array (TSI-0855, DOPSR 22-S-1034)"
+    publisher: Teledyne Imaging Sensors
+    year: 2022
+    url: "https://www.teledyne-si.com/en-us/Products-and-Services_/Documents/Infrared%20and%20Visible%20FPAs/TSI-0855%20H2RG%20Brochure-25Feb2022.pdf"
+    file: h2rg_brochure_tsi0855_2022.pdf
+    retrieved: "2026-09-06"
+  stsci_rdox:
+    type: web_page
+    title: "WFI Detectors - Roman User Documentation (H1R/H2RG/H4RG comparison)"
+    publisher: STScI
+    url: "https://roman-docs.stsci.edu/roman-instruments/the-wide-field-instrument/wfi-detectors"
+    retrieved: "2026-09-06"
+
+notes: >
+  Spec-vs-flight: JWST-class 2.5 um devices achieve QE ~90 % at 2 um, dark
+  <0.01 e-/s/pixel, and ~6 e- RMS total noise in a 1000 s up-the-ramp
+  multi-read integration (stsci_rdox) - the 18 e- entry above is the
+  single-CDS vendor spec; multi-sampling studies should model the sampling
+  gain explicitly. Frame rate is mode-dependent (3 Hz slow / 74 Hz fast with
+  32 outputs) and is not set. Other cutoff variants (1.75 um @ 120 K, 5.3 um
+  @ 37 K, well >=65 ke-) can fork this preset. Operability spec >=95 %
+  (goal 99 %).

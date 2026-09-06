@@ -1,0 +1,55 @@
+fpa_preset: 1
+name: geosnap-10
+vendor: Teledyne Space Imaging
+model: GeoSnap-10
+part_class: cooled_ir
+material: HgCdTe (customer-specified cutoff)
+band: {label: "custom-cutoff HgCdTe (VNIR-VLWIR)", cut_on_um: 0.4, cut_off_um: 14.0}
+description: >
+  Large-format 10 um pitch digital-interface FPA (stitchable 2K x 1K blocks;
+  common formats 4096^2, 6144^2, 8192^2 - values below use 4096^2). Same CTIA +
+  on-chip 14-bit ADC family as GeoSnap-18. Radiometric quantities are NOT
+  public for this part: entries below marked 'assumed' are GeoSnap-18 family
+  values scaled to the 10 um pixel - replace with programme data when
+  available.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 10.0, unit: um, source: leaflet2025, basis: datasheet, location: "spec table, 10 um pitch"}
+  detector.pixel_pitch_y_um:
+    {value: 10.0, unit: um, source: leaflet2025, basis: datasheet, location: "spec table (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 4096, unit: null, source: leaflet2025, basis: datasheet, location: "common formats 4K x 4K / 6K x 6K / 8K x 8K (4K taken)"}
+  detector.detector_temperature_K:
+    {value: 110.0, unit: K, source: leaflet2025, basis: derived, location: "midpoint of 80-140 K typical inside the 45-300 K operating range"}
+  readout.architecture:
+    {value: analog_well, unit: null, source: leaflet2025, basis: derived, location: "GeoSnap family CTIA + on-chip 14-bit ADC; no in-pixel counter"}
+  readout.adc_bits:
+    {value: 14, unit: null, source: leaflet2025, basis: datasheet, location: "14-bit on-chip ADC"}
+  detector.qe_value:
+    {value: 85, unit: "%", basis: assumed, note: "not published for GeoSnap-10; GeoSnap-18 family typical (85 %) carried over - same HgCdTe process"}
+  readout.full_well_capacity_e:
+    {value: 8.0e5, unit: null, basis: assumed, note: "not published; GeoSnap-18 large well (2.6 Me-) scaled by pixel-area ratio (10/18)^2 = 0.31 - curator inference, replace with programme data"}
+  readout.read_noise_e_rms:
+    {value: 400.0, unit: "e-", basis: assumed, note: "not published; GeoSnap-18 large-well ROIC noise carried over unscaled (CTIA noise correlates with well size, not area) - curator inference"}
+
+qe_table: null
+
+sources:
+  leaflet2025:
+    type: vendor_datasheet
+    title: "GeoSnap-10 High Performance Focal Plane Array (FPA) Product Leaflet"
+    publisher: Teledyne Space Imaging
+    year: 2025
+    url: "https://www.teledynespaceimaging.com/en-us/Products_/Documents/GeoSnap/GeoSnap-10%20Product%20Leaflet%20Apr%202025.pdf"
+    file: geosnap10_leaflet_2025.pdf
+    retrieved: "2026-09-06"
+
+notes: >
+  Owner-requested part with thin public radiometrics (plan section 4.1 grade
+  C): the leaflet gives format, pitch, ADC, ports/rates (1.6-3.2 Gbps/port; 16
+  ports at 4K), operating temperature, radiation hardness (TRL 9 LEO), and
+  module SWaP - but no well, noise, QE, dark, NEDT, or frame rate. Every
+  'assumed' entry above must be treated as a placeholder. Dark current not set
+  (cutoff-dependent, as for geosnap-18). Vendor: 'largest format IR focal
+  planes on-orbit'; HDR ROIC option planned 2025.

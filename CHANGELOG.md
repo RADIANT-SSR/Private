@@ -27,7 +27,15 @@ retroactively reconstructed.
   readout, max count rate [Hz]) shown only under `digital_counting`; the
   full-well and conversion-gain rows hide under counting (the stage rejects /
   ignores them), and the counting outputs (`counts`, `effective_well_e` [e-],
-  `saturation_mechanism`) surface in the stage's Outputs readout.
+  `saturation_mechanism`) surface in the stage's Outputs readout. Live-review
+  fixes (2026-09-06): an architecture switch clears the explicit inputs the
+  new architecture rejects (e.g. a config-pinned `full_well_capacity_e`) as
+  part of the same commit, and the expected mid-switch incompleteness (packet
+  not yet entered) routes to the Messages rail as an advisory instead of the
+  "Cannot set 'evaluate'" modal — carried by the new
+  `CountingConfigIncompleteError` (a `ReadoutValidationError` subclass) with
+  the structural predicate published as
+  `radiant.api.readout_architecture.is_counting_config_incomplete`.
 - **Digital-pixel (DROIC) counting readout is live (Gap 117 DELIVERED, plan
   Phases 1–2)** — `readout.architecture = "digital_counting"` now runs the
   full chain: counting saturation `min(2^N·Q_pkt, f_max·t_int·Q_pkt)` with a

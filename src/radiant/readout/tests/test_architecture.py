@@ -149,6 +149,17 @@ class TestArchitectureValidation:
         with pytest.raises(ReadoutValidationError, match="count_packet_e") as exc:
             ReadoutStage().run(_state(), ps)
         assert "required" in str(exc.value)
+        # Structural routing seam (Gap 117 Phase 3): the missing-packet state
+        # is the dedicated incomplete-config subclass, and the published
+        # predicate recognizes it — message surfaces route on this, so a
+        # class change here silently reintroduces the modal-wall regression.
+        from radiant.readout.errors import (
+            CountingConfigIncompleteError,
+            is_counting_config_incomplete,
+        )
+
+        assert isinstance(exc.value, CountingConfigIncompleteError)
+        assert is_counting_config_incomplete(exc.value)
 
     @pytest.mark.level1
     def test_count_packet_zero_is_unset(self) -> None:

@@ -46,6 +46,7 @@ from radiant.api.atmosphere_families import is_atmosphere_coverage_refusal
 from radiant.api.build_info import build_info
 from radiant.api.config_io import read_template_meta
 from radiant.api.config_set import ConfigSetError, ConfigSetRunResult, ConfigurationSet
+from radiant.api.readout_architecture import is_counting_config_incomplete
 from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
 from radiant.gui.config_scope import ConfigurationScope
@@ -1554,6 +1555,17 @@ class RADIANTMainWindow(QMainWindow):
             self.statusBar().showMessage(
                 "The atmosphere library does not cover this scene — see Messages "
                 "(the previous result is shown, stale)"
+            )
+            return
+        # Gap 117 Phase 3 (live-review fix 2026-09-06): a mid-switch counting
+        # config (architecture flipped, charge packet not yet entered) is an
+        # expected incomplete state, not a rejected input — advisory, no modal
+        # (the CU-322 routing pattern; structural, never message text).
+        if is_counting_config_incomplete(exc):
+            self.statusBar().showMessage(
+                "Digital counting needs a charge packet — set "
+                "readout.count_packet_e on the Readout panel (see Messages; "
+                "the previous result is shown, stale)"
             )
             return
         if isinstance(exc, RadiantError):

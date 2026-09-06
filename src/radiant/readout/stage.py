@@ -64,7 +64,7 @@ from radiant.readout.counting_well import (
     packet_reset_noise_e,
 )
 from radiant.readout.electronics_mtf import electronics_kernel_2d, electronics_mtf_1d
-from radiant.readout.errors import ReadoutValidationError
+from radiant.readout.errors import CountingConfigIncompleteError, ReadoutValidationError
 from radiant.readout.frame_timing import compute_frame_timing
 from radiant.readout.saturation import (
     SaturationStatus,
@@ -134,7 +134,10 @@ def _validate_architecture_params(params: ParameterSet, architecture: str) -> No
         )
     count_packet_e: float = params.get("readout.count_packet_e")
     if count_packet_e <= 0.0:
-        raise ReadoutValidationError(
+        # Structurally an incomplete-switch state, not a rejected input — the
+        # dedicated subclass lets message surfaces route it as an advisory
+        # (Gap 117 Phase 3 live-review fix; CU-322 pattern).
+        raise CountingConfigIncompleteError(
             "ReadoutStage: readout.count_packet_e is required when "
             "readout.architecture = 'digital_counting' — the charge packet per "
             "count sets the effective well (2^counter_bits x count_packet_e) "

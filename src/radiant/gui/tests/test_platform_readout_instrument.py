@@ -324,3 +324,113 @@ class TestReadoutArchitectureGroup:
         assert "counts" in keys
         assert "effective_well_e" in keys
         assert readout.value_text("effective_well_e").endswith("e-")
+
+
+class TestArchitectureSwitchCompanionResets:
+    """Live-review fix 2026-09-06: switching architecture on a config that pins
+    the analog full well must not strand the sensor in a failing state."""
+
+    def test_switch_to_counting_clears_explicit_full_well(  # type: ignore[no-untyped-def]
+        self, qtbot, monkeypatch
+    ) -> None:
+        """The exact failure Jason hit: example config pins FWC = 2 Me-.
+        Flipping the selector must (a) clear the FWC in the same commit and
+        (b) route the expected mid-switch incompleteness (count_packet_e not
+        yet set) as an advisory — never the 'Cannot set evaluate' modal.
+        Entering the packet then completes the switch and evaluates green."""
+        from PySide6.QtWidgets import QComboBox
+
+        from radiant.gui.widgets import actionable_error_dialog as aed
+
+        modals: list[object] = []
+        monkeypatch.setattr(
+            aed.ActionableErrorDialog, "exec", lambda self: modals.append(self) or 0
+        )
+
+        window = _load_window(qtbot)
+        center = window.central_canvas.stage_center
+        window.stage_strip.stageClicked.emit("readout")
+        pane = center.pane("readout")
+        form = pane.readout_inputs_form
+        assert form is not None
+        assert "readout.full_well_capacity_e" in window.sensor.inputs()
+
+        from radiant.gui.widgets import readout_inputs_form as rif
+
+        def fake_exec(self):  # type: ignore[no-untyped-def]
+            editor = self.value_editor
+            assert isinstance(editor, QComboBox)
+            editor.setCurrentText("digital_counting")
+            self.apply(close=True)
+            return 0
+
+        monkeypatch.setattr(rif.ParameterEditorDialog, "exec", fake_exec)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            form._open_editor("readout.architecture")  # noqa: SLF001
+
+        # (a) The switch committed and the conflicting explicit FWC is gone.
+        assert window.sensor.get("readout.architecture") == "digital_counting"
+        assert "readout.full_well_capacity_e" not in window.sensor.inputs()
+        # (b) The mid-switch incompleteness was an advisory: no modal, the
+        # Messages rail carries the actionable error.
+        assert modals == []
+        assert window.right_rail.messages.has_error()
+        # The form flipped its groups on refresh.
+        for _label, dotpath in _COUNTING_FIELDS:
+            assert not form.row(dotpath).isHidden(), dotpath
+        assert form.row("readout.full_well_capacity_e").isHidden()
+
+        # Completing the switch: enter the packet -> the counting chain runs.
+        window.sensor.set("readout.count_packet_e", 5000.0)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            form.parameterEdited.emit("readout.count_packet_e")
+        ro = window.last_result.stage_outputs["readout"]
+        assert ro["architecture"] == "digital_counting"
+        assert modals == []
+
+    def test_switch_back_to_analog_clears_explicit_counting_params(  # type: ignore[no-untyped-def]
+        self, qtbot, monkeypatch
+    ) -> None:
+        """The reverse direction: explicit counting params are cleared when
+        returning to analog_well, so the analog validation passes."""
+        from PySide6.QtWidgets import QComboBox
+
+        from radiant.gui.widgets import actionable_error_dialog as aed
+
+        modals: list[object] = []
+        monkeypatch.setattr(
+            aed.ActionableErrorDialog, "exec", lambda self: modals.append(self) or 0
+        )
+
+        window = _load_window(qtbot)
+        center = window.central_canvas.stage_center
+        window.stage_strip.stageClicked.emit("readout")
+        pane = center.pane("readout")
+        form = pane.readout_inputs_form
+        assert form is not None
+
+        from radiant.gui.widgets import readout_inputs_form as rif
+
+        def make_exec(target: str):  # type: ignore[no-untyped-def]
+            def fake_exec(self):  # type: ignore[no-untyped-def]
+                editor = self.value_editor
+                assert isinstance(editor, QComboBox)
+                editor.setCurrentText(target)
+                self.apply(close=True)
+                return 0
+
+            return fake_exec
+
+        monkeypatch.setattr(rif.ParameterEditorDialog, "exec", make_exec("digital_counting"))
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            form._open_editor("readout.architecture")  # noqa: SLF001
+        window.sensor.set("readout.count_packet_e", 5000.0)
+
+        monkeypatch.setattr(rif.ParameterEditorDialog, "exec", make_exec("analog_well"))
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            form._open_editor("readout.architecture")  # noqa: SLF001
+
+        assert window.sensor.get("readout.architecture") == "analog_well"
+        assert "readout.count_packet_e" not in window.sensor.inputs()
+        assert window.last_result.stage_outputs["readout"]["architecture"] == "analog_well"
+        assert modals == []

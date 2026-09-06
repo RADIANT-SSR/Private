@@ -980,6 +980,15 @@ error); under `digital_counting` the `full_well_capacity_e` and `gain_e_per_dn` 
 hidden (explicit FWC rejected, gain unused — the D2 DN gain derives from the packet) while
 `adc_bits` stays visible as the residue-ADC depth. The counting stage outputs (`counts`,
 `effective_well_e` [e-], `saturation_mechanism`) surface in the Outputs readout.
+Two live-review fixes (2026-09-06) make the switch survivable on real configs: an
+architecture commit through the shared editor also **clears the explicit inputs the new
+architecture rejects** (`gui/architecture_switch.py` — e.g. a config-pinned
+`full_well_capacity_e` under `digital_counting`, and the counting quartet on the way
+back), one logical action so the very next evaluation cannot fail on parameters the form
+no longer shows; and the expected **mid-switch incompleteness** (packet not yet entered)
+routes to the Messages rail as an advisory via
+`api.readout_architecture.is_counting_config_incomplete` — the CU-322 structural-routing
+pattern, never message text — instead of the "Cannot set 'evaluate'" modal.
 
 *Geometry Inputs section (shipped, GUI plan Phase 5, 2026-07-13).* The Geometry pane is the
 first to realise the §4.4 **Inputs** section: above its `GeometryReadout` it embeds a

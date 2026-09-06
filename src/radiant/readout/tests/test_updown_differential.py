@@ -1,7 +1,7 @@
 """Level-0 tests for up/down differential counting (Gap 117 Phase 4).
 
 Written before the implementation (Rule 18) against hand values from
-``docs/plans/Digital_Pixel_Readout_Plan.md`` §2.4 and §7 anchors 4–5.
+``docs/archive/Digital_Pixel_Readout_Plan.md`` §2.4 and §7 anchors 4–5.
 The signed modulo accumulator ends at the differential ΔQ = Q_up − Q_down;
 capacity is the signed bound ±2^(N−1)·Q_pkt; the mean cancels but the noise
 does not (σ² = Q_up + Q_down — the √2 background penalty).

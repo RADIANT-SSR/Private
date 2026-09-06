@@ -1,6 +1,6 @@
 """Up/down differential counting — signed accumulator, capacity, reference noise.
 
-Implements ``docs/plans/Digital_Pixel_Readout_Plan.md`` §2.4 (Gap 117
+Implements ``docs/archive/Digital_Pixel_Readout_Plan.md`` §2.4 (Gap 117
 Phase 4, rulings D6/D7). The in-pixel counter becomes a **signed modulo
 accumulator**: it increments during the scene (up) phase and decrements
 during the reference (down) phase, ending at the differential

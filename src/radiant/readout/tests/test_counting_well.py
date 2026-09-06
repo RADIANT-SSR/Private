@@ -1,7 +1,7 @@
 """Level-0 tests for the digital-pixel counting well (Gap 117 Phase 1).
 
 Written before the implementation (Rule 18) against hand-computed analytic
-values from ``docs/plans/Digital_Pixel_Readout_Plan.md`` §2.1/§2.3/§7 —
+values from ``docs/archive/Digital_Pixel_Readout_Plan.md`` §2.1/§2.3/§7 —
 never against values computed by other RADIANT code.
 """
 

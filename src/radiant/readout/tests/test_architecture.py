@@ -1,7 +1,7 @@
 """Tests for the readout-architecture schema and dispatch skeleton (Gap 117 Phase 0).
 
 Covers the five digital-pixel (DROIC) v1 parameters from
-``docs/plans/Digital_Pixel_Readout_Plan.md`` §3, the cross-parameter
+``docs/archive/Digital_Pixel_Readout_Plan.md`` §3, the cross-parameter
 validation matrix (Rule 16), the ``digital_counting`` not-implemented
 dispatch, and the serialization round trip. Counting physics is Phase 1;
 nothing here asserts counting results.

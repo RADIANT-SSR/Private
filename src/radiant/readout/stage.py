@@ -92,7 +92,7 @@ from radiant.readout.updown_differential import (
 logger = logging.getLogger(__name__)
 
 # Parameters meaningful only under readout.architecture = "digital_counting"
-# (Gap 117, docs/plans/Digital_Pixel_Readout_Plan.md §3). Explicitly setting
+# (Gap 117, docs/archive/Digital_Pixel_Readout_Plan.md §3). Explicitly setting
 # any of them under "analog_well" is an over-specification error, the same
 # posture as Rule 5's reflectance-plus-emissivity rejection.
 _COUNTING_ONLY_PARAMS: tuple[str, ...] = (

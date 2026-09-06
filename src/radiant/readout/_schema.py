@@ -73,7 +73,7 @@ FULL_WELL_CAPACITY_E = ParameterDef(
 
 # ---------------------------------------------------------------------------
 # Readout architecture — digital-pixel (DROIC) counting parameters
-# (Gap 117, docs/plans/Digital_Pixel_Readout_Plan.md §3. Phase 0: schema +
+# (Gap 117, docs/archive/Digital_Pixel_Readout_Plan.md §3. Phase 0: schema +
 # dispatch skeleton only; digital_counting physics lands in Phase 1.)
 # ---------------------------------------------------------------------------
 

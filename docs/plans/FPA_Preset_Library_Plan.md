@@ -1,6 +1,9 @@
 # FPA Preset Library — Development and Test Plan
 
-**Status:** Draft — awaiting owner ratification of §8.1 proposed decisions, §8.2 open questions, and the §4 roster cull.
+**Status:** Active — owner-ratified 2026-09-06 ("ratify the plan"): §8.1 decisions 1–4 as
+proposed; §8.2 resolved as recommended — PDF home `docs/validation/fpa_datasheets/`,
+config key `fpa:`, §3.1a mechanism decided in Phase 0, §4.4 roster/tranches as listed,
+scope boundary (FPA/ROIC-through-readout) confirmed.
 
 **Date:** 2026-09-06
 **Gap:** Gap 119 (`docs/tracking/gaps.md`)
@@ -353,6 +356,12 @@ scoped GUI battery per the ratified gate rules.
 - **Wheel size**: presets are text (KB); PDFs are repo-only (§3.5). No size risk.
 
 ## 8. For Ratification
+
+> **Ratified 2026-09-06** (owner: "ratify the plan"). §8.1 items 1–4 stand as written;
+> §8.2 answers: (1) `docs/validation/fpa_datasheets/`; (2) `fpa:`, with the §3.1a
+> mechanism left to Phase 0's evidence-based choice; (3) roster and tranche ordering
+> per §4.4 (Tau 2/2+ and the structural-gap parts stay on hold); (4) confirmed —
+> presets model the FPA/ROIC through readout only.
 
 ### 8.1 Proposed decisions
 

@@ -1,6 +1,6 @@
 """Digital-pixel counting well — effective well, dead-time ceiling, count conversion.
 
-Implements ``docs/plans/Digital_Pixel_Readout_Plan.md`` §2.1 and §2.3 (Gap 117
+Implements ``docs/archive/Digital_Pixel_Readout_Plan.md`` §2.1 and §2.3 (Gap 117
 Phase 1). The in-pixel comparator + N-bit counter with charge-subtraction
 reset gives an effective well
 

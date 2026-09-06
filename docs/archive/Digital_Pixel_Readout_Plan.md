@@ -1,6 +1,19 @@
 # Digital-Pixel ROIC (DROIC) Readout Capability — Development and Test Plan
 
-**Status:** Active — §8 decisions D1–D5 ratified by the owner 2026-09-02 (D2 amended in discussion: DN follows the residue flag). Up/down counting folded in as Phase 4 (v1.1) with decisions D6–D7, owner-ratified 2026-09-02 — supersedes D1's original "own gap" deferral.
+**Status:** Complete
+
+> **⚠ HISTORICAL — COMPLETE.** Archived 2026-09-06, completed by branches
+> `gap117/phase0-schema` (five v1 parameters + validation + dispatch skeleton),
+> `gap117/phase1-physics` (counting-well + counting-quantization, Level-0-first),
+> `gap117/phase2-integration` (live chain dispatch, counting noise budget, D2 DN,
+> HDR dynamic range, scenario 2.6 — Gap 117 DELIVERED), `gap117/phase3-gui`
+> (architecture selector + counting group; three live-review passes hardened the
+> switch: companion resets, advisory routing, sentinel wording), and
+> `gap117/phase4-updown` (signed differential per D6/D7, reference_shot budget,
+> scenario 2.7, counting-mode GUI increment — owner live-review approved
+> 2026-09-06). §8 decisions D1–D7 all ratified 2026-09-02; original Status line:
+> Active, D2 amended in discussion (DN follows the residue flag), up/down folded
+> in as Phase 4 superseding D1's own-gap deferral.
 
 **Date:** 2026-09-02
 **Gap:** 117 (`docs/tracking/gaps.md`)

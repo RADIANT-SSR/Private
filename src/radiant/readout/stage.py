@@ -60,6 +60,7 @@ from radiant.readout.counting_quantization import (
 from radiant.readout.counting_well import (
     convert_to_counts,
     counting_saturation,
+    dead_time_ceiling_e,
     effective_well_e,
     packet_reset_noise_e,
 )
@@ -82,11 +83,16 @@ from radiant.readout.tdi_scaling import (
     tdi_scale_shot_noise,
     tdi_scale_signal,
 )
+from radiant.readout.updown_differential import (
+    differential_capacity_e,
+    reference_shot_noise_e,
+    updown_differential,
+)
 
 logger = logging.getLogger(__name__)
 
 # Parameters meaningful only under readout.architecture = "digital_counting"
-# (Gap 117, docs/plans/Digital_Pixel_Readout_Plan.md §3). Explicitly setting
+# (Gap 117, docs/archive/Digital_Pixel_Readout_Plan.md §3). Explicitly setting
 # any of them under "analog_well" is an over-specification error, the same
 # posture as Rule 5's reflectance-plus-emissivity rejection.
 _COUNTING_ONLY_PARAMS: tuple[str, ...] = (
@@ -94,6 +100,19 @@ _COUNTING_ONLY_PARAMS: tuple[str, ...] = (
     "readout.count_packet_e",
     "readout.residue_readout",
     "readout.max_count_rate_hz",
+    "readout.counting_mode",
+    "readout.reference_source",
+    "readout.reference_rate_e_per_s",
+    "readout.reference_integration_s",
+)
+
+# Parameters meaningful only under counting_mode = "up_down" (plan Phase 4,
+# rulings D6/D7): explicitly setting one under mode "up" is the same
+# over-specification posture one level down.
+_UPDOWN_ONLY_PARAMS: tuple[str, ...] = (
+    "readout.reference_source",
+    "readout.reference_rate_e_per_s",
+    "readout.reference_integration_s",
 )
 
 
@@ -148,6 +167,33 @@ def _validate_architecture_params(params: ParameterSet, architecture: str) -> No
             "and the quantization noise, and it has no sensible default. Set "
             "readout.count_packet_e to the ROIC's charge-subtraction quantum "
             "in e- (> 0)."
+        )
+
+    # ---- Phase 4: up/down mode validation (rulings D6/D7) ----
+    counting_mode: str = params.get("readout.counting_mode")
+    if counting_mode == "up":
+        over_specified = [p for p in _UPDOWN_ONLY_PARAMS if _is_explicitly_set(params, p)]
+        if over_specified:
+            raise ArchitectureOverSpecificationError(
+                f"ReadoutStage: up/down-only parameter(s) {over_specified} are "
+                f"explicitly set while readout.counting_mode = 'up'. The "
+                f"reference phase exists only in 'up_down' mode — either set "
+                f"readout.counting_mode = 'up_down' or remove the reference "
+                f"parameter(s)."
+            )
+        return
+    # up_down
+    if (
+        params.get("readout.reference_source") == "user_level"
+        and params.get("readout.reference_rate_e_per_s") <= 0.0
+    ):
+        raise CountingConfigIncompleteError(
+            "ReadoutStage: readout.reference_rate_e_per_s is required when "
+            "readout.reference_source = 'user_level' — the down phase needs a "
+            "reference charge rate to integrate. Set it to the expected "
+            "reference flux in e-/s (> 0), or use "
+            "reference_source = 'background_term' in a sub-pixel or "
+            "point-source scene."
         )
 
 
@@ -226,6 +272,7 @@ _PHYSICAL_BASIS: dict[str, str] = {
     "quantization": "ADC LSB/sqrt(12)",
     "counting_quantization": "Packet or residue-ADC LSB/sqrt(12)",
     "packet_reset": "sqrt(n_counts) x kTC reset",
+    "reference_shot": "Poisson (reference phase)",
     "prnu": "Photo-response non-uniformity",
     "dsnu": "Dark-signal non-uniformity",
     "clutter": "Scene clutter",
@@ -241,6 +288,9 @@ OUTPUT_UNITS: dict[str, str] = {
     "counts": "",
     "count_packet_e": "e-",
     "effective_well_e": "e-",
+    "differential_e": "e-",
+    "reference_charge_e": "e-",
+    "reference_integration_s_used": "s",
     "contrast_e_final": "e-",
     "signal_e_final": "e-",
     "signal_dn_final": "DN",
@@ -418,6 +468,44 @@ class ReadoutStage:
         if regime_value == "point_source":
             non_signal_e += background_e * n_tdi * m_onchip
         total_well_e = signal_e + non_signal_e
+
+        # ---- Phase 4: up/down mode replaces the rollover bound with the
+        # signed-differential capacity (plan §2.4; wrap during up is unwound
+        # by the down phase, so only the per-phase dead-time ceiling and the
+        # differential bound clip). Handled in its own block below.
+        counting_mode: str = params.get("readout.counting_mode")
+        if counting_mode == "up_down":
+            return self._finish_updown(
+                state=state,
+                params=params,
+                budget_raw=budget_raw,
+                signal_e=signal_e,
+                total_well_e=total_well_e,
+                non_signal_e=non_signal_e,
+                dark_e=dark_e,
+                glow_e=glow_e,
+                background_e=background_e,
+                regime_value=regime_value,
+                n_tdi=n_tdi,
+                m_onchip=m_onchip,
+                mx_on=mx_on,
+                my_on=my_on,
+                px_off=px_off,
+                py_off=py_off,
+                n_coadds=n_coadds,
+                coadd_mode=coadd_mode,
+                adc_bits=adc_bits,
+                counter_bits=counter_bits,
+                count_packet_e=count_packet_e,
+                residue_readout=residue_readout,
+                max_count_rate_hz=max_count_rate_hz,
+                noise_regime=noise_regime,
+                tdi_digital=tdi_digital,
+                frame_period_s=frame_period_s,
+                integration_time_s=integration_time_s,
+                effective_well=effective_well,
+            )
+
         _, well_status = check_well_saturation(total_well_e, q_sat)
         available_capacity = max(q_sat - non_signal_e, 0.0)
         signal_e_pre_clip = signal_e
@@ -581,6 +669,269 @@ class ReadoutStage:
         state = state.with_stage_output("readout", "well_fill_fraction", total_well_e / q_sat)
         state = state.with_stage_output("readout", "total_well_e", total_well_e)
         state = state.with_stage_output("readout", "full_well_capacity_e", q_sat)
+        state = state.with_stage_output("readout", "adc_status", SaturationStatus.OK.value)
+        state = state.with_stage_output("readout", "sigma_temporal_e", sigma_temporal_e)
+        state = state.with_stage_output("readout", "sigma_spatial_e", sigma_spatial_e)
+        state = state.with_stage_output("readout", "sigma_total_e", sigma_total_e)
+        state = state.with_stage_output("readout", "noise_regime", noise_regime)
+        state = state.with_stage_output("readout", "scaled_noise_terms", scaled_terms)
+        state = self._emit_frame_timing(state, integration_time_s, frame_period_s)
+        state = state.with_stage_output(
+            "readout", "read_noise_e", scaled_terms.get("read_noise", 0.0)
+        )
+        return state.with_stage_output(
+            "readout",
+            "quantization_noise_e",
+            scaled_terms.get("counting_quantization", 0.0),
+        )
+
+    def _finish_updown(
+        self,
+        *,
+        state: ChainState,
+        params: ParameterSet,
+        budget_raw: NoiseBudget,
+        signal_e: float,
+        total_well_e: float,
+        non_signal_e: float,
+        dark_e: float,
+        glow_e: float,
+        background_e: float,
+        regime_value: object,
+        n_tdi: int,
+        m_onchip: int,
+        mx_on: int,
+        my_on: int,
+        px_off: int,
+        py_off: int,
+        n_coadds: int,
+        coadd_mode: CoaddMode,
+        adc_bits: int,
+        counter_bits: int,
+        count_packet_e: float,
+        residue_readout: bool,
+        max_count_rate_hz: float,
+        noise_regime: str,
+        tdi_digital: bool,
+        frame_period_s: float,
+        integration_time_s: float | None,
+        effective_well: float,
+    ) -> ChainState:
+        """Up/down (signed differential) counting readout — plan §2.4, Phase 4.
+
+        The up phase is the Phase-2 accumulation (already TDI/binning-scaled
+        by the caller); this method integrates the reference (down) phase per
+        ruling D6, forms the signed differential with the ±2^(N−1)·Q_pkt
+        capacity, and emits the two-phase noise budget: ``reference_shot`` =
+        √Q_down, ``packet_reset`` over the trips of both phases, and the
+        counting-chain (read) noise paid once per phase (×√2 for any phase
+        split — one read each). The SNR numerator (``signal_e_final``) stays
+        the scene-phase target signal; the DN word is the signed differential
+        (D2 semantics).
+        """
+        if integration_time_s is None:
+            raise ReadoutValidationError(
+                "ReadoutStage: readout.counting_mode = 'up_down' integrates a "
+                "reference phase against the scene integration time, which "
+                "needs spectral_integration.integration_time_s — unavailable "
+                "in this (partial) chain. Provide the integration time or use "
+                "counting_mode = 'up'."
+            )
+        t_up = integration_time_s
+        t_down_param: float = params.get("readout.reference_integration_s")
+        t_down = t_down_param if t_down_param > 0.0 else t_up  # D7: equal default
+        ratio = t_down / t_up
+
+        # ---- Reference (down-phase) charge, ruling D6 ----
+        reference_source: str = params.get("readout.reference_source")
+        if reference_source == "background_term":
+            if regime_value not in ("sub_pixel", "point_source"):
+                raise ArchitectureOverSpecificationError(
+                    f"ReadoutStage: readout.reference_source = "
+                    f"'background_term' needs a sub-pixel or point-source "
+                    f"scene (this run's regime = '{regime_value}'): only "
+                    f"there does the chain carry a separate background term "
+                    f"to integrate in the down phase (ruling D6). Use "
+                    f"reference_source = 'user_level' with "
+                    f"reference_rate_e_per_s for an extended scene."
+                )
+            q_down_per_pixel = (background_e + dark_e + glow_e) * ratio
+        else:  # user_level (validated: rate > 0)
+            rate: float = params.get("readout.reference_rate_e_per_s")
+            q_down_per_pixel = rate * t_down + (dark_e + glow_e) * ratio
+        q_down = q_down_per_pixel * n_tdi * m_onchip
+
+        # ---- Per-phase dead-time ceilings (plan §2.4: unchanged, per phase) ----
+        saturation_mechanism = "none"
+        well_status = SaturationStatus.OK
+        signal_e_pre_clip = signal_e
+        dead_up = dead_time_ceiling_e(max_count_rate_hz, t_up, count_packet_e)
+        if dead_up is not None and total_well_e > dead_up:
+            available = max(dead_up - non_signal_e, 0.0)
+            signal_e = min(signal_e, available)
+            total_well_e = signal_e + non_signal_e
+            well_status = SaturationStatus.CLIPPED
+            saturation_mechanism = "dead_time"
+            warnings.warn(
+                f"ReadoutStage: up-phase dead-time saturation — the scene "
+                f"phase's {signal_e_pre_clip + non_signal_e:.4g} e- exceeds "
+                f"the comparator ceiling {dead_up:.4g} e- "
+                f"(f_max x t_up x Q_pkt). Scene signal clipped to "
+                f"{signal_e:.4g} e-. (readout.saturation_mechanism = "
+                f"'dead_time'; Gap 117 Phase 4)",
+                UserWarning,
+                stacklevel=3,
+            )
+        dead_down = dead_time_ceiling_e(max_count_rate_hz, t_down, count_packet_e)
+        if dead_down is not None and q_down > dead_down:
+            q_down = dead_down
+            warnings.warn(
+                f"ReadoutStage: down-phase dead-time saturation — the "
+                f"reference phase exceeds the comparator ceiling "
+                f"{dead_down:.4g} e- (f_max x t_down x Q_pkt); reference "
+                f"charge clipped. The differential mean no longer cancels "
+                f"the background exactly. (Gap 117 Phase 4)",
+                UserWarning,
+                stacklevel=3,
+            )
+
+        # ---- Signed differential (plan §2.4; wrap during up is unwound) ----
+        differential = updown_differential(
+            total_well_e, q_down, counter_bits=counter_bits, count_packet_e=count_packet_e
+        )
+        capacity_e = differential_capacity_e(counter_bits, count_packet_e)
+        if differential.clipped:
+            well_status = SaturationStatus.CLIPPED
+            saturation_mechanism = "differential_overflow"
+            warnings.warn(
+                f"ReadoutStage: differential overflow — |Q_up − Q_down| = "
+                f"|{total_well_e:.4g} − {q_down:.4g}| e- exceeds the signed "
+                f"capacity 2^{counter_bits - 1} x {count_packet_e:.4g} = "
+                f"{capacity_e:.4g} e-. Differential clipped to "
+                f"{differential.delta_q_e:.4g} e-. Balance the phases "
+                f"(reference_integration_s), raise counter_bits / "
+                f"count_packet_e, or reduce the flux asymmetry. "
+                f"(readout.saturation_mechanism = 'differential_overflow'; "
+                f"Gap 117 Phase 4)",
+                UserWarning,
+                stacklevel=3,
+            )
+
+        # ---- DN: the signed differential, D2 semantics ----
+        if residue_readout:
+            gain_eff_e_per_dn = residue_adc_gain_e_per_dn(count_packet_e, adc_bits)
+        else:
+            gain_eff_e_per_dn = count_packet_e
+        signal_dn = differential.delta_q_e / gain_eff_e_per_dn
+
+        # ---- Signal path: SNR numerator unchanged (plan §2.4 "Metrics") ----
+        signal_dn_offchip = offchip_scale_signal(signal_dn, px_off, py_off)
+        signal_dn_final = coadd_scale_signal(signal_dn_offchip, n_coadds, coadd_mode)
+        signal_e_offchip = offchip_scale_signal(signal_e, px_off, py_off)
+        signal_e_final = coadd_scale_signal(signal_e_offchip, n_coadds, coadd_mode)
+
+        si_out = state.stage_outputs.get("spectral_integration", {})
+        contrast_e_raw: float = si_out.get("contrast_e", 0.0)
+        contrast_e_scaled = tdi_scale_signal(contrast_e_raw, n_tdi)
+        contrast_e_scaled = onchip_scale_signal(contrast_e_scaled, mx_on, my_on)
+        contrast_e_scaled = offchip_scale_signal(contrast_e_scaled, px_off, py_off)
+        contrast_e_final = coadd_scale_signal(contrast_e_scaled, n_coadds, coadd_mode)
+
+        # ---- Noise: Phase-2 swaps + the two-phase terms ----
+        raw_terms = dict(budget_raw.terms)
+        sigma_ktc_raw = raw_terms.pop("ktc_reset", 0.0)  # already CDS-gated
+        raw_terms.pop("quantization", None)
+        # Counting-chain (read) noise is paid once per phase (ruling D3
+        # reinterpretation): two reads → ×√2 in quadrature, any phase split.
+        if "read_noise" in raw_terms:
+            raw_terms["read_noise"] = raw_terms["read_noise"] * math.sqrt(2.0)
+
+        scaled_terms: dict[str, float] = {}
+        for term_name, raw_value in raw_terms.items():
+            scaled_terms[term_name] = _scale_noise_term(
+                raw_value=raw_value,
+                term_name=term_name,
+                n_tdi=n_tdi,
+                tdi_digital=tdi_digital,
+                mx_on=mx_on,
+                my_on=my_on,
+                px_off=px_off,
+                py_off=py_off,
+                n_coadds=n_coadds,
+                coadd_mode=coadd_mode,
+            )
+        counting_q = counting_quantization_noise_e(
+            count_packet_e, residue_readout=residue_readout, adc_bits=adc_bits
+        )
+        n_up = convert_to_counts(total_well_e, count_packet_e).n_counts
+        n_down = convert_to_counts(q_down, count_packet_e).n_counts
+        packet_r = packet_reset_noise_e(n_up + n_down, sigma_ktc_raw)
+        reference_s = reference_shot_noise_e(q_down)
+        for term_name, value in (
+            ("counting_quantization", counting_q),
+            ("packet_reset", packet_r),
+        ):
+            value = offchip_scale_read_noise(value, px_off, py_off)
+            value = coadd_scale_temporal_noise(value, n_coadds, coadd_mode)
+            scaled_terms[term_name] = value
+        # Reference shot: Poisson of the accumulated down phase — off-chip
+        # binning adds independent pixels (√P), coadds as temporal noise.
+        reference_s = offchip_scale_shot_noise(reference_s, px_off, py_off)
+        reference_s = coadd_scale_temporal_noise(reference_s, n_coadds, coadd_mode)
+        scaled_terms["reference_shot"] = reference_s
+
+        temporal_var = sum(v**2 for k, v in scaled_terms.items() if k in TEMPORAL_TERMS)
+        spatial_var = sum(v**2 for k, v in scaled_terms.items() if k in SPATIAL_TERMS)
+        sigma_temporal_e = math.sqrt(temporal_var)
+        sigma_spatial_e = math.sqrt(spatial_var)
+        if noise_regime == "detection":
+            sigma_total_e = math.sqrt(temporal_var + spatial_var)
+        else:
+            sigma_total_e = sigma_temporal_e
+
+        for term_name, value_e in scaled_terms.items():
+            if term_name in TEMPORAL_TERMS:
+                contributes_to = ("temporal", "total")
+            else:
+                contributes_to = ("spatial", "total")
+            state = state.with_noise(
+                NoiseTerm(
+                    name=term_name,
+                    value_e=value_e,
+                    origin_frame="photoelectrons",
+                    physical_basis=_PHYSICAL_BASIS.get(term_name, "unknown"),
+                    contributes_to=contributes_to,
+                )
+            )
+
+        # ---- MTF product path (shared; D4 retains TDI mis-registration) ----
+        state = self._emit_mtf_product_terms(state, params)
+
+        # ---- Store stage outputs ----
+        state = state.with_stage_output("readout", "architecture", "digital_counting")
+        state = state.with_stage_output("readout", "counting_mode", "up_down")
+        state = state.with_stage_output("readout", "counts", differential.n_counts)
+        state = state.with_stage_output("readout", "count_packet_e", count_packet_e)
+        state = state.with_stage_output("readout", "effective_well_e", effective_well)
+        state = state.with_stage_output("readout", "differential_e", differential.delta_q_e)
+        state = state.with_stage_output("readout", "reference_charge_e", q_down)
+        state = state.with_stage_output("readout", "reference_integration_s_used", t_down)
+        state = state.with_stage_output("readout", "saturation_mechanism", saturation_mechanism)
+        state = state.with_stage_output("readout", "contrast_e_final", contrast_e_final)
+        state = state.with_stage_output("readout", "signal_e_final", signal_e_final)
+        state = state.with_stage_output("readout", "signal_dn_final", signal_dn_final)
+        state = state.with_stage_output("readout", "signal_dn_pre_coadd", signal_dn)
+        state = state.with_stage_output("readout", "gain_e_per_dn", gain_eff_e_per_dn)
+        state = state.with_stage_output("readout", "well_status", well_status.value)
+        # The usable signal range under up_down is the signed differential
+        # capacity (or the per-phase dead-time ceiling where smaller) — the
+        # published well bound every downstream consumer reads (plan §2.3/2.4).
+        q_sat_updown = capacity_e if dead_up is None else min(capacity_e, dead_up)
+        state = state.with_stage_output(
+            "readout", "well_fill_fraction", abs(differential.delta_q_e) / q_sat_updown
+        )
+        state = state.with_stage_output("readout", "total_well_e", total_well_e)
+        state = state.with_stage_output("readout", "full_well_capacity_e", q_sat_updown)
         state = state.with_stage_output("readout", "adc_status", SaturationStatus.OK.value)
         state = state.with_stage_output("readout", "sigma_temporal_e", sigma_temporal_e)
         state = state.with_stage_output("readout", "sigma_spatial_e", sigma_spatial_e)

@@ -1,0 +1,40 @@
+# Mike's up/down counting evaluation spec (vendor-datasheet style units —
+# the runner converts at the boundary, Rule 2). Same DROIC family as 2.6;
+# the scene is the mode's driving use case (plan §2.4): a dim point-source
+# target against a bright common background, where in-pixel background
+# subtraction spends the counter range on the target instead of the pedestal.
+
+system:
+  aperture_diameter_cm: 15.0        # cm
+  focal_length_cm: 30.0             # cm
+  optical_transmission_pct: 80.0    # %
+  filter_cut_on_nm: 3500.0          # nm
+  filter_cut_off_nm: 5000.0         # nm
+  sensor_altitude_km: 8.0           # km (airborne look-down)
+  target_range_km: 10.0             # km
+  standard_atmosphere: midlat_summer
+
+target:                             # dim hot point source
+  temperature_K: 500.0              # K
+  emissivity: 0.9                   # -
+  projected_area_m2: 0.001          # m^2 (dim: ~5 Me- over the 50 ms up phase)
+
+background:                         # bright common background (swept)
+  emissivity: 0.95                  # -
+  temperatures_K: [250.0, 270.0, 290.0, 310.0, 330.0]  # K
+
+fpa:
+  pixel_pitch_um: 15.0              # um
+  quantum_efficiency_pct: 72.0      # %
+  dark_current_e_per_s: 100.0       # e-/s
+  operating_temperature_K: 77.0     # K
+
+droic:
+  counting_chain_noise_e_rms: 5.0   # e- RMS per frame (per phase in up_down)
+  counter_depth_bits: 14            # bits
+  charge_packet_ke: 2.0             # ke- per count
+  residue_readout: true             # -
+  residue_adc_bits: 14              # bits
+
+study:
+  integration_time_ms: 50.0         # ms (scene/up phase; down phase equal, D7)

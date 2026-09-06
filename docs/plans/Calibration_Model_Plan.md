@@ -18,7 +18,7 @@ abstractions + schema), Phases 3–4 are Category D (GUI integration, scenarios)
 `docs/architecture/RADIANT_Metrics.md`,
 `docs/architecture/RADIANT_Testing_Validation.md`,
 `docs/architecture/RADIANT_GUI_Architecture.md` (Phase 3),
-`docs/plans/Digital_Pixel_Readout_Plan.md` (Gap 117 — the structural precedent this
+`docs/archive/Digital_Pixel_Readout_Plan.md` (Gap 117 — the structural precedent this
 plan follows for a chain-capability + GUI + scenario expansion).
 
 ---

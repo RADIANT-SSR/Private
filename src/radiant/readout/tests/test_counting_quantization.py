@@ -3,7 +3,7 @@
 Written before the implementation (Rule 18). Analytic truth: the RMS of a
 uniform distribution on an interval of width L is L/√12 — applied to the
 packet (residue discarded) or to the residue-ADC LSB (residue digitized),
-per ``docs/plans/Digital_Pixel_Readout_Plan.md`` §2.2 and ruling D2.
+per ``docs/archive/Digital_Pixel_Readout_Plan.md`` §2.2 and ruling D2.
 
 Includes the plan §7 anchor-2 Monte Carlo: a numeric floor-model simulation
 over a flux sweep against the analytic σ_q at rel=1e-2, with the low-flux

@@ -197,7 +197,7 @@ noise/
 └── other.py              # 1/f, glow, persistence, etc.
 ```
 
-### `readout/` — 15 source + 14 tests
+### `readout/` — 16 source + 16 tests
 
 Stage 7: TDI, ADC, gain, read noise, binning, coadds, saturation, and the
 digital-pixel counting model (Gap 117). The architecture dispatch
@@ -220,6 +220,7 @@ readout/
 ├── binning_offchip.py
 ├── counting_well.py          # 2^N·Q_pkt effective well, dead-time ceiling, count conversion
 ├── counting_quantization.py  # packet vs residue-ADC quantization branch
+├── updown_differential.py    # signed differential, ±2^(N−1)·Q_pkt capacity, reference shot
 └── saturation.py
 ```
 

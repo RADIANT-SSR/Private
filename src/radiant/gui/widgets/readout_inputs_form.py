@@ -84,6 +84,16 @@ _COUNTING_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Charge packet", "readout.count_packet_e"),
     ("Residue readout", "readout.residue_readout"),
     ("Max count rate", "readout.max_count_rate_hz"),
+    ("Counting mode", "readout.counting_mode"),
+)
+
+# Up/down reference knobs (Gap 117 Phase 4, rulings D6/D7). Shown ONLY under
+# counting_mode = "up_down"; the rate row only under reference_source =
+# "user_level" — one contextual level down from the counting group.
+_REFERENCE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Reference source", "readout.reference_source"),
+    ("Reference rate", "readout.reference_rate_e_per_s"),
+    ("Reference integration", "readout.reference_integration_s"),
 )
 
 # Analog-only rows hidden under digital_counting: an explicit full well is
@@ -143,6 +153,7 @@ _ACQUISITION_FIELDS: Final[tuple[tuple[str, str], ...]] = (
 _TITLE = "Readout — architecture, noise, ADC, well & acquisition"
 _ARCHITECTURE_HEADING = "Architecture"
 _COUNTING_HEADING = "Digital counting"
+_REFERENCE_HEADING = "Reference (up/down)"
 _NOISE_HEADING = "Read noise"
 _ADC_HEADING = "ADC"
 _WELL_HEADING = "Full well"
@@ -200,6 +211,7 @@ class ReadoutInputsForm(QWidget):
         self._headings: dict[str, QLabel] = {}
         self._add_group(box, card, _ARCHITECTURE_HEADING, _ARCHITECTURE_FIELDS)
         self._add_group(box, card, _COUNTING_HEADING, _COUNTING_FIELDS)
+        self._add_group(box, card, _REFERENCE_HEADING, _REFERENCE_FIELDS)
         self._add_group(box, card, _NOISE_HEADING, _NOISE_FIELDS)
         self._add_group(box, card, _ADC_HEADING, _ADC_FIELDS)
         self._add_group(box, card, _WELL_HEADING, _WELL_FIELDS)
@@ -255,6 +267,15 @@ class ReadoutInputsForm(QWidget):
         except Exception:  # unresolved sensor — keep the analog default view
             return "analog_well"
 
+    def _resolved_str(self, dotpath: str) -> str:
+        """The resolved string value of *dotpath* ('' when unbound/unresolved)."""
+        if self._sensor is None:
+            return ""
+        try:
+            return str(self._sensor.get(dotpath))
+        except Exception:  # unresolved sensor — hide the dependent group
+            return ""
+
     def _apply_architecture_visibility(self) -> None:
         """Show only the parameter groups meaningful under the current architecture.
 
@@ -270,6 +291,15 @@ class ReadoutInputsForm(QWidget):
         self._headings[_WELL_HEADING].setVisible(not counting)
         for dotpath in _ANALOG_ONLY_DOTPATHS:
             self._rows[dotpath].setVisible(not counting)
+        # Phase 4, one contextual level down: the reference group exists only
+        # in up/down mode, and the rate row only for a user-level reference.
+        updown = counting and self._resolved_str("readout.counting_mode") == "up_down"
+        self._headings[_REFERENCE_HEADING].setVisible(updown)
+        for _text, dotpath in _REFERENCE_FIELDS:
+            self._rows[dotpath].setVisible(updown)
+        if updown:
+            user_level = self._resolved_str("readout.reference_source") == "user_level"
+            self._rows["readout.reference_rate_e_per_s"].setVisible(user_level)
 
     def _value_text(self, dotpath: str) -> str:
         """The value+unit text for *dotpath* in its display unit (— if unset).
@@ -282,17 +312,19 @@ class ReadoutInputsForm(QWidget):
         sensor = self._sensor
         if sensor is None:
             return _UNSET
-        if dotpath in ("readout.count_packet_e", "readout.max_count_rate_hz"):
+        sentinel_words = {
+            "readout.count_packet_e": "unset — required",
+            "readout.max_count_rate_hz": "none — no ceiling",
+            "readout.reference_rate_e_per_s": "unset — required",
+            "readout.reference_integration_s": "equal to scene phase",
+        }
+        if dotpath in sentinel_words:
             try:
                 unset = float(sensor.get(dotpath)) <= 0.0
             except (RadiantError, KeyError):
                 unset = False
             if unset:
-                return (
-                    "unset — required"
-                    if dotpath == "readout.count_packet_e"
-                    else "none — no ceiling"
-                )
+                return sentinel_words[dotpath]
         return field_display_text(sensor, dotpath, self._display_units)
 
     # -- editing (reuses the Parameter Editor dialog + reject discipline) ----

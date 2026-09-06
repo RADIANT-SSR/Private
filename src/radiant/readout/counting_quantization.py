@@ -1,6 +1,6 @@
 """Counting quantization noise — packet branch vs residue-ADC branch.
 
-Implements ``docs/plans/Digital_Pixel_Readout_Plan.md`` §2.2 (Gap 117
+Implements ``docs/archive/Digital_Pixel_Readout_Plan.md`` §2.2 (Gap 117
 Phase 1), rulings D2/D3 context. The quantization noise of the counting
 chain depends on whether the analog residue is digitized:
 

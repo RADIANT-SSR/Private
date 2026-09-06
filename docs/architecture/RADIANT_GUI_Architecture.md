@@ -995,6 +995,13 @@ seam cannot cover (console, YAML apply, undo/redo, an authored config); both adv
 states mark only the readout chip `err` (the rest `stale`), and the readout form renders
 the 0.0-unset sentinels as words ("unset — required" for the packet, "none — no ceiling"
 for the count rate) rather than as zero-valued quantities.
+**Phase 4** adds the **Counting mode** selector to the counting group and a
+**Reference (up/down)** group (`reference_source` / `reference_rate_e_per_s` /
+`reference_integration_s`) shown only under `up_down`, with the rate row shown only
+under a `user_level` reference and the D7 equal-phase sentinel rendered as
+"equal to scene phase". A `counting_mode = "up"` commit carries the same companion-reset
+seam (clears explicit reference inputs), and the advisory routing covers the Phase 4
+states (missing user-level rate; `background_term` on an extended scene).
 
 *Geometry Inputs section (shipped, GUI plan Phase 5, 2026-07-13).* The Geometry pane is the
 first to realise the §4.4 **Inputs** section: above its `GeometryReadout` it embeds a

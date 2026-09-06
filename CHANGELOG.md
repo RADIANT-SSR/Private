@@ -21,6 +21,21 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Up/down counting (Gap 117 plan Phase 4, v1.1)** — four new public
+  parameters: `readout.counting_mode` (`up` | `up_down`, default `up`),
+  `readout.reference_source` (`background_term` | `user_level`, ruling D6),
+  `readout.reference_rate_e_per_s`, `readout.reference_integration_s`
+  (unset = equal phases, ruling D7). Under `up_down` the counter is a signed
+  modulo accumulator: the reference phase subtracts the background pedestal
+  in-pixel, capacity moves from rollover to the signed differential
+  `|ΔQ| ≤ 2^(N−1)·Q_pkt` (`saturation_mechanism = "differential_overflow"`),
+  and the budget gains `reference_shot` = √Q_down plus a two-phase
+  `packet_reset` and ×√2 counting-chain read (the mean cancels, the noise
+  does not). NEΔT under `up_down` is the differential NEΔT. Results-affecting
+  for `up_down` configurations only — `up` and `analog_well` are unchanged.
+  GUI: counting-mode selector + contextual reference group on the Readout
+  panel. Validation scenario:
+  `scenarios/02_mike_detector_engineer/2.7_updown_background_subtraction/`.
 - **Readout GUI: architecture selector + digital-counting group (Gap 117,
   plan Phase 3)** — the Readout stage form gains an `Architecture` selector
   and a counting parameter group (counter depth, charge packet [e-], residue

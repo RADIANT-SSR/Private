@@ -109,3 +109,92 @@ class TestCountingChain:
         r_analog = _evaluate(Sensor.from_yaml(_EXAMPLE))
         r_count = _evaluate(_counting_sensor())
         assert r_count.metrics["dynamic_range_dB"] > r_analog.metrics["dynamic_range_dB"] + 20.0
+
+
+@pytest.mark.level2
+class TestUpDownChain:
+    """Full-chain up/down counting (Gap 117 Phase 4): point-source scene,
+    background_term reference, balanced phases."""
+
+    def _updown_sensor(self) -> Sensor:
+        return Sensor.from_dict(
+            {
+                "source": {
+                    "target": {"temperature": 500.0, "emissivity": 0.9},
+                    "background": {"temperature": 290.0, "emissivity": 0.95},
+                    "regime_override": "point_source",
+                },
+                "geometry": {
+                    "sensor_altitude_m": 8000.0,
+                    "target_range_m": 10000.0,
+                    "target": {"projected_area_m2": 0.001},
+                },
+                "atmosphere": {"standard_atmosphere": "midlat_summer"},
+                "optics": {
+                    "aperture_diameter_m": 0.15,
+                    "focal_length_m": 0.30,
+                    "transmission_scalar": 0.8,
+                },
+                "detector": {
+                    "pixel_pitch_x_um": 15.0,
+                    "pixel_pitch_y_um": 15.0,
+                    "qe_value": 0.72,
+                    "dark_rate_e_per_s": 100.0,
+                },
+                "spectral_integration": {
+                    "filter_min_um": 3.5,
+                    "filter_max_um": 5.0,
+                    "integration_time_s": 0.05,
+                },
+                "readout": {
+                    "architecture": "digital_counting",
+                    "counter_bits": 14,
+                    "count_packet_e": 2000.0,
+                    "counting_mode": "up_down",
+                    "read_noise_e_rms": 5.0,
+                },
+            }
+        )
+
+    def test_chain_runs_with_differential_outputs(self) -> None:
+        r = _evaluate(self._updown_sensor())
+        ro = r.stage_outputs["readout"]
+        assert ro["counting_mode"] == "up_down"
+        assert ro["differential_e"] > 0.0
+        assert ro["reference_charge_e"] > 0.0
+        assert ro["reference_integration_s_used"] == pytest.approx(0.05, rel=1e-12)
+        # Signed capacity 2^13 x 2000 e- published as the well bound.
+        assert ro["full_well_capacity_e"] == pytest.approx(2**13 * 2000.0, rel=1e-12)
+
+    def test_reference_shot_in_budget_and_noise_exceeds_up_mode(self) -> None:
+        r_updown = _evaluate(self._updown_sensor())
+        terms = r_updown.stage_outputs["readout"]["scaled_noise_terms"]
+        assert "reference_shot" in terms
+        assert terms["reference_shot"] > 0.0
+        # The same scene in plain up mode carries no reference noise: the
+        # up_down sigma must exceed it (the mean cancels, the noise does not).
+        s_up = self._updown_sensor()
+        s_up.set("readout.counting_mode", "up")
+        r_up = _evaluate(s_up)
+        assert (
+            r_updown.stage_outputs["readout"]["sigma_total_e"]
+            > r_up.stage_outputs["readout"]["sigma_total_e"]
+        )
+
+    def test_snr_numerator_is_target_signal(self) -> None:
+        # signal_e_final identical across modes (plan §2.4 "Metrics") at an
+        # operating point where neither saturates: 250 K background (at the
+        # default 290 K the up mode's pedestal exceeds the 32.77 Me- rollover
+        # bound and clips — the scenario-2.7 wall, deliberately avoided here).
+        s_updown = self._updown_sensor()
+        s_updown.set("source.background.temperature", 250.0)
+        r_updown = _evaluate(s_updown)
+        s_up = self._updown_sensor()
+        s_up.set("source.background.temperature", 250.0)
+        s_up.set("readout.counting_mode", "up")
+        r_up = _evaluate(s_up)
+        assert r_updown.stage_outputs["readout"]["well_status"] == "ok"
+        assert r_up.stage_outputs["readout"]["well_status"] == "ok"
+        assert r_updown.stage_outputs["readout"]["signal_e_final"] == pytest.approx(
+            r_up.stage_outputs["readout"]["signal_e_final"], rel=1e-9
+        )

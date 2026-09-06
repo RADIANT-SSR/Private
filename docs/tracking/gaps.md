@@ -1700,10 +1700,10 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | | |
 |---|---|
 | **Found in** | Owner request, 2026-09-06 — "create a set of known detectors that can ship with RADIANT... for every FPA I want any associated data sheet or paper to be available to reference." |
-| **Status** | OPEN — plan drafting in progress (`docs/plans/FPA_Library_Plan.md`, Draft for owner ratification). |
+| **Status** | OPEN — plan drafting in progress (`docs/plans/FPA_Preset_Library_Plan.md`, Draft for owner ratification). |
 | **Description** | RADIANT has a bundled `SpectralLibrary` (QE curves by *material*, `src/radiant/data/tables/detectors/`) but no notion of a *named FPA/ROIC part*: a curated bundle of `detector.*` + `readout.*` values (pixel pitch, format, well capacity, read noise, dark current, ROIC architecture incl. Gap 117 digital-counting parameters) sourced from a vendor datasheet or published paper, selectable by name. Every study re-enters real-part values by hand, with no provenance record and no reference document attached. |
 | **Impact** | Modeling a real sensor (GeoSnap-10/-18, FLIR Neutrino/Boson, RVS large-format, H2RG, sCMOS) requires per-study datasheet transcription — error-prone, unreviewable, and unreproducible across analysts. The Gap 117 digital-counting chain has no shipped exemplar part to exercise it. |
-| **Suggested fix** | FPA preset library: per-part YAML (parameter values + per-parameter source attribution + citations block), committed reference PDFs (owner-ratified 2026-09-06; needs Rule 26 carve-out + Operating Model home), `FPALibrary` loader in `radiant.data`, API preset-application semantics (preset seeds, user overrides win), GUI part selector + open-datasheet action. Effort M–L; category B/D. Plan: `docs/plans/FPA_Library_Plan.md`. |
+| **Suggested fix** | FPA preset library: per-part YAML (parameter values + per-parameter source attribution + citations block), committed reference PDFs (owner-ratified 2026-09-06; needs Rule 26 carve-out + Operating Model home), `FPALibrary` loader in `radiant.data`, API preset-application semantics (preset seeds, user overrides win), GUI part selector + open-datasheet action. Effort M–L; category B/D. Plan: `docs/plans/FPA_Preset_Library_Plan.md`. |
 
 ## Summary Table
 

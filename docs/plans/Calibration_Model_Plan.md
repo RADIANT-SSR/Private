@@ -1,9 +1,9 @@
 # Calibration Stage and Radiometric Error-Budget Capability — Development and Test Plan
 
-**Status:** Draft — awaiting owner ratification of §12 decisions D1–D7. The architecture
-direction itself (dedicated `CalibrationStage` + dedicated GUI screen, bias kept apart
-from noise) was owner-shaped in discussion 2026-09-06 and is treated as settled; D1–D7
-are the remaining model-fidelity and semantics choices inside that direction.
+**Status:** Active — §12 decisions D1–D7 ratified by the owner 2026-09-06 (all
+recommended options adopted). The architecture direction (dedicated `CalibrationStage`
++ dedicated GUI screen, bias kept apart from noise) was owner-shaped in discussion
+2026-09-06. Phase 0 is ready to start.
 
 **Date:** 2026-09-06
 **Gap:** 120 (`docs/tracking/gaps.md`)
@@ -481,27 +481,28 @@ entry.
 
 ---
 
-## 12. Owner decisions to ratify
+## 12. Owner decisions — ratified 2026-09-06
 
-- **D1 — NUC-residual fidelity.** v1 parametric quadratic-dispersion model (§3.2,
-  recommended — it makes cal-point placement a real trade) vs. a direct
-  user-specified residual percentage (fewer knobs, no cal-point physics).
-- **D2 — PRNU/DSNU suppression mechanism under an active scheme.** Recommended:
-  detector stage reads `calibration.scheme` and emits pre-correction dispersions as
-  stage outputs instead of noise terms when a scheme is active (calibration stage
-  consumes them); alternative: emit-then-replace inside the calibration stage.
-  Either way the invariant is *no double counting*, tested.
-- **D3 — Accuracy reporting units.** Both % radiance and K at scene temperature
-  (recommended), or one primary.
-- **D4 — Drift domain.** Time-linear v1 (recommended); FPA-ΔT-driven drift deferred
-  to a follow-on gap when a scenario needs it.
-- **D5 — Scenario 1.4 modification** vs. a standalone new TDI scenario (recommended:
-  modify 1.4 — the changed answer in an existing workflow is the sharper demo).
-- **D6 — Temperature-retrieval accuracy demo** folded into 2.7 (recommended) or
-  standalone.
-- **D7 — Term granularity.** Three residual noise terms (`nuc_residual`,
-  `gain_drift`, `offset_drift`, recommended — matches the budget-plot storytelling)
-  vs. one aggregate `calibration_residual` term.
+All seven adopted as recommended (owner ratification of the plan as written):
+
+- **D1 — NUC-residual fidelity: RATIFIED —** v1 parametric quadratic-dispersion
+  model (§3.2); cal-point placement is a real trade. (Rejected alternative: direct
+  user-specified residual percentage.)
+- **D2 — PRNU/DSNU suppression mechanism: RATIFIED —** the detector stage reads
+  `calibration.scheme` and, when a scheme is active, emits the pre-correction
+  dispersions as stage outputs instead of noise terms; the calibration stage
+  consumes them. Invariant either way: *no double counting*, tested. (Rejected:
+  emit-then-replace inside the calibration stage.)
+- **D3 — Accuracy reporting units: RATIFIED —** both % radiance and K at scene
+  temperature.
+- **D4 — Drift domain: RATIFIED —** time-linear v1; FPA-ΔT-driven drift deferred to
+  a follow-on gap when a scenario needs it.
+- **D5 — TDI demo: RATIFIED —** modify scenario 1.4 (calibration-on variant beside
+  the untouched baseline); no standalone TDI scenario.
+- **D6 — Temperature-retrieval accuracy demo: RATIFIED —** folded into 2.7's
+  walkthrough, not standalone.
+- **D7 — Term granularity: RATIFIED —** three residual noise terms (`nuc_residual`,
+  `gain_drift`, `offset_drift`), not one aggregate.
 
 ---
 

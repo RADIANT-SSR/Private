@@ -12,8 +12,11 @@ from __future__ import annotations
 from radiant.readout.errors import (
     is_counting_config_incomplete as _is_counting_config_incomplete,
 )
+from radiant.readout.errors import (
+    is_readout_architecture_conflict as _is_readout_architecture_conflict,
+)
 
-__all__ = ["is_counting_config_incomplete"]
+__all__ = ["is_counting_config_incomplete", "is_readout_architecture_conflict"]
 
 
 def is_counting_config_incomplete(exc: BaseException) -> bool:
@@ -27,3 +30,16 @@ def is_counting_config_incomplete(exc: BaseException) -> bool:
     for an input the framework refused to accept.
     """
     return _is_counting_config_incomplete(exc)
+
+
+def is_readout_architecture_conflict(exc: BaseException) -> bool:
+    """True when *exc* is a Gap 117 architecture over-specification.
+
+    The mixed-architecture states (counting-only parameters under
+    ``analog_well``; explicit ``full_well_capacity_e`` under
+    ``digital_counting``) are reachable through any mutation surface — console,
+    YAML edit, undo/redo, a config file authored with both — and are detected
+    at evaluate time. An evaluate-time occurrence routes beside the readout
+    inputs as an advisory; the rejection itself is unchanged (plan §3).
+    """
+    return _is_readout_architecture_conflict(exc)

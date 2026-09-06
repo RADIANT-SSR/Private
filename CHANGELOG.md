@@ -35,7 +35,14 @@ retroactively reconstructed.
   "Cannot set 'evaluate'" modal — carried by the new
   `CountingConfigIncompleteError` (a `ReadoutValidationError` subclass) with
   the structural predicate published as
-  `radiant.api.readout_architecture.is_counting_config_incomplete`.
+  `radiant.api.readout_architecture.is_counting_config_incomplete`. Third
+  pass: the mixed-architecture over-specifications are likewise typed
+  (`ArchitectureOverSpecificationError`, predicate
+  `is_readout_architecture_conflict`) so an evaluate-time occurrence from any
+  mutation surface (console, YAML, undo/redo, authored config) is an advisory
+  too; both advisory states paint only the readout chip red (others stale)
+  instead of the whole strip, and the 0.0-unset sentinels render as words
+  ("unset — required" / "none — no ceiling"), not as `0 e-` / `0 Hz`.
 - **Digital-pixel (DROIC) counting readout is live (Gap 117 DELIVERED, plan
   Phases 1–2)** — `readout.architecture = "digital_counting"` now runs the
   full chain: counting saturation `min(2^N·Q_pkt, f_max·t_int·Q_pkt)` with a

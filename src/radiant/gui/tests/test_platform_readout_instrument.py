@@ -306,14 +306,38 @@ class TestReadoutArchitectureGroup:
         assert not form.row("readout.adc_bits").isHidden()
 
     def test_counting_fields_render_values_with_units(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """Display-units rule: the packet renders in e-, the rate in Hz."""
+        """Display-units rule: a set packet renders in e-; the 0.0-unset
+        sentinels render as words, not as legitimate-looking values."""
         pane = _pane(qtbot, "readout", _counting_sensor())
         form = pane.readout_inputs_form
         assert form is not None
         assert form.field_value_text("readout.count_packet_e").endswith("e-")
-        assert form.field_value_text("readout.max_count_rate_hz").endswith("Hz")
+        # max_count_rate_hz unset (0.0 sentinel) -> no-ceiling wording, not "0 Hz".
+        assert form.field_value_text("readout.max_count_rate_hz") == "none — no ceiling"
         assert form.field_value_text("readout.counter_bits")  # non-empty int text
         assert form.field_value_text("readout.residue_readout")  # bool text
+
+    def test_set_count_rate_renders_with_unit(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        sensor = _counting_sensor()
+        sensor.set("readout.max_count_rate_hz", 5.0e6)
+        pane = _pane(qtbot, "readout", sensor)
+        form = pane.readout_inputs_form
+        assert form is not None
+        assert form.field_value_text("readout.max_count_rate_hz").endswith("Hz")
+
+    def test_unset_packet_renders_as_required(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A counting config without a packet shows 'unset — required', never
+        '0 e-' (live review 2026-09-06, second pass). Pane-level: bind without
+        evaluating (the chain would raise the incomplete advisory)."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        sensor.reset("readout.full_well_capacity_e")
+        sensor.set("readout.architecture", "digital_counting")
+        pane = StagePane("readout", STAGE_COMPOSITIONS["readout"])
+        qtbot.addWidget(pane)
+        pane.bind_sensor(sensor, {})
+        form = pane.readout_inputs_form
+        assert form is not None
+        assert form.field_value_text("readout.count_packet_e") == "unset — required"
 
     def test_counting_outputs_surface_in_readout(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The counting stage outputs land in the Outputs readout with units."""
@@ -434,3 +458,38 @@ class TestArchitectureSwitchCompanionResets:
         assert "readout.count_packet_e" not in window.sensor.inputs()
         assert window.last_result.stage_outputs["readout"]["architecture"] == "analog_well"
         assert modals == []
+
+
+class TestArchitectureConflictAdvisory:
+    """A mixed-architecture state reached OUTSIDE the editor dialog (console,
+    YAML, undo/redo, authored config) must degrade to an advisory on evaluate
+    — never a modal per run (live review 2026-09-06, third pass)."""
+
+    def test_console_path_conflict_routes_to_messages_not_modal(  # type: ignore[no-untyped-def]
+        self, qtbot, monkeypatch
+    ) -> None:
+        from radiant.gui.widgets import actionable_error_dialog as aed
+
+        modals: list[object] = []
+        monkeypatch.setattr(
+            aed.ActionableErrorDialog, "exec", lambda self: modals.append(self) or 0
+        )
+        window = _load_window(qtbot)
+        window.stage_strip.stageClicked.emit("readout")
+        form = window.central_canvas.stage_center.pane("readout").readout_inputs_form
+        assert form is not None
+
+        # Console-style mutation: architecture switched directly on the live
+        # sensor, explicit FWC (from the config file) left in place.
+        window.sensor.set("readout.architecture", "digital_counting")
+        window.sensor.set("readout.count_packet_e", 5000.0)
+        assert "readout.full_well_capacity_e" in window.sensor.inputs()
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            form.parameterEdited.emit("readout.count_packet_e")
+
+        # Advisory, not modal; the readout chip is the only error site.
+        assert modals == []
+        assert window.right_rail.messages.has_error()
+        strip = window.stage_strip
+        assert strip._by_namespace["readout"].status == "err"  # noqa: SLF001
+        assert strip._by_namespace["geometry"].status == "stale"  # noqa: SLF001

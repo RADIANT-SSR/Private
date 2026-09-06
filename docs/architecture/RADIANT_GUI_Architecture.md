@@ -988,7 +988,13 @@ back), one logical action so the very next evaluation cannot fail on parameters 
 no longer shows; and the expected **mid-switch incompleteness** (packet not yet entered)
 routes to the Messages rail as an advisory via
 `api.readout_architecture.is_counting_config_incomplete` — the CU-322 structural-routing
-pattern, never message text — instead of the "Cannot set 'evaluate'" modal.
+pattern, never message text — instead of the "Cannot set 'evaluate'" modal. The
+mixed-architecture over-specifications (`is_readout_architecture_conflict`) get the same
+evaluate-time advisory routing, because the state is reachable through surfaces the dialog
+seam cannot cover (console, YAML apply, undo/redo, an authored config); both advisory
+states mark only the readout chip `err` (the rest `stale`), and the readout form renders
+the 0.0-unset sentinels as words ("unset — required" for the packet, "none — no ceiling"
+for the count rate) rather than as zero-valued quantities.
 
 *Geometry Inputs section (shipped, GUI plan Phase 5, 2026-07-13).* The Geometry pane is the
 first to realise the §4.4 **Inputs** section: above its `GeometryReadout` it embeds a

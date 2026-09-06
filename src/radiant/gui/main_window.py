@@ -46,7 +46,10 @@ from radiant.api.atmosphere_families import is_atmosphere_coverage_refusal
 from radiant.api.build_info import build_info
 from radiant.api.config_io import read_template_meta
 from radiant.api.config_set import ConfigSetError, ConfigSetRunResult, ConfigurationSet
-from radiant.api.readout_architecture import is_counting_config_incomplete
+from radiant.api.readout_architecture import (
+    is_counting_config_incomplete,
+    is_readout_architecture_conflict,
+)
 from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
 from radiant.gui.config_scope import ConfigurationScope
@@ -1561,11 +1564,25 @@ class RADIANTMainWindow(QMainWindow):
         # config (architecture flipped, charge packet not yet entered) is an
         # expected incomplete state, not a rejected input — advisory, no modal
         # (the CU-322 routing pattern; structural, never message text).
-        if is_counting_config_incomplete(exc):
-            self.statusBar().showMessage(
+        if is_counting_config_incomplete(exc) or is_readout_architecture_conflict(exc):
+            # Gap 117 readout-architecture states: one stage's configuration
+            # is incomplete (mid-switch, packet not yet entered) or mixed
+            # (reachable via console/YAML/undo/config-file, detected only at
+            # evaluate time). Nothing upstream failed: paint only the readout
+            # chip as the error site, everything else merely stale — a
+            # nine-red-chip wall reads as "the run is broken", not "fix the
+            # readout config" — and never a modal per evaluation (live review
+            # 2026-09-06; the CU-322 advisory pattern).
+            self._stage_strip.set_all_status("stale")
+            self._stage_strip.set_status("readout", "err")
+            hint = (
                 "Digital counting needs a charge packet — set "
-                "readout.count_packet_e on the Readout panel (see Messages; "
-                "the previous result is shown, stale)"
+                "readout.count_packet_e on the Readout panel"
+                if is_counting_config_incomplete(exc)
+                else "Readout architecture conflict — see the Readout panel"
+            )
+            self.statusBar().showMessage(
+                f"{hint} (see Messages; the previous result is shown, stale)"
             )
             return
         if isinstance(exc, RadiantError):

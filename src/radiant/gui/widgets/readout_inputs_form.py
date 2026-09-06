@@ -55,6 +55,7 @@ from typing import TYPE_CHECKING, Final
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from radiant.core.exceptions import RadiantError
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.param_format import field_display_text
 from radiant.gui.widgets.field_row import UNSET as _UNSET
@@ -271,10 +272,27 @@ class ReadoutInputsForm(QWidget):
             self._rows[dotpath].setVisible(not counting)
 
     def _value_text(self, dotpath: str) -> str:
-        """The value+unit text for *dotpath* in its display unit (— if unset)."""
+        """The value+unit text for *dotpath* in its display unit (— if unset).
+
+        The two counting parameters whose schema default 0.0 means "unset"
+        (Gap 117) render their sentinel as words, not as a legitimate-looking
+        value: a required-but-empty packet showing "0 e-" read as configured
+        on the live review (2026-09-06, second pass).
+        """
         sensor = self._sensor
         if sensor is None:
             return _UNSET
+        if dotpath in ("readout.count_packet_e", "readout.max_count_rate_hz"):
+            try:
+                unset = float(sensor.get(dotpath)) <= 0.0
+            except (RadiantError, KeyError):
+                unset = False
+            if unset:
+                return (
+                    "unset — required"
+                    if dotpath == "readout.count_packet_e"
+                    else "none — no ceiling"
+                )
         return field_display_text(sensor, dotpath, self._display_units)
 
     # -- editing (reuses the Parameter Editor dialog + reject discipline) ----

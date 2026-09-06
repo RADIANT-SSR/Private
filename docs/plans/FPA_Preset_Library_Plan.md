@@ -146,6 +146,16 @@ Either way, the acceptance test is the same: `radiant run` (and the GUI's file-o
 consumes the per-part document directly, and the values that arrive in the
 `ParameterSet` are identical to those the `fpa:` preset path applies.
 
+> **Phase 0 decision (2026-09-06): mechanism (b), generated configs.** Evidence:
+> `io/config.py`'s `_flatten` treats every dict as namespace nesting, so the standard
+> `parameters:` shape cannot carry `{value, unit, source}` entries; and config values
+> are taken in schema input units, while the ratified preset format stores
+> datasheet-native units. A dual-role file would therefore need either a loader fork
+> or double-stored values (native + converted) with a drift risk between them. The
+> generator (`scripts/gen_fpa_configs.py`, rendering standard config YAML with
+> provenance as comments, freshness-checked in the battery like
+> `gen_param_reference.py --check`) lands in Phase 1 with the first parts.
+
 ### 3.2 Partial-preset semantics
 
 A preset sets exactly the parameters its sources support. Per part class there is a

@@ -15,7 +15,7 @@
 | `adr/` | Architecture Decision Records | **Immutable** once Accepted (superseding requires a new ADR) | One decision per file |
 | `guides/` | User-facing how-to (published on mkdocs site) | Living | — |
 | `theory/` | Physics background (published) | Living | — |
-| `validation/` | Truth anchors, hand calculations, SHA-pinned baselines that current tests reference | Living | — |
+| `validation/` | Truth anchors, hand calculations, SHA-pinned baselines that current tests reference; `fpa_datasheets/` — committed reference PDFs cited by shipped FPA presets, hash-manifested per Rule 26(c) (Gap 119, owner-ratified 2026-09-06) | Living | — |
 | `tracking/` | **The work board.** Exactly three files: `Cleanup_Backlog.md` (CU-grade debt, CU-numbered), `gaps.md` (library capability gaps), and `Findings_Log.md` (sub-CU findings, one line each — Rule 21 tier 2, added 2026-07-31) | Living — the most-edited files in docs/ | **Exactly three files, forever.** A fourth tracking file is a rule violation (Rule 25) |
 | `plans/` | Plans for work **not yet finished**. Status header mandatory | Living while active | **`plans/` empty ⇒ nothing is in flight.** That invariant is the point |
 | `reports/` | Completed point-in-time records: audits, task reports, remediation records | **Immutable** — corrections are new documents | One folder per audit: `<topic>_<YYYY-MM>/` |

@@ -126,6 +126,7 @@ class Provenance(Enum):
     DEFAULT = "default"
     DERIVED = "derived"
     SAMPLED = "sampled"
+    PRESET = "preset"
 
 
 # ---------------------------------------------------------------------------

@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **FPA preset library, format + loader (Gap 119, plan Phase 0)** —
+  `radiant.data.FPALibrary` / `FPAPreset` / `FPAPresetError` (public surface):
+  named FPA/ROIC preset documents (`src/radiant/data/tables/fpa/*.yaml`,
+  format v1) holding `detector.*`/`readout.*` values in datasheet-native units
+  with per-parameter source attribution; format violations raise actionable
+  errors. New `Provenance.PRESET` enum variant (public surface) labels
+  preset-applied values. No presets ship yet and no chain behavior changes —
+  the apply path and the first parts land in later plan phases
+  (`docs/plans/FPA_Preset_Library_Plan.md`).
 - **Up/down counting (Gap 117 plan Phase 4, v1.1)** — four new public
   parameters: `readout.counting_mode` (`up` | `up_down`, default `up`),
   `readout.reference_source` (`background_term` | `user_level`, ruling D6),

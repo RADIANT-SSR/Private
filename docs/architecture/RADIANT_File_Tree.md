@@ -399,12 +399,14 @@ StagePlugin ABCs, entry-point discovery) is **deferred to v2** and returns as a
 package only when implemented. See `docs/architecture/RADIANT_Plugins.md` (DEFERRED
 banner) for the v2 design.
 
-### `data/` — 1 source + 4 tests
+### `data/` — 2 source + 5 tests
 
-Reference data accessors (solar spectra, detector libraries, scenario templates).
+Reference data accessors (solar spectra, detector libraries, scenario templates,
+named FPA presets).
 
 ```
 data/
+├── fpa.py                 # FPALibrary — named FPA/ROIC preset documents (Gap 119)
 └── library.py             # importlib.resources-backed access to packaged data
 ```
 
@@ -505,7 +507,7 @@ source of truth, per the header.
 | api/                   | 20     | 14    | public + internal session |
 | gui/                   | 80     | 43    | PySide6 shell + 56 widgets + design-system theme — optional `gui` extra |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
-| data/                  | 1      | 4     | packaged-data accessor |
+| data/                  | 2      | 5     | packaged-data accessor |
 | **Subtotal**           | **322**| **219**| 541 non-init files |
 | Integration tests      | —      | 41    | `tests/integration/` |
 | Top-level tests        | —      | 6     | `tests/test_public_api.py`, `test_exceptions.py`, `test_provenance.py`, `test_calibration_analysis.py`, `test_error_budget.py`, `test_veiling_glare_signal_consistency.py` |

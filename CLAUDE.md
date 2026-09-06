@@ -117,7 +117,7 @@ L = (2 * 6.626e-34 * (3e8)**2 / lam_m**5) / ...  # magic numbers
 Use the standard `logging` module. `print()` is permitted only in `cli/` entry points and examples.
 
 ### 15. Errors Are Actionable
-All RADIANT-defined exceptions derive from `radiant.core.exceptions.RadiantError` (re-exported as `radiant.RadiantError`). Concrete subclasses live with the module that raises them — `ParameterBoundsError`, `ParameterEnumError`, `UnknownParameterError` (`core/parameters.py`), `KirchhoffViolationError` (`optics/element.py`), `ModtranUnavailableError` / `Tape7ParseError` (`atmosphere/modtran.py`), `ConfigError` (`io/config.py`), `ElementConfigError` (`io/element_config.py`), `OperationCancelledError` (`api/_progress.py`). They MAY co-inherit from a built-in exception (`ValueError`, `RuntimeError`) for back-compat with existing `except`/`pytest.raises` patterns; new RADIANT exception classes SHOULD inherit from `RadiantError` only.
+All RADIANT-defined exceptions derive from `radiant.core.exceptions.RadiantError` (re-exported as `radiant.RadiantError`). Concrete subclasses live with the module that raises them — `ParameterBoundsError`, `ParameterEnumError`, `UnknownParameterError` (`core/parameters.py`), `KirchhoffViolationError` (`optics/element.py`), `ModtranUnavailableError` / `Tape7ParseError` (`atmosphere/modtran.py`), `ConfigError` (`io/config.py`), `ElementConfigError` (`io/element_config.py`), `FPAPresetError` (`data/fpa.py`), `OperationCancelledError` (`api/_progress.py`). They MAY co-inherit from a built-in exception (`ValueError`, `RuntimeError`) for back-compat with existing `except`/`pytest.raises` patterns; new RADIANT exception classes SHOULD inherit from `RadiantError` only.
 
 ```python
 # CORRECT:
@@ -213,7 +213,7 @@ Every plan, audit, and report opens with a `Status:` header (Draft / Active / Co
 CU-grade technical debt lives only in `docs/tracking/Cleanup_Backlog.md`; capability gaps only in `docs/tracking/gaps.md`; sub-CU findings only in `docs/tracking/Findings_Log.md` (Rule 21 tier 2). Creating a new tracking document requires folding and archiving the one it replaces in the same PR. Plans may reference registry entries but never re-enumerate them.
 
 ### 26. Generated Artifacts Are Regenerable, Committed Only With Cause
-A binary or derived file may be committed only if it is (a) a golden baseline a test asserts against, or (b) a figure a committed document references. Every committed artifact names its generator (script + input) in a manifest or the referencing doc. When a baseline set is superseded, the old set is deleted in the same PR — git history is the archive. Everything else (results workbooks, ad-hoc plots) is regenerate-on-demand and gitignored.
+A binary or derived file may be committed only if it is (a) a golden baseline a test asserts against, (b) a figure a committed document references, or (c) a reference document (datasheet/paper PDF) that a shipped data product cites as provenance, listed in a manifest with source URL, retrieval date, and SHA-256 (owner-ratified 2026-09-06, Gap 119 — home: `docs/validation/fpa_datasheets/`; repo-only, never shipped in the wheel). Every committed artifact names its generator (script + input) — or, for (c), its acquisition source — in a manifest or the referencing doc. When a baseline set is superseded, the old set is deleted in the same PR — git history is the archive. Everything else (results workbooks, ad-hoc plots) is regenerate-on-demand and gitignored.
 
 ### 27. One Canonical Version
 When an implementation, plan, or baseline is superseded, the old version is deleted from the working tree, not retained alongside its replacement. A closed version may persist only with an explicit deferral record (gating condition + re-audit date), mirroring Rule 22's stage-deferral protocol.
@@ -545,7 +545,7 @@ src/radiant/
 ├── detector/       # Stage 6: QE, noise terms, detector MTF
 ├── readout/        # Stage 7: TDI, ADC, gain, read noise
 ├── performance/    # Stage 8: SNR, NEDT, NIIRS, system MTF
-├── data/           # SpectralLibrary — loads reference CSVs from repo-root data/ (emissivity, QE, solar)
+├── data/           # SpectralLibrary + FPALibrary — bundled reference data (src/radiant/data/tables/)
 ├── io/             # I/O layer — YAML, MODTRAN, results
 ├── api/            # Public API — Sensor, SensorConfig, BatchRunner
 ├── cli/            # CLI — radiant run/validate/explain/gui

@@ -27,7 +27,7 @@ parameters:
   detector.dark_reference_temperature_K:
     {value: 77.0, unit: K, source: ds2022, basis: datasheet, location: "same spec line"}
   readout.full_well_capacity_e:
-    {value: 8.0e4, unit: null, source: ds2022, basis: datasheet, location: "well capacity >=80,000 e- (goal >=100,000) for the 2.5 um variant"}
+    {value: 8.0e+4, unit: null, source: ds2022, basis: datasheet, location: "well capacity >=80,000 e- (goal >=100,000) for the 2.5 um variant"}
   readout.read_noise_e_rms:
     {value: 18.0, unit: "e-", source: ds2022, basis: datasheet, location: "median CDS read noise <=18 e- @ 100 kHz pixel rate, 2.5 um column (goal <=12)"}
   readout.cds_enabled:

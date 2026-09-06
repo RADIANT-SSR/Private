@@ -20,7 +20,7 @@ parameters:
   detector.n_pixels_cross:
     {value: 640, unit: null, source: ogi2025, basis: datasheet, location: "640 x 512 VGA array (cross-track 640 taken)"}
   readout.full_well_capacity_e:
-    {value: 7.0e6, unit: null, source: ogi2025, basis: datasheet, location: "'Well Capacity 7 x 10^6 electrons' (ISC0403; same ROIC as standard LC per page2019)"}
+    {value: 7.0e+6, unit: null, source: ogi2025, basis: datasheet, location: "'Well Capacity 7 x 10^6 electrons' (ISC0403; same ROIC as standard LC per page2019)"}
   readout.architecture:
     {value: analog_well, unit: null, source: ogi2025, basis: derived, location: "direct-injection CTIA-class analog ROIC (ISC0403), no in-pixel counter"}
   detector.detector_temperature_K:

@@ -1,0 +1,64 @@
+fpa_preset: 1
+name: rvs-miri-si-as
+vendor: Raytheon Vision Systems
+model: JWST/MIRI Si:As IBC SCA (baseline)
+part_class: cooled_ir
+material: Si:As IBC (impurity-band conduction; 35 um IR-active layer, baseline lot)
+band: {label: "MIR Si:As IBC", cut_on_um: 5.0, cut_off_um: 28.0}
+description: >
+  1024x1024, 25 um pitch arsenic-doped-silicon impurity-band-conduction array
+  flown on the JWST Mid-Infrared Instrument: source-follower unit cell,
+  indium-bump hybrid, operated at 6.7 K. The best-documented cooled MWIR/LWIR
+  array in the open literature; values below are the BASELINE flight-lot
+  column of Rieke et al. (2015) Table 1 (see notes for the contingency lot).
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 25.0, unit: um, source: rieke2015, basis: paper, location: "Table 1, 'pixel size 25 um'; Sec. 2: 'format is 1024 X 1024 pixels with a pitch of 25 um'"}
+  detector.pixel_pitch_y_um:
+    {value: 25.0, unit: um, source: rieke2015, basis: paper, location: "Table 1 (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 1024, unit: null, source: rieke2015, basis: paper, location: "Table 1, 'format 1024 x 1024'"}
+  detector.qe_value:
+    {value: 60, unit: "%", source: rieke2015, basis: paper, location: "Table 1, 'quantum efficiency >= 60%' (baseline array, at peak wavelength; spec floor taken)"}
+  detector.detector_temperature_K:
+    {value: 6.7, unit: K, source: rieke2015, basis: paper, location: "Sec. 2: 'about 0.2 e/s at the 6.7 K operating temperature'"}
+  detector.dark_rate_e_per_s:
+    {value: 0.2, unit: "1/s", source: rieke2015, basis: paper, location: "Table 1, 'dark current 0.2 e-/s' (baseline array)"}
+  detector.dark_reference_temperature_K:
+    {value: 6.7, unit: K, source: rieke2015, basis: paper, location: "Sec. 2: dark current quoted 'at the 6.7 K operating temperature'"}
+  readout.architecture:
+    {value: analog_well, unit: null, source: rieke2015, basis: derived, location: "each detector feeds a per-pixel source-follower amplifier with analog multiplexed output (Sec. 2, Fig. 3) = analog charge well; no in-pixel counting"}
+  readout.full_well_capacity_e:
+    {value: 2.5e+5, unit: null, source: rieke2015, basis: paper, location: "Table 1, 'well capacity ~250,000 e-' (detector-side well; amplifier wells ~2x larger, see notes)"}
+  readout.read_noise_e_rms:
+    {value: 14.0, unit: "e-", source: rieke2015, basis: paper, location: "Table 1, 'read noise 14 e-' (Fowler-eight sampling, quoted for comparison; flight readout normally sample-up-the-ramp)"}
+
+qe_table: null
+
+sources:
+  rieke2015:
+    type: paper
+    title: "The Mid-Infrared Instrument for the James Webb Space Telescope, VII: The MIRI Detectors"
+    authors: "G. H. Rieke, M. E. Ressler, J. E. Morrison, et al."
+    venue: "PASP 127, 665"
+    year: 2015
+    doi: "10.1086/682257"
+    url: "https://arxiv.org/pdf/1508.02362"
+    file: rieke_miri_detectors_pasp_2015.pdf
+    retrieved: "2026-09-06"
+
+notes: >
+  Baseline vs contingency lots (Rieke 2015 Table 1): the contingency array has
+  a 30 um IR-active layer, dark current 0.07 e-/s, and QE >= 50 %; this preset
+  records the baseline (35 um layer, thicker-layer QE gain bought with 3x
+  higher dark current). QE is the band-average spec floor at peak wavelength -
+  the paper's Fig. 8-class response curves show wavelength structure, so set a
+  spectral QE table for narrow-band studies. Nominal detector bias 2.2 V with
+  ~10 % avalanche gain at that bias (Sec. 4). Read noise 14 e- is the
+  Fowler-8 comparison figure; sample-up-the-ramp flight operation differs.
+  Well capacity ~250,000 e- is the detector-side figure; the readout amplifier
+  wells are about 2x larger (~500,000 e-) and the MIRI warm electronics
+  saturates not far above the detector well. No ADC/gain parameters are set:
+  conversion happens in the instrument warm electronics and the paper does not
+  spec them at the FPA level.

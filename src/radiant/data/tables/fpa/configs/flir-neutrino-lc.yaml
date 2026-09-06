@@ -11,7 +11,7 @@
 #   detector.qe_value = 80 % [assumed: assumed (see preset note)]
 #   readout.architecture = analog_well [derived: ogi2025]
 #   readout.frame_period_s = 0.016667 s [derived: page2019]
-#   readout.full_well_capacity_e = 7.0e6 [datasheet: ogi2025]
+#   readout.full_well_capacity_e = 7000000.0 [datasheet: ogi2025]
 #   readout.read_noise_e_rms = 500.0 e- [assumed: assumed (see preset note)]
 #
 detector:
@@ -23,5 +23,5 @@ detector:
 readout:
   architecture: analog_well
   frame_period_s: 0.016667
-  full_well_capacity_e: 7.0e6
+  full_well_capacity_e: 7000000.0
   read_noise_e_rms: 500.0

@@ -13,7 +13,7 @@
 #   readout.adc_bits = 14 [datasheet: ds2022]
 #   readout.architecture = analog_well [derived: ds2022]
 #   readout.frame_period_s = 0.011765 s [derived: ds2022]
-#   readout.full_well_capacity_e = 2.6e6 [datasheet: ds2022]
+#   readout.full_well_capacity_e = 2600000.0 [datasheet: ds2022]
 #   readout.read_noise_e_rms = 400.0 e- [datasheet: ds2022]
 #
 detector:
@@ -27,5 +27,5 @@ readout:
   adc_bits: 14
   architecture: analog_well
   frame_period_s: 0.011765
-  full_well_capacity_e: 2.6e6
+  full_well_capacity_e: 2600000.0
   read_noise_e_rms: 400.0

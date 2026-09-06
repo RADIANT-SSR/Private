@@ -29,7 +29,7 @@ parameters:
   detector.qe_value:
     {value: 85, unit: "%", basis: assumed, note: "not published for GeoSnap-10; GeoSnap-18 family typical (85 %) carried over - same HgCdTe process"}
   readout.full_well_capacity_e:
-    {value: 8.0e5, unit: null, basis: assumed, note: "not published; GeoSnap-18 large well (2.6 Me-) scaled by pixel-area ratio (10/18)^2 = 0.31 - curator inference, replace with programme data"}
+    {value: 8.0e+5, unit: null, basis: assumed, note: "not published; GeoSnap-18 large well (2.6 Me-) scaled by pixel-area ratio (10/18)^2 = 0.31 - curator inference, replace with programme data"}
   readout.read_noise_e_rms:
     {value: 400.0, unit: "e-", basis: assumed, note: "not published; GeoSnap-18 large-well ROIC noise carried over unscaled (CTIA noise correlates with well size, not area) - curator inference"}
 

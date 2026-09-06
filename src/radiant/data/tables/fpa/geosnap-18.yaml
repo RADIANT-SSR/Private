@@ -27,7 +27,7 @@ parameters:
   readout.architecture:
     {value: analog_well, unit: null, source: ds2022, basis: derived, location: "CTIA unit cell + on-chip programmable 14-bit ADC = analog charge well with column conversion; no in-pixel counter"}
   readout.full_well_capacity_e:
-    {value: 2.6e6, unit: null, source: ds2022, basis: datasheet, location: "'Well Sizes 0.18 / 2.6 typical Me-' (large well taken; dual-gain, programmable per row)"}
+    {value: 2.6e+6, unit: null, source: ds2022, basis: datasheet, location: "'Well Sizes 0.18 / 2.6 typical Me-' (large well taken; dual-gain, programmable per row)"}
   readout.read_noise_e_rms:
     {value: 400.0, unit: "e-", source: ds2022, basis: datasheet, location: "'ROIC Noise 40 / 400 typical e-' (large-well value; ROIC-only, see notes)"}
   readout.adc_bits:

@@ -1,0 +1,31 @@
+# RADIANT config — generated from FPA preset 'senseeker-calcium-rp0033' (format v1).
+# DO NOT EDIT: regenerate with `python scripts/gen_fpa_configs.py`.
+# Part: Senseeker Corp Calcium RP0033-J200 (cooled_ir_droic)
+# Band: detector-dependent (bare ROIC, no photodetector), 1.0-14.0 um
+# Values are in RADIANT input units (converted from the datasheet-native
+# units recorded in the preset). Per-parameter provenance:
+#   detector.detector_temperature_K = 65.0 K [datasheet: page2026]
+#   detector.n_pixels_cross = 640 [datasheet: page2026]
+#   detector.pixel_pitch_x_um = 20.0 um [datasheet: page2026]
+#   detector.pixel_pitch_y_um = 20.0 um [datasheet: page2026]
+#   detector.qe_value = 70 % [assumed: assumed (see preset note)]
+#   readout.architecture = digital_counting [derived: page2026]
+#   readout.count_packet_e = 6103.5 e- [derived: page2026]
+#   readout.counter_bits = 16 [assumed: assumed (see preset note)]
+#   readout.frame_period_s = 0.0014286 s [derived: page2026]
+#   readout.read_noise_e_rms = 50.0 e- [datasheet: page2026]
+#   readout.residue_readout = True [assumed: assumed (see preset note)]
+#
+detector:
+  detector_temperature_K: 65.0
+  n_pixels_cross: 640
+  pixel_pitch_x_um: 20.0
+  pixel_pitch_y_um: 20.0
+  qe_value: 0.7000000000000001
+readout:
+  architecture: digital_counting
+  count_packet_e: 6103.5
+  counter_bits: 16
+  frame_period_s: 0.0014286
+  read_noise_e_rms: 50.0
+  residue_readout: true

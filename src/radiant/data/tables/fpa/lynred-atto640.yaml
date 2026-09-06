@@ -1,0 +1,56 @@
+fpa_preset: 1
+name: lynred-atto640
+vendor: Lynred
+model: ATTO640
+part_class: uncooled_bolometer
+material: uncooled microbolometer (a-Si by Lynred family inference; material not stated on datasheet)
+band: {label: "LWIR (band NOT printed on datasheet; 8-14 um nominal assumed)", cut_on_um: 8.0, cut_off_um: 14.0}
+description: >
+  640x480, 12 um uncooled microbolometer in a wafer-level SMD package - the
+  smallest 60 Hz VGA sensor of its generation. Carries the cleanest
+  fully-conditioned bolometer NETD in the public set (f/1, 300 K, 30 Hz).
+  Like every uncooled part, no electron-domain quantities are published;
+  RADIANT models this class through the NEDT-specified path (Gap 101), so
+  this preset supplies geometry/format/timing and keeps the
+  temperature-domain record in the notes.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 12.0, unit: um, source: ds2020, basis: datasheet, location: "cover, '640 x 480 - 12 um'; 'pixel pitch of 12 um'"}
+  detector.pixel_pitch_y_um:
+    {value: 12.0, unit: um, source: ds2020, basis: datasheet, location: "square pixel"}
+  detector.n_pixels_cross:
+    {value: 640, unit: null, source: ds2020, basis: datasheet, location: "'640 x 480' VGA format (cross-track 640 taken)"}
+  detector.detector_temperature_K:
+    {value: 300.0, unit: K, basis: assumed, note: "uncooled TEC-less part at ambient; 300 K nominal ambient placeholder"}
+  readout.adc_bits:
+    {value: 14, unit: null, source: ds2020, basis: datasheet, location: "'Output format - Digital: 14 bits parallel' (an analog single-output variant also exists)"}
+  readout.frame_period_s:
+    {value: 1.6667e-2, unit: s, source: ds2020, basis: derived, location: "1 / (60 Hz, 'Frame rate up to 60 Hz'; note the published NETD is conditioned at 30 Hz)"}
+
+qe_table: null
+
+sources:
+  ds2020:
+    type: vendor_datasheet
+    title: "ATTO640 - The smallest VGA 12 um thermal imaging sensor on the market (datasheet REF. 06/2020/01)"
+    publisher: Lynred
+    year: 2020
+    url: "http://web.archive.org/web/20211208002816/https://www.lynred.com/sites/default/files/2021-08/Atto640%20datasheet%20.pdf"
+    file: lynred_atto640_datasheet_2020.pdf
+    retrieved: "2026-09-06"
+
+notes: >
+  NEDT record (ds2020): thermal sensitivity (NEDT) < 60 mK, fully
+  conditioned at f/1 aperture, 300 K scene, 30 Hz frame rate - the only
+  vendor in the uncooled set that publishes all three conditions on the
+  datasheet. Thermal time constant 10 ms (ds2020). Operability > 99.5 %.
+  Power < 150 mW at 60 Hz (analog output) / < 300 mW (digital 14-bit
+  parallel). Spectral band is NOT printed anywhere on the datasheet - the
+  8-14 um band block is the nominal LWIR microbolometer response, basis
+  assumed; material is likewise unstated (a-Si inferred from Lynred's
+  process heritage). Free-run or external trigger; I2C configuration;
+  wafer-level package 16.5 x 16.5 mm2, J-Lead44 SMD, JEDEC reflow
+  compatible. RADIANT has no NEDT / thermal-time-constant detector inputs
+  yet (Gap 101), so SNR/NEDT predictions must come from the NEDT-specified
+  path once that lands.

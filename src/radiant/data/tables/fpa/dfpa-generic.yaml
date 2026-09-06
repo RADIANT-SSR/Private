@@ -31,8 +31,6 @@ parameters:
     {value: 3500.0, unit: "e-", source: llj2014, basis: paper, location: "LSB sizes 1200-8000 e-/count, nominal 3000-6000; worked example 3576 e- (C_int ~1 fF)"}
   readout.residue_readout:
     {value: false, unit: null, source: llj2014, basis: paper, location: "base DFPA reads the counter only - no analog residue path; quantization noise = LSB/sqrt(12)"}
-  readout.counting_mode:
-    {value: up_down, unit: null, source: llj2014, basis: paper, location: "up/down counter supports in-pixel background subtraction (the DFPA signature capability)"}
   readout.read_noise_e_rms:
     {value: 100.0, unit: "e-", basis: assumed, note: "counting-chain electronics noise placeholder; packet quantization (3500/sqrt(12) ~ 1000 e- RMS) dominates the published four-term noise model, so this entry is subdominant by construction"}
 
@@ -54,9 +52,12 @@ notes: >
   counter rolls over modulo 2^N rather than saturating, which is exactly the
   Gap 117 counting-well model; readout.full_well_capacity_e is deliberately
   not set (the counting branch derives capacity from counter_bits x
-  count_packet_e). counting_mode defaults to up_down here because in-pixel
-  background subtraction is the capability this class exists for - set 'up'
-  for a plain accumulator study. QE and dark current are detector-dependent
+  count_packet_e). The published part has an up/down counter (in-pixel
+  background subtraction - the DFPA signature capability), but the preset
+  leaves readout.counting_mode at its 'up' default: up_down with the
+  background_term reference is scene-dependent (sub-pixel/point-source only,
+  Gap 117 ruling D6) and a preset must stay valid over any scene - opt in with
+  counting_mode: up_down for a dim-target study. QE and dark current are detector-dependent
   (the DROIC is hybridized to a customer diode) and are not set. Demonstrated
   readout: 7 kHz at 256x256/16-bit; 256-stage in-pixel digital TDI. Device
   temperature 68-85 K in the published demos. This is a paper-anchored

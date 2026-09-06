@@ -146,6 +146,13 @@ Either way, the acceptance test is the same: `radiant run` (and the GUI's file-o
 consumes the per-part document directly, and the values that arrive in the
 `ParameterSet` are identical to those the `fpa:` preset path applies.
 
+> **Execution record**: Phase 0 delivered 2026-09-06 (merge `75e5ad7f`); Phases 1–2
+> delivered 2026-09-06 (tranche-1 presets + `fpa:`/`apply_fpa` semantics, one merge).
+> Curation rule learned in Phase 2 and now binding: **a preset never pre-selects a
+> scene-dependent operating mode** (e.g. `readout.counting_mode: up_down` requires a
+> sub-pixel/point-source scene per Gap 117 ruling D6) — part capability goes in
+> `notes`, the study opts in.
+>
 > **Phase 0 decision (2026-09-06): mechanism (b), generated configs.** Evidence:
 > `io/config.py`'s `_flatten` treats every dict as namespace nesting, so the standard
 > `parameters:` shape cannot carry `{value, unit, source}` entries; and config values
@@ -323,7 +330,7 @@ memory.
 |---|---|---|---|
 | **0 — Format + loader** | Preset YAML format (§3.1), `FPAPreset`/`FPALibrary` (§3.3), format-validation errors, Rule 26 carve-out + taxonomy amendment + manifest skeleton, `Provenance.PRESET` | B | Loader round-trips a fixture preset; format violations raise actionable errors; `mypy --strict`, docs amended in lock-step |
 | **1 — Seed curation, tranche 1** | GeoSnap-10/-18 + one FLIR cooled core + one microbolometer + H2RG (exact tranche set at ratification from §4), PDFs + manifest rows, per-part dimensional audit, per-part loadable config (§3.1a) | B | Every tranche-1 preset passes schema validation (§6), minimum-set check (§3.2), cited files present + hashed; every part loads through the ordinary config path |
-| **2 — Application semantics** | Config `fpa:` key, `apply_fpa` API, override reporting, `qe_table` hookup, CHANGELOG + API/Parameter System doc updates | B | Preset→override→run flow covered by integration test; a GeoSnap preset drives the Gap 117 counting chain in a golden test |
+| **2 — Application semantics** | Config `fpa:` key, `apply_fpa` API, override reporting, `qe_table` hookup, CHANGELOG + API/Parameter System doc updates | B | Preset→override→run flow covered by integration test; a counting-class preset drives the Gap 117 counting chain in a golden test (*corrected 2026-09-06: research showed GeoSnap is CTIA + column ADC, i.e. `analog_well` — the counting exemplar is `dfpa-generic`, the MIT LL DFPA paper anchor, pulled into tranche 1*) |
 | **3 — GUI part selector** | §3.6; scenario + `gui_workflow.md`; live review | D | Owner-witnessed live run; GUI suite green |
 | **4 — Roster completion** | Remaining ratified roster in tranches (RVS/thin-data parts last, each shipping only if it clears §3.2 minimums) | B | Each tranche: same gates as Phase 1 |
 

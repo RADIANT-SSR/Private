@@ -11,7 +11,6 @@
 #   readout.architecture = digital_counting [paper: llj2014]
 #   readout.count_packet_e = 3500.0 e- [paper: llj2014]
 #   readout.counter_bits = 16 [paper: llj2014]
-#   readout.counting_mode = up_down [paper: llj2014]
 #   readout.read_noise_e_rms = 100.0 e- [assumed: assumed (see preset note)]
 #   readout.residue_readout = False [paper: llj2014]
 #
@@ -24,6 +23,5 @@ readout:
   architecture: digital_counting
   count_packet_e: 3500.0
   counter_bits: 16
-  counting_mode: up_down
   read_noise_e_rms: 100.0
   residue_readout: false

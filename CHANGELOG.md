@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **FPA preset application (Gap 119, plan Phase 2)** — new config key
+  `fpa: <part-name>` (applied by `Sensor.from_yaml`/`from_dict`/`load`) and
+  `Sensor.apply_fpa(name)` / `Sensor.fpa_applications` /
+  `radiant.api.FPAApplyReport` (public surface). Presets seed with
+  `Provenance.PRESET` (new source string `fpa:<part>/<source-key>`); explicit
+  user/config values always win and overrides are reported. Bare
+  `load_config` refuses the key with the standard unattached-section error.
 - **First shipped FPA presets — tranche 1 (Gap 119, plan Phase 1)** — six named
   parts load from `radiant.data.FPALibrary`: `geosnap-18`, `geosnap-10`,
   `flir-neutrino-lc`, `flir-boson-plus-640`, `teledyne-h2rg-2p5`, and

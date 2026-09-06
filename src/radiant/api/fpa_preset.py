@@ -1,0 +1,104 @@
+"""Apply a named FPA preset to a ParameterSet (Gap 119, plan §3.4).
+
+The apply contract: **presets seed, explicit values win.** Every preset entry
+is set through the ordinary ``ParameterSet.set(..., unit=...)`` boundary with
+``Provenance.PRESET`` and source ``fpa:<part>/<source-key>`` — except entries
+whose dot-path already has an explicit input (user or config file), which are
+skipped and reported. Because the guard is state-based, apply order relative
+to config loading does not matter: config values win whether the ``fpa:`` key
+is processed before or after the parameter block.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+
+from radiant.core.parameters import ParameterSet, Provenance
+from radiant.data.fpa import FPALibrary
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class FPAApplyReport:
+    """Record of one preset application (plan §3.4 override reporting).
+
+    Attributes
+    ----------
+    part:
+        Preset name that was applied.
+    applied:
+        Dot-paths the preset set (sorted).
+    skipped_existing:
+        Dot-paths the preset carries but did **not** set because an explicit
+        user/config input already held them — those values won (sorted).
+    qe_material:
+        The QE library curve the preset selected via its ``qe_table``, or
+        ``None`` if the preset ships no curve (or an explicit
+        ``detector.qe_material`` already won).
+    """
+
+    part: str
+    applied: tuple[str, ...]
+    skipped_existing: tuple[str, ...]
+    qe_material: str | None
+
+
+def apply_fpa_preset(
+    params: ParameterSet,
+    name: str,
+    *,
+    library: FPALibrary | None = None,
+) -> FPAApplyReport:
+    """Apply preset *name* onto *params* and return the override report.
+
+    Raises
+    ------
+    radiant.data.fpa.FPAPresetError
+        If *name* is not in the library or its document is invalid.
+    """
+    part = (library or FPALibrary()).part(name)
+    existing = set(params.input_provenances())
+    applied: list[str] = []
+    skipped: list[str] = []
+    for dotpath in sorted(part.parameters):
+        entry = part.parameters[dotpath]
+        if dotpath in existing:
+            skipped.append(dotpath)
+            continue
+        params.set(
+            dotpath,
+            entry.value,
+            provenance=Provenance.PRESET,
+            source=f"fpa:{name}/{entry.source or 'assumed'}",
+            unit=entry.unit,
+        )
+        applied.append(dotpath)
+
+    qe_material: str | None = None
+    if part.qe_table is not None:
+        if "detector.qe_material" in existing:
+            skipped.append("detector.qe_material")
+        else:
+            params.set(
+                "detector.qe_material",
+                part.qe_table,
+                provenance=Provenance.PRESET,
+                source=f"fpa:{name}/qe_table",
+            )
+            applied.append("detector.qe_material")
+            qe_material = part.qe_table
+
+    logger.info(
+        "Applied FPA preset '%s': %d parameters set, %d kept their explicit values",
+        name,
+        len(applied),
+        len(skipped),
+    )
+    return FPAApplyReport(
+        part=name,
+        applied=tuple(applied),
+        skipped_existing=tuple(sorted(skipped)),
+        qe_material=qe_material,
+    )

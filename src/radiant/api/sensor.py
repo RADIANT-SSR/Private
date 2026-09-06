@@ -28,6 +28,7 @@ import numpy.typing as npt
 from radiant.api._param_registry import build_parameter_set
 from radiant.api.config_io import normalize_element_document
 from radiant.api.errors import ApiValidationError
+from radiant.api.fpa_preset import FPAApplyReport, apply_fpa_preset
 from radiant.api.sensitivity import SensitivityResult, sensitivity
 from radiant.api.session import RadiantSession
 from radiant.api.solve import SolveResult, solve_for
@@ -110,6 +111,10 @@ class Sensor:
         # `optical_elements:` entries, normalized (absolute file refs).
         # Parsed onto the evaluation grid per run and serialized by save().
         self._element_document: list[dict[str, Any]] | None = None
+        # FPA preset applications (Gap 119): one report per apply_fpa call,
+        # for provenance inspection. Not serialized by save() — the applied
+        # values persist as ordinary explicit inputs.
+        self._fpa_reports: list[FPAApplyReport] = []
 
     # ------------------------------------------------------------------
     # Construction helpers
@@ -150,6 +155,8 @@ class Sensor:
         sensor = cls(wavelength_points=wavelength_points)
         sections: dict[str, Any] = {}
         load_config(Path(path), sensor._params, sections_out=sections)
+        if "fpa" in sections:
+            sensor.apply_fpa(str(sections.pop("fpa")))
         if _sensor_attaches_elements(sections, sections_out, path):
             sensor.set_optical_elements(
                 sections.pop("optical_elements"), base_dir=Path(path).parent
@@ -185,6 +192,8 @@ class Sensor:
         sensor = cls(wavelength_points=wavelength_points)
         sections: dict[str, Any] = {}
         load_config(data, sensor._params, sections_out=sections)
+        if "fpa" in sections:
+            sensor.apply_fpa(str(sections.pop("fpa")))
         if _sensor_attaches_elements(sections, sections_out, None):
             sensor.set_optical_elements(sections.pop("optical_elements"))
         _dispatch_unattached_sections(sections, sections_out, None)
@@ -213,6 +222,33 @@ class Sensor:
                 f"integer >= 2, got {wl_points!r} in {path}."
             )
         return cls.from_yaml(path, wavelength_points=wl_points, sections_out=sections_out)
+
+    # ------------------------------------------------------------------
+    # FPA presets (Gap 119)
+    # ------------------------------------------------------------------
+
+    def apply_fpa(self, name: str) -> FPAApplyReport:
+        """Apply a named FPA preset from the bundled library (Gap 119).
+
+        Presets seed; explicit values win: every ``detector.*``/``readout.*``
+        entry the preset carries is set with ``Provenance.PRESET`` unless the
+        dot-path already holds an explicit user/config input, in which case
+        the existing value is kept and reported. A later :meth:`set` on a
+        preset-set parameter overrides it normally. The returned
+        :class:`~radiant.api.fpa_preset.FPAApplyReport` lists what was
+        applied and what was kept; all reports are retained on
+        :attr:`fpa_applications`. Values applied here persist through
+        :meth:`save` as ordinary explicit inputs (the ``fpa:`` key itself is
+        not re-serialized).
+        """
+        report = apply_fpa_preset(self._params, name)
+        self._fpa_reports.append(report)
+        return report
+
+    @property
+    def fpa_applications(self) -> tuple[FPAApplyReport, ...]:
+        """Reports from every :meth:`apply_fpa` call on this Sensor, in order."""
+        return tuple(self._fpa_reports)
 
     def save(
         self,

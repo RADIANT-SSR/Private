@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
 
 from radiant.api.atmosphere_families import is_atmosphere_coverage_refusal
 from radiant.api.build_info import build_info
+from radiant.api.calibration_state import is_calibration_config_incomplete
 from radiant.api.config_io import read_template_meta
 from radiant.api.config_set import ConfigSetError, ConfigSetRunResult, ConfigurationSet
 from radiant.api.readout_architecture import (
@@ -1585,6 +1586,19 @@ class RADIANTMainWindow(QMainWindow):
         # config (architecture flipped, charge packet not yet entered) is an
         # expected incomplete state, not a rejected input — advisory, no modal
         # (the CU-322 routing pattern; structural, never message text).
+        # Gap 120 plan Phase 3: a mid-switch calibration config (scheme
+        # active, cal point not yet entered) is the identical seam one stage
+        # later — advisory beside the Calibration inputs, never a modal per
+        # evaluation. Only the calibration chip paints as the error site.
+        if is_calibration_config_incomplete(exc):
+            self._stage_strip.set_all_status("stale")
+            self._stage_strip.set_status("calibration", "err")
+            self.statusBar().showMessage(
+                "The calibration scheme needs its cal temperature(s) — set them "
+                "on the Calibration panel (see Messages; the previous result is "
+                "shown, stale)"
+            )
+            return
         if is_counting_config_incomplete(exc) or is_readout_architecture_conflict(exc):
             # Gap 117 readout-architecture states: one stage's configuration
             # is incomplete (mid-switch, packet not yet entered) or mixed

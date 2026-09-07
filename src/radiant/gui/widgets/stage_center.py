@@ -57,6 +57,7 @@ from radiant.gui.stage_views import (
 from radiant.gui.themes import Theme
 from radiant.gui.viewer.viewer_widget import GeometryViewer
 from radiant.gui.widgets.atmosphere_inputs_form import AtmosphereInputsForm
+from radiant.gui.widgets.calibration_inputs_form import CalibrationInputsForm
 from radiant.gui.widgets.detector_illustration import DetectorIllustration
 from radiant.gui.widgets.detector_inputs_form import DetectorInputsForm
 from radiant.gui.widgets.field_row import FieldRow
@@ -343,6 +344,7 @@ class StagePane(QWidget):
         # budget) refresh. Bound/refreshed like the source/optics/detector/spectral forms.
         self._platform_forms: list[PlatformInputsForm] = []
         self._readout_forms: list[ReadoutInputsForm] = []
+        self._calibration_forms: list[CalibrationInputsForm] = []
         # The Atmosphere-instrument Inputs form (GUI Capability Expansion plan GS-2): the
         # model selector + the active backend's knobs. Edit the model (or a knob) and the
         # τ/L_path + before/after-aperture plots refresh (edit-and-watch).
@@ -511,6 +513,15 @@ class StagePane(QWidget):
             readout_form.parameterEdited.connect(self.parameterEdited)
             layout.addWidget(readout_form)
             self._readout_forms.append(readout_form)
+        if spec.calibration_inputs:
+            # The Calibration instrument's editable inputs card (Gap 120, plan
+            # Phase 3): scheme selector + contextual groups; one sensor.set per
+            # edit; each accepted edit re-emits parameterEdited so the host
+            # re-evaluates and the Outputs readout + noise budget refresh.
+            calibration_form = CalibrationInputsForm(parent)
+            calibration_form.parameterEdited.connect(self.parameterEdited)
+            layout.addWidget(calibration_form)
+            self._calibration_forms.append(calibration_form)
         # The detector pixel illustration participates in ``panel_placement`` like
         # the MTF/noise panels, so it can sit *beside* the kernel that pixel
         # imposes on the PSF (owner walkthrough item 19) rather than above it.
@@ -795,6 +806,8 @@ class StagePane(QWidget):
             detector_form.refresh()
         for readout_form in self._readout_forms:
             readout_form.refresh()
+        for calibration_form in self._calibration_forms:
+            calibration_form.refresh()
         self.presetRemovedIncomplete.emit(missing)
 
     @property
@@ -821,6 +834,11 @@ class StagePane(QWidget):
     def readout_inputs_form(self) -> ReadoutInputsForm | None:
         """The Readout editable-inputs form, if this stage has one (Readout, PS-5)."""
         return self._readout_forms[0] if self._readout_forms else None
+
+    @property
+    def calibration_inputs_form(self) -> CalibrationInputsForm | None:
+        """The Calibration editable-inputs form, if this stage has one (Gap 120)."""
+        return self._calibration_forms[0] if self._calibration_forms else None
 
     @property
     def atmosphere_inputs_form(self) -> AtmosphereInputsForm | None:
@@ -867,6 +885,8 @@ class StagePane(QWidget):
             platform_form.bind_sensor(sensor, display_units)
         for readout_form in self._readout_forms:
             readout_form.bind_sensor(sensor, display_units)
+        for calibration_form in self._calibration_forms:
+            calibration_form.bind_sensor(sensor, display_units)
         for atmosphere_form in self._atmosphere_forms:
             atmosphere_form.bind_sensor(sensor, display_units)
         for element_editor in self._element_editors:
@@ -1094,6 +1114,8 @@ class StagePane(QWidget):
             platform_form.refresh()
         for readout_form in self._readout_forms:
             readout_form.refresh()
+        for calibration_form in self._calibration_forms:
+            calibration_form.refresh()
         for atmosphere_form in self._atmosphere_forms:
             atmosphere_form.refresh()
         self._refresh_detector_illustration()

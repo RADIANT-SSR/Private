@@ -37,6 +37,7 @@ from __future__ import annotations
 
 from typing import Final
 
+from radiant.calibration.stage import OUTPUT_UNITS as _CALIBRATION_UNITS
 from radiant.detector.stage import OUTPUT_UNITS as _DETECTOR_UNITS
 from radiant.optics.stage import OUTPUT_UNITS as _OPTICS_UNITS
 from radiant.platform.stage import OUTPUT_UNITS as _PLATFORM_UNITS
@@ -54,6 +55,7 @@ _STAGE_UNIT_TABLES: Final[dict[str, dict[str, str]]] = {
     "spectral_integration": _SPECTRAL_UNITS,
     "detector": _DETECTOR_UNITS,
     "readout": _READOUT_UNITS,
+    "calibration": _CALIBRATION_UNITS,
 }
 
 # Flattened ``(stage, output_key) -> unit`` view assembled from the per-stage tables.

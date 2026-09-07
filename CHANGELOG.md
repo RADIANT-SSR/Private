@@ -21,6 +21,14 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Calibration screen (Gap 120, plan Phase 3)** — the Calibration stage's
+  contextual center is now a full instrument: scheme selector + contextual
+  cal-point/NUC/drift/cal-source groups (`CalibrationInputsForm`), outputs
+  readout (residual terms, post-calibration totals, NEDT-equivalent
+  calibration floor, bias RSS), and the noise-budget plot. Mid-switch
+  configs (scheme active, cal point unset) surface as advisories, not
+  modals (`radiant.api.calibration_state.is_calibration_config_incomplete`,
+  new public surface). GUI-only behavior; computed results unchanged.
 - **Calibration error model live end-to-end (Gap 120, plan Phase 2)** —
   active schemes (`calibration.scheme = one_point | two_point`) now emit the
   post-NUC residual noise terms (`nuc_residual`, `gain_drift`,

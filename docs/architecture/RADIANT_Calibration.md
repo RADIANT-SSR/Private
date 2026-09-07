@@ -12,9 +12,9 @@ by SNR/CSNR (SCNR adds `sigma_calibration_e` to its spatial RSS); the
 radiometric-accuracy metric (`RADIANT_Metrics.md` §4.14) consumes the bias
 budget. Both ADR-0012 structural guarantees are contract-tested on full
 chains (`tests/integration/test_calibration_chain.py`). `scheme = "none"`
-remains bit-identical to the pre-Gap-120 chain (asserted). Remaining: the
-dedicated GUI screen (plan Phase 3, live-review gated) and scenarios
-(Phase 4).
+remains bit-identical to the pre-Gap-120 chain (asserted). The dedicated GUI screen is built (plan
+Phase 3 — `RADIANT_GUI_Architecture.md` §4.4.1 Calibration row; merge
+gated on owner live review). Remaining: scenarios (Phase 4).
 
 ---
 

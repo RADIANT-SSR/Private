@@ -282,7 +282,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 29 source + 22 tests
+### `api/` — 30 source + 22 tests
 
 Public scripting API.
 
@@ -525,16 +525,16 @@ source of truth, per the header.
 | performance/           | 55     | 37    | one metric per module (Rule 19) |
 | io/                    | 11     | 11    | config, results, element_config |
 | cli/                   | 12     | 2     | subcommand-per-file (incl. `radiant gui`) |
-| api/                   | 20     | 14    | public + internal session |
-| gui/                   | 80     | 43    | PySide6 shell + 56 widgets + design-system theme — optional `gui` extra |
+| api/                   | 21     | 14    | public + internal session |
+| gui/                   | 81     | 44    | PySide6 shell + 56 widgets + design-system theme — optional `gui` extra |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
 | data/                  | 2      | 5     | packaged-data accessor |
-| **Subtotal**           | **331**| **226**| 557 non-init files |
+| **Subtotal**           | **334**| **228**| 562 non-init files |
 | Integration tests      | —      | 42    | `tests/integration/` |
 | Top-level tests        | —      | 6     | `tests/test_public_api.py`, `test_exceptions.py`, `test_provenance.py`, `test_calibration_analysis.py`, `test_error_budget.py`, `test_veiling_glare_signal_consistency.py` |
-| **Grand total (non-init)** |    |       | **605** |
+| **Grand total (non-init)** |    |       | **610** |
 
-Including `__init__.py` files, total `.py` count under `src/radiant/` is 602 (44 `__init__.py`).
+Including `__init__.py` files, total `.py` count under `src/radiant/` is 607 (44 `__init__.py`).
 
 ---
 

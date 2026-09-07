@@ -118,6 +118,7 @@ class StageSubView:
     spectral_inputs: bool = False
     platform_inputs: bool = False
     readout_inputs: bool = False
+    calibration_inputs: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
     noise_panel_chart: bool = True
@@ -199,6 +200,10 @@ class StageComposition:
         Show the Readout stage's editable inputs card — read noise / conversion gain / ADC bit
         depth / full-well capacity as schema-driven :class:`FieldRow`s (Readout only, GUI plan
         Phase PS-5, v1-minimal).
+    calibration_inputs:
+        Show the Calibration stage's editable inputs card — the scheme selector + contextual
+        cal-point / NUC / drift / cal-source groups as schema-driven :class:`FieldRow`s
+        (Calibration only, Gap 120 plan Phase 3).
     detector_illustration:
         Show the Detector pixel schematic — a Qt-drawn, not-to-scale pixel labelled with its
         pitch (µm) and fill factor (Detector only, GUI plan Phase PS-3).
@@ -261,6 +266,7 @@ class StageComposition:
     spectral_inputs: bool = False
     platform_inputs: bool = False
     readout_inputs: bool = False
+    calibration_inputs: bool = False
     mtf_panel: bool = False
     noise_panel: bool = False
     noise_panel_chart: bool = True
@@ -311,11 +317,14 @@ _READOUT_NOTE: Final[str] = (
     "result.plot.noise_budget as the Detector view."
 )
 _CALIBRATION_NOTE: Final[str] = (
-    "Calibration error model (Gap 120) — Phase 0 shell. calibration.scheme = 'none' "
-    "(the default) reproduces today's results exactly; active schemes are phase-gated "
-    "until the physics lands (plan Phase 1). Edit calibration.* parameters in the left "
-    "panel; the full screen (scheme selector, drift and cal-source groups, "
-    "precision-vs-accuracy readout) arrives with plan Phase 3."
+    "Calibration error model (Gap 120). Scheme 'none' (the default) reproduces today's "
+    "results exactly — PRNU/DSNU act as static dispersions. An active NUC scheme "
+    "replaces them with the post-NUC residual terms (nuc_residual, gain_drift, "
+    "offset_drift), added after TDI/coadd scaling — correlated errors do not average "
+    "down, so integration gain plateaus at the calibration floor. Cal-source and gain "
+    "uncertainties feed the BIAS budget (radiometric accuracy metrics on the "
+    "Performance screen) — accuracy is reported beside precision (NEDT), never RSS'd "
+    "into it. The noise budget below shows the residual terms once a scheme is active."
 )
 
 
@@ -620,14 +629,19 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
         plots=(PlotSpec("Noise budget", "noise_budget"),),
         note=_READOUT_NOTE,
     ),
-    # Phase 0 shell (Gap 120): the stage exists in the chain, so the strip's
-    # coverage invariant demands a composition, but the real Calibration screen
-    # (scheme-selector card, contextual groups, precision-vs-accuracy readout) is
-    # plan Phase 3 — owner live-review applies before it lands. Until then the
-    # center shows the stage note; calibration.* parameters edit via the left
-    # parameter panel as on any stage.
+    # The Calibration stage instrument (Gap 120, plan Phase 3): the scheme
+    # selector leads (it steers what the rest of the screen means — the
+    # Geometry scene-class / Gap 117 architecture-selector rationale), then the
+    # contextual groups, beside the Outputs readout (cal signals, per-term
+    # residuals, sigma totals, the NEDT-equivalent calibration floor, the bias
+    # RSS) and the noise-budget plot where the residual terms appear once a
+    # scheme is active — edit-and-watch. Precision-vs-accuracy: the noise side
+    # lives here; the accuracy metrics render on the Performance screen cards.
     "calibration": StageComposition(
         title="Calibration",
+        calibration_inputs=True,
+        outputs=True,
+        plots=(PlotSpec("Noise budget", "noise_budget"),),
         note=_CALIBRATION_NOTE,
     ),
     # The Performance stage instrument (owner-shaped 2026-07-25, two walkthrough rounds:

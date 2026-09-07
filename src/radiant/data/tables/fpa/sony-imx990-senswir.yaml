@@ -33,6 +33,8 @@ parameters:
     {value: 196.0, unit: "e-", source: lucid_page, basis: datasheet, location: "EMVA 1288 results (gain 0 dB): temporal dark noise 196 e- RMS"}
   readout.adc_bits:
     {value: 12, unit: null, source: sony_page, basis: datasheet, location: "on-chip ADC modes 8/10/12-bit; 12-bit mode pinned (71 fps max per both Sony and LUCID)"}
+  readout.gain_e_per_dn:
+    {value: 34.91, unit: "e-/DN", source: lucid_page, basis: derived, location: "full-scale-matched default: 1.43e+5 e- well / 2^12 = 34.91 e-/DN (EMVA block publishes no gain at this setting)"}
   readout.frame_period_s:
     {value: 1.4085e-2, unit: s, source: sony_page, basis: derived, location: "1 / (71 fps max, all-pixel readout, 12-bit ADC mode)"}
 

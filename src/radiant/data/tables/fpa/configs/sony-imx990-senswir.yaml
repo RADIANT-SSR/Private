@@ -14,6 +14,7 @@
 #   readout.adc_bits = 12 [datasheet: sony_page]
 #   readout.frame_period_s = 0.014085 s [derived: sony_page]
 #   readout.full_well_capacity_e = 143000.0 [datasheet: lucid_page]
+#   readout.gain_e_per_dn = 34.91 e-/DN [derived: lucid_page]
 #   readout.read_noise_e_rms = 196.0 e- [datasheet: lucid_page]
 #
 detector:
@@ -28,4 +29,5 @@ readout:
   adc_bits: 12
   frame_period_s: 0.014085
   full_well_capacity_e: 143000.0
+  gain_e_per_dn: 34.91
   read_noise_e_rms: 196.0

@@ -60,6 +60,7 @@ from radiant.gui.widgets.atmosphere_inputs_form import AtmosphereInputsForm
 from radiant.gui.widgets.detector_illustration import DetectorIllustration
 from radiant.gui.widgets.detector_inputs_form import DetectorInputsForm
 from radiant.gui.widgets.field_row import FieldRow
+from radiant.gui.widgets.fpa_part_selector import FPAPartSelector
 from radiant.gui.widgets.geometry_angle_panel import (
     NOMINAL_SHAPE_DIMENSIONS,
     GeometryAnglePanel,
@@ -260,6 +261,9 @@ class StagePane(QWidget):
     pinOutputRequested = Signal(str, str, str, str)
     pinMetricRequested = Signal(str, str)
     parameterEdited = Signal(str)
+    presetRemovedIncomplete = Signal(object)
+    #: Preset removal left required parameters unset (Gap 119): hosts mark the
+    #: run stale and do NOT re-evaluate. Carries the missing dot-path list.
     # A compound edit: several dot-paths changed by one user action that must undo as a
     # single step (CU-141 — a shape pick plus the dimensions seeded alongside it). The
     # payload is the list of affected dot-paths, primary first.
@@ -327,6 +331,7 @@ class StagePane(QWidget):
         # pitch redraws the illustration + PSF grid. The illustration is drawn from the live
         # sensor's pixel geometry (populated each result, edit-and-watch).
         self._detector_forms: list[DetectorInputsForm] = []
+        self._fpa_selectors: list[FPAPartSelector] = []
         self._detector_illustrations: list[DetectorIllustration] = []
         # The Spectral-Integration-instrument Inputs form (GUI plan Phase PS-4): edit the band
         # or the integration time and every dependent view refreshes — editing the filter edges
@@ -466,6 +471,15 @@ class StagePane(QWidget):
             layout.addWidget(element_editor)
             self._element_editors.append(element_editor)
         if spec.detector_inputs:
+            # FPA part library card (Gap 119 §3.6): pick a real part, one
+            # sensor.apply_fpa call; a successful apply re-enters the same
+            # debounced re-evaluation path as a field edit.
+            fpa_selector = FPAPartSelector(parent)
+            fpa_selector.presetApplied.connect(self.parameterEdited)
+            fpa_selector.presetRemoved.connect(self.parameterEdited)
+            fpa_selector.presetRemovedIncomplete.connect(self._on_preset_removed_incomplete)
+            layout.addWidget(fpa_selector)
+            self._fpa_selectors.append(fpa_selector)
             # The Detector instrument's editable inputs card (GUI plan Phase PS-3): one
             # sensor.set per edit; each accepted edit re-emits parameterEdited so the host
             # re-evaluates and every Detector tab (Noise pie, illustration, PSF grid) refreshes.
@@ -775,6 +789,19 @@ class StagePane(QWidget):
         """The Detector editable-inputs form, if this stage has one (Detector, PS-3)."""
         return self._detector_forms[0] if self._detector_forms else None
 
+    def _on_preset_removed_incomplete(self, missing: object) -> None:
+        """Refresh the input forms (cleared values now read —) and escalate."""
+        for detector_form in self._detector_forms:
+            detector_form.refresh()
+        for readout_form in self._readout_forms:
+            readout_form.refresh()
+        self.presetRemovedIncomplete.emit(missing)
+
+    @property
+    def fpa_part_selector(self) -> FPAPartSelector | None:
+        """The FPA part-library card, if this stage has one (Detector, Gap 119)."""
+        return self._fpa_selectors[0] if self._fpa_selectors else None
+
     @property
     def detector_illustration(self) -> DetectorIllustration | None:
         """The Detector pixel schematic, if this stage has one (Detector, PS-3)."""
@@ -832,6 +859,8 @@ class StagePane(QWidget):
             optics_form.bind_sensor(sensor, display_units)
         for detector_form in self._detector_forms:
             detector_form.bind_sensor(sensor, display_units)
+        for fpa_selector in self._fpa_selectors:
+            fpa_selector.bind_sensor(sensor)
         for spectral_form in self._spectral_forms:
             spectral_form.bind_sensor(sensor, display_units)
         for platform_form in self._platform_forms:
@@ -1171,6 +1200,9 @@ class StageCenter(QWidget):
     pinOutputRequested = Signal(str, str, str, str)
     pinMetricRequested = Signal(str, str)
     parameterEdited = Signal(str)
+    #: Bubbled from a pane's FPA card (Gap 119): preset removal left required
+    #: parameters unset — hosts mark stale, no re-evaluation.
+    presetRemovedIncomplete = Signal(object)
     # A compound edit: several dot-paths changed by one user action that must undo as a
     # single step (CU-141 — a shape pick plus the dimensions seeded alongside it). The
     # payload is the list of affected dot-paths, primary first.
@@ -1195,6 +1227,7 @@ class StageCenter(QWidget):
             pane.pinOutputRequested.connect(self.pinOutputRequested)
             pane.pinMetricRequested.connect(self.pinMetricRequested)
             pane.parameterEdited.connect(self.parameterEdited)
+            pane.presetRemovedIncomplete.connect(self.presetRemovedIncomplete)
             pane.compoundParameterEdited.connect(self.compoundParameterEdited)
             self._stack.addWidget(pane)
             self._panes[namespace] = pane

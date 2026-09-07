@@ -29,6 +29,8 @@ parameters:
     {value: 80, unit: "%", basis: assumed, note: "not published; typical MWIR HOT MCT / InSb band-average - curator placeholder"}
   readout.read_noise_e_rms:
     {value: 500.0, unit: "e-", basis: assumed, note: "not published; at the NEdT test point (50 % of 7 Me- well) shot noise is ~1870 e- RMS, so read noise is subdominant - 500 e- is a curator placeholder consistent with the <25 mK NEdT"}
+  readout.gain_e_per_dn:
+    {value: 106.81, unit: "e-/DN", source: ogi2025, basis: derived, location: "full-scale-matched default: 7.0e+6 e- well / 2^16 (schema-default bit depth; the core's ADC bit depth is not published) = 106.81 e-/DN"}
   readout.frame_period_s:
     {value: 1.6667e-2, unit: s, source: page2019, basis: derived, location: "1 / (60 Hz max frame rate)"}
 

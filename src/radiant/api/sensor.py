@@ -28,7 +28,7 @@ import numpy.typing as npt
 from radiant.api._param_registry import build_parameter_set
 from radiant.api.config_io import normalize_element_document
 from radiant.api.errors import ApiValidationError
-from radiant.api.fpa_preset import FPAApplyReport, apply_fpa_preset
+from radiant.api.fpa_preset import FPAApplyReport, apply_fpa_preset, remove_fpa_preset
 from radiant.api.sensitivity import SensitivityResult, sensitivity
 from radiant.api.session import RadiantSession
 from radiant.api.solve import SolveResult, solve_for
@@ -242,12 +242,34 @@ class Sensor:
         not re-serialized).
         """
         report = apply_fpa_preset(self._params, name)
-        self._fpa_reports.append(report)
+        # One preset in effect at a time: the apply above removed any previous
+        # part's values, so the report list holds only what is live.
+        self._fpa_reports = [report]
         return report
+
+    def remove_fpa(self) -> tuple[str, ...]:
+        """Remove the applied FPA preset, reverting to a custom configuration.
+
+        Clears every parameter the preset seeded (``Provenance.PRESET``) so it
+        reverts to its schema default / derived value; explicit user and
+        config values — including overrides made after the apply — are kept.
+        Also empties :attr:`fpa_applications` (no preset is in effect).
+        Returns the cleared dot-paths, sorted; empty when no preset was
+        applied. Applying a different part does this implicitly first, so
+        switching parts never mixes two presets' values.
+        """
+        cleared = remove_fpa_preset(self._params)
+        self._fpa_reports.clear()
+        return cleared
 
     @property
     def fpa_applications(self) -> tuple[FPAApplyReport, ...]:
-        """Reports from every :meth:`apply_fpa` call on this Sensor, in order."""
+        """Reports from every :meth:`apply_fpa` call still in effect, in order.
+
+        Emptied by :meth:`remove_fpa`; an :meth:`apply_fpa` of a different
+        part removes the previous part first but keeps the apply history of
+        the session's earlier parts only in provenance sources, not here.
+        """
         return tuple(self._fpa_reports)
 
     def save(
@@ -433,6 +455,16 @@ class Sensor:
         """Get a resolved parameter value in input (display) units."""
         self._ensure_resolved()
         return self._params.get_input(dotpath)
+
+    def peek_input(self, dotpath: str) -> Any:
+        """The explicitly-set input value (input units), or ``None`` — no resolve.
+
+        The read-side counterpart of :meth:`set` for incomplete configurations:
+        never raises for an unresolvable config (unlike :meth:`get_input`), so
+        the GUI can display committed values while required parameters are
+        still missing (Gap 119).
+        """
+        return self._params.peek_input(dotpath)
 
     def resolved(self, dotpath: str) -> ResolvedValue:
         """Return the full resolved record for *dotpath* (CU-105).

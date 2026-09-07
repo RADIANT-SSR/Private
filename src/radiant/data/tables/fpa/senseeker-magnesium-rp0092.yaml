@@ -3,6 +3,7 @@ name: senseeker-magnesium-rp0092
 vendor: Senseeker Corp
 model: Magnesium MIL RP0092 (RP0092-D12x dual-polarity dual-band variant)
 part_class: cooled_ir_droic
+part_kind: roic
 material: none (bare DPROIC - detector-agnostic; mates to any direct-injection-compatible single or dual-band IR detector)
 band: {label: "detector-dependent (bare ROIC; MW/LW direct-injection detectors)", cut_on_um: 2.0, cut_off_um: 14.0}
 description: >

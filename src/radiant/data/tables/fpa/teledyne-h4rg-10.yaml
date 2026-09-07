@@ -33,6 +33,8 @@ parameters:
     {value: 15.2, unit: "e-", source: mosby2020, basis: paper, location: "Table 4: median CDS noise 15.2 e- (per-device medians 11.9-16.3 e-; benchmark <20 e-)"}
   readout.cds_enabled:
     {value: 1, unit: null, source: mosby2020, basis: paper, location: "Sect. 3.2.1: read-noise figure is a correlated-double-sampling (CDS) measurement"}
+  readout.gain_e_per_dn:
+    {value: 1.5259, unit: "e-/DN", source: mosby2020, basis: derived, location: "full-scale-matched default: 1.0e+5 e- well / 2^16 controller bits = 1.5259 e-/DN (conversion gain is per-device in the paper and system-defined in flight)"}
   readout.adc_bits:
     {value: 16, unit: null, source: mosby2020, basis: derived, location: "H4RG has analog outputs (no on-chip ADC); 16-bit when paired with the SIDECAR-class controller ASIC used in the characterization and in the Roman WFI (ACADIA)"}
 

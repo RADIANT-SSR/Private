@@ -266,7 +266,18 @@ class OutputsReadout(QWidget):
             name_label.setToolTip(tooltip)
             value_label.setToolTip(tooltip)
         value_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        if len(value_text) > 60:
+            # Long advisory strings (e.g. the detector stage's
+            # dark_temperature_note) must wrap, not dictate the row width: one
+            # unbreakable QLabel here set the whole tab body's minimum width
+            # (2228 px for that note), pushing every Inputs value box and the
+            # form's right column behind a horizontal scrollbar — the "dead
+            # space" of the Gap 119 Phase 3 live review (owner screenshots
+            # 2026-09-06).
+            value_label.setWordWrap(True)
+            value_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        else:
+            value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self._grid.addWidget(name_label, row, 0)
         self._grid.addWidget(value_label, row, 1)
         self._value_labels[key] = value_label

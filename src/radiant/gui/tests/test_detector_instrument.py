@@ -271,3 +271,42 @@ class TestFullSchemaExpansion:
             "detector.qe_table_path",
         ):
             assert form.row(dotpath) is not None
+
+
+class TestAdaptiveMasonry:
+    """Live-review layout fix (2026-09-06): dense balanced columns, no h-scroll."""
+
+    def test_wide_pane_uses_two_columns(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.detector_inputs_form import DetectorInputsForm
+
+        form = DetectorInputsForm()
+        qtbot.addWidget(form)
+        form.show()  # hidden widgets defer resize events
+        form.resize(2 * form._ROW_WIDTH + 60, 900)
+        assert form._column_count == 2
+
+    def test_narrow_pane_collapses_to_one_column(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.detector_inputs_form import DetectorInputsForm
+
+        form = DetectorInputsForm()
+        qtbot.addWidget(form)
+        form.show()  # hidden widgets defer resize events
+        form.resize(form._ROW_WIDTH + 40, 900)
+        assert form._column_count == 1
+        # Every field row is still present and iterable (binding contract).
+        assert len(form.field_dotpaths()) == len(_DETECTOR_FIELDS)
+
+
+class TestOutputsAdvisoryWrap:
+    """Long advisory strings wrap instead of dictating the tab width (live-review
+    root cause 2026-09-06: dark_temperature_note demanded 2228 px minimum,
+    pushing every Inputs value box behind a horizontal scrollbar)."""
+
+    def test_long_note_does_not_force_width(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.outputs_readout import OutputsReadout
+
+        readout = OutputsReadout()
+        qtbot.addWidget(readout)
+        note = "x = 110.0 K differs from y = 77.0 K, " * 8  # ~300 chars, advisory-sized
+        readout.show_stage_outputs("detector", {"dark_temperature_note": note, "signal_e": 1.0})
+        assert readout.minimumSizeHint().width() < 700

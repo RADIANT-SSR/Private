@@ -14,6 +14,7 @@
 #   readout.architecture = analog_well [derived: sutherland2015]
 #   readout.cds_enabled = 1 [paper: sutherland2015]
 #   readout.full_well_capacity_e = 140000.0 [derived: casu_linearity]
+#   readout.gain_e_per_dn = 4.19 e-/DN [paper: sutherland2015]
 #   readout.read_noise_e_rms = 24.0 e- [paper: sutherland2015]
 #
 detector:
@@ -28,4 +29,5 @@ readout:
   architecture: analog_well
   cds_enabled: 1
   full_well_capacity_e: 140000.0
+  gain_e_per_dn: 4.19
   read_noise_e_rms: 24.0

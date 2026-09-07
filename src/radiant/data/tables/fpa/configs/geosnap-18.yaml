@@ -14,6 +14,7 @@
 #   readout.architecture = analog_well [derived: ds2022]
 #   readout.frame_period_s = 0.011765 s [derived: ds2022]
 #   readout.full_well_capacity_e = 2600000.0 [datasheet: ds2022]
+#   readout.gain_e_per_dn = 158.69 e-/DN [derived: ds2022]
 #   readout.read_noise_e_rms = 400.0 e- [datasheet: ds2022]
 #
 detector:
@@ -28,4 +29,5 @@ readout:
   architecture: analog_well
   frame_period_s: 0.011765
   full_well_capacity_e: 2600000.0
+  gain_e_per_dn: 158.69
   read_noise_e_rms: 400.0

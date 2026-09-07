@@ -41,6 +41,21 @@ class UnknownParameterError(RadiantError, KeyError):
     """
 
 
+class RequiredParameterError(CoreValidationError):
+    """A required (no-default) parameter is unset at resolve time.
+
+    Carries the dot-path structurally (``param``) so surfaces can route the
+    incomplete-config state without parsing message text (Rule 15; the GUI
+    treats it as an advisory, not a modal — Gap 119 live review 2026-09-06).
+    Subclasses :class:`CoreValidationError`, so existing ``except`` sites and
+    message-based tests are unaffected.
+    """
+
+    def __init__(self, message: str, *, param: str) -> None:
+        super().__init__(message)
+        self.param = param
+
+
 class ParameterBoundsError(RadiantError, ValueError):
     """A user-controlled parameter is out of its valid physical domain.
 
@@ -596,12 +611,13 @@ class ParameterSet:
                     if pdef.required_unless is not None
                     else ""
                 )
-                raise CoreValidationError(
+                raise RequiredParameterError(
                     f"Required parameter '{name}' is not set.\n"
                     f"  Description: {pdef.description}\n"
                     f"  Expected type: {pdef.dtype.__name__} in "
                     f"{pdef.input_unit or 'dimensionless'}\n"
-                    f"  Set it via: params.set('{name}', value)\n" + unless_hint
+                    f"  Set it via: params.set('{name}', value)\n" + unless_hint,
+                    param=name,
                 )
             self._resolved[name] = self._validate_and_convert(
                 name,
@@ -885,6 +901,25 @@ class ParameterSet:
         """Return the value in input (display) units."""
         self._require_resolved()
         return self._resolved[name].input_value
+
+    def peek_input(self, name: str) -> Any:
+        """Return the explicitly-set input value (input units) without resolving.
+
+        ``None`` when *name* has no explicit input. Unlike :meth:`get_input`,
+        this never triggers (or requires) resolution, so display surfaces can
+        read committed values while the configuration is still incomplete —
+        e.g. mid-way through replacing a removed FPA preset (Gap 119 live
+        review 2026-09-06: edits looked like they were 'not taking' because
+        every read raised until the last required parameter was set). Values
+        were unit-converted at ``set()`` (Rule 2), so this is the input-unit
+        value as validation will see it; bounds/enum checks still happen at
+        resolve time.
+        """
+        canonical = self._canonical(name)
+        if canonical not in self._defs:
+            raise UnknownParameterError(self._suggest(canonical))
+        entry = self._inputs.get(canonical)
+        return None if entry is None else entry[0]
 
     def all_resolved(self) -> dict[str, ResolvedValue]:
         self._require_resolved()

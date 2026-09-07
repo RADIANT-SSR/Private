@@ -12,6 +12,7 @@
 #   readout.adc_bits = 14 [datasheet: leaflet2025]
 #   readout.architecture = analog_well [derived: leaflet2025]
 #   readout.full_well_capacity_e = 800000.0 [assumed: assumed (see preset note)]
+#   readout.gain_e_per_dn = 48.83 e-/DN [derived: leaflet2025]
 #   readout.read_noise_e_rms = 400.0 e- [assumed: assumed (see preset note)]
 #
 detector:
@@ -24,4 +25,5 @@ readout:
   adc_bits: 14
   architecture: analog_well
   full_well_capacity_e: 800000.0
+  gain_e_per_dn: 48.83
   read_noise_e_rms: 400.0

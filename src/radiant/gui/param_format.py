@@ -142,9 +142,12 @@ def field_display_text(
         value = sensor.get_input(dotpath)
     except (KeyError, RadiantError):
         # KeyError: present-but-unresolved parameter. RadiantError: the whole config
-        # cannot resolve yet (a blank File → New) — the field shows unset, not a crash
-        # (found 2026-07-16 with the CU-140 guard tests).
-        value = None
+        # cannot resolve yet (a blank File → New, or mid-way through replacing a
+        # removed FPA preset) — fall back to the committed raw input, so an edit
+        # the user just made still displays while OTHER required parameters are
+        # missing (Gap 119 live review 2026-09-06: 'updates are not taking');
+        # unset fields show — as before (CU-140 guard tests).
+        value = sensor.peek_input(dotpath)
     # Per-row override → global preference (angles in degrees by default,
     # CU-326 owner ruling) → schema input_unit; same chain as the panel rows.
     target = display_units.get(dotpath)

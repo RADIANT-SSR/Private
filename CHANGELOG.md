@@ -21,6 +21,43 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: FPA part-library row on the Detector stage (Gap 119, plan Phase 3)**
+  — one compact row (status + "Choose part & apply…" + "Open datasheet/paper")
+  opening a part-library dialog: all 21 presets with Kind / Class / Band /
+  basis-census columns and a details pane; Apply is one `sensor.apply_fpa`
+  call with the applied-vs-kept summary and per-parameter Details dialog;
+  Open datasheet resolves the committed PDF (citation-URL fallback on wheel
+  installs). New public API `radiant.api.available_fpa_parts` / `FPAPartInfo`
+  / `FPASourceInfo`. New preset field `part_kind: fpa | roic` marks bare
+  ROICs (Senseeker DPROICs, dfpa-generic) whose detector-side values belong
+  to the mated diode (Gap 121 tracks true ROIC+detector composition).
+  Scenario `scenarios/02_mike_detector_engineer/2.8_fpa_part_library/`.
+  `Sensor.peek_input` / `ParameterSet.peek_input` (public surface): read an
+  explicitly-set input value without resolving — committed edits display
+  while a configuration is still incomplete.
+  New error class `radiant.core.parameters.RequiredParameterError`
+  (subclasses the previous `CoreValidationError` raise, message unchanged)
+  carries the missing dot-path structurally; the GUI routes it as an
+  incomplete-config advisory (stale + status bar, owning stage chip red)
+  instead of a modal per fix-up edit.
+  `Sensor.remove_fpa()` / `radiant.api.remove_fpa_preset` (public surface)
+  clear a preset back to a custom configuration (explicit edits kept), with a
+  Remove button on the card; applying a different part now removes the
+  previous part's values first (preset values yield to presets — previously a
+  second apply kept the first part's overlapping values).
+  Iterated under owner live review 2026-09-06 (first-cut combo card
+  replaced). The Detector Inputs form's fixed two-column grid became adaptive
+  balanced masonry: groups pack into the currently-shortest column and the
+  column count follows the pane width (1 or 2) — no more blank runs under
+  short groups and no horizontal scrollbar hiding the right column.
+- **Results-affecting: FPA presets gain full-scale-matched ADC gains** —
+  twelve presets that ship a well capacity but no published e⁻/DN now carry
+  `readout.gain_e_per_dn` (measured system value for VIRGO-2K: 4.19 e⁻/ADU;
+  full-scale-matched `well / 2^bits` derived defaults elsewhere, each entry
+  flagged). Removes the spurious ADC-mismatch/saturation warnings on preset
+  apply; DN-domain outputs rescale accordingly and quantization noise becomes
+  realistic — SNR shifts are small (scenario 2.8 GeoSnap-18: 1178.6 → 1177.9,
+  ≈0.06 % lower; goldens unchanged within tolerance).
 - **Calibration stage, chain skeleton (Gap 120, ADR-0012, plan Phase 0)** —
   new `CalibrationStage` between Readout and Performance (terms-only; chain
   grows to 10 stages), the `calibration.*` parameter namespace (scheme

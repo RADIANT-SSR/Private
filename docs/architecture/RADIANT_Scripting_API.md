@@ -70,16 +70,32 @@ s.fpa_applications        # every FPAApplyReport on this Sensor, in order
 ```
 
 Presets seed; explicit values win: an entry is skipped (and reported) when its
-dot-path already has an explicit input, and a later `s.set(...)` overrides a
-preset value normally. Each applied value's source string is
+dot-path already has an explicit **user/config** input, and a later `s.set(...)`
+overrides a preset value normally. Preset values yield to presets: applying a
+different part removes the previous part's values first, so switching never
+mixes two presets. `s.remove_fpa()` (owner request, 2026-09-06 live review)
+clears every `Provenance.PRESET` input — reverting those parameters to their
+schema defaults / derived values for a fully custom configuration — while
+keeping explicit user/config values including post-apply overrides; it returns
+the cleared dot-paths and empties `s.fpa_applications`. `remove_fpa_preset` is
+the `ParameterSet`-level equivalent, exported from `radiant.api`.
+`s.peek_input(dotpath)` reads an explicitly-set input value (input units, or
+`None`) **without resolving** — the read-side counterpart of `set` for
+incomplete configurations (display surfaces use it so committed edits show
+while other required parameters are still missing); `ParameterSet.peek_input`
+is the core equivalent. Each applied value's source string is
 `fpa:<part>/<source-key>`, tracing to the citation inside the preset document
 (`src/radiant/data/tables/fpa/<part>.yaml`, per-parameter attribution +
 committed reference PDFs). The config-file equivalent is the top-level
 `fpa: <part-name>` key (`RADIANT_Config_Format.md` §1.8b). `FPAApplyReport` is
 exported from `radiant.api`. Unknown part names raise
 `radiant.data.FPAPresetError` listing the library. Browse parts with
-`radiant.data.FPALibrary().names()` / `.part(name)`; every part also ships a
-generated plain-config twin at `src/radiant/data/tables/fpa/configs/`.
+`radiant.data.FPALibrary().names()` / `.part(name)` — or, for display surfaces,
+`radiant.api.available_fpa_parts()` (returns `FPAPartInfo` records: vendor,
+model, class, band label, parameter/basis census, citations — the projection
+the GUI part selector uses, since `gui/` imports `radiant.api` only). Every
+part also ships a generated plain-config twin at
+`src/radiant/data/tables/fpa/configs/`.
 
 There is no separate `sensor=`/`scenario=` two-file loader and no `Sensor.from_configs()` fluent-builder path. See Appendix A.
 

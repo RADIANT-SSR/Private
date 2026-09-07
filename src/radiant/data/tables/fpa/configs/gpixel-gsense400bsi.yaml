@@ -14,6 +14,7 @@
 #   readout.adc_bits = 12 [datasheet: gpixel_page]
 #   readout.frame_period_s = 0.041667 s [derived: gpixel_page]
 #   readout.full_well_capacity_e = 91000.0 [datasheet: gpixel_page]
+#   readout.gain_e_per_dn = 22.22 e-/DN [derived: gpixel_page]
 #   readout.read_noise_e_rms = 1.6 e- [datasheet: gpixel_page]
 #
 detector:
@@ -28,4 +29,5 @@ readout:
   adc_bits: 12
   frame_period_s: 0.041667
   full_well_capacity_e: 91000.0
+  gain_e_per_dn: 22.22
   read_noise_e_rms: 1.6

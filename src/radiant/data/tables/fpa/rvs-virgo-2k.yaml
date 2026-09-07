@@ -34,6 +34,8 @@ parameters:
     {value: 1.40e+5, unit: null, source: casu_linearity, basis: derived, location: "median on-sky saturation 33,500 ADU (median of the 16-detector CASU table; spread 24,000-37,000 ADU) x median system gain 4.19 e-/ADU (sutherland2015) = 1.40e5 e-"}
   readout.read_noise_e_rms:
     {value: 24.0, unit: "e-", source: sutherland2015, basis: paper, location: "Sec. 7.6: 'readout noise is typically 24 e- rms for a single integration with double-correlated sampling'"}
+  readout.gain_e_per_dn:
+    {value: 4.19, unit: "e-/DN", source: sutherland2015, basis: paper, location: "Sec. 7.8: median system gain 4.19 e-/ADU (VISTA off-chip 16-channel controllers - a facility setting, not a ROIC property; override for a different camera)"}
   readout.cds_enabled:
     {value: 1, unit: null, source: sutherland2015, basis: paper, location: "Sec. 7.8: 'the standard readout mode is double-correlated sampling' (reset - read - wait DIT - read)"}
 
@@ -71,9 +73,10 @@ sources:
 notes: >
   SYSTEM GAIN: median 4.19 e-/ADU (sutherland2015 Sec. 7.8; corroborated by
   casu_gain, 'median gain 4.19, cf. 4.3 for wfcam'). This is set by VISTA's
-  off-chip 16-channel facility controllers, not by the ROIC, so
-  readout.gain_e_per_dn is deliberately left unset - a different camera
-  around a VIRGO-2K would choose a different gain. PITCH: the paper prints
+  off-chip 16-channel facility controllers, not by the ROIC; it now ships as
+  readout.gain_e_per_dn so the ADC model is warning-free out of the box -
+  a different camera around a VIRGO-2K would choose a different gain
+  (live-review iteration 2026-09-06). PITCH: the paper prints
   20 um; VISTA plate-scale arithmetic in the wider literature implies a
   ~19.8 um physical pitch - the printed primary-source value is used.
   Read noise 24 e- rms is single-integration DCS and is well below sky noise

@@ -32,6 +32,8 @@ parameters:
     {value: 18.0, unit: "e-", source: ds2022, basis: datasheet, location: "median CDS read noise <=18 e- @ 100 kHz pixel rate, 2.5 um column (goal <=12)"}
   readout.cds_enabled:
     {value: 1, unit: null, source: ds2022, basis: datasheet, location: "read-noise spec is defined for correlated double sampling"}
+  readout.gain_e_per_dn:
+    {value: 1.2207, unit: "e-/DN", source: ds2022, basis: derived, location: "full-scale-matched default: 8.0e+4 e- well / 2^16 SIDECAR bits = 1.2207 e-/DN (system-defined; JWST-class systems run ~1-2 e-/DN)"}
   readout.adc_bits:
     {value: 16, unit: null, source: ds2022, basis: derived, location: "no on-chip ADC (analog outputs); 16-bit when paired with the Teledyne SIDECAR ASIC, the standard system configuration"}
 

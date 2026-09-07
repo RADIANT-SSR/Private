@@ -13,6 +13,7 @@
 #   detector.qe_value = 60 % [paper: rieke2015]
 #   readout.architecture = analog_well [derived: rieke2015]
 #   readout.full_well_capacity_e = 250000.0 [paper: rieke2015]
+#   readout.gain_e_per_dn = 3.815 e-/DN [derived: rieke2015]
 #   readout.read_noise_e_rms = 14.0 e- [paper: rieke2015]
 #
 detector:
@@ -26,4 +27,5 @@ detector:
 readout:
   architecture: analog_well
   full_well_capacity_e: 250000.0
+  gain_e_per_dn: 3.815
   read_noise_e_rms: 14.0

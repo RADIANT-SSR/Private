@@ -3,6 +3,7 @@ name: dfpa-generic
 vendor: MIT Lincoln Laboratory (research lineage - not a purchasable part)
 model: Generic digital-pixel FPA (DFPA, 65 nm 640x480 generation)
 part_class: cooled_ir_droic
+part_kind: roic
 band: {label: "detector-dependent (SWIR-LWIR demonstrated)", cut_on_um: 1.0, cut_off_um: 14.0}
 material: detector-agnostic DROIC (demonstrated with HgCdTe, InSb, SLS diodes)
 description: >

@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, Final
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFileDialog,
-    QGridLayout,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QVBoxLayout,
@@ -189,17 +189,24 @@ class DetectorInputsForm(QWidget):
         box.addWidget(title)
 
         self._rows: dict[str, FieldRow] = {}
-        # Two-column group grid (owner layout report 2026-07-16): the full-schema form
-        # is 27 fields — one long column read badly. Each group is a self-contained
-        # block placed left/right alternately; the flat _rows dict is unchanged, so
-        # binding/refresh and every test iterate exactly as before.
-        grid_host = QWidget(card)
-        grid = QGridLayout(grid_host)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(18)
-        grid.setVerticalSpacing(10)
-        for index, (heading, fields) in enumerate(_GROUPS):
-            block = QWidget(grid_host)
+        # Adaptive balanced masonry (owner live-review 2026-09-06, replacing the
+        # 2026-07-16 grid): the QGridLayout coupled each grid row's height to its
+        # tallest group (blank runs under the short groups — "lots of dead
+        # space") and its fixed two columns overflowed a narrow pane behind a
+        # horizontal scrollbar (the whole right column off-screen). Groups now
+        # pack top-to-bottom into whichever column is currently shortest (field
+        # count as the height proxy), and the column count follows the pane
+        # width (1 or 2) via resizeEvent — never a horizontal scrollbar. The
+        # flat _rows dict is unchanged, so binding/refresh and every test
+        # iterate exactly as before.
+        self._grid_host = QWidget(card)
+        self._columns_box = QHBoxLayout(self._grid_host)
+        self._columns_box.setContentsMargins(0, 0, 0, 0)
+        self._columns_box.setSpacing(18)
+        self._blocks: list[tuple[QWidget, int]] = []
+        self._column_count = 0
+        for heading, fields in _GROUPS:
+            block = QWidget(self._grid_host)
             block_box = QVBoxLayout(block)
             block_box.setContentsMargins(0, 0, 0, 0)
             block_box.setSpacing(6)
@@ -210,6 +217,7 @@ class DetectorInputsForm(QWidget):
                 row = FieldRow(dotpath, label, self._open_editor)
                 block_box.addWidget(row)
                 self._rows[dotpath] = row
+            weight = 1 + len(fields)
             if fields is _QE_FIELDS:
                 # Define QE(λ) inline (owner request 2026-07-16): type or paste a λ-vs-QE
                 # table; the dialog's points are written to a user-chosen CSV and
@@ -227,11 +235,49 @@ class DetectorInputsForm(QWidget):
                 self._import_qe.setMaximumWidth(LABEL_COLUMN_WIDTH + VALUE_BOX_MAX + 10)
                 self._import_qe.clicked.connect(self._on_import_qe)
                 block_box.addWidget(self._import_qe)
-            block_box.addStretch(1)
-            grid.addWidget(block, index // 2, index % 2, Qt.AlignmentFlag.AlignTop)
-        box.addWidget(grid_host)
+                weight += 2
+            self._blocks.append((block, weight))
+        self._relayout_columns(2)
+        box.addWidget(self._grid_host)
 
         layout.addWidget(card)
+
+    # -- adaptive masonry ----------------------------------------------------
+
+    #: A field row's practical width: label column + value box + editor affordance.
+    _ROW_WIDTH = LABEL_COLUMN_WIDTH + VALUE_BOX_MAX + 24
+
+    def _relayout_columns(self, count: int) -> None:
+        """(Re)distribute the group blocks over *count* balanced columns."""
+        if count == self._column_count:
+            return
+        self._column_count = count
+        while self._columns_box.count():
+            item = self._columns_box.takeAt(0)
+            child = item.layout()
+            if child is not None:
+                while child.count():
+                    child.takeAt(0)
+                child.deleteLater()
+        column_layouts: list[QVBoxLayout] = []
+        for _ in range(count):
+            column = QVBoxLayout()
+            column.setSpacing(10)
+            self._columns_box.addLayout(column, 1)
+            column_layouts.append(column)
+        heights = [0] * count
+        for block, weight in self._blocks:
+            target = heights.index(min(heights))
+            column_layouts[target].addWidget(block)
+            heights[target] += weight
+        for column in column_layouts:
+            column.addStretch(1)
+
+    def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        """Follow the pane width: two dense columns when they fit, else one."""
+        super().resizeEvent(event)
+        fits_two = self.width() >= 2 * self._ROW_WIDTH + 18
+        self._relayout_columns(2 if fits_two else 1)
 
     # -- QE(λ) table authoring (owner request 2026-07-16) ---------------------
 

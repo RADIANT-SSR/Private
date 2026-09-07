@@ -1,0 +1,35 @@
+# Scenario 2.8 — real-part quick start: GeoSnap-18 by name (Gap 119).
+# The fpa: key applies the library preset; everything the preset carries
+# (pitch, format, QE, well, ROIC noise, ADC, operating temperature) arrives
+# with per-parameter datasheet attribution. Mike pins only his scene, optics,
+# band, and the one detector value he wants to override: the dark rate for
+# his 5.3 um cutoff at 110 K (the preset deliberately ships no dark current —
+# it is cutoff-dependent; see the preset notes).
+
+fpa: geosnap-18
+
+source:
+  target:
+    temperature: 300.0        # K
+    emissivity: 0.95
+
+atmosphere:
+  standard_atmosphere: midlat_summer
+
+geometry:
+  sensor_altitude_m: 8000.0   # m
+
+optics:
+  aperture_diameter_m: 0.30   # m
+  focal_length_m: 1.20        # m  (f/4.0)
+  transmission_scalar: 0.70
+
+detector:
+  dark_rate_e_per_s: 5.0e+4   # e-/s — Mike's programme estimate for a 5.3 um
+                              # cutoff at 110 K (explicit value; the preset
+                              # would not have set one anyway)
+
+spectral_integration:
+  filter_min_um: 3.5           # um
+  filter_max_um: 5.0           # um
+  integration_time_s: 0.005    # s  (5 ms)

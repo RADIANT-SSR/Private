@@ -310,6 +310,13 @@ _READOUT_NOTE: Final[str] = (
     "budget shown here (read noise + quantization live in this stage) is the same "
     "result.plot.noise_budget as the Detector view."
 )
+_CALIBRATION_NOTE: Final[str] = (
+    "Calibration error model (Gap 120) — Phase 0 shell. calibration.scheme = 'none' "
+    "(the default) reproduces today's results exactly; active schemes are phase-gated "
+    "until the physics lands (plan Phase 1). Edit calibration.* parameters in the left "
+    "panel; the full screen (scheme selector, drift and cal-source groups, "
+    "precision-vs-accuracy readout) arrives with plan Phase 3."
+)
 
 
 # namespace -> center composition, row-by-row from the arch-doc §4.4.1 table. Keys are
@@ -612,6 +619,16 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
         outputs=True,
         plots=(PlotSpec("Noise budget", "noise_budget"),),
         note=_READOUT_NOTE,
+    ),
+    # Phase 0 shell (Gap 120): the stage exists in the chain, so the strip's
+    # coverage invariant demands a composition, but the real Calibration screen
+    # (scheme-selector card, contextual groups, precision-vs-accuracy readout) is
+    # plan Phase 3 — owner live-review applies before it lands. Until then the
+    # center shows the stage note; calibration.* parameters edit via the left
+    # parameter panel as on any stage.
+    "calibration": StageComposition(
+        title="Calibration",
+        note=_CALIBRATION_NOTE,
     ),
     # The Performance stage instrument (owner-shaped 2026-07-25, two walkthrough rounds:
     # the original flat single-column readout was a "wall of text"; the interim tabbed

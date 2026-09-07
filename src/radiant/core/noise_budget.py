@@ -53,6 +53,13 @@ SPATIAL_TERMS: frozenset[str] = frozenset(
         "prnu",
         "dsnu",
         "clutter",
+        # Calibration residual terms (Gap 120): emitted by CalibrationStage
+        # (after ReadoutStage) when calibration.scheme != "none". Spatial by
+        # nature (fixed-pattern residuals) and correlated across TDI/coadds —
+        # see CALIBRATION_TERMS below.
+        "nuc_residual",
+        "gain_drift",
+        "offset_drift",
     }
 )
 
@@ -61,10 +68,19 @@ ALL_NOISE_TERMS: frozenset[str] = TEMPORAL_TERMS | SPATIAL_TERMS
 #: The two digital-counting substitution terms (Gap 117). They are emitted by
 #: ReadoutStage's counting branch IN PLACE OF "quantization" / "ktc_reset" and
 #: never appear in the detector's raw budget — compute_noise_budget always
-#: builds exactly ALL_NOISE_TERMS − COUNTING_TERMS (the historical 16).
+#: builds exactly ALL_NOISE_TERMS − COUNTING_TERMS − CALIBRATION_TERMS
+#: (the historical 16).
 COUNTING_TERMS: frozenset[str] = frozenset(
     {"counting_quantization", "packet_reset", "reference_shot"}
 )
+
+#: Calibration residual terms (Gap 120, ADR-0012). Emitted by CalibrationStage,
+#: which runs AFTER ReadoutStage — so they are added post-TDI/coadd scaling and
+#: are structurally exempt from sqrt(N) averaging (correlated errors do not
+#: average down). They never appear in the detector's raw budget; like
+#: COUNTING_TERMS they are excluded from the compute_noise_budget contract.
+#: Any future re-scaling code path MUST leave these terms unscaled.
+CALIBRATION_TERMS: frozenset[str] = frozenset({"nuc_residual", "gain_drift", "offset_drift"})
 
 
 # ---------------------------------------------------------------------------

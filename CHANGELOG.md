@@ -21,6 +21,17 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Calibration stage, chain skeleton (Gap 120, ADR-0012, plan Phase 0)** —
+  new `CalibrationStage` between Readout and Performance (terms-only; chain
+  grows to 10 stages), the `calibration.*` parameter namespace (scheme
+  `none`/`one_point`/`two_point` + cal points, drift rates, cal-source
+  uncertainties), `BiasTerm` / `ChainState.bias_terms` / `with_bias()` (the
+  accuracy-budget accumulator, type-separated from noise), and
+  `CALIBRATION_TERMS` in `core.noise_budget`. New error classes
+  `CalibrationValidationError` / `CalibrationConfigIncompleteError`. Default
+  `calibration.scheme = "none"` is a recorded no-op — computed results are
+  unchanged; active schemes raise the actionable phase-gate error until plan
+  Phase 1 lands the physics.
 - **FPA preset library, format + loader (Gap 119, plan Phase 0)** —
   `radiant.data.FPALibrary` / `FPAPreset` / `FPAPresetError` (public surface):
   named FPA/ROIC preset documents (`src/radiant/data/tables/fpa/*.yaml`,

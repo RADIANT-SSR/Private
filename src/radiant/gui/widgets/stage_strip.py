@@ -29,7 +29,8 @@ from radiant.gui.param_format import chain_namespace_order
 from radiant.gui.widgets.stage_chip import StageChip
 
 # (real schema namespace, eyebrow display token, display title, physics sub-caption),
-# in ADR-0006 geometry-first chain order. The nine v1 stages (arch doc §4.2). The
+# in ADR-0006 geometry-first chain order. The ten chain stages (arch doc §4.2;
+# calibration joined between readout and performance per Gap 120 / ADR-0012). The
 # 6th stage's namespace is ``spectral_integration`` (its eyebrow abbreviates to
 # ``spectral`` for the tile); keeping the two separate is the CU-106 fix.
 STAGES: Final[tuple[tuple[str, str, str, str], ...]] = (
@@ -41,6 +42,7 @@ STAGES: Final[tuple[tuple[str, str, str, str], ...]] = (
     ("spectral_integration", "spectral", "Spectral Int.", "∫ dλ"),
     ("detector", "detector", "Detector", "QE · noise"),
     ("readout", "readout", "Readout", "TDI · ADC"),
+    ("calibration", "calibration", "Calibration", "NUC · bias"),
     ("performance", "performance", "Performance", "SNR · NIIRS"),
 )
 

@@ -49,7 +49,11 @@ Not a free-form DAG. Not bare function composition. A `Chain` is an ordered list
                          adds pixel aperture MTF, IPC MTF, charge-diffusion MTF
 7. ReadoutStage        — applies TDI signal gain, binning, coadds, gain, ADC; adds quantization noise;
                          writes TDI-misregistration MTF and electronics MTF; finalizes noise budget
-8. PerformanceStage    — composes system MTF from all accumulated MTF terms;
+8. CalibrationStage    — terms-only (Gap 120, ADR-0012): appends post-NUC residual-FPN noise terms
+                         AFTER readout's TDI/coadd scaling (structurally exempt from sqrt(N) averaging)
+                         and calibration-scale bias terms to the accuracy budget; no frame, no MTF.
+                         scheme="none" (default) is a recorded no-op
+9. PerformanceStage    — composes system MTF from all accumulated MTF terms;
                          computes SNR, NEDT, RER, NIIRS, detection range
 ```
 
@@ -100,6 +104,7 @@ class Stage(Protocol):
 | **SpectralIntegrationStage** | `L_post_optics(λ)`, **EE_box** (from PlatformStage), regime, params (filter, QE, λ-grid, t_int) | In-band photoelectrons per pixel per integration (regime-dependent) | — |
 | **DetectorStage** | photoelectrons, params (J_dark, FWC, IPC, glow, L_d, nonlinearity, etc.) | Signal `S` [e-], noise terms {shot, dark, read, 1/f, kTC, DSNU, PRNU, NUC, glow, persistence, ...} | MTF_pixel(f), MTF_IPC(f), MTF_diffusion(f) |
 | **ReadoutStage** | signal, noise terms, params (TDI, binning, coadds, gain, ADC) | Signal in DN, full noise budget; quantization noise added | MTF_TDI(f) (TDI mis-registration), MTF_electronics(f) |
+| **CalibrationStage** | signal level, params (`calibration.*` scheme, drift, source uncertainty) | Post-NUC residual noise terms (`nuc_residual`, `gain_drift`, `offset_drift` — post-scaling, sqrt(N)-exempt); bias terms (accuracy budget); `stage_outputs["calibration"]` | — (no MTF: residual FPN is spatial noise, not a spatial degradation — Rule 4 unaffected) |
 | **PerformanceStage** | full state (all frames, all noise terms, all MTF terms) | SNR, NEDT, RER, NIIRS, detection range; turbulence MTF term (when `r0_m > 0`) | System MTF = ∏ MTF_i |
 
 ### State transformation rules
@@ -131,6 +136,11 @@ class ChainState:
     # Noise terms accumulated across stages (each carries its origin frame)
     noise_terms: tuple["NoiseTerm", ...]
 
+    # Bias terms — the accuracy budget (Gap 120, ADR-0012). Consumed ONLY by
+    # the radiometric-accuracy metric; never RSS'd into sigma_total. The
+    # noise/bias type separation is what enforces that rule.
+    bias_terms: tuple["BiasTerm", ...]
+
     # MTF terms accumulated across stages (each stage writes its own terms)
     mtf_terms: dict[str, np.ndarray]   # term name -> MTF(f) array
     spatial_freq_cycles_per_mrad: np.ndarray | None
@@ -148,6 +158,7 @@ class ChainState:
     def with_frame(self, frame: "RadiometricFrame") -> "ChainState": ...
     def with_stage_output(self, stage: str, key: str, value: Any) -> "ChainState": ...
     def with_noise(self, term: "NoiseTerm") -> "ChainState": ...
+    def with_bias(self, term: "BiasTerm") -> "ChainState": ...
     def with_mtf(self, term_name: str, mtf: np.ndarray) -> "ChainState": ...
     def with_metric(self, key: str, value: float) -> "ChainState": ...
 ```
@@ -446,6 +457,7 @@ class ChainState:
     frames: Mapping[str, RadiometricFrame] = field(default_factory=dict)
     stage_outputs: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     noise_terms: tuple[NoiseTerm, ...] = ()
+    bias_terms: tuple[BiasTerm, ...] = ()  # accuracy budget (Gap 120, ADR-0012)
     mtf_terms: Mapping[str, np.ndarray] = field(default_factory=dict)
     spatial_freq_cycles_per_mrad: np.ndarray | None = None
     metrics: Mapping[str, float] = field(default_factory=dict)
@@ -464,6 +476,11 @@ class ChainState:
 
     def with_noise(self, term: NoiseTerm) -> "ChainState":
         return replace(self, noise_terms=self.noise_terms + (term,))
+
+    def with_bias(self, term: BiasTerm) -> "ChainState":
+        # Accuracy budget (Gap 120): consumed only by the radiometric-accuracy
+        # metric — never by SNR/NEDT.
+        return replace(self, bias_terms=self.bias_terms + (term,))
 
     def with_mtf(self, term_name: str, mtf: np.ndarray) -> "ChainState":
         new = dict(self.mtf_terms)

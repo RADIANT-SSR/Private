@@ -59,9 +59,10 @@ class TestLayoutRegions:
         window = RADIANTMainWindow()
         qtbot.addWidget(window)
 
-        # 9-stage strip in chain order, all dots stale.
+        # 10-stage strip in chain order, all dots stale (calibration joined
+        # between readout and performance — Gap 120, ADR-0012).
         assert [c.stage_title for c in window.stage_strip.chips][0] == "Geometry"
-        assert len(window.stage_strip.chips) == 9
+        assert len(window.stage_strip.chips) == 10
         assert all(c.dot.status == "stale" for c in window.stage_strip.chips)
 
         # Right-rail Pinned panel: the five default performance metrics awaiting

@@ -51,6 +51,12 @@ _CONVERSIONS: dict[tuple[str, str], float] = {
     ("%", ""): 1e-2,  # percent → fraction, for unit-aware set() (Gap 6)
     # Time (additional input forms)
     ("min", "s"): 60.0,
+    ("hour", "s"): 3600.0,
+    # Rates (calibration drift — Gap 120): canonical 1/s and e-/s, analyst
+    # input in per-hour forms.
+    ("1/s", "1/s"): 1.0,
+    ("%/hour", "1/s"): 1e-2 / 3600.0,
+    ("e-/hour", "e-/s"): 1.0 / 3600.0,
     # Temperature offsets are NOT multiplicative; only K is accepted.
     # Dose
     ("krad", "krad"): 1.0,

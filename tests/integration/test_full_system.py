@@ -162,6 +162,7 @@ class TestAllRegimes:
             "spectral_integration",
             "detector",
             "readout",
+            "calibration",
             "performance",
         )
         for run_fn in [_run_extended, _run_point_source, _run_sub_pixel]:

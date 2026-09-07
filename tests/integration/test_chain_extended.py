@@ -96,6 +96,7 @@ class TestChainExtended:
             "spectral_integration",
             "detector",
             "readout",
+            "calibration",
             "performance",
         )
 

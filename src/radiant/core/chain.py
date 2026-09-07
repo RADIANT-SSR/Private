@@ -30,7 +30,7 @@ import numpy.typing as npt
 from radiant.core.exceptions import CoreValidationError
 from radiant.core.parameters import ParameterSet
 from radiant.core.provenance import new_run_id
-from radiant.core.radiometry import NoiseTerm, RadiometricFrame
+from radiant.core.radiometry import BiasTerm, NoiseTerm, RadiometricFrame
 
 # ---------------------------------------------------------------------------
 # Stage protocol
@@ -80,6 +80,7 @@ class ChainState:
     frames: Mapping[str, RadiometricFrame] = field(default_factory=dict)
     stage_outputs: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     noise_terms: tuple[NoiseTerm, ...] = ()
+    bias_terms: tuple[BiasTerm, ...] = ()
     mtf_terms: Mapping[str, npt.NDArray[np.float64]] = field(default_factory=dict)
     spatial_freq_cycles_per_mrad: npt.NDArray[np.float64] | None = None
     metrics: Mapping[str, float] = field(default_factory=dict)
@@ -115,6 +116,15 @@ class ChainState:
     def with_noise(self, term: NoiseTerm) -> ChainState:
         """Append a noise term."""
         return replace(self, noise_terms=self.noise_terms + (term,))
+
+    def with_bias(self, term: BiasTerm) -> ChainState:
+        """Append a bias term to the accuracy budget (Gap 120, ADR-0012).
+
+        Bias terms are consumed only by the radiometric-accuracy metric —
+        never by SNR/NEDT. The type separation from :meth:`with_noise` is
+        what enforces the bias-is-never-RSS'd-with-noise rule.
+        """
+        return replace(self, bias_terms=self.bias_terms + (term,))
 
     def with_mtf(self, term_name: str, mtf: npt.NDArray[np.float64]) -> ChainState:
         """Add (or replace) a named MTF term."""

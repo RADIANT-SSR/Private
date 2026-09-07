@@ -142,6 +142,8 @@ class TestStageErrorClasses:
         ),
         ("radiant.detector.errors", "DetectorValidationError", ValueError),
         ("radiant.readout.errors", "ReadoutValidationError", ValueError),
+        ("radiant.calibration.errors", "CalibrationValidationError", ValueError),
+        ("radiant.calibration.errors", "CalibrationConfigIncompleteError", ValueError),
         ("radiant.performance.errors", "PerformanceValidationError", ValueError),
         ("radiant.api.errors", "ApiValidationError", ValueError),
     ]

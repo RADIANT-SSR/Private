@@ -6,7 +6,7 @@ This is the authoritative reference for all RADIANT coding agents. Read it fully
 
 ## What Is This Codebase
 
-RADIANT is a first-principles EO sensor performance modeling framework. It predicts SNR, NEDT, NIIRS, MTF, and detection range for space-based and airborne electro-optical sensors. The signal chain flows: geometry → source → atmosphere → optics → platform → spectral integration → detector → readout → performance metrics (geometry-first per ADR-0006).
+RADIANT is a first-principles EO sensor performance modeling framework. It predicts SNR, NEDT, NIIRS, MTF, and detection range for space-based and airborne electro-optical sensors. The signal chain flows: geometry → source → atmosphere → optics → platform → spectral integration → detector → readout → calibration → performance metrics (geometry-first per ADR-0006; calibration is terms-only per ADR-0012).
 
 **Primary reference documents** (read before touching related code):
 - `docs/architecture/RADIANT_Master_Architecture.md` — non-negotiable constraints (15 rules)
@@ -88,7 +88,7 @@ Computed in `PlatformStage` from the fully degraded PSF (`stage_outputs["platfor
 
 ```python
 # FORBIDDEN in geometry, source, atmosphere, optics, platform,
-# spectral_integration, detector, readout, performance:
+# spectral_integration, detector, readout, calibration, performance:
 from radiant.optics import psf        # cross-stage physics import — NO
 from radiant.source import blackbody  # cross-stage — NO
 
@@ -148,7 +148,7 @@ except RadiantError as exc:
 ```
 
 ### 16. Validate Before Compute
-Validate all user-controlled inputs before doing any physics computation. Use `ParameterSet` — never pass raw dicts from user input to physics functions. Physics-layer functions (`source/`, `atmosphere/`, `optics/`, `platform/`, `spectral_integration/`, `detector/`, `readout/`) must never return `NaN` or `inf` silently — raise an actionable error with context (per Rule 15). Metric-layer functions (`performance/snr.py`, `performance/nedt.py`, `performance/niirs.py`) may return result-typed failures with an explicit `failure_reason` field instead of raising — see Rule 17 carve-out.
+Validate all user-controlled inputs before doing any physics computation. Use `ParameterSet` — never pass raw dicts from user input to physics functions. Physics-layer functions (`source/`, `atmosphere/`, `optics/`, `platform/`, `spectral_integration/`, `detector/`, `readout/`, `calibration/`) must never return `NaN` or `inf` silently — raise an actionable error with context (per Rule 15). Metric-layer functions (`performance/snr.py`, `performance/nedt.py`, `performance/niirs.py`) may return result-typed failures with an explicit `failure_reason` field instead of raising — see Rule 17 carve-out.
 
 ### 17. No Silent Failures
 No `except Exception: pass`. No `except Exception: return default_value`. No logging a warning and continuing when physics is undefined. No clipping values to valid ranges without at minimum a `UserWarning`.
@@ -544,7 +544,8 @@ src/radiant/
 ├── spectral_integration/  # Stage 5: spectral → scalar (EE_box coupling)
 ├── detector/       # Stage 6: QE, noise terms, detector MTF
 ├── readout/        # Stage 7: TDI, ADC, gain, read noise
-├── performance/    # Stage 8: SNR, NEDT, NIIRS, system MTF
+├── calibration/    # Stage 8: calibration error model — post-NUC residuals, drift, bias budget (Gap 120)
+├── performance/    # Stage 9: SNR, NEDT, NIIRS, system MTF
 ├── data/           # SpectralLibrary + FPALibrary — bundled reference data (src/radiant/data/tables/)
 ├── io/             # I/O layer — YAML, MODTRAN, results
 ├── api/            # Public API — Sensor, SensorConfig, BatchRunner

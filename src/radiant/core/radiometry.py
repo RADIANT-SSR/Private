@@ -183,3 +183,56 @@ class NoiseTerm:
                 f"NoiseTerm '{self.name}': origin_frame must be a non-empty "
                 "string naming the frame where this noise was generated."
             )
+
+
+@dataclass(frozen=True)
+class BiasTerm:
+    """A single systematic (bias) error contribution to the accuracy budget.
+
+    Bias terms are the accuracy-budget counterpart of :class:`NoiseTerm`
+    (Gap 120, ADR-0012): calibration-scale errors — cal-source temperature
+    and emissivity uncertainty, absolute gain uncertainty — that shift the
+    whole array's radiometric scale rather than dispersing pixel to pixel.
+
+    The separation is structural: SNR/NEDT consume ``ChainState.noise_terms``
+    only; the radiometric-accuracy metric consumes ``ChainState.bias_terms``
+    only. A bias is **never** RSS'd into sigma_total. Biases from independent
+    sources combine by RSS *within* the accuracy budget; conversion to K at
+    scene temperature happens in the metric layer.
+
+    Parameters
+    ----------
+    name:
+        Identifier — ``"source_temp"``, ``"source_emissivity"``, ``"gain"``.
+    value_frac:
+        Uncertainty magnitude as a fractional radiance bias (dimensionless
+        ΔL/L, 1-sigma). Non-negative finite.
+    origin:
+        The parameter or mechanism that produced this bias (e.g.
+        ``"calibration.source_temp_uncertainty_K"``). Provenance only.
+    physical_basis:
+        Short tag for the physical mechanism (``"Planck dL/dT at T_cal"``,
+        ``"radiance scale"``, ...). Provenance only.
+    """
+
+    name: str
+    value_frac: float
+    origin: str
+    physical_basis: str
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.value_frac):
+            raise CoreValidationError(
+                f"BiasTerm '{self.name}': value_frac = {self.value_frac} is not finite."
+            )
+        if self.value_frac < 0.0:
+            raise CoreValidationError(
+                f"BiasTerm '{self.name}': value_frac = {self.value_frac} is "
+                "negative. Bias terms are 1-sigma uncertainty magnitudes; "
+                "direction is not modeled (v1, plan §3.4)."
+            )
+        if not self.origin:
+            raise CoreValidationError(
+                f"BiasTerm '{self.name}': origin must be a non-empty string "
+                "naming the parameter or mechanism that produced this bias."
+            )

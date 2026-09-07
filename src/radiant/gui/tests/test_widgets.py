@@ -20,8 +20,9 @@ from radiant.gui.widgets.stage_strip import STAGE_TITLES, StageStrip
 
 
 class TestStageStrip:
-    def test_nine_stages_in_chain_order(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The strip renders the 9 stages, geometry-first, in ADR-0006 order."""
+    def test_ten_stages_in_chain_order(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The strip renders the 10 stages, geometry-first, in ADR-0006 order
+        (calibration joined between readout and performance — Gap 120, ADR-0012)."""
         strip = StageStrip()
         qtbot.addWidget(strip)
         titles = [chip.stage_title for chip in strip.chips]
@@ -34,6 +35,7 @@ class TestStageStrip:
             "Spectral Int.",
             "Detector",
             "Readout",
+            "Calibration",
             "Performance",
         ]
         assert titles == list(STAGE_TITLES)
@@ -42,7 +44,7 @@ class TestStageStrip:
         """Nothing is evaluated in Phase 1, so every health dot reads 'stale' (§8.4)."""
         strip = StageStrip()
         qtbot.addWidget(strip)
-        assert len(strip.chips) == 9
+        assert len(strip.chips) == 10
         for chip in strip.chips:
             assert isinstance(chip.dot, HealthDot)
             assert chip.dot.status == "stale"

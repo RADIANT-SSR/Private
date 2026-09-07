@@ -43,7 +43,7 @@ in their own right and are **not** folded into the parent's count. Run
 `find src/radiant/<pkg> -name '*.py'` for the full enumeration; this doc highlights the
 structure and the load-bearing modules per package.
 
-### `core/` — 25 source + 21 tests
+### `core/` — 25 source + 22 tests
 
 Foundational abstractions; no physics, no sensor knowledge. The only package physics modules may import from.
 
@@ -68,7 +68,7 @@ core/
 ├── noise_budget.py      # NoiseBudget aggregation helpers
 ├── exceptions.py        # RadiantError base class (Rule 15)
 ├── provenance.py        # run_id, git commit, dep versions, file hashing (§C13)
-└── tests/               # 15 test files mirroring the source modules
+└── tests/               # 22 test files mirroring the source modules
 ```
 
 ### `geometry/` — stage 0 (ADR-0006)
@@ -224,9 +224,24 @@ readout/
 └── saturation.py
 ```
 
+### `calibration/` — 3 source + 2 tests
+
+Stage 8: calibration error model (Gap 120, ADR-0012). Terms-only stage between
+Readout and Performance — post-NUC residual FPN noise terms (appended
+post-TDI/coadd scaling: structurally √N-exempt) and calibration-scale bias
+terms (`BiasTerm` accuracy budget). Phase 0 skeleton: `scheme = "none"` no-op;
+active schemes phase-gated until plan Phase 1 (`docs/plans/Calibration_Model_Plan.md`).
+
+```
+calibration/
+├── stage.py             # CalibrationStage — scheme dispatch, evaluate-time validation
+├── _schema.py           # calibration.* ParameterDefs (scheme, cal points, drift, source uncertainty)
+└── errors.py            # CalibrationValidationError, CalibrationConfigIncompleteError
+```
+
 ### `performance/` — 54 source + 38 tests
 
-Stage 8: SNR, NEDT, NEDL, NEDR, NIIRS, GIQE, IIRS, MTF system + budget, detection range, GSD, swath, access, dynamic range, saturation. Each metric is its own module (Rule 19 — one computation, one module).
+Stage 9: SNR, NEDT, NEDL, NEDR, NIIRS, GIQE, IIRS, MTF system + budget, detection range, GSD, swath, access, dynamic range, saturation. Each metric is its own module (Rule 19 — one computation, one module).
 
 Notable modules: `stage.py`, `registry.py`, `system_mtf.py`, `mtf_budget.py`, `folded_mtf.py`, `qsample.py`, `consistency_check.py` (PSF/MTF dual-path agreement), `snr.py`, `nedt.py`, `nedl.py`, `nedr.py`, `niirs.py`, `giqe.py`, `iirs.py`, `gsd.py`, `ground_range.py`, `swath_width.py`, `access_rate.py`, `target_plane_sample_distance.py` (non-ground counterpart of GSD, GF-13), `scene_relevance.py` (the one declarative scene-class → metric-relevance map, guardrail G3), `detection.py`, `detection_generic.py` (root finder + criterion), `detection_beer_lambert.py` (constant-α signal law), `detection_path_aware.py` (path-resolved τ(R); all three topologies since CU-263), `detection_noise_floor.py` (N₀² = σ_ref² − S_ref), `detection_shot_consistent_snr.py` (S/√(S+N₀²) and its analytic inverse), `path_optical_depth.py` (piecewise τ(R) along the LOS), `dynamic_range.py`, `saturation_metrics.py`, `well_margin.py`, `adc_margin.py`, `contrast_snr.py`, `strehl.py` (wraps the optics Strehl into a metric), `turbulence_mtf_term.py`.
 
@@ -501,6 +516,7 @@ source of truth, per the header.
 | spectral_integration/  | 3      | 1     | single-stage collapse |
 | detector/              | 16     | 10    | includes `detector/noise/` subpackage |
 | readout/               | 12     | 9     | TDI, ADC, binning, coadds |
+| calibration/           | 3      | 2     | calibration error model skeleton (Gap 120) |
 | performance/           | 54     | 37    | one metric per module (Rule 19) |
 | io/                    | 11     | 11    | config, results, element_config |
 | cli/                   | 12     | 2     | subcommand-per-file (incl. `radiant gui`) |
@@ -508,12 +524,12 @@ source of truth, per the header.
 | gui/                   | 80     | 43    | PySide6 shell + 56 widgets + design-system theme — optional `gui` extra |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
 | data/                  | 2      | 5     | packaged-data accessor |
-| **Subtotal**           | **322**| **219**| 541 non-init files |
+| **Subtotal**           | **325**| **221**| 546 non-init files |
 | Integration tests      | —      | 41    | `tests/integration/` |
 | Top-level tests        | —      | 6     | `tests/test_public_api.py`, `test_exceptions.py`, `test_provenance.py`, `test_calibration_analysis.py`, `test_error_budget.py`, `test_veiling_glare_signal_consistency.py` |
-| **Grand total (non-init)** |    |       | **588** |
+| **Grand total (non-init)** |    |       | **593** |
 
-Including `__init__.py` files, total `.py` count under `src/radiant/` is 583 (42 `__init__.py`).
+Including `__init__.py` files, total `.py` count under `src/radiant/` is 590 (44 `__init__.py`).
 
 ---
 
@@ -530,7 +546,7 @@ Enforced by `import-linter` in CI (6 contracts in `pyproject.toml`):
         │                  │                  │
     source/          atmosphere/           optics/
     platform/      spectral_integration/  detector/
-                      readout/           performance/
+                 readout/ calibration/  performance/
         │                  │                  │
         └──────────────────┼──────────────────┘
                            │
@@ -542,7 +558,7 @@ Enforced by `import-linter` in CI (6 contracts in `pyproject.toml`):
 ```
 
 1. `core/` → stdlib, numpy, scipy only. No other `radiant.*` imports.
-2. Physics subpackages (`source/`, `atmosphere/`, `optics/`, `platform/`, `spectral_integration/`, `detector/`, `readout/`, `performance/`) → `radiant.core` only. **No cross-stage physics imports.**
+2. Physics subpackages (`source/`, `atmosphere/`, `optics/`, `platform/`, `spectral_integration/`, `detector/`, `readout/`, `calibration/`, `performance/`) → `radiant.core` only. **No cross-stage physics imports.**
 3. `io/` → `radiant.core` + any physics subpackage (read-only access for schema introspection). No imports from `api/` or `cli/`.
 4. `api/` → `radiant.core` + all physics subpackages + `radiant.io`. No `cli/` imports.
 5. `cli/` → `radiant.api` + `radiant.io` + `radiant.gui` (lazy — the `radiant gui` subcommand imports gui inside the command body). No direct physics imports.

@@ -214,6 +214,7 @@ class TestGroundTruthMWIR:
             "spectral_integration",
             "detector",
             "readout",
+            "calibration",
             "performance",
         )
 

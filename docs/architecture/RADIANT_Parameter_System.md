@@ -197,6 +197,22 @@ readout.n_coadds                      # int
 readout.binning_x_onchip              # int
 readout.binning_y_onchip              # int
 
+calibration.scheme                    # enum: "none" (default — model off, today's PRNU/DSNU behavior),
+                                      #   "one_point", "two_point" (Gap 120, ADR-0012)
+calibration.cal_temp_low_K            # K — (lower) cal-point source temperature (0.0 = unset sentinel;
+                                      #   required at evaluate time when a scheme is active)
+calibration.cal_temp_high_K           # K — upper cal point (two_point only; must exceed low; 0.0 = unset)
+calibration.nonlinearity_pct          # % → fraction — per-pixel quadratic-nonlinearity dispersion (1σ);
+                                      #   sets the two_point post-NUC residual amplitude
+calibration.time_since_cal_s          # s (input: hour) — drift terms grow linearly with this (D4)
+calibration.gain_drift_frac_per_s     # 1/s (input: %/hour) — gain-drift rate → "gain_drift" term
+calibration.offset_drift_e_per_s      # e-/s (input: e-/hour) — offset-drift rate → "offset_drift" term
+calibration.source_temp_uncertainty_K # K — cal-source ΔT (1σ) → BIAS term (accuracy budget only)
+calibration.source_emissivity_uncertainty  # fraction — cal-source Δε (1σ) → BIAS term
+calibration.source_emissivity         # fraction — nominal cal-source emissivity (independent input:
+                                      #   a source material property, not a Rule-5 optical element)
+calibration.gain_uncertainty_pct      # % → fraction — absolute gain uncertainty (1σ) → BIAS term
+
 spectral_integration.filter_min_um    # µm
 spectral_integration.filter_max_um    # µm
 spectral_integration.integration_time_s  # s

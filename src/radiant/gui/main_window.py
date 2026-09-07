@@ -2835,11 +2835,12 @@ class RADIANTMainWindow(QMainWindow):
         angles_action.setChecked(angles_enabled)
         angles_action.toggled.connect(self._on_toggle_angles_deg)
 
-        # Stage-jump shortcuts (Ctrl+1..9 → the nine signal-chain stages, arch doc §10).
+        # Stage-jump shortcuts (Ctrl+1..9, Ctrl+0 → the ten signal-chain stages,
+        # arch doc §10; the 10th stage wraps to Ctrl+0 — "Ctrl+10" is not a key).
         stage_menu = self._view_menu.addMenu("Go to Stage")
         for index, namespace in enumerate(STAGE_NAMESPACES, start=1):
             action = QAction(f"{index}  {namespace}", self)
-            action.setShortcut(f"Ctrl+{index}")
+            action.setShortcut(f"Ctrl+{index % 10}")
             action.triggered.connect(
                 lambda _checked=False, ns=namespace: self._on_stage_selected(ns)
             )

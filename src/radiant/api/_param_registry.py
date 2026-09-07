@@ -8,6 +8,7 @@ Only ``radiant.api`` may import from all stages (import-linter rule).
 from __future__ import annotations
 
 from radiant.atmosphere._schema import ALL_PARAMETERS as ATMO_PARAMS
+from radiant.calibration._schema import ALL_PARAMETERS as CAL_PARAMS
 from radiant.core.parameters import ConsistencyGroup, ParameterSet
 from radiant.detector._schema import ALL_PARAMETERS as DET_PARAMS
 from radiant.geometry._schema import ALL_PARAMETERS as GEO_PARAMS
@@ -74,6 +75,7 @@ def build_parameter_set() -> ParameterSet:
         + SI_PARAMS
         + DET_PARAMS
         + RO_PARAMS
+        + CAL_PARAMS
         + PERF_PARAMS
     )
     groups = [_FNUMBER_GROUP, _GROUND_SPEED_GROUP]

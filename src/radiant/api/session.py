@@ -18,6 +18,7 @@ from radiant.api._param_registry import build_parameter_set
 # Stage imports — only api/ may import all physics stages.
 from radiant.atmosphere.loaders import build_atmosphere_model, build_cn2_profile
 from radiant.atmosphere.stage import AtmosphereStage
+from radiant.calibration.stage import CalibrationStage
 from radiant.core.chain import ChainRunner
 from radiant.core.parameters import ParameterSet
 from radiant.detector.stage import DetectorStage
@@ -224,6 +225,10 @@ class RadiantSession:
                 SpectralIntegrationStage(),
                 DetectorStage(),
                 ReadoutStage(),
+                # Gap 120 (ADR-0012): AFTER readout — residual-FPN terms are
+                # appended post-TDI/coadd scaling, so they are structurally
+                # exempt from sqrt(N) averaging. Do not reorder.
+                CalibrationStage(),
                 PerformanceStage(),
             ]
         )

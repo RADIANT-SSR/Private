@@ -143,6 +143,7 @@ forbidden_modules = [
     "radiant.spectral_integration",
     "radiant.detector",
     "radiant.readout",
+    "radiant.calibration",
     "radiant.performance",
     "radiant.io",
     "radiant.api",
@@ -170,6 +171,7 @@ source_modules = [
     "radiant.spectral_integration",
     "radiant.detector",
     "radiant.readout",
+    "radiant.calibration",
     "radiant.performance",
 ]
 forbidden_modules = [
@@ -203,6 +205,7 @@ modules = [
     "radiant.spectral_integration",
     "radiant.detector",
     "radiant.readout",
+    "radiant.calibration",
     "radiant.performance",
 ]
 unmatched_ignore_imports_alerting = "warn"
@@ -244,6 +247,7 @@ forbidden_modules = [
     "radiant.spectral_integration",
     "radiant.detector",
     "radiant.readout",
+    "radiant.calibration",
     "radiant.performance",
 ]
 # CU-098: the contract's intent is that cli must not *directly* import
@@ -267,6 +271,7 @@ forbidden_modules = [
     "radiant.spectral_integration",
     "radiant.detector",
     "radiant.readout",
+    "radiant.calibration",
     "radiant.performance",
     "radiant.io",
     "radiant.cli",
@@ -291,6 +296,7 @@ forbidden_modules = [
     "radiant.spectral_integration",
     "radiant.detector",
     "radiant.readout",
+    "radiant.calibration",
     "radiant.performance",
     "radiant.io",
     "radiant.api",

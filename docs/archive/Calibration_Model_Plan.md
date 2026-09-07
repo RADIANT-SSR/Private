@@ -1,9 +1,14 @@
 # Calibration Stage and Radiometric Error-Budget Capability — Development and Test Plan
 
-**Status:** Active — §12 decisions D1–D7 ratified by the owner 2026-09-06 (all
-recommended options adopted). The architecture direction (dedicated `CalibrationStage`
-+ dedicated GUI screen, bias kept apart from noise) was owner-shaped in discussion
-2026-09-06. Phase 0 is ready to start.
+> **HISTORICAL** — Archived 2026-09-07. Completed by the Gap 120 delivery
+> chain merged to `main` (Phase 0 `1547e44c`, Phase 1 `4fb2e5da`, Phase 2
+> `d36cf237`, Phase 4 `34bb48b8`, Phase 3 merge `6152be2f` — live-review
+> approved 2026-09-07 after three passes). Final battery 7,997 green;
+> `scheme=none` goldens bit-identical throughout. Follow-ons: Gap 122
+> (v1.1 error-budget extensions, owner-ratified list) and CU-346
+> (reflective-scene cal-point anchor).
+
+**Status:** Complete — ratified 2026-09-06, all phases delivered 2026-09-06/07.
 
 **Date:** 2026-09-06
 **Gap:** 120 (`docs/tracking/gaps.md`)

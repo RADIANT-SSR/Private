@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-347 — Performance-tab matrix cards chain their horizontal scrollbars: scrolling Summary drags MTF (and every other card) with it
+
+**Discovered**: owner live review, 2026-09-07 — "moving the horizontal scroll bar in summary and/or MTF moves both windows on the performance tab."
+**Status**: Open — in work same session (branch `cu347/matrix-scroll-independent`).
+**File**: `src/radiant/gui/widgets/metric_group_cards.py:552-573` (`_sync_matrix_scrolls` — every matrix card's horizontal bar is deliberately linked, the CU-332 "scrolls as one surface" choice).
+**Symptom**: on a multi-configuration study's Performance tab, dragging one card's horizontal scrollbar moves every card's value area; the operator scrolling the Summary card watches the MTF card slide underneath it.
+**Why it still matters**: workflow-visible (intake test 4) — owner hit it live on the 9.4 all-bands study review; the cross-card coupling reads as broken scrollbars, not as an alignment feature.
+**Suggested fix**: (a) inline-fix-now — delete the cross-card link so each card scrolls independently; retire the linked-scroll regression test in favour of an independence test. Effort S; category A.
+
 ### CU-346 — Calibration cal-point mapping silently anchors to `source.target.temperature` on reflective scenes — the Planck ratio rides a solar signal it does not describe
 
 **Discovered**: Gap 120 Phase 4 (branch `gap120/phase4-scenarios`), 2026-09-06 — scenario 1.4's calibration variant: a "290 K cal point" on the VNIR solar-reflective pushbroom resolved to 13.8 % of the scene signal (the 290/300 K band Planck ratio anchored at the *declared* target temperature), not the ~0 a blackbody source physically delivers in a 0.5–0.85 µm band.

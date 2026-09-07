@@ -65,14 +65,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: workflow-visible (intake test 4 — an operator running the flagship scenario sees a rule-invariant FAILED line) and owner-gated (test 2 — either the discretization residual at extreme undersampling is understood and the tolerance/margin is re-ratified, or a real path divergence hides under "expected residual"; CLAUDE.md documents the tolerance rationale, so moving it is an architectural-rule edit).
 **Suggested fix**: (b) stand-alone task — reproduce on the minimal undersampled config, decompose the residual (pixel-kernel area integration vs FFT grid at Q≈0.94), and either fix the discretization or present the owner a re-ratification case with measurements. Effort M; category C.
 
-### CU-343 — `Sensor.save` writes the shared `optical_elements` document's spectral-file paths absolute: the one CU-177 hole left, and it makes saved element-bearing configs machine-specific
-
-**Discovered**: Configuration Set Expansion Plan Phase 2 chunk 2a (branch `cfgset/phase2-elements`), 2026-09-02 — surfaced by building CU-177 parity for the new per-configuration override entries, which *do* relativize; the shared document they override does not.
-**Status**: Open.
-**File**: `src/radiant/api/sensor.py` (`_sections`) + `src/radiant/io/config.py` (`serialize_config`) — the `optical_elements` document is written with its normalized **absolute** spectral-file references verbatim.
-**Symptom**: save a config whose element train references a transmittance/reflectance CSV, move the file (or the repo) to another machine or path, load — the element file reference dangles. Every parameter-level `is_file_path` value (CU-177) and every override entry (Gap 103 v1.1) relativizes on save and resolves on load; the shared element document is the one store that does not. A study file can carry both forms at once.
-**Why it still matters**: workflow-visible (intake test 4) — scenario studies with per-band filter CSVs are exactly this file shape, and Rule 30 makes cross-machine portability a stated requirement; the asymmetry with the override path also confuses hand-editors of saved YAML.
-**Suggested fix**: (b) stand-alone task — route the shared document through the same relativize-on-save / resolve-on-load helpers (`SPECTRAL_FILE_KEYS` is now public in `io/element_config.py`); one golden-file review per `RADIANT_Testing_Validation.md` §5.3 since saved baselines change form. Effort S; category A/D.
 ### CU-341 — Configuration bar cannot absorb 12 tabs at laptop width: no wrap, scroll, or overflow affordance on the selector band
 
 **Discovered**: Configuration Set Expansion Plan Phase 1 (branch `cfgset/phase1-cap12`), 2026-09-02 — the plan §7 watch item, measured real during the 8 → 12 cap raise.
@@ -153,6 +145,15 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-343 — `Sensor.save` writes the shared `optical_elements` document's spectral-file paths absolute: the one CU-177 hole left, and it makes saved element-bearing configs machine-specific — RESOLVED 2026-09-07 (commit trailer)
+
+**Resolution**: `serialize_config` now relativizes the shared `optical_elements` document's spectral-file references (`SPECTRAL_FILE_KEYS`) against the destination directory whenever it relativizes parameter paths (`_relativize_element_section`, the section-level twin of `_relativize_file_paths`) — one seam covering `Sensor.save`, `ConfigurationSet.save`, and `to_yaml(relative_to=...)`; configured rows stay relativized upstream by `merge_element_document` and pass through untouched. Load side was already symmetric (attach absolutizes). Pinned by io-level serializer tests and an api-level save→move-tree→load round trip; no committed baseline carried an absolute element path, so the §5.3 review is a no-op. Docs: `RADIANT_Config_Format.md` §1.8; CHANGELOG Fixed entry.
+**Discovered**: Configuration Set Expansion Plan Phase 2 chunk 2a (branch `cfgset/phase2-elements`), 2026-09-02 — surfaced by building CU-177 parity for the new per-configuration override entries, which *do* relativize; the shared document they override does not.
+**File**: `src/radiant/api/sensor.py` (`_sections`) + `src/radiant/io/config.py` (`serialize_config`) — the `optical_elements` document is written with its normalized **absolute** spectral-file references verbatim.
+**Symptom**: save a config whose element train references a transmittance/reflectance CSV, move the file (or the repo) to another machine or path, load — the element file reference dangles. Every parameter-level `is_file_path` value (CU-177) and every override entry (Gap 103 v1.1) relativizes on save and resolves on load; the shared element document is the one store that does not. A study file can carry both forms at once.
+**Why it still matters**: workflow-visible (intake test 4) — scenario studies with per-band filter CSVs are exactly this file shape, and Rule 30 makes cross-machine portability a stated requirement; the asymmetry with the override path also confuses hand-editors of saved YAML.
+**Suggested fix**: (b) stand-alone task — route the shared document through the same relativize-on-save / resolve-on-load helpers (`SPECTRAL_FILE_KEYS` is now public in `io/element_config.py`); one golden-file review per `RADIANT_Testing_Validation.md` §5.3 since saved baselines change form. Effort S; category A/D.
 
 ### CU-344 — Elements-tab commits are not entry-faithful: the table injects geometry defaults and drops refractive reflectance, silently changing the physics of rows the operator never touched — RESOLVED 2026-09-03 (commit trailer)
 

@@ -20,6 +20,17 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **Saved element-bearing configs are now machine-portable (CU-343)** — the
+  shared `optical_elements` document's spectral-file references (CSV
+  reflectance/transmittance tables) are written relative to the config's
+  destination directory by `Sensor.save` / `ConfigurationSet.save`, matching
+  the CU-177 behavior of `is_file_path` parameters and configured element
+  entries. Previously they were written absolute, so a saved config's element
+  file references dangled after moving the config and its data to another
+  machine or path. Loading is unchanged (relative references have always
+  resolved against the config's directory); computed results unchanged.
+
 ### Added
 - **Calibration screen (Gap 120, plan Phase 3)** — the Calibration stage's
   contextual center is now a full instrument: scheme selector + contextual

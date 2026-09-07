@@ -232,9 +232,11 @@ optical_elements:
 
 Loader behavior (Rule 17 — never a silent skip): `Sensor.from_yaml` / `Sensor.load` /
 `Sensor.from_dict` parse and **attach** the section (equivalent to
-`Sensor.set_optical_elements`); the document then persists back out through `Sensor.save`
-(relative spectral-file paths are absolutized at attach so the saved config loads from
-anywhere). A **bare** `load_config` call raises an actionable `ConfigError` on a
+`Sensor.set_optical_elements`); the document then persists back out through `Sensor.save`.
+Spectral-file references are absolutized at attach (so the stored document evaluates from
+any working directory) and relativized against the destination directory on save (CU-343),
+so a saved element-bearing config is portable exactly like its `is_file_path` parameters
+(CU-177): move the config and its data files together and the references still resolve. A **bare** `load_config` call raises an actionable `ConfigError` on a
 section-bearing config unless the caller opts in via `sections_out` — a loader that cannot
 attach the section must not silently drop physics the config describes. `radiant run` and
 `radiant validate` opt in and act on the section (CU-153): run parses the element document

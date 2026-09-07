@@ -226,7 +226,9 @@ def merge_element_document(
     ``relative_to`` (the directory the config file will live in) rewrites the
     spectral-file references of **configured** entries to relative form (CU-177);
     ``None`` leaves them as stored, matching ``Sensor.to_yaml``. Shared rows pass
-    through exactly as ``Sensor.save`` writes them today.
+    through unchanged here — the config serializer relativizes them at write time
+    (``io.config._relativize_element_section``, CU-343), the same seam that
+    handles a document with no configured rows at all.
     """
     out: list[dict[str, Any]] = []
     shared_iter = iter(shared)

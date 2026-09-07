@@ -21,6 +21,11 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Fixed
+- **Configuration bar absorbs a full-cap study at laptop width (CU-341)** —
+  the configuration tabs now live in a horizontally scrollable strip, so a
+  12-member study no longer forces a ~1344 px minimum window width; when the
+  tabs overflow, a slim scrollbar appears under the row and the active tab is
+  always scrolled into view. GUI-only; computed results unchanged.
 - **Saved element-bearing configs are now machine-portable (CU-343)** — the
   shared `optical_elements` document's spectral-file references (CSV
   reflectance/transmittance tables) are written relative to the config's

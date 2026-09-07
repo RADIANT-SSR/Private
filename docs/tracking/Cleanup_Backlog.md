@@ -65,15 +65,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: workflow-visible (intake test 4 — an operator running the flagship scenario sees a rule-invariant FAILED line) and owner-gated (test 2 — either the discretization residual at extreme undersampling is understood and the tolerance/margin is re-ratified, or a real path divergence hides under "expected residual"; CLAUDE.md documents the tolerance rationale, so moving it is an architectural-rule edit).
 **Suggested fix**: (b) stand-alone task — reproduce on the minimal undersampled config, decompose the residual (pixel-kernel area integration vs FFT grid at Q≈0.94), and either fix the discretization or present the owner a re-ratification case with measurements. Effort M; category C.
 
-### CU-341 — Configuration bar cannot absorb 12 tabs at laptop width: no wrap, scroll, or overflow affordance on the selector band
-
-**Discovered**: Configuration Set Expansion Plan Phase 1 (branch `cfgset/phase1-cap12`), 2026-09-02 — the plan §7 watch item, measured real during the 8 → 12 cap raise.
-**Status**: Open.
-**File**: `src/radiant/gui/widgets/configuration_bar.py:87` (plain `QHBoxLayout`, no wrap), `:214` (tabs `insertWidget`'d into the single row); `src/radiant/gui/main_window.py:684` (`dock.setWidget(bar)` propagates the bar's `minimumSizeHint` to the window minimum).
-**Symptom**: offscreen measurement — 12 OLI-style tab names (`B1_CA`…`B9_Cirrus`…) force a **1344 px** minimum bar width (911 px at 8 generic tabs); a 12-member study exceeds a 1280-wide window before the parameter dock and right rail are counted. CU-331's stacked band fixed vertical stacking only, not horizontal overflow.
-**Why it still matters**: workflow-visible (intake test 4) the moment a 9+-member study opens on a laptop — scenario 9.4's all-bands file (plan Phase 3) is exactly that study.
-**Suggested fix**: (b) stand-alone task — scroll or overflow affordance on the band (elide/scroll/"+N" per plan §7: "scroll or overflow affordance on the bar", explicitly not pre-built into Phase 1). Effort S–M; category A.
-
 ### CU-339 — `examples/templates/` doubles as the source-inferrer golden corpus: twelve Phase-2E configs are load-bearing test inputs wearing a user-facing home
 
 **Discovered**: mission-template welcome-screen build (branch `gui/mission-templates`), 2026-09-01. **Renumbered from CU-338** (2026-09-01): two sessions minted CU-338 the same day; the emitter finding's stub (`07fec66d`) reached `origin/main` first and holds the number — this mint (`d31a7d2a`) raced the reservation (fetch-before-mint missed) and takes the next free ID. Any in-flight branch text citing CU-338 for the templates-corpus finding means this entry — the owner-ruled supersede of the Phase-2E starters broke collection: `src/radiant/source/tests/test_inferrer.py` parametrizes over them via `tests/integration/snapshots/option_c_baseline.yaml` (path-keyed), 12 descriptor snapshots live in `src/radiant/source/tests/snapshots/`, `src/radiant/data/tests/test_templates.py` tests the set directly, and four guides (`configuration`, `trade_studies`, `regime_selection`, + Config_Format) cite the files.
@@ -136,6 +127,15 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-341 — Configuration bar cannot absorb 12 tabs at laptop width: no wrap, scroll, or overflow affordance on the selector band — RESOLVED 2026-09-07 (commit trailer)
+
+**Resolution**: the tabs moved into a frameless horizontal `QScrollArea` inside the band (label and Manage button stay pinned left, outside it), so the bar's `minimumSizeHint` no longer scales with tab count — a `QScrollArea`'s minimum is a few scrollbar-widths regardless of content. With room, the strip's `sizeHint` still shows every tab (`AdjustToContents`); overflowing, a slim themed horizontal scrollbar appears under the row and the active tab is always `ensureWidgetVisible`-scrolled into view (margin shows the neighbouring tab's edge, so the strip reads as continuing). Pinned by `TestOverflowAffordance`: 12 OLI-style names hold `minimumSizeHint().width()` under 450 px (was 1344), tabs still emit through the strip, and activating the last tab at 600 px width scrolls it into view. Public surface unchanged (`buttons`/`manage_button`/signals); `_TRAILING_ITEMS` deleted (its Findings-Log line struck). QSS: transparent scroll host riding the themed band; arch doc §4.2b updated; CHANGELOG Fixed entry. **Merged only after the owner's live review (2026-09-01 hard rule).**
+**Discovered**: Configuration Set Expansion Plan Phase 1 (branch `cfgset/phase1-cap12`), 2026-09-02 — the plan §7 watch item, measured real during the 8 → 12 cap raise.
+**File**: `src/radiant/gui/widgets/configuration_bar.py:87` (plain `QHBoxLayout`, no wrap), `:214` (tabs `insertWidget`'d into the single row); `src/radiant/gui/main_window.py:684` (`dock.setWidget(bar)` propagates the bar's `minimumSizeHint` to the window minimum).
+**Symptom**: offscreen measurement — 12 OLI-style tab names (`B1_CA`…`B9_Cirrus`…) force a **1344 px** minimum bar width (911 px at 8 generic tabs); a 12-member study exceeds a 1280-wide window before the parameter dock and right rail are counted. CU-331's stacked band fixed vertical stacking only, not horizontal overflow.
+**Why it still matters**: workflow-visible (intake test 4) the moment a 9+-member study opens on a laptop — scenario 9.4's all-bands file (plan Phase 3) is exactly that study.
+**Suggested fix**: (b) stand-alone task — scroll or overflow affordance on the band (elide/scroll/"+N" per plan §7: "scroll or overflow affordance on the bar", explicitly not pre-built into Phase 1). Effort S–M; category A.
 
 ### CU-340 — Scenario 3.4's script-side "true along-track GSD" carries the θ_o-vs-η misread the chain retired, making every off-nadir comparison column pessimistic — RESOLVED 2026-09-07 (commit trailer)
 

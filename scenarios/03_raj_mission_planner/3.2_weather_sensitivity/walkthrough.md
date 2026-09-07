@@ -160,8 +160,8 @@ The system is signal-shot-limited, so SNR ∝ √signal, not signal. At 300 K ta
 
 So the ~1.3× drop in τ across the full PWV range would at most produce a
 √1.3 ≈ 1.14× SNR change even with no compensation. In practice the path-emission
-refill leaves the signal itself 10.4% lower (258,362 → 231,395 e⁻), so the realized
-SNR change is ~5.4%. Because NIIRS depends on log₁₀(SNR), that maps to only a 0.04 NIIRS
+refill leaves the signal itself 10.5% lower (259,226 → 232,080 e⁻), so the realized
+SNR change is ~5.4% (508.7 → 481.3). Because NIIRS depends on log₁₀(SNR), that maps to only a 0.04 NIIRS
 swing across the full weather range. (Before the CU-161 water refit the parametric model
 produced a spurious 7× τ drop and a correspondingly overstated ~0.15 swing — see the
 validation note below.)

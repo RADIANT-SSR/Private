@@ -112,7 +112,7 @@ Band-integrated ΔL(600 K): 373.6 W/m²/sr (MWIR) vs 382.0 W/m²/sr (LWIR) —
 nearly EQUAL in radiance (these are hand-Planck values and did not move).
 The trade is decided at the detector, not in ΔL: the 600 K Planck peak sits
 at 4.8 µm (inside MWIR), while LWIR sees the 300 K background ~10× brighter,
-so LWIR's clutter (3% of a huge background) is ~217× MWIR's. Same ΔL, wildly
+so LWIR's clutter (3% of a huge background) is ~232× MWIR's. Same ΔL, wildly
 different signal-to-clutter.
 
 ### Fire-temperature sweep (400–1200 K), P_fa = 1e-6

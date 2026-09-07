@@ -61,6 +61,12 @@ class FPAPartSelector(QWidget):
     presetApplied = Signal(str)
     #: Emitted after Remove with the removed part name — same host treatment.
     presetRemoved = Signal(str)
+    #: Emitted instead of :attr:`presetRemoved` when the removal un-set
+    #: required (no-default) parameters the preset had been supplying — the
+    #: study cannot resolve until they are set, so hosts must NOT re-evaluate
+    #: (the CU-322 advisory pattern: expected incomplete state, no modal).
+    #: Carries the sorted list of missing dot-paths.
+    presetRemovedIncomplete = Signal(object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -206,9 +212,24 @@ class FPAPartSelector(QWidget):
         if self._sensor is None or self._current_part is None:
             return
         removed_part = self._current_part
-        self._sensor.remove_fpa()
+        cleared = self._sensor.remove_fpa()
         self._reset_card()
-        self.presetRemoved.emit(removed_part)
+        # A preset may have been supplying required (no-default) parameters —
+        # e.g. GeoSnap's pixel pitch. Removing those leaves an expected
+        # incomplete study: say what is now missing, right here, and route the
+        # no-evaluation advisory instead of letting the run fail into a modal
+        # (owner live review 2026-09-06: "things break pretty quickly").
+        missing = sorted(
+            dotpath for dotpath in cleared if self._sensor.parameter_def(dotpath).default is None
+        )
+        if missing:
+            self._status.setText(
+                "preset removed — set required parameter(s) for a custom design: "
+                + ", ".join(missing)
+            )
+            self.presetRemovedIncomplete.emit(missing)
+        else:
+            self.presetRemoved.emit(removed_part)
 
     def _on_details(self) -> None:
         """Per-parameter provenance detail for the last apply."""

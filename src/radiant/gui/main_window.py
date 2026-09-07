@@ -893,6 +893,7 @@ class RADIANTMainWindow(QMainWindow):
         # refreshes the tree exactly like a tree edit.
         stage_center.bind_sensor(self._sensor, param_panel.display_units)
         stage_center.parameterEdited.connect(self._on_form_parameter_edited)
+        stage_center.presetRemovedIncomplete.connect(self._on_preset_removed_incomplete)
         stage_center.compoundParameterEdited.connect(self._on_compound_parameter_edited)
 
     def _build_scripting_window(self) -> None:
@@ -1514,6 +1515,25 @@ class RADIANTMainWindow(QMainWindow):
             # configuration the on-screen numbers belong to.
             message = f"{cs.active} — {message} ({len(cs)} configurations evaluated)"
         self.statusBar().showMessage(message)
+
+    def _on_preset_removed_incomplete(self, missing: object) -> None:
+        """An FPA preset removal un-set required parameters (Gap 119).
+
+        Expected incomplete state, not a failure: no evaluation is scheduled
+        (it would only raise required-parameter errors), the previous result
+        is flagged stale everywhere, and the status bar names what to set —
+        the CU-322 advisory pattern (no modal). The FPA card itself lists the
+        missing dot-paths in place.
+        """
+        names = ", ".join(str(m) for m in missing) if isinstance(missing, list) else str(missing)
+        self._stage_strip.set_all_status("stale")
+        self._right_rail.run_button.set_stale(True)
+        self._central.mark_stale()
+        self._right_rail.pinned.set_stale(True)
+        self.statusBar().showMessage(
+            f"Preset removed — set required parameter(s) {names} for a custom design "
+            "(the previous result is shown, stale)"
+        )
 
     def _on_eval_failed(self, exc: BaseException) -> None:
         """Handle a failed evaluation: keep the previous result, show it as stale.

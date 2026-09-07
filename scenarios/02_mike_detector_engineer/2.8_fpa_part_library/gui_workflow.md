@@ -32,6 +32,11 @@ What the GUI must let Mike do, and where it does it.
    their defaults for a custom solution, Mike's explicit edits survive, and
    the study re-evaluates. Choosing a different part in the dialog does this
    implicitly first, so switching parts never mixes two presets' values.
+   When the removed preset was supplying required parameters (GeoSnap's pixel
+   pitch has no schema default), the study is an expected incomplete state:
+   no modal, no failed run — the card lists the dot-paths to set, every
+   result flips to its stale marker, and the status bar names what to set
+   (the CU-322 advisory pattern).
 
 Display-unit rule holds throughout: preset values are stored in
 datasheet-native units but display in the session display units like every

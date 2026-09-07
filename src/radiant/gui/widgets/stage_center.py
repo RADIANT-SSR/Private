@@ -261,6 +261,9 @@ class StagePane(QWidget):
     pinOutputRequested = Signal(str, str, str, str)
     pinMetricRequested = Signal(str, str)
     parameterEdited = Signal(str)
+    presetRemovedIncomplete = Signal(object)
+    #: Preset removal left required parameters unset (Gap 119): hosts mark the
+    #: run stale and do NOT re-evaluate. Carries the missing dot-path list.
     # A compound edit: several dot-paths changed by one user action that must undo as a
     # single step (CU-141 — a shape pick plus the dimensions seeded alongside it). The
     # payload is the list of affected dot-paths, primary first.
@@ -474,6 +477,7 @@ class StagePane(QWidget):
             fpa_selector = FPAPartSelector(parent)
             fpa_selector.presetApplied.connect(self.parameterEdited)
             fpa_selector.presetRemoved.connect(self.parameterEdited)
+            fpa_selector.presetRemovedIncomplete.connect(self._on_preset_removed_incomplete)
             layout.addWidget(fpa_selector)
             self._fpa_selectors.append(fpa_selector)
             # The Detector instrument's editable inputs card (GUI plan Phase PS-3): one
@@ -784,6 +788,14 @@ class StagePane(QWidget):
     def detector_inputs_form(self) -> DetectorInputsForm | None:
         """The Detector editable-inputs form, if this stage has one (Detector, PS-3)."""
         return self._detector_forms[0] if self._detector_forms else None
+
+    def _on_preset_removed_incomplete(self, missing: object) -> None:
+        """Refresh the input forms (cleared values now read —) and escalate."""
+        for detector_form in self._detector_forms:
+            detector_form.refresh()
+        for readout_form in self._readout_forms:
+            readout_form.refresh()
+        self.presetRemovedIncomplete.emit(missing)
 
     @property
     def fpa_part_selector(self) -> FPAPartSelector | None:
@@ -1188,6 +1200,9 @@ class StageCenter(QWidget):
     pinOutputRequested = Signal(str, str, str, str)
     pinMetricRequested = Signal(str, str)
     parameterEdited = Signal(str)
+    #: Bubbled from a pane's FPA card (Gap 119): preset removal left required
+    #: parameters unset — hosts mark stale, no re-evaluation.
+    presetRemovedIncomplete = Signal(object)
     # A compound edit: several dot-paths changed by one user action that must undo as a
     # single step (CU-141 — a shape pick plus the dimensions seeded alongside it). The
     # payload is the list of affected dot-paths, primary first.
@@ -1212,6 +1227,7 @@ class StageCenter(QWidget):
             pane.pinOutputRequested.connect(self.pinOutputRequested)
             pane.pinMetricRequested.connect(self.pinMetricRequested)
             pane.parameterEdited.connect(self.parameterEdited)
+            pane.presetRemovedIncomplete.connect(self.presetRemovedIncomplete)
             pane.compoundParameterEdited.connect(self.compoundParameterEdited)
             self._stack.addWidget(pane)
             self._panes[namespace] = pane

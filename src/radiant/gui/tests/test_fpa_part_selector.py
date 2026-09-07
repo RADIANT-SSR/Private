@@ -185,3 +185,63 @@ class TestRemove:
         selector.apply_part("geosnap-18")
         with qtbot.waitSignal(pane.parameterEdited, timeout=2000):
             selector._remove.click()
+
+
+class TestRemoveIncomplete:
+    """Removing a preset that supplied required (no-default) parameters is an
+    expected incomplete state: advisory signal, no re-evaluation (live-review
+    finding 2026-09-06: 'when I remove a detector, things break')."""
+
+    def _preset_supplied_sensor(self, tmp_path: Path) -> Sensor:
+        # Config pins no detector/readout values — the preset supplies them,
+        # including the required pixel pitch.
+        text = _EXAMPLE.read_text(encoding="utf-8")
+        lines = [
+            ln
+            for ln in text.splitlines()
+            if not ln.startswith(
+                (
+                    "detector:",
+                    "readout:",
+                    "  pixel_pitch",
+                    "  qe_value",
+                    "  dark_rate",
+                    "  read_noise",
+                    "  gain_e",
+                    "  adc_bits",
+                    "  full_well",
+                )
+            )
+        ]
+        cfg = tmp_path / "no_detector_pins.yaml"
+        cfg.write_text("\n".join(lines) + "\nfpa: geosnap-18\n", encoding="utf-8")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return Sensor.from_yaml(cfg)
+
+    def test_incomplete_signal_and_status(self, qtbot, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+        s = self._preset_supplied_sensor(tmp_path)
+        widget = FPAPartSelector()
+        qtbot.addWidget(widget)
+        widget.bind_sensor(s)
+        with qtbot.waitSignal(widget.presetRemovedIncomplete, timeout=2000) as blocker:
+            widget._remove.click()
+        missing = blocker.args[0]
+        assert "detector.pixel_pitch_x_um" in missing
+        assert "required" in widget._status.text()
+        assert "detector.pixel_pitch_x_um" in widget._status.text()
+
+    def test_pane_marks_incomplete_without_reevaluating(self, qtbot, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+        s = self._preset_supplied_sensor(tmp_path)
+        pane = StagePane("detector", STAGE_COMPOSITIONS["detector"])
+        qtbot.addWidget(pane)
+        pane.bind_sensor(s, {})
+        selector = pane.fpa_part_selector
+        assert selector is not None
+        edits: list[str] = []
+        pane.parameterEdited.connect(edits.append)
+        with qtbot.waitSignal(pane.presetRemovedIncomplete, timeout=2000):
+            selector._remove.click()
+        assert edits == []  # no re-evaluation trigger for an unresolvable study
+        # The cleared preset values read as unset in the refreshed form.
+        assert pane.detector_inputs_form.field_value_text("detector.pixel_pitch_x_um") == "—"

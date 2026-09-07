@@ -78,9 +78,15 @@ class TestSensorSwapClearsStaleResult:
     re-populated the stale result against the new live sensor; the geometry viewer then
     resolved the blank sensor and crashed with the circular f/# dependency, leaving the
     whole window unusable behind a modal error.
+
+    Contract updated 2026-09-07 (Gap 120 live-review second pass): the stale
+    result is still dropped — the crash stays impossible — but navigation now
+    shows the stage's EDITABLE composite (forms bound, plots awaiting, no
+    populate() call) instead of the placeholder, so a config can be built
+    through the stage screens before the first evaluation.
     """
 
-    def test_new_config_navigation_shows_placeholder_not_crash(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_new_config_navigation_shows_editable_pane_not_crash(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         center = StageCenter()
         qtbot.addWidget(center)
         good = Sensor.from_yaml(_EXAMPLE)
@@ -91,10 +97,11 @@ class TestSensorSwapClearsStaleResult:
 
         # File → New: a blank config with nothing set (optics f/# group unresolvable).
         center.bind_sensor(Sensor(), {})
-        assert center.is_placeholder()  # the stale result was dropped
         for namespace in STAGE_NAMESPACES:
-            center.select_stage(namespace)  # would raise before the fix
-            assert center.is_placeholder(), namespace
+            center.select_stage(namespace)  # would raise before the stale-result fix
+            # Editable composite, never a crash; the stale result is gone
+            # (populate() was never called — plots sit in the awaiting state).
+            assert not center.is_placeholder(), namespace
 
     def test_main_window_new_then_navigate_is_stable(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """End-to-end: evaluate a config, File → New, click every stage — no modal error."""
@@ -102,7 +109,7 @@ class TestSensorSwapClearsStaleResult:
         window._adopt_sensor(Sensor(), path=None, dirty=False, add_recent=False, evaluate=False)
         for namespace in STAGE_NAMESPACES:
             window._on_stage_selected(namespace)  # catches + would have shown UnexpectedError
-            assert window.central_canvas.stage_center.is_placeholder(), namespace
+            assert not window.central_canvas.stage_center.is_placeholder(), namespace
 
 
 # ---------------------------------------------------------------------------

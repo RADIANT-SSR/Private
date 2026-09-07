@@ -32,6 +32,11 @@ retroactively reconstructed.
   ROICs (Senseeker DPROICs, dfpa-generic) whose detector-side values belong
   to the mated diode (Gap 121 tracks true ROIC+detector composition).
   Scenario `scenarios/02_mike_detector_engineer/2.8_fpa_part_library/`.
+  New error class `radiant.core.parameters.RequiredParameterError`
+  (subclasses the previous `CoreValidationError` raise, message unchanged)
+  carries the missing dot-path structurally; the GUI routes it as an
+  incomplete-config advisory (stale + status bar, owning stage chip red)
+  instead of a modal per fix-up edit.
   `Sensor.remove_fpa()` / `radiant.api.remove_fpa_preset` (public surface)
   clear a preset back to a custom configuration (explicit edits kept), with a
   Remove button on the card; applying a different part now removes the

@@ -245,3 +245,43 @@ class TestRemoveIncomplete:
         assert edits == []  # no re-evaluation trigger for an unresolvable study
         # The cleared preset values read as unset in the refreshed form.
         assert pane.detector_inputs_form.field_value_text("detector.pixel_pitch_x_um") == "—"
+
+
+class TestIncompleteEvalAdvisory:
+    """Fix-up edits in an incomplete config must not raise modals (live-review
+    2026-09-06: 'I try to set the pixel pitch. It keeps erroring out')."""
+
+    def test_required_parameter_error_routes_as_advisory(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        from radiant.core.parameters import RequiredParameterError
+        from radiant.gui.main_window import RADIANTMainWindow
+
+        window = RADIANTMainWindow(Sensor.from_yaml(_EXAMPLE))
+        qtbot.addWidget(window)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=15000):
+            pass  # let the startup evaluation's worker thread finish cleanly
+        opened: list[object] = []
+        monkeypatch.setattr(
+            "radiant.gui.main_window.exec_dialog", lambda dlg, *a, **k: opened.append(dlg) or 0
+        )
+        exc = RequiredParameterError(
+            "Required parameter 'detector.pixel_pitch_x_um' is not set.",
+            param="detector.pixel_pitch_x_um",
+        )
+        window._on_eval_failed(exc)
+        assert opened == []  # advisory: never a modal
+        assert "detector.pixel_pitch_x_um" in window.statusBar().currentMessage()
+
+    def test_other_radiant_errors_keep_the_modal(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        from radiant.core.exceptions import CoreValidationError
+        from radiant.gui.main_window import RADIANTMainWindow
+
+        window = RADIANTMainWindow(Sensor.from_yaml(_EXAMPLE))
+        qtbot.addWidget(window)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=15000):
+            pass  # let the startup evaluation's worker thread finish cleanly
+        opened: list[object] = []
+        monkeypatch.setattr(
+            "radiant.gui.main_window.exec_dialog", lambda dlg, *a, **k: opened.append(dlg) or 0
+        )
+        window._on_eval_failed(CoreValidationError("some genuine rejection"))
+        assert len(opened) == 1

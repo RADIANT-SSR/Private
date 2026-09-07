@@ -41,6 +41,21 @@ class UnknownParameterError(RadiantError, KeyError):
     """
 
 
+class RequiredParameterError(CoreValidationError):
+    """A required (no-default) parameter is unset at resolve time.
+
+    Carries the dot-path structurally (``param``) so surfaces can route the
+    incomplete-config state without parsing message text (Rule 15; the GUI
+    treats it as an advisory, not a modal — Gap 119 live review 2026-09-06).
+    Subclasses :class:`CoreValidationError`, so existing ``except`` sites and
+    message-based tests are unaffected.
+    """
+
+    def __init__(self, message: str, *, param: str) -> None:
+        super().__init__(message)
+        self.param = param
+
+
 class ParameterBoundsError(RadiantError, ValueError):
     """A user-controlled parameter is out of its valid physical domain.
 
@@ -596,12 +611,13 @@ class ParameterSet:
                     if pdef.required_unless is not None
                     else ""
                 )
-                raise CoreValidationError(
+                raise RequiredParameterError(
                     f"Required parameter '{name}' is not set.\n"
                     f"  Description: {pdef.description}\n"
                     f"  Expected type: {pdef.dtype.__name__} in "
                     f"{pdef.input_unit or 'dimensionless'}\n"
-                    f"  Set it via: params.set('{name}', value)\n" + unless_hint
+                    f"  Set it via: params.set('{name}', value)\n" + unless_hint,
+                    param=name,
                 )
             self._resolved[name] = self._validate_and_convert(
                 name,

@@ -615,6 +615,18 @@ values were set with `Provenance.USER_SET` and that source string. Note the ADR-
 D-10 disambiguation convention: `<name>` here is a **configuration** (a member of a
 configuration set), never a config *file* — file-sourced values carry the file path.
 
+### Reading inputs without resolving
+
+`ParameterSet.peek_input(name)` (and `Sensor.peek_input`) returns the
+explicitly-set input value in input units, or `None`, **without** requiring or
+triggering resolution — unlike `get_input`, which raises while any required
+parameter is unset. Added for incomplete-configuration display (Gap 119): a
+committed edit must be readable before the last required parameter lands.
+Bounds/enum validation still happens at resolve time; `peek_input` is a raw
+read of the input store (values already unit-converted at `set()`, Rule 2).
+Resolve-time required-parameter failures raise `RequiredParameterError`
+(carrying the dot-path as `.param`), a `CoreValidationError` subclass.
+
 ### Provenance audit
 
 The entire resolved parameter set can be serialized to a provenance record:

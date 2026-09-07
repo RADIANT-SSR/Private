@@ -456,6 +456,16 @@ class Sensor:
         self._ensure_resolved()
         return self._params.get_input(dotpath)
 
+    def peek_input(self, dotpath: str) -> Any:
+        """The explicitly-set input value (input units), or ``None`` — no resolve.
+
+        The read-side counterpart of :meth:`set` for incomplete configurations:
+        never raises for an unresolvable config (unlike :meth:`get_input`), so
+        the GUI can display committed values while required parameters are
+        still missing (Gap 119).
+        """
+        return self._params.peek_input(dotpath)
+
     def resolved(self, dotpath: str) -> ResolvedValue:
         """Return the full resolved record for *dotpath* (CU-105).
 

@@ -32,6 +32,9 @@ retroactively reconstructed.
   ROICs (Senseeker DPROICs, dfpa-generic) whose detector-side values belong
   to the mated diode (Gap 121 tracks true ROIC+detector composition).
   Scenario `scenarios/02_mike_detector_engineer/2.8_fpa_part_library/`.
+  `Sensor.peek_input` / `ParameterSet.peek_input` (public surface): read an
+  explicitly-set input value without resolving — committed edits display
+  while a configuration is still incomplete.
   New error class `radiant.core.parameters.RequiredParameterError`
   (subclasses the previous `CoreValidationError` raise, message unchanged)
   carries the missing dot-path structurally; the GUI routes it as an

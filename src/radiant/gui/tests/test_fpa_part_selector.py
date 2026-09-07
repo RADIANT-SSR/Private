@@ -285,3 +285,38 @@ class TestIncompleteEvalAdvisory:
         )
         window._on_eval_failed(CoreValidationError("some genuine rejection"))
         assert len(opened) == 1
+
+
+class TestEditsDisplayWhileIncomplete:
+    """After removing a preset, a committed fix-up edit must display at once —
+    not read '—' until the last required parameter lands (live-review
+    2026-09-06: 'updates to detector parameters are not taking')."""
+
+    def test_committed_edit_shows_during_incomplete_state(self, qtbot, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+        text = _EXAMPLE.read_text(encoding="utf-8")
+        lines = [
+            ln
+            for ln in text.splitlines()
+            if not ln.startswith(("detector:", "  pixel_pitch", "  qe_value", "  dark_rate"))
+        ]
+        cfg = tmp_path / "no_detector_pins.yaml"
+        cfg.write_text("\n".join(lines) + "\nfpa: geosnap-18\n", encoding="utf-8")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            s = Sensor.from_yaml(cfg)
+        pane = StagePane("detector", STAGE_COMPOSITIONS["detector"])
+        qtbot.addWidget(pane)
+        pane.bind_sensor(s, {})
+        selector = pane.fpa_part_selector
+        assert selector is not None
+        selector._remove.click()
+        form = pane.detector_inputs_form
+        assert form.field_value_text("detector.pixel_pitch_x_um") == "—"
+        # The user's fix-up edit, exactly as the editor dialog commits it.
+        s.set("detector.pixel_pitch_x_um", 18.0)
+        form._after_commit("detector.pixel_pitch_x_um", None)
+        assert "18" in form.field_value_text("detector.pixel_pitch_x_um")
+        # Still-unset required fields keep reading unset.
+        assert form.field_value_text("detector.pixel_pitch_y_um") == "—"
+        # And config-pinned values elsewhere never blanked out.
+        assert s.peek_input("spectral_integration.integration_time_s") is not None

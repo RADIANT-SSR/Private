@@ -902,6 +902,25 @@ class ParameterSet:
         self._require_resolved()
         return self._resolved[name].input_value
 
+    def peek_input(self, name: str) -> Any:
+        """Return the explicitly-set input value (input units) without resolving.
+
+        ``None`` when *name* has no explicit input. Unlike :meth:`get_input`,
+        this never triggers (or requires) resolution, so display surfaces can
+        read committed values while the configuration is still incomplete —
+        e.g. mid-way through replacing a removed FPA preset (Gap 119 live
+        review 2026-09-06: edits looked like they were 'not taking' because
+        every read raised until the last required parameter was set). Values
+        were unit-converted at ``set()`` (Rule 2), so this is the input-unit
+        value as validation will see it; bounds/enum checks still happen at
+        resolve time.
+        """
+        canonical = self._canonical(name)
+        if canonical not in self._defs:
+            raise UnknownParameterError(self._suggest(canonical))
+        entry = self._inputs.get(canonical)
+        return None if entry is None else entry[0]
+
     def all_resolved(self) -> dict[str, ResolvedValue]:
         self._require_resolved()
         return dict(self._resolved)

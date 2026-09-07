@@ -78,7 +78,12 @@ clears every `Provenance.PRESET` input — reverting those parameters to their
 schema defaults / derived values for a fully custom configuration — while
 keeping explicit user/config values including post-apply overrides; it returns
 the cleared dot-paths and empties `s.fpa_applications`. `remove_fpa_preset` is
-the `ParameterSet`-level equivalent, exported from `radiant.api`. Each applied value's source string is
+the `ParameterSet`-level equivalent, exported from `radiant.api`.
+`s.peek_input(dotpath)` reads an explicitly-set input value (input units, or
+`None`) **without resolving** — the read-side counterpart of `set` for
+incomplete configurations (display surfaces use it so committed edits show
+while other required parameters are still missing); `ParameterSet.peek_input`
+is the core equivalent. Each applied value's source string is
 `fpa:<part>/<source-key>`, tracing to the citation inside the preset document
 (`src/radiant/data/tables/fpa/<part>.yaml`, per-parameter attribution +
 committed reference PDFs). The config-file equivalent is the top-level

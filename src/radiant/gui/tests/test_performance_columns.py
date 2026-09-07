@@ -353,9 +353,10 @@ class TestFrozenLabelColumn:
 
     With 8 configurations the matrix outgrows the pane; pre-fix, the whole card
     grid scrolled sideways and carried the row labels off-screen. Now only the
-    header + value columns live inside each card's horizontal scroll area, the
-    label column is force-height-synced beside it, and every card's scrollbar
-    is linked so the surface scrolls as one.
+    header + value columns live inside each card's horizontal scroll area and
+    the label column is force-height-synced beside it. Each card's scrollbar is
+    independent (CU-347, owner live review 2026-09-07): the CU-332-era chained
+    scroll made dragging one card's bar visibly drag every other card.
     """
 
     def _scrolls(self, cards: MetricGroupCards) -> list[Any]:
@@ -373,7 +374,8 @@ class TestFrozenLabelColumn:
         for cell in cards._cells.values():
             assert any(s.isAncestorOf(cell) for s in scrolls)
 
-    def test_cards_scroll_as_one_surface(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    def test_cards_scroll_independently(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """Dragging one card's horizontal bar moves that card alone (CU-347)."""
         window = _open_three_band(qtbot, tmp_path)
         cards = _cards(window)
         scrolls = self._scrolls(cards)
@@ -387,10 +389,11 @@ class TestFrozenLabelColumn:
         assert first.maximum() > 0
         target = min(30, first.maximum())
         first.setValue(target)
+        assert first.value() == target
         for other in scrolls[1:]:
-            bar = other.horizontalScrollBar()
-            if bar.maximum() >= target:
-                assert bar.value() == target
+            assert other.horizontalScrollBar().value() == 0, (
+                "scrolling one matrix card must not drag the others (CU-347)"
+            )
 
     def test_labels_align_with_their_rows(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         window = _open_three_band(qtbot, tmp_path)

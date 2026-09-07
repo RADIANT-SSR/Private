@@ -21,6 +21,10 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Fixed
+- **Performance-tab matrix cards scroll independently (CU-347)** — dragging
+  one card's horizontal scrollbar (e.g. Summary) no longer drags every other
+  card (e.g. MTF) with it; the CU-332-era cross-card scroll chaining is
+  retired (owner live review). GUI-only; computed results unchanged.
 - **Saved element-bearing configs are now machine-portable (CU-343)** — the
   shared `optical_elements` document's spectral-file references (CSV
   reflectance/transmittance tables) are written relative to the config's

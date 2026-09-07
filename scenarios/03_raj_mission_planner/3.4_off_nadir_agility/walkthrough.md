@@ -59,7 +59,9 @@ angle:
    spherical-Earth slant range, independently of the chain — this is now a
    *cross-check* of RADIANT's own `gsd_cross_track_m` rather than a
    substitute for it (see "RADIANT GSD vs. True Off-Nadir GSD" below)
-3. NIIRS is corrected using the true GSD via the GIQE-5 GSD scaling term
+3. NIIRS is read from the chain directly — GIQE-5 consumes the two-axis
+   off-nadir GSD (geometric mean internally), so no script-side rescale
+   remains (CU-340 retired the old GM/cross rescale, which double-counted)
 
 ## Results
 
@@ -68,21 +70,16 @@ angle:
 | Gap # | Description | Previous Status | Current Status | Notes |
 |-------|-------------|-----------------|----------------|-------|
 | 33    | GSD not adjusted for off-nadir angle | OPEN | **CLOSED** | `gsd_cross_track_m` tracks the scenario's independent spherical-Earth cross-track GSD to +0.0 % at every swept angle (owner-ruled retired 2026-09-01) |
-| 34    | NIIRS not recomputed with off-nadir GSD | OPEN | **CLOSED** | `result.metrics["niirs"]` consumes the off-nadir GSD above; the script's residual correction is now the along-track/geometric-mean difference only (Gap 35), not a nadir-GSD fix |
-| 35    | No along-track vs cross-track GSD at off-nadir | OPEN | **CLOSED** | The chain reports the two axes separately — 1.86 m cross vs 2.63 m along at 45° — plus `gsd_geometric_mean_m` for GIQE-5. The script's own along-track column is what still differs (see below), not the chain's |
+| 34    | NIIRS not recomputed with off-nadir GSD | OPEN | **CLOSED** | `result.metrics["niirs"]` consumes the two-axis off-nadir GSD (geometric mean internally); the script's residual rescale was retired by CU-340 (2026-09-07) as a double-count |
+| 35    | No along-track vs cross-track GSD at off-nadir | OPEN | **CLOSED** | The chain reports the two axes separately — 1.86 m cross vs 2.63 m along at 45° — plus `gsd_geometric_mean_m` for GIQE-5. The script's own along-track column agrees to round-off since the CU-340 projection fix (see below) |
 | 36    | No swath width / access geometry calculator | OPEN | **CLOSED** | `performance/{ground_range,swath_width,access_rate}.py` shipped. This run reads `ground_range_m` (527.2 km at 45°, equal to the script's); `swath_width_m` / `access_rate_m2_per_s` stay `None` only because the config sets neither `detector.n_pixels_cross` nor `geometry.ground_speed_m_s` |
 
 ### Additional Metrics Now Available (Nadir Baseline)
 
 | Metric | Value | Unit | Notes |
 |--------|-------|------|-------|
-<<<<<<< HEAD
-| NEDT | 66.0 | mK | Noise-equivalent delta temperature |
-| NIIRS | 5.32 | -- | GIQE-5, extrapolated (see banner); nadir point of the sweep |
-=======
 | NEDT | 64.0 | mK | Noise-equivalent delta temperature |
-| NIIRS | 5.35 | -- | GIQE-5 (nadir only) |
->>>>>>> 26245007
+| NIIRS | 5.35 | -- | GIQE-5, extrapolated (see banner); nadir point of the sweep |
 | GSD (RADIANT) | 1.37 | m | Nadir, cross-track |
 | Q (center) | 0.844 | -- | Slightly undersampled |
 | Q (min/max) | 0.562 / 1.125 | -- | Over band |
@@ -130,26 +127,45 @@ element has emissivity = 0 by Kirchhoff's law).
 
 ### Geometry Reference Table
 
+*Along-track column corrected 2026-09-07 (**CU-340**): the script's projection
+re-read the swept target-side angle as a sensor-side η before dividing —
+dividing by cos 50.7° instead of cos 45° at the sweep end. The corrected column
+matches the chain's `gsd_along_track_m` digit for digit (see the cross-check
+section below). Cross-track, slant range, air mass, and ground range are
+bit-identical.*
+
 | Angle [deg] | Slant Range [km] | Air Mass | Ground Range [km] | GSD Cross [m] | GSD Along [m] |
 |-------------|------------------|----------|-------------------|---------------|---------------|
 | 0           | 600.0            | 1.0000   | 0.0               | 1.37          | 1.37          |
 | 5           | 602.1            | 1.0035   | 48.0              | 1.38          | 1.38          |
-| 10          | 608.4            | 1.0141   | 96.6              | 1.39          | 1.42          |
-| 15          | 619.3            | 1.0321   | 146.5             | 1.42          | 1.48          |
-| 20          | 634.9            | 1.0582   | 198.5             | 1.45          | 1.56          |
-| 25          | 655.9            | 1.0932   | 253.4             | 1.50          | 1.69          |
-| 30          | 683.2            | 1.1386   | 312.3             | 1.56          | 1.87          |
-| 35          | 717.6            | 1.1960   | 376.4             | 1.64          | 2.11          |
-| 40          | 760.8            | 1.2680   | 447.3             | 1.74          | 2.45          |
-| 45          | 814.8            | 1.3580   | 527.2             | 1.86          | 2.94          |
+| 10          | 608.4            | 1.0141   | 96.6              | 1.39          | 1.41          |
+| 15          | 619.3            | 1.0321   | 146.5             | 1.42          | 1.47          |
+| 20          | 634.9            | 1.0582   | 198.5             | 1.45          | 1.54          |
+| 25          | 655.9            | 1.0932   | 253.4             | 1.50          | 1.65          |
+| 30          | 683.2            | 1.1386   | 312.3             | 1.56          | 1.80          |
+| 35          | 717.6            | 1.1960   | 376.4             | 1.64          | 2.00          |
+| 40          | 760.8            | 1.2680   | 447.3             | 1.74          | 2.27          |
+| 45          | 814.8            | 1.3580   | 527.2             | 1.86          | 2.63          |
 
 **Along-track GSD diverges from cross-track** because of the ground projection
 foreshortening.  At 45 deg off-nadir, cross-track GSD is 1.86 m (+36%) but
-along-track GSD is 2.94 m (+114%).
+along-track GSD is 2.63 m (+92%).
 
 ### Performance Sweep
 
-*Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
+*Columns `GSD GM`, `NIIRS`, and `dNIIRS` refreshed 2026-09-07. Sole mover:
+**CU-340**, in two parts. (1) The script's along-track projection corrected
+(above), so the geometric mean shrinks off-nadir (2.34 → 2.21 m at 45°).
+(2) The script's residual NIIRS rescale is **retired**: it subtracted
+−3.32·log₁₀(GM/cross) from the chain's NIIRS, but the chain's GIQE-5 has
+consumed the two-axis GSD (geometric mean internally) since Gap 34/35 closed —
+the rescale was double-counting the along/cross ratio (−0.25 NIIRS at 45°).
+The NIIRS column is now the chain's `metrics["niirs"]` directly, and the 45°
+penalty reads −0.57 (was −0.90: −0.08 from the projection fix, −0.25 from the
+double-count). The chain-side columns (τ, SNR, NEDT) are bit-identical —
+nothing in the chain moved.*
+
+*Prior vintage, 2026-09-01, refreshed from the unmodified runner (previous vintage
 2026-08-30). Sole mover: **CU-336** — the same fit's grid convention was
 corrected. `floor_add` had been subtracting a non-water reference measured on a
 uniform-λ grid from a ladder optical depth measured on MODTRAN's wavenumber
@@ -170,18 +186,18 @@ had clamped them to zero): nadir τ fell 0.7243 → 0.6488 (−10.4 %), SNR ~34 
 *Prior vintage, for the trend: the 2026-08-02 refresh was dominated by CU-253
 (nadir τ 0.4903 → 0.7243, SNR −27 %) with CU-267 −0.12 % underneath.*
 
-| Angle [deg] | Tau (mean) | SNR   | GSD GM [m] | NIIRS (corr) | NEDT [mK] | dNIIRS |
-|-------------|------------|-------|------------|--------------|-----------|--------|
-| 0           | 0.6594     | 59.8  | 1.37       | 5.35         | 64.0      | 0.00   |
-| 5           | 0.6583     | 61.1  | 1.38       | 5.35         | 62.7      | +0.00  |
-| 10          | 0.6552     | 62.5  | 1.40       | 5.33         | 61.3      | -0.02  |
-| 15          | 0.6500     | 63.8  | 1.45       | 5.29         | 60.1      | -0.06  |
-| 20          | 0.6424     | 65.1  | 1.51       | 5.22         | 58.9      | -0.13  |
-| 25          | 0.6322     | 66.4  | 1.59       | 5.13         | 57.8      | -0.22  |
-| 30          | 0.6192     | 67.7  | 1.71       | 5.01         | 56.7      | -0.34  |
-| 35          | 0.6029     | 69.0  | 1.86       | 4.86         | 55.6      | -0.49  |
-| 40          | 0.5828     | 70.3  | 2.06       | 4.68         | 54.6      | -0.67  |
-| 45          | 0.5581     | 71.6  | 2.34       | 4.45         | 53.6      | -0.90  |
+| Angle [deg] | Tau (mean) | SNR   | GSD GM [m] | NIIRS | NEDT [mK] | dNIIRS |
+|-------------|------------|-------|------------|-------|-----------|--------|
+| 0           | 0.6594     | 59.8  | 1.37       | 5.35  | 64.0      | 0.00   |
+| 5           | 0.6583     | 61.1  | 1.38       | 5.36  | 62.7      | +0.01  |
+| 10          | 0.6552     | 62.5  | 1.40       | 5.35  | 61.3      | -0.00  |
+| 15          | 0.6500     | 63.8  | 1.44       | 5.32  | 60.1      | -0.03  |
+| 20          | 0.6424     | 65.1  | 1.50       | 5.28  | 58.9      | -0.07  |
+| 25          | 0.6322     | 66.4  | 1.57       | 5.22  | 57.8      | -0.13  |
+| 30          | 0.6192     | 67.7  | 1.68       | 5.14  | 56.7      | -0.21  |
+| 35          | 0.6029     | 69.0  | 1.81       | 5.04  | 55.6      | -0.31  |
+| 40          | 0.5828     | 70.3  | 1.99       | 4.92  | 54.6      | -0.43  |
+| 45          | 0.5581     | 71.6  | 2.21       | 4.78  | 53.6      | -0.57  |
 
 ### RADIANT GSD vs. True Off-Nadir GSD
 
@@ -190,18 +206,23 @@ also retires this section's finding. The previous vintage read RADIANT GSD
 1.47/1.53/1.61/1.71/1.85/2.04 m at 20–45° with a "+9.6 % at 45 deg" overestimate;
 those numbers are gone, not merely re-rounded.*
 
-| Angle [deg] | RADIANT GSD [m] | True Cross [m] | True Along [m] | Error [%] |
-|-------------|-----------------|----------------|-----------------|-----------|
-| 0           | 1.37            | 1.37           | 1.37            | +0.0      |
-| 5           | 1.38            | 1.38           | 1.38            | +0.0      |
-| 10          | 1.39            | 1.39           | 1.42            | +0.0      |
-| 15          | 1.42            | 1.42           | 1.48            | +0.0      |
-| 20          | 1.45            | 1.45           | 1.56            | +0.0      |
-| 25          | 1.50            | 1.50           | 1.69            | +0.0      |
-| 30          | 1.56            | 1.56           | 1.87            | +0.0      |
-| 35          | 1.64            | 1.64           | 2.11            | +0.0      |
-| 40          | 1.74            | 1.74           | 2.45            | +0.0      |
-| 45          | 1.86            | 1.86           | 2.94            | +0.0      |
+*Table widened 2026-09-07 (**CU-340**): the cross-check now runs on both axes —
+the script's corrected along-track projection against the chain's
+`gsd_along_track_m` — and both agree to double-precision round-off at every
+angle.*
+
+| Angle [deg] | RADIANT GSD_x [m] | True Cross [m] | Err_x [%] | RADIANT GSD_y [m] | True Along [m] | Err_y [%] |
+|-------------|-------------------|----------------|-----------|-------------------|----------------|-----------|
+| 0           | 1.37              | 1.37           | +0.0      | 1.37              | 1.37           | +0.0      |
+| 5           | 1.38              | 1.38           | +0.0      | 1.38              | 1.38           | +0.0      |
+| 10          | 1.39              | 1.39           | +0.0      | 1.41              | 1.41           | +0.0      |
+| 15          | 1.42              | 1.42           | +0.0      | 1.47              | 1.47           | +0.0      |
+| 20          | 1.45              | 1.45           | +0.0      | 1.54              | 1.54           | +0.0      |
+| 25          | 1.50              | 1.50           | +0.0      | 1.65              | 1.65           | +0.0      |
+| 30          | 1.56              | 1.56           | +0.0      | 1.80              | 1.80           | +0.0      |
+| 35          | 1.64              | 1.64           | +0.0      | 2.00              | 2.00           | +0.0      |
+| 40          | 1.74              | 1.74           | +0.0      | 2.27              | 2.27           | +0.0      |
+| 45          | 1.86              | 1.86           | +0.0      | 2.63              | 2.63           | +0.0      |
 
 **The finding this section used to carry is retired: RADIANT's `gsd_cross_track_m`
 now tracks true cross-track GSD exactly.** The "error" column is not a rounded
@@ -230,21 +251,22 @@ CHANGELOG entry for that landing is flagged *"Results-affecting (off-nadir
 configurations only)"* and predicted precisely this: values that scale with slant
 range shrink off-nadir. This walkthrough simply was not re-run against it.
 
-**What remains is a script-side difference, not an open gap.** Gap 35 is **closed**
-too: the chain reports `gsd_cross_track_m` and `gsd_along_track_m` separately, and at
-45° they read 1.86 m and 2.63 m. The `True Along` column above is *not* that number —
-it is this script's own ground projection, 2.94 m. The ≈ 12 % spread is the **same
-θ_o-vs-η convention split diagnosed above, still live on the script side**: RADIANT
-divides the cross-track GSD by cos θ_o, the swept angle being by definition the path
-zenith angle at the ground target and hence the incidence angle, while
-`gsd_off_nadir()` re-reads the swept 45° as a sensor-side η, converts it to an
-incidence angle of 50.7° via the sine rule, and divides by cos 50.7° instead — the
-one conversion too many that `65720f0d` removed from the chain. The chain's value is
-the one referenced to the angle actually swept. So the script's `True Along` column,
-the `GSD GM` built from it, and the `NIIRS (corr)` column derived from that all run
-pessimistic off-nadir. This is recorded in `docs/tracking/Findings_Log.md` for
-disposition rather than corrected here; the fix is to read `gsd_along_track_m` from
-the chain, not to re-derive it.
+**The script-side along-track residue is fixed too (CU-340, 2026-09-07).** Gap 35
+is **closed**: the chain reports `gsd_cross_track_m` and `gsd_along_track_m`
+separately, and at 45° they read 1.86 m and 2.63 m. The script's `True Along`
+column used to disagree (2.94 m at 45°, ≈ 12 % pessimistic) because
+`gsd_off_nadir()` carried the same θ_o-vs-η convention split diagnosed above on
+its along-track branch: it re-read the swept 45° as a sensor-side η, converted it
+to an incidence angle of 50.7° via the sine rule, and divided by cos 50.7° — the
+one conversion too many that `65720f0d` removed from the chain. CU-340 deleted
+that conversion (the swept angle *is* the path zenith angle at the target, hence
+the incidence angle), so the script now divides by cos θ_o and lands on the
+chain's value to double-precision round-off. The same commit retired the
+script's residual NIIRS rescale, which had been double-counting the
+along/cross ratio against a chain GIQE-5 that already consumes the geometric
+mean (see the Performance Sweep note); the previous vintage's GM 2.34 m and
+dNIIRS −0.90 at 45° now read 2.21 m and −0.57, and the two-axis table above is
+a live regression guard on both conventions.
 
 ## Physics Discussion
 
@@ -271,16 +293,16 @@ focuses on the standard `snr` metric.
 
 ### GSD: The Dominant Degradation Driver
 
-NIIRS degrades by -0.90 from nadir to 45 deg.  This is primarily from GSD:
+NIIRS degrades by -0.57 from nadir to 45 deg.  This is primarily from GSD:
 
-- GSD scaling: dNIIRS = -3.32 × log10(GSD_45/GSD_nadir) = -3.32 × log10(2.34/1.37) = -0.76
-- The actual degradation (-0.90) is larger than the pure GSD term because the
-  corrected NIIRS also accounts for the geometric mean of cross-track and along-track
-  GSD, which diverges more strongly than cross-track alone.
+- GSD scaling: dNIIRS = -3.32 × log10(GSD_GM_45/GSD_nadir) = -3.32 × log10(2.21/1.37) = -0.69
+- The actual degradation (-0.57) is smaller than the pure geometric-mean GSD
+  term because SNR *rises* off-nadir (+19.8% at 45°, the veiling effect above)
+  and partially offsets the GSD loss through GIQE-5's SNR term.
 
 The along-track vs cross-track GSD divergence is significant.  At 45 deg:
 - Cross-track: 1.86 m (+36%) — scales as slant_range / focal_length
-- Along-track: 2.94 m (+114%) — additional cos(incidence_angle) factor from ground projection
+- Along-track: 2.63 m (+92%) — additional cos(theta) ground-projection factor at the target
 
 This asymmetry means the ground sample is rectangular (not square) at off-nadir,
 which degrades along-track resolution disproportionately.
@@ -303,14 +325,18 @@ H₂O and CO₂ absorption at longer wavelengths.
 
 The fundamental trade in agile pointing:
 
+*Table refreshed 2026-09-07 — it had been carrying a pre-CU-336 vintage
+(nadir NIIRS 5.32, NEDT 66.0 mK) that two sweep-table refreshes above it had
+already replaced, plus the CU-340 GM/NIIRS movements of this refresh.*
+
 | Angle [deg] | Ground Range [km] | GSD GM [m] | NIIRS | NEDT [mK] | Access Rate [km^2/s] |
 |-------------|-------------------|------------|-------|-----------|----------------------|
-| 0           | 0                 | 1.37       | 5.32  | 66.0      | 114                  |
-| 30          | 312               | 1.71       | 4.99  | 58.4      | 129                  |
-| 45          | 527               | 2.34       | 4.42  | 55.3      | 154                  |
+| 0           | 0                 | 1.37       | 5.35  | 64.0      | 114                  |
+| 30          | 312               | 1.68       | 5.14  | 56.7      | 129                  |
+| 45          | 527               | 2.21       | 4.78  | 53.6      | 154                  |
 
 At 45 deg off-nadir, Raj can image a target 527 km from nadir ground track,
-but at the cost of -0.90 NIIRS.  Whether this trade is acceptable depends on
+but at the cost of -0.57 NIIRS.  Whether this trade is acceptable depends on
 the mission's minimum NIIRS requirement.
 
 ## Real-MODTRAN validation note (added 2026-07-17)
@@ -363,12 +389,12 @@ comparison script in the session record for commit-linked provenance.
 | Gap # | Description | Status | Impact |
 |-------|-------------|--------|--------|
 | 33    | GSD not adjusted for off-nadir angle | **CLOSED** (verified on this scenario 2026-09-01) | None. `gsd_cross_track_m` equals this scenario's independent spherical-Earth cross-track GSD to 1.4e-13 % across 0–45°; closed by `65720f0d` (CU-096/CU-097, ADR-0006 Phase 2) |
-| 34    | NIIRS not recomputed with off-nadir GSD | **CLOSED** (verified on this scenario 2026-09-01) | None from the GSD side. `result.metrics["niirs"]` reads the off-nadir GSD; the script's remaining NIIRS correction is the along-track/geometric-mean term, which is Gap 35 |
-| 35    | No along-track vs cross-track GSD at off-nadir | **CLOSED** (verified on this scenario 2026-09-01) | None chain-side. `gsd_cross_track_m` and `gsd_along_track_m` are distinct off-nadir (1.86 / 2.63 m at 45°) and `gsd_geometric_mean_m` feeds GIQE-5. What still differs is this script's own along-track projection — a script-side θ_o-vs-η convention issue, not a missing capability |
+| 34    | NIIRS not recomputed with off-nadir GSD | **CLOSED** (verified on this scenario 2026-09-01) | None. `result.metrics["niirs"]` reads the two-axis off-nadir GSD; the script's remaining rescale was retired by CU-340 (2026-09-07) as a double-count against the chain's internal geometric mean |
+| 35    | No along-track vs cross-track GSD at off-nadir | **CLOSED** (verified on this scenario 2026-09-01) | None chain-side. `gsd_cross_track_m` and `gsd_along_track_m` are distinct off-nadir (1.86 / 2.63 m at 45°) and `gsd_geometric_mean_m` feeds GIQE-5. The script's own along-track projection carried a θ_o-vs-η convention issue until CU-340 (2026-09-07); both axes now cross-check to round-off |
 | 36    | No swath width / access geometry calculator | **CLOSED** (verified on this scenario 2026-09-01) | None. The chain computes `ground_range_m` and matches this script's 527.2 km at 45°; `swath_width_m` and `access_rate_m2_per_s` require `detector.n_pixels_cross` and `geometry.ground_speed_m_s`, which this config does not set, so the script still computes them locally |
 
 **Newly closed gaps (metrics now available):**
-- NEDT is now available via `result.metrics["nedt_K"]` -- 66.0 mK at nadir
+- NEDT is now available via `result.metrics["nedt_K"]` -- 64.0 mK at nadir
 - NIIRS is now available via `result.metrics["niirs"]` -- 5.32 at nadir
 - GSD is now available via `result.metrics["gsd_cross_track_m"]` -- 1.37 m at nadir
 - Q is now available via `result.metrics["q_center"]` -- 0.844
@@ -387,7 +413,7 @@ comparison script in the session record for commit-linked provenance.
 - `outputs/off_nadir_results.xlsx` — Full sweep results
 - `outputs/fig1_snr_transmission_vs_angle.png` — SNR and transmission vs. angle
 - `outputs/fig2_gsd_vs_angle.png` — GSD (cross, along, GM) vs. angle
-- `outputs/fig3_niirs_vs_angle.png` — NIIRS vs. angle (corrected and RADIANT)
+- `outputs/fig3_niirs_vs_angle.png` — NIIRS vs. angle (chain metric)
 - `outputs/fig4_summary_panels.png` — Four-panel summary
 
 ## What Raj Would Do Next
@@ -399,11 +425,10 @@ comparison script in the session record for commit-linked provenance.
    at off-nadir angles — the atmospheric veiling effect reduces contrast
 3. **Compare MWIR performance at off-nadir** — MWIR has stronger atmospheric
    absorption, so the transmission penalty at off-nadir would be more severe
-4. **Drop the manual GSD correction entirely** — Gaps 33, 34 and 35 are all closed,
-   so the chain already returns the correct cross-track GSD, along-track GSD,
-   geometric mean and NIIRS at any look angle. Reading `gsd_along_track_m` and
-   `metrics["niirs"]` straight from the result also retires the ≈ 12 % along-track
-   difference the script's own projection still carries
+4. ~~Drop the manual GSD correction entirely~~ **Done (CU-340, 2026-09-07)** —
+   the NIIRS column now reads `metrics["niirs"]` directly and the script's
+   along-track projection is corrected, kept only as a two-axis cross-check
+   against `gsd_cross_track_m` / `gsd_along_track_m`
 5. **Wire up the access metrics** — set `detector.n_pixels_cross` and
    `geometry.ground_speed_m_s` and the chain returns `swath_width_m` and
    `access_rate_m2_per_s` directly (Gap 36), replacing the script's local versions

@@ -200,6 +200,13 @@ class _PlotSection(QWidget):
         ceiling = max(_PLOT_MIN_HEIGHT, int(round(width * _PLOT_MAX_HEIGHT_RATIO)))
         self._canvas.setMaximumHeight(ceiling)
 
+    def show_awaiting(self) -> None:
+        """Pre-evaluate state: name what fills this section instead of a blank canvas
+        (live review 2026-09-07 — stage screens are editable before the first run)."""
+        self._message.setText("Awaiting first evaluation — press Evaluate (F5)")
+        self._message.setVisible(True)
+        self._canvas.setVisible(False)
+
     def render(self, result: ChainResult) -> None:
         """Draw the section's ``result.plot.*`` figure, or its actionable message."""
         self._result = result
@@ -1087,6 +1094,39 @@ class StagePane(QWidget):
 
     # -- result delivery ----------------------------------------------------
 
+    @property
+    def has_editable_inputs(self) -> bool:
+        """True when this pane carries an editable inputs surface.
+
+        The pre-result display gate (live review 2026-09-07): a stage whose
+        screen can *edit* shows its composite as soon as a sensor is bound —
+        building a config through the stage screens must not require a first
+        successful evaluation (which a blank config cannot produce).
+        """
+        return bool(
+            self._geometry_forms
+            or self._source_forms
+            or self._optics_forms
+            or self._element_editors
+            or self._detector_forms
+            or self._spectral_forms
+            or self._platform_forms
+            or self._readout_forms
+            or self._calibration_forms
+            or self._atmosphere_forms
+            or self._metric_selection_forms
+        )
+
+    def show_awaiting(self) -> None:
+        """Enter the pre-result state: input forms live, result sections labelled.
+
+        Forms are already bound (bind_sensor) and editable; every plot section
+        says what will fill it instead of showing a blank canvas. Outputs /
+        metric readouts simply have no rows yet.
+        """
+        for section in self._plot_sections:
+            section.show_awaiting()
+
     def populate(self, result: ChainResult, columns: ConfigurationColumns | None = None) -> None:
         """Fill every section of this pane from *result* (one API call per figure).
 
@@ -1241,6 +1281,7 @@ class StageCenter(QWidget):
         self._stack = QStackedWidget(self)
         self._placeholder = PlotPlaceholder(self)
         self._stack.addWidget(self._placeholder)
+        self._sensor: Sensor | None = None
 
         # One pane per chain stage, keyed by namespace. Built once; populated on result.
         self._panes: dict[str, StagePane] = {}
@@ -1293,9 +1334,13 @@ class StageCenter(QWidget):
         blank config).
         """
         self._result = None
+        self._sensor = sensor
         # A bound sensor with no result yet is an EDITABLE document — say so
         # (live review 2026-09-07): the no-document prompt read as a refusal.
         self._placeholder.show_edit_prompt(sensor is not None)
+        # Re-render: a stage already selected switches to its editable
+        # composite immediately (pre-result display gate below).
+        self._render_selection()
         self._stack.setCurrentWidget(self._placeholder)
         for pane in self._panes.values():
             pane.bind_sensor(sensor, display_units)
@@ -1404,14 +1449,28 @@ class StageCenter(QWidget):
         self._render_selection()
 
     def _render_selection(self) -> None:
-        """Swap to the selected stage's populated pane (or the placeholder)."""
+        """Swap to the selected stage's composite (populated, editable, or placeholder).
+
+        Three states (live review 2026-09-07): a result renders the populated
+        composite; no result but a bound sensor shows the stage's EDITABLE
+        composite (forms live, plot sections labelled awaiting) for any stage
+        that carries inputs — building a config through the stage screens must
+        not require a first evaluation; otherwise the placeholder.
+        """
         composition = composition_for(self._selected)
-        if self._result is None or composition is None:
+        if composition is None:
             self._stack.setCurrentWidget(self._placeholder)
             return
         pane = self._panes[self._selected]
-        pane.populate(self._result, self._columns)
-        self._stack.setCurrentWidget(pane)
+        if self._result is not None:
+            pane.populate(self._result, self._columns)
+            self._stack.setCurrentWidget(pane)
+            return
+        if self._sensor is not None and pane.has_editable_inputs:
+            pane.show_awaiting()
+            self._stack.setCurrentWidget(pane)
+            return
+        self._stack.setCurrentWidget(self._placeholder)
 
 
 __all__ = ["StageCenter", "StagePane"]

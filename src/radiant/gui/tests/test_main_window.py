@@ -184,3 +184,16 @@ class TestDocumentSwapHygiene:
         placeholder = window._central.stage_center.plot_placeholder
         assert "double-click" in placeholder._message.text()
         assert "Open a configuration" not in placeholder._message.text()
+
+    def test_blank_config_stage_screens_are_editable(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Live review 2026-09-07 second pass: building a config through the
+        stage screens must not require a first evaluation."""
+        window = RADIANTMainWindow()
+        qtbot.addWidget(window)
+        window._on_blank_config()
+        center = window._central.stage_center
+        for namespace in ("geometry", "readout", "calibration", "performance"):
+            center.select_stage(namespace)
+            assert not center.is_placeholder(), namespace
+        form = center._panes["calibration"].calibration_inputs_form
+        assert form is not None and form._sensor is not None

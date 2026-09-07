@@ -89,3 +89,38 @@ class TestSensorSurface:
         params = RadiantSession.default_params()
         with pytest.raises(ConfigError, match="fpa"):
             load_config({"fpa": "teledyne-h2rg-2p5"}, params)
+
+
+class TestRemoveAndSwitch:
+    def test_remove_clears_preset_keeps_explicit(self) -> None:
+        s = Sensor.from_yaml(_EXAMPLE)
+        s.apply_fpa("teledyne-h2rg-2p5")
+        s.set("detector.detector_temperature_K", 40.0)  # post-apply override
+        cleared = s.remove_fpa()
+        assert cleared and all(p.startswith(("detector.", "readout.")) for p in cleared)
+        assert "detector.detector_temperature_K" not in cleared  # override kept
+        assert s.fpa_applications == ()
+        provs = s._params.input_provenances()
+        assert not any(p is Provenance.PRESET for p in provs.values())
+        s._params.resolve()
+        assert s._params.get("detector.detector_temperature_K") == pytest.approx(40.0, rel=1e-12)
+        # Preset-seeded dark reverted to its schema default (0.05 -> 100 e-/s).
+        assert s._params.get("detector.dark_rate_e_per_s") == pytest.approx(100.0, rel=1e-12)
+
+    def test_remove_without_apply_is_empty(self) -> None:
+        s = Sensor.from_yaml(_EXAMPLE)
+        assert s.remove_fpa() == ()
+
+    def test_part_switch_leaves_no_residue(self) -> None:
+        s = Sensor.from_yaml(_EXAMPLE)
+        s.apply_fpa("dfpa-generic")  # sets counter_bits/count_packet_e/architecture...
+        report = s.apply_fpa("teledyne-h2rg-2p5")  # does NOT set counting params
+        assert s.fpa_applications == (report,)
+        provs = s._params.input_provenances()
+        # dfpa-generic's counting knobs are gone, not carried into the H2RG state.
+        assert "readout.counter_bits" not in provs
+        assert "readout.count_packet_e" not in provs
+        # And H2RG's values applied where the example config pins nothing
+        # (the example's explicit FWC/read-noise pins correctly stay "kept").
+        assert "detector.dark_reference_temperature_K" in report.applied
+        assert "readout.full_well_capacity_e" in report.skipped_existing

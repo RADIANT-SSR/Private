@@ -159,3 +159,29 @@ class TestBindReflectsExistingApply:
         assert widget.current_part() == "geosnap-18"
         assert "applied" in widget._status.text()
         assert widget._open_doc.isEnabled()
+
+
+class TestRemove:
+    def test_remove_reverts_and_signals(self, qtbot, sensor: Sensor) -> None:  # type: ignore[no-untyped-def]
+        widget = FPAPartSelector()
+        qtbot.addWidget(widget)
+        widget.bind_sensor(sensor)
+        widget.apply_part("teledyne-h2rg-2p5")
+        assert widget._remove.isVisibleTo(widget)
+        with qtbot.waitSignal(widget.presetRemoved, timeout=2000) as blocker:
+            widget._remove.click()
+        assert blocker.args == ["teledyne-h2rg-2p5"]
+        assert widget.current_part() is None
+        assert widget._status.text() == "no part applied"
+        assert not widget._remove.isVisibleTo(widget)
+        assert sensor.fpa_applications == ()
+
+    def test_remove_reenters_host_pipeline(self, qtbot, sensor: Sensor) -> None:  # type: ignore[no-untyped-def]
+        pane = StagePane("detector", STAGE_COMPOSITIONS["detector"])
+        qtbot.addWidget(pane)
+        pane.bind_sensor(sensor, {})
+        selector = pane.fpa_part_selector
+        assert selector is not None
+        selector.apply_part("geosnap-18")
+        with qtbot.waitSignal(pane.parameterEdited, timeout=2000):
+            selector._remove.click()

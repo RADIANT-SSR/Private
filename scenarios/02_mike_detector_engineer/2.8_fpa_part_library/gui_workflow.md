@@ -27,6 +27,11 @@ What the GUI must let Mike do, and where it does it.
 6. **Override**: Mike edits "Dark rate" in the Inputs card below — ordinary
    field edit, explicit value, wins over any later preset re-apply (and the
    report row of a re-apply says so).
+7. **Remove** (owner request 2026-09-06): the Remove button on the row clears
+   the preset (one `sensor.remove_fpa` call) — preset-seeded values revert to
+   their defaults for a custom solution, Mike's explicit edits survive, and
+   the study re-evaluates. Choosing a different part in the dialog does this
+   implicitly first, so switching parts never mixes two presets' values.
 
 Display-unit rule holds throughout: preset values are stored in
 datasheet-native units but display in the session display units like every

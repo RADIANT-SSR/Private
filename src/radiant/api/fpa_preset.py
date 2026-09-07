@@ -59,7 +59,15 @@ def apply_fpa_preset(
         If *name* is not in the library or its document is invalid.
     """
     part = (library or FPALibrary()).part(name)
-    existing = set(params.input_provenances())
+    # Part switching is clean by construction: any previously applied preset's
+    # values are removed first, so presets yield to presets — only explicit
+    # user/config inputs are sacred (owner live-review 2026-09-06).
+    remove_fpa_preset(params)
+    existing = {
+        dotpath
+        for dotpath, prov in params.input_provenances().items()
+        if prov is not Provenance.PRESET
+    }
     applied: list[str] = []
     skipped: list[str] = []
     for dotpath in sorted(part.parameters):
@@ -173,3 +181,21 @@ def available_fpa_parts(*, library: FPALibrary | None = None) -> tuple[FPAPartIn
         )
     infos.sort(key=lambda i: (i.part_class, i.name))
     return tuple(infos)
+
+
+def remove_fpa_preset(params: ParameterSet) -> tuple[str, ...]:
+    """Clear every input carrying ``Provenance.PRESET`` from *params*.
+
+    The inverse of :func:`apply_fpa_preset`: preset-seeded values revert to
+    schema defaults / consistency-group derivation (a clean custom starting
+    point), while explicit user/config inputs — including post-apply overrides
+    — are untouched. Returns the cleared dot-paths, sorted.
+    """
+    cleared = sorted(
+        dotpath for dotpath, prov in params.input_provenances().items() if prov is Provenance.PRESET
+    )
+    for dotpath in cleared:
+        params.clear_input(dotpath)
+    if cleared:
+        logger.info("Removed FPA preset values: %d parameter(s) cleared", len(cleared))
+    return tuple(cleared)

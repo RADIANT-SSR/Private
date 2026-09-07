@@ -59,6 +59,8 @@ class FPAPartSelector(QWidget):
     #: Emitted after a successful apply with the part name; hosts treat it like
     #: a parameter edit (debounced re-evaluation).
     presetApplied = Signal(str)
+    #: Emitted after Remove with the removed part name — same host treatment.
+    presetRemoved = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -96,6 +98,16 @@ class FPAPartSelector(QWidget):
         self._details.clicked.connect(self._on_details)
         box.addWidget(self._details)
 
+        self._remove = QPushButton("Remove", card)
+        self._remove.setObjectName("fpaRemovePartButton")
+        self._remove.setToolTip(
+            "Clear the preset's values (revert to defaults) and go custom — "
+            "your explicit edits are kept"
+        )
+        self._remove.hide()
+        self._remove.clicked.connect(self._on_remove)
+        box.addWidget(self._remove)
+
         self._choose = QPushButton("Choose part && apply…", card)
         self._choose.setObjectName("fpaChoosePartButton")
         self._choose.setEnabled(False)
@@ -126,11 +138,16 @@ class FPAPartSelector(QWidget):
         if reports:
             self._adopt_report(reports[-1])
         else:
-            self._current_part = None
-            self._last_report = None
-            self._status.setText("no part applied")
-            self._details.hide()
-            self._open_doc.setEnabled(False)
+            self._reset_card()
+
+    def _reset_card(self) -> None:
+        """Return the card to the no-part-applied state."""
+        self._current_part = None
+        self._last_report = None
+        self._status.setText("no part applied")
+        self._details.hide()
+        self._remove.hide()
+        self._open_doc.setEnabled(False)
 
     # -- state (tests + host) ------------------------------------------------
 
@@ -177,7 +194,21 @@ class FPAPartSelector(QWidget):
             summary += f"; QE curve → {report.qe_material}"
         self._status.setText(summary)
         self._details.show()
+        self._remove.show()
         self._open_doc.setEnabled(True)
+
+    def _on_remove(self) -> None:
+        """Remove the applied preset — one ``sensor.remove_fpa`` call.
+
+        Preset-seeded values revert to their defaults for a custom solution;
+        explicit user/config values (including post-apply overrides) are kept.
+        """
+        if self._sensor is None or self._current_part is None:
+            return
+        removed_part = self._current_part
+        self._sensor.remove_fpa()
+        self._reset_card()
+        self.presetRemoved.emit(removed_part)
 
     def _on_details(self) -> None:
         """Per-parameter provenance detail for the last apply."""

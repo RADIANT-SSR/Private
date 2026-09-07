@@ -32,6 +32,11 @@ retroactively reconstructed.
   ROICs (Senseeker DPROICs, dfpa-generic) whose detector-side values belong
   to the mated diode (Gap 121 tracks true ROIC+detector composition).
   Scenario `scenarios/02_mike_detector_engineer/2.8_fpa_part_library/`.
+  `Sensor.remove_fpa()` / `radiant.api.remove_fpa_preset` (public surface)
+  clear a preset back to a custom configuration (explicit edits kept), with a
+  Remove button on the card; applying a different part now removes the
+  previous part's values first (preset values yield to presets — previously a
+  second apply kept the first part's overlapping values).
   Iterated under owner live review 2026-09-06 (first-cut combo card
   replaced). The Detector Inputs form's fixed two-column grid became adaptive
   balanced masonry: groups pack into the currently-shortest column and the

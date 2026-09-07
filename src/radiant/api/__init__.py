@@ -36,6 +36,7 @@ from radiant.api.fpa_preset import (
     FPAPartInfo,
     FPASourceInfo,
     available_fpa_parts,
+    remove_fpa_preset,
 )
 from radiant.api.sensitivity import SensitivityResult
 from radiant.api.sensor import Sensor
@@ -50,6 +51,7 @@ __all__ = [
     "FPAPartInfo",
     "FPASourceInfo",
     "available_fpa_parts",
+    "remove_fpa_preset",
     "SweepResult",
     "Sweep2DResult",
     "MonteCarloResult",

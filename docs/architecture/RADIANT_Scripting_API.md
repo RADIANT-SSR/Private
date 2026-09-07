@@ -70,8 +70,15 @@ s.fpa_applications        # every FPAApplyReport on this Sensor, in order
 ```
 
 Presets seed; explicit values win: an entry is skipped (and reported) when its
-dot-path already has an explicit input, and a later `s.set(...)` overrides a
-preset value normally. Each applied value's source string is
+dot-path already has an explicit **user/config** input, and a later `s.set(...)`
+overrides a preset value normally. Preset values yield to presets: applying a
+different part removes the previous part's values first, so switching never
+mixes two presets. `s.remove_fpa()` (owner request, 2026-09-06 live review)
+clears every `Provenance.PRESET` input — reverting those parameters to their
+schema defaults / derived values for a fully custom configuration — while
+keeping explicit user/config values including post-apply overrides; it returns
+the cleared dot-paths and empties `s.fpa_applications`. `remove_fpa_preset` is
+the `ParameterSet`-level equivalent, exported from `radiant.api`. Each applied value's source string is
 `fpa:<part>/<source-key>`, tracing to the citation inside the preset document
 (`src/radiant/data/tables/fpa/<part>.yaml`, per-parameter attribution +
 committed reference PDFs). The config-file equivalent is the top-level

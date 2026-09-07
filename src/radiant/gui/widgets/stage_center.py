@@ -473,6 +473,7 @@ class StagePane(QWidget):
             # debounced re-evaluation path as a field edit.
             fpa_selector = FPAPartSelector(parent)
             fpa_selector.presetApplied.connect(self.parameterEdited)
+            fpa_selector.presetRemoved.connect(self.parameterEdited)
             layout.addWidget(fpa_selector)
             self._fpa_selectors.append(fpa_selector)
             # The Detector instrument's editable inputs card (GUI plan Phase PS-3): one

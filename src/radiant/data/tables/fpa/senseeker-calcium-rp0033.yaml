@@ -3,6 +3,7 @@ name: senseeker-calcium-rp0033
 vendor: Senseeker Corp
 model: Calcium RP0033-J200
 part_class: cooled_ir_droic
+part_kind: roic
 material: none - bare DPROIC (mates to any industry-standard direct-injection-compatible detector; P-on-N polarity)
 band: {label: "detector-dependent (bare ROIC, no photodetector)", cut_on_um: 1.0, cut_off_um: 14.0}
 description: >

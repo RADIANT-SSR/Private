@@ -111,6 +111,11 @@ notes: >
 
 Format rules:
 
+- **`part_kind` (optional, default `fpa`)** distinguishes a hybridized FPA from a
+  **bare ROIC** (`roic`) whose detector-side values belong to the mated diode —
+  owner-raised during the Phase 3 live review; composition of ROIC + detector
+  material is Gap 121 (design conversation pending). The GUI picker surfaces the
+  kind as its own column.
 - **`basis` is a closed enum**: `datasheet` (vendor-published spec), `paper`
   (peer-reviewed/conference measurement), `derived` (computed from sourced numbers —
   the `location` states the arithmetic), `assumed` (curator judgment — `source: null`,

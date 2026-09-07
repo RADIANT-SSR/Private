@@ -12,6 +12,7 @@
 #   readout.architecture = analog_well [derived: ds_blackbird]
 #   readout.frame_period_s = 0.008333 s [derived: ds_blackbird]
 #   readout.full_well_capacity_e = 2500000.0 [datasheet: ds_blackbird]
+#   readout.gain_e_per_dn = 38.15 e-/DN [derived: ds_blackbird]
 #   readout.read_noise_e_rms = 400.0 e- [assumed: assumed (see preset note)]
 #
 detector:
@@ -24,4 +25,5 @@ readout:
   architecture: analog_well
   frame_period_s: 0.008333
   full_well_capacity_e: 2500000.0
+  gain_e_per_dn: 38.15
   read_noise_e_rms: 400.0

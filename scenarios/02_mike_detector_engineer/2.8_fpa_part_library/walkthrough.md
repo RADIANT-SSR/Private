@@ -11,7 +11,7 @@ citation, and the datasheet itself one click away.
 ## What the config says (inputs/geosnap18_mwir_leo.yaml)
 | Input | Value | Unit | Who supplies it |
 |---|---|---|---|
-| FPA part | `geosnap-18` | — | library preset (11 parameters) |
+| FPA part | `geosnap-18` | — | library preset (12 parameters) |
 | Target temperature | 300 | K | Mike |
 | Sensor altitude | 8000 | m | Mike |
 | Aperture / focal length | 0.30 / 1.20 (f/4) | m | Mike |
@@ -21,7 +21,9 @@ citation, and the datasheet itself one click away.
 
 The preset supplies: 18 µm pitch (both axes), 2048 cross-track pixels, 100 %
 fill factor, QE 85 %, T_det 110 K, `analog_well` architecture, 2.6 Me⁻ well,
-400 e⁻ RMS ROIC noise, 14-bit ADC, and the 85 Hz frame period — each entry in
+400 e⁻ RMS ROIC noise, 14-bit ADC with a full-scale-matched 158.7 e⁻/DN
+default gain (derived — the datasheet publishes no e⁻/DN), and the 85 Hz
+frame period — each entry in
 `src/radiant/data/tables/fpa/geosnap-18.yaml` naming the exact datasheet line
 it came from.
 
@@ -36,7 +38,7 @@ The preset notes call this out; Mike sets his programme estimate for a
 |---|---|---|
 | Radiometric regime | extended | — |
 | Readout architecture | analog_well | — |
-| **SNR** | **1178.6** | — |
+| **SNR** | **1177.9** | — |
 
 Physics worth knowing (also printed by the script):
 
@@ -45,8 +47,9 @@ Physics worth knowing (also printed by the script):
   *system* read noise (Bowens et al. 2024) — the preset value is honest to
   within 10 %, and the preset notes say which to prefer for LWIR work.
 - At 5 ms against a 300 K extended scene the chain is background-shot
-  dominated; the binding capacity is the 2.6 Me⁻ charge well, not the 14-bit
-  ADC.
+  dominated; the binding capacity is the 2.6 Me⁻ charge well, and the
+  matched-gain ADC digitizes the full well warning-free (quantization
+  158.7/√12 ≈ 45.8 e⁻ RMS, small against the 400 e⁻ read noise).
 - GeoSnap is a **digital-interface FPA, not a digital-pixel counter**: CTIA
   well + on-chip column ADC (`analog_well`). The counting-architecture
   exemplar in the library is `dfpa-generic` (scenario 2.6/2.7 territory).

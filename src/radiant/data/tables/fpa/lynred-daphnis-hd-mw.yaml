@@ -31,6 +31,8 @@ parameters:
     {value: 500.0, unit: "e-", basis: assumed, note: "not published; assumed at a level typical of 14-bit DI MWIR ROICs with Me--class wells; small against the ~1,375 e- shot noise at the NETD test point (70 % fill of 2.7 Me-), so NETD-anchored predictions are insensitive to this assumption"}
   readout.adc_bits:
     {value: 14, unit: null, source: ds2026, basis: datasheet, location: "'Video output: 14 bits, cameralink'"}
+  readout.gain_e_per_dn:
+    {value: 164.79, unit: "e-/DN", source: ds2026, basis: derived, location: "full-scale-matched default: 2.7e+6 e- well / 2^14 ADC bits = 164.79 e-/DN (no e-/DN published)"}
   readout.frame_period_s:
     {value: 1.1765e-2, unit: s, source: ds2026, basis: derived, location: "1 / (85 Hz, 'Frame rate: Up to 85 Hz full frame rate')"}
 

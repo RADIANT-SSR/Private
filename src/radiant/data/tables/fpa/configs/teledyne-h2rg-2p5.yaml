@@ -14,6 +14,7 @@
 #   readout.adc_bits = 16 [derived: ds2022]
 #   readout.cds_enabled = 1 [datasheet: ds2022]
 #   readout.full_well_capacity_e = 80000.0 [datasheet: ds2022]
+#   readout.gain_e_per_dn = 1.2207 e-/DN [derived: ds2022]
 #   readout.read_noise_e_rms = 18.0 e- [datasheet: ds2022]
 #
 detector:
@@ -28,4 +29,5 @@ readout:
   adc_bits: 16
   cds_enabled: 1
   full_well_capacity_e: 80000.0
+  gain_e_per_dn: 1.2207
   read_noise_e_rms: 18.0

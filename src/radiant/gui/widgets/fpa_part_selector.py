@@ -1,19 +1,21 @@
-"""The Detector stage's **FPA part library** card — apply a named preset (Gap 119 §3.6).
+"""The Detector stage's **FPA part library** row — apply a named preset (Gap 119 §3.6).
 
-:class:`FPAPartSelector` sits above the Detector *Inputs* card: pick a real part
-(GeoSnap-18, H2RG, Boson+, …) from the bundled library and apply it in **one API
-call** (``sensor.apply_fpa`` — the GUI is a view over the scripting API, R-API).
-The apply contract is the library's: *presets seed, explicit values win* — the
-returned :class:`~radiant.api.fpa_preset.FPAApplyReport` is summarized inline
-("N applied, M kept") and expandable to the per-parameter provenance detail
-(value basis grades: datasheet / paper / derived / assumed). Each apply re-emits
-:attr:`presetApplied`, so the host debounces a full re-evaluation exactly like a
-field edit (edit-and-watch).
+Live-review iteration (owner feedback 2026-09-06: the first-cut combo + blurb
+card carried too much chrome and dead space): the card is now a **single
+compact row** — status label + "Choose part & apply…" + "Open datasheet/paper"
+— with the part browsing moved into
+:class:`~radiant.gui.widgets.fpa_part_picker_dialog.FPAPartPickerDialog`
+(sortable table with class/band/basis-census columns and a details pane).
+Accepting the dialog makes the **one API call** (``sensor.apply_fpa``); the
+applied-vs-kept summary replaces the status label, with a Details dialog for
+the per-parameter provenance. A successful apply re-emits
+:attr:`presetApplied`, so the host debounces a full re-evaluation exactly like
+a field edit.
 
-**Open datasheet/paper** opens the part's cited reference document: the
-committed PDF under ``docs/validation/fpa_datasheets/`` when running from a
-repository checkout, else the citation URL/DOI (wheel installs carry citations,
-not PDFs — plan §3.5). Part metadata comes from
+**Open datasheet/paper** opens the applied (or last-chosen) part's reference
+document: the committed PDF under ``docs/validation/fpa_datasheets/`` in a
+repository checkout, else the citation URL/DOI (wheel installs carry
+citations, not PDFs — plan §3.5). Part metadata comes from
 :func:`radiant.api.fpa_preset.available_fpa_parts` (the GUI imports
 ``radiant.api`` only, never ``radiant.data``).
 
@@ -30,7 +32,6 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
-    QComboBox,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -41,21 +42,11 @@ from PySide6.QtWidgets import (
 
 from radiant.api.fpa_preset import FPAApplyReport, FPAPartInfo, available_fpa_parts
 from radiant.core.exceptions import RadiantError
+from radiant.gui.dialog_lifetime import exec_dialog
+from radiant.gui.widgets.fpa_part_picker_dialog import FPAPartPickerDialog
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
-
-_TITLE = "FPA part library"
-
-# Human labels for the closed part-class taxonomy (labels only — the classes
-# themselves come from the library metadata, never transcribed values).
-_CLASS_LABELS = {
-    "cooled_ir": "Cooled IR",
-    "cooled_ir_droic": "Cooled IR — digital-pixel (counting)",
-    "uncooled_bolometer": "Uncooled bolometer",
-    "scientific_visible": "Scientific / visible",
-    "swir": "SWIR",
-}
 
 # Repo-checkout home of the committed reference documents (plan §3.5). Resolved
 # relative to this module; absent in a wheel install, where the URL fallback runs.
@@ -63,7 +54,7 @@ _DATASHEET_DIR = Path(__file__).resolve().parents[4] / "docs" / "validation" / "
 
 
 class FPAPartSelector(QWidget):
-    """Part combo + Apply + Open datasheet + override-report summary."""
+    """One-row card: status + Choose-part-and-apply + Open-datasheet."""
 
     #: Emitted after a successful apply with the part name; hosts treat it like
     #: a parameter edit (debounced re-evaluation).
@@ -75,133 +66,98 @@ class FPAPartSelector(QWidget):
 
         self._sensor: Sensor | None = None
         self._parts: dict[str, FPAPartInfo] = {p.name: p for p in available_fpa_parts()}
+        self._current_part: str | None = None
         self._last_report: FPAApplyReport | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
+        layout.setSpacing(0)
 
         card = QWidget(self)
         card.setObjectName("geoModeFamily")
         card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         card.setProperty("state", "normal")
-        box = QVBoxLayout(card)
-        box.setContentsMargins(12, 10, 12, 10)
-        box.setSpacing(6)
+        box = QHBoxLayout(card)
+        box.setContentsMargins(12, 8, 12, 8)
+        box.setSpacing(8)
 
-        title = QLabel(_TITLE, card)
+        title = QLabel("FPA part library", card)
         title.setObjectName("geoModeFamilyTitle")
         box.addWidget(title)
 
-        picker_row = QWidget(card)
-        picker = QHBoxLayout(picker_row)
-        picker.setContentsMargins(0, 0, 0, 0)
-        picker.setSpacing(8)
+        self._status = QLabel("no part applied", card)
+        self._status.setObjectName("fpaApplyReportLabel")
+        self._status.setWordWrap(False)
+        box.addWidget(self._status, 1)
 
-        self._combo = QComboBox(picker_row)
-        self._combo.setObjectName("fpaPartCombo")
-        self._combo.addItem("(choose a part…)", None)
-        last_class: str | None = None
-        for info in sorted(self._parts.values(), key=lambda i: (i.part_class, i.name)):
-            if info.part_class != last_class:
-                label = _CLASS_LABELS.get(info.part_class, info.part_class)
-                self._combo.addItem(f"— {label} —", None)
-                index = self._combo.count() - 1
-                item = self._combo.model().item(index)  # type: ignore[union-attr]
-                if item is not None:
-                    item.setEnabled(False)
-                last_class = info.part_class
-            self._combo.addItem(f"{info.vendor} {info.model}  ({info.name})", info.name)
-        self._combo.currentIndexChanged.connect(self._on_selection_changed)
-        picker.addWidget(self._combo, 1)
+        self._details = QPushButton("Details…", card)
+        self._details.setObjectName("fpaReportDetailsButton")
+        self._details.hide()
+        self._details.clicked.connect(self._on_details)
+        box.addWidget(self._details)
 
-        self._apply = QPushButton("Apply preset", picker_row)
-        self._apply.setObjectName("fpaApplyButton")
-        self._apply.setEnabled(False)
-        self._apply.clicked.connect(self._on_apply)
-        picker.addWidget(self._apply)
+        self._choose = QPushButton("Choose part && apply…", card)
+        self._choose.setObjectName("fpaChoosePartButton")
+        self._choose.setEnabled(False)
+        self._choose.clicked.connect(self._on_choose)
+        box.addWidget(self._choose)
 
-        self._open_doc = QPushButton("Open datasheet/paper", picker_row)
+        self._open_doc = QPushButton("Open datasheet/paper", card)
         self._open_doc.setObjectName("fpaOpenDatasheetButton")
         self._open_doc.setEnabled(False)
         self._open_doc.clicked.connect(self._on_open_document)
-        picker.addWidget(self._open_doc)
-
-        box.addWidget(picker_row)
-
-        # Selected-part blurb: band + parameter/basis census, before any apply.
-        self._blurb = QLabel("", card)
-        self._blurb.setObjectName("fpaPartBlurb")
-        self._blurb.setWordWrap(True)
-        self._blurb.hide()
-        box.addWidget(self._blurb)
-
-        report_row = QWidget(card)
-        report_box = QHBoxLayout(report_row)
-        report_box.setContentsMargins(0, 0, 0, 0)
-        report_box.setSpacing(8)
-        self._report_label = QLabel("", report_row)
-        self._report_label.setObjectName("fpaApplyReportLabel")
-        self._report_label.setWordWrap(True)
-        report_box.addWidget(self._report_label, 1)
-        self._details = QPushButton("Details…", report_row)
-        self._details.setObjectName("fpaReportDetailsButton")
-        self._details.clicked.connect(self._on_details)
-        report_box.addWidget(self._details)
-        report_row.hide()
-        self._report_row = report_row
-        box.addWidget(report_row)
+        box.addWidget(self._open_doc)
 
         layout.addWidget(card)
 
     # -- binding -------------------------------------------------------------
 
     def bind_sensor(self, sensor: Sensor | None) -> None:
-        """Bind the live *sensor*; a ``None`` sensor disables Apply."""
+        """Bind the live *sensor*; a ``None`` sensor disables choosing."""
         self._sensor = sensor
-        self._on_selection_changed()
+        self._choose.setEnabled(sensor is not None and bool(self._parts))
 
-    # -- selection -----------------------------------------------------------
+    # -- state (tests + host) ------------------------------------------------
 
-    def selected_part(self) -> str | None:
-        """The selected part name, or ``None`` on the placeholder rows."""
-        data = self._combo.currentData()
-        return str(data) if data else None
+    def current_part(self) -> str | None:
+        """The last applied (or dialog-chosen) part name, if any."""
+        return self._current_part
 
-    def _on_selection_changed(self, _index: int = 0) -> None:
-        info = self._parts.get(self.selected_part() or "")
-        self._apply.setEnabled(info is not None and self._sensor is not None)
-        self._open_doc.setEnabled(info is not None and bool(info.sources))
-        if info is None:
-            self._blurb.hide()
+    # -- choose + apply ------------------------------------------------------
+
+    def _on_choose(self) -> None:
+        """Open the picker; on accept, one ``sensor.apply_fpa`` call."""
+        if self._sensor is None:
             return
-        census = ", ".join(f"{n} {basis}" for basis, n in info.basis_counts)
-        self._blurb.setText(
-            f"{info.band_label} — {info.parameter_count} parameters ({census}). {info.description}"
-        )
-        self._blurb.show()
+        dialog = FPAPartPickerDialog(tuple(self._parts.values()), self)
+        if self._current_part is not None:
+            dialog.select_part(self._current_part)
+        if exec_dialog(dialog) != int(dialog.DialogCode.Accepted):
+            return
+        name = dialog.selected_part()
+        if name is not None:
+            self.apply_part(name)
 
-    # -- apply ---------------------------------------------------------------
-
-    def _on_apply(self) -> None:
-        """One API call: ``sensor.apply_fpa(part)``; summarize the report."""
-        name = self.selected_part()
-        if self._sensor is None or name is None:
+    def apply_part(self, name: str) -> None:
+        """Apply *name* (one API call) and summarize the report inline."""
+        if self._sensor is None:
             return
         try:
             report = self._sensor.apply_fpa(name)
         except RadiantError as exc:
             QMessageBox.critical(self, "FPA preset", str(exc))
             return
+        self._current_part = name
         self._last_report = report
         kept = len(report.skipped_existing)
-        summary = f"{report.part}: {len(report.applied)} parameter(s) applied"
+        summary = f"{report.part}: {len(report.applied)} applied"
         if kept:
-            summary += f", {kept} kept their explicit values (explicit wins)"
+            summary += f", {kept} kept (explicit wins)"
         if report.qe_material:
             summary += f"; QE curve → {report.qe_material}"
-        self._report_label.setText(summary)
-        self._report_row.show()
+        self._status.setText(summary)
+        self._details.show()
+        self._open_doc.setEnabled(True)
         self.presetApplied.emit(name)
 
     def _on_details(self) -> None:
@@ -231,12 +187,12 @@ class FPAPartSelector(QWidget):
     # -- reference documents -------------------------------------------------
 
     def _document_target(self) -> QUrl | None:
-        """The best openable target for the selected part's first citation.
+        """The best openable target for the current part's first citation.
 
-        Committed PDF (repo checkout) beats URL beats DOI; ``None`` when the
-        part has no reachable citation.
+        Committed PDF (repo checkout) beats URL beats DOI; ``None`` when no
+        part is chosen or it has no reachable citation.
         """
-        info = self._parts.get(self.selected_part() or "")
+        info = self._parts.get(self._current_part or "")
         if info is None:
             return None
         for src in info.sources:

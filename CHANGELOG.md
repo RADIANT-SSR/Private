@@ -21,16 +21,26 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
-- **GUI: FPA part-library card on the Detector stage (Gap 119, plan Phase 3)**
-  — pick any of the 21 shipped presets (grouped by part class, with a
-  data-quality basis census shown before applying), apply in one
-  `sensor.apply_fpa` call with the applied-vs-kept report row and
-  per-parameter Details dialog, and open the part's committed datasheet/paper
-  (falls back to the citation URL on wheel installs). New public API
-  `radiant.api.available_fpa_parts` / `FPAPartInfo` / `FPASourceInfo` (the
-  GUI's window into the library). Scenario
-  `scenarios/02_mike_detector_engineer/2.8_fpa_part_library/` exercises the
-  workflow end to end.
+- **GUI: FPA part-library row on the Detector stage (Gap 119, plan Phase 3)**
+  — one compact row (status + "Choose part & apply…" + "Open datasheet/paper")
+  opening a part-library dialog: all 21 presets with Kind / Class / Band /
+  basis-census columns and a details pane; Apply is one `sensor.apply_fpa`
+  call with the applied-vs-kept summary and per-parameter Details dialog;
+  Open datasheet resolves the committed PDF (citation-URL fallback on wheel
+  installs). New public API `radiant.api.available_fpa_parts` / `FPAPartInfo`
+  / `FPASourceInfo`. New preset field `part_kind: fpa | roic` marks bare
+  ROICs (Senseeker DPROICs, dfpa-generic) whose detector-side values belong
+  to the mated diode (Gap 121 tracks true ROIC+detector composition).
+  Scenario `scenarios/02_mike_detector_engineer/2.8_fpa_part_library/`.
+  Iterated under owner live review 2026-09-06 (first-cut combo card replaced).
+- **Results-affecting: FPA presets gain full-scale-matched ADC gains** —
+  twelve presets that ship a well capacity but no published e⁻/DN now carry
+  `readout.gain_e_per_dn` (measured system value for VIRGO-2K: 4.19 e⁻/ADU;
+  full-scale-matched `well / 2^bits` derived defaults elsewhere, each entry
+  flagged). Removes the spurious ADC-mismatch/saturation warnings on preset
+  apply; DN-domain outputs rescale accordingly and quantization noise becomes
+  realistic — SNR shifts are small (scenario 2.8 GeoSnap-18: 1178.6 → 1177.9,
+  ≈0.06 % lower; goldens unchanged within tolerance).
 - **FPA preset roster complete — tranches 2+3 (Gap 119, plan Phase 4)** —
   fifteen more parts (21 total shipped): rvs-miri-si-as, rvs-virgo-2k,
   senseeker-calcium-rp0033, lynred-daphnis-hd-mw, lynred-atto640,

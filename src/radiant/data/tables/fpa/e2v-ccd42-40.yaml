@@ -34,6 +34,9 @@ parameters:
   readout.read_noise_e_rms:
     {value: 3.0, unit: "e-", source: ds2016, basis: datasheet, location: "Performance: 'Readout noise at 253 K, low noise mode: 3.0 typ / 4.5 max rms e-/pixel' at 20 kHz readout (typical taken; high-signal mode 6.0 e-)"}
 
+  readout.gain_e_per_dn:
+    {value: 1.5259, unit: "e-/DN", source: ds2016, basis: derived, location: "full-scale-matched default: 1.0e+5 e- typical well / 2^16 (camera-controller ADC; the CCD itself is analog) = 1.5259 e-/DN"}
+
 qe_table: null
 
 sources:

@@ -1,9 +1,10 @@
-"""Tests for the Detector stage's FPA part-library card (Gap 119, plan Phase 3).
+"""Tests for the Detector stage's FPA part-library row + picker dialog (Gap 119 Phase 3).
 
-Real widgets, real `Sensor`, offscreen. The card's contract: one
-``sensor.apply_fpa`` per Apply click; presets seed and explicit values win
-(the report row says so); Open datasheet resolves the committed PDF in a repo
-checkout and falls back to the citation URL otherwise.
+Live-review iteration (2026-09-06): the card is one compact row; browsing
+lives in :class:`FPAPartPickerDialog` (table with Kind/Class/Band/census
+columns). Contract: one ``sensor.apply_fpa`` per accepted pick; presets seed
+and explicit values win (the status row says so); Open datasheet resolves the
+committed PDF in a repo checkout and falls back to the citation URL.
 """
 
 from __future__ import annotations
@@ -20,19 +21,11 @@ from PySide6.QtCore import QUrl  # noqa: E402
 from radiant.api.fpa_preset import available_fpa_parts  # noqa: E402
 from radiant.api.sensor import Sensor  # noqa: E402
 from radiant.gui.stage_views import STAGE_COMPOSITIONS  # noqa: E402
+from radiant.gui.widgets.fpa_part_picker_dialog import FPAPartPickerDialog  # noqa: E402
 from radiant.gui.widgets.fpa_part_selector import FPAPartSelector  # noqa: E402
 from radiant.gui.widgets.stage_center import StagePane  # noqa: E402
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
-
-
-def _select(widget: FPAPartSelector, part: str) -> None:
-    combo = widget._combo
-    for i in range(combo.count()):
-        if combo.itemData(i) == part:
-            combo.setCurrentIndex(i)
-            return
-    raise AssertionError(f"part {part!r} not in combo")
 
 
 @pytest.fixture()
@@ -42,33 +35,33 @@ def sensor() -> Sensor:
         return Sensor.from_yaml(_EXAMPLE)
 
 
-class TestPartList:
+class TestPickerDialog:
     def test_every_library_part_is_listed(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        widget = FPAPartSelector()
-        qtbot.addWidget(widget)
-        listed = {
-            widget._combo.itemData(i)
-            for i in range(widget._combo.count())
-            if widget._combo.itemData(i)
-        }
-        assert listed == {info.name for info in available_fpa_parts()}
-        assert len(listed) >= 21
+        parts = available_fpa_parts()
+        dialog = FPAPartPickerDialog(parts)
+        qtbot.addWidget(dialog)
+        assert dialog._table.rowCount() == len(parts) >= 21
 
-    def test_placeholder_disables_apply(self, qtbot, sensor: Sensor) -> None:  # type: ignore[no-untyped-def]
-        widget = FPAPartSelector()
-        qtbot.addWidget(widget)
-        widget.bind_sensor(sensor)
-        assert widget.selected_part() is None
-        assert not widget._apply.isEnabled()
+    def test_roic_parts_are_marked(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        dialog = FPAPartPickerDialog(available_fpa_parts())
+        qtbot.addWidget(dialog)
+        dialog.select_part("senseeker-calcium-rp0033")
+        row = dialog._table.currentRow()
+        assert "ROIC" in dialog._table.item(row, 1).text()
+        assert "Gap 121" in dialog._details.text()
+        dialog.select_part("geosnap-18")
+        row = dialog._table.currentRow()
+        assert dialog._table.item(row, 1).text() == "FPA"
 
-    def test_selection_shows_blurb_and_enables(self, qtbot, sensor: Sensor) -> None:  # type: ignore[no-untyped-def]
-        widget = FPAPartSelector()
-        qtbot.addWidget(widget)
-        widget.bind_sensor(sensor)
-        _select(widget, "teledyne-h2rg-2p5")
-        assert widget._apply.isEnabled()
-        assert widget._open_doc.isEnabled()
-        assert "datasheet" in widget._blurb.text()
+    def test_selection_enables_apply_and_details(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        dialog = FPAPartPickerDialog(available_fpa_parts())
+        qtbot.addWidget(dialog)
+        assert dialog.selected_part() is None
+        assert not dialog._ok.isEnabled()
+        dialog.select_part("teledyne-h2rg-2p5")
+        assert dialog.selected_part() == "teledyne-h2rg-2p5"
+        assert dialog._ok.isEnabled()
+        assert "datasheet" in dialog._details.text() or "Sources" in dialog._details.text()
 
 
 class TestApply:
@@ -76,14 +69,15 @@ class TestApply:
         widget = FPAPartSelector()
         qtbot.addWidget(widget)
         widget.bind_sensor(sensor)
-        _select(widget, "geosnap-18")
+        assert widget._choose.isEnabled()
         with qtbot.waitSignal(widget.presetApplied, timeout=2000) as blocker:
-            widget._apply.click()
+            widget.apply_part("geosnap-18")
         assert blocker.args == ["geosnap-18"]
         # The example pins read noise etc. — explicit wins, and the row says so.
-        text = widget._report_label.text()
+        text = widget._status.text()
         assert "applied" in text and "kept" in text
-        assert widget._report_row.isVisibleTo(widget)
+        assert widget._details.isVisibleTo(widget)
+        assert widget.current_part() == "geosnap-18"
         # A value the example does not pin arrived with the preset.
         sensor._params.resolve()
         assert sensor._params.get("detector.detector_temperature_K") == pytest.approx(
@@ -94,30 +88,37 @@ class TestApply:
         widget = FPAPartSelector()
         qtbot.addWidget(widget)
         widget.bind_sensor(sensor)
-        _select(widget, "teledyne-h2rg-2p5")
-        widget._apply.click()
+        widget.apply_part("teledyne-h2rg-2p5")
         assert sensor.fpa_applications[-1] is widget._last_report
+
+    def test_unbound_disables_choose(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        widget = FPAPartSelector()
+        qtbot.addWidget(widget)
+        widget.bind_sensor(None)
+        assert not widget._choose.isEnabled()
 
 
 class TestOpenDocument:
-    def test_repo_checkout_resolves_committed_pdf(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_repo_checkout_resolves_committed_pdf(self, qtbot, sensor: Sensor) -> None:  # type: ignore[no-untyped-def]
         widget = FPAPartSelector()
         qtbot.addWidget(widget)
-        _select(widget, "geosnap-18")
+        widget.bind_sensor(sensor)
+        widget.apply_part("geosnap-18")
         target = widget._document_target()
         assert target is not None and target.isLocalFile()
         assert target.toLocalFile().endswith("geosnap18_datasheet_2022.pdf")
 
-    def test_web_page_part_falls_back_to_url(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        # senseeker parts cite a web page only (no committed file).
+    def test_web_page_part_falls_back_to_url(self, qtbot, sensor: Sensor) -> None:  # type: ignore[no-untyped-def]
+        # Senseeker parts cite a web page only (no committed file).
         widget = FPAPartSelector()
         qtbot.addWidget(widget)
-        _select(widget, "senseeker-magnesium-rp0092")
+        widget.bind_sensor(sensor)
+        widget.apply_part("senseeker-magnesium-rp0092")
         target = widget._document_target()
         assert target is not None and not target.isLocalFile()
         assert target == QUrl("https://www.senseeker.com/products/RP0092-D120.htm")
 
-    def test_open_uses_desktop_services(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    def test_open_uses_desktop_services(self, qtbot, sensor: Sensor, monkeypatch) -> None:  # type: ignore[no-untyped-def]
         opened: list[QUrl] = []
         monkeypatch.setattr(
             "radiant.gui.widgets.fpa_part_selector.QDesktopServices.openUrl",
@@ -125,7 +126,8 @@ class TestOpenDocument:
         )
         widget = FPAPartSelector()
         qtbot.addWidget(widget)
-        _select(widget, "geosnap-18")
+        widget.bind_sensor(sensor)
+        widget.apply_part("geosnap-18")
         widget._open_doc.click()
         assert len(opened) == 1
 
@@ -137,7 +139,6 @@ class TestStageIntegration:
         pane.bind_sensor(sensor, {})
         selector = pane.fpa_part_selector
         assert selector is not None
-        _select(selector, "geosnap-18")
         # A successful apply re-enters the host's parameterEdited pipeline.
         with qtbot.waitSignal(pane.parameterEdited, timeout=2000):
-            selector._apply.click()
+            selector.apply_part("geosnap-18")

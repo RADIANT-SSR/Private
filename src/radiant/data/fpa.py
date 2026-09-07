@@ -54,6 +54,10 @@ PART_CLASSES = frozenset(
 #: Closed basis enum: where a parameter value comes from (plan §3.1).
 BASES = frozenset({"datasheet", "paper", "derived", "assumed"})
 
+#: What the document describes (Gap 121 marker): a hybridized FPA (default) or
+#: a bare ROIC whose detector-side values belong to the mated diode.
+PART_KINDS = frozenset({"fpa", "roic"})
+
 #: Parameter namespaces a preset may set (owner-confirmed scope boundary §8.2.4).
 _ALLOWED_NAMESPACES = ("detector.", "readout.")
 
@@ -69,7 +73,7 @@ _TOP_REQUIRED = (
     "parameters",
     "sources",
 )
-_TOP_OPTIONAL = ("qe_table", "notes")
+_TOP_OPTIONAL = ("qe_table", "notes", "part_kind")
 
 _ENTRY_KEYS = frozenset({"value", "unit", "source", "basis", "location", "note"})
 _SOURCE_REQUIRED = ("type", "title")
@@ -156,6 +160,7 @@ class FPAPreset:
     vendor: str
     model: str
     part_class: str
+    part_kind: str
     material: str
     band: FPABand
     description: str
@@ -400,6 +405,15 @@ def _parse_preset(doc: Any, *, path: Path) -> FPAPreset:
             action=f"Rename the file to '{name}.yaml' or fix the name field",
             context={"path": str(path), "name": name},
         )
+    part_kind = str(doc.get("part_kind", "fpa"))
+    if part_kind not in PART_KINDS:
+        raise FPAPresetError(
+            what=f"Preset '{path.name}' part_kind '{part_kind}' is not one of {sorted(PART_KINDS)}",
+            why="'roic' marks a bare readout circuit whose detector-side values "
+            "(QE, dark, band) belong to the mated diode (Gap 121)",
+            action="Use 'fpa' (hybridized part, the default) or 'roic'",
+            context={"path": str(path), "part_kind": part_kind},
+        )
     part_class = _require_str(doc, "part_class", path=path)
     if part_class not in PART_CLASSES:
         raise FPAPresetError(
@@ -439,6 +453,7 @@ def _parse_preset(doc: Any, *, path: Path) -> FPAPreset:
         vendor=_require_str(doc, "vendor", path=path),
         model=_require_str(doc, "model", path=path),
         part_class=part_class,
+        part_kind=part_kind,
         material=_require_str(doc, "material", path=path),
         band=_parse_band(doc["band"], path=path),
         description=_require_str(doc, "description", path=path),

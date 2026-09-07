@@ -13,6 +13,7 @@
 #   detector.pixel_pitch_y_um = 13.5 um [datasheet: ds2016]
 #   detector.qe_value = 85 % [datasheet: ds2016]
 #   readout.full_well_capacity_e = 100000.0 [datasheet: ds2016]
+#   readout.gain_e_per_dn = 1.5259 e-/DN [derived: ds2016]
 #   readout.read_noise_e_rms = 3.0 e- [datasheet: ds2016]
 #
 detector:
@@ -26,4 +27,5 @@ detector:
   qe_value: 0.85
 readout:
   full_well_capacity_e: 100000.0
+  gain_e_per_dn: 1.5259
   read_noise_e_rms: 3.0

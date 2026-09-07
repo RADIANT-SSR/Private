@@ -29,6 +29,8 @@ parameters:
     {value: 2.5e6, unit: null, source: ds_blackbird, basis: datasheet, location: "spec table: 'NETD (2.5Me- Cap.) at 70% Well fill < 28mK' - the 2.5 Me- capacity is the well size at which NETD is specified"}
   readout.read_noise_e_rms:
     {value: 400.0, unit: "e-", basis: assumed, note: "not published; assumed at the large-well digital-ROIC class value (~400 e-, cf. Teledyne GeoSnap-18 large-well ROIC noise) - at 70 % fill of 2.5 Me- the shot noise (~1300 e-) dominates, so the vendor NETD is insensitive to this assumption"}
+  readout.gain_e_per_dn:
+    {value: 38.15, unit: "e-/DN", source: ds_blackbird, basis: derived, location: "full-scale-matched default: 2.5e+6 e- well / 2^16 (bit depth unpublished; schema default) = 38.15 e-/DN"}
   readout.frame_period_s:
     {value: 8.333e-3, unit: s, source: ds_blackbird, basis: derived, location: "1 / (>= 120 Hz maximal frame rate, full format, 4 video ports)"}
 

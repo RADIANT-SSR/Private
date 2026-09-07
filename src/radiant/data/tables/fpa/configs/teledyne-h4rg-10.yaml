@@ -14,6 +14,7 @@
 #   readout.adc_bits = 16 [derived: mosby2020]
 #   readout.cds_enabled = 1 [paper: mosby2020]
 #   readout.full_well_capacity_e = 100000.0 [paper: mosby2020]
+#   readout.gain_e_per_dn = 1.5259 e-/DN [derived: mosby2020]
 #   readout.read_noise_e_rms = 15.2 e- [paper: mosby2020]
 #
 detector:
@@ -28,4 +29,5 @@ readout:
   adc_bits: 16
   cds_enabled: 1
   full_well_capacity_e: 100000.0
+  gain_e_per_dn: 1.5259
   read_noise_e_rms: 15.2

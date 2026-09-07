@@ -30,6 +30,8 @@ parameters:
     {value: 2.6e+6, unit: null, source: ds2022, basis: datasheet, location: "'Well Sizes 0.18 / 2.6 typical Me-' (large well taken; dual-gain, programmable per row)"}
   readout.read_noise_e_rms:
     {value: 400.0, unit: "e-", source: ds2022, basis: datasheet, location: "'ROIC Noise 40 / 400 typical e-' (large-well value; ROIC-only, see notes)"}
+  readout.gain_e_per_dn:
+    {value: 158.69, unit: "e-/DN", source: ds2022, basis: derived, location: "full-scale-matched default: 2.6e+6 e- well / 2^14 ADC bits = 158.69 e-/DN; the on-chip ADC is programmable and no e-/DN is published - override with the programme's actual setting"}
   readout.adc_bits:
     {value: 14, unit: null, source: ds2022, basis: datasheet, location: "'ADC Resolution 14 (maximum, programmable) bits'"}
   readout.frame_period_s:

@@ -34,6 +34,9 @@ parameters:
   readout.read_noise_e_rms:
     {value: 14.0, unit: "e-", source: rieke2015, basis: paper, location: "Table 1, 'read noise 14 e-' (Fowler-eight sampling, quoted for comparison; flight readout normally sample-up-the-ramp)"}
 
+  readout.gain_e_per_dn:
+    {value: 3.815, unit: "e-/DN", source: rieke2015, basis: derived, location: "full-scale-matched default: 2.5e+5 e- well / 2^16 = 3.815 e-/DN; digitization is in the MIRI warm electronics and the paper gives no FPA-level e-/DN"}
+
 qe_table: null
 
 sources:

@@ -13,6 +13,7 @@
 #   readout.architecture = analog_well [derived: ds2026]
 #   readout.frame_period_s = 0.011765 s [derived: ds2026]
 #   readout.full_well_capacity_e = 2700000.0 [datasheet: ds2026]
+#   readout.gain_e_per_dn = 164.79 e-/DN [derived: ds2026]
 #   readout.read_noise_e_rms = 500.0 e- [assumed: assumed (see preset note)]
 #
 detector:
@@ -26,4 +27,5 @@ readout:
   architecture: analog_well
   frame_period_s: 0.011765
   full_well_capacity_e: 2700000.0
+  gain_e_per_dn: 164.79
   read_noise_e_rms: 500.0

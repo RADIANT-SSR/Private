@@ -129,6 +129,7 @@ class FPAPartInfo:
     vendor: str
     model: str
     part_class: str
+    part_kind: str
     band_label: str
     description: str
     parameter_count: int
@@ -151,6 +152,7 @@ def available_fpa_parts(*, library: FPALibrary | None = None) -> tuple[FPAPartIn
                 vendor=part.vendor,
                 model=part.model,
                 part_class=part.part_class,
+                part_kind=part.part_kind,
                 band_label=part.band.label,
                 description=part.description.strip(),
                 parameter_count=len(part.parameters),

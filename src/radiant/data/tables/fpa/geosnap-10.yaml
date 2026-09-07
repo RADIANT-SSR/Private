@@ -24,6 +24,8 @@ parameters:
     {value: 110.0, unit: K, source: leaflet2025, basis: derived, location: "midpoint of 80-140 K typical inside the 45-300 K operating range"}
   readout.architecture:
     {value: analog_well, unit: null, source: leaflet2025, basis: derived, location: "GeoSnap family CTIA + on-chip 14-bit ADC; no in-pixel counter"}
+  readout.gain_e_per_dn:
+    {value: 48.83, unit: "e-/DN", source: leaflet2025, basis: derived, location: "full-scale-matched default: 8.0e+5 e- (assumed) well / 2^14 = 48.83 e-/DN; inherits the well's assumed basis - replace with programme data"}
   readout.adc_bits:
     {value: 14, unit: null, source: leaflet2025, basis: datasheet, location: "14-bit on-chip ADC"}
   detector.qe_value:

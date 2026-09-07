@@ -36,10 +36,12 @@ off-nadir GSD.
 
 1. **SNR vs. Angle tab:** Line plot showing SNR increasing (note: path radiance
    adds flux). GUI should also show contrast SNR on same plot.
-2. **GSD vs. Angle tab:** Shows corrected cross-track and along-track GSD
-   - **GUI requirement:** Must compute off-nadir GSD using slant range, not altitude
-   - Show RADIANT GSD (nadir) as dashed reference line for comparison
-3. **NIIRS vs. Angle tab:** Shows corrected NIIRS using true GSD
+2. **GSD vs. Angle tab:** Shows cross-track and along-track GSD
+   - The chain provides both: `gsd_cross_track_m` / `gsd_along_track_m` read
+     `path_zenith_rad` (Gaps 33/35 CLOSED) — no GUI-side geometry needed
+   - Show nadir GSD as dashed reference line for comparison
+3. **NIIRS vs. Angle tab:** Shows `metrics["niirs"]` (GIQE-5 on the two-axis
+   off-nadir GSD — Gap 34 CLOSED)
    - Horizontal threshold lines for mission requirements
 4. **Transmission vs. Angle tab:** Band-mean atmospheric transmission
 5. **Summary table:** All metrics at each angle point
@@ -51,7 +53,9 @@ off-nadir GSD.
    - Nadir ground track
    - Ground range to target at each off-nadir angle
    - Swath width at each angle
-3. **GUI requirement:** Swath width / ground range calculator (Gap 36)
+3. **GUI requirement:** Swath width / ground range display — the chain computes
+   `ground_range_m`, `swath_width_m`, `access_rate_m2_per_s` (Gap 36 CLOSED);
+   the latter two need `detector.n_pixels_cross` / `geometry.ground_speed_m_s` set
 
 ### Step 6: Trade Space Explorer
 
@@ -82,9 +86,9 @@ for angle in angles_deg:
     print(f"{angle} deg: SNR={result.metrics['snr']:.1f}, "
           f"tau={result.stage_outputs['atmosphere']['tau_atm'].mean():.4f}")
 
-# Compute off-nadir GSD (not available natively — Gap 33)
-slant_range_m = altitude_m / math.cos(angle_rad)
-gsd_cross = pixel_pitch_m * slant_range_m / focal_length_m
+# Off-nadir GSD comes from the chain (Gaps 33/35 CLOSED)
+gsd_cross = result.metrics["gsd_cross_track_m"]
+gsd_along = result.metrics["gsd_along_track_m"]
 ```
 
 ### Step 8: Performance Metrics Dashboard
@@ -168,10 +172,10 @@ for nt in result.noise_terms:
 
 | Requirement | Priority | Gap |
 |-------------|----------|-----|
-| Off-nadir GSD computation (slant range) | High | Gap 33 |
-| NIIRS with off-nadir GSD | High | Gap 34 |
-| Along-track vs cross-track GSD | High | Gap 35 |
-| Swath width / access geometry | Medium | Gap 36 |
+| Off-nadir GSD display (chain metric) | High | Gap 33 — CLOSED |
+| NIIRS with off-nadir GSD (chain metric) | High | Gap 34 — CLOSED |
+| Along-track vs cross-track GSD (chain metrics) | High | Gap 35 — CLOSED |
+| Swath width / access geometry (chain metrics) | Medium | Gap 36 — CLOSED |
 | Angle input in degrees (auto-convert) | Medium | Gap 6 |
 | Performance metrics dashboard | High | -- |
 | Contrast SNR display alongside total SNR | Medium | -- |

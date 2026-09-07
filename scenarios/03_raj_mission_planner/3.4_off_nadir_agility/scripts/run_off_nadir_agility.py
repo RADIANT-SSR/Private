@@ -104,27 +104,25 @@ def gsd_off_nadir(pixel_pitch_m: float, altitude_m: float,
 
     Returns (gsd_cross_m, gsd_along_m).
 
+    theta_rad is the target-side path zenith angle (the incidence angle) —
+    the same angle this script sweeps into geometry.path_zenith_rad and the
+    same convention slant_range_spherical() uses (its law-of-cosines form
+    anchors theta at the target). CU-340: an earlier version re-converted
+    theta by the sensor-side rule sin(eta') = (R_E+H)·sin(theta)/R_E before
+    projecting, double-counting Earth curvature (at 45° it divided by
+    cos 50.7° instead of cos 45°) — the same theta_o-vs-eta misread the
+    chain retired in the 2026-07-12 ADR-0006 Phase-2 landing.
+
     Cross-track GSD scales with slant range:
         GSD_cross = p × R / f
 
-    Along-track GSD has additional ground projection factor:
-        GSD_along = p × R / (f × cos(incidence_angle))
-
-    For flat-Earth, incidence angle ≈ theta, so:
-        GSD_along = p × R / (f × cos(theta)) = p × H / (f × cos^2(theta))
+    Along-track GSD adds the ground-projection foreshortening at the target:
+        GSD_along = p × R / (f × cos(theta))
     """
     sr = slant_range_spherical(altitude_m, theta_rad)
     gsd_cross = pixel_pitch_m * sr / focal_length_m
 
-    # Incidence angle at ground (differs from look angle due to Earth curvature)
-    # For small angles, incidence ≈ look angle
-    R_E = EARTH_RADIUS_M
-    r_sensor = R_E + altitude_m
-    sin_inc = r_sensor * math.sin(theta_rad) / R_E
-    sin_inc = min(sin_inc, 1.0)
-    inc_angle = math.asin(sin_inc)
-    cos_inc = math.cos(inc_angle)
-
+    cos_inc = math.cos(theta_rad)
     gsd_along = pixel_pitch_m * sr / (focal_length_m * cos_inc) if cos_inc > 0.01 else float("inf")
 
     return gsd_cross, gsd_along
@@ -417,28 +415,14 @@ def main() -> None:
         gr = ground_range(altitude_m, theta_rad)
         gsd_x, gsd_y = gsd_off_nadir(pixel_pitch_m, altitude_m, focal_length_m, theta_rad)
 
-        # Corrected NIIRS using true off-nadir GSD
-        # GIQE-5 (simplified): NIIRS = c0 + c1*log10(GSD_GM) + c2*log10(RER) + c3*SNR/G
-        # We'll recompute using this script's GSD_GM instead of the chain's own
         gsd_gm = math.sqrt(gsd_x * gsd_y)  # geometric mean of cross/along GSD
 
-        # GIQE-5 for VIS/NIR: a simplified approximation
-        # NIIRS = 10.251 - 3.32*log10(GSD_GM) + 0.656*log10(RER_GM) - 0.334*(H/p)
-        # Using RADIANT's RER and SNR but corrected GSD
-        if gsd_gm > 0 and rer > 0 and snr > 0:
-            niirs_corrected = (10.251
-                               - 3.32 * math.log10(gsd_gm)
-                               + 0.656 * math.log10(rer * rer)  # RER_GM ≈ RER^2 (both axes)
-                               - 0.334 * (gsd_gm / snr * 10.0))  # simplified noise/SNR term
-            # Use a more practical approximation: scale RADIANT NIIRS by GSD ratio
-            if niirs_radiant > 0 and gsd_radiant_x > 0:
-                gsd_ratio = gsd_gm / gsd_radiant_x
-                # NIIRS change ≈ -3.32 * log10(GSD_new/GSD_old)
-                niirs_corrected = niirs_radiant - 3.32 * math.log10(gsd_ratio)
-            else:
-                niirs_corrected = 0.0
-        else:
-            niirs_corrected = 0.0
+        # CU-340: the chain's GIQE-5 already consumes the two-axis off-nadir GSD
+        # (it takes the geometric mean internally — performance/giqe.py), so no
+        # script-side NIIRS rescale remains. The retired correction subtracted
+        # -3.32*log10(GM/cross) from a NIIRS that had already paid the GM,
+        # double-counting the along/cross ratio (-0.25 NIIRS at 45 deg).
+        niirs_corrected = niirs_radiant
 
         nedt_mK = nedt_K * 1000.0 if nedt_K > 0 else 0.0
         well_margin_dB = r.metrics.get("well_margin_dB", 0.0)
@@ -457,6 +441,7 @@ def main() -> None:
             "gsd_along_m": gsd_y,
             "gsd_gm_m": gsd_gm,
             "gsd_radiant_x": gsd_radiant_x,
+            "gsd_radiant_y": gsd_radiant_y,
             "snr": snr,
             "mtf_nyq": mtf_nyq,
             "rer": rer,
@@ -582,21 +567,27 @@ def main() -> None:
     print(f"  RADIANT GSD vs. TRUE OFF-NADIR GSD")
     print(f"{'=' * 80}")
 
-    print(f"\n  RADIANT's GSD metric reads path_zenith_rad: GSD = p × R / f")
-    print(f"  It tracks true cross-track GSD exactly — Gap 33 was closed by the")
-    print(f"  2026-07-12 ADR-0006 Phase-2 geometry landing, so the column below is")
-    print(f"  a regression cross-check, not a correction.")
+    print(f"\n  RADIANT's GSD metrics read path_zenith_rad: cross = p × R / f,")
+    print(f"  along = p × R / (f × cos(theta)). Both track this script's geometry")
+    print(f"  exactly — Gap 33 was closed by the 2026-07-12 ADR-0006 Phase-2")
+    print(f"  landing, Gap 35 by the two-axis GSD metrics, and CU-340 fixed the")
+    print(f"  script-side along-track projection — so the columns below are a")
+    print(f"  regression cross-check, not a correction.")
 
-    print(f"\n  {'Angle':>8s}  {'RADIANT GSD':>12s}  {'True GSD_x':>12s}  {'True GSD_y':>12s}  "
-          f"{'Error':>8s}")
-    print(f"  {'[deg]':>8s}  {'[m]':>12s}  {'[m]':>12s}  {'[m]':>12s}  {'[%]':>8s}")
-    print(f"  {'-' * 8}  {'-' * 12}  {'-' * 12}  {'-' * 12}  {'-' * 8}")
+    print(f"\n  {'Angle':>8s}  {'RADIANT GSD_x':>13s}  {'True GSD_x':>12s}  {'Err_x':>8s}  "
+          f"{'RADIANT GSD_y':>13s}  {'True GSD_y':>12s}  {'Err_y':>8s}")
+    print(f"  {'[deg]':>8s}  {'[m]':>13s}  {'[m]':>12s}  {'[%]':>8s}  "
+          f"{'[m]':>13s}  {'[m]':>12s}  {'[%]':>8s}")
+    print(f"  {'-' * 8}  {'-' * 13}  {'-' * 12}  {'-' * 8}  {'-' * 13}  {'-' * 12}  {'-' * 8}")
 
     for rd in results:
-        error_pct = ((rd["gsd_radiant_x"] - rd["gsd_cross_m"])
+        err_x_pct = ((rd["gsd_radiant_x"] - rd["gsd_cross_m"])
                      / rd["gsd_cross_m"] * 100.0 if rd["gsd_cross_m"] > 0 else 0.0)
-        print(f"  {rd['angle_deg']:>8.0f}  {rd['gsd_radiant_x']:>12.2f}  {rd['gsd_cross_m']:>12.2f}  "
-              f"{rd['gsd_along_m']:>12.2f}  {error_pct:>+8.1f}")
+        err_y_pct = ((rd["gsd_radiant_y"] - rd["gsd_along_m"])
+                     / rd["gsd_along_m"] * 100.0 if rd["gsd_along_m"] > 0 else 0.0)
+        print(f"  {rd['angle_deg']:>8.0f}  {rd['gsd_radiant_x']:>13.2f}  {rd['gsd_cross_m']:>12.2f}  "
+              f"{err_x_pct:>+8.1f}  {rd['gsd_radiant_y']:>13.2f}  {rd['gsd_along_m']:>12.2f}  "
+              f"{err_y_pct:>+8.1f}")
 
     # ---------------------------------------------------------------------------
     # Step 9b: RADIANT MTF budget and performance metrics (nadir baseline)
@@ -745,12 +736,9 @@ def main() -> None:
     fig3, ax3 = plt.subplots(figsize=(fig_w, fig_h))
 
     niirs_corr_arr = [rd["niirs_corrected"] for rd in results]
-    niirs_rad_arr = [rd["niirs_radiant"] for rd in results]
 
     ax3.plot(angles_arr, niirs_corr_arr, "bo-", linewidth=2, markersize=8,
-             label="NIIRS (corrected for off-nadir GSD)")
-    ax3.plot(angles_arr, niirs_rad_arr, "r^--", linewidth=1.5, markersize=6,
-             label="NIIRS (RADIANT — chain off-nadir GSD)")
+             label="NIIRS (RADIANT chain — two-axis off-nadir GSD)")
 
     ax3.axhline(niirs_corr_arr[0], color="green", linestyle=":", alpha=0.4,
                 label=f"Nadir baseline = {niirs_corr_arr[0]:.2f}")
@@ -819,8 +807,7 @@ def main() -> None:
     headers_out = [
         "Angle [deg]", "Slant Range [km]", "Air Mass [--]", "Ground Range [km]",
         "Tau (band mean) [--]", "GSD Cross [m]", "GSD Along [m]", "GSD GM [m]",
-        "SNR [--]", "MTF@Ny [--]", "RER [--]", "NIIRS (corrected) [--]",
-        "NIIRS (RADIANT) [--]", "Signal [e-]",
+        "SNR [--]", "MTF@Ny [--]", "RER [--]", "NIIRS [--]", "Signal [e-]",
     ]
 
     for col_idx, h in enumerate(headers_out, start=1):
@@ -837,7 +824,7 @@ def main() -> None:
             round(rd["gsd_cross_m"], 2), round(rd["gsd_along_m"], 2),
             round(rd["gsd_gm_m"], 2), round(rd["snr"], 1),
             round(rd["mtf_nyq"], 4), round(rd["rer"], 4),
-            round(rd["niirs_corrected"], 2), round(rd["niirs_radiant"], 2),
+            round(rd["niirs_corrected"], 2),
             round(rd["signal_e"], 0),
         ]
         for col_idx, v in enumerate(vals, start=1):
@@ -918,12 +905,14 @@ def main() -> None:
     print(f"  Well margin:       {baseline.get('well_margin_dB', 0.0):.1f} [dB]")
 
     print(f"\n  Limitations:")
-    print(f"    - This script rescales the chain's NIIRS by its own GSD ratio rather")
-    print(f"      than re-running GIQE-5; RADIANT's metrics['niirs'] already consumes")
-    print(f"      the off-nadir GSD (Gaps 33 and 34 closed).")
+    print(f"    - The NIIRS column is the chain's metrics['niirs'] directly: GIQE-5")
+    print(f"      consumes the two-axis off-nadir GSD (geometric mean internally),")
+    print(f"      so no script-side rescale remains (Gaps 33/34/35 closed; CU-340")
+    print(f"      retired the old GM/cross rescale, which double-counted).")
     print(f"    - RADIANT reports cross- and along-track GSD separately (Gap 35 closed).")
-    print(f"      The along-track column above is this script's own projection and uses")
-    print(f"      a different incidence model than the chain's, so the two disagree.")
+    print(f"      The along-track column above is this script's own projection; since")
+    print(f"      the CU-340 fix it agrees with the chain's gsd_along_track_m and is")
+    print(f"      kept as an explicit cross-check.")
     print(f"    - RADIANT provides ground-range, swath-width and access-rate metrics")
     print(f"      (Gap 36 closed); this run computes swath and access locally because")
     print(f"      the config sets neither detector.n_pixels_cross nor")

@@ -125,3 +125,72 @@ class TestGuiYamlPath:
         s = _sensor()
         text = s.to_yaml(scope="inputs")
         assert "optics" in text and "_radiant" in text
+
+
+class TestElementDocumentPortability:
+    """CU-343: Sensor.save writes element spectral-file refs relative; load resolves."""
+
+    @staticmethod
+    def _mirror_csv(dirpath: Path) -> Path:
+        p = dirpath / "mirror_r.csv"
+        p.write_text("# wavelength_um,value\n3.0,0.97\n5.5,0.96\n", encoding="utf-8")
+        return p
+
+    def _element_sensor(self, csv_path: Path) -> Sensor:
+        s = _sensor()
+        s.set_optical_elements(
+            [
+                {
+                    "name": "M1",
+                    "transfer_mode": "REFLECTIVE",
+                    "reflectance": str(csv_path),
+                    "temperature_K": 293.0,
+                    "diameter_m": 0.3,
+                    "distance_to_fpa_m": 1.0,
+                }
+            ]
+        )
+        return s
+
+    def test_save_writes_relative_spectral_ref(self, tmp_path: Path) -> None:
+        data = tmp_path / "data"
+        data.mkdir()
+        csv_path = self._mirror_csv(data)
+        cfg = tmp_path / "configs"
+        cfg.mkdir()
+
+        self._element_sensor(csv_path).save(cfg / "s.yaml")
+
+        text = (cfg / "s.yaml").read_text(encoding="utf-8")
+        assert str(csv_path) not in text
+        assert "../data/mirror_r.csv" in text
+
+    def test_saved_config_survives_a_tree_move(self, tmp_path: Path) -> None:
+        """Config + data relocated together still load and evaluate (the CU-343 defect)."""
+        import shutil
+
+        old_root = tmp_path / "old"
+        (old_root / "data").mkdir(parents=True)
+        csv_path = self._mirror_csv(old_root / "data")
+        s = self._element_sensor(csv_path)
+        s.save(old_root / "s.yaml")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            snr = s.evaluate().metrics["snr"]
+
+        new_root = tmp_path / "new"
+        shutil.move(str(old_root), str(new_root))
+
+        s2 = Sensor.load(new_root / "s.yaml")
+        elements = s2.optical_elements()
+        assert elements is not None
+        stored = Path(elements[0]["reflectance"])
+        assert stored == (new_root / "data" / "mirror_r.csv").resolve()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            assert s2.evaluate().metrics["snr"] == pytest.approx(snr, rel=1e-12)
+
+    def test_to_yaml_without_destination_keeps_paths_as_stored(self, tmp_path: Path) -> None:
+        csv_path = self._mirror_csv(tmp_path)
+        text = self._element_sensor(csv_path).to_yaml()
+        assert str(csv_path.resolve()) in text

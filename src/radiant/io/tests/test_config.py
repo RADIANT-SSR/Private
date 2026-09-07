@@ -13,7 +13,14 @@ import yaml
 
 from radiant.api._param_registry import build_parameter_set
 from radiant.core.parameters import Provenance
-from radiant.io.config import ConfigError, _flatten, _unflatten, load_config, save_config
+from radiant.io.config import (
+    ConfigError,
+    _flatten,
+    _unflatten,
+    load_config,
+    save_config,
+    serialize_config,
+)
 
 # ---------------------------------------------------------------------------
 # Flatten / unflatten helpers
@@ -524,3 +531,110 @@ class TestFilePathPortability:
         params = build_parameter_set()
         load_config({"detector": {"qe_table_path": "rel/qe.csv"}}, params)
         assert params.inputs()["detector.qe_table_path"] == "rel/qe.csv"
+
+
+# ---------------------------------------------------------------------------
+# CU-343 — the shared optical_elements document is stored portably too
+# ---------------------------------------------------------------------------
+
+
+class TestElementSectionPortability:
+    """The ``optical_elements`` section relativizes spectral-file refs on save (CU-343).
+
+    Parameter-level ``is_file_path`` values (CU-177) and configured element
+    entries (Gap 103 v1.1) already relativize; these tests pin the shared
+    element document — the one store that did not.
+    """
+
+    @staticmethod
+    def _spectral_csv(dirpath: Path, name: str = "mirror_r.csv") -> Path:
+        p = dirpath / name
+        p.write_text("wavelength_um,value\n3.0,0.97\n5.0,0.96\n", encoding="utf-8")
+        return p
+
+    @staticmethod
+    def _entry(reflectance: Any) -> dict[str, Any]:
+        return {
+            "name": "M1",
+            "transfer_mode": "REFLECTIVE",
+            "reflectance": reflectance,
+            "temperature_K": 293.0,
+            "diameter_m": 0.3,
+            "distance_to_fpa_m": 1.0,
+        }
+
+    @pytest.mark.level1
+    def test_save_writes_element_spectral_paths_relative(self, tmp_path: Path) -> None:
+        """An absolute spectral-file reference is stored relative to the output dir."""
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+        csv = self._spectral_csv(data_dir)
+        out = tmp_path / "cfg" / "s.yaml"
+        out.parent.mkdir()
+
+        save_config(
+            build_parameter_set(),
+            out,
+            scope="inputs",
+            sections={"optical_elements": [self._entry(str(csv.resolve()))]},
+        )
+
+        raw = yaml.safe_load(out.read_text(encoding="utf-8"))
+        stored = raw["optical_elements"][0]["reflectance"]
+        assert not Path(stored).is_absolute()
+        assert stored == "../data/mirror_r.csv"  # forward slashes, relative to cfg/
+
+    @pytest.mark.level1
+    def test_scalar_and_inline_values_untouched(self, tmp_path: Path) -> None:
+        """Scalar reflectance and non-spectral keys pass through unchanged."""
+        out = tmp_path / "s.yaml"
+        save_config(
+            build_parameter_set(),
+            out,
+            scope="inputs",
+            sections={"optical_elements": [self._entry(0.97)]},
+        )
+        raw = yaml.safe_load(out.read_text(encoding="utf-8"))
+        entry = raw["optical_elements"][0]
+        assert entry["reflectance"] == 0.97
+        assert entry["name"] == "M1"
+
+    @pytest.mark.level1
+    def test_serialize_without_destination_leaves_paths_as_stored(self, tmp_path: Path) -> None:
+        """``serialize_config`` with no ``relative_to`` (Sensor.to_yaml) keeps paths."""
+        csv = self._spectral_csv(tmp_path)
+        text = serialize_config(
+            build_parameter_set(),
+            scope="inputs",
+            sections={"optical_elements": [self._entry(str(csv.resolve()))]},
+        )
+        raw = yaml.safe_load(text)
+        assert raw["optical_elements"][0]["reflectance"] == str(csv.resolve())
+
+    @pytest.mark.level1
+    def test_configured_rows_pass_through_this_seam_untouched(self, tmp_path: Path) -> None:
+        """A ``configured:`` row holds no top-level spectral key; its member entries
+        are relativized upstream by ``merge_element_document``, not here."""
+        out = tmp_path / "s.yaml"
+        row = {"configured": {"A": self._entry("../data/mirror_r.csv")}}
+        save_config(
+            build_parameter_set(),
+            out,
+            scope="inputs",
+            sections={"optical_elements": [row]},
+        )
+        raw = yaml.safe_load(out.read_text(encoding="utf-8"))
+        assert raw["optical_elements"][0] == row
+
+    @pytest.mark.level1
+    def test_section_input_is_not_mutated(self, tmp_path: Path) -> None:
+        """Relativization copies rows; the caller's section object is untouched."""
+        csv = self._spectral_csv(tmp_path)
+        abs_ref = str(csv.resolve())
+        section = [self._entry(abs_ref)]
+        out = tmp_path / "cfg" / "s.yaml"
+        out.parent.mkdir()
+        save_config(
+            build_parameter_set(), out, scope="inputs", sections={"optical_elements": section}
+        )
+        assert section[0]["reflectance"] == abs_ref

@@ -35,6 +35,7 @@ import yaml
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterSet, Provenance, Tolerance
 from radiant.core.provenance import hash_file
+from radiant.io.element_config import SPECTRAL_FILE_KEYS
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,32 @@ def _relativize_file_paths(flat: dict[str, Any], params: ParameterSet, base_dir:
         if pdef is None or not pdef.is_file_path:
             continue
         flat[name] = relativize_file_value(value, base_dir)
+
+
+def _relativize_element_section(entries: Sequence[Any], base_dir: Path) -> list[Any]:
+    """Shared ``optical_elements`` rows with spectral-file refs made relative (CU-343).
+
+    The section-level twin of :func:`_relativize_file_paths`: each shared row's
+    spectral-file references (:data:`~radiant.io.element_config.SPECTRAL_FILE_KEYS`)
+    go through :func:`relativize_file_value`, so a saved element-bearing config is
+    portable exactly like its parameter-level file paths (CU-177). Rows are
+    copied — the caller's section object is never mutated. A ``configured:`` row
+    carries no spectral key at its top level and passes through unchanged; its
+    member entries are relativized upstream by
+    ``configured_elements.merge_element_document`` (Gap 103 v1.1). Non-mapping
+    rows pass through for the loader to reject.
+    """
+    out: list[Any] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            out.append(entry)
+            continue
+        row = dict(entry)
+        for key in SPECTRAL_FILE_KEYS:
+            if key in row:
+                row[key] = relativize_file_value(row[key], base_dir)
+        out.append(row)
+    return out
 
 
 def _resolve_file_paths(flat: dict[str, Any], params: ParameterSet, base_dir: Path) -> None:
@@ -517,6 +544,15 @@ def serialize_config(
         _relativize_file_paths(flat, params, relative_to)
     nested = _unflatten(flat)
     if sections is not None:
+        if relative_to is not None and "optical_elements" in sections:
+            # CU-343: the shared element document's spectral-file refs relativize
+            # exactly like is_file_path parameters and configured entries do.
+            sections = {
+                **sections,
+                "optical_elements": _relativize_element_section(
+                    sections["optical_elements"], relative_to
+                ),
+            }
         nested.update(sections)
     if meta is not None:
         nested[_META_KEY] = meta

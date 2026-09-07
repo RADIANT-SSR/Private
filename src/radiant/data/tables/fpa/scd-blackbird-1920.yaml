@@ -1,0 +1,63 @@
+fpa_preset: 1
+name: scd-blackbird-1920
+vendor: SCD (SemiConductor Devices)
+model: Blackbird 1920 (MWIR IDCA)
+part_class: cooled_ir
+material: InSb
+band: {label: "MWIR (InSb 1-5.4 um; std cold filter narrows in-band)", cut_on_um: 1.0, cut_off_um: 5.4}
+description: >
+  1920x1536, 10 um pitch InSb MWIR detector in an integrated Dewar-cooler
+  assembly (rotary integral or split Stirling), with a digital readout circuit
+  on an advanced CMOS process (digital video output; analog charge well - not
+  in-pixel counting). Vendor headline: NETD < 28 mK at 2.5 Me- capacity and
+  70 % well fill; >= 120 Hz full frame over 4 video ports.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 10.0, unit: um, source: ds_blackbird, basis: datasheet, location: "spec table: 'Detector Format 1920x1536, 10um'"}
+  detector.pixel_pitch_y_um:
+    {value: 10.0, unit: um, source: ds_blackbird, basis: datasheet, location: "same line (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 1920, unit: null, source: ds_blackbird, basis: datasheet, location: "'Detector Format 1920x1536' (horizontal count taken)"}
+  detector.qe_value:
+    {value: 85, unit: "%", basis: assumed, note: "datasheet says only 'high quantum efficiency' (Main Features); 85 % is a typical broadband QE for InSb MWIR FPAs - replace with a measured value when SCD publishes one"}
+  detector.detector_temperature_K:
+    {value: 80.0, unit: K, source: ds_blackbird, basis: datasheet, location: "spec table: 'Operating temperature 80K'"}
+  readout.architecture:
+    {value: analog_well, unit: null, source: ds_blackbird, basis: derived, location: "'digital readout circuit developed through an advanced CMOS process' with a stated 2.5 Me- charge capacity = analog integration well with on-chip digitization, not in-pixel counting"}
+  readout.full_well_capacity_e:
+    {value: 2.5e6, unit: null, source: ds_blackbird, basis: datasheet, location: "spec table: 'NETD (2.5Me- Cap.) at 70% Well fill < 28mK' - the 2.5 Me- capacity is the well size at which NETD is specified"}
+  readout.read_noise_e_rms:
+    {value: 400.0, unit: "e-", basis: assumed, note: "not published; assumed at the large-well digital-ROIC class value (~400 e-, cf. Teledyne GeoSnap-18 large-well ROIC noise) - at 70 % fill of 2.5 Me- the shot noise (~1300 e-) dominates, so the vendor NETD is insensitive to this assumption"}
+  readout.frame_period_s:
+    {value: 8.333e-3, unit: s, source: ds_blackbird, basis: derived, location: "1 / (>= 120 Hz maximal frame rate, full format, 4 video ports)"}
+
+qe_table: null
+
+sources:
+  ds_blackbird:
+    type: vendor_datasheet
+    title: "Blackbird 1920 - 3MP Digital MWIR InSb Detector (product datasheet)"
+    publisher: SCD SemiConductor Devices
+    url: "https://www.scd-infrared.com/wp-content/uploads/2026/03/Blackbird-1920.pdf"
+    file: scd_blackbird_1920_datasheet.pdf
+    retrieved: "2026-09-06"
+  scd_page:
+    type: web_page
+    title: "SCD Blackbird 1920 product page"
+    publisher: SCD SemiConductor Devices
+    url: "https://www.scd-infrared.com/products/blackbird-1920/"
+    retrieved: "2026-09-06"
+
+notes: >
+  QE and read noise are ASSUMED (flagged above) - the datasheet is qualitative
+  on both ('low readout noise, low dark current, high quantum efficiency');
+  dark current and ADC bit depth are not published and deliberately not set.
+  The NETD spec (<28 mK at 70 % fill of 2.5 Me-) is a temperature-domain
+  anchor: validate any RADIANT NEDT prediction for this part against it (f/#
+  unstated on the sheet; SCD's standard cold shield is f/3-class - confirm
+  before comparing). Spectral band 1-5.4 um is the InSb response; the standard
+  cold filter restricts in-band flux (3.6-4.9 um typical for SCD MWIR;
+  options exist) - set the study bandpass to the actual filter. Web sources
+  also cite a 2 Me- well configuration. Cooler: 18 W rotary integral / split;
+  binning and windowing supported.

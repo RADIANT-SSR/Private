@@ -32,6 +32,32 @@ retroactively reconstructed.
   `calibration.scheme = "none"` is a recorded no-op — computed results are
   unchanged; active schemes raise the actionable phase-gate error until plan
   Phase 1 lands the physics.
+- **FPA preset roster complete — tranches 2+3 (Gap 119, plan Phase 4)** —
+  fifteen more parts (21 total shipped): rvs-miri-si-as, rvs-virgo-2k,
+  senseeker-calcium-rp0033, lynred-daphnis-hd-mw, lynred-atto640,
+  flir-lepton-35, teledyne-e2v-ccd273, e2v-ccd42-40, sony-imx455,
+  sony-imx990-senswir, scd-blackbird-1920, teledyne-h4rg-10,
+  senseeker-magnesium-rp0092, gpixel-gsense400bsi, sony-imx250. Twelve more
+  hash-manifested reference PDFs. Every number read from a primary document
+  fetched 2026-09-06; assumed placeholders are flagged per-entry. The plan's
+  hold-list (Tau 2/2+, Oxygen RD0092, Neutrino SX12, BAE/DRS) stays held.
+- **FPA preset application (Gap 119, plan Phase 2)** — new config key
+  `fpa: <part-name>` (applied by `Sensor.from_yaml`/`from_dict`/`load`) and
+  `Sensor.apply_fpa(name)` / `Sensor.fpa_applications` /
+  `radiant.api.FPAApplyReport` (public surface). Presets seed with
+  `Provenance.PRESET` (new source string `fpa:<part>/<source-key>`); explicit
+  user/config values always win and overrides are reported. Bare
+  `load_config` refuses the key with the standard unattached-section error.
+- **First shipped FPA presets — tranche 1 (Gap 119, plan Phase 1)** — six named
+  parts load from `radiant.data.FPALibrary`: `geosnap-18`, `geosnap-10`,
+  `flir-neutrino-lc`, `flir-boson-plus-640`, `teledyne-h2rg-2p5`, and
+  `dfpa-generic` (MIT LL DFPA paper anchor for the digital-counting class).
+  Each ships with per-parameter datasheet/paper attribution, a committed
+  reference PDF set under `docs/validation/fpa_datasheets/` (hash-manifested,
+  Rule 26(c)), and a generated loadable RADIANT config at
+  `src/radiant/data/tables/fpa/configs/<name>.yaml`
+  (`scripts/gen_fpa_configs.py`, freshness-gated). No default behavior
+  changes — presets act only when explicitly loaded/applied.
 - **FPA preset library, format + loader (Gap 119, plan Phase 0)** —
   `radiant.data.FPALibrary` / `FPAPreset` / `FPAPresetError` (public surface):
   named FPA/ROIC preset documents (`src/radiant/data/tables/fpa/*.yaml`,

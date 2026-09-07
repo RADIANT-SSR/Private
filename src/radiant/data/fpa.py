@@ -26,6 +26,7 @@ Usage::
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -74,6 +75,9 @@ _ENTRY_KEYS = frozenset({"value", "unit", "source", "basis", "location", "note"}
 _SOURCE_REQUIRED = ("type", "title")
 _SOURCE_OPTIONAL = ("authors", "venue", "publisher", "year", "url", "doi", "file", "retrieved")
 _SOURCE_TYPES = frozenset({"vendor_datasheet", "paper", "web_page", "other"})
+
+# Numeric strings YAML 1.1 fails to resolve as floats (unsigned exponent).
+_YAML11_FLOAT = re.compile(r"^[-+]?(\d+\.?\d*|\.\d+)[eE][-+]?\d+$")
 
 
 class FPAPresetError(RadiantError):
@@ -282,8 +286,14 @@ def _parse_entry(
                 context=ctx,
             )
     unit = raw.get("unit")
+    value = raw["value"]
+    if isinstance(value, str) and _YAML11_FLOAT.match(value):
+        # YAML 1.1 requires a signed exponent, so `2.6e6` loads as a string;
+        # numbers that are obviously numeric are coerced rather than letting
+        # the type drift into the ParameterSet (caught in tranche-2 review).
+        value = float(value)
     return FPAParameterEntry(
-        value=raw["value"],
+        value=value,
         unit=None if unit is None else str(unit),
         basis=str(basis),
         source=source,

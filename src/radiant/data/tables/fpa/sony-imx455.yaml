@@ -1,0 +1,61 @@
+fpa_preset: 1
+name: sony-imx455
+vendor: Sony Semiconductor Solutions
+model: IMX455 (BSI full-frame CMOS, 61 Mpix; characterized in QHYCCD QHY600M Pro)
+part_class: scientific_visible
+material: silicon back-side-illuminated CMOS (thin ~3 um substrate)
+band: {label: "visible-NIR (QE measured 0.35-1.0 um)", cut_on_um: 0.35, cut_off_um: 1.0}
+description: >
+  9576x6388, 3.76 um pitch back-illuminated full-frame (36x24 mm) rolling-shutter
+  CMOS with native 16-bit on-chip ADC. Values are laboratory characterization of
+  the sensor in the QHY600M Pro camera (Alarcon et al. 2023), pinned to
+  Mode #1 (High Gain Mode) at gain setting 0 ('1@0') - change modes and these
+  numbers change (Mode #0@26: 2.54 e- read noise, 25.3 ke- well, 0.405 e-/ADU).
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 3.76, unit: um, source: alarcon2023, basis: paper, location: "Table 1: 'Pixel size 3.76 x 3.76 um'; Sect. 2.1: '9576 x 6388, 3.76 um square pixels'"}
+  detector.pixel_pitch_y_um:
+    {value: 3.76, unit: um, source: alarcon2023, basis: paper, location: "same (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 9576, unit: null, source: alarcon2023, basis: paper, location: "Sect. 2.1: full-frame sensor with 9576 x 6388 pixels (horizontal count taken)"}
+  detector.qe_value:
+    {value: 80, unit: "%", source: alarcon2023, basis: paper, location: "Sect. 3.4 / Fig. 10: measured absolute QE peak 80 % at 475 nm (40 % at 700 nm, 10 % at 900 nm); manufacturer curve claims ~92 % peak - paper measures ~9 % lower"}
+  detector.detector_temperature_K:
+    {value: 263.0, unit: K, source: alarcon2023, basis: derived, location: "cooled-camera operating point of the characterization: -10 C TEC setpoint at which the pinned dark-current row of Table 2 was measured"}
+  detector.dark_rate_e_per_s:
+    {value: 0.011, unit: "1/s", source: alarcon2023, basis: paper, location: "Table 2: median dark current 0.011 e-/px/s at -10 C for the QHY600M Pro (0.004 e-/px/s at -20 C)"}
+  detector.dark_reference_temperature_K:
+    {value: 263.0, unit: K, source: alarcon2023, basis: paper, location: "Table 2, same row (-10 C = 263 K)"}
+  readout.full_well_capacity_e:
+    {value: 5.0e4, unit: null, source: alarcon2023, basis: paper, location: "Table 3, QHY600M Pro Mode 1@0: FWC 50.0 +/- 0.2 ke-"}
+  readout.read_noise_e_rms:
+    {value: 3.48, unit: "e-", source: alarcon2023, basis: derived, location: "Table 3, Mode 1@0: RON 4.56 ADU x gain 0.763 e-/ADU = 3.48 e- RMS"}
+  readout.gain_e_per_dn:
+    {value: 0.763, unit: "e-/DN", source: alarcon2023, basis: paper, location: "Table 3 / Fig. 8 photon transfer curve, Mode 1@0: gain 0.763 +/- 0.003 e-/ADU"}
+  readout.adc_bits:
+    {value: 16, unit: null, source: alarcon2023, basis: paper, location: "Sect. 1/2.1: native 16-bit sensor (on-chip ADC); saturation observed at 65532 +/- 1 ADU"}
+
+qe_table: null
+
+sources:
+  alarcon2023:
+    type: paper
+    title: "Scientific CMOS sensors in Astronomy: IMX455 and IMX411"
+    authors: "M. R. Alarcon, J. Licandro, M. Serra-Ricart, E. Joven, V. Gaitan, R. de Sousa"
+    venue: "PASP 135, 055001"
+    year: 2023
+    doi: "10.1088/1538-3873/acd04a"
+    url: "https://arxiv.org/pdf/2302.03700"
+    file: alarcon_imx455_imx411_pasp_2023.pdf
+    retrieved: "2026-09-06"
+
+notes: >
+  Mode-pinned preset: all readout values are QHY600M Pro Mode #1 (High Gain
+  Mode), gain setting 0, offset 10 - the paper's recommended astronomy
+  configuration. Rolling shutter; 2.5 fps full-frame 16-bit in that camera
+  (USB3, camera-limited, not a sensor limit) so frame_period_s is deliberately
+  not set. Fixed pattern noise 0.55 % in this mode; sCMOS pixels are
+  independent amplifier+ADC chains, so per-pixel calibration matters more than
+  in a CCD. Dark current is camera-TEC dependent; Table 2 of the paper gives
+  the temperature ladder for rescaling.

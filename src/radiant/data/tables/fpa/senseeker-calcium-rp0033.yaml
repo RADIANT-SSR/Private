@@ -1,0 +1,72 @@
+fpa_preset: 1
+name: senseeker-calcium-rp0033
+vendor: Senseeker Corp
+model: Calcium RP0033-J200
+part_class: cooled_ir_droic
+material: none - bare DPROIC (mates to any industry-standard direct-injection-compatible detector; P-on-N polarity)
+band: {label: "detector-dependent (bare ROIC, no photodetector)", cut_on_um: 1.0, cut_off_um: 14.0}
+description: >
+  640x512, 20 um digital-pixel readout IC (DPROIC): in-pixel digital
+  accumulation with dual programmable gain, global-shutter ITR/IWR, >700 fps,
+  stitchable to 4096x4096 in 512-pixel steps. Best-documented DROIC noise
+  floor in the public set (~50 e- rms measured at 65 K). Counter depth and
+  count packet are NOT published - the entries below model the sourced
+  low-gain 400 Me- well with an assumed 16-bit counter; see notes before
+  trusting quantization-sensitive results.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 20.0, unit: um, source: page2026, basis: datasheet, location: "features list, '20 um digital pixels, P-on-N polarity'"}
+  detector.pixel_pitch_y_um:
+    {value: 20.0, unit: um, source: page2026, basis: datasheet, location: "features list (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 640, unit: null, source: page2026, basis: datasheet, location: "'stitched architecture with 640 x 512 on the shelf' (cross-track 640 taken)"}
+  detector.qe_value:
+    {value: 70, unit: "%", basis: assumed, note: "bare ROIC has no photodetector, so QE belongs to the hybridized detector; 70 % is a placeholder typical of DI-hybridized MWIR MCT/InSb diodes - replace with the actual detector QE in any study"}
+  detector.detector_temperature_K:
+    {value: 65.0, unit: K, source: page2026, basis: datasheet, location: "read-noise figures 'Measured at 65 K' - the published measurement condition taken as the modeled operating point"}
+  readout.architecture:
+    {value: digital_counting, unit: null, source: page2026, basis: derived, location: "'advanced digital pixel readout integrated circuit (DPROIC)' with 8/16/24-bit serialized digital pixel output = Senseeker in-pixel digital accumulation (sister part Magnesium RP0092 documents in-pixel counting + digital residue explicitly)"}
+  readout.counter_bits:
+    {value: 16, unit: null, basis: assumed, note: "counter depth not published; 16 bits assumed - matches the middle of the selectable 8/16/24 bits-per-pixel serialization and the 14-21 bit range of the MIT-lineage digital-pixel family (serializer word width is not necessarily counter depth)"}
+  readout.count_packet_e:
+    {value: 6103.5, unit: "e-", source: page2026, basis: derived, location: "400 Me- low-gain programmable well capacity (vendor page) / 2^16 assumed counter bits = 6,103.5 e- per count; packet is gain-programmable, so this is the low-gain operating point only"}
+  readout.residue_readout:
+    {value: true, unit: null, basis: assumed, note: "not stated for Calcium; assumed true because the measured ~50 e- rms noise floor is inconsistent with pure packet quantization (6,103.5 e- / sqrt(12) = 1,762 e- rms) and the sister Magnesium RP0092 documents digital residue readout via a 14-bit column engine"}
+  readout.read_noise_e_rms:
+    {value: 50.0, unit: "e-", source: page2026, basis: datasheet, location: "'Read noise of ~50e- rms in ITR ... in high gain mode ... Measured at 65 K' (high-gain ITR taken; IWR ~85 e-; low gain ~330 e- ITR / ~700 e- IWR)"}
+  readout.frame_period_s:
+    {value: 1.4286e-3, unit: s, source: page2026, basis: derived, location: "1 / (700 fps floor of the 'Full frame rate >700 fps' spec)"}
+
+qe_table: null
+
+sources:
+  page2026:
+    type: web_page
+    title: "Calcium RP0033 advanced digital pixel readout integrated circuit (DPROIC) - product page"
+    publisher: Senseeker Corp
+    url: "https://www.senseeker.com/products/RP0033-J200.htm"
+    retrieved: "2026-09-06"
+
+notes: >
+  WELL / DYNAMIC-RANGE RECORD (per vendor page): dual-gain programmable well
+  capacity >40 Me- (high gain) / 400 Me- (low gain); full_well_capacity_e is
+  deliberately NOT set - RADIANT derives effective well for digital_counting
+  parts from count_packet_e x 2^counter_bits (= 400 Me- with the entries
+  above, consistent with the sourced low-gain well). The 40 Me- high-gain
+  mode with its ~50 e- floor is the high-sensitivity operating point; to
+  model it, rescale count_packet_e (40e6 / 2^16 = 610.4 e-) - packet size is
+  what gain programming changes. Counter depth, packet size, and residue
+  path are NOT published for Calcium (datasheet is request-gated); the
+  assumed/derived entries above are internally consistent but not vendor
+  numbers. Measured read noise (all four published points, at 65 K): ~50 e-
+  ITR / ~85 e- IWR high gain, ~330 e- ITR / ~700 e- IWR low gain. Global
+  shutter, integrate-while-read; high-speed multi-windowing; SenSPI control,
+  DDR master clock; serialized to selectable 8/16/24 bits per pixel; power
+  110 mW (5 % fill, 120 fps) to 570 mW (50 % fill, 700 fps). Stitchable to
+  custom sizes up to 4096 x 4096 in 512 x 512 steps (sister RP0210-J20x is
+  2048x1024). Vendor HDR demo images a hot soldering-iron tip and an
+  ice-water-cold can in a single frame. Band block is a placeholder
+  hybridization envelope (assumed) - a bare ROIC has no spectral response;
+  set the band from the detector actually hybridized. No dark current is
+  set for the same reason.

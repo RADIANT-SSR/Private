@@ -31,6 +31,7 @@ from radiant.api.config_set import (
     ConfigurationSet,
 )
 from radiant.api.error_budget import BudgetContributor, ErrorBudget
+from radiant.api.fpa_preset import FPAApplyReport
 from radiant.api.sensitivity import SensitivityResult
 from radiant.api.sensor import Sensor
 from radiant.api.solve import SolveResult
@@ -40,6 +41,7 @@ from radiant.io.results import ChainResult, NoiseExplanation, WellStatus
 
 __all__ = [
     "Sensor",
+    "FPAApplyReport",
     "SweepResult",
     "Sweep2DResult",
     "MonteCarloResult",

@@ -240,6 +240,26 @@ attach the section must not silently drop physics the config describes. `radiant
 `radiant validate` opt in and act on the section (CU-153): run parses the element document
 onto the run grid, validate normalizes it and reports its errors.
 
+### 1.8b Named FPA Preset (`fpa`) — implemented (Gap 119, 2026-09-06)
+
+A registered scalar section: `fpa: <part-name>` names a preset from the bundled FPA
+library (`radiant.data.FPALibrary`; parts ship at `src/radiant/data/tables/fpa/`).
+`Sensor.from_yaml` / `Sensor.load` / `Sensor.from_dict` apply it via `Sensor.apply_fpa`:
+every `detector.*`/`readout.*` value the preset carries is set with `Provenance.PRESET`
+and source `fpa:<part>/<source-key>` **unless the config sets that dot-path explicitly —
+explicit values always win**, in any key order, and the `FPAApplyReport` (retained on
+`Sensor.fpa_applications`) lists what applied and what was kept. A bare `load_config`
+raises the standard unattached-section error. `Sensor.save` writes the applied values as
+ordinary explicit inputs and does **not** re-serialize the `fpa:` key (reloading a saved
+config reproduces the values with `CONFIG_FILE` provenance; the preset attribution lives
+in the preset document, not the round-trip).
+
+```yaml
+fpa: teledyne-h2rg-2p5
+readout:
+  read_noise_e_rms: 6.0   # explicit — wins over the preset's 18 e- CDS spec value
+```
+
 ### 1.9 Configuration Sets (`configurations`) — implemented (ADR-0010, 2026-07-25)
 
 The second registered structured section. It turns one config file into one **study**: the shared parameter document exactly as §1.7–1.8 describe it, plus the per-configuration state of a `ConfigurationSet` (`RADIANT_Scripting_API.md` §2.5c) — up to **12** named *configurations* of the same modeling problem (band variants, geometry variants, nominal vs. as-built).

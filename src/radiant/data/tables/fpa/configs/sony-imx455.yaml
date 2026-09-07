@@ -1,0 +1,31 @@
+# RADIANT config — generated from FPA preset 'sony-imx455' (format v1).
+# DO NOT EDIT: regenerate with `python scripts/gen_fpa_configs.py`.
+# Part: Sony Semiconductor Solutions IMX455 (BSI full-frame CMOS, 61 Mpix; characterized in QHYCCD QHY600M Pro) (scientific_visible)
+# Band: visible-NIR (QE measured 0.35-1.0 um), 0.35-1.0 um
+# Values are in RADIANT input units (converted from the datasheet-native
+# units recorded in the preset). Per-parameter provenance:
+#   detector.dark_rate_e_per_s = 0.011 1/s [paper: alarcon2023]
+#   detector.dark_reference_temperature_K = 263.0 K [paper: alarcon2023]
+#   detector.detector_temperature_K = 263.0 K [derived: alarcon2023]
+#   detector.n_pixels_cross = 9576 [paper: alarcon2023]
+#   detector.pixel_pitch_x_um = 3.76 um [paper: alarcon2023]
+#   detector.pixel_pitch_y_um = 3.76 um [paper: alarcon2023]
+#   detector.qe_value = 80 % [paper: alarcon2023]
+#   readout.adc_bits = 16 [paper: alarcon2023]
+#   readout.full_well_capacity_e = 50000.0 [paper: alarcon2023]
+#   readout.gain_e_per_dn = 0.763 e-/DN [paper: alarcon2023]
+#   readout.read_noise_e_rms = 3.48 e- [derived: alarcon2023]
+#
+detector:
+  dark_rate_e_per_s: 0.011
+  dark_reference_temperature_K: 263.0
+  detector_temperature_K: 263.0
+  n_pixels_cross: 9576
+  pixel_pitch_x_um: 3.76
+  pixel_pitch_y_um: 3.76
+  qe_value: 0.8
+readout:
+  adc_bits: 16
+  full_well_capacity_e: 50000.0
+  gain_e_per_dn: 0.763
+  read_noise_e_rms: 3.48

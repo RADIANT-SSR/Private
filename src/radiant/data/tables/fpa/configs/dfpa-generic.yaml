@@ -1,0 +1,27 @@
+# RADIANT config — generated from FPA preset 'dfpa-generic' (format v1).
+# DO NOT EDIT: regenerate with `python scripts/gen_fpa_configs.py`.
+# Part: MIT Lincoln Laboratory (research lineage - not a purchasable part) Generic digital-pixel FPA (DFPA, 65 nm 640x480 generation) (cooled_ir_droic)
+# Band: detector-dependent (SWIR-LWIR demonstrated), 1.0-14.0 um
+# Values are in RADIANT input units (converted from the datasheet-native
+# units recorded in the preset). Per-parameter provenance:
+#   detector.detector_temperature_K = 75.0 K [derived: llj2014]
+#   detector.n_pixels_cross = 640 [paper: llj2014]
+#   detector.pixel_pitch_x_um = 20.0 um [paper: llj2014]
+#   detector.pixel_pitch_y_um = 20.0 um [paper: llj2014]
+#   readout.architecture = digital_counting [paper: llj2014]
+#   readout.count_packet_e = 3500.0 e- [paper: llj2014]
+#   readout.counter_bits = 16 [paper: llj2014]
+#   readout.read_noise_e_rms = 100.0 e- [assumed: assumed (see preset note)]
+#   readout.residue_readout = False [paper: llj2014]
+#
+detector:
+  detector_temperature_K: 75.0
+  n_pixels_cross: 640
+  pixel_pitch_x_um: 20.0
+  pixel_pitch_y_um: 20.0
+readout:
+  architecture: digital_counting
+  count_packet_e: 3500.0
+  counter_bits: 16
+  read_noise_e_rms: 100.0
+  residue_readout: false

@@ -1,0 +1,29 @@
+# RADIANT config — generated from FPA preset 'lynred-daphnis-hd-mw' (format v1).
+# DO NOT EDIT: regenerate with `python scripts/gen_fpa_configs.py`.
+# Part: Lynred Daphnis-HD MW (cooled_ir)
+# Band: MWIR (CO2 notch option available), 3.7-4.8 um
+# Values are in RADIANT input units (converted from the datasheet-native
+# units recorded in the preset). Per-parameter provenance:
+#   detector.detector_temperature_K = 110.0 K [datasheet: ds2026]
+#   detector.n_pixels_cross = 1280 [datasheet: ds2026]
+#   detector.pixel_pitch_x_um = 10.0 um [datasheet: ds2026]
+#   detector.pixel_pitch_y_um = 10.0 um [datasheet: ds2026]
+#   detector.qe_value = 70 % [assumed: assumed (see preset note)]
+#   readout.adc_bits = 14 [datasheet: ds2026]
+#   readout.architecture = analog_well [derived: ds2026]
+#   readout.frame_period_s = 0.011765 s [derived: ds2026]
+#   readout.full_well_capacity_e = 2700000.0 [datasheet: ds2026]
+#   readout.read_noise_e_rms = 500.0 e- [assumed: assumed (see preset note)]
+#
+detector:
+  detector_temperature_K: 110.0
+  n_pixels_cross: 1280
+  pixel_pitch_x_um: 10.0
+  pixel_pitch_y_um: 10.0
+  qe_value: 0.7000000000000001
+readout:
+  adc_bits: 14
+  architecture: analog_well
+  frame_period_s: 0.011765
+  full_well_capacity_e: 2700000.0
+  read_noise_e_rms: 500.0

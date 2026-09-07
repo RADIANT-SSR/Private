@@ -1,0 +1,71 @@
+fpa_preset: 1
+name: sony-imx990-senswir
+vendor: Sony Semiconductor Solutions
+model: IMX990 (SenSWIR; EMVA data from LUCID Atlas SWIR ATP013S)
+part_class: swir
+material: InGaAs photodiodes on Si readout circuit (Cu-Cu connection, SenSWIR)
+band: {label: "VIS-SWIR 0.4-1.7 um", cut_on_um: 0.4, cut_off_um: 1.7}
+description: >
+  1296x1032 effective, 5 um pitch InGaAs-on-Si hybrid SWIR sensor with global
+  shutter and on-chip 8/10/12-bit ADC; thermoelectric cooling element included
+  in the package. Sensitive 0.4-1.7 um (visible response through the thinned
+  InP). Electron-domain values are EMVA 1288 measurements of the sensor in the
+  LUCID Atlas SWIR camera, pinned to gain 0 dB, TEC at 15 C, 12-bit ADC mode.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 5.0, unit: um, source: sony_page, basis: datasheet, location: "spec table: 'Unit cell size 5 um (H) x 5 um (V)'"}
+  detector.pixel_pitch_y_um:
+    {value: 5.0, unit: um, source: sony_page, basis: datasheet, location: "same line (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 1296, unit: null, source: sony_page, basis: datasheet, location: "spec table: 'Number of effective pixels 1296 (H) x 1032 (V)' (horizontal count taken)"}
+  detector.qe_value:
+    {value: 77, unit: "%", source: lucid_page, basis: datasheet, location: "EMVA 1288 QE curve: peak 77.0 % at 1100 nm (75.5 % at 1200 nm - consistent with Sony's '>75 % at 1200 nm, Tj=15 C' spec)"}
+  detector.detector_temperature_K:
+    {value: 288.0, unit: K, source: lucid_page, basis: derived, location: "TEC setpoint of the pinned EMVA characterization: 15 C = 288 K (Sony quotes all specs at Tj = 15 C)"}
+  detector.dark_rate_e_per_s:
+    {value: 4000.0, unit: "1/s", source: lucid_page, basis: datasheet, location: "EMVA 1288 results (gain 0 dB, TEC @ 15 C): dark current 4,000 e-/s"}
+  detector.dark_reference_temperature_K:
+    {value: 288.0, unit: K, source: lucid_page, basis: datasheet, location: "same EMVA block: TEC @ 15 C"}
+  readout.full_well_capacity_e:
+    {value: 1.43e5, unit: null, source: lucid_page, basis: datasheet, location: "EMVA 1288 results (gain 0 dB): saturation capacity 143,000 e-"}
+  readout.read_noise_e_rms:
+    {value: 196.0, unit: "e-", source: lucid_page, basis: datasheet, location: "EMVA 1288 results (gain 0 dB): temporal dark noise 196 e- RMS"}
+  readout.adc_bits:
+    {value: 12, unit: null, source: sony_page, basis: datasheet, location: "on-chip ADC modes 8/10/12-bit; 12-bit mode pinned (71 fps max per both Sony and LUCID)"}
+  readout.frame_period_s:
+    {value: 1.4085e-2, unit: s, source: sony_page, basis: derived, location: "1 / (71 fps max, all-pixel readout, 12-bit ADC mode)"}
+
+qe_table: null
+
+sources:
+  sony_page:
+    type: web_page
+    title: "IMX990 / IMX991 SWIR Image Sensor (SenSWIR) - product page and specification table"
+    publisher: Sony Semiconductor Solutions
+    url: "https://www.sony-semicon.com/en/products/is/industry/swir/imx990-991.html"
+    retrieved: "2026-09-06"
+  sony_flyer:
+    type: vendor_datasheet
+    title: "IMX990 / IMX991 / IMX992 / IMX993 SWIR Image Sensor Flyer (SenSWIR technology overview)"
+    publisher: Sony Semiconductor Solutions
+    url: "https://www.sony-semicon.com/files/62/flyer_industry/IMX990_991_992_993_Flyer_en.pdf"
+    file: sony_imx990_991_flyer_en.pdf
+    retrieved: "2026-09-06"
+  lucid_page:
+    type: web_page
+    title: "LUCID Atlas SWIR 1.3 MP (Sony IMX990) camera page - EMVA 1288 results, gain 0 dB, TEC @ 15 C"
+    publisher: LUCID Vision Labs
+    url: "https://thinklucid.com/product/atlas-swir-1-3mp-model-imx990/"
+    retrieved: "2026-09-06"
+
+notes: >
+  Mode-pinned preset: electron-domain values (well, read noise, dark) are EMVA
+  1288 measurements at gain 0 dB with the package TEC stabilizing the sensor at
+  15 C, in the LUCID Atlas SWIR ATP013S camera; Sony's own datasheet gives only
+  mV-domain figures (sensitivity 121 mV, saturation 360 mV, Tj=15 C). Dark
+  current is large at 15 C (~4 ke-/s) - deeper cooling reduces it strongly;
+  rescale for cold-TEC studies. Global shutter; LUCID camera output is
+  1280x1024 of the 1296x1032 effective array. Operability >99.5 % (Sony).
+  196 e- read noise is the gain-0 (large-well) figure - higher analog gain
+  modes trade well depth for lower read noise.

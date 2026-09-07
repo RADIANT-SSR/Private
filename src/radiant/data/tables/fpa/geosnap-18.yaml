@@ -1,0 +1,89 @@
+fpa_preset: 1
+name: geosnap-18
+vendor: Teledyne Imaging Sensors / Teledyne Space Imaging
+model: GeoSnap-18
+part_class: cooled_ir
+material: HgCdTe (customer-specified cutoff; Si PIN HyViSI for visible)
+band: {label: "custom-cutoff HgCdTe (VNIR-VLWIR)", cut_on_um: 0.4, cut_off_um: 15.0}
+description: >
+  2048x2048, 18 um pitch digital-interface FPA: CTIA unit cell with two
+  programmable gains and on-chip 14-bit ADC (analog well + column conversion,
+  NOT in-pixel counting). TRL 9; >12 space missions as of 2022. Values below
+  are the vendor's 2K x 2K example configuration.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 18.0, unit: um, source: ds2022, basis: datasheet, location: "spec table, 'Pixel Pitch 18 um'"}
+  detector.pixel_pitch_y_um:
+    {value: 18.0, unit: um, source: ds2022, basis: datasheet, location: "spec table (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 2048, unit: null, source: ds2022, basis: datasheet, location: "'Example shown for 2K x 2K'"}
+  detector.fill_factor:
+    {value: 100, unit: "%", source: ds2022, basis: datasheet, location: "spec table, 'Pixel Fill Factor 100 %'"}
+  detector.qe_value:
+    {value: 85, unit: "%", source: ds2022, basis: datasheet, location: "'Quantum Efficiency 75 minimum, 85 typical %' (typical taken)"}
+  detector.detector_temperature_K:
+    {value: 110.0, unit: K, source: ds2022, basis: derived, location: "midpoint of the 80-140 K typical band inside the 45-300 K operating range (note 4: optimum varies with cutoff)"}
+  readout.architecture:
+    {value: analog_well, unit: null, source: ds2022, basis: derived, location: "CTIA unit cell + on-chip programmable 14-bit ADC = analog charge well with column conversion; no in-pixel counter"}
+  readout.full_well_capacity_e:
+    {value: 2.6e+6, unit: null, source: ds2022, basis: datasheet, location: "'Well Sizes 0.18 / 2.6 typical Me-' (large well taken; dual-gain, programmable per row)"}
+  readout.read_noise_e_rms:
+    {value: 400.0, unit: "e-", source: ds2022, basis: datasheet, location: "'ROIC Noise 40 / 400 typical e-' (large-well value; ROIC-only, see notes)"}
+  readout.adc_bits:
+    {value: 14, unit: null, source: ds2022, basis: datasheet, location: "'ADC Resolution 14 (maximum, programmable) bits'"}
+  readout.frame_period_s:
+    {value: 1.1765e-2, unit: s, source: ds2022, basis: derived, location: "1 / (85 Hz full frame rate, note 3: 80 MHz clock)"}
+
+qe_table: null
+
+sources:
+  ds2022:
+    type: vendor_datasheet
+    title: "GeoSnap-18 Focal Plane Array"
+    publisher: Teledyne Imaging Sensors
+    year: 2022
+    url: "https://www.teledyne-si.com/en-us/Products-and-Services_/Documents/Infrared%20and%20Visible%20FPAs/GeoSnap_18.pdf"
+    file: geosnap18_datasheet_2022.pdf
+    retrieved: "2026-09-06"
+  leaflet2025:
+    type: vendor_datasheet
+    title: "GeoSnap-18 High Performance Focal Plane Array (FPA) Product Leaflet"
+    publisher: Teledyne Space Imaging
+    year: 2025
+    url: "https://www.teledynespaceimaging.com/en-us/Products_/Documents/GeoSnap/GeoSnap-18%20Product%20Leaflet%20Apr%202025.pdf"
+    file: geosnap18_leaflet_2025.pdf
+    retrieved: "2026-09-06"
+  bowens2024:
+    type: paper
+    title: "Characterization of a longwave HgCdTe GeoSnap detector"
+    authors: "R. Bowens, M. R. Meyer, T. L. Tobin, et al."
+    venue: "Proc. SPIE 13103"
+    year: 2024
+    doi: "10.1117/12.3018499"
+    url: "https://arxiv.org/pdf/2405.20440"
+    file: bowens_geosnap_lw_spie_2024.pdf
+    retrieved: "2026-09-06"
+  leisenring2023:
+    type: paper
+    title: "Evaluating the GeoSnap 13-um cutoff HgCdTe detector for mid-IR ground-based astronomy"
+    authors: "J. Leisenring, D. Atkinson, R. Bowens, et al."
+    venue: "Astronomische Nachrichten 344"
+    year: 2023
+    doi: "10.1002/asna.20230103"
+    url: "https://arxiv.org/pdf/2306.05470"
+    file: leisenring_geosnap_13um_an_2023.pdf
+    retrieved: "2026-09-06"
+
+notes: >
+  Cutoff is customer-specified (0.4-15 um); the band block records the product
+  envelope, so set the study bandpass to the actual cutoff being modeled.
+  Dark current is deliberately NOT set: the datasheet gives no number ('a
+  function of cutoff wavelength and temperature', nA/cm2) - the schema default
+  will apply and is almost certainly wrong for long cutoffs; set it per study.
+  ROIC noise 40/400 e- is ROIC-only: the measured 13.2-um-cutoff science device
+  (bowens2024) shows system read noise 360 e- RMS on a 2.75 Me- well, dark
+  3.3e5 e-/s at 45 K, and QE 79.7 +/- 8.3 % at 10.6 um - prefer those values
+  for LWIR studies. Wells are customizable (e.g. 90 ke- / 600 ke- for
+  hyperspectral). Snapshot shutter, integrate-while-read (>97 % integration
+  efficiency at 30 Hz); 100 Hz (2K x 2K) per leaflet2025.

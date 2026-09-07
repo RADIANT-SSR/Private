@@ -1,0 +1,29 @@
+# RADIANT config — generated from FPA preset 'rvs-miri-si-as' (format v1).
+# DO NOT EDIT: regenerate with `python scripts/gen_fpa_configs.py`.
+# Part: Raytheon Vision Systems JWST/MIRI Si:As IBC SCA (baseline) (cooled_ir)
+# Band: MIR Si:As IBC, 5.0-28.0 um
+# Values are in RADIANT input units (converted from the datasheet-native
+# units recorded in the preset). Per-parameter provenance:
+#   detector.dark_rate_e_per_s = 0.2 1/s [paper: rieke2015]
+#   detector.dark_reference_temperature_K = 6.7 K [paper: rieke2015]
+#   detector.detector_temperature_K = 6.7 K [paper: rieke2015]
+#   detector.n_pixels_cross = 1024 [paper: rieke2015]
+#   detector.pixel_pitch_x_um = 25.0 um [paper: rieke2015]
+#   detector.pixel_pitch_y_um = 25.0 um [paper: rieke2015]
+#   detector.qe_value = 60 % [paper: rieke2015]
+#   readout.architecture = analog_well [derived: rieke2015]
+#   readout.full_well_capacity_e = 250000.0 [paper: rieke2015]
+#   readout.read_noise_e_rms = 14.0 e- [paper: rieke2015]
+#
+detector:
+  dark_rate_e_per_s: 0.2
+  dark_reference_temperature_K: 6.7
+  detector_temperature_K: 6.7
+  n_pixels_cross: 1024
+  pixel_pitch_x_um: 25.0
+  pixel_pitch_y_um: 25.0
+  qe_value: 0.6
+readout:
+  architecture: analog_well
+  full_well_capacity_e: 250000.0
+  read_noise_e_rms: 14.0

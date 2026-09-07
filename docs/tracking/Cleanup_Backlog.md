@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-346 — Calibration cal-point mapping silently anchors to `source.target.temperature` on reflective scenes — the Planck ratio rides a solar signal it does not describe
+
+**Discovered**: Gap 120 Phase 4 (branch `gap120/phase4-scenarios`), 2026-09-06 — scenario 1.4's calibration variant: a "290 K cal point" on the VNIR solar-reflective pushbroom resolved to 13.8 % of the scene signal (the 290/300 K band Planck ratio anchored at the *declared* target temperature), not the ~0 a blackbody source physically delivers in a 0.5–0.85 µm band.
+**Status**: Open.
+**File**: `src/radiant/calibration/cal_points.py` (`cal_point_signal_e` — anchors `S(T_cal) = S_scene · Bq(T_cal)/Bq(T_scene)` with `T_scene = source.target.temperature`); plan §3.1/§14 assumed a thermal scene without guarding it.
+**Symptom**: on a reflective scene an active NUC scheme computes deterministic but physically meaningless cal signals; the residual FPN magnitude (and hence SNR/NEDT under the scheme) shifts with an anchor that does not describe the scene. No warning, no error (Rule 17 concern).
+**Why it still matters**: results-affecting (intake test 1 — the residual and SNR under active schemes on reflective scenes move if the mapping is fixed) and workflow-visible (test 4 — scenario 1.4's calibration variant hits it; its walkthrough documents the stand-in semantics explicitly). Bigger picture: reflective-band flat-field calibration (integrating sphere — flux-declared, not temperature-declared cal points) is inexpressible in v1.
+**Suggested fix**: (b) stand-alone task — either guard (actionable error / advisory when the resolved scene is reflective-dominant and a scheme is active) or extend the door (a flux-ratio cal-point input, e.g. `calibration.cal_flux_fraction`, superseding the Planck mapping for reflective bands). Owner choice between guard-now vs door-later. Effort S (guard) / M (door); category C.
+
 ### CU-345 — Rule-4 dual-path consistency check exceeds its 2e-2 tolerance (max_err ≈ 2.02e-2) on an OLI-2 band of the 9.4 all-bands study — a new worst-case discretization residual on a flagship scenario
 
 **Discovered**: Configuration Set Expansion Phase 3 (branch `cfgset/phase3-oli`), 2026-09-03 — the all-bands parity run prints `Dual-path MTF consistency check FAILED: max_err=0.0202 (tol=0.0200)` on one band; identical on the standalone side (pre-existing physics behavior, not introduced by the study — the parity is bit-exact).

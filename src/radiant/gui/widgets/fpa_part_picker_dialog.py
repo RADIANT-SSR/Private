@@ -44,7 +44,7 @@ class FPAPartPickerDialog(QDialog):
         super().__init__(parent)
         self.setObjectName("fpaPartPickerDialog")
         self.setWindowTitle("FPA part library")
-        self.resize(880, 520)
+        self.resize(1000, 560)
         self._parts = parts
 
         layout = QVBoxLayout(self)
@@ -59,8 +59,10 @@ class FPAPartPickerDialog(QDialog):
         for row, info in enumerate(parts):
             census = ", ".join(f"{n} {basis}" for basis, n in info.basis_counts)
             kind = "ROIC — needs detector" if info.part_kind == "roic" else "FPA"
+            # Model first — it carries the identity; long vendor prefixes were
+            # eliding the distinctive text (owner live-review 2026-09-06).
             cells = (
-                f"{info.vendor} {info.model}",
+                f"{info.model} — {info.vendor}",
                 kind,
                 _CLASS_LABELS.get(info.part_class, info.part_class),
                 info.band_label,
@@ -69,10 +71,21 @@ class FPAPartPickerDialog(QDialog):
             for col, text in enumerate(cells):
                 item = QTableWidgetItem(text)
                 item.setData(Qt.ItemDataRole.UserRole, info.name)
+                item.setToolTip(text)
                 self._table.setItem(row, col, item)
         header = self._table.horizontalHeader()
+        # The Part (name) column takes the slack (owner live-review 2026-09-06:
+        # "we need the name column larger") — Kind/Class stay content-sized, and
+        # the wordy Band and census columns get bounded, elidable widths so they
+        # cannot starve the names into "Teledyne e…".
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)
+        self._table.setColumnWidth(3, 230)
+        self._table.setColumnWidth(4, 190)
+        self._table.setTextElideMode(Qt.TextElideMode.ElideRight)
+        self._table.setWordWrap(False)
         self._table.itemSelectionChanged.connect(self._on_selection)
         self._table.itemDoubleClicked.connect(lambda _item: self.accept())
         layout.addWidget(self._table, 2)

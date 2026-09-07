@@ -224,19 +224,24 @@ readout/
 └── saturation.py
 ```
 
-### `calibration/` — 3 source + 2 tests
+### `calibration/` — 8 source + 7 tests
 
 Stage 8: calibration error model (Gap 120, ADR-0012). Terms-only stage between
 Readout and Performance — post-NUC residual FPN noise terms (appended
 post-TDI/coadd scaling: structurally √N-exempt) and calibration-scale bias
-terms (`BiasTerm` accuracy budget). Phase 0 skeleton: `scheme = "none"` no-op;
-active schemes phase-gated until plan Phase 1 (`docs/plans/Calibration_Model_Plan.md`).
+terms (`BiasTerm` accuracy budget). Phase 1: physics modules landed + D2
+detector handoff; stage dispatch phase-gated until plan Phase 2.
 
 ```
 calibration/
 ├── stage.py             # CalibrationStage — scheme dispatch, evaluate-time validation
 ├── _schema.py           # calibration.* ParameterDefs (scheme, cal points, drift, source uncertainty)
-└── errors.py            # CalibrationValidationError, CalibrationConfigIncompleteError
+├── errors.py            # CalibrationValidationError, CalibrationConfigIncompleteError
+├── cal_points.py        # cal temps → cal signals (band photon-radiance ratio)
+├── nuc_residual.py      # two-point quadratic residual + one-point gain residual (D1)
+├── gain_drift.py        # time-linear gain drift term (D4)
+├── offset_drift.py      # time-linear offset drift term (D4)
+└── cal_source_bias.py   # cal-source ΔT / Δε → radiance-scale bias fractions (D3)
 ```
 
 ### `performance/` — 54 source + 38 tests
@@ -516,7 +521,7 @@ source of truth, per the header.
 | spectral_integration/  | 3      | 1     | single-stage collapse |
 | detector/              | 16     | 10    | includes `detector/noise/` subpackage |
 | readout/               | 12     | 9     | TDI, ADC, binning, coadds |
-| calibration/           | 3      | 2     | calibration error model skeleton (Gap 120) |
+| calibration/           | 8      | 7     | calibration error model (Gap 120) — physics landed, dispatch Phase 2 |
 | performance/           | 54     | 37    | one metric per module (Rule 19) |
 | io/                    | 11     | 11    | config, results, element_config |
 | cli/                   | 12     | 2     | subcommand-per-file (incl. `radiant gui`) |
@@ -524,12 +529,12 @@ source of truth, per the header.
 | gui/                   | 80     | 43    | PySide6 shell + 56 widgets + design-system theme — optional `gui` extra |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
 | data/                  | 2      | 5     | packaged-data accessor |
-| **Subtotal**           | **325**| **221**| 546 non-init files |
+| **Subtotal**           | **330**| **226**| 556 non-init files |
 | Integration tests      | —      | 41    | `tests/integration/` |
 | Top-level tests        | —      | 6     | `tests/test_public_api.py`, `test_exceptions.py`, `test_provenance.py`, `test_calibration_analysis.py`, `test_error_budget.py`, `test_veiling_glare_signal_consistency.py` |
-| **Grand total (non-init)** |    |       | **593** |
+| **Grand total (non-init)** |    |       | **603** |
 
-Including `__init__.py` files, total `.py` count under `src/radiant/` is 590 (44 `__init__.py`).
+Including `__init__.py` files, total `.py` count under `src/radiant/` is 600 (44 `__init__.py`).
 
 ---
 

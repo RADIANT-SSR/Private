@@ -4,13 +4,15 @@
 post-NUC residual noise terms, the bias/accuracy budget, and the stage's
 structural guarantees.
 
-**Implementation status:** Phase 0 of `docs/plans/Calibration_Model_Plan.md`
-(schema + chain skeleton). `scheme = "none"` is a recorded no-op; active
-schemes validate their configuration and raise the actionable phase-gate
-error until plan Phase 1 lands the physics modules (`nuc_residual.py`,
-`gain_drift.py`, `offset_drift.py`, `cal_source_bias.py`). Sections below
-marked *(Phase 1)* describe ratified-but-not-yet-landed behavior; the plan is
-the authority for anything this doc does not yet pin.
+**Implementation status:** Phase 1 of `docs/plans/Calibration_Model_Plan.md`.
+The physics modules are landed and Level-0 tested (`cal_points.py`,
+`nuc_residual.py`, `gain_drift.py`, `offset_drift.py`, `cal_source_bias.py`)
+and the D2 detector handoff is live (pre-correction PRNU/DSNU leave the
+detector budget under an active scheme — `RADIANT_Detector_Complete.md` §4).
+`scheme = "none"` remains a recorded no-op; the **stage dispatch** is still
+phase-gated — active schemes validate and then raise the actionable gate
+until plan Phase 2 wires the terms end-to-end. Sections below marked
+*(Phase 2)* describe ratified-but-not-yet-wired behavior.
 
 ---
 
@@ -25,7 +27,7 @@ collapses no spectrum, and writes no MTF term. It contributes:
 - **Bias terms** — the accuracy budget (`BiasTerm` via `state.with_bias()`).
 - **Stage outputs** — `stage_outputs["calibration"]`: scheme, enabled flag,
   and *(Phase 1)* the derived residual budget the GUI readout panel and the
-  radiometric-accuracy metric consume.
+  radiometric-accuracy metric consume. *(Phase 2 wiring.)*
 
 ### 1.1 The ordering guarantee (do not move this stage)
 
@@ -33,7 +35,7 @@ ReadoutStage applies TDI/coadd/binning $\sqrt{N}$ scaling to temporal noise
 terms. CalibrationStage runs after, so its residual terms are added
 post-scaling and are **structurally exempt from $\sqrt{N}$ averaging** —
 correlated errors do not average down. This is enforced by chain position,
-asserted by contract test *(Phase 2)*, and marked in
+asserted by contract test *(Phase 2)* , and marked in
 `core/noise_budget.py::CALIBRATION_TERMS` for any future re-scaling code.
 
 ### 1.2 The bias/noise separation
@@ -60,8 +62,8 @@ FPN MTF term.
 | Scheme | Meaning | Residual model |
 |---|---|---|
 | `none` | Model off — today's behavior. Detector `prnu`/`dsnu` terms act as static dispersions. Stage emits nothing. | — |
-| `one_point` *(Phase 1)* | Offset corrected at cal flux $S_1$ | gain dispersion on the departure: $\sigma = \mathrm{prnu}\cdot\lvert S-S_1\rvert$; offset re-grows by drift |
-| `two_point` *(Phase 1)* | Per-pixel gain+offset corrected at $S_1, S_2$ (from cal temps through the band) | quadratic-nonlinearity residual (plan §3.2, D1): parabola vanishing at both cal points |
+| `one_point` *(Phase 2 wiring)* | Offset corrected at cal flux $S_1$ | gain dispersion on the departure: $\sigma = \mathrm{prnu}\cdot\lvert S-S_1\rvert$; offset re-grows by drift |
+| `two_point` *(Phase 2 wiring)* | Per-pixel gain+offset corrected at $S_1, S_2$ (from cal temps through the band) | quadratic-nonlinearity residual (plan §3.2, D1): parabola vanishing at both cal points |
 
 Under an active scheme, `detector.prnu_pct` / `detector.dsnu_e_rms` are
 re-read as **pre-correction** dispersions (handoff mechanism per ratified

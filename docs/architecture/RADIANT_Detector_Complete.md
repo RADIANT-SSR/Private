@@ -185,6 +185,18 @@ When `cds_enabled = True`, the kTC term is set to zero and the suppression is re
 | 13 | `dsnu` | Pixel-to-pixel dark variation | `dsnu_e_rms` | Long integrations | `dsnu_e_rms` |
 | 14 | `clutter` | Scene background spatial variation | `clutter_sigma · S_bg` | Detection only | `background.clutter_sigma` |
 
+**Gap 120 redefinition (ratified D2, 2026-09-06).** `prnu_pct` / `dsnu_e_rms`
+are the **pre-correction** dispersions. Under `calibration.scheme = "none"`
+(the default) they enter the budget exactly as above — today's behavior.
+Under an active NUC scheme (`one_point` / `two_point`) the detector stage
+suppresses terms 12–13 from the raw budget and emits them as
+`stage_outputs["detector"]["precal_prnu_pct"]` / `["precal_dsnu_e_rms"]`;
+CalibrationStage consumes them and the *post-NUC residual* re-enters
+post-readout as the `CALIBRATION_TERMS` family (`nuc_residual`,
+`gain_drift`, `offset_drift` — `RADIANT_Calibration.md`). Exactly one of
+the two representations is ever live — no double counting, contract-tested
+in `calibration/tests/test_detector_handoff.py`.
+
 ### Other (added after re-thinking)
 | # | Term | Origin | Equation | When | Parameters |
 |---|------|--------|----------|------|------------|

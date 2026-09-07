@@ -17,7 +17,7 @@ import math
 import numpy as np
 
 from radiant.core.chain import ChainState
-from radiant.core.parameters import ParameterSet
+from radiant.core.parameters import ParameterSet, UnknownParameterError
 from radiant.detector.dark_current import DarkCurrent
 from radiant.detector.diffusion import diffusion_mtf_1d
 from radiant.detector.ipc import ipc_kernel, ipc_kernel_pitch_spaced, ipc_mtf_1d
@@ -92,6 +92,26 @@ class DetectorStage:
         pixel_pitch_y: float = params.get("detector.pixel_pitch_y_um")
         pixel_area_m2 = pixel_pitch_x * pixel_pitch_y
 
+        # --- Gap 120 D2 handoff (ratified 2026-09-06) ---
+        # Under an active calibration scheme the pre-correction dispersions
+        # leave this stage's noise budget (the NUC removes them at the cal
+        # instant) and travel to CalibrationStage as stage outputs; the
+        # residual re-enters post-readout as CALIBRATION_TERMS. A
+        # detector-only ParameterSet (unit tests) has no calibration
+        # namespace — absence means "none". No double counting: exactly one
+        # of {detector prnu/dsnu terms, calibration residual terms} is live.
+        try:
+            cal_scheme: str = params.get("calibration.scheme")
+        except UnknownParameterError:
+            cal_scheme = "none"
+        prnu_pct: float = params.get("detector.prnu_pct")
+        dsnu_e_rms: float = params.get("detector.dsnu_e_rms")
+        if cal_scheme != "none":
+            state = state.with_stage_output("detector", "precal_prnu_pct", prnu_pct)
+            state = state.with_stage_output("detector", "precal_dsnu_e_rms", dsnu_e_rms)
+            prnu_pct = 0.0
+            dsnu_e_rms = 0.0
+
         # --- Build raw noise budget (pre-TDI, pre-binning) ---
         budget = compute_noise_budget(
             signal_e=signal_e,
@@ -112,8 +132,8 @@ class DetectorStage:
             node_capacitance_F=params.get("readout.node_capacitance_F"),
             cds_enabled=bool(params.get("readout.cds_enabled")),
             gain_e_per_dn=params.get("readout.gain_e_per_dn"),
-            prnu_pct=params.get("detector.prnu_pct"),
-            dsnu_e_rms=params.get("detector.dsnu_e_rms"),
+            prnu_pct=prnu_pct,
+            dsnu_e_rms=dsnu_e_rms,
             clutter_sigma=params.get("detector.clutter_sigma"),
             prior_signal_e=params.get("detector.prior_signal_e"),
             persistence_fraction=params.get("detector.persistence_fraction"),

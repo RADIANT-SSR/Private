@@ -32,7 +32,11 @@ retroactively reconstructed.
   ROICs (Senseeker DPROICs, dfpa-generic) whose detector-side values belong
   to the mated diode (Gap 121 tracks true ROIC+detector composition).
   Scenario `scenarios/02_mike_detector_engineer/2.8_fpa_part_library/`.
-  Iterated under owner live review 2026-09-06 (first-cut combo card replaced).
+  Iterated under owner live review 2026-09-06 (first-cut combo card
+  replaced). The Detector Inputs form's fixed two-column grid became adaptive
+  balanced masonry: groups pack into the currently-shortest column and the
+  column count follows the pane width (1 or 2) — no more blank runs under
+  short groups and no horizontal scrollbar hiding the right column.
 - **Results-affecting: FPA presets gain full-scale-matched ADC gains** —
   twelve presets that ship a well capacity but no published e⁻/DN now carry
   `readout.gain_e_per_dn` (measured system value for VIRGO-2K: 4.19 e⁻/ADU;

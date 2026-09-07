@@ -271,3 +271,27 @@ class TestFullSchemaExpansion:
             "detector.qe_table_path",
         ):
             assert form.row(dotpath) is not None
+
+
+class TestAdaptiveMasonry:
+    """Live-review layout fix (2026-09-06): dense balanced columns, no h-scroll."""
+
+    def test_wide_pane_uses_two_columns(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.detector_inputs_form import DetectorInputsForm
+
+        form = DetectorInputsForm()
+        qtbot.addWidget(form)
+        form.show()  # hidden widgets defer resize events
+        form.resize(2 * form._ROW_WIDTH + 60, 900)
+        assert form._column_count == 2
+
+    def test_narrow_pane_collapses_to_one_column(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.detector_inputs_form import DetectorInputsForm
+
+        form = DetectorInputsForm()
+        qtbot.addWidget(form)
+        form.show()  # hidden widgets defer resize events
+        form.resize(form._ROW_WIDTH + 40, 900)
+        assert form._column_count == 1
+        # Every field row is still present and iterable (binding contract).
+        assert len(form.field_dotpaths()) == len(_DETECTOR_FIELDS)

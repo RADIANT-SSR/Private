@@ -201,7 +201,7 @@ class FPAPartSelector(QWidget):
         box.setObjectName("fpaReportDetailsDialog")
         box.setWindowTitle("FPA preset report")
         box.setText("\n".join(lines))
-        box.exec()
+        exec_dialog(box)
 
     # -- reference documents -------------------------------------------------
 

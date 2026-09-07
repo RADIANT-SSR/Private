@@ -231,3 +231,34 @@ TDI misalignment MTF functions exist (`readout/tdi.py`) but are not applied in t
 
 ### Gap 5: No Effective Integration Time Output
 For TDI pushbroom, the effective integration time is N_tdi x line_period. RADIANT outputs signal but does not report the effective integration time, making it harder for users to cross-check timing constraints.
+
+
+---
+
+## Calibration Variant (Gap 120, added 2026-09-06): the TDI answer changes
+
+`scripts/run_tdi_calibration_floor.py` re-runs the same spreadsheet-driven
+system with the calibration error model on: `calibration.scheme = one_point`
+at 290 K, pre-correction PRNU = 2 % (1σ), never flat-fielded. The residual is
+appended **after** readout's TDI scaling (ADR-0012), so its signal-relative
+size is invariant in N_tdi while the temporal ratio falls ~√N:
+
+| N_tdi | SNR (no cal model) [-] | SNR (correlated floor) [-] | temporal/S [%] | cal/S [%] |
+|---|---|---|---|---|
+| 1 | 23.7 | 21.9 | 4.225 | 1.724 |
+| 8 | 75.1 | 45.9 | 1.331 | 1.724 |
+| 16 | 107.2 | 51.0 | 0.933 | 1.724 |
+| 64 | 216.0 | 56.0 | 0.463 | 1.724 |
+| 96 | 244.5 | 56.4 | 0.409 | 1.724 |
+
+**The optimization's answer changes qualitatively**: without the model the
+sweep says "N_tdi = 96, SNR ≈ 245"; with the correlated floor SNR saturates
+near 56 (the 1/(prnu·(1−S₁/S)) ceiling) by N_tdi ≈ 16–32 — beyond the
+crossover, added stages buy TDI-misalignment MTF loss, not SNR. Results in
+`outputs/tdi_calibration_floor.csv`.
+
+Cal-point semantics note (CU-346): on this reflective VNIR scene the v1
+Planck-based cal-point mapping anchors the 290 K point at the 290/300 K band
+ratio of the *solar* signal (~13.8 % of S) — a deterministic stand-in; the
+plateau conclusion is mapping-independent, only its exact level rides CU-346.
+The original study above is untouched (its goldens and outputs unchanged).

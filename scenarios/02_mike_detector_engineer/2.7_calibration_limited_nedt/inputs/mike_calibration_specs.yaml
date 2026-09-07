@@ -1,0 +1,44 @@
+# Mike's LWIR staring-camera calibration study — vendor-style units
+# (converted to RADIANT canonical units at the script boundary, Rule 2).
+system:
+  aperture_diameter_cm: 10.0
+  focal_length_cm: 15.0            # f/1.5 — fast LWIR optic
+  optical_transmission_pct: 85.0
+  optics_temperature_C: 20.0
+  filter_cut_on_nm: 8000.0
+  filter_cut_off_nm: 12000.0
+  target_emissivity: 0.95
+  background_temperature_K: 300.0
+  background_emissivity: 0.95
+
+fpa:
+  material: "HgCdTe LWIR"
+  pixel_pitch_um: 12.0
+  quantum_efficiency_pct: 65.0
+  dark_current_e_per_s: 5.0e5      # LWIR at 60 K
+  operating_temperature_K: 60.0
+  prnu_pre_correction_pct: 2.0     # pre-NUC gain dispersion (1-sigma)
+  dsnu_pre_correction_e_rms: 300.0 # pre-NUC offset dispersion (1-sigma)
+
+analog_roic:
+  full_well_capacity_Me: 20.0      # deep LWIR well
+  adc_resolution_bits: 14
+  system_gain_e_per_dn: 1300.0
+  read_noise_e_rms: 350.0
+
+calibration:
+  scheme: two_point
+  cal_temp_low_C: 16.85            # 290 K blackbody
+  cal_temp_high_C: 36.85           # 310 K blackbody
+  nonlinearity_pct: 1.0            # per-pixel quadratic dispersion (1-sigma)
+  gain_drift_pct_per_hour: 0.005
+  offset_drift_e_per_hour: 720.0   # 0.2 e-/s effective
+  source_emissivity: 0.98
+  source_temp_uncertainty_K: 0.5   # bias budget
+  source_emissivity_uncertainty: 0.005
+
+study:
+  integration_time_us: 120.0       # ~50 % fill at the 300 K scene
+  scene_temps_K: [280.0, 285.0, 290.0, 295.0, 300.0, 305.0, 310.0, 315.0, 320.0, 330.0, 340.0]
+  time_since_cal_hours: [0.0, 6.0, 24.0, 72.0]
+  drift_demo_scene_K: 340.0

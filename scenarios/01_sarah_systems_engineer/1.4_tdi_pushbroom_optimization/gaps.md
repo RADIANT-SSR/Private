@@ -22,3 +22,5 @@ Below saturation SNR grows as √N (shot-limited); above, signal clips at FWC wh
 - RER is 0.4884 across the full sweep because the RADIANT ePSF does not yet include smear or misalignment kernels.
 - Saturation is a plateau, not a cliff: N_tdi = 32 runs at 84.5% fill (NIIRS 6.08), N_tdi = 64 first clips at FWC, and NIIRS then holds flat at 6.13 for all higher stages — because this extended reflective scene has no separable background term, the noise stops growing when the signal does.
 *(Numbers refreshed 2026-08-02 from the unmodified runner; see walkthrough.md for the CU-253 attribution.)*
+
+- 2026-09-06 (calibration variant): CU-346 — v1 Planck cal-point mapping anchors to the declared target temperature on this reflective scene; stand-in semantics documented in the variant script and walkthrough.

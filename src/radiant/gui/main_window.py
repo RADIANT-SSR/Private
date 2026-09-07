@@ -1872,6 +1872,10 @@ class RADIANTMainWindow(QMainWindow):
         self._refresh_configuration_bar()
         self._config_scope.bind(config_set)
         self._parameter_panel.populate(sensor)
+        # The pinned cards described the PREVIOUS document (live review
+        # 2026-09-07: a stale SNR rode across File -> New); a real config
+        # repopulates them on the evaluate below, a blank one stays awaiting.
+        self._right_rail.pinned.clear_result()
         # Page flip (§4.4a): a loaded configuration shows the workspace; adopting
         # None (File → New's guard-passed reset) leaves the caller to show the
         # welcome surface. Guidance from any previous template is cleared here —

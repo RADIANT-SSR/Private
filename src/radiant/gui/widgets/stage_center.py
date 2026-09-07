@@ -1293,6 +1293,9 @@ class StageCenter(QWidget):
         blank config).
         """
         self._result = None
+        # A bound sensor with no result yet is an EDITABLE document — say so
+        # (live review 2026-09-07): the no-document prompt read as a refusal.
+        self._placeholder.show_edit_prompt(sensor is not None)
         self._stack.setCurrentWidget(self._placeholder)
         for pane in self._panes.values():
             pane.bind_sensor(sensor, display_units)

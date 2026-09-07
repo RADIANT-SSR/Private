@@ -207,6 +207,19 @@ class PinnedPanel(QWidget):
         for card in self._cards.values():
             card.set_stale(stale)
 
+    def clear_result(self) -> None:
+        """Drop the retained result and blank every card (document swap).
+
+        The old values described the previous configuration; carrying them
+        across File -> New / Open painted a stale SNR against a blank config
+        (live review 2026-09-07). +Pin disables until the next evaluation.
+        """
+        self._result = None
+        self._add_button.setEnabled(False)
+        self._add_button.setToolTip("Evaluate first — pins read the last result")
+        for card in self._cards.values():
+            card.clear()
+
     # -- pin / unpin --------------------------------------------------------
 
     def pin(self, key: str, label: str, source: str = _PERFORMANCE_SOURCE) -> None:

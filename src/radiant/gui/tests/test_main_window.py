@@ -158,3 +158,29 @@ class TestMenuSurface:
         qtbot.addWidget(window)
         with pytest.raises(KeyError):
             window.action("nope.missing")
+
+
+class TestDocumentSwapHygiene:
+    """Live-review fixes 2026-09-07: a fresh document never wears the old one's state."""
+
+    def test_blank_config_invites_editing_and_clears_pins(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from pathlib import Path as _Path
+
+        from radiant.api.sensor import Sensor
+
+        example = _Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
+        window = RADIANTMainWindow(Sensor.load(example))
+        qtbot.addWidget(window)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=15000):
+            pass
+        snr_card = window.right_rail.pinned.cards["snr"]
+        assert snr_card.value_text() not in ("", "—")  # populated by the evaluate
+
+        window._on_blank_config()
+
+        # Pinned cards return to awaiting — the old SNR described the old config.
+        assert snr_card.value_text() == "—"
+        # The center placeholder invites the edit instead of "Open a configuration".
+        placeholder = window._central.stage_center.plot_placeholder
+        assert "double-click" in placeholder._message.text()
+        assert "Open a configuration" not in placeholder._message.text()

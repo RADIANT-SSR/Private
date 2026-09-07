@@ -11,7 +11,15 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget
 
+#: No document open at all.
 _PROMPT: str = "Open a configuration and run Evaluate (F5)"
+#: A (possibly blank) configuration IS open — invite the edit, name the gesture
+#: (live review 2026-09-07: on a blank File -> New the old prompt told the
+#: operator to open a config while one was open, reading as "editing blocked").
+_EDIT_PROMPT: str = (
+    "New configuration — double-click a parameter row (or any stage input "
+    "field) to edit, then Evaluate (F5)"
+)
 
 
 class PlotPlaceholder(QFrame):
@@ -38,3 +46,8 @@ class PlotPlaceholder(QFrame):
         layout.addStretch(1)
         layout.addWidget(message)
         layout.addStretch(1)
+        self._message = message
+
+    def show_edit_prompt(self, editing: bool) -> None:
+        """Switch between the no-document prompt and the config-open edit invite."""
+        self._message.setText(_EDIT_PROMPT if editing else _PROMPT)

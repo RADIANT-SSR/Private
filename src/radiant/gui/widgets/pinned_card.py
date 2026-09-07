@@ -189,6 +189,15 @@ class PinnedCard(QFrame):
             return NOT_AVAILABLE, "unavailable (non-finite result)"
         return format_metric_value(float(value), unit), None
 
+    def clear(self) -> None:
+        """Return to the awaiting state (document swap: the old value described
+        the previous configuration — showing it against the new one misleads;
+        live review 2026-09-07)."""
+        self._value_text = _AWAITING_VALUE
+        self._source.setText(self._source_text)
+        self._set_state("awaiting")
+        self.set_stale(False)
+
     def set_stale(self, stale: bool) -> None:
         """Mark (or clear) the shown value as stale — appends/removes the ``→?`` marker."""
         self._stale = stale

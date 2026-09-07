@@ -1726,6 +1726,16 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Impact** | Detector-engineer trades across hybridization options (the exact GeoSnap/Senseeker use case) need hand-edited forks of the ROIC preset per material, losing per-value provenance separation between the ROIC document and the detector-material data. |
 | **Suggested fix** | Design conversation; candidate shape: a third preset kind (`detector_material`) carrying QE curve/dark law/band per material system, an apply-time composition `fpa: {roic: senseeker-calcium-rp0033, detector: hgcdte-mwir-10um}` with pitch/polarity compatibility validation, and provenance that keeps the two documents' citations distinct. Effort M; category B/C. |
 
+## Gap 122: Calibration v1.1 error-budget extensions — cal-source spatial non-uniformity, multi-point NUC, spectral-cal bias, and the internal-cal path mismatch are inexpressible
+
+| | |
+|---|---|
+| **Found in** | Gap 120 live review, 2026-09-07 — owner asked "are there any other calibration parameters that could impact performance parameters?"; ranked answer ratified as the v1.1 candidate list (family gap; one entry per Rule 21 family convention). |
+| **Status** | OPEN — item 1 is the scheduled next slice; 2–4 on demand. |
+| **Description** | The Gap 120 v1 model omits four real calibration error sources, all absorbable by the existing term-family + bias-accumulator architecture with no new structure: (1) **cal-source spatial non-uniformity** (blackbody ±0.01–0.05 K across the aperture, imprinted into the correction at cal time → residual FPN ≈ ΔT_unif · dS/dT even AT the cal points, where v1 reports exactly zero); (2) **multi-point NUC** (`n_point` scheme extension — piecewise correction shrinks the nonlinearity parabola per segment); (3) **spectral calibration uncertainty** (band-center/edge drift → scene-temperature-dependent radiance bias, a fourth `BiasTerm`); (4) **internal-cal path mismatch** (shutter/flag cal excludes fore-optics emission → offset bias + narcissus-pattern FPN; the ADR-0012 ops-level growth path). Electronics INL is deliberately absorbed into `calibration.nonlinearity_pct` (documented); FPA-ΔT drift stays under the ratified D4 deferral. |
+| **Impact** | (1) makes v1's zero-residual at the cal points slightly optimistic — the one place the achieved-NEDT story is currently too clean; (3) is the missing accuracy term for retrieval products; (4) is the dominant residual for internal-shutter tactical systems. |
+| **Suggested fix** | Item 1: one parameter (`calibration.source_uniformity_K`) + one term into the `nuc_residual` family, effort S — schedule next. Item 2: scheme enum + per-segment residual, effort S–M. Item 3: one BiasTerm + band-derivative, effort S. Item 4: fore-optics-emission split, effort M–L (needs the optics warm-emission budget by element group). Category C throughout. Related: Gap 120 (delivered), CU-346 (reflective-scene cal points). |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |

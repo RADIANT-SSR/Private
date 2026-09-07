@@ -1716,6 +1716,16 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Suggested fix** | New terms-only `CalibrationStage` between Readout and Performance (PlatformStage precedent; preserves the GUI screen-per-stage invariant so calibration gets its own screen). `calibration.*` namespace with a scheme selector (`none`/`one_point`/`two_point`), post-NUC residual-FPN noise terms added *after* readout √N scaling (chain ordering enforces the no-averaging physics), `BiasTerm` accumulator on `ChainState` + a radiometric-accuracy performance metric (bias is never RSS'd into σ_total, type-enforced). Default `scheme=none` reproduces today's PRNU/DSNU behavior bit-identically. Effort L; Category B/C/D. Plan: `docs/plans/Calibration_Model_Plan.md`. |
 | **Workaround** | Hand-tune `detector.prnu_pct` to a guessed post-NUC residual; no workaround exists for the √N-exemption or the accuracy budget. |
 
+## Gap 121: FPA presets cannot compose a ROIC with a detector material — a bare ROIC (GeoSnap-class, Senseeker DPROICs) models only one nominal hybridization
+
+| | |
+|---|---|
+| **Found in** | Owner question during Gap 119 Phase 3 live review, 2026-09-06 — "how are \[we\] differentiating between an FPA which I'm defining as a ROIC+Detector Material and just a ROIC. Like Geosnap is really the ROIC and it can have hgcdte, insb etc." |
+| **Status** | OPEN — needs an owner design conversation before implementation. A minimal `part_kind: fpa \| roic` marker landed with the Phase 3 live-review iteration (branch `gap119/phase3-gui`) so the distinction is at least machine-readable and visible in the GUI picker; composition itself is not designed. |
+| **Description** | Gap 119 presets are monolithic: one document = one set of `detector.*`+`readout.*` values. Real procurement composes a ROIC with a detector material — GeoSnap ships with HgCdTe at a customer cutoff or Si PIN HyViSI; Senseeker DPROICs mate to any direct-injection diode. Today a bare-ROIC preset either omits detector-side values (QE, dark, band — Senseeker parts) or carries one nominal hybridization (GeoSnap's MWIR example config), and there is no way to say "Calcium RP0033 + type-II SLS at 10 µm cutoff" and get the ROIC's counting parameters with the detector's QE/dark/band, pitch-compatibility checked. |
+| **Impact** | Detector-engineer trades across hybridization options (the exact GeoSnap/Senseeker use case) need hand-edited forks of the ROIC preset per material, losing per-value provenance separation between the ROIC document and the detector-material data. |
+| **Suggested fix** | Design conversation; candidate shape: a third preset kind (`detector_material`) carrying QE curve/dark law/band per material system, an apply-time composition `fpa: {roic: senseeker-calcium-rp0033, detector: hgcdte-mwir-10um}` with pitch/polarity compatibility validation, and provenance that keeps the two documents' citations distinct. Effort M; category B/C. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |

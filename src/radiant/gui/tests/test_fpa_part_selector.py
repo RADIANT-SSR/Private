@@ -142,3 +142,20 @@ class TestStageIntegration:
         # A successful apply re-enters the host's parameterEdited pipeline.
         with qtbot.waitSignal(pane.parameterEdited, timeout=2000):
             selector.apply_part("geosnap-18")
+
+
+class TestBindReflectsExistingApply:
+    def test_config_fpa_key_shows_on_bind(self, qtbot, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+        cfg = tmp_path / "with_fpa.yaml"
+        cfg.write_text(
+            _EXAMPLE.read_text(encoding="utf-8") + "\nfpa: geosnap-18\n", encoding="utf-8"
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            s = Sensor.from_yaml(cfg)
+        widget = FPAPartSelector()
+        qtbot.addWidget(widget)
+        widget.bind_sensor(s)
+        assert widget.current_part() == "geosnap-18"
+        assert "applied" in widget._status.text()
+        assert widget._open_doc.isEnabled()

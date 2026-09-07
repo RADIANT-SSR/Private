@@ -113,9 +113,24 @@ class FPAPartSelector(QWidget):
     # -- binding -------------------------------------------------------------
 
     def bind_sensor(self, sensor: Sensor | None) -> None:
-        """Bind the live *sensor*; a ``None`` sensor disables choosing."""
+        """Bind the live *sensor*; a ``None`` sensor disables choosing.
+
+        A sensor that already carries preset applications (the config's
+        ``fpa:`` key applies at load, before this card exists) is reflected
+        immediately — the card reports the last apply instead of claiming
+        "no part applied" (live-review finding 2026-09-06).
+        """
         self._sensor = sensor
         self._choose.setEnabled(sensor is not None and bool(self._parts))
+        reports = sensor.fpa_applications if sensor is not None else ()
+        if reports:
+            self._adopt_report(reports[-1])
+        else:
+            self._current_part = None
+            self._last_report = None
+            self._status.setText("no part applied")
+            self._details.hide()
+            self._open_doc.setEnabled(False)
 
     # -- state (tests + host) ------------------------------------------------
 
@@ -147,7 +162,12 @@ class FPAPartSelector(QWidget):
         except RadiantError as exc:
             QMessageBox.critical(self, "FPA preset", str(exc))
             return
-        self._current_part = name
+        self._adopt_report(report)
+        self.presetApplied.emit(name)
+
+    def _adopt_report(self, report: FPAApplyReport) -> None:
+        """Reflect *report* on the card (status text, Details, Open-datasheet)."""
+        self._current_part = report.part
         self._last_report = report
         kept = len(report.skipped_existing)
         summary = f"{report.part}: {len(report.applied)} applied"
@@ -158,7 +178,6 @@ class FPAPartSelector(QWidget):
         self._status.setText(summary)
         self._details.show()
         self._open_doc.setEnabled(True)
-        self.presetApplied.emit(name)
 
     def _on_details(self) -> None:
         """Per-parameter provenance detail for the last apply."""

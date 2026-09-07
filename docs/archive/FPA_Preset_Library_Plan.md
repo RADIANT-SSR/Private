@@ -1,9 +1,19 @@
 # FPA Preset Library — Development and Test Plan
 
-**Status:** Active — owner-ratified 2026-09-06 ("ratify the plan"): §8.1 decisions 1–4 as
-proposed; §8.2 resolved as recommended — PDF home `docs/validation/fpa_datasheets/`,
-config key `fpa:`, §3.1a mechanism decided in Phase 0, §4.4 roster/tranches as listed,
-scope boundary (FPA/ROIC-through-readout) confirmed.
+**Status:** Complete
+
+> **⚠ HISTORICAL — COMPLETE.** Archived 2026-09-06, completed by merges
+> `75e5ad7f` (Phase 0: preset format v1, `FPALibrary`, `Provenance.PRESET`,
+> Rule 26(c) reference-PDF home), `6e218b5f` (Phases 1+2+4: 21 presets with
+> per-parameter attribution + 22 hash-manifested PDFs, `fpa:` config key +
+> `apply_fpa` with override reporting, generated configs, counting-chain and
+> H2RG goldens), and branch `gap119/phase3-gui` (Phase 3: FPA part-library
+> row + picker dialog with `part_kind` FPA/ROIC marking; nine owner
+> live-review rounds hardened it — adaptive form masonry, the advisory-note
+> width root cause, matched ADC gains, `remove_fpa`/clean part switching,
+> incomplete-config advisories, `peek_input` display). Gap 119 DELIVERED;
+> follow-on design conversation: Gap 121 (ROIC + detector-material
+> composition). Owner-ratified 2026-09-06; live-review approved 2026-09-06.
 
 **Date:** 2026-09-06
 **Gap:** Gap 119 (`docs/tracking/gaps.md`)

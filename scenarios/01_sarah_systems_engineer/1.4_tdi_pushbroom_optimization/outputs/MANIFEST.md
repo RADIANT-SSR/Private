@@ -18,3 +18,4 @@ Committed figures are referenced by `walkthrough.md`;
 | fig3_noise_budget.png | figure (committed) | 924b9e1 2026-07-09 |
 | fig4_niirs_vs_ntdi.png | figure (committed) | 924b9e1 2026-07-09 |
 | tdi_pushbroom_results.xlsx | results workbook (not committed) | regenerate on demand |
+| `tdi_calibration_floor.csv` | `scripts/run_tdi_calibration_floor.py` | base study spreadsheet (imported via `run_tdi_pushbroom_trade`) |

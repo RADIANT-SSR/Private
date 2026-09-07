@@ -110,3 +110,17 @@ Sarah needs to find the optimal N_tdi for her VNIR pushbroom imager. The GUI sho
 ## Interpolated-atmosphere availability
 
 Switching **Atmosphere → Model** to `interpolated` works first try on this scene. The picker pre-selects **`midlat_summer_sensor_ladder`** (profile `midlat_summer`, down-looking; covers ground targets only (target altitude fixed at 0 km), sensor 3-100 km plus 40000 km (GEO), nadir only (LOS zenith 0 degrees)); *Use this family* writes `atmosphere.interpolation_axes = 'sensor_altitude_m'`. `Sensor.atmosphere_family_suggestion()` is the same answer from a script.
+
+
+---
+
+## Calibration Variant (Gap 120)
+
+1. Load the base study config; on the **Calibration** screen set *Scheme* =
+   `one_point`, *Cal point (low)* = 290 K; on the **Detector** screen set
+   PRNU = 2 %.
+2. Sweep `readout.n_tdi` (Readout screen, or the console) and watch the SNR
+   card plateau near the correlated ceiling while the noise-budget plot's
+   `nuc_residual` bar stays a fixed fraction of signal — the √N exemption
+   made visible.
+3. Pin SNR and NEDT to the right rail before sweeping.

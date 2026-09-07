@@ -602,6 +602,7 @@ the writers that populate it are:
 | `source` | Written by |
 |---|---|
 | `"user"`, `"Sensor.set"`, `"Sensor.set_many"` | interactive / scripting edits |
+| `fpa:<part>/<source-key>` | `radiant.api.fpa_preset.apply_fpa_preset` (Gap 119 — traces to the citation in the preset document) |
 | the YAML file path (or `"dict"`) | `radiant.io.config.load_config` |
 | `"default: <justification>"` | schema defaults applied during resolution |
 | `"derived: <constraint>"` | consistency-group derivation |

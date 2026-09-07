@@ -1,0 +1,21 @@
+# RADIANT config — generated from FPA preset 'flir-boson-plus-640' (format v1).
+# DO NOT EDIT: regenerate with `python scripts/gen_fpa_configs.py`.
+# Part: Teledyne FLIR Boson+ 640 (uncooled_bolometer)
+# Band: LWIR, 8.0-14.0 um
+# Values are in RADIANT input units (converted from the datasheet-native
+# units recorded in the preset). Per-parameter provenance:
+#   detector.detector_temperature_K = 300.0 K [assumed: assumed (see preset note)]
+#   detector.n_pixels_cross = 640 [datasheet: ds2026]
+#   detector.pixel_pitch_x_um = 12.0 um [datasheet: ds2026]
+#   detector.pixel_pitch_y_um = 12.0 um [datasheet: ds2026]
+#   readout.adc_bits = 14 [datasheet: ds2026]
+#   readout.frame_period_s = 0.016667 s [derived: ds2026]
+#
+detector:
+  detector_temperature_K: 300.0
+  n_pixels_cross: 640
+  pixel_pitch_x_um: 12.0
+  pixel_pitch_y_um: 12.0
+readout:
+  adc_bits: 14
+  frame_period_s: 0.016667

@@ -1,0 +1,31 @@
+# RADIANT config — generated from FPA preset 'teledyne-h4rg-10' (format v1).
+# DO NOT EDIT: regenerate with `python scripts/gen_fpa_configs.py`.
+# Part: Teledyne Imaging Sensors H4RG-10, 2.5 um cutoff (WFIRST/Roman WFI development lot) (scientific_visible)
+# Band: VIS-SWIR (2.5 um cutoff; QE measured 0.8-2.3 um), 0.5-2.5 um
+# Values are in RADIANT input units (converted from the datasheet-native
+# units recorded in the preset). Per-parameter provenance:
+#   detector.dark_rate_e_per_s = 0.002 1/s [paper: mosby2020]
+#   detector.dark_reference_temperature_K = 100.0 K [paper: mosby2020]
+#   detector.detector_temperature_K = 95.0 K [paper: mosby2020]
+#   detector.n_pixels_cross = 4096 [paper: mosby2020]
+#   detector.pixel_pitch_x_um = 10.0 um [paper: mosby2020]
+#   detector.pixel_pitch_y_um = 10.0 um [paper: mosby2020]
+#   detector.qe_value = 91 % [paper: mosby2020]
+#   readout.adc_bits = 16 [derived: mosby2020]
+#   readout.cds_enabled = 1 [paper: mosby2020]
+#   readout.full_well_capacity_e = 100000.0 [paper: mosby2020]
+#   readout.read_noise_e_rms = 15.2 e- [paper: mosby2020]
+#
+detector:
+  dark_rate_e_per_s: 0.002
+  dark_reference_temperature_K: 100.0
+  detector_temperature_K: 95.0
+  n_pixels_cross: 4096
+  pixel_pitch_x_um: 10.0
+  pixel_pitch_y_um: 10.0
+  qe_value: 0.91
+readout:
+  adc_bits: 16
+  cds_enabled: 1
+  full_well_capacity_e: 100000.0
+  read_noise_e_rms: 15.2

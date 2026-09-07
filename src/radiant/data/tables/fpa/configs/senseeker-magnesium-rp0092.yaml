@@ -1,0 +1,25 @@
+# RADIANT config — generated from FPA preset 'senseeker-magnesium-rp0092' (format v1).
+# DO NOT EDIT: regenerate with `python scripts/gen_fpa_configs.py`.
+# Part: Senseeker Corp Magnesium MIL RP0092 (RP0092-D12x dual-polarity dual-band variant) (cooled_ir_droic)
+# Band: detector-dependent (bare ROIC; MW/LW direct-injection detectors), 2.0-14.0 um
+# Values are in RADIANT input units (converted from the datasheet-native
+# units recorded in the preset). Per-parameter provenance:
+#   detector.n_pixels_cross = 1280 [datasheet: senseeker_page]
+#   detector.pixel_pitch_x_um = 12.0 um [datasheet: senseeker_page]
+#   detector.pixel_pitch_y_um = 12.0 um [datasheet: senseeker_page]
+#   readout.architecture = digital_counting [datasheet: senseeker_page]
+#   readout.count_packet_e = 160.0 e- [datasheet: senseeker_page]
+#   readout.counter_bits = 22 [datasheet: senseeker_page]
+#   readout.frame_period_s = 0.008333 s [derived: senseeker_page]
+#   readout.residue_readout = True [datasheet: senseeker_page]
+#
+detector:
+  n_pixels_cross: 1280
+  pixel_pitch_x_um: 12.0
+  pixel_pitch_y_um: 12.0
+readout:
+  architecture: digital_counting
+  count_packet_e: 160.0
+  counter_bits: 22
+  frame_period_s: 0.008333
+  residue_readout: true

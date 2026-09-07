@@ -58,6 +58,29 @@ s = Sensor.load("saved_sensor.yaml")
 
 `from_yaml`/`from_dict` accept an optional keyword `wavelength_points` (default **500**). The spectral evaluation grid spans `spectral_integration.filter_min_um` to `spectral_integration.filter_max_um` with that many points. `Sensor.load` reads `wavelength_points` from the file's `_radiant` metadata block when present.
 
+### 2.1b Named FPA Presets — `apply_fpa` (Gap 119, 2026-09-06)
+
+```python
+s = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
+report = s.apply_fpa("geosnap-18")     # radiant.data.FPALibrary part name
+report.applied            # dot-paths the preset set (Provenance.PRESET)
+report.skipped_existing   # dot-paths where an explicit user/config value won
+report.qe_material        # QE curve the preset selected, if it ships one
+s.fpa_applications        # every FPAApplyReport on this Sensor, in order
+```
+
+Presets seed; explicit values win: an entry is skipped (and reported) when its
+dot-path already has an explicit input, and a later `s.set(...)` overrides a
+preset value normally. Each applied value's source string is
+`fpa:<part>/<source-key>`, tracing to the citation inside the preset document
+(`src/radiant/data/tables/fpa/<part>.yaml`, per-parameter attribution +
+committed reference PDFs). The config-file equivalent is the top-level
+`fpa: <part-name>` key (`RADIANT_Config_Format.md` §1.8b). `FPAApplyReport` is
+exported from `radiant.api`. Unknown part names raise
+`radiant.data.FPAPresetError` listing the library. Browse parts with
+`radiant.data.FPALibrary().names()` / `.part(name)`; every part also ships a
+generated plain-config twin at `src/radiant/data/tables/fpa/configs/`.
+
 There is no separate `sensor=`/`scenario=` two-file loader and no `Sensor.from_configs()` fluent-builder path. See Appendix A.
 
 ### 2.2 Core Methods

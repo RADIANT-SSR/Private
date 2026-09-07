@@ -1,0 +1,65 @@
+fpa_preset: 1
+name: flir-lepton-35
+vendor: FLIR Systems (Teledyne FLIR)
+model: Lepton 3.5 (P/N 500-0771-01)
+part_class: uncooled_bolometer
+material: uncooled VOx microbolometer
+band: {label: LWIR, cut_on_um: 8.0, cut_off_um: 14.0}
+description: >
+  160x120, 12 um uncooled VOx micro thermal camera module with integral
+  f/1.1 lens, radiometric output over the full 19,200-pixel array, and
+  8.7 Hz export-compliant effective frame rate. Smartphone-class SWaP
+  (~150 mW). No electron-domain quantities are published (expected for a
+  bolometer); RADIANT models this class through the NEDT-specified path
+  (Gap 101) - geometry/format/timing here, temperature-domain record in
+  the notes.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 12.0, unit: um, source: ds2018, basis: datasheet, location: "spec table, 'Pixel size 12 um'"}
+  detector.pixel_pitch_y_um:
+    {value: 12.0, unit: um, source: ds2018, basis: datasheet, location: "spec table (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 160, unit: null, source: ds2018, basis: datasheet, location: "'Array format 160 x 120, progressive scan' (cross-track 160 taken)"}
+  detector.detector_temperature_K:
+    {value: 300.0, unit: K, basis: assumed, note: "uncooled part at ambient with automatic temperature compensation; 300 K nominal ambient placeholder"}
+  readout.adc_bits:
+    {value: 14, unit: null, source: ds2018, basis: datasheet, location: "'Output format: user-selectable 14-bit, 8-bit (AGC applied), or 24-bit RGB' (raw 14-bit taken)"}
+  readout.frame_period_s:
+    {value: 1.1494e-1, unit: s, source: ds2018, basis: derived, location: "1 / (8.7 Hz, 'Effective frame rate 8.7 Hz (commercial application exportable)')"}
+
+qe_table: null
+
+sources:
+  ds2018:
+    type: vendor_datasheet
+    title: "FLIR Lepton 3 & 3.5 - High Resolution Micro Thermal Camera (datasheet 18-0541-OEM, rev 05/17/18)"
+    publisher: "FLIR Systems"
+    year: 2018
+    url: "http://web.archive.org/web/20190130073441/https://www.flir.com/globalassets/imported-assets/document/lepton-3-3.5-datasheet.pdf"
+    file: flir_lepton3_35_datasheet_2018.pdf
+    retrieved: "2026-09-06"
+  eng_radiometry:
+    type: vendor_datasheet
+    title: "FLIR Lepton with Radiometry Engineering Datasheet (Doc 500-0763-01-09 Rev 110)"
+    publisher: "FLIR Systems"
+    url: "http://web.archive.org/web/20190301062301/https://www.flir.com/globalassets/imported-assets/document/lepton-engineering-datasheet---with-radiometry.pdf"
+    file: flir_lepton_radiometry_engineering_datasheet.pdf
+    retrieved: "2026-09-06"
+
+notes: >
+  NEDT record: thermal sensitivity < 50 mK (ds2018) - measured as a module
+  with the integral f/1.1 lens; unlike the Lynred/Boson+ specs the scene
+  temperature and gain-state conditions are not printed on this datasheet.
+  Thermal time constant 'on the order of 12 msec' (eng_radiometry Sec. 9.0)
+  - that engineering document is written for the 80x60 / 17 um Lepton 2.x
+  with-radiometry module, so the 12 ms is a FAMILY INFERENCE for the 3.5's
+  12 um pixel, not a measured 3.5 value. Radiometric accuracy: greater of
+  +/-5 degC or 5 % (high gain); +/-10 degC or 10 % (low gain). Scene
+  dynamic range: high gain -10 to +140 degC; low gain -10 to +400 degC
+  (+450 degC typical). Effective frame rate 8.7 Hz keeps the module under
+  the 9 Hz export threshold. Integral shutter NUC; solar protection;
+  video-over-SPI; ~150 mW operating (650 mW during shutter event). FOV 57
+  deg horizontal / 71 deg diagonal through the f/1.1 lens. RADIANT has no
+  NEDT / thermal-time-constant detector inputs yet (Gap 101), so SNR/NEDT
+  predictions must come from the NEDT-specified path once that lands.

@@ -1,0 +1,65 @@
+fpa_preset: 1
+name: dfpa-generic
+vendor: MIT Lincoln Laboratory (research lineage - not a purchasable part)
+model: Generic digital-pixel FPA (DFPA, 65 nm 640x480 generation)
+part_class: cooled_ir_droic
+band: {label: "detector-dependent (SWIR-LWIR demonstrated)", cut_on_um: 1.0, cut_off_um: 14.0}
+material: detector-agnostic DROIC (demonstrated with HgCdTe, InSb, SLS diodes)
+description: >
+  Reference preset for the in-pixel counting (digital-pixel) readout class,
+  built from the published MIT Lincoln Laboratory DFPA numbers - the lineage
+  every commercial DROIC descends from. Exercises RADIANT's Gap 117
+  digital-counting chain: current-to-frequency converter + 16-bit up/down
+  counter per pixel, counter rollover instead of charge saturation, packet
+  quantization noise. Use it to model a counting-architecture concept when no
+  vendor part is specified.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 20.0, unit: um, source: llj2014, basis: paper, location: "65 nm generation: 640x480 and 640x640 at 20 um pitch"}
+  detector.pixel_pitch_y_um:
+    {value: 20.0, unit: um, source: llj2014, basis: paper, location: "square pixel"}
+  detector.n_pixels_cross:
+    {value: 640, unit: null, source: llj2014, basis: paper, location: "640x480 format (cross-track 640 taken)"}
+  detector.detector_temperature_K:
+    {value: 75.0, unit: K, source: llj2014, basis: derived, location: "midpoint of the 68-85 K device operating range"}
+  readout.architecture:
+    {value: digital_counting, unit: null, source: llj2014, basis: paper, location: "in-pixel current-to-frequency converter + digital counter"}
+  readout.counter_bits:
+    {value: 16, unit: null, source: llj2014, basis: paper, location: "16-bit up/down counter (family range 14-21 bits)"}
+  readout.count_packet_e:
+    {value: 3500.0, unit: "e-", source: llj2014, basis: paper, location: "LSB sizes 1200-8000 e-/count, nominal 3000-6000; worked example 3576 e- (C_int ~1 fF)"}
+  readout.residue_readout:
+    {value: false, unit: null, source: llj2014, basis: paper, location: "base DFPA reads the counter only - no analog residue path; quantization noise = LSB/sqrt(12)"}
+  readout.read_noise_e_rms:
+    {value: 100.0, unit: "e-", basis: assumed, note: "counting-chain electronics noise placeholder; packet quantization (3500/sqrt(12) ~ 1000 e- RMS) dominates the published four-term noise model, so this entry is subdominant by construction"}
+
+qe_table: null
+
+sources:
+  llj2014:
+    type: paper
+    title: "Digital-Pixel Focal Plane Array Technology"
+    authors: "K. I. Schultz, M. W. Kelly, J. J. Baker, et al."
+    venue: "Lincoln Laboratory Journal 20(2):36-51"
+    year: 2014
+    url: "http://web.archive.org/web/20141222135440id_/http://www.ll.mit.edu:80/publications/journal/pdf/vol20_no2/20_2_2_Schultz.pdf"
+    file: schultz_dfpa_llj_2014.pdf
+    retrieved: "2026-09-06"
+
+notes: >
+  Effective digital well at these settings is 2^16 x 3500 e- ~ 230 Me- - the
+  counter rolls over modulo 2^N rather than saturating, which is exactly the
+  Gap 117 counting-well model; readout.full_well_capacity_e is deliberately
+  not set (the counting branch derives capacity from counter_bits x
+  count_packet_e). The published part has an up/down counter (in-pixel
+  background subtraction - the DFPA signature capability), but the preset
+  leaves readout.counting_mode at its 'up' default: up_down with the
+  background_term reference is scene-dependent (sub-pixel/point-source only,
+  Gap 117 ruling D6) and a preset must stay valid over any scene - opt in with
+  counting_mode: up_down for a dim-target study. QE and dark current are detector-dependent
+  (the DROIC is hybridized to a customer diode) and are not set. Demonstrated
+  readout: 7 kHz at 256x256/16-bit; 256-stage in-pixel digital TDI. Device
+  temperature 68-85 K in the published demos. This is a paper-anchored
+  reference model, not a procurable datasheet part - for procurable
+  counting-class DROICs see the Senseeker parts in later tranches.

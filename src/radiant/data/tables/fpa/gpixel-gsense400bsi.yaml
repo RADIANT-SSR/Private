@@ -1,0 +1,59 @@
+fpa_preset: 1
+name: gpixel-gsense400bsi
+vendor: Gpixel
+model: GSENSE400BSI
+part_class: scientific_visible
+material: silicon back-side-illuminated sCMOS
+band: {label: "visible-NIR (BSI Si)", cut_on_um: 0.35, cut_off_um: 1.0}
+description: >
+  2048x2048, 11 um pitch back-illuminated scientific CMOS with rolling shutter,
+  dual-gain HDR readout, and on-chip 12-bit ADC (12-bit data over 8 LVDS
+  pairs); 115-pin PGA with removable cover glass for cooled-camera
+  integration. Values pinned to HDR (dual-gain) mode, which pairs the low-gain
+  91 ke- well with the high-gain 1.6 e- read-noise floor in one 24 fps frame.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 11.0, unit: um, source: gpixel_page, basis: datasheet, location: "spec table: 'Pixel size 11 um x 11 um'"}
+  detector.pixel_pitch_y_um:
+    {value: 11.0, unit: um, source: gpixel_page, basis: datasheet, location: "same line (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 2048, unit: null, source: gpixel_page, basis: datasheet, location: "spec table: 'Resolution 2048 x 2048' (4 MP)"}
+  detector.qe_value:
+    {value: 95, unit: "%", source: gpixel_page, basis: datasheet, location: "spec table: 'Peak QE 95% @ 560nm'"}
+  detector.detector_temperature_K:
+    {value: 303.0, unit: K, source: gpixel_page, basis: derived, location: "the only temperature the vendor quotes (dark-current condition, 30 C); sensor is designed for cooled cameras - override per study"}
+  detector.dark_rate_e_per_s:
+    {value: 42.0, unit: "1/s", source: gpixel_page, basis: datasheet, location: "spec table: 'Dark current 42 e-/pixel/s @ 30 C' (uncooled figure)"}
+  detector.dark_reference_temperature_K:
+    {value: 303.0, unit: K, source: gpixel_page, basis: datasheet, location: "same spec line (30 C = 303 K)"}
+  readout.full_well_capacity_e:
+    {value: 9.1e4, unit: null, source: gpixel_page, basis: datasheet, location: "spec table: 'Full well capacity 91 ke- @ LG' (low-gain channel; available in HDR dual-gain mode)"}
+  readout.read_noise_e_rms:
+    {value: 1.6, unit: "e-", source: gpixel_page, basis: datasheet, location: "spec table: 'Read noise 1.6 e- @ HG' (high-gain channel; marketing text cites a 1.3 e- floor)"}
+  readout.adc_bits:
+    {value: 12, unit: null, source: gpixel_page, basis: datasheet, location: "product text: '12bit data is delivered over 8 pairs of LVDS outputs' (per-channel; HDR combines two 12-bit channels)"}
+  readout.frame_period_s:
+    {value: 4.1667e-2, unit: s, source: gpixel_page, basis: derived, location: "1 / (24 fps @ HDR mode; STD single-gain mode reaches 48 fps)"}
+
+qe_table: null
+
+sources:
+  gpixel_page:
+    type: web_page
+    title: "GSENSE400BSI - 11 um 4MP rolling shutter image sensor (product page with specification table)"
+    publisher: Gpixel
+    url: "http://web.archive.org/web/20230327002416/https://www.gpixel.com/products/area-scan-en/gsense/gsense400bsi/"
+    retrieved: "2026-09-06"
+
+notes: >
+  Mode-pinned to HDR (dual-gain) readout: the 91 ke- well (LG channel) and
+  1.6 e- read noise (HG channel) coexist only in HDR mode, where each pixel is
+  read through both gains and combined off-chip (~94 dB dynamic range,
+  24 fps). STD single-gain mode: 48 fps, ~65 dB. Dark current is the vendor's
+  uncooled 30 C figure - typical scientific cameras run this sensor at -20 C
+  or colder where dark is orders of magnitude lower; rescale per study (no
+  vendor scaling law published; the quoted operating point above simply echoes
+  the dark-spec temperature). Source is a Wayback capture of the vendor page
+  (full datasheet is registration-gated); no third-party EMVA verification
+  pulled. Rolling shutter. Conversion gain (e-/DN) not published and not set.

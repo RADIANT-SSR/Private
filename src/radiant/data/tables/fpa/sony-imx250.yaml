@@ -1,0 +1,61 @@
+fpa_preset: 1
+name: sony-imx250
+vendor: Sony Semiconductor Solutions
+model: IMX250 (Pregius gen2; EMVA data from LUCID Atlas ATL050S-M)
+part_class: scientific_visible
+material: silicon front-side-illuminated CMOS (Pregius global-shutter pixel)
+band: {label: "visible-NIR (QE curve 320-1100 nm)", cut_on_um: 0.32, cut_off_um: 1.1}
+description: >
+  Type 2/3 (11.1 mm diagonal), 3.45 um pitch second-generation Pregius
+  global-shutter industrial CMOS, 5.0 MP. Camera-delivered active format
+  2448x2048 (Sony effective array is 2464x2056). On-chip 8/10/12-bit ADC.
+  Values are EMVA 1288 measurements of the sensor in the LUCID Atlas
+  ATL050S-M mono camera, pinned to the 12-bit ADC mode.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 3.45, unit: um, source: lucid_page, basis: datasheet, location: "Sensor Properties: 'Pixel Size 3.45 um (H) x 3.45 um (V)'"}
+  detector.pixel_pitch_y_um:
+    {value: 3.45, unit: um, source: lucid_page, basis: datasheet, location: "same line (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 2448, unit: null, source: lucid_page, basis: datasheet, location: "Sensor Properties: 'Resolution 2448 x 2048 px, 5.0 MP' (camera-delivered active format; Sony effective array 2464 x 2056 - see notes)"}
+  detector.qe_value:
+    {value: 67.58, unit: "%", source: lucid_page, basis: datasheet, location: "EMVA 1288 QE curve (mono): peak 67.58 % at 550 nm (46.2 % at 700 nm, 17.9 % at 850 nm)"}
+  detector.detector_temperature_K:
+    {value: 293.0, unit: K, basis: assumed, note: "EMVA 1288 bench measurement at ambient laboratory conditions; LUCID does not state the sensor temperature - 293 K assumed as the ambient operating point of this uncooled industrial camera"}
+  detector.dark_rate_e_per_s:
+    {value: 3.15, unit: "1/s", source: lucid_page, basis: datasheet, location: "Mono EMVA 1288 Results: 'Dark Current 3.15 e-/s'"}
+  detector.dark_reference_temperature_K:
+    {value: 293.0, unit: K, basis: assumed, note: "temperature of the EMVA dark measurement is not stated by LUCID; assumed ambient 293 K (same assumption as detector_temperature_K)"}
+  readout.full_well_capacity_e:
+    {value: 10590.0, unit: null, source: lucid_page, basis: datasheet, location: "Mono EMVA 1288 Results: 'Saturation Capacity 10590 e-'"}
+  readout.read_noise_e_rms:
+    {value: 2.15, unit: "e-", source: lucid_page, basis: datasheet, location: "Mono EMVA 1288 Results: 'Temporal Dark Noise 2.15 e-'"}
+  readout.gain_e_per_dn:
+    {value: 2.703, unit: "e-/DN", source: lucid_page, basis: derived, location: "1 / (EMVA 'Gain 0.37 DN/e-') = 2.703 e-/DN"}
+  readout.adc_bits:
+    {value: 12, unit: null, source: lucid_page, basis: datasheet, location: "ADC modes 8/10/12-bit; 12-bit mode pinned (68 fps @ 5.0 MP in this camera)"}
+  readout.frame_period_s:
+    {value: 1.4706e-2, unit: s, source: lucid_page, basis: derived, location: "1 / (68 fps @ 5.0 MP, 12-bit ADC mode, camera-limited)"}
+
+qe_table: null
+
+sources:
+  lucid_page:
+    type: web_page
+    title: "LUCID Atlas 5.0 MP (Sony IMX250) camera page - specifications and EMVA 1288 results (ATL050S-M mono)"
+    publisher: LUCID Vision Labs
+    url: "https://thinklucid.com/product/atlas-5-mp-imx250/"
+    retrieved: "2026-09-06"
+
+notes: >
+  Camera-level EMVA preset: values are the sensor as integrated in the LUCID
+  Atlas ATL050S-M; other integrations differ slightly (e.g. FLIR BFS-U3-51S5:
+  ~2.4 e- read noise, ~10.3 ke- well - roster-verified 2026-09-06). The
+  n_pixels_cross entry (2448) is the camera-delivered active format read from
+  the fetched LUCID page; Sony's sensor datasheet lists 2464 x 2056 effective
+  pixels (roster-carried, not re-fetched this session) - adjust if modeling
+  the bare sensor. Both temperature entries are ASSUMED ambient (flagged
+  above); dark current in this uncooled part roughly doubles per ~6-8 C.
+  Global shutter (true snapshot); DSNU 0.65 e-, PRNU 0.7 %, dynamic range
+  71.6 dB per the same EMVA block.

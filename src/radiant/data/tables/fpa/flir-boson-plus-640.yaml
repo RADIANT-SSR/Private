@@ -1,0 +1,63 @@
+fpa_preset: 1
+name: flir-boson-plus-640
+vendor: Teledyne FLIR
+model: Boson+ 640
+part_class: uncooled_bolometer
+material: uncooled microbolometer (VOx by FLIR family inference)
+band: {label: LWIR, cut_on_um: 8.0, cut_off_um: 14.0}
+description: >
+  Uncooled LWIR core, 640x512 at 12 um. The 150-page engineering datasheet
+  (eng2025) is the best current public bolometer reference: it states the NEDT
+  acceptance conditions exactly (see notes). Like every uncooled part, no
+  electron-domain quantities (well, read noise, QE) are published - RADIANT
+  models this class through its NEDT-specified path, and the temperature-domain
+  performance record lives in the notes because the schema has no NEDT/time-
+  constant parameters (Gap 101).
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 12.0, unit: um, source: ds2026, basis: datasheet, location: "spec table, 12 um pitch"}
+  detector.pixel_pitch_y_um:
+    {value: 12.0, unit: um, source: ds2026, basis: datasheet, location: "square pixel"}
+  detector.n_pixels_cross:
+    {value: 640, unit: null, source: ds2026, basis: datasheet, location: "640 x 512 format (cross-track 640 taken)"}
+  detector.detector_temperature_K:
+    {value: 300.0, unit: K, basis: assumed, note: "uncooled part at ambient; acceptance test runs with the camera at 20 degC - nominal ambient placeholder"}
+  readout.adc_bits:
+    {value: 14, unit: null, source: ds2026, basis: datasheet, location: "14-bit pre-AGC output (16-bit internal pipeline)"}
+  readout.frame_period_s:
+    {value: 1.6667e-2, unit: s, source: ds2026, basis: derived, location: "1 / (60 Hz baseline frame rate; user-selectable 60/30/20/15/12/10/8.6/4.3 Hz)"}
+
+qe_table: null
+
+sources:
+  ds2026:
+    type: vendor_datasheet
+    title: "BOSON+ High Performance, Uncooled, LWIR OEM Thermal Camera Module (datasheet)"
+    publisher: Teledyne FLIR
+    year: 2026
+    url: "https://flir.netx.net/file/asset/43192/original/attachment"
+    file: boson_plus_datasheet_2026.pdf
+    retrieved: "2026-09-06"
+  eng2025:
+    type: vendor_datasheet
+    title: "Teledyne FLIR Boson+ Thermal Imaging Core Product Datasheet (engineering, Doc 102-2013-45 Release 114)"
+    publisher: Teledyne FLIR
+    year: 2025
+    url: "https://flir.netx.net/file/asset/55485/original/attachment"
+    file: boson_plus_engineering_datasheet_2025.pdf
+    retrieved: "2026-09-06"
+
+notes: >
+  Temperature-domain performance (eng2025, Table 13 + section 11.1): NEDT
+  acceptance limit Industrial <=20 mK / Professional <=30 mK - random temporal
+  noise (TVH), high-gain state, camera at 20 degC imaging a 30 degC
+  background, averager disabled, free-running, LENSLESS with f/1.0 aperture;
+  with a lens the limit scales by (f/#)^2 / tau_optics; the averager gives
+  ~20 % lower NEDT. Thermal time constant nominally 8 ms (eng2025 Table 1).
+  Operability >=99 % (Industrial). Radiometric accuracy +/-5 degC. RADIANT
+  cannot yet hold NEDT / thermal-time-constant as detector inputs (no schema
+  parameters; charge-well saturation checks also misapply to bolometers -
+  Gap 101), so SNR/NEDT predictions for this preset must come from the
+  NEDT-specified path once that gap lands; until then this preset supplies
+  geometry/format/timing only. Spectral band printed as 8-14 um nominal.

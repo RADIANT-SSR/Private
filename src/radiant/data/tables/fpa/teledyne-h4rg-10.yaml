@@ -1,0 +1,69 @@
+fpa_preset: 1
+name: teledyne-h4rg-10
+vendor: Teledyne Imaging Sensors
+model: H4RG-10, 2.5 um cutoff (WFIRST/Roman WFI development lot)
+part_class: scientific_visible
+material: HgCdTe hybrid, 2.5 um cutoff (x_Cd = 0.445), 5 um absorber
+band: {label: "VIS-SWIR (2.5 um cutoff; QE measured 0.8-2.3 um)", cut_on_um: 0.5, cut_off_um: 2.5}
+description: >
+  4096x4096 ('4K x 4K'), 10 um pitch HgCdTe hybrid developed for the Nancy
+  Grace Roman Space Telescope (WFIRST) Wide Field Instrument. Values are the
+  PV3-passivation full-array-lot medians from the definitive characterization
+  paper (Mosby et al. 2020, JATIS), measured at 100 K and 1.0 V reverse bias
+  with ~200 kHz pixel sampling.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 10.0, unit: um, source: mosby2020, basis: paper, location: "Table 2: 'Pixel pitch 10 um' (WFIRST column)"}
+  detector.pixel_pitch_y_um:
+    {value: 10.0, unit: um, source: mosby2020, basis: paper, location: "same (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 4096, unit: null, source: mosby2020, basis: paper, location: "'4K x 4K ten micron pitched HgCdTe photodiode arrays (H4RG-10)' = 4096 x 4096"}
+  detector.qe_value:
+    {value: 91, unit: "%", source: mosby2020, basis: paper, location: "Table 4 / Sect. 3.5: median of the per-device average QE over 0.8-2.3 um = 91 % (all devices >60 % across that range; ~5 % measurement uncertainty)"}
+  detector.detector_temperature_K:
+    {value: 95.0, unit: K, source: mosby2020, basis: paper, location: "Table 2: 'Operating temperature 95 K - needed to meet dark current requirement' (WFIRST column)"}
+  detector.dark_rate_e_per_s:
+    {value: 0.002, unit: "1/s", source: mosby2020, basis: paper, location: "Table 4 / Sect. 3.3: median dark current across all PV3 full-array-lot devices 0.002 e-/s - at or below the 0.003 e-/s measurement error"}
+  detector.dark_reference_temperature_K:
+    {value: 100.0, unit: K, source: mosby2020, basis: paper, location: "Sect. 3: 'All tests are performed with the detector at 100 K' (1.0 V reverse bias)"}
+  readout.full_well_capacity_e:
+    {value: 1.0e5, unit: null, source: mosby2020, basis: paper, location: "Sect. 3: 'nominally operated at 1.0 V reverse bias, providing a large dynamic range (~100 ke- full well)'; corroborated by Sect. 3.4's '800 ke- or about eight times the typical full well'"}
+  readout.read_noise_e_rms:
+    {value: 15.2, unit: "e-", source: mosby2020, basis: paper, location: "Table 4: median CDS noise 15.2 e- (per-device medians 11.9-16.3 e-; benchmark <20 e-)"}
+  readout.cds_enabled:
+    {value: 1, unit: null, source: mosby2020, basis: paper, location: "Sect. 3.2.1: read-noise figure is a correlated-double-sampling (CDS) measurement"}
+  readout.adc_bits:
+    {value: 16, unit: null, source: mosby2020, basis: derived, location: "H4RG has analog outputs (no on-chip ADC); 16-bit when paired with the SIDECAR-class controller ASIC used in the characterization and in the Roman WFI (ACADIA)"}
+
+qe_table: null
+
+sources:
+  mosby2020:
+    type: paper
+    title: "Properties and characteristics of the WFIRST H4RG-10 detectors"
+    authors: "G. Mosby Jr., B. J. Rauscher, C. Bennett, E. S. Cheng, S. Cheung, A. Cillis, D. Content, et al."
+    venue: "Journal of Astronomical Telescopes, Instruments, and Systems 6(4), 046001"
+    year: 2020
+    doi: "10.1117/1.JATIS.6.4.046001"
+    url: "https://arxiv.org/pdf/2005.00505"
+    file: mosby_wfirst_h4rg10_jatis_2020.pdf
+    retrieved: "2026-09-06"
+  stsci_rdox:
+    type: web_page
+    title: "WFI Detectors - Roman User Documentation (flight-lot performance)"
+    publisher: STScI
+    url: "https://roman-docs.stsci.edu/roman-instruments/the-wide-field-instrument/wfi-detectors"
+    retrieved: "2026-09-06"
+
+notes: >
+  The 15.2 e- entry is single-CDS read noise; up-the-ramp multi-sampling
+  reaches far lower effective noise (paper: ~7 e- median total noise in a
+  150 s 55-sample line fit; Roman flight lot per STScI: 5-6 e- in 180 s
+  multi-accum) - model the sampling gain explicitly for faint-target studies.
+  Roman flight-lot devices (stsci_rdox, roster-verified 2026-09-06) also show
+  QE ~90 % over 0.8-2.1 um and dark <0.005 e-/s at ~95 K, consistent with the
+  lot medians above. Full well is bias-dependent: ~100 ke- at the nominal
+  1.0 V reverse bias (JWST-style 0.25-0.5 V bias would be lower). IPC+crosstalk
+  median 1.9 %; conversion gain is per-device and not set here. Frame rate is
+  mode-dependent and not set.

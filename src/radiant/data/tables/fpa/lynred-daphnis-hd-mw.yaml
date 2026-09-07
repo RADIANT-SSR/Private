@@ -1,0 +1,66 @@
+fpa_preset: 1
+name: lynred-daphnis-hd-mw
+vendor: Lynred
+model: Daphnis-HD MW
+part_class: cooled_ir
+material: HgCdTe (MCT) MWIR, HOT (operates up to 110 K)
+band: {label: "MWIR (CO2 notch option available)", cut_on_um: 3.7, cut_off_um: 4.8}
+description: >
+  1280x720 (16:9 HD), 10 um pitch HOT MCT MWIR IDDCA: direct-injection ROIC
+  with digital outputs, three programmable gains (1.1 / 2.7 / 5.6 Me-),
+  IWR/ITR snapshot, up to 85 Hz, 14-bit Camera Link. Vendor publishes a
+  fully-conditioned NETD (see notes) but no read noise, QE, or dark - those
+  entries are assumed and flagged.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 10.0, unit: um, source: ds2026, basis: datasheet, location: "cover line, '1280 x 720 - 10 um pitch - MCT'"}
+  detector.pixel_pitch_y_um:
+    {value: 10.0, unit: um, source: ds2026, basis: datasheet, location: "cover line (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 1280, unit: null, source: ds2026, basis: datasheet, location: "'1280 x 720' 16:9 HD format (cross-track 1280 taken)"}
+  detector.qe_value:
+    {value: 70, unit: "%", basis: assumed, note: "not published in the datasheet; 70 % is a conservative placeholder typical of MWIR MCT photodiode arrays (commonly 70-85 %) - replace if a measured value becomes available"}
+  detector.detector_temperature_K:
+    {value: 110.0, unit: K, source: ds2026, basis: datasheet, location: "'FPA operating temperature: Up to 110 K' (HOT ceiling taken - the part's selling point; run colder if the study's cooler allows)"}
+  readout.architecture:
+    {value: analog_well, unit: null, source: ds2026, basis: derived, location: "'Digital outputs / Direct Injection input circuit' with Me--class charge-handling gains and 14-bit video = analog charge well + digitization; no in-pixel counting"}
+  readout.full_well_capacity_e:
+    {value: 2.7e+6, unit: null, source: ds2026, basis: datasheet, location: "'Charge handling capacity: 3 main gains: 1.1 Me-, 2.7 Me-, 5.6 Me-' (mid gain taken - it is the published NETD test-point gain)"}
+  readout.read_noise_e_rms:
+    {value: 500.0, unit: "e-", basis: assumed, note: "not published; assumed at a level typical of 14-bit DI MWIR ROICs with Me--class wells; small against the ~1,375 e- shot noise at the NETD test point (70 % fill of 2.7 Me-), so NETD-anchored predictions are insensitive to this assumption"}
+  readout.adc_bits:
+    {value: 14, unit: null, source: ds2026, basis: datasheet, location: "'Video output: 14 bits, cameralink'"}
+  readout.frame_period_s:
+    {value: 1.1765e-2, unit: s, source: ds2026, basis: derived, location: "1 / (85 Hz, 'Frame rate: Up to 85 Hz full frame rate')"}
+
+qe_table: null
+
+sources:
+  ds2026:
+    type: vendor_datasheet
+    title: "DAPHNIS-HD MW infrared detector datasheet (R3, July 2026)"
+    publisher: Lynred
+    year: 2026
+    url: "https://www.lynred.com/sites/default/files/2026-07/R3_Daphnis-HD-MW_2026.pdf"
+    file: lynred_daphnis_hd_mw_datasheet_2026.pdf
+    retrieved: "2026-09-06"
+
+notes: >
+  NEDT record (ds2026, 'typical performances - averaged expected values'):
+  NETD 20 mK at 293 K scene, 70 % WELL fill, 2.7 Me- gain. The datasheet
+  NETD row states NO f-number; the only optics reference in the document is
+  the range-performance figure's 'f/4 optics' assumption, so do not treat
+  the 20 mK as f/4-conditioned without vendor confirmation. Note the '70 %'
+  is well fill at the test point, NOT pixel fill factor (earlier readings of
+  the product page conflated these) - fill_factor is deliberately unset.
+  Spectral response 3.7-4.8 um; CO2 notch option [3.4-4.2 um + 4.5-4.8 um]
+  for +5-10 % range in hot-gas scenes. Array operability >99.8 %. ROIC
+  capability (notes, not parameters): programmable integration time,
+  anti-blooming, invert/revert, binning, snapshot IWR or ITR, high dynamic
+  range; windowing 320 x 4 minimum. Three cooler integrations (RM2, RM3,
+  K508N; f/2-f/4 cold shields per configuration). Wells are selectable
+  1.1 / 2.7 / 5.6 Me- - change full_well_capacity_e to match the gain being
+  modeled. Read noise and QE are assumed placeholders (flagged above); dark
+  current is not set (not published; HOT MCT dark at 110 K is strongly
+  design-dependent).

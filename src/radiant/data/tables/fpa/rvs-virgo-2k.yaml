@@ -1,0 +1,88 @@
+fpa_preset: 1
+name: rvs-virgo-2k
+vendor: Raytheon Vision Systems
+model: VIRGO-2K (VISTA/VIRCAM science detector)
+part_class: cooled_ir
+material: HgCdTe on CdZnTe substrate (In-bump hybrid to Si multiplexer, Mo back-plate)
+band: {label: "NIR (half-peak 0.75-2.45 um)", cut_on_um: 0.75, cut_off_um: 2.45}
+description: >
+  2048x2048, 20 um pitch NIR HgCdTe array; sixteen fly as the 67-Mpixel
+  VISTA/VIRCAM focal plane. Analog ROIC read out by off-chip 16-channel
+  controllers at the facility level - so the published 4.19 e-/ADU is a
+  SYSTEM gain, recorded in the notes rather than as gain_e_per_dn.
+  Radiometric values are the flight-lot typicals from Sutherland et al.
+  (2015); the well is derived from the CASU on-sky saturation census.
+
+parameters:
+  detector.pixel_pitch_x_um:
+    {value: 20.0, unit: um, source: sutherland2015, basis: paper, location: "Sec. 7.6: 'each of 2048^2 format and 20 um pixel size' (see notes: plate-scale arithmetic elsewhere implies ~19.8 um)"}
+  detector.pixel_pitch_y_um:
+    {value: 20.0, unit: um, source: sutherland2015, basis: paper, location: "Sec. 7.6 (square pixel)"}
+  detector.n_pixels_cross:
+    {value: 2048, unit: null, source: sutherland2015, basis: paper, location: "Sec. 7.6: '2048^2 format'"}
+  detector.qe_value:
+    {value: 90, unit: "%", source: sutherland2015, basis: paper, location: "Sec. 7.6: 'measured QE is near 90% for most of the detectors' across 1.0-2.35 um (band-plateau value; rolls to ~75% at 0.8 um)"}
+  detector.detector_temperature_K:
+    {value: 72.0, unit: K, source: sutherland2015, basis: paper, location: "Sec. 7.5 thermal control: 'maintain the mean detector temperature at a user-defined setpoint, normally 72 K'"}
+  detector.dark_rate_e_per_s:
+    {value: 0.2, unit: "1/s", source: sutherland2015, basis: paper, location: "Sec. 7.6: 'dark current is typically 0.2 e- s-1, with a tail to larger values'"}
+  detector.dark_reference_temperature_K:
+    {value: 72.0, unit: K, source: sutherland2015, basis: derived, location: "= the 72 K normal operating setpoint (Sec. 7.5) at which the Sec. 7.6 dark-current typical is quoted"}
+  readout.architecture:
+    {value: analog_well, unit: null, source: sutherland2015, basis: derived, location: "analog ROIC (silicon multiplexer) sampled by off-chip facility controllers with double-correlated sampling = analog charge well; no on-chip digitization"}
+  readout.full_well_capacity_e:
+    {value: 1.40e+5, unit: null, source: casu_linearity, basis: derived, location: "median on-sky saturation 33,500 ADU (median of the 16-detector CASU table; spread 24,000-37,000 ADU) x median system gain 4.19 e-/ADU (sutherland2015) = 1.40e5 e-"}
+  readout.read_noise_e_rms:
+    {value: 24.0, unit: "e-", source: sutherland2015, basis: paper, location: "Sec. 7.6: 'readout noise is typically 24 e- rms for a single integration with double-correlated sampling'"}
+  readout.cds_enabled:
+    {value: 1, unit: null, source: sutherland2015, basis: paper, location: "Sec. 7.8: 'the standard readout mode is double-correlated sampling' (reset - read - wait DIT - read)"}
+
+qe_table: null
+
+sources:
+  sutherland2015:
+    type: paper
+    title: "The Visible and Infrared Survey Telescope for Astronomy (VISTA): Design, Technical Overview, and Performance"
+    authors: "W. Sutherland, J. Emerson, G. Dalton, et al."
+    venue: "A&A 575, A25"
+    year: 2015
+    doi: "10.1051/0004-6361/201424973"
+    url: "https://arxiv.org/pdf/1409.4780"
+    file: sutherland_vista_survey_telescope_aa_2015.pdf
+    retrieved: "2026-09-06"
+  casu_linearity:
+    type: web_page
+    title: "VISTA linearity sequences (saturation and non-linearity table, 16 detectors)"
+    publisher: "Cambridge Astronomical Survey Unit"
+    url: "http://casu.ast.cam.ac.uk/surveys-projects/vista/technical/linearity-sequences"
+    retrieved: "2026-09-06"
+  casu_gain:
+    type: web_page
+    title: "VISTA gain/read noise"
+    publisher: "Cambridge Astronomical Survey Unit"
+    url: "http://casu.ast.cam.ac.uk/surveys-projects/vista/technical/vista-gain"
+    retrieved: "2026-09-06"
+  eso_vircam:
+    type: web_page
+    title: "VIRCAM Instrument Description (ESO Paranal, decommissioned)"
+    publisher: "European Southern Observatory"
+    url: "https://www.eso.org/sci/facilities/paranal/decommissioned/vircam/inst.html"
+    retrieved: "2026-09-06"
+notes: >
+  SYSTEM GAIN: median 4.19 e-/ADU (sutherland2015 Sec. 7.8; corroborated by
+  casu_gain, 'median gain 4.19, cf. 4.3 for wfcam'). This is set by VISTA's
+  off-chip 16-channel facility controllers, not by the ROIC, so
+  readout.gain_e_per_dn is deliberately left unset - a different camera
+  around a VIRGO-2K would choose a different gain. PITCH: the paper prints
+  20 um; VISTA plate-scale arithmetic in the wider literature implies a
+  ~19.8 um physical pitch - the printed primary-source value is used.
+  Read noise 24 e- rms is single-integration DCS and is well below sky noise
+  in VISTA broadband use. Full well is an on-sky effective saturation figure
+  (median across 16 flight devices; per-device saturation spans 24-37 kADU
+  and parts of each device saturate at different levels), not a vendor spec.
+  Non-linearity is significant (typically 2-4 % at 10,000 ADU, one device
+  10 %) and pipeline-corrected. Operability: typically ~1 % dead/hot pixels;
+  one flight device has ~3 % dead patches. QE: ~90 % plateau 1.0-2.35 um,
+  ~75 % at 0.8 um, sharp cutoff below 0.75 um - set a QE table for
+  band-edge studies. Focal plane runs at ~72 K nominal setpoint with ~1 K
+  quasi-static device-to-device spread.

@@ -102,3 +102,72 @@ def apply_fpa_preset(
         skipped_existing=tuple(sorted(skipped)),
         qe_material=qe_material,
     )
+
+
+@dataclass(frozen=True)
+class FPASourceInfo:
+    """Citation record of one preset source, for display surfaces."""
+
+    key: str
+    type: str
+    title: str
+    year: int | None
+    url: str | None
+    doi: str | None
+    file: str | None
+
+
+@dataclass(frozen=True)
+class FPAPartInfo:
+    """Display metadata for one library part (GUI part selector, Gap 119 §3.6).
+
+    A read-only projection of :class:`radiant.data.fpa.FPAPreset` — the GUI
+    imports only ``radiant.api``, so this is its window into the library.
+    """
+
+    name: str
+    vendor: str
+    model: str
+    part_class: str
+    band_label: str
+    description: str
+    parameter_count: int
+    basis_counts: tuple[tuple[str, int], ...]
+    sources: tuple[FPASourceInfo, ...]
+
+
+def available_fpa_parts(*, library: FPALibrary | None = None) -> tuple[FPAPartInfo, ...]:
+    """All library parts as display metadata, sorted by part class then name."""
+    lib = library or FPALibrary()
+    infos: list[FPAPartInfo] = []
+    for name in lib.names():
+        part = lib.part(name)
+        counts: dict[str, int] = {}
+        for entry in part.parameters.values():
+            counts[entry.basis] = counts.get(entry.basis, 0) + 1
+        infos.append(
+            FPAPartInfo(
+                name=part.name,
+                vendor=part.vendor,
+                model=part.model,
+                part_class=part.part_class,
+                band_label=part.band.label,
+                description=part.description.strip(),
+                parameter_count=len(part.parameters),
+                basis_counts=tuple(sorted(counts.items())),
+                sources=tuple(
+                    FPASourceInfo(
+                        key=key,
+                        type=src.type,
+                        title=src.title,
+                        year=src.year,
+                        url=src.url,
+                        doi=src.doi,
+                        file=src.file,
+                    )
+                    for key, src in part.sources.items()
+                ),
+            )
+        )
+    infos.sort(key=lambda i: (i.part_class, i.name))
+    return tuple(infos)

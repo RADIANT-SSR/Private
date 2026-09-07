@@ -78,8 +78,12 @@ committed reference PDFs). The config-file equivalent is the top-level
 `fpa: <part-name>` key (`RADIANT_Config_Format.md` §1.8b). `FPAApplyReport` is
 exported from `radiant.api`. Unknown part names raise
 `radiant.data.FPAPresetError` listing the library. Browse parts with
-`radiant.data.FPALibrary().names()` / `.part(name)`; every part also ships a
-generated plain-config twin at `src/radiant/data/tables/fpa/configs/`.
+`radiant.data.FPALibrary().names()` / `.part(name)` — or, for display surfaces,
+`radiant.api.available_fpa_parts()` (returns `FPAPartInfo` records: vendor,
+model, class, band label, parameter/basis census, citations — the projection
+the GUI part selector uses, since `gui/` imports `radiant.api` only). Every
+part also ships a generated plain-config twin at
+`src/radiant/data/tables/fpa/configs/`.
 
 There is no separate `sensor=`/`scenario=` two-file loader and no `Sensor.from_configs()` fluent-builder path. See Appendix A.
 

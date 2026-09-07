@@ -21,6 +21,16 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **GUI: FPA part-library card on the Detector stage (Gap 119, plan Phase 3)**
+  — pick any of the 21 shipped presets (grouped by part class, with a
+  data-quality basis census shown before applying), apply in one
+  `sensor.apply_fpa` call with the applied-vs-kept report row and
+  per-parameter Details dialog, and open the part's committed datasheet/paper
+  (falls back to the citation URL on wheel installs). New public API
+  `radiant.api.available_fpa_parts` / `FPAPartInfo` / `FPASourceInfo` (the
+  GUI's window into the library). Scenario
+  `scenarios/02_mike_detector_engineer/2.8_fpa_part_library/` exercises the
+  workflow end to end.
 - **FPA preset roster complete — tranches 2+3 (Gap 119, plan Phase 4)** —
   fifteen more parts (21 total shipped): rvs-miri-si-as, rvs-virgo-2k,
   senseeker-calcium-rp0033, lynred-daphnis-hd-mw, lynred-atto640,

@@ -60,6 +60,7 @@ from radiant.gui.widgets.atmosphere_inputs_form import AtmosphereInputsForm
 from radiant.gui.widgets.detector_illustration import DetectorIllustration
 from radiant.gui.widgets.detector_inputs_form import DetectorInputsForm
 from radiant.gui.widgets.field_row import FieldRow
+from radiant.gui.widgets.fpa_part_selector import FPAPartSelector
 from radiant.gui.widgets.geometry_angle_panel import (
     NOMINAL_SHAPE_DIMENSIONS,
     GeometryAnglePanel,
@@ -327,6 +328,7 @@ class StagePane(QWidget):
         # pitch redraws the illustration + PSF grid. The illustration is drawn from the live
         # sensor's pixel geometry (populated each result, edit-and-watch).
         self._detector_forms: list[DetectorInputsForm] = []
+        self._fpa_selectors: list[FPAPartSelector] = []
         self._detector_illustrations: list[DetectorIllustration] = []
         # The Spectral-Integration-instrument Inputs form (GUI plan Phase PS-4): edit the band
         # or the integration time and every dependent view refreshes — editing the filter edges
@@ -466,6 +468,13 @@ class StagePane(QWidget):
             layout.addWidget(element_editor)
             self._element_editors.append(element_editor)
         if spec.detector_inputs:
+            # FPA part library card (Gap 119 §3.6): pick a real part, one
+            # sensor.apply_fpa call; a successful apply re-enters the same
+            # debounced re-evaluation path as a field edit.
+            fpa_selector = FPAPartSelector(parent)
+            fpa_selector.presetApplied.connect(self.parameterEdited)
+            layout.addWidget(fpa_selector)
+            self._fpa_selectors.append(fpa_selector)
             # The Detector instrument's editable inputs card (GUI plan Phase PS-3): one
             # sensor.set per edit; each accepted edit re-emits parameterEdited so the host
             # re-evaluates and every Detector tab (Noise pie, illustration, PSF grid) refreshes.
@@ -776,6 +785,11 @@ class StagePane(QWidget):
         return self._detector_forms[0] if self._detector_forms else None
 
     @property
+    def fpa_part_selector(self) -> FPAPartSelector | None:
+        """The FPA part-library card, if this stage has one (Detector, Gap 119)."""
+        return self._fpa_selectors[0] if self._fpa_selectors else None
+
+    @property
     def detector_illustration(self) -> DetectorIllustration | None:
         """The Detector pixel schematic, if this stage has one (Detector, PS-3)."""
         return self._detector_illustrations[0] if self._detector_illustrations else None
@@ -832,6 +846,8 @@ class StagePane(QWidget):
             optics_form.bind_sensor(sensor, display_units)
         for detector_form in self._detector_forms:
             detector_form.bind_sensor(sensor, display_units)
+        for fpa_selector in self._fpa_selectors:
+            fpa_selector.bind_sensor(sensor)
         for spectral_form in self._spectral_forms:
             spectral_form.bind_sensor(sensor, display_units)
         for platform_form in self._platform_forms:

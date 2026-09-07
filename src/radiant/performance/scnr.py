@@ -66,7 +66,10 @@ def compute_scnr(state: ChainState) -> SNRResult:
             ),
         )
 
-    noise_e = math.sqrt(sigma_temporal**2 + sigma_spatial**2)
+    # Calibration residuals (Gap 120) are spatial noise that survives NUC —
+    # SCNR always includes spatial noise, so they join the RSS when present.
+    sigma_cal = state.stage_outputs.get("calibration", {}).get("sigma_calibration_e", 0.0)
+    noise_e = math.sqrt(sigma_temporal**2 + sigma_spatial**2 + sigma_cal**2)
     if noise_e == 0.0:
         return SNRResult(
             value=float("inf") if contrast_e >= 0 else float("-inf"),

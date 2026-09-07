@@ -140,6 +140,32 @@ _register(
 )
 _register(
     MetricSpec(
+        name="radiometric_accuracy_pct",
+        unit="%",
+        description=(
+            "Radiometric accuracy: RSS of the calibration bias budget as a "
+            "percentage of radiance (Gap 120, ADR-0012). Bias, not noise — "
+            "never part of sigma_total; consumes ChainState.bias_terms only."
+        ),
+        requires_stage_outputs=frozenset({("calibration", "bias_total_frac")}),
+    )
+)
+_register(
+    MetricSpec(
+        name="radiometric_accuracy_K",
+        unit="K",
+        description=(
+            "Radiometric accuracy expressed as K at the scene temperature "
+            "via the chain's thermal derivative (Gap 120, ratified D3). "
+            "Requires a thermal scene (ds_dt_e_per_K)."
+        ),
+        requires_stage_outputs=frozenset(
+            {("calibration", "bias_total_frac"), ("spectral_integration", "ds_dt_e_per_K")}
+        ),
+    )
+)
+_register(
+    MetricSpec(
         name="detection_range_m",
         unit="m",
         description=(

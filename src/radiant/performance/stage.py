@@ -45,6 +45,7 @@ from radiant.performance.nedt import compute_nedt, compute_nedt_from_snr
 from radiant.performance.niirs import compute_niirs
 from radiant.performance.path_optical_depth import resolve_path_optical_depth
 from radiant.performance.qsample import compute_q
+from radiant.performance.radiometric_accuracy import compute_radiometric_accuracy
 from radiant.performance.sampling_regime import classify_sampling_regime
 from radiant.performance.scan_feasibility import scan_feasibility
 from radiant.performance.scene_relevance import suppressed_metrics
@@ -1094,6 +1095,22 @@ class PerformanceStage:
                 "contrast_snr_result",
                 contrast_result,
             )
+
+        # Radiometric accuracy — the bias budget (Gap 120, ADR-0012).
+        # Consumes ChainState.bias_terms only; emitted only when the
+        # calibration bias model actually produced terms (mirrors the
+        # detection_range absence pattern — no meaningless zeros).
+        if (
+            "radiometric_accuracy_pct" in compute or "radiometric_accuracy_K" in compute
+        ) and state.bias_terms:
+            acc_result = compute_radiometric_accuracy(state)
+            state = state.with_stage_output(
+                "performance", "radiometric_accuracy_result", acc_result
+            )
+            if "radiometric_accuracy_pct" in compute:
+                state = state.with_metric("radiometric_accuracy_pct", acc_result.bias_frac * 100.0)
+            if "radiometric_accuracy_K" in compute and math.isfinite(acc_result.bias_K):
+                state = state.with_metric("radiometric_accuracy_K", acc_result.bias_K)
 
         # SCNR: clutter-inclusive detection FoM (Gap 77) — always includes
         # the spatial noise, unlike snr/contrast_snr.

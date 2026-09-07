@@ -52,9 +52,13 @@ def compute_contrast_snr(state: ChainState) -> SNRResult:
             ),
         )
 
-    # Compute total noise — prefer sigma_total_e (respects noise_regime).
+    # Compute total noise — prefer the post-calibration total (Gap 120,
+    # present only under an active scheme), then readout's sigma_total_e
+    # (respects noise_regime).
     ro_out = state.stage_outputs.get("readout", {})
-    noise_e: float | None = ro_out.get("sigma_total_e")
+    noise_e: float | None = state.stage_outputs.get("calibration", {}).get("sigma_total_e")
+    if noise_e is None:
+        noise_e = ro_out.get("sigma_total_e")
 
     if noise_e is None:
         if len(state.noise_terms) == 0:

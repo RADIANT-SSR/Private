@@ -21,6 +21,19 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Calibration error model live end-to-end (Gap 120, plan Phase 2)** —
+  active schemes (`calibration.scheme = one_point | two_point`) now emit the
+  post-NUC residual noise terms (`nuc_residual`, `gain_drift`,
+  `offset_drift` — added after TDI/coadd scaling, so they do not average
+  down) and the cal-source bias terms; new public metrics
+  `radiometric_accuracy_pct` / `radiometric_accuracy_K` (radiometric
+  selection group) with `RadiometricAccuracyResult`. **Results-affecting,
+  opt-in only:** under an active scheme SNR/NEDT decrease toward the
+  calibration floor (magnitude set by nonlinearity/drift inputs; SNR-vs-TDI
+  plateaus at the correlated floor) and pre-correction PRNU/DSNU leave the
+  detector budget (D2 — no double counting). `calibration.scheme = "none"`
+  (the default) remains bit-identical to the pre-Gap-120 chain, asserted by
+  contract test.
 - **GUI: FPA part-library row on the Detector stage (Gap 119, plan Phase 3)**
   — one compact row (status + "Choose part & apply…" + "Open datasheet/paper")
   opening a part-library dialog: all 21 presets with Kind / Class / Band /

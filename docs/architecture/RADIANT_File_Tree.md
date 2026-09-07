@@ -244,11 +244,11 @@ calibration/
 └── cal_source_bias.py   # cal-source ΔT / Δε → radiance-scale bias fractions (D3)
 ```
 
-### `performance/` — 54 source + 38 tests
+### `performance/` — 55 source + 38 tests
 
 Stage 9: SNR, NEDT, NEDL, NEDR, NIIRS, GIQE, IIRS, MTF system + budget, detection range, GSD, swath, access, dynamic range, saturation. Each metric is its own module (Rule 19 — one computation, one module).
 
-Notable modules: `stage.py`, `registry.py`, `system_mtf.py`, `mtf_budget.py`, `folded_mtf.py`, `qsample.py`, `consistency_check.py` (PSF/MTF dual-path agreement), `snr.py`, `nedt.py`, `nedl.py`, `nedr.py`, `niirs.py`, `giqe.py`, `iirs.py`, `gsd.py`, `ground_range.py`, `swath_width.py`, `access_rate.py`, `target_plane_sample_distance.py` (non-ground counterpart of GSD, GF-13), `scene_relevance.py` (the one declarative scene-class → metric-relevance map, guardrail G3), `detection.py`, `detection_generic.py` (root finder + criterion), `detection_beer_lambert.py` (constant-α signal law), `detection_path_aware.py` (path-resolved τ(R); all three topologies since CU-263), `detection_noise_floor.py` (N₀² = σ_ref² − S_ref), `detection_shot_consistent_snr.py` (S/√(S+N₀²) and its analytic inverse), `path_optical_depth.py` (piecewise τ(R) along the LOS), `dynamic_range.py`, `saturation_metrics.py`, `well_margin.py`, `adc_margin.py`, `contrast_snr.py`, `strehl.py` (wraps the optics Strehl into a metric), `turbulence_mtf_term.py`.
+Notable modules: `stage.py`, `registry.py`, `system_mtf.py`, `mtf_budget.py`, `folded_mtf.py`, `qsample.py`, `consistency_check.py` (PSF/MTF dual-path agreement), `snr.py`, `nedt.py`, `nedl.py`, `nedr.py`, `niirs.py`, `giqe.py`, `iirs.py`, `gsd.py`, `ground_range.py`, `swath_width.py`, `access_rate.py`, `target_plane_sample_distance.py` (non-ground counterpart of GSD, GF-13), `scene_relevance.py` (the one declarative scene-class → metric-relevance map, guardrail G3), `radiometric_accuracy.py` (Gap 120 bias budget — consumes `bias_terms` only), `detection.py`, `detection_generic.py` (root finder + criterion), `detection_beer_lambert.py` (constant-α signal law), `detection_path_aware.py` (path-resolved τ(R); all three topologies since CU-263), `detection_noise_floor.py` (N₀² = σ_ref² − S_ref), `detection_shot_consistent_snr.py` (S/√(S+N₀²) and its analytic inverse), `path_optical_depth.py` (piecewise τ(R) along the LOS), `dynamic_range.py`, `saturation_metrics.py`, `well_margin.py`, `adc_margin.py`, `contrast_snr.py`, `strehl.py` (wraps the optics Strehl into a metric), `turbulence_mtf_term.py`.
 
 ### `io/` — 12 source + 14 tests
 
@@ -522,19 +522,19 @@ source of truth, per the header.
 | detector/              | 16     | 10    | includes `detector/noise/` subpackage |
 | readout/               | 12     | 9     | TDI, ADC, binning, coadds |
 | calibration/           | 8      | 7     | calibration error model (Gap 120) — physics landed, dispatch Phase 2 |
-| performance/           | 54     | 37    | one metric per module (Rule 19) |
+| performance/           | 55     | 37    | one metric per module (Rule 19) |
 | io/                    | 11     | 11    | config, results, element_config |
 | cli/                   | 12     | 2     | subcommand-per-file (incl. `radiant gui`) |
 | api/                   | 20     | 14    | public + internal session |
 | gui/                   | 80     | 43    | PySide6 shell + 56 widgets + design-system theme — optional `gui` extra |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
 | data/                  | 2      | 5     | packaged-data accessor |
-| **Subtotal**           | **330**| **226**| 556 non-init files |
-| Integration tests      | —      | 41    | `tests/integration/` |
+| **Subtotal**           | **331**| **226**| 557 non-init files |
+| Integration tests      | —      | 42    | `tests/integration/` |
 | Top-level tests        | —      | 6     | `tests/test_public_api.py`, `test_exceptions.py`, `test_provenance.py`, `test_calibration_analysis.py`, `test_error_budget.py`, `test_veiling_glare_signal_consistency.py` |
-| **Grand total (non-init)** |    |       | **603** |
+| **Grand total (non-init)** |    |       | **605** |
 
-Including `__init__.py` files, total `.py` count under `src/radiant/` is 600 (44 `__init__.py`).
+Including `__init__.py` files, total `.py` count under `src/radiant/` is 602 (44 `__init__.py`).
 
 ---
 

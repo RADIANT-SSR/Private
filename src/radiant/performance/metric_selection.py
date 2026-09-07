@@ -56,6 +56,8 @@ METRIC_GROUPS: Mapping[str, frozenset[str]] = {
             "scnr",
             "detection_range_m",
             "nedt_K",
+            "radiometric_accuracy_pct",
+            "radiometric_accuracy_K",
         }
     ),
     "spatial_mtf": frozenset(

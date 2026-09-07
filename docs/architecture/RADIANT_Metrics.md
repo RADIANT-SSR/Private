@@ -515,6 +515,40 @@ range raises `PerformanceValidationError` (Rule 16). The chain helper skips
 silently when the geometry stage published no slant range or the optics /
 detector parameters are unset.
 
+### 4.14 Radiometric accuracy — the bias budget (Gap 120, ADR-0012)
+
+**Formula:**
+```
+bias_frac = √( Σ_i bias_i² )        over ChainState.bias_terms (1σ, RSS)
+bias_K    = bias_frac · S / (dS/dT)  at the scene temperature (ratified D3)
+```
+
+Accuracy is a **bias**, not a noise: it consumes `ChainState.bias_terms`
+only (cal-source ΔT and Δε, absolute gain uncertainty — emitted by
+`CalibrationStage`) and is *never* RSS'd into `σ_total`. The separation is
+type-enforced (`BiasTerm` ≠ `NoiseTerm`) and contract-tested
+(`tests/integration/test_calibration_chain.py::TestBiasIsolation`): SNR and
+NEΔT are bit-identical with the bias model on or off. Precision (NEΔT) and
+accuracy (this metric) are separate deliverables, reported side by side.
+
+Two registry keys: `radiometric_accuracy_pct` (% of radiance) and
+`radiometric_accuracy_K` (K at scene temperature, requires
+`ds_dt_e_per_K`). Both live in the *radiometric* selection group, are
+emitted only when bias terms exist (no meaningless zeros — the
+`detection_range_m` absence pattern), and carry a result object
+(`RadiometricAccuracyResult`: per-source breakdown + result-typed failure
+per the Rule 17 metric-layer carve-out — a scene with no thermal
+derivative reports `bias_frac` with a named failure for the K conversion,
+never NaN).
+
+**Related but distinct:** the calibration residual FPN family
+(`nuc_residual`, `gain_drift`, `offset_drift`) IS noise — it enters
+`σ_total` through the post-calibration total published at
+`stage_outputs["calibration"]["sigma_total_e"]`, which SNR/CSNR prefer
+over readout's total when present, in **both** `detector.noise_regime`
+settings (the residual is precisely what "FPN calibrated out" leaves
+behind). See `RADIANT_Calibration.md`.
+
 ---
 
 ## 5. Cross-cutting: How metrics see the chain state

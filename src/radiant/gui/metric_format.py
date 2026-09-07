@@ -111,6 +111,8 @@ METRIC_DISPLAY_LABELS: Final[dict[str, str]] = {
     "scnr": "SCNR",
     "detection_range_m": "Detection range",
     "nedt_K": "NEDT",
+    "radiometric_accuracy_pct": "Radiometric accuracy (radiance)",
+    "radiometric_accuracy_K": "Radiometric accuracy (temperature)",
     # Interpretability
     "mrt_at_nyquist_K": "MRT @ Nyquist",
     "niirs": "NIIRS",

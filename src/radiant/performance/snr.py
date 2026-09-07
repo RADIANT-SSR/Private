@@ -103,10 +103,14 @@ def compute_snr(state: ChainState) -> SNRResult:
             ),
         )
 
-    # Compute total noise.  Prefer sigma_total_e from ReadoutStage
-    # (respects noise_regime: temporal-only for "imaging", all for
-    # "detection").  Fall back to RSS of all noise terms.
-    noise_e: float | None = ro_out.get("sigma_total_e")
+    # Compute total noise.  Prefer the post-calibration total published by
+    # CalibrationStage (readout total ⊕ calibration residuals — Gap 120;
+    # present only under an active scheme), then sigma_total_e from
+    # ReadoutStage (respects noise_regime: temporal-only for "imaging",
+    # all for "detection").  Fall back to RSS of all noise terms.
+    noise_e: float | None = state.stage_outputs.get("calibration", {}).get("sigma_total_e")
+    if noise_e is None:
+        noise_e = ro_out.get("sigma_total_e")
 
     if noise_e is None:
         if len(state.noise_terms) == 0:

@@ -4,15 +4,17 @@
 post-NUC residual noise terms, the bias/accuracy budget, and the stage's
 structural guarantees.
 
-**Implementation status:** Phase 1 of `docs/plans/Calibration_Model_Plan.md`.
-The physics modules are landed and Level-0 tested (`cal_points.py`,
-`nuc_residual.py`, `gain_drift.py`, `offset_drift.py`, `cal_source_bias.py`)
-and the D2 detector handoff is live (pre-correction PRNU/DSNU leave the
-detector budget under an active scheme — `RADIANT_Detector_Complete.md` §4).
-`scheme = "none"` remains a recorded no-op; the **stage dispatch** is still
-phase-gated — active schemes validate and then raise the actionable gate
-until plan Phase 2 wires the terms end-to-end. Sections below marked
-*(Phase 2)* describe ratified-but-not-yet-wired behavior.
+**Implementation status:** Phase 2 of `docs/plans/Calibration_Model_Plan.md`
+— the model is live end-to-end. Active schemes emit the residual noise
+terms and bias terms on real chain runs; the post-calibration total is
+published at `stage_outputs["calibration"]["sigma_total_e"]` and preferred
+by SNR/CSNR (SCNR adds `sigma_calibration_e` to its spatial RSS); the
+radiometric-accuracy metric (`RADIANT_Metrics.md` §4.14) consumes the bias
+budget. Both ADR-0012 structural guarantees are contract-tested on full
+chains (`tests/integration/test_calibration_chain.py`). `scheme = "none"`
+remains bit-identical to the pre-Gap-120 chain (asserted). Remaining: the
+dedicated GUI screen (plan Phase 3, live-review gated) and scenarios
+(Phase 4).
 
 ---
 
@@ -26,8 +28,10 @@ collapses no spectrum, and writes no MTF term. It contributes:
   `gain_drift`, `offset_drift`), spatial, appended via `state.with_noise()`.
 - **Bias terms** — the accuracy budget (`BiasTerm` via `state.with_bias()`).
 - **Stage outputs** — `stage_outputs["calibration"]`: scheme, enabled flag,
-  and *(Phase 1)* the derived residual budget the GUI readout panel and the
-  radiometric-accuracy metric consume. *(Phase 2 wiring.)*
+  and the derived residual budget the GUI readout panel and the
+  radiometric-accuracy metric consume (`s1_e`/`s2_e`, per-term residuals,
+  `sigma_calibration_e`, `sigma_total_e`, `bias_total_frac`,
+  `calibration_nedt_K`).
 
 ### 1.1 The ordering guarantee (do not move this stage)
 
@@ -37,6 +41,19 @@ post-scaling and are **structurally exempt from $\sqrt{N}$ averaging** —
 correlated errors do not average down. This is enforced by chain position,
 asserted by contract test *(Phase 2)* , and marked in
 `core/noise_budget.py::CALIBRATION_TERMS` for any future re-scaling code.
+
+**Full-scale reference domain.** The two-point quadratic reference
+``S_ref`` is taken in the same summed domain as ``signal_e_final``: the
+counting ``effective_well_e`` when the DROIC branch ran, else
+``readout.full_well_capacity_e`` scaled by the accumulation gain the signal
+actually received (``signal_e_final / detector signal_e``). One domain for
+numerator and denominator is what makes the residual's signal-relative size
+TDI-invariant (the contract test).
+
+**Noise-regime interplay.** ``detector.noise_regime = "imaging"`` excludes
+pre-cal FPN as "calibrated out"; the calibration residuals are precisely
+what survives that calibration, so they enter the total in **both**
+regimes — contract-tested.
 
 ### 1.2 The bias/noise separation
 
@@ -62,8 +79,8 @@ FPN MTF term.
 | Scheme | Meaning | Residual model |
 |---|---|---|
 | `none` | Model off — today's behavior. Detector `prnu`/`dsnu` terms act as static dispersions. Stage emits nothing. | — |
-| `one_point` *(Phase 2 wiring)* | Offset corrected at cal flux $S_1$ | gain dispersion on the departure: $\sigma = \mathrm{prnu}\cdot\lvert S-S_1\rvert$; offset re-grows by drift |
-| `two_point` *(Phase 2 wiring)* | Per-pixel gain+offset corrected at $S_1, S_2$ (from cal temps through the band) | quadratic-nonlinearity residual (plan §3.2, D1): parabola vanishing at both cal points |
+| `one_point` | Offset corrected at cal flux $S_1$ | gain dispersion on the departure: $\sigma = \mathrm{prnu}\cdot\lvert S-S_1\rvert$; offset re-grows by drift |
+| `two_point` | Per-pixel gain+offset corrected at $S_1, S_2$ (from cal temps through the band) | quadratic-nonlinearity residual (plan §3.2, D1): parabola vanishing at both cal points |
 
 Under an active scheme, `detector.prnu_pct` / `detector.dsnu_e_rms` are
 re-read as **pre-correction** dispersions (handoff mechanism per ratified

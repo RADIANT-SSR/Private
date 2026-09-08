@@ -47,15 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-347 — Performance-tab matrix cards chain their horizontal scrollbars: scrolling Summary drags MTF (and every other card) with it
-
-**Discovered**: owner live review, 2026-09-07 — "moving the horizontal scroll bar in summary and/or MTF moves both windows on the performance tab."
-**Status**: Open — in work same session (branch `cu347/matrix-scroll-independent`).
-**File**: `src/radiant/gui/widgets/metric_group_cards.py:552-573` (`_sync_matrix_scrolls` — every matrix card's horizontal bar is deliberately linked, the CU-332 "scrolls as one surface" choice).
-**Symptom**: on a multi-configuration study's Performance tab, dragging one card's horizontal scrollbar moves every card's value area; the operator scrolling the Summary card watches the MTF card slide underneath it.
-**Why it still matters**: workflow-visible (intake test 4) — owner hit it live on the 9.4 all-bands study review; the cross-card coupling reads as broken scrollbars, not as an alignment feature.
-**Suggested fix**: (a) inline-fix-now — delete the cross-card link so each card scrolls independently; retire the linked-scroll regression test in favour of an independence test. Effort S; category A.
-
 ### CU-346 — Calibration cal-point mapping silently anchors to `source.target.temperature` on reflective scenes — the Planck ratio rides a solar signal it does not describe
 
 **Discovered**: Gap 120 Phase 4 (branch `gap120/phase4-scenarios`), 2026-09-06 — scenario 1.4's calibration variant: a "290 K cal point" on the VNIR solar-reflective pushbroom resolved to 13.8 % of the scene signal (the 290/300 K band Planck ratio anchored at the *declared* target temperature), not the ~0 a blackbody source physically delivers in a 0.5–0.85 µm band.
@@ -136,6 +127,15 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-347 — Performance-tab matrix cards chain their horizontal scrollbars: scrolling Summary drags MTF (and every other card) with it — RESOLVED 2026-09-07 (commit trailer)
+
+**Resolution**: the cross-card link is deleted — `_sync_matrix_scrolls`, the per-card `valueChanged` connections, and the `_matrix_scrolls` roster are gone, so each matrix card's horizontal bar moves that card alone. Cross-card column alignment is not load-bearing (every card carries its own column headers), and the CU-332 frozen-label behavior is untouched. The linked-scroll regression test is replaced by `test_cards_scroll_independently`; arch doc §4.2d matrix paragraph updated; CHANGELOG Fixed entry. Merged after the owner's live review (same session that reported it).
+**Discovered**: owner live review, 2026-09-07 — "moving the horizontal scroll bar in summary and/or MTF moves both windows on the performance tab."
+**File**: `src/radiant/gui/widgets/metric_group_cards.py:552-573` (`_sync_matrix_scrolls` — every matrix card's horizontal bar is deliberately linked, the CU-332 "scrolls as one surface" choice).
+**Symptom**: on a multi-configuration study's Performance tab, dragging one card's horizontal scrollbar moves every card's value area; the operator scrolling the Summary card watches the MTF card slide underneath it.
+**Why it still matters**: workflow-visible (intake test 4) — owner hit it live on the 9.4 all-bands study review; the cross-card coupling reads as broken scrollbars, not as an alignment feature.
+**Suggested fix**: (a) inline-fix-now — delete the cross-card link so each card scrolls independently; retire the linked-scroll regression test in favour of an independence test. Effort S; category A.
 
 ### CU-341 — Configuration bar cannot absorb 12 tabs at laptop width: no wrap, scroll, or overflow affordance on the selector band — RESOLVED 2026-09-07 (commit trailer)
 

@@ -370,7 +370,6 @@ class MetricGroupCards(QWidget):
         self._headers: dict[str, _ColumnHeader] = {}
         self._labels: dict[str, _MetricLabel] = {}
         self._columns: tuple[str, ...] = ()
-        self._matrix_scrolls: list[QScrollArea] = []
 
     # -- result delivery ----------------------------------------------------
 
@@ -445,9 +444,10 @@ class MetricGroupCards(QWidget):
         label grid never scrolls; only the value grid (headers + cells) sits
         inside a per-card horizontal scroll area, so a matrix wider than the
         pane slides its configuration columns under a fixed metric-label
-        column instead of carrying the row names off-screen. Every card's
-        scrollbar is linked through :meth:`_sync_matrix_scrolls`, so the
-        surface still scrolls as one.
+        column instead of carrying the row names off-screen. Each card's
+        scrollbar is its own (CU-347, owner live review): chaining them made
+        dragging the Summary card's bar visibly drag the MTF card too, which
+        read as broken scrollbars rather than as column alignment.
         """
         card = QWidget(self)
         card.setObjectName("geoModeFamily")
@@ -549,8 +549,6 @@ class MetricGroupCards(QWidget):
         # the bar's appearance never squeezes the last metric row.
         bar_extent = scroll.style().pixelMetric(QStyle.PixelMetric.PM_ScrollBarExtent, None, scroll)
         scroll.setMinimumHeight(value_host.sizeHint().height() + bar_extent + 2)
-        scroll.horizontalScrollBar().valueChanged.connect(self._sync_matrix_scrolls)
-        self._matrix_scrolls.append(scroll)
 
         body.addWidget(label_host, 0, Qt.AlignmentFlag.AlignTop)
         # No alignment flag here (CU-333): aligning a widget in a box layout opts
@@ -561,17 +559,6 @@ class MetricGroupCards(QWidget):
         body.addWidget(scroll, 1)
         box.addLayout(body)
         return card
-
-    def _sync_matrix_scrolls(self, value: int) -> None:
-        """One horizontal position for every card — the matrix scrolls as one surface.
-
-        Safe against feedback: ``setValue`` on an already-matching bar emits no
-        ``valueChanged``, so propagation terminates after one fan-out.
-        """
-        for scroll in self._matrix_scrolls:
-            bar = scroll.horizontalScrollBar()
-            if bar.value() != value:
-                bar.setValue(value)
 
     def _build_card(self, heading: str, records: tuple[Any, ...], result: ChainResult) -> QWidget:
         """One themed group card: an uppercase heading over its metric rows."""
@@ -652,7 +639,6 @@ class MetricGroupCards(QWidget):
         self._headers.clear()
         self._labels.clear()
         self._columns = ()
-        self._matrix_scrolls.clear()
         while self._grid.count():
             item = self._grid.takeAt(0)
             widget = item.widget()

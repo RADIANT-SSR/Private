@@ -670,10 +670,14 @@ debounce and the existing staleness affordances (§3.3).
 **The metric-label column is frozen (CU-332).** A matrix wider than the pane scrolls
 its configuration columns *under* the label column, never past it: each card is a
 fixed label grid beside a horizontal scroll area holding only the header + value
-columns, with per-row heights force-synchronized between the two sides and every
-card's scrollbar linked so the surface scrolls as one. Pre-fix, the whole card slid
-sideways and an 8-configuration study showed bare numbers with the row names
-off-screen (owner-hit, scenario 9.4).
+columns, with per-row heights force-synchronized between the two sides. Pre-fix, the
+whole card slid sideways and an 8-configuration study showed bare numbers with the
+row names off-screen (owner-hit, scenario 9.4). **Each card's scrollbar is its own
+(CU-347).** The CU-332 build had chained every card's horizontal bar so the surface
+scrolled as one; at the screen that read as broken scrollbars — dragging the Summary
+card's bar visibly dragged the MTF card — and the owner retired it live (2026-09-07).
+Cross-card column alignment is not load-bearing: each card carries its own column
+headers, so a card is readable at any scroll position.
 
 **The presentation model is Qt-free.** `gui/metric_matrix.py` turns the run into a
 `MetricMatrix` (columns × grouped rows, each cell a text + tooltip); `MetricGroupCards`

@@ -21,6 +21,10 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Fixed
+- **Performance-tab matrix cards scroll independently (CU-347)** — dragging
+  one card's horizontal scrollbar (e.g. Summary) no longer drags every other
+  card (e.g. MTF) with it; the CU-332-era cross-card scroll chaining is
+  retired (owner live review). GUI-only; computed results unchanged.
 - **Configuration bar absorbs a full-cap study at laptop width (CU-341)** —
   the configuration tabs now live in a horizontally scrollable strip, so a
   12-member study no longer forces a ~1344 px minimum window width; when the

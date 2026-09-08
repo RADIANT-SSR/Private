@@ -1768,122 +1768,13 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Impact** | Maritime sun-glint and low-sun specular-background scenes read as diffuse: background radiance is underestimated near the specular lobe, overstating target contrast exactly where glint clutter dominates real detection performance. |
 | **Suggested fix** | Let the background material definition accept an optional BRDF, mirroring the target-side plumbing, and route it through the ground-reflection term in the assembly. Results-affecting only when a BRDF is specified (diffuse default preserves all golden results). Effort M; Category C. |
 
-## Summary Table
+## Summary Table (retired 2026-09-08)
 
-| # | Gap | Effort | Scenarios impacted | Status |
-|---|-----|--------|--------------------|--------|
-| 1 | IPC not wired | Small | 1 | FIXED |
-| 2 | SNR = 0 at orbital altitude | — | 7+ | FIXED |
-| 3 | NEDT missing | Small | 10+ | FIXED |
-| 4 | NIIRS missing | Small | 11 | FIXED |
-| 5 | GSD missing | Trivial | 5+ | FIXED |
-| 6 | Unit-aware input | Medium | All | FIXED |
-| 7 | Parameter name discovery | Small | All | FIXED |
-| 8 | Strehl ratio missing | Trivial | 2 | FIXED |
-| 9 | Full MTF curve missing | Small | 4+ | FIXED |
-| 10 | No inverse solver | Medium | Many | FIXED |
-| 11 | No per-element nearfield breakdown | Medium | Few | CLOSED |
-| 12 | cold_stop_efficiency naming | Small | Few | FIXED |
-| 13 | Q parameter missing | Trivial | Few | FIXED |
-| 14 | No aliased/folded MTF | Medium | Few | CLOSED |
-| 15 | MTF = 0 at high Q (investigate) | Small | Few | CLOSED |
-| 16 | Per-wavelength PSFs not exposed | Small | Few | CLOSED |
-| 17 | No arbitrary PSF weighting spectrum | Small | Few | FIXED |
-| 18 | Platform jitter not wired | — | 5.4 | FIXED |
-| 19 | No MTF budget decomposition | Medium | 5.4, 7.3 | FIXED |
-| 20 | No GIQE-5 sensitivity analysis | Small | 5.4 | FIXED |
-| 21 | No jitter PSD / frequency dependence | Large | 5.4 | DEFERRED |
-| 22 | RER below GIQE-5 calibration range | Small | 5.4 | FIXED |
-| 23 | No jitter-source allocation tool | Medium | 5.4 | FIXED |
-| 24 | No Zernike-to-PSF integration | Medium | 5.1 | CLOSED |
-| 25 | No field-dependent WFE | Large | 5.1 | CLOSED |
-| 26 | No Zemax Zernike importer | Medium | 5.1 | FIXED |
-| 27 | MTF curve frequency axis units | Small | 5.1 | FIXED |
-| 28 | No WFE allocation / error budget tool | Medium | 5.1 | FIXED |
-| 29 | No defocus model (focus-shift) | Small | 7.3 | CLOSED |
-| 30 | No measurement data import/overlay API | Medium | 7.x | FIXED |
-| 31 | No scatter / surface roughness (TIS) | Medium | 7.3 | FIXED |
-| 32 | No electronics MTF model | Small | 7.3 | FIXED |
-| 33 | GSD not adjusted for off-nadir angle | Small | 3.4 | CLOSED |
-| 34 | NIIRS not recomputed with off-nadir GSD | Small | 3.4 | CLOSED |
-| 35 | No along/cross-track GSD at off-nadir | Medium | 3.4 | CLOSED |
-| 36 | No swath width / access geometry | Medium | 3.4 | CLOSED |
-| 37 | Nearfield emission = 0 in scalar transmission mode | Small-Medium | 7.1, 7.4, 2.2, 2.5, 3.2 | FIXED |
-| 38 | E_sky ω₀ aerosol/spectral fidelity | Medium | UC Cells 25, 40, 55 | DEFERRED |
-| 39 | A3 partial-column MODTRAN parity (blocked) | Small | UC Table C | DEFERRED |
-| 40 | Lab dark-cal mode not first-class | Small | UC D-lab | FIXED |
-| 41 | Earth-LOS negative integration test | Trivial | UC D-space | FIXED |
-| 42 | lab_test/ground_test unreachable from config surface | Medium | 7.x lab family | FIXED |
-| 43 | NEDT uses single-λ approximation; exact dS/dT unwired | Medium | 6.3, 7.1, 7.5 | FIXED |
-| 44 | detector.qe_table_path schema-only; no config surface for spectral QE | Small | 2.1, 1.3 | FIXED |
-| 45 | BLIP/crossover/NEI detector-trade metrics script-side | Small | 2.1 | FIXED |
-| 46 | Calibration-analysis helpers script-side | Small | 7.2 | FIXED |
-| 47 | Spectral target emissivity has no chain input (scalar only) | Medium | 4.3 | FIXED |
-| 48 | QE has no temperature dependence | Small | 7.5 | FIXED |
-| 49 | Diffraction-limited-resolution metric missing | Trivial | 1.2 | FIXED |
-| 50 | Detector-vs-diffraction sampling-regime flag missing | Trivial | 1.2 | FIXED |
-| 51 | No revisit / repeat-ground-track model | Medium | 3.1 | FIXED |
-| 52 | No first-class extended target-vs-background differential | Medium | 4.3, 4.4 | FIXED (ADR-0005) |
-| 53 | Johnson DRI model sampling-limited (no MRC/MRT) | Medium-Large | 4.2 | FIXED (MRT/MRC model) |
-| 54 | No arbitrary/measured pupil mask (parametric only) | Low-Medium | 1.5 | FIXED |
-| 55 | No PDF spec-sheet parser | Large | 3.3 | DECLINED |
-| 56 | No multi-target spatial scene model (single-pixel only) | Large | 6.4 | DECLINED |
-| 57 | standard_atmosphere preset sets emission temp only, not humidity | Small-Medium | 3.5 | FIXED |
-| 58 | No GeoTIFF / raster reader for surface maps | Medium | 3.5 | DEFERRED |
-| 59 | No solar-dependence (day/night) analysis mode | Medium | 3.5 | FIXED |
-| 60 | Stray light is a scalar noise pedestal (no 2-D PSF, no MTF impact) | Medium-Large | 5.5 | PARTIAL — MTF halo landed 2026-07-10; PST import deferred (single-pixel) |
-| 61 | Emissivity library has no wind-state ocean or rust-specific hull materials | Small-Medium | 1.1 | OPEN |
-| 62 | No PowerPoint/slide-table export from scenario results | Small | 1.1 | OPEN |
-| 63 | No libRadtran parser or implementation | Medium | 6.2 | OPEN |
-| 64 | No spectral residual / per-band error-analysis tool | Small-Medium | 6.2 | OPEN |
-| 65 | Full-well saturation is a recurring, silent failure mode | Small | 6.1, 6.2, 8.2 | FIXED 2026-07-11 |
-| 66 | `detector.qe_table_path` unusable without a meaningless scalar `qe_value` | Small | 1.1, 1.2 | FIXED 2026-07-11 |
-| 67 | No session/run persistence (save/load) | — | GUI File menu, session restore | FIXED 2026-07-11 |
-| 68 | Non-scalar chain inputs unreachable from Sensor/YAML | — | 5.x | FIXED 2026-07-11 |
-| 69 | Bundled libraries not selectable from config | Small | GUI material dropdowns | OPEN |
-| 70 | No public parameter-schema introspection API | — | GUI | FIXED 2026-07-11 |
-| 71 | result.metrics has no units/metadata | — | GUI | FIXED 2026-07-11 |
-| 72 | No progress/cancellation hooks | — | GUI, 4.1 | FIXED 2026-07-11 |
-| 73 | Point-source zeroes background/path photon noise | — | 6.x | FIXED 2026-07-11 |
-| 74 | Scan/timing subsystem unimplemented | Large | pushbroom/TDI | NARROWED 2026-07-11 |
-| 75 | Orbit/coverage kinematics unwired | Medium | 3.1 | NARROWED 2026-07-11 |
-| 76 | Solar spectrum is 5778 K blackbody only | Medium | VNIR bands, seasonal | OPEN |
-| 77 | No native SCNR / in-chain detection-range solver | Medium | 1.1, 1.3, 4.1–4.3 | NARROWED 2026-07-11 |
-| 78 | Decision-grade acquisition metrics library-only | — | 4.x, 6.x, 2.x | OPEN |
-| 79 | No multi-config compare primitive | — | 1.3, 3.3, 4.1, 6.1 | OPEN |
-| 80 | No multi-band / dual-band run concept | — | 1.3 | RESOLVED 2026-07-25 (ADR-0010 configuration sets) for expressibility + orchestration; cross-band derived metrics still deferred |
-| 81 | MODTRAN sky terms not ingestable (downwelling zeroed) | Medium | thermal-band scenes | NARROWED 2026-07-12 |
-| 82 | No cloud/rain/fog capability | — | 3.2 | OPEN |
-| 83 | No two-point geodetic geometry input | — | airborne mission planning (V5) | OPEN |
-| 84 | No time-based / orbital-ephemeris geometry | — | pass-geometry (V7/V8/S4) | OPEN |
-| 85 | No mission-type-driven parameter relevance (declared type → param setup guidance) | M–L | operator setup guidance (all personas) | DEFERRED (post-v1) |
-| 86 | `result.plot` exposes no spectral-radiance figure accessor | S–M | Source/Atmosphere/Spectral-Integration GUI views | FIXED |
-| 87 | `ChainResult` has no `inspect()` / `explain(term)` convenience accessors | — | GUI Variables + Noise Budget tabs | FIXED |
-| 88 | No in-memory / resolved-scope config serialize surface | — | GUI YAML tab | FIXED |
-| 89 | Optics complex-pupil diagnostics not exposed (apodization map + WFE phase map) | M | GUI Optics view (5.1, 1.5) | RESOLVED 2026-07-14 (d89f423) |
-| 90 | Optics coating / element spectral performance not exposed as a figure | S–M | GUI Optics view | RESOLVED 2026-07-14 (77e0adf) |
-| 91 | No pre-atmosphere source-emission spectral frame (Source target/background radiance) | M | GUI Source view | FIXED 2026-07-14 (6f37734) |
-| 92 | No per-wavelength noise decomposition (noise terms are post-integration scalars) | M–L | GUI Spectral-Integration view | OPEN |
-| 93 | No public provenance / reset-all surface on `Sensor` | — | GUI Edit → Reset to Defaults (GX-1) | FIXED |
-| 94 | Elevated targets (h_tgt > 0) unreachable on file-backed atmosphere paths; shipped ladder library stranded | M | Near-space / boost-phase (UC Tables C, G) | FIXED 2026-07-18 (0aebdda) |
-| 95 | Above-atmosphere target over atmospheric background unreachable (LOS cap + ladder hull) | M | Exo-target sub-pixel / point-source vs Earth background | CLOSED 2026-07-20 (boost families deliver 29–100 km; plan archived) |
-| 96 | No per-metric enable/select for performance metrics (toggle inapplicable metrics + warnings off) | M | All; GUI performance view (override half of CU-166) | FIXED 2026-07-18 (36a6da9) |
-| 97 | `sub_pixel` regime ignores `projected_area_m2`; signal driven by `fill_fraction` (default 1.0) → area does nothing, extended-scene signal | M | Sub-pixel targets specified by radiance+area (maritime 1.1, others) | FIXED 2026-07-18 (db227b0) |
-| 98 | Point-source workflow doesn't steer to intensity (blackbody+zero-area trap, range re-spec, no GUI); convenience intensity inputs added | M | Point-source / SDA / star-tracker | FIXED 2026-07-18 (d560507/1a913d6/7b98d69) |
-| 100 | No real IIRS — MWIR/LWIR interpretability reuses GIQE-5 verbatim (formula, envelope, labels) | M-L | Every MWIR/LWIR scenario consuming niirs | OPEN |
-| 101 | Charge-well/ADC saturation check misapplied to NETD-specified (bolometric) detectors | M-L | 4.5 + any bolometric config on a warm scene | OPEN |
-| 102 | Readout acquisition params (TDI/co-adds/binning/frame period) missing from GUI form | Small | GUI workflows using TDI/co-add/binning (e.g. 1.4, 2.5) | FIXED |
-| 103 | Configuration sets share one optical element document (no per-configuration prescription) | M | Per-band element trains; as-built prescriptions | DEFERRED to v1.1 (ADR-0010 D-7) |
-| 104 | Tolerances and stage-output injections are shared across a configuration set | M | Per-configuration uncertainty models / measured inputs | DEFERRED (ADR-0010) |
-| 105 | No set-level execution (sweep / Monte-Carlo / CLI --all-configurations across a set) | M | Multi-configuration trades | OPEN |
-| 106 | No active-imaging modality (lidar/ladar) — RADIANT is passive-EO only | L | Flash LADAR missions; active EO trades | PLANNED (`docs/plans/Active_Imaging_Plan.md`, 2026-07-26; v1-exclusion sub-gaps filed at its Phase 0) |
-| 107 | Viewing geometry is down-looking only (ground-to-air / air-to-air / ground-to-space / up-looking space-to-space all rejected) | L | Ground SST, IRST, counter-UAS, up-looking SDA | IN PROGRESS — geometry core delivered (Phase 1, 2026-07-26; LEO→GEO runs); atmosphere direction-awareness pending Phase 2 (Gaps 108/109) |
-| 108 | Background selection is LOS-direction-blind (no SkyBackground, no earthlimb, no termination-driven default) | M–L | Ground-to-air / air-to-air detection & contrast | PLANNED (`docs/plans/Geometry_Flexibility_Plan.md`) |
-| 109 | Atmosphere path topology hard-codes down-looking two-leg column (no up-path products, no horizontal path, sun above-horizon only) | L | All non-down-looking scenes; SDA twilight illumination | PLANNED (`docs/plans/Geometry_Flexibility_Plan.md`) |
-| 110 | Turbulence is a path-blind r0 stub (no Cn² profile, no zenith/direction dependence) | M | Ground-to-space image quality; long horizontal paths | DELIVERED 2026-07-27 (Geometry-Flexibility Phase 3) |
-| 111 | No relative target kinematics (LOS-rate smear for air/space targets unexpressible) | M | Air-to-air / SDA integration-time & TDI trades | DELIVERED 2026-07-27 (Geometry-Flexibility Phase 3) |
-
----
+The per-gap summary table was retired at the early quarterly sweep: its rows
+ended at Gap 111 while Gaps 112+ were minted entry-only, so the table had
+silently become a second, stale registry view (Rules 25/27). The gap entries
+above are, and always were, the authoritative record; the last full table is
+in git history (pre-`sweep/findings-2026-09`).
 
 ## Scenario-Driven Capability Priority List
 

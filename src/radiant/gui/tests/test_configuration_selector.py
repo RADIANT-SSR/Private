@@ -480,3 +480,66 @@ class TestConfigurationBarStacksAboveStrip:
         assert bar.bottom() <= strip.top()
         assert abs(bar.left() - strip.left()) <= 1
         assert strip.width() >= window.width() * 0.9
+
+
+class TestOverflowAffordance:
+    """CU-341: the tab row scrolls; it never drives the window minimum width."""
+
+    @staticmethod
+    def _oli_names() -> list[str]:
+        """Twelve OLI-style band names — the measured 1344 px worst case."""
+        return [
+            "B1_CA",
+            "B2_Blue",
+            "B3_Green",
+            "B4_Red",
+            "B5_NIR",
+            "B6_SWIR1",
+            "B7_SWIR2",
+            "B8_Pan",
+            "B9_Cirrus",
+            "B10_TIRS1",
+            "B11_TIRS2",
+            "B12_Spare",
+        ]
+
+    def test_twelve_named_tabs_do_not_drive_the_bar_minimum(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The bar's minimumSizeHint stays laptop-safe at a full cap of named tabs.
+
+        Pre-fix this measured 1344 px (12 OLI-style names) because every tab fed
+        the plain QHBoxLayout's minimum, which propagated through the dock to the
+        window minimum. The scrollable strip bounds it regardless of tab count.
+        """
+        bar = ConfigurationBar()
+        qtbot.addWidget(bar)
+        names = self._oli_names()
+        bar.set_configurations(names, names[0])
+        assert len(bar.buttons) == 12
+        assert bar.minimumSizeHint().width() < 450
+
+    def test_tabs_still_emit_through_the_scroll_strip(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A click on a tab inside the scroll area still selects it."""
+        bar = ConfigurationBar()
+        qtbot.addWidget(bar)
+        names = self._oli_names()
+        bar.set_configurations(names, names[0])
+        picked: list[str] = []
+        bar.configurationSelected.connect(picked.append)
+        bar.buttons[5].click()
+        assert picked == ["B6_SWIR1"]
+        assert bar.active_name == "B6_SWIR1"
+
+    def test_overflow_scrolls_the_active_tab_into_view(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """At a width the strip overflows, activating the last tab scrolls to it."""
+        bar = ConfigurationBar()
+        qtbot.addWidget(bar)
+        names = self._oli_names()
+        bar.set_configurations(names, names[0])
+        bar.setFixedWidth(600)
+        bar.show()
+        qtbot.waitExposed(bar)
+        scrollbar = bar._scroll.horizontalScrollBar()
+        assert scrollbar.maximum() > 0  # the strip genuinely overflows at 600 px
+        assert scrollbar.value() == 0  # first tab active — strip at its left end
+        bar.set_active(names[-1])
+        assert scrollbar.value() > 0  # last tab pulled into view

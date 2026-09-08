@@ -213,6 +213,13 @@ QLabel#stageChipSub {{
     background-color: {t.panel_2};
     border-bottom: {tokens.BORDER_WIDTH} solid {t.line};
 }}
+/* The scrollable tab strip (CU-341) is a transparent window onto the bar: the
+ * band's own background shows through, and only the slim themed horizontal
+ * scrollbar appears when the set overflows the window width. */
+QScrollArea#configurationTabScroll, #configurationTabHost {{
+    background: transparent;
+    border: none;
+}}
 QLabel#configurationBarLabel {{
     color: {t.muted};
     font-size: 10.5px;

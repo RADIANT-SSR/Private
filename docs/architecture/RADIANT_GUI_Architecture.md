@@ -404,6 +404,13 @@ corner (already carrying the Inspector affordance) or the status bar (which is a
 transient-message surface, not a persistent control). The dedicated band costs one row and
 keeps the study's shape readable at a glance.
 
+**The tab row scrolls; it never widens the window (CU-341).** The tabs sit inside a
+frameless horizontal scroll strip, so a full-cap study's tab row does not feed the bar's
+`minimumSizeHint` (pre-fix, 12 OLI-style names forced a 1344 px window minimum through the
+dock). When the strip overflows the window width a slim themed horizontal scrollbar appears
+under the row, and the active tab is always scrolled into view. Tested
+(`test_configuration_selector.py::TestOverflowAffordance`).
+
 **Zero visibility for a single configuration.** With one configuration the bar builds no
 tabs and its **dock is hidden**, so the window carries no extra band at all — a
 single-configuration session is the pre-Phase-4a GUI byte for byte. This is a tested

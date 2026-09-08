@@ -24,6 +24,13 @@ same configuration manager dialog its Edit menu opens (§4.2d). Creating, renami
 reordering, and removing configurations all live there; the bar itself still owns no
 set and makes no API call.
 
+**The tab row scrolls instead of stretching the window (CU-341).** The tabs sit
+inside a frameless horizontal :class:`QScrollArea`, so a 12-member study's tab
+row no longer drives the bar's ``minimumSizeHint`` (measured 1344 px for 12
+OLI-style names pre-fix, which propagated through the dock to the window
+minimum). When the strip overflows the window width a slim themed scrollbar
+appears under the row, and the active tab is always scrolled into view.
+
 Styling is entirely themed via object names (GUI plan §4.9); the only colour this
 file names is the token tuple it reads from the active theme, never a literal.
 """
@@ -34,7 +41,14 @@ from collections.abc import Sequence
 
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QColor, QIcon, QPixmap
-from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QLabel, QPushButton, QWidget
+from PySide6.QtWidgets import (
+    QButtonGroup,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QWidget,
+)
 
 from radiant.gui.themes import active_theme
 from radiant.gui.themes.tokens import Theme
@@ -47,10 +61,10 @@ _CHIP_PX: int = 10
 _MANAGE_GLYPH = "⚙"
 _MANAGE_TOOLTIP = "Add, rename, reorder, or remove configurations (Edit → Configurations…)"
 
-# Layout items pinned to the right of the tabs: just the stretch (the manage
-# button moved to the LEFT of the tabs, owner live-review 2026-09-03).
-# New tabs are inserted before it.
-_TRAILING_ITEMS: int = 1
+# Horizontal margin kept visible around a tab scrolled into view, in px
+# (CU-341): enough to show the neighbouring tab's edge, signalling that the
+# strip continues past it.
+_SCROLL_MARGIN_PX: int = 24
 
 
 class ConfigurationBar(QWidget):
@@ -106,7 +120,35 @@ class ConfigurationBar(QWidget):
         layout.addWidget(manage)
         self._manage_button = manage
 
-        layout.addStretch(1)
+        # The tabs live in their own horizontally scrollable strip (CU-341): a
+        # 12-member study's tab row must not drive the bar's minimumSizeHint —
+        # measured 1344 px for 12 OLI-style names, which propagated through the
+        # dock to the window minimum and outgrew a laptop screen. A QScrollArea's
+        # minimum is a few scrollbar-widths regardless of content, so the window
+        # minimum stops scaling with the set; when there is room, the area's
+        # sizeHint still shows every tab (AdjustToContents), and when there is
+        # not, a slim themed horizontal scrollbar appears under the row.
+        tabs_host = QWidget(self)
+        tabs_host.setObjectName("configurationTabHost")
+        tabs_layout = QHBoxLayout(tabs_host)
+        tabs_layout.setContentsMargins(0, 0, 0, 0)
+        tabs_layout.setSpacing(6)
+        tabs_layout.addStretch(1)  # keeps the tabs left-aligned; tabs insert before it
+        self._tabs_host = tabs_host
+        self._tabs_layout = tabs_layout
+
+        scroll = QScrollArea(self)
+        scroll.setObjectName("configurationTabScroll")
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setWidgetResizable(True)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setSizeAdjustPolicy(QScrollArea.SizeAdjustPolicy.AdjustToContents)
+        scroll.setWidget(tabs_host)
+        scroll.viewport().setAutoFillBackground(False)
+        tabs_host.setAutoFillBackground(False)
+        layout.addWidget(scroll, 1)
+        self._scroll = scroll
 
         self._group = QButtonGroup(self)
         self._group.setExclusive(True)
@@ -177,6 +219,7 @@ class ConfigurationBar(QWidget):
                 button.setChecked(self._names[index] == name)
         finally:
             self._updating = False
+        self._scroll_active_into_view()
 
     def set_theme(self, theme: Theme) -> None:
         """Adopt *theme* and repaint the accent chips (the View → theme toggle).
@@ -194,7 +237,7 @@ class ConfigurationBar(QWidget):
         """Rebuild the tabs from the current names / active / theme state."""
         for button in self._buttons:
             self._group.removeButton(button)
-            self._layout.removeWidget(button)
+            self._tabs_layout.removeWidget(button)
             button.deleteLater()
         self._buttons = []
 
@@ -206,7 +249,7 @@ class ConfigurationBar(QWidget):
         self._updating = True
         try:
             for index, name in enumerate(names):
-                button = QPushButton(name, self)
+                button = QPushButton(name, self._tabs_host)
                 button.setObjectName("configurationTab")
                 button.setCheckable(True)
                 button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -214,13 +257,28 @@ class ConfigurationBar(QWidget):
                 button.setIconSize(QSize(_CHIP_PX, _CHIP_PX))
                 button.setToolTip(f"Display configuration {name!r}")
                 button.setChecked(name == self._active)
-                # Insert before the trailing stretch + manage button, so the tabs stay
-                # left-aligned and the gear stays pinned to the right end.
-                self._layout.insertWidget(self._layout.count() - _TRAILING_ITEMS, button)
+                # Insert before the strip's trailing stretch, so the tabs stay
+                # left-aligned inside the scrollable row (CU-341).
+                self._tabs_layout.insertWidget(self._tabs_layout.count() - 1, button)
                 self._group.addButton(button, index)
                 self._buttons.append(button)
         finally:
             self._updating = False
+        self._scroll_active_into_view()
+
+    def _scroll_active_into_view(self) -> None:
+        """Keep the active tab visible inside the scrollable strip (CU-341).
+
+        No-op when nothing overflows (the scrollbar has no range) or when the
+        bar is empty; the margin leaves a sliver of the neighbouring tab
+        visible so an overflowing strip reads as continuing.
+        """
+        if self._active is None or self._active not in self._names:
+            return
+        index = self._names.index(self._active)
+        if index >= len(self._buttons):
+            return
+        self._scroll.ensureWidgetVisible(self._buttons[index], _SCROLL_MARGIN_PX, 0)
 
     @staticmethod
     def _accent_icon(colour: str) -> QIcon:

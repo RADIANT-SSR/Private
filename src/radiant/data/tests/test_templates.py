@@ -29,7 +29,11 @@ class TestTemplateFiles:
     @pytest.mark.level1
     def test_templates_exist(self) -> None:
         paths = _template_paths()
-        assert len(paths) >= 12, f"Expected ≥12 templates, found {len(paths)}"
+        # CU-339 (2026-09-07): the twelve inferrer-corpus configs moved to
+        # tests/integration/fixtures/inferrer_corpus/ — examples/templates/ is
+        # now exactly the six user-facing mission templates the welcome screen
+        # discovers (each carrying _radiant.template metadata).
+        assert len(paths) == 6, f"Expected the 6 mission templates, found {len(paths)}"
 
     @pytest.mark.level1
     @pytest.mark.parametrize("path", _template_paths(), ids=_template_ids())

@@ -619,7 +619,7 @@ Complete, loadable configurations live in the repository and are the authoritati
 |------|----------|
 | `examples/mwir_leo_minimal.yaml` | Minimal MWIR LEO extended scene (reference case for `tests/integration/test_chain_extended.py`) |
 | `examples/ground_truth_mwir.yaml` | Hand-computable single-wavelength MWIR ground truth (exo atmosphere) |
-| `examples/templates/*.yaml` | Twelve band/platform templates (MWIR/LWIR/SWIR/VNIR × LEO/GEO/aerial/ground), served by `radiant template` |
+| `examples/templates/*.yaml` | The six user-facing mission templates (welcome-screen discovery via `_radiant.template`); the twelve Phase-2E band/platform configs moved to `tests/integration/fixtures/inferrer_corpus/` as the source-inferrer golden corpus (CU-339, 2026-09-07) |
 
 Two of them, inline:
 
@@ -665,7 +665,7 @@ readout:
   full_well_capacity_e: 2000000.0  # e- (2 Me-, typical MWIR HgCdTe)
 ```
 
-### Config 2: VNIR LEO High-Resolution (`examples/templates/vnir_leo_highres.yaml`)
+### Config 2: VNIR LEO High-Resolution (`tests/integration/fixtures/inferrer_corpus/vnir_leo_highres.yaml`)
 
 ```yaml
 # RADIANT template: vnir_leo_highres

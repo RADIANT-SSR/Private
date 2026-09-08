@@ -170,20 +170,20 @@ Classification per Stage 0 step 6 of the plan. These buckets are the gate for th
 
 | Scenario | Classification | Cell Ref | Justification |
 |---|---|---|---|
-| [examples/templates/lwir_aerial_survey.yaml](../examples/templates/lwir_aerial_survey.yaml) | invariant | Cell 28 | Terrestrial LWIR extended, h_tgt = 0, `simple` atm → handled correctly today. |
-| [examples/templates/lwir_geo.yaml](../examples/templates/lwir_geo.yaml) | invariant | Cell 28 | Same as above, GEO altitude but still terrestrial LWIR extended with `simple` atm. |
-| [examples/templates/lwir_leo_sounder.yaml](../examples/templates/lwir_leo_sounder.yaml) | invariant | Cell 28 | Same as above, LEO sensor, ground target, `simple` atm. |
-| [examples/templates/swir_leo.yaml](../examples/templates/swir_leo.yaml) | expected_to_change_at_stage_3 | — | SWIR — Stage 3 adds two-leg τ_sun/τ_up; today's single-τ under-attenuates the down-leg. |
-| [examples/templates/swir_aerial_gas.yaml](../examples/templates/swir_aerial_gas.yaml) | expected_to_change_at_stage_3 | — | SWIR aerial; same Stage 3 two-leg concern. Also has a pre-existing MTF consistency warning orthogonal to Option C. |
-| [examples/templates/vnir_aerial.yaml](../examples/templates/vnir_aerial.yaml) | expected_to_change_at_stage_3 | — | VNIR reflective — Stage 3 adds two-leg τ split + E_sky scattered-solar term. |
-| [examples/templates/vnir_leo_highres.yaml](../examples/templates/vnir_leo_highres.yaml) | expected_to_change_at_stage_3 | — | Same as above. |
-| [examples/templates/vnir_leo_multispectral.yaml](../examples/templates/vnir_leo_multispectral.yaml) | expected_to_change_at_stage_3 | — | Same as above. |
+| [tests/integration/fixtures/inferrer_corpus/lwir_aerial_survey.yaml](../../tests/integration/fixtures/inferrer_corpus/lwir_aerial_survey.yaml) | invariant | Cell 28 | Terrestrial LWIR extended, h_tgt = 0, `simple` atm → handled correctly today. |
+| [tests/integration/fixtures/inferrer_corpus/lwir_geo.yaml](../../tests/integration/fixtures/inferrer_corpus/lwir_geo.yaml) | invariant | Cell 28 | Same as above, GEO altitude but still terrestrial LWIR extended with `simple` atm. |
+| [tests/integration/fixtures/inferrer_corpus/lwir_leo_sounder.yaml](../../tests/integration/fixtures/inferrer_corpus/lwir_leo_sounder.yaml) | invariant | Cell 28 | Same as above, LEO sensor, ground target, `simple` atm. |
+| [tests/integration/fixtures/inferrer_corpus/swir_leo.yaml](../../tests/integration/fixtures/inferrer_corpus/swir_leo.yaml) | expected_to_change_at_stage_3 | — | SWIR — Stage 3 adds two-leg τ_sun/τ_up; today's single-τ under-attenuates the down-leg. |
+| [tests/integration/fixtures/inferrer_corpus/swir_aerial_gas.yaml](../../tests/integration/fixtures/inferrer_corpus/swir_aerial_gas.yaml) | expected_to_change_at_stage_3 | — | SWIR aerial; same Stage 3 two-leg concern. Also has a pre-existing MTF consistency warning orthogonal to Option C. |
+| [tests/integration/fixtures/inferrer_corpus/vnir_aerial.yaml](../../tests/integration/fixtures/inferrer_corpus/vnir_aerial.yaml) | expected_to_change_at_stage_3 | — | VNIR reflective — Stage 3 adds two-leg τ split + E_sky scattered-solar term. |
+| [tests/integration/fixtures/inferrer_corpus/vnir_leo_highres.yaml](../../tests/integration/fixtures/inferrer_corpus/vnir_leo_highres.yaml) | expected_to_change_at_stage_3 | — | Same as above. |
+| [tests/integration/fixtures/inferrer_corpus/vnir_leo_multispectral.yaml](../../tests/integration/fixtures/inferrer_corpus/vnir_leo_multispectral.yaml) | expected_to_change_at_stage_3 | — | Same as above. |
 | [examples/ground_truth_mwir.yaml](../examples/ground_truth_mwir.yaml) | expected_to_change_at_stage_6 | — | MWIR mixed — Stage 6 separates E_sky scattered vs. thermal; today's single-graybody approximation will shift. |
 | [examples/mwir_leo_minimal.yaml](../examples/mwir_leo_minimal.yaml) | expected_to_change_at_stage_6 | — | Same as above. |
-| [examples/templates/mwir_aerial_flir.yaml](../examples/templates/mwir_aerial_flir.yaml) | expected_to_change_at_stage_6 | — | Same as above. |
-| [examples/templates/mwir_leo_pushbroom.yaml](../examples/templates/mwir_leo_pushbroom.yaml) | expected_to_change_at_stage_6 | — | Same as above. |
-| [examples/templates/mwir_leo_starer.yaml](../examples/templates/mwir_leo_starer.yaml) | expected_to_change_at_stage_6 | — | Same as above. |
-| [examples/templates/mwir_ground_test.yaml](../examples/templates/mwir_ground_test.yaml) | expected_to_change_at_stage_6 | — | MWIR ground test — band-rule bucketed here. Note: this is a candidate `no_atmosphere (ground_test)` sub-case that will ultimately land in **Stage 7** with the sub-case presets. The coarse classifier uses wavelength only; manual reviewer should upgrade this entry's `classification` field before Stage 3 exits if a cleaner Stage-7 label is desired. |
+| [tests/integration/fixtures/inferrer_corpus/mwir_aerial_flir.yaml](../../tests/integration/fixtures/inferrer_corpus/mwir_aerial_flir.yaml) | expected_to_change_at_stage_6 | — | Same as above. |
+| [tests/integration/fixtures/inferrer_corpus/mwir_leo_pushbroom.yaml](../../tests/integration/fixtures/inferrer_corpus/mwir_leo_pushbroom.yaml) | expected_to_change_at_stage_6 | — | Same as above. |
+| [tests/integration/fixtures/inferrer_corpus/mwir_leo_starer.yaml](../../tests/integration/fixtures/inferrer_corpus/mwir_leo_starer.yaml) | expected_to_change_at_stage_6 | — | Same as above. |
+| [tests/integration/fixtures/inferrer_corpus/mwir_ground_test.yaml](../../tests/integration/fixtures/inferrer_corpus/mwir_ground_test.yaml) | expected_to_change_at_stage_6 | — | MWIR ground test — band-rule bucketed here. Note: this is a candidate `no_atmosphere (ground_test)` sub-case that will ultimately land in **Stage 7** with the sub-case presets. The coarse classifier uses wavelength only; manual reviewer should upgrade this entry's `classification` field before Stage 3 exits if a cleaner Stage-7 label is desired. |
 
 ### Known classifier caveats
 

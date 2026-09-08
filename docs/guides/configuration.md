@@ -197,10 +197,10 @@ radiant template show mwir_leo_pushbroom   # print the YAML
 radiant template create mwir_leo_pushbroom # write to mwir_leo_pushbroom.yaml
 ```
 
-Template YAML files are also in `examples/templates/` for direct use:
+The six mission templates are in `examples/templates/` for direct use (the twelve inferrer-corpus configs that used to share the directory moved to `tests/integration/fixtures/inferrer_corpus/` — CU-339):
 
 ```bash
-radiant run examples/templates/mwir_aerial_flir.yaml
+radiant run examples/templates/leo_mapping_extended.yaml
 ```
 
 ---

@@ -100,7 +100,7 @@ depends on radiance (W/m^2/sr/um) only --- the pixel sees a uniform field.
 Typical targets: terrain, water, buildings, forest canopy, cloud tops.
 
 ```bash
-radiant run examples/templates/mwir_leo_pushbroom.yaml
+radiant run examples/mwir_leo_minimal.yaml
 ```
 
 No `projected_area_m2` or `range_m` needed --- extended is the default when
@@ -117,7 +117,7 @@ Typical targets: small vehicles, people, small boats from high altitude.
 ```python
 from radiant.api import Sensor
 
-sensor = Sensor.from_yaml("examples/templates/mwir_leo_pushbroom.yaml")
+sensor = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
 sensor.set("source.target.projected_area_m2", 10.0)  # 10 m^2 vehicle
 sensor.set("geometry.target_range_m", 8000.0)
 sensor.set("source.target.fill_fraction", 0.3)
@@ -136,7 +136,7 @@ Typical targets: stars, distant missiles, satellites, laser glints.
 ```python
 from radiant.api import Sensor
 
-sensor = Sensor.from_yaml("examples/templates/mwir_leo_pushbroom.yaml")
+sensor = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
 sensor.set("source.target.projected_area_m2", 0.01)   # tiny
 sensor.set("geometry.target_range_m", 100000.0)          # 100 km
 result = sensor.evaluate()

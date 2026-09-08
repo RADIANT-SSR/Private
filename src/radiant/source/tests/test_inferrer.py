@@ -135,21 +135,21 @@ ScenarioExpectation = tuple[str, str, str, str, str | None]
 
 _EXPECTED: dict[str, ScenarioExpectation] = {
     # LWIR thermal extended terrestrial (Cell 28 family) — simple atmosphere
-    "examples/templates/lwir_aerial_survey.yaml": (
+    "tests/integration/fixtures/inferrer_corpus/lwir_aerial_survey.yaml": (
         "extended",
         "terrestrial",
         "",
         "T1Thermal",
         None,
     ),
-    "examples/templates/lwir_geo.yaml": (
+    "tests/integration/fixtures/inferrer_corpus/lwir_geo.yaml": (
         "extended",
         "terrestrial",
         "",
         "T1Thermal",
         None,
     ),
-    "examples/templates/lwir_leo_sounder.yaml": (
+    "tests/integration/fixtures/inferrer_corpus/lwir_leo_sounder.yaml": (
         "extended",
         "terrestrial",
         "",
@@ -173,28 +173,28 @@ _EXPECTED: dict[str, ScenarioExpectation] = {
         "T3Mixed",
         None,
     ),
-    "examples/templates/mwir_aerial_flir.yaml": (
+    "tests/integration/fixtures/inferrer_corpus/mwir_aerial_flir.yaml": (
         "extended",
         "terrestrial",
         "",
         "T3Mixed",
         None,
     ),
-    "examples/templates/mwir_ground_test.yaml": (
+    "tests/integration/fixtures/inferrer_corpus/mwir_ground_test.yaml": (
         "extended",
         "terrestrial",
         "",
         "T3Mixed",
         None,
     ),
-    "examples/templates/mwir_leo_pushbroom.yaml": (
+    "tests/integration/fixtures/inferrer_corpus/mwir_leo_pushbroom.yaml": (
         "extended",
         "terrestrial",
         "",
         "T3Mixed",
         None,
     ),
-    "examples/templates/mwir_leo_starer.yaml": (
+    "tests/integration/fixtures/inferrer_corpus/mwir_leo_starer.yaml": (
         "extended",
         "terrestrial",
         "",
@@ -202,14 +202,14 @@ _EXPECTED: dict[str, ScenarioExpectation] = {
         None,
     ),
     # SWIR LEO: simple atm, extended
-    "examples/templates/swir_aerial_gas.yaml": (
+    "tests/integration/fixtures/inferrer_corpus/swir_aerial_gas.yaml": (
         "extended",
         "terrestrial",
         "",
         "T1Thermal",
         None,
     ),
-    "examples/templates/swir_leo.yaml": (
+    "tests/integration/fixtures/inferrer_corpus/swir_leo.yaml": (
         "extended",
         "terrestrial",
         "",
@@ -217,21 +217,21 @@ _EXPECTED: dict[str, ScenarioExpectation] = {
         None,
     ),
     # VNIR: simple atm, extended
-    "examples/templates/vnir_aerial.yaml": (
+    "tests/integration/fixtures/inferrer_corpus/vnir_aerial.yaml": (
         "extended",
         "terrestrial",
         "",
         "T1Thermal",
         None,
     ),
-    "examples/templates/vnir_leo_highres.yaml": (
+    "tests/integration/fixtures/inferrer_corpus/vnir_leo_highres.yaml": (
         "extended",
         "terrestrial",
         "",
         "T1Thermal",
         None,
     ),
-    "examples/templates/vnir_leo_multispectral.yaml": (
+    "tests/integration/fixtures/inferrer_corpus/vnir_leo_multispectral.yaml": (
         "extended",
         "terrestrial",
         "",
@@ -361,7 +361,12 @@ class TestExplicitOverrides:
     def test_explicit_scene_type_overrides_inference(self) -> None:
         params = build_parameter_set()
         load_config(
-            REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
+            REPO_ROOT
+            / "tests"
+            / "integration"
+            / "fixtures"
+            / "inferrer_corpus"
+            / "lwir_aerial_survey.yaml",
             params,
         )
         params.set("source.scene_type", "sub_pixel")
@@ -428,7 +433,12 @@ class TestFailureModes:
         """Matrix §7: target_location='no_atmosphere' requires a subcase."""
         params = build_parameter_set()
         load_config(
-            REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
+            REPO_ROOT
+            / "tests"
+            / "integration"
+            / "fixtures"
+            / "inferrer_corpus"
+            / "lwir_aerial_survey.yaml",
             params,
         )
         params.set("source.target_location", "no_atmosphere")
@@ -443,7 +453,12 @@ class TestFailureModes:
         """Matrix §7: at_aperture is extended-only."""
         params = build_parameter_set()
         load_config(
-            REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
+            REPO_ROOT
+            / "tests"
+            / "integration"
+            / "fixtures"
+            / "inferrer_corpus"
+            / "lwir_aerial_survey.yaml",
             params,
         )
         params.set("source.target_location", "at_aperture")
@@ -460,7 +475,12 @@ class TestFailureModes:
         gone and ε_g(λ) equals the scalar at every bin."""
         params = build_parameter_set()
         load_config(
-            REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
+            REPO_ROOT
+            / "tests"
+            / "integration"
+            / "fixtures"
+            / "inferrer_corpus"
+            / "lwir_aerial_survey.yaml",
             params,
         )
         params.set("source.scene_type", "sub_pixel")
@@ -485,7 +505,12 @@ class TestFailureModes:
         the chamber temperature was left at the schema default."""
         params = build_parameter_set()
         load_config(
-            REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
+            REPO_ROOT
+            / "tests"
+            / "integration"
+            / "fixtures"
+            / "inferrer_corpus"
+            / "lwir_aerial_survey.yaml",
             params,
         )
         params.set("source.target_location", "no_atmosphere")
@@ -531,7 +556,12 @@ class TestFailureModes:
         D-lab dark-cal scene — the assertion passes."""
         params = build_parameter_set()
         load_config(
-            REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
+            REPO_ROOT
+            / "tests"
+            / "integration"
+            / "fixtures"
+            / "inferrer_corpus"
+            / "lwir_aerial_survey.yaml",
             params,
         )
         params.set("source.target_location", "no_atmosphere")
@@ -552,7 +582,12 @@ class TestFailureModes:
         def _run(mode: str | None):
             params = build_parameter_set()
             load_config(
-                REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
+                REPO_ROOT
+                / "tests"
+                / "integration"
+                / "fixtures"
+                / "inferrer_corpus"
+                / "lwir_aerial_survey.yaml",
                 params,
             )
             params.set("source.target_location", "no_atmosphere")
@@ -581,10 +616,10 @@ class TestRoundTrip:
         "scenario_name",
         [
             # LWIR thermal extended terrestrial
-            "examples/templates/lwir_aerial_survey.yaml",
+            "tests/integration/fixtures/inferrer_corpus/lwir_aerial_survey.yaml",
             # VIS reflective extended terrestrial (represented as T1Thermal
             # today because Stage-2 inferrer only synthesises T1)
-            "examples/templates/vnir_aerial.yaml",
+            "tests/integration/fixtures/inferrer_corpus/vnir_aerial.yaml",
             # Space sub-case
             "examples/ground_truth_mwir.yaml",
         ],
@@ -663,7 +698,12 @@ class TestInfererHelpers:
     def test_infer_scene_type_extended_default(self) -> None:
         params = build_parameter_set()
         load_config(
-            REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
+            REPO_ROOT
+            / "tests"
+            / "integration"
+            / "fixtures"
+            / "inferrer_corpus"
+            / "lwir_aerial_survey.yaml",
             params,
         )
         params.resolve()
@@ -678,7 +718,12 @@ class TestInfererHelpers:
     def test_infer_scene_type_fill_fraction_forces_subpixel(self) -> None:
         params = build_parameter_set()
         load_config(
-            REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
+            REPO_ROOT
+            / "tests"
+            / "integration"
+            / "fixtures"
+            / "inferrer_corpus"
+            / "lwir_aerial_survey.yaml",
             params,
         )
         params.set("source.target.fill_fraction", 0.3)
@@ -703,7 +748,12 @@ class TestInfererHelpers:
     def test_infer_target_location_simple_to_terrestrial(self) -> None:
         params = build_parameter_set()
         load_config(
-            REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml",
+            REPO_ROOT
+            / "tests"
+            / "integration"
+            / "fixtures"
+            / "inferrer_corpus"
+            / "lwir_aerial_survey.yaml",
             params,
         )
         params.resolve()

@@ -38,7 +38,15 @@ _WL_LWIR = np.linspace(8.0, 13.0, 11)
 
 def _sub_pixel_params(material: str | None = None, emissivity_path: str | None = None):
     params = build_parameter_set()
-    load_config(REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml", params)
+    load_config(
+        REPO_ROOT
+        / "tests"
+        / "integration"
+        / "fixtures"
+        / "inferrer_corpus"
+        / "lwir_aerial_survey.yaml",
+        params,
+    )
     params.set("source.scene_type", "sub_pixel")
     params.set("source.target.fill_fraction", 0.5)
     if material is not None:
@@ -143,7 +151,15 @@ class TestEndToEnd:
         def _run(material: str | None):
             session = RadiantSession(wavelength_um=np.linspace(8.0, 13.0, 201))
             params = session.default_params()
-            load_config(REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml", params)
+            load_config(
+                REPO_ROOT
+                / "tests"
+                / "integration"
+                / "fixtures"
+                / "inferrer_corpus"
+                / "lwir_aerial_survey.yaml",
+                params,
+            )
             params.set("source.scene_type", "sub_pixel")
             params.set("source.regime_override", "sub_pixel")  # keep in-pixel bg
             params.set("source.target.fill_fraction", 0.3)

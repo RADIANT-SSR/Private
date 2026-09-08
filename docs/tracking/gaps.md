@@ -1746,6 +1746,26 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Impact** | The sensor-designer persona (blank-sheet MCT trades: cutoff/temperature sweeps, dark-limited NEDT floor, BLIP and crossover temperatures) has no citable dark-current source; the Personas doc explicitly promises "Rule 07 or measured data". Until fixed, the three doc claims mislead contributors. |
 | **Suggested fix** | `detector.dark_model` enum (measured-rate default \| `rule07` \| `rule22`) + one predictive-law module in `detector/` (Rule 19: one model family, two coefficient sets); A/cm² → e⁻/s/pixel via pixel area at the boundary (Rule 2); mutual-exclusion validation against an explicit measured rate (over-specification, Rule 5 spirit); validity-range guards on λe·T; HgCdTe-only as published. Truth anchors from the published coefficients. Default preserves all golden results. Effort S–M; Category C. CHANGELOG (b: new public surface) + lock-step docs in the same PR. |
 
+## Gap 124: No accessor isolates the reflected-solar component of at-aperture radiance — the Source reflective tab shows only the total moving with day/night
+
+| | |
+|---|---|
+| **Found in** | GT-0 punch list, `GUI_Trade_Study_and_Reporting_Plan.md` (owner Source-screen walkthrough 2026-07-16) — noted as "file as a gap when the tab lands if the owner wants the curve". Filed 2026-09-07 at the plan's closeout (owner ratified the closeout recommendation, which settles the two unfiled GT-0 loose ends by recording them). |
+| **Status** | OPEN — GUI/API follow-on, unscheduled. |
+| **Description** | The Source → Target-reflective tab plots the total at-aperture radiance; toggling `geometry.solar_illumination` moves the curve, but no public accessor isolates the *reflected-solar component* — `atmosphere/assembly.py` composes the reflected, emissive, and path terms internally and only the total is surfaced. A component accessor in the style of the pre-atmosphere emission accessor (`spectral_source_emission`) would enable a dedicated reflected-component curve. |
+| **Impact** | The analyst infers the solar contribution by eyeballing the day/night curve delta or differencing script-side; there is no direct read of the solar-vs-thermal share on a mixed scene. Distinct from Gap 59 (RESOLVED — the day/night *toggle*): this is the missing *decomposition* of the resulting total. |
+| **Suggested fix** | Expose a reflected-solar-component spectral accessor on the result/plot surface and add one curve to the Source reflective tab. Results-neutral (read-only decomposition). Effort S; Category B (accessor) + D (GUI curve). |
+
+## Gap 125: Background reflection is Lambertian-diffuse only — the background arm ignores the BRDF machinery, so sun-glint / specular backgrounds are inexpressible
+
+| | |
+|---|---|
+| **Found in** | GT-0 punch list candidate ("owner to confirm"), `GUI_Trade_Study_and_Reporting_Plan.md`, 2026-07-16. Confirmed and filed 2026-09-07 at the plan's closeout (owner ratified the closeout recommendation). |
+| **Status** | OPEN — unscheduled. |
+| **Description** | Target-side BRDFs exist (`source/brdf_phong.py`, `source/brdf_lambertian.py`), but the background arm derives daytime ground reflection solely from the diffuse Kirchhoff albedo ρ_g = 1 − ε_g (`atmosphere/assembly.py::_ground_background_source_emission`). No BRDF, specular lobe, or glint model can be attached to the background/ground surface. |
+| **Impact** | Maritime sun-glint and low-sun specular-background scenes read as diffuse: background radiance is underestimated near the specular lobe, overstating target contrast exactly where glint clutter dominates real detection performance. |
+| **Suggested fix** | Let the background material definition accept an optional BRDF, mirroring the target-side plumbing, and route it through the ground-reflection term in the assembly. Results-affecting only when a BRDF is specified (diffuse default preserves all golden results). Effort M; Category C. |
+
 ## Summary Table
 
 | # | Gap | Effort | Scenarios impacted | Status |

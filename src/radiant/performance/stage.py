@@ -269,7 +269,13 @@ def _compute_spatial_metrics(
             fl_check = 0.0
 
         if fl_check > 0.0:
-            consistency = check_dual_path_consistency(epsf, state.mtf_terms, freq_mrad, fl_check)
+            consistency = check_dual_path_consistency(
+                epsf,
+                state.mtf_terms,
+                freq_mrad,
+                fl_check,
+                nyquist_cycles_per_mrad=f_ny * fl_check / 1e3,
+            )
             state = state.with_stage_output("performance", "dual_path_consistency", consistency)
             if not (consistency.passed_x and consistency.passed_y):
                 logger.warning(

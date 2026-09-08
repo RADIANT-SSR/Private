@@ -169,3 +169,69 @@ class TestAnisotropy:
         result = check_dual_path_consistency(epsf, terms, freq_mrad, FOCAL_LENGTH_M)
         assert not result.passed_x
         assert result.passed_y
+
+
+class TestNyquistCap:
+    """CU-345 (owner-ratified 2026-09-07): the comparison stops at detector Nyquist.
+
+    The historical reach — half the PSF frequency grid — lands 4–8× past
+    detector Nyquist on shipped configs and probes pixel-sinc sidelobes whose
+    residual is pure discretization. A divergence beyond Nyquist must not fail
+    the check; a divergence below Nyquist still must.
+    """
+
+    def _grids(self) -> tuple[np.ndarray, np.ndarray, float]:
+        # PSF grid reaching 4× detector Nyquist, mimicking psf_oversample = 8.
+        nyq_m = 1.0 / (2 * PIXEL_PITCH_M)
+        freq_m = np.linspace(0, 8.0 * nyq_m, 400)
+        freq_mrad = freq_m * FOCAL_LENGTH_M * 1e-3
+        nyq_mrad = nyq_m * FOCAL_LENGTH_M * 1e-3
+        return freq_m, freq_mrad, nyq_mrad
+
+    @pytest.mark.level1
+    def test_divergence_beyond_nyquist_is_ignored(self) -> None:
+        freq_m, freq_mrad, nyq_mrad = self._grids()
+        mtf = _make_gaussian_mtf(freq_m, 2e-6)
+        # Corrupt the product path only above Nyquist (sidelobe territory).
+        corrupted = mtf.copy()
+        corrupted[freq_mrad > nyq_mrad] += 0.05
+
+        epsf = _FakeEPSF(freq_m=freq_m, mtf_x=mtf, mtf_y=mtf)
+        terms = {"mtf_optics_x": corrupted, "mtf_optics_y": corrupted}
+
+        capped = check_dual_path_consistency(
+            epsf, terms, freq_mrad, FOCAL_LENGTH_M, nyquist_cycles_per_mrad=nyq_mrad
+        )
+        assert capped.passed_x and capped.passed_y
+        assert capped.max_absolute_error_x < 1e-10
+
+        # The same corruption fails without the cap — the pre-CU-345 behavior,
+        # proving the cap (not luck) is what admits it.
+        uncapped = check_dual_path_consistency(epsf, terms, freq_mrad, FOCAL_LENGTH_M)
+        assert not uncapped.passed_x
+
+    @pytest.mark.level1
+    def test_divergence_below_nyquist_still_fails(self) -> None:
+        freq_m, freq_mrad, nyq_mrad = self._grids()
+        mtf = _make_gaussian_mtf(freq_m, 2e-6)
+        # A genuinely missing degradation term moves the product below Nyquist.
+        corrupted = mtf.copy()
+        corrupted[(freq_mrad > 0.2 * nyq_mrad) & (freq_mrad <= nyq_mrad)] += 0.05
+
+        epsf = _FakeEPSF(freq_m=freq_m, mtf_x=mtf, mtf_y=mtf)
+        terms = {"mtf_optics_x": corrupted, "mtf_optics_y": corrupted}
+
+        result = check_dual_path_consistency(
+            epsf, terms, freq_mrad, FOCAL_LENGTH_M, nyquist_cycles_per_mrad=nyq_mrad
+        )
+        assert not result.passed_x
+        assert not result.passed_y
+
+    @pytest.mark.level1
+    def test_none_preserves_the_half_grid_reach(self) -> None:
+        freq_m, freq_mrad, _ = self._grids()
+        mtf = _make_gaussian_mtf(freq_m, 2e-6)
+        epsf = _FakeEPSF(freq_m=freq_m, mtf_x=mtf, mtf_y=mtf)
+        terms = {"mtf_optics_x": mtf, "mtf_optics_y": mtf}
+        result = check_dual_path_consistency(epsf, terms, freq_mrad, FOCAL_LENGTH_M)
+        assert result.passed_x and result.passed_y

@@ -40,6 +40,7 @@ def check_dual_path_consistency(
     freq_cycles_per_mrad: npt.NDArray[np.float64],
     focal_length_m: float,
     tolerance: float = 2e-2,
+    nyquist_cycles_per_mrad: float | None = None,
 ) -> DualPathConsistencyResult:
     """Compare FFT(convolved PSF) vs MTF product for both x and y.
 
@@ -61,6 +62,18 @@ def check_dual_path_consistency(
         Q ≈ 0.2 VNIR), so the default carries ~2x margin. The check stays
         warn-only by design — it is a diagnostic invariant, and raising
         would abort user runs whose physics is otherwise valid.
+    nyquist_cycles_per_mrad:
+        Detector Nyquist frequency on the angular axis (CU-345, owner-ratified
+        2026-09-07). When given, the comparison stops there instead of at half
+        the PSF frequency grid — a grid-convention reach that grows with
+        ``psf_oversample`` and lands 4–8× past detector Nyquist on shipped
+        configs, deep in the pixel-sinc sidelobes where the analytic sinc and
+        the DFT of the discrete area-integrated pixel kernel diverge by O(2 %)
+        pure discretization (measured on the 9.4 OLI-2 bands; sub-Nyquist the
+        same worst case reads 0.005). Every consumer metric (MTF@Nyquist,
+        GIQE, the folded MTF's pre-fold input) lives at or below Nyquist, and
+        a genuinely missing degradation term shows there, so the cap loses no
+        detection power. ``None`` preserves the historical half-grid reach.
 
     Returns
     -------
@@ -87,8 +100,14 @@ def check_dual_path_consistency(
         # Interpolate product onto PSF frequency grid for comparison.
         product_interp = np.interp(freq_psf_mrad, freq_cycles_per_mrad, product, right=0.0)
 
-        # Compare only the first half (below Nyquist) where both are reliable.
+        # Compare only the first half of the PSF grid, where both paths are
+        # reliable — and no further than detector Nyquist when it is known
+        # (CU-345): beyond it the comparison probes pixel-sinc sidelobes whose
+        # discretization residual is physics-free.
         n_compare = len(freq_psf_mrad) // 2
+        if nyquist_cycles_per_mrad is not None and nyquist_cycles_per_mrad > 0.0:
+            below = int(np.searchsorted(freq_psf_mrad, nyquist_cycles_per_mrad, side="right"))
+            n_compare = min(n_compare, below)
         if n_compare < 2:
             results[axis] = (True, 0.0)
             continue

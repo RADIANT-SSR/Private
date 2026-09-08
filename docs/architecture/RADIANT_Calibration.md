@@ -107,6 +107,24 @@ SWIR@300 K and ~$2\times10^{-5}$ LWIR@77 K lab stay quiet). A flux-declared
 cal point (integrating-sphere flat field) is inexpressible in v1 — the
 flux-ratio door is tracked under Gap 122.
 
+**Cal-source spatial non-uniformity (Gap 122 item 1, 2026-09-07).** A real
+blackbody holds ±0.01–0.05 K (1σ) across its aperture; at cal time each pixel
+views a slightly different source temperature and the correction imprints the
+pattern. `calibration.source_uniformity_K` (1σ, default 0.0 = off,
+bit-identical) drives a fourth residual noise term `cal_source_uniformity`:
+
+$$\sigma_{unif}(S) = \Delta T_{unif} \cdot \frac{\lvert D_1 (S_2 - S) + D_2 (S - S_1)\rvert}{S_2 - S_1} \;\; \text{(two-point)}, \qquad \sigma_{unif} = \Delta T_{unif} \cdot D_1 \;\; \text{(one-point)}$$
+
+with $D_j = dS/dT\rvert_{T_{cal,j}}$ through the band Planck-ratio mapping
+(`cal_point_ds_dt_e_per_K`). The same plate is viewed at both cal points and a
+cavity gradient is temperature-independent in kelvin to first order, so the two
+imprints combine **linearly** (correlated), not in RSS — the documented
+assumption. Unlike the NUC parabola this term does **not** vanish at the cal
+points ($\sigma(S_1) = \Delta T_{unif} D_1$), retiring v1's
+exactly-zero-residual-at-cal-point optimism; it enters `sigma_calibration_e`
+and the post-scaling noise position (√N-exempt) like its siblings, and sets a
+calibration-limited NEDT floor $\approx \Delta T_{unif}$ when it dominates.
+
 ## 3. Parameters
 
 The `calibration.*` namespace — see `calibration/_schema.py` and

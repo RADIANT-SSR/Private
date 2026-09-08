@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-348 — All-Parameters panel: the name column collapses to nothing at the narrow window widths CU-341 made reachable
+
+**Discovered**: owner live review, 2026-09-07 — "something happened to the side table" with a ~360 px window screenshot: the Parameter column squeezed to ~40 px (header clipped to "Paraı"), every row showing only its value.
+**Status**: Open — in work same session (branch `cu348/param-name-floor`).
+**File**: `src/radiant/gui/widgets/parameter_panel.py:229-234` (CU-328 sizing: name = Stretch absorbs the *deficit* down to Qt's 16 px floor; Value/Source = rigid ResizeToContents, and Value's width is set by the widest value in the whole tree — `~/.radiant/modtran_cache`, 180 px, a path default that may not even be scrolled into view).
+**Symptom**: reproduced offscreen at a 340 px panel: name 66 px / value 180 px / source 50 px. CU-341's tab-scroll fix removed the config bar's large window minimum, making these widths reachable for the first time — a latent narrow-width defect unmasked, the CU-328 failure mode at a new operating point.
+**Why it still matters**: workflow-visible (intake test 4) — owner hit it live the same day the narrow widths became reachable.
+**Suggested fix**: (a) inline-fix-now — hard floor on the name column with horizontal scrolling below it, cap the value column's content sizing so a single long path cannot starve every name, rebalance on viewport resize. Effort S; category A.
+
 ### CU-339 — `examples/templates/` doubles as the source-inferrer golden corpus: twelve Phase-2E configs are load-bearing test inputs wearing a user-facing home
 
 **Discovered**: mission-template welcome-screen build (branch `gui/mission-templates`), 2026-09-01. **Renumbered from CU-338** (2026-09-01): two sessions minted CU-338 the same day; the emitter finding's stub (`07fec66d`) reached `origin/main` first and holds the number — this mint (`d31a7d2a`) raced the reservation (fetch-before-mint missed) and takes the next free ID. Any in-flight branch text citing CU-338 for the templates-corpus finding means this entry — the owner-ruled supersede of the Phase-2E starters broke collection: `src/radiant/source/tests/test_inferrer.py` parametrizes over them via `tests/integration/snapshots/option_c_baseline.yaml` (path-keyed), 12 descriptor snapshots live in `src/radiant/source/tests/snapshots/`, `src/radiant/data/tests/test_templates.py` tests the set directly, and four guides (`configuration`, `trade_studies`, `regime_selection`, + Config_Format) cite the files.

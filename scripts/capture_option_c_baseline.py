@@ -128,6 +128,13 @@ def _discover_yaml_scenarios() -> list[tuple[str, Path]]:
     for pat in ("*.yaml", "*.yml"):
         for p in sorted(EXAMPLES_DIR.rglob(pat)):
             found.append((str(p.relative_to(REPO_ROOT)), p))
+    # The inferrer corpus (CU-339, 2026-09-07): the twelve Phase-2E configs
+    # moved out of examples/templates/ to a fixtures home; a re-capture must
+    # still cover them or the baseline silently loses 12 of its keys.
+    corpus = REPO_ROOT / "tests" / "integration" / "fixtures" / "inferrer_corpus"
+    for pat in ("*.yaml", "*.yml"):
+        for p in sorted(corpus.rglob(pat)):
+            found.append((str(p.relative_to(REPO_ROOT)), p))
     return found
 
 

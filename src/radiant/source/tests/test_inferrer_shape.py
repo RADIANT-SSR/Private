@@ -72,7 +72,9 @@ _GEO_TARGET_EXTENT = (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-_LWIR_TEMPLATE = REPO_ROOT / "examples" / "templates" / "lwir_aerial_survey.yaml"
+_LWIR_TEMPLATE = (
+    REPO_ROOT / "tests" / "integration" / "fixtures" / "inferrer_corpus" / "lwir_aerial_survey.yaml"
+)
 
 
 # ---------------------------------------------------------------------------

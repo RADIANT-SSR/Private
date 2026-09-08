@@ -125,8 +125,8 @@ increasing the parameter decreases the metric.
 ### CLI
 
 ```bash
-radiant compare examples/templates/mwir_leo_pushbroom.yaml \
-                examples/templates/mwir_aerial_flir.yaml
+radiant compare examples/mwir_leo_minimal.yaml \
+                examples/templates/leo_mapping_extended.yaml
 ```
 
 ### Python
@@ -134,7 +134,7 @@ radiant compare examples/templates/mwir_leo_pushbroom.yaml \
 ```python
 from radiant.api import Sensor
 
-baseline = Sensor.from_yaml("examples/templates/mwir_leo_pushbroom.yaml")
+baseline = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
 upgraded = baseline.clone()
 upgraded.set("optics.aperture_diameter_m", 0.50)
 upgraded.set("detector.qe_value", 0.80)
@@ -318,7 +318,7 @@ Starting from the MWIR LEO pushbroom template:
 from radiant.api import Sensor
 import numpy as np
 
-sensor = Sensor.from_yaml("examples/templates/mwir_leo_pushbroom.yaml")
+sensor = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
 
 # Sweep aperture from 0.05 m to 0.60 m
 sweep = sensor.sweep(
@@ -342,7 +342,7 @@ acceptable at the chosen aperture:
 from radiant.api import Sensor
 import numpy as np
 
-sensor = Sensor.from_yaml("examples/templates/mwir_leo_pushbroom.yaml")
+sensor = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
 sweep_mtf = sensor.sweep(
     "optics.aperture_diameter_m",
     np.linspace(0.05, 0.60, 20),

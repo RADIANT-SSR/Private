@@ -6,7 +6,7 @@ los_geometry:
     h_tgt: 0.0
     theta_o: 0.0
     theta_s: 0.5
-scenario: examples/templates/mwir_leo_starer.yaml
+scenario: tests/integration/fixtures/inferrer_corpus/mwir_leo_starer.yaml
 target:
   A_t: null
   T_t: 300.0

@@ -130,7 +130,7 @@ Source code naming is governed by CLAUDE.md / PEP 8 and is out of scope here. Ev
 | Scenario run script | `run_<sub_scenario_slug>.py` | `run_wfe_budget_allocation.py` |
 | Scenario outputs | `<slug>_results.xlsx`, figures `<slug>_<what_it_shows>.png`, plus `MANIFEST.md` | `wfe_budget_snr_vs_rms.png` |
 | Reference data | `lowercase_snake.csv` + a `manifest.yaml` per data family | `data/emissivity/soil_dry.csv` |
-| Config template | `<band>_<platform>_<variant>.yaml` | `examples/templates/mwir_leo_pushbroom.yaml` |
+| Config template | `<band>_<platform>_<variant>.yaml` | `tests/integration/fixtures/inferrer_corpus/mwir_leo_pushbroom.yaml` (corpus home since CU-339) |
 | Maintenance script | `<verb>_<object>.py` | `scripts/gen_param_reference.py` |
 | Golden/test baseline | Named by what it asserts, in the suite that loads it | `tests/integration/golden/mwir_leo_minimal.json` |
 | Committed figure | `<subject>_<view_or_metric>.png`, referenced by a doc or test | `docs_screenshots/` style names forbidden going forward |

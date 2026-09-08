@@ -47,15 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-339 — `examples/templates/` doubles as the source-inferrer golden corpus: twelve Phase-2E configs are load-bearing test inputs wearing a user-facing home
-
-**Discovered**: mission-template welcome-screen build (branch `gui/mission-templates`), 2026-09-01. **Renumbered from CU-338** (2026-09-01): two sessions minted CU-338 the same day; the emitter finding's stub (`07fec66d`) reached `origin/main` first and holds the number — this mint (`d31a7d2a`) raced the reservation (fetch-before-mint missed) and takes the next free ID. Any in-flight branch text citing CU-338 for the templates-corpus finding means this entry — the owner-ruled supersede of the Phase-2E starters broke collection: `src/radiant/source/tests/test_inferrer.py` parametrizes over them via `tests/integration/snapshots/option_c_baseline.yaml` (path-keyed), 12 descriptor snapshots live in `src/radiant/source/tests/snapshots/`, `src/radiant/data/tests/test_templates.py` tests the set directly, and four guides (`configuration`, `trade_studies`, `regime_selection`, + Config_Format) cite the files.
-**Status**: Open — the deletion was reverted; the 12 stay in place as corpus (invisible to the welcome screen, whose discovery requires `_radiant.template` metadata). The owner's one-user-facing-set intent holds; the *relocation* needs its own funded task.
-**File**: `examples/templates/*.yaml` (12 metadata-less configs) + the reference map above.
-**Symptom**: test corpus and user-facing starter configs share a directory and identity; deleting or editing a "template" silently moves golden inferrer baselines; the VNIR/SWIR reflective corpus members carry inference coverage the six mission templates do not duplicate.
-**Why it still matters**: blocking for any future reshaping of `examples/templates/` (intake test 3) and owner-gated (test 2): relocation touches the Option-C golden snapshot's path keys and four guides.
-**Suggested fix**: (b) stand-alone task — move the 12 to a fixtures home (e.g. `tests/integration/fixtures/inferrer_corpus/`), rewrite the snapshot path keys (values untouched, §5.3 note in the PR), repoint `test_templates.py` + the guides. Effort M; category A/D.
-
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).
@@ -109,6 +100,16 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-339 — `examples/templates/` doubles as the source-inferrer golden corpus: twelve Phase-2E configs are load-bearing test inputs wearing a user-facing home — RESOLVED 2026-09-07 (commit trailer)
+
+**Resolution**: the twelve corpus configs moved (`git mv`) to `tests/integration/fixtures/inferrer_corpus/`; `examples/templates/` is now exactly the six `_radiant.template` mission templates the welcome screen discovers. Path keys rewritten with **values untouched** (§5.3 note): 12 keys in `option_c_baseline.yaml`, 24 references in `test_inferrer.py` (dict keys + segment-built paths), 3 in the sibling inferrer test files, one `scenario:` line in each of the 12 descriptor snapshots; `test_templates.py` re-pinned to exactly 6; `capture_option_c_baseline.py`'s discovery extended to the corpus home so a re-capture cannot silently lose 12 keys. Guides repointed at user-facing configs (`mwir_leo_minimal`, `leo_mapping_extended`); `Config_Format`/`option_c_baseline`/`OPERATING_MODEL` references rewritten; immutable reports left as-is (Rule 24). All 660 affected tests pass unchanged. CHANGELOG Changed entry.
+
+**Discovered**: mission-template welcome-screen build (branch `gui/mission-templates`), 2026-09-01. **Renumbered from CU-338** (2026-09-01): two sessions minted CU-338 the same day; the emitter finding's stub (`07fec66d`) reached `origin/main` first and holds the number — this mint (`d31a7d2a`) raced the reservation (fetch-before-mint missed) and takes the next free ID. Any in-flight branch text citing CU-338 for the templates-corpus finding means this entry — the owner-ruled supersede of the Phase-2E starters broke collection: `src/radiant/source/tests/test_inferrer.py` parametrizes over them via `tests/integration/snapshots/option_c_baseline.yaml` (path-keyed), 12 descriptor snapshots live in `src/radiant/source/tests/snapshots/`, `src/radiant/data/tests/test_templates.py` tests the set directly, and four guides (`configuration`, `trade_studies`, `regime_selection`, + Config_Format) cite the files.
+**File**: `examples/templates/*.yaml` (12 metadata-less configs) + the reference map above.
+**Symptom**: test corpus and user-facing starter configs share a directory and identity; deleting or editing a "template" silently moves golden inferrer baselines; the VNIR/SWIR reflective corpus members carry inference coverage the six mission templates do not duplicate.
+**Why it still matters**: blocking for any future reshaping of `examples/templates/` (intake test 3) and owner-gated (test 2): relocation touches the Option-C golden snapshot's path keys and four guides.
+**Suggested fix**: (b) stand-alone task — move the 12 to a fixtures home (e.g. `tests/integration/fixtures/inferrer_corpus/`), rewrite the snapshot path keys (values untouched, §5.3 note in the PR), repoint `test_templates.py` + the guides. Effort M; category A/D.
 
 ### CU-348 — All-Parameters panel: the name column collapses to nothing at the narrow window widths CU-341 made reachable — RESOLVED 2026-09-07 (commit trailer)
 

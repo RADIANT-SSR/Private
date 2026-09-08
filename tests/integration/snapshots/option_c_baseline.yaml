@@ -40,7 +40,7 @@ scenarios:
     nedt_K: 0.029876344317926965
     snr: 889.8259696862591
     status: ok
-  examples/templates/lwir_aerial_survey.yaml:
+  tests/integration/fixtures/inferrer_corpus/lwir_aerial_survey.yaml:
     L_aperture_W_m2_sr_um:
     - null
     - null
@@ -60,7 +60,7 @@ scenarios:
     nedt_K: 0.20598616453385415
     snr: 315.54933814882156
     status: ok
-  examples/templates/lwir_geo.yaml:
+  tests/integration/fixtures/inferrer_corpus/lwir_geo.yaml:
     L_aperture_W_m2_sr_um:
     - null
     - null
@@ -80,7 +80,7 @@ scenarios:
     nedt_K: 0.18377325609365125
     snr: 315.84049651574776
     status: ok
-  examples/templates/lwir_leo_sounder.yaml:
+  tests/integration/fixtures/inferrer_corpus/lwir_leo_sounder.yaml:
     L_aperture_W_m2_sr_um:
     - null
     - null
@@ -100,7 +100,7 @@ scenarios:
     nedt_K: 0.18180384547125927
     snr: 315.9745217365823
     status: ok
-  examples/templates/mwir_aerial_flir.yaml:
+  tests/integration/fixtures/inferrer_corpus/mwir_aerial_flir.yaml:
     L_aperture_W_m2_sr_um:
     - null
     - null
@@ -120,7 +120,7 @@ scenarios:
     nedt_K: 0.0898122152666346
     snr: 316.06441748993865
     status: ok
-  examples/templates/mwir_ground_test.yaml:
+  tests/integration/fixtures/inferrer_corpus/mwir_ground_test.yaml:
     L_aperture_W_m2_sr_um:
     - null
     - null
@@ -140,7 +140,7 @@ scenarios:
     nedt_K: 0.11443609078101709
     snr: 316.1849513629062
     status: ok
-  examples/templates/mwir_leo_pushbroom.yaml:
+  tests/integration/fixtures/inferrer_corpus/mwir_leo_pushbroom.yaml:
     L_aperture_W_m2_sr_um:
     - null
     - null
@@ -160,7 +160,7 @@ scenarios:
     nedt_K: 0.08407931501606199
     snr: 316.18653230347246
     status: ok
-  examples/templates/mwir_leo_starer.yaml:
+  tests/integration/fixtures/inferrer_corpus/mwir_leo_starer.yaml:
     L_aperture_W_m2_sr_um:
     - null
     - null
@@ -180,7 +180,7 @@ scenarios:
     nedt_K: 0.07914936232845435
     snr: 316.12506747410436
     status: ok
-  examples/templates/swir_aerial_gas.yaml:
+  tests/integration/fixtures/inferrer_corpus/swir_aerial_gas.yaml:
     L_aperture_W_m2_sr_um:
     - null
     - null
@@ -200,7 +200,7 @@ scenarios:
     nedt_K: 0.1352440242054456
     snr: 104.06710969112596
     status: ok
-  examples/templates/swir_leo.yaml:
+  tests/integration/fixtures/inferrer_corpus/swir_leo.yaml:
     L_aperture_W_m2_sr_um:
     - null
     - null
@@ -220,7 +220,7 @@ scenarios:
     nedt_K: 0.03462807827464022
     snr: 316.1249094108594
     status: ok
-  examples/templates/vnir_aerial.yaml:
+  tests/integration/fixtures/inferrer_corpus/vnir_aerial.yaml:
     L_aperture_W_m2_sr_um:
     - 50.34545432813468
     - 12.78078918684295
@@ -240,7 +240,7 @@ scenarios:
     nedt_K: 0.021181905442098074
     snr: 191.95409940613501
     status: ok
-  examples/templates/vnir_leo_highres.yaml:
+  tests/integration/fixtures/inferrer_corpus/vnir_leo_highres.yaml:
     L_aperture_W_m2_sr_um:
     - 130.82468100143734
     - 59.729943853628114
@@ -260,7 +260,7 @@ scenarios:
     nedt_K: 0.034718961987544775
     snr: 103.59771394680641
     status: ok
-  examples/templates/vnir_leo_multispectral.yaml:
+  tests/integration/fixtures/inferrer_corpus/vnir_leo_multispectral.yaml:
     L_aperture_W_m2_sr_um:
     - 130.82468100143737
     - 59.729943853628114

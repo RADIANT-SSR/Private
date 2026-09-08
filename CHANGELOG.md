@@ -20,6 +20,15 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **`examples/templates/` is now exactly the six mission templates (CU-339)**
+  — the twelve Phase-2E band/platform configs that shared the directory were
+  load-bearing test fixtures (the source-inferrer golden corpus parametrizes
+  over them by path) and moved to
+  `tests/integration/fixtures/inferrer_corpus/`. Snapshot keys rewritten,
+  values untouched; guides repointed at user-facing configs. Editing a
+  template no longer silently moves golden baselines.
+
 ### Fixed
 - **All-Parameters panel keeps its name column at narrow widths (CU-348)** —
   at the small window sizes the CU-341 fix made reachable, the parameter

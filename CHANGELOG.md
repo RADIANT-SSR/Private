@@ -21,6 +21,14 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Fixed
+- **Dual-path consistency check compares at and below detector Nyquist
+  (CU-345)** — the Rule-4 check previously compared out to half the PSF
+  frequency grid (4–8× detector Nyquist), where pixel-sinc sidelobe
+  discretization produced a spurious FAILED warning on the 9.4 OLI-2
+  all-bands study (max_err 0.0202 vs tol 0.02). Capped at Nyquist — where
+  every consumer metric lives and any genuinely missing term shows — the
+  worst 9.4 band reads 0.005. Computed metrics unchanged; only the
+  diagnostic's comparison range moved (owner-ratified 2026-09-07).
 - **Performance-tab matrix cards scroll independently (CU-347)** — dragging
   one card's horizontal scrollbar (e.g. Summary) no longer drags every other
   card (e.g. MTF) with it; the CU-332-era cross-card scroll chaining is

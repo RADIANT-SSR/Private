@@ -6,11 +6,17 @@ every noise term averages down as sqrt(N). Calibration residuals do not
 signal-relative size is invariant in N — SNR plateaus at the correlated floor
 instead of climbing.
 
-Cal-point semantics on this REFLECTIVE scene (CU-346): the v1 mapping is
-Planck-based and anchors to the declared target temperature, so the "290 K
-cal point" resolves to the 290/300 K band Planck ratio of the SOLAR scene
-signal (~13.8 % of S) — a deterministic stand-in, not the ~0 a blackbody
-physically delivers in a 0.5-0.85 um band. The one_point residual is then
+Cal-point semantics on this REFLECTIVE scene (CU-346, guard shipped
+2026-09-07): the v1 mapping is Planck-based and anchors to the declared
+target temperature, so the "290 K cal point" resolves to the 290/300 K band
+Planck ratio of the SOLAR scene signal (~13.8 % of S) — a deterministic
+stand-in, not the ~0 a blackbody physically delivers in a 0.5-0.85 um band.
+The chain now says so itself: CalibrationStage emits a CU-346 UserWarning and
+publishes stage_outputs["calibration"]["reflective_scene_cal_note"] whenever a
+scheme is active and the band carries no thermal photons at the scene
+temperature (this run surfaces both below). The flux-declared cal point that
+would retire the stand-in is the Gap 122 flux-ratio door. The one_point
+residual is then
 prnu·|S − S1| = prnu·(1 − r)·S with r = S1/S, an offset-cal-like floor:
 
     SNR_ceiling ≈ 1 / (prnu_frac · (1 − r)) ≈ 58 for r = 0.138
@@ -42,6 +48,10 @@ OUTPUT_FILE = Path(__file__).resolve().parent.parent / "outputs" / "tdi_calibrat
 _PRNU_PCT = 2.0  # pre-correction gain dispersion (1-sigma), never flat-fielded
 _CAL_TEMP_K = 290.0  # Planck-mapped stand-in on this reflective scene (CU-346)
 
+# The chain's CU-346 advisory, captured once during the sweep and reprinted
+# at the end (identical at every sweep point — one warning per evaluate).
+_CU346_NOTE: str | None = None
+
 
 def _config(n_tdi: int, scheme: str) -> dict[str, Any]:
     config = {k: ({**v} if isinstance(v, dict) else v) for k, v in base.base_config.items()}
@@ -58,9 +68,16 @@ def _config(n_tdi: int, scheme: str) -> dict[str, Any]:
 
 
 def _evaluate(n_tdi: int, scheme: str) -> dict[str, Any]:
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         result = Sensor.from_dict(_config(n_tdi, scheme)).evaluate()
+    # Surface the chain's CU-346 advisory once (identical at every sweep point).
+    global _CU346_NOTE
+    if _CU346_NOTE is None:
+        for rec in caught:
+            if "CU-346" in str(rec.message):
+                _CU346_NOTE = str(rec.message)
+                break
     ro = result.stage_outputs["readout"]
     cal = result.stage_outputs.get("calibration", {})
     signal = ro["signal_e_final"]
@@ -86,7 +103,9 @@ def main() -> None:
         f"Calibration: one_point at {_CAL_TEMP_K:.0f} K on a REFLECTIVE "
         f"{base.band_min_um:.2f}-{base.band_max_um:.2f} um scene — the v1 Planck mapping\n"
         f"anchors the cal point at the 290/300 K band ratio of the solar signal "
-        f"(CU-346 stand-in semantics; see module docstring).\n"
+        f"(CU-346 stand-in semantics; see module docstring). The chain emits the\n"
+        f"CU-346 advisory itself on every active-scheme run of this scene — "
+        f"reprinted after the sweep.\n"
         f"PRNU {_PRNU_PCT:.1f} % (1-sigma) stays uncorrected on the departure -> "
         f"correlated SNR ceiling ~1/(prnu·(1−S1/S))."
     )
@@ -130,8 +149,14 @@ def main() -> None:
         "\nRegime/limitation notes: reflective extended scene (solar, midlat summer\n"
         "path, zenith per the base study). The v1 Planck cal-point mapping does not\n"
         "describe a reflective-band cal (integrating-sphere flat-field is\n"
-        "inexpressible) — tracked as CU-346; the plateau conclusion is unaffected."
+        "inexpressible) — the CU-346 guard below says so on every run; the\n"
+        "flux-ratio door is tracked under Gap 122; the plateau conclusion is\n"
+        "unaffected."
     )
+
+    if _CU346_NOTE is not None:
+        print("\n  --- Chain advisory (CalibrationStage, CU-346 guard) ---")
+        print(f"  {_CU346_NOTE}")
 
     OUTPUT_FILE.parent.mkdir(exist_ok=True)
     with OUTPUT_FILE.open("w", newline="", encoding="utf-8") as fh:

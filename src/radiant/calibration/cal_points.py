@@ -40,6 +40,26 @@ def _band_photon_radiance(t_K: float, lam_min_um: float, lam_max_um: float) -> f
     return float(np.trapezoid(b / e_photon, lam_um))
 
 
+def band_thermal_photon_fraction(t_K: float, lam_min_um: float, lam_max_um: float) -> float:
+    """Fraction of a ``t_K`` blackbody's photon exitance inside the sensing band.
+
+    The CU-346 guard's quantity: when this is vanishingly small, a physical
+    blackbody at the declared scene temperature delivers essentially nothing
+    in-band, so a signal the chain nonetheless collected there is non-thermal
+    (solar-reflected) and the Planck cal-point anchor is a stand-in. At 300 K
+    the fraction is ~1e-20 for a 0.5–0.85 µm VNIR band and ~1e-2 for a 3–5 µm
+    MWIR band. The total integrates 0.05–1000 µm on a log grid — wide enough
+    that the tail truncation is far below any threshold this feeds.
+    """
+    lam_total_um = np.geomspace(0.05, 1000.0, 4001)
+    b = planck_spectral_radiance(lam_total_um, t_K)
+    e_photon = h * c / (lam_total_um * 1e-6)
+    total = float(np.trapezoid(b / e_photon, lam_total_um))
+    if total <= 0.0:
+        return 0.0
+    return _band_photon_radiance(t_K, lam_min_um, lam_max_um) / total
+
+
 def cal_point_signal_e(
     *,
     t_cal_K: float,

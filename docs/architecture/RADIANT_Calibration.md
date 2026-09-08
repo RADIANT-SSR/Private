@@ -89,6 +89,24 @@ D2 — detector emits them as stage outputs, not noise terms; no double
 counting). Cal-point *fluxes* are always derived from cal temperatures —
 never independent inputs.
 
+**Reflective-scene guard (CU-346, owner-ratified 2026-09-07 — guard now,
+flux-ratio door later).** The Planck mapping
+$S(T_{cal}) = S_{scene} \cdot B_q(T_{cal})/B_q(T_{scene})$ anchors at the
+declared scene temperature, which describes none of the collected signal when
+the sensing band carries no thermal photons at that temperature (a VNIR band
+at 300 K: in-band photon share $\sim 10^{-22}$; the signal is
+Kirchhoff-reflected sunlight). With a scheme active, the stage then emits a
+`CU-346` `UserWarning` and publishes
+`stage_outputs["calibration"]["reflective_scene_cal_note"]`; the run proceeds
+— residual *structure* (the correlated plateau, the $\sqrt{N}$ exemption) is
+mapping-independent, only the absolute level rides the stand-in. Trigger:
+`T2Reflective` descriptor, **or**
+`band_thermal_photon_fraction(T_scene, band) < 10^{-9}`
+(`calibration/cal_points.py`; ~$10^{-22}$ VNIR@300 K fires, ~$8\times10^{-7}$
+SWIR@300 K and ~$2\times10^{-5}$ LWIR@77 K lab stay quiet). A flux-declared
+cal point (integrating-sphere flat field) is inexpressible in v1 — the
+flux-ratio door is tracked under Gap 122.
+
 ## 3. Parameters
 
 The `calibration.*` namespace — see `calibration/_schema.py` and

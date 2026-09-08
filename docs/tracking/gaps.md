@@ -1552,6 +1552,8 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 
 ---
 
+**Owner note (2026-09-07)**: deprioritized at queue review — complex and set-level sweeps go through the scripting console (the sanctioned power-user path); the declarative set-level execution surface stays open as a gap but is not scheduled.
+
 ## Gap 107: Viewing geometry is down-looking only — ground-to-air, air-to-air, ground-to-space, and up-looking space-to-space scenes are all rejected
 
 | | |

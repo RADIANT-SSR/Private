@@ -118,7 +118,7 @@ becomes "GUI-only expressible."
 ## References
 
 - `docs/reports/GUI_audit_071426/GUI_Capability_Audit.md` §12 (the reach-ability finding)
-- `docs/plans/GUI_Capability_Expansion_Plan.md` (the plan this ADR gates)
+- `docs/archive/GUI_Capability_Expansion_Plan.md` (the plan this ADR gated — executed 2026-07-16, archived 2026-09-07)
 - `docs/archive/GUI_Development_Plan.md` §4 ground rule 1 (one action ↔ one API call)
 - `CLAUDE.md` import rules table; `pyproject.toml` import-linter contract "gui imports only api and core"
 - `src/radiant/io/element_config.py` (the declarative `optical_elements:` schema — D2's document format)

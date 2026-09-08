@@ -157,6 +157,12 @@ QDockWidget > QWidget {{
     background-color: {t.panel_2};
     border-bottom: {tokens.BORDER_WIDTH} solid {t.line};
 }}
+/* The chip row's scroll strip (narrow-width sweep, CU-341 pattern) is a
+ * transparent window onto the strip band. */
+QScrollArea#stageStripScroll, #stageStripHost {{
+    background: transparent;
+    border: none;
+}}
 QFrame#stageChip {{
     background-color: {t.panel};
     border: {tokens.BORDER_WIDTH} solid {t.line};

@@ -152,3 +152,41 @@ class TestStageCompositionMapping:
         """No stage selected → the center lands on Performance (metrics + system MTF)."""
         assert stage_views.DEFAULT_STAGE == "performance"
         assert stage_views.composition_for(stage_views.DEFAULT_STAGE) is not None
+
+
+class TestNarrowWidthScroll:
+    """Narrow-width sweep 2026-09-07 (the CU-341 pattern applied to the strip).
+
+    A plain 10-chip row pinned the whole window minimum at 1329 px — wider
+    than a 1280 px laptop — and below it Qt clipped the strip mid-chip (the
+    CU-348 session screenshot). The chips now live in a frameless horizontal
+    scroll strip: pixel-equivalent with room, slim scrollbar without.
+    """
+
+    def test_strip_minimum_is_laptop_safe(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        strip = StageStrip()
+        qtbot.addWidget(strip)
+        assert strip.minimumSizeHint().width() < 200  # was 1329
+
+    def test_overflow_scrolls_selected_chip_into_view(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        strip = StageStrip()
+        qtbot.addWidget(strip)
+        strip.setFixedWidth(500)
+        strip.show()
+        qtbot.waitExposed(strip)
+        bar = strip._scroll.horizontalScrollBar()
+        assert bar.maximum() > 0  # ten chips genuinely overflow 500 px
+        assert bar.value() == 0
+        strip.select("performance")  # last chip
+        assert bar.value() > 0
+
+    def test_wide_strip_needs_no_scroll(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        strip = StageStrip()
+        qtbot.addWidget(strip)
+        strip.setFixedWidth(1600)
+        strip.show()
+        qtbot.waitExposed(strip)
+        assert strip._scroll.horizontalScrollBar().maximum() == 0
+        # Chips still stretch to tile the width (the pre-sweep look).
+        total = sum(c.width() for c in strip.chips)
+        assert total > 1200

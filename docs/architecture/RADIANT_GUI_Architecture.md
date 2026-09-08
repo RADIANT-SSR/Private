@@ -1295,12 +1295,19 @@ surface, since `ChainResult` carries no `.plot` property, Gap 87), plus the conv
 `inspect_result` (Gap-87 sugar for `result.inspect()`) and the classes `Sensor` /
 `ConfigurationSet` (so a script can rebind either name).
 
-**REPL, not qtconsole (CU-138).** The plan prefers a `qtconsole` in-process Jupyter kernel,
-but explicitly sanctions a plain REPL over `code.InteractiveConsole` if qtconsole proves
-fragile or untestable offscreen. It is both (the module is not installed here and an
-in-process kernel under the `offscreen` QPA is hard to exercise headlessly), so v1 ships the
-sanctioned REPL fallback — same binding, same coherence model, fully testable offscreen. The
-`qtconsole` pin stays in the `gui` extra; restoring the kernel path is CU-138.
+**qtconsole kernel, REPL fallback (CU-138 — resolved 2026-09-08).** The preferred
+`qtconsole` in-process Jupyter kernel is now the default backend: with `qtconsole`
+importable, the Command Window is a `RichJupyterWidget` (syntax highlighting, completion,
+multi-line editing, rich output) whose kernel `user_ns` **is** the console namespace —
+`run_command`/`run_script` (the Editor's Run), the Workspace browser, and the coherence
+model all share that one dict, so a name bound at the Jupyter prompt, in a script run, or by
+the window is the same name everywhere. Coherence hooks ride the widget's
+`executing`/`executed` signals (same rebind + mutation-marker checks as the REPL path). The
+2026-07 blockers are empirically gone (qtconsole 5.7 runs, executes, and shuts down cleanly
+under the `offscreen` QPA — `TestKernelBackend`). `RADIANT_CONSOLE_FORCE_REPL=1`, or a
+missing/broken qtconsole, selects the plan-sanctioned REPL fallback — same binding, same
+coherence model; the GUI test suite pins the fallback suite-wide for determinism and covers
+the kernel path with opt-in tests.
 
 **Figures.** A command that evaluates to a matplotlib `Figure` (e.g. `plot.mtf()`) is
 **popped out into its own window** (a `FigureCanvasQTAgg` in a top-level dialog) rather than
@@ -1334,7 +1341,7 @@ are **relocated**, not removed. Precise mapping:
 | **Noise Budget** detail tab | **Detector / Readout** center views (log-scale bar of `noise_terms`) (§4.4.1) |
 | **Variable Explorer** detail tab | **Global Inspector** tool (§4.6) |
 | **YAML** detail tab (read-only) | Right-rail **Edit Config (YAML)** modal (now editable, re-parsed via `Sensor.load`) (§4.5) |
-| **Console** tab | **Global tool** — the Command Window of the separate scripting window (§4.6.1, Pass 1), reachable from Tools → Scripting Window (`Ctrl+Shift+P`). A REPL over `code.InteractiveConsole` (CU-138), not qtconsole; the earlier bottom-dock host is retired (Rule 27). |
+| **Console** tab | **Global tool** — the Command Window of the separate scripting window (§4.6.1, Pass 1), reachable from Tools → Scripting Window (`Ctrl+Shift+P`). A qtconsole in-process kernel by default, REPL fallback (CU-138 resolved 2026-09-08); the earlier bottom-dock host is retired (Rule 27). |
 
 The per-tab data sources that shipped (Phase 4 Task B) are unchanged; each is re-hosted in
 its new container. The Sweep tab remains **v1.1** and absent from v1 (D4). The migration of
@@ -2105,8 +2112,9 @@ swap — Open / New / YAML-editor Apply / console Refresh — clears the stack).
 
 - **PySide6 ≥ 6.6** (LTS); pin the minor version in `pyproject.toml`. Qt6-only, no Qt5
   target. Optional-dependency group: `gui = ["PySide6>=6.6", "matplotlib>=3.8",
-  "qtconsole>=5.5"]`. **The shipped console is a REPL over `code.InteractiveConsole`, not
-  qtconsole (§4.6.1, CU-138)** — the `qtconsole` pin is kept for the deferred kernel path.
+  "qtconsole>=5.5"]`. **The shipped console defaults to the qtconsole in-process kernel
+  (§4.6.1, CU-138 resolved 2026-09-08)** with the `code.InteractiveConsole` REPL as the
+  sanctioned fallback when qtconsole is absent or `RADIANT_CONSOLE_FORCE_REPL=1`.
   The pre-D7 `pyvista`/`pyvistaqt` pins were **dropped** (CU-134, GUI plan Phase 9): the
   geometry viewer is a pure-Qt 2D `QPainter` schematic (ADR-0007) with no VTK/OpenGL
   dependency. Core RADIANT stays importable without the `gui` extra.

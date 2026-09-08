@@ -40,6 +40,16 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 # ``RADIANT_GUI_DEBOUNCE_MS=200 pytest src/radiant/gui``.
 os.environ.setdefault("RADIANT_GUI_DEBOUNCE_MS", "10")
 
+# The scripting console defaults to the qtconsole in-process kernel (CU-138);
+# the suite pins the REPL fallback so its ~1100 windows keep the fast, fully
+# deterministic backend the existing console/window tests were written against
+# (kernel startup per window would also add minutes to the merge gate). The
+# kernel path has its own opt-in coverage: TestKernelBackend clears this env
+# var and constructs fresh consoles. ``setdefault`` so a developer can force
+# the kernel suite-wide for a soak: ``RADIANT_CONSOLE_FORCE_REPL= pytest ...``
+# does NOT work (empty string is still set) — delete the var instead.
+os.environ.setdefault("RADIANT_CONSOLE_FORCE_REPL", "1")
+
 # The GUI suite is meaningless without the gui extra; skip collection if absent.
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 

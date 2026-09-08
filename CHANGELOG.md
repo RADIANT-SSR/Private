@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Scripting console upgraded to a Jupyter kernel (CU-138)** — with the
+  `gui` extra's `qtconsole` installed, the Command Window is now a
+  `RichJupyterWidget` over an in-process kernel: syntax highlighting, tab
+  completion, multi-line editing, and rich output, with the same live
+  `sensor`/`configs`/`result`/`plot` bindings, Editor-Run namespace sharing,
+  and stale-banner coherence as before. The plain REPL remains the automatic
+  fallback (or force it with `RADIANT_CONSOLE_FORCE_REPL=1`).
 - **`examples/templates/` is now exactly the six mission templates (CU-339)**
   — the twelve Phase-2E band/platform configs that shared the directory were
   load-bearing test fixtures (the source-inferrer golden corpus parametrizes

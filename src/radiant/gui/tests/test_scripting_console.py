@@ -279,3 +279,57 @@ class TestHistory:
         assert console.input_box.text() == ""  # submit clears the input
         console.input_box.historyPrev.emit()
         assert console.input_box.text() == "1 + 1"  # Up recalls the prior command
+
+
+class TestKernelBackend:
+    """CU-138: the qtconsole in-process kernel backend (opt-in per test).
+
+    The suite-wide conftest pins RADIANT_CONSOLE_FORCE_REPL=1; these tests
+    clear it and construct fresh consoles, covering the kernel path the
+    plan always preferred: one namespace (the kernel's user_ns) shared by
+    the Jupyter prompt, run_command/run_script, and the coherence model.
+    """
+
+    @pytest.fixture
+    def kernel_console(self, qtbot, monkeypatch):  # type: ignore[no-untyped-def]
+        monkeypatch.delenv("RADIANT_CONSOLE_FORCE_REPL", raising=False)
+        console = ScriptingConsole()
+        qtbot.addWidget(console)
+        assert console.is_kernel_mode, "qtconsole must be installed for the kernel tests"
+        yield console
+        console.shutdown_kernel()
+
+    def test_kernel_mode_selected_when_available(self, kernel_console) -> None:  # type: ignore[no-untyped-def]
+        assert kernel_console.jupyter_widget is not None
+        assert kernel_console.output is None and kernel_console.input_box is None
+
+    def test_bound_sensor_is_visible_from_the_kernel(self, kernel_console) -> None:  # type: ignore[no-untyped-def]
+        kernel_console.bind_sensor(Sensor.load(_EXAMPLE))
+        shell = kernel_console._kernel_manager.kernel.shell
+        result = shell.run_cell("sensor is not None")
+        assert result.result is True
+
+    def test_kernel_binding_is_visible_to_the_console_surface(self, kernel_console) -> None:  # type: ignore[no-untyped-def]
+        shell = kernel_console._kernel_manager.kernel.shell
+        shell.run_cell("from radiant.api import Sensor\nsensor = Sensor()")
+        assert kernel_console.namespace_sensor() is not None
+
+    def test_run_script_shares_the_kernel_namespace(self, kernel_console) -> None:  # type: ignore[no-untyped-def]
+        kernel_console.run_script("shared_flag = 42", label="probe")
+        shell = kernel_console._kernel_manager.kernel.shell
+        assert shell.run_cell("shared_flag").result == 42
+
+    def test_kernel_mutation_raises_the_stale_banner(self, kernel_console) -> None:  # type: ignore[no-untyped-def]
+        kernel_console.bind_sensor(Sensor.load(_EXAMPLE))
+        source = "sensor.set('optics.f_number', 4.0)"
+        kernel_console._on_kernel_executing(source)
+        kernel_console._kernel_manager.kernel.shell.run_cell(source)
+        kernel_console._on_kernel_executed(None)
+        assert kernel_console.is_stale()
+
+    def test_forced_repl_still_selects_the_fallback(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        monkeypatch.setenv("RADIANT_CONSOLE_FORCE_REPL", "1")
+        console = ScriptingConsole()
+        qtbot.addWidget(console)
+        assert not console.is_kernel_mode
+        assert console.output is not None and console.input_box is not None

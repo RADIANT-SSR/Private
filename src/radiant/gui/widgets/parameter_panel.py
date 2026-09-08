@@ -51,7 +51,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from PySide6.QtCore import QPoint, Qt, Signal
+from PySide6.QtCore import QEvent, QPoint, Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -119,6 +119,15 @@ _DOTPATH_ROLE = DOTPATH_ROLE
 # painter cannot drift. It is re-exported from this module for tests and callers.
 
 _EMPTY_MESSAGE = "No configuration loaded — open a YAML to inspect parameters"
+
+
+# CU-348 column geometry: the name column's hard floor (below it the tree
+# scrolls horizontally rather than erasing names) and the value column's
+# content-width cap (so one long path default cannot starve every name;
+# numeric value + unit strings fit well inside it — an overflowing value
+# middle-elides and its row tooltip carries the full text).
+_NAME_FLOOR_PX: int = 120
+_VALUE_CAP_PX: int = 150
 
 
 class ParameterPanel(QWidget):
@@ -217,20 +226,26 @@ class ParameterPanel(QWidget):
         # Double-click on any column other than Value opens the detail editor dialog.
         self._tree.doubleClicked.connect(self._on_double_click)
 
-        # Give the (often long) parameter names the stretch space; size Value and
-        # Source to their actual content so the name column absorbs every spare
-        # pixel. The former fixed 104/72 px columns starved the names at the
-        # shipped dock width — ~25 of ~33 visible geometry rows right-elided, and
-        # the eight `target.shape.*` rows rendered identically as `target.shape…`
-        # (CU-328). Middle elision keeps the discriminating *suffix* visible on
-        # any name that still cannot fit; Value never elides in practice because
-        # its column is content-sized.
+        # Give the (often long) parameter names every spare pixel, but never the
+        # deficit (CU-328 gave names the Stretch space; CU-348 adds the floor):
+        # at the narrow window widths CU-341 made reachable, a Stretch name
+        # column absorbed the SHORTFALL down to Qt's 16 px minimum while the
+        # rigid ResizeToContents Value column held the width of the single
+        # widest value anywhere in the tree (a 180 px cache path on the
+        # reference config). Now: Value is content-sized but capped
+        # (_VALUE_CAP_PX — a pathological path elides with a tooltip, numbers
+        # and units always fit), Source stays content-sized, and the name
+        # column is rebalanced to the remaining viewport with a hard floor
+        # (_NAME_FLOOR_PX); below the floor the tree scrolls horizontally
+        # instead of erasing the names. Middle elision keeps the
+        # discriminating *suffix* visible on any name that still cannot fit.
         self._tree.setTextElideMode(Qt.TextElideMode.ElideMiddle)
         header = self._tree.header()
         header.setStretchLastSection(False)
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self._tree.viewport().installEventFilter(self)
 
         self._empty_msg = QLabel(_EMPTY_MESSAGE, self)
         self._empty_msg.setObjectName("parameterEmptyMsg")
@@ -379,6 +394,31 @@ class ParameterPanel(QWidget):
                 return True
         return False
 
+    # -- column geometry (CU-348) -------------------------------------------
+
+    def eventFilter(self, obj, event) -> bool:  # type: ignore[no-untyped-def]
+        """Rebalance the name column whenever the tree viewport resizes."""
+        if obj is self._tree.viewport() and event.type() == QEvent.Type.Resize:
+            self._rebalance_name_column()
+        return super().eventFilter(obj, event)
+
+    def _size_value_column(self) -> None:
+        """Content-size the value column, capped at ``_VALUE_CAP_PX``."""
+        content = self._tree.sizeHintForColumn(1)
+        self._tree.header().resizeSection(1, min(max(content, 1), _VALUE_CAP_PX))
+
+    def _rebalance_name_column(self) -> None:
+        """Name column = remaining viewport, never below ``_NAME_FLOOR_PX``.
+
+        When the floor forces the three columns past the viewport, the tree
+        shows its horizontal scrollbar — names stay legible and the user
+        scrolls for provenance, instead of every row degrading to a bare value
+        (the CU-348 screenshot).
+        """
+        header = self._tree.header()
+        remainder = self._tree.viewport().width() - header.sectionSize(1) - header.sectionSize(2)
+        header.resizeSection(0, max(_NAME_FLOOR_PX, remainder))
+
     # -- population ---------------------------------------------------------
 
     def populate(self, sensor: Sensor | None) -> None:
@@ -418,6 +458,8 @@ class ParameterPanel(QWidget):
 
         self._show_tree()
         self._apply_filter(self._filter.text())
+        self._size_value_column()
+        self._rebalance_name_column()
 
     def _build_row(
         self,

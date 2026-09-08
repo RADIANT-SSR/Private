@@ -20,6 +20,15 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **All-Parameters panel keeps its name column at narrow widths (CU-348)** —
+  at the small window sizes the CU-341 fix made reachable, the parameter
+  name column collapsed to ~16 px (rows showed bare values) while the value
+  column held the width of the single widest value in the tree. The name
+  column now has a 120 px floor (the tree scrolls horizontally below it) and
+  the value column's content sizing is capped at 150 px (overflowing values
+  middle-elide with tooltips). GUI-only; computed results unchanged.
+
 ### Added
 - **Cal-source spatial non-uniformity residual (Gap 122 item 1)** — new
   parameter `calibration.source_uniformity_K` (1σ across the source aperture)

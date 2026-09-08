@@ -334,3 +334,46 @@ class TestErrorDialogs:
         qtbot.addWidget(dialog)
         assert not dialog.details.isVisible()  # folded by default
         assert "RuntimeError" in dialog.details.toPlainText()  # traceback captured
+
+
+class TestColumnGeometry:
+    """CU-348: the name column never collapses; the value column never hogs.
+
+    CU-341 made ~360 px windows reachable and the CU-328 Stretch-name sizing
+    absorbed the deficit down to Qt's 16 px floor while a 180 px path default
+    (`~/.radiant/modtran_cache`) held the value column open — every row
+    degraded to a bare number (owner screenshot, 2026-09-07).
+    """
+
+    def test_narrow_panel_floors_the_name_column(self, panel, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.parameter_panel import _NAME_FLOOR_PX, _VALUE_CAP_PX
+
+        panel.resize(340, 800)
+        panel.show()
+        qtbot.waitExposed(panel)
+        header = panel.tree.header()
+        assert header.sectionSize(0) >= _NAME_FLOOR_PX
+        assert header.sectionSize(1) <= _VALUE_CAP_PX
+        # Below the floor the tree scrolls instead of erasing the names.
+        assert panel.tree.horizontalScrollBar().maximum() > 0
+
+    def test_wide_panel_gives_names_every_spare_pixel(self, panel, qtbot) -> None:  # type: ignore[no-untyped-def]
+        panel.resize(900, 800)
+        panel.show()
+        qtbot.waitExposed(panel)
+        header = panel.tree.header()
+        viewport = panel.tree.viewport().width()
+        total = sum(header.sectionSize(i) for i in range(3))
+        # No dead gutter and no overflow: the three columns tile the viewport.
+        assert total == viewport
+        assert panel.tree.horizontalScrollBar().maximum() == 0
+
+    def test_value_column_is_capped_not_starved(self, panel, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.parameter_panel import _VALUE_CAP_PX
+
+        panel.resize(900, 800)
+        panel.show()
+        qtbot.waitExposed(panel)
+        header = panel.tree.header()
+        # The reference config carries a >cap path default; the cap holds.
+        assert header.sectionSize(1) == _VALUE_CAP_PX

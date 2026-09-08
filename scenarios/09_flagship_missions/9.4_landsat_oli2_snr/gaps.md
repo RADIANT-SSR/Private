@@ -24,7 +24,7 @@
   and filter shapes, envelope ±0.06 compound on throughput; a thin-film stack module
   (transfer-matrix) was considered and deliberately not built (owner decision
   2026-08-29: parametric synthesis).
-- **`data/filter_butcher_block.csv` is now unused by every config file** — it was the
-  shared composite the D-7-era study needed. `scripts/gen_oli2_coatings.py` still emits it
-  and this walkthrough documents it as the historical artifact; deleting it (and its
-  generator branch) is a candidate cleanup, not a defect.
+- **`data/filter_butcher_block.csv` deleted 2026-09-07** — it was the shared composite
+  the D-7-era study needed, unused by every config file since each band gained its own
+  strip; the CSV and its `gen_oli2_coatings.py` code path are gone (Rule 26/27, git
+  history is the archive).

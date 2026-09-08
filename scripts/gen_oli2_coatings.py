@@ -20,14 +20,6 @@ coatings, anchored as follows (provenance detail:
   super-Gaussian T(lambda) = floor + (T_pk - floor) * exp(-((lambda-lc)/sigma)^(2m)),
   m = 5, with the 50% points matched to the published [Irons 2012] band edges;
   T_pk = 0.90 (VNIR), 0.85 (SWIR), 0.80 (cirrus); blocking floor 1e-4.
-- ``filter_butcher_block.csv`` — **historical** (no config file has used it since
-  2026-09-03): the union (pointwise max) of the eight non-overlapping 30 m-band
-  strips, mirroring the physical butcher-block filter assembly over the FPA. It
-  was the ADR-0010 D-7 workaround for a study that could not give each band its
-  own filter element (Gap 103); the pan strip (B8) overlaps green/red and was
-  deliberately NOT in the composite, which is why the pan band needed a separate
-  file. With configured element rows (Gap 103 v1.1) every band carries its own
-  ``filter_b0N.csv`` entry, so this curve is generated for the record only.
 - ``l_typ_b0N.csv`` — flat at-aperture radiance = L_typ [W/m2/sr/um] spanning
   each band's edges +/- 10 nm (the scenario's vacuum-path source term,
   mirroring scenario 9.1).
@@ -80,9 +72,6 @@ BANDS: list[tuple[str, float, float, float, float]] = [
     ("b08", 0.503, 0.676, 0.90, 23.0),
     ("b09", 1.363, 1.384, 0.80, 6.0),
 ]
-
-# The eight non-overlapping 30 m bands forming the butcher-block composite (no b08/pan).
-COMPOSITE_BANDS = ("b01", "b02", "b03", "b04", "b05", "b06", "b07", "b09")
 
 
 def write_curve(path: Path, wavelength_um: np.ndarray, values: np.ndarray, header: str) -> None:
@@ -147,21 +136,10 @@ def main() -> None:
             newline="\n",
         )
 
-    composite = np.maximum.reduce([curves[b] for b in COMPOSITE_BANDS])
-    write_curve(
-        DATA_DIR / "filter_butcher_block.csv",
-        GRID_UM,
-        composite,
-        "Synthetic OLI-2 butcher-block composite filter T(lambda) [-] vs [um]: pointwise\n"
-        "union (max) of the eight non-overlapping 30 m-band strips (B1-7, B9; pan excluded\n"
-        "- it overlaps green/red). HISTORICAL: it was the shared element of the D-7-era\n"
-        "study, whose per-configuration band edges selected its strip (Gap 103 workaround).\n"
-        "Since 2026-09-03 every band carries its own filter_b0N.csv entry on a configured\n"
-        "element row, and no config file references this curve.\n"
-        "Generator: scripts/gen_oli2_coatings.py.",
-    )
-
-    n_files = 2 + 2 * len(BANDS) + 1
+    # The D-7-era butcher-block composite (union of the eight 30 m strips) was
+    # deleted 2026-09-07 with its CSV (Rule 26/27 — no config file referenced it
+    # since 2026-09-03; git history is the archive).
+    n_files = 2 + 2 * len(BANDS)
     print(f"Wrote {n_files} CSV files to {DATA_DIR}")  # noqa: T201 — CLI entry point
 
 

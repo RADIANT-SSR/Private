@@ -15,6 +15,14 @@ to show the tool generalizes.
 
 ---
 
+> **Reproducing this scenario:** the runner needs the generated synthetic
+> tape7 set (`modtran/synthetic/*.tp7`), which is gitignored — on a clean
+> checkout run `python scripts/generate_synthetic_tape7.py` first (all 39
+> runs, deterministic; see `modtran/synthetic/README.md`). The runner now
+> names this prerequisite itself instead of dying with a bare
+> `FileNotFoundError` (2026-09-07). The GUI baseline does not need it (it
+> uses the inline builder in `gui_baselines.py`).
+
 ## Results (8–12 µm LWIR)
 
 | Target altitude | In-band transmittance |

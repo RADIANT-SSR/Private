@@ -1129,3 +1129,37 @@ class TestValidateStudyConfigFiles:
         result = runner.invoke(cli, ["validate", str(study)])
         assert result.exit_code == 0, result.output
         assert "2 configuration(s), 2 configured parameter(s), 0 failed." in result.output
+
+
+class TestModuleInvocation:
+    """`python -m radiant.cli.main` reaches the click group (Findings 2026-09-03).
+
+    Pre-fix the module had no ``__main__`` guard, so this form silently
+    discarded its arguments and exited 0 — a user reading clean-exit as
+    success. Needs a real subprocess: CliRunner cannot exercise the guard.
+    """
+
+    def test_module_form_runs_the_group(self) -> None:
+        import subprocess
+        import sys
+
+        proc = subprocess.run(
+            [sys.executable, "-m", "radiant.cli.main", "--help"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert proc.returncode == 0
+        assert "Usage" in proc.stdout  # the click group actually ran
+
+    def test_module_form_propagates_errors(self) -> None:
+        import subprocess
+        import sys
+
+        proc = subprocess.run(
+            [sys.executable, "-m", "radiant.cli.main", "no-such-subcommand"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert proc.returncode != 0  # pre-fix: silent exit 0

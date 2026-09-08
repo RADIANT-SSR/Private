@@ -42,7 +42,19 @@ def _matrix_point_tape7(family_name: str, axis_value: float) -> Path:
     """The synthetic tape7 file behind an exact matrix point of a family."""
     family = FAMILIES[family_name]
     run_id = family.run_ids[family.axis_values.index(axis_value)]
-    return MODTRAN_SYNTH_DIR / f"{run_id}.synthetic.tp7"
+    path = MODTRAN_SYNTH_DIR / f"{run_id}.synthetic.tp7"
+    if not path.is_file():
+        # The synthetic tape7 set is generated, gitignored output (Rule 26) —
+        # absent on a clean checkout. Name the generator instead of dying with
+        # a bare FileNotFoundError (Findings Log 2026-08-30, fixed 2026-09-07).
+        raise SystemExit(
+            f"Missing generated input: {path}\n"
+            "  Why: modtran/synthetic/*.tp7 are regenerate-on-demand outputs, "
+            "not committed files.\n"
+            "  Action: run `python scripts/generate_synthetic_tape7.py` from the "
+            "repo root (all 39 runs, deterministic), then rerun this scenario."
+        )
+    return path
 QUERY_ALTITUDE_KM = 15.0  # between C4=10km and C5=20km
 BAND_MIN_UM, BAND_MAX_UM = 8.0, 12.0  # LWIR -- typical stratospheric-sensor band
 

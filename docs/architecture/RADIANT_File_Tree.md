@@ -180,11 +180,11 @@ spectral_integration/
 └── _schema.py
 ```
 
-### `detector/` — 10 source + 10 tests
+### `detector/` — 12 source + 12 tests
 
 Stage 6: QE, dark current, full well, noise terms, detector MTF.
 
-Top-level: `stage.py`, `_schema.py`, `qe.py`, `dark_current.py`, `shot_noise.py`, `pixel.py`, `ipc.py`, `diffusion.py`.
+Top-level: `stage.py`, `_schema.py`, `qe.py`, `dark_current.py`, `rule07.py`, `rule22.py`, `shot_noise.py`, `pixel.py`, `ipc.py`, `diffusion.py`. (`rule07.py` / `rule22.py` are the Gap 123 predictive HgCdTe dark-current laws — one law, one module.)
 
 `detector/noise/` subpackage:
 ```
@@ -519,7 +519,7 @@ source of truth, per the header.
 | optics/                | 31     | 22    | dual-path PSF/MTF + element model |
 | platform/              | 8      | 7     | smear, relative-motion smear, jitter, sampling, turbulence |
 | spectral_integration/  | 3      | 1     | single-stage collapse |
-| detector/              | 16     | 10    | includes `detector/noise/` subpackage |
+| detector/              | 18     | 12    | includes `detector/noise/` subpackage; Gap 123 rule07/rule22 laws |
 | readout/               | 12     | 9     | TDI, ADC, binning, coadds |
 | calibration/           | 8      | 7     | calibration error model (Gap 120) — physics landed, dispatch Phase 2 |
 | performance/           | 55     | 37    | one metric per module (Rule 19) |

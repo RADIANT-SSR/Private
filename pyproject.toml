@@ -231,6 +231,16 @@ ignore_imports = [
     "radiant.*.tests.* -> radiant.detector.noise.budget",
     "radiant.*.tests.* -> radiant.atmosphere.exo",
     "radiant.*.tests.* -> radiant.atmosphere.assembly",
+    # 2026-09-07 (Gap 123 session): lint-imports found red on origin/main —
+    # three test-seam edges had landed unflagged (Gap 120 D2 handoff test
+    # running DetectorStage directly; source/readout tests loading YAML
+    # fixtures via io.config, whose ADR-0009 element-document persistence
+    # reaches radiant.optics internally). Production stage code remains
+    # cross-stage independent; these extend the documented test-seam
+    # exceptions above, nothing more.
+    "radiant.calibration.tests.* -> radiant.detector.stage",
+    "radiant.source.tests.* -> radiant.io.config",
+    "radiant.readout.tests.* -> radiant.io.config",
 ]
 
 [[tool.importlinter.contracts]]

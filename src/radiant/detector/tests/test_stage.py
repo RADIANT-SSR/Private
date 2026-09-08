@@ -209,3 +209,91 @@ class TestDarkTemperatureWarning:
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
             DetectorStage().run(state, params)  # temperature scaling active → no warning
+
+
+class TestPredictiveDarkModel:
+    """Gap 123: dark_model = 'rule07' / 'rule22' stage wiring."""
+
+    def _law_params(self, model: str, cutoff_um: float = 10.0) -> ParameterSet:
+        """Params for the predictive path — never sets the measured dark rate."""
+        schema = list(DET_PARAMS) + list(SI_PARAMS) + list(RO_PARAMS)
+        ps = ParameterSet(schema)
+        ps.set("detector.qe_value", 0.7)
+        ps.set("detector.pixel_pitch_x_um", 20.0)
+        ps.set("detector.pixel_pitch_y_um", 20.0)
+        ps.set("detector.detector_temperature_K", 77.0)
+        ps.set("detector.dark_model", model)
+        if cutoff_um > 0.0:
+            ps.set("detector.dark_cutoff_um", cutoff_um)
+        ps.set("spectral_integration.integration_time_s", 0.005)
+        ps.set("spectral_integration.filter_min_um", 3.5)
+        ps.set("spectral_integration.filter_max_um", 5.0)
+        ps.resolve()
+        return ps
+
+    @pytest.mark.level0
+    def test_rule07_dark_e(self) -> None:
+        # J(10 µm, 77 K) = 3.047050e-6 A/cm² (hand-computed, see test_rule07);
+        # rate = J·1e4·(20e-6)²/q = 7.60729e7 e⁻/s; dark_e = rate·0.005 s.
+        params = self._law_params("rule07")
+        out = DetectorStage().run(_make_state(np.linspace(3.5, 5.0, 50)), params)
+        det = out.stage_outputs["detector"]
+        assert det["dark_current_density_a_per_cm2"] == pytest.approx(3.047050e-6, rel=1e-4)
+        assert det["dark_rate_e_per_s"] == pytest.approx(7.60729e7, rel=1e-4)
+        assert det["dark_e"] == pytest.approx(7.60729e7 * 0.005, rel=1e-4)
+        # Inside the published fit range → no advisory note.
+        assert "dark_model_note" not in det
+
+    @pytest.mark.level0
+    def test_rule22_dark_e(self) -> None:
+        # J(10 µm, 77 K): hand value via the published three-term formula.
+        params = self._law_params("rule22")
+        out = DetectorStage().run(_make_state(np.linspace(3.5, 5.0, 50)), params)
+        det = out.stage_outputs["detector"]
+        j = det["dark_current_density_a_per_cm2"]
+        assert j == pytest.approx(3.073939e-6, rel=1e-4)
+        assert det["dark_e"] == pytest.approx(
+            j * 1e4 * (20e-6) ** 2 / 1.602176634e-19 * 0.005, rel=1e-6
+        )
+
+    @pytest.mark.level1
+    def test_fit_range_note_surfaces(self) -> None:
+        # 5 µm · 60 K → λe·T = 300 µm·K < 400 µm·K fit floor → advisory note.
+        params = self._law_params("rule07", cutoff_um=5.0)
+        params.set("detector.detector_temperature_K", 60.0)
+        params.resolve()
+        out = DetectorStage().run(_make_state(np.linspace(3.5, 5.0, 50)), params)
+        assert "400" in out.stage_outputs["detector"]["dark_model_note"]
+
+    @pytest.mark.level1
+    def test_missing_cutoff_raises(self) -> None:
+        with pytest.raises(ValueError, match="dark_cutoff_um"):
+            DetectorStage().run(
+                _make_state(np.linspace(3.5, 5.0, 50)), self._law_params("rule07", cutoff_um=0.0)
+            )
+
+    @pytest.mark.level1
+    def test_explicit_measured_rate_conflict_raises(self) -> None:
+        params = self._law_params("rule07")
+        params.set("detector.dark_rate_e_per_s", 250.0)  # explicit + law → over-specified
+        params.resolve()
+        with pytest.raises(ValueError, match="over-specified"):
+            DetectorStage().run(_make_state(np.linspace(3.5, 5.0, 50)), params)
+
+    @pytest.mark.level1
+    def test_explicit_activation_energy_conflict_raises(self) -> None:
+        params = self._law_params("rule22")
+        params.set("detector.dark_activation_energy_eV", 0.5)
+        params.resolve()
+        with pytest.raises(ValueError, match="over-specified"):
+            DetectorStage().run(_make_state(np.linspace(3.5, 5.0, 50)), params)
+
+    @pytest.mark.level1
+    def test_measured_default_path_unchanged(self) -> None:
+        # Regression guard: the default dark_model preserves the historical
+        # measured-rate behaviour bit-identically.
+        params = _make_params(dark_rate=100.0, t_int=0.005)
+        out = DetectorStage().run(_make_state(np.linspace(3.5, 5.0, 50)), params)
+        det = out.stage_outputs["detector"]
+        assert det["dark_e"] == pytest.approx(0.5, rel=1e-12)
+        assert "dark_current_density_a_per_cm2" not in det

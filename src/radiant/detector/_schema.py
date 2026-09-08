@@ -145,6 +145,43 @@ QE_TEMPERATURE_REF_K = ParameterDef(
 # Dark current
 # ---------------------------------------------------------------------------
 
+DARK_MODEL = ParameterDef(
+    name="detector.dark_model",
+    description=(
+        "Dark-current source (Gap 123). 'measured' (default): use dark_rate_e_per_s "
+        "with optional Arrhenius scaling — the historical behaviour. 'rule07' / "
+        "'rule22': derive the per-pixel dark rate from the published empirical "
+        "HgCdTe p-on-n law J(λc, T) (Tennant 2008 / Zandian 2023) using "
+        "dark_cutoff_um, detector_temperature_K, and the pixel area — for "
+        "blank-sheet design studies with no measured datasheet value. HgCdTe-only "
+        "laws; an explicitly set dark_rate_e_per_s or dark_activation_energy_eV "
+        "alongside a non-measured dark_model is rejected as over-specified."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="measured",
+    enum_values=("measured", "rule07", "rule22"),
+    tags=frozenset({"detector", "dark"}),
+    default_justification="'measured' preserves the pre-Gap-123 behaviour bit-identically.",
+)
+
+DARK_CUTOFF_UM = ParameterDef(
+    name="detector.dark_cutoff_um",
+    description=(
+        "Detector cutoff wavelength [µm] for the predictive dark-current laws "
+        "(dark_model = 'rule07' / 'rule22'). 0 = unset; required when a "
+        "predictive dark_model is selected, unused otherwise."
+    ),
+    dtype=float,
+    canonical_unit="um",
+    input_unit="um",
+    default=0.0,
+    bounds=(0.0, 30.0),
+    tags=frozenset({"detector", "dark"}),
+    default_justification="0 signals 'unset'; only consulted by the predictive dark models.",
+)
+
 DARK_RATE_E_PER_S = ParameterDef(
     name="detector.dark_rate_e_per_s",
     description="Dark current generation rate per pixel [e-/s].",
@@ -410,6 +447,8 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     QE_TABLE_PATH,
     QE_TEMPERATURE_COEFF_PER_K,
     QE_TEMPERATURE_REF_K,
+    DARK_MODEL,
+    DARK_CUTOFF_UM,
     DARK_RATE_E_PER_S,
     DARK_REFERENCE_TEMP,
     DARK_ACTIVATION_EV,

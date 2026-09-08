@@ -27,6 +27,11 @@ _CANONICAL_UNITS = {
     "s",
     "Hz",
     "W/m²",
+    # Gap 123: predictive dark-current laws report their diagnostic density in
+    # the community-standard A/cm² (the unit every Rule 07/22 plot and HgCdTe
+    # datasheet uses; conversion to the canonical e⁻/s rate happens once, in
+    # dark_current.dark_rate_e_per_s_from_density).
+    "A/cm²",
 }
 
 

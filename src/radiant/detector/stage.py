@@ -17,11 +17,20 @@ import math
 import numpy as np
 
 from radiant.core.chain import ChainState
-from radiant.core.parameters import ParameterSet, UnknownParameterError
-from radiant.detector.dark_current import DarkCurrent
+from radiant.core.parameters import ParameterSet, Provenance, UnknownParameterError
+from radiant.detector.dark_current import DarkCurrent, dark_rate_e_per_s_from_density
 from radiant.detector.diffusion import diffusion_mtf_1d
+from radiant.detector.errors import DetectorValidationError
 from radiant.detector.ipc import ipc_kernel, ipc_kernel_pitch_spaced, ipc_mtf_1d
 from radiant.detector.noise.budget import compute_noise_budget
+from radiant.detector.rule07 import (
+    rule07_dark_current_density_a_per_cm2,
+    rule07_fit_range_note,
+)
+from radiant.detector.rule22 import (
+    rule22_dark_current_density_a_per_cm2,
+    rule22_fit_range_note,
+)
 
 # Canonical display units for this stage's scalar ``stage_outputs`` (CU-118) —
 # declared next to the ``with_stage_output(...)`` emission sites and aggregated by
@@ -33,6 +42,8 @@ OUTPUT_UNITS: dict[str, str] = {
     "stray_e": "e-",
     "dark_e": "e-",
     "glow_e": "e-",
+    "dark_current_density_a_per_cm2": "A/cm²",
+    "dark_rate_e_per_s": "e-/s",
 }
 
 
@@ -58,39 +69,84 @@ class DetectorStage:
 
         t_int: float = params.get("spectral_integration.integration_time_s")
 
+        # --- Pixel area (Johnson noise; predictive dark-law conversion) ---
+        pixel_pitch_x: float = params.get("detector.pixel_pitch_x_um")
+        pixel_pitch_y: float = params.get("detector.pixel_pitch_y_um")
+        pixel_area_m2 = pixel_pitch_x * pixel_pitch_y
+
         # --- Dark current ---
-        dark = DarkCurrent(
-            rate_e_per_s=params.get("detector.dark_rate_e_per_s"),
-            reference_temperature_K=params.get("detector.dark_reference_temperature_K"),
-            activation_energy_eV=params.get("detector.dark_activation_energy_eV"),
-        )
         detector_temp_K: float = params.get("detector.detector_temperature_K")
+        dark_model: str = params.get("detector.dark_model")
         # CU-081 (warning-free-UX campaign): a temperature-inert dark rate is a
         # property of the configuration (dark_activation_energy_eV = 0), not a
         # per-evaluate event — carry it as a structured status note on the detector
         # stage output instead of a UserWarning that fires on every evaluate.
         dark_temperature_note = ""
-        if dark.activation_energy_eV > 0.0:
-            dark = dark.at_temperature(detector_temp_K)
-        elif abs(detector_temp_K - dark.reference_temperature_K) > 1.0:
-            dark_temperature_note = (
-                f"detector_temperature_K = {detector_temp_K:.1f} K differs from "
-                f"dark_reference_temperature_K = {dark.reference_temperature_K:.1f} K, "
-                "but dark_activation_energy_eV = 0, so dark current does NOT scale with "
-                "temperature — the temperature setting has no effect on dark noise. Set "
-                "dark_activation_energy_eV (e.g. ~0.5 eV for MWIR HgCdTe) for Arrhenius "
-                "scaling, or reference the dark rate to the operating temperature (CU-081)."
+        dark_model_note = ""
+        if dark_model == "measured":
+            dark = DarkCurrent(
+                rate_e_per_s=params.get("detector.dark_rate_e_per_s"),
+                reference_temperature_K=params.get("detector.dark_reference_temperature_K"),
+                activation_energy_eV=params.get("detector.dark_activation_energy_eV"),
             )
-        dark_e = dark.electrons_accumulated(t_int)
+            if dark.activation_energy_eV > 0.0:
+                dark = dark.at_temperature(detector_temp_K)
+            elif abs(detector_temp_K - dark.reference_temperature_K) > 1.0:
+                dark_temperature_note = (
+                    f"detector_temperature_K = {detector_temp_K:.1f} K differs from "
+                    f"dark_reference_temperature_K = {dark.reference_temperature_K:.1f} K, "
+                    "but dark_activation_energy_eV = 0, so dark current does NOT scale with "
+                    "temperature — the temperature setting has no effect on dark noise. Set "
+                    "dark_activation_energy_eV (e.g. ~0.5 eV for MWIR HgCdTe) for Arrhenius "
+                    "scaling, or reference the dark rate to the operating temperature (CU-081)."
+                )
+            dark_e = dark.electrons_accumulated(t_int)
+        else:
+            # Predictive HgCdTe laws (Gap 123): J(λc, T) → e⁻/s/pixel. A
+            # measured rate or Arrhenius energy explicitly set alongside a
+            # predictive model is an over-specified dark budget — reject
+            # rather than silently prefer one (same energy-balance spirit as
+            # the Kirchhoff Rule 5 guard).
+            for over_name, why in (
+                ("detector.dark_rate_e_per_s", "the law derives the rate"),
+                ("detector.dark_activation_energy_eV", "the law is evaluated at temperature"),
+            ):
+                if params.get_resolved(over_name).provenance is not Provenance.DEFAULT:
+                    raise DetectorValidationError(
+                        f"detector.dark_model = '{dark_model}' derives the dark "
+                        f"current from cutoff and temperature, but {over_name} is "
+                        f"also explicitly set — the dark budget is over-specified "
+                        f"({why}). Clear {over_name} or use dark_model = 'measured'."
+                    )
+            dark_cutoff_um: float = params.get("detector.dark_cutoff_um")
+            if dark_cutoff_um <= 0.0:
+                raise DetectorValidationError(
+                    f"detector.dark_model = '{dark_model}' requires "
+                    "detector.dark_cutoff_um (the detector cutoff wavelength in µm); "
+                    "it is unset (0). Set it — e.g. 5.0 for MWIR, 10.0 for LWIR HgCdTe."
+                )
+            if dark_model == "rule07":
+                dark_density_a_per_cm2 = rule07_dark_current_density_a_per_cm2(
+                    dark_cutoff_um, detector_temp_K
+                )
+                dark_model_note = rule07_fit_range_note(dark_cutoff_um, detector_temp_K)
+            else:  # "rule22" — schema enum admits no other value
+                dark_density_a_per_cm2 = rule22_dark_current_density_a_per_cm2(
+                    dark_cutoff_um, detector_temp_K
+                )
+                dark_model_note = rule22_fit_range_note(dark_cutoff_um, detector_temp_K)
+            dark_rate_e_per_s = dark_rate_e_per_s_from_density(
+                dark_density_a_per_cm2, pixel_area_m2
+            )
+            dark_e = dark_rate_e_per_s * t_int
+            state = state.with_stage_output(
+                "detector", "dark_current_density_a_per_cm2", dark_density_a_per_cm2
+            )
+            state = state.with_stage_output("detector", "dark_rate_e_per_s", dark_rate_e_per_s)
 
         # --- Glow ---
         glow_rate: float = params.get("detector.glow_e_per_s")
         glow_e = glow_rate * t_int
-
-        # --- Pixel area for Johnson noise ---
-        pixel_pitch_x: float = params.get("detector.pixel_pitch_x_um")
-        pixel_pitch_y: float = params.get("detector.pixel_pitch_y_um")
-        pixel_area_m2 = pixel_pitch_x * pixel_pitch_y
 
         # --- Gap 120 D2 handoff (ratified 2026-09-06) ---
         # Under an active calibration scheme the pre-correction dispersions
@@ -213,4 +269,6 @@ class DetectorStage:
             state = state.with_stage_output(
                 "detector", "dark_temperature_note", dark_temperature_note
             )
+        if dark_model_note:
+            state = state.with_stage_output("detector", "dark_model_note", dark_model_note)
         return state.with_stage_output("detector", "noise_budget_raw", budget)

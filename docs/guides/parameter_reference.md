@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 207**
+**Total parameters: 209**
 
 ## source
 
@@ -157,6 +157,8 @@
 | `detector.charge_diffusion_length_m` | float | 0.0 | m | (0.0, 0.001) | RMS charge diffusion length [m]. Zero disables diffusion MTF. |
 | `detector.clutter_sigma` | float | 0.0 | --- | (0.0, 1.0) | Scene clutter coefficient (fractional). Zero disables. |
 | `detector.dark_activation_energy_eV` | float | 0.0 | eV | (0.0, 5.0) | Arrhenius activation energy for dark-rate temperature scaling. Zero disables scaling. |
+| `detector.dark_cutoff_um` | float | 0.0 | um | (0.0, 30.0) | Detector cutoff wavelength [µm] for the predictive dark-current laws (dark_model = 'rule07' / 'rule22'). 0 = unset; required when a predictive dark_model is selected, unused otherwise. |
+| `detector.dark_model` | str | measured | --- | --- | Dark-current source (Gap 123). 'measured' (default): use dark_rate_e_per_s with optional Arrhenius scaling — the historical behaviour. 'rule07' / 'rule22': derive the per-pixel dark rate from the published empirical HgCdTe p-on-n law J(λc, T) (Tennant 2008 / Zandian 2023) using dark_cutoff_um, detector_temperature_K, and the pixel area — for blank-sheet design studies with no measured datasheet value. HgCdTe-only laws; an explicitly set dark_rate_e_per_s or dark_activation_energy_eV alongside a non-measured dark_model is rejected as over-specified. |
 | `detector.dark_rate_e_per_s` | float | 100.0 | 1/s | (0.0, 1000000000.0) | Dark current generation rate per pixel [e-/s]. |
 | `detector.dark_reference_temperature_K` | float | 77.0 | K | (1.0, 500.0) | Temperature at which dark_rate_e_per_s is specified [K]. |
 | `detector.detector_temperature_K` | float | 77.0 | K | (1.0, 500.0) | Detector operating temperature [K]. |

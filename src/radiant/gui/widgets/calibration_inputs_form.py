@@ -75,6 +75,7 @@ _DRIFT_FIELDS: Final[tuple[tuple[str, str], ...]] = (
 
 _SOURCE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Source emissivity", "calibration.source_emissivity"),
+    ("Source uniformity (1σ)", "calibration.source_uniformity_K"),
     ("Source ΔT (1σ)", "calibration.source_temp_uncertainty_K"),
     ("Source Δε (1σ)", "calibration.source_emissivity_uncertainty"),
 )

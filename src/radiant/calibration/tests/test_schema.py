@@ -33,9 +33,10 @@ class TestSchemaDefs:
     def defs(self) -> dict[str, object]:
         return {p.name: p for p in ALL_PARAMETERS}
 
-    def test_all_eleven_parameters_present(self, defs: dict[str, object]) -> None:
+    def test_all_twelve_parameters_present(self, defs: dict[str, object]) -> None:
         assert set(defs.keys()) == {
             "calibration.scheme",
+            "calibration.source_uniformity_K",
             "calibration.cal_temp_low_K",
             "calibration.cal_temp_high_K",
             "calibration.nonlinearity_pct",

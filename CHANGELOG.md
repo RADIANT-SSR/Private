@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Cal-source spatial non-uniformity residual (Gap 122 item 1)** — new
+  parameter `calibration.source_uniformity_K` (1σ across the source aperture)
+  drives a fourth calibration noise term `cal_source_uniformity`
+  (= ΔT_unif · dS/dT at the cal temperature(s), interpolated through the
+  two-point solve), non-zero even at the cal points where the NUC parabola
+  vanishes. **Results-affecting, opt-in only:** default 0.0 is bit-identical
+  to the previous model; at 0.05 K on the MWIR reference config the term sets
+  a calibration-limited NEDT floor (~25 → ~55 mK). GUI: field in the
+  calibration Source group; stage output `cal_source_uniformity_e`.
 - **Reflective-scene cal-point guard (CU-346)** — with an active calibration
   scheme on a scene whose sensing band carries no thermal photons at the
   declared scene temperature (or a pure-reflective `T2Reflective` target),

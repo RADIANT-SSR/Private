@@ -75,7 +75,7 @@ class TestComposition:
 
 
 class TestSchemeVisibility:
-    def test_all_eleven_parameters_are_rows(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_all_twelve_parameters_are_rows(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         form = CalibrationInputsForm()
         qtbot.addWidget(form)
         assert set(form.field_dotpaths()) == {
@@ -87,6 +87,7 @@ class TestSchemeVisibility:
             "calibration.gain_drift_frac_per_s",
             "calibration.offset_drift_e_per_s",
             "calibration.source_emissivity",
+            "calibration.source_uniformity_K",
             "calibration.source_temp_uncertainty_K",
             "calibration.source_emissivity_uncertainty",
             "calibration.gain_uncertainty_pct",

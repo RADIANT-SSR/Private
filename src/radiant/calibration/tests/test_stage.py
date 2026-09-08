@@ -168,10 +168,10 @@ class TestActiveDispatch:
         "calibration__gain_uncertainty_pct": 1.0,
     }
 
-    def test_three_noise_terms_emitted(self) -> None:
+    def test_four_noise_terms_emitted(self) -> None:
         out = CalibrationStage().run(_evaluated_state(), _params(**self._CAL))
         names = [t.name for t in out.noise_terms]
-        assert names == ["nuc_residual", "gain_drift", "offset_drift"]
+        assert names == ["nuc_residual", "cal_source_uniformity", "gain_drift", "offset_drift"]
         for term in out.noise_terms:
             assert term.contributes_to == ("spatial", "total")
 
@@ -361,3 +361,65 @@ class warnings_none:
         self._cm.__exit__(*exc)
         user = [r for r in self._records if issubclass(r.category, UserWarning)]
         assert not user, f"unexpected UserWarning(s): {[str(r.message) for r in user]}"
+
+
+class TestSourceUniformityDispatch:
+    """Gap 122 item 1: the uniformity term through the stage."""
+
+    _CAL = {
+        "calibration__scheme": "two_point",
+        "calibration__cal_temp_low_K": 290.0,
+        "calibration__cal_temp_high_K": 310.0,
+        "calibration__source_uniformity_K": 0.05,
+    }
+
+    def test_wiring_matches_module_composition(self) -> None:
+        from radiant.calibration.cal_points import cal_point_ds_dt_e_per_K
+        from radiant.calibration.source_uniformity import two_point_uniformity_residual_e
+
+        out = CalibrationStage().run(_evaluated_state(), _params(**self._CAL))
+        cal = out.stage_outputs["calibration"]
+        kw = {
+            "scene_temp_K": 300.0,
+            "scene_signal_e": 30000.0,
+            "lam_min_um": 8.0,
+            "lam_max_um": 12.0,
+        }
+        expected = two_point_uniformity_residual_e(
+            signal_e=30000.0,
+            s1_e=cal["s1_e"],
+            s2_e=cal["s2_e"],
+            delta_t_unif_K=0.05,
+            ds_dt_cal1_e_per_K=cal_point_ds_dt_e_per_K(t_cal_K=290.0, **kw),
+            ds_dt_cal2_e_per_K=cal_point_ds_dt_e_per_K(t_cal_K=310.0, **kw),
+        )
+        assert cal["cal_source_uniformity_e"] == pytest.approx(expected, rel=1e-12)
+        assert expected > 0.0
+
+    def test_nonzero_at_the_cal_point(self) -> None:
+        """The item-1 claim: at S = S1 the NUC parabola vanishes but the
+        uniformity imprint does not — the residual floor at the cal point."""
+        out = CalibrationStage().run(_evaluated_state(), _params(**self._CAL))
+        cal = out.stage_outputs["calibration"]
+        s1 = cal["s1_e"]
+        out_at_s1 = CalibrationStage().run(_evaluated_state(signal_e=s1), _params(**self._CAL))
+        cal_at_s1 = out_at_s1.stage_outputs["calibration"]
+        assert cal_at_s1["nuc_residual_e"] == pytest.approx(0.0, abs=1e-9)
+        assert cal_at_s1["cal_source_uniformity_e"] > 0.0
+
+    def test_default_zero_is_bit_identical_off(self) -> None:
+        base = {k: v for k, v in self._CAL.items() if "uniformity" not in k}
+        out = CalibrationStage().run(_evaluated_state(), _params(**base))
+        cal = out.stage_outputs["calibration"]
+        assert cal["cal_source_uniformity_e"] == 0.0
+        term = next(t for t in out.noise_terms if t.name == "cal_source_uniformity")
+        assert term.value_e == 0.0
+
+    def test_enters_the_calibration_total(self) -> None:
+        base = {k: v for k, v in self._CAL.items() if "uniformity" not in k}
+        off = CalibrationStage().run(_evaluated_state(), _params(**base))
+        on = CalibrationStage().run(_evaluated_state(), _params(**self._CAL))
+        assert (
+            on.stage_outputs["calibration"]["sigma_calibration_e"]
+            > off.stage_outputs["calibration"]["sigma_calibration_e"]
+        )

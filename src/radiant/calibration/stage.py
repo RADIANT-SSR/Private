@@ -39,7 +39,11 @@ import logging
 import math
 import warnings
 
-from radiant.calibration.cal_points import band_thermal_photon_fraction, cal_point_signal_e
+from radiant.calibration.cal_points import (
+    band_thermal_photon_fraction,
+    cal_point_ds_dt_e_per_K,
+    cal_point_signal_e,
+)
 from radiant.calibration.cal_source_bias import (
     source_emissivity_bias_frac,
     source_temp_bias_frac,
@@ -51,6 +55,10 @@ from radiant.calibration.errors import (
 from radiant.calibration.gain_drift import gain_drift_residual_e
 from radiant.calibration.nuc_residual import one_point_residual_e, two_point_residual_e
 from radiant.calibration.offset_drift import offset_drift_residual_e
+from radiant.calibration.source_uniformity import (
+    one_point_uniformity_residual_e,
+    two_point_uniformity_residual_e,
+)
 from radiant.core.chain import ChainState
 from radiant.core.descriptors import T2Reflective
 from radiant.core.parameters import ParameterSet
@@ -74,6 +82,7 @@ OUTPUT_UNITS: dict[str, str] = {
     "s1_e": "e-",
     "s2_e": "e-",
     "nuc_residual_e": "e-",
+    "cal_source_uniformity_e": "e-",
     "gain_drift_e": "e-",
     "offset_drift_e": "e-",
     "sigma_calibration_e": "e-",
@@ -263,6 +272,40 @@ class CalibrationStage:
             nuc_e = one_point_residual_e(signal_e=signal_e, s1_e=s1_e, prnu_frac=prnu_frac)
             t_cal_bias_K = t_low
 
+        # --- Source-uniformity residual (Gap 122 item 1) ------------------
+        # The cal plate's spatial gradient imprints through the correction:
+        # non-zero even AT the cal points, where the NUC parabola vanishes.
+        dt_unif: float = params.get("calibration.source_uniformity_K")
+        unif_e = 0.0
+        if dt_unif > 0.0:
+            d1 = cal_point_ds_dt_e_per_K(
+                t_cal_K=t_low,
+                scene_temp_K=scene_temp_K,
+                scene_signal_e=signal_e,
+                lam_min_um=lam_min_um,
+                lam_max_um=lam_max_um,
+            )
+            if scheme == "two_point":
+                d2 = cal_point_ds_dt_e_per_K(
+                    t_cal_K=t_high,
+                    scene_temp_K=scene_temp_K,
+                    scene_signal_e=signal_e,
+                    lam_min_um=lam_min_um,
+                    lam_max_um=lam_max_um,
+                )
+                unif_e = two_point_uniformity_residual_e(
+                    signal_e=signal_e,
+                    s1_e=s1_e,
+                    s2_e=s2_e,
+                    delta_t_unif_K=dt_unif,
+                    ds_dt_cal1_e_per_K=d1,
+                    ds_dt_cal2_e_per_K=d2,
+                )
+            else:  # one_point
+                unif_e = one_point_uniformity_residual_e(
+                    delta_t_unif_K=dt_unif, ds_dt_cal_e_per_K=d1
+                )
+
         # --- Drift terms --------------------------------------------------
         time_s: float = params.get("calibration.time_since_cal_s")
         gain_drift_e = gain_drift_residual_e(
@@ -278,6 +321,11 @@ class CalibrationStage:
         # --- Emit noise terms (post-scaling: sqrt(N)-exempt by position) --
         for term_name, value_e, basis in (
             ("nuc_residual", nuc_e, f"post-NUC residual ({scheme})"),
+            (
+                "cal_source_uniformity",
+                unif_e,
+                "source spatial non-uniformity imprinted at cal (Gap 122 item 1)",
+            ),
             ("gain_drift", gain_drift_e, "gain drift since cal (time-linear, D4)"),
             ("offset_drift", offset_drift_e, "offset drift since cal (time-linear, D4)"),
         ):
@@ -291,7 +339,7 @@ class CalibrationStage:
                 )
             )
 
-        sigma_cal_e = math.sqrt(nuc_e**2 + gain_drift_e**2 + offset_drift_e**2)
+        sigma_cal_e = math.sqrt(nuc_e**2 + unif_e**2 + gain_drift_e**2 + offset_drift_e**2)
         ro_sigma = float(ro.get("sigma_total_e", 0.0))
         sigma_total_e = math.sqrt(ro_sigma**2 + sigma_cal_e**2)
 
@@ -340,6 +388,7 @@ class CalibrationStage:
         state = state.with_stage_output("calibration", "scheme", scheme)
         state = state.with_stage_output("calibration", "enabled", True)
         state = state.with_stage_output("calibration", "nuc_residual_e", nuc_e)
+        state = state.with_stage_output("calibration", "cal_source_uniformity_e", unif_e)
         state = state.with_stage_output("calibration", "gain_drift_e", gain_drift_e)
         state = state.with_stage_output("calibration", "offset_drift_e", offset_drift_e)
         state = state.with_stage_output("calibration", "sigma_calibration_e", sigma_cal_e)

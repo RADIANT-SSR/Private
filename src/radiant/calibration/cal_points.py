@@ -40,6 +40,60 @@ def _band_photon_radiance(t_K: float, lam_min_um: float, lam_max_um: float) -> f
     return float(np.trapezoid(b / e_photon, lam_um))
 
 
+def cal_point_ds_dt_e_per_K(
+    *,
+    t_cal_K: float,
+    scene_temp_K: float,
+    scene_signal_e: float,
+    lam_min_um: float,
+    lam_max_um: float,
+) -> float:
+    """dS/dT at the cal temperature, through the band Planck-ratio mapping [e-/K].
+
+    The temperature derivative of :func:`cal_point_signal_e` at ``t_cal_K``:
+
+        dS/dT |_(T_cal) = S_scene · Bq'(T_cal) / Bq(T_scene)
+
+    evaluated by central difference (±0.05 K — the Planck band radiance's
+    curvature over 0.1 K is negligible at any temperature the bounds admit).
+    Consumed by the Gap 122 item 1 source-uniformity residual; inherits the
+    same anchoring assumption (and CU-346 reflective-scene caveat) as the cal
+    signals it differentiates.
+    """
+    for name, temp in (("t_cal_K", t_cal_K), ("scene_temp_K", scene_temp_K)):
+        if not math.isfinite(temp) or temp <= 0.0:
+            raise CalibrationValidationError(
+                f"{name} = {temp} K is not a valid absolute temperature.\n"
+                "  Why: the Planck band ratio is undefined at T <= 0.\n"
+                f"  Action: supply {name} > 0 K."
+            )
+    if not (0.0 < lam_min_um < lam_max_um):
+        raise CalibrationValidationError(
+            f"band [{lam_min_um}, {lam_max_um}] um is not a valid bandpass.\n"
+            "  Why: the band integral needs 0 < lam_min < lam_max.\n"
+            "  Action: check spectral_integration.filter_min_um / filter_max_um."
+        )
+    if not math.isfinite(scene_signal_e) or scene_signal_e < 0.0:
+        raise CalibrationValidationError(
+            f"scene_signal_e = {scene_signal_e} must be finite and non-negative.\n"
+            "  Why: the derivative scales the chain-delivered scene signal.\n"
+            "  Action: supply the post-readout signal in electrons."
+        )
+    h_K = 0.05
+    if t_cal_K <= h_K:
+        raise CalibrationValidationError(
+            f"t_cal_K = {t_cal_K} K is below the derivative step ({h_K} K).\n"
+            "  Why: the central difference would evaluate Planck radiance at "
+            "T <= 0, and no physical cal source operates there.\n"
+            "  Action: supply a cal temperature above 0.05 K."
+        )
+    dbq_dt = (
+        _band_photon_radiance(t_cal_K + h_K, lam_min_um, lam_max_um)
+        - _band_photon_radiance(t_cal_K - h_K, lam_min_um, lam_max_um)
+    ) / (2.0 * h_K)
+    return scene_signal_e * dbq_dt / _band_photon_radiance(scene_temp_K, lam_min_um, lam_max_um)
+
+
 def band_thermal_photon_fraction(t_K: float, lam_min_um: float, lam_max_um: float) -> float:
     """Fraction of a ``t_K`` blackbody's photon exitance inside the sensing band.
 

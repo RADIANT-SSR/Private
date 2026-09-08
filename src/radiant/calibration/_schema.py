@@ -123,6 +123,25 @@ OFFSET_DRIFT_E_PER_S = ParameterDef(
     tags=frozenset({"calibration", "drift"}),
 )
 
+SOURCE_UNIFORMITY_K = ParameterDef(
+    name="calibration.source_uniformity_K",
+    description=(
+        "Calibration-source spatial non-uniformity (1-sigma) across the "
+        "aperture [K] (Gap 122 item 1). Imprinted into the correction at cal "
+        "time: residual FPN = dT_unif x dS/dT at the cal temperature(s), "
+        "non-zero even AT the cal points (unlike the NUC nonlinearity "
+        "parabola). Cavity blackbodies typically hold 0.01-0.05 K. "
+        "0.0 (default) = perfectly uniform source, term off — bit-identical "
+        "to the pre-Gap-122 model."
+    ),
+    dtype=float,
+    canonical_unit="K",
+    input_unit="K",
+    default=0.0,
+    bounds=(0.0, 10.0),
+    tags=frozenset({"calibration"}),
+)
+
 SOURCE_TEMP_UNCERTAINTY_K = ParameterDef(
     name="calibration.source_temp_uncertainty_K",
     description=(
@@ -193,6 +212,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     TIME_SINCE_CAL_S,
     GAIN_DRIFT_FRAC_PER_S,
     OFFSET_DRIFT_E_PER_S,
+    SOURCE_UNIFORMITY_K,
     SOURCE_TEMP_UNCERTAINTY_K,
     SOURCE_EMISSIVITY_UNCERTAINTY,
     SOURCE_EMISSIVITY,

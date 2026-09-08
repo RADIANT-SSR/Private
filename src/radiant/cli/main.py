@@ -65,3 +65,10 @@ cli.add_command(schema_cmd, "schema")
 cli.add_command(sweep_cmd, "sweep")
 cli.add_command(template)
 cli.add_command(tolerance_cmd, "tolerance")
+
+
+if __name__ == "__main__":  # pragma: no cover — exercised via subprocess test
+    # Module-invocation form (`python -m radiant.cli.main …`). Without this
+    # guard the click group was never invoked and the arguments were silently
+    # discarded with exit 0 (Findings Log 2026-09-03, fixed 2026-09-07).
+    cli()

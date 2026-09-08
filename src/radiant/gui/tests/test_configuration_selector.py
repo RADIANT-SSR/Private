@@ -543,3 +543,25 @@ class TestOverflowAffordance:
         assert scrollbar.value() == 0  # first tab active — strip at its left end
         bar.set_active(names[-1])
         assert scrollbar.value() > 0  # last tab pulled into view
+
+
+class TestAccentForUnknownName:
+    """accent_for raises on an unknown name (Findings 2026-09-02, fixed 2026-09-07).
+
+    The old behavior silently returned slot 0's accent — a quiet fallback in a
+    lookup with no legitimate unknown-name case, masking host re-bind ordering
+    bugs as a wrong-but-plausible colour.
+    """
+
+    def test_unknown_name_raises(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        bar = ConfigurationBar()
+        qtbot.addWidget(bar)
+        bar.set_configurations(["MWIR", "LWIR"], "MWIR")
+        with pytest.raises(KeyError, match="no configuration named 'SWIR'"):
+            bar.accent_for("SWIR")
+
+    def test_known_names_unchanged(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        bar = ConfigurationBar()
+        qtbot.addWidget(bar)
+        bar.set_configurations(["MWIR", "LWIR"], "MWIR")
+        assert bar.accent_for("MWIR") != bar.accent_for("LWIR")

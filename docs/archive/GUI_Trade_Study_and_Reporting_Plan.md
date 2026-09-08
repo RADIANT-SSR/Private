@@ -1,13 +1,23 @@
 # GUI Trade-Study & Reporting Plan — the Tier-2 Increment
 
-**Status:** **Ratified — EXECUTED (overnight run, 2026-07-16→17).** All phases shipped:
+> **⚠ HISTORICAL — COMPLETE.** Archived 2026-09-07, completed by the GUI tier-1/2 closeout
+> session (owner-ratified 2026-09-07). All phases shipped in the 2026-07-16→17 overnight run
+> (SHAs below). **GT-8 closed by ratification:** its registry half ran 2026-07-17 (the
+> `gaps.md` GUI-1…17 re-audit; Gaps 79/85/88 closed commit-linked, `c8fb6c66`), and the
+> acceptance-session half was subsumed by the standing GUI live-review loop (ratified
+> 2026-09-01) — the owner has driven every GUI merge live since. The two unfiled GT-0 loose
+> ends were filed at closeout as **Gap 124** (reflected-solar component accessor/curve) and
+> **Gap 125** (background arm is Lambertian-diffuse only — no BRDF/glint). The Exposure
+> Increment plan (whose GX-2 folded into this closeout) is archived alongside this one; this
+> plan is no longer edited.
+
+**Status:** Complete — archived 2026-09-07 (GT-8 closed per the banner above).
+*(Prior: Ratified — EXECUTED, overnight run 2026-07-16→17.)* All phases shipped:
 FW-A `90aa515` (Gap 79 closed) · FW-B `a56ed14` (Gap 88 closed) · GT-0.1 `25d473c` (Source
 rework) · GT-1 `7a3ee2f` (sweep dialog) · GT-2 `3c24f6a` (tolerance annotation + MC/Batch
 scaffolds) · GT-3 `58dd0ac` (comparison) · GT-4 `b834c58` (export + XLSX) · GT-5 `f92056a`
 (measured-MTF overlay) · GT-6 `e300773` (inverse solve) · GT-7 `d780f96` (relevance badging;
-Gap 85 closed). **Remaining: GT-8 closeout** — the owner acceptance pass over the new
-surfaces, then registry re-audit of the touched GUI-1…17 rows and archival of this plan
-(and of the Exposure Increment plan, whose GX-2 folds into the same acceptance session).
+Gap 85 closed).
 **Date:** 2026-07-16
 **Scope:** the work the owner deferred out of the Exposure Increment ("I don't think we need
 sweeps and MC — I really want to expose existing capabilities", 2026-07-16) now returns as its
@@ -16,7 +26,7 @@ own tier: the **trade-study surfaces** (sweep / Monte Carlo / batch), **comparis
 overlay, inverse solve) and the Gap 85 remainder. Detection/acquisition panels (GUI-6 → Gap 78)
 stay **out** (§2.3).
 **Depends on / references (Rules 20/25 — reference, never re-enumerate):**
-- `docs/plans/GUI_Capability_Expansion_Plan.md` (Exposure Increment — Active; its ground rules
+- `docs/archive/GUI_Capability_Expansion_Plan.md` (Exposure Increment — archived alongside this plan; its ground rules
   and iteration protocol carry forward verbatim, themselves inherited from the archived v1 plan §4/§5).
 - `docs/reports/GUI_audit_071426/GUI_Capability_Audit.md` — the audit rows this tier drains
   (§11.2 sweeps, §11.4 comparison, §11.5 export, P-4 measurement overlay).

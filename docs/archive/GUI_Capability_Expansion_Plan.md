@@ -1,9 +1,20 @@
 # GUI Capability Expansion Plan — "GUI v2" Exposure Increment
 
-**Status:** Active — owner-ratified 2026-07-16; **FW-1 + GS-2 + GS-3 + GS-1 + GS-4 + GX-1 all
-SHIPPED 2026-07-16** (sequential run, owner-directed; TEG Phase G went green the same day).
-Remaining: **GX-2 closeout** — the owner acceptance walkthrough + registry hygiene + archiving
-this plan (needs an owner-driven session; see the GX-2 checkpoint).
+> **⚠ HISTORICAL — COMPLETE.** Archived 2026-09-07, completed by the GUI tier-1/2 closeout
+> session (owner-ratified 2026-09-07). All build phases (FW-1, GS-1…GS-4, GX-1) shipped
+> 2026-07-16. **GX-2 closed by ratification, not a dedicated session:** the registry hygiene
+> ran with the Tier-2 GT-8 registry pass (`gaps.md` GUI-1…17 re-audit, 2026-07-17), and the
+> acceptance-walkthrough function was subsumed by the standing GUI live-review loop (ratified
+> 2026-09-01) — the owner has driven every GUI merge live since, including the
+> multi-configuration expansion sessions (2026-09-02…04), which exercised these surfaces
+> end-to-end. The shipped application is described by
+> `docs/architecture/RADIANT_GUI_Architecture.md`; this plan is no longer edited.
+
+**Status:** Complete — archived 2026-09-07 (GX-2 closed per the banner above).
+*(Prior: Active — owner-ratified 2026-07-16; FW-1 + GS-2 + GS-3 + GS-1 + GS-4 + GX-1 all
+SHIPPED 2026-07-16, sequential run, owner-directed; TEG Phase G went green the same day.
+Remaining was GX-2 closeout — the owner acceptance walkthrough + registry hygiene + archiving
+this plan.)*
 **Date:** 2026-07-16
 **Scope (owner-directed 2026-07-16, revised same day):** **exposure-only** — surface capabilities
 the engine already has behind existing `ParameterDef`s, loaders, and API calls. The owner's

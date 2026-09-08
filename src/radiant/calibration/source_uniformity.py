@@ -93,3 +93,48 @@ def two_point_uniformity_residual_e(
     span = s2_e - s1_e
     weighted = ds_dt_cal1_e_per_K * (s2_e - signal_e) + ds_dt_cal2_e_per_K * (signal_e - s1_e)
     return delta_t_unif_K * abs(weighted) / abs(span)
+
+
+def three_point_uniformity_residual_e(
+    *,
+    signal_e: float,
+    s1_e: float,
+    s2_e: float,
+    s3_e: float,
+    delta_t_unif_K: float,
+    ds_dt_cal1_e_per_K: float,
+    ds_dt_cal2_e_per_K: float,
+    ds_dt_cal3_e_per_K: float,
+) -> float:
+    """Residual FPN from source non-uniformity after three-point NUC [e- RMS].
+
+    Piecewise: within each bracketing segment the correction is that pair's
+    two-point solve, so the imprint interpolates between that pair's
+    ``delta_T x dS/dT`` constants (Gap 122 items 1+2 composed). Ordering is
+    validated by the NUC residual on the same signals; here the segments just
+    dispatch.
+    """
+    if not (s1_e < s2_e < s3_e):
+        raise CalibrationValidationError(
+            f"three-point cal signals must be strictly increasing, got "
+            f"s1_e = {s1_e}, s2_e = {s2_e}, s3_e = {s3_e} [e-].\n"
+            "  Why: the piecewise imprint interpolates within ordered segments.\n"
+            "  Action: order the cal temperatures (low < mid < high)."
+        )
+    if signal_e <= s2_e:
+        return two_point_uniformity_residual_e(
+            signal_e=signal_e,
+            s1_e=s1_e,
+            s2_e=s2_e,
+            delta_t_unif_K=delta_t_unif_K,
+            ds_dt_cal1_e_per_K=ds_dt_cal1_e_per_K,
+            ds_dt_cal2_e_per_K=ds_dt_cal2_e_per_K,
+        )
+    return two_point_uniformity_residual_e(
+        signal_e=signal_e,
+        s1_e=s2_e,
+        s2_e=s3_e,
+        delta_t_unif_K=delta_t_unif_K,
+        ds_dt_cal1_e_per_K=ds_dt_cal2_e_per_K,
+        ds_dt_cal2_e_per_K=ds_dt_cal3_e_per_K,
+    )

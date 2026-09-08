@@ -33,9 +33,10 @@ class TestSchemaDefs:
     def defs(self) -> dict[str, object]:
         return {p.name: p for p in ALL_PARAMETERS}
 
-    def test_all_twelve_parameters_present(self, defs: dict[str, object]) -> None:
+    def test_all_thirteen_parameters_present(self, defs: dict[str, object]) -> None:
         assert set(defs.keys()) == {
             "calibration.scheme",
+            "calibration.cal_temp_mid_K",
             "calibration.source_uniformity_K",
             "calibration.cal_temp_low_K",
             "calibration.cal_temp_high_K",
@@ -51,7 +52,7 @@ class TestSchemaDefs:
 
     def test_scheme_enum_and_default(self) -> None:
         (scheme,) = [p for p in ALL_PARAMETERS if p.name == "calibration.scheme"]
-        assert scheme.enum_values == ("none", "one_point", "two_point")
+        assert scheme.enum_values == ("none", "one_point", "two_point", "three_point")
         assert scheme.default == "none"
 
     def test_defaults_are_the_none_limit(self) -> None:
@@ -105,7 +106,7 @@ class TestFailureModes:
 
     def test_scheme_rejects_unknown_value(self) -> None:
         with pytest.raises(ParameterEnumError):
-            _params(calibration__scheme="three_point")
+            _params(calibration__scheme="four_point")  # three_point is real now (Gap 122 item 2)
 
     def test_negative_uncertainty_rejected(self) -> None:
         with pytest.raises(ParameterBoundsError):

@@ -17,7 +17,11 @@ import numpy as np
 import pytest
 
 from radiant.calibration.errors import CalibrationValidationError
-from radiant.calibration.nuc_residual import one_point_residual_e, two_point_residual_e
+from radiant.calibration.nuc_residual import (
+    one_point_residual_e,
+    three_point_residual_e,
+    two_point_residual_e,
+)
 
 
 class TestTwoPointResidual:
@@ -132,3 +136,84 @@ class TestOnePointResidual:
     def test_negative_prnu_rejected(self) -> None:
         with pytest.raises(CalibrationValidationError, match="prnu"):
             one_point_residual_e(signal_e=3.0e4, s1_e=1.0e4, prnu_frac=-0.01)
+
+
+class TestThreePointResidual:
+    """Gap 122 item 2 (owner-scoped to three points, 2026-09-07): piecewise
+    two-point correction — within each bracketing segment the residual is that
+    segment's parabola, vanishing at all three cal points. Hand values from
+    sigma(S) = beta * |(S - S_a)(S - S_b)| / S_ref with the bracketing pair.
+    """
+
+    _KW = {
+        "s1_e": 10_000.0,
+        "s2_e": 30_000.0,
+        "s3_e": 60_000.0,
+        "nonlinearity_frac": 0.01,
+        "full_well_e": 100_000.0,
+    }
+
+    def test_zero_at_all_three_cal_points(self) -> None:
+        for s in (10_000.0, 30_000.0, 60_000.0):
+            assert three_point_residual_e(signal_e=s, **self._KW) == pytest.approx(0.0, abs=1e-9)
+
+    def test_lower_segment_hand_value(self) -> None:
+        """S = 20000 brackets (S1, S2): 0.01 * |10000 * -10000| / 1e5 = 10 e-."""
+        assert three_point_residual_e(signal_e=20_000.0, **self._KW) == pytest.approx(
+            10.0, rel=1e-12
+        )
+
+    def test_upper_segment_hand_value(self) -> None:
+        """S = 45000 brackets (S2, S3): 0.01 * |15000 * -15000| / 1e5 = 22.5 e-."""
+        assert three_point_residual_e(signal_e=45_000.0, **self._KW) == pytest.approx(
+            22.5, rel=1e-12
+        )
+
+    def test_shrinks_the_two_point_parabola(self) -> None:
+        """The whole point of the mid point: at the (S1,S3) midpoint the
+        three-point residual is far below the two-point one over the same span."""
+        s = 35_000.0
+        three = three_point_residual_e(signal_e=s, **self._KW)
+        two = two_point_residual_e(
+            signal_e=s,
+            s1_e=10_000.0,
+            s2_e=60_000.0,
+            nonlinearity_frac=0.01,
+            full_well_e=100_000.0,
+        )
+        assert three < two / 2
+
+    def test_below_span_extrapolates_the_lower_segment(self) -> None:
+        """S = 5000 < S1: the lower segment's parabola extends —
+        0.01 * |(-5000)(-25000)| / 1e5 = 12.5 e-."""
+        assert three_point_residual_e(signal_e=5_000.0, **self._KW) == pytest.approx(
+            12.5, rel=1e-12
+        )
+
+    def test_above_span_extrapolates_the_upper_segment(self) -> None:
+        """S = 70000 > S3: 0.01 * |40000 * 10000| / 1e5 = 40 e-."""
+        assert three_point_residual_e(signal_e=70_000.0, **self._KW) == pytest.approx(
+            40.0, rel=1e-12
+        )
+
+    def test_unordered_cal_points_rejected(self) -> None:
+        with pytest.raises(CalibrationValidationError, match="strictly increasing"):
+            three_point_residual_e(
+                signal_e=20_000.0,
+                s1_e=10_000.0,
+                s2_e=60_000.0,
+                s3_e=30_000.0,
+                nonlinearity_frac=0.01,
+                full_well_e=100_000.0,
+            )
+
+    def test_coincident_cal_points_rejected(self) -> None:
+        with pytest.raises(CalibrationValidationError, match="strictly increasing"):
+            three_point_residual_e(
+                signal_e=20_000.0,
+                s1_e=10_000.0,
+                s2_e=10_000.0,
+                s3_e=60_000.0,
+                nonlinearity_frac=0.01,
+                full_well_e=100_000.0,
+            )

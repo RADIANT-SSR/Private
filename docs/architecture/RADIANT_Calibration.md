@@ -82,6 +82,7 @@ FPN MTF term.
 | `none` | Model off — today's behavior. Detector `prnu`/`dsnu` terms act as static dispersions. Stage emits nothing. | — |
 | `one_point` | Offset corrected at cal flux $S_1$ | gain dispersion on the departure: $\sigma = \mathrm{prnu}\cdot\lvert S-S_1\rvert$; offset re-grows by drift |
 | `two_point` | Per-pixel gain+offset corrected at $S_1, S_2$ (from cal temps through the band) | quadratic-nonlinearity residual (plan §3.2, D1): parabola vanishing at both cal points |
+| `three_point` | Piecewise gain+offset through $S_1, S_2, S_3$ (`cal_temp_mid_K` between low and high; Gap 122 item 2, owner-scoped to three points — beyond that is rarely done) | each bracketing segment carries **its own** nonlinearity parabola, vanishing at all three cal points and peaking at a quarter of that segment's span squared; outside the span the nearest segment extrapolates. The source-uniformity imprint (item 1) interpolates piecewise the same way |
 
 Under an active scheme, `detector.prnu_pct` / `detector.dsnu_e_rms` are
 re-read as **pre-correction** dispersions (handoff mechanism per ratified

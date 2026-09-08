@@ -423,3 +423,64 @@ class TestSourceUniformityDispatch:
             on.stage_outputs["calibration"]["sigma_calibration_e"]
             > off.stage_outputs["calibration"]["sigma_calibration_e"]
         )
+
+
+class TestThreePointDispatch:
+    """Gap 122 item 2: the three_point scheme through the stage."""
+
+    _CAL = {
+        "calibration__scheme": "three_point",
+        "calibration__cal_temp_low_K": 285.0,
+        "calibration__cal_temp_mid_K": 300.0,
+        "calibration__cal_temp_high_K": 315.0,
+        "calibration__nonlinearity_pct": 1.0,
+    }
+
+    def test_wiring_matches_module_composition(self) -> None:
+        from radiant.calibration.nuc_residual import three_point_residual_e
+
+        out = CalibrationStage().run(_evaluated_state(), _params(**self._CAL))
+        cal = out.stage_outputs["calibration"]
+        expected = three_point_residual_e(
+            signal_e=30000.0,
+            s1_e=cal["s1_e"],
+            s2_e=cal["s2_e"],
+            s3_e=cal["s3_e"],
+            nonlinearity_frac=0.01,
+            full_well_e=1.0e5,
+        )
+        assert cal["nuc_residual_e"] == pytest.approx(expected, rel=1e-12)
+
+    def test_shrinks_the_two_point_residual_on_the_same_span(self) -> None:
+        three = CalibrationStage().run(_evaluated_state(), _params(**self._CAL))
+        two = CalibrationStage().run(
+            _evaluated_state(),
+            _params(
+                calibration__scheme="two_point",
+                calibration__cal_temp_low_K=285.0,
+                calibration__cal_temp_high_K=315.0,
+                calibration__nonlinearity_pct=1.0,
+            ),
+        )
+        assert (
+            three.stage_outputs["calibration"]["nuc_residual_e"]
+            < two.stage_outputs["calibration"]["nuc_residual_e"]
+        )
+
+    def test_missing_mid_is_incomplete(self) -> None:
+        cfg = {k: v for k, v in self._CAL.items() if "mid" not in k}
+        with pytest.raises(CalibrationConfigIncompleteError, match="cal_temp_mid_K is unset"):
+            CalibrationStage().run(_evaluated_state(), _params(**cfg))
+
+    def test_unordered_mid_rejected(self) -> None:
+        cfg = {**self._CAL, "calibration__cal_temp_mid_K": 320.0}
+        with pytest.raises(CalibrationValidationError, match="strictly increasing"):
+            CalibrationStage().run(_evaluated_state(), _params(**cfg))
+
+    def test_uniformity_composes_piecewise(self) -> None:
+        out = CalibrationStage().run(
+            _evaluated_state(),
+            _params(**self._CAL, calibration__source_uniformity_K=0.05),
+        )
+        cal = out.stage_outputs["calibration"]
+        assert cal["cal_source_uniformity_e"] > 0.0

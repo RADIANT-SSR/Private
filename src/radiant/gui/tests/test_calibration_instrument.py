@@ -75,12 +75,13 @@ class TestComposition:
 
 
 class TestSchemeVisibility:
-    def test_all_twelve_parameters_are_rows(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_all_thirteen_parameters_are_rows(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         form = CalibrationInputsForm()
         qtbot.addWidget(form)
         assert set(form.field_dotpaths()) == {
             "calibration.scheme",
             "calibration.cal_temp_low_K",
+            "calibration.cal_temp_mid_K",
             "calibration.cal_temp_high_K",
             "calibration.nonlinearity_pct",
             "calibration.time_since_cal_s",
@@ -101,10 +102,30 @@ class TestSchemeVisibility:
             visible = not form.row(dotpath).isHidden()
             assert visible == (dotpath == "calibration.scheme"), dotpath
 
-    def test_two_point_shows_everything(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_two_point_shows_everything_but_the_mid_point(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         form = CalibrationInputsForm()
         qtbot.addWidget(form)
         form.bind_sensor(_sensor(**_ACTIVE_TWO_POINT), {})
+        for dotpath in form.field_dotpaths():
+            if dotpath == "calibration.cal_temp_mid_K":
+                assert form.row(dotpath).isHidden()  # three_point-only (Gap 122 item 2)
+                continue
+            assert not form.row(dotpath).isHidden(), dotpath
+
+    def test_three_point_shows_everything(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        form = CalibrationInputsForm()
+        qtbot.addWidget(form)
+        form.bind_sensor(
+            _sensor(
+                **{
+                    "calibration.scheme": "three_point",
+                    "calibration.cal_temp_low_K": 285.0,
+                    "calibration.cal_temp_mid_K": 300.0,
+                    "calibration.cal_temp_high_K": 315.0,
+                }
+            ),
+            {},
+        )
         for dotpath in form.field_dotpaths():
             assert not form.row(dotpath).isHidden(), dotpath
 

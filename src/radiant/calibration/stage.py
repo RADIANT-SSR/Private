@@ -53,10 +53,15 @@ from radiant.calibration.errors import (
     CalibrationValidationError,
 )
 from radiant.calibration.gain_drift import gain_drift_residual_e
-from radiant.calibration.nuc_residual import one_point_residual_e, two_point_residual_e
+from radiant.calibration.nuc_residual import (
+    one_point_residual_e,
+    three_point_residual_e,
+    two_point_residual_e,
+)
 from radiant.calibration.offset_drift import offset_drift_residual_e
 from radiant.calibration.source_uniformity import (
     one_point_uniformity_residual_e,
+    three_point_uniformity_residual_e,
     two_point_uniformity_residual_e,
 )
 from radiant.core.chain import ChainState
@@ -81,6 +86,7 @@ _UNSET = 0.0
 OUTPUT_UNITS: dict[str, str] = {
     "s1_e": "e-",
     "s2_e": "e-",
+    "s3_e": "e-",
     "nuc_residual_e": "e-",
     "cal_source_uniformity_e": "e-",
     "gain_drift_e": "e-",
@@ -111,6 +117,27 @@ def _validate_active_scheme(scheme: str, params: ParameterSet) -> None:
             "  Action: set calibration.cal_temp_low_K (and cal_temp_high_K "
             "for two_point), or set calibration.scheme = 'none'."
         )
+    if scheme == "three_point":
+        t_mid: float = params.get("calibration.cal_temp_mid_K")
+        if t_high == _UNSET or t_mid == _UNSET:
+            missing = "cal_temp_high_K" if t_high == _UNSET else "cal_temp_mid_K"
+            raise CalibrationConfigIncompleteError(
+                "calibration.scheme = 'three_point' needs three cal points, but "
+                f"calibration.{missing} is unset.\n"
+                "  Why: three-point NUC corrects piecewise gain and offset at "
+                "three cal-source temperatures (Gap 122 item 2).\n"
+                "  Action: set cal_temp_low_K < cal_temp_mid_K < cal_temp_high_K, "
+                "or use scheme = 'two_point'."
+            )
+        if not (t_low < t_mid < t_high):
+            raise CalibrationValidationError(
+                f"three-point cal temperatures must be strictly increasing, got "
+                f"low = {t_low} K, mid = {t_mid} K, high = {t_high} K.\n"
+                "  Why: the piecewise correction needs ordered, distinct "
+                "segments; coincident or unordered points are ill-conditioned "
+                "(plan §15).\n"
+                "  Action: order the cal temperatures (low < mid < high)."
+            )
     if scheme == "two_point":
         if t_high == _UNSET:
             raise CalibrationConfigIncompleteError(
@@ -227,16 +254,8 @@ class CalibrationStage:
 
         prnu_frac = float(det.get("precal_prnu_pct", 0.0)) / 100.0
 
-        if scheme == "two_point":
+        if scheme in ("two_point", "three_point"):
             t_high: float = params.get("calibration.cal_temp_high_K")
-            s2_e = cal_point_signal_e(
-                t_cal_K=t_high,
-                scene_temp_K=scene_temp_K,
-                scene_signal_e=signal_e,
-                lam_min_um=lam_min_um,
-                lam_max_um=lam_max_um,
-            )
-            state = state.with_stage_output("calibration", "s2_e", s2_e)
             # Full-scale reference for the quadratic coefficient, in the same
             # summed domain as signal_e_final: the counting effective well
             # when the DROIC branch ran, else the per-pixel analog capacity
@@ -260,14 +279,50 @@ class CalibrationStage:
                 well,
                 "the well capacity",
             )
-            nuc_e = two_point_residual_e(
-                signal_e=signal_e,
-                s1_e=s1_e,
-                s2_e=s2_e,
-                nonlinearity_frac=params.get("calibration.nonlinearity_pct"),
-                full_well_e=full_well_e,
-            )
-            t_cal_bias_K = 0.5 * (t_low + t_high)
+            if scheme == "three_point":
+                t_mid_run: float = params.get("calibration.cal_temp_mid_K")
+                s2_e = cal_point_signal_e(
+                    t_cal_K=t_mid_run,
+                    scene_temp_K=scene_temp_K,
+                    scene_signal_e=signal_e,
+                    lam_min_um=lam_min_um,
+                    lam_max_um=lam_max_um,
+                )
+                s3_e = cal_point_signal_e(
+                    t_cal_K=t_high,
+                    scene_temp_K=scene_temp_K,
+                    scene_signal_e=signal_e,
+                    lam_min_um=lam_min_um,
+                    lam_max_um=lam_max_um,
+                )
+                state = state.with_stage_output("calibration", "s2_e", s2_e)
+                state = state.with_stage_output("calibration", "s3_e", s3_e)
+                nuc_e = three_point_residual_e(
+                    signal_e=signal_e,
+                    s1_e=s1_e,
+                    s2_e=s2_e,
+                    s3_e=s3_e,
+                    nonlinearity_frac=params.get("calibration.nonlinearity_pct"),
+                    full_well_e=full_well_e,
+                )
+                t_cal_bias_K = (t_low + t_mid_run + t_high) / 3.0
+            else:
+                s2_e = cal_point_signal_e(
+                    t_cal_K=t_high,
+                    scene_temp_K=scene_temp_K,
+                    scene_signal_e=signal_e,
+                    lam_min_um=lam_min_um,
+                    lam_max_um=lam_max_um,
+                )
+                state = state.with_stage_output("calibration", "s2_e", s2_e)
+                nuc_e = two_point_residual_e(
+                    signal_e=signal_e,
+                    s1_e=s1_e,
+                    s2_e=s2_e,
+                    nonlinearity_frac=params.get("calibration.nonlinearity_pct"),
+                    full_well_e=full_well_e,
+                )
+                t_cal_bias_K = 0.5 * (t_low + t_high)
         else:  # one_point
             nuc_e = one_point_residual_e(signal_e=signal_e, s1_e=s1_e, prnu_frac=prnu_frac)
             t_cal_bias_K = t_low
@@ -285,7 +340,32 @@ class CalibrationStage:
                 lam_min_um=lam_min_um,
                 lam_max_um=lam_max_um,
             )
-            if scheme == "two_point":
+            if scheme == "three_point":
+                d2 = cal_point_ds_dt_e_per_K(
+                    t_cal_K=params.get("calibration.cal_temp_mid_K"),
+                    scene_temp_K=scene_temp_K,
+                    scene_signal_e=signal_e,
+                    lam_min_um=lam_min_um,
+                    lam_max_um=lam_max_um,
+                )
+                d3 = cal_point_ds_dt_e_per_K(
+                    t_cal_K=t_high,
+                    scene_temp_K=scene_temp_K,
+                    scene_signal_e=signal_e,
+                    lam_min_um=lam_min_um,
+                    lam_max_um=lam_max_um,
+                )
+                unif_e = three_point_uniformity_residual_e(
+                    signal_e=signal_e,
+                    s1_e=s1_e,
+                    s2_e=s2_e,
+                    s3_e=s3_e,
+                    delta_t_unif_K=dt_unif,
+                    ds_dt_cal1_e_per_K=d1,
+                    ds_dt_cal2_e_per_K=d2,
+                    ds_dt_cal3_e_per_K=d3,
+                )
+            elif scheme == "two_point":
                 d2 = cal_point_ds_dt_e_per_K(
                     t_cal_K=t_high,
                     scene_temp_K=scene_temp_K,

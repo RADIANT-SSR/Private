@@ -186,10 +186,22 @@ class ConfigurationBar(QWidget):
         matching hue in the light and dark token sets. A set larger than the
         accent tuple (not reachable while ``MAX_CONFIGS`` is 12 and both themes
         carry twelve accents) wraps.
+
+        A name not in the set raises ``KeyError`` — a developer invariant, not
+        a user-input surface: the one production caller builds its query from
+        the same set that populated the bar, so an unknown name means the host
+        re-bound its panels before pushing the set down. The old silent
+        slot-0 fallback masked exactly that ordering bug (Findings Log
+        2026-09-02, fixed 2026-09-07).
         """
+        if name not in self._names:
+            raise KeyError(
+                f"accent_for: no configuration named {name!r} in the bar "
+                f"(holding {self._names}); push the set down with "
+                "set_configurations() before querying accents."
+            )
         accents = self._theme.config_accents
-        index = self._names.index(name) if name in self._names else 0
-        return accents[index % len(accents)]
+        return accents[self._names.index(name) % len(accents)]
 
     # -- update -------------------------------------------------------------
 

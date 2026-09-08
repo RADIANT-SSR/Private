@@ -257,8 +257,17 @@ near 56 (the 1/(prnu·(1−S₁/S)) ceiling) by N_tdi ≈ 16–32 — beyond the
 crossover, added stages buy TDI-misalignment MTF loss, not SNR. Results in
 `outputs/tdi_calibration_floor.csv`.
 
-Cal-point semantics note (CU-346): on this reflective VNIR scene the v1
-Planck-based cal-point mapping anchors the 290 K point at the 290/300 K band
-ratio of the *solar* signal (~13.8 % of S) — a deterministic stand-in; the
-plateau conclusion is mapping-independent, only its exact level rides CU-346.
-The original study above is untouched (its goldens and outputs unchanged).
+Cal-point semantics note (CU-346 — guard shipped 2026-09-07): on this
+reflective VNIR scene the v1 Planck-based cal-point mapping anchors the 290 K
+point at the 290/300 K band ratio of the *solar* signal (~13.8 % of S) — a
+deterministic stand-in. The chain now flags this itself: `CalibrationStage`
+emits a `CU-346` `UserWarning` and publishes
+`stage_outputs["calibration"]["reflective_scene_cal_note"]` whenever a scheme
+is active and the sensing band carries essentially no thermal photons at the
+declared scene temperature (here 4.3e-22 of a 300 K blackbody's photon
+exitance falls in 0.5–0.85 µm) — the runner reprints the advisory after its
+sweep. Every number in the table above is bit-identical to the pre-guard run;
+the plateau conclusion is mapping-independent, only its exact level rides the
+stand-in. The flux-declared cal point (integrating sphere) that would retire
+it is tracked as the flux-ratio door under Gap 122. The original study above
+is untouched (its goldens and outputs unchanged).

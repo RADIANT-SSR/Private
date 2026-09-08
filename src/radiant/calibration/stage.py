@@ -37,8 +37,9 @@ from __future__ import annotations
 
 import logging
 import math
+import warnings
 
-from radiant.calibration.cal_points import cal_point_signal_e
+from radiant.calibration.cal_points import band_thermal_photon_fraction, cal_point_signal_e
 from radiant.calibration.cal_source_bias import (
     source_emissivity_bias_frac,
     source_temp_bias_frac,
@@ -51,10 +52,19 @@ from radiant.calibration.gain_drift import gain_drift_residual_e
 from radiant.calibration.nuc_residual import one_point_residual_e, two_point_residual_e
 from radiant.calibration.offset_drift import offset_drift_residual_e
 from radiant.core.chain import ChainState
+from radiant.core.descriptors import T2Reflective
 from radiant.core.parameters import ParameterSet
 from radiant.core.radiometry import BiasTerm, NoiseTerm
 
 logger = logging.getLogger(__name__)
+
+# CU-346: below this in-band share of the scene-temperature blackbody's photon
+# exitance, the declared temperature cannot be sourcing the collected signal
+# and the Planck cal-point anchor is a stand-in. Discrimination is huge —
+# ~1e-22 (VNIR at 300 K, fires) vs ~8e-7 (SWIR at 300 K, stays quiet) vs
+# ~2e-5 (LWIR at 77 K lab, stays quiet) — so the exact value is uncritical;
+# a diagnostic bound, not tuned physics.
+_THERMAL_ANCHOR_FLOOR: float = 1e-9
 
 #: Sentinel: cal temperatures default to 0.0 = "unset" (see _schema.py).
 _UNSET = 0.0
@@ -142,6 +152,45 @@ class CalibrationStage:
             )
 
         _validate_active_scheme(scheme, params)
+
+        # CU-346 guard (owner-ratified 2026-09-07: guard now, flux-ratio door
+        # later — Gap 122). On a reflective scene the Planck cal-point mapping
+        # S(T_cal) = S_scene · Bq(T_cal)/Bq(T_scene) anchors at a temperature
+        # that describes none of the collected signal: the band carries no
+        # thermal photons at the declared scene temperature, so the signal is
+        # solar-reflected and a physical blackbody at T_cal would deliver ~0
+        # in-band. Two doors reach it: a pure-reflective descriptor
+        # (T2Reflective — definitionally no thermal term), or a thermal/mixed
+        # descriptor whose declared temperature emits nothing in the sensing
+        # band (the scenario-1.4 shape: T1Thermal at 300 K on 0.5–0.85 µm,
+        # in-band photon share ~1e-22 — the signal rides Kirchhoff-reflected
+        # sunlight). The cal signals stay deterministic stand-ins (the
+        # residual *structure* — plateau, √N exemption — survives; the
+        # absolute level does not), so the run proceeds under a loud advisory
+        # rather than silently (Rule 17).
+        scene_temp_guard_K: float = params.get("source.target.temperature")
+        lam_min_guard_um: float = params.get("spectral_integration.filter_min_um")
+        lam_max_guard_um: float = params.get("spectral_integration.filter_max_um")
+        target_desc = state.stage_outputs.get("source", {}).get("target")
+        thermal_frac = band_thermal_photon_fraction(
+            scene_temp_guard_K, lam_min_guard_um, lam_max_guard_um
+        )
+        if isinstance(target_desc, T2Reflective) or thermal_frac < _THERMAL_ANCHOR_FLOOR:
+            note = (
+                "calibration cal points on this scene are Planck stand-ins: "
+                f"a blackbody at the declared scene temperature "
+                f"({scene_temp_guard_K:.1f} K) puts {thermal_frac:.1e} of its "
+                f"photons into the {lam_min_guard_um:.2f}-{lam_max_guard_um:.2f} um "
+                "band, so the collected signal is (solar-)reflected, not "
+                "thermal, and the Planck anchor describes none of it. Residual "
+                "magnitudes (and SNR/NEDT under this scheme) are "
+                "structure-true but level-approximate. A flux-declared cal "
+                "point (integrating sphere) is not expressible in v1 — "
+                "tracked as the CU-346 flux-ratio door under Gap 122. To "
+                "silence: set calibration.scheme = 'none'."
+            )
+            warnings.warn(f"CU-346: {note}", UserWarning, stacklevel=2)
+            state = state.with_stage_output("calibration", "reflective_scene_cal_note", note)
 
         ro = state.stage_outputs.get("readout", {})
         det = state.stage_outputs.get("detector", {})

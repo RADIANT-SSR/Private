@@ -20,6 +20,17 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **Reflective-scene cal-point guard (CU-346)** — with an active calibration
+  scheme on a scene whose sensing band carries no thermal photons at the
+  declared scene temperature (or a pure-reflective `T2Reflective` target),
+  `CalibrationStage` now emits a `CU-346` `UserWarning` and publishes
+  `stage_outputs["calibration"]["reflective_scene_cal_note"]`: the Planck
+  cal-point anchor is a deterministic stand-in there (residuals are
+  structure-true but level-approximate). Computed results unchanged; a
+  flux-declared cal point remains inexpressible in v1 (Gap 122 flux-ratio
+  door).
+
 ### Fixed
 - **Dual-path consistency check compares at and below detector Nyquist
   (CU-345)** — the Rule-4 check previously compared out to half the PSF

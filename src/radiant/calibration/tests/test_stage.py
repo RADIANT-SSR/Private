@@ -262,3 +262,102 @@ class TestActiveDispatch:
         assert cal["sigma_calibration_e"] == 0.0
         assert cal["sigma_total_e"] == _pytest.approx(100.0, rel=1e-12)
         assert out.bias_terms == ()
+
+
+class TestReflectiveSceneGuard:
+    """CU-346 (owner-ratified 2026-09-07): a pure-reflective scene under an
+    active scheme runs, but loudly — the Planck cal-point anchor describes
+    none of a solar-reflective signal, so the stage warns and publishes a
+    note instead of silently emitting stand-in residuals."""
+
+    @staticmethod
+    def _t2_target() -> object:
+        import warnings as _w
+
+        from radiant.core.descriptors import T2Reflective
+        from radiant.core.reflectance import ScalarLambertianReflectance
+        from radiant.core.spectral import SpectralData
+
+        rho = ScalarLambertianReflectance(
+            reflectance=SpectralData(
+                wavelength_um=np.linspace(0.5, 0.85, 5),
+                values=np.full(5, 0.3),
+                name="rho",
+                unit="",
+                source="test",
+            )
+        )
+        with _w.catch_warnings():
+            _w.simplefilter("ignore", UserWarning)  # MWIR-overlap best-effort check
+            return T2Reflective(
+                scene_type="extended",
+                target_location="terrestrial",
+                h_tgt=0.0,
+                rho=rho,
+            )
+
+    def _reflective_state(self) -> ChainState:
+        return _evaluated_state().with_stage_output("source", "target", self._t2_target())
+
+    def test_active_scheme_on_t2_warns_and_publishes_note(self) -> None:
+        state = self._reflective_state()
+        with pytest.warns(UserWarning, match="CU-346"):
+            out = CalibrationStage().run(
+                state, _params(calibration__scheme="one_point", calibration__cal_temp_low_K=290.0)
+            )
+        note = out.stage_outputs["calibration"]["reflective_scene_cal_note"]
+        assert "stand-in" in note and "Gap 122" in note
+        # The run still completes: the residual terms are emitted as before.
+        assert out.stage_outputs["calibration"]["enabled"] is not False
+
+    def test_scheme_none_on_t2_stays_silent(self) -> None:
+        state = self._reflective_state()
+        with warnings_none():
+            out = CalibrationStage().run(state, _params())
+        assert "reflective_scene_cal_note" not in out.stage_outputs["calibration"]
+
+    def test_thermal_descriptor_on_a_solar_band_warns_too(self) -> None:
+        """The scenario-1.4 door: T1Thermal at 300 K on a VNIR band — the
+        declared temperature emits ~1e-22 of its photons in-band, so the
+        guard fires on the band-thermal-fraction test, no descriptor check
+        needed (the harness state carries no descriptor at all)."""
+        with pytest.warns(UserWarning, match="CU-346"):
+            out = CalibrationStage().run(
+                _evaluated_state(),
+                _params(
+                    calibration__scheme="one_point",
+                    calibration__cal_temp_low_K=290.0,
+                    spectral_integration__filter_min_um=0.5,
+                    spectral_integration__filter_max_um=0.85,
+                ),
+            )
+        assert "reflective_scene_cal_note" in out.stage_outputs["calibration"]
+
+    def test_thermal_scene_stays_silent(self) -> None:
+        # The synthetic harness state carries no source descriptor at all —
+        # the guard must not fire on absence, and not on thermal scenes.
+        with warnings_none():
+            out = CalibrationStage().run(
+                _evaluated_state(),
+                _params(calibration__scheme="one_point", calibration__cal_temp_low_K=290.0),
+            )
+        assert "reflective_scene_cal_note" not in out.stage_outputs["calibration"]
+
+
+class warnings_none:
+    """Context asserting no UserWarning escapes the block."""
+
+    def __enter__(self) -> warnings_none:
+        import warnings as _w
+
+        self._cm = _w.catch_warnings(record=True)
+        self._records = self._cm.__enter__()
+        import warnings as _w2
+
+        _w2.simplefilter("always")
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._cm.__exit__(*exc)
+        user = [r for r in self._records if issubclass(r.category, UserWarning)]
+        assert not user, f"unexpected UserWarning(s): {[str(r.message) for r in user]}"

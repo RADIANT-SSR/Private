@@ -565,3 +565,17 @@ class TestAccentForUnknownName:
         qtbot.addWidget(bar)
         bar.set_configurations(["MWIR", "LWIR"], "MWIR")
         assert bar.accent_for("MWIR") != bar.accent_for("LWIR")
+
+
+class TestWindowMinimumIsLaptopSafe:
+    """Narrow-width sweep 2026-09-07: the whole-window minimum stays under a
+    laptop screen. This is the class invariant behind CU-341 and the stage
+    strip fix — any dock that pins the window minimum past ~700 px fails
+    here before an owner hits it at the screen (pre-sweep: 1329 px, pinned
+    by the 10-chip stage strip)."""
+
+    def test_full_cap_study_window_minimum(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = _open_full_cap_study(qtbot, tmp_path)
+        window.show()
+        qtbot.waitExposed(window)
+        assert window.minimumSizeHint().width() <= 700

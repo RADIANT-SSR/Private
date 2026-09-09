@@ -21,8 +21,8 @@ from __future__ import annotations
 
 from typing import Final
 
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QHBoxLayout, QWidget
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QHBoxLayout, QScrollArea, QWidget
 
 from radiant.gui.errors import GuiValidationError
 from radiant.gui.param_format import chain_namespace_order
@@ -86,7 +86,20 @@ class StageStrip(QWidget):
                 f"(known stages: {sorted(chain)})"
             )
 
-        layout = QHBoxLayout(self)
+        # The chips live in a frameless horizontal scroll strip (narrow-width
+        # sweep, 2026-09-07 — the CU-341 pattern the configuration bar uses):
+        # ten chips in a plain row pinned the WHOLE WINDOW minimum at 1329 px,
+        # wider than a 1280 px laptop screen, and below that minimum Qt clips
+        # the strip mid-chip (the CU-348 session screenshot). With room, the
+        # strip is pixel-identical (chips stretch to fill); without, a slim
+        # themed scrollbar appears and the selected chip scrolls into view.
+        outer = QHBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        chips_host = QWidget(self)
+        chips_host.setObjectName("stageStripHost")
+        layout = QHBoxLayout(chips_host)
         layout.setContentsMargins(14, 12, 14, 12)
         layout.setSpacing(8)
 
@@ -95,12 +108,25 @@ class StageStrip(QWidget):
         self._selected: str | None = None
         for index, (namespace, eyebrow, title, subtitle) in enumerate(STAGES, start=1):
             chip = StageChip(
-                index, namespace, eyebrow, title, subtitle, status="stale", parent=self
+                index, namespace, eyebrow, title, subtitle, status="stale", parent=chips_host
             )
             chip.clicked.connect(self.stageClicked)
             self._chips.append(chip)
             self._by_namespace[namespace] = chip
             layout.addWidget(chip, 1)
+
+        scroll = QScrollArea(self)
+        scroll.setObjectName("stageStripScroll")
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setWidgetResizable(True)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setSizeAdjustPolicy(QScrollArea.SizeAdjustPolicy.AdjustToContents)
+        scroll.setWidget(chips_host)
+        scroll.viewport().setAutoFillBackground(False)
+        chips_host.setAutoFillBackground(False)
+        outer.addWidget(scroll, 1)
+        self._scroll = scroll
 
     # -- accessors ----------------------------------------------------------
 
@@ -121,10 +147,16 @@ class StageStrip(QWidget):
     # -- selection ----------------------------------------------------------
 
     def select(self, namespace: str) -> None:
-        """Mark *namespace*'s chip selected and deselect the rest (§8.4 focus styling)."""
+        """Mark *namespace*'s chip selected and deselect the rest (§8.4 focus styling).
+
+        Also scrolls the selected chip into view when the strip overflows a
+        narrow window (the margin shows the neighbouring chip's edge, so an
+        overflowing strip reads as continuing).
+        """
         self._selected = namespace
         for chip in self._chips:
             chip.set_selected(chip.namespace == namespace)
+        self._scroll.ensureWidgetVisible(self._by_namespace[namespace], 24, 0)
 
     # -- health -------------------------------------------------------------
 

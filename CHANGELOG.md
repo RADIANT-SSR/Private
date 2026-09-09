@@ -30,6 +30,13 @@ retroactively reconstructed.
   template no longer silently moves golden baselines.
 
 ### Fixed
+- **Stage strip scrolls at narrow widths; window minimum is laptop-safe**
+  (narrow-width sweep) — the ten stage chips pinned the whole-window minimum
+  at 1329 px, wider than a 1280 px laptop screen, and below it the strip
+  clipped mid-chip. The chips now live in a horizontal scroll strip (CU-341
+  pattern; identical look when there is room) and the window minimum with a
+  9-band study drops to ~517 px, pinned by a ≤700 px regression invariant.
+  GUI-only; computed results unchanged.
 - **All-Parameters panel keeps its name column at narrow widths (CU-348)** —
   at the small window sizes the CU-341 fix made reachable, the parameter
   name column collapsed to ~16 px (rows showed bare values) while the value

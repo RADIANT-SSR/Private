@@ -404,6 +404,17 @@ corner (already carrying the Inspector affordance) or the status bar (which is a
 transient-message surface, not a persistent control). The dedicated band costs one row and
 keeps the study's shape readable at a glance.
 
+**The stage strip scrolls too (narrow-width sweep, 2026-09-07).** The same
+pattern applies one dock down: ten chips in a plain row pinned the whole window
+minimum at 1329 px — wider than a 1280 px laptop — and below that minimum Qt
+clipped the strip mid-chip. The chips now live in a frameless horizontal scroll
+strip (pixel-equivalent when there is room; slim themed scrollbar and
+selected-chip ensure-visible when there is not), and the window minimum with a
+full-cap study measures ~517 px. Tested at strip grain
+(`test_stage_strip.py::TestNarrowWidthScroll`) and as the class invariant
+`TestWindowMinimumIsLaptopSafe` (window minimum ≤ 700 px), which fails on any
+future dock that pins the window past a laptop width.
+
 **The tab row scrolls; it never widens the window (CU-341).** The tabs sit inside a
 frameless horizontal scroll strip, so a full-cap study's tab row does not feed the bar's
 `minimumSizeHint` (pre-fix, 12 OLI-style names forced a 1344 px window minimum through the

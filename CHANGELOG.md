@@ -20,6 +20,15 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **Six worked examples ship in the wheel (Gap 126)** — the welcome screen
+  gains a "Worked examples" group: five scenario-derived studies (MWIR
+  maritime surveillance, airborne hotspot detection, off-nadir agility,
+  air-to-air IRST, TDI pushbroom optimization) plus the Landsat OLI-2
+  nine-band configuration study with its filter curves, all openable on a
+  bare `pip install`. Curated snapshots with provenance lines, pinned
+  loadable-and-warning-clean by CI.
+
 ### Fixed
 - **Wheel installs now ship the six mission templates (CU-349)** — the
   welcome screen's "get started" cards and template discovery work on a bare

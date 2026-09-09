@@ -199,6 +199,18 @@ def read_template_meta(path: str | Path) -> dict[str, Any]:
     return dict(meta) if isinstance(meta, dict) else {}
 
 
+def read_example_meta(path: str | Path) -> dict[str, Any]:
+    """The ``_radiant.example`` metadata block of *path* (or ``{}``).
+
+    The welcome screen's Worked-Examples group (Gap 126) reads bundled-example
+    metadata through this seam — the exact mirror of :func:`read_template_meta`.
+    """
+    from radiant.io.config import read_radiant_meta
+
+    meta = read_radiant_meta(path).get("example", {})
+    return dict(meta) if isinstance(meta, dict) else {}
+
+
 __all__ = [
     "ElementPreview",
     "SpectralImportPreview",

@@ -76,6 +76,9 @@ where = ["src"]
     # CU-349: the six mission templates ship in the wheel — the welcome screen
     # and `radiant template` discover them module-relative, never repo-relative.
     "templates/*.yaml",
+    # Gap 126: the worked examples (five configs + the OLI-2 study and its CSVs).
+    "examples/*.yaml",
+    "examples/oli2/*.csv",
 ]
 
 [tool.pytest.ini_options]

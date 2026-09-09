@@ -73,6 +73,9 @@ where = ["src"]
     "tables/**/*.csv",
     "tables/**/*.md",
     "tables/**/*.yaml",
+    # CU-349: the six mission templates ship in the wheel — the welcome screen
+    # and `radiant template` discover them module-relative, never repo-relative.
+    "templates/*.yaml",
 ]
 
 [tool.pytest.ini_options]

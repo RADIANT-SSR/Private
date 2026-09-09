@@ -7,13 +7,13 @@ from pathlib import Path
 import pytest
 import yaml
 
-_TEMPLATES_DIR = (
-    Path(__file__).resolve().parent.parent.parent.parent.parent / "examples" / "templates"
-)
+# CU-349: templates ship inside the package; resolve module-relative like
+# every other radiant.data loader, never via the repo root.
+_TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 
 
 def _template_paths() -> list[Path]:
-    """Collect all .yaml files in examples/templates/."""
+    """Collect all bundled template YAMLs (radiant/data/templates/)."""
     if not _TEMPLATES_DIR.is_dir():
         return []
     return sorted(_TEMPLATES_DIR.glob("*.yaml"))
@@ -29,10 +29,8 @@ class TestTemplateFiles:
     @pytest.mark.level1
     def test_templates_exist(self) -> None:
         paths = _template_paths()
-        # CU-339 (2026-09-07): the twelve inferrer-corpus configs moved to
-        # tests/integration/fixtures/inferrer_corpus/ — examples/templates/ is
-        # now exactly the six user-facing mission templates the welcome screen
-        # discovers (each carrying _radiant.template metadata).
+        # CU-339 split the corpus out; CU-349 moved the six mission templates
+        # into the package (radiant/data/templates/) so they ship in the wheel.
         assert len(paths) == 6, f"Expected the 6 mission templates, found {len(paths)}"
 
     @pytest.mark.level1

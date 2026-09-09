@@ -29,6 +29,16 @@ retroactively reconstructed.
   to exactly three points. Opt-in — existing schemes and defaults are
   bit-identical. GUI: mid cal-point field, shown only under `three_point`.
 
+### Fixed
+- **Wheel installs now ship the six mission templates (CU-349)** — the
+  welcome screen's "get started" cards and template discovery work on a bare
+  `pip install radiant`, not just a source checkout: the templates moved
+  into the package (`radiant/data/templates/`) and discovery
+  (`radiant.api.mission_templates`, relocated from `gui`) resolves them
+  module-relative like every reference table. Previously a wheel install
+  opened to an empty welcome screen with no examples anywhere on disk.
+  Scenarios remain repo-only by owner ruling (2026-09-08).
+
 ### Changed
 - **Scripting console upgraded to a Jupyter kernel (CU-138)** — with the
   `gui` extra's `qtconsole` installed, the Command Window is now a

@@ -1,21 +1,25 @@
 """Mission-template discovery — one computation (Rule 19): find + describe templates.
 
-The welcome screen offers every YAML under ``examples/templates/`` as a
-one-click starting scenario (owner-confirmed brief, 2026-08-31). This module is
-the Qt-free seam between that surface and the filesystem: it locates the
-template directory, reads each file's ``_radiant.template`` metadata through
-the public :func:`radiant.io.config.read_radiant_meta` seam, and returns
+The welcome screen offers every bundled mission template as a one-click
+starting scenario (owner-confirmed brief, 2026-08-31). This module is the
+Qt-free seam between that surface and the template store: it locates the
+directory, reads each file's ``_radiant.template`` metadata through the public
+:func:`radiant.api.config_io.read_template_meta` seam, and returns
 display-ready records. The GUI renders what this returns and loads the chosen
 path through the ordinary File→Open pipeline — no template-specific load path
 exists (one action ↔ one API call).
 
-Discovery is repo-relative: templates ship in the repository's ``examples/``
-tree (not in the wheel), so a from-source / editable install finds them by
-walking up from this file to ``pyproject.toml``, and a bare wheel install —
-where no repository exists — degrades to an empty list, which the welcome
-screen renders as Blank + Recent only. The truth bar for the set itself
-(every template loads, evaluates warning-free, and carries complete metadata)
-is CI: ``tests/integration/test_mission_templates.py``.
+Discovery is package-relative (CU-349): the six templates ship inside the
+wheel at ``radiant/data/templates/`` and are resolved relative to the
+``radiant.data`` module — the same convention every reference-table loader
+uses, never the repo root (Rule 30). A from-source checkout and a bare
+``pip install`` therefore behave identically; the empty-welcome-screen wheel
+state this module used to document as supported was the CU-349 defect. This
+module lives in ``radiant.api`` (not ``gui``) because the gui→data import is
+forbidden while api→data is not; the GUI consumes it through the api surface.
+The truth bar for the set itself (every template loads, evaluates
+warning-free, and carries complete metadata) is CI:
+``tests/integration/test_mission_templates.py``.
 """
 
 from __future__ import annotations
@@ -55,20 +59,19 @@ class TemplateInfo:
     tune_next: tuple[str, ...] = field(default_factory=tuple)
 
 
-def templates_dir(start: Path | None = None) -> Path | None:
-    """The repository's ``examples/templates`` directory, or ``None`` off-repo.
+def templates_dir() -> Path | None:
+    """The bundled ``radiant/data/templates`` directory, or ``None`` if absent.
 
-    Walks up from *start* (default: this file) to the ``pyproject.toml`` repo
-    root — the same rooting the test suite uses — then checks for the
-    directory. ``None`` (a wheel install, or a repo without templates) is a
-    supported state, not an error: the welcome screen simply shows no cards.
+    Module-relative (the ``radiant.data`` tables convention, Rule 30): the
+    same path serves a source checkout and an installed wheel. ``None`` means
+    a broken installation (the package data was stripped); the welcome screen
+    degrades to Blank + Recent rather than erroring, and CI pins the bundled
+    set's presence.
     """
-    probe = (start if start is not None else Path(__file__)).resolve()
-    for candidate in (probe, *probe.parents):
-        if (candidate / "pyproject.toml").exists():
-            found = candidate / "examples" / "templates"
-            return found if found.is_dir() else None
-    return None
+    import radiant.data
+
+    found = Path(radiant.data.__file__).resolve().parent / "templates"
+    return found if found.is_dir() else None
 
 
 def discover_templates(directory: Path | None = None) -> tuple[TemplateInfo, ...]:
@@ -89,8 +92,8 @@ def discover_templates(directory: Path | None = None) -> tuple[TemplateInfo, ...
             logger.warning("mission template %s unreadable, skipped: %s", path.name, exc)
             continue
         if not isinstance(meta, dict) or not meta.get("name"):
-            # Expected for the inferrer-corpus files sharing the directory
-            # (CU-339): not templates, silently invisible to the welcome screen.
+            # A bundled file without template metadata is not a template
+            # (the CU-339 corpus split means none should exist here).
             logger.debug("config %s carries no _radiant.template metadata, skipped", path.name)
             continue
         tune_next = meta.get("tune_next") or ()

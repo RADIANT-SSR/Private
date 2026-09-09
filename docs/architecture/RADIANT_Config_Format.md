@@ -619,7 +619,7 @@ Complete, loadable configurations live in the repository and are the authoritati
 |------|----------|
 | `examples/mwir_leo_minimal.yaml` | Minimal MWIR LEO extended scene (reference case for `tests/integration/test_chain_extended.py`) |
 | `examples/ground_truth_mwir.yaml` | Hand-computable single-wavelength MWIR ground truth (exo atmosphere) |
-| `examples/templates/*.yaml` | The six user-facing mission templates (welcome-screen discovery via `_radiant.template`); the twelve Phase-2E band/platform configs moved to `tests/integration/fixtures/inferrer_corpus/` as the source-inferrer golden corpus (CU-339, 2026-09-07) |
+| `radiant/data/templates/*.yaml` | The six user-facing mission templates, bundled in the wheel (CU-349, 2026-09-08; welcome-screen discovery via `_radiant.template`, module-relative). The twelve Phase-2E band/platform configs live at `tests/integration/fixtures/inferrer_corpus/` as the source-inferrer golden corpus (CU-339) |
 
 Two of them, inline:
 

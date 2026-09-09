@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from radiant.gui.mission_templates import TemplateInfo, discover_templates
+from radiant.api.mission_templates import TemplateInfo, discover_templates
 
 # Cards flow into this many columns (layout geometry, not a design token).
 _COLUMNS = 3

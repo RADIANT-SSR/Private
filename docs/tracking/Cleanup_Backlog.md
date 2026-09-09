@@ -47,15 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-349 — Nothing gets a new user started on a wheel install: the mission templates don't ship, and the welcome screen's repo-walking discovery finds nothing
-
-**Discovered**: owner install on a work machine, 2026-09-08 — "none of the scenarios or examples ship with the code... none of the 'get started' scenarios showed up. It's really hard to start from a blank screen."
-**Status**: Open — in work same session (branch `cu349/ship-templates`).
-**File**: `examples/templates/` (repo-root, outside the package — never enters the wheel); `src/radiant/gui/mission_templates.py::templates_dir` (walks parent directories for `examples/templates/`; its docstring records the empty wheel-install welcome screen as "a documented state" — the owner's install is the proof it is a defect, not a limitation).
-**Symptom**: `pip install radiant` on a clean machine → GUI opens to a welcome screen with zero templates; no examples anywhere on disk. The 23 MB reference-data tree ships correctly (in-package, module-relative loaders); the 76 KB of starter content does not.
-**Why it still matters**: workflow-visible (intake test 4) — the owner hit it on the first real off-repo install; the blank first-launch experience defeats the welcome screen's whole purpose.
-**Suggested fix**: (a) inline-fix-now — move the six mission templates into `radiant/data/templates/` (package data, module-relative discovery per the tables convention), relocate discovery from `gui.mission_templates` to an api module (the gui→data import is forbidden; api→data is not), verify the built wheel in a scratch venv. **Owner ruling 2026-09-08: scenarios stay repo-only** ("I'll just grab the scenarios manually") — the curated-subset option is declined. Effort S–M; category A/D.
-
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).
@@ -109,6 +100,16 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-349 — Nothing gets a new user started on a wheel install: the mission templates don't ship, and the welcome screen's repo-walking discovery finds nothing — RESOLVED 2026-09-08 (commit trailer)
+
+**Resolution**: the six mission templates moved into the package (`radiant/data/templates/`, added to the `radiant.data` package-data globs) and discovery relocated `gui.mission_templates` → `api.mission_templates` (the gui→data import is forbidden; api→data is not), resolving module-relative per the tables convention — the repo-walk is deleted, one mechanism serves checkout and wheel identically. **Proven off-repo**: the built wheel installed into a scratch venv discovers all six templates from site-packages. Tests repointed (data glob test, integration truth bar, welcome-screen suite — 61 green); guides/Config_Format/GUI-arch/File_Tree updated; CHANGELOG Fixed entry. Scenarios stay repo-only (owner ruling 2026-09-08, recorded in the entry); the `radiant template` CLI's separate inline template dict is a logged Rule-27 duality (Findings Log). Merged after the owner's review.
+
+**Discovered**: owner install on a work machine, 2026-09-08 — "none of the scenarios or examples ship with the code... none of the 'get started' scenarios showed up. It's really hard to start from a blank screen."
+**File**: `examples/templates/` (repo-root, outside the package — never enters the wheel); `src/radiant/gui/mission_templates.py::templates_dir` (walks parent directories for `examples/templates/`; its docstring records the empty wheel-install welcome screen as "a documented state" — the owner's install is the proof it is a defect, not a limitation).
+**Symptom**: `pip install radiant` on a clean machine → GUI opens to a welcome screen with zero templates; no examples anywhere on disk. The 23 MB reference-data tree ships correctly (in-package, module-relative loaders); the 76 KB of starter content does not.
+**Why it still matters**: workflow-visible (intake test 4) — the owner hit it on the first real off-repo install; the blank first-launch experience defeats the welcome screen's whole purpose.
+**Suggested fix**: (a) inline-fix-now — move the six mission templates into `radiant/data/templates/` (package data, module-relative discovery per the tables convention), relocate discovery from `gui.mission_templates` to an api module (the gui→data import is forbidden; api→data is not), verify the built wheel in a scratch venv. **Owner ruling 2026-09-08: scenarios stay repo-only** ("I'll just grab the scenarios manually") — the curated-subset option is declined. Effort S–M; category A/D.
 
 ### CU-339 — `examples/templates/` doubles as the source-inferrer golden corpus: twelve Phase-2E configs are load-bearing test inputs wearing a user-facing home — RESOLVED 2026-09-07 (commit trailer)
 

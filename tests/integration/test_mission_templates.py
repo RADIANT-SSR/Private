@@ -1,6 +1,6 @@
 """Mission templates are runnable + representative — the truth bar as CI.
 
-The welcome screen (GUI) offers every YAML under ``examples/templates/`` as a
+The welcome screen (GUI) offers every bundled template (``radiant/data/templates/``) as a
 one-click starting scenario (owner-confirmed brief, 2026-08-31). The templates'
 contract, enforced here so it cannot rot:
 
@@ -34,7 +34,7 @@ from radiant.io.config import read_radiant_meta
 _REPO = Path(__file__).resolve()
 while not (_REPO / "pyproject.toml").exists():
     _REPO = _REPO.parent
-_TEMPLATES = _REPO / "examples" / "templates"
+_TEMPLATES = _REPO / "src" / "radiant" / "data" / "templates"  # CU-349: bundled in-package
 
 
 def _is_mission_template(path: Path) -> bool:

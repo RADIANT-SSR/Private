@@ -126,7 +126,7 @@ increasing the parameter decreases the metric.
 
 ```bash
 radiant compare examples/mwir_leo_minimal.yaml \
-                examples/templates/leo_mapping_extended.yaml
+                src/radiant/data/templates/leo_mapping_extended.yaml
 ```
 
 ### Python

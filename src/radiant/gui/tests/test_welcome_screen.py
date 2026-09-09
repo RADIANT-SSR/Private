@@ -16,8 +16,8 @@ import pytest
 
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 
+from radiant.api.mission_templates import discover_templates, templates_dir  # noqa: E402
 from radiant.gui.main_window import RADIANTMainWindow  # noqa: E402
-from radiant.gui.mission_templates import discover_templates, templates_dir  # noqa: E402
 from radiant.gui.widgets.message_item import SEVERITY_INFO  # noqa: E402
 from radiant.gui.widgets.parameter_delegate import DOTPATH_ROLE  # noqa: E402
 from radiant.gui.widgets.welcome_screen import WelcomeScreen  # noqa: E402

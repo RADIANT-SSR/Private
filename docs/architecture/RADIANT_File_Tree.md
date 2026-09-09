@@ -283,7 +283,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 30 source + 22 tests
+### `api/` — 31 source + 22 tests
 
 Public scripting API.
 
@@ -330,7 +330,6 @@ gui/
 ├── config_scope.py      # ConfigurationScope — configured-parameter badges + scope actions (4b)
 ├── dialog_lifetime.py   # exec_dialog(dialog) — run a modal loop, then free the dialog (CU-216)
 ├── display_units.py     # global display-unit preference (angles→deg default) + pretty_unit (CU-326)
-├── mission_templates.py # Qt-free mission-template discovery (§4.4a welcome screen)
 ├── document_yaml.py     # is_study / serialize_document / load_document_from_text (4e)
 ├── target_spec_guard.py # introduced_target_spec_conflict — CU-244 differential door guard shared by both clone-validate edit paths
 ├── tolerance_units.py   # Qt-free: per-field tolerance unit conversion (std=difference, low/high=absolute, sigma=dimensionless)
@@ -421,6 +420,8 @@ package only when implemented. See `docs/architecture/RADIANT_Plugins.md` (DEFER
 banner) for the v2 design.
 
 ### `data/` — 2 source + 5 tests
+
+Also bundles `templates/` — the six mission templates ship as package data (CU-349), discovered module-relative by `api/mission_templates.py` (moved from `gui/`: the gui→data import is forbidden, api→data is not).
 
 Reference data accessors (solar spectra, detector libraries, scenario templates,
 named FPA presets).

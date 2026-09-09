@@ -30,7 +30,15 @@ whose namespace carries live references to the GUI's objects:
 * ``inspect_result`` — the public :func:`radiant.api.inspect.inspect_result` convenience
   (``result.inspect()`` sugar does not exist — Gap 87).
 
-**REPL vs qtconsole (CU-138).** The plan prefers a ``qtconsole`` in-process Jupyter kernel
+**Kernel vs REPL (CU-138, resolved 2026-09-08).** The preferred ``qtconsole``
+in-process Jupyter kernel now ships as the default backend: when ``qtconsole``
+imports, the prompt is a ``RichJupyterWidget`` whose kernel ``user_ns`` IS the
+console namespace — ``run_command``/``run_script`` (the Editor's Run), the
+Workspace browser, and the coherence model all read and write that one dict, so
+a name bound at the Jupyter prompt, in a script run, or by the window is the
+same name everywhere. ``RADIANT_CONSOLE_FORCE_REPL=1`` (or a missing/broken
+qtconsole) selects the fallback described below. The plan's original note:
+the plan prefers a ``qtconsole`` in-process Jupyter kernel
 (pinned in the ``gui`` extra) but explicitly sanctions a plain REPL over
 :class:`code.InteractiveConsole` if qtconsole proves fragile or untestable offscreen. It is
 both here (the module is not installed in this environment and an in-process kernel under
@@ -62,6 +70,7 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import os
 import sys
 import traceback
 from code import InteractiveConsole
@@ -139,6 +148,24 @@ _STALE_TEXT: Final[str] = "Console changed the session — the GUI is out of dat
 # The header echoed to the transcript before an Editor "Run" (a whole-script exec), so the
 # Command Window reads as a session log where authored runs and typed commands interleave.
 _RUN_HEADER: Final[str] = "# Run ▶ "
+
+
+def _kernel_backend_available() -> bool:
+    """Whether the qtconsole in-process kernel path can be built (CU-138).
+
+    ``RADIANT_CONSOLE_FORCE_REPL=1`` forces the fallback — the switch the REPL
+    test suite (and a user debugging kernel trouble) uses. Any import failure
+    means the optional dependency is absent or broken; the REPL fallback is
+    the plan-sanctioned degradation either way.
+    """
+    if os.environ.get("RADIANT_CONSOLE_FORCE_REPL"):
+        return False
+    try:
+        import qtconsole.inprocess  # noqa: F401
+        import qtconsole.rich_jupyter_widget  # noqa: F401
+    except Exception:  # pragma: no cover - absent/broken optional dependency
+        return False
+    return True
 
 
 class _ConsoleInput(QLineEdit):
@@ -236,8 +263,7 @@ class ScriptingConsole(QWidget):
         from radiant.api import Sensor
         from radiant.api.config_set import ConfigurationSet
 
-        self._namespace: dict[str, Any] = {
-            "__name__": "__radiant_console__",
+        bindings: dict[str, Any] = {
             "sensor": None,
             "configs": None,
             "result": None,
@@ -246,6 +272,30 @@ class ScriptingConsole(QWidget):
             "Sensor": Sensor,
             "ConfigurationSet": ConfigurationSet,
         }
+        # CU-138: prefer the qtconsole in-process Jupyter kernel; the REPL is
+        # the plan-sanctioned fallback. The load-bearing move is that in kernel
+        # mode ``self._namespace`` IS the kernel shell's ``user_ns`` — one
+        # namespace for the Jupyter prompt, ``run_command``/``run_script``
+        # (the Editor's Run), the Workspace browser, and the coherence model,
+        # so every existing surface keeps reading and writing the truth.
+        self._namespace: dict[str, Any]
+        self._kernel_mode: bool = _kernel_backend_available()
+        self._kernel_manager: Any = None
+        self._kernel_client: Any = None
+        self._kernel_last_source: str = ""
+        if self._kernel_mode:
+            from qtconsole.inprocess import QtInProcessKernelManager
+
+            km = QtInProcessKernelManager()
+            km.start_kernel(show_banner=False)
+            kc = km.client()
+            kc.start_channels()
+            self._kernel_manager = km
+            self._kernel_client = kc
+            self._namespace = km.kernel.shell.user_ns
+            self._namespace.update(bindings)
+        else:
+            self._namespace = {"__name__": "__radiant_console__", **bindings}
         self._console = _LiveInteractiveConsole(self._namespace, self._append_text)
 
         # REPL state.
@@ -288,6 +338,26 @@ class ScriptingConsole(QWidget):
         self._stale_banner.setVisible(False)
         layout.addWidget(self._stale_banner)
 
+        if self._kernel_mode:
+            # CU-138 kernel path: the RichJupyterWidget is prompt + transcript
+            # in one (syntax highlighting, completion, multi-line editing,
+            # rich output). The stale banner rides above it either way.
+            from qtconsole.rich_jupyter_widget import RichJupyterWidget
+
+            jupyter = RichJupyterWidget(self)
+            jupyter.setObjectName("consoleJupyter")
+            jupyter.kernel_manager = self._kernel_manager
+            jupyter.kernel_client = self._kernel_client
+            jupyter.executing.connect(self._on_kernel_executing)
+            jupyter.executed.connect(self._on_kernel_executed)
+            layout.addWidget(jupyter, 1)
+            self._jupyter = jupyter
+            self._output = None
+            self._input = None
+            self._prompt_label = None
+            return
+
+        self._jupyter = None
         # Output transcript (read-only).
         self._output = QPlainTextEdit(self)
         self._output.setObjectName("consoleOutput")
@@ -314,14 +384,24 @@ class ScriptingConsole(QWidget):
     # -- public accessors ---------------------------------------------------
 
     @property
-    def output(self) -> QPlainTextEdit:
-        """The read-only transcript pane."""
+    def output(self) -> QPlainTextEdit | None:
+        """The read-only transcript pane (``None`` in kernel mode — CU-138)."""
         return self._output
 
     @property
-    def input_box(self) -> _ConsoleInput:
-        """The single-line REPL input editor."""
+    def input_box(self) -> _ConsoleInput | None:
+        """The single-line REPL input editor (``None`` in kernel mode — CU-138)."""
         return self._input
+
+    @property
+    def is_kernel_mode(self) -> bool:
+        """True when the qtconsole in-process kernel backend is active (CU-138)."""
+        return self._kernel_mode
+
+    @property
+    def jupyter_widget(self) -> Any:
+        """The RichJupyterWidget (``None`` in REPL-fallback mode — CU-138)."""
+        return self._jupyter
 
     @property
     def stale_banner(self) -> QFrame:
@@ -338,7 +418,9 @@ class ScriptingConsole(QWidget):
         return self._stale
 
     def output_text(self) -> str:
-        """The full transcript text (for tests)."""
+        """The full transcript text (for tests) — either backend's buffer."""
+        if self._kernel_mode:
+            return self._jupyter._control.toPlainText()
         return self._output.toPlainText()
 
     def namespace_sensor(self) -> Sensor | None:
@@ -540,12 +622,14 @@ class ScriptingConsole(QWidget):
 
         if more:
             self._pending = True
-            self._prompt_label.setText(_CONT)
+            if self._prompt_label is not None:
+                self._prompt_label.setText(_CONT)
             return
 
         # A full statement executed.
         self._pending = False
-        self._prompt_label.setText(_PROMPT)
+        if self._prompt_label is not None:
+            self._prompt_label.setText(_PROMPT)
         source = "\n".join(self._pending_source)
         self._pending_source.clear()
         self._flag_if_mutated(source)
@@ -645,12 +729,50 @@ class ScriptingConsole(QWidget):
     # -- output -------------------------------------------------------------
 
     def _append_text(self, text: str) -> None:
-        """Insert *text* verbatim at the end of the transcript and scroll into view."""
+        """Insert *text* at the end of the transcript (either backend) and scroll into view.
+
+        In kernel mode the Jupyter widget IS the transcript: ``run_script`` output,
+        banners, and ``run_command`` echoes land in its buffer (before the live
+        prompt), so the Editor's Run and the interactive prompt share one visible
+        session either way.
+        """
+        if self._kernel_mode:
+            self._jupyter._append_plain_text(text, True)
+            return
         cursor = self._output.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         cursor.insertText(text)
         self._output.setTextCursor(cursor)
         self._output.ensureCursorVisible()
+
+    # -- kernel-mode coherence (CU-138) -------------------------------------
+
+    def _on_kernel_executing(self, source: str) -> None:
+        """Snapshot the live names before a Jupyter-prompt statement runs."""
+        self._stmt_before_sensor = self._namespace.get("sensor")
+        self._stmt_before_configs = self._namespace.get("configs")
+        self._kernel_last_source = source
+
+    def _on_kernel_executed(self, _reply: Any) -> None:
+        """Run the same coherence check a REPL statement gets (rebind + markers)."""
+        source = self._kernel_last_source
+        self._kernel_last_source = ""
+        self._flag_if_mutated(source)
+        self.commandExecuted.emit(source)
+
+    def shutdown_kernel(self) -> None:
+        """Stop the in-process kernel and its channels (no-op in REPL mode).
+
+        Called by :meth:`closeEvent` and by test fixtures; idempotent.
+        """
+        if self._kernel_client is not None:
+            with contextlib.suppress(Exception):
+                self._kernel_client.stop_channels()
+            self._kernel_client = None
+        if self._kernel_manager is not None:
+            with contextlib.suppress(Exception):
+                self._kernel_manager.shutdown_kernel()
+            self._kernel_manager = None
 
     # -- teardown -----------------------------------------------------------
 
@@ -660,6 +782,7 @@ class ScriptingConsole(QWidget):
             with contextlib.suppress(RuntimeError):
                 window.close()
         self._figure_windows.clear()
+        self.shutdown_kernel()
         super().closeEvent(event)
 
 

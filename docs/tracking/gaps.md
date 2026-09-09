@@ -1758,6 +1758,16 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Impact** | The analyst infers the solar contribution by eyeballing the day/night curve delta or differencing script-side; there is no direct read of the solar-vs-thermal share on a mixed scene. Distinct from Gap 59 (RESOLVED — the day/night *toggle*): this is the missing *decomposition* of the resulting total. |
 | **Suggested fix** | Expose a reflected-solar-component spectral accessor on the result/plot surface and add one curve to the Source reflective tab. Results-neutral (read-only decomposition). Effort S; Category B (accessor) + D (GUI curve). |
 
+## Gap 126: No worked examples ship with the wheel — a new install has nothing to open
+
+| | |
+|---|---|
+| **Found in** | Owner install report + queue review, 2026-09-08: "We need to ship with some examples that a user can open and see how the tool uses" — reversing the same-day scenarios-stay-repo-only ruling recorded at CU-349. CU-349 shipped the six mission *templates* (blank-slate starting points); this gap is the *worked examples* — real, openable studies demonstrating capabilities. |
+| **Status** | OPEN — in work (branch `gap126/shipped-examples`, stacked on `cu349/ship-templates`). |
+| **Description** | Ship a curated set of self-contained example configs as package data (`radiant/data/examples/`, ~150 KB): five scenario-derived single configs (MWIR maritime surveillance, airborne hotspot MWIR arm, off-nadir agility, air-to-air IRST, TDI pushbroom) plus the Landsat OLI-2 nine-band study with its filter/radiance CSVs. Each carries `_radiant.example` metadata (name, blurb, specs, tune-next); discovery mirrors the CU-349 template seam (`radiant.api.mission_templates`); the welcome screen grows a "Worked examples" group. Examples are curated snapshots with provenance lines, pinned loadable+evaluable by CI (not value-pinned — they may drift from their source scenarios' numbers without harm). |
+| **Impact** | First-launch experience on a pip install: mission templates to start from AND worked studies to open and explore. |
+| **Suggested fix** | As described; delivered in the minting PR. |
+
 ## Gap 125: Background reflection is Lambertian-diffuse only — the background arm ignores the BRDF machinery, so sun-glint / specular backgrounds are inexpressible
 
 | | |

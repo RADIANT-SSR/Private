@@ -19,16 +19,19 @@ SCHEME = ParameterDef(
     description=(
         "Radiometric calibration scheme: 'none' (no calibration model — "
         "detector PRNU/DSNU act as static dispersions, today's behavior), "
-        "'one_point' (offset corrected at one cal point), or 'two_point' "
+        "'one_point' (offset corrected at one cal point), 'two_point' "
         "(per-pixel gain and offset corrected at two cal points; residual "
-        "set by nonlinearity dispersion and drift). Active schemes emit "
-        "the post-NUC residual noise terms and calibration bias terms."
+        "set by nonlinearity dispersion and drift), or 'three_point' "
+        "(piecewise gain+offset through three cal points — each segment's "
+        "nonlinearity parabola shrinks to that segment's span; Gap 122 "
+        "item 2, owner-scoped to three points). Active schemes emit the "
+        "post-NUC residual noise terms and calibration bias terms."
     ),
     dtype=str,
     canonical_unit="",
     input_unit="",
     default="none",
-    enum_values=("none", "one_point", "two_point"),
+    enum_values=("none", "one_point", "two_point", "three_point"),
     tags=frozenset({"calibration", "scheme"}),
 )
 
@@ -60,6 +63,22 @@ CAL_TEMP_HIGH_K = ParameterDef(
     input_unit="K",
     default=0.0,
     bounds=(0.0, 3000.0),
+    tags=frozenset({"calibration"}),
+)
+
+CAL_TEMP_MID_K = ParameterDef(
+    name="calibration.cal_temp_mid_K",
+    description=(
+        "Middle calibration-source temperature [K] for the 'three_point' "
+        "scheme (Gap 122 item 2). Must satisfy cal_temp_low_K < cal_temp_mid_K "
+        "< cal_temp_high_K; 0.0 = unset (evaluate-time validation when the "
+        "scheme is active, matching the other cal points' sentinel)."
+    ),
+    dtype=float,
+    canonical_unit="K",
+    input_unit="K",
+    default=0.0,
+    bounds=(0.0, 1000.0),
     tags=frozenset({"calibration"}),
 )
 
@@ -212,6 +231,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     TIME_SINCE_CAL_S,
     GAIN_DRIFT_FRAC_PER_S,
     OFFSET_DRIFT_E_PER_S,
+    CAL_TEMP_MID_K,
     SOURCE_UNIFORMITY_K,
     SOURCE_TEMP_UNCERTAINTY_K,
     SOURCE_EMISSIVITY_UNCERTAINTY,

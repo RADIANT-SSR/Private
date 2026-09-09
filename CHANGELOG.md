@@ -20,6 +20,15 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **Three-point NUC scheme (Gap 122 item 2)** — `calibration.scheme =
+  "three_point"` with the new `calibration.cal_temp_mid_K`: piecewise
+  gain+offset correction whose nonlinearity residual is each bracketing
+  segment's parabola (vanishing at all three cal points), and whose
+  source-uniformity imprint interpolates piecewise the same way. Owner-scoped
+  to exactly three points. Opt-in — existing schemes and defaults are
+  bit-identical. GUI: mid cal-point field, shown only under `three_point`.
+
 ### Changed
 - **Scripting console upgraded to a Jupyter kernel (CU-138)** — with the
   `gui` extra's `qtconsole` installed, the Command Window is now a

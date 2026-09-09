@@ -60,6 +60,7 @@ _SCHEME_FIELDS: Final[tuple[tuple[str, str], ...]] = (("Scheme", "calibration.sc
 
 _CAL_POINT_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Cal point (low)", "calibration.cal_temp_low_K"),
+    ("Cal point (mid)", "calibration.cal_temp_mid_K"),
     ("Cal point (high)", "calibration.cal_temp_high_K"),
 )
 
@@ -96,6 +97,8 @@ _TWO_POINT_ONLY: Final[tuple[str, ...]] = (
     "calibration.cal_temp_high_K",
     "calibration.nonlinearity_pct",
 )
+#: The middle cal point exists only under three_point (Gap 122 item 2).
+_THREE_POINT_ONLY: Final[tuple[str, ...]] = ("calibration.cal_temp_mid_K",)
 
 
 class CalibrationInputsForm(QWidget):
@@ -189,8 +192,9 @@ class CalibrationInputsForm(QWidget):
         """Show only the groups meaningful under the current scheme.
 
         ``none``: selector only (the stage note says why the card is quiet).
-        ``one_point``: everything except the upper cal point and the
-        nonlinearity dispersion (two-point-only physics). ``two_point``: all.
+        ``one_point``: everything except the upper/mid cal points and the
+        nonlinearity dispersion (multi-point-only physics). ``two_point``:
+        all but the mid point. ``three_point``: all (Gap 122 item 2).
         """
         scheme = self._scheme()
         active = scheme != "none"
@@ -208,7 +212,10 @@ class CalibrationInputsForm(QWidget):
             row.setVisible(active)
         if active and scheme == "one_point":
             self._headings[_NUC_HEADING].setVisible(False)
-            for dotpath in _TWO_POINT_ONLY:
+            for dotpath in _TWO_POINT_ONLY + _THREE_POINT_ONLY:
+                self._rows[dotpath].setVisible(False)
+        if active and scheme == "two_point":
+            for dotpath in _THREE_POINT_ONLY:
                 self._rows[dotpath].setVisible(False)
 
     def _value_text(self, dotpath: str) -> str:

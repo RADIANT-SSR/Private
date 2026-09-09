@@ -73,6 +73,50 @@ def two_point_residual_e(
     return nonlinearity_frac * abs((signal_e - s1_e) * (signal_e - s2_e)) / full_well_e
 
 
+def three_point_residual_e(
+    *,
+    signal_e: float,
+    s1_e: float,
+    s2_e: float,
+    s3_e: float,
+    nonlinearity_frac: float,
+    full_well_e: float,
+) -> float:
+    """Residual FPN after three-point NUC [e- RMS] (Gap 122 item 2).
+
+    Piecewise gain+offset correction through three cal signals: within each
+    bracketing segment the correction is exactly the two-point solve of that
+    pair, so the residual is **that segment's parabola** —
+    ``sigma(S) = beta * |(S - S_a)(S - S_b)| / S_ref`` with ``(S_a, S_b)`` the
+    bracketing cal points — vanishing at all three points and peaking inside
+    each segment at a quarter of that segment's span squared (vs the full
+    span squared for two-point: the mid point is what buys the shrink).
+    Outside the calibrated span the nearest segment's correction extrapolates,
+    exactly as the two-point model extrapolates past its own span. Owner
+    scoping (2026-09-07): three points only — beyond that is rarely done.
+    """
+    for name, s in (("s1_e", s1_e), ("s2_e", s2_e), ("s3_e", s3_e)):
+        _require_finite_nonneg(name, s)
+    if not (s1_e < s2_e < s3_e):
+        raise CalibrationValidationError(
+            f"three-point cal signals must be strictly increasing, got "
+            f"s1_e = {s1_e}, s2_e = {s2_e}, s3_e = {s3_e} [e-].\n"
+            "  Why: the piecewise correction needs ordered, distinct segments; "
+            "coincident or unordered points make it ill-conditioned (plan §15).\n"
+            "  Action: order the cal temperatures so the band maps them to "
+            "strictly increasing signals (t_low < t_mid < t_high on a thermal "
+            "band)."
+        )
+    seg = (s1_e, s2_e) if signal_e <= s2_e else (s2_e, s3_e)
+    return two_point_residual_e(
+        signal_e=signal_e,
+        s1_e=seg[0],
+        s2_e=seg[1],
+        nonlinearity_frac=nonlinearity_frac,
+        full_well_e=full_well_e,
+    )
+
+
 def one_point_residual_e(*, signal_e: float, s1_e: float, prnu_frac: float) -> float:
     """Residual FPN after one-point (offset-only) NUC [e- RMS]."""
     _require_finite_nonneg("signal_e", signal_e)

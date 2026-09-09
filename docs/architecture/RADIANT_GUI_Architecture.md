@@ -920,7 +920,15 @@ With no configuration loaded (a bare launch, or File → New after the unsaved-e
 guard) the central canvas shows the **welcome screen** instead of dead space: a grid
 of **mission-template cards** (display name, one-line blurb, mono specs line), an
 always-present **Blank config** card (the classic File → New blank-adopt), and the
-**Open recent** list. Templates are the **metadata-carrying** YAMLs bundled at `radiant/data/templates/` (in-package since CU-349, so a wheel install offers them too; discovery is module-relative via `radiant.api.mission_templates`, never repo-walking) — six
+**Open recent** list. Since Gap 126 the screen also renders a **Worked examples** group —
+six curated, self-contained studies bundled at `radiant/data/examples/` (five
+scenario-derived configs plus the Landsat OLI-2 nine-band study with its filter CSVs,
+~150 KB), each carrying `_radiant.example` metadata and opening through the ordinary
+File→Open pipeline; discovery is `radiant.api.mission_templates.discover_examples`,
+the exact mirror of the template seam. Examples are curated snapshots (provenance
+line in each file) pinned loadable-and-warning-clean by
+`tests/integration/test_shipped_examples.py`, deliberately not value-pinned.
+Templates are the **metadata-carrying** YAMLs bundled at `radiant/data/templates/` (in-package since CU-349, so a wheel install offers them too; discovery is module-relative via `radiant.api.mission_templates`, never repo-walking) — six
 hand-authored archetypes (the Phase-2E configs sharing the directory are the
 source-inferrer golden corpus, invisible here; their relocation is CU-339) —
 discovered by the Qt-free `radiant.gui.mission_templates` seam, which reads each file's `_radiant.template` metadata (name / blurb / specs /

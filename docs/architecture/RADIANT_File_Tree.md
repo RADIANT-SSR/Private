@@ -421,7 +421,7 @@ banner) for the v2 design.
 
 ### `data/` — 2 source + 5 tests
 
-Also bundles `templates/` — the six mission templates ship as package data (CU-349), discovered module-relative by `api/mission_templates.py` (moved from `gui/`: the gui→data import is forbidden, api→data is not).
+Also bundles `templates/` — the six mission templates ship as package data (CU-349) — and `examples/` — the six worked examples plus the OLI-2 study's CSVs (Gap 126) — both discovered module-relative by `api/mission_templates.py` (moved from `gui/`: the gui→data import is forbidden, api→data is not).
 
 Reference data accessors (solar spectra, detector libraries, scenario templates,
 named FPA presets).

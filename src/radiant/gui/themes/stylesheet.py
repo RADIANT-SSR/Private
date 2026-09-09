@@ -828,7 +828,7 @@ QLabel#welcomeCardSpecs {{
     font-size: 10.5px;
     background: transparent;
 }}
-QLabel#welcomeRecentTitle {{
+QLabel#welcomeRecentTitle, QLabel#welcomeExamplesTitle {{
     color: {t.muted};
     font-size: 10.5px;
     font-weight: 500;

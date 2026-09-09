@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from radiant.api.mission_templates import TemplateInfo, discover_templates
+from radiant.api.mission_templates import TemplateInfo, discover_examples, discover_templates
 
 # Cards flow into this many columns (layout geometry, not a design token).
 _COLUMNS = 3
@@ -72,6 +72,10 @@ class WelcomeScreen(QWidget):
         Recent config paths, most recent first (the SettingsStore list).
     templates:
         The template records; ``None`` runs :func:`discover_templates`.
+    examples:
+        The worked-example records (Gap 126); ``None`` runs
+        :func:`discover_examples`. Rendered as a second card group under the
+        templates — same card type, same open pipeline.
     parent:
         The owning widget, if any.
 
@@ -93,11 +97,13 @@ class WelcomeScreen(QWidget):
         self,
         recent_files: list[str] | None = None,
         templates: tuple[TemplateInfo, ...] | None = None,
+        examples: tuple[TemplateInfo, ...] | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.setObjectName("welcomeScreen")
         self._templates = discover_templates() if templates is None else templates
+        self._examples = discover_examples() if examples is None else examples
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -153,6 +159,34 @@ class WelcomeScreen(QWidget):
         self._blank_card = blank
         layout.addWidget(grid_host)
 
+        # Worked examples (Gap 126): real, openable studies bundled in the
+        # wheel — same card type and open pipeline as the mission templates,
+        # a separate group so "start a mission" and "explore a worked study"
+        # read as different verbs. Absent (a stripped install) the group
+        # simply does not render.
+        self._example_cards: list[_TemplateCard] = []
+        if self._examples:
+            examples_title = QLabel("Worked examples", body)
+            examples_title.setObjectName("welcomeExamplesTitle")
+            layout.addWidget(examples_title)
+            examples_sub = QLabel(
+                "Complete studies that show the tool working — open one and poke at it.",
+                body,
+            )
+            examples_sub.setObjectName("welcomeSubtitle")
+            examples_sub.setWordWrap(True)
+            layout.addWidget(examples_sub)
+            ex_host = QWidget(body)
+            ex_grid = QGridLayout(ex_host)
+            ex_grid.setContentsMargins(0, 8, 0, 8)
+            ex_grid.setSpacing(10)
+            for index, info in enumerate(self._examples):
+                card = _TemplateCard(info, ex_host)
+                card.clicked.connect(lambda _c=False, p=str(info.path): self.templateChosen.emit(p))
+                ex_grid.addWidget(card, index // _COLUMNS, index % _COLUMNS)
+                self._example_cards.append(card)
+            layout.addWidget(ex_host)
+
         self._recent_buttons: list[QPushButton] = []
         recent = [p for p in (recent_files or []) if Path(p).exists()]
         if recent:
@@ -167,6 +201,11 @@ class WelcomeScreen(QWidget):
                 layout.addWidget(row)
                 self._recent_buttons.append(row)
         layout.addStretch(1)
+
+    @property
+    def example_cards(self) -> list[QPushButton]:
+        """The worked-example cards, in display order (Gap 126; tests click these)."""
+        return list(self._example_cards)
 
     # -- accessors (tests) ---------------------------------------------------
 

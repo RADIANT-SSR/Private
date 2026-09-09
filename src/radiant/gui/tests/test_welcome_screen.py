@@ -139,3 +139,29 @@ class TestTemplateFlow:
             if layout.itemAt(i).widget() is not None
         ]
         assert not [r for r in rows if r.property("severity") == SEVERITY_INFO]
+
+
+class TestWorkedExamples:
+    """Gap 126: the bundled worked examples render as a second card group."""
+
+    def test_six_examples_discovered(self) -> None:
+        from radiant.api.mission_templates import discover_examples
+
+        examples = discover_examples()
+        assert len(examples) == 6
+        assert all(e.name and e.blurb and e.specs for e in examples)
+
+    def test_examples_group_renders_and_emits(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        screen = WelcomeScreen(recent_files=[])
+        qtbot.addWidget(screen)
+        assert len(screen.example_cards) == 6
+        chosen: list[str] = []
+        screen.templateChosen.connect(chosen.append)
+        screen.example_cards[0].click()
+        assert len(chosen) == 1
+        assert chosen[0].endswith(".yaml")
+
+    def test_no_examples_renders_no_group(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        screen = WelcomeScreen(recent_files=[], examples=())
+        qtbot.addWidget(screen)
+        assert screen.example_cards == []

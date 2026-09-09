@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Six worked examples ship in the wheel (Gap 126)** — the welcome screen
+  gains a "Worked examples" group: five scenario-derived studies (MWIR
+  maritime surveillance, airborne hotspot detection, off-nadir agility,
+  air-to-air IRST, TDI pushbroom optimization) plus the Landsat OLI-2
+  nine-band configuration study with its filter curves, all openable on a
+  bare `pip install`. Curated snapshots with provenance lines, pinned
+  loadable-and-warning-clean by CI.
 - **Three-point NUC scheme (Gap 122 item 2)** — `calibration.scheme =
   "three_point"` with the new `calibration.cal_temp_mid_K`: piecewise
   gain+offset correction whose nonlinearity residual is each bracketing

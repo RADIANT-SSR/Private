@@ -28,7 +28,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from radiant.api.config_io import read_template_meta
+from radiant.api.config_io import read_example_meta, read_template_meta
 from radiant.core.exceptions import RadiantError
 
 logger = logging.getLogger(__name__)
@@ -110,4 +110,57 @@ def discover_templates(directory: Path | None = None) -> tuple[TemplateInfo, ...
     return tuple(found)
 
 
-__all__ = ["TemplateInfo", "discover_templates", "templates_dir"]
+def examples_dir() -> Path | None:
+    """The bundled ``radiant/data/examples`` directory, or ``None`` if absent.
+
+    Module-relative like :func:`templates_dir` (Gap 126): the worked examples
+    ship in the wheel beside the templates.
+    """
+    import radiant.data
+
+    found = Path(radiant.data.__file__).resolve().parent / "examples"
+    return found if found.is_dir() else None
+
+
+def discover_examples(directory: Path | None = None) -> tuple[TemplateInfo, ...]:
+    """Every bundled worked example, sorted by name (Gap 126).
+
+    Same record shape and skip semantics as :func:`discover_templates` —
+    the welcome screen renders both groups from one card type; an example's
+    ``tune_next`` doubles as its "look at" hints. Data-only subdirectories
+    (the OLI-2 CSV folder) carry no YAML and are naturally invisible.
+    """
+    root = directory if directory is not None else examples_dir()
+    if root is None or not root.is_dir():
+        return ()
+    found: list[TemplateInfo] = []
+    for path in sorted(root.glob("*.yaml")):
+        try:
+            meta = read_example_meta(path)
+        except RadiantError as exc:
+            logger.warning("worked example %s unreadable, skipped: %s", path.name, exc)
+            continue
+        if not isinstance(meta, dict) or not meta.get("name"):
+            logger.debug("config %s carries no _radiant.example metadata, skipped", path.name)
+            continue
+        tune_next = meta.get("tune_next") or ()
+        found.append(
+            TemplateInfo(
+                path=path,
+                name=str(meta["name"]),
+                blurb=str(meta.get("blurb", "")),
+                specs=str(meta.get("specs", "")),
+                tune_next=tuple(str(t) for t in tune_next),
+            )
+        )
+    found.sort(key=lambda info: info.name)
+    return tuple(found)
+
+
+__all__ = [
+    "TemplateInfo",
+    "discover_examples",
+    "discover_templates",
+    "examples_dir",
+    "templates_dir",
+]

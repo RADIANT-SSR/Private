@@ -237,6 +237,15 @@ ignore_imports = [
     "radiant.*.tests.* -> radiant.detector.noise.budget",
     "radiant.*.tests.* -> radiant.atmosphere.exo",
     "radiant.*.tests.* -> radiant.atmosphere.assembly",
+    # Same test seam, two cases the sibling "physics stages import only
+    # core" contract already blesses but this one had not: stage tests that
+    # round-trip a config through the YAML loader reach optics transitively
+    # (io.config -> io.element_config -> optics.element), and the Gap-120 D2
+    # handoff test drives the real DetectorStage to produce the detector
+    # outputs CalibrationStage consumes. Production stage code remains
+    # cross-stage independent.
+    "radiant.*.tests.* -> radiant.io.config",
+    "radiant.calibration.tests.test_detector_handoff -> radiant.detector.stage",
 ]
 
 [[tool.importlinter.contracts]]

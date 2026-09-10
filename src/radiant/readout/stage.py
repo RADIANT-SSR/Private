@@ -454,6 +454,12 @@ class ReadoutStage:
         dark_e: float = det_out.get("dark_e", 0.0)
         glow_e: float = det_out.get("glow_e", 0.0)
         background_e: float = det_out.get("background_e", 0.0)
+        # CU-350: near-field (warm-optics self-emission) and stray-light
+        # electrons occupy the same well; their shot noise is already in the
+        # budget, so omitting them here made the well check and the noise
+        # budget disagree about the pixel's contents.
+        nearfield_e: float = det_out.get("nearfield_e", 0.0)
+        stray_e: float = det_out.get("stray_e", 0.0)
         regime = state.stage_outputs.get("optics", {}).get("regime")
         regime_value = getattr(regime, "value", regime)
 
@@ -464,7 +470,7 @@ class ReadoutStage:
 
         # ---- 4. Counting saturation check (Gap 73 well-fill semantics kept) ----
         m_onchip = mx_on * my_on
-        non_signal_e = (dark_e + glow_e) * n_tdi * m_onchip
+        non_signal_e = (dark_e + glow_e + nearfield_e + stray_e) * n_tdi * m_onchip
         if regime_value == "point_source":
             non_signal_e += background_e * n_tdi * m_onchip
         total_well_e = signal_e + non_signal_e
@@ -529,7 +535,7 @@ class ReadoutStage:
                 )
             warnings.warn(
                 f"ReadoutStage: digital-counting saturation ({bound_mechanism}) — "
-                f"signal + dark + glow"
+                f"signal + dark + glow + near-field + stray"
                 f"{' + background pedestal' if regime_value == 'point_source' else ''} = "
                 f"{total_well_e:.4g} e- exceeds the counting bound {q_sat:.4g} e- "
                 f"(2^{counter_bits} x {count_packet_e:.4g} e-/count effective well"
@@ -1037,6 +1043,8 @@ class ReadoutStage:
         dark_e: float = det_out.get("dark_e", 0.0)
         glow_e: float = det_out.get("glow_e", 0.0)
         background_e: float = det_out.get("background_e", 0.0)
+        nearfield_e: float = det_out.get("nearfield_e", 0.0)
+        stray_e: float = det_out.get("stray_e", 0.0)
         regime = state.stage_outputs.get("optics", {}).get("regime")
         regime_value = getattr(regime, "value", regime)
 
@@ -1047,13 +1055,19 @@ class ReadoutStage:
         signal_e = onchip_scale_signal(signal_e, mx_on, my_on)
 
         # ---- 4. Well saturation check ----
-        # The well fills with signal + dark + glow.  Dark and glow
-        # accumulate per-pixel per integration; TDI stages accumulate
-        # independently.  Nearfield and stray electrons also fill the
-        # well in reality, but are tracked separately for noise purposes
-        # — the user controls nearfield via cold_stop_efficiency.
+        # The well fills with signal + dark + glow + near-field + stray.
+        # Each non-signal term accumulates per-pixel per integration; TDI
+        # stages accumulate independently, and on-chip binned pixels each
+        # contribute their own charge.  CU-350: near-field (warm-optics
+        # self-emission) and stray light were previously excluded here even
+        # though their shot noise is counted in the budget, so the well check
+        # and the noise budget disagreed about the pixel's contents; a
+        # 6.0e7 e- near-field flux against a 1e5 e- well read back as
+        # well_status = 'ok' at fill fraction 0.27.  They are never folded
+        # into signal_e upstream, so unlike the background pedestal below
+        # they carry no regime gate.
         m_onchip = mx_on * my_on
-        non_signal_e = (dark_e + glow_e) * n_tdi * m_onchip
+        non_signal_e = (dark_e + glow_e + nearfield_e + stray_e) * n_tdi * m_onchip
         # Gap 73: in point-source regime signal_e is the target-only excess,
         # so the full-pixel background pedestal is additional well charge that
         # accumulates like signal (TDI stages + on-chip binning). In extended
@@ -1074,7 +1088,8 @@ class ReadoutStage:
         # results that read as "no effect" (Gap 65).
         if well_status is SaturationStatus.CLIPPED:
             warnings.warn(
-                f"ReadoutStage: full well saturated — signal + dark + glow"
+                f"ReadoutStage: full well saturated — signal + dark + glow + "
+                f"near-field + stray"
                 f"{' + background pedestal' if regime_value == 'point_source' else ''} = "
                 f"{total_well_e:.4g} e- exceeds full_well_capacity_e = {fwc_e:.4g} e- "
                 f"(fill fraction {total_well_e / fwc_e:.2f}). Signal clipped to "
@@ -1089,8 +1104,10 @@ class ReadoutStage:
 
         # If well saturation clipped the signal, cap the signal_shot raw
         # term so that after TDI+onchip scaling it gives √(clipped_signal)
-        # instead of √(signal_unclipped). Other shot terms (background,
-        # nearfield, etc.) are independent of the signal well and not capped.
+        # instead of √(signal_unclipped). The other shot terms (background,
+        # near-field, stray) are the pedestal the signal is clipped *against*
+        # — they occupy the well ahead of the signal (CU-350) and are not
+        # themselves reduced by the clip, so they are not capped here.
         if signal_e < signal_e_pre_clip and "signal_shot" in budget_raw.terms:
             effective_per_pixel = available_fwc / (n_tdi * m_onchip)
             terms_copy = dict(budget_raw.terms)

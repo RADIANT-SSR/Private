@@ -51,6 +51,23 @@ retroactively reconstructed.
   bit-identical. GUI: mid cal-point field, shown only under `three_point`.
 
 ### Fixed
+- **Results-affecting: the well-fill / saturation check now counts near-field
+  and stray electrons (CU-350)** — `total_well_e`, `well_fill_fraction`, and
+  `well_status` previously summed only signal + dark + glow (+ the
+  point-source background pedestal), omitting `nearfield_e` (warm-optics
+  self-emission) and `stray_e` even though those electrons occupy the same
+  well and their shot noise was already in the noise budget. Both now enter
+  with the same `n_tdi × binning` scaling as dark and glow, in every regime
+  (no regime gate — they are never folded into `signal_e`) and in all three
+  readout paths (analog full well, digital counting, up/down counting). The
+  saturation warnings name the included terms. **Direction:** fill fraction
+  rises by `(nearfield_e + stray_e) × n_tdi × m_onchip / well_capacity`; a
+  configuration can flip `ok` → `clipped`, and a clipped signal is now
+  clipped against the larger pedestal. Magnitude is scenario-dependent — the
+  owner reproduction (6.0e7 e- near-field against a 1.0e5 e- full well) moves
+  from `ok` at fill fraction 0.27 to `clipped` at 600.27. Scenarios with zero
+  near-field and stray flux — including every scalar-transmission run after
+  Gap 127 — are bit-identical.
 - **Wheel installs now ship the six mission templates (CU-349)** — the
   welcome screen's "get started" cards and template discovery work on a bare
   `pip install radiant`, not just a source checkout: the templates moved

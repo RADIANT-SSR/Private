@@ -402,7 +402,7 @@ from radiant.api import preview_optical_elements, normalize_element_document
 
 entries = [
     {"name": "M1", "transfer_mode": "REFLECTIVE", "reflectance": 0.97,
-     "temperature_K": 293.0, "diameter_m": 0.30, "distance_to_fpa_m": 0.9},
+     "temperature_K": 293.0},
     {"name": "cold_filter", "transfer_mode": "REFRACTIVE", "kind": "FILTER",
      "transmittance": 0.90, "temperature_K": 240.0},
 ]
@@ -414,7 +414,7 @@ s.save("with_train.yaml"); s2 = Sensor.load("with_train.yaml")   # round-trips e
 
 | Function | Purpose |
 |----------|---------|
-| `preview_optical_elements(entries, *, wavelength_um=None, base_dir=None)` | Parse a document through the real io parser and return `ElementPreview` tuples (name, kind, transfer mode, T/geometry scalars, band-mean R/T/**derived ε**, which keys referenced spectral files). Feeds the GUI import-preview dialog (ADR-0009 D5); a document that previews cleanly attaches cleanly. Band means use the 0.4–20 µm preview grid unless a band is passed. |
+| `preview_optical_elements(entries, *, wavelength_um=None, base_dir=None)` | Parse a document through the real io parser and return `ElementPreview` tuples (name, kind, transfer mode, temperature, band-mean R/T/**derived ε**, which keys referenced spectral files; an element carries no geometry — Gap 128). Feeds the GUI import-preview dialog (ADR-0009 D5); a document that previews cleanly attaches cleanly. Band means use the 0.4–20 µm preview grid unless a band is passed. |
 | `normalize_element_document(entries, *, base_dir=None)` | Validate (fail-fast) and return a deep copy with relative spectral-file references absolutized against `base_dir` — the form `Sensor.set_optical_elements` stores and `Sensor.save` writes. |
 
 Both raise `ElementConfigError` (a `RadiantError`) with the same actionable message attach-time

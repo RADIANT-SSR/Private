@@ -2,8 +2,10 @@
 # Space-domain awareness: a LEO sensor tracking a sunlit-free (night-side)
 # thermal point object near GEO through vacuum. Values derive from the
 # owner-validated scenario 10.4 (LEO→GEO exo family): 280 K / ε 0.85 bus with
-# 20 m² projected area, 0.35 m obscured telescope at 180 K optics, low-noise
-# 14-bit readout, slow LOS rate for a near-geosynchronous object.
+# 20 m² projected area, 0.35 m obscured telescope, low-noise 14-bit readout,
+# slow LOS rate for a near-geosynchronous object.
+# Scalar-τ optics carry no near-field emission (Gap 127): warm-optics
+# self-emission requires a defined element list (optical_elements:).
 _radiant:
   format: 1
   template:
@@ -37,9 +39,6 @@ optics:
   aperture_diameter_m: 0.35
   focal_length_m: 2.1
   obscuration_ratio: 0.25
-  optics_temperature_K: 180.0
-  scalar_emissivity: 0.4      # Kirchhoff-consistent with T=0.6 in scalar mode — makes
-                              # the 180 K optics' self-emission term real, not silent
   transmission_scalar: 0.6
   wfe_rms_waves: 0.05
 performance:

@@ -8,6 +8,14 @@ where λ is the wavelength [m] and ``F# = focal_length / aperture_diameter``.
 Above ``f_cutoff`` the pupil autocorrelation (Rule 4's ``MTF_optics``) is
 identically zero, so every downstream MTF-product curve is zero there too.
 
+The ``F#`` to pass is the **working** f-number of the **effective** pupil —
+``stage_outputs["optics"]["f_number_eff"]``, which an undersized cold stop
+reduces to (Gap 128) — not the primary's ``optics.f_number``. The cold stop is
+the aperture stop, and the complex pupil the MTF product is built from already
+uses it; a cutoff taken from the primary rim would not be the band edge of the
+curve it describes. The two coincide at the default ``cold_stop_undersize_frac
+= 0``.
+
 Expressed on the chain's **angular** frequency axis — the axis every MTF overlay
 and budget uses — an angular frequency ``f_ang`` [cycles/rad] images to
 ``f_ang / focal_length`` [cycles/m] on the focal plane, so
@@ -43,7 +51,9 @@ def optics_cutoff_freq(wavelength_m: float, f_number: float) -> float:
         Wavelength [m] (note: **metres**, not the µm the schema carries —
         convert at the call site, Rule 2).
     f_number:
-        Working f-number ``focal_length / aperture_diameter`` [dimensionless].
+        Working f-number of the effective pupil [dimensionless] —
+        ``f_number_eff``, not the primary's ``optics.f_number`` (see the module
+        docstring).
 
     Returns
     -------

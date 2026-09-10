@@ -244,6 +244,13 @@ _COL_TEMP = 4
 _COL_DIAM = 5
 _COL_DIST = 6
 _COL_EPS = 7
+_GEOMETRY_RETIRED_TOOLTIP: Final[str] = (
+    "Retired by Gap 128: an element has no near-field geometry. Every in-beam "
+    "element is seen through the one acceptance cone the working f/# sets "
+    "(Ω_cone), so per-element diameter and distance-to-FPA describe nothing. "
+    "Use optics.cold_stop_undersize_frac to state a cold stop."
+)
+
 _HEADERS: Final[tuple[str, ...]] = (
     "Name",
     "Transfer",
@@ -262,8 +269,6 @@ _NEW_MIRROR: Final[dict[str, Any]] = {
     "transfer_mode": "REFLECTIVE",
     "reflectance": 0.97,
     "temperature_K": 293.0,
-    "diameter_m": 0.3,
-    "distance_to_fpa_m": 1.0,
 }
 _NEW_REFRACTIVE: Final[dict[str, Any]] = {
     "name": "element",
@@ -271,8 +276,6 @@ _NEW_REFRACTIVE: Final[dict[str, Any]] = {
     "kind": "filter",
     "transmittance": 0.9,
     "temperature_K": 240.0,
-    "diameter_m": 0.05,
-    "distance_to_fpa_m": 0.05,
 }
 
 
@@ -960,11 +963,12 @@ class OpticalElementEditor(QWidget):
         Cells show what the entry **says**, and nothing else: a key the entry does not
         carry renders as an empty cell, never as a plausible-looking number (CU-344).
         The table cannot show the parser's defaults honestly — they are the parser's
-        (``temperature_K`` 0.0 K, ``diameter_m`` 1.0 m, ``distance_to_fpa_m`` 1.0 m,
-        applied at parse time), and the invented 293.0 / 0.1 / 1.0 the cells used to
-        show were neither those defaults nor the operator's authorship. An empty cell
-        is the true statement "this entry does not specify it", and it serializes back
-        to no key, so the parser's default keeps applying.
+        (``temperature_K`` 0.0 K, applied at parse time), and the invented 293.0 the
+        cell used to show was neither that default nor the operator's authorship. An
+        empty cell is the true statement "this entry does not specify it", and it
+        serializes back to no key, so the parser's default keeps applying. The Diam and
+        →FPA cells render as an inert em-dash: Gap 128 deleted per-element near-field
+        geometry, so there is no key left for them to carry.
         """
         row = self._table.rowCount()
         self._table.insertRow(row)
@@ -1017,14 +1021,18 @@ class OpticalElementEditor(QWidget):
         if spectrum is not None:
             value_item.setData(_SPECTRUM_ROLE, spectrum)
         self._table.setItem(row, _COL_VALUE, value_item)
-        for column, key in (
-            (_COL_TEMP, "temperature_K"),
-            (_COL_DIAM, "diameter_m"),
-            (_COL_DIST, "distance_to_fpa_m"),
-        ):
-            stored = entry.get(key)
-            text = "" if stored is None else str(stored)
-            self._table.setItem(row, column, QTableWidgetItem(text))
+        stored = entry.get("temperature_K")
+        self._table.setItem(row, _COL_TEMP, QTableWidgetItem("" if stored is None else str(stored)))
+        # Gap 128 deleted per-element near-field geometry, so these two columns
+        # no longer describe anything: shown inert (read-only, em-dash) rather
+        # than editable, which would be a cell the operator can type into that
+        # changes nothing. The columns themselves come out with the
+        # Transmission-tab redesign.
+        for column in (_COL_DIAM, _COL_DIST):
+            dead_item = QTableWidgetItem("—")
+            dead_item.setFlags(dead_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            dead_item.setToolTip(_GEOMETRY_RETIRED_TOOLTIP)
+            self._table.setItem(row, column, dead_item)
         eps_item = QTableWidgetItem("—")
         eps_item.setFlags(eps_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
         eps_item.setToolTip(_EPS_TOOLTIP)
@@ -1160,7 +1168,8 @@ class OpticalElementEditor(QWidget):
         * ``kind`` — refractive rows only, since a REFLECTIVE row is a mirror by
           construction and its Kind combo is locked;
         * the R-or-T value key, ``reflectance`` or ``transmittance`` per transfer mode;
-        * ``temperature_K``, ``diameter_m``, ``distance_to_fpa_m``.
+        * ``temperature_K`` (the Diam / →FPA columns are inert — Gap 128 deleted
+          per-element near-field geometry, so they own no key).
 
         Everything else rides through untouched. Case is preserved wherever the combo
         agrees with the source case-insensitively, so a document authored with
@@ -1206,12 +1215,7 @@ class OpticalElementEditor(QWidget):
             for key in retired:
                 entry.pop(key, None)
         self._overlay(entry, value_key, self._cell_value(row))
-        for column, key in (
-            (_COL_TEMP, "temperature_K"),
-            (_COL_DIAM, "diameter_m"),
-            (_COL_DIST, "distance_to_fpa_m"),
-        ):
-            self._overlay(entry, key, self._cell_scalar(row, column))
+        self._overlay(entry, "temperature_K", self._cell_scalar(row, _COL_TEMP))
         return entry
 
     def _source_entry(self, row: int) -> dict[str, Any]:

@@ -59,17 +59,14 @@ def _scalar_to_spectral(
 def make_lumped_element(
     transmission: SpectralData,
     temperature_K: float,
-    diameter_m: float,
-    distance_to_fpa_m: float,
     name: str = "lumped",
-    emissivity: float | SpectralData | None = None,
 ) -> OpticalElement:
     """Create a LUMPED refractive element with the given transmission.
 
-    Emissivity defaults to zero (simple refractive — absorption unknown).
-    A user-declared train emissivity may be supplied for warm-optics
-    nearfield modeling (Gap 37) — permitted only because a lump is not a
-    physical surface (Rule 5 still binds real elements).
+    A lump is bookkeeping, not a surface: its emissivity is zero and it
+    never contributes near-field emission (Gap 127). Warm-optics emission
+    derives only from defined elements (mirrors ε = 1 − R, cavity
+    refractives ε from bulk absorption).
     This is the canonical way to synthesize a virtual element for Modes 1-4.
     """
     zero_reflectance = SpectralData(
@@ -79,20 +76,12 @@ def make_lumped_element(
         unit="",
         source=f"Lumped element zero reflectance ({name})",
     )
-    eps_sd = (
-        _scalar_to_spectral(emissivity, transmission.wavelength_um, f"{name}.emissivity")
-        if emissivity is not None
-        else None
-    )
     return OpticalElement(
         name=name,
         kind=ElementKind.LUMPED,
         temperature_K=temperature_K,
         transmittance=transmission,
         reflectance=zero_reflectance,
-        diameter_m=diameter_m,
-        distance_to_fpa_m=distance_to_fpa_m,
-        declared_emissivity=eps_sd,
     )
 
 
@@ -102,8 +91,6 @@ def make_reflective_element(
     *,
     wavelength_um: np.ndarray | None = None,
     temperature_K: float = 0.0,
-    diameter_m: float = 1.0,
-    distance_to_fpa_m: float = 1.0,
 ) -> OpticalElement:
     """Create a REFLECTIVE mirror element.
 
@@ -117,10 +104,6 @@ def make_reflective_element(
         Required when reflectance is a scalar.
     temperature_K:
         Element temperature [K] for nearfield calculation.
-    diameter_m:
-        Clear aperture diameter [m] for nearfield geometry.
-    distance_to_fpa_m:
-        Distance to FPA [m] for nearfield geometry.
 
     Returns
     -------
@@ -142,8 +125,6 @@ def make_reflective_element(
         temperature_K=temperature_K,
         transmittance=zero_tau,
         reflectance=rho,
-        diameter_m=diameter_m,
-        distance_to_fpa_m=distance_to_fpa_m,
         transfer_mode=ElementTransferMode.REFLECTIVE,
     )
 
@@ -155,8 +136,6 @@ def make_refractive_element(
     kind: ElementKind = ElementKind.LENS,
     wavelength_um: np.ndarray | None = None,
     temperature_K: float = 0.0,
-    diameter_m: float = 1.0,
-    distance_to_fpa_m: float = 1.0,
 ) -> OpticalElement:
     """Create a simple REFRACTIVE element with known transmittance.
 
@@ -175,10 +154,6 @@ def make_refractive_element(
         Required when transmittance is a scalar.
     temperature_K:
         Element temperature [K] for nearfield calculation.
-    diameter_m:
-        Clear aperture diameter [m] for nearfield geometry.
-    distance_to_fpa_m:
-        Distance to FPA [m] for nearfield geometry.
 
     Returns
     -------
@@ -205,41 +180,87 @@ def make_refractive_element(
         temperature_K=temperature_K,
         transmittance=tau,
         reflectance=zero_rho,
-        diameter_m=diameter_m,
-        distance_to_fpa_m=distance_to_fpa_m,
         transfer_mode=ElementTransferMode.REFRACTIVE,
     )
 
 
+def _resolve_surface(
+    name: str,
+    surface: str,
+    reflectance: float | SpectralData | None,
+    transmittance: float | SpectralData | None,
+    wavelength_um: np.ndarray | None,
+) -> tuple[SpectralData, SpectralData]:
+    """Resolve one lossless surface's (R, T) pair from either or both inputs.
+
+    Surfaces hold Kirchhoff with no coating absorption (Gap 127 Rule 4):
+    R + T = 1. Given one, the other is derived as its complement; given
+    both, ``CavityModel`` validates their sum. Given neither, the surface
+    is unspecified — an actionable error.
+    """
+    if reflectance is None and transmittance is None:
+        raise OpticsValidationError(
+            f"make_refractive_cavity_element '{name}': {surface} needs R or T. "
+            "Surfaces are lossless (R + T = 1, Gap 127): specify either the "
+            "reflectance or the transmittance and the other is derived."
+        )
+    if reflectance is not None:
+        r_sd = _scalar_to_spectral(reflectance, wavelength_um, f"{name}.{surface}.R")
+        if transmittance is not None:
+            t_sd = _scalar_to_spectral(transmittance, wavelength_um, f"{name}.{surface}.T")
+        else:
+            t_sd = SpectralData(
+                name=f"{name}.{surface}.T",
+                wavelength_um=r_sd.wavelength_um.copy(),
+                values=1.0 - r_sd.values,
+                unit="",
+                source=f"Derived 1 - R (lossless surface, {name}.{surface})",
+            )
+        return r_sd, t_sd
+    t_sd = _scalar_to_spectral(transmittance, wavelength_um, f"{name}.{surface}.T")
+    r_sd = SpectralData(
+        name=f"{name}.{surface}.R",
+        wavelength_um=t_sd.wavelength_um.copy(),
+        values=1.0 - t_sd.values,
+        unit="",
+        source=f"Derived 1 - T (lossless surface, {name}.{surface})",
+    )
+    return r_sd, t_sd
+
+
 def make_refractive_cavity_element(
     name: str,
-    R1: float | SpectralData,
-    T1: float | SpectralData,
-    R2: float | SpectralData,
-    T2: float | SpectralData,
-    alpha: float | SpectralData,
-    n_refr: float | SpectralData,
-    thickness_m: float,
+    R1: float | SpectralData | None = None,
+    T1: float | SpectralData | None = None,
+    R2: float | SpectralData | None = None,
+    T2: float | SpectralData | None = None,
+    alpha: float | SpectralData = 0.0,
+    n_refr: float | SpectralData = 1.5,
+    thickness_m: float = 0.0,
     *,
     kind: ElementKind = ElementKind.LENS,
     wavelength_um: np.ndarray | None = None,
     temperature_K: float = 0.0,
-    diameter_m: float = 1.0,
-    distance_to_fpa_m: float = 1.0,
 ) -> OpticalElement:
     """Create a REFRACTIVE element with full cavity model.
 
     Computes system transmittance, reflectance, and emissivity from
     per-surface coatings, bulk absorption, and refractive index.
+    Surfaces are lossless by model rule (Gap 127 Rule 4): per surface,
+    R + T = 1 — specify one and the other is derived; specify both and
+    they must sum to 1. All absorption (and hence all emission) is bulk:
+    ε_eff follows from alpha, thickness, and temperature (≈ α·t in the
+    weak-absorption limit).
 
     Parameters
     ----------
     name:
         Human-readable label.
     R1, T1:
-        Entry surface reflectance and transmittance (scalar or spectral).
+        Entry surface reflectance / transmittance (scalar or spectral);
+        at least one — the other derives as its complement.
     R2, T2:
-        Exit surface reflectance and transmittance (scalar or spectral).
+        Exit surface reflectance / transmittance; same rule.
     alpha:
         Bulk absorption coefficient [1/m] (scalar or spectral).
     n_refr:
@@ -252,10 +273,6 @@ def make_refractive_cavity_element(
         Required when any input is a scalar.
     temperature_K:
         Element temperature [K] for nearfield calculation.
-    diameter_m:
-        Clear aperture diameter [m] for nearfield geometry.
-    distance_to_fpa_m:
-        Distance to FPA [m] for nearfield geometry.
 
     Returns
     -------
@@ -268,10 +285,8 @@ def make_refractive_cavity_element(
             "Use make_reflective_element for mirrors."
         )
 
-    r1_sd = _scalar_to_spectral(R1, wavelength_um, f"{name}.R1")
-    t1_sd = _scalar_to_spectral(T1, wavelength_um, f"{name}.T1")
-    r2_sd = _scalar_to_spectral(R2, wavelength_um, f"{name}.R2")
-    t2_sd = _scalar_to_spectral(T2, wavelength_um, f"{name}.T2")
+    r1_sd, t1_sd = _resolve_surface(name, "surface1", R1, T1, wavelength_um)
+    r2_sd, t2_sd = _resolve_surface(name, "surface2", R2, T2, wavelength_um)
     alpha_sd = _scalar_to_spectral(alpha, wavelength_um, f"{name}.alpha")
     n_sd = _scalar_to_spectral(n_refr, wavelength_um, f"{name}.n_refr")
 
@@ -291,8 +306,6 @@ def make_refractive_cavity_element(
         temperature_K=temperature_K,
         transmittance=cavity.T_sys,
         reflectance=cavity.R_sys,
-        diameter_m=diameter_m,
-        distance_to_fpa_m=distance_to_fpa_m,
         transfer_mode=ElementTransferMode.REFRACTIVE,
         cavity=cavity,
     )

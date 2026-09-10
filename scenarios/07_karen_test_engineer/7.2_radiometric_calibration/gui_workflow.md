@@ -11,11 +11,18 @@ DN at each, an as-built sensor spec — and a calibration report to write.
   °C, ms — conversions delegated to `Sensor.set(..., unit=)`, Gap 6)
 - "Lab bench / flat-field source" preset sets exo atmosphere + the
   `geometry.sensor_altitude_m` placeholder (registry Gap 42) behind one checkbox
-- **Self-emission panel**: shows the Kirchhoff derivation ε = 1 − τ = 0.28
-  feeding `optics.scalar_emissivity` (Gap 37) and the cold-stop leakage
-  (`nearfield_fraction = 0.05` from the 7.4 campaign) with the resulting
-  modeled offset in DN (24.0 DN) — visible BEFORE the calibration run so
-  the user knows what part of the offset is physics
+- **Self-emission panel**: shows the Kirchhoff derivation ε = 1 − R = 0.02 [-]
+  per fold mirror (three of them, R = 0.98 [-]) and ε = 0 [-] for the AR-coated
+  cold window (Gap 127, 2026-09-09 — near-field emission derives only from
+  defined elements), the étendue acceptance cone Ω_cone = 0.18760 sr that all of
+  them are seen through (Gap 128 — the only near-field geometry; a cold stop
+  cannot attenuate in-cone emission, so there is no leakage slider), and the
+  resulting modeled offset in DN (73.8 DN) — visible BEFORE the calibration run
+  so the user knows what part of the offset is physics
+- **Cold-stop panel**: `optics.cold_stop_undersize_frac` [-] with the effective
+  pupil it produces (D_eff [m], f/#_eff [-], A_collect [m²], Ω_cone [sr]) shown
+  live, so the operator sees that undersizing moves signal and near-field
+  together
 
 ## Step 2: Import the Calibration Run
 - **File > Import > Measured Curve** (`load_measured_curve`, Gap 30):

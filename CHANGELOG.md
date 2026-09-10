@@ -32,9 +32,95 @@ retroactively reconstructed.
 - **New performance stage output `optics_cutoff_freq_cycles_per_mrad`** — the
   optics diffraction cutoff `1/(λ·F#)` published on the chain's angular axis
   in cycles/mrad, alongside `nyquist_freq_cycles_per_mrad`, from the new
-  `radiant.performance.optics_cutoff` module. Published only when the focal
-  length and f-number are both known. Output only — no schema change, no
-  metric changes.
+  `radiant.performance.optics_cutoff` module. Computed from the **effective**
+  pupil (`stage_outputs["optics"]["f_number_eff"]`, Gap 128) — an undersized
+  cold stop is the aperture stop and moves the band edge with it — falling
+  back to `optics.f_number` only for a partial state. Published only when the
+  focal length and f-number are both known. Output only — no schema change,
+  no metric changes.
+- **`optics.cold_stop_undersize_frac` and `optics.cold_stop_obscuration_ratio`
+  — the cold stop modelled as what it is, the aperture stop (Gap 128,
+  owner-ratified 2026-09-09).** A cooled instrument's cold stop is built
+  slightly smaller than the primary so tolerances cannot let the FPA see past
+  it: `D_eff = (1 − u) · aperture_diameter_m` [m] and
+  `obs_eff = max(optics.obscuration_ratio, optics.cold_stop_obscuration_ratio)`
+  [-] define the **effective pupil**, resolved once in `OpticsStage`
+  (`optics/effective_pupil.py`). That one pupil feeds `A_collect` [m²]
+  (∝ (1 − u)²), the working `f/#`, the complex pupil function — so the
+  diffraction PSF *and* the MTF product both see it (Rule 4, one pupil, both
+  spatial paths) — the diffraction-limit metric, and the near-field acceptance
+  cone. Signal and near-field therefore scale together, as they physically do.
+  Both default to 0, which reproduces the primary pupil **bit-for-bit**.
+  New stage outputs: `D_eff_m` [m], `f_number_eff` [-], `obscuration_eff` [-],
+  `Omega_cone` [sr].
+
+### Removed
+- **Results-affecting: `optics.nearfield_fraction` (+ its deprecated alias
+  `optics.cold_stop_efficiency`), `optics.optics_distance_to_fpa_m`, and the
+  element-format `diameter_m` / `distance_to_fpa_m` keys removed — near-field
+  emission now conserves étendue (Gap 128, owner-ratified 2026-09-09).**
+  Per-element solid angles `Ω_i = π(D_i/2)²/d_i²` are not bounded by the
+  Lagrange invariant: a 0.3 m mirror 1.0 m from the FPA claimed 0.0707 sr
+  against an f/6 acceptance cone of 0.0217 sr, 3.2× more than physics permits.
+  There is now one geometry — the étendue cone
+  `Ω_cone = 2π(1 − cos θ)`, `θ = arctan(1/(2·N_eff))` [sr], exact form, not the
+  paraxial `π/(4N²)` (which over-states by 0.52 % at f/6, 4.7 % at f/2, and
+  exceeds 2π sr for fast systems) — and near-field is
+  `E_nf(λ) = Ω_cone · Σ_i ε_i(λ)·B(λ,T_i)·τ_down,i(λ)` [W/m²/µm]. A cold stop
+  cannot attenuate in-cone emission (it arrives through the imaging path
+  itself), and out-of-cone warm structure is taken to be blocked completely, so
+  the leakage multiplier was unphysical and is gone. Direction/magnitude: for a
+  configuration that kept its element emissivity, near-field moves by
+  `Ω_cone / (η_nf · Ω_i)` — the four retuned scenarios moved −87 % to +325 %
+  (below). Setting any removed parameter raises an actionable error naming
+  Gap 128 (new `radiant.core.parameters.REMOVED_PARAMETERS` registry); a
+  `diameter_m` / `distance_to_fpa_m` key in an `optical_elements:` document
+  raises `ElementConfigError` naming Gap 128. `OpticalElement` no longer carries
+  geometry, `OpticalElement.nearfield_solid_angle_sr` is deleted,
+  `compute_nearfield_irradiance(elements, wavelength_um, omega_cone_sr)`
+  replaces the `cold_stop_efficiency=` argument, the element factories and
+  `filter_to_element` drop their geometry arguments, and `api.ElementPreview`
+  loses its `diameter_m` / `distance_to_fpa_m` fields.
+- **Results-affecting: the four element-mode scenario baselines retuned
+  (Gap 128).** The fallacy-era "one all-absorbing mirror" trains (ε = 0.26–0.32
+  read straight off ε = 1 − τ) are replaced by realistic coated trains — three
+  fold mirrors at R = 0.98 [-] (ε = 0.02 [-] each, Kirchhoff) plus an AR-coated
+  cold window carrying the balance, so each scenario's **net** τ is unchanged
+  and the emitting ε is ≈ 0.06 [-]. Combined with the η_cold deletion:
+  7.2 SNR 440.29 → 433.73 [-] (−1.49 %), NEDT 63.35 → 64.31 mK, near-field
+  3,006 → 9,228 e⁻; 7.4 SNR 1529.57 → 1693.37 [-] (+10.71 %), NEDT 18.89 →
+  17.06 mK, near-field 812,493 → 106,631 e⁻ (−86.9 %); 7.5 SNR 828.59 → 814.67
+  [-] (−1.68 %), NEDT 33.44 → 34.01 mK, near-field 7,496 → 31,840 e⁻ (and the
+  recommended FPA set point moves 85 K → 79 K); 10.1 SNR 144.64 → 142.23 [-]
+  (−1.67 %), NEDT 610.8 → 621.2 mK, near-field 13,475 → 24,133 e⁻. Signal,
+  `A_collect` and MTF are unchanged in all four (the cold stop is matched to the
+  pupil, u = 0). No non-element golden moved. Scenario 7.4 is rebuilt as the
+  **cold-stop undersizing sweep**: `optics.cold_stop_undersize_frac` over
+  0–10 %, reporting SNR (−10.0 %), MTF at Nyquist (−11.6 %), near-field
+  (−18.8 %) and A_collect (−19.0 %) — the tolerancing-margin vs signal trade.
+
+### Removed
+- **Results-affecting: `optics.scalar_emissivity` removed — scalar and
+  spectral-file transmission modes no longer emit near-field (Gap 127,
+  owner-ratified 2026-09-09).** Kirchhoff equates emissivity to absorptance,
+  not to 1 − τ; a lumped throughput has no absorbing surface behind it, so
+  the declared-train-emissivity carve-out (Gap 37, including the LUMPED
+  `declared_emissivity` field) is gone and near-field emission now derives
+  only from defined elements (mirrors ε = 1 − R; cavity refractives from bulk
+  absorption). Direction/magnitude: near-field electrons drop to exactly 0 in
+  scalar/spectral modes — the shipped SDA template retuned to 6–11 µm loses a
+  6.0×10⁷ e⁻ near-field term (7,700 e⁻ RMS shot) that the removed knob
+  fabricated; both shipped templates that set the parameter are corrected.
+  Configs setting `optics.scalar_emissivity` now fail with
+  `UnknownParameterError`. Cavity refractive surfaces are now lossless by
+  model rule: per surface R + T = 1 (specify one, the other derives;
+  `KirchhoffViolationError` otherwise) — coating absorption, previously
+  accepted silently and never emitted, is rejected. The four scenario GUI
+  baselines that used the ε = 1 − τ pattern (7.2, 7.4, 7.5, 10.1) were
+  converted to a single all-absorbing mirror element with R = the old τ; the
+  substitution is exact, and every snapshot metric is bit-identical.
+
+### Added
 - **Six worked examples ship in the wheel (Gap 126)** — the welcome screen
   gains a "Worked examples" group: five scenario-derived studies (MWIR
   maritime surveillance, airborne hotspot detection, off-nadir agility,

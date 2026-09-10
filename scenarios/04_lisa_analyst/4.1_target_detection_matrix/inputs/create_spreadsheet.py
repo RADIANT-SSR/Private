@@ -10,7 +10,7 @@ Emits:
 - ``sensor_a_mwir_smallsat.yaml``  — 18 cm MWIR smallsat imager
 - ``sensor_b_mwir_flagship.yaml``  — 50 cm MWIR flagship imager
 - ``sensor_c_lwir_wide.yaml``      — 35 cm LWIR wide-area imager;
-  deliberately carries the DEPRECATED ``optics.cold_stop_efficiency``
+  deliberately carries the DEPRECATED ``platform.h_sensor``
   name (the catalog says the sensor library "may have outdated parameter
   names" — RADIANT's deprecated-alias machinery must absorb it)
 
@@ -152,7 +152,7 @@ readout:
 SENSOR_C = """\
 # Sensor C: LWIR wide-area imager (35 cm)
 # NOTE: this config predates the Gap 12 rename and still uses the
-# OUTDATED parameter name optics.cold_stop_efficiency — RADIANT accepts
+# OUTDATED parameter name platform.h_sensor — RADIANT accepts
 # it through the deprecated-alias mechanism (with a DeprecationWarning).
 source:
   target:
@@ -171,7 +171,7 @@ optics:
   aperture_diameter_m: 0.35   # m
   focal_length_m: 0.70        # m  (f/2.0)
   transmission_scalar: 0.65
-  cold_stop_efficiency: 1.0   # OUTDATED NAME (now optics.nearfield_fraction)
+  # (see platform.h_sensor below — the deprecated alias this config demonstrates)
 
 detector:
   pixel_pitch_x_um: 17.0      # um

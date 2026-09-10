@@ -14,8 +14,8 @@ and a quarterly-review detection matrix to brief.
 
 ## Step 2: Load the Sensor Library
 - Import the three sensor YAMLs; sensor C's outdated
-  `optics.cold_stop_efficiency` surfaces a **deprecation banner** ("mapped
-  to optics.nearfield_fraction") rather than an error — the config still
+  `platform.h_sensor` surfaces a **deprecation banner** ("mapped
+  to geometry.sensor_altitude_m") rather than an error — the config still
   runs
 
 ## Step 3: Define the Matrix Axes

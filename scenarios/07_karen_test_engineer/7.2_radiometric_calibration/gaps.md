@@ -26,9 +26,12 @@ self-emission). Linearity 0.107% FS max deviation; calibration σ_T
 
 - **Gap 6** (unit-aware set): as-built workbook values entered in cm/%/ms.
 - **Gap 30** (`load_measured_curve`): the measured-DN CSV with `x_unit="K"`.
-- **Gap 37** (`scalar_emissivity`): instrument self-emission from Kirchhoff
-  ε = 1 − τ through the 7.4-measured cold-stop leakage — 24.0 DN of modeled
-  offset, printed and folded into the calibration interpretation.
+- **Gap 127** (element-only near-field, converted 2026-09-09): instrument
+  self-emission from one defined mirror element with R = 0.72 [-], so Kirchhoff
+  gives ε = 1 − R = 0.28 [-], through the 7.4-measured cold-stop leakage —
+  24.0 DN of modeled offset, printed and folded into the calibration
+  interpretation. (Previously `optics.scalar_emissivity`, removed by Gap 127;
+  the mirror reproduces the same numbers exactly.)
 - **Gap 42** (bench masquerade): exo + `platform.h_sensor = 1.0` m, same as
   the other 7.x scenarios.
 

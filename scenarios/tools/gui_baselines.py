@@ -839,7 +839,7 @@ REGISTRY: list[GuiScenario] = [
         id="7.4",
         persona="07_karen_test_engineer",
         slug="7.4_cold_stop_sweep",
-        title="Cold-stop sweep — baseline (unshuttered) config",
+        title="Cold-stop undersizing sweep — baseline (unshuttered) config",
         build=runner_factory(
             "07_karen_test_engineer",
             "7.4_cold_stop_sweep",
@@ -850,10 +850,12 @@ REGISTRY: list[GuiScenario] = [
             ),
         ),
         notes=(
-            "Runner's module-level baseline config; the sweep varies cold-stop f-number. GUI "
-            "baseline uses a well-matched gain (512 e-/DN vs the runner's 2.5) so the 14-bit "
-            "ADC spans the 8.5 Me- well instead of clipping (CU-170)."
+            "Runner's module-level baseline config; the sweep varies "
+            "optics.cold_stop_undersize_frac (Gap 128). GUI baseline uses a well-matched "
+            "gain (512 e-/DN vs the runner's 2.5) so the 14-bit ADC spans the 8.5 Me- well "
+            "instead of clipping (CU-170)."
         ),
+        sweep=("optics.cold_stop_undersize_frac", "Cold-stop undersizing u", "-"),
     ),
     GuiScenario(
         id="7.5",

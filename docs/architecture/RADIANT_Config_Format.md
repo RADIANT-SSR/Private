@@ -224,8 +224,7 @@ Emissivity never appears in an entry — it is Kirchhoff-derived (Rule 5).
 optics:
   aperture_diameter_m: 0.3
 optical_elements:
-  - {name: M1, transfer_mode: REFLECTIVE, reflectance: 0.97, temperature_K: 293.0,
-     diameter_m: 0.30, distance_to_fpa_m: 0.9}
+  - {name: M1, transfer_mode: REFLECTIVE, reflectance: 0.97, temperature_K: 293.0}
   - {name: cold_filter, transfer_mode: REFRACTIVE, kind: FILTER, transmittance: 0.90,
      temperature_K: 240.0}
 ```

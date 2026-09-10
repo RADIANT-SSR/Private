@@ -11,7 +11,7 @@
 The optics module has one job: **deliver an `OpticsState` to the chain**. Five guiding rules:
 
 1. **One contract, many input depths.** A user may specify the optics by a scalar transmission and a Strehl ratio, or by a full element-by-element prescription with measured OPD maps and per-element temperatures. All inputs flow into the same `OpticsState`. The downstream chain is identical.
-2. **Kirchhoff is enforced for elements.** A user supplies reflectance and (for transmissive elements) transmittance. Emissivity is **derived**: ε = 1 − R for mirrors, ε = 1 − T − R for transmissive elements (with R defaulting to a small number when unspecified). Emissivity is never specified independently for a physical surface. The one sanctioned exception is the LUMPED pseudo-element (`optics.scalar_emissivity`, §5.1): a lump stands in for an entire train whose energy balance is not derivable from net transmission, so the user may declare it there — still bounded by ε + τ ≤ 1.
+2. **Kirchhoff is enforced for elements — without exception (Gap 127).** A user supplies reflectance and (for transmissive elements) transmittance. Emissivity is **derived**: ε = 1 − R for mirrors, ε from bulk absorption for cavity refractives, ε = 0 for simple refractives and lumps (unattributed 1 − τ is predominantly reflection, not absorption). Emissivity is never specified independently, anywhere: near-field emission derives only from defined elements whose absorption is actually modelled. The former LUMPED declared-emissivity carve-out (`optics.scalar_emissivity`, Gap 37) was removed 2026-09-09 — it equated 1 − τ with absorptance, which Kirchhoff does not license.
 3. **Signal etendue and nearfield solid angle are different things.** The signal path uses the single invariant AΩ. Nearfield emission uses a *per-element* Ω that depends on each element's size and distance from the FPA. They are computed separately, named separately, and never conflated.
 4. **Stray light adds noise, not signal.** Stray light contributes electrons (and therefore shot noise) to every pixel uniformly, but is not part of the signal that NIIRS or detection metrics measure. It is reported in the noise budget.
 5. **Pupil → PSF lives elsewhere.** The optics module produces the pupil function (or hands the diffraction module enough to build one). The PSF, MTF, and EE all live in `RADIANT_Spatial_Complete.md`. Optics owns the pupil; spatial owns the focal plane.
@@ -78,7 +78,7 @@ class OpticsState:
 
     # ---- Nearfield (warm optics) emission ---------------------------------
     nearfield_irradiance_at_fpa: SpectralData  # E_nf(λ), W/m²/µm at FPA
-    nearfield_fraction: float                  # η_nf ∈ [0,1] (0 = perfect cold stop)
+    Omega_cone: float                          # étendue acceptance cone [sr] (§7.3)
 
     # ---- Stray light --------------------------------------------------------
     stray_light_irradiance_at_fpa: SpectralData  # E_stray(λ), W/m²/µm at FPA
@@ -93,7 +93,7 @@ class OpticsState:
 1. `transmission` is on the global wavelength grid. Its value is the *net* throughput from the entrance pupil to the FPA, regardless of how the user specified it.
 2. `elements` is always populated. For input modes that do not name elements explicitly, it contains a single synthesized "lumped" element with the supplied transmission and an effective temperature.
 3. `nearfield_irradiance_at_fpa` and `stray_light_irradiance_at_fpa` are *irradiance at the FPA*, not radiance and not "irradiance at the entrance pupil." This is the form the detector stage consumes directly.
-4. `nearfield_fraction` is unity for uncooled instruments.
+4. `Omega_cone` is the single near-field geometry, derived from the effective pupil's `N_eff` (§3.6, §7.3); `0 < Ω_cone ≤ 2π sr` always.
 5. `signal_etendue_AΩ_m2_sr` is `aperture_area_m2 × Ω_pixel` and is stored only for sanity checks. Downstream stages do not multiply by this — they apply A and Ω independently per regime (per RADIANT_Signal_Chain_Architecture.md §4).
 
 ---
@@ -123,7 +123,45 @@ obscuration_ratio ε = D_secondary / D_primary  ∈ [0, 1)
 A_clear = (π/4) · D² · (1 − ε²)
 ```
 
-`obscuration_ratio` defaults to 0 (unobscured). The clear area `A_clear` — not the geometric `π D²/4` — is `aperture_area_m2`.
+`obscuration_ratio` defaults to 0 (unobscured). The clear area `A_clear` — not the geometric `π D²/4` — is `aperture_area_m2`. The `D` and `ε` in these expressions are the **effective** pupil's (§3.6), not the primary's.
+
+### 3.6 The effective pupil — the cold stop as an undersized aperture stop (Gap 128)
+
+A cooled instrument's cold stop **is** the system aperture stop. It is built slightly smaller than the geometric primary so that alignment and thermal tolerances can never let the FPA see past it to warm structure. Undersizing buys that certainty and pays for it in photons.
+
+Owner-ratified model rules (2026-09-09):
+
+```
+D_eff   = (1 − u) · optics.aperture_diameter_m                     [m]
+obs_eff = max(optics.obscuration_ratio,
+              optics.cold_stop_obscuration_ratio)                  [-]
+N_eff   = optics.f_number · (D / D_eff)   ( = f / D_eff )          [-]
+```
+
+with `u = optics.cold_stop_undersize_frac` ∈ [0, 0.49] and
+`optics.cold_stop_obscuration_ratio` ∈ [0, 0.99), both defaulting to 0.
+
+`OpticsStage` resolves this **once**, before anything reads aperture geometry (`optics/effective_pupil.py`), and the effective pupil then feeds *everything* the pupil sets:
+
+| Consumer | What it uses | Where |
+|----------|--------------|-------|
+| Collecting area | `A_collect` from `D_eff`, `obs_eff` (∝ (1 − u)²) | `stage_outputs["optics"]["A_collect"]` |
+| Working f/# | `N_eff` | `stage_outputs["optics"]["f_number_eff"]` |
+| Complex pupil | `D_eff`, `obs_eff` → PSF **and** MTF product (Rule 4: one pupil, both paths) | `_build_effective_psf`, `_compute_optical_mtf_terms` |
+| Sampling | `D_eff` → `compute_sampling` | `optics/sampling.py` |
+| Defocus Z4 | `N_eff` (`Z4 = δ / (8√3 λ N_eff²)`) | `_add_defocus_to_wfe` |
+| Diffraction limit metric | `D_eff` | `performance/stage.py` |
+| Near-field | `Ω_cone` from `N_eff` (§7.3) | `stage_outputs["optics"]["Omega_cone"]` |
+
+**Signal and near-field therefore scale together**, as they physically do. Undersizing is not a way to buy a darker background for free.
+
+At the defaults (`u = 0`, cold-stop obscuration 0) the effective pupil is the primary pupil **bit-for-bit**: `(1 − 0.0) · D` and `max(ε, 0.0)` are exact in IEEE-754, and `N_eff` is written as `N · (D / D_eff)` so that `D / D` is exactly 1.0 rather than re-deriving `f / D` (which the `{D, f, f/#}` consistency group tolerates disagreeing with the entered f/# by up to `FNUMBER_CONSISTENCY_RTOL`).
+
+**Diagnostics published**: `D_eff_m` [m], `f_number_eff` [-], `obscuration_eff` [-], `Omega_cone` [sr].
+
+**`optics.f_number` always refers to the primary.** `N_eff` is derived, never entered — there is no consistency group over the effective pupil.
+
+**Accepted limitations (documented, not modelled)**: the cold shield's obscuration is taken as `max(ε_primary, ε_shield)` rather than rescaling the primary's secondary-obscuration *ratio* by `1/(1 − u)` as the shrinking outer rim strictly implies; and a stop misaligned far enough to stop being the aperture stop (so warm structure enters the acceptance cone) is out of scope.
 
 ### 3.3 Spider arms
 
@@ -167,7 +205,7 @@ Apodization multiplies the pupil mask. The radiometric `A_collect` becomes `∫�
 @dataclass(frozen=True)
 class PupilDescription:
     shape: ApertureShape
-    diameter_m: float | None
+    diameter_m: float | None                     # the PUPIL diameter, not an element's
     width_m: float | None
     height_m: float | None
     obscuration_ratio: float
@@ -237,21 +275,18 @@ OpticalElement(
     temperature_K=optics.optics_temperature_K,
     transmittance=flat_at(transmission_scalar),
     reflectance=flat_at(0.0),                     # not used
-    declared_emissivity=flat_at(optics.scalar_emissivity),  # default 0.0 — see below
-    distance_to_fpa_m=optics.optics_distance_to_fpa_m,
-    diameter_m=aperture_diameter_m,
 )
 ```
 
-**Lumped-train emissivity (Gap 37).** By default the lump follows the simple-refractive rule `ε = 0` — the remaining `1 − τ` cannot be attributed to absorption vs. reflection from net transmission alone, so scalar mode produces **no nearfield emission** unless told otherwise. For warm reflective trains (where mirrors follow `ε = 1 − R` and do emit), set `optics.scalar_emissivity` to the train's effective emissivity — `ε ≈ 1 − τ` is the appropriate declaration for an all-mirror train. Construction enforces `ε + τ ≤ 1` (energy conservation) and raises `KirchhoffViolationError` otherwise.
+An element carries **no geometry** (Gap 128): `diameter_m` and `distance_to_fpa_m` were deleted along with `optics.optics_distance_to_fpa_m`, because near-field emission is seen through the one acceptance cone the working f/# sets (§7.3), not through a per-element solid angle.
 
-This is the **one sanctioned exception** to the never-independent-emissivity rule (Rule 5): a LUMPED pseudo-element is not a physical surface — it stands in for an entire train whose energy balance the user, not Kirchhoff's law, must supply. `declared_emissivity` on any non-LUMPED element raises `KirchhoffViolationError`.
+**No near-field emission in scalar mode (Gap 127, owner-ratified 2026-09-09).** The lump is bookkeeping, not a surface: ε = 0 always, so Modes 1–2 produce **no near-field emission**. The remaining `1 − τ` cannot be attributed to absorption vs. reflection/scatter/geometric loss from net transmission alone, and Kirchhoff equates emissivity to *absorptance* — so no emissivity may be declared here (the former `optics.scalar_emissivity` knob invited the ε = 1 − τ fallacy and was removed). To model warm optics, define elements: mirrors emit ε = 1 − R, cavity refractives emit from bulk absorption. Warm-*enclosure* emission (the uncooled uniform-temperature cavity, where ε_eff = 1 − τ genuinely holds) is not an optical-train property; its home is the stray/thermal path (`optics.stray_includes_thermal`). If `optics.optics_temperature_K` is explicitly set while no defined element can emit, the stage warns that the temperature contributes nothing.
 
 ### 5.2 Mode 2: spectral transmission file
 
 Inputs: a pre-loaded `SpectralData` curve injected as `optics_config["transmission_spectral"]` (there is no `optics.transmission_file` path parameter — the caller loads the CSV/.npz and injects the curve).
 
-The curve is validated, interpolated onto the global grid, and stored as `transmission`. The elements list is again a single lumped element, with the same `ε = 0` default as Mode 1. `optics.scalar_emissivity` applies to Mode 1 only; for spectral emissivity control use `key_elements` (Mode 4) or `full_prescription` (Mode 5).
+The curve is validated, interpolated onto the global grid, and stored as `transmission`. The elements list is again a single lumped element with `ε = 0` — like Mode 1, a transmission curve is not a surface and produces no near-field emission (Gap 127). For emitting optics use `key_elements` (Mode 4) or `full_prescription` (Mode 5).
 
 ### 5.3 Mode 3: telescope transmission + filter stack
 
@@ -308,9 +343,8 @@ class OpticalElement:
     transmittance: SpectralData            # τ(λ); 0 for mirrors
     reflectance: SpectralData              # ρ(λ); 0 for ideal lenses
 
-    # Geometry — used by nearfield, not by signal path
-    diameter_m: float
-    distance_to_fpa_m: float               # along the optical path
+    # No geometry (Gap 128): every in-beam element is seen through the one
+    # étendue acceptance cone Ω_cone, which the working f/# sets (§7.3).
     n_surfaces: int = 1                    # for derivation provenance only
 
     @property
@@ -326,10 +360,11 @@ class OpticalElement:
         return 1 - self.transmittance - self.reflectance
 ```
 
-**Kirchhoff enforcement** at construction:
+**Kirchhoff enforcement** at construction (Gap 127 model rules, owner-ratified 2026-09-09):
 - For mirrors: `emissivity = 1 − reflectance`. If the user accidentally sets `transmittance` on a mirror, raise `KirchhoffViolationError`.
-- For transmissive elements: `emissivity = 1 − transmittance − reflectance`. The default `reflectance` is the per-surface Fresnel scalar (default 0.005 per coated surface) times `n_surfaces`. If the user sets all three independently, the total must satisfy ε + T + R = 1 within tolerance.
-- Emissivity is never a user-facing parameter on `OpticalElement` for physical surfaces. The schema rejects any `emissivity` field. Exception: `declared_emissivity` is accepted on `kind=LUMPED` pseudo-elements only (§5.1, Gap 37) and raises `KirchhoffViolationError` on any other kind.
+- For simple refractive elements (%T only): `emissivity = 0` — the unattributed `1 − T` is predominantly reflection, not absorption; no near-field emission.
+- For cavity refractive elements: surfaces are lossless — per surface `R + T = 1` (specify one, the other is derived; specifying both requires their sum to be 1 within tolerance, else `KirchhoffViolationError`). All absorption is bulk (`alpha`, `thickness_m`), and the emissivity follows from the cavity expression (`ε ≈ α·t` in the weak-absorption limit).
+- Emissivity is never a user-facing parameter on any `OpticalElement` — no exceptions. The former LUMPED `declared_emissivity` carve-out (Gap 37) was removed by Gap 127.
 
 ### 6.2 Filter specifications
 
@@ -361,7 +396,6 @@ elements:
   - name: primary
     kind: mirror
     material: gold_protected
-    diameter_m: 0.30
     temperature_K: 290
 ```
 
@@ -387,27 +421,31 @@ Element *i*'s emission is attenuated by every element between *i* and the FPA. F
 
 For mode 5 (`FULL_PRESCRIPTION`), the order is the user's. For modes 1–4, the synthesized lumped element is treated as immediately before the FPA (`τ_downstream = 1`), which is conservative.
 
-### 7.3 Per-element solid angle
+### 7.3 The étendue acceptance cone — the only near-field geometry (Gap 128)
 
-The signal path's Ω is `pixel_area / focal_length²`. The nearfield Ω is *element-specific*: how big does element *i* look from the FPA?
+The Lagrange invariant fixes how much solid angle a detector pixel can accept. Whatever the internal layout, every in-beam element is seen through the reimaging optics and can fill at most the cone the working f/# sets:
 
 ```
-Ω_element_i = π · (D_i / 2)² / d_i²        [sr]
-```
-where `D_i` is the element diameter and `d_i` is its distance to the FPA. For elements bigger than they are far away (a typical field lens close to the FPA), this is clipped at 2π and a logged warning is issued ("element fills the half-space; nearfield estimate is approximate").
-
-This per-element Ω is what makes the difference between "I have a 10 cm secondary 30 cm from the FPA" and "I have a 10 cm window 1 cm from the FPA": the latter contributes ~900× more nearfield even though the element transmittance is identical.
-
-### 7.4 Nearfield fraction (cold stop)
-
-Cooled IR instruments have a cold stop that limits the solid angle the FPA can see "outside" the optical path. `optics.nearfield_fraction` (η_nf) is the fraction of the FPA's hemisphere that is filled by **warm** (nearfield-emitting) elements:
-```
-E_nf_total(λ) = η_nf · Σ_i ε_i(λ) · B(λ, T_i) · Ω_element_i · τ_downstream(i)(λ)
+Ω_cone = 2π · (1 − cos θ),   θ = arctan(1 / (2 · N_eff))     [sr]
 ```
 
-For uncooled instruments, `η_nf = 1` (everything the FPA sees is warm). For a well-baffled cooled IR camera, `η_nf ≈ 0.05–0.2`.
+with `N_eff` the **effective** (post-cold-stop) f-number from §3.6. The exact form is used, not the paraxial `π / (4 N²)`: the two differ by 0.52 % at f/6 and 4.7 % at f/2, and the paraxial form exceeds 2π sr for fast systems, which no solid angle may do. Implementation: `optics/etendue_cone.py`; published as `stage_outputs["optics"]["Omega_cone"]`.
 
-**Naming (Gap 12).** This parameter was formerly `optics.cold_stop_efficiency`, which inverted the vendor convention (a vendor's "100% efficient cold stop" blocks everything, i.e. η_nf = 0). The relationship is `nearfield_fraction = 1 − vendor_cold_stop_efficiency`. The old name remains accepted as a deprecated alias (DeprecationWarning) and will be removed in a future release. GUI tooltips must state the vendor-convention relationship explicitly.
+**Superseded model.** Each element formerly carried a private `Ω_i = π (D_i/2)² / d_i²`, which the invariant does not permit: a 0.3 m mirror 1.0 m from the FPA claimed 0.0707 sr against an f/6 cone of 0.0217 sr — 3.2× more than physics allows. The legacy scalar lump was étendue-correct only by coincidence (D = aperture, d = focal length ⇒ exactly `π/(4N²)`). Per-element `diameter_m` / `distance_to_fpa_m` are deleted; an element close to the focal plane does **not** contribute more near-field than one further away.
+
+The cone is not reduced by the obscuration: the obscured central region is warm structure that emits, so the full cone is used for emission while `A_collect` excludes it for signal.
+
+### 7.4 The cold stop (Gap 128)
+
+**A cold stop cannot attenuate in-cone emission.** That light arrives through the imaging path itself. Out-of-cone warm structure is taken to be blocked **completely** — the model always assumes a cold stop is present (owner ruling 2026-09-09), so there is no enclosure term and no shield temperature.
+
+```
+E_nf_total(λ) = Ω_cone · Σ_i ε_i(λ) · B(λ, T_i) · τ_downstream(i)(λ)
+```
+
+What a cold stop *does* control is the size of the pupil, hence `N_eff`, hence `Ω_cone` — see §3.6. `optics.nearfield_fraction` (and its deprecated alias `optics.cold_stop_efficiency`) is **deleted**; setting either raises an actionable error naming Gap 128 (`radiant.core.parameters.REMOVED_PARAMETERS`).
+
+**Accepted limitations**: field-conjugate (direct-view) elements are treated as pupil-filling; uncooled cameras without a cold stop are outside the near-field model's scope.
 
 ### 7.4b Surface-roughness scatter (TIS, Gap 31)
 
@@ -464,14 +502,14 @@ This is the most common confusion in EO performance modeling, and the architectu
 | Quantity | Symbol | Where it lives | What it is |
 |----------|--------|----------------|------------|
 | Signal etendue | `A · Ω_pixel` | `signal_etendue_AΩ_m2_sr` (debug only) | Invariant area × pixel solid angle; appears in the extended-source signal equation |
-| Per-element nearfield Ω | `Ω_element_i` | Inside `nearfield_irradiance_at_fpa` calculation | How big each warm element looks from the FPA |
+| Étendue acceptance cone | `Ω_cone` | `stage_outputs["optics"]["Omega_cone"]` | The solid angle the focal plane can accept at `N_eff`; the near-field geometry |
 
 **Rules:**
 1. The signal path multiplies `L(λ) × A_collect × Ω_pixel × τ_opt(λ) × QE(λ)`. The Ω here is `Ω_pixel = pixel_area / focal_length²`.
-2. The nearfield path multiplies `ε_i(λ) × B(λ, T_i) × Ω_element_i × τ_downstream`. The Ω here is the per-element solid angle from the FPA's perspective.
-3. **No code anywhere uses both Ωs in the same expression.** They live in different places under different names — the pixel solid angle is the stage output `Omega_pixel` (a plain `float`, consumed in `spectral_integration/stage.py`), the per-element solid angle is `OpticalElement.nearfield_solid_angle_sr` (`optics/element.py`). Both are bare floats: the separation is **structural** (different objects, different call sites), not enforced by a `NewType`/wrapper — nothing in the type system would flag a cross-wire, so it surfaces only as wrong radiometry. (An unenforced-risk item; see the Track-C audit.)
+2. The nearfield path multiplies `Ω_cone × ε_i(λ) × B(λ, T_i) × τ_downstream`. The Ω here is the acceptance cone, the **same** for every element (§7.3).
+3. **No code anywhere uses both Ωs in the same expression.** Both are bare floats published as distinct stage outputs (`Omega_pixel`, `Omega_cone`): the separation is **structural** (different keys, different call sites), not enforced by a `NewType`/wrapper — nothing in the type system would flag a cross-wire, so it surfaces only as wrong radiometry. (An unenforced-risk item; see the Track-C audit.)
 
-The reason this is subtle: in many old performance tools, "warm optics" is computed by treating the entire instrument as one element with one effective solid angle, often the entrance pupil seen from the FPA. That is wrong for any instrument with a relay or a field lens, where elements close to the FPA dominate. Per-element Ω is the right answer; the parameter inventory makes it explicit.
+The reason this is subtle: many older performance tools treat "warm optics" as one element with one *ad hoc* effective solid angle, and some give each element its own `π(D/2)²/d²`. Both can exceed what the Lagrange invariant permits; RADIANT's pre-Gap-128 model did exactly that by 3.2× in a measured f/6 case. The invariant, not the layout, is the right answer.
 
 ---
 
@@ -514,20 +552,20 @@ Parameter types, defaults, units, and bounds are the canonical [Parameter Refere
 
 - `optics.transmission_input_mode` — enum; inferred when unset.
 - `optics.transmission_scalar` — mode 1. **Silent default 0.7** (typical broadband end-to-end throughput): a config that omits it gets τ_opt = 0.7, not a required-parameter error, and a default-provenance audit shows the value as a schema default. (Owner decision R4.2, 2026-07-23: keep the 0.7 default and document it; results unchanged. The generated Parameter Reference is authoritative for the value.)
-- `optics.scalar_emissivity` — mode 1; declared lumped-train emissivity (Gap 37); requires ε + τ ≤ 1.
 - `optics_config["transmission_spectral"]` (injection, `SpectralData`) — mode 2 (Gap 68 — no path parameter; caller loads and injects).
 - `optics_config["telescope_transmission"]` (injection, float or `SpectralData`) — mode 3.
 - `optics_config["filter_specs"]` (injection, `tuple[FilterSpec, ...]`, default `()`) — mode 3.
 - `optics_config["key_elements"]` (injection, `tuple[OpticalElement, ...]`) — mode 4.
 - `optics_config["residual_transmission"]` (injection, float or `SpectralData`, default 1.0) — mode 4.
 - `optics_config["element_list"]` (injection, `tuple[OpticalElement, ...]`) — mode 5 (auto-selects the mode).
-- `optics.optics_temperature_K`, `optics.optics_distance_to_fpa_m` — defaults for synthesized elements (`optics_distance_to_fpa_m` defaults to `focal_length_m`).
+- `optics.optics_temperature_K` — default temperature for synthesized elements (which never emit, Gap 127). `optics.optics_distance_to_fpa_m` was deleted by Gap 128 along with per-element geometry.
+- `optics.cold_stop_undersize_frac` (default 0.0, bounds [0, 0.49]) and `optics.cold_stop_obscuration_ratio` (default 0.0, bounds [0, 0.99]) — the effective pupil, §3.6.
 
 ### 10.4 Nearfield
 
 Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context:
 
-- `optics.nearfield_fraction` — deprecated alias: `optics.cold_stop_efficiency`.
+- `optics.nearfield_fraction` and its alias `optics.cold_stop_efficiency` — **deleted** (Gap 128). The cold stop enters as the effective pupil (§3.6), not as an emission multiplier.
 
 ### 10.5 Stray light
 
@@ -565,7 +603,9 @@ Per RADIANT_Signal_Chain_Architecture.md, `OpticsStage` is the third stage. Resp
 | `ε_i + T_i + R_i = 1 ± 1e-4` for transmissive | hard (Kirchhoff) |
 | `ε_i + R_i = 1 ± 1e-4` for mirrors | hard (Kirchhoff) |
 | `obscuration_ratio < 1` | hard |
-| `nearfield_fraction ∈ [0, 1]` | hard |
+| `cold_stop_undersize_frac ∈ [0, 0.49]` | hard |
+| `cold_stop_obscuration_ratio ∈ [0, 1)` | hard |
+| `0 < Ω_cone ≤ 2π sr` | hard |
 | `aperture_diameter_m > 0` | hard |
 | Mode 4/5 element list non-empty | hard |
 | Mode 5 elements ordered (entrance → FPA) | hard; user must order |

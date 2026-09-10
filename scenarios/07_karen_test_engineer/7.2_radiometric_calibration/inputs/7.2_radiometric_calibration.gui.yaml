@@ -12,13 +12,31 @@ detector:
   qe_value: 0.75
 geometry:
   sensor_altitude_m: 1.0
+optical_elements:
+- kind: MIRROR
+  name: fold_mirror_1
+  reflectance: 0.98
+  temperature_K: 293.15
+  transfer_mode: REFLECTIVE
+- kind: MIRROR
+  name: fold_mirror_2
+  reflectance: 0.98
+  temperature_K: 293.15
+  transfer_mode: REFLECTIVE
+- kind: MIRROR
+  name: fold_mirror_3
+  reflectance: 0.98
+  temperature_K: 293.15
+  transfer_mode: REFLECTIVE
+- kind: WINDOW
+  name: cold_window
+  temperature_K: 293.15
+  transfer_mode: REFRACTIVE
+  transmittance: 0.7649873777082679
 optics:
   aperture_diameter_m: 0.15
   focal_length_m: 0.3
-  nearfield_fraction: 0.05
   optics_temperature_K: 293.15
-  scalar_emissivity: 0.28
-  transmission_scalar: 0.72
 readout:
   adc_bits: 14
   full_well_capacity_e: 2000000.0

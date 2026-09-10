@@ -289,7 +289,7 @@ class TestFilterToElement:
             oob_rejection=1e-4,
             name="test_bp",
         )
-        elem = filter_to_element(spec, WL, 290.0, 0.05, 0.3)
+        elem = filter_to_element(spec, WL, 290.0)
         np.testing.assert_allclose(elem.emissivity.values, 0.0, atol=1e-12)
 
     @pytest.mark.level1
@@ -301,5 +301,5 @@ class TestFilterToElement:
             cuton_um=3.5,
             name="test_lp",
         )
-        elem = filter_to_element(spec, WL, 290.0, 0.05, 0.3)
+        elem = filter_to_element(spec, WL, 290.0)
         assert elem.kind == ElementKind.FILTER

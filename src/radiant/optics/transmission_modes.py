@@ -76,7 +76,6 @@ def resolve_transmission(
     *,
     # Mode 1: scalar
     transmission_scalar: float | None = None,
-    scalar_emissivity: float = 0.0,
     # Mode 2: spectral file (preloaded)
     transmission_spectral: SpectralData | None = None,
     # Mode 3: telescope + filters
@@ -89,8 +88,6 @@ def resolve_transmission(
     full_elements: tuple[OpticalElement, ...] = (),
     # Common defaults for synthesized elements
     optics_temperature_K: float = 290.0,
-    optics_distance_to_fpa_m: float | None = None,
-    aperture_diameter_m: float = 0.3,
 ) -> TransmissionResult:
     """Resolve transmission from the specified input mode.
 
@@ -104,12 +101,9 @@ def resolve_transmission(
     wavelength_um:
         Wavelength grid in microns.
     transmission_scalar:
-        Flat throughput [0, 1] for Mode 1.
-    scalar_emissivity:
-        Declared emissivity of the lumped train for Mode 1 [0, 1]. Zero
-        (default) keeps the refractive-lump assumption (eps = 0, no
-        nearfield emission). Nonzero declares the train's effective
-        emissivity for warm-optics nearfield modeling (Gap 37).
+        Flat throughput [0, 1] for Mode 1. The synthesized lump never
+        emits (Gap 127): near-field emission derives only from defined
+        elements, so Modes 1-2 carry no warm-optics term.
     transmission_spectral:
         Pre-loaded spectral transmission for Mode 2.
     telescope_transmission:
@@ -124,21 +118,12 @@ def resolve_transmission(
         Complete ordered element list for Mode 5.
     optics_temperature_K:
         Default temperature for synthesized elements.
-    optics_distance_to_fpa_m:
-        Default distance to FPA for synthesized elements.
-    aperture_diameter_m:
-        Aperture diameter for synthesized element geometry.
     """
-    dist = optics_distance_to_fpa_m if optics_distance_to_fpa_m else 1.0
-
     if mode == TransmissionInputMode.SCALAR:
         return _resolve_scalar(
             wavelength_um,
             transmission_scalar,
             optics_temperature_K,
-            aperture_diameter_m,
-            dist,
-            scalar_emissivity,
         )
 
     if mode == TransmissionInputMode.SPECTRAL_FILE:
@@ -146,8 +131,6 @@ def resolve_transmission(
             wavelength_um,
             transmission_spectral,
             optics_temperature_K,
-            aperture_diameter_m,
-            dist,
         )
 
     if mode == TransmissionInputMode.TELESCOPE_PLUS_FILTERS:
@@ -156,8 +139,6 @@ def resolve_transmission(
             telescope_transmission,
             filter_specs,
             optics_temperature_K,
-            aperture_diameter_m,
-            dist,
         )
 
     if mode == TransmissionInputMode.KEY_ELEMENTS:
@@ -166,8 +147,6 @@ def resolve_transmission(
             key_elements,
             residual_transmission,
             optics_temperature_K,
-            aperture_diameter_m,
-            dist,
         )
 
     if mode == TransmissionInputMode.FULL_PRESCRIPTION:
@@ -185,11 +164,12 @@ def _resolve_scalar(
     wavelength_um: np.ndarray,
     transmission_scalar: float | None,
     temperature_K: float,
-    diameter_m: float,
-    distance_m: float,
-    scalar_emissivity: float = 0.0,
 ) -> TransmissionResult:
-    """Mode 1: scalar throughput broadcast to flat spectrum."""
+    """Mode 1: scalar throughput broadcast to flat spectrum.
+
+    The lump is a bookkeeping stand-in, not a surface: it never emits
+    (ε = 0, Gap 127). Warm-optics near-field requires defined elements.
+    """
     if transmission_scalar is None:
         raise OpticsValidationError(
             "resolve_transmission: SCALAR mode requires transmission_scalar."
@@ -204,9 +184,6 @@ def _resolve_scalar(
     lumped = make_lumped_element(
         tau_sd,
         temperature_K,
-        diameter_m,
-        distance_m,
-        emissivity=scalar_emissivity if scalar_emissivity > 0.0 else None,
     )
     return TransmissionResult(
         mode=TransmissionInputMode.SCALAR,
@@ -219,8 +196,6 @@ def _resolve_spectral_file(
     wavelength_um: np.ndarray,
     transmission_spectral: SpectralData | None,
     temperature_K: float,
-    diameter_m: float,
-    distance_m: float,
 ) -> TransmissionResult:
     """Mode 2: spectral transmission from file (pre-loaded)."""
     if transmission_spectral is None:
@@ -235,8 +210,6 @@ def _resolve_spectral_file(
     lumped = make_lumped_element(
         transmission_spectral,
         temperature_K,
-        diameter_m,
-        distance_m,
         name="lumped_spectral",
     )
     return TransmissionResult(
@@ -251,8 +224,6 @@ def _resolve_telescope_filters(
     telescope_transmission: SpectralData | float | None,
     filter_specs: tuple[FilterSpec, ...],
     temperature_K: float,
-    diameter_m: float,
-    distance_m: float,
 ) -> TransmissionResult:
     """Mode 3: telescope broadband throughput * filter stack."""
     if telescope_transmission is None:
@@ -283,9 +254,7 @@ def _resolve_telescope_filters(
     for spec in filter_specs:
         f_sd = make_filter_transmission(spec, wavelength_um)
         net_vals = net_vals * f_sd.values
-        filter_elements.append(
-            filter_to_element(spec, wavelength_um, temperature_K, diameter_m, distance_m)
-        )
+        filter_elements.append(filter_to_element(spec, wavelength_um, temperature_K))
 
     net_sd = SpectralData(
         name="optics.transmission.telescope_plus_filters",
@@ -299,8 +268,6 @@ def _resolve_telescope_filters(
     tele_elem = make_lumped_element(
         tele_sd,
         temperature_K,
-        diameter_m,
-        distance_m,
         name="telescope_lumped",
     )
 
@@ -316,8 +283,6 @@ def _resolve_key_elements(
     key_elements: tuple[OpticalElement, ...],
     residual_transmission: SpectralData | float | None,
     temperature_K: float,
-    diameter_m: float,
-    distance_m: float,
 ) -> TransmissionResult:
     """Mode 4: key elements plus a residual lumped transmission."""
     if not key_elements:
@@ -361,8 +326,6 @@ def _resolve_key_elements(
     res_elem = make_lumped_element(
         res_sd,
         temperature_K,
-        diameter_m,
-        distance_m,
         name="residual_lumped",
     )
 

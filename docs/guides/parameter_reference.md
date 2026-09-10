@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 209**
+**Total parameters: 208**
 
 ## source
 
@@ -118,6 +118,8 @@
 | Parameter | Type | Default | Input Unit | Bounds | Description |
 |-----------|------|---------|------------|--------|-------------|
 | `optics.aperture_diameter_m` | float | **required** | m | (0.0001, 20.0) | Clear entrance-pupil diameter of the primary [m]. |
+| `optics.cold_stop_obscuration_ratio` | float | 0.0 | --- | (0.0, 0.99) | Central obscuration ratio [-] imposed by the cold shield itself (D_blocked / D_eff). The effective obscuration is the LARGER of this and optics.obscuration_ratio, so a cold shield that blocks more than the secondary governs. Default 0 = the cold shield adds no obscuration beyond the telescope's own. |
+| `optics.cold_stop_undersize_frac` | float | 0.0 | --- | (0.0, 0.49) | Fractional reduction of the pupil DIAMETER imposed by the cold stop [-]: D_eff = (1 - u) * aperture_diameter_m. The cold stop is the aperture stop, undersized for alignment and thermal tolerancing, so the effective pupil sets the collecting area, the working f/#, the diffraction PSF/MTF, and the near-field acceptance cone together. u = 0.05 (a 5 % undersized stop) collects (1 - 0.05)^2 = 90 % of the light. 0 = the cold stop matches the primary (the default: no undersizing modelled). |
 | `optics.defocus_um` | float | 0.0 | um | (-500.0, 500.0) | Linear defocus: displacement of the detector plane from best focus [µm]. Positive = behind focus, negative = in front. Both produce identical blur (absolute value used). Zero = no defocus. |
 | `optics.f_number` | float | **required** | --- | (0.3, 200.0) | Dimensionless f/# = focal_length_m / aperture_diameter_m. Part of the {D, f, f/#} consistency group; supply any two and the third is derived. |
 | `optics.field_position_x` | float | 0.0 | deg | (-10.0, 10.0) | Normalized cross-track field coordinate for field-dependent WFE evaluation. 0.0 = on-axis. Maps to field_x_deg via the field table. |
@@ -125,14 +127,11 @@
 | `optics.focal_length_m` | float | **required** | m | (0.0001, 100.0) | Effective focal length of the telescope [m]. |
 | `optics.n_spiders` | int | 0 | --- | (0, 12) | Number of secondary-support spider arms (radial struts). Default 0 (no struts). A 4-arm spider produces the familiar four-point diffraction spike. See RADIANT_Optics.md §3.3. |
 | `optics.nearfield_enabled` | int | 1 | --- | (0, 1) | Enable nearfield (warm-optics) emission calculation. Set to 0 to disable (int: 1=True, 0=False). |
-| `optics.nearfield_fraction` | float | 1.0 | --- | (0.0, 1.0) | Nearfield fraction: fraction of the FPA hemisphere filled by warm (nearfield-emitting) elements. 0 = perfect cold stop (no warm-optics emission reaches the FPA); 1 = no cold stop (uncooled instrument). NOTE this is INVERTED from the vendor 'cold stop efficiency' convention, where 100% efficient means complete blocking: nearfield_fraction = 1 - vendor_efficiency. Formerly named optics.cold_stop_efficiency (deprecated alias still accepted, Gap 12). |
 | `optics.obscuration_ratio` | float | 0.0 | --- | (0.0, 0.99) | Central obscuration ratio ``D_secondary / D_primary``. Defaults to 0 (unobscured). Must satisfy 0 ≤ ε < 1. |
-| `optics.optics_distance_to_fpa_m` | float | 0.0 | m | (0.0, 100.0) | Default distance from the optical train to the FPA [m]. Used as the distance_to_fpa_m for synthesized lumped elements. A value of 0.0 means 'use focal_length_m'. |
-| `optics.optics_temperature_K` | float | 290.0 | K | (1.0, 1000.0) | Default physical temperature of the optical train [K]. Used for synthesized lumped elements in Modes 1-4. |
+| `optics.optics_temperature_K` | float | 290.0 | K | (1.0, 1000.0) | Default physical temperature of the optical train [K]. Applied to synthesized lumped elements in Modes 1-4 — which never emit (Gap 127), so this contributes only through defined elements. |
 | `optics.psf_n_wavelengths` | int | 1 | --- | (1, 101) | Number of wavelengths for polychromatic PSF computation. 1 = monochromatic at band center (default). Values > 1 compute a photon-flux-weighted average of monochromatic PSFs across the spectral band. |
 | `optics.psf_oversample` | int | 8 | --- | (4, 16) | Focal-plane PSF samples per detector pixel. Sets the PSF grid spacing to pixel_pitch / psf_oversample; the padded FFT size grows to match. Larger values sharpen spatial-metric discretization (EE_box, RER, FWHM) at higher FFT cost. The schema floor is 4, above compute_sampling's Nyquist floor of 2: at oversample ≤ 3 the padded grid can land at exactly 2× the pupil width and the FFT-of-PSF path aliases at the grid edge, breaching the Rule-4 dual-path tolerance (measured 0.032 vs 0.02 on the reference MWIR config, CU-288). |
 | `optics.pupil_npix` | int | 128 | --- | (32, 512) | Side length of the square pupil grid before FFT padding, in samples. Sets the resolution of the complex pupil that BOTH spatial paths derive from (Rule 4): the PSF (FT of the pupil) and the optical MTF (pupil autocorrelation). Larger values resolve finer aperture structure (thin spider vanes, small obscurations) at quadratically higher FFT cost — this is the dominant cost of a chain evaluation (CU-288). |
-| `optics.scalar_emissivity` | float | 0.0 | --- | (0.0, 1.0) | Declared effective emissivity of the lumped optical train in scalar transmission mode [0, 1]. Zero (default) keeps the refractive-lump assumption (no warm-optics nearfield emission). Set nonzero for warm reflective trains — e.g. eps ≈ 1 - tau for an all-mirror train. Permitted only because the scalar lump is not a physical surface; Rule 5 (Kirchhoff-derived emissivity) still binds real elements. Requires eps + tau <= 1. Ignored in non-scalar transmission modes. |
 | `optics.scatter_halo_sigma_um` | float | 100.0 | um | (0.1, 10000.0) | Focal-plane sigma of the Gaussian scatter halo [µm] used by the TIS model. Sets where the scattered fraction lands; tune to a measured halo when available. Only meaningful when optics.surface_roughness_nm > 0. |
 | `optics.spider_angle_deg` | float | 0.0 | deg | (0.0, 360.0) | Orientation of the first spider arm about the optical axis [deg]; remaining arms equally spaced. Default 0 (first arm along +x). |
 | `optics.spider_width_m` | float | 0.0 | m | (0.0, 1.0) | Width of each spider arm [m]. Converted to a fraction of the pupil diameter for the mask; also subtracted from the radiometric clear area (RADIANT_Optics.md §3.3). Default 0. Active only when n_spiders > 0. |

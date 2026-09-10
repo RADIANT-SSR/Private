@@ -162,6 +162,40 @@ def _resolve_spectral_or_scalar(
     return float(value)
 
 
+# Element-document keys a model change deleted, mapped to the guidance an author
+# needs. Silently ignoring one would leave a document that *looks* like it states
+# a near-field geometry while the model no longer has one, so they are hard
+# errors (Gap 128).
+_REMOVED_ENTRY_KEYS: dict[str, str] = {
+    "diameter_m": (
+        "Per-element near-field geometry was deleted by Gap 128 "
+        "(étendue-conserving near-field, owner-ratified 2026-09-09): the "
+        "Lagrange invariant fixes what the focal plane can see, so every "
+        "in-beam element is viewed through the one acceptance cone the working "
+        "f/# sets — an element cannot subtend more, however large or close it "
+        "is. Delete the key; the cone is derived from the effective pupil "
+        "(optics.aperture_diameter_m, optics.focal_length_m, "
+        "optics.cold_stop_undersize_frac)."
+    ),
+    "distance_to_fpa_m": (
+        "Per-element near-field geometry was deleted by Gap 128 "
+        "(étendue-conserving near-field, owner-ratified 2026-09-09): an element "
+        "close to the focal plane does not contribute more near-field than one "
+        "further away — both are seen through the same acceptance cone. Delete "
+        "the key; nothing replaces it."
+    ),
+}
+
+
+def _reject_removed_keys(entry: dict[str, Any], element_name: str) -> None:
+    """Raise on any element key a model change removed (Rule 15, Rule 17)."""
+    for key, guidance in _REMOVED_ENTRY_KEYS.items():
+        if key in entry:
+            raise ElementConfigError(
+                f"Element '{element_name}': '{key}' is no longer an element field. {guidance}"
+            )
+
+
 def _require(entry: dict[str, Any], key: str, element_name: str) -> Any:
     """Get a required key from an element dict, or raise with clear message."""
     if key not in entry:
@@ -179,12 +213,11 @@ def _parse_element(
 ) -> OpticalElement:
     """Parse a single element dict into an OpticalElement."""
     name = _require(entry, "name", "<unnamed>")
+    _reject_removed_keys(entry, str(name))
     transfer_mode = _require(entry, "transfer_mode", name).upper()
 
-    # Common geometry/thermal fields.
+    # Common thermal field. An element carries no geometry (Gap 128).
     temperature_K = float(entry.get("temperature_K", 0.0))
-    diameter_m = float(entry.get("diameter_m", 1.0))
-    distance_to_fpa_m = float(entry.get("distance_to_fpa_m", 1.0))
 
     if transfer_mode == "REFLECTIVE":
         reflectance = _resolve_spectral_or_scalar(
@@ -197,34 +230,23 @@ def _parse_element(
             reflectance,
             wavelength_um=wavelength_um,
             temperature_K=temperature_K,
-            diameter_m=diameter_m,
-            distance_to_fpa_m=distance_to_fpa_m,
         )
 
     if transfer_mode == "REFRACTIVE":
         # Check whether this is a simple or cavity element.
-        if "R1" in entry:
-            # Cavity element — all per-surface fields required.
-            r1 = _resolve_spectral_or_scalar(
-                _require(entry, "R1", name),
-                f"{name}.R1",
-                config_dir,
-            )
-            t1 = _resolve_spectral_or_scalar(
-                _require(entry, "T1", name),
-                f"{name}.T1",
-                config_dir,
-            )
-            r2 = _resolve_spectral_or_scalar(
-                _require(entry, "R2", name),
-                f"{name}.R2",
-                config_dir,
-            )
-            t2 = _resolve_spectral_or_scalar(
-                _require(entry, "T2", name),
-                f"{name}.T2",
-                config_dir,
-            )
+        if any(key in entry for key in ("R1", "T1", "R2", "T2")):
+            # Cavity element. Surfaces are lossless (Gap 127 Rule 4): per
+            # surface, give R or T and the factory derives the complement;
+            # giving both requires R + T = 1 (validated by CavityModel).
+            def _surface_value(key: str) -> float | SpectralData | None:
+                if key not in entry:
+                    return None
+                return _resolve_spectral_or_scalar(entry[key], f"{name}.{key}", config_dir)
+
+            r1 = _surface_value("R1")
+            t1 = _surface_value("T1")
+            r2 = _surface_value("R2")
+            t2 = _surface_value("T2")
             alpha = _resolve_spectral_or_scalar(
                 _require(entry, "alpha", name),
                 f"{name}.alpha",
@@ -252,8 +274,6 @@ def _parse_element(
                 kind=kind,
                 wavelength_um=wavelength_um,
                 temperature_K=temperature_K,
-                diameter_m=diameter_m,
-                distance_to_fpa_m=distance_to_fpa_m,
             )
 
         # Simple refractive element — just transmittance.
@@ -271,8 +291,6 @@ def _parse_element(
             kind=kind,
             wavelength_um=wavelength_um,
             temperature_K=temperature_K,
-            diameter_m=diameter_m,
-            distance_to_fpa_m=distance_to_fpa_m,
         )
 
     raise ElementConfigError(

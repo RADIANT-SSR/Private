@@ -199,8 +199,17 @@ def _compute_spatial_metrics(
         # above 1/(λ·F#) the pupil autocorrelation is identically zero, so every MTF
         # curve is. Published as data — a view bounding an MTF axis must not re-derive
         # it in the plot layer.
+        #
+        # The EFFECTIVE pupil, not the primary (Gap 128), exactly as the
+        # diffraction-limit metric below: an undersized cold stop is the aperture
+        # stop, and the complex pupil the MTF product is built from already uses
+        # `f_number_eff`, so the cutoff must too or it would not be the band edge of
+        # the curve it bounds. Identical to the primary at the default u = 0;
+        # `optics.f_number` is the fallback for a partial state.
         try:
-            f_number_for_cutoff: float = params.get("optics.f_number")
+            f_number_for_cutoff: float = state.stage_outputs.get("optics", {}).get(
+                "f_number_eff", params.get("optics.f_number")
+            )
         except (KeyError, TypeError):
             f_number_for_cutoff = 0.0
         if f_number_for_cutoff > 0.0:
@@ -772,7 +781,14 @@ def _compute_diffraction_limit_metrics(
     Skips gracefully when inputs are unavailable.
     """
     try:
-        aperture_m: float = params.get("optics.aperture_diameter_m")
+        # The EFFECTIVE pupil, not the primary (Gap 128): a cold stop undersized
+        # for tolerancing is the aperture stop, so it — not the primary rim —
+        # sets the diffraction limit. Identical to the primary at the default
+        # u = 0. OpticsStage always publishes it; the parameter is the fallback
+        # for a partial state.
+        aperture_m: float = state.stage_outputs.get("optics", {}).get(
+            "D_eff_m", params.get("optics.aperture_diameter_m")
+        )
         lambda_min: float = params.get("spectral_integration.filter_min_um")
         lambda_max: float = params.get("spectral_integration.filter_max_um")
     except (KeyError, TypeError):

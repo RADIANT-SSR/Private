@@ -15,9 +15,13 @@ This script:
      (keep_results=True) and reads predicted DN from the chain's
      readout stage output signal_dn_final — DN is a first-class chain
      output, converted at gain and clipped at the ADC.
-  3. Instrument self-emission enters as warm-optics nearfield
-     (optics.scalar_emissivity = 1 − τ per Kirchhoff, Gap 37, with the
-     cold-stop leakage from the 7.4 campaign).
+  3. Instrument self-emission enters as warm-optics nearfield from the
+     defined train: three fold mirrors at R = 0.98 [-] (ε = 0.02 [-] each,
+     Kirchhoff) plus one AR-coated cold window carrying the balance of the
+     workbook's τ = 0.72 [-]. Emission is seen through the system étendue
+     cone Ω_cone [sr], the only near-field geometry (Gap 128, 2026-09-09);
+     a cold stop cannot attenuate in-cone emission, so there is no leakage
+     factor.
   4. Compares predicted vs measured DN; fits measured = a·predicted + b
      to split the disagreement into a GAIN error (slope) and an OFFSET
      (intercept) — the two knobs a calibration actually adjusts.
@@ -85,15 +89,48 @@ def band_radiance(T: float) -> float:
 gain_e_per_dn = float(specs["System gain"])
 t_int_s = float(specs["Integration time"]) / 1000.0  # ms → s
 tau = float(specs["Optical transmission"]) / 100.0
-optics_eps = float(specs["Optics emissivity"]) / 100.0
+# The workbook's "Optics emissivity" (28 %) is the ε = 1 − τ fallacy and is NOT
+# read into the model (Gap 128); it is printed below only to name the correction.
+workbook_eps = float(specs["Optics emissivity"]) / 100.0  # [-] — narrative only
+optics_temp_K = float(specs["Optics temperature"]) + 273.15  # °C → K
 
 sensor = Sensor()
 sensor.set("optics.aperture_diameter_m", float(specs["Aperture diameter"]), unit="cm")
 sensor.set("optics.focal_length_m", float(specs["Focal length"]), unit="cm")
-sensor.set("optics.transmission_scalar", float(specs["Optical transmission"]), unit="%")
-sensor.set("optics.scalar_emissivity", optics_eps)  # Kirchhoff: 1 − τ (Gap 37)
-sensor.set("optics.nearfield_fraction", float(specs["Nearfield fraction"]))
-sensor.set("optics.optics_temperature_K", float(specs["Optics temperature"]) + 273.15)
+sensor.set("optics.optics_temperature_K", optics_temp_K)
+# Gap 127 (2026-09-09): warm-optics self-emission derives ONLY from defined
+# elements. Gap 128 (2026-09-09): the workbook's ε = 28 % was the ε = 1 − τ
+# fallacy — it reads the WHOLE optical loss as absorption. A real MWIR bench
+# camera loses most of that τ at coatings and the cold filter, not to
+# absorption. The as-built train is modelled as what it is: three fold mirrors
+# at R = 0.98 [-] (ε = 1 − R = 0.02 [-] each, Kirchhoff) plus one AR-coated
+# cold window carrying the balance, so the NET throughput still equals the
+# workbook's τ = 0.72 [-] exactly while the emitting emissivity is a realistic
+# ~0.045 [-] rather than 0.28 [-].
+MIRROR_R = 0.98  # [-] — protected-gold fold mirror, per-surface reflectance
+N_MIRRORS = 3  # three-mirror anastigmat — the bench camera's fore-optics
+window_T = tau / MIRROR_R**N_MIRRORS  # [-] — the balance of the workbook τ
+sensor.set_optical_elements(
+    [
+        *(
+            {
+                "name": f"fold_mirror_{i + 1}",
+                "transfer_mode": "REFLECTIVE",
+                "kind": "MIRROR",
+                "reflectance": MIRROR_R,  # [-]
+                "temperature_K": optics_temp_K,  # K
+            }
+            for i in range(N_MIRRORS)
+        ),
+        {
+            "name": "cold_window",
+            "transfer_mode": "REFRACTIVE",
+            "kind": "WINDOW",
+            "transmittance": window_T,  # [-] — AR-coated; ε = 0 (Gap 127)
+            "temperature_K": optics_temp_K,  # K
+        },
+    ]
+)
 sensor.set("detector.pixel_pitch_x_um", float(specs["Pixel pitch"]))
 sensor.set("detector.pixel_pitch_y_um", float(specs["Pixel pitch"]))
 sensor.set("detector.qe_value", float(specs["Quantum efficiency"]), unit="%")
@@ -144,8 +181,10 @@ def main() -> None:
 
     print(f"\n=== Converted to RADIANT canonical units (Sensor.set unit-aware, Gap 6) ===")
     print(f"  Aperture {sensor.get('optics.aperture_diameter_m'):.3f} m | "
-          f"focal {sensor.get('optics.focal_length_m'):.3f} m | τ = {tau:.2f} | "
-          f"ε_optics = {optics_eps:.2f} (= 1 − τ, Kirchhoff)")
+          f"focal {sensor.get('optics.focal_length_m'):.3f} m | "
+          f"net train τ = {tau:.2f} [-] "
+          f"({N_MIRRORS} mirrors at R = {MIRROR_R:.2f} [-] × cold window "
+          f"T = {window_T:.3f} [-])")
     print(f"  Band {band_min_um:.2f}–{band_max_um:.2f} µm | t_int = {t_int_s * 1e3:.2f} ms | "
           f"gain = {gain_e_per_dn:.0f} e⁻/DN | 14-bit ADC")
 
@@ -179,10 +218,17 @@ def main() -> None:
     print(f"  UNUSED PARAMETER NOTE: in the extended regime RADIANT skips the")
     print(f"  separate scene-background photon term (matrix Decision #13) — the")
     print(f"  lab-ambient background parameters define the contrast scene only.")
-    print(f"  Instrument self-emission IS modeled: warm optics at 293 K with")
-    print(f"  ε = 1 − τ = {optics_eps:.2f} leaking past the cold stop "
-          f"(nearfield_fraction = {float(specs['Nearfield fraction']):.2f})")
-    print(f"  contributes a constant {nearfield_e[0]:,.0f} e⁻ "
+    omega_cone_sr = sweep.results[0].stage_outputs["optics"]["Omega_cone"]
+    print(f"  Instrument self-emission IS modeled, from the defined elements only")
+    print(f"  (Gap 127): {N_MIRRORS} fold mirrors at 293.15 K, each ε = 1 − R = "
+          f"{1.0 - MIRROR_R:.2f} [-]; the AR cold window is non-absorbing (ε = 0 [-]).")
+    print(f"  The workbook's ε = {workbook_eps:.2f} [-] is NOT used: it reads the whole")
+    print(f"  τ loss as absorption (the ε = 1 − τ fallacy), which over-states emission ~6x.")
+    print(f"  Emission is seen through the étendue cone Ω_cone = {omega_cone_sr:.5f} sr —")
+    print(f"  the only near-field geometry (Gap 128). A cold stop CANNOT attenuate it:")
+    print(f"  in-cone emission arrives through the imaging path itself, so the old")
+    print(f"  nearfield_fraction leakage factor is gone.")
+    print(f"  Net: a constant {nearfield_e[0]:,.0f} e⁻ "
           f"({nearfield_e[0] / gain_e_per_dn:,.1f} DN) at every set point —")
     print(f"  it appears below as the offset term of the calibration fit.")
 
@@ -392,8 +438,8 @@ def main() -> None:
     print(f"    2. The predicted-vs-measured fit splits the disagreement into the")
     print(f"       two calibration knobs: {(a_fit - 1) * 100:+.2f}% gain scale and "
           f"{b_fit:+.1f} DN offset.")
-    print(f"    3. Instrument self-emission is modeled physics (Kirchhoff ε = 1 − τ")
-    print(f"       warm optics through the cold-stop leakage), not a fudge term.")
+    print(f"    3. Instrument self-emission is modeled physics (Kirchhoff ε = 1 − R per")
+    print(f"       warm mirror, seen through the étendue cone Ω_cone), not a fudge term.")
     print(f"    4. Radiometric noise is NOT the calibration accuracy limit: "
           f"{N_FRAMES}-frame")
     print(f"       averaging brings σ_T to a few mK; gain/offset knowledge and the")

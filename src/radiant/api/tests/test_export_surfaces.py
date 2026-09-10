@@ -53,8 +53,6 @@ class TestToYaml:
                     "transfer_mode": "REFLECTIVE",
                     "reflectance": 0.97,
                     "temperature_K": 293.0,
-                    "diameter_m": 0.3,
-                    "distance_to_fpa_m": 1.0,
                 }
             ]
         )
@@ -145,8 +143,6 @@ class TestElementDocumentPortability:
                     "transfer_mode": "REFLECTIVE",
                     "reflectance": str(csv_path),
                     "temperature_K": 293.0,
-                    "diameter_m": 0.3,
-                    "distance_to_fpa_m": 1.0,
                 }
             ]
         )

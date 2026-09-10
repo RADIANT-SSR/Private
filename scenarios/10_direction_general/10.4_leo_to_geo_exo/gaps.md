@@ -88,8 +88,10 @@ Rule 25, one registry per concern). This file is the per-scenario record.
   neither the nominal nor the heavily-smeared open-loop run raised a *consistency*
   `UserWarning`. Each raises exactly one unrelated `UserWarning` (CU-261/265's
   inert-optics-temperature report: `optics.optics_temperature_K = 180 K` is set
-  while `optics.scalar_emissivity` is 0, so the bench temperature contributes
-  nothing).
+  while no defined optical element can emit, so the bench temperature contributes
+  nothing. Reworded by Gap 127, 2026-09-09 — it previously named
+  `optics.scalar_emissivity`, since removed; this scenario declares no element
+  list, so its numbers are unchanged).
 - **Detection-range non-detection reporting** — short integration times report a
   result-typed failure with a `failure_reason`, not a silent NaN. Rule 17
   carve-out behaving as specified.

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import enum
 import logging
-import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -79,12 +78,15 @@ class OpticalElement:
         Spectral transmittance ``T(lambda)``; must be zero for mirrors.
     reflectance:
         Spectral reflectance ``R(lambda)``.
-    diameter_m:
-        Clear aperture diameter of this element in meters.
-    distance_to_fpa_m:
-        Distance from this element to the focal-plane array in meters.
     n_surfaces:
         Number of optical surfaces (for provenance only).
+
+    Notes
+    -----
+    An element carries **no** geometry. Gap 128 deleted ``diameter_m`` and
+    ``distance_to_fpa_m``: near-field emission is seen through the one
+    acceptance cone the working f/# sets, not through a per-element solid
+    angle, which the Lagrange invariant does not permit.
     """
 
     name: str
@@ -92,12 +94,9 @@ class OpticalElement:
     temperature_K: float
     transmittance: SpectralData
     reflectance: SpectralData
-    diameter_m: float
-    distance_to_fpa_m: float
     n_surfaces: int = 1
     transfer_mode: ElementTransferMode | None = None
     cavity: CavityModel | None = None
-    declared_emissivity: SpectralData | None = None
 
     def __post_init__(self) -> None:
         # --- Wavelength grid compatibility ---
@@ -143,59 +142,11 @@ class OpticalElement:
                 "transmissive elements."
             )
 
-        # --- Declared emissivity (LUMPED pseudo-elements only) ---
-        # Rule 5 forbids independent emissivity for a physical surface. A
-        # LUMPED element is a virtual stand-in for an entire optical train,
-        # whose energy balance (mirror eps = 1-R vs refractive eps = 0) is not
-        # resolvable from net transmission alone — so the user may declare the
-        # train emissivity there, and only there.
-        if self.declared_emissivity is not None:
-            if self.kind != ElementKind.LUMPED:
-                raise KirchhoffViolationError(
-                    f"OpticalElement '{self.name}': declared_emissivity is only "
-                    f"permitted for kind=LUMPED pseudo-elements, got "
-                    f"kind={self.kind.value}. Physical surfaces derive emissivity "
-                    "from Kirchhoff's law (Rule 5): use make_reflective_element "
-                    "(eps = 1 - R) or a cavity model instead."
-                )
-            eps_decl = self.declared_emissivity.values
-            if not np.array_equal(
-                self.declared_emissivity.wavelength_um, self.transmittance.wavelength_um
-            ):
-                raise OpticsValidationError(
-                    f"OpticalElement '{self.name}': declared_emissivity must "
-                    "share the transmittance wavelength grid."
-                )
-            if np.any(eps_decl < 0.0) or np.any(eps_decl > 1.0):
-                raise OpticsValidationError(
-                    f"OpticalElement '{self.name}': declared_emissivity values "
-                    f"must be in [0, 1], got range [{float(eps_decl.min()):.6g}, "
-                    f"{float(eps_decl.max()):.6g}]."
-                )
-            budget = t_vals + r_vals + eps_decl
-            if np.any(budget > 1.0 + KIRCHHOFF_TOL):
-                worst = float(np.max(budget))
-                raise KirchhoffViolationError(
-                    f"OpticalElement '{self.name}': energy conservation violation — "
-                    f"T + R + declared_emissivity = {worst:.6g} > 1 at some "
-                    "wavelengths. A train cannot emit more than it absorbs; "
-                    "reduce the declared emissivity or the transmission."
-                )
-
-        # --- Geometry ---
+        # --- Thermal ---
         if self.temperature_K < 0.0:
             raise OpticsValidationError(
                 f"OpticalElement '{self.name}': temperature_K must be >= 0, "
                 f"got {self.temperature_K}."
-            )
-        if self.diameter_m <= 0.0:
-            raise OpticsValidationError(
-                f"OpticalElement '{self.name}': diameter_m must be > 0, got {self.diameter_m}."
-            )
-        if self.distance_to_fpa_m <= 0.0:
-            raise OpticsValidationError(
-                f"OpticalElement '{self.name}': distance_to_fpa_m must be > 0, "
-                f"got {self.distance_to_fpa_m}."
             )
 
     # ------------------------------------------------------------------
@@ -233,19 +184,11 @@ class OpticalElement:
         - Reflective: ``eps = 1 - R`` (Kirchhoff)
         - Refractive with cavity: ``eps = T2 * n^2 * (1 - beer) / denom``
           (generalized Kirchhoff — n^2 enhancement for dielectric medium)
-        - Refractive without cavity (simple): ``eps = 0`` (absorption unknown;
-          the remaining ``1 - T`` is predominantly reflection, not absorption)
-        - LUMPED with declared_emissivity: the user-declared train emissivity
-          (the one sanctioned exception — a lump is not a physical surface)
+        - Refractive without cavity (simple, incl. LUMPED): ``eps = 0``
+          (absorption unknown; the remaining ``1 - T`` is predominantly
+          reflection, not absorption — Gap 127: emission derives only from
+          elements whose absorption is actually modelled)
         """
-        if self.declared_emissivity is not None:
-            return SpectralData(
-                name=f"{self.name}.emissivity",
-                wavelength_um=self.transmittance.wavelength_um.copy(),
-                values=self.declared_emissivity.values.copy(),
-                unit="",
-                source=f"User-declared train emissivity ({self.name})",
-            )
         if self.resolved_transfer_mode == ElementTransferMode.REFLECTIVE:
             eps_vals = 1.0 - self.reflectance.values
             source = f"Kirchhoff: 1 - R ({self.name})"
@@ -266,21 +209,3 @@ class OpticalElement:
             unit="",
             source=source,
         )
-
-    @property
-    def nearfield_solid_angle_sr(self) -> float:
-        """Solid angle subtended by this element as seen from the FPA [sr].
-
-        ``Omega = pi * (D/2)^2 / d^2``, clipped at ``2*pi`` (half-space).
-        """
-        omega = math.pi * (self.diameter_m / 2.0) ** 2 / self.distance_to_fpa_m**2
-        if omega > 2.0 * math.pi:
-            logger.warning(
-                "OpticalElement '%s': computed solid angle %.4g sr exceeds "
-                "2*pi; clipping to 2*pi. Element fills the half-space; "
-                "nearfield estimate is approximate.",
-                self.name,
-                omega,
-            )
-            return 2.0 * math.pi
-        return omega

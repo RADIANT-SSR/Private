@@ -212,8 +212,10 @@ only as leader-label text; direction is faithful.
   which the panel should annotate as "cold-space termination", not hide.
 - **Messages panel**: must carry **exactly one** entry for this run —
   CU-261/265's inert-optics-temperature report (`optics.optics_temperature_K =
-  180 K` is set while `optics.scalar_emissivity` is 0, so the bench temperature
-  contributes nothing). The Rule-4 dual-path consistency check passed
+  180 K` is set while no defined optical element can emit, so the bench
+  temperature contributes nothing — reworded by Gap 127, 2026-09-09, which
+  removed the `optics.scalar_emissivity` the old text named). The Rule-4
+  dual-path consistency check passed
   (2.3 × 10⁻⁴ vs 2.0 × 10⁻² tolerance, 86× margin) and contributes no message. If
   a Rule-4 warning ever appears on this scene class, a spatial degradation has
   been added to one path and not the other.

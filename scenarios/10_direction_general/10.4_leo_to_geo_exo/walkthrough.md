@@ -461,9 +461,13 @@ Rule-4 tolerance.
 The one `UserWarning` the nominal chain raises — and the open-loop variant raises
 the same one — is CU-261/265's inert-optics-temperature report:
 
-> `optics.optics_temperature_K = 180 K is set, but in scalar transmission mode the
-> optics' self-emission is ε·B(λ, T_optics) with ε = optics.scalar_emissivity,
-> which is 0 …`
+> `optics.optics_temperature_K = 180 K is set, but no defined optical element can
+> emit (every element's Kirchhoff-derived emissivity is 0 in the current
+> transmission mode) …`
+
+*(Warning text reworded by Gap 127, 2026-09-09, which removed
+`optics.scalar_emissivity`. This scenario declares no element list, so the
+warning still fires on the same condition and no computed value moved.)*
 
 *Numbers refreshed 2026-08-02 from the unmodified runner (previous vintage
 2026-08-01). No computed value moved: CU-224 is exactly zero on a vacuum path
@@ -472,9 +476,9 @@ scene does not have. The only changes are this warning count, which CU-261/265
 introduced, and the metric-relevance list in §4.5.*
 
 The warning is telling the truth about §2.1's 180 K bench temperature: with the
-optical train entered as a scalar transmission lump (`scalar_emissivity` = 0) the
-bench temperature is radiometrically inert, so every number in this walkthrough is
-independent of it. Note that the runner's own §12 "parameters that do not matter"
+optical train entered as a scalar transmission lump — which under Gap 127 emits
+nothing, ever — the bench temperature is radiometrically inert, so every number
+in this walkthrough is independent of it. Note that the runner's own §12 "parameters that do not matter"
 list still says the 180 K self-emission "is NOT zero and is left in the budget";
 that line predates the warning and is wrong — the term is identically zero. The
 scenario config is left unmodified rather than silenced.

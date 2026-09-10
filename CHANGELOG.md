@@ -36,7 +36,10 @@ retroactively reconstructed.
   `UnknownParameterError`. Cavity refractive surfaces are now lossless by
   model rule: per surface R + T = 1 (specify one, the other derives;
   `KirchhoffViolationError` otherwise) — coating absorption, previously
-  accepted silently and never emitted, is rejected.
+  accepted silently and never emitted, is rejected. The four scenario GUI
+  baselines that used the ε = 1 − τ pattern (7.2, 7.4, 7.5, 10.1) were
+  converted to a single all-absorbing mirror element with R = the old τ; the
+  substitution is exact, and every snapshot metric is bit-identical.
 
 ### Added
 - **Six worked examples ship in the wheel (Gap 126)** — the welcome screen

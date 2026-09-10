@@ -2,7 +2,8 @@
 
 Refreshed 2026-07-07 (Phase R): parameter renamed to `optics.nearfield_fraction`
 (Gap 12), inverse matching now uses `Sensor.solve_for` (Gap 10), scalar-mode
-emissivity via `optics.scalar_emissivity` (Gap 37), Stage-7 `geometry.sensor_altitude_m`
+train emissivity from one defined mirror element (ε = 1 − R; Gap 127 conversion 2026-09-09,
+replacing the removed `optics.scalar_emissivity`), Stage-7 `geometry.sensor_altitude_m`
 precondition surfaced (registry Gap 42).
 
 ## Persona
@@ -30,7 +31,7 @@ Karen, test engineer. Running a TVAC background characterization test. She has a
     - QE: 75% -> 0.75 (÷ 100)
   - **Derived-parameter highlights** (GUI computes and shows the derivation, user confirms):
     - Vendor cold stop efficiency % -> `nearfield_fraction` = 1 − efficiency (convention flip at the boundary)
-    - Scalar-mode optics emissivity: ε = 1 − τ = 0.32 (Kirchhoff, Rule 5) -> `optics.scalar_emissivity`. GUI must warn if the user leaves ε = 0 with nearfield analysis enabled — that silently zeroes the nearfield term (old Gap 4).
+    - Optics emissivity: the train is one defined mirror element with R = 0.68 [-] -> ε = 1 − R = 0.32 [-] (Kirchhoff, Rule 5), shown read-only. GUI must warn if no emitting element is defined with nearfield analysis enabled — that silently zeroes the nearfield term (old Gap 4; Gap 127 makes an element list the only way to emit).
 
 ## Step 2: Review and Validate Parameters
 - **GUI components**:
@@ -141,7 +142,7 @@ sol.solution, sol.achieved, sol.n_evaluations
 ## Key GUI Features Exercised
 1. **Non-standard unit conversion** — fA/pixel → e-/s, °C → K, nm → µm, mm → m
 2. **Convention disambiguation at the boundary** — vendor "efficiency" → η_nf = 1 − efficiency, shown as a derivation the user confirms
-3. **Derived-parameter guardrail** — scalar_emissivity = 1 − τ (Kirchhoff); warn when ε = 0 with nearfield analysis on
+3. **Derived-parameter guardrail** — element ε = 1 − R (Kirchhoff); warn when no emitting element is defined with nearfield analysis on
 4. **Dual-mode evaluation** — illuminated (SNR analysis) vs. shuttered (background characterization)
 5. **Parameter sweep with lab data overlay** — visualize model vs. measurements
 6. **Inverse problem via Sensor.solve_for** — direct root-finding with eval-count feedback and out-of-bracket messaging

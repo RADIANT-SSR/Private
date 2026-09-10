@@ -1,7 +1,8 @@
 # Scenario 7.4 Walkthrough: Cold Stop Leakage Sweep
 
 Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R): the script now uses
-`Sensor.solve_for` (Gap 10), `optics.scalar_emissivity` (Gap 37), the
+`Sensor.solve_for` (Gap 10), a defined mirror element for the warm train
+(Gap 127 conversion 2026-09-09, replacing the removed `optics.scalar_emissivity`), the
 `optics.nearfield_fraction` name (Gap 12), and the Stage-7
 `geometry.sensor_altitude_m` precondition. Numbers re-verified 2026-07-22 (CU-176)
 against the current engine: this is a vacuum (exo) lab test, so signal, nearfield,
@@ -36,7 +37,7 @@ E_nearfield ∝ η_nf × ε_optics × B(λ, T_optics)
 - η_nf = 1.0 → no cold stop (all warm radiation reaches FPA)
 - η_nf = 1 − vendor "cold stop efficiency" (the vendor convention counts blocking, not leakage)
 
-**Warm-optics emissivity is derived, not free (Rule 5 / Gap 37).** In scalar transmission mode the train is one lumped element. Treating the non-transmitted power as absorbed gives ε = 1 − τ = 1 − 0.68 = 0.32, set via `optics.scalar_emissivity`. Without it the lump defaults to the refractive assumption ε = 0 and the nearfield term is identically zero — the failure that made the first execution of this scenario non-functional (old Gap 4, now closed).
+**Warm-optics emissivity is derived, not free (Rule 5 / Gap 127).** Emission derives only from defined elements, so this train is declared as ONE all-absorbing mirror with R = 0.68 [-]; Kirchhoff then gives ε = 1 − R = 0.32 [-] and the net throughput is R itself. Without a defined element the near-field term is identically zero — the failure that made the first execution of this scenario non-functional (old Gap 4, now closed).
 
 ## How RADIANT Solves This
 
@@ -126,7 +127,7 @@ The script evaluates SNR at both the nominal and anomalous cold stop positions w
 
 4. **The parameter name now matches the physics.** `optics.nearfield_fraction` states what the value is; the script converts once, explicitly, from the vendor convention (η_nf = 1 − vendor efficiency) at the input boundary.
 
-5. **The scalar-mode emissivity must be declared, and it is derived, not free.** ε = 1 − τ by Kirchhoff for a reflective train. Forgetting `optics.scalar_emissivity` silently reverts to ε = 0 and a zero nearfield — exactly the failure mode of this scenario's first execution.
+5. **Self-emission requires a defined element, and its emissivity is derived, not free.** ε = 1 − R by Kirchhoff for a mirror. Omitting the element list leaves ε = 0 and a zero nearfield — exactly the failure mode of this scenario's first execution (Gap 127, 2026-09-09).
 
 6. **The atmosphere model matters — and so does the sub-case.** "exo" (vacuum) sets transmission to unity and path radiance to zero, but routes through the `space` sub-case, requiring the placeholder `geometry.sensor_altitude_m` (registry Gap 42). Using the wrong atmosphere model (e.g., "simple" with an orbital altitude) would introduce spurious atmospheric absorption into a lab measurement comparison.
 
@@ -138,7 +139,7 @@ The script evaluates SNR at both the nominal and anomalous cold stop positions w
 
 - ~~**Gap 3 (NEDT)**~~: **CLOSED**. `result.metrics["nedt_K"]`, displayed in baseline, sweep, and SNR impact sections.
 
-- ~~**Gap 4 (Nearfield = 0 in scalar mode)**~~: **CLOSED** — `optics.scalar_emissivity` (registry Gap 37) with the Kirchhoff-derived ε = 1 − τ. The sweep is now physically meaningful end-to-end.
+- ~~**Gap 4 (Nearfield = 0 in scalar mode)**~~: **CLOSED** — one defined mirror element with the Kirchhoff-derived ε = 1 − R (registry Gap 37, converted to the element form under Gap 127 on 2026-09-09). The sweep is now physically meaningful end-to-end.
 
 - **Gap 6 (lab_test sub-case unreachable from the config surface)**: OPEN — registry Gap 42. This TVAC scenario must masquerade as the `space` sub-case with a placeholder `geometry.sensor_altitude_m`. Acceptable here (extended target fills the FOV; chamber background negligible), but a lit-lab scenario with a non-negligible chamber background cannot be modeled from `Sensor.from_dict` at all.
 

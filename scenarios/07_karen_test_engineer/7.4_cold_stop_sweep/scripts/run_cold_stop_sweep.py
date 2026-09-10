@@ -144,9 +144,10 @@ cold_stop_design = float(specs["Cold stop design efficiency"]) / 100.0  # % → 
 # RADIANT convention (Gap 12): nearfield_fraction is the LEAKAGE fraction,
 # i.e. 1 − vendor "cold stop efficiency" (where 100% efficient = full blocking).
 nearfield_design = 1.0 - cold_stop_design                          # vendor % → leakage fraction
-# Kirchhoff-derived lumped-train emissivity (Gap 37): the warm train is
-# reflective, so the non-transmitted fraction is absorbed → ε = 1 − τ.
-# (optics.scalar_emissivity requires ε + τ ≤ 1; equality holds here.)
+# Kirchhoff-derived train emissivity: the warm train is reflective, so the
+# non-reflected fraction is absorbed → ε = 1 − R.  Gap 127 (2026-09-09): this
+# is modeled as a DEFINED element — one all-absorbing mirror with R = τ — since
+# emission now derives only from defined elements (a scalar τ is not a surface).
 optics_emissivity = 1.0 - transmission                             # derived, not an input
 wfe_waves = float(specs["WFE (RMS)"])                              # already in waves
 
@@ -214,11 +215,22 @@ config = {
     "optics": {
         "aperture_diameter_m": aperture_m,
         "focal_length_m": focal_length_m,
-        "transmission_scalar": transmission,
-        "scalar_emissivity": optics_emissivity,    # ε = 1 − τ (Kirchhoff, Gap 37)
         "optics_temperature_K": optics_temp_K,
         "nearfield_fraction": 1.0,   # Baseline: no cold stop (max leakage)
     },
+    # Gap 127 (2026-09-09): the warm train is ONE defined all-absorbing mirror.
+    # Net throughput R = τ = 0.68 [-]; emissivity ε = 1 − R = 0.32 [-] (Kirchhoff).
+    "optical_elements": [
+        {
+            "name": "warm_train",
+            "transfer_mode": "REFLECTIVE",
+            "kind": "MIRROR",
+            "reflectance": transmission,       # [-] — mirror R = end-to-end throughput
+            "temperature_K": optics_temp_K,    # K
+            "diameter_m": aperture_m,          # m
+            "distance_to_fpa_m": focal_length_m,  # m
+        }
+    ],
     "detector": {
         "pixel_pitch_x_um": pixel_pitch_um,
         "pixel_pitch_y_um": pixel_pitch_um,
@@ -360,12 +372,13 @@ def main() -> None:
     print(f"      η_nf = 1 − (vendor cold stop efficiency)")
     print(f"")
     print(f"    WARM-OPTICS EMISSIVITY (Kirchhoff, Rule 5):")
-    print(f"    In scalar transmission mode the train is one lumped element. Its")
-    print(f"    emissivity is DERIVED, not free: treating the non-transmitted power")
-    print(f"    as absorbed gives ε = 1 − τ = 1 − {transmission:.2f} = {optics_emissivity:.2f}")
-    print(f"    (optics.scalar_emissivity, Gap 37). Without it the lump defaults to")
-    print(f"    the refractive assumption ε = 0 and nearfield_e would be zero for")
-    print(f"    every η_nf — the failure recorded as Gap 4 in this scenario's gaps.md.")
+    print(f"    Emission derives ONLY from defined elements (Gap 127, 2026-09-09):")
+    print(f"    a scalar throughput is not a surface and emits nothing. This train is")
+    print(f"    declared as ONE all-absorbing mirror with R = {transmission:.2f} [-], so")
+    print(f"    Kirchhoff gives ε = 1 − R = {optics_emissivity:.2f} [-] and the net")
+    print(f"    throughput is R itself. Without a defined element nearfield_e would be")
+    print(f"    zero for every η_nf — the failure recorded as Gap 4 in this scenario's")
+    print(f"    gaps.md.")
     print(f"")
     print(f"  Reference point:")
     print(f"    At nearfield_fraction = 1.0: nearfield_e = {baseline_nearfield_e:.0f} e⁻")

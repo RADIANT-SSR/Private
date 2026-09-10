@@ -26,7 +26,7 @@ Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R). Registry mirror:
 **Severity**: High (was scenario-limiting)
 **Status**: CLOSED — registry Gap 37
 **Description**: In scalar transmission mode, RADIANT modeled the optical train as a single lumped refractive element with ε = 1 − T − R = 0 by Kirchhoff's law, so `nearfield_e = 0` regardless of leakage — the cold stop sweep was non-functional and every lab measurement matched "above model range".
-**Resolution**: `optics.scalar_emissivity` (registry Gap 37) declares the lumped-train emissivity. The refreshed script derives it Kirchhoff-consistently as ε = 1 − τ = 0.32 (reflective train: non-transmitted power absorbed). The sweep now produces nearfield_e from 0 to 812,493 e⁻ and every lab measurement inverts to an η_nf in [0.0437, 0.0686].
+**Resolution**: the warm train is declared as ONE all-absorbing mirror element with R = 0.68 [-], so Kirchhoff gives ε = 1 − R = 0.32 [-] and the net throughput is R itself. The sweep produces nearfield_e from 0 to 812,493 e⁻ and every lab measurement inverts to an η_nf in [0.0437, 0.0686]. (Originally closed via `optics.scalar_emissivity`, registry Gap 37; converted to the element form 2026-09-09 when Gap 127 removed that parameter — same numbers, exactly.)
 
 ## Issue 5: cold_stop_efficiency convention mismatch (CLOSED)
 **Severity**: Low (documentation)
@@ -46,7 +46,7 @@ Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R). Registry mirror:
 | Gap | Previous Status | Current Status |
 |-----|----------------|----------------|
 | Inverse solver | Sweep + interpolation workaround | `Sensor.solve_for` — CLOSED (Gap 10) |
-| Nearfield = 0 in scalar mode | Scenario-limiting | `optics.scalar_emissivity` — CLOSED (Gap 37) |
+| Nearfield = 0 in scalar mode | Scenario-limiting | one defined mirror element, ε = 1 − R — CLOSED (Gap 37, converted under Gap 127) |
 | Convention mismatch | Confusing name | `optics.nearfield_fraction` rename — CLOSED (Gap 12) |
 | NEDT metric | Not available | `result.metrics["nedt_K"]` — CLOSED |
 | NIIRS metric | Not available | `result.metrics["niirs"]` — CLOSED |

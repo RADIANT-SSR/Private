@@ -63,7 +63,7 @@ Vendor datasheet quantities, and the canonical value each converts to exactly on
 | Effective focal length | 200 | mm | 0.200 | m | ÷ 1000 |
 | Optical transmission | 75 | % | 0.75 | – | ÷ 100 |
 | Housing temperature | 20 | °C | 293.15 | K | + 273.15 |
-| Train emissivity | 25 | % | 0.25 | – | ÷ 100 |
+| Train emissivity (= 1 − R) | 25 | % | 0.25 | – | ÷ 100 |
 | Cold shield efficiency | 90 | % | 0.10 | – | **1 − eff/100** (inverted convention) |
 | Pixel pitch | 15 | µm | 15 | µm | none — µm *is* the canonical input unit |
 | Quantum efficiency | 75 | % | 0.75 | – | ÷ 100 |
@@ -86,6 +86,15 @@ quotes the *blocked* fraction ("90 % efficient"); `optics.nearfield_fraction` is
 plane. The scenario carries `nearfield_fraction = 0.10`, and the warm-optics nearfield
 term contributes 1.35 × 10⁴ e⁻ against a 1.508 × 10⁵ e⁻ sky background at the nominal
 point — 9 %, real but not dominant.
+
+**Where the warm-optics emissivity comes from (Gap 127, 2026-09-09).** Near-field
+emission derives *only* from defined elements, so the camera train is entered as one
+all-absorbing mirror in an `optical_elements:` list — reflectance R = 0.75 [-] (the
+datasheet's optical transmission), temperature 293.15 K, diameter 0.100 m,
+distance-to-FPA 0.200 m. Kirchhoff then gives ε = 1 − R = 0.25 [-], matching the
+datasheet's train emissivity, and the net throughput is R itself. This replaced the
+removed `optics.scalar_emissivity` / `optics.transmission_scalar` pair; the
+substitution is mathematically exact and **no metric in this walkthrough moved**.
 
 The trial is a **night** run (`geometry.solar_illumination = "night"`).
 

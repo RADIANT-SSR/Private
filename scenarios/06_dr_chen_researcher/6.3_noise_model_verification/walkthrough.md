@@ -219,7 +219,7 @@ this extrapolation warning on every run.)
 |-----|----------|------------|
 | NEDT single-λ approximation (registry Gap 43, filed this refresh) | Medium | Finite-difference dS/dT hand recipe (this scenario shows it) |
 | No noise sensitivity matrix (d(sigma_i)/d(p_j)) | Medium | Can be computed manually via parameter sweeps |
-| Scalar transmission mode defaults nearfield to 0 | Low | Set `optics.scalar_emissivity` (Gap 37) or use key_elements mode |
+| Scalar transmission mode emits no nearfield (Gap 127) | Low | Declare an `optical_elements:` list — mirrors emit ε = 1 − R |
 
 ## What Dr. Chen Would Do Next
 

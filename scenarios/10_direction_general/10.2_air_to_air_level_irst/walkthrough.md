@@ -170,17 +170,23 @@ saturates anywhere in the sweep (well margin 5.5 dB at the near end).
 **One warning other than the horizon guard is raised, at every sweep point.**
 The runner classifies it as UNEXPECTED and prints it in full:
 
-> `optics.optics_temperature_K = 250 K is set, but in scalar transmission mode
-> the optics' self-emission is ε·B(λ, T_optics) with ε = optics.scalar_emissivity,
-> which is 0 (the default 'refractive lump' assumption). The temperature
-> therefore contributes nothing: this scene evaluates identically at any optics
-> temperature.`
+> `optics.optics_temperature_K = 250 K is set, but no defined optical element can
+> emit (every element's Kirchhoff-derived emissivity is 0 in the current
+> transmission mode). Near-field emission derives only from defined elements
+> (Gap 127): supply an element list (optical_elements:) with mirrors (ε = 1 − R)
+> or absorbing refractive elements to model warm optics; the temperature
+> otherwise contributes nothing.`
+
+*(Warning text reworded by Gap 127, 2026-09-09, which removed
+`optics.scalar_emissivity`. The firing condition and every computed value in
+this walkthrough are unchanged — this scenario declares no element list.)*
 
 This is CU-261/265's inert-optics-temperature warning, and it is telling the
 truth about *this* configuration: the vendor table's −23.15 °C optics
 temperature (§2) is carried through the config but is radiometrically inert,
 because the scenario models the refractive head as a scalar transmission lump
-with `scalar_emissivity = 0` rather than as a Kirchhoff-derived element list.
+rather than as a Kirchhoff-derived element list (under Gap 127, 2026-09-09, a
+scalar lump never emits at all).
 Every number in this walkthrough is therefore independent of the optics
 temperature. The scenario config is left unmodified rather than silenced — the
 warning is the correct Rule-17 report of an over-specified input, not a defect
@@ -454,9 +460,9 @@ max |FFT(PSF) - prod(MTF)| y: 0.001025 (dimensionless)
 tolerance:                    0.020000
 consistency WARNING log records emitted: 0
 non-horizon Python warnings at the nominal point: 1
-  - optics.optics_temperature_K = 250 K is set, but in scalar transmission
-    mode the optics' self-emission is ε·B(λ, T_optics) with
-    ε = optics.scalar_emissivity, which is 0 …
+  - optics.optics_temperature_K = 250 K is set, but no defined optical element
+    can emit (every element's Kirchhoff-derived emissivity is 0 in the current
+    transmission mode) …
 ```
 
 The single non-horizon warning is the inert-optics-temperature report discussed

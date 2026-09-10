@@ -331,8 +331,9 @@ def main() -> None:
 
     # Noise terms (hand calc)
     # Notes:
-    #  - nearfield_shot is correctly zero in scalar transmission mode (eps = 0
-    #    unless optics.scalar_emissivity is set).
+    #  - nearfield_shot is correctly zero in scalar transmission mode: emission
+    #    derives only from defined elements (Gap 127), and a scalar lump is not
+    #    a surface, so eps = 0 by rule.
     #  - background_shot is ZERO BY DESIGN in the extended regime: the target
     #    fills the pixel IFOV, so there is no separate scene-background photon
     #    stream (matrix Decision #13). The background temperature/emissivity
@@ -559,10 +560,10 @@ def main() -> None:
     print(f"     stream (matrix Decision #13). The background temperature/emissivity")
     print(f"     inputs define the contrast scene only.")
     print(f"  3. Deterministic terms (dark_shot, read_noise, quantization) match exactly.")
-    print(f"  4. nearfield_shot = 0 because scalar transmission mode models the optical")
-    print(f"     train as a refractive element (eps = 0 unless optics.scalar_emissivity")
-    print(f"     is set — Gap 37). To model mirror self-emission, set scalar_emissivity")
-    print(f"     or use key_elements / full_prescription mode.")
+    print(f"  4. nearfield_shot = 0 [e- RMS] because emission derives ONLY from defined")
+    print(f"     elements (Gap 127): a scalar transmission lump is not a surface, so its")
+    print(f"     eps = 0 by rule. To model mirror self-emission, declare an")
+    print(f"     optical_elements: list — mirrors carry eps = 1 - R [-].")
     print(f"  5. NEDT differs ~13%: RADIANT uses the single-λ Planck-factor")
     print(f"     approximation (compute_nedt_from_snr); the exact band-integrated")
     print(f"     dS/dT path (compute_nedt) exists but is not wired to the stage.")

@@ -51,7 +51,7 @@ Mirrors have ε = 1 − R directly, not ε = 1 − T − R. The scalar mode cann
 - Use `optics.mode: "full_prescription"` for Zemax-exported designs
 
 ### Recommended Fix
-- Expose an `optics.scalar_emissivity` parameter for users who want a lumped ε estimate in scalar mode
+- ~~Expose an `optics.scalar_emissivity` parameter for users who want a lumped ε estimate in scalar mode~~ — superseded by Gap 127 (2026-09-09): a scalar lump is not a surface and never emits; declare an `optical_elements:` list instead
 - Document the refractive-lump assumption clearly in scalar-mode help
 
 ## Non-Gap Observations

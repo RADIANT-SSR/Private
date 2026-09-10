@@ -11,8 +11,9 @@ DN at each, an as-built sensor spec — and a calibration report to write.
   °C, ms — conversions delegated to `Sensor.set(..., unit=)`, Gap 6)
 - "Lab bench / flat-field source" preset sets exo atmosphere + the
   `geometry.sensor_altitude_m` placeholder (registry Gap 42) behind one checkbox
-- **Self-emission panel**: shows the Kirchhoff derivation ε = 1 − τ = 0.28
-  feeding `optics.scalar_emissivity` (Gap 37) and the cold-stop leakage
+- **Self-emission panel**: shows the Kirchhoff derivation ε = 1 − R = 0.28 [-]
+  for the train's one defined mirror element (R = 0.72 [-]; Gap 127,
+  2026-09-09 — near-field emission derives only from defined elements) and the cold-stop leakage
   (`nearfield_fraction = 0.05` from the 7.4 campaign) with the resulting
   modeled offset in DN (24.0 DN) — visible BEFORE the calibration run so
   the user knows what part of the offset is physics

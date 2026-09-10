@@ -142,7 +142,9 @@ def to_canonical(vendor: dict[str, Any]) -> dict[str, float | str]:
         "focal_length_m": float(cam["Effective focal length"]) / 1000.0,  # mm -> m
         "transmission": float(cam["Optical transmission"]) / 100.0,  # % -> fraction
         "optics_temperature_K": float(cam["Housing temperature"]) + 273.15,  # degC -> K
-        "scalar_emissivity": float(cam["Train emissivity"]) / 100.0,  # % -> fraction
+        # Gap 127 (2026-09-09): emission derives only from defined elements, so this
+        # is the Kirchhoff eps = 1 - R of the ONE declared mirror below, not an input.
+        "train_emissivity": float(cam["Train emissivity"]) / 100.0,  # % -> fraction
         # Vendor "cold shield efficiency" is the BLOCKED fraction; RADIANT's
         # nearfield_fraction is the PASSED fraction (inverted convention).
         "nearfield_fraction": 1.0 - float(cam["Cold shield efficiency"]) / 100.0,  # % -> frac
@@ -224,11 +226,23 @@ def make_config(
         "optics": {
             "aperture_diameter_m": canon["aperture_diameter_m"],
             "focal_length_m": canon["focal_length_m"],
-            "transmission_scalar": canon["transmission"],
             "optics_temperature_K": canon["optics_temperature_K"],
-            "scalar_emissivity": canon["scalar_emissivity"],
             "nearfield_fraction": canon["nearfield_fraction"],
         },
+        # Gap 127 (2026-09-09): warm-optics emission derives ONLY from defined
+        # elements. The datasheet's tau = 0.75 [-] / train eps = 0.25 [-] pair is
+        # exactly ONE all-absorbing mirror: net throughput R = tau, eps = 1 - R.
+        "optical_elements": [
+            {
+                "name": "camera_train",
+                "transfer_mode": "REFLECTIVE",
+                "kind": "MIRROR",
+                "reflectance": canon["transmission"],  # [-] mirror R = optical transmission
+                "temperature_K": canon["optics_temperature_K"],  # K
+                "diameter_m": canon["aperture_diameter_m"],  # m
+                "distance_to_fpa_m": canon["focal_length_m"],  # m
+            }
+        ],
         "detector": {
             "pixel_pitch_x_um": canon["pixel_pitch_um"],
             "pixel_pitch_y_um": canon["pixel_pitch_um"],
@@ -348,7 +362,7 @@ def section_inputs(vendor: dict[str, Any], canon: dict[str, float | str]) -> Non
         ("Effective focal length", cam, "Effective focal length", "mm", "focal_length_m", "m"),
         ("Optical transmission", cam, "Optical transmission", "%", "transmission", "-"),
         ("Housing temperature", cam, "Housing temperature", "degC", "optics_temperature_K", "K"),
-        ("Train emissivity", cam, "Train emissivity", "%", "scalar_emissivity", "-"),
+        ("Train emissivity (= 1 - R)", cam, "Train emissivity", "%", "train_emissivity", "-"),
         ("Cold shield efficiency", cam, "Cold shield efficiency", "%", "nearfield_fraction", "-"),
         ("Pixel pitch", cam, "Pixel pitch", "um", "pixel_pitch_um", "um"),
         ("Quantum efficiency", cam, "Quantum efficiency", "%", "qe", "-"),

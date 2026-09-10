@@ -79,10 +79,25 @@ def build_sensor(det_T: float, dark_e_per_s: float, qe: float) -> Sensor:
     s.set("geometry.sensor_altitude_m", 1.0)
     s.set("optics.aperture_diameter_m", float(spec["Aperture diameter"]), unit="cm")
     s.set("optics.focal_length_m", float(spec["Focal length"]), unit="cm")
-    s.set("optics.transmission_scalar", float(spec["Optical transmission"]), unit="%")
-    s.set("optics.scalar_emissivity", float(spec["Optics emissivity"]) / 100.0)
     s.set("optics.nearfield_fraction", float(spec["Nearfield fraction"]))
     s.set("optics.optics_temperature_K", float(spec["Optics temperature"]) + 273.15)
+    # Gap 127 (2026-09-09): warm-optics emission derives ONLY from defined
+    # elements. The workbook's τ = 0.74 [-] / ε = 0.26 [-] pair is exactly one
+    # all-absorbing mirror: net throughput R = τ, emissivity 1 − R = ε.
+    s.set_optical_elements(
+        [
+            {
+                "name": "warm_train",
+                "transfer_mode": "REFLECTIVE",
+                "kind": "MIRROR",
+                # [-] — mirror R = the workbook's optical transmission (% → fraction)
+                "reflectance": float(spec["Optical transmission"]) / 100.0,
+                "temperature_K": float(spec["Optics temperature"]) + 273.15,  # K
+                "diameter_m": float(spec["Aperture diameter"]) / 100.0,  # cm → m
+                "distance_to_fpa_m": float(spec["Focal length"]) / 100.0,  # cm → m
+            }
+        ]
+    )
     s.set("detector.pixel_pitch_x_um", float(spec["Pixel pitch"]))
     s.set("detector.pixel_pitch_y_um", float(spec["Pixel pitch"]))
     s.set("detector.qe_value", qe)

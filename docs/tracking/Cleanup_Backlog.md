@@ -90,6 +90,15 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: VIS/NIR reflective scenarios that route through the MODTRAN **binary** flavor (or a single-file import) still lose the solar-zenith dependence that Stage 6's E_sky decomposition exposes. The analytic backend is fine; the file-import flavor is fine when both files are supplied.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
+### CU-350 — The well-fill/saturation check omits near-field and stray electrons: the noise budget and the well check disagree about what is in the pixel
+
+**Discovered**: owner Windows-deployment review, 2026-09-09.
+**Status**: Open
+**File**: `src/radiant/readout/stage.py:467-470` (digital-counting well) and `:1055-1064` (analog full well); `_finish_updown` inherits both via its `non_signal_e` argument.
+**Symptom**: `non_signal_e = (dark_e + glow_e) * n_tdi * m_onchip` (+ the point-source background pedestal). `stage_outputs["detector"]["nearfield_e"]` and `["stray_e"]` — the warm-optics self-emission and stray-light electrons published by `SpectralIntegrationStage` — never enter `total_well_e`. Reproduced: a scenario with 6.0e7 e- of near-field flux against a 1e5 e- full well reported `well_status = ok` at `well_fill_fraction = 0.27`, when the pixel would rail ~600× over.
+**Why it still matters**: results-affecting (intake test 1) and workflow-visible (test 4). Those electrons physically accumulate in the same well, and their **shot noise is already counted** in the noise budget — so the reported SNR is unrealizable while the well check says the design is fine. The saturation warning text ("signal + dark + glow") enumerates the wrong term set. Gap 127 removed scalar-mode near-field, but element-mode near-field (warm mirror via `optics_config["element_list"]`) and stray light both remain.
+**Suggested fix**: (a) inline-fix-now — add `nearfield_e` and `stray_e` to `non_signal_e` with the same `n_tdi * m_onchip` scaling as dark/glow in every path that assembles `total_well_e` (they accumulate in all regimes; the point-source gate stays on `background_e` only), and name the included terms in the saturation warnings. Effort S; category C.
+
 ## Resolved
 
 ### CU-349 — Nothing gets a new user started on a wheel install: the mission templates don't ship, and the welcome screen's repo-walking discovery finds nothing — RESOLVED 2026-09-08 (commit trailer)

@@ -373,46 +373,33 @@ class TestCrossMode:
         assert len(r5.elements) >= 1
 
 
-class TestScalarModeEmissivity:
-    """Gap 37: scalar mode with a declared train emissivity (warm optics)."""
+class TestScalarModeNeverEmits:
+    """Gap 127: the scalar lump never emits — no declared emissivity exists."""
 
     @pytest.mark.level0
-    def test_scalar_emissivity_reaches_lump(self) -> None:
+    def test_scalar_lump_emissivity_zero(self) -> None:
         result = resolve_transmission(
             TransmissionInputMode.SCALAR,
             WL,
             transmission_scalar=0.7,
-            scalar_emissivity=0.2,
         )
         assert len(result.elements) == 1
-        np.testing.assert_allclose(result.elements[0].emissivity.values, 0.2, rtol=1e-12)
-
-    def test_default_zero_emissivity_preserved(self) -> None:
-        """Backward compatibility: no scalar_emissivity means eps = 0."""
-        result = resolve_transmission(
-            TransmissionInputMode.SCALAR,
-            WL,
-            transmission_scalar=0.7,
-        )
         np.testing.assert_array_equal(result.elements[0].emissivity.values, 0.0)
 
-    def test_transmission_unaffected(self) -> None:
-        """Declared emissivity changes nearfield only, never signal throughput."""
+    def test_scalar_emissivity_kwarg_removed(self) -> None:
+        """The Gap 37 knob is gone: the old kwarg is rejected."""
+        with pytest.raises(TypeError, match="scalar_emissivity"):
+            resolve_transmission(  # type: ignore[call-arg]
+                TransmissionInputMode.SCALAR,
+                WL,
+                transmission_scalar=0.7,
+                scalar_emissivity=0.2,
+            )
+
+    def test_transmission_preserved(self) -> None:
         result = resolve_transmission(
             TransmissionInputMode.SCALAR,
             WL,
             transmission_scalar=0.7,
-            scalar_emissivity=0.2,
         )
         np.testing.assert_allclose(result.transmission.values, 0.7, rtol=1e-12)
-
-    def test_kirchhoff_violation_raises(self) -> None:
-        from radiant.optics.element import KirchhoffViolationError
-
-        with pytest.raises(KirchhoffViolationError, match="energy"):
-            resolve_transmission(
-                TransmissionInputMode.SCALAR,
-                WL,
-                transmission_scalar=0.9,
-                scalar_emissivity=0.2,
-            )

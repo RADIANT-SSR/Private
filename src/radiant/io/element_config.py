@@ -203,28 +203,19 @@ def _parse_element(
 
     if transfer_mode == "REFRACTIVE":
         # Check whether this is a simple or cavity element.
-        if "R1" in entry:
-            # Cavity element — all per-surface fields required.
-            r1 = _resolve_spectral_or_scalar(
-                _require(entry, "R1", name),
-                f"{name}.R1",
-                config_dir,
-            )
-            t1 = _resolve_spectral_or_scalar(
-                _require(entry, "T1", name),
-                f"{name}.T1",
-                config_dir,
-            )
-            r2 = _resolve_spectral_or_scalar(
-                _require(entry, "R2", name),
-                f"{name}.R2",
-                config_dir,
-            )
-            t2 = _resolve_spectral_or_scalar(
-                _require(entry, "T2", name),
-                f"{name}.T2",
-                config_dir,
-            )
+        if any(key in entry for key in ("R1", "T1", "R2", "T2")):
+            # Cavity element. Surfaces are lossless (Gap 127 Rule 4): per
+            # surface, give R or T and the factory derives the complement;
+            # giving both requires R + T = 1 (validated by CavityModel).
+            def _surface_value(key: str) -> float | SpectralData | None:
+                if key not in entry:
+                    return None
+                return _resolve_spectral_or_scalar(entry[key], f"{name}.{key}", config_dir)
+
+            r1 = _surface_value("R1")
+            t1 = _surface_value("T1")
+            r2 = _surface_value("R2")
+            t2 = _surface_value("T2")
             alpha = _resolve_spectral_or_scalar(
                 _require(entry, "alpha", name),
                 f"{name}.alpha",

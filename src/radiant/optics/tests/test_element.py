@@ -811,16 +811,17 @@ class TestMakeRefractiveCavityElement:
 
 
 # ---------------------------------------------------------------------------
-# Declared emissivity for LUMPED pseudo-elements (Gap 37)
+# Lumped pseudo-elements never emit (Gap 127 — declared emissivity removed)
 # ---------------------------------------------------------------------------
 
 
-class TestDeclaredEmissivity:
-    """LUMPED pseudo-elements may carry a user-declared train emissivity.
+class TestLumpNeverEmits:
+    """A lump is bookkeeping, not a surface: ε = 0 always (Gap 127).
 
-    Rule 5 still holds for physical surfaces: only kind=LUMPED (a virtual
-    element standing in for an entire optical train) may declare emissivity,
-    because net transmission alone cannot resolve the train's energy balance.
+    Rule 5 holds without exception — the former LUMPED declared-emissivity
+    carve-out (Gap 37) equated 1 − τ with absorptance, which Kirchhoff does
+    not license. Emission derives only from elements whose absorption is
+    modelled (mirrors ε = 1 − R, cavity refractives from bulk α).
     """
 
     def _spectral(self, value: float, name: str) -> SpectralData:
@@ -832,32 +833,9 @@ class TestDeclaredEmissivity:
             source="test",
         )
 
-    def _lump(
-        self,
-        eps_val: float,
-        tau_val: float = 0.7,
-        kind: ElementKind = ElementKind.LUMPED,
-    ) -> OpticalElement:
-        return OpticalElement(
-            name="lump",
-            kind=kind,
-            temperature_K=293.0,
-            transmittance=self._spectral(tau_val, "t"),
-            reflectance=self._spectral(0.0, "r"),
-            diameter_m=0.1,
-            distance_to_fpa_m=0.5,
-            declared_emissivity=self._spectral(eps_val, "e"),
-        )
-
     @pytest.mark.level0
-    def test_emissivity_property_returns_declared(self) -> None:
-        """eps property returns the declared value, not the eps=0 lump default."""
-        elem = self._lump(0.05)
-        np.testing.assert_allclose(elem.emissivity.values, 0.05, rtol=1e-12)
-
-    @pytest.mark.level0
-    def test_no_declaration_preserves_zero(self) -> None:
-        """Without a declaration the simple-refractive eps=0 rule is unchanged."""
+    def test_lump_emissivity_is_zero(self) -> None:
+        """The simple-refractive eps=0 rule applies to lumps unconditionally."""
         elem = OpticalElement(
             name="lump",
             kind=ElementKind.LUMPED,
@@ -869,31 +847,10 @@ class TestDeclaredEmissivity:
         )
         np.testing.assert_array_equal(elem.emissivity.values, 0.0)
 
-    def test_non_lumped_kind_rejected(self) -> None:
-        """Rule 5: a physical surface may never declare emissivity."""
-        with pytest.raises(KirchhoffViolationError, match="LUMPED"):
-            self._lump(0.05, kind=ElementKind.WINDOW)
-
-    def test_energy_conservation_enforced(self) -> None:
-        """eps + T + R <= 1 for the lumped train."""
-        with pytest.raises(KirchhoffViolationError, match="energy"):
-            self._lump(0.4, tau_val=0.7)
-
-    def test_out_of_range_emissivity_rejected(self) -> None:
-        with pytest.raises(ValueError, match="\\[0, 1\\]"):
-            self._lump(1.2, tau_val=0.0)
-
-    def test_grid_mismatch_rejected(self) -> None:
-        other_wl = np.linspace(8.0, 12.0, 50)
-        eps = SpectralData(
-            name="e",
-            wavelength_um=other_wl,
-            values=np.full_like(other_wl, 0.05),
-            unit="",
-            source="test",
-        )
-        with pytest.raises(ValueError, match="wavelength grid"):
-            OpticalElement(
+    def test_element_has_no_declared_emissivity_field(self) -> None:
+        """The Gap 37 carve-out is gone: OpticalElement rejects the old kwarg."""
+        with pytest.raises(TypeError, match="declared_emissivity"):
+            OpticalElement(  # type: ignore[call-arg]
                 name="lump",
                 kind=ElementKind.LUMPED,
                 temperature_K=293.0,
@@ -901,16 +858,102 @@ class TestDeclaredEmissivity:
                 reflectance=self._spectral(0.0, "r"),
                 diameter_m=0.1,
                 distance_to_fpa_m=0.5,
-                declared_emissivity=eps,
+                declared_emissivity=self._spectral(0.05, "e"),
             )
 
-    def test_factory_scalar_emissivity(self) -> None:
-        """make_lumped_element broadcasts a scalar emissivity."""
-        tau = self._spectral(0.7, "t")
-        elem = make_lumped_element(tau, 293.0, 0.1, 0.5, emissivity=0.2)
-        np.testing.assert_allclose(elem.emissivity.values, 0.2, rtol=1e-12)
-
-    def test_factory_default_unchanged(self) -> None:
+    def test_factory_lump_emissivity_zero(self) -> None:
         tau = self._spectral(0.7, "t")
         elem = make_lumped_element(tau, 293.0, 0.1, 0.5)
         np.testing.assert_array_equal(elem.emissivity.values, 0.0)
+
+
+# ---------------------------------------------------------------------------
+# Lossless surfaces (Gap 127 Rule 4): per-surface R + T = 1
+# ---------------------------------------------------------------------------
+
+
+class TestLosslessSurfaces:
+    """Cavity surfaces hold Kirchhoff with no coating absorption (Gap 127).
+
+    Per surface R + T = 1: a deficit would be coating absorption the
+    emissivity expression does not model (silently non-emitting), so it is
+    rejected. The factory derives the complement when only one of R/T is
+    given; all absorption — and hence all emission — is bulk alpha*thickness.
+    """
+
+    @pytest.mark.level1
+    def test_surface_deficit_rejected(self) -> None:
+        """R + T < 1 (implied coating absorption) is a KirchhoffViolationError."""
+        with pytest.raises(KirchhoffViolationError, match="surface 1"):
+            CavityModel(
+                R1=_flat_spectral(0.04, "R1"),
+                T1=_flat_spectral(0.90, "T1"),  # 0.94 < 1: 6% coating loss
+                R2=_flat_spectral(0.04, "R2"),
+                T2=_flat_spectral(0.96, "T2"),
+                alpha=_flat_spectral(0.0, "alpha"),
+                n_refr=_flat_spectral(1.5, "n"),
+                thickness_m=0.003,
+            )
+
+    @pytest.mark.level1
+    def test_factory_derives_T_from_R(self) -> None:
+        """Give R only: T = 1 - R per surface; matches the fully specified element."""
+        derived = make_refractive_cavity_element(
+            "window",
+            R1=0.04,
+            R2=0.04,
+            alpha=0.0,
+            n_refr=1.5,
+            thickness_m=0.003,
+            wavelength_um=WL,
+        )
+        np.testing.assert_allclose(derived.transmittance.values, 0.9216 / 0.9984, rtol=1e-10)
+
+    @pytest.mark.level1
+    def test_factory_derives_R_from_T(self) -> None:
+        """Give T only: R = 1 - T per surface."""
+        derived = make_refractive_cavity_element(
+            "window",
+            T1=0.96,
+            T2=0.96,
+            alpha=0.0,
+            n_refr=1.5,
+            thickness_m=0.003,
+            wavelength_um=WL,
+        )
+        np.testing.assert_allclose(derived.transmittance.values, 0.9216 / 0.9984, rtol=1e-10)
+
+    @pytest.mark.level1
+    def test_factory_surface_unspecified_actionable(self) -> None:
+        """Neither R nor T for a surface is an actionable error naming the surface."""
+        with pytest.raises(ValueError, match="surface1"):
+            make_refractive_cavity_element(
+                "window",
+                R2=0.04,
+                alpha=0.0,
+                n_refr=1.5,
+                thickness_m=0.003,
+                wavelength_um=WL,
+            )
+
+    @pytest.mark.level0
+    def test_weak_absorption_limit_eps_approx_alpha_t(self) -> None:
+        """Level 0 anchor: for alpha*t << 1 and open surfaces, eps_eff -> alpha*t.
+
+        Hand calculation with lossless surfaces R = 0 (T = 1), n = 1 (the
+        n^2 density-of-states factor drops out), alpha*t = 1e-4:
+        eps_eff = T2 * n^2 * (1 - exp(-alpha t)) / (1 - R1 R2 beer^2)
+                = 1 * 1 * (1 - exp(-1e-4)) / 1 ≈ alpha*t to first order.
+        """
+        alpha = 0.1  # 1/m
+        t_m = 0.001  # 1 mm -> alpha*t = 1e-4
+        elem = make_refractive_cavity_element(
+            "slab",
+            R1=0.0,
+            R2=0.0,
+            alpha=alpha,
+            n_refr=1.0,
+            thickness_m=t_m,
+            wavelength_um=WL,
+        )
+        np.testing.assert_allclose(elem.emissivity.values, alpha * t_m, rtol=1e-4)

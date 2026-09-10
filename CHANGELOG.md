@@ -20,6 +20,24 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Removed
+- **Results-affecting: `optics.scalar_emissivity` removed — scalar and
+  spectral-file transmission modes no longer emit near-field (Gap 127,
+  owner-ratified 2026-09-09).** Kirchhoff equates emissivity to absorptance,
+  not to 1 − τ; a lumped throughput has no absorbing surface behind it, so
+  the declared-train-emissivity carve-out (Gap 37, including the LUMPED
+  `declared_emissivity` field) is gone and near-field emission now derives
+  only from defined elements (mirrors ε = 1 − R; cavity refractives from bulk
+  absorption). Direction/magnitude: near-field electrons drop to exactly 0 in
+  scalar/spectral modes — the shipped SDA template retuned to 6–11 µm loses a
+  6.0×10⁷ e⁻ near-field term (7,700 e⁻ RMS shot) that the removed knob
+  fabricated; both shipped templates that set the parameter are corrected.
+  Configs setting `optics.scalar_emissivity` now fail with
+  `UnknownParameterError`. Cavity refractive surfaces are now lossless by
+  model rule: per surface R + T = 1 (specify one, the other derives;
+  `KirchhoffViolationError` otherwise) — coating absorption, previously
+  accepted silently and never emitted, is rejected.
+
 ### Added
 - **Six worked examples ship in the wheel (Gap 126)** — the welcome screen
   gains a "Worked examples" group: five scenario-derived studies (MWIR

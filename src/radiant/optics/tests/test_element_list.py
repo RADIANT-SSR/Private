@@ -492,19 +492,28 @@ class TestNearfieldPerElement:
         )
 
 
-class TestNearfieldDeclaredEmissivity:
-    """Gap 37 Level 0: warm lumped train with declared emissivity emits."""
+class TestNearfieldMirrorEmission:
+    """Gap 127 Level 0: emission derives only from defined elements.
+
+    A lump never emits; a warm mirror emits ε·B(λ,T)·Ω with ε = 1 − R.
+    """
 
     @pytest.mark.level0
-    def test_hand_computed_irradiance(self) -> None:
-        """E_nf = eps * B(lam, T) * Omega for a single warm lump, eta_cold = 1.
+    def test_hand_computed_mirror_irradiance(self) -> None:
+        """E_nf = (1 - R) * B(lam, T) * Omega for a single warm mirror, eta_cold = 1.
 
-        Hand anchor: eps = 0.05, T = 295 K, D = 0.1 m, d = 0.5 m
+        Hand anchor: R = 0.95 -> eps = 0.05, T = 295 K, D = 0.1 m, d = 0.5 m
         -> Omega = pi * 0.05^2 / 0.5^2 = 0.0314159 sr.
         """
-        tau = _flat_spectral(0.7, "tau")
-        lump = make_lumped_element(tau, 295.0, 0.1, 0.5, emissivity=0.05)
-        result = compute_nearfield_irradiance((lump,), WL)
+        mirror = make_reflective_element(
+            "m1",
+            0.95,
+            wavelength_um=WL,
+            temperature_K=295.0,
+            diameter_m=0.1,
+            distance_to_fpa_m=0.5,
+        )
+        result = compute_nearfield_irradiance((mirror,), WL)
 
         omega = math.pi * 0.05**2 / 0.5**2
         expected = 0.05 * planck_spectral_radiance(WL, 295.0) * omega
@@ -512,8 +521,8 @@ class TestNearfieldDeclaredEmissivity:
         assert float(result.total.values.max()) > 0.0
 
     @pytest.mark.level0
-    def test_zero_emissivity_lump_stays_dark(self) -> None:
-        """Regression: default lump (eps = 0) contributes no nearfield."""
+    def test_lump_stays_dark(self) -> None:
+        """Gap 127: a lump is bookkeeping, not a surface — it never emits."""
         tau = _flat_spectral(0.7, "tau")
         lump = make_lumped_element(tau, 295.0, 0.1, 0.5)
         result = compute_nearfield_irradiance((lump,), WL)

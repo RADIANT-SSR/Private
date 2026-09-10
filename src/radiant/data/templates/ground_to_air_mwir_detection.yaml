@@ -37,9 +37,8 @@ geometry:
 optics:
   aperture_diameter_m: 0.1
   focal_length_m: 0.2
-  nearfield_fraction: 0.1
-  optics_temperature_K: 293.15
-  scalar_emissivity: 0.25
+  # Scalar-τ optics carry no near-field emission (Gap 127): warm-optics
+  # self-emission requires a defined element list (optical_elements:).
   transmission_scalar: 0.75
 performance:
   detection_snr_threshold: 5.0

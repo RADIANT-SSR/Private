@@ -11,7 +11,7 @@
 The optics module has one job: **deliver an `OpticsState` to the chain**. Five guiding rules:
 
 1. **One contract, many input depths.** A user may specify the optics by a scalar transmission and a Strehl ratio, or by a full element-by-element prescription with measured OPD maps and per-element temperatures. All inputs flow into the same `OpticsState`. The downstream chain is identical.
-2. **Kirchhoff is enforced for elements.** A user supplies reflectance and (for transmissive elements) transmittance. Emissivity is **derived**: ε = 1 − R for mirrors, ε = 1 − T − R for transmissive elements (with R defaulting to a small number when unspecified). Emissivity is never specified independently for a physical surface. The one sanctioned exception is the LUMPED pseudo-element (`optics.scalar_emissivity`, §5.1): a lump stands in for an entire train whose energy balance is not derivable from net transmission, so the user may declare it there — still bounded by ε + τ ≤ 1.
+2. **Kirchhoff is enforced for elements — without exception (Gap 127).** A user supplies reflectance and (for transmissive elements) transmittance. Emissivity is **derived**: ε = 1 − R for mirrors, ε from bulk absorption for cavity refractives, ε = 0 for simple refractives and lumps (unattributed 1 − τ is predominantly reflection, not absorption). Emissivity is never specified independently, anywhere: near-field emission derives only from defined elements whose absorption is actually modelled. The former LUMPED declared-emissivity carve-out (`optics.scalar_emissivity`, Gap 37) was removed 2026-09-09 — it equated 1 − τ with absorptance, which Kirchhoff does not license.
 3. **Signal etendue and nearfield solid angle are different things.** The signal path uses the single invariant AΩ. Nearfield emission uses a *per-element* Ω that depends on each element's size and distance from the FPA. They are computed separately, named separately, and never conflated.
 4. **Stray light adds noise, not signal.** Stray light contributes electrons (and therefore shot noise) to every pixel uniformly, but is not part of the signal that NIIRS or detection metrics measure. It is reported in the noise budget.
 5. **Pupil → PSF lives elsewhere.** The optics module produces the pupil function (or hands the diffraction module enough to build one). The PSF, MTF, and EE all live in `RADIANT_Spatial_Complete.md`. Optics owns the pupil; spatial owns the focal plane.
@@ -237,21 +237,18 @@ OpticalElement(
     temperature_K=optics.optics_temperature_K,
     transmittance=flat_at(transmission_scalar),
     reflectance=flat_at(0.0),                     # not used
-    declared_emissivity=flat_at(optics.scalar_emissivity),  # default 0.0 — see below
     distance_to_fpa_m=optics.optics_distance_to_fpa_m,
     diameter_m=aperture_diameter_m,
 )
 ```
 
-**Lumped-train emissivity (Gap 37).** By default the lump follows the simple-refractive rule `ε = 0` — the remaining `1 − τ` cannot be attributed to absorption vs. reflection from net transmission alone, so scalar mode produces **no nearfield emission** unless told otherwise. For warm reflective trains (where mirrors follow `ε = 1 − R` and do emit), set `optics.scalar_emissivity` to the train's effective emissivity — `ε ≈ 1 − τ` is the appropriate declaration for an all-mirror train. Construction enforces `ε + τ ≤ 1` (energy conservation) and raises `KirchhoffViolationError` otherwise.
-
-This is the **one sanctioned exception** to the never-independent-emissivity rule (Rule 5): a LUMPED pseudo-element is not a physical surface — it stands in for an entire train whose energy balance the user, not Kirchhoff's law, must supply. `declared_emissivity` on any non-LUMPED element raises `KirchhoffViolationError`.
+**No near-field emission in scalar mode (Gap 127, owner-ratified 2026-09-09).** The lump is bookkeeping, not a surface: ε = 0 always, so Modes 1–2 produce **no near-field emission**. The remaining `1 − τ` cannot be attributed to absorption vs. reflection/scatter/geometric loss from net transmission alone, and Kirchhoff equates emissivity to *absorptance* — so no emissivity may be declared here (the former `optics.scalar_emissivity` knob invited the ε = 1 − τ fallacy and was removed). To model warm optics, define elements: mirrors emit ε = 1 − R, cavity refractives emit from bulk absorption. Warm-*enclosure* emission (the uncooled uniform-temperature cavity, where ε_eff = 1 − τ genuinely holds) is not an optical-train property; its home is the stray/thermal path (`optics.stray_includes_thermal`). If `optics.optics_temperature_K` is explicitly set while no defined element can emit, the stage warns that the temperature contributes nothing.
 
 ### 5.2 Mode 2: spectral transmission file
 
 Inputs: a pre-loaded `SpectralData` curve injected as `optics_config["transmission_spectral"]` (there is no `optics.transmission_file` path parameter — the caller loads the CSV/.npz and injects the curve).
 
-The curve is validated, interpolated onto the global grid, and stored as `transmission`. The elements list is again a single lumped element, with the same `ε = 0` default as Mode 1. `optics.scalar_emissivity` applies to Mode 1 only; for spectral emissivity control use `key_elements` (Mode 4) or `full_prescription` (Mode 5).
+The curve is validated, interpolated onto the global grid, and stored as `transmission`. The elements list is again a single lumped element with `ε = 0` — like Mode 1, a transmission curve is not a surface and produces no near-field emission (Gap 127). For emitting optics use `key_elements` (Mode 4) or `full_prescription` (Mode 5).
 
 ### 5.3 Mode 3: telescope transmission + filter stack
 
@@ -326,10 +323,11 @@ class OpticalElement:
         return 1 - self.transmittance - self.reflectance
 ```
 
-**Kirchhoff enforcement** at construction:
+**Kirchhoff enforcement** at construction (Gap 127 model rules, owner-ratified 2026-09-09):
 - For mirrors: `emissivity = 1 − reflectance`. If the user accidentally sets `transmittance` on a mirror, raise `KirchhoffViolationError`.
-- For transmissive elements: `emissivity = 1 − transmittance − reflectance`. The default `reflectance` is the per-surface Fresnel scalar (default 0.005 per coated surface) times `n_surfaces`. If the user sets all three independently, the total must satisfy ε + T + R = 1 within tolerance.
-- Emissivity is never a user-facing parameter on `OpticalElement` for physical surfaces. The schema rejects any `emissivity` field. Exception: `declared_emissivity` is accepted on `kind=LUMPED` pseudo-elements only (§5.1, Gap 37) and raises `KirchhoffViolationError` on any other kind.
+- For simple refractive elements (%T only): `emissivity = 0` — the unattributed `1 − T` is predominantly reflection, not absorption; no near-field emission.
+- For cavity refractive elements: surfaces are lossless — per surface `R + T = 1` (specify one, the other is derived; specifying both requires their sum to be 1 within tolerance, else `KirchhoffViolationError`). All absorption is bulk (`alpha`, `thickness_m`), and the emissivity follows from the cavity expression (`ε ≈ α·t` in the weak-absorption limit).
+- Emissivity is never a user-facing parameter on any `OpticalElement` — no exceptions. The former LUMPED `declared_emissivity` carve-out (Gap 37) was removed by Gap 127.
 
 ### 6.2 Filter specifications
 
@@ -514,7 +512,6 @@ Parameter types, defaults, units, and bounds are the canonical [Parameter Refere
 
 - `optics.transmission_input_mode` — enum; inferred when unset.
 - `optics.transmission_scalar` — mode 1. **Silent default 0.7** (typical broadband end-to-end throughput): a config that omits it gets τ_opt = 0.7, not a required-parameter error, and a default-provenance audit shows the value as a schema default. (Owner decision R4.2, 2026-07-23: keep the 0.7 default and document it; results unchanged. The generated Parameter Reference is authoritative for the value.)
-- `optics.scalar_emissivity` — mode 1; declared lumped-train emissivity (Gap 37); requires ε + τ ≤ 1.
 - `optics_config["transmission_spectral"]` (injection, `SpectralData`) — mode 2 (Gap 68 — no path parameter; caller loads and injects).
 - `optics_config["telescope_transmission"]` (injection, float or `SpectralData`) — mode 3.
 - `optics_config["filter_specs"]` (injection, `tuple[FilterSpec, ...]`, default `()`) — mode 3.

@@ -246,6 +246,11 @@ sourced from `stage_outputs["optics"]["nearfield_irradiance_at_fpa"]` and
 `["stray_light_irradiance_at_fpa"]` (both `SpectralData`); each defaults to `0.0`
 when the optics stage did not produce it.
 
+Both are real photo-charge: `DetectorStage` counts their **shot noise** in the
+raw budget, and `ReadoutStage` counts the electrons themselves in `total_well_e`
+(CU-350; see `RADIANT_Detector_Complete.md` §"What fills the well"). They are
+never folded into `signal_e`, so they fill the well in every regime.
+
 ---
 
 ## 9. What this stage registers and writes

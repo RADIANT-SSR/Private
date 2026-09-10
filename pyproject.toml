@@ -246,6 +246,9 @@ ignore_imports = [
     "radiant.*.tests.* -> radiant.detector.stage",
     "radiant.*.tests.* -> radiant.atmosphere.exo",
     "radiant.*.tests.* -> radiant.atmosphere.assembly",
+    # (The same two seams were found independently on the cu/well-fill-nearfield
+    # gate run, 2026-09-09; the ignores above cover both findings — the sibling
+    # "physics stages import only core" contract already blessed io.config.)
 ]
 
 [[tool.importlinter.contracts]]

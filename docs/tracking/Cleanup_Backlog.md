@@ -99,6 +99,15 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: results-affecting (intake test 1) and workflow-visible (test 4). Those electrons physically accumulate in the same well, and their **shot noise is already counted** in the noise budget — so the reported SNR is unrealizable while the well check says the design is fine. The saturation warning text ("signal + dark + glow") enumerates the wrong term set. Gap 127 removed scalar-mode near-field, but element-mode near-field (warm mirror via `optics_config["element_list"]`) and stray light both remain.
 **Suggested fix**: (a) inline-fix-now — add `nearfield_e` and `stray_e` to `non_signal_e` with the same `n_tdi * m_onchip` scaling as dark/glow in every path that assembles `total_well_e` (they accumulate in all regimes; the point-source gate stays on `background_e` only), and name the included terms in the saturation warnings. Effort S; category C.
 
+### CU-351 — Up/down counting: the down-phase reference charge omits near-field and stray, so the differential no longer cancels the warm-optics pedestal
+
+**Discovered**: CU-350 fix (branch `cu/well-fill-nearfield`), 2026-09-09 — the same omission, one code path over.
+**Status**: Open — owner-gated (it turns on what ruling D6's `reference_source` is meant to represent).
+**File**: `src/radiant/readout/stage.py::ReadoutStage._finish_updown` — `q_down_per_pixel = (background_e + dark_e + glow_e) * ratio` (`reference_source = "background_term"`) and `rate * t_down + (dark_e + glow_e) * ratio` (`user_level`).
+**Symptom**: with a warm-optics or stray-light pedestal, the up phase accumulates `nearfield_e + stray_e` (CU-350 now counts them there) but the down phase does not, so the signed differential `Q_up − Q_down` retains the full near-field/stray charge instead of cancelling it. The reference-phase shot noise (`reference_shot = √Q_down`) is understated by the same terms.
+**Why it still matters**: results-affecting (intake test 1) for any up/down DROIC configuration with defined warm optical elements; the whole point of the reference phase is to subtract the standing pedestal, and near-field emission is exactly a standing pedestal.
+**Suggested fix**: (b) stand-alone task once the owner rules on D6's scope — if the reference phase is a real second integration of the same pixel, both terms belong in `q_down_per_pixel` under both reference sources (near-field and stray are incident in both phases). Effort S; category C. Related: [[CU-350]], Gap 117 Phase 4.
+
 ## Resolved
 
 ### CU-349 — Nothing gets a new user started on a wheel install: the mission templates don't ship, and the welcome screen's repo-walking discovery finds nothing — RESOLVED 2026-09-08 (commit trailer)

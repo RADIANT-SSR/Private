@@ -615,10 +615,10 @@ class TestNonScalarModeInjection:
 
 
 class TestWarmOpticsSilentNoOp:
-    """CU-265 — a set optics temperature that contributes nothing must say so."""
+    """CU-265 reworked by Gap 127 — a set optics temperature that cannot emit must say so."""
 
     @staticmethod
-    def _params(*, set_temp: bool, emissivity: float) -> ParameterSet:
+    def _params(*, set_temp: bool) -> ParameterSet:
         from radiant.api._param_registry import _FNUMBER_GROUP
 
         ps = ParameterSet(list(OPT_PARAMS) + list(DET_PARAMS), [_FNUMBER_GROUP])
@@ -628,26 +628,37 @@ class TestWarmOpticsSilentNoOp:
         ps.set("detector.pixel_pitch_x_um", 18.0)
         ps.set("detector.pixel_pitch_y_um", 18.0)
         ps.set("detector.qe_value", 0.7)
-        ps.set("optics.scalar_emissivity", emissivity)
         if set_temp:
             ps.set("optics.optics_temperature_K", 293.15)
         ps.resolve()
         return ps
 
     @pytest.mark.level1
-    def test_temperature_set_with_zero_emissivity_warns(self) -> None:
-        """The uncooled-MWIR trap: 293 K optics evaluating like 80 K ones."""
+    def test_temperature_set_in_scalar_mode_warns(self) -> None:
+        """Gap 127: scalar mode never emits, so a set temperature contributes nothing."""
         state = _make_state(np.linspace(3.5, 5.0, 24))
-        with pytest.warns(UserWarning, match="scalar_emissivity"):
-            OpticsStage().run(state, self._params(set_temp=True, emissivity=0.0))
+        with pytest.warns(UserWarning, match="no defined optical element can emit"):
+            OpticsStage().run(state, self._params(set_temp=True))
 
     @pytest.mark.level1
-    def test_no_warning_when_the_emissivity_makes_it_live(self) -> None:
-        """With ε > 0 the temperature does something, so there is nothing to flag."""
-        state = _make_state(np.linspace(3.5, 5.0, 24))
+    def test_no_warning_when_an_element_can_emit(self) -> None:
+        """With an emitting element (mirror, ε = 1 − R) the temperature does something."""
+        from radiant.optics.element_factories import make_reflective_element
+
+        wl = np.linspace(3.5, 5.0, 24)
+        state = _make_state(wl)
+        mirror = make_reflective_element(
+            "m1",
+            0.98,
+            wavelength_um=wl,
+            temperature_K=293.15,
+            diameter_m=0.30,
+            distance_to_fpa_m=1.2,
+        )
+        state = state.with_stage_output("optics_config", "element_list", (mirror,))
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            OpticsStage().run(state, self._params(set_temp=True, emissivity=0.15))
+            OpticsStage().run(state, self._params(set_temp=True))
 
     @pytest.mark.level1
     def test_no_warning_when_the_temperature_was_never_set(self) -> None:
@@ -655,4 +666,4 @@ class TestWarmOpticsSilentNoOp:
         state = _make_state(np.linspace(3.5, 5.0, 24))
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            OpticsStage().run(state, self._params(set_temp=False, emissivity=0.0))
+            OpticsStage().run(state, self._params(set_temp=False))

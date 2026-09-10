@@ -45,8 +45,9 @@ just consumes it.
 points with `keep_results=True`; predicted DN, signal, nearfield, and the
 full noise budget come from the per-point `ChainResult`s.
 
-**Self-emission is modeled physics.** Warm optics at 293 K with the
-Kirchhoff-derived ε = 1 − τ = 0.28 (Gap 37 `scalar_emissivity`), leaking
+**Self-emission is modeled physics.** Warm optics at 293.15 K — one defined
+mirror element with R = 0.72 [-], Kirchhoff-derived ε = 1 − R = 0.28 [-]
+(Gap 127, 2026-09-09; formerly the removed `optics.scalar_emissivity`) — leaking
 past the cold stop at the 7.4-measured 5% (`nearfield_fraction`),
 contribute a constant 3,006 e⁻ = 24.0 DN at every set point. The bench as
 vacuum uses the standard exo + `geometry.sensor_altitude_m` placeholder (Gap 42).

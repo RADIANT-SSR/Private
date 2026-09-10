@@ -12,13 +12,19 @@ detector:
   qe_value: 0.75
 geometry:
   sensor_altitude_m: 1.0
+optical_elements:
+- diameter_m: 0.15
+  distance_to_fpa_m: 0.3
+  kind: MIRROR
+  name: as_built_train
+  reflectance: 0.72
+  temperature_K: 293.15
+  transfer_mode: REFLECTIVE
 optics:
   aperture_diameter_m: 0.15
   focal_length_m: 0.3
   nearfield_fraction: 0.05
   optics_temperature_K: 293.15
-  scalar_emissivity: 0.28
-  transmission_scalar: 0.72
 readout:
   adc_bits: 14
   full_well_capacity_e: 2000000.0

@@ -5,6 +5,10 @@ emissivity from surface coatings (R1, T1, R2, T2), bulk absorption
 coefficient (alpha), refractive index (n_refr), and substrate
 thickness (thickness_m).
 
+Surfaces are lossless by model rule (Gap 127): per surface R + T = 1 —
+coating absorption is not modelled, so all absorption (and hence all
+emission) is bulk alpha*thickness (ε ≈ α·t in the weak-absorption limit).
+
 All spectral inputs must share the same wavelength grid.
 This class contains NO geometry or thermal properties — it is
 a pure radiometric computation.
@@ -75,14 +79,21 @@ class CavityModel:
                     f"CavityModel: '{name}' wavelength grid does not match R1."
                 )
 
-        # Surface energy conservation: R + T <= 1 at each surface.
+        # Surface closure: R + T = 1 at each surface (Gap 127 Rule 4 — coatings
+        # are lossless by model rule; all absorption, and hence all emission, is
+        # bulk α·thickness). A deficit R + T < 1 would be coating absorption the
+        # emissivity expression does not model — silently non-emitting — so it
+        # is rejected, not tolerated.
         for label, r_sd, t_sd in [("surface 1", self.R1, self.T1), ("surface 2", self.R2, self.T2)]:
             total = r_sd.values + t_sd.values
-            if np.any(total > 1.0 + _CAVITY_KIRCHHOFF_TOL):
-                worst = float(np.max(total))
+            if np.any(np.abs(total - 1.0) > _CAVITY_KIRCHHOFF_TOL):
+                worst = float(total[np.argmax(np.abs(total - 1.0))])
                 raise KirchhoffViolationError(
-                    f"CavityModel {label}: R + T = {worst:.6g} > 1. "
-                    "Surface energy conservation requires R + T <= 1."
+                    f"CavityModel {label}: R + T = {worst:.6g} ≠ 1. "
+                    "Surfaces are lossless by model rule (Gap 127): coating "
+                    "absorption is not modelled, so R + T must equal 1 per "
+                    "surface (specify one and derive the other as its "
+                    "complement). Bulk absorption belongs in alpha/thickness."
                 )
 
         # Absorption coefficient must be non-negative.

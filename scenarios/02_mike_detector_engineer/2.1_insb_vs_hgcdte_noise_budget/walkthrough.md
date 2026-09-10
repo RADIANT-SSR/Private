@@ -142,8 +142,8 @@ ktc_reset = 0 with `readout.cds_enabled = 1` — suppressed, as configured.
 scene-background photon term (matrix Decision #13): `background_shot = 0`
 by design and the bench-ambient background temperature feeds only the
 contrast scene. `nearfield_shot = 0` because scalar transmission mode
-defaults the lumped train to ε = 0 (set `optics.scalar_emissivity` to model
-warm-optics emission — not needed on this cold-filtered bench).
+leaves the lumped train at ε = 0 (Gap 127: declare an `optical_elements:`
+list to model warm-optics emission — not needed on this cold-filtered bench).
 
 ## Gaps Identified
 

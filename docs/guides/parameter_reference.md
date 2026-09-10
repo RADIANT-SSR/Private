@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 209**
+**Total parameters: 208**
 
 ## source
 
@@ -132,7 +132,6 @@
 | `optics.psf_n_wavelengths` | int | 1 | --- | (1, 101) | Number of wavelengths for polychromatic PSF computation. 1 = monochromatic at band center (default). Values > 1 compute a photon-flux-weighted average of monochromatic PSFs across the spectral band. |
 | `optics.psf_oversample` | int | 8 | --- | (4, 16) | Focal-plane PSF samples per detector pixel. Sets the PSF grid spacing to pixel_pitch / psf_oversample; the padded FFT size grows to match. Larger values sharpen spatial-metric discretization (EE_box, RER, FWHM) at higher FFT cost. The schema floor is 4, above compute_sampling's Nyquist floor of 2: at oversample ≤ 3 the padded grid can land at exactly 2× the pupil width and the FFT-of-PSF path aliases at the grid edge, breaching the Rule-4 dual-path tolerance (measured 0.032 vs 0.02 on the reference MWIR config, CU-288). |
 | `optics.pupil_npix` | int | 128 | --- | (32, 512) | Side length of the square pupil grid before FFT padding, in samples. Sets the resolution of the complex pupil that BOTH spatial paths derive from (Rule 4): the PSF (FT of the pupil) and the optical MTF (pupil autocorrelation). Larger values resolve finer aperture structure (thin spider vanes, small obscurations) at quadratically higher FFT cost — this is the dominant cost of a chain evaluation (CU-288). |
-| `optics.scalar_emissivity` | float | 0.0 | --- | (0.0, 1.0) | Declared effective emissivity of the lumped optical train in scalar transmission mode [0, 1]. Zero (default) keeps the refractive-lump assumption (no warm-optics nearfield emission). Set nonzero for warm reflective trains — e.g. eps ≈ 1 - tau for an all-mirror train. Permitted only because the scalar lump is not a physical surface; Rule 5 (Kirchhoff-derived emissivity) still binds real elements. Requires eps + tau <= 1. Ignored in non-scalar transmission modes. |
 | `optics.scatter_halo_sigma_um` | float | 100.0 | um | (0.1, 10000.0) | Focal-plane sigma of the Gaussian scatter halo [µm] used by the TIS model. Sets where the scattered fraction lands; tune to a measured halo when available. Only meaningful when optics.surface_roughness_nm > 0. |
 | `optics.spider_angle_deg` | float | 0.0 | deg | (0.0, 360.0) | Orientation of the first spider arm about the optical axis [deg]; remaining arms equally spaced. Default 0 (first arm along +x). |
 | `optics.spider_width_m` | float | 0.0 | m | (0.0, 1.0) | Width of each spider arm [m]. Converted to a fraction of the pupil diameter for the mask; also subtracted from the radiometric clear area (RADIANT_Optics.md §3.3). Default 0. Active only when n_spiders > 0. |

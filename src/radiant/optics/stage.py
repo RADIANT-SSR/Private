@@ -888,42 +888,6 @@ class OpticsStage:
             mode = TransmissionInputMode.FULL_PRESCRIPTION
             mode_str = mode.value
 
-        scalar_emissivity: float = params.get("optics.scalar_emissivity")
-        if scalar_emissivity > 0.0 and mode != TransmissionInputMode.SCALAR:
-            logger.warning(
-                "optics.scalar_emissivity=%.3g is ignored in '%s' transmission "
-                "mode — it applies only to scalar mode. Element emissivities "
-                "are Kirchhoff-derived in element-based modes.",
-                scalar_emissivity,
-                mode.value,
-            )
-        # CU-265: the mirror-image trap. In scalar mode the optics emit
-        # ε·B(T_optics), so with the default ε = 0 ("refractive lump") the optics
-        # temperature is accepted, bounds-validated, published — and multiplied by
-        # zero. An uncooled 293 K telescope then evaluates bit-identically to an
-        # 80 K one, and the user believes warm-optics emission is modelled. Warn
-        # only when the temperature was *explicitly set*, so the schema default
-        # never nags a scene that simply never mentioned it.
-        if (
-            mode == TransmissionInputMode.SCALAR
-            and scalar_emissivity == 0.0
-            and params.get_resolved("optics.optics_temperature_K").provenance
-            is not Provenance.DEFAULT
-        ):
-            warnings.warn(
-                f"optics.optics_temperature_K = {optics_temp_K:.4g} K is set, but in "
-                "scalar transmission mode the optics' self-emission is "
-                "ε·B(λ, T_optics) with ε = optics.scalar_emissivity, which is 0 (the "
-                "default 'refractive lump' assumption). The temperature therefore "
-                "contributes nothing: this scene evaluates identically at any optics "
-                "temperature. To model warm optics, either set "
-                "optics.scalar_emissivity to the train's effective emissivity, or "
-                "supply an element list (optical_elements:) whose emissivities are "
-                "Kirchhoff-derived per element.",
-                UserWarning,
-                stacklevel=2,
-            )
-
         # Modes 2-4 (Gap 68): non-scalar inputs are injected pre-chain via
         # stage_outputs["optics_config"] (Rule 6 — e.g.
         # Sensor.evaluate(extra_stage_outputs=...)); the stage only reads them.
@@ -931,7 +895,6 @@ class OpticsStage:
             mode,
             state.wavelength_um,
             transmission_scalar=params.get("optics.transmission_scalar"),
-            scalar_emissivity=scalar_emissivity,
             transmission_spectral=optics_config.get("transmission_spectral"),
             telescope_transmission=optics_config.get("telescope_transmission"),
             filter_specs=tuple(optics_config.get("filter_specs", ())),
@@ -942,6 +905,29 @@ class OpticsStage:
             optics_distance_to_fpa_m=optics_dist_m,
             aperture_diameter_m=aperture.aperture_diameter_m,
         )
+
+        # Gap 127 (reworks CU-265): emission derives only from defined elements.
+        # When the optics temperature was *explicitly set* but no resolved element
+        # can emit (max ε = 0 — scalar/spectral lumps, simple refractives), the
+        # temperature contributes nothing and the scene evaluates identically at
+        # any value. Warn rather than nag: the schema default stays silent.
+        if params.get_resolved("optics.optics_temperature_K").provenance is not Provenance.DEFAULT:
+            max_eps = max(
+                (float(np.max(elem.emissivity.values)) for elem in tx_result.elements),
+                default=0.0,
+            )
+            if max_eps == 0.0:
+                warnings.warn(
+                    f"optics.optics_temperature_K = {optics_temp_K:.4g} K is set, but no "
+                    "defined optical element can emit (every element's Kirchhoff-derived "
+                    "emissivity is 0 in the current transmission mode). Near-field "
+                    "emission derives only from defined elements (Gap 127): supply an "
+                    "element list (optical_elements:) with mirrors (ε = 1 − R) or "
+                    "absorbing refractive elements to model warm optics; the "
+                    "temperature otherwise contributes nothing.",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
         # --- Apply transmission to produce post_optics frame ---
         at_aperture = state.frames["at_aperture"]

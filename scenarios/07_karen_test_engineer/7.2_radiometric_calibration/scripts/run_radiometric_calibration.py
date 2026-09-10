@@ -15,9 +15,11 @@ This script:
      (keep_results=True) and reads predicted DN from the chain's
      readout stage output signal_dn_final — DN is a first-class chain
      output, converted at gain and clipped at the ADC.
-  3. Instrument self-emission enters as warm-optics nearfield
-     (optics.scalar_emissivity = 1 − τ per Kirchhoff, Gap 37, with the
-     cold-stop leakage from the 7.4 campaign).
+  3. Instrument self-emission enters as warm-optics nearfield from a
+     defined element — one all-absorbing mirror with R = τ = 0.72 [-], so
+     ε = 1 − R = 0.28 [-] per Kirchhoff (Gap 127, 2026-09-09; formerly the
+     removed optics.scalar_emissivity) — with the cold-stop leakage from
+     the 7.4 campaign.
   4. Compares predicted vs measured DN; fits measured = a·predicted + b
      to split the disagreement into a GAIN error (slope) and an OFFSET
      (intercept) — the two knobs a calibration actually adjusts.
@@ -86,14 +88,32 @@ gain_e_per_dn = float(specs["System gain"])
 t_int_s = float(specs["Integration time"]) / 1000.0  # ms → s
 tau = float(specs["Optical transmission"]) / 100.0
 optics_eps = float(specs["Optics emissivity"]) / 100.0
+aperture_m = float(specs["Aperture diameter"]) / 100.0  # cm → m
+focal_length_m = float(specs["Focal length"]) / 100.0  # cm → m
+optics_temp_K = float(specs["Optics temperature"]) + 273.15  # °C → K
 
 sensor = Sensor()
 sensor.set("optics.aperture_diameter_m", float(specs["Aperture diameter"]), unit="cm")
 sensor.set("optics.focal_length_m", float(specs["Focal length"]), unit="cm")
-sensor.set("optics.transmission_scalar", float(specs["Optical transmission"]), unit="%")
-sensor.set("optics.scalar_emissivity", optics_eps)  # Kirchhoff: 1 − τ (Gap 37)
 sensor.set("optics.nearfield_fraction", float(specs["Nearfield fraction"]))
-sensor.set("optics.optics_temperature_K", float(specs["Optics temperature"]) + 273.15)
+sensor.set("optics.optics_temperature_K", optics_temp_K)
+# Gap 127 (2026-09-09): warm-optics self-emission derives ONLY from defined
+# elements — a scalar throughput is not a surface and no longer emits. The
+# as-built train's workbook pair (τ = 0.72 [-], ε = 0.28 [-]) is exactly one
+# all-absorbing mirror: net throughput R = τ, emissivity 1 − R = ε, both exact.
+sensor.set_optical_elements(
+    [
+        {
+            "name": "as_built_train",
+            "transfer_mode": "REFLECTIVE",
+            "kind": "MIRROR",
+            "reflectance": tau,  # [-] — mirror R = the workbook's optical transmission
+            "temperature_K": optics_temp_K,  # K
+            "diameter_m": aperture_m,  # m
+            "distance_to_fpa_m": focal_length_m,  # m
+        }
+    ]
+)
 sensor.set("detector.pixel_pitch_x_um", float(specs["Pixel pitch"]))
 sensor.set("detector.pixel_pitch_y_um", float(specs["Pixel pitch"]))
 sensor.set("detector.qe_value", float(specs["Quantum efficiency"]), unit="%")
@@ -144,8 +164,9 @@ def main() -> None:
 
     print(f"\n=== Converted to RADIANT canonical units (Sensor.set unit-aware, Gap 6) ===")
     print(f"  Aperture {sensor.get('optics.aperture_diameter_m'):.3f} m | "
-          f"focal {sensor.get('optics.focal_length_m'):.3f} m | τ = {tau:.2f} | "
-          f"ε_optics = {optics_eps:.2f} (= 1 − τ, Kirchhoff)")
+          f"focal {sensor.get('optics.focal_length_m'):.3f} m | "
+          f"train mirror R = {tau:.2f} [-] | "
+          f"ε_optics = {optics_eps:.2f} [-] (= 1 − R, Kirchhoff, Gap 127)")
     print(f"  Band {band_min_um:.2f}–{band_max_um:.2f} µm | t_int = {t_int_s * 1e3:.2f} ms | "
           f"gain = {gain_e_per_dn:.0f} e⁻/DN | 14-bit ADC")
 
@@ -179,8 +200,8 @@ def main() -> None:
     print(f"  UNUSED PARAMETER NOTE: in the extended regime RADIANT skips the")
     print(f"  separate scene-background photon term (matrix Decision #13) — the")
     print(f"  lab-ambient background parameters define the contrast scene only.")
-    print(f"  Instrument self-emission IS modeled: warm optics at 293 K with")
-    print(f"  ε = 1 − τ = {optics_eps:.2f} leaking past the cold stop "
+    print(f"  Instrument self-emission IS modeled: one defined mirror element")
+    print(f"  (Gap 127) at 293.15 K with ε = 1 − R = {optics_eps:.2f} [-] leaking past the cold stop "
           f"(nearfield_fraction = {float(specs['Nearfield fraction']):.2f})")
     print(f"  contributes a constant {nearfield_e[0]:,.0f} e⁻ "
           f"({nearfield_e[0] / gain_e_per_dn:,.1f} DN) at every set point —")

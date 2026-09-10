@@ -753,7 +753,14 @@ def _compute_diffraction_limit_metrics(
     Skips gracefully when inputs are unavailable.
     """
     try:
-        aperture_m: float = params.get("optics.aperture_diameter_m")
+        # The EFFECTIVE pupil, not the primary (Gap 128): a cold stop undersized
+        # for tolerancing is the aperture stop, so it — not the primary rim —
+        # sets the diffraction limit. Identical to the primary at the default
+        # u = 0. OpticsStage always publishes it; the parameter is the fallback
+        # for a partial state.
+        aperture_m: float = state.stage_outputs.get("optics", {}).get(
+            "D_eff_m", params.get("optics.aperture_diameter_m")
+        )
         lambda_min: float = params.get("spectral_integration.filter_min_um")
         lambda_max: float = params.get("spectral_integration.filter_max_um")
     except (KeyError, TypeError):

@@ -558,7 +558,7 @@ class TestNonScalarModeInjection:
     def test_key_elements_via_injection(self, wl: np.ndarray) -> None:
         from radiant.optics.element_factories import make_lumped_element
 
-        elem = make_lumped_element(self._curve(wl, 0.9, "elem"), 290.0, 0.3, 1.0)
+        elem = make_lumped_element(self._curve(wl, 0.9, "elem"), 290.0)
         params = _make_params()
         params.set("optics.transmission_input_mode", "key_elements")
         params.resolve()
@@ -652,8 +652,6 @@ class TestWarmOpticsSilentNoOp:
             0.98,
             wavelength_um=wl,
             temperature_K=293.15,
-            diameter_m=0.30,
-            distance_to_fpa_m=1.2,
         )
         state = state.with_stage_output("optics_config", "element_list", (mirror,))
         with warnings.catch_warnings():

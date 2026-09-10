@@ -38,9 +38,9 @@ off-nadir can each sensor detect each target, and which target is hardest?
 
 **Sensor library** (3 YAML): A — MWIR smallsat 18 cm (16.7 m GSD); B —
 MWIR flagship 50 cm (4.0 m GSD); C — LWIR wide 35 cm (12.1 m GSD). Sensor
-C's YAML still carries the pre-Gap-12 `optics.cold_stop_efficiency` name —
+C's YAML still carries the pre-ADR-0006 `platform.h_sensor` name —
 RADIANT accepted it through the deprecated-alias mechanism (one
-`DeprecationWarning`, mapped to `optics.nearfield_fraction`).
+`DeprecationWarning`, mapped to `geometry.sensor_altitude_m`).
 
 **Atmospheres**: clear (vis 50 km), haze (10 km), tropical_haze (5 km),
 arctic_clear (100 km), each with its matching profile.

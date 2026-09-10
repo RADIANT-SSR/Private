@@ -59,8 +59,6 @@ def _scalar_to_spectral(
 def make_lumped_element(
     transmission: SpectralData,
     temperature_K: float,
-    diameter_m: float,
-    distance_to_fpa_m: float,
     name: str = "lumped",
 ) -> OpticalElement:
     """Create a LUMPED refractive element with the given transmission.
@@ -84,8 +82,6 @@ def make_lumped_element(
         temperature_K=temperature_K,
         transmittance=transmission,
         reflectance=zero_reflectance,
-        diameter_m=diameter_m,
-        distance_to_fpa_m=distance_to_fpa_m,
     )
 
 
@@ -95,8 +91,6 @@ def make_reflective_element(
     *,
     wavelength_um: np.ndarray | None = None,
     temperature_K: float = 0.0,
-    diameter_m: float = 1.0,
-    distance_to_fpa_m: float = 1.0,
 ) -> OpticalElement:
     """Create a REFLECTIVE mirror element.
 
@@ -110,10 +104,6 @@ def make_reflective_element(
         Required when reflectance is a scalar.
     temperature_K:
         Element temperature [K] for nearfield calculation.
-    diameter_m:
-        Clear aperture diameter [m] for nearfield geometry.
-    distance_to_fpa_m:
-        Distance to FPA [m] for nearfield geometry.
 
     Returns
     -------
@@ -135,8 +125,6 @@ def make_reflective_element(
         temperature_K=temperature_K,
         transmittance=zero_tau,
         reflectance=rho,
-        diameter_m=diameter_m,
-        distance_to_fpa_m=distance_to_fpa_m,
         transfer_mode=ElementTransferMode.REFLECTIVE,
     )
 
@@ -148,8 +136,6 @@ def make_refractive_element(
     kind: ElementKind = ElementKind.LENS,
     wavelength_um: np.ndarray | None = None,
     temperature_K: float = 0.0,
-    diameter_m: float = 1.0,
-    distance_to_fpa_m: float = 1.0,
 ) -> OpticalElement:
     """Create a simple REFRACTIVE element with known transmittance.
 
@@ -168,10 +154,6 @@ def make_refractive_element(
         Required when transmittance is a scalar.
     temperature_K:
         Element temperature [K] for nearfield calculation.
-    diameter_m:
-        Clear aperture diameter [m] for nearfield geometry.
-    distance_to_fpa_m:
-        Distance to FPA [m] for nearfield geometry.
 
     Returns
     -------
@@ -198,8 +180,6 @@ def make_refractive_element(
         temperature_K=temperature_K,
         transmittance=tau,
         reflectance=zero_rho,
-        diameter_m=diameter_m,
-        distance_to_fpa_m=distance_to_fpa_m,
         transfer_mode=ElementTransferMode.REFRACTIVE,
     )
 
@@ -261,8 +241,6 @@ def make_refractive_cavity_element(
     kind: ElementKind = ElementKind.LENS,
     wavelength_um: np.ndarray | None = None,
     temperature_K: float = 0.0,
-    diameter_m: float = 1.0,
-    distance_to_fpa_m: float = 1.0,
 ) -> OpticalElement:
     """Create a REFRACTIVE element with full cavity model.
 
@@ -295,10 +273,6 @@ def make_refractive_cavity_element(
         Required when any input is a scalar.
     temperature_K:
         Element temperature [K] for nearfield calculation.
-    diameter_m:
-        Clear aperture diameter [m] for nearfield geometry.
-    distance_to_fpa_m:
-        Distance to FPA [m] for nearfield geometry.
 
     Returns
     -------
@@ -332,8 +306,6 @@ def make_refractive_cavity_element(
         temperature_K=temperature_K,
         transmittance=cavity.T_sys,
         reflectance=cavity.R_sys,
-        diameter_m=diameter_m,
-        distance_to_fpa_m=distance_to_fpa_m,
         transfer_mode=ElementTransferMode.REFRACTIVE,
         cavity=cavity,
     )

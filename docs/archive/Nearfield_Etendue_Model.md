@@ -1,6 +1,8 @@
+> **HISTORICAL — archived 2026-09-09 (completed by the coding agent; W1–W6 all landed on branch `gap128/etendue-nearfield`).** Effective pupil in `optics/effective_pupil.py`; cone-only near-field in `optics/etendue_cone.py` + `optics/nearfield_irradiance.py`; `optics.nearfield_fraction` (+ alias), `optics.optics_distance_to_fpa_m`, and the element-format `diameter_m` / `distance_to_fpa_m` keys deleted with Gap-128-naming errors; scenarios 7.2/7.5/10.1 retuned to realistic coated trains and 7.4 rebuilt as the undersizing sweep. Anchors verified (§4): Ω_cone(f/6) = 0.0217036 sr vs paraxial 0.0218166 sr (−0.52 %); BLIP integral reproduced within the exact-form correction; the legacy-coincidence check reproduces the Gap-127-era number to exactly that difference. Defaults (u = 0) bit-identical on every non-element result; the four element-mode scenario deltas are enumerated in `CHANGELOG.md`.
+
 # Étendue-Conserving Near-Field and the Cold Stop as Pupil Stop (Gap 128)
 
-**Status:** Active — owner ratified the model rules in conversation, 2026-09-09 (two
+**Status:** Complete — owner ratified the model rules in conversation, 2026-09-09 (two
 rounds: cone-only geometry + perfect out-of-cone blocking; then the cold stop as an
 undersized aperture stop).
 

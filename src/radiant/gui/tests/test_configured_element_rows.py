@@ -67,8 +67,6 @@ _SHARED_TRAIN: list[dict[str, Any]] = [
         "transfer_mode": "REFLECTIVE",
         "reflectance": 0.97,
         "temperature_K": 293.0,
-        "diameter_m": 0.3,
-        "distance_to_fpa_m": 1.0,
     },
     {
         "name": _FILTER,
@@ -76,8 +74,6 @@ _SHARED_TRAIN: list[dict[str, Any]] = [
         "kind": "filter",
         "transmittance": 0.9,
         "temperature_K": 240.0,
-        "diameter_m": 0.05,
-        "distance_to_fpa_m": 0.05,
     },
 ]
 

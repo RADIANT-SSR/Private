@@ -106,8 +106,6 @@ class TestEditorRoundTrip:
                     "transfer_mode": "REFLECTIVE",
                     "reflectance": 0.95,
                     "temperature_K": 280.0,
-                    "diameter_m": 0.3,
-                    "distance_to_fpa_m": 1.0,
                 }
             ]
         )
@@ -128,8 +126,6 @@ class TestEditorRoundTrip:
                     "transfer_mode": "REFLECTIVE",
                     "reflectance": 0.95,
                     "temperature_K": 280.0,
-                    "diameter_m": 0.3,
-                    "distance_to_fpa_m": 1.0,
                 }
             ]
         )

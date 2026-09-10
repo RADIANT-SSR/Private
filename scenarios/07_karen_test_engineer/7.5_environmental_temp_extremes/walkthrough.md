@@ -55,12 +55,22 @@ J(T) input matters.
 
 | T [K] | QE | well % | signal_shot | dark_shot | SNR | NEDT [mK] |
 |------:|----|-------:|------------:|----------:|----:|----------:|
-| 70 | 0.78 | 46.4 | 834.5 | 0.9 | 828.6 | 33.44 |
-| 85 | 0.73 | 43.4 | 807.3 | 30.2 | 801.0 | 34.59 |
-| 88 | 0.72 | 42.7 | 800.6 | 69.3 | 792.0 | 34.98 |
-| 90 | 0.71 | 42.3 | 796.2 | 124.2 | 781.1 | 35.47 |
-| 92 | 0.71 | 42.3 | 796.2 | 216.7 | 763.1 | 36.31 |
-| 95 | 0.71 | 42.3 | 796.2 | 466.5 | 683.2 | 40.55 |
+| 70 | 0.78 | 46.4 | 834.5 | 0.9 | 814.7 | 34.01 |
+| 82 | 0.74 | 44.2 | 813.9 | 15.8 | 794.4 | 34.88 |
+| 85 | 0.73 | 43.4 | 807.3 | 30.2 | 787.5 | 35.18 |
+| 88 | 0.72 | 42.7 | 800.6 | 69.3 | 778.8 | 35.58 |
+| 90 | 0.71 | 42.3 | 796.2 | 124.2 | 768.3 | 36.06 |
+| 92 | 0.71 | 42.3 | 796.2 | 216.7 | 751.1 | 36.89 |
+| 95 | 0.71 | 42.3 | 796.2 | 466.5 | 674.6 | 41.07 |
+
+**Warm-optics train (Gap 127/128, 2026-09-09).** The workbook quotes one
+end-to-end τ = 0.74 [-] and an ε = 26 % that reads the whole optical loss as
+absorption — the ε = 1 − τ fallacy. The train is modelled as three fold mirrors
+at R = 0.98 [-] (Kirchhoff ε = 0.02 [-] each) plus an AR-coated cold window
+carrying the balance, so the net τ is unchanged and the emitting emissivity is a
+realistic 0.06 [-]. Emission is seen through the étendue acceptance cone
+Ω_cone = 0.18760 sr (f/2.0), the only near-field geometry; the near-field term
+rose 7,496 → 31,840 e⁻ and the whole table shifted with it.
 
 Dark shot noise climbs from ~1 e⁻ (70 K) to 467 e⁻ (95 K) — from
 negligible to the second-largest term — and drags SNR down and NEDT up.
@@ -75,11 +85,13 @@ answer — not compared to dark.
 
 ### Spec Compliance and Recommendation
 
-SNR ≥ 750 and NEDT ≤ 35 mK hold through **88 K** (NEDT 35.0 mK, ~0 mK
-margin); 90 K fails on NEDT (35.5 mK) and 95 K fails both. **Recommendation:
-operate at 85 K** — a 3 K guard band below the compliance edge, protecting
-against cooler drift and the super-Arrhenius knee at ~88 K where dark current
-climbs steeply.
+SNR ≥ 750 and NEDT ≤ 35 mK hold through **82 K** (NEDT 34.9 mK, 0.1 mK
+margin); 85 K and above fail on NEDT (35.2 mK), and 95 K fails both.
+**Recommendation: operate at 79 K** — a 3 K guard band below the compliance
+edge, protecting against cooler drift and the super-Arrhenius knee at ~88 K
+where dark current climbs steeply. The correctly-modelled warm-optics
+near-field (Gap 128) costs ~6 K of the compliant range the fallacy-era
+emissivity had appeared to buy.
 
 ## Physics Discussion
 
@@ -100,8 +112,8 @@ so a 300,000× dark increase drives NEDT directly. This is why cooling budget
 **The guard band is against two things.** Cooler drift (a few K of
 set-point wander) and the knee's steepness: at 88 K the margin is ~0 mK,
 and the NEDT slope steepens from ~0.25 mK/K near the edge to ~1.4 mK/K past
-92 K, so a 1 K warm excursion blows the spec. 85 K sits on the flatter part
-of the curve with real margin (NEDT 34.6 mK).
+92 K, so a 1 K warm excursion blows the spec. 79 K sits on the flatter part
+of the curve with real margin (NEDT ≈ 34.6 mK).
 
 ## Gaps Identified
 

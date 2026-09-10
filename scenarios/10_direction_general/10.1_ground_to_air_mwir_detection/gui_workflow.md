@@ -36,9 +36,12 @@ Both are emitted from the runner's module-level factory `make_sensor()` by
     * 75 % → 0.75, 20 °C → 293.15 K, 276.85 °C → 550 K
     * 3000/5000 nm → 3.0/5.0 µm, 0.5 ms → 5.0 × 10⁻⁴ s
     * 10 km → 10 000 m, 60 mm nozzle diameter → 2.827 × 10⁻³ m²
-    * **cold shield 90 % efficient → `optics.nearfield_fraction` = 0.10** — the import
-      preview must show the *inversion* explicitly, with the vendor convention named.
-      This is the single import step that silently changes the answer by 10× if flipped.
+    * **cold shield 90 % efficient → (no parameter)** — the import preview must say so
+      explicitly (Gap 128): a cold stop cannot attenuate in-cone emission, and
+      out-of-cone structure is blocked completely, so a vendor blocked-fraction has no
+      model home. The GUI offers `optics.cold_stop_undersize_frac` [-] instead, showing
+      the effective pupil it produces (D_eff [m], f/#_eff [-], A_collect [m²],
+      Ω_cone [sr]) so the operator sees signal and near-field move together.
 * **Alternative**: File ▸ Open YAML → `inputs/10.1_ground_to_air_mwir_detection.gui.yaml`
   reproduces the validated baseline in one action.
 

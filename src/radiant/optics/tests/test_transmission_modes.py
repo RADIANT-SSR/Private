@@ -45,8 +45,6 @@ def _mirror(R: float, name: str = "m") -> OpticalElement:
         temperature_K=290.0,
         transmittance=_flat_spectral(0.0, f"{name}.tau"),
         reflectance=_flat_spectral(R, f"{name}.rho"),
-        diameter_m=0.3,
-        distance_to_fpa_m=1.0,
     )
 
 
@@ -315,7 +313,7 @@ class TestCrossMode:
         )
 
         tau_sd = _flat_spectral(0.7, "tau")
-        lumped = make_lumped_element(tau_sd, 290.0, 0.3, 1.0)
+        lumped = make_lumped_element(tau_sd, 290.0)
         mode5 = resolve_transmission(
             TransmissionInputMode.FULL_PRESCRIPTION,
             WL,

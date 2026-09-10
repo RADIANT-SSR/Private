@@ -523,8 +523,6 @@ def _make_optics_result() -> ChainResult:
         temperature_K=250.0,
         transmittance=SpectralData("T", wl, np.zeros_like(wl), "", "test"),
         reflectance=SpectralData("R", wl, 0.96 * np.ones_like(wl), "", "test"),
-        diameter_m=0.3,
-        distance_to_fpa_m=0.5,
     )
     window = OpticalElement(
         name="dewar_window",
@@ -532,8 +530,6 @@ def _make_optics_result() -> ChainResult:
         temperature_K=200.0,
         transmittance=SpectralData("T", wl, 0.90 * np.ones_like(wl), "", "test"),
         reflectance=SpectralData("R", wl, 0.05 * np.ones_like(wl), "", "test"),
-        diameter_m=0.05,
-        distance_to_fpa_m=0.1,
     )
     tau = SpectralData("tau_opt", wl, 0.86 * np.ones_like(wl), "", "test")
     state = ChainState(wavelength_um=wl)

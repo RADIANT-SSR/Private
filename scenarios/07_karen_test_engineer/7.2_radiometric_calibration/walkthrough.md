@@ -19,8 +19,8 @@ calibration's offset term physically is.
 |-----------|-------|------|-------|
 | Aperture / focal length | 15 / 30 | cm | f/2.0 |
 | Optical transmission | 72 | % | Witness sample |
-| Optics emissivity | 28 | % | 1 − τ (Kirchhoff, reflective train) |
-| Nearfield fraction | 0.05 | — | Cold-stop leakage from the 7.4 campaign |
+| Optics emissivity | 28 | % | Workbook value — NOT used: it is the ε = 1 − τ fallacy (Gap 128) |
+| Modelled train | 3 × R = 0.98 mirror + AR cold window | — | Net τ = 0.72 [-] exactly; emitting ε ≈ 0.045 [-] |
 | Optics temperature | 20 | °C | Bench ambient |
 | Pixel pitch / QE | 15 µm / 75% | | |
 | Dark current | 50,000 | e⁻/s | At 77 K |
@@ -45,12 +45,17 @@ just consumes it.
 points with `keep_results=True`; predicted DN, signal, nearfield, and the
 full noise budget come from the per-point `ChainResult`s.
 
-**Self-emission is modeled physics.** Warm optics at 293.15 K — one defined
-mirror element with R = 0.72 [-], Kirchhoff-derived ε = 1 − R = 0.28 [-]
-(Gap 127, 2026-09-09; formerly the removed `optics.scalar_emissivity`) — leaking
-past the cold stop at the 7.4-measured 5% (`nearfield_fraction`),
-contribute a constant 3,006 e⁻ = 24.0 DN at every set point. The bench as
-vacuum uses the standard exo + `geometry.sensor_altitude_m` placeholder (Gap 42).
+**Self-emission is modeled physics.** Warm optics at 293.15 K — three fold
+mirrors at R = 0.98 [-], Kirchhoff ε = 1 − R = 0.02 [-] each, plus an AR-coated
+cold window (ε = 0 [-]) carrying the balance of the workbook's τ = 0.72 [-]
+(Gap 127/128, 2026-09-09) — contribute a constant 9,228 e⁻ = 73.8 DN at every
+set point. The workbook's ε = 28 % is *not* used: reading the whole optical
+loss as absorption over-states emission ~6×, and most of that loss is coating
+reflection and cold-filter rejection. Emission is seen through the étendue
+acceptance cone Ω_cone = 0.18760 sr (f/2.0), the only near-field geometry;
+a cold stop cannot attenuate in-cone emission, so the old `nearfield_fraction`
+leakage factor is gone. The bench as vacuum uses the standard exo +
+`geometry.sensor_altitude_m` placeholder (Gap 42).
 
 **Regime note (unused parameters).** The blackbody fills the aperture →
 extended regime, so RADIANT skips the separate scene-background photon term
@@ -77,7 +82,7 @@ Fitting `measured = a·predicted + b`:
 | Coefficient | Value | Meaning |
 |-------------|-------|---------|
 | a (gain scale) | **1.0162** | Real responsivity is +1.62% vs the as-built gain spec |
-| b (offset) | **+43.6 DN** | Un-modeled instrument offset (on top of RADIANT's modeled 24.0 DN nearfield) |
+| b (offset) | **+43.6 DN** | Un-modeled instrument offset. RADIANT separately models 73.8 DN of warm-optics near-field, which does *not* enter predicted `signal_dn_final` (near-field is background, not signal) |
 
 This is the entire point of a calibration: the raw residuals (−2 to −6.7%)
 look alarming, but they decompose into exactly two physical knobs — a gain
@@ -124,11 +129,16 @@ above delivers.
 
 **Why the offset matters more than it looks.** The instrument offset
 (self-emission + dark + any un-modeled electronics pedestal) enters every
-scene measurement identically. RADIANT models 24.0 DN of it from first
-principles (Kirchhoff warm-optics emission through the measured cold-stop
-leakage); the residual +43.6 DN is what the calibration must carry as an
-empirical term. Chasing that residual down is exactly the 7.4 cold-stop /
-7.1 nearfield investigation loop.
+scene measurement identically. RADIANT models 73.8 DN of warm-optics
+near-field from first principles (Kirchhoff ε = 1 − R per mirror, seen
+through the étendue acceptance cone Ω_cone = 0.18760 sr — Gap 127/128), while
+the calibration fit carries +43.6 DN of empirical offset on top of the
+predicted signal. Under the pre-Gap-128 model the same near-field read only
+24.0 DN, because a "cold-stop leakage" factor of 0.05 scaled emission a cold
+stop cannot in fact block. The modelled term now **exceeds** the fitted
+residual, which is itself informative: either the bench train is better
+coated than the assumed R = 0.98 [-] or its barrel is cooler than 20 °C.
+Chasing that down is exactly the 7.4 cold-stop / 7.1 nearfield loop.
 
 **Gain in DN vs gain in e⁻/DN.** The fitted +1.62% is a *responsivity*
 scale error — it could live in the ADC gain, the QE, the transmission, or

@@ -62,8 +62,10 @@ from radiant.core.regime import RadiometricRegime
 from radiant.core.spectral import SpectralData
 from radiant.optics.aperture import CircularAperture
 from radiant.optics.diffusion_kernel import make_diffusion_kernel_2d
+from radiant.optics.effective_pupil import resolve_effective_pupil
 from radiant.optics.element import ElementTransferMode
 from radiant.optics.errors import OpticsValidationError
+from radiant.optics.etendue_cone import etendue_cone_solid_angle_sr
 from radiant.optics.nearfield_irradiance import compute_nearfield_irradiance
 from radiant.optics.pixel_kernel import make_pixel_aperture_kernel_2d
 from radiant.optics.psf.builder import build_effective_psf
@@ -348,6 +350,8 @@ def _build_effective_psf(
     state: ChainState,
     params: ParameterSet,
     aperture_m: float,
+    obscuration: float,
+    f_number: float,
     focal_length_m: float,
     wfe: WavefrontError | None = None,
     chromatic_zernikes: dict[float, dict[int, float]] | None = None,
@@ -373,7 +377,6 @@ def _build_effective_psf(
     Returns (updated_state, epsf_or_None).
     """
     pixel_pitch_m: float = params.get("detector.pixel_pitch_x_um")
-    obscuration: float = params.get("optics.obscuration_ratio")
     n_psf_wavelengths: int = params.get("optics.psf_n_wavelengths")
     # CU-288: the FFT grid is read ONCE and threaded to every sampling site —
     # target PSF, reference PSF, and the MTF product path — so both Rule-4
@@ -391,7 +394,6 @@ def _build_effective_psf(
     # kernel is gone — it modeled defocus differently from the product path.
     defocus_um: float = params.get("optics.defocus_um")
     if defocus_um != 0.0:
-        f_number: float = params.get("optics.f_number")
         band_center_m = float(state.wavelength_um[len(state.wavelength_um) // 2]) * 1e-6
         wfe = _add_defocus_to_wfe(wfe, defocus_um, f_number, band_center_m)
 
@@ -844,6 +846,10 @@ def _validate_psf_regime_consistency(
 OUTPUT_UNITS: dict[str, str] = {
     "A_collect": "m²",
     "Omega_pixel": "sr",
+    "Omega_cone": "sr",
+    "D_eff_m": "m",
+    "f_number_eff": "",
+    "obscuration_eff": "",
     "scatter_tis": "",
 }
 
@@ -856,14 +862,29 @@ class OpticsStage:
         return "optics"
 
     def run(self, state: ChainState, params: ParameterSet) -> ChainState:
-        # --- Aperture geometry (unchanged) ---
-        aperture = CircularAperture(
+        # --- Effective pupil (Gap 128) ---
+        # The cold stop IS the aperture stop, slightly undersized for
+        # tolerancing. Resolve it ONCE, here, before anything reads aperture
+        # geometry: A_collect [m²], the working f/# [-], the complex pupil
+        # (PSF *and* MTF — Rule 4: one pupil, both spatial paths), and the
+        # near-field acceptance cone Ω_cone [sr] all derive from it, so signal
+        # and near-field scale together as they physically do. At the defaults
+        # (u = 0, cold-stop obscuration 0) it is the primary pupil bit-for-bit.
+        focal_length_m: float = params.get("optics.focal_length_m")
+        pupil = resolve_effective_pupil(
             aperture_diameter_m=params.get("optics.aperture_diameter_m"),
             obscuration_ratio=params.get("optics.obscuration_ratio"),
+            f_number=params.get("optics.f_number"),
+            cold_stop_undersize_frac=params.get("optics.cold_stop_undersize_frac"),
+            cold_stop_obscuration_ratio=params.get("optics.cold_stop_obscuration_ratio"),
+        )
+        aperture = CircularAperture(
+            aperture_diameter_m=pupil.diameter_m,
+            obscuration_ratio=pupil.obscuration_ratio,
             n_spiders=params.get("optics.n_spiders"),
             spider_width_m=params.get("optics.spider_width_m"),
         )
-        focal_length_m: float = params.get("optics.focal_length_m")
+        omega_cone_sr = etendue_cone_solid_angle_sr(pupil.f_number)
 
         # --- Pixel solid angle ---
         pixel_pitch_x_m: float = params.get("detector.pixel_pitch_x_um")
@@ -875,9 +896,6 @@ class OpticsStage:
         mode = TransmissionInputMode(mode_str)
 
         optics_temp_K: float = params.get("optics.optics_temperature_K")
-        optics_dist_m: float = params.get("optics.optics_distance_to_fpa_m")
-        if optics_dist_m <= 0:
-            optics_dist_m = focal_length_m
 
         # Mode 5 (full prescription): element list injected via
         # stage_outputs["optics_config"]["element_list"] by the IO/API
@@ -902,8 +920,6 @@ class OpticsStage:
             residual_transmission=optics_config.get("residual_transmission"),
             full_elements=tuple(full_elements) if full_elements is not None else (),
             optics_temperature_K=optics_temp_K,
-            optics_distance_to_fpa_m=optics_dist_m,
-            aperture_diameter_m=aperture.aperture_diameter_m,
         )
 
         # Gap 127 (reworks CU-265): emission derives only from defined elements.
@@ -950,6 +966,12 @@ class OpticsStage:
         state = state.with_frame(frame)
         state = state.with_stage_output("optics", "A_collect", aperture.clear_area_m2)
         state = state.with_stage_output("optics", "Omega_pixel", omega_pixel)
+        # Effective-pupil diagnostics (Gap 128): what the cold stop left the
+        # system, as distinct from the primary the analyst entered.
+        state = state.with_stage_output("optics", "D_eff_m", pupil.diameter_m)
+        state = state.with_stage_output("optics", "f_number_eff", pupil.f_number)
+        state = state.with_stage_output("optics", "obscuration_eff", pupil.obscuration_ratio)
+        state = state.with_stage_output("optics", "Omega_cone", omega_cone_sr)
         state = state.with_stage_output("optics", "tau_opt", tx_result.transmission.values)
         state = state.with_stage_output("optics", "tau_opt_spectral", tx_result.transmission)
         state = state.with_stage_output(
@@ -1034,7 +1056,9 @@ class OpticsStage:
         state, epsf = _build_effective_psf(
             state,
             params,
-            aperture_m=aperture.aperture_diameter_m,
+            aperture_m=pupil.diameter_m,
+            obscuration=pupil.obscuration_ratio,
+            f_number=pupil.f_number,
             focal_length_m=focal_length_m,
             wfe=wfe_for_psf,
             chromatic_zernikes=chromatic_zernikes,
@@ -1089,11 +1113,10 @@ class OpticsStage:
         stray_includes_thermal: int = params.get("optics.stray.includes_thermal")
 
         if nearfield_enabled and not stray_includes_thermal:
-            cold_stop_eff: float = params.get("optics.nearfield_fraction")
             nf_result = compute_nearfield_irradiance(
                 tx_result.elements,
                 state.wavelength_um,
-                cold_stop_eff,
+                omega_cone_sr,
             )
             nf_irradiance = nf_result.total
         else:

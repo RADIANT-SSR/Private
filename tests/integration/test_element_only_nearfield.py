@@ -52,8 +52,6 @@ def _run(*, with_mirror: bool):
             MIRROR_R,
             wavelength_um=wl,
             temperature_K=OPTICS_TEMP_K,
-            diameter_m=0.30,
-            distance_to_fpa_m=1.2,
         )
         extra_stage_outputs = {"optics_config": {"element_list": (mirror,)}}
     return session.run(params, extra_stage_outputs=extra_stage_outputs)

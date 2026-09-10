@@ -26,23 +26,17 @@ def tmp_yaml(tmp_path: Path) -> Path:
             transfer_mode: REFLECTIVE
             reflectance: 0.98
             temperature_K: 290.0
-            diameter_m: 0.35
-            distance_to_fpa_m: 1.2
 
           - name: secondary_mirror
             transfer_mode: REFLECTIVE
             reflectance: 0.97
             temperature_K: 290.0
-            diameter_m: 0.10
-            distance_to_fpa_m: 0.8
 
           - name: field_lens
             transfer_mode: REFRACTIVE
             transmittance: 0.92
             kind: LENS
             temperature_K: 280.0
-            diameter_m: 0.04
-            distance_to_fpa_m: 0.3
     """)
     p = tmp_path / "sensor.yaml"
     p.write_text(content, encoding="utf-8")
@@ -58,8 +52,6 @@ def cavity_yaml(tmp_path: Path) -> Path:
             transfer_mode: REFLECTIVE
             reflectance: 0.98
             temperature_K: 290.0
-            diameter_m: 0.35
-            distance_to_fpa_m: 1.2
 
           - name: dewar_window
             transfer_mode: REFRACTIVE
@@ -72,8 +64,6 @@ def cavity_yaml(tmp_path: Path) -> Path:
             n_refr: 1.5
             thickness_m: 0.003
             temperature_K: 280.0
-            diameter_m: 0.04
-            distance_to_fpa_m: 0.3
     """)
     p = tmp_path / "cavity_sensor.yaml"
     p.write_text(content, encoding="utf-8")
@@ -111,13 +101,28 @@ class TestLoadElementList:
         np.testing.assert_allclose(lens.transmittance.values, 0.92, atol=1e-12)
 
     @pytest.mark.level1
-    def test_geometry_preserved(self, tmp_yaml: Path) -> None:
-        """Geometry/thermal properties are loaded correctly."""
+    def test_temperature_preserved(self, tmp_yaml: Path) -> None:
+        """Thermal property is loaded correctly (an element has no geometry)."""
         elements = load_element_list(tmp_yaml, wavelength_um=WL)
-        m = elements[0]
-        assert m.temperature_K == 290.0
-        assert m.diameter_m == 0.35
-        assert m.distance_to_fpa_m == 1.2
+        assert elements[0].temperature_K == 290.0
+
+    @pytest.mark.level1
+    @pytest.mark.parametrize("key", ["diameter_m", "distance_to_fpa_m"])
+    def test_removed_geometry_key_is_actionable(self, tmp_path: Path, key: str) -> None:
+        """Gap 128: a deleted element key fails loudly and names the gap."""
+        content = textwrap.dedent(f"""\
+            optical_elements:
+              - name: primary_mirror
+                transfer_mode: REFLECTIVE
+                reflectance: 0.98
+                temperature_K: 290.0
+                {key}: 0.35
+        """)
+        path = tmp_path / "legacy.yaml"
+        path.write_text(content, encoding="utf-8")
+        with pytest.raises(ElementConfigError, match="Gap 128") as exc:
+            load_element_list(path, wavelength_um=WL)
+        assert key in str(exc.value)
 
     @pytest.mark.level1
     def test_cavity_element(self, cavity_yaml: Path) -> None:
@@ -147,8 +152,6 @@ class TestLoadElementList:
                 transfer_mode: REFLECTIVE
                 reflectance: gold_reflectance.csv
                 temperature_K: 290.0
-                diameter_m: 0.35
-                distance_to_fpa_m: 1.2
         """)
         yaml_path = tmp_path / "spectral_sensor.yaml"
         yaml_path.write_text(content, encoding="utf-8")

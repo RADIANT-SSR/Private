@@ -559,8 +559,6 @@ class TestElementSectionPortability:
             "transfer_mode": "REFLECTIVE",
             "reflectance": reflectance,
             "temperature_K": 293.0,
-            "diameter_m": 0.3,
-            "distance_to_fpa_m": 1.0,
         }
 
     @pytest.mark.level1

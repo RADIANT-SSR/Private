@@ -68,6 +68,13 @@ gain = float(spec["System gain"])
 fwc = float(spec["Full well capacity"])
 
 
+# Warm-train coating model (Gap 128). Three fold mirrors at R = 0.98 [-] plus an
+# AR-coated cold window reproduce the workbook's net τ exactly, with an emitting
+# emissivity of ~0.04 [-] instead of the fallacy-era 0.26 [-].
+MIRROR_R = 0.98  # [-] — per-surface reflectance, protected gold
+N_MIRRORS = 3  # three-mirror fore-optics
+
+
 def build_sensor(det_T: float, dark_e_per_s: float, qe: float) -> Sensor:
     s = Sensor()
     s.set("source.target.temperature", float(spec["Shroud temperature"]))
@@ -79,23 +86,35 @@ def build_sensor(det_T: float, dark_e_per_s: float, qe: float) -> Sensor:
     s.set("geometry.sensor_altitude_m", 1.0)
     s.set("optics.aperture_diameter_m", float(spec["Aperture diameter"]), unit="cm")
     s.set("optics.focal_length_m", float(spec["Focal length"]), unit="cm")
-    s.set("optics.nearfield_fraction", float(spec["Nearfield fraction"]))
     s.set("optics.optics_temperature_K", float(spec["Optics temperature"]) + 273.15)
     # Gap 127 (2026-09-09): warm-optics emission derives ONLY from defined
-    # elements. The workbook's τ = 0.74 [-] / ε = 0.26 [-] pair is exactly one
-    # all-absorbing mirror: net throughput R = τ, emissivity 1 − R = ε.
+    # elements. Gap 128 (2026-09-09): the workbook's ε = 26 % is the ε = 1 − τ
+    # fallacy — most of the τ loss is coating reflection and cold-filter
+    # rejection, not absorption. The warm train is modelled as what it is:
+    # MIRROR_R fold mirrors (ε = 1 − R each, Kirchhoff) plus one AR-coated cold
+    # window carrying the balance, so the NET throughput still equals the
+    # workbook's τ exactly while the emitting emissivity is realistic.
+    optics_T_K = float(spec["Optical transmission"]) / 100.0  # [-]
+    window_T = optics_T_K / MIRROR_R**N_MIRRORS  # [-] — balance of the workbook τ
     s.set_optical_elements(
         [
+            *(
+                {
+                    "name": f"fold_mirror_{i + 1}",
+                    "transfer_mode": "REFLECTIVE",
+                    "kind": "MIRROR",
+                    "reflectance": MIRROR_R,  # [-] — protected-gold coating
+                    "temperature_K": float(spec["Optics temperature"]) + 273.15,  # K
+                }
+                for i in range(N_MIRRORS)
+            ),
             {
-                "name": "warm_train",
-                "transfer_mode": "REFLECTIVE",
-                "kind": "MIRROR",
-                # [-] — mirror R = the workbook's optical transmission (% → fraction)
-                "reflectance": float(spec["Optical transmission"]) / 100.0,
+                "name": "cold_window",
+                "transfer_mode": "REFRACTIVE",
+                "kind": "WINDOW",
+                "transmittance": window_T,  # [-] — AR-coated; ε = 0 (Gap 127)
                 "temperature_K": float(spec["Optics temperature"]) + 273.15,  # K
-                "diameter_m": float(spec["Aperture diameter"]) / 100.0,  # cm → m
-                "distance_to_fpa_m": float(spec["Focal length"]) / 100.0,  # cm → m
-            }
+            },
         ]
     )
     s.set("detector.pixel_pitch_x_um", float(spec["Pixel pitch"]))

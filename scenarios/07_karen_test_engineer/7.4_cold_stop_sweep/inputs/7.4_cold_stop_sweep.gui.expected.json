@@ -1,10 +1,10 @@
 {
   "id": "7.4",
-  "title": "Cold-stop sweep \u2014 baseline (unshuttered) config",
+  "title": "Cold-stop undersizing sweep \u2014 baseline (unshuttered) config",
   "metrics": {
-    "snr": 1529.5662698384122,
-    "nedt_K": 0.018888334730927096,
-    "niirs": 23.84666923327147
+    "snr": 1693.3729922722748,
+    "nedt_K": 0.01706119078885023,
+    "niirs": 23.91555260525122
   },
-  "notes": "Runner's module-level baseline config; the sweep varies cold-stop f-number. GUI baseline uses a well-matched gain (512 e-/DN vs the runner's 2.5) so the 14-bit ADC spans the 8.5 Me- well instead of clipping (CU-170)."
+  "notes": "Runner's module-level baseline config; the sweep varies optics.cold_stop_undersize_frac (Gap 128). GUI baseline uses a well-matched gain (512 e-/DN vs the runner's 2.5) so the 14-bit ADC spans the 8.5 Me- well instead of clipping (CU-170)."
 }

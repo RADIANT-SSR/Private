@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import enum
 import logging
-import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -79,12 +78,15 @@ class OpticalElement:
         Spectral transmittance ``T(lambda)``; must be zero for mirrors.
     reflectance:
         Spectral reflectance ``R(lambda)``.
-    diameter_m:
-        Clear aperture diameter of this element in meters.
-    distance_to_fpa_m:
-        Distance from this element to the focal-plane array in meters.
     n_surfaces:
         Number of optical surfaces (for provenance only).
+
+    Notes
+    -----
+    An element carries **no** geometry. Gap 128 deleted ``diameter_m`` and
+    ``distance_to_fpa_m``: near-field emission is seen through the one
+    acceptance cone the working f/# sets, not through a per-element solid
+    angle, which the Lagrange invariant does not permit.
     """
 
     name: str
@@ -92,8 +94,6 @@ class OpticalElement:
     temperature_K: float
     transmittance: SpectralData
     reflectance: SpectralData
-    diameter_m: float
-    distance_to_fpa_m: float
     n_surfaces: int = 1
     transfer_mode: ElementTransferMode | None = None
     cavity: CavityModel | None = None
@@ -142,20 +142,11 @@ class OpticalElement:
                 "transmissive elements."
             )
 
-        # --- Geometry ---
+        # --- Thermal ---
         if self.temperature_K < 0.0:
             raise OpticsValidationError(
                 f"OpticalElement '{self.name}': temperature_K must be >= 0, "
                 f"got {self.temperature_K}."
-            )
-        if self.diameter_m <= 0.0:
-            raise OpticsValidationError(
-                f"OpticalElement '{self.name}': diameter_m must be > 0, got {self.diameter_m}."
-            )
-        if self.distance_to_fpa_m <= 0.0:
-            raise OpticsValidationError(
-                f"OpticalElement '{self.name}': distance_to_fpa_m must be > 0, "
-                f"got {self.distance_to_fpa_m}."
             )
 
     # ------------------------------------------------------------------
@@ -218,21 +209,3 @@ class OpticalElement:
             unit="",
             source=source,
         )
-
-    @property
-    def nearfield_solid_angle_sr(self) -> float:
-        """Solid angle subtended by this element as seen from the FPA [sr].
-
-        ``Omega = pi * (D/2)^2 / d^2``, clipped at ``2*pi`` (half-space).
-        """
-        omega = math.pi * (self.diameter_m / 2.0) ** 2 / self.distance_to_fpa_m**2
-        if omega > 2.0 * math.pi:
-            logger.warning(
-                "OpticalElement '%s': computed solid angle %.4g sr exceeds "
-                "2*pi; clipping to 2*pi. Element fills the half-space; "
-                "nearfield estimate is approximate.",
-                self.name,
-                omega,
-            )
-            return 2.0 * math.pi
-        return omega

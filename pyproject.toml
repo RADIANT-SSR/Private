@@ -222,6 +222,12 @@ ignore_imports = [
     # cross-stage independent — these exceptions cover the test seam only.
     "radiant.*.tests.* -> radiant.api._param_registry",
     "radiant.*.tests.* -> radiant.api.session",
+    # Serialization round-trips in stage tests load/save real configs; the
+    # io layer transitively reaches optics (element factories), which broke
+    # the stage-independence contract through the test seam only
+    # (readout.tests.test_architecture -> io.config, found 2026-09-09 on a
+    # red main gate). Production stage code still cannot import io.
+    "radiant.*.tests.* -> radiant.io.config",
     "radiant.*.tests.* -> radiant.geometry._schema",
     "radiant.*.tests.* -> radiant.source._schema",
     "radiant.*.tests.* -> radiant.atmosphere._schema",
@@ -235,6 +241,9 @@ ignore_imports = [
     "radiant.*.tests.* -> radiant.optics.psf_mono",
     "radiant.*.tests.* -> radiant.optics.sampling",
     "radiant.*.tests.* -> radiant.detector.noise.budget",
+    # Gap 120 D2 handoff: calibration tests drive the real DetectorStage to
+    # prove no double counting (found 2026-09-09 on the same red main gate).
+    "radiant.*.tests.* -> radiant.detector.stage",
     "radiant.*.tests.* -> radiant.atmosphere.exo",
     "radiant.*.tests.* -> radiant.atmosphere.assembly",
 ]

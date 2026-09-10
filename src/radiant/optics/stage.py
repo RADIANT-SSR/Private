@@ -911,10 +911,7 @@ class OpticsStage:
         # can emit (max ε = 0 — scalar/spectral lumps, simple refractives), the
         # temperature contributes nothing and the scene evaluates identically at
         # any value. Warn rather than nag: the schema default stays silent.
-        if (
-            params.get_resolved("optics.optics_temperature_K").provenance
-            is not Provenance.DEFAULT
-        ):
+        if params.get_resolved("optics.optics_temperature_K").provenance is not Provenance.DEFAULT:
             max_eps = max(
                 (float(np.max(elem.emissivity.values)) for elem in tx_result.elements),
                 default=0.0,

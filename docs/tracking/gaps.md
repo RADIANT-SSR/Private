@@ -1788,6 +1788,15 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Impact** | Results-affecting: any scenario using `scalar_emissivity` (shipped SDA + ground-to-air MWIR templates) loses its near-field term; both templates and their comments are corrected in the same change. Removes a public parameter. Kills the misleading `KirchhoffViolationError` on τ edits in scalar mode. |
 | **Suggested fix** | Per the plan: delete the declared-ε path (schema, `transmission_modes`, `element_factories`, `element.py`, stage warnings), enforce the per-surface no-absorption constraint in the cavity factory, fix templates, lock-step docs (RADIANT_Optics.md §5/§7, CLAUDE.md Rule 5 wording), CHANGELOG. Effort M; Category C. |
 
+## Gap 128: Near-field geometry violates étendue — per-element diameter/distance let a warm element exceed the pixel's acceptance cone, and the cold-stop fraction scales emission it cannot physically block
+
+| | |
+|---|---|
+| **Found in** | Owner design discussion, 2026-09-09 (follow-on to Gap 127): adding a mirror (D = 0.3 m, →FPA = 1.0 m) to the f/6 SDA scenario produced Ω = 0.0707 sr of near-field solid angle against a pixel acceptance cone of π/(4N²) ≈ 0.0218 sr — 3.2× more than the Lagrange invariant permits. The legacy scalar lump was étendue-correct only by coincidence (D = aperture, d = focal length ⇒ Ω = π/(4N²) exactly). |
+| **Status** | OPEN — owner-ratified model (2026-09-09): (1) in-cone emission uses the system étendue cone Ω_cone = 2π(1 − cos θ), θ = arctan(1/(2N)) — the only geometry; per-element `diameter_m` / `distance_to_fpa_m` are deleted from the emission calculation, element schema/table, and YAML format; (2) E_nf(λ) = Ω_cone · Σ ε_i·B(λ,T_i)·τ_down,i — in-cone emission arrives through the imaging path and cannot be cold-stopped; (3) a perfect cold stop is ALWAYS assumed (owner: "we will always have a cold stop to block out-of-cone warm structure") — there is no out-of-cone/enclosure term, no shield temperature, and `optics.nearfield_fraction` (+ deprecated alias `cold_stop_efficiency`) is deleted. Known accepted limitations: field-conjugate (direct-view) elements are treated as pupil-filling; uncooled no-cold-stop cameras are out of the near-field model's scope. |
+| **Impact** | Results-affecting for every element-mode scenario: removing the η_cold multiplier raises near-field by 1/η (7.2 ×20, 7.5 ×25, 10.1 ×10), and those scenarios' fallacy-era train emissivities (ε = 0.26–0.32) need realistic per-mirror values in the same pass. Scenario 7.4's subject (cold-stop sweep) ceases to exist under rule (3) and needs owner-directed redesign. Removes two element-table columns and one public parameter. |
+| **Suggested fix** | Plan to follow (`docs/plans/`); physics core + schema deletion + scenario retune in coordinated PRs. Effort M–L; Category C. |
+
 ## Summary Table (retired 2026-09-08)
 
 The per-gap summary table was retired at the early quarterly sweep: its rows

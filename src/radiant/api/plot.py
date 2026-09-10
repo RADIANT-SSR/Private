@@ -994,19 +994,72 @@ def plot_pupil_phase(
     return cast("Figure", fig)
 
 
+# Multiple of the highest physically meaningful frequency (detector Nyquist or the
+# optics cutoff) the default MTF x-axis reaches. The PSF-grid FFT extends to many
+# times both — measured case: a 160 cycles/mrad axis for a 12 cycles/mrad Nyquist
+# and a ~20 cycles/mrad optics cutoff, so ~85 % of the plot was empty space where
+# every curve is ≈ 0 (owner Windows-deployment feedback 2026-09-09). ×2 keeps the
+# Nyquist marker and the roll-off past both limits in view. Presentation-only: it
+# changes no computed value.
+_MTF_FREQ_AXIS_HEADROOM: Final[float] = 2.0
+
+
+def _mtf_frequency_axis_limits(
+    spatial_freq: npt.NDArray[np.float64] | None,
+    *,
+    nyquist_cycles_per_mrad: float | None,
+    optics_cutoff_cycles_per_mrad: float | None,
+    freq_max_cycles_per_mrad: float | None,
+) -> tuple[float, float] | None:
+    """``(lo, hi)`` x-limits for the MTF overlay, or ``None`` to leave the axis alone.
+
+    An explicit *freq_max_cycles_per_mrad* is used as given. Otherwise the axis
+    is clamped to ``_MTF_FREQ_AXIS_HEADROOM × max(Nyquist, optics cutoff)`` over
+    whichever limits are known, capped at the data's own extent. With no
+    frequency axis (index fallback) or no known limit, ``None`` is returned and
+    the axes are left untouched — better an over-wide axis than an invented one.
+    """
+    if spatial_freq is None or len(spatial_freq) == 0:
+        return None
+    data_lo = float(np.min(spatial_freq))
+    data_hi = float(np.max(spatial_freq))
+    if freq_max_cycles_per_mrad is not None:
+        upper = float(freq_max_cycles_per_mrad)
+    else:
+        limits = [
+            float(f)
+            for f in (nyquist_cycles_per_mrad, optics_cutoff_cycles_per_mrad)
+            if f is not None and f > 0.0
+        ]
+        if not limits:
+            return None
+        upper = min(_MTF_FREQ_AXIS_HEADROOM * max(limits), data_hi)
+    if upper <= data_lo:
+        return None
+    return data_lo, upper
+
+
 @_styled
 def plot_mtf_terms(
     mtf_terms: dict[str, npt.NDArray[np.float64]],
     spatial_freq: npt.NDArray[np.float64] | None = None,
     nyquist_cycles_per_mrad: float | None = None,
+    *,
+    system_mtf_x: npt.NDArray[np.float64] | None = None,
+    system_mtf_y: npt.NDArray[np.float64] | None = None,
+    optics_cutoff_cycles_per_mrad: float | None = None,
+    freq_max_cycles_per_mrad: float | None = None,
     **kwargs: Any,
 ) -> Figure:
-    """Plot all MTF terms on a single axis.
+    """Plot the system MTF and all contributor MTF terms on a single axis.
 
     Parameters
     ----------
     mtf_terms:
-        Dict mapping term name → MTF array.
+        Dict mapping **contributor** term name → MTF array. The system product
+        is never read from here — it arrives through *system_mtf_x* /
+        *system_mtf_y*, so the unity collapse and the per-contributor x/y
+        grouping below cannot eat it.
     spatial_freq:
         Spatial frequency axis (cycles/mrad). If None, uses array index.
     nyquist_cycles_per_mrad:
@@ -1015,6 +1068,29 @@ def plot_mtf_terms(
         vertical line in the ink tone, annotated in-plot with its value — the
         sampling limit against which every roll-off is read (owner walkthrough
         item 12). ``None`` omits the marker rather than guessing a pitch.
+    system_mtf_x, system_mtf_y:
+        The **system** MTF product (Π contributors) on the *spatial_freq* grid,
+        per axis — normally ``stage_outputs["performance"]["mtf_budget"]``'s
+        ``system_mtf_x`` / ``system_mtf_y``. Drawn heavier and in the ink tone,
+        labelled ``SYSTEM (x)`` / ``SYSTEM (y)`` — or one ``SYSTEM`` curve when
+        the two coincide within ``atol=1e-9``, the same isotropic-merge
+        convention the contributors use. Never subject to the unity collapse:
+        the total is the point of the plot. ``None`` (a partial chain that ran
+        no MTF budget) simply omits it.
+    optics_cutoff_cycles_per_mrad:
+        The optics diffraction cutoff ``1/(λ·F#)`` on the plotted axis —
+        ``stage_outputs["performance"]["optics_cutoff_freq_cycles_per_mrad"]``.
+        Used only to bound the x-axis (see *freq_max_cycles_per_mrad*); it is
+        not drawn.
+    freq_max_cycles_per_mrad:
+        Upper x-axis limit [cycles/mrad]. ``None`` (default) clamps the axis to
+        ``2 × max(Nyquist, optics cutoff)`` of whichever of the two is known,
+        never beyond the data's own extent — the PSF-grid FFT runs to many
+        times both limits (a measured case: 160 cycles/mrad of axis for a
+        12 cycles/mrad Nyquist and a 20 cycles/mrad cutoff), so ~85 % of the
+        default axis was dead space where every curve is ≈ 0. With neither
+        limit known — or on the index-axis fallback — the axis is left
+        untouched. An explicit value wins outright and is used as given.
     **kwargs:
         Passed to ``ax.plot()``.
 
@@ -1028,13 +1104,28 @@ def plot_mtf_terms(
     (owner-approved Tier-2 redesign, 2026-08-03). If *every* term is at unity
     the plot draws them all rather than rendering empty. When four or fewer
     curves remain they are also direct-labelled at the line; the legend stays
-    (it carries the anisotropic x/y distinctions, CU-117).
+    (it carries the anisotropic x/y distinctions, CU-117). The system curve is
+    outside all of that: it is always drawn when supplied, and always
+    direct-labelled.
 
     Returns
     -------
     Figure
         A matplotlib Figure.
+
+    Raises
+    ------
+    ApiValidationError
+        When *freq_max_cycles_per_mrad* is not positive, or a supplied system
+        curve does not align with the plotted frequency axis.
     """
+    from radiant.api.errors import ApiValidationError
+
+    if freq_max_cycles_per_mrad is not None and freq_max_cycles_per_mrad <= 0.0:
+        raise ApiValidationError(
+            "plot_mtf_terms: freq_max_cycles_per_mrad must be a positive frequency "
+            f"in cycles/mrad, got {freq_max_cycles_per_mrad}."
+        )
     tokens = plot_style.tokens()
     mono = plot_style.mono_family()
     fig, ax = _subplots()
@@ -1043,6 +1134,24 @@ def plot_mtf_terms(
         if spatial_freq is not None:
             return spatial_freq
         return np.arange(len(arr), dtype=np.float64)
+
+    # The plotted window is fixed up front (applied to the axes at the end) so every
+    # direct label can be placed as a fraction of what the reader actually sees. Once
+    # the axis is clamped, a label positioned as a fraction of the *data* extent can
+    # land outside the window entirely.
+    xlim = _mtf_frequency_axis_limits(
+        spatial_freq,
+        nyquist_cycles_per_mrad=nyquist_cycles_per_mrad,
+        optics_cutoff_cycles_per_mrad=optics_cutoff_cycles_per_mrad,
+        freq_max_cycles_per_mrad=freq_max_cycles_per_mrad,
+    )
+
+    def _label_index(xs: npt.NDArray[np.float64], frac: float) -> int:
+        """Index of the sample nearest *frac* of the way across the visible window."""
+        lo = float(xs[0])
+        hi = xlim[1] if xlim is not None else float(xs[-1])
+        target = lo + frac * (hi - lo)
+        return int(np.clip(np.searchsorted(xs, target), 0, len(xs) - 1))
 
     # Group per contributor, splitting the ``_x`` / ``_y`` axis suffix so a contributor's
     # along-track and cross-track roll-off become one legend entry when they coincide
@@ -1112,7 +1221,7 @@ def plot_mtf_terms(
     # without collisions; the legend below still carries every entry.
     if len(drawn) <= 4:
         for i, (label, xs, ys, line) in enumerate(drawn):
-            j = min(len(xs) - 1, int(0.28 * len(xs)) + i * max(1, int(0.09 * len(xs))))
+            j = _label_index(xs, 0.28 + 0.09 * i)
             ax.annotate(
                 label,
                 (float(xs[j]), float(ys[j])),
@@ -1122,6 +1231,54 @@ def plot_mtf_terms(
                 fontweight="semibold",
                 color=line.get_color(),
             )
+
+    # The SYSTEM product — the curve the analyst actually reads a design against
+    # (owner Windows-deployment feedback 2026-09-09: "MTF plot should show the total
+    # MTF not just contributors"). It arrives as its own argument, so none of the
+    # contributor machinery above (unity collapse, x/y grouping) can touch it, and it
+    # is drawn last, heavier and in the ink tone, above every contributor.
+    system_axes: dict[str, npt.NDArray[np.float64]] = {}
+    if system_mtf_x is not None:
+        system_axes["x"] = system_mtf_x
+    if system_mtf_y is not None:
+        system_axes["y"] = system_mtf_y
+    for axis_name, arr in system_axes.items():
+        expected = len(spatial_freq) if spatial_freq is not None else None
+        if expected is not None and len(arr) != expected:
+            raise ApiValidationError(
+                f"plot_mtf_terms: system_mtf_{axis_name} has {len(arr)} samples but the "
+                f"spatial-frequency axis has {expected} — the system product must be "
+                "supplied on the same cycles/mrad grid as the contributor terms."
+            )
+    sx, sy = system_axes.get("x"), system_axes.get("y")
+    system_curves: list[tuple[str, npt.NDArray[np.float64]]] = []
+    if sx is not None and sy is not None and np.allclose(sx, sy, atol=1e-9):
+        system_curves = [("SYSTEM", sx)]  # isotropic — one curve, one label (CU-117 convention)
+    else:
+        system_curves = [(f"SYSTEM ({name})", arr) for name, arr in system_axes.items()]
+    for i, (label, arr) in enumerate(system_curves):
+        xs = _x_axis(arr)
+        system_kwargs: dict[str, Any] = dict(kwargs)
+        system_kwargs.update(
+            color=tokens["ink"],
+            linewidth=2.4,
+            linestyle="-" if i == 0 else (0, (6, 2)),
+            zorder=5,
+        )
+        (line,) = ax.plot(xs, arr, label=label, **system_kwargs)
+        # Stagger the two axes' labels so coincident x/y curves do not stack them.
+        j = _label_index(xs, 0.18 + 0.10 * i)
+        ax.annotate(
+            label,
+            (float(xs[j]), float(arr[j])),
+            xytext=(6, 6),
+            textcoords="offset points",
+            fontsize=10,
+            fontweight="bold",
+            color=line.get_color(),
+            zorder=6,
+        )
+        n_labels += 1
 
     # The detector sampling limit, marked on the axis every roll-off is read against
     # (owner walkthrough item 12). Drawn only with a real frequency axis — on the
@@ -1148,8 +1305,14 @@ def plot_mtf_terms(
 
     ax.set_xlabel("Spatial frequency (cycles/mrad)" if spatial_freq is not None else "Index")
     ax.set_ylabel("MTF")
-    ax.set_title("MTF budget — contributor terms")
+    ax.set_title(
+        "MTF budget — system and contributor terms"
+        if system_curves
+        else "MTF budget — contributor terms"
+    )
     ax.set_ylim(0, 1.05)
+    if xlim is not None:
+        ax.set_xlim(*xlim)
     if unity:
         fig.get_layout_engine().set(rect=(0.0, 0.05, 1.0, 0.95))
         fig.text(

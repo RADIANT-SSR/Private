@@ -43,6 +43,7 @@ from radiant.performance.mtf_budget import compute_mtf_budget
 from radiant.performance.mtf_fraction_table import compute_mtf_fraction_table
 from radiant.performance.nedt import compute_nedt, compute_nedt_from_snr
 from radiant.performance.niirs import compute_niirs
+from radiant.performance.optics_cutoff import optics_cutoff_freq_cycles_per_mrad
 from radiant.performance.path_optical_depth import resolve_path_optical_depth
 from radiant.performance.qsample import compute_q
 from radiant.performance.radiometric_accuracy import compute_radiometric_accuracy
@@ -194,6 +195,24 @@ def _compute_spatial_metrics(
             "nyquist_freq_cycles_per_mrad",
             f_ny * focal_for_nyquist / 1e3,
         )
+        # The optics band edge on the SAME angular axis (performance/optics_cutoff.py):
+        # above 1/(λ·F#) the pupil autocorrelation is identically zero, so every MTF
+        # curve is. Published as data — a view bounding an MTF axis must not re-derive
+        # it in the plot layer.
+        try:
+            f_number_for_cutoff: float = params.get("optics.f_number")
+        except (KeyError, TypeError):
+            f_number_for_cutoff = 0.0
+        if f_number_for_cutoff > 0.0:
+            state = state.with_stage_output(
+                "performance",
+                "optics_cutoff_freq_cycles_per_mrad",
+                optics_cutoff_freq_cycles_per_mrad(
+                    epsf.wavelength_um * 1e-6,
+                    f_number_for_cutoff,
+                    focal_for_nyquist,
+                ),
+            )
     folded_x = compute_folded_mtf(freq_x, mtf_x, f_ny, n_folds=3)
     folded_y = compute_folded_mtf(freq_y, mtf_y, f_ny, n_folds=3)
 

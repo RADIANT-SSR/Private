@@ -838,3 +838,177 @@ class TestCardReadableGeometry:
         # Anchored on the axes' bottom edge (y ≈ 0), horizontally centred.
         assert legend.get_window_extent().y0 <= fig.axes[0].get_window_extent().y0 + 1.0
         matplotlib.pyplot.close(fig)
+
+
+@pytest.mark.level1
+class TestMtfSystemCurve:
+    """Owner Windows-deployment feedback 2026-09-09, item 1: the overlay draws the
+    TOTAL (system) MTF, not only the contributors. The system product arrives as its
+    own argument, so the unity collapse and the x/y grouping cannot touch it."""
+
+    FREQ = np.linspace(0.0, 40.0, 41)
+
+    def _contributors(self) -> dict[str, Any]:
+        roll = np.linspace(1.0, 0.2, 41)
+        return {f"mtf_optics_{axis}": roll.copy() for axis in ("x", "y")}
+
+    def _labels(self, fig: Figure) -> list[str]:
+        legend = fig.axes[0].get_legend()
+        assert legend is not None
+        return [t.get_text() for t in legend.get_texts()]
+
+    def test_isotropic_system_draws_one_bold_ink_curve(self) -> None:
+        from radiant.api import plot_style
+
+        system = np.linspace(1.0, 0.05, 41)
+        fig = plot_mtf_terms(
+            self._contributors(),
+            self.FREQ,
+            system_mtf_x=system.copy(),
+            system_mtf_y=system.copy(),
+        )
+        assert "SYSTEM" in self._labels(fig)
+        assert "SYSTEM (x)" not in self._labels(fig)
+        (sys_line,) = [ln for ln in fig.axes[0].lines if ln.get_label() == "SYSTEM"]
+        np.testing.assert_allclose(
+            np.asarray(sys_line.get_ydata(), dtype=float), system, atol=1e-12
+        )
+        # Visual priority: heavier than any contributor, drawn in the ink tone.
+        others = [ln for ln in fig.axes[0].lines if ln.get_label() != "SYSTEM"]
+        assert all(sys_line.get_linewidth() > ln.get_linewidth() for ln in others)
+        assert sys_line.get_color() == plot_style.tokens()["ink"]
+        assert "system" in fig.axes[0].get_title(loc="left").lower()
+        matplotlib.pyplot.close(fig)
+
+    def test_anisotropic_system_keeps_both_axes_labelled(self) -> None:
+        fig = plot_mtf_terms(
+            self._contributors(),
+            self.FREQ,
+            system_mtf_x=np.linspace(1.0, 0.05, 41),
+            system_mtf_y=np.linspace(1.0, 0.30, 41),
+        )
+        labels = self._labels(fig)
+        assert "SYSTEM (x)" in labels
+        assert "SYSTEM (y)" in labels
+        matplotlib.pyplot.close(fig)
+
+    def test_no_system_curve_when_no_budget(self) -> None:
+        # Partial chain (no MTF budget): the overlay renders exactly as before.
+        fig = plot_mtf_terms(self._contributors(), self.FREQ)
+        assert not [ln for ln in fig.axes[0].lines if "SYSTEM" in str(ln.get_label())]
+        assert fig.axes[0].get_title(loc="left") == "MTF budget — contributor terms"
+        matplotlib.pyplot.close(fig)
+
+    def test_system_at_unity_is_never_collapsed(self) -> None:
+        # Every contributor at unity AND a unity system: contributors take the
+        # draw-them-all fallback, and the system is drawn because it is never a
+        # candidate for the collapse in the first place.
+        ones = np.ones(41)
+        fig = plot_mtf_terms(
+            {"mtf_optics_x": ones.copy(), "mtf_optics_y": ones.copy()},
+            self.FREQ,
+            system_mtf_x=ones.copy(),
+            system_mtf_y=ones.copy(),
+        )
+        assert "SYSTEM" in self._labels(fig)
+        matplotlib.pyplot.close(fig)
+
+    def test_system_survives_a_contributor_unity_collapse(self) -> None:
+        # A unity contributor is collapsed to the caption; the system product (which
+        # rolls off) is still drawn.
+        terms = {
+            "mtf_optics_x": np.linspace(1.0, 0.2, 41),
+            "mtf_ipc_x": np.ones(41),
+        }
+        system = np.linspace(1.0, 0.2, 41)
+        fig = plot_mtf_terms(terms, self.FREQ, system_mtf_x=system)
+        labels = self._labels(fig)
+        assert "SYSTEM (x)" in labels
+        assert "IPC" not in labels  # collapsed to the caption, as before
+        matplotlib.pyplot.close(fig)
+
+    def test_misaligned_system_curve_raises(self) -> None:
+        with pytest.raises(ApiValidationError, match="same cycles/mrad grid"):
+            plot_mtf_terms(self._contributors(), self.FREQ, system_mtf_x=np.ones(7))
+
+
+@pytest.mark.level1
+class TestMtfFrequencyAxisLimit:
+    """Owner Windows-deployment feedback 2026-09-09, item 2: bound the x-axis to the
+    band that carries information (2 × max(Nyquist, optics cutoff)), settable."""
+
+    FREQ = np.linspace(0.0, 160.0, 161)  # cycles/mrad — the raw PSF-grid FFT extent
+
+    def _terms(self) -> dict[str, Any]:
+        return {"mtf_optics_x": np.linspace(1.0, 0.0, 161)}
+
+    def test_default_clamps_to_twice_the_larger_limit(self) -> None:
+        # Nyquist 12 cycles/mrad, optics cutoff 20 cycles/mrad → 2 × 20 = 40 cycles/mrad.
+        fig = plot_mtf_terms(
+            self._terms(),
+            self.FREQ,
+            nyquist_cycles_per_mrad=12.0,
+            optics_cutoff_cycles_per_mrad=20.0,
+        )
+        assert fig.axes[0].get_xlim() == pytest.approx((0.0, 40.0), abs=1e-9)
+        matplotlib.pyplot.close(fig)
+
+    def test_nyquist_marker_stays_inside_the_default_limit(self) -> None:
+        fig = plot_mtf_terms(
+            self._terms(),
+            self.FREQ,
+            nyquist_cycles_per_mrad=12.0,
+            optics_cutoff_cycles_per_mrad=20.0,
+        )
+        assert fig.axes[0].get_xlim()[1] >= 2.0 * 12.0
+        matplotlib.pyplot.close(fig)
+
+    def test_default_with_only_nyquist_known(self) -> None:
+        fig = plot_mtf_terms(self._terms(), self.FREQ, nyquist_cycles_per_mrad=12.0)
+        assert fig.axes[0].get_xlim() == pytest.approx((0.0, 24.0), abs=1e-9)
+        matplotlib.pyplot.close(fig)
+
+    def test_default_with_only_cutoff_known(self) -> None:
+        fig = plot_mtf_terms(self._terms(), self.FREQ, optics_cutoff_cycles_per_mrad=20.0)
+        assert fig.axes[0].get_xlim() == pytest.approx((0.0, 40.0), abs=1e-9)
+        matplotlib.pyplot.close(fig)
+
+    def test_default_never_exceeds_the_data_extent(self) -> None:
+        # 2 × 20 = 40 cycles/mrad, but the data only reaches 25 cycles/mrad.
+        freq = np.linspace(0.0, 25.0, 26)
+        fig = plot_mtf_terms(
+            {"mtf_optics_x": np.linspace(1.0, 0.0, 26)},
+            freq,
+            optics_cutoff_cycles_per_mrad=20.0,
+        )
+        assert fig.axes[0].get_xlim()[1] == pytest.approx(25.0, abs=1e-9)
+        matplotlib.pyplot.close(fig)
+
+    def test_explicit_limit_wins(self) -> None:
+        fig = plot_mtf_terms(
+            self._terms(),
+            self.FREQ,
+            nyquist_cycles_per_mrad=12.0,
+            optics_cutoff_cycles_per_mrad=20.0,
+            freq_max_cycles_per_mrad=100.0,
+        )
+        assert fig.axes[0].get_xlim() == pytest.approx((0.0, 100.0), abs=1e-9)
+        matplotlib.pyplot.close(fig)
+
+    def test_no_limits_known_leaves_the_axis_untouched(self) -> None:
+        fig = plot_mtf_terms(self._terms(), self.FREQ)
+        # matplotlib's autoscale pads the data range; the point is that nothing clamped it.
+        assert fig.axes[0].get_xlim()[1] > 160.0 * 0.99
+        matplotlib.pyplot.close(fig)
+
+    def test_index_axis_fallback_unchanged(self) -> None:
+        # No frequency axis: a cycles/mrad limit would land at a meaningless x position.
+        terms = {"mtf_optics_x": np.linspace(1.0, 0.0, 20)}
+        fig = plot_mtf_terms(terms, nyquist_cycles_per_mrad=12.0)
+        assert fig.axes[0].get_xlabel() == "Index"
+        assert fig.axes[0].get_xlim()[1] > 18.0
+        matplotlib.pyplot.close(fig)
+
+    def test_non_positive_explicit_limit_raises(self) -> None:
+        with pytest.raises(ApiValidationError, match="must be a positive frequency"):
+            plot_mtf_terms(self._terms(), self.FREQ, freq_max_cycles_per_mrad=0.0)

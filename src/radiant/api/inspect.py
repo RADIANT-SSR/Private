@@ -412,22 +412,43 @@ class ResultPlotNamespace:
             )
         return plot_noise_pie(self._result.noise_terms, **kwargs)
 
-    def mtf(self, **kwargs: Any) -> Any:
-        """Plot all MTF terms, with the detector Nyquist limit marked.
+    def mtf(self, *, freq_max_cycles_per_mrad: float | None = None, **kwargs: Any) -> Any:
+        """Plot the system MTF and every contributor term, with Nyquist marked.
+
+        The **system** product is read from
+        ``stage_outputs['performance']['mtf_budget']`` (``system_mtf_x`` /
+        ``system_mtf_y``, already on the chain's cycles/mrad grid) and passed to
+        :func:`~radiant.api.plot.plot_mtf_terms` as its own argument, so the
+        contributor grouping and unity collapse never touch it. A partial chain
+        that ran no MTF budget simply plots the contributors, as before.
 
         The Nyquist frequency is read from
         ``stage_outputs['performance']['nyquist_freq_cycles_per_mrad']`` —
         published by ``PerformanceStage`` on the chain's own angular axis — and
-        drawn as a red dashed vertical line. It is absent (and the marker simply
+        drawn as a dashed vertical line. It is absent (and the marker simply
         omitted) when the chain ran without a focal length.
+
+        Parameters
+        ----------
+        freq_max_cycles_per_mrad:
+            Upper x-axis limit [cycles/mrad]. ``None`` (default) clamps the axis
+            to twice the larger of the detector Nyquist and the optics
+            diffraction cutoff (``optics_cutoff_freq_cycles_per_mrad``), never
+            beyond the data's own extent — the PSF-grid FFT axis runs to many
+            times both limits, where every curve is ≈ 0.
         """
         from radiant.api.plot import plot_mtf_terms
 
         performance = self._result.stage_outputs.get("performance", {})
+        budget = performance.get("mtf_budget")
         return plot_mtf_terms(
             dict(self._result.state.mtf_terms),
             self._result.state.spatial_freq_cycles_per_mrad,
             nyquist_cycles_per_mrad=performance.get("nyquist_freq_cycles_per_mrad"),
+            system_mtf_x=None if budget is None else budget.system_mtf_x,
+            system_mtf_y=None if budget is None else budget.system_mtf_y,
+            optics_cutoff_cycles_per_mrad=performance.get("optics_cutoff_freq_cycles_per_mrad"),
+            freq_max_cycles_per_mrad=freq_max_cycles_per_mrad,
             **kwargs,
         )
 

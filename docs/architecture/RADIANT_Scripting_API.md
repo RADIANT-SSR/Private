@@ -768,7 +768,7 @@ from radiant.api.plot import (
     plot_sweep_2d,       # Sweep2DResult → filled contour
     plot_noise_budget,   # tuple of NoiseTerm → horizontal bar [e- RMS]; scale="log" (default) | "linear"
     plot_psf,            # EffectivePSF → log-scaled 2-D image
-    plot_mtf_terms,      # {name: MTF array}, freq axis → contributor overlay (see legend note)
+    plot_mtf_terms,      # {name: MTF array}, freq axis → system + contributor overlay (see note)
     plot_spectral,       # wavelength [µm], radiance → spectral line plot
     plot_spectral_multi, # wavelength [µm], {label: radiance} → multi-curve spectral plot
     plot_atmosphere_spectral,  # wavelength [µm], τ_atm, L_path → two stacked, x-sharing panels
@@ -817,6 +817,35 @@ are all drawn rather than rendering empty. When four or fewer curves remain they
 direct-labelled at the line. The Nyquist marker draws in the ink tone with an in-plot
 mono annotation (it was a red dashed line).
 
+**`plot_mtf_terms` system curve (2026-09-09, owner Windows-deployment feedback).** The
+overlay draws the **total** MTF, not only the contributors. The system product arrives
+through its own keywords — `system_mtf_x=` / `system_mtf_y=`, normally
+`stage_outputs["performance"]["mtf_budget"].system_mtf_x` / `.system_mtf_y` on the chain's
+cycles/mrad grid — never inside the `mtf_terms` dict, so the unity collapse and the x/y
+grouping cannot eat it. It is drawn last, heavier and in the ink tone, above every
+contributor, labelled `SYSTEM (x)` / `SYSTEM (y)` — or one `SYSTEM` curve when the two
+coincide within `atol=1e-9` (the same isotropic-merge convention the contributors use) —
+and always direct-labelled. It is **never** subject to the unity collapse. A curve whose
+length does not match the frequency axis raises `ApiValidationError`; omitting both
+(a partial chain that ran no MTF budget) renders the contributor-only overlay as before,
+under the title `MTF budget — contributor terms` (the system case reads
+`MTF budget — system and contributor terms`).
+
+**`plot_mtf_terms` x-axis limit (2026-09-09, same feedback).** `freq_max_cycles_per_mrad=`
+sets the upper x-limit [cycles/mrad] outright. The default (`None`) clamps the axis to
+**2 × max(detector Nyquist, optics diffraction cutoff)** over whichever of the two is
+known, never beyond the data's own extent; the cutoff is passed in as
+`optics_cutoff_cycles_per_mrad=` (from
+`stage_outputs["performance"]["optics_cutoff_freq_cycles_per_mrad"]`, published by
+`PerformanceStage` alongside `nyquist_freq_cycles_per_mrad` on the same angular axis) and
+is not itself drawn. The raw axis is the PSF-grid FFT extent, which runs to many times both
+limits — a measured case gave 160 cycles/mrad of axis for a 12 cycles/mrad Nyquist and a
+20 cycles/mrad cutoff, ~85 % of it dead space where every curve is ≈ 0. With neither limit
+known, or on the index-axis fallback (no `spatial_freq`), the axis is left untouched. Since
+the default limit is at least 2 × Nyquist, the Nyquist marker and its annotation are always
+in view. A non-positive explicit limit raises `ApiValidationError`. Presentation only — no
+computed value changes.
+
 ### 5.2 Result plot namespace — `ResultPlotNamespace`
 
 A thin convenience wrapper around the same functions:
@@ -831,7 +860,8 @@ plots.pupil_amplitude()    # 2-D pupil apodization/amplitude map [transmission, 
 plots.pupil_phase()        # 2-D pupil wavefront-error map [waves] (Gap 89)
 plots.noise_budget()       # horizontal bar of result.noise_terms [e- RMS]; log x default, scale="linear" opt
 plots.noise_pie()          # DEPRECATED 2026-08-03 (warns): use noise_budget() — pie kept during deprecation
-plots.mtf()                # all MTF terms vs spatial frequency [cycles/mrad]
+plots.mtf()                # system + contributor MTF vs spatial frequency [cycles/mrad];
+                           # mtf(freq_max_cycles_per_mrad=…) overrides the default x-limit
 plots.mtf_budget()         # per-contributor MTF-at-Nyquist bar chart (Gap 19)
 plots.spectral_source()          # target (+ background) at-aperture radiance vs λ [W/m²/sr/µm]
 plots.spectral_source_emission() # target (+ background) PRE-atmosphere source radiance vs λ [W/m²/sr/µm]

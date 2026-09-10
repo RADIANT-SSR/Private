@@ -21,6 +21,20 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **MTF overlay draws the total (SYSTEM) MTF** — `result.plot.mtf()` (and
+  `radiant.api.plot.plot_mtf_terms`, via new `system_mtf_x=` / `system_mtf_y=`
+  keywords) now draws the system product from
+  `stage_outputs["performance"]["mtf_budget"]` above the contributors: ink
+  tone, heavier line, labelled `SYSTEM (x)` / `SYSTEM (y)` — or one `SYSTEM`
+  curve when the axes coincide — and never subject to the unity collapse. A
+  partial chain with no MTF budget renders the contributor-only overlay
+  exactly as before (owner Windows-deployment feedback 2026-09-09).
+- **New performance stage output `optics_cutoff_freq_cycles_per_mrad`** — the
+  optics diffraction cutoff `1/(λ·F#)` published on the chain's angular axis
+  in cycles/mrad, alongside `nyquist_freq_cycles_per_mrad`, from the new
+  `radiant.performance.optics_cutoff` module. Published only when the focal
+  length and f-number are both known. Output only — no schema change, no
+  metric changes.
 - **Six worked examples ship in the wheel (Gap 126)** — the welcome screen
   gains a "Worked examples" group: five scenario-derived studies (MWIR
   maritime surveillance, airborne hotspot detection, off-nadir agility,
@@ -47,6 +61,14 @@ retroactively reconstructed.
   Scenarios remain repo-only by owner ruling (2026-09-08).
 
 ### Changed
+- **MTF overlay x-axis is bounded, and settable** — the default x-limit is now
+  `2 × max(detector Nyquist, optics cutoff)` cycles/mrad, capped at the data's
+  own extent, instead of the full PSF-grid FFT extent (a measured case: 40
+  cycles/mrad of useful axis inside 160 cycles/mrad of plot, ~85 % dead space
+  where every curve is ≈ 0). The new `freq_max_cycles_per_mrad=` keyword on
+  `result.plot.mtf()` / `plot_mtf_terms` overrides it; the index-axis fallback
+  and the no-limits-known case leave the axis untouched. Presentation only —
+  no computed value changes (owner Windows-deployment feedback 2026-09-09).
 - **Scripting console upgraded to a Jupyter kernel (CU-138)** — with the
   `gui` extra's `qtconsole` installed, the Command Window is now a
   `RichJupyterWidget` over an in-process kernel: syntax highlighting, tab

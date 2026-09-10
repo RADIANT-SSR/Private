@@ -122,6 +122,71 @@ class TestResultPlotNamespace:
             ns.psf()
 
 
+@pytest.mark.level1
+class TestMtfAccessor:
+    """result.plot.mtf() sources the SYSTEM curve and the axis limits from the
+    performance stage outputs (owner Windows-deployment feedback 2026-09-09)."""
+
+    FREQ = np.linspace(0.0, 160.0, 161)
+
+    @staticmethod
+    def _budget(system: np.ndarray, freq: np.ndarray):  # type: ignore[no-untyped-def]
+        from radiant.performance.mtf_budget import MTFBudgetResult
+
+        return MTFBudgetResult(
+            freq_cycles_per_mrad=freq,
+            system_mtf_x=system,
+            system_mtf_y=system,
+            per_term={},
+            per_term_at_nyquist={},
+            system_mtf_at_nyquist_x=float(system[12]),
+            system_mtf_at_nyquist_y=float(system[12]),
+            dominant_contributor_at_nyquist_x="mtf_optics_x",
+            dominant_contributor_at_nyquist_y="mtf_optics_y",
+        )
+
+    def _state(self, *, with_budget: bool) -> ChainState:
+        state = ChainState(wavelength_um=np.linspace(3.5, 5.0, 6))
+        state = state.with_spatial_freq(self.FREQ)
+        state = state.with_mtf("mtf_optics_x", np.linspace(1.0, 0.0, 161))
+        state = state.with_mtf("mtf_optics_y", np.linspace(1.0, 0.0, 161))
+        # cycles/mrad, as PerformanceStage publishes them.
+        state = state.with_stage_output("performance", "nyquist_freq_cycles_per_mrad", 12.0)
+        state = state.with_stage_output("performance", "optics_cutoff_freq_cycles_per_mrad", 20.0)
+        if with_budget:
+            system = np.linspace(1.0, 0.0, 161) ** 2
+            state = state.with_stage_output(
+                "performance", "mtf_budget", self._budget(system, self.FREQ)
+            )
+        return state
+
+    def test_system_curve_drawn_from_the_budget(self) -> None:
+        fig = ResultPlotNamespace(ChainResult(self._state(with_budget=True))).mtf()
+        labels = [ln.get_label() for ln in fig.axes[0].lines]
+        assert "SYSTEM" in labels
+        (system_line,) = [ln for ln in fig.axes[0].lines if ln.get_label() == "SYSTEM"]
+        np.testing.assert_allclose(
+            np.asarray(system_line.get_ydata(), dtype=float),
+            np.linspace(1.0, 0.0, 161) ** 2,
+            atol=1e-12,
+        )
+
+    def test_no_budget_renders_contributors_only(self) -> None:
+        fig = ResultPlotNamespace(ChainResult(self._state(with_budget=False))).mtf()
+        assert not [ln for ln in fig.axes[0].lines if "SYSTEM" in str(ln.get_label())]
+
+    def test_default_axis_clamps_to_twice_the_optics_cutoff(self) -> None:
+        # max(Nyquist 12, cutoff 20) cycles/mrad × 2 = 40 cycles/mrad (data reaches 160).
+        fig = ResultPlotNamespace(ChainResult(self._state(with_budget=True))).mtf()
+        assert fig.axes[0].get_xlim()[1] == pytest.approx(40.0, abs=1e-9)
+
+    def test_explicit_frequency_limit_threads_through(self) -> None:
+        fig = ResultPlotNamespace(ChainResult(self._state(with_budget=True))).mtf(
+            freq_max_cycles_per_mrad=75.0
+        )
+        assert fig.axes[0].get_xlim()[1] == pytest.approx(75.0, abs=1e-9)
+
+
 class TestNoisePieAccessor:
     """PS-3 Part A: result.plot.noise_pie() — variance-share pie over result.noise_terms."""
 

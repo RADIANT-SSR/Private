@@ -239,3 +239,24 @@ class TestPSFPathMetrics:
 
     def test_snr_positive(self, result) -> None:
         assert result.metrics["snr"] > 0.0
+
+
+@pytest.mark.level2
+class TestBandLimitOutputs:
+    """PerformanceStage publishes both band limits on the chain's angular axis, so a
+    view can bound an MTF axis without re-deriving a conversion (2026-09-09)."""
+
+    def test_optics_cutoff_published_in_cycles_per_mrad(self, result) -> None:
+        perf = result.stage_outputs["performance"]
+        cutoff = perf["optics_cutoff_freq_cycles_per_mrad"]
+        # Independent form: the angular cutoff is D / λ [cycles/rad] → /1e3 for mrad.
+        lam_m = perf["effective_psf"].wavelength_um * 1e-6
+        assert cutoff == pytest.approx(D / (lam_m * 1e3), rel=1e-12)
+
+    def test_nyquist_below_optics_cutoff_for_this_undersampled_case(self, result) -> None:
+        perf = result.stage_outputs["performance"]
+        # Q = λ·F#/pitch < 2 here, so the detector undersamples the optics: the
+        # sampling limit sits below the optics band edge. Both are cycles/mrad.
+        assert (
+            0.0 < perf["nyquist_freq_cycles_per_mrad"] < perf["optics_cutoff_freq_cycles_per_mrad"]
+        )

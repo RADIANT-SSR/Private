@@ -106,8 +106,6 @@ class TestEditorRoundTrip:
                     "transfer_mode": "REFLECTIVE",
                     "reflectance": 0.95,
                     "temperature_K": 280.0,
-                    "diameter_m": 0.3,
-                    "distance_to_fpa_m": 1.0,
                 }
             ]
         )
@@ -128,8 +126,6 @@ class TestEditorRoundTrip:
                     "transfer_mode": "REFLECTIVE",
                     "reflectance": 0.95,
                     "temperature_K": 280.0,
-                    "diameter_m": 0.3,
-                    "distance_to_fpa_m": 1.0,
                 }
             ]
         )
@@ -478,13 +474,25 @@ class TestEntryFaithfulness:
         return sensor, editor
 
     def test_absent_keys_render_as_empty_cells(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """No invented 0.1 / 1.0 / 293.0 — an unspecified key is a blank cell."""
+        """No invented 293.0 — an unspecified key is a blank cell."""
         _sensor, editor = self._bound(qtbot, self._MINIMAL)
-        for row in range(3):
-            assert editor.table.item(row, 5).text() == ""  # Diam (m)
-            assert editor.table.item(row, 6).text() == ""  # →FPA (m)
         assert editor.table.item(0, 4).text() == ""  # T (K), unspecified on the mirrors
         assert editor.table.item(2, 4).text() == "240.0"  # …and shown where it is authored
+
+    def test_retired_geometry_cells_are_inert(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Gap 128: Diam / →FPA own no key, so they are read-only em-dashes.
+
+        An editable cell that changes nothing is a silent no-op (Rule 17); the
+        columns themselves come out with the Transmission-tab redesign.
+        """
+        from PySide6.QtCore import Qt
+
+        _sensor, editor = self._bound(qtbot, self._MINIMAL)
+        for row in range(3):
+            for column in (5, 6):  # Diam (m), →FPA (m)
+                item = editor.table.item(row, column)
+                assert item.text() == "—"
+                assert not (item.flags() & Qt.ItemFlag.ItemIsEditable)
 
     def test_rendering_the_table_round_trips_the_document(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Render → serialize with no edit at all is the identity on every entry."""
@@ -537,12 +545,12 @@ class TestEntryFaithfulness:
     def test_typing_into_an_empty_cell_writes_the_key(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """A blank cell writes nothing; a value typed into it is a real edit."""
         sensor, editor = self._bound(qtbot, self._MINIMAL)
-        editor.table.item(0, 5).setText("0.3")  # Diam (m), previously unspecified
+        editor.table.item(0, 4).setText("293.0")  # T (K), previously unspecified
 
         committed = sensor.optical_elements()
         assert committed is not None
-        assert committed[0] == dict(self._MINIMAL[0]) | {"diameter_m": 0.3}
-        assert "diameter_m" not in committed[1]
+        assert committed[0] == dict(self._MINIMAL[0]) | {"temperature_K": 293.0}
+        assert "temperature_K" not in committed[1]
 
     def test_clearing_a_cell_removes_the_key(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         sensor, editor = self._bound(qtbot, self._MINIMAL)

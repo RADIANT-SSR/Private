@@ -33,8 +33,6 @@ def _mirror(name: str, reflectance: float = 0.97, temperature_K: float = 293.0) 
         "transfer_mode": "REFLECTIVE",
         "reflectance": reflectance,
         "temperature_K": temperature_K,
-        "diameter_m": 0.30,
-        "distance_to_fpa_m": 0.9,
     }
 
 
@@ -48,8 +46,6 @@ def _train() -> list[dict[str, Any]]:
             "kind": "FILTER",
             "transmittance": 0.90,
             "temperature_K": 240.0,
-            "diameter_m": 0.05,
-            "distance_to_fpa_m": 0.05,
         },
     ]
 
@@ -325,8 +321,6 @@ class TestInlineSpectralTables:
                 "transfer_mode": "REFLECTIVE",
                 "reflectance": {"wavelength_um": [3.0, 5.0], "values": [0.97, 0.98]},
                 "temperature_K": 293.0,
-                "diameter_m": 0.3,
-                "distance_to_fpa_m": 1.0,
             }
         ]
         grid = np.linspace(3.4, 5.0, 30)

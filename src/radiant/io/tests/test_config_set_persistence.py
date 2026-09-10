@@ -96,8 +96,6 @@ class TestRoundTrip:
                     "transfer_mode": "REFLECTIVE",
                     "reflectance": 0.97,
                     "temperature_K": 293.0,
-                    "diameter_m": 0.30,
-                    "distance_to_fpa_m": 0.9,
                 }
             ]
         )

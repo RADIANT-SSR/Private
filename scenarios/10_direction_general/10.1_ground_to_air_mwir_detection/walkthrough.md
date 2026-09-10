@@ -80,21 +80,29 @@ Vendor datasheet quantities, and the canonical value each converts to exactly on
 | Nozzle emissivity | 0.90 | – | 0.90 | – | none (material property — Rule 5 does not bind a scene target) |
 | Pointing zenith | 0 … 60 | deg | 0 … 1.047 | rad | × π/180 |
 
-**The one conversion that can silently ruin the answer** is the cold shield. The vendor
-quotes the *blocked* fraction ("90 % efficient"); `optics.nearfield_fraction` is the
-*passed* fraction. Getting it backwards puts 10× the warm-optics flux on the focal
-plane. The scenario carries `nearfield_fraction = 0.10`, and the warm-optics nearfield
-term contributes 1.35 × 10⁴ e⁻ against a 1.508 × 10⁵ e⁻ sky background at the nominal
-point — 9 %, real but not dominant.
+**The datasheet number with no model home** is the cold shield. The vendor quotes a
+*blocked* fraction ("90 % efficient"), and RADIANT no longer accepts it as an input
+(Gap 128, 2026-09-09): a cold stop cannot attenuate **in-cone** warm-optics emission —
+that light arrives through the imaging path itself — and out-of-cone warm structure is
+taken to be blocked completely. What a cold stop *does* control is the size of the
+pupil, `optics.cold_stop_undersize_frac`, which is 0 [-] here because the datasheet
+declares no tolerancing allowance. Warm-optics near-field now contributes
+2.41 × 10⁴ e⁻ against the sky background at the nominal point.
 
-**Where the warm-optics emissivity comes from (Gap 127, 2026-09-09).** Near-field
-emission derives *only* from defined elements, so the camera train is entered as one
-all-absorbing mirror in an `optical_elements:` list — reflectance R = 0.75 [-] (the
-datasheet's optical transmission), temperature 293.15 K, diameter 0.100 m,
-distance-to-FPA 0.200 m. Kirchhoff then gives ε = 1 − R = 0.25 [-], matching the
-datasheet's train emissivity, and the net throughput is R itself. This replaced the
-removed `optics.scalar_emissivity` / `optics.transmission_scalar` pair; the
-substitution is mathematically exact and **no metric in this walkthrough moved**.
+**Where the warm-optics emissivity comes from (Gap 127/128, 2026-09-09).** Near-field
+emission derives *only* from defined elements, and the datasheet's single "train
+emissivity" of 25 % is the ε = 1 − τ fallacy — it reads the whole optical loss as
+absorption. The camera train is entered as what it physically is: three fold mirrors at
+R = 0.98 [-] (Kirchhoff ε = 0.02 [-] each) plus an AR-coated cold window carrying the
+balance, so the **net throughput is still the datasheet's τ = 0.75 [-] exactly** while
+the emitting emissivity is a realistic 0.06 [-]. An element carries no geometry: every
+in-beam element is seen through the one étendue acceptance cone
+Ω_cone = 2π(1 − cos θ) = 0.18760 sr at f/2.0.
+
+**What moved (Gap 128 retune).** SNR 144.64 → 142.23 [-] (−1.67 %), NEDT 610.8 → 621.2
+mK (+1.70 %), near-field 1.348 × 10⁴ → 2.413 × 10⁴ e⁻ (+79 %). Signal, A_collect and
+MTF are unchanged: the cold stop is matched to the pupil, so only the near-field term
+moved.
 
 The trial is a **night** run (`geometry.solar_illumination = "night"`).
 

@@ -32,7 +32,7 @@ Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R). Registry mirror:
 **Severity**: Low (documentation)
 **Status**: CLOSED — registry Gap 12
 **Description**: The old parameter name `cold_stop_efficiency` was inverted from the vendor convention (RADIANT 1.0 = no cold stop; vendor 100% = perfect blocking), a recurring source of confusion.
-**Resolution**: Renamed to `optics.nearfield_fraction` (deprecated alias retained). The name now states what the value is — the fraction of the FPA hemisphere filled by warm-emitting elements — and the script converts explicitly: η_nf = 1 − vendor efficiency.
+**Resolution**: Renamed to `optics.nearfield_fraction` (Gap 12), then **DELETED outright** by Gap 128 (2026-09-09): a cold stop cannot attenuate in-cone warm-optics emission, so no leakage fraction of any name was physical. The cold stop is now modelled as what it is — the aperture stop, slightly undersized (`optics.cold_stop_undersize_frac` [-]). Setting either old name raises an actionable error naming Gap 128.
 
 ## Gap 6: Lab/TVAC scenario must masquerade as the 'space' sub-case
 **Severity**: Medium
@@ -47,7 +47,7 @@ Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R). Registry mirror:
 |-----|----------------|----------------|
 | Inverse solver | Sweep + interpolation workaround | `Sensor.solve_for` — CLOSED (Gap 10) |
 | Nearfield = 0 in scalar mode | Scenario-limiting | one defined mirror element, ε = 1 − R — CLOSED (Gap 37, converted under Gap 127) |
-| Convention mismatch | Confusing name | `optics.nearfield_fraction` rename — CLOSED (Gap 12) |
+| Convention mismatch | Confusing name | Renamed (Gap 12), then the parameter was DELETED as unphysical (Gap 128) |
 | NEDT metric | Not available | `result.metrics["nedt_K"]` — CLOSED |
 | NIIRS metric | Not available | `result.metrics["niirs"]` — CLOSED |
 | GSD metric | Not available | `result.metrics["gsd_geometric_mean_m"]` — CLOSED |

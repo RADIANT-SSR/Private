@@ -349,8 +349,6 @@ def filter_to_element(
     spec: FilterSpec,
     wavelength_um: np.ndarray,
     temperature_K: float,
-    diameter_m: float,
-    distance_to_fpa_m: float,
     default_reflectance_per_surface: float = 0.005,
 ) -> OpticalElement:
     """Create an OpticalElement of kind FILTER from a FilterSpec.
@@ -363,10 +361,6 @@ def filter_to_element(
         Wavelength grid.
     temperature_K:
         Filter temperature in Kelvin.
-    diameter_m:
-        Clear aperture of the filter.
-    distance_to_fpa_m:
-        Distance from filter to FPA.
     default_reflectance_per_surface:
         Per-surface Fresnel reflectance for coated substrates (default 0.5%).
     """
@@ -400,7 +394,5 @@ def filter_to_element(
         temperature_K=temperature_K,
         transmittance=tau_clipped,
         reflectance=rho,
-        diameter_m=diameter_m,
-        distance_to_fpa_m=distance_to_fpa_m,
         n_surfaces=n_surfaces,
     )

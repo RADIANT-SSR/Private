@@ -58,9 +58,9 @@ workbook (or use `Sensor.get_input`) when you need the display unit.**
 ## Non-Gap Observations
 
 - **The deprecated-alias mechanism works end-to-end**: sensor C's YAML
-  still carries the pre-Gap-12 `optics.cold_stop_efficiency`; RADIANT
+  still carries the pre-ADR-0006 `platform.h_sensor`; RADIANT
   accepted it with one `DeprecationWarning` and mapped it to
-  `optics.nearfield_fraction` — the config ran, loudly.
+  `geometry.sensor_altitude_m` — the config ran, loudly.
 - **Off-nadir range uses the chain's own spherical-Earth slant range**
   (`radiant.core.geometry.slant_range_spherical_m`), the same function GSD
   uses — a flat-earth sec(θ) would disagree with the chain's geometry at

@@ -1778,6 +1778,16 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Impact** | Maritime sun-glint and low-sun specular-background scenes read as diffuse: background radiance is underestimated near the specular lobe, overstating target contrast exactly where glint clutter dominates real detection performance. |
 | **Suggested fix** | Let the background material definition accept an optional BRDF, mirroring the target-side plumbing, and route it through the ground-reflection term in the assembly. Results-affecting only when a BRDF is specified (diffuse default preserves all golden results). Effort M; Category C. |
 
+## Gap 127: Scalar-mode near-field emission has no physical surface behind it — `optics.scalar_emissivity` invites the ε = 1 − τ fallacy; emission must derive only from defined elements
+
+| | |
+|---|---|
+| **Found in** | Owner Windows-deployment feedback + design discussion, 2026-09-09. The shipped SDA template declared `scalar_emissivity: 0.4` as "Kirchhoff-consistent with T=0.6"; retuning its band to 6–11 µm produced a 7,739 e⁻ RMS near-field shot term (599× full well, unflagged) from an emissivity that equates 1 − τ with absorptance. Kirchhoff equates emissivity to *absorptance*; most of a real train's 1 − τ is reflection/scatter/geometric loss, not absorption. |
+| **Status** | OPEN — owner-ratified design (2026-09-09): four rules replacing the declared-ε shoehorn. Plan: `docs/plans/Optics_Emission_Model_Rules.md`. |
+| **Description** | Owner-ratified model rules: (1) scalar-τ mode (and spectral-file mode) computes **no near-field** — the lumped pseudo-element never emits, and `optics.scalar_emissivity` (with the LUMPED `declared_emissivity` carve-out in Rule 5) is removed; (2) mirrors emit ε = 1 − R (already shipped); (3) simple refractive elements are %T-only, ε = 0, no near-field (already shipped); (4) the complex refractive element holds Kirchhoff per surface with **no coating absorption** (per-surface T + R = 1, one derived from the other) and derives emissivity from bulk absorption α, thickness, temperature (full cavity expression; ε ≈ αt in the weak-absorption limit). Near-field emission thereafter exists only when real elements are defined. Warm-enclosure emission (the uncooled-cavity limit where ε_eff = 1 − τ is genuinely correct) is out of scope for the optical train — it belongs to the stray/thermal path (`optics.stray_includes_thermal`). |
+| **Impact** | Results-affecting: any scenario using `scalar_emissivity` (shipped SDA + ground-to-air MWIR templates) loses its near-field term; both templates and their comments are corrected in the same change. Removes a public parameter. Kills the misleading `KirchhoffViolationError` on τ edits in scalar mode. |
+| **Suggested fix** | Per the plan: delete the declared-ε path (schema, `transmission_modes`, `element_factories`, `element.py`, stage warnings), enforce the per-surface no-absorption constraint in the cavity factory, fix templates, lock-step docs (RADIANT_Optics.md §5/§7, CLAUDE.md Rule 5 wording), CHANGELOG. Effort M; Category C. |
+
 ## Summary Table (retired 2026-09-08)
 
 The per-gap summary table was retired at the early quarterly sweep: its rows

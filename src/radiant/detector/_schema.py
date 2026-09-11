@@ -51,6 +51,70 @@ FILL_FACTOR = ParameterDef(
 )
 
 # ---------------------------------------------------------------------------
+# Pixel sampling phase — straddle factor (Gap 129)
+# ---------------------------------------------------------------------------
+#
+# Where the geometric image of a point-source / sub-pixel target lands on the
+# pixel grid. The EE_box the chain applies (Rule 9) is evaluated at this phase:
+# ``average`` is the expectation over a source uniformly placed across one
+# pitch (the shipped behaviour before Gap 129 — rect ⊛ rect = triangle),
+# ``centered`` puts the image on a pixel centre, ``worst_case`` on a four-pixel
+# corner, ``specified`` at (pixel_phase_x, pixel_phase_y) pitches from the
+# centre. Ignored in the extended regime (EE_box ≡ 1). Owned here because the
+# grid is the detector's and the box is defined by pitch + fill factor above;
+# evaluated in PlatformStage from the fully degraded PSF.
+
+PIXEL_PHASE_MODE = ParameterDef(
+    name="detector.pixel_phase_mode",
+    description=(
+        "Pixel sampling phase (straddle) convention for point-source / sub-pixel "
+        "EE_box: average (uniform over one pitch — expectation), centered (image on "
+        "a pixel centre), worst_case (image on a four-pixel corner), specified "
+        "(pixel_phase_x / pixel_phase_y)."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="average",
+    enum_values=("average", "centered", "worst_case", "specified"),
+    tags=frozenset({"detector", "pixel", "spatial"}),
+    default_justification=(
+        "The phase average is the expected signal for a randomly placed source and "
+        "is bit-identical to the pre-Gap-129 chain value."
+    ),
+)
+
+PIXEL_PHASE_X = ParameterDef(
+    name="detector.pixel_phase_x",
+    description=(
+        "Cross-track offset of the geometric image point from the pixel centre, as a "
+        "fraction of the pixel pitch (0 = centred, ±0.5 = pixel edge). Used only when "
+        "pixel_phase_mode = specified."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=0.0,
+    bounds=(-0.5, 0.5),
+    tags=frozenset({"detector", "pixel", "spatial"}),
+)
+
+PIXEL_PHASE_Y = ParameterDef(
+    name="detector.pixel_phase_y",
+    description=(
+        "Along-track offset of the geometric image point from the pixel centre, as a "
+        "fraction of the pixel pitch (0 = centred, ±0.5 = pixel edge). Used only when "
+        "pixel_phase_mode = specified."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=0.0,
+    bounds=(-0.5, 0.5),
+    tags=frozenset({"detector", "pixel", "spatial"}),
+)
+
+# ---------------------------------------------------------------------------
 # Quantum efficiency
 # ---------------------------------------------------------------------------
 #
@@ -406,6 +470,9 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     PIXEL_PITCH_X,
     PIXEL_PITCH_Y,
     FILL_FACTOR,
+    PIXEL_PHASE_MODE,
+    PIXEL_PHASE_X,
+    PIXEL_PHASE_Y,
     QE_VALUE,
     QE_TABLE_PATH,
     QE_TEMPERATURE_COEFF_PER_K,

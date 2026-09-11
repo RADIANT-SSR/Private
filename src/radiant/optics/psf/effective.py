@@ -12,12 +12,14 @@ See RADIANT_Spatial_Complete.md §2.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
 
 from radiant.optics.errors import OpticsValidationError
+from radiant.optics.pixel_phase import resolve_pixel_phase
 from radiant.optics.psf.fft_convolve import convolve_centered
 
 
@@ -201,10 +203,75 @@ class EffectivePSF:
 
         return float(np.einsum("i,j,ij->", w, w, self.data[lo:hi, lo:hi]))
 
-    def ensquared_energy_nxn(self, n_pixels: int) -> float:
-        """EE within an n×n pixel box centred on the PSF."""
-        half_width = (n_pixels / 2.0) * self.pixel_pitch_m
-        return self.ensquared_energy(half_width)
+    def ensquared_energy_nxn(
+        self,
+        n_pixels: int,
+        *,
+        phase_mode: str = "average",
+        phase: tuple[float, float] = (0.0, 0.0),
+    ) -> float:
+        """EE collected by an n×n pixel block at the selected pixel sampling phase.
+
+        ``phase_mode`` is the straddle convention (Gap 129; see
+        :mod:`radiant.optics.pixel_phase` and RADIANT_Spatial_Complete.md §6.1):
+
+        - ``"average"`` — expectation over a source uniformly placed across one
+          pitch. This is the pitch-wide box integral of ``data``: with the
+          photosite rect already convolved in, rect ⊛ rect is a triangle, and
+          the box integral of the pixel-convolved PSF *is* the phase average.
+        - ``"centered"`` / ``"worst_case"`` / ``"specified"`` — the block's
+          energy at one phase, via :meth:`pixel_block_energy_at`.
+        """
+        offset = resolve_pixel_phase(phase_mode, phase[0], phase[1])
+        if offset is None:
+            half_width = (n_pixels / 2.0) * self.pixel_pitch_m
+            return self.ensquared_energy(half_width)
+        return self.pixel_block_energy_at(n_pixels, offset[0], offset[1])
+
+    def pixel_block_energy_at(self, n_pixels: int, dx_pix: float, dy_pix: float) -> float:
+        """Energy in an n×n pixel block whose centre is displaced from the image point.
+
+        Exact identity, not a second box integral: the photosite rect
+        ``rect_w`` (unit sum on the sample grid) is already convolved into
+        ``data``, so ``data(δ)·(p/Δ)²`` is ``∫∫ PSF(x)·rect_p(x − δ) dx`` — the
+        energy a full-pitch box at phase δ collects (the fill factor is applied
+        downstream, CU-074, so the value is normalised to the pitch box for every
+        ``fill_factor``). The block is the sum over its pixel centres
+        ``δ + (i, j)·p``; ``data`` is read by bilinear interpolation.
+
+        Parameters
+        ----------
+        n_pixels:
+            Block side length in pixels (≥ 1).
+        dx_pix, dy_pix:
+            Displacement of the block centre from the PSF grid centre (the
+            chief-ray image point), in pixel pitches.
+
+        Raises
+        ------
+        OpticsValidationError
+            If the pixel-aperture kernel has not been convolved in (the identity
+            needs it), or ``n_pixels < 1``.
+        """
+        if n_pixels < 1:
+            raise OpticsValidationError(f"n_pixels must be >= 1, got {n_pixels}")
+        if "pixel_aperture" not in self.convolution_history:
+            raise OpticsValidationError(
+                "pixel_block_energy_at needs the pixel-aperture kernel convolved in "
+                f"(history: {self.convolution_history}); the point-evaluation identity "
+                "EE(δ) = data(δ)·(p/Δ)² holds only for the pixel-convolved PSF. Use "
+                "ensquared_energy(...) on an optics-only PSF."
+            )
+        spp = self.pixel_pitch_m / self.sample_spacing_m
+        n = self.data.shape[0]
+        center = n // 2
+        total = 0.0
+        for i in range(n_pixels):
+            for j in range(n_pixels):
+                col = center + (dx_pix + (i - (n_pixels - 1) / 2.0)) * spp
+                row = center + (dy_pix + (j - (n_pixels - 1) / 2.0)) * spp
+                total += _bilinear(self.data, row, col)
+        return float(total * spp * spp)
 
     # -- LSF, ERF, RER ------------------------------------------------------
 
@@ -312,3 +379,22 @@ class EffectivePSF:
         if ref_peak == 0.0:
             raise OpticsValidationError("Reference PSF peak is zero.")
         return self.peak / ref_peak
+
+
+def _bilinear(data: npt.NDArray[np.float64], row: float, col: float) -> float:
+    """Bilinearly interpolate ``data`` at fractional ``(row, col)``; 0 outside the grid."""
+    n_rows, n_cols = data.shape
+    if row < 0.0 or col < 0.0 or row > n_rows - 1 or col > n_cols - 1:
+        return 0.0
+    r0 = int(math.floor(row))
+    c0 = int(math.floor(col))
+    r1 = min(r0 + 1, n_rows - 1)
+    c1 = min(c0 + 1, n_cols - 1)
+    fr = row - r0
+    fc = col - c0
+    return float(
+        data[r0, c0] * (1.0 - fr) * (1.0 - fc)
+        + data[r1, c0] * fr * (1.0 - fc)
+        + data[r0, c1] * (1.0 - fr) * fc
+        + data[r1, c1] * fr * fc
+    )

@@ -118,8 +118,8 @@ OUTPUT_UNITS: dict[str, str] = {
     "EE_box": "",
     "EE_box_centered": "",
     "straddle_factor": "",
-    "pixel_phase_x_pix": "pixel",
-    "pixel_phase_y_pix": "pixel",
+    "pixel_phase_x_pix": "",
+    "pixel_phase_y_pix": "",
 }
 
 

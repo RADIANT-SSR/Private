@@ -99,6 +99,15 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: results-affecting (intake test 1) for any up/down DROIC configuration with defined warm optical elements; the whole point of the reference phase is to subtract the standing pedestal, and near-field emission is exactly a standing pedestal.
 **Suggested fix**: (b) stand-alone task once the owner rules on D6's scope — if the reference phase is a real second integration of the same pixel, both terms belong in `q_down_per_pixel` under both reference sources (near-field and stray are incident in both phases). Effort S; category C. Related: [[CU-350]], Gap 117 Phase 4.
 
+### CU-353 — Closing the window during an evaluation destroys a running QThread: the app aborts instead of closing
+
+**Discovered**: owner walkthrough of `gui/transmission-tab`, 2026-09-10 — the session ended with "QThread: Destroyed while thread '' is still running" after a burst of sweep evaluations, and an error dialog the owner saw.
+**Status**: Open.
+**File**: `src/radiant/gui/main_window.py` (no `closeEvent` at all; `self._worker` is the only reference to the `ConfigSetEvaluationWorker`) / `src/radiant/gui/workers.py` (the worker has no cancel hook and never passed `cancel=` to `evaluate_all`).
+**Symptom**: close the main window while a chain evaluation is in flight — easy to hit during a burst of edits, each of which schedules a debounced run, and certain during a long multi-configuration pass. The window is destroyed, its last reference to the `QThread` drops, the C++ `QThread` destructor runs while the thread is still executing, and Qt calls `std::terminate`: the process aborts rather than closing.
+**Why it still matters**: workflow-visible (intake test 4) and unrecoverable — it is a hard crash on the ordinary "I'm done, close it" action, and it can land while a save dialog's work is still settling. The sweep dialog already solved the same class of bug for its own worker (CU-325, close-on-settle); the main window was simply never given the equivalent.
+**Suggested fix**: (a) inline-fix-now — give the worker a `request_cancel()` polled through `evaluate_all(cancel=...)` (Gap 72 hook, already supported) and give the window a `closeEvent` that stops the debounce, clears the queued re-run, disconnects the result slots, cancels, and **joins** with `QThread.wait`. The main window must join rather than defer-close like the sweep dialog: the user asked for the application to go away. Effort S; category D. Related: [[CU-325]].
+
 ### CU-352 — The ratified Transmission-tab design's combined per-element + SYSTEM τ(λ) overlay has no API accessor, so the tab ships two separate figures
 
 **Discovered**: Transmission-tab consolidation (branch `gui/transmission-tab`), 2026-09-10.

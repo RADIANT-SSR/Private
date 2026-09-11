@@ -110,6 +110,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 **Not a message-flood defect.** The same log looked at first like repeated identical saturation rows. It is not: each line carries its own numbers (fill fraction 24.98 → 49.18 → 72.66 → 95.44 → …), one pair per debounced re-evaluation as the operator dragged a parameter, and the GUI's `MessagesPanel.set_warnings` *replaces* its list every evaluation rather than appending — so nothing accumulates on screen. No deduplication is wanted or needed.
 
+### CU-355 — Scalar-RMS WFE pupil screen ignores both the reference and operating wavelength: the schema promises "waves at the reference wavelength" but the phase is 2π·rms_waves at every band
+
+**Discovered**: owner question "how is the pupil map applied for RMS WFE" (main, `b9645119`), 2026-09-11.
+**Status**: Open.
+**File**: `src/radiant/optics/pupil_phase.py:34-79` — `make_pupil_phase(npix, wfe_rms_waves, wavelength_m)`; the `wavelength_m` argument (docstring: "Used to convert waves -> radians") is never referenced in the body.
+**Symptom**: in `scalar_rms` mode the random screen is scaled to `2π·rms_waves` radians regardless of wavelength, i.e. the WFE is treated as rms_waves *at the operating wavelength* (constant phase). The schema (`optics/_schema.py::WFE_RMS_WAVES`) documents the parameter as "waves at the reference wavelength" (default HeNe 0.633 µm), which is constant *OPD*. The ZERNIKE branch (`make_pupil_phase_zernike`) and the `strehl_marechal` diagnostic both do the correct λ_ref→λ_op rescale, so scalar mode disagrees with its own siblings: a 0.05-wave-at-0.633-µm spec applied at 10 µm should contribute ~0.003 waves of phase but contributes 0.05. In polychromatic runs every monochromatic PSF gets the identical radian screen instead of a 1/λ-scaled one. PSF-derived Strehl vs `strehl_marechal` diverge whenever λ_ref ≠ λ_op. Rule 4's consistency check cannot catch it — both paths share the same (wrong) screen via `make_pupil_phase_for_wfe`.
+**Why it still matters**: results-affecting (intake test 1) — any scalar-RMS run at a band other than the reference wavelength over- or under-degrades the PSF/MTF by the ratio (λ_ref/λ_op) in phase; at MWIR/LWIR bands with the 0.633 µm default the over-degradation is an order of magnitude or more in phase RMS.
+**Suggested fix**: (b) stand-alone task — scale the screen by `reference_wavelength_um·1e-6 / operating_wavelength_m` (mirroring `make_pupil_phase_zernike`), decide golden-baseline impact, and fix the `make_pupil_phase` docstring (also claims "uniform-random per pixel"; the code draws `standard_normal`). Effort S; category C (changes computed results; CHANGELOG Results-affecting entry required). Related: [[CU-058]].
+
 ## Resolved
 
 ### CU-352 — The ratified Transmission-tab design's combined per-element + SYSTEM τ(λ) overlay has no API accessor, so the tab ships two separate figures — RESOLVED 2026-09-10 (commit trailer)

@@ -21,17 +21,30 @@ geometry:
     projected_area_m2: 0.0028274333882308137
   target_altitude_m: 10000.0
 optical_elements:
-- diameter_m: 0.1
-  distance_to_fpa_m: 0.2
-  kind: MIRROR
-  name: camera_train
-  reflectance: 0.75
+- kind: MIRROR
+  name: fold_mirror_1
+  reflectance: 0.98
   temperature_K: 293.15
   transfer_mode: REFLECTIVE
+- kind: MIRROR
+  name: fold_mirror_2
+  reflectance: 0.98
+  temperature_K: 293.15
+  transfer_mode: REFLECTIVE
+- kind: MIRROR
+  name: fold_mirror_3
+  reflectance: 0.98
+  temperature_K: 293.15
+  transfer_mode: REFLECTIVE
+- kind: WINDOW
+  name: cold_window
+  temperature_K: 293.15
+  transfer_mode: REFRACTIVE
+  transmittance: 0.7968618517794457
 optics:
   aperture_diameter_m: 0.1
+  cold_stop_undersize_frac: 0.0
   focal_length_m: 0.2
-  nearfield_fraction: 0.09999999999999998
   optics_temperature_K: 293.15
 performance:
   detection_snr_threshold: 5.0

@@ -1,7 +1,9 @@
 # Sensor C: LWIR wide-area imager (35 cm)
-# NOTE: this config predates the Gap 12 rename and still uses the
-# OUTDATED parameter name optics.cold_stop_efficiency — RADIANT accepts
-# it through the deprecated-alias mechanism (with a DeprecationWarning).
+# NOTE: this config predates the ADR-0006 geometry-first move and still
+# uses the OUTDATED parameter name platform.h_sensor — RADIANT accepts it
+# through the deprecated-alias mechanism (with a DeprecationWarning).
+# (It used to demonstrate optics.cold_stop_efficiency; Gap 128 DELETED that
+# parameter outright, so it is no longer an alias but a hard error.)
 source:
   target:
     temperature: 300.0        # K (overridden per target by the batch)
@@ -12,14 +14,15 @@ atmosphere:
   standard_atmosphere: midlat_summer
 
 geometry:
-  sensor_altitude_m: 500000.0  # m (500 km)
   path_zenith_rad: 0.0
+
+platform:
+  h_sensor: 500000.0          # m — OUTDATED NAME (now geometry.sensor_altitude_m)
 
 optics:
   aperture_diameter_m: 0.35   # m
   focal_length_m: 0.70        # m  (f/2.0)
   transmission_scalar: 0.65
-  cold_stop_efficiency: 1.0   # OUTDATED NAME (now optics.nearfield_fraction)
 
 detector:
   pixel_pitch_x_um: 17.0      # um

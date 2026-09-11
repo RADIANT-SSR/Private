@@ -41,6 +41,43 @@ class UnknownParameterError(RadiantError, KeyError):
     """
 
 
+#: Parameters that a model change **deleted**, mapped to the one-line guidance
+#: an operator needs. A deleted name is a harder error than a typo — the config
+#: is not misspelled, it encodes a model RADIANT no longer has — so
+#: :meth:`ParameterSet._suggest` answers with this text instead of a
+#: did-you-mean list. Distinct from ``ParameterDef.deprecated_aliases``, which
+#: is for a *rename*: an alias still resolves and only warns.
+#:
+#: Entries are added when a parameter is removed and stay for one release
+#: cycle; every entry names the tracking item that removed it.
+REMOVED_PARAMETERS: dict[str, str] = {
+    "optics.nearfield_fraction": (
+        "It was removed by Gap 128 (étendue-conserving near-field, owner-ratified "
+        "2026-09-09). A cold stop cannot attenuate in-cone warm-optics emission — "
+        "that light arrives through the imaging path itself — so scaling the "
+        "near-field by a leaked-hemisphere fraction was unphysical. Out-of-cone "
+        "structure is now always fully blocked. To model a cold stop, set "
+        "'optics.cold_stop_undersize_frac' (the fractional pupil-diameter "
+        "reduction it imposes) and, if the shield obscures more than the "
+        "secondary, 'optics.cold_stop_obscuration_ratio'."
+    ),
+    "optics.cold_stop_efficiency": (
+        "It was the deprecated alias of 'optics.nearfield_fraction', which Gap 128 "
+        "removed (étendue-conserving near-field, owner-ratified 2026-09-09). Use "
+        "'optics.cold_stop_undersize_frac' to state how far the cold stop is "
+        "undersized relative to the primary; the near-field then scales with the "
+        "acceptance cone, together with the signal."
+    ),
+    "optics.optics_distance_to_fpa_m": (
+        "It was removed by Gap 128 (étendue-conserving near-field, owner-ratified "
+        "2026-09-09). It existed only to give synthesized elements a "
+        "'distance_to_fpa_m', and per-element near-field geometry no longer "
+        "exists: every in-beam element is seen through the acceptance cone "
+        "Ω_cone set by the working f/#. Delete the key — nothing replaces it."
+    ),
+}
+
+
 class RequiredParameterError(CoreValidationError):
     """A required (no-default) parameter is unset at resolve time.
 
@@ -413,7 +450,15 @@ class ParameterSet:
         return tuple(self._loaded_files)
 
     def _suggest(self, name: str) -> str:
-        """Build a 'did you mean?' suggestion for an unknown parameter name."""
+        """Build a 'did you mean?' suggestion for an unknown parameter name.
+
+        A name in :data:`REMOVED_PARAMETERS` gets its removal note instead: the
+        config is not misspelled, so a nearest-neighbour guess would send the
+        reader to an unrelated parameter.
+        """
+        removed = REMOVED_PARAMETERS.get(name)
+        if removed is not None:
+            return f"Parameter '{name}' no longer exists. {removed}"
         matches = difflib.get_close_matches(name, self._defs.keys(), n=3, cutoff=0.5)
         if matches:
             suggestions = ", ".join(f"'{m}'" for m in matches)

@@ -2,10 +2,10 @@
 
 Category C validation for system transmission and nearfield irradiance:
 - Two-mirror system tau = R1 * R2
-- Single-element nearfield hand calculation
+- Single-element nearfield hand calculation against the étendue cone
 - Two-element downstream attenuation
 - Zero-temperature element contributes nothing
-- Cold stop efficiency scales linearly
+- Nearfield scales linearly with Omega_cone (Gap 128)
 """
 
 from __future__ import annotations
@@ -37,6 +37,10 @@ from radiant.optics.system_transmission import compute_system_transmission
 
 WL = np.linspace(3.0, 5.0, 50)
 
+# The one geometry the near-field model has (Gap 128): the étendue acceptance
+# cone at f/6. 2π(1 − cos(arctan(1/12))) = 0.0217031… sr — see etendue_cone.py.
+OMEGA_F6_SR = 2.0 * math.pi * (1.0 - math.cos(math.atan(1.0 / 12.0)))
+
 
 def _flat_spectral(value: float, name: str = "test") -> SpectralData:
     return SpectralData(
@@ -48,27 +52,23 @@ def _flat_spectral(value: float, name: str = "test") -> SpectralData:
     )
 
 
-def _mirror(R: float, T_K: float, D: float, d: float, name: str = "m") -> OpticalElement:
+def _mirror(R: float, T_K: float, name: str = "m") -> OpticalElement:
     return OpticalElement(
         name=name,
         kind=ElementKind.MIRROR,
         temperature_K=T_K,
         transmittance=_flat_spectral(0.0, f"{name}.tau"),
         reflectance=_flat_spectral(R, f"{name}.rho"),
-        diameter_m=D,
-        distance_to_fpa_m=d,
     )
 
 
-def _window(T: float, R: float, T_K: float, D: float, d: float, name: str = "w") -> OpticalElement:
+def _window(T: float, R: float, T_K: float, name: str = "w") -> OpticalElement:
     return OpticalElement(
         name=name,
         kind=ElementKind.WINDOW,
         temperature_K=T_K,
         transmittance=_flat_spectral(T, f"{name}.tau"),
         reflectance=_flat_spectral(R, f"{name}.rho"),
-        diameter_m=D,
-        distance_to_fpa_m=d,
     )
 
 
@@ -83,22 +83,22 @@ class TestSystemTransmission:
     @pytest.mark.level1
     def test_two_mirrors(self) -> None:
         """Two mirrors R=0.98 each: tau_system = 0.98^2 = 0.9604."""
-        m1 = _mirror(0.98, 290.0, 0.3, 1.2, "primary")
-        m2 = _mirror(0.98, 290.0, 0.1, 0.6, "secondary")
+        m1 = _mirror(0.98, 290.0, "primary")
+        m2 = _mirror(0.98, 290.0, "secondary")
         tau = compute_system_transmission((m1, m2), WL)
         np.testing.assert_allclose(tau.values, 0.98**2, atol=1e-12)
 
     @pytest.mark.level1
     def test_mirror_plus_window(self) -> None:
         """Mirror R=0.98, window T=0.95: system tau = 0.98 * 0.95 = 0.931."""
-        m = _mirror(0.98, 290.0, 0.3, 1.2)
-        w = _window(0.95, 0.01, 290.0, 0.05, 0.1)
+        m = _mirror(0.98, 290.0)
+        w = _window(0.95, 0.01, 290.0)
         tau = compute_system_transmission((m, w), WL)
         np.testing.assert_allclose(tau.values, 0.98 * 0.95, atol=1e-12)
 
     @pytest.mark.level1
     def test_single_element(self) -> None:
-        m = _mirror(0.97, 290.0, 0.3, 1.0)
+        m = _mirror(0.97, 290.0)
         tau = compute_system_transmission((m,), WL)
         np.testing.assert_allclose(tau.values, 0.97, atol=1e-12)
 
@@ -118,23 +118,23 @@ class TestDownstreamTransmission:
 
     @pytest.mark.level1
     def test_last_element_is_ones(self) -> None:
-        m1 = _mirror(0.98, 290.0, 0.3, 1.2)
-        m2 = _mirror(0.95, 290.0, 0.1, 0.6)
+        m1 = _mirror(0.98, 290.0)
+        m2 = _mirror(0.95, 290.0)
         tau_down = compute_downstream_transmission((m1, m2), 1, WL)
         np.testing.assert_allclose(tau_down, 1.0, atol=1e-12)
 
     @pytest.mark.level1
     def test_first_element_has_second_downstream(self) -> None:
-        m1 = _mirror(0.98, 290.0, 0.3, 1.2)
-        m2 = _mirror(0.95, 290.0, 0.1, 0.6)
+        m1 = _mirror(0.98, 290.0)
+        m2 = _mirror(0.95, 290.0)
         tau_down = compute_downstream_transmission((m1, m2), 0, WL)
         np.testing.assert_allclose(tau_down, 0.95, atol=1e-12)
 
     @pytest.mark.level1
     def test_three_elements(self) -> None:
-        m1 = _mirror(0.98, 290.0, 0.3, 1.2)
-        m2 = _mirror(0.95, 290.0, 0.1, 0.8)
-        w = _window(0.90, 0.01, 290.0, 0.05, 0.1)
+        m1 = _mirror(0.98, 290.0)
+        m2 = _mirror(0.95, 290.0)
+        w = _window(0.90, 0.01, 290.0)
         # Downstream of m1: m2 * w = 0.95 * 0.90 = 0.855
         tau_down = compute_downstream_transmission((m1, m2, w), 0, WL)
         np.testing.assert_allclose(tau_down, 0.95 * 0.90, atol=1e-12)
@@ -150,20 +150,18 @@ class TestNearfieldIrradiance:
 
     @pytest.mark.level1
     def test_single_mirror_hand_calc(self) -> None:
-        """Truth anchor 1: single 290K mirror.
+        """Truth anchor 1: single 290 K mirror seen through the f/6 cone.
 
-        R=0.98, epsilon=0.02, D=0.30m, d=1.20m.
-        Omega = pi*(0.15)^2 / (1.20)^2 = 0.04909 sr.
-        tau_downstream = 1 (last element).
-        E_nf(lam) = eps * B(lam, 290) * Omega * 1.0
+        R = 0.98 ⇒ ε = 0.02 [-]; Ω_cone = 2π(1 − cos(arctan(1/12))) sr;
+        τ_downstream = 1 [-] (last element).
+        E_nf(λ) = Ω_cone · ε · B(λ, 290 K) · 1.0   [W/m²/µm]
         """
-        m = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
-        result = compute_nearfield_irradiance((m,), WL)
+        m = _mirror(0.98, 290.0, "primary")
+        result = compute_nearfield_irradiance((m,), WL, OMEGA_F6_SR)
 
         eps = 0.02
-        omega = math.pi * (0.15) ** 2 / (1.20) ** 2
         b_lam = planck_spectral_radiance(WL, 290.0)
-        expected = eps * b_lam * omega
+        expected = OMEGA_F6_SR * eps * b_lam
 
         np.testing.assert_allclose(result.total.values, expected, rtol=1e-10)
 
@@ -178,35 +176,34 @@ class TestNearfieldIrradiance:
         the mirror contributes to nearfield:
         E_nf = eps1 * B(T1) * Omega1 * tau2
         """
-        m = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
-        w = _window(0.90, 0.01, 290.0, 0.05, 0.10, "window")
+        m = _mirror(0.98, 290.0, "primary")
+        w = _window(0.90, 0.01, 290.0, "window")
 
-        result = compute_nearfield_irradiance((m, w), WL)
+        result = compute_nearfield_irradiance((m, w), WL, OMEGA_F6_SR)
 
         b_lam = planck_spectral_radiance(WL, 290.0)
 
         eps1 = 0.02
-        omega1 = math.pi * (0.15) ** 2 / (1.20) ** 2
         tau_down_1 = 0.90  # window transmittance
 
         # Window eps=0 (simple refractive), contributes nothing.
-        expected = eps1 * b_lam * omega1 * tau_down_1
+        expected = OMEGA_F6_SR * eps1 * b_lam * tau_down_1
 
         np.testing.assert_allclose(result.total.values, expected, rtol=1e-10)
 
     @pytest.mark.level1
     def test_zero_temperature_no_contribution(self) -> None:
         """T=0 K element contributes zero nearfield."""
-        m = _mirror(0.98, 0.0, 0.30, 1.20)
-        result = compute_nearfield_irradiance((m,), WL)
+        m = _mirror(0.98, 0.0)
+        result = compute_nearfield_irradiance((m,), WL, OMEGA_F6_SR)
         np.testing.assert_allclose(result.total.values, 0.0, atol=1e-30)
 
     @pytest.mark.level1
-    def test_cold_stop_efficiency_scales(self) -> None:
-        """Nearfield should scale linearly with cold_stop_efficiency."""
-        m = _mirror(0.98, 290.0, 0.30, 1.20)
-        full = compute_nearfield_irradiance((m,), WL, cold_stop_efficiency=1.0)
-        half = compute_nearfield_irradiance((m,), WL, cold_stop_efficiency=0.5)
+    def test_scales_linearly_with_cone(self) -> None:
+        """Nearfield scales linearly with Ω_cone [sr] — the only geometry (Gap 128)."""
+        m = _mirror(0.98, 290.0)
+        full = compute_nearfield_irradiance((m,), WL, OMEGA_F6_SR)
+        half = compute_nearfield_irradiance((m,), WL, 0.5 * OMEGA_F6_SR)
         np.testing.assert_allclose(half.total.values, full.total.values * 0.5, rtol=1e-12)
 
     @pytest.mark.level1
@@ -217,9 +214,9 @@ class TestNearfieldIrradiance:
         Nearfield emission is zero regardless of temperature.
         """
         tau_sd = _flat_spectral(0.7, "tau")
-        lumped = make_lumped_element(tau_sd, 290.0, 0.3, 1.0)
+        lumped = make_lumped_element(tau_sd, 290.0)
 
-        result = compute_nearfield_irradiance((lumped,), WL)
+        result = compute_nearfield_irradiance((lumped,), WL, OMEGA_F6_SR)
         np.testing.assert_allclose(result.total.values, 0.0, atol=1e-30)
 
 
@@ -234,25 +231,32 @@ class TestEdgeCases:
     @pytest.mark.level1
     def test_empty_list_raises(self) -> None:
         with pytest.raises(ValueError, match="empty"):
-            compute_nearfield_irradiance((), WL)
+            compute_nearfield_irradiance((), WL, OMEGA_F6_SR)
 
     @pytest.mark.level1
-    def test_cold_stop_out_of_range(self) -> None:
-        m = _mirror(0.98, 290.0, 0.3, 1.2)
-        with pytest.raises(ValueError, match="cold_stop_efficiency"):
-            compute_nearfield_irradiance((m,), WL, cold_stop_efficiency=1.5)
+    def test_cone_beyond_hemisphere_raises(self) -> None:
+        """Ω_cone > 2π sr is not a solid angle a focal plane can accept."""
+        m = _mirror(0.98, 290.0)
+        with pytest.raises(ValueError, match="omega_cone_sr"):
+            compute_nearfield_irradiance((m,), WL, 7.0)
+
+    @pytest.mark.level1
+    def test_zero_cone_raises(self) -> None:
+        m = _mirror(0.98, 290.0)
+        with pytest.raises(ValueError, match="omega_cone_sr"):
+            compute_nearfield_irradiance((m,), WL, 0.0)
 
     @pytest.mark.level1
     def test_nearfield_nonnegative(self) -> None:
         """Nearfield must always be >= 0."""
-        m = _mirror(0.98, 290.0, 0.3, 1.2)
-        result = compute_nearfield_irradiance((m,), WL)
+        m = _mirror(0.98, 290.0)
+        result = compute_nearfield_irradiance((m,), WL, OMEGA_F6_SR)
         assert np.all(result.total.values >= 0.0)
 
     @pytest.mark.level1
     def test_unit_is_irradiance(self) -> None:
-        m = _mirror(0.98, 290.0, 0.3, 1.2)
-        result = compute_nearfield_irradiance((m,), WL)
+        m = _mirror(0.98, 290.0)
+        result = compute_nearfield_irradiance((m,), WL, OMEGA_F6_SR)
         assert "W/m" in result.total.unit
 
 
@@ -272,32 +276,24 @@ class TestMixedTrain:
             0.98,
             wavelength_um=WL,
             temperature_K=290.0,
-            diameter_m=0.35,
-            distance_to_fpa_m=1.2,
         )
         m2 = make_reflective_element(
             "secondary",
             0.98,
             wavelength_um=WL,
             temperature_K=290.0,
-            diameter_m=0.10,
-            distance_to_fpa_m=0.8,
         )
         m3 = make_reflective_element(
             "fold",
             0.97,
             wavelength_um=WL,
             temperature_K=290.0,
-            diameter_m=0.05,
-            distance_to_fpa_m=0.4,
         )
         lens = make_refractive_element(
             "field_lens",
             0.92,
             wavelength_um=WL,
             temperature_K=290.0,
-            diameter_m=0.04,
-            distance_to_fpa_m=0.2,
         )
         elements = (m1, m2, m3, lens)
         tau = compute_system_transmission(elements, WL)
@@ -315,25 +311,20 @@ class TestMixedTrain:
             0.98,
             wavelength_um=WL,
             temperature_K=290.0,
-            diameter_m=0.30,
-            distance_to_fpa_m=1.2,
         )
         lens = make_refractive_element(
             "lens",
             0.90,
             wavelength_um=WL,
             temperature_K=290.0,
-            diameter_m=0.05,
-            distance_to_fpa_m=0.1,
         )
-        result = compute_nearfield_irradiance((m, lens), WL)
+        result = compute_nearfield_irradiance((m, lens), WL, OMEGA_F6_SR)
 
         # Only mirror contributes; downstream lens has T=0.90.
         b_lam = planck_spectral_radiance(WL, 290.0)
         eps_mirror = 0.02
-        omega = math.pi * (0.15) ** 2 / (1.20) ** 2
         tau_down = 0.90  # lens transmittance
-        expected = eps_mirror * b_lam * omega * tau_down
+        expected = OMEGA_F6_SR * eps_mirror * b_lam * tau_down
 
         np.testing.assert_allclose(result.total.values, expected, rtol=1e-10)
 
@@ -345,8 +336,6 @@ class TestMixedTrain:
             0.98,
             wavelength_um=WL,
             temperature_K=290.0,
-            diameter_m=0.30,
-            distance_to_fpa_m=1.2,
         )
         cavity_lens = make_refractive_cavity_element(
             "lens",
@@ -359,24 +348,21 @@ class TestMixedTrain:
             thickness_m=0.003,
             wavelength_um=WL,
             temperature_K=290.0,
-            diameter_m=0.04,
-            distance_to_fpa_m=0.3,
         )
-        result = compute_nearfield_irradiance((m, cavity_lens), WL)
+        result = compute_nearfield_irradiance((m, cavity_lens), WL, OMEGA_F6_SR)
 
         # Both elements contribute (cavity lens has nonzero eps).
         b_lam = planck_spectral_radiance(WL, 290.0)
 
         # Mirror contribution (attenuated by cavity lens transmittance).
         eps_m = 0.02
-        omega_m = math.pi * (0.15) ** 2 / (1.20) ** 2
         tau_down_m = cavity_lens.net_transmittance.values
-        mirror_term = eps_m * b_lam * omega_m * tau_down_m
+        mirror_term = OMEGA_F6_SR * eps_m * b_lam * tau_down_m
 
-        # Cavity lens contribution (last element, no downstream).
+        # Cavity lens contribution (last element, no downstream). Same cone:
+        # proximity to the focal plane buys an element no extra solid angle.
         eps_lens = cavity_lens.emissivity.values
-        omega_lens = cavity_lens.nearfield_solid_angle_sr
-        lens_term = eps_lens * b_lam * omega_lens
+        lens_term = OMEGA_F6_SR * eps_lens * b_lam
 
         expected = mirror_term + lens_term
         np.testing.assert_allclose(result.total.values, expected, rtol=1e-10)
@@ -393,15 +379,15 @@ class TestNearfieldPerElement:
     @pytest.mark.level1
     def test_returns_nearfield_result(self) -> None:
         """compute_nearfield_irradiance returns NearfieldResult."""
-        m = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
-        result = compute_nearfield_irradiance((m,), WL)
+        m = _mirror(0.98, 290.0, "primary")
+        result = compute_nearfield_irradiance((m,), WL, OMEGA_F6_SR)
         assert isinstance(result, NearfieldResult)
 
     @pytest.mark.level1
     def test_single_element_per_element_matches_total(self) -> None:
         """For one element, per_element[name] == total."""
-        m = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
-        result = compute_nearfield_irradiance((m,), WL)
+        m = _mirror(0.98, 290.0, "primary")
+        result = compute_nearfield_irradiance((m,), WL, OMEGA_F6_SR)
         assert "primary" in result.per_element
         np.testing.assert_allclose(
             result.per_element["primary"].values,
@@ -412,9 +398,9 @@ class TestNearfieldPerElement:
     @pytest.mark.level1
     def test_sum_of_per_element_equals_total(self) -> None:
         """Sum of all per-element contributions must equal total."""
-        m1 = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
-        m2 = _mirror(0.95, 290.0, 0.10, 0.60, "secondary")
-        result = compute_nearfield_irradiance((m1, m2), WL)
+        m1 = _mirror(0.98, 290.0, "primary")
+        m2 = _mirror(0.95, 290.0, "secondary")
+        result = compute_nearfield_irradiance((m1, m2), WL, OMEGA_F6_SR)
 
         summed = np.zeros_like(WL)
         for sd in result.per_element.values():
@@ -424,26 +410,26 @@ class TestNearfieldPerElement:
     @pytest.mark.level1
     def test_per_element_keys_match_element_names(self) -> None:
         """per_element dict keys are the element names."""
-        m1 = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
-        m2 = _mirror(0.95, 290.0, 0.10, 0.60, "secondary")
-        result = compute_nearfield_irradiance((m1, m2), WL)
+        m1 = _mirror(0.98, 290.0, "primary")
+        m2 = _mirror(0.95, 290.0, "secondary")
+        result = compute_nearfield_irradiance((m1, m2), WL, OMEGA_F6_SR)
         assert set(result.per_element.keys()) == {"primary", "secondary"}
 
     @pytest.mark.level1
     def test_zero_temp_element_excluded_from_per_element(self) -> None:
         """T=0 K element does not appear in per_element."""
-        m_warm = _mirror(0.98, 290.0, 0.30, 1.20, "warm")
-        m_cold = _mirror(0.98, 0.0, 0.10, 0.60, "cold")
-        result = compute_nearfield_irradiance((m_warm, m_cold), WL)
+        m_warm = _mirror(0.98, 290.0, "warm")
+        m_cold = _mirror(0.98, 0.0, "cold")
+        result = compute_nearfield_irradiance((m_warm, m_cold), WL, OMEGA_F6_SR)
         assert "warm" in result.per_element
         assert "cold" not in result.per_element
 
     @pytest.mark.level1
-    def test_cold_stop_scales_per_element(self) -> None:
-        """Cold stop efficiency scales each per-element contribution."""
-        m = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
-        full = compute_nearfield_irradiance((m,), WL, cold_stop_efficiency=1.0)
-        half = compute_nearfield_irradiance((m,), WL, cold_stop_efficiency=0.5)
+    def test_cone_scales_per_element(self) -> None:
+        """Ω_cone [sr] scales each per-element contribution."""
+        m = _mirror(0.98, 290.0, "primary")
+        full = compute_nearfield_irradiance((m,), WL, OMEGA_F6_SR)
+        half = compute_nearfield_irradiance((m,), WL, 0.5 * OMEGA_F6_SR)
         np.testing.assert_allclose(
             half.per_element["primary"].values,
             full.per_element["primary"].values * 0.5,
@@ -453,32 +439,32 @@ class TestNearfieldPerElement:
     @pytest.mark.level1
     def test_per_element_units(self) -> None:
         """Each per-element SpectralData has irradiance units."""
-        m = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
-        result = compute_nearfield_irradiance((m,), WL)
+        m = _mirror(0.98, 290.0, "primary")
+        result = compute_nearfield_irradiance((m,), WL, OMEGA_F6_SR)
         assert "W/m" in result.per_element["primary"].unit
 
     @pytest.mark.level1
     def test_per_element_hand_calc_two_mirrors(self) -> None:
         """Verify per-element values match hand calculation for two mirrors.
 
-        M1: R=0.98 (eps=0.02), T=290K, D=0.30m, d=1.20m
-        M2: R=0.95 (eps=0.05), T=300K, D=0.10m, d=0.60m
+        M1: R=0.98 (eps=0.02), T=290 K
+        M2: R=0.95 (eps=0.05), T=300 K
+        Both are seen through the SAME Omega_cone (Gap 128).
 
-        M1 contribution: eps1 * B(290) * Omega1 * tau_down(M2=0.95)
-        M2 contribution: eps2 * B(300) * Omega2 * 1.0  (last element)
+        M1 contribution: Omega_cone * eps1 * B(290) * tau_down(M2=0.95)
+        M2 contribution: Omega_cone * eps2 * B(300) * 1.0  (last element)
         """
-        m1 = _mirror(0.98, 290.0, 0.30, 1.20, "primary")
-        m2 = _mirror(0.95, 300.0, 0.10, 0.60, "secondary")
-        result = compute_nearfield_irradiance((m1, m2), WL)
+        m1 = _mirror(0.98, 290.0, "primary")
+        m2 = _mirror(0.95, 300.0, "secondary")
+        result = compute_nearfield_irradiance((m1, m2), WL, OMEGA_F6_SR)
 
         b_290 = planck_spectral_radiance(WL, 290.0)
         b_300 = planck_spectral_radiance(WL, 300.0)
 
-        eps1, omega1 = 0.02, math.pi * (0.15) ** 2 / (1.20) ** 2
-        eps2, omega2 = 0.05, math.pi * (0.05) ** 2 / (0.60) ** 2
+        eps1, eps2 = 0.02, 0.05
 
-        expected_m1 = eps1 * b_290 * omega1 * 0.95  # attenuated by M2
-        expected_m2 = eps2 * b_300 * omega2 * 1.0  # nothing downstream
+        expected_m1 = OMEGA_F6_SR * eps1 * b_290 * 0.95  # attenuated by M2
+        expected_m2 = OMEGA_F6_SR * eps2 * b_300 * 1.0  # nothing downstream
 
         np.testing.assert_allclose(
             result.per_element["primary"].values,
@@ -495,28 +481,25 @@ class TestNearfieldPerElement:
 class TestNearfieldMirrorEmission:
     """Gap 127 Level 0: emission derives only from defined elements.
 
-    A lump never emits; a warm mirror emits ε·B(λ,T)·Ω with ε = 1 − R.
+    A lump never emits; a warm mirror emits Ω_cone·ε·B(λ,T) with ε = 1 − R.
     """
 
     @pytest.mark.level0
     def test_hand_computed_mirror_irradiance(self) -> None:
-        """E_nf = (1 - R) * B(lam, T) * Omega for a single warm mirror, eta_cold = 1.
+        """E_nf = Omega_cone * (1 - R) * B(lam, T) for a single warm mirror.
 
-        Hand anchor: R = 0.95 -> eps = 0.05, T = 295 K, D = 0.1 m, d = 0.5 m
-        -> Omega = pi * 0.05^2 / 0.5^2 = 0.0314159 sr.
+        Hand anchor: R = 0.95 -> eps = 0.05 [-], T = 295 K, f/6 cone
+        -> Omega_cone = 0.0217031... sr.
         """
         mirror = make_reflective_element(
             "m1",
             0.95,
             wavelength_um=WL,
             temperature_K=295.0,
-            diameter_m=0.1,
-            distance_to_fpa_m=0.5,
         )
-        result = compute_nearfield_irradiance((mirror,), WL)
+        result = compute_nearfield_irradiance((mirror,), WL, OMEGA_F6_SR)
 
-        omega = math.pi * 0.05**2 / 0.5**2
-        expected = 0.05 * planck_spectral_radiance(WL, 295.0) * omega
+        expected = OMEGA_F6_SR * 0.05 * planck_spectral_radiance(WL, 295.0)
         np.testing.assert_allclose(result.total.values, expected, rtol=1e-12)
         assert float(result.total.values.max()) > 0.0
 
@@ -524,6 +507,6 @@ class TestNearfieldMirrorEmission:
     def test_lump_stays_dark(self) -> None:
         """Gap 127: a lump is bookkeeping, not a surface — it never emits."""
         tau = _flat_spectral(0.7, "tau")
-        lump = make_lumped_element(tau, 295.0, 0.1, 0.5)
-        result = compute_nearfield_irradiance((lump,), WL)
+        lump = make_lumped_element(tau, 295.0)
+        result = compute_nearfield_irradiance((lump,), WL, OMEGA_F6_SR)
         np.testing.assert_array_equal(result.total.values, 0.0)

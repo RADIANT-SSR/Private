@@ -8,8 +8,8 @@ script from the repo root. Committed figures are referenced by `walkthrough.md`;
 
 | Artifact | Kind | Last generating commit |
 |---|---|---|
-| fig1_background_vs_eta.png | figure (committed) | 8333992 2026-07-07 |
-| fig2_position_vs_eta.png | figure (committed) | 8333992 2026-07-07 |
-| fig3_noise_budget.png | figure (committed) | 8333992 2026-07-07 |
-| fig4_snr_vs_eta.png | figure (committed) | 8333992 2026-07-07 |
+| fig1_signal_and_nearfield_vs_undersize.png | figure (committed) | gap128/etendue-nearfield 2026-09-09 |
+| fig2_snr_and_mtf_vs_undersize.png | figure (committed) | gap128/etendue-nearfield 2026-09-09 |
+| fig3_shuttered_background_vs_undersize.png | figure (committed) | gap128/etendue-nearfield 2026-09-09 |
+| fig4_pupil_vs_undersize.png | figure (committed) | gap128/etendue-nearfield 2026-09-09 |
 | cold_stop_sweep_results.xlsx | results workbook (not committed) | regenerate on demand |

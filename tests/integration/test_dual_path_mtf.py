@@ -239,3 +239,74 @@ class TestPSFPathMetrics:
 
     def test_snr_positive(self, result) -> None:
         assert result.metrics["snr"] > 0.0
+
+
+@pytest.mark.level2
+class TestBandLimitOutputs:
+    """PerformanceStage publishes both band limits on the chain's angular axis, so a
+    view can bound an MTF axis without re-deriving a conversion (2026-09-09)."""
+
+    def test_optics_cutoff_published_in_cycles_per_mrad(self, result) -> None:
+        perf = result.stage_outputs["performance"]
+        cutoff = perf["optics_cutoff_freq_cycles_per_mrad"]
+        # Independent form: the angular cutoff is D_eff / λ [cycles/rad] → /1e3 for
+        # mrad. With no cold stop configured D_eff == D (Gap 128 default u = 0).
+        lam_m = perf["effective_psf"].wavelength_um * 1e-6
+        d_eff = result.stage_outputs["optics"]["D_eff_m"]
+        assert d_eff == pytest.approx(D, rel=1e-12)
+        assert cutoff == pytest.approx(d_eff / (lam_m * 1e3), rel=1e-12)
+
+    def test_nyquist_below_optics_cutoff_for_this_undersampled_case(self, result) -> None:
+        perf = result.stage_outputs["performance"]
+        # Q = λ·F#/pitch < 2 here, so the detector undersamples the optics: the
+        # sampling limit sits below the optics band edge. Both are cycles/mrad.
+        assert (
+            0.0 < perf["nyquist_freq_cycles_per_mrad"] < perf["optics_cutoff_freq_cycles_per_mrad"]
+        )
+
+    def test_cutoff_follows_the_effective_pupil_not_the_primary(self, result) -> None:
+        """Gap 128: an undersized cold stop IS the aperture stop, so it moves the
+        optics band edge. The cutoff must track `f_number_eff` / `D_eff_m` — reading
+        `optics.f_number` instead would leave it pinned to the primary rim."""
+        # Same wavelength grid and radiometry as the module fixture, so the band-centre
+        # λ is identical and the only difference between the runs is the cold stop.
+        wl = np.linspace(FILTER_MIN, FILTER_MAX, 500)
+        session = RadiantSession(wavelength_um=wl)
+        params = session.default_params()
+        params.set("source.target.temperature", T_TARGET)
+        params.set("source.target.emissivity", EPS_TARGET)
+        params.set("optics.aperture_diameter_m", D)
+        params.set("optics.focal_length_m", F)
+        params.set("optics.transmission_scalar", TAU_OPT)
+        params.set("optics.cold_stop_undersize_frac", 0.20)  # D_eff = 0.8 · D
+        params.set("detector.pixel_pitch_x_um", PITCH * 1e6)
+        params.set("detector.pixel_pitch_y_um", PITCH * 1e6)
+        params.set("detector.qe_value", QE)
+        params.set("detector.dark_rate_e_per_s", DARK_RATE)
+        params.set("geometry.sensor_altitude_m", SENSOR_ALT)
+        params.set("atmosphere.standard_atmosphere", "midlat_summer")
+        params.set("spectral_integration.filter_min_um", FILTER_MIN)
+        params.set("spectral_integration.filter_max_um", FILTER_MAX)
+        params.set("spectral_integration.integration_time_s", T_INT)
+        params.set("readout.read_noise_e_rms", READ_NOISE)
+        params.set("readout.gain_e_per_dn", GAIN)
+        params.set("readout.adc_bits", 16)
+        params.set("readout.full_well_capacity_e", 2000000.0)
+        params.set("platform.jitter_rms_urad", JITTER_URAD)
+        params.set("platform.smear_length_um", SMEAR_UM)
+        params.resolve()
+        cold = session.run(params)
+
+        perf_cold = cold.stage_outputs["performance"]
+        d_eff = cold.stage_outputs["optics"]["D_eff_m"]
+        assert d_eff == pytest.approx(0.8 * D, rel=1e-12)
+        lam_m = perf_cold["effective_psf"].wavelength_um * 1e-6
+        # Cutoff [cycles/mrad] = D_eff / (λ · 1e3) — the stopped-down pupil's edge.
+        assert perf_cold["optics_cutoff_freq_cycles_per_mrad"] == pytest.approx(
+            d_eff / (lam_m * 1e3), rel=1e-12
+        )
+        # ... and it is 20 % below the full-aperture run's cutoff, not equal to it.
+        assert perf_cold["optics_cutoff_freq_cycles_per_mrad"] == pytest.approx(
+            0.8 * result.stage_outputs["performance"]["optics_cutoff_freq_cycles_per_mrad"],
+            rel=1e-6,
+        )

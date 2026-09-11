@@ -40,8 +40,6 @@ def _mirror_entry(value: Any) -> dict[str, Any]:
         "transfer_mode": "REFLECTIVE",
         "reflectance": value,
         "temperature_K": 293.0,
-        "diameter_m": 0.3,
-        "distance_to_fpa_m": 1.0,
     }
 
 
@@ -97,8 +95,6 @@ class TestPanels:
                     "kind": "WINDOW",
                     "transmittance": 0.985,
                     "temperature_K": 240.0,
-                    "diameter_m": 0.05,
-                    "distance_to_fpa_m": 0.02,
                 }
             ]
         )

@@ -49,18 +49,19 @@ readout:
 # Full per-element prescription (Mode 5). Emissivity is Kirchhoff-derived per element
 # (Rule 5): mirrors ε = 1−R, refractive ε = 1−T. All curves SYNTHETIC — anchors and
 # envelopes in docs/validation/landsat_oli2_source_data.md §Synthetic optical
-# prescription. Element temperatures/geometry are assumption-class; thermal
-# self-emission is many orders below L_typ at λ ≤ 2.3 µm (non-binding).
+# prescription. Element temperatures are assumption-class; thermal self-emission is
+# many orders below L_typ at λ ≤ 2.3 µm (non-binding). Elements carry no geometry —
+# the near-field acceptance cone comes from the effective pupil (Gap 128).
 optical_elements:
   - {name: M1, transfer_mode: REFLECTIVE, kind: MIRROR, reflectance: data/mirror_protected_ag.csv,
-     temperature_K: 293.0, diameter_m: 0.15, distance_to_fpa_m: 0.90}
+     temperature_K: 293.0}
   - {name: M2, transfer_mode: REFLECTIVE, kind: MIRROR, reflectance: data/mirror_protected_ag.csv,
-     temperature_K: 293.0, diameter_m: 0.06, distance_to_fpa_m: 0.70}
+     temperature_K: 293.0}
   - {name: M3, transfer_mode: REFLECTIVE, kind: MIRROR, reflectance: data/mirror_protected_ag.csv,
-     temperature_K: 293.0, diameter_m: 0.10, distance_to_fpa_m: 0.50}
+     temperature_K: 293.0}
   - {name: M4, transfer_mode: REFLECTIVE, kind: MIRROR, reflectance: data/mirror_protected_ag.csv,
-     temperature_K: 293.0, diameter_m: 0.08, distance_to_fpa_m: 0.30}
+     temperature_K: 293.0}
   - {name: fpa_window, transfer_mode: REFRACTIVE, kind: WINDOW, transmittance: data/fpa_window_ar.csv,
-     temperature_K: 240.0, diameter_m: 0.05, distance_to_fpa_m: 0.02}
+     temperature_K: 240.0}
   - {name: filter_b01, transfer_mode: REFRACTIVE, kind: FILTER, transmittance: data/filter_b01.csv,
-     temperature_K: 210.0, diameter_m: 0.05, distance_to_fpa_m: 0.005}
+     temperature_K: 210.0}

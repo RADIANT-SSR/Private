@@ -1,146 +1,243 @@
-# Scenario 7.4 Walkthrough: Cold Stop Leakage Sweep
+# Scenario 7.4 Walkthrough: Cold-Stop Undersizing Sweep
 
-Refreshed 2026-07-07 (Scenario_Execution_Plan Phase R): the script now uses
-`Sensor.solve_for` (Gap 10), a defined mirror element for the warm train
-(Gap 127 conversion 2026-09-09, replacing the removed `optics.scalar_emissivity`), the
-`optics.nearfield_fraction` name (Gap 12), and the Stage-7
-`geometry.sensor_altitude_m` precondition. Numbers re-verified 2026-07-22 (CU-176)
-against the current engine: this is a vacuum (exo) lab test, so signal, nearfield,
-SNR, and the η_nf inversions are unchanged; only NEDT shifted slightly (band-effective
-Planck-factor update, ~+0.5 mK).
+Rebuilt 2026-09-09 under Gap 128 (étendue-conserving near-field; the cold stop
+as an undersized aperture stop, owner-ratified). The scenario previously swept
+`optics.nearfield_fraction`, a "leakage fraction" that let a cold stop attenuate
+warm-optics emission. That knob was unphysical and has been deleted: in-cone
+emission arrives through the imaging path itself and cannot be blocked, while
+out-of-cone warm structure is taken to be blocked completely. The question the
+scenario answers is now the real cold-stop trade — **how much undersizing margin
+can the camera afford?**
 
 ## The Problem
 
-Karen is a test engineer running a thermal-vacuum (TVAC) characterization campaign on an MWIR imager. During a background characterization test — with the calibration blackbody shuttered and a 77 K cold plate blocking the aperture — she measures 44,000 e- of background signal at one detector position. The design predicts about 35,000 e- with the cold stop properly aligned.
+Karen is a test engineer running a thermal-vacuum (TVAC) characterization
+campaign on an MWIR imager. The cold stop in that camera *is* the aperture stop:
+a cryogenic aperture at ~77 K that defines the beam. It is deliberately built a
+little smaller than the primary, so that alignment and thermal tolerances can
+never let the focal plane see past it to warm structure.
 
-Karen suspects the cold shield has shifted during vibration testing, allowing warm optics thermal emission to leak past the baffle and reach the FPA. She needs to answer three questions:
+Undersizing buys that certainty and pays for it in photons. Karen needs:
 
-1. **What cold stop leakage matches the measured background?** If she can map each measurement to an effective leakage parameter, she can quantify the misalignment.
-2. **Does the nominal alignment still meet requirements?** The spec says the shuttered background must be below 40,000 e-.
-3. **How much does the leakage affect operational SNR?** Is this a cosmetic issue (higher background but acceptable images) or a performance-limiting defect?
+1. **What does undersizing cost?** Signal, SNR, NEDT, and resolution, as a
+   function of the undersizing fraction *u*.
+2. **Does it help the background?** The spec says the shuttered background must
+   be below 40,000 e⁻.
+3. **What do her lab measurements now mean?** Six shuttered-background readings
+   at different cold-stop offsets, from 35,500 to 55,750 e⁻.
 
-## What Is a Cold Stop and Why Does It Matter?
+## The Model Rules (Gap 128, owner-ratified 2026-09-09)
 
-In a cooled infrared sensor, the detector operates at cryogenic temperature (77 K for Karen's HgCdTe FPA). But the optics — mirrors, lenses, and the barrel housing — are warm, typically near ambient temperature (293 K for Karen's TVAC shroud at 20°C).
-
-Every warm optical element radiates thermally according to the Planck function. At 293 K, this radiation peaks in the LWIR but has significant emission in the 3.7–4.8 µm MWIR band that Karen's sensor uses. Without any shielding, the warm optics would flood the FPA with thermal photons, creating a large background signal that degrades noise performance.
-
-The cold stop (also called a cold shield or cold baffle) is a cryogenic enclosure around the FPA, typically cooled to the same 77 K as the detector. It blocks the warm optics from directly illuminating the FPA, allowing only light through the designed optical path (the aperture) to reach the detector.
-
-In RADIANT this is the `optics.nearfield_fraction` parameter (η_nf, formerly `cold_stop_efficiency` — renamed under Gap 12), the fraction of the FPA hemisphere filled by warm-emitting elements:
+The cold stop is the aperture stop, slightly undersized for tolerancing:
 
 ```
-E_nearfield ∝ η_nf × ε_optics × B(λ, T_optics)
+D_eff  = (1 − u) · aperture_diameter_m          [m]
+N_eff  = focal_length_m / D_eff                  [-]
+Ω_cone = 2π (1 − cos θ),  θ = arctan(1/(2·N_eff)) [sr]
 ```
 
-- η_nf = 0.0 → perfect cold stop (blocks all warm radiation)
-- η_nf = 1.0 → no cold stop (all warm radiation reaches FPA)
-- η_nf = 1 − vendor "cold stop efficiency" (the vendor convention counts blocking, not leakage)
+That single effective pupil feeds **everything** the pupil sets:
 
-**Warm-optics emissivity is derived, not free (Rule 5 / Gap 127).** Emission derives only from defined elements, so this train is declared as ONE all-absorbing mirror with R = 0.68 [-]; Kirchhoff then gives ε = 1 − R = 0.32 [-] and the net throughput is R itself. Without a defined element the near-field term is identically zero — the failure that made the first execution of this scenario non-functional (old Gap 4, now closed).
+- `A_collect` [m²] — so signal scales as (1 − u)²;
+- `N_eff` [-] — the working f-number;
+- the complex pupil function — the diffraction PSF *and* the MTF product, from
+  one pupil (Rule 4, both spatial paths);
+- `Ω_cone` [sr] — the étendue acceptance cone, the **only** near-field geometry.
 
-## How RADIANT Solves This
+Warm-optics emission is
+`E_nf(λ) = Ω_cone · Σ_i ε_i(λ) · B(λ, T_i) · τ_down,i(λ)` [W/m²/µm]. Every
+in-beam element is seen through the same cone: the Lagrange invariant fixes what
+the focal plane can accept, so an element cannot subtend more solid angle by
+sitting close to it. Per-element `diameter_m` / `distance_to_fpa_m` are gone.
 
-### Step 1: Read and Convert Karen's Lab Data
+**Consequence that matters here: signal and near-field fall together.**
+Undersizing is not a way to buy a darker background for free.
 
-Karen's data arrives in a three-sheet Excel workbook with vendor and lab units:
-- **Instrument Spec Sheet**: aperture in cm, focal length in mm, optics temperature in °C, dark current in fA/pixel, spectral band edges in nm, integration time in ms
-- **Background Measurements**: six test points at different cold stop positions (0.0 to 2.5 mm offset), with background signal in both DN and e-
-- **Performance Requirements**: max shuttered background of 40,000 e-
+## The Warm Train (Kirchhoff, Rule 5; Gap 127/128)
 
-The script converts every parameter to RADIANT canonical units at the boundary:
+The workbook quotes one end-to-end transmission, τ = 0.68 [-]. Reading the whole
+1 − τ loss as absorption — the ε = 1 − τ fallacy — would put ε = 0.32 [-] on the
+train and over-state warm-optics emission several-fold. A real MWIR camera loses
+most of that τ at coatings and at the cold filter, not to absorption.
+
+The train is therefore modelled as what it is:
+
+| Element | Type | Value | Kirchhoff ε |
+|---------|------|-------|-------------|
+| fold_mirror_1..3 | MIRROR | R = 0.98 [-] each | ε = 1 − R = 0.02 [-] each |
+| cold_window | WINDOW (AR-coated) | T = 0.7225 [-] | ε = 0 [-] (Gap 127) |
+
+Net throughput 0.98³ × 0.7225 = 0.68 [-] — the workbook value, exactly — with an
+emitting emissivity of 0.06 [-] instead of 0.32 [-].
+
+## Step 1: Read and Convert Karen's Lab Data
+
+Three-sheet Excel workbook, vendor and lab units, converted at the boundary:
+
 - 25 cm → 0.25 m (aperture)
-- 1000 mm → 1.0 m (focal length)
-- 20°C → 293.15 K (optics temperature)
-- 80 fA/pixel → 499,376 e-/s (dark current: fA × 1e-15 ÷ q_e)
+- 1000 mm → 1.0 m (focal length) ⇒ f/4.0
+- 20 °C → 293.15 K (optics temperature)
+- 80 fA/pixel → 499,376 e⁻/s (dark current: fA × 1e-15 ÷ q_e)
 - 3700–4800 nm → 3.70–4.80 µm (bandpass)
 - 8 ms → 0.008 s (integration time)
-- 68% → 0.68 (transmission), and derived ε = 1 − τ = 0.32 (Kirchhoff)
-- vendor cold-stop efficiency % → η_nf = 1 − efficiency (leakage fraction)
+- 68 % → 0.68 [-] (net transmission), decomposed into the train above
 
-### Step 2: Configure the Vacuum Chamber
+One vendor number now has **no model home**: "cold stop design efficiency"
+(a blocked fraction). The script says so explicitly rather than mapping it onto
+something that does not mean the same thing.
 
-The atmosphere model is "exo" (vacuum) since Karen is testing in TVAC with no atmospheric path. Two consequences of the current architecture (registry Gap 42):
+## Step 2: Configure the Vacuum Chamber
 
-- The exo backend auto-infers the `no_atmosphere` **space** sub-case (the `lab_test` sub-case has no `Sensor.from_dict` path), so the run carries a placeholder `geometry.sensor_altitude_m = 1.0` m (≈ bench height) to satisfy the Stage-7 Earth-limb intercept check. The value has no radiometric effect here.
-- The blackbody fills the FOV → **extended regime**, and in this regime RADIANT skips the separate scene-background photon term entirely (matrix Decision #13): `background_e = 0` by design. The chamber-shroud parameters stay in the config but contribute no photons; the only background terms are warm-optics nearfield and dark current.
+Atmosphere model "exo" (vacuum). Two consequences of the current architecture
+(registry Gap 42), unchanged by this rebuild:
 
-### Step 3: Establish the Reference Point
+- The exo backend auto-infers the `no_atmosphere` **space** sub-case, so the run
+  carries a placeholder `geometry.sensor_altitude_m = 1.0` m (≈ bench height) to
+  satisfy the Earth-limb intercept check. No radiometric effect here.
+- The blackbody fills the FOV → **extended regime**, in which RADIANT skips the
+  separate scene-background photon term (matrix Decision #13): `background_e = 0`
+  by design. The only background terms are warm-optics near-field and dark.
 
-**Illuminated mode** (blackbody at 308 K), at η_nf = 1.0 (no cold stop — maximum leakage):
-- Signal: 2,994,945 e-
-- Nearfield: 812,493 e-
-- Scene background: 0 e- (extended regime, see above)
-- SNR: 1,534
+## Step 3: The Baseline — Cold Stop Matched to the Primary (u = 0)
 
-**Shuttered mode** (cold plate at 77 K blocking aperture) models what Karen actually measures. At 77 K, the cold plate's MWIR emission is negligible; the only signal is warm optics leaking past the cold stop:
-- At η_nf = 0: nearfield = 0 e- (perfect cold stop)
-- At η_nf = 1.0: nearfield = 812,493 e- (no cold stop)
+| Quantity | Value | Unit |
+|----------|-------|------|
+| D_eff | 0.25000 | m |
+| f/#_eff | 4.0000 | [-] |
+| A_collect | 0.049087 | m² |
+| Ω_cone | 0.048520 | sr |
+| Signal | 2,994,945 | e⁻ |
+| Near-field | 106,631 | e⁻ |
+| SNR | 1699.3 | [-] |
+| NEDT | 17.00 | mK |
+| MTF at Nyquist | 0.3017 | [-] |
 
-Nearfield scales linearly with η_nf, so 1% of leakage ≈ 8,125 e- of shuttered background.
+Noise budget: signal shot 1730.6, near-field shot 326.5, dark shot 63.2, read
+25.0, quantization 0.7 e⁻ RMS.
 
-### Step 4: Invert Each Measurement with Sensor.solve_for
+Note the exact-form cone. At f/4 the paraxial π/(4N²) would give 0.049087 sr —
+1.2 % high — and it diverges past 2π sr for fast systems, which no solid angle
+may do.
 
-The former sweep + linear-interpolation workaround (old Gap 1) is replaced by `Sensor.solve_for` (Gap 10) — Brent root-finding on the forward model with a callable metric (`nearfield_e + background_e`). Each measurement inverts in 6–7 forward-chain evaluations:
+## Step 4: Sweep the Undersizing, 0 → 10 %
 
-| Test Point | Position [mm] | Measured [e-] | Matched η_nf [—] | Evals |
-|------------|---------------|---------------|------------------|-------|
-| CS-NOM     | 0.0           | 35,500        | 0.0437           | 6     |
-| CS-OFF-05  | 0.5           | 39,500        | 0.0486           | 6     |
-| CS-OFF-10  | 1.0           | 44,000        | 0.0542           | 7     |
-| CS-OFF-15  | 1.5           | 47,750        | 0.0588           | 6     |
-| CS-OFF-20  | 2.0           | 52,000        | 0.0640           | 7     |
-| CS-OFF-25  | 2.5           | 55,750        | 0.0686           | 6     |
+| u [%] | D_eff [m] | f/#_eff | Ω_cone [sr] | Near-field [e⁻] | Signal [e⁻] | SNR [-] | NEDT [mK] | MTF_nyq |
+|------:|----------:|--------:|------------:|----------------:|------------:|--------:|----------:|--------:|
+| 0 | 0.25000 | 4.0000 | 0.048520 | 106,631 | 2,994,945 | 1699.32 | 17.00 | 0.3017 |
+| 2 | 0.24500 | 4.0816 | 0.046637 | 102,491 | 2,876,247 | 1665.28 | 17.35 | 0.2933 |
+| 4 | 0.24000 | 4.1667 | 0.044765 | 98,368 | 2,758,802 | 1631.25 | 17.71 | 0.2849 |
+| 6 | 0.23500 | 4.2553 | 0.042930 | 94,346 | 2,646,334 | 1597.16 | 18.09 | 0.2835 |
+| 8 | 0.23000 | 4.3478 | 0.041140 | 90,413 | 2,534,922 | 1563.11 | 18.48 | 0.2752 |
+| 10 | 0.22500 | 4.4444 | 0.039387 | 86,561 | 2,425,906 | 1529.06 | 18.89 | 0.2668 |
 
-Even at the nominal position, the cold stop has about 4.4% leakage — expected from manufacturing tolerances (no cold stop is truly perfect). The leakage increases linearly with offset, gaining about 1% per mm of misalignment. (The full 51-point sweep is retained only for the plots and the output workbook.)
+Over 0 → 10 % undersizing:
 
-### Step 5: Assess Requirements
+- A_collect −19.0 % (exactly (1 − 0.1)² − 1)
+- Ω_cone −18.8 %
+- Near-field −18.8 % (it tracks Ω_cone, as it must)
+- Signal −19.0 %
+- SNR −10.0 % (shot-limited: √signal)
+- MTF at Nyquist −11.6 %
 
-Solving for the 40,000 e- limit gives η_nf ≤ 0.0492, i.e. vendor cold stop efficiency ≥ 95.08%.
+**Signal and near-field fall together**, because both come from the same
+effective pupil. That is the physics the old leakage knob concealed.
 
-- **CS-NOM (0.0 mm)**: 35,500 e- → PASS (η_nf = 0.0437, within limit)
-- **CS-OFF-05 (0.5 mm)**: 39,500 e- → PASS (η_nf = 0.0486, marginal)
-- **CS-OFF-10 (1.0 mm)**: 44,000 e- → FAIL (η_nf = 0.0542, 10% above limit)
+## Step 5: Requirements
 
-Karen now knows that a 1.0 mm cold stop misalignment pushes the background above the requirement. The alignment tolerance is approximately ±0.5 mm.
+The requirement is a shuttered background below 40,000 e⁻. The model predicts
+106,631 e⁻ at u = 0 and 86,561 e⁻ at u = 10 % — a FAIL either way, and
+undersizing moves it only as fast as Ω_cone falls (−18.8 % across the sweep).
 
-### Step 6: SNR Impact
+**Undersizing is not a background-control knob.** The levers that actually scale
+the near-field are the optics temperature and the coating emissivity.
 
-The script evaluates SNR at both the nominal and anomalous cold stop positions with the blackbody illuminated (operational conditions):
+## Step 6: What the Lab Measurements Now Mean
 
-| Metric | Nominal (η_nf = 0.0437) | Anomaly (η_nf = 0.0542) |
-|--------|-------------------------|-------------------------|
-| SNR [—] | 1,719.1 | 1,716.7 |
-| NEDT [mK] | 16.81 | 16.83 |
-| Nearfield shot noise [e- RMS] | 188.4 | 209.8 |
-| Nearfield noise fraction | 1.2% | 1.4% |
+Near-field scales linearly with the emitting emissivity Σ(1 − R) at fixed Ω_cone
+and T_optics, so each measurement inverts to an implied per-mirror reflectance:
 
-**The SNR impact is negligible.** At 1.2–1.4% of total noise variance, nearfield shot noise is completely dominated by signal shot noise (1,731 e- RMS). The cold stop leakage is a calibration concern, not a performance-limiting defect.
+| Test Point | Position [mm] | Measured [e⁻] | Model [e⁻] | Δ [%] | implied ε [-] | implied R [-] | Status |
+|------------|--------------:|--------------:|-----------:|------:|--------------:|--------------:|--------|
+| CS-NOM | 0.0 | 35,500 | 106,631 | −66.7 | 0.0200 | 0.9933 | PASS |
+| CS-OFF-05 | 0.5 | 39,500 | 106,631 | −63.0 | 0.0222 | 0.9926 | PASS |
+| CS-OFF-10 | 1.0 | 44,000 | 106,631 | −58.7 | 0.0248 | 0.9917 | FAIL |
+| CS-OFF-15 | 1.5 | 47,750 | 106,631 | −55.2 | 0.0269 | 0.9910 | FAIL |
+| CS-OFF-20 | 2.0 | 52,000 | 106,631 | −51.2 | 0.0293 | 0.9902 | FAIL |
+| CS-OFF-25 | 2.5 | 55,750 | 106,631 | −47.7 | 0.0314 | 0.9895 | FAIL |
+
+Two readings:
+
+1. **Every measurement sits below the model.** The assumed R = 0.98 [-] per
+   mirror is pessimistic for this camera; the lab data bracket the real train at
+   R ≈ 0.990–0.993 [-], or equivalently a barrel colder than the assumed 20 °C.
+   That is a testable statement about coatings and thermal design — where the old
+   model offered only a fitted leakage fraction that hid the same disagreement.
+
+2. **The 57 % spread across cold-stop positions is what the new rules cannot
+   explain.** With a cold stop present, position should not move the background
+   at all. A monotone rise with offset therefore says warm structure is entering
+   the acceptance cone as the stop shifts — i.e. the stop stops being the
+   aperture stop at those offsets. That is outside this model's scope (an
+   accepted Gap 128 limitation) and is itself the finding Karen should carry to
+   the mechanical team.
 
 ## Key Takeaways
 
-1. **The nominal cold stop has 4.4% leakage (η_nf = 0.0437)**, which is normal for a real cryogenic baffle. No cold stop achieves exactly 0% leakage.
+1. **A cold stop cannot attenuate in-cone emission.** The old
+   `optics.nearfield_fraction` knob implied it could. It is deleted; setting it
+   now raises an actionable error naming Gap 128.
 
-2. **The alignment tolerance is ~0.5 mm.** Beyond that, the shuttered background exceeds the 40,000 e- requirement (η_nf > 0.0492). Karen can provide this number to the mechanical team for alignment budgeting.
+2. **The cold stop is the aperture stop.** Its one real degree of freedom is
+   size: `optics.cold_stop_undersize_frac` [-]. That number moves A_collect,
+   f/#, the PSF, the MTF, and Ω_cone together, because they all come from one
+   pupil (Rule 4).
 
-3. **Cold stop leakage does not significantly affect operational SNR.** Even at the worst tested position (2.5 mm offset, 55,750 e-), nearfield shot noise contributes only ~1.4% of total noise variance. The requirement on shuttered background is driven by calibration accuracy, not image quality.
+3. **Undersizing costs about 1 % of SNR per 1 % of pupil diameter** for a
+   shot-limited camera, plus about 1.2 % of MTF at Nyquist. Ten percent of
+   tolerancing margin costs 10 % of SNR and 12 % of resolution.
 
-4. **The parameter name now matches the physics.** `optics.nearfield_fraction` states what the value is; the script converts once, explicitly, from the vendor convention (η_nf = 1 − vendor efficiency) at the input boundary.
+4. **Emissivity is derived, never free.** ε = 1 − R per mirror; an AR-coated
+   window with only T known emits nothing (Gap 127). Reading one end-to-end τ as
+   absorption over-states warm-optics emission several-fold.
 
-5. **Self-emission requires a defined element, and its emissivity is derived, not free.** ε = 1 − R by Kirchhoff for a mirror. Omitting the element list leaves ε = 0 and a zero nearfield — exactly the failure mode of this scenario's first execution (Gap 127, 2026-09-09).
+5. **The measurement–model disagreement is now physically interpretable.** It
+   bounds the coating reflectance and the barrel temperature instead of being
+   absorbed by a fitted leakage number.
 
-6. **The atmosphere model matters — and so does the sub-case.** "exo" (vacuum) sets transmission to unity and path radiance to zero, but routes through the `space` sub-case, requiring the placeholder `geometry.sensor_altitude_m` (registry Gap 42). Using the wrong atmosphere model (e.g., "simple" with an orbital altitude) would introduce spurious atmospheric absorption into a lab measurement comparison.
+## Figures
+
+- `outputs/fig1_signal_and_nearfield_vs_undersize.png` — signal and near-field
+  vs *u*, on one plot: the load-bearing display, because they fall together.
+- `outputs/fig2_snr_and_mtf_vs_undersize.png` — SNR and MTF at Nyquist vs *u*:
+  the cost of tolerancing margin.
+- `outputs/fig3_shuttered_background_vs_undersize.png` — shuttered background vs
+  *u*, with the 40,000 e⁻ requirement and Karen's six measurements.
+- `outputs/fig4_pupil_vs_undersize.png` — A_collect [cm²] and Ω_cone [msr] vs
+  *u*: one effective pupil, two consequences.
 
 ## Gaps Identified
 
-- ~~**Gap 1 (Inverse solver)**~~: **CLOSED** — `Sensor.solve_for` (registry Gap 10). Each lab measurement inverts in 6–7 forward-model evaluations instead of a 51-point sweep plus interpolation.
+- ~~**Gap 1 (Inverse solver)**~~: **CLOSED** — `Sensor.solve_for` (registry
+  Gap 10). The parameter it used to invert onto no longer exists, so this
+  scenario no longer exercises it; scenario 7.2 and the solver's own tests do.
 
-- **Gap 2 (Thermal background breakdown)**: OPEN. RADIANT outputs `nearfield_e` (warm optics) and `background_e` (scene) separately, which is good. But there is no per-element breakdown — Karen cannot see how much each optical element (primary mirror, secondary, fold mirror, etc.) contributes to the nearfield. This would help identify which element is the largest contributor and whether the cold stop leakage is coming from one element's direction.
+- **Gap 2 (Thermal background breakdown)**: OPEN, and now partly served —
+  `stage_outputs["optics"]["nearfield_per_element"]` gives the per-element
+  contribution. What remains missing is a GUI surface for it.
 
-- ~~**Gap 3 (NEDT)**~~: **CLOSED**. `result.metrics["nedt_K"]`, displayed in baseline, sweep, and SNR impact sections.
+- ~~**Gap 3 (NEDT)**~~: **CLOSED**. `result.metrics["nedt_K"]`, in the baseline
+  and every sweep row.
 
-- ~~**Gap 4 (Nearfield = 0 in scalar mode)**~~: **CLOSED** — one defined mirror element with the Kirchhoff-derived ε = 1 − R (registry Gap 37, converted to the element form under Gap 127 on 2026-09-09). The sweep is now physically meaningful end-to-end.
+- ~~**Gap 4 (Nearfield = 0 in scalar mode)**~~: **CLOSED** — the train is a
+  defined element list with Kirchhoff-derived ε (registry Gap 37, element form
+  under Gap 127, realistic coating split under Gap 128).
 
-- **Gap 6 (lab_test sub-case unreachable from the config surface)**: OPEN — registry Gap 42. This TVAC scenario must masquerade as the `space` sub-case with a placeholder `geometry.sensor_altitude_m`. Acceptable here (extended target fills the FOV; chamber background negligible), but a lit-lab scenario with a non-negligible chamber background cannot be modeled from `Sensor.from_dict` at all.
+- **Gap 6 (lab_test sub-case unreachable from the config surface)**: OPEN —
+  registry Gap 42. This TVAC scenario must masquerade as the `space` sub-case
+  with a placeholder `geometry.sensor_altitude_m`.
+
+- **New (Gap 128 accepted limitation)**: a cold stop that has shifted far enough
+  to stop being the aperture stop — so that warm structure enters the acceptance
+  cone — is outside the model. The scenario names it rather than fitting it.
 
 See `gaps.md` for the full per-gap records.

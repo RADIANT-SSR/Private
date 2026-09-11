@@ -55,8 +55,9 @@ class ElementPreview:
     name, kind, transfer_mode:
         Identity fields from the parsed element (kind/transfer_mode as
         lowercase strings).
-    temperature_K, diameter_m, distance_to_fpa_m:
-        Thermal/geometry scalars as parsed.
+    temperature_K:
+        Element temperature [K] as parsed. An element carries no geometry —
+        Gap 128 deleted ``diameter_m`` / ``distance_to_fpa_m``.
     reflectance_mean, transmittance_mean, emissivity_mean:
         Band-mean R / T / ε over the preview grid. Emissivity is the
         **Kirchhoff-derived** value (Rule 5) — mirrors ε = 1 − R,
@@ -70,8 +71,6 @@ class ElementPreview:
     kind: str
     transfer_mode: str
     temperature_K: float
-    diameter_m: float
-    distance_to_fpa_m: float
     reflectance_mean: float
     transmittance_mean: float
     emissivity_mean: float
@@ -136,8 +135,6 @@ def preview_optical_elements(
                     element.transfer_mode.value if element.transfer_mode is not None else ""
                 ),
                 temperature_K=float(element.temperature_K),
-                diameter_m=float(element.diameter_m),
-                distance_to_fpa_m=float(element.distance_to_fpa_m),
                 reflectance_mean=float(np.mean(element.reflectance.values)),
                 transmittance_mean=float(np.mean(element.transmittance.values)),
                 emissivity_mean=float(np.mean(element.emissivity.values)),

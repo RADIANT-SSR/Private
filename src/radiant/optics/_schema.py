@@ -129,6 +129,57 @@ F_NUMBER = ParameterDef(
 )
 
 # ---------------------------------------------------------------------------
+# Cold stop as the aperture stop (Gap 128)
+#
+# A cooled instrument's cold stop IS the aperture stop, built slightly smaller
+# than the primary so tolerances cannot let the FPA see past it. The effective
+# pupil it defines feeds A_collect [m²], the working f/# [-], the complex pupil
+# (PSF and MTF — Rule 4), and the near-field acceptance cone Ω_cone [sr].
+# ---------------------------------------------------------------------------
+
+COLD_STOP_UNDERSIZE_FRAC = ParameterDef(
+    name="optics.cold_stop_undersize_frac",
+    description=(
+        "Fractional reduction of the pupil DIAMETER imposed by the cold stop "
+        "[-]: D_eff = (1 - u) * aperture_diameter_m. The cold stop is the "
+        "aperture stop, undersized for alignment and thermal tolerancing, so "
+        "the effective pupil sets the collecting area, the working f/#, the "
+        "diffraction PSF/MTF, and the near-field acceptance cone together. "
+        "u = 0.05 (a 5 % undersized stop) collects (1 - 0.05)^2 = 90 % of the "
+        "light. 0 = the cold stop matches the primary (the default: no "
+        "undersizing modelled)."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=0.0,
+    bounds=(0.0, 0.49),
+    tags=frozenset({"optics", "aperture", "thermal"}),
+    default_justification=(
+        "0 reproduces the primary pupil bit-for-bit; undersizing is a "
+        "deliberate design allowance the analyst states, never a silent default."
+    ),
+)
+
+COLD_STOP_OBSCURATION_RATIO = ParameterDef(
+    name="optics.cold_stop_obscuration_ratio",
+    description=(
+        "Central obscuration ratio [-] imposed by the cold shield itself "
+        "(D_blocked / D_eff). The effective obscuration is the LARGER of this "
+        "and optics.obscuration_ratio, so a cold shield that blocks more than "
+        "the secondary governs. Default 0 = the cold shield adds no obscuration "
+        "beyond the telescope's own."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=0.0,
+    bounds=(0.0, 0.99),
+    tags=frozenset({"optics", "aperture", "thermal"}),
+    default_justification="Most cold shields obscure no more than the secondary already does.",
+)
+
+# ---------------------------------------------------------------------------
 # Scalar transmission (Mode 1 only for 2B.3)
 # ---------------------------------------------------------------------------
 
@@ -186,7 +237,8 @@ OPTICS_TEMPERATURE_K = ParameterDef(
     name="optics.optics_temperature_K",
     description=(
         "Default physical temperature of the optical train [K]. "
-        "Used for synthesized lumped elements in Modes 1-4."
+        "Applied to synthesized lumped elements in Modes 1-4 — which never "
+        "emit (Gap 127), so this contributes only through defined elements."
     ),
     dtype=float,
     canonical_unit="K",
@@ -197,21 +249,9 @@ OPTICS_TEMPERATURE_K = ParameterDef(
     default_justification="290 K is standard room-temperature optics.",
 )
 
-OPTICS_DISTANCE_TO_FPA_M = ParameterDef(
-    name="optics.optics_distance_to_fpa_m",
-    description=(
-        "Default distance from the optical train to the FPA [m]. "
-        "Used as the distance_to_fpa_m for synthesized lumped elements. "
-        "A value of 0.0 means 'use focal_length_m'."
-    ),
-    dtype=float,
-    canonical_unit="m",
-    input_unit="m",
-    default=0.0,
-    bounds=(0.0, 100.0),
-    tags=frozenset({"optics", "geometry"}),
-    default_justification="0 is a sentinel meaning 'use focal_length_m'.",
-)
+# ``optics.optics_distance_to_fpa_m`` was deleted by Gap 128: it existed only to
+# supply a per-element ``distance_to_fpa_m``, and per-element near-field geometry
+# no longer exists — the acceptance cone Ω_cone is the only geometry.
 
 # ---------------------------------------------------------------------------
 # Wavefront error
@@ -342,27 +382,14 @@ SCATTER_HALO_SIGMA_UM = ParameterDef(
     ),
 )
 
-NEARFIELD_FRACTION = ParameterDef(
-    name="optics.nearfield_fraction",
-    description=(
-        "Nearfield fraction: fraction of the FPA hemisphere filled by "
-        "warm (nearfield-emitting) elements. 0 = perfect cold stop "
-        "(no warm-optics emission reaches the FPA); 1 = no cold stop "
-        "(uncooled instrument). NOTE this is INVERTED from the vendor "
-        "'cold stop efficiency' convention, where 100% efficient means "
-        "complete blocking: nearfield_fraction = 1 - vendor_efficiency. "
-        "Formerly named optics.cold_stop_efficiency (deprecated alias "
-        "still accepted, Gap 12)."
-    ),
-    dtype=float,
-    canonical_unit="",
-    input_unit="",
-    default=1.0,
-    bounds=(0.0, 1.0),
-    tags=frozenset({"optics", "thermal"}),
-    default_justification="1.0 = uncooled (no cold stop).",
-    deprecated_aliases=frozenset({"optics.cold_stop_efficiency"}),
-)
+# ``optics.nearfield_fraction`` (and its deprecated alias
+# ``optics.cold_stop_efficiency``) was deleted by Gap 128. A cold stop cannot
+# attenuate in-cone emission — that light arrives through the imaging path
+# itself — so scaling the near-field by a "leaked hemisphere fraction" was
+# unphysical. Out-of-cone warm structure is blocked completely (the model always
+# assumes a cold stop); what the cold stop *does* control is the size of the
+# pupil, which is now ``optics.cold_stop_undersize_frac`` /
+# ``optics.cold_stop_obscuration_ratio`` above.
 
 NEARFIELD_ENABLED = ParameterDef(
     name="optics.nearfield_enabled",
@@ -607,10 +634,11 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     SPIDER_ANGLE_DEG,
     FOCAL_LENGTH_M,
     F_NUMBER,
+    COLD_STOP_UNDERSIZE_FRAC,
+    COLD_STOP_OBSCURATION_RATIO,
     TRANSMISSION_SCALAR,
     TRANSMISSION_INPUT_MODE,
     OPTICS_TEMPERATURE_K,
-    OPTICS_DISTANCE_TO_FPA_M,
     DEFOCUS_UM,
     WFE_MODE,
     WFE_RMS_WAVES,
@@ -619,7 +647,6 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     FIELD_POSITION_Y,
     SURFACE_ROUGHNESS_NM,
     SCATTER_HALO_SIGMA_UM,
-    NEARFIELD_FRACTION,
     NEARFIELD_ENABLED,
     STRAY_INPUT_MODE,
     STRAY_VEILING_GLARE_FRACTION,

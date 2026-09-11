@@ -131,6 +131,13 @@ def read_vendor_inputs() -> dict[str, Any]:
     return {"camera": camera, "site": site, "zeniths_deg": zeniths_deg, "anchors": anchors}
 
 
+# Camera-train coating model (Gap 128).  Three fold mirrors plus an AR-coated cold
+# window reproduce the datasheet's net tau exactly, with a realistic emitting
+# emissivity instead of the fallacy-era single all-absorbing mirror.
+MIRROR_R = 0.98  # [-] per-surface reflectance, protected gold
+N_MIRRORS = 3  # three-mirror fore-optics
+
+
 def to_canonical(vendor: dict[str, Any]) -> dict[str, float | str]:
     """Vendor units -> RADIANT canonical units.  One conversion per line."""
     cam = vendor["camera"]
@@ -142,12 +149,15 @@ def to_canonical(vendor: dict[str, Any]) -> dict[str, float | str]:
         "focal_length_m": float(cam["Effective focal length"]) / 1000.0,  # mm -> m
         "transmission": float(cam["Optical transmission"]) / 100.0,  # % -> fraction
         "optics_temperature_K": float(cam["Housing temperature"]) + 273.15,  # degC -> K
-        # Gap 127 (2026-09-09): emission derives only from defined elements, so this
-        # is the Kirchhoff eps = 1 - R of the ONE declared mirror below, not an input.
+        # Gap 127/128 (2026-09-09): emission derives only from defined elements, and
+        # the datasheet's single "train emissivity" is the eps = 1 - tau fallacy. It
+        # is carried for the narrative only; the model uses the coated train below.
         "train_emissivity": float(cam["Train emissivity"]) / 100.0,  # % -> fraction
-        # Vendor "cold shield efficiency" is the BLOCKED fraction; RADIANT's
-        # nearfield_fraction is the PASSED fraction (inverted convention).
-        "nearfield_fraction": 1.0 - float(cam["Cold shield efficiency"]) / 100.0,  # % -> frac
+        # Vendor "cold shield efficiency" (the BLOCKED fraction) NO LONGER MAPS to a
+        # RADIANT parameter (Gap 128): a cold stop cannot attenuate in-cone emission,
+        # and out-of-cone structure is taken to be blocked completely. Carried for the
+        # narrative; see the note printed by section_units().
+        "cold_shield_blocked_frac": float(cam["Cold shield efficiency"]) / 100.0,  # % -> frac
         # -- focal plane --
         # pixel pitch: RADIANT's canonical input unit for this parameter IS um,
         # so the datasheet number is used verbatim (no conversion).
@@ -227,21 +237,38 @@ def make_config(
             "aperture_diameter_m": canon["aperture_diameter_m"],
             "focal_length_m": canon["focal_length_m"],
             "optics_temperature_K": canon["optics_temperature_K"],
-            "nearfield_fraction": canon["nearfield_fraction"],
+            # Gap 128: the cold stop IS the aperture stop. The datasheet declares no
+            # tolerancing allowance, so the stop is modelled matched to the pupil
+            # (u = 0 [-]) — the schema default, stated here because it is a modelling
+            # choice, not an absence.
+            "cold_stop_undersize_frac": 0.0,
         },
-        # Gap 127 (2026-09-09): warm-optics emission derives ONLY from defined
-        # elements. The datasheet's tau = 0.75 [-] / train eps = 0.25 [-] pair is
-        # exactly ONE all-absorbing mirror: net throughput R = tau, eps = 1 - R.
+        # Gap 127/128 (2026-09-09): warm-optics emission derives ONLY from defined
+        # elements, and the datasheet's tau = 0.75 [-] / train eps = 0.25 [-] pair is
+        # the eps = 1 - tau fallacy — most of that loss is coating reflection and
+        # cold-filter rejection, not absorption. The camera train is modelled as what
+        # a MWIR camera is: N_MIRRORS fold mirrors at R = MIRROR_R (eps = 1 - R each)
+        # plus an AR-coated cold window carrying the balance, so the NET throughput is
+        # still the datasheet's tau exactly.
         "optical_elements": [
+            *(
+                {
+                    "name": f"fold_mirror_{i + 1}",
+                    "transfer_mode": "REFLECTIVE",
+                    "kind": "MIRROR",
+                    "reflectance": MIRROR_R,  # [-] protected-gold coating
+                    "temperature_K": canon["optics_temperature_K"],  # K
+                }
+                for i in range(N_MIRRORS)
+            ),
             {
-                "name": "camera_train",
-                "transfer_mode": "REFLECTIVE",
-                "kind": "MIRROR",
-                "reflectance": canon["transmission"],  # [-] mirror R = optical transmission
+                "name": "cold_window",
+                "transfer_mode": "REFRACTIVE",
+                "kind": "WINDOW",
+                # [-] the balance of the datasheet tau; AR-coated, eps = 0 (Gap 127)
+                "transmittance": float(canon["transmission"]) / MIRROR_R**N_MIRRORS,
                 "temperature_K": canon["optics_temperature_K"],  # K
-                "diameter_m": canon["aperture_diameter_m"],  # m
-                "distance_to_fpa_m": canon["focal_length_m"],  # m
-            }
+            },
         ],
         "detector": {
             "pixel_pitch_x_um": canon["pixel_pitch_um"],
@@ -362,8 +389,9 @@ def section_inputs(vendor: dict[str, Any], canon: dict[str, float | str]) -> Non
         ("Effective focal length", cam, "Effective focal length", "mm", "focal_length_m", "m"),
         ("Optical transmission", cam, "Optical transmission", "%", "transmission", "-"),
         ("Housing temperature", cam, "Housing temperature", "degC", "optics_temperature_K", "K"),
-        ("Train emissivity (= 1 - R)", cam, "Train emissivity", "%", "train_emissivity", "-"),
-        ("Cold shield efficiency", cam, "Cold shield efficiency", "%", "nearfield_fraction", "-"),
+        ("Train emissivity (datasheet)", cam, "Train emissivity", "%", "train_emissivity", "-"),
+        ("Cold shield efficiency", cam, "Cold shield efficiency", "%",
+         "cold_shield_blocked_frac", "-"),
         ("Pixel pitch", cam, "Pixel pitch", "um", "pixel_pitch_um", "um"),
         ("Quantum efficiency", cam, "Quantum efficiency", "%", "qe", "-"),
         ("Band low edge", cam, "Spectral band, low edge", "nm", "filter_min_um", "um"),
@@ -390,13 +418,18 @@ def section_inputs(vendor: dict[str, Any], canon: dict[str, float | str]) -> Non
         )
     print()
     blocked_pct = float(cam["Cold shield efficiency"])
-    print(f"  Note on the cold shield: the vendor quotes the BLOCKED fraction "
+    print(f"  Note on the cold shield (Gap 128): the vendor quotes a BLOCKED fraction "
           f"({blocked_pct:g} % efficient),")
-    print("  RADIANT's optics.nearfield_fraction is the PASSED fraction, so the conversion is")
-    print(f"  1 - eff/100 = {canon['nearfield_fraction']:g} [-].  Getting this inversion "
-          f"backwards would put")
-    print(f"  {1.0 / float(canon['nearfield_fraction']):.0f}x the warm-optics flux on the "
-          "focal plane.")
+    print("  which RADIANT no longer accepts as a knob.  A cold stop cannot attenuate")
+    print("  IN-CONE warm-optics emission — that light arrives through the imaging path")
+    print("  itself — and out-of-cone structure is taken to be blocked completely.  What a")
+    print("  cold stop does control is the SIZE of the pupil: optics.cold_stop_undersize_frac")
+    print("  = 0 [-] here, because the datasheet declares no tolerancing allowance.")
+    print(f"  Note on the train emissivity: the datasheet's {float(cam['Train emissivity']):g} %")
+    print("  is the eps = 1 - tau fallacy (the whole optical loss read as absorption).  The")
+    print(f"  model uses {N_MIRRORS} mirrors at R = {MIRROR_R:g} [-] plus an AR cold window,")
+    print(f"  net tau = {float(canon['transmission']):g} [-] unchanged, emitting eps ~ "
+          f"{N_MIRRORS * (1.0 - MIRROR_R):.2f} [-].")
     print()
     print("  Pointing plan [deg, zenith at the sensor]: "
           f"{', '.join(f'{z:g}' for z in vendor['zeniths_deg'])}")

@@ -10,7 +10,7 @@ This script:
   1. Loads the 12-target library with radiant.io.target_library
      (projected_area_m2 derived from length × width).
   2. Loads the 3 sensor YAMLs (one deliberately carries the outdated
-     optics.cold_stop_efficiency name — absorbed by the Gap 12
+     platform.h_sensor name — absorbed by the ADR-0006
      deprecated-alias mechanism with a DeprecationWarning).
   3. Runs the 12 × 4 matrix per sensor with radiant.api.batch.BatchRunner
      (144 cells total). Per cell the evaluate callback:
@@ -264,16 +264,16 @@ def main() -> None:
                 "pitch_um": pitch_m * 1e6,
                 "gsd_nadir_m": pitch_m * ALTITUDE_M / focal_m,
             }
-    alias_warnings = [w for w in caught if "cold_stop_efficiency" in str(w.message)]
+    alias_warnings = [w for w in caught if "h_sensor" in str(w.message)]
     for label, meta in sensors_meta.items():
         print(f"  {label:<24s}: {meta['aperture_m'] * 100:.0f} cm, "
               f"{meta['band'][0]:.1f}–{meta['band'][1]:.1f} µm, "
               f"{meta['pitch_um']:.0f} µm pixels, GSD(nadir) = {meta['gsd_nadir_m']:.1f} m")
     print(f"\n  OUTDATED PARAMETER NAME absorbed: sensor C's YAML still says")
-    print(f"  'optics.cold_stop_efficiency' (pre-Gap-12 name). RADIANT accepted it")
+    print(f"  'platform.h_sensor' (pre-ADR-0006 name). RADIANT accepted it")
     print(f"  through the deprecated-alias mechanism "
           f"({len(alias_warnings)} DeprecationWarning(s) raised) and mapped it to")
-    print(f"  optics.nearfield_fraction — the config still runs, loudly.")
+    print(f"  geometry.sensor_altitude_m — the config still runs, loudly.")
 
     print(f"\n=== Atmosphere conditions ===")
     for name, ov in ATMOSPHERES.items():

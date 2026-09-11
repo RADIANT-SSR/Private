@@ -293,6 +293,33 @@ class TestPsfPixelGridAccessor:
         with pytest.raises(ApiValidationError, match="No effective PSF"):
             ns.psf_pixel_grid()
 
+    def test_grid_follows_the_platform_pixel_phase(self) -> None:
+        """Gap 129: the accessor reads the chain's resolved phase and names the mode."""
+        from radiant.optics.psf.effective import EffectivePSF
+
+        n = 96
+        yy, xx = np.mgrid[0:n, 0:n]
+        c = (n - 1) / 2.0
+        data = np.exp(-((xx - c) ** 2 + (yy - c) ** 2) / (2.0 * 2.0**2))
+        psf = EffectivePSF(
+            data=data / data.sum(),
+            sample_spacing_m=2.0e-6,
+            pixel_pitch_m=1.0e-5,
+            wavelength_um=4.0,
+            convolution_history=("diffraction", "pixel_aperture"),
+        )
+        state = ChainState(wavelength_um=np.linspace(3.5, 5.0, 6))
+        state = state.with_stage_output("optics", "effective_psf", psf)
+        state = state.with_stage_output("platform", "pixel_phase_mode", "specified")
+        state = state.with_stage_output("platform", "pixel_phase_x_pix", 0.25)
+        state = state.with_stage_output("platform", "pixel_phase_y_pix", -0.5)
+        fig = ResultPlotNamespace(ChainResult(state)).psf_pixel_grid()
+        title = fig.axes[0].get_title(loc="left").replace("\n", " ")
+        assert "specified (+0.25, -0.50) px" in title
+        # Explicit override wins over the chain's value.
+        fig2 = ResultPlotNamespace(ChainResult(state)).psf_pixel_grid(pixel_phase_mode="average")
+        assert "average" in fig2.axes[0].get_title(loc="left")
+
 
 def _make_pupil_result(*, with_phase: bool = True, extent_m: float = 0.30) -> ChainResult:
     """Build a ChainResult carrying persisted complex-pupil diagnostic maps."""

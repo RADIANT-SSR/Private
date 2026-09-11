@@ -128,7 +128,7 @@ For multi-layer / two-color detectors, the user supplies a list of sub-bands, ea
 
 ### 3.3 Pixel geometry
 
-Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). The pixel-geometry parameters are `detector.pixel_pitch_x_um`, `detector.pixel_pitch_y_um` (defaults to `pitch_x` for a square pixel), `detector.fill_factor`, and `detector.charge_diffusion_length_m`.
+Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). The pixel-geometry parameters are `detector.pixel_pitch_x_um`, `detector.pixel_pitch_y_um` (defaults to `pitch_x` for a square pixel), `detector.fill_factor`, and `detector.charge_diffusion_length_m`. The **pixel sampling phase** (`detector.pixel_phase_mode` ∈ {average, centered, worst_case, specified} + `detector.pixel_phase_x/y` in fractions of a pitch, Gap 129) is owned here because the grid is the detector's and the box is defined by pitch and fill factor; it is *evaluated* by `PlatformStage` (Rule 9) — see RADIANT_Spatial_Complete.md §6.1.
 
 The canonical charge-diffusion parameter is `detector.charge_diffusion_length_m`
 (canonical unit metres, per the naming convention), **not** `_um`. There is no
@@ -396,13 +396,16 @@ the readout chain, §6) and never implemented ~20 of the designed names. This
 section is the authoritative, reconciled inventory (verified against
 `detector/_schema.py` and `readout/_schema.py`, 2026-07-12).
 
-### 11.1 `detector.*` — 27 parameters
+### 11.1 `detector.*` — 30 parameters
 
 **QE (4):** `qe_value`, `qe_table_path`, `qe_temperature_coeff_per_K`,
 `qe_temperature_ref_K`.
 
 **Pixel geometry (5):** `pixel_pitch_x_um`, `pixel_pitch_y_um`, `fill_factor`,
 `charge_diffusion_length_m`, `n_pixels_cross`.
+
+**Pixel sampling phase (3, Gap 129):** `pixel_phase_mode`, `pixel_phase_x`,
+`pixel_phase_y`.
 
 **Dark current (4):** `dark_rate_e_per_s`, `dark_activation_energy_eV`,
 `dark_reference_temperature_K`, `detector_temperature_K`.

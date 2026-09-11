@@ -119,9 +119,11 @@ class TestPixelBlockEnergyAt:
         """The shipped box integral of the pixel-convolved PSF is the expectation
         over a source uniformly placed across one pitch (rect ⊛ rect = triangle)."""
         offs = np.linspace(-0.5, 0.5, 33)
-        explicit = float(np.mean([[_box_at_offset(optics_only, ox, oy) for ox in offs] for oy in offs]))
-        assert pixel_conv.ensquared_energy_nxn(1) == pytest.approx(explicit, abs=5e-4)
-        assert pixel_conv.ensquared_energy_nxn(1, phase_mode="average") == pixel_conv.ensquared_energy_nxn(1)
+        grid = [[_box_at_offset(optics_only, ox, oy) for ox in offs] for oy in offs]
+        explicit = float(np.mean(grid))
+        plain_box = pixel_conv.ensquared_energy_nxn(1)
+        assert plain_box == pytest.approx(explicit, abs=5e-4)
+        assert pixel_conv.ensquared_energy_nxn(1, phase_mode="average") == plain_box
 
     @pytest.mark.level0
     def test_point_evaluation_matches_explicit_box_at_phase(

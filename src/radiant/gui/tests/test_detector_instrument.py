@@ -314,7 +314,6 @@ class TestOutputsAdvisoryWrap:
         assert readout.minimumSizeHint().width() < 700
 
 
-
 class TestPixelSamplingPhase:
     """Gap 129: the straddle convention is selectable from the Detector Inputs tab and
     the Detector + PSF grid follows the chain's resolved phase."""

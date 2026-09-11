@@ -6,9 +6,11 @@ convolves them into the PSF. The updated EffectivePSF is stored in
 ``stage_outputs["platform"]["effective_psf"]`` for PerformanceStage
 to read.
 
-This stage also computes ``EE_box`` (ensquared energy in a 1×1 pixel)
+This stage also computes ``EE_box`` (ensquared energy in a 1×1 pixel at
+the pixel sampling phase ``detector.pixel_phase_mode`` selects — Gap 129)
 from the fully degraded PSF and stores it in
-``stage_outputs["platform"]["EE_box"]``. The chain position — after
+``stage_outputs["platform"]["EE_box"]``, with ``EE_box_centered`` and
+``straddle_factor = EE_box / EE_box_centered`` beside it. The chain position — after
 OpticsStage and before SpectralIntegrationStage — exists precisely so
 that the EE_box applied to point-source and sub-pixel radiometry
 (applied once, in SpectralIntegrationStage, per Rule 9) includes

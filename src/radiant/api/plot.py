@@ -775,7 +775,9 @@ def plot_psf(
         ax.set_ylabel("y (PSF samples)")
     pitch_um = psf.pixel_pitch_m * 1e6
     if pixel_grid:
-        phase = (0.0, 0.0) if pixel_phase is None else (float(pixel_phase[0]), float(pixel_phase[1]))
+        phase = (
+            (0.0, 0.0) if pixel_phase is None else (float(pixel_phase[0]), float(pixel_phase[1]))
+        )
         title = f"Effective PSF · detector pixel grid ({pitch_um:.1f} µm pitch)"
         if pixel_phase_mode is not None:
             title += f" · sampling phase: {pixel_phase_mode}"

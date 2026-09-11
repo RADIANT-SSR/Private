@@ -61,10 +61,9 @@ def _make_params(*, pixel_phase_defs: bool = True, **overrides: object) -> Param
     ``pixel_phase_defs=False`` omits the Gap 129 detector defs to exercise the
     stage's partial-schema fallback.
     """
+    from radiant.detector._schema import PIXEL_PHASE_MODE, PIXEL_PHASE_X, PIXEL_PHASE_Y
     from radiant.optics._schema import ALL_PARAMETERS as OPT_PARAMS
     from radiant.platform._schema import ALL_PARAMETERS as PLAT_PARAMS
-
-    from radiant.detector._schema import PIXEL_PHASE_MODE, PIXEL_PHASE_X, PIXEL_PHASE_Y
 
     # Only the pixel-phase defs from the detector schema (Gap 129): the rest of
     # it carries required parameters this stage never reads.
@@ -659,12 +658,16 @@ class TestPlatformStagePixelPhase:
     @pytest.mark.level1
     def test_centered_straddle_is_unity_and_worst_case_below(self) -> None:
         state, _ = self._point_state()
-        cen = PlatformStage().run(
-            state, _make_params(**{"detector.pixel_phase_mode": "centered"})
-        ).stage_outputs["platform"]
-        wc = PlatformStage().run(
-            state, _make_params(**{"detector.pixel_phase_mode": "worst_case"})
-        ).stage_outputs["platform"]
+        cen = (
+            PlatformStage()
+            .run(state, _make_params(**{"detector.pixel_phase_mode": "centered"}))
+            .stage_outputs["platform"]
+        )
+        wc = (
+            PlatformStage()
+            .run(state, _make_params(**{"detector.pixel_phase_mode": "worst_case"}))
+            .stage_outputs["platform"]
+        )
         assert cen["straddle_factor"] == pytest.approx(1.0, rel=1e-12)
         assert wc["straddle_factor"] < 1.0
         assert (wc["pixel_phase_x_pix"], wc["pixel_phase_y_pix"]) == (0.5, 0.5)
@@ -672,16 +675,20 @@ class TestPlatformStagePixelPhase:
     @pytest.mark.level1
     def test_specified_offsets_flow_through(self) -> None:
         state, epsf = self._point_state()
-        out = PlatformStage().run(
-            state,
-            _make_params(
-                **{
-                    "detector.pixel_phase_mode": "specified",
-                    "detector.pixel_phase_x": 0.25,
-                    "detector.pixel_phase_y": -0.5,
-                }
-            ),
-        ).stage_outputs["platform"]
+        out = (
+            PlatformStage()
+            .run(
+                state,
+                _make_params(
+                    **{
+                        "detector.pixel_phase_mode": "specified",
+                        "detector.pixel_phase_x": 0.25,
+                        "detector.pixel_phase_y": -0.5,
+                    }
+                ),
+            )
+            .stage_outputs["platform"]
+        )
         assert (out["pixel_phase_x_pix"], out["pixel_phase_y_pix"]) == (0.25, -0.5)
         assert out["EE_box"] == pytest.approx(epsf.pixel_block_energy_at(1, 0.25, -0.5), rel=1e-12)
 
@@ -691,9 +698,11 @@ class TestPlatformStagePixelPhase:
 
         state, _ = _make_state_with_epsf()
         state = state.with_stage_output("optics", "regime", RadiometricRegime.EXTENDED)
-        out = PlatformStage().run(
-            state, _make_params(**{"detector.pixel_phase_mode": "worst_case"})
-        ).stage_outputs["platform"]
+        out = (
+            PlatformStage()
+            .run(state, _make_params(**{"detector.pixel_phase_mode": "worst_case"}))
+            .stage_outputs["platform"]
+        )
         assert out["EE_box"] == 1.0 and out["EE_box_centered"] == 1.0
         assert out["straddle_factor"] == 1.0
 

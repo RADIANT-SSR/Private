@@ -92,10 +92,24 @@ def compute_contrast_snr(state: ChainState) -> SNRResult:
     s_t_final = ro_out.get("signal_e_final")
     saturation_reason: str | None = None
     if s_t_pre and s_t_final is not None and s_t_final < s_t_pre * (1.0 - 1e-9):
+        # CU-354: s_t_final is the CLIPPED signal — the well capacity left
+        # after the non-signal pedestal (CU-350), not the full well. Name it
+        # that, and cite the readout's own published well numbers so this
+        # message and the ReadoutStage saturation warning share vocabulary.
+        fwc_e = ro_out.get("full_well_capacity_e")
+        total_well_e = ro_out.get("total_well_e")
+        well_clause = (
+            f" (readout.full_well_capacity_e = {fwc_e:.3e} e-, "
+            f"readout.total_well_e = {total_well_e:.3e} e-)"
+            if fwc_e is not None and total_well_e is not None
+            else ""
+        )
         saturation_reason = (
-            f"pixel saturated (signal {s_t_pre:.3e} e- clipped to full well "
-            f"{s_t_final:.3e} e-); contrast_snr is unreliable — reduce integration "
-            "time or raise full_well_capacity_e"
+            f"pixel saturated: signal {s_t_pre:.3e} e- clipped to {s_t_final:.3e} e- — "
+            f"the well capacity remaining after the non-signal pedestal of dark + glow "
+            f"+ near-field + stray (+ background for point sources){well_clause}; "
+            "contrast_snr is unreliable — reduce integration time, reduce the "
+            "pedestal, or raise full_well_capacity_e"
         )
         warnings.warn(saturation_reason, UserWarning, stacklevel=2)
 

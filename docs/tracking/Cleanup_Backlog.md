@@ -99,18 +99,19 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: results-affecting (intake test 1) for any up/down DROIC configuration with defined warm optical elements; the whole point of the reference phase is to subtract the standing pedestal, and near-field emission is exactly a standing pedestal.
 **Suggested fix**: (b) stand-alone task once the owner rules on D6's scope — if the reference phase is a real second integration of the same pixel, both terms belong in `q_down_per_pixel` under both reference sources (near-field and stray are incident in both phases). Effort S; category C. Related: [[CU-350]], Gap 117 Phase 4.
 
-### CU-354 — The contrast-SNR saturation warning labels the **clipped signal** "full well", so a saturated run reports "full well 0.000e+00 e-" while the readout warning in the same run reports 1e+05 e-
+## Resolved
+
+### CU-354 — The contrast-SNR saturation warning labels the **clipped signal** "full well", so a saturated run reports "full well 0.000e+00 e-" while the readout warning in the same run reports 1e+05 e- — RESOLVED 2026-09-11 (commit trailer)
 
 **Discovered**: owner walkthrough of `gui/transmission-tab`, 2026-09-10 — spotted while reading the crash log for [[CU-353]].
-**Status**: Open.
+**Status**: Resolved.
 **File**: `src/radiant/performance/contrast_snr.py:94-99` — `f"pixel saturated (signal {s_t_pre:.3e} e- clipped to full well {s_t_final:.3e} e-)"`.
 **Symptom**: `s_t_final` is `stage_outputs["readout"]["signal_e_final"]` — the **clipped signal**, i.e. what survived the clip — but the message calls it "full well". When the non-signal pedestal (dark + glow + near-field + stray + background) already exceeds the well, the available capacity is zero, the signal clips to 0 e-, and the warning reads *"pixel saturated (signal 1.903e+03 e- clipped to full well 0.000e+00 e-)"*. Reproduced verbatim in the owner's session log, paired line-for-line with the ReadoutStage warning from the **same evaluation** saying `full_well_capacity_e = 1e+05 e-`. The two messages name the same quantity differently and disagree by five orders of magnitude.
 **Why it still matters**: workflow-visible (intake test 4) — an operator reads "full well 0.000e+00 e-" and concludes the well capacity is unset or zero, which sends them to the wrong parameter. The actionable clause it ends with ("raise full_well_capacity_e") then looks contradictory against a well that is already 1e+05 e-. The real diagnosis is that the *pedestal* consumed the well (the CU-350 regime, where `available_capacity = well − non_signal_e` collapses), which neither message says.
 **Suggested fix**: (a) inline-fix-now — relabel to what the value is (`clipped to 0.000e+00 e- (no well capacity left after the non-signal pedestal)`), and where the readout publishes it, cite `available_capacity` / `total_well_e` so the two warnings agree on vocabulary. Nothing asserts on the current string (grepped: the f-string is its only occurrence in the tree), so the change is text-only. Effort XS; category B. Related: [[CU-350]], Gap 65.
 
 **Not a message-flood defect.** The same log looked at first like repeated identical saturation rows. It is not: each line carries its own numbers (fill fraction 24.98 → 49.18 → 72.66 → 95.44 → …), one pair per debounced re-evaluation as the operator dragged a parameter, and the GUI's `MessagesPanel.set_warnings` *replaces* its list every evaluation rather than appending — so nothing accumulates on screen. No deduplication is wanted or needed.
-
-## Resolved
+**Resolution**: the message now names the clipped value for what it is — "clipped to X e- — the well capacity remaining after the non-signal pedestal of dark + glow + near-field + stray (+ background for point sources)" — and cites `readout.full_well_capacity_e` / `readout.total_well_e` so it shares vocabulary with the ReadoutStage warning from the same evaluation; the remedy clause adds "reduce the pedestal" (the actual diagnosis in the zero-capacity regime). `TestContrastSnrSaturation` extended to pin the label.
 
 ### CU-355 — Scalar-RMS WFE pupil screen ignores both the reference and operating wavelength: the schema promises "waves at the reference wavelength" but the phase is 2π·rms_waves at every band — RESOLVED 2026-09-11 (commit trailer)
 

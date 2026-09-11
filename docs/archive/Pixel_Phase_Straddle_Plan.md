@@ -1,6 +1,8 @@
 # Pixel Sampling Phase (Straddle Factor) for Point-Source / Sub-Pixel EE_box — Plan
 
-**Status:** Active
+> **HISTORICAL** — completed 2026-09-11 by branch `gap129/pixel-phase` (Gap 129); archived in the same PR per Rule 24.
+
+**Status:** Complete
 **Date:** 2026-09-11
 **Registry:** Gap 129 (`docs/tracking/gaps.md`)
 **Branch:** `gap129/pixel-phase`

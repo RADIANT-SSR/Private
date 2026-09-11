@@ -4,7 +4,7 @@
   "metrics": {
     "snr": 45.61581471282042,
     "nedt_K": 0.07412744633516842,
-    "niirs": 5.972009631059299
+    "niirs": 6.033854639143792
   },
   "notes": "Runner's module-level base_config; the sweep varies jitter RMS."
 }

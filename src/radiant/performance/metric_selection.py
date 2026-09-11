@@ -67,6 +67,7 @@ METRIC_GROUPS: Mapping[str, frozenset[str]] = {
             "rer",
             "ee_1x1",
             "ee_3x3",
+            "straddle_factor",
             "mtf_at_nyquist",
             "strehl",
             "strehl_marechal",

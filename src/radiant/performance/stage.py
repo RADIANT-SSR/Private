@@ -18,7 +18,7 @@ import numpy as np
 
 from radiant.core.chain import ChainState
 from radiant.core.los_geometry import LineOfSightGeometry
-from radiant.core.parameters import ParameterSet, Provenance
+from radiant.core.parameters import ParameterSet, Provenance, UnknownParameterError
 from radiant.performance.access_rate import compute_access_rate_m2_s
 from radiant.performance.adc_margin import compute_adc_margin
 from radiant.performance.consistency_check import check_dual_path_consistency
@@ -60,6 +60,18 @@ from radiant.performance.turbulence_mtf_term import kolmogorov_mtf_1d
 from radiant.performance.well_margin import compute_well_margin
 
 logger = logging.getLogger(__name__)
+
+
+def _pixel_phase_params(params: ParameterSet) -> tuple[str, float, float]:
+    """``(mode, phase_x, phase_y)`` from the detector schema (Gap 129); a
+    ParameterSet without the detector schema resolves to ``average``."""
+    try:
+        mode: str = params.get("detector.pixel_phase_mode")
+        phase_x: float = params.get("detector.pixel_phase_x")
+        phase_y: float = params.get("detector.pixel_phase_y")
+    except UnknownParameterError:
+        return "average", 0.0, 0.0
+    return mode, phase_x, phase_y
 
 
 def _compute_spatial_metrics(
@@ -111,8 +123,13 @@ def _compute_spatial_metrics(
     fwhm_x = epsf.fwhm("x")
     fwhm_y = epsf.fwhm("y")
     rer = epsf.rer()
-    ee_1x1 = epsf.ensquared_energy_nxn(1)
-    ee_3x3 = epsf.ensquared_energy_nxn(3)
+    # Ensquared energies at the selected pixel sampling phase (Gap 129) — the
+    # same convention PlatformStage used for EE_box, so ee_1x1 == EE_box in the
+    # point/sub-pixel regimes (Rule 4: one PSF, one answer per question).
+    phase_mode, phase_x, phase_y = _pixel_phase_params(params)
+    ee_1x1 = epsf.ensquared_energy_nxn(1, phase_mode=phase_mode, phase=(phase_x, phase_y))
+    ee_3x3 = epsf.ensquared_energy_nxn(3, phase_mode=phase_mode, phase=(phase_x, phase_y))
+    straddle = plat_out.get("straddle_factor")
 
     # Strehl ratio (Rule 4: PSF-derived, not analytic). Peak of the
     # degraded PSF over the diffraction-limited reference built by
@@ -166,6 +183,8 @@ def _compute_spatial_metrics(
     state = state.with_metric("rer", rer)
     state = state.with_metric("ee_1x1", ee_1x1)
     state = state.with_metric("ee_3x3", ee_3x3)
+    if straddle is not None:
+        state = state.with_metric("straddle_factor", float(straddle))
     state = state.with_metric("mtf_at_nyquist", mtf_ny)
     if strehl is not None:
         state = state.with_metric("strehl", strehl)
@@ -1013,6 +1032,7 @@ _PRODUCES_SPATIAL = frozenset(
         "rer",
         "ee_1x1",
         "ee_3x3",
+        "straddle_factor",
         "mtf_at_nyquist",
         "strehl",
         "mtf_system_at_nyquist_x",

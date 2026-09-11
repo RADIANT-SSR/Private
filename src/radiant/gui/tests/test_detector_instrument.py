@@ -19,6 +19,8 @@ import pytest
 
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 
+from PySide6.QtWidgets import QComboBox  # noqa: E402
+
 from radiant.api.sensor import Sensor  # noqa: E402
 from radiant.gui.main_window import RADIANTMainWindow  # noqa: E402
 from radiant.gui.stage_views import STAGE_COMPOSITIONS  # noqa: E402
@@ -310,3 +312,55 @@ class TestOutputsAdvisoryWrap:
         note = "x = 110.0 K differs from y = 77.0 K, " * 8  # ~300 chars, advisory-sized
         readout.show_stage_outputs("detector", {"dark_temperature_note": note, "signal_e": 1.0})
         assert readout.minimumSizeHint().width() < 700
+
+
+
+class TestPixelSamplingPhase:
+    """Gap 129: the straddle convention is selectable from the Detector Inputs tab and
+    the Detector + PSF grid follows the chain's resolved phase."""
+
+    def test_form_lists_the_three_phase_fields_in_their_own_group(self) -> None:
+        from radiant.gui.widgets.detector_inputs_form import _GROUPS, _PHASE_FIELDS
+
+        paths = [dotpath for _label, dotpath in _PHASE_FIELDS]
+        assert paths == [
+            "detector.pixel_phase_mode",
+            "detector.pixel_phase_x",
+            "detector.pixel_phase_y",
+        ]
+        headings = [heading for heading, _fields in _GROUPS]
+        assert any("sampling phase" in h.lower() for h in headings)
+
+    def test_mode_row_edits_through_the_schema_combo(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The mode is a schema enum, so the shared editor offers exactly its values."""
+        from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
+
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        dialog = ParameterEditorDialog(sensor, "detector.pixel_phase_mode", lambda *_a: None, None)
+        qtbot.addWidget(dialog)
+        combo = dialog.findChild(QComboBox)
+        assert combo is not None
+        items = [combo.itemText(i) for i in range(combo.count())]
+        assert items == ["average", "centered", "worst_case", "specified"]
+
+    def test_worst_case_lowers_ee_box_and_shifts_the_grid(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """One API call (sensor.set) → EE_box drops and the pixel-grid accessor draws the
+        boundaries the PSF now straddles (title names the mode and offset)."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        # The shipped example is extended-scene; a 0.01 m² target at its range is
+        # sub-pixel, where EE_box (and hence the phase) applies (Rule 9).
+        sensor.set("source.target.projected_area_m2", 0.01)
+        base = _evaluate(sensor)
+        sensor.set("detector.pixel_phase_mode", "worst_case")
+        worst = _evaluate(sensor)
+        base_out = base.stage_outputs["platform"]  # type: ignore[attr-defined]
+        worst_out = worst.stage_outputs["platform"]  # type: ignore[attr-defined]
+        assert base_out["EE_box"] < 1.0, "expected a sub-pixel regime"
+        assert worst_out["EE_box"] < base_out["EE_box"]
+        assert worst.metrics["straddle_factor"] < 1.0  # type: ignore[attr-defined]
+        assert worst_out["straddle_factor"] < base_out["straddle_factor"]
+        from radiant.api.inspect import ResultPlotNamespace
+
+        fig = ResultPlotNamespace(worst).psf_pixel_grid()  # type: ignore[arg-type]
+        title = fig.axes[0].get_title(loc="left").replace("\n", " ")
+        assert "worst_case (+0.50, +0.50) px" in title

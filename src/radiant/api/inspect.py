@@ -196,11 +196,27 @@ class ResultPlotNamespace:
         Same figure as :meth:`psf`, but with pixel-boundary gridlines across the
         whole cropped window rather than a single outlined pixel, so the viewer
         sees how the PSF spreads across neighbouring detector pixels (arch-doc
-        §4.4.1 Detector row). A GUI draw over already-computed data — no results
-        change. Raises :class:`ApiValidationError` when no effective PSF exists.
+        §4.4.1 Detector row). The grid is shifted by the pixel sampling phase
+        the chain evaluated ``EE_box`` at (Gap 129 — ``stage_outputs["platform"]``
+        ``pixel_phase_mode`` / ``pixel_phase_x_pix`` / ``pixel_phase_y_pix``), so
+        the PSF is drawn straddling the boundaries it was scored against; pass
+        ``pixel_phase=`` / ``pixel_phase_mode=`` to override. A GUI draw over
+        already-computed data — no results change. Raises
+        :class:`ApiValidationError` when no effective PSF exists.
         """
         from radiant.api.plot import plot_psf
 
+        plat_out = self._result.stage_outputs.get("platform", {})
+        mode = plat_out.get("pixel_phase_mode")
+        if mode is not None:
+            kwargs.setdefault("pixel_phase_mode", mode)
+            kwargs.setdefault(
+                "pixel_phase",
+                (
+                    float(plat_out.get("pixel_phase_x_pix", 0.0)),
+                    float(plat_out.get("pixel_phase_y_pix", 0.0)),
+                ),
+            )
         return plot_psf(self._degraded_psf(), pixel_grid=True, **kwargs)
 
     def spectral_atmosphere_background(self, **kwargs: Any) -> Any:

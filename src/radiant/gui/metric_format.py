@@ -123,6 +123,7 @@ METRIC_DISPLAY_LABELS: Final[dict[str, str]] = {
     "rer": "RER",
     "ee_1x1": "Ensquared energy 1×1",
     "ee_3x3": "Ensquared energy 3×3",
+    "straddle_factor": "Straddle factor",
     "mtf_at_nyquist": "MTF @ Nyquist",
     "strehl": "Strehl ratio",
     "strehl_marechal": "Strehl (Maréchal)",

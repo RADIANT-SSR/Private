@@ -40,7 +40,7 @@ import warnings
 import numpy as np
 
 from radiant.core.chain import ChainState
-from radiant.core.parameters import ParameterSet
+from radiant.core.parameters import ParameterSet, UnknownParameterError
 from radiant.core.regime import RadiometricRegime
 from radiant.platform.errors import PlatformValidationError
 from radiant.platform.jitter import jitter_kernel_2d, jitter_mtf_1d, jitter_sigma_focal_m
@@ -52,25 +52,58 @@ from radiant.platform.turbulence_kernel import kolmogorov_kernel_2d
 logger = logging.getLogger(__name__)
 
 
-def _compute_ee_box(regime: RadiometricRegime | str | None, epsf: object) -> float:
-    """EE_box for the finalized regime, from the degraded EffectivePSF.
+def _pixel_phase_params(params: ParameterSet) -> tuple[str, float, float]:
+    """``(mode, phase_x, phase_y)`` from the detector schema (Gap 129).
 
-    Extended regime → 1.0 (EE_box not applied, Rule 9).
-    Point/sub-pixel → ensquared energy in 1×1 pixel from the PSF as
-    degraded by all kernels applied so far (pixel aperture, diffusion,
-    defocus, jitter, smear, turbulence).
-    If no EffectivePSF or no regime is available, defaults to 1.0.
+    A ParameterSet built without the detector schema (partial-chain
+    harnesses) resolves to the ``average`` convention — the pre-Gap-129
+    behaviour — the same partial-schema tolerance ``PerformanceStage``
+    extends to ``detector.pixel_pitch_x_um``.
+    """
+    try:
+        mode: str = params.get("detector.pixel_phase_mode")
+        phase_x: float = params.get("detector.pixel_phase_x")
+        phase_y: float = params.get("detector.pixel_phase_y")
+    except UnknownParameterError:
+        logger.debug("detector.pixel_phase_* not in schema; EE_box uses the phase average.")
+        return "average", 0.0, 0.0
+    return mode, phase_x, phase_y
+
+
+def _compute_ee_box(
+    regime: RadiometricRegime | str | None,
+    epsf: object,
+    phase_mode: str = "average",
+    phase: tuple[float, float] = (0.0, 0.0),
+) -> tuple[float, float]:
+    """``(EE_box, EE_box_centered)`` for the finalized regime, from the degraded PSF.
+
+    Extended regime → ``(1.0, 1.0)`` (EE_box not applied, Rule 9).
+    Point/sub-pixel → ensquared energy in a 1×1 pixel at the selected pixel
+    sampling phase (Gap 129: ``average`` is the pitch-wide box integral of
+    the pixel-convolved PSF — the uniform-phase expectation; the other modes
+    point-evaluate the same PSF at the offset), from the PSF as degraded by
+    every kernel applied so far (pixel aperture, diffusion, defocus, jitter,
+    smear, turbulence). ``EE_box_centered`` is the pixel-centred reference
+    the straddle factor is taken against.
+    If no EffectivePSF or no regime is available, defaults to ``(1.0, 1.0)``.
 
     Note: the EE computation itself lives on ``EffectivePSF`` (duck-typed
     here — Rule 11 forbids importing ``radiant.optics`` from this stage).
     """
     if regime is None or epsf is None:
-        return 1.0
+        return 1.0, 1.0
     if isinstance(regime, str):
         regime = RadiometricRegime(regime)
     if regime == RadiometricRegime.EXTENDED:
-        return 1.0
-    return float(epsf.ensquared_energy_nxn(1))  # type: ignore[attr-defined]
+        return 1.0, 1.0
+    ee_box = float(
+        epsf.ensquared_energy_nxn(1, phase_mode=phase_mode, phase=phase)  # type: ignore[attr-defined]
+    )
+    ee_centered = float(
+        epsf.ensquared_energy_nxn(1, phase_mode="centered")  # type: ignore[attr-defined]
+    )
+    return ee_box, ee_centered
 
 
 # Canonical display units for this stage's scalar ``stage_outputs`` (CU-118) —
@@ -81,6 +114,10 @@ OUTPUT_UNITS: dict[str, str] = {
     "jitter_sigma_y_m": "m",
     "smear_width_m": "m",
     "EE_box": "",
+    "EE_box_centered": "",
+    "straddle_factor": "",
+    "pixel_phase_x_pix": "pixel",
+    "pixel_phase_y_pix": "pixel",
 }
 
 
@@ -117,7 +154,9 @@ class PlatformStage:
 
         if epsf is None:
             logger.debug("No EffectivePSF from optics stage; skipping platform kernels.")
-            return state.with_stage_output("platform", "EE_box", 1.0)
+            state = state.with_stage_output("platform", "EE_box", 1.0)
+            state = state.with_stage_output("platform", "EE_box_centered", 1.0)
+            return state.with_stage_output("platform", "straddle_factor", 1.0)
 
         if sigma_x_m != 0.0 or sigma_y_m != 0.0:
             # Kernel size: cover ±4σ, at the PSF sample spacing, capped to PSF grid.
@@ -269,10 +308,22 @@ class PlatformStage:
             state = state.with_mtf("mtf_smear_x", mtf_smear_x)
             state = state.with_mtf("mtf_smear_y", mtf_smear_y)
 
-        # --- EE_box from the fully degraded PSF (Rule 9 coupling) ---
+        # --- EE_box from the fully degraded PSF (Rule 9 coupling) at the
+        # selected pixel sampling phase (Gap 129) ---
         regime = state.stage_outputs.get("optics", {}).get("regime")
-        ee_box = _compute_ee_box(regime, epsf)
+        phase_mode, phase_x, phase_y = _pixel_phase_params(params)
+        ee_box, ee_centered = _compute_ee_box(regime, epsf, phase_mode, (phase_x, phase_y))
+        straddle = ee_box / ee_centered if ee_centered > 0.0 else 1.0
+        if phase_mode == "worst_case":
+            phase_x, phase_y = 0.5, 0.5
+        elif phase_mode != "specified":
+            phase_x, phase_y = 0.0, 0.0
         state = state.with_stage_output("platform", "EE_box", ee_box)
+        state = state.with_stage_output("platform", "EE_box_centered", ee_centered)
+        state = state.with_stage_output("platform", "straddle_factor", straddle)
+        state = state.with_stage_output("platform", "pixel_phase_mode", phase_mode)
+        state = state.with_stage_output("platform", "pixel_phase_x_pix", phase_x)
+        state = state.with_stage_output("platform", "pixel_phase_y_pix", phase_y)
 
         return state.with_stage_output("platform", "effective_psf", epsf)
 

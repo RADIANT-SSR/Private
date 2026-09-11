@@ -682,6 +682,8 @@ def plot_psf(
     span_pixels: int = _DEFAULT_PSF_SPAN_PIXELS,
     pixel_outline: bool = True,
     pixel_grid_span: int | None = None,
+    pixel_phase: tuple[float, float] | None = None,
+    pixel_phase_mode: str | None = None,
     **kwargs: Any,
 ) -> Figure:
     """Plot an EffectivePSF as a 2D image with log scale, cropped to the PSF core.
@@ -709,6 +711,14 @@ def plot_psf(
         (owner walkthrough item 20: "we should also see the outline of the
         detector pixel on the PSF plot"). Suppressed automatically when
         *pixel_grid* is set, since the grid already draws that boundary.
+    pixel_phase:
+        Image-point offset from the pixel centre in fractions of a pitch,
+        ``(x, y)`` — the pixel sampling phase the chain evaluated ``EE_box`` at
+        (Gap 129). Shifts the ``pixel_grid`` overlay so the drawn boundaries are
+        the ones the PSF straddles. ``None`` (default) draws the centred grid.
+    pixel_phase_mode:
+        The ``detector.pixel_phase_mode`` label to name in the title
+        (``"average"`` draws the centred grid, since no single offset exists).
     pixel_grid_span:
         Deprecated alias for *span_pixels*, kept so existing callers keep working.
         When given it overrides *span_pixels* and emits a
@@ -765,10 +775,16 @@ def plot_psf(
         ax.set_ylabel("y (PSF samples)")
     pitch_um = psf.pixel_pitch_m * 1e6
     if pixel_grid:
-        ax.set_title(
-            _wrapped_title(f"Effective PSF · detector pixel grid ({pitch_um:.1f} µm pitch)")
-        )
-        _overlay_pixel_grid(ax, psf, span_pixels)
+        phase = (0.0, 0.0) if pixel_phase is None else (float(pixel_phase[0]), float(pixel_phase[1]))
+        title = f"Effective PSF · detector pixel grid ({pitch_um:.1f} µm pitch)"
+        if pixel_phase_mode is not None:
+            title += f" · sampling phase: {pixel_phase_mode}"
+            if pixel_phase_mode != "average":
+                title += f" ({phase[0]:+.2f}, {phase[1]:+.2f}) px"
+        elif pixel_phase is not None:
+            title += f" · sampling phase ({phase[0]:+.2f}, {phase[1]:+.2f}) px"
+        ax.set_title(_wrapped_title(title))
+        _overlay_pixel_grid(ax, psf, span_pixels, phase)
     else:
         ax.set_title(_wrapped_title(f"Effective PSF ({pitch_um:.1f} µm pixel outlined)"))
         _crop_to_pixels(ax, psf, span_pixels)
@@ -859,15 +875,25 @@ def _overlay_pixel_outline(ax: Any, psf: EffectivePSF) -> None:
     )
 
 
-def _overlay_pixel_grid(ax: Any, psf: EffectivePSF, span_pixels: int) -> None:
+def _overlay_pixel_grid(
+    ax: Any,
+    psf: EffectivePSF,
+    span_pixels: int,
+    pixel_phase: tuple[float, float] = (0.0, 0.0),
+) -> None:
     """Draw detector pixel-boundary gridlines over a PSF image and crop to the core.
 
     The PSF array is sampled at ``psf.sample_spacing_m``; one detector pixel
-    spans ``psf.pixel_pitch_m / sample_spacing_m`` samples. Boundaries straddle
-    the centre sample so the central detector pixel is centred on the PSF peak.
-    The axes are cropped to ``span_pixels`` detector pixels so the grid is a
-    readable mesh over the concentrated PSF rather than hundreds of lines across
-    the (largely empty) full array.
+    spans ``psf.pixel_pitch_m / sample_spacing_m`` samples. With
+    ``pixel_phase = (0, 0)`` the boundaries straddle the centre sample so the
+    central detector pixel is centred on the image point. A non-zero
+    ``pixel_phase`` (Gap 129; fractions of a pitch, x then y) is where the
+    image point sits *relative to the pixel centre*, so the grid is shifted the
+    other way by that amount — the viewer sees the PSF straddling the boundary
+    the chain evaluated ``EE_box`` against. The axes are cropped to
+    ``span_pixels`` detector pixels so the grid is a readable mesh over the
+    concentrated PSF rather than hundreds of lines across the (largely empty)
+    full array.
     """
     dx = psf.sample_spacing_m
     pitch = psf.pixel_pitch_m
@@ -877,13 +903,12 @@ def _overlay_pixel_grid(ax: Any, psf: EffectivePSF, span_pixels: int) -> None:
     samples_per_pixel = pitch / dx
     center = (n - 1) / 2.0
     half_pixels = max(1, span_pixels // 2)
-    offsets = [(k + 0.5) * samples_per_pixel for k in range(half_pixels)]
-    positions = [center - off for off in offsets] + [center + off for off in offsets]
-    for pos in positions:
-        if -0.5 <= pos <= n - 0.5:
-            pos_um = _psf_sample_to_um(psf, pos)
-            ax.axvline(pos_um, color="white", lw=0.5, alpha=0.5)
-            ax.axhline(pos_um, color="white", lw=0.5, alpha=0.5)
+    for axis_phase, draw in ((pixel_phase[0], ax.axvline), (pixel_phase[1], ax.axhline)):
+        grid_center = center - axis_phase * samples_per_pixel
+        for k in range(-half_pixels - 1, half_pixels + 1):
+            pos = grid_center + (k + 0.5) * samples_per_pixel
+            if -0.5 <= pos <= n - 0.5:
+                draw(_psf_sample_to_um(psf, pos), color="white", lw=0.5, alpha=0.5)
     lo = _psf_sample_to_um(psf, max(-0.5, center - half_pixels * samples_per_pixel))
     hi = _psf_sample_to_um(psf, min(n - 0.5, center + half_pixels * samples_per_pixel))
     ax.set_xlim(lo, hi)

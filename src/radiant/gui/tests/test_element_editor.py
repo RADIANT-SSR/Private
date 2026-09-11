@@ -27,6 +27,7 @@ pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extr
 from radiant.api.sensor import Sensor  # noqa: E402
 from radiant.gui.stage_views import STAGE_COMPOSITIONS  # noqa: E402
 from radiant.gui.widgets.optical_element_editor import (  # noqa: E402
+    _COL_EPS,
     ELEMENT_EDIT_PATH,
     OpticalElementEditor,
 )
@@ -42,12 +43,14 @@ def _evaluate(sensor: Sensor) -> object:
 
 
 class TestComposition:
-    def test_optics_declares_elements_tab(self) -> None:
+    def test_optics_declares_transmission_tab(self) -> None:
+        """The editor is mounted by the Transmission tab (2026-09-09/10 consolidation)."""
         spec = STAGE_COMPOSITIONS["optics"]
         titles = [sub.title for sub in spec.subviews]
-        assert "Elements" in titles
-        elements_tab = spec.subviews[titles.index("Elements")]
-        assert elements_tab.element_editor
+        assert "Transmission" in titles
+        assert "Elements" not in titles  # absorbed, not left behind
+        transmission_tab = spec.subviews[titles.index("Transmission")]
+        assert transmission_tab.transmission_panel
 
     def test_pane_mounts_editor(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         sensor = Sensor.from_yaml(_EXAMPLE)
@@ -77,12 +80,12 @@ class TestEditorRoundTrip:
         document = sensor.optical_elements()
         assert document is not None and len(document) == 3
         # Rule 5: the epsilon column shows the Kirchhoff-derived value (1 - 0.97).
-        assert editor.table.item(0, 7) is not None
-        assert editor.table.item(0, 7).text() == "0.0300"
+        assert editor.table.item(0, _COL_EPS) is not None
+        assert editor.table.item(0, _COL_EPS).text() == "0.0300"
         # The epsilon cell is read-only.
         from PySide6.QtCore import Qt
 
-        assert not (editor.table.item(0, 7).flags() & Qt.ItemFlag.ItemIsEditable)
+        assert not (editor.table.item(0, _COL_EPS).flags() & Qt.ItemFlag.ItemIsEditable)
 
     def test_committed_train_runs_full_prescription_and_changes_results(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         sensor = Sensor.from_yaml(_EXAMPLE)
@@ -479,20 +482,25 @@ class TestEntryFaithfulness:
         assert editor.table.item(0, 4).text() == ""  # T (K), unspecified on the mirrors
         assert editor.table.item(2, 4).text() == "240.0"  # …and shown where it is authored
 
-    def test_retired_geometry_cells_are_inert(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """Gap 128: Diam / →FPA own no key, so they are read-only em-dashes.
+    def test_retired_geometry_columns_are_gone(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Gap 128 deleted per-element near-field geometry — so did its two columns.
 
-        An editable cell that changes nothing is a silent no-op (Rule 17); the
-        columns themselves come out with the Transmission-tab redesign.
+        They spent one release as inert em-dashes; the Transmission-tab consolidation
+        removed them, because a column that can hold no key describes nothing.
         """
-        from PySide6.QtCore import Qt
-
         _sensor, editor = self._bound(qtbot, self._MINIMAL)
-        for row in range(3):
-            for column in (5, 6):  # Diam (m), →FPA (m)
-                item = editor.table.item(row, column)
-                assert item.text() == "—"
-                assert not (item.flags() & Qt.ItemFlag.ItemIsEditable)
+        headers = [
+            editor.table.horizontalHeaderItem(c).text() for c in range(editor.table.columnCount())
+        ]
+        assert headers == [
+            "Name",
+            "Transfer",
+            "Kind",
+            "R or T (scalar | CSV)",
+            "T (K)",
+            "ε (derived)",
+        ]
+        assert not any("Diam" in h or "FPA" in h for h in headers)
 
     def test_rendering_the_table_round_trips_the_document(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Render → serialize with no edit at all is the identity on every entry."""

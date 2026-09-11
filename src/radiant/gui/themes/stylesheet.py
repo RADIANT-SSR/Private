@@ -1282,6 +1282,46 @@ QLabel#stageSectionHeader, QLabel#stagePlotTitle {{
     font-size: 11px;
     font-weight: 600;
 }}
+/* -- Transmission tab: the scalar-vs-element mode control (2026-09-09/10) -- *
+ * The segmented control mirrors the configuration-bar tabs exactly (same chip
+ * radius, same focus-soft checked fill), because it asks the same shape of
+ * question: pick one of these, and everything below follows from the choice. */
+QPushButton#transmissionModeButton {{
+    background-color: {t.panel};
+    color: {t.ink_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CHIP};
+    padding: {tokens.PAD_INPUT};
+    font-size: 11px;
+    font-weight: 500;
+}}
+QPushButton#transmissionModeButton:hover {{
+    border-color: {t.line_2};
+    background-color: {t.panel_3};
+}}
+QPushButton#transmissionModeButton:checked {{
+    background-color: {t.focus_soft};
+    border-color: {t.focus};
+    color: {t.ink};
+    font-weight: 600;
+}}
+/* The mode banner states which definition is in force. In the `held` state
+ * (scalar mode with element rows still in the table) it carries the warn ink —
+ * the same register the stale/pending states use — because those rows are NOT
+ * written on save and the operator must know that before they close the file. */
+QLabel#transmissionModeBanner {{
+    color: {t.muted};
+    background-color: {t.panel_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+    padding: 6px 10px;
+    font-size: 12px;
+}}
+QLabel#transmissionModeBanner[state="held"] {{
+    color: {t.warn};
+    border-color: {t.warn};
+    font-weight: 600;
+}}
 QCheckBox#metricGroupCheck {{
     color: {t.ink};
     font-size: 12px;

@@ -164,6 +164,33 @@ retroactively reconstructed.
   Scenarios remain repo-only by owner ruling (2026-09-08).
 
 ### Changed
+- **GUI: the Optics *Elements* and *Throughput* tabs are one *Transmission* tab**
+  (owner-ratified 2026-09-09/10). They were two halves of one question — how is
+  optical transmission defined, and what does that produce? — and splitting them
+  let an analyst edit the scalar τ_opt on *Inputs* while an attached element
+  train silently overrode it. The Optics tab strip is now **Inputs ·
+  Transmission · MTF · PSF + Pupil**, and the new tab carries, top to bottom: a
+  *Scalar throughput* | *Element train* mode selector; a banner naming the
+  definition in force; the active mode's editor — `optics.transmission_scalar`
+  **moved off the Optics Inputs form** so transmission has one home, or the
+  element-train table (unchanged commit-on-edit behaviour) with its coating
+  drill-down; the τ(λ) figures (the system throughput in both modes, the
+  per-element coating overlay in element mode only); and the Gap-128 **cold stop
+  & effective pupil** strip — `optics.cold_stop_undersize_frac` and
+  `optics.cold_stop_obscuration_ratio` beside the D_eff [m], f/#_eff [-],
+  A_collect [m²] and Ω_cone [sr] they produce. The mode is read from the
+  configuration and never invented (an `optical_elements` list opens in element
+  mode); switching is non-destructive in-session — leaving element mode keeps
+  the rows in the table, inactive, so the two definitions can be A/B'd — but
+  **saving writes only the active mode**, so a file with an element list means
+  element mode and no inactive state reaches a config (a held train raises a
+  warn-register banner and a non-modal note on save). No parameter, metric, or
+  computed result changes; switching modes changes results only in the way
+  attaching or detaching an element train always has.
+- **GUI: the element table's `Diam (m)` and `→FPA (m)` columns are removed** —
+  Gap 128 deleted per-element near-field geometry, leaving the two columns as
+  inert em-dashes for one release. A column that can hold no key describes
+  nothing. Element documents are unaffected (the table never owned those keys).
 - **MTF overlay x-axis is bounded, and settable** — the default x-limit is now
   `2 × max(detector Nyquist, optics cutoff)` cycles/mrad, capped at the data's
   own extent, instead of the full PSF-grid FFT extent (a measured case: 40

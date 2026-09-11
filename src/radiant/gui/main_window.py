@@ -2071,7 +2071,25 @@ class RADIANTMainWindow(QMainWindow):
         self.setWindowTitle(self._compose_title())
         self._settings.add_recent_file(str(written))
         self._rebuild_recent_menu()
-        self.statusBar().showMessage(f"Saved {Path(written).name}")
+        self.statusBar().showMessage(f"Saved {Path(written).name}{self._held_elements_note()}")
+
+    def _held_elements_note(self) -> str:
+        """The non-modal "held element rows were not written" note, or ``""``.
+
+        Saving writes only the **active** transmission mode (owner-ratified 2026-09-09/10):
+        a file with an ``optical_elements`` section means element mode, period, so a train
+        the operator switched away from is deliberately not in the file. That is a silent
+        omission unless it is said, so the save confirmation says it — in the status bar,
+        never a modal, because the save itself succeeded and nothing needs a decision.
+        """
+        panel = self._central.stage_center.pane("optics").transmission_panel
+        held = 0 if panel is None else panel.held_element_rows()
+        if not held:
+            return ""
+        return (
+            f" — scalar transmission is active, so the {held} inactive element row(s) "
+            "were not written"
+        )
 
     def _write_document(self, path: Path) -> Path:
         """Write the session document to *path* and return the written path.

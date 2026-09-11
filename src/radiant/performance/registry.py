@@ -245,6 +245,17 @@ _register(
 )
 _register(
     MetricSpec(
+        name="straddle_factor",
+        unit="dimensionless",
+        description=(
+            "Pixel sampling-phase (straddle) factor: EE_box at the selected phase over the "
+            "pixel-centred EE_box (Gap 129). 1.0 when centred or in the extended regime."
+        ),
+        requires_stage_outputs=frozenset({("platform", "straddle_factor")}),
+    )
+)
+_register(
+    MetricSpec(
         name="mtf_at_nyquist",
         unit="dimensionless",
         description="MTF of the degraded PSF evaluated at the detector Nyquist frequency.",

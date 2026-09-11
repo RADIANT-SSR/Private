@@ -72,6 +72,14 @@ _GEOMETRY_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Detector temperature", "detector.detector_temperature_K"),
 )
 
+# Gap 129: where the point-source / sub-pixel image lands on the pixel grid.
+# The mode is a schema enum — the shared Parameter Editor offers it as a combo.
+_PHASE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Sampling phase (straddle) mode", "detector.pixel_phase_mode"),
+    ("Image offset x (fraction of pitch)", "detector.pixel_phase_x"),
+    ("Image offset y (fraction of pitch)", "detector.pixel_phase_y"),
+)
+
 _QE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Quantum efficiency (scalar)", "detector.qe_value"),
     ("QE curve CSV (import)", "detector.qe_table_path"),
@@ -119,6 +127,7 @@ _COUPLING_FIELDS: Final[tuple[tuple[str, str], ...]] = (
 # The flat union, in display order — the single manifest tests and hosts iterate.
 _DETECTOR_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     _GEOMETRY_FIELDS
+    + _PHASE_FIELDS
     + _QE_FIELDS
     + _DARK_FIELDS
     + _FLICKER_FIELDS
@@ -132,6 +141,7 @@ _DETECTOR_FIELDS: Final[tuple[tuple[str, str], ...]] = (
 # efficiency, then the noise-model groups in signal-chain order.
 _GROUPS: Final[tuple[tuple[str, tuple[tuple[str, str], ...]], ...]] = (
     ("Pixel geometry & temperature", _GEOMETRY_FIELDS),
+    ("Pixel sampling phase (point-source / sub-pixel EE_box)", _PHASE_FIELDS),
     ("Quantum efficiency", _QE_FIELDS),
     ("Dark current & glow", _DARK_FIELDS),
     ("1/f noise", _FLICKER_FIELDS),

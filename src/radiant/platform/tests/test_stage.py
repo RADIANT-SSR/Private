@@ -55,12 +55,21 @@ def _make_diffraction_psf(
     )
 
 
-def _make_params(**overrides: object) -> ParameterSet:
-    """Build a minimal ParameterSet with platform + optics params."""
+def _make_params(*, pixel_phase_defs: bool = True, **overrides: object) -> ParameterSet:
+    """Build a minimal ParameterSet with platform + optics params.
+
+    ``pixel_phase_defs=False`` omits the Gap 129 detector defs to exercise the
+    stage's partial-schema fallback.
+    """
+    from radiant.detector._schema import PIXEL_PHASE_MODE, PIXEL_PHASE_X, PIXEL_PHASE_Y
     from radiant.optics._schema import ALL_PARAMETERS as OPT_PARAMS
     from radiant.platform._schema import ALL_PARAMETERS as PLAT_PARAMS
 
+    # Only the pixel-phase defs from the detector schema (Gap 129): the rest of
+    # it carries required parameters this stage never reads.
     schema = list(PLAT_PARAMS + OPT_PARAMS)
+    if pixel_phase_defs:
+        schema += [PIXEL_PHASE_MODE, PIXEL_PHASE_X, PIXEL_PHASE_Y]
     ps = ParameterSet(schema, [])
 
     defaults = {
@@ -81,8 +90,19 @@ def _make_params(**overrides: object) -> ParameterSet:
 
 
 def _make_state_with_epsf() -> tuple[ChainState, EffectivePSF]:
-    """Build a ChainState with an EffectivePSF in optics outputs."""
-    epsf = _make_diffraction_psf()
+    """Build a ChainState with an EffectivePSF in optics outputs.
+
+    The pixel-aperture rect is convolved in, as OpticsStage always does before
+    this stage runs — the Gap 129 pixel-phase evaluation needs it.
+    """
+    from radiant.optics.pixel_kernel import make_pixel_aperture_kernel_2d
+
+    bare = _make_diffraction_psf()
+    n = bare.data.shape[0]
+    kernel = make_pixel_aperture_kernel_2d(
+        n if n % 2 else n - 1, bare.sample_spacing_m, bare.pixel_pitch_m, bare.pixel_pitch_m
+    )
+    epsf = bare.with_kernel("pixel_aperture", kernel)
     wl = np.array([0.45, 0.575, 0.70])
     state = ChainState(wavelength_um=wl)
     state = state.with_stage_output("optics", "effective_psf", epsf)
@@ -596,3 +616,101 @@ class TestPlatformStageEEBox:
         state = ChainState(wavelength_um=wl)
         result = PlatformStage().run(state, _make_params())
         assert result.stage_outputs["platform"]["EE_box"] == 1.0
+
+
+class TestPlatformStagePixelPhase:
+    """Gap 129: EE_box is evaluated at the selected pixel sampling phase; the
+    default (``average``) is bit-identical to the pre-Gap-129 box integral."""
+
+    @staticmethod
+    def _point_state() -> tuple[ChainState, EffectivePSF]:
+        from radiant.core.regime import RadiometricRegime
+
+        state, epsf = _make_state_with_epsf()
+        state = state.with_stage_output("optics", "regime", RadiometricRegime.POINT_SOURCE)
+        return state, epsf
+
+    @pytest.mark.level1
+    def test_default_average_is_the_plain_box(self) -> None:
+        state, epsf = self._point_state()
+        out = PlatformStage().run(state, _make_params()).stage_outputs["platform"]
+        assert out["pixel_phase_mode"] == "average"
+        assert out["EE_box"] == pytest.approx(epsf.ensquared_energy_nxn(1), rel=1e-12)
+        assert out["EE_box_centered"] == pytest.approx(
+            epsf.ensquared_energy_nxn(1, phase_mode="centered"), rel=1e-12
+        )
+        assert out["straddle_factor"] == pytest.approx(
+            out["EE_box"] / out["EE_box_centered"], rel=1e-12
+        )
+        assert out["pixel_phase_x_pix"] == 0.0 and out["pixel_phase_y_pix"] == 0.0
+
+    @pytest.mark.level1
+    def test_mode_ordering_worst_average_centered(self) -> None:
+        state, _ = self._point_state()
+        ee = {
+            mode: PlatformStage()
+            .run(state, _make_params(**{"detector.pixel_phase_mode": mode}))
+            .stage_outputs["platform"]["EE_box"]
+            for mode in ("worst_case", "average", "centered")
+        }
+        assert ee["worst_case"] < ee["average"] < ee["centered"]
+
+    @pytest.mark.level1
+    def test_centered_straddle_is_unity_and_worst_case_below(self) -> None:
+        state, _ = self._point_state()
+        cen = (
+            PlatformStage()
+            .run(state, _make_params(**{"detector.pixel_phase_mode": "centered"}))
+            .stage_outputs["platform"]
+        )
+        wc = (
+            PlatformStage()
+            .run(state, _make_params(**{"detector.pixel_phase_mode": "worst_case"}))
+            .stage_outputs["platform"]
+        )
+        assert cen["straddle_factor"] == pytest.approx(1.0, rel=1e-12)
+        assert wc["straddle_factor"] < 1.0
+        assert (wc["pixel_phase_x_pix"], wc["pixel_phase_y_pix"]) == (0.5, 0.5)
+
+    @pytest.mark.level1
+    def test_specified_offsets_flow_through(self) -> None:
+        state, epsf = self._point_state()
+        out = (
+            PlatformStage()
+            .run(
+                state,
+                _make_params(
+                    **{
+                        "detector.pixel_phase_mode": "specified",
+                        "detector.pixel_phase_x": 0.25,
+                        "detector.pixel_phase_y": -0.5,
+                    }
+                ),
+            )
+            .stage_outputs["platform"]
+        )
+        assert (out["pixel_phase_x_pix"], out["pixel_phase_y_pix"]) == (0.25, -0.5)
+        assert out["EE_box"] == pytest.approx(epsf.pixel_block_energy_at(1, 0.25, -0.5), rel=1e-12)
+
+    @pytest.mark.level1
+    def test_extended_regime_ignores_mode(self) -> None:
+        from radiant.core.regime import RadiometricRegime
+
+        state, _ = _make_state_with_epsf()
+        state = state.with_stage_output("optics", "regime", RadiometricRegime.EXTENDED)
+        out = (
+            PlatformStage()
+            .run(state, _make_params(**{"detector.pixel_phase_mode": "worst_case"}))
+            .stage_outputs["platform"]
+        )
+        assert out["EE_box"] == 1.0 and out["EE_box_centered"] == 1.0
+        assert out["straddle_factor"] == 1.0
+
+    @pytest.mark.level1
+    def test_partial_schema_falls_back_to_average(self) -> None:
+        """A ParameterSet without the detector schema keeps the pre-Gap-129 value."""
+        state, epsf = self._point_state()
+        out = PlatformStage().run(state, _make_params(pixel_phase_defs=False))
+        out = out.stage_outputs["platform"]
+        assert out["pixel_phase_mode"] == "average"
+        assert out["EE_box"] == pytest.approx(epsf.ensquared_energy_nxn(1), rel=1e-12)

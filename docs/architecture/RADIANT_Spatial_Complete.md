@@ -74,7 +74,10 @@ class EffectivePSF:
     def with_kernel(self, name: str, kernel: np.ndarray) -> EffectivePSF: ...
     def mtf_2d(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]: ...
     def mtf_1d(self, axis: str) -> tuple[np.ndarray, np.ndarray]: ...
-    def ensquared_energy(self, box_size_m: float, offset_m=(0, 0)) -> float: ...
+    def ensquared_energy(self, half_width_m: float) -> float: ...
+    def ensquared_energy_nxn(self, n_pixels: int, *, phase_mode: str = "average",
+                             phase: tuple[float, float] = (0.0, 0.0)) -> float: ...
+    def pixel_block_energy_at(self, n_pixels: int, dx_pix: float, dy_pix: float) -> float: ...
     def lsf(self, axis: str) -> tuple[np.ndarray, np.ndarray]: ...
     def erf(self, axis: str) -> tuple[np.ndarray, np.ndarray]: ...
     def edge_slope(self, axis: str) -> float: ...
@@ -98,7 +101,7 @@ Source: `src/radiant/optics/psf/effective.py`.
 3. `erf(axis)` is the cumulative integral of `lsf(axis)`.
 4. `edge_slope(axis)` is the maximum slope of `erf(axis)` in contrast per FPA-meter.
 5. `rer()` is `erf(0.5·pitch) − erf(−0.5·pitch)` combined across the two axes as the **geometric mean** `sqrt(rer_x · rer_y)` (GIQE-5 definition; `optics/psf/effective.py::rer`). For anisotropic PSFs (e.g. smear) the geometric mean differs from the arithmetic average — the code and RADIANT_Metrics.md §4.7 both use the geometric mean.
-6. `ensquared_energy(box, offset)` is `∫∫_box data dxdy` with the box centered at `offset`.
+6. `ensquared_energy(half_width)` is `∫∫_box data dxdy` over the box `[−H, H]²` centred on the grid centre, with cell-area-overlap edge weighting (CU-188). `ensquared_energy_nxn(n, phase_mode, phase)` is the n×n-pixel value at the selected **pixel sampling phase** (Gap 129, §6.1): `"average"` is the n-pitch box integral — the uniform-phase expectation once the pixel rect is convolved in — and the other modes call `pixel_block_energy_at(n, δx, δy)`, the point-evaluation identity `EE(δ) = Σ_block data(δ + (i,j)·p) · (p/Δ)²` (bilinear between samples; requires `"pixel_aperture"` in `convolution_history`, else it raises). There is no un-convolution and no second PSF.
 7. `strehl(reference)` is `data.peak / reference.peak` after both are normalized to unit volume. In the shipped chain the reference is `stage_outputs["optics"]["reference_psf"]` — the diffraction-limited PSF from the same pupil with WFE = 0, carrying the **same detector kernels** as the degraded PSF — published by `OpticsStage`; `PerformanceStage` computes the reported `strehl` metric as `epsf.strehl(ref_epsf)`.
 
 There is no `mtf_at_freq(f)` method that bypasses the FFT. There is no `ee_analytical()`. There is no `lsf_from_mtf()`. The point of having one class is that there is only one way to ask each question.
@@ -207,6 +210,31 @@ Order matters because some kernels are not commutative when truncated to the wor
 **TDI misalignment is not in the PSF cascade.** TDI line-to-line misalignment is a *readout* effect in v1 — it has an MTF term (see §9, term 9) but no spatial-domain kernel, so it appears in the MTF product path and is excluded from the dual-path comparison (`_EXCLUDED_PREFIXES = ("mtf_tdi",)` in `consistency_check.py`). If a future stage adds a spatial kernel for TDI shear, both paths must update together.
 
 Zero-magnitude kernels are skipped from the convolution (their kernel is a delta) but logged in `convolution_history` as `"name:zero"` so the user can verify the framework saw them.
+
+### 6.1 Pixel sampling phase — the straddle factor (Gap 129)
+
+Where the geometric image of a point-source / sub-pixel target lands on the pixel grid changes how much of its energy one pixel collects. With the photosite rect `rect_w` (`w = p·√FF`) already convolved into the `EffectivePSF` (step 1 above), the ensquared energy at a displacement δ from the pixel centre is an **exact point evaluation** of that PSF, not a second box integral:
+
+$$\mathrm{EE}(\delta) = \iint \mathrm{PSF}(x)\,\mathrm{rect}_p(x-\delta)\,dx = p^2\,\mathrm{conv}(\delta) = \mathrm{data}(\delta)\,(p/\Delta)^2 .$$
+
+(The value is normalised to the full-pitch box for every fill factor — the fill factor multiplies downstream, CU-074 — so `FF·EE(δ)` is the photosite energy.) The pitch-wide box integral `PlatformStage` has always computed is therefore **the expectation over a source uniformly placed across one pitch**: rect ⊛ rect is a triangle, and the triangle-weighted PSF integral is the phase average. Before Gap 129 the docs called this value "PSF centred on the pixel"; it never was.
+
+`detector.pixel_phase_mode` selects the convention (`optics/pixel_phase.py::resolve_pixel_phase`):
+
+| Mode | δ (pitches) | Meaning |
+|---|---|---|
+| `average` (default) | uniform over one pitch | expected signal for a randomly placed source; bit-identical to the pre-Gap-129 chain |
+| `centered` | (0, 0) | image on a pixel centre — the optics-only analytic anchor (0.177327 for the Q=2 Airy) |
+| `worst_case` | (½, ½) | image on a four-pixel corner — guaranteed-detection / requirement flow-down |
+| `specified` | (`detector.pixel_phase_x`, `detector.pixel_phase_y`) ∈ [−½, ½]² | known phase (centroiding, staring), or a sweep variable |
+
+Magnitudes: Q=2 Airy centred 0.177 / average 0.161 / edge 0.153 / corner 0.132; Q=1 centred 0.525 / average 0.392 / corner 0.208 — the convention is a factor ~2.5 in point-source signal for an undersampled system.
+
+`PlatformStage` publishes `EE_box` at the selected phase, `EE_box_centered`, `straddle_factor = EE_box / EE_box_centered`, `pixel_phase_mode`, and the resolved `pixel_phase_x_pix` / `pixel_phase_y_pix`; `PerformanceStage` computes `ee_1x1` / `ee_3x3` at the same phase and surfaces `straddle_factor` as a metric. δ is measured from the PSF grid centre (the chief-ray image point), not the degraded PSF's centroid: for asymmetric blur (smear) "centred" means where the optics *place* the image. The extended regime ignores the mode (`EE_box ≡ 1`, Rule 9).
+
+**No MTF-path term.** Sampling phase is a position, not a blur: it has no kernel and no MTF, so the product path (§9) and the consistency check (§9.3) are untouched — the same standing as the TDI mis-registration term, which is MTF-only for the mirror-image reason.
+
+**Known limitation.** The sub-pixel regime reuses the point-source `EE_box`, so the phase offsets the PSF, not a PSF ⊛ target-footprint. Averaging `EE` and then computing Pd is not the same as averaging Pd over phase; the `specified` mode with a sweep is the route to the latter.
 
 ---
 
@@ -349,6 +377,7 @@ terms (§6, psf_4/psf_5 "NOT IMPLEMENTED").
 Parameter types, defaults, units, and bounds are the canonical [Parameter Reference](../guides/parameter_reference.md) (auto-generated from the schema — the single source of truth, Rule 27). Design context (mapping to the §9.2 MTF-cascade terms):
 
 - `detector.pixel_pitch_x_um` — feeds `pixel_pitch_m` for sampling.
+- `detector.pixel_phase_mode`, `detector.pixel_phase_x`, `detector.pixel_phase_y` — the pixel sampling phase `EE_box` / `ee_1x1` / `ee_3x3` are evaluated at (§6.1, Gap 129); no MTF term.
 - `detector.ipc_coupling` — term 4 in §9.2 (α); doc previously called this `ipc_alpha`.
 - `detector.charge_diffusion_length_m` — term 3 in §9.2; doc previously called this `diffusion_sigma_um`.
 - `readout.tdi_misalign_pixels` — term 9 in §9.2.

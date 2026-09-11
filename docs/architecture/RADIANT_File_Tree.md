@@ -142,14 +142,14 @@ atmosphere/
 └── r0_resolution.py     # direct r0 vs profile-derived r0 (CU-093 agreement)
 ```
 
-### `optics/` — 31 source + 27 tests
+### `optics/` — 32 source + 28 tests
 
 Stage 3: PSF (dual-path), MTF terms, throughput, EE_box, regime final. Largest package alongside `source/` and `performance/` because spatial physics (pupil → PSF → MTF) lives here.
 
 Top-level modules group by concern:
 
 - **Pupil + PSF (path-shared root):** `pupil_amplitude.py`, `pupil_phase.py`, `scalar_rms.py`, `pupil_mtf.py`, `psf_mono.py`, `psf_poly.py`, `wavefront.py`, `zernike.py`, `zernike_opd.py`, `strehl.py`, `aperture.py`
-- **Spatial-domain path:** `psf/` subpackage — `builder.py`, `data.py`, `effective.py` (the EffectivePSF that EE_box, RER, FWHM derive from)
+- **Spatial-domain path:** `psf/` subpackage — `builder.py`, `data.py`, `effective.py` (the EffectivePSF that EE_box, RER, FWHM derive from); `pixel_phase.py` (pixel sampling-phase / straddle convention → offset, Gap 129)
 - **MTF product path:** `pupil_mtf.py` (optical MTF from autocorrelation), `pixel_kernel.py`, `diffusion_kernel.py`, `sampling.py`
 - **Throughput / element model:** `element.py`, `element_factories.py`, `system_transmission.py`, `transmission_modes.py`, `filters.py`, `cavity_model.py`, `stray_light.py`
 - **Cold stop / étendue (Gap 128):** `effective_pupil.py` (D_eff, obs_eff, N_eff — resolved once, feeds both spatial paths and Ω_cone), `etendue_cone.py` (Ω_cone = 2π(1 − cos θ))

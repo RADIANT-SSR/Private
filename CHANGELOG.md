@@ -47,6 +47,23 @@ retroactively reconstructed.
   removed (Rule 27).
 
 ### Added
+- **Pixel sampling phase (straddle factor) for point-source / sub-pixel EE_box**
+  (Gap 129). New `detector.pixel_phase_mode` ∈ {`average`, `centered`,
+  `worst_case`, `specified`} + `detector.pixel_phase_x` / `pixel_phase_y`
+  (fractions of a pitch) select where the image lands on the pixel grid;
+  `EffectivePSF.ensquared_energy_nxn(n, phase_mode=, phase=)` and
+  `pixel_block_energy_at` point-evaluate the pixel-convolved PSF at that phase
+  (exact identity — no second box integral). `PlatformStage` publishes
+  `EE_box_centered`, `straddle_factor`, `pixel_phase_mode`, and the resolved
+  `pixel_phase_x_pix` / `pixel_phase_y_pix`; new metric `straddle_factor`
+  (Spatial / MTF group); `ee_1x1` / `ee_3x3` follow the same phase.
+  `result.plot.psf_pixel_grid()` / `plot_psf(pixel_phase=, pixel_phase_mode=)`
+  shift the grid overlay to the chain's phase; the GUI Detector Inputs tab
+  gains a "Pixel sampling phase" group. **Not results-affecting at the default**:
+  `average` is bit-identical to the previous chain value, which was already the
+  uniform-phase expectation (rect ⊛ rect = triangle) although every doc called
+  it "PSF centred on the pixel" — those docs are corrected. Selecting
+  `worst_case` lowers point-source EE_box by ~25 % at Q=2 and ~60 % at Q=1.
 - **`result.plot.optical_throughput_terms()`** (and the underlying
   `radiant.api.plot.plot_optical_throughput_terms`) — the transmission
   counterpart of the MTF overlay: every element's **net transmittance**

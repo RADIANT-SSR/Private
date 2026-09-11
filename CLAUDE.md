@@ -77,7 +77,7 @@ This rule does **not** apply to scene targets and backgrounds, where emissivity 
 Before `SpectralIntegrationStage`: spectral arrays (shape = N_wavelengths). After: per-pixel scalars (e-, DN). No other stage collapses spectral to scalar.
 
 ### 9. EE_box Applied Exactly Once
-Computed in `PlatformStage` from the fully degraded PSF (`stage_outputs["platform"]["EE_box"]`). Applied in `SpectralIntegrationStage` only, only for point-source and sub-pixel target regimes, never to the background term in sub-pixel regime, never in extended-scene regime.
+Computed in `PlatformStage` from the fully degraded PSF (`stage_outputs["platform"]["EE_box"]`), evaluated at the pixel sampling phase selected by `detector.pixel_phase_mode` (Gap 129: `average` — the default, the uniform-phase expectation the pitch-wide box integral of the pixel-convolved PSF already is — `centered`, `worst_case`, or `specified`). Applied in `SpectralIntegrationStage` only, only for point-source and sub-pixel target regimes, never to the background term in sub-pixel regime, never in extended-scene regime.
 
 ### 10. Regime Finalized in OpticsStage
 - `SourceStage` tentative classification: `state.stage_outputs["source"]["regime_tentative"]`

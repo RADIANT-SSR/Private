@@ -69,7 +69,7 @@ Every signal chain `Stage` is a pure function of `(ChainState, ParameterSet) →
 Before `SpectralIntegrationStage`: all quantities are spectral arrays (W/m²/sr/µm, dimension = N_wavelengths). After `SpectralIntegrationStage`: all quantities are per-pixel scalars (e⁻, DN). No physics module upstream of `SpectralIntegrationStage` may produce a scalar radiometric quantity. No physics module downstream may produce a spectral array.
 
 ### C6 — EE_box Applied Exactly Once
-The encircled energy fraction (fraction of PSF energy landing in the pixel footprint) is applied exactly once, in `SpectralIntegrationStage`, only for point-source and sub-pixel target regimes. It does not appear in any other stage, in any other regime, or in the background term of the sub-pixel equation.
+The encircled energy fraction (fraction of PSF energy landing in the pixel footprint) is applied exactly once, in `SpectralIntegrationStage`, only for point-source and sub-pixel target regimes. It does not appear in any other stage, in any other regime, or in the background term of the sub-pixel equation. It is evaluated at one declared **pixel sampling phase** (`detector.pixel_phase_mode`, Gap 129) — the uniform-phase average by default — and the same phase governs the `ee_1x1` / `ee_3x3` metrics (Rule 4: one PSF, one convention).
 
 ### C7 — Regime Finalized in OpticsStage
 Target regime classification (extended / point / sub-pixel) is tentatively set in `SourceStage` and finalized in `OpticsStage` after the diffraction PSF diameter is computed. All downstream stages read from `state.stage_outputs["optics"]["regime"]`. No stage may re-classify the regime.

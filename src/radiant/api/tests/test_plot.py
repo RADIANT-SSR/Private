@@ -340,6 +340,53 @@ class TestPlotPsfPixelGrid:
         assert (hi - lo) < psf.data.shape[0]
         matplotlib.pyplot.close(fig)
 
+    @staticmethod
+    def _gridline_positions(ax: Any) -> tuple[list[float], list[float]]:
+        """(vertical-line x positions, horizontal-line y positions), sorted."""
+        xs = sorted(
+            float(line.get_xdata()[0])
+            for line in ax.get_lines()
+            if len(set(line.get_xdata())) == 1 and len(set(line.get_ydata())) > 1
+        )
+        ys = sorted(
+            float(line.get_ydata()[0])
+            for line in ax.get_lines()
+            if len(set(line.get_ydata())) == 1 and len(set(line.get_xdata())) > 1
+        )
+        return xs, ys
+
+    def test_pixel_phase_shifts_the_grid_by_the_offset(self) -> None:
+        """Gap 129: an image point at (+0.25, 0) pitch from the pixel centre draws
+        the vertical boundaries 0.25 pitch to the *left* (the pixel centre is at
+        −δ from the image point); the horizontal lines do not move."""
+        psf = self._psf()
+        pitch_um = psf.pixel_pitch_m * 1e6
+        fig0 = plot_psf(psf, pixel_grid=True, span_pixels=8)
+        fig1 = plot_psf(psf, pixel_grid=True, span_pixels=8, pixel_phase=(0.25, 0.0))
+        xs0, ys0 = self._gridline_positions(fig0.axes[0])
+        xs1, ys1 = self._gridline_positions(fig1.axes[0])
+        # Centred grid has boundaries at ±0.5 pitch about the image point.
+        assert min(xs0, key=abs) == pytest.approx(-0.5 * pitch_um, abs=1e-9) or min(
+            xs0, key=abs
+        ) == pytest.approx(0.5 * pitch_um, abs=1e-9)
+        # The nearest boundaries move from ±0.5 to (−0.75, +0.25) pitch.
+        near = [x for x in xs1 if abs(x) <= 0.8 * pitch_um]
+        assert near == pytest.approx([-0.75 * pitch_um, 0.25 * pitch_um], abs=1e-9)
+        assert ys1 == pytest.approx(ys0, abs=1e-9)
+        matplotlib.pyplot.close(fig0)
+        matplotlib.pyplot.close(fig1)
+
+    def test_pixel_phase_mode_named_in_title(self) -> None:
+        psf = self._psf()
+        fig = plot_psf(psf, pixel_grid=True, pixel_phase=(0.5, 0.5), pixel_phase_mode="worst_case")
+        title = fig.axes[0].get_title(loc="left").replace("\n", " ")
+        assert "worst_case (+0.50, +0.50) px" in title
+        matplotlib.pyplot.close(fig)
+        fig = plot_psf(psf, pixel_grid=True, pixel_phase_mode="average")
+        title = fig.axes[0].get_title(loc="left").replace("\n", " ")
+        assert "sampling phase: average" in title and "px" not in title
+        matplotlib.pyplot.close(fig)
+
 
 @pytest.mark.level1
 class TestPlotSpectral:

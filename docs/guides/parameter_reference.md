@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 207**
+**Total parameters: 210**
 
 ## source
 
@@ -170,6 +170,9 @@
 | `detector.noise_regime` | str | imaging | --- | --- | Noise regime: 'imaging' (temporal only, FPN calibrated out) or 'detection' (temporal + spatial). |
 | `detector.persistence_fraction` | float | 0.0 | --- | (0.0, 1.0) | Fraction of prior-frame signal that persists. Zero disables. |
 | `detector.persistence_tau_s` | float | 1.0 | s | (1e-06, 1000.0) | Persistence time constant [s]. |
+| `detector.pixel_phase_mode` | str | average | --- | --- | Pixel sampling phase (straddle) convention for point-source / sub-pixel EE_box: average (uniform over one pitch — expectation), centered (image on a pixel centre), worst_case (image on a four-pixel corner), specified (pixel_phase_x / pixel_phase_y). |
+| `detector.pixel_phase_x` | float | 0.0 | --- | (-0.5, 0.5) | Cross-track offset of the geometric image point from the pixel centre, as a fraction of the pixel pitch (0 = centred, ±0.5 = pixel edge). Used only when pixel_phase_mode = specified. |
+| `detector.pixel_phase_y` | float | 0.0 | --- | (-0.5, 0.5) | Along-track offset of the geometric image point from the pixel centre, as a fraction of the pixel pitch (0 = centred, ±0.5 = pixel edge). Used only when pixel_phase_mode = specified. |
 | `detector.pixel_pitch_x_um` | float | **required** | um | (0.1, 1000.0) | Pixel pitch along the cross-track (x) axis. |
 | `detector.pixel_pitch_y_um` | float | **required** | um | (0.1, 1000.0) | Pixel pitch along the along-track (y) axis. Required — there is no 'defaults to x pitch' fallback; set it explicitly (equal to pixel_pitch_x_um for square pixels). |
 | `detector.prior_signal_e` | float | 0.0 | --- | (0.0, 1000000000.0) | Signal electrons from prior frame (for persistence). Zero disables. |

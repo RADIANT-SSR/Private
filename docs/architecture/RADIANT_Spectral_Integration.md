@@ -72,7 +72,10 @@ upstream stage outputs and applies them (Rule 10, Rule 9):
   classification finalized in OpticsStage (Rule 10). Legacy string values are
   normalized to the `RadiometricRegime` enum.
 - **EE_box** — `stage_outputs["platform"]["EE_box"]`, computed by PlatformStage
-  from the **fully degraded** PSF (jitter, smear, turbulence included). For
+  from the **fully degraded** PSF (jitter, smear, turbulence included) at the
+  pixel sampling phase selected by `detector.pixel_phase_mode` (Gap 129 —
+  RADIANT_Spatial_Complete.md §6.1; the default `average` is the uniform-phase
+  expectation). This stage applies the number; it does not choose the phase. For
   partial-chain states that skip PlatformStage the stage falls back to
   `stage_outputs["optics"]["EE_box"]`; if neither exists it is `1.0` in the
   extended regime and a `SpectralIntegrationStateError` otherwise (the point and

@@ -99,6 +99,15 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: results-affecting (intake test 1) for any up/down DROIC configuration with defined warm optical elements; the whole point of the reference phase is to subtract the standing pedestal, and near-field emission is exactly a standing pedestal.
 **Suggested fix**: (b) stand-alone task once the owner rules on D6's scope — if the reference phase is a real second integration of the same pixel, both terms belong in `q_down_per_pixel` under both reference sources (near-field and stray are incident in both phases). Effort S; category C. Related: [[CU-350]], Gap 117 Phase 4.
 
+### CU-352 — The ratified Transmission-tab design's combined per-element + SYSTEM τ(λ) overlay has no API accessor, so the tab ships two separate figures
+
+**Discovered**: Transmission-tab consolidation (branch `gui/transmission-tab`), 2026-09-10.
+**Status**: Open — owner-gated (it asks whether the ratified figure is worth a new `radiant.api` plot accessor, which is the only place it can legally be built).
+**File**: `src/radiant/api/inspect.py::ResultPlotNamespace` (no accessor exists) / `src/radiant/gui/stage_views.py` (the Transmission tab declares `optical_throughput` + `coating_spectra` instead).
+**Symptom**: the owner-ratified 2026-09-09/10 design specifies, in element mode, **one** figure — per-element net-transmittance curves overlaid with the total system τ(λ) drawn as a bold `SYSTEM` line, matching `plot_mtf_terms`' convention. The shipped tab instead draws the two existing figures: `result.plot.optical_throughput()` (the system product alone) and `result.plot.coating_spectra()` (per-element R/T/ε on a fixed [0,1] axis, no emphasis). The same information is on screen; the one-axis comparison the design asked for is not.
+**Why it still matters**: the point of the combined overlay is that a train's weakest element is read *against* the product it limits — the thing the analyst actually wants from this tab. Building it GUI-side would put plotting logic in the GUI (arch doc §4.1: every figure is one `result.plot.*` call) and computing the per-element net curves there would be physics in the view, so the tab cannot honour the design without the API surface. The GUI-only merge scoping is the second reason it was not done in the same branch: one `src/radiant/api/` line invalidates the scoped battery.
+**Suggested fix**: (b) stand-alone task — add a `result.plot.optical_throughput_terms()` accessor (per-element net throughput from `stage_outputs["optics"]["elements"]` + the `tau_opt_spectral` product as the emphasised `SYSTEM` curve, reusing the `plot_mtf_terms` ink/weight/zorder convention), then swap the Transmission tab's two `PlotSpec`s for it. Effort S-M; category D (full battery — it touches `api/`). Related: Gap 90 (FP-3), the 2026-09-09 MTF SYSTEM-curve work it would mirror.
+
 ## Resolved
 
 ### CU-350 — The well-fill/saturation check omits near-field and stray electrons: the noise budget and the well check disagree about what is in the pixel — RESOLVED 2026-09-09 (commit trailer)

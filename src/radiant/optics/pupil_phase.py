@@ -1,17 +1,21 @@
-"""Wavefront phase screen generation — random and Zernike-based.
+"""Wavefront phase screen generation — Zernike-based, deterministic.
 
 Generates the phase component ``phi(x, y)`` of the complex pupil
-function ``P = A * exp(i * phi)``.  Three entry points:
+function ``P = A * exp(i * phi)``.  Two entry points:
 
-- ``make_pupil_phase``: random phase screen scaled to a given RMS
-  (suitable for Strehl estimation, not for realistic aberration shapes).
 - ``make_pupil_phase_zernike``: deterministic phase from Zernike
   polynomial coefficients (correct PSF shape per aberration type).
 - ``make_pupil_phase_for_wfe``: the single WavefrontError dispatch used
   by BOTH the PSF path and the MTF product path, so a given WFE builds
   the identical pupil phase on both (Rule 4; CU-058).
 
-See RADIANT_Spatial_Complete.md section 3.1.
+A ``scalar_rms`` WFE is expanded over a fixed low-order Zernike set
+(Noll Z4–Z11, equal RMS per term — see ``scalar_rms.py``) and enters
+through the same Zernike path, so the reference→operating wavelength
+rescale applies to every mode (CU-355; the pre-fix white-noise screen
+ignored wavelength and put all its variance at the grid sample scale).
+
+See RADIANT_Spatial_Complete.md section 3.3.
 """
 
 from __future__ import annotations
@@ -22,61 +26,13 @@ from typing import TYPE_CHECKING
 import numpy as np
 import numpy.typing as npt
 
-from radiant.optics.errors import OpticsValidationError
+from radiant.optics.scalar_rms import scalar_rms_zernike_coeffs
 from radiant.optics.zernike_opd import evaluate_zernike_opd
 
 if TYPE_CHECKING:
     from radiant.optics.wavefront import WavefrontError
 
 logger = logging.getLogger(__name__)
-
-
-def make_pupil_phase(
-    npix: int,
-    wfe_rms_waves: float = 0.0,
-    wavelength_m: float = 1.0,
-) -> npt.NDArray[np.float64]:
-    """Generate a wavefront phase screen.
-
-    For ``wfe_rms_waves = 0``, returns a zero-phase array (perfect
-    optics). For non-zero WFE, generates a random phase screen with
-    the specified RMS in waves. The phase is uniform-random per pixel,
-    scaled to the correct RMS — suitable for Strehl estimation but not
-    for realistic aberration modelling.
-
-    Parameters
-    ----------
-    npix:
-        Side length of the square grid.
-    wfe_rms_waves:
-        Wavefront error RMS in waves at ``wavelength_m``.
-    wavelength_m:
-        Operating wavelength [m]. Used to convert waves -> radians.
-
-    Returns
-    -------
-    ndarray of shape (npix, npix)
-        Phase in radians.
-    """
-    if wfe_rms_waves < 0.0:
-        raise OpticsValidationError(f"wfe_rms_waves must be non-negative, got {wfe_rms_waves}")
-
-    if wfe_rms_waves == 0.0:
-        return np.zeros((npix, npix), dtype=np.float64)
-
-    if wfe_rms_waves > 1.0:
-        logger.warning(
-            "WFE = %.2f waves exceeds 1 wave — PSF will be severely degraded. "
-            "Check if this is intentional.",
-            wfe_rms_waves,
-        )
-
-    # Random phase with correct RMS.
-    rng = np.random.default_rng(seed=42)
-    phase_raw = rng.standard_normal((npix, npix))
-    phase_raw -= phase_raw.mean()
-    phase_raw /= phase_raw.std()
-    return phase_raw * (2.0 * np.pi * wfe_rms_waves)
 
 
 def make_pupil_phase_zernike(
@@ -135,11 +91,15 @@ def make_pupil_phase_for_wfe(
     Dispatch:
 
     - ``None`` → zero phase (diffraction-limited).
-    - ``SCALAR_RMS`` → deterministic random screen scaled to ``rms_waves``.
+    - ``SCALAR_RMS`` → deterministic low-order Zernike expansion of the RMS
+      budget (Noll Z4–Z11, ``scalar_rms.scalar_rms_zernike_coeffs``; CU-355).
       If the WFE also carries ``zernike_coeffs`` (e.g. defocus folded in as
-      Noll Z4 by the optics stage), the Zernike phase is **added** to the
-      screen so screen + Zernike live in one pupil phase.
+      Noll Z4 by the optics stage), those coefficients are **added** to the
+      expansion so budget + fold live in one pupil phase.
     - ``ZERNIKE`` → deterministic Zernike phase.
+
+    All modes convert waves at the WFE's reference wavelength to radians at
+    ``operating_wavelength_m`` (constant OPD, wavelength-dependent phase).
 
     Raises
     ------
@@ -156,16 +116,19 @@ def make_pupil_phase_for_wfe(
 
     if wfe.mode == WfeMode.SCALAR_RMS:
         rms = wfe.rms_waves if wfe.rms_waves is not None else 0.0
-        phase = make_pupil_phase(npix, rms, operating_wavelength_m)
+        coeffs = scalar_rms_zernike_coeffs(rms, obscuration_ratio)
         if wfe.zernike_coeffs:
-            phase = phase + make_pupil_phase_zernike(
-                npix,
-                wfe.zernike_coeffs,
-                reference_wavelength_m=wfe.reference_wavelength_um * 1e-6,
-                operating_wavelength_m=operating_wavelength_m,
-                obscuration_ratio=obscuration_ratio,
-            )
-        return phase
+            for j, c in wfe.zernike_coeffs.items():
+                coeffs[j] = coeffs.get(j, 0.0) + c
+        if not coeffs:
+            return np.zeros((npix, npix), dtype=np.float64)
+        return make_pupil_phase_zernike(
+            npix,
+            coeffs,
+            reference_wavelength_m=wfe.reference_wavelength_um * 1e-6,
+            operating_wavelength_m=operating_wavelength_m,
+            obscuration_ratio=obscuration_ratio,
+        )
 
     if wfe.mode == WfeMode.ZERNIKE:
         assert wfe.zernike_coeffs is not None

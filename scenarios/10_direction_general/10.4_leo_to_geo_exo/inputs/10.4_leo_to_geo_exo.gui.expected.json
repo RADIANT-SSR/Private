@@ -2,9 +2,9 @@
   "id": "10.4",
   "title": "LEO\u2192GEO exo SDA \u2014 \u03b8_o = \u03c0, vacuum path",
   "metrics": {
-    "snr": 24.51880642227754,
-    "contrast_snr": 24.51880642227754,
-    "detection_range_m": 90015265.11177242,
+    "snr": 26.319418678372493,
+    "contrast_snr": 26.319418678372493,
+    "detection_range_m": 94438368.32201084,
     "geometry.theta_o_rad": 3.141592653589793,
     "geometry.slant_range_m": 35286000.0
   },

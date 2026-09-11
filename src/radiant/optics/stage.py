@@ -138,7 +138,7 @@ def _add_defocus_to_wfe(
             reference_wavelength_um=wavelength_m * 1e6,
         )
     if wfe.mode == WfeMode.SCALAR_RMS:
-        # Preserve the random screen; carry defocus as a deterministic Z4
+        # Preserve the scalar budget; carry defocus as a deterministic Z4
         # term next to it. Rescale Z4 to the WFE's reference wavelength so
         # the OPD is unchanged (waves_ref × λ_ref = waves_here × λ_here).
         ref_m = wfe.reference_wavelength_um * 1e-6
@@ -366,7 +366,7 @@ def _build_effective_psf(
     ----------
     wfe:
         Wavefront error specification. Dispatches on ``wfe.mode``:
-        ``SCALAR_RMS`` uses random phase screen (existing behavior),
+        ``SCALAR_RMS`` expands the budget over low-order Zernikes (CU-355),
         ``ZERNIKE`` uses deterministic Zernike polynomial phase.
         ``None`` = diffraction-limited.
     chromatic_zernikes:

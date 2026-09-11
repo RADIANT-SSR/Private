@@ -1,6 +1,8 @@
+> **HISTORICAL — archived 2026-09-11 (completed by the coding agent; W1–W5 all landed 2026-09-09 on branch `gap127/element-only-emission`, merged as `e0cd1d13`; Gap 127 closed in `docs/tracking/gaps.md` 2026-09-11).** Declared-emissivity path deleted end-to-end (`optics.scalar_emissivity`, `make_lumped_element(emissivity=…)`, `OpticalElement.declared_emissivity` and the Rule-5 carve-out); cavity per-surface T + R = 1 enforced with one-of R/T derivation in the factory and YAML reader; both shipped templates corrected; `tests/integration/test_element_only_nearfield.py` plus the weak-absorption ε_eff → α·t anchor; RADIANT_Optics.md §5/§6/§7, parameter reference, and CHANGELOG in lock-step. The §6 out-of-scope items became CU-350 (closed) and CU-352 (closed); CU-351 remains open, owner-gated. Successor model: `docs/archive/Nearfield_Etendue_Model.md` (Gap 128).
+
 # Optics Emission Model Rules — Element-Only Near-Field (Gap 127)
 
-**Status:** Active — owner ratified the four model rules in conversation, 2026-09-09.
+**Status:** Complete — owner ratified the four model rules in conversation, 2026-09-09; W1–W5 delivered 2026-09-09.
 
 **Date:** 2026-09-09
 **Category:** C (physics model change; D-style regression section required because shipped

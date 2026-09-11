@@ -20,6 +20,32 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Results-affecting: scalar-RMS wavefront error is now a deterministic
+  low-order Zernike expansion, wavelength-scaled** (CU-355; owner-ratified
+  2026-09-11). `optics.wfe_mode = "scalar_rms"` previously entered the pupil
+  as a per-pixel white-noise phase screen of `2π·rms_waves` radians at
+  *every* operating wavelength — ignoring
+  `optics.wfe_reference_wavelength_um` entirely, and putting all its
+  variance at the pupil-grid sample scale (a far-halo scatter with
+  grid-dependent shape). The budget now expands over the fixed equal-RMS
+  Noll Z4–Z11 set (`optics/scalar_rms.py`), renormalized for the central
+  obscuration, and enters through the same pupil path as explicit Zernike
+  input with the documented λ_ref → λ_op OPD scaling. Direction and
+  magnitude: with the default 0.633 µm reference, the applied phase drops
+  by the ratio λ_ref/λ_op (an order of magnitude weaker degradation at
+  MWIR/LWIR — Strehl and MTF rise toward diffraction-limited); at
+  λ_op = λ_ref the blur moves from a broad scatter halo into local
+  low-order structure that pixel integration partially forgives, so
+  detector-sampled MTF, RER, and Strehl *rise* for the same budget.
+  Measured across the six WFE-bearing GUI baselines (regenerated in this
+  change): NIIRS +0.06…+0.08 (scenarios 1.4/3.4/5.4, VNIR), MTF-at-Nyquist
+  0.407→0.436 and ePSF Strehl 0.821→0.949 (7.3), point-source SNR +5…7 %
+  and detection range +1.7…4.9 % (10.2/10.4, MWIR/LWIR — dominated by the
+  wavelength rescale). Runs with `wfe_rms_waves = 0` (the default) are
+  bit-identical. The unused white-noise generator `make_pupil_phase` was
+  removed (Rule 27).
+
 ### Added
 - **Pixel sampling phase (straddle factor) for point-source / sub-pixel EE_box**
   (Gap 129). New `detector.pixel_phase_mode` ∈ {`average`, `centered`,

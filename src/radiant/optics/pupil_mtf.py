@@ -45,7 +45,7 @@ def pupil_autocorrelation_mtf_2d(
         From :func:`~radiant.optics.pupil_amplitude.make_pupil_amplitude`.
     phase:
         Pupil phase screen in radians, shape ``(npix, npix)``.
-        From :func:`~radiant.optics.pupil_phase.make_pupil_phase` or
+        From :func:`~radiant.optics.pupil_phase.make_pupil_phase_for_wfe` or
         :func:`~radiant.optics.pupil_phase.make_pupil_phase_zernike`.
     padded_npix:
         Side length of the zero-padded FFT grid (same value used

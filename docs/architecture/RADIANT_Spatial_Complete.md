@@ -127,7 +127,7 @@ All baked into the pupil amplitude `A(x, y)` by `optics/pupil_amplitude.py`. The
 
 ### 3.3 Wavefront error
 
-`optics/pupil_phase.py` and `optics/wavefront.py` build the OPD on the pupil grid (Zernike-polynomial expansion or user-supplied OPD map). The diffraction engine multiplies the pupil by `exp(2πi · OPD / λ_op)`. The full FFT path is the only WFE handling that enters the PSF/MTF paths in v1. The Maréchal approximation survives only as the **`strehl_marechal` diagnostic metric** (`performance/strehl.py::compute_strehl`, `exp(-(2π·OPD_rms/λ)²)` from `stage_outputs["optics"]["wavefront_error"]`) — a named sanity check alongside the PSF-derived `strehl`, never a substitute for the pupil-phase computation.
+`optics/pupil_phase.py` and `optics/wavefront.py` build the OPD on the pupil grid (Zernike-polynomial expansion or user-supplied OPD map). A `scalar_rms` budget is first expanded into a fixed equal-RMS Noll Z4–Z11 coefficient set by `optics/scalar_rms.py` (deterministic, renormalized for obscuration — CU-355; see RADIANT_Optics.md §4) and enters through the same Zernike path. The diffraction engine multiplies the pupil by `exp(2πi · OPD / λ_op)`. The full FFT path is the only WFE handling that enters the PSF/MTF paths in v1. The Maréchal approximation survives only as the **`strehl_marechal` diagnostic metric** (`performance/strehl.py::compute_strehl`, `exp(-(2π·OPD_rms/λ)²)` from `stage_outputs["optics"]["wavefront_error"]`) — a named sanity check alongside the PSF-derived `strehl`, never a substitute for the pupil-phase computation.
 
 ### 3.4 Polychromatic PSF
 

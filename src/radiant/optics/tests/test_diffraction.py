@@ -24,7 +24,7 @@ from radiant.optics.psf_poly import (
     compute_polychromatic_psf,
 )
 from radiant.optics.pupil_amplitude import make_pupil_amplitude
-from radiant.optics.pupil_phase import make_pupil_phase
+from radiant.optics.pupil_phase import make_pupil_phase_for_wfe
 from radiant.optics.sampling import PSFSamplingConfig, compute_sampling
 from radiant.optics.strehl import compute_strehl
 from radiant.optics.wavefront import WavefrontError, WfeMode
@@ -106,30 +106,72 @@ class TestPupilAmplitude:
 
 
 class TestPupilPhase:
+    """The SCALAR_RMS dispatch: low-order Zernike expansion (CU-355)."""
+
+    @staticmethod
+    def _pupil_mask(npix: int) -> np.ndarray:
+        x = np.linspace(-0.5, 0.5, npix, endpoint=False) + 0.5 / npix
+        xx, yy = np.meshgrid(x, x, indexing="xy")
+        return np.sqrt(xx**2 + yy**2) * 2.0 <= 1.0
+
     @pytest.mark.level0
     def test_zero_wfe_returns_zeros(self) -> None:
-        phase = make_pupil_phase(64, wfe_rms_waves=0.0)
+        wfe = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=0.0)
+        phase = make_pupil_phase_for_wfe(64, wfe, operating_wavelength_m=4.0e-6)
         np.testing.assert_array_equal(phase, np.zeros((64, 64)))
 
     @pytest.mark.level0
-    def test_nonzero_wfe_has_correct_rms(self) -> None:
-        wfe = 0.07  # waves (~λ/14)
-        phase = make_pupil_phase(128, wfe_rms_waves=wfe)
-        expected_rms_rad = 2.0 * math.pi * wfe
-        actual_rms = float(phase.std())
-        assert actual_rms == pytest.approx(expected_rms_rad, rel=0.01)
+    def test_phase_rms_matches_budget_at_reference_wavelength(self) -> None:
+        """At λ_op = λ_ref the in-pupil phase RMS is 2π · rms_waves rad."""
+        rms = 0.07  # waves (~λ/14)
+        wfe = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=rms, reference_wavelength_um=4.0)
+        phase = make_pupil_phase_for_wfe(256, wfe, operating_wavelength_m=4.0e-6)
+        mask = self._pupil_mask(256)
+        actual_rms = float(np.std(phase[mask]))
+        assert actual_rms == pytest.approx(2.0 * math.pi * rms, rel=0.01)
+
+    @pytest.mark.level0
+    def test_phase_scales_inversely_with_operating_wavelength(self) -> None:
+        """Constant OPD: doubling λ_op halves the phase (CU-355 fix)."""
+        wfe = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=0.1, reference_wavelength_um=0.633)
+        p_ref = make_pupil_phase_for_wfe(128, wfe, operating_wavelength_m=0.633e-6)
+        p_2x = make_pupil_phase_for_wfe(128, wfe, operating_wavelength_m=1.266e-6)
+        np.testing.assert_allclose(p_2x, p_ref / 2.0, rtol=1e-12, atol=1e-15)
 
     @pytest.mark.level0
     def test_deterministic(self) -> None:
-        """Same seed → same phase screen."""
-        p1 = make_pupil_phase(64, wfe_rms_waves=0.1)
-        p2 = make_pupil_phase(64, wfe_rms_waves=0.1)
+        """Fixed coefficient set → bit-identical phase, no RNG anywhere."""
+        wfe = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=0.1)
+        p1 = make_pupil_phase_for_wfe(64, wfe, operating_wavelength_m=0.633e-6)
+        p2 = make_pupil_phase_for_wfe(64, wfe, operating_wavelength_m=0.633e-6)
         np.testing.assert_array_equal(p1, p2)
 
     @pytest.mark.level0
     def test_negative_wfe_rejected(self) -> None:
-        with pytest.raises(ValueError, match="wfe_rms_waves must be non-negative"):
-            make_pupil_phase(64, wfe_rms_waves=-0.05)
+        with pytest.raises(ValueError, match="rms_waves"):
+            WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=-0.05)
+
+    @pytest.mark.level0
+    def test_scalar_plus_folded_zernike_is_additive(self) -> None:
+        """A folded Z4 (defocus) rides on top of the scalar expansion."""
+        rms = 0.05
+        z4 = 0.08
+        wfe_both = WavefrontError(
+            mode=WfeMode.SCALAR_RMS,
+            rms_waves=rms,
+            zernike_coeffs={4: z4},
+            reference_wavelength_um=4.0,
+        )
+        wfe_scalar = WavefrontError(
+            mode=WfeMode.SCALAR_RMS, rms_waves=rms, reference_wavelength_um=4.0
+        )
+        wfe_z4 = WavefrontError(
+            mode=WfeMode.ZERNIKE, zernike_coeffs={4: z4}, reference_wavelength_um=4.0
+        )
+        p_both = make_pupil_phase_for_wfe(128, wfe_both, operating_wavelength_m=4.0e-6)
+        p_scalar = make_pupil_phase_for_wfe(128, wfe_scalar, operating_wavelength_m=4.0e-6)
+        p_z4 = make_pupil_phase_for_wfe(128, wfe_z4, operating_wavelength_m=4.0e-6)
+        np.testing.assert_allclose(p_both, p_scalar + p_z4, rtol=1e-12, atol=1e-12)
 
 
 # ---------------------------------------------------------------------------
@@ -267,7 +309,11 @@ class TestStrehl:
         At WFE = lambda/14 = 0.0714 waves, Marechal predicts ~0.817.
         """
         wfe_waves = 1.0 / 14.0
-        wfe = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=wfe_waves)
+        wfe = WavefrontError(
+            mode=WfeMode.SCALAR_RMS,
+            rms_waves=wfe_waves,
+            reference_wavelength_um=WAVELENGTH_M * 1e6,
+        )
         psf_ref = compute_psf(config)
         psf_aberrated = compute_psf(config, wfe=wfe)
         strehl = compute_strehl(psf_aberrated, psf_ref)
@@ -279,8 +325,12 @@ class TestStrehl:
     def test_strehl_decreases_with_wfe(self, config: PSFSamplingConfig) -> None:
         """More WFE -> lower Strehl."""
         psf_ref = compute_psf(config)
-        wfe_small = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=0.05)
-        wfe_large = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=0.15)
+        wfe_small = WavefrontError(
+            mode=WfeMode.SCALAR_RMS, rms_waves=0.05, reference_wavelength_um=WAVELENGTH_M * 1e6
+        )
+        wfe_large = WavefrontError(
+            mode=WfeMode.SCALAR_RMS, rms_waves=0.15, reference_wavelength_um=WAVELENGTH_M * 1e6
+        )
         psf_small = compute_psf(config, wfe=wfe_small)
         psf_large = compute_psf(config, wfe=wfe_large)
         s_small = compute_strehl(psf_small, psf_ref)
@@ -362,7 +412,9 @@ class TestBesselComparison:
 class TestDeterminism:
     @pytest.mark.level1
     def test_same_config_same_psf(self, config: PSFSamplingConfig) -> None:
-        wfe = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=0.05)
+        wfe = WavefrontError(
+            mode=WfeMode.SCALAR_RMS, rms_waves=0.05, reference_wavelength_um=WAVELENGTH_M * 1e6
+        )
         psf1 = compute_psf(config, wfe=wfe)
         psf2 = compute_psf(config, wfe=wfe)
         np.testing.assert_array_equal(psf1, psf2)
@@ -414,7 +466,9 @@ class TestZernikePSF:
         rms = abs(c4)
 
         psf_ref = compute_psf(config)
-        wfe_scalar = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=rms)
+        wfe_scalar = WavefrontError(
+            mode=WfeMode.SCALAR_RMS, rms_waves=rms, reference_wavelength_um=WAVELENGTH_M * 1e6
+        )
         wfe_zernike = WavefrontError(
             mode=WfeMode.ZERNIKE,
             zernike_coeffs={4: c4},
@@ -456,10 +510,12 @@ class TestZernikePSF:
         assert float(psf_z.sum()) == pytest.approx(1.0, rel=1e-10)
 
     @pytest.mark.level1
-    def test_zernike_differs_from_random(self, config: PSFSamplingConfig) -> None:
-        """Zernike PSF shape should differ from random-phase scalar PSF."""
+    def test_single_term_differs_from_scalar_mix(self, config: PSFSamplingConfig) -> None:
+        """A single-Z4 PSF differs from the equal-budget Z4-Z11 scalar mix."""
         rms = 0.1
-        wfe_scalar = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=rms)
+        wfe_scalar = WavefrontError(
+            mode=WfeMode.SCALAR_RMS, rms_waves=rms, reference_wavelength_um=WAVELENGTH_M * 1e6
+        )
         wfe_zernike = WavefrontError(
             mode=WfeMode.ZERNIKE,
             zernike_coeffs={4: rms},
@@ -468,7 +524,7 @@ class TestZernikePSF:
         psf_s = compute_psf(config, wfe=wfe_scalar)
         psf_z = compute_psf(config, wfe=wfe_zernike)
 
-        # They should NOT be identical (different phase screens)
+        # Same RMS, different aberration content -> different PSF shapes.
         assert not np.allclose(psf_s, psf_z, atol=1e-10)
 
 
@@ -586,7 +642,7 @@ class TestPolychromaticPSFResult:
     @pytest.mark.level1
     def test_wfe_threaded_to_polychromatic(self) -> None:
         """WavefrontError should propagate to polychromatic path."""
-        wfe = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=0.1)
+        wfe = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=0.1, reference_wavelength_um=4.0)
         result_no_wfe = compute_polychromatic_psf(
             wavelengths_m=np.array([3.5e-6, 5.0e-6]),
             weights=np.ones(2),

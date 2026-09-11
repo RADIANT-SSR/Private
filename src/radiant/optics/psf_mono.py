@@ -41,8 +41,8 @@ def compute_psf(
     Dispatches on ``wfe.mode``:
 
     - ``None`` or ``SCALAR_RMS`` with ``rms_waves=0``: diffraction-limited.
-    - ``SCALAR_RMS``: random phase screen scaled to RMS (Strehl-correct
-      but aberration-agnostic).
+    - ``SCALAR_RMS``: deterministic low-order Zernike expansion of the
+      RMS budget (Noll Z4-Z11, equal RMS per term — CU-355).
     - ``ZERNIKE``: deterministic phase from Zernike coefficients (correct
       PSF shape for each aberration type).
 

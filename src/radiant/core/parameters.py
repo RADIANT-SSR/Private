@@ -75,6 +75,18 @@ REMOVED_PARAMETERS: dict[str, str] = {
         "exists: every in-beam element is seen through the acceptance cone "
         "Ω_cone set by the working f/#. Delete the key — nothing replaces it."
     ),
+    "optics.optics_temperature_K": (
+        "It was removed 2026-09-10 (owner ruling) as inert after Gaps 127/128. Its "
+        "only consumers were the synthesized lumped elements of the scalar, "
+        "spectral-file, telescope+filters and key-elements modes, and Gap 127 made "
+        "every one of those non-emitting (a lump is bookkeeping, not a surface: its "
+        "Kirchhoff emissivity is identically 0), so the temperature multiplied zero "
+        "and the scene evaluated identically at any value. Per-element temperature "
+        "is the only optics temperature there is: give each row in the "
+        "'optical_elements:' document its own 'temperature_K' — mirrors (ε = 1 − R) "
+        "and cavity refractives are what emit. Scalar transmission mode has no "
+        "emitting surface at all, by construction."
+    ),
 }
 
 

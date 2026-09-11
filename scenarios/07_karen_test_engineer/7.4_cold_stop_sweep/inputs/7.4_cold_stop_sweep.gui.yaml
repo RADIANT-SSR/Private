@@ -37,7 +37,6 @@ optics:
   aperture_diameter_m: 0.25
   cold_stop_undersize_frac: 0.0
   focal_length_m: 1.0
-  optics_temperature_K: 293.15
 performance:
   niirs:
     allow_extrapolated: true

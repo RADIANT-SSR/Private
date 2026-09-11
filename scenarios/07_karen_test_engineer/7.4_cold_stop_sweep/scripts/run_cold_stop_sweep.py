@@ -197,7 +197,6 @@ config = {
     "optics": {
         "aperture_diameter_m": aperture_m,
         "focal_length_m": focal_length_m,
-        "optics_temperature_K": optics_temp_K,
         # The swept variable. 0 = the cold stop matches the primary exactly.
         "cold_stop_undersize_frac": 0.0,
     },

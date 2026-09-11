@@ -31,7 +31,10 @@ def _run(*, with_mirror: bool):
     params.set("optics.aperture_diameter_m", 0.30)
     params.set("optics.focal_length_m", 1.20)
     params.set("optics.transmission_scalar", 0.70)
-    params.set("optics.optics_temperature_K", OPTICS_TEMP_K)
+    # ``optics.optics_temperature_K`` was removed 2026-09-10: it only ever reached
+    # non-emitting synthesized elements, so it multiplied zero. The mirror below
+    # carries OPTICS_TEMP_K on its own ``temperature_K`` — that is the temperature
+    # that was always doing the work here.
     params.set("detector.pixel_pitch_x_um", 18.0)
     params.set("detector.pixel_pitch_y_um", 18.0)
     params.set("detector.qe_value", 0.70)

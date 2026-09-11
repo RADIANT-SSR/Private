@@ -43,7 +43,10 @@ def _run(*, undersize: float | None = None, obscuration: float | None = None):
     params.set("optics.aperture_diameter_m", APERTURE_M)
     params.set("optics.focal_length_m", FOCAL_M)
     params.set("optics.transmission_scalar", 0.70)
-    params.set("optics.optics_temperature_K", OPTICS_TEMP_K)
+    # ``optics.optics_temperature_K`` was removed 2026-09-10: it only ever reached
+    # non-emitting synthesized elements, so it multiplied zero. The mirror below
+    # carries OPTICS_TEMP_K on its own ``temperature_K`` — that is the temperature
+    # that was always doing the work here.
     if undersize is not None:
         params.set("optics.cold_stop_undersize_frac", undersize)
     if obscuration is not None:

@@ -2,9 +2,9 @@
 
 :class:`OpticsInputsForm` is the *Inputs* section of the Optics stage's contextual center
 (arch doc §4.4 section 1, GUI plan Phase PS-2): the key instrument parameters — aperture
-diameter, focal length / f-number, central obscuration + spiders, the RMS wavefront error,
-and the optics temperature — as editable schema-driven
-rows. It is the optics sibling of :class:`~radiant.gui.widgets.source_inputs_form.SourceInputsForm`:
+diameter, focal length / f-number, central obscuration + spiders, and the wavefront
+error — as editable schema-driven rows. It is the optics sibling of
+:class:`~radiant.gui.widgets.source_inputs_form.SourceInputsForm`:
 together with the Transmission / MTF / PSF+pupil diagnostic tabs it makes the Optics stage
 the richest per-stage *instrument* (arch doc §4.4.1 Optics rows) — edit an input and watch
 the maps respond (WFE → the pupil-phase map gains structure; aperture → MTF/PSF).
@@ -68,11 +68,14 @@ if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
 
 # The key optics parameters (label, dot-path), in a reading order that groups the aperture
-# geometry (diameter, focal length, f/#, obscuration, spiders), the RMS wavefront error, and
-# the optics temperature. ``optics.transmission_scalar`` is deliberately absent: transmission
-# has one home, the Transmission tab (2026-09-09/10). Bounds/units/description all come from
-# the live schema (never transcribed) — only the human label + the grouping is a literal here
-# (CU-120, tracked with the geometry/source manifests).
+# geometry (diameter, focal length, f/#, obscuration, spiders) and then the wavefront error.
+# Two absences are deliberate. ``optics.transmission_scalar`` moved to the Transmission tab
+# (2026-09-09/10) — transmission has one home. ``optics.optics_temperature_K`` was removed
+# outright 2026-09-10 (owner ruling): after Gap 127 it could only ever reach non-emitting
+# synthesized elements, so it multiplied zero; optics temperature is now per element, on the
+# rows of the element train. Bounds/units/description all come from the live schema (never
+# transcribed) — only the human label + the grouping is a literal here (CU-120, tracked with
+# the geometry/source manifests).
 _OPTICS_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Aperture diameter", "optics.aperture_diameter_m"),
     ("Focal length", "optics.focal_length_m"),
@@ -83,10 +86,9 @@ _OPTICS_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("WFE reference wavelength", "optics.wfe_reference_wavelength_um"),
     ("Zernike file (Zemax export)", "optics.zernike_file"),
     ("Defocus", "optics.defocus_um"),
-    ("Optics temperature", "optics.optics_temperature_K"),
 )
 
-_TITLE = "Optics — aperture, wavefront error, temperature (transmission: Transmission tab)"
+_TITLE = "Optics — aperture and wavefront error (transmission: Transmission tab)"
 
 
 class OpticsInputsForm(QWidget):

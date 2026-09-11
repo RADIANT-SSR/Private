@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import warnings
 
 import numpy as np
 import pytest
@@ -614,11 +613,19 @@ class TestNonScalarModeInjection:
             params.resolve()
 
 
-class TestWarmOpticsSilentNoOp:
-    """CU-265 reworked by Gap 127 — a set optics temperature that cannot emit must say so."""
+class TestOpticsTemperatureRemoved:
+    """``optics.optics_temperature_K`` was removed 2026-09-10 (owner ruling).
+
+    It replaced the Gap-127 "temperature is set but nothing can emit" warning, whose
+    trigger *was* the parameter's only behaviour: everything it could reach is a
+    synthesized element, and Gap 127 made all of those non-emitting, so the value
+    always multiplied a zero emissivity. With no parameter there is no warning to
+    test — there are two facts instead: the name is rejected with guidance, and the
+    synthesized elements are inert by construction.
+    """
 
     @staticmethod
-    def _params(*, set_temp: bool) -> ParameterSet:
+    def _params() -> ParameterSet:
         from radiant.api._param_registry import _FNUMBER_GROUP
 
         ps = ParameterSet(list(OPT_PARAMS) + list(DET_PARAMS), [_FNUMBER_GROUP])
@@ -628,40 +635,36 @@ class TestWarmOpticsSilentNoOp:
         ps.set("detector.pixel_pitch_x_um", 18.0)
         ps.set("detector.pixel_pitch_y_um", 18.0)
         ps.set("detector.qe_value", 0.7)
-        if set_temp:
-            ps.set("optics.optics_temperature_K", 293.15)
         ps.resolve()
         return ps
 
     @pytest.mark.level1
-    def test_temperature_set_in_scalar_mode_warns(self) -> None:
-        """Gap 127: scalar mode never emits, so a set temperature contributes nothing."""
-        state = _make_state(np.linspace(3.5, 5.0, 24))
-        with pytest.warns(UserWarning, match="no defined optical element can emit"):
-            OpticsStage().run(state, self._params(set_temp=True))
+    def test_the_name_is_rejected_and_says_where_temperature_lives_now(self) -> None:
+        """A config carrying the old key gets the removal note, not a spelling guess."""
+        from radiant.api._param_registry import _FNUMBER_GROUP
+        from radiant.core.parameters import UnknownParameterError
+
+        ps = ParameterSet(list(OPT_PARAMS) + list(DET_PARAMS), [_FNUMBER_GROUP])
+        with pytest.raises(UnknownParameterError, match="no longer exists") as excinfo:
+            ps.set("optics.optics_temperature_K", 293.15)
+        message = str(excinfo.value)
+        assert "temperature_K" in message  # points at the per-element field
+        assert "optical_elements" in message
 
     @pytest.mark.level1
-    def test_no_warning_when_an_element_can_emit(self) -> None:
-        """With an emitting element (mirror, ε = 1 − R) the temperature does something."""
-        from radiant.optics.element_factories import make_reflective_element
+    def test_synthesized_elements_carry_no_temperature_and_cannot_emit(self) -> None:
+        """Scalar mode's lump is bookkeeping: 0 K and ε ≡ 0, so it emits nothing.
 
-        wl = np.linspace(3.5, 5.0, 24)
-        state = _make_state(wl)
-        mirror = make_reflective_element(
-            "m1",
-            0.98,
-            wavelength_um=wl,
-            temperature_K=293.15,
-        )
-        state = state.with_stage_output("optics_config", "element_list", (mirror,))
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", UserWarning)
-            OpticsStage().run(state, self._params(set_temp=True))
-
-    @pytest.mark.level1
-    def test_no_warning_when_the_temperature_was_never_set(self) -> None:
-        """The schema default must not nag a scene that never mentioned optics temperature."""
+        This is the property that made the parameter inert, pinned directly so a future
+        change that gives a lump an emissivity cannot quietly reintroduce the problem.
+        """
         state = _make_state(np.linspace(3.5, 5.0, 24))
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", UserWarning)
-            OpticsStage().run(state, self._params(set_temp=False))
+        out = OpticsStage().run(state, self._params())
+        elements = out.stage_outputs["optics"]["elements"]
+        assert elements  # scalar mode still synthesizes its bookkeeping lump
+        for element in elements:
+            assert element.temperature_K == 0.0
+            assert float(np.max(element.emissivity.values)) == 0.0
+        # …and the near-field the chain publishes is therefore identically zero.
+        nearfield = out.stage_outputs["optics"]["nearfield_irradiance_at_fpa"]
+        assert float(np.max(np.abs(nearfield.values))) == 0.0

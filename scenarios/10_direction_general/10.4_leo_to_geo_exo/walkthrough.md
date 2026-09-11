@@ -461,6 +461,8 @@ Rule-4 tolerance.
 The one `UserWarning` the nominal chain raises — and the open-loop variant raises
 the same one — is CU-261/265's inert-optics-temperature report:
 
+<!-- Superseded 2026-09-10: optics.optics_temperature_K was removed (inert after
+     Gap 127) and this warning with it. Quoted verbatim as a record of the run. -->
 > `optics.optics_temperature_K = 180 K is set, but no defined optical element can
 > emit (every element's Kirchhoff-derived emissivity is 0 in the current
 > transmission mode) …`

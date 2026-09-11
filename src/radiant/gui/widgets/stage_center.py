@@ -139,10 +139,13 @@ _PLOT_BLOCK_SPACING_PX: int = 8
 # *initial* division from starving the figures.
 _PLOT_MIN_WIDTH_PX: int = 420
 
-# ``result.plot.*`` accessors that need an element train to draw anything. The
-# Transmission tab hides their sections in scalar mode rather than showing the accessor's
-# (correct) refusal message where the operator has simply chosen the other definition.
-_ELEMENT_ONLY_PLOTS: frozenset[str] = frozenset({"coating_spectra"})
+# Which ``result.plot.*`` accessors belong to which transmission mode (Transmission
+# tab). Each describes a structure the other mode does not have, so the tab shows one
+# figure at a time rather than a pane of correct-but-unhelpful refusal messages:
+# the scalar mode's flat τ_opt is the whole model, and the element mode's combined
+# overlay already carries the assembled τ_opt as its SYSTEM curve.
+_SCALAR_ONLY_PLOTS: frozenset[str] = frozenset({"optical_throughput"})
+_ELEMENT_ONLY_PLOTS: frozenset[str] = frozenset({"optical_throughput_terms", "coating_spectra"})
 
 # The shape-dimension parameters the geometry side panel edits (bounds/units from the
 # schema; this list is the read/sync surface — the panel owns the shape→subset matrix).
@@ -676,21 +679,25 @@ class StagePane(QWidget):
 
     @staticmethod
     def _bind_transmission_modes(panel: TransmissionPanel, sections: list[_PlotSection]) -> None:
-        """Show this tab's element-only figures only while the element train is active.
+        """Show each transmission mode's own figure, and only that one.
 
-        The per-element coating overlay has nothing to draw in scalar mode — the accessor
-        rightly refuses ("no optical elements found"), and a tab full of refusal messages
-        is not an honest scalar view. The system τ_opt(λ) figure stays in both modes: it is
-        the thing *either* definition produces, and watching it go flat as the mode flips
-        is the point of putting both on one tab.
+        The two modes do not describe the same structure, so they do not share a figure.
+        Scalar mode has no elements: the per-element accessors rightly refuse, and a pane
+        of refusal messages is not an honest scalar view — its flat τ_opt *is* the whole
+        model. Element mode's combined overlay already carries the assembled τ_opt as its
+        bold SYSTEM curve, so the standalone system figure beside it would draw the same
+        line twice. Flipping the selector swaps one figure for the other.
         """
         element_only = [s for s in sections if s.method in _ELEMENT_ONLY_PLOTS]
-        if not element_only:
+        scalar_only = [s for s in sections if s.method in _SCALAR_ONLY_PLOTS]
+        if not element_only and not scalar_only:
             return
 
         def _apply(mode: str) -> None:
             for section in element_only:
                 section.setVisible(mode == MODE_ELEMENT)
+            for section in scalar_only:
+                section.setVisible(mode != MODE_ELEMENT)
 
         panel.modeChanged.connect(_apply)
         _apply(panel.mode)

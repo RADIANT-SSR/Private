@@ -86,7 +86,6 @@ def build_sensor(det_T: float, dark_e_per_s: float, qe: float) -> Sensor:
     s.set("geometry.sensor_altitude_m", 1.0)
     s.set("optics.aperture_diameter_m", float(spec["Aperture diameter"]), unit="cm")
     s.set("optics.focal_length_m", float(spec["Focal length"]), unit="cm")
-    s.set("optics.optics_temperature_K", float(spec["Optics temperature"]) + 273.15)
     # Gap 127 (2026-09-09): warm-optics emission derives ONLY from defined
     # elements. Gap 128 (2026-09-09): the workbook's ε = 26 % is the ε = 1 − τ
     # fallacy — most of the τ loss is coating reflection and cold-filter

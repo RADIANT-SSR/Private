@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 208**
+**Total parameters: 207**
 
 ## source
 
@@ -128,7 +128,6 @@
 | `optics.n_spiders` | int | 0 | --- | (0, 12) | Number of secondary-support spider arms (radial struts). Default 0 (no struts). A 4-arm spider produces the familiar four-point diffraction spike. See RADIANT_Optics.md §3.3. |
 | `optics.nearfield_enabled` | int | 1 | --- | (0, 1) | Enable nearfield (warm-optics) emission calculation. Set to 0 to disable (int: 1=True, 0=False). |
 | `optics.obscuration_ratio` | float | 0.0 | --- | (0.0, 0.99) | Central obscuration ratio ``D_secondary / D_primary``. Defaults to 0 (unobscured). Must satisfy 0 ≤ ε < 1. |
-| `optics.optics_temperature_K` | float | 290.0 | K | (1.0, 1000.0) | Default physical temperature of the optical train [K]. Applied to synthesized lumped elements in Modes 1-4 — which never emit (Gap 127), so this contributes only through defined elements. |
 | `optics.psf_n_wavelengths` | int | 1 | --- | (1, 101) | Number of wavelengths for polychromatic PSF computation. 1 = monochromatic at band center (default). Values > 1 compute a photon-flux-weighted average of monochromatic PSFs across the spectral band. |
 | `optics.psf_oversample` | int | 8 | --- | (4, 16) | Focal-plane PSF samples per detector pixel. Sets the PSF grid spacing to pixel_pitch / psf_oversample; the padded FFT size grows to match. Larger values sharpen spatial-metric discretization (EE_box, RER, FWHM) at higher FFT cost. The schema floor is 4, above compute_sampling's Nyquist floor of 2: at oversample ≤ 3 the padded grid can land at exactly 2× the pupil width and the FFT-of-PSF path aliases at the grid edge, breaching the Rule-4 dual-path tolerance (measured 0.032 vs 0.02 on the reference MWIR config, CU-288). |
 | `optics.pupil_npix` | int | 128 | --- | (32, 512) | Side length of the square pupil grid before FFT padding, in samples. Sets the resolution of the complex pupil that BOTH spatial paths derive from (Rule 4): the PSF (FT of the pupil) and the optical MTF (pupil autocorrelation). Larger values resolve finer aperture structure (thin spider vanes, small obscurations) at quadratically higher FFT cost — this is the dominant cost of a chain evaluation (CU-288). |

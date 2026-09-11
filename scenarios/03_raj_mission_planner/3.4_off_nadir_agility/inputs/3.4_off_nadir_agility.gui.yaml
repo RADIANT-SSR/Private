@@ -21,7 +21,6 @@ optics:
   aperture_diameter_m: 0.35
   focal_length_m: 3.5
   obscuration_ratio: 0.2
-  optics_temperature_K: 293.15
   transmission_scalar: 0.75
   wfe_rms_waves: 0.05
 performance:

@@ -145,7 +145,6 @@ optics.zernike_file                   # path — Zemax 'Zernike Standard Coeffic
                                       #   supersedes the scalar WFE; report wavelength honored,
                                       #   wfe_reference_wavelength_um is the no-header fallback
 optics.transmission_scalar            # dimensionless (0–1); the scalar lump never emits (Gap 127)
-optics.optics_temperature_K           # K
 optics.defocus_um                     # µm
 optics.surface_roughness_nm           # nm, effective train RMS roughness (TIS scatter; 0 = off)
 optics.scatter_halo_sigma_um          # µm, Gaussian scatter-halo width on the focal plane
@@ -849,7 +848,6 @@ optics:
   focal_length_m: 1.20           # m  (f/4.0)
   obscuration_ratio: 0.33
   wfe_rms_waves: 0.07            # waves
-  optics_temperature_K: 280.0    # K
   transmission_scalar: 0.70
 
 detector:

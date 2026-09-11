@@ -172,7 +172,6 @@ def _build_5_2_nominal(m: object) -> Sensor:
             "aperture_diameter_m": m.aperture_m,  # type: ignore[attr-defined]
             "focal_length_m": m.focal_length_m,  # type: ignore[attr-defined]
             "transmission_scalar": m.transmission,  # type: ignore[attr-defined]
-            "optics_temperature_K": m.optics_temp_K,  # type: ignore[attr-defined]
         },
         "detector": {
             "pixel_pitch_x_um": p_um,

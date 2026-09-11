@@ -1464,6 +1464,130 @@ def plot_optical_throughput(
 
 
 @_styled
+def plot_optical_throughput_terms(
+    terms: dict[str, tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]],
+    *,
+    system_wavelength_um: npt.NDArray[np.float64] | None = None,
+    system_tau: npt.NDArray[np.float64] | None = None,
+    title: str = "Optical throughput — per-element net τ and the system product",
+    **kwargs: Any,
+) -> Figure:
+    """Plot every element's net throughput **and** the system τ_opt(λ) they multiply to.
+
+    The transmission counterpart of :func:`plot_mtf_terms`, and it follows that
+    figure's convention exactly: the contributors are ordinary curves and the
+    **SYSTEM** product is drawn last, heavier, in the ink tone, above all of
+    them, with a bold direct label at the line. That is the whole point of the
+    figure — a train's weakest element is read *against* the product it limits,
+    which neither the system curve alone (:func:`plot_optical_throughput`) nor
+    the per-element overlay alone (:func:`plot_coating_spectra`) can show.
+
+    Each element contributes its **net transmittance** — the throughput along
+    the signal path, which is ``R(λ)`` for a reflective element and ``T(λ)`` for
+    a refractive one (``OpticalElement.net_transmittance``). That selection is
+    the element's own property, read by the caller; nothing here derives it.
+
+    Parameters
+    ----------
+    terms:
+        Mapping ``label -> (wavelength_um [µm], net transmittance
+        [dimensionless])``. Each element carries its **own** wavelength grid
+        (coatings are stored on their source grids), so every entry supplies
+        its own pair. Order is preserved — the train's own order, which is how
+        the analyst reads it.
+    system_wavelength_um, system_tau:
+        The assembled system throughput ``τ_opt(λ)`` and its grid — normally
+        ``stage_outputs["optics"]["tau_opt_spectral"]``. Supplied as its own
+        argument, on its own grid, so it is never mistaken for a contributor
+        and no contributor styling can reach it. ``None`` (either one) omits the
+        SYSTEM curve rather than inventing one: this function multiplies
+        nothing.
+    title:
+        Plot title.
+    **kwargs:
+        Passed to ``ax.plot()`` for every contributor curve. The SYSTEM curve
+        overrides colour, width and z-order after applying them, so it stays
+        identifiable whatever the caller passes.
+
+    Returns
+    -------
+    Figure
+        A matplotlib Figure.
+
+    Raises
+    ------
+    ApiValidationError
+        When *system_tau* and *system_wavelength_um* have different lengths —
+        a product plotted against the wrong grid is worse than no product.
+
+    Notes
+    -----
+    There is deliberately **no unity collapse** here (unlike
+    :func:`plot_mtf_terms`). A near-unity MTF contributor carries no budget
+    information, but a near-unity element is a real, legible statement about a
+    coating — "this window costs nothing" is exactly what an optical designer
+    reads off this axis — and with a handful of elements the overlay never
+    reaches the density that made the MTF collapse necessary.
+    """
+    from radiant.api.errors import ApiValidationError
+
+    has_system = system_tau is not None and system_wavelength_um is not None
+    if has_system and len(system_tau) != len(system_wavelength_um):  # type: ignore[arg-type]
+        raise ApiValidationError(
+            f"plot_optical_throughput_terms: system_tau has {len(system_tau)} samples "  # type: ignore[arg-type]
+            f"but system_wavelength_um has {len(system_wavelength_um)} — the system "  # type: ignore[arg-type]
+            "product must be supplied on its own matching wavelength grid."
+        )
+
+    tokens = plot_style.tokens()
+    fig, ax = _subplots()
+
+    for label, (wavelength_um, values) in terms.items():
+        ax.plot(wavelength_um, values, label=label, **kwargs)
+
+    # The SYSTEM product — the curve a design is actually read against. Drawn last
+    # so it sits above every contributor, and styled from the theme's ink token at
+    # the same weight/z-order the MTF overlay's SYSTEM line uses, so the two figures
+    # teach the same visual vocabulary (owner walkthrough 2026-09-10, CU-352).
+    if system_tau is not None and system_wavelength_um is not None:
+        system_kwargs: dict[str, Any] = dict(kwargs)
+        system_kwargs.update(color=tokens["ink"], linewidth=2.4, linestyle="-", zorder=5)
+        (line,) = ax.plot(system_wavelength_um, system_tau, label="SYSTEM", **system_kwargs)
+        n_system = len(system_wavelength_um)
+        if n_system:
+            j = int(np.clip(int(0.18 * n_system), 0, n_system - 1))
+            ax.annotate(
+                "SYSTEM",
+                (float(system_wavelength_um[j]), float(system_tau[j])),
+                xytext=(6, 6),
+                textcoords="offset points",
+                fontsize=10,
+                fontweight="bold",
+                color=line.get_color(),
+                zorder=6,
+            )
+
+    ax.set_xlabel("Wavelength (µm)")
+    ax.set_ylabel("Net τ per element / system τ_opt (dimensionless)")
+    ax.set_title(title)
+    ax.set_ylim(0.0, 1.05)
+    ax.grid(True, alpha=0.3)
+    if terms or system_tau is not None:
+        # Same compact below-axes multi-column legend as the coating overlay and the
+        # MTF overlay (CU-117), so a long train stays readable in the narrow GUI pane.
+        n_entries = len(terms) + (1 if system_tau is not None else 0)
+        ncol = min(3, max(1, (n_entries + 3) // 4))
+        ax.legend(
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.30),
+            ncol=ncol,
+            fontsize="small",
+            frameon=False,
+        )
+    return cast("Figure", fig)
+
+
+@_styled
 def plot_coating_spectra(
     series: dict[str, tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]],
     *,

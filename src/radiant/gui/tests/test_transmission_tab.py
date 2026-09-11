@@ -117,7 +117,10 @@ class TestComposition:
         tab = subviews["Transmission"]
         assert tab.transmission_panel is True
         assert tab.effective_pupil is True
-        assert [p.method for p in tab.plots] == ["optical_throughput", "coating_spectra"]
+        assert [p.method for p in tab.plots] == [
+            "optical_throughput",
+            "optical_throughput_terms",
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -159,22 +162,42 @@ class TestModeReflectsConfig:
         assert panel.scalar_row().dotpath == "optics.transmission_scalar"
         assert panel.scalar_value_text() not in ("", "—")
 
-    def test_per_element_overlay_is_hidden_without_elements(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """Scalar mode has no elements to draw, so the coating overlay is not shown.
+    def test_each_mode_shows_only_its_own_figure(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The two modes do not describe the same structure, so they do not share a figure.
 
-        The accessor would rightly refuse; a tab full of refusal messages is not an
-        honest scalar view. The system τ_opt(λ) figure stays in both modes.
+        Scalar mode has no elements — the combined overlay would rightly refuse, and a
+        pane of refusal messages is not an honest scalar view. Element mode's overlay
+        already carries the assembled τ_opt as its bold SYSTEM curve, so the standalone
+        system figure beside it would draw the same line twice.
         """
         pane = _pane(qtbot, Sensor.from_yaml(_EXAMPLE))
         sections = {s.method: s for s in pane._plot_sections}  # noqa: SLF001
         assert not sections["optical_throughput"].isHidden()
-        assert sections["coating_spectra"].isHidden()
+        assert sections["optical_throughput_terms"].isHidden()
 
         sensor = Sensor.from_yaml(_EXAMPLE)
         sensor.set_optical_elements([dict(e) for e in _TRAIN])
         element_pane = _pane(qtbot, sensor)
         element_sections = {s.method: s for s in element_pane._plot_sections}  # noqa: SLF001
-        assert not element_sections["coating_spectra"].isHidden()
+        assert not element_sections["optical_throughput_terms"].isHidden()
+        assert element_sections["optical_throughput"].isHidden()
+
+    def test_switching_mode_swaps_the_figure(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The selector is what moves them, live — not just the load-time state."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        sensor.set_optical_elements([dict(e) for e in _TRAIN])
+        pane = _pane(qtbot, sensor)
+        panel = pane.transmission_panel
+        assert panel is not None
+        sections = {s.method: s for s in pane._plot_sections}  # noqa: SLF001
+
+        panel.selector.button(MODE_SCALAR).click()
+        assert sections["optical_throughput_terms"].isHidden()
+        assert not sections["optical_throughput"].isHidden()
+
+        panel.selector.button(MODE_ELEMENT).click()
+        assert not sections["optical_throughput_terms"].isHidden()
+        assert sections["optical_throughput"].isHidden()
 
 
 # ---------------------------------------------------------------------------

@@ -15,7 +15,6 @@ geometry:
 optics:
   aperture_diameter_m: 0.3
   focal_length_m: 1.2
-  optics_temperature_K: 293
   psf_n_wavelengths: 1
   transmission_scalar: 0.72
 performance:

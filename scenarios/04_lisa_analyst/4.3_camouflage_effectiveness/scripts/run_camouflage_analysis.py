@@ -182,7 +182,6 @@ def build_sensor(radiance_file: Path, band_min: float, band_max: float,
     s.set("optics.aperture_diameter_m", spec["Aperture diameter"], unit="cm")
     s.set("optics.focal_length_m", spec["Focal length"], unit="cm")
     s.set("optics.transmission_scalar", spec["Optical transmission"], unit="%")
-    s.set("optics.optics_temperature_K", spec["Optics temperature"] + 273.15)
     s.set("detector.pixel_pitch_x_um", spec["Pixel pitch"])
     s.set("detector.pixel_pitch_y_um", spec["Pixel pitch"])
     s.set("detector.qe_value", spec["Quantum efficiency"], unit="%")

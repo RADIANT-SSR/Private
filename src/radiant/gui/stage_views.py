@@ -514,16 +514,26 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
             # element-train table with its Gap-116 coating drill-down), the τ(λ) figures,
             # and the Gap-128 cold-stop / effective-pupil strip.
             #
-            # The per-element coating overlay is shown only in element mode (the panel's
-            # ``modeChanged`` drives it): in scalar mode there are no elements to draw, and
-            # the accessor would rightly refuse.
+            # One figure per mode, and the panel's ``modeChanged`` picks which is on
+            # screen — each accessor describes a structure the other mode does not have:
+            #
+            #   scalar  → ``optical_throughput``: the flat τ_opt, which is the whole model.
+            #   element → ``optical_throughput_terms`` (CU-352): every element's net
+            #             throughput with the assembled τ_opt(λ) over them as one bold
+            #             SYSTEM curve, the ``plot_mtf_terms`` convention. It supersedes
+            #             the standalone system curve here (the SYSTEM line *is* it) and
+            #             the fixed-axis coating overlay (per-element R/T/ε is the
+            #             coating-detail drill-down under the table, Gap 116).
             StageSubView(
                 title="Transmission",
                 transmission_panel=True,
                 effective_pupil=True,
                 plots=(
                     PlotSpec("System optical throughput τ_opt(λ)", "optical_throughput"),
-                    PlotSpec("Coating spectra — R / T / ε per element", "coating_spectra"),
+                    PlotSpec(
+                        "Per-element net τ and the SYSTEM product",
+                        "optical_throughput_terms",
+                    ),
                 ),
             ),
             # Owner walkthrough items 10-12: the system-MTF overlay leads (with Nyquist

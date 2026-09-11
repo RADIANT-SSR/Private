@@ -292,7 +292,6 @@ def make_config(
             "aperture_diameter_m": cin["aperture_m"],
             "focal_length_m": cin["focal_length_m"],
             "transmission_scalar": cin["tau_optics"],
-            "optics_temperature_K": cin["optics_temp_K"],
             "obscuration_ratio": cin["obscuration"],
             "wfe_rms_waves": cin["wfe_rms_waves"],
         },
@@ -967,9 +966,11 @@ def main() -> None:  # noqa: PLR0915 - a scenario driver is a linear narrative
         "\n      relevance map (section 5) - there is no ground plane at a GEO target."
         "\n    - geometry.ground_speed_m_s in the RATE-TRACKED config: the K1 door supplies"
         "\n      the rate directly, so the platform-only ground_speed / slant path is unused."
-        "\n    - optics.optics_temperature_K matters only weakly: at 180 K the self-emission"
-        "\n      in 3.5-5.0 um is negligible against a 280 K target, but it is NOT zero and"
-        "\n      is left in the budget rather than suppressed."
+        "\n    - optics self-emission: this config runs scalar transmission, which has no"
+        "\n      defined optical element, so there is no emitting surface and the near-field"
+        "\n      term is identically zero (Gap 127). The scalar optics.optics_temperature_K"
+        "\n      that used to be set here was removed 2026-09-10 for exactly that reason - it"
+        "\n      multiplied a zero emissivity. Model warm optics by defining elements."
     )
     print(f"\n{SEP}\n  Scenario 10.4 complete.\n{SEP}")
 

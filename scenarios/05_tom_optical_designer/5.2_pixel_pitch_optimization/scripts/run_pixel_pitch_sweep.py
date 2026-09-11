@@ -260,7 +260,6 @@ def main() -> None:
                 "aperture_diameter_m": aperture_m,
                 "focal_length_m": focal_length_m,
                 "transmission_scalar": transmission,
-                "optics_temperature_K": optics_temp_K,
             },
             "detector": {
                 "pixel_pitch_x_um": p_um,

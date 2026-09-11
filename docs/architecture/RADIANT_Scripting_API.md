@@ -868,6 +868,7 @@ plots.spectral_source_emission() # target (+ background) PRE-atmosphere source r
 plots.spectral_atmosphere()      # τ_atm(λ) [–] + L_path(λ) [W/m²/sr/µm], two stacked panels
 plots.spectral_inband()          # band-filtered post-optics radiance vs λ [W/m²/sr/µm]
 plots.optical_throughput()       # system τ_opt(λ) vs λ [dimensionless] (Gap 90)
+plots.optical_throughput_terms() # per-element net τ + the SYSTEM product (CU-352)
 plots.coating_spectra()          # per-element R / T / ε vs λ [dimensionless] (Gap 90)
 ```
 
@@ -889,6 +890,7 @@ verbatim — no physics, no recomputation:
 | Accessor | Source | Notes |
 |----------|--------|-------|
 | `optical_throughput()` | `stage_outputs["optics"]["tau_opt_spectral"]` | The assembled **system** transmission τ_opt(λ) [dimensionless] — product of every element's net throughput — on its own wavelength grid; y-axis bounded [0, 1.05]. |
+| `optical_throughput_terms()` | `stage_outputs["optics"]["elements"]` + `["tau_opt_spectral"]` | Every element's **net transmittance** (`OpticalElement.net_transmittance` — R for a reflective element, T for a refractive one; the element's own property, not re-derived here) drawn together with the assembled τ_opt(λ) as one bold **SYSTEM** curve in the ink tone — the same weight, z-order and direct-label convention `mtf()` uses for its system product. A train's weakest element is only meaningful against the product it limits, which neither `optical_throughput()` (system only) nor `coating_spectra()` (contributors only) shows. Element order is the train's order; a name repeated in the document is disambiguated with its 1-based train position. **No unity collapse** (unlike `mtf()`): a near-unity element is a real statement about a coating. Raises `ApiValidationError` on a scalar-transmission run, which has no per-element structure. |
 | `coating_spectra()` | `stage_outputs["optics"]["elements"]` | One overlaid curve per element × quantity: reflectance R, transmittance T, and Kirchhoff-derived emissivity ε (`element.emissivity`; ε = 1 − R for mirrors, declared train ε for lumped, 0 for simple refractives) — all dimensionless, one y-axis. A curve that is identically zero is omitted (a mirror shows R + ε only; a simple refractive shows T + R only). Each curve carries its own wavelength grid. |
 
 The pupil accessors (Gap 89) render the two diagnostic faces of the **same

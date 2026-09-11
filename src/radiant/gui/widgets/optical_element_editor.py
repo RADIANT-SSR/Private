@@ -233,10 +233,25 @@ _SUMMARY_SEPARATOR = " · "
 
 _EPS_TOOLTIP = "ε is Kirchhoff-derived (1 − R − T) — read-only (Rule 5)."
 
-_DETAIL_TITLE = "Coating detail — R / T / ε on the coating's own grid (Gap 116)"
+# The coating-detail header. It names the **selected row** — its element and its
+# position in the train — because the pane follows the selection and nothing else said
+# so: the owner walkthrough (2026-09-10) added two mirrors, read a header that said only
+# "Coating detail — mirror", and had no way to tell which of them was drawn, or that
+# clicking the other row would redraw it.
+_DETAIL_TITLE_IDLE = "Coating detail — R / T / ε on the coating's own grid (Gap 116)"
+_DETAIL_TITLE_ROW = "Coating detail — {name} (row {row}) · R / T / ε on the coating's own grid"
 _DETAIL_PROMPT = (
-    "Select an element row to see its coating model — each quantity on an "
-    "autoscaled panel, over the curve's full stored wavelength extent."
+    "Select a row above to inspect its coating — this plot follows the selected row, "
+    "showing each quantity (R / T / ε) on its own autoscaled panel over the curve's "
+    "full stored wavelength extent."
+)
+# A document may legally carry two entries with the same name (the io parser permits
+# it), and the coating lookup is by name — so it would silently draw the first of them.
+# Say which rows collide and what to do instead of plotting an arbitrary one (Rule 17).
+_DETAIL_DUPLICATE = (
+    "Two or more element rows are named {name!r} (rows {rows}), and a coating is looked "
+    "up by name — so there is no way to say which one this plot would show. Give each "
+    "row a distinct name; new rows are numbered for you (mirror, mirror_2, …)."
 )
 # Tall enough for two stacked autoscaled panels; the figure follows the widget.
 _DETAIL_MIN_HEIGHT = 260
@@ -380,6 +395,13 @@ class OpticalElementEditor(QWidget):
         self._table.setHorizontalHeaderLabels(list(_HEADERS))
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.verticalHeader().setVisible(False)
+        # Whole-row selection (owner walkthrough 2026-09-10). The coating-detail pane
+        # below follows the selected row, and with Qt's default per-*cell* selection the
+        # only cue was a single tinted cell — which read as "I clicked here", not as
+        # "this row is what the plot is showing". Selecting the row makes the pane's
+        # subject visible at a glance, and the header names it as well.
+        self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         # The red "C" rides after the name text, painted by the delegate, so the Name
         # cell keeps its inline editor (the name configures with the row).
         self._name_delegate = EditableConfiguredNameDelegate(self._table)
@@ -441,9 +463,10 @@ class OpticalElementEditor(QWidget):
         # entries (drafts included, via the `entries=` override), so a row previews
         # before Apply; an unparsable draft shows the io parser's actionable message.
         self._dark = False
-        detail_title = QLabel(_DETAIL_TITLE, card)
-        detail_title.setObjectName("stagePlotTitle")
-        box.addWidget(detail_title)
+        self._detail_title = QLabel(_DETAIL_TITLE_IDLE, card)
+        self._detail_title.setObjectName("stagePlotTitle")
+        self._detail_title.setWordWrap(True)
+        box.addWidget(self._detail_title)
         self._detail_canvas = MatplotlibCanvas(card)
         self._detail_canvas.setMinimumHeight(_DETAIL_MIN_HEIGHT)
         self._detail_canvas.setVisible(False)
@@ -884,18 +907,36 @@ class OpticalElementEditor(QWidget):
         While a **pending draft** is held, that message owns this pane: it is the one
         place the operator is told the train did not commit, so a selection change must
         not quietly paint over it.
+
+        The header names the row being drawn (name + 1-based train position), because the
+        pane follows the selection and the figure's own title carries only the name — with
+        two rows called ``mirror`` there was nothing on screen to tell them apart. A name
+        that is genuinely ambiguous (shared by two rows) refuses rather than drawing an
+        arbitrary one: the coating lookup is by name, so "the first match" is not an answer.
         """
         if self._pending_message:
             self._show_detail_message(self._pending_message)
             return
         row = self._table.currentRow()
         if self._sensor is None or row < 0 or row >= self._table.rowCount():
+            self._set_detail_title(None, 0)
             self._show_detail_message(_DETAIL_PROMPT)
             return
         entries = self.entries()
         name = str(entries[row].get("name", "")).strip()
+        self._set_detail_title(name or None, row + 1)
         if not name:
             self._show_detail_message("Name this element to plot its coating detail.")
+            return
+        clashes = [
+            index + 1
+            for index, entry in enumerate(entries)
+            if str(entry.get("name", "")).strip() == name
+        ]
+        if len(clashes) > 1:
+            self._show_detail_message(
+                _DETAIL_DUPLICATE.format(name=name, rows=", ".join(str(index) for index in clashes))
+            )
             return
         try:
             with plot_theme(dark=self._dark):
@@ -907,6 +948,12 @@ class OpticalElementEditor(QWidget):
         self._detail_message.setVisible(False)
         self._detail_canvas.setVisible(True)
         self._detail_canvas.show_figure(figure)
+
+    def _set_detail_title(self, name: str | None, row: int) -> None:
+        """Point the coating-detail header at the selected row (``None`` → the idle text)."""
+        self._detail_title.setText(
+            _DETAIL_TITLE_IDLE if name is None else _DETAIL_TITLE_ROW.format(name=name, row=row)
+        )
 
     def _show_detail_message(self, text: str) -> None:
         """Show *text* under the table, in the warn register while a draft is pending.
@@ -944,6 +991,11 @@ class OpticalElementEditor(QWidget):
     def detail_message(self) -> QLabel:
         """The coating-detail message label (test seam)."""
         return self._detail_message
+
+    @property
+    def detail_title(self) -> QLabel:
+        """The coating-detail header — names the selected row (test seam)."""
+        return self._detail_title
 
     # -- table mechanics ------------------------------------------------------
 
@@ -1075,11 +1127,30 @@ class OpticalElementEditor(QWidget):
         so it is always expressible, and it takes the document position at the end of the
         train. The templates are complete, valid entries, so the append commits at once
         (2026-09-03) — which is what makes the new row configurable immediately.
+
+        The template's name is **made unique against the rows already in the table**
+        (mirror, mirror_2, mirror_3 …). Two rows called ``mirror`` are legal in the
+        document but ambiguous everywhere the analyst reads one: the coating lookup is by
+        name, and the throughput overlay's legend is too. Numbering at the point of
+        creation costs nothing and means the operator never has to discover the clash
+        (owner walkthrough 2026-09-10). A name typed by hand is never touched.
         """
+        entry = dict(entry)
+        entry["name"] = self._unique_name(str(entry.get("name", "element")))
         self._append_row(entry, self._table.rowCount())
         self._refresh_configured_marks()
         self._table.selectRow(self._table.rowCount() - 1)
         self._commit_structure()
+
+    def _unique_name(self, base: str) -> str:
+        """*base*, suffixed ``_2``, ``_3`` … until no row in the table already uses it."""
+        taken = {self._cell_text(row, _COL_NAME) for row in range(self._table.rowCount())}
+        if base not in taken:
+            return base
+        suffix = 2
+        while f"{base}_{suffix}" in taken:
+            suffix += 1
+        return f"{base}_{suffix}"
 
     def _remove_current(self) -> None:
         """Drop the selected row from the train — for a configured row, behind a confirm.

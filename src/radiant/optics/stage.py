@@ -56,7 +56,7 @@ import numpy as np
 from radiant.core.chain import ChainState
 from radiant.core.constants import c as c_light
 from radiant.core.constants import h as h_planck
-from radiant.core.parameters import ParameterBoundsError, ParameterSet, Provenance
+from radiant.core.parameters import ParameterBoundsError, ParameterSet
 from radiant.core.radiometry import RadiometricFrame
 from radiant.core.regime import RadiometricRegime
 from radiant.core.spectral import SpectralData
@@ -895,8 +895,6 @@ class OpticsStage:
         mode_str: str = params.get("optics.transmission_input_mode")
         mode = TransmissionInputMode(mode_str)
 
-        optics_temp_K: float = params.get("optics.optics_temperature_K")
-
         # Mode 5 (full prescription): element list injected via
         # stage_outputs["optics_config"]["element_list"] by the IO/API
         # layer before chain execution.
@@ -919,31 +917,16 @@ class OpticsStage:
             key_elements=tuple(optics_config.get("key_elements", ())),
             residual_transmission=optics_config.get("residual_transmission"),
             full_elements=tuple(full_elements) if full_elements is not None else (),
-            optics_temperature_K=optics_temp_K,
         )
 
-        # Gap 127 (reworks CU-265): emission derives only from defined elements.
-        # When the optics temperature was *explicitly set* but no resolved element
-        # can emit (max ε = 0 — scalar/spectral lumps, simple refractives), the
-        # temperature contributes nothing and the scene evaluates identically at
-        # any value. Warn rather than nag: the schema default stays silent.
-        if params.get_resolved("optics.optics_temperature_K").provenance is not Provenance.DEFAULT:
-            max_eps = max(
-                (float(np.max(elem.emissivity.values)) for elem in tx_result.elements),
-                default=0.0,
-            )
-            if max_eps == 0.0:
-                warnings.warn(
-                    f"optics.optics_temperature_K = {optics_temp_K:.4g} K is set, but no "
-                    "defined optical element can emit (every element's Kirchhoff-derived "
-                    "emissivity is 0 in the current transmission mode). Near-field "
-                    "emission derives only from defined elements (Gap 127): supply an "
-                    "element list (optical_elements:) with mirrors (ε = 1 − R) or "
-                    "absorbing refractive elements to model warm optics; the "
-                    "temperature otherwise contributes nothing.",
-                    UserWarning,
-                    stacklevel=2,
-                )
+        # The Gap-127 "optics temperature is set but nothing can emit" warning lived
+        # here. It is gone with its subject: ``optics.optics_temperature_K`` was removed
+        # 2026-09-10 (owner ruling) because the condition the warning described was the
+        # parameter's *only* behaviour — every element it could reach is synthesized, and
+        # Gap 127 made all of those non-emitting, so the temperature always multiplied
+        # zero. With no parameter there is no trigger. Optics temperature is now stated
+        # per element, on the rows of the ``optical_elements:`` document, where it
+        # belongs; scalar transmission mode has no emitting surface by construction.
 
         # --- Apply transmission to produce post_optics frame ---
         at_aperture = state.frames["at_aperture"]

@@ -392,7 +392,7 @@ class TestCoatingDetail:
         qtbot.addWidget(editor)
         editor.bind_sensor(Sensor.from_yaml(_EXAMPLE), {})
         assert editor.detail_message.isVisible() or not editor.detail_canvas.isVisible()
-        assert "Select an element" in editor.detail_message.text()
+        assert "Select a row above" in editor.detail_message.text()
 
     def test_selecting_a_row_renders_the_detail_figure(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         editor = OpticalElementEditor()
@@ -594,3 +594,95 @@ class TestEntryFaithfulness:
         committed = sensor.optical_elements()
         assert committed is not None
         assert committed[0]["provenance_note"] == "vendor coating run 7"
+
+
+class TestRowNamingAndDiscoverability:
+    """Owner walkthrough 2026-09-10: two rows called "mirror" made the drill-down
+    unreadable, and nothing on screen said the plot follows the selected row."""
+
+    def test_added_rows_get_unique_default_names(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        editor = OpticalElementEditor()
+        qtbot.addWidget(editor)
+        editor.bind_sensor(sensor, {})
+
+        editor._add_mirror.click()
+        editor._add_mirror.click()
+        editor._add_mirror.click()
+        names = [editor.table.item(row, 0).text() for row in range(editor.table.rowCount())]
+        assert names == ["mirror", "mirror_2", "mirror_3"]
+
+        editor._add_refractive.click()
+        editor._add_refractive.click()
+        names = [editor.table.item(row, 0).text() for row in range(editor.table.rowCount())]
+        assert names[-2:] == ["element", "element_2"]
+        # The numbering is real authorship, not decoration: it reaches the document.
+        document = sensor.optical_elements()
+        assert document is not None
+        assert [entry["name"] for entry in document] == names
+
+    def test_a_hand_typed_name_is_never_renumbered(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Uniquing applies to the Add template only — it must not touch an edit."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        editor = OpticalElementEditor()
+        qtbot.addWidget(editor)
+        editor.bind_sensor(sensor, {})
+        editor._add_mirror.click()
+        editor._add_mirror.click()
+        editor.table.item(1, 0).setText("mirror")  # a deliberate duplicate
+
+        document = sensor.optical_elements()
+        assert document is not None
+        assert [entry["name"] for entry in document] == ["mirror", "mirror"]
+
+    def test_the_detail_header_names_the_selected_row_and_its_position(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        editor = OpticalElementEditor()
+        qtbot.addWidget(editor)
+        editor.bind_sensor(sensor, {})
+        editor._add_mirror.click()
+        editor._add_mirror.click()
+
+        editor.table.selectRow(1)
+        assert "mirror_2" in editor.detail_title.text()
+        assert "row 2" in editor.detail_title.text()
+        editor.table.selectRow(0)
+        assert "mirror" in editor.detail_title.text()
+        assert "row 1" in editor.detail_title.text()
+
+    def test_the_prompt_says_the_plot_follows_the_selection(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """With no row selected the pane says what to do, not just what it is."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        editor = OpticalElementEditor()
+        qtbot.addWidget(editor)
+        editor.bind_sensor(sensor, {})  # empty train: nothing selected
+        assert "follows the selected row" in editor.detail_message.text()
+
+    def test_duplicate_names_refuse_to_plot_instead_of_guessing(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A coating is looked up by name, so "the first match" is not an answer."""
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        sensor.set_optical_elements(
+            [
+                {"name": "mirror", "transfer_mode": "REFLECTIVE", "reflectance": 0.97},
+                {"name": "mirror", "transfer_mode": "REFLECTIVE", "reflectance": 0.80},
+            ]
+        )
+        editor = OpticalElementEditor()
+        qtbot.addWidget(editor)
+        editor.bind_sensor(sensor, {})
+        editor.table.selectRow(0)
+
+        message = editor.detail_message.text()
+        assert "named 'mirror'" in message
+        assert "rows 1, 2" in message
+        assert not editor.detail_canvas.isVisible()
+
+    def test_selection_is_by_whole_row(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The pane's subject has to be visible; a single tinted cell is not a cue."""
+        from PySide6.QtWidgets import QAbstractItemView
+
+        sensor = Sensor.from_yaml(_EXAMPLE)
+        editor = OpticalElementEditor()
+        qtbot.addWidget(editor)
+        editor.bind_sensor(sensor, {})
+        assert editor.table.selectionBehavior() == QAbstractItemView.SelectionBehavior.SelectRows

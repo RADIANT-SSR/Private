@@ -21,6 +21,19 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`result.plot.optical_throughput_terms()`** (and the underlying
+  `radiant.api.plot.plot_optical_throughput_terms`) — the transmission
+  counterpart of the MTF overlay: every element's **net transmittance**
+  (`OpticalElement.net_transmittance` — R for a reflective element, T for a
+  refractive one) drawn with the assembled `τ_opt(λ)` over them as one bold
+  **SYSTEM** curve, in the ink tone at the same weight and z-order
+  `plot_mtf_terms` uses. A train's weakest element is only meaningful against
+  the product it limits, which neither `optical_throughput()` (system only) nor
+  `coating_spectra()` (contributors only) could show. Element order is the
+  train's order; a name repeated in the document is disambiguated with its
+  1-based train position. Raises `ApiValidationError` on a scalar-transmission
+  run, which has no per-element structure. Closes CU-352 (owner walkthrough
+  2026-09-10).
 - **MTF overlay draws the total (SYSTEM) MTF** — `result.plot.mtf()` (and
   `radiant.api.plot.plot_mtf_terms`, via new `system_mtf_x=` / `system_mtf_y=`
   keywords) now draws the system product from
@@ -55,6 +68,23 @@ retroactively reconstructed.
   `Omega_cone` [sr].
 
 ### Removed
+- **`optics.optics_temperature_K` removed (owner ruling 2026-09-10) — inert by
+  construction after Gaps 127/128.** Its only consumers were the elements the
+  scalar, spectral-file, telescope+filters and key-elements modes *synthesize*,
+  and Gap 127 made every one of those non-emitting (a lump is bookkeeping, not a
+  surface; a FilterSpec-built filter is a simple refractive — both have Kirchhoff
+  ε ≡ 0). The one place element temperature is read multiplies it by that ε, so
+  the value always multiplied zero and a scene evaluated identically at any
+  setting — which is exactly what the stage's own warning said, and that warning
+  is removed with its subject. **Not results-affecting**: all 38 scenario metric
+  baselines regenerated bit-identically (zero diff). Setting the name now raises
+  an actionable `UnknownParameterError` naming the replacement. Per-element
+  `temperature_K` on the rows of the `optical_elements:` document is the only
+  optics temperature there is — mirrors (ε = 1 − R) and cavity refractives are
+  what emit; scalar mode has no emitting surface by construction. Synthesized
+  elements are now stamped 0 K, which also drops their all-zero entries from the
+  `stage_outputs["optics"]["nearfield_per_element"]` diagnostic (the total, and
+  every metric, are unchanged). 22 scenario configs and their runners swept.
 - **Results-affecting: `optics.nearfield_fraction` (+ its deprecated alias
   `optics.cold_stop_efficiency`), `optics.optics_distance_to_fpa_m`, and the
   element-format `diameter_m` / `distance_to_fpa_m` keys removed — near-field
@@ -137,6 +167,16 @@ retroactively reconstructed.
   bit-identical. GUI: mid cal-point field, shown only under `three_point`.
 
 ### Fixed
+- **GUI: closing the window during an evaluation no longer aborts the process
+  (CU-353).** The main window held the only reference to its
+  `ConfigSetEvaluationWorker` and had no `closeEvent`, so closing while a chain
+  was in flight destroyed a live `QThread` — Qt calls `std::terminate`, and the
+  owner hit it at the end of a walkthrough ("QThread: Destroyed while thread ''
+  is still running"). The worker now polls a `request_cancel()` flag through
+  `evaluate_all(cancel=...)`, and the window stops the debounce, drops any queued
+  re-run, detaches the result slots, cancels, and **joins** before closing. It
+  joins rather than deferring the close the way the sweep dialog does (CU-325):
+  the user asked for the application to go away.
 - **Results-affecting: the well-fill / saturation check now counts near-field
   and stray electrons (CU-350)** — `total_well_e`, `well_fill_fraction`, and
   `well_status` previously summed only signal + dark + glow (+ the
@@ -164,6 +204,20 @@ retroactively reconstructed.
   Scenarios remain repo-only by owner ruling (2026-09-08).
 
 ### Changed
+- **GUI: the Optics Transmission tab draws the combined per-element + SYSTEM τ
+  overlay** as its element-mode figure, replacing the standalone system curve
+  (the SYSTEM line *is* it) and the fixed-axis coating overlay (per-element
+  R/T/ε remains the coating-detail drill-down under the table). Scalar mode keeps
+  its flat `τ_opt` figure; flipping the mode selector swaps one figure for the
+  other, because the two modes do not describe the same structure.
+- **GUI: element rows are named unambiguously.** A newly added row gets a unique
+  default name (`mirror`, `mirror_2`, …); the coating-detail header names the
+  selected row and its train position ("Coating detail — mirror_2 (row 2)"); the
+  table selects whole rows so the pane's subject is visible; and a name shared by
+  two rows now refuses to plot with an actionable message instead of silently
+  drawing the first match (the coating lookup is by name). Owner walkthrough
+  2026-09-10: two rows both called "mirror" made the drill-down unreadable, and
+  nothing said the plot followed the selection.
 - **GUI: the Optics *Elements* and *Throughput* tabs are one *Transmission* tab**
   (owner-ratified 2026-09-09/10). They were two halves of one question — how is
   optical transmission defined, and what does that produce? — and splitting them

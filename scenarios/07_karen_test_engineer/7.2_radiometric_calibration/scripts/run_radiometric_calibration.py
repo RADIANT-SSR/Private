@@ -97,7 +97,6 @@ optics_temp_K = float(specs["Optics temperature"]) + 273.15  # °C → K
 sensor = Sensor()
 sensor.set("optics.aperture_diameter_m", float(specs["Aperture diameter"]), unit="cm")
 sensor.set("optics.focal_length_m", float(specs["Focal length"]), unit="cm")
-sensor.set("optics.optics_temperature_K", optics_temp_K)
 # Gap 127 (2026-09-09): warm-optics self-emission derives ONLY from defined
 # elements. Gap 128 (2026-09-09): the workbook's ε = 28 % was the ε = 1 − τ
 # fallacy — it reads the WHOLE optical loss as absorption. A real MWIR bench

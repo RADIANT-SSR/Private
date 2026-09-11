@@ -96,13 +96,14 @@ class TestOpticsComposition:
             "psf",
         ]
         assert subviews["PSF + Pupil"].plot_columns == 3
-        # Transmission tab: the mode panel, the effective-pupil strip, and the two FP-3
-        # accessors (the per-element overlay is hidden in scalar mode by the panel).
+        # Transmission tab: the mode panel, the effective-pupil strip, and one figure
+        # per mode — the flat scalar τ_opt, or the CU-352 combined overlay whose bold
+        # SYSTEM curve *is* the assembled product. The panel shows one at a time.
         assert subviews["Transmission"].transmission_panel is True
         assert subviews["Transmission"].effective_pupil is True
         assert [p.method for p in subviews["Transmission"].plots] == [
             "optical_throughput",
-            "coating_spectra",
+            "optical_throughput_terms",
         ]
 
 

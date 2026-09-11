@@ -132,7 +132,6 @@ sensor.set("geometry.sensor_altitude_m", params_raw["Sensor altitude"], unit="km
 # 7.x bench scenarios — registry Gap 42).
 # Already-canonical values — set without a unit tag:
 sensor.set("optics.focal_length_m", focal_length_m)  # derived: f/# × D
-sensor.set("optics.optics_temperature_K", optics_temp_K)
 sensor.set("detector.pixel_pitch_x_um", pixel_pitch_um)
 sensor.set("detector.pixel_pitch_y_um", pixel_pitch_um)
 sensor.set("detector.dark_rate_e_per_s", dark_rate)

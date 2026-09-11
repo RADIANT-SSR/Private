@@ -176,7 +176,6 @@ base_config = {
         "aperture_diameter_m": aperture_m,
         "focal_length_m": focal_length_m,
         "transmission_scalar": transmission,
-        "optics_temperature_K": optics_temp_K,
         "wfe_rms_waves": 0.0,  # overridden per sweep point
         "obscuration_ratio": obscuration,
     },

@@ -1085,9 +1085,13 @@ silently overrode it, with nothing on that screen saying so. The two are now one
 3. the **active mode's editor** — the `optics.transmission_scalar` `FieldRow`, **moved off**
    `OpticsInputsForm` so transmission has exactly one home, or the `OpticalElementEditor`
    train table (unchanged commit-on-edit behaviour) with its Gap-116 coating drill-down;
-4. the **τ(λ) figures** — `result.plot.optical_throughput()` in both modes, plus
-   `result.plot.coating_spectra()` in element mode only (scalar mode has no elements to
-   draw, so the section is hidden rather than showing the accessor's refusal);
+4. the **τ(λ) figure for the active mode** — `result.plot.optical_throughput()` (the flat
+   scalar τ_opt) or `result.plot.optical_throughput_terms()` (CU-352: every element's net
+   transmittance with the assembled τ_opt(λ) over them as one bold **SYSTEM** curve, the
+   `plot_mtf_terms` convention). One at a time, swapped by the selector: the two modes do
+   not describe the same structure, scalar mode has no elements for the overlay to draw,
+   and the overlay's SYSTEM line *is* the standalone system curve. Per-element R/T/ε
+   remains the Gap-116 coating-detail drill-down under the table;
 5. the **cold stop & effective pupil strip** (`EffectivePupilReadout`, Gap 128) — the two
    editable `optics.cold_stop_*` parameters beside the D_eff [m] / f/#_eff [-] /
    A_collect [m²] / Ω_cone [sr] they produce, read verbatim from
@@ -1108,6 +1112,16 @@ deliberately left out.
 The element table's **Diam (m)** and **→FPA (m)** columns are gone with this change: Gap 128
 deleted per-element near-field geometry, they spent one release as inert em-dashes, and a
 column that can hold no key describes nothing.
+
+**Row identity is legible** (owner walkthrough 2026-09-10). The document permits two entries
+with the same `name`, and the coating drill-down is looked up *by* name, so two rows called
+`mirror` made the pane ambiguous — with nothing on screen saying the pane even followed the
+selection. Four fixes, all in the editor: an added row takes a unique default name
+(`mirror`, `mirror_2`, …; a hand-typed name is never renumbered); the coating-detail header
+names the selected row and its train position (`Coating detail — mirror_2 (row 2)`); the
+table selects **whole rows**, so the pane's subject is visible; and a genuinely duplicated
+name refuses to plot with an actionable message rather than silently drawing the first
+match (Rule 17).
 
 *Outputs pin affordance (Step B, CU-115 clause).* Each Outputs / Metrics row carries a pin
 control (metric-card rows reveal theirs on hover — 2026-07-25 redesign; always-on pin
@@ -1168,7 +1182,7 @@ not exist — filed in `docs/tracking/gaps.md`). Plots marked [exists] are the s
 | **Optics** | PSF | **[SHIPPED — GUI plan Phase PS-2]** `result.plot.psf()` (`stage_outputs["optics"]["effective_psf"]`), in the Optics **PSF + Pupil** tab |
 | **Optics** | Pupil apodization (amplitude map) | **[SHIPPED — GUI plan Phase PS-2]** `result.plot.pupil_amplitude()` (Gap 89 closed, FP-2) — the dimensionless transmission across the complex pupil (obscuration + spiders), in the **PSF + Pupil** tab |
 | **Optics** | Pupil wavefront-error (phase) map | **[SHIPPED — GUI plan Phase PS-2]** `result.plot.pupil_phase()` (Gap 89 closed, FP-2) — the WFE map in **waves** (colorbar carries the unit; an unaberrated config renders flat, a non-zero `wfe_rms_waves` shows structure), in the **PSF + Pupil** tab |
-| **Optics** | Coating performance & transmission spectra | **[SHIPPED — GUI plan Phase PS-2; moved into the **Transmission** tab 2026-09-09/10]** `result.plot.optical_throughput()` (system τ_opt(λ), drawn in **both** modes — it is what *either* definition produces) + `result.plot.coating_spectra()` (per-element R/T/ε, element mode only; the section is hidden in scalar mode, where the accessor would rightly refuse for want of elements) (Gap 90 closed, FP-3) |
+| **Optics** | Coating performance & transmission spectra | **[SHIPPED — GUI plan Phase PS-2; moved into the **Transmission** tab 2026-09-09/10; combined overlay added 2026-09-10, CU-352]** One figure per mode, swapped by the selector: scalar mode draws `result.plot.optical_throughput()` (the flat τ_opt, which is the whole model), element mode draws `result.plot.optical_throughput_terms()` — every element's net transmittance with the assembled τ_opt(λ) over them as one bold **SYSTEM** curve, in the ink tone at the weight/z-order/direct-label `plot_mtf_terms` uses. It supersedes the standalone system curve here (the SYSTEM line is it) and the fixed-[0,1] `coating_spectra()` overlay, whose per-element R/T/ε is the Gap-116 coating-detail drill-down under the table. `coating_spectra()` remains a public accessor for scripting (Gap 90, FP-3) |
 | **Optics** | How transmission is defined (scalar vs. element train) | **[SHIPPED — owner-ratified 2026-09-09/10]** `TransmissionPanel` in the Optics **Transmission** tab: the `TransmissionModeSelector` segmented control, the mode banner, the `optics.transmission_scalar` `FieldRow` (moved off `OpticsInputsForm` — one home per parameter), and the element editor above. The mode is read from the **document** (an `optical_elements` list ⇒ element mode) and never invented; switching is non-destructive in-session (detach keeps the rows inactive in the table so the operator can A/B, re-select re-commits them) but **saving writes only the active mode**, so no hidden inactive state reaches a config — a held train raises the banner's warn state and a non-modal status-bar note on save |
 | **Optics** | Cold stop & effective pupil | **[SHIPPED — Gap 128, owner-ratified 2026-09-09/10]** `EffectivePupilReadout` below the Transmission tab's figures: `optics.cold_stop_undersize_frac` and `optics.cold_stop_obscuration_ratio` as shared `FieldRow`s (one `sensor.set` per edit), beside the D_eff [m] / f/#_eff [-] / A_collect [m²] / Ω_cone [sr] they produce, read verbatim from `stage_outputs["optics"]` through `api.stage_output_unit` (`—` before the first evaluation — the strip never guesses). A cold stop cannot attenuate in-cone warm-optics emission, so there is **no** blocked-fraction knob; a vendor "cold shield 90 % efficient" figure has no model home, which the strip's hint says. Specified by `scenarios/07_karen_test_engineer/7.2_radiometric_calibration/gui_workflow.md` and `scenarios/10_direction_general/10.1_ground_to_air_mwir_detection/gui_workflow.md` |
 | **Optics** | Editable optics inputs + final regime | **[SHIPPED — GUI plan Phase PS-2]** `OpticsInputsForm` — aperture / focal length / f-number / obscuration / spiders / WFE / optics temperature as shared `FieldRow`s (transmission is **not** here: `optics.transmission_scalar` moved to the **Transmission** tab on 2026-09-09/10, so one parameter has one home) (one `sensor.set` per edit, the edit+reject discipline), beside the FINAL-regime `OutputsReadout` (`stage_outputs["optics"]["regime"]`, Rule 10), in the Optics **Inputs** tab; editing re-evaluates and every tab refreshes (edit-and-watch) |

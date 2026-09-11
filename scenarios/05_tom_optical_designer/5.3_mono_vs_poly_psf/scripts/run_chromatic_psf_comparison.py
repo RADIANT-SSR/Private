@@ -52,6 +52,10 @@ for row in ws1.iter_rows(min_row=6, max_col=4, values_only=False):
 aperture_mm = design["Entrance pupil diameter"]
 focal_length_mm = design["Effective focal length"]
 transmission_pct = design["Optical transmission"]
+# Read from the datasheet for the narrative only: these scenarios run scalar
+# transmission, which synthesizes no emitting surface (Gap 127), and the scalar
+# optics.optics_temperature_K this used to feed was removed 2026-09-10 as inert.
+# Model warm optics by defining elements with their own temperature_K.
 optics_temp_K = design["Optics temperature"]
 
 pitch_um = design["Pixel pitch"]
@@ -109,7 +113,6 @@ def make_config(filter_min, filter_max, psf_n_wavelengths=1):
             "aperture_diameter_m": aperture_m,
             "focal_length_m": focal_length_m,
             "transmission_scalar": transmission,
-            "optics_temperature_K": optics_temp_K,
             "psf_n_wavelengths": psf_n_wavelengths,
         },
         "detector": {

@@ -23,6 +23,17 @@ worker's read of the same object — the two threads never touch the same
 not a second API surface: the worker still performs exactly one ``evaluate_all()``
 call (one GUI action ↔ one API call, GUI plan §4.1).
 
+The worker is **cancellable and joinable**, which is what makes closing the
+window safe (CU-353). ``evaluate_all`` polls a caller-supplied ``cancel()``
+before each configuration (Gap 72), so :meth:`ConfigSetEvaluationWorker.request_cancel`
+stops a multi-configuration pass at the next configuration boundary; the
+configuration already in flight still finishes (~0.8 s), and the host joins it
+with :meth:`QThread.wait`. Nothing here can abandon a running thread: a
+``QThread`` destroyed while its thread is still running calls ``std::terminate``
+and takes the process down — which is exactly what a close during a burst of
+evaluations did (owner walkthrough 2026-09-10, "QThread: Destroyed while thread
+'' is still running").
+
 Warning capture lives in the API, not here: ``evaluate_all`` opens a
 per-configuration, **thread-local** capture window
 (``radiant.api._warning_capture``, CU-110) and records each configuration's
@@ -37,6 +48,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QThread, Signal
+
+from radiant.api import OperationCancelledError
 
 if TYPE_CHECKING:
     from radiant.api.config_set import ConfigurationSet
@@ -63,17 +76,37 @@ class ConfigSetEvaluationWorker(QThread):
         failed configuration is data, never a silent drop).
     failed(object)
         Emitted with the raised exception when the *pass itself* could not run
-        (a cancellation, or a non-``RadiantError`` bug — a per-configuration
-        physics failure is recorded on the result instead). The exception is
-        re-emitted to the GUI thread, never swallowed (Rules 15/17).
+        (a non-``RadiantError`` bug — a per-configuration physics failure is
+        recorded on the result instead). The exception is re-emitted to the GUI
+        thread, never swallowed (Rules 15/17).
+    cancelled()
+        Emitted when the pass stopped because :meth:`request_cancel` was called.
+        A deliberate stop is not a failure and carries nothing to render, so it
+        is its own signal rather than a ``failed`` the host has to classify —
+        but it is still *named*, never a silent return (Rule 17).
     """
 
     finished_ok = Signal(object)  # ConfigSetRunResult
     failed = Signal(object)  # Exception
+    cancelled = Signal()
 
     def __init__(self, config_set: ConfigurationSet) -> None:
         super().__init__()
         self._config_set = config_set
+        # Written on the GUI thread, read on the worker thread. A lone bool
+        # needs no lock: CPython's attribute store is atomic, the transition is
+        # one-way (False → True), and a poll that reads the stale value simply
+        # cancels one configuration later. Same shape as ``_SweepWorker``.
+        self._cancel = False
+
+    def request_cancel(self) -> None:
+        """Ask the pass to stop at the next configuration boundary (thread-safe).
+
+        The configuration already being evaluated runs to completion — the chain
+        has no interior cancellation point — so a caller that must not outlive
+        the thread still has to :meth:`QThread.wait` for it.
+        """
+        self._cancel = True
 
     def run(self) -> None:
         """Evaluate every configuration, emitting the outcome on the GUI thread.
@@ -84,7 +117,12 @@ class ConfigSetEvaluationWorker(QThread):
         anything else → traceback dialog). Nothing is silently dropped.
         """
         try:
-            run = self._config_set.evaluate_all()
+            run = self._config_set.evaluate_all(cancel=lambda: self._cancel)
+        except OperationCancelledError:
+            # Asked for, by us — there is no result to render and no error to
+            # report, only the fact that the pass stopped.
+            self.cancelled.emit()
+            return
         except Exception as exc:  # re-emitted to the GUI thread, never swallowed
             self.failed.emit(exc)
             return

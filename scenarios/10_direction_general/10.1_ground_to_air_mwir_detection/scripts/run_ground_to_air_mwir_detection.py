@@ -148,7 +148,11 @@ def to_canonical(vendor: dict[str, Any]) -> dict[str, float | str]:
         "aperture_diameter_m": float(cam["Entrance pupil diameter"]) / 1000.0,  # mm -> m
         "focal_length_m": float(cam["Effective focal length"]) / 1000.0,  # mm -> m
         "transmission": float(cam["Optical transmission"]) / 100.0,  # % -> fraction
-        "optics_temperature_K": float(cam["Housing temperature"]) + 273.15,  # degC -> K
+        # The housing temperature is the physical temperature of the fold mirrors and
+        # the cold window below — defined elements, which is what emits (Gap 127). The
+        # scalar optics.optics_temperature_K it used to also feed was removed
+        # 2026-09-10 as inert; per-element temperature_K is the only optics temperature.
+        "housing_temperature_K": float(cam["Housing temperature"]) + 273.15,  # degC -> K
         # Gap 127/128 (2026-09-09): emission derives only from defined elements, and
         # the datasheet's single "train emissivity" is the eps = 1 - tau fallacy. It
         # is carried for the narrative only; the model uses the coated train below.
@@ -236,7 +240,6 @@ def make_config(
         "optics": {
             "aperture_diameter_m": canon["aperture_diameter_m"],
             "focal_length_m": canon["focal_length_m"],
-            "optics_temperature_K": canon["optics_temperature_K"],
             # Gap 128: the cold stop IS the aperture stop. The datasheet declares no
             # tolerancing allowance, so the stop is modelled matched to the pupil
             # (u = 0 [-]) — the schema default, stated here because it is a modelling
@@ -257,7 +260,7 @@ def make_config(
                     "transfer_mode": "REFLECTIVE",
                     "kind": "MIRROR",
                     "reflectance": MIRROR_R,  # [-] protected-gold coating
-                    "temperature_K": canon["optics_temperature_K"],  # K
+                    "temperature_K": canon["housing_temperature_K"],  # K
                 }
                 for i in range(N_MIRRORS)
             ),
@@ -267,7 +270,7 @@ def make_config(
                 "kind": "WINDOW",
                 # [-] the balance of the datasheet tau; AR-coated, eps = 0 (Gap 127)
                 "transmittance": float(canon["transmission"]) / MIRROR_R**N_MIRRORS,
-                "temperature_K": canon["optics_temperature_K"],  # K
+                "temperature_K": canon["housing_temperature_K"],  # K
             },
         ],
         "detector": {
@@ -388,7 +391,7 @@ def section_inputs(vendor: dict[str, Any], canon: dict[str, float | str]) -> Non
          "aperture_diameter_m", "m"),
         ("Effective focal length", cam, "Effective focal length", "mm", "focal_length_m", "m"),
         ("Optical transmission", cam, "Optical transmission", "%", "transmission", "-"),
-        ("Housing temperature", cam, "Housing temperature", "degC", "optics_temperature_K", "K"),
+        ("Housing temperature", cam, "Housing temperature", "degC", "housing_temperature_K", "K"),
         ("Train emissivity (datasheet)", cam, "Train emissivity", "%", "train_emissivity", "-"),
         ("Cold shield efficiency", cam, "Cold shield efficiency", "%",
          "cold_shield_blocked_frac", "-"),

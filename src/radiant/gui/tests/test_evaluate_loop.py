@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 
+from radiant.api.config_set import ConfigurationSet
 from radiant.api.sensor import Sensor
 from radiant.gui import main_window as mw
 from radiant.gui.errors import GuiValidationError
@@ -328,3 +329,96 @@ class TestStaleRunButton:
             sheet = build_stylesheet(theme)
             assert 'QPushButton#runButton[stale="true"]' in sheet
             assert theme.warn in sheet
+
+
+class TestCloseDuringEvaluation:
+    """CU-353 — the window must never outlive its evaluation worker.
+
+    Destroying a ``QThread`` whose thread is still running calls ``std::terminate``:
+    the process aborts, with Qt's "QThread: Destroyed while thread '' is still
+    running" on the way out. The window held the only reference to the worker and
+    had no ``closeEvent``, so an ordinary close during a burst of evaluations took
+    the app down (owner walkthrough, 2026-09-10).
+
+    These drive a **real** worker on a real window — a mocked thread would not
+    exercise the thing that crashes.
+    """
+
+    def test_closing_mid_evaluation_joins_the_worker(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """Close while the chain is in flight: the worker is finished before we return."""
+        started = threading.Event()
+        release = threading.Event()
+        original = Sensor.evaluate
+
+        def slow(self, **kwargs):  # type: ignore[no-untyped-def]
+            started.set()
+            release.wait(timeout=10.0)
+            return original(self, **kwargs)
+
+        monkeypatch.setattr(Sensor, "evaluate", slow)
+
+        window = RADIANTMainWindow(Sensor.load(_EXAMPLE))
+        qtbot.addWidget(window)
+        qtbot.waitUntil(started.is_set, timeout=_WAIT_MS)  # auto-evaluate is inside `slow`
+        worker = window._worker  # noqa: SLF001 — the object under test
+        assert worker is not None and worker.isRunning()
+
+        release.set()
+        window.close()
+
+        # Joined, not abandoned: the thread is done and the window no longer holds it.
+        assert worker.isFinished()
+        assert window._worker is None  # noqa: SLF001
+
+    def test_close_cancels_the_pass_and_stops_scheduling(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """The cancel flag is set and no queued re-run survives the close."""
+        started = threading.Event()
+        release = threading.Event()
+        original = Sensor.evaluate
+
+        def slow(self, **kwargs):  # type: ignore[no-untyped-def]
+            started.set()
+            release.wait(timeout=10.0)
+            return original(self, **kwargs)
+
+        monkeypatch.setattr(Sensor, "evaluate", slow)
+
+        window = RADIANTMainWindow(Sensor.load(_EXAMPLE))
+        qtbot.addWidget(window)
+        qtbot.waitUntil(started.is_set, timeout=_WAIT_MS)
+        worker = window._worker  # noqa: SLF001
+        assert worker is not None
+        # An edit lands while the pass runs, queueing a re-run behind it.
+        window.sensor.set(_APERTURE, 0.42)
+        window._evaluate_now()  # noqa: SLF001
+        assert window._rerun_pending  # noqa: SLF001
+
+        release.set()
+        window.close()
+
+        assert worker._cancel is True  # noqa: SLF001 — the flag evaluate_all polls
+        assert window._rerun_pending is False  # noqa: SLF001
+        assert not window._debounce.isActive()  # noqa: SLF001
+
+    def test_closing_with_no_worker_is_a_no_op(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The ordinary close path (nothing running) is unchanged and idempotent."""
+        window = _load_window(qtbot)
+        assert window._worker is None  # noqa: SLF001 — the run already settled
+        window.close()
+        window.close()  # idempotent: a second close must not raise
+
+    def test_the_worker_cancels_at_a_configuration_boundary(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """``request_cancel`` reaches ``evaluate_all``'s poll and emits ``cancelled``.
+
+        Tested on the worker directly, where the cancel can be set *before* the pass
+        starts — the deterministic form of what the close path does under a race.
+        """
+        from radiant.gui.workers import ConfigSetEvaluationWorker
+
+        cs = ConfigurationSet(Sensor.load(_EXAMPLE))
+        worker = ConfigSetEvaluationWorker(cs.clone())
+        worker.request_cancel()
+        with qtbot.waitSignal(worker.cancelled, timeout=_WAIT_MS):
+            worker.start()
+        worker.wait(_WAIT_MS)
+        assert worker.isFinished()

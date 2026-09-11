@@ -126,7 +126,6 @@ optics:
   focal_length_m: 1.20        # m
   obscuration_ratio: 0.33
   wfe_rms_waves: 0.07         # waves
-  optics_temperature_K: 280.0 # K
   transmission_scalar: 0.70
 
 detector:
@@ -415,7 +414,6 @@ sensor = (
     .set("optics.focal_length_m", 1.20)            # m — f_number derived: 4.0
     .set("optics.obscuration_ratio", 0.33)
     .set("optics.wfe_rms_waves", 0.07)             # waves RMS
-    .set("optics.optics_temperature_K", 280.0)     # K
     .set("detector.pixel_pitch_x_um", 18.0)        # µm
     .set("detector.pixel_pitch_y_um", 18.0)        # µm
     .set("detector.qe_value", 0.75)

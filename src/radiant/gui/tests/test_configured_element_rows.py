@@ -53,6 +53,7 @@ _WAIT_MS = 20000  # headroom over a two-configuration evaluate-all pass
 _COL_NAME = 0
 _COL_VALUE = 3
 _COL_TEMP = 4
+_COL_EPS = 5  # Gap 128's two geometry columns came out with the Transmission tab
 
 _MIRROR = "M1"
 _FILTER = "band_filter"
@@ -333,7 +334,7 @@ class TestConfiguredBadge:
 
     def test_the_eps_column_keeps_its_rule_5_tooltip(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         editor = _bind(qtbot, _study())
-        assert "Kirchhoff" in editor.table.item(_FILTER_ROW, 7).toolTip()
+        assert "Kirchhoff" in editor.table.item(_FILTER_ROW, _COL_EPS).toolTip()
 
 
 class TestInlineEditRouting:

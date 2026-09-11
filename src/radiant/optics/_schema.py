@@ -233,21 +233,14 @@ TRANSMISSION_INPUT_MODE = ParameterDef(
     tags=frozenset({"optics", "throughput"}),
 )
 
-OPTICS_TEMPERATURE_K = ParameterDef(
-    name="optics.optics_temperature_K",
-    description=(
-        "Default physical temperature of the optical train [K]. "
-        "Applied to synthesized lumped elements in Modes 1-4 — which never "
-        "emit (Gap 127), so this contributes only through defined elements."
-    ),
-    dtype=float,
-    canonical_unit="K",
-    input_unit="K",
-    default=290.0,
-    bounds=(1.0, 1000.0),
-    tags=frozenset({"optics", "thermal"}),
-    default_justification="290 K is standard room-temperature optics.",
-)
+# ``optics.optics_temperature_K`` was deleted 2026-09-10 (owner ruling). Gap 127 made
+# every synthesized element non-emitting — a lump is bookkeeping, not a surface, so its
+# Kirchhoff emissivity is identically 0 — and those synthesized elements were the only
+# things this parameter ever reached. Its value therefore multiplied zero in the one
+# place element temperature is read (``compute_nearfield_irradiance``), which is why the
+# stage's own warning said the parameter contributes nothing. Real optics carry their
+# own per-row ``temperature_K`` in the ``optical_elements:`` document; scalar mode has no
+# emitting surface by construction.
 
 # ``optics.optics_distance_to_fpa_m`` was deleted by Gap 128: it existed only to
 # supply a per-element ``distance_to_fpa_m``, and per-element near-field geometry
@@ -638,7 +631,6 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     COLD_STOP_OBSCURATION_RATIO,
     TRANSMISSION_SCALAR,
     TRANSMISSION_INPUT_MODE,
-    OPTICS_TEMPERATURE_K,
     DEFOCUS_UM,
     WFE_MODE,
     WFE_RMS_WAVES,

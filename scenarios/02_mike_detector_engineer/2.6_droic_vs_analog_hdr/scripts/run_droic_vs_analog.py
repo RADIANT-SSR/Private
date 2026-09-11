@@ -39,6 +39,10 @@ study = spec["study"]
 aperture_m = sys_s["aperture_diameter_cm"] / 100.0  # cm -> m
 focal_m = sys_s["focal_length_cm"] / 100.0  # cm -> m
 transmission = sys_s["optical_transmission_pct"] / 100.0  # % -> fraction
+# Read from the datasheet for the narrative only: these scenarios run scalar
+# transmission, which synthesizes no emitting surface (Gap 127), and the scalar
+# optics.optics_temperature_K this used to feed was removed 2026-09-10 as inert.
+# Model warm optics by defining elements with their own temperature_K.
 optics_K = sys_s["optics_temperature_C"] + 273.15  # C -> K
 band_min_um = sys_s["filter_cut_on_nm"] / 1000.0  # nm -> um
 band_max_um = sys_s["filter_cut_off_nm"] / 1000.0  # nm -> um
@@ -98,7 +102,6 @@ def make_config(target_temp_K: float, architecture: str) -> dict[str, Any]:
             "aperture_diameter_m": aperture_m,
             "focal_length_m": focal_m,
             "transmission_scalar": transmission,
-            "optics_temperature_K": optics_K,
         },
         "detector": {
             "pixel_pitch_x_um": fpa["pixel_pitch_um"],

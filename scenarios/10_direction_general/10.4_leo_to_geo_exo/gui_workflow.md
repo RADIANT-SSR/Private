@@ -214,7 +214,7 @@ only as leader-label text; direction is faithful.
   CU-261/265's inert-optics-temperature report (`optics.optics_temperature_K =
   180 K` is set while no defined optical element can emit, so the bench
   temperature contributes nothing — reworded by Gap 127, 2026-09-09, which
-  removed the `optics.scalar_emissivity` the old text named). The Rule-4
+  removed the `optics.scalar_emissivity` the old text named). **Superseded 2026-09-10:** `optics.optics_temperature_K` was removed (owner ruling — it was inert by construction after Gap 127), and this warning went with it, because the condition it reported was the parameter's only behaviour. A scalar-transmission run now raises no optics-temperature message at all. The Rule-4
   dual-path consistency check passed
   (2.3 × 10⁻⁴ vs 2.0 × 10⁻² tolerance, 86× margin) and contributes no message. If
   a Rule-4 warning ever appears on this scene class, a spatial degradation has

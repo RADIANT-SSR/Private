@@ -25,6 +25,23 @@ from radiant.optics.system_transmission import compute_system_transmission
 
 logger = logging.getLogger(__name__)
 
+# The temperature stamped on the elements Modes 1-4 **synthesize** (the lumps, and the
+# filter elements built from a FilterSpec). It is deliberately 0 K and deliberately not a
+# parameter: a synthesized element is bookkeeping, not a surface. Gap 127 makes every one
+# of them non-emitting — a lump's Kirchhoff emissivity is identically 0, and a
+# FilterSpec-built filter is a simple refractive (no cavity), so ε = 0 there too — and the
+# one place element temperature is read multiplies it by that ε. A number that can only
+# ever multiply zero is not a physical quantity, so it does not get a knob: the old
+# ``optics.optics_temperature_K`` was removed 2026-09-10 on exactly that ground (owner
+# ruling). 0 K states "this object has no temperature" rather than implying a room-
+# temperature surface that is not being modelled, and it also makes the near-field loop
+# skip these elements outright instead of accumulating an all-zero contribution for them.
+#
+# Real optics carry their own per-row ``temperature_K`` in the ``optical_elements:``
+# document (Mode 5) or on the user-supplied ``key_elements`` (Mode 4); neither ever
+# passed through here.
+_SYNTHESIZED_TEMPERATURE_K: float = 0.0
+
 
 def _on_grid(sd: SpectralData, wavelength_um: np.ndarray) -> SpectralData:
     """Return *sd* on the chain wavelength grid, resampling if needed.
@@ -86,8 +103,6 @@ def resolve_transmission(
     residual_transmission: SpectralData | float | None = None,
     # Mode 5: full prescription
     full_elements: tuple[OpticalElement, ...] = (),
-    # Common defaults for synthesized elements
-    optics_temperature_K: float = 290.0,
 ) -> TransmissionResult:
     """Resolve transmission from the specified input mode.
 
@@ -116,21 +131,17 @@ def resolve_transmission(
         Residual lumped transmission for Mode 4 (scalar or SpectralData).
     full_elements:
         Complete ordered element list for Mode 5.
-    optics_temperature_K:
-        Default temperature for synthesized elements.
     """
     if mode == TransmissionInputMode.SCALAR:
         return _resolve_scalar(
             wavelength_um,
             transmission_scalar,
-            optics_temperature_K,
         )
 
     if mode == TransmissionInputMode.SPECTRAL_FILE:
         return _resolve_spectral_file(
             wavelength_um,
             transmission_spectral,
-            optics_temperature_K,
         )
 
     if mode == TransmissionInputMode.TELESCOPE_PLUS_FILTERS:
@@ -138,7 +149,6 @@ def resolve_transmission(
             wavelength_um,
             telescope_transmission,
             filter_specs,
-            optics_temperature_K,
         )
 
     if mode == TransmissionInputMode.KEY_ELEMENTS:
@@ -146,7 +156,6 @@ def resolve_transmission(
             wavelength_um,
             key_elements,
             residual_transmission,
-            optics_temperature_K,
         )
 
     if mode == TransmissionInputMode.FULL_PRESCRIPTION:
@@ -163,7 +172,6 @@ def resolve_transmission(
 def _resolve_scalar(
     wavelength_um: np.ndarray,
     transmission_scalar: float | None,
-    temperature_K: float,
 ) -> TransmissionResult:
     """Mode 1: scalar throughput broadcast to flat spectrum.
 
@@ -183,7 +191,7 @@ def _resolve_scalar(
     )
     lumped = make_lumped_element(
         tau_sd,
-        temperature_K,
+        _SYNTHESIZED_TEMPERATURE_K,
     )
     return TransmissionResult(
         mode=TransmissionInputMode.SCALAR,
@@ -195,7 +203,6 @@ def _resolve_scalar(
 def _resolve_spectral_file(
     wavelength_um: np.ndarray,
     transmission_spectral: SpectralData | None,
-    temperature_K: float,
 ) -> TransmissionResult:
     """Mode 2: spectral transmission from file (pre-loaded)."""
     if transmission_spectral is None:
@@ -209,7 +216,7 @@ def _resolve_spectral_file(
     transmission_spectral = _on_grid(transmission_spectral, wavelength_um)
     lumped = make_lumped_element(
         transmission_spectral,
-        temperature_K,
+        _SYNTHESIZED_TEMPERATURE_K,
         name="lumped_spectral",
     )
     return TransmissionResult(
@@ -223,7 +230,6 @@ def _resolve_telescope_filters(
     wavelength_um: np.ndarray,
     telescope_transmission: SpectralData | float | None,
     filter_specs: tuple[FilterSpec, ...],
-    temperature_K: float,
 ) -> TransmissionResult:
     """Mode 3: telescope broadband throughput * filter stack."""
     if telescope_transmission is None:
@@ -254,7 +260,7 @@ def _resolve_telescope_filters(
     for spec in filter_specs:
         f_sd = make_filter_transmission(spec, wavelength_um)
         net_vals = net_vals * f_sd.values
-        filter_elements.append(filter_to_element(spec, wavelength_um, temperature_K))
+        filter_elements.append(filter_to_element(spec, wavelength_um, _SYNTHESIZED_TEMPERATURE_K))
 
     net_sd = SpectralData(
         name="optics.transmission.telescope_plus_filters",
@@ -267,7 +273,7 @@ def _resolve_telescope_filters(
     # Synthesize telescope element as lumped.
     tele_elem = make_lumped_element(
         tele_sd,
-        temperature_K,
+        _SYNTHESIZED_TEMPERATURE_K,
         name="telescope_lumped",
     )
 
@@ -282,7 +288,6 @@ def _resolve_key_elements(
     wavelength_um: np.ndarray,
     key_elements: tuple[OpticalElement, ...],
     residual_transmission: SpectralData | float | None,
-    temperature_K: float,
 ) -> TransmissionResult:
     """Mode 4: key elements plus a residual lumped transmission."""
     if not key_elements:
@@ -325,7 +330,7 @@ def _resolve_key_elements(
     # Residual as lumped element.
     res_elem = make_lumped_element(
         res_sd,
-        temperature_K,
+        _SYNTHESIZED_TEMPERATURE_K,
         name="residual_lumped",
     )
 

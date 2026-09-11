@@ -16,7 +16,6 @@ geometry:
 optics:
   aperture_diameter_m: 0.3
   focal_length_m: 1.215
-  optics_temperature_K: 295.15
   transmission_scalar: 0.71
 readout:
   adc_bits: 14

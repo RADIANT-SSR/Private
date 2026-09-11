@@ -630,6 +630,59 @@ class ResultPlotNamespace:
             **kwargs,
         )
 
+    def optical_throughput_terms(self, **kwargs: Any) -> Any:
+        """Plot per-element net throughput with the system τ_opt(λ) as one SYSTEM curve.
+
+        The transmission counterpart of :meth:`mtf`: every element in
+        ``stage_outputs['optics']['elements']`` contributes its **net
+        transmittance** (``OpticalElement.net_transmittance`` — ``R(λ)`` for a
+        reflective element, ``T(λ)`` for a refractive one, the element's own
+        property), and ``stage_outputs['optics']['tau_opt_spectral']`` — the
+        assembled product — is drawn over them heavier and in the ink tone,
+        labelled ``SYSTEM``. Reading the two together is the point: a train's
+        weakest element is only meaningful against the product it limits, which
+        neither :meth:`optical_throughput` nor :meth:`coating_spectra` shows on
+        its own (CU-352, owner walkthrough 2026-09-10).
+
+        Element **order is the train's order**. A name that repeats in the
+        document (the parser permits duplicates) is disambiguated with its
+        1-based train position, so two rows both called ``mirror`` stay
+        distinguishable in the legend instead of one silently replacing the
+        other.
+
+        Raises :class:`ApiValidationError` when no elements are present — a
+        scalar-transmission run has no per-element structure to draw, and
+        :meth:`optical_throughput` is the figure for it.
+        """
+        from radiant.api.plot import plot_optical_throughput_terms
+
+        optics = self._result.stage_outputs.get("optics", {})
+        elements = optics.get("elements")
+        if not elements:
+            raise ApiValidationError(
+                "No optical elements found in "
+                "stage_outputs['optics']['elements'] — the chain must run "
+                "OpticsStage with a resolved element list. A scalar-transmission "
+                "run has no per-element structure; use result.plot.optical_throughput()."
+            )
+        counts: dict[str, int] = {}
+        for element in elements:
+            counts[element.name] = counts.get(element.name, 0) + 1
+        terms: dict[str, tuple[Any, Any]] = {}
+        for position, element in enumerate(elements, start=1):
+            curve = element.net_transmittance
+            label = element.name if counts[element.name] == 1 else f"{element.name} (#{position})"
+            terms[label] = (curve.wavelength_um, curve.values)
+        tau_opt_spectral = optics.get("tau_opt_spectral")
+        return plot_optical_throughput_terms(
+            terms,
+            system_wavelength_um=(
+                None if tau_opt_spectral is None else tau_opt_spectral.wavelength_um
+            ),
+            system_tau=None if tau_opt_spectral is None else tau_opt_spectral.values,
+            **kwargs,
+        )
+
     def coating_spectra(self, **kwargs: Any) -> Any:
         """Plot per-element coating spectra — R / T / ε vs λ (Gap 90).
 

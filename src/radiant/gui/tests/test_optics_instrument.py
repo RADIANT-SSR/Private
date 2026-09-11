@@ -3,12 +3,16 @@
 The Optics stage's contextual center becomes the richest per-stage instrument and the **first
 production use** of the tabbed sub-view hook (``StageComposition.subviews``): four tabs —
 **Inputs** (editable optics :class:`FieldRow`s + the FINAL-regime outputs readout, Rule 10),
-**MTF** (the per-term MTF@Nyquist table + ``mtf()`` overlay + the ``mtf_budget()`` bar),
-**PSF + Pupil** (``psf()`` beside the FP-2 ``pupil_amplitude()`` apodization map and
-``pupil_phase()`` wavefront-error map in WAVES), and **Throughput** (the FP-3
-``optical_throughput()`` τ_opt(λ) + per-element ``coating_spectra()``). Each plot is one call
-on the bound ``result.plot.*`` accessor. Every test drives the real widgets on the shipped
-example config, offscreen.
+**Transmission** (the scalar-vs-element mode panel + the FP-3 ``optical_throughput()``
+τ_opt(λ) and per-element ``coating_spectra()`` + the Gap-128 cold-stop / effective-pupil
+strip), **MTF** (the per-term MTF@Nyquist table + ``mtf()`` overlay), and **PSF + Pupil**
+(``psf()`` beside the FP-2 ``pupil_amplitude()`` apodization map and ``pupil_phase()``
+wavefront-error map in WAVES). Each plot is one call on the bound ``result.plot.*``
+accessor. Every test drives the real widgets on the shipped example config, offscreen.
+
+The **Transmission** tab is the 2026-09-09/10 owner-ratified consolidation of the former
+*Elements* and *Throughput* tabs; its own behaviour (mode selection, save semantics, the
+effective-pupil strip) is tested in ``test_transmission_tab.py``.
 """
 
 from __future__ import annotations
@@ -29,7 +33,7 @@ from radiant.gui.widgets.stage_center import StagePane  # noqa: E402
 
 _EXAMPLE = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
 _WAIT_MS = 15000
-_TAB_TITLES = ["Inputs", "Elements", "MTF", "PSF + Pupil", "Throughput"]
+_TAB_TITLES = ["Inputs", "Transmission", "MTF", "PSF + Pupil"]
 
 
 def _evaluate(sensor: Sensor) -> object:
@@ -62,8 +66,12 @@ def _load_window(qtbot) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
 
 
 class TestOpticsComposition:
-    def test_optics_declares_five_subview_tabs(self) -> None:
-        """PS-2: the Optics composition is the first stage to populate ``subviews``."""
+    def test_optics_declares_four_subview_tabs(self) -> None:
+        """PS-2: the Optics composition is the first stage to populate ``subviews``.
+
+        Four tabs after the Transmission consolidation — *Elements* and *Throughput* were
+        absorbed into it, not left behind beside it.
+        """
         comp = STAGE_COMPOSITIONS["optics"]
         assert [sv.title for sv in comp.subviews] == _TAB_TITLES
 
@@ -88,10 +96,14 @@ class TestOpticsComposition:
             "psf",
         ]
         assert subviews["PSF + Pupil"].plot_columns == 3
-        # Throughput tab: the two FP-3 accessors.
-        assert [p.method for p in subviews["Throughput"].plots] == [
+        # Transmission tab: the mode panel, the effective-pupil strip, and one figure
+        # per mode — the flat scalar τ_opt, or the CU-352 combined overlay whose bold
+        # SYSTEM curve *is* the assembled product. The panel shows one at a time.
+        assert subviews["Transmission"].transmission_panel is True
+        assert subviews["Transmission"].effective_pupil is True
+        assert [p.method for p in subviews["Transmission"].plots] == [
             "optical_throughput",
-            "coating_spectra",
+            "optical_throughput_terms",
         ]
 
 
@@ -102,7 +114,7 @@ class TestOpticsComposition:
 
 class TestOpticsPane:
     def test_center_renders_as_tabs(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """The Optics center renders a QTabWidget with the five sub-view titles."""
+        """The Optics center renders a QTabWidget with the four sub-view titles."""
         pane = _optics_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
         assert pane.has_tabs
         assert pane.tab_titles() == _TAB_TITLES
@@ -128,6 +140,20 @@ class TestOpticsPane:
             assert isinstance(form.row(dotpath), FieldRow)
         # The value carries its unit (R-UNITS): aperture reads in m.
         assert form.field_value_text("optics.aperture_diameter_m").endswith("m")
+
+    def test_inputs_form_no_longer_defines_transmission(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """τ_opt is defined on the Transmission tab and nowhere else (2026-09-09/10).
+
+        Two homes for one parameter is how an operator edits a scalar τ that an attached
+        element train is silently overriding.
+        """
+        pane = _optics_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
+        form = pane.optics_inputs_form
+        assert form is not None
+        assert "optics.transmission_scalar" not in form.field_dotpaths()
+        panel = pane.transmission_panel
+        assert panel is not None
+        assert panel.scalar_row().dotpath == "optics.transmission_scalar"
 
     def test_outputs_readout_shows_final_regime_with_units(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The Outputs readout carries the FINAL regime (Rule 10) + a dimensional output."""
@@ -198,25 +224,29 @@ class TestOpticsEditAndWatch:
     def test_editing_transmission_reevaluates_throughput(  # type: ignore[no-untyped-def]
         self, qtbot, monkeypatch
     ) -> None:
-        """Editing the scalar throughput → one sensor.set → the throughput/coating tab refreshes."""
+        """Editing the scalar throughput → one sensor.set → the τ(λ) figures refresh.
+
+        The field moved to the **Transmission** tab (2026-09-09/10) — transmission is
+        defined in exactly one place — so the edit is driven through that panel.
+        """
         window = _load_window(qtbot)
         center = window.central_canvas.stage_center
         window.stage_strip.stageClicked.emit("optics")
         pane = center.pane("optics")
-        form = pane.optics_inputs_form
-        assert form is not None
+        panel = pane.transmission_panel
+        assert panel is not None
 
         dotpath = "optics.transmission_scalar"
-        from radiant.gui.widgets import optics_inputs_form as oif
+        from radiant.gui.widgets import transmission_panel as tp
 
         def fake_exec(self):  # type: ignore[no-untyped-def]
             self.value_editor.setText("0.55")
             self.apply(close=True)
             return 0
 
-        monkeypatch.setattr(oif.ParameterEditorDialog, "exec", fake_exec)
+        monkeypatch.setattr(tp.ParameterEditorDialog, "exec", fake_exec)
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            form._open_editor(dotpath)  # noqa: SLF001
+            panel._open_scalar_editor(dotpath)  # noqa: SLF001
 
         assert window.sensor.get_input(dotpath) == pytest.approx(0.55, rel=1e-9)
         # The re-assembled system throughput reflects the new scalar τ_opt.

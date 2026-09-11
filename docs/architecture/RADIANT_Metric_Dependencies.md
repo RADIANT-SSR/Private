@@ -99,7 +99,6 @@ S_ext_e (electrons in extended regime)
 │   ├── signal_shot                          (no params; from S_ext_e)
 │   ├── background_shot                      (no params; from background source)
 │   ├── nearfield_shot
-│   │   ├── ● optics.optics_temperature_K    (default 290 K)
 │   │   ├── ● optics.cold_stop_undersize_frac (default 0.0 → Ω_cone)
 │   │   ├── ● optics.elements                (default = lumped from τ)
 │   │   └── (per element: ● temperature_K — no geometry, Gap 128)

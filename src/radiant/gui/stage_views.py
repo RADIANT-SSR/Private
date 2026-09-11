@@ -27,9 +27,10 @@ note, no invented content.
 A stage may optionally declare named :class:`StageSubView` tabs (the deferred multi-tab
 hook, arch doc §4.4): when a stage's content grows past what one pane holds comfortably,
 ``StageComposition.subviews`` carries two or more sub-views and the pane renders them as a
-``QTabWidget``. The **Geometry** (Inputs | Schematic), **Optics** (Inputs | MTF | PSF &
-Pupil | Throughput, GUI plan Phase PS-2), and **Detector** (Inputs | Noise | Detector + PSF,
-GUI plan Phase PS-3) stages use the hook; the rest are single panes.
+``QTabWidget``. The **Geometry** (Inputs | Schematic), **Optics** (Inputs | Transmission |
+MTF | PSF & Pupil, GUI plan Phase PS-2 + the 2026-09-09/10 Transmission consolidation), and
+**Detector** (Inputs | Noise | Detector + PSF, GUI plan Phase PS-3) stages use the hook;
+the rest are single panes.
 
 Being pure data, the composition table is unit-tested directly.
 """
@@ -112,7 +113,8 @@ class StageSubView:
     source_groups: tuple[str, ...] = ()
     atmosphere_inputs: bool = False
     optics_inputs: bool = False
-    element_editor: bool = False
+    transmission_panel: bool = False
+    effective_pupil: bool = False
     detector_inputs: bool = False
     detector_illustration: bool = False
     spectral_inputs: bool = False
@@ -182,12 +184,21 @@ class StageComposition:
         :class:`FieldRow`s (Atmosphere only, GUI Capability Expansion plan GS-2).
     optics_inputs:
         Show the Optics stage's editable inputs card — aperture / focal length / f-number /
-        obscuration / spiders / scalar throughput / WFE / optics temperature as schema-driven
-        :class:`FieldRow`s (Optics only, GUI plan Phase PS-2).
-    element_editor:
-        Show the optical element-train table editor — the ADR-0009 D2 declarative-document
-        editor committing through one ``Sensor.set_optical_elements`` call, ε derived
-        read-only per Rule 5 (Optics "Elements" tab, GUI Capability Expansion plan GS-4).
+        obscuration / spiders / WFE / optics temperature as schema-driven
+        :class:`FieldRow`s (Optics only, GUI plan Phase PS-2). Transmission is **not** here:
+        it is defined on the Transmission tab and nowhere else (2026-09-09/10).
+    transmission_panel:
+        Show the Transmission tab's mode panel — the *Scalar throughput* | *Element train*
+        selector, the mode banner, the ``optics.transmission_scalar`` field, and the
+        ADR-0009 D2 element-train editor (ε derived read-only per Rule 5, committing through
+        one ``Sensor.set_optical_elements`` call). Consolidates the former *Elements* (GUI
+        Capability Expansion plan GS-4) and *Throughput* tabs into one, owner-ratified
+        2026-09-09/10.
+    effective_pupil:
+        Show the cold-stop / effective-pupil strip **below** this tab's plots — the two
+        editable ``optics.cold_stop_*`` parameters beside the D_eff / f/#_eff / A_collect /
+        Ω_cone they produce, read from the last evaluation's optics stage outputs (Gap 128;
+        specified by the 7.2 and 10.1 scenario ``gui_workflow.md`` files).
     detector_inputs:
         Show the Detector stage's editable inputs card — quantum efficiency / dark rate /
         pixel pitch x,y / fill factor / detector temperature as schema-driven
@@ -260,7 +271,8 @@ class StageComposition:
     source_groups: tuple[str, ...] = ()
     atmosphere_inputs: bool = False
     optics_inputs: bool = False
-    element_editor: bool = False
+    transmission_panel: bool = False
+    effective_pupil: bool = False
     detector_inputs: bool = False
     detector_illustration: bool = False
     spectral_inputs: bool = False
@@ -484,20 +496,46 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
     ),
     # The Optics stage instrument (GUI plan Phase PS-2, arch doc §4.4.1 Optics rows): the
     # first production use of the tabbed sub-view hook. Four tabs — editable optics Inputs +
-    # the FINAL-regime outputs readout (Rule 10); the MTF per-term table + overlay (relocated
-    # MTF tab) plus the MTF-at-Nyquist budget; the effective PSF beside the FP-2 complex-pupil
-    # maps (apodization + wavefront-error, WAVES); and the FP-3 system throughput τ_opt(λ) with
-    # the per-element coating R/T/ε spectra. Editing an input re-evaluates and every tab
-    # refreshes (edit-and-watch: WFE → the pupil-phase map, aperture → MTF/PSF, τ_opt →
-    # throughput).
+    # the FINAL-regime outputs readout (Rule 10); Transmission (how τ_opt is defined, and
+    # what it produces); the MTF per-term table + overlay (relocated MTF tab); and the
+    # effective PSF beside the FP-2 complex-pupil maps (apodization + wavefront-error,
+    # WAVES). Editing an input re-evaluates and every tab refreshes (edit-and-watch: WFE →
+    # the pupil-phase map, aperture → MTF/PSF, τ_opt → throughput).
     "optics": StageComposition(
         title="Optics",
         subviews=(
             StageSubView(title="Inputs", optics_inputs=True, outputs=True),
-            # The Elements tab (GUI Capability Expansion plan GS-4, audit O-1): the
-            # ADR-0009 D2 element-train editor — per-element R/T/temperature/geometry,
-            # ε derived read-only (Rule 5), Apply = one Sensor.set_optical_elements call.
-            StageSubView(title="Elements", element_editor=True),
+            # The Transmission tab (owner-ratified 2026-09-09/10), absorbing the former
+            # *Elements* (GUI Capability Expansion plan GS-4, audit O-1) and *Throughput*
+            # (FP-3) tabs. They were two halves of one question — how is transmission
+            # defined? — and splitting them let an operator edit a scalar τ_opt that an
+            # attached element train was silently overriding. One tab now carries the mode
+            # selector, the active mode's editor (the scalar field, or the ADR-0009 D2
+            # element-train table with its Gap-116 coating drill-down), the τ(λ) figures,
+            # and the Gap-128 cold-stop / effective-pupil strip.
+            #
+            # One figure per mode, and the panel's ``modeChanged`` picks which is on
+            # screen — each accessor describes a structure the other mode does not have:
+            #
+            #   scalar  → ``optical_throughput``: the flat τ_opt, which is the whole model.
+            #   element → ``optical_throughput_terms`` (CU-352): every element's net
+            #             throughput with the assembled τ_opt(λ) over them as one bold
+            #             SYSTEM curve, the ``plot_mtf_terms`` convention. It supersedes
+            #             the standalone system curve here (the SYSTEM line *is* it) and
+            #             the fixed-axis coating overlay (per-element R/T/ε is the
+            #             coating-detail drill-down under the table, Gap 116).
+            StageSubView(
+                title="Transmission",
+                transmission_panel=True,
+                effective_pupil=True,
+                plots=(
+                    PlotSpec("System optical throughput τ_opt(λ)", "optical_throughput"),
+                    PlotSpec(
+                        "Per-element net τ and the SYSTEM product",
+                        "optical_throughput_terms",
+                    ),
+                ),
+            ),
             # Owner walkthrough items 10-12: the system-MTF overlay leads (with Nyquist
             # marked on it), and the per-term budget table follows *below* the figure
             # rather than above it. The separate MTF-at-Nyquist bar chart is gone —
@@ -514,13 +552,6 @@ STAGE_COMPOSITIONS: Final[dict[str, StageComposition]] = {
                     PlotSpec("Pupil apodization (amplitude / transmission)", "pupil_amplitude"),
                     PlotSpec("Pupil wavefront error (waves)", "pupil_phase"),
                     PlotSpec("Effective PSF", "psf"),
-                ),
-            ),
-            StageSubView(
-                title="Throughput",
-                plots=(
-                    PlotSpec("System optical throughput τ_opt(λ)", "optical_throughput"),
-                    PlotSpec("Coating spectra — R / T / ε per element", "coating_spectra"),
                 ),
             ),
         ),

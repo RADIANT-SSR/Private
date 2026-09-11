@@ -272,7 +272,7 @@ The scalar is broadcast to a flat spectrum on the global wavelength grid. The el
 OpticalElement(
     name="lumped",
     kind=ElementKind.LUMPED,
-    temperature_K=optics.optics_temperature_K,
+    temperature_K=0.0,                            # not a surface: no temperature
     transmittance=flat_at(transmission_scalar),
     reflectance=flat_at(0.0),                     # not used
 )
@@ -280,7 +280,7 @@ OpticalElement(
 
 An element carries **no geometry** (Gap 128): `diameter_m` and `distance_to_fpa_m` were deleted along with `optics.optics_distance_to_fpa_m`, because near-field emission is seen through the one acceptance cone the working f/# sets (§7.3), not through a per-element solid angle.
 
-**No near-field emission in scalar mode (Gap 127, owner-ratified 2026-09-09).** The lump is bookkeeping, not a surface: ε = 0 always, so Modes 1–2 produce **no near-field emission**. The remaining `1 − τ` cannot be attributed to absorption vs. reflection/scatter/geometric loss from net transmission alone, and Kirchhoff equates emissivity to *absorptance* — so no emissivity may be declared here (the former `optics.scalar_emissivity` knob invited the ε = 1 − τ fallacy and was removed). To model warm optics, define elements: mirrors emit ε = 1 − R, cavity refractives emit from bulk absorption. Warm-*enclosure* emission (the uncooled uniform-temperature cavity, where ε_eff = 1 − τ genuinely holds) is not an optical-train property; its home is the stray/thermal path (`optics.stray_includes_thermal`). If `optics.optics_temperature_K` is explicitly set while no defined element can emit, the stage warns that the temperature contributes nothing.
+**No near-field emission in scalar mode (Gap 127, owner-ratified 2026-09-09).** The lump is bookkeeping, not a surface: ε = 0 always, so Modes 1–2 produce **no near-field emission**. The remaining `1 − τ` cannot be attributed to absorption vs. reflection/scatter/geometric loss from net transmission alone, and Kirchhoff equates emissivity to *absorptance* — so no emissivity may be declared here (the former `optics.scalar_emissivity` knob invited the ε = 1 − τ fallacy and was removed). To model warm optics, define elements: mirrors emit ε = 1 − R, cavity refractives emit from bulk absorption. Warm-*enclosure* emission (the uncooled uniform-temperature cavity, where ε_eff = 1 − τ genuinely holds) is not an optical-train property; its home is the stray/thermal path (`optics.stray_includes_thermal`). `optics.optics_temperature_K` was **removed 2026-09-10** (owner ruling): after Gap 127 every element it could reach was non-emitting, so its value always multiplied a zero emissivity and the scene evaluated identically at any setting. Optics temperature is stated **per element**, on the `temperature_K` of each row of the `optical_elements:` document. The stage used to *warn* when the scalar temperature was set with nothing able to emit; that warning is gone with its subject, because the condition it described was the parameter's only behaviour.
 
 ### 5.2 Mode 2: spectral transmission file
 
@@ -314,7 +314,7 @@ Internally:
 transmission(λ) = residual(λ) × Π element_i(λ).net_transmittance
 ```
 
-The residual is treated as a synthesized lumped element with `temperature = optics.optics_temperature_K` (the per-instrument default ambient/cooled temperature). The final elements list is `key_elements + (residual_lumped,)`.
+The residual is treated as a synthesized lumped element at **0 K** — it is bookkeeping, not a surface, and a lump's Kirchhoff emissivity is identically 0, so no temperature it could carry would ever be read. The user-supplied `key_elements` carry their own `temperature_K` and are what emit. The final elements list is `key_elements + (residual_lumped,)`.
 
 ### 5.5 Mode 5: full element-by-element prescription
 
@@ -558,7 +558,7 @@ Parameter types, defaults, units, and bounds are the canonical [Parameter Refere
 - `optics_config["key_elements"]` (injection, `tuple[OpticalElement, ...]`) — mode 4.
 - `optics_config["residual_transmission"]` (injection, float or `SpectralData`, default 1.0) — mode 4.
 - `optics_config["element_list"]` (injection, `tuple[OpticalElement, ...]`) — mode 5 (auto-selects the mode).
-- `optics.optics_temperature_K` — default temperature for synthesized elements (which never emit, Gap 127). `optics.optics_distance_to_fpa_m` was deleted by Gap 128 along with per-element geometry.
+- `optics.optics_temperature_K` was **deleted 2026-09-10** (owner ruling — inert after Gap 127: synthesized elements never emit, so the temperature multiplied zero). Synthesized elements are now stamped 0 K, and per-element `temperature_K` is the only optics temperature. `optics.optics_distance_to_fpa_m` was deleted by Gap 128 along with per-element geometry.
 - `optics.cold_stop_undersize_frac` (default 0.0, bounds [0, 0.49]) and `optics.cold_stop_obscuration_ratio` (default 0.0, bounds [0, 0.99]) — the effective pupil, §3.6.
 
 ### 10.4 Nearfield

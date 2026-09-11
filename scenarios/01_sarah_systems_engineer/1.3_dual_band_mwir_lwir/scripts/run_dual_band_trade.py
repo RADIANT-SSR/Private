@@ -118,7 +118,6 @@ def build_sensor(band: str, hotspot_T: float) -> Sensor:
     s.set("optics.aperture_diameter_m", shared["Aperture diameter"], unit="cm")
     s.set("optics.focal_length_m", shared["Focal length"], unit="cm")
     s.set("optics.transmission_scalar", shared["Optical transmission"], unit="%")
-    s.set("optics.optics_temperature_K", shared["Optics temperature"] + 273.15)
     s.set("detector.pixel_pitch_x_um", d["Pixel pitch"])
     s.set("detector.pixel_pitch_y_um", d["Pixel pitch"])
     s.set("detector.qe_value", d["Quantum efficiency (band avg)"], unit="%")

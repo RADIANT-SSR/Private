@@ -290,7 +290,6 @@ def make_config(
             "aperture_diameter_m": c["aperture_m"],
             "focal_length_m": c["focal_length_m"],
             "transmission_scalar": c["tau_optics"],
-            "optics_temperature_K": c["optics_temp_K"],
             "obscuration_ratio": c["obscuration"],
             "wfe_rms_waves": c["wfe_rms_waves"],
         },

@@ -91,7 +91,7 @@ Rule 25, one registry per concern). This file is the per-scenario record.
   while no defined optical element can emit, so the bench temperature contributes
   nothing. Reworded by Gap 127, 2026-09-09 — it previously named
   `optics.scalar_emissivity`, since removed; this scenario declares no element
-  list, so its numbers are unchanged).
+  list, so its numbers are unchanged). **Superseded 2026-09-10:** `optics.optics_temperature_K` was removed (owner ruling — it was inert by construction after Gap 127), and this warning went with it, because the condition it reported was the parameter's only behaviour. A scalar-transmission run now raises no optics-temperature message at all.
 - **Detection-range non-detection reporting** — short integration times report a
   result-typed failure with a `failure_reason`, not a silent NaN. Rule 17
   carve-out behaving as specified.

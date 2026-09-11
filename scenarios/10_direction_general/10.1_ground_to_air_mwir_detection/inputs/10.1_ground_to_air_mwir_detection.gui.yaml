@@ -45,7 +45,6 @@ optics:
   aperture_diameter_m: 0.1
   cold_stop_undersize_frac: 0.0
   focal_length_m: 0.2
-  optics_temperature_K: 293.15
 performance:
   detection_snr_threshold: 5.0
 readout:

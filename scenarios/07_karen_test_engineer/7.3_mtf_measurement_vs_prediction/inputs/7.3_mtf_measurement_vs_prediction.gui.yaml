@@ -21,7 +21,6 @@ optics:
   defocus_um: 5.0
   focal_length_m: 0.6
   obscuration_ratio: 0.25
-  optics_temperature_K: 295.15
   transmission_scalar: 0.82
   wfe_rms_waves: 0.07
 readout:

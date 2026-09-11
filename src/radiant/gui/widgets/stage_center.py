@@ -60,6 +60,7 @@ from radiant.gui.widgets.atmosphere_inputs_form import AtmosphereInputsForm
 from radiant.gui.widgets.calibration_inputs_form import CalibrationInputsForm
 from radiant.gui.widgets.detector_illustration import DetectorIllustration
 from radiant.gui.widgets.detector_inputs_form import DetectorInputsForm
+from radiant.gui.widgets.effective_pupil_readout import EffectivePupilReadout
 from radiant.gui.widgets.field_row import FieldRow
 from radiant.gui.widgets.fpa_part_selector import FPAPartSelector
 from radiant.gui.widgets.geometry_angle_panel import (
@@ -84,6 +85,8 @@ from radiant.gui.widgets.scene_class_panel import SceneClassPanel
 from radiant.gui.widgets.site_elevation_panel import SiteElevationPanel
 from radiant.gui.widgets.source_inputs_form import SourceInputsForm
 from radiant.gui.widgets.spectral_integration_inputs_form import SpectralIntegrationInputsForm
+from radiant.gui.widgets.transmission_mode_selector import MODE_ELEMENT
+from radiant.gui.widgets.transmission_panel import TransmissionPanel
 
 if TYPE_CHECKING:
     from radiant.api import ChainResult
@@ -136,6 +139,14 @@ _PLOT_BLOCK_SPACING_PX: int = 8
 # *initial* division from starving the figures.
 _PLOT_MIN_WIDTH_PX: int = 420
 
+# Which ``result.plot.*`` accessors belong to which transmission mode (Transmission
+# tab). Each describes a structure the other mode does not have, so the tab shows one
+# figure at a time rather than a pane of correct-but-unhelpful refusal messages:
+# the scalar mode's flat τ_opt is the whole model, and the element mode's combined
+# overlay already carries the assembled τ_opt as its SYSTEM curve.
+_SCALAR_ONLY_PLOTS: frozenset[str] = frozenset({"optical_throughput"})
+_ELEMENT_ONLY_PLOTS: frozenset[str] = frozenset({"optical_throughput_terms", "coating_spectra"})
+
 # The shape-dimension parameters the geometry side panel edits (bounds/units from the
 # schema; this list is the read/sync surface — the panel owns the shape→subset matrix).
 _SHAPE_DIMENSION_PATHS: tuple[str, ...] = (
@@ -179,6 +190,11 @@ class _PlotSection(QWidget):
     def canvas(self) -> MatplotlibCanvas:
         """The embedded figure canvas (populated on the next result)."""
         return self._canvas
+
+    @property
+    def method(self) -> str:
+        """The ``result.plot.*`` accessor this section draws (its identity)."""
+        return self._spec.method
 
     def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 - Qt override
         """Re-apply the width-driven height ceiling whenever the card resizes (CU-241).
@@ -331,9 +347,12 @@ class StagePane(QWidget):
         # The Optics-instrument Inputs form (GUI plan Phase PS-2): edit an optics param and
         # every diagnostic tab refreshes (edit-and-watch). Bound/refreshed like the source form.
         self._optics_forms: list[OpticsInputsForm] = []
-        # The Optics element-train editor (GS-4): Apply commits the declarative document
-        # (one set_optical_elements call) and relays through the parameterEdited pipeline.
-        self._element_editors: list[OpticalElementEditor] = []
+        # The Optics Transmission tab (2026-09-09/10): the scalar-vs-element mode panel,
+        # which embeds the GS-4 element-train editor. Every element commit relays through
+        # the parameterEdited pipeline exactly as before the consolidation.
+        self._transmission_panels: list[TransmissionPanel] = []
+        # The Gap-128 cold-stop / effective-pupil strip (Transmission tab, below the plots).
+        self._effective_pupil_readouts: list[EffectivePupilReadout] = []
         # The Detector-instrument Inputs form + pixel illustration (GUI plan Phase PS-3): edit a
         # detector param and every tab refreshes — the dark rate shifts the noise pie, the pixel
         # pitch redraws the illustration + PSF grid. The illustration is drawn from the live
@@ -471,14 +490,16 @@ class StagePane(QWidget):
             optics_form.parameterEdited.connect(self.parameterEdited)
             layout.addWidget(optics_form)
             self._optics_forms.append(optics_form)
-        if spec.element_editor:
-            # The Optics Elements tab (GS-4): the ADR-0009 element-document editor. A
-            # successful Apply emits the pseudo-path through the standard edit pipeline
-            # (stale dots + debounced re-evaluate); an invalid document never commits.
-            element_editor = OpticalElementEditor(parent)
-            element_editor.elementsApplied.connect(self.parameterEdited)
-            layout.addWidget(element_editor)
-            self._element_editors.append(element_editor)
+        if spec.transmission_panel:
+            # The Optics Transmission tab (2026-09-09/10): the mode selector + banner, the
+            # scalar τ_opt field, and the GS-4 ADR-0009 element-document editor. Every
+            # commit (scalar edit, element edit, mode switch) emits through the standard
+            # edit pipeline (stale dots + debounced re-evaluate); an invalid element
+            # document never commits.
+            transmission_panel = TransmissionPanel(parent)
+            transmission_panel.parameterEdited.connect(self.parameterEdited)
+            layout.addWidget(transmission_panel)
+            self._transmission_panels.append(transmission_panel)
         if spec.detector_inputs:
             # FPA part library card (Gap 119 §3.6): pick a real part, one
             # sensor.apply_fpa call; a successful apply re-enters the same
@@ -635,13 +656,51 @@ class StagePane(QWidget):
             noise_panel = NoiseBudgetPanel(parent, show_chart=spec.noise_panel_chart)
             self._noise_panels.append(noise_panel)
             panel, panel_header = noise_panel, "Noise budget"
+        first_plot = len(self._plot_sections)
         self._place_panel_and_plots(layout, parent, spec, panel, panel_header)
+        if spec.transmission_panel and self._transmission_panels:
+            self._bind_transmission_modes(
+                self._transmission_panels[-1], self._plot_sections[first_plot:]
+            )
+        if spec.effective_pupil:
+            # Below the plots by design (Transmission tab): the operator reads what the
+            # train/scalar produces, then the pupil the cold stop leaves — the two
+            # editable cold-stop parameters beside the four quantities they move (Gap 128).
+            effective_pupil = EffectivePupilReadout(parent)
+            effective_pupil.parameterEdited.connect(self.parameterEdited)
+            layout.addWidget(effective_pupil)
+            self._effective_pupil_readouts.append(effective_pupil)
         if spec.note is not None:
             note = QLabel(spec.note, parent)
             note.setObjectName("stageNote")
             note.setWordWrap(True)
             layout.addWidget(note)
         return fills
+
+    @staticmethod
+    def _bind_transmission_modes(panel: TransmissionPanel, sections: list[_PlotSection]) -> None:
+        """Show each transmission mode's own figure, and only that one.
+
+        The two modes do not describe the same structure, so they do not share a figure.
+        Scalar mode has no elements: the per-element accessors rightly refuse, and a pane
+        of refusal messages is not an honest scalar view — its flat τ_opt *is* the whole
+        model. Element mode's combined overlay already carries the assembled τ_opt as its
+        bold SYSTEM curve, so the standalone system figure beside it would draw the same
+        line twice. Flipping the selector swaps one figure for the other.
+        """
+        element_only = [s for s in sections if s.method in _ELEMENT_ONLY_PLOTS]
+        scalar_only = [s for s in sections if s.method in _SCALAR_ONLY_PLOTS]
+        if not element_only and not scalar_only:
+            return
+
+        def _apply(mode: str) -> None:
+            for section in element_only:
+                section.setVisible(mode == MODE_ELEMENT)
+            for section in scalar_only:
+                section.setVisible(mode != MODE_ELEMENT)
+
+        panel.modeChanged.connect(_apply)
+        _apply(panel.mode)
 
     def _place_panel_and_plots(
         self,
@@ -854,8 +913,23 @@ class StagePane(QWidget):
 
     @property
     def element_editor(self) -> OpticalElementEditor | None:
-        """The Optics element-train editor, if this stage has one (GS-4)."""
-        return self._element_editors[0] if self._element_editors else None
+        """The Optics element-train editor, if this stage has one (GS-4).
+
+        Now reached through the Transmission panel that hosts it (2026-09-09/10); the
+        accessor stays because the editor is the same widget with the same contract.
+        """
+        panel = self.transmission_panel
+        return None if panel is None else panel.element_editor
+
+    @property
+    def transmission_panel(self) -> TransmissionPanel | None:
+        """The Optics Transmission tab's mode panel, if this stage has one."""
+        return self._transmission_panels[0] if self._transmission_panels else None
+
+    @property
+    def effective_pupil_readout(self) -> EffectivePupilReadout | None:
+        """The cold-stop / effective-pupil strip, if this stage has one (Gap 128)."""
+        return self._effective_pupil_readouts[0] if self._effective_pupil_readouts else None
 
     def bind_sensor(self, sensor: Sensor | None, display_units: dict[str, str]) -> None:
         """Bind the live *sensor* + shared display-unit store into any input form.
@@ -896,8 +970,10 @@ class StagePane(QWidget):
             calibration_form.bind_sensor(sensor, display_units)
         for atmosphere_form in self._atmosphere_forms:
             atmosphere_form.bind_sensor(sensor, display_units)
-        for element_editor in self._element_editors:
-            element_editor.bind_sensor(sensor, display_units)
+        for transmission_panel in self._transmission_panels:
+            transmission_panel.bind_sensor(sensor, display_units)
+        for effective_pupil in self._effective_pupil_readouts:
+            effective_pupil.bind_sensor(sensor, display_units)
         for metric_form in self._metric_selection_forms:
             metric_form.bind_sensor(sensor, display_units)
         if sensor is not None and self._geometry_panels:
@@ -914,7 +990,8 @@ class StagePane(QWidget):
         panes, so a walk at bind time sees all of them; each row then re-reads itself
         from the scope's ``changed`` signal.
 
-        The Optics **Elements** tab takes the same scope by name (Gap 103 v1.1). It is
+        The Optics **Transmission** tab's element editor takes the same scope by name
+        (Gap 103 v1.1), handed on by the panel that hosts it. It is
         not a ``FieldRow``, and what it needs from the scope is the study document
         itself — which configuration is active and what that configuration overrides —
         so it can render that configuration's effective element train and route its
@@ -923,8 +1000,8 @@ class StagePane(QWidget):
         self._config_scope = scope
         for row in self.findChildren(FieldRow):
             row.set_configuration_scope(scope)
-        for element_editor in self._element_editors:
-            element_editor.set_configuration_scope(scope)
+        for transmission_panel in self._transmission_panels:
+            transmission_panel.set_configuration_scope(scope)
 
     def set_theme(self, theme: Theme) -> None:
         """Re-theme this pane's custom-painted widgets + matplotlib figures (theme toggle).
@@ -944,8 +1021,8 @@ class StagePane(QWidget):
         dark = theme.name == "dark"
         for section in self._plot_sections:
             section.set_dark(dark)
-        for element_editor in self._element_editors:
-            element_editor.set_dark(dark)
+        for transmission_panel in self._transmission_panels:
+            transmission_panel.set_dark(dark)
 
     def refresh_geometry_forms(self) -> None:
         """Re-read every geometry input form from the bound sensor (Inputs + Schematic tabs).
@@ -1107,7 +1184,7 @@ class StagePane(QWidget):
             self._geometry_forms
             or self._source_forms
             or self._optics_forms
-            or self._element_editors
+            or self._transmission_panels
             or self._detector_forms
             or self._spectral_forms
             or self._platform_forms
@@ -1146,6 +1223,13 @@ class StagePane(QWidget):
             source_form.refresh()
         for optics_form in self._optics_forms:
             optics_form.refresh()
+        for transmission_panel in self._transmission_panels:
+            transmission_panel.refresh()
+        # The effective pupil is read verbatim from this stage's outputs (Gap 128) —
+        # the strip renders it, it never derives it (Rules 2/6).
+        for effective_pupil in self._effective_pupil_readouts:
+            effective_pupil.refresh()
+            effective_pupil.populate(stage_outputs)
         for detector_form in self._detector_forms:
             detector_form.refresh()
         for spectral_form in self._spectral_forms:

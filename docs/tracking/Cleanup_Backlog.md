@@ -99,7 +99,40 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: results-affecting (intake test 1) for any up/down DROIC configuration with defined warm optical elements; the whole point of the reference phase is to subtract the standing pedestal, and near-field emission is exactly a standing pedestal.
 **Suggested fix**: (b) stand-alone task once the owner rules on D6's scope — if the reference phase is a real second integration of the same pixel, both terms belong in `q_down_per_pixel` under both reference sources (near-field and stray are incident in both phases). Effort S; category C. Related: [[CU-350]], Gap 117 Phase 4.
 
+### CU-354 — The contrast-SNR saturation warning labels the **clipped signal** "full well", so a saturated run reports "full well 0.000e+00 e-" while the readout warning in the same run reports 1e+05 e-
+
+**Discovered**: owner walkthrough of `gui/transmission-tab`, 2026-09-10 — spotted while reading the crash log for [[CU-353]].
+**Status**: Open.
+**File**: `src/radiant/performance/contrast_snr.py:94-99` — `f"pixel saturated (signal {s_t_pre:.3e} e- clipped to full well {s_t_final:.3e} e-)"`.
+**Symptom**: `s_t_final` is `stage_outputs["readout"]["signal_e_final"]` — the **clipped signal**, i.e. what survived the clip — but the message calls it "full well". When the non-signal pedestal (dark + glow + near-field + stray + background) already exceeds the well, the available capacity is zero, the signal clips to 0 e-, and the warning reads *"pixel saturated (signal 1.903e+03 e- clipped to full well 0.000e+00 e-)"*. Reproduced verbatim in the owner's session log, paired line-for-line with the ReadoutStage warning from the **same evaluation** saying `full_well_capacity_e = 1e+05 e-`. The two messages name the same quantity differently and disagree by five orders of magnitude.
+**Why it still matters**: workflow-visible (intake test 4) — an operator reads "full well 0.000e+00 e-" and concludes the well capacity is unset or zero, which sends them to the wrong parameter. The actionable clause it ends with ("raise full_well_capacity_e") then looks contradictory against a well that is already 1e+05 e-. The real diagnosis is that the *pedestal* consumed the well (the CU-350 regime, where `available_capacity = well − non_signal_e` collapses), which neither message says.
+**Suggested fix**: (a) inline-fix-now — relabel to what the value is (`clipped to 0.000e+00 e- (no well capacity left after the non-signal pedestal)`), and where the readout publishes it, cite `available_capacity` / `total_well_e` so the two warnings agree on vocabulary. Nothing asserts on the current string (grepped: the f-string is its only occurrence in the tree), so the change is text-only. Effort XS; category B. Related: [[CU-350]], Gap 65.
+
+**Not a message-flood defect.** The same log looked at first like repeated identical saturation rows. It is not: each line carries its own numbers (fill fraction 24.98 → 49.18 → 72.66 → 95.44 → …), one pair per debounced re-evaluation as the operator dragged a parameter, and the GUI's `MessagesPanel.set_warnings` *replaces* its list every evaluation rather than appending — so nothing accumulates on screen. No deduplication is wanted or needed.
+
 ## Resolved
+
+### CU-352 — The ratified Transmission-tab design's combined per-element + SYSTEM τ(λ) overlay has no API accessor, so the tab ships two separate figures — RESOLVED 2026-09-10 (commit trailer)
+
+**Resolution**: added `radiant.api.plot.plot_optical_throughput_terms` and the `result.plot.optical_throughput_terms()` accessor — per-element net transmittance (read off `OpticalElement.net_transmittance`, the element's own property; nothing is derived in the api or the GUI) with `tau_opt_spectral` drawn over them as one bold SYSTEM curve in the ink tone, at the same linewidth/z-order and with the same direct bold label `plot_mtf_terms` uses, so the two overlays teach one visual vocabulary. Deliberately **no** unity collapse (unlike the MTF overlay): a near-unity element is a real statement about a coating, and a train never reaches the density that made the collapse necessary. Duplicate element names — which the io parser permits — are disambiguated by 1-based train position rather than silently colliding in the legend. The Transmission tab consumes it as the element-mode figure, replacing both the standalone system curve (the SYSTEM line is it) and the fixed-axis coating overlay (per-element R/T/ε stays as the Gap-116 drill-down). Owner go, 2026-09-10 walkthrough ("how do we see all elements?").
+
+**Discovered**: Transmission-tab consolidation (branch `gui/transmission-tab`), 2026-09-10.
+**Status**: Open — owner-gated (it asks whether the ratified figure is worth a new `radiant.api` plot accessor, which is the only place it can legally be built).
+**File**: `src/radiant/api/inspect.py::ResultPlotNamespace` (no accessor exists) / `src/radiant/gui/stage_views.py` (the Transmission tab declares `optical_throughput` + `coating_spectra` instead).
+**Symptom**: the owner-ratified 2026-09-09/10 design specifies, in element mode, **one** figure — per-element net-transmittance curves overlaid with the total system τ(λ) drawn as a bold `SYSTEM` line, matching `plot_mtf_terms`' convention. The shipped tab instead draws the two existing figures: `result.plot.optical_throughput()` (the system product alone) and `result.plot.coating_spectra()` (per-element R/T/ε on a fixed [0,1] axis, no emphasis). The same information is on screen; the one-axis comparison the design asked for is not.
+**Why it still matters**: the point of the combined overlay is that a train's weakest element is read *against* the product it limits — the thing the analyst actually wants from this tab. Building it GUI-side would put plotting logic in the GUI (arch doc §4.1: every figure is one `result.plot.*` call) and computing the per-element net curves there would be physics in the view, so the tab cannot honour the design without the API surface. The GUI-only merge scoping is the second reason it was not done in the same branch: one `src/radiant/api/` line invalidates the scoped battery.
+**Suggested fix**: (b) stand-alone task — add a `result.plot.optical_throughput_terms()` accessor (per-element net throughput from `stage_outputs["optics"]["elements"]` + the `tau_opt_spectral` product as the emphasised `SYSTEM` curve, reusing the `plot_mtf_terms` ink/weight/zorder convention), then swap the Transmission tab's two `PlotSpec`s for it. Effort S-M; category D (full battery — it touches `api/`). Related: Gap 90 (FP-3), the 2026-09-09 MTF SYSTEM-curve work it would mirror.
+
+### CU-353 — Closing the window during an evaluation destroys a running QThread: the app aborts instead of closing — RESOLVED 2026-09-10 (commit trailer)
+
+**Resolution**: `ConfigSetEvaluationWorker` gained `request_cancel()`, polled through the existing `evaluate_all(cancel=...)` hook (Gap 72), plus a `cancelled` signal so a deliberate stop is named rather than reported as a failure (Rule 17). `RADIANTMainWindow.closeEvent` now stops the debounce timer, clears `_rerun_pending` (a queued re-run would restart the pass into a window that is going away), disconnects the three result slots so nothing renders into a tearing-down widget tree, cancels, and **joins** with `QThread.wait`. It joins rather than deferring the close the way the sweep dialog does (CU-325) because the user asked for the application to exit; a bounded 5 s wait logs a warning on expiry and then waits unbounded, since returning early is the crash. Cancellation lands at the next configuration boundary, so the configuration in flight still finishes (~0.8 s). Regression test drives a real worker on a real window.
+
+**Discovered**: owner walkthrough of `gui/transmission-tab`, 2026-09-10 — the session ended with "QThread: Destroyed while thread '' is still running" after a burst of sweep evaluations, and an error dialog the owner saw.
+**Status**: Open.
+**File**: `src/radiant/gui/main_window.py` (no `closeEvent` at all; `self._worker` is the only reference to the `ConfigSetEvaluationWorker`) / `src/radiant/gui/workers.py` (the worker has no cancel hook and never passed `cancel=` to `evaluate_all`).
+**Symptom**: close the main window while a chain evaluation is in flight — easy to hit during a burst of edits, each of which schedules a debounced run, and certain during a long multi-configuration pass. The window is destroyed, its last reference to the `QThread` drops, the C++ `QThread` destructor runs while the thread is still executing, and Qt calls `std::terminate`: the process aborts rather than closing.
+**Why it still matters**: workflow-visible (intake test 4) and unrecoverable — it is a hard crash on the ordinary "I'm done, close it" action, and it can land while a save dialog's work is still settling. The sweep dialog already solved the same class of bug for its own worker (CU-325, close-on-settle); the main window was simply never given the equivalent.
+**Suggested fix**: (a) inline-fix-now — give the worker a `request_cancel()` polled through `evaluate_all(cancel=...)` (Gap 72 hook, already supported) and give the window a `closeEvent` that stops the debounce, clears the queued re-run, disconnects the result slots, cancels, and **joins** with `QThread.wait`. The main window must join rather than defer-close like the sweep dialog: the user asked for the application to go away. Effort S; category D. Related: [[CU-325]].
 
 ### CU-350 — The well-fill/saturation check omits near-field and stray electrons: the noise budget and the well check disagree about what is in the pixel — RESOLVED 2026-09-09 (commit trailer)
 
@@ -1040,7 +1073,6 @@ Only the **GEO** row behaves as the entry describes: there `exp(−h/H_MOL)` und
 **Suggested fix**: (a) inline, XS — switch 1.4 to `Agg` (one line; a behaviour change to a committed runner, so note it in the walkthrough), optionally pin the backend in the five bare runners. Category A. Related: [[CU-164]], [[CU-291]].
 **Resolution**: symptom confirmed by inspection before fixing — `matplotlib.use("TkAgg")` at line 44 with an unconditional `plt.show()` at line 685, and every sibling runner already carrying `Agg` with the `# headless-safe` comment. Switched 1.4 to `Agg` with that same comment. Verified end to end: `python scripts/run_tdi_pushbroom_trade.py` now **exits 0** and writes all four figures, where it previously parked at 0 % CPU indefinitely. All four `savefig` calls (lines 492/523/551/573) precede the `show()`, so **no figure content depends on this change** — only the pop-up window is gone; the outputs `MANIFEST.md` records the behaviour change beside its now-honest "regenerate by running the script" instruction. **The CU's optional second half is declined as incorrect**: the five "bare" runners it names (2.2, 2.3, 2.5, 6.3, 7.1) are all `gui_console_*.py` scripts written to be pasted into the GUI scripting window, whose documented behaviour is "the figure pops out into its own window". Forcing `Agg` there would break their primary use case, and none of the five calls `plt.show()`, so none can block — the latent trap the CU posits does not exist for them. Regenerating the figures was **not** taken (out of scope, and [[CU-291]] owns it); the smoke test's regenerated PNGs were reverted, and their byte deltas against the committed set (−3650, +2313, +8, +3942 bytes) are a fresh datum for CU-291. No CHANGELOG entry — a scenario runner is not a public API surface and no computed value moves.
 
-
 ### CU-302 — `geometry.site_elevation_m` is silently inert for tabulated and direct Cn2 profiles — RESOLVED 2026-07-30 (commit `61d8104`)
 
 **Discovered**: Overnight backlog run, CU-262 close-out, 2026-07-30.
@@ -1101,7 +1133,6 @@ Only the **GEO** row behaves as the entry describes: there `exp(−h/H_MOL)` und
 **Why it still matters**: Rule 15 errors are meant to be actionable; a stale module self-reference sends the next debugger to the wrong file. Cosmetic, but it will be copied by the next guard added to the module.
 **Suggested fix**: (a) inline, XS — retarget the prefix to `source.target_spec` in one pass and update the text-identity test's expectation in the same commit (the identity that matters is seam-vs-evaluate, and both read from the shared functions, so the test still holds). Category A. Related: [[CU-244]].
 **Resolution**: symptom reproduced — 15 `what=` strings in `target_spec.py` opened `"source._inferrer: "`, and `git grep` confirmed the only other holders of that prefix are the guards that genuinely still live in `_inferrer.py` (lines 876, 1045, 1069, 1167, 1185, 1290, 1331, 1656, 1778, 1803, 1836 — [[CU-294]]'s inlined point-intensity guards among them, deliberately untouched). All 15 retargeted to `"source.target_spec: "` in one pass; the module docstring now records why the CU-244 byte-identity promise was retired. **Correction to the entry as filed**: there is no test carrying a literal expectation to update — the text-identity test (`src/radiant/api/tests/test_validate_target_spec.py::test_same_error_from_seam_and_evaluate`) compares `str(seam_error) == str(evaluate_error)` dynamically, and both sides call the same functions, so it holds unchanged (verified: 579 passed in `src/radiant/source` + the seam suite). No `match=` assertion anywhere in `src/`, `tests/`, `scripts/`, or `dev_tools/` contains the string `source._inferrer`. No CHANGELOG entry: the error *class* and every public name are unchanged and no computed result moves; Rule 29's list (API method, parameter, metric, error class, config field) does not cover an error-message prefix.
-
 
 ### CU-287 — `_require_matplotlib()` forces the process-global Agg backend on every `plot_*` call, including from GUI embedders — RESOLVED 2026-07-30 (commit `e2abef3`)
 
@@ -1324,7 +1355,6 @@ So the class of defect is real but rarer than filed: **1 broken link in 221**, p
 **Verified unreferenced before deleting**: `grep -rn MWIR_Jason` across the tree returns only this registry and the plan's owner-triage list; no test, script, doc or config loads it, and nothing globs `examples/` (checked for `glob`/`iterdir`/`listdir`/`rglob` against that path in `src/`, `tests/` and `scripts/`). Unlike [[CU-207]]'s `nintendo.yaml` it carried no hardcoded absolute path, so this was purely a naming/placement finding — `docs/OPERATING_MODEL.md` §5 requires a name that states the *content*, not the author, and `examples/` is a shipped surface a new user reads for canonical configs.
 **No CHANGELOG entry**, matching the [[CU-207]] precedent: `nintendo.yaml`'s deletion (`cc4e2c6`) got none either. The curated examples a user is pointed at — `mwir_leo_minimal.yaml`, `ground_truth_mwir.yaml`, and the twelve under `templates/` — are untouched. Related: [[CU-207]].
 
-
 ### CU-273 — `emit_gui_yaml.py` rewrites portable baseline paths back to gitignored generated locations, silently un-doing CU-180 — RESOLVED 2026-07-29 (commit `1d71422`)
 
 **Discovered**: Backlog-Reduction Track B1, 2026-07-28 — a fresh worktree failed `test_gui_baselines[4.3]` immediately after the CU-253 baseline regeneration merged.
@@ -1334,7 +1364,6 @@ So the class of defect is real but rarer than filed: **1 broken link in 221**, p
 **Regression guard, and why the existing one could not catch it.** `test_gui_baseline_reproduces_snapshot` reloads and re-evaluates, but it runs in a tree where the scenario's `outputs/` directory usually exists — the same tree that regenerated the baseline — so the bad path resolves fine there. That is exactly how the live regression reached `main` under a green 6023-test suite (`d169feb`, repaired by `962bc8e`). The new `test_gui_baseline_references_only_committed_files` is **static** and holds regardless of what is on disk: no shipped `.gui.yaml` may reference `outputs/`, and every path it does reference must resolve. It is deliberately **unmarked**, so it runs in the fast suite rather than only under `-m golden`, and it fails in the tree that introduces the problem instead of the one that inherits it. Mutation-checked: re-injecting `../outputs/derived/…` into 4.3 fails the guard, and only that guard.
 **Why it still mattered**: it defeated CU-177/CU-180's portability work by construction, and it was primed to fire again on the *next* results-affecting change — the CU-254 baseline refresh earlier the same day had to be verified by hand against exactly this trap. Related: [[CU-180]], [[CU-177]], [[CU-253]], [[CU-254]].
 
-
 ### CU-272 — `scripts/synth_modtran/tests/` is red on a clean tree: a missing generated fixture fails instead of skipping — RESOLVED 2026-07-29 (commit `1d71422`)
 
 **Discovered**: Backlog-Reduction Track A, Wave A3 (widening the lint gate for [[CU-270]]), 2026-07-28 — the first `pytest scripts/` anyone appears to have run.
@@ -1343,7 +1372,6 @@ So the class of defect is real but rarer than filed: **1 broken link in 221**, p
 **Skip, not generate-on-demand.** The entry offered generation as an option and it was rejected on inspection: `generate_synthetic_tape7.py` computes HITRAN line-by-line opacities through RADIS — an optional heavy dependency, minutes of compute, and a network fetch on a cold cache. A test fixture may not do that implicitly. The three registry and no-extrapolation tests touch no deck and run everywhere, so the file is genuinely green-or-broken either way rather than vacuous.
 **Second half — the gate-scope decision, taken rather than deferred.** `scripts/` **joins** the local merge-gate battery and `CLAUDE.md` now says so, with the reason. It is outside pytest's `testpaths = ["src", "tests"]`, so bare `pytest` never reached it; it runs in under a second. `dev_tools/` deliberately stays out: its only suite is `geometry_gui_v2`, which needs a display and is already run under Xvfb by CI. Both trees remain covered by the ruff lint and format checks. Note that CI selects by marker (`-m level0/level1/level2/golden`), so these unmarked tests are still local-gate-only — marking them is a separate call, not smuggled in here.
 **Why it still mattered**: same blind spot as [[CU-221]], [[CU-252]]/[[CU-270]] and [[CU-277]] — a gate that is already red cannot fail on the next regression. Related: [[CU-221]], [[CU-270]], [[CU-277]], [[CU-164]], [[CU-226]], [[CU-239]].
-
 
 ### CU-255 — `AtmosphericGeometry.slant_path_length_m` >80° spherical form uses the segment's full geometric Δh, making τ non-monotonic in zenith — RESOLVED 2026-07-29 (commits `00769a7`, `5c0f3dd`)
 
@@ -1375,7 +1403,6 @@ All rows now equal the whole-column value **exactly** (bit-identical through the
 **Tests**: `test_topology_dispatch.py::test_sky_background_does_not_depend_on_the_target_altitude` (the invariant), `::test_sky_background_is_the_sky_itself` (pass-through), `test_assembly_sky_background.py::test_observer_leg_fields_are_not_consulted` (perturb τ_full_up / L_path_full, answer must not move — the direct regression guard), and `tests/integration/test_direction_aware_atmosphere.py::TestBackgroundIsIndependentOfTargetPositionAlongTheRay` at chain level, which also asserts `signal_e` keeps varying so it cannot pass by flattening everything.
 **Note for consumers of the sub-pixel decomposition**: `SpectralIntegrationStage`'s `L_bg_only_at_aperture = at_aperture_background − L_path_full` stays exact for this topology (it publishes `L_path_full == L_path_up`), but the intermediate can go negative in daytime VIS/NIR — see [[CU-260]]. Documented at the site with an explicit do-not-clamp. Related: Gap 108, [[CU-260]], [[CU-224]], [[CU-225]], [[CU-276]].
 
-
 ### CU-225 — The sky-radiance product steps by ≈ 28 % at the 89.5° column/grazing hand-over — RESOLVED 2026-07-29 (commit `5c0f3dd`)
 
 **Discovered**: Geometry-Flexibility Phase 2, up/level topology assembly (branch `gf2/atmosphere`), 2026-07-26.
@@ -1390,7 +1417,6 @@ All rows now equal the whole-column value **exactly** (bit-identical through the
 (48.2° is the MODTRAN H-run anchor zenith.) The discontinuity went from ≈ 8 % at the old ceiling — ≈ 28 % on the 3 km level arm this entry originally measured — to **0.64 %**, and the whole 80–89.5° band is now served by the exact integral. The underlying optical depths differ by 2.8 % at 80° and by a factor of two at 89°; the radiance step is smaller because the product saturates as `1 − τ`.
 **The residual 0.64 % is deliberate, not overlooked.** Removing it entirely means using the grazing form at *every* zenith. The two evaluators weight their species split at different altitudes (`segment_grazing` at the arc's lower end, `segment_simple` at the segment mean), which leaves the thermal products agreeing to ≤ 0.65 % but moves the provisional VIS scattered sky by up to 10×. That is a modelling decision needing a MODTRAN daytime anchor, and it is tracked where the mechanism lives — [[CU-260]] — rather than left implied here. This entry's Rule-27 worry (that option (i) would orphan `sky_radiance_along_los`'s column path) did not materialise: that path still serves every scene inside 80°, which is all of them today.
 **Tests**: `test_segment_grazing.py::test_agrees_at_the_eighty_degree_hand_over` pins the ≈ 3 % OD agreement at the new switch, and `::test_diverges_past_the_ceiling_and_the_column_form_overstates` pins the factor-of-two at 89° that justifies the module's existence. **Results-affecting** for up/level scenes past 80° zenith; no shipped scenario is in that band, so no baseline moved from this change alone. Related: [[CU-222]], [[CU-274]], [[CU-260]], Gap 108, ADR-0011 decision 3.
-
 
 ### CU-274 — `slant_path_length_m` jumps 18 % across its own 80° branch switch, for every geometry — RESOLVED 2026-07-29 (commit `5c0f3dd`)
 
@@ -1412,7 +1438,6 @@ The root form is not an air mass at all — it is the geometric chord of a slab 
 **Zero movement below 80°**: that branch was already `sec ζ`, so the change is bit-identical there. No shipped scenario exceeds 37.5° LOS zenith or 40° solar zenith (checked across all `scenarios/*/*/inputs/*.yaml` and `examples/`), and the full golden suite confirms it — the only baseline that moved in this commit moved from [[CU-254]].
 **What is left**: past 80° the two callers with no grazing route (the down-looking column and the solar column) now *overestimate* the air mass — +13 % at 85°, +237 % at 89.4° — rather than underestimating it. That is the conservative direction (pessimistic τ, pessimistic SNR) where the root form was optimistic, but it is still an error and is tracked as [[CU-275]].
 **Tests**: `test_simple.py::test_air_mass_is_sec_zeta_with_no_branch` (the identity across 0–89.5°, including 79.9/80.0/80.1) and `::test_air_mass_is_continuous_and_monotone_across_the_old_switch` (no step, never falls as the path tilts). Related: [[CU-255]], [[CU-225]], [[CU-275]].
-
 
 ### CU-277 — `lint-imports` is red on `origin/main`: a GUI test imports `radiant.performance` directly — RESOLVED 2026-07-29 (commit `5c0f3dd`)
 
@@ -1775,7 +1800,6 @@ What is real is that the app legitimately holds **one figure per plot section**,
 **Phase 4e enumeration (2026-07-25)**: `ruff format --check src/ tests/` on ruff **0.15.12** reports **24** files, not one. The other 23 are `src/radiant/api/stage_output_units.py`, `src/radiant/atmosphere/loaders.py`, `src/radiant/cli/tests/test_cli.py`, `src/radiant/core/spectral.py`, `src/radiant/io/config.py`, `src/radiant/io/tests/test_config.py`, `src/radiant/readout/stage.py`, `src/radiant/readout/tests/test_tdi.py`, `src/radiant/source/converters/point_intensity.py`, `src/radiant/source/tests/test_inferrer_mwir_routing.py`, and 13 files under `tests/integration/` + `tests/test_provenance.py`. **Every one of those diffs is the same shape**: a wrapped expression re-joined onto a single line that fits in 100 columns. That is a *formatter version* behaviour change, not author drift — the repo pins only `ruff>=0.1` (`pyproject.toml:31`), so each contributor's ruff formats differently and reformatting the 23 now would simply re-drift on the next checkout with an older ruff.
 
 **Suggested fix** (revised): (a) **done** — the named file, commit `b57491b`. Then, as one owner-facing tooling task and in this order: **pin ruff to an exact version** in the `dev` extra and in CI (without a pin, `ruff format --check` is a version-dependent gate and will fail spuriously); reformat the remaining 23 files with that pinned version in the same PR; and only then add `ruff format --check src/ tests/` to the merge gate battery in CLAUDE.md and to CI alongside `ruff check`. Effort S for the pin + reformat, and the gate line in CLAUDE.md is the owner's call, not an agent's (Phase 4e deliberately did not edit that list). Category A. Not done in Phase 4e: reformatting 23 physics/io/integration files inside a GUI PR is the scope creep the task discipline forbids, and it would churn files concurrent agents may be editing.
-
 
 ### CU-235 — Clamping the smear kernel to the PSF grid can make its size even, which the kernel builder rejects — RESOLVED 2026-07-27 (commit `2bb84c5`)
 
@@ -2387,7 +2411,6 @@ element trains have no path but the API/GUI.
 the bare loader; effort S, category A. Alternative: pass `sections_out` and inject manually
 (duplicates Sensor logic — dispreferred).
 
-
 ### CU-145 — Script Editor has syntax highlighting but no line-number margin — RESOLVED 2026-07-16 (commit `2afdef9`)
 
 **Discovered**: Scripting window Pass 2 (multi-tab script Editor), 2026-07-15, branch `gui-framework-plots`
@@ -2396,7 +2419,6 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 **Symptom**: The Editor code pane shows no line numbers; a traceback's line number must be counted by hand.
 **Why it still matters**: Editor usability — line numbers are standard for locating a run error and for Run-Selection targeting. No correctness/physics impact.
 **Suggested fix**: (a) inline-fix-now candidate — add the standard `QPlainTextEdit` line-number-area pattern (a sibling widget painting numbers in the left margin, sized from `blockCount`), themed from tokens. Effort S; category D (view-only). Re-audit at the next scripting-window touch or a v1.1 polish pass.
-
 
 ### CU-144 — Script Editor closing / New-tab discards unsaved edits without a confirmation prompt — RESOLVED 2026-07-16 (commit `2afdef9`)
 
@@ -2407,7 +2429,6 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 **Why it still matters**: Data-loss safety — the standard desktop pattern prompts on discard. Low severity: scripts are easily re-typed scratch buffers and the `*` marker mitigates surprise, but an accidental `×` click still loses work.
 **Suggested fix**: (b) stand-alone task — add a `QMessageBox` "Save / Discard / Cancel" prompt gated on `tab.is_dirty` before a tab close (and window close), with a test hook to auto-answer under the offscreen QPA; fold together with CU-140's main-window prompt. Effort S; category D. Re-audit with CU-140 or at the acceptance walkthrough.
 
-
 ### CU-140 — File → New / Open discard unsaved edits without a confirmation prompt — RESOLVED 2026-07-16 (commit `2afdef9`)
 
 **Discovered**: GUI Development Plan Phase 9 (File round-trip), 2026-07-15, branch `gui-framework-plots`
@@ -2416,7 +2437,6 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 **Symptom**: With unsaved edits, choosing New or Open (or an Open Recent entry) replaces the config without asking, losing the edits. A confirm prompt was deliberately omitted for v1 (keeps the offscreen tests free of a modal `QMessageBox` and the scope minimal).
 **Why it still matters**: Data-loss safety — the standard desktop pattern is to prompt on discard. The `*` marker mitigates it but does not prevent an accidental click.
 **Suggested fix**: (b) stand-alone task — add a `QMessageBox` "Save / Discard / Cancel" prompt gated on `self._dirty` before New / Open / Open-Recent / (and window close), with a test hook to auto-answer under the offscreen QPA. Effort S–M; category D. Re-audit at the acceptance walkthrough or the next File-menu touch.
-
 
 ### CU-146 — RADIANT_Source_Target_System §8 parameter inventory names drifted from the shipped schema — RESOLVED 2026-07-16 (commit `ecf96c5`)
 
@@ -2723,7 +2743,6 @@ the bare loader; effort S, category A. Alternative: pass `sections_out` and inje
 **Suggested fix**: see [docs/reports/cu_tasks/CU-009_Observer_Geometry_Schema_Task.md](CU-009_Observer_Geometry_Schema_Task.md). Recommended approach (Approach A in that task doc): wire `_infer_los` to the already-registered `geometry.path_zenith_rad` / `solar_zenith_rad` / `solar_azimuth_rad` (T1 ⇒ `theta_s = delta_phi = None`, T2/T3 ⇒ populated); fix the latent unregistered `geometry.observer_zenith_rad` reader in the same surgery; zero new schema parameters; zero baseline drift.
 **Resolution**: Approach A of the task doc landed as `d846f07` (cherry-picked from branch `chore/cu-009-observer-geometry`, original commit `c2634b6` (not on main)): `_infer_los` now reads the already-registered `geometry.target_altitude_m` / `path_zenith_rad` / `solar_zenith_rad` / `solar_azimuth_rad` (T1 ⇒ `theta_s = delta_phi = None`; T2/T3 ⇒ populated); the latent unregistered `geometry.observer_zenith_rad` reader in `_view_direction_from_los` fixed in the same surgery. Zero new schema parameters; zero baseline drift (all 14 baselines take defaults); 418-line routing test suite added (`test_inferrer_los_routing.py`).
 
-
 ### CU-042 — `QtInteractor` segfault under `QT_QPA_PLATFORM=offscreen` on Darwin — RESOLVED 2026-05-02 (commit `c972802`)
 
 **Discovered**: Geometry GUI v2 Phase 6 (2026-04-26).
@@ -2743,7 +2762,6 @@ Closed by reference to the Stage 4 architectural decision, not by new code. Inve
 ### CU-013 — Shadow-mode `rtol=1e-6` may be too tight for Stage 6 heterogeneous cells — RESOLVED 2026-04-26 (commit `3680a54`)
 
 Closed alongside CU-012, same root cause. The `_SHADOW_RTOL` constant returned zero grep hits because Stage 4 (commit `3680a54`) deleted it along with the rest of the shadow-mode machinery. The Stage-6-tolerance concern is therefore moot — there is no post-Stage-6 tolerance value to recover because the per-scenario heterogeneous-cell comparison no longer runs. The `ANCHOR_TOLERANCE = 1e-6` in `tests/integration/test_option_c_anchors.py:69` survives unchanged because Cells 28 and 58 are both T1Thermal with ρ≡0, making them bit-invariant across Stage 6's `ρ · (E_sky_scattered + E_sky_thermal)` decomposition (`Option_C_Implementation_Plan.md:51`). No tolerance loosening occurred; the assertion scope shrank from "all invariant cells" to "two anchor cells."
-
 
 ### CU-021 — Repo-wide `ruff format` drift (160 files) — RESOLVED 2026-04-26 (commits `1c1c6b7`, `87dfccc`)
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 
 from radiant.api.errors import ApiValidationError
@@ -19,6 +20,7 @@ from radiant.api.plot import (
     plot_noise_budget,
     plot_noise_pie,
     plot_optical_throughput,
+    plot_optical_throughput_terms,
     plot_psf,
     plot_pupil_phase,
     plot_spectral,
@@ -1012,3 +1014,95 @@ class TestMtfFrequencyAxisLimit:
     def test_non_positive_explicit_limit_raises(self) -> None:
         with pytest.raises(ApiValidationError, match="must be a positive frequency"):
             plot_mtf_terms(self._terms(), self.FREQ, freq_max_cycles_per_mrad=0.0)
+
+
+@pytest.mark.level1
+class TestPlotOpticalThroughputTerms:
+    """CU-352 — the transmission overlay's own contract (the accessor is tested in
+    test_inspect; this is the drawing function)."""
+
+    @staticmethod
+    def _terms() -> tuple[
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        dict[str, tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]],
+    ]:
+        wl_a = np.linspace(3.5, 5.0, 30)
+        wl_b = np.linspace(3.6, 5.1, 25)  # a distinct per-element grid
+        return (
+            wl_a,
+            wl_b,
+            {
+                "m1": (wl_a, 0.97 * np.ones_like(wl_a)),
+                "window": (wl_b, 0.90 * np.ones_like(wl_b)),
+            },
+        )
+
+    def test_contributors_keep_their_own_grids(self) -> None:
+        wl_a, wl_b, terms = self._terms()
+        fig = plot_optical_throughput_terms(terms)
+        ax = fig.axes[0]
+        assert len(ax.lines) == 2
+        np.testing.assert_array_equal(ax.lines[0].get_xdata(), wl_a)
+        np.testing.assert_array_equal(ax.lines[1].get_xdata(), wl_b)
+        assert "µm" in ax.get_xlabel()
+        assert "dimensionless" in ax.get_ylabel()
+        assert ax.get_ylim() == (0.0, 1.05)
+        matplotlib.pyplot.close(fig)
+
+    def test_system_curve_is_emphasised_on_its_own_grid(self) -> None:
+        _wl_a, _wl_b, terms = self._terms()
+        wl_sys = np.linspace(3.4, 5.2, 40)  # the product carries its own grid too
+        tau = 0.873 * np.ones_like(wl_sys)
+        fig = plot_optical_throughput_terms(terms, system_wavelength_um=wl_sys, system_tau=tau)
+        ax = fig.axes[0]
+        by_label = {line.get_label(): line for line in ax.lines}
+        system = by_label["SYSTEM"]
+        np.testing.assert_array_equal(system.get_xdata(), wl_sys)
+        np.testing.assert_array_equal(system.get_ydata(), tau)
+        for label, line in by_label.items():
+            if label != "SYSTEM":
+                assert system.get_linewidth() > line.get_linewidth()
+                assert system.get_zorder() > line.get_zorder()
+        matplotlib.pyplot.close(fig)
+
+    def test_no_unity_collapse(self) -> None:
+        """Unlike the MTF overlay, a near-unity element is still drawn.
+
+        "This window costs nothing" is a real statement about a coating, and a
+        handful of elements never reaches the density that forced the MTF collapse.
+        """
+        wl = np.linspace(3.5, 5.0, 20)
+        fig = plot_optical_throughput_terms(
+            {"lossless": (wl, np.ones_like(wl)), "lossy": (wl, 0.5 * np.ones_like(wl))}
+        )
+        labels = {line.get_label() for line in fig.axes[0].lines}
+        assert labels == {"lossless", "lossy"}
+        matplotlib.pyplot.close(fig)
+
+    def test_system_omitted_without_a_grid(self) -> None:
+        """Half a system spec draws no system curve — this function multiplies nothing."""
+        wl = np.linspace(3.5, 5.0, 20)
+        fig = plot_optical_throughput_terms(
+            {"m1": (wl, 0.97 * np.ones_like(wl))}, system_tau=0.97 * np.ones_like(wl)
+        )
+        labels = {line.get_label() for line in fig.axes[0].lines}
+        assert labels == {"m1"}
+        matplotlib.pyplot.close(fig)
+
+    def test_mismatched_system_grid_is_refused(self) -> None:
+        wl = np.linspace(3.5, 5.0, 20)
+        with pytest.raises(ApiValidationError, match="wavelength grid"):
+            plot_optical_throughput_terms(
+                {"m1": (wl, 0.97 * np.ones_like(wl))},
+                system_wavelength_um=wl,
+                system_tau=np.ones(5),
+            )
+
+    def test_empty_terms_with_a_system_curve_still_draws(self) -> None:
+        wl = np.linspace(3.5, 5.0, 20)
+        fig = plot_optical_throughput_terms(
+            {}, system_wavelength_um=wl, system_tau=0.8 * np.ones_like(wl)
+        )
+        assert [line.get_label() for line in fig.axes[0].lines] == ["SYSTEM"]
+        matplotlib.pyplot.close(fig)

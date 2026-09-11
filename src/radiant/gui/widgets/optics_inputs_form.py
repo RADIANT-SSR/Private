@@ -2,13 +2,19 @@
 
 :class:`OpticsInputsForm` is the *Inputs* section of the Optics stage's contextual center
 (arch doc §4.4 section 1, GUI plan Phase PS-2): the key instrument parameters — aperture
-diameter, focal length / f-number, central obscuration + spiders, the scalar throughput
-τ_opt, the RMS wavefront error, and the optics temperature — as editable schema-driven
-rows. It is the optics sibling of :class:`~radiant.gui.widgets.source_inputs_form.SourceInputsForm`:
-together with the MTF / PSF+pupil / throughput diagnostic tabs it makes the Optics stage the
-richest per-stage *instrument* (arch doc §4.4.1 Optics rows) — edit an input and watch the
-maps respond (WFE → the pupil-phase map gains structure; aperture → MTF/PSF; τ_opt → the
-throughput curve).
+diameter, focal length / f-number, central obscuration + spiders, and the wavefront
+error — as editable schema-driven rows. It is the optics sibling of
+:class:`~radiant.gui.widgets.source_inputs_form.SourceInputsForm`:
+together with the Transmission / MTF / PSF+pupil diagnostic tabs it makes the Optics stage
+the richest per-stage *instrument* (arch doc §4.4.1 Optics rows) — edit an input and watch
+the maps respond (WFE → the pupil-phase map gains structure; aperture → MTF/PSF).
+
+**Transmission is not here** (owner-ratified 2026-09-09/10). ``optics.transmission_scalar``
+used to sit in this list, one tab away from the element train that silently overrode it —
+an operator could edit τ_opt here, see no change in SNR, and have no way to find out why.
+Transmission is now defined on the Optics **Transmission** tab and nowhere else: the scalar
+field lives beside the mode selector that says whether it is the definition in force
+(:class:`~radiant.gui.widgets.transmission_panel.TransmissionPanel`).
 
 **Schema-driven, one API call per edit (Gap 70 / R-API).** Every field is built from and
 formatted through the public :class:`~radiant.api.sensor.Sensor` surface
@@ -62,9 +68,12 @@ if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
 
 # The key optics parameters (label, dot-path), in a reading order that groups the aperture
-# geometry (diameter, focal length, f/#, obscuration, spiders), the scalar throughput τ_opt
-# (the coating parameter present in scalar-transmission mode), the RMS wavefront error, and
-# the optics temperature. Bounds/units/description all come from the live schema (never
+# geometry (diameter, focal length, f/#, obscuration, spiders) and then the wavefront error.
+# Two absences are deliberate. ``optics.transmission_scalar`` moved to the Transmission tab
+# (2026-09-09/10) — transmission has one home. ``optics.optics_temperature_K`` was removed
+# outright 2026-09-10 (owner ruling): after Gap 127 it could only ever reach non-emitting
+# synthesized elements, so it multiplied zero; optics temperature is now per element, on the
+# rows of the element train. Bounds/units/description all come from the live schema (never
 # transcribed) — only the human label + the grouping is a literal here (CU-120, tracked with
 # the geometry/source manifests).
 _OPTICS_FIELDS: Final[tuple[tuple[str, str], ...]] = (
@@ -73,15 +82,13 @@ _OPTICS_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("f-number", "optics.f_number"),
     ("Obscuration ratio", "optics.obscuration_ratio"),
     ("Spider arms", "optics.n_spiders"),
-    ("Scalar throughput τ_opt", "optics.transmission_scalar"),
     ("WFE RMS (scalar)", "optics.wfe_rms_waves"),
     ("WFE reference wavelength", "optics.wfe_reference_wavelength_um"),
     ("Zernike file (Zemax export)", "optics.zernike_file"),
     ("Defocus", "optics.defocus_um"),
-    ("Optics temperature", "optics.optics_temperature_K"),
 )
 
-_TITLE = "Optics — aperture, throughput, wavefront error, temperature"
+_TITLE = "Optics — aperture and wavefront error (transmission: Transmission tab)"
 
 
 class OpticsInputsForm(QWidget):

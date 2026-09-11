@@ -46,7 +46,6 @@ optics:
   transmission_scalar: 0.70   # end-to-end optical transmission
   # obscuration_ratio: 0.0    # central obscuration ratio
   # wfe_rms_waves: 0.0        # wavefront error in waves
-  # optics_temperature_K: 290 # for self-emission calculation
 
 # --- Detector ---
 detector:

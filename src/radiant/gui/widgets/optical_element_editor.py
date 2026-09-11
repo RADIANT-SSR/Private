@@ -1,15 +1,20 @@
-"""The Optics stage's **Elements** tab — the mixed-train element-list editor (ADR-0009 D2).
+"""The **element-train** editor of the Transmission tab — the mixed-train element list.
 
 :class:`OpticalElementEditor` is the structured config-document editor of the GUI
 Capability Expansion plan Phase GS-4 (audit O-1: per-element %R/%T/temperature mapping —
 the audit's flagship optics gap). It edits the **declarative element document** — the same
 entry dicts the ``optical_elements:`` YAML section carries — never physics objects: rows
-are (name, transfer mode, kind, R-or-T value, temperature, geometry), and every completed
-edit serializes the table to entries and commits through the API (validate-and-attach
-through the io parser — the single validation authority, Kirchhoff checks included — then
+are (name, transfer mode, kind, R-or-T value, temperature), and every completed edit
+serializes the table to entries and commits through the API (validate-and-attach through
+the io parser — the single validation authority, Kirchhoff checks included — then
 persisted by ``Sensor.save``, ADR-0009 D4). The optics stage runs full-prescription on the
-next evaluation and the Throughput tab's coating-spectra figure reflects the authored
-train.
+next evaluation and the same tab's τ(λ) figures reflect the authored train.
+
+It shipped as the Optics **Elements** tab; the 2026-09-09/10 consolidation folded that tab
+and the *Throughput* tab into one **Transmission** tab, so this widget is now mounted by
+:class:`~radiant.gui.widgets.transmission_panel.TransmissionPanel` as the element-train
+mode's editor. That host owns the mode question and drives :meth:`set_active`,
+:meth:`detach_document`, and :meth:`reattach_document`; everything else below is unchanged.
 
 **Commit-on-edit (owner-ratified 2026-09-03, superseding the ADR-0009 D4 *Apply train*
 button).** The tab commits like every other parameter surface: a finished cell edit, a
@@ -157,7 +162,7 @@ _ENTRY_ROLE: Final[int] = int(Qt.ItemDataRole.UserRole) + 4
 # writes none — the parser's own default applies, and it stays the parser's (CU-344).
 _ABSENT: Final[object] = object()
 
-_TITLE = "Optical element train — per-element R/T, temperature, geometry (ε derived)"
+_TITLE = "Optical element train — per-element R/T and temperature (ε derived)"
 _HINT = (
     "R/T cells take a scalar (0.97), a saved spectral CSV (CSV file… button, or type the "
     "path), or an inline λ-table (Spectrum… button). ε is Kirchhoff-derived "
@@ -228,28 +233,42 @@ _SUMMARY_SEPARATOR = " · "
 
 _EPS_TOOLTIP = "ε is Kirchhoff-derived (1 − R − T) — read-only (Rule 5)."
 
-_DETAIL_TITLE = "Coating detail — R / T / ε on the coating's own grid (Gap 116)"
+# The coating-detail header. It names the **selected row** — its element and its
+# position in the train — because the pane follows the selection and nothing else said
+# so: the owner walkthrough (2026-09-10) added two mirrors, read a header that said only
+# "Coating detail — mirror", and had no way to tell which of them was drawn, or that
+# clicking the other row would redraw it.
+_DETAIL_TITLE_IDLE = "Coating detail — R / T / ε on the coating's own grid (Gap 116)"
+_DETAIL_TITLE_ROW = "Coating detail — {name} (row {row}) · R / T / ε on the coating's own grid"
 _DETAIL_PROMPT = (
-    "Select an element row to see its coating model — each quantity on an "
-    "autoscaled panel, over the curve's full stored wavelength extent."
+    "Select a row above to inspect its coating — this plot follows the selected row, "
+    "showing each quantity (R / T / ε) on its own autoscaled panel over the curve's "
+    "full stored wavelength extent."
+)
+# A document may legally carry two entries with the same name (the io parser permits
+# it), and the coating lookup is by name — so it would silently draw the first of them.
+# Say which rows collide and what to do instead of plotting an arbitrary one (Rule 17).
+_DETAIL_DUPLICATE = (
+    "Two or more element rows are named {name!r} (rows {rows}), and a coating is looked "
+    "up by name — so there is no way to say which one this plot would show. Give each "
+    "row a distinct name; new rows are numbered for you (mirror, mirror_2, …)."
 )
 # Tall enough for two stacked autoscaled panels; the figure follows the widget.
 _DETAIL_MIN_HEIGHT = 260
 
+# Gap 128 deleted per-element near-field geometry (``diameter_m`` /
+# ``distance_to_fpa_m``): an element has no near-field geometry of its own, because every
+# in-beam element is seen through the one acceptance cone the working f/# sets (Ω_cone).
+# The two columns rendered as inert em-dashes for one release and were removed by the
+# Transmission-tab consolidation (2026-09-09/10) — a column that can hold no key is a
+# column that describes nothing. A cold stop is stated as
+# ``optics.cold_stop_undersize_frac``, edited on the same tab's effective-pupil strip.
 _COL_NAME = 0
 _COL_TRANSFER = 1
 _COL_KIND = 2
 _COL_VALUE = 3
 _COL_TEMP = 4
-_COL_DIAM = 5
-_COL_DIST = 6
-_COL_EPS = 7
-_GEOMETRY_RETIRED_TOOLTIP: Final[str] = (
-    "Retired by Gap 128: an element has no near-field geometry. Every in-beam "
-    "element is seen through the one acceptance cone the working f/# sets "
-    "(Ω_cone), so per-element diameter and distance-to-FPA describe nothing. "
-    "Use optics.cold_stop_undersize_frac to state a cold stop."
-)
+_COL_EPS = 5
 
 _HEADERS: Final[tuple[str, ...]] = (
     "Name",
@@ -257,8 +276,6 @@ _HEADERS: Final[tuple[str, ...]] = (
     "Kind",
     "R or T (scalar | CSV)",
     "T (K)",
-    "Diam (m)",
-    "→FPA (m)",
     "ε (derived)",
 )
 
@@ -328,6 +345,12 @@ class OpticalElementEditor(QWidget):
         self._suspended = 0
         self._committing = False
         self._pending_message = ""
+        # ``_active``: the Transmission tab's element-train mode is the selected one
+        # (2026-09-09/10). While inactive the table is a **held draft** — the rows stay on
+        # screen, disabled, so the operator can switch back without retyping the train,
+        # and nothing the widget does may write: no reload from the document (which would
+        # wipe the held rows the moment the host re-binds), no commit, no re-render.
+        self._active = True
         # The session's configuration scope (Gap 103 v1.1): the read side of the study
         # document. Held rather than the set itself, because the scope object is stable
         # across document adoptions while the set it carries is not.
@@ -372,6 +395,13 @@ class OpticalElementEditor(QWidget):
         self._table.setHorizontalHeaderLabels(list(_HEADERS))
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.verticalHeader().setVisible(False)
+        # Whole-row selection (owner walkthrough 2026-09-10). The coating-detail pane
+        # below follows the selected row, and with Qt's default per-*cell* selection the
+        # only cue was a single tinted cell — which read as "I clicked here", not as
+        # "this row is what the plot is showing". Selecting the row makes the pane's
+        # subject visible at a glance, and the header names it as well.
+        self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         # The red "C" rides after the name text, painted by the delegate, so the Name
         # cell keeps its inline editor (the name configures with the row).
         self._name_delegate = EditableConfiguredNameDelegate(self._table)
@@ -380,6 +410,7 @@ class OpticalElementEditor(QWidget):
         box.addWidget(self._table)
 
         buttons = QWidget(card)
+        self._buttons = buttons
         button_row = QHBoxLayout(buttons)
         button_row.setContentsMargins(0, 0, 0, 0)
         button_row.setSpacing(6)
@@ -432,9 +463,10 @@ class OpticalElementEditor(QWidget):
         # entries (drafts included, via the `entries=` override), so a row previews
         # before Apply; an unparsable draft shows the io parser's actionable message.
         self._dark = False
-        detail_title = QLabel(_DETAIL_TITLE, card)
-        detail_title.setObjectName("stagePlotTitle")
-        box.addWidget(detail_title)
+        self._detail_title = QLabel(_DETAIL_TITLE_IDLE, card)
+        self._detail_title.setObjectName("stagePlotTitle")
+        self._detail_title.setWordWrap(True)
+        box.addWidget(self._detail_title)
         self._detail_canvas = MatplotlibCanvas(card)
         self._detail_canvas.setMinimumHeight(_DETAIL_MIN_HEIGHT)
         self._detail_canvas.setVisible(False)
@@ -472,7 +504,7 @@ class OpticalElementEditor(QWidget):
         """
         del display_units  # signature parity with the other Inputs forms
         self._sensor = sensor
-        if self._committing:
+        if self._committing or not self._active:
             return
         self._reload_from_document()
 
@@ -566,7 +598,13 @@ class OpticalElementEditor(QWidget):
         Re-rendering discards any draft the table held — which is exactly what makes a
         *pending* (invalid) draft transient, and is safe because every **valid** edit was
         already committed when it was made (commit-on-edit, 2026-09-03).
+
+        A **held** table (scalar transmission mode) is never re-rendered: its rows are
+        deliberately not in the document, so reading the document back would be exactly
+        the silent discard :meth:`set_active` exists to prevent.
         """
+        if not self._active:
+            return
         self._rendered_set = self._bound_set()
         self._clear_pending()
         entries, advisory = self._document_entries()
@@ -869,18 +907,36 @@ class OpticalElementEditor(QWidget):
         While a **pending draft** is held, that message owns this pane: it is the one
         place the operator is told the train did not commit, so a selection change must
         not quietly paint over it.
+
+        The header names the row being drawn (name + 1-based train position), because the
+        pane follows the selection and the figure's own title carries only the name — with
+        two rows called ``mirror`` there was nothing on screen to tell them apart. A name
+        that is genuinely ambiguous (shared by two rows) refuses rather than drawing an
+        arbitrary one: the coating lookup is by name, so "the first match" is not an answer.
         """
         if self._pending_message:
             self._show_detail_message(self._pending_message)
             return
         row = self._table.currentRow()
         if self._sensor is None or row < 0 or row >= self._table.rowCount():
+            self._set_detail_title(None, 0)
             self._show_detail_message(_DETAIL_PROMPT)
             return
         entries = self.entries()
         name = str(entries[row].get("name", "")).strip()
+        self._set_detail_title(name or None, row + 1)
         if not name:
             self._show_detail_message("Name this element to plot its coating detail.")
+            return
+        clashes = [
+            index + 1
+            for index, entry in enumerate(entries)
+            if str(entry.get("name", "")).strip() == name
+        ]
+        if len(clashes) > 1:
+            self._show_detail_message(
+                _DETAIL_DUPLICATE.format(name=name, rows=", ".join(str(index) for index in clashes))
+            )
             return
         try:
             with plot_theme(dark=self._dark):
@@ -892,6 +948,12 @@ class OpticalElementEditor(QWidget):
         self._detail_message.setVisible(False)
         self._detail_canvas.setVisible(True)
         self._detail_canvas.show_figure(figure)
+
+    def _set_detail_title(self, name: str | None, row: int) -> None:
+        """Point the coating-detail header at the selected row (``None`` → the idle text)."""
+        self._detail_title.setText(
+            _DETAIL_TITLE_IDLE if name is None else _DETAIL_TITLE_ROW.format(name=name, row=row)
+        )
 
     def _show_detail_message(self, text: str) -> None:
         """Show *text* under the table, in the warn register while a draft is pending.
@@ -930,6 +992,11 @@ class OpticalElementEditor(QWidget):
         """The coating-detail message label (test seam)."""
         return self._detail_message
 
+    @property
+    def detail_title(self) -> QLabel:
+        """The coating-detail header — names the selected row (test seam)."""
+        return self._detail_title
+
     # -- table mechanics ------------------------------------------------------
 
     @contextmanager
@@ -966,9 +1033,7 @@ class OpticalElementEditor(QWidget):
         (``temperature_K`` 0.0 K, applied at parse time), and the invented 293.0 the
         cell used to show was neither that default nor the operator's authorship. An
         empty cell is the true statement "this entry does not specify it", and it
-        serializes back to no key, so the parser's default keeps applying. The Diam and
-        →FPA cells render as an inert em-dash: Gap 128 deleted per-element near-field
-        geometry, so there is no key left for them to carry.
+        serializes back to no key, so the parser's default keeps applying.
         """
         row = self._table.rowCount()
         self._table.insertRow(row)
@@ -1023,16 +1088,6 @@ class OpticalElementEditor(QWidget):
         self._table.setItem(row, _COL_VALUE, value_item)
         stored = entry.get("temperature_K")
         self._table.setItem(row, _COL_TEMP, QTableWidgetItem("" if stored is None else str(stored)))
-        # Gap 128 deleted per-element near-field geometry, so these two columns
-        # no longer describe anything: shown inert (read-only, em-dash) rather
-        # than editable, which would be a cell the operator can type into that
-        # changes nothing. The columns themselves come out with the
-        # Transmission-tab redesign.
-        for column in (_COL_DIAM, _COL_DIST):
-            dead_item = QTableWidgetItem("—")
-            dead_item.setFlags(dead_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            dead_item.setToolTip(_GEOMETRY_RETIRED_TOOLTIP)
-            self._table.setItem(row, column, dead_item)
         eps_item = QTableWidgetItem("—")
         eps_item.setFlags(eps_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
         eps_item.setToolTip(_EPS_TOOLTIP)
@@ -1072,11 +1127,30 @@ class OpticalElementEditor(QWidget):
         so it is always expressible, and it takes the document position at the end of the
         train. The templates are complete, valid entries, so the append commits at once
         (2026-09-03) — which is what makes the new row configurable immediately.
+
+        The template's name is **made unique against the rows already in the table**
+        (mirror, mirror_2, mirror_3 …). Two rows called ``mirror`` are legal in the
+        document but ambiguous everywhere the analyst reads one: the coating lookup is by
+        name, and the throughput overlay's legend is too. Numbering at the point of
+        creation costs nothing and means the operator never has to discover the clash
+        (owner walkthrough 2026-09-10). A name typed by hand is never touched.
         """
+        entry = dict(entry)
+        entry["name"] = self._unique_name(str(entry.get("name", "element")))
         self._append_row(entry, self._table.rowCount())
         self._refresh_configured_marks()
         self._table.selectRow(self._table.rowCount() - 1)
         self._commit_structure()
+
+    def _unique_name(self, base: str) -> str:
+        """*base*, suffixed ``_2``, ``_3`` … until no row in the table already uses it."""
+        taken = {self._cell_text(row, _COL_NAME) for row in range(self._table.rowCount())}
+        if base not in taken:
+            return base
+        suffix = 2
+        while f"{base}_{suffix}" in taken:
+            suffix += 1
+        return f"{base}_{suffix}"
 
     def _remove_current(self) -> None:
         """Drop the selected row from the train — for a configured row, behind a confirm.
@@ -1154,7 +1228,7 @@ class OpticalElementEditor(QWidget):
 
         Each row serializes as **its source entry with the table's own cells overlaid**
         (CU-344), never as a document rebuilt from the rendering. That distinction is the
-        whole contract of this tab: the table has seven columns and the element schema has
+        whole contract of this tab: the table has six columns and the element schema has
         many more keys, so a rebuild silently rewrites every row on every commit — it
         invents the keys the columns default (geometry, temperature), drops the keys no
         column shows (a refractive row's ``reflectance``, a cavity row's per-surface
@@ -1168,8 +1242,7 @@ class OpticalElementEditor(QWidget):
         * ``kind`` — refractive rows only, since a REFLECTIVE row is a mirror by
           construction and its Kind combo is locked;
         * the R-or-T value key, ``reflectance`` or ``transmittance`` per transfer mode;
-        * ``temperature_K`` (the Diam / →FPA columns are inert — Gap 128 deleted
-          per-element near-field geometry, so they own no key).
+        * ``temperature_K``.
 
         Everything else rides through untouched. Case is preserved wherever the combo
         agrees with the source case-insensitively, so a document authored with
@@ -1398,7 +1471,7 @@ class OpticalElementEditor(QWidget):
         reload is skipped rather than racing the edit that triggered it.
         """
         sensor = self._sensor
-        if sensor is None or self._committing:
+        if sensor is None or self._committing or not self._active:
             return False
         entries = self.entries()
         rejection = self._rejection(entries)
@@ -1418,6 +1491,60 @@ class OpticalElementEditor(QWidget):
         finally:
             self._committing = False
         return True
+
+    # -- transmission mode (Transmission tab, 2026-09-09/10) --------------------
+
+    def set_active(self, active: bool) -> None:
+        """Activate the editor, or **hold** it inactive without disturbing its rows.
+
+        The Transmission tab's scalar mode leaves the authored train on screen so the
+        operator can A/B the two definitions, but the document it describes has been
+        detached — so a held editor must neither write (a stray commit would silently
+        re-attach a train the operator turned off) nor re-read (which would wipe the held
+        rows the next time the host re-binds). Both are gated on this one flag; the table
+        and its structure buttons are disabled so the state is visible, not just enforced.
+        """
+        if active == self._active:
+            return
+        self._active = active
+        self._table.setEnabled(active)
+        self._buttons.setEnabled(active)
+
+    @property
+    def is_active(self) -> bool:
+        """True while the element train is the selected transmission mode."""
+        return self._active
+
+    def detach_document(self) -> bool:
+        """Detach the element document (scalar mode) while keeping the table's rows.
+
+        One API call through the same write path every edit uses — which is what makes
+        this correct in a study: an empty train collapses every configured row first and
+        then writes ``set_optical_elements(None)`` on the base, so no configuration is
+        left holding an entry for a train that no longer exists. The rows stay in the
+        table as a held draft (:meth:`set_active`), and :meth:`reattach_document` puts
+        them back.
+        """
+        if self._sensor is None or self._committing:
+            return False
+        self._committing = True
+        try:
+            if not self._write([]):
+                return False
+            self._clear_pending()
+            self.elementsApplied.emit(ELEMENT_EDIT_PATH)
+        finally:
+            self._committing = False
+        return True
+
+    def reattach_document(self) -> bool:
+        """Commit the held rows back as the element document (element mode).
+
+        Exactly :meth:`apply_train` — re-attaching is not a special case, it is the same
+        commit a cell edit makes. An empty table re-attaches nothing, which is the honest
+        outcome for a session that never authored a train.
+        """
+        return self.apply_train()
 
     def _write(self, entries: list[dict[str, Any]]) -> bool:
         """Route the validated *entries* to the document that owns them."""

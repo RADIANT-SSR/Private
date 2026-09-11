@@ -658,3 +658,90 @@ class TestOpticsCoatingAccessors:
         ns = ResultPlotNamespace(ChainResult(ChainState(wavelength_um=wl)))
         with pytest.raises(ApiValidationError, match="optical elements"):
             ns.coating_spectra()
+
+
+@pytest.mark.level1
+class TestOpticalThroughputTermsAccessor:
+    """CU-352: per-element net τ with the assembled product as one SYSTEM curve.
+
+    The accessor must read, never derive: each element contributes its own
+    ``net_transmittance`` property (R for a mirror, T for a refractive) and the
+    system curve is the stored ``tau_opt_spectral``. Nothing is multiplied here —
+    that is the optics stage's job, and re-deriving it would be a second source
+    of truth for the same number.
+    """
+
+    def test_draws_every_element_plus_the_system_product(self) -> None:
+        result = _make_optics_result()
+        optics = result.stage_outputs["optics"]
+        mirror, window = optics["elements"]
+
+        fig = ResultPlotNamespace(result).optical_throughput_terms()
+        ax = fig.axes[0]
+        by_label = {line.get_label(): line for line in ax.lines}
+        assert set(by_label) == {"primary_mirror", "dewar_window", "SYSTEM"}
+
+        # Net transmittance is the element's own property: R for the mirror,
+        # T for the window — read verbatim, not recomputed.
+        np.testing.assert_array_equal(
+            by_label["primary_mirror"].get_ydata(), mirror.net_transmittance.values
+        )
+        np.testing.assert_array_equal(
+            by_label["dewar_window"].get_ydata(), window.net_transmittance.values
+        )
+        np.testing.assert_array_equal(
+            by_label["SYSTEM"].get_ydata(), optics["tau_opt_spectral"].values
+        )
+        assert "µm" in ax.get_xlabel()
+        assert "dimensionless" in ax.get_ylabel()
+
+    def test_the_system_curve_is_drawn_above_and_heavier(self) -> None:
+        """The MTF overlay's SYSTEM convention: heavier line, higher z-order."""
+        fig = ResultPlotNamespace(_make_optics_result()).optical_throughput_terms()
+        by_label = {line.get_label(): line for line in fig.axes[0].lines}
+        system = by_label["SYSTEM"]
+        contributors = [line for label, line in by_label.items() if label != "SYSTEM"]
+        assert contributors
+        for line in contributors:
+            assert system.get_linewidth() > line.get_linewidth()
+            assert system.get_zorder() > line.get_zorder()
+
+    def test_duplicate_element_names_stay_distinguishable(self) -> None:
+        """The io parser permits two rows called 'mirror'; the legend must not collide."""
+        from radiant.core.spectral import SpectralData
+        from radiant.optics.element import ElementKind, OpticalElement
+
+        wl = np.linspace(3.5, 5.0, 12)
+
+        def _mirror(reflectance: float) -> OpticalElement:
+            return OpticalElement(
+                name="mirror",
+                kind=ElementKind.MIRROR,
+                temperature_K=250.0,
+                transmittance=SpectralData("T", wl, np.zeros_like(wl), "", "test"),
+                reflectance=SpectralData("R", wl, reflectance * np.ones_like(wl), "", "test"),
+            )
+
+        state = ChainState(wavelength_um=wl)
+        state = state.with_stage_output("optics", "elements", (_mirror(0.97), _mirror(0.80)))
+        fig = ResultPlotNamespace(ChainResult(state)).optical_throughput_terms()
+        labels = {line.get_label() for line in fig.axes[0].lines}
+        assert labels == {"mirror (#1)", "mirror (#2)"}
+
+    def test_raises_without_elements_and_names_the_scalar_alternative(self) -> None:
+        wl = np.linspace(3.5, 5.0, 10)
+        ns = ResultPlotNamespace(ChainResult(ChainState(wavelength_um=wl)))
+        with pytest.raises(ApiValidationError, match="optical elements") as excinfo:
+            ns.optical_throughput_terms()
+        assert "optical_throughput()" in str(excinfo.value)
+
+    def test_missing_system_product_still_draws_the_contributors(self) -> None:
+        """A partial chain with elements but no assembled τ omits SYSTEM, not the plot."""
+        result = _make_optics_result()
+        state = ChainState(wavelength_um=result.state.wavelength_um)
+        state = state.with_stage_output(
+            "optics", "elements", result.stage_outputs["optics"]["elements"]
+        )
+        fig = ResultPlotNamespace(ChainResult(state)).optical_throughput_terms()
+        labels = {line.get_label() for line in fig.axes[0].lines}
+        assert labels == {"primary_mirror", "dewar_window"}

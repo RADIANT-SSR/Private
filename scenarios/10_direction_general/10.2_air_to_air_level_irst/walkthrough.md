@@ -170,6 +170,8 @@ saturates anywhere in the sweep (well margin 5.5 dB at the near end).
 **One warning other than the horizon guard is raised, at every sweep point.**
 The runner classifies it as UNEXPECTED and prints it in full:
 
+<!-- Superseded 2026-09-10: optics.optics_temperature_K was removed (inert after
+     Gap 127) and this warning with it. Quoted verbatim as a record of the run. -->
 > `optics.optics_temperature_K = 250 K is set, but no defined optical element can
 > emit (every element's Kirchhoff-derived emissivity is 0 in the current
 > transmission mode). Near-field emission derives only from defined elements

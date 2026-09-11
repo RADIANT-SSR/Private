@@ -20,6 +20,7 @@ object names only.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from collections.abc import Sequence
 from functools import lru_cache
@@ -27,7 +28,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QEvent, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QKeySequence, QUndoStack
+from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -175,6 +176,16 @@ _UNDO_LIMIT: int = 20
 
 # The RADIANT config file filter for the Open / Save-As dialogs.
 _YAML_FILTER: str = "RADIANT config (*.yaml *.yml);;All files (*)"
+
+# How long the window waits for a running evaluation worker when it closes (CU-353).
+# A single configuration evaluates in ~0.8 s and a cancel lands at the next
+# configuration boundary, so this is ~6× the worst realistic join. It is a *reporting*
+# threshold, not an escape hatch: on expiry the window logs and keeps waiting, because
+# the alternative — returning while the thread runs — destroys a live ``QThread`` and
+# calls ``std::terminate``.
+_WORKER_JOIN_MS: int = 5000
+
+_log = logging.getLogger(__name__)
 
 
 class RADIANTMainWindow(QMainWindow):
@@ -1688,6 +1699,57 @@ class RADIANTMainWindow(QMainWindow):
             self._rerun_pending = False
             self._evaluate_now()
 
+    # -- shutdown (CU-353) ---------------------------------------------------
+
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 — Qt override
+        """Never outlive the evaluation worker: cancel it, join it, then close.
+
+        A ``QThread`` whose C++ object is destroyed while its thread still runs calls
+        ``std::terminate`` — the process dies, with Qt's "QThread: Destroyed while
+        thread '' is still running" on the way out. The window held the only reference
+        to the worker and had **no** ``closeEvent``, so closing during a burst of
+        evaluations (each edit schedules one; the debounce coalesces but a long
+        multi-configuration pass still overlaps the next click) destroyed a live
+        thread. The owner hit exactly that at the end of the 2026-09-10 walkthrough.
+
+        The sweep dialog solved the same problem by deferring its close until the
+        worker settled (CU-325). The main window must not do that — the user clicked
+        the close button and the application is going away — so it **joins** instead:
+        stop scheduling, detach the result slots so nothing renders into a window that
+        is closing, ask the pass to stop at its next configuration boundary, and wait.
+        """
+        self._shutdown_worker()
+        super().closeEvent(event)
+
+    def _shutdown_worker(self) -> None:
+        """Stop scheduling and join any in-flight evaluation (idempotent)."""
+        self._debounce.stop()
+        # A queued re-run would be started by ``_on_worker_finished``; with the window
+        # closing there is nothing left to render it into.
+        self._rerun_pending = False
+        worker = self._worker
+        if worker is None:
+            return
+        self._worker = None
+        # Detach before cancelling: the worker may emit from its own thread while we
+        # wait, and every one of these slots touches widgets that are being torn down.
+        # All three were connected in ``_start_worker``, so none of these can raise.
+        worker.finished_ok.disconnect(self._on_eval_ok)
+        worker.failed.disconnect(self._on_eval_failed)
+        worker.finished.disconnect(self._on_worker_finished)
+        if not worker.isRunning():
+            return
+        worker.request_cancel()
+        if not worker.wait(_WORKER_JOIN_MS):
+            # Named, not swallowed (Rule 17) — and then we keep waiting anyway. A slow
+            # close is a nuisance; returning here is a crash.
+            _log.warning(
+                "Evaluation worker did not finish within %d ms of the window closing; "
+                "waiting for it rather than destroying a running thread.",
+                _WORKER_JOIN_MS,
+            )
+            worker.wait()
+
     def _set_busy(self, busy: bool) -> None:
         """Show/hide the status-bar busy indicator around a worker run."""
         self._busy.setVisible(busy)
@@ -2071,7 +2133,25 @@ class RADIANTMainWindow(QMainWindow):
         self.setWindowTitle(self._compose_title())
         self._settings.add_recent_file(str(written))
         self._rebuild_recent_menu()
-        self.statusBar().showMessage(f"Saved {Path(written).name}")
+        self.statusBar().showMessage(f"Saved {Path(written).name}{self._held_elements_note()}")
+
+    def _held_elements_note(self) -> str:
+        """The non-modal "held element rows were not written" note, or ``""``.
+
+        Saving writes only the **active** transmission mode (owner-ratified 2026-09-09/10):
+        a file with an ``optical_elements`` section means element mode, period, so a train
+        the operator switched away from is deliberately not in the file. That is a silent
+        omission unless it is said, so the save confirmation says it — in the status bar,
+        never a modal, because the save itself succeeded and nothing needs a decision.
+        """
+        panel = self._central.stage_center.pane("optics").transmission_panel
+        held = 0 if panel is None else panel.held_element_rows()
+        if not held:
+            return ""
+        return (
+            f" — scalar transmission is active, so the {held} inactive element row(s) "
+            "were not written"
+        )
 
     def _write_document(self, path: Path) -> Path:
         """Write the session document to *path* and return the written path.

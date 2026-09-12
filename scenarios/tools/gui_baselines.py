@@ -196,10 +196,13 @@ def _build_5_2_nominal(m: object) -> Sensor:
 
 
 def _build_8_1_nominal(m: object) -> Sensor:
-    """Scenario 8.1 baseline = query off-nadir, portable SimpleAtmosphere.
+    """Scenario 8.1 baseline = query off-nadir on the BUNDLED zenith fan.
 
-    The runner's tape7/synthetic MODTRAN family is not portable; the nominal
-    query point uses SimpleAtmosphere at the same us_standard profile.
+    October sweep (2026-09-12): the interpolation demos now demonstrate
+    interpolation. The old SimpleAtmosphere fallback predated the bundled
+    library — `us_standard_zenith_fan` ships in the wheel, so the baseline
+    is portable on the interpolated backend. Night illumination: MWIR
+    thermal scene, and no sun leg means no single-τ collapse caveat.
     """
     config = {
         "source": {
@@ -234,16 +237,23 @@ def _build_8_1_nominal(m: object) -> Sensor:
             "adc_bits": 14,
             "full_well_capacity_e": 2.0e6,
         },
-        "atmosphere": {"model": "simple", "standard_atmosphere": "us_standard"},
+        "atmosphere": {
+            "model": "interpolated",
+            "interpolation_axes": "path_zenith_rad",
+            "standard_atmosphere": "us_standard",
+        },
     }
+    config["geometry"]["solar_illumination"] = "night"
     return Sensor.from_dict(config)
 
 
 def _build_8_2_nominal(m: object) -> Sensor:
-    """Scenario 8.2 baseline = LWIR chain, portable SimpleAtmosphere.
+    """Scenario 8.2 baseline = LWIR chain on the BUNDLED sensor ladder.
 
-    The runner's target-altitude MODTRAN family is not portable; the nominal
-    point uses SimpleAtmosphere at the family's midlat_summer profile.
+    October sweep (2026-09-12): switched from the SimpleAtmosphere fallback
+    to the bundled `midlat_summer_sensor_ladder` (same profile the old
+    fallback used), so the demo baseline runs the backend it demonstrates.
+    Night illumination — LWIR thermal scene, no sun-leg caveat.
     """
     config = {
         "source": {
@@ -275,8 +285,13 @@ def _build_8_2_nominal(m: object) -> Sensor:
             "adc_bits": 14,
             "full_well_capacity_e": 3.0e6,
         },
-        "atmosphere": {"model": "simple", "standard_atmosphere": "midlat_summer"},
+        "atmosphere": {
+            "model": "interpolated",
+            "interpolation_axes": "sensor_altitude_m",
+            "standard_atmosphere": "midlat_summer",
+        },
     }
+    config["geometry"]["solar_illumination"] = "night"
     return Sensor.from_dict(config)
 
 

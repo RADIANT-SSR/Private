@@ -3,7 +3,8 @@ _radiant:
   format: 1
   wavelength_points: 500
 atmosphere:
-  model: simple
+  interpolation_axes: path_zenith_rad
+  model: interpolated
   standard_atmosphere: us_standard
 detector:
   dark_rate_e_per_s: 10000.0
@@ -14,6 +15,7 @@ detector:
 geometry:
   path_zenith_rad: 0.6544984694978736
   sensor_altitude_m: 100000.0
+  solar_illumination: night
 optics:
   aperture_diameter_m: 0.3
   focal_length_m: 0.75

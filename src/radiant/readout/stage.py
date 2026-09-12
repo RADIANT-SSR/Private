@@ -490,6 +490,8 @@ class ReadoutStage:
                 non_signal_e=non_signal_e,
                 dark_e=dark_e,
                 glow_e=glow_e,
+                nearfield_e=nearfield_e,
+                stray_e=stray_e,
                 background_e=background_e,
                 regime_value=regime_value,
                 n_tdi=n_tdi,
@@ -702,6 +704,8 @@ class ReadoutStage:
         non_signal_e: float,
         dark_e: float,
         glow_e: float,
+        nearfield_e: float,
+        stray_e: float,
         background_e: float,
         regime_value: object,
         n_tdi: int,
@@ -749,6 +753,13 @@ class ReadoutStage:
         ratio = t_down / t_up
 
         # ---- Reference (down-phase) charge, ruling D6 ----
+        # D6 clarified (owner, 2026-09-11 / CU-351): the reference phase is a
+        # real second integration of the same pixel through the same optics,
+        # defocused, repeated many times within an integration period. Defocus
+        # spreads the concentrated target; the standing pedestal — background,
+        # dark, glow, near-field (warm-optics) emission, stray light — is
+        # incident in both phases, so all of it integrates into Q_down under
+        # both reference sources and the differential cancels it.
         reference_source: str = params.get("readout.reference_source")
         if reference_source == "background_term":
             if regime_value not in ("sub_pixel", "point_source"):
@@ -761,10 +772,10 @@ class ReadoutStage:
                     f"reference_source = 'user_level' with "
                     f"reference_rate_e_per_s for an extended scene."
                 )
-            q_down_per_pixel = (background_e + dark_e + glow_e) * ratio
+            q_down_per_pixel = (background_e + dark_e + glow_e + nearfield_e + stray_e) * ratio
         else:  # user_level (validated: rate > 0)
             rate: float = params.get("readout.reference_rate_e_per_s")
-            q_down_per_pixel = rate * t_down + (dark_e + glow_e) * ratio
+            q_down_per_pixel = rate * t_down + (dark_e + glow_e + nearfield_e + stray_e) * ratio
         q_down = q_down_per_pixel * n_tdi * m_onchip
 
         # ---- Per-phase dead-time ceilings (plan §2.4: unchanged, per phase) ----

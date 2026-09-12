@@ -141,6 +141,77 @@ class TestBalancedBackgroundSubtraction:
         )
 
 
+class TestWarmOpticsPedestalCancels:
+    """CU-351 (owner ruling 2026-09-11): the reference phase is a real second
+    integration of the same pixel through the same optics, defocused, repeated
+    many times within an integration period. Near-field (warm-optics) emission
+    and stray light are therefore incident during the down phase exactly as
+    during the up phase — defocus spreads the concentrated target, not the
+    standing pedestal — so both terms belong in Q_down under both reference
+    sources, and the differential cancels the full pedestal."""
+
+    _NEARFIELD_E = 5_000.0
+    _STRAY_E = 2_000.0
+
+    def _state_with_warm_optics(self, **kwargs: object) -> ChainState:
+        state = _make_state(**kwargs)  # type: ignore[arg-type]
+        state = state.with_stage_output("detector", "nearfield_e", self._NEARFIELD_E)
+        return state.with_stage_output("detector", "stray_e", self._STRAY_E)
+
+    @pytest.mark.level1
+    def test_background_term_reference_includes_nearfield_and_stray(self) -> None:
+        # Down phase = background + dark + near-field + stray (equal phases).
+        out = ReadoutStage().run(self._state_with_warm_optics(), _make_params())
+        ro = out.stage_outputs["readout"]
+        expected_down = _BACKGROUND_E + _DARK_E + self._NEARFIELD_E + self._STRAY_E
+        assert ro["reference_charge_e"] == pytest.approx(expected_down, rel=1e-12)
+
+    @pytest.mark.level1
+    def test_differential_cancels_warm_optics_pedestal(self) -> None:
+        # Up = target + background + dark + near-field + stray; down = the
+        # same pedestal. Differential = target exactly — the standing
+        # pedestal (near-field emission included) is what the reference
+        # phase exists to subtract.
+        out = ReadoutStage().run(self._state_with_warm_optics(), _make_params())
+        ro = out.stage_outputs["readout"]
+        assert ro["differential_e"] == pytest.approx(_TARGET_E, rel=1e-12)
+
+    @pytest.mark.level1
+    def test_reference_shot_includes_nearfield_and_stray(self) -> None:
+        # The subtraction cancels the mean, not the noise: √Q_down grows.
+        out = ReadoutStage().run(self._state_with_warm_optics(), _make_params())
+        term = next(n for n in out.noise_terms if n.name == "reference_shot")
+        expected_down = _BACKGROUND_E + _DARK_E + self._NEARFIELD_E + self._STRAY_E
+        assert term.value_e == pytest.approx(math.sqrt(expected_down), rel=1e-12)
+
+    @pytest.mark.level1
+    def test_user_level_reference_includes_nearfield_and_stray(self) -> None:
+        # user_level: Q_down = rate·t_down + (dark + near-field + stray)·ratio.
+        params = _make_params(
+            readout__reference_source="user_level",
+            readout__reference_rate_e_per_s=1.0e8,
+        )
+        state = self._state_with_warm_optics(
+            signal_e=_TARGET_E + _BACKGROUND_E,  # extended: bg inside signal
+            regime="extended",
+        )
+        out = ReadoutStage().run(state, params)
+        ro = out.stage_outputs["readout"]
+        expected_down = 1.0e8 * 0.01 + _DARK_E + self._NEARFIELD_E + self._STRAY_E
+        assert ro["reference_charge_e"] == pytest.approx(expected_down, rel=1e-12)
+        assert ro["differential_e"] == pytest.approx(_TARGET_E, rel=1e-12)
+
+    @pytest.mark.level1
+    def test_half_reference_leaves_half_warm_pedestal(self) -> None:
+        # t_down = t_up/2: half of every pedestal term survives, near-field
+        # and stray included — they scale with the phase ratio like dark.
+        params = _make_params(readout__reference_integration_s=0.005)
+        out = ReadoutStage().run(self._state_with_warm_optics(), params)
+        ro = out.stage_outputs["readout"]
+        pedestal = _BACKGROUND_E + _DARK_E + self._NEARFIELD_E + self._STRAY_E
+        assert ro["differential_e"] == pytest.approx(_TARGET_E + 0.5 * pedestal, rel=1e-12)
+
+
 class TestAsymmetricPhases:
     @pytest.mark.level1
     def test_short_reference_leaves_pedestal_residual(self) -> None:

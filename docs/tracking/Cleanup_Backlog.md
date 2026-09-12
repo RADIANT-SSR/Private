@@ -90,16 +90,17 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: VIS/NIR reflective scenarios that route through the MODTRAN **binary** flavor (or a single-file import) still lose the solar-zenith dependence that Stage 6's E_sky decomposition exposes. The analytic backend is fine; the file-import flavor is fine when both files are supplied.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
-### CU-351 — Up/down counting: the down-phase reference charge omits near-field and stray, so the differential no longer cancels the warm-optics pedestal
+## Resolved
+
+### CU-351 — Up/down counting: the down-phase reference charge omits near-field and stray, so the differential no longer cancels the warm-optics pedestal — RESOLVED 2026-09-11 (commit trailer)
 
 **Discovered**: CU-350 fix (branch `cu/well-fill-nearfield`), 2026-09-09 — the same omission, one code path over.
-**Status**: Open — owner-gated (it turns on what ruling D6's `reference_source` is meant to represent).
+**Status**: Resolved — owner ruled 2026-09-11: the reference phase is a real second integration of the same pixel through the same optics, defocused, repeated many times within an integration period.
 **File**: `src/radiant/readout/stage.py::ReadoutStage._finish_updown` — `q_down_per_pixel = (background_e + dark_e + glow_e) * ratio` (`reference_source = "background_term"`) and `rate * t_down + (dark_e + glow_e) * ratio` (`user_level`).
 **Symptom**: with a warm-optics or stray-light pedestal, the up phase accumulates `nearfield_e + stray_e` (CU-350 now counts them there) but the down phase does not, so the signed differential `Q_up − Q_down` retains the full near-field/stray charge instead of cancelling it. The reference-phase shot noise (`reference_shot = √Q_down`) is understated by the same terms.
 **Why it still matters**: results-affecting (intake test 1) for any up/down DROIC configuration with defined warm optical elements; the whole point of the reference phase is to subtract the standing pedestal, and near-field emission is exactly a standing pedestal.
 **Suggested fix**: (b) stand-alone task once the owner rules on D6's scope — if the reference phase is a real second integration of the same pixel, both terms belong in `q_down_per_pixel` under both reference sources (near-field and stray are incident in both phases). Effort S; category C. Related: [[CU-350]], Gap 117 Phase 4.
-
-## Resolved
+**Resolution**: per the ruling, near-field and stray electrons are incident in both phases (defocus spreads the concentrated target, not the standing pedestal), so `q_down_per_pixel` gains `(nearfield_e + stray_e)·ratio` under both `reference_source` modes; the differential now cancels the full warm-optics pedestal and `reference_shot` = √Q_down grows accordingly. Five new tests (`TestWarmOpticsPedestalCancels`, written red-first); D6 text updated in `RADIANT_Detector_Complete.md`; Results-affecting CHANGELOG entry. Related: [[CU-350]].
 
 ### CU-354 — The contrast-SNR saturation warning labels the **clipped signal** "full well", so a saturated run reports "full well 0.000e+00 e-" while the readout warning in the same run reports 1e+05 e- — RESOLVED 2026-09-11 (commit trailer)
 

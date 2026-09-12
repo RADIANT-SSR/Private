@@ -20,6 +20,13 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **`InterpolatedAtmosphere` rejects over-unity transmittance at load.** A
+  family file whose τ exceeds 1 + 1e-9 (percent-vs-fraction mis-scale, wrong
+  column) now fails construction with an actionable error naming the point,
+  instead of being silently clipped into a plausible-looking column. Float
+  dust above 1 still loads; correctly-scaled families are unaffected.
+
 ### Added
 - **Internal-cal path mismatch** (`calibration.cal_path =
   "internal_shutter"`, Gap 122 item 4 — the ADR-0012 fore-optics-exclusion

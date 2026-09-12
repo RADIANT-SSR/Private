@@ -182,6 +182,10 @@ FAMILY_DIRECTIONS: frozenset[str] = frozenset({"down", "up"})
 # float slack: geometry hands vertical paths theta_o = π exactly.
 _UPLOOKING_FIXED_ZENITH_TOL_RAD: float = 1e-6
 
+# Float dust above unity (resample round-trips, file writers) loads fine; a
+# genuinely mis-scaled τ (percent vs fraction) fails loud at construction.
+_TAU_UNITY_TOL: float = 1e-9
+
 # MODTRAN's atmosphere ends at 100 km: everything above it is vacuum — zero
 # extinction, zero emission — so moving an endpoint from this altitude to any
 # higher one adds nothing to the column. Two queries are therefore physically
@@ -488,6 +492,21 @@ class InterpolatedAtmosphere:
         for i, pt in enumerate(points):
             for j, ax in enumerate(self._axes):
                 coords[i, j] = pt.coordinates[ax]
+            tau_max = float(np.max(pt.transmittance.values))
+            if tau_max > 1.0 + _TAU_UNITY_TOL:
+                # October sweep: the old silent clip to 1.0 converted a
+                # mis-scaled family file into a plausible-looking column —
+                # exactly what resample_transmittance's pass-through contract
+                # exists to expose. Symmetric with its negative-τ error.
+                raise AtmosphereValidationError(
+                    f"InterpolatedAtmosphere: point {i} "
+                    f"({pt.coordinates}) has transmittance that exceeds "
+                    f"unity (max = {tau_max:.6g}). Transmittance is a "
+                    "probability; a value above 1 means a mis-scaled or "
+                    "corrupt source (percent vs fraction, wrong column). "
+                    "Fix the family file — it will not be silently clipped "
+                    "into a plausible column."
+                )
             tau_vals = np.clip(pt.transmittance.values, TAU_FLOOR, 1.0)
             log_tau[i, :] = np.log(tau_vals)
             lpath[i, :] = pt.path_radiance.values

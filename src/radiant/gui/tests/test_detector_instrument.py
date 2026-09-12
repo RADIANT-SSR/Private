@@ -314,6 +314,49 @@ class TestOutputsAdvisoryWrap:
         assert readout.minimumSizeHint().width() < 700
 
 
+class TestAdvisoryNoteRouting:
+    """October sweep ruling (owner-ratified 2026-09-12): advisory `_note`
+    outputs are provenance for a number, not quantities — they never render
+    as Outputs rows. A note with a mapped companion attaches to that row
+    (info marker + tooltip, keeping the explanation adjacent to its number);
+    a note with no companion renders as a distinct advisory block, never a
+    fake value row and never silently dropped."""
+
+    @staticmethod
+    def _readout(qtbot, outputs):  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.outputs_readout import OutputsReadout
+
+        readout = OutputsReadout()
+        qtbot.addWidget(readout)
+        readout.show_stage_outputs("detector", outputs)
+        return readout
+
+    def test_note_is_not_a_row(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        readout = self._readout(
+            qtbot, {"dark_temperature_note": "temperature-inert dark rate", "dark_e": 500.0}
+        )
+        assert "dark_temperature_note" not in readout.rendered_keys()
+
+    def test_note_attaches_to_its_companion_row(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        note = "dark current does NOT scale with temperature (CU-081)"
+        readout = self._readout(qtbot, {"dark_temperature_note": note, "dark_e": 500.0})
+        assert "dark_e" in readout.rendered_keys()
+        assert note in readout.tooltip_for("dark_e")
+        # The affordance is visible, not tooltip-only.
+        assert readout.has_note_marker("dark_e")
+
+    def test_unattached_note_renders_as_advisory_block(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        note = "some stage advisory with no companion output"
+        readout = self._readout(qtbot, {"orphan_note": note, "signal_e": 1.0})
+        assert "orphan_note" not in readout.rendered_keys()
+        assert note in readout.advisory_texts()
+
+    def test_no_note_no_marker(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        readout = self._readout(qtbot, {"dark_e": 500.0})
+        assert not readout.has_note_marker("dark_e")
+        assert readout.advisory_texts() == ()
+
+
 class TestPixelSamplingPhase:
     """Gap 129: the straddle convention is selectable from the Detector Inputs tab and
     the Detector + PSF grid follows the chain's resolved phase."""

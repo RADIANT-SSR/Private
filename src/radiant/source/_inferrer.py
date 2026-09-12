@@ -72,7 +72,6 @@ from radiant.core.descriptors import (
     T2Reflective,
     T3Mixed,
     T5AtAperture,
-    T7IntensityAtSource,
     TargetDescriptor,
     UserSpectralBackground,
     _is_mwir_spectral_data,
@@ -299,22 +298,26 @@ def _infer_los(
       * ``h_tgt``        ← ``geometry.target_altitude_m`` (default 0.0 m).
       * ``theta_o``      ← ``geometry.path_zenith_rad`` (default 0.0 rad
         — nadir).
-      * ``theta_s``      ← ``geometry.solar_zenith_rad`` for T2/T3
-        targets, ``None`` for T1Thermal.
-      * ``delta_phi``    ← ``geometry.solar_azimuth_rad`` for T2/T3
-        targets, ``None`` for T1Thermal.
+      * ``theta_s``      ← ``geometry.solar_zenith_rad`` for every
+        descriptor-classified target under ``solar_illumination='day'``
+        (CU-356); ``None`` at night.
+      * ``delta_phi``    ← ``geometry.solar_azimuth_rad`` under the same
+        predicate.
       * ``h_atm_top``    stays at the dataclass default (1e5 m, Kármán
         line; user-overridable surface is Stage-7+ / SensorDescriptor
         territory).
 
-    The "T2/T3 ⇒ populated, T1 ⇒ None" predicate honors
-    :class:`LineOfSightGeometry`'s "``None`` for pure-thermal scenarios
-    where the sun is not used" docstring contract: T1Thermal radiance
-    has no solar leg, so the solar fields are inert metadata at best
-    and misleading at worst.  When ``target_descriptor`` is ``None``
-    (legacy callers, source-only fixtures), the predicate also yields
-    ``theta_s=None, delta_phi=None`` — back-compat with the pre-CU-009
-    behavior.
+    Scene geometry describes where the sun is, not whether a material
+    reflects it (CU-356, owner-ratified 2026-09-12).  The pre-CU-356
+    predicate populated the solar fields only for T2/T3 targets, on the
+    CU-009 rationale that a T1Thermal radiance has no solar leg — complete
+    when the *target* was the sole consumer of ``theta_s``, wrong once the
+    sky background became a second consumer: a pure-thermal target on a
+    VIS/NIR grid got a thermal-only sky at noon.  The target-side gate is
+    structural and needs no predicate here — the T1 assembly arms carry no
+    ρ term for the sun to enter through.  When ``target_descriptor`` is
+    ``None`` (legacy callers, source-only fixtures), the solar fields stay
+    ``None`` — back-compat with the pre-CU-009 behavior.
 
     Returns ``None`` when ``target_location == "at_aperture"`` because
     the at-aperture pass-through arm never evaluates an atmospheric
@@ -341,12 +344,14 @@ def _infer_los(
     # single-scatter solar sky) while thermal self-emission and reflected
     # thermal downwelling remain. 'day' (default) preserves the historical
     # behavior, where the solar_zenith_rad schema default gave every
-    # T2/T3 target a daytime sun.
+    # descriptor-classified target a daytime sun. CU-356: the predicate is
+    # descriptor-independent — the sky consumes theta_s regardless of the
+    # target's material, and the T1 target arms have no ρ term to misuse it.
     try:
         solar_illumination: str = str(params.get("geometry.solar_illumination"))
     except KeyError:
         solar_illumination = "day"
-    if solar_illumination == "day" and isinstance(target_descriptor, (T2Reflective, T3Mixed)):
+    if solar_illumination == "day" and target_descriptor is not None:
         try:
             theta_s: float | None = float(params.get("geometry.solar_zenith_rad"))
         except KeyError:
@@ -412,28 +417,28 @@ def _adjust_scene_los(
         intercept check keeps its legacy geometry).  See
         :func:`_no_atmosphere_h_tgt` for why the override stops at the
         down-looking case since ADR-0011.
-      * T1 (pure-thermal) and the user-supplied-radiance doors → solar
-        fields stripped (CU-009 predicate: a pure-thermal radiance has no
-        solar leg).  Night mode arrives already stripped from GeometryStage.
-      * ``T7IntensityAtSource`` **keeps** the solar fields (CU-258).  The
-        intensity door says what the *target* emits; it says nothing about
-        the **sky**.  Stripping θ_s there made the atmosphere build a purely
-        thermal sky and path radiance (~1e-18 W/m²/sr/µm in the VIS), so
-        every daytime intensity-door scene lost the sky pedestal — which for
-        a visible measurement is the dominant noise term, not a correction.
+      * **Every** descriptor keeps the solar fields (CU-356, completing
+        CU-258's direction).  The question is "does this scene have a sun
+        the atmosphere should know about?", never "does the target
+        reflect?" — the sky background consumes ``theta_s`` regardless of
+        the target's material, and a pure-thermal target under a noon sky
+        still sits in front of a bright scattered-solar sky.  The old CU-009
+        predicate (strip for T1 and the radiance doors) was complete only
+        while the target was the sole consumer; CU-258 first punched through
+        it for ``T7IntensityAtSource`` (a daytime intensity-door scene lost
+        its dominant VIS sky pedestal, ~1e-18 W/m²/sr/µm thermal-only sky),
+        and CU-356 removes it entirely: the target-side gate is structural —
+        the T1 and radiance-door assembly arms carry no ρ term for the sun
+        to enter through.  Night mode arrives already stripped from
+        GeometryStage.
     """
+    _ = target_descriptor  # kept for signature stability; see CU-356 above
     if target_location == "at_aperture":
         return None
     h_tgt = (
         _no_atmosphere_h_tgt(scene_los) if target_location == "no_atmosphere" else scene_los.h_tgt
     )
-    # CU-258: T7 joins the solar-keeping set. The predicate asks "does this
-    # scene have a sun the atmosphere should know about?", not "does the target
-    # reflect?" — an intensity door still sits under a lit sky.
-    if isinstance(target_descriptor, (T2Reflective, T3Mixed, T7IntensityAtSource)):
-        theta_s, delta_phi = scene_los.theta_s, scene_los.delta_phi
-    else:
-        theta_s, delta_phi = None, None
+    theta_s, delta_phi = scene_los.theta_s, scene_los.delta_phi
     return LineOfSightGeometry(
         h_tgt=h_tgt,
         # ADR-0011 / GF-3: the sensor endpoint published by GeometryStage is

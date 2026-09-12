@@ -90,15 +90,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: VIS/NIR reflective scenarios that route through the MODTRAN **binary** flavor (or a single-file import) still lose the solar-zenith dependence that Stage 6's E_sky decomposition exposes. The analytic backend is fine; the file-import flavor is fine when both files are supplied.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
-### CU-356 — T1Thermal strips θ_s upstream, so the sky background loses its scattered-solar term: thermal-only sky at noon for thermal targets on VIS/NIR grids
-
-**Discovered**: recorded in `RADIANT_Atmosphere.md` §4.2g 2026-07-26 with no registry entry; promoted at the October sweep review (owner-ratified 2026-09-12).
-**Status**: Open — scheduled (ordinary backlog; results-affecting, own reviewed landing).
-**File**: upstream θ_s stripping for `T1Thermal` descriptors; the sky background is a second consumer of `los.theta_s`.
-**Symptom**: a pure-thermal target on a VIS/NIR grid gets a thermal-only sky at noon — the scattered-sky component is absent, and the sub-3 µm provisional warning never fires because its trigger is never met. Pinned by `tests/integration/test_direction_aware_atmosphere.py::TestProvisionalScatteredSkyWarning` (characterization); parity register row 12.
-**Why it still matters**: results-affecting (intake test 1) — daytime background is understated (SNR flattered) for the whole T1Thermal-on-reflective-band scene class (scenario 1.4's shape).
-**Suggested fix**: (b) stand-alone task — thread θ_s to the sky consumer independent of target descriptor, per the GeometryStage contract ("scene geometry describes where the sun is, not whether a material reflects it"); the descriptor gate stays on the target's reflectance term only. Effort S–M; category C. Anchor against the existing pinned characterization and the up-looking ladder.
-
 ### CU-357 — Element-document commits record no undo command; config_set has no position-preserving structure operation (family)
 
 **Discovered**: Gap 119 phase-3 live review + cfgset expansion, 2026-09-02; promoted at the October sweep review (owner-ratified 2026-09-12).
@@ -111,6 +102,16 @@ by name in check 8 — that list is frozen and must never grow.
 - [ ] API half: a position-preserving structure operation on `config_set` for element documents holding configured rows (no insert/move that round-trips through delete+append)
 
 ## Resolved
+
+### CU-356 — T1Thermal strips θ_s upstream, so the sky background loses its scattered-solar term: thermal-only sky at noon for thermal targets on VIS/NIR grids — RESOLVED 2026-09-12 (commit trailer)
+
+**Discovered**: recorded in `RADIANT_Atmosphere.md` §4.2g 2026-07-26 with no registry entry; promoted at the October sweep review (owner-ratified 2026-09-12).
+**Status**: Resolved.
+**File**: upstream θ_s stripping for `T1Thermal` descriptors; the sky background is a second consumer of `los.theta_s`.
+**Symptom**: a pure-thermal target on a VIS/NIR grid gets a thermal-only sky at noon — the scattered-sky component is absent, and the sub-3 µm provisional warning never fires because its trigger is never met. Pinned by `tests/integration/test_direction_aware_atmosphere.py::TestProvisionalScatteredSkyWarning` (characterization); parity register row 12.
+**Why it still matters**: results-affecting (intake test 1) — daytime background is understated (SNR flattered) for the whole T1Thermal-on-reflective-band scene class (scenario 1.4's shape).
+**Suggested fix**: (b) stand-alone task — thread θ_s to the sky consumer independent of target descriptor, per the GeometryStage contract ("scene geometry describes where the sun is, not whether a material reflects it"); the descriptor gate stays on the target's reflectance term only. Effort S–M; category C. Anchor against the existing pinned characterization and the up-looking ladder.
+**Resolution**: the descriptor predicate is gone from both `_adjust_scene_los` (the chain path) and `_infer_los` (the legacy param path): the solar pair rides the LOS for every target descriptor under `solar_illumination = 'day'`, completing CU-258's direction ("does this scene have a sun?", never "does the target reflect?"). The target-side gate is structural — T1 and radiance-door assembly arms carry no ρ term. Red-first: the pinned characterization flipped to `test_a_pure_thermal_target_keeps_the_daytime_vis_sky` (both variants warn; backgrounds equal to 1e-12); four LOS-routing tests updated to the new contract; 8 descriptor snapshots refreshed (θ_s 0.5/Δφ 0.0 where null); the boost-exo acceptance scene declares `night` (sun-agnostic). Docs: §4.2g caveat repaired, §6.5 producer-side note, parity row 12 closed. Results-affecting CHANGELOG entry (daytime backgrounds behind thermal targets rise; VIS/NIR order-of-magnitude, MWIR/LWIR small).
 
 ### CU-358 — FigureCanvasQTAgg destroyed mid-draw: `RuntimeError: already deleted` between the `_isdeleted` guard and `self.update()` — RESOLVED 2026-09-12 (commit trailer)
 

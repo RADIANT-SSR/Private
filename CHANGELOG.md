@@ -32,6 +32,19 @@ retroactively reconstructed.
   Calibration card cal-point rows switch with the mode.
 
 ### Changed
+- **Results-affecting: pure-thermal targets no longer lose the daytime sky
+  (CU-356).** The solar geometry now rides the line of sight for every
+  target descriptor under `geometry.solar_illumination = 'day'`; previously
+  a `T1Thermal` target had θ_s stripped upstream, so the sky background
+  behind it was thermal-only even at noon (the scattered-solar term and the
+  sub-3 µm provisional warning both silently absent). Daytime backgrounds
+  behind pure-thermal targets increase — order-of-magnitude on VIS/NIR
+  grids, where the scattered-solar sky dominates; small in MWIR/LWIR — and
+  SNR decreases correspondingly. The target radiance itself is unchanged (a
+  thermal target still has no solar-reflection term), and `'night'` scenes
+  are untouched. Thermal scenes on an `interpolated` atmosphere that leave
+  the day default may now draw the CU-167 "not an interpolation axis"
+  advisory for `solar_zenith_rad`; declare `night` for sun-agnostic scenes.
 - **The interpolated backend's single-τ collapse warning fires only when the
   scene has a sun leg** (`los.theta_s` set). At night nothing consumes
   `τ_sun` and nothing is collapsed; the unconditional warning was noise.

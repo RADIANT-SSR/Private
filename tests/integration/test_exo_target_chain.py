@@ -25,6 +25,12 @@ def _params(session: RadiantSession, h_tgt_m: float):  # type: ignore[no-untyped
     p.set("source.target.emissivity", 0.9)
     p.set("geometry.target.shape", "sphere")
     p.set("geometry.target.shape_radius_m", 2.0)
+    # CU-356: theta_s now rides the LOS for thermal targets too, so a scene
+    # that leaves the day default would query solar_zenith_rad against a
+    # family with no such axis and draw the CU-167 IGNORED warning this
+    # test's acceptance criterion forbids. The boost track is sun-agnostic;
+    # say so.
+    p.set("geometry.solar_illumination", "night")
     p.set("atmosphere.model", "interpolated")
     p.set("atmosphere.interpolation_axes", "sensor_altitude_m,target_altitude_m")
     p.set("geometry.sensor_altitude_m", 500_000.0)

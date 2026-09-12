@@ -150,13 +150,15 @@ def _t2_reflective_vis() -> T2Reflective:
 
 
 class TestA1DefaultParamsT1Baseline:
-    """A1 — default params + T1Thermal returns the nadir / None-solar baseline.
+    """A1 — default params + T1Thermal returns the nadir baseline **with a sun**.
 
-    Documents the back-compat invariant that protects Cells 28/58 and all
-    14 LWIR / MWIR-as-T1 baseline rows: under schema defaults
-    (``path_zenith_rad=0.0``, ``solar_zenith_rad=0.5``, ``solar_azimuth_rad=0.0``)
-    a T1Thermal target produces ``theta_o=0``, ``theta_s=None``,
-    ``delta_phi=None`` — bit-identical to the pre-fix hardcode.
+    CU-356 rewrote the old invariant: under schema defaults
+    (``path_zenith_rad=0.0``, ``solar_zenith_rad=0.5``, ``solar_azimuth_rad=0.0``,
+    ``solar_illumination='day'``) a T1Thermal target's LOS now carries the
+    declared sun — scene geometry describes where the sun is, not whether the
+    target's material reflects it.  The T1 assembly arms still consume no ρ
+    term, so the target radiance is unchanged; the sky background is the
+    consumer this exists for.
     """
 
     def test_default_params_t1_returns_baseline_los(self) -> None:
@@ -168,29 +170,27 @@ class TestA1DefaultParamsT1Baseline:
         assert los is not None
         assert los.h_tgt == 0.0
         assert los.theta_o == 0.0
-        assert los.theta_s is None
-        assert los.delta_phi is None
+        assert los.theta_s == pytest.approx(0.5, rel=0.0, abs=0.0)
+        assert los.delta_phi == pytest.approx(0.0, rel=0.0, abs=0.0)
         assert los.h_atm_top == 1.0e5  # Kármán default — not overridden in CU-009.
 
 
 # ---------------------------------------------------------------------------
-# A2 — non-default path zenith, T1Thermal: theta_o reads, theta_s stays None.
+# A2 — non-default path zenith, T1Thermal: theta_o reads, theta_s rides along.
 # ---------------------------------------------------------------------------
 
 
 class TestA2NonDefaultPathZenithT1:
-    """A2 — T1Thermal honors ``theta_o`` but ignores solar geometry.
+    """A2 — T1Thermal honors ``theta_o`` and, since CU-356, the solar pair too.
 
-    Even when ``geometry.solar_zenith_rad`` is non-default, a T1Thermal
-    target's LOS leaves ``theta_s = None``.  This is the predicate that
-    keeps MWIR-as-T1 baseline rows bit-invariant: solar params *exist* in
-    schema but do not propagate to the T1 LOS.
+    The pre-CU-356 predicate left ``theta_s = None`` for T1 targets, which
+    silenced the sky's scattered-solar term on every pure-thermal daytime
+    scene.  Solar params now propagate for every descriptor; night mode is
+    the one switch that removes them (see TestSolarIlluminationToggle).
     """
 
-    def test_path_zenith_propagates_theta_s_stays_none_for_t1(self) -> None:
+    def test_path_zenith_propagates_and_so_does_theta_s(self) -> None:
         params = _los_params()
-        # Set solar params to non-default — A2 asserts they DO NOT propagate
-        # for a T1Thermal target.
         _set_geometry(
             params,
             path_zenith_rad=0.4,
@@ -203,8 +203,8 @@ class TestA2NonDefaultPathZenithT1:
 
         assert los is not None
         assert los.theta_o == pytest.approx(0.4, rel=0.0, abs=0.0)
-        assert los.theta_s is None
-        assert los.delta_phi is None
+        assert los.theta_s == pytest.approx(0.7, rel=0.0, abs=0.0)
+        assert los.delta_phi == pytest.approx(0.5, rel=0.0, abs=0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -303,14 +303,15 @@ class TestA5AtAperturePassThrough:
 
 
 class TestA6NoAtmosphereRouting:
-    """A6 — ``target_location='no_atmosphere'`` follows the same T1/T2/T3 rule.
+    """A6 — ``target_location='no_atmosphere'`` follows the same descriptor rule.
 
-    The no_atmosphere matrix arm (§7) does not zero out the LOS; the
-    routing predicate operates on the descriptor type, not the location.
-    h_tgt stays at 0 per matrix §7 (the "above everything" convention).
+    The no_atmosphere matrix arm (§7) does not zero out the LOS, and since
+    CU-356 the solar pair rides for a T1 target here exactly as it does on
+    the terrestrial arm.  h_tgt stays at 0 per matrix §7 (the "above
+    everything" convention).
     """
 
-    def test_no_atmosphere_t1_returns_los_with_none_solar(self) -> None:
+    def test_no_atmosphere_t1_keeps_the_declared_sun(self) -> None:
         params = _los_params()
         _set_geometry(
             params,
@@ -324,8 +325,8 @@ class TestA6NoAtmosphereRouting:
 
         assert los is not None
         assert los.theta_o == pytest.approx(0.3, rel=0.0, abs=0.0)
-        assert los.theta_s is None
-        assert los.delta_phi is None
+        assert los.theta_s == pytest.approx(0.6, rel=0.0, abs=0.0)
+        assert los.delta_phi == pytest.approx(0.5, rel=0.0, abs=0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -456,13 +457,14 @@ class TestA9ViewDirectionFromCanonicalParam:
 
 @pytest.mark.level0
 class TestSolarIlluminationToggle:
-    """Gap 59: 'night' removes the solar terms for T2/T3 targets.
+    """Gap 59: 'night' removes the solar terms — for every descriptor.
 
     Previously the solar_zenith_rad schema default (0.5 rad) meant every
     T2/T3 target carried a daytime sun — night was inexpressible. 'night'
     forces theta_s = None (assembly skips direct-solar reflection and the
     single-scatter solar sky); thermal self-emission and reflected thermal
-    downwelling are untouched.
+    downwelling are untouched.  Since CU-356 the toggle is the *only*
+    switch on the solar pair: the target descriptor no longer strips it.
     """
 
     def test_day_default_gives_t3_a_sun(self) -> None:
@@ -489,12 +491,12 @@ class TestSolarIlluminationToggle:
         los = _infer_los("terrestrial", params, target_descriptor=target)
         assert los.theta_s is None
 
-    def test_t1_thermal_unaffected_either_way(self) -> None:
-        """Pure-thermal targets never had a solar term; both modes agree."""
-        for mode in ("day", "night"):
+    def test_t1_thermal_follows_the_toggle(self) -> None:
+        """CU-356: a pure-thermal target's LOS carries the sun by day, not by night."""
+        for mode, expect_sun in (("day", True), ("night", False)):
             params = _los_params()
             params.set("geometry.solar_illumination", mode)
             params.resolve()
             target = _t1_thermal()
             los = _infer_los("terrestrial", params, target_descriptor=target)
-            assert los.theta_s is None
+            assert (los.theta_s is not None) is expect_sun, mode

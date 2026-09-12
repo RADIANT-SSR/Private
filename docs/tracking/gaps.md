@@ -1502,6 +1502,7 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Impact** | Scenario 4.5 (microbolometer UAV altitude trade) evaluates with a `full well saturated` / `pixel saturated` warning at its correct nominal operating point, violating the warning-free-for-valid-scenarios bar (CU-166 principle). Any NETD-specified/bolometric configuration on a warm scene will trip the same false saturation. The reported SNR for such a config is a photon-FPA quantity that has no bolometric meaning. |
 | **Suggested fix** | Stand-alone Category C task: give the detector a `readout_type` / detector-class notion so a bolometric detector (a) skips the charge-well saturation check (or checks against a bolometric dynamic-range limit instead) and (b) either suppresses or reinterprets the electron-count SNR path. Coordinates with the broader warning-site audit (CU-166 approach 4). |
 | **Workaround** | Read 4.5's ΔT-vs-NETD detection verdict, not its SNR/well status; the saturation warning is a known false positive documented in `scenarios/04_lisa_analyst/4.5_altitude_trade_uav/walkthrough.md`. |
+| **Third instance (2026-09-06, folded at the October sweep 2026-09-12)** | FPA preset schema has no home for bolometer-class data (NEDT, thermal time constant, f-number scaling — `flir-boson-plus-640.yaml` ships without them): the same missing detector-class notion, seen from the preset side. The detector-class door this gap proposes is also where those preset fields land. |
 | **Second instance (2026-07-24)** | External-validation campaign: MODIS PC HgCdTe bands (31–36) integrate photocurrent with no discrete charge well — same missing detector-class notion; the campaign computed its NEdT floor from the pre-readout signal to bypass the inapplicable well clip (`scripts/run_external_validation.py`). |
 ---
 
@@ -1815,6 +1816,18 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Status** | FIXED 2026-09-11 (commit `7635108b`; branch `gap129/pixel-phase`, owner live GUI review approved 2026-09-11) — delivered per `docs/archive/Pixel_Phase_Straddle_Plan.md`: `detector.pixel_phase_mode` (average / centered / worst_case / specified) + `pixel_phase_x/y`; `EffectivePSF.pixel_block_energy_at` point-evaluation identity; `PlatformStage` publishes `EE_box` at the phase plus `EE_box_centered`, `straddle_factor`, resolved offsets; `straddle_factor` metric; `ee_1x1`/`ee_3x3` follow the phase; PSF pixel-grid overlay shifts; Detector Inputs "Pixel sampling phase" group. Default `average` bit-identical to the prior chain; docs corrected (they said "centred"). Owner kept `average` as the default. |
 | **Impact** | Workflow-visible for every point-source / sub-pixel detection-range scenario: guaranteed-detection (worst-case four-pixel straddle) and known-phase (centroiding, staring) analyses cannot be run; the phase-averaged Pd needs an offset sweep the schema cannot express. Docs/docstrings (`platform/stage.py`, `EffectivePSF.ensquared_energy_nxn`, `RADIANT_Spatial_Complete.md` §2 — which also claims an `offset_m` argument that does not exist) all say "centred on the PSF", contradicting the shipped number; the Q=2 anchor test guards an optics-only PSF, not the chain value. Default behaviour (`average`) must stay bit-identical. |
 | **Suggested fix** | `detector.pixel_phase_mode` ∈ {average (default), centered, worst_case, specified} + `detector.pixel_phase_x/y` (fraction of a pitch); `EffectivePSF.ensquared_energy_nxn(n, phase_mode, phase)` point-evaluates the pixel-convolved PSF at the offset (exact: the pixel-convolved PSF at δ *is* the box integral at phase δ), average keeps the box integral; `PlatformStage` selects the mode for `EE_box` and publishes `EE_box_centered` + `straddle_factor`; `ee_1x1`/`ee_3x3` follow the mode; no MTF-path term (sampling phase is not a blur — same standing as the TDI term). GUI: Detector Inputs rows for the three parameters, PSF pixel-grid overlay shifted by the resolved phase. Effort M; Category C (physics) + D (GUI). |
+
+## Gap 130: No vignetting / partial-aperture-stop model — a cold stop that stops being the aperture stop is inexpressible
+
+| | |
+|---|---|
+| **Found in** | Scenario 7.4 (Karen — cold-stop sweep), lab data reviewed at the October sweep (owner-ratified as a gap 2026-09-12). |
+| **Status** | OPEN — unscheduled. |
+| **Description** | 7.4's lab data (35.5–55.8 ke⁻ shuttered background, rising monotonically with cold-stop offset) cannot be explained by any model knob: under Gap 128 a cold stop cannot manufacture background, so a position-dependent shuttered background means the stop has ceased to be the aperture stop at those offsets — the pupil is partially defined by warm structure. Modeling it needs a vignetting / partial-stop notion (an obscuration-and-emission split that varies with stop position), which the effective-pupil model deliberately does not have. |
+| **Impact** | 7.4's runner names the finding rather than fitting it; any lab configuration with a translatable cold stop hits the same wall. |
+| **Suggested fix** | Owner design conversation before implementation — the physical model (which surface becomes the stop, what emits into the accepted cone) is the hard part, not the code. Related: Gap 128 (étendue rules), CU-350 (well-fill pedestal). |
+
+---
 
 ## Summary Table (retired 2026-09-08)
 

@@ -90,6 +90,35 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: VIS/NIR reflective scenarios that route through the MODTRAN **binary** flavor (or a single-file import) still lose the solar-zenith dependence that Stage 6's E_sky decomposition exposes. The analytic backend is fine; the file-import flavor is fine when both files are supplied.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
+### CU-356 — T1Thermal strips θ_s upstream, so the sky background loses its scattered-solar term: thermal-only sky at noon for thermal targets on VIS/NIR grids
+
+**Discovered**: recorded in `RADIANT_Atmosphere.md` §4.2g 2026-07-26 with no registry entry; promoted at the October sweep review (owner-ratified 2026-09-12).
+**Status**: Open — scheduled (ordinary backlog; results-affecting, own reviewed landing).
+**File**: upstream θ_s stripping for `T1Thermal` descriptors; the sky background is a second consumer of `los.theta_s`.
+**Symptom**: a pure-thermal target on a VIS/NIR grid gets a thermal-only sky at noon — the scattered-sky component is absent, and the sub-3 µm provisional warning never fires because its trigger is never met. Pinned by `tests/integration/test_direction_aware_atmosphere.py::TestProvisionalScatteredSkyWarning` (characterization); parity register row 12.
+**Why it still matters**: results-affecting (intake test 1) — daytime background is understated (SNR flattered) for the whole T1Thermal-on-reflective-band scene class (scenario 1.4's shape).
+**Suggested fix**: (b) stand-alone task — thread θ_s to the sky consumer independent of target descriptor, per the GeometryStage contract ("scene geometry describes where the sun is, not whether a material reflects it"); the descriptor gate stays on the target's reflectance term only. Effort S–M; category C. Anchor against the existing pinned characterization and the up-looking ladder.
+
+### CU-357 — Element-document commits record no undo command; config_set has no position-preserving structure operation (family)
+
+**Discovered**: Gap 119 phase-3 live review + cfgset expansion, 2026-09-02; promoted at the October sweep review (owner-ratified 2026-09-12).
+**Status**: Open — scheduled GUI backlog (lands with a live review).
+**File**: `src/radiant/gui/widgets/optical_element_editor.py` (commit paths), `src/radiant/api/config_set.py`.
+**Symptom**: commit-on-edit table changes and the *Configure across configurations…* / *Un-configure row…* actions bypass the undo stack — Ctrl+Z after an element edit undoes an unrelated earlier action while the element damage stands; un-configuring discards per-configuration values irrecoverably.
+**Why it still matters**: workflow-visible (intake test 4) — surfaced in the owner's own multi-configuration live review.
+**Suggested fix**: (b) stand-alone task — wrap element-document transactions in undo commands carrying before/after document snapshots (the parameter-edit pattern). Effort M; category A/D.
+- [ ] Undo commands for all element-document commit paths (Apply-less commit-on-edit, configure-across, un-configure)
+- [ ] API half: a position-preserving structure operation on `config_set` for element documents holding configured rows (no insert/move that round-trips through delete+append)
+
+### CU-358 — FigureCanvasQTAgg destroyed mid-draw: `RuntimeError: already deleted` between the `_isdeleted` guard and `self.update()` (bounded investigation charter)
+
+**Discovered**: demoted from CU-313; 2026-07-31 attempt ruled out the queued-idle-draw race; re-promoted at the October sweep review (owner-ratified 2026-09-12) on worsening evidence (twice per full GUI run since 2026-09-02).
+**Status**: Open — bounded charter: one timeboxed investigation of the destruction path in the next GUI maintenance window.
+**File**: `src/radiant/gui/widgets/matplotlib_canvas.py` (repro: `test_source_instrument.py::TestReflectiveTab::test_solar_rows_do_not_open_an_editor`).
+**Symptom**: the C++ object is alive at matplotlib's `_isdeleted` check and gone by `self.update()` inside the same synchronous `_draw_idle` call — deletion lands mid-draw; matplotlib's own `except: print_exc` prints the traceback; the draw is on a dying canvas so nothing is lost. Mechanism unidentified after one instrumented attempt.
+**Why it still matters**: workflow-visible (stderr at teardown, now twice per run and spreading) and a latent crash class on future Qt/matplotlib versions.
+**Suggested fix**: charter — instrument `destroyed` with stack capture during the repro to find what destroys the canvas inside an in-progress synchronous draw. If the mechanism still will not show, close ACCEPTED with the instrumented evidence as the limitation record — it does not return to the Findings Log. Effort S (timeboxed); category A.
+
 ## Resolved
 
 ### CU-351 — Up/down counting: the down-phase reference charge omits near-field and stray, so the differential no longer cancels the warm-optics pedestal — RESOLVED 2026-09-11 (commit trailer)

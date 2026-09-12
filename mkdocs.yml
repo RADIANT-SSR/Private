@@ -90,6 +90,12 @@ nav:
     - Plugins (deferred): architecture/RADIANT_Plugins.md
   - Validation:
     - Atmosphere / MODTRAN Parity: validation/atmosphere_modtran_parity.md
+    - MWIR Single-Wavelength Ground Truth: validation/ground_truth_mwir_singlewave.md
+    - Option C Baseline: validation/option_c_baseline.md
+    - "Source Data: Landsat OLI-2": validation/landsat_oli2_source_data.md
+    - "Source Data: Landsat TIRS": validation/landsat_tirs_source_data.md
+    - "Source Data: MODIS TEB": validation/modis_teb_source_data.md
+    - "Source Data: Sentinel-2 MSI": validation/sentinel2_msi_source_data.md
   - Decision Records:
     - Index: adr/README.md
     - 0001 Scope and Constraints: adr/0001-scope-and-constraints.md

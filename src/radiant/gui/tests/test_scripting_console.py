@@ -183,6 +183,21 @@ class TestFigureAndExit:
         assert len(console.figures_produced()) == 1
         assert "figure opened in its own window" in console.output_text()
 
+    def test_closed_figure_window_is_forgotten(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """October sweep (ex-CU-285): closed means gone — the tracked window list
+        prunes on close (WA_DeleteOnClose + destroyed hook), so an hours-long
+        session cannot grow the live widget tree one dead dialog per plot."""
+        window = _load_window(qtbot)
+        console = window.console
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with qtbot.waitSignal(console.figureProduced, timeout=_WAIT_MS):
+                console.run_command("plot.mtf()")
+        assert len(console._figure_windows) == 1
+        fig_window = console._figure_windows[0]
+        fig_window.close()
+        qtbot.waitUntil(lambda: len(console._figure_windows) == 0, timeout=_WAIT_MS)
+
     def test_exit_command_does_not_kill_process(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """A console ``exit()`` is swallowed — it must never tear the GUI process down."""
         window = _load_window(qtbot)

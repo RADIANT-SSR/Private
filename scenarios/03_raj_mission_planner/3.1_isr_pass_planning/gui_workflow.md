@@ -44,7 +44,10 @@ Raj's core ask is an interactive command window (per the GUI vision memo):
 >>> s.set("geometry.path_zenith_rad", radians(42))
 >>> r = s.evaluate()
 >>> r.metrics["niirs"], r.metrics["gsd_geometric_mean_m"]
-(6.00, 1.11)
+(6.07, 0.98)
+# computed 2026-09-12 from this scenario's own baseline at 42 deg (the mock's
+# old (6.00, 1.11) matched no reproducible run; transcript values in these
+# mock-ups are now always computed from the committed baseline, dated)
 
 # Coverage rate composed from orbit + swath
 >>> from radiant.performance.access_rate import compute_access_rate_m2_s

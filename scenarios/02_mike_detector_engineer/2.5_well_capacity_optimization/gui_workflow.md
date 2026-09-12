@@ -76,15 +76,20 @@ Mike, detector engineer. He has a 640x512 MWIR HgCdTe FPA with 2M e- FWC in an f
 
 ## Step 6: Noise Budget Comparison
 - **Action**: View > Noise Breakdown
-- **GUI components (2 interactive charts)**:
-  1. **Stacked Bar — Noise by Term**: Side-by-side comparison of cold target (200 K) and warm target (400 K) at selected t_int. Each noise term as a separate color. Background_shot and signal_shot highlighted as the two that swap dominance.
-  2. **Noise Regime Transition**: Signal_shot fraction [%] vs. scene temperature curve. Horizontal lines at 50% (mixed), crossover temperature annotated. Regions labeled: "BLIP (background-limited)" and "Signal-shot-limited".
+- **GUI components (2 interactive charts)** *(redrafted 2026-09-12, October
+  sweep: the original design assumed background_shot and signal_shot "swap
+  dominance" with a labelled BLIP region — this scene has no such regime:
+  signal_shot carries 75.2 % of the noise variance at 200 K and 99.9 % at
+  400 K, with quantization (19.3 %) and read noise (5.5 %) as the cold-end
+  runners-up. The design now shows what the physics shows)*:
+  1. **Stacked Bar — Noise by Term**: Side-by-side comparison of cold target (200 K) and warm target (400 K) at selected t_int. Each noise term as a separate color. Signal_shot highlighted against the quantization + read floor — the cold-end story is how much of the budget the FIXED terms claim, not a term swap.
+  2. **Noise Composition vs. Temperature**: Signal_shot fraction [%] vs. scene temperature curve (75 % → 99.9 % across this scene's range), with the quantization and read-noise fractions beneath it. No BLIP region is labelled — the scene never enters one; the annotation instead marks where quantization drops below 10 % of variance (the point past which ADC gain choices stop mattering).
 
 - **Interactive features**:
-  - Temperature slider: drag to see noise breakdown evolve from BLIP → signal-limited
+  - Temperature slider: drag to see the fixed-term share shrink as signal shot grows
   - Click any noise bar: expands to show formula, parameter values, and σ [e- RMS]
   - Integration time selector: switch between t_int values and see noise bars update
-  - Hover on regime transition curve: tooltip shows "At 350 K: signal_shot = 45% of noise variance"
+  - Hover on the composition curve: tooltip shows the per-term variance shares at that temperature (computed values, never hand-quoted)
   - "What if FWC were larger?" slider: increase FWC and see saturation boundary move
 
 ## Step 7: Optimal Operating Point

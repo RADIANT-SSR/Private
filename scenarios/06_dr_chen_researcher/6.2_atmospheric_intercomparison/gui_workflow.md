@@ -25,11 +25,16 @@ capture.)
    (model A − model B) as its own overlay, with a numeric band-by-band
    breakdown table — the catalog's explicitly desired output, not yet
    built (see gaps.md).
-5. **SNR-vs-transmittance decoupling callout.** Given this scenario's
-   own finding (transmittance residuals don't track SNR residuals), the
-   GUI should show both side by side by default, not just transmittance
-   — otherwise a user could reasonably (and wrongly) assume a large τ
-   mismatch means an equally large SNR mismatch.
+5. **SNR-vs-transmittance amplification callout.** *(Premise redrafted
+   2026-09-12, October sweep: the scenario's old finding — that τ residuals
+   don't track SNR residuals — has REVERSED under the accumulated
+   atmosphere landings. The current table shows they track monotonically
+   but AMPLIFIED ~1.5–2× (τ −4.7…−9.8 % → SNR −6.6…−16.6 %, tropical worst
+   on both), because the τ error compounds through the signal and its shot
+   noise.)* The design element survives with the stronger justification:
+   the GUI shows both panels side by side by default because the τ panel
+   alone UNDERSTATES the SNR consequence — a user reading τ −7 % should
+   see the −14 % SNR it becomes.
 
 ---
 

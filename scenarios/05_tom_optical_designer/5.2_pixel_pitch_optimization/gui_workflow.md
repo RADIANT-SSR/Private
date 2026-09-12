@@ -56,7 +56,12 @@ Tom, optical designer. He has a Zemax optical design (f/4, 30 cm aperture, MWIR)
   - Figure-of-merit selector: SNR/GSD (default), or custom weighting
   - Compliance filter: only show candidates passing all requirements
   - Recommendation panel: "18 µm — best SNR/GSD among compliant options"
-  - Warning flags: "8 µm fails MTF, EE, and SNR" / "24 and 30 µm fail GSD"
+  - Warning flags: "8 µm fails MTF and EE (SNR passes)" / "12 µm fails EE" /
+    "24 and 30 µm fail GSD" *(flag text corrected to the runner's own
+    compliance table at the October sweep, 2026-09-12 — the old mock claimed
+    8 µm fails SNR, which it never did (SNR 199.8 against the requirement);
+    the design rule going forward: warning-flag copy in mock-ups quotes the
+    compliance table, never a hand summary)*
 
 ## Step 6: Export Results
 - **Action**: File > Export Results

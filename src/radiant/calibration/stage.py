@@ -219,8 +219,13 @@ def _validate_flux_mode(scheme: str, params: ParameterSet) -> None:
             "  Why: piecewise NUC needs the middle level.\n"
             "  Action: set cal_flux_low < cal_flux_mid < cal_flux_high."
         )
-    ordered = [f for f in (f_low, f_mid if scheme == "three_point" else None, f_high if scheme != "one_point" else None) if f is not None]
-    if any(b <= a for a, b in zip(ordered, ordered[1:])):
+    candidates = (
+        f_low,
+        f_mid if scheme == "three_point" else None,
+        f_high if scheme != "one_point" else None,
+    )
+    ordered = [f for f in candidates if f is not None]
+    if any(b <= a for a, b in zip(ordered, ordered[1:], strict=False)):
         raise CalibrationValidationError(
             f"flux cal points must be strictly increasing, got {ordered}.\n"
             "  Why: coincident or unordered levels are ill-conditioned "
@@ -353,7 +358,8 @@ class CalibrationStage:
 
         if scheme in ("two_point", "three_point"):
             t_high: float = (
-                0.0 if cal_point_mode == "flux_fraction"
+                0.0
+                if cal_point_mode == "flux_fraction"
                 else params.get("calibration.cal_temp_high_K")
             )
             # Full-scale reference for the quadratic coefficient, in the same
@@ -381,7 +387,8 @@ class CalibrationStage:
             )
             if scheme == "three_point":
                 t_mid_run: float = (
-                    0.0 if cal_point_mode == "flux_fraction"
+                    0.0
+                    if cal_point_mode == "flux_fraction"
                     else params.get("calibration.cal_temp_mid_K")
                 )
                 if cal_point_mode == "flux_fraction":

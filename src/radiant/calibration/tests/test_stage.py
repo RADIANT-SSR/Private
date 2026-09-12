@@ -510,3 +510,140 @@ class TestThreePointDispatch:
         )
         cal = out.stage_outputs["calibration"]
         assert cal["cal_source_uniformity_e"] > 0.0
+
+
+class TestInternalCalPath:
+    """Gap 122 item 4: the internal-shutter mismatch terms."""
+
+    _CAL = dict(TestActiveDispatch._CAL)
+
+    @staticmethod
+    def _warm_state(nearfield_e: float = 800.0) -> ChainState:
+        """Two-element train: fore emits 1.0, aft 3.0 W/m²/µm (flat)."""
+        import types
+
+        from radiant.core.spectral import SpectralData
+
+        wl = np.linspace(8.0, 12.0, 201)
+        per = {
+            "primary": SpectralData(
+                name="nf.primary",
+                wavelength_um=wl,
+                values=np.full_like(wl, 1.0),
+                unit="W/m^2/um",
+                source="test",
+            ),
+            "relay": SpectralData(
+                name="nf.relay",
+                wavelength_um=wl,
+                values=np.full_like(wl, 3.0),
+                unit="W/m^2/um",
+                source="test",
+            ),
+        }
+        elements = (
+            types.SimpleNamespace(name="primary"),
+            types.SimpleNamespace(name="relay"),
+        )
+        s = _evaluated_state()
+        s = s.with_stage_output("optics", "elements", elements)
+        s = s.with_stage_output("optics", "nearfield_per_element", per)
+        return s.with_stage_output("detector", "nearfield_e", nearfield_e)
+
+    def _shutter(self, **extra: object) -> dict[str, object]:
+        cfg: dict[str, object] = dict(self._CAL)
+        cfg["calibration__cal_path"] = "internal_shutter"
+        cfg["calibration__shutter_after_element"] = 1
+        cfg.update(extra)
+        return cfg
+
+    def test_fore_offset_bias_and_narcissus_fpn(self) -> None:
+        """Hand values: flat 1 vs 3 → f_fore = 0.25 exactly; fore_e = 200 e-;
+        bias = 200/30000; 10 % narcissus → 20 e- spatial FPN in the RSS."""
+        out = CalibrationStage().run(
+            self._warm_state(),
+            _params(**self._shutter(calibration__narcissus_fpn_pct=10.0)),
+        )
+        cal = out.stage_outputs["calibration"]
+        assert cal["internal_cal_fore_frac"] == _pytest.approx(0.25, rel=1e-9)
+        assert cal["internal_cal_fore_e"] == _pytest.approx(200.0, rel=1e-9)
+        assert cal["narcissus_fpn_e"] == _pytest.approx(20.0, rel=1e-9)
+        bias = next(t for t in out.bias_terms if t.name == "internal_cal_offset")
+        assert bias.value_frac == _pytest.approx(200.0 / 30000.0, rel=1e-9)
+        term = next(t for t in out.noise_terms if t.name == "narcissus_fpn")
+        assert term.value_e == _pytest.approx(20.0, rel=1e-9)
+        assert term.contributes_to == ("spatial", "total")
+        # The FPN participates in the published calibration RSS.
+        assert cal["sigma_calibration_e"] ** 2 == _pytest.approx(
+            cal["nuc_residual_e"] ** 2
+            + cal["cal_source_uniformity_e"] ** 2
+            + cal["gain_drift_e"] ** 2
+            + cal["offset_drift_e"] ** 2
+            + 20.0**2,
+            rel=1e-9,
+        )
+
+    def test_bias_ordering_with_internal_offset(self) -> None:
+        out = CalibrationStage().run(self._warm_state(), _params(**self._shutter()))
+        names = [t.name for t in out.bias_terms]
+        assert names == [
+            "source_temp",
+            "source_emissivity",
+            "spectral_cal",
+            "internal_cal_offset",
+            "gain",
+        ]
+
+    def test_shutter_at_detector_leaves_whole_train_uncorrected(self) -> None:
+        """Flag at the FPA: the NUC saw only the flag — f_fore = 1.0."""
+        out = CalibrationStage().run(
+            self._warm_state(),
+            _params(**self._shutter(calibration__shutter_after_element=2)),
+        )
+        cal = out.stage_outputs["calibration"]
+        assert cal["internal_cal_fore_frac"] == _pytest.approx(1.0, rel=1e-12)
+        assert cal["internal_cal_fore_e"] == _pytest.approx(800.0, rel=1e-9)
+
+    def test_full_aperture_emits_no_mismatch_terms(self) -> None:
+        out = CalibrationStage().run(self._warm_state(), _params(**self._CAL))
+        assert all(t.name != "internal_cal_offset" for t in out.bias_terms)
+        assert all(t.name != "narcissus_fpn" for t in out.noise_terms)
+        assert "internal_cal_fore_e" not in out.stage_outputs["calibration"]
+
+    def test_no_nearfield_means_zero_mismatch(self) -> None:
+        """A cold train (no near-field electrons) has nothing to mismatch."""
+        out = CalibrationStage().run(_evaluated_state(), _params(**self._shutter()))
+        cal = out.stage_outputs["calibration"]
+        assert cal["internal_cal_fore_e"] == 0.0
+        assert all(t.name != "internal_cal_offset" for t in out.bias_terms)
+        assert all(t.name != "narcissus_fpn" for t in out.noise_terms)
+
+    def test_unset_shutter_position_incomplete(self) -> None:
+        with pytest.raises(CalibrationConfigIncompleteError, match="shutter_after_element"):
+            CalibrationStage().run(
+                self._warm_state(),
+                _params(**self._shutter(calibration__shutter_after_element=0)),
+            )
+
+    def test_shutter_beyond_train_rejected(self) -> None:
+        with pytest.raises(CalibrationValidationError, match="exceeds"):
+            CalibrationStage().run(
+                self._warm_state(),
+                _params(**self._shutter(calibration__shutter_after_element=3)),
+            )
+
+    def test_internal_shutter_under_scheme_none_rejected(self) -> None:
+        with pytest.raises(CalibrationValidationError, match="scheme = 'none'"):
+            CalibrationStage().run(
+                self._warm_state(),
+                _params(
+                    calibration__cal_path="internal_shutter",
+                    calibration__shutter_after_element=1,
+                ),
+            )
+
+    def test_nearfield_without_split_rejected(self) -> None:
+        """Bulk nearfield_e with no per-element map cannot be split."""
+        s = _evaluated_state().with_stage_output("detector", "nearfield_e", 500.0)
+        with pytest.raises(CalibrationValidationError, match="per-element"):
+            CalibrationStage().run(s, _params(**self._shutter()))

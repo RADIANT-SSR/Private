@@ -75,7 +75,7 @@ class TestComposition:
 
 
 class TestSchemeVisibility:
-    def test_all_fourteen_parameters_are_rows(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_all_seventeen_parameters_are_rows(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         form = CalibrationInputsForm()
         qtbot.addWidget(form)
         assert set(form.field_dotpaths()) == {
@@ -93,6 +93,9 @@ class TestSchemeVisibility:
             "calibration.source_emissivity_uncertainty",
             "calibration.band_center_uncertainty_um",
             "calibration.gain_uncertainty_pct",
+            "calibration.cal_path",
+            "calibration.shutter_after_element",
+            "calibration.narcissus_fpn_pct",
         }
 
     def test_none_shows_only_the_selector(self, qtbot) -> None:  # type: ignore[no-untyped-def]
@@ -107,9 +110,16 @@ class TestSchemeVisibility:
         form = CalibrationInputsForm()
         qtbot.addWidget(form)
         form.bind_sensor(_sensor(**_ACTIVE_TWO_POINT), {})
+        shutter_only = {
+            "calibration.shutter_after_element",
+            "calibration.narcissus_fpn_pct",
+        }
         for dotpath in form.field_dotpaths():
             if dotpath == "calibration.cal_temp_mid_K":
                 assert form.row(dotpath).isHidden()  # three_point-only (Gap 122 item 2)
+                continue
+            if dotpath in shutter_only:
+                assert form.row(dotpath).isHidden(), dotpath  # full_aperture default
                 continue
             assert not form.row(dotpath).isHidden(), dotpath
 
@@ -127,8 +137,33 @@ class TestSchemeVisibility:
             ),
             {},
         )
+        shutter_only = {
+            "calibration.shutter_after_element",
+            "calibration.narcissus_fpn_pct",
+        }
         for dotpath in form.field_dotpaths():
+            if dotpath in shutter_only:
+                assert form.row(dotpath).isHidden(), dotpath  # full_aperture default
+                continue
             assert not form.row(dotpath).isHidden(), dotpath
+
+    def test_internal_shutter_reveals_its_rows(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Gap 122 item 4: the shutter rows appear only under internal_shutter."""
+        form = CalibrationInputsForm()
+        qtbot.addWidget(form)
+        form.bind_sensor(
+            _sensor(
+                **_ACTIVE_TWO_POINT,
+                **{
+                    "calibration.cal_path": "internal_shutter",
+                    "calibration.shutter_after_element": 1,
+                },
+            ),
+            {},
+        )
+        assert not form.row("calibration.cal_path").isHidden()
+        assert not form.row("calibration.shutter_after_element").isHidden()
+        assert not form.row("calibration.narcissus_fpn_pct").isHidden()
 
     def test_one_point_hides_two_point_physics(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         form = CalibrationInputsForm()

@@ -33,7 +33,7 @@ class TestSchemaDefs:
     def defs(self) -> dict[str, object]:
         return {p.name: p for p in ALL_PARAMETERS}
 
-    def test_all_fourteen_parameters_present(self, defs: dict[str, object]) -> None:
+    def test_all_seventeen_parameters_present(self, defs: dict[str, object]) -> None:
         assert set(defs.keys()) == {
             "calibration.scheme",
             "calibration.cal_temp_mid_K",
@@ -49,6 +49,9 @@ class TestSchemaDefs:
             "calibration.band_center_uncertainty_um",
             "calibration.source_emissivity",
             "calibration.gain_uncertainty_pct",
+            "calibration.cal_path",
+            "calibration.shutter_after_element",
+            "calibration.narcissus_fpn_pct",
         }
 
     def test_scheme_enum_and_default(self) -> None:

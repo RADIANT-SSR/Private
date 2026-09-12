@@ -48,12 +48,12 @@ from radiant.calibration.cal_source_bias import (
     source_emissivity_bias_frac,
     source_temp_bias_frac,
 )
-from radiant.calibration.spectral_cal import spectral_cal_bias_frac
 from radiant.calibration.errors import (
     CalibrationConfigIncompleteError,
     CalibrationValidationError,
 )
 from radiant.calibration.gain_drift import gain_drift_residual_e
+from radiant.calibration.internal_cal import fore_optics_fraction
 from radiant.calibration.nuc_residual import (
     one_point_residual_e,
     three_point_residual_e,
@@ -65,6 +65,7 @@ from radiant.calibration.source_uniformity import (
     three_point_uniformity_residual_e,
     two_point_uniformity_residual_e,
 )
+from radiant.calibration.spectral_cal import spectral_cal_bias_frac
 from radiant.core.chain import ChainState
 from radiant.core.descriptors import T2Reflective
 from radiant.core.parameters import ParameterSet
@@ -96,6 +97,9 @@ OUTPUT_UNITS: dict[str, str] = {
     "sigma_total_e": "e-",
     "bias_total_frac": "",
     "calibration_nedt_K": "K",
+    "internal_cal_fore_e": "e-",
+    "internal_cal_fore_frac": "",
+    "narcissus_fpn_e": "e-",
 }
 
 
@@ -183,6 +187,16 @@ class CalibrationStage:
         scheme: str = params.get("calibration.scheme")
 
         if scheme == "none":
+            if params.get("calibration.cal_path") != "full_aperture":
+                raise CalibrationValidationError(
+                    "calibration.cal_path = 'internal_shutter' with "
+                    "calibration.scheme = 'none'.\n"
+                    "  Why: the path mismatch is defined relative to a NUC — "
+                    "with no calibration there is nothing the fore-optics "
+                    "emission is excluded FROM.\n"
+                    "  Action: select an active scheme, or leave cal_path = "
+                    "'full_aperture'."
+                )
             logger.debug("calibration: scheme=none — model off, no terms emitted")
             return state.with_stage_output("calibration", "scheme", "none").with_stage_output(
                 "calibration", "enabled", False
@@ -399,6 +413,59 @@ class CalibrationStage:
             time_since_cal_s=time_s,
         )
 
+        # --- Internal-cal path mismatch (Gap 122 item 4) ------------------
+        # An internal shutter blocks the fore-optics during cal, so the NUC
+        # never sees their emission; it returns in operation as an offset
+        # (bias, below) plus a narcissus-pattern FPN (spatial noise, here).
+        cal_path: str = params.get("calibration.cal_path")
+        fore_frac = 0.0
+        fore_e = 0.0
+        narcissus_e = 0.0
+        if cal_path == "internal_shutter":
+            n_fore: int = params.get("calibration.shutter_after_element")
+            if n_fore < 1:
+                raise CalibrationConfigIncompleteError(
+                    "calibration.cal_path = 'internal_shutter' needs "
+                    "calibration.shutter_after_element >= 1 (0 = unset).\n"
+                    "  Why: the mismatch is the emission of the elements in "
+                    "front of the shutter — the split needs its position.\n"
+                    "  Action: set shutter_after_element to the number of "
+                    "optical-train elements on the scene side of the flag."
+                )
+            opt = state.stage_outputs.get("optics", {})
+            elements = opt.get("elements")
+            if elements is not None and n_fore > len(elements):
+                raise CalibrationValidationError(
+                    f"calibration.shutter_after_element = {n_fore} exceeds the "
+                    f"optical train's {len(elements)} configured elements.\n"
+                    "  Why: the shutter cannot sit behind more elements than "
+                    "the train holds.\n"
+                    "  Action: set shutter_after_element <= the element count."
+                )
+            det_nearfield_e = float(det.get("nearfield_e", 0.0))
+            if det_nearfield_e > 0.0:
+                per_element = opt.get("nearfield_per_element")
+                if per_element is None or elements is None:
+                    raise CalibrationValidationError(
+                        "internal_shutter cal path needs the per-element "
+                        "near-field split, but the optics stage published "
+                        "none for this run.\n"
+                        "  Why: the mismatch is a per-element sum — a bulk "
+                        "nearfield_e cannot be split without it.\n"
+                        "  Action: define the optical train's elements "
+                        "(near-field emission derives only from defined "
+                        "elements, Gap 127) or use cal_path = 'full_aperture'."
+                    )
+                fore_names = tuple(e.name for e in elements[:n_fore])
+                fore_frac = fore_optics_fraction(
+                    per_element=per_element,
+                    fore_names=fore_names,
+                    lam_min_um=lam_min_um,
+                    lam_max_um=lam_max_um,
+                )
+                fore_e = det_nearfield_e * fore_frac
+            narcissus_e = params.get("calibration.narcissus_fpn_pct") * fore_e
+
         # --- Emit noise terms (post-scaling: sqrt(N)-exempt by position) --
         for term_name, value_e, basis in (
             ("nuc_residual", nuc_e, f"post-NUC residual ({scheme})"),
@@ -409,7 +476,15 @@ class CalibrationStage:
             ),
             ("gain_drift", gain_drift_e, "gain drift since cal (time-linear, D4)"),
             ("offset_drift", offset_drift_e, "offset drift since cal (time-linear, D4)"),
+            (
+                "narcissus_fpn",
+                narcissus_e,
+                "narcissus-pattern FPN of the uncorrected fore-optics offset "
+                "(internal-shutter cal, Gap 122 item 4)",
+            ),
         ):
+            if term_name == "narcissus_fpn" and narcissus_e == 0.0:
+                continue  # absent, not zero-valued, when the path is full-aperture
             state = state.with_noise(
                 NoiseTerm(
                     name=term_name,
@@ -420,7 +495,9 @@ class CalibrationStage:
                 )
             )
 
-        sigma_cal_e = math.sqrt(nuc_e**2 + unif_e**2 + gain_drift_e**2 + offset_drift_e**2)
+        sigma_cal_e = math.sqrt(
+            nuc_e**2 + unif_e**2 + gain_drift_e**2 + offset_drift_e**2 + narcissus_e**2
+        )
         ro_sigma = float(ro.get("sigma_total_e", 0.0))
         sigma_total_e = math.sqrt(ro_sigma**2 + sigma_cal_e**2)
 
@@ -474,6 +551,20 @@ class CalibrationStage:
                     ),
                 )
             )
+        if fore_e > 0.0:
+            # Gap 122 item 4: the uncorrected fore-optics offset, expressed
+            # as its radiance-equivalent fraction of the scene signal.
+            state = state.with_bias(
+                BiasTerm(
+                    name="internal_cal_offset",
+                    value_frac=fore_e / signal_e,
+                    origin="calibration.cal_path",
+                    physical_basis=(
+                        "fore-optics near-field emission the internal-shutter "
+                        "cal never sees (offset / scene signal)"
+                    ),
+                )
+            )
         gain_unc: float = params.get("calibration.gain_uncertainty_pct")
         if gain_unc > 0.0:
             state = state.with_bias(
@@ -493,6 +584,11 @@ class CalibrationStage:
         state = state.with_stage_output("calibration", "cal_source_uniformity_e", unif_e)
         state = state.with_stage_output("calibration", "gain_drift_e", gain_drift_e)
         state = state.with_stage_output("calibration", "offset_drift_e", offset_drift_e)
+        state = state.with_stage_output("calibration", "cal_path", cal_path)
+        if cal_path == "internal_shutter":
+            state = state.with_stage_output("calibration", "internal_cal_fore_e", fore_e)
+            state = state.with_stage_output("calibration", "internal_cal_fore_frac", fore_frac)
+            state = state.with_stage_output("calibration", "narcissus_fpn_e", narcissus_e)
         state = state.with_stage_output("calibration", "sigma_calibration_e", sigma_cal_e)
         state = state.with_stage_output("calibration", "sigma_total_e", sigma_total_e)
         state = state.with_stage_output("calibration", "bias_total_frac", bias_total_frac)

@@ -77,7 +77,7 @@ class TestSpectralCalBias:
     @pytest.mark.level0
     def test_lwir_less_sensitive_than_mwir(self) -> None:
         """Truth anchor C: Wien-side bands feel a band shift more strongly."""
-        kwargs = dict(delta_lam_um=0.01, t_scene_K=320.0, t_cal_K=300.0)
+        kwargs: dict[str, float] = {"delta_lam_um": 0.01, "t_scene_K": 320.0, "t_cal_K": 300.0}
         mwir = spectral_cal_bias_frac(lam_min_um=3.5, lam_max_um=5.0, **kwargs)
         lwir = spectral_cal_bias_frac(lam_min_um=8.0, lam_max_um=12.0, **kwargs)
         assert lwir == pytest.approx(2.738973e-4, rel=1e-3)
@@ -104,7 +104,12 @@ class TestSpectralCalBias:
 
     @pytest.mark.level0
     def test_scales_linearly_in_shift(self) -> None:
-        kwargs = dict(t_scene_K=320.0, t_cal_K=300.0, lam_min_um=3.5, lam_max_um=5.0)
+        kwargs: dict[str, float] = {
+            "t_scene_K": 320.0,
+            "t_cal_K": 300.0,
+            "lam_min_um": 3.5,
+            "lam_max_um": 5.0,
+        }
         b1 = spectral_cal_bias_frac(delta_lam_um=0.01, **kwargs)
         b2 = spectral_cal_bias_frac(delta_lam_um=0.02, **kwargs)
         assert b2 == pytest.approx(2.0 * b1, rel=1e-12)
@@ -120,9 +125,13 @@ class TestSpectralCalBias:
         ],
     )
     def test_invalid_inputs_rejected(self, field: str, value: float) -> None:
-        kwargs = dict(
-            delta_lam_um=0.01, t_scene_K=320.0, t_cal_K=300.0, lam_min_um=3.5, lam_max_um=5.0
-        )
+        kwargs: dict[str, float] = {
+            "delta_lam_um": 0.01,
+            "t_scene_K": 320.0,
+            "t_cal_K": 300.0,
+            "lam_min_um": 3.5,
+            "lam_max_um": 5.0,
+        }
         kwargs[field] = value
         with pytest.raises(CalibrationValidationError):
             spectral_cal_bias_frac(**kwargs)

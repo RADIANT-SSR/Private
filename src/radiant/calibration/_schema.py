@@ -208,6 +208,63 @@ SOURCE_EMISSIVITY = ParameterDef(
     tags=frozenset({"calibration"}),
 )
 
+CAL_PATH = ParameterDef(
+    name="calibration.cal_path",
+    description=(
+        "What the calibration view sees: 'full_aperture' (cal source fills "
+        "the whole optical path — the NUC corrects every emission source; "
+        "v1 behavior) or 'internal_shutter' (a flag/shutter inside the "
+        "train — the NUC never sees the emission of elements in FRONT of "
+        "it, which returns in operation as an uncorrected offset bias plus "
+        "narcissus-pattern FPN; Gap 122 item 4, the ADR-0012 ops-level "
+        "growth path). Requires an active scheme and "
+        "shutter_after_element >= 1."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="full_aperture",
+    enum_values=("full_aperture", "internal_shutter"),
+    tags=frozenset({"calibration", "cal_path"}),
+)
+
+SHUTTER_AFTER_ELEMENT = ParameterDef(
+    name="calibration.shutter_after_element",
+    description=(
+        "Number of optical-train elements in FRONT of the internal cal "
+        "shutter (scene side) — the flag sits behind the first N elements. "
+        "Those N elements' near-field emission is what the internal cal "
+        "cannot correct (the flag blocks them from the cal view; the NUC "
+        "corrects only the elements behind it). Required when cal_path = "
+        "'internal_shutter'; 0 = unset. N equal to the train length is "
+        "legal — a flag at the detector leaves the entire train "
+        "uncorrected, the maximum mismatch."
+    ),
+    dtype=int,
+    canonical_unit="",
+    input_unit="",
+    default=0,
+    bounds=(0, 99),
+    tags=frozenset({"calibration", "cal_path"}),
+)
+
+NARCISSUS_FPN_PCT = ParameterDef(
+    name="calibration.narcissus_fpn_pct",
+    description=(
+        "Fraction of the uncorrected fore-optics offset appearing as "
+        "spatial FPN (1-sigma, %) — the narcissus / vignetting pattern the "
+        "internal cal imprints. Applies only under "
+        "cal_path = 'internal_shutter'; the mean offset itself is the "
+        "internal_cal_offset BIAS term regardless of this value."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="%",
+    default=0.0,
+    bounds=(0.0, 100.0),
+    tags=frozenset({"calibration", "cal_path"}),
+)
+
 BAND_CENTER_UNCERTAINTY_UM = ParameterDef(
     name="calibration.band_center_uncertainty_um",
     description=(
@@ -257,4 +314,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     SOURCE_EMISSIVITY,
     BAND_CENTER_UNCERTAINTY_UM,
     GAIN_UNCERTAINTY_PCT,
+    CAL_PATH,
+    SHUTTER_AFTER_ELEMENT,
+    NARCISSUS_FPN_PCT,
 )

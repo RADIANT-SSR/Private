@@ -82,8 +82,6 @@ def spectral_cal_bias_frac(
         )
     if delta_lam_um == 0.0:
         return 0.0
-    g_scene = band_shift_log_derivative(
-        t_K=t_scene_K, lam_min_um=lam_min_um, lam_max_um=lam_max_um
-    )
+    g_scene = band_shift_log_derivative(t_K=t_scene_K, lam_min_um=lam_min_um, lam_max_um=lam_max_um)
     g_cal = band_shift_log_derivative(t_K=t_cal_K, lam_min_um=lam_min_um, lam_max_um=lam_max_um)
     return abs(g_scene - g_cal) * delta_lam_um

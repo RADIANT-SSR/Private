@@ -85,6 +85,18 @@ _SPECTRAL_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Band-center Δλ (1σ)", "calibration.band_center_uncertainty_um"),
 )
 
+_CAL_PATH_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Cal path", "calibration.cal_path"),
+    ("Elements before shutter", "calibration.shutter_after_element"),
+    ("Narcissus FPN (1σ)", "calibration.narcissus_fpn_pct"),
+)
+
+#: Rows meaningful only under cal_path = internal_shutter.
+_SHUTTER_ONLY: Final[tuple[str, ...]] = (
+    "calibration.shutter_after_element",
+    "calibration.narcissus_fpn_pct",
+)
+
 _GAIN_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Gain uncertainty (1σ)", "calibration.gain_uncertainty_pct"),
 )
@@ -95,6 +107,7 @@ _NUC_HEADING = "NUC residual"
 _DRIFT_HEADING = "Drift since cal"
 _SOURCE_HEADING = "Cal source (bias budget)"
 _SPECTRAL_HEADING = "Spectral cal (bias budget)"
+_CAL_PATH_HEADING = "Internal cal (path mismatch)"
 _GAIN_HEADING = "Absolute gain (bias budget)"
 
 #: Rows visible per scheme (beyond the always-visible selector).
@@ -150,6 +163,7 @@ class CalibrationInputsForm(QWidget):
         self._add_group(box, card, _DRIFT_HEADING, _DRIFT_FIELDS)
         self._add_group(box, card, _SOURCE_HEADING, _SOURCE_FIELDS)
         self._add_group(box, card, _SPECTRAL_HEADING, _SPECTRAL_FIELDS)
+        self._add_group(box, card, _CAL_PATH_HEADING, _CAL_PATH_FIELDS)
         self._add_group(box, card, _GAIN_HEADING, _GAIN_FIELDS)
 
         layout.addWidget(card)
@@ -210,6 +224,7 @@ class CalibrationInputsForm(QWidget):
             _DRIFT_HEADING,
             _SOURCE_HEADING,
             _SPECTRAL_HEADING,
+            _CAL_PATH_HEADING,
             _GAIN_HEADING,
         ):
             self._headings[heading].setVisible(active)
@@ -224,6 +239,18 @@ class CalibrationInputsForm(QWidget):
         if active and scheme == "two_point":
             for dotpath in _THREE_POINT_ONLY:
                 self._rows[dotpath].setVisible(False)
+        if active and self._cal_path() != "internal_shutter":
+            for dotpath in _SHUTTER_ONLY:
+                self._rows[dotpath].setVisible(False)
+
+    def _cal_path(self) -> str:
+        """The resolved cal path ('full_aperture' when unbound/unresolved)."""
+        if self._sensor is None:
+            return "full_aperture"
+        try:
+            return str(self._sensor.get("calibration.cal_path"))
+        except Exception:  # unresolved sensor — keep the default view
+            return "full_aperture"
 
     def _value_text(self, dotpath: str) -> str:
         """The value+unit text for *dotpath* in its display unit (— if unset).

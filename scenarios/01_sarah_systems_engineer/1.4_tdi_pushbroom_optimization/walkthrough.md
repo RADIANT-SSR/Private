@@ -82,20 +82,26 @@ itself (N_tdi = 1 SNR 52.3 → 37.2, knee 32 → 64).*
 
 | N_tdi | Signal [e-] | Well Fill [%] | SNR [--] | MTF@Nyq [--] | RER [--] | NIIRS [--] | Status |
 |---|---|---|---|---|---|---|---|
-| 1 | 732 | 1.2 | 23.7 | 0.1962 | 0.4884 | 4.55 | OK |
-| 2 | 1,465 | 2.4 | 35.6 | 0.1962 | 0.4884 | 4.83 | OK |
-| 4 | 2,930 | 4.9 | 52.2 | 0.1962 | 0.4884 | 5.09 | OK |
-| 8 | 5,859 | 9.8 | 75.1 | 0.1962 | 0.4884 | 5.34 | OK |
-| 16 | 11,719 | 19.5 | 107.2 | 0.1962 | 0.4884 | 5.58 | OK |
-| 32 | 23,437 | 39.1 | 152.4 | 0.1962 | 0.4884 | 5.81 | OK |
-| 64 | 46,874 | 78.1 | 216.0 | 0.1962 | 0.4884 | 6.05 | OK |
-| 96 | 60,000 | 100.0 | 244.5 | 0.1962 | 0.4884 | 6.13 | NEAR-SAT |
-| 128 | 60,000 | 100.0 | 244.5 | 0.1962 | 0.4884 | 6.13 | NEAR-SAT |
+| 1 | 732 | 1.2 | 23.7 | 0.1955 | 0.5130 | 4.62 | OK |
+| 2 | 1,465 | 2.4 | 35.6 | 0.1955 | 0.5130 | 4.90 | OK |
+| 4 | 2,930 | 4.9 | 52.2 | 0.1955 | 0.5130 | 5.16 | OK |
+| 8 | 5,859 | 9.8 | 75.1 | 0.1955 | 0.5130 | 5.41 | OK |
+| 16 | 11,719 | 19.5 | 107.2 | 0.1955 | 0.5130 | 5.65 | OK |
+| 32 | 23,437 | 39.1 | 152.4 | 0.1955 | 0.5130 | 5.89 | OK |
+| 64 | 46,874 | 78.1 | 216.0 | 0.1955 | 0.5130 | 6.12 | OK |
+| 96 | 60,000 | 100.0 | 244.5 | 0.1955 | 0.5130 | 6.21 | NEAR-SAT |
+| 128 | 60,000 | 100.0 | 244.5 | 0.1955 | 0.5130 | 6.21 | NEAR-SAT |
+
+*Refreshed 2026-09-12 (chartered sweep). Sole mover: **CU-355** — the
+scalar-WFE screen became the deterministic low-order expansion; RER rises
+0.4884 → 0.5130 (pixel integration forgives low-order blur), lifting every
+NIIRS by +0.07–0.08 through the GIQE-5 RER term. Signal, SNR, and every
+radiometric column are bit-identical.*
 
 ### Optimal N_tdi
-- **Peak NIIRS**: 6.13, reached at N_tdi = 96 and held (plateau) for all higher stages.
-- **Conservative choice**: N_tdi = 16 (NIIRS = 5.58, 20% well fill, comfortable margin).
-- **Sweet spot**: N_tdi = 32 (NIIRS = 5.81, 39% well fill) — within 0.32 NIIRS of the
+- **Peak NIIRS**: 6.21, reached at N_tdi = 96 and held (plateau) for all higher stages.
+- **Conservative choice**: N_tdi = 16 (NIIRS = 5.65, 20% well fill, comfortable margin).
+- **Sweet spot**: N_tdi = 32 (NIIRS = 5.89, 39% well fill) — within 0.32 NIIRS of the
   plateau with substantial saturation margin.
 - **Saturation onset**: N_tdi = 96 (signal first clips at FWC = 60,000 e-); N_tdi = 64
   runs at 78.1% well fill.
@@ -187,9 +193,9 @@ no degradation). For this system:
 - Signal per line: 732 e-
 - FWC: 60,000 e-
 - Theoretical max N_tdi (100% fill): 60,000 / 732 = 81.9
-- Saturation first reached at N_tdi = 96; NIIRS plateaus at 6.13 from there on
+- Saturation first reached at N_tdi = 96; NIIRS plateaus at 6.21 from there on
 - Practical choice: N_tdi = 64 (NIIRS 6.05, 78% fill) for peak quality with saturation
-  margin, or N_tdi = 32 (NIIRS 5.81, 39% fill) for a conservative margin
+  margin, or N_tdi = 32 (NIIRS 5.89, 39% fill) for a conservative margin
 
 (If the readout added digital-TDI read noise growth, or if a genuinely separable
 background dominated — e.g. a bright adjacent-scene sub-pixel case — the plateau would

@@ -91,7 +91,7 @@ add in quadrature. The budget table also ranks contributors by variance share
 effort pays off.
 
 ## Approach
-The script sweeps `optics.wfe_rms_waves` from 0 to 0.25 waves (at 633 nm HeNe reference) and evaluates the full RADIANT signal chain at each point. RADIANT applies a random phase screen scaled to the requested RMS in the optics stage, producing an aberrated PSF. PerformanceStage computes Strehl, MTF, EE, RER, and NIIRS from the aberrated EffectivePSF.
+The script sweeps `optics.wfe_rms_waves` from 0 to 0.25 waves (at 633 nm HeNe reference) and evaluates the full RADIANT signal chain at each point. RADIANT expands the scalar RMS over the fixed equal-RMS low-order Zernike set (Noll Z4–Z11, deterministic — CU-355, owner-ratified 2026-09-11; it replaced the earlier white-noise phase screen, which put all its variance at the pupil-grid sample scale and ignored the reference wavelength), producing an aberrated PSF. PerformanceStage computes Strehl, MTF, EE, RER, and NIIRS from the aberrated EffectivePSF.
 
 The scalar sweep is the budget *trade*; the as-built *truth* is the Zernike
 run (next section). Tom's 0.0513 waves total RMS also corresponds to one
@@ -105,14 +105,22 @@ produces a ZERNIKE-mode `WavefrontError`, injected via
 (Rule 6 — file-derived objects are built by the IO/API layer and injected
 before chain execution; there is no scalar-parameter path for Zernike mode).
 
-| Metric | Zernike (actual) | Scalar screen | Δ |
-|--------|-----------------:|--------------:|---:|
-| Strehl [--] | 0.9174 | 0.9019 | +0.0156 |
-| MTF@Nyquist [--] | 0.2246 | 0.2297 | −0.0051 |
-| EE(1x1) [--] | 0.3953 | 0.3868 | +0.0085 |
-| RER [--] | 0.5812 | 0.5526 | +0.0285 |
-| NIIRS [--] | 6.07 | 6.00 | +0.07 |
+| Metric | Zernike (actual) | Scalar expansion | Δ |
+|--------|-----------------:|-----------------:|---:|
+| Strehl [--] | 0.9174 | 0.9256 | −0.0082 |
+| MTF@Nyquist [--] | 0.2246 | 0.2204 | +0.0041 |
+| EE(1x1) [--] | 0.3953 | 0.3999 | −0.0046 |
+| RER [--] | 0.5812 | 0.5872 | −0.0060 |
+| NIIRS [--] | 6.07 | 6.08 | −0.01 |
 | SNR [--] | 120.2 | 120.2 | 0 |
+
+*Refreshed 2026-09-12 (CU-355): the "scalar screen" column is now the
+deterministic equal-RMS Z4–Z11 expansion, and the Δs flip sign — Tom's
+actual prescription (spherical + coma dominant) sits slightly BELOW the
+equal-weight mix at the same 0.0513-wave RMS, where it sat above the old
+white-noise halo. The two are now near-twins (|ΔNIIRS| 0.01, was 0.07),
+which is what two low-order pupils at one RMS should be; the Zernike route
+still earns its keep on aberration-specific PSF structure.*
 
 *Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
 2026-08-30). Sole mover: **CU-336** — the same fit's grid convention was
@@ -140,12 +148,13 @@ term. The EE columns moved separately under CU-188 (cell-area-overlap EE_box).
 Strehl, MTF@Nyquist and RER are unchanged.*
 
 Same total RMS, different modal mix, different metrics — the shape effect a
-single RMS number cannot capture. At this small RMS (Strehl ≈ 0.9) the
-difference is modest but visible (+0.07 NIIRS); it grows with WFE, and only
-the Zernike route reproduces aberration-specific PSF structure (coma
-asymmetry, spherical rings). This is the same shape-ambiguity that dominated
-scenario 7.3's measured-vs-predicted MTF residual — use the prescription
-whenever one exists.
+single RMS number cannot capture. Under CU-355 both pupils are low-order, so
+at this small RMS the difference is slight (−0.01 NIIRS; it was +0.07
+against the retired white-noise screen); it grows with WFE, and only the
+Zernike route reproduces aberration-specific PSF structure (coma asymmetry,
+spherical rings). This is the same shape-ambiguity that dominated scenario
+7.3's measured-vs-predicted MTF residual — use the prescription whenever one
+exists.
 
 ## Key Results
 
@@ -153,41 +162,58 @@ whenever one exists.
 | WFE [waves] | Strehl [--] | MTF@Nyq [--] | EE(1x1) [--] | EE(3x3) [--] | RER [--] | NIIRS [--] |
 |---|---|---|---|---|---|---|
 | 0.000 | 1.0000 | 0.2546 | 0.4288 | 0.8833 | 0.6114 | 6.14 |
-| 0.020 | 0.9844 | 0.2506 | 0.4222 | 0.8696 | 0.6021 | 6.12 |
-| 0.040 | 0.9392 | 0.2392 | 0.4028 | 0.8296 | 0.5750 | 6.05 |
-| 0.060 | 0.8683 | 0.2212 | 0.3724 | 0.7671 | 0.5325 | 5.94 |
-| 0.071 | 0.8207 | 0.2092 | 0.3519 | 0.7250 | 0.5040 | 5.86 |
-| 0.080 | 0.7781 | 0.1984 | 0.3337 | 0.6874 | 0.4785 | 5.79 |
-| 0.100 | 0.6759 | 0.1725 | 0.2899 | 0.5972 | 0.4173 | 5.59 |
-| 0.120 | 0.5692 | 0.1455 | 0.2441 | 0.5029 | 0.3533 | 5.35 |
-| 0.140 | 0.4648 | 0.1191 | 0.1993 | 0.4106 | 0.2907 | 5.07 |
-| 0.160 | 0.3680 | 0.0944 | 0.1578 | 0.3251 | 0.2327 | 4.75 |
-| 0.180 | 0.2827 | 0.0726 | 0.1212 | 0.2497 | 0.1815 | 4.39 |
-| 0.200 | 0.2106 | 0.0540 | 0.0903 | 0.1861 | 0.1382 | 4.00 |
-| 0.250 | 0.0885 | 0.0223 | 0.0379 | 0.0786 | 0.0649 | 2.91 |
+| 0.020 | 0.9879 | 0.2488 | 0.4242 | 0.8805 | 0.6079 | 6.13 |
+| 0.040 | 0.9534 | 0.2327 | 0.4107 | 0.8720 | 0.5966 | 6.11 |
+| 0.060 | 0.9011 | 0.2101 | 0.3903 | 0.8581 | 0.5786 | 6.06 |
+| 0.071 | 0.8671 | 0.1968 | 0.3770 | 0.8484 | 0.5665 | 6.03 |
+| 0.080 | 0.8402 | 0.1862 | 0.3654 | 0.8394 | 0.5556 | 6.00 |
+| 0.100 | 0.7794 | 0.1663 | 0.3384 | 0.8167 | 0.5295 | 5.93 |
+| 0.120 | 0.7210 | 0.1530 | 0.3117 | 0.7912 | 0.5022 | 5.86 |
+| 0.140 | 0.6750 | 0.1450 | 0.2866 | 0.7640 | 0.4751 | 5.78 |
+| 0.160 | 0.6334 | 0.1383 | 0.2637 | 0.7367 | 0.4492 | 5.70 |
+| 0.180 | 0.5953 | 0.1296 | 0.2428 | 0.7101 | 0.4248 | 5.62 |
+| 0.200 | 0.5589 | 0.1178 | 0.2234 | 0.6852 | 0.4018 | 5.54 |
+| 0.250 | 0.4681 | 0.0863 | 0.1783 | 0.6300 | 0.3490 | 5.33 |
+
+*Refreshed 2026-09-12 (chartered scenario sweep). Sole mover: **CU-355** —
+the scalar screen became the deterministic Z4–Z11 expansion, whose low-order
+blur is partially forgiven by pixel integration, so every spatial column
+degrades far more gently at equal RMS than the retired white-noise halo did
+(Strehl at 0.25 waves: 0.089 → 0.468). The WFE = 0 row is bit-identical, as
+CU-355's zero-budget guarantee requires.*
 
 ### NIIRS Thresholds
 | Degradation | WFE Threshold [waves] |
 |---|---|
-| -0.25 NIIRS | ~0.071 |
-| -0.50 NIIRS | ~0.100 |
-| -1.00 NIIRS | ~0.140 |
+| -0.25 NIIRS | ~0.110 |
+| -0.50 NIIRS | ~0.175 |
+| -1.00 NIIRS | not reached in the 0–0.25 sweep (−0.81 at 0.250) |
+
+*Thresholds moved substantially under CU-355 (previously ~0.071 / ~0.100 /
+~0.140): at equal RMS the deterministic low-order screen costs roughly half
+the NIIRS the white-noise halo charged. The budget REASONING is unchanged —
+the thresholds still come off the spatial terms alone.*
 
 ### Metric Degradation (relative to perfect optics)
 | WFE [waves] | dStrehl [%] | dMTF@Nyq [%] | dEE(1x1) [%] | dRER [%] | dNIIRS [--] | Quality |
 |---|---|---|---|---|---|---|
-| 0.000 | 0.0 | 0.0 | 0.0 | 0.0 | 0.00 | diffraction-limited |
-| 0.040 | -6.1 | -6.1 | -6.1 | -6.0 | -0.09 | diffraction-limited |
-| 0.071 | -17.9 | -17.8 | -17.9 | -17.6 | -0.28 | diffraction-limited |
-| 0.100 | -32.4 | -32.2 | -32.4 | -31.8 | -0.55 | acceptable |
-| 0.140 | -53.5 | -53.2 | -53.5 | -52.5 | -1.07 | moderate |
-| 0.200 | -78.9 | -78.8 | -79.0 | -77.4 | -2.14 | significant |
-| 0.250 | -91.1 | -91.2 | -91.2 | -89.4 | -3.23 | severe |
+| 0.000 | +0.0 | +0.0 | +0.0 | +0.0 | +0.00 | diffraction-limited |
+| 0.040 | -4.7 | -8.6 | -4.2 | -2.4 | -0.04 | diffraction-limited |
+| 0.071 | -13.3 | -22.7 | -12.1 | -7.3 | -0.11 | diffraction-limited |
+| 0.100 | -22.1 | -34.7 | -21.1 | -13.4 | -0.21 | acceptable |
+| 0.140 | -32.5 | -43.1 | -33.2 | -22.3 | -0.36 | moderate |
+| 0.200 | -44.1 | -53.7 | -47.9 | -34.3 | -0.61 | significant |
+| 0.250 | -53.2 | -66.1 | -58.4 | -42.9 | -0.81 | severe |
+
+*Note the columns now decouple (CU-355): the white-noise screen degraded
+every metric by the same fraction (a flat Strehl factor); the low-order
+expansion hits mid-frequency MTF hardest and RER least — visible structure
+a single scatter halo could not produce.*
 
 ### Tom's Design Assessment
 - **Total Zernike RMS**: 0.0513 waves (run in Zernike mode, not just the nearest sweep point)
-- **Strehl**: 0.9174 (well above 0.80 diffraction limit; the structured prescription outperforms a random screen at the same RMS)
-- **dNIIRS**: -0.07 (Zernike mode) vs -0.15 (scalar screen at the same RMS)
+- **Strehl**: 0.9174 (well above 0.80 diffraction limit; near-twin of the CU-355 scalar expansion's 0.9256 at the same RMS)
+- **dNIIRS**: -0.07 (Zernike mode) vs -0.06 (CU-355 scalar expansion at the same RMS)
 - **Budget**: RSS 0.0513 vs allocation 0.0714 waves — within budget, 0.0497 waves RSS headroom for assembly/thermal terms
 - **Assessment**: Tom's WFE budget is well within diffraction-limited territory.
 

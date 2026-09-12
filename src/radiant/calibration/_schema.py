@@ -208,6 +208,72 @@ SOURCE_EMISSIVITY = ParameterDef(
     tags=frozenset({"calibration"}),
 )
 
+CAL_POINT_MODE = ParameterDef(
+    name="calibration.cal_point_mode",
+    description=(
+        "How the NUC cal points are declared: 'temperature' (cal_temp_*_K, "
+        "mapped to cal signals through the band Planck photon-radiance "
+        "ratio — the v1 form) or 'flux_fraction' (cal_flux_* as fractions "
+        "of the scene signal — the integrating-sphere / flat-field form, "
+        "the CU-346 flux-ratio door, Gap 122 item 5). Under flux_fraction "
+        "the temperature-anchored inputs (cal_temp_*_K, "
+        "source_temp_uncertainty_K, source_uniformity_K, "
+        "band_center_uncertainty_um, source_emissivity_uncertainty) have "
+        "no anchor and are rejected as over-specification; drift, gain, "
+        "and the internal-shutter path are temperature-free and flow "
+        "unchanged."
+    ),
+    dtype=str,
+    canonical_unit="",
+    input_unit="",
+    default="temperature",
+    enum_values=("temperature", "flux_fraction"),
+    tags=frozenset({"calibration", "scheme"}),
+)
+
+CAL_FLUX_LOW = ParameterDef(
+    name="calibration.cal_flux_low",
+    description=(
+        "Lower cal point as a fraction of the scene signal "
+        "(cal_point_mode = 'flux_fraction'); 0.0 = unset. Must be "
+        "strictly below cal_flux_high (and cal_flux_mid, three_point)."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=0.0,
+    bounds=(0.0, 10.0),
+    tags=frozenset({"calibration"}),
+)
+
+CAL_FLUX_MID = ParameterDef(
+    name="calibration.cal_flux_mid",
+    description=(
+        "Middle cal point as a fraction of the scene signal "
+        "(three_point + flux_fraction only); 0.0 = unset."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=0.0,
+    bounds=(0.0, 10.0),
+    tags=frozenset({"calibration"}),
+)
+
+CAL_FLUX_HIGH = ParameterDef(
+    name="calibration.cal_flux_high",
+    description=(
+        "Upper cal point as a fraction of the scene signal "
+        "(cal_point_mode = 'flux_fraction'); 0.0 = unset."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=0.0,
+    bounds=(0.0, 10.0),
+    tags=frozenset({"calibration"}),
+)
+
 CAL_PATH = ParameterDef(
     name="calibration.cal_path",
     description=(
@@ -317,4 +383,8 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     CAL_PATH,
     SHUTTER_AFTER_ELEMENT,
     NARCISSUS_FPN_PCT,
+    CAL_POINT_MODE,
+    CAL_FLUX_LOW,
+    CAL_FLUX_MID,
+    CAL_FLUX_HIGH,
 )

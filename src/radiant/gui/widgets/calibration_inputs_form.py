@@ -59,9 +59,26 @@ _TITLE: Final[str] = "Calibration inputs"
 _SCHEME_FIELDS: Final[tuple[tuple[str, str], ...]] = (("Scheme", "calibration.scheme"),)
 
 _CAL_POINT_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Cal point mode", "calibration.cal_point_mode"),
     ("Cal point (low)", "calibration.cal_temp_low_K"),
     ("Cal point (mid)", "calibration.cal_temp_mid_K"),
     ("Cal point (high)", "calibration.cal_temp_high_K"),
+    ("Cal flux (low)", "calibration.cal_flux_low"),
+    ("Cal flux (mid)", "calibration.cal_flux_mid"),
+    ("Cal flux (high)", "calibration.cal_flux_high"),
+)
+
+#: Rows meaningful only under one cal-point mode (Gap 122 item 5): the
+#: temperature rows hide under flux_fraction and vice versa.
+_TEMPERATURE_POINT_ROWS: Final[tuple[str, ...]] = (
+    "calibration.cal_temp_low_K",
+    "calibration.cal_temp_mid_K",
+    "calibration.cal_temp_high_K",
+)
+_FLUX_POINT_ROWS: Final[tuple[str, ...]] = (
+    "calibration.cal_flux_low",
+    "calibration.cal_flux_mid",
+    "calibration.cal_flux_high",
 )
 
 _NUC_FIELDS: Final[tuple[tuple[str, str], ...]] = (
@@ -242,6 +259,35 @@ class CalibrationInputsForm(QWidget):
         if active and self._cal_path() != "internal_shutter":
             for dotpath in _SHUTTER_ONLY:
                 self._rows[dotpath].setVisible(False)
+        if active:
+            flux_mode = self._cal_point_mode() == "flux_fraction"
+            for dotpath in _TEMPERATURE_POINT_ROWS:
+                if flux_mode:
+                    self._rows[dotpath].setVisible(False)
+            for dotpath in _FLUX_POINT_ROWS:
+                if not flux_mode:
+                    self._rows[dotpath].setVisible(False)
+            if flux_mode and scheme != "three_point":
+                self._rows["calibration.cal_flux_mid"].setVisible(False)
+            # Temperature-anchored bias rows have no meaning in flux mode
+            # (the stage rejects them as over-specification).
+            if flux_mode:
+                for dotpath in (
+                    "calibration.source_uniformity_K",
+                    "calibration.source_temp_uncertainty_K",
+                    "calibration.source_emissivity_uncertainty",
+                    "calibration.band_center_uncertainty_um",
+                ):
+                    self._rows[dotpath].setVisible(False)
+
+    def _cal_point_mode(self) -> str:
+        """The resolved cal-point mode ('temperature' when unbound/unresolved)."""
+        if self._sensor is None:
+            return "temperature"
+        try:
+            return str(self._sensor.get("calibration.cal_point_mode"))
+        except Exception:  # unresolved sensor — keep the default view
+            return "temperature"
 
     def _cal_path(self) -> str:
         """The resolved cal path ('full_aperture' when unbound/unresolved)."""

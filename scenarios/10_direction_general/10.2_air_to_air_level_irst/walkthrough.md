@@ -119,12 +119,18 @@ pill reads `Δh  49 m`.
 
 | Range [km] | θ_o [deg] | Δh [m] | guard | τ MWIR [–] | signal [e⁻] | noise [e⁻ rms] | SNR [–] | det. range [km] | well margin [dB] |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 25 | 90.11224 | 12.2 | clean | 0.6337 | 5.3390e5 | 733.8 | 727.6 | 199.0 | 5.5 |
-| 40 | 90.17958 | 31.3 | clean | 0.4824 | 1.5869e5 | 404.1 | 392.7 | 199.1 | 16.0 |
-| 50 | 90.22448 | 49.0 | clean | 0.4023 | 8.4677e4 | 298.8 | 283.4 | 199.1 | 21.4 |
-| 70 | 90.31427 | 96.0 | clean | 0.2799 | 3.0047e4 | 186.3 | 161.3 | 199.1 | 30.4 |
-| 75 | 90.33672 | 110.2 | **warn** | 0.2556 | 2.3905e4 | 169.1 | 141.4 | 199.0 | 32.4 |
-| 100 | 90.44896 | 195.9 | **warn** | 0.1625 | 8.5466e3 | 115.5 | 74.0 | 198.8 | 41.4 |
+| 25 | 90.11224 | 12.2 | clean | 0.6337 | 5.8803e5 | 769.8 | 763.9 | 202.4 | 4.6 |
+| 40 | 90.17958 | 31.3 | clean | 0.4824 | 1.7478e5 | 423.5 | 412.7 | 202.5 | 15.2 |
+| 50 | 90.22448 | 49.0 | clean | 0.4023 | 9.3262e4 | 312.8 | 298.1 | 202.5 | 20.6 |
+| 70 | 90.31427 | 96.0 | clean | 0.2799 | 3.3094e4 | 194.3 | 170.3 | 202.5 | 29.6 |
+| 75 | 90.33672 | 110.2 | **warn** | 0.2556 | 2.6329e4 | 176.1 | 149.5 | 202.5 | 31.6 |
+| 100 | 90.44896 | 195.9 | **warn** | 0.1625 | 9.4131e3 | 119.1 | 79.0 | 202.2 | 40.5 |
+
+*Refreshed 2026-09-12 (chartered sweep). Sole mover: **CU-355** — the
+scalar-WFE screen became the deterministic low-order expansion, which keeps
+more point-source energy in the EE box: signal rises ~10 % at every rung,
+SNR +5 % (283.4 → 298.1 at 50 km), detection range 199.1 → 202.5 km
+(+1.7 %). τ, geometry, and the guard bands are bit-identical.*
 
 *Numbers refreshed 2026-09-01. One mover since the previous vintage: **CU-336**
 corrected the gas fit's grid convention, so the floors CU-335 had over-fitted
@@ -195,7 +201,7 @@ warning is the correct Rule-17 report of an over-specified input, not a defect
 to suppress.
 
 **Non-obvious result — `detection_range_m` is reference-range invariant**
-(199.0 km referenced at 25 km, 198.8 km referenced at 100 km, a factor 1.00).
+(202.4 km referenced at 25 km, 202.2 km referenced at 100 km, a factor 1.00; digits refreshed 2026-09-12, CU-355).
 The path-aware solver scales the *signal* along the path,
 $S(R) = S_{ref}(R_{ref}/R)^2\,\tau(R)/\tau(R_{ref})$, **and the target's own
 shot noise with it**: $\sigma^2(R) = S(R) + N_0^2$, with $N_0$ the target-free

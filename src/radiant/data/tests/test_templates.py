@@ -29,9 +29,14 @@ class TestTemplateFiles:
     @pytest.mark.level1
     def test_templates_exist(self) -> None:
         paths = _template_paths()
-        # CU-339 split the corpus out; CU-349 moved the six mission templates
-        # into the package (radiant/data/templates/) so they ship in the wheel.
-        assert len(paths) == 6, f"Expected the 6 mission templates, found {len(paths)}"
+        # CU-339 split the corpus out; CU-349 moved the mission templates into
+        # the package (radiant/data/templates/) so they ship in the wheel; the
+        # October sweep (2026-09-12) graduated the CLI's three uncovered band
+        # classes (aerial VNIR, LEO SWIR, GEO LWIR), 6 -> 9.
+        assert len(paths) == 9, f"Expected the 9 mission templates, found {len(paths)}"
+        stems = {path.stem for path in paths}
+        for stem in ("aerial_vnir_imaging", "leo_swir_mapping", "geo_lwir_staring"):
+            assert stem in stems, stem
 
     @pytest.mark.level1
     @pytest.mark.parametrize("path", _template_paths(), ids=_template_ids())

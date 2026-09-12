@@ -79,7 +79,7 @@ angle:
 | Metric | Value | Unit | Notes |
 |--------|-------|------|-------|
 | NEDT | 64.0 | mK | Noise-equivalent delta temperature |
-| NIIRS | 5.35 | -- | GIQE-5, extrapolated (see banner); nadir point of the sweep |
+| NIIRS | 5.43 | -- | GIQE-5, extrapolated (see banner); nadir point of the sweep |
 | GSD (RADIANT) | 1.37 | m | Nadir, cross-track |
 | Q (center) | 0.844 | -- | Slightly undersampled |
 | Q (min/max) | 0.562 / 1.125 | -- | Over band |
@@ -188,16 +188,21 @@ had clamped them to zero): nadir τ fell 0.7243 → 0.6488 (−10.4 %), SNR ~34 
 
 | Angle [deg] | Tau (mean) | SNR   | GSD GM [m] | NIIRS | NEDT [mK] | dNIIRS |
 |-------------|------------|-------|------------|-------|-----------|--------|
-| 0           | 0.6594     | 59.8  | 1.37       | 5.35  | 64.0      | 0.00   |
-| 5           | 0.6583     | 61.1  | 1.38       | 5.36  | 62.7      | +0.01  |
-| 10          | 0.6552     | 62.5  | 1.40       | 5.35  | 61.3      | -0.00  |
-| 15          | 0.6500     | 63.8  | 1.44       | 5.32  | 60.1      | -0.03  |
-| 20          | 0.6424     | 65.1  | 1.50       | 5.28  | 58.9      | -0.07  |
-| 25          | 0.6322     | 66.4  | 1.57       | 5.22  | 57.8      | -0.13  |
-| 30          | 0.6192     | 67.7  | 1.68       | 5.14  | 56.7      | -0.21  |
-| 35          | 0.6029     | 69.0  | 1.81       | 5.04  | 55.6      | -0.31  |
-| 40          | 0.5828     | 70.3  | 1.99       | 4.92  | 54.6      | -0.43  |
-| 45          | 0.5581     | 71.6  | 2.21       | 4.78  | 53.6      | -0.57  |
+| 0           | 0.6594     | 59.8  | 1.37       | 5.43  | 64.0      | 0.00   |
+| 5           | 0.6583     | 61.1  | 1.38       | 5.43  | 62.7      | +0.01  |
+| 10          | 0.6552     | 62.5  | 1.40       | 5.42  | 61.3      | -0.00  |
+| 15          | 0.6500     | 63.8  | 1.44       | 5.40  | 60.1      | -0.03  |
+| 20          | 0.6424     | 65.1  | 1.50       | 5.36  | 58.9      | -0.07  |
+| 25          | 0.6322     | 66.4  | 1.57       | 5.30  | 57.8      | -0.13  |
+| 30          | 0.6192     | 67.7  | 1.68       | 5.22  | 56.7      | -0.21  |
+| 35          | 0.6029     | 69.0  | 1.81       | 5.12  | 55.6      | -0.31  |
+| 40          | 0.5828     | 70.3  | 1.99       | 5.00  | 54.6      | -0.43  |
+| 45          | 0.5581     | 71.6  | 2.21       | 4.86  | 53.6      | -0.57  |
+
+*NIIRS column refreshed 2026-09-12 (chartered sweep). Sole mover: **CU-355**
+— a uniform +0.08 level shift through the GIQE-5 RER term (the scalar-WFE
+screen became the deterministic low-order expansion). Every dNIIRS, and
+every other column, is unchanged — the agility trade itself did not move.*
 
 ### RADIANT GSD vs. True Off-Nadir GSD
 

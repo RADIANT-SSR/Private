@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **The interpolated backend's single-τ collapse warning fires only when the
+  scene has a sun leg** (`los.theta_s` set). At night nothing consumes
+  `τ_sun` and nothing is collapsed; the unconditional warning was noise.
+  Sunlit scenes warn exactly as before.
+- **Results-affecting (scenario baselines only): the two interpolation-demo
+  baselines (8.1, 8.2) now ship on `atmosphere.model: interpolated`** —
+  8.1 on the bundled `us_standard_zenith_fan`, 8.2 on
+  `midlat_summer_sensor_ladder` (same profile as its old Simple fallback),
+  both at night. Their snapshot values change accordingly (8.1 SNR 539.5,
+  8.2 SNR 1623.0); no golden or other baseline moves.
+
+### Changed
 - **Retroactive record (October sweep):** `diffraction_limit_target_plane_m`
   joined the scene-class `default_off_metrics` list for the four block-10
   (direction-general) scene classes during the CU-317-era refresh (10 → 11

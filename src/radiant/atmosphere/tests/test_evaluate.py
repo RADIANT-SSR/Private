@@ -15,6 +15,7 @@ answers evaluate() without erroring and returns shape-valid data".
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -496,7 +497,11 @@ class TestInterpolatedAtmosphereEvaluate:
         model = _interp_with_target_axis(lwir_wavelengths)
         los = LineOfSightGeometry(h_tgt=5_000.0, h_sensor=20_000.0, theta_o=0.0, h_atm_top=1.0e5)
 
-        with pytest.warns(UserWarning, match="two-leg"):
+        # No theta_s on this scene -> no sun leg -> no collapse warning
+        # (October sweep 2026-09-12: the warning is conditioned on an actual
+        # solar consumer; it used to fire unconditionally).
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
             q = model.evaluate(lwir_wavelengths, los, lwir_params)
 
         assert isinstance(q, AtmosphericQuantities)
@@ -517,11 +522,24 @@ class TestInterpolatedAtmosphereEvaluate:
         """h_tgt = 0 keeps the pre-Gap-94 contract: one column, all legs alias."""
         model = _interp_with_target_axis(lwir_wavelengths)
         los = LineOfSightGeometry(h_tgt=0.0, h_sensor=2000.0, theta_o=0.0, h_atm_top=1.0e5)
-        with pytest.warns(UserWarning, match="two-leg"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
             q = model.evaluate(lwir_wavelengths, los, lwir_params)
         np.testing.assert_allclose(q.tau_up, 0.7, rtol=1e-9)
         np.testing.assert_array_equal(q.tau_up, q.tau_full_up)
         np.testing.assert_array_equal(q.L_path_up, q.L_path_full)
+
+    @pytest.mark.level1
+    def test_sunlit_scene_still_warns_the_collapse(
+        self, lwir_wavelengths: np.ndarray, lwir_params
+    ) -> None:
+        """With a sun leg in the scene, the single-tau collapse still warns."""
+        model = _interp_with_target_axis(lwir_wavelengths)
+        los = LineOfSightGeometry(
+            h_tgt=0.0, h_sensor=2000.0, theta_o=0.0, h_atm_top=1.0e5, theta_s=0.5, delta_phi=0.0
+        )
+        with pytest.warns(UserWarning, match="two-leg"):
+            model.evaluate(lwir_wavelengths, los, lwir_params)
 
     @pytest.mark.level1
     def test_airborne_without_target_axis_raises(

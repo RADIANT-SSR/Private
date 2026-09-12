@@ -1281,17 +1281,26 @@ class InterpolatedAtmosphere:
         )
         lam = full_state.wavelength_um
 
-        warnings.warn(
-            (
-                "InterpolatedAtmosphere.evaluate: backend does not carry the "
-                "Option C two-leg split for the sun leg — collapsing τ_sun "
-                "onto the up-leg transmittance (τ_sun=τ_up; for a surface "
-                "target also τ_up=τ_full_up and L_path_up=L_path_full, the "
-                "single interpolated column)."
-            ),
-            UserWarning,
-            stacklevel=2,
-        )
+        if los.theta_s is not None:
+            # October sweep (2026-09-12): warn only when a sun leg EXISTS
+            # in the SCENE (the local theta_s falls back to the family's
+            # recorded value for the CU-167 mismatch check and is never
+            # None, so it cannot be the guard).
+            # At night (theta_s stripped) no consumer reads τ_sun, nothing
+            # is collapsed, and the unconditional warning was pure noise —
+            # it alone kept the interpolation-demo baselines (8.1/8.2) from
+            # shipping on the backend they demonstrate.
+            warnings.warn(
+                (
+                    "InterpolatedAtmosphere.evaluate: backend does not carry the "
+                    "Option C two-leg split for the sun leg — collapsing τ_sun "
+                    "onto the up-leg transmittance (τ_sun=τ_up; for a surface "
+                    "target also τ_up=τ_full_up and L_path_up=L_path_full, the "
+                    "single interpolated column)."
+                ),
+                UserWarning,
+                stacklevel=2,
+            )
 
         tau_up = np.asarray(up_state.transmittance.values, dtype=np.float64)
         tau_full = np.asarray(full_state.transmittance.values, dtype=np.float64)

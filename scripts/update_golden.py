@@ -3,10 +3,12 @@
 
 Usage::
 
-    python scripts/update_golden.py --i-know-what-im-doing
+    python scripts/update_golden.py --i-know-what-im-doing --reason "CU-NNN: why"
 
 This script re-runs the MWIR LEO minimal chain and overwrites the
-golden JSON file. It logs every value that changed.
+golden JSON file. It logs every value that changed, and appends the
+mandatory ``--reason`` to ``_provenance.notes`` — the human-readable
+history of every value change (`RADIANT_Testing_Validation.md` §5.3).
 
 NEVER run this without understanding WHY values changed. The golden
 file is a regression anchor — updating it silently defeats its purpose.
@@ -39,6 +41,22 @@ def main() -> None:
             "ERROR: Golden values are regression anchors.\n"
             "       To update them, pass: --i-know-what-im-doing\n"
             "       Only do this after verifying the new values are correct.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # §5.3: the update reason is part of the golden file's provenance history.
+    reason = ""
+    if "--reason" in sys.argv:
+        idx = sys.argv.index("--reason")
+        if idx + 1 < len(sys.argv):
+            reason = sys.argv[idx + 1].strip()
+    if not reason:
+        print(
+            "ERROR: a golden update needs a recorded reason.\n"
+            '       Pass: --reason "CU-NNN: what physics changed and why"\n'
+            "       It is appended to _provenance.notes "
+            "(RADIANT_Testing_Validation.md §5.3).",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -108,8 +126,14 @@ def main() -> None:
         else:
             golden[key] = {"value": new_val, "unit": "see code", "provenance": "auto-generated"}
 
-    golden["_provenance"]["generated_by"] = "scripts/update_golden.py"
-    golden["_provenance"]["last_updated"] = timestamp
+    prov = golden.setdefault("_provenance", {})
+    prov["generated_by"] = "scripts/update_golden.py"
+    prov["last_updated"] = timestamp
+    # Append, never overwrite: notes are the cumulative update history.
+    date = timestamp[:10]
+    existing_notes = str(prov.get("notes", "")).strip()
+    new_note = f"{date}: {reason}"
+    prov["notes"] = f"{existing_notes} | {new_note}" if existing_notes else new_note
 
     GOLDEN_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(GOLDEN_PATH, "w", encoding="utf-8") as f:

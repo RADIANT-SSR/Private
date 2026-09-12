@@ -370,10 +370,10 @@ def test_golden_mwir_leo_minimal():
 When a physics improvement legitimately changes golden results (e.g. improved MODTRAN reader, a corrected routing rule such as CU-007/CU-155), the golden file is regenerated with the dedicated script — there is no `radiant freeze-golden` CLI:
 
 ```bash
-python scripts/update_golden.py --i-know-what-im-doing
+python scripts/update_golden.py --i-know-what-im-doing --reason "CU-NNN: why"
 ```
 
-The `--i-know-what-im-doing` flag is mandatory: without it the script prints an error and exits non-zero. The script re-runs the MWIR LEO minimal chain, logs every value that changed (old → new with relative change), preserves the human-readable `_provenance.notes` history, and rewrites `_provenance.last_updated`. A golden update requires:
+The `--i-know-what-im-doing` flag and a `--reason` are both mandatory: without either the script prints an error and exits non-zero; the reason is appended to `_provenance.notes` with the update date. The script re-runs the MWIR LEO minimal chain, logs every value that changed (old → new with relative change), preserves the human-readable `_provenance.notes` history, and rewrites `_provenance.last_updated`. A golden update requires:
 1. A PR describing **why** the physics changed (the reason is also appended to `_provenance.notes`).
 2. Domain-expert review of the before/after values the script logs.
 

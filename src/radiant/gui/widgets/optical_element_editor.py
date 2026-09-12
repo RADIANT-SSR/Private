@@ -55,8 +55,9 @@ mirrors, cavity/zero for refractive). There is no ε input anywhere in this edit
 
 Each commit emits :attr:`elementsApplied`, which the host relays through the standard
 ``parameterEdited`` pipeline (stale dots + debounced re-evaluation). The pseudo dot-path
-``optics_config.element_list`` identifies the edit; it is not a scalar parameter, so no
-undo command is recorded (documented Phase-9 limitation for non-scalar edits).
+``optics_config.element_list`` identifies the edit; it is not a scalar parameter, so its
+undo step is recorded separately, from the :attr:`trainCommitted` state pair (CU-357 —
+this closed the documented Phase-9 non-scalar-edit limitation).
 
 **Configured element rows (Gap 103 v1.1, owner-ratified 2026-09-02 in live review).** In a
 multi-member study a **row configures exactly like a parameter**. The tab always renders
@@ -79,9 +80,15 @@ the displayed configuration's effective train
   configuration's entry is untouched. Editing a shared row writes the shared document,
   which every configuration inherits.
 * The train's **structure is shared**: the row count and order are the same in every
-  configuration, so Add / Remove / reorder change every member. A configured row keeps
-  its position, so an edit that would shift one is refused *before* it is made — the
-  button is disabled with the reason and the way out (un-configure the row first).
+  configuration, so Add / Remove / reorder change every member. An edit that shifts a
+  configured row goes through the position-preserving
+  :meth:`ConfigurationSet.remove_element` / :meth:`ConfigurationSet.move_element`
+  (CU-357), which renumber the configured rows with their per-configuration entries
+  intact — the pre-CU-357 disabled-button refusals are gone.
+
+Every commit is **undoable** (CU-357): each successful write also emits
+:attr:`trainCommitted` with the whole-train before/after states, which the host records
+as one :class:`~radiant.gui.widgets.element_train_command.ElementTrainCommand`.
 
 A single-configuration session shows no row menu, no badges, and no study note, and
 behaves exactly as it did before this feature.
@@ -93,7 +100,7 @@ file (Rule 19).
 from __future__ import annotations
 
 import copy
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
@@ -116,6 +123,7 @@ from PySide6.QtWidgets import (
 
 from radiant.api.coating_detail import plot_coating_detail
 from radiant.api.config_io import normalize_element_document, preview_optical_elements
+from radiant.api.config_set import ElementTrainState
 from radiant.api.plot import plot_theme
 from radiant.core.exceptions import RadiantError
 from radiant.gui.dialog_lifetime import exec_dialog
@@ -134,7 +142,8 @@ if TYPE_CHECKING:
     from radiant.gui.config_scope import ConfigurationScope
 
 # The pseudo dot-path the host's parameterEdited pipeline sees for an element-document
-# commit (not a scalar parameter; undo skips it, dirty/stale/re-evaluate all apply).
+# commit (not a scalar parameter; its undo rides trainCommitted (CU-357), and
+# dirty/stale/re-evaluate all apply).
 ELEMENT_EDIT_PATH: Final[str] = "optics_config.element_list"
 
 # Item-data role carrying a row's inline spectral table (the value cell shows a
@@ -218,14 +227,6 @@ _REMOVE_CONFIGURED_BODY = (
     "Remove element row {row}?\n\n"
     "The row is configured — every configuration carries its own entry ({summary}). "
     "Removing it drops the row, and all of those entries, from every configuration."
-)
-_REMOVE_BLOCKED_TOOLTIP = (
-    "Element row {row} below is configured, and a configured row keeps its position in "
-    "the train. Un-configure it (right-click it) before removing a row above it."
-)
-_MOVE_BLOCKED_TOOLTIP = (
-    "Element row {row} is configured, and a configured row keeps its position in the "
-    "train. Un-configure it (right-click it) before reordering across it."
 )
 # Separator between per-configuration items in a confirmation's entry list, matching
 # the configured-parameter badge tooltips (ConfigurationScope.summary).
@@ -322,9 +323,17 @@ class OpticalElementEditor(QWidget):
         a row configure or un-configure — because each of those writes the element
         document, so the host marks state stale and schedules a re-evaluation, the
         same contract as ``parameterEdited``.
+    trainCommitted(object, object, str):
+        Emitted alongside :attr:`elementsApplied` when a commit actually changed the
+        train, carrying the whole-train
+        :class:`~radiant.api.config_set.ElementTrainState` before and after plus the
+        undo label (CU-357). The host records it as one
+        :class:`~radiant.gui.widgets.element_train_command.ElementTrainCommand` —
+        the widget never touches the undo stack itself (R-API).
     """
 
     elementsApplied = Signal(str)
+    trainCommitted = Signal(object, object, str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -568,6 +577,30 @@ class OpticalElementEditor(QWidget):
             return None
         return config_set
 
+    def _train_state(self) -> ElementTrainState:
+        """The whole train as one snapshot — both stores when a set is bound (CU-357).
+
+        The before/after value of every :attr:`trainCommitted` emission. In a plain
+        session the state is the sensor's document with an empty configured table, so
+        one state shape serves both session kinds and the host's apply callback never
+        branches on where a snapshot came from.
+        """
+        config_set = self._bound_set()
+        if config_set is not None:
+            return config_set.element_state()
+        document = None if self._sensor is None else self._sensor.optical_elements()
+        return ElementTrainState(
+            shared=tuple(copy.deepcopy(entry) for entry in document or []),
+            configured={},
+        )
+
+    def _emit_train_committed(
+        self, before: ElementTrainState, after: ElementTrainState, text: str
+    ) -> None:
+        """Report a committed train change for undo recording — only a real one."""
+        if after != before:
+            self.trainCommitted.emit(before, after, text)
+
     def _document_entries(self) -> tuple[list[dict[str, Any]], str]:
         """The entries to render, plus any advisory the API raised reading them.
 
@@ -732,15 +765,16 @@ class OpticalElementEditor(QWidget):
         self._sync_selection_actions()
 
     def _sync_selection_actions(self) -> None:
-        """Enable the structure buttons only where the edit is expressible.
+        """Enable the structure buttons whenever a row is selected.
 
-        Row identity is positional and a configured row keeps its position, so an edit
-        that would **shift** a configured row cannot be written: removing a row above one
-        would move it, and reordering across one would swap it out of its own slot. Those
-        are refused here — before the operator invests any typing — with the reason and
-        the way out (un-configure that row first), rather than accepted and rejected at
-        Apply. Everything else is enabled: Add appends at the end of the train, which
-        shifts nothing, and Remove of a configured row is allowed behind a confirmation.
+        Every structure edit is expressible since CU-357: an edit that shifts a
+        configured row goes through the position-preserving
+        :meth:`ConfigurationSet.remove_element` / :meth:`ConfigurationSet.move_element`,
+        which renumber the configured rows with their per-configuration entries
+        intact. The pre-CU-357 blockers (Remove disabled above a configured row,
+        moves disabled across one) existed only because the old commit path
+        round-tripped structure through delete + append. Remove of a configured
+        row still confirms first — that loss is real, not positional.
         """
         row = self._table.currentRow()
         count = self._table.rowCount()
@@ -757,32 +791,12 @@ class OpticalElementEditor(QWidget):
         self._spectrum.setEnabled(True)
         self._browse.setEnabled(True)
         self._sync_configure_button(row)
-        below = [r for r in range(row + 1, count) if self._is_configured_row(r)]
-        self._set_structure_action(
-            self._remove, blocked_by=below[0] if below else None, tooltip=_REMOVE_BLOCKED_TOOLTIP
-        )
-        self._set_structure_action(
-            self._up, blocked_by=self._move_blocker(row, -1), tooltip=_MOVE_BLOCKED_TOOLTIP
-        )
-        self._set_structure_action(
-            self._down, blocked_by=self._move_blocker(row, +1), tooltip=_MOVE_BLOCKED_TOOLTIP
-        )
-
-    def _move_blocker(self, row: int, delta: int) -> int | None:
-        """The configured row a move of *row* by *delta* would shift, if any."""
-        target = row + delta
-        if not (0 <= target < self._table.rowCount()):
-            return None
-        for candidate in (row, target):
-            if self._is_configured_row(candidate):
-                return self._origin(candidate)
-        return None
-
-    @staticmethod
-    def _set_structure_action(button: QPushButton, *, blocked_by: int | None, tooltip: str) -> None:
-        """Enable *button*, or disable it saying which configured row blocks it."""
-        button.setEnabled(blocked_by is None)
-        button.setToolTip("" if blocked_by is None else tooltip.format(row=blocked_by))
+        self._remove.setEnabled(True)
+        self._remove.setToolTip("")
+        self._up.setEnabled(True)
+        self._up.setToolTip("")
+        self._down.setEnabled(True)
+        self._down.setToolTip("")
 
     # -- the row menu (configure / un-configure) --------------------------------
 
@@ -832,12 +846,14 @@ class OpticalElementEditor(QWidget):
         if config_set is None:
             return
         origin = self._origin(row)
+        before = self._train_state()
         try:
             config_set.configure_element(origin)
         except RadiantError as exc:
             exec_dialog(ActionableErrorDialog(exc, ELEMENT_EDIT_PATH, self))
             return
         self._reload_from_document()
+        self._emit_train_committed(before, self._train_state(), f"Configure element row {origin}")
         self.elementsApplied.emit(ELEMENT_EDIT_PATH)
 
     def _unconfigure_row(self, row: int) -> None:
@@ -867,12 +883,16 @@ class OpticalElementEditor(QWidget):
         )
         if answer != QMessageBox.StandardButton.Ok:
             return
+        before = self._train_state()
         try:
             config_set.unconfigure_element(origin)
         except RadiantError as exc:
             exec_dialog(ActionableErrorDialog(exc, ELEMENT_EDIT_PATH, self))
             return
         self._reload_from_document()
+        self._emit_train_committed(
+            before, self._train_state(), f"Un-configure element row {origin}"
+        )
         self.elementsApplied.emit(ELEMENT_EDIT_PATH)
 
     @staticmethod
@@ -1140,7 +1160,7 @@ class OpticalElementEditor(QWidget):
         self._append_row(entry, self._table.rowCount())
         self._refresh_configured_marks()
         self._table.selectRow(self._table.rowCount() - 1)
-        self._commit_structure()
+        self._commit_structure(f"Add element {entry['name']}")
 
     def _unique_name(self, base: str) -> str:
         """*base*, suffixed ``_2``, ``_3`` … until no row in the table already uses it."""
@@ -1159,6 +1179,11 @@ class OpticalElementEditor(QWidget):
         is the same irreversible per-configuration loss the un-configure collapse asks
         about, so it asks in the same way and names the entries at stake. The confirmed
         removal commits immediately.
+
+        With configured rows anywhere in the train, the removal goes through the
+        position-preserving :meth:`ConfigurationSet.remove_element` (CU-357): rows
+        below the removed one shift up with their per-configuration entries intact,
+        so the edit is expressible instead of blocked.
         """
         row = self._table.currentRow()
         if row < 0:
@@ -1177,25 +1202,44 @@ class OpticalElementEditor(QWidget):
             )
             if answer != QMessageBox.StandardButton.Ok:
                 return
+        if config_set is not None and self._configured_positions():
+            self._commit_structure_op(
+                config_set,
+                lambda: config_set.remove_element(origin),
+                f"Remove element row {origin}",
+            )
+            return
         with self._silent():
             self._table.removeRow(row)
         self._refresh_configured_marks()
         self.refresh_coating_detail()
-        self._commit_structure()
+        self._commit_structure(f"Remove element row {origin}")
 
     def _move_current(self, delta: int) -> None:
         row = self._table.currentRow()
         target = row + delta
         if row < 0 or not (0 <= target < self._table.rowCount()):
             return
+        config_set = self._bound_set()
+        if config_set is not None and self._configured_positions():
+            # CU-357: the position-preserving move — configured rows travel with
+            # their per-configuration entries, on both sides of the swap.
+            origin, target_origin = self._origin(row), self._origin(target)
+            self._commit_structure_op(
+                config_set,
+                lambda: config_set.move_element(origin, target_origin),
+                f"Move element row {origin}",
+            )
+            self._table.setCurrentCell(target, _COL_NAME)
+            return
         rows = self._rows()
         rows[row], rows[target] = rows[target], rows[row]
         self._reload_rows(rows)
         self._refresh_configured_marks()
         self._table.setCurrentCell(target, _COL_NAME)
-        self._commit_structure()
+        self._commit_structure("Move element row")
 
-    def _commit_structure(self) -> None:
+    def _commit_structure(self, undo_text: str) -> None:
         """Commit a row add / remove / reorder, then re-read the document.
 
         The re-read is what a cell edit does not need: a structural change renumbers
@@ -1204,8 +1248,29 @@ class OpticalElementEditor(QWidget):
         the document that was just written. A commit that could not be made leaves the
         draft table standing as a pending draft, exactly as for a cell edit.
         """
-        if self.apply_train():
+        if self.apply_train(undo_text=undo_text):
             self._reload_from_document()
+
+    def _commit_structure_op(
+        self, config_set: ConfigurationSet, operation: Callable[[], None], undo_text: str
+    ) -> None:
+        """Commit one position-preserving structure operation on the bound set (CU-357).
+
+        The API op *is* the commit — no table rewrite rides along, so the other
+        configurations' entries are never round-tripped through the displayed one.
+        The table then re-reads the renumbered document, and the change is reported
+        for undo recording and re-evaluation exactly as any other commit.
+        """
+        before = self._train_state()
+        try:
+            operation()
+        except RadiantError as exc:
+            self._reject(exc)
+            return
+        self._reload_from_document()
+        self.refresh_coating_detail()
+        self._emit_train_committed(before, self._train_state(), undo_text)
+        self.elementsApplied.emit(ELEMENT_EDIT_PATH)
 
     def _rows(self) -> list[tuple[dict[str, Any], int]]:
         """The table as (entry, document position) pairs — identity travels with the row."""
@@ -1443,12 +1508,13 @@ class OpticalElementEditor(QWidget):
             return
         self.apply_train()
 
-    def apply_train(self) -> bool:
+    def apply_train(self, *, undo_text: str = "Edit element train") -> bool:
         """Commit the table — the document's own write path, one edit at a time.
 
         Named for what it does rather than for a button: the *Apply train* button was
         retired on 2026-09-03 (one commit model, Rule 27) and this is the routine every
-        edit routes through.
+        edit routes through. *undo_text* labels the recorded undo step (CU-357) —
+        structure commits pass their own ("Add element …", "Remove element row …").
 
         * **No set bound** (a bare-sensor binding) or a **single-configuration session**:
           one ``Sensor.set_optical_elements`` — today's behaviour, unchanged.
@@ -1480,6 +1546,7 @@ class OpticalElementEditor(QWidget):
             return False
         self._committing = True
         try:
+            before = self._train_state()
             if not self._write(entries):
                 return False
             self._store_source_entries(entries)
@@ -1487,6 +1554,7 @@ class OpticalElementEditor(QWidget):
             committed, _advisory = self._document_entries()
             self._refresh_derived_emissivity(committed or entries)
             self._refresh_configured_marks()
+            self._emit_train_committed(before, self._train_state(), undo_text)
             self.elementsApplied.emit(ELEMENT_EDIT_PATH)
         finally:
             self._committing = False
@@ -1529,9 +1597,11 @@ class OpticalElementEditor(QWidget):
             return False
         self._committing = True
         try:
+            before = self._train_state()
             if not self._write([]):
                 return False
             self._clear_pending()
+            self._emit_train_committed(before, self._train_state(), "Detach element train")
             self.elementsApplied.emit(ELEMENT_EDIT_PATH)
         finally:
             self._committing = False
@@ -1544,7 +1614,7 @@ class OpticalElementEditor(QWidget):
         commit a cell edit makes. An empty table re-attaches nothing, which is the honest
         outcome for a session that never authored a train.
         """
-        return self.apply_train()
+        return self.apply_train(undo_text="Re-attach element train")
 
     def _write(self, entries: list[dict[str, Any]]) -> bool:
         """Route the validated *entries* to the document that owns them."""

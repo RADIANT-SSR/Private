@@ -1540,3 +1540,169 @@ class TestSensorRefusesConfiguredRows:
     def test_set_optical_elements_refuses_a_configured_row(self) -> None:
         with pytest.raises(ApiValidationError, match="configured element row"):
             _sensor().set_optical_elements([_mirror(), {"configured": {"A": _filter()}}])
+
+
+def _lens(name: str = "L1", **fields: Any) -> dict[str, Any]:
+    """A complete refractive lens entry (a third row for structure tests)."""
+    entry: dict[str, Any] = {
+        "name": name,
+        "transfer_mode": "REFRACTIVE",
+        "kind": "LENS",
+        "transmittance": 0.95,
+        "temperature_K": 293.0,
+    }
+    entry.update(fields)
+    return entry
+
+
+def _set_with_three_rows(*names: str) -> ConfigurationSet:
+    """A set whose base carries a three-row shared train: [M1, band_filter, L1]."""
+    base = _sensor(_WL_POINTS)
+    base.set_optical_elements([_mirror(), _filter(), _lens()])
+    return ConfigurationSet(base, names=list(names))
+
+
+class TestMoveElement:
+    """CU-357: reposition a row while every configured row keeps its identity."""
+
+    def test_move_shared_row_across_a_configured_row(self) -> None:
+        cs = _set_with_three_rows("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=0.40))
+        cs.move_element(0, 2)  # M1 to the end; band_filter shifts 1 -> 0
+        assert cs.configured_element_indices() == (0,)
+        assert cs.element_for(0, "B")["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        assert [e["name"] for e in cs.effective_optical_elements("A") or []] == [
+            "band_filter",
+            "L1",
+            "M1",
+        ]
+
+    def test_move_a_configured_row_itself(self) -> None:
+        cs = _set_with_three_rows("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=0.40))
+        cs.move_element(1, 0)
+        assert cs.configured_element_indices() == (0,)
+        assert cs.element_for(0, "B")["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        assert [e["name"] for e in cs.effective_optical_elements("A") or []] == [
+            "band_filter",
+            "M1",
+            "L1",
+        ]
+
+    def test_move_is_position_preserving_not_delete_append(self) -> None:
+        """The op the GUI's blocked buttons needed: a swap across a configured row."""
+        cs = _set_with_three_rows("A", "B")
+        cs.configure_element(2)
+        cs.move_element(1, 2)  # band_filter and the configured L1 swap
+        assert cs.configured_element_indices() == (1,)
+        assert [e["name"] for e in cs.effective_optical_elements("A") or []] == [
+            "M1",
+            "L1",
+            "band_filter",
+        ]
+
+    def test_move_to_same_position_is_a_no_op(self) -> None:
+        cs = _set_with_three_rows("A", "B")
+        cs.configure_element(1)
+        before = cs.effective_optical_elements("A")
+        cs.move_element(1, 1)
+        assert cs.effective_optical_elements("A") == before
+        assert cs.configured_element_indices() == (1,)
+
+    def test_move_validates_both_indices(self) -> None:
+        cs = _set_with_three_rows("A", "B")
+        with pytest.raises(ConfigSetError, match="outside the document"):
+            cs.move_element(0, 3)
+        with pytest.raises(ConfigSetError, match="outside the document"):
+            cs.move_element(-1, 0)
+
+    def test_move_works_without_configured_rows_too(self) -> None:
+        cs = _set_with_three_rows("A")
+        cs.move_element(2, 0)
+        assert [e["name"] for e in cs.effective_optical_elements("A") or []] == [
+            "L1",
+            "M1",
+            "band_filter",
+        ]
+
+
+class TestRemoveElement:
+    """CU-357: drop a row while the configured rows below it keep their entries."""
+
+    def test_remove_shared_row_above_a_configured_row(self) -> None:
+        cs = _set_with_three_rows("A", "B")
+        cs.configure_element(2)
+        cs.set_element_for(2, "B", _lens(transmittance=0.50))
+        cs.remove_element(0)
+        assert cs.configured_element_indices() == (1,)
+        assert cs.element_for(1, "B")["transmittance"] == pytest.approx(0.50, rel=1e-12)
+        assert [e["name"] for e in cs.effective_optical_elements("A") or []] == [
+            "band_filter",
+            "L1",
+        ]
+
+    def test_remove_a_configured_row_discards_every_entry(self) -> None:
+        cs = _set_with_three_rows("A", "B")
+        cs.configure_element(1)
+        cs.remove_element(1)
+        assert cs.configured_element_indices() == ()
+        assert [e["name"] for e in cs.effective_optical_elements("A") or []] == ["M1", "L1"]
+
+    def test_removing_the_last_row_detaches_the_document(self) -> None:
+        base = _sensor(_WL_POINTS)
+        base.set_optical_elements([_mirror()])
+        cs = ConfigurationSet(base, names=["A", "B"])
+        cs.remove_element(0)
+        assert cs.element_count() == 0
+        assert cs.effective_optical_elements("A") is None
+
+    def test_remove_validates_the_index(self) -> None:
+        cs = _set_with_three_rows("A", "B")
+        with pytest.raises(ConfigSetError, match="outside the document"):
+            cs.remove_element(3)
+
+
+class TestElementTrainState:
+    """CU-357: the whole-train snapshot/restore pair the GUI's undo commands carry."""
+
+    def test_round_trip_restores_both_stores(self) -> None:
+        cs = _set_with_three_rows("A", "B")
+        cs.configure_element(1)
+        cs.set_element_for(1, "B", _filter(transmittance=0.40))
+        state = cs.element_state()
+        cs.remove_element(0)
+        cs.unconfigure_element(0)
+        cs.restore_element_state(state)
+        assert cs.configured_element_indices() == (1,)
+        assert cs.element_for(1, "B")["transmittance"] == pytest.approx(0.40, rel=1e-12)
+        assert [e["name"] for e in cs.effective_optical_elements("A") or []] == [
+            "M1",
+            "band_filter",
+            "L1",
+        ]
+
+    def test_state_is_a_snapshot_not_a_view(self) -> None:
+        cs = _set_with_three_rows("A", "B")
+        cs.configure_element(1)
+        state = cs.element_state()
+        cs.set_element_for(1, "B", _filter(transmittance=0.10))
+        cs.restore_element_state(state)
+        assert cs.element_for(1, "B")["transmittance"] == pytest.approx(0.90, rel=1e-12)
+
+    def test_restore_of_an_empty_state_detaches(self) -> None:
+        cs = ConfigurationSet(_sensor(_WL_POINTS), names=["A", "B"])
+        state = cs.element_state()
+        cs.base.set_optical_elements([_mirror()])
+        cs.restore_element_state(state)
+        assert cs.element_count() == 0
+        assert cs.effective_optical_elements("A") is None
+
+    def test_restore_refuses_an_entry_for_an_unknown_configuration(self) -> None:
+        cs = _set_with_three_rows("A", "B")
+        cs.configure_element(1)
+        state = cs.element_state()
+        cs2 = _set_with_three_rows("A", "C")
+        with pytest.raises(ConfigSetError, match="no configuration named 'B'"):
+            cs2.restore_element_state(state)

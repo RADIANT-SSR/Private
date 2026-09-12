@@ -336,6 +336,29 @@ def _headline(result: ChainResult) -> str:
     return "; ".join(parts)
 
 
+@dataclass(frozen=True)
+class ElementTrainState:
+    """A whole-train snapshot: the shared rows plus the configured-row table (CU-357).
+
+    The value :meth:`ConfigurationSet.element_state` captures and
+    :meth:`ConfigurationSet.restore_element_state` writes back — both stores of
+    the element document (Gap 103 v1.1 single-store split) as one immutable
+    unit, so a caller recording a reversible edit (the GUI's undo commands)
+    restores shared rows, configured rows, and their positions together.
+
+    Attributes
+    ----------
+    shared:
+        The shared rows in document order (each a complete element entry).
+    configured:
+        Document position → (configuration name → that configuration's
+        complete entry) for every configured row.
+    """
+
+    shared: tuple[dict[str, Any], ...]
+    configured: Mapping[int, Mapping[str, dict[str, Any]]]
+
+
 class ConfigurationSet:
     """Up to twelve named configurations of one modeling problem (ADR-0010).
 
@@ -932,6 +955,115 @@ class ConfigurationSet:
                 context={"configuration": config, "element_row": position},
             ) from exc
         self._element_rows[position][config] = normalized[0]
+
+    def move_element(self, index: int, to_index: int) -> None:
+        """Reposition element row *index* at *to_index* — in every configuration (CU-357).
+
+        The position-preserving structure operation: the row is lifted out of
+        the train and re-inserted at *to_index* (the semantics of
+        ``list.insert(to_index, list.pop(index))``), and every configured row —
+        the moved one included — keeps its per-configuration entries, renumbered
+        to its new position. No delete + append round-trip, so nothing is
+        collapsed or re-seeded. The structure stays shared: one order, every
+        configuration (Gap 103 v1.1).
+
+        Raises :class:`ConfigSetError` when either index is outside the
+        document.
+        """
+        src = self._element_index(index, "move_element")
+        dst = self._element_index(to_index, "move_element")
+        if src == dst:
+            return
+        slots = self._element_slots()
+        slots.insert(dst, slots.pop(src))
+        self._store_element_slots(slots)
+
+    def remove_element(self, index: int) -> None:
+        """Drop element row *index* from the train — in every configuration (CU-357).
+
+        Configured rows below the removed one keep their per-configuration
+        entries, renumbered one position up. Removing a **configured** row
+        discards every configuration's entry for it — the same irreversible
+        per-configuration loss :meth:`unconfigure_element` warns about, so an
+        interactive caller confirms first (the GUI does). Removing the last row
+        detaches the document, exactly as ``set_optical_elements(None)``.
+
+        Raises :class:`ConfigSetError` when *index* is outside the document.
+        """
+        position = self._element_index(index, "remove_element")
+        slots = self._element_slots()
+        del slots[position]
+        self._store_element_slots(slots)
+
+    def element_state(self) -> ElementTrainState:
+        """A deep-copied snapshot of the whole element train (CU-357).
+
+        Both stores as one immutable value — the shared rows and the
+        configured-row table with their positions. Later edits to the set do
+        not reach the snapshot, and the snapshot never aliases live entries.
+        Pair with :meth:`restore_element_state`; the GUI's element undo
+        commands carry exactly this before/after pair.
+        """
+        return ElementTrainState(
+            shared=tuple(_copy.deepcopy(row) for row in self._shared_element_rows()),
+            configured={
+                position: _copy.deepcopy(entries)
+                for position, entries in self._element_rows.items()
+            },
+        )
+
+    def restore_element_state(self, state: ElementTrainState) -> None:
+        """Write a captured :class:`ElementTrainState` back over both stores (CU-357).
+
+        The inverse of :meth:`element_state`: the shared document and the
+        configured-row table are replaced together, so shared rows, configured
+        rows, and their positions land as one unit. An empty state detaches the
+        document. Entries were validated when they were first stored, so no
+        re-validation runs here.
+
+        Raises :class:`ConfigSetError` when the state carries an entry for a
+        configuration this set does not have (a snapshot from a different
+        study), or a configured position outside the restored document.
+        """
+        total = len(state.shared) + len(state.configured)
+        for position, entries in state.configured.items():
+            for config in entries:
+                self._index(config, "restore_element_state")
+            if not isinstance(position, int) or position < 0 or position >= total:
+                raise ConfigSetError(
+                    what=f"restore_element_state: configured position {position!r} is outside "
+                    f"the restored document ({total} row(s))",
+                    why="a configured row must hold a position inside the train it is part of",
+                    action="Restore only states captured from element_state() on this set.",
+                    context={"element_row": position, "count": total},
+                )
+        self._store_shared_element_rows([_copy.deepcopy(row) for row in state.shared])
+        self._element_rows.clear()
+        for position, entries in state.configured.items():
+            self._element_rows[position] = _copy.deepcopy(dict(entries))
+
+    def _element_slots(self) -> list[tuple[str, Any]]:
+        """The full train as ordered slots: ``("shared", entry)`` or ``("configured", table)``.
+
+        The one intermediate the structure operations edit: list surgery on the
+        slots *is* the renumbering, and :meth:`_store_element_slots` writes the
+        result back to the two stores.
+        """
+        shared = iter(self._shared_element_rows())
+        return [
+            ("configured", self._element_rows[i])
+            if i in self._element_rows
+            else ("shared", next(shared))
+            for i in range(self.element_count())
+        ]
+
+    def _store_element_slots(self, slots: list[tuple[str, Any]]) -> None:
+        """Write the slot list back: shared rows to the base, positions to the table."""
+        self._store_shared_element_rows([payload for kind, payload in slots if kind == "shared"])
+        self._element_rows.clear()
+        for position, (kind, payload) in enumerate(slots):
+            if kind == "configured":
+                self._element_rows[position] = payload
 
     def effective_optical_elements(self, name: str) -> list[dict[str, Any]] | None:
         """The element document configuration *name* actually evaluates with.

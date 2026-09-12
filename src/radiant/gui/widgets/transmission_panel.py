@@ -101,10 +101,14 @@ class TransmissionPanel(QWidget):
         Emitted with the active mode (``"scalar"`` / ``"element"``) whenever it changes,
         including when a freshly bound document selects it. The host uses it to show the
         per-element τ overlay only where there are elements.
+    trainCommitted(object, object, str):
+        The element editor's whole-train before/after states plus the undo label,
+        relayed unchanged so the host records the undo command (CU-357).
     """
 
     parameterEdited = Signal(str)
     modeChanged = Signal(str)
+    trainCommitted = Signal(object, object, str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -148,6 +152,7 @@ class TransmissionPanel(QWidget):
 
         self._editor = OpticalElementEditor(self)
         self._editor.elementsApplied.connect(self.parameterEdited)
+        self._editor.trainCommitted.connect(self.trainCommitted)
         layout.addWidget(self._editor)
 
         self._sync_mode_widgets()

@@ -136,3 +136,137 @@ class TestCU142EvaluateShortcut:
         seqs = window.action("run.evaluate").shortcuts()
         assert QKeySequence("F5") in seqs
         assert QKeySequence("Ctrl+Return") in seqs
+
+
+class TestCU357ElementTrainUndo:
+    """CU-357: element-document commits record undo commands — every commit path."""
+
+    _TRAIN = [
+        {"name": "M1", "transfer_mode": "REFLECTIVE", "reflectance": 0.97, "temperature_K": 293.0},
+        {
+            "name": "band_filter",
+            "transfer_mode": "REFRACTIVE",
+            "kind": "FILTER",
+            "transmittance": 0.90,
+            "temperature_K": 240.0,
+        },
+    ]
+
+    def _window_with_train(self, qtbot, tmp_path: Path):  # type: ignore[no-untyped-def]
+        sensor = Sensor.load(_EXAMPLE)
+        sensor.set_optical_elements([dict(e) for e in self._TRAIN])
+        settings = SettingsStore(QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat))
+        window = RADIANTMainWindow(sensor, path=str(_EXAMPLE), settings=settings)
+        qtbot.addWidget(window)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            pass
+        return window
+
+    @staticmethod
+    def _editor(window):  # type: ignore[no-untyped-def]
+        panel = window._central.stage_center.pane("optics").transmission_panel
+        assert panel is not None
+        return panel.element_editor
+
+    def test_cell_edit_pushes_a_named_command_and_undo_restores(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = self._window_with_train(qtbot, tmp_path)
+        editor = self._editor(window)
+        assert window._undo_stack.count() == 0
+
+        editor.table.item(0, 3).setText("0.50")  # M1's reflectance, commit-on-edit
+        document = window.sensor.optical_elements()
+        assert document is not None
+        assert document[0]["reflectance"] == 0.50
+        assert window._undo_stack.count() == 1
+        assert window._undo_stack.command(0).text() == "Edit element train"
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.undo").trigger()
+        document = window.sensor.optical_elements()
+        assert document is not None
+        assert document[0]["reflectance"] == 0.97
+        # The table re-read the restored document (view matches the sensor).
+        assert editor.table.item(0, 3).text() == "0.97"
+
+    def test_redo_reapplies_the_element_edit(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = self._window_with_train(qtbot, tmp_path)
+        editor = self._editor(window)
+        editor.table.item(0, 3).setText("0.50")
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.undo").trigger()
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.redo").trigger()
+        document = window.sensor.optical_elements()
+        assert document is not None
+        assert document[0]["reflectance"] == 0.50
+
+    def test_structure_edit_records_its_own_label(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = self._window_with_train(qtbot, tmp_path)
+        editor = self._editor(window)
+        editor.table.setCurrentCell(1, 0)
+        editor._remove.click()  # noqa: SLF001
+        document = window.sensor.optical_elements()
+        assert document is not None
+        assert [e["name"] for e in document] == ["M1"]
+        assert window._undo_stack.count() == 1
+        assert window._undo_stack.command(0).text() == "Remove element row 1"
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.undo").trigger()
+        document = window.sensor.optical_elements()
+        assert document is not None
+        assert [e["name"] for e in document] == ["M1", "band_filter"]
+        assert editor.table.rowCount() == 2
+
+    def test_configure_across_undoes_back_to_one_shared_row(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        window = self._window_with_train(qtbot, tmp_path)
+        base = Sensor.load(_EXAMPLE)
+        base.set_optical_elements([dict(e) for e in self._TRAIN])
+        study = ConfigurationSet(base, names=["MWIR", "LWIR"])
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window._apply_new_document(study)
+        editor = self._editor(window)
+        assert window._undo_stack.count() == 0
+
+        editor._configure_row(1)  # noqa: SLF001
+        assert study.is_element_configured(1)
+        assert window._undo_stack.count() == 1
+        assert window._undo_stack.command(0).text() == "Configure element row 1"
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.undo").trigger()
+        assert not study.is_element_configured(1)
+        base_document = study.base.optical_elements()
+        assert base_document is not None
+        assert [e["name"] for e in base_document] == ["M1", "band_filter"]
+
+    def test_unconfigure_undo_restores_every_members_entry(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        from PySide6.QtWidgets import QMessageBox
+
+        window = self._window_with_train(qtbot, tmp_path)
+        base = Sensor.load(_EXAMPLE)
+        base.set_optical_elements([dict(e) for e in self._TRAIN])
+        study = ConfigurationSet(base, names=["MWIR", "LWIR"])
+        study.configure_element(1)
+        study.set_element_for(1, "LWIR", dict(self._TRAIN[1], transmittance=0.55))
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window._apply_new_document(study)
+        editor = self._editor(window)
+
+        original_question = QMessageBox.question
+        QMessageBox.question = staticmethod(  # type: ignore[method-assign]
+            lambda *a, **k: QMessageBox.StandardButton.Ok
+        )
+        try:
+            editor._unconfigure_row(1)  # noqa: SLF001
+        finally:
+            QMessageBox.question = original_question  # type: ignore[method-assign]
+        assert not study.is_element_configured(1)
+        assert window._undo_stack.command(window._undo_stack.count() - 1).text() == (
+            "Un-configure element row 1"
+        )
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.undo").trigger()
+        assert study.is_element_configured(1)
+        assert study.element_for(1, "LWIR")["transmittance"] == 0.55

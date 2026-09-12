@@ -540,18 +540,40 @@ class TestSharedStructure:
         assert editor.table.rowCount() == 2
         assert config_set.is_element_configured(_FILTER_ROW)
 
-    def test_a_structure_edit_that_would_shift_a_configured_row_is_refused(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """A configured row keeps its position, so the affordance says so up front."""
-        editor = _bind(qtbot, _study(configure=_FILTER_ROW))
-        editor.table.setCurrentCell(_MIRROR_ROW, _COL_NAME)
-        assert not editor._remove.isEnabled()  # noqa: SLF001
-        assert "row 1" in editor._remove.toolTip()  # noqa: SLF001
-        assert "Un-configure" in editor._remove.toolTip()  # noqa: SLF001
-        assert not editor._down.isEnabled()  # noqa: SLF001
+    def test_a_structure_edit_that_shifts_a_configured_row_is_expressible(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """CU-357: the position-preserving ops replaced the disabled-button refusals.
 
+        Removing the shared row above a configured one shifts it down one position
+        with every configuration's entry intact — the exact edit the pre-CU-357
+        editor disabled with the un-configure-first tooltip.
+        """
+        config_set = _study(configure=_FILTER_ROW)
+        config_set.set_element_for(_FILTER_ROW, "LWIR", dict(_SHARED_TRAIN[1], transmittance=0.55))
+        editor = _bind(qtbot, config_set)
+        editor.table.setCurrentCell(_MIRROR_ROW, _COL_NAME)
+        assert editor._remove.isEnabled()  # noqa: SLF001
+        assert editor._down.isEnabled()  # noqa: SLF001
+
+        editor._remove.click()  # noqa: SLF001 — removes the shared mirror, no confirm
+        assert config_set.element_count() == 1
+        assert config_set.configured_element_indices() == (0,)
+        assert config_set.element_for(0, "LWIR")["transmittance"] == pytest.approx(0.55, rel=1e-12)
+        assert editor.table.rowCount() == 1
+
+    def test_a_move_across_a_configured_row_keeps_its_entries(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """CU-357: reordering across a configured row travels with its entries."""
+        config_set = _study(configure=_FILTER_ROW)
+        config_set.set_element_for(_FILTER_ROW, "LWIR", dict(_SHARED_TRAIN[1], transmittance=0.55))
+        editor = _bind(qtbot, config_set)
         editor.table.setCurrentCell(_FILTER_ROW, _COL_NAME)
-        assert editor._remove.isEnabled()  # noqa: SLF001 — the last row shifts nothing
-        assert not editor._up.isEnabled()  # noqa: SLF001 — moving it would shift it
+        assert editor._up.isEnabled()  # noqa: SLF001
+
+        editor._up.click()  # noqa: SLF001 — the configured filter swaps above the mirror
+        assert config_set.configured_element_indices() == (0,)
+        assert config_set.element_for(0, "LWIR")["transmittance"] == pytest.approx(0.55, rel=1e-12)
+        effective = config_set.effective_optical_elements("MWIR")
+        assert effective is not None
+        assert [entry["name"] for entry in effective] == [_FILTER, _MIRROR]
 
     def test_structure_edits_are_free_while_no_row_is_configured(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         editor = _bind(qtbot, _study())

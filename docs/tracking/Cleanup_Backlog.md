@@ -90,18 +90,20 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: VIS/NIR reflective scenarios that route through the MODTRAN **binary** flavor (or a single-file import) still lose the solar-zenith dependence that Stage 6's E_sky decomposition exposes. The analytic backend is fine; the file-import flavor is fine when both files are supplied.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
-### CU-357 — Element-document commits record no undo command; config_set has no position-preserving structure operation (family)
+## Resolved
+
+### CU-357 — Element-document commits record no undo command; config_set has no position-preserving structure operation (family) — RESOLVED 2026-09-12 (commit trailer)
 
 **Discovered**: Gap 119 phase-3 live review + cfgset expansion, 2026-09-02; promoted at the October sweep review (owner-ratified 2026-09-12).
-**Status**: Open — scheduled GUI backlog (lands with a live review).
+**Status**: Resolved — staged on `cu357/element-undo` for the live review (GUI hard rule); merges after the owner's sitting.
 **File**: `src/radiant/gui/widgets/optical_element_editor.py` (commit paths), `src/radiant/api/config_set.py`.
 **Symptom**: commit-on-edit table changes and the *Configure across configurations…* / *Un-configure row…* actions bypass the undo stack — Ctrl+Z after an element edit undoes an unrelated earlier action while the element damage stands; un-configuring discards per-configuration values irrecoverably.
 **Why it still matters**: workflow-visible (intake test 4) — surfaced in the owner's own multi-configuration live review.
 **Suggested fix**: (b) stand-alone task — wrap element-document transactions in undo commands carrying before/after document snapshots (the parameter-edit pattern). Effort M; category A/D.
-- [ ] Undo commands for all element-document commit paths (Apply-less commit-on-edit, configure-across, un-configure)
-- [ ] API half: a position-preserving structure operation on `config_set` for element documents holding configured rows (no insert/move that round-trips through delete+append)
+- [x] Undo commands for all element-document commit paths (Apply-less commit-on-edit, configure-across, un-configure)
+- [x] API half: a position-preserving structure operation on `config_set` for element documents holding configured rows (no insert/move that round-trips through delete+append)
 
-## Resolved
+**Resolution**: both checklist items in one landing. API: `ConfigurationSet.move_element`/`remove_element` (slot-list surgery renumbers configured rows with their per-configuration entries intact — no delete+append) and the `element_state`/`restore_element_state` whole-train snapshot pair (`ElementTrainState`, exported from `radiant.api`); 14 red-first API tests. GUI: every commit path emits `trainCommitted` with before/after states, relayed editor → TransmissionPanel → StagePane → StageCenter → window, recorded as one `ElementTrainCommand` (Rule 19 file); undo/redo restore both stores together and re-evaluate; the Remove/reorder blocked-button refusals are retired (structure edits across configured rows go through the new ops); 5 window-level undo tests + 2 structure-op tests. Docs: GUI-Architecture Optics row, Scripting-API `cs.` table + v1-scope note; CHANGELOG Added entry.
 
 ### CU-356 — T1Thermal strips θ_s upstream, so the sky background loses its scattered-solar term: thermal-only sky at noon for thermal targets on VIS/NIR grids — RESOLVED 2026-09-12 (commit trailer)
 

@@ -745,16 +745,19 @@ below `sky_radiance.SCATTERED_SKY_PROVISIONAL_MAX_UM` (3 µm) **and** a solar ge
 the sun above the local horizon is supplied. A pure-thermal MWIR/LWIR call warns about
 nothing, and neither does a night scene on a VIS grid.
 
-> **Coupling caveat (found 2026-07-26, not yet repaired).** Whether the sky carries a
-> scattered-solar component at all is gated by `los.theta_s`, and
-> `source/_inferrer._adjust_scene_los` strips `theta_s` for a **T1Thermal** target (the
-> CU-009 predicate: "a pure-thermal radiance has no solar leg"). That predicate was complete
-> when the target was the only consumer of `theta_s`; the sky background is now a second
-> consumer whose solar dependence has nothing to do with the target's material. Consequence:
-> a pure-thermal target on a VIS/NIR grid gets a **thermal-only sky at noon**, and no
-> provisional warning, because the trigger condition is never met. Pinned as a
-> characterization by
-> `tests/integration/test_direction_aware_atmosphere.py::TestProvisionalScatteredSkyWarning`.
+> **Coupling caveat (found 2026-07-26, repaired 2026-09-12 — CU-356).** Whether the sky
+> carries a scattered-solar component at all is gated by `los.theta_s`, and
+> `source/_inferrer._adjust_scene_los` used to strip `theta_s` for a **T1Thermal** target
+> (the CU-009 predicate: "a pure-thermal radiance has no solar leg"). That predicate was
+> complete when the target was the only consumer of `theta_s`; the sky background became a
+> second consumer whose solar dependence has nothing to do with the target's material, so a
+> pure-thermal target on a VIS/NIR grid got a **thermal-only sky at noon** and no
+> provisional warning. CU-356 removed the descriptor predicate: the solar pair now rides the
+> LOS for every descriptor under `solar_illumination = 'day'` (night remains the one switch
+> that removes it), and the target-side gate is structural — the T1 and radiance-door
+> assembly arms carry no ρ term for the sun to enter through. Contract asserted by
+> `tests/integration/test_direction_aware_atmosphere.py::TestProvisionalScatteredSkyWarning`
+> (`test_a_pure_thermal_target_keeps_the_daytime_vis_sky`).
 
 **Near-horizon: hand over at 80°, not 89.5°.** Past `SPHERICAL_SWITCH_RAD` the sky is
 evaluated as a true spherical slant integral instead of by the plane-parallel column form.
@@ -1098,15 +1101,17 @@ parameter resolver:
 `geometry.solar_zenith_deg`, `geometry.solar_azimuth_deg`, `geometry.observer_type`,
 `geometry.target_type`, `geometry.day_of_year`.
 
-**Producer-side note (CU-009; amended by ADR-0006 Phase 2):** SourceStage adopts the scene
-`LineOfSightGeometry` that GeometryStage publishes
+**Producer-side note (CU-009; amended by ADR-0006 Phase 2 and CU-356):** SourceStage adopts
+the scene `LineOfSightGeometry` that GeometryStage publishes
 (`stage_outputs["geometry"]["los_geometry"]`) and descriptor-adjusts it
 (`source/_inferrer._adjust_scene_los`); the legacy param-built `_infer_los` path survives only
-for direct `infer_descriptors` callers. The solar-zenith and solar-azimuth values propagate
-only when the target descriptor is solar-interacting (`T2Reflective`, `T3Mixed`); pure-thermal
-`T1Thermal` targets receive `theta_s = delta_phi = None` regardless of the registered solar
-params, honoring the `LineOfSightGeometry` "None for pure-thermal" docstring contract. (The
-sky-background coupling consequence of that rule is the caveat in §4.2g.)
+for direct `infer_descriptors` callers. Since CU-356 (2026-09-12) the solar-zenith and
+solar-azimuth values propagate for **every** target descriptor under
+`solar_illumination = 'day'` — scene geometry describes where the sun is, not whether the
+target's material reflects it; `'night'` is the one switch that removes the pair. The
+target-side gate is structural: the T1 and radiance-door assembly arms carry no ρ term, so a
+sun on the LOS changes only the sky/background consumers. (History and the repaired
+sky-background coupling: §4.2g caveat.)
 
 ### 6.6 Turbulence
 

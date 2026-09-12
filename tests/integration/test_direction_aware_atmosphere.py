@@ -701,26 +701,25 @@ class TestProvisionalScatteredSkyWarning:
         )
         assert [m for m in messages if self._MARKER in m] == []
 
-    def test_a_pure_thermal_target_suppresses_the_daytime_vis_sky(self) -> None:
-        """Characterization of a real coupling defect — pinned, not endorsed.
+    def test_a_pure_thermal_target_keeps_the_daytime_vis_sky(self) -> None:
+        """The sun's position outlives the target's material (CU-356).
 
         Two VIS scenes differing only in how the target is specified:
         ``(ε, T)`` — which on a VIS grid always classifies **T1Thermal** — and
         ``ρ`` — which classifies **T2Reflective**.
 
-        ``_inferrer`` strips ``theta_s`` from the descriptor-adjusted LOS for
-        a T1 (pure-thermal) target, on the CU-009 rationale that a thermal
-        radiance has no solar leg.  That rationale was complete when the
-        *target* was the only consumer of ``theta_s``.  Since Phase 2 the sky
-        background is a second consumer, and its solar dependence has nothing
-        to do with the target's material: the daytime VIS sky behind a
-        pure-thermal object is still bright.
+        ``_inferrer`` used to strip ``theta_s`` from the descriptor-adjusted
+        LOS for a T1 (pure-thermal) target, on the CU-009 rationale that a
+        thermal radiance has no solar leg.  That rationale was complete when
+        the *target* was the only consumer of ``theta_s``; since Phase 2 the
+        sky background is a second consumer, and its solar dependence has
+        nothing to do with the target's material — the daytime VIS sky behind
+        a pure-thermal object is still bright.  CU-356 threads θ_s onto the
+        LOS for every descriptor; the target-side gate is structural (a T1
+        radiance has no ρ term for the sun to enter through).
 
-        Consequence, asserted here so it cannot change unnoticed: the same
-        scene run with a T1 target produces **no** provisional warning and a
-        thermal-only sky, while the T3 variant warns.  Reported, not fixed —
-        the repair is a source/atmosphere coupling change well outside this
-        task's scope.
+        Asserted here so it cannot regress: both variants carry the same
+        daytime sky — same provisional warning, same background radiance.
         """
         geometry: dict[str, float | str] = {
             "sensor_altitude_m": 0.0,
@@ -732,14 +731,14 @@ class TestProvisionalScatteredSkyWarning:
         thermal_result, thermal_messages = _run_scene("VIS", VIS_WL, reflective=False, **geometry)
         mixed_result, mixed_messages = _run_scene("VIS", VIS_WL, reflective=True, **geometry)
 
-        assert [m for m in thermal_messages if self._MARKER in m] == []
+        assert [m for m in thermal_messages if self._MARKER in m] != []
         assert [m for m in mixed_messages if self._MARKER in m] != []
 
-        # And the physical footprint of the defect: the T1 sky is strictly
-        # darker in the visible, because its scattered-solar term is missing.
+        # The physical footprint of the fix: the background behind the target
+        # is the same sky regardless of what the target is made of.
         L_thermal = np.asarray(thermal_result.frames["at_aperture_background"].spectral_radiance)
         L_mixed = np.asarray(mixed_result.frames["at_aperture_background"].spectral_radiance)
-        assert np.all(L_thermal < L_mixed)
+        assert L_thermal == pytest.approx(L_mixed, rel=1e-12)
 
 
 # ---------------------------------------------------------------------------

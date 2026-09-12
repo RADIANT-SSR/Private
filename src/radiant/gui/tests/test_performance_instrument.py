@@ -154,9 +154,7 @@ class TestGroupedMetricCards:
         # twin, not a row).
         from radiant.gui.metric_format import _SUPPRESSED_DISPLAY_KEYS
 
-        expected_names = [
-            rec.name for rec in records if rec.name not in _SUPPRESSED_DISPLAY_KEYS
-        ]
+        expected_names = [rec.name for rec in records if rec.name not in _SUPPRESSED_DISPLAY_KEYS]
         assert sorted(flat) == sorted(expected_names)
         by_heading = {heading: {rec.name for rec in recs} for heading, recs in sections}
         heading_of = dict(METRIC_GROUP_HEADINGS)
@@ -343,7 +341,11 @@ class TestCodedValueDecodingAndAliasSuppression:
     def test_sampling_regime_code_decodes_to_words(self) -> None:
         from radiant.gui.metric_format import metric_value_display
 
-        for code, fragment in ((0.0, "detector-limited"), (1.0, "near-critical"), (2.0, "diffraction-limited")):
+        for code, fragment in (
+            (0.0, "detector-limited"),
+            (1.0, "near-critical"),
+            (2.0, "diffraction-limited"),
+        ):
             text = metric_value_display(None, self._rec("sampling_regime_code", code, "code"))
             assert fragment in text, text
             assert "code" not in text  # the raw unit never renders

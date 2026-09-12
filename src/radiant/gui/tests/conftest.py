@@ -88,6 +88,58 @@ def _isolate_qsettings(tmp_path):  # type: ignore[no-untyped-def]
 
 
 @pytest.fixture(autouse=True)
+def _pin_qtbot_widgets(request):  # type: ignore[no-untyped-def]
+    """Strong-ref every ``qtbot``-registered widget until teardown (CU-358).
+
+    ``pytest-qt`` stores ``addWidget`` widgets as **weakrefs**, so the moment a
+    test function returns, a widget tree whose only strong references were the
+    test's locals becomes cyclic garbage — while a ``FigureCanvasQTAgg``
+    ``draw_idle`` single-shot timer may still be pending. ``pytest-qt`` then runs
+    ``processEvents()`` at the end of the call phase, the timer delivers the
+    draw, and any allocation inside the Agg render can start a gen-0 GC pass
+    that finalizes the pane's wrapper mid-draw. shiboken's parent-cascade
+    deletes the canvas's C++ half **inside its own synchronous draw** — alive at
+    matplotlib's ``_isdeleted`` guard, gone by ``self.update()`` — producing the
+    ``RuntimeError: Internal C++ object already deleted`` traceback that
+    matplotlib prints at teardown (the CU-358 instrumented repro:
+    ``test_source_instrument.py::TestReflectiveTab::test_solar_rows_do_not_open_an_editor``).
+
+    Holding strong references across that window keeps the tree alive until the
+    pending draw has flushed against live C++ objects; :func:`_release_widgets`
+    below then deletes everything deterministically, as before. The pins are
+    Python references only — they never block ``deleteLater``, so the CU-212
+    accumulation fix is unaffected.
+
+    A pin is dropped the instant its widget's C++ half is destroyed: a widget a
+    test frees *on purpose* (the ``test_dialog_lifetime`` exec contract) must go
+    back to being invisible to ``pytest-qt``'s teardown, exactly as under the
+    bare weakref — a still-pinned wrapper around a dead C++ object would make
+    ``_close_widgets``'s ``w.close()`` raise the very ``already deleted`` error
+    this fixture exists to remove.
+    """
+    if "qtbot" not in request.fixturenames:
+        yield
+        return
+    from shiboken6 import isValid
+
+    qtbot = request.getfixturevalue("qtbot")
+    pinned: list[object] = []
+    original_add_widget = qtbot.addWidget
+
+    def _drop_dead_pins(*_args) -> None:  # type: ignore[no-untyped-def]
+        pinned[:] = [w for w in pinned if isValid(w)]
+
+    def _pinning_add_widget(widget, *, before_close_func=None):  # type: ignore[no-untyped-def]
+        pinned.append(widget)
+        widget.destroyed.connect(_drop_dead_pins)
+        original_add_widget(widget, before_close_func=before_close_func)
+
+    qtbot.addWidget = _pinning_add_widget
+    yield
+    pinned.clear()
+
+
+@pytest.fixture(autouse=True)
 def _release_widgets():  # type: ignore[no-untyped-def]
     """Delete every top-level widget a test leaves behind, after each test (CU-212).
 

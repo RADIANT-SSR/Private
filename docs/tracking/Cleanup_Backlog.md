@@ -110,16 +110,16 @@ by name in check 8 — that list is frozen and must never grow.
 - [ ] Undo commands for all element-document commit paths (Apply-less commit-on-edit, configure-across, un-configure)
 - [ ] API half: a position-preserving structure operation on `config_set` for element documents holding configured rows (no insert/move that round-trips through delete+append)
 
-### CU-358 — FigureCanvasQTAgg destroyed mid-draw: `RuntimeError: already deleted` between the `_isdeleted` guard and `self.update()` (bounded investigation charter)
+## Resolved
+
+### CU-358 — FigureCanvasQTAgg destroyed mid-draw: `RuntimeError: already deleted` between the `_isdeleted` guard and `self.update()` — RESOLVED 2026-09-12 (commit trailer)
 
 **Discovered**: demoted from CU-313; 2026-07-31 attempt ruled out the queued-idle-draw race; re-promoted at the October sweep review (owner-ratified 2026-09-12) on worsening evidence (twice per full GUI run since 2026-09-02).
-**Status**: Open — bounded charter: one timeboxed investigation of the destruction path in the next GUI maintenance window.
-**File**: `src/radiant/gui/widgets/matplotlib_canvas.py` (repro: `test_source_instrument.py::TestReflectiveTab::test_solar_rows_do_not_open_an_editor`).
-**Symptom**: the C++ object is alive at matplotlib's `_isdeleted` check and gone by `self.update()` inside the same synchronous `_draw_idle` call — deletion lands mid-draw; matplotlib's own `except: print_exc` prints the traceback; the draw is on a dying canvas so nothing is lost. Mechanism unidentified after one instrumented attempt.
+**Status**: Resolved — the chartered instrumented run identified the mechanism on the first attempt.
+**File**: `src/radiant/gui/tests/conftest.py` (the fix); `src/radiant/gui/widgets/matplotlib_canvas.py` is unmodified — the widget was never at fault.
+**Symptom**: the C++ object is alive at matplotlib's `_isdeleted` check and gone by `self.update()` inside the same synchronous `_draw_idle` call — deletion lands mid-draw; matplotlib's own `except: print_exc` prints the traceback; the draw is on a dying canvas so nothing is lost.
 **Why it still matters**: workflow-visible (stderr at teardown, now twice per run and spreading) and a latent crash class on future Qt/matplotlib versions.
-**Suggested fix**: charter — instrument `destroyed` with stack capture during the repro to find what destroys the canvas inside an in-progress synchronous draw. If the mechanism still will not show, close ACCEPTED with the instrumented evidence as the limitation record — it does not return to the Findings Log. Effort S (timeboxed); category A.
-
-## Resolved
+**Resolution**: mechanism (captured by a `destroyed`-signal stack probe + a `gc.callbacks` flag during the repro): `pytest-qt` holds `addWidget` widgets as **weakrefs**, so when the test function returns, the pane tree's only strong refs (test locals) are gone while a `draw_idle` single-shot timer is still pending. pytest-qt's end-of-call `processEvents()` delivers the draw; an allocation inside the Agg render triggers a gen-0 GC pass (`GC ACTIVE: True` at every destruction), which finalizes the pane's wrapper, and shiboken's parent-cascade deletes the canvas's C++ half inside its own render — alive at the guard, gone at `update()`. Not a product defect: the app's `_discard_current` path (`deleteLater`) is processed at event-loop top, never mid-draw. Fix: a `_pin_qtbot_widgets` autouse fixture strong-refs every qtbot-registered widget through the call phase, so pending draws flush against live C++ objects; `_release_widgets` (CU-212) then deletes everything deterministically, unchanged. Instrumented before/after: 6 destructions all with GC active, one mid-its-own-draw with the `RuntimeError` → all destructions GC-inactive, draw-stack empty, zero `already deleted` in the full GUI suite.
 
 ### CU-351 — Up/down counting: the down-phase reference charge omits near-field and stray, so the differential no longer cancels the warm-optics pedestal — RESOLVED 2026-09-11 (commit trailer)
 

@@ -64,8 +64,12 @@ directory:
   `Tape7Reader`/Gap-39/CU-011/Gap-38 regression tests assert against.
   Each entry needs its tape5, its tape7, and a `MANIFEST.md` naming the
   generating MODTRAN version (Rule 26).
-- **`data/atmospheres/`** — the repackaged `InterpolatedAtmosphere` NPZ
-  runtime library (25 of the 39 runs; see the plan §7.2 for which).
+- **`src/radiant/data/tables/atmospheres/`** — the repackaged
+  `InterpolatedAtmosphere` NPZ runtime libraries. Which delivered runs feed
+  which shipped family is recorded in that directory's `MANIFEST.md` and in
+  `docs/plans/modtran_run_matrix.csv` — treat those as the source of truth,
+  not a count here (a "25 of the 39 runs" figure sat here for two months
+  after the matrix grew past 130 delivered tape7s).
 
 ## Known deck-builder caveats
 

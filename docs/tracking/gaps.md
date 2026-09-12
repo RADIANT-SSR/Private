@@ -1554,6 +1554,16 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 
 **Owner note (2026-09-07)**: deprioritized at queue review — complex and set-level sweeps go through the scripting console (the sanctioned power-user path); the declarative set-level execution surface stays open as a gap but is not scheduled.
 
+## Gap 106: (number voided — consumed by a mint that never landed)
+
+| | |
+|---|---|
+| **Status** | VOID (recorded 2026-09-11, October Findings-Log sweep) |
+| **Description** | No `## Gap 106` entry ever existed on `main` or in the history of this file. The number was informally associated with the Active-Imaging upgrade (whose plan, `docs/plans/Active_Imaging_Plan.md`, merged as Draft 2026-07-26 and never says "Gap 106") but the reservation stub was never pushed — the failure mode the multi-agent minting rule exists to prevent. The plan is tracked by its own Rule-24 `Status:` header; if the active-imaging capability ever needs a gap entry, it mints a NEW number. |
+| **Impact** | None — this entry exists so the numbering-continuity check has a recorded explanation instead of a hole. IDs are never reused (Rule 21/25). |
+
+---
+
 ## Gap 107: Viewing geometry is down-looking only — ground-to-air, air-to-air, ground-to-space, and up-looking space-to-space scenes are all rejected
 
 | | |

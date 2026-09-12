@@ -121,6 +121,14 @@ def test_family_for_is_direction_keyed() -> None:
         ("down", 0.0, 0.0, "sensor_altitude_m"),
         ("down", 0.0, 0.5, "path_zenith_rad"),
         ("up", 5_000.0, 0.0, "target_altitude_m"),
+        # Resolved-LOS convention: vertical up-looking arrives as zenith = pi.
+        ("up", 5_000.0, 3.141592653589793, "target_altitude_m"),
+        # Off-vertical up-looking (either theta convention): the shipped
+        # up-looking ladders are vertical-only with a hard 1e-6 rad zenith
+        # refusal, so recommending one steers the operator into a refusal
+        # (the CU-322 measurement). Recommend nothing instead.
+        ("up", 5_000.0, 0.522, None),
+        ("up", 5_000.0, 2.62, None),
         ("level", 0.0, 0.0, None),
     ],
 )

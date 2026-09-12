@@ -149,7 +149,13 @@ class TestGroupedMetricCards:
         rendered_headings = [heading for heading, _recs in sections]
         assert rendered_headings == [h for h in heading_order if h in rendered_headings]
         flat = [rec.name for _heading, recs in sections for rec in recs]
-        assert sorted(flat) == sorted(rec.name for rec in records)
+        # Every record renders except the suppressed deprecated aliases
+        # (October sweep: diffraction_limit_ground_m is a CU-231 back-compat
+        # twin, not a row).
+        from radiant.gui.metric_format import _SUPPRESSED_DISPLAY_KEYS
+
+        expected_names = [rec.name for rec in records if rec.name not in _SUPPRESSED_DISPLAY_KEYS]
+        assert sorted(flat) == sorted(expected_names)
         by_heading = {heading: {rec.name for rec in recs} for heading, recs in sections}
         heading_of = dict(METRIC_GROUP_HEADINGS)
         for group, members in METRIC_GROUPS.items():
@@ -199,7 +205,14 @@ class TestGroupedMetricCards:
         declared = [h for _k, h in METRIC_GROUP_HEADINGS]
         assert list(headings) == [h for h in declared if h in headings]
         result = _evaluate(sensor)
-        assert cards.rendered_keys() == {rec.name for rec in result.metric_records()}  # type: ignore[attr-defined]
+        from radiant.gui.metric_format import _SUPPRESSED_DISPLAY_KEYS
+
+        expected_keys = {
+            rec.name
+            for rec in result.metric_records()  # type: ignore[attr-defined]
+            if rec.name not in _SUPPRESSED_DISPLAY_KEYS
+        }
+        assert cards.rendered_keys() == expected_keys
         # The pin carries the human label, so the rail card reads like the row.
         captured: list[tuple] = []  # type: ignore[type-arg]
         cards.pinMetricRequested.connect(lambda *a: captured.append(a))
@@ -300,3 +313,67 @@ class TestSceneRelevanceLabelCompleteness:
             "scene-relevance off-sets name metrics with no display label, so the "
             f"Geometry screen would render their raw registry keys: {missing}"
         )
+
+
+class TestCodedValueDecodingAndAliasSuppression:
+    """October-sweep finding (2026-08-03): raw registry vocabulary leaked to the
+    analyst-facing cards — 'Sampling regime 0 code', 'NIIRS (extrapolated) 1
+    0/1 flag', and the deprecated diffraction_limit_ground_m alias rendering
+    as a visible duplicate row."""
+
+    @staticmethod
+    def _rec(name: str, value: float, unit: str):  # type: ignore[no-untyped-def]
+        from types import SimpleNamespace
+
+        return SimpleNamespace(name=name, value=value, unit=unit)
+
+    def test_deprecated_alias_is_suppressed_from_cards(self) -> None:
+        """The CU-231 alias publishes for API back-compat but never renders —
+        its canonical twin carries the row."""
+        records = (
+            self._rec("diffraction_limit_target_plane_m", 0.5, "m"),
+            self._rec("diffraction_limit_ground_m", 0.5, "m"),
+        )
+        flat = [rec.name for _h, recs in grouped_metric_records(records) for rec in recs]
+        assert "diffraction_limit_target_plane_m" in flat
+        assert "diffraction_limit_ground_m" not in flat
+
+    def test_sampling_regime_code_decodes_to_words(self) -> None:
+        from radiant.gui.metric_format import metric_value_display
+
+        for code, fragment in (
+            (0.0, "detector-limited"),
+            (1.0, "near-critical"),
+            (2.0, "diffraction-limited"),
+        ):
+            text = metric_value_display(None, self._rec("sampling_regime_code", code, "code"))
+            assert fragment in text, text
+            assert "code" not in text  # the raw unit never renders
+
+    def test_niirs_extrapolated_decodes_to_yes_no(self) -> None:
+        from radiant.gui.metric_format import metric_value_display
+
+        yes = metric_value_display(None, self._rec("niirs_extrapolated", 1.0, "0/1 flag"))
+        no = metric_value_display(None, self._rec("niirs_extrapolated", 0.0, "0/1 flag"))
+        assert yes.startswith("yes")
+        assert no == "no"
+        assert "0/1" not in yes and "0/1" not in no
+
+    def test_unknown_code_falls_back_to_number(self) -> None:
+        """A code outside the decode table renders numerically — never blank."""
+        from radiant.gui.metric_format import metric_value_display
+
+        text = metric_value_display(None, self._rec("sampling_regime_code", 7.0, "code"))
+        assert "7" in text
+
+    def test_badge_decodes_identically(self) -> None:
+        """The pinned-rail badge and the card agree on coded metrics (CU-326)."""
+        from types import SimpleNamespace
+
+        from radiant.gui.metric_format import badge_display, metric_value_display
+
+        rec = self._rec("sampling_regime_code", 2.0, "code")
+        result = SimpleNamespace(metric_records=lambda: (rec,))
+        badge_text, reason = badge_display(result, "sampling_regime_code")
+        assert reason is None
+        assert badge_text == metric_value_display(result, rec)

@@ -511,33 +511,36 @@ SSR_Tool/
 ## File Count Summary
 
 Numbers below exclude `__init__.py` files and are regenerated from
-`find src/radiant -name '*.py'` (Source = non-init, non-`test_`; Tests =
-`test_*.py`). Regenerated 2026-07-19 (CU-102). Treat the find command as the
-source of truth, per the header.
+`find src/radiant -name '*.py'` (Source = non-init, non-`test_`, outside
+`tests/` dirs; Tests = `test_*.py`). Regenerated 2026-09-11 (Findings-Log
+sweep; last full regen 2026-07-19, CU-102 — the table had drifted through
+eleven landings). Treat the find command as the source of truth, per the
+header. The per-section headings above use `check_org_rules.py`'s counting
+convention and may differ slightly.
 
 | Subpackage             | Source | Tests | Notes |
 |------------------------|--------|-------|-------|
-| core/                  | 22     | 19    | foundational abstractions |
+| core/                  | 25     | 22    | foundational abstractions |
 | geometry/              | 7      | 5     | scene geometry / LOS (ADR-0006, ADR-0011) |
-| source/                | 44     | 33    | spec-form fan-out + shape catalog |
-| atmosphere/            | 15     | 15    | MODTRAN + simple + exo + tabulated + loaders |
-| optics/                | 31     | 22    | dual-path PSF/MTF + element model |
-| platform/              | 8      | 7     | smear, relative-motion smear, jitter, sampling, turbulence |
+| source/                | 41     | 35    | spec-form fan-out + shape catalog |
+| atmosphere/            | 41     | 49    | MODTRAN + simple + exo + tabulated + interpolated + loaders |
+| optics/                | 36     | 28    | dual-path PSF/MTF + element model |
+| platform/              | 9      | 9     | smear, relative-motion smear, jitter, sampling, turbulence |
 | spectral_integration/  | 3      | 1     | single-stage collapse |
 | detector/              | 16     | 10    | includes `detector/noise/` subpackage |
-| readout/               | 12     | 9     | TDI, ADC, binning, coadds |
-| calibration/           | 8      | 7     | calibration error model (Gap 120) — physics landed, dispatch Phase 2 |
-| performance/           | 56     | 38    | one metric per module (Rule 19) |
-| io/                    | 11     | 11    | config, results, element_config |
-| cli/                   | 12     | 2     | subcommand-per-file (incl. `radiant gui`) |
-| api/                   | 21     | 14    | public + internal session |
-| gui/                   | 81     | 44    | PySide6 shell + 56 widgets + design-system theme — optional `gui` extra |
+| readout/               | 16     | 17    | TDI, ADC, binning, coadds, digital counting (Gap 117) |
+| calibration/           | 11     | 10    | calibration error model (Gap 120 + Gap 122 items 1–4) |
+| performance/           | 56     | 39    | one metric per module (Rule 19) |
+| io/                    | 12     | 14    | config, results, element_config |
+| cli/                   | 13     | 2     | subcommand-per-file (incl. `radiant gui`, templates) |
+| api/                   | 31     | 22    | public + internal session |
+| gui/                   | 106    | 63    | PySide6 shell + widgets + design-system theme — optional `gui` extra |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
 | data/                  | 2      | 5     | packaged-data accessor |
-| **Subtotal**           | **334**| **228**| 562 non-init files |
-| Integration tests      | —      | 42    | `tests/integration/` |
-| Top-level tests        | —      | 6     | `tests/test_public_api.py`, `test_exceptions.py`, `test_provenance.py`, `test_calibration_analysis.py`, `test_error_budget.py`, `test_veiling_glare_signal_consistency.py` |
-| **Grand total (non-init)** |    |       | **610** |
+| **Subtotal**           | **425**| **331**| 756 non-init files |
+| Integration tests      | —      | 71    | `tests/integration/` |
+| Top-level tests        | —      | 9     | `tests/test_*.py` (public API, exceptions, provenance, calibration analysis, error budget, veiling glare, FPA presets/configs, parameter reference) |
+| **Grand total (non-init)** |    |       | **836** |
 
 Including `__init__.py` files, total `.py` count under `src/radiant/` is 607 (44 `__init__.py`).
 

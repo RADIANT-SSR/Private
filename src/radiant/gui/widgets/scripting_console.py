@@ -698,6 +698,13 @@ class ScriptingConsole(QWidget):
         window.setObjectName("consoleFigureWindow")
         window.setWindowTitle("RADIANT — console figure")
         window.setModal(False)
+        # Closed-figure semantics (October sweep, ex-CU-285): closed means GONE.
+        # Without this, every figure window lived in self._figure_windows for
+        # the whole session — the widget tree grew unbounded and theme polish
+        # walked dead canvases. The analyst re-plots to see a figure again
+        # (the console keeps no reopen surface).
+        window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        window.destroyed.connect(lambda _obj=None, w=window: self._forget_figure_window(w))
         layout = QVBoxLayout(window)
         layout.setContentsMargins(0, 0, 0, 0)
         canvas = FigureCanvasQTAgg(figure)
@@ -776,9 +783,15 @@ class ScriptingConsole(QWidget):
 
     # -- teardown -----------------------------------------------------------
 
+    def _forget_figure_window(self, window: QDialog) -> None:
+        """Drop a destroyed pop-out from the tracked list (WA_DeleteOnClose hook)."""
+        with contextlib.suppress(ValueError):
+            self._figure_windows.remove(window)
+
     def closeEvent(self, event: Any) -> None:  # noqa: N802 (Qt override)
         """Close any pop-out figure windows so app exit with the console open is clean."""
-        for window in self._figure_windows:
+        # Copy: each close destroys the window, whose hook prunes the list.
+        for window in list(self._figure_windows):
             with contextlib.suppress(RuntimeError):
                 window.close()
         self._figure_windows.clear()

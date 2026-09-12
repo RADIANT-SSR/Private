@@ -37,10 +37,12 @@ mutates a :class:`~radiant.core.parameters.ParameterSet`.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
 from radiant.atmosphere.errors import AtmosphereCapabilityError, AtmosphereValidationError
+from radiant.atmosphere.interpolated import _UPLOOKING_FIXED_ZENITH_TOL_RAD
 from radiant.core.parameters import ParameterSet, Provenance
 
 __all__ = [
@@ -341,7 +343,11 @@ def recommended_axes(los_direction: str, h_tgt_m: float, theta_o_rad: float) -> 
 
     Scene-aware family selection (CU-239 layer 2), derived rather than guessed:
 
-    * up-looking ⇒ ``target_altitude_m`` (the only up-looking family shipped);
+    * up-looking at (float-slack) vertical ⇒ ``target_altitude_m``; off-vertical
+      up-looking ⇒ ``None`` — the shipped up-looking families are vertical-only
+      ladders whose rendered zenith is a **hard** 1e-6 rad refusal, so naming
+      one here steered the operator straight into that refusal (the CU-322
+      measurement, October sweep);
     * down-looking with an above-ground target ⇒ needs a ``target_altitude_m``
       axis; off-nadir (LOS zenith > 0) additionally needs ``path_zenith_rad``,
       so the 3-axis boost family is the recommendation there and the 2-axis
@@ -355,7 +361,14 @@ def recommended_axes(los_direction: str, h_tgt_m: float, theta_o_rad: float) -> 
     :func:`profile_change_warning`).
     """
     if los_direction == "up":
-        return "target_altitude_m"
+        # Vertical under either caller convention: the raw path_zenith_rad
+        # input (0 = vertical; this module's _scene) or the resolved LOS
+        # zenith (pi = vertical up; family_suitability passes los.theta_o).
+        vertical = (
+            theta_o_rad <= _UPLOOKING_FIXED_ZENITH_TOL_RAD
+            or abs(theta_o_rad - math.pi) <= _UPLOOKING_FIXED_ZENITH_TOL_RAD
+        )
+        return "target_altitude_m" if vertical else None
     if los_direction != "down":
         return None
     off_nadir = theta_o_rad > 0.0

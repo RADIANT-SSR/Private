@@ -111,15 +111,31 @@ class TestTokensMirrorGuiTheme:
                     "plot_style.py must be updated in lock-step with gui/themes/tokens.py"
                 )
 
-    def test_series_hues_come_from_config_accents(self) -> None:
-        """Every series colour is one of the theme's configuration accents."""
+    # The exact accent slot each series position mirrors (October sweep: the old
+    # subset-containment assertion let a re-hue of slots 0–7 desync the plot
+    # palette silently — a series hue that merely *existed somewhere* in the
+    # accent tuple still passed). api/ cannot import gui/ (import rules), so
+    # this per-slot identity IS the mechanical link between the two palettes.
+    _SERIES_ACCENT_SLOTS = (0, 4, 5, 1, 3, 2)
+    _OTHER_ACCENT_SLOT = 7
+
+    def test_series_hues_mirror_exact_accent_slots(self) -> None:
+        """Each series position equals its designated config-accent slot, per theme."""
         pytest.importorskip("PySide6", reason="gui extra not installed — mirror gate needs it")
         from radiant.gui.themes import tokens as gui_tokens
 
-        assert set(plot_style.SERIES_LIGHT) <= set(gui_tokens.LIGHT.config_accents)
-        assert set(plot_style.SERIES_DARK) <= set(gui_tokens.DARK.config_accents)
-        assert plot_style.OTHER_LIGHT in gui_tokens.LIGHT.config_accents
-        assert plot_style.OTHER_DARK in gui_tokens.DARK.config_accents
+        for series, other, theme in (
+            (plot_style.SERIES_LIGHT, plot_style.OTHER_LIGHT, gui_tokens.LIGHT),
+            (plot_style.SERIES_DARK, plot_style.OTHER_DARK, gui_tokens.DARK),
+        ):
+            assert len(series) == len(self._SERIES_ACCENT_SLOTS)
+            for pos, slot in enumerate(self._SERIES_ACCENT_SLOTS):
+                assert series[pos] == theme.config_accents[slot], (
+                    f"{theme.name}: plot series position {pos} ({series[pos]}) drifted "
+                    f"from config_accents[{slot}] ({theme.config_accents[slot]}) — "
+                    "update plot_style.py in lock-step with gui/themes/tokens.py"
+                )
+            assert other == theme.config_accents[self._OTHER_ACCENT_SLOT]
 
 
 # ------------------------------------------------------------------

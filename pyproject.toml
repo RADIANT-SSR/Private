@@ -240,6 +240,10 @@ ignore_imports = [
     "radiant.*.tests.* -> radiant.optics.psf.effective",
     "radiant.*.tests.* -> radiant.optics.psf_mono",
     "radiant.*.tests.* -> radiant.optics.sampling",
+    # Gap 129: platform stage tests rebuild the pixel-aperture kernel to
+    # verify the pixel-phase (straddle) evaluation against a hand-composed
+    # ePSF (found 2026-09-11 on a red main gate, same test-seam class).
+    "radiant.*.tests.* -> radiant.optics.pixel_kernel",
     "radiant.*.tests.* -> radiant.detector.noise.budget",
     # Gap 120 D2 handoff: calibration tests drive the real DetectorStage to
     # prove no double counting (found 2026-09-09 on the same red main gate).

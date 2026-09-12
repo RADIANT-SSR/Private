@@ -107,6 +107,13 @@ class TestContrastSnrSaturation:
         result = res.stage_outputs["performance"]["contrast_snr_result"]
         assert result.failure_reason is not None
         assert not result.ok
+        # CU-354: the clipped signal must not be mislabeled as the full well
+        # (a pedestal-saturated run would then report "full well 0 e-" while
+        # the readout warning reports the real capacity). The message names
+        # the value for what it is and cites the readout's well vocabulary.
+        assert "clipped to full well" not in result.failure_reason
+        assert "capacity remaining after the non-signal pedestal" in result.failure_reason
+        assert "readout.full_well_capacity_e" in result.failure_reason
 
     def test_unsaturated_is_valid(self) -> None:
         res = _run(300.0, 295.0, tint=1e-4, fwc=6e6)

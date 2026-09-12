@@ -714,12 +714,55 @@ def select_atmosphere_family(los: LineOfSightGeometry) -> AtmosphereFamilySugges
             continue
         if worst is None or gap.gate > worst.gate:
             worst = gap
+        elif gap.gate == worst.gate and _closer_miss(gap, worst):
+            # Equal-gate tie: name the NEARER miss, not the earlier catalogue
+            # row (October sweep: a scene at a third site elevation reported
+            # the 0 m SST fan even when the 900 m fan was 3.5× closer).
+            worst = gap
     return AtmosphereFamilySuggestion(
         family=None,
         gap=_with_pending_runs(worst),
         considered=considered,
         los_direction=direction,
     )
+
+
+def _miss_distance(gap: FamilyGap) -> float | None:
+    """How far the query sits from what the family offers, in the gap's own unit.
+
+    A fixed-value gap measures ``|query − rendered|``; a hull gap measures the
+    overshoot past the nearer bound. ``None`` when the gap carries no numeric
+    geometry (a direction or library gap) — such gaps never tie-break on
+    distance.
+    """
+    ctx = gap.context
+    query = ctx.get("query")
+    if not isinstance(query, (int, float)):
+        return None
+    rendered = ctx.get("rendered")
+    if isinstance(rendered, (int, float)):
+        return abs(float(query) - float(rendered))
+    low, high = ctx.get("hull_low"), ctx.get("hull_high")
+    if isinstance(low, (int, float)) and isinstance(high, (int, float)):
+        return max(float(low) - float(query), float(query) - float(high), 0.0)
+    return None
+
+
+def _closer_miss(gap: FamilyGap, incumbent: FamilyGap) -> bool:
+    """True when *gap* is measurably nearer than *incumbent* at the same gate.
+
+    Distances compare only between gaps of the same ``kind`` — the same
+    physical field, hence the same unit; across kinds the earlier catalogue
+    row keeps precedence (stable, and there is no common metre-vs-radian
+    scale to compare on).
+    """
+    if gap.kind != incumbent.kind:
+        return False
+    d_new = _miss_distance(gap)
+    d_old = _miss_distance(incumbent)
+    if d_new is None or d_old is None:
+        return False
+    return d_new < d_old
 
 
 def _with_pending_runs(gap: FamilyGap | None) -> FamilyGap | None:

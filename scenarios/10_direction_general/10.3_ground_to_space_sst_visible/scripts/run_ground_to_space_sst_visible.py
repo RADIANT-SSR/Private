@@ -1037,7 +1037,7 @@ def section_cross_checks(
     print("      the topology dispatcher returns the exact vacuum quantities (tau_up == 1).")
     vac = sensor.clone().set("geometry.sensor_altitude_m", 100_000.0)
     try:
-        vac_result = vac.evaluate()
+        vac_result, vac_warnings = _run_capturing_warnings(vac)
     except Exception as exc:
         print(f"        RAISED {type(exc).__name__} — see gaps.md G7:")
         for line in _wrap(str(exc).split("|")[0].strip(), 68):
@@ -1049,9 +1049,24 @@ def section_cross_checks(
             "        branches disagree.  The identity above is therefore evaluated\n"
             "        analytically rather than by a second chain run."
         )
-    else:  # pragma: no cover - the guard above fires today
+    else:
+        # October sweep (2026-09-12): this branch is LIVE now — the old G7
+        # refusal was repaired, so the vacuum run evaluates. Its warnings are
+        # captured and reported here rather than leaking to stderr (they used
+        # to be this scenario's only silent-to-stdout chain warnings).
         tau_vac = np.asarray(vac_result.stage_outputs["atmosphere"]["tau_atm"], dtype=np.float64)
         print(f"        max |tau_up - 1| = {float(np.max(np.abs(tau_vac - 1.0))):.3e}")
+        vac_ro = vac_result.stage_outputs["readout"]
+        if str(vac_ro.get("well_status", "ok")) != "ok":
+            print(
+                f"        well_status = '{vac_ro['well_status']}' (fill "
+                f"{vac_ro['well_fill_fraction']:.2f}) — EXPECTED in this limiting case:\n"
+                "        with tau == 1 the un-attenuated signal exceeds a well sized for\n"
+                "        the real column's tau ~ 0.77.  The vacuum run is a tau anchor,\n"
+                "        not an operating point; its saturated radiometry is not used."
+            )
+        for w in sorted({str(wm.message).splitlines()[0][:96] for wm in vac_warnings}):
+            print(f"          [captured] {w}")
 
     # ---- (b) Astronomical extinction anchor --------------------------------
     print("\n  (b) BAND-MEAN ZENITH TRANSMITTANCE vs PUBLISHED ASTRONOMICAL EXTINCTION")

@@ -8,7 +8,8 @@ commits their SHA-256 checksums (not the data) to ``modtran/real_runs_MANIFEST.s
 this test verifies the staged files against that manifest.
 
 Like ``test_modtran_real_runs.py`` it is ``skipif``-guarded on the presence of
-the directory — a defensive guard for an incomplete checkout, not a CI no-op. When the data IS staged,
+the directory — a defensive guard for an incomplete checkout, not a CI no-op.
+When the data IS present,
 it fails fast on any missing file or checksum mismatch.
 """
 

@@ -616,29 +616,44 @@ def section_sky_background(
         f"    band-mean sky background   : {day_bg:.4e} W/m^2/sr/um\n"
         f"    provisional sky warnings   : {len(provisional)}"
     )
-    print(
-        "\n    STILL ZERO — and for two independent structural reasons, both worth naming.\n"
-        "\n    (i) The SkyBackground source term is the LOS CONTINUATION past the target.\n"
-        "        The object is above h_atm_top, so that continuation is vacuum and\n"
-        "        uplooking_quantities returns 'sky radiance = 0' WITHOUT ever calling\n"
-        "        sky_radiance_along_los — which is where the VIS/NIR provisional warning\n"
-        "        lives.  The warning is therefore STRUCTURALLY UNREACHABLE for the whole\n"
-        "        ground_to_space class (gaps.md G4).  The sky the telescope actually looks\n"
-        "        THROUGH is the observer leg, handled by a different module that carries no\n"
-        "        such caveat."
-    )
+    # Narrative derives from the measured value (October sweep: a hardcoded
+    # "STILL ZERO" banner survived the CU-254 whole-LOS sky landing and
+    # printed beside its own nonzero measurement).
+    if day_bg == 0.0:
+        print(
+            "\n    STILL ZERO — and for two independent structural reasons, both worth naming.\n"
+            "\n    (i) The SkyBackground source term is the LOS CONTINUATION past the target.\n"
+            "        The object is above h_atm_top, so that continuation is vacuum and\n"
+            "        uplooking_quantities returns 'sky radiance = 0' WITHOUT ever calling\n"
+            "        sky_radiance_along_los — which is where the VIS/NIR provisional warning\n"
+            "        lives.  The warning is therefore STRUCTURALLY UNREACHABLE for the whole\n"
+            "        ground_to_space class (gaps.md G4).  The sky the telescope actually looks\n"
+            "        THROUGH is the observer leg, handled by a different module that carries no\n"
+            "        such caveat."
+        )
+    else:
+        print(
+            f"\n    NONZERO — {day_bg:.4e} W/m^2/sr/um of daytime sky reaches the aperture.\n"
+            "\n    Since CU-254 the background arm is the WHOLE-LOS sky at the aperture,\n"
+            "        computed on the observer leg (the air the telescope actually looks\n"
+            "        through).  The old zero came from the retired continuation-past-the-\n"
+            "        target form: the object is above h_atm_top, so that continuation is\n"
+            "        vacuum and contributed nothing.  The continuation arm is still exactly\n"
+            "        zero — what changed is that the background no longer asks it."
+        )
     mean_alt_m = 0.5 * (900.0 + 35_786_000.0)
-    print(
-        "\n    (ii) The observer leg's single-scatter source takes its species split at the\n"
-        f"        segment's ARITHMETIC MEAN ALTITUDE, here 0.5*(0.9 km + 35 786 km) =\n"
-        f"        {mean_alt_m / 1000.0:,.0f} km.  Every density factor exp(-h/H) underflows there:\n"
-        f"          Rayleigh  exp(-{mean_alt_m:.0f}/8000)   -> {_safe_exp(-mean_alt_m / 8000.0):.3e}\n"
-        f"          aerosol   exp(-{mean_alt_m:.0f}/1200)   -> {_safe_exp(-mean_alt_m / 1200.0):.3e}\n"
-        "        so the single-scattering albedo evaluates to 0 and the whole scattered term\n"
-        "        vanishes.  For the 700 km LEO geometry the same construction lands at\n"
-        "        350 km, where the densities are ~1e-20 but their RATIO still resolves, so\n"
-        "        the term survives by numerical luck.  gaps.md G4."
-    )
+    if day_bg == 0.0:
+        print(
+            "\n    (ii) The observer leg's single-scatter source takes its species split at the\n"
+            f"        segment's ARITHMETIC MEAN ALTITUDE, here 0.5*(0.9 km + 35 786 km) =\n"
+            f"        {mean_alt_m / 1000.0:,.0f} km.  Every density factor exp(-h/H) underflows there:\n"
+            f"          Rayleigh  exp(-{mean_alt_m:.0f}/8000)   -> {_safe_exp(-mean_alt_m / 8000.0):.3e}\n"
+            f"          aerosol   exp(-{mean_alt_m:.0f}/1200)   -> {_safe_exp(-mean_alt_m / 1200.0):.3e}\n"
+            "        so the single-scattering albedo evaluates to 0 and the whole scattered term\n"
+            "        vanishes.  For the 700 km LEO geometry the same construction lands at\n"
+            "        350 km, where the densities are ~1e-20 but their RATIO still resolves, so\n"
+            "        the term survives by numerical luck.  gaps.md G4."
+        )
 
     # A reachable instance of the warning: the same telescope on a target INSIDE
     # the column, where the LOS continuation really is atmospheric.
@@ -1060,46 +1075,26 @@ def section_cross_checks(
     print(f"      verdict                          : {verdict}")
     if verdict == "FAIL":
         print(
-            "      DIAGNOSIS (see gaps.md G4).  radiant.atmosphere.simple uses\n"
-            "        sigma_mol(lambda) = 0.0088 * lambda_um^-4.09  [1/km at sea level]\n"
-            "      and then multiplies by the ~8 km molecular column length.  But\n"
-            "      0.0088 * lambda^-4.09 IS the published TOTAL VERTICAL RAYLEIGH OPTICAL\n"
-            "      DEPTH (dimensionless; Hansen & Travis 1974, Bucholtz 1995), not an\n"
-            "      extinction coefficient in km^-1.  The true sea-level Rayleigh volume\n"
-            "      extinction at 550 nm is 0.0116 km^-1, ~8.7x smaller.\n"
-            "      Consequence: Rayleigh optical depth is too large by ~H_mol/1 km ~ 8x\n"
-            "      in the VIS.  Check the arithmetic:"
-        )
-        h_site_m = geo["h_sensor_m"]
-        h_mol_km = 8.0  # molecular scale height used by radiant.atmosphere.simple
-        sigma_used_per_km = 0.0088 * V_BAND_CENTRE_UM ** (-4.09)
-        # The molecular column length the model integrates over, [km].
-        col_mol_km = h_mol_km * math.exp(-h_site_m / (h_mol_km * 1000.0))
-        od_radiant = -math.log(tau_55)
-        od_rayleigh_used = sigma_used_per_km * col_mol_km
-        # Read correctly, 0.0088 λ^-4.09 IS the sea-level-to-space vertical OD; the
-        # part above the site is that times exp(-h_site/H_mol).
-        od_rayleigh_true = sigma_used_per_km * math.exp(-h_site_m / (h_mol_km * 1000.0))
-        od_corrected = od_radiant - od_rayleigh_used + od_rayleigh_true
-        tau_corrected = math.exp(-od_corrected)
-        k_corrected = -2.5 * math.log10(tau_corrected)
-        inside = EXTINCTION_V_LO_MAG_PER_AIRMASS <= k_corrected <= EXTINCTION_V_HI_MAG_PER_AIRMASS
-        print(
-            f"        0.0088 * 0.55^-4.09              = {sigma_used_per_km:.5f}\n"
-            f"        molecular column above the site  = {col_mol_km:.4f} km\n"
-            f"        Rayleigh OD as used (sigma*col)  = {od_rayleigh_used:.4f} optical depths\n"
-            f"        Rayleigh OD read as an OD        = {od_rayleigh_true:.4f} optical depths\n"
-            f"        published Rayleigh OD at 550 nm  = 0.0973 optical depths (sea level)\n"
-            f"        RADIANT total zenith OD          = {od_radiant:.4f} optical depths\n"
-            f"        corrected total zenith OD        = {od_corrected:.4f} optical depths\n"
-            f"        corrected tau(0.55 um)           = {tau_corrected:.4f} (dimensionless)\n"
-            f"        corrected extinction             = {k_corrected:.3f} mag/airmass"
-            f"  <- {'INSIDE' if inside else 'outside'} the published band"
-        )
-        print(
-            "      MWIR/LWIR is unaffected in practice (Rayleigh optical depth at 4 um is\n"
-            "      ~2.5e-4 either way), which is why the CU-161 MODTRAN calibration of the\n"
-            "      simple model never saw it: that calibration anchored 3-14 um."
+            "      DIAGNOSIS (current — October sweep 2026-09-12; the pre-CU-253\n"
+            "      Rayleigh-double-count story that used to live here was FIXED by\n"
+            "      CU-253 and the VIS band TOTAL was re-fit by CU-335/CU-336 to\n"
+            "      within ~0.1% of MODTRAN at the A1 anchor).  What keeps this\n"
+            "      astronomical-extinction anchor out of reach is ATTRIBUTION, not\n"
+            "      magnitude: ~0.11 of the fitted ~0.14 optical depths on the\n"
+            "      0.45-0.70 um well-mixed-gas floor is actually the aerosol\n"
+            "      model's deficit wearing a gas label (real VIS gas chemistry\n"
+            "      supplies only ~0.03 - O3 Chappuis plus narrow O2 bands).  A\n"
+            "      published extinction anchor assumes a CLEANER aerosol than the\n"
+            "      one this fit effectively encodes, so the k_V floor sits above\n"
+            "      the published band at ANY visibility setting (measured\n"
+            "      2026-09-01: floor 0.258 vs published <= 0.20 mag/airmass).\n"
+            "      The scheduled fix is CU-337 (fit the aerosol VIS deficit\n"
+            "      explicitly, re-fit the gas floors with aerosol corrected);\n"
+            "      this verdict stays FAIL until it lands.  See the parity\n"
+            "      limitations register, entry 14, and gaps.md Gap 38.\n"
+            "      MWIR/LWIR is unaffected: the CU-161 calibration anchored\n"
+            "      3-14 um, where the aerosol-vs-gas split does not move the\n"
+            "      band totals."
         )
 
     # ---- (c) Reciprocity identity -----------------------------------------
@@ -1161,13 +1156,16 @@ def section_cross_checks(
     )
 
     # ---- MODTRAN anchor status --------------------------------------------
-    print("\n  (e) MODTRAN ANCHOR — DEFERRED, NOT FABRICATED")
+    print("\n  (e) MODTRAN ANCHOR STATUS")
     print(
-        "      The ground-to-space full-column MODTRAN ladder for this scene class is\n"
-        "      OWNER-RUN BATCH 2 (ADR-0011 decision 10, plan §4 Phase 2) and has not been\n"
-        "      delivered.  No MODTRAN comparison is reported here.  When batch 2 lands,\n"
-        "      rerun this scenario and compare tau(lambda) directly; the (b) diagnosis\n"
-        "      above predicts the simple model will read ~8x too opaque in the VIS."
+        "      The owner-run batch-2 full-column families for this scene class were\n"
+        "      DELIVERED 2026-08-02/03 (M-block SST column fans, including the 900 m-site\n"
+        "      fan authored for exactly this geometry), and this scenario switches to the\n"
+        "      interpolated backend first-try (CU-322 acceptance).  The tau comparison the\n"
+        "      old text deferred has since been run at the calibration anchors: the VIS\n"
+        "      band total sits within ~0.1% of MODTRAN post CU-335/CU-336.  What remains\n"
+        "      open on this path is the aerosol-vs-gas attribution — see the (b)\n"
+        "      diagnosis and CU-337."
     )
     return {
         "vacuum_rel_error": rel,

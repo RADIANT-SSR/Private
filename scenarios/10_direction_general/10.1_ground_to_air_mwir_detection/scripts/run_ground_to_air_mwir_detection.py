@@ -908,10 +908,30 @@ def section_detection(
     print("      (a) atmospheric extinction along the continuation REMOVES signal -> R < R_vac;")
     print("      (b) the sky background behind the target THINS as the target climbs, so the")
     print("          background shot noise falls and the SNR denominator shrinks -> R > R_vac.")
-    print("    Near the zenith (b) wins (ratio slightly above 1); at low elevation the long")
-    print("    low-altitude path makes (a) dominant (ratio well below 1).  The crossover in")
-    print("    the ratio column is the signature of that competition, and it is why a")
-    print("    constant-alpha detection-range model cannot be reused for an up-looking scene.")
+    # The conclusion DERIVES from the table just printed (October sweep: a
+    # hardcoded crossover story survived a landing that flattened the very
+    # ratio column it described).
+    ratios = [row["ratio"] for row in rows]
+    lo, hi = min(ratios), max(ratios)
+    crossings = [
+        rows[i]["zenith_deg"]
+        for i in range(1, len(rows))
+        if (rows[i - 1]["ratio"] - 1.0) * (rows[i]["ratio"] - 1.0) < 0
+    ]
+    if crossings:
+        print(f"    The measured ratio column runs {lo:.3f}-{hi:.3f} and crosses 1 near")
+        print(f"    zenith {crossings[0]:.0f} deg — the signature of that competition, and why a")
+        print("    constant-alpha detection-range model cannot be reused for an up-looking scene.")
+    elif hi <= 1.0:
+        print(f"    The measured ratio column runs {lo:.3f}-{hi:.3f}: extinction (a) dominates at")
+        print("    every zenith on this configuration — the sky-thinning gain (b) never wins.")
+        print("    The competition is still why a constant-alpha detection-range model cannot")
+        print("    be reused for an up-looking scene: the ratio varies with zenith either way.")
+    else:
+        print(f"    The measured ratio column runs {lo:.3f}-{hi:.3f}: the sky-thinning gain (b)")
+        print("    dominates at every zenith on this configuration. The competition is still")
+        print("    why a constant-alpha detection-range model cannot be reused for an")
+        print("    up-looking scene: the ratio varies with zenith either way.")
     return rows
 
 

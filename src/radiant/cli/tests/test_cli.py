@@ -587,20 +587,28 @@ class TestSchemaCommand:
 
 class TestTemplateCommand:
     @pytest.mark.level1
-    def test_template_list(self, runner: CliRunner) -> None:
+    def test_template_list_serves_the_bundled_store(self, runner: CliRunner) -> None:
+        """October sweep (owner-ratified 2026-09-12): the CLI serves the SAME
+        catalog the GUI welcome screen serves — the bundled mission templates,
+        not a disjoint inline dict (the Rule 27 duality this replaced)."""
+        from radiant.api.mission_templates import discover_templates
+
         result = runner.invoke(cli, ["template", "list"])
         assert result.exit_code == 0, result.output
-        assert "mwir_leo_pushbroom" in result.output
-        assert "vnir_aerial" in result.output
-        assert "lwir_geo" in result.output
-        assert "swir_leo" in result.output
+        stems = {info.path.stem for info in discover_templates()}
+        assert stems, "bundled template store is empty"
+        for stem in stems:
+            assert stem in result.output, stem
+        # The graduated band classes are present by name.
+        for stem in ("aerial_vnir_imaging", "leo_swir_mapping", "geo_lwir_staring"):
+            assert stem in result.output
 
     @pytest.mark.level1
     def test_template_show(self, runner: CliRunner) -> None:
-        result = runner.invoke(cli, ["template", "show", "mwir_leo_pushbroom"])
+        result = runner.invoke(cli, ["template", "show", "leo_mapping_extended"])
         assert result.exit_code == 0, result.output
         assert "aperture_diameter_m" in result.output
-        assert "0.3" in result.output
+        assert "0.5" in result.output
 
     @pytest.mark.level1
     def test_template_show_unknown(self, runner: CliRunner) -> None:
@@ -616,7 +624,7 @@ class TestTemplateCommand:
             [
                 "template",
                 "create",
-                "mwir_leo_pushbroom",
+                "leo_mapping_extended",
                 "--output",
                 str(out),
             ],

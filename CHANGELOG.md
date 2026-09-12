@@ -21,6 +21,19 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **`radiant template` serves the bundled mission-template store** — the same
+  catalog the GUI welcome screen shows — instead of a disjoint inline dict of
+  four minimal configs. Template names on the command line are now the
+  bundled file stems (e.g. `leo_mapping_extended`); the old inline names
+  (`mwir_leo_pushbroom`, `vnir_aerial`, `lwir_geo`, `swir_leo`) are gone.
+
+### Added
+- **Three new bundled mission templates** (welcome screen + `radiant
+  template`): *Aerial VNIR Imaging* and *LEO SWIR Mapping* (reflective
+  targets under a 40° sun — the modern descriptor form) and *GEO LWIR
+  Staring*; all truth-barred loadable and warning-clean.
+
+### Changed
 - **GeometryStage rejects an endpoint below its own terrain.** With a
   nonzero `geometry.site_elevation_m`, the terrain-bearing endpoint (target
   for down-looking, sensor for up-looking, both for level) must sit at or

@@ -1,0 +1,45 @@
+# RADIANT mission template — GEO LWIR Staring
+# A geostationary LWIR starer viewing an extended 290 K terrestrial scene at
+# nadir from 35 786 km. Long integration against the coarse GSD; values from
+# the old CLI lwir_geo starter, graduated unchanged (the thermal descriptor
+# is correct for LWIR).
+_radiant:
+  format: 1
+  template:
+    name: "GEO LWIR Staring"
+    blurb: "Geostationary LWIR starer over an extended 290 K scene at nadir."
+    specs: "LWIR 8–12 µm · GEO nadir · extended scene"
+    tune_next:
+      - optics.aperture_diameter_m
+      - spectral_integration.integration_time_s
+      - detector.pixel_pitch_x_um
+      - source.target.temperature
+      - readout.read_noise_e_rms
+atmosphere:
+  model: simple
+  standard_atmosphere: midlat_summer
+detector:
+  dark_rate_e_per_s: 500.0
+  pixel_pitch_x_um: 25.0
+  pixel_pitch_y_um: 25.0
+  qe_value: 0.60
+geometry:
+  sensor_altitude_m: 35786000.0
+optics:
+  aperture_diameter_m: 0.50
+  focal_length_m: 2.00
+  transmission_scalar: 0.65
+readout:
+  adc_bits: 14
+  full_well_capacity_e: 5000000.0
+  gain_e_per_dn: 300.0
+  read_noise_e_rms: 15.0
+source:
+  scene_type: extended
+  target:
+    emissivity: 0.97
+    temperature: 290.0
+spectral_integration:
+  filter_min_um: 8.0
+  filter_max_um: 12.0
+  integration_time_s: 0.0002

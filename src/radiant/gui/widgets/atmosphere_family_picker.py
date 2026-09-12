@@ -111,6 +111,7 @@ class AtmosphereFamilyPicker(QWidget):
         self._display_units: dict[str, str] = {}
         self._families: tuple[ShippedFamily, ...] = shipped_atmosphere_families()
         self._recommended: ShippedFamily | None = None
+        self._vacuum_path: bool = False
         self._configured: ShippedFamily | None = None
         self._pending: bool = False
 
@@ -289,15 +290,25 @@ class AtmosphereFamilyPicker(QWidget):
                 return
 
     def _read_recommendation(self) -> ShippedFamily | None:
-        """The scene's recommended family through the one API seam (never re-derived)."""
+        """The scene's recommended family through the one API seam (never re-derived).
+
+        Also records whether the scene is a wholly-vacuum path
+        (:attr:`AtmosphereFamilySuggestion.vacuum_path`): a family is still named
+        for the parameter to carry, but no backend is consulted at all, so its
+        coverage sentence says nothing about this scene — the detail line must
+        say so instead of quoting it (October sweep, ex-CU-322 residue).
+        """
+        self._vacuum_path = False
         if self._sensor is None:
             return None
         try:
-            return self._sensor.suggested_atmosphere_family()
+            suggestion = self._sensor.atmosphere_family_suggestion()
         except RadiantError:
             # A mid-edit config that cannot resolve has no scene to recommend for; the
             # resolution error itself surfaces through the Messages rail, not here.
             return None
+        self._vacuum_path = suggestion.vacuum_path
+        return suggestion.family
 
     def _configured_family(self) -> ShippedFamily | None:
         """The catalogue row the live parameters actually select, if any.
@@ -369,6 +380,21 @@ class AtmosphereFamilyPicker(QWidget):
         family = self.selected_family()
         if family is None:
             self._coverage.setText(_CUSTOM_NOTE)
+            self._warning.hide()
+            self._apply.hide()
+            return
+
+        if self._vacuum_path:
+            # No backend is consulted on a wholly-vacuum path — a family is
+            # named only so the parameter carries a value, and its coverage
+            # sentence describes nothing about this scene.
+            self._coverage.setText(
+                "This scene's entire path is above the atmosphere top — a "
+                "vacuum path: transmittance is exactly 1 and path radiance "
+                "exactly 0, and no atmosphere backend is consulted. The "
+                f"family '{family.name}' is named only to fill the "
+                "parameter; its coverage does not apply to this scene."
+            )
             self._warning.hide()
             self._apply.hide()
             return

@@ -297,3 +297,23 @@ class TestMessagesRailOnEdit:
         window.parameter_panel.parameterEdited.emit("geometry.target_altitude_m")
 
         assert window.right_rail.messages.has_error() is False
+
+
+class TestVacuumPathCoverage:
+    """October sweep (ex CU-322 residue): on a wholly-vacuum path no backend is
+    consulted at all, so quoting the selected family's coverage line beside a
+    500 km → GEO scene ("covers ground sensor (0 km)…") misdescribes the run.
+    The API flags it (AtmosphereFamilySuggestion.vacuum_path); the picker must
+    say so instead of the coverage sentence."""
+
+    def test_vacuum_scene_coverage_line_names_the_vacuum(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        # LEO sensor above the atmosphere top looking up at GEO: scenario 10.4's shape.
+        sensor = _interpolated_sensor(
+            geometry__sensor_altitude_m=500_000.0,
+            geometry__target_altitude_m=35_786_000.0,
+        )
+        picker = _picker(qtbot, sensor)
+        assert sensor.atmosphere_family_suggestion().vacuum_path  # premise
+        text = picker.coverage_text()
+        assert "vacuum" in text.lower()
+        assert "covers" not in text.lower()

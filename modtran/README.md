@@ -140,6 +140,16 @@ Please **record which refraction switch you used for Q5/Q6** in
 
 **Delivered 2026-08-03:** rows **P7/P8** (60/80 km elevated-endpoint downwelling) and **M9–M13** (the 900 m-site SST sec fan) landed via the owner's GitHub upload. **Q5/Q6 are now the only unrun rows** (the refraction pair — runnable only with a real ray-bending switch; the horizon-guard thresholds stay guard-banded without them).
 
+**Run queue as of the October sweep (2026-09-12):** **R1–R3** (grazing-arc
+placement anchors, hand-set Card-3 ANGLE — see the R-row notes), **Q5/Q6**
+(refraction pair, conditions above), and the new **S1–S15** block — the
+solar-zenith fan for the up-looking ladder (5 K-rungs × sun at 0/60/75°;
+with the existing 30° K column that makes a rectangular
+(target_altitude, solar_zenith) up-looking grid, ending the
+single-solar-zenith limitation of `midlat_summer_uplooking_ladder`). The
+S decks need no hand edits — identical geometry to K1–K5, only the sun
+moves.
+
 **Owner deck audit, 2026-08-02.** The 33 rows M1–M8, N1–N10, O1–O5, P1–P6,
 Q1–Q4 were audited safe and run as-is; these are the only rows the CU-224
 gated half (P5), CU-181, and the sec-space axis actually need. The four

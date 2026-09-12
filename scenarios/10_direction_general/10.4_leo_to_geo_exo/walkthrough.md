@@ -149,15 +149,21 @@ triangle.
 
 | Quantity | Value | Unit |
 |---|---:|---|
-| EE_box (1×1, from the fully degraded PSF) | 0.223197 | — |
-| In-pixel signal | 1 177.25 | e- |
-| signal shot noise | 34.311 | e- RMS |
+| EE_box (1×1, from the fully degraded PSF) | 0.245670 | — |
+| In-pixel signal | 1 295.78 | e- |
+| signal shot noise | 35.997 | e- RMS |
 | dark shot noise | 22.361 | e- RMS |
 | read noise | 25.000 | e- RMS |
 | quantization noise | 1.761 | e- RMS |
-| **Total noise** | **48.014** | e- RMS |
-| **SNR** | **24.52** | — |
-| **Detection range** (SNR = 5) | **90 015** | km |
+| **Total noise** | **49.233** | e- RMS |
+| **SNR** | **26.32** | — |
+| **Detection range** (SNR = 5) | **94 438** | km |
+
+*Refreshed 2026-09-12 (chartered sweep). Sole mover: **CU-355** — with the
+0.633 µm-referenced WFE correctly rescaled to this MWIR band, the pupil is
+nearly diffraction-limited and EE_box rises 0.2232 → 0.2457 (+10 %); SNR
+follows to 26.32 (+7.3 %) and the detection range to 94 438 km (+4.9 %).
+Dark, read, and quantization noise are bit-identical.*
 | NEDT (reported, but not a meaningful figure of merit here — see below) | 1005 | mK |
 
 NEDT is printed because the metric layer computes it, but it should not be read
@@ -172,10 +178,10 @@ Earth, so past the GEO bus it exits into deep space and the background is
 rule of ADR-0011 decision 9 in action — hits Earth → ground, exits the
 atmosphere → cold space, grazes the limb → raise.
 
-Detection range is 2.55× the LEO→GEO range: the geostationary belt sits
+Detection range is 2.67× the LEO→GEO range: the geostationary belt sits
 comfortably inside this sensor's single-frame detection horizon for the assumed
-signature. (It was 2.21× before CU-263 fixed the frozen-noise criterion on
-2026-08-01 — see cross-check 4.)
+signature. (2.55× at the 2026-09 vintage; 2.21× before CU-263 fixed the
+frozen-noise criterion on 2026-08-01 — see cross-check 4.)
 
 ![SNR vs range](outputs/10.4_snr_vs_range_detection.png)
 
@@ -211,13 +217,16 @@ background-free (cold space) and dark-current-limited.
 
 | $t_\mathrm{int}$ [ms] | smear OL [px] | SNR OL | EE OL | smear RT [px] | SNR RT | $R_\mathrm{det}$ RT [km] |
 |---:|---:|---:|---:|---:|---:|---:|
-| 5 | 0.075 | 0.46 | 0.2232 | 0.00075 | 0.46 | < R_GEO |
-| 25 | 0.375 | 2.17 | 0.2198 | 0.00375 | 2.21 | < R_GEO |
-| 50 | 0.751 | 3.98 | 0.2123 | 0.00751 | 4.17 | < R_GEO |
-| 100 | 1.502 | 6.51 | 0.1877 | 0.01502 | 7.59 | 44 507 |
-| 250 | 3.754 | **7.97** | 0.1025 | 0.03754 | 15.37 | 67 430 |
-| 500 | 7.508 | 7.61 | 0.0542 | 0.07508 | **24.52** | **90 015** |
-| 1000 | 15.016 | 6.61 | 0.0274 | 0.15016 | 37.31 | 116 869 |
+| 5 | 0.075 | 0.51 | 0.2457 | 0.00075 | 0.51 | < R_GEO |
+| 25 | 0.375 | 2.38 | 0.2420 | 0.00375 | 2.42 | < R_GEO |
+| 50 | 0.751 | 4.35 | 0.2337 | 0.00751 | 4.56 | < R_GEO |
+| 100 | 1.502 | 7.09 | 0.2067 | 0.01502 | 8.25 | 46 694 |
+| 250 | 3.754 | **8.68** | 0.1128 | 0.03754 | 16.59 | 70 743 |
+| 500 | 7.508 | 8.29 | 0.0597 | 0.07508 | **26.32** | **94 438** |
+| 1000 | 15.016 | 7.22 | 0.0302 | 0.15016 | 39.90 | 122 612 |
+
+*Refreshed 2026-09-12 (CU-355; the level shift is the EE-box gain — the
+open/tracked structure and the 250 ms open-loop knee are unchanged).*
 
 `< R_GEO` is not a crash and not a NaN: the metric layer's result-typed failure
 (ADR-B / Rule 17 carve-out) reports that the SNR at the GEO range is already
@@ -230,13 +239,13 @@ detectable.
 
 | $\zeta_\mathrm{low}$ [°] | $\theta_o$ [°] | $\eta$ [°] | slant [km] | ground arc [km] | SNR |
 |---:|---:|---:|---:|---:|---:|
-| 0 | 180.00000 | 180.00000 | 35 286.00 | 0.00 | 24.52 |
-| 5 | 179.18608 | 175.00000 | 35 307.89 | 465.47 | 24.50 |
-| 10 | 178.37819 | 170.00000 | 35 373.50 | 931.61 | 24.43 |
-| 20 | 176.80442 | 160.00000 | 35 634.82 | 1 868.57 | 24.16 |
-| 30 | 175.32561 | 150.00000 | 36 066.32 | 2 816.08 | 23.73 |
-| 45 | 173.38204 | 135.00000 | 37 017.56 | 4 267.89 | 22.82 |
-| 60 | 171.88560 | 120.00000 | 38 299.43 | 5 769.42 | 21.67 |
+| 0 | 180.00000 | 180.00000 | 35 286.00 | 0.00 | 26.32 |
+| 5 | 179.18608 | 175.00000 | 35 307.89 | 465.47 | 26.30 |
+| 10 | 178.37819 | 170.00000 | 35 373.50 | 931.61 | 26.22 |
+| 20 | 176.80442 | 160.00000 | 35 634.82 | 1 868.57 | 25.94 |
+| 30 | 175.32561 | 150.00000 | 36 066.32 | 2 816.08 | 25.49 |
+| 45 | 173.38204 | 135.00000 | 37 017.56 | 4 267.89 | 24.52 |
+| 60 | 171.88560 | 120.00000 | 38 299.43 | 5 769.42 | 23.30 |
 
 $\theta_o$ never leaves a $9.38°$ neighbourhood of $\pi$ — because
 $\arcsin(r_\mathrm{LEO}/r_\mathrm{GEO}) = \arcsin(0.162986) = 9.38°$: seen from
@@ -390,8 +399,8 @@ $R_\mathrm{det} = R_\mathrm{ref}\sqrt{S_\mathrm{ref}/S_\mathrm{det}}$ in vacuum:
 | $N_0^2$ (target-free noise power) | 1 128.10 e-² |
 | $N_0$ | 33.5872 e- RMS |
 | $S_\mathrm{det}$ | 180.90 e- |
-| Closed form | 90 015.265 km |
-| RADIANT bisection | 90 015.265 km |
+| Closed form | 94 438.369 km |
+| RADIANT bisection | 94 438.368 km |
 | Relative difference | **+0.000000 %** |
 
 The solver is verified against a closed form that needs no root finding at all.

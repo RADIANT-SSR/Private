@@ -47,7 +47,7 @@ This is more accurate than the analytic erfinv/erf approach used in the first ve
 | SNR | 45.6 | -- |
 | MTF@Nyquist | 0.2330 | -- |
 | RER | 0.5483 | -- |
-| NIIRS | 5.97 | -- |
+| NIIRS | 6.03 | -- |
 
 *Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
 2026-08-30). Sole mover: **CU-336** — the same fit's grid convention was
@@ -58,6 +58,8 @@ jitter MTF, σ_fp) is bit-identical — jitter physics did not move, and the ΔN
 column is unchanged at every sweep point. **The CU-335 verdict stands**: the
 NIIRS = 6.0 floor is still unreachable at any jitter, the baseline reaching only
 5.97 (see below).*
+
+*Superseded 2026-09-12 (CU-355): baseline now 6.03 and the 6.0 floor is reachable — see the refreshed tables below.*
 
 *Prior vintage, 2026-08-30. **CU-335** put those two floors on the table for the
 first time (0.1597 / 0.0517): SNR 61.4 → 44.6 (−27 %), signal
@@ -89,15 +91,22 @@ SNR is exactly 45.6 [--] at every sweep point (spread = 0.0000). This confirms t
 ### Jitter Sweep
 | Jitter [urad] | sigma_fp [pixels] | MTF_jitter@Nyq [--] | MTF_sys@Nyq [--] | RER [--] | NIIRS [--] | delta_NIIRS [--] |
 |---|---|---|---|---|---|---|
-| 0.0 | 0.000 | 1.0000 | 0.2330 | 0.5483 | 5.97 | +0.00 |
-| 0.2 | 0.125 | 0.9258 | 0.2157 | 0.5359 | 5.94 | -0.03 |
-| 0.6 | 0.375 | 0.4996 | 0.1164 | 0.4614 | 5.72 | -0.25 |
-| 0.8 | 0.500 | 0.2912 | 0.0679 | 0.4178 | 5.58 | -0.39 |
-| 1.0 | 0.625 | 0.1455 | 0.0339 | 0.3773 | 5.43 | -0.54 |
-| 1.6 | 1.000 | 0.0072 | 0.0017 | 0.2838 | 5.02 | -0.95 |
-| 2.0 | 1.250 | 0.0004 | 0.0001 | 0.2409 | 4.79 | -1.19 |
-| 3.0 | 1.875 | 0.0000 | 0.0000 | 0.1730 | 4.31 | -1.66 |
-| 5.0 | 3.125 | 0.0000 | 0.0000 | 0.1097 | 3.65 | -2.32 |
+| 0.0 | 0.000 | 1.0000 | 0.2186 | 0.5724 | 6.03 | +0.00 |
+| 0.2 | 0.125 | 0.9258 | 0.2024 | 0.5601 | 6.00 | -0.03 |
+| 0.6 | 0.375 | 0.4996 | 0.1092 | 0.4862 | 5.80 | -0.24 |
+| 0.8 | 0.500 | 0.2912 | 0.0636 | 0.4423 | 5.66 | -0.37 |
+| 1.0 | 0.625 | 0.1455 | 0.0318 | 0.4013 | 5.52 | -0.51 |
+| 1.6 | 1.000 | 0.0072 | 0.0016 | 0.3049 | 5.13 | -0.91 |
+| 2.0 | 1.250 | 0.0004 | 0.0001 | 0.2599 | 4.90 | -1.14 |
+| 3.0 | 1.875 | 0.0000 | 0.0000 | 0.1877 | 4.43 | -1.61 |
+| 5.0 | 3.125 | 0.0000 | 0.0000 | 0.1193 | 3.77 | -2.26 |
+
+*Refreshed 2026-09-12 (chartered sweep). Sole mover: **CU-355** — the
+scalar-WFE screen became the deterministic low-order expansion, lifting the
+zero-jitter baseline (RER 0.5483 → 0.5724, MTF@Nyq 0.2330 → 0.2186 — the
+system Nyquist value shifts because the optics-term shape changed, not
+jitter physics — NIIRS 5.97 → 6.03). Jitter's own MTF column and the ΔNIIRS
+shape are essentially unchanged.*
 
 At jitter ≥ ~2.6 µrad the RER falls below 0.20 — outside the GIQE-5 calibration
 envelope — so the NIIRS values in the tail are the **extrapolated** GIQE-5-form
@@ -107,9 +116,15 @@ relative degradation trend, not a calibrated rating.
 ### Jitter Budget Thresholds
 | Threshold | Jitter [urad] | sigma_fp [um] | sigma_fp [pixels] |
 |---|---|---|---|
-| delta_NIIRS = -0.5 | 0.9 | 4.7 | 0.59 |
-| delta_NIIRS = -1.0 | 1.7 | 8.4 | 1.05 |
-| NIIRS = 6.0 floor | not reachable | — | — |
+| delta_NIIRS = -0.5 | 1.0 | 4.9 | 0.61 |
+| delta_NIIRS = -1.0 | 1.8 | 8.8 | 1.10 |
+| NIIRS = 6.0 floor | 0.2 | 1.0 | 0.13 |
+
+*The 6.0 floor flipped from **unreachable** to a real budget line at
+0.2 µrad (CU-355 lifted the zero-jitter baseline to 6.03): if Tom's
+requirement is an absolute NIIRS ≥ 6.0, essentially the entire jitter
+budget is consumed by it — a far tighter constraint than either ΔNIIRS
+threshold.*
 
 **The NIIRS = 6.0 floor is no longer reachable at any jitter.** CU-253 lowered
 the zero-jitter NIIRS 6.45 → 6.17, CU-335 took it to 5.96 and CU-336 to 5.97, which is below the

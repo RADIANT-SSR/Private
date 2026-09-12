@@ -333,7 +333,11 @@ class TestSingleConfigurationZeroRegression:
         cards = _cards(window)
         result = window.last_result
         assert result is not None
+        from radiant.gui.metric_format import _SUPPRESSED_DISPLAY_KEYS
+
         for rec in result.metric_records():
+            if rec.name in _SUPPRESSED_DISPLAY_KEYS:
+                continue  # deprecated alias — no card row (October sweep)
             assert cards.value_text(rec.name) == metric_value_display(result, rec)
         assert cards.value_text(_GSD).endswith(" m")
 

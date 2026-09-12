@@ -158,6 +158,29 @@ METRIC_DISPLAY_LABELS: Final[dict[str, str]] = {
 }
 
 
+# Deprecated aliases publish in ``ChainResult.metrics`` for API back-compat but
+# never render — their canonical twin carries the row (October sweep, 2026-08-03:
+# "Diffraction limit (at target, legacy key)" showed as a visible duplicate).
+_SUPPRESSED_DISPLAY_KEYS: Final[frozenset[str]] = frozenset({"diffraction_limit_ground_m"})
+
+# Display-time decode for ``kind="code"`` / ``kind="flag"`` metrics: the registry
+# vocabulary ("0 code", "1 0/1 flag") is for the API; the analyst reads words.
+# An unlisted value falls through to the numeric render — never a blank.
+_CODED_VALUE_DISPLAY: Final[dict[str, dict[int, str]]] = {
+    # Kept terse: these render in the per-configuration matrix too, where a
+    # long cell forces the CU-333 value grid past its unclipped width.
+    "sampling_regime_code": {
+        0: "detector-limited",
+        1: "near-critical",
+        2: "diffraction-limited",
+    },
+    "niirs_extrapolated": {
+        0: "no",
+        1: "yes — outside GIQE-5",
+    },
+}
+
+
 def metric_display_label(metric_key: str) -> str:
     """The human display label for *metric_key* (the raw key when unlabelled).
 
@@ -186,6 +209,8 @@ def grouped_metric_records(records: Iterable[Any]) -> tuple[tuple[str, tuple[Any
     buckets: dict[str, list[Any]] = {key: [] for key, _ in METRIC_GROUP_HEADINGS}
     ungrouped: list[Any] = []
     for rec in records:
+        if rec.name in _SUPPRESSED_DISPLAY_KEYS:
+            continue  # deprecated alias — the canonical key carries the row
         try:
             buckets[group_of(rec.name)].append(rec)
         except KeyError:
@@ -210,13 +235,24 @@ def metric_value_display(result: ChainResult, rec: Any) -> str:
     ``OutputsReadout`` metrics path so every metric surface formats identically.)
     """
     if math.isfinite(rec.value):
-        # Route through the same display scaling as the badge path (CU-326: the
-        # card and the pinned rail used to disagree — 0.025 K here, 25 mK there,
-        # on the same screen).
-        value, unit = scale_for_display(rec.name, rec.value, rec.unit)
-        return format_metric_value(value, unit)
+        return _finite_value_text(rec)
     reason = metric_failure_reason(result, rec.name) or "unavailable (non-finite result)"
     return f"{NOT_AVAILABLE} ({reason})"
+
+
+def _finite_value_text(rec: Any) -> str:
+    """The one finite-value renderer — cards and pinned badges share it (CU-326:
+    the two used to disagree — 0.025 K here, 25 mK there, on the same screen).
+
+    Coded/flag metrics decode to words; everything else scales and formats.
+    """
+    decode = _CODED_VALUE_DISPLAY.get(rec.name)
+    if decode is not None:
+        text = decode.get(int(round(rec.value)))
+        if text is not None:
+            return text
+    value, unit = scale_for_display(rec.name, rec.value, rec.unit)
+    return format_metric_value(value, unit)
 
 
 # Per-metric display scaling (CU-108): metric key → (display unit, multiply factor).
@@ -322,8 +358,7 @@ def badge_display(result: ChainResult, metric_key: str) -> tuple[str, str | None
     if not math.isfinite(rec.value):
         reason = metric_failure_reason(result, metric_key)
         return NOT_AVAILABLE, reason or "unavailable (non-finite result)"
-    scaled_value, display_unit = scale_for_display(metric_key, rec.value, rec.unit)
-    return format_metric_value(scaled_value, display_unit), None
+    return _finite_value_text(rec), None
 
 
 __all__ = [

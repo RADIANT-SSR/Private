@@ -21,6 +21,13 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Retroactive record (October sweep):** `diffraction_limit_target_plane_m`
+  joined the scene-class `default_off_metrics` list for the four block-10
+  (direction-general) scene classes during the CU-317-era refresh (10 → 11
+  entries) without a changelog entry at the time. Default metric visibility
+  is a user-observable surface; recorded here now.
+
+### Changed
 - **`radiant template` serves the bundled mission-template store** — the same
   catalog the GUI welcome screen shows — instead of a disjoint inline dict of
   four minimal configs. Template names on the command line are now the

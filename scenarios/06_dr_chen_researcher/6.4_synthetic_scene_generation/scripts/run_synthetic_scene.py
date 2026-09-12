@@ -159,10 +159,16 @@ def main() -> None:
 
     sigma0 = rows[0].sigma_e
     s_bg0 = rows[0].s_bg_e
+    # Narrative numbers DERIVE from the computed rows (October sweep: a
+    # hardcoded "59–548" survived two results-affecting landings and
+    # contradicted the table printed just above it).
+    csnr_lo = min(abs(row.csnr) for row in rows)
+    csnr_hi = max(abs(row.csnr) for row in rows)
     print(
         f"\n  Background pixel: {s_bg0:.3e} e-, noise σ = {sigma0:.0f} e- "
         "(shot-noise-limited). All five nominal targets are 40–15 K hotter than the "
-        "290 K background, so per-pixel contrast SNR runs 59–548 — every one is "
+        f"290 K background, so per-pixel contrast SNR runs {csnr_lo:.0f}–{csnr_hi:.0f} "
+        "— every one is "
         "trivially detected (P_d ≈ 1). That is the physically correct answer for a "
         "5 cm LWIR sensor at these ranges; it is also why a ROC of just these five "
         "targets is uninformative (all curves pinned at the corner). The detection "

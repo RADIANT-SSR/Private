@@ -240,3 +240,38 @@ class TestTape7SunLegImport:
         # The slant (30 deg) sun column is more opaque than the nadir
         # up column wherever the band absorbs at all.
         assert float(np.mean(atm.tau_sun)) < float(np.mean(atm.tau_up))
+
+
+_REAL_A1 = _REPO_ROOT / "modtran" / "real_runs" / "A1.tp7"
+
+
+@pytest.mark.skipif(
+    not _REAL_A1.exists(),
+    reason="modtran/real_runs/ not present in this checkout (tracked since c2587fd)",
+)
+class TestOffGridTauAnchor:
+    """October sweep (owner-ratified 2026-09-12): the one committed anchor that
+    exercises a MODTRAN-served τ on a chain grid DIFFERENT from the file's own.
+
+    Every other anchor either reads parser output directly, queries on the
+    native grid (a bit-identical no-op), or pins a radiance (which resamples
+    linearly) — which is why CU-316's results-affecting τ-resample convention
+    change moved zero committed anchors. This pins the resampled value itself:
+    A1's 3.5–5.0 µm band-mean τ on a 200-point chain grid is 0.5155036 under
+    the log-space (optical-depth-linear) convention, vs 0.5160071 on the
+    file's native grid — a real ~1e-3 resample effect. A regression to
+    linear-τ resampling moves this by ~1.5e-2 (the CU-316 measurement),
+    150× the tolerance."""
+
+    def test_band_mean_tau_on_offset_chain_grid(self) -> None:
+        res = _run_chain(
+            {
+                "atmosphere.model": "modtran",
+                "atmosphere.modtran.tape7_path": str(_REAL_A1),
+                "atmosphere.modtran.allow_fallback": False,
+            }
+        )
+        vals = np.asarray(res.stage_outputs["atmosphere"]["tau_atm"], dtype=float)
+        wl = np.linspace(BAND_MIN, BAND_MAX, 200)
+        band_mean = float(np.trapezoid(vals, wl) / (wl[-1] - wl[0]))
+        assert band_mean == pytest.approx(0.5155036, rel=1e-4)

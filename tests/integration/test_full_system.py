@@ -240,6 +240,19 @@ class TestBackwardPropagation:
 # ===================================================================
 
 
+def _snr_in_ok_well(r) -> float:  # noqa: ANN001 - ChainResult, kept short
+    """SNR, asserting the well never clipped — so a future flux-raising landing
+    fails as "the well filled at rung X", not as a baffling monotonicity
+    violation (October sweep; the CU-224 failure mode, named)."""
+    status = r.stage_outputs["readout"]["well_status"]
+    assert status == "ok", (
+        f"well_status = '{status}' — the sweep left the photon-limited regime "
+        "this trend assertion is about (signal clipped at the well); widen "
+        "readout.full_well_capacity_e for this test"
+    )
+    return float(r.metrics["snr"])
+
+
 @pytest.mark.level2
 class TestSweeps:
     """Verify sweeps produce physically correct trends."""
@@ -269,7 +282,7 @@ class TestSweeps:
             ps,
             "optics.aperture_diameter_m",
             np.linspace(0.10, 0.50, 5),
-            metric=lambda r: float(r.metrics["snr"]),
+            metric=_snr_in_ok_well,
             keep_results=False,
         )
         diffs = np.diff(result.metric_values)
@@ -292,7 +305,7 @@ class TestSweeps:
             ps,
             "spectral_integration.integration_time_s",
             [0.001, 0.002, 0.005, 0.010, 0.020],
-            metric=lambda r: float(r.metrics["snr"]),
+            metric=_snr_in_ok_well,
             keep_results=False,
         )
         diffs = np.diff(result.metric_values)

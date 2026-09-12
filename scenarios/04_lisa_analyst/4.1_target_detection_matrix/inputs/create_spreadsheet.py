@@ -33,26 +33,33 @@ HERE = Path(__file__).parent
 
 TARGETS = [
     # name,                length, width, height, T_K,   eps,  material
-    ("MBT tank",              7.9,   3.6,   2.4, 310.0, 0.90, "painted steel"),
-    ("APC",                   6.5,   2.8,   2.5, 306.0, 0.90, "painted steel"),
-    ("Cargo truck",           8.0,   2.5,   3.2, 301.0, 0.92, "painted steel"),
-    ("Technical (pickup)",    5.3,   1.9,   1.8, 303.0, 0.88, "painted steel"),
-    ("SAM TEL",              11.5,   3.1,   3.4, 305.0, 0.90, "painted steel"),
-    ("Towed artillery",       9.5,   2.8,   2.0, 296.0, 0.85, "painted steel"),
-    ("Patrol boat",          25.0,   5.8,   4.5, 299.0, 0.85, "painted steel"),
-    ("Fast attack craft",    56.0,   8.5,   6.0, 302.0, 0.85, "painted steel"),
-    ("Transport aircraft",   40.0,  40.0,  11.8, 295.0, 0.30, "bare aluminum"),
-    ("Fighter aircraft",     15.0,  10.0,   4.8, 297.0, 0.35, "low-e coating"),
-    ("Fuel bladder farm",    30.0,  20.0,   2.0, 298.0, 0.95, "rubberized fabric"),
-    ("Small UAV (parked)",    3.0,   4.0,   1.0, 294.0, 0.80, "composite"),
+    ("MBT tank", 7.9, 3.6, 2.4, 310.0, 0.90, "painted steel"),
+    ("APC", 6.5, 2.8, 2.5, 306.0, 0.90, "painted steel"),
+    ("Cargo truck", 8.0, 2.5, 3.2, 301.0, 0.92, "painted steel"),
+    ("Technical (pickup)", 5.3, 1.9, 1.8, 303.0, 0.88, "painted steel"),
+    ("SAM TEL", 11.5, 3.1, 3.4, 305.0, 0.90, "painted steel"),
+    ("Towed artillery", 9.5, 2.8, 2.0, 296.0, 0.85, "painted steel"),
+    ("Patrol boat", 25.0, 5.8, 4.5, 299.0, 0.85, "painted steel"),
+    ("Fast attack craft", 56.0, 8.5, 6.0, 302.0, 0.85, "painted steel"),
+    ("Transport aircraft", 40.0, 40.0, 11.8, 295.0, 0.30, "bare aluminum"),
+    ("Fighter aircraft", 15.0, 10.0, 4.8, 297.0, 0.35, "low-e coating"),
+    ("Fuel bladder farm", 30.0, 20.0, 2.0, 298.0, 0.95, "rubberized fabric"),
+    ("Small UAV (parked)", 3.0, 4.0, 1.0, 294.0, 0.80, "composite"),
 ]
 
 wb = openpyxl.Workbook()
 ws = wb.active
 ws.title = "Target Library"
 
-headers = ["target_name", "length_m", "width_m", "height_m",
-           "temperature_K", "emissivity", "material"]
+headers = [
+    "target_name",
+    "length_m",
+    "width_m",
+    "height_m",
+    "temperature_K",
+    "emissivity",
+    "material",
+]
 ws.append(headers)
 for col in range(1, len(headers) + 1):
     cell = ws.cell(row=1, column=col)

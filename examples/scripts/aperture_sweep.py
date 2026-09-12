@@ -36,7 +36,7 @@ def main() -> None:
     print("=== Aperture Sweep: SNR vs Aperture Diameter ===")
     print(f"{'D (m)':>10s}  {'SNR':>12s}")
     print("-" * 24)
-    for d, snr in zip(result.values, result.metric_values):
+    for d, snr in zip(result.values, result.metric_values, strict=True):
         print(f"{d:10.3f}  {snr:12.2f}")
 
     # Save plot

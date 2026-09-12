@@ -50,16 +50,16 @@ Usage:
 import math
 from pathlib import Path
 
+import matplotlib
 import numpy as np
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from radiant.api import Sensor, compare_mtf
 from radiant.io.measurement import load_measured_curve
-
 
 # ---------------------------------------------------------------------------
 # Step 1: Read Karen's spreadsheet + the slanted-edge tool's CSV export
@@ -79,8 +79,11 @@ units: dict[str, str] = {}
 for row in ws_sys.iter_rows(min_row=5, max_col=4, values_only=False):
     name = row[0].value
     value = row[1].value
-    if name and value is not None and not isinstance(value, str) or (
-        isinstance(value, str) and value not in ("", "—")
+    if (
+        name
+        and value is not None
+        and not isinstance(value, str)
+        or (isinstance(value, str) and value not in ("", "—"))
     ):
         try:
             specs[name] = float(value)
@@ -137,42 +140,42 @@ for row in ws_focus.iter_rows(min_row=14, max_col=1, values_only=True):
 # Step 2: Convert to RADIANT canonical units
 # ---------------------------------------------------------------------------
 
-aperture_m = float(specs["Aperture diameter"]) / 100.0        # cm → m
+aperture_m = float(specs["Aperture diameter"]) / 100.0  # cm → m
 focal_length_m = float(specs["Effective focal length"]) / 100.0  # cm → m
 f_number = float(specs["f-number"])
-transmission = float(specs["Optical transmission"]) / 100.0   # % → fraction
-optics_temp_K = float(specs["Optics temperature"]) + 273.15   # °C → K
-obscuration = float(specs["Central obscuration"]) / 100.0     # % → fraction
+transmission = float(specs["Optical transmission"]) / 100.0  # % → fraction
+optics_temp_K = float(specs["Optics temperature"]) + 273.15  # °C → K
+obscuration = float(specs["Central obscuration"]) / 100.0  # % → fraction
 
 filter_min_nm = float(specs["Filter min"])
 filter_max_nm = float(specs["Filter max"])
-filter_min_um = filter_min_nm / 1000.0                        # nm → µm
+filter_min_um = filter_min_nm / 1000.0  # nm → µm
 filter_max_um = filter_max_nm / 1000.0
 band_center_um = (filter_min_um + filter_max_um) / 2.0
 test_wavelength_nm = float(specs["MTF test wavelength"])
 test_wavelength_um = test_wavelength_nm / 1000.0
 
 pixel_pitch_um = float(specs["Pixel pitch"])
-pixel_pitch_m = pixel_pitch_um * 1e-6                         # µm → m
-fill_factor = float(specs["Fill factor"]) / 100.0             # % → fraction
-qe = float(specs["Quantum efficiency"]) / 100.0               # % → fraction
+pixel_pitch_m = pixel_pitch_um * 1e-6  # µm → m
+fill_factor = float(specs["Fill factor"]) / 100.0  # % → fraction
+qe = float(specs["Quantum efficiency"]) / 100.0  # % → fraction
 dark_rate = float(specs["Dark current"])
 det_temp_K = float(specs["Operating temperature"])
 read_noise = float(specs["Read noise"])
 fwc = float(specs["Full well capacity"])
 adc_bits = int(specs["ADC bits"])
 gain = float(specs["System gain"])
-ipc_coupling = float(specs["IPC coupling"]) / 100.0           # % → fraction
+ipc_coupling = float(specs["IPC coupling"]) / 100.0  # % → fraction
 
 t_int_ms = float(specs["Integration time"])
-t_int_s = t_int_ms / 1000.0                                   # ms → s
+t_int_s = t_int_ms / 1000.0  # ms → s
 
 wfe_rms_waves = float(wfe_specs["Total WFE RMS"])
 wfe_ref_nm = float(wfe_specs["WFE reference wavelength"])
-wfe_ref_um = wfe_ref_nm / 1000.0                              # nm → µm
+wfe_ref_um = wfe_ref_nm / 1000.0  # nm → µm
 
 defocus_um = float(focus_specs["Defocus from best focus"])
-defocus_m = defocus_um * 1e-6                                 # µm → m
+defocus_m = defocus_um * 1e-6  # µm → m
 
 # Derived parameters
 f_nyquist_cy_m = 1.0 / (2.0 * pixel_pitch_m)
@@ -249,24 +252,25 @@ def main() -> None:
         if k in units:
             print(f"  {k:<35s}: {v} [{units[k]}]")
 
-    print(f"\n=== Measured MTF (load_measured_curve, Gap 30) ===")
+    print("\n=== Measured MTF (load_measured_curve, Gap 30) ===")
     print(f"  Source:        {measured_curve.source_file}")
     print(f"  x unit:        {measured_curve.x_unit}")
     print(f"  Points:        {measured_curve.n_points} [--]")
     print(f"  Freq range:    {meas_freq_cy_mm_arr[0]:.1f} to {meas_freq_cy_mm_arr[-1]:.1f} [cy/mm]")
     print(f"  MTF at DC:     {meas_mtf_arr[0]:.4f} [--]")
-    print(f"  MTF at Nyquist: ~{np.interp(50.0, meas_freq_cy_mm_arr, meas_mtf_arr):.4f} [--] (interpolated at 50 cy/mm)")
+    print(
+        f"  MTF at Nyquist: ~{np.interp(50.0, meas_freq_cy_mm_arr, meas_mtf_arr):.4f} [--] (interpolated at 50 cy/mm)"
+    )
 
-    print(f"\n=== As-Built WFE ===")
+    print("\n=== As-Built WFE ===")
     for k, v in wfe_specs.items():
         print(f"  {k:<35s}: {v}")
 
-    print(f"\n=== Focus Position ===")
+    print("\n=== Focus Position ===")
     for k, v in focus_specs.items():
         print(f"  {k:<35s}: {v}")
 
-
-    print(f"\n=== Converted to RADIANT Canonical Units ===")
+    print("\n=== Converted to RADIANT Canonical Units ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit':<12s}  {'Conversion'}")
     print(f"  {'-' * 35} {'-' * 14}  {'-' * 12}  {'-' * 20}")
     print(f"  {'Aperture diameter':<35s} {aperture_m:>14.4f}  {'m':<12s}  cm / 100")
@@ -283,11 +287,13 @@ def main() -> None:
     print(f"  {'Defocus':<35s} {defocus_m:>14.2e}  {'m':<12s}  µm × 1e-6")
     print(f"  {'Band':<35s} {filter_min_um:>6.3f}-{filter_max_um:<6.3f}  {'µm':<12s}  nm / 1000")
 
-    print(f"\n=== Derived Parameters ===")
+    print("\n=== Derived Parameters ===")
     print(f"  f_Nyquist:         {f_nyquist_cy_m:.0f} [cy/m] = {f_nyquist_cy_mm:.1f} [cy/mm]")
     print(f"  f_cutoff (diffr.): {f_cutoff_cy_m:.0f} [cy/m] = {f_cutoff_cy_mm:.1f} [cy/mm]")
     print(f"  Q (sampling):      {Q:.3f} [--] ({'well-sampled' if Q >= 1 else 'undersampled'})")
-    print(f"  Airy disk:         {airy_diam_um:.1f} [µm] ({airy_diam_um / pixel_pitch_um:.2f} pixels)")
+    print(
+        f"  Airy disk:         {airy_diam_um:.1f} [µm] ({airy_diam_um / pixel_pitch_um:.2f} pixels)"
+    )
     print(f"  Ratio f_Ny/f_c:    {f_nyquist_cy_m / f_cutoff_cy_m:.3f} [--]")
 
     # ---------------------------------------------------------------------------
@@ -295,9 +301,8 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  RADIANT PREDICTION — AS-BUILT SYSTEM")
+    print("  RADIANT PREDICTION — AS-BUILT SYSTEM")
     print(f"{'=' * 80}")
-
 
     sensor = Sensor.from_dict(config)
     r = sensor.evaluate()
@@ -308,10 +313,10 @@ def main() -> None:
     # Z4 and the PSF path used a Gaussian kernel instead. Defocus now enters
     # BOTH paths as pupil Z4 alongside the preserved screen, so the check
     # passes and the two paths agree by construction (Rule 4).
-    print(f"\n  NOTE: scalar WFE + defocus previously tripped the dual-path")
-    print(f"  consistency check on every run (CU-058); with defocus unified as")
-    print(f"  pupil Z4 on both paths the check now passes — both paths carry")
-    print(f"  diffraction + WFE screen + defocus from the same complex pupil.")
+    print("\n  NOTE: scalar WFE + defocus previously tripped the dual-path")
+    print("  consistency check on every run (CU-058); with defocus unified as")
+    print("  pupil Z4 on both paths the check now passes — both paths carry")
+    print("  diffraction + WFE screen + defocus from the same complex pupil.")
 
     # Extract predicted MTF curve from RADIANT
     perf_out = r.stage_outputs.get("performance", {})
@@ -326,7 +331,7 @@ def main() -> None:
         # MTF at Nyquist from RADIANT
         mtf_nyq_radiant = r.metrics.get("mtf_at_nyquist", 0.0)
 
-        print(f"\n  RADIANT predicted MTF curve:")
+        print("\n  RADIANT predicted MTF curve:")
         print(f"    Points:          {len(pred_freq_cy_m)} [--]")
         print(f"    Freq range:      0 to {pred_freq_cy_mm[-1]:.1f} [cy/mm]")
         print(f"    MTF at Nyquist:  {mtf_nyq_radiant:.4f} [--]")
@@ -334,7 +339,9 @@ def main() -> None:
         print(f"    RER:             {r.metrics.get('rer', 0.0):.4f} [--]")
         print(f"    EE(1x1):         {r.metrics.get('ee_1x1', 0.0):.4f} [--]")
         print(f"    Q (center):      {r.metrics.get('q_center', 0.0):.3f} [--]")
-        print(f"    Q (min/max):     {r.metrics.get('q_min', 0.0):.3f} / {r.metrics.get('q_max', 0.0):.3f} [--]")
+        print(
+            f"    Q (min/max):     {r.metrics.get('q_min', 0.0):.3f} / {r.metrics.get('q_max', 0.0):.3f} [--]"
+        )
         print(f"    FWHM_x:          {r.metrics.get('fwhm_x_m', 0.0) * 1e6:.2f} [µm]")
         print(f"    Well margin:     {r.metrics.get('well_margin_dB', 0.0):.1f} [dB]")
         print(f"    Dynamic range:   {r.metrics.get('dynamic_range_dB', 0.0):.1f} [dB]")
@@ -342,13 +349,17 @@ def main() -> None:
         # GSD and NIIRS are None for lab tests (altitude = 0)
         gsd_val = r.metrics.get("gsd_cross_track_m")
         niirs_val = r.metrics.get("niirs")
-        print(f"    GSD:             {'N/A (lab test, altitude=0)' if gsd_val is None else f'{gsd_val:.2f} [m]'}")
-        print(f"    NIIRS:           {'N/A (lab test, altitude=0)' if niirs_val is None else f'{niirs_val:.2f} [--]'}")
+        print(
+            f"    GSD:             {'N/A (lab test, altitude=0)' if gsd_val is None else f'{gsd_val:.2f} [m]'}"
+        )
+        print(
+            f"    NIIRS:           {'N/A (lab test, altitude=0)' if niirs_val is None else f'{niirs_val:.2f} [--]'}"
+        )
 
         # NEDT — very large for lab test (no scene contrast)
         nedt_val = r.metrics.get("nedt_K", 0.0)
         if nedt_val > 1e6:
-            print(f"    NEDT:            N/A (lab test, no thermal scene)")
+            print("    NEDT:            N/A (lab test, no thermal scene)")
         else:
             print(f"    NEDT:            {nedt_val * 1000:.1f} [mK]")
     else:
@@ -362,7 +373,7 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  MTF COMPONENT DECOMPOSITION")
+    print("  MTF COMPONENT DECOMPOSITION")
     print(f"{'=' * 80}")
 
     # Use measurement frequency grid for comparison
@@ -379,22 +390,30 @@ def main() -> None:
     )
     mtf_diffraction[freq_eval_cy_m == 0] = 1.0
 
-    print(f"\n  1. Diffraction MTF (circular aperture, no obscuration)")
-    print(f"     f_cutoff = {f_cutoff_cy_mm:.1f} [cy/mm] at λ = {test_wavelength_nm:.0f} [nm], f/{f_number:.1f}")
-    print(f"     MTF_diff at Nyquist ({f_nyquist_cy_mm:.0f} cy/mm): "
-          f"{np.interp(f_nyquist_cy_m, freq_eval_cy_m, mtf_diffraction):.4f} [--]")
+    print("\n  1. Diffraction MTF (circular aperture, no obscuration)")
+    print(
+        f"     f_cutoff = {f_cutoff_cy_mm:.1f} [cy/mm] at λ = {test_wavelength_nm:.0f} [nm], f/{f_number:.1f}"
+    )
+    print(
+        f"     MTF_diff at Nyquist ({f_nyquist_cy_mm:.0f} cy/mm): "
+        f"{np.interp(f_nyquist_cy_m, freq_eval_cy_m, mtf_diffraction):.4f} [--]"
+    )
     print(f"     Note: Central obscuration ({obscuration * 100:.0f}%) slightly modifies the")
-    print(f"     diffraction MTF (boosts mid-freq, reduces low-freq). RADIANT's")
-    print(f"     EffectivePSF includes this effect; the analytic curve above does not.")
+    print("     diffraction MTF (boosts mid-freq, reduces low-freq). RADIANT's")
+    print("     EffectivePSF includes this effect; the analytic curve above does not.")
 
     # 4b. Pixel aperture MTF: |sinc(π·f·p·FF)|
     mtf_pixel = np.abs(np.sinc(freq_eval_cy_m * pixel_pitch_m * fill_factor))
 
-    print(f"\n  2. Pixel Aperture MTF")
+    print("\n  2. Pixel Aperture MTF")
     print(f"     |sinc(π·f·p)| with p = {pixel_pitch_um:.1f} [µm], FF = {fill_factor:.2f}")
-    print(f"     MTF_pixel at Nyquist: {np.interp(f_nyquist_cy_m, freq_eval_cy_m, mtf_pixel):.4f} [--]")
-    print(f"     Note: sinc zero at f = 1/p = {1.0 / pixel_pitch_m:.0f} [cy/m] = "
-          f"{1.0 / pixel_pitch_m / 1000:.0f} [cy/mm]")
+    print(
+        f"     MTF_pixel at Nyquist: {np.interp(f_nyquist_cy_m, freq_eval_cy_m, mtf_pixel):.4f} [--]"
+    )
+    print(
+        f"     Note: sinc zero at f = 1/p = {1.0 / pixel_pitch_m:.0f} [cy/m] = "
+        f"{1.0 / pixel_pitch_m / 1000:.0f} [cy/mm]"
+    )
 
     # 4c. IPC MTF: (1-4α) + 2α·cos(2π·f·p) (along one axis, other = 0)
     alpha = ipc_coupling
@@ -402,10 +421,10 @@ def main() -> None:
         np.cos(2.0 * math.pi * freq_eval_cy_m * pixel_pitch_m) + 1.0
     )
 
-    print(f"\n  3. IPC MTF")
+    print("\n  3. IPC MTF")
     print(f"     Coupling α = {ipc_coupling:.4f} ({ipc_coupling * 100:.1f}%)")
     print(f"     MTF_ipc at Nyquist: {np.interp(f_nyquist_cy_m, freq_eval_cy_m, mtf_ipc):.4f} [--]")
-    print(f"     IPC boosts apparent MTF (cross-talk looks like sharpening).")
+    print("     IPC boosts apparent MTF (cross-talk looks like sharpening).")
 
     # 4d. Defocus MTF: Gaussian blur
     # Two sigma formulas compared:
@@ -424,27 +443,31 @@ def main() -> None:
     sigma_defocus_m = sigma_defocus_radiant
     mtf_defocus = np.exp(-2.0 * math.pi**2 * sigma_defocus_m**2 * freq_eval_cy_m**2)
 
-    print(f"\n  4. Defocus MTF (RADIANT: pupil Z4 via optics.defocus_um — CU-058)")
+    print("\n  4. Defocus MTF (RADIANT: pupil Z4 via optics.defocus_um — CU-058)")
     print(f"     Defocus: {defocus_um:.1f} [µm] from best focus")
     print(f"     Geometric spot radius: {spot_radius_m * 1e6:.2f} [µm]")
     print(f"     Hand-composite Gaussian σ:    {sigma_defocus_radiant * 1e6:.3f} [µm]")
-    print(f"     MTF_defocus at Nyquist: {np.interp(f_nyquist_cy_m, freq_eval_cy_m, mtf_defocus):.4f} [--]")
-    print(f"     Hand formula: σ = |δ|/(4·f/#·√3) (RMS of uniform disk) — an")
-    print(f"     approximation; RADIANT's native defocus is Zernike Z4 in the")
-    print(f"     pupil (exact OTF, identical on both spatial paths).")
+    print(
+        f"     MTF_defocus at Nyquist: {np.interp(f_nyquist_cy_m, freq_eval_cy_m, mtf_defocus):.4f} [--]"
+    )
+    print("     Hand formula: σ = |δ|/(4·f/#·√3) (RMS of uniform disk) — an")
+    print("     approximation; RADIANT's native defocus is Zernike Z4 in the")
+    print("     pupil (exact OTF, identical on both spatial paths).")
 
     # Composite analytic system MTF
     mtf_analytic_system = mtf_diffraction * mtf_pixel * mtf_ipc * mtf_defocus
 
-    print(f"\n  5. Composite Analytic System MTF (product of all components)")
-    print(f"     MTF_sys at Nyquist: {np.interp(f_nyquist_cy_m, freq_eval_cy_m, mtf_analytic_system):.4f} [--]")
+    print("\n  5. Composite Analytic System MTF (product of all components)")
+    print(
+        f"     MTF_sys at Nyquist: {np.interp(f_nyquist_cy_m, freq_eval_cy_m, mtf_analytic_system):.4f} [--]"
+    )
 
     # ---------------------------------------------------------------------------
     # Step 5: Measured vs. predicted comparison via compare_mtf (Gap 30)
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  MEASURED vs. PREDICTED MTF COMPARISON (compare_mtf, Gap 30)")
+    print("  MEASURED vs. PREDICTED MTF COMPARISON (compare_mtf, Gap 30)")
     print(f"{'=' * 80}")
 
     # compare_mtf converts the measured cy/mm axis to canonical cy/m, interpolates
@@ -452,8 +475,10 @@ def main() -> None:
     # extrapolates) and returns residual statistics.
     cmp_asbuilt = compare_mtf(r, measured_curve, axis="x", frequency_unit="cy/mm")
 
-    print(f"\n  Compared {cmp_asbuilt.n_compared} measured points "
-          f"({cmp_asbuilt.n_excluded} outside predicted grid, excluded)")
+    print(
+        f"\n  Compared {cmp_asbuilt.n_compared} measured points "
+        f"({cmp_asbuilt.n_excluded} outside predicted grid, excluded)"
+    )
     print()
     print(cmp_asbuilt.table(max_rows=12))
 
@@ -467,10 +492,14 @@ def main() -> None:
     # Key comparison table (at selected frequencies)
     key_freqs_cy_mm = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0]
 
-    print(f"\n  {'Freq':>8s}  {'Measured':>10s}  {'RADIANT':>10s}  {'Analytic':>10s}  "
-          f"{'Resid(R)':>10s}  {'Resid(A)':>10s}")
-    print(f"  {'[cy/mm]':>8s}  {'[--]':>10s}  {'[--]':>10s}  {'[--]':>10s}  "
-          f"{'[--]':>10s}  {'[--]':>10s}")
+    print(
+        f"\n  {'Freq':>8s}  {'Measured':>10s}  {'RADIANT':>10s}  {'Analytic':>10s}  "
+        f"{'Resid(R)':>10s}  {'Resid(A)':>10s}"
+    )
+    print(
+        f"  {'[cy/mm]':>8s}  {'[--]':>10s}  {'[--]':>10s}  {'[--]':>10s}  "
+        f"{'[--]':>10s}  {'[--]':>10s}"
+    )
     print(f"  {'-' * 8}  {'-' * 10}  {'-' * 10}  {'-' * 10}  {'-' * 10}  {'-' * 10}")
 
     for f_mm in key_freqs_cy_mm:
@@ -484,8 +513,10 @@ def main() -> None:
         if abs(f_mm - f_nyquist_cy_mm) < 1.0:
             freq_label += " *Ny"
 
-        print(f"  {freq_label:>8s}  {m_val:>10.4f}  {r_val:>10.4f}  {a_val:>10.4f}  "
-              f"{res_r:>+10.4f}  {res_a:>+10.4f}")
+        print(
+            f"  {freq_label:>8s}  {m_val:>10.4f}  {r_val:>10.4f}  {a_val:>10.4f}  "
+            f"{res_r:>+10.4f}  {res_a:>+10.4f}"
+        )
 
     # Summary statistics (RADIANT side from the compare_mtf result)
     rms_resid_radiant = cmp_asbuilt.rms_residual
@@ -493,19 +524,21 @@ def main() -> None:
     rms_resid_analytic = float(np.sqrt(np.mean(residual_analytic**2)))
     max_resid_analytic = float(np.max(np.abs(residual_analytic)))
 
-    print(f"\n  Residual statistics (Predicted − Measured):")
+    print("\n  Residual statistics (Predicted − Measured):")
     print(f"    RADIANT:   RMS = {rms_resid_radiant:.4f} [--],  Max = {max_resid_radiant:.4f} [--]")
-    print(f"    Analytic:  RMS = {rms_resid_analytic:.4f} [--],  Max = {max_resid_analytic:.4f} [--]")
+    print(
+        f"    Analytic:  RMS = {rms_resid_analytic:.4f} [--],  Max = {max_resid_analytic:.4f} [--]"
+    )
 
-    print(f"\n  Interpretation:")
+    print("\n  Interpretation:")
     if rms_resid_radiant < 0.03:
-        print(f"    RADIANT prediction agrees well with measurement (RMS < 0.03).")
-        print(f"    Residuals are consistent with slanted-edge measurement noise (~1.5%).")
+        print("    RADIANT prediction agrees well with measurement (RMS < 0.03).")
+        print("    Residuals are consistent with slanted-edge measurement noise (~1.5%).")
     else:
         print(f"    RADIANT prediction differs from measurement (RMS = {rms_resid_radiant:.3f}).")
-        print(f"    Candidate explainers now modeled in RADIANT: electronics blur")
-        print(f"    (readout.electronics_sigma_um, Gap 32) and surface-roughness")
-        print(f"    scatter (optics.surface_roughness_nm, Gap 31) — tested next.")
+        print("    Candidate explainers now modeled in RADIANT: electronics blur")
+        print("    (readout.electronics_sigma_um, Gap 32) and surface-roughness")
+        print("    scatter (optics.surface_roughness_nm, Gap 31) — tested next.")
 
     # ---------------------------------------------------------------------------
     # Step 5b: Residual explainers — electronics MTF (Gap 32), scatter (Gap 31)
@@ -522,7 +555,7 @@ def main() -> None:
     # rejected — the discriminating power matters as much as the best fit.
 
     print(f"\n{'=' * 80}")
-    print(f"  RESIDUAL EXPLAINERS — ELECTRONICS (Gap 32) AND SCATTER (Gap 31)")
+    print("  RESIDUAL EXPLAINERS — ELECTRONICS (Gap 32) AND SCATTER (Gap 31)")
     print(f"{'=' * 80}")
 
     explainer_grid: list[dict] = []
@@ -535,23 +568,29 @@ def main() -> None:
             cfg_i["optics"]["surface_roughness_nm"] = roughness_nm
             r_i = Sensor.from_dict(cfg_i).evaluate()
             cmp_i = compare_mtf(r_i, measured_curve, axis="x", frequency_unit="cy/mm")
-            explainer_grid.append({
-                "elec_sigma_um": elec_sigma_um,
-                "roughness_nm": roughness_nm,
-                "rms": cmp_i.rms_residual,
-                "max": cmp_i.max_abs_residual,
-                "mtf_nyq": r_i.metrics.get("mtf_at_nyquist", 0.0),
-                "result": r_i,
-                "cmp": cmp_i,
-            })
+            explainer_grid.append(
+                {
+                    "elec_sigma_um": elec_sigma_um,
+                    "roughness_nm": roughness_nm,
+                    "rms": cmp_i.rms_residual,
+                    "max": cmp_i.max_abs_residual,
+                    "mtf_nyq": r_i.metrics.get("mtf_at_nyquist", 0.0),
+                    "result": r_i,
+                    "cmp": cmp_i,
+                }
+            )
 
-    print(f"\n  {'σ_elec [µm]':>12s}  {'roughness [nm]':>15s}  {'Resid RMS [--]':>15s}  "
-          f"{'Resid Max [--]':>15s}  {'MTF@Ny [--]':>12s}")
+    print(
+        f"\n  {'σ_elec [µm]':>12s}  {'roughness [nm]':>15s}  {'Resid RMS [--]':>15s}  "
+        f"{'Resid Max [--]':>15s}  {'MTF@Ny [--]':>12s}"
+    )
     print(f"  {'-' * 12}  {'-' * 15}  {'-' * 15}  {'-' * 15}  {'-' * 12}")
     for g in explainer_grid:
         marker = "  <- as-built" if g["elec_sigma_um"] == 0.0 and g["roughness_nm"] == 0.0 else ""
-        print(f"  {g['elec_sigma_um']:>12.1f}  {g['roughness_nm']:>15.1f}  {g['rms']:>15.4f}  "
-              f"{g['max']:>15.4f}  {g['mtf_nyq']:>12.4f}{marker}")
+        print(
+            f"  {g['elec_sigma_um']:>12.1f}  {g['roughness_nm']:>15.1f}  {g['rms']:>15.4f}  "
+            f"{g['max']:>15.4f}  {g['mtf_nyq']:>12.4f}{marker}"
+        )
 
     best = min(explainer_grid, key=lambda g: g["rms"])
     r_best = best["result"]
@@ -559,28 +598,30 @@ def main() -> None:
     explainers_improved = best["rms"] < rms_resid_radiant - 1e-4
     mean_residual = float(np.mean(residual_radiant))  # predicted − measured
 
-    print(f"\n  Best fit: σ_elec = {best['elec_sigma_um']:.1f} [µm], "
-          f"roughness = {best['roughness_nm']:.1f} [nm] "
-          f"(residual RMS {best['rms']:.4f} vs {rms_resid_radiant:.4f} as-built)")
+    print(
+        f"\n  Best fit: σ_elec = {best['elec_sigma_um']:.1f} [µm], "
+        f"roughness = {best['roughness_nm']:.1f} [nm] "
+        f"(residual RMS {best['rms']:.4f} vs {rms_resid_radiant:.4f} as-built)"
+    )
 
     if explainers_improved:
-        print(f"  The best-fit blur terms reduce the residual — the measurement rolls")
-        print(f"  off faster than the as-built prediction, consistent with an")
-        print(f"  unmodeled focal-plane blur in the readout chain.")
+        print("  The best-fit blur terms reduce the residual — the measurement rolls")
+        print("  off faster than the as-built prediction, consistent with an")
+        print("  unmodeled focal-plane blur in the readout chain.")
     else:
-        print(f"  BOTH HYPOTHESES REJECTED: neither electronics blur nor scatter")
-        print(f"  improves the fit. Diagnosis from the residual sign: the as-built")
-        print(f"  prediction sits BELOW the measurement over most of the band")
+        print("  BOTH HYPOTHESES REJECTED: neither electronics blur nor scatter")
+        print("  improves the fit. Diagnosis from the residual sign: the as-built")
+        print("  prediction sits BELOW the measurement over most of the band")
         print(f"  (mean predicted − measured = {mean_residual:+.4f}), so any added")
-        print(f"  blur can only widen the gap. The discrepancy is not a missing")
-        print(f"  degradation — it is the shape ambiguity of the scalar-WFE input:")
+        print("  blur can only widen the gap. The discrepancy is not a missing")
+        print("  degradation — it is the shape ambiguity of the scalar-WFE input:")
         print(f"  RADIANT spreads the {wfe_rms_waves:.2f}-wave RMS error as a random")
-        print(f"  phase screen (energy into a compact halo → immediate low-frequency")
-        print(f"  MTF drop toward the Strehl plateau), while the lab tool's shape")
-        print(f"  keeps low frequencies near 1. A single RMS number cannot pin the")
-        print(f"  MTF shape; import the as-built Zernike prescription instead")
-        print(f"  (io.load_zemax_zernike, Gap 26) so the pupil carries the true")
-        print(f"  aberration and the shape ambiguity disappears.")
+        print("  phase screen (energy into a compact halo → immediate low-frequency")
+        print("  MTF drop toward the Strehl plateau), while the lab tool's shape")
+        print("  keeps low frequencies near 1. A single RMS number cannot pin the")
+        print("  MTF shape; import the as-built Zernike prescription instead")
+        print("  (io.load_zemax_zernike, Gap 26) so the pupil carries the true")
+        print("  aberration and the shape ambiguity disappears.")
 
     # Use the best-fit prediction for the overlay/residual plots
     pred_freq_best_cy_m = np.array(r_best.stage_outputs["performance"]["mtf_freq_x"])
@@ -592,14 +633,18 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  DEFOCUS SENSITIVITY ANALYSIS")
+    print("  DEFOCUS SENSITIVITY ANALYSIS")
     print(f"{'=' * 80}")
 
     print(f"\n  Sweeping defocus from {defocus_sweep_um[0]:.0f} to {defocus_sweep_um[-1]:.0f} [µm]")
     print(f"  Showing MTF at Nyquist ({f_nyquist_cy_mm:.0f} cy/mm) vs. defocus")
-    print(f"  Note: This is an analytic calculation — RADIANT now includes defocus via optics.defocus_um.")
+    print(
+        "  Note: This is an analytic calculation — RADIANT now includes defocus via optics.defocus_um."
+    )
 
-    print(f"\n  {'Defocus':>10s}  {'Spot Radius':>14s}  {'σ_defocus':>12s}  {'MTF@Ny':>10s}  {'dMTF':>10s}")
+    print(
+        f"\n  {'Defocus':>10s}  {'Spot Radius':>14s}  {'σ_defocus':>12s}  {'MTF@Ny':>10s}  {'dMTF':>10s}"
+    )
     print(f"  {'[µm]':>10s}  {'[µm]':>14s}  {'[µm]':>12s}  {'[--]':>10s}  {'[%]':>10s}")
     print(f"  {'-' * 10}  {'-' * 14}  {'-' * 12}  {'-' * 10}  {'-' * 10}")
 
@@ -615,20 +660,27 @@ def main() -> None:
         mtf_def_ny = math.exp(-2.0 * math.pi**2 * sig_d**2 * f_nyquist_cy_m**2)
         # Combined: RADIANT MTF × defocus factor
         mtf_combined_ny = mtf_ny_no_defocus * mtf_def_ny
-        d_mtf_pct = ((mtf_combined_ny - mtf_ny_no_defocus) / mtf_ny_no_defocus * 100.0
-                     if mtf_ny_no_defocus > 0 else 0.0)
+        d_mtf_pct = (
+            (mtf_combined_ny - mtf_ny_no_defocus) / mtf_ny_no_defocus * 100.0
+            if mtf_ny_no_defocus > 0
+            else 0.0
+        )
 
-        defocus_results.append({
-            "defocus_um": d_um,
-            "spot_radius_um": spot_r * 1e6,
-            "sigma_defocus_um": sig_d * 1e6,
-            "mtf_at_nyquist": mtf_combined_ny,
-            "mtf_defocus_only": mtf_def_ny,
-            "d_mtf_pct": d_mtf_pct,
-        })
+        defocus_results.append(
+            {
+                "defocus_um": d_um,
+                "spot_radius_um": spot_r * 1e6,
+                "sigma_defocus_um": sig_d * 1e6,
+                "mtf_at_nyquist": mtf_combined_ny,
+                "mtf_defocus_only": mtf_def_ny,
+                "d_mtf_pct": d_mtf_pct,
+            }
+        )
 
-        print(f"  {d_um:>10.1f}  {spot_r * 1e6:>14.3f}  {sig_d * 1e6:>12.3f}  "
-              f"{mtf_combined_ny:>10.4f}  {d_mtf_pct:>+10.1f}")
+        print(
+            f"  {d_um:>10.1f}  {spot_r * 1e6:>14.3f}  {sig_d * 1e6:>12.3f}  "
+            f"{mtf_combined_ny:>10.4f}  {d_mtf_pct:>+10.1f}"
+        )
 
     # Find defocus tolerance for 10% and 20% MTF loss
     for threshold_pct in [10.0, 20.0]:
@@ -681,18 +733,22 @@ def main() -> None:
     product = mtf_diff_ny * mtf_pixel_ny * mtf_ipc_ny * mtf_defocus_ny
     print(f"  {'─' * 30}  {'─' * 10}  {'─' * 10}  {'─' * 12}")
     print(f"  {'Product (analytic system)':30s}  {product:>10.4f}  {log_total:>+10.4f}")
-    print(f"  {'RADIANT predicted':30s}  {mtf_nyq_radiant:>10.4f}  "
-          f"{math.log10(max(mtf_nyq_radiant, 1e-10)):>+10.4f}")
-    print(f"  {'Measured (slanted-edge)':30s}  {mtf_meas_ny:>10.4f}  "
-          f"{math.log10(max(mtf_meas_ny, 1e-10)):>+10.4f}")
+    print(
+        f"  {'RADIANT predicted':30s}  {mtf_nyq_radiant:>10.4f}  "
+        f"{math.log10(max(mtf_nyq_radiant, 1e-10)):>+10.4f}"
+    )
+    print(
+        f"  {'Measured (slanted-edge)':30s}  {mtf_meas_ny:>10.4f}  "
+        f"{math.log10(max(mtf_meas_ny, 1e-10)):>+10.4f}"
+    )
 
-    print(f"\n  Notes:")
-    print(f"    - RADIANT's MTF now includes diffraction + WFE + pixel + IPC + defocus")
-    print(f"    - Analytic system MTF includes all four components above")
-    print(f"    - IPC 'boosts' apparent MTF (> 1.0) — this is physically correct;")
-    print(f"      IPC cross-talk acts like a sharpening kernel at sub-Nyquist frequencies")
-    print(f"    - Discrepancy between RADIANT and analytic diffraction is expected:")
-    print(f"      RADIANT includes obscuration and WFE; analytic curve is ideal unobscured")
+    print("\n  Notes:")
+    print("    - RADIANT's MTF now includes diffraction + WFE + pixel + IPC + defocus")
+    print("    - Analytic system MTF includes all four components above")
+    print("    - IPC 'boosts' apparent MTF (> 1.0) — this is physically correct;")
+    print("      IPC cross-talk acts like a sharpening kernel at sub-Nyquist frequencies")
+    print("    - Discrepancy between RADIANT and analytic diffraction is expected:")
+    print("      RADIANT includes obscuration and WFE; analytic curve is ideal unobscured")
 
     # ---------------------------------------------------------------------------
     # Step 7b: RADIANT MTF budget decomposition (from performance stage)
@@ -701,7 +757,7 @@ def main() -> None:
     mtf_budget = r.stage_outputs.get("performance", {}).get("mtf_budget")
     if mtf_budget is not None:
         print(f"\n{'=' * 80}")
-        print(f"  RADIANT MTF BUDGET AT NYQUIST (from mtf_budget API)")
+        print("  RADIANT MTF BUDGET AT NYQUIST (from mtf_budget API)")
         print(f"{'=' * 80}")
 
         per_term = mtf_budget.per_term_at_nyquist
@@ -720,15 +776,17 @@ def main() -> None:
             print(f"  {label:<30s}  {val_x:>10.4f}  {val_y:>10.4f}")
 
         print(f"  {'─' * 30}  {'─' * 10}  {'─' * 10}")
-        print(f"  {'System (product)':30s}  {mtf_budget.system_mtf_at_nyquist_x:>10.4f}  "
-              f"{mtf_budget.system_mtf_at_nyquist_y:>10.4f}")
+        print(
+            f"  {'System (product)':30s}  {mtf_budget.system_mtf_at_nyquist_x:>10.4f}  "
+            f"{mtf_budget.system_mtf_at_nyquist_y:>10.4f}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 7c: Noise breakdown
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  NOISE BREAKDOWN")
+    print("  NOISE BREAKDOWN")
     print(f"{'=' * 80}")
 
     print(f"\n  {'Noise Source':<30s}  {'Value':>10s}")
@@ -736,8 +794,8 @@ def main() -> None:
     for nt in r.noise_terms:
         if nt.value_e > 0.001:
             print(f"  {nt.name:<30s}  {nt.value_e:>10.4f} [e-]")
-    print(f"\n  Note: Signal and background shot noise are ~0 in lab test")
-    print(f"  (no photon flux from thermal scene at room temperature in VNIR).")
+    print("\n  Note: Signal and background shot noise are ~0 in lab test")
+    print("  (no photon flux from thermal scene at room temperature in VNIR).")
 
     # ---------------------------------------------------------------------------
     # Step 8: Plots
@@ -749,20 +807,51 @@ def main() -> None:
     # Plot 1: Measured vs. Predicted MTF overlay
     fig1, ax1 = plt.subplots(figsize=(fig_w, fig_h))
 
-    ax1.plot(meas_freq_cy_mm_arr, meas_mtf_arr, "ko", markersize=4, alpha=0.7,
-             label="Measured (slanted-edge)")
-    ax1.plot(pred_freq_cy_mm, pred_mtf, "b-", linewidth=2,
-             label="RADIANT as-built (defocus, no electronics)")
+    ax1.plot(
+        meas_freq_cy_mm_arr,
+        meas_mtf_arr,
+        "ko",
+        markersize=4,
+        alpha=0.7,
+        label="Measured (slanted-edge)",
+    )
+    ax1.plot(
+        pred_freq_cy_mm,
+        pred_mtf,
+        "b-",
+        linewidth=2,
+        label="RADIANT as-built (defocus, no electronics)",
+    )
     if explainers_improved:
-        ax1.plot(pred_freq_best_cy_m / 1000.0, pred_mtf_best, "g-", linewidth=2,
-                 label=f"RADIANT best fit (+σ_elec={best['elec_sigma_um']:.0f} µm, Gap 32)")
-    ax1.plot(freq_eval_cy_mm, mtf_analytic_system, "r--", linewidth=1.5,
-             label="Analytic system (with defocus)")
+        ax1.plot(
+            pred_freq_best_cy_m / 1000.0,
+            pred_mtf_best,
+            "g-",
+            linewidth=2,
+            label=f"RADIANT best fit (+σ_elec={best['elec_sigma_um']:.0f} µm, Gap 32)",
+        )
+    ax1.plot(
+        freq_eval_cy_mm,
+        mtf_analytic_system,
+        "r--",
+        linewidth=1.5,
+        label="Analytic system (with defocus)",
+    )
 
-    ax1.axvline(f_nyquist_cy_mm, color="gray", linestyle=":", alpha=0.6,
-                label=f"Nyquist = {f_nyquist_cy_mm:.0f} [cy/mm]")
-    ax1.axvline(f_cutoff_cy_mm, color="green", linestyle=":", alpha=0.4,
-                label=f"Diffraction cutoff = {f_cutoff_cy_mm:.0f} [cy/mm]")
+    ax1.axvline(
+        f_nyquist_cy_mm,
+        color="gray",
+        linestyle=":",
+        alpha=0.6,
+        label=f"Nyquist = {f_nyquist_cy_mm:.0f} [cy/mm]",
+    )
+    ax1.axvline(
+        f_cutoff_cy_mm,
+        color="green",
+        linestyle=":",
+        alpha=0.4,
+        label=f"Diffraction cutoff = {f_cutoff_cy_mm:.0f} [cy/mm]",
+    )
 
     ax1.set_xlabel("Spatial Frequency [cy/mm]", fontsize=12)
     ax1.set_ylabel("MTF [--]", fontsize=12)
@@ -780,15 +869,19 @@ def main() -> None:
     ax2.plot(freq_eval_cy_mm, mtf_diffraction, "g-", linewidth=2, label="Diffraction")
     ax2.plot(freq_eval_cy_mm, mtf_pixel, "m--", linewidth=2, label="Pixel aperture")
     ax2.plot(freq_eval_cy_mm, mtf_ipc, "c-..", linewidth=1.5, label=f"IPC (α={ipc_coupling:.3f})")
-    ax2.plot(freq_eval_cy_mm, mtf_defocus, "y:", linewidth=2,
-             label=f"Defocus ({defocus_um:.0f} µm)")
-    ax2.plot(freq_eval_cy_mm, mtf_analytic_system, "r-", linewidth=2.5,
-             label="System (product)")
-    ax2.plot(meas_freq_cy_mm_arr, meas_mtf_arr, "ko", markersize=4, alpha=0.5,
-             label="Measured")
+    ax2.plot(
+        freq_eval_cy_mm, mtf_defocus, "y:", linewidth=2, label=f"Defocus ({defocus_um:.0f} µm)"
+    )
+    ax2.plot(freq_eval_cy_mm, mtf_analytic_system, "r-", linewidth=2.5, label="System (product)")
+    ax2.plot(meas_freq_cy_mm_arr, meas_mtf_arr, "ko", markersize=4, alpha=0.5, label="Measured")
 
-    ax2.axvline(f_nyquist_cy_mm, color="gray", linestyle=":", alpha=0.5,
-                label=f"Nyquist ({f_nyquist_cy_mm:.0f} cy/mm)")
+    ax2.axvline(
+        f_nyquist_cy_mm,
+        color="gray",
+        linestyle=":",
+        alpha=0.5,
+        label=f"Nyquist ({f_nyquist_cy_mm:.0f} cy/mm)",
+    )
     ax2.set_xlabel("Spatial Frequency [cy/mm]", fontsize=12)
     ax2.set_ylabel("MTF [--]", fontsize=12)
     ax2.set_title("MTF Component Decomposition", fontsize=13)
@@ -803,15 +896,19 @@ def main() -> None:
     fig3, (ax3a, ax3b) = plt.subplots(2, 1, figsize=(fig_w, fig_h), height_ratios=[2, 1])
 
     # Top: overlay
-    ax3a.plot(meas_freq_cy_mm_arr, meas_mtf_arr, "ko", markersize=4, alpha=0.7,
-              label="Measured")
-    ax3a.plot(pred_freq_cy_mm, pred_mtf, "b-", linewidth=2,
-              label="RADIANT as-built")
+    ax3a.plot(meas_freq_cy_mm_arr, meas_mtf_arr, "ko", markersize=4, alpha=0.7, label="Measured")
+    ax3a.plot(pred_freq_cy_mm, pred_mtf, "b-", linewidth=2, label="RADIANT as-built")
     if explainers_improved:
-        ax3a.plot(pred_freq_best_cy_m / 1000.0, pred_mtf_best, "g-", linewidth=2,
-                  label=f"RADIANT + σ_elec={best['elec_sigma_um']:.0f} µm")
-    ax3a.plot(freq_eval_cy_mm, mtf_analytic_system, "r--", linewidth=1.5,
-              label="Analytic (with defocus)")
+        ax3a.plot(
+            pred_freq_best_cy_m / 1000.0,
+            pred_mtf_best,
+            "g-",
+            linewidth=2,
+            label=f"RADIANT + σ_elec={best['elec_sigma_um']:.0f} µm",
+        )
+    ax3a.plot(
+        freq_eval_cy_mm, mtf_analytic_system, "r--", linewidth=1.5, label="Analytic (with defocus)"
+    )
     ax3a.axvline(f_nyquist_cy_mm, color="gray", linestyle=":", alpha=0.5)
     ax3a.set_ylabel("MTF [--]", fontsize=11)
     ax3a.set_title("MTF Comparison with Residual", fontsize=13)
@@ -821,15 +918,31 @@ def main() -> None:
     ax3a.set_ylim(0, 1.05)
 
     # Bottom: residual (compare_mtf grids — overlap-only, never extrapolated)
-    ax3b.plot(cmp_asbuilt.freq_cy_m / 1000.0, residual_radiant, "b.-",
-              linewidth=1.5, markersize=3,
-              label=f"As-built − Measured (RMS={rms_resid_radiant:.3f})")
+    ax3b.plot(
+        cmp_asbuilt.freq_cy_m / 1000.0,
+        residual_radiant,
+        "b.-",
+        linewidth=1.5,
+        markersize=3,
+        label=f"As-built − Measured (RMS={rms_resid_radiant:.3f})",
+    )
     if explainers_improved:
-        ax3b.plot(cmp_best.freq_cy_m / 1000.0, residual_best, "g.-",
-                  linewidth=1.5, markersize=3,
-                  label=f"Best fit − Measured (RMS={best['rms']:.3f})")
-    ax3b.plot(freq_eval_cy_mm, residual_analytic, "r.--", linewidth=1, markersize=3,
-              label=f"Analytic − Measured (RMS={rms_resid_analytic:.3f})")
+        ax3b.plot(
+            cmp_best.freq_cy_m / 1000.0,
+            residual_best,
+            "g.-",
+            linewidth=1.5,
+            markersize=3,
+            label=f"Best fit − Measured (RMS={best['rms']:.3f})",
+        )
+    ax3b.plot(
+        freq_eval_cy_mm,
+        residual_analytic,
+        "r.--",
+        linewidth=1,
+        markersize=3,
+        label=f"Analytic − Measured (RMS={rms_resid_analytic:.3f})",
+    )
     ax3b.axhline(0, color="black", linewidth=0.5)
     ax3b.axhline(0.02, color="gray", linestyle=":", alpha=0.4)
     ax3b.axhline(-0.02, color="gray", linestyle=":", alpha=0.4)
@@ -850,17 +963,44 @@ def main() -> None:
     mtf_ny_arr = [dr["mtf_at_nyquist"] for dr in defocus_results]
     mtf_def_arr = [dr["mtf_defocus_only"] for dr in defocus_results]
 
-    ax4.plot(defocus_arr, mtf_ny_arr, "bo-", linewidth=2, markersize=8,
-             label="System MTF@Nyquist (RADIANT × defocus)")
-    ax4.plot(defocus_arr, mtf_def_arr, "r^--", linewidth=1.5, markersize=6,
-             label="Defocus MTF@Nyquist (defocus component only)")
+    ax4.plot(
+        defocus_arr,
+        mtf_ny_arr,
+        "bo-",
+        linewidth=2,
+        markersize=8,
+        label="System MTF@Nyquist (RADIANT × defocus)",
+    )
+    ax4.plot(
+        defocus_arr,
+        mtf_def_arr,
+        "r^--",
+        linewidth=1.5,
+        markersize=6,
+        label="Defocus MTF@Nyquist (defocus component only)",
+    )
 
-    ax4.axhline(mtf_ny_no_defocus, color="green", linestyle=":", alpha=0.5,
-                label=f"RADIANT baseline (with defocus) = {mtf_ny_no_defocus:.4f}")
-    ax4.axvline(defocus_um, color="orange", linestyle="--", alpha=0.6,
-                label=f"Karen's current defocus = {defocus_um:.0f} [µm]")
-    ax4.axhline(mtf_meas_ny, color="purple", linestyle=":", alpha=0.5,
-                label=f"Measured MTF@Nyquist = {mtf_meas_ny:.4f}")
+    ax4.axhline(
+        mtf_ny_no_defocus,
+        color="green",
+        linestyle=":",
+        alpha=0.5,
+        label=f"RADIANT baseline (with defocus) = {mtf_ny_no_defocus:.4f}",
+    )
+    ax4.axvline(
+        defocus_um,
+        color="orange",
+        linestyle="--",
+        alpha=0.6,
+        label=f"Karen's current defocus = {defocus_um:.0f} [µm]",
+    )
+    ax4.axhline(
+        mtf_meas_ny,
+        color="purple",
+        linestyle=":",
+        alpha=0.5,
+        label=f"Measured MTF@Nyquist = {mtf_meas_ny:.4f}",
+    )
 
     ax4.set_xlabel("Defocus from Best Focus [µm]", fontsize=12)
     ax4.set_ylabel("MTF at Nyquist [--]", fontsize=12)
@@ -880,8 +1020,10 @@ def main() -> None:
     header_font_out = Font(bold=True, size=10, color="FFFFFF")
     header_fill_out = PatternFill("solid", fgColor="2E75B6")
     thin_border_out = Border(
-        left=Side(style="thin"), right=Side(style="thin"),
-        top=Side(style="thin"), bottom=Side(style="thin"),
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
     )
 
     # Sheet 1: MTF comparison
@@ -889,9 +1031,16 @@ def main() -> None:
     ws_out.title = "MTF Comparison"
 
     headers_out = [
-        "Freq [cy/mm]", "Measured [--]", "RADIANT Predicted [--]",
-        "Analytic System [--]", "Residual (R-M) [--]", "Residual (A-M) [--]",
-        "MTF Diffraction [--]", "MTF Pixel [--]", "MTF IPC [--]", "MTF Defocus [--]",
+        "Freq [cy/mm]",
+        "Measured [--]",
+        "RADIANT Predicted [--]",
+        "Analytic System [--]",
+        "Residual (R-M) [--]",
+        "Residual (A-M) [--]",
+        "MTF Diffraction [--]",
+        "MTF Pixel [--]",
+        "MTF IPC [--]",
+        "MTF Defocus [--]",
     ]
 
     for col_idx, h in enumerate(headers_out, start=1):
@@ -901,9 +1050,7 @@ def main() -> None:
         cell.alignment = Alignment(horizontal="center")
         cell.border = thin_border_out
 
-    for row_idx, (f_mm, m_val) in enumerate(
-        zip(meas_freq_cy_mm_arr, meas_mtf_arr), start=2
-    ):
+    for row_idx, (f_mm, m_val) in enumerate(zip(meas_freq_cy_mm_arr, meas_mtf_arr), start=2):
         r_val = float(np.interp(f_mm * 1000.0, pred_freq_cy_m, pred_mtf))
         a_val = float(np.interp(f_mm, freq_eval_cy_mm, mtf_analytic_system))
         d_val = float(np.interp(f_mm, freq_eval_cy_mm, mtf_diffraction))
@@ -912,9 +1059,16 @@ def main() -> None:
         df_val = float(np.interp(f_mm, freq_eval_cy_mm, mtf_defocus))
 
         vals = [
-            round(float(f_mm), 3), round(float(m_val), 4), round(r_val, 4),
-            round(a_val, 4), round(r_val - float(m_val), 4), round(a_val - float(m_val), 4),
-            round(d_val, 4), round(p_val, 4), round(i_val, 4), round(df_val, 4),
+            round(float(f_mm), 3),
+            round(float(m_val), 4),
+            round(r_val, 4),
+            round(a_val, 4),
+            round(r_val - float(m_val), 4),
+            round(a_val - float(m_val), 4),
+            round(d_val, 4),
+            round(p_val, 4),
+            round(i_val, 4),
+            round(df_val, 4),
         ]
         for col_idx, v in enumerate(vals, start=1):
             cell = ws_out.cell(row=row_idx, column=col_idx, value=v)
@@ -924,8 +1078,12 @@ def main() -> None:
     # Sheet 2: Defocus sweep
     ws_def = wb_out.create_sheet("Defocus Sweep")
     def_headers = [
-        "Defocus [µm]", "Spot Radius [µm]", "σ_defocus [µm]",
-        "MTF@Nyquist [--]", "MTF_defocus [--]", "dMTF [%]",
+        "Defocus [µm]",
+        "Spot Radius [µm]",
+        "σ_defocus [µm]",
+        "MTF@Nyquist [--]",
+        "MTF_defocus [--]",
+        "dMTF [%]",
     ]
 
     for col_idx, h in enumerate(def_headers, start=1):
@@ -937,9 +1095,12 @@ def main() -> None:
 
     for row_idx, dr in enumerate(defocus_results, start=2):
         vals_d = [
-            dr["defocus_um"], round(dr["spot_radius_um"], 3),
-            round(dr["sigma_defocus_um"], 3), round(dr["mtf_at_nyquist"], 4),
-            round(dr["mtf_defocus_only"], 4), round(dr["d_mtf_pct"], 1),
+            dr["defocus_um"],
+            round(dr["spot_radius_um"], 3),
+            round(dr["sigma_defocus_um"], 3),
+            round(dr["mtf_at_nyquist"], 4),
+            round(dr["mtf_defocus_only"], 4),
+            round(dr["d_mtf_pct"], 1),
         ]
         for col_idx, v in enumerate(vals_d, start=1):
             cell = ws_def.cell(row=row_idx, column=col_idx, value=v)
@@ -959,13 +1120,17 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  SUMMARY")
+    print("  SUMMARY")
     print(f"{'=' * 80}")
 
-    print(f"\n  System: {aperture_m * 100:.0f} cm aperture, f/{f_number:.0f}, "
-          f"{pixel_pitch_um:.0f} µm pixels, {filter_min_nm:.0f}-{filter_max_nm:.0f} nm VNIR")
-    print(f"  Lab test: slanted-edge at {test_wavelength_nm:.0f} nm, "
-          f"{defocus_um:.0f} µm defocus from best focus")
+    print(
+        f"\n  System: {aperture_m * 100:.0f} cm aperture, f/{f_number:.0f}, "
+        f"{pixel_pitch_um:.0f} µm pixels, {filter_min_nm:.0f}-{filter_max_nm:.0f} nm VNIR"
+    )
+    print(
+        f"  Lab test: slanted-edge at {test_wavelength_nm:.0f} nm, "
+        f"{defocus_um:.0f} µm defocus from best focus"
+    )
     print(f"  As-built WFE: {wfe_rms_waves:.3f} waves RMS at {wfe_ref_nm:.0f} nm")
     print(f"  Q sampling:   {Q:.3f} [--] ({'well-sampled' if Q >= 1 else 'undersampled'})")
 
@@ -973,57 +1138,61 @@ def main() -> None:
     print(f"  Measured:            {mtf_meas_ny:.4f} [--]")
     print(f"  RADIANT as-built:    {mtf_nyq_radiant:.4f} [--] (defocus, no electronics)")
     if explainers_improved:
-        print(f"  RADIANT best fit:    {best['mtf_nyq']:.4f} [--] "
-              f"(+σ_elec = {best['elec_sigma_um']:.0f} µm)")
+        print(
+            f"  RADIANT best fit:    {best['mtf_nyq']:.4f} [--] "
+            f"(+σ_elec = {best['elec_sigma_um']:.0f} µm)"
+        )
     print(f"  Analytic:            {product:.4f} [--] (includes defocus)")
 
-    print(f"\n  --- Residual RMS (Predicted − Measured) ---")
+    print("\n  --- Residual RMS (Predicted − Measured) ---")
     print(f"  RADIANT as-built:    {rms_resid_radiant:.4f} [--]")
     if explainers_improved:
         print(f"  RADIANT best fit:    {best['rms']:.4f} [--]")
     else:
-        print(f"  Explainer grid:      no improvement (hypotheses rejected — see")
-        print(f"                       residual-explainer section)")
+        print("  Explainer grid:      no improvement (hypotheses rejected — see")
+        print("                       residual-explainer section)")
     print(f"  Analytic:            {rms_resid_analytic:.4f} [--]")
 
-    print(f"\n  --- MTF Budget at Nyquist ---")
+    print("\n  --- MTF Budget at Nyquist ---")
     for name, val in components:
         print(f"  {name:<20s}:  {val:.4f} [--]")
 
-    print(f"\n  Key findings:")
+    print("\n  Key findings:")
     print(f"    1. The as-built model (diffraction + WFE + {defocus_um:.0f} µm defocus + pixel")
     print(f"       + IPC) leaves a systematic residual ({rms_resid_radiant:.3f} RMS,")
     print(f"       mean predicted − measured = {mean_residual:+.3f}).")
     if explainers_improved:
-        print(f"    2. Electronics blur σ_elec = {best['elec_sigma_um']:.0f} µm "
-              f"(readout.electronics_sigma_um,")
+        print(
+            f"    2. Electronics blur σ_elec = {best['elec_sigma_um']:.0f} µm "
+            f"(readout.electronics_sigma_um,"
+        )
         print(f"       Gap 32) reduces the residual to {best['rms']:.3f} RMS — the")
-        print(f"       slanted-edge method measures through the readout chain, so")
-        print(f"       amplifier bandwidth is part of the true system MTF.")
+        print("       slanted-edge method measures through the readout chain, so")
+        print("       amplifier bandwidth is part of the true system MTF.")
     else:
-        print(f"    2. The residual-explainer grid REJECTED both blur hypotheses")
-        print(f"       (electronics σ_elec, Gap 32; scatter roughness, Gap 31): the")
-        print(f"       prediction is already below the measurement, so extra blur")
-        print(f"       only widens the gap. Testing and rejecting a hypothesis is")
-        print(f"       exactly what the compare_mtf residual workflow is for.")
-        print(f"    3. The discrepancy is scalar-WFE shape ambiguity: a single RMS")
-        print(f"       number fixes the Strehl but not where the aberrated energy")
-        print(f"       lands. RADIANT's random-phase-screen halo is compact (low-")
-        print(f"       frequency MTF drop); the lab system's actual aberrations are")
-        print(f"       smoother. Fix: import the as-built Zernike prescription via")
-        print(f"       io.load_zemax_zernike (Gap 26) — exercised in scenario 5.1.")
-    print(f"    4. The dominant MTF contributor at Nyquist is the pixel aperture")
-    print(f"       (sinc rolloff), followed by diffraction.")
+        print("    2. The residual-explainer grid REJECTED both blur hypotheses")
+        print("       (electronics σ_elec, Gap 32; scatter roughness, Gap 31): the")
+        print("       prediction is already below the measurement, so extra blur")
+        print("       only widens the gap. Testing and rejecting a hypothesis is")
+        print("       exactly what the compare_mtf residual workflow is for.")
+        print("    3. The discrepancy is scalar-WFE shape ambiguity: a single RMS")
+        print("       number fixes the Strehl but not where the aberrated energy")
+        print("       lands. RADIANT's random-phase-screen halo is compact (low-")
+        print("       frequency MTF drop); the lab system's actual aberrations are")
+        print("       smoother. Fix: import the as-built Zernike prescription via")
+        print("       io.load_zemax_zernike (Gap 26) — exercised in scenario 5.1.")
+    print("    4. The dominant MTF contributor at Nyquist is the pixel aperture")
+    print("       (sinc rolloff), followed by diffraction.")
     print(f"    5. IPC provides a small apparent MTF boost ({mtf_ipc_ny:.4f} > 1.0).")
 
-    print(f"\n  Remaining limitations:")
-    print(f"    - Scalar wfe_rms_waves under-determines the MTF shape (see finding 3);")
-    print(f"      Zernike input (Gap 26) removes the ambiguity but needs the as-built")
-    print(f"      prescription from the optical shop")
-    print(f"    - Defocus is a Gaussian approximation (σ = |δ|/(4·f/#·√3)), valid for")
-    print(f"      small defocus only")
-    print(f"    - Analytic decomposition curves assume no obscuration; RADIANT's")
-    print(f"      pupil-autocorrelation MTF includes it (expected discrepancy)")
+    print("\n  Remaining limitations:")
+    print("    - Scalar wfe_rms_waves under-determines the MTF shape (see finding 3);")
+    print("      Zernike input (Gap 26) removes the ambiguity but needs the as-built")
+    print("      prescription from the optical shop")
+    print("    - Defocus is a Gaussian approximation (σ = |δ|/(4·f/#·√3)), valid for")
+    print("      small defocus only")
+    print("    - Analytic decomposition curves assume no obscuration; RADIANT's")
+    print("      pupil-autocorrelation MTF includes it (expected discrepancy)")
 
     plt.show()
 

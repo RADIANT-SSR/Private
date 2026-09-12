@@ -37,15 +37,15 @@ Usage:
 import math
 from pathlib import Path
 
+import matplotlib
 import numpy as np
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-import matplotlib
+
 matplotlib.use("Agg")  # headless-safe: plt.show() is a no-op, so the runner completes in CI/batch
 import matplotlib.pyplot as plt
 
 from radiant.api import Sensor
-
 
 # ---------------------------------------------------------------------------
 # Step 1: Read Sarah's spreadsheet
@@ -86,17 +86,17 @@ for row in ws_tdi.iter_rows(min_row=2, max_col=1, values_only=True):
 # Step 2: Convert to RADIANT canonical units and derive orbital parameters
 # ---------------------------------------------------------------------------
 
-aperture_m = float(specs["Aperture diameter"]) / 100.0         # cm -> m
-focal_length_m = float(specs["Focal length"]) / 100.0          # cm -> m
+aperture_m = float(specs["Aperture diameter"]) / 100.0  # cm -> m
+focal_length_m = float(specs["Focal length"]) / 100.0  # cm -> m
 f_number = float(specs["f-number"])
-transmission = float(specs["Optical transmission"]) / 100.0    # % -> frac
-optics_temp_K = float(specs["Optics temperature"]) + 273.15    # C -> K
+transmission = float(specs["Optical transmission"]) / 100.0  # % -> frac
+optics_temp_K = float(specs["Optics temperature"]) + 273.15  # C -> K
 wfe_waves = float(specs["WFE RMS"])
-obscuration = float(specs["Central obscuration"]) / 100.0      # % -> frac
+obscuration = float(specs["Central obscuration"]) / 100.0  # % -> frac
 
 pixel_pitch_um = float(specs["Pixel pitch"])
 pixel_pitch_m = pixel_pitch_um * 1e-6
-qe = float(specs["Quantum efficiency"]) / 100.0                # % -> frac
+qe = float(specs["Quantum efficiency"]) / 100.0  # % -> frac
 dark_rate = float(specs["Dark current"])
 read_noise = float(specs["Read noise"])
 fwc = float(specs["Full well capacity"])
@@ -105,7 +105,7 @@ adc_bits = int(specs["ADC bits"])
 
 band_min_nm = float(specs["Filter min"])
 band_max_nm = float(specs["Filter max"])
-band_min_um = band_min_nm / 1000.0                             # nm -> um
+band_min_um = band_min_nm / 1000.0  # nm -> um
 band_max_um = band_max_nm / 1000.0
 band_center_um = (band_min_um + band_max_um) / 2.0
 
@@ -144,7 +144,7 @@ smear_mtf_nyquist = abs(np.sinc(f_nyquist * pixel_pitch_m))
 # Thermal emission at 300 K is negligible in VNIR, signal is from solar reflection
 target_temp_K = 300.0
 bg_temp_K = 295.0
-target_emissivity = 1.0 - target_refl   # Kirchhoff: ε = 1 - ρ
+target_emissivity = 1.0 - target_refl  # Kirchhoff: ε = 1 - ρ
 bg_emissivity = 1.0 - bg_refl
 
 base_config = {
@@ -204,10 +204,10 @@ def main() -> None:
     for k, v in specs.items():
         print(f"  {k:<30s}: {v} [{units.get(k, '--')}]")
 
-    print(f"\n=== TDI Sweep Points ===")
+    print("\n=== TDI Sweep Points ===")
     print(f"  N_tdi = {tdi_values}")
 
-    print(f"\n=== Converted to RADIANT Canonical Units ===")
+    print("\n=== Converted to RADIANT Canonical Units ===")
     print(f"  {'Parameter':<30s} {'Value':>14s}  {'Unit':<10s}  {'Conversion'}")
     print(f"  {'-' * 30} {'-' * 14}  {'-' * 10}  {'-' * 20}")
     print(f"  {'Aperture diameter':<30s} {aperture_m:>14.4f}  {'m':<10s}  cm / 100")
@@ -219,21 +219,25 @@ def main() -> None:
     print(f"  {'Obscuration':<30s} {obscuration:>14.4f}  {'fraction':<10s}  % / 100")
     print(f"  {'Solar zenith':<30s} {solar_zenith_rad:>14.4f}  {'rad':<10s}  deg × π/180")
 
-    print(f"\n=== Derived Orbital / Timing Parameters ===")
+    print("\n=== Derived Orbital / Timing Parameters ===")
     print(f"  Ground velocity:     {v_ground:.1f} [m/s]")
     print(f"  GSD:                 {gsd_m:.2f} [m]")
-    print(f"  Line period:         {line_period_s*1e3:.4f} [ms]  ({line_period_s*1e6:.1f} [us])")
+    print(
+        f"  Line period:         {line_period_s * 1e3:.4f} [ms]  ({line_period_s * 1e6:.1f} [us])"
+    )
     print(f"  IFOV:                {ifov_urad:.1f} [urad]")
-    print(f"  f_Nyquist:           {f_nyquist:.0f} [cy/m] ({f_nyquist/1000:.1f} [cy/mm])")
+    print(f"  f_Nyquist:           {f_nyquist:.0f} [cy/m] ({f_nyquist / 1000:.1f} [cy/mm])")
     print(f"  Q (sampling):        {Q:.3f} [--] ({'well-sampled' if Q >= 1 else 'undersampled'})")
-    print(f"  Airy disk:           {airy_diam_um:.1f} [um] ({airy_diam_um/pixel_pitch_um:.2f} pixels)")
+    print(
+        f"  Airy disk:           {airy_diam_um:.1f} [um] ({airy_diam_um / pixel_pitch_um:.2f} pixels)"
+    )
     print(f"  Smear MTF@Nyquist:   {smear_mtf_nyquist:.4f} [--] (1 pixel/line, constant)")
     print(f"  TDI misalignment:    {tdi_misalign_pix:.2f} [pixels/stage]")
 
-    print(f"\n=== RADIANT Configuration ===")
-    print(f"  Integration time per line: {line_period_s*1e3:.4f} [ms]")
+    print("\n=== RADIANT Configuration ===")
+    print(f"  Integration time per line: {line_period_s * 1e3:.4f} [ms]")
     print(f"  Band: {band_min_um:.3f}–{band_max_um:.3f} [um]")
-    print(f"  TDI mode: analog (single readout after charge accumulation)")
+    print("  TDI mode: analog (single readout after charge accumulation)")
     print(f"  Target reflectance: {target_refl}")
     print(f"  Solar zenith: {solar_zenith_deg:.0f} [deg]")
 
@@ -242,14 +246,20 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  TDI SWEEP")
+    print("  TDI SWEEP")
     print(f"{'=' * 80}")
-    print(f"\n  {'N_tdi':>6s}  {'Signal':>12s}  {'Well Fill':>10s}  {'SNR':>10s}  "
-          f"{'MTF@Nyq':>10s}  {'RER':>8s}  {'NIIRS':>8s}  {'Status'}")
-    print(f"  {'':>6s}  {'[e-]':>12s}  {'[%]':>10s}  {'[--]':>10s}  "
-          f"{'[--]':>10s}  {'[--]':>8s}  {'[--]':>8s}  ")
-    print(f"  {'-' * 6}  {'-' * 12}  {'-' * 10}  {'-' * 10}  "
-          f"{'-' * 10}  {'-' * 8}  {'-' * 8}  {'-' * 10}")
+    print(
+        f"\n  {'N_tdi':>6s}  {'Signal':>12s}  {'Well Fill':>10s}  {'SNR':>10s}  "
+        f"{'MTF@Nyq':>10s}  {'RER':>8s}  {'NIIRS':>8s}  {'Status'}"
+    )
+    print(
+        f"  {'':>6s}  {'[e-]':>12s}  {'[%]':>10s}  {'[--]':>10s}  "
+        f"{'[--]':>10s}  {'[--]':>8s}  {'[--]':>8s}  "
+    )
+    print(
+        f"  {'-' * 6}  {'-' * 12}  {'-' * 10}  {'-' * 10}  "
+        f"{'-' * 10}  {'-' * 8}  {'-' * 8}  {'-' * 10}"
+    )
 
     results: list[dict] = []
 
@@ -307,20 +317,23 @@ def main() -> None:
         }
         results.append(row)
 
-        print(f"  {n_tdi:>6d}  {signal_e:>12,.0f}  {well_fill_pct:>9.1f}%  {snr:>10.1f}  "
-              f"{mtf_nyq:>10.4f}  {rer:>8.4f}  {niirs:>8.2f}  {status}")
+        print(
+            f"  {n_tdi:>6d}  {signal_e:>12,.0f}  {well_fill_pct:>9.1f}%  {snr:>10.1f}  "
+            f"{mtf_nyq:>10.4f}  {rer:>8.4f}  {niirs:>8.2f}  {status}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 5: Noise budget table
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  NOISE BUDGET (all values in e- RMS)")
+    print("  NOISE BUDGET (all values in e- RMS)")
     print(f"{'=' * 80}")
 
     noise_names = list(results[0]["noise_terms"].keys())
-    active_terms = [n for n in noise_names
-                    if any(r["noise_terms"].get(n, 0) > 0.01 for r in results)]
+    active_terms = [
+        n for n in noise_names if any(r["noise_terms"].get(n, 0) > 0.01 for r in results)
+    ]
 
     header = f"  {'Noise Term':<20s}"
     for r in results:
@@ -346,13 +359,15 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  SNR SCALING ANALYSIS")
+    print("  SNR SCALING ANALYSIS")
     print(f"{'=' * 80}")
 
     snr_1 = results[0]["snr"]
     print(f"\n  Baseline SNR (N_tdi=1): {snr_1:.1f} [--]")
-    print(f"\n  {'N_tdi':>6s}  {'SNR':>10s}  {'SNR/SNR_1':>10s}  {'√N_tdi':>10s}  "
-          f"{'N_tdi':>10s}  {'Regime'}")
+    print(
+        f"\n  {'N_tdi':>6s}  {'SNR':>10s}  {'SNR/SNR_1':>10s}  {'√N_tdi':>10s}  "
+        f"{'N_tdi':>10s}  {'Regime'}"
+    )
     print(f"  {'-' * 6}  {'-' * 10}  {'-' * 10}  {'-' * 10}  {'-' * 10}  {'-' * 15}")
 
     for r in results:
@@ -371,8 +386,10 @@ def main() -> None:
         else:
             regime = "baseline"
 
-        print(f"  {n:>6d}  {r['snr']:>10.1f}  {snr_ratio:>10.2f}  {sqrt_n:>10.2f}  "
-              f"{float(n):>10.1f}  {regime}")
+        print(
+            f"  {n:>6d}  {r['snr']:>10.1f}  {snr_ratio:>10.2f}  {sqrt_n:>10.2f}  "
+            f"{float(n):>10.1f}  {regime}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 7: MTF budget
@@ -382,29 +399,34 @@ def main() -> None:
     print(f"  MTF BUDGET (at Nyquist = {f_nyquist:.0f} cy/m)")
     print(f"{'=' * 80}")
 
-    print(f"\n  {'N_tdi':>6s}  {'MTF_opt':>10s}  {'MTF_smear':>10s}  {'MTF_misalign':>12s}  "
-          f"{'MTF_sys':>10s}  {'Misalign':>10s}")
-    print(f"  {'':>6s}  {'[--]':>10s}  {'[--]':>10s}  {'[--]':>12s}  "
-          f"{'[--]':>10s}  {'[pixels]':>10s}")
+    print(
+        f"\n  {'N_tdi':>6s}  {'MTF_opt':>10s}  {'MTF_smear':>10s}  {'MTF_misalign':>12s}  "
+        f"{'MTF_sys':>10s}  {'Misalign':>10s}"
+    )
+    print(
+        f"  {'':>6s}  {'[--]':>10s}  {'[--]':>10s}  {'[--]':>12s}  {'[--]':>10s}  {'[pixels]':>10s}"
+    )
     print(f"  {'-' * 6}  {'-' * 10}  {'-' * 10}  {'-' * 12}  {'-' * 10}  {'-' * 10}")
 
     for r in results:
-        print(f"  {r['n_tdi']:>6d}  {r['mtf_nyq_radiant']:>10.4f}  "
-              f"{r['smear_mtf_nyq']:>10.4f}  {r['tdi_misalign_mtf_nyq']:>12.4f}  "
-              f"{r['true_mtf_nyq']:>10.4f}  {r['total_misalign_pix']:>10.2f}")
+        print(
+            f"  {r['n_tdi']:>6d}  {r['mtf_nyq_radiant']:>10.4f}  "
+            f"{r['smear_mtf_nyq']:>10.4f}  {r['tdi_misalign_mtf_nyq']:>12.4f}  "
+            f"{r['true_mtf_nyq']:>10.4f}  {r['total_misalign_pix']:>10.2f}"
+        )
 
-    print(f"\n  Notes:")
-    print(f"  - MTF_opt: from RADIANT (optics + detector + aberrations)")
+    print("\n  Notes:")
+    print("  - MTF_opt: from RADIANT (optics + detector + aberrations)")
     print(f"  - MTF_smear: |sinc(π/2)| = 2/π ≈ {smear_mtf_nyquist:.4f} (1 pixel/line, constant)")
     print(f"  - MTF_misalign: |sinc(π·f·δ·√N)| where δ = {tdi_misalign_pix:.1f} pixels/stage")
-    print(f"  - MTF_sys = MTF_opt × MTF_smear × MTF_misalign")
+    print("  - MTF_sys = MTF_opt × MTF_smear × MTF_misalign")
 
     # ---------------------------------------------------------------------------
     # Step 8: Saturation analysis
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  SATURATION ANALYSIS")
+    print("  SATURATION ANALYSIS")
     print(f"{'=' * 80}")
     print(f"\n  Full well capacity: {fwc:,.0f} [e-]")
     print(f"  Signal per line (N_tdi=1): {results[0]['signal_e']:,.0f} [e-]")
@@ -414,7 +436,7 @@ def main() -> None:
         max_useful_ntdi = fwc / sig_1
         print(f"  Theoretical max N_tdi (100% fill): {max_useful_ntdi:.1f}")
     else:
-        print(f"  Signal per line is zero — check scene configuration")
+        print("  Signal per line is zero — check scene configuration")
 
     sat_ntdi = None
     for r in results:
@@ -425,7 +447,7 @@ def main() -> None:
     if sat_ntdi:
         print(f"  First saturated N_tdi in sweep: {sat_ntdi}")
     else:
-        print(f"  No saturation in sweep range")
+        print("  No saturation in sweep range")
 
     print(f"\n  {'N_tdi':>6s}  {'Signal':>12s}  {'Well Fill':>10s}  {'Headroom':>12s}  {'Status'}")
     print(f"  {'':>6s}  {'[e-]':>12s}  {'[%]':>10s}  {'[e-]':>12s}")
@@ -433,15 +455,17 @@ def main() -> None:
 
     for r in results:
         headroom = fwc - r["signal_e"]
-        print(f"  {r['n_tdi']:>6d}  {r['signal_e']:>12,.0f}  {r['well_fill_pct']:>9.1f}%  "
-              f"{headroom:>12,.0f}  {r['status']}")
+        print(
+            f"  {r['n_tdi']:>6d}  {r['signal_e']:>12,.0f}  {r['well_fill_pct']:>9.1f}%  "
+            f"{headroom:>12,.0f}  {r['status']}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 9: NIIRS analysis
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  NIIRS ANALYSIS")
+    print("  NIIRS ANALYSIS")
     print(f"{'=' * 80}")
 
     niirs_1 = results[0]["niirs"]
@@ -463,8 +487,10 @@ def main() -> None:
         elif r["well_fill_pct"] > 80:
             note = "near saturation"
 
-        print(f"  {r['n_tdi']:>6d}  {r['snr']:>10.1f}  {r['rer']:>8.4f}  "
-              f"{r['niirs']:>8.2f}  {d_niirs:>+8.2f}  {note}")
+        print(
+            f"  {r['n_tdi']:>6d}  {r['snr']:>10.1f}  {r['rer']:>8.4f}  "
+            f"{r['niirs']:>8.2f}  {d_niirs:>+8.2f}  {note}"
+        )
 
     print(f"\n  Peak NIIRS: {best_niirs:.2f} at N_tdi = {best_ntdi}")
 
@@ -481,10 +507,22 @@ def main() -> None:
     ax1.semilogx(ntdi_arr, snr_arr, "bo-", linewidth=2, markersize=8, label="RADIANT SNR")
 
     n_arr = np.array(ntdi_arr, dtype=float)
-    ax1.semilogx(ntdi_arr, [snr_1 * math.sqrt(n) for n in ntdi_arr],
-                 "g--", linewidth=1.5, alpha=0.7, label=f"√N scaling (shot-limited)")
-    ax1.semilogx(ntdi_arr, [snr_1 * n for n in ntdi_arr],
-                 "r--", linewidth=1.5, alpha=0.7, label=f"N scaling (read-limited)")
+    ax1.semilogx(
+        ntdi_arr,
+        [snr_1 * math.sqrt(n) for n in ntdi_arr],
+        "g--",
+        linewidth=1.5,
+        alpha=0.7,
+        label="√N scaling (shot-limited)",
+    )
+    ax1.semilogx(
+        ntdi_arr,
+        [snr_1 * n for n in ntdi_arr],
+        "r--",
+        linewidth=1.5,
+        alpha=0.7,
+        label="N scaling (read-limited)",
+    )
 
     for r in results:
         if r["status"] == "SATURATED":
@@ -507,8 +545,9 @@ def main() -> None:
     well_fill_arr = [r["well_fill_pct"] for r in results]
 
     ax2a.semilogx(ntdi_arr, [s / 1000 for s in signal_arr], "rs-", linewidth=2, markersize=8)
-    ax2a.axhline(fwc / 1000, color="red", linestyle="--", linewidth=1.5,
-                 label=f"FWC = {fwc/1000:.0f} ke-")
+    ax2a.axhline(
+        fwc / 1000, color="red", linestyle="--", linewidth=1.5, label=f"FWC = {fwc / 1000:.0f} ke-"
+    )
     ax2a.set_xlabel("N_tdi [stages]", fontsize=12)
     ax2a.set_ylabel("Signal [ke-]", fontsize=12)
     ax2a.set_title("Signal vs. TDI Stages", fontsize=13)
@@ -546,8 +585,15 @@ def main() -> None:
 
     for i, term in enumerate(dominant_terms):
         vals = [r["noise_terms"].get(term, 0) for r in results]
-        ax3.bar(x_pos + i * bar_width, vals, bar_width, label=term.replace("_", " "),
-                color=colors[i], edgecolor="white", linewidth=0.5)
+        ax3.bar(
+            x_pos + i * bar_width,
+            vals,
+            bar_width,
+            label=term.replace("_", " "),
+            color=colors[i],
+            edgecolor="white",
+            linewidth=0.5,
+        )
 
     ax3.set_xlabel("N_tdi [stages]", fontsize=12)
     ax3.set_ylabel("Noise [e- RMS]", fontsize=12)
@@ -564,8 +610,13 @@ def main() -> None:
     niirs_arr = [r["niirs"] for r in results]
     ax4.semilogx(ntdi_arr, niirs_arr, "mo-", linewidth=2, markersize=8, label="NIIRS (RADIANT)")
 
-    ax4.axhline(best_niirs, color="green", linestyle=":", alpha=0.5,
-                label=f"Peak = {best_niirs:.2f} at N_tdi={best_ntdi}")
+    ax4.axhline(
+        best_niirs,
+        color="green",
+        linestyle=":",
+        alpha=0.5,
+        label=f"Peak = {best_niirs:.2f} at N_tdi={best_ntdi}",
+    )
 
     for r in results:
         if r["status"] == "SATURATED":
@@ -592,15 +643,26 @@ def main() -> None:
     header_font = Font(bold=True, size=10, color="FFFFFF")
     header_fill = PatternFill("solid", fgColor="4472C4")
     thin_border = Border(
-        left=Side(style="thin"), right=Side(style="thin"),
-        top=Side(style="thin"), bottom=Side(style="thin"),
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
     )
 
     headers = [
-        "N_tdi [--]", "Signal [e-]", "Well Fill [%]", "SNR [--]",
-        "MTF_opt@Nyq [--]", "Smear MTF@Nyq [--]", "Misalign MTF@Nyq [--]",
-        "True MTF_sys@Nyq [--]", "Misalign [pixels]",
-        "RER [--]", "NIIRS [--]", "dNIIRS [--]", "Status",
+        "N_tdi [--]",
+        "Signal [e-]",
+        "Well Fill [%]",
+        "SNR [--]",
+        "MTF_opt@Nyq [--]",
+        "Smear MTF@Nyq [--]",
+        "Misalign MTF@Nyq [--]",
+        "True MTF_sys@Nyq [--]",
+        "Misalign [pixels]",
+        "RER [--]",
+        "NIIRS [--]",
+        "dNIIRS [--]",
+        "Status",
     ]
 
     for col_idx, h in enumerate(headers, start=1):
@@ -613,12 +675,18 @@ def main() -> None:
     for row_idx, r in enumerate(results, start=2):
         d_niirs = r["niirs"] - niirs_1
         vals = [
-            r["n_tdi"], round(r["signal_e"]), round(r["well_fill_pct"], 1),
+            r["n_tdi"],
+            round(r["signal_e"]),
+            round(r["well_fill_pct"], 1),
             round(r["snr"], 1),
-            round(r["mtf_nyq_radiant"], 4), round(r["smear_mtf_nyq"], 4),
+            round(r["mtf_nyq_radiant"], 4),
+            round(r["smear_mtf_nyq"], 4),
             round(r["tdi_misalign_mtf_nyq"], 4),
-            round(r["true_mtf_nyq"], 4), round(r["total_misalign_pix"], 2),
-            round(r["rer"], 4), round(r["niirs"], 2), round(d_niirs, 2),
+            round(r["true_mtf_nyq"], 4),
+            round(r["total_misalign_pix"], 2),
+            round(r["rer"], 4),
+            round(r["niirs"], 2),
+            round(d_niirs, 2),
             r["status"],
         ]
         for col_idx, v in enumerate(vals, start=1):
@@ -640,8 +708,9 @@ def main() -> None:
     for row_idx, term in enumerate(active_terms, start=2):
         ws_noise.cell(row=row_idx, column=1, value=term)
         for col_idx, r in enumerate(results, start=2):
-            ws_noise.cell(row=row_idx, column=col_idx,
-                          value=round(r["noise_terms"].get(term, 0), 2))
+            ws_noise.cell(
+                row=row_idx, column=col_idx, value=round(r["noise_terms"].get(term, 0), 2)
+            )
 
     for ws in [ws_out, ws_noise]:
         for col in ws.columns:
@@ -656,20 +725,26 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  SUMMARY")
+    print("  SUMMARY")
     print(f"{'=' * 80}")
-    print(f"\n  System: VNIR pushbroom, {aperture_m*100:.0f} cm aperture, f/{f_number:.0f}, "
-          f"{pixel_pitch_um:.0f} um pitch")
+    print(
+        f"\n  System: VNIR pushbroom, {aperture_m * 100:.0f} cm aperture, f/{f_number:.0f}, "
+        f"{pixel_pitch_um:.0f} um pitch"
+    )
     print(f"  Band:   {band_min_nm:.0f}–{band_max_nm:.0f} nm panchromatic")
     print(f"  Orbit:  {altitude_km:.0f} km LEO, v_ground = {v_ground:.0f} m/s")
-    print(f"  GSD:    {gsd_m:.2f} m, line period = {line_period_s*1e3:.4f} ms")
+    print(f"  GSD:    {gsd_m:.2f} m, line period = {line_period_s * 1e3:.4f} ms")
     print(f"  FWC:    {fwc:,.0f} e-")
-    print(f"  Signal per line: {results[0]['signal_e']:,.0f} e- "
-          f"({results[0]['well_fill_pct']:.1f}% well fill)")
+    print(
+        f"  Signal per line: {results[0]['signal_e']:,.0f} e- "
+        f"({results[0]['well_fill_pct']:.1f}% well fill)"
+    )
     print(f"\n  Optimal N_tdi: {best_ntdi} (NIIRS = {best_niirs:.2f})")
     print(f"  SNR at optimal: {[r for r in results if r['n_tdi'] == best_ntdi][0]['snr']:.1f} [--]")
-    print(f"  SNR improvement from N_tdi=1: "
-          f"{[r for r in results if r['n_tdi'] == best_ntdi][0]['snr'] / snr_1:.1f}×")
+    print(
+        f"  SNR improvement from N_tdi=1: "
+        f"{[r for r in results if r['n_tdi'] == best_ntdi][0]['snr'] / snr_1:.1f}×"
+    )
 
     if sat_ntdi:
         unsaturated = [r for r in results if r["status"] != "SATURATED"]
@@ -677,18 +752,20 @@ def main() -> None:
             print(f"\n  Saturation onset: N_tdi = {sat_ntdi}")
             print(f"  Max N_tdi before saturation: {unsaturated[-1]['n_tdi']}")
 
-    print(f"\n  Design recommendation:")
+    print("\n  Design recommendation:")
     print(f"    Use N_tdi = {best_ntdi} for peak NIIRS = {best_niirs:.2f}.")
     safe = [r for r in results if r["well_fill_pct"] < 80 and r["status"] != "SATURATED"]
     if safe:
         best_safe = max(safe, key=lambda r: r["niirs"])
-        print(f"    With 80% well-fill margin: N_tdi = {best_safe['n_tdi']} "
-              f"(NIIRS = {best_safe['niirs']:.2f}, well fill = {best_safe['well_fill_pct']:.0f}%)")
+        print(
+            f"    With 80% well-fill margin: N_tdi = {best_safe['n_tdi']} "
+            f"(NIIRS = {best_safe['niirs']:.2f}, well fill = {best_safe['well_fill_pct']:.0f}%)"
+        )
 
-    print(f"\n  Why not MWIR?")
-    print(f"    MWIR thermal scenes (300+ K) produce ~250,000+ e- per line at this")
-    print(f"    aperture and integration time. The well saturates at N_tdi=1, making")
-    print(f"    TDI counterproductive. TDI is essential for VNIR pushbroom where")
+    print("\n  Why not MWIR?")
+    print("    MWIR thermal scenes (300+ K) produce ~250,000+ e- per line at this")
+    print("    aperture and integration time. The well saturates at N_tdi=1, making")
+    print("    TDI counterproductive. TDI is essential for VNIR pushbroom where")
     print(f"    reflected solar provides only {results[0]['signal_e']:,.0f} e- per line.")
 
     plt.show()

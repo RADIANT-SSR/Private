@@ -1,7 +1,7 @@
 """Create Mike's detector characterization spreadsheet for IPC analysis."""
 
 import openpyxl
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 wb = openpyxl.Workbook()
 
@@ -9,8 +9,10 @@ header_font = Font(bold=True, size=12)
 section_font = Font(bold=True, size=11, color="FFFFFF")
 section_fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
 thin_border = Border(
-    left=Side(style="thin"), right=Side(style="thin"),
-    top=Side(style="thin"), bottom=Side(style="thin"),
+    left=Side(style="thin"),
+    right=Side(style="thin"),
+    top=Side(style="thin"),
+    bottom=Side(style="thin"),
 )
 
 
@@ -120,7 +122,15 @@ ws2["A3"] = "Method: single-pixel illumination, 4-neighbor coupling fraction"
 ws2["A3"].font = Font(italic=True, size=10)
 
 for col, hdr in enumerate(
-    ["Sample ID", "IPC Coupling [%]", "Measured MTF @ Nyq", "Measured EE 1x1", "Measured EE 3x3", "Notes"], 1
+    [
+        "Sample ID",
+        "IPC Coupling [%]",
+        "Measured MTF @ Nyq",
+        "Measured EE 1x1",
+        "Measured EE 3x3",
+        "Notes",
+    ],
+    1,
 ):
     cell = ws2.cell(row=5, column=col, value=hdr)
     cell.font = header_font

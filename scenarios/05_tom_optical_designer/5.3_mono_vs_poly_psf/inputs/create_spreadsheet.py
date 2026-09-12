@@ -17,7 +17,7 @@ All values are in the units an optical designer typically works with:
 """
 
 import openpyxl
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 wb = openpyxl.Workbook()
 
@@ -25,8 +25,10 @@ header_font = Font(bold=True, size=12)
 section_font = Font(bold=True, size=11, color="FFFFFF")
 section_fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
 thin_border = Border(
-    left=Side(style="thin"), right=Side(style="thin"),
-    top=Side(style="thin"), bottom=Side(style="thin"),
+    left=Side(style="thin"),
+    right=Side(style="thin"),
+    top=Side(style="thin"),
+    bottom=Side(style="thin"),
 )
 
 
@@ -77,28 +79,26 @@ for col, h_text in enumerate(["Parameter", "Value", "Unit", "Notes"], 1):
 row = 6
 
 row = add_section(ws1, row, "Telescope Design")
-row = add_param(ws1, row, "Entrance pupil diameter", 300, "mm",
-                "Circular, unobscured equivalent")
-row = add_param(ws1, row, "Effective focal length", 1200, "mm",
-                "Measured at 4.25 µm reference wavelength")
+row = add_param(ws1, row, "Entrance pupil diameter", 300, "mm", "Circular, unobscured equivalent")
+row = add_param(
+    ws1, row, "Effective focal length", 1200, "mm", "Measured at 4.25 µm reference wavelength"
+)
 row = add_param(ws1, row, "f-number (working)", 4.0, "—", "f/# = EFL / EPD")
-row = add_param(ws1, row, "Optical transmission", 72, "%",
-                "Including 2 mirrors (Al + protective), cold filter")
+row = add_param(
+    ws1, row, "Optical transmission", 72, "%", "Including 2 mirrors (Al + protective), cold filter"
+)
 row = add_param(ws1, row, "Optics temperature", 293, "K", "Ambient, uncooled barrel")
-row = add_param(ws1, row, "WFE (RMS, on-axis)", 0.05, "waves",
-                "At λ_ref = 4.25 µm; diffraction-limited")
+row = add_param(
+    ws1, row, "WFE (RMS, on-axis)", 0.05, "waves", "At λ_ref = 4.25 µm; diffraction-limited"
+)
 
 row = add_section(ws1, row, "Spectral Design")
-row = add_param(ws1, row, "Band center wavelength", 4250, "nm",
-                "MWIR thermal imaging band")
-row = add_param(ws1, row, "Filter cut-on", 3500, "nm",
-                "Cold filter, 50% transmission edge")
-row = add_param(ws1, row, "Filter cut-off", 5000, "nm",
-                "Cold filter, 50% transmission edge")
+row = add_param(ws1, row, "Band center wavelength", 4250, "nm", "MWIR thermal imaging band")
+row = add_param(ws1, row, "Filter cut-on", 3500, "nm", "Cold filter, 50% transmission edge")
+row = add_param(ws1, row, "Filter cut-off", 5000, "nm", "Cold filter, 50% transmission edge")
 
 row = add_section(ws1, row, "Detector (Selected from Trade 5.2)")
-row = add_param(ws1, row, "Pixel pitch", 18, "µm",
-                "Selected: best SNR/GSD among compliant options")
+row = add_param(ws1, row, "Pixel pitch", 18, "µm", "Selected: best SNR/GSD among compliant options")
 row = add_param(ws1, row, "Quantum efficiency (in-band)", 72, "%", "Vendor spec")
 row = add_param(ws1, row, "Dark current", 50, "e⁻/s", "At 77 K operating temp")
 row = add_param(ws1, row, "Full well capacity", 500000, "e⁻", "")
@@ -148,14 +148,10 @@ cutoff_freqs = [1 / ((w / 1000e3) * 4.0) for w in wavelengths_nm]  # cy/mm
 
 analysis_params = [
     ("Wavelength", wavelengths_nm, "nm"),
-    ("Airy disk diameter (2.44 λ f/#)",
-     [round(a, 1) for a in airy_diameters], "µm"),
-    ("Q parameter (λ f/# / p)",
-     [round(q, 2) for q in q_values], "—"),
-    ("Nyquist frequency (1/2p)",
-     [round(nyquist_freqs[0], 1)] * 5, "cy/mm"),
-    ("Diffraction cutoff (1/λf/#)",
-     [round(c, 1) for c in cutoff_freqs], "cy/mm"),
+    ("Airy disk diameter (2.44 λ f/#)", [round(a, 1) for a in airy_diameters], "µm"),
+    ("Q parameter (λ f/# / p)", [round(q, 2) for q in q_values], "—"),
+    ("Nyquist frequency (1/2p)", [round(nyquist_freqs[0], 1)] * 5, "cy/mm"),
+    ("Diffraction cutoff (1/λf/#)", [round(c, 1) for c in cutoff_freqs], "cy/mm"),
 ]
 
 for i, (param_name, values, unit) in enumerate(analysis_params, 5):
@@ -167,18 +163,26 @@ for i, (param_name, values, unit) in enumerate(analysis_params, 5):
     ws2.cell(row=i, column=len(values) + 2, value=unit).border = thin_border
 
 note_row = len(analysis_params) + 6
-ws2.cell(row=note_row, column=1,
-         value="Airy disk grows linearly with λ: 34.2 µm at 3.5 µm → 48.8 µm at 5.0 µm"
-         ).font = Font(italic=True)
-ws2.cell(row=note_row + 1, column=1,
-         value="Q ranges from 0.78 (3.5 µm, slightly undersampled) to 1.11 (5.0 µm, well-sampled)"
-         ).font = Font(italic=True)
-ws2.cell(row=note_row + 2, column=1,
-         value="Polychromatic PSF is flux-weighted average — 300 K blackbody peaks near 9.7 µm"
-         ).font = Font(italic=True)
-ws2.cell(row=note_row + 3, column=1,
-         value="but in-band (3.5–5.0 µm), longer wavelengths see more photon flux"
-         ).font = Font(italic=True)
+ws2.cell(
+    row=note_row,
+    column=1,
+    value="Airy disk grows linearly with λ: 34.2 µm at 3.5 µm → 48.8 µm at 5.0 µm",
+).font = Font(italic=True)
+ws2.cell(
+    row=note_row + 1,
+    column=1,
+    value="Q ranges from 0.78 (3.5 µm, slightly undersampled) to 1.11 (5.0 µm, well-sampled)",
+).font = Font(italic=True)
+ws2.cell(
+    row=note_row + 2,
+    column=1,
+    value="Polychromatic PSF is flux-weighted average — 300 K blackbody peaks near 9.7 µm",
+).font = Font(italic=True)
+ws2.cell(
+    row=note_row + 3,
+    column=1,
+    value="but in-band (3.5–5.0 µm), longer wavelengths see more photon flux",
+).font = Font(italic=True)
 
 # ============================================================================
 # Sheet 3: Comparison Metrics
@@ -201,20 +205,25 @@ for col, h_text in enumerate(["Metric", "Why It Matters"], 1):
     cell.alignment = Alignment(horizontal="center")
 
 metrics = [
-    ("MTF at Nyquist",
-     "Core image quality metric. Does chromatic averaging lower it?"),
-    ("EE 1×1 (ensquared energy, single pixel)",
-     "Point source detection sensitivity. Chromatic spread loses energy."),
-    ("EE 3×3 (ensquared energy, 3×3 box)",
-     "Extended point source metric. Less sensitive to chromatic spread."),
-    ("FWHM (full width at half maximum)",
-     "PSF core size. Polychromatic should be broader than shortest-λ."),
-    ("SNR (signal-to-noise ratio)",
-     "Does the PSF model choice actually affect SNR in extended scene?"),
-    ("Airy disk diameter",
-     "Fundamental: 2.44 × λ × f/#. Varies 34–49 µm across band."),
-    ("Q parameter (λ f/# / p)",
-     "Sampling adequacy. Varies 0.78–1.11 across band at 18 µm pitch."),
+    ("MTF at Nyquist", "Core image quality metric. Does chromatic averaging lower it?"),
+    (
+        "EE 1×1 (ensquared energy, single pixel)",
+        "Point source detection sensitivity. Chromatic spread loses energy.",
+    ),
+    (
+        "EE 3×3 (ensquared energy, 3×3 box)",
+        "Extended point source metric. Less sensitive to chromatic spread.",
+    ),
+    (
+        "FWHM (full width at half maximum)",
+        "PSF core size. Polychromatic should be broader than shortest-λ.",
+    ),
+    (
+        "SNR (signal-to-noise ratio)",
+        "Does the PSF model choice actually affect SNR in extended scene?",
+    ),
+    ("Airy disk diameter", "Fundamental: 2.44 × λ × f/#. Varies 34–49 µm across band."),
+    ("Q parameter (λ f/# / p)", "Sampling adequacy. Varies 0.78–1.11 across band at 18 µm pitch."),
 ]
 
 for i, (metric, why) in enumerate(metrics, 5):

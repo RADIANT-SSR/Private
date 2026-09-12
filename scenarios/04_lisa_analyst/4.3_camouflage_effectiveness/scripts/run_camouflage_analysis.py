@@ -40,7 +40,6 @@ Usage:
 """
 
 import math
-import warnings
 from pathlib import Path
 
 import matplotlib
@@ -164,8 +163,9 @@ options = list(eps_curves.keys())
 IFOV_RAD = spec["Pixel pitch"] * 1e-6 / (spec["Focal length"] / 100.0)
 
 
-def build_sensor(radiance_file: Path, band_min: float, band_max: float,
-                 zenith_rad: float) -> Sensor:
+def build_sensor(
+    radiance_file: Path, band_min: float, band_max: float, zenith_rad: float
+) -> Sensor:
     s = Sensor()
     s.set("source.target.user_radiance_path", str(radiance_file))
     s.set("source.scene_type", "extended")
@@ -197,8 +197,9 @@ def build_sensor(radiance_file: Path, band_min: float, band_max: float,
     return s
 
 
-def pixel_signal_noise(radiance_file: Path, band_min: float, band_max: float,
-                       zenith_rad: float) -> tuple[float, float, float]:
+def pixel_signal_noise(
+    radiance_file: Path, band_min: float, band_max: float, zenith_rad: float
+) -> tuple[float, float, float]:
     """Return (signal_e, total_noise_e, well_fraction) for an extended pixel."""
     r = build_sensor(radiance_file, band_min, band_max, zenith_rad).evaluate()
     sig = float(r.stage_outputs["readout"]["signal_e_final"])
@@ -207,13 +208,14 @@ def pixel_signal_noise(radiance_file: Path, band_min: float, band_max: float,
     return sig, noise, well
 
 
-def scnr_vs_scrub(label: str, band_min: float, band_max: float,
-                  zenith_rad: float) -> tuple[float, float, float]:
+def scnr_vs_scrub(
+    label: str, band_min: float, band_max: float, zenith_rad: float
+) -> tuple[float, float, float]:
     """|S_option − S_scrub| / noise_scrub — contrast against the scrub pixel."""
-    s_opt, _, well = pixel_signal_noise(radiance_csv(label), band_min, band_max,
-                                        zenith_rad)
-    s_scrub, n_scrub, _ = pixel_signal_noise(radiance_csv(SCRUB_LABEL), band_min,
-                                             band_max, zenith_rad)
+    s_opt, _, well = pixel_signal_noise(radiance_csv(label), band_min, band_max, zenith_rad)
+    s_scrub, n_scrub, _ = pixel_signal_noise(
+        radiance_csv(SCRUB_LABEL), band_min, band_max, zenith_rad
+    )
     contrast = s_opt - s_scrub
     scnr = abs(contrast) / n_scrub if n_scrub > 0 else 0.0
     return contrast, scnr, well
@@ -252,46 +254,64 @@ def main() -> None:
     for k, v in spec.items():
         print(f"  {k:<36s}: {v:g}")
 
-    print(f"\n=== Emissivity sources ===")
-    print(f"  Bare vehicle : ASTER '{steel.name}' — "
-          f"{steel.wavelength_um[0]:.1f}–{steel.wavelength_um[-1]:.1f} µm, "
-          f"ε = 1 − ρ (load_aster_spectrum)")
-    print(f"  Camo net A   : {net_a.n_points} measured points "
-          f"(broadband low-ε weave)")
-    print(f"  Camo net B   : {net_b.n_points} measured points "
-          f"(shaped: low 8–10 µm, high 10–12 µm)")
-    print(f"  Camo net C   : {net_c.n_points} points ONLY (8.0/10.5/14.0 µm) — "
-          f"linear interpolation between spot values,")
-    print(f"                 an ASSUMPTION the vendor sheet forces on us; real")
-    print(f"                 nets can have spectral structure the 3 points miss.")
+    print("\n=== Emissivity sources ===")
+    print(
+        f"  Bare vehicle : ASTER '{steel.name}' — "
+        f"{steel.wavelength_um[0]:.1f}–{steel.wavelength_um[-1]:.1f} µm, "
+        f"ε = 1 − ρ (load_aster_spectrum)"
+    )
+    print(f"  Camo net A   : {net_a.n_points} measured points (broadband low-ε weave)")
+    print(f"  Camo net B   : {net_b.n_points} measured points (shaped: low 8–10 µm, high 10–12 µm)")
+    print(
+        f"  Camo net C   : {net_c.n_points} points ONLY (8.0/10.5/14.0 µm) — "
+        f"linear interpolation between spot values,"
+    )
+    print("                 an ASSUMPTION the vendor sheet forces on us; real")
+    print("                 nets can have spectral structure the 3 points miss.")
 
     # ---------------------------------------------------------------------------
     # Step 2: Derive L_t(λ) = ε(λ)·B(λ,T) per option (S8 boundary conversion)
     # ---------------------------------------------------------------------------
 
     DERIVED.mkdir(parents=True, exist_ok=True)
-    print(f"\n=== Deriving target radiance CSVs (S8: L = ε(λ)·B(λ,T_surface)) ===")
+    print("\n=== Deriving target radiance CSVs (S8: L = ε(λ)·B(λ,T_surface)) ===")
     for label, eps in eps_curves.items():
         L = eps * planck(surface_T[label])
         fname = derived_radiance_path(label)
-        np.savetxt(fname, np.column_stack([wl_grid, L]), delimiter=",",
-                   header="wavelength_um,L_W_m2_sr_um", comments="")
-        print(f"  {label:<14s}: T = {surface_T[label]:.0f} K, "
-              f"band-mean ε = {np.mean(eps[(wl_grid >= band[0]) & (wl_grid <= band[1])]):.3f} "
-              f"→ {fname.name}")
-    print(f"  (Camo model: the net drapes the vehicle and re-emits at its own")
-    print(f"  temperature {spec['Camo net temperature']:.0f} K — transmission through the weave and")
-    print(f"  vehicle heating of the net are folded into that assumed T_net.)")
+        np.savetxt(
+            fname,
+            np.column_stack([wl_grid, L]),
+            delimiter=",",
+            header="wavelength_um,L_W_m2_sr_um",
+            comments="",
+        )
+        print(
+            f"  {label:<14s}: T = {surface_T[label]:.0f} K, "
+            f"band-mean ε = {np.mean(eps[(wl_grid >= band[0]) & (wl_grid <= band[1])]):.3f} "
+            f"→ {fname.name}"
+        )
+    print("  (Camo model: the net drapes the vehicle and re-emits at its own")
+    print(
+        f"  temperature {spec['Camo net temperature']:.0f} K — transmission through the weave and"
+    )
+    print("  vehicle heating of the net are folded into that assumed T_net.)")
 
     # Scrub-background radiance (the "no target" pixel) — the reference every
     # option is detected AGAINST.
     L_scrub = spec["Background emissivity (scrub)"] * planck(spec["Background temperature (scrub)"])
     scrub_file = derived_radiance_path(SCRUB_LABEL)
-    np.savetxt(scrub_file, np.column_stack([wl_grid, L_scrub]), delimiter=",",
-               header="wavelength_um,L_W_m2_sr_um", comments="")
-    print(f"  Scrub background: {spec['Background temperature (scrub)']:.0f} K, "
-          f"ε = {spec['Background emissivity (scrub)']:.2f} → {scrub_file.name} "
-          f"(the detection reference)")
+    np.savetxt(
+        scrub_file,
+        np.column_stack([wl_grid, L_scrub]),
+        delimiter=",",
+        header="wavelength_um,L_W_m2_sr_um",
+        comments="",
+    )
+    print(
+        f"  Scrub background: {spec['Background temperature (scrub)']:.0f} K, "
+        f"ε = {spec['Background emissivity (scrub)']:.2f} → {scrub_file.name} "
+        f"(the detection reference)"
+    )
 
     # ---------------------------------------------------------------------------
     # Step 3a: Side-by-side at nadir (full band)
@@ -302,29 +322,37 @@ def main() -> None:
     nadir_well: dict[str, float] = {}
     for label in options:
         nadir_contrast[label], nadir_scnr[label], nadir_well[label] = scnr_vs_scrub(
-            label, band[0], band[1], 0.0)
+            label, band[0], band[1], 0.0
+        )
 
     print(f"\n{'=' * 95}")
-    print(f"  SIDE-BY-SIDE AT NADIR (3 km, full 8-12 um band)")
-    print(f"  Contrast = option pixel - scrub pixel; SCNR = |contrast| / scrub-scene noise")
+    print("  SIDE-BY-SIDE AT NADIR (3 km, full 8-12 um band)")
+    print("  Contrast = option pixel - scrub pixel; SCNR = |contrast| / scrub-scene noise")
     print(f"{'=' * 95}")
-    print(f"  {'Option':<14s} {'contrast [e-]':>14s}  {'SCNR [--]':>9s}  "
-          f"{'well fill [%]':>13s}")
+    print(f"  {'Option':<14s} {'contrast [e-]':>14s}  {'SCNR [--]':>9s}  {'well fill [%]':>13s}")
     print(f"  {'-' * 14} {'-' * 14}  {'-' * 9}  {'-' * 13}")
     for label in options:
-        print(f"  {label:<14s} {nadir_contrast[label]:>+14,.0f}  {nadir_scnr[label]:>9.1f}  "
-              f"{nadir_well[label] * 100:>13.1f}")
-    print(f"\n  The bare vehicle (hot engine deck, {spec['Bare vehicle temperature']:.0f} K) is strongly")
-    print(f"  POSITIVE against the {spec['Background temperature (scrub)']:.0f} K scrub. Each net drapes the vehicle and")
-    print(f"  re-emits at its own {spec['Camo net temperature']:.0f} K: an EFFECTIVE net drives its band")
-    print(f"  radiance toward the scrub's, i.e. contrast -> 0 — NOT merely 'colder'.")
+        print(
+            f"  {label:<14s} {nadir_contrast[label]:>+14,.0f}  {nadir_scnr[label]:>9.1f}  "
+            f"{nadir_well[label] * 100:>13.1f}"
+        )
+    print(
+        f"\n  The bare vehicle (hot engine deck, {spec['Bare vehicle temperature']:.0f} K) is strongly"
+    )
+    print(
+        f"  POSITIVE against the {spec['Background temperature (scrub)']:.0f} K scrub. Each net drapes the vehicle and"
+    )
+    print(
+        f"  re-emits at its own {spec['Camo net temperature']:.0f} K: an EFFECTIVE net drives its band"
+    )
+    print("  radiance toward the scrub's, i.e. contrast -> 0 — NOT merely 'colder'.")
 
     # ---------------------------------------------------------------------------
     # Step 4: Sub-band analysis — each option's easiest detection half-band
     # ---------------------------------------------------------------------------
 
     SUB_BANDS = {"8-10 um": (8.0, 10.0), "10-12 um": (10.0, 12.0)}
-    print(f"\n=== Sub-band SCNR (which half-band detects each option best?) ===")
+    print("\n=== Sub-band SCNR (which half-band detects each option best?) ===")
     print(f"  {'Option':<14s} {'8-10 um':>10s}  {'10-12 um':>10s}  {'Best band'}")
     print(f"  {'-' * 14} {'-' * 10}  {'-' * 10}  {'-' * 12}")
     subband_scnr: dict[str, dict[str, float]] = {}
@@ -333,15 +361,19 @@ def main() -> None:
         for bname, (lo, hi) in SUB_BANDS.items():
             _, subband_scnr[label][bname], _ = scnr_vs_scrub(label, lo, hi, 0.0)
         best = max(SUB_BANDS, key=lambda b: subband_scnr[label][b])
-        print(f"  {label:<14s} {subband_scnr[label]['8-10 um']:>10.1f}  "
-              f"{subband_scnr[label]['10-12 um']:>10.1f}  {best}")
-    print(f"  Net B's spectral shaping shows here: its 8-10 um and 10-12 um SCNR")
-    print(f"  split differently from the flat-spectrum options — a sensor confined")
-    print(f"  to one half-band would rank the nets differently than the full FLIR.")
+        print(
+            f"  {label:<14s} {subband_scnr[label]['8-10 um']:>10.1f}  "
+            f"{subband_scnr[label]['10-12 um']:>10.1f}  {best}"
+        )
+    print("  Net B's spectral shaping shows here: its 8-10 um and 10-12 um SCNR")
+    print("  split differently from the flat-spectrum options — a sensor confined")
+    print("  to one half-band would rank the nets differently than the full FLIR.")
 
     print(f"\n{'=' * 95}")
-    print(f"  DETECTION RANGE (slant, SCNR >= {SCNR_THRESHOLD:.0f}, bisection on zenith <= "
-          f"{math.degrees(ZENITH_MAX_RAD):.0f} deg)")
+    print(
+        f"  DETECTION RANGE (slant, SCNR >= {SCNR_THRESHOLD:.0f}, bisection on zenith <= "
+        f"{math.degrees(ZENITH_MAX_RAD):.0f} deg)"
+    )
     print(f"{'=' * 95}")
     ranges: dict[str, float] = {}
     capped: dict[str, bool] = {}
@@ -360,12 +392,15 @@ def main() -> None:
             red = f"{(1.0 - ranges[label] / r_bare) * 100:.1f}"
         print(f"  {label:<14s} {ranges[label]:>20,.1f}{marker}  {red:>22s}")
     if any(capped.values()):
-        print(f"  * limited by the {math.degrees(ZENITH_MAX_RAD):.0f} deg zenith sweep edge, not by SCNR")
-        print(f"    (a sensitive FLIR at 3 km detects across the practical swath — camo")
-        print(f"    reduces the SIGNATURE, the primary metric above, more than the range).")
+        print(
+            f"  * limited by the {math.degrees(ZENITH_MAX_RAD):.0f} deg zenith sweep edge, not by SCNR"
+        )
+        print("    (a sensitive FLIR at 3 km detects across the practical swath — camo")
+        print("    reduces the SIGNATURE, the primary metric above, more than the range).")
 
-    best_net = min((label for label in options if label != "Bare vehicle"),
-                   key=lambda k: nadir_scnr[k])
+    best_net = min(
+        (label for label in options if label != "Bare vehicle"), key=lambda k: nadir_scnr[k]
+    )
 
     # ---------------------------------------------------------------------------
     # Step 6: Spectral contrast plot
@@ -378,7 +413,9 @@ def main() -> None:
         dL = eps_curves[label] * planck(surface_T[label]) - L_bg
         ax1.plot(wl_grid, dL, color=color, linewidth=2, label=label)
     ax1.axhline(0.0, color="gray", linewidth=0.8)
-    ax1.axvspan(*band, alpha=0.08, color="green", label=f"Sensor band {band[0]:.0f}-{band[1]:.0f} um")
+    ax1.axvspan(
+        *band, alpha=0.08, color="green", label=f"Sensor band {band[0]:.0f}-{band[1]:.0f} um"
+    )
     ax1.set_xlabel("Wavelength [um]", fontsize=12)
     ax1.set_ylabel("dL(lambda) = L_target - L_background [W/m2/sr/um]", fontsize=12)
     ax1.set_title("Spectral Contrast vs Scrub Background", fontsize=13)
@@ -395,8 +432,14 @@ def main() -> None:
     colors = ["dimgray", "tab:blue", "tab:red", "tab:green"]
     bars = ax2.bar(x, vals, color=colors, edgecolor="black", linewidth=0.6)
     for bar, o in zip(bars, options):
-        ax2.text(bar.get_x() + bar.get_width() / 2, bar.get_height(),
-                 f"{nadir_scnr[o]:,.0f}", ha="center", va="bottom", fontsize=10)
+        ax2.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            f"{nadir_scnr[o]:,.0f}",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+        )
     ax2.set_xticks(x)
     ax2.set_xticklabels(options, fontsize=10)
     ax2.set_ylabel("Nadir SCNR vs scrub [dimensionless]", fontsize=11)
@@ -410,12 +453,17 @@ def main() -> None:
     for label, color in zip(options, colors):
         ax3.plot(wl_grid, eps_curves[label], color=color, linewidth=2, label=label)
     ax3.axvspan(*band, alpha=0.08, color="green")
-    ax3.axhline(spec["Background emissivity (scrub)"], color="gray", linestyle=":",
-                label=f"Scrub ε = {spec['Background emissivity (scrub)']:.2f}")
+    ax3.axhline(
+        spec["Background emissivity (scrub)"],
+        color="gray",
+        linestyle=":",
+        label=f"Scrub ε = {spec['Background emissivity (scrub)']:.2f}",
+    )
     ax3.set_xlabel("Wavelength [um]", fontsize=12)
     ax3.set_ylabel("Emissivity ε(lambda) [fraction]", fontsize=12)
-    ax3.set_title("Input Emissivity Spectra (ASTER + vendor CSVs; net C = 3-pt interp)",
-                  fontsize=13)
+    ax3.set_title(
+        "Input Emissivity Spectra (ASTER + vendor CSVs; net C = 3-pt interp)", fontsize=13
+    )
     ax3.legend(fontsize=10)
     ax3.grid(True, alpha=0.3)
     ax3.set_ylim(0.4, 1.0)
@@ -432,12 +480,23 @@ def main() -> None:
     ws1.title = "Camo Trade"
     hdr_font = Font(bold=True, size=10, color="FFFFFF")
     hdr_fill = PatternFill("solid", fgColor="2E75B6")
-    border = Border(left=Side(style="thin"), right=Side(style="thin"),
-                    top=Side(style="thin"), bottom=Side(style="thin"))
+    border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
+    )
     ws1["A1"] = "Scenario 4.3 - Camouflage effectiveness (LWIR FLIR, 3 km)"
     ws1["A1"].font = Font(bold=True, size=14)
-    headers = ["Option", "contrast [e-]", "SCNR nadir", "SCNR 8-10um",
-               "SCNR 10-12um", "Detection range [km]", "Reduction vs bare [%]"]
+    headers = [
+        "Option",
+        "contrast [e-]",
+        "SCNR nadir",
+        "SCNR 8-10um",
+        "SCNR 10-12um",
+        "Detection range [km]",
+        "Reduction vs bare [%]",
+    ]
     for col, htext in enumerate(headers, 1):
         cell = ws1.cell(row=3, column=col, value=htext)
         cell.font = hdr_font
@@ -445,12 +504,16 @@ def main() -> None:
         cell.alignment = Alignment(horizontal="center")
         cell.border = border
     for i, label in enumerate(options, 4):
-        red = ("" if label == "Bare vehicle"
-               else round((1.0 - ranges[label] / r_bare) * 100, 1))
-        vals = [label, round(nadir_contrast[label], 0), round(nadir_scnr[label], 1),
-                round(subband_scnr[label]["8-10 um"], 1),
-                round(subband_scnr[label]["10-12 um"], 1),
-                round(ranges[label], 1), red]
+        red = "" if label == "Bare vehicle" else round((1.0 - ranges[label] / r_bare) * 100, 1)
+        vals = [
+            label,
+            round(nadir_contrast[label], 0),
+            round(nadir_scnr[label], 1),
+            round(subband_scnr[label]["8-10 um"], 1),
+            round(subband_scnr[label]["10-12 um"], 1),
+            round(ranges[label], 1),
+            red,
+        ]
         for col, v in enumerate(vals, 1):
             ws1.cell(row=i, column=col, value=v).border = border
     for col_letter, width in zip("ABCDEFG", [16, 14, 12, 13, 13, 19, 20]):
@@ -463,31 +526,37 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 95}")
-    print(f"  SUMMARY AND RECOMMENDATION")
+    print("  SUMMARY AND RECOMMENDATION")
     print(f"{'=' * 95}")
-    print(f"\n  Scene: 18 m2 vehicle, bare {spec['Bare vehicle temperature']:.0f} K engine deck vs nets at "
-          f"{spec['Camo net temperature']:.0f} K, scrub {spec['Background temperature (scrub)']:.0f} K / "
-          f"eps {spec['Background emissivity (scrub)']:.2f}, clutter sigma = {spec['Scene clutter sigma']:.2f}")
-    print(f"  Sensor: 10 cm LWIR FLIR, 8-12 um, 3 km altitude (pixel-filling draped net)")
+    print(
+        f"\n  Scene: 18 m2 vehicle, bare {spec['Bare vehicle temperature']:.0f} K engine deck vs nets at "
+        f"{spec['Camo net temperature']:.0f} K, scrub {spec['Background temperature (scrub)']:.0f} K / "
+        f"eps {spec['Background emissivity (scrub)']:.2f}, clutter sigma = {spec['Scene clutter sigma']:.2f}"
+    )
+    print("  Sensor: 10 cm LWIR FLIR, 8-12 um, 3 km altitude (pixel-filling draped net)")
     print(f"\n  {'Option':<14s} {'SCNR nadir':>10s}  {'Signature reduction vs bare [%]':>32s}")
     print(f"  {'-' * 14} {'-' * 10}  {'-' * 32}")
     for label in options:
-        red = "-" if label == "Bare vehicle" else f"{(1.0 - nadir_scnr[label] / nadir_scnr['Bare vehicle']) * 100:.1f}"
+        red = (
+            "-"
+            if label == "Bare vehicle"
+            else f"{(1.0 - nadir_scnr[label] / nadir_scnr['Bare vehicle']) * 100:.1f}"
+        )
         print(f"  {label:<14s} {nadir_scnr[label]:>10.1f}  {red:>32s}")
     print(f"\n  RECOMMENDATION: {best_net} is the most effective against this 8-12 um")
-    print(f"  FLIR (lowest residual SCNR = best background match). Physics:")
-    print(f"    1. Camouflage = radiance MATCHING, not merely lowering emission: the")
-    print(f"       net whose eps.B(T_net) is closest to eps_bg.B(T_bg) wins. Net C")
-    print(f"       (eps ~ 0.93, near the 0.96 scrub) drives contrast lowest; the")
-    print(f"       low-eps Net A over-corrects and reads cold (residual signature).")
-    print(f"    2. Net B's spectral shaping only pays against a sensor confined to")
-    print(f"       one half-band (see the sub-band table); the full FLIR averages it.")
-    print(f"    3. Net C's 3-point quote sheet forces linear interpolation between")
-    print(f"       spot values — spectral structure between them is invisible here")
-    print(f"       (flagged in gaps.md).")
-    print(f"    4. Detection RANGE is edge-limited for all options: a sensitive FLIR")
-    print(f"       at 3 km still detects every option across the practical swath.")
-    print(f"       Emissivity camo buys signature REDUCTION, not invisibility.")
+    print("  FLIR (lowest residual SCNR = best background match). Physics:")
+    print("    1. Camouflage = radiance MATCHING, not merely lowering emission: the")
+    print("       net whose eps.B(T_net) is closest to eps_bg.B(T_bg) wins. Net C")
+    print("       (eps ~ 0.93, near the 0.96 scrub) drives contrast lowest; the")
+    print("       low-eps Net A over-corrects and reads cold (residual signature).")
+    print("    2. Net B's spectral shaping only pays against a sensor confined to")
+    print("       one half-band (see the sub-band table); the full FLIR averages it.")
+    print("    3. Net C's 3-point quote sheet forces linear interpolation between")
+    print("       spot values — spectral structure between them is invisible here")
+    print("       (flagged in gaps.md).")
+    print("    4. Detection RANGE is edge-limited for all options: a sensitive FLIR")
+    print("       at 3 km still detects every option across the practical swath.")
+    print("       Emissivity camo buys signature REDUCTION, not invisibility.")
 
 
 if __name__ == "__main__":

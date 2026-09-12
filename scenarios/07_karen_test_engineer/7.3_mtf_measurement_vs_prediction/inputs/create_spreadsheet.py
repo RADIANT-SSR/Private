@@ -16,7 +16,7 @@ import math
 
 import numpy as np
 import openpyxl
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.styles import Border, Font, PatternFill, Side
 
 wb = openpyxl.Workbook()
 
@@ -24,8 +24,10 @@ header_font = Font(bold=True, size=11)
 section_fill = PatternFill(start_color="002E75B6", end_color="002E75B6", fill_type="solid")
 section_font = Font(bold=True, size=11, color="FFFFFF")
 thin_border = Border(
-    left=Side(style="thin"), right=Side(style="thin"),
-    top=Side(style="thin"), bottom=Side(style="thin"),
+    left=Side(style="thin"),
+    right=Side(style="thin"),
+    top=Side(style="thin"),
+    bottom=Side(style="thin"),
 )
 
 # ---------------------------------------------------------------------------
@@ -183,7 +185,7 @@ wfe_rms_waves = 0.07  # at 633 nm
 opd_rms_m = wfe_rms_waves * 633.0e-9
 # Shannon's approximation: MTF_aberrated/MTF_diff ≈ 1 - (2*pi*OPD/lambda)^2 * H(f)
 # Use a simpler empirical factor
-strehl = math.exp(-(2.0 * math.pi * opd_rms_m / wavelength_m) ** 2)
+strehl = math.exp(-((2.0 * math.pi * opd_rms_m / wavelength_m) ** 2))
 # Mix: at low freq MTF ≈ MTF_diff, at high freq degraded by WFE
 wfe_factor = strehl + (1.0 - strehl) * np.exp(-0.5 * (freq_cy_m / (0.3 * f_cutoff_cy_m)) ** 2)
 
@@ -221,14 +223,14 @@ for i, (f_val, m_val) in enumerate(zip(freq_cy_mm, mtf_measured), row + 1):
 # Add notes
 note_row = row + n_points + 2
 ws2.cell(row=note_row, column=1, value="Notes:").font = Font(bold=True)
-ws2.cell(row=note_row + 1, column=1,
-         value="Frequency is in cycles/mm on the focal plane.")
-ws2.cell(row=note_row + 2, column=1,
-         value="MTF normalized to 1.0 at DC (zero frequency).")
-ws2.cell(row=note_row + 3, column=1,
-         value="Nyquist frequency = 50 cy/mm (for 10 um pixels).")
-ws2.cell(row=note_row + 4, column=1,
-         value="Data extends to 2× Nyquist (100 cy/mm) for aliasing analysis.")
+ws2.cell(row=note_row + 1, column=1, value="Frequency is in cycles/mm on the focal plane.")
+ws2.cell(row=note_row + 2, column=1, value="MTF normalized to 1.0 at DC (zero frequency).")
+ws2.cell(row=note_row + 3, column=1, value="Nyquist frequency = 50 cy/mm (for 10 um pixels).")
+ws2.cell(
+    row=note_row + 4,
+    column=1,
+    value="Data extends to 2× Nyquist (100 cy/mm) for aliasing analysis.",
+)
 
 # ---------------------------------------------------------------------------
 # Sheet 3: As-Built WFE
@@ -244,8 +246,7 @@ ws3.column_dimensions["D"].width = 50
 
 row = 4
 for c in range(1, 5):
-    cell = ws3.cell(row=row, column=c,
-                    value=["Parameter", "Value", "Unit", "Notes"][c - 1])
+    cell = ws3.cell(row=row, column=c, value=["Parameter", "Value", "Unit", "Notes"][c - 1])
     cell.font = header_font
     cell.border = thin_border
 
@@ -279,8 +280,7 @@ ws4.column_dimensions["D"].width = 50
 
 row = 4
 for c in range(1, 5):
-    cell = ws4.cell(row=row, column=c,
-                    value=["Parameter", "Value", "Unit", "Notes"][c - 1])
+    cell = ws4.cell(row=row, column=c, value=["Parameter", "Value", "Unit", "Notes"][c - 1])
     cell.font = header_font
     cell.border = thin_border
 
@@ -302,8 +302,7 @@ for i, (param, val, unit, note) in enumerate(focus_data, row + 1):
 # Defocus sweep for sensitivity analysis
 row = 12
 for c in range(1, 5):
-    cell = ws4.cell(row=row, column=c,
-                    value=["Defocus Sweep", "", "", ""][c - 1])
+    cell = ws4.cell(row=row, column=c, value=["Defocus Sweep", "", "", ""][c - 1])
     cell.fill = section_fill
     cell.font = section_font
 
@@ -315,6 +314,7 @@ for i, d in enumerate(defocus_values, row + 2):
     ws4.cell(row=i, column=1, value=d).border = thin_border
 
 from pathlib import Path
+
 out = Path(__file__).parent / "karen_mtf_lab_data.xlsx"
 wb.save(out)
 print(f"Created {out}")

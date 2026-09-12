@@ -15,8 +15,10 @@ header_font = Font(bold=True, size=11)
 section_fill = PatternFill(start_color="002E75B6", end_color="002E75B6", fill_type="solid")
 section_font = Font(bold=True, size=11, color="FFFFFF")
 thin_border = Border(
-    left=Side(style="thin"), right=Side(style="thin"),
-    top=Side(style="thin"), bottom=Side(style="thin"),
+    left=Side(style="thin"),
+    right=Side(style="thin"),
+    top=Side(style="thin"),
+    bottom=Side(style="thin"),
 )
 
 
@@ -82,8 +84,9 @@ row = add_param(ws1, row, "Full well capacity", 80000.0, "e⁻", "90% linearity"
 row = add_param(ws1, row, "ADC bits", 12, "—", "")
 row = add_param(ws1, row, "System gain", 5.0, "e⁻/DN", "")
 row = add_param(ws1, row, "IPC coupling", 1.5, "%", "Measured")
-row = add_param(ws1, row, "Integration time", 0.5, "ms",
-                "Short for pushbroom at 7 km/s ground speed")
+row = add_param(
+    ws1, row, "Integration time", 0.5, "ms", "Short for pushbroom at 7 km/s ground speed"
+)
 
 # ---------------------------------------------------------------------------
 # Sheet 2: Orbit & Geometry
@@ -106,10 +109,8 @@ row = add_param(ws2, row, "Ground speed", 6.9, "km/s", "Approximate at 600 km")
 row += 1
 
 row = add_section(ws2, row, "Solar Geometry")
-row = add_param(ws2, row, "Solar zenith angle", 30.0, "deg",
-                "Midlatitude summer, 10:30 AM local")
-row = add_param(ws2, row, "Solar azimuth", 0.0, "deg",
-                "Relative to line of sight")
+row = add_param(ws2, row, "Solar zenith angle", 30.0, "deg", "Midlatitude summer, 10:30 AM local")
+row = add_param(ws2, row, "Solar azimuth", 0.0, "deg", "Relative to line of sight")
 row += 1
 
 row = add_section(ws2, row, "Target")
@@ -138,16 +139,27 @@ for i, angle in enumerate(angles_deg, row + 1):
 # Notes
 note_row = row + len(angles_deg) + 2
 ws3.cell(row=note_row, column=1, value="Notes:").font = Font(bold=True)
-ws3.cell(row=note_row + 1, column=1,
-         value="Off-nadir angle = angle between nadir direction and line of sight.")
-ws3.cell(row=note_row + 2, column=1,
-         value="RADIANT parameter: geometry.path_zenith_rad (convert deg -> rad).")
-ws3.cell(row=note_row + 3, column=1,
-         value="Slant range increases as 1/cos(theta) for flat-Earth approximation.")
-ws3.cell(row=note_row + 4, column=1,
-         value="Earth curvature correction applied for angles > 80 deg.")
+ws3.cell(
+    row=note_row + 1,
+    column=1,
+    value="Off-nadir angle = angle between nadir direction and line of sight.",
+)
+ws3.cell(
+    row=note_row + 2,
+    column=1,
+    value="RADIANT parameter: geometry.path_zenith_rad (convert deg -> rad).",
+)
+ws3.cell(
+    row=note_row + 3,
+    column=1,
+    value="Slant range increases as 1/cos(theta) for flat-Earth approximation.",
+)
+ws3.cell(
+    row=note_row + 4, column=1, value="Earth curvature correction applied for angles > 80 deg."
+)
 
 from pathlib import Path
+
 out = Path(__file__).parent / "raj_off_nadir_data.xlsx"
 wb.save(out)
 print(f"Created {out}")

@@ -116,8 +116,8 @@ def main() -> None:
     print("SCENARIO 1.5 — OBSCURED APERTURE & SPIDER VANES")
     print("=" * 74)
     print(
-        f"Cassegrain: {APERTURE_M*100:.0f} cm primary, obscuration ε = {OBSCURATION}, "
-        f"4 spider arms; f/{FOCAL_M/APERTURE_M:.0f}, VNIR pan."
+        f"Cassegrain: {APERTURE_M * 100:.0f} cm primary, obscuration ε = {OBSCURATION}, "
+        f"4 spider arms; f/{FOCAL_M / APERTURE_M:.0f}, VNIR pan."
     )
     print(
         "Regime: EXTENDED. Struts enter the pupil mask → both PSF and MTF (Rule 4); "
@@ -148,9 +148,9 @@ def main() -> None:
     spid = metrics_of(results["Obscured + 4× 3 cm spiders"])
     print(
         f"\n  Unobstructed → full Cassegrain: SNR {base['snr']:.1f} → {spid['snr']:.1f} "
-        f"({(spid['snr']/base['snr']-1)*100:+.1f}%), "
+        f"({(spid['snr'] / base['snr'] - 1) * 100:+.1f}%), "
         f"EE_3x3 {base['ee_3x3']:.3f} → {spid['ee_3x3']:.3f} "
-        f"({(spid['ee_3x3']/base['ee_3x3']-1)*100:+.1f}%)."
+        f"({(spid['ee_3x3'] / base['ee_3x3'] - 1) * 100:+.1f}%)."
     )
     print(
         "  Strehl is ~1 in every row: it is a WFE metric, and the reference PSF "
@@ -177,7 +177,7 @@ def main() -> None:
         "\n  EE_3x3 and RER fall monotonically with strut width — each cm of strut "
         "scatters more core energy into the diffraction spikes and shaves the "
         "collecting area. Sarah's 3 cm baseline costs "
-        f"{(1 - ee[3]/ee[0])*100:.0f}% of the encircled energy vs no struts."
+        f"{(1 - ee[3] / ee[0]) * 100:.0f}% of the encircled energy vs no struts."
     )
 
     # ---------------------------------------------------------------

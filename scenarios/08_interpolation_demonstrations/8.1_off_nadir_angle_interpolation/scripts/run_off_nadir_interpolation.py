@@ -138,8 +138,7 @@ def main() -> None:
         wl_b3, tau_b3, _ = interpolate_family(FAMILY, 60.0)  # exact node
         wl_b2, tau_b2, _ = interpolate_family(FAMILY, 45.0)  # exact node = truth
         tau_holdout = np.exp(
-            0.5 * np.log(np.clip(tau_b1, 1e-300, 1.0))
-            + 0.5 * np.log(np.clip(tau_b3, 1e-300, 1.0))
+            0.5 * np.log(np.clip(tau_b1, 1e-300, 1.0)) + 0.5 * np.log(np.clip(tau_b3, 1e-300, 1.0))
         )
         hold_mask = (wl_b2 >= BAND_MIN_UM) & (wl_b2 <= BAND_MAX_UM)
         tau_true = float(np.mean(tau_b2[hold_mask]))
@@ -163,8 +162,7 @@ def main() -> None:
         print("=== Holdout validation: predict the 45 deg run from 30 + 60 deg ===")
         print(f"  Real 45 deg (B2) in-band tau [-]:         {tau_true:.4f}")
         print(
-            f"  Log-tau, linear in angle (pre-CU-160):    {tau_pred:.4f}  "
-            f"({holdout_err_pct:+.2f}%)"
+            f"  Log-tau, linear in angle (pre-CU-160):    {tau_pred:.4f}  ({holdout_err_pct:+.2f}%)"
         )
         print(
             f"  Log-tau, linear in airmass (the method):  {tau_sec_pred:.4f}  "

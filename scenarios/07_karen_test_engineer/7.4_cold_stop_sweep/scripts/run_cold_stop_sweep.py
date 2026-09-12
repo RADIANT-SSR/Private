@@ -42,14 +42,12 @@ Usage:
     python run_cold_stop_sweep.py
 """
 
-import math
 from pathlib import Path
 
+import matplotlib
 import numpy as np
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-
-import matplotlib
 
 matplotlib.use("Agg")  # headless-safe: plt.show() is a no-op, so the runner completes in CI/batch
 import matplotlib.pyplot as plt  # noqa: E402
@@ -99,14 +97,16 @@ ws_meas = wb["Background Measurements"]
 lab_data: list[dict] = []
 for row in ws_meas.iter_rows(min_row=6, max_col=6, values_only=True):
     if row[0] and row[1] is not None and isinstance(row[1], (int, float)):
-        lab_data.append({
-            "test_id": row[0],
-            "position_mm": float(row[1]),
-            "dn_mean": float(row[2]),
-            "dn_sigma": float(row[3]),
-            "bkg_e": float(row[4]),
-            "notes": row[5] or "",
-        })
+        lab_data.append(
+            {
+                "test_id": row[0],
+                "position_mm": float(row[1]),
+                "dn_mean": float(row[2]),
+                "dn_sigma": float(row[3]),
+                "bkg_e": float(row[4]),
+                "notes": row[5] or "",
+            }
+        )
 
 ws_req = wb["Performance Requirements"]
 reqs: dict[str, object] = {}
@@ -121,41 +121,41 @@ for row in ws_req.iter_rows(min_row=5, max_col=4, values_only=True):
 # RADIANT expects: meters, fractions, seconds, µm, K, e⁻/s
 # Karen's spreadsheet has: cm, mm, %, °C, nm, ms, fA/pixel
 
-aperture_m = float(specs["Primary aperture diameter"]) / 100.0    # cm → m
+aperture_m = float(specs["Primary aperture diameter"]) / 100.0  # cm → m
 focal_length_m = float(specs["Effective focal length"]) / 1000.0  # mm → m
-f_number = float(specs["f-number"])                                # dimensionless
+f_number = float(specs["f-number"])  # dimensionless
 transmission = float(specs["End-to-end optical transmission"]) / 100.0  # % → fraction
-optics_temp_K = float(specs["Optics barrel temperature"]) + 273.15     # °C → K
+optics_temp_K = float(specs["Optics barrel temperature"]) + 273.15  # °C → K
 # The workbook's "cold stop design efficiency" is a BLOCKED-fraction number that
 # no longer maps to a RADIANT parameter (Gap 128): out-of-cone structure is
 # always fully blocked, and in-cone emission cannot be blocked at all. It is
 # carried for the narrative only.
 cold_stop_design = float(specs["Cold stop design efficiency"]) / 100.0  # % → fraction
 window_T = transmission / MIRROR_R**N_MIRRORS  # [-] balance of the workbook τ
-wfe_waves = float(specs["WFE (RMS)"])                              # already in waves
+wfe_waves = float(specs["WFE (RMS)"])  # already in waves
 
-pixel_pitch_um = float(specs["Pixel pitch"])                       # already µm
-qe = float(specs["Average QE (in-band)"]) / 100.0                 # % → fraction
+pixel_pitch_um = float(specs["Pixel pitch"])  # already µm
+qe = float(specs["Average QE (in-band)"]) / 100.0  # % → fraction
 # Dark current: fA/pixel → e⁻/s.  I_dark [fA] = Q_dark [e⁻/s] × q_e [C]
 dark_fA = float(specs["Dark current (mean)"])
-dark_rate_e_per_s = dark_fA * 1e-15 / 1.602e-19                   # fA → e⁻/s
-operating_temp_K = float(specs["Operating temperature"])           # already K
-fwc = float(specs["Full well capacity"])                           # already e⁻
-read_noise = float(specs["Read noise (CDS)"])                      # already e⁻ RMS
-adc_bits = int(specs["ADC resolution"])                            # already bits
-gain = float(specs["System gain"])                                 # already e⁻/DN
+dark_rate_e_per_s = dark_fA * 1e-15 / 1.602e-19  # fA → e⁻/s
+operating_temp_K = float(specs["Operating temperature"])  # already K
+fwc = float(specs["Full well capacity"])  # already e⁻
+read_noise = float(specs["Read noise (CDS)"])  # already e⁻ RMS
+adc_bits = int(specs["ADC resolution"])  # already bits
+gain = float(specs["System gain"])  # already e⁻/DN
 
-bb_temp_K = float(specs["Blackbody temperature"]) + 273.15        # °C → K
-bb_emiss = float(specs["Blackbody emissivity"])                    # dimensionless
+bb_temp_K = float(specs["Blackbody temperature"]) + 273.15  # °C → K
+bb_emiss = float(specs["Blackbody emissivity"])  # dimensionless
 shroud_temp_K = float(specs["Chamber shroud temperature"]) + 273.15  # °C → K
-shroud_emiss = float(specs["Chamber shroud emissivity"])           # dimensionless
+shroud_emiss = float(specs["Chamber shroud emissivity"])  # dimensionless
 
 band_str = str(specs["Cold filter passband"])
 band_parts = band_str.replace("–", "-").replace("—", "-").split("-")
-band_min_um = float(band_parts[0].strip()) / 1000.0               # nm → µm
-band_max_um = float(band_parts[1].strip()) / 1000.0               # nm → µm
+band_min_um = float(band_parts[0].strip()) / 1000.0  # nm → µm
+band_max_um = float(band_parts[1].strip()) / 1000.0  # nm → µm
 
-t_int_s = float(specs["Integration time"]) / 1000.0               # ms → s
+t_int_s = float(specs["Integration time"]) / 1000.0  # ms → s
 
 
 def _warm_train() -> list[dict]:
@@ -166,7 +166,7 @@ def _warm_train() -> list[dict]:
                 "name": f"fold_mirror_{i + 1}",
                 "transfer_mode": "REFLECTIVE",
                 "kind": "MIRROR",
-                "reflectance": MIRROR_R,        # [-]
+                "reflectance": MIRROR_R,  # [-]
                 "temperature_K": optics_temp_K,  # K
             }
             for i in range(N_MIRRORS)
@@ -175,7 +175,7 @@ def _warm_train() -> list[dict]:
             "name": "cold_window",
             "transfer_mode": "REFRACTIVE",
             "kind": "WINDOW",
-            "transmittance": window_T,      # [-] AR-coated; ε = 0 (Gap 127)
+            "transmittance": window_T,  # [-] AR-coated; ε = 0 (Gap 127)
             "temperature_K": optics_temp_K,  # K
         },
     ]
@@ -186,8 +186,8 @@ config = {
         "target": {"temperature": bb_temp_K, "emissivity": bb_emiss},
         "background": {"temperature": shroud_temp_K, "emissivity": shroud_emiss},
     },
-    "atmosphere": {"model": "exo"},   # Vacuum — TVAC chamber, no atmosphere
-    "geometry": {"sensor_altitude_m": 0.0},   # Lab test — not orbital
+    "atmosphere": {"model": "exo"},  # Vacuum — TVAC chamber, no atmosphere
+    "geometry": {"sensor_altitude_m": 0.0},  # Lab test — not orbital
     "platform": {
         # The "exo" backend routes through the no_atmosphere 'space' sub-case,
         # whose Earth-limb intercept check requires a positive sensor altitude.
@@ -233,7 +233,7 @@ def _shuttered_config(undersize: float) -> dict:
     """
     shut = {k: (dict(v) if isinstance(v, dict) else v) for k, v in config.items()}
     shut["source"] = {
-        "target": {"temperature": 77.0, "emissivity": 0.98},      # cold plate [K]
+        "target": {"temperature": 77.0, "emissivity": 0.98},  # cold plate [K]
         "background": {"temperature": 77.0, "emissivity": 0.98},  # shroud blocked
     }
     shut["optics"] = dict(config["optics"])
@@ -277,11 +277,15 @@ def main() -> None:
     print(f"  {'Full well capacity':<35s} {specs['Full well capacity']:>14.0f}  e⁻")
 
     print("\n=== Lab Background Measurements ===")
-    print(f"  {'Test Point':<14s} {'Pos [mm]':>10s}  {'Bkg DN':>10s}  {'σ DN':>8s}  {'Bkg [e⁻]':>12s}")
+    print(
+        f"  {'Test Point':<14s} {'Pos [mm]':>10s}  {'Bkg DN':>10s}  {'σ DN':>8s}  {'Bkg [e⁻]':>12s}"
+    )
     print(f"  {'-' * 14} {'-' * 10}  {'-' * 10}  {'-' * 8}  {'-' * 12}")
     for d in lab_data:
-        print(f"  {d['test_id']:<14s} {d['position_mm']:>10.1f}  {d['dn_mean']:>10.0f}"
-              f"  {d['dn_sigma']:>8.0f}  {d['bkg_e']:>12.0f}")
+        print(
+            f"  {d['test_id']:<14s} {d['position_mm']:>10.1f}  {d['dn_mean']:>10.0f}"
+            f"  {d['dn_sigma']:>8.0f}  {d['bkg_e']:>12.0f}"
+        )
 
     print("\n=== Performance Requirements ===")
     for req_name, req_val in reqs.items():
@@ -293,18 +297,24 @@ def main() -> None:
     print(f"  {'Aperture diameter':<35s} {aperture_m:>14.4f}  {'m':<15s}  cm ÷ 100")
     print(f"  {'Focal length':<35s} {focal_length_m:>14.4f}  {'m':<15s}  mm ÷ 1000")
     print(f"  {'f-number (primary)':<35s} {f_number:>14.1f}  {'—':<15s}  no conversion")
-    print(f"  {'Optical transmission (net)':<35s} {transmission:>14.4f}  {'fraction':<15s}  % ÷ 100")
+    print(
+        f"  {'Optical transmission (net)':<35s} {transmission:>14.4f}  {'fraction':<15s}  % ÷ 100"
+    )
     print(f"  {'  → fold mirrors':<35s} {MIRROR_R:>14.4f}  {'R each':<15s}  {N_MIRRORS} surfaces")
     print(f"  {'  → cold window':<35s} {window_T:>14.4f}  {'T':<15s}  τ ÷ R^{N_MIRRORS}")
     print(f"  {'Optics temperature':<35s} {optics_temp_K:>14.2f}  {'K':<15s}  °C + 273.15")
-    print(f"  {'Emitting ε (mirrors only)':<35s} {N_MIRRORS * (1.0 - MIRROR_R):>14.4f}"
-          f"  {'fraction':<15s}  Σ(1 − R), Kirchhoff")
+    print(
+        f"  {'Emitting ε (mirrors only)':<35s} {N_MIRRORS * (1.0 - MIRROR_R):>14.4f}"
+        f"  {'fraction':<15s}  Σ(1 − R), Kirchhoff"
+    )
     print(f"  {'WFE (RMS)':<35s} {wfe_waves:>14.4f}  {'waves':<15s}  no conversion")
     print(f"  {'Pixel pitch':<35s} {pixel_pitch_um:>14.1f}  {'µm':<15s}  no conversion")
     print(f"  {'Quantum efficiency':<35s} {qe:>14.4f}  {'fraction':<15s}  % ÷ 100")
     print(f"  {'Dark current':<35s} {dark_fA:>14.1f}  {'fA/pixel':<15s}  (input)")
-    print(f"  {'Dark current (converted)':<35s} {dark_rate_e_per_s:>14.1f}  {'e⁻/s':<15s}"
-          f"  fA × 1e-15 ÷ q_e")
+    print(
+        f"  {'Dark current (converted)':<35s} {dark_rate_e_per_s:>14.1f}  {'e⁻/s':<15s}"
+        f"  fA × 1e-15 ÷ q_e"
+    )
     print(f"  {'Detector temperature':<35s} {operating_temp_K:>14.1f}  {'K':<15s}  no conversion")
     print(f"  {'Read noise':<35s} {read_noise:>14.1f}  {'e⁻ RMS':<15s}  no conversion")
     print(f"  {'System gain':<35s} {gain:>14.1f}  {'e⁻/DN':<15s}  no conversion")
@@ -313,8 +323,10 @@ def main() -> None:
     print(f"  {'Band':<35s} {band_min_um:>6.2f}–{band_max_um:<6.2f}  {'µm':<15s}  nm ÷ 1000")
     print(f"  {'Integration time':<35s} {t_int_s:>14.6f}  {'s':<15s}  ms ÷ 1000")
     print()
-    print(f"  UNMAPPED VENDOR NUMBER (Gap 128): 'Cold stop design efficiency' "
-          f"= {cold_stop_design * 100:.0f} %")
+    print(
+        f"  UNMAPPED VENDOR NUMBER (Gap 128): 'Cold stop design efficiency' "
+        f"= {cold_stop_design * 100:.0f} %"
+    )
     print("  is a BLOCKED-fraction figure that no longer corresponds to any RADIANT")
     print("  parameter.  A cold stop cannot attenuate in-cone warm-optics emission —")
     print("  that light arrives through the imaging path itself — and out-of-cone warm")
@@ -350,8 +362,10 @@ def main() -> None:
     print(f"    obscuration_eff    = {opt['obscuration_eff']:.4f} [-]")
     print(f"    f/#_eff            = {opt['f_number_eff']:.4f} [-]   (= f / D_eff)")
     print(f"    A_collect          = {opt['A_collect']:.6f} m²")
-    print(f"    Ω_cone             = {opt['Omega_cone']:.6f} sr   (= 2π(1 − cos θ),"
-          " θ = arctan(1/(2·f/#_eff)))")
+    print(
+        f"    Ω_cone             = {opt['Omega_cone']:.6f} sr   (= 2π(1 − cos θ),"
+        " θ = arctan(1/(2·f/#_eff)))"
+    )
     print("    The same effective pupil feeds the complex pupil function, so the")
     print("    diffraction PSF and the MTF product both see the cold stop (Rule 4).")
     print()
@@ -373,8 +387,14 @@ def main() -> None:
     nd0 = {nt.name: nt.value_e for nt in baseline.noise_terms}
     print(f"  {'Noise Term':<35s} {'Value [e⁻ RMS]':>14s}")
     print(f"  {'-' * 35} {'-' * 14}")
-    for name in ["signal_shot", "background_shot", "nearfield_shot", "dark_shot",
-                 "read_noise", "quantization"]:
+    for name in [
+        "signal_shot",
+        "background_shot",
+        "nearfield_shot",
+        "dark_shot",
+        "read_noise",
+        "quantization",
+    ]:
         if name in nd0:
             print(f"  {name:<35s} {nd0[name]:>14.2f}")
 
@@ -382,20 +402,22 @@ def main() -> None:
     # Step 4: The undersizing sweep
     # -----------------------------------------------------------------------
     n = len(UNDERSIZE_SWEEP)
-    sw_d_eff = np.zeros(n)         # m
-    sw_f_eff = np.zeros(n)         # [-]
-    sw_a_collect = np.zeros(n)     # m²
-    sw_omega_cone = np.zeros(n)    # sr
-    sw_nearfield_e = np.zeros(n)   # e⁻
-    sw_signal_e = np.zeros(n)      # e⁻
-    sw_snr = np.zeros(n)           # [-]
-    sw_nedt = np.full(n, np.nan)   # K
+    sw_d_eff = np.zeros(n)  # m
+    sw_f_eff = np.zeros(n)  # [-]
+    sw_a_collect = np.zeros(n)  # m²
+    sw_omega_cone = np.zeros(n)  # sr
+    sw_nearfield_e = np.zeros(n)  # e⁻
+    sw_signal_e = np.zeros(n)  # e⁻
+    sw_snr = np.zeros(n)  # [-]
+    sw_nedt = np.full(n, np.nan)  # K
     sw_mtf_nyq = np.full(n, np.nan)  # [-]
-    sw_nf_shot = np.zeros(n)       # e⁻ RMS
+    sw_nf_shot = np.zeros(n)  # e⁻ RMS
     sw_shut_total_e = np.zeros(n)  # e⁻
 
-    print(f"\n=== Sweeping optics.cold_stop_undersize_frac from "
-          f"{UNDERSIZE_SWEEP[0] * 100:.0f} % to {UNDERSIZE_SWEEP[-1] * 100:.0f} % ===")
+    print(
+        f"\n=== Sweeping optics.cold_stop_undersize_frac from "
+        f"{UNDERSIZE_SWEEP[0] * 100:.0f} % to {UNDERSIZE_SWEEP[-1] * 100:.0f} % ==="
+    )
 
     for i, u in enumerate(UNDERSIZE_SWEEP):
         r_ill = Sensor.from_dict(_illuminated_config(u)).evaluate()
@@ -414,41 +436,57 @@ def main() -> None:
         mtf_val = r_ill.metrics.get("mtf_at_nyquist")
         if mtf_val is not None:
             sw_mtf_nyq[i] = mtf_val
-        sw_nf_shot[i] = {nt.name: nt.value_e for nt in r_ill.noise_terms}.get(
-            "nearfield_shot", 0.0
-        )
+        sw_nf_shot[i] = {nt.name: nt.value_e for nt in r_ill.noise_terms}.get("nearfield_shot", 0.0)
 
         r_shut = Sensor.from_dict(_shuttered_config(u)).evaluate()
         s_s = r_shut.stage_outputs["spectral_integration"]
         sw_shut_total_e[i] = s_s["nearfield_e"] + s_s["background_e"]
 
-    print(f"\n  {'u [%]':>7s}  {'D_eff [m]':>10s}  {'f/#_eff':>8s}  {'Ω_cone [sr]':>12s}"
-          f"  {'NF [e⁻]':>11s}  {'Signal [e⁻]':>12s}  {'SNR [-]':>9s}  {'NEDT [mK]':>10s}"
-          f"  {'MTF_nyq':>8s}")
-    print(f"  {'-' * 7}  {'-' * 10}  {'-' * 8}  {'-' * 12}  {'-' * 11}  {'-' * 12}"
-          f"  {'-' * 9}  {'-' * 10}  {'-' * 8}")
+    print(
+        f"\n  {'u [%]':>7s}  {'D_eff [m]':>10s}  {'f/#_eff':>8s}  {'Ω_cone [sr]':>12s}"
+        f"  {'NF [e⁻]':>11s}  {'Signal [e⁻]':>12s}  {'SNR [-]':>9s}  {'NEDT [mK]':>10s}"
+        f"  {'MTF_nyq':>8s}"
+    )
+    print(
+        f"  {'-' * 7}  {'-' * 10}  {'-' * 8}  {'-' * 12}  {'-' * 11}  {'-' * 12}"
+        f"  {'-' * 9}  {'-' * 10}  {'-' * 8}"
+    )
     for i in range(0, n, 2):
         nedt_str = f"{sw_nedt[i] * 1e3:>10.2f}" if not np.isnan(sw_nedt[i]) else f"{'N/A':>10s}"
         mtf_str = f"{sw_mtf_nyq[i]:>8.4f}" if not np.isnan(sw_mtf_nyq[i]) else f"{'N/A':>8s}"
-        print(f"  {UNDERSIZE_SWEEP[i] * 100:>7.1f}  {sw_d_eff[i]:>10.5f}  {sw_f_eff[i]:>8.4f}"
-              f"  {sw_omega_cone[i]:>12.6f}  {sw_nearfield_e[i]:>11,.0f}"
-              f"  {sw_signal_e[i]:>12,.0f}  {sw_snr[i]:>9.2f}  {nedt_str}  {mtf_str}")
+        print(
+            f"  {UNDERSIZE_SWEEP[i] * 100:>7.1f}  {sw_d_eff[i]:>10.5f}  {sw_f_eff[i]:>8.4f}"
+            f"  {sw_omega_cone[i]:>12.6f}  {sw_nearfield_e[i]:>11,.0f}"
+            f"  {sw_signal_e[i]:>12,.0f}  {sw_snr[i]:>9.2f}  {nedt_str}  {mtf_str}"
+        )
 
     u_max = UNDERSIZE_SWEEP[-1]
     print(f"\n  The trade over 0 → {u_max * 100:.0f} % undersizing:")
-    print(f"    A_collect  {sw_a_collect[0]:.6f} → {sw_a_collect[-1]:.6f} m²"
-          f"   ({(sw_a_collect[-1] / sw_a_collect[0] - 1) * 100:+.1f} %)")
-    print(f"    Ω_cone     {sw_omega_cone[0]:.6f} → {sw_omega_cone[-1]:.6f} sr"
-          f"   ({(sw_omega_cone[-1] / sw_omega_cone[0] - 1) * 100:+.1f} %)")
-    print(f"    Near-field {sw_nearfield_e[0]:,.0f} → {sw_nearfield_e[-1]:,.0f} e⁻"
-          f"   ({(sw_nearfield_e[-1] / sw_nearfield_e[0] - 1) * 100:+.1f} %)")
-    print(f"    Signal     {sw_signal_e[0]:,.0f} → {sw_signal_e[-1]:,.0f} e⁻"
-          f"   ({(sw_signal_e[-1] / sw_signal_e[0] - 1) * 100:+.1f} %)")
-    print(f"    SNR        {sw_snr[0]:.2f} → {sw_snr[-1]:.2f} [-]"
-          f"   ({(sw_snr[-1] / sw_snr[0] - 1) * 100:+.1f} %)")
+    print(
+        f"    A_collect  {sw_a_collect[0]:.6f} → {sw_a_collect[-1]:.6f} m²"
+        f"   ({(sw_a_collect[-1] / sw_a_collect[0] - 1) * 100:+.1f} %)"
+    )
+    print(
+        f"    Ω_cone     {sw_omega_cone[0]:.6f} → {sw_omega_cone[-1]:.6f} sr"
+        f"   ({(sw_omega_cone[-1] / sw_omega_cone[0] - 1) * 100:+.1f} %)"
+    )
+    print(
+        f"    Near-field {sw_nearfield_e[0]:,.0f} → {sw_nearfield_e[-1]:,.0f} e⁻"
+        f"   ({(sw_nearfield_e[-1] / sw_nearfield_e[0] - 1) * 100:+.1f} %)"
+    )
+    print(
+        f"    Signal     {sw_signal_e[0]:,.0f} → {sw_signal_e[-1]:,.0f} e⁻"
+        f"   ({(sw_signal_e[-1] / sw_signal_e[0] - 1) * 100:+.1f} %)"
+    )
+    print(
+        f"    SNR        {sw_snr[0]:.2f} → {sw_snr[-1]:.2f} [-]"
+        f"   ({(sw_snr[-1] / sw_snr[0] - 1) * 100:+.1f} %)"
+    )
     if not np.isnan(sw_mtf_nyq[0]):
-        print(f"    MTF@Nyq    {sw_mtf_nyq[0]:.4f} → {sw_mtf_nyq[-1]:.4f} [-]"
-              f"   ({(sw_mtf_nyq[-1] / sw_mtf_nyq[0] - 1) * 100:+.1f} %)")
+        print(
+            f"    MTF@Nyq    {sw_mtf_nyq[0]:.4f} → {sw_mtf_nyq[-1]:.4f} [-]"
+            f"   ({(sw_mtf_nyq[-1] / sw_mtf_nyq[0] - 1) * 100:+.1f} %)"
+        )
     print()
     print("    Signal and near-field fall TOGETHER, because both are set by the same")
     print("    effective pupil. Undersizing is not a way to buy a darker background for")
@@ -462,15 +500,21 @@ def main() -> None:
 
     print("\n=== Requirements Assessment ===")
     print(f"  Maximum allowed shuttered background: {MAX_BKG_E:,.0f} e⁻")
-    print(f"  Model prediction at u = 0:            {sw_shut_total_e[0]:,.0f} e⁻"
-          f"  [{'PASS' if sw_shut_total_e[0] <= MAX_BKG_E else 'FAIL'}]")
-    print(f"  Model prediction at u = {u_max * 100:.0f} %:           "
-          f"{sw_shut_total_e[-1]:,.0f} e⁻"
-          f"  [{'PASS' if sw_shut_total_e[-1] <= MAX_BKG_E else 'FAIL'}]")
+    print(
+        f"  Model prediction at u = 0:            {sw_shut_total_e[0]:,.0f} e⁻"
+        f"  [{'PASS' if sw_shut_total_e[0] <= MAX_BKG_E else 'FAIL'}]"
+    )
+    print(
+        f"  Model prediction at u = {u_max * 100:.0f} %:           "
+        f"{sw_shut_total_e[-1]:,.0f} e⁻"
+        f"  [{'PASS' if sw_shut_total_e[-1] <= MAX_BKG_E else 'FAIL'}]"
+    )
     print()
     print("  Undersizing lowers the shuttered background only as fast as Ω_cone falls")
-    print(f"  ({(sw_shut_total_e[-1] / sw_shut_total_e[0] - 1) * 100:+.1f} % over the sweep)."
-          "  It is not a background-control knob:")
+    print(
+        f"  ({(sw_shut_total_e[-1] / sw_shut_total_e[0] - 1) * 100:+.1f} % over the sweep)."
+        "  It is not a background-control knob:"
+    )
     print("  the levers that matter are the optics temperature and the coating")
     print("  emissivity, both of which scale the near-field directly.")
 
@@ -489,30 +533,40 @@ def main() -> None:
     print()
     eps_model = N_MIRRORS * (1.0 - MIRROR_R)  # [-] assumed emitting emissivity
     model_bkg = float(sw_shut_total_e[0])  # e⁻ at u = 0
-    print(f"  {'Test Point':<14s} {'Pos [mm]':>10s}  {'Meas [e⁻]':>12s}  {'Model [e⁻]':>12s}"
-          f"  {'Δ [%]':>8s}  {'implied ε':>10s}  {'implied R':>10s}  {'Status':>8s}")
-    print(f"  {'-' * 14} {'-' * 10}  {'-' * 12}  {'-' * 12}  {'-' * 8}  {'-' * 10}"
-          f"  {'-' * 10}  {'-' * 8}")
+    print(
+        f"  {'Test Point':<14s} {'Pos [mm]':>10s}  {'Meas [e⁻]':>12s}  {'Model [e⁻]':>12s}"
+        f"  {'Δ [%]':>8s}  {'implied ε':>10s}  {'implied R':>10s}  {'Status':>8s}"
+    )
+    print(
+        f"  {'-' * 14} {'-' * 10}  {'-' * 12}  {'-' * 12}  {'-' * 8}  {'-' * 10}"
+        f"  {'-' * 10}  {'-' * 8}"
+    )
     for d in lab_data:
         delta_pct = (d["bkg_e"] / model_bkg - 1.0) * 100.0
-        eps_implied = eps_model * d["bkg_e"] / model_bkg          # [-]
-        r_implied = 1.0 - eps_implied / N_MIRRORS                 # [-] per mirror
+        eps_implied = eps_model * d["bkg_e"] / model_bkg  # [-]
+        r_implied = 1.0 - eps_implied / N_MIRRORS  # [-] per mirror
         status = "PASS" if d["bkg_e"] <= MAX_BKG_E else "FAIL"
-        print(f"  {d['test_id']:<14s} {d['position_mm']:>10.1f}  {d['bkg_e']:>12,.0f}"
-              f"  {model_bkg:>12,.0f}  {delta_pct:>+8.1f}  {eps_implied:>10.4f}"
-              f"  {r_implied:>10.4f}  {status:>8s}")
+        print(
+            f"  {d['test_id']:<14s} {d['position_mm']:>10.1f}  {d['bkg_e']:>12,.0f}"
+            f"  {model_bkg:>12,.0f}  {delta_pct:>+8.1f}  {eps_implied:>10.4f}"
+            f"  {r_implied:>10.4f}  {status:>8s}"
+        )
 
     best = min(d["bkg_e"] for d in lab_data)
     worst = max(d["bkg_e"] for d in lab_data)
     print()
     print(f"  Every measurement sits BELOW the modelled {model_bkg:,.0f} e⁻, so the assumed")
     print(f"  R = {MIRROR_R:.2f} [-] per mirror is pessimistic for this camera: the lab data")
-    print(f"  bracket the real train at R ≈ {1.0 - eps_model * worst / model_bkg / N_MIRRORS:.3f}"
-          f"–{1.0 - eps_model * best / model_bkg / N_MIRRORS:.3f} [-] (or, equivalently, a")
+    print(
+        f"  bracket the real train at R ≈ {1.0 - eps_model * worst / model_bkg / N_MIRRORS:.3f}"
+        f"–{1.0 - eps_model * best / model_bkg / N_MIRRORS:.3f} [-] (or, equivalently, a"
+    )
     print("  barrel colder than the assumed 20 °C). That is a statement about coatings and")
     print("  thermal design — testable, and physically meaningful — where the old model")
     print("  offered only a fitted leakage fraction that hid the same disagreement.")
-    print(f"  The {(worst - best) / best * 100:.0f} % spread ACROSS cold-stop positions is what the")
+    print(
+        f"  The {(worst - best) / best * 100:.0f} % spread ACROSS cold-stop positions is what the"
+    )
     print("  new rules cannot explain: with a cold stop present, position should not move")
     print("  the background at all. A monotone rise with offset therefore points at warm")
     print("  structure entering the acceptance cone as the stop shifts — i.e. the stop is")
@@ -530,8 +584,11 @@ def main() -> None:
     ax1.plot(u_pct, sw_nearfield_e / 1e3, "r--", linewidth=2, label="Near-field [ke⁻]")
     ax1.set_xlabel("Cold-stop undersizing u [% of pupil diameter]", fontsize=11)
     ax1.set_ylabel("Charge [ke⁻]", fontsize=11)
-    ax1.set_title("Signal and Near-Field Fall Together with the Effective Pupil",
-                  fontsize=13, fontweight="bold")
+    ax1.set_title(
+        "Signal and Near-Field Fall Together with the Effective Pupil",
+        fontsize=13,
+        fontweight="bold",
+    )
     ax1.legend(loc="best", fontsize=9)
     ax1.grid(True, alpha=0.3)
     fig1.tight_layout()
@@ -551,8 +608,9 @@ def main() -> None:
     lines_a, labels_a = ax2a.get_legend_handles_labels()
     lines_b, labels_b = ax2b.get_legend_handles_labels()
     ax2a.legend(lines_a + lines_b, labels_a + labels_b, loc="center right", fontsize=9)
-    ax2a.set_title("The Cost of Tolerancing Margin: SNR and Resolution",
-                   fontsize=13, fontweight="bold")
+    ax2a.set_title(
+        "The Cost of Tolerancing Margin: SNR and Resolution", fontsize=13, fontweight="bold"
+    )
     ax2a.grid(True, alpha=0.3)
     fig2.tight_layout()
     fig2.savefig(PLOT_DIR / "fig2_snr_and_mtf_vs_undersize.png", dpi=150)
@@ -560,20 +618,31 @@ def main() -> None:
 
     # ---- Plot 3: shuttered background vs requirement, with lab points -----
     fig3, ax3 = plt.subplots(figsize=(9, 6))
-    ax3.plot(u_pct, sw_shut_total_e / 1e3, "b-", linewidth=2,
-             label="Model: shuttered background")
-    ax3.axhline(MAX_BKG_E / 1e3, color="red", linestyle="--", linewidth=1.2,
-                label=f"Requirement: {MAX_BKG_E / 1e3:.0f} ke⁻")
+    ax3.plot(u_pct, sw_shut_total_e / 1e3, "b-", linewidth=2, label="Model: shuttered background")
+    ax3.axhline(
+        MAX_BKG_E / 1e3,
+        color="red",
+        linestyle="--",
+        linewidth=1.2,
+        label=f"Requirement: {MAX_BKG_E / 1e3:.0f} ke⁻",
+    )
     for d in lab_data:
         ax3.axhline(d["bkg_e"] / 1e3, color="gray", linestyle=":", linewidth=0.8)
-        ax3.annotate(f"{d['test_id']} ({d['bkg_e'] / 1e3:.1f} ke⁻)",
-                     xy=(u_pct[-1], d["bkg_e"] / 1e3),
-                     textcoords="offset points", xytext=(-140, 3), fontsize=7,
-                     color="darkred")
+        ax3.annotate(
+            f"{d['test_id']} ({d['bkg_e'] / 1e3:.1f} ke⁻)",
+            xy=(u_pct[-1], d["bkg_e"] / 1e3),
+            textcoords="offset points",
+            xytext=(-140, 3),
+            fontsize=7,
+            color="darkred",
+        )
     ax3.set_xlabel("Cold-stop undersizing u [% of pupil diameter]", fontsize=11)
     ax3.set_ylabel("Shuttered background [ke⁻]", fontsize=11)
-    ax3.set_title("Shuttered Background vs. Undersizing — and Karen's Measurements",
-                  fontsize=13, fontweight="bold")
+    ax3.set_title(
+        "Shuttered Background vs. Undersizing — and Karen's Measurements",
+        fontsize=13,
+        fontweight="bold",
+    )
     ax3.legend(loc="center left", fontsize=9)
     ax3.grid(True, alpha=0.3)
     fig3.tight_layout()
@@ -593,8 +662,9 @@ def main() -> None:
     lines_a, labels_a = ax4a.get_legend_handles_labels()
     lines_b, labels_b = ax4b.get_legend_handles_labels()
     ax4a.legend(lines_a + lines_b, labels_a + labels_b, loc="upper right", fontsize=9)
-    ax4a.set_title("One Effective Pupil: Collecting Area and Acceptance Cone",
-                   fontsize=13, fontweight="bold")
+    ax4a.set_title(
+        "One Effective Pupil: Collecting Area and Acceptance Cone", fontsize=13, fontweight="bold"
+    )
     ax4a.grid(True, alpha=0.3)
     fig4.tight_layout()
     fig4.savefig(PLOT_DIR / "fig4_pupil_vs_undersize.png", dpi=150)
@@ -612,8 +682,10 @@ def main() -> None:
     pass_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
     fail_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
     thin_border = Border(
-        left=Side(style="thin"), right=Side(style="thin"),
-        top=Side(style="thin"), bottom=Side(style="thin"),
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
     )
 
     ws1 = wb_out.active
@@ -624,8 +696,16 @@ def main() -> None:
         ws1.column_dimensions[col].width = width
 
     sweep_headers = [
-        "u [-]", "D_eff [m]", "f/#_eff [-]", "A_collect [m^2]", "Omega_cone [sr]",
-        "Nearfield [e-]", "Signal [e-]", "SNR [-]", "NEDT [mK]", "MTF_nyq [-]",
+        "u [-]",
+        "D_eff [m]",
+        "f/#_eff [-]",
+        "A_collect [m^2]",
+        "Omega_cone [sr]",
+        "Nearfield [e-]",
+        "Signal [e-]",
+        "SNR [-]",
+        "NEDT [mK]",
+        "MTF_nyq [-]",
     ]
     for col, h_text in enumerate(sweep_headers, 1):
         cell = ws1.cell(row=3, column=col, value=h_text)
@@ -682,8 +762,7 @@ def main() -> None:
         ("Aperture (primary)", f"{aperture_m * 100:.0f} cm"),
         ("f-number (primary)", f"{f_number}"),
         ("Optics temperature", f"{optics_temp_K:.1f} K"),
-        ("Warm train", f"{N_MIRRORS} mirrors at R = {MIRROR_R:.2f} + AR window "
-                       f"T = {window_T:.3f}"),
+        ("Warm train", f"{N_MIRRORS} mirrors at R = {MIRROR_R:.2f} + AR window T = {window_T:.3f}"),
         ("Net train transmission", f"{transmission:.2f} [-]"),
         ("Emitting emissivity", f"{N_MIRRORS * (1.0 - MIRROR_R):.3f} [-]"),
         ("Spectral band", f"{band_min_um:.2f} – {band_max_um:.2f} µm"),
@@ -697,8 +776,10 @@ def main() -> None:
         ("Signal [e-]", f"{baseline_signal_e:.0f}"),
         ("SNR [-]", f"{baseline_snr:.2f}"),
         ("NEDT [mK]", f"{baseline_nedt * 1e3:.2f}" if baseline_nedt is not None else "N/A"),
-        ("MTF at Nyquist [-]",
-         f"{baseline_mtf_nyq:.4f}" if baseline_mtf_nyq is not None else "N/A"),
+        (
+            "MTF at Nyquist [-]",
+            f"{baseline_mtf_nyq:.4f}" if baseline_mtf_nyq is not None else "N/A",
+        ),
         ("", ""),
         (f"At u = {u_max * 100:.0f} % undersizing", ""),
         ("A_collect change [%]", f"{(sw_a_collect[-1] / sw_a_collect[0] - 1) * 100:+.1f}"),
@@ -715,8 +796,10 @@ def main() -> None:
     for d in lab_data:
         status = "PASS" if d["bkg_e"] <= MAX_BKG_E else "FAIL"
         summary_items.append(
-            (f"{d['test_id']} ({d['position_mm']:.1f} mm offset)",
-             f"{d['bkg_e']:.0f} e- [{status}]")
+            (
+                f"{d['test_id']} ({d['position_mm']:.1f} mm offset)",
+                f"{d['bkg_e']:.0f} e- [{status}]",
+            )
         )
 
     for i, (label, value) in enumerate(summary_items, 3):

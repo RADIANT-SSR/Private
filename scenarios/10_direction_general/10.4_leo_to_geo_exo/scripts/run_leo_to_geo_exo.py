@@ -705,8 +705,10 @@ def main() -> None:  # noqa: PLR0915 - a scenario driver is a linear narrative
         "\n    (b) The SUPERSEDED frozen-noise model - noise held at the reference range:"
         "\n        SNR(R) = S_ref (R_ref/R)^2 / sigma_ref  =>  R_det = R_ref sqrt(SNR_ref / T)"
     )
-    print(f"        Signal demanded at threshold     : {thr * sigma_total:,.2f} e-"
-          f"  (vs {s_det:,.2f} e- above)")
+    print(
+        f"        Signal demanded at threshold     : {thr * sigma_total:,.2f} e-"
+        f"  (vs {s_det:,.2f} e- above)"
+    )
     print(f"        Closed form                      : {hand_det_fixed_m / 1e3:,.3f} km")
     print(
         f"        vs RADIANT                       : {(hand_det_fixed_m / det_m - 1) * 100:+.2f} %"

@@ -23,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.styles import Border, Font, PatternFill, Side
 
 from radiant.api import Sensor
 
@@ -34,6 +34,7 @@ from radiant.api import Sensor
 INPUT_FILE = Path(__file__).parent.parent / "inputs" / "mike_1f_noise_data.xlsx"
 
 wb = openpyxl.load_workbook(INPUT_FILE)
+
 
 def _read_sheet(ws, min_row: int = 5) -> tuple[dict[str, object], dict[str, str]]:
     """Read parameter name→value and name→unit from a spreadsheet sheet."""
@@ -65,8 +66,8 @@ sys_specs, sys_units = _read_sheet(wb["System Configuration"])
 # ---------------------------------------------------------------------------
 
 # Optics
-aperture_m = float(sys_specs["Aperture diameter"]) / 100.0       # cm → m
-focal_length_m = float(sys_specs["Focal length"]) / 100.0        # cm → m
+aperture_m = float(sys_specs["Aperture diameter"]) / 100.0  # cm → m
+focal_length_m = float(sys_specs["Focal length"]) / 100.0  # cm → m
 transmission = float(sys_specs["Optical transmission"]) / 100.0  # % → fraction
 optics_temp_K = float(sys_specs["Optics temperature"]) + 273.15  # °C → K
 
@@ -83,13 +84,13 @@ bg_emiss = float(sys_specs["Background emissivity"])
 # Detector
 pixel_pitch_um = float(det_specs["Pixel pitch"])
 qe = float(det_specs["Quantum efficiency (in-band avg)"]) / 100.0  # % → frac
-dark_rate = float(det_specs["Dark current"])              # already e⁻/s
+dark_rate = float(det_specs["Dark current"])  # already e⁻/s
 operating_temp_K = float(det_specs["Operating temperature"])  # already K
-read_noise = float(det_specs["Read noise (post-CDS)"])       # already e⁻
-fwc = float(det_specs["Full well capacity"])                 # already e⁻
+read_noise = float(det_specs["Read noise (post-CDS)"])  # already e⁻
+fwc = float(det_specs["Full well capacity"])  # already e⁻
 adc_bits = int(det_specs["ADC resolution"])
-gain = float(det_specs["System gain"])                       # already e⁻/DN
-ipc_coupling = float(det_specs["IPC coupling"]) / 100.0     # % → fraction
+gain = float(det_specs["System gain"])  # already e⁻/DN
+ipc_coupling = float(det_specs["IPC coupling"]) / 100.0  # % → fraction
 t_int_s = float(det_specs["Nominal integration time"]) / 1000.0  # ms → s
 
 # ---------------------------------------------------------------------------
@@ -177,7 +178,7 @@ def compute_nedt(cfg: dict) -> tuple[float, float, float, dict[str, float]]:
     ds_dt = (sp - sm) / (2.0 * DELTA_T)
 
     noise_dict = {nt.name: nt.value_e for nt in r_center.noise_terms}
-    total_noise = math.sqrt(sum(v ** 2 for v in noise_dict.values()))
+    total_noise = math.sqrt(sum(v**2 for v in noise_dict.values()))
 
     nedt_mK = (total_noise / ds_dt * 1000.0) if ds_dt > 0 else float("inf")
     return nedt_mK, ds_dt, total_noise, noise_dict
@@ -194,24 +195,24 @@ def main() -> None:
     print("SCENARIO 2.2: 1/f Noise Corner Frequency Impact on LWIR Staring Array")
     print("=" * 80)
 
-    print(f"\n=== Detector Specs ===")
+    print("\n=== Detector Specs ===")
     for k, v in det_specs.items():
         print(f"  {k}: {v} {det_units.get(k, '')}")
 
-    print(f"\n=== 1/f Characterization ===")
+    print("\n=== 1/f Characterization ===")
     for k, v in flicker_specs.items():
         print(f"  {k}: {v} {flicker_units.get(k, '')}")
 
-    print(f"\n=== System Configuration ===")
+    print("\n=== System Configuration ===")
     for k, v in sys_specs.items():
         print(f"  {k}: {v} {sys_units.get(k, '')}")
     f_number = float(sys_specs["f-number"])
 
     # 1/f parameters
-    flicker_K = float(flicker_specs["Flicker coefficient K"])   # already e⁻²
-    f_corner = float(flicker_specs["Corner frequency"])          # already Hz
+    flicker_K = float(flicker_specs["Flicker coefficient K"])  # already e⁻²
+    f_corner = float(flicker_specs["Corner frequency"])  # already Hz
 
-    print(f"\n=== Converted to RADIANT canonical units ===")
+    print("\n=== Converted to RADIANT canonical units ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit':<15s}  {'Conversion'}")
     print(f"  {'-' * 35} {'-' * 14}  {'-' * 15}  {'-' * 20}")
     print(f"  {'Aperture diameter':<35s} {aperture_m:>14.4f}  {'m':<15s}  cm ÷ 100")
@@ -233,31 +234,33 @@ def main() -> None:
     # Step 3: 1/f noise physics — analytic calculation
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== 1/f Noise Physics ===")
-    print(f"  The 1/f noise PSD is S(f) = K/f for f below the corner frequency.")
-    print(f"  Integrating over [f_low, f_high]:")
-    print(f"    σ_1f = √(K · ln(f_high / f_low))  [e⁻ RMS]")
-    print(f"")
-    print(f"  For a staring array:")
-    print(f"    f_low  = frame rate (lowest frequency in the temporal stream)")
-    print(f"    f_high = 1 / (2 × t_int) = Nyquist within one integration")
-    print(f"           = 1 / (2 × {t_int_s*1000:.1f} ms) = {1/(2*t_int_s):.0f} Hz")
-    print(f"")
+    print("\n=== 1/f Noise Physics ===")
+    print("  The 1/f noise PSD is S(f) = K/f for f below the corner frequency.")
+    print("  Integrating over [f_low, f_high]:")
+    print("    σ_1f = √(K · ln(f_high / f_low))  [e⁻ RMS]")
+    print("")
+    print("  For a staring array:")
+    print("    f_low  = frame rate (lowest frequency in the temporal stream)")
+    print("    f_high = 1 / (2 × t_int) = Nyquist within one integration")
+    print(f"           = 1 / (2 × {t_int_s * 1000:.1f} ms) = {1 / (2 * t_int_s):.0f} Hz")
+    print("")
     print(f"  The corner frequency ({f_corner:.0f} Hz) is where 1/f meets the white")
-    print(f"  noise floor. Above f_corner, noise is white (flat PSD). Below, 1/f.")
-    print(f"  Since f_high = {1/(2*t_int_s):.0f} Hz > f_corner = {f_corner:.0f} Hz,")
-    print(f"  the 1/f integration should technically be capped at f_corner.")
-    print(f"  But RADIANT integrates over the full [f_low, f_high] band as K/f,")
-    print(f"  which slightly overestimates 1/f for f > f_corner. We will compute")
-    print(f"  both the RADIANT model and a corner-limited analytic result.")
+    print("  noise floor. Above f_corner, noise is white (flat PSD). Below, 1/f.")
+    print(f"  Since f_high = {1 / (2 * t_int_s):.0f} Hz > f_corner = {f_corner:.0f} Hz,")
+    print("  the 1/f integration should technically be capped at f_corner.")
+    print("  But RADIANT integrates over the full [f_low, f_high] band as K/f,")
+    print("  which slightly overestimates 1/f for f > f_corner. We will compute")
+    print("  both the RADIANT model and a corner-limited analytic result.")
 
     f_high_nyq = 1.0 / (2.0 * t_int_s)  # Hz
 
     frame_rates = [30.0, 60.0, 120.0]
 
-    print(f"\n  Analytic 1/f noise at each frame rate:")
-    print(f"  {'Frame Rate [Hz]':>16s}  {'f_low [Hz]':>10s}  {'f_high [Hz]':>11s}"
-          f"  {'ln ratio [—]':>12s}  {'σ_1f [e⁻]':>10s}  {'σ_1f (capped) [e⁻]':>20s}")
+    print("\n  Analytic 1/f noise at each frame rate:")
+    print(
+        f"  {'Frame Rate [Hz]':>16s}  {'f_low [Hz]':>10s}  {'f_high [Hz]':>11s}"
+        f"  {'ln ratio [—]':>12s}  {'σ_1f [e⁻]':>10s}  {'σ_1f (capped) [e⁻]':>20s}"
+    )
     print(f"  {'-' * 16}  {'-' * 10}  {'-' * 11}  {'-' * 12}  {'-' * 10}  {'-' * 20}")
 
     for fr in frame_rates:
@@ -269,31 +272,32 @@ def main() -> None:
         f_eff_high = min(f_high_nyq, f_corner)
         ln_ratio_capped = math.log(f_eff_high / f_low)
         sigma_1f_capped = math.sqrt(flicker_K * ln_ratio_capped)
-        print(f"  {fr:>16.0f}  {f_low:>10.0f}  {f_high_nyq:>11.0f}"
-              f"  {ln_ratio:>12.3f}  {sigma_1f:>10.1f}  {sigma_1f_capped:>20.1f}")
+        print(
+            f"  {fr:>16.0f}  {f_low:>10.0f}  {f_high_nyq:>11.0f}"
+            f"  {ln_ratio:>12.3f}  {sigma_1f:>10.1f}  {sigma_1f_capped:>20.1f}"
+        )
 
-
-    print(f"\n=== Radiometric Regime ===")
-    print(f"  Atmosphere model: exo (short-range, negligible atmospheric path)")
-    print(f"  Extended regime: target fills entire pixel FOV.")
-    print(f"  LWIR system: background flux dominates the well charge.")
-    print(f"  Integration time: {t_int_s*1e6:.0f} µs (FWC-limited for LWIR)")
-    print(f"")
-    print(f"  1/f NOISE NOTE:")
-    print(f"    The 1/f noise contribution depends on the frequency band [f_low, f_high].")
-    print(f"    For a staring array, f_low = frame rate and f_high = 1/(2·t_int).")
-    print(f"    Lower frame rates include more low-frequency noise → higher σ_1f.")
-    print(f"    The key insight: 1/f noise scales as √ln(f_high/f_low), which is")
-    print(f"    a weak (logarithmic) dependence — it takes a large change in frame")
-    print(f"    rate to significantly change 1/f noise.")
+    print("\n=== Radiometric Regime ===")
+    print("  Atmosphere model: exo (short-range, negligible atmospheric path)")
+    print("  Extended regime: target fills entire pixel FOV.")
+    print("  LWIR system: background flux dominates the well charge.")
+    print(f"  Integration time: {t_int_s * 1e6:.0f} µs (FWC-limited for LWIR)")
+    print("")
+    print("  1/f NOISE NOTE:")
+    print("    The 1/f noise contribution depends on the frequency band [f_low, f_high].")
+    print("    For a staring array, f_low = frame rate and f_high = 1/(2·t_int).")
+    print("    Lower frame rates include more low-frequency noise → higher σ_1f.")
+    print("    The key insight: 1/f noise scales as √ln(f_high/f_low), which is")
+    print("    a weak (logarithmic) dependence — it takes a large change in frame")
+    print("    rate to significantly change 1/f noise.")
 
     # ---------------------------------------------------------------------------
     # Step 5: Run RADIANT at each frame rate — with and without 1/f
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== Running RADIANT at each frame rate ===")
-    print(f"  Integration time fixed at {t_int_s*1e6:.0f} µs for all frame rates")
-    print(f"  (FWC-limited, not frame-rate-limited)")
+    print("\n=== Running RADIANT at each frame rate ===")
+    print(f"  Integration time fixed at {t_int_s * 1e6:.0f} µs for all frame rates")
+    print("  (FWC-limited, not frame-rate-limited)")
 
     results: list[dict] = []
 
@@ -314,36 +318,44 @@ def main() -> None:
         signal_e = r_check.stage_outputs["readout"]["signal_e_final"]
         well_fill = signal_e / fwc * 100.0
 
-        results.append({
-            "frame_rate": fr,
-            "f_low": f_low,
-            "f_high": f_high,
-            "signal_e": signal_e,
-            "well_fill_pct": well_fill,
-            "ds_dt": ds_dt,
-            "nedt_no1f_mK": nedt_no1f,
-            "nedt_1f_mK": nedt_1f,
-            "noise_no1f": noise_no1f,
-            "noise_1f": noise_1f,
-            "ndict_no1f": ndict_no1f,
-            "ndict_1f": ndict_1f,
-            "sigma_1f": ndict_1f.get("flicker_1f", 0.0),
-        })
+        results.append(
+            {
+                "frame_rate": fr,
+                "f_low": f_low,
+                "f_high": f_high,
+                "signal_e": signal_e,
+                "well_fill_pct": well_fill,
+                "ds_dt": ds_dt,
+                "nedt_no1f_mK": nedt_no1f,
+                "nedt_1f_mK": nedt_1f,
+                "noise_no1f": noise_no1f,
+                "noise_1f": noise_1f,
+                "ndict_no1f": ndict_no1f,
+                "ndict_1f": ndict_1f,
+                "sigma_1f": ndict_1f.get("flicker_1f", 0.0),
+            }
+        )
 
     # Print comparison table
-    print(f"\n=== NEDT: Without vs. With 1/f Noise ===")
-    print(f"  {'Frame Rate [Hz]':>15s}  {'f_low [Hz]':>10s}  {'f_high [Hz]':>11s}  {'σ_1f [e⁻]':>10s}"
-          f"  {'σ_total (no 1/f) [e⁻]':>22s}  {'σ_total (w/ 1/f) [e⁻]':>22s}"
-          f"  {'NEDT no-1/f [mK]':>17s}  {'NEDT w/ 1/f [mK]':>17s}  {'Δ NEDT [mK]':>12s}")
-    print(f"  {'-' * 15}  {'-' * 10}  {'-' * 11}  {'-' * 10}"
-          f"  {'-' * 22}  {'-' * 22}  {'-' * 17}  {'-' * 17}  {'-' * 12}")
+    print("\n=== NEDT: Without vs. With 1/f Noise ===")
+    print(
+        f"  {'Frame Rate [Hz]':>15s}  {'f_low [Hz]':>10s}  {'f_high [Hz]':>11s}  {'σ_1f [e⁻]':>10s}"
+        f"  {'σ_total (no 1/f) [e⁻]':>22s}  {'σ_total (w/ 1/f) [e⁻]':>22s}"
+        f"  {'NEDT no-1/f [mK]':>17s}  {'NEDT w/ 1/f [mK]':>17s}  {'Δ NEDT [mK]':>12s}"
+    )
+    print(
+        f"  {'-' * 15}  {'-' * 10}  {'-' * 11}  {'-' * 10}"
+        f"  {'-' * 22}  {'-' * 22}  {'-' * 17}  {'-' * 17}  {'-' * 12}"
+    )
 
     for r in results:
         delta = r["nedt_1f_mK"] - r["nedt_no1f_mK"]
-        print(f"  {r['frame_rate']:>15.0f}  {r['f_low']:>10.0f}  {r['f_high']:>11.0f}"
-              f"  {r['sigma_1f']:>10.1f}  {r['noise_no1f']:>22.1f}"
-              f"  {r['noise_1f']:>22.1f}  {r['nedt_no1f_mK']:>17.1f}"
-              f"  {r['nedt_1f_mK']:>17.1f}  {delta:>12.1f}")
+        print(
+            f"  {r['frame_rate']:>15.0f}  {r['f_low']:>10.0f}  {r['f_high']:>11.0f}"
+            f"  {r['sigma_1f']:>10.1f}  {r['noise_no1f']:>22.1f}"
+            f"  {r['noise_1f']:>22.1f}  {r['nedt_no1f_mK']:>17.1f}"
+            f"  {r['nedt_1f_mK']:>17.1f}  {delta:>12.1f}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 6: Detailed noise breakdown at nominal frame rate (60 Hz)
@@ -351,11 +363,11 @@ def main() -> None:
 
     nominal = next(r for r in results if r["frame_rate"] == 60.0)
 
-    print(f"\n=== Noise Breakdown at 60 Hz (With 1/f) ===")
+    print("\n=== Noise Breakdown at 60 Hz (With 1/f) ===")
     print(f"  Signal:     {nominal['signal_e']:>14,.0f} e⁻ ({nominal['well_fill_pct']:.1f}% well)")
     print(f"  dS/dT:      {nominal['ds_dt']:>14.0f} e⁻/K")
     print(f"  Total noise: {nominal['noise_1f']:>13.1f} e⁻ RMS")
-    print(f"")
+    print("")
 
     ds_dt = nominal["ds_dt"]
     ndict = nominal["ndict_1f"]
@@ -363,10 +375,11 @@ def main() -> None:
         name: (sigma / ds_dt * 1000.0) if ds_dt > 0 else float("inf")
         for name, sigma in ndict.items()
     }
-    nedt_sq_total = sum(v ** 2 for v in nedt_per_term.values())
+    nedt_sq_total = sum(v**2 for v in nedt_per_term.values())
 
-    print(f"  {'Noise Term':<25s}  {'σ [e⁻ RMS]':>12s}  {'NEDT_i [mK]':>12s}"
-          f"  {'Fraction [%]':>13s}")
+    print(
+        f"  {'Noise Term':<25s}  {'σ [e⁻ RMS]':>12s}  {'NEDT_i [mK]':>12s}  {'Fraction [%]':>13s}"
+    )
     print(f"  {'-' * 25}  {'-' * 12}  {'-' * 12}  {'-' * 13}")
 
     sorted_terms = sorted(nedt_per_term.items(), key=lambda x: abs(x[1]), reverse=True)
@@ -374,39 +387,45 @@ def main() -> None:
         sigma = ndict[name]
         if sigma < 0.001:
             continue
-        frac = nedt_i ** 2 / nedt_sq_total * 100.0 if nedt_sq_total > 0 else 0.0
+        frac = nedt_i**2 / nedt_sq_total * 100.0 if nedt_sq_total > 0 else 0.0
         print(f"  {name:<25s}  {sigma:>12.1f}  {nedt_i:>12.2f}  {frac:>13.1f}")
 
     print(f"  {'─' * 25}  {'─' * 12}  {'─' * 12}  {'─' * 13}")
-    print(f"  {'RSS TOTAL':<25s}  {nominal['noise_1f']:>12.1f}"
-          f"  {nominal['nedt_1f_mK']:>12.2f}  {'100.0':>13s}")
+    print(
+        f"  {'RSS TOTAL':<25s}  {nominal['noise_1f']:>12.1f}"
+        f"  {nominal['nedt_1f_mK']:>12.2f}  {'100.0':>13s}"
+    )
 
     # Highlight 1/f contribution
     sigma_1f = nominal["sigma_1f"]
     nedt_1f_contrib = (sigma_1f / ds_dt * 1000.0) if ds_dt > 0 else 0.0
-    frac_1f = (sigma_1f ** 2 / nominal["noise_1f"] ** 2 * 100.0)
+    frac_1f = sigma_1f**2 / nominal["noise_1f"] ** 2 * 100.0
 
-    print(f"\n  1/f contribution at 60 Hz:")
+    print("\n  1/f contribution at 60 Hz:")
     print(f"    σ_1f = {sigma_1f:.1f} e⁻ RMS")
     print(f"    NEDT_1f = {nedt_1f_contrib:.2f} mK")
     print(f"    Fraction of total noise variance: {frac_1f:.1f}%")
-    print(f"    NEDT increase due to 1/f: {nominal['nedt_1f_mK'] - nominal['nedt_no1f_mK']:.1f} mK"
-          f" ({(nominal['nedt_1f_mK']/nominal['nedt_no1f_mK'] - 1)*100:.1f}%)")
+    print(
+        f"    NEDT increase due to 1/f: {nominal['nedt_1f_mK'] - nominal['nedt_no1f_mK']:.1f} mK"
+        f" ({(nominal['nedt_1f_mK'] / nominal['nedt_no1f_mK'] - 1) * 100:.1f}%)"
+    )
 
     # ---------------------------------------------------------------------------
     # Step 7: Sweep f_low (frame rate) from 1 Hz to 500 Hz
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== 1/f Noise vs. Frame Rate (Sweep) ===")
-    print(f"  Sweeping f_low from 1 Hz to 500 Hz in 50 steps")
-    print(f"  f_high fixed at {f_high_nyq:.0f} Hz (= 1 / (2 × {t_int_s*1e6:.0f} µs))")
-    print(f"  Using analytic formula: σ_1f = √(K · ln(f_high / f_low))")
-    print(f"")
+    print("\n=== 1/f Noise vs. Frame Rate (Sweep) ===")
+    print("  Sweeping f_low from 1 Hz to 500 Hz in 50 steps")
+    print(f"  f_high fixed at {f_high_nyq:.0f} Hz (= 1 / (2 × {t_int_s * 1e6:.0f} µs))")
+    print("  Using analytic formula: σ_1f = √(K · ln(f_high / f_low))")
+    print("")
 
     sweep_f_low = np.logspace(0, np.log10(500), 50)  # 1 to 500 Hz, log-spaced
 
-    print(f"  {'f_low [Hz]':>10s}  {'σ_1f [e⁻]':>10s}  {'NEDT_1f [mK]':>12s}"
-          f"  {'Total σ [e⁻]':>12s}  {'NEDT total [mK]':>15s}")
+    print(
+        f"  {'f_low [Hz]':>10s}  {'σ_1f [e⁻]':>10s}  {'NEDT_1f [mK]':>12s}"
+        f"  {'Total σ [e⁻]':>12s}  {'NEDT total [mK]':>15s}"
+    )
     print(f"  {'-' * 10}  {'-' * 10}  {'-' * 12}  {'-' * 12}  {'-' * 15}")
 
     # Get baseline noise (no 1/f) for RSS calculation
@@ -416,31 +435,35 @@ def main() -> None:
     for i, fl in enumerate(sweep_f_low):
         sigma_1f_analytic = math.sqrt(flicker_K * math.log(f_high_nyq / fl))
         nedt_1f_only = sigma_1f_analytic / ds_dt * 1000.0
-        total_sigma = math.sqrt(noise_no1f_sq + sigma_1f_analytic ** 2)
+        total_sigma = math.sqrt(noise_no1f_sq + sigma_1f_analytic**2)
         total_nedt = total_sigma / ds_dt * 1000.0
         if i % 5 == 0 or fl >= 499:
-            print(f"  {fl:>10.1f}  {sigma_1f_analytic:>10.1f}  {nedt_1f_only:>12.2f}"
-                  f"  {total_sigma:>12.1f}  {total_nedt:>15.2f}")
+            print(
+                f"  {fl:>10.1f}  {sigma_1f_analytic:>10.1f}  {nedt_1f_only:>12.2f}"
+                f"  {total_sigma:>12.1f}  {total_nedt:>15.2f}"
+            )
 
     # ---------------------------------------------------------------------------
     # Step 8: Corner frequency analysis
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== Corner Frequency Analysis ===")
+    print("\n=== Corner Frequency Analysis ===")
     print(f"  The corner frequency f_c = {f_corner:.0f} Hz is where 1/f PSD meets")
-    print(f"  the white noise floor. For f > f_c, the noise PSD is flat (white).")
-    print(f"")
-    print(f"  RADIANT's model: σ_1f = √(K · ln(f_high / f_low))")
-    print(f"  This integrates 1/f over the FULL band [f_low, f_high].")
+    print("  the white noise floor. For f > f_c, the noise PSD is flat (white).")
+    print("")
+    print("  RADIANT's model: σ_1f = √(K · ln(f_high / f_low))")
+    print("  This integrates 1/f over the FULL band [f_low, f_high].")
     print(f"  But physically, the 1/f PSD only applies below f_c = {f_corner:.0f} Hz.")
-    print(f"  Above f_c, noise is already captured as read noise (white floor).")
-    print(f"")
-    print(f"  Corner-limited model: σ_1f = √(K · ln(min(f_high, f_c) / f_low))")
-    print(f"")
+    print("  Above f_c, noise is already captured as read noise (white floor).")
+    print("")
+    print("  Corner-limited model: σ_1f = √(K · ln(min(f_high, f_c) / f_low))")
+    print("")
 
-    print(f"  Comparison at each frame rate:")
-    print(f"  {'Frame Rate [Hz]':>15s}  {'σ_1f (full) [e⁻]':>17s}  {'σ_1f (capped) [e⁻]':>20s}"
-          f"  {'Overestimate [%]':>16s}")
+    print("  Comparison at each frame rate:")
+    print(
+        f"  {'Frame Rate [Hz]':>15s}  {'σ_1f (full) [e⁻]':>17s}  {'σ_1f (capped) [e⁻]':>20s}"
+        f"  {'Overestimate [%]':>16s}"
+    )
     print(f"  {'-' * 15}  {'-' * 17}  {'-' * 20}  {'-' * 16}")
 
     for fr in frame_rates:
@@ -449,14 +472,15 @@ def main() -> None:
         f_eff = min(f_high_nyq, f_corner)
         sigma_capped = math.sqrt(flicker_K * math.log(f_eff / f_low))
         overest_pct = (sigma_full / sigma_capped - 1.0) * 100.0
-        print(f"  {fr:>15.0f}  {sigma_full:>17.1f}  {sigma_capped:>20.1f}"
-              f"  {overest_pct:>15.1f}%")
+        print(f"  {fr:>15.0f}  {sigma_full:>17.1f}  {sigma_capped:>20.1f}  {overest_pct:>15.1f}%")
 
     print(f"\n  Since f_high ({f_high_nyq:.0f} Hz) >> f_corner ({f_corner:.0f} Hz),")
-    print(f"  the RADIANT full-band model overestimates σ_1f by")
-    print(f"  ~{(math.sqrt(math.log(f_high_nyq/60)/math.log(f_corner/60))-1)*100:.0f}%"
-          f" at 60 Hz. This is a known limitation:")
-    print(f"  RADIANT does not model the corner frequency transition.")
+    print("  the RADIANT full-band model overestimates σ_1f by")
+    print(
+        f"  ~{(math.sqrt(math.log(f_high_nyq / 60) / math.log(f_corner / 60)) - 1) * 100:.0f}%"
+        f" at 60 Hz. This is a known limitation:"
+    )
+    print("  RADIANT does not model the corner frequency transition.")
 
     # ---------------------------------------------------------------------------
     # Step 9: Write output spreadsheet
@@ -467,13 +491,13 @@ def main() -> None:
     owb = openpyxl.Workbook()
 
     header_font = Font(bold=True, size=11)
-    section_fill = PatternFill(
-        start_color="002E75B6", end_color="002E75B6", fill_type="solid"
-    )
+    section_fill = PatternFill(start_color="002E75B6", end_color="002E75B6", fill_type="solid")
     section_font = Font(bold=True, size=11, color="FFFFFF")
     thin_border = Border(
-        left=Side(style="thin"), right=Side(style="thin"),
-        top=Side(style="thin"), bottom=Side(style="thin"),
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
     )
 
     # --- Sheet 1: NEDT vs Frame Rate ---
@@ -491,9 +515,17 @@ def main() -> None:
     ows1.column_dimensions["H"].width = 14
     ows1.column_dimensions["I"].width = 14
 
-    headers = ["Frame Rate [Hz]", "f_low [Hz]", "f_high [Hz]",
-               "σ_1f [e⁻ RMS]", "σ_total (no 1/f)", "σ_total (w/ 1/f)",
-               "NEDT no-1/f [mK]", "NEDT w/ 1/f [mK]", "Δ NEDT [mK]"]
+    headers = [
+        "Frame Rate [Hz]",
+        "f_low [Hz]",
+        "f_high [Hz]",
+        "σ_1f [e⁻ RMS]",
+        "σ_total (no 1/f)",
+        "σ_total (w/ 1/f)",
+        "NEDT no-1/f [mK]",
+        "NEDT w/ 1/f [mK]",
+        "Δ NEDT [mK]",
+    ]
     for c, h in enumerate(headers, 1):
         cell = ows1.cell(row=3, column=c, value=h)
         cell.font = header_font
@@ -501,9 +533,17 @@ def main() -> None:
 
     for i, r in enumerate(results, 4):
         delta = r["nedt_1f_mK"] - r["nedt_no1f_mK"]
-        vals = [r["frame_rate"], r["f_low"], r["f_high"], r["sigma_1f"],
-                r["noise_no1f"], r["noise_1f"], r["nedt_no1f_mK"],
-                r["nedt_1f_mK"], delta]
+        vals = [
+            r["frame_rate"],
+            r["f_low"],
+            r["f_high"],
+            r["sigma_1f"],
+            r["noise_no1f"],
+            r["noise_1f"],
+            r["nedt_no1f_mK"],
+            r["nedt_1f_mK"],
+            delta,
+        ]
         for c, v in enumerate(vals, 1):
             cell = ows1.cell(row=i, column=c, value=round(v, 2))
             cell.border = thin_border
@@ -528,7 +568,7 @@ def main() -> None:
         sigma = ndict[name]
         if sigma < 0.001:
             continue
-        frac = nedt_i ** 2 / nedt_sq_total * 100.0 if nedt_sq_total > 0 else 0.0
+        frac = nedt_i**2 / nedt_sq_total * 100.0 if nedt_sq_total > 0 else 0.0
         ows2.cell(row=row_idx, column=1, value=name).border = thin_border
         ows2.cell(row=row_idx, column=2, value=round(sigma, 2)).border = thin_border
         ows2.cell(row=row_idx, column=3, value=round(nedt_i, 2)).border = thin_border
@@ -545,8 +585,7 @@ def main() -> None:
     ows3.column_dimensions["D"].width = 16
     ows3.column_dimensions["E"].width = 18
 
-    headers3 = ["f_low [Hz]", "σ_1f [e⁻ RMS]", "NEDT_1f [mK]",
-                "Total σ [e⁻]", "NEDT total [mK]"]
+    headers3 = ["f_low [Hz]", "σ_1f [e⁻ RMS]", "NEDT_1f [mK]", "Total σ [e⁻]", "NEDT total [mK]"]
     for c, h in enumerate(headers3, 1):
         cell = ows3.cell(row=3, column=c, value=h)
         cell.font = header_font
@@ -555,7 +594,7 @@ def main() -> None:
     for i, fl in enumerate(sweep_f_low, 4):
         sigma_1f_val = math.sqrt(flicker_K * math.log(f_high_nyq / fl))
         nedt_1f_val = sigma_1f_val / ds_dt * 1000.0
-        total_sig = math.sqrt(noise_no1f_sq + sigma_1f_val ** 2)
+        total_sig = math.sqrt(noise_no1f_sq + sigma_1f_val**2)
         total_nedt_val = total_sig / ds_dt * 1000.0
         ows3.cell(row=i, column=1, value=round(fl, 2)).border = thin_border
         ows3.cell(row=i, column=2, value=round(sigma_1f_val, 2)).border = thin_border
@@ -574,10 +613,10 @@ def main() -> None:
     summaries = [
         ("System", "LWIR HgCdTe staring array, 640×512"),
         ("Band", f"{band_min_um:.1f}–{band_max_um:.1f} µm"),
-        ("Optics", f"{aperture_m*100:.0f} cm, f/{f_number:.1f}, τ = {transmission*100:.0f}%"),
+        ("Optics", f"{aperture_m * 100:.0f} cm, f/{f_number:.1f}, τ = {transmission * 100:.0f}%"),
         ("Pixel pitch", f"{pixel_pitch_um:.0f} µm"),
-        ("Integration time", f"{t_int_s*1e6:.0f} µs"),
-        ("FWC", f"{fwc/1e6:.0f} M e⁻"),
+        ("Integration time", f"{t_int_s * 1e6:.0f} µs"),
+        ("FWC", f"{fwc / 1e6:.0f} M e⁻"),
         ("Flicker K", f"{flicker_K:.0f} e⁻²"),
         ("Corner frequency", f"{f_corner:.0f} Hz"),
         ("", ""),

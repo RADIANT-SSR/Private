@@ -127,9 +127,7 @@ def pixel_signal_noise_nedt(temp_k: float, emissivity: float) -> tuple[float, fl
     return signal_e, noise_e, r.metrics.get("nedt_K", float("nan"))
 
 
-def contrast_snr_at(
-    t_target_k: float, t_background_k: float
-) -> tuple[float, float, float]:
+def contrast_snr_at(t_target_k: float, t_background_k: float) -> tuple[float, float, float]:
     """Differential contrast SNR of a target pixel against a background
     pixel, plus each pixel's well-fill fraction for a saturation check.
 
@@ -164,7 +162,7 @@ def main() -> None:
     print("SCENARIO 4.4 — TIME-OF-DAY (DIURNAL) THERMAL DETECTABILITY")
     print("=" * 74)
     print(
-        f"LWIR {BAND_MIN_UM:.0f}–{BAND_MAX_UM:.0f} µm, airborne {ALT_M/1e3:.0f} km AGL. "
+        f"LWIR {BAND_MIN_UM:.0f}–{BAND_MAX_UM:.0f} µm, airborne {ALT_M / 1e3:.0f} km AGL. "
         f"Target ε = {TGT_EMIS} (painted metal), background ε = {BG_EMIS} (soil)."
     )
     print(
@@ -199,7 +197,7 @@ def main() -> None:
         )
 
     print(
-        f"\n  Median NEDT over the day: {np.nanmedian(nedt_k)*1e3:.1f} mK "
+        f"\n  Median NEDT over the day: {np.nanmedian(nedt_k) * 1e3:.1f} mK "
         "(sensor sensitivity is nearly constant — the washout is a scene-contrast "
         "effect, not a sensor-noise effect)."
     )
@@ -276,15 +274,16 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.plot(hours, np.abs(contrast_snr), "-", color="#7030A0", label="|contrast SNR|")
     ax.axhline(
-        DETECT_THRESHOLD, color="black", ls="--", lw=1.5,
+        DETECT_THRESHOLD,
+        color="black",
+        ls="--",
+        lw=1.5,
         label=f"detectability threshold = {DETECT_THRESHOLD:.0f}",
     )
     for a, b in windows:
         ax.axvspan(a, b, color="red", alpha=0.15)
     if windows:
-        ax.axvspan(
-            windows[0][0], windows[0][1], color="red", alpha=0.15, label="washout window"
-        )
+        ax.axvspan(windows[0][0], windows[0][1], color="red", alpha=0.15, label="washout window")
     ax.set_xlabel("Local time (h)")
     ax.set_ylabel("|contrast SNR| (dimensionless)")
     ax.set_yscale("log")

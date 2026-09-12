@@ -73,11 +73,11 @@ def main() -> None:
     print("SCENARIO 4.2 — MARITIME SHIP CLASSIFICATION (JOHNSON DRI)")
     print("=" * 74)
     print(
-        f"Airborne MWIR, altitude {ALT_M/1e3:.0f} km. IFOV = pitch/focal = "
-        f"{PITCH_UM} µm / {FOCAL_M} m = {IFOV_RAD*1e6:.2f} µrad."
+        f"Airborne MWIR, altitude {ALT_M / 1e3:.0f} km. IFOV = pitch/focal = "
+        f"{PITCH_UM} µm / {FOCAL_M} m = {IFOV_RAD * 1e6:.2f} µrad."
     )
     print(
-        f"Geometric horizon to a sea-level target: {horizon_m/1e3:.0f} km "
+        f"Geometric horizon to a sea-level target: {horizon_m / 1e3:.0f} km "
         "(√(2·R_E·h); refraction and target freeboard neglected)."
     )
     print(
@@ -111,7 +111,7 @@ def main() -> None:
             dri_km[name][task] = r_res / 1e3
             binding_km[name][task] = r_bind / 1e3
             tag = "H" if r_res > horizon_m else "R"  # horizon- vs resolution-limited
-            cells.append(f"{r_res/1e3:>8.0f}[{r_bind/1e3:.0f}{tag}]")
+            cells.append(f"{r_res / 1e3:>8.0f}[{r_bind / 1e3:.0f}{tag}]")
         print(f"{name:<16}{crit:>8.1f}m" + "".join(f"{c:>16}" for c in cells))
     print(
         "\n  Each cell: resolution range [binding range + limit]. "
@@ -129,13 +129,13 @@ def main() -> None:
         r_res = johnson_range_m(crit, IFOV_RAD, JOHNSON_N50["identification"])
         if r_res > horizon_m:
             print(
-                f"  {name:<16} ID resolution range {r_res/1e3:>5.0f} km > horizon "
-                f"{horizon_m/1e3:.0f} km → HORIZON-limited (identifiable anywhere in sight)"
+                f"  {name:<16} ID resolution range {r_res / 1e3:>5.0f} km > horizon "
+                f"{horizon_m / 1e3:.0f} km → HORIZON-limited (identifiable anywhere in sight)"
             )
         else:
             print(
-                f"  {name:<16} ID resolution range {r_res/1e3:>5.0f} km < horizon "
-                f"{horizon_m/1e3:.0f} km → RESOLUTION-limited (must close to {r_res/1e3:.0f} km)"
+                f"  {name:<16} ID resolution range {r_res / 1e3:>5.0f} km < horizon "
+                f"{horizon_m / 1e3:.0f} km → RESOLUTION-limited (must close to {r_res / 1e3:.0f} km)"
             )
     print(
         "\n  The fleet splits: large ships are horizon-limited (resolution is "
@@ -153,14 +153,18 @@ def main() -> None:
     colors = {"detection": "#9DC3E6", "recognition": "#2E75B6", "identification": "#1F3864"}
     for k, task in enumerate(TASKS):
         vals = [min(dri_km[n][task], horizon_m / 1e3) for n in names]
-        ax.barh(y + (1 - k) * bar_h, vals, height=bar_h, color=colors[task], label=task.capitalize())
-    ax.axvline(horizon_m / 1e3, color="red", ls="--", lw=2, label=f"horizon {horizon_m/1e3:.0f} km")
+        ax.barh(
+            y + (1 - k) * bar_h, vals, height=bar_h, color=colors[task], label=task.capitalize()
+        )
+    ax.axvline(
+        horizon_m / 1e3, color="red", ls="--", lw=2, label=f"horizon {horizon_m / 1e3:.0f} km"
+    )
     ax.set_yticks(y)
     ax.set_yticklabels(names)
     ax.set_xlabel("Range (km) — capped at horizon")
     ax.set_title(
         "Scenario 4.2 — maritime DRI ranges (Johnson criteria)\n"
-        f"MWIR UAV, {IFOV_RAD*1e6:.1f} µrad IFOV, {ALT_M/1e3:.0f} km altitude"
+        f"MWIR UAV, {IFOV_RAD * 1e6:.1f} µrad IFOV, {ALT_M / 1e3:.0f} km altitude"
     )
     ax.legend(loc="lower right")
     ax.grid(axis="x", alpha=0.3)
@@ -181,9 +185,16 @@ def main() -> None:
         ax.plot(ranges_km, cycles, label=f"{name} (crit {crit:.0f} m)")
     for task in TASKS:
         ax.axhline(JOHNSON_N50[task], color="gray", ls=":", lw=1)
-        ax.text(295, JOHNSON_N50[task], f" {task[:3].upper()} N50={JOHNSON_N50[task]:.1f}",
-                va="center", fontsize=8)
-    ax.axvline(horizon_m / 1e3, color="red", ls="--", lw=1.5, label=f"horizon {horizon_m/1e3:.0f} km")
+        ax.text(
+            295,
+            JOHNSON_N50[task],
+            f" {task[:3].upper()} N50={JOHNSON_N50[task]:.1f}",
+            va="center",
+            fontsize=8,
+        )
+    ax.axvline(
+        horizon_m / 1e3, color="red", ls="--", lw=1.5, label=f"horizon {horizon_m / 1e3:.0f} km"
+    )
     ax.set_xlabel("Range (km)")
     ax.set_ylabel("Resolved cycles across target")
     ax.set_yscale("log")

@@ -43,38 +43,38 @@ ws["D1"] = "Notes"
 
 rows = [
     # Optics
-    ("Aperture diameter",       25,      "cm",    "25 cm primary mirror"),
-    ("Focal length",            250,     "cm",    "f/10"),
-    ("f-number",                10.0,    "--",    "Derived: f/D"),
-    ("Optical transmission",    70,      "%",     "End-to-end"),
-    ("Optics temperature",      20,      "C",     "Ambient (not cooled)"),
-    ("WFE RMS",                 0.05,    "waves", "Diffraction-limited design"),
-    ("Central obscuration",     30,      "%",     "Cassegrain"),
+    ("Aperture diameter", 25, "cm", "25 cm primary mirror"),
+    ("Focal length", 250, "cm", "f/10"),
+    ("f-number", 10.0, "--", "Derived: f/D"),
+    ("Optical transmission", 70, "%", "End-to-end"),
+    ("Optics temperature", 20, "C", "Ambient (not cooled)"),
+    ("WFE RMS", 0.05, "waves", "Diffraction-limited design"),
+    ("Central obscuration", 30, "%", "Cassegrain"),
     # Detector
-    ("Pixel pitch",             7.0,     "um",    "Si CCD"),
-    ("Quantum efficiency",      80,      "%",     "Broadband VNIR average"),
-    ("Dark current",            5.0,     "e-/s",  "Room temp Si CCD"),
-    ("Read noise",              15.0,    "e- RMS", "Per read, analog TDI: single readout"),
-    ("Full well capacity",      60000,   "e-",    "Small pixel CCD"),
-    ("Gain",                    1.5,     "e-/DN", "14-bit ADC"),
-    ("ADC bits",                14,      "--",    "16,383 DN max"),
+    ("Pixel pitch", 7.0, "um", "Si CCD"),
+    ("Quantum efficiency", 80, "%", "Broadband VNIR average"),
+    ("Dark current", 5.0, "e-/s", "Room temp Si CCD"),
+    ("Read noise", 15.0, "e- RMS", "Per read, analog TDI: single readout"),
+    ("Full well capacity", 60000, "e-", "Small pixel CCD"),
+    ("Gain", 1.5, "e-/DN", "14-bit ADC"),
+    ("ADC bits", 14, "--", "16,383 DN max"),
     # Spectral
-    ("Filter min",              500,     "nm",    "VNIR panchromatic"),
-    ("Filter max",              850,     "nm",    "VNIR panchromatic"),
+    ("Filter min", 500, "nm", "VNIR panchromatic"),
+    ("Filter max", 850, "nm", "VNIR panchromatic"),
     # Scene
-    ("Target reflectance",      0.15,    "--",    "Gray asphalt / urban"),
-    ("Background reflectance",  0.10,    "--",    "Vegetation background"),
-    ("Solar zenith angle",      30,      "deg",   "Mid-morning"),
+    ("Target reflectance", 0.15, "--", "Gray asphalt / urban"),
+    ("Background reflectance", 0.10, "--", "Vegetation background"),
+    ("Solar zenith angle", 30, "deg", "Mid-morning"),
     # Orbit & geometry
-    ("Orbit altitude",          500,     "km",    "LEO sun-synchronous"),
-    ("Orbital velocity",        7500,    "m/s",   "Circular orbit"),
+    ("Orbit altitude", 500, "km", "LEO sun-synchronous"),
+    ("Orbital velocity", 7500, "m/s", "Circular orbit"),
     # Atmosphere
-    ("Atmosphere model",        "simple", "--",   "Simple Beer-Lambert"),
-    ("Visibility",              23,      "km",    "Clear day"),
-    ("PWV",                     20,      "mm",    "Standard mid-latitude"),
+    ("Atmosphere model", "simple", "--", "Simple Beer-Lambert"),
+    ("Visibility", 23, "km", "Clear day"),
+    ("PWV", 20, "mm", "Standard mid-latitude"),
     # TDI
-    ("TDI mode",                "analog", "--",   "Charge accumulation, single readout"),
-    ("TDI misalignment",        0.1,     "pixels", "Cross-track registration error per stage"),
+    ("TDI mode", "analog", "--", "Charge accumulation, single readout"),
+    ("TDI misalignment", 0.1, "pixels", "Cross-track registration error per stage"),
 ]
 
 for i, (param, value, unit, note) in enumerate(rows, start=2):
@@ -147,13 +147,33 @@ ifov = pitch / f
 Q = band_center * (f / D) / (pitch * 1e6)
 
 derived = [
-    ("Ground velocity",   round(v_ground, 1),         "m/s",  f"v_orb × R_E/(R_E+h) = {v_orb} × {R_earth}/{R_earth+h}"),
-    ("GSD",               round(gsd, 2),              "m",    f"pitch × alt / f = {pitch*1e6:.0f}e-6 × {h/1e3:.0f}e3 / {f}"),
-    ("Line period",       round(line_period * 1e3, 4), "ms",  f"GSD / v_ground = {gsd:.2f} / {v_ground:.1f}"),
-    ("IFOV",              round(ifov * 1e6, 1),       "urad", f"pitch / f = {pitch*1e6:.0f}e-6 / {f}"),
-    ("Q (sampling)",      round(Q, 3),                "--",   f"λ_center × f/# / pitch = {band_center} × {f/D:.0f} / {pitch*1e6:.0f}"),
-    ("Smear per line",    1.0,                        "pixels", "By design: line rate matches ground velocity"),
-    ("Smear MTF@Nyquist", round(2 / 3.14159, 4),     "--",   "|sinc(π/2)| = 2/π ≈ 0.6366 (constant for all N_tdi)"),
+    (
+        "Ground velocity",
+        round(v_ground, 1),
+        "m/s",
+        f"v_orb × R_E/(R_E+h) = {v_orb} × {R_earth}/{R_earth + h}",
+    ),
+    ("GSD", round(gsd, 2), "m", f"pitch × alt / f = {pitch * 1e6:.0f}e-6 × {h / 1e3:.0f}e3 / {f}"),
+    (
+        "Line period",
+        round(line_period * 1e3, 4),
+        "ms",
+        f"GSD / v_ground = {gsd:.2f} / {v_ground:.1f}",
+    ),
+    ("IFOV", round(ifov * 1e6, 1), "urad", f"pitch / f = {pitch * 1e6:.0f}e-6 / {f}"),
+    (
+        "Q (sampling)",
+        round(Q, 3),
+        "--",
+        f"λ_center × f/# / pitch = {band_center} × {f / D:.0f} / {pitch * 1e6:.0f}",
+    ),
+    ("Smear per line", 1.0, "pixels", "By design: line rate matches ground velocity"),
+    (
+        "Smear MTF@Nyquist",
+        round(2 / 3.14159, 4),
+        "--",
+        "|sinc(π/2)| = 2/π ≈ 0.6366 (constant for all N_tdi)",
+    ),
 ]
 
 for i, (param, value, unit, deriv) in enumerate(derived, start=2):

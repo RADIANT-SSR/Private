@@ -330,9 +330,7 @@ def evaluate(sensor: Sensor, capture_warnings: bool = False) -> tuple[Any, list[
 
 def band_mean(wavelength_um: np.ndarray, values: np.ndarray) -> float:
     """Band mean over the evaluation grid [same unit as ``values``]."""
-    return float(np.trapezoid(values, wavelength_um)) / float(
-        wavelength_um[-1] - wavelength_um[0]
-    )
+    return float(np.trapezoid(values, wavelength_um)) / float(wavelength_um[-1] - wavelength_um[0])
 
 
 def band_integral(wavelength_um: np.ndarray, values: np.ndarray) -> float:
@@ -387,14 +385,26 @@ def section_inputs(vendor: dict[str, Any], canon: dict[str, float | str]) -> Non
     # The vendor column is READ BACK from the workbook so this table can never drift
     # from the file the conversions actually consumed.
     rows = [
-        ("Entrance pupil diameter", cam, "Entrance pupil diameter", "mm",
-         "aperture_diameter_m", "m"),
+        (
+            "Entrance pupil diameter",
+            cam,
+            "Entrance pupil diameter",
+            "mm",
+            "aperture_diameter_m",
+            "m",
+        ),
         ("Effective focal length", cam, "Effective focal length", "mm", "focal_length_m", "m"),
         ("Optical transmission", cam, "Optical transmission", "%", "transmission", "-"),
         ("Housing temperature", cam, "Housing temperature", "degC", "housing_temperature_K", "K"),
         ("Train emissivity (datasheet)", cam, "Train emissivity", "%", "train_emissivity", "-"),
-        ("Cold shield efficiency", cam, "Cold shield efficiency", "%",
-         "cold_shield_blocked_frac", "-"),
+        (
+            "Cold shield efficiency",
+            cam,
+            "Cold shield efficiency",
+            "%",
+            "cold_shield_blocked_frac",
+            "-",
+        ),
         ("Pixel pitch", cam, "Pixel pitch", "um", "pixel_pitch_um", "um"),
         ("Quantum efficiency", cam, "Quantum efficiency", "%", "qe", "-"),
         ("Band low edge", cam, "Spectral band, low edge", "nm", "filter_min_um", "um"),
@@ -411,8 +421,13 @@ def section_inputs(vendor: dict[str, Any], canon: dict[str, float | str]) -> Non
         for name, sheet, key, vendor_unit, canon_key, canon_unit in rows
     ]
     printable.append(
-        ("Nominal zenith at sensor", NOMINAL_ZENITH_DEG, "deg",
-         math.radians(NOMINAL_ZENITH_DEG), "rad")
+        (
+            "Nominal zenith at sensor",
+            NOMINAL_ZENITH_DEG,
+            "deg",
+            math.radians(NOMINAL_ZENITH_DEG),
+            "rad",
+        )
     )
     for name, vendor_value, vendor_unit, canon_value, canon_unit in printable:
         print(
@@ -421,8 +436,10 @@ def section_inputs(vendor: dict[str, Any], canon: dict[str, float | str]) -> Non
         )
     print()
     blocked_pct = float(cam["Cold shield efficiency"])
-    print(f"  Note on the cold shield (Gap 128): the vendor quotes a BLOCKED fraction "
-          f"({blocked_pct:g} % efficient),")
+    print(
+        f"  Note on the cold shield (Gap 128): the vendor quotes a BLOCKED fraction "
+        f"({blocked_pct:g} % efficient),"
+    )
     print("  which RADIANT no longer accepts as a knob.  A cold stop cannot attenuate")
     print("  IN-CONE warm-optics emission — that light arrives through the imaging path")
     print("  itself — and out-of-cone structure is taken to be blocked completely.  What a")
@@ -431,11 +448,15 @@ def section_inputs(vendor: dict[str, Any], canon: dict[str, float | str]) -> Non
     print(f"  Note on the train emissivity: the datasheet's {float(cam['Train emissivity']):g} %")
     print("  is the eps = 1 - tau fallacy (the whole optical loss read as absorption).  The")
     print(f"  model uses {N_MIRRORS} mirrors at R = {MIRROR_R:g} [-] plus an AR cold window,")
-    print(f"  net tau = {float(canon['transmission']):g} [-] unchanged, emitting eps ~ "
-          f"{N_MIRRORS * (1.0 - MIRROR_R):.2f} [-].")
+    print(
+        f"  net tau = {float(canon['transmission']):g} [-] unchanged, emitting eps ~ "
+        f"{N_MIRRORS * (1.0 - MIRROR_R):.2f} [-]."
+    )
     print()
-    print("  Pointing plan [deg, zenith at the sensor]: "
-          f"{', '.join(f'{z:g}' for z in vendor['zeniths_deg'])}")
+    print(
+        "  Pointing plan [deg, zenith at the sensor]: "
+        f"{', '.join(f'{z:g}' for z in vendor['zeniths_deg'])}"
+    )
 
 
 def section_geometry(result: Any) -> dict[str, float]:
@@ -447,36 +468,54 @@ def section_geometry(result: Any) -> dict[str, float]:
     slant_m = float(geo["slant_range_m"])
 
     print()
-    print(f"  scene_class        : {geo['scene_class']}   "
-          f"(observer_class = {geo['observer_class']}, target_class = {geo['target_class']})")
-    print(f"  los_direction      : {geo['los_direction']}   "
-          "(derived from the altitude pair — never a user switch)")
+    print(
+        f"  scene_class        : {geo['scene_class']}   "
+        f"(observer_class = {geo['observer_class']}, target_class = {geo['target_class']})"
+    )
+    print(
+        f"  los_direction      : {geo['los_direction']}   "
+        "(derived from the altitude pair — never a user switch)"
+    )
     print(f"  viewing_mode       : {geo['viewing_mode']}")
     print()
     print(f"  h_sensor           : {float(geo['h_sensor_m']):>12.1f} [m]")
     print(f"  h_target           : {float(geo['h_target_m']):>12.1f} [m]")
-    print(f"  theta_o (target-side path zenith) : {math.degrees(theta_o_rad):>8.4f} [deg] "
-          f"= {theta_o_rad:.6f} [rad]  (obtuse => up-looking)")
-    print(f"  eta     (angle at the sensor)     : {math.degrees(eta_rad):>8.4f} [deg] "
-          f"= {eta_rad:.6f} [rad]")
-    print(f"  zeta_low = pi - eta (sensor is the lower endpoint) : "
-          f"{math.degrees(zeta_low_rad):>8.4f} [deg]")
+    print(
+        f"  theta_o (target-side path zenith) : {math.degrees(theta_o_rad):>8.4f} [deg] "
+        f"= {theta_o_rad:.6f} [rad]  (obtuse => up-looking)"
+    )
+    print(
+        f"  eta     (angle at the sensor)     : {math.degrees(eta_rad):>8.4f} [deg] "
+        f"= {eta_rad:.6f} [rad]"
+    )
+    print(
+        f"  zeta_low = pi - eta (sensor is the lower endpoint) : "
+        f"{math.degrees(zeta_low_rad):>8.4f} [deg]"
+    )
     print(f"  slant range        : {slant_m / 1000.0:>12.4f} [km]")
-    print(f"  incidence_angle    : {math.degrees(float(geo['incidence_angle_rad'])):>8.4f} [deg] "
-          "(>= 90 deg: there is no ground plane at the target — see section 4)")
+    print(
+        f"  incidence_angle    : {math.degrees(float(geo['incidence_angle_rad'])):>8.4f} [deg] "
+        "(>= 90 deg: there is no ground plane at the target — see section 4)"
+    )
 
     # --- identity check: zeta_low must reproduce the entered pointing angle ---
     entered_rad = math.radians(NOMINAL_ZENITH_DEG)
     print()
     print("  Identity check (Phase-4 angle truth):")
     print(f"    entered geometry.path_zenith_rad = {math.degrees(entered_rad):.4f} [deg]")
-    print(f"    pi - eta                         = {math.degrees(zeta_low_rad):.4f} [deg]  "
-          f"(residual {abs(zeta_low_rad - entered_rad):.2e} [rad])")
-    print(f"    pi - theta_o                     = {180.0 - math.degrees(theta_o_rad):.4f} [deg]  "
-          "<- the FLAT-EARTH shorthand, wrong by the Earth-centre central angle")
-    print(f"    central angle phi = theta_o - eta = "
-          f"{math.degrees(theta_o_rad - eta_rad):.4f} [deg]  "
-          f"(= arc {R_EARTH_M * (theta_o_rad - eta_rad) / 1000.0:.3f} [km] on the surface)")
+    print(
+        f"    pi - eta                         = {math.degrees(zeta_low_rad):.4f} [deg]  "
+        f"(residual {abs(zeta_low_rad - entered_rad):.2e} [rad])"
+    )
+    print(
+        f"    pi - theta_o                     = {180.0 - math.degrees(theta_o_rad):.4f} [deg]  "
+        "<- the FLAT-EARTH shorthand, wrong by the Earth-centre central angle"
+    )
+    print(
+        f"    central angle phi = theta_o - eta = "
+        f"{math.degrees(theta_o_rad - eta_rad):.4f} [deg]  "
+        f"(= arc {R_EARTH_M * (theta_o_rad - eta_rad) / 1000.0:.3f} [km] on the surface)"
+    )
     print("    theta_o and eta are read at DIFFERENT vertices of one spherical triangle, so")
     print("    they differ by exactly the central angle; using pi - theta_o for zeta_low is")
     print("    the flat-Earth slip the Phase-4 angle catalog calls out.")
@@ -493,8 +532,10 @@ def section_geometry(result: Any) -> dict[str, float]:
     print("  Cross-check A — slant range from an independent spherical solution:")
     print(f"    hand calculation : {hand_slant_m / 1000.0:.6f} [km]")
     print(f"    RADIANT          : {slant_m / 1000.0:.6f} [km]")
-    print(f"    difference       : {abs(hand_slant_m - slant_m):.4e} [m] "
-          f"({abs(hand_slant_m - slant_m) / slant_m:.2e} relative)")
+    print(
+        f"    difference       : {abs(hand_slant_m - slant_m):.4e} [m] "
+        f"({abs(hand_slant_m - slant_m) / slant_m:.2e} relative)"
+    )
 
     # --- the optional scene-class assertion (ADR-0011 decision 8) ---
     print()
@@ -540,24 +581,33 @@ def section_regime(result: Any, canon: dict[str, float | str]) -> None:
     print(f"  Declared scene_type                : {src['scene_type_declared']}")
     print()
     print("  Why point-source and not sub-pixel or extended:")
-    print(f"    target projected area   A_t     = {area_m2:.4e} [m^2]  "
-          f"(60 mm nozzle disc)")
+    print(f"    target projected area   A_t     = {area_m2:.4e} [m^2]  (60 mm nozzle disc)")
     print(f"    angular extent  sqrt(A_t)/d     = {extent_rad:.4e} [rad]")
-    print(f"    system PSF FWHM (angular)       = {fwhm_rad:.4e} [rad]  "
-          f"(= {fwhm_m * 1e6:.2f} [um] at f = {focal_m:.3f} [m])")
-    print(f"    ratio                           = {extent_rad / fwhm_rad:.4f} [-]  "
-          "(point-source form requires <= 0.10)")
+    print(
+        f"    system PSF FWHM (angular)       = {fwhm_rad:.4e} [rad]  "
+        f"(= {fwhm_m * 1e6:.2f} [um] at f = {focal_m:.3f} [m])"
+    )
+    print(
+        f"    ratio                           = {extent_rad / fwhm_rad:.4f} [-]  "
+        "(point-source form requires <= 0.10)"
+    )
     min_range_m = math.sqrt(area_m2) / (0.10 * fwhm_rad)
-    print(f"    The target is {fwhm_rad / extent_rad:.1f}x smaller than the blur, so collapsing "
-          "it to an intensity")
+    print(
+        f"    The target is {fwhm_rad / extent_rad:.1f}x smaller than the blur, so collapsing "
+        "it to an intensity"
+    )
     print("    I(lambda) = eps * L(lambda) * A_t loses nothing.  RADIANT REFUSES the")
     print("    point-source form when this ratio exceeds 0.10 (Rule 17), i.e. closer than")
-    print(f"    sqrt(A_t) / (0.1 * FWHM) = {min_range_m / 1000.0:.3f} [km] slant range — below "
-          "which the same")
+    print(
+        f"    sqrt(A_t) / (0.1 * FWHM) = {min_range_m / 1000.0:.3f} [km] slant range — below "
+        "which the same"
+    )
     print("    nozzle must be run as a sub-pixel target with an explicit shape.")
     print()
-    print(f"    EE_box (PlatformStage, applied once in SpectralIntegrationStage, Rule 9): "
-          f"{float(result.stage_outputs['platform']['EE_box']):.4f} [-]")
+    print(
+        f"    EE_box (PlatformStage, applied once in SpectralIntegrationStage, Rule 9): "
+        f"{float(result.stage_outputs['platform']['EE_box']):.4f} [-]"
+    )
     print("    In the point-source regime EE_box multiplies the TARGET term only; the sky")
     print("    background fills the pixel and is not re-apertured.")
     print()
@@ -570,8 +620,7 @@ def section_regime(result: Any, canon: dict[str, float | str]) -> None:
     print("      run would still be first-class.")
     print("    - source.background.*: an up-looking LOS terminates on cold space, so the")
     print("      background is the derived SkyBackground (no user temperature/emissivity")
-    print("      is read).  Published descriptor: "
-          f"{src['background']!r}")
+    print(f"      is read).  Published descriptor: {src['background']!r}")
     print("    - every ground-projection parameter (swath, ground speed, access): the")
     print("      target has no ground plane — see section 4.")
     print("    - detector.n_pixels_cross / TDI: this is a staring track camera, single")
@@ -584,8 +633,10 @@ def section_metric_relevance(result: Any) -> None:
     off = sorted(default_off_metrics(scene_class))
 
     print()
-    print(f"  radiant.api.scene_relevance.default_off_metrics({scene_class!r}) — "
-          f"{len(off)} metrics OFF BY DEFAULT:")
+    print(
+        f"  radiant.api.scene_relevance.default_off_metrics({scene_class!r}) — "
+        f"{len(off)} metrics OFF BY DEFAULT:"
+    )
     for name in off:
         present = "PRESENT" if name in result.metrics else "absent"
         print(f"    {name:<38s} {present}")
@@ -597,8 +648,10 @@ def section_metric_relevance(result: Any) -> None:
         "target_plane_sample_distance_geometric_mean_m",
     ):
         print(f"    {name:<46s} = {float(result.metrics[name]):.4f} [m]")
-    print(f"    {'diffraction_limit_angular_urad':<46s} = "
-          f"{float(result.metrics['diffraction_limit_angular_urad']):.4f} [urad]")
+    print(
+        f"    {'diffraction_limit_angular_urad':<46s} = "
+        f"{float(result.metrics['diffraction_limit_angular_urad']):.4f} [urad]"
+    )
     print("    Target-plane sample distance is the plate scale projected onto a plane")
     print("    THROUGH THE TARGET normal to the LOS: d = pitch * R / f.  It is the honest")
     print("    counterpart of GSD when there is no ground at the target; the angular")
@@ -612,9 +665,11 @@ def section_metric_relevance(result: Any) -> None:
         overridden, _ = evaluate(sensor)
         tp = "target_plane_sample_distance_geometric_mean_m" in overridden.metrics
         gsd = "gsd_geometric_mean_m" in overridden.metrics
-        print(f"    performance.metrics.sampling = {str(flag):<5s} -> "
-              f"target-plane sample distance {'present' if tp else 'absent ':<8s}  "
-              f"GSD {'present' if gsd else 'absent'}")
+        print(
+            f"    performance.metrics.sampling = {str(flag):<5s} -> "
+            f"target-plane sample distance {'present' if tp else 'absent ':<8s}  "
+            f"GSD {'present' if gsd else 'absent'}"
+        )
     print("    An explicitly set flag wins over the class default in BOTH directions.")
     print("    GSD stays absent even when the group is force-enabled: that is a")
     print("    COMPUTABILITY gate, not a relevance default — the ground-plane cosine")
@@ -625,13 +680,19 @@ def section_sweep(zeniths_deg: list[float], canon: dict[str, float | str]) -> li
     rule("5. ELEVATION SWEEP — SKY PATH, SIGNAL AND SNR VS ZENITH AT THE SENSOR")
     rows: list[dict[str, Any]] = []
     print()
-    print(f"  {'zeta_low':>9s}  {'elev':>6s}  {'slant':>8s}  {'tau_band':>9s}  {'L_path':>10s}  "
-          f"{'signal':>11s}  {'sky bkg':>11s}  {'noise':>9s}  {'SNR':>9s}  {'SCNR':>9s}  "
-          f"{'NEDT':>8s}")
-    print(f"  {'[deg]':>9s}  {'[deg]':>6s}  {'[km]':>8s}  {'[-]':>9s}  {'[W/m2/sr]':>10s}  "
-          f"{'[e-]':>11s}  {'[e-]':>11s}  {'[e- rms]':>9s}  {'[-]':>9s}  {'[-]':>9s}  {'[mK]':>8s}")
-    print(f"  {'-' * 9}  {'-' * 6}  {'-' * 8}  {'-' * 9}  {'-' * 10}  {'-' * 11}  {'-' * 11}  "
-          f"{'-' * 9}  {'-' * 9}  {'-' * 9}  {'-' * 8}")
+    print(
+        f"  {'zeta_low':>9s}  {'elev':>6s}  {'slant':>8s}  {'tau_band':>9s}  {'L_path':>10s}  "
+        f"{'signal':>11s}  {'sky bkg':>11s}  {'noise':>9s}  {'SNR':>9s}  {'SCNR':>9s}  "
+        f"{'NEDT':>8s}"
+    )
+    print(
+        f"  {'[deg]':>9s}  {'[deg]':>6s}  {'[km]':>8s}  {'[-]':>9s}  {'[W/m2/sr]':>10s}  "
+        f"{'[e-]':>11s}  {'[e-]':>11s}  {'[e- rms]':>9s}  {'[-]':>9s}  {'[-]':>9s}  {'[mK]':>8s}"
+    )
+    print(
+        f"  {'-' * 9}  {'-' * 6}  {'-' * 8}  {'-' * 9}  {'-' * 10}  {'-' * 11}  {'-' * 11}  "
+        f"{'-' * 9}  {'-' * 9}  {'-' * 9}  {'-' * 8}"
+    )
 
     for zenith_deg in zeniths_deg:
         result, _ = evaluate(Sensor.from_dict(make_config(zenith_deg)))
@@ -655,26 +716,34 @@ def section_sweep(zeniths_deg: list[float], canon: dict[str, float | str]) -> li
             "consistency": result.stage_outputs["performance"]["dual_path_consistency"],
         }
         rows.append(row)
-        print(f"  {row['zenith_deg']:>9.1f}  {row['elevation_deg']:>6.1f}  "
-              f"{row['slant_km']:>8.3f}  "
-              f"{row['tau_band']:>9.4f}  {row['l_path']:>10.4f}  {row['signal_e']:>11.4g}  "
-              f"{row['background_e']:>11.4g}  {row['noise_e']:>9.1f}  {row['snr']:>9.2f}  "
-              f"{row['scnr']:>9.2f}  {row['nedt_mK']:>8.1f}")
+        print(
+            f"  {row['zenith_deg']:>9.1f}  {row['elevation_deg']:>6.1f}  "
+            f"{row['slant_km']:>8.3f}  "
+            f"{row['tau_band']:>9.4f}  {row['l_path']:>10.4f}  {row['signal_e']:>11.4g}  "
+            f"{row['background_e']:>11.4g}  {row['noise_e']:>9.1f}  {row['snr']:>9.2f}  "
+            f"{row['scnr']:>9.2f}  {row['nedt_mK']:>8.1f}"
+        )
 
     first, last = rows[0], rows[-1]
     print()
     print("  Physics of the trend:")
-    print(f"    Slant range grows {last['slant_km'] / first['slant_km']:.2f}x from zenith to "
-          f"{last['zenith_deg']:.0f} deg, but the SIGNAL falls "
-          f"{first['signal_e'] / last['signal_e']:.2f}x — far more than the 1/R^2 factor of "
-          f"{(last['slant_km'] / first['slant_km']) ** 2:.2f}x.")
-    print(f"    The extra loss is the air mass: band-mean transmittance drops from "
-          f"{first['tau_band']:.4f} to {last['tau_band']:.4f} [-] "
-          f"({(last['tau_band'] / first['tau_band'] - 1.0) * 100.0:+.1f} %), because a slanted")
+    print(
+        f"    Slant range grows {last['slant_km'] / first['slant_km']:.2f}x from zenith to "
+        f"{last['zenith_deg']:.0f} deg, but the SIGNAL falls "
+        f"{first['signal_e'] / last['signal_e']:.2f}x — far more than the 1/R^2 factor of "
+        f"{(last['slant_km'] / first['slant_km']) ** 2:.2f}x."
+    )
+    print(
+        f"    The extra loss is the air mass: band-mean transmittance drops from "
+        f"{first['tau_band']:.4f} to {last['tau_band']:.4f} [-] "
+        f"({(last['tau_band'] / first['tau_band'] - 1.0) * 100.0:+.1f} %), because a slanted"
+    )
     print("    ray spends proportionally more of its length in the dense, wet, warm air")
     print("    below 3 km.  Up-path radiance moves the OTHER way — it RISES from")
-    print(f"    {first['l_path']:.4f} to {last['l_path']:.4f} [W/m2/sr] "
-          f"({(last['l_path'] / first['l_path'] - 1.0) * 100.0:+.1f} %) by Kirchhoff: the same")
+    print(
+        f"    {first['l_path']:.4f} to {last['l_path']:.4f} [W/m2/sr] "
+        f"({(last['l_path'] / first['l_path'] - 1.0) * 100.0:+.1f} %) by Kirchhoff: the same"
+    )
     print("    extra absorbing column is an extra EMITTING column.  Both effects push SNR")
     print("    down, which is why SNR falls faster than any single one of them.")
     print()
@@ -699,8 +768,10 @@ def section_sky_composition(nominal: Any) -> list[dict[str, Any]]:
     print("  and with the simple model's single-effective-temperature graybody per segment")
     print("  that composition is NOT additive, so the answer drifts with target altitude:")
     print()
-    print(f"  {'target altitude':>16s}  {'scene class':>16s}  {'sky background':>15s}  "
-          f"{'deficit':>9s}")
+    print(
+        f"  {'target altitude':>16s}  {'scene class':>16s}  {'sky background':>15s}  "
+        f"{'deficit':>9s}"
+    )
     print(f"  {'[km]':>16s}  {'':>16s}  {'[e-]':>15s}  {'[%]':>9s}")
     print(f"  {'-' * 16}  {'-' * 16}  {'-' * 15}  {'-' * 9}")
     rows: list[dict[str, Any]] = []
@@ -718,8 +789,10 @@ def section_sky_composition(nominal: Any) -> list[dict[str, Any]]:
     asymptote = rows[-1]["background_e"]
     for row in rows:
         row["deficit_pct"] = (row["background_e"] / asymptote - 1.0) * 100.0
-        print(f"  {row['altitude_km']:>16.1f}  {row['scene_class']:>16s}  "
-              f"{row['background_e']:>15.5g}  {row['deficit_pct']:>+9.1f}")
+        print(
+            f"  {row['altitude_km']:>16.1f}  {row['scene_class']:>16s}  "
+            f"{row['background_e']:>15.5g}  {row['deficit_pct']:>+9.1f}"
+        )
     print()
     noise_terms = {term.name: float(term.value_e) for term in nominal.noise_terms}
     total_variance = sum(value**2 for value in noise_terms.values())
@@ -728,10 +801,14 @@ def section_sky_composition(nominal: Any) -> list[dict[str, Any]]:
     print()
     print("  The 99 km row is the whole column (the ray leaves the modelled atmosphere at the")
     print("  target), so it is the physically correct sky for EVERY row.  The vertical 10 km")
-    print(f"  scene under-reports it by {abs(rows[0]['deficit_pct']):.1f} %.  Background shot "
-          "noise scales as the")
-    print(f"  square root of that charge and carries {background_share * 100.0:.0f} % of the "
-          "noise VARIANCE at the")
+    print(
+        f"  scene under-reports it by {abs(rows[0]['deficit_pct']):.1f} %.  Background shot "
+        "noise scales as the"
+    )
+    print(
+        f"  square root of that charge and carries {background_share * 100.0:.0f} % of the "
+        "noise VARIANCE at the"
+    )
     print("  nominal point, so the composed sky makes this scenario's SNR OPTIMISTIC by only")
     print(f"  about {optimism_pct:.1f} % — small here, but it grows for a dimmer target where the")
     print("  background term dominates, and it is a systematic sign, not noise.  Logged in")
@@ -739,16 +816,19 @@ def section_sky_composition(nominal: Any) -> list[dict[str, Any]]:
     return rows
 
 
-def section_detection(zeniths_deg: list[float], canon: dict[str, float | str],
-                      nominal: Any) -> list[dict[str, Any]]:
+def section_detection(
+    zeniths_deg: list[float], canon: dict[str, float | str], nominal: Any
+) -> list[dict[str, Any]]:
     rule("6. DETECTION RANGE ALONG THE ACTUAL RAY (path-aware up topology)")
     threshold = float(canon["snr_threshold"])
     detection = nominal.stage_outputs["performance"]["detection_range_result"]
 
     print()
     print("  First, what RADIANT's own detection-range metric says for this scene:")
-    print(f"    detection_range_m in result.metrics : "
-          f"{'present' if 'detection_range_m' in nominal.metrics else 'ABSENT'}")
+    print(
+        f"    detection_range_m in result.metrics : "
+        f"{'present' if 'detection_range_m' in nominal.metrics else 'ABSENT'}"
+    )
     print(f"    detection_range_result.ok           : {detection.ok}")
     print("    failure_reason:")
     for line in str(detection.failure_reason).split(". "):
@@ -766,10 +846,14 @@ def section_detection(zeniths_deg: list[float], canon: dict[str, float | str],
     print("  re-evaluated.  Every point is a real segment-composed atmosphere — no")
     print("  extrapolation of any kind.")
     print()
-    print(f"  {'zeta_low':>9s}  {'SNR @ 10 km':>12s}  {'R_detect':>10s}  {'h at R':>9s}  "
-          f"{'R_vacuum':>10s}  {'ratio':>7s}  {'class at R':>16s}")
-    print(f"  {'[deg]':>9s}  {'[-]':>12s}  {'[km]':>10s}  {'[km]':>9s}  {'[km]':>10s}  "
-          f"{'[-]':>7s}  {'':>16s}")
+    print(
+        f"  {'zeta_low':>9s}  {'SNR @ 10 km':>12s}  {'R_detect':>10s}  {'h at R':>9s}  "
+        f"{'R_vacuum':>10s}  {'ratio':>7s}  {'class at R':>16s}"
+    )
+    print(
+        f"  {'[deg]':>9s}  {'[-]':>12s}  {'[km]':>10s}  {'[km]':>9s}  {'[km]':>10s}  "
+        f"{'[-]':>7s}  {'':>16s}"
+    )
     print(f"  {'-' * 9}  {'-' * 12}  {'-' * 10}  {'-' * 9}  {'-' * 10}  {'-' * 7}  {'-' * 16}")
 
     rows: list[dict[str, Any]] = []
@@ -780,13 +864,12 @@ def section_detection(zeniths_deg: list[float], canon: dict[str, float | str],
         ref_range_m = float(ref_result.stage_outputs["geometry"]["slant_range_m"])
         vacuum_bound_m = ref_range_m * math.sqrt(snr_ref / threshold)
 
-        def snr_at(path_length_m: float, zenith_deg: float = zenith_deg,
-                   zenith_rad: float = zenith_rad) -> tuple[float, str]:
+        def snr_at(
+            path_length_m: float, zenith_deg: float = zenith_deg, zenith_rad: float = zenith_rad
+        ) -> tuple[float, str]:
             h_m = altitude_along_ray(path_length_m, zenith_rad)
             trial, _ = evaluate(Sensor.from_dict(make_config(zenith_deg, target_altitude_m=h_m)))
-            return float(trial.metrics["snr"]), str(
-                trial.stage_outputs["geometry"]["scene_class"]
-            )
+            return float(trial.metrics["snr"]), str(trial.stage_outputs["geometry"]["scene_class"])
 
         lo_m, hi_m = ref_range_m, 400_000.0
         # Clamp the upper bracket so the walk never leaves the modelled column.
@@ -811,9 +894,11 @@ def section_detection(zeniths_deg: list[float], canon: dict[str, float | str],
             "scene_class": scene_at_range,
         }
         rows.append(row)
-        print(f"  {row['zenith_deg']:>9.1f}  {row['snr_ref']:>12.2f}  {row['range_km']:>10.2f}  "
-              f"{row['altitude_km']:>9.2f}  {row['vacuum_km']:>10.2f}  {row['ratio']:>7.3f}  "
-              f"{row['scene_class']:>16s}")
+        print(
+            f"  {row['zenith_deg']:>9.1f}  {row['snr_ref']:>12.2f}  {row['range_km']:>10.2f}  "
+            f"{row['altitude_km']:>9.2f}  {row['vacuum_km']:>10.2f}  {row['ratio']:>7.3f}  "
+            f"{row['scene_class']:>16s}"
+        )
 
     print()
     print("  Cross-check B — the vacuum inverse-square identity.")
@@ -843,16 +928,13 @@ def section_horizon_guard() -> list[dict[str, Any]]:
     for zenith_deg in (60.0, 87.5, 88.5, 89.7):
         detail = ""
         try:
-            _, messages = evaluate(
-                Sensor.from_dict(make_config(zenith_deg)), capture_warnings=True
-            )
+            _, messages = evaluate(Sensor.from_dict(make_config(zenith_deg)), capture_warnings=True)
         except Exception as exc:  # noqa: BLE001 — the raise IS the demonstration
             outcome = "RAISE"
             detail = str(exc).split("|")[0].strip()[:96]
         else:
             guard = [
-                m for m in messages
-                if "horizon" in m.lower() or "near-horizontal" in m.lower()
+                m for m in messages if "horizon" in m.lower() or "near-horizontal" in m.lower()
             ]
             outcome = "warn" if guard else "clean"
             detail = guard[0].split(":", 1)[1].strip()[:96] if guard else "no guard message"
@@ -871,24 +953,30 @@ def section_rule4(rows: list[dict[str, Any]]) -> bool:
     print("  performance/consistency_check.py compares the FFT of the degraded EffectivePSF")
     print("  against the MTF product on every run in which the spatial path is computed.")
     print()
-    print(f"  {'zeta_low':>9s}  {'passed_x':>9s}  {'passed_y':>9s}  {'max |err| x':>12s}  "
-          f"{'max |err| y':>12s}  {'tolerance':>10s}")
+    print(
+        f"  {'zeta_low':>9s}  {'passed_x':>9s}  {'passed_y':>9s}  {'max |err| x':>12s}  "
+        f"{'max |err| y':>12s}  {'tolerance':>10s}"
+    )
     print(f"  {'[deg]':>9s}  {'[-]':>9s}  {'[-]':>9s}  {'[-]':>12s}  {'[-]':>12s}  {'[-]':>10s}")
     print(f"  {'-' * 9}  {'-' * 9}  {'-' * 9}  {'-' * 12}  {'-' * 12}  {'-' * 10}")
     all_ok = True
     for row in rows:
         consistency = row["consistency"]
         all_ok = all_ok and bool(consistency.passed_x) and bool(consistency.passed_y)
-        print(f"  {row['zenith_deg']:>9.1f}  {str(consistency.passed_x):>9s}  "
-              f"{str(consistency.passed_y):>9s}  {consistency.max_absolute_error_x:>12.3e}  "
-              f"{consistency.max_absolute_error_y:>12.3e}  {consistency.tolerance:>10.3e}")
+        print(
+            f"  {row['zenith_deg']:>9.1f}  {str(consistency.passed_x):>9s}  "
+            f"{str(consistency.passed_y):>9s}  {consistency.max_absolute_error_x:>12.3e}  "
+            f"{consistency.max_absolute_error_y:>12.3e}  {consistency.tolerance:>10.3e}"
+        )
     print()
     worst = max(r["consistency"].max_absolute_error_x for r in rows)
     tolerance = rows[0]["consistency"].tolerance
     print("  VERDICT: the dual-path consistency check stayed SILENT for every point of this")
     print(f"           ground_to_air sweep — all_passed = {all_ok}.  The worst residual is")
-    print(f"           {worst:.3e} [-] against a {tolerance:.3e} [-] tolerance "
-          f"({tolerance / worst:.0f}x margin).")
+    print(
+        f"           {worst:.3e} [-] against a {tolerance:.3e} [-] tolerance "
+        f"({tolerance / worst:.0f}x margin)."
+    )
     return all_ok
 
 
@@ -918,14 +1006,22 @@ def section_hand_radiometry(canon: dict[str, float | str]) -> dict[str, float]:
     radiant_e = float(result.stage_outputs["spectral_integration"]["signal_e"])
 
     print()
-    print(f"  Geometry              : zeta_low = {NOMINAL_ZENITH_DEG:.1f} [deg], "
-          f"slant range = {slant_m / 1000.0:.4f} [km]")
-    print(f"  In-band target intensity  I = eps * INT L(lam,T) A_t dlam = "
-          f"{float(np.trapezoid(intensity, wl)):.6f} [W/sr]")
-    print(f"  Irradiance at the pupil   E = I * tau_bar / R^2            ~ "
-          f"{float(np.trapezoid(intensity * tau_atm, wl)) / slant_m**2:.4e} [W/m^2]")
-    print(f"  Collecting area           A = pi D^2 / 4                   = "
-          f"{aperture_area_m2:.6f} [m^2]")
+    print(
+        f"  Geometry              : zeta_low = {NOMINAL_ZENITH_DEG:.1f} [deg], "
+        f"slant range = {slant_m / 1000.0:.4f} [km]"
+    )
+    print(
+        f"  In-band target intensity  I = eps * INT L(lam,T) A_t dlam = "
+        f"{float(np.trapezoid(intensity, wl)):.6f} [W/sr]"
+    )
+    print(
+        f"  Irradiance at the pupil   E = I * tau_bar / R^2            ~ "
+        f"{float(np.trapezoid(intensity * tau_atm, wl)) / slant_m**2:.4e} [W/m^2]"
+    )
+    print(
+        f"  Collecting area           A = pi D^2 / 4                   = "
+        f"{aperture_area_m2:.6f} [m^2]"
+    )
     print(f"  EE_box (from the degraded PSF)                             = {ee_box:.4f} [-]")
     print()
     print(f"    hand calculation : {hand_e:>12.4g} [e-]")
@@ -996,13 +1092,19 @@ def section_modtran(anchors: list[dict[str, Any]], runs_dir: Path) -> list[dict[
     print("  and RADIANT's 'simple' segment model.  tau is a band mean over 3-5 um;")
     print("  L is the up-path radiance band integral toward the ground observer.")
     print()
-    print(f"  {'run':>4s}  {'H1':>6s}  {'H2':>6s}  {'angle':>6s}  {'tau MODTRAN':>12s}  "
-          f"{'tau RADIANT':>12s}  {'d tau':>8s}  {'L MODTRAN':>11s}  {'L RADIANT':>11s}  "
-          f"{'d L':>8s}")
-    print(f"  {'':>4s}  {'[km]':>6s}  {'[km]':>6s}  {'[deg]':>6s}  {'[-]':>12s}  {'[-]':>12s}  "
-          f"{'[%]':>8s}  {'[W/m2/sr]':>11s}  {'[W/m2/sr]':>11s}  {'[%]':>8s}")
-    print(f"  {'-' * 4}  {'-' * 6}  {'-' * 6}  {'-' * 6}  {'-' * 12}  {'-' * 12}  {'-' * 8}  "
-          f"{'-' * 11}  {'-' * 11}  {'-' * 8}")
+    print(
+        f"  {'run':>4s}  {'H1':>6s}  {'H2':>6s}  {'angle':>6s}  {'tau MODTRAN':>12s}  "
+        f"{'tau RADIANT':>12s}  {'d tau':>8s}  {'L MODTRAN':>11s}  {'L RADIANT':>11s}  "
+        f"{'d L':>8s}"
+    )
+    print(
+        f"  {'':>4s}  {'[km]':>6s}  {'[km]':>6s}  {'[deg]':>6s}  {'[-]':>12s}  {'[-]':>12s}  "
+        f"{'[%]':>8s}  {'[W/m2/sr]':>11s}  {'[W/m2/sr]':>11s}  {'[%]':>8s}"
+    )
+    print(
+        f"  {'-' * 4}  {'-' * 6}  {'-' * 6}  {'-' * 6}  {'-' * 12}  {'-' * 12}  {'-' * 8}  "
+        f"{'-' * 11}  {'-' * 11}  {'-' * 8}"
+    )
 
     rows: list[dict[str, Any]] = []
     for anchor in anchors:
@@ -1036,10 +1138,12 @@ def section_modtran(anchors: list[dict[str, Any]], runs_dir: Path) -> list[dict[
             "l_pct": (l_model / l_ref - 1.0) * 100.0,
         }
         rows.append(row)
-        print(f"  {row['run']:>4s}  {row['h1_km']:>6.1f}  {row['h2_km']:>6.1f}  "
-              f"{row['angle_deg']:>6.1f}  {row['tau_modtran']:>12.4f}  {row['tau_model']:>12.4f}  "
-              f"{row['tau_pct']:>+8.1f}  {row['l_modtran']:>11.4f}  {row['l_model']:>11.4f}  "
-              f"{row['l_pct']:>+8.1f}")
+        print(
+            f"  {row['run']:>4s}  {row['h1_km']:>6.1f}  {row['h2_km']:>6.1f}  "
+            f"{row['angle_deg']:>6.1f}  {row['tau_modtran']:>12.4f}  {row['tau_model']:>12.4f}  "
+            f"{row['tau_pct']:>+8.1f}  {row['l_modtran']:>11.4f}  {row['l_model']:>11.4f}  "
+            f"{row['l_pct']:>+8.1f}"
+        )
 
     print()
     print("  Reading the disagreement (this is a CHARACTERISATION, not an agreement claim):")
@@ -1078,19 +1182,30 @@ def make_figures(
     # -- Figure 1: sky path products vs pointing --------------------------
     fig, ax_left = plt.subplots(figsize=(9.0, 6.0))
     ax_right = ax_left.twinx()
-    line_tau, = ax_left.plot(
-        zeniths, [r["tau_band"] for r in sweep], "o-", color="#1f77b4", linewidth=2,
+    (line_tau,) = ax_left.plot(
+        zeniths,
+        [r["tau_band"] for r in sweep],
+        "o-",
+        color="#1f77b4",
+        linewidth=2,
         label="band-mean transmittance, 3-5 um",
     )
-    line_l, = ax_right.plot(
-        zeniths, [r["l_path"] for r in sweep], "s--", color="#d62728", linewidth=2,
+    (line_l,) = ax_right.plot(
+        zeniths,
+        [r["l_path"] for r in sweep],
+        "s--",
+        color="#d62728",
+        linewidth=2,
         label="up-path radiance, 3-5 um band integral",
     )
     if modtran:
         anchor_pts = [(r["angle_deg"], r["tau_modtran"]) for r in modtran if r["h2_km"] == 10.0]
         if anchor_pts:
             ax_left.plot(
-                [p[0] for p in anchor_pts], [p[1] for p in anchor_pts], "k*", markersize=14,
+                [p[0] for p in anchor_pts],
+                [p[1] for p in anchor_pts],
+                "k*",
+                markersize=14,
                 label="MODTRAN K4 / K6 (10 km target)",
             )
     ax_left.set_xlabel("Zenith angle at the sensor, zeta_low [deg]")
@@ -1112,14 +1227,18 @@ def make_figures(
 
     # -- Figure 2: signal / background / SNR ------------------------------
     fig, (ax_e, ax_snr) = plt.subplots(2, 1, figsize=(9.0, 8.0), sharex=True)
-    ax_e.semilogy(zeniths, [r["signal_e"] for r in sweep], "o-", linewidth=2,
-                  label="target signal")
-    ax_e.semilogy(zeniths, [r["background_e"] for r in sweep], "s--", linewidth=2,
-                  label="sky background (pixel)")
-    ax_e.semilogy(zeniths, [r["nearfield_e"] for r in sweep], "^:", linewidth=2,
-                  label="warm-optics nearfield")
-    ax_e.semilogy(zeniths, [r["noise_e"] for r in sweep], "d-.", linewidth=2,
-                  label="total noise")
+    ax_e.semilogy(zeniths, [r["signal_e"] for r in sweep], "o-", linewidth=2, label="target signal")
+    ax_e.semilogy(
+        zeniths,
+        [r["background_e"] for r in sweep],
+        "s--",
+        linewidth=2,
+        label="sky background (pixel)",
+    )
+    ax_e.semilogy(
+        zeniths, [r["nearfield_e"] for r in sweep], "^:", linewidth=2, label="warm-optics nearfield"
+    )
+    ax_e.semilogy(zeniths, [r["noise_e"] for r in sweep], "d-.", linewidth=2, label="total noise")
     ax_e.set_ylabel("Charge [e-]  /  noise [e- rms]")
     ax_e.set_title("Ground-to-air MWIR track camera vs pointing elevation")
     ax_e.grid(True, which="both", alpha=0.3)
@@ -1140,12 +1259,27 @@ def make_figures(
 
     # -- Figure 3: detection range ----------------------------------------
     fig, ax = plt.subplots(figsize=(9.0, 6.0))
-    ax.plot([r["zenith_deg"] for r in detection], [r["range_km"] for r in detection],
-            "o-", linewidth=2, label="detection range, full-chain walk along the ray")
-    ax.plot([r["zenith_deg"] for r in detection], [r["vacuum_km"] for r in detection],
-            "s--", linewidth=2, label="vacuum inverse-square bound R_ref*sqrt(SNR_ref/5)")
-    ax.plot([r["zenith_deg"] for r in detection], [r["altitude_km"] for r in detection],
-            "^:", linewidth=2, label="target altitude at the detection range")
+    ax.plot(
+        [r["zenith_deg"] for r in detection],
+        [r["range_km"] for r in detection],
+        "o-",
+        linewidth=2,
+        label="detection range, full-chain walk along the ray",
+    )
+    ax.plot(
+        [r["zenith_deg"] for r in detection],
+        [r["vacuum_km"] for r in detection],
+        "s--",
+        linewidth=2,
+        label="vacuum inverse-square bound R_ref*sqrt(SNR_ref/5)",
+    )
+    ax.plot(
+        [r["zenith_deg"] for r in detection],
+        [r["altitude_km"] for r in detection],
+        "^:",
+        linewidth=2,
+        label="target altitude at the detection range",
+    )
     ax.set_xlabel("Zenith angle at the sensor, zeta_low [deg]")
     ax.set_ylabel("Range / altitude [km]")
     ax.set_title("Detection range vs pointing elevation (SNR threshold = 5)")
@@ -1162,19 +1296,39 @@ def make_figures(
         vertical = [r for r in modtran if r["angle_deg"] == 0.0]
         fig, (ax_tau, ax_l) = plt.subplots(1, 2, figsize=(12.0, 5.0))
         depth = [r["h2_km"] for r in vertical]
-        ax_tau.plot(depth, [r["tau_modtran"] for r in vertical], "ks-", linewidth=2,
-                    label="MODTRAN (K ladder)")
-        ax_tau.plot(depth, [r["tau_model"] for r in vertical], "o--", linewidth=2,
-                    label="RADIANT simple model")
+        ax_tau.plot(
+            depth,
+            [r["tau_modtran"] for r in vertical],
+            "ks-",
+            linewidth=2,
+            label="MODTRAN (K ladder)",
+        )
+        ax_tau.plot(
+            depth,
+            [r["tau_model"] for r in vertical],
+            "o--",
+            linewidth=2,
+            label="RADIANT simple model",
+        )
         ax_tau.set_xlabel("Vertical column depth, target altitude [km]")
         ax_tau.set_ylabel("Band-mean transmittance, 3-5 um [dimensionless]")
         ax_tau.set_title("Transmittance")
         ax_tau.grid(True, alpha=0.3)
         ax_tau.legend(fontsize=9)
-        ax_l.plot(depth, [r["l_modtran"] for r in vertical], "ks-", linewidth=2,
-                  label="MODTRAN (K ladder)")
-        ax_l.plot(depth, [r["l_model"] for r in vertical], "o--", linewidth=2,
-                  label="RADIANT simple model")
+        ax_l.plot(
+            depth,
+            [r["l_modtran"] for r in vertical],
+            "ks-",
+            linewidth=2,
+            label="MODTRAN (K ladder)",
+        )
+        ax_l.plot(
+            depth,
+            [r["l_model"] for r in vertical],
+            "o--",
+            linewidth=2,
+            label="RADIANT simple model",
+        )
         ax_l.set_xlabel("Vertical column depth, target altitude [km]")
         ax_l.set_ylabel("Up-path radiance, 3-5 um [W/m^2/sr]")
         ax_l.set_title("Up-path radiance toward the ground observer")
@@ -1199,8 +1353,10 @@ def write_workbook(
     header_font = Font(bold=True, size=10, color="FFFFFF")
     header_fill = PatternFill("solid", fgColor="2E75B6")
     thin = Border(
-        left=Side(style="thin"), right=Side(style="thin"),
-        top=Side(style="thin"), bottom=Side(style="thin"),
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
     )
 
     def sheet(name: str, headers: list[str], rows: list[list[Any]]) -> None:
@@ -1223,34 +1379,98 @@ def write_workbook(
 
     sheet(
         "Elevation Sweep",
-        ["zeta_low [deg]", "elevation [deg]", "slant range [km]", "tau band-mean [-]",
-         "L_path [W/m2/sr]", "signal [e-]", "sky background [e-]", "nearfield [e-]",
-         "noise [e- rms]", "SNR [-]", "SCNR [-]", "NEDT [mK]"],
-        [[r["zenith_deg"], r["elevation_deg"], round(r["slant_km"], 4), round(r["tau_band"], 5),
-          round(r["l_path"], 5), round(r["signal_e"], 1), round(r["background_e"], 1),
-          round(r["nearfield_e"], 1), round(r["noise_e"], 2), round(r["snr"], 3),
-          round(r["scnr"], 3), round(r["nedt_mK"], 2)] for r in sweep],
+        [
+            "zeta_low [deg]",
+            "elevation [deg]",
+            "slant range [km]",
+            "tau band-mean [-]",
+            "L_path [W/m2/sr]",
+            "signal [e-]",
+            "sky background [e-]",
+            "nearfield [e-]",
+            "noise [e- rms]",
+            "SNR [-]",
+            "SCNR [-]",
+            "NEDT [mK]",
+        ],
+        [
+            [
+                r["zenith_deg"],
+                r["elevation_deg"],
+                round(r["slant_km"], 4),
+                round(r["tau_band"], 5),
+                round(r["l_path"], 5),
+                round(r["signal_e"], 1),
+                round(r["background_e"], 1),
+                round(r["nearfield_e"], 1),
+                round(r["noise_e"], 2),
+                round(r["snr"], 3),
+                round(r["scnr"], 3),
+                round(r["nedt_mK"], 2),
+            ]
+            for r in sweep
+        ],
     )
     sheet(
         "Detection Range",
-        ["zeta_low [deg]", "SNR at 10 km [-]", "detection range [km]",
-         "target altitude at range [km]", "vacuum bound [km]", "ratio [-]", "scene class"],
-        [[r["zenith_deg"], round(r["snr_ref"], 3), round(r["range_km"], 3),
-          round(r["altitude_km"], 3), round(r["vacuum_km"], 3), round(r["ratio"], 4),
-          r["scene_class"]] for r in detection],
+        [
+            "zeta_low [deg]",
+            "SNR at 10 km [-]",
+            "detection range [km]",
+            "target altitude at range [km]",
+            "vacuum bound [km]",
+            "ratio [-]",
+            "scene class",
+        ],
+        [
+            [
+                r["zenith_deg"],
+                round(r["snr_ref"], 3),
+                round(r["range_km"], 3),
+                round(r["altitude_km"], 3),
+                round(r["vacuum_km"], 3),
+                round(r["ratio"], 4),
+                r["scene_class"],
+            ]
+            for r in detection
+        ],
     )
     if modtran:
         sheet(
             "MODTRAN Anchor",
-            ["run", "H1 [km]", "H2 [km]", "angle [deg]", "tau MODTRAN [-]", "tau RADIANT [-]",
-             "d tau [%]", "L MODTRAN [W/m2/sr]", "L RADIANT [W/m2/sr]", "d L [%]"],
-            [[r["run"], r["h1_km"], r["h2_km"], r["angle_deg"], round(r["tau_modtran"], 5),
-              round(r["tau_model"], 5), round(r["tau_pct"], 2), round(r["l_modtran"], 5),
-              round(r["l_model"], 5), round(r["l_pct"], 2)] for r in modtran],
+            [
+                "run",
+                "H1 [km]",
+                "H2 [km]",
+                "angle [deg]",
+                "tau MODTRAN [-]",
+                "tau RADIANT [-]",
+                "d tau [%]",
+                "L MODTRAN [W/m2/sr]",
+                "L RADIANT [W/m2/sr]",
+                "d L [%]",
+            ],
+            [
+                [
+                    r["run"],
+                    r["h1_km"],
+                    r["h2_km"],
+                    r["angle_deg"],
+                    round(r["tau_modtran"], 5),
+                    round(r["tau_model"], 5),
+                    round(r["tau_pct"], 2),
+                    round(r["l_modtran"], 5),
+                    round(r["l_model"], 5),
+                    round(r["l_pct"], 2),
+                ]
+                for r in modtran
+            ],
         )
     wb.save(RESULTS_XLSX)
-    print(f"\n  Results workbook (gitignored, regenerate on demand): "
-          f"{RESULTS_XLSX.relative_to(REPO_ROOT).as_posix()}")
+    print(
+        f"\n  Results workbook (gitignored, regenerate on demand): "
+        f"{RESULTS_XLSX.relative_to(REPO_ROOT).as_posix()}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1315,8 +1535,10 @@ def main() -> int:
     print(f"    sky background        {nominal_row['background_e']:>10.4g} [e-]")
     print(f"    SNR                   {nominal_row['snr']:>10.2f} [-]")
     print(f"    NEDT                  {nominal_row['nedt_mK']:>10.1f} [mK]")
-    print(f"    detection range       {nominal_detection['range_km']:>10.2f} [km]  "
-          f"(target at {nominal_detection['altitude_km']:.1f} [km] there)")
+    print(
+        f"    detection range       {nominal_detection['range_km']:>10.2f} [km]  "
+        f"(target at {nominal_detection['altitude_km']:.1f} [km] there)"
+    )
     print()
     print(f"  Rule-4 dual-path consistency silent across the sweep: {all_ok}")
     print(f"  Figures written: {len(figures)}")

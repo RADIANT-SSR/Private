@@ -171,21 +171,25 @@ def main() -> None:
     measured = load_measured_curve(INPUTS / "karen_calibration_dn.csv", x_unit="K")
     bb_temps = measured.x
     dn_measured = measured.y
-    print(f"\n=== Measured calibration run (load_measured_curve, Gap 30) ===")
+    print("\n=== Measured calibration run (load_measured_curve, Gap 30) ===")
     print(f"  Source: {Path(measured.source_file).name}, {measured.n_points} set points")
     print(f"  {'T_BB [K]':>9s}  {'DN measured':>12s}")
     print(f"  {'-' * 9}  {'-' * 12}")
     for t, d in zip(bb_temps, dn_measured):
         print(f"  {t:>9.1f}  {d:>12.1f}")
 
-    print(f"\n=== Converted to RADIANT canonical units (Sensor.set unit-aware, Gap 6) ===")
-    print(f"  Aperture {sensor.get('optics.aperture_diameter_m'):.3f} m | "
-          f"focal {sensor.get('optics.focal_length_m'):.3f} m | "
-          f"net train τ = {tau:.2f} [-] "
-          f"({N_MIRRORS} mirrors at R = {MIRROR_R:.2f} [-] × cold window "
-          f"T = {window_T:.3f} [-])")
-    print(f"  Band {band_min_um:.2f}–{band_max_um:.2f} µm | t_int = {t_int_s * 1e3:.2f} ms | "
-          f"gain = {gain_e_per_dn:.0f} e⁻/DN | 14-bit ADC")
+    print("\n=== Converted to RADIANT canonical units (Sensor.set unit-aware, Gap 6) ===")
+    print(
+        f"  Aperture {sensor.get('optics.aperture_diameter_m'):.3f} m | "
+        f"focal {sensor.get('optics.focal_length_m'):.3f} m | "
+        f"net train τ = {tau:.2f} [-] "
+        f"({N_MIRRORS} mirrors at R = {MIRROR_R:.2f} [-] × cold window "
+        f"T = {window_T:.3f} [-])"
+    )
+    print(
+        f"  Band {band_min_um:.2f}–{band_max_um:.2f} µm | t_int = {t_int_s * 1e3:.2f} ms | "
+        f"gain = {gain_e_per_dn:.0f} e⁻/DN | 14-bit ADC"
+    )
 
     # ---------------------------------------------------------------------------
     # Step 3: Sweep the blackbody temperature (Sensor.sweep)
@@ -198,38 +202,38 @@ def main() -> None:
         keep_results=True,
     )
 
-    dn_pred = np.array([
-        r.stage_outputs["readout"]["signal_dn_final"] for r in sweep.results
-    ])
-    sig_e = np.array([
-        r.stage_outputs["readout"]["signal_e_final"] for r in sweep.results
-    ])
-    nearfield_e = np.array([
-        r.stage_outputs["spectral_integration"]["nearfield_e"] for r in sweep.results
-    ])
-    noise_e = np.array([
-        math.sqrt(sum(nt.value_e**2 for nt in r.noise_terms)) for r in sweep.results
-    ])
+    dn_pred = np.array([r.stage_outputs["readout"]["signal_dn_final"] for r in sweep.results])
+    sig_e = np.array([r.stage_outputs["readout"]["signal_e_final"] for r in sweep.results])
+    nearfield_e = np.array(
+        [r.stage_outputs["spectral_integration"]["nearfield_e"] for r in sweep.results]
+    )
+    noise_e = np.array(
+        [math.sqrt(sum(nt.value_e**2 for nt in r.noise_terms)) for r in sweep.results]
+    )
     regime = sweep.results[0].stage_outputs["optics"]["regime"]
 
-    print(f"\n=== Radiometric regime and instrument terms ===")
+    print("\n=== Radiometric regime and instrument terms ===")
     print(f"  Regime: {regime} — the calibration blackbody fills the aperture.")
-    print(f"  UNUSED PARAMETER NOTE: in the extended regime RADIANT skips the")
-    print(f"  separate scene-background photon term (matrix Decision #13) — the")
-    print(f"  lab-ambient background parameters define the contrast scene only.")
+    print("  UNUSED PARAMETER NOTE: in the extended regime RADIANT skips the")
+    print("  separate scene-background photon term (matrix Decision #13) — the")
+    print("  lab-ambient background parameters define the contrast scene only.")
     omega_cone_sr = sweep.results[0].stage_outputs["optics"]["Omega_cone"]
-    print(f"  Instrument self-emission IS modeled, from the defined elements only")
-    print(f"  (Gap 127): {N_MIRRORS} fold mirrors at 293.15 K, each ε = 1 − R = "
-          f"{1.0 - MIRROR_R:.2f} [-]; the AR cold window is non-absorbing (ε = 0 [-]).")
+    print("  Instrument self-emission IS modeled, from the defined elements only")
+    print(
+        f"  (Gap 127): {N_MIRRORS} fold mirrors at 293.15 K, each ε = 1 − R = "
+        f"{1.0 - MIRROR_R:.2f} [-]; the AR cold window is non-absorbing (ε = 0 [-])."
+    )
     print(f"  The workbook's ε = {workbook_eps:.2f} [-] is NOT used: it reads the whole")
-    print(f"  τ loss as absorption (the ε = 1 − τ fallacy), which over-states emission ~6x.")
+    print("  τ loss as absorption (the ε = 1 − τ fallacy), which over-states emission ~6x.")
     print(f"  Emission is seen through the étendue cone Ω_cone = {omega_cone_sr:.5f} sr —")
-    print(f"  the only near-field geometry (Gap 128). A cold stop CANNOT attenuate it:")
-    print(f"  in-cone emission arrives through the imaging path itself, so the old")
-    print(f"  nearfield_fraction leakage factor is gone.")
-    print(f"  Net: a constant {nearfield_e[0]:,.0f} e⁻ "
-          f"({nearfield_e[0] / gain_e_per_dn:,.1f} DN) at every set point —")
-    print(f"  it appears below as the offset term of the calibration fit.")
+    print("  the only near-field geometry (Gap 128). A cold stop CANNOT attenuate it:")
+    print("  in-cone emission arrives through the imaging path itself, so the old")
+    print("  nearfield_fraction leakage factor is gone.")
+    print(
+        f"  Net: a constant {nearfield_e[0]:,.0f} e⁻ "
+        f"({nearfield_e[0] / gain_e_per_dn:,.1f} DN) at every set point —"
+    )
+    print("  it appears below as the offset term of the calibration fit.")
 
     # ---------------------------------------------------------------------------
     # Step 4: Predicted vs measured DN — gain/offset decomposition
@@ -242,35 +246,41 @@ def main() -> None:
     a_fit, b_fit = np.polyfit(dn_pred, dn_measured, 1)
 
     print(f"\n{'=' * 95}")
-    print(f"  PREDICTED vs MEASURED DN")
+    print("  PREDICTED vs MEASURED DN")
     print(f"{'=' * 95}")
-    print(f"  {'T_BB [K]':>9s}  {'Signal [e⁻]':>12s}  {'DN pred':>10s}  "
-          f"{'DN meas':>10s}  {'Δ [DN]':>9s}  {'Δ [%]':>8s}")
+    print(
+        f"  {'T_BB [K]':>9s}  {'Signal [e⁻]':>12s}  {'DN pred':>10s}  "
+        f"{'DN meas':>10s}  {'Δ [DN]':>9s}  {'Δ [%]':>8s}"
+    )
     print(f"  {'-' * 9}  {'-' * 12}  {'-' * 10}  {'-' * 10}  {'-' * 9}  {'-' * 8}")
     for i, t in enumerate(bb_temps):
-        print(f"  {t:>9.1f}  {sig_e[i]:>12,.0f}  {dn_pred[i]:>10.1f}  "
-              f"{dn_measured[i]:>10.1f}  {resid_dn[i]:>+9.1f}  {resid_pct[i]:>+8.2f}")
+        print(
+            f"  {t:>9.1f}  {sig_e[i]:>12,.0f}  {dn_pred[i]:>10.1f}  "
+            f"{dn_measured[i]:>10.1f}  {resid_dn[i]:>+9.1f}  {resid_pct[i]:>+8.2f}"
+        )
 
-    print(f"\n  Calibration fit  measured = a·predicted + b:")
-    print(f"    a (gain-scale)  = {a_fit:.4f}  → the real responsivity in DN is "
-          f"{(a_fit - 1) * 100:+.2f}% vs the as-built spec")
+    print("\n  Calibration fit  measured = a·predicted + b:")
+    print(
+        f"    a (gain-scale)  = {a_fit:.4f}  → the real responsivity in DN is "
+        f"{(a_fit - 1) * 100:+.2f}% vs the as-built spec"
+    )
     print(f"    b (offset)      = {b_fit:+.1f} DN → un-modeled instrument offset")
-    print(f"    Diagnosis: adjust the calibration gain coefficient by "
-          f"{(a_fit - 1) * 100:+.2f}% and carry {b_fit:+.1f} DN of offset; the")
-    print(f"    remaining scatter is measurement noise + non-linearity (below).")
-
+    print(
+        f"    Diagnosis: adjust the calibration gain coefficient by "
+        f"{(a_fit - 1) * 100:+.2f}% and carry {b_fit:+.1f} DN of offset; the"
+    )
+    print("    remaining scatter is measurement noise + non-linearity (below).")
 
     L_band = np.array([band_radiance(float(t)) for t in bb_temps])
-    dDN_dT = np.gradient(dn_pred, bb_temps)         # [DN/K]
-    dDN_dL = np.polyfit(L_band, dn_pred, 1)[0]      # [DN/(W/m²/sr)]
+    dDN_dT = np.gradient(dn_pred, bb_temps)  # [DN/K]
+    dDN_dL = np.polyfit(L_band, dn_pred, 1)[0]  # [DN/(W/m²/sr)]
 
-    print(f"\n=== Responsivity ===")
+    print("\n=== Responsivity ===")
     print(f"  {'T_BB [K]':>9s}  {'L_band [W/m²/sr]':>17s}  {'dDN/dT [DN/K]':>14s}")
     print(f"  {'-' * 9}  {'-' * 17}  {'-' * 14}")
     for i, t in enumerate(bb_temps):
         print(f"  {t:>9.1f}  {L_band[i]:>17.4f}  {dDN_dT[i]:>14.2f}")
-    print(f"\n  Radiance responsivity (slope of DN vs L_band): "
-          f"{dDN_dL:,.1f} DN/(W/m²/sr)")
+    print(f"\n  Radiance responsivity (slope of DN vs L_band): {dDN_dL:,.1f} DN/(W/m²/sr)")
 
     # ---------------------------------------------------------------------------
     # Step 6: Linearity — DN vs band radiance
@@ -281,20 +291,23 @@ def main() -> None:
     full_scale_dn = float(dn_measured[-1])
     nonlin_pct_fs = (dn_measured - dn_linfit) / full_scale_dn * 100.0
 
-    print(f"\n=== Linearity check (measured DN vs Planck band radiance) ===")
+    print("\n=== Linearity check (measured DN vs Planck band radiance) ===")
     print(f"  Linear fit: DN = {lin_a:,.1f}·L + {lin_b:+.1f}")
-    print(f"  {'T_BB [K]':>9s}  {'DN meas':>10s}  {'Linear fit':>11s}  "
-          f"{'Deviation [% FS]':>17s}")
+    print(f"  {'T_BB [K]':>9s}  {'DN meas':>10s}  {'Linear fit':>11s}  {'Deviation [% FS]':>17s}")
     print(f"  {'-' * 9}  {'-' * 10}  {'-' * 11}  {'-' * 17}")
     for i, t in enumerate(bb_temps):
-        print(f"  {t:>9.1f}  {dn_measured[i]:>10.1f}  {dn_linfit[i]:>11.1f}  "
-              f"{nonlin_pct_fs[i]:>+17.3f}")
-    print(f"  Max deviation: {np.max(np.abs(nonlin_pct_fs)):.3f}% of full scale — "
-          f"{'within' if np.max(np.abs(nonlin_pct_fs)) < 1.0 else 'EXCEEDS'} the "
-          f"usual 1% FS linearity budget.")
-    print(f"  (RADIANT's own chain is linear in radiance by construction — a")
-    print(f"  linear fit of PREDICTED DN vs L recovers slope to <0.01%; the")
-    print(f"  curvature above is the instrument's, revealed by the comparison.)")
+        print(
+            f"  {t:>9.1f}  {dn_measured[i]:>10.1f}  {dn_linfit[i]:>11.1f}  "
+            f"{nonlin_pct_fs[i]:>+17.3f}"
+        )
+    print(
+        f"  Max deviation: {np.max(np.abs(nonlin_pct_fs)):.3f}% of full scale — "
+        f"{'within' if np.max(np.abs(nonlin_pct_fs)) < 1.0 else 'EXCEEDS'} the "
+        f"usual 1% FS linearity budget."
+    )
+    print("  (RADIANT's own chain is linear in radiance by construction — a")
+    print("  linear fit of PREDICTED DN vs L recovers slope to <0.01%; the")
+    print("  curvature above is the instrument's, revealed by the comparison.)")
 
     # ---------------------------------------------------------------------------
     # Step 7: Calibration uncertainty
@@ -305,17 +318,20 @@ def main() -> None:
     sigma_T_frame = noise_e / gain_e_per_dn / np.abs(dDN_dT)
     sigma_T_mean = sigma_T_frame / math.sqrt(N_FRAMES)
 
-    print(f"\n=== Calibration uncertainty (noise → temperature) ===")
-    print(f"  {'T_BB [K]':>9s}  {'σ [e⁻]':>8s}  {'σ [DN] 1-frame':>15s}  "
-          f"{'σ [DN] {N}-frame':>16s}  {'σ_T [mK] {N}-frame':>18s}"
-          .replace("{N}", str(N_FRAMES)))
+    print("\n=== Calibration uncertainty (noise → temperature) ===")
+    print(
+        f"  {'T_BB [K]':>9s}  {'σ [e⁻]':>8s}  {'σ [DN] 1-frame':>15s}  "
+        f"{'σ [DN] {N}-frame':>16s}  {'σ_T [mK] {N}-frame':>18s}".replace("{N}", str(N_FRAMES))
+    )
     print(f"  {'-' * 9}  {'-' * 8}  {'-' * 15}  {'-' * 16}  {'-' * 18}")
     for i, t in enumerate(bb_temps):
-        print(f"  {t:>9.1f}  {noise_e[i]:>8.1f}  {sigma_dn_frame[i]:>15.2f}  "
-              f"{sigma_dn_mean[i]:>16.3f}  {sigma_T_mean[i] * 1e3:>18.1f}")
+        print(
+            f"  {t:>9.1f}  {noise_e[i]:>8.1f}  {sigma_dn_frame[i]:>15.2f}  "
+            f"{sigma_dn_mean[i]:>16.3f}  {sigma_T_mean[i] * 1e3:>18.1f}"
+        )
     print(f"  The {N_FRAMES}-frame mean beats the radiometric noise down to the")
-    print(f"  few-mK level — the calibration accuracy is set by the blackbody")
-    print(f"  standard and the gain/offset knowledge, not by sensor noise.")
+    print("  few-mK level — the calibration accuracy is set by the blackbody")
+    print("  standard and the gain/offset knowledge, not by sensor noise.")
 
     # ---------------------------------------------------------------------------
     # Step 8: Plots
@@ -323,12 +339,16 @@ def main() -> None:
 
     OUTPUTS.mkdir(parents=True, exist_ok=True)
 
-    fig1, (ax1a, ax1b) = plt.subplots(2, 1, figsize=(9, 8), height_ratios=[2.2, 1],
-                                      sharex=True)
-    ax1a.plot(bb_temps, dn_pred, "bo-", linewidth=2, markersize=7,
-              label="RADIANT predicted")
-    ax1a.plot(bb_temps, dn_measured, "ks--", linewidth=1.5, markersize=7,
-              label="Measured (100-frame mean)")
+    fig1, (ax1a, ax1b) = plt.subplots(2, 1, figsize=(9, 8), height_ratios=[2.2, 1], sharex=True)
+    ax1a.plot(bb_temps, dn_pred, "bo-", linewidth=2, markersize=7, label="RADIANT predicted")
+    ax1a.plot(
+        bb_temps,
+        dn_measured,
+        "ks--",
+        linewidth=1.5,
+        markersize=7,
+        label="Measured (100-frame mean)",
+    )
     ax1a.set_ylabel("Signal [DN]", fontsize=11)
     ax1a.set_title("Radiometric Calibration: Predicted vs Measured DN", fontsize=13)
     ax1a.legend(fontsize=10)
@@ -346,8 +366,13 @@ def main() -> None:
     L_fine_T = np.linspace(bb_temps[0], bb_temps[-1], 100)
     L_fine = np.array([band_radiance(float(t)) for t in L_fine_T])
     ax2.plot(L_band, dn_measured, "ks", markersize=8, label="Measured DN")
-    ax2.plot(L_fine, lin_a * L_fine + lin_b, "g-", linewidth=1.5,
-             label=f"Linear fit: {lin_a:,.0f}·L {lin_b:+.0f}")
+    ax2.plot(
+        L_fine,
+        lin_a * L_fine + lin_b,
+        "g-",
+        linewidth=1.5,
+        label=f"Linear fit: {lin_a:,.0f}·L {lin_b:+.0f}",
+    )
     ax2.plot(L_band, dn_pred, "bo", markersize=7, label="RADIANT predicted")
     ax2.set_xlabel("Band Radiance L(T) [W/m²/sr]", fontsize=11)
     ax2.set_ylabel("Signal [DN]", fontsize=11)
@@ -365,11 +390,9 @@ def main() -> None:
     ax3a.tick_params(axis="y", labelcolor="tab:blue")
     ax3b = ax3a.twinx()
     ax3b.plot(bb_temps, sigma_T_mean * 1e3, "r^--", linewidth=1.5, markersize=7)
-    ax3b.set_ylabel(f"Calibration σ_T ({N_FRAMES}-frame) [mK]", fontsize=11,
-                    color="tab:red")
+    ax3b.set_ylabel(f"Calibration σ_T ({N_FRAMES}-frame) [mK]", fontsize=11, color="tab:red")
     ax3b.tick_params(axis="y", labelcolor="tab:red")
-    ax3a.set_title("Responsivity and Calibration Uncertainty vs Set Point",
-                   fontsize=13)
+    ax3a.set_title("Responsivity and Calibration Uncertainty vs Set Point", fontsize=13)
     ax3a.grid(True, alpha=0.3)
     fig3.tight_layout()
     fig3.savefig(OUTPUTS / "fig3_responsivity_uncertainty.png", dpi=150)
@@ -384,14 +407,26 @@ def main() -> None:
     ws1.title = "Calibration"
     hdr_font = Font(bold=True, size=10, color="FFFFFF")
     hdr_fill = PatternFill("solid", fgColor="2E75B6")
-    border = Border(left=Side(style="thin"), right=Side(style="thin"),
-                    top=Side(style="thin"), bottom=Side(style="thin"))
+    border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
+    )
 
     ws1["A1"] = "Scenario 7.2 — Radiometric Calibration Verification"
     ws1["A1"].font = Font(bold=True, size=14)
-    headers = ["T_BB [K]", "L_band [W/m2/sr]", "Signal [e-]", "DN predicted",
-               "DN measured", "Residual [DN]", "Residual [%]",
-               "dDN/dT [DN/K]", "sigma_T 100-frame [mK]"]
+    headers = [
+        "T_BB [K]",
+        "L_band [W/m2/sr]",
+        "Signal [e-]",
+        "DN predicted",
+        "DN measured",
+        "Residual [DN]",
+        "Residual [%]",
+        "dDN/dT [DN/K]",
+        "sigma_T 100-frame [mK]",
+    ]
     for col, htext in enumerate(headers, 1):
         cell = ws1.cell(row=3, column=col, value=htext)
         cell.font = hdr_font
@@ -399,17 +434,23 @@ def main() -> None:
         cell.alignment = Alignment(horizontal="center")
         cell.border = border
     for i, t in enumerate(bb_temps):
-        vals = [float(t), round(L_band[i], 4), round(float(sig_e[i]), 0),
-                round(float(dn_pred[i]), 1), round(float(dn_measured[i]), 1),
-                round(float(resid_dn[i]), 1), round(float(resid_pct[i]), 2),
-                round(float(dDN_dT[i]), 2), round(float(sigma_T_mean[i] * 1e3), 1)]
+        vals = [
+            float(t),
+            round(L_band[i], 4),
+            round(float(sig_e[i]), 0),
+            round(float(dn_pred[i]), 1),
+            round(float(dn_measured[i]), 1),
+            round(float(resid_dn[i]), 1),
+            round(float(resid_pct[i]), 2),
+            round(float(dDN_dT[i]), 2),
+            round(float(sigma_T_mean[i] * 1e3), 1),
+        ]
         for col, v in enumerate(vals, 1):
             ws1.cell(row=4 + i, column=col, value=v).border = border
     ws1.cell(row=10, column=1, value="Fit measured = a*predicted + b:")
     ws1.cell(row=10, column=2, value=f"a = {a_fit:.4f}")
     ws1.cell(row=10, column=3, value=f"b = {b_fit:+.1f} DN")
-    ws1.cell(row=11, column=1,
-             value=f"Max non-linearity: {np.max(np.abs(nonlin_pct_fs)):.3f}% FS")
+    ws1.cell(row=11, column=1, value=f"Max non-linearity: {np.max(np.abs(nonlin_pct_fs)):.3f}% FS")
     for col_letter in "ABCDEFGHI":
         ws1.column_dimensions[col_letter].width = 18
 
@@ -421,28 +462,35 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 95}")
-    print(f"  SUMMARY")
+    print("  SUMMARY")
     print(f"{'=' * 95}")
-    print(f"\n  Set points: {', '.join(f'{t:.0f}' for t in bb_temps)} K | "
-          f"band {band_min_um:.2f}–{band_max_um:.2f} µm | t_int = {t_int_s * 1e3:.2f} ms")
+    print(
+        f"\n  Set points: {', '.join(f'{t:.0f}' for t in bb_temps)} K | "
+        f"band {band_min_um:.2f}–{band_max_um:.2f} µm | t_int = {t_int_s * 1e3:.2f} ms"
+    )
     print(f"  Gain-scale error:   {(a_fit - 1) * 100:+.2f}% (fit slope {a_fit:.4f})")
-    print(f"  Instrument offset:  {b_fit:+.1f} DN (RADIANT's modeled nearfield: "
-          f"{nearfield_e[0] / gain_e_per_dn:,.1f} DN)")
+    print(
+        f"  Instrument offset:  {b_fit:+.1f} DN (RADIANT's modeled nearfield: "
+        f"{nearfield_e[0] / gain_e_per_dn:,.1f} DN)"
+    )
     print(f"  Max non-linearity:  {np.max(np.abs(nonlin_pct_fs)):.3f}% of full scale")
-    print(f"  Calibration σ_T:    {np.min(sigma_T_mean) * 1e3:.1f}–"
-          f"{np.max(sigma_T_mean) * 1e3:.1f} mK ({N_FRAMES}-frame means)")
-    print(f"\n  Key findings:")
-    print(f"    1. DN is a first-class chain output (readout signal_dn_final) —")
-    print(f"       the catalog's 'no DN output' gap is already closed.")
-    print(f"    2. The predicted-vs-measured fit splits the disagreement into the")
-    print(f"       two calibration knobs: {(a_fit - 1) * 100:+.2f}% gain scale and "
-          f"{b_fit:+.1f} DN offset.")
-    print(f"    3. Instrument self-emission is modeled physics (Kirchhoff ε = 1 − R per")
-    print(f"       warm mirror, seen through the étendue cone Ω_cone), not a fudge term.")
-    print(f"    4. Radiometric noise is NOT the calibration accuracy limit: "
-          f"{N_FRAMES}-frame")
-    print(f"       averaging brings σ_T to a few mK; gain/offset knowledge and the")
-    print(f"       blackbody standard dominate the error budget.")
+    print(
+        f"  Calibration σ_T:    {np.min(sigma_T_mean) * 1e3:.1f}–"
+        f"{np.max(sigma_T_mean) * 1e3:.1f} mK ({N_FRAMES}-frame means)"
+    )
+    print("\n  Key findings:")
+    print("    1. DN is a first-class chain output (readout signal_dn_final) —")
+    print("       the catalog's 'no DN output' gap is already closed.")
+    print("    2. The predicted-vs-measured fit splits the disagreement into the")
+    print(
+        f"       two calibration knobs: {(a_fit - 1) * 100:+.2f}% gain scale and "
+        f"{b_fit:+.1f} DN offset."
+    )
+    print("    3. Instrument self-emission is modeled physics (Kirchhoff ε = 1 − R per")
+    print("       warm mirror, seen through the étendue cone Ω_cone), not a fudge term.")
+    print(f"    4. Radiometric noise is NOT the calibration accuracy limit: {N_FRAMES}-frame")
+    print("       averaging brings σ_T to a few mK; gain/offset knowledge and the")
+    print("       blackbody standard dominate the error budget.")
 
 
 if __name__ == "__main__":

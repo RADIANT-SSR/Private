@@ -55,6 +55,8 @@ def _matrix_point_tape7(family_name: str, axis_value: float) -> Path:
             "repo root (all 39 runs, deterministic), then rerun this scenario."
         )
     return path
+
+
 QUERY_ALTITUDE_KM = 15.0  # between C4=10km and C5=20km
 BAND_MIN_UM, BAND_MAX_UM = 8.0, 12.0  # LWIR -- typical stratospheric-sensor band
 

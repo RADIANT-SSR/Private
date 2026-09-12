@@ -206,9 +206,7 @@ def build() -> openpyxl.Workbook:
     ws4.column_dimensions["E"].width = 46
 
     row = 4
-    row = add_table_header(
-        ws4, row, ["Run", "H1 [km]", "H2 [km]", "Path angle [deg]", "Note"]
-    )
+    row = add_table_header(ws4, row, ["Run", "H1 [km]", "H2 [km]", "Path angle [deg]", "Note"])
     for run, h1_km, h2_km, angle_deg, note in (
         ("K1", 0.0, 1.0, 0.0, "Vertical, 1 km column"),
         ("K2", 0.0, 3.0, 0.0, "Vertical, 3 km column"),

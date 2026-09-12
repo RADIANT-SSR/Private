@@ -29,12 +29,11 @@ def main() -> None:
     # Compare metrics
     print("=== Configuration Comparison ===")
     print()
-    print(f"{'Metric':>20s}  {'Baseline':>12s}  {'Modified':>12s}  {'Delta':>12s}  {'%Change':>10s}")
+    header = f"{'Metric':>20s}  {'Baseline':>12s}  {'Modified':>12s}  {'Delta':>12s}"
+    print(header + f"  {'%Change':>10s}")
     print("-" * 70)
 
-    all_metrics = sorted(
-        set(baseline_result.metrics.keys()) | set(modified_result.metrics.keys())
-    )
+    all_metrics = sorted(set(baseline_result.metrics.keys()) | set(modified_result.metrics.keys()))
     for name in all_metrics:
         v_base = baseline_result.metrics.get(name, float("nan"))
         v_mod = modified_result.metrics.get(name, float("nan"))

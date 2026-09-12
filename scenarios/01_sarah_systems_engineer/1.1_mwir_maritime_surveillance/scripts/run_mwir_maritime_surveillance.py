@@ -332,9 +332,7 @@ def main() -> None:
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.5))
     ax1.plot(APERTURES_CM, [r["niirs"] for r in rows_simple], "o-", label="SimpleAtmosphere")
-    ax1.plot(
-        APERTURES_CM, [r["niirs"] for r in rows_modtran], "s--", label=SOURCE_LABEL
-    )
+    ax1.plot(APERTURES_CM, [r["niirs"] for r in rows_modtran], "s--", label=SOURCE_LABEL)
     ax1.set_xlabel("Aperture diameter [cm]")
     ax1.set_ylabel("NIIRS [-]")
     ax1.set_title("NIIRS vs. aperture (fixed f/2.5 -- SNR is flat, see walkthrough)")

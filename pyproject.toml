@@ -132,6 +132,29 @@ explicit-preview-rules = true
 select = ["E", "F", "W", "I", "UP", "B", "C4", "RET", "SIM", "PLW1514"]
 ignore = []
 
+[tool.ruff.lint.per-file-ignores]
+# scenarios/ joined the lint gate at the October sweep (owner-ratified
+# 2026-09-12) with the correctness classes enforced from day one (the
+# Py3.12-only f-strings, unused imports, import sorting were fixed in the
+# joining commit). The style residue below (~330 findings, dominated by long
+# printed prose lines) is grandfathered per-tree, to be retired file-by-file
+# by the chartered scenario sweep as it rewrites runner narratives — do not
+# add NEW code relying on these ignores.
+"scenarios/*" = [
+    "E501",   # long printed prose lines
+    "B018",   # bare expressions in narrative cells
+    "B905",   # zip without strict
+    "C408",
+    "E402",   # late imports after sys.path setup
+    "E731",
+    "E741",
+    "F841",   # narrative intermediates
+    "SIM105",
+    "SIM108",
+    "SIM113",
+    "B007",
+]
+
 [tool.importlinter]
 root_package = "radiant"
 include_external_packages = true

@@ -15,7 +15,7 @@ All values are in the units Karen actually works with in the lab:
 """
 
 import openpyxl
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 wb = openpyxl.Workbook()
 
@@ -23,8 +23,10 @@ header_font = Font(bold=True, size=12)
 section_font = Font(bold=True, size=11, color="FFFFFF")
 section_fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
 thin_border = Border(
-    left=Side(style="thin"), right=Side(style="thin"),
-    top=Side(style="thin"), bottom=Side(style="thin"),
+    left=Side(style="thin"),
+    right=Side(style="thin"),
+    top=Side(style="thin"),
+    bottom=Side(style="thin"),
 )
 
 
@@ -78,62 +80,80 @@ row = 6
 
 # Optics section — note vendor uses cm for aperture, mm for focal length
 row = add_section(ws1, row, "Telescope / Optics")
-row = add_param(ws1, row, "Primary aperture diameter", 25, "cm",
-                "Cassegrain, 20% central obscuration")
-row = add_param(ws1, row, "Effective focal length", 1000, "mm",
-                "Measured at 4.0 µm reference wavelength")
+row = add_param(
+    ws1, row, "Primary aperture diameter", 25, "cm", "Cassegrain, 20% central obscuration"
+)
+row = add_param(
+    ws1, row, "Effective focal length", 1000, "mm", "Measured at 4.0 µm reference wavelength"
+)
 row = add_param(ws1, row, "f-number", 4.0, "—", "Effective f/#")
-row = add_param(ws1, row, "End-to-end optical transmission", 68, "%",
-                "Includes all mirrors, lenses, and filter")
-row = add_param(ws1, row, "Number of optical elements", 5, "—",
-                "Primary, secondary, fold mirror, field lens, filter")
-row = add_param(ws1, row, "Optics barrel temperature", 20, "°C",
-                "Ambient temp in TVAC shroud (controlled)")
-row = add_param(ws1, row, "Cold stop design efficiency", 100, "%",
-                "Fully baffled cold shield, designed for 100% rejection")
-row = add_param(ws1, row, "WFE (RMS)", 0.07, "waves",
-                "At 4.0 µm; spec is < 0.10 waves")
+row = add_param(
+    ws1, row, "End-to-end optical transmission", 68, "%", "Includes all mirrors, lenses, and filter"
+)
+row = add_param(
+    ws1,
+    row,
+    "Number of optical elements",
+    5,
+    "—",
+    "Primary, secondary, fold mirror, field lens, filter",
+)
+row = add_param(
+    ws1, row, "Optics barrel temperature", 20, "°C", "Ambient temp in TVAC shroud (controlled)"
+)
+row = add_param(
+    ws1,
+    row,
+    "Cold stop design efficiency",
+    100,
+    "%",
+    "Fully baffled cold shield, designed for 100% rejection",
+)
+row = add_param(ws1, row, "WFE (RMS)", 0.07, "waves", "At 4.0 µm; spec is < 0.10 waves")
 
 # Detector section — vendor uses pA/pixel for dark current
 row = add_section(ws1, row, "Detector (HgCdTe FPA)")
 row = add_param(ws1, row, "Pixel pitch", 20, "µm", "Square pixels")
 row = add_param(ws1, row, "Array format", "640 × 512", "pixels", "")
-row = add_param(ws1, row, "Cutoff wavelength", 5200, "nm",
-                "50% response at 77 K operating temp")
-row = add_param(ws1, row, "Average QE (in-band)", 75, "%",
-                "Vendor spec, 3.7–4.8 µm weighted average")
-row = add_param(ws1, row, "Dark current (mean)", 80, "fA/pixel",
-                "At 77 K; vendor datasheet value")
-row = add_param(ws1, row, "Operating temperature", 77, "K",
-                "Stirling cooler setpoint")
-row = add_param(ws1, row, "Full well capacity", 8.5e6, "e⁻",
-                "CTIA readout, large well mode")
-row = add_param(ws1, row, "Read noise (CDS)", 25, "e⁻ RMS",
-                "After correlated double sampling")
+row = add_param(ws1, row, "Cutoff wavelength", 5200, "nm", "50% response at 77 K operating temp")
+row = add_param(
+    ws1, row, "Average QE (in-band)", 75, "%", "Vendor spec, 3.7–4.8 µm weighted average"
+)
+row = add_param(ws1, row, "Dark current (mean)", 80, "fA/pixel", "At 77 K; vendor datasheet value")
+row = add_param(ws1, row, "Operating temperature", 77, "K", "Stirling cooler setpoint")
+row = add_param(ws1, row, "Full well capacity", 8.5e6, "e⁻", "CTIA readout, large well mode")
+row = add_param(ws1, row, "Read noise (CDS)", 25, "e⁻ RMS", "After correlated double sampling")
 row = add_param(ws1, row, "ADC resolution", 14, "bits", "")
 row = add_param(ws1, row, "System gain", 2.5, "e⁻/DN", "Calibrated")
 
 # Scene / Calibration — lab blackbody source
 row = add_section(ws1, row, "Calibration Source (in TVAC)")
-row = add_param(ws1, row, "Blackbody temperature", 35, "°C",
-                "Extended-area blackbody, fills entire FOV")
-row = add_param(ws1, row, "Blackbody emissivity", 0.98, "—",
-                "CI Systems SR-800 calibration cert")
-row = add_param(ws1, row, "Chamber shroud temperature", 20, "°C",
-                "Painted Aeroglaze Z306 (ε ≈ 0.95)")
+row = add_param(
+    ws1, row, "Blackbody temperature", 35, "°C", "Extended-area blackbody, fills entire FOV"
+)
+row = add_param(ws1, row, "Blackbody emissivity", 0.98, "—", "CI Systems SR-800 calibration cert")
+row = add_param(
+    ws1, row, "Chamber shroud temperature", 20, "°C", "Painted Aeroglaze Z306 (ε ≈ 0.95)"
+)
 row = add_param(ws1, row, "Chamber shroud emissivity", 0.95, "—", "")
 
 # Spectral / Integration
 row = add_section(ws1, row, "Spectral / Integration")
-row = add_param(ws1, row, "Cold filter passband", "3700 – 4800", "nm",
-                "Narrowband MWIR, specified in nm on vendor datasheet")
-row = add_param(ws1, row, "Integration time", 8, "ms",
-                "Nominal frame time for background characterization")
+row = add_param(
+    ws1,
+    row,
+    "Cold filter passband",
+    "3700 – 4800",
+    "nm",
+    "Narrowband MWIR, specified in nm on vendor datasheet",
+)
+row = add_param(
+    ws1, row, "Integration time", 8, "ms", "Nominal frame time for background characterization"
+)
 
 # Geometry — lab test (essentially zero range)
 row = add_section(ws1, row, "Test Geometry")
-row = add_param(ws1, row, "Source distance", 1.5, "m",
-                "Blackbody to entrance pupil")
+row = add_param(ws1, row, "Source distance", 1.5, "m", "Blackbody to entrance pupil")
 
 # ============================================================================
 # Sheet 2: Lab Background Measurements
@@ -156,8 +176,10 @@ ws2["A1"] = "Cold Stop Alignment — Background Signal Measurements"
 ws2["A1"].font = Font(bold=True, size=14)
 ws2["A2"] = "TVAC Chamber 3, 14-Apr-2026"
 ws2["A2"].font = Font(italic=True, size=10)
-ws2["A3"] = ("Blackbody shuttered (cold plate at 77 K blocking aperture). "
-             "Background signal is from warm optics + cold stop leakage only.")
+ws2["A3"] = (
+    "Blackbody shuttered (cold plate at 77 K blocking aperture). "
+    "Background signal is from warm optics + cold stop leakage only."
+)
 ws2["A3"].font = Font(italic=True, size=10)
 
 meas_headers = [
@@ -185,12 +207,12 @@ for col, h_text in enumerate(meas_headers, 1):
 #   DN 18000 × 2.5 = 45,000 e⁻  (suspected misalignment)
 
 measurements = [
-    ("CS-NOM",    0.0,  14200,  85,  35500,  "Nominal alignment, coldshield seated"),
-    ("CS-OFF-05", 0.5,  15800, 102,  39500,  "0.5 mm lateral offset"),
-    ("CS-OFF-10", 1.0,  17600, 118,  44000,  "1.0 mm offset — near expected anomaly"),
-    ("CS-OFF-15", 1.5,  19100, 130,  47750,  "1.5 mm offset"),
-    ("CS-OFF-20", 2.0,  20800, 143,  52000,  "2.0 mm offset — significant leakage"),
-    ("CS-OFF-25", 2.5,  22300, 155,  55750,  "2.5 mm offset — approaching FPA damage threshold"),
+    ("CS-NOM", 0.0, 14200, 85, 35500, "Nominal alignment, coldshield seated"),
+    ("CS-OFF-05", 0.5, 15800, 102, 39500, "0.5 mm lateral offset"),
+    ("CS-OFF-10", 1.0, 17600, 118, 44000, "1.0 mm offset — near expected anomaly"),
+    ("CS-OFF-15", 1.5, 19100, 130, 47750, "1.5 mm offset"),
+    ("CS-OFF-20", 2.0, 20800, 143, 52000, "2.0 mm offset — significant leakage"),
+    ("CS-OFF-25", 2.5, 22300, 155, 55750, "2.5 mm offset — approaching FPA damage threshold"),
 ]
 
 for i, (test_id, pos, dn_mean, dn_sigma, e_mean, notes) in enumerate(measurements, 6):
@@ -233,14 +255,30 @@ for col, h_text in enumerate(["Requirement", "Threshold", "Unit", "Notes"], 1):
     cell.alignment = Alignment(horizontal="center")
 
 requirements = [
-    ("Max background signal (shuttered)", 40000, "e⁻",
-     "With calibration source blocked; excess indicates cold stop leakage"),
-    ("SNR (extended scene, 35°C BB)", "≥ 300", "—",
-     "At nominal integration time and scene temperature"),
-    ("Background noise contribution", "< 50%", "of total noise",
-     "Background shot noise must not dominate noise budget"),
-    ("Cold stop efficiency", "≥ 95", "%",
-     "Minimum acceptable cold stop efficiency after alignment"),
+    (
+        "Max background signal (shuttered)",
+        40000,
+        "e⁻",
+        "With calibration source blocked; excess indicates cold stop leakage",
+    ),
+    (
+        "SNR (extended scene, 35°C BB)",
+        "≥ 300",
+        "—",
+        "At nominal integration time and scene temperature",
+    ),
+    (
+        "Background noise contribution",
+        "< 50%",
+        "of total noise",
+        "Background shot noise must not dominate noise budget",
+    ),
+    (
+        "Cold stop efficiency",
+        "≥ 95",
+        "%",
+        "Minimum acceptable cold stop efficiency after alignment",
+    ),
 ]
 
 for i, (req, thresh, unit, notes) in enumerate(requirements, 5):

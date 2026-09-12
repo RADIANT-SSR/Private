@@ -88,7 +88,9 @@ def diffuse_sphere_phase_function(alpha_rad: float) -> float:
 
 def build_signature_csv() -> None:
     """Write the vendor signature file: wavelength [nm], I(λ) [W/sr/nm]."""
-    lam_nm = np.arange(SIGNATURE_LO_NM, SIGNATURE_HI_NM + 0.5 * SIGNATURE_STEP_NM, SIGNATURE_STEP_NM)
+    lam_nm = np.arange(
+        SIGNATURE_LO_NM, SIGNATURE_HI_NM + 0.5 * SIGNATURE_STEP_NM, SIGNATURE_STEP_NM
+    )
     lam_um = lam_nm / 1000.0  # nm → µm, only so the solar model can be sampled
     e_sun_per_um = toa_solar_spectral_irradiance(lam_um)  # W/m²/µm at 1 AU
     phase = diffuse_sphere_phase_function(math.radians(SOLAR_PHASE_ANGLE_DEG))

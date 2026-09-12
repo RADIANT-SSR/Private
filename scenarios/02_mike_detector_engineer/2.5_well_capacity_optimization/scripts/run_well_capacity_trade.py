@@ -19,13 +19,12 @@ Usage:
     python run_well_capacity_trade.py
 """
 
-import copy
 import math
 from pathlib import Path
 
 import numpy as np
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.styles import Border, Font, PatternFill, Side
 
 from radiant.api import Sensor
 
@@ -136,15 +135,15 @@ def main() -> None:
     print("SCENARIO 2.5: Well Capacity Optimization — Integration Time vs. Dynamic Range")
     print("=" * 80)
 
-    print(f"\n=== Detector Specs ===")
+    print("\n=== Detector Specs ===")
     for k, v in det_specs.items():
         print(f"  {k}: {v} {det_units.get(k, '')}")
 
-    print(f"\n=== Optics & Scene ===")
+    print("\n=== Optics & Scene ===")
     for k, v in sys_specs.items():
         print(f"  {k}: {v} {sys_units.get(k, '')}")
 
-    print(f"\n=== Trade Requirements ===")
+    print("\n=== Trade Requirements ===")
     for k, v in req_specs.items():
         print(f"  {k}: {v} {req_units.get(k, '')}")
     f_number = float(sys_specs["f-number"])
@@ -162,7 +161,7 @@ def main() -> None:
     # Scene temperatures for multi-target analysis
     scene_temps_K = [200.0, 250.0, 280.0, 300.0, 350.0, 400.0, 500.0, 700.0, 1000.0, 1500.0]
 
-    print(f"\n=== Converted to RADIANT canonical units ===")
+    print("\n=== Converted to RADIANT canonical units ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit':<15s}  {'Conversion'}")
     print(f"  {'-' * 35} {'-' * 14}  {'-' * 15}  {'-' * 20}")
     print(f"  {'Aperture diameter':<35s} {aperture_m:>14.4f}  {'m':<15s}  cm ÷ 100")
@@ -182,40 +181,43 @@ def main() -> None:
     # Step 3: Build RADIANT config
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== Radiometric Regime ===")
-    print(f"  Atmosphere model: exo (short-range ground-based)")
-    print(f"  Extended regime: target fills entire pixel FOV.")
-    print(f"  Scene dynamic range: {cold_temp_K:.0f} K (cold sky) to"
-          f" {hot_temp_K:.0f} K (exhaust plume)")
-    print(f"  FWC = {fwc/1e6:.1f} M e⁻")
-    print(f"")
-    print(f"  WELL FILL PHYSICS NOTE:")
-    print(f"    Well fill = signal_e / FWC.")
-    print(f"    The well accumulates signal photons + dark current + ROIC glow.")
-    print(f"    Background and nearfield photons also fill the well in reality,")
-    print(f"    but RADIANT currently clips signal_e against (FWC - dark - glow).")
-    print(f"    For hot targets, signal dominates; for cold targets, background")
+    print("\n=== Radiometric Regime ===")
+    print("  Atmosphere model: exo (short-range ground-based)")
+    print("  Extended regime: target fills entire pixel FOV.")
+    print(
+        f"  Scene dynamic range: {cold_temp_K:.0f} K (cold sky) to"
+        f" {hot_temp_K:.0f} K (exhaust plume)"
+    )
+    print(f"  FWC = {fwc / 1e6:.1f} M e⁻")
+    print("")
+    print("  WELL FILL PHYSICS NOTE:")
+    print("    Well fill = signal_e / FWC.")
+    print("    The well accumulates signal photons + dark current + ROIC glow.")
+    print("    Background and nearfield photons also fill the well in reality,")
+    print("    but RADIANT currently clips signal_e against (FWC - dark - glow).")
+    print("    For hot targets, signal dominates; for cold targets, background")
     print(f"    and nearfield from warm optics ({optics_temp_K:.0f} K) dominate.")
-    print(f"")
-    print(f"  DYNAMIC RANGE NOTE:")
-    print(f"    A 1500 K blackbody in MWIR (3.5–5.0 µm) produces ~10,000× more")
-    print(f"    radiance than a 200 K target. No single integration time can")
-    print(f"    give adequate SNR on 200 K without saturating on 1500 K.")
-    print(f"    This scenario quantifies the trade-off.")
-
+    print("")
+    print("  DYNAMIC RANGE NOTE:")
+    print("    A 1500 K blackbody in MWIR (3.5–5.0 µm) produces ~10,000× more")
+    print("    radiance than a 200 K target. No single integration time can")
+    print("    give adequate SNR on 200 K without saturating on 1500 K.")
+    print("    This scenario quantifies the trade-off.")
 
     # ---------------------------------------------------------------------------
     # Step 4: Sweep integration time for each scene temperature
     # ---------------------------------------------------------------------------
 
-    t_int_sweep_s = np.logspace(
-        np.log10(t_int_min_s), np.log10(t_int_max_s), n_sweep
-    )
+    t_int_sweep_s = np.logspace(np.log10(t_int_min_s), np.log10(t_int_max_s), n_sweep)
 
-    print(f"\n=== Sweeping integration time: {t_int_min_s*1e6:.0f} µs to"
-          f" {t_int_max_s*1e3:.0f} ms ({n_sweep} points, log-spaced) ===")
-    print(f"  Evaluating {len(scene_temps_K)} scene temperatures × {n_sweep}"
-          f" integration times = {len(scene_temps_K) * n_sweep} evaluations")
+    print(
+        f"\n=== Sweeping integration time: {t_int_min_s * 1e6:.0f} µs to"
+        f" {t_int_max_s * 1e3:.0f} ms ({n_sweep} points, log-spaced) ==="
+    )
+    print(
+        f"  Evaluating {len(scene_temps_K)} scene temperatures × {n_sweep}"
+        f" integration times = {len(scene_temps_K) * n_sweep} evaluations"
+    )
 
     # Store results: sweep_data[temp_K] = list of dicts per t_int
     sweep_data: dict[float, list[dict]] = {}
@@ -231,14 +233,16 @@ def main() -> None:
             snr = r.metrics["snr"]
             well_status = r.stage_outputs["readout"].get("well_status", "unknown")
 
-            sweep_data[t_K].append({
-                "t_int_s": t_int,
-                "signal_e": signal_e,
-                "well_fill_pct": well_fill,
-                "snr": snr,
-                "saturated": well_fill >= 99.9,
-                "well_status": well_status,
-            })
+            sweep_data[t_K].append(
+                {
+                    "t_int_s": t_int,
+                    "signal_e": signal_e,
+                    "well_fill_pct": well_fill,
+                    "snr": snr,
+                    "saturated": well_fill >= 99.9,
+                    "well_status": well_status,
+                }
+            )
 
     # ---------------------------------------------------------------------------
     # Step 5: Print well fill vs. integration time for key temperatures
@@ -246,7 +250,7 @@ def main() -> None:
 
     key_temps = [200.0, 300.0, 400.0, 500.0, 1000.0, 1500.0]
 
-    print(f"\n=== Well Fill [%] vs. Integration Time ===")
+    print("\n=== Well Fill [%] vs. Integration Time ===")
     # Header
     header = f"  {'t_int':>12s}"
     for t_K in key_temps:
@@ -258,9 +262,9 @@ def main() -> None:
     for i in range(0, n_sweep, max(1, n_sweep // 12)):
         t_int = t_int_sweep_s[i]
         if t_int < 1e-3:
-            t_str = f"{t_int*1e6:.1f} µs"
+            t_str = f"{t_int * 1e6:.1f} µs"
         elif t_int < 1.0:
-            t_str = f"{t_int*1e3:.2f} ms"
+            t_str = f"{t_int * 1e3:.2f} ms"
         else:
             t_str = f"{t_int:.2f} s"
 
@@ -280,18 +284,20 @@ def main() -> None:
 
     print(f"\n=== SNR vs. Integration Time for Cold Target ({cold_temp_K:.0f} K) ===")
     print(f"  Requirement: SNR ≥ {snr_req:.0f} [—]")
-    print(f"")
-    print(f"  {'t_int':>12s}  {'Signal [e⁻]':>14s}  {'Well Fill [%]':>13s}"
-          f"  {'SNR [—]':>10s}  {'Status':>10s}")
+    print("")
+    print(
+        f"  {'t_int':>12s}  {'Signal [e⁻]':>14s}  {'Well Fill [%]':>13s}"
+        f"  {'SNR [—]':>10s}  {'Status':>10s}"
+    )
     print(f"  {'-' * 12}  {'-' * 14}  {'-' * 13}  {'-' * 10}  {'-' * 10}")
 
     snr_threshold_t_int = None
     for i, d in enumerate(sweep_data[cold_temp_K]):
         t_int = d["t_int_s"]
         if t_int < 1e-3:
-            t_str = f"{t_int*1e6:.1f} µs"
+            t_str = f"{t_int * 1e6:.1f} µs"
         elif t_int < 1.0:
-            t_str = f"{t_int*1e3:.2f} ms"
+            t_str = f"{t_int * 1e3:.2f} ms"
         else:
             t_str = f"{t_int:.2f} s"
 
@@ -301,14 +307,16 @@ def main() -> None:
             status += " ←"
 
         if i % max(1, n_sweep // 12) == 0 or status.startswith("PASS ←"):
-            print(f"  {t_str:>12s}  {d['signal_e']:>14,.0f}  {d['well_fill_pct']:>12.1f}%"
-                  f"  {d['snr']:>10.1f}  {status:>10s}")
+            print(
+                f"  {t_str:>12s}  {d['signal_e']:>14,.0f}  {d['well_fill_pct']:>12.1f}%"
+                f"  {d['snr']:>10.1f}  {status:>10s}"
+            )
 
     if snr_threshold_t_int is not None:
         if snr_threshold_t_int < 1e-3:
-            thr_str = f"{snr_threshold_t_int*1e6:.1f} µs"
+            thr_str = f"{snr_threshold_t_int * 1e6:.1f} µs"
         else:
-            thr_str = f"{snr_threshold_t_int*1e3:.2f} ms"
+            thr_str = f"{snr_threshold_t_int * 1e3:.2f} ms"
         print(f"\n  → SNR ≥ {snr_req:.0f} achieved at t_int ≥ {thr_str}")
     else:
         print(f"\n  → SNR ≥ {snr_req:.0f} NOT achieved in sweep range")
@@ -317,20 +325,24 @@ def main() -> None:
     # Step 7: Max scene temperature before saturation at each t_int
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== Scene Dynamic Range vs. Integration Time ===")
-    print(f"  For each t_int, find the highest scene temperature that stays below"
-          f" {sat_limit_pct:.0f}% well fill.")
-    print(f"")
-    print(f"  {'t_int':>12s}  {'Max T (90% fill) [K]':>20s}  {'Max T (70% fill) [K]':>20s}"
-          f"  {'Cold SNR [—]':>12s}")
+    print("\n=== Scene Dynamic Range vs. Integration Time ===")
+    print(
+        f"  For each t_int, find the highest scene temperature that stays below"
+        f" {sat_limit_pct:.0f}% well fill."
+    )
+    print("")
+    print(
+        f"  {'t_int':>12s}  {'Max T (90% fill) [K]':>20s}  {'Max T (70% fill) [K]':>20s}"
+        f"  {'Cold SNR [—]':>12s}"
+    )
     print(f"  {'-' * 12}  {'-' * 20}  {'-' * 20}  {'-' * 12}")
 
     for i in range(0, n_sweep, max(1, n_sweep // 12)):
         t_int = t_int_sweep_s[i]
         if t_int < 1e-3:
-            t_str = f"{t_int*1e6:.1f} µs"
+            t_str = f"{t_int * 1e6:.1f} µs"
         elif t_int < 1.0:
-            t_str = f"{t_int*1e3:.2f} ms"
+            t_str = f"{t_int * 1e3:.2f} ms"
         else:
             t_str = f"{t_int:.2f} s"
 
@@ -354,8 +366,10 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n=== Integration Time for {max_fill_pct:.0f}% Well Fill at Each Temperature ===")
-    print(f"  {'Scene Temp [K]':>14s}  {'t_int for 70% [ms]':>20s}  {'SNR at that t_int [—]':>22s}"
-          f"  {'Signal [e⁻]':>14s}")
+    print(
+        f"  {'Scene Temp [K]':>14s}  {'t_int for 70% [ms]':>20s}  {'SNR at that t_int [—]':>22s}"
+        f"  {'Signal [e⁻]':>14s}"
+    )
     print(f"  {'-' * 14}  {'-' * 20}  {'-' * 22}  {'-' * 14}")
 
     target_fill = max_fill_pct / 100.0 * fwc  # e⁻
@@ -374,9 +388,9 @@ def main() -> None:
 
         if found_t is not None:
             if found_t < 1e-3:
-                t_str = f"{found_t*1e6:.1f} µs"
+                t_str = f"{found_t * 1e6:.1f} µs"
             else:
-                t_str = f"{found_t*1e3:.3f} ms"
+                t_str = f"{found_t * 1e3:.3f} ms"
             print(f"  {t_K:>14.0f}  {t_str:>20s}  {found_snr:>22.1f}  {found_sig:>14,.0f}")
         else:
             # Signal never reaches 70% — extrapolate from last point
@@ -386,9 +400,9 @@ def main() -> None:
                 ratio = target_fill / last["signal_e"]
                 est_t = last["t_int_s"] * ratio
                 if est_t < 1e-3:
-                    t_str = f"~{est_t*1e6:.0f} µs"
+                    t_str = f"~{est_t * 1e6:.0f} µs"
                 elif est_t < 1.0:
-                    t_str = f"~{est_t*1e3:.1f} ms"
+                    t_str = f"~{est_t * 1e3:.1f} ms"
                 else:
                     t_str = f"~{est_t:.1f} s"
                 print(f"  {t_K:>14.0f}  {t_str:>20s}  {'(extrapolated)':>22s}  {'—':>14s}")
@@ -402,9 +416,9 @@ def main() -> None:
     # Pick a practical integration time: 1 ms (where cold target has some signal)
     COMPARE_T_INT = 0.001  # s
 
-    print(f"\n=== Noise Budget Comparison at t_int = {COMPARE_T_INT*1e3:.1f} ms ===")
+    print(f"\n=== Noise Budget Comparison at t_int = {COMPARE_T_INT * 1e3:.1f} ms ===")
     print(f"  Comparing cold ({cold_temp_K:.0f} K) vs. warm (400 K) targets")
-    print(f"  at the same integration time to show noise regime differences.")
+    print("  at the same integration time to show noise regime differences.")
 
     compare_temps = [cold_temp_K, 400.0]
     compare_results = {}
@@ -415,7 +429,7 @@ def main() -> None:
         signal_e = r.stage_outputs["readout"]["signal_e_final"]
         snr = r.metrics["snr"]
         noise_dict = {nt.name: nt.value_e for nt in r.noise_terms}
-        total_noise = math.sqrt(sum(v ** 2 for v in noise_dict.values()))
+        total_noise = math.sqrt(sum(v**2 for v in noise_dict.values()))
         well_fill = signal_e / fwc * 100.0
 
         compare_results[t_K] = {
@@ -432,7 +446,7 @@ def main() -> None:
         print(f"  Signal:     {cr['signal_e']:>14,.0f} e⁻ ({cr['well_fill_pct']:.1f}% well)")
         print(f"  SNR:        {cr['snr']:>14.1f} [—]")
         print(f"  Total noise:{cr['total_noise']:>14.1f} e⁻ RMS")
-        print(f"")
+        print("")
         print(f"  {'Noise Term':<25s}  {'σ [e⁻ RMS]':>12s}  {'Fraction [%]':>13s}")
         print(f"  {'-' * 25}  {'-' * 12}  {'-' * 13}")
 
@@ -441,30 +455,32 @@ def main() -> None:
         for name, sigma in sorted_terms:
             if sigma < 0.01:
                 continue
-            frac = sigma ** 2 / total_var * 100.0 if total_var > 0 else 0.0
+            frac = sigma**2 / total_var * 100.0 if total_var > 0 else 0.0
             print(f"  {name:<25s}  {sigma:>12.1f}  {frac:>13.1f}")
 
     # Regime comparison
-    print(f"\n  Key difference:")
+    print("\n  Key difference:")
     cold_cr = compare_results[cold_temp_K]
     warm_cr = compare_results[400.0]
-    cold_sig_frac = (cold_cr["noise_dict"]["signal_shot"] ** 2 /
-                     cold_cr["total_noise"] ** 2 * 100.0)
-    warm_sig_frac = (warm_cr["noise_dict"]["signal_shot"] ** 2 /
-                     warm_cr["total_noise"] ** 2 * 100.0)
-    print(f"    At {cold_temp_K:.0f} K: signal_shot is {cold_sig_frac:.1f}% of noise"
-          f" → {'BLIP (background-limited)' if cold_sig_frac < 30 else 'signal-limited'}")
-    print(f"    At 400 K: signal_shot is {warm_sig_frac:.1f}% of noise"
-          f" → {'signal-limited' if warm_sig_frac > 50 else 'mixed regime'}")
+    cold_sig_frac = cold_cr["noise_dict"]["signal_shot"] ** 2 / cold_cr["total_noise"] ** 2 * 100.0
+    warm_sig_frac = warm_cr["noise_dict"]["signal_shot"] ** 2 / warm_cr["total_noise"] ** 2 * 100.0
+    print(
+        f"    At {cold_temp_K:.0f} K: signal_shot is {cold_sig_frac:.1f}% of noise"
+        f" → {'BLIP (background-limited)' if cold_sig_frac < 30 else 'signal-limited'}"
+    )
+    print(
+        f"    At 400 K: signal_shot is {warm_sig_frac:.1f}% of noise"
+        f" → {'signal-limited' if warm_sig_frac > 50 else 'mixed regime'}"
+    )
 
     # ---------------------------------------------------------------------------
     # Step 10: Summary
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== Summary ===")
+    print("\n=== Summary ===")
     print(f"  Scene dynamic range requested: {cold_temp_K:.0f} K to {hot_temp_K:.0f} K")
-    print(f"  FWC: {fwc/1e6:.1f} M e⁻")
-    print(f"")
+    print(f"  FWC: {fwc / 1e6:.1f} M e⁻")
+    print("")
 
     # Find practical limits
     # At 1 ms: what's the max temp?
@@ -476,12 +492,14 @@ def main() -> None:
 
     cold_snr_1ms = sweep_data[cold_temp_K][idx_1ms]["snr"]
 
-    print(f"  At t_int = 1 ms:")
-    print(f"    Cold target ({cold_temp_K:.0f} K) SNR = {cold_snr_1ms:.1f} [—]"
-          f" ({'PASS' if cold_snr_1ms >= snr_req else 'FAIL'}, req ≥ {snr_req:.0f})")
+    print("  At t_int = 1 ms:")
+    print(
+        f"    Cold target ({cold_temp_K:.0f} K) SNR = {cold_snr_1ms:.1f} [—]"
+        f" ({'PASS' if cold_snr_1ms >= snr_req else 'FAIL'}, req ≥ {snr_req:.0f})"
+    )
     print(f"    Max scene temp below {sat_limit_pct:.0f}% fill: {max_t_at_1ms:.0f} K")
     print(f"    Achievable dynamic range: {cold_temp_K:.0f}–{max_t_at_1ms:.0f} K")
-    print(f"")
+    print("")
     print(f"  The {cold_temp_K:.0f}–{hot_temp_K:.0f} K dynamic range is physically")
     print(f"  impossible in a single frame. A {hot_temp_K:.0f} K blackbody in MWIR produces")
     if max_t_at_1ms > 0:
@@ -489,13 +507,13 @@ def main() -> None:
             sweep_data[cold_temp_K][idx_1ms]["signal_e"], 1
         )
         print(f"  ~{ratio:,.0f}× more signal than a {cold_temp_K:.0f} K target.")
-    print(f"")
-    print(f"  Solutions for wide dynamic range:")
-    print(f"    1. Dual-integration (short + long exposure per frame)")
-    print(f"    2. High-dynamic-range (HDR) readout modes")
-    print(f"    3. Gain switching per pixel")
-    print(f"    4. Spectral narrowing (reduce band to lower flux)")
-    print(f"    5. Accept saturation on hottest targets (flag and discard)")
+    print("")
+    print("  Solutions for wide dynamic range:")
+    print("    1. Dual-integration (short + long exposure per frame)")
+    print("    2. High-dynamic-range (HDR) readout modes")
+    print("    3. Gain switching per pixel")
+    print("    4. Spectral narrowing (reduce band to lower flux)")
+    print("    5. Accept saturation on hottest targets (flag and discard)")
 
     # ---------------------------------------------------------------------------
     # Step 11: Write output spreadsheet
@@ -508,8 +526,10 @@ def main() -> None:
     sfill = PatternFill(start_color="002E75B6", end_color="002E75B6", fill_type="solid")
     sfont = Font(bold=True, size=11, color="FFFFFF")
     tb = Border(
-        left=Side(style="thin"), right=Side(style="thin"),
-        top=Side(style="thin"), bottom=Side(style="thin"),
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
     )
 
     # --- Sheet 1: Well Fill Sweep ---
@@ -553,7 +573,7 @@ def main() -> None:
 
     # --- Sheet 3: Noise Comparison ---
     ows3 = owb.create_sheet("Noise Comparison")
-    ows3["A1"] = f"Noise Budget Comparison at t_int = {COMPARE_T_INT*1e3:.1f} ms"
+    ows3["A1"] = f"Noise Budget Comparison at t_int = {COMPARE_T_INT * 1e3:.1f} ms"
     ows3["A1"].font = Font(bold=True, size=14)
     ows3.column_dimensions["A"].width = 26
     ows3.column_dimensions["B"].width = 18
@@ -566,8 +586,10 @@ def main() -> None:
         cell.border = tb
 
     all_terms = sorted(
-        set(list(compare_results[cold_temp_K]["noise_dict"].keys()) +
-            list(compare_results[400.0]["noise_dict"].keys()))
+        set(
+            list(compare_results[cold_temp_K]["noise_dict"].keys())
+            + list(compare_results[400.0]["noise_dict"].keys())
+        )
     )
     row_idx = 4
     for name in all_terms:
@@ -590,7 +612,7 @@ def main() -> None:
     summaries = [
         ("System", f"MWIR HgCdTe, {pixel_pitch_um:.0f} µm, f/{f_number:.1f}"),
         ("Band", f"{band_min_um:.1f}–{band_max_um:.1f} µm"),
-        ("FWC", f"{fwc/1e6:.1f} M e⁻"),
+        ("FWC", f"{fwc / 1e6:.1f} M e⁻"),
         ("Scene range requested", f"{cold_temp_K:.0f}–{hot_temp_K:.0f} K"),
         ("Achievable range (1 ms, <90% fill)", f"{cold_temp_K:.0f}–{max_t_at_1ms:.0f} K"),
         ("Cold target SNR at 1 ms", f"{cold_snr_1ms:.1f} [—]"),

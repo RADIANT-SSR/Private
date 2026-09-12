@@ -106,8 +106,8 @@ def main() -> None:
     print("SCENARIO 3.1 — ORBIT GEOMETRY & PASS PLANNING")
     print("=" * 74)
     print(
-        f"Orbit: circular sun-sync, altitude {ALT_M/1e3:.0f} km. "
-        f"Sensor: {APERTURE_M*100:.0f} cm aperture, f = {FOCAL_M} m, "
+        f"Orbit: circular sun-sync, altitude {ALT_M / 1e3:.0f} km. "
+        f"Sensor: {APERTURE_M * 100:.0f} cm aperture, f = {FOCAL_M} m, "
         f"{PITCH_UM} µm pixels, {N_PIX_CROSS} cross-track."
     )
     print(
@@ -125,9 +125,11 @@ def main() -> None:
     print("-" * 74)
     print("ORBIT KINEMATICS (radiant.core.orbit)")
     print("-" * 74)
-    print(f"  Orbital period          {period_s:8.1f} s   ({period_s/60:.1f} min)")
-    print(f"  Orbital velocity        {v_orb:8.1f} m/s ({v_orb/1e3:.2f} km/s, inertial)")
-    print(f"  Ground-track speed      {v_ground:8.1f} m/s ({v_ground/1e3:.2f} km/s, sub-satellite)")
+    print(f"  Orbital period          {period_s:8.1f} s   ({period_s / 60:.1f} min)")
+    print(f"  Orbital velocity        {v_orb:8.1f} m/s ({v_orb / 1e3:.2f} km/s, inertial)")
+    print(
+        f"  Ground-track speed      {v_ground:8.1f} m/s ({v_ground / 1e3:.2f} km/s, sub-satellite)"
+    )
     print(f"  Orbits per day          {passes_per_day:8.1f}   (86400 s / period)")
     print(
         "  Ground speed < orbital speed because the nadir point traces a smaller "
@@ -198,16 +200,16 @@ def main() -> None:
         f"{max_slew_for_niirs:.0f}°):  {access_half_niirs_km:6.0f} km"
     )
     print(
-        f"  Nadir swath width                     {swath_nadir_m/1e3:6.1f} km "
-        f"({N_PIX_CROSS} px × {swath_nadir_m/N_PIX_CROSS:.2f} m GSD)"
+        f"  Nadir swath width                     {swath_nadir_m / 1e3:6.1f} km "
+        f"({N_PIX_CROSS} px × {swath_nadir_m / N_PIX_CROSS:.2f} m GSD)"
     )
     print(
         f"  Nadir area coverage rate              {access_rate_km2_s:6.1f} km²/s "
-        f"(swath × ground speed = {swath_nadir_m/1e3:.1f} km × {v_ground/1e3:.2f} km/s)"
+        f"(swath × ground speed = {swath_nadir_m / 1e3:.1f} km × {v_ground / 1e3:.2f} km/s)"
     )
     print(
-        f"  Per-pass daylight coverage (~{period_s/60/2:.0f} min lit)  "
-        f"≈ {access_rate_km2_s * (period_s/2):,.0f} km²"
+        f"  Per-pass daylight coverage (~{period_s / 60 / 2:.0f} min lit)  "
+        f"≈ {access_rate_km2_s * (period_s / 2):,.0f} km²"
     )
     print(
         "\n  The agility limit (45°) reaches wider than the NIIRS-quality limit — "
@@ -248,7 +250,7 @@ def main() -> None:
     )
     ax1.set_title(
         f"Scenario 3.1 — off-nadir image quality "
-        f"({ALT_M/1e3:.0f} km, {APERTURE_M*100:.0f} cm aperture)"
+        f"({ALT_M / 1e3:.0f} km, {APERTURE_M * 100:.0f} cm aperture)"
     )
     fig.tight_layout()
     fig1 = OUTPUTS / "fig1_offnadir_image_quality.png"
@@ -263,10 +265,15 @@ def main() -> None:
     ax.plot(angles, ground_range_km, "o-", color="#548235")
     ax.set_xlabel("Off-nadir pointing angle (deg)")
     ax.set_ylabel("Ground range from nadir (km)")
-    ax.axvline(MAX_SLEW_DEG, color="red", ls="--", lw=1.5, label=f"agility limit {MAX_SLEW_DEG:.0f}°")
+    ax.axvline(
+        MAX_SLEW_DEG, color="red", ls="--", lw=1.5, label=f"agility limit {MAX_SLEW_DEG:.0f}°"
+    )
     if not math.isnan(max_slew_for_niirs):
         ax.axvline(
-            max_slew_for_niirs, color="green", ls=":", lw=2,
+            max_slew_for_niirs,
+            color="green",
+            ls=":",
+            lw=2,
             label=f"NIIRS≥{NIIRS_FLOOR:.0f} limit {max_slew_for_niirs:.0f}°",
         )
     ax.set_title("Scenario 3.1 — cross-track access corridor half-width")

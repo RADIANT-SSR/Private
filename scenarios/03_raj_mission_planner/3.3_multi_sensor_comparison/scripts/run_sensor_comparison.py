@@ -38,12 +38,39 @@ OUTPUTS.mkdir(exist_ok=True)
 
 # --- Proposals (raj_sensor_proposals.xlsx) ----------------------------
 VENDORS = {
-    "Vendor A": dict(aperture=0.30, fnum=4.0, pitch=18.0, band=(3.7, 4.8), qe=0.70,
-                     dark=200.0, read=25.0, tdet=80.0, tau=0.82),
-    "Vendor B": dict(aperture=0.25, fnum=3.0, pitch=24.0, band=(3.0, 5.0), qe=0.80,
-                     dark=500.0, read=30.0, tdet=77.0, tau=0.85),
-    "Vendor C": dict(aperture=0.35, fnum=5.0, pitch=10.0, band=(3.7, 4.8), qe=0.65,
-                     dark=300.0, read=20.0, tdet=80.0, tau=0.80),
+    "Vendor A": dict(
+        aperture=0.30,
+        fnum=4.0,
+        pitch=18.0,
+        band=(3.7, 4.8),
+        qe=0.70,
+        dark=200.0,
+        read=25.0,
+        tdet=80.0,
+        tau=0.82,
+    ),
+    "Vendor B": dict(
+        aperture=0.25,
+        fnum=3.0,
+        pitch=24.0,
+        band=(3.0, 5.0),
+        qe=0.80,
+        dark=500.0,
+        read=30.0,
+        tdet=77.0,
+        tau=0.85,
+    ),
+    "Vendor C": dict(
+        aperture=0.35,
+        fnum=5.0,
+        pitch=10.0,
+        band=(3.7, 4.8),
+        qe=0.65,
+        dark=300.0,
+        read=20.0,
+        tdet=80.0,
+        tau=0.80,
+    ),
 }
 ALT_M = 600e3
 SCENE_TEMP_K = 300.0
@@ -104,8 +131,8 @@ def main() -> None:
     print("SCENARIO 3.3 — MULTI-SENSOR COMPARISON FOR PROCUREMENT")
     print("=" * 78)
     print(
-        f"Common operating point: {ALT_M/1e3:.0f} km, {SCENE_TEMP_K:.0f} K scene, "
-        f"t_int {T_INT_S*1e3:.0f} ms, extended MWIR. PDF specs transcribed to the "
+        f"Common operating point: {ALT_M / 1e3:.0f} km, {SCENE_TEMP_K:.0f} K scene, "
+        f"t_int {T_INT_S * 1e3:.0f} ms, extended MWIR. PDF specs transcribed to the "
         "input workbook."
     )
     print()
@@ -116,8 +143,13 @@ def main() -> None:
     print("-" * 78)
     print("COMPARISON TABLE")
     print("-" * 78)
-    metrics = [("SNR", "snr", ""), ("NIIRS", "niirs", ""), ("NEDT [mK]", "nedt_mK", ""),
-               ("GSD [m]", "gsd_m", ""), ("MTF@Nyq", "mtf_nyq", "")]
+    metrics = [
+        ("SNR", "snr", ""),
+        ("NIIRS", "niirs", ""),
+        ("NEDT [mK]", "nedt_mK", ""),
+        ("GSD [m]", "gsd_m", ""),
+        ("MTF@Nyq", "mtf_nyq", ""),
+    ]
     header = f"{'Metric':<12}" + "".join(f"{v:>12}" for v in VENDORS)
     print(header)
     for label, key, _ in metrics:
@@ -139,7 +171,7 @@ def main() -> None:
     print("COMPLIANCE MATRIX (vs procurement requirements)")
     print("-" * 78)
     print(f"{'Requirement':<16}" + "".join(f"{v:>12}" for v in VENDORS))
-    passes = {v: 0 for v in VENDORS}
+    passes = dict.fromkeys(VENDORS, 0)
     for key, thr, direction in REQUIREMENTS:
         cells = []
         for v in VENDORS:
@@ -167,13 +199,16 @@ def main() -> None:
             "SNR +10%": sens.per_percent["snr"] * 10,
         }
         best = max(gains, key=gains.get)
-        print(f"  {v}: best lever = {best} (+{gains[best]:.3f} NIIRS); "
-              + ", ".join(f"{k} {gains[k]:+.3f}" for k in gains))
+        print(
+            f"  {v}: best lever = {best} (+{gains[best]:.3f} NIIRS); "
+            + ", ".join(f"{k} {gains[k]:+.3f}" for k in gains)
+        )
 
     # ---------------------------------------------------------------
     # FIGURE 1 — radar/spider chart (normalised metrics).
     # ---------------------------------------------------------------
     labels = ["SNR", "NIIRS", "NEDT⁻¹", "GSD⁻¹", "MTF@Nyq"]
+
     # Normalise each axis to the best vendor (higher = better; invert NEDT/GSD).
     def norm(key: str, invert: bool) -> dict:
         vals = {v: results[v][key] for v in VENDORS}
@@ -181,8 +216,14 @@ def main() -> None:
             vals = {v: 1.0 / x for v, x in vals.items()}
         mx = max(vals.values())
         return {v: vals[v] / mx for v in VENDORS}
-    axes_norm = [norm("snr", False), norm("niirs", False), norm("nedt_mK", True),
-                 norm("gsd_m", True), norm("mtf_nyq", False)]
+
+    axes_norm = [
+        norm("snr", False),
+        norm("niirs", False),
+        norm("nedt_mK", True),
+        norm("gsd_m", True),
+        norm("mtf_nyq", False),
+    ]
     angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
     angles += angles[:1]
     fig, ax = plt.subplots(figsize=(7, 7), subplot_kw=dict(polar=True))

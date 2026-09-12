@@ -23,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 from radiant.api import Sensor
 
@@ -63,28 +63,28 @@ atmo_specs, atmo_units = _read_sheet(wb["Atmosphere & Geometry"])
 # ---------------------------------------------------------------------------
 
 # Optics
-aperture_m = float(sensor_specs["Aperture diameter"]) / 100.0       # cm → m
-focal_length_m = float(sensor_specs["Focal length"]) / 100.0        # cm → m
+aperture_m = float(sensor_specs["Aperture diameter"]) / 100.0  # cm → m
+focal_length_m = float(sensor_specs["Focal length"]) / 100.0  # cm → m
 transmission = float(sensor_specs["Optical transmission"]) / 100.0  # % → frac
 optics_temp_K = float(sensor_specs["Optics temperature"]) + 273.15  # °C → K
 
 # Detector
 pixel_pitch_um = float(sensor_specs["Pixel pitch"])
-qe = float(sensor_specs["Quantum efficiency"]) / 100.0              # % → frac
+qe = float(sensor_specs["Quantum efficiency"]) / 100.0  # % → frac
 dark_rate = float(sensor_specs["Dark current"])
 operating_temp_K = float(sensor_specs["Operating temperature"])
 read_noise = float(sensor_specs["Read noise (post-CDS)"])
 fwc = float(sensor_specs["Full well capacity"])
 adc_bits = int(sensor_specs["ADC resolution"])
 gain = float(sensor_specs["System gain"])
-ipc_coupling = float(sensor_specs["IPC coupling"]) / 100.0          # % → frac
-t_int_s = float(sensor_specs["Integration time"]) / 1000.0          # ms → s
+ipc_coupling = float(sensor_specs["IPC coupling"]) / 100.0  # % → frac
+t_int_s = float(sensor_specs["Integration time"]) / 1000.0  # ms → s
 
 # Geometry
-altitude_m = float(atmo_specs["Sensor altitude"]) * 1000.0          # km → m
+altitude_m = float(atmo_specs["Sensor altitude"]) * 1000.0  # km → m
 target_alt_m = float(atmo_specs["Target altitude"])
 offnadir_deg = float(atmo_specs["Off-nadir angle"])
-offnadir_rad = offnadir_deg * math.pi / 180.0                       # deg → rad
+offnadir_rad = offnadir_deg * math.pi / 180.0  # deg → rad
 
 # Atmosphere baseline
 std_atmo = str(atmo_specs["Standard atmosphere"])
@@ -166,7 +166,7 @@ def evaluate_weather(vis_km: float, pwv_cm: float) -> dict:
     contrast_snr = r.metrics.get("contrast_snr")
 
     noise_dict = {nt.name: nt.value_e for nt in r.noise_terms}
-    total_noise = math.sqrt(sum(v ** 2 for v in noise_dict.values()))
+    total_noise = math.sqrt(sum(v**2 for v in noise_dict.values()))
 
     return {
         "vis_km": vis_km,
@@ -182,6 +182,7 @@ def evaluate_weather(vis_km: float, pwv_cm: float) -> dict:
         "total_noise": total_noise,
         "noise_dict": noise_dict,
     }
+
 
 # ---------------------------------------------------------------------------
 # Step 11: Generate plots
@@ -260,22 +261,23 @@ def main() -> None:
 
     print("\n=== Radiometric Regime ===")
     gsd_m = pixel_pitch_um * 1e-6 * altitude_m / focal_length_m
-    print(f"  Atmosphere model: simple (Beer-Lambert parametric)")
-    print(f"  Extended regime: target fills pixel FOV")
-    print(f"  GSD = {pixel_pitch_um:.0f} µm × {altitude_m/1000:.0f} km / {focal_length_m:.2f} m"
-          f" = {gsd_m:.1f} m")
+    print("  Atmosphere model: simple (Beer-Lambert parametric)")
+    print("  Extended regime: target fills pixel FOV")
+    print(
+        f"  GSD = {pixel_pitch_um:.0f} µm × {altitude_m / 1000:.0f} km / {focal_length_m:.2f} m"
+        f" = {gsd_m:.1f} m"
+    )
     print(f"  NIIRS requirement: ≥ {niirs_req:.1f} [—] (threshold)")
     print(f"  NIIRS goal:        ≥ {niirs_goal:.1f} [—] (desired)")
-    print(f"")
-    print(f"  WEATHER SENSITIVITY NOTE:")
-    print(f"    Visibility controls aerosol scattering (Koschmieder: σ = 3.912/V).")
-    print(f"    In MWIR (3.5–5.0 µm), aerosol scattering is less dominant than in")
-    print(f"    visible bands because particles scatter less at longer wavelengths")
-    print(f"    (Angstrom exponent α ≈ 1.3 for rural aerosol).")
-    print(f"    Water vapor absorption has strong bands at 2.7 µm (edge of MWIR)")
-    print(f"    and a continuum contribution across 3.5–5.0 µm.")
-    print(f"    For a 500 km vertical path, these effects are significant.")
-
+    print("")
+    print("  WEATHER SENSITIVITY NOTE:")
+    print("    Visibility controls aerosol scattering (Koschmieder: σ = 3.912/V).")
+    print("    In MWIR (3.5–5.0 µm), aerosol scattering is less dominant than in")
+    print("    visible bands because particles scatter less at longer wavelengths")
+    print("    (Angstrom exponent α ≈ 1.3 for rural aerosol).")
+    print("    Water vapor absorption has strong bands at 2.7 µm (edge of MWIR)")
+    print("    and a continuum contribution across 3.5–5.0 µm.")
+    print("    For a 500 km vertical path, these effects are significant.")
 
     # ---------------------------------------------------------------------------
     # Step 4: Visibility sweep (at baseline PWV)
@@ -283,15 +285,19 @@ def main() -> None:
 
     vis_sweep_km = np.logspace(np.log10(vis_min_km), np.log10(vis_max_km), n_vis)
 
-    print(f"\n=== Visibility Sweep: {vis_min_km:.0f}–{vis_max_km:.0f} km"
-          f" ({n_vis} points, log-spaced) at PWV = {baseline_pwv_cm:.1f} cm ===")
+    print(
+        f"\n=== Visibility Sweep: {vis_min_km:.0f}–{vis_max_km:.0f} km"
+        f" ({n_vis} points, log-spaced) at PWV = {baseline_pwv_cm:.1f} cm ==="
+    )
 
     vis_results = []
     for vis in vis_sweep_km:
         vis_results.append(evaluate_weather(vis, baseline_pwv_cm))
 
-    print(f"\n  {'Visibility [km]':>15s}  {'τ_band [—]':>10s}  {'Signal [e⁻]':>12s}"
-          f"  {'SNR [—]':>8s}  {'NIIRS [—]':>9s}  {'Status'}")
+    print(
+        f"\n  {'Visibility [km]':>15s}  {'τ_band [—]':>10s}  {'Signal [e⁻]':>12s}"
+        f"  {'SNR [—]':>8s}  {'NIIRS [—]':>9s}  {'Status'}"
+    )
     print(f"  {'-' * 15}  {'-' * 10}  {'-' * 12}  {'-' * 8}  {'-' * 9}  {'-' * 12}")
 
     for vr in vis_results:
@@ -309,52 +315,60 @@ def main() -> None:
         else:
             status = "N/A"
 
-        print(f"  {vr['vis_km']:>15.1f}  {tau_str:>10s}  {vr['signal_e']:>12,.0f}"
-              f"  {vr['snr']:>8.1f}  {niirs_str:>9s}  {status:>12s}")
+        print(
+            f"  {vr['vis_km']:>15.1f}  {tau_str:>10s}  {vr['signal_e']:>12,.0f}"
+            f"  {vr['snr']:>8.1f}  {niirs_str:>9s}  {status:>12s}"
+        )
 
     # Find critical visibility threshold (NIIRS = requirement)
     threshold_vis_km = None
     for i in range(len(vis_results) - 1):
         n1 = vis_results[i]["niirs"]
         n2 = vis_results[i + 1]["niirs"]
-        if n1 is not None and n2 is not None:
-            if n1 < niirs_req <= n2:
-                # Linear interpolation
-                v1 = vis_results[i]["vis_km"]
-                v2 = vis_results[i + 1]["vis_km"]
-                frac = (niirs_req - n1) / (n2 - n1)
-                threshold_vis_km = v1 + frac * (v2 - v1)
-                break
+        if n1 is not None and n2 is not None and n1 < niirs_req <= n2:
+            # Linear interpolation
+            v1 = vis_results[i]["vis_km"]
+            v2 = vis_results[i + 1]["vis_km"]
+            frac = (niirs_req - n1) / (n2 - n1)
+            threshold_vis_km = v1 + frac * (v2 - v1)
+            break
 
     if threshold_vis_km:
-        print(f"\n  → Critical visibility threshold: NIIRS = {niirs_req:.1f}"
-              f" at visibility ≈ {threshold_vis_km:.1f} km")
+        print(
+            f"\n  → Critical visibility threshold: NIIRS = {niirs_req:.1f}"
+            f" at visibility ≈ {threshold_vis_km:.1f} km"
+        )
     else:
         # Check if all pass or all fail
         all_niirs = [vr["niirs"] for vr in vis_results if vr["niirs"] is not None]
         if all_niirs and min(all_niirs) >= niirs_req:
-            print(f"\n  → NIIRS ≥ {niirs_req:.1f} at ALL visibilities in sweep range"
-                  f" (min NIIRS = {min(all_niirs):.2f} [—])")
+            print(
+                f"\n  → NIIRS ≥ {niirs_req:.1f} at ALL visibilities in sweep range"
+                f" (min NIIRS = {min(all_niirs):.2f} [—])"
+            )
         elif all_niirs:
-            print(f"\n  → NIIRS < {niirs_req:.1f} at ALL visibilities in sweep range"
-                  f" (max NIIRS = {max(all_niirs):.2f} [—])")
+            print(
+                f"\n  → NIIRS < {niirs_req:.1f} at ALL visibilities in sweep range"
+                f" (max NIIRS = {max(all_niirs):.2f} [—])"
+            )
 
     # Find goal threshold too
     threshold_goal_km = None
     for i in range(len(vis_results) - 1):
         n1 = vis_results[i]["niirs"]
         n2 = vis_results[i + 1]["niirs"]
-        if n1 is not None and n2 is not None:
-            if n1 < niirs_goal <= n2:
-                v1 = vis_results[i]["vis_km"]
-                v2 = vis_results[i + 1]["vis_km"]
-                frac = (niirs_goal - n1) / (n2 - n1)
-                threshold_goal_km = v1 + frac * (v2 - v1)
-                break
+        if n1 is not None and n2 is not None and n1 < niirs_goal <= n2:
+            v1 = vis_results[i]["vis_km"]
+            v2 = vis_results[i + 1]["vis_km"]
+            frac = (niirs_goal - n1) / (n2 - n1)
+            threshold_goal_km = v1 + frac * (v2 - v1)
+            break
 
     if threshold_goal_km:
-        print(f"  → NIIRS goal threshold: NIIRS = {niirs_goal:.1f}"
-              f" at visibility ≈ {threshold_goal_km:.1f} km")
+        print(
+            f"  → NIIRS goal threshold: NIIRS = {niirs_goal:.1f}"
+            f" at visibility ≈ {threshold_goal_km:.1f} km"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 5: PWV sweep (at baseline visibility)
@@ -362,15 +376,19 @@ def main() -> None:
 
     pwv_sweep_cm = np.linspace(pwv_min_cm, pwv_max_cm, n_pwv)
 
-    print(f"\n=== PWV Sweep: {pwv_min_cm:.1f}–{pwv_max_cm:.1f} cm"
-          f" ({n_pwv} points, linear) at visibility = {baseline_vis_km:.0f} km ===")
+    print(
+        f"\n=== PWV Sweep: {pwv_min_cm:.1f}–{pwv_max_cm:.1f} cm"
+        f" ({n_pwv} points, linear) at visibility = {baseline_vis_km:.0f} km ==="
+    )
 
     pwv_results = []
     for pwv in pwv_sweep_cm:
         pwv_results.append(evaluate_weather(baseline_vis_km, pwv))
 
-    print(f"\n  {'PWV [cm]':>10s}  {'τ_band [—]':>10s}  {'Signal [e⁻]':>12s}"
-          f"  {'SNR [—]':>8s}  {'NIIRS [—]':>9s}  {'ΔNIIRS [—]':>10s}")
+    print(
+        f"\n  {'PWV [cm]':>10s}  {'τ_band [—]':>10s}  {'Signal [e⁻]':>12s}"
+        f"  {'SNR [—]':>8s}  {'NIIRS [—]':>9s}  {'ΔNIIRS [—]':>10s}"
+    )
     print(f"  {'-' * 10}  {'-' * 10}  {'-' * 12}  {'-' * 8}  {'-' * 9}  {'-' * 10}")
 
     baseline_niirs = None
@@ -383,19 +401,23 @@ def main() -> None:
             baseline_niirs = niirs_val
         delta = f"{niirs_val - baseline_niirs:+.2f}" if (niirs_val and baseline_niirs) else "—"
 
-        print(f"  {pr['pwv_cm']:>10.2f}  {tau_str:>10s}  {pr['signal_e']:>12,.0f}"
-              f"  {pr['snr']:>8.1f}  {niirs_str:>9s}  {delta:>10s}")
+        print(
+            f"  {pr['pwv_cm']:>10.2f}  {tau_str:>10s}  {pr['signal_e']:>12,.0f}"
+            f"  {pr['snr']:>8.1f}  {niirs_str:>9s}  {delta:>10s}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 6: Named weather conditions
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== Named Weather Conditions — Go/No-Go Assessment ===")
+    print("\n=== Named Weather Conditions — Go/No-Go Assessment ===")
     print(f"  Requirement: NIIRS ≥ {niirs_req:.1f} [—] (threshold)")
     print(f"  Goal:        NIIRS ≥ {niirs_goal:.1f} [—] (desired)")
-    print(f"")
-    print(f"  {'Condition':<20s}  {'Vis [km]':>8s}  {'PWV [cm]':>8s}  {'τ_band [—]':>10s}"
-          f"  {'SNR [—]':>8s}  {'NIIRS [—]':>9s}  {'Go/No-Go':>10s}")
+    print("")
+    print(
+        f"  {'Condition':<20s}  {'Vis [km]':>8s}  {'PWV [cm]':>8s}  {'τ_band [—]':>10s}"
+        f"  {'SNR [—]':>8s}  {'NIIRS [—]':>9s}  {'Go/No-Go':>10s}"
+    )
     print(f"  {'-' * 20}  {'-' * 8}  {'-' * 8}  {'-' * 10}  {'-' * 8}  {'-' * 9}  {'-' * 10}")
 
     named_results = []
@@ -418,8 +440,10 @@ def main() -> None:
         else:
             go = "N/A"
 
-        print(f"  {cond_name:<20s}  {vis:>8.1f}  {pwv:>8.1f}  {tau_str:>10s}"
-              f"  {nr['snr']:>8.1f}  {niirs_str:>9s}  {go:>10s}")
+        print(
+            f"  {cond_name:<20s}  {vis:>8.1f}  {pwv:>8.1f}  {tau_str:>10s}"
+            f"  {nr['snr']:>8.1f}  {niirs_str:>9s}  {go:>10s}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 7: 2D grid — NIIRS as function of visibility × PWV
@@ -429,10 +453,12 @@ def main() -> None:
     vis_2d = np.array([2, 5, 10, 23, 50, 100], dtype=float)
     pwv_2d = np.array([0.5, 1.0, 1.4, 2.0, 3.0, 5.0], dtype=float)
 
-    print(f"\n=== 2D NIIRS Grid: Visibility × PWV ===")
+    print("\n=== 2D NIIRS Grid: Visibility × PWV ===")
     print(f"  {len(vis_2d)} × {len(pwv_2d)} = {len(vis_2d) * len(pwv_2d)} evaluations")
-    print(f"  Green = NIIRS ≥ {niirs_goal:.1f} (goal), Yellow = NIIRS ≥ {niirs_req:.1f} (pass),"
-          f" Red = NIIRS < {niirs_req:.1f} (fail)")
+    print(
+        f"  Green = NIIRS ≥ {niirs_goal:.1f} (goal), Yellow = NIIRS ≥ {niirs_req:.1f} (pass),"
+        f" Red = NIIRS < {niirs_req:.1f} (fail)"
+    )
 
     grid_results: dict[tuple[float, float], dict] = {}
     for vis in vis_2d:
@@ -440,7 +466,8 @@ def main() -> None:
             grid_results[(vis, pwv)] = evaluate_weather(vis, pwv)
 
     # Print as table
-    header = f"  {'Vis \\ PWV':>12s}"
+    vis_pwv_label = "Vis \\ PWV"
+    header = f"  {vis_pwv_label:>12s}"
     for pwv in pwv_2d:
         header += f"  {pwv:.1f} cm".rjust(9)
     print(f"\n{header}")
@@ -458,17 +485,20 @@ def main() -> None:
         print(row_str)
 
     # Count go/no-go
-    n_go = sum(1 for gr in grid_results.values()
-               if gr["niirs"] is not None and gr["niirs"] >= niirs_req)
+    n_go = sum(
+        1 for gr in grid_results.values() if gr["niirs"] is not None and gr["niirs"] >= niirs_req
+    )
     n_total = len(grid_results)
-    print(f"\n  Go/No-Go summary: {n_go}/{n_total} conditions meet"
-          f" NIIRS ≥ {niirs_req:.1f} ({n_go/n_total*100:.0f}%)")
+    print(
+        f"\n  Go/No-Go summary: {n_go}/{n_total} conditions meet"
+        f" NIIRS ≥ {niirs_req:.1f} ({n_go / n_total * 100:.0f}%)"
+    )
 
     # ---------------------------------------------------------------------------
     # Step 8: Noise budget at baseline conditions
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== Noise Budget at Baseline Conditions ===")
+    print("\n=== Noise Budget at Baseline Conditions ===")
     print(f"  Visibility = {baseline_vis_km:.0f} km, PWV = {baseline_pwv_cm:.1f} cm")
 
     baseline_result = evaluate_weather(baseline_vis_km, baseline_pwv_cm)
@@ -493,72 +523,75 @@ def main() -> None:
     for name, sigma in sorted_terms:
         if sigma < 0.01:
             continue
-        frac = sigma ** 2 / total_var * 100.0 if total_var > 0 else 0.0
+        frac = sigma**2 / total_var * 100.0 if total_var > 0 else 0.0
         print(f"  {name:<25s}  {sigma:>12.1f}  {frac:>13.1f}")
 
     # ---------------------------------------------------------------------------
     # Step 9: NIIRS sensitivity — what drives NIIRS most?
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== NIIRS Sensitivity — What Drives Performance? ===")
-    print(f"  GIQE-5: NIIRS = 9.57 − 3.32·log₁₀(GSD_inch) + 3.32·log₁₀(RER)")
-    print(f"          + 1.559·log₁₀(SNR) − 0.334·H − 0.01·G")
-    print(f"")
+    print("\n=== NIIRS Sensitivity — What Drives Performance? ===")
+    print("  GIQE-5: NIIRS = 9.57 − 3.32·log₁₀(GSD_inch) + 3.32·log₁₀(RER)")
+    print("          + 1.559·log₁₀(SNR) − 0.334·H − 0.01·G")
+    print("")
     print(f"  At baseline ({baseline_vis_km:.0f} km, {baseline_pwv_cm:.1f} cm):")
     if br["gsd_m"] and br["rer"]:
         gsd_inch = br["gsd_m"] * 39.3701
         print(f"    GSD = {br['gsd_m']:.1f} m = {gsd_inch:.1f} inches")
         print(f"    RER = {br['rer']:.4f} [—]")
         print(f"    SNR = {br['snr']:.1f} [—]")
-        print(f"")
-        print(f"  NIIRS is dominated by GSD (the −3.32·log₁₀(GSD) term).")
-        print(f"  Visibility affects SNR through atmospheric transmission.")
-        print(f"  Since NIIRS ∝ 1.559·log₁₀(SNR), halving SNR costs ~0.47 NIIRS.")
-        print(f"  GSD is fixed by geometry — weather cannot change it.")
-        print(f"  RER is fixed by optics/detector — weather cannot change it.")
-        print(f"  So weather impact on NIIRS comes entirely through SNR.")
+        print("")
+        print("  NIIRS is dominated by GSD (the −3.32·log₁₀(GSD) term).")
+        print("  Visibility affects SNR through atmospheric transmission.")
+        print("  Since NIIRS ∝ 1.559·log₁₀(SNR), halving SNR costs ~0.47 NIIRS.")
+        print("  GSD is fixed by geometry — weather cannot change it.")
+        print("  RER is fixed by optics/detector — weather cannot change it.")
+        print("  So weather impact on NIIRS comes entirely through SNR.")
 
     # ---------------------------------------------------------------------------
     # Step 10: Summary
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== Summary ===")
-    print(f"  Sensor: MWIR, {aperture_m*100:.0f} cm, f/{f_number:.0f},"
-          f" {pixel_pitch_um:.0f} µm, {altitude_m/1000:.0f} km orbit")
+    print("\n=== Summary ===")
+    print(
+        f"  Sensor: MWIR, {aperture_m * 100:.0f} cm, f/{f_number:.0f},"
+        f" {pixel_pitch_um:.0f} µm, {altitude_m / 1000:.0f} km orbit"
+    )
     print(f"  GSD: {gsd_m:.1f} m (fixed by geometry)")
     print(f"  NIIRS requirement: ≥ {niirs_req:.1f} [—]")
-    print(f"")
+    print("")
 
     if threshold_vis_km:
-        print(f"  Critical visibility threshold: {threshold_vis_km:.1f} km"
-              f" (NIIRS = {niirs_req:.1f})")
+        print(
+            f"  Critical visibility threshold: {threshold_vis_km:.1f} km (NIIRS = {niirs_req:.1f})"
+        )
     else:
         all_niirs_vis = [vr["niirs"] for vr in vis_results if vr["niirs"] is not None]
         if all_niirs_vis and min(all_niirs_vis) >= niirs_req:
-            print(f"  NIIRS ≥ {niirs_req:.1f} at all visibilities ({vis_min_km:.0f}–{vis_max_km:.0f} km)")
-            print(f"  This MWIR sensor is robust to visibility degradation!")
+            print(
+                f"  NIIRS ≥ {niirs_req:.1f} at all visibilities ({vis_min_km:.0f}–{vis_max_km:.0f} km)"
+            )
+            print("  This MWIR sensor is robust to visibility degradation!")
 
     if threshold_goal_km:
         print(f"  NIIRS goal visibility: {threshold_goal_km:.1f} km (NIIRS = {niirs_goal:.1f})")
 
     best_named = max(named_results, key=lambda x: x["niirs"] if x["niirs"] else 0)
     worst_named = min(named_results, key=lambda x: x["niirs"] if x["niirs"] else 99)
-    print(f"")
-    print(f"  Best condition:  {best_named['condition']}"
-          f" (NIIRS = {best_named['niirs']:.2f} [—])")
-    print(f"  Worst condition: {worst_named['condition']}"
-          f" (NIIRS = {worst_named['niirs']:.2f} [—])")
+    print("")
+    print(f"  Best condition:  {best_named['condition']} (NIIRS = {best_named['niirs']:.2f} [—])")
+    print(f"  Worst condition: {worst_named['condition']} (NIIRS = {worst_named['niirs']:.2f} [—])")
     niirs_range = (best_named["niirs"] or 0) - (worst_named["niirs"] or 0)
     print(f"  Weather-induced NIIRS variation: {niirs_range:.2f} [—]")
 
-    print(f"")
-    print(f"  MWIR WEATHER NOTE:")
-    print(f"    MWIR (3.5–5.0 µm) is less affected by aerosol scattering than")
-    print(f"    visible-band sensors because aerosol extinction scales as λ^(-α)")
-    print(f"    where α ≈ 1.3 (rural). At 4.2 µm vs. 0.55 µm, aerosol extinction")
-    print(f"    is reduced by a factor of (4.2/0.55)^1.3 ≈ 13×.")
-    print(f"    Water vapor absorption is the primary weather concern in MWIR,")
-    print(f"    especially near the 4.3 µm CO₂ band and the H₂O continuum.")
+    print("")
+    print("  MWIR WEATHER NOTE:")
+    print("    MWIR (3.5–5.0 µm) is less affected by aerosol scattering than")
+    print("    visible-band sensors because aerosol extinction scales as λ^(-α)")
+    print("    where α ≈ 1.3 (rural). At 4.2 µm vs. 0.55 µm, aerosol extinction")
+    print("    is reduced by a factor of (4.2/0.55)^1.3 ≈ 13×.")
+    print("    Water vapor absorption is the primary weather concern in MWIR,")
+    print("    especially near the 4.3 µm CO₂ band and the H₂O continuum.")
 
     PLOT_DIR = Path(__file__).parent.parent / "outputs"
     PLOT_DIR.mkdir(parents=True, exist_ok=True)
@@ -572,16 +605,29 @@ def main() -> None:
     tau_arr = [vr["tau_band"] for vr in vis_results if vr["tau_band"] is not None]
 
     ax1.semilogx(vis_arr, niirs_arr, "b-o", markersize=4, linewidth=2, label="NIIRS")
-    ax1.axhline(y=niirs_req, color="r", linestyle="--", linewidth=1.5,
-                label=f"Threshold (NIIRS = {niirs_req:.1f})")
-    ax1.axhline(y=niirs_goal, color="g", linestyle="--", linewidth=1.5,
-                label=f"Goal (NIIRS = {niirs_goal:.1f})")
+    ax1.axhline(
+        y=niirs_req,
+        color="r",
+        linestyle="--",
+        linewidth=1.5,
+        label=f"Threshold (NIIRS = {niirs_req:.1f})",
+    )
+    ax1.axhline(
+        y=niirs_goal,
+        color="g",
+        linestyle="--",
+        linewidth=1.5,
+        label=f"Goal (NIIRS = {niirs_goal:.1f})",
+    )
     if threshold_vis_km:
         ax1.axvline(x=threshold_vis_km, color="r", linestyle=":", alpha=0.7)
-        ax1.annotate(f"Critical: {threshold_vis_km:.1f} km",
-                     xy=(threshold_vis_km, niirs_req), fontsize=9,
-                     xytext=(threshold_vis_km * 1.5, niirs_req - 0.05),
-                     arrowprops=dict(arrowstyle="->", color="r"))
+        ax1.annotate(
+            f"Critical: {threshold_vis_km:.1f} km",
+            xy=(threshold_vis_km, niirs_req),
+            fontsize=9,
+            xytext=(threshold_vis_km * 1.5, niirs_req - 0.05),
+            arrowprops=dict(arrowstyle="->", color="r"),
+        )
 
     ax1.set_xlabel("Visibility [km]", fontsize=12)
     ax1.set_ylabel("NIIRS [—]", fontsize=12, color="b")
@@ -590,8 +636,7 @@ def main() -> None:
     ax1.grid(True, alpha=0.3)
 
     ax1b = ax1.twinx()
-    ax1b.semilogx(vis_arr, snr_arr, "r-s", markersize=3, linewidth=1.5,
-                  alpha=0.6, label="SNR")
+    ax1b.semilogx(vis_arr, snr_arr, "r-s", markersize=3, linewidth=1.5, alpha=0.6, label="SNR")
     ax1b.set_ylabel("SNR [—]", fontsize=12, color="r")
     ax1b.tick_params(axis="y", labelcolor="r")
 
@@ -601,7 +646,7 @@ def main() -> None:
     ax1.set_title(f"NIIRS & SNR vs. Visibility (PWV = {baseline_pwv_cm:.1f} cm)", fontsize=14)
     fig1.tight_layout()
     fig1.savefig(PLOT_DIR / "niirs_vs_visibility.png", dpi=150)
-    print(f"\n  Plot saved: outputs/niirs_vs_visibility.png")
+    print("\n  Plot saved: outputs/niirs_vs_visibility.png")
 
     # ---- Plot 2: NIIRS & Transmittance vs. PWV (dual y-axis) ----
     fig2, ax2 = plt.subplots(figsize=(10, 6))
@@ -611,17 +656,34 @@ def main() -> None:
     tau_pwv = [pr["tau_band"] for pr in pwv_results if pr["tau_band"] is not None]
 
     ax2.plot(pwv_arr, niirs_pwv, "b-o", markersize=5, linewidth=2, label="NIIRS")
-    ax2.axhline(y=niirs_req, color="r", linestyle="--", linewidth=1.5,
-                label=f"Threshold (NIIRS = {niirs_req:.1f})")
-    ax2.axhline(y=niirs_goal, color="g", linestyle="--", linewidth=1.5,
-                label=f"Goal (NIIRS = {niirs_goal:.1f})")
+    ax2.axhline(
+        y=niirs_req,
+        color="r",
+        linestyle="--",
+        linewidth=1.5,
+        label=f"Threshold (NIIRS = {niirs_req:.1f})",
+    )
+    ax2.axhline(
+        y=niirs_goal,
+        color="g",
+        linestyle="--",
+        linewidth=1.5,
+        label=f"Goal (NIIRS = {niirs_goal:.1f})",
+    )
 
     # Add named condition markers
     for cond_name, vis, pwv in named_conditions:
         if abs(vis - baseline_vis_km) < 1:  # only show conditions near baseline vis
             ax2.axvline(x=pwv, color="gray", linestyle=":", alpha=0.4)
-            ax2.text(pwv, max(niirs_pwv) + 0.01, cond_name, rotation=45,
-                     fontsize=7, ha="left", va="bottom")
+            ax2.text(
+                pwv,
+                max(niirs_pwv) + 0.01,
+                cond_name,
+                rotation=45,
+                fontsize=7,
+                ha="left",
+                va="bottom",
+            )
 
     ax2.set_xlabel("Precipitable Water Vapor [cm]", fontsize=12)
     ax2.set_ylabel("NIIRS [—]", fontsize=12, color="b")
@@ -630,8 +692,7 @@ def main() -> None:
     ax2.grid(True, alpha=0.3)
 
     ax2b = ax2.twinx()
-    ax2b.plot(pwv_arr, tau_pwv, "m-^", markersize=4, linewidth=1.5,
-              alpha=0.7, label="τ_band")
+    ax2b.plot(pwv_arr, tau_pwv, "m-^", markersize=4, linewidth=1.5, alpha=0.7, label="τ_band")
     ax2b.set_ylabel("Band-Mean Transmittance τ [—]", fontsize=12, color="m")
     ax2b.tick_params(axis="y", labelcolor="m")
     ax2b.set_ylim(0, 1.0)
@@ -639,11 +700,12 @@ def main() -> None:
     lines1, labels1 = ax2.get_legend_handles_labels()
     lines2, labels2 = ax2b.get_legend_handles_labels()
     ax2.legend(lines1 + lines2, labels1 + labels2, loc="upper right", fontsize=9)
-    ax2.set_title(f"NIIRS & Transmittance vs. PWV (Visibility = {baseline_vis_km:.0f} km)",
-                  fontsize=14)
+    ax2.set_title(
+        f"NIIRS & Transmittance vs. PWV (Visibility = {baseline_vis_km:.0f} km)", fontsize=14
+    )
     fig2.tight_layout()
     fig2.savefig(PLOT_DIR / "niirs_vs_pwv.png", dpi=150)
-    print(f"  Plot saved: outputs/niirs_vs_pwv.png")
+    print("  Plot saved: outputs/niirs_vs_pwv.png")
 
     # ---- Plot 3: 2D NIIRS Heatmap (Visibility × PWV) ----
     fig3, ax3 = plt.subplots(figsize=(9, 7))
@@ -659,8 +721,9 @@ def main() -> None:
     cmap = plt.cm.RdYlGn
     norm = BoundaryNorm(bounds, cmap.N, clip=True)
 
-    im = ax3.imshow(niirs_grid, cmap=cmap, norm=norm, aspect="auto",
-                    origin="lower", interpolation="nearest")
+    im = ax3.imshow(
+        niirs_grid, cmap=cmap, norm=norm, aspect="auto", origin="lower", interpolation="nearest"
+    )
 
     ax3.set_xticks(range(len(pwv_2d)))
     ax3.set_xticklabels([f"{p:.1f}" for p in pwv_2d])
@@ -674,8 +737,16 @@ def main() -> None:
         for j in range(len(pwv_2d)):
             val = niirs_grid[i, j]
             color = "black" if val >= niirs_req else "white"
-            ax3.text(j, i, f"{val:.2f}", ha="center", va="center",
-                     fontsize=10, fontweight="bold", color=color)
+            ax3.text(
+                j,
+                i,
+                f"{val:.2f}",
+                ha="center",
+                va="center",
+                fontsize=10,
+                fontweight="bold",
+                color=color,
+            )
 
     cbar = fig3.colorbar(im, ax=ax3, label="NIIRS [—]", shrink=0.8)
     cbar.ax.axhline(y=niirs_req, color="r", linewidth=2)
@@ -684,7 +755,7 @@ def main() -> None:
     ax3.set_title("Go/No-Go: NIIRS vs. Visibility & PWV", fontsize=14)
     fig3.tight_layout()
     fig3.savefig(PLOT_DIR / "niirs_2d_heatmap.png", dpi=150)
-    print(f"  Plot saved: outputs/niirs_2d_heatmap.png")
+    print("  Plot saved: outputs/niirs_2d_heatmap.png")
 
     # ---- Plot 4: Named Conditions Bar Chart ----
     fig4, ax4 = plt.subplots(figsize=(10, 6))
@@ -701,14 +772,22 @@ def main() -> None:
             cond_colors.append("#FF4444")
 
     bars = ax4.barh(cond_names, cond_niirs, color=cond_colors, edgecolor="gray", height=0.6)
-    ax4.axvline(x=niirs_req, color="r", linestyle="--", linewidth=2,
-                label=f"Threshold ({niirs_req:.1f})")
-    ax4.axvline(x=niirs_goal, color="g", linestyle="--", linewidth=2,
-                label=f"Goal ({niirs_goal:.1f})")
+    ax4.axvline(
+        x=niirs_req, color="r", linestyle="--", linewidth=2, label=f"Threshold ({niirs_req:.1f})"
+    )
+    ax4.axvline(
+        x=niirs_goal, color="g", linestyle="--", linewidth=2, label=f"Goal ({niirs_goal:.1f})"
+    )
 
     for bar, n in zip(bars, cond_niirs):
-        ax4.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height() / 2,
-                 f"{n:.2f}", va="center", fontsize=10, fontweight="bold")
+        ax4.text(
+            bar.get_width() + 0.01,
+            bar.get_y() + bar.get_height() / 2,
+            f"{n:.2f}",
+            va="center",
+            fontsize=10,
+            fontweight="bold",
+        )
 
     ax4.set_xlabel("NIIRS [—]", fontsize=12)
     ax4.set_xlim(min(cond_niirs) - 0.1, max(cond_niirs) + 0.15)
@@ -717,34 +796,40 @@ def main() -> None:
     ax4.set_title("Go/No-Go by Weather Condition", fontsize=14)
     fig4.tight_layout()
     fig4.savefig(PLOT_DIR / "named_conditions_gonogo.png", dpi=150)
-    print(f"  Plot saved: outputs/named_conditions_gonogo.png")
+    print("  Plot saved: outputs/named_conditions_gonogo.png")
 
     # ---- Plot 5: Noise Budget Stacked Bar ----
     fig5, ax5 = plt.subplots(figsize=(8, 6))
 
     noise_names = [name for name, sigma in sorted_terms if sigma >= 0.01]
     noise_vals = [sigma for _, sigma in sorted_terms if sigma >= 0.01]
-    noise_fracs = [sigma ** 2 / total_var * 100.0 for sigma in noise_vals]
+    noise_fracs = [sigma**2 / total_var * 100.0 for sigma in noise_vals]
 
     colors5 = plt.cm.Set2(np.linspace(0, 1, len(noise_names)))
     wedges, texts, autotexts = ax5.pie(
-        noise_fracs, labels=noise_names, autopct="%1.1f%%",
-        colors=colors5, startangle=90, pctdistance=0.75,
+        noise_fracs,
+        labels=noise_names,
+        autopct="%1.1f%%",
+        colors=colors5,
+        startangle=90,
+        pctdistance=0.75,
         textprops={"fontsize": 10},
     )
     for t in autotexts:
         t.set_fontsize(9)
         t.set_fontweight("bold")
 
-    ax5.set_title(f"Noise Budget at Baseline\n"
-                  f"(Vis = {baseline_vis_km:.0f} km, PWV = {baseline_pwv_cm:.1f} cm,"
-                  f" σ_total = {br['total_noise']:.1f} e⁻ RMS)",
-                  fontsize=13)
+    ax5.set_title(
+        f"Noise Budget at Baseline\n"
+        f"(Vis = {baseline_vis_km:.0f} km, PWV = {baseline_pwv_cm:.1f} cm,"
+        f" σ_total = {br['total_noise']:.1f} e⁻ RMS)",
+        fontsize=13,
+    )
     fig5.tight_layout()
     fig5.savefig(PLOT_DIR / "noise_budget_baseline.png", dpi=150)
-    print(f"  Plot saved: outputs/noise_budget_baseline.png")
+    print("  Plot saved: outputs/noise_budget_baseline.png")
 
-    print(f"  All 5 plots saved to outputs/")
+    print("  All 5 plots saved to outputs/")
     plt.show()
 
     # ---------------------------------------------------------------------------
@@ -758,8 +843,10 @@ def main() -> None:
     sfill = PatternFill(start_color="002E75B6", end_color="002E75B6", fill_type="solid")
     sfont = Font(bold=True, size=11, color="FFFFFF")
     tb = Border(
-        left=Side(style="thin"), right=Side(style="thin"),
-        top=Side(style="thin"), bottom=Side(style="thin"),
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
     )
     green_fill = PatternFill(start_color="0092D050", end_color="0092D050", fill_type="solid")
     yellow_fill = PatternFill(start_color="00FFFF00", end_color="00FFFF00", fill_type="solid")
@@ -784,12 +871,12 @@ def main() -> None:
 
     for i, vr in enumerate(vis_results, 4):
         ows1.cell(row=i, column=1, value=round(vr["vis_km"], 2)).border = tb
-        ows1.cell(row=i, column=2,
-                  value=round(vr["tau_band"], 4) if vr["tau_band"] else "").border = tb
+        ows1.cell(
+            row=i, column=2, value=round(vr["tau_band"], 4) if vr["tau_band"] else ""
+        ).border = tb
         ows1.cell(row=i, column=3, value=round(vr["signal_e"], 0)).border = tb
         ows1.cell(row=i, column=4, value=round(vr["snr"], 2)).border = tb
-        niirs_cell = ows1.cell(row=i, column=5,
-                               value=round(vr["niirs"], 2) if vr["niirs"] else "")
+        niirs_cell = ows1.cell(row=i, column=5, value=round(vr["niirs"], 2) if vr["niirs"] else "")
         niirs_cell.border = tb
         if vr["niirs"] is not None:
             if vr["niirs"] >= niirs_goal:
@@ -817,12 +904,12 @@ def main() -> None:
 
     for i, pr in enumerate(pwv_results, 4):
         ows2.cell(row=i, column=1, value=round(pr["pwv_cm"], 2)).border = tb
-        ows2.cell(row=i, column=2,
-                  value=round(pr["tau_band"], 4) if pr["tau_band"] else "").border = tb
+        ows2.cell(
+            row=i, column=2, value=round(pr["tau_band"], 4) if pr["tau_band"] else ""
+        ).border = tb
         ows2.cell(row=i, column=3, value=round(pr["signal_e"], 0)).border = tb
         ows2.cell(row=i, column=4, value=round(pr["snr"], 2)).border = tb
-        niirs_cell = ows2.cell(row=i, column=5,
-                               value=round(pr["niirs"], 2) if pr["niirs"] else "")
+        niirs_cell = ows2.cell(row=i, column=5, value=round(pr["niirs"], 2) if pr["niirs"] else "")
         niirs_cell.border = tb
 
     # --- Sheet 3: Named Conditions ---
@@ -836,8 +923,7 @@ def main() -> None:
     ows3.column_dimensions["E"].width = 12
     ows3.column_dimensions["F"].width = 12
 
-    headers_named = ["Condition", "Visibility [km]", "PWV [cm]", "SNR [—]",
-                     "NIIRS [—]", "Go/No-Go"]
+    headers_named = ["Condition", "Visibility [km]", "PWV [cm]", "SNR [—]", "NIIRS [—]", "Go/No-Go"]
     for c, h in enumerate(headers_named, 1):
         cell = ows3.cell(row=3, column=c, value=h)
         cell.font = hfont
@@ -850,8 +936,7 @@ def main() -> None:
         ows3.cell(row=i, column=4, value=round(nr["snr"], 2)).border = tb
 
         niirs_val = nr["niirs"]
-        niirs_cell = ows3.cell(row=i, column=5,
-                               value=round(niirs_val, 2) if niirs_val else "")
+        niirs_cell = ows3.cell(row=i, column=5, value=round(niirs_val, 2) if niirs_val else "")
         niirs_cell.border = tb
 
         if niirs_val is not None:
@@ -887,8 +972,7 @@ def main() -> None:
         for c_idx, pwv in enumerate(pwv_2d, 2):
             gr = grid_results[(vis, pwv)]
             n = gr["niirs"]
-            cell = ows4.cell(row=r_idx, column=c_idx,
-                             value=round(n, 2) if n else "")
+            cell = ows4.cell(row=r_idx, column=c_idx, value=round(n, 2) if n else "")
             cell.border = tb
             cell.alignment = Alignment(horizontal="center")
             if n is not None:

@@ -68,11 +68,11 @@ from radiant.io.target_library import load_target_library
 
 INPUTS = Path(__file__).parent.parent / "inputs"
 
-SCNR_THRESHOLD = 5.0         # detection criterion [dimensionless]
-CLUTTER_SIGMA = 0.02         # rural scene clutter, fraction of in-pixel background
-ALTITUDE_M = 500_000.0       # all three sensors fly the same 500 km orbit
+SCNR_THRESHOLD = 5.0  # detection criterion [dimensionless]
+CLUTTER_SIGMA = 0.02  # rural scene clutter, fraction of in-pixel background
+ALTITUDE_M = 500_000.0  # all three sensors fly the same 500 km orbit
 ZENITH_MAX_RAD = math.radians(66.0)  # horizon at 500 km is 68.0° — stay clear
-BISECTION_STEPS = 9          # zenith resolution ~0.13° → ~0.5% in range
+BISECTION_STEPS = 9  # zenith resolution ~0.13° → ~0.5% in range
 
 # ---------------------------------------------------------------------------
 # Step 1: Load the target library
@@ -119,8 +119,7 @@ def scnr_of(result) -> float:
 def _ifov_rad(sensor: Sensor) -> float:
     # Sensor.get returns CANONICAL units: pixel pitch in metres (not µm)
     # despite the ..._um parameter name. No extra 1e-6 conversion.
-    return (sensor.get("detector.pixel_pitch_x_um")
-            / sensor.get("optics.focal_length_m"))
+    return sensor.get("detector.pixel_pitch_x_um") / sensor.get("optics.focal_length_m")
 
 
 def configure_geometry(sensor: Sensor, zenith_rad: float, area_m2: float) -> None:
@@ -177,12 +176,20 @@ def evaluate_cell(sensor: Sensor, labels: dict[str, str]) -> dict[str, float]:
     range_max_km = slant_range_from_theta_o_m(ZENITH_MAX_RAD, ALTITUDE_M, 0.0) / 1000.0
 
     if scnr_nadir < SCNR_THRESHOLD:
-        return {"scnr_nadir": scnr_nadir, "niirs_nadir": niirs_nadir,
-                "detection_range_km": 0.0, "horizon_limited": 0.0}
+        return {
+            "scnr_nadir": scnr_nadir,
+            "niirs_nadir": niirs_nadir,
+            "detection_range_km": 0.0,
+            "horizon_limited": 0.0,
+        }
 
     if scnr_at(sensor, ZENITH_MAX_RAD, area_true) >= SCNR_THRESHOLD:
-        return {"scnr_nadir": scnr_nadir, "niirs_nadir": niirs_nadir,
-                "detection_range_km": range_max_km, "horizon_limited": 1.0}
+        return {
+            "scnr_nadir": scnr_nadir,
+            "niirs_nadir": niirs_nadir,
+            "detection_range_km": range_max_km,
+            "horizon_limited": 1.0,
+        }
 
     lo, hi = 0.0, ZENITH_MAX_RAD  # SCNR(lo) >= threshold > SCNR(hi)
     for _ in range(BISECTION_STEPS):
@@ -192,8 +199,12 @@ def evaluate_cell(sensor: Sensor, labels: dict[str, str]) -> dict[str, float]:
         else:
             hi = mid
     detection_range_km = slant_range_from_theta_o_m(0.5 * (lo + hi), ALTITUDE_M, 0.0) / 1000.0
-    return {"scnr_nadir": scnr_nadir, "niirs_nadir": niirs_nadir,
-            "detection_range_km": detection_range_km, "horizon_limited": 0.0}
+    return {
+        "scnr_nadir": scnr_nadir,
+        "niirs_nadir": niirs_nadir,
+        "detection_range_km": detection_range_km,
+        "horizon_limited": 0.0,
+    }
 
 
 def _load_sensor(path: str) -> Sensor:
@@ -217,13 +228,17 @@ def main() -> None:
     print("  SCENARIO 4.1: Target Detection Matrix — 12 Targets × 4 Atmospheres × 3 Sensors")
     print("=" * 100)
     print(f"\n=== Target library ({len(targets)} targets, radiant.io.target_library) ===")
-    print(f"  {'Target':<22s} {'L×W [m]':>12s}  {'A_proj [m²]':>12s}  {'T [K]':>7s}  "
-          f"{'ε [--]':>7s}  {'Material'}")
+    print(
+        f"  {'Target':<22s} {'L×W [m]':>12s}  {'A_proj [m²]':>12s}  {'T [K]':>7s}  "
+        f"{'ε [--]':>7s}  {'Material'}"
+    )
     print(f"  {'-' * 22} {'-' * 12}  {'-' * 12}  {'-' * 7}  {'-' * 7}  {'-' * 18}")
     for t in targets:
-        print(f"  {t.target_name:<22s} {t.length_m:>5.1f}×{t.width_m:<5.1f}  "
-              f"{t.projected_area_m2:>12.1f}  {t.temperature_K:>7.1f}  "
-              f"{t.emissivity:>7.2f}  {t.material}")
+        print(
+            f"  {t.target_name:<22s} {t.length_m:>5.1f}×{t.width_m:<5.1f}  "
+            f"{t.projected_area_m2:>12.1f}  {t.temperature_K:>7.1f}  "
+            f"{t.emissivity:>7.2f}  {t.material}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 2: Sensor library (YAML) and atmosphere conditions
@@ -238,17 +253,25 @@ def main() -> None:
     # Atmosphere axis: visibility drives aerosol extinction; the profile
     # matches the named condition (temperature/humidity differ physically).
     ATMOSPHERES = {
-        "clear": {"atmosphere.visibility_km": 50.0,
-                  "atmosphere.standard_atmosphere": "midlat_summer"},
-        "haze": {"atmosphere.visibility_km": 10.0,
-                 "atmosphere.standard_atmosphere": "midlat_summer"},
-        "tropical_haze": {"atmosphere.visibility_km": 5.0,
-                          "atmosphere.standard_atmosphere": "tropical"},
-        "arctic_clear": {"atmosphere.visibility_km": 100.0,
-                         "atmosphere.standard_atmosphere": "subarctic_winter"},
+        "clear": {
+            "atmosphere.visibility_km": 50.0,
+            "atmosphere.standard_atmosphere": "midlat_summer",
+        },
+        "haze": {
+            "atmosphere.visibility_km": 10.0,
+            "atmosphere.standard_atmosphere": "midlat_summer",
+        },
+        "tropical_haze": {
+            "atmosphere.visibility_km": 5.0,
+            "atmosphere.standard_atmosphere": "tropical",
+        },
+        "arctic_clear": {
+            "atmosphere.visibility_km": 100.0,
+            "atmosphere.standard_atmosphere": "subarctic_winter",
+        },
     }
 
-    print(f"\n=== Sensor library (3 YAML configs) ===")
+    print("\n=== Sensor library (3 YAML configs) ===")
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         sensors_meta = {}
@@ -259,43 +282,53 @@ def main() -> None:
             focal_m = s.get("optics.focal_length_m")
             sensors_meta[label] = {
                 "aperture_m": s.get("optics.aperture_diameter_m"),
-                "band": (s.get("spectral_integration.filter_min_um"),
-                         s.get("spectral_integration.filter_max_um")),
+                "band": (
+                    s.get("spectral_integration.filter_min_um"),
+                    s.get("spectral_integration.filter_max_um"),
+                ),
                 "pitch_um": pitch_m * 1e6,
                 "gsd_nadir_m": pitch_m * ALTITUDE_M / focal_m,
             }
     alias_warnings = [w for w in caught if "h_sensor" in str(w.message)]
     for label, meta in sensors_meta.items():
-        print(f"  {label:<24s}: {meta['aperture_m'] * 100:.0f} cm, "
-              f"{meta['band'][0]:.1f}–{meta['band'][1]:.1f} µm, "
-              f"{meta['pitch_um']:.0f} µm pixels, GSD(nadir) = {meta['gsd_nadir_m']:.1f} m")
-    print(f"\n  OUTDATED PARAMETER NAME absorbed: sensor C's YAML still says")
-    print(f"  'platform.h_sensor' (pre-ADR-0006 name). RADIANT accepted it")
-    print(f"  through the deprecated-alias mechanism "
-          f"({len(alias_warnings)} DeprecationWarning(s) raised) and mapped it to")
-    print(f"  geometry.sensor_altitude_m — the config still runs, loudly.")
+        print(
+            f"  {label:<24s}: {meta['aperture_m'] * 100:.0f} cm, "
+            f"{meta['band'][0]:.1f}–{meta['band'][1]:.1f} µm, "
+            f"{meta['pitch_um']:.0f} µm pixels, GSD(nadir) = {meta['gsd_nadir_m']:.1f} m"
+        )
+    print("\n  OUTDATED PARAMETER NAME absorbed: sensor C's YAML still says")
+    print("  'platform.h_sensor' (pre-ADR-0006 name). RADIANT accepted it")
+    print(
+        f"  through the deprecated-alias mechanism "
+        f"({len(alias_warnings)} DeprecationWarning(s) raised) and mapped it to"
+    )
+    print("  geometry.sensor_altitude_m — the config still runs, loudly.")
 
-    print(f"\n=== Atmosphere conditions ===")
+    print("\n=== Atmosphere conditions ===")
     for name, ov in ATMOSPHERES.items():
-        print(f"  {name:<15s}: visibility = {ov['atmosphere.visibility_km']:.0f} km, "
-              f"profile = {ov['atmosphere.standard_atmosphere']}")
-
+        print(
+            f"  {name:<15s}: visibility = {ov['atmosphere.visibility_km']:.0f} km, "
+            f"profile = {ov['atmosphere.standard_atmosphere']}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 4: Run the matrix — BatchRunner per sensor (12 targets × 4 atmospheres)
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== Running the matrix: 12 × 4 × 3 = 144 cells ===")
-    print(f"  Detection criterion: SCNR ≥ {SCNR_THRESHOLD:.0f} — |contrast| over RSS(noise + clutter),")
+    print("\n=== Running the matrix: 12 × 4 × 3 = 144 cells ===")
+    print(
+        f"  Detection criterion: SCNR ≥ {SCNR_THRESHOLD:.0f} — |contrast| over RSS(noise + clutter),"
+    )
     print(f"  scene clutter = {CLUTTER_SIGMA * 100:.0f}% of in-pixel background (rural)")
-    print(f"  Swath edge: zenith {math.degrees(ZENITH_MAX_RAD):.0f}° "
-          f"(slant {slant_range_from_theta_o_m(ZENITH_MAX_RAD, ALTITUDE_M, 0.0) / 1e3:,.0f} km; "
-          f"horizon at 68.0°)")
+    print(
+        f"  Swath edge: zenith {math.degrees(ZENITH_MAX_RAD):.0f}° "
+        f"(slant {slant_range_from_theta_o_m(ZENITH_MAX_RAD, ALTITUDE_M, 0.0) / 1e3:,.0f} km; "
+        f"horizon at 68.0°)"
+    )
 
     warnings.filterwarnings("ignore")  # GIQE extrapolation warnings — noted in output
 
     results = {}
-
 
     for label, path in SENSOR_FILES.items():
         runner = BatchRunner(
@@ -320,8 +353,10 @@ def main() -> None:
         table = batch.pivot("detection_range_km", rows="target", cols="atmosphere")
         horizon = batch.pivot("horizon_limited", rows="target", cols="atmosphere")
         print(f"\n{'=' * 100}")
-        print(f"  DETECTION RANGE MATRIX — {label}  [km slant range at SCNR = "
-              f"{SCNR_THRESHOLD:.0f}; * = swath-edge limited]")
+        print(
+            f"  DETECTION RANGE MATRIX — {label}  [km slant range at SCNR = "
+            f"{SCNR_THRESHOLD:.0f}; * = swath-edge limited]"
+        )
         print(f"{'=' * 100}")
         header = "  " + f"{'Target':<22s}" + "".join(f"{a:>18s}" for a in atm_names)
         print(header)
@@ -350,49 +385,57 @@ def main() -> None:
     hardest = min(mean_range, key=lambda k: mean_range[k])
     easiest = max(mean_range, key=lambda k: mean_range[k])
 
-    print(f"\n=== Worst-case target ===")
-    print(f"  Hardest: {hardest} — mean detection range {mean_range[hardest]:,.0f} km "
-          f"across all 12 sensor×atmosphere cells")
+    print("\n=== Worst-case target ===")
+    print(
+        f"  Hardest: {hardest} — mean detection range {mean_range[hardest]:,.0f} km "
+        f"across all 12 sensor×atmosphere cells"
+    )
     print(f"  Easiest: {easiest} — mean {mean_range[easiest]:,.0f} km")
     hard_entry = next(t for t in targets if t.target_name == hardest)
-    print(f"  Note: with the EE_box-weighted sub-pixel contrast "
-          f"ff·(L_t·EE_box − L_bg), detectability is set by how far the")
-    print(f"  target pixel departs from background (either direction) times")
-    print(f"  fill fraction — NOT simply by ε·B(T)·A. {hardest} "
-          f"(A = {hard_entry.projected_area_m2:.0f} m², "
-          f"ε = {hard_entry.emissivity:.2f}, T = {hard_entry.temperature_K:.0f} K)")
-    print(f"  lands closest to the background radiance after EE_box weighting,")
-    print(f"  so its pixel departs least — the hardest to separate.")
+    print(
+        "  Note: with the EE_box-weighted sub-pixel contrast "
+        "ff·(L_t·EE_box − L_bg), detectability is set by how far the"
+    )
+    print("  target pixel departs from background (either direction) times")
+    print(
+        f"  fill fraction — NOT simply by ε·B(T)·A. {hardest} "
+        f"(A = {hard_entry.projected_area_m2:.0f} m², "
+        f"ε = {hard_entry.emissivity:.2f}, T = {hard_entry.temperature_K:.0f} K)"
+    )
+    print("  lands closest to the background radiance after EE_box weighting,")
+    print("  so its pixel departs least — the hardest to separate.")
 
-    print(f"\n=== Physics notes ===")
-    print(f"  0. Detectability scales with target SIZE via source.target.fill_fraction")
-    print(f"     = min(1, A_target / (IFOV·R)²): the sub-pixel target is weighted by")
-    print(f"     the pixel fraction it covers. Off-nadir the footprint grows, fill")
-    print(f"     drops, and SCNR falls — that is the detection-range mechanism.")
-    print(f"     Sub-pixel contrast is EE_box-weighted (ff·(L_t·EE_box − L_bg)); the")
-    print(f"     |contrast| criterion is robust to its sign (see gaps.md).")
-    print(f"  1. Regime: every cell runs as a SUB-PIXEL target (regime_override —")
-    print(f"     the classifier picks point_source for the small targets, which")
-    print(f"     drops the in-pixel background photons entirely; detection against")
-    print(f"     a bright earth background needs them, so the override keeps the")
-    print(f"     background + clutter terms in every cell).")
-    print(f"  2. NIIRS values are GIQE-5 EXTRAPOLATIONS: GSD is far outside the")
-    print(f"     calibration range (< 0.8 m), so NIIRS ≈ 3 at nadir describes")
-    print(f"     'detection-class' imagery only in the loosest sense. Reported")
-    print(f"     because the briefing template asks for it, flagged accordingly.")
-    print(f"  3. Detection range grows off-nadir until atmosphere wins: slant range")
-    print(f"     R(θ) uses the spherical Earth (horizon 68° at 500 km), and the")
-    print(f"     airmass grows faster than R² near the edge — haze cells lose")
-    print(f"     detection at much shorter ranges than clear cells.")
-    print(f"  4. Noise-limited SNR saturates (> 19 at the swath edge for every")
-    print(f"     cell) — detection here is CLUTTER-limited, so the criterion is")
-    print(f"     SCNR with clutter = {CLUTTER_SIGMA * 100:.0f}% of the in-pixel background. RADIANT's")
-    print(f"     snr/contrast_snr metrics carry temporal noise only; SCNR is")
-    print(f"     assembled script-side from contrast_e + the full noise budget")
-    print(f"     (recorded in gaps.md).")
+    print("\n=== Physics notes ===")
+    print("  0. Detectability scales with target SIZE via source.target.fill_fraction")
+    print("     = min(1, A_target / (IFOV·R)²): the sub-pixel target is weighted by")
+    print("     the pixel fraction it covers. Off-nadir the footprint grows, fill")
+    print("     drops, and SCNR falls — that is the detection-range mechanism.")
+    print("     Sub-pixel contrast is EE_box-weighted (ff·(L_t·EE_box − L_bg)); the")
+    print("     |contrast| criterion is robust to its sign (see gaps.md).")
+    print("  1. Regime: every cell runs as a SUB-PIXEL target (regime_override —")
+    print("     the classifier picks point_source for the small targets, which")
+    print("     drops the in-pixel background photons entirely; detection against")
+    print("     a bright earth background needs them, so the override keeps the")
+    print("     background + clutter terms in every cell).")
+    print("  2. NIIRS values are GIQE-5 EXTRAPOLATIONS: GSD is far outside the")
+    print("     calibration range (< 0.8 m), so NIIRS ≈ 3 at nadir describes")
+    print("     'detection-class' imagery only in the loosest sense. Reported")
+    print("     because the briefing template asks for it, flagged accordingly.")
+    print("  3. Detection range grows off-nadir until atmosphere wins: slant range")
+    print("     R(θ) uses the spherical Earth (horizon 68° at 500 km), and the")
+    print("     airmass grows faster than R² near the edge — haze cells lose")
+    print("     detection at much shorter ranges than clear cells.")
+    print("  4. Noise-limited SNR saturates (> 19 at the swath edge for every")
+    print("     cell) — detection here is CLUTTER-limited, so the criterion is")
+    print(
+        f"     SCNR with clutter = {CLUTTER_SIGMA * 100:.0f}% of the in-pixel background. RADIANT's"
+    )
+    print("     snr/contrast_snr metrics carry temporal noise only; SCNR is")
+    print("     assembled script-side from contrast_e + the full noise budget")
+    print("     (recorded in gaps.md).")
     print(f"  5. '*' cells are swath-edge limited: SCNR ≥ {SCNR_THRESHOLD:.0f} everywhere out to")
-    print(f"     the 66° practical edge — the sensor, not the atmosphere, ends the")
-    print(f"     access there.")
+    print("     the 66° practical edge — the sensor, not the atmosphere, ends the")
+    print("     access there.")
 
     # ---------------------------------------------------------------------------
     # Step 6: Plots
@@ -405,10 +448,13 @@ def main() -> None:
     target_names = [t.target_name for t in targets]
     for ax, (label, batch) in zip(axes, results.items()):
         table = batch.pivot("detection_range_km", rows="target", cols="atmosphere")
-        grid = np.array([[table[t][a] if table[t][a] is not None else np.nan
-                          for a in atm_names] for t in target_names])
-        im = ax.imshow(grid, aspect="auto", cmap="RdYlGn",
-                       vmin=0.0, vmax=range_max_km)
+        grid = np.array(
+            [
+                [table[t][a] if table[t][a] is not None else np.nan for a in atm_names]
+                for t in target_names
+            ]
+        )
+        im = ax.imshow(grid, aspect="auto", cmap="RdYlGn", vmin=0.0, vmax=range_max_km)
         ax.set_xticks(range(len(atm_names)))
         ax.set_xticklabels(atm_names, rotation=30, ha="right", fontsize=9)
         if ax is axes[0]:
@@ -418,14 +464,12 @@ def main() -> None:
         for i in range(len(target_names)):
             for j in range(len(atm_names)):
                 v = grid[i, j]
-                ax.text(j, i, "—" if np.isnan(v) else f"{v:,.0f}",
-                        ha="center", va="center", fontsize=7)
-    fig1.colorbar(im, ax=axes, label="Detection range [km slant, SCNR ≥ 5]",
-                  shrink=0.85)
-    fig1.suptitle("Detection Range Matrix — 12 Targets × 4 Atmospheres × 3 Sensors",
-                  fontsize=14)
-    fig1.savefig(OUTPUTS / "fig1_detection_range_matrix.png", dpi=150,
-                 bbox_inches="tight")
+                ax.text(
+                    j, i, "—" if np.isnan(v) else f"{v:,.0f}", ha="center", va="center", fontsize=7
+                )
+    fig1.colorbar(im, ax=axes, label="Detection range [km slant, SCNR ≥ 5]", shrink=0.85)
+    fig1.suptitle("Detection Range Matrix — 12 Targets × 4 Atmospheres × 3 Sensors", fontsize=14)
+    fig1.savefig(OUTPUTS / "fig1_detection_range_matrix.png", dpi=150, bbox_inches="tight")
     print(f"\n  Saved {OUTPUTS / 'fig1_detection_range_matrix.png'}")
 
     # Fig 2: nadir SNR by target (clear atmosphere, all sensors)
@@ -434,11 +478,17 @@ def main() -> None:
     w = 0.27
     for k, (label, batch) in enumerate(results.items()):
         snr_table = batch.pivot("scnr_nadir", rows="target", cols="atmosphere")
-        vals = [snr_table[t]["clear"] if snr_table[t]["clear"] is not None else 0.0
-                for t in target_names]
+        vals = [
+            snr_table[t]["clear"] if snr_table[t]["clear"] is not None else 0.0
+            for t in target_names
+        ]
         ax2.bar(x + (k - 1) * w, vals, w, label=label)
-    ax2.axhline(SCNR_THRESHOLD, color="red", linestyle="--",
-                label=f"Detection threshold SCNR = {SCNR_THRESHOLD:.0f}")
+    ax2.axhline(
+        SCNR_THRESHOLD,
+        color="red",
+        linestyle="--",
+        label=f"Detection threshold SCNR = {SCNR_THRESHOLD:.0f}",
+    )
     ax2.set_yscale("log")
     ax2.set_xticks(x)
     ax2.set_xticklabels(target_names, rotation=35, ha="right", fontsize=9)
@@ -461,14 +511,20 @@ def main() -> None:
     green = PatternFill("solid", fgColor="C6EFCE")
     yellow = PatternFill("solid", fgColor="FFEB9C")
     red = PatternFill("solid", fgColor="FFC7CE")
-    border = Border(left=Side(style="thin"), right=Side(style="thin"),
-                    top=Side(style="thin"), bottom=Side(style="thin"))
+    border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
+    )
 
     for label, batch in results.items():
         sheet_name = label.split(":")[0].strip()  # "A" / "B" / "C"
         ws = wb_out.create_sheet(f"Sensor {sheet_name}")
-        ws["A1"] = (f"Detection range [km slant] at SCNR >= {SCNR_THRESHOLD:.0f} — {label} "
-                    f"(* = swath-edge limited at 66 deg)")
+        ws["A1"] = (
+            f"Detection range [km slant] at SCNR >= {SCNR_THRESHOLD:.0f} — {label} "
+            f"(* = swath-edge limited at 66 deg)"
+        )
         ws["A1"].font = Font(bold=True, size=13)
         table = batch.pivot("detection_range_km", rows="target", cols="atmosphere")
         horizon = batch.pivot("horizon_limited", rows="target", cols="atmosphere")
@@ -502,11 +558,15 @@ def main() -> None:
                     cell.value = f"{v:,.0f}{suffix}"
                     cell.fill = green if v >= 0.8 * range_max_km else yellow
             nv = niirs_t[t]["clear"]
-            ws.cell(row=i, column=len(atm_names) + 2,
-                    value=None if nv is None else round(nv, 2)).border = border
-        ws.cell(row=len(target_names) + 5, column=1,
-                value="* NIIRS is a GIQE-5 extrapolation far outside calibration "
-                      "(GSD >> 31.5 in) — detection-class context only.")
+            ws.cell(
+                row=i, column=len(atm_names) + 2, value=None if nv is None else round(nv, 2)
+            ).border = border
+        ws.cell(
+            row=len(target_names) + 5,
+            column=1,
+            value="* NIIRS is a GIQE-5 extrapolation far outside calibration "
+            "(GSD >> 31.5 in) — detection-class context only.",
+        )
         ws.column_dimensions["A"].width = 24
         for col in "BCDEF":
             ws.column_dimensions[col].width = 17
@@ -516,18 +576,24 @@ def main() -> None:
     ws_sum["A1"].font = Font(bold=True, size=14)
     ws_sum["A3"] = f"Hardest target: {hardest} (mean {mean_range[hardest]:,.0f} km)"
     ws_sum["A4"] = f"Easiest target: {easiest} (mean {mean_range[easiest]:,.0f} km)"
-    ws_sum["A5"] = (f"Criterion: SCNR >= {SCNR_THRESHOLD:.0f}, clutter-limited sub-pixel "
-                    f"detection, 500 km orbit, swath edge 66 deg")
-    ws_sum["A6"] = f"Cells evaluated: {sum(len(b.rows) for b in results.values())}; " \
-                   f"failed: {sum(b.n_failed for b in results.values())}"
+    ws_sum["A5"] = (
+        f"Criterion: SCNR >= {SCNR_THRESHOLD:.0f}, clutter-limited sub-pixel "
+        f"detection, 500 km orbit, swath edge 66 deg"
+    )
+    ws_sum["A6"] = (
+        f"Cells evaluated: {sum(len(b.rows) for b in results.values())}; "
+        f"failed: {sum(b.n_failed for b in results.values())}"
+    )
     ws_sum.column_dimensions["A"].width = 90
 
     wb_out.save(OUTPUT_FILE)
     print(f"  Output workbook: {OUTPUT_FILE}")
 
     print(f"\n{'=' * 100}")
-    print(f"  DONE — 144 cells evaluated "
-          f"({sum(b.n_failed for b in results.values())} failures recorded)")
+    print(
+        f"  DONE — 144 cells evaluated "
+        f"({sum(b.n_failed for b in results.values())} failures recorded)"
+    )
     print(f"{'=' * 100}")
 
 

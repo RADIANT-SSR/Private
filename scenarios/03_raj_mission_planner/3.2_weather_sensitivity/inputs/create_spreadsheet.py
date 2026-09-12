@@ -7,7 +7,7 @@ Three sheets:
 """
 
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 wb = openpyxl.Workbook()
 
@@ -15,8 +15,10 @@ header_font = Font(bold=True, size=11)
 section_fill = PatternFill(start_color="002E75B6", end_color="002E75B6", fill_type="solid")
 section_font = Font(bold=True, size=11, color="FFFFFF")
 thin_border = Border(
-    left=Side(style="thin"), right=Side(style="thin"),
-    top=Side(style="thin"), bottom=Side(style="thin"),
+    left=Side(style="thin"),
+    right=Side(style="thin"),
+    top=Side(style="thin"),
+    bottom=Side(style="thin"),
 )
 
 
@@ -56,39 +58,36 @@ ws1.column_dimensions["D"].width = 55
 
 row = 4
 row = add_section(ws1, row, "Optics")
-row = add_param(ws1, row, "Aperture diameter", 30.0, "cm",
-                "Cassegrain telescope")
+row = add_param(ws1, row, "Aperture diameter", 30.0, "cm", "Cassegrain telescope")
 row = add_param(ws1, row, "Focal length", 120.0, "cm", "f/4")
 row = add_param(ws1, row, "f-number", 4.0, "—", "Moderate speed")
-row = add_param(ws1, row, "Optical transmission", 75.0, "%",
-                "All elements combined")
-row = add_param(ws1, row, "Optics temperature", 20.0, "°C",
-                "Ambient (space thermal control)")
-row = add_param(ws1, row, "Number of optical elements", 5, "—",
-                "Primary, secondary, fold, filter, window")
+row = add_param(ws1, row, "Optical transmission", 75.0, "%", "All elements combined")
+row = add_param(ws1, row, "Optics temperature", 20.0, "°C", "Ambient (space thermal control)")
+row = add_param(
+    ws1, row, "Number of optical elements", 5, "—", "Primary, secondary, fold, filter, window"
+)
 
 row += 1
 row = add_section(ws1, row, "Detector")
 row = add_param(ws1, row, "Format", "1024x1024", "pixels", "HgCdTe MWIR FPA")
 row = add_param(ws1, row, "Pixel pitch", 18.0, "µm", "Square pixels")
 row = add_param(ws1, row, "Cutoff wavelength", 5.0, "µm", "At 80 K")
-row = add_param(ws1, row, "Quantum efficiency", 70.0, "%",
-                "In-band average, 3.5–5.0 µm")
-row = add_param(ws1, row, "Dark current", 150.0, "e⁻/s",
-                "At 80 K operating temperature")
-row = add_param(ws1, row, "Operating temperature", 80.0, "K",
-                "Stirling cooler")
-row = add_param(ws1, row, "Read noise (post-CDS)", 18.0, "e⁻ RMS",
-                "CDS mode")
-row = add_param(ws1, row, "Full well capacity", 500000, "e⁻",
-                "Standard ROIC")
+row = add_param(ws1, row, "Quantum efficiency", 70.0, "%", "In-band average, 3.5–5.0 µm")
+row = add_param(ws1, row, "Dark current", 150.0, "e⁻/s", "At 80 K operating temperature")
+row = add_param(ws1, row, "Operating temperature", 80.0, "K", "Stirling cooler")
+row = add_param(ws1, row, "Read noise (post-CDS)", 18.0, "e⁻ RMS", "CDS mode")
+row = add_param(ws1, row, "Full well capacity", 500000, "e⁻", "Standard ROIC")
 row = add_param(ws1, row, "ADC resolution", 14, "bits", "14-bit ADC")
-row = add_param(ws1, row, "System gain", 32.0, "e⁻/DN",
-                "Set for 105% FWC at ADC max")
-row = add_param(ws1, row, "IPC coupling", 1.5, "%",
-                "Per-neighbor, measured")
-row = add_param(ws1, row, "Integration time", 1.0, "ms",
-                "LEO staring: limited by smear (7 km/s ground vel, 7.5 m GSD)")
+row = add_param(ws1, row, "System gain", 32.0, "e⁻/DN", "Set for 105% FWC at ADC max")
+row = add_param(ws1, row, "IPC coupling", 1.5, "%", "Per-neighbor, measured")
+row = add_param(
+    ws1,
+    row,
+    "Integration time",
+    1.0,
+    "ms",
+    "LEO staring: limited by smear (7 km/s ground vel, 7.5 m GSD)",
+)
 
 # ---------------------------------------------------------------------------
 # Sheet 2: Atmosphere & Geometry
@@ -104,34 +103,25 @@ ws2.column_dimensions["D"].width = 55
 
 row = 4
 row = add_section(ws2, row, "Observation Geometry")
-row = add_param(ws2, row, "Sensor altitude", 500.0, "km",
-                "Sun-synchronous orbit")
-row = add_param(ws2, row, "Target altitude", 0.0, "m",
-                "Sea-level target")
-row = add_param(ws2, row, "Off-nadir angle", 0.0, "deg",
-                "Nadir look (best case)")
+row = add_param(ws2, row, "Sensor altitude", 500.0, "km", "Sun-synchronous orbit")
+row = add_param(ws2, row, "Target altitude", 0.0, "m", "Sea-level target")
+row = add_param(ws2, row, "Off-nadir angle", 0.0, "deg", "Nadir look (best case)")
 
 row += 1
 row = add_section(ws2, row, "Atmosphere Baseline")
-row = add_param(ws2, row, "Standard atmosphere", "midlat_summer", "—",
-                "MODTRAN profile")
-row = add_param(ws2, row, "Baseline visibility", 23.0, "km",
-                "Koschmieder clear-day default")
-row = add_param(ws2, row, "Baseline PWV", 1.4, "cm",
-                "US Standard annual mean")
-row = add_param(ws2, row, "Aerosol type", "rural", "—",
-                "Continental/rural aerosol model")
+row = add_param(ws2, row, "Standard atmosphere", "midlat_summer", "—", "MODTRAN profile")
+row = add_param(ws2, row, "Baseline visibility", 23.0, "km", "Koschmieder clear-day default")
+row = add_param(ws2, row, "Baseline PWV", 1.4, "cm", "US Standard annual mean")
+row = add_param(ws2, row, "Aerosol type", "rural", "—", "Continental/rural aerosol model")
 
 row += 1
 row = add_section(ws2, row, "Scene")
-row = add_param(ws2, row, "Target temperature", 300.0, "K",
-                "Standard ambient target (building, road)")
-row = add_param(ws2, row, "Target emissivity", 0.95, "—",
-                "Concrete/asphalt")
-row = add_param(ws2, row, "Background temperature", 290.0, "K",
-                "Terrain background")
-row = add_param(ws2, row, "Background emissivity", 0.97, "—",
-                "Vegetation/soil")
+row = add_param(
+    ws2, row, "Target temperature", 300.0, "K", "Standard ambient target (building, road)"
+)
+row = add_param(ws2, row, "Target emissivity", 0.95, "—", "Concrete/asphalt")
+row = add_param(ws2, row, "Background temperature", 290.0, "K", "Terrain background")
+row = add_param(ws2, row, "Background emissivity", 0.97, "—", "Vegetation/soil")
 
 # ---------------------------------------------------------------------------
 # Sheet 3: Sweep Definition
@@ -147,28 +137,20 @@ ws3.column_dimensions["D"].width = 55
 
 row = 4
 row = add_section(ws3, row, "Performance Requirement")
-row = add_param(ws3, row, "Minimum NIIRS", 4.0, "—",
-                "Mission threshold for useful imagery")
-row = add_param(ws3, row, "NIIRS goal", 5.0, "—",
-                "Desired performance for vehicle ID")
+row = add_param(ws3, row, "Minimum NIIRS", 4.0, "—", "Mission threshold for useful imagery")
+row = add_param(ws3, row, "NIIRS goal", 5.0, "—", "Desired performance for vehicle ID")
 
 row += 1
 row = add_section(ws3, row, "Visibility Sweep")
-row = add_param(ws3, row, "Visibility min", 2.0, "km",
-                "Heavy haze / light fog")
-row = add_param(ws3, row, "Visibility max", 100.0, "km",
-                "Crystal clear")
-row = add_param(ws3, row, "Visibility points", 25, "—",
-                "Log-spaced sweep")
+row = add_param(ws3, row, "Visibility min", 2.0, "km", "Heavy haze / light fog")
+row = add_param(ws3, row, "Visibility max", 100.0, "km", "Crystal clear")
+row = add_param(ws3, row, "Visibility points", 25, "—", "Log-spaced sweep")
 
 row += 1
 row = add_section(ws3, row, "Precipitable Water Vapor Sweep")
-row = add_param(ws3, row, "PWV min", 0.5, "cm",
-                "Dry desert / winter arctic")
-row = add_param(ws3, row, "PWV max", 5.0, "cm",
-                "Tropical humid")
-row = add_param(ws3, row, "PWV points", 15, "—",
-                "Linear-spaced sweep")
+row = add_param(ws3, row, "PWV min", 0.5, "cm", "Dry desert / winter arctic")
+row = add_param(ws3, row, "PWV max", 5.0, "cm", "Tropical humid")
+row = add_param(ws3, row, "PWV points", 15, "—", "Linear-spaced sweep")
 
 row += 1
 row = add_section(ws3, row, "Named Weather Conditions")
@@ -198,6 +180,7 @@ for cond, vis, pwv, desc in conditions:
 
 
 from pathlib import Path
+
 out = Path(__file__).parent / "raj_weather_sensitivity_data.xlsx"
 wb.save(out)
 print(f"Created {out}")

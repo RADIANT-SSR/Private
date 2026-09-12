@@ -61,11 +61,11 @@ def main() -> None:
     print("=" * 74)
     print(
         f"Prior exposure {PRIOR_SIGNAL_E:,.0f} e- (800 K source); persistence "
-        f"{PERSISTENCE_FRACTION*100:.1f}% after 1 frame, τ = {TAU_S*1e3:.0f} ms, "
-        f"{FRAME_RATE_HZ:.0f} Hz (Δt = {FRAME_INTERVAL_S*1e3:.2f} ms)."
+        f"{PERSISTENCE_FRACTION * 100:.1f}% after 1 frame, τ = {TAU_S * 1e3:.0f} ms, "
+        f"{FRAME_RATE_HZ:.0f} Hz (Δt = {FRAME_INTERVAL_S * 1e3:.2f} ms)."
     )
     print(
-        f"Current scene {SCENE_SIGNAL_E:,.0f} e-, t_int {T_INT_S*1e3:.0f} ms, "
+        f"Current scene {SCENE_SIGNAL_E:,.0f} e-, t_int {T_INT_S * 1e3:.0f} ms, "
         f"read noise {READ_NOISE_E:.0f} e-, 1 LSB = {GAIN_E_PER_DN:.0f} e-."
     )
     print()
@@ -90,8 +90,8 @@ def main() -> None:
     for n in range(N_FRAMES):
         if n < 8 or n % 4 == 0:
             print(
-                f"{n+1:>6}{residual[n]:>15.1f}{persistence_noise[n]:>15.1f}"
-                f"{residual[n]/GAIN_E_PER_DN:>13.1f}{snr_contam[n]:>9.1f}"
+                f"{n + 1:>6}{residual[n]:>15.1f}{persistence_noise[n]:>15.1f}"
+                f"{residual[n] / GAIN_E_PER_DN:>13.1f}{snr_contam[n]:>9.1f}"
             )
 
     n_clear = frames_to_clear(
@@ -99,17 +99,17 @@ def main() -> None:
     )
     print(
         f"\n  Frames to clear below 1 LSB ({GAIN_E_PER_DN:.0f} e-): {n_clear} "
-        f"(~{n_clear*FRAME_INTERVAL_S*1e3:.0f} ms of dead time)."
+        f"(~{n_clear * FRAME_INTERVAL_S * 1e3:.0f} ms of dead time)."
     )
     print(
         f"  Clean SNR (no persistence): {snr_clean:.1f}. In frame 1 the ghost "
-        f"({residual[0]:.0f} e-, {residual[0]/GAIN_E_PER_DN:.0f} LSB) drops SNR to "
-        f"{snr_contam[0]:.1f} ({(snr_contam[0]/snr_clean-1)*100:+.0f}%)."
+        f"({residual[0]:.0f} e-, {residual[0] / GAIN_E_PER_DN:.0f} LSB) drops SNR to "
+        f"{snr_contam[0]:.1f} ({(snr_contam[0] / snr_clean - 1) * 100:+.0f}%)."
     )
     print(
         "  Two effects: the residual is a BIAS (a ghost image at the LSB levels "
         "above) AND adds shot noise. The bias is the operational problem — a "
-        f"{residual[0]/GAIN_E_PER_DN:.0f}-LSB false structure in frame 1 — and it "
+        f"{residual[0] / GAIN_E_PER_DN:.0f}-LSB false structure in frame 1 — and it "
         "does not average away frame-to-frame the way random noise does."
     )
 
@@ -120,7 +120,9 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(9, 6))
     ax.semilogy(frames, residual, "o-", color="#7030A0", label="residual signal (ghost)")
     ax.semilogy(frames, persistence_noise, "s-", color="#C55A11", label="persistence shot noise")
-    ax.axhline(GAIN_E_PER_DN, color="black", ls="--", lw=1.5, label=f"1 LSB = {GAIN_E_PER_DN:.0f} e-")
+    ax.axhline(
+        GAIN_E_PER_DN, color="black", ls="--", lw=1.5, label=f"1 LSB = {GAIN_E_PER_DN:.0f} e-"
+    )
     ax.axvline(n_clear, color="green", ls=":", lw=1.5, label=f"cleared at frame {n_clear}")
     ax.set_xlabel("Frame number after bright exposure")
     ax.set_ylabel("Electrons")

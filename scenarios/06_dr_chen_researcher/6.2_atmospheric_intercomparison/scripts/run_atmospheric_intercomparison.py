@@ -272,9 +272,7 @@ def main() -> None:
     fig2, ax = plt.subplots(figsize=(8, 5))
     x = np.arange(len(PROFILES))
     ax.bar(x - 0.2, [r["tau_simple_inband"] for r in results], width=0.4, label="SimpleAtmosphere")
-    ax.bar(
-        x + 0.2, [r["tau_modtran_inband"] for r in results], width=0.4, label=SOURCE_LABEL
-    )
+    ax.bar(x + 0.2, [r["tau_modtran_inband"] for r in results], width=0.4, label=SOURCE_LABEL)
     ax.set_xticks(x)
     ax.set_xticklabels(PROFILES, rotation=30, ha="right")
     ax.set_ylabel("In-band mean transmittance [-]")

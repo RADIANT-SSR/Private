@@ -80,8 +80,9 @@ def main() -> None:
     print("-" * 74)
     print(f"  ∂L/∂ε = B̄(T)        = {dL_deps:.4f} W/m²/sr per unit ε")
     print(f"  ∂L/∂T = ε·∫dB/dT dλ = {dL_dT:.5f} W/m²/sr/K")
-    print(f"  dT/dε (first order) = {dT_deps:+.1f} K per unit ε "
-          f"({dT_deps/100:+.2f} K per 0.01 ε)")
+    print(
+        f"  dT/dε (first order) = {dT_deps:+.1f} K per unit ε ({dT_deps / 100:+.2f} K per 0.01 ε)"
+    )
     print(
         "  A LOWER assumed ε implies the surface must be HOTTER to emit the same "
         "radiance → over-estimate; a higher assumed ε → under-estimate."
@@ -114,14 +115,14 @@ def main() -> None:
     )
     print(
         "  Interpretation: emissivity must be known to ~"
-        f"{eps_uncert_for_nedt*100:.2f}% for the retrieval bias to stay below the "
+        f"{eps_uncert_for_nedt * 100:.2f}% for the retrieval bias to stay below the "
         "sensor's own temperature resolution. Beyond that, ε knowledge — not "
         "detector NEDT — limits retrieval accuracy."
     )
     worst = t_error[np.argmax(np.abs(t_error))]
     print(
         f"  Over the full ±0.05 ε sweep the retrieval bias reaches {worst:+.1f} K "
-        f"— {abs(worst)/nedt_k:.0f}× the NEDT floor."
+        f"— {abs(worst) / nedt_k:.0f}× the NEDT floor."
     )
 
     # ---------------------------------------------------------------
@@ -132,7 +133,11 @@ def main() -> None:
     ax.axhline(T_TRUE_K, color="black", ls="--", lw=1, label=f"true T = {T_TRUE_K:.0f} K")
     ax.axvline(EPS_TRUE, color="gray", ls=":", lw=1, label=f"true ε = {EPS_TRUE}")
     ax.fill_between(
-        eps_assumed, T_TRUE_K - nedt_k, T_TRUE_K + nedt_k, color="green", alpha=0.12,
+        eps_assumed,
+        T_TRUE_K - nedt_k,
+        T_TRUE_K + nedt_k,
+        color="green",
+        alpha=0.12,
         label=f"±NEDT ({NEDT_MK:.0f} mK)",
     )
     ax.set_xlabel("Assumed emissivity")

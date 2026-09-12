@@ -39,10 +39,11 @@ Usage:
 import math
 from pathlib import Path
 
+import matplotlib
 import numpy as np
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
@@ -98,8 +99,9 @@ def ground_range(altitude_m: float, theta_rad: float) -> float:
     return R_E * gamma
 
 
-def gsd_off_nadir(pixel_pitch_m: float, altitude_m: float,
-                  focal_length_m: float, theta_rad: float) -> tuple[float, float]:
+def gsd_off_nadir(
+    pixel_pitch_m: float, altitude_m: float, focal_length_m: float, theta_rad: float
+) -> tuple[float, float]:
     """Compute cross-track and along-track GSD at off-nadir angle.
 
     Returns (gsd_cross_m, gsd_along_m).
@@ -128,9 +130,13 @@ def gsd_off_nadir(pixel_pitch_m: float, altitude_m: float,
     return gsd_cross, gsd_along
 
 
-def swath_width(altitude_m: float, theta_rad: float,
-                n_pixels_cross: int, pixel_pitch_m: float,
-                focal_length_m: float) -> float:
+def swath_width(
+    altitude_m: float,
+    theta_rad: float,
+    n_pixels_cross: int,
+    pixel_pitch_m: float,
+    focal_length_m: float,
+) -> float:
     """Approximate swath width at ground [m].
 
     For a pushbroom scanner with n_pixels_cross pixels:
@@ -155,8 +161,11 @@ units: dict[str, str] = {}
 for row in ws_sys.iter_rows(min_row=5, max_col=4, values_only=False):
     name = row[0].value
     value = row[1].value
-    if name and value is not None and not isinstance(value, str) or (
-        isinstance(value, str) and value not in ("", "—")
+    if (
+        name
+        and value is not None
+        and not isinstance(value, str)
+        or (isinstance(value, str) and value not in ("", "—"))
     ):
         try:
             specs[name] = float(value)
@@ -191,38 +200,38 @@ for row in ws_sweep.iter_rows(min_row=5, max_col=1, values_only=True):
 # Step 2: Convert to RADIANT canonical units
 # ---------------------------------------------------------------------------
 
-aperture_m = float(specs["Aperture diameter"]) / 100.0       # cm → m
-focal_length_m = float(specs["Focal length"]) / 100.0        # cm → m
+aperture_m = float(specs["Aperture diameter"]) / 100.0  # cm → m
+focal_length_m = float(specs["Focal length"]) / 100.0  # cm → m
 f_number = float(specs["f-number"])
 transmission = float(specs["Optical transmission"]) / 100.0  # % → fraction
 optics_temp_K = float(specs["Optics temperature"]) + 273.15  # °C → K
-obscuration = float(specs["Central obscuration"]) / 100.0    # % → fraction
+obscuration = float(specs["Central obscuration"]) / 100.0  # % → fraction
 wfe_rms = float(specs["WFE RMS"])
 
 filter_min_nm = float(specs["Filter min"])
 filter_max_nm = float(specs["Filter max"])
-filter_min_um = filter_min_nm / 1000.0                       # nm → µm
+filter_min_um = filter_min_nm / 1000.0  # nm → µm
 filter_max_um = filter_max_nm / 1000.0
 band_center_um = (filter_min_um + filter_max_um) / 2.0
 
 pixel_pitch_um = float(specs["Pixel pitch"])
-pixel_pitch_m = pixel_pitch_um * 1e-6                        # µm → m
-fill_factor = float(specs["Fill factor"]) / 100.0            # % → fraction
-qe = float(specs["Quantum efficiency"]) / 100.0              # % → fraction
+pixel_pitch_m = pixel_pitch_um * 1e-6  # µm → m
+fill_factor = float(specs["Fill factor"]) / 100.0  # % → fraction
+qe = float(specs["Quantum efficiency"]) / 100.0  # % → fraction
 dark_rate = float(specs["Dark current"])
 det_temp_K = float(specs["Operating temperature"])
 read_noise = float(specs["Read noise"])
 fwc = float(specs["Full well capacity"])
 adc_bits = int(specs["ADC bits"])
 gain = float(specs["System gain"])
-ipc_coupling = float(specs["IPC coupling"]) / 100.0          # % → fraction
+ipc_coupling = float(specs["IPC coupling"]) / 100.0  # % → fraction
 t_int_ms = float(specs["Integration time"])
-t_int_s = t_int_ms / 1000.0                                  # ms → s
+t_int_s = t_int_ms / 1000.0  # ms → s
 
 altitude_km = float(geo_specs["Altitude"])
-altitude_m = altitude_km * 1000.0                            # km → m
+altitude_m = altitude_km * 1000.0  # km → m
 solar_zenith_deg = float(geo_specs["Solar zenith angle"])
-solar_zenith_rad = solar_zenith_deg * math.pi / 180.0        # deg → rad
+solar_zenith_rad = solar_zenith_deg * math.pi / 180.0  # deg → rad
 
 target_refl = float(geo_specs["Target reflectance"])
 bg_refl = float(geo_specs["Background reflectance"])
@@ -306,15 +315,14 @@ def main() -> None:
     for k, v in specs.items():
         print(f"  {k:<35s}: {v} [{units.get(k, '—')}]")
 
-    print(f"\n=== Orbit & Geometry ===")
+    print("\n=== Orbit & Geometry ===")
     for k, v in geo_specs.items():
         print(f"  {k:<35s}: {v}")
 
-    print(f"\n=== Off-Nadir Sweep ===")
+    print("\n=== Off-Nadir Sweep ===")
     print(f"  Angles: {angles_deg} [deg]")
 
-
-    print(f"\n=== Converted to RADIANT Canonical Units ===")
+    print("\n=== Converted to RADIANT Canonical Units ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit':<12s}  {'Conversion'}")
     print(f"  {'-' * 35} {'-' * 14}  {'-' * 12}  {'-' * 20}")
     print(f"  {'Aperture diameter':<35s} {aperture_m:>14.4f}  {'m':<12s}  cm / 100")
@@ -328,21 +336,23 @@ def main() -> None:
     print(f"  {'Solar zenith':<35s} {solar_zenith_rad:>14.4f}  {'rad':<12s}  deg × π/180")
     print(f"  {'Band':<35s} {filter_min_um:>6.3f}-{filter_max_um:<6.3f}  {'µm':<12s}  nm / 1000")
 
-    print(f"\n=== Derived Nadir Parameters ===")
+    print("\n=== Derived Nadir Parameters ===")
     print(f"  GSD (nadir):       {gsd_nadir_m:.2f} [m]")
     print(f"  IFOV:              {ifov_urad:.1f} [µrad]")
     print(f"  Q (sampling):      {Q:.3f} [--] ({'well-sampled' if Q >= 1 else 'undersampled'})")
     print(f"  f_Nyquist:         {f_nyquist_cy_m:.0f} [cy/m]")
 
-
     print(f"\n{'=' * 80}")
-    print(f"  GEOMETRY REFERENCE TABLE")
+    print("  GEOMETRY REFERENCE TABLE")
     print(f"{'=' * 80}")
 
-    print(f"\n  {'Angle':>8s}  {'Slant Range':>14s}  {'Air Mass':>10s}  {'Ground Range':>14s}  "
-          f"{'GSD_cross':>10s}  {'GSD_along':>10s}")
-    print(f"  {'[deg]':>8s}  {'[km]':>14s}  {'[--]':>10s}  {'[km]':>14s}  "
-          f"{'[m]':>10s}  {'[m]':>10s}")
+    print(
+        f"\n  {'Angle':>8s}  {'Slant Range':>14s}  {'Air Mass':>10s}  {'Ground Range':>14s}  "
+        f"{'GSD_cross':>10s}  {'GSD_along':>10s}"
+    )
+    print(
+        f"  {'[deg]':>8s}  {'[km]':>14s}  {'[--]':>10s}  {'[km]':>14s}  {'[m]':>10s}  {'[m]':>10s}"
+    )
     print(f"  {'-' * 8}  {'-' * 14}  {'-' * 10}  {'-' * 14}  {'-' * 10}  {'-' * 10}")
 
     for angle_deg in angles_deg:
@@ -352,24 +362,31 @@ def main() -> None:
         gr = ground_range(altitude_m, theta_rad)
         gsd_x, gsd_y = gsd_off_nadir(pixel_pitch_m, altitude_m, focal_length_m, theta_rad)
 
-        print(f"  {angle_deg:>8.0f}  {sr / 1000:>14.1f}  {am:>10.4f}  {gr / 1000:>14.1f}  "
-              f"{gsd_x:>10.2f}  {gsd_y:>10.2f}")
-
+        print(
+            f"  {angle_deg:>8.0f}  {sr / 1000:>14.1f}  {am:>10.4f}  {gr / 1000:>14.1f}  "
+            f"{gsd_x:>10.2f}  {gsd_y:>10.2f}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 5: Sweep off-nadir angle
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  OFF-NADIR SWEEP")
+    print("  OFF-NADIR SWEEP")
     print(f"{'=' * 80}")
 
-    print(f"\n  {'Angle':>8s}  {'Slant':>10s}  {'AirMass':>8s}  {'tau_mean':>8s}  "
-          f"{'GSD_x':>8s}  {'GSD_y':>8s}  {'SNR':>8s}  {'NIIRS':>8s}  {'NEDT':>10s}")
-    print(f"  {'[deg]':>8s}  {'[km]':>10s}  {'[--]':>8s}  {'[--]':>8s}  "
-          f"{'[m]':>8s}  {'[m]':>8s}  {'[--]':>8s}  {'[--]':>8s}  {'[mK]':>10s}")
-    print(f"  {'-' * 8}  {'-' * 10}  {'-' * 8}  {'-' * 8}  "
-          f"{'-' * 8}  {'-' * 8}  {'-' * 8}  {'-' * 8}  {'-' * 10}")
+    print(
+        f"\n  {'Angle':>8s}  {'Slant':>10s}  {'AirMass':>8s}  {'tau_mean':>8s}  "
+        f"{'GSD_x':>8s}  {'GSD_y':>8s}  {'SNR':>8s}  {'NIIRS':>8s}  {'NEDT':>10s}"
+    )
+    print(
+        f"  {'[deg]':>8s}  {'[km]':>10s}  {'[--]':>8s}  {'[--]':>8s}  "
+        f"{'[m]':>8s}  {'[m]':>8s}  {'[--]':>8s}  {'[--]':>8s}  {'[mK]':>10s}"
+    )
+    print(
+        f"  {'-' * 8}  {'-' * 10}  {'-' * 8}  {'-' * 8}  "
+        f"{'-' * 8}  {'-' * 8}  {'-' * 8}  {'-' * 8}  {'-' * 10}"
+    )
 
     results: list[dict] = []
 
@@ -457,21 +474,23 @@ def main() -> None:
         }
         results.append(row_data)
 
-        print(f"  {angle_deg:>8.0f}  {sr / 1000:>10.1f}  {am:>8.4f}  {tau_mean:>8.4f}  "
-              f"{gsd_x:>8.2f}  {gsd_y:>8.2f}  {snr:>8.1f}  {niirs_corrected:>8.2f}  "
-              f"{nedt_mK:>10.1f}")
+        print(
+            f"  {angle_deg:>8.0f}  {sr / 1000:>10.1f}  {am:>8.4f}  {tau_mean:>8.4f}  "
+            f"{gsd_x:>8.2f}  {gsd_y:>8.2f}  {snr:>8.1f}  {niirs_corrected:>8.2f}  "
+            f"{nedt_mK:>10.1f}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 6: Degradation analysis
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  PERFORMANCE DEGRADATION RELATIVE TO NADIR")
+    print("  PERFORMANCE DEGRADATION RELATIVE TO NADIR")
     print(f"{'=' * 80}")
 
     baseline = results[0]
 
-    print(f"\n  Nadir baseline:")
+    print("\n  Nadir baseline:")
     print(f"    Slant range:     {baseline['slant_range_km']:.1f} [km]")
     print(f"    GSD (cross):     {baseline['gsd_cross_m']:.2f} [m]")
     print(f"    GSD (along):     {baseline['gsd_along_m']:.2f} [m]")
@@ -479,42 +498,50 @@ def main() -> None:
     print(f"    SNR:             {baseline['snr']:.1f} [--]")
     print(f"    NIIRS:           {baseline['niirs_corrected']:.2f} [--]")
 
-    print(f"\n  {'Angle':>8s}  {'dRange':>8s}  {'dGSD_x':>8s}  {'dGSD_y':>8s}  "
-          f"{'dTau':>8s}  {'dSNR':>8s}  {'dNIIRS':>8s}")
-    print(f"  {'[deg]':>8s}  {'[%]':>8s}  {'[%]':>8s}  {'[%]':>8s}  "
-          f"{'[%]':>8s}  {'[%]':>8s}  {'[--]':>8s}")
-    print(f"  {'-' * 8}  {'-' * 8}  {'-' * 8}  {'-' * 8}  "
-          f"{'-' * 8}  {'-' * 8}  {'-' * 8}")
+    print(
+        f"\n  {'Angle':>8s}  {'dRange':>8s}  {'dGSD_x':>8s}  {'dGSD_y':>8s}  "
+        f"{'dTau':>8s}  {'dSNR':>8s}  {'dNIIRS':>8s}"
+    )
+    print(
+        f"  {'[deg]':>8s}  {'[%]':>8s}  {'[%]':>8s}  {'[%]':>8s}  "
+        f"{'[%]':>8s}  {'[%]':>8s}  {'[--]':>8s}"
+    )
+    print(f"  {'-' * 8}  {'-' * 8}  {'-' * 8}  {'-' * 8}  {'-' * 8}  {'-' * 8}  {'-' * 8}")
 
     for rd in results:
-        d_range = ((rd["slant_range_km"] - baseline["slant_range_km"])
-                   / baseline["slant_range_km"] * 100.0)
-        d_gsd_x = ((rd["gsd_cross_m"] - baseline["gsd_cross_m"])
-                   / baseline["gsd_cross_m"] * 100.0)
-        d_gsd_y = ((rd["gsd_along_m"] - baseline["gsd_along_m"])
-                   / baseline["gsd_along_m"] * 100.0)
-        d_tau = ((rd["tau_mean"] - baseline["tau_mean"])
-                 / baseline["tau_mean"] * 100.0 if baseline["tau_mean"] > 0 else 0.0)
-        d_snr = ((rd["snr"] - baseline["snr"])
-                 / baseline["snr"] * 100.0 if baseline["snr"] > 0 else 0.0)
+        d_range = (
+            (rd["slant_range_km"] - baseline["slant_range_km"]) / baseline["slant_range_km"] * 100.0
+        )
+        d_gsd_x = (rd["gsd_cross_m"] - baseline["gsd_cross_m"]) / baseline["gsd_cross_m"] * 100.0
+        d_gsd_y = (rd["gsd_along_m"] - baseline["gsd_along_m"]) / baseline["gsd_along_m"] * 100.0
+        d_tau = (
+            (rd["tau_mean"] - baseline["tau_mean"]) / baseline["tau_mean"] * 100.0
+            if baseline["tau_mean"] > 0
+            else 0.0
+        )
+        d_snr = (
+            (rd["snr"] - baseline["snr"]) / baseline["snr"] * 100.0 if baseline["snr"] > 0 else 0.0
+        )
         d_niirs = rd["niirs_corrected"] - baseline["niirs_corrected"]
 
-        print(f"  {rd['angle_deg']:>8.0f}  {d_range:>+8.1f}  {d_gsd_x:>+8.1f}  {d_gsd_y:>+8.1f}  "
-              f"{d_tau:>+8.1f}  {d_snr:>+8.1f}  {d_niirs:>+8.2f}")
+        print(
+            f"  {rd['angle_deg']:>8.0f}  {d_range:>+8.1f}  {d_gsd_x:>+8.1f}  {d_gsd_y:>+8.1f}  "
+            f"{d_tau:>+8.1f}  {d_snr:>+8.1f}  {d_niirs:>+8.2f}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 7: NIIRS threshold analysis
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  NIIRS THRESHOLD ANALYSIS")
+    print("  NIIRS THRESHOLD ANALYSIS")
     print(f"{'=' * 80}")
 
     niirs_0 = baseline["niirs_corrected"]
     print(f"\n  Nadir NIIRS: {niirs_0:.2f} [--]")
-    print(f"  GIQE-5 NIIRS degrades primarily through the GSD term:")
-    print(f"    dNIIRS = -3.32 × log10(GSD_offnadir / GSD_nadir)")
-    print(f"  Secondary effects: reduced SNR from lower atmospheric transmission.")
+    print("  GIQE-5 NIIRS degrades primarily through the GSD term:")
+    print("    dNIIRS = -3.32 × log10(GSD_offnadir / GSD_nadir)")
+    print("  Secondary effects: reduced SNR from lower atmospheric transmission.")
 
     for threshold in [0.5, 1.0, 1.5, 2.0]:
         angle_at_thresh = None
@@ -532,7 +559,7 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  ACCESS AND SWATH GEOMETRY")
+    print("  ACCESS AND SWATH GEOMETRY")
     print(f"{'=' * 80}")
 
     n_pixels = 12000  # typical pushbroom array
@@ -545,8 +572,7 @@ def main() -> None:
     ground_speed_km_s = float(geo_specs.get("Ground speed", 6.9))
 
     for rd in results:
-        sw = swath_width(altitude_m, rd["theta_rad"], n_pixels,
-                         pixel_pitch_m, focal_length_m)
+        sw = swath_width(altitude_m, rd["theta_rad"], n_pixels, pixel_pitch_m, focal_length_m)
         sw_km = sw / 1000.0
         gr_km = rd["ground_range_km"]
         # Access area rate ≈ swath_width × ground_speed
@@ -554,46 +580,62 @@ def main() -> None:
 
         print(f"  {rd['angle_deg']:>8.0f}  {sw_km:>14.1f}  {gr_km:>14.1f}  {access_rate:>14.0f}")
 
-    print(f"\n  Note: Agile pointing trades image quality (NIIRS) for access area.")
-    print(f"  At 45 deg off-nadir, swath is ~{swath_width(altitude_m, 45 * math.pi / 180, n_pixels, pixel_pitch_m, focal_length_m) / 1000:.0f} km wide")
-    print(f"  but GSD degrades by ~{(results[-1]['gsd_gm_m'] / results[0]['gsd_gm_m'] - 1) * 100:.0f}%.")
+    print("\n  Note: Agile pointing trades image quality (NIIRS) for access area.")
+    print(
+        f"  At 45 deg off-nadir, swath is ~{swath_width(altitude_m, 45 * math.pi / 180, n_pixels, pixel_pitch_m, focal_length_m) / 1000:.0f} km wide"
+    )
+    print(
+        f"  but GSD degrades by ~{(results[-1]['gsd_gm_m'] / results[0]['gsd_gm_m'] - 1) * 100:.0f}%."
+    )
 
     # ---------------------------------------------------------------------------
     # Step 9: RADIANT GSD vs. true off-nadir GSD comparison
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  RADIANT GSD vs. TRUE OFF-NADIR GSD")
+    print("  RADIANT GSD vs. TRUE OFF-NADIR GSD")
     print(f"{'=' * 80}")
 
-    print(f"\n  RADIANT's GSD metrics read path_zenith_rad: cross = p × R / f,")
-    print(f"  along = p × R / (f × cos(theta)). Both track this script's geometry")
-    print(f"  exactly — Gap 33 was closed by the 2026-07-12 ADR-0006 Phase-2")
-    print(f"  landing, Gap 35 by the two-axis GSD metrics, and CU-340 fixed the")
-    print(f"  script-side along-track projection — so the columns below are a")
-    print(f"  regression cross-check, not a correction.")
+    print("\n  RADIANT's GSD metrics read path_zenith_rad: cross = p × R / f,")
+    print("  along = p × R / (f × cos(theta)). Both track this script's geometry")
+    print("  exactly — Gap 33 was closed by the 2026-07-12 ADR-0006 Phase-2")
+    print("  landing, Gap 35 by the two-axis GSD metrics, and CU-340 fixed the")
+    print("  script-side along-track projection — so the columns below are a")
+    print("  regression cross-check, not a correction.")
 
-    print(f"\n  {'Angle':>8s}  {'RADIANT GSD_x':>13s}  {'True GSD_x':>12s}  {'Err_x':>8s}  "
-          f"{'RADIANT GSD_y':>13s}  {'True GSD_y':>12s}  {'Err_y':>8s}")
-    print(f"  {'[deg]':>8s}  {'[m]':>13s}  {'[m]':>12s}  {'[%]':>8s}  "
-          f"{'[m]':>13s}  {'[m]':>12s}  {'[%]':>8s}")
+    print(
+        f"\n  {'Angle':>8s}  {'RADIANT GSD_x':>13s}  {'True GSD_x':>12s}  {'Err_x':>8s}  "
+        f"{'RADIANT GSD_y':>13s}  {'True GSD_y':>12s}  {'Err_y':>8s}"
+    )
+    print(
+        f"  {'[deg]':>8s}  {'[m]':>13s}  {'[m]':>12s}  {'[%]':>8s}  "
+        f"{'[m]':>13s}  {'[m]':>12s}  {'[%]':>8s}"
+    )
     print(f"  {'-' * 8}  {'-' * 13}  {'-' * 12}  {'-' * 8}  {'-' * 13}  {'-' * 12}  {'-' * 8}")
 
     for rd in results:
-        err_x_pct = ((rd["gsd_radiant_x"] - rd["gsd_cross_m"])
-                     / rd["gsd_cross_m"] * 100.0 if rd["gsd_cross_m"] > 0 else 0.0)
-        err_y_pct = ((rd["gsd_radiant_y"] - rd["gsd_along_m"])
-                     / rd["gsd_along_m"] * 100.0 if rd["gsd_along_m"] > 0 else 0.0)
-        print(f"  {rd['angle_deg']:>8.0f}  {rd['gsd_radiant_x']:>13.2f}  {rd['gsd_cross_m']:>12.2f}  "
-              f"{err_x_pct:>+8.1f}  {rd['gsd_radiant_y']:>13.2f}  {rd['gsd_along_m']:>12.2f}  "
-              f"{err_y_pct:>+8.1f}")
+        err_x_pct = (
+            (rd["gsd_radiant_x"] - rd["gsd_cross_m"]) / rd["gsd_cross_m"] * 100.0
+            if rd["gsd_cross_m"] > 0
+            else 0.0
+        )
+        err_y_pct = (
+            (rd["gsd_radiant_y"] - rd["gsd_along_m"]) / rd["gsd_along_m"] * 100.0
+            if rd["gsd_along_m"] > 0
+            else 0.0
+        )
+        print(
+            f"  {rd['angle_deg']:>8.0f}  {rd['gsd_radiant_x']:>13.2f}  {rd['gsd_cross_m']:>12.2f}  "
+            f"{err_x_pct:>+8.1f}  {rd['gsd_radiant_y']:>13.2f}  {rd['gsd_along_m']:>12.2f}  "
+            f"{err_y_pct:>+8.1f}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 9b: RADIANT MTF budget and performance metrics (nadir baseline)
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  RADIANT PERFORMANCE METRICS (Nadir Baseline)")
+    print("  RADIANT PERFORMANCE METRICS (Nadir Baseline)")
     print(f"{'=' * 80}")
 
     # Re-run nadir to get detailed outputs
@@ -605,21 +647,23 @@ def main() -> None:
     nadir_sensor = Sensor.from_dict(nadir_config)
     r_nadir = nadir_sensor.evaluate()
 
-    print(f"\n  --- Spatial Metrics ---")
+    print("\n  --- Spatial Metrics ---")
     print(f"  Strehl:            {r_nadir.metrics.get('strehl', 0.0):.4f} [--]")
     print(f"  RER:               {r_nadir.metrics.get('rer', 0.0):.4f} [--]")
     print(f"  FWHM_x:            {r_nadir.metrics.get('fwhm_x_m', 0.0) * 1e6:.2f} [µm]")
     print(f"  EE(1x1):           {r_nadir.metrics.get('ee_1x1', 0.0):.4f} [--]")
     print(f"  Q (center):        {r_nadir.metrics.get('q_center', 0.0):.3f} [--]")
-    print(f"  Q (min/max):       {r_nadir.metrics.get('q_min', 0.0):.3f} / {r_nadir.metrics.get('q_max', 0.0):.3f} [--]")
+    print(
+        f"  Q (min/max):       {r_nadir.metrics.get('q_min', 0.0):.3f} / {r_nadir.metrics.get('q_max', 0.0):.3f} [--]"
+    )
 
-    print(f"\n  --- Radiometric Metrics ---")
+    print("\n  --- Radiometric Metrics ---")
     print(f"  SNR:               {r_nadir.metrics.get('snr', 0.0):.1f} [--]")
     print(f"  NEDT:              {r_nadir.metrics.get('nedt_K', 0.0) * 1000:.1f} [mK]")
     print(f"  Well margin:       {r_nadir.metrics.get('well_margin_dB', 0.0):.1f} [dB]")
     print(f"  Dynamic range:     {r_nadir.metrics.get('dynamic_range_dB', 0.0):.1f} [dB]")
 
-    print(f"\n  --- Image Quality ---")
+    print("\n  --- Image Quality ---")
     gsd_val = r_nadir.metrics.get("gsd_geometric_mean_m")
     niirs_val = r_nadir.metrics.get("niirs")
     print(f"  GSD (cross):       {r_nadir.metrics.get('gsd_cross_track_m', 0.0):.2f} [m]")
@@ -630,7 +674,7 @@ def main() -> None:
     # MTF budget
     mtf_budget = r_nadir.stage_outputs.get("performance", {}).get("mtf_budget")
     if mtf_budget is not None:
-        print(f"\n  --- RADIANT MTF Budget at Nyquist ---")
+        print("\n  --- RADIANT MTF Budget at Nyquist ---")
         per_term = mtf_budget.per_term_at_nyquist
         print(f"  {'Component':<30s}  {'MTF@Ny_x':>10s}  {'MTF@Ny_y':>10s}")
         print(f"  {'-' * 30}  {'-' * 10}  {'-' * 10}")
@@ -647,11 +691,13 @@ def main() -> None:
             print(f"  {label:<30s}  {val_x:>10.4f}  {val_y:>10.4f}")
 
         print(f"  {'─' * 30}  {'─' * 10}  {'─' * 10}")
-        print(f"  {'System (product)':30s}  {mtf_budget.system_mtf_at_nyquist_x:>10.4f}  "
-              f"{mtf_budget.system_mtf_at_nyquist_y:>10.4f}")
+        print(
+            f"  {'System (product)':30s}  {mtf_budget.system_mtf_at_nyquist_x:>10.4f}  "
+            f"{mtf_budget.system_mtf_at_nyquist_y:>10.4f}"
+        )
 
     # Noise breakdown
-    print(f"\n  --- Noise Breakdown ---")
+    print("\n  --- Noise Breakdown ---")
     print(f"  {'Source':<30s}  {'Value':>10s}")
     print(f"  {'-' * 30}  {'-' * 10}")
     for nt in r_nadir.noise_terms:
@@ -660,17 +706,19 @@ def main() -> None:
 
     # Folded MTF
     folded_mtf_result = r_nadir.stage_outputs.get("performance", {}).get("folded_mtf_x")
-    if folded_mtf_result is not None and hasattr(folded_mtf_result, 'mtf_folded'):
+    if folded_mtf_result is not None and hasattr(folded_mtf_result, "mtf_folded"):
         folded_at_ny = r_nadir.metrics.get("mtf_folded_at_nyquist", 0.0)
-        print(f"\n  --- Folded MTF ---")
+        print("\n  --- Folded MTF ---")
         print(f"  Folded MTF at Nyquist: {folded_at_ny:.4f} [--]")
-        print(f"  Alias fraction:        {r_nadir.metrics.get('alias_fraction_at_nyquist', 0.0):.4f} [--]")
-        print(f"  Note: the alias fraction is the diagnostic — it is the share of")
-        print(f"  the folded response at Nyquist that came from above-Nyquist scene")
-        print(f"  content. Sampling replicates at f_s = 2 x f_Nyquist, so at Nyquist")
-        print(f"  the k = -1 replica lands back on f_Nyquist and the folded value is")
-        print(f"  twice the pre-sampling MTF there (alias fraction -> 0.5) whenever")
-        print(f"  the optics still pass energy above Nyquist.")
+        print(
+            f"  Alias fraction:        {r_nadir.metrics.get('alias_fraction_at_nyquist', 0.0):.4f} [--]"
+        )
+        print("  Note: the alias fraction is the diagnostic — it is the share of")
+        print("  the folded response at Nyquist that came from above-Nyquist scene")
+        print("  content. Sampling replicates at f_s = 2 x f_Nyquist, so at Nyquist")
+        print("  the k = -1 replica lands back on f_Nyquist and the folded value is")
+        print("  twice the pre-sampling MTF there (alias fraction -> 0.5) whenever")
+        print("  the optics still pass energy above Nyquist.")
 
     # ---------------------------------------------------------------------------
     # Step 10: Plots
@@ -688,9 +736,15 @@ def main() -> None:
     snr_arr = [rd["snr"] for rd in results]
     tau_arr_plot = [rd["tau_mean"] for rd in results]
 
-    l1, = ax1a.plot(angles_arr, snr_arr, "bo-", linewidth=2, markersize=8, label="SNR")
-    l2, = ax1b.plot(angles_arr, tau_arr_plot, "rs--", linewidth=2, markersize=8,
-                    label="Atm. Transmission (band mean)")
+    (l1,) = ax1a.plot(angles_arr, snr_arr, "bo-", linewidth=2, markersize=8, label="SNR")
+    (l2,) = ax1b.plot(
+        angles_arr,
+        tau_arr_plot,
+        "rs--",
+        linewidth=2,
+        markersize=8,
+        label="Atm. Transmission (band mean)",
+    )
 
     ax1a.set_xlabel("Off-Nadir Angle [deg]", fontsize=12)
     ax1a.set_ylabel("SNR [--]", fontsize=12, color="blue")
@@ -712,14 +766,21 @@ def main() -> None:
     gsd_gm_arr = [rd["gsd_gm_m"] for rd in results]
     gsd_rad_arr = [rd["gsd_radiant_x"] for rd in results]
 
-    ax2.plot(angles_arr, gsd_x_arr, "bo-", linewidth=2, markersize=8,
-             label="GSD cross-track (true)")
-    ax2.plot(angles_arr, gsd_y_arr, "r^-", linewidth=2, markersize=8,
-             label="GSD along-track (true)")
-    ax2.plot(angles_arr, gsd_gm_arr, "gs--", linewidth=2, markersize=6,
-             label="GSD geometric mean")
-    ax2.plot(angles_arr, gsd_rad_arr, "k:", linewidth=1.5, alpha=0.5,
-             label="RADIANT GSD cross-track (chain)")
+    ax2.plot(
+        angles_arr, gsd_x_arr, "bo-", linewidth=2, markersize=8, label="GSD cross-track (true)"
+    )
+    ax2.plot(
+        angles_arr, gsd_y_arr, "r^-", linewidth=2, markersize=8, label="GSD along-track (true)"
+    )
+    ax2.plot(angles_arr, gsd_gm_arr, "gs--", linewidth=2, markersize=6, label="GSD geometric mean")
+    ax2.plot(
+        angles_arr,
+        gsd_rad_arr,
+        "k:",
+        linewidth=1.5,
+        alpha=0.5,
+        label="RADIANT GSD cross-track (chain)",
+    )
 
     ax2.axhline(gsd_nadir_m, color="gray", linestyle=":", alpha=0.3)
 
@@ -736,13 +797,29 @@ def main() -> None:
 
     niirs_corr_arr = [rd["niirs_corrected"] for rd in results]
 
-    ax3.plot(angles_arr, niirs_corr_arr, "bo-", linewidth=2, markersize=8,
-             label="NIIRS (RADIANT chain — two-axis off-nadir GSD)")
+    ax3.plot(
+        angles_arr,
+        niirs_corr_arr,
+        "bo-",
+        linewidth=2,
+        markersize=8,
+        label="NIIRS (RADIANT chain — two-axis off-nadir GSD)",
+    )
 
-    ax3.axhline(niirs_corr_arr[0], color="green", linestyle=":", alpha=0.4,
-                label=f"Nadir baseline = {niirs_corr_arr[0]:.2f}")
-    ax3.axhline(niirs_corr_arr[0] - 1.0, color="orange", linestyle="--", alpha=0.5,
-                label=f"-1.0 NIIRS = {niirs_corr_arr[0] - 1.0:.2f}")
+    ax3.axhline(
+        niirs_corr_arr[0],
+        color="green",
+        linestyle=":",
+        alpha=0.4,
+        label=f"Nadir baseline = {niirs_corr_arr[0]:.2f}",
+    )
+    ax3.axhline(
+        niirs_corr_arr[0] - 1.0,
+        color="orange",
+        linestyle="--",
+        alpha=0.5,
+        label=f"-1.0 NIIRS = {niirs_corr_arr[0] - 1.0:.2f}",
+    )
 
     ax3.set_xlabel("Off-Nadir Angle [deg]", fontsize=12)
     ax3.set_ylabel("NIIRS [--]", fontsize=12)
@@ -796,17 +873,29 @@ def main() -> None:
     header_font_out = Font(bold=True, size=10, color="FFFFFF")
     header_fill_out = PatternFill("solid", fgColor="2E75B6")
     thin_border_out = Border(
-        left=Side(style="thin"), right=Side(style="thin"),
-        top=Side(style="thin"), bottom=Side(style="thin"),
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
     )
 
     ws_out = wb_out.active
     ws_out.title = "Off-Nadir Results"
 
     headers_out = [
-        "Angle [deg]", "Slant Range [km]", "Air Mass [--]", "Ground Range [km]",
-        "Tau (band mean) [--]", "GSD Cross [m]", "GSD Along [m]", "GSD GM [m]",
-        "SNR [--]", "MTF@Ny [--]", "RER [--]", "NIIRS [--]", "Signal [e-]",
+        "Angle [deg]",
+        "Slant Range [km]",
+        "Air Mass [--]",
+        "Ground Range [km]",
+        "Tau (band mean) [--]",
+        "GSD Cross [m]",
+        "GSD Along [m]",
+        "GSD GM [m]",
+        "SNR [--]",
+        "MTF@Ny [--]",
+        "RER [--]",
+        "NIIRS [--]",
+        "Signal [e-]",
     ]
 
     for col_idx, h in enumerate(headers_out, start=1):
@@ -818,11 +907,17 @@ def main() -> None:
 
     for row_idx, rd in enumerate(results, start=2):
         vals = [
-            rd["angle_deg"], round(rd["slant_range_km"], 1), round(rd["air_mass"], 4),
-            round(rd["ground_range_km"], 1), round(rd["tau_mean"], 4),
-            round(rd["gsd_cross_m"], 2), round(rd["gsd_along_m"], 2),
-            round(rd["gsd_gm_m"], 2), round(rd["snr"], 1),
-            round(rd["mtf_nyq"], 4), round(rd["rer"], 4),
+            rd["angle_deg"],
+            round(rd["slant_range_km"], 1),
+            round(rd["air_mass"], 4),
+            round(rd["ground_range_km"], 1),
+            round(rd["tau_mean"], 4),
+            round(rd["gsd_cross_m"], 2),
+            round(rd["gsd_along_m"], 2),
+            round(rd["gsd_gm_m"], 2),
+            round(rd["snr"], 1),
+            round(rd["mtf_nyq"], 4),
+            round(rd["rer"], 4),
             round(rd["niirs_corrected"], 2),
             round(rd["signal_e"], 0),
         ]
@@ -843,58 +938,78 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  SUMMARY")
+    print("  SUMMARY")
     print(f"{'=' * 80}")
 
-    print(f"\n  System: {aperture_m * 100:.0f} cm TMA, f/{f_number:.0f}, "
-          f"{pixel_pitch_um:.0f} µm pixels, {filter_min_nm:.0f}-{filter_max_nm:.0f} nm PAN")
+    print(
+        f"\n  System: {aperture_m * 100:.0f} cm TMA, f/{f_number:.0f}, "
+        f"{pixel_pitch_um:.0f} µm pixels, {filter_min_nm:.0f}-{filter_max_nm:.0f} nm PAN"
+    )
     print(f"  Orbit:  {altitude_km:.0f} km SSO, GSD (nadir) = {gsd_nadir_m:.2f} [m]")
     print(f"  Q:      {Q:.3f} [--] ({'well-sampled' if Q >= 1 else 'undersampled'})")
 
-    print(f"\n  --- Nadir Baseline ---")
+    print("\n  --- Nadir Baseline ---")
     print(f"  Slant range:       {baseline['slant_range_km']:.1f} [km]")
     print(f"  GSD (cross/along): {baseline['gsd_cross_m']:.2f} / {baseline['gsd_along_m']:.2f} [m]")
     print(f"  Transmission:      {baseline['tau_mean']:.4f} [--]")
     print(f"  SNR:               {baseline['snr']:.1f} [--]")
     print(f"  NIIRS:             {baseline['niirs_corrected']:.2f} [--]")
 
-    print(f"\n  --- 30 deg Off-Nadir ---")
+    print("\n  --- 30 deg Off-Nadir ---")
     r30 = next((rd for rd in results if abs(rd["angle_deg"] - 30) < 0.1), None)
     if r30:
-        print(f"  Slant range:       {r30['slant_range_km']:.1f} [km] "
-              f"(+{(r30['slant_range_km'] / baseline['slant_range_km'] - 1) * 100:.0f}%)")
-        print(f"  GSD (cross/along): {r30['gsd_cross_m']:.2f} / {r30['gsd_along_m']:.2f} [m] "
-              f"(+{(r30['gsd_cross_m'] / baseline['gsd_cross_m'] - 1) * 100:.0f}% / "
-              f"+{(r30['gsd_along_m'] / baseline['gsd_along_m'] - 1) * 100:.0f}%)")
-        print(f"  Transmission:      {r30['tau_mean']:.4f} [--] "
-              f"({(r30['tau_mean'] / baseline['tau_mean'] - 1) * 100:+.1f}%)")
-        print(f"  SNR:               {r30['snr']:.1f} [--] "
-              f"({(r30['snr'] / baseline['snr'] - 1) * 100:+.1f}%)")
-        print(f"  dNIIRS:            {r30['niirs_corrected'] - baseline['niirs_corrected']:+.2f} [--]")
+        print(
+            f"  Slant range:       {r30['slant_range_km']:.1f} [km] "
+            f"(+{(r30['slant_range_km'] / baseline['slant_range_km'] - 1) * 100:.0f}%)"
+        )
+        print(
+            f"  GSD (cross/along): {r30['gsd_cross_m']:.2f} / {r30['gsd_along_m']:.2f} [m] "
+            f"(+{(r30['gsd_cross_m'] / baseline['gsd_cross_m'] - 1) * 100:.0f}% / "
+            f"+{(r30['gsd_along_m'] / baseline['gsd_along_m'] - 1) * 100:.0f}%)"
+        )
+        print(
+            f"  Transmission:      {r30['tau_mean']:.4f} [--] "
+            f"({(r30['tau_mean'] / baseline['tau_mean'] - 1) * 100:+.1f}%)"
+        )
+        print(
+            f"  SNR:               {r30['snr']:.1f} [--] "
+            f"({(r30['snr'] / baseline['snr'] - 1) * 100:+.1f}%)"
+        )
+        print(
+            f"  dNIIRS:            {r30['niirs_corrected'] - baseline['niirs_corrected']:+.2f} [--]"
+        )
 
-    print(f"\n  --- 45 deg Off-Nadir ---")
+    print("\n  --- 45 deg Off-Nadir ---")
     r45 = results[-1]
-    print(f"  Slant range:       {r45['slant_range_km']:.1f} [km] "
-          f"(+{(r45['slant_range_km'] / baseline['slant_range_km'] - 1) * 100:.0f}%)")
-    print(f"  GSD (cross/along): {r45['gsd_cross_m']:.2f} / {r45['gsd_along_m']:.2f} [m] "
-          f"(+{(r45['gsd_cross_m'] / baseline['gsd_cross_m'] - 1) * 100:.0f}% / "
-          f"+{(r45['gsd_along_m'] / baseline['gsd_along_m'] - 1) * 100:.0f}%)")
-    print(f"  Transmission:      {r45['tau_mean']:.4f} [--] "
-          f"({(r45['tau_mean'] / baseline['tau_mean'] - 1) * 100:+.1f}%)")
-    print(f"  SNR:               {r45['snr']:.1f} [--] "
-          f"({(r45['snr'] / baseline['snr'] - 1) * 100:+.1f}%)")
+    print(
+        f"  Slant range:       {r45['slant_range_km']:.1f} [km] "
+        f"(+{(r45['slant_range_km'] / baseline['slant_range_km'] - 1) * 100:.0f}%)"
+    )
+    print(
+        f"  GSD (cross/along): {r45['gsd_cross_m']:.2f} / {r45['gsd_along_m']:.2f} [m] "
+        f"(+{(r45['gsd_cross_m'] / baseline['gsd_cross_m'] - 1) * 100:.0f}% / "
+        f"+{(r45['gsd_along_m'] / baseline['gsd_along_m'] - 1) * 100:.0f}%)"
+    )
+    print(
+        f"  Transmission:      {r45['tau_mean']:.4f} [--] "
+        f"({(r45['tau_mean'] / baseline['tau_mean'] - 1) * 100:+.1f}%)"
+    )
+    print(
+        f"  SNR:               {r45['snr']:.1f} [--] "
+        f"({(r45['snr'] / baseline['snr'] - 1) * 100:+.1f}%)"
+    )
     print(f"  dNIIRS:            {r45['niirs_corrected'] - baseline['niirs_corrected']:+.2f} [--]")
 
-    print(f"\n  Key findings:")
-    print(f"    1. GSD is the dominant degradation driver at off-nadir angles.")
-    print(f"       Cross-track GSD scales as 1/cos(theta); along-track scales faster")
-    print(f"       due to the ground projection foreshortening effect.")
-    print(f"    2. Atmospheric transmission decreases with off-nadir angle because")
-    print(f"       the optical path through the atmosphere lengthens (air mass = sec(theta)).")
-    print(f"    3. NIIRS loss is dominated by the GSD term (-3.32 × log10(GSD_ratio)).")
-    print(f"       SNR degradation from lower transmission is secondary.")
+    print("\n  Key findings:")
+    print("    1. GSD is the dominant degradation driver at off-nadir angles.")
+    print("       Cross-track GSD scales as 1/cos(theta); along-track scales faster")
+    print("       due to the ground projection foreshortening effect.")
+    print("    2. Atmospheric transmission decreases with off-nadir angle because")
+    print("       the optical path through the atmosphere lengthens (air mass = sec(theta)).")
+    print("    3. NIIRS loss is dominated by the GSD term (-3.32 × log10(GSD_ratio)).")
+    print("       SNR degradation from lower transmission is secondary.")
 
-    print(f"\n  --- Newly Available Metrics (Gap Closures) ---")
+    print("\n  --- Newly Available Metrics (Gap Closures) ---")
     print(f"  NEDT:              {baseline['nedt_mK']:.1f} [mK] (nadir)")
     print(f"  NIIRS:             {baseline['niirs_corrected']:.2f} [--] (nadir, from RADIANT)")
     print(f"  GSD (RADIANT):     {baseline['gsd_radiant_x']:.2f} [m] (nadir)")
@@ -903,21 +1018,21 @@ def main() -> None:
     print(f"  RER:               {baseline['rer']:.4f} [--]")
     print(f"  Well margin:       {baseline.get('well_margin_dB', 0.0):.1f} [dB]")
 
-    print(f"\n  Limitations:")
-    print(f"    - The NIIRS column is the chain's metrics['niirs'] directly: GIQE-5")
-    print(f"      consumes the two-axis off-nadir GSD (geometric mean internally),")
-    print(f"      so no script-side rescale remains (Gaps 33/34/35 closed; CU-340")
-    print(f"      retired the old GM/cross rescale, which double-counted).")
-    print(f"    - RADIANT reports cross- and along-track GSD separately (Gap 35 closed).")
-    print(f"      The along-track column above is this script's own projection; since")
-    print(f"      the CU-340 fix it agrees with the chain's gsd_along_track_m and is")
-    print(f"      kept as an explicit cross-check.")
-    print(f"    - RADIANT provides ground-range, swath-width and access-rate metrics")
-    print(f"      (Gap 36 closed); this run computes swath and access locally because")
-    print(f"      the config sets neither detector.n_pixels_cross nor")
-    print(f"      geometry.ground_speed_m_s.")
-    print(f"    - Earth curvature correction is applied to slant range but not")
-    print(f"      to RADIANT's internal atmospheric path calculation (it uses its own)")
+    print("\n  Limitations:")
+    print("    - The NIIRS column is the chain's metrics['niirs'] directly: GIQE-5")
+    print("      consumes the two-axis off-nadir GSD (geometric mean internally),")
+    print("      so no script-side rescale remains (Gaps 33/34/35 closed; CU-340")
+    print("      retired the old GM/cross rescale, which double-counted).")
+    print("    - RADIANT reports cross- and along-track GSD separately (Gap 35 closed).")
+    print("      The along-track column above is this script's own projection; since")
+    print("      the CU-340 fix it agrees with the chain's gsd_along_track_m and is")
+    print("      kept as an explicit cross-check.")
+    print("    - RADIANT provides ground-range, swath-width and access-rate metrics")
+    print("      (Gap 36 closed); this run computes swath and access locally because")
+    print("      the config sets neither detector.n_pixels_cross nor")
+    print("      geometry.ground_speed_m_s.")
+    print("    - Earth curvature correction is applied to slant range but not")
+    print("      to RADIANT's internal atmospheric path calculation (it uses its own)")
 
 
 if __name__ == "__main__":

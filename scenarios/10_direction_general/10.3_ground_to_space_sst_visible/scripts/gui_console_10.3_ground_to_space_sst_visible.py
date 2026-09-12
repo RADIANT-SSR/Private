@@ -23,7 +23,9 @@ except NameError:
     from radiant.api import Sensor
 
     sensor = Sensor.load(
-        _Path(__file__).resolve().parent.parent / "inputs" / "10.3_ground_to_space_sst_visible.gui.yaml"
+        _Path(__file__).resolve().parent.parent
+        / "inputs"
+        / "10.3_ground_to_space_sst_visible.gui.yaml"
     )
 
 import warnings
@@ -48,6 +50,7 @@ print(f"contrast snr       : {result.metrics.get('contrast_snr'):.4g} [-]")
 print(f"mtf at nyquist     : {result.metrics.get('mtf_at_nyquist'):.4g} [-]")
 for _note in dict.fromkeys(str(_w.message).split(":")[0].strip() for _w in _caught):
     print(f"note: {_note}")
+
 
 # --- 2) Trade sweep along the scenario variable -----------------------------
 # The scripting console is a REPL: it echoes the value of every *bare* top-level

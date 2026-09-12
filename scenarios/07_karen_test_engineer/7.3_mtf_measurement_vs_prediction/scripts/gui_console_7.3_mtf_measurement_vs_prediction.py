@@ -23,7 +23,9 @@ except NameError:
     from radiant.api import Sensor
 
     sensor = Sensor.load(
-        _Path(__file__).resolve().parent.parent / "inputs" / "7.3_mtf_measurement_vs_prediction.gui.yaml"
+        _Path(__file__).resolve().parent.parent
+        / "inputs"
+        / "7.3_mtf_measurement_vs_prediction.gui.yaml"
     )
 
 import warnings
@@ -49,6 +51,7 @@ print(f"strehl             : {result.metrics.get('strehl'):.4g} [-]")
 print(f"fwhm x m           : {result.metrics.get('fwhm_x_m'):.4g} m")
 for _note in dict.fromkeys(str(_w.message).split(":")[0].strip() for _w in _caught):
     print(f"note: {_note}")
+
 
 # --- 2) Trade sweep along the scenario variable -----------------------------
 # The scripting console is a REPL: it echoes the value of every *bare* top-level

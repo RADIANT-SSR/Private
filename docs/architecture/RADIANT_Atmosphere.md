@@ -706,14 +706,10 @@ were not there. The retired form held the sky at the **target** plane and re-pro
 `L_sky·τ_full_up + L_path_full`. That composition is exact radiative transfer, but the segment
 model being composed is *not* additive: each segment emits at its own effective temperature,
 so splitting one column at the target plane swaps part of a warm ground-anchored graybody for
-a cold target-anchored one. Measured on the shipped 10.1 config, varying only
-`geometry.target_altitude_m` at fixed pointing:
-
-| target altitude | `background_e` before | after |
-|---|---|---|
-| 10 km | 1.94207e5 e⁻ | 2.21479e5 e⁻ |
-| 20 km | 2.14046e5 e⁻ | 2.21479e5 e⁻ |
-| 99 km (whole column) | 2.21479e5 e⁻ | 2.21479e5 e⁻ |
+a cold target-anchored one. The measured
+record (CU-254: `background_e` invariant to the target plane in the whole-LOS
+form, varying with it in the retired split form) lives in the parity document
+§2.7.
 
 A background behind a target cannot depend on where along the ray the target sits; the
 surviving value is the ground-rooted one, which is also the geometry the MODTRAN up-looking

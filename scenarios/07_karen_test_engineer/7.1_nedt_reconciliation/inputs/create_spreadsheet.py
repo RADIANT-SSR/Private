@@ -7,7 +7,7 @@ Three sheets:
 """
 
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.styles import Border, Font, PatternFill, Side
 
 wb = openpyxl.Workbook()
 
@@ -15,8 +15,10 @@ header_font = Font(bold=True, size=11)
 section_fill = PatternFill(start_color="002E75B6", end_color="002E75B6", fill_type="solid")
 section_font = Font(bold=True, size=11, color="FFFFFF")
 thin_border = Border(
-    left=Side(style="thin"), right=Side(style="thin"),
-    top=Side(style="thin"), bottom=Side(style="thin"),
+    left=Side(style="thin"),
+    right=Side(style="thin"),
+    top=Side(style="thin"),
+    bottom=Side(style="thin"),
 )
 
 # ---------------------------------------------------------------------------
@@ -109,8 +111,7 @@ ws2.column_dimensions["D"].width = 45
 
 row = 4
 for c in range(1, 5):
-    cell = ws2.cell(row=row, column=c,
-                    value=["Parameter", "Value", "Unit", "Notes"][c - 1])
+    cell = ws2.cell(row=row, column=c, value=["Parameter", "Value", "Unit", "Notes"][c - 1])
     cell.font = header_font
     cell.border = thin_border
 
@@ -123,7 +124,12 @@ det_data = [
     ("Full well capacity", 500000.0, "e⁻", "90% linearity limit"),
     ("ADC resolution", 14, "bits", "14-bit ADC, 2's complement"),
     ("System gain", 12.0, "e⁻/DN", "Set for 70% FWC at ADC max"),
-    ("Integration time", 0.5, "ms", "Lab NEDT test (shorter than 8 ms orbital nominal to avoid well saturation)"),
+    (
+        "Integration time",
+        0.5,
+        "ms",
+        "Lab NEDT test (shorter than 8 ms orbital nominal to avoid well saturation)",
+    ),
     ("IPC coupling", 1.5, "%", "Measured via single-pixel reset method"),
     ("Flicker noise (1/f)", 0.0, "e⁻", "Below measurement floor at this frame rate"),
     ("ROIC glow", 5.0, "e⁻/s", "Measured with cold shutter closed"),
@@ -138,8 +144,7 @@ for i, (param, val, unit, note) in enumerate(det_data, 5):
 # Nominal vs. as-built comparison
 row = 19
 for c in range(1, 5):
-    cell = ws2.cell(row=row, column=c,
-                    value=["Nominal vs. As-Built", "", "", ""][c - 1])
+    cell = ws2.cell(row=row, column=c, value=["Nominal vs. As-Built", "", "", ""][c - 1])
     cell.fill = section_fill
     cell.font = section_font
 
@@ -174,8 +179,14 @@ ws3.column_dimensions["E"].width = 14
 ws3.column_dimensions["F"].width = 30
 
 row = 4
-headers = ["Blackbody T [°C]", "Blackbody T [K]", "Measured NEDT [mK]",
-           "Std Dev [mK]", "N frames", "Notes"]
+headers = [
+    "Blackbody T [°C]",
+    "Blackbody T [K]",
+    "Measured NEDT [mK]",
+    "Std Dev [mK]",
+    "N frames",
+    "Notes",
+]
 for c, h in enumerate(headers, 1):
     cell = ws3.cell(row=row, column=c, value=h)
     cell.font = header_font
@@ -202,14 +213,21 @@ for i, (t_c, t_k, nedt, std, nf, note) in enumerate(nedt_data, 5):
 
 # Notes
 ws3.cell(row=13, column=1, value="Measurement Method:").font = Font(bold=True)
-ws3.cell(row=14, column=1,
-         value="NEDT computed as σ(frame-to-frame pixel value) / (dS/dT) "
-               "from 2-point calibration at ±2°C around each test temperature.")
-ws3.cell(row=15, column=1,
-         value="Spatial average of NEDT across central 100×100 pixel ROI "
-               "(excludes edge pixels and known bad pixels).")
+ws3.cell(
+    row=14,
+    column=1,
+    value="NEDT computed as σ(frame-to-frame pixel value) / (dS/dT) "
+    "from 2-point calibration at ±2°C around each test temperature.",
+)
+ws3.cell(
+    row=15,
+    column=1,
+    value="Spatial average of NEDT across central 100×100 pixel ROI "
+    "(excludes edge pixels and known bad pixels).",
+)
 
 from pathlib import Path
+
 out = Path(__file__).parent / "karen_nedt_lab_data.xlsx"
 wb.save(out)
 print(f"Created {out}")

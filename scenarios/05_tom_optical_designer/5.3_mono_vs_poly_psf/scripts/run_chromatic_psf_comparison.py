@@ -17,11 +17,11 @@ Output: Comparison tables, 4 plots, Excel results
 """
 
 import sys
-import os
+from pathlib import Path
+
 import numpy as np
 import openpyxl
 from openpyxl.styles import Font
-from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # 1. Read Tom's spreadsheet
@@ -72,12 +72,12 @@ target_emiss = design["Target emissivity"]
 altitude_km = design["Orbit altitude"]
 
 # Convert
-aperture_m = aperture_mm / 1000.0       # mm → m
+aperture_m = aperture_mm / 1000.0  # mm → m
 focal_length_m = focal_length_mm / 1000.0  # mm → m
 transmission = transmission_pct / 100.0  # % → fraction
-qe = qe_pct / 100.0                     # % → fraction
-t_int_s = t_int_ms / 1000.0             # ms → s
-altitude_m = altitude_km * 1000.0        # km → m
+qe = qe_pct / 100.0  # % → fraction
+t_int_s = t_int_ms / 1000.0  # ms → s
+altitude_m = altitude_km * 1000.0  # km → m
 
 # ---------------------------------------------------------------------------
 # 4. Build RADIANT configs and run
@@ -161,20 +161,22 @@ def run_and_extract(config, label):
     }
     return metrics, result
 
+
 def pct_diff(a, b):
     """Percent difference: (a - b) / b × 100."""
     if abs(b) < 1e-15:
         return float("inf")
     return (a - b) / b * 100.0
 
+
 # ---------------------------------------------------------------------------
 # 5. Generate plots
 # ---------------------------------------------------------------------------
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-
 
 f_number = design["f-number (working)"]
 wfe_waves = design["WFE (RMS, on-axis)"]
@@ -184,8 +186,8 @@ filter_min_nm = design["Filter cut-on"]
 filter_max_nm = design["Filter cut-off"]
 
 lambda_center_um = lambda_center_nm / 1000.0  # nm → µm
-band_min_um = filter_min_nm / 1000.0     # nm → µm
-band_max_um = filter_max_nm / 1000.0     # nm → µm
+band_min_um = filter_min_nm / 1000.0  # nm → µm
+band_max_um = filter_max_nm / 1000.0  # nm → µm
 
 
 def main() -> None:
@@ -241,7 +243,6 @@ def main() -> None:
     print("  The Airy disk grows 44% across the band (34.2 → 48.8 µm).")
     print()
 
-
     # --- 4a. Per-wavelength runs (narrow-band, monochromatic PSF) ---
     # Use a narrow band (±50 nm) centered at each analysis wavelength.
     # This isolates the PSF behavior at each wavelength.
@@ -265,17 +266,23 @@ def main() -> None:
         metrics["q_parameter"] = lam_um * f_number / pitch_um
         per_wavelength_results.append(metrics)
 
-    print(f"  {'λ [µm]':>8}  {'Airy Ø [µm]':>12}  {'Q':>6}  {'MTF@Nyq':>8}"
-          f"  {'EE 1×1':>7}  {'EE 3×3':>7}  {'RER':>6}  {'FWHM [µm]':>10}  {'SNR':>7}")
-    print(f"  {'------':>8}  {'-----------':>12}  {'-----':>6}  {'-------':>8}"
-          f"  {'------':>7}  {'------':>7}  {'-----':>6}  {'---------':>10}  {'---':>7}")
+    print(
+        f"  {'λ [µm]':>8}  {'Airy Ø [µm]':>12}  {'Q':>6}  {'MTF@Nyq':>8}"
+        f"  {'EE 1×1':>7}  {'EE 3×3':>7}  {'RER':>6}  {'FWHM [µm]':>10}  {'SNR':>7}"
+    )
+    print(
+        f"  {'------':>8}  {'-----------':>12}  {'-----':>6}  {'-------':>8}"
+        f"  {'------':>7}  {'------':>7}  {'-----':>6}  {'---------':>10}  {'---':>7}"
+    )
     for r in per_wavelength_results:
         fwhm_um = r["fwhm_x_m"] * 1e6
         rer_s = f"{r['rer']:.3f}" if r.get("rer") else "N/A"
-        print(f"  {r['wavelength_um']:>8.2f}  {r['airy_diam_um']:>12.1f}"
-              f"  {r['q_parameter']:>6.2f}  {r['mtf_at_nyquist']:>8.3f}"
-              f"  {r['ee_1x1']:>7.3f}  {r['ee_3x3']:>7.3f}"
-              f"  {rer_s:>6}  {fwhm_um:>10.1f}  {r['snr']:>7.0f}")
+        print(
+            f"  {r['wavelength_um']:>8.2f}  {r['airy_diam_um']:>12.1f}"
+            f"  {r['q_parameter']:>6.2f}  {r['mtf_at_nyquist']:>8.3f}"
+            f"  {r['ee_1x1']:>7.3f}  {r['ee_3x3']:>7.3f}"
+            f"  {rer_s:>6}  {fwhm_um:>10.1f}  {r['snr']:>7.0f}"
+        )
 
     print()
     print("  Physics: shorter λ → smaller Airy disk → more energy in single pixel (higher EE)")
@@ -304,19 +311,25 @@ def main() -> None:
         metrics["n_wavelengths"] = n_wl
         fullband_results.append(metrics)
 
-    print(f"  {'PSF Model':>35}  {'MTF@Nyq':>8}  {'EE 1×1':>7}  {'EE 3×3':>7}"
-          f"  {'RER':>6}  {'FWHM [µm]':>10}  {'SNR':>7}  {'NEDT [K]':>9}  {'NIIRS':>6}")
-    print(f"  {'--------':>35}  {'-------':>8}  {'------':>7}  {'------':>7}"
-          f"  {'-----':>6}  {'---------':>10}  {'---':>7}  {'--------':>9}  {'-----':>6}")
+    print(
+        f"  {'PSF Model':>35}  {'MTF@Nyq':>8}  {'EE 1×1':>7}  {'EE 3×3':>7}"
+        f"  {'RER':>6}  {'FWHM [µm]':>10}  {'SNR':>7}  {'NEDT [K]':>9}  {'NIIRS':>6}"
+    )
+    print(
+        f"  {'--------':>35}  {'-------':>8}  {'------':>7}  {'------':>7}"
+        f"  {'-----':>6}  {'---------':>10}  {'---':>7}  {'--------':>9}  {'-----':>6}"
+    )
     for r in fullband_results:
         fwhm_um = r["fwhm_x_m"] * 1e6
         rer_s = f"{r['rer']:.3f}" if r.get("rer") else "N/A"
         nedt_s = f"{r['nedt_K']:.4f}" if r.get("nedt_K") else "N/A"
         niirs_s = f"{r['niirs']:.1f}" if r.get("niirs") else "N/A"
-        print(f"  {r['label']:>35}  {r['mtf_at_nyquist']:>8.3f}"
-              f"  {r['ee_1x1']:>7.3f}  {r['ee_3x3']:>7.3f}"
-              f"  {rer_s:>6}  {fwhm_um:>10.1f}  {r['snr']:>7.0f}"
-              f"  {nedt_s:>9}  {niirs_s:>6}")
+        print(
+            f"  {r['label']:>35}  {r['mtf_at_nyquist']:>8.3f}"
+            f"  {r['ee_1x1']:>7.3f}  {r['ee_3x3']:>7.3f}"
+            f"  {rer_s:>6}  {fwhm_um:>10.1f}  {r['snr']:>7.0f}"
+            f"  {nedt_s:>9}  {niirs_s:>6}"
+        )
 
     # --- 4c. Compute chromaticism error ---
 
@@ -329,7 +342,9 @@ def main() -> None:
     mtf_err = pct_diff(mono["mtf_at_nyquist"], poly_11["mtf_at_nyquist"])
     ee1_err = pct_diff(mono["ee_1x1"], poly_11["ee_1x1"])
     ee3_err = pct_diff(mono["ee_3x3"], poly_11["ee_3x3"])
-    rer_err = pct_diff(mono["rer"], poly_11["rer"]) if mono.get("rer") and poly_11.get("rer") else None
+    rer_err = (
+        pct_diff(mono["rer"], poly_11["rer"]) if mono.get("rer") and poly_11.get("rer") else None
+    )
     fwhm_err = pct_diff(mono["fwhm_x_m"], poly_11["fwhm_x_m"])
     snr_err = pct_diff(mono["snr"], poly_11["snr"])
 
@@ -375,7 +390,9 @@ def main() -> None:
         print("  and the band-center (4.25 µm) is close to the flux-weighted mean.")
     else:
         print("  For this f/4 MWIR system (3.5–5.0 µm, 18 µm pixel):")
-        print(f"  Monochromatic analysis has significant error: MTF {mtf_err:+.1f}%, EE {ee1_err:+.1f}%.")
+        print(
+            f"  Monochromatic analysis has significant error: MTF {mtf_err:+.1f}%, EE {ee1_err:+.1f}%."
+        )
         print("  Polychromatic PSF should be used for accurate spatial analysis.")
 
     print()
@@ -387,10 +404,13 @@ def main() -> None:
     output_dir.mkdir(exist_ok=True)
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle("Scenario 5.3: Monochromatic vs. Polychromatic PSF\n"
-                 f"f/{f_number:.0f}, D = {aperture_mm:.0f} mm, {pitch_um:.0f} µm pixel, "
-                 f"{band_min_um:.1f}–{band_max_um:.1f} µm",
-                 fontsize=13, fontweight="bold")
+    fig.suptitle(
+        "Scenario 5.3: Monochromatic vs. Polychromatic PSF\n"
+        f"f/{f_number:.0f}, D = {aperture_mm:.0f} mm, {pitch_um:.0f} µm pixel, "
+        f"{band_min_um:.1f}–{band_max_um:.1f} µm",
+        fontsize=13,
+        fontweight="bold",
+    )
 
     # --- Plot 1: Spatial metrics vs. wavelength ---
     ax1 = axes[0, 0]
@@ -402,10 +422,20 @@ def main() -> None:
     ax1.plot(wls, ee1s, "s-", color="tab:red", linewidth=2, markersize=8, label="EE 1×1")
 
     # Overlay polychromatic (N=11) as horizontal bands
-    ax1.axhline(poly_11["mtf_at_nyquist"], color="tab:blue", linestyle="--", alpha=0.5,
-                label=f"Poly N=11 MTF ({poly_11['mtf_at_nyquist']:.3f})")
-    ax1.axhline(poly_11["ee_1x1"], color="tab:red", linestyle="--", alpha=0.5,
-                label=f"Poly N=11 EE ({poly_11['ee_1x1']:.3f})")
+    ax1.axhline(
+        poly_11["mtf_at_nyquist"],
+        color="tab:blue",
+        linestyle="--",
+        alpha=0.5,
+        label=f"Poly N=11 MTF ({poly_11['mtf_at_nyquist']:.3f})",
+    )
+    ax1.axhline(
+        poly_11["ee_1x1"],
+        color="tab:red",
+        linestyle="--",
+        alpha=0.5,
+        label=f"Poly N=11 EE ({poly_11['ee_1x1']:.3f})",
+    )
 
     ax1.set_xlabel("Wavelength [µm]")
     ax1.set_ylabel("Metric Value")
@@ -420,12 +450,24 @@ def main() -> None:
     airys = [r["airy_diam_um"] for r in per_wavelength_results]
 
     ax2.plot(wls, fwhms, "o-", color="tab:green", linewidth=2, markersize=8, label="FWHM (RADIANT)")
-    ax2.plot(wls, airys, "^--", color="tab:orange", linewidth=2, markersize=8,
-             label="Airy disk Ø (2.44λf/#)")
+    ax2.plot(
+        wls,
+        airys,
+        "^--",
+        color="tab:orange",
+        linewidth=2,
+        markersize=8,
+        label="Airy disk Ø (2.44λf/#)",
+    )
 
     # Polychromatic FWHM
-    ax2.axhline(poly_11["fwhm_x_m"] * 1e6, color="tab:green", linestyle="--", alpha=0.5,
-                label=f"Poly N=11 FWHM ({poly_11['fwhm_x_m']*1e6:.1f} µm)")
+    ax2.axhline(
+        poly_11["fwhm_x_m"] * 1e6,
+        color="tab:green",
+        linestyle="--",
+        alpha=0.5,
+        label=f"Poly N=11 FWHM ({poly_11['fwhm_x_m'] * 1e6:.1f} µm)",
+    )
 
     ax2.set_xlabel("Wavelength [µm]")
     ax2.set_ylabel("Size [µm]")
@@ -448,8 +490,12 @@ def main() -> None:
     x_bar = np.arange(len(labels_bar))
     width = 0.35
 
-    bars1 = ax3.bar(x_bar - width/2, mono_vals, width, label="Mono (N=1)", color="tab:blue", alpha=0.8)
-    bars2 = ax3.bar(x_bar + width/2, poly_vals, width, label="Poly (N=11)", color="tab:orange", alpha=0.8)
+    bars1 = ax3.bar(
+        x_bar - width / 2, mono_vals, width, label="Mono (N=1)", color="tab:blue", alpha=0.8
+    )
+    bars2 = ax3.bar(
+        x_bar + width / 2, poly_vals, width, label="Poly (N=11)", color="tab:orange", alpha=0.8
+    )
 
     # Add error labels
     for i, (m, p) in enumerate(zip(mono_vals, poly_vals)):
@@ -475,8 +521,9 @@ def main() -> None:
 
     ax4.plot(n_vals, mtf_vals, "o-", color="tab:blue", linewidth=2, markersize=8, label="MTF@Nyq")
     ax4.plot(n_vals, ee_vals, "s-", color="tab:red", linewidth=2, markersize=8, label="EE 1×1")
-    ax4_twin.plot(n_vals, fwhm_vals, "^-", color="tab:green", linewidth=2, markersize=8,
-                  label="FWHM [µm]")
+    ax4_twin.plot(
+        n_vals, fwhm_vals, "^-", color="tab:green", linewidth=2, markersize=8, label="FWHM [µm]"
+    )
 
     ax4.set_xlabel("Number of PSF Wavelengths (N)")
     ax4.set_ylabel("MTF / EE")
@@ -505,8 +552,18 @@ def main() -> None:
     ws_wl = wb_out.active
     ws_wl.title = "Per-Wavelength Results"
 
-    headers_wl = ["Wavelength [µm]", "Airy Ø [µm]", "Q", "MTF@Nyquist",
-                  "EE 1×1", "EE 3×3", "RER", "FWHM [µm]", "SNR", "Signal [e⁻]"]
+    headers_wl = [
+        "Wavelength [µm]",
+        "Airy Ø [µm]",
+        "Q",
+        "MTF@Nyquist",
+        "EE 1×1",
+        "EE 3×3",
+        "RER",
+        "FWHM [µm]",
+        "SNR",
+        "Signal [e⁻]",
+    ]
     for col, h in enumerate(headers_wl, 1):
         ws_wl.cell(row=1, column=col, value=h).font = Font(bold=True)
 
@@ -525,8 +582,19 @@ def main() -> None:
     # Sheet 2: Mono vs. poly comparison
     ws_mp = wb_out.create_sheet("Mono vs Poly")
 
-    headers_mp = ["PSF Model", "N wavelengths", "MTF@Nyquist", "EE 1×1", "EE 3×3",
-                  "RER", "FWHM [µm]", "SNR", "NEDT [K]", "NIIRS", "Signal [e⁻]"]
+    headers_mp = [
+        "PSF Model",
+        "N wavelengths",
+        "MTF@Nyquist",
+        "EE 1×1",
+        "EE 3×3",
+        "RER",
+        "FWHM [µm]",
+        "SNR",
+        "NEDT [K]",
+        "NIIRS",
+        "Signal [e⁻]",
+    ]
     for col, h in enumerate(headers_mp, 1):
         ws_mp.cell(row=1, column=col, value=h).font = Font(bold=True)
 
@@ -545,7 +613,9 @@ def main() -> None:
 
     # Add chromaticism error row
     err_row = len(fullband_results) + 3
-    ws_mp.cell(row=err_row, column=1, value="Chromaticism error (mono vs N=11)").font = Font(bold=True)
+    ws_mp.cell(row=err_row, column=1, value="Chromaticism error (mono vs N=11)").font = Font(
+        bold=True
+    )
     ws_mp.cell(row=err_row + 1, column=1, value="MTF@Nyquist")
     ws_mp.cell(row=err_row + 1, column=2, value=f"{mtf_err:+.1f}%")
     ws_mp.cell(row=err_row + 2, column=1, value="EE 1×1")
@@ -568,8 +638,10 @@ def main() -> None:
     ws_sum["A5"] = "Q at band center"
     ws_sum["B5"] = round(lambda_center_um * f_number / pitch_um, 2)
     ws_sum["A6"] = "Q range across band"
-    ws_sum["B6"] = (f"{analysis_wavelengths_um[0] * f_number / pitch_um:.2f} "
-                    f"– {analysis_wavelengths_um[-1] * f_number / pitch_um:.2f}")
+    ws_sum["B6"] = (
+        f"{analysis_wavelengths_um[0] * f_number / pitch_um:.2f} "
+        f"– {analysis_wavelengths_um[-1] * f_number / pitch_um:.2f}"
+    )
     ws_sum["A8"] = "Chromaticism impact"
     ws_sum["A8"].font = Font(bold=True)
     ws_sum["A9"] = "MTF error (mono vs poly)"
@@ -581,8 +653,10 @@ def main() -> None:
     ws_sum["A13"] = "Recommendation"
     ws_sum["A13"].font = Font(bold=True)
     if abs(mtf_err) < 5 and abs(ee1_err) < 5:
-        ws_sum["A14"] = ("Monochromatic PSF acceptable for quick trades. "
-                         "Use polychromatic (N=11) for final design reports.")
+        ws_sum["A14"] = (
+            "Monochromatic PSF acceptable for quick trades. "
+            "Use polychromatic (N=11) for final design reports."
+        )
     else:
         ws_sum["A14"] = "Polychromatic PSF (N≥11) required for accurate spatial analysis."
 

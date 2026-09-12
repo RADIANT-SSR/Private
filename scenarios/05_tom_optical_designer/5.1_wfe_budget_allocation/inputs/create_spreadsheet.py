@@ -42,37 +42,37 @@ ws["D1"] = "Notes"
 
 rows = [
     # Optics
-    ("Aperture diameter",       40,      "cm",    "40 cm Cassegrain primary"),
-    ("Focal length",            400,     "cm",    "f/10"),
-    ("f-number",                10.0,    "--",    "Derived: f/D"),
-    ("Optical transmission",    75,      "%",     "End-to-end"),
-    ("Optics temperature",      20,      "C",     "Ambient"),
-    ("Central obscuration",     35,      "%",     "Linear, Cassegrain secondary"),
+    ("Aperture diameter", 40, "cm", "40 cm Cassegrain primary"),
+    ("Focal length", 400, "cm", "f/10"),
+    ("f-number", 10.0, "--", "Derived: f/D"),
+    ("Optical transmission", 75, "%", "End-to-end"),
+    ("Optics temperature", 20, "C", "Ambient"),
+    ("Central obscuration", 35, "%", "Linear, Cassegrain secondary"),
     # WFE
-    ("WFE reference wavelength", 633,    "nm",    "HeNe laser interferometry"),
+    ("WFE reference wavelength", 633, "nm", "HeNe laser interferometry"),
     # Detector
-    ("Pixel pitch",             10.0,    "um",    "Si CCD"),
-    ("Quantum efficiency",      85,      "%",     "Broadband VNIR average"),
-    ("Dark current",            3.0,     "e-/s",  "Cooled Si CCD"),
-    ("Read noise",              5.0,     "e- RMS", "Low-noise CCD"),
-    ("Full well capacity",      100000,  "e-",    "10 um pixel CCD"),
-    ("Gain",                    1.0,     "e-/DN", "16-bit ADC"),
-    ("ADC bits",                16,      "--",    "65535 DN max"),
+    ("Pixel pitch", 10.0, "um", "Si CCD"),
+    ("Quantum efficiency", 85, "%", "Broadband VNIR average"),
+    ("Dark current", 3.0, "e-/s", "Cooled Si CCD"),
+    ("Read noise", 5.0, "e- RMS", "Low-noise CCD"),
+    ("Full well capacity", 100000, "e-", "10 um pixel CCD"),
+    ("Gain", 1.0, "e-/DN", "16-bit ADC"),
+    ("ADC bits", 16, "--", "65535 DN max"),
     # Spectral
-    ("Filter min",              500,     "nm",    "VNIR panchromatic"),
-    ("Filter max",              800,     "nm",    "VNIR panchromatic"),
+    ("Filter min", 500, "nm", "VNIR panchromatic"),
+    ("Filter max", 800, "nm", "VNIR panchromatic"),
     # Scene
-    ("Target reflectance",      0.15,    "--",    "Urban/asphalt"),
-    ("Background reflectance",  0.10,    "--",    "Vegetation"),
-    ("Solar zenith angle",      30,      "deg",   "Mid-morning"),
+    ("Target reflectance", 0.15, "--", "Urban/asphalt"),
+    ("Background reflectance", 0.10, "--", "Vegetation"),
+    ("Solar zenith angle", 30, "deg", "Mid-morning"),
     # Orbit & geometry
-    ("Orbit altitude",          500,     "km",    "LEO sun-synchronous"),
+    ("Orbit altitude", 500, "km", "LEO sun-synchronous"),
     # Atmosphere
-    ("Atmosphere model",        "simple", "--",   "Simple Beer-Lambert"),
-    ("Visibility",              23,      "km",    "Clear day"),
-    ("PWV",                     20,      "mm",    "Standard mid-latitude"),
+    ("Atmosphere model", "simple", "--", "Simple Beer-Lambert"),
+    ("Visibility", 23, "km", "Clear day"),
+    ("PWV", 20, "mm", "Standard mid-latitude"),
     # Integration time
-    ("Integration time",        2.0,     "ms",    "Staring mode"),
+    ("Integration time", 2.0, "ms", "Staring mode"),
 ]
 
 for i, (param, value, unit, note) in enumerate(rows, start=2):
@@ -100,8 +100,21 @@ ws2["C1"] = "Notes"
 
 import math
 
-wfe_values = [0.000, 0.020, 0.040, 0.060, 0.071, 0.080, 0.100,
-              0.120, 0.140, 0.160, 0.180, 0.200, 0.250]
+wfe_values = [
+    0.000,
+    0.020,
+    0.040,
+    0.060,
+    0.071,
+    0.080,
+    0.100,
+    0.120,
+    0.140,
+    0.160,
+    0.180,
+    0.200,
+    0.250,
+]
 notes = [
     "Perfect optics",
     "Excellent (space-quality)",
@@ -120,7 +133,7 @@ notes = [
 
 for i, (wfe, note) in enumerate(zip(wfe_values, notes), start=2):
     ws2[f"A{i}"] = wfe
-    strehl = math.exp(-(2.0 * math.pi * wfe) ** 2)
+    strehl = math.exp(-((2.0 * math.pi * wfe) ** 2))
     ws2[f"B{i}"] = round(strehl, 4)
     ws2[f"C{i}"] = note
 
@@ -142,18 +155,18 @@ ws3["C1"] = "Coefficient [waves]"
 ws3["D1"] = "Notes"
 
 zernike_data = [
-    (4,  "Defocus",              0.020, "Primary defocus"),
-    (5,  "Astigmatism 0",        0.015, ""),
-    (6,  "Astigmatism 45",       0.010, ""),
-    (7,  "Coma Y",               0.025, "Dominant aberration"),
-    (8,  "Coma X",               0.018, ""),
-    (9,  "Trefoil Y",            0.005, ""),
-    (10, "Trefoil X",            0.004, ""),
-    (11, "Spherical",            0.030, "Secondary mirror alignment"),
-    (12, "2nd Astigmatism 0",    0.003, ""),
-    (13, "2nd Astigmatism 45",   0.002, ""),
-    (14, "2nd Coma Y",           0.002, ""),
-    (15, "2nd Coma X",           0.001, ""),
+    (4, "Defocus", 0.020, "Primary defocus"),
+    (5, "Astigmatism 0", 0.015, ""),
+    (6, "Astigmatism 45", 0.010, ""),
+    (7, "Coma Y", 0.025, "Dominant aberration"),
+    (8, "Coma X", 0.018, ""),
+    (9, "Trefoil Y", 0.005, ""),
+    (10, "Trefoil X", 0.004, ""),
+    (11, "Spherical", 0.030, "Secondary mirror alignment"),
+    (12, "2nd Astigmatism 0", 0.003, ""),
+    (13, "2nd Astigmatism 45", 0.002, ""),
+    (14, "2nd Coma Y", 0.002, ""),
+    (15, "2nd Coma X", 0.001, ""),
 ]
 
 for i, (idx, name, coeff, note) in enumerate(zernike_data, start=2):

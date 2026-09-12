@@ -200,8 +200,7 @@ def main() -> None:
         f"{'cal floor':>10} | {'nuc_resid':>10}"
     )
     print(
-        f"{'[K]':>8} | {'[mK]':>10} | {'[mK]':>10} | {'[mK]':>10} | "
-        f"{'[mK]':>10} | {'[e- RMS]':>10}"
+        f"{'[K]':>8} | {'[mK]':>10} | {'[mK]':>10} | {'[mK]':>10} | {'[mK]':>10} | {'[e- RMS]':>10}"
     )
     for temp_K in study["scene_temps_K"]:
         old_row = evaluate(temp_K, "none")  # imaging regime: FPN assumed away

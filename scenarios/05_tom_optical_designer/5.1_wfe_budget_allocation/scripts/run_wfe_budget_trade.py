@@ -43,10 +43,11 @@ Usage:
 import math
 from pathlib import Path
 
+import matplotlib
 import numpy as np
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
@@ -54,7 +55,6 @@ from radiant.api import BudgetContributor, ErrorBudget, Sensor
 from radiant.api.session import RadiantSession
 from radiant.io.config import load_config
 from radiant.io.zemax_zernike import load_zemax_zernike
-
 
 # ---------------------------------------------------------------------------
 # Step 1: Read Tom's spreadsheet
@@ -106,18 +106,18 @@ for row in ws_zern.iter_rows(min_row=2, max_col=4, values_only=True):
 # Step 2: Convert to RADIANT canonical units
 # ---------------------------------------------------------------------------
 
-aperture_m = float(specs["Aperture diameter"]) / 100.0          # cm -> m
-focal_length_m = float(specs["Focal length"]) / 100.0           # cm -> m
+aperture_m = float(specs["Aperture diameter"]) / 100.0  # cm -> m
+focal_length_m = float(specs["Focal length"]) / 100.0  # cm -> m
 f_number = float(specs["f-number"])
-transmission = float(specs["Optical transmission"]) / 100.0     # % -> frac
-optics_temp_K = float(specs["Optics temperature"]) + 273.15     # C -> K
-obscuration = float(specs["Central obscuration"]) / 100.0       # % -> frac
+transmission = float(specs["Optical transmission"]) / 100.0  # % -> frac
+optics_temp_K = float(specs["Optics temperature"]) + 273.15  # C -> K
+obscuration = float(specs["Central obscuration"]) / 100.0  # % -> frac
 wfe_ref_nm = float(specs["WFE reference wavelength"])
-wfe_ref_um = wfe_ref_nm / 1000.0                                # nm -> um
+wfe_ref_um = wfe_ref_nm / 1000.0  # nm -> um
 
 pixel_pitch_um = float(specs["Pixel pitch"])
 pixel_pitch_m = pixel_pitch_um * 1e-6
-qe = float(specs["Quantum efficiency"]) / 100.0                 # % -> frac
+qe = float(specs["Quantum efficiency"]) / 100.0  # % -> frac
 dark_rate = float(specs["Dark current"])
 read_noise = float(specs["Read noise"])
 fwc = float(specs["Full well capacity"])
@@ -126,7 +126,7 @@ adc_bits = int(specs["ADC bits"])
 
 band_min_nm = float(specs["Filter min"])
 band_max_nm = float(specs["Filter max"])
-band_min_um = band_min_nm / 1000.0                              # nm -> um
+band_min_um = band_min_nm / 1000.0  # nm -> um
 band_max_um = band_max_nm / 1000.0
 band_center_um = (band_min_um + band_max_um) / 2.0
 
@@ -139,7 +139,7 @@ altitude_km = float(specs["Orbit altitude"])
 altitude_m = altitude_km * 1000.0
 
 t_int_ms = float(specs["Integration time"])
-t_int_s = t_int_ms / 1000.0                                     # ms -> s
+t_int_s = t_int_ms / 1000.0  # ms -> s
 
 # Derived parameters
 gsd_m = pixel_pitch_m * altitude_m / focal_length_m
@@ -214,13 +214,13 @@ def main() -> None:
     for k, v in specs.items():
         print(f"  {k:<30s}: {v} [{units.get(k, '--')}]")
 
-    print(f"\n=== WFE Sweep Points ===")
+    print("\n=== WFE Sweep Points ===")
     print(f"  WFE RMS = {wfe_values} [waves at 633 nm]")
 
     # --- Parse the Zemax export (Gap 26) and cross-check the workbook sheet ---
     zemax = load_zemax_zernike(ZEMAX_FILE)
 
-    print(f"\n=== Tom's Zernike Prescription (load_zemax_zernike, Gap 26) ===")
+    print("\n=== Tom's Zernike Prescription (load_zemax_zernike, Gap 26) ===")
     print(f"  Source:              {zemax.source_file}")
     print(f"  Reference wavelength: {zemax.reference_wavelength_um} [µm]")
     print(f"  Terms parsed:         {zemax.n_terms} [--]")
@@ -260,7 +260,7 @@ def main() -> None:
         allocation=WFE_ALLOCATION_WAVES,
     )
 
-    print(f"\n=== WFE Error Budget (ErrorBudget, Gaps 23+28) ===")
+    print("\n=== WFE Error Budget (ErrorBudget, Gaps 23+28) ===")
     print(wfe_budget.table())
     assert wfe_budget.margin is not None
     print(f"\n  RSS total:            {wfe_budget.rss_total:.4f} [waves]")
@@ -268,10 +268,10 @@ def main() -> None:
     print(f"  Over budget:          {wfe_budget.over_budget}")
     print(f"  Linear margin:        {wfe_budget.margin:+.4f} [waves]")
     print(f"  Remaining allocation: {wfe_budget.remaining_allocation():.4f} [waves]")
-    print(f"  (RSS headroom — an assembly/thermal contributor of up to this RMS")
-    print(f"   can be added before the λ/14 allocation is exceeded.)")
+    print("  (RSS headroom — an assembly/thermal contributor of up to this RMS")
+    print("   can be added before the λ/14 allocation is exceeded.)")
 
-    print(f"\n=== Converted to RADIANT Canonical Units ===")
+    print("\n=== Converted to RADIANT Canonical Units ===")
     print(f"  {'Parameter':<30s} {'Value':>14s}  {'Unit':<10s}  {'Conversion'}")
     print(f"  {'-' * 30} {'-' * 14}  {'-' * 10}  {'-' * 20}")
     print(f"  {'Aperture diameter':<30s} {aperture_m:>14.4f}  {'m':<10s}  cm / 100")
@@ -285,30 +285,36 @@ def main() -> None:
     print(f"  {'Integration time':<30s} {t_int_s:>14.6f}  {'s':<10s}  ms / 1000")
     print(f"  {'Solar zenith':<30s} {solar_zenith_rad:>14.4f}  {'rad':<10s}  deg x pi/180")
 
-    print(f"\n=== Derived Parameters ===")
+    print("\n=== Derived Parameters ===")
     print(f"  GSD:               {gsd_m:.2f} [m]")
     print(f"  IFOV:              {ifov_urad:.1f} [urad]")
     print(f"  Q (sampling):      {Q:.3f} [--] ({'well-sampled' if Q >= 1 else 'undersampled'})")
-    print(f"  Airy disk:         {airy_diam_um:.1f} [um] ({airy_diam_um/pixel_pitch_um:.2f} pixels)")
-    print(f"  f_Nyquist:         {f_nyquist:.0f} [cy/m] ({f_nyquist/1000:.1f} [cy/mm])")
+    print(
+        f"  Airy disk:         {airy_diam_um:.1f} [um] ({airy_diam_um / pixel_pitch_um:.2f} pixels)"
+    )
+    print(f"  f_Nyquist:         {f_nyquist:.0f} [cy/m] ({f_nyquist / 1000:.1f} [cy/mm])")
 
     # ---------------------------------------------------------------------------
     # Step 3: Marechal Strehl reference table
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== Marechal Strehl Reference (at operating wavelength) ===")
-    print(f"  WFE specified at {wfe_ref_nm:.0f} [nm], operating at {band_center_um*1000:.0f} [nm]")
-    print(f"\n  {'WFE [waves]':>12s}  {'OPD RMS [nm]':>12s}  {'Strehl@ref':>10s}  "
-          f"{'Strehl@oper':>12s}  {'Note'}")
+    print("\n=== Marechal Strehl Reference (at operating wavelength) ===")
+    print(
+        f"  WFE specified at {wfe_ref_nm:.0f} [nm], operating at {band_center_um * 1000:.0f} [nm]"
+    )
+    print(
+        f"\n  {'WFE [waves]':>12s}  {'OPD RMS [nm]':>12s}  {'Strehl@ref':>10s}  "
+        f"{'Strehl@oper':>12s}  {'Note'}"
+    )
     print(f"  {'-' * 12}  {'-' * 12}  {'-' * 10}  {'-' * 12}  {'-' * 30}")
 
     for wfe in wfe_values:
         opd_nm = wfe * wfe_ref_nm
         # Strehl at reference wavelength
-        strehl_ref = math.exp(-(2.0 * math.pi * wfe) ** 2)
+        strehl_ref = math.exp(-((2.0 * math.pi * wfe) ** 2))
         # Strehl at operating wavelength (WFE in waves at operating lambda)
         wfe_at_oper = opd_nm / (band_center_um * 1000.0)
-        strehl_oper = math.exp(-(2.0 * math.pi * wfe_at_oper) ** 2)
+        strehl_oper = math.exp(-((2.0 * math.pi * wfe_at_oper) ** 2))
 
         note = ""
         if wfe == 0.0:
@@ -318,15 +324,14 @@ def main() -> None:
         elif strehl_ref < 0.30:
             note = "beyond Marechal validity"
 
-        print(f"  {wfe:>12.3f}  {opd_nm:>12.1f}  {strehl_ref:>10.4f}  "
-              f"{strehl_oper:>12.4f}  {note}")
+        print(f"  {wfe:>12.3f}  {opd_nm:>12.1f}  {strehl_ref:>10.4f}  {strehl_oper:>12.4f}  {note}")
 
-    print(f"\n  Note: Strehl at operating wavelength ({band_center_um*1000:.0f} nm) is higher")
-    print(f"  than at reference (633 nm) because the same physical OPD is a smaller")
-    print(f"  fraction of the longer wavelength.")
+    print(f"\n  Note: Strehl at operating wavelength ({band_center_um * 1000:.0f} nm) is higher")
+    print("  than at reference (633 nm) because the same physical OPD is a smaller")
+    print("  fraction of the longer wavelength.")
 
-    print(f"\n=== RADIANT Configuration ===")
-    print(f"  Integration time: {t_int_s*1e3:.1f} [ms]")
+    print("\n=== RADIANT Configuration ===")
+    print(f"  Integration time: {t_int_s * 1e3:.1f} [ms]")
     print(f"  Band: {band_min_um:.3f}-{band_max_um:.3f} [um]")
     print(f"  Sweep: WFE RMS from {wfe_values[0]:.3f} to {wfe_values[-1]:.3f} [waves at 633 nm]")
     print(f"  Target reflectance: {target_refl} (emissivity = {target_emissivity})")
@@ -336,14 +341,19 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  WFE SWEEP")
+    print("  WFE SWEEP")
     print(f"{'=' * 80}")
-    print(f"\n  {'WFE':>8s}  {'Strehl':>8s}  {'MTF@Nyq':>10s}  {'EE(1x1)':>8s}  "
-          f"{'EE(3x3)':>8s}  {'RER':>8s}  {'SNR':>8s}  {'NIIRS':>8s}")
-    print(f"  {'[waves]':>8s}  {'[--]':>8s}  {'[--]':>10s}  {'[--]':>8s}  "
-          f"{'[--]':>8s}  {'[--]':>8s}  {'[--]':>8s}  {'[--]':>8s}")
-    print(f"  {'-' * 8}  {'-' * 8}  {'-' * 10}  {'-' * 8}  "
-          f"{'-' * 8}  {'-' * 8}  {'-' * 8}  {'-' * 8}")
+    print(
+        f"\n  {'WFE':>8s}  {'Strehl':>8s}  {'MTF@Nyq':>10s}  {'EE(1x1)':>8s}  "
+        f"{'EE(3x3)':>8s}  {'RER':>8s}  {'SNR':>8s}  {'NIIRS':>8s}"
+    )
+    print(
+        f"  {'[waves]':>8s}  {'[--]':>8s}  {'[--]':>10s}  {'[--]':>8s}  "
+        f"{'[--]':>8s}  {'[--]':>8s}  {'[--]':>8s}  {'[--]':>8s}"
+    )
+    print(
+        f"  {'-' * 8}  {'-' * 8}  {'-' * 10}  {'-' * 8}  {'-' * 8}  {'-' * 8}  {'-' * 8}  {'-' * 8}"
+    )
 
     results: list[dict] = []
 
@@ -374,7 +384,7 @@ def main() -> None:
         mtf_x = perf_out.get("mtf_x")
 
         # Marechal Strehl for comparison
-        marechal = math.exp(-(2.0 * math.pi * wfe_rms) ** 2) if wfe_rms > 0 else 1.0
+        marechal = math.exp(-((2.0 * math.pi * wfe_rms) ** 2)) if wfe_rms > 0 else 1.0
 
         row = {
             "wfe_rms": wfe_rms,
@@ -393,8 +403,10 @@ def main() -> None:
         }
         results.append(row)
 
-        print(f"  {wfe_rms:>8.3f}  {strehl:>8.4f}  {mtf_nyq:>10.4f}  {ee_1x1:>8.4f}  "
-              f"{ee_3x3:>8.4f}  {rer:>8.4f}  {snr:>8.1f}  {niirs:>8.2f}")
+        print(
+            f"  {wfe_rms:>8.3f}  {strehl:>8.4f}  {mtf_nyq:>10.4f}  {ee_1x1:>8.4f}  "
+            f"{ee_3x3:>8.4f}  {rer:>8.4f}  {snr:>8.1f}  {niirs:>8.2f}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 5b: Zernike-mode run — the actual prescription vs scalar RMS
@@ -411,7 +423,7 @@ def main() -> None:
     # chain execution).
 
     print(f"\n{'=' * 80}")
-    print(f"  ZERNIKE-MODE RUN — TOM'S ACTUAL PRESCRIPTION (Gap 26)")
+    print("  ZERNIKE-MODE RUN — TOM'S ACTUAL PRESCRIPTION (Gap 26)")
     print(f"{'=' * 80}")
 
     wfe_zernike = zemax.to_wavefront_error()
@@ -457,50 +469,60 @@ def main() -> None:
         vs = r_scal.metrics.get(key)
         if vz is None or vs is None:
             continue
-        print(f"  {label:<22s}  {fmt.format(vz):>16s}  {fmt.format(vs):>14s}  "
-              f"{vz - vs:>+10.4f}")
+        print(f"  {label:<22s}  {fmt.format(vz):>16s}  {fmt.format(vs):>14s}  {vz - vs:>+10.4f}")
 
     print(f"\n  Interpretation: both pupils carry the same {total_rms:.4f}-wave RMS, but")
-    print(f"  the structured prescription (coma Z7/Z8 + spherical Z11 dominant)")
-    print(f"  and the random screen distribute the aberrated energy differently.")
-    print(f"  At this small RMS (Strehl ≈ 0.9) the difference is modest; it grows")
-    print(f"  with WFE, and only the Zernike route reproduces aberration-specific")
-    print(f"  PSF structure (coma asymmetry, spherical rings) — use it whenever a")
-    print(f"  real prescription exists (cf. scenario 7.3's residual diagnosis).")
+    print("  the structured prescription (coma Z7/Z8 + spherical Z11 dominant)")
+    print("  and the random screen distribute the aberrated energy differently.")
+    print("  At this small RMS (Strehl ≈ 0.9) the difference is modest; it grows")
+    print("  with WFE, and only the Zernike route reproduces aberration-specific")
+    print("  PSF structure (coma asymmetry, spherical rings) — use it whenever a")
+    print("  real prescription exists (cf. scenario 7.3's residual diagnosis).")
 
     # ---------------------------------------------------------------------------
     # Step 6: Metric degradation analysis
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  METRIC DEGRADATION RELATIVE TO PERFECT OPTICS")
+    print("  METRIC DEGRADATION RELATIVE TO PERFECT OPTICS")
     print(f"{'=' * 80}")
 
     baseline = results[0]  # WFE = 0 (perfect)
 
-    print(f"\n  Baseline (WFE = 0): Strehl = {baseline['strehl_radiant']:.4f}, "
-          f"MTF@Nyq = {baseline['mtf_nyq']:.4f}, EE(1x1) = {baseline['ee_1x1']:.4f}, "
-          f"RER = {baseline['rer']:.4f}, NIIRS = {baseline['niirs']:.2f}")
+    print(
+        f"\n  Baseline (WFE = 0): Strehl = {baseline['strehl_radiant']:.4f}, "
+        f"MTF@Nyq = {baseline['mtf_nyq']:.4f}, EE(1x1) = {baseline['ee_1x1']:.4f}, "
+        f"RER = {baseline['rer']:.4f}, NIIRS = {baseline['niirs']:.2f}"
+    )
 
-    print(f"\n  {'WFE':>8s}  {'dStrehl':>8s}  {'dMTF@Nyq':>10s}  {'dEE(1x1)':>10s}  "
-          f"{'dRER':>8s}  {'dNIIRS':>8s}  {'Quality'}")
-    print(f"  {'[waves]':>8s}  {'[%]':>8s}  {'[%]':>10s}  {'[%]':>10s}  "
-          f"{'[%]':>8s}  {'[--]':>8s}  ")
+    print(
+        f"\n  {'WFE':>8s}  {'dStrehl':>8s}  {'dMTF@Nyq':>10s}  {'dEE(1x1)':>10s}  "
+        f"{'dRER':>8s}  {'dNIIRS':>8s}  {'Quality'}"
+    )
+    print(
+        f"  {'[waves]':>8s}  {'[%]':>8s}  {'[%]':>10s}  {'[%]':>10s}  {'[%]':>8s}  {'[--]':>8s}  "
+    )
     print(f"  {'-' * 8}  {'-' * 8}  {'-' * 10}  {'-' * 10}  {'-' * 8}  {'-' * 8}  {'-' * 20}")
 
     for r in results:
-        d_strehl = ((r["strehl_radiant"] - baseline["strehl_radiant"])
-                    / baseline["strehl_radiant"] * 100.0
-                    if baseline["strehl_radiant"] > 0 else 0.0)
-        d_mtf = ((r["mtf_nyq"] - baseline["mtf_nyq"])
-                 / baseline["mtf_nyq"] * 100.0
-                 if baseline["mtf_nyq"] > 0 else 0.0)
-        d_ee = ((r["ee_1x1"] - baseline["ee_1x1"])
-                / baseline["ee_1x1"] * 100.0
-                if baseline["ee_1x1"] > 0 else 0.0)
-        d_rer = ((r["rer"] - baseline["rer"])
-                 / baseline["rer"] * 100.0
-                 if baseline["rer"] > 0 else 0.0)
+        d_strehl = (
+            (r["strehl_radiant"] - baseline["strehl_radiant"]) / baseline["strehl_radiant"] * 100.0
+            if baseline["strehl_radiant"] > 0
+            else 0.0
+        )
+        d_mtf = (
+            (r["mtf_nyq"] - baseline["mtf_nyq"]) / baseline["mtf_nyq"] * 100.0
+            if baseline["mtf_nyq"] > 0
+            else 0.0
+        )
+        d_ee = (
+            (r["ee_1x1"] - baseline["ee_1x1"]) / baseline["ee_1x1"] * 100.0
+            if baseline["ee_1x1"] > 0
+            else 0.0
+        )
+        d_rer = (
+            (r["rer"] - baseline["rer"]) / baseline["rer"] * 100.0 if baseline["rer"] > 0 else 0.0
+        )
         d_niirs = r["niirs"] - baseline["niirs"]
 
         quality = "diffraction-limited"
@@ -513,19 +535,21 @@ def main() -> None:
         if r["wfe_rms"] > 0.20:
             quality = "severe"
 
-        print(f"  {r['wfe_rms']:>8.3f}  {d_strehl:>+8.1f}  {d_mtf:>+10.1f}  {d_ee:>+10.1f}  "
-              f"{d_rer:>+8.1f}  {d_niirs:>+8.2f}  {quality}")
+        print(
+            f"  {r['wfe_rms']:>8.3f}  {d_strehl:>+8.1f}  {d_mtf:>+10.1f}  {d_ee:>+10.1f}  "
+            f"{d_rer:>+8.1f}  {d_niirs:>+8.2f}  {quality}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 7: Strehl comparison — Marechal vs RADIANT
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  STREHL RATIO: MARECHAL vs. RADIANT")
+    print("  STREHL RATIO: MARECHAL vs. RADIANT")
     print(f"{'=' * 80}")
-    print(f"\n  Marechal: S = exp(-(2*pi*WFE_rms)^2)")
-    print(f"  RADIANT:  computed from PerformanceStage (Marechal at band center)")
-    print(f"  WFE reference: {wfe_ref_nm:.0f} [nm], operating: {band_center_um*1000:.0f} [nm]")
+    print("\n  Marechal: S = exp(-(2*pi*WFE_rms)^2)")
+    print("  RADIANT:  computed from PerformanceStage (Marechal at band center)")
+    print(f"  WFE reference: {wfe_ref_nm:.0f} [nm], operating: {band_center_um * 1000:.0f} [nm]")
 
     print(f"\n  {'WFE':>8s}  {'Marechal':>10s}  {'RADIANT':>10s}  {'Difference':>10s}")
     print(f"  {'[waves]':>8s}  {'[--]':>10s}  {'[--]':>10s}  {'[--]':>10s}")
@@ -533,24 +557,26 @@ def main() -> None:
 
     for r in results:
         diff = r["strehl_radiant"] - r["strehl_marechal"]
-        print(f"  {r['wfe_rms']:>8.3f}  {r['strehl_marechal']:>10.4f}  "
-              f"{r['strehl_radiant']:>10.4f}  {diff:>+10.4f}")
+        print(
+            f"  {r['wfe_rms']:>8.3f}  {r['strehl_marechal']:>10.4f}  "
+            f"{r['strehl_radiant']:>10.4f}  {diff:>+10.4f}"
+        )
 
-    print(f"\n  Note: RADIANT's Strehl uses the Marechal approximation but evaluates")
-    print(f"  at the operating wavelength ({band_center_um*1000:.0f} nm), so Strehl is higher")
-    print(f"  than the 'at-reference' Marechal value listed above. The 'Marechal'")
-    print(f"  column uses the WFE in waves at 633 nm directly.")
+    print("\n  Note: RADIANT's Strehl uses the Marechal approximation but evaluates")
+    print(f"  at the operating wavelength ({band_center_um * 1000:.0f} nm), so Strehl is higher")
+    print("  than the 'at-reference' Marechal value listed above. The 'Marechal'")
+    print("  column uses the WFE in waves at 633 nm directly.")
 
     # ---------------------------------------------------------------------------
     # Step 8: NIIRS budget analysis
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  NIIRS SENSITIVITY TO WFE")
+    print("  NIIRS SENSITIVITY TO WFE")
     print(f"{'=' * 80}")
 
-    print(f"\n  GIQE-5 decomposes NIIRS into GSD, RER, and SNR terms.")
-    print(f"  WFE affects NIIRS primarily through the RER term (3.32*log10(RER)).")
+    print("\n  GIQE-5 decomposes NIIRS into GSD, RER, and SNR terms.")
+    print("  WFE affects NIIRS primarily through the RER term (3.32*log10(RER)).")
     print(f"  GSD is constant ({gsd_m:.2f} m). SNR changes only slightly with WFE.")
 
     niirs_0 = baseline["niirs"]
@@ -573,7 +599,7 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  NOISE BUDGET (constant — WFE does not affect noise)")
+    print("  NOISE BUDGET (constant — WFE does not affect noise)")
     print(f"{'=' * 80}")
 
     noise_names = list(baseline["noise_terms"].keys())
@@ -591,8 +617,8 @@ def main() -> None:
     print(f"  {'TOTAL (RSS)':<25s}  {total_noise:>15.1f}  {'100.0':>12s}")
     print(f"\n  Signal: {baseline['signal_e']:,.0f} [e-]")
     print(f"  SNR:    {baseline['snr']:.1f} [--]")
-    print(f"\n  Note: WFE degrades spatial metrics (MTF, RER, EE) but does NOT add")
-    print(f"  noise. The noise budget is identical at all WFE levels.")
+    print("\n  Note: WFE degrades spatial metrics (MTF, RER, EE) but does NOT add")
+    print("  noise. The noise budget is identical at all WFE levels.")
 
     # ---------------------------------------------------------------------------
     # Step 10: Plots
@@ -607,15 +633,28 @@ def main() -> None:
     strehl_rad_arr = [r["strehl_radiant"] for r in results]
     strehl_mar_arr = [r["strehl_marechal"] for r in results]
 
-    ax1.plot(wfe_arr, strehl_rad_arr, "bo-", linewidth=2, markersize=8,
-             label=f"RADIANT (at {band_center_um*1000:.0f} nm)")
-    ax1.plot(wfe_arr, strehl_mar_arr, "r--", linewidth=1.5, alpha=0.7,
-             label="Marechal (at 633 nm ref)")
+    ax1.plot(
+        wfe_arr,
+        strehl_rad_arr,
+        "bo-",
+        linewidth=2,
+        markersize=8,
+        label=f"RADIANT (at {band_center_um * 1000:.0f} nm)",
+    )
+    ax1.plot(
+        wfe_arr, strehl_mar_arr, "r--", linewidth=1.5, alpha=0.7, label="Marechal (at 633 nm ref)"
+    )
 
-    ax1.axhline(0.80, color="green", linestyle=":", alpha=0.5,
-                label="Strehl = 0.80 (diffraction limit)")
-    ax1.axvline(1.0 / 14.0, color="green", linestyle="--", alpha=0.4,
-                label=f"WFE = lambda/14 = {1.0/14.0:.3f} waves")
+    ax1.axhline(
+        0.80, color="green", linestyle=":", alpha=0.5, label="Strehl = 0.80 (diffraction limit)"
+    )
+    ax1.axvline(
+        1.0 / 14.0,
+        color="green",
+        linestyle="--",
+        alpha=0.4,
+        label=f"WFE = lambda/14 = {1.0 / 14.0:.3f} waves",
+    )
 
     ax1.set_xlabel("WFE RMS [waves at 633 nm]", fontsize=12)
     ax1.set_ylabel("Strehl Ratio [--]", fontsize=12)
@@ -662,14 +701,22 @@ def main() -> None:
     niirs_arr = [r["niirs"] for r in results]
 
     ax3.plot(wfe_arr, niirs_arr, "bo-", linewidth=2, markersize=8, label="NIIRS (GIQE-5)")
-    ax3.axhline(niirs_0, color="green", linestyle=":", alpha=0.4,
-                label=f"Baseline = {niirs_0:.2f}")
-    ax3.axhline(niirs_0 - 0.5, color="orange", linestyle="--", alpha=0.5,
-                label=f"-0.5 NIIRS = {niirs_0 - 0.5:.2f}")
-    ax3.axhline(niirs_0 - 1.0, color="red", linestyle="--", alpha=0.5,
-                label=f"-1.0 NIIRS = {niirs_0 - 1.0:.2f}")
-    ax3.axvline(1.0 / 14.0, color="green", linestyle="--", alpha=0.4,
-                label="lambda/14")
+    ax3.axhline(niirs_0, color="green", linestyle=":", alpha=0.4, label=f"Baseline = {niirs_0:.2f}")
+    ax3.axhline(
+        niirs_0 - 0.5,
+        color="orange",
+        linestyle="--",
+        alpha=0.5,
+        label=f"-0.5 NIIRS = {niirs_0 - 0.5:.2f}",
+    )
+    ax3.axhline(
+        niirs_0 - 1.0,
+        color="red",
+        linestyle="--",
+        alpha=0.5,
+        label=f"-1.0 NIIRS = {niirs_0 - 1.0:.2f}",
+    )
+    ax3.axvline(1.0 / 14.0, color="green", linestyle="--", alpha=0.4, label="lambda/14")
 
     ax3.set_xlabel("WFE RMS [waves at 633 nm]", fontsize=12)
     ax3.set_ylabel("NIIRS [--]", fontsize=12)
@@ -717,14 +764,23 @@ def main() -> None:
     header_font_out = Font(bold=True, size=10, color="FFFFFF")
     header_fill_out = PatternFill("solid", fgColor="2E75B6")
     thin_border = Border(
-        left=Side(style="thin"), right=Side(style="thin"),
-        top=Side(style="thin"), bottom=Side(style="thin"),
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
     )
 
     headers = [
-        "WFE RMS [waves]", "Strehl (RADIANT) [--]", "Strehl (Marechal) [--]",
-        "MTF@Nyquist [--]", "EE(1x1) [--]", "EE(3x3) [--]",
-        "RER [--]", "SNR [--]", "NIIRS [--]", "dNIIRS [--]",
+        "WFE RMS [waves]",
+        "Strehl (RADIANT) [--]",
+        "Strehl (Marechal) [--]",
+        "MTF@Nyquist [--]",
+        "EE(1x1) [--]",
+        "EE(3x3) [--]",
+        "RER [--]",
+        "SNR [--]",
+        "NIIRS [--]",
+        "dNIIRS [--]",
     ]
 
     for col_idx, h in enumerate(headers, start=1):
@@ -737,9 +793,15 @@ def main() -> None:
     for row_idx, r in enumerate(results, start=2):
         d_niirs = r["niirs"] - baseline["niirs"]
         vals = [
-            r["wfe_rms"], round(r["strehl_radiant"], 4), round(r["strehl_marechal"], 4),
-            round(r["mtf_nyq"], 4), round(r["ee_1x1"], 4), round(r["ee_3x3"], 4),
-            round(r["rer"], 4), round(r["snr"], 1), round(r["niirs"], 2),
+            r["wfe_rms"],
+            round(r["strehl_radiant"], 4),
+            round(r["strehl_marechal"], 4),
+            round(r["mtf_nyq"], 4),
+            round(r["ee_1x1"], 4),
+            round(r["ee_3x3"], 4),
+            round(r["rer"], 4),
+            round(r["snr"], 1),
+            round(r["niirs"], 2),
             round(d_niirs, 2),
         ]
         for col_idx, v in enumerate(vals, start=1):
@@ -759,15 +821,17 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 80}")
-    print(f"  SUMMARY")
+    print("  SUMMARY")
     print(f"{'=' * 80}")
-    print(f"\n  System: 40 cm Cassegrain, f/{f_number:.0f}, {pixel_pitch_um:.0f} um CCD, "
-          f"{band_min_nm:.0f}-{band_max_nm:.0f} nm VNIR")
+    print(
+        f"\n  System: 40 cm Cassegrain, f/{f_number:.0f}, {pixel_pitch_um:.0f} um CCD, "
+        f"{band_min_nm:.0f}-{band_max_nm:.0f} nm VNIR"
+    )
     print(f"  Orbit:  {altitude_km:.0f} km LEO, GSD = {gsd_m:.2f} m")
     print(f"  WFE reference: {wfe_ref_nm:.0f} nm (HeNe)")
     print(f"  Q (sampling):  {Q:.3f} [--] ({'well-sampled' if Q >= 1 else 'undersampled'})")
 
-    print(f"\n  --- Baseline (perfect optics, WFE = 0) ---")
+    print("\n  --- Baseline (perfect optics, WFE = 0) ---")
     print(f"  Strehl:    {baseline['strehl_radiant']:.4f} [--]")
     print(f"  MTF@Nyq:   {baseline['mtf_nyq']:.4f} [--]")
     print(f"  EE(1x1):   {baseline['ee_1x1']:.4f} [--]")
@@ -778,7 +842,7 @@ def main() -> None:
 
     # Find diffraction-limited threshold result
     dl_result = min(results, key=lambda r: abs(r["wfe_rms"] - 0.071))
-    print(f"\n  --- At diffraction limit (WFE = lambda/14 = 0.071 waves) ---")
+    print("\n  --- At diffraction limit (WFE = lambda/14 = 0.071 waves) ---")
     print(f"  Strehl:    {dl_result['strehl_radiant']:.4f} [--]")
     print(f"  MTF@Nyq:   {dl_result['mtf_nyq']:.4f} [--]")
     print(f"  dNIIRS:    {dl_result['niirs'] - baseline['niirs']:+.2f} [--]")
@@ -786,27 +850,31 @@ def main() -> None:
     print(f"\n  --- At Tom's actual prescription ({total_rms:.4f} waves RMS, Zernike mode) ---")
     print(f"  Strehl:    {r_zern.metrics.get('strehl', 0.0):.4f} [--]")
     print(f"  MTF@Nyq:   {r_zern.metrics.get('mtf_at_nyquist', 0.0):.4f} [--]")
-    print(f"  dNIIRS:    {(r_zern.metrics.get('niirs') or 0.0) - (baseline['niirs'] or 0.0):+.2f} [--]")
-    print(f"  Budget:    RSS {wfe_budget.rss_total:.4f} vs allocation "
-          f"{WFE_ALLOCATION_WAVES:.4f} [waves] → margin {wfe_budget.margin:+.4f}, "
-          f"{'OVER' if wfe_budget.over_budget else 'within'} budget")
-    print(f"  Assessment: Tom's WFE budget is well within diffraction-limited territory;")
+    print(
+        f"  dNIIRS:    {(r_zern.metrics.get('niirs') or 0.0) - (baseline['niirs'] or 0.0):+.2f} [--]"
+    )
+    print(
+        f"  Budget:    RSS {wfe_budget.rss_total:.4f} vs allocation "
+        f"{WFE_ALLOCATION_WAVES:.4f} [waves] → margin {wfe_budget.margin:+.4f}, "
+        f"{'OVER' if wfe_budget.over_budget else 'within'} budget"
+    )
+    print("  Assessment: Tom's WFE budget is well within diffraction-limited territory;")
     print(f"  {wfe_budget.remaining_allocation():.4f} waves RSS remain for assembly/thermal terms.")
 
-    print(f"\n  Design recommendation:")
-    print(f"    Allocate WFE budget to keep total RMS < 0.071 waves (lambda/14)")
-    print(f"    for diffraction-limited performance (Strehl > 0.80).")
-    print(f"    For NIIRS-driven systems, WFE up to ~0.10 waves is acceptable")
-    print(f"    with < 0.25 NIIRS degradation.")
+    print("\n  Design recommendation:")
+    print("    Allocate WFE budget to keep total RMS < 0.071 waves (lambda/14)")
+    print("    for diffraction-limited performance (Strehl > 0.80).")
+    print("    For NIIRS-driven systems, WFE up to ~0.10 waves is acceptable")
+    print("    with < 0.25 NIIRS degradation.")
 
-    print(f"\n  Limitations:")
-    print(f"    - The scalar-RMS sweep uses a random phase screen; the SAME total RMS")
-    print(f"      with a different modal mix lands differently (see Step 5b). The")
-    print(f"      Zernike route (load_zemax_zernike + injected WavefrontError) is the")
-    print(f"      shape-faithful path and is preferred when a prescription exists.")
-    print(f"    - Zernike mode has no scalar-parameter/YAML path yet — the object is")
-    print(f"      injected via stage_outputs['optics_config'] (API-level, not config).")
-    print(f"    - Marechal approximation is inaccurate for Strehl < 0.3 (WFE > ~0.17 waves).")
+    print("\n  Limitations:")
+    print("    - The scalar-RMS sweep uses a random phase screen; the SAME total RMS")
+    print("      with a different modal mix lands differently (see Step 5b). The")
+    print("      Zernike route (load_zemax_zernike + injected WavefrontError) is the")
+    print("      shape-faithful path and is preferred when a prescription exists.")
+    print("    - Zernike mode has no scalar-parameter/YAML path yet — the object is")
+    print("      injected via stage_outputs['optics_config'] (API-level, not config).")
+    print("    - Marechal approximation is inaccurate for Strehl < 0.3 (WFE > ~0.17 waves).")
 
     plt.show()
 

@@ -28,7 +28,7 @@ K_B_EV = 8.617333262e-5  # eV/K
 # ---------------------------------------------------------------------------
 
 TEMPS_K = [70.0, 75.0, 77.0, 80.0, 82.0, 85.0, 88.0, 90.0, 92.0, 95.0]
-EA_EV = 0.24                      # diffusion activation energy (MWIR HgCdTe)
+EA_EV = 0.24  # diffusion activation energy (MWIR HgCdTe)
 J0_ANCHOR_T, J0_ANCHOR = 77.0, 5.0e4  # e-/s at 77 K (Arrhenius part)
 
 

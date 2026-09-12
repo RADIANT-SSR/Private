@@ -1,7 +1,7 @@
 """Create Dr. Chen's sensor parameter spreadsheet for noise model verification."""
 
 import openpyxl
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 wb = openpyxl.Workbook()
 

@@ -12,9 +12,7 @@ from pathlib import Path
 
 from radiant.api.sensor import Sensor
 
-_CONFIG = (
-    Path(__file__).resolve().parents[1] / "inputs" / "1.6_mwir_point_source_sda.yaml"
-)
+_CONFIG = Path(__file__).resolve().parents[1] / "inputs" / "1.6_mwir_point_source_sda.yaml"
 
 
 def load_sensor() -> Sensor:

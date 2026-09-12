@@ -140,6 +140,16 @@ Please **record which refraction switch you used for Q5/Q6** in
 
 **Delivered 2026-08-03:** rows **P7/P8** (60/80 km elevated-endpoint downwelling) and **M9–M13** (the 900 m-site SST sec fan) landed via the owner's GitHub upload. **Q5/Q6 are now the only unrun rows** (the refraction pair — runnable only with a real ray-bending switch; the horizon-guard thresholds stay guard-banded without them).
 
+**Run queue as of the October sweep (2026-09-12):** **R1–R3** (grazing-arc
+placement anchors, hand-set Card-3 ANGLE — see the R-row notes), **Q5/Q6**
+(refraction pair, conditions above), and the new **S1–S15** block — the
+solar-zenith fan for the up-looking ladder (5 K-rungs × sun at 0/60/75°;
+with the existing 30° K column that makes a rectangular
+(target_altitude, solar_zenith) up-looking grid, ending the
+single-solar-zenith limitation of `midlat_summer_uplooking_ladder`). The
+S decks need no hand edits — identical geometry to K1–K5, only the sun
+moves.
+
 **Owner deck audit, 2026-08-02.** The 33 rows M1–M8, N1–N10, O1–O5, P1–P6,
 Q1–Q4 were audited safe and run as-is; these are the only rows the CU-224
 gated half (P5), CU-181, and the sec-space axis actually need. The four
@@ -179,8 +189,19 @@ python scripts/gen_modtran_manifest.py
 python scripts/gen_modtran_manifest.py --check
 ```
 
-Nothing else needs doing on delivery: the repackaging into
-`data/atmospheres/` NPZ families and the promotion of the
-`test_fixture`-marked runs into `tests/integration/fixtures/modtran/` are
-coding tasks that run against the staged set (the `destination` column of
-`docs/plans/modtran_run_matrix.csv` says which run goes where).
+Nothing else needs doing on delivery: repackaging into the shipped NPZ
+families is a coding task that runs against the staged set (the
+`destination` column of `docs/plans/modtran_run_matrix.csv` says which run
+feeds what).
+
+**`destination` vocabulary (convention recorded at the October sweep,
+owner-ratified 2026-09-12).** Since the run set became tracked in-repo
+(`c2587fd`), a `test_fixture` destination means the row is pinned by anchor
+tests reading `modtran/real_runs/` directly — never a copied fixture under
+`tests/`, which would duplicate committed source data with two sources of
+truth (Rules 26/27). `shipped_library` means the row feeds a bundled NPZ
+family, with one recorded exception: O1/O2 are nadir-only (no zenith
+column), cannot join the rectangular `(sensor_altitude_m, path_zenith_rad)`
+upwelling grid the other O rows form, and ship as validation data rather
+than interpolation nodes — adding them to `midlat_summer_sensor_ladder`
+would have re-baselined every off-node sensor-altitude query.

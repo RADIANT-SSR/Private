@@ -28,9 +28,19 @@ HERE = Path(__file__).parent
 # Front-illuminated Si CCD: rises from UV, peaks ~600-700 nm at ~90%,
 # falls into the NIR toward the 1.1 µm band edge.
 SI_QE_NM_PCT = [
-    (400, 28.0), (450, 52.0), (500, 72.0), (550, 84.0), (600, 90.0),
-    (650, 91.0), (700, 88.0), (750, 82.0), (800, 74.0), (850, 63.0),
-    (900, 48.0), (950, 33.0), (1000, 18.0),
+    (400, 28.0),
+    (450, 52.0),
+    (500, 72.0),
+    (550, 84.0),
+    (600, 90.0),
+    (650, 91.0),
+    (700, 88.0),
+    (750, 82.0),
+    (800, 74.0),
+    (850, 63.0),
+    (900, 48.0),
+    (950, 33.0),
+    (1000, 18.0),
 ]
 
 with open(HERE / "silicon_ccd_qe.csv", "w", encoding="utf-8") as fh:
@@ -106,8 +116,13 @@ for col, text in zip("AB", ["Season", "day_of_year"]):
     ws2[f"{col}1"].font = hdr_font
     ws2[f"{col}1"].fill = hdr_fill
 for i, (season, doy) in enumerate(
-    [("Spring equinox", 80), ("Summer solstice", 172),
-     ("Autumn equinox", 266), ("Winter solstice", 355)], start=2
+    [
+        ("Spring equinox", 80),
+        ("Summer solstice", 172),
+        ("Autumn equinox", 266),
+        ("Winter solstice", 355),
+    ],
+    start=2,
 ):
     ws2.cell(row=i, column=1, value=season)
     ws2.cell(row=i, column=2, value=doy)

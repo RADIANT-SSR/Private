@@ -1,0 +1,44 @@
+# RADIANT mission template — Aerial VNIR Imaging
+# A small-aircraft VNIR imager over a sunlit extended scene from 3 km. The
+# target is declared REFLECTIVE (albedo 0.30 under a 40° sun), replacing the
+# pre-descriptor 5800 K-blackbody hack the old CLI starter used — a thermal
+# descriptor on a VNIR band trips the CU-346 reflective-scene advisory.
+_radiant:
+  format: 1
+  template:
+    name: "Aerial VNIR Imaging"
+    blurb: "Small-aircraft visible/NIR imager over a sunlit extended scene from 3 km."
+    specs: "VNIR 0.4–0.9 µm · 3 km nadir · extended reflective scene"
+    tune_next:
+      - source.target.reflectance
+      - geometry.solar_zenith_rad
+      - optics.aperture_diameter_m
+      - spectral_integration.integration_time_s
+      - detector.pixel_pitch_x_um
+atmosphere:
+  model: simple
+  standard_atmosphere: midlat_summer
+detector:
+  dark_rate_e_per_s: 10.0
+  pixel_pitch_x_um: 5.5
+  pixel_pitch_y_um: 5.5
+  qe_value: 0.85
+geometry:
+  sensor_altitude_m: 3000.0
+  solar_zenith_rad: 0.6981   # 40 deg sun
+optics:
+  aperture_diameter_m: 0.15
+  focal_length_m: 0.60
+  transmission_scalar: 0.80
+readout:
+  adc_bits: 14
+  gain_e_per_dn: 6.0
+  read_noise_e_rms: 3.0
+source:
+  scene_type: extended
+  target:
+    reflectance: 0.30
+spectral_integration:
+  filter_min_um: 0.4
+  filter_max_um: 0.9
+  integration_time_s: 0.0005

@@ -410,12 +410,16 @@ def print_geometry(result: Any, c: dict[str, float | str]) -> None:
     print(f"    los_direction (derived):     {geo['los_direction']}")
     print(f"    viewing_mode:                {geo['viewing_mode']}")
     print(f"    theta_o (target-side zenith): {theta_o:.9f} rad = {math.degrees(theta_o):.5f} deg")
-    print(f"    eta (sensor-side off-nadir):  {float(geo['eta_rad']):.9f} rad "
-          f"= {math.degrees(float(geo['eta_rad'])):.5f} deg")
+    print(
+        f"    eta (sensor-side off-nadir):  {float(geo['eta_rad']):.9f} rad "
+        f"= {math.degrees(float(geo['eta_rad'])):.5f} deg"
+    )
     print(f"    slant range:                 {float(geo['slant_range_m']) / 1000.0:.3f} km")
     print(f"    ground range (surface arc):  {float(geo['ground_range_m']) / 1000.0:.3f} km")
-    print(f"    h_sensor / h_target:         {float(geo['h_sensor_m']) / 1000.0:.1f} / "
-          f"{float(geo['h_target_m']) / 1000.0:.1f} km")
+    print(
+        f"    h_sensor / h_target:         {float(geo['h_sensor_m']) / 1000.0:.1f} / "
+        f"{float(geo['h_target_m']) / 1000.0:.1f} km"
+    )
 
     print("\n    Physics — why theta_o is slightly MORE than 90 deg on a level arm:")
     print("      Both endpoints sit on the same shell of radius r = R_E + h, so the")
@@ -429,12 +433,17 @@ def print_geometry(result: Any, c: dict[str, float | str]) -> None:
     print("\n    Horizon topology (core.viewing_triangle.classify_horizon_topology):")
     print(f"      topology:                  {guard.topology}")
     print(f"      verdict:                   {guard.action}")
-    print(f"      zeta_low (lower-endpoint zenith): {guard.zenith_low_rad:.9f} rad "
-          f"= {math.degrees(guard.zenith_low_rad):.5f} deg")
-    print(f"      tangent depression Delta-h: {dh_m:.2f} m  "
-          f"(tangent altitude {h - dh_m:.1f} m MSL)")
-    print(f"      guard thresholds:          clean < {GUARD_DH_CLEAN_M:.0f} m, "
-          f"warn < {GUARD_DH_RAISE_M:.0f} m, raise beyond")
+    print(
+        f"      zeta_low (lower-endpoint zenith): {guard.zenith_low_rad:.9f} rad "
+        f"= {math.degrees(guard.zenith_low_rad):.5f} deg"
+    )
+    print(
+        f"      tangent depression Delta-h: {dh_m:.2f} m  (tangent altitude {h - dh_m:.1f} m MSL)"
+    )
+    print(
+        f"      guard thresholds:          clean < {GUARD_DH_CLEAN_M:.0f} m, "
+        f"warn < {GUARD_DH_RAISE_M:.0f} m, raise beyond"
+    )
     print("\n      This is the SAME number the GUI schematic prints in its Delta-h leader")
     print("      pill for a level scene (radiant.gui.viewer.schematic_view calls this exact")
     print(f"      classifier), i.e. the pill reads 'Delta-h  {dh_m:.0f} m' at this range.")
@@ -476,8 +485,10 @@ def print_regime(result: Any, c: dict[str, float | str]) -> None:
     print(f"      sqrt(A_t)/d:                {extent_rad * 1e6:.3f} urad")
     print(f"      system PSF FWHM:            {psf_fwhm_rad * 1e6:.3f} urad")
     print(f"      one pixel IFOV:             {ifov_rad * 1e6:.3f} urad")
-    print(f"      ratio sqrt(A_t)/d / FWHM:   {extent_rad / psf_fwhm_rad:.3f} "
-          f"(matrix bound {POINT_SOURCE_ANGULAR_LIMIT:g})")
+    print(
+        f"      ratio sqrt(A_t)/d / FWHM:   {extent_rad / psf_fwhm_rad:.3f} "
+        f"(matrix bound {POINT_SOURCE_ANGULAR_LIMIT:g})"
+    )
     print(f"      target fills:               {extent_rad / ifov_rad:.3f} pixel")
     compliant_range_m = math.sqrt(float(c["target_area_m2"])) / (
         POINT_SOURCE_ANGULAR_LIMIT * psf_fwhm_rad
@@ -487,15 +498,19 @@ def print_regime(result: Any, c: dict[str, float | str]) -> None:
     far_ratio = math.sqrt(float(c["target_area_m2"])) / 100_000.0 / psf_fwhm_rad
     print("      NOTE: the target is comfortably sub-pixel but NOT small compared with")
     print("      the PSF, so it sits outside the matrix bound everywhere in this sweep")
-    print(f"      ({near_ratio:.2f}x FWHM at 25 km down to {far_ratio:.2f}x at 100 km, "
-          f"bound {POINT_SOURCE_ANGULAR_LIMIT:g}x). The T7")
+    print(
+        f"      ({near_ratio:.2f}x FWHM at 25 km down to {far_ratio:.2f}x at 100 km, "
+        f"bound {POINT_SOURCE_ANGULAR_LIMIT:g}x). The T7"
+    )
     print("      intensity door does not enforce that bound (see gaps.md) — the T1")
     print("      radiance door does, and would have refused this configuration. The")
     print("      consequence is bounded and one-sided: pre-integrating a target of")
     print("      finite extent into a delta function over-concentrates its energy, so")
     print("      the reported EE_box (and hence SNR) is mildly optimistic — by roughly")
-    print("      the quadrature broadening 1/sqrt(1 + (extent/FWHM)^2) = "
-          f"{1.0 / math.hypot(1.0, extent_rad / psf_fwhm_rad):.3f} at this range.")
+    print(
+        "      the quadrature broadening 1/sqrt(1 + (extent/FWHM)^2) = "
+        f"{1.0 / math.hypot(1.0, extent_rad / psf_fwhm_rad):.3f} at this range."
+    )
 
     print("\n    Metric relevance for an AIR target (guardrail G3 — one declarative map):")
     off = sorted(default_off_metrics("air_to_air"))
@@ -533,14 +548,20 @@ def sweep(c: dict[str, float | str]) -> list[dict[str, Any]]:
     print(f"\n{_rule()}")
     print("  3. LEVEL-ARM RANGE SWEEP — SNR, DETECTION RANGE, HORIZON GUARD")
     print(_rule())
-    print(f"\n    {'Range':>8s} {'theta_o':>10s} {'Delta-h':>9s} {'guard':>6s} "
-          f"{'tau MWIR':>9s} {'alpha_eff':>10s} {'signal':>11s} {'noise':>9s} "
-          f"{'SNR':>9s} {'det range':>10s} {'well':>7s}")
-    print(f"    {'[km]':>8s} {'[deg]':>10s} {'[m]':>9s} {'[--]':>6s} "
-          f"{'[--]':>9s} {'[1/km]':>10s} {'[e-]':>11s} {'[e- rms]':>9s} "
-          f"{'[--]':>9s} {'[km]':>10s} {'[dB]':>7s}")
-    print(f"    {'-' * 8} {'-' * 10} {'-' * 9} {'-' * 6} {'-' * 9} {'-' * 10} "
-          f"{'-' * 11} {'-' * 9} {'-' * 9} {'-' * 10} {'-' * 7}")
+    print(
+        f"\n    {'Range':>8s} {'theta_o':>10s} {'Delta-h':>9s} {'guard':>6s} "
+        f"{'tau MWIR':>9s} {'alpha_eff':>10s} {'signal':>11s} {'noise':>9s} "
+        f"{'SNR':>9s} {'det range':>10s} {'well':>7s}"
+    )
+    print(
+        f"    {'[km]':>8s} {'[deg]':>10s} {'[m]':>9s} {'[--]':>6s} "
+        f"{'[--]':>9s} {'[1/km]':>10s} {'[e-]':>11s} {'[e- rms]':>9s} "
+        f"{'[--]':>9s} {'[km]':>10s} {'[dB]':>7s}"
+    )
+    print(
+        f"    {'-' * 8} {'-' * 10} {'-' * 9} {'-' * 6} {'-' * 9} {'-' * 10} "
+        f"{'-' * 11} {'-' * 9} {'-' * 9} {'-' * 10} {'-' * 7}"
+    )
 
     rows: list[dict[str, Any]] = []
     for range_m in ranges_m:
@@ -557,12 +578,8 @@ def sweep(c: dict[str, float | str]) -> list[dict[str, Any]]:
         alpha_eff_per_km = -math.log(tau_mwir) / (float(range_m) / 1000.0)
         signal_e = float(result.stage_outputs["readout"]["signal_e_final"])
         noise_e = math.sqrt(sum(term.value_e**2 for term in result.noise_terms))
-        horizon_warnings = [
-            str(w.message) for w in caught if "horizon guard" in str(w.message)
-        ]
-        other_warnings = [
-            str(w.message) for w in caught if "horizon guard" not in str(w.message)
-        ]
+        horizon_warnings = [str(w.message) for w in caught if "horizon guard" in str(w.message)]
+        other_warnings = [str(w.message) for w in caught if "horizon guard" not in str(w.message)]
         target_free_noise_e = math.sqrt(
             sum(t.value_e**2 for t in result.noise_terms if t.name != "signal_shot")
         )
@@ -594,11 +611,13 @@ def sweep(c: dict[str, float | str]) -> list[dict[str, Any]]:
                 "other_warnings": other_warnings,
             }
         )
-        print(f"    {float(range_m) / 1000.0:>8.1f} {math.degrees(theta_o):>10.5f} "
-              f"{rows[-1]['dh_m']:>9.1f} {guard.action:>6s} {tau_mwir:>9.4f} "
-              f"{alpha_eff_per_km:>10.5f} {signal_e:>11.4e} {noise_e:>9.1f} "
-              f"{rows[-1]['snr']:>9.1f} {rows[-1]['detection_range_m'] / 1000.0:>10.1f} "
-              f"{rows[-1]['well_margin_dB']:>7.1f}")
+        print(
+            f"    {float(range_m) / 1000.0:>8.1f} {math.degrees(theta_o):>10.5f} "
+            f"{rows[-1]['dh_m']:>9.1f} {guard.action:>6s} {tau_mwir:>9.4f} "
+            f"{alpha_eff_per_km:>10.5f} {signal_e:>11.4e} {noise_e:>9.1f} "
+            f"{rows[-1]['snr']:>9.1f} {rows[-1]['detection_range_m'] / 1000.0:>10.1f} "
+            f"{rows[-1]['well_margin_dB']:>7.1f}"
+        )
 
     _print_detection_range_discussion(rows, c)
 
@@ -619,30 +638,39 @@ def _print_detection_range_discussion(
     near, far = rows[0], rows[-1]
     threshold = float(c["snr_threshold"])
     print("\n    Non-obvious result — detection_range_m is now reference-range INVARIANT:")
-    print(f"      referenced at {near['range_m'] / 1000.0:>5.0f} km -> "
-          f"{near['detection_range_m'] / 1000.0:6.1f} km")
-    print(f"      referenced at {far['range_m'] / 1000.0:>5.0f} km -> "
-          f"{far['detection_range_m'] / 1000.0:6.1f} km  "
-          f"({far['detection_range_m'] / near['detection_range_m']:.2f}x)")
+    print(
+        f"      referenced at {near['range_m'] / 1000.0:>5.0f} km -> "
+        f"{near['detection_range_m'] / 1000.0:6.1f} km"
+    )
+    print(
+        f"      referenced at {far['range_m'] / 1000.0:>5.0f} km -> "
+        f"{far['detection_range_m'] / 1000.0:6.1f} km  "
+        f"({far['detection_range_m'] / near['detection_range_m']:.2f}x)"
+    )
     print("      The path-aware solver scales the SIGNAL along the path")
     print("      (S(R) = S_ref (R_ref/R)^2 tau(R)/tau(R_ref)) AND the target's own")
     print("      shot noise with it: sigma(R)^2 = S(R) + N0^2, with N0 the")
     print("      target-free floor. Before CU-263 the TOTAL noise was frozen at its")
     print("      reference value, which is exact only in a background-limited system.")
     print("      This one is not background limited at short range:")
-    print(f"      {'range [km]':>11s} {'total noise':>12s} {'signal shot':>12s} "
-          f"{'target-free':>12s}")
+    print(
+        f"      {'range [km]':>11s} {'total noise':>12s} {'signal shot':>12s} {'target-free':>12s}"
+    )
     print(f"      {'':>11s} {'[e- rms]':>12s} {'[e- rms]':>12s} {'[e- rms]':>12s}")
     for entry in (near, far):
         shot = math.sqrt(max(entry["noise_e"] ** 2 - entry["target_free_noise_e"] ** 2, 0.0))
-        print(f"      {entry['range_m'] / 1000.0:>11.0f} {entry['noise_e']:>12.1f} "
-              f"{shot:>12.1f} {entry['target_free_noise_e']:>12.1f}")
+        print(
+            f"      {entry['range_m'] / 1000.0:>11.0f} {entry['noise_e']:>12.1f} "
+            f"{shot:>12.1f} {entry['target_free_noise_e']:>12.1f}"
+        )
     print("      At 25 km the noise is almost entirely the TARGET'S OWN shot noise,")
     print("      which vanishes as the target recedes — freezing it used to make the")
     print("      25 km answer strongly pessimistic (123.4 km against 182.5 km from the")
     print("      100 km row, a 1.48x spread on one unchanged design). The residual")
-    print(f"      spread above is {abs(far['detection_range_m'] - near['detection_range_m']) / 1000.0:.1f}"
-          " km, and it is the band-mean tau model's own")
+    print(
+        f"      spread above is {abs(far['detection_range_m'] - near['detection_range_m']) / 1000.0:.1f}"
+        " km, and it is the band-mean tau model's own"
+    )
     print("      reference dependence (alpha_eff moves in the 5th digit across the")
     print("      sweep), not the noise treatment.")
 
@@ -666,15 +694,19 @@ def _print_detection_range_discussion(
         else:
             hi_m = mid_m
     floor_only_km = 0.5 * (lo_m + hi_m) / 1000.0
-    print(f"\n      Cross-check — re-solved against the TARGET-FREE noise floor of "
-          f"{noise_floor_e:.1f} e- rms alone")
+    print(
+        f"\n      Cross-check — re-solved against the TARGET-FREE noise floor of "
+        f"{noise_floor_e:.1f} e- rms alone"
+    )
     print("      (sky background shot + read + quantisation + dark, i.e. every noise")
     print("      term that does not vanish with the target):")
     print(f"        detection range = {floor_only_km:.1f} km at SNR = {threshold:.0f}")
     print("      That is the fully floor-limited bound — it drops the target's own")
     print("      residual shot noise entirely, so it sits just ABOVE the chain's")
-    print(f"      answer ({far['detection_range_m'] / 1000.0:.1f} km). The two now agree to "
-          f"{100.0 * abs(floor_only_km * 1000.0 / far['detection_range_m'] - 1.0):.1f} %,")
+    print(
+        f"      answer ({far['detection_range_m'] / 1000.0:.1f} km). The two now agree to "
+        f"{100.0 * abs(floor_only_km * 1000.0 / far['detection_range_m'] - 1.0):.1f} %,"
+    )
     print("      which is the check that the shot-consistent solve is doing what it")
     print("      claims. The MODTRAN anchor in section 6 says the real MWIR arm is")
     print("      more transparent still, so even this is a floor, not a ceiling.")
@@ -687,23 +719,30 @@ def print_horizon_guard(rows: list[dict[str, Any]], c: dict[str, float | str]) -
 
     clean = [r for r in rows if r["guard_action"] == "clean"]
     warn = [r for r in rows if r["guard_action"] == "warn"]
-    print(f"\n    clean arms: {len(clean)} of {len(rows)}  "
-          f"({clean[0]['range_m'] / 1000.0:.0f}-{clean[-1]['range_m'] / 1000.0:.0f} km, "
-          f"Delta-h {clean[0]['dh_m']:.1f}-{clean[-1]['dh_m']:.1f} m)")
+    print(
+        f"\n    clean arms: {len(clean)} of {len(rows)}  "
+        f"({clean[0]['range_m'] / 1000.0:.0f}-{clean[-1]['range_m'] / 1000.0:.0f} km, "
+        f"Delta-h {clean[0]['dh_m']:.1f}-{clean[-1]['dh_m']:.1f} m)"
+    )
     if warn:
-        print(f"    warned arms: {len(warn)} of {len(rows)}  "
-              f"({warn[0]['range_m'] / 1000.0:.0f}-{warn[-1]['range_m'] / 1000.0:.0f} km, "
-              f"Delta-h {warn[0]['dh_m']:.1f}-{warn[-1]['dh_m']:.1f} m)")
+        print(
+            f"    warned arms: {len(warn)} of {len(rows)}  "
+            f"({warn[0]['range_m'] / 1000.0:.0f}-{warn[-1]['range_m'] / 1000.0:.0f} km, "
+            f"Delta-h {warn[0]['dh_m']:.1f}-{warn[-1]['dh_m']:.1f} m)"
+        )
 
     # Analytic crossover: Delta-h = L^2 / 8r  ->  L = sqrt(8 r dh_clean).
     r_shell_m = R_EARTH_M + float(c["h_sensor_m"])
     crossover_m = math.sqrt(8.0 * r_shell_m * GUARD_DH_CLEAN_M)
     print("\n    Analytic crossover into the warning shoulder: L = sqrt(8 r Delta-h_clean)")
-    print(f"      r = R_E + h = {r_shell_m / 1000.0:.1f} km, "
-          f"Delta-h_clean = {GUARD_DH_CLEAN_M:.0f} m")
-    print(f"      L_crossover = {crossover_m / 1000.0:.2f} km  "
-          f"(the sweep crosses between {clean[-1]['range_m'] / 1000.0:.0f} and "
-          f"{warn[0]['range_m'] / 1000.0:.0f} km — consistent)")
+    print(
+        f"      r = R_E + h = {r_shell_m / 1000.0:.1f} km, Delta-h_clean = {GUARD_DH_CLEAN_M:.0f} m"
+    )
+    print(
+        f"      L_crossover = {crossover_m / 1000.0:.2f} km  "
+        f"(the sweep crosses between {clean[-1]['range_m'] / 1000.0:.0f} and "
+        f"{warn[0]['range_m'] / 1000.0:.0f} km — consistent)"
+    )
 
     if warn:
         print("\n    The verbatim UserWarning RADIANT raised on the longest arm:")
@@ -727,11 +766,14 @@ def print_horizon_guard(rows: list[dict[str, Any]], c: dict[str, float | str]) -
         print(f"      Delta-h/k = {dh_ref:.1f} m, i.e. the modelled ray samples air an")
         print(f"      average of {mean_shift_m:.1f} m LOWER than the real one (2/3 of the")
         print("      difference, the mean of a parabolic sag).")
-        print("      With a density scale height of "
-              f"{DENSITY_SCALE_HEIGHT_M / 1000.0:.1f} km and a")
+        print(
+            f"      With a density scale height of {DENSITY_SCALE_HEIGHT_M / 1000.0:.1f} km and a"
+        )
         print(f"      band optical depth of {optical_depth:.3f}, that altitude error is worth")
-        print(f"        d(tau)/tau ~ tau_od * dz / H = {d_tau_frac * 100.0:.2f} % "
-              "in band transmittance.")
+        print(
+            f"        d(tau)/tau ~ tau_od * dz / H = {d_tau_frac * 100.0:.2f} % "
+            "in band transmittance."
+        )
         print("      So the guard is flagging a sub-percent effect. The MODTRAN anchor")
         print("      in section 6 shows the simple model's own band-model error on the")
         print("      same arm is two orders of magnitude larger. The guard is correct to")
@@ -784,27 +826,32 @@ def print_kinematics(c: dict[str, float | str]) -> dict[str, Any]:
     rate_k1 = float(g_k1["los_angular_rate_rad_s"])
 
     # --- K1 + K2 together: the V0-V4 agreement check must accept them ---
-    r_both, _ = _evaluate(
-        make_config(nominal_m, kinematics="target", los_rate_rad_s=rate_k2)
-    )
+    r_both, _ = _evaluate(make_config(nominal_m, kinematics="target", los_rate_rad_s=rate_k2))
     mode_both = r_both.stage_outputs["geometry"]["los_rate_mode"]
 
     print(f"\n    Nominal range: {nominal_m / 1000.0:.1f} km, integration {t_int_s * 1e6:.0f} us")
     print(f"\n    {'door':<10s} {'mode string':<52s} {'omega_LOS':>12s} {'smear':>10s}")
     print(f"    {'':<10s} {'':<52s} {'[mrad/s]':>12s} {'[um]':>10s}")
     print(f"    {'-' * 10} {'-' * 52} {'-' * 12} {'-' * 10}")
-    print(f"    {'K0':<10s} {str(g_k0['los_rate_mode']):<52s} {rate_k0 * 1e3:>12.5f} "
-          f"{smear_k0 * 1e6:>10.4f}")
-    print(f"    {'K2':<10s} {str(g_k2['los_rate_mode']):<52s} {rate_k2 * 1e3:>12.5f} "
-          f"{smear_k2 * 1e6:>10.4f}")
-    print(f"    {'K1':<10s} {str(g_k1['los_rate_mode']):<52s} {rate_k1 * 1e3:>12.5f} "
-          f"{'--':>10s}")
-    print(f"    {'K1+K2':<10s} {str(mode_both)[:52]:<52s} "
-          f"{float(r_both.stage_outputs['geometry']['los_angular_rate_rad_s']) * 1e3:>12.5f} "
-          f"{'--':>10s}")
+    print(
+        f"    {'K0':<10s} {str(g_k0['los_rate_mode']):<52s} {rate_k0 * 1e3:>12.5f} "
+        f"{smear_k0 * 1e6:>10.4f}"
+    )
+    print(
+        f"    {'K2':<10s} {str(g_k2['los_rate_mode']):<52s} {rate_k2 * 1e3:>12.5f} "
+        f"{smear_k2 * 1e6:>10.4f}"
+    )
+    print(f"    {'K1':<10s} {str(g_k1['los_rate_mode']):<52s} {rate_k1 * 1e3:>12.5f} {'--':>10s}")
+    print(
+        f"    {'K1+K2':<10s} {str(mode_both)[:52]:<52s} "
+        f"{float(r_both.stage_outputs['geometry']['los_angular_rate_rad_s']) * 1e3:>12.5f} "
+        f"{'--':>10s}"
+    )
 
-    print(f"\n    K1 vs K2 relative difference: "
-          f"{abs(rate_k1 - rate_k2) / rate_k2:.3e} (agreement bound 1e-2)")
+    print(
+        f"\n    K1 vs K2 relative difference: "
+        f"{abs(rate_k1 - rate_k2) / rate_k2:.3e} (agreement bound 1e-2)"
+    )
 
     # --- and the disagreement raises (Rule 15 / ADR-0006 rule 2) ---
     print("\n    Deliberate disagreement (K1 fed a wrong rate) must RAISE:")
@@ -833,8 +880,10 @@ def print_kinematics(c: dict[str, float | str]) -> dict[str, Any]:
     print(f"      |v_rel x u_hat|                           = {cross:>10.3f} m/s")
     print(f"      omega = |v_rel x u_hat| / R               = {rate_hand:.9f} rad/s")
     print(f"      RADIANT                                    = {rate_k2:.9f} rad/s")
-    print(f"      relative difference                        = "
-          f"{abs(rate_hand - rate_k2) / rate_k2:.2e}")
+    print(
+        f"      relative difference                        = "
+        f"{abs(rate_hand - rate_k2) / rate_k2:.2e}"
+    )
 
     print("\n    Physics — why ONE rate, not two smears:")
     print("      Platform motion and target motion are not two independent blurs. They")
@@ -843,20 +892,28 @@ def print_kinematics(c: dict[str, float | str]) -> dict[str, Any]:
     print("      become a smear. Here the beam-aspect crosser moves against the")
     print(f"      platform's cross-track motion, so the rates ADD: {rate_k0 * 1e3:.3f} mrad/s")
     print(f"      platform-only becomes {rate_k2 * 1e3:.3f} mrad/s relative — a factor")
-    print(f"      {rate_k2 / rate_k0:.2f}. An RSS of two smears would have given "
-          f"{math.hypot(rate_k0, rate_k2 - rate_k0) * 1e3:.3f} mrad/s.")
+    print(
+        f"      {rate_k2 / rate_k0:.2f}. An RSS of two smears would have given "
+        f"{math.hypot(rate_k0, rate_k2 - rate_k0) * 1e3:.3f} mrad/s."
+    )
 
     print("\n    Smear consequence at this frame time:")
-    print(f"      smear (platform only, K0):   {smear_k0 * 1e6:.4f} um = "
-          f"{smear_k0 / pitch_m:.4f} pixel")
-    print(f"      smear (relative, K2):        {smear_k2 * 1e6:.4f} um = "
-          f"{smear_k2 / pitch_m:.4f} pixel")
+    print(
+        f"      smear (platform only, K0):   {smear_k0 * 1e6:.4f} um = "
+        f"{smear_k0 / pitch_m:.4f} pixel"
+    )
+    print(
+        f"      smear (relative, K2):        {smear_k2 * 1e6:.4f} um = "
+        f"{smear_k2 / pitch_m:.4f} pixel"
+    )
     t_1px_k0 = pitch_m / (rate_k0 * focal_m)
     t_1px_k2 = pitch_m / (rate_k2 * focal_m)
     print(f"      integration time for 1-pixel smear, K0: {t_1px_k0 * 1e3:.3f} ms")
     print(f"      integration time for 1-pixel smear, K2: {t_1px_k2 * 1e3:.3f} ms")
-    print(f"      -> a crossing target cuts the usable integration budget by "
-          f"{100.0 * (1.0 - t_1px_k2 / t_1px_k0):.1f} %.")
+    print(
+        f"      -> a crossing target cuts the usable integration budget by "
+        f"{100.0 * (1.0 - t_1px_k2 / t_1px_k0):.1f} %."
+    )
     print(f"      At the {t_int_s * 1e6:.0f} us search frame the smear is far sub-pixel in")
     print("      both cases, so target motion costs no MTF here; it becomes the")
     print("      binding constraint only for track-mode integration times.")
@@ -881,8 +938,10 @@ def print_modtran_anchor(c: dict[str, float | str]) -> list[dict[str, Any]]:
 
     missing = [run for run, _ in L_GRID_10KM if not (MODTRAN_RUNS / f"{run}.tp7").exists()]
     if missing:
-        print(f"\n    SKIPPED — the delivered MODTRAN runs are not staged in "
-              f"{MODTRAN_RUNS.relative_to(REPO_ROOT)} (gitignored; see")
+        print(
+            f"\n    SKIPPED — the delivered MODTRAN runs are not staged in "
+            f"{MODTRAN_RUNS.relative_to(REPO_ROOT)} (gitignored; see"
+        )
         print("    modtran/real_runs/README.md). Missing: " + ", ".join(missing))
         print("    The rest of the scenario is unaffected; only this section needs them.")
         return []
@@ -900,8 +959,10 @@ def print_modtran_anchor(c: dict[str, float | str]) -> list[dict[str, Any]]:
         aerosol_type=str(c["aerosol"]),
     )
 
-    print(f"\n    Model side:   SimpleAtmosphere({c['profile']}, PWV {c['pwv_cm']} cm, "
-          f"vis {c['visibility_km']} km, {c['aerosol']} aerosol)")
+    print(
+        f"\n    Model side:   SimpleAtmosphere({c['profile']}, PWV {c['pwv_cm']} cm, "
+        f"vis {c['visibility_km']} km, {c['aerosol']} aerosol)"
+    )
     print("                  evaluate_level_arm(LevelArmSpec(h=10 km, L)) — Beer-Lambert")
     print("                  at the LOCAL extinction coefficient over the true chord.")
     print("    MODTRAN side: L16-L20, ITYPE=1 horizontal decks, same profile/aerosol/")
@@ -911,12 +972,18 @@ def print_modtran_anchor(c: dict[str, float | str]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for band_name, lo_um, hi_um in ANCHOR_BANDS:
         print(f"\n    --- {band_name} ---")
-        print(f"    {'run':>5s} {'range':>8s} {'MODTRAN tau':>12s} {'model tau':>11s} "
-              f"{'ratio':>8s} {'difference':>11s} {'a_MODTRAN':>10s} {'a_model':>9s}")
-        print(f"    {'':>5s} {'[km]':>8s} {'[--]':>12s} {'[--]':>11s} "
-              f"{'[--]':>8s} {'[%]':>11s} {'[1/km]':>10s} {'[1/km]':>9s}")
-        print(f"    {'-' * 5} {'-' * 8} {'-' * 12} {'-' * 11} {'-' * 8} {'-' * 11} "
-              f"{'-' * 10} {'-' * 9}")
+        print(
+            f"    {'run':>5s} {'range':>8s} {'MODTRAN tau':>12s} {'model tau':>11s} "
+            f"{'ratio':>8s} {'difference':>11s} {'a_MODTRAN':>10s} {'a_model':>9s}"
+        )
+        print(
+            f"    {'':>5s} {'[km]':>8s} {'[--]':>12s} {'[--]':>11s} "
+            f"{'[--]':>8s} {'[%]':>11s} {'[1/km]':>10s} {'[1/km]':>9s}"
+        )
+        print(
+            f"    {'-' * 5} {'-' * 8} {'-' * 12} {'-' * 11} {'-' * 8} {'-' * 11} "
+            f"{'-' * 10} {'-' * 9}"
+        )
         for run, range_m in L_GRID_10KM:
             native = Tape7Reader(MODTRAN_RUNS / f"{run}.tp7").parse()
             nu = native.wavenumber_cm1
@@ -947,9 +1014,11 @@ def print_modtran_anchor(c: dict[str, float | str]) -> list[dict[str, Any]]:
                     "alpha_model_per_km": alpha_model,
                 }
             )
-            print(f"    {run:>5s} {range_m / 1000.0:>8.1f} {m:>12.4f} {s:>11.4f} "
-                  f"{s / m:>8.3f} {100.0 * (s - m) / m:>+11.1f} "
-                  f"{alpha_modtran:>10.5f} {alpha_model:>9.5f}")
+            print(
+                f"    {run:>5s} {range_m / 1000.0:>8.1f} {m:>12.4f} {s:>11.4f} "
+                f"{s / m:>8.3f} {100.0 * (s - m) / m:>+11.1f} "
+                f"{alpha_modtran:>10.5f} {alpha_model:>9.5f}"
+            )
 
     print("\n    Expected residual, and why it is one-sided at long range:")
     print("      A band-averaged transmittance is not multiplicative in path length.")
@@ -970,8 +1039,10 @@ def print_modtran_anchor(c: dict[str, float | str]) -> list[dict[str, Any]]:
         model_alpha[band_name] = (
             band_rows[0]["alpha_model_per_km"] / band_rows[-1]["alpha_model_per_km"]
         )
-        print(f"        {band_name:<32s} alpha(5 km)/alpha(100 km): "
-              f"MODTRAN {modtran_alpha[band_name]:.2f}x, model {model_alpha[band_name]:.2f}x")
+        print(
+            f"        {band_name:<32s} alpha(5 km)/alpha(100 km): "
+            f"MODTRAN {modtran_alpha[band_name]:.2f}x, model {model_alpha[band_name]:.2f}x"
+        )
     print("      In the MWIR the simple model's k(lambda) is essentially FLAT across")
     print("      3.5-5.0 um — the documented CU-161 region-flat spectral-shape")
     print("      limitation — so its band mean stays very nearly exponential and it")
@@ -1013,10 +1084,12 @@ def print_rule4(c: dict[str, float | str]) -> dict[str, Any]:
 
     consistency = result.stage_outputs["performance"]["dual_path_consistency"]
     print(f"\n    passed_x / passed_y:          {consistency.passed_x} / {consistency.passed_y}")
-    print(f"    max |FFT(PSF) - prod(MTF)| x: "
-          f"{consistency.max_absolute_error_x:.6f} (dimensionless)")
-    print(f"    max |FFT(PSF) - prod(MTF)| y: "
-          f"{consistency.max_absolute_error_y:.6f} (dimensionless)")
+    print(
+        f"    max |FFT(PSF) - prod(MTF)| x: {consistency.max_absolute_error_x:.6f} (dimensionless)"
+    )
+    print(
+        f"    max |FFT(PSF) - prod(MTF)| y: {consistency.max_absolute_error_y:.6f} (dimensionless)"
+    )
     print(f"    tolerance:                    {consistency.tolerance:.6f} (dimensionless)")
     consistency_logs = [r for r in log_records if "consistency" in r.getMessage().lower()]
     print(f"    consistency WARNING log records emitted: {len(consistency_logs)}")
@@ -1057,12 +1130,18 @@ def print_cross_checks(
     theta_o_hand = math.pi / 2.0 + phi / 2.0
     print("\n    Check 1 — level-arm theta_o closed form (isoceles chord triangle)")
     print(f"      phi = 2 asin(d/2r)  = {phi:.9f} rad = {math.degrees(phi):.6f} deg")
-    print(f"      theta_o = pi/2+phi/2 = {theta_o_hand:.9f} rad "
-          f"= {math.degrees(theta_o_hand):.6f} deg")
-    print(f"      RADIANT               = {row['theta_o_rad']:.9f} rad "
-          f"= {math.degrees(row['theta_o_rad']):.6f} deg")
-    print(f"      relative difference   = "
-          f"{abs(theta_o_hand - row['theta_o_rad']) / row['theta_o_rad']:.2e}")
+    print(
+        f"      theta_o = pi/2+phi/2 = {theta_o_hand:.9f} rad "
+        f"= {math.degrees(theta_o_hand):.6f} deg"
+    )
+    print(
+        f"      RADIANT               = {row['theta_o_rad']:.9f} rad "
+        f"= {math.degrees(row['theta_o_rad']):.6f} deg"
+    )
+    print(
+        f"      relative difference   = "
+        f"{abs(theta_o_hand - row['theta_o_rad']) / row['theta_o_rad']:.2e}"
+    )
 
     # --- Check 2: tangent depression small-angle form ---
     print("\n    Check 2 — tangent depression small-angle form  Delta-h ~ L^2 / 8r")
@@ -1070,8 +1149,10 @@ def print_cross_checks(
     for target_km in (25.0, 50.0, 100.0):
         entry = min(rows, key=lambda r: abs(r["range_m"] - target_km * 1000.0))
         approx = entry["range_m"] ** 2 / (8.0 * r_shell_m)
-        print(f"      {entry['range_m'] / 1000.0:>11.1f} {approx:>12.2f} "
-              f"{entry['dh_m']:>12.2f} {abs(approx - entry['dh_m']) / entry['dh_m']:>10.2e}")
+        print(
+            f"      {entry['range_m'] / 1000.0:>11.1f} {approx:>12.2f} "
+            f"{entry['dh_m']:>12.2f} {abs(approx - entry['dh_m']) / entry['dh_m']:>10.2e}"
+        )
 
     # --- Check 3: inverse-square x Beer-Lambert signal scaling ---
     near = min(rows, key=lambda r: abs(r["range_m"] - 25_000.0))
@@ -1088,12 +1169,18 @@ def print_cross_checks(
 
     # --- Check 4: LOS rate (already computed in section 5) ---
     print("\n    Check 4 — relative LOS angular rate (see section 5 for the algebra)")
-    print(f"      hand    = {kin['rate_hand_rad_s']:.9f} rad/s "
-          f"= {kin['rate_hand_rad_s'] * 1e3:.5f} mrad/s")
-    print(f"      RADIANT = {kin['rate_k2_rad_s']:.9f} rad/s "
-          f"= {kin['rate_k2_rad_s'] * 1e3:.5f} mrad/s")
-    print(f"      relative difference = "
-          f"{abs(kin['rate_hand_rad_s'] - kin['rate_k2_rad_s']) / kin['rate_k2_rad_s']:.2e}")
+    print(
+        f"      hand    = {kin['rate_hand_rad_s']:.9f} rad/s "
+        f"= {kin['rate_hand_rad_s'] * 1e3:.5f} mrad/s"
+    )
+    print(
+        f"      RADIANT = {kin['rate_k2_rad_s']:.9f} rad/s "
+        f"= {kin['rate_k2_rad_s'] * 1e3:.5f} mrad/s"
+    )
+    print(
+        f"      relative difference = "
+        f"{abs(kin['rate_hand_rad_s'] - kin['rate_k2_rad_s']) / kin['rate_k2_rad_s']:.2e}"
+    )
 
     # --- Check 5: target-plane sample distance ---
     tpsd_hand = float(c["pitch_um"]) * 1e-6 * row["range_m"] / float(c["focal_length_m"])
@@ -1117,9 +1204,7 @@ def make_figures(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     ranges_km = [r["range_m"] / 1000.0 for r in rows]
-    warn_start_km = next(
-        (r["range_m"] / 1000.0 for r in rows if r["guard_action"] == "warn"), None
-    )
+    warn_start_km = next((r["range_m"] / 1000.0 for r in rows if r["guard_action"] == "warn"), None)
 
     def _shade(ax: Any) -> None:
         if warn_start_km is not None:
@@ -1135,7 +1220,7 @@ def make_figures(
     fig, ax_left = plt.subplots(figsize=(10, 6.5))
     ax_right = ax_left.twinx()
     _shade(ax_left)
-    line_snr, = ax_left.semilogy(
+    (line_snr,) = ax_left.semilogy(
         ranges_km, [r["snr"] for r in rows], "o-", color="tab:blue", label="SNR"
     )
     line_thr = ax_left.axhline(
@@ -1144,7 +1229,7 @@ def make_figures(
         linestyle="--",
         label=f"detection threshold SNR = {float(c['snr_threshold']):.0f}",
     )
-    line_det, = ax_right.plot(
+    (line_det,) = ax_right.plot(
         ranges_km,
         [r["detection_range_m"] / 1000.0 for r in rows],
         "s--",
@@ -1189,8 +1274,10 @@ def make_figures(
         color="tab:blue",
         label="RADIANT level arm, MWIR 3.5-5.0 um (chain)",
     )
-    styles = {"MWIR 3.5-5.0 um (sensor band)": ("tab:blue", "o"),
-              "LWIR 8-12 um (reference)": ("tab:purple", "^")}
+    styles = {
+        "MWIR 3.5-5.0 um (sensor band)": ("tab:blue", "o"),
+        "LWIR 8-12 um (reference)": ("tab:purple", "^"),
+    }
     for band_name, (colour, marker) in styles.items():
         band_rows = [r for r in anchor if r["band"] == band_name]
         if not band_rows:
@@ -1229,12 +1316,25 @@ def make_figures(
 
     # Figure 3 — horizon guard: tangent depression vs range
     fig, ax = plt.subplots(figsize=(10, 6.5))
-    ax.plot(ranges_km, [r["dh_m"] for r in rows], "o-", color="tab:brown",
-            label="tangent depression Delta-h (core classifier)")
-    ax.axhline(GUARD_DH_CLEAN_M, color="tab:orange", linestyle="--",
-               label=f"clean / warn boundary = {GUARD_DH_CLEAN_M:.0f} m")
-    ax.axhline(GUARD_DH_RAISE_M, color="tab:red", linestyle="--",
-               label=f"warn / raise boundary = {GUARD_DH_RAISE_M:.0f} m")
+    ax.plot(
+        ranges_km,
+        [r["dh_m"] for r in rows],
+        "o-",
+        color="tab:brown",
+        label="tangent depression Delta-h (core classifier)",
+    )
+    ax.axhline(
+        GUARD_DH_CLEAN_M,
+        color="tab:orange",
+        linestyle="--",
+        label=f"clean / warn boundary = {GUARD_DH_CLEAN_M:.0f} m",
+    )
+    ax.axhline(
+        GUARD_DH_RAISE_M,
+        color="tab:red",
+        linestyle="--",
+        label=f"warn / raise boundary = {GUARD_DH_RAISE_M:.0f} m",
+    )
     ax.plot(
         ranges_km,
         [(r["range_m"] ** 2) / (8.0 * (R_EARTH_M + float(c["h_sensor_m"]))) for r in rows],
@@ -1262,13 +1362,23 @@ def make_figures(
     ax_right = ax_left.twinx()
     rate_k0 = [r["los_rate_k0_rad_s"] for r in rows]
     rate_k2 = [r["los_rate_k2_rad_s"] for r in rows]
-    l0, = ax_left.plot(ranges_km, [v * 1e3 for v in rate_k0], "o-", color="tab:gray",
-                       label="omega_LOS, platform only (K0)")
-    l2, = ax_left.plot(ranges_km, [v * 1e3 for v in rate_k2], "s-", color="tab:red",
-                       label="omega_LOS, relative with crossing target (K2)")
+    (l0,) = ax_left.plot(
+        ranges_km,
+        [v * 1e3 for v in rate_k0],
+        "o-",
+        color="tab:gray",
+        label="omega_LOS, platform only (K0)",
+    )
+    (l2,) = ax_left.plot(
+        ranges_km,
+        [v * 1e3 for v in rate_k2],
+        "s-",
+        color="tab:red",
+        label="omega_LOS, relative with crossing target (K2)",
+    )
     pitch_m = float(c["pitch_um"]) * 1e-6
     focal_m = float(c["focal_length_m"])
-    l3, = ax_right.plot(
+    (l3,) = ax_right.plot(
         ranges_km,
         [pitch_m / (v * focal_m) * 1e3 for v in rate_k2],
         "^--",
@@ -1300,9 +1410,7 @@ def make_figures(
 # ---------------------------------------------------------------------------
 
 
-def write_results_workbook(
-    rows: list[dict[str, Any]], anchor: list[dict[str, Any]]
-) -> Path:
+def write_results_workbook(rows: list[dict[str, Any]], anchor: list[dict[str, Any]]) -> Path:
     workbook = openpyxl.Workbook()
     head_font = Font(bold=True, size=10, color="FFFFFF")
     head_fill = PatternFill("solid", fgColor="2E75B6")
@@ -1333,11 +1441,22 @@ def write_results_workbook(
     _write(
         ws,
         [
-            "Range [km]", "theta_o [deg]", "Delta-h [m]", "Guard verdict",
-            "tau band-mean MWIR [--]", "alpha_eff [1/km]", "Signal [e-]",
-            "Noise [e- rms]", "SNR [--]", "Detection range [km]",
-            "Well margin [dB]", "NEDT [mK]", "Target-plane sample distance [m]",
-            "omega_LOS K0 [mrad/s]", "omega_LOS K2 [mrad/s]", "Smear K2 [um]",
+            "Range [km]",
+            "theta_o [deg]",
+            "Delta-h [m]",
+            "Guard verdict",
+            "tau band-mean MWIR [--]",
+            "alpha_eff [1/km]",
+            "Signal [e-]",
+            "Noise [e- rms]",
+            "SNR [--]",
+            "Detection range [km]",
+            "Well margin [dB]",
+            "NEDT [mK]",
+            "Target-plane sample distance [m]",
+            "omega_LOS K0 [mrad/s]",
+            "omega_LOS K2 [mrad/s]",
+            "Smear K2 [um]",
         ],
         [
             [
@@ -1366,13 +1485,24 @@ def write_results_workbook(
         ws2 = workbook.create_sheet("MODTRAN anchor")
         _write(
             ws2,
-            ["Band", "Run", "Range [km]", "MODTRAN tau [--]", "Model tau [--]",
-             "Ratio model/MODTRAN [--]", "Difference [%]"],
+            [
+                "Band",
+                "Run",
+                "Range [km]",
+                "MODTRAN tau [--]",
+                "Model tau [--]",
+                "Ratio model/MODTRAN [--]",
+                "Difference [%]",
+            ],
             [
                 [
-                    r["band"], r["run"], round(r["range_m"] / 1000.0, 1),
-                    round(r["tau_modtran"], 5), round(r["tau_model"], 5),
-                    round(r["ratio"], 4), round(r["diff_pct"], 2),
+                    r["band"],
+                    r["run"],
+                    round(r["range_m"] / 1000.0, 1),
+                    round(r["tau_modtran"], 5),
+                    round(r["tau_model"], 5),
+                    round(r["ratio"], 4),
+                    round(r["diff_pct"], 2),
                 ]
                 for r in anchor
             ],
@@ -1412,37 +1542,58 @@ def main() -> None:
     print("  SUMMARY")
     print(_rule())
     near, far = rows[0], rows[-1]
-    print(f"\n    Scene class:            {nominal_result.stage_outputs['geometry']['scene_class']}"
-          f" (derived, ADR-0011 decision 8)")
-    print("    LOS direction:          "
-          f"{nominal_result.stage_outputs['geometry']['los_direction']}")
+    print(
+        f"\n    Scene class:            {nominal_result.stage_outputs['geometry']['scene_class']}"
+        f" (derived, ADR-0011 decision 8)"
+    )
+    print(
+        f"    LOS direction:          {nominal_result.stage_outputs['geometry']['los_direction']}"
+    )
     print(f"    Regime:                 {nominal_result.stage_outputs['optics']['regime']}")
-    print(f"    SNR at {near['range_m'] / 1000.0:.0f} km:           "
-          f"{near['snr']:.1f} (dimensionless)")
+    print(
+        f"    SNR at {near['range_m'] / 1000.0:.0f} km:           {near['snr']:.1f} (dimensionless)"
+    )
     print(f"    SNR at {far['range_m'] / 1000.0:.0f} km:          {far['snr']:.1f} (dimensionless)")
-    print(f"    Detection range (ref {near['range_m'] / 1000.0:.0f} km): "
-          f"{near['detection_range_m'] / 1000.0:.1f} km")
-    print(f"    Detection range (ref {far['range_m'] / 1000.0:.0f} km): "
-          f"{far['detection_range_m'] / 1000.0:.1f} km")
-    print(f"    Delta-h at {near['range_m'] / 1000.0:.0f} km:        {near['dh_m']:.1f} m "
-          f"({near['guard_action']})")
-    print(f"    Delta-h at {far['range_m'] / 1000.0:.0f} km:       {far['dh_m']:.1f} m "
-          f"({far['guard_action']})")
-    print(f"    omega_LOS platform only: {kin['rate_k0_rad_s'] * 1e3:.4f} mrad/s at "
-          f"{float(c['range_nominal_m']) / 1000.0:.0f} km")
-    print(f"    omega_LOS with crosser:  {kin['rate_k2_rad_s'] * 1e3:.4f} mrad/s at "
-          f"{float(c['range_nominal_m']) / 1000.0:.0f} km")
-    print(f"    Rule-4 dual path:        passed_x={rule4['passed_x']} passed_y={rule4['passed_y']} "
-          f"max_err={max(rule4['max_err_x'], rule4['max_err_y']):.2e} "
-          f"(tol {rule4['tolerance']:.2e})")
-    print(f"    Warnings at the nominal point: "
-          f"{len(nominal_warnings)} (horizon guard silent at 50 km)")
+    print(
+        f"    Detection range (ref {near['range_m'] / 1000.0:.0f} km): "
+        f"{near['detection_range_m'] / 1000.0:.1f} km"
+    )
+    print(
+        f"    Detection range (ref {far['range_m'] / 1000.0:.0f} km): "
+        f"{far['detection_range_m'] / 1000.0:.1f} km"
+    )
+    print(
+        f"    Delta-h at {near['range_m'] / 1000.0:.0f} km:        {near['dh_m']:.1f} m "
+        f"({near['guard_action']})"
+    )
+    print(
+        f"    Delta-h at {far['range_m'] / 1000.0:.0f} km:       {far['dh_m']:.1f} m "
+        f"({far['guard_action']})"
+    )
+    print(
+        f"    omega_LOS platform only: {kin['rate_k0_rad_s'] * 1e3:.4f} mrad/s at "
+        f"{float(c['range_nominal_m']) / 1000.0:.0f} km"
+    )
+    print(
+        f"    omega_LOS with crosser:  {kin['rate_k2_rad_s'] * 1e3:.4f} mrad/s at "
+        f"{float(c['range_nominal_m']) / 1000.0:.0f} km"
+    )
+    print(
+        f"    Rule-4 dual path:        passed_x={rule4['passed_x']} passed_y={rule4['passed_y']} "
+        f"max_err={max(rule4['max_err_x'], rule4['max_err_y']):.2e} "
+        f"(tol {rule4['tolerance']:.2e})"
+    )
+    print(
+        f"    Warnings at the nominal point: "
+        f"{len(nominal_warnings)} (horizon guard silent at 50 km)"
+    )
 
     print("\n    Artifacts")
     for path in figures:
         print(f"      figure : {path.relative_to(REPO_ROOT)}")
-    print(f"      workbook: {results_path.relative_to(REPO_ROOT)} (gitignored, "
-          "regenerate-on-demand)")
+    print(
+        f"      workbook: {results_path.relative_to(REPO_ROOT)} (gitignored, regenerate-on-demand)"
+    )
 
 
 if __name__ == "__main__":

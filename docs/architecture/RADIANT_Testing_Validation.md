@@ -415,6 +415,26 @@ Four things about it are load-bearing:
   scenario's gitignored `outputs/` tree reloads only in the tree that just ran the scenario;
   `test_gui_baseline_references_only_committed_files` is the static guard against it.
 
+Three further sweep-protocol rules (October sweep, owner-ratified 2026-09-12):
+
+- **Enumerate moved scenes from the RUNNERS, never from the GUI baselines.** Nine scenario
+  folders have no baseline (1.6, 2.4, 4.2, 6.5, 8.3, 9.1–9.4), so a baseline-driven sweep
+  cannot see them — exactly how CU-321's otherwise thorough refresh missed 1.6, the one
+  moved scene without one. The CU-324 D-swap sweep's all-43-runners enumeration is the
+  model.
+- **A results-affecting sweep runs on the COMPOSED tree, after the last sibling merges.**
+  A walkthrough refreshed on a branch is measured against a tree without its siblings, so
+  its digits go stale at the ~1e-4 level when they land, with every branch-side
+  attribution individually correct and their composition not (measured on 1.3/3.2/10.2
+  after the CU-335 / CU-324-item-2 merges). One composed-tree pass replaces per-branch
+  refreshes.
+- **Scenario figures are committed, and the sweep regenerates the moved scenarios'
+  figures on the machine running the sweep, in the same PR.** The runners are
+  deterministic (double-run pixel-verified 2026-08-31): on a single machine a figure's
+  bytes change only when its numbers did, so figure diffs are meaningful. A churn-only
+  diff (bytes moved, stdout identical) signals environment drift and is worth
+  investigating, not reverting. Rule 26(b) applies — walkthroughs reference the figures.
+
 ---
 
 ## 6. Numerical Tolerances

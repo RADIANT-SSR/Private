@@ -22,12 +22,11 @@ Usage:
     python run_ipc_sweep.py
 """
 
-import math
 from pathlib import Path
 
 import numpy as np
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 # ---------------------------------------------------------------------------
 # Step 1: Read Mike's spreadsheet
@@ -78,37 +77,37 @@ for row in ws_req.iter_rows(min_row=5, max_col=4, values_only=False):
 # and wavelengths.
 
 # Optics — from System Requirements sheet
-aperture_m = float(sys_reqs["Aperture diameter"]) / 100.0       # cm → m
-focal_length_m = float(sys_reqs["Focal length"]) / 100.0        # cm → m
+aperture_m = float(sys_reqs["Aperture diameter"]) / 100.0  # cm → m
+focal_length_m = float(sys_reqs["Focal length"]) / 100.0  # cm → m
 transmission = float(sys_reqs["Optical transmission"]) / 100.0  # % → fraction
-optics_temp_K = float(sys_reqs["Optics temperature"])            # already K
+optics_temp_K = float(sys_reqs["Optics temperature"])  # already K
 
 # Detector — from Detector Specs sheet
-pixel_pitch_um = float(det_specs["Pixel pitch"])                 # already µm (RADIANT input unit)
-qe = float(det_specs["Average QE (in-band)"]) / 100.0           # % → fraction
-dark_rate = float(det_specs["Dark current (mean)"])              # already e⁻/s
-operating_temp_K = float(det_specs["Operating temperature"])     # already K
-fwc = float(det_specs["Full well capacity"])                     # already e⁻
-read_noise = float(det_specs["Read noise (CDS)"])                # already e⁻ RMS
-adc_bits = int(det_specs["ADC resolution"])                      # already bits
-gain = float(det_specs["System gain"])                           # already e⁻/DN
+pixel_pitch_um = float(det_specs["Pixel pitch"])  # already µm (RADIANT input unit)
+qe = float(det_specs["Average QE (in-band)"]) / 100.0  # % → fraction
+dark_rate = float(det_specs["Dark current (mean)"])  # already e⁻/s
+operating_temp_K = float(det_specs["Operating temperature"])  # already K
+fwc = float(det_specs["Full well capacity"])  # already e⁻
+read_noise = float(det_specs["Read noise (CDS)"])  # already e⁻ RMS
+adc_bits = int(det_specs["ADC resolution"])  # already bits
+gain = float(det_specs["System gain"])  # already e⁻/DN
 
 # Scene — from System Requirements sheet
-target_temp = float(sys_reqs["Target temperature"])              # already K
-target_emiss = float(sys_reqs["Target emissivity"])              # dimensionless
-bg_temp = float(sys_reqs["Background temperature"])              # already K
-bg_emiss = float(sys_reqs["Background emissivity"])              # dimensionless
+target_temp = float(sys_reqs["Target temperature"])  # already K
+target_emiss = float(sys_reqs["Target emissivity"])  # dimensionless
+bg_temp = float(sys_reqs["Background temperature"])  # already K
+bg_emiss = float(sys_reqs["Background emissivity"])  # dimensionless
 
 # Spectral — from System Requirements sheet
 # The band is given as a string "3.5 – 5.0"; parse it.
 band_str = str(sys_reqs["Spectral band"])
 band_parts = band_str.replace("–", "-").replace("—", "-").split("-")
-band_min_um = float(band_parts[0].strip())                      # already µm
-band_max_um = float(band_parts[1].strip())                      # already µm
-t_int_s = float(sys_reqs["Integration time"]) / 1000.0          # ms → s
+band_min_um = float(band_parts[0].strip())  # already µm
+band_max_um = float(band_parts[1].strip())  # already µm
+t_int_s = float(sys_reqs["Integration time"]) / 1000.0  # ms → s
 
 # Geometry — from System Requirements sheet
-altitude_m = float(sys_reqs["Orbit altitude"]) * 1000.0          # km → m
+altitude_m = float(sys_reqs["Orbit altitude"]) * 1000.0  # km → m
 
 # ---------------------------------------------------------------------------
 # Step 3: Run RADIANT baseline evaluation (IPC = 0)
@@ -138,7 +137,7 @@ def make_ipc_config(ipc_fraction: float) -> dict:
             },
         },
         "atmosphere": {
-            "model": "simple",    # LEO through atmosphere
+            "model": "simple",  # LEO through atmosphere
         },
         "geometry": {
             "sensor_altitude_m": altitude_m,
@@ -170,6 +169,7 @@ def make_ipc_config(ipc_fraction: float) -> dict:
         "performance": {"niirs": {"allow_extrapolated": True}},
     }
 
+
 # ---------------------------------------------------------------------------
 # Step 4: Analytic IPC MTF (for validation cross-check)
 # ---------------------------------------------------------------------------
@@ -199,14 +199,16 @@ def main() -> None:
     lab_data: list[dict] = []
     for row in ws_ipc.iter_rows(min_row=6, max_col=6, values_only=True):
         if row[0] and row[1] is not None:
-            lab_data.append({
-                "sample_id": row[0],
-                "ipc_pct": float(row[1]),         # IPC coupling [%]
-                "mtf_nyq": float(row[2]),         # Measured MTF at Nyquist [—]
-                "ee_1x1": float(row[3]),          # Measured EE in 1×1 pixel [—]
-                "ee_3x3": float(row[4]),          # Measured EE in 3×3 pixels [—]
-                "notes": row[5] or "",
-            })
+            lab_data.append(
+                {
+                    "sample_id": row[0],
+                    "ipc_pct": float(row[1]),  # IPC coupling [%]
+                    "mtf_nyq": float(row[2]),  # Measured MTF at Nyquist [—]
+                    "ee_1x1": float(row[3]),  # Measured EE in 1×1 pixel [—]
+                    "ee_3x3": float(row[4]),  # Measured EE in 3×3 pixels [—]
+                    "notes": row[5] or "",
+                }
+            )
 
     print("=== Detector Specs (from vendor datasheet) ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit'}")
@@ -222,13 +224,17 @@ def main() -> None:
     print(f"  {'ADC resolution':<35s} {det_specs['ADC resolution']:>14}  bits")
     print(f"  {'System gain':<35s} {det_specs['System gain']:>14}  e⁻/DN")
 
-    print(f"\n=== Lab IPC Measurements ===")
-    print(f"  {'Sample':<14s} {'IPC [%]':>8s}  {'MTF@Nyq [—]':>12s}  {'EE 1×1 [—]':>11s}  {'EE 3×3 [—]':>11s}")
+    print("\n=== Lab IPC Measurements ===")
+    print(
+        f"  {'Sample':<14s} {'IPC [%]':>8s}  {'MTF@Nyq [—]':>12s}  {'EE 1×1 [—]':>11s}  {'EE 3×3 [—]':>11s}"
+    )
     print(f"  {'-' * 14} {'-' * 8}  {'-' * 12}  {'-' * 11}  {'-' * 11}")
     for d in lab_data:
-        print(f"  {d['sample_id']:<14s} {d['ipc_pct']:>8.1f}  {d['mtf_nyq']:>12.3f}  {d['ee_1x1']:>11.3f}  {d['ee_3x3']:>11.3f}")
+        print(
+            f"  {d['sample_id']:<14s} {d['ipc_pct']:>8.1f}  {d['mtf_nyq']:>12.3f}  {d['ee_1x1']:>11.3f}  {d['ee_3x3']:>11.3f}"
+        )
 
-    print(f"\n=== System Requirements ===")
+    print("\n=== System Requirements ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit'}")
     print(f"  {'-' * 35} {'-' * 14}  {'-' * 12}")
     print(f"  {'Aperture diameter':<35s} {sys_reqs['Aperture diameter']:>14}  cm")
@@ -241,13 +247,15 @@ def main() -> None:
     print(f"  {'Orbit altitude':<35s} {sys_reqs['Orbit altitude']:>14}  km")
     print(f"  {'System MTF at Nyquist':<35s} {str(sys_reqs['System MTF at Nyquist']):>14s}  —")
     print(f"  {'SNR':<35s} {str(sys_reqs['SNR']):>14s}  —")
-    print(f"  {'EE 1×1 (ensquared energy)':<35s} {str(sys_reqs['EE 1×1 (ensquared energy)']):>14s}  —")
-    f_number = float(sys_reqs["f-number"])                           # dimensionless
-    pixel_pitch_m = pixel_pitch_um * 1e-6                            # µm → m (for hand calculations)
+    print(
+        f"  {'EE 1×1 (ensquared energy)':<35s} {str(sys_reqs['EE 1×1 (ensquared energy)']):>14s}  —"
+    )
+    f_number = float(sys_reqs["f-number"])  # dimensionless
+    pixel_pitch_m = pixel_pitch_um * 1e-6  # µm → m (for hand calculations)
     ipc_nominal = float(det_specs["IPC coupling (typical)"]) / 100.0  # % → fraction
 
     # WFE — from System Requirements sheet
-    wfe_waves = float(sys_reqs["WFE (RMS)"])                         # already in waves
+    wfe_waves = float(sys_reqs["WFE (RMS)"])  # already in waves
 
     print("\n=== Converted to RADIANT canonical units ===")
     print(f"  {'Parameter':<35s} {'Value':>14s}  {'Unit':<15s}  {'Conversion'}")
@@ -269,54 +277,53 @@ def main() -> None:
     print(f"  {'Integration time':<35s} {t_int_s:>14.6f}  {'s':<15s}  ms ÷ 1000")
     print(f"  {'Orbit altitude':<35s} {altitude_m:>14.0f}  {'m':<15s}  km × 1000")
 
-
     print("\n=== Running RADIANT baseline evaluation (IPC = 0) ===")
     sensor = Sensor.from_dict(make_ipc_config(0.0))
     result = sensor.evaluate()
 
     # Extract baseline metrics
-    baseline_mtf_nyq = result.metrics["mtf_at_nyquist"]      # System MTF at Nyquist [—]
-    baseline_snr = result.metrics["snr"]                       # Signal-to-noise ratio [—]
-    baseline_ee_1x1 = result.metrics["ee_1x1"]                 # Ensquared energy, 1×1 pixel [—]
-    baseline_ee_3x3 = result.metrics["ee_3x3"]                 # Ensquared energy, 3×3 pixels [—]
-    baseline_contrast_snr = result.metrics.get("contrast_snr") # Contrast SNR [—]
-    baseline_rer = result.metrics.get("rer")                   # Relative edge response [—]
-    baseline_fwhm_x = result.metrics.get("fwhm_x_m")          # FWHM cross-track [m]
-    baseline_gsd = result.metrics.get("gsd_cross_track_m")     # Ground sample distance [m]
-    baseline_q = result.metrics.get("q_center")                # Sampling parameter Q [—]
-    baseline_nedt = result.metrics.get("nedt_K")               # NEDT [K]
-    baseline_niirs = result.metrics.get("niirs")               # NIIRS [—]
-    baseline_strehl = result.metrics.get("strehl")             # Strehl ratio [—]
+    baseline_mtf_nyq = result.metrics["mtf_at_nyquist"]  # System MTF at Nyquist [—]
+    baseline_snr = result.metrics["snr"]  # Signal-to-noise ratio [—]
+    baseline_ee_1x1 = result.metrics["ee_1x1"]  # Ensquared energy, 1×1 pixel [—]
+    baseline_ee_3x3 = result.metrics["ee_3x3"]  # Ensquared energy, 3×3 pixels [—]
+    baseline_contrast_snr = result.metrics.get("contrast_snr")  # Contrast SNR [—]
+    baseline_rer = result.metrics.get("rer")  # Relative edge response [—]
+    baseline_fwhm_x = result.metrics.get("fwhm_x_m")  # FWHM cross-track [m]
+    baseline_gsd = result.metrics.get("gsd_cross_track_m")  # Ground sample distance [m]
+    baseline_q = result.metrics.get("q_center")  # Sampling parameter Q [—]
+    baseline_nedt = result.metrics.get("nedt_K")  # NEDT [K]
+    baseline_niirs = result.metrics.get("niirs")  # NIIRS [—]
+    baseline_strehl = result.metrics.get("strehl")  # Strehl ratio [—]
 
     # ---------------------------------------------------------------------------
     # Step 3b: Regime and physics notes
     # ---------------------------------------------------------------------------
 
     regime = result.stage_outputs["optics"]["regime"]
-    print(f"\n=== Radiometric Regime ===")
+    print("\n=== Radiometric Regime ===")
     print(f"  Regime:  {regime}")
-    print(f"")
+    print("")
     print(f"  Extended regime: the {target_temp:.0f} K target fills the pixel entirely.")
     print(f"  Background temperature ({bg_temp:.0f} K) is used only for contrast SNR.")
-    print(f"")
-    print(f"  IPC PHYSICS NOTE:")
-    print(f"    Inter-pixel capacitance is an electrical coupling effect in the detector")
-    print(f"    readout. When a pixel accumulates charge, a fraction α leaks to each of")
-    print(f"    its 4 nearest neighbors via parasitic capacitance. This:")
-    print(f"      - Degrades MTF (blurs the image electrically, not optically)")
-    print(f"      - Reduces EE_1x1 (energy spreads from center pixel to neighbors)")
-    print(f"      - Increases EE_3x3 (neighbors capture the leaked energy)")
-    print(f"      - Does NOT change total signal or SNR (charge is redistributed, not lost)")
-    print(f"    The IPC MTF at Nyquist frequency is:")
-    print(f"      MTF_IPC(f_Nyq) = (1 - 4α) + 2α·cos(2π·f_Nyq·p) + 2α·cos(2π·f_Nyq·p)")
-    print(f"      At Nyquist (f = 1/2p): cos(π) = -1, so MTF_IPC = 1 - 4α")
-    print(f"")
-    print(f"  RADIANT wires IPC natively: setting detector.ipc_coupling causes the IPC")
-    print(f"  3×3 kernel to be convolved with the EffectivePSF via FFT. All spatial")
-    print(f"  metrics (MTF, EE, RER, FWHM) are computed from this combined PSF,")
-    print(f"  ensuring consistency (Rule 4: single PSF for all spatial metrics).")
+    print("")
+    print("  IPC PHYSICS NOTE:")
+    print("    Inter-pixel capacitance is an electrical coupling effect in the detector")
+    print("    readout. When a pixel accumulates charge, a fraction α leaks to each of")
+    print("    its 4 nearest neighbors via parasitic capacitance. This:")
+    print("      - Degrades MTF (blurs the image electrically, not optically)")
+    print("      - Reduces EE_1x1 (energy spreads from center pixel to neighbors)")
+    print("      - Increases EE_3x3 (neighbors capture the leaked energy)")
+    print("      - Does NOT change total signal or SNR (charge is redistributed, not lost)")
+    print("    The IPC MTF at Nyquist frequency is:")
+    print("      MTF_IPC(f_Nyq) = (1 - 4α) + 2α·cos(2π·f_Nyq·p) + 2α·cos(2π·f_Nyq·p)")
+    print("      At Nyquist (f = 1/2p): cos(π) = -1, so MTF_IPC = 1 - 4α")
+    print("")
+    print("  RADIANT wires IPC natively: setting detector.ipc_coupling causes the IPC")
+    print("  3×3 kernel to be convolved with the EffectivePSF via FFT. All spatial")
+    print("  metrics (MTF, EE, RER, FWHM) are computed from this combined PSF,")
+    print("  ensuring consistency (Rule 4: single PSF for all spatial metrics).")
 
-    print(f"\n=== Baseline Metrics (without IPC) ===")
+    print("\n=== Baseline Metrics (without IPC) ===")
     print(f"  {'Metric':<30s} {'Value':>12s}  {'Unit'}")
     print(f"  {'-' * 30} {'-' * 12}  {'-' * 15}")
     print(f"  {'System MTF at Nyquist':<30s} {baseline_mtf_nyq:>12.4f}  — (dimensionless)")
@@ -339,11 +346,11 @@ def main() -> None:
 
     f_nyquist = 1.0 / (2.0 * pixel_pitch_m)  # Nyquist frequency [cycles/m]
 
-    print(f"\n=== Analytic IPC MTF (validation reference) ===")
+    print("\n=== Analytic IPC MTF (validation reference) ===")
     print(f"  Nyquist frequency:  {f_nyquist:.2f} cycles/m  ({f_nyquist * 1e-3:.2f} cycles/mm)")
     print(f"  Pixel pitch:        {pixel_pitch_m * 1e6:.1f} µm  ({pixel_pitch_m:.2e} m)")
-    print(f"")
-    print(f"  Analytic: MTF_IPC at Nyquist = 1 - 4α")
+    print("")
+    print("  Analytic: MTF_IPC at Nyquist = 1 - 4α")
     print(f"    At α = 0.018 (1.8%): MTF_IPC = {1.0 - 4.0 * 0.018:.4f}")
     print(f"    At α = 0.050 (5.0%): MTF_IPC = {1.0 - 4.0 * 0.050:.4f}")
 
@@ -356,13 +363,13 @@ def main() -> None:
     #   - Computes all spatial metrics from the combined PSF
     # This is physically exact — no approximations needed.
 
-    ipc_sweep_pct = np.linspace(0.0, 5.0, 51)    # IPC coupling [%]
-    ipc_sweep_frac = ipc_sweep_pct / 100.0         # IPC coupling [fraction]
+    ipc_sweep_pct = np.linspace(0.0, 5.0, 51)  # IPC coupling [%]
+    ipc_sweep_frac = ipc_sweep_pct / 100.0  # IPC coupling [fraction]
 
     # Storage for sweep results
     sweep_results: list[dict] = []
 
-    print(f"\n=== Running IPC Sweep (51 evaluations) ===")
+    print("\n=== Running IPC Sweep (51 evaluations) ===")
     for i, alpha in enumerate(ipc_sweep_frac):
         config = make_ipc_config(alpha)
         sensor = Sensor.from_dict(config)
@@ -391,28 +398,35 @@ def main() -> None:
     sweep_fwhm = np.array([r["fwhm_x_m"] for r in sweep_results])
     sweep_snr = np.array([r["snr"] for r in sweep_results])
 
-    print(f"\n=== IPC Sweep Results ===")
-    print(f"  {'IPC [%]':>8s}  {'Sys MTF [—]':>12s}  {'EE 1×1 [—]':>12s}  {'EE 3×3 [—]':>12s}"
-          f"  {'RER [—]':>10s}  {'FWHM [µm]':>10s}  {'SNR [—]':>10s}")
-    print(f"  {'-' * 8}  {'-' * 12}  {'-' * 12}  {'-' * 12}"
-          f"  {'-' * 10}  {'-' * 10}  {'-' * 10}")
+    print("\n=== IPC Sweep Results ===")
+    print(
+        f"  {'IPC [%]':>8s}  {'Sys MTF [—]':>12s}  {'EE 1×1 [—]':>12s}  {'EE 3×3 [—]':>12s}"
+        f"  {'RER [—]':>10s}  {'FWHM [µm]':>10s}  {'SNR [—]':>10s}"
+    )
+    print(f"  {'-' * 8}  {'-' * 12}  {'-' * 12}  {'-' * 12}  {'-' * 10}  {'-' * 10}  {'-' * 10}")
     # Print every 5th point to keep the table readable
     for i in range(0, len(ipc_sweep_pct), 5):
         r = sweep_results[i]
-        print(f"  {r['ipc_pct']:>8.1f}  {r['mtf_nyq']:>12.4f}  {r['ee_1x1']:>12.4f}"
-              f"  {r['ee_3x3']:>12.4f}  {r['rer']:>10.4f}  {r['fwhm_x_m'] * 1e6:>10.1f}"
-              f"  {r['snr']:>10.2f}")
+        print(
+            f"  {r['ipc_pct']:>8.1f}  {r['mtf_nyq']:>12.4f}  {r['ee_1x1']:>12.4f}"
+            f"  {r['ee_3x3']:>12.4f}  {r['rer']:>10.4f}  {r['fwhm_x_m'] * 1e6:>10.1f}"
+            f"  {r['snr']:>10.2f}"
+        )
 
     # Analytic cross-check at selected IPC values
-    print(f"\n=== Analytic Cross-Check (RADIANT native vs. baseline × analytic IPC MTF) ===")
+    print("\n=== Analytic Cross-Check (RADIANT native vs. baseline × analytic IPC MTF) ===")
     print(f"  {'IPC [%]':>8s}  {'RADIANT MTF':>12s}  {'Analytic MTF':>13s}  {'Δ':>8s}")
     print(f"  {'-' * 8}  {'-' * 12}  {'-' * 13}  {'-' * 8}")
     for i in range(0, len(ipc_sweep_pct), 10):
         alpha = ipc_sweep_frac[i]
         radiant_mtf = sweep_results[i]["mtf_nyq"]
-        analytic_mtf = baseline_mtf_nyq * float(ipc_mtf_1d(np.array([f_nyquist]), alpha, pixel_pitch_m, axis="x")[0])
+        analytic_mtf = baseline_mtf_nyq * float(
+            ipc_mtf_1d(np.array([f_nyquist]), alpha, pixel_pitch_m, axis="x")[0]
+        )
         delta = radiant_mtf - analytic_mtf
-        print(f"  {ipc_sweep_pct[i]:>8.1f}  {radiant_mtf:>12.4f}  {analytic_mtf:>13.4f}  {delta:>8.4f}")
+        print(
+            f"  {ipc_sweep_pct[i]:>8.1f}  {radiant_mtf:>12.4f}  {analytic_mtf:>13.4f}  {delta:>8.4f}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 6: Find maximum tolerable IPC
@@ -422,9 +436,9 @@ def main() -> None:
     #   - EE 1×1 >= 0.60
     #   - SNR >= 100 (IPC doesn't affect SNR, so this is always met if baseline meets it)
 
-    MTF_REQ = 0.15       # System MTF at Nyquist threshold [—]
-    EE_1x1_REQ = 0.60    # Ensquared energy threshold [—]
-    SNR_REQ = 100.0      # SNR threshold [—]
+    MTF_REQ = 0.15  # System MTF at Nyquist threshold [—]
+    EE_1x1_REQ = 0.60  # Ensquared energy threshold [—]
+    SNR_REQ = 100.0  # SNR threshold [—]
 
     # Find the IPC value where system MTF crosses below the requirement
     mtf_limit_ipc = None
@@ -433,8 +447,12 @@ def main() -> None:
             # Linear interpolation between this point and the previous one
             if i > 0:
                 # Solve: MTF_REQ = mtf[i-1] + (mtf[i] - mtf[i-1]) * (x - ipc[i-1]) / (ipc[i] - ipc[i-1])
-                frac = (MTF_REQ - sweep_mtf_system[i - 1]) / (sweep_mtf_system[i] - sweep_mtf_system[i - 1])
-                mtf_limit_ipc = ipc_sweep_pct[i - 1] + frac * (ipc_sweep_pct[i] - ipc_sweep_pct[i - 1])
+                frac = (MTF_REQ - sweep_mtf_system[i - 1]) / (
+                    sweep_mtf_system[i] - sweep_mtf_system[i - 1]
+                )
+                mtf_limit_ipc = ipc_sweep_pct[i - 1] + frac * (
+                    ipc_sweep_pct[i] - ipc_sweep_pct[i - 1]
+                )
             else:
                 mtf_limit_ipc = 0.0  # baseline already below requirement
             break
@@ -445,7 +463,9 @@ def main() -> None:
         if sweep_ee_1x1[i] < EE_1x1_REQ:
             if i > 0:
                 frac = (EE_1x1_REQ - sweep_ee_1x1[i - 1]) / (sweep_ee_1x1[i] - sweep_ee_1x1[i - 1])
-                ee_limit_ipc = ipc_sweep_pct[i - 1] + frac * (ipc_sweep_pct[i] - ipc_sweep_pct[i - 1])
+                ee_limit_ipc = ipc_sweep_pct[i - 1] + frac * (
+                    ipc_sweep_pct[i] - ipc_sweep_pct[i - 1]
+                )
             else:
                 ee_limit_ipc = 0.0
             break
@@ -464,27 +484,35 @@ def main() -> None:
         binding_limit = None
         binding_constraint = "None (all requirements met across full sweep range)"
 
-    print(f"\n=== Maximum Tolerable IPC ===")
+    print("\n=== Maximum Tolerable IPC ===")
     print(f"  {'Requirement':<30s} {'Threshold':>10s}  {'Max IPC [%]':>12s}  {'Status'}")
     print(f"  {'-' * 30} {'-' * 10}  {'-' * 12}  {'-' * 20}")
     if mtf_limit_ipc is not None:
-        print(f"  {'System MTF at Nyquist ≥ 0.15':<30s} {MTF_REQ:>10.2f}  {mtf_limit_ipc:>12.2f}  {'BINDING' if binding_constraint == 'MTF' else ''}")
+        print(
+            f"  {'System MTF at Nyquist ≥ 0.15':<30s} {MTF_REQ:>10.2f}  {mtf_limit_ipc:>12.2f}  {'BINDING' if binding_constraint == 'MTF' else ''}"
+        )
     else:
-        print(f"  {'System MTF at Nyquist ≥ 0.15':<30s} {MTF_REQ:>10.2f}  {'>5.0':>12s}  met across full range")
+        print(
+            f"  {'System MTF at Nyquist ≥ 0.15':<30s} {MTF_REQ:>10.2f}  {'>5.0':>12s}  met across full range"
+        )
     if ee_limit_ipc is not None:
-        print(f"  {'EE 1×1 ≥ 0.60':<30s} {EE_1x1_REQ:>10.2f}  {ee_limit_ipc:>12.2f}  {'BINDING' if binding_constraint == 'EE 1×1' else ''}")
+        print(
+            f"  {'EE 1×1 ≥ 0.60':<30s} {EE_1x1_REQ:>10.2f}  {ee_limit_ipc:>12.2f}  {'BINDING' if binding_constraint == 'EE 1×1' else ''}"
+        )
     else:
         print(f"  {'EE 1×1 ≥ 0.60':<30s} {EE_1x1_REQ:>10.2f}  {'>5.0':>12s}  met across full range")
-    snr_status = "met (baseline)" if baseline_snr >= SNR_REQ else f"FAILED at baseline ({baseline_snr:.1f})"
+    snr_status = (
+        "met (baseline)" if baseline_snr >= SNR_REQ else f"FAILED at baseline ({baseline_snr:.1f})"
+    )
     print(f"  {'SNR ≥ 100':<30s} {SNR_REQ:>10.0f}  {'N/A':>12s}  {snr_status}")
-    print(f"")
+    print("")
     if binding_limit is not None:
         print(f"  CONCLUSION: Maximum tolerable IPC = {binding_limit:.2f} %")
         print(f"              Binding constraint: {binding_constraint}")
-        print(f"              Vendor typical (1.8%): {'PASS' if 1.8 < binding_limit else 'FAIL'}")
-        print(f"              Vendor max (2.5%):     {'PASS' if 2.5 < binding_limit else 'FAIL'}")
+        print(f"              Vendor typical (1.8%): {'PASS' if binding_limit > 1.8 else 'FAIL'}")
+        print(f"              Vendor max (2.5%):     {'PASS' if binding_limit > 2.5 else 'FAIL'}")
     else:
-        print(f"  CONCLUSION: All requirements met across the full 0–5% IPC range.")
+        print("  CONCLUSION: All requirements met across the full 0–5% IPC range.")
 
     # ---------------------------------------------------------------------------
     # Step 7: Compare RADIANT predictions against lab measurements
@@ -501,8 +529,10 @@ def main() -> None:
     # But the trend (MTF decreasing with IPC) should match, and the magnitude
     # should be in the right ballpark.
 
-    print(f"\n=== Lab Measurement vs. RADIANT Prediction ===")
-    print(f"  {'Sample':<14s} {'IPC [%]':>8s}  {'Meas MTF [—]':>13s}  {'RADIANT MTF':>12s}  {'Δ MTF [—]':>10s}  {'Meas EE1 [—]':>13s}  {'RADIANT EE1':>12s}")
+    print("\n=== Lab Measurement vs. RADIANT Prediction ===")
+    print(
+        f"  {'Sample':<14s} {'IPC [%]':>8s}  {'Meas MTF [—]':>13s}  {'RADIANT MTF':>12s}  {'Δ MTF [—]':>10s}  {'Meas EE1 [—]':>13s}  {'RADIANT EE1':>12s}"
+    )
     print(f"  {'-' * 14} {'-' * 8}  {'-' * 13}  {'-' * 12}  {'-' * 10}  {'-' * 13}  {'-' * 12}")
 
     lab_model_results: list[dict] = []
@@ -516,23 +546,27 @@ def main() -> None:
         model_ee1 = result.metrics["ee_1x1"]
         delta_mtf = d["mtf_nyq"] - model_mtf
 
-        lab_model_results.append({
-            "sample_id": d["sample_id"],
-            "ipc_pct": d["ipc_pct"],
-            "meas_mtf": d["mtf_nyq"],
-            "model_mtf": model_mtf,
-            "delta_mtf": delta_mtf,
-            "meas_ee1": d["ee_1x1"],
-            "model_ee1": model_ee1,
-        })
+        lab_model_results.append(
+            {
+                "sample_id": d["sample_id"],
+                "ipc_pct": d["ipc_pct"],
+                "meas_mtf": d["mtf_nyq"],
+                "model_mtf": model_mtf,
+                "delta_mtf": delta_mtf,
+                "meas_ee1": d["ee_1x1"],
+                "model_ee1": model_ee1,
+            }
+        )
 
-        print(f"  {d['sample_id']:<14s} {d['ipc_pct']:>8.1f}  {d['mtf_nyq']:>13.3f}  {model_mtf:>12.3f}  {delta_mtf:>10.3f}"
-              f"  {d['ee_1x1']:>13.3f}  {model_ee1:>12.3f}")
+        print(
+            f"  {d['sample_id']:<14s} {d['ipc_pct']:>8.1f}  {d['mtf_nyq']:>13.3f}  {model_mtf:>12.3f}  {delta_mtf:>10.3f}"
+            f"  {d['ee_1x1']:>13.3f}  {model_ee1:>12.3f}"
+        )
 
-    print(f"\n  Note: Model = RADIANT with native IPC convolution (FFT-based PSF kernel).")
-    print(f"  Differences arise because lab measurements include optical bench effects,")
-    print(f"  diffraction from test setup optics, and detector-specific variations not")
-    print(f"  captured by the simple 4-neighbor IPC model (e.g., diagonal coupling).")
+    print("\n  Note: Model = RADIANT with native IPC convolution (FFT-based PSF kernel).")
+    print("  Differences arise because lab measurements include optical bench effects,")
+    print("  diffraction from test setup optics, and detector-specific variations not")
+    print("  captured by the simple 4-neighbor IPC model (e.g., diagonal coupling).")
 
     # ---------------------------------------------------------------------------
     # Step 8: Write results to output spreadsheet
@@ -546,8 +580,10 @@ def main() -> None:
     pass_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
     fail_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
     thin_border = Border(
-        left=Side(style="thin"), right=Side(style="thin"),
-        top=Side(style="thin"), bottom=Side(style="thin"),
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
     )
 
     # --- Sheet 1: IPC Sweep ---
@@ -565,8 +601,16 @@ def main() -> None:
     ws1.column_dimensions["G"].width = 14
     ws1.column_dimensions["H"].width = 14
 
-    sweep_headers = ["IPC [%]", "System MTF@Nyq [—]", "EE 1×1 [—]", "EE 3×3 [—]",
-                     "RER [—]", "FWHM [µm]", "SNR [—]", "NEDT [K]"]
+    sweep_headers = [
+        "IPC [%]",
+        "System MTF@Nyq [—]",
+        "EE 1×1 [—]",
+        "EE 3×3 [—]",
+        "RER [—]",
+        "FWHM [µm]",
+        "SNR [—]",
+        "NEDT [K]",
+    ]
     for col, h_text in enumerate(sweep_headers, 1):
         cell = ws1.cell(row=3, column=col, value=h_text)
         cell.font = header_font
@@ -579,10 +623,16 @@ def main() -> None:
         ws1.cell(row=r, column=2, value=round(sr["mtf_nyq"], 4)).border = thin_border
         ws1.cell(row=r, column=3, value=round(sr["ee_1x1"], 4)).border = thin_border
         ws1.cell(row=r, column=4, value=round(sr["ee_3x3"], 4)).border = thin_border
-        ws1.cell(row=r, column=5, value=round(sr["rer"], 4) if sr["rer"] else "").border = thin_border
-        ws1.cell(row=r, column=6, value=round(sr["fwhm_x_m"] * 1e6, 1) if sr["fwhm_x_m"] else "").border = thin_border
+        ws1.cell(
+            row=r, column=5, value=round(sr["rer"], 4) if sr["rer"] else ""
+        ).border = thin_border
+        ws1.cell(
+            row=r, column=6, value=round(sr["fwhm_x_m"] * 1e6, 1) if sr["fwhm_x_m"] else ""
+        ).border = thin_border
         ws1.cell(row=r, column=7, value=round(sr["snr"], 2)).border = thin_border
-        ws1.cell(row=r, column=8, value=round(sr["nedt_K"], 4) if sr["nedt_K"] else "").border = thin_border
+        ws1.cell(
+            row=r, column=8, value=round(sr["nedt_K"], 4) if sr["nedt_K"] else ""
+        ).border = thin_border
 
         # Color-code system MTF against requirement
         mtf_cell = ws1.cell(row=r, column=2)
@@ -603,8 +653,15 @@ def main() -> None:
     ws2.column_dimensions["F"].width = 20
     ws2.column_dimensions["G"].width = 20
 
-    lab_headers = ["Sample", "IPC [%]", "Meas MTF@Nyq [—]", "RADIANT MTF@Nyq [—]",
-                   "Δ MTF [—]", "Meas EE 1×1 [—]", "RADIANT EE 1×1 [—]"]
+    lab_headers = [
+        "Sample",
+        "IPC [%]",
+        "Meas MTF@Nyq [—]",
+        "RADIANT MTF@Nyq [—]",
+        "Δ MTF [—]",
+        "Meas EE 1×1 [—]",
+        "RADIANT EE 1×1 [—]",
+    ]
     for col, h_text in enumerate(lab_headers, 1):
         cell = ws2.cell(row=3, column=col, value=h_text)
         cell.font = header_font
@@ -650,9 +707,9 @@ def main() -> None:
         ("Max tolerable IPC [%]", f"{binding_limit:.2f}" if binding_limit else "> 5.0"),
         ("", ""),
         ("Vendor typical IPC [%]", f"{det_specs['IPC coupling (typical)']}"),
-        ("Vendor typical vs. limit", "PASS" if binding_limit and 1.8 < binding_limit else "FAIL"),
+        ("Vendor typical vs. limit", "PASS" if binding_limit and binding_limit > 1.8 else "FAIL"),
         ("Vendor max IPC [%]", f"{det_specs['IPC coupling (max)']}"),
-        ("Vendor max vs. limit", "PASS" if binding_limit and 2.5 < binding_limit else "FAIL"),
+        ("Vendor max vs. limit", "PASS" if binding_limit and binding_limit > 2.5 else "FAIL"),
     ]
 
     for i, (label, value) in enumerate(summary_items, 3):

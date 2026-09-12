@@ -454,6 +454,13 @@ or below 50 km — and every ground-target node — is unchanged.
 
 ### 2.6 Transmittance parity — columns, slants and arms
 
+**Profile cross-validation (A2–A6).** The CU-161 gas/water calibration was fit
+on A1 (US standard); the five non-calibration profile anchors (A2–A6 —
+tropical, midlat summer/winter, subarctic summer/winter) hold band-mean τ
+within **≤ ±0.012** of MODTRAN in the water-relevant windows — the profile
+generalisation record re-homed from the architecture doc at the October sweep
+(2026-09-12; measured at the CU-161 landing).
+
 **Up-looking partial columns (K1–K5, vertical).** Band-mean τ, MODTRAN | model:
 
 | Run | Column | 8–12 µm | 3–5 µm |
@@ -510,6 +517,20 @@ interpolated backend rather than the simple arm.
 monotone degradation as well as the five ratios.
 
 ### 2.7 Sky radiance and the hemispheric downwelling flux
+
+**Whole-LOS sky background is target-plane invariant (CU-254).** Measured on
+the shipped 10.1 config, varying only `geometry.target_altitude_m` at fixed
+pointing — the record behind the contract doc's pass-through rule (re-homed
+at the October sweep, 2026-09-12):
+
+| target altitude | `background_e` (retired split form) | whole-LOS form |
+|---|---|---|
+| 10 km | 1.94207e5 e⁻ | 2.21479e5 e⁻ |
+| 20 km | 2.14046e5 e⁻ | 2.21479e5 e⁻ |
+| 99 km (whole column) | 2.21479e5 e⁻ | 2.21479e5 e⁻ |
+
+A background behind a target cannot depend on where along the ray the target
+sits; the surviving value is the ground-rooted one.
 
 **Directional sky radiance** at the 48.2° diffusivity angle, band-integrated $\pi L$
 [W/m²], MODTRAN thermal | model:

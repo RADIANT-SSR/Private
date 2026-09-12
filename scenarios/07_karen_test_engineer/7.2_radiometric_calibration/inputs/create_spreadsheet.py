@@ -92,26 +92,26 @@ print(f"Wrote {out}")
 # Measured calibration DN — independent truth model
 # ---------------------------------------------------------------------------
 
-H = 6.62607015e-34   # J·s
-C = 2.99792458e8     # m/s
-K_B = 1.380649e-23   # J/K
+H = 6.62607015e-34  # J·s
+C = 2.99792458e8  # m/s
+K_B = 1.380649e-23  # J/K
 
 BB_TEMPS_K = [280.0, 300.0, 320.0, 340.0, 360.0]
 
 # As-built radiometric constants (matching the workbook above)
 TAU = 0.72
-OMEGA = math.pi / (4.0 * 2.0**2)         # f/2 pixel solid angle [sr]
-A_PIX = (15.0e-6) ** 2                    # [m²]
+OMEGA = math.pi / (4.0 * 2.0**2)  # f/2 pixel solid angle [sr]
+A_PIX = (15.0e-6) ** 2  # [m²]
 QE = 0.75
-T_INT = 0.25e-3                           # [s]
+T_INT = 0.25e-3  # [s]
 BB_EMISS = 0.998
 
 # Truth-model imperfections (RADIANT never sees these)
-GAIN_SPEC = 125.0                         # e⁻/DN, as-built spec
-GAIN_TRUE = GAIN_SPEC / 1.018             # real gain 1.8% higher responsivity in DN
-OFFSET_DN = 46.0                          # instrument self-emission + dark [DN]
-NONLIN_C2 = -3.5e-9                       # quadratic term [DN per DN²]
-NOISE_FRAC = 0.001                        # 0.1% RMS (100-frame average)
+GAIN_SPEC = 125.0  # e⁻/DN, as-built spec
+GAIN_TRUE = GAIN_SPEC / 1.018  # real gain 1.8% higher responsivity in DN
+OFFSET_DN = 46.0  # instrument self-emission + dark [DN]
+NONLIN_C2 = -3.5e-9  # quadratic term [DN per DN²]
+NOISE_FRAC = 0.001  # 0.1% RMS (100-frame average)
 
 wl_um = np.linspace(3.7, 4.9, 2000)
 wl_m = wl_um * 1e-6

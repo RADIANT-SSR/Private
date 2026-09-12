@@ -143,11 +143,7 @@ def main() -> None:
         f"{droic['counting_chain_noise_e_rms']:.0f} e- RMS per phase"
     )
 
-    rows = [
-        evaluate(temp_K, mode)
-        for temp_K in bg["temperatures_K"]
-        for mode in ("up", "up_down")
-    ]
+    rows = [evaluate(temp_K, mode) for temp_K in bg["temperatures_K"] for mode in ("up", "up_down")]
 
     header = (
         f"\n{'T_bg':>7} | {'mode':<8} | {'bound':>10} | {'fill':>7} | {'status':>22} | "

@@ -145,13 +145,10 @@ def main() -> None:
     print("=" * 74)
     print(
         f"Fixed: GSD = {GSD_TARGET_M} m, pitch = {PITCH_UM} µm, "
-        f"pan band {BAND_MIN_UM*1e3:.0f}–{BAND_MAX_UM*1e3:.0f} nm, "
+        f"pan band {BAND_MIN_UM * 1e3:.0f}–{BAND_MAX_UM * 1e3:.0f} nm, "
         f"reflectance = {REFLECTANCE}"
     )
-    print(
-        f"Orbit: sun-sync, LTAN {LTAN_HR:.1f} hr (10:30 AM), "
-        f"target latitude {TARGET_LAT_DEG}°N"
-    )
+    print(f"Orbit: sun-sync, LTAN {LTAN_HR:.1f} hr (10:30 AM), target latitude {TARGET_LAT_DEG}°N")
     print(
         "Regime: EXTENDED (sunlit surface fills the pixel; EE_box not applied, "
         "background term is the scene itself)."
@@ -173,10 +170,7 @@ def main() -> None:
         decl = solar_declination_deg(doy)
         zen = solar_zenith_angle_rad(TARGET_LAT_DEG, doy, lst)
         season_zenith[name] = zen
-        print(
-            f"{name:<18}{doy:>5}{decl:>12.2f}°{math.degrees(zen):>14.2f}°"
-            f"{math.cos(zen):>10.3f}"
-        )
+        print(f"{name:<18}{doy:>5}{decl:>12.2f}°{math.degrees(zen):>14.2f}°{math.cos(zen):>10.3f}")
     print(
         "cos θ_z scales the top-of-atmosphere solar irradiance onto the surface; "
         "winter (low sun) is the worst-case illumination."
@@ -207,9 +201,7 @@ def main() -> None:
             r = s.evaluate()
             snr_grid[i, j] = r.metrics["snr"]
             q_grid[i, j] = r.metrics.get("q_center", float("nan"))
-            well_grid[i, j] = (
-                r.stage_outputs["readout"]["signal_e_final"] / FULL_WELL_E * 100.0
-            )
+            well_grid[i, j] = r.stage_outputs["readout"]["signal_e_final"] / FULL_WELL_E * 100.0
             diff_gsd_grid[i, j] = diffraction_limited_gsd_m(ap, alt)
 
     # Console summary at the corners + reference point
@@ -219,8 +211,7 @@ def main() -> None:
         return (
             r.metrics["snr"],
             r.metrics.get("q_center", float("nan")),
-            build_sensor(ap, alt, worst_zen).get("optics.focal_length_m")
-            / ap,  # f/#
+            build_sensor(ap, alt, worst_zen).get("optics.focal_length_m") / ap,  # f/#
         )
 
     print(f"{'aperture':>10}{'altitude':>11}{'f/#':>8}{'SNR':>9}{'Q':>8}{'diff-GSD':>11}")
@@ -229,8 +220,7 @@ def main() -> None:
             snr, q, fno = cell(ap, alt)
             dgsd = diffraction_limited_gsd_m(ap, alt)
             print(
-                f"{ap*100:>8.0f}cm{alt/1e3:>9.0f}km{fno:>8.1f}"
-                f"{snr:>9.1f}{q:>8.2f}{dgsd:>9.2f}m"
+                f"{ap * 100:>8.0f}cm{alt / 1e3:>9.0f}km{fno:>8.1f}{snr:>9.1f}{q:>8.2f}{dgsd:>9.2f}m"
             )
     print(
         f"\nSPEC: SNR ≥ {SNR_SPEC:.0f}. Q = λ·(f/#)/pitch: Q<1 undersampled "
@@ -246,7 +236,7 @@ def main() -> None:
     print("-" * 74)
     print(
         f"SEASONAL SNR at reference design "
-        f"(D = {REF_APERTURE_M*100:.0f} cm, alt = {REF_ALT_M/1e3:.0f} km)"
+        f"(D = {REF_APERTURE_M * 100:.0f} cm, alt = {REF_ALT_M / 1e3:.0f} km)"
     )
     print("-" * 74)
     season_snr: dict[str, float] = {}
@@ -259,7 +249,7 @@ def main() -> None:
             f"SNR = {r.metrics['snr']:>6.1f}  [{flag}]"
         )
     swing = (max(season_snr.values()) - min(season_snr.values())) / max(season_snr.values())
-    print(f"\nSeasonal SNR swing: {swing*100:.0f}% (summer high → winter low).")
+    print(f"\nSeasonal SNR swing: {swing * 100:.0f}% (summer high → winter low).")
 
     # ---------------------------------------------------------------
     # FIGURE 1 — SNR contour over aperture × altitude, with the
@@ -272,9 +262,7 @@ def main() -> None:
     cbar = fig.colorbar(cf, ax=ax)
     cbar.set_label("SNR (dimensionless)")
     # SNR spec contour
-    cs_spec = ax.contour(
-        AP_CM, ALT_KM, snr_grid, levels=[SNR_SPEC], colors="white", linewidths=2.5
-    )
+    cs_spec = ax.contour(AP_CM, ALT_KM, snr_grid, levels=[SNR_SPEC], colors="white", linewidths=2.5)
     ax.clabel(cs_spec, fmt=f"SNR = {SNR_SPEC:.0f} (spec)", fontsize=9)
     # Diffraction-limit line: where diff-GSD == 0.5 m (optics just meet GSD)
     cs_diff = ax.contour(
@@ -331,7 +319,7 @@ def main() -> None:
     ax.set_ylabel("SNR (dimensionless)")
     ax.set_title(
         f"Scenario 1.2 — seasonal SNR at reference design "
-        f"(D={REF_APERTURE_M*100:.0f} cm, {REF_ALT_M/1e3:.0f} km)"
+        f"(D={REF_APERTURE_M * 100:.0f} cm, {REF_ALT_M / 1e3:.0f} km)"
     )
     ax.legend()
     fig.tight_layout()
@@ -350,9 +338,9 @@ def main() -> None:
         ok = np.where(row >= SNR_SPEC)[0]
         if ok.size:
             min_ap = APERTURES_M[ok[0]] * 100
-            print(f"  altitude {alt/1e3:>4.0f} km → min aperture {min_ap:>4.0f} cm")
+            print(f"  altitude {alt / 1e3:>4.0f} km → min aperture {min_ap:>4.0f} cm")
         else:
-            print(f"  altitude {alt/1e3:>4.0f} km → no aperture in range meets spec")
+            print(f"  altitude {alt / 1e3:>4.0f} km → no aperture in range meets spec")
     print()
     print("=" * 74)
     print("DONE — see outputs/ for figures and MANIFEST.md.")

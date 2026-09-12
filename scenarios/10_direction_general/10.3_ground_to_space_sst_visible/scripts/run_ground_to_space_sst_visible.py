@@ -387,7 +387,9 @@ def section_nominal(result, sensor: Sensor, caught) -> dict[str, object]:
     phi_hand = theta_o_hand - (math.pi - zeta)
     range_hand = r_t * math.sin(phi_hand) / math.sin(math.pi - zeta)
     print("\n  Closed-form spherical-triangle check (independent of RADIANT):")
-    print(f"    theta_o hand = {math.degrees(theta_o_hand):.4f} deg   (chain {theta_o_deg:.4f} deg)")
+    print(
+        f"    theta_o hand = {math.degrees(theta_o_hand):.4f} deg   (chain {theta_o_deg:.4f} deg)"
+    )
     print(
         f"    slant  hand = {range_hand / 1000.0:.3f} km       "
         f"(chain {geo['slant_range_m'] / 1000.0:.3f} km, "
@@ -407,12 +409,16 @@ def section_nominal(result, sensor: Sensor, caught) -> dict[str, object]:
     print(f"  tau_sun (solar leg to obj)  : {float(np.mean(atm['atm_quantities'].tau_sun)):.4f}")
     print(f"  Fried parameter r0          : {atm['r0_m'] * 100.0:.3f} cm (band centre)")
     print(f"  EE_box (energy in pixel)    : {result.stage_outputs['platform']['EE_box']:.5f}")
-    print(f"  signal (central pixel)      : {result.stage_outputs['readout']['signal_e_final']:,.0f} e-")
+    print(
+        f"  signal (central pixel)      : {result.stage_outputs['readout']['signal_e_final']:,.0f} e-"
+    )
     print(f"  SNR                         : {result.metrics['snr']:.2f} (dimensionless)")
     print(f"  contrast SNR                : {result.metrics['contrast_snr']:.2f} (dimensionless)")
     print(f"  detection range             : {result.metrics['detection_range_m'] / 1000.0:,.1f} km")
     print(f"  sampling Q_center           : {result.metrics['q_center']:.3f} (dimensionless)")
-    print(f"  PSF FWHM (x)                : {result.metrics['fwhm_x_m'] * 1e6:.2f} um on the focal plane")
+    print(
+        f"  PSF FWHM (x)                : {result.metrics['fwhm_x_m'] * 1e6:.2f} um on the focal plane"
+    )
 
     cons = result.stage_outputs["performance"]["dual_path_consistency"]
     print("\n--- 4. Rule-4 dual-path consistency (PSF path vs MTF product) ---")
@@ -502,8 +508,7 @@ def section_shadow_ladder(vendor: dict[str, object], result) -> dict[str, np.nda
         h_sh = shadow_height_m(theta_s)
         heights[i] = h_sh
         flags = [
-            "SUNLIT" if sunlit(alt, theta_s) else "shadow"
-            for alt in (1.0e5, h_target_m, 3.5786e7)
+            "SUNLIT" if sunlit(alt, theta_s) else "shadow" for alt in (1.0e5, h_target_m, 3.5786e7)
         ]
         print(
             f"  {delta_deg:17.1f} {90.0 + delta_deg:14.1f} {h_sh / 1000.0:14.1f} "
@@ -597,8 +602,10 @@ def section_sky_background(
     )
     print("\n  GEO reflective door, DAYLIGHT (theta_s = 60 deg, sun 30 deg above the horizon):")
     print(f"    scene_class                : {day_result.stage_outputs['geometry']['scene_class']}")
-    print(f"    solar geometry reaching the atmosphere: theta_s = "
-          f"{math.degrees(day_result.stage_outputs['source']['los_geometry'].theta_s):.1f} deg (kept)")
+    print(
+        f"    solar geometry reaching the atmosphere: theta_s = "
+        f"{math.degrees(day_result.stage_outputs['source']['los_geometry'].theta_s):.1f} deg (kept)"
+    )
     day_bg_frame = day_result.frames.get("at_aperture_background")
     day_bg = 0.0 if day_bg_frame is None else float(np.mean(day_bg_frame.spectral_radiance))
     day_tgt = float(np.mean(day_result.frames["at_aperture_target"].spectral_radiance))
@@ -642,7 +649,9 @@ def section_sky_background(
     balloon = balloon.set("geometry.target_altitude_m", 20_000.0)  # km -> m, 20 km balloon
     balloon = balloon.set("geometry.path_zenith_rad", math.radians(30.0))  # deg -> rad
     balloon = balloon.set("geometry.solar_zenith_rad", math.radians(60.0))  # deg -> rad
-    balloon = balloon.set("spectral_integration.integration_time_s", 0.0002)  # 0.2 ms, well headroom
+    balloon = balloon.set(
+        "spectral_integration.integration_time_s", 0.0002
+    )  # 0.2 ms, well headroom
     balloon_result, balloon_warnings = _run_capturing_warnings(balloon)
     balloon_provisional = sorted(
         {str(w.message) for w in balloon_warnings if "provisional" in str(w.message).lower()}
@@ -651,8 +660,10 @@ def section_sky_background(
         "\n  REACHABLE INSTANCE — same telescope, 20 km stratospheric target (ground_to_air,\n"
         "  extended scene, sun 30 deg up).  Now the continuation IS atmospheric:"
     )
-    print(f"    scene_class                : "
-          f"{balloon_result.stage_outputs['geometry']['scene_class']}")
+    print(
+        f"    scene_class                : "
+        f"{balloon_result.stage_outputs['geometry']['scene_class']}"
+    )
     for text in balloon_provisional:
         print("    PROVISIONAL SKY WARNING (ADR-0011 decision 10 band gate) — VERBATIM:")
         for line in _wrap(text, 70):
@@ -687,7 +698,9 @@ def section_sky_background(
     print(f"    band-mean target radiance   : {tw_tgt:.4e} W/m^2/sr/um")
     print(f"    band-mean sky background    : {tw_bg:.4e} W/m^2/sr/um")
     print(f"    SNR                         : {twilight_result.metrics['snr']:.3e}")
-    for text in sorted({str(w.message) for w in twilight_warnings if "reflective" in str(w.message)}):
+    for text in sorted(
+        {str(w.message) for w in twilight_warnings if "reflective" in str(w.message)}
+    ):
         print("    RADIANT's own warning on this configuration:")
         for line in _wrap(text, 70):
             print(f"      {line}")
@@ -720,8 +733,10 @@ def section_turbulence(result, sensor: Sensor) -> dict[str, object]:
     print(f"  reference wavelength        : {lam_c_um:.4f} um (band centre)")
     print(f"  path integral of Cn2 W ds   : {resolution.path.cn2_path_integral_m13:.4e} m^(1/3)")
     print(f"  lower-endpoint zenith       : {math.degrees(resolution.path.zeta_low_rad):.3f} deg")
-    print(f"  integration span            : {resolution.path.h_low_m / 1000.0:.3f}"
-          f" - {resolution.path.h_high_m / 1000.0:.1f} km MSL")
+    print(
+        f"  integration span            : {resolution.path.h_low_m / 1000.0:.3f}"
+        f" - {resolution.path.h_high_m / 1000.0:.1f} km MSL"
+    )
     print(f"  Fried parameter r0          : {r0_m * 100.0:.3f} cm")
     print(f"  D / r0                      : {aperture_m / r0_m:.2f} (dimensionless)")
 
@@ -729,10 +744,14 @@ def section_turbulence(result, sensor: Sensor) -> dict[str, object]:
     seeing_rad = 0.98 * lam_c_m / r0_m
     diffraction_rad = 1.22 * lam_c_m / aperture_m
     arcsec = 180.0 * 3600.0 / math.pi
-    print(f"\n  seeing FWHM (0.98 lambda/r0): {seeing_rad * 1e6:.3f} urad "
-          f"= {seeing_rad * arcsec:.3f} arcsec")
-    print(f"  diffraction limit (1.22 l/D): {diffraction_rad * 1e6:.3f} urad "
-          f"= {diffraction_rad * arcsec:.3f} arcsec")
+    print(
+        f"\n  seeing FWHM (0.98 lambda/r0): {seeing_rad * 1e6:.3f} urad "
+        f"= {seeing_rad * arcsec:.3f} arcsec"
+    )
+    print(
+        f"  diffraction limit (1.22 l/D): {diffraction_rad * 1e6:.3f} urad "
+        f"= {diffraction_rad * arcsec:.3f} arcsec"
+    )
     print(f"  ratio seeing / diffraction  : {seeing_rad / diffraction_rad:.2f} (dimensionless)")
     print(
         "\n  VERDICT: SEEING-LIMITED, not aperture-limited.  The 1 m aperture buys photons,\n"
@@ -767,12 +786,18 @@ def section_turbulence(result, sensor: Sensor) -> dict[str, object]:
         print(f"  MTF budget keys present     : {turb_key}, {optics_key}")
     print(f"  PSF FWHM with turbulence    : {result.metrics['fwhm_x_m'] * 1e6:8.2f} um")
     print(f"  PSF FWHM without turbulence : {no_turb_result.metrics['fwhm_x_m'] * 1e6:8.2f} um")
-    print(f"  RER with / without          : {result.metrics['rer']:.4f} / "
-          f"{no_turb_result.metrics['rer']:.4f} (dimensionless)")
-    print(f"  EE 3x3 with / without       : {result.metrics['ee_3x3']:.4f} / "
-          f"{no_turb_result.metrics['ee_3x3']:.4f} (dimensionless)")
-    print(f"  SNR with / without          : {result.metrics['snr']:.2f} / "
-          f"{no_turb_result.metrics['snr']:.2f} (dimensionless)")
+    print(
+        f"  RER with / without          : {result.metrics['rer']:.4f} / "
+        f"{no_turb_result.metrics['rer']:.4f} (dimensionless)"
+    )
+    print(
+        f"  EE 3x3 with / without       : {result.metrics['ee_3x3']:.4f} / "
+        f"{no_turb_result.metrics['ee_3x3']:.4f} (dimensionless)"
+    )
+    print(
+        f"  SNR with / without          : {result.metrics['snr']:.2f} / "
+        f"{no_turb_result.metrics['snr']:.2f} (dimensionless)"
+    )
 
     # Literature anchor for HV-5/7.
     vertical = path_fried_parameter_from_los(
@@ -908,7 +933,10 @@ def section_horizon_guard(sensor: Sensor) -> None:
         "  band is measured at the LOWER endpoint: |zeta_low - 90 deg| < 0.5 deg raises,\n"
         "  0.5-2 deg computes with a quantified UserWarning, > 2 deg is clean."
     )
-    for angle_deg, label in ((88.6, "inside the 0.5-2 deg warn shoulder"), (89.8, "inside the 0.5 deg hard guard")):
+    for angle_deg, label in (
+        (88.6, "inside the 0.5-2 deg warn shoulder"),
+        (89.8, "inside the 0.5 deg hard guard"),
+    ):
         probe = sensor.clone().set("geometry.path_zenith_rad", math.radians(angle_deg))
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
@@ -1095,7 +1123,9 @@ def section_cross_checks(
         f"(los {down_result.stage_outputs['geometry']['los_direction']})"
     )
     print(f"      max |tau_up - tau_down|  : {max_abs:.3e}")
-    print(f"      verdict                  : {'PASS' if max_abs < 1e-3 else 'FAIL'} (tolerance 1e-3)")
+    print(
+        f"      verdict                  : {'PASS' if max_abs < 1e-3 else 'FAIL'} (tolerance 1e-3)"
+    )
 
     # ---- (d) Apparent visual magnitude ------------------------------------
     print("\n  (d) APPARENT VISUAL MAGNITUDE OF THE OBJECT")

@@ -34,8 +34,8 @@ from radiant.api import Sensor
 from radiant.performance.detectivity import dstar_from_nep, nep_from_dstar
 from radiant.performance.nep_electrons import (
     integrating_bandwidth_hz,
-    noise_electrons_from_nep,
     nep_from_noise_electrons,
+    noise_electrons_from_nep,
 )
 
 warnings.filterwarnings("ignore")  # scenario-level noise suppression; physics still raises
@@ -106,7 +106,7 @@ def main() -> None:
     )
     print(
         f"Pixel area {AREA_CM2:.2e} cm², noise bandwidth Δf = 1/(2·t_int) = "
-        f"{DELTA_F_HZ/1e3:.1f} kHz."
+        f"{DELTA_F_HZ / 1e3:.1f} kHz."
     )
     print()
 
@@ -180,7 +180,9 @@ def main() -> None:
     ax1.axhspan(
         DSTAR_SPEC * (1 - TOLERANCE_PCT / 100),
         DSTAR_SPEC * (1 + TOLERANCE_PCT / 100),
-        color="green", alpha=0.12, label=f"±{TOLERANCE_PCT:.0f}% band",
+        color="green",
+        alpha=0.12,
+        label=f"±{TOLERANCE_PCT:.0f}% band",
     )
     ax1.set_ylabel("D* (Jones)")
     ax1.set_title(f"Specific detectivity (residual {dstar_resid:+.1f}%)")
@@ -189,7 +191,8 @@ def main() -> None:
     ax2.axhspan(
         NETD_SPEC_MK * (1 - TOLERANCE_PCT / 100),
         NETD_SPEC_MK * (1 + TOLERANCE_PCT / 100),
-        color="green", alpha=0.12,
+        color="green",
+        alpha=0.12,
     )
     ax2.set_ylabel("NETD (mK)")
     ax2.set_title(f"NETD (residual {netd_resid:+.1f}%)")

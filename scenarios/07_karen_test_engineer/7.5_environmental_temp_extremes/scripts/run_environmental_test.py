@@ -147,10 +147,11 @@ def main() -> None:
     dark_meas = jdark.y
 
     print("\n=== Measured TVAC data (load_measured_curve, Gap 30) ===")
-    print(f"  Dark current J(T): {jdark.n_points} points, "
-          f"{temps_K[0]:.0f}–{temps_K[-1]:.0f} K")
-    print(f"  QE(T): {qe_t.n_points} points "
-          f"({', '.join(f'{t:.0f}K→{q:.2f}' for t, q in zip(qe_t.x, qe_t.y))})")
+    print(f"  Dark current J(T): {jdark.n_points} points, {temps_K[0]:.0f}–{temps_K[-1]:.0f} K")
+    print(
+        f"  QE(T): {qe_t.n_points} points "
+        f"({', '.join(f'{t:.0f}K→{q:.2f}' for t, q in zip(qe_t.x, qe_t.y))})"
+    )
     print("\n  NOTE: J(T) is in e⁻/s (lab-reduced), so it reads through the")
     print("  generic measured-curve loader. Vendor A/cm² datasheets use the")
     print("  scenario-2.1 importer radiant.io.dark_current_csv instead.")
@@ -168,23 +169,27 @@ def main() -> None:
     Ea_fit_eV = -slope * K_B_EV
     dark_arrhenius = np.exp(intercept + slope * inv_T)
 
-    print(f"\n=== Dark current: measured vs Arrhenius fit ===")
+    print("\n=== Dark current: measured vs Arrhenius fit ===")
     print(f"  Arrhenius fit to the {N_FIT} lowest points → Ea = {Ea_fit_eV:.3f} eV")
-    print(f"  {'T [K]':>7s}  {'Measured [e⁻/s]':>16s}  {'Arrhenius [e⁻/s]':>17s}  "
-          f"{'Excess [%]':>10s}")
+    print(
+        f"  {'T [K]':>7s}  {'Measured [e⁻/s]':>16s}  {'Arrhenius [e⁻/s]':>17s}  {'Excess [%]':>10s}"
+    )
     print(f"  {'-' * 7}  {'-' * 16}  {'-' * 17}  {'-' * 10}")
     for i, T in enumerate(temps_K):
         excess = (dark_meas[i] / dark_arrhenius[i] - 1.0) * 100.0
         flag = "  ← super-Arrhenius" if excess > 15.0 else ""
-        print(f"  {T:>7.0f}  {dark_meas[i]:>16,.0f}  {dark_arrhenius[i]:>17,.0f}  "
-              f"{excess:>+10.1f}{flag}")
-    onset = next((temps_K[i] for i in range(len(temps_K))
-                  if dark_meas[i] / dark_arrhenius[i] - 1.0 > 0.15), None)
+        print(
+            f"  {T:>7.0f}  {dark_meas[i]:>16,.0f}  {dark_arrhenius[i]:>17,.0f}  "
+            f"{excess:>+10.1f}{flag}"
+        )
+    onset = next(
+        (temps_K[i] for i in range(len(temps_K)) if dark_meas[i] / dark_arrhenius[i] - 1.0 > 0.15),
+        None,
+    )
     print(f"  Super-Arrhenius onset near {onset:.0f} K — above it, an Arrhenius")
-    print(f"  model UNDER-predicts dark current (defect-assisted leakage); a")
-    print(f"  Rule-07 Arrhenius extrapolation would be optimistic there.")
+    print("  model UNDER-predicts dark current (defect-assisted leakage); a")
+    print("  Rule-07 Arrhenius extrapolation would be optimistic there.")
     qe_77 = float(np.interp(77.0, qe_t.x, qe_t.y))
-
 
     warnings.filterwarnings("ignore")
 
@@ -194,27 +199,29 @@ def main() -> None:
         r = build_sensor(T, float(dark_meas[i]), qe_at(T)).evaluate()
         r_fixed_qe = build_sensor(T, float(dark_meas[i]), qe_77).evaluate()
         nd = {nt.name: nt.value_e for nt in r.noise_terms}
-        rows_out.append({
-            "T": T,
-            "snr": r.metrics["snr"],
-            "nedt_mK": (r.metrics.get("nedt_K") or float("nan")) * 1e3,
-            "nedt_fixed_qe_mK": (r_fixed_qe.metrics.get("nedt_K") or float("nan")) * 1e3,
-            "signal_e": r.stage_outputs["readout"]["signal_e_final"],
-            "well_pct": r.stage_outputs["readout"]["signal_e_final"] / fwc * 100.0,
-            "qe": qe_at(T),
-            "dark_shot": nd.get("dark_shot", 0.0),
-            "signal_shot": nd.get("signal_shot", 0.0),
-            "read_noise": nd.get("read_noise", 0.0),
-            "nearfield_shot": nd.get("nearfield_shot", 0.0),
-            "quantization": nd.get("quantization", 0.0),
-            "total_noise": math.sqrt(sum(v**2 for v in nd.values())),
-        })
+        rows_out.append(
+            {
+                "T": T,
+                "snr": r.metrics["snr"],
+                "nedt_mK": (r.metrics.get("nedt_K") or float("nan")) * 1e3,
+                "nedt_fixed_qe_mK": (r_fixed_qe.metrics.get("nedt_K") or float("nan")) * 1e3,
+                "signal_e": r.stage_outputs["readout"]["signal_e_final"],
+                "well_pct": r.stage_outputs["readout"]["signal_e_final"] / fwc * 100.0,
+                "qe": qe_at(T),
+                "dark_shot": nd.get("dark_shot", 0.0),
+                "signal_shot": nd.get("signal_shot", 0.0),
+                "read_noise": nd.get("read_noise", 0.0),
+                "nearfield_shot": nd.get("nearfield_shot", 0.0),
+                "quantization": nd.get("quantization", 0.0),
+                "total_noise": math.sqrt(sum(v**2 for v in nd.values())),
+            }
+        )
 
     regime = build_sensor(77.0, 5e4, 0.78).evaluate().stage_outputs["optics"]["regime"]
-    print(f"\n=== Radiometric regime ===")
+    print("\n=== Radiometric regime ===")
     print(f"  {regime} — the 300 K chamber shroud fills the aperture. Extended")
-    print(f"  regime, so the background photon term is skipped (Decision #13);")
-    print(f"  the noise budget below is signal shot + dark shot + read + nearfield.")
+    print("  regime, so the background photon term is skipped (Decision #13);")
+    print("  the noise budget below is signal shot + dark shot + read + nearfield.")
 
     # ---------------------------------------------------------------------------
     # Step 4: SNR / NEDT / noise budget vs temperature
@@ -223,33 +230,43 @@ def main() -> None:
     print(f"\n{'=' * 95}")
     print(f"  PERFORMANCE vs FPA TEMPERATURE (t_int = {t_int_s * 1e3:.1f} ms)")
     print(f"{'=' * 95}")
-    print(f"  {'T [K]':>6s} {'QE':>5s} {'well%':>6s} {'signal_shot':>12s} "
-          f"{'dark_shot':>10s} {'read':>6s} {'σ_tot':>8s} {'SNR':>8s} {'NEDT [mK]':>10s}")
-    print(f"  {'-' * 6} {'-' * 5} {'-' * 6} {'-' * 12} {'-' * 10} {'-' * 6} "
-          f"{'-' * 8} {'-' * 8} {'-' * 10}")
+    print(
+        f"  {'T [K]':>6s} {'QE':>5s} {'well%':>6s} {'signal_shot':>12s} "
+        f"{'dark_shot':>10s} {'read':>6s} {'σ_tot':>8s} {'SNR':>8s} {'NEDT [mK]':>10s}"
+    )
+    print(
+        f"  {'-' * 6} {'-' * 5} {'-' * 6} {'-' * 12} {'-' * 10} {'-' * 6} "
+        f"{'-' * 8} {'-' * 8} {'-' * 10}"
+    )
     for row in rows_out:
-        print(f"  {row['T']:>6.0f} {row['qe']:>5.2f} {row['well_pct']:>6.1f} "
-              f"{row['signal_shot']:>12.1f} {row['dark_shot']:>10.1f} "
-              f"{row['read_noise']:>6.1f} {row['total_noise']:>8.1f} "
-              f"{row['snr']:>8.1f} {row['nedt_mK']:>10.2f}")
+        print(
+            f"  {row['T']:>6.0f} {row['qe']:>5.2f} {row['well_pct']:>6.1f} "
+            f"{row['signal_shot']:>12.1f} {row['dark_shot']:>10.1f} "
+            f"{row['read_noise']:>6.1f} {row['total_noise']:>8.1f} "
+            f"{row['snr']:>8.1f} {row['nedt_mK']:>10.2f}"
+        )
 
     # ---------------------------------------------------------------------------
     # Step 5: QE(T) impact vs dark-current impact
     # ---------------------------------------------------------------------------
 
-    print(f"\n=== QE(T) impact isolated (NEDT with QE(T) vs QE frozen at 77 K) ===")
-    print(f"  {'T [K]':>6s}  {'NEDT QE(T) [mK]':>16s}  {'NEDT QE@77K [mK]':>17s}  "
-          f"{'ΔNEDT from QE(T) [%]':>21s}")
+    print("\n=== QE(T) impact isolated (NEDT with QE(T) vs QE frozen at 77 K) ===")
+    print(
+        f"  {'T [K]':>6s}  {'NEDT QE(T) [mK]':>16s}  {'NEDT QE@77K [mK]':>17s}  "
+        f"{'ΔNEDT from QE(T) [%]':>21s}"
+    )
     print(f"  {'-' * 6}  {'-' * 16}  {'-' * 17}  {'-' * 21}")
     for row in rows_out:
         d = (row["nedt_mK"] / row["nedt_fixed_qe_mK"] - 1.0) * 100.0
-        print(f"  {row['T']:>6.0f}  {row['nedt_mK']:>16.2f}  "
-              f"{row['nedt_fixed_qe_mK']:>17.2f}  {d:>+21.1f}")
+        print(
+            f"  {row['T']:>6.0f}  {row['nedt_mK']:>16.2f}  "
+            f"{row['nedt_fixed_qe_mK']:>17.2f}  {d:>+21.1f}"
+        )
     qe_swing = (qe_at(temps_K[0]) - qe_at(temps_K[-1])) / qe_at(temps_K[0]) * 100.0
     dark_swing = dark_meas[-1] / dark_meas[0]
     print(f"  Over {temps_K[0]:.0f}–{temps_K[-1]:.0f} K, QE falls {qe_swing:.0f}% while dark")
     print(f"  current rises {dark_swing:,.0f}× — dark current is the dominant")
-    print(f"  temperature effect on NEDT; QE(T) is a second-order correction.")
+    print("  temperature effect on NEDT; QE(T) is a second-order correction.")
 
     # ---------------------------------------------------------------------------
     # Step 6: Spec compliance and recommendation
@@ -261,8 +278,10 @@ def main() -> None:
     print(f"\n{'=' * 95}")
     print(f"  SPEC COMPLIANCE  (SNR ≥ {min_snr:.0f}, NEDT ≤ {max_nedt:.0f} mK)")
     print(f"{'=' * 95}")
-    print(f"  {'T [K]':>6s}  {'SNR':>8s}  {'NEDT [mK]':>10s}  {'SNR OK':>7s}  "
-          f"{'NEDT OK':>8s}  {'PASS':>6s}")
+    print(
+        f"  {'T [K]':>6s}  {'SNR':>8s}  {'NEDT [mK]':>10s}  {'SNR OK':>7s}  "
+        f"{'NEDT OK':>8s}  {'PASS':>6s}"
+    )
     print(f"  {'-' * 6}  {'-' * 8}  {'-' * 10}  {'-' * 7}  {'-' * 8}  {'-' * 6}")
     compliant = []
     for row in rows_out:
@@ -271,9 +290,11 @@ def main() -> None:
         ok = snr_ok and nedt_ok
         if ok:
             compliant.append(row["T"])
-        print(f"  {row['T']:>6.0f}  {row['snr']:>8.1f}  {row['nedt_mK']:>10.2f}  "
-              f"{'YES' if snr_ok else 'no':>7s}  {'YES' if nedt_ok else 'no':>8s}  "
-              f"{'PASS' if ok else 'FAIL':>6s}")
+        print(
+            f"  {row['T']:>6.0f}  {row['snr']:>8.1f}  {row['nedt_mK']:>10.2f}  "
+            f"{'YES' if snr_ok else 'no':>7s}  {'YES' if nedt_ok else 'no':>8s}  "
+            f"{'PASS' if ok else 'FAIL':>6s}"
+        )
 
     if compliant:
         warmest = max(compliant)
@@ -281,13 +302,15 @@ def main() -> None:
         nedt_at_warmest = next(r["nedt_mK"] for r in rows_out if r["T"] == warmest)
         margin_mK = max_nedt - nedt_at_warmest
         recommend = warmest - 3.0  # 3 K guard band below the compliance edge
-        print(f"\n  Warmest compliant set point: {warmest:.0f} K "
-              f"(NEDT {nedt_at_warmest:.1f} mK, {margin_mK:.1f} mK under the {max_nedt:.0f} mK spec)")
+        print(
+            f"\n  Warmest compliant set point: {warmest:.0f} K "
+            f"(NEDT {nedt_at_warmest:.1f} mK, {margin_mK:.1f} mK under the {max_nedt:.0f} mK spec)"
+        )
         print(f"  RECOMMENDATION: operate at {recommend:.0f} K — a 3 K guard band below")
-        print(f"  the compliance edge protects against cooler drift and the")
+        print("  the compliance edge protects against cooler drift and the")
         print(f"  super-Arrhenius knee (dark current climbs steeply past {onset:.0f} K).")
     else:
-        print(f"\n  No temperature meets both specs in the tested range.")
+        print("\n  No temperature meets both specs in the tested range.")
         recommend = temps_K[0]
 
     # ---------------------------------------------------------------------------
@@ -321,11 +344,17 @@ def main() -> None:
 
     fig2, ax2 = plt.subplots(figsize=(9, 6))
     ax2.semilogy(temps_K, dark_meas, "ko-", linewidth=2, markersize=7, label="Measured")
-    ax2.semilogy(temps_K, dark_arrhenius, "b--", linewidth=1.5,
-                 label=f"Arrhenius fit (Ea={Ea_fit_eV:.3f} eV, low-T)")
+    ax2.semilogy(
+        temps_K,
+        dark_arrhenius,
+        "b--",
+        linewidth=1.5,
+        label=f"Arrhenius fit (Ea={Ea_fit_eV:.3f} eV, low-T)",
+    )
     if onset is not None:
-        ax2.axvline(onset, color="orange", linestyle=":",
-                    label=f"super-Arrhenius onset ~{onset:.0f} K")
+        ax2.axvline(
+            onset, color="orange", linestyle=":", label=f"super-Arrhenius onset ~{onset:.0f} K"
+        )
     ax2.set_xlabel("FPA Temperature [K]", fontsize=12)
     ax2.set_ylabel("Dark current [e⁻/s]", fontsize=12)
     ax2.set_title("Measured Dark Current vs Arrhenius Extrapolation", fontsize=13)
@@ -340,14 +369,21 @@ def main() -> None:
     bottom = np.zeros(len(rows_out))
     colors = ["#4472C4", "#ED7D31", "#FFC000", "#A5A5A5", "#5B9BD5"]
     for term, color in zip(terms, colors):
-        vals = np.array([r[term]**2 for r in rows_out])  # variance stack
-        ax3.bar(T_arr, vals, bottom=bottom, width=2.0, color=color,
-                edgecolor="black", linewidth=0.3, label=term)
+        vals = np.array([r[term] ** 2 for r in rows_out])  # variance stack
+        ax3.bar(
+            T_arr,
+            vals,
+            bottom=bottom,
+            width=2.0,
+            color=color,
+            edgecolor="black",
+            linewidth=0.3,
+            label=term,
+        )
         bottom += vals
     ax3.set_xlabel("FPA Temperature [K]", fontsize=12)
     ax3.set_ylabel("Noise variance [e⁻²]", fontsize=12)
-    ax3.set_title("Noise Budget vs FPA Temperature (variance stack — dark grows)",
-                  fontsize=13)
+    ax3.set_title("Noise Budget vs FPA Temperature (variance stack — dark grows)", fontsize=13)
     ax3.legend(fontsize=9)
     ax3.grid(True, axis="y", alpha=0.3)
     fig3.tight_layout()
@@ -365,12 +401,24 @@ def main() -> None:
     hdr_fill = PatternFill("solid", fgColor="2E75B6")
     pass_fill = PatternFill("solid", fgColor="C6EFCE")
     fail_fill = PatternFill("solid", fgColor="FFC7CE")
-    border = Border(left=Side(style="thin"), right=Side(style="thin"),
-                    top=Side(style="thin"), bottom=Side(style="thin"))
+    border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
+    )
     ws1["A1"] = "Scenario 7.5 — Environmental temperature sweep"
     ws1["A1"].font = Font(bold=True, size=14)
-    headers = ["T [K]", "QE", "Dark meas [e-/s]", "Dark Arrhenius [e-/s]",
-               "well [%]", "SNR", "NEDT [mK]", "PASS"]
+    headers = [
+        "T [K]",
+        "QE",
+        "Dark meas [e-/s]",
+        "Dark Arrhenius [e-/s]",
+        "well [%]",
+        "SNR",
+        "NEDT [mK]",
+        "PASS",
+    ]
     for col, htext in enumerate(headers, 1):
         cell = ws1.cell(row=3, column=col, value=htext)
         cell.font = hdr_font
@@ -379,10 +427,16 @@ def main() -> None:
         cell.border = border
     for i, row in enumerate(rows_out, 4):
         ok = row["snr"] >= min_snr and row["nedt_mK"] <= max_nedt
-        vals = [round(row["T"], 0), round(row["qe"], 3),
-                round(float(dark_meas[i - 4]), 0), round(float(dark_arrhenius[i - 4]), 0),
-                round(row["well_pct"], 1), round(row["snr"], 1),
-                round(row["nedt_mK"], 2), "PASS" if ok else "FAIL"]
+        vals = [
+            round(row["T"], 0),
+            round(row["qe"], 3),
+            round(float(dark_meas[i - 4]), 0),
+            round(float(dark_arrhenius[i - 4]), 0),
+            round(row["well_pct"], 1),
+            round(row["snr"], 1),
+            round(row["nedt_mK"], 2),
+            "PASS" if ok else "FAIL",
+        ]
         for col, v in enumerate(vals, 1):
             c = ws1.cell(row=i, column=col, value=v)
             c.border = border
@@ -397,26 +451,34 @@ def main() -> None:
     # ---------------------------------------------------------------------------
 
     print(f"\n{'=' * 95}")
-    print(f"  SUMMARY")
+    print("  SUMMARY")
     print(f"{'=' * 95}")
-    print(f"\n  MWIR bench, 300 K shroud, {band_min_um:.2f}–{band_max_um:.2f} µm, "
-          f"t_int = {t_int_s * 1e3:.1f} ms, spec SNR ≥ {min_snr:.0f} / NEDT ≤ {max_nedt:.0f} mK")
-    print(f"  Measured J(T): {dark_meas[0]:,.0f} → {dark_meas[-1]:,.0f} e⁻/s over "
-          f"{temps_K[0]:.0f}–{temps_K[-1]:.0f} K (super-Arrhenius above ~{onset:.0f} K)")
+    print(
+        f"\n  MWIR bench, 300 K shroud, {band_min_um:.2f}–{band_max_um:.2f} µm, "
+        f"t_int = {t_int_s * 1e3:.1f} ms, spec SNR ≥ {min_snr:.0f} / NEDT ≤ {max_nedt:.0f} mK"
+    )
+    print(
+        f"  Measured J(T): {dark_meas[0]:,.0f} → {dark_meas[-1]:,.0f} e⁻/s over "
+        f"{temps_K[0]:.0f}–{temps_K[-1]:.0f} K (super-Arrhenius above ~{onset:.0f} K)"
+    )
     if compliant:
-        print(f"  Compliant range: {min(compliant):.0f}–{max(compliant):.0f} K; "
-              f"recommended set point {recommend:.0f} K")
-    print(f"\n  Key findings:")
-    print(f"    1. Measured J(T) importer closes the catalog gap: the TVAC curve")
-    print(f"       drives detector.dark_rate_e_per_s directly (no Arrhenius model")
-    print(f"       assumed) — and reveals the super-Arrhenius knee an Arrhenius")
-    print(f"       Rule-07 extrapolation would miss.")
-    print(f"    2. QE(T) matters far less than dark current: QE falls "
-          f"{qe_swing:.0f}% while dark rises {dark_swing:,.0f}× across the range;")
-    print(f"       NEDT is dark-driven at the warm end.")
-    print(f"    3. The spec checker turns the sweep into a decision: warmest")
-    print(f"       compliant T minus a guard band = the recommended set point,")
-    print(f"       trading cooler power against thermal-sensitivity margin.")
+        print(
+            f"  Compliant range: {min(compliant):.0f}–{max(compliant):.0f} K; "
+            f"recommended set point {recommend:.0f} K"
+        )
+    print("\n  Key findings:")
+    print("    1. Measured J(T) importer closes the catalog gap: the TVAC curve")
+    print("       drives detector.dark_rate_e_per_s directly (no Arrhenius model")
+    print("       assumed) — and reveals the super-Arrhenius knee an Arrhenius")
+    print("       Rule-07 extrapolation would miss.")
+    print(
+        f"    2. QE(T) matters far less than dark current: QE falls "
+        f"{qe_swing:.0f}% while dark rises {dark_swing:,.0f}× across the range;"
+    )
+    print("       NEDT is dark-driven at the warm end.")
+    print("    3. The spec checker turns the sweep into a decision: warmest")
+    print("       compliant T minus a guard band = the recommended set point,")
+    print("       trading cooler power against thermal-sensitivity margin.")
 
 
 if __name__ == "__main__":

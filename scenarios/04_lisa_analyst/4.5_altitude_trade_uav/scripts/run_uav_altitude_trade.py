@@ -110,12 +110,12 @@ def main() -> None:
     print("=" * 74)
     print(
         f"Uncooled microbolometer: NETD {NETD_MK:.0f} mK, {PITCH_UM:.0f} µm pixel, "
-        f"{BAND[0]:.0f}–{BAND[1]:.0f} µm, f/{FOCAL_M/APERTURE_M:.0f}, "
-        f"IFOV {IFOV_RAD*1e6:.0f} µrad."
+        f"{BAND[0]:.0f}–{BAND[1]:.0f} µm, f/{FOCAL_M / APERTURE_M:.0f}, "
+        f"IFOV {IFOV_RAD * 1e6:.0f} µrad."
     )
     print(
         f"Target: {TARGET_SIZE_M:.0f} m, ΔT {TARGET_DT_K:.0f} K over {BG_TEMP_K:.0f} K "
-        f"background. Detection floor = {THRESHOLD:.0f}·NETD = {DETECT_FLOOR_K*1e3:.0f} mK."
+        f"background. Detection floor = {THRESHOLD:.0f}·NETD = {DETECT_FLOOR_K * 1e3:.0f} mK."
     )
     print()
 
@@ -134,8 +134,8 @@ def main() -> None:
     print(f"  NEP = NETD · dP/dT        = {nep:.3e} W")
     print(f"  D*  = √(A·Δf)/NEP         = {dstar:.3e} Jones")
     print(
-        f"  (Uncooled microbolometer D* ~1e9 Jones — ~100× below a cooled photon\n"
-        f"   detector; the NETD spec is the practical way to carry that.)"
+        "  (Uncooled microbolometer D* ~1e9 Jones — ~100× below a cooled photon\n"
+        "   detector; the NETD spec is the practical way to carry that.)"
     )
     print()
 
@@ -161,7 +161,7 @@ def main() -> None:
         det = "YES" if apparent_dt[i] >= DETECT_FLOOR_K else "no"
         print(
             f"{altitudes_km[i]:>5.0f}km{gsd_m[i]:>8.2f}m{fill_frac[i]:>11.3f}"
-            f"{tau[i]:>8.3f}{apparent_dt[i]*1e3:>11.0f}mK{det:>9}"
+            f"{tau[i]:>8.3f}{apparent_dt[i] * 1e3:>11.0f}mK{det:>9}"
         )
 
     # Detection ceiling: highest altitude with apparent ΔT ≥ floor.
@@ -175,7 +175,7 @@ def main() -> None:
     )
     print(
         f"  DETECTION CEILING: {ceiling_km:.1f} km — the highest altitude where "
-        f"apparent ΔT ≥ {DETECT_FLOOR_K*1e3:.0f} mK. Above it the target dilutes "
+        f"apparent ΔT ≥ {DETECT_FLOOR_K * 1e3:.0f} mK. Above it the target dilutes "
         "below the microbolometer's NETD floor."
     )
     print(
@@ -189,8 +189,11 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(10, 6))
     ax.semilogy(altitudes_km, apparent_dt * 1e3, "o-", color="#843C0C", label="apparent ΔT")
     ax.axhline(
-        DETECT_FLOOR_K * 1e3, color="black", ls="--", lw=1.5,
-        label=f"detection floor = {THRESHOLD:.0f}·NETD = {DETECT_FLOOR_K*1e3:.0f} mK",
+        DETECT_FLOOR_K * 1e3,
+        color="black",
+        ls="--",
+        lw=1.5,
+        label=f"detection floor = {THRESHOLD:.0f}·NETD = {DETECT_FLOOR_K * 1e3:.0f} mK",
     )
     ax.axhline(NETD_MK, color="gray", ls=":", lw=1, label=f"NETD = {NETD_MK:.0f} mK")
     if not np.isnan(ceiling_km):

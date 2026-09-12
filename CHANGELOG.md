@@ -21,6 +21,19 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **`radiant template` serves the bundled mission-template store** — the same
+  catalog the GUI welcome screen shows — instead of a disjoint inline dict of
+  four minimal configs. Template names on the command line are now the
+  bundled file stems (e.g. `leo_mapping_extended`); the old inline names
+  (`mwir_leo_pushbroom`, `vnir_aerial`, `lwir_geo`, `swir_leo`) are gone.
+
+### Added
+- **Three new bundled mission templates** (welcome screen + `radiant
+  template`): *Aerial VNIR Imaging* and *LEO SWIR Mapping* (reflective
+  targets under a 40° sun — the modern descriptor form) and *GEO LWIR
+  Staring*; all truth-barred loadable and warning-clean.
+
+### Changed
 - **GeometryStage rejects an endpoint below its own terrain.** With a
   nonzero `geometry.site_elevation_m`, the terrain-bearing endpoint (target
   for down-looking, sensor for up-looking, both for level) must sit at or
@@ -2961,7 +2974,12 @@ retroactively reconstructed.
   +24 %). **Effect:** point-source and sub-pixel SNR **decrease** and NEDT
   **increase** by roughly the old EE_box over-statement (e.g. GUI baselines 1.1
   SNR −7.4 % / NEDT +8.0 %, 1.3 SNR −5.3 % / NEDT +5.6 %); extended-scene
-  results (EE_box ≡ 1) are unchanged. Two GUI-baseline snapshots regenerated.
+  *radiometry* (EE_box ≡ 1) is unchanged, but the reported `EE(1x1)`
+  *diagnostic metric* moves on extended scenes too (−14.2 % on 2.3/6.3 and
+  8.3's vacuum rungs) — the metric reads the same re-weighted box, only no
+  signal consumes it there (scope widened at the October sweep, 2026-09-12:
+  three scenario refreshes had to caveat their attribution against the
+  original narrower wording). Two GUI-baseline snapshots regenerated.
 - **File-path parameters are now stored portably — relative to the config's own
   directory instead of as an absolute machine path (CU-177).** Parameters that name a
   data file (`source.target`/`background` emissivity/reflectance/albedo/brightness-

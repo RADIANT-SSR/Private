@@ -1,0 +1,45 @@
+# RADIANT mission template — LEO SWIR Mapping
+# A LEO SWIR mapper over a sunlit extended scene from 500 km. SWIR daytime
+# signal is solar-reflected, so the target is declared REFLECTIVE (albedo
+# 0.30 under a 40° sun) — the old CLI starter's thermal-only 300 K target
+# carries almost no in-band exitance at 1–2.5 µm.
+_radiant:
+  format: 1
+  template:
+    name: "LEO SWIR Mapping"
+    blurb: "Push-broom SWIR mapper over a sunlit extended scene from 500 km."
+    specs: "SWIR 1.0–2.5 µm · 500 km nadir · extended reflective scene"
+    tune_next:
+      - source.target.reflectance
+      - geometry.solar_zenith_rad
+      - optics.aperture_diameter_m
+      - spectral_integration.integration_time_s
+      - readout.read_noise_e_rms
+atmosphere:
+  model: simple
+  standard_atmosphere: midlat_summer
+detector:
+  dark_rate_e_per_s: 50.0
+  pixel_pitch_x_um: 15.0
+  pixel_pitch_y_um: 15.0
+  qe_value: 0.75
+geometry:
+  sensor_altitude_m: 500000.0
+  solar_zenith_rad: 0.6981   # 40 deg sun
+optics:
+  aperture_diameter_m: 0.25
+  focal_length_m: 1.00
+  transmission_scalar: 0.75
+readout:
+  adc_bits: 14
+  full_well_capacity_e: 2000000.0
+  gain_e_per_dn: 120.0
+  read_noise_e_rms: 8.0
+source:
+  scene_type: extended
+  target:
+    reflectance: 0.30
+spectral_integration:
+  filter_min_um: 1.0
+  filter_max_um: 2.5
+  integration_time_s: 0.001

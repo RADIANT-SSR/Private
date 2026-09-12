@@ -17,6 +17,19 @@ but numeric values carry an explicit recall-confidence class:
 A follow-up web-verification pass (any online session) should promote or correct every
 "published (recalled)" entry; the scenario `gaps.md` carries this as an open item.
 
+**Verification pass, 2026-09-12 (October sweep).** The archived full text of
+[Knight 2014] (Remote Sens. 6(11):10286, via
+`web.archive.org/web/2023/https://www.mdpi.com/2072-4292/6/11/10286/htm`,
+retrieved 2026-09-12) verifies **focal length 886 mm verbatim** ("effective
+focal length of 886 mm at the center of the field of view") and the
+front-aperture-stop four-mirror-anastigmat architecture. Not present in the
+retrievable text (figures/tables and the referenced SPIE design papers):
+the 135 mm stop diameter, 36 µm pitch, and silver coating — those rows stay
+**recalled-class**; MDPI direct and the NASA OLI-2 design pages carry no
+retrievable numerics (attempted same session). The 36 µm pitch remains
+corroborated only by the self-consistency triangle (886 mm verified ×
+705 km orbit × 30 m GSD ⇒ ~37 µm-class pitch).
+
 Primary sources:
 - [Irons 2012] Irons, Dwyer, Barsi, "The next Landsat satellite: The Landsat Data
   Continuity Mission," Remote Sens. Environ. 122:11–21, doi:10.1016/j.rse.2011.08.026 —
@@ -65,7 +78,7 @@ prediction is expected to sit above (better than) the flight measurement.
 |---|---|---|---|---|
 | Telescope | four-mirror off-axis anastigmat, front aperture stop | — | [Knight 2014] | published |
 | Aperture stop diameter | 135 | mm | [Knight 2014] | published (recalled, ±5 mm) |
-| Focal length | 886 | mm | [Knight 2014] | published (recalled, ±10 mm); self-consistent: 36 µm/886 mm × 705 km = 28.6 m ≈ 30 m GSD ✓ |
+| Focal length | 886 | mm | [Knight 2014] | **published (verified 2026-09-12, verbatim** — archived full text, see header note); self-consistent: 36 µm/886 mm × 705 km = 28.6 m ≈ 30 m GSD ✓ |
 | f-number | 6.6 | — | derived: 886/135 | derived |
 | Mirror coating | protected/enhanced silver | — | [Knight 2014] | published (recalled — coating type; curve is synthesized, see below) |
 | Detectors (VNIR: B1–5, B8) | Si PIN photodiode, hybridized ROIC | — | [Knight 2014] | published |

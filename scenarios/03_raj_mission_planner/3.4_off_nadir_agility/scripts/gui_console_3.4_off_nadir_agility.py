@@ -49,6 +49,7 @@ print(f"niirs              : {result.metrics.get('niirs'):.4g} [-]")
 for _note in dict.fromkeys(str(_w.message).split(":")[0].strip() for _w in _caught):
     print(f"note: {_note}")
 
+
 # --- 2) Trade sweep along the scenario variable -----------------------------
 # The scripting console is a REPL: it echoes the value of every *bare* top-level
 # statement. A loose ``ax.plot(...)`` or ``sensor.set(...)`` (which returns the

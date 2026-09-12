@@ -102,6 +102,21 @@ FPN MTF term.
 | `two_point` | Per-pixel gain+offset corrected at $S_1, S_2$ (from cal temps through the band) | quadratic-nonlinearity residual (plan §3.2, D1): parabola vanishing at both cal points |
 | `three_point` | Piecewise gain+offset through $S_1, S_2, S_3$ (`cal_temp_mid_K` between low and high; Gap 122 item 2, owner-scoped to three points — beyond that is rarely done) | each bracketing segment carries **its own** nonlinearity parabola, vanishing at all three cal points and peaking at a quarter of that segment's span squared; outside the span the nearest segment extrapolates. The source-uniformity imprint (item 1) interpolates piecewise the same way |
 
+**Cal-point declaration modes (Gap 122 item 5 — the CU-346 flux-ratio
+door, delivered 2026-09-12).** `calibration.cal_point_mode ∈ {temperature,
+flux_fraction}` (default `temperature`). The temperature form maps
+`cal_temp_*_K` to cal signals through the band Planck photon-radiance
+ratio; the flux form declares them directly as fractions of the scene
+signal (`cal_flux_low/mid/high` — the integrating-sphere / flat-field
+form): $S_i = f_i \cdot S_{scene}$, no thermal anchor, no CU-346
+reflective-scene stand-in. Under `flux_fraction`, every
+temperature-anchored input (cal temperatures, source ΔT,
+`source_uniformity_K`, `band_center_uncertainty_um`, source Δε) is
+**rejected as over-specification** — a flux-declared point gives them no
+anchor, and a set value silently doing nothing is the failure class Rule 16
+exists for. Drift, the direct gain bias, and the internal-shutter path are
+temperature-free and flow unchanged in both modes.
+
 Under an active scheme, `detector.prnu_pct` / `detector.dsnu_e_rms` are
 re-read as **pre-correction** dispersions (handoff mechanism per ratified
 D2 — detector emits them as stage outputs, not noise terms; no double

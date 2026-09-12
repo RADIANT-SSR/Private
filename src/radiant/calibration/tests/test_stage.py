@@ -647,3 +647,86 @@ class TestInternalCalPath:
         s = _evaluated_state().with_stage_output("detector", "nearfield_e", 500.0)
         with pytest.raises(CalibrationValidationError, match="per-element"):
             CalibrationStage().run(s, _params(**self._shutter()))
+
+
+class TestFluxFractionCalPoints:
+    """Gap 122 item 5 (the CU-346 flux-ratio door, owner recommendation
+    adopted 2026-09-12): cal points declared as FLUX FRACTIONS of the scene
+    signal (integrating-sphere flat fields), superseding the Planck
+    temperature mapping — s_i = f_i × S_scene, no thermal anchor. The
+    temperature-anchored siblings (cal temps, source ΔT, uniformity-in-K,
+    spectral-cal Δλ, source Δε) have no meaning under a flux-declared point
+    and are rejected as over-specification."""
+
+    _FLUX = {
+        "calibration__scheme": "two_point",
+        "calibration__cal_point_mode": "flux_fraction",
+        "calibration__cal_flux_low": 0.3,
+        "calibration__cal_flux_high": 0.9,
+        "calibration__nonlinearity_pct": 1.0,
+        "calibration__time_since_cal_s": 24.0,
+        "calibration__gain_drift_frac_per_s": 0.1,
+        "calibration__offset_drift_e_per_s": 3600.0,
+        "calibration__gain_uncertainty_pct": 1.0,
+    }
+
+    def test_flux_points_map_directly(self) -> None:
+        """s1 = 0.3 × 30 000 = 9 000 e-, s2 = 0.9 × 30 000 = 27 000 e-;
+        the two-point NUC parabola runs between them."""
+        out = CalibrationStage().run(_evaluated_state(), _params(**self._FLUX))
+        cal = out.stage_outputs["calibration"]
+        assert cal["s1_e"] == _pytest.approx(9_000.0, rel=1e-12)
+        assert cal["s2_e"] == _pytest.approx(27_000.0, rel=1e-12)
+        expected_nuc = 0.01 * abs((30000.0 - 9000.0) * (30000.0 - 27000.0)) / 1.0e5
+        assert cal["nuc_residual_e"] == _pytest.approx(expected_nuc, rel=1e-9)
+
+    def test_flux_mode_emits_no_reflective_stand_in_note(self) -> None:
+        """The CU-346 advisory exists because Planck anchors misdescribe a
+        reflective scene; a flux-declared point IS the door it promised."""
+        import warnings as _warnings
+
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("always")
+            out = CalibrationStage().run(_evaluated_state(), _params(**self._FLUX))
+        assert "reflective_scene_cal_note" not in out.stage_outputs["calibration"]
+        assert not any("CU-346" in str(w.message) for w in caught)
+
+    def test_temperature_anchored_siblings_rejected(self) -> None:
+        for extra in (
+            {"calibration__cal_temp_low_K": 290.0},
+            {"calibration__source_temp_uncertainty_K": 0.5},
+            {"calibration__source_uniformity_K": 0.05},
+            {"calibration__band_center_uncertainty_um": 0.01},
+            {"calibration__source_emissivity_uncertainty": 0.005},
+        ):
+            with pytest.raises(CalibrationValidationError, match="flux"):
+                CalibrationStage().run(_evaluated_state(), _params(**self._FLUX, **extra))
+
+    def test_unset_flux_point_incomplete(self) -> None:
+        cfg = {k: v for k, v in self._FLUX.items() if k != "calibration__cal_flux_high"}
+        with pytest.raises(CalibrationConfigIncompleteError, match="cal_flux_high"):
+            CalibrationStage().run(_evaluated_state(), _params(**cfg))
+
+    def test_unordered_flux_points_rejected(self) -> None:
+        cfg = {**self._FLUX, "calibration__cal_flux_low": 0.9, "calibration__cal_flux_high": 0.3}
+        with pytest.raises(CalibrationValidationError, match="increasing"):
+            CalibrationStage().run(_evaluated_state(), _params(**cfg))
+
+    def test_drift_and_gain_terms_still_flow(self) -> None:
+        """Time-linear drift and the direct gain bias are temperature-free."""
+        out = CalibrationStage().run(_evaluated_state(), _params(**self._FLUX))
+        cal = out.stage_outputs["calibration"]
+        assert cal["gain_drift_e"] == _pytest.approx(720.0, rel=1e-9)
+        assert cal["offset_drift_e"] == _pytest.approx(86400.0, rel=1e-9)
+        assert [t.name for t in out.bias_terms] == ["gain"]
+
+    def test_three_point_flux_mode(self) -> None:
+        cfg = {
+            **self._FLUX,
+            "calibration__scheme": "three_point",
+            "calibration__cal_flux_mid": 0.6,
+        }
+        out = CalibrationStage().run(_evaluated_state(), _params(**cfg))
+        cal = out.stage_outputs["calibration"]
+        assert cal["s2_e"] == _pytest.approx(18_000.0, rel=1e-12)
+        assert cal["s3_e"] == _pytest.approx(27_000.0, rel=1e-12)

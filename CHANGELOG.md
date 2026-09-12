@@ -20,6 +20,17 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **Flux-declared calibration points** (`calibration.cal_point_mode =
+  "flux_fraction"` with `cal_flux_low/mid/high` — Gap 122 item 5, the
+  CU-346 flux-ratio door). Cal points as fractions of the scene signal
+  (integrating-sphere flat fields), superseding the Planck temperature
+  mapping on reflective bands; the CU-346 reflective-scene advisory no
+  longer fires in this mode (its message now names the door). Under flux
+  mode the temperature-anchored inputs are rejected as over-specification.
+  Default mode `temperature` — existing results bit-identical. GUI:
+  Calibration card cal-point rows switch with the mode.
+
 ### Changed
 - **The interpolated backend's single-τ collapse warning fires only when the
   scene has a sun leg** (`los.theta_s` set). At night nothing consumes

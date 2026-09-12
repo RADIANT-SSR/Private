@@ -163,6 +163,77 @@ def _validate_active_scheme(scheme: str, params: ParameterSet) -> None:
             )
 
 
+def _validate_flux_mode(scheme: str, params: ParameterSet) -> None:
+    """Rule 16 for cal_point_mode = 'flux_fraction' (Gap 122 item 5).
+
+    Flux-declared cal points carry no thermal anchor, so every
+    temperature-anchored input is over-specification here — rejected, not
+    ignored (a set value silently doing nothing is the CU-093 failure
+    class). Drift, gain, and the internal-shutter path are temperature-free
+    and validate as usual.
+    """
+    rejected = (
+        ("calibration.cal_temp_low_K", 0.0),
+        ("calibration.cal_temp_mid_K", 0.0),
+        ("calibration.cal_temp_high_K", 0.0),
+        ("calibration.source_temp_uncertainty_K", 0.0),
+        ("calibration.source_uniformity_K", 0.0),
+        ("calibration.band_center_uncertainty_um", 0.0),
+        ("calibration.source_emissivity_uncertainty", 0.0),
+    )
+    for name, unset in rejected:
+        if float(params.get(name)) != unset:
+            raise CalibrationValidationError(
+                f"{name} is set, but calibration.cal_point_mode = "
+                "'flux_fraction'.\n"
+                "  Why: a flux-declared cal point has no thermal anchor — "
+                "temperature-anchored inputs (cal temperatures, source ΔT, "
+                "uniformity-in-K, band-center Δλ, source Δε) have no "
+                "meaning under it and would silently do nothing.\n"
+                f"  Action: unset {name}, or use cal_point_mode = "
+                "'temperature'."
+            )
+    f_low: float = params.get("calibration.cal_flux_low")
+    f_high: float = params.get("calibration.cal_flux_high")
+    f_mid: float = params.get("calibration.cal_flux_mid")
+    if f_low == _UNSET:
+        raise CalibrationConfigIncompleteError(
+            f"calibration.scheme = '{scheme}' with cal_point_mode = "
+            "'flux_fraction' needs a cal point, but calibration.cal_flux_low "
+            "is unset.\n"
+            "  Why: an active NUC scheme corrects at known cal levels.\n"
+            "  Action: set cal_flux_low (a fraction of the scene signal), "
+            "or calibration.scheme = 'none'."
+        )
+    if scheme in ("two_point", "three_point") and f_high == _UNSET:
+        raise CalibrationConfigIncompleteError(
+            f"calibration.scheme = '{scheme}' (flux_fraction) needs an upper "
+            "cal point, but calibration.cal_flux_high is unset.\n"
+            "  Why: multi-point NUC corrects between two or three levels.\n"
+            "  Action: set cal_flux_high above cal_flux_low."
+        )
+    if scheme == "three_point" and f_mid == _UNSET:
+        raise CalibrationConfigIncompleteError(
+            "calibration.scheme = 'three_point' (flux_fraction) needs "
+            "calibration.cal_flux_mid.\n"
+            "  Why: piecewise NUC needs the middle level.\n"
+            "  Action: set cal_flux_low < cal_flux_mid < cal_flux_high."
+        )
+    candidates = (
+        f_low,
+        f_mid if scheme == "three_point" else None,
+        f_high if scheme != "one_point" else None,
+    )
+    ordered = [f for f in candidates if f is not None]
+    if any(b <= a for a, b in zip(ordered, ordered[1:], strict=False)):
+        raise CalibrationValidationError(
+            f"flux cal points must be strictly increasing, got {ordered}.\n"
+            "  Why: coincident or unordered levels are ill-conditioned "
+            "(plan §15), same as the temperature form.\n"
+            "  Action: order the flux fractions (low < [mid <] high)."
+        )
+
+
 def _require_chain_scalar(name: str, value: object, source: str) -> float:
     """A positive chain scalar the residual model anchors to (Rule 16)."""
     if not isinstance(value, (int, float)) or not math.isfinite(float(value)) or value <= 0.0:
@@ -202,7 +273,11 @@ class CalibrationStage:
                 "calibration", "enabled", False
             )
 
-        _validate_active_scheme(scheme, params)
+        cal_point_mode: str = params.get("calibration.cal_point_mode")
+        if cal_point_mode == "flux_fraction":
+            _validate_flux_mode(scheme, params)
+        else:
+            _validate_active_scheme(scheme, params)
 
         # CU-346 guard (owner-ratified 2026-09-07: guard now, flux-ratio door
         # later — Gap 122). On a reflective scene the Planck cal-point mapping
@@ -219,6 +294,8 @@ class CalibrationStage:
         # residual *structure* — plateau, √N exemption — survives; the
         # absolute level does not), so the run proceeds under a loud advisory
         # rather than silently (Rule 17).
+        # The guard concerns the Planck stand-in; a flux-declared point IS
+        # the door it promised (Gap 122 item 5), so flux mode skips it.
         scene_temp_guard_K: float = params.get("source.target.temperature")
         lam_min_guard_um: float = params.get("spectral_integration.filter_min_um")
         lam_max_guard_um: float = params.get("spectral_integration.filter_max_um")
@@ -226,7 +303,9 @@ class CalibrationStage:
         thermal_frac = band_thermal_photon_fraction(
             scene_temp_guard_K, lam_min_guard_um, lam_max_guard_um
         )
-        if isinstance(target_desc, T2Reflective) or thermal_frac < _THERMAL_ANCHOR_FLOOR:
+        if cal_point_mode == "temperature" and (
+            isinstance(target_desc, T2Reflective) or thermal_frac < _THERMAL_ANCHOR_FLOOR
+        ):
             note = (
                 "calibration cal points on this scene are Planck stand-ins: "
                 f"a blackbody at the declared scene temperature "
@@ -235,10 +314,11 @@ class CalibrationStage:
                 "band, so the collected signal is (solar-)reflected, not "
                 "thermal, and the Planck anchor describes none of it. Residual "
                 "magnitudes (and SNR/NEDT under this scheme) are "
-                "structure-true but level-approximate. A flux-declared cal "
-                "point (integrating sphere) is not expressible in v1 — "
-                "tracked as the CU-346 flux-ratio door under Gap 122. To "
-                "silence: set calibration.scheme = 'none'."
+                "structure-true but level-approximate. For a reflective "
+                "scene, declare the cal points as flux fractions instead — "
+                "calibration.cal_point_mode = 'flux_fraction' (the CU-346 "
+                "flux-ratio door, delivered as Gap 122 item 5) — or set "
+                "calibration.scheme = 'none' to silence."
             )
             warnings.warn(f"CU-346: {note}", UserWarning, stacklevel=2)
             state = state.with_stage_output("calibration", "reflective_scene_cal_note", note)
@@ -257,20 +337,31 @@ class CalibrationStage:
         lam_max_um: float = params.get("spectral_integration.filter_max_um")
 
         # --- Cal points in the signal domain -----------------------------
-        t_low: float = params.get("calibration.cal_temp_low_K")
-        s1_e = cal_point_signal_e(
-            t_cal_K=t_low,
-            scene_temp_K=scene_temp_K,
-            scene_signal_e=signal_e,
-            lam_min_um=lam_min_um,
-            lam_max_um=lam_max_um,
-        )
+        # Two declaration forms (Gap 122 item 5): temperature (Planck
+        # photon-radiance ratio, the v1 form) or flux_fraction (direct
+        # fractions of the scene signal — integrating-sphere flat fields).
+        if cal_point_mode == "flux_fraction":
+            t_low = 0.0  # no thermal anchor in this mode (validated unset)
+            s1_e = float(params.get("calibration.cal_flux_low")) * signal_e
+        else:
+            t_low = params.get("calibration.cal_temp_low_K")
+            s1_e = cal_point_signal_e(
+                t_cal_K=t_low,
+                scene_temp_K=scene_temp_K,
+                scene_signal_e=signal_e,
+                lam_min_um=lam_min_um,
+                lam_max_um=lam_max_um,
+            )
         state = state.with_stage_output("calibration", "s1_e", s1_e)
 
         prnu_frac = float(det.get("precal_prnu_pct", 0.0)) / 100.0
 
         if scheme in ("two_point", "three_point"):
-            t_high: float = params.get("calibration.cal_temp_high_K")
+            t_high: float = (
+                0.0
+                if cal_point_mode == "flux_fraction"
+                else params.get("calibration.cal_temp_high_K")
+            )
             # Full-scale reference for the quadratic coefficient, in the same
             # summed domain as signal_e_final: the counting effective well
             # when the DROIC branch ran, else the per-pixel analog capacity
@@ -295,21 +386,29 @@ class CalibrationStage:
                 "the well capacity",
             )
             if scheme == "three_point":
-                t_mid_run: float = params.get("calibration.cal_temp_mid_K")
-                s2_e = cal_point_signal_e(
-                    t_cal_K=t_mid_run,
-                    scene_temp_K=scene_temp_K,
-                    scene_signal_e=signal_e,
-                    lam_min_um=lam_min_um,
-                    lam_max_um=lam_max_um,
+                t_mid_run: float = (
+                    0.0
+                    if cal_point_mode == "flux_fraction"
+                    else params.get("calibration.cal_temp_mid_K")
                 )
-                s3_e = cal_point_signal_e(
-                    t_cal_K=t_high,
-                    scene_temp_K=scene_temp_K,
-                    scene_signal_e=signal_e,
-                    lam_min_um=lam_min_um,
-                    lam_max_um=lam_max_um,
-                )
+                if cal_point_mode == "flux_fraction":
+                    s2_e = float(params.get("calibration.cal_flux_mid")) * signal_e
+                    s3_e = float(params.get("calibration.cal_flux_high")) * signal_e
+                else:
+                    s2_e = cal_point_signal_e(
+                        t_cal_K=t_mid_run,
+                        scene_temp_K=scene_temp_K,
+                        scene_signal_e=signal_e,
+                        lam_min_um=lam_min_um,
+                        lam_max_um=lam_max_um,
+                    )
+                    s3_e = cal_point_signal_e(
+                        t_cal_K=t_high,
+                        scene_temp_K=scene_temp_K,
+                        scene_signal_e=signal_e,
+                        lam_min_um=lam_min_um,
+                        lam_max_um=lam_max_um,
+                    )
                 state = state.with_stage_output("calibration", "s2_e", s2_e)
                 state = state.with_stage_output("calibration", "s3_e", s3_e)
                 nuc_e = three_point_residual_e(
@@ -322,13 +421,16 @@ class CalibrationStage:
                 )
                 t_cal_bias_K = (t_low + t_mid_run + t_high) / 3.0
             else:
-                s2_e = cal_point_signal_e(
-                    t_cal_K=t_high,
-                    scene_temp_K=scene_temp_K,
-                    scene_signal_e=signal_e,
-                    lam_min_um=lam_min_um,
-                    lam_max_um=lam_max_um,
-                )
+                if cal_point_mode == "flux_fraction":
+                    s2_e = float(params.get("calibration.cal_flux_high")) * signal_e
+                else:
+                    s2_e = cal_point_signal_e(
+                        t_cal_K=t_high,
+                        scene_temp_K=scene_temp_K,
+                        scene_signal_e=signal_e,
+                        lam_min_um=lam_min_um,
+                        lam_max_um=lam_max_um,
+                    )
                 state = state.with_stage_output("calibration", "s2_e", s2_e)
                 nuc_e = two_point_residual_e(
                     signal_e=signal_e,

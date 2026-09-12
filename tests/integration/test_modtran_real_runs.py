@@ -293,12 +293,17 @@ def test_esky_thermal_simple_vs_modtran_characterization() -> None:
     from radiant.core.los_geometry import LineOfSightGeometry
 
     # (run, profile, LWIR MODTRAN golden W/m², MWIR MODTRAN golden W/m²)
+    # Re-based 2026-09-12 (October sweep) on the THERMAL-ONLY column: the old
+    # references came off _modtran_esky_thermal (thermal + scattered), which
+    # inflated the MWIR reference by 34 % (H2) / 13 % (H4) against a purely
+    # thermal model quantity, so the pinned MWIR ratios read low by
+    # construction. LWIR untouched to 1e-3 (no scattered content there).
     cases = [
-        ("H2", "us_standard", 20.87, 2.44),
-        ("H4", "tropical", 66.76, 4.11),
+        ("H2", "us_standard", 20.85, 1.820),
+        ("H4", "tropical", 66.75, 3.651),
     ]
     for run, profile, lwir_ref, mwir_ref in cases:
-        wl, esky_mod = _modtran_esky_thermal(run)
+        wl, esky_mod = _modtran_esky_thermal_only(run)
 
         # MODTRAN reference magnitudes are stable goldens (2026-07-17 set).
         assert _band_integral(wl, esky_mod, 8.0, 12.0) == pytest.approx(lwir_ref, rel=0.02)
@@ -327,25 +332,26 @@ def test_esky_thermal_simple_vs_modtran_characterization() -> None:
         lwir_simple = _band_integral(wl, quantities.E_sky_thermal, 8.0, 12.0)
         mwir_simple = _band_integral(wl, quantities.E_sky_thermal, 3.0, 5.0)
 
-        # The parity envelope, re-measured 2026-08-29 after the CU-324
-        # exponent swap (D = 1.1 → sec 48.2° = 1.50030): simple/MODTRAN in
-        # [1.1, 1.8] LWIR, [0.7, 1.2] MWIR for these profiles.
+        # The parity envelope, re-measured 2026-09-12 on the thermal-only
+        # references (post the 2026-08-29 CU-324 exponent swap):
+        # simple/MODTRAN in [1.1, 1.8] LWIR, [0.9, 1.3] MWIR.
         assert 1.1 < lwir_simple / lwir_ref < 1.8, (
             f"{run}/{profile}: LWIR E_sky_thermal ratio "
             f"{lwir_simple / lwir_ref:.3f} outside the parity "
             "envelope — if the downwelling model changed, update this "
             "record and the CU-155 Resolved entry together."
         )
-        assert 0.7 < mwir_simple / mwir_ref < 1.2, (
+        assert 0.9 < mwir_simple / mwir_ref < 1.3, (
             f"{run}/{profile}: MWIR E_sky_thermal ratio "
             f"{mwir_simple / mwir_ref:.3f} outside the parity envelope."
         )
 
         # The measured points themselves, pinned tighter than the envelope so a
-        # silent drift inside it still fails (2026-08-29, post-swap).
-        # Repinned 2026-08-29 (CU-330 ozone region split): LWIR 1.594 → 1.619
-        # (H2) and 1.226 → 1.231 (H4); both MWIR values are bit-identical.
-        expected = {"H2": (1.619, 0.869), "H4": (1.231, 0.928)}[run]
+        # silent drift inside it still fails. Repinned 2026-09-12 (October
+        # sweep, thermal-only re-base): the MWIR ratios rise to their
+        # like-for-like values (0.869 → 1.167, 0.928 → 1.046) because the
+        # scattered contamination left the denominator; LWIR moves ≤ 0.001.
+        expected = {"H2": (1.620, 1.167), "H4": (1.231, 1.046)}[run]
         assert lwir_simple / lwir_ref == pytest.approx(expected[0], abs=0.005)
         assert mwir_simple / mwir_ref == pytest.approx(expected[1], abs=0.005)
 

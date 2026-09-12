@@ -64,6 +64,24 @@ only; the radiometric-accuracy metric *(Phase 2)* consumes
 Biases from independent sources RSS *within* the accuracy budget; conversion
 to K at scene temperature happens in the metric layer.
 
+Five bias terms exist: `source_temp` (band-Planck log-derivative ×
+$\Delta T_{src}$, `cal_source_bias.py`), `source_emissivity`
+($\Delta\varepsilon/\varepsilon_{src}$), `spectral_cal` (band-center
+uncertainty as a rigid band shift, `spectral_cal.py` — the calibration
+absorbs the scale error at its own temperature, so the residual is the
+scene-vs-cal difference of band-shift log-derivatives: zero at
+$T_{scene} = T_{cal}$, scene-temperature-dependent otherwise; Gap 122
+item 3), `internal_cal_offset` (internal-shutter cal path — the flag
+blocks the fore-optics from the cal view, so their near-field emission
+returns uncorrected; the photon-weighted per-element split lives in
+`internal_cal.py`, the electron magnitude rides the detector's own
+`nearfield_e`, and the term is the offset over the scene signal; Gap 122
+item 4, active only under `calibration.cal_path = "internal_shutter"`),
+and `gain` (direct fractional input). The internal-shutter path also
+emits a fifth *noise* term, `narcissus_fpn` (spatial): the
+`narcissus_fpn_pct` fraction of the uncorrected fore-optics offset that
+varies across the array.
+
 ### 1.3 Rule 4 non-interaction
 
 Residual FPN is spatial *noise*, not a spatial *degradation*: it has no PSF
@@ -144,7 +162,9 @@ type via `is_calibration_config_incomplete` (the Gap 117 advisory pattern).
 ## 5. Deferred (ratified)
 
 - FPA-ΔT-driven drift (D4 — time-linear v1 only; follow-on gap when needed).
-- Ops-level calibration (cal cadence trades, scene-based NUC, onboard-source
-  fore-optics exclusion) — the stage is the home when it arrives (ADR-0012).
+- Ops-level calibration (cal cadence trades, scene-based NUC) — the stage is
+  the home when it arrives (ADR-0012). The onboard-source **fore-optics
+  exclusion** piece landed 2026-09-11 as the `internal_shutter` cal path
+  (Gap 122 item 4, §1.2); cadence and scene-based NUC remain deferred.
 - Partial along-column decorrelation of PRNU under long TDI (plan §14 —
   v1 takes full correlation, an upper bound on the floor).

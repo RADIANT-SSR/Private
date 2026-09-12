@@ -225,7 +225,7 @@ readout/
 └── saturation.py
 ```
 
-### `calibration/` — 9 source + 8 tests
+### `calibration/` — 11 source + 10 tests
 
 Stage 8: calibration error model (Gap 120, ADR-0012). Terms-only stage between
 Readout and Performance — post-NUC residual FPN noise terms (appended
@@ -243,7 +243,9 @@ calibration/
 ├── source_uniformity.py # cal-source spatial non-uniformity residual (Gap 122 item 1)
 ├── gain_drift.py        # time-linear gain drift term (D4)
 ├── offset_drift.py      # time-linear offset drift term (D4)
-└── cal_source_bias.py   # cal-source ΔT / Δε → radiance-scale bias fractions (D3)
+├── cal_source_bias.py   # cal-source ΔT / Δε → radiance-scale bias fractions (D3)
+├── spectral_cal.py      # band-center uncertainty → scene-vs-cal bias (Gap 122 item 3)
+└── internal_cal.py      # internal-shutter fore-optics emission split (Gap 122 item 4)
 ```
 
 ### `performance/` — 56 source + 39 tests

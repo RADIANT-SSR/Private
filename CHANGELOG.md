@@ -20,6 +20,30 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **Internal-cal path mismatch** (`calibration.cal_path =
+  "internal_shutter"`, Gap 122 item 4 — the ADR-0012 fore-optics-exclusion
+  growth path). A cal flag inside the train blocks the fore-optics from the
+  cal view, so the NUC never corrects their emission: the stage now splits
+  the detector's near-field electrons by the optics stage's per-element
+  emission (photon-weighted, `calibration/internal_cal.py`) at
+  `calibration.shutter_after_element`, emits the uncorrected fore-optics
+  offset as the `internal_cal_offset` BiasTerm (offset / scene signal), and
+  the `calibration.narcissus_fpn_pct` fraction of it as the spatial
+  `narcissus_fpn` NoiseTerm (in the calibration RSS and NEDT). Default
+  `full_aperture` — existing results bit-identical. GUI: Calibration card,
+  "Internal cal (path mismatch)" group with cal_path-conditional rows.
+- **`calibration.band_center_uncertainty_um`** — spectral-calibration
+  uncertainty as a rigid band-center shift, entering the accuracy budget as
+  the fourth calibration `BiasTerm` (`spectral_cal`, Gap 122 item 3). The
+  calibration absorbs the band-shift scale error at its own temperature, so
+  the term is the scene-vs-cal difference of photon-weighted band-shift
+  log-derivatives: zero at scene = cal temperature, growing with the
+  separation, strongest on Wien-side bands (MWIR 3.5–5 µm at 20 K
+  separation and 10 nm uncertainty ≈ 0.13 % radiance bias). Default 0 —
+  existing results bit-identical. GUI: Calibration card, "Spectral cal
+  (bias budget)" group.
+
 ### Changed
 - **Results-affecting: up/down DROIC reference phase now integrates
   near-field and stray electrons** (CU-351; owner D6 clarification

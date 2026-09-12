@@ -179,8 +179,19 @@ python scripts/gen_modtran_manifest.py
 python scripts/gen_modtran_manifest.py --check
 ```
 
-Nothing else needs doing on delivery: the repackaging into
-`data/atmospheres/` NPZ families and the promotion of the
-`test_fixture`-marked runs into `tests/integration/fixtures/modtran/` are
-coding tasks that run against the staged set (the `destination` column of
-`docs/plans/modtran_run_matrix.csv` says which run goes where).
+Nothing else needs doing on delivery: repackaging into the shipped NPZ
+families is a coding task that runs against the staged set (the
+`destination` column of `docs/plans/modtran_run_matrix.csv` says which run
+feeds what).
+
+**`destination` vocabulary (convention recorded at the October sweep,
+owner-ratified 2026-09-12).** Since the run set became tracked in-repo
+(`c2587fd`), a `test_fixture` destination means the row is pinned by anchor
+tests reading `modtran/real_runs/` directly — never a copied fixture under
+`tests/`, which would duplicate committed source data with two sources of
+truth (Rules 26/27). `shipped_library` means the row feeds a bundled NPZ
+family, with one recorded exception: O1/O2 are nadir-only (no zenith
+column), cannot join the rectangular `(sensor_altitude_m, path_zenith_rad)`
+upwelling grid the other O rows form, and ship as validation data rather
+than interpolation nodes — adding them to `midlat_summer_sensor_ladder`
+would have re-baselined every off-node sensor-altitude query.

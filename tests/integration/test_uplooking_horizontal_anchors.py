@@ -21,9 +21,10 @@ The batch-1 runs (``docs/plans/modtran_run_matrix.csv``, delivered
     (``hrange_km``) set.  These are the runs the ``hrange_km`` wiring under
     test makes regenerable.
 
-The runs are gitignored until the committed fixture subset lands (plan §7.1),
-so the whole module is ``skipif``-guarded and is a no-op in CI, following
-``tests/integration/test_modtran_real_runs.py``.
+The run set has been tracked in-repo since ``c2587fd``, so this module runs
+everywhere the repository is complete; the ``skipif`` guard remains only for
+a checkout without ``modtran/real_runs/`` (October sweep: the old reason
+claimed the data was gitignored, which stopped being true).
 
 Every measured number below was taken 2026-07-26 from the delivered files and
 is pinned on **both** sides — the MODTRAN reference (a stable golden) and the
@@ -60,8 +61,7 @@ _MATRIX_CSV = _REPO_ROOT / "docs" / "plans" / "modtran_run_matrix.csv"
 
 pytestmark = pytest.mark.skipif(
     not _REAL_RUNS.exists(),
-    reason="real MODTRAN run set not staged (modtran/real_runs/ is gitignored "
-    "until the fixture subset is committed — plan §7.1)",
+    reason="modtran/real_runs/ not present in this checkout (tracked since c2587fd)",
 )
 
 # The K and L blocks were all run on this profile / aerosol / visibility.
@@ -389,11 +389,11 @@ _K_LADDER: list[
         tuple[float, float],
     ]
 ] = [  # noqa: E501
-    ("K1", 0.0, 1.0e3, 0.0, 0.7811, 0.5813, 7.084, 0.6476, (1.138, 1.299), (0.515, 0.358)),
-    ("K2", 0.0, 3.0e3, 0.0, 0.6698, 0.4777, 10.337, 0.7736, (1.092, 1.306), (0.807, 0.463)),
-    ("K3", 0.0, 5.0e3, 0.0, 0.6481, 0.4499, 10.863, 0.7950, (1.024, 1.259), (0.930, 0.502)),
-    ("K4", 0.0, 1.0e4, 0.0, 0.6307, 0.4284, 11.135, 0.8022, (0.971, 1.173), (1.011, 0.547)),
-    ("K5", 0.0, 2.0e4, 0.0, 0.6014, 0.4196, 11.320, 0.8027, (0.983, 1.100), (1.033, 0.586)),
+    ("K1", 0.0, 1.0e3, 0.0, 0.7811, 0.5813, 7.084, 0.6476, (1.136, 1.295), (0.516, 0.358)),
+    ("K2", 0.0, 3.0e3, 0.0, 0.6698, 0.4777, 10.337, 0.7736, (1.086, 1.300), (0.809, 0.462)),
+    ("K3", 0.0, 5.0e3, 0.0, 0.6481, 0.4499, 10.863, 0.7950, (1.015, 1.252), (0.925, 0.502)),
+    ("K4", 0.0, 1.0e4, 0.0, 0.6307, 0.4284, 11.135, 0.8022, (0.959, 1.166), (0.977, 0.547)),
+    ("K5", 0.0, 2.0e4, 0.0, 0.6014, 0.4196, 11.320, 0.8027, (0.971, 1.093), (0.979, 0.585)),
 ]
 
 
@@ -430,6 +430,13 @@ def test_k_ladder_segment_characterization() -> None:
       temperature itself is measurably closer to MODTRAN's own (see
       ``test_emission_temperature_anchors.py``), and the shape error is now
       visible rather than hidden.
+
+      **Repinned 2026-09-11 (October sweep).** The 2026-08-02 pins had drifted
+      toward the loose end of their own bands under the accumulated CU-316 /
+      CU-330 / CU-335 / CU-336 atmosphere refinements — worst K5 LWIR radiance
+      1.033 → 0.979, 0.006 from its band edge — spending the margin silently.
+      Re-measured over all five rungs; MODTRAN reference columns untouched
+      (delivered data).
 
     The tolerances are ±0.04 on τ ratios and ±0.06 on radiance ratios — the
     band the measured values sit in with margin for grid/interpolation noise,
@@ -544,8 +551,11 @@ def test_level_arm_vs_the_full_horizontal_grid() -> None:
     below and the two models are comparing near-zeros (ratio 0.31 → 0.018) —
     that cell is a *documented breakdown*, not a usable operating point, and
     it is pinned here so nobody mistakes it for one.  Above 3 km the LWIR arm
-    holds within ~±3 % out to 25 km range, which is the ground-to-air and
-    air-to-air regime the scene classes need.
+    holds within ~2 % out to 10 km range and within ~6-12 % at 25 km (worst
+    at 5 km altitude, L13 = 0.885) — the ground-to-air and air-to-air regime
+    the scene classes need.  (Claim tightened to the table's own numbers,
+    October sweep 2026-09-11; the old "±3 % out to 25 km" predated the
+    CU-330 repin.)
     """
     atm = _k_l_atmosphere()
     rows = _matrix_rows()

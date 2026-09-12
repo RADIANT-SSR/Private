@@ -1497,7 +1497,7 @@ The 2026-04-07 revision of this document described the surface below. **None of 
 | `result.background_at(...)`, `result.target_at(...)` | Not implemented. Use `stage_outputs["spectral_integration"]["background_e"]` / `["signal_e"]` (e-). |
 | `result.noise_budget()` (NoiseBudget object with `.table()`/`.to_dataframe()`) | Use `result.noise_terms` + `inspect_result()` / `plot_noise_budget()`. |
 | `result.mtf_at_nyquist()`, `result.mtf_curve(term)`, `result.mtf_budget()` | Use `result.metrics["mtf_at_nyquist"]`, `result.state.mtf_terms`, `stage_outputs["performance"]["mtf_budget"]`. |
-| `result.detection_range()`, `result.rer()`, `result.gsd()` | RER/GSD are `metrics` keys (`rer`, `gsd_*_m`). Detection range is not a computed metric; sweep `source.target.range_m` against an SNR threshold. |
+| `result.detection_range()`, `result.rer()`, `result.gsd()` | All are `metrics` keys: `rer`, `gsd_*_m`, and `detection_range_m` (point-source regime only — the range at which SNR falls to `performance.detection_snr_threshold`, Gap 77/GF-15; absent in other regimes). |
 | `result.metrics()` as a method | `metrics` is a **property** (mapping), not a method. |
 | `result.to_json(path)`, `result.to_csv(path)` | Not implemented. `json.dump(result.to_provenance_record(), ...)` covers provenance. |
 | `result.inspect()` method / Jupyter tree widget | Use `inspect_result(result)` from `radiant.api.inspect`. |

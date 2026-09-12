@@ -20,6 +20,26 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **GeometryStage rejects an endpoint below its own terrain.** With a
+  nonzero `geometry.site_elevation_m`, the terrain-bearing endpoint (target
+  for down-looking, sensor for up-looking, both for level) must sit at or
+  above the site elevation; a mis-entered config (e.g. site 900 m with a
+  0 m target) now raises an actionable `GeometrySpecificationError` at the
+  geometry stage instead of passing silently and failing later inside the
+  Hufnagel-Valley Cn² profile. Valid configs are unaffected.
+- **Results-affecting (extreme-altitude emission placement only):** the
+  emission-temperature layer split's exponential branch is computed in the
+  log domain, so a species segment beyond ~745 scale heights no longer
+  underflows and silently drops its opacity from the layer sum (the
+  telescoping identity Σδᵢ = OD_segment now holds everywhere). Unreachable
+  in every shipped scenario; ordinary segments agree to float precision.
+- **`InterpolatedAtmosphere` rejects over-unity transmittance at load.** A
+  family file whose τ exceeds 1 + 1e-9 (percent-vs-fraction mis-scale, wrong
+  column) now fails construction with an actionable error naming the point,
+  instead of being silently clipped into a plausible-looking column. Float
+  dust above 1 still loads; correctly-scaled families are unaffected.
+
 ### Added
 - **Internal-cal path mismatch** (`calibration.cal_path =
   "internal_shutter"`, Gap 122 item 4 — the ADR-0012 fore-optics-exclusion

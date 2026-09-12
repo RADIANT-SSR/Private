@@ -459,3 +459,41 @@ class TestFieldDependentRefractive:
             optical_type=ElementTransferMode.REFRACTIVE,
         )
         assert len(wfe.field_table) == 4  # type: ignore[arg-type]
+
+
+class TestRmsOpdWithFoldedZernikes:
+    """October sweep: SCALAR_RMS ``rms_opd_m()`` ignored folded-in
+    ``zernike_coeffs`` (the stage's defocus Z4 fold), so ``strehl_marechal``
+    understated total WFE whenever scalar RMS combined with defocus. The
+    diagnostic now merges the CU-355 expansion with the folded coefficients
+    and RSSes the total (unobscured expansion — the ε renormalisation is a
+    few-percent effect the Maréchal diagnostic does not need)."""
+
+    def test_scalar_plus_folded_z4_rsses(self) -> None:
+        import math
+
+        rms = 0.05
+        z4 = 0.08
+        wfe = WavefrontError(
+            mode=WfeMode.SCALAR_RMS,
+            rms_waves=rms,
+            zernike_coeffs={4: z4},
+            reference_wavelength_um=1.0,
+        )
+        # Hand anchor (ideal orthonormality): c = rms/sqrt(8) per term. The
+        # implementation uses the actual CU-355 expansion, whose grid
+        # renormalisation shifts c by ~4e-5 relative — hence the tolerance.
+        c = rms / math.sqrt(8.0)
+        expected_waves = math.sqrt((c + z4) ** 2 + 7.0 * c**2)
+        assert wfe.rms_opd_m() == pytest.approx(expected_waves * 1e-6, rel=1e-3)
+        # Exact wiring identity against the expansion itself.
+        from radiant.optics.scalar_rms import scalar_rms_zernike_coeffs
+
+        merged = scalar_rms_zernike_coeffs(rms, obscuration_ratio=0.0)
+        merged[4] = merged.get(4, 0.0) + z4
+        exact = math.sqrt(sum(v**2 for v in merged.values())) * 1e-6
+        assert wfe.rms_opd_m() == pytest.approx(exact, rel=1e-12)
+
+    def test_scalar_without_fold_unchanged(self) -> None:
+        wfe = WavefrontError(mode=WfeMode.SCALAR_RMS, rms_waves=0.05, reference_wavelength_um=1.0)
+        assert wfe.rms_opd_m() == pytest.approx(0.05e-6, rel=1e-9)

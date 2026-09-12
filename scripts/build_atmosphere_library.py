@@ -557,7 +557,7 @@ def main() -> int:
     if not REAL_RUNS.exists():
         print(
             f"ERROR: {REAL_RUNS} not found. The real MODTRAN run set is "
-            "gitignored local data — stage it before regenerating the library "
+            "data tracked in-repo since c2587fd; restore it before regenerating the library "
             "(see modtran/real_runs/README.md).",
             file=sys.stderr,
         )

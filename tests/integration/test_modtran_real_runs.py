@@ -5,9 +5,10 @@ These assert relationships *between* runs in the 39-run matrix
 cover — the mutual consistency of the two altitude ladders, and the
 airmass behaviour that confirms the Card-3 ANGLE convention (CU-065).
 
-The runs live gitignored under ``modtran/real_runs/`` until the committed
-fixture subset lands (plan §7.1), so every test here is ``skipif``-guarded
-on their presence and is a no-op in CI. They are the real-data analogue of
+The runs are tracked in-repo under ``modtran/real_runs/`` (since ``c2587fd``;
+October sweep — they were gitignored when this module was written), so every
+test here runs wherever the repository is complete; the ``skipif`` guard
+covers only an incomplete checkout. They are the real-data analogue of
 the plan §4 "free integration test requiring no extra runs".
 """
 
@@ -25,8 +26,7 @@ _REAL_RUNS = Path(__file__).resolve().parents[2] / "modtran" / "real_runs"
 
 pytestmark = pytest.mark.skipif(
     not _REAL_RUNS.exists(),
-    reason="real MODTRAN run set not staged (modtran/real_runs/ is gitignored "
-    "until the fixture subset is committed — plan §7.1)",
+    reason="modtran/real_runs/ not present in this checkout (tracked since c2587fd)",
 )
 
 

@@ -319,22 +319,28 @@ def _column_fraction(
     lower: np.ndarray,
     upper: np.ndarray,
 ) -> np.ndarray | None:
-    """Per-layer share of one species' column [-], summing to 1, or ``None``.
+    """Per-layer share of one species' column [-], summing to 1.
 
-    ``None`` means the species' column underflows over this segment and there
-    is nothing to place — only reachable for an exponential profile, whose
-    closed-form column difference can round to zero (a 1.2 km aerosol profile
-    above 60 km).  A :class:`LayerSpecies` always answers a distribution: its
-    weights are built in the log domain precisely so that a layer 10 tail
-    widths away from the segment still normalises instead of underflowing to a
-    zero column and silently dropping its opacity.
+    Both branches are carried in the **log domain**, so a segment arbitrarily
+    far from the species' mass still normalises: only *relative* exponents
+    survive the normalisation, however small the absolute densities are.  The
+    exponential branch used to compute the closed-form column difference in
+    linear space, which underflows to an exact zero past ~745 scale heights —
+    and the ``None`` it then returned made the caller silently drop the
+    species' opacity from the layer sum, breaking the telescoping identity
+    ``Σ δ_i = OD_segment`` (October sweep).  The return type keeps ``None``
+    for interface stability, but no reachable input produces it any more.
     """
     if isinstance(member, EmissionSpecies):
-        column = np.exp(-lower / member.scale_height_m) - np.exp(-upper / member.scale_height_m)
-        total = float(column.sum())
-        if total <= 0.0:
-            return None
-        return np.asarray(column / total, dtype=np.float64)
+        # column_i ∝ exp(-lower_i/H) · (1 − exp(-Δ_i/H)); factor the common
+        # exp(-min(lower)/H) out in the log domain — it cancels in the ratio.
+        h_scale = member.scale_height_m
+        log_col = -(lower - float(lower.min())) / h_scale + np.log(
+            -np.expm1(-(upper - lower) / h_scale)
+        )
+        log_col -= float(log_col.max())
+        column = np.exp(log_col)
+        return np.asarray(column / column.sum(), dtype=np.float64)
 
     # Midpoint quadrature of ∫ρ dz per layer, carried in the log domain.  The
     # log-sum-exp normalisation is what makes it exact for a far-off layer: the

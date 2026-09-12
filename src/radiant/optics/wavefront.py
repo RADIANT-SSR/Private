@@ -174,7 +174,20 @@ class WavefrontError:
 
         if self.mode == WfeMode.SCALAR_RMS:
             assert self.rms_waves is not None
-            return self.rms_waves * ref_m
+            if not self.zernike_coeffs:
+                return self.rms_waves * ref_m
+            # October sweep: with folded-in coefficients (the stage's defocus
+            # Z4 fold, CU-058) the pupil carries the CU-355 expansion PLUS the
+            # fold, summed per Noll index — merge and RSS the total so the
+            # strehl_marechal diagnostic sees the same budget the pupil does.
+            # Unobscured expansion (the ε renormalisation is a few-percent
+            # effect this diagnostic does not need).
+            from radiant.optics.scalar_rms import scalar_rms_zernike_coeffs
+
+            merged = scalar_rms_zernike_coeffs(self.rms_waves, obscuration_ratio=0.0)
+            for j, c in self.zernike_coeffs.items():
+                merged[j] = merged.get(j, 0.0) + c
+            return math.sqrt(sum(c**2 for c in merged.values())) * ref_m
 
         if self.mode == WfeMode.ZERNIKE:
             assert self.zernike_coeffs is not None

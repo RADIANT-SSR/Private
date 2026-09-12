@@ -357,3 +357,24 @@ class TestCatalogueInvariants:
             assert fan.interpolation_axes == "path_zenith_rad"
             assert fan.los_direction == "up"
             assert fan.name not in {f.name for f in SHIPPED_FAMILIES}
+
+
+class TestClosestMissTieBreak:
+    """October sweep: with two SST fans rendered at different lower endpoints,
+    a scene at a third elevation used to report whichever fan came first in
+    the catalogue, not the nearer one — equal-gate ties broke by order, never
+    by how close the miss is."""
+
+    def test_third_elevation_names_the_nearer_fan(self) -> None:
+        # Sensor at 700 m: 200 m from the site900m fan, 700 m from the 0 m fan.
+        suggestion = select_atmosphere_family(_up(700.0, 700_000.0, math.radians(18.0)))
+        assert suggestion.family is None
+        assert suggestion.gap is not None
+        assert suggestion.gap.context.get("family") == "midlat_summer_sst_column_fan_site900m"
+
+    def test_nearer_fan_wins_from_the_other_side_too(self) -> None:
+        # Sensor at 200 m: 200 m from the 0 m fan, 700 m from the site900m fan.
+        suggestion = select_atmosphere_family(_up(200.0, 700_000.0, math.radians(18.0)))
+        assert suggestion.family is None
+        assert suggestion.gap is not None
+        assert suggestion.gap.context.get("family") == "midlat_summer_sst_column_fan"

@@ -59,7 +59,13 @@ which is a separate fact from either endpoint's altitude and is deliberately
 boundary layer at 10 km for a level air-to-air leg). Its single consumer today
 is the Hufnagel-Valley $C_n^2$ surface term; which endpoint's terrain it names
 for each of the three LOS directions is tabulated in RADIANT_Atmosphere.md
-§7.1 "Site elevation" (CU-262).
+§7.1 "Site elevation" (CU-262). GeometryStage validates the pairing (ex-CU-303,
+2026-09-11): the terrain-bearing endpoint — the target for a down-looking
+scene, the sensor for up-looking, both for level — must sit at or above the
+site elevation; an endpoint below its own terrain is underground and raises
+`GeometrySpecificationError` at this stage rather than surfacing later inside
+`cn2()`. The far endpoint is deliberately unconstrained (a valley sensor
+viewing a mountain-top target is physical).
 
 ### Solar family (resolves to θ_s, Δφ)
 

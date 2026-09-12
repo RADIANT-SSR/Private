@@ -883,3 +883,30 @@ class TestCu181AltitudeDependentDownwelling:
         assert _band_mean(wl, at29, 3.0, 5.0) > _band_mean(wl, at20, 3.0, 5.0)
         # LWIR, where water dominates, still falls.
         assert _band_mean(wl, at29, 8.0, 12.0) < _band_mean(wl, at20, 8.0, 12.0)
+
+
+class TestBlockRosterCoversEveryDeliveredBlock:
+    """October sweep: _BATCH2_BLOCKS is a hand-kept roster scoped to M-Q, so a
+    run-matrix block authored under a NEW letter would deliver its tape7s and
+    silently sit outside this suite's completeness accounting. This tripwire
+    fails the moment a delivered post-L block letter is missing from the
+    roster, forcing the roster (and the family coverage) to grow with it."""
+
+    def test_no_delivered_block_letter_outside_the_roster(self) -> None:
+        real_runs = _REAL_RUNS
+        if not real_runs.exists():
+            pytest.skip("modtran/real_runs not present in this checkout")
+        unrostered = sorted(
+            run_id
+            for run_id in _matrix_rows()
+            if len(run_id) >= 2
+            and run_id[0].isalpha()
+            and run_id[0] >= "M"
+            and run_id[1:].isdigit()
+            and run_id[0] not in _BATCH2_BLOCKS
+            and (real_runs / f"{run_id}.tp7").exists()
+        )
+        assert unrostered == [], (
+            f"delivered batch-2-class runs outside _BATCH2_BLOCKS: {unrostered} — "
+            "extend the roster (and the family completeness coverage) for the new block"
+        )

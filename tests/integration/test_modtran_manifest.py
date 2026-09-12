@@ -1,13 +1,15 @@
 """Integration: the staged MODTRAN run set matches its committed checksum manifest (CU-174).
 
-The real MODTRAN 6 deliveries under ``modtran/real_runs/`` are gitignored and
-locally irreplaceable, so a partial or corrupted re-staging would otherwise be
-detectable only where a golden happens to pin a band mean. ``scripts/gen_modtran_manifest.py``
+The real MODTRAN 6 deliveries under ``modtran/real_runs/`` have been tracked
+in-repo since ``c2587fd`` (October sweep: they were gitignored when this module
+was written); a partial or corrupted checkout would otherwise be detectable
+only where a golden happens to pin a band mean. ``scripts/gen_modtran_manifest.py``
 commits their SHA-256 checksums (not the data) to ``modtran/real_runs_MANIFEST.sha256``;
 this test verifies the staged files against that manifest.
 
-Like ``test_modtran_real_runs.py`` it is ``skipif``-guarded on the presence of the
-staged directory, so it is a no-op in CI / a cold clone. When the data IS staged,
+Like ``test_modtran_real_runs.py`` it is ``skipif``-guarded on the presence of
+the directory — a defensive guard for an incomplete checkout, not a CI no-op.
+When the data IS present,
 it fails fast on any missing file or checksum mismatch.
 """
 
@@ -24,8 +26,7 @@ _MANIFEST = _REPO_ROOT / "modtran" / "real_runs_MANIFEST.sha256"
 
 pytestmark = pytest.mark.skipif(
     not _REAL_RUNS.exists(),
-    reason="real MODTRAN run set not staged (modtran/real_runs/ is gitignored "
-    "until the fixture subset is committed — plan §7.1)",
+    reason="modtran/real_runs/ not present in this checkout (tracked since c2587fd)",
 )
 
 

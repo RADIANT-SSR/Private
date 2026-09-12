@@ -1087,3 +1087,31 @@ class TestLogTauWavelengthResample:
         np.testing.assert_allclose(
             state.atm_emission_down.values, expected_linear, rtol=1e-14, atol=0.0
         )
+
+
+class TestOverUnityTauRejectedAtLoad:
+    """October sweep: the constructor's silent clip to [TAU_FLOOR, 1] converted
+    a mis-scaled family file into a plausible-looking column — the exact
+    failure `resample_transmittance`'s pinned pass-through contract exists to
+    expose (its docstring: capping would hide the mis-scale). A mis-scaled
+    file now fails loud at load; float dust above 1 still loads."""
+
+    @pytest.mark.level0
+    def test_mis_scaled_tau_raises_at_construction(self, wl: np.ndarray) -> None:
+        tau = np.full_like(wl, 1.5)  # e.g. a percent-vs-fraction mix-up
+        points = [
+            _make_point({"target_altitude_m": 0.0}, wl, tau),
+            _make_point({"target_altitude_m": 5000.0}, wl, tau * 0.5),
+        ]
+        with pytest.raises(AtmosphereValidationError, match="exceeds unity"):
+            InterpolatedAtmosphere(points, axes=["target_altitude_m"])
+
+    @pytest.mark.level0
+    def test_float_dust_above_unity_still_loads(self, wl: np.ndarray) -> None:
+        tau = np.full_like(wl, 1.0 + 1e-13)
+        points = [
+            _make_point({"target_altitude_m": 0.0}, wl, tau),
+            _make_point({"target_altitude_m": 5000.0}, wl, tau * 0.5),
+        ]
+        model = InterpolatedAtmosphere(points, axes=["target_altitude_m"])
+        assert model.n_points == 2

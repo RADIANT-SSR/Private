@@ -348,3 +348,57 @@ class TestRangeConsistency:
                 make_params(geometry__target_range_m=H)  # == nadir slant
             ).stage_outputs["geometry"]
         assert out["target_range_m"] == pytest.approx(H, rel=1e-9)
+
+
+class TestSiteElevationConsistency:
+    """October sweep (ex-CU-303): a target below its own terrain used to pass
+    GeometryStage silently and surface only inside cn2() when an HV profile
+    was selected. The consistency check now fires at the owning stage, with
+    the topology mapping the schema documents (down-looking = terrain under
+    the TARGET; up-looking = under the SENSOR; level = shared)."""
+
+    def test_down_looking_target_below_terrain_raises(self) -> None:
+        from radiant.geometry.errors import GeometrySpecificationError
+
+        params = make_params(
+            geometry__site_elevation_m=900.0,
+            geometry__target_altitude_m=0.0,
+        )
+        with pytest.raises(GeometrySpecificationError, match="below.*terrain"):
+            run_stage(params)
+
+    def test_down_looking_target_on_its_terrain_passes(self) -> None:
+        out = run_stage(
+            make_params(
+                geometry__site_elevation_m=900.0,
+                geometry__target_altitude_m=900.0,
+            )
+        )
+        assert out.stage_outputs["geometry"]["h_target_m"] == pytest.approx(900.0, rel=1e-12)
+
+    def test_down_looking_sensor_below_target_terrain_is_legal(self) -> None:
+        """A valley sensor viewing a mountain-top target is physical: the
+        site is the terrain under the TARGET, not under the sensor."""
+        out = run_stage(
+            make_params(
+                geometry__sensor_altitude_m=3000.0,
+                geometry__site_elevation_m=2500.0,
+                geometry__target_altitude_m=2500.0,
+            )
+        )
+        assert out.stage_outputs["geometry"]["los_direction"] == "down"
+
+    def test_up_looking_sensor_below_terrain_raises(self) -> None:
+        from radiant.geometry.errors import GeometrySpecificationError
+
+        params = make_params(
+            geometry__sensor_altitude_m=100.0,
+            geometry__target_altitude_m=10_000.0,
+            geometry__site_elevation_m=900.0,
+        )
+        with pytest.raises(GeometrySpecificationError, match="below.*terrain"):
+            run_stage(params)
+
+    def test_default_site_never_fires(self) -> None:
+        out = run_stage(make_params(geometry__target_altitude_m=0.0))
+        assert out.stage_outputs["geometry"]["h_target_m"] == pytest.approx(0.0, abs=1e-12)

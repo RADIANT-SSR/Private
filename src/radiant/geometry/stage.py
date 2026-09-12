@@ -57,6 +57,7 @@ import logging
 from radiant.core.chain import ChainState
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterSet
+from radiant.geometry.errors import GeometrySpecificationError
 from radiant.geometry.modes import (
     check_range_consistency,
     resolve_kinematics,
@@ -70,6 +71,58 @@ from radiant.geometry.scene_class import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _check_site_elevation_consistency(
+    params: ParameterSet,
+    los_direction: str,
+    h_sensor_m: float,
+    h_target_m: float,
+) -> None:
+    """The terrain-bearing endpoint must sit on or above its own terrain (Rule 16).
+
+    ``geometry.site_elevation_m`` is the terrain under the topology-dependent
+    site (schema: down-looking = under the TARGET, up-looking = under the
+    SENSOR, level = shared). An endpoint below that terrain is underground —
+    a mis-entered config that used to pass this stage silently and surface
+    only inside ``cn2()`` when an HV profile was selected (October sweep,
+    ex-CU-303). The far endpoint is deliberately unconstrained: a valley
+    sensor viewing a mountain-top target is physical.
+    """
+    site_m: float = float(params.get("geometry.site_elevation_m"))
+    if site_m <= 0.0:
+        return
+    checks: list[tuple[str, float]] = []
+    if los_direction == "down":
+        checks.append(("target", h_target_m))
+    elif los_direction == "up":
+        checks.append(("sensor", h_sensor_m))
+    else:  # level — the terrain is shared by both endpoints
+        checks.append(("sensor", h_sensor_m))
+        checks.append(("target", h_target_m))
+    for endpoint, altitude_m in checks:
+        if altitude_m < site_m:
+            raise GeometrySpecificationError(
+                what=(
+                    f"the {endpoint} altitude ({altitude_m:.1f} m MSL) is below its "
+                    f"own terrain (geometry.site_elevation_m = {site_m:.1f} m)"
+                ),
+                why=(
+                    "site_elevation_m is the terrain under the "
+                    f"{endpoint} for a {los_direction}-looking scene — an endpoint "
+                    "below it is underground, not a physical viewing geometry"
+                ),
+                action=(
+                    f"raise geometry.{endpoint}_altitude_m to at least the site "
+                    "elevation, or correct geometry.site_elevation_m"
+                ),
+                context={
+                    "los_direction": los_direction,
+                    "endpoint": endpoint,
+                    "altitude_m": altitude_m,
+                    "site_elevation_m": site_m,
+                },
+            )
 
 
 class GeometryStage:
@@ -112,6 +165,10 @@ class GeometryStage:
             scene,
             viewing.h_sensor_m,
             viewing.h_target_m,
+        )
+
+        _check_site_elevation_consistency(
+            params, los.los_direction, viewing.h_sensor_m, viewing.h_target_m
         )
 
         los_rate = resolve_los_rate(params, viewing, kinematics)

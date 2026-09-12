@@ -112,16 +112,28 @@ def _run(rho: float, *, mode: str = "veiling_glare", vgi: float = 0.0, abs_irr: 
     r = build(rho, mode=mode, vgi=vgi, abs_irr=abs_irr).evaluate()
     si = r.stage_outputs["spectral_integration"]
     det = r.stage_outputs["detector"]
+    ro = r.stage_outputs["readout"]
     return {
         "signal_e": si["signal_e"],
         "snr": r.metrics["snr"],
         "niirs": r.metrics.get("niirs"),
         "stray_e": det.get("stray_e", 0.0),
-        "noise_e": si["signal_e"] / r.metrics["snr"],
+        # Guard only (October sweep): the back-derivation divides by zero
+        # the moment an extreme stray case fills the well and clips the
+        # signal to 0 e- (SNR = 0, the CU-350 pedestal regime). The existing
+        # signal/SNR methodology is preserved for live cases (a swap to
+        # sigma_total_e moves the printed contrast-SNR column — logged as a
+        # findings line, not changed in passing); a saturated case carries
+        # None and is REPORTED as saturated, never computed through.
+        "noise_e": (si["signal_e"] / r.metrics["snr"]) if r.metrics["snr"] > 0.0 else None,
+        "well_status": str(ro.get("well_status", "ok")),
     }
 
 
-def _contrast_snr(t: dict, b: dict) -> float:
+def _contrast_snr(t: dict, b: dict) -> float | None:
+    """None when either pixel is well-saturated (noise_e carries None there)."""
+    if t["noise_e"] is None or b["noise_e"] is None:
+        return None
     return (t["signal_e"] - b["signal_e"]) / math.sqrt(t["noise_e"] ** 2 + b["noise_e"] ** 2)
 
 
@@ -175,6 +187,21 @@ def main() -> None:
         t = _run(RHO_TARGET, mode=mode, vgi=vgi, abs_irr=abs_irr)
         b = _run(RHO_BG, mode=mode, vgi=vgi, abs_irr=abs_irr)
         csnr = _contrast_snr(t, b)
+        if csnr is None or t["niirs"] is None:
+            # October sweep: the extreme stray case now FILLS the well (the
+            # CU-350 pedestal regime) — signal clips to 0 e-, SNR is 0, and
+            # the NIIRS gate withholds. Report the saturation honestly
+            # instead of crashing on arithmetic with withheld values.
+            print(
+                f"{label:>28}{t['stray_e']:>13.3e}{t['snr']:>9.1f}"
+                f"{'SATURATED':>15}{'n/a':>9}{'n/a':>9}"
+            )
+            print(
+                f"{'':>28}  ^ well_status = '{t['well_status']}' — the stray pedestal "
+                "consumes the full well (SNR 0, NIIRS withheld). The FRED remedy is "
+                "baffling, not parameters."
+            )
+            return {"snr": t["snr"], "csnr": csnr, "niirs": t["niirs"], "stray_e": t["stray_e"]}
         dn = t["niirs"] - ct["niirs"]
         print(
             f"{label:>28}{t['stray_e']:>13.3e}{t['snr']:>9.1f}{csnr:>15.1f}"
@@ -190,8 +217,13 @@ def main() -> None:
     print(
         f"\n  Tom's 3 % veiling glare adds ≈ {VGI_FRED * ct['signal_e']:.2e} stray e- "
         "(≈ 3 % of the signal) — a modest noise penalty. His 2.5 W/m² out-of-field "
-        "stray is far worse: several × the signal, cutting SNR and costing a full "
-        "NIIRS level. Stray light degrades contrast SNR purely by added shot noise — "
+        + (
+            "stray saturates the pixel outright — the pedestal consumes the full "
+            "well, so no imaging metric survives it. "
+            if oof_case["csnr"] is None
+            else "stray is far worse: several × the signal, cutting SNR hard. "
+        )
+        + "Stray light degrades contrast SNR purely by added shot noise — "
         "the uniform pedestal cancels in the target−background difference, so the "
         "contrast SIGNAL is unchanged (RADIANT does not model the veiling-glare MTF "
         "reduction; gaps.md)."

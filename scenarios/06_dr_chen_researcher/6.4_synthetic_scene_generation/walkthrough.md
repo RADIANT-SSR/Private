@@ -38,11 +38,19 @@ RADIANT supplies the radiometry; the script assembles the scene from it.
    (`radiant.performance.roc`) turns each contrast SNR into
    `P_d = Q(Q⁻¹(P_fa) − SNR)`, `AUC = Φ(SNR/√2)`.
 
-**Key regime fact used throughout:** in the extended regime the per-pixel
-background and *filled-pixel* target signals are **range-independent** (they
-are radiance × a fixed pixel solid angle). Only `ff` depends on range. That
-is what makes the detection-range sweep below a pure analytic dilution of an
-already-computed signal — no re-running the chain.
+**Key regime fact used throughout (corrected at the October sweep,
+2026-09-12):** in the extended regime the per-pixel background and
+*filled-pixel* target signals are **geometrically** range-independent —
+radiance × a fixed pixel solid angle, so no 1/R² dilution while the pixel
+stays filled. They are **not** range-independent through the atmosphere:
+path transmittance falls and path radiance grows with range, which is
+exactly what the nominal-target table shows (S_tgt 8.444e5 → 5.827e5 e⁻,
+−31 %, over 10 → 200 km). The detection-range sweep below therefore treats
+only the *geometric* part analytically (`ff` dilution of an
+already-computed signal, no re-running the chain) while holding the
+atmospheric factors at each target's own computed range — an approximation
+whose error is bounded by that measured −31 %/190 km transmittance droop,
+not an identity.
 
 ---
 
@@ -135,7 +143,7 @@ certain) through the informative band (800–1300 km) down toward chance
 ## Physics / modeling notes (house rule)
 
 - **Every printed value carries units**; the noise model (shot + dark + read)
-  and the regime (extended, range-independent per-pixel signal) are stated
+  and the regime (extended; geometrically range-independent per-pixel signal) are stated
   inline.
 - **`is_hot_target = True`** on every run — LWIR self-emission of a warm
   surface, no solar/reflective term.

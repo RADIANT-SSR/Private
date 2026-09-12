@@ -20,6 +20,18 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **`calibration.band_center_uncertainty_um`** — spectral-calibration
+  uncertainty as a rigid band-center shift, entering the accuracy budget as
+  the fourth calibration `BiasTerm` (`spectral_cal`, Gap 122 item 3). The
+  calibration absorbs the band-shift scale error at its own temperature, so
+  the term is the scene-vs-cal difference of photon-weighted band-shift
+  log-derivatives: zero at scene = cal temperature, growing with the
+  separation, strongest on Wien-side bands (MWIR 3.5–5 µm at 20 K
+  separation and 10 nm uncertainty ≈ 0.13 % radiance bias). Default 0 —
+  existing results bit-identical. GUI: Calibration card, "Spectral cal
+  (bias budget)" group.
+
 ### Changed
 - **Results-affecting: up/down DROIC reference phase now integrates
   near-field and stray electrons** (CU-351; owner D6 clarification

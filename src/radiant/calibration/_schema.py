@@ -208,6 +208,25 @@ SOURCE_EMISSIVITY = ParameterDef(
     tags=frozenset({"calibration"}),
 )
 
+BAND_CENTER_UNCERTAINTY_UM = ParameterDef(
+    name="calibration.band_center_uncertainty_um",
+    description=(
+        "Band-center wavelength uncertainty (1-sigma) [um] — spectral-cal "
+        "or filter drift as a rigid band shift. Becomes a scene-temperature-"
+        "dependent radiance BIAS term: the calibration absorbs the scale "
+        "error at its own temperature, so the residual is the scene-vs-cal "
+        "difference of band-shift log-derivatives (Gap 122 item 3) — "
+        "accuracy budget only, never RSS'd into noise. Zero at "
+        "T_scene = T_cal; Wien-side (short-wave) bands are most sensitive."
+    ),
+    dtype=float,
+    canonical_unit="um",
+    input_unit="um",
+    default=0.0,
+    bounds=(0.0, 1.0),
+    tags=frozenset({"calibration", "bias"}),
+)
+
 GAIN_UNCERTAINTY_PCT = ParameterDef(
     name="calibration.gain_uncertainty_pct",
     description=(
@@ -236,5 +255,6 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     SOURCE_TEMP_UNCERTAINTY_K,
     SOURCE_EMISSIVITY_UNCERTAINTY,
     SOURCE_EMISSIVITY,
+    BAND_CENTER_UNCERTAINTY_UM,
     GAIN_UNCERTAINTY_PCT,
 )

@@ -165,6 +165,7 @@ class TestActiveDispatch:
         "calibration__source_temp_uncertainty_K": 0.5,
         "calibration__source_emissivity_uncertainty": 0.005,
         "calibration__source_emissivity": 0.98,
+        "calibration__band_center_uncertainty_um": 0.02,
         "calibration__gain_uncertainty_pct": 1.0,
     }
 
@@ -216,9 +217,34 @@ class TestActiveDispatch:
 
         out = CalibrationStage().run(_evaluated_state(), _params(**self._CAL))
         names = [t.name for t in out.bias_terms]
-        assert names == ["source_temp", "source_emissivity", "gain"]
+        assert names == ["source_temp", "source_emissivity", "spectral_cal", "gain"]
         rss = _math.sqrt(sum(t.value_frac**2 for t in out.bias_terms))
         assert out.stage_outputs["calibration"]["bias_total_frac"] == _pytest.approx(rss, rel=1e-12)
+        # This fixture's scene (300 K) sits exactly at the cal midpoint
+        # (290/310), so the spectral-cal residual is zero by construction —
+        # the calibration absorbs the band-shift error at its own temperature.
+        spectral = next(t for t in out.bias_terms if t.name == "spectral_cal")
+        assert spectral.value_frac == 0.0
+
+    def test_spectral_cal_bias_matches_module(self) -> None:
+        """Gap 122 item 3 wiring identity: scene 300 K vs cal 320 K mean."""
+        from radiant.calibration.spectral_cal import spectral_cal_bias_frac
+
+        overrides = dict(self._CAL)
+        overrides["calibration__cal_temp_low_K"] = 310.0
+        overrides["calibration__cal_temp_high_K"] = 330.0
+        out = CalibrationStage().run(_evaluated_state(), _params(**overrides))
+        spectral = next(t for t in out.bias_terms if t.name == "spectral_cal")
+        expected = spectral_cal_bias_frac(
+            delta_lam_um=0.02,
+            t_scene_K=300.0,
+            t_cal_K=320.0,
+            lam_min_um=8.0,
+            lam_max_um=12.0,
+        )
+        assert expected > 0.0
+        assert spectral.value_frac == _pytest.approx(expected, rel=1e-12)
+        assert spectral.origin == "calibration.band_center_uncertainty_um"
 
     def test_nedt_equivalent_published(self) -> None:
         out = CalibrationStage().run(_evaluated_state(), _params(**self._CAL))

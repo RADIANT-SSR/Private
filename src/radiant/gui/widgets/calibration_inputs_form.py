@@ -81,6 +81,10 @@ _SOURCE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Source Δε (1σ)", "calibration.source_emissivity_uncertainty"),
 )
 
+_SPECTRAL_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Band-center Δλ (1σ)", "calibration.band_center_uncertainty_um"),
+)
+
 _GAIN_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Gain uncertainty (1σ)", "calibration.gain_uncertainty_pct"),
 )
@@ -90,6 +94,7 @@ _CAL_POINT_HEADING = "Cal points"
 _NUC_HEADING = "NUC residual"
 _DRIFT_HEADING = "Drift since cal"
 _SOURCE_HEADING = "Cal source (bias budget)"
+_SPECTRAL_HEADING = "Spectral cal (bias budget)"
 _GAIN_HEADING = "Absolute gain (bias budget)"
 
 #: Rows visible per scheme (beyond the always-visible selector).
@@ -144,6 +149,7 @@ class CalibrationInputsForm(QWidget):
         self._add_group(box, card, _NUC_HEADING, _NUC_FIELDS)
         self._add_group(box, card, _DRIFT_HEADING, _DRIFT_FIELDS)
         self._add_group(box, card, _SOURCE_HEADING, _SOURCE_FIELDS)
+        self._add_group(box, card, _SPECTRAL_HEADING, _SPECTRAL_FIELDS)
         self._add_group(box, card, _GAIN_HEADING, _GAIN_FIELDS)
 
         layout.addWidget(card)
@@ -203,6 +209,7 @@ class CalibrationInputsForm(QWidget):
             _NUC_HEADING,
             _DRIFT_HEADING,
             _SOURCE_HEADING,
+            _SPECTRAL_HEADING,
             _GAIN_HEADING,
         ):
             self._headings[heading].setVisible(active)

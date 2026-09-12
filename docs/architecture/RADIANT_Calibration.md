@@ -64,6 +64,15 @@ only; the radiometric-accuracy metric *(Phase 2)* consumes
 Biases from independent sources RSS *within* the accuracy budget; conversion
 to K at scene temperature happens in the metric layer.
 
+Four bias terms exist: `source_temp` (band-Planck log-derivative ×
+$\Delta T_{src}$, `cal_source_bias.py`), `source_emissivity`
+($\Delta\varepsilon/\varepsilon_{src}$), `spectral_cal` (band-center
+uncertainty as a rigid band shift, `spectral_cal.py` — the calibration
+absorbs the scale error at its own temperature, so the residual is the
+scene-vs-cal difference of band-shift log-derivatives: zero at
+$T_{scene} = T_{cal}$, scene-temperature-dependent otherwise; Gap 122
+item 3), and `gain` (direct fractional input).
+
 ### 1.3 Rule 4 non-interaction
 
 Residual FPN is spatial *noise*, not a spatial *degradation*: it has no PSF

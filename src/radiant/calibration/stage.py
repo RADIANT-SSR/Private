@@ -48,6 +48,7 @@ from radiant.calibration.cal_source_bias import (
     source_emissivity_bias_frac,
     source_temp_bias_frac,
 )
+from radiant.calibration.spectral_cal import spectral_cal_bias_frac
 from radiant.calibration.errors import (
     CalibrationConfigIncompleteError,
     CalibrationValidationError,
@@ -450,6 +451,27 @@ class CalibrationStage:
                     ),
                     origin="calibration.source_emissivity_uncertainty",
                     physical_basis="radiance scale (delta_eps/eps_src)",
+                )
+            )
+        d_lam: float = params.get("calibration.band_center_uncertainty_um")
+        if d_lam > 0.0:
+            # Gap 122 item 3: the cal absorbs the band-shift scale error at
+            # its own temperature, so the surviving bias is the scene-vs-cal
+            # log-derivative difference — zero at T_scene = t_cal_bias_K.
+            state = state.with_bias(
+                BiasTerm(
+                    name="spectral_cal",
+                    value_frac=spectral_cal_bias_frac(
+                        delta_lam_um=d_lam,
+                        t_scene_K=scene_temp_guard_K,
+                        t_cal_K=t_cal_bias_K,
+                        lam_min_um=lam_min_um,
+                        lam_max_um=lam_max_um,
+                    ),
+                    origin="calibration.band_center_uncertainty_um",
+                    physical_basis=(
+                        "band-shift log-derivative difference, scene vs cal temperature"
+                    ),
                 )
             )
         gain_unc: float = params.get("calibration.gain_uncertainty_pct")

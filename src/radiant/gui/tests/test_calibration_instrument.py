@@ -75,7 +75,7 @@ class TestComposition:
 
 
 class TestSchemeVisibility:
-    def test_all_thirteen_parameters_are_rows(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_all_fourteen_parameters_are_rows(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         form = CalibrationInputsForm()
         qtbot.addWidget(form)
         assert set(form.field_dotpaths()) == {
@@ -91,6 +91,7 @@ class TestSchemeVisibility:
             "calibration.source_uniformity_K",
             "calibration.source_temp_uncertainty_K",
             "calibration.source_emissivity_uncertainty",
+            "calibration.band_center_uncertainty_um",
             "calibration.gain_uncertainty_pct",
         }
 

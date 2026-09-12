@@ -21,6 +21,17 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Results-affecting: up/down DROIC reference phase now integrates
+  near-field and stray electrons** (CU-351; owner D6 clarification
+  2026-09-11: the reference is a real, defocused second integration of the
+  same pixel through the same optics, many cycles per integration period).
+  `Q_down` gains `(nearfield_e + stray_e)·ratio` under both
+  `reference_source` modes, so the signed differential now cancels the full
+  warm-optics/stray pedestal it previously retained, and `reference_shot`
+  (= √Q_down) rises accordingly. Direction: for up/down configurations with
+  defined warm optical elements or stray light, `differential_e` drops by
+  the near-field + stray charge and SNR falls slightly (larger reference
+  shot noise); configurations without those terms are bit-identical.
 - **Results-affecting: scalar-RMS wavefront error is now a deterministic
   low-order Zernike expansion, wavelength-scaled** (CU-355; owner-ratified
   2026-09-11). `optics.wfe_mode = "scalar_rms"` previously entered the pupil

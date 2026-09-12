@@ -21,6 +21,12 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Results-affecting (extreme-altitude emission placement only):** the
+  emission-temperature layer split's exponential branch is computed in the
+  log domain, so a species segment beyond ~745 scale heights no longer
+  underflows and silently drops its opacity from the layer sum (the
+  telescoping identity Σδᵢ = OD_segment now holds everywhere). Unreachable
+  in every shipped scenario; ordinary segments agree to float precision.
 - **`InterpolatedAtmosphere` rejects over-unity transmittance at load.** A
   family file whose τ exceeds 1 + 1e-9 (percent-vs-fraction mis-scale, wrong
   column) now fails construction with an actionable error naming the point,

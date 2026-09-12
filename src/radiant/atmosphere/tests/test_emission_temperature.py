@@ -646,3 +646,26 @@ def test_layer_quadrature_is_converged_at_the_shipped_resolution() -> None:
     assert float(np.max(np.abs(shipped - reference))) < 0.05
     # …and the coarse end really is coarse, so the test is not vacuous.
     assert float(np.max(np.abs(evaluate(2) - reference))) > 0.5
+
+
+@pytest.mark.level0
+def test_exponential_column_far_above_its_scale_height_still_normalises() -> None:
+    """October sweep: the exponential branch used to underflow to a zero column
+    for a segment hundreds of scale heights up (exp(-h/H) underflows below
+    float-min past ~745 scale heights) and silently drop the species' opacity from the layer sum,
+    breaking the telescoping identity Σδ_i = OD_segment. Carried in the log
+    domain (like the Gaussian branch), the relative shares survive at any
+    altitude: within-layer weights follow exp(-h/H) exactly."""
+    edges = np.linspace(900_000.0, 1_000_000.0, 41)
+    lower, upper = edges[:-1], edges[1:]
+    h_scale = 1_200.0
+    fraction = _column_fraction(EmissionSpecies(h_scale, np.zeros(3)), lower, upper)
+    assert fraction is not None
+    assert np.all(np.isfinite(fraction))
+    assert float(fraction.sum()) == pytest.approx(1.0, rel=1e-12)
+    # Analytic shares: exp(-l/H) − exp(-u/H), normalised — computed in the
+    # log domain relative to the segment base so the truth itself is finite.
+    rel = np.exp(-(lower - lower[0]) / h_scale) * -np.expm1(-(upper - lower) / h_scale)
+    np.testing.assert_allclose(fraction, rel / rel.sum(), rtol=1e-10, atol=0.0)
+    # Monotone decreasing with altitude, as an exponential profile must be.
+    assert np.all(np.diff(fraction) < 0.0)

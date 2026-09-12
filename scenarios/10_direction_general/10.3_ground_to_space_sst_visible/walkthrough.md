@@ -446,19 +446,25 @@ The two anchors are not describing the same atmosphere, which is the
 reconciliation:
 
 - The astronomical k_V = 0.12–0.20 band is quoted for **good observatory
-  sites** — high, dry, and with very clean aerosol. This scenario runs a
-  900 m site with **rural 23 km visibility**, whose aerosol alone carries
-  ~0.17 optical depths at 550 nm; a k_V of 0.12 is not physically reachable
-  with that aerosol in the column no matter what the gas term does.
+  sites** — high, dry, and with very clean aerosol. This scenario ALREADY runs
+  one: the tasking card and `.gui.yaml` set **100 km visibility**
+  ("Exceptional dry-air night"), whose Koschmieder aerosol carries only
+  ~0.022 optical depths at 550 nm. (An earlier revision of this paragraph
+  claimed the site ran rural 23 km / ~0.17 OD — that pair is the *MODTRAN
+  fan's* deck setting (M9–M13, IHAZE rural, VIS 23), conflated with the
+  scenario's own; corrected at the October sweep, 2026-09-12.)
 - The MODTRAN anchor is scored at *exactly* the aerosol and profile the model
   is configured with, so it is the internally consistent comparison, and it is
   the one CU-161's fit is defined against.
 
-What the flip therefore says is **not** "the VIS model got worse" but "this
-site's configured aerosol is dirtier than the good-site literature the anchor
-quotes". Choosing a cleaner visibility for the SST site would be the physically
-honest way to bring the two together, and that is a scenario-configuration
-question, not a model one — it is recorded here rather than silently re-tuned.
+What the flip therefore says (measured 2026-09-01, the CU-337 ruling's
+premise): the anchor is **unreachable at any visibility setting** — with the
+scene already at 100 km the k_V floor sits at 0.258 mag/airmass against the
+published ≤ 0.20 — because the *fitted gas floor itself* carries the aerosol
+deficit and no visibility knob touches it. There is no cleaner-site
+configuration fix; the fix is CU-337 (fit the aerosol VIS deficit explicitly,
+re-fit the gas floors with aerosol corrected), and this anchor stays FAIL
+until it lands.
 One genuine caveat rides along: the fit assigns the whole reconciliation to the
 *gas* floor, and 0.16 optical depths is far more than real 0.45–0.70 µm gas
 chemistry supplies (the O₃ Chappuis band contributes ~0.03), so part of that

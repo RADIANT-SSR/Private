@@ -29,6 +29,7 @@ from radiant.api.config_set import (
     ConfigSetError,
     ConfigSetRunResult,
     ConfigurationSet,
+    ElementTrainState,
 )
 from radiant.api.error_budget import BudgetContributor, ErrorBudget
 from radiant.api.fpa_preset import (
@@ -74,6 +75,7 @@ __all__ = [
     "plot_coating_detail",
     "normalize_element_document",
     "ConfigurationSet",
+    "ElementTrainState",
     "ConfigSetRunResult",
     "ConfigRun",
     "ConfigSetError",

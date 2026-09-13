@@ -25,7 +25,7 @@ import os
 from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QUndoStack
@@ -47,7 +47,12 @@ from radiant.api.atmosphere_families import is_atmosphere_coverage_refusal
 from radiant.api.build_info import build_info
 from radiant.api.calibration_state import is_calibration_config_incomplete
 from radiant.api.config_io import read_template_meta
-from radiant.api.config_set import ConfigSetError, ConfigSetRunResult, ConfigurationSet
+from radiant.api.config_set import (
+    ConfigSetError,
+    ConfigSetRunResult,
+    ConfigurationSet,
+    ElementTrainState,
+)
 from radiant.api.readout_architecture import (
     is_counting_config_incomplete,
     is_readout_architecture_conflict,
@@ -78,6 +83,7 @@ from radiant.gui.widgets.configure_menu import (
     CONFIGURATIONS_MENU_TEXT,
     SINGLE_CONFIGURATION_HINT,
 )
+from radiant.gui.widgets.element_train_command import ElementTrainCommand
 from radiant.gui.widgets.explain_dialog import ExplainDialog
 from radiant.gui.widgets.inspector_dialog import InspectorDialog
 from radiant.gui.widgets.optical_element_editor import ELEMENT_EDIT_PATH
@@ -908,6 +914,7 @@ class RADIANTMainWindow(QMainWindow):
         stage_center.parameterEdited.connect(self._on_form_parameter_edited)
         stage_center.presetRemovedIncomplete.connect(self._on_preset_removed_incomplete)
         stage_center.compoundParameterEdited.connect(self._on_compound_parameter_edited)
+        stage_center.elementTrainCommitted.connect(self._on_element_train_committed)
 
     def _build_scripting_window(self) -> None:
         """Build the separate scripting window (Command Window + Workspace, arch doc §4.6.1).
@@ -2871,6 +2878,54 @@ class RADIANTMainWindow(QMainWindow):
         self._mark_dirty()
         self._stage_strip.set_all_status("stale")
         self._right_rail.run_button.set_stale(True)
+        self._debounce.start()
+
+    def _on_element_train_committed(self, before: object, after: object, text: str) -> None:
+        """Record one committed element-train change as an undo step (CU-357).
+
+        The editor already applied the after-state (commit-on-edit), so the pushed
+        command's first redo is a no-op; undo/redo then restore whole-train
+        :class:`~radiant.api.config_set.ElementTrainState` snapshots through
+        :meth:`_apply_element_state`. The window is the only place the command is
+        pushed, mirroring the parameter and scope commands (R-API).
+        """
+        self._undo_stack.push(
+            ElementTrainCommand(
+                cast("ElementTrainState", before),
+                cast("ElementTrainState", after),
+                self._apply_element_state,
+                text,
+            )
+        )
+
+    def _apply_element_state(self, state: ElementTrainState) -> None:
+        """Write a whole-train snapshot back to the session document after undo/redo.
+
+        In a study (or any bound set) both stores are restored together through
+        :meth:`ConfigurationSet.restore_element_state`; a plain session writes the
+        shared rows straight to the sensor. The table re-reads through the ordinary
+        re-bind (the study path re-materializes the displayed configuration first,
+        which is also what refreshes the badges), and the standard post-edit tail
+        runs: repopulate, dirty, stale, debounced re-evaluation.
+        """
+        cs = self._config_set
+        if cs is not None:
+            cs.restore_element_state(state)
+        elif self._sensor is not None:
+            self._sensor.set_optical_elements([dict(row) for row in state.shared] or None)
+        if not self._is_degenerate():
+            self._resync_display_sensor()
+            self._config_scope.notify_changed()
+        else:
+            self._central.stage_center.bind_sensor(
+                self._sensor, self._parameter_panel.display_units
+            )
+        if self._sensor is not None:
+            self._parameter_panel.populate(self._sensor)
+        self._mark_dirty()
+        self._stage_strip.set_all_status("stale")
+        self._right_rail.run_button.set_stale(True)
+        self.statusBar().showMessage("optical elements — re-evaluating…")
         self._debounce.start()
 
     def _apply_scope_change(self, dotpath: str) -> None:

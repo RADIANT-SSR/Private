@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Element-train undo and position-preserving structure edits (CU-357).**
+  Every element-document commit in the GUI — a cell edit, add/remove/reorder,
+  a configure-across, an un-configure, a mode detach — now records one undo
+  step (Ctrl+Z restores the whole train: shared rows, configured rows, and
+  positions together), closing the documented Phase-9 non-scalar-edit
+  limitation. API: `ConfigurationSet.move_element` / `remove_element`
+  (structure changes that renumber configured rows with their
+  per-configuration entries intact) and `element_state` /
+  `restore_element_state` (the whole-train snapshot pair), with
+  `ElementTrainState` exported from `radiant.api`. The element table's
+  Remove / reorder buttons now work across configured rows instead of
+  refusing with the un-configure-first tooltip.
 - **Flux-declared calibration points** (`calibration.cal_point_mode =
   "flux_fraction"` with `cal_flux_low/mid/high` — Gap 122 item 5, the
   CU-346 flux-ratio door). Cal points as fractions of the scene signal

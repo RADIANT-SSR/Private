@@ -292,6 +292,10 @@ class StagePane(QWidget):
     # single step (CU-141 — a shape pick plus the dimensions seeded alongside it). The
     # payload is the list of affected dot-paths, primary first.
     compoundParameterEdited = Signal(list)
+    # One element-train commit's whole-train before/after states + undo label,
+    # relayed from the Transmission tab's editor so the host records the undo
+    # command (CU-357).
+    elementTrainCommitted = Signal(object, object, str)
 
     def __init__(
         self,
@@ -498,6 +502,7 @@ class StagePane(QWidget):
             # document never commits.
             transmission_panel = TransmissionPanel(parent)
             transmission_panel.parameterEdited.connect(self.parameterEdited)
+            transmission_panel.trainCommitted.connect(self.elementTrainCommitted)
             layout.addWidget(transmission_panel)
             self._transmission_panels.append(transmission_panel)
         if spec.detector_inputs:
@@ -1353,6 +1358,9 @@ class StageCenter(QWidget):
     # single step (CU-141 — a shape pick plus the dimensions seeded alongside it). The
     # payload is the list of affected dot-paths, primary first.
     compoundParameterEdited = Signal(list)
+    # One element-train commit's whole-train before/after states + undo label
+    # (CU-357), re-emitted from each pane's Transmission tab.
+    elementTrainCommitted = Signal(object, object, str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -1376,6 +1384,7 @@ class StageCenter(QWidget):
             pane.parameterEdited.connect(self.parameterEdited)
             pane.presetRemovedIncomplete.connect(self.presetRemovedIncomplete)
             pane.compoundParameterEdited.connect(self.compoundParameterEdited)
+            pane.elementTrainCommitted.connect(self.elementTrainCommitted)
             self._stack.addWidget(pane)
             self._panes[namespace] = pane
 

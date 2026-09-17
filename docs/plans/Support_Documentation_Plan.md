@@ -33,7 +33,7 @@ Produce a professional, versioned set of PDF manuals that ship with RADIANT. The
 | I | **RADIANT Theory Manual** | Physics: governing equations for every stage | Analysts, physicists, reviewers | 90–120 pp |
 | II | **RADIANT User's Guide** | Installation, concepts, GUI operation, workflows | Tool operators (the seven personas) | 70–100 pp |
 | III | **RADIANT Technical Reference** | Scripting API, CLI, YAML, parameters, architecture, extending | Script authors, developers, agents | 100–140 pp |
-| IV | **RADIANT Worked Examples & Validation** | Example scripts, persona case studies (tiered, all 52 scenarios), flagship-mission validation | New users, evaluators, V&V reviewers | 150–200 pp |
+| IV | **RADIANT Worked Examples & Validation** | Example scripts, persona case studies (tiered, all 51 scenarios), flagship-mission validation | New users, evaluators, V&V reviewers | 150–200 pp |
 
 All four share one visual identity: common LaTeX template (cover page, headers/footers, fonts, table style), a shared **Notation and Symbols** table (canonical home: Volume I front matter; Volumes II–IV reference it), section numbering `--number-sections`, `--toc` depth 2, hyperref-linked internal references.
 
@@ -171,7 +171,7 @@ Subtitle: *Case Studies, Example Scripts, and Validation Evidence*. **Mixed-moda
 
 Each full-depth case study is adapted from the scenario's `walkthrough.md` (mission context, inputs, run, results with units, regime discussion); GUI-led chapters follow the scenario's `gui_workflow.md` with screenshots of each step, and every chapter closes with a one-paragraph pointer to the other modality (the exercise baseline for script-led chapters, the run script for GUI-led ones) so neither path is a dead end.
 
-*Tier 2 — scenario digest compendium* (ch. 12): a 1–2 page digest of **every** scenario not covered at full depth elsewhere (the 40 remaining after the eight case studies and the four flagship-validation scenarios), grouped by persona in catalog order. Fixed digest format, condensed from each `walkthrough.md`: mission setup, key inputs, headline results with units, regime in effect, takeaway, and a pointer to the scenario folder. No new runs — digests report the committed walkthrough numbers.
+*Tier 2 — scenario digest compendium* (ch. 12): a 1–2 page digest of **every** scenario not covered at full depth elsewhere (the 39 remaining after the eight case studies and the four flagship-validation scenarios; the tree holds 51 scenario directories, not the 52 first estimated), grouped by persona in catalog order. Fixed digest format, condensed from each `walkthrough.md`: mission setup, key inputs, headline results with units, regime in effect, takeaway, and a pointer to the scenario folder. No new runs — digests report the committed walkthrough numbers.
 
 **Part D — Validation & Cookbook:**
 
@@ -179,9 +179,9 @@ Each full-depth case study is adapted from the scenario's `walkthrough.md` (miss
 |---|---|---|---|
 | 13 | Flagship-Mission Validation | Sentinel-2 MSI SNR, Landsat OLI-2 SNR, Landsat TIRS NEDT, MODIS TEB NEDT vs published values; MODTRAN parity; MWIR single-wave ground truth | scenarios 9.1–9.4 + `docs/validation/` (script-led — these are batch comparisons) |
 | 14 | Trade-Study Cookbook | worked sweep/sensitivity/Monte-Carlo recipes, GUI sweep surface and scripted sweeps side by side | `guides/trade_studies.md` |
-| A | Appendix: Scenario Index | one-line index of all 52 scenarios with their chapter/digest location (generated from `guides/scenario_catalog.md`) | exists |
+| A | Appendix: Scenario Index | one-line index of all 51 scenarios with their chapter/digest location (generated from `guides/scenario_catalog.md`) | exists |
 
-Coverage is total by owner ruling (Q3, 2026-09-16): all 52 scenarios appear — eight at full depth (4 GUI-led / 4 script-led), four as the validation chapter, forty as digests. The tiering is what keeps the volume at ~150–200 pp instead of 400.
+Coverage is total by owner ruling (Q3, 2026-09-16): all 51 scenarios appear — eight at full depth (4 GUI-led / 4 script-led), four as the validation chapter, thirty-nine as digests (the tree holds 51 scenario directories; the plan's original 52 was an estimate). The tiering is what keeps the volume at ~150–200 pp instead of 400.
 
 ## 8. Build Pipeline (Phase 0)
 

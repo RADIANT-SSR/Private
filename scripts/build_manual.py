@@ -161,8 +161,22 @@ VOLUMES: dict[str, Volume] = {
             "guides/examples_gui.md",
             # Part B — driving RADIANT from scripts
             "guides/examples_scripting.md",
-            # Part C (case studies + digests) and Part D (validation, cookbook, index)
-            # land here.
+            # Part C — tier-1 full-depth persona case studies, in plan §7 order:
+            # three GUI-led (1.1, 2.1, 3.1), then the four script-led (4.1, 5.1,
+            # 6.1, 7.1), then the closing GUI-led 10.2.
+            "guides/examples_case_maritime_mwir.md",
+            "guides/examples_case_detector_shootout.md",
+            "guides/examples_case_pass_planning.md",
+            "guides/examples_case_detection_matrix.md",
+            "guides/examples_case_wfe_budget.md",
+            "guides/examples_case_datasheet_benchmark.md",
+            "guides/examples_case_nedt_reconciliation.md",
+            "guides/examples_case_irst_level_arm.md",
+            # Part C tier 2 — the scenario digest compendium (plan §7, owner ruling Q3:
+            # every scenario appears; the ~40 not covered at full depth get 1-2 page
+            # digests, grouped by persona in catalog order).
+            "guides/examples_digests.md",
+            # Part D (validation, cookbook, index) lands here.
         ),
     ),
 }

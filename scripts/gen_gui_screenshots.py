@@ -117,7 +117,10 @@ class Capture:
         or ``None`` to capture the window as it opens.
     tab:
         Visible label of the stage sub-view tab to select before grabbing (e.g.
-        ``"Schematic"``, ``"MTF"``, ``"Noise"``). ``None`` leaves the stage on the tab it
+        ``"Schematic"``, ``"MTF"``, ``"Noise"``), spelled exactly as the stage spec
+        declares it in :mod:`radiant.gui.stage_views` — write ``"Scene & regime"``, not
+        the Qt-escaped ``"Scene && regime"``; :func:`_select_tab` applies ``StagePane``'s
+        own mnemonic escaping when it matches. ``None`` leaves the stage on the tab it
         opens with — the first one. Only the tabbed stages (Geometry, Source, Optics,
         Platform, Detector) have sub-views; naming a tab on a single-pane stage is a
         capture error rather than a silent no-op.
@@ -184,6 +187,36 @@ _OLI2_STUDY = "scenarios/09_flagship_missions/9.4_landsat_oli2_snr/oli2_all_band
 #: preset walkthrough's figure.
 _FPA_PRESET = (
     "scenarios/02_mike_detector_engineer/2.8_fpa_part_library/inputs/geosnap18_mwir_leo.yaml"
+)
+
+# -- Volume IV Part C, tier-1 GUI-led case studies (plan §7) --------------------------
+# Each case study is illustrated from the scenario's own committed GUI baseline — the
+# ``<id>.gui.yaml`` emitted from the scenario runner by ``scenarios/tools/emit_gui_yaml.py``
+# and pinned by a ``<id>.gui.expected.json``. Using the scenario's own artifact (rather
+# than a figure-only config) is what keeps a chapter's quoted numbers checkable against
+# the scenario that produced them.
+
+#: Scenario 1.1 — MWIR maritime surveillance, 30 cm aperture baseline (Sarah).
+_CASE_MARITIME = (
+    "scenarios/01_sarah_systems_engineer/1.1_mwir_maritime_surveillance/"
+    "inputs/1.1_mwir_maritime_surveillance.gui.yaml"
+)
+
+#: Scenario 2.1 — InSb-vs-HgCdTe bench shootout, InSb branch (Mike).
+_CASE_SHOOTOUT = (
+    "scenarios/02_mike_detector_engineer/2.1_insb_vs_hgcdte_noise_budget/"
+    "inputs/2.1_insb_vs_hgcdte_noise_budget.gui.yaml"
+)
+
+#: Scenario 3.1 — ISR pass planning, 30 deg off-nadir baseline (Raj).
+_CASE_PASS_PLANNING = (
+    "scenarios/03_raj_mission_planner/3.1_isr_pass_planning/inputs/3.1_isr_pass_planning.gui.yaml"
+)
+
+#: Scenario 10.2 — air-to-air level-arm MWIR IRST, 50 km nominal point.
+_CASE_IRST = (
+    "scenarios/10_direction_general/10.2_air_to_air_level_irst/"
+    "inputs/10.2_air_to_air_level_irst.gui.yaml"
 )
 
 #: The capture registry. Phase 0 shipped the four workspaces the feasibility spike proved;
@@ -312,6 +345,217 @@ CAPTURES: tuple[Capture, ...] = (
         caption=(
             "Performance workspace on the nine-configuration OLI-2 study — one metric "
             "column per configuration, deltas measured against the baseline."
+        ),
+    ),
+    # ==================================================================================
+    # Volume IV Part C captures — the four tier-1 GUI-led case studies (plan §7, ruling
+    # Q3). Three registry conventions are load-bearing here and are repeated per figure
+    # rather than left implicit:
+    #   * No ``param_dock_width`` on any *form* capture. Widening the dock narrows the
+    #     central column past the schema form's relayout threshold, where painted field
+    #     values go blank or clip — CU-363, first recorded against the detector form and
+    #     reproduced on the geometry mode form at 520 px. Form figures keep the default
+    #     dock; the parameter tree gets its own panel-level grab where it is the subject.
+    #   * Panel grabs (``target="central_canvas.stage_center"``) where the parameter
+    #     dock would otherwise render an absolute filesystem path in a visible cell
+    #     (Findings_Log 2026-09-16) — scenario 1.1 carries an emissivity CSV path.
+    #   * Schematic captures narrow the dock instead (``param_dock_width=220``): the
+    #     subject is the viewport, and the extra width keeps the sensor's altitude
+    #     leader pill inside it.
+    # ==================================================================================
+    # -- Case study: 1.1 MWIR maritime surveillance (Sarah) ---------------------------
+    Capture(
+        name="case_maritime_geometry",
+        config=_CASE_MARITIME,
+        stage="geometry",
+        tab="Inputs",
+        caption=(
+            "Geometry workspace, Inputs tab, on the scenario 1.1 baseline — the derived "
+            "space_to_ground scene class and the V1 path-zenith viewing mode."
+        ),
+    ),
+    Capture(
+        name="case_maritime_scene_regime",
+        config=_CASE_MARITIME,
+        stage="source",
+        tab="Scene & regime",
+        target="central_canvas.stage_center",
+        caption=(
+            "Source workspace, Scene & regime tab (panel grab) — the declared sub-pixel "
+            "scene, the 240 m^2 projected area, and the resulting angular extent."
+        ),
+    ),
+    Capture(
+        name="case_maritime_atmosphere",
+        config=_CASE_MARITIME,
+        stage="atmosphere",
+        target="central_canvas.stage_center",
+        caption=(
+            "Atmosphere workspace (panel grab) — the parametric maritime/midlat_summer "
+            "inputs and the target-path transmittance and path radiance they produce."
+        ),
+    ),
+    Capture(
+        name="case_maritime_optics",
+        config=_CASE_MARITIME,
+        stage="optics",
+        tab="Inputs",
+        param_dock_width=520,
+        caption=(
+            "Optics workspace, Inputs tab — the 30 cm f/2.5 aperture and the stage "
+            "outputs, including the final radiometric regime."
+        ),
+    ),
+    Capture(
+        name="case_maritime_noise",
+        config=_CASE_MARITIME,
+        stage="detector",
+        tab="Noise",
+        caption=(
+            "Detector workspace, Noise tab — the per-term noise budget of the maritime "
+            "sub-pixel scene, where background shot nearly matches signal shot."
+        ),
+    ),
+    Capture(
+        name="case_maritime_performance",
+        config=_CASE_MARITIME,
+        stage="performance",
+        caption=(
+            "Performance workspace on the scenario 1.1 baseline — all five metric "
+            "groups, with SNR and contrast SNR two orders of magnitude apart."
+        ),
+    ),
+    # -- Case study: 2.1 InSb vs HgCdTe noise budget (Mike) ----------------------------
+    Capture(
+        name="case_shootout_detector",
+        config=_CASE_SHOOTOUT,
+        stage="detector",
+        tab="Inputs",
+        caption=(
+            "Detector workspace, Inputs tab, on the scenario 2.1 InSb bench branch — "
+            "the FPA part-library row, the scalar QE, and the vendor dark rate."
+        ),
+    ),
+    Capture(
+        name="case_shootout_noise",
+        config=_CASE_SHOOTOUT,
+        stage="detector",
+        tab="Noise",
+        caption=(
+            "Detector workspace, Noise tab — the InSb bench noise budget, photon-limited "
+            "with quantization as the second term."
+        ),
+    ),
+    Capture(
+        name="case_shootout_readout",
+        config=_CASE_SHOOTOUT,
+        stage="readout",
+        caption=(
+            "Readout workspace — the shared ROIC: analog well, 305 e-/DN conversion "
+            "gain over 14 bits, and the 1 ms frame integration."
+        ),
+    ),
+    Capture(
+        name="case_shootout_performance",
+        config=_CASE_SHOOTOUT,
+        stage="performance",
+        caption=(
+            "Performance workspace on the InSb bench branch — the metric groups a "
+            "detector-only bench populates, and the ones it cannot."
+        ),
+    ),
+    # -- Case study: 3.1 ISR pass planning (Raj) ---------------------------------------
+    Capture(
+        name="case_pass_geometry",
+        config=_CASE_PASS_PLANNING,
+        stage="geometry",
+        tab="Inputs",
+        caption=(
+            "Geometry workspace, Inputs tab, on the scenario 3.1 baseline — a 600 km "
+            "orbit looking 30 deg off nadir through the V1 path-zenith mode."
+        ),
+    ),
+    Capture(
+        name="case_pass_schematic",
+        config=_CASE_PASS_PLANNING,
+        stage="geometry",
+        tab="Schematic",
+        param_dock_width=220,
+        caption=(
+            "Geometry workspace, Schematic tab — the off-nadir look with the sun vector "
+            "and the not-to-scale altitude leader pill."
+        ),
+    ),
+    Capture(
+        name="case_pass_sweep_axis",
+        config=_CASE_PASS_PLANNING,
+        stage="geometry",
+        tab="Inputs",
+        target="parameter_panel",
+        param_dock_width=560,
+        caption=(
+            "Parameters dock (panel grab) — the geometry branch holding "
+            "geometry.path_zenith_rad, the axis the pass-planning sweep walks."
+        ),
+    ),
+    Capture(
+        name="case_pass_performance",
+        config=_CASE_PASS_PLANNING,
+        stage="performance",
+        caption=(
+            "Performance workspace at 30 deg off nadir — GSD, swath, NIIRS and SNR, the "
+            "four numbers a collection plan is argued from."
+        ),
+    ),
+    # -- Case study: 10.2 air-to-air level-arm IRST ------------------------------------
+    Capture(
+        name="case_irst_scene_class",
+        config=_CASE_IRST,
+        stage="geometry",
+        tab="Inputs",
+        caption=(
+            "Geometry workspace, Inputs tab, on the scenario 10.2 baseline — the derived "
+            "air_to_air scene class, its off-by-default metric list, and the V0 mode."
+        ),
+    ),
+    Capture(
+        name="case_irst_schematic",
+        config=_CASE_IRST,
+        stage="geometry",
+        tab="Schematic",
+        param_dock_width=220,
+        caption=(
+            "Geometry workspace, Schematic tab — the level composition with both "
+            "endpoints at altitude and the tangent-depression leader pill."
+        ),
+    ),
+    Capture(
+        name="case_irst_mtf",
+        config=_CASE_IRST,
+        stage="optics",
+        tab="MTF",
+        caption=(
+            "Optics workspace, MTF tab — the undersampled IRST's MTF budget, where the "
+            "pixel aperture rings past its first zero above Nyquist."
+        ),
+    ),
+    Capture(
+        name="case_irst_noise",
+        config=_CASE_IRST,
+        stage="detector",
+        tab="Noise",
+        caption=(
+            "Detector workspace, Noise tab — the 50 km noise budget, dominated by the "
+            "target's own shot noise rather than by the sky floor."
+        ),
+    ),
+    Capture(
+        name="case_irst_performance",
+        config=_CASE_IRST,
+        stage="performance",
+        caption=(
+            "Performance workspace on the level arm — the ground-projection metric "
+            "family absent by scene class, target-plane sample distance in its place."
         ),
     ),
 )
@@ -574,6 +818,12 @@ def _select_tab(window: Any, capture: Capture) -> None:
 
     if capture.tab is None:
         return
+    # ``StagePane`` escapes "&" to "&&" when it adds a tab, because Qt reads a bare "&"
+    # in a tab title as a mnemonic marker ("Scene & regime" would render "Scene _regime").
+    # The registry names the *stage spec's* title, so the same escaping is applied here
+    # rather than asking every capture to spell the Qt form — which would also break the
+    # registry-vs-spec check in scripts/test_gen_gui_screenshots.py.
+    wanted = capture.tab.replace("&", "&&")
     visible = [t for t in window.findChildren(QTabWidget, STAGE_SUBVIEW_TABS) if t.isVisible()]
     if not visible:
         raise ScreenshotError(
@@ -587,8 +837,9 @@ def _select_tab(window: Any, capture: Capture) -> None:
     for tabs in visible:
         for index in range(tabs.count()):
             label = tabs.tabText(index)
-            labels.append(label)
-            if label == capture.tab:
+            # Report the un-escaped form, so the error names what the capture should say.
+            labels.append(label.replace("&&", "&"))
+            if label == wanted:
                 tabs.setCurrentIndex(index)
                 return
     raise ScreenshotError(

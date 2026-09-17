@@ -16,9 +16,9 @@ python scripts/gen_gui_screenshots.py --all
 ```
 
 - Generator: `scripts/gen_gui_screenshots.py`
-- Commit: `738ad8c0`
+- Commit: `f1ae9933`
 - Generated: 2026-09-16
-- Figures: 14
+- Figures: 25
 
 | Figure | Capture | Input config | Workspace | Target | Window |
 |---|---|---|---|---|---|
@@ -36,6 +36,17 @@ python scripts/gen_gui_screenshots.py --all
 | `element_train_transmission.png` | `element_train_transmission` | `scenarios/09_flagship_missions/9.4_landsat_oli2_snr/oli2_b04_snr_ltyp.yaml` | `optics` → Transmission | full window | 1440×900 |
 | `sweep_parameter_panel.png` | `sweep_parameter_panel` | `examples/mwir_leo_minimal.yaml` | `optics` → Inputs | `parameter_panel` | 1440×900 |
 | `compare_configurations.png` | `compare_configurations` | `scenarios/09_flagship_missions/9.4_landsat_oli2_snr/oli2_all_bands_study.yaml` | `performance` | full window | 1440×900 |
+| `ug_window_anatomy.png` | `ug_window_anatomy` | `examples/mwir_leo_minimal.yaml` | `geometry` → Inputs | full window | 1440×900 |
+| `ug_stage_strip.png` | `ug_stage_strip` | `examples/mwir_leo_minimal.yaml` | `performance` | `stage_strip` | 1440×900 |
+| `ug_parameter_dock.png` | `ug_parameter_dock` | `examples/mwir_leo_minimal.yaml` | `geometry` | `parameter_panel` | 1440×900 |
+| `ug_right_rail.png` | `ug_right_rail` | `examples/mwir_leo_minimal.yaml` | `performance` | `right_rail` | 1440×900 |
+| `ug_configuration_bar.png` | `ug_configuration_bar` | `scenarios/09_flagship_missions/9.4_landsat_oli2_snr/oli2_all_bands_study.yaml` | `performance` | `configuration_bar` | 1440×900 |
+| `ug_geometry_inputs.png` | `ug_geometry_inputs` | `scenarios/09_flagship_missions/9.2_landsat_tirs_nedt/tirs_b10_nedt_300k.yaml` | `geometry` → Inputs | full window | 1440×900 |
+| `ug_geometry_schematic.png` | `ug_geometry_schematic` | `scenarios/09_flagship_missions/9.2_landsat_tirs_nedt/tirs_b10_nedt_300k.yaml` | `geometry` → Schematic | full window | 1440×900 |
+| `ug_source_scene_regime.png` | `ug_source_scene_regime` | `examples/mwir_leo_minimal.yaml` | `source` → Scene & regime | full window | 1440×900 |
+| `ug_source_thermal.png` | `ug_source_thermal` | `examples/mwir_leo_minimal.yaml` | `source` → Target — thermal | full window | 1440×900 |
+| `ug_source_reflective.png` | `ug_source_reflective` | `src/radiant/data/templates/aerial_vnir_imaging.yaml` | `source` → Target — reflective | full window | 1440×900 |
+| `ug_atmosphere_workspace.png` | `ug_atmosphere_workspace` | `examples/mwir_leo_minimal.yaml` | `atmosphere` | full window | 1440×900 |
 
 ## Captions
 
@@ -53,3 +64,14 @@ python scripts/gen_gui_screenshots.py --all
 - `element_train_transmission.png` — Optics workspace, Transmission tab, on the Landsat 9 OLI-2 band-4 config — the element train and the transmission it produces.
 - `sweep_parameter_panel.png` — Parameters dock (panel-level grab) — the optics branch holding optics.aperture_diameter_m, the axis the sweep walkthrough varies.
 - `compare_configurations.png` — Performance workspace on the nine-configuration OLI-2 study — one metric column per configuration, deltas measured against the baseline.
+- `ug_window_anatomy.png` — The main window at default proportions — configuration-free minimal MWIR example, Geometry workspace, after the load-time evaluation.
+- `ug_stage_strip.png` — The signal-chain strip (panel-level grab) — ten stage chips in chain order, each with its health dot; Performance is the selected chip.
+- `ug_parameter_dock.png` — The Parameters dock (panel-level grab) — filter box above the Parameter / Value / Source tree, scrolled to the geometry namespace.
+- `ug_right_rail.png` — The right rail (panel-level grab) — pinned metric cards, the Edit Config (YAML) button, the Messages panel, and the Evaluate footer.
+- `ug_configuration_bar.png` — The configuration selector (panel-level grab) on the nine-band OLI-2 study — one accent-chipped tab per configuration plus the manager gear.
+- `ug_geometry_inputs.png` — Geometry workspace, Inputs tab, on the Landsat 9 TIRS band-10 baseline — scene-class card, one mode card per geometry family, derived-angle readout.
+- `ug_geometry_schematic.png` — Geometry workspace, Schematic tab, on the TIRS band-10 baseline — a 705 km space-to-ground view drawn not to scale, altitudes carried by leader labels.
+- `ug_source_scene_regime.png` — Source workspace, Scene & regime tab — the declared scene type, the regime override, and the tentative classification the source stage publishes.
+- `ug_source_thermal.png` — Source workspace, Target — thermal tab — target and background temperature and emissivity beside the pre-atmosphere emitted-radiance spectra.
+- `ug_source_reflective.png` — Source workspace, Target — reflective tab, on the bundled aerial VNIR template — target reflectance beside the reflected radiance it produces.
+- `ug_atmosphere_workspace.png` — Atmosphere workspace — the model selector with only the active backend's knobs shown, above the transmittance and path-radiance spectra.

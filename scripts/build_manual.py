@@ -96,11 +96,24 @@ VOLUMES: dict[str, Volume] = {
             "theory/references.md",
         ),
     ),
+    # Volume II is written in plan order (Support_Documentation_Plan §5): the tuple's
+    # order *is* the binding order, so a later batch appends rather than inserting.
     "users_guide": Volume(
         key="users_guide",
         title="RADIANT User's Guide",
         subtitle="Installation, Concepts, and GUI Operation",
-        chapters=(),
+        chapters=(
+            # Batch 1 — orientation and the scene side (ch. 1–6)
+            "guides/ug_introduction.md",
+            "guides/ug_installation.md",
+            "guides/ug_quickstart_tour.md",
+            "guides/ug_core_concepts.md",
+            "guides/ug_main_window.md",
+            "guides/ug_defining_scene.md",
+            # Batch 2 lands here: ch. 7 Defining the Sensor, 8 Configuration Sets,
+            # 9 Running & Reading Results, 10 Sweeps & Trade Studies, 11 YAML
+            # Round-Trip, 12 Troubleshooting, and the menu/shortcut appendix.
+        ),
     ),
     "tech_ref": Volume(
         key="tech_ref",

@@ -314,6 +314,135 @@ CAPTURES: tuple[Capture, ...] = (
             "column per configuration, deltas measured against the baseline."
         ),
     ),
+    # -- Volume II (User's Guide) captures --------------------------------------------
+    # Chapters 1–6 teach the *interface* rather than a task, so these figures are
+    # anatomy shots: the whole window, then the three permanent columns one at a time
+    # as panel-level grabs, then the scene-defining workspaces. They deliberately use
+    # configs and tabs no Volume IV capture already photographs, so no two figures in
+    # this folder are the same picture under two names.
+    Capture(
+        name="ug_window_anatomy",
+        config=_MINIMAL,
+        stage="geometry",
+        tab="Inputs",
+        # Default dock proportions on purpose: this is the window an operator's first
+        # launch actually shows, before anyone has dragged a splitter.
+        caption=(
+            "The main window at default proportions — configuration-free minimal MWIR "
+            "example, Geometry workspace, after the load-time evaluation."
+        ),
+    ),
+    Capture(
+        name="ug_stage_strip",
+        config=_MINIMAL,
+        stage="performance",
+        target="stage_strip",
+        caption=(
+            "The signal-chain strip (panel-level grab) — ten stage chips in chain order, "
+            "each with its health dot; Performance is the selected chip."
+        ),
+    ),
+    Capture(
+        name="ug_parameter_dock",
+        config=_MINIMAL,
+        stage="geometry",
+        target="parameter_panel",
+        param_dock_width=560,
+        caption=(
+            "The Parameters dock (panel-level grab) — filter box above the "
+            "Parameter / Value / Source tree, scrolled to the geometry namespace."
+        ),
+    ),
+    Capture(
+        name="ug_right_rail",
+        config=_MINIMAL,
+        stage="performance",
+        target="right_rail",
+        caption=(
+            "The right rail (panel-level grab) — pinned metric cards, the Edit Config "
+            "(YAML) button, the Messages panel, and the Evaluate footer."
+        ),
+    ),
+    Capture(
+        name="ug_configuration_bar",
+        config=_OLI2_STUDY,
+        stage="performance",
+        target="configuration_bar",
+        caption=(
+            "The configuration selector (panel-level grab) on the nine-band OLI-2 study "
+            "— one accent-chipped tab per configuration plus the manager gear."
+        ),
+    ),
+    Capture(
+        name="ug_geometry_inputs",
+        config=_TIRS_B10,
+        stage="geometry",
+        tab="Inputs",
+        # No param_dock_width: the subject is the centre pane (scene-class card + mode
+        # cards), and a widened dock squeezes the mode cards until their value fields
+        # are clipped at the right edge. The Parameters dock has its own detail figure.
+        caption=(
+            "Geometry workspace, Inputs tab, on the Landsat 9 TIRS band-10 baseline — "
+            "scene-class card, one mode card per geometry family, derived-angle readout."
+        ),
+    ),
+    Capture(
+        name="ug_geometry_schematic",
+        config=_TIRS_B10,
+        stage="geometry",
+        tab="Schematic",
+        # Give the tab's side panel enough width that its mode-card values are not
+        # clipped mid-number; the canvas keeps the larger share.
+        splitter_sizes={"geometryViewerSplit": (400, 360)},
+        caption=(
+            "Geometry workspace, Schematic tab, on the TIRS band-10 baseline — a 705 km "
+            "space-to-ground view drawn not to scale, altitudes carried by leader labels."
+        ),
+    ),
+    Capture(
+        name="ug_source_scene_regime",
+        config=_MINIMAL,
+        stage="source",
+        tab="Scene & regime",
+        caption=(
+            "Source workspace, Scene & regime tab — the declared scene type, the regime "
+            "override, and the tentative classification the source stage publishes."
+        ),
+    ),
+    Capture(
+        name="ug_source_thermal",
+        config=_MINIMAL,
+        stage="source",
+        tab="Target — thermal",
+        caption=(
+            "Source workspace, Target — thermal tab — target and background temperature "
+            "and emissivity beside the pre-atmosphere emitted-radiance spectra."
+        ),
+    ),
+    Capture(
+        name="ug_source_reflective",
+        # The bundled VNIR mission template: a scalar-reflectance sunlit scene with no
+        # file-valued parameters, so the figure carries no machine-specific absolute
+        # path (the parameter tree shows a path parameter *resolved*, which is how the
+        # OLI-2 configs — whose coating and radiance CSVs are relative on disk — would
+        # have leaked one into the manual).
+        config="src/radiant/data/templates/aerial_vnir_imaging.yaml",
+        stage="source",
+        tab="Target — reflective",
+        caption=(
+            "Source workspace, Target — reflective tab, on the bundled aerial VNIR "
+            "template — target reflectance beside the reflected radiance it produces."
+        ),
+    ),
+    Capture(
+        name="ug_atmosphere_workspace",
+        config=_MINIMAL,
+        stage="atmosphere",
+        caption=(
+            "Atmosphere workspace — the model selector with only the active backend's "
+            "knobs shown, above the transmittance and path-radiance spectra."
+        ),
+    ),
 )
 
 
@@ -562,6 +691,20 @@ def _settle(app: Any, *, turns: int = 3) -> None:
 STAGE_SUBVIEW_TABS = "stageSubViewTabs"
 
 
+def _tab_label(text: str) -> str:
+    """The declared title behind a Qt tab's text.
+
+    Qt treats ``&`` in a tab title as a mnemonic marker and escapes a literal one by
+    doubling it, so ``QTabWidget.tabText`` hands back ``"Scene && regime"`` for the
+    sub-view whose declared title (``stage_views.StageSubView.title``) is
+    ``"Scene & regime"``. Captures name the **declared** title — that is what the
+    registry-validation test checks against — so the doubling is undone before the
+    comparison; without this, a tab whose title contains ``&`` is unreachable from the
+    registry even though validation says it exists.
+    """
+    return text.replace("&&", "&")
+
+
 def _select_tab(window: Any, capture: Capture) -> None:
     """Select the capture's named sub-view tab in the currently shown stage workspace.
 
@@ -586,7 +729,7 @@ def _select_tab(window: Any, capture: Capture) -> None:
     labels: list[str] = []
     for tabs in visible:
         for index in range(tabs.count()):
-            label = tabs.tabText(index)
+            label = _tab_label(tabs.tabText(index))
             labels.append(label)
             if label == capture.tab:
                 tabs.setCurrentIndex(index)

@@ -28,7 +28,10 @@ detail figures are made by grabbing a single child widget rather than the whole 
 (``target``). A third field, ``tab``, selects one of a stage's sub-view tabs by its visible
 label (Geometry *Inputs | Schematic*, Optics *Inputs | Transmission | MTF | PSF + Pupil*,
 Detector *Inputs | Noise | Detector + PSF*) — without it every tabbed stage would only ever
-be photographed on its first tab.
+be photographed on its first tab. A fourth, ``set_parameters``, applies field edits to the
+loaded document's shared base before the window is built (one ``Sensor.set`` each, the same
+call the GUI makes), for the figures whose subject is a state an operator reaches by toggling
+something rather than a state any committed config is in; the manifest records every such edit.
 
 Input configs are read with :meth:`radiant.api.ConfigurationSet.load`, the same reader the
 GUI's ``File → Open`` uses, so a capture may name either a plain config or a
@@ -137,6 +140,15 @@ class Capture:
         Pixel sizes to force on named splitters inside the window, keyed by Qt
         ``objectName`` (e.g. ``{"stagePanelSplit": (520, 380)}``). A figure that needs
         one pane of a stage workspace bigger sets this rather than the whole window.
+    set_parameters:
+        Dot-path → value edits applied to the loaded document's **shared base** before
+        the window is built — one ``Sensor.set`` each, exactly the call the GUI makes
+        when an operator edits that field. It exists for the figures whose subject is a
+        *state the operator reaches by toggling something*, not a state any committed
+        config is in: a deselected metric group, an activated calibration scheme. The
+        input config is still a committed one and the manifest records the edits, so the
+        figure stays reproducible by one command. Values are in the parameter's input
+        unit (the schema's), since that is what ``Sensor.set`` takes without a ``unit=``.
     caption:
         One line describing what the figure shows — carried into the manifest.
     """
@@ -151,6 +163,7 @@ class Capture:
     param_dock_width: int | None = None
     rail_dock_width: int | None = None
     splitter_sizes: Mapping[str, tuple[int, ...]] = field(default_factory=dict)
+    set_parameters: Mapping[str, Any] = field(default_factory=dict)
     caption: str = ""
 
     @property
@@ -311,7 +324,7 @@ CAPTURES: tuple[Capture, ...] = (
         stage="performance",
         caption=(
             "Performance workspace on the nine-configuration OLI-2 study — one metric "
-            "column per configuration, deltas measured against the baseline."
+            "column per configuration, in set order, plain values only (ADR-0010 D-9)."
         ),
     ),
     # -- Volume II (User's Guide) captures --------------------------------------------
@@ -443,6 +456,131 @@ CAPTURES: tuple[Capture, ...] = (
             "knobs shown, above the transmittance and path-radiance spectra."
         ),
     ),
+    # -- Volume II batch 2 captures ----------------------------------------------------
+    # Chapters 7–12 cover the sensor side, studies, the evaluate loop, sweeps, the YAML
+    # round-trip and troubleshooting. As in batch 1 these are anatomy shots rather than
+    # task screenshots, and each deliberately uses a config/tab combination no earlier
+    # capture photographs, so the folder holds no picture twice under two names.
+    Capture(
+        name="ug_optics_inputs",
+        config=_TIRS_B10,
+        stage="optics",
+        tab="Inputs",
+        param_dock_width=520,
+        caption=(
+            "Optics workspace, Inputs tab, on the Landsat 9 TIRS band-10 baseline — "
+            "aperture and wavefront-error fields above the stage's derived outputs, "
+            "including the final regime classification."
+        ),
+    ),
+    Capture(
+        name="ug_optics_transmission_scalar",
+        config=_MINIMAL,
+        stage="optics",
+        tab="Transmission",
+        param_dock_width=440,
+        caption=(
+            "Optics workspace, Transmission tab, in Scalar throughput mode — the mode "
+            "selector, the banner stating which definition is in force, the single "
+            "τ_opt field, and the flat τ_opt(λ) it produces."
+        ),
+    ),
+    Capture(
+        name="ug_platform_workspace",
+        config=_TIRS_B10,
+        stage="platform",
+        tab="Inputs",
+        param_dock_width=520,
+        # Every committed config leaves jitter and smear at zero, which makes the whole
+        # output block read 0 m with EE_box 1 — true, and it teaches nothing. One
+        # isotropic jitter value (the field an operator types first) gives the derived
+        # outputs something to be.
+        set_parameters={"platform.jitter_rms_urad": 8.0},
+        caption=(
+            "Platform workspace, Inputs tab, with an 8 µrad isotropic jitter entered — "
+            "the jitter and motion/smear knobs beside the jitter σ, smear width and "
+            "EE_box the stage derives from them."
+        ),
+    ),
+    Capture(
+        name="ug_detector_inputs",
+        config=_TIRS_B10,
+        stage="detector",
+        tab="Inputs",
+        # No param_dock_width (CU-363): narrowing the central area past the detector
+        # form's column-relayout threshold blanks its painted field values.
+        caption=(
+            "Detector workspace, Inputs tab — the FPA part-library row above the "
+            "full detector schema in labelled groups, with no preset applied."
+        ),
+    ),
+    Capture(
+        name="ug_readout_workspace",
+        config=_OLI2_B04,
+        stage="readout",
+        param_dock_width=520,
+        caption=(
+            "Readout workspace on the Landsat 9 OLI-2 band-4 config — architecture, "
+            "read noise, ADC, full well, TDI, co-adds, binning and acquisition groups "
+            "beside the DN and noise outputs."
+        ),
+    ),
+    Capture(
+        name="ug_calibration_workspace",
+        config=_TIRS_B10,
+        stage="calibration",
+        param_dock_width=520,
+        # The committed configs all leave calibration.scheme at 'none', which shows the
+        # selector and nothing else — a true but uninformative picture of a stage whose
+        # whole design is scheme-contextual. Two edits put it in the state the chapter
+        # describes; both are ordinary field edits an operator makes on this screen.
+        set_parameters={"calibration.scheme": "one_point", "calibration.cal_temp_low_K": 290.0},
+        caption=(
+            "Calibration workspace with a one-point scheme active — the scheme selector "
+            "and the groups it reveals, beside the residual, drift and bias outputs."
+        ),
+    ),
+    Capture(
+        name="ug_configured_parameters",
+        config=_OLI2_STUDY,
+        stage="spectral_integration",
+        target="parameter_panel",
+        param_dock_width=560,
+        caption=(
+            "The Parameters dock (panel-level grab) on the nine-band OLI-2 study — the "
+            "configured parameters carry the red C badge; everything unmarked is shared."
+        ),
+    ),
+    Capture(
+        name="ug_performance_selection",
+        config=_MINIMAL,
+        stage="performance",
+        # Two groups switched off — exactly what the Compute checkboxes do, one
+        # sensor.set each. No committed config ships a reduced metric selection, and
+        # the whole point of the figure is what a reduced one looks like.
+        set_parameters={
+            "performance.metrics.spatial_mtf": False,
+            "performance.metrics.interpretability": False,
+        },
+        caption=(
+            "Performance workspace with the Spatial / MTF and Interpretability groups "
+            "deselected — the Compute row's state and the card sections that survive it."
+        ),
+    ),
+    Capture(
+        name="ug_messages_error",
+        config=_TIRS_B10,
+        stage="calibration",
+        target="right_rail",
+        # A calibration scheme switched on without its cal points: the advisory-routed
+        # incomplete-config state (no modal), which is what makes it capturable — and
+        # what chapter 12 uses to show the Messages rail carrying a real failure.
+        set_parameters={"calibration.scheme": "two_point"},
+        caption=(
+            "The right rail (panel-level grab) after a failed evaluation — pinned cards "
+            "flipped to their stale marker and the Messages panel carrying the error."
+        ),
+    ),
 )
 
 
@@ -506,6 +644,12 @@ def validate_registry(captures: tuple[Capture, ...] = CAPTURES) -> list[str]:
                 problems.append(
                     f"{capture.name}: splitter_sizes[{object_name!r}]={tuple(sizes)} must be "
                     "a non-empty run of positive pixel sizes"
+                )
+        for dotpath in capture.set_parameters:
+            if not dotpath or "." not in dotpath:
+                problems.append(
+                    f"{capture.name}: set_parameters key {dotpath!r} is not a parameter "
+                    "dot-path (e.g. 'performance.metrics.spatial_mtf')"
                 )
     return problems
 
@@ -597,6 +741,21 @@ def render_manifest(
             f"{stage} | {target} | {capture.width}×{capture.height} |"
         )
     lines.append("")
+    edited = [c for c in captures if c.set_parameters]
+    if edited:
+        lines.append("## Pre-capture parameter edits")
+        lines.append("")
+        lines.append(
+            "These figures show a state an operator reaches by editing a field, so the "
+            "generator applies the edits below to the loaded config's shared base "
+            "(one `Sensor.set` each, values in the schema's input unit) before building "
+            "the window."
+        )
+        lines.append("")
+        for capture in edited:
+            edits = "; ".join(f"`{k}` = `{v!r}`" for k, v in capture.set_parameters.items())
+            lines.append(f"- `{capture.filename}` — {edits}")
+        lines.append("")
     captioned = [c for c in captures if c.caption]
     if captioned:
         lines.append("## Captions")
@@ -853,6 +1012,30 @@ def _qapplication(settings_dir: Path) -> Any:
     return app
 
 
+def _apply_parameter_edits(config_set: Any, capture: Capture) -> None:
+    """Apply the capture's ``set_parameters`` to the loaded document's shared base.
+
+    One ``Sensor.set`` per entry — the same single API call the GUI makes for a field
+    edit — so the captured window is in a state an operator could have reached, not a
+    state synthesized behind the API. A rejected value fails the capture loudly
+    (Rule 17): the message names the capture and the dot-path.
+    """
+    if not capture.set_parameters:
+        return
+    from radiant.core.exceptions import RadiantError
+
+    for dotpath, value in capture.set_parameters.items():
+        try:
+            config_set.base.set(dotpath, value)
+        except RadiantError as exc:
+            raise ScreenshotError(
+                f"{capture.name}: set_parameters[{dotpath!r}] = {value!r} was rejected.\n"
+                f"  why: the API refused the edit — {exc}\n"
+                "  action: fix the value (or the dot-path) in this capture's "
+                "set_parameters in scripts/gen_gui_screenshots.py."
+            ) from exc
+
+
 def capture_one(app: Any, capture: Capture, out_dir: Path) -> Path:
     """Build the window for *capture*, wait for its evaluation, grab it, write the PNG."""
     from radiant.api import ConfigurationSet
@@ -872,6 +1055,7 @@ def capture_one(app: Any, capture: Capture, out_dir: Path) -> Path:
     # capture name a multi-configuration study and get the selector and the
     # per-configuration metric columns the operator sees.
     config_set = ConfigurationSet.load(capture.config_path)
+    _apply_parameter_edits(config_set, capture)
     window = RADIANTMainWindow(
         config_set=config_set, path=str(capture.config_path), settings=SettingsStore()
     )

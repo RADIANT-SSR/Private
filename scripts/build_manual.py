@@ -57,12 +57,22 @@ class Volume:
 
     ``chapters`` are paths relative to ``docs/``, in binding order. An empty tuple means
     the volume is registered but its content has not been written yet.
+
+    ``appendices`` are bound after the chapters, behind a LaTeX ``\\appendix`` break, so
+    they number A, B, … instead of continuing the chapter sequence. A volume with no
+    appendix leaves the tuple empty and no break is emitted.
     """
 
     key: str
     title: str
     subtitle: str
     chapters: tuple[str, ...]
+    appendices: tuple[str, ...] = ()
+
+    @property
+    def sources(self) -> tuple[str, ...]:
+        """Every bound source path, chapters then appendices — what validation reads."""
+        return (*self.chapters, *self.appendices)
 
     @property
     def phase_note(self) -> str:
@@ -110,10 +120,16 @@ VOLUMES: dict[str, Volume] = {
             "guides/ug_core_concepts.md",
             "guides/ug_main_window.md",
             "guides/ug_defining_scene.md",
-            # Batch 2 lands here: ch. 7 Defining the Sensor, 8 Configuration Sets,
-            # 9 Running & Reading Results, 10 Sweeps & Trade Studies, 11 YAML
-            # Round-Trip, 12 Troubleshooting, and the menu/shortcut appendix.
+            # Batch 2 — the sensor side and the workflows around it (ch. 7–12)
+            "guides/ug_defining_sensor.md",
+            "guides/ug_configuration_sets.md",
+            "guides/ug_running_results.md",
+            "guides/ug_sweeps_trades.md",
+            "guides/ug_yaml_roundtrip.md",
+            "guides/ug_troubleshooting.md",
         ),
+        # Appendix A — bound behind the \appendix break so it numbers A, not 13.
+        appendices=("guides/ug_menu_reference.md",),
     ),
     "tech_ref": Volume(
         key="tech_ref",
@@ -313,7 +329,7 @@ def validate_chapter(path: Path) -> list[str]:
 def validate_volume(volume: Volume) -> list[str]:
     """Return one problem string per defect in *volume*'s bound sources."""
     problems: list[str] = []
-    for chapter in volume.chapters:
+    for chapter in volume.sources:
         path = DOCS / chapter
         if not path.is_file():
             problems.append(
@@ -437,6 +453,44 @@ def prepare_chapter(chapter: str, tmpdir: Path, index: int) -> Path:
     return staged
 
 
+#: The raw-LaTeX break that turns the following chapters into lettered appendices.
+#: Written as a ``raw_attribute`` block; as bare backslash text the GFM reader would
+#: escape it into the body as a code span.
+_APPENDIX_BREAK = "```{=latex}\n\\appendix\n```\n"
+
+#: The reader extension ``_APPENDIX_BREAK`` needs. It is **not** in ``gfm``'s default
+#: set, so without it the block typesets as a shaded code listing reading
+#: ``\appendix`` and the appendices keep numbering as chapters.
+_RAW_BLOCK_EXTENSION = "raw_attribute"
+
+#: ``from:`` in the shared Pandoc defaults, so the reader format has one home.
+_DEFAULTS_FROM_RE = re.compile(r"^from:\s*(\S+)\s*$", re.MULTILINE)
+
+
+def reader_format_with_raw_blocks() -> str:
+    """The defaults file's reader format plus the raw-block extension.
+
+    Read out of ``manual.yaml`` rather than restated here, so the base format stays
+    single-sourced (Rule 27) and a change there cannot silently diverge from this.
+    Falls back to the extension alone when the file cannot be read, which pandoc
+    resolves against its own default reader.
+    """
+    try:
+        text = DEFAULTS_FILE.read_text(encoding="utf-8")
+    except OSError:
+        return f"markdown+{_RAW_BLOCK_EXTENSION}"
+    match = _DEFAULTS_FROM_RE.search(text)
+    base = match.group(1) if match else "markdown"
+    return f"{base}+{_RAW_BLOCK_EXTENSION}"
+
+
+def write_appendix_break(tmpdir: Path) -> Path:
+    """Write the one-line ``\\appendix`` source file bound between chapters and appendices."""
+    path = tmpdir / "00_appendix_break.md"
+    path.write_text(_APPENDIX_BREAK, encoding="utf-8", newline="\n")
+    return path
+
+
 def build_volume(volume: Volume, *, as_tex: bool) -> int:
     """Build one volume. Returns 0 on success, nonzero on failure."""
     problems = validate_volume(volume)
@@ -455,9 +509,15 @@ def build_volume(volume: Volume, *, as_tex: bool) -> int:
             prepare_chapter(chapter, tmpdir, i)
             for i, chapter in enumerate(volume.chapters, start=1)
         ]
+        if volume.appendices:
+            sources.append(write_appendix_break(tmpdir))
+            sources += [
+                prepare_chapter(appendix, tmpdir, i)
+                for i, appendix in enumerate(volume.appendices, start=len(volume.chapters) + 1)
+            ]
         metadata = write_metadata_file(volume, tmpdir, date.today().isoformat())
         volume_header = write_volume_header(volume, tmpdir)
-        resource_dirs = [str(REPO), *dict.fromkeys(str((DOCS / c).parent) for c in volume.chapters)]
+        resource_dirs = [str(REPO), *dict.fromkeys(str((DOCS / c).parent) for c in volume.sources)]
 
         cmd = [
             "pandoc",
@@ -471,6 +531,10 @@ def build_volume(volume: Volume, *, as_tex: bool) -> int:
             str(volume_header),
             "--include-in-header",
             str(HEADER_FILE),
+            # Only a volume with appendices needs the raw-block reader extension, and
+            # only it pays for the override; every other volume reads exactly the
+            # defaults file's format.
+            *(["--from", reader_format_with_raw_blocks()] if volume.appendices else []),
             *[str(p) for p in sources],
             "-o",
             str(out),

@@ -177,16 +177,18 @@ RADIANT re-evaluates on its own, and understanding when is worth a paragraph.
 - **On demand**, via **Evaluate** — `F5`, or `Ctrl+Return` (`⌘Return` on macOS, provided
   because a bare `F5` needs the `Fn` modifier on stock macOS keyboards).
 
-Every run happens on a worker thread; the window stays responsive and a long run can be
-cancelled. The whole chain re-runs every time — there is no partial or incremental
-re-evaluation, and none is planned, because a stale subgraph is a class of bug that silent
-partial updates make invisible.
+Every run happens on a worker thread; the window stays responsive, and closing it during a long
+study cancels cleanly rather than stranding the thread. There is no Cancel affordance for the
+evaluate loop itself in this build (chapter 9, §1). The whole chain re-runs every time — there
+is no partial or incremental re-evaluation, and none is planned, because a stale subgraph is a
+class of bug that silent partial updates make invisible.
 
 **A failed evaluation leaves the previous result on screen**, marked stale, with the failure
 in Messages. It never shows a blank, and it never shows a mixture of old and new numbers.
 
-**Run ▸ Validate Only** (`Ctrl+R`) resolves and validates the configuration without running
-the physics — the same check `radiant validate` performs.
+**Run ▸ Validate Only** (`Ctrl+R`) is present but not wired in this build. The resolve-only
+check runs from the command line as `radiant validate <config>`, and the configuration
+manager's Status column applies it per configuration (chapter 8, §3).
 
 ## 7. Menu map
 
@@ -236,7 +238,7 @@ in the shipped build.
 | Action | Shortcut | Notes |
 |---|---|---|
 | Evaluate | `F5`, `Ctrl+Return` | |
-| Validate Only | `Ctrl+R` | |
+| Validate Only | `Ctrl+R` | present, not wired in this build — use `radiant validate` |
 | Run Sweep… | | 1-D or 2-D sweep, on a worker thread (chapter 10) |
 | Monte Carlo… | | opens a prefilled Monte-Carlo **script scaffold**, seeded with the tolerances you have set |
 | Batch Run… | | opens a prefilled `BatchRunner` **script scaffold** |
@@ -251,6 +253,7 @@ in the shipped build.
 | Compare Config Files… | | evaluates this configuration against other *files* and tables the metrics (chapter 10) |
 | Compare Measured MTF… | | overlays measured MTF data; enabled after the first evaluation |
 | Solve for Parameter… | | inverse solve: what value of X gives metric Y |
+| Explain Parameter… | | pick a dot-path and read its derivation trace |
 | Preferences… | | present, not wired in this build |
 
 **Help** — Documentation, Example Configs, About RADIANT: present, not wired in this build.
@@ -263,7 +266,7 @@ Tools action and shares its enabled state.
 | Key | Action |
 |---|---|
 | `F5` / `Ctrl+Return` | Evaluate |
-| `Ctrl+R` | Validate only |
+| `Ctrl+R` | Validate only — present, not wired in this build |
 | `F6` / `F7` | Show or hide the Parameters dock / right rail |
 | `Ctrl+1`…`Ctrl+9`, `Ctrl+0` | Jump to stage 1…10 |
 | `Ctrl+O` / `Ctrl+S` | Open / Save |

@@ -108,11 +108,25 @@ VOLUMES: dict[str, Volume] = {
         subtitle="Scripting API, Configuration, Parameters, and Architecture",
         chapters=(),
     ),
+    # Volume IV is written in plan order (Support_Documentation_Plan §7): Part A
+    # (ch. 1–2, GUI-driven), Part B (ch. 3, scripted), then Part C (the eight full-depth
+    # persona case studies and the scenario digest compendium) and Part D (flagship
+    # validation, the trade-study cookbook, the scenario index appendix). Parts C and D
+    # append to this tuple in a later Phase-4 slice; the order of the tuple *is* the
+    # binding order, so new chapters go on the end rather than anywhere convenient.
     "examples": Volume(
         key="examples",
         title="RADIANT Worked Examples & Validation",
         subtitle="Case Studies, Scenario Digests, and Validation Evidence",
-        chapters=(),
+        chapters=(
+            # Part A — driving RADIANT from the GUI
+            "guides/examples_running.md",
+            "guides/examples_gui.md",
+            # Part B — driving RADIANT from scripts
+            "guides/examples_scripting.md",
+            # Part C (case studies + digests) and Part D (validation, cookbook, index)
+            # land here.
+        ),
     ),
 }
 

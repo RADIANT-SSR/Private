@@ -152,6 +152,36 @@ class TestValidateRegistry:
         )
         assert validate_registry((good,)) == []
 
+    def test_blank_tab_is_reported(self) -> None:
+        bad = Capture(name="blank_tab", config=CAPTURES[0].config, stage="optics", tab="  ")
+        assert any("visible tab label" in p for p in validate_registry((bad,)))
+
+    def test_tab_without_a_stage_is_reported(self) -> None:
+        """A tab belongs to a stage workspace, so naming one without a stage is a typo."""
+        bad = Capture(name="orphan_tab", config=CAPTURES[0].config, tab="MTF")
+        assert any("needs a stage" in p for p in validate_registry((bad,)))
+
+    def test_tab_with_a_stage_is_accepted(self) -> None:
+        good = Capture(name="tab_ok", config=CAPTURES[0].config, stage="optics", tab="MTF")
+        assert validate_registry((good,)) == []
+
+    def test_registry_tabs_are_titles_the_stage_spec_declares(self) -> None:
+        """Every registered tab label must exist in that stage's sub-view composition.
+
+        A tab is selected by its *visible label*, so a renamed tab breaks the capture at
+        run time, minutes into a batch. The composition table is Qt-free data, so the
+        check is cheap and runs with the rest of the registry validation.
+        """
+        pytest.importorskip("PySide6", reason="stage compositions import the gui package")
+        from radiant.gui.stage_views import STAGE_COMPOSITIONS
+
+        for capture in CAPTURES:
+            if capture.tab is None:
+                continue
+            composition = STAGE_COMPOSITIONS[capture.stage]
+            titles = [sub.title for sub in composition.subviews]
+            assert capture.tab in titles, (capture.name, capture.tab, titles)
+
     def test_dock_width_inside_window_is_accepted(self) -> None:
         good = Capture(
             name="wide_dock",
@@ -239,6 +269,14 @@ class TestManifest:
             assert f"`{capture.filename}`" in text
             assert f"`{capture.config}`" in text
             assert f"{capture.width}×{capture.height}" in text
+
+    def test_records_the_selected_tab(self) -> None:
+        """A tabbed capture's provenance row must say which tab it photographed."""
+        tabbed = Capture(
+            name="tab_row", config=CAPTURES[0].config, stage="optics", tab="MTF", caption="x"
+        )
+        text = render_manifest((tabbed,), commit="abc1234", generated_on="2026-09-16")
+        assert "`optics` → MTF" in text
 
     def test_records_the_offscreen_ruling(self) -> None:
         """The provenance record must say the figures are offscreen/platform-neutral (Q7)."""

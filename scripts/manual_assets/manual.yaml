@@ -1,0 +1,59 @@
+# Shared Pandoc defaults for every volume of the RADIANT manual suite.
+#
+# One template, four volumes (Support_Documentation_Plan §3): anything that differs
+# per volume (title, subtitle, cover date/version, running head) is supplied by
+# scripts/build_manual.py at build time via --metadata-file and a generated
+# --include-in-header snippet. Nothing here is volume-specific, and there is no
+# per-volume fork of this file (Rule 27).
+#
+# Invoked as: pandoc --defaults scripts/manual_assets/manual.yaml ...
+# Everything path-valued (include-in-header, the chapter list, -o) is passed on the
+# command line as an absolute path, so this file stays location-independent.
+
+# Equation treatment: $...$ / $$...$$ (OPERATING_MODEL §5.4). pandoc-crossref is
+# deliberately NOT used — per-equation numbering is not worth a toolchain dependency
+# (Support_Documentation_Plan §8).
+from: gfm+tex_math_dollars
+
+standalone: true
+toc: true
+toc-depth: 2
+number-sections: true
+
+# Each chapter file's H1 becomes a LaTeX \chapter. Stated explicitly rather than left
+# to pandoc's documentclass-dependent default.
+top-level-division: chapter
+
+pdf-engine: xelatex
+
+variables:
+  # `report` gives a full-page cover from \maketitle (ruling Q6: title, subtitle,
+  # version + git describe, build date, author — nothing else) and numbered chapters.
+  documentclass: report
+  classoption:
+    - oneside
+  papersize: letter
+  fontsize: 11pt
+  geometry:
+    - margin=1in
+  linestretch: 1.05
+
+  # Cross-platform faces (Rule 30). All three ship with TeX Live / MiKTeX on both
+  # macOS and Windows and cover the µ / ° / ² / λ characters these chapters use.
+  # The previous Helvetica Neue / Menlo pinning was macOS-only (Findings_Log
+  # 2026-09-16); do not reintroduce platform-local faces here.
+  mainfont: TeX Gyre Termes
+  sansfont: TeX Gyre Heros
+  monofont: DejaVu Sans Mono
+  monofontoptions:
+    - Scale=0.85
+
+  # Hyperlinked TOC and cross-references, printable colours.
+  colorlinks: true
+  linkcolor: MidnightBlue
+  urlcolor: MidnightBlue
+  citecolor: MidnightBlue
+  toccolor: black
+
+  # Number down to subsubsection; the TOC still stops at depth 2.
+  secnumdepth: 3

@@ -1,0 +1,80 @@
+% Shared LaTeX preamble for every volume of the RADIANT manual suite.
+%
+% Included by scripts/build_manual.py as the SECOND --include-in-header file; the
+% first is a generated snippet defining \radiantrunninghead (the volume title).
+% The \providecommand below keeps this file usable on its own.
+%
+% Design constraints:
+%   * One template, four volumes — no per-volume forks (Rule 27).
+%   * Cover identity stays minimal (ruling Q6): the cover is the report class's
+%     own \maketitle page, fed title / subtitle / author / version+date metadata.
+%     No logo, no document numbers, no distribution markings are added here.
+%   * Optional packages are guarded with \IfFileExists so a BasicTeX-class install
+%     degrades to plain formatting instead of failing the build.
+
+\providecommand{\radiantrunninghead}{RADIANT}
+
+\usepackage{etoolbox}
+
+% --- Running heads and feet -------------------------------------------------
+% Left: current chapter (\leftmark). Right: volume title. Foot: page number.
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\sffamily\nouppercase{\leftmark}}
+\fancyhead[R]{\small\sffamily\radiantrunninghead}
+\fancyfoot[C]{\small\sffamily\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+% Chapter-opening and TOC pages use `plain`; give them the same foot, no rule.
+\fancypagestyle{plain}{%
+  \fancyhf{}%
+  \fancyfoot[C]{\small\sffamily\thepage}%
+  \renewcommand{\headrulewidth}{0pt}%
+}
+
+% --- Headings in the sans face ----------------------------------------------
+\IfFileExists{titlesec.sty}{%
+  \usepackage{titlesec}%
+  \titleformat{\chapter}[display]%
+    {\sffamily\bfseries}%
+    {\normalsize\sffamily\chaptertitlename\ \thechapter}{8pt}{\Huge}%
+  \titlespacing*{\chapter}{0pt}{0pt}{24pt}%
+  \titleformat*{\section}{\sffamily\Large\bfseries}%
+  \titleformat*{\subsection}{\sffamily\large\bfseries}%
+  \titleformat*{\subsubsection}{\sffamily\normalsize\bfseries}%
+}{}
+
+% --- Tables -----------------------------------------------------------------
+% The theory chapters and the bound architecture specs carry wide GFM tables
+% (8+ columns of prose). Pandoc emits them as longtable with \real{} widths;
+% shrinking the body font and the intercolumn padding is what keeps them inside
+% the text block instead of overfull.
+\AtBeginEnvironment{longtable}{\footnotesize\setlength{\tabcolsep}{4pt}}
+\AtBeginEnvironment{tabular}{\footnotesize\setlength{\tabcolsep}{4pt}}
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
+\renewcommand{\arraystretch}{1.15}
+
+% --- Code listings ----------------------------------------------------------
+% fvextra adds line breaking to the Verbatim environments pandoc generates for
+% fenced code. Redefined at \begin{document} so these win over pandoc's own
+% definitions, which are emitted later in the preamble than this include.
+\IfFileExists{fvextra.sty}{\usepackage{fvextra}}{}
+\AtBeginDocument{%
+  \IfFileExists{fvextra.sty}{%
+    \DefineVerbatimEnvironment{Highlighting}{Verbatim}%
+      {commandchars=\\\{\},breaklines,breakanywhere,breaksymbolleft={},fontsize=\small}%
+    \DefineVerbatimEnvironment{verbatim}{Verbatim}%
+      {breaklines,breakanywhere,fontsize=\small}%
+  }{}%
+  % Pandoc's Shaded environment paints this colour behind highlighted blocks.
+  \ifdefined\definecolor\definecolor{shadecolor}{RGB}{247,247,247}\fi
+  % Numbered PDF bookmarks matching the numbered sections.
+  \ifdefined\hypersetup\hypersetup{bookmarksnumbered=true,bookmarksopen=true}\fi
+}
+
+% --- Typographic polish -----------------------------------------------------
+\widowpenalty=10000
+\clubpenalty=10000
+\raggedbottom

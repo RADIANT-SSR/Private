@@ -1,0 +1,275 @@
+"""Tests for the pure helpers in ``scripts/build_manual.py`` (Support_Documentation_Plan §8).
+
+Run with the rest of the tooling suite::
+
+    pytest scripts/ -q
+
+No test invokes pandoc: the builder's value that can silently rot is the *source
+scanning* — header stripping, the raw-HTML / display-math / image checks, and the volume
+registry pointing at files that exist. Those are what is exercised here. The three
+architecture specs Volume III binds in Phase 2 are stripped for real, so a reformat of
+their metadata headers fails here rather than in a manual six months from now.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import build_manual  # noqa: E402  (path insert must precede the import)
+from build_manual import (  # noqa: E402
+    ARCHITECTURE,
+    DOCS,
+    VOLUMES,
+    Volume,
+    count_display_math,
+    latex_escape,
+    package_version,
+    scan_images,
+    scan_raw_html,
+    strip_spec_header,
+    validate_chapter,
+    validate_volume,
+    version_string,
+)
+
+#: The three specs Volume III Part 3 binds verbatim (plan §6) — the real consumers of
+#: the ruling-Q2 header strip.
+BOUND_SPECS = (
+    "RADIANT_Signal_Chain_Architecture.md",
+    "RADIANT_Parameter_System.md",
+    "RADIANT_Testing_Validation.md",
+)
+
+
+# --- Header stripping (ruling Q2) ----------------------------------------------------
+
+
+def test_strip_spec_header_synthetic() -> None:
+    """The metadata block, its blank lines, and the closing rule all go."""
+    text = (
+        "# A Spec\n"
+        "\n"
+        "**Date:** 2026-04-07  \n"
+        "**Status:** Accepted  \n"
+        "**Depends on:** Other.md  \n"
+        "**Scope:** What this covers.\n"
+        "\n"
+        "---\n"
+        "\n"
+        "## 1. First Section\n"
+        "\n"
+        "Body text.\n"
+    )
+    assert strip_spec_header(text) == "# A Spec\n\n## 1. First Section\n\nBody text.\n"
+
+
+def test_strip_spec_header_without_closing_rule() -> None:
+    """A spec whose header is not followed by a thematic break strips just the block."""
+    text = "# A Spec\n\n**Status:** Accepted\n\nBody text.\n"
+    assert strip_spec_header(text) == "# A Spec\n\nBody text.\n"
+
+
+def test_strip_spec_header_leaves_ordinary_chapters_alone() -> None:
+    """A theory chapter (no metadata block) is returned byte-identical."""
+    text = "# Noise Model\n\nSome prose.\n\n**Bold lead-in** is not a metadata key.\n"
+    assert strip_spec_header(text) == text
+
+
+def test_strip_spec_header_no_h1_is_identity() -> None:
+    text = "**Date:** 2026-04-07\n\nA fragment with no heading.\n"
+    assert strip_spec_header(text) == text
+
+
+def test_strip_spec_header_does_not_eat_body_bold() -> None:
+    """Only the block *immediately* after the H1 is metadata."""
+    text = "# A Spec\n\nIntro paragraph.\n\n**Note:** this is body text.\n"
+    assert strip_spec_header(text) == text
+
+
+@pytest.mark.parametrize("name", BOUND_SPECS)
+def test_strip_spec_header_on_real_specs(name: str) -> None:
+    """Every spec Volume III binds loses its header and keeps its H1 and body."""
+    path = ARCHITECTURE / name
+    text = path.read_text(encoding="utf-8")
+    stripped = strip_spec_header(text)
+
+    assert stripped != text, f"{name}: metadata header was not recognised"
+    lines = stripped.splitlines()
+    assert lines[0].startswith("# "), f"{name}: H1 must survive the strip"
+    assert lines[0] == text.splitlines()[0]
+    assert "**Date:**" not in stripped
+    assert "**Status:**" not in stripped
+    assert "**Depends on:**" not in stripped
+    # The first real content line is a heading, not a stray rule or blank run.
+    assert lines[2].startswith("#"), f"{name}: unexpected first body line {lines[2]!r}"
+    # Nothing on disk changed.
+    assert path.read_text(encoding="utf-8") == text
+
+
+# --- Raw-HTML scan -------------------------------------------------------------------
+
+
+def test_scan_raw_html_finds_block_tags() -> None:
+    found = scan_raw_html('Intro.\n\n<div class="note">careful</div>\n')
+    assert [lineno for lineno, _ in found] == [3, 3]
+    assert found[0][1] == '<div class="note">'
+
+
+def test_scan_raw_html_ignores_fenced_code() -> None:
+    text = "Prose.\n\n```html\n<div>shown as an example</div>\n```\n\nMore prose.\n"
+    assert scan_raw_html(text) == []
+
+
+def test_scan_raw_html_ignores_tilde_fences() -> None:
+    text = "Prose.\n\n~~~\n<span>example</span>\n~~~\n"
+    assert scan_raw_html(text) == []
+
+
+def test_scan_raw_html_ignores_inline_code_spans() -> None:
+    assert scan_raw_html("Write `<sub>` as math instead.\n") == []
+
+
+def test_scan_raw_html_ignores_autolinks_and_math() -> None:
+    """Autolinks and comparison operators are not tags (the false-positive guard)."""
+    text = (
+        "See <https://pandoc.org/MANUAL.html> and mail <docs@example.com>.\n"
+        "Bounds: $a < b$ and $f < f_{Nyq}$.\n"
+    )
+    assert scan_raw_html(text) == []
+
+
+def test_scan_raw_html_detects_self_closing_and_void_tags() -> None:
+    found = scan_raw_html("Line one.<br/>\nLine two.<br>\n")
+    assert [tag for _, tag in found] == ["<br/>", "<br>"]
+
+
+def test_theory_chapters_carry_no_raw_html() -> None:
+    """The bound Volume I chapters are Pandoc-subset clean today (§5.4 rule 2)."""
+    for chapter in VOLUMES["theory"].chapters:
+        text = (DOCS / chapter).read_text(encoding="utf-8")
+        assert scan_raw_html(text) == [], f"{chapter} has raw HTML"
+
+
+# --- Display-math balance ------------------------------------------------------------
+
+
+def test_count_display_math_counts_pairs() -> None:
+    assert count_display_math("$$\na = b\n$$\n") == 2
+    assert count_display_math("$$a = b$$\n") == 2
+
+
+def test_count_display_math_ignores_code_fences() -> None:
+    assert count_display_math("```\n$$ not math $$\n```\n") == 0
+
+
+def test_count_display_math_flags_odd_count() -> None:
+    assert count_display_math("$$\na = b\n") % 2 == 1
+
+
+@pytest.mark.parametrize("chapter", VOLUMES["theory"].chapters)
+def test_theory_chapters_have_balanced_display_math(chapter: str) -> None:
+    text = (DOCS / chapter).read_text(encoding="utf-8")
+    assert count_display_math(text) % 2 == 0, f"{chapter} has an unpaired $$"
+
+
+# --- Image scan ----------------------------------------------------------------------
+
+
+def test_scan_images_returns_local_destinations() -> None:
+    text = "![A figure](figures/psf.png)\n\n![Remote](https://example.com/x.png)\n"
+    assert scan_images(text) == [(1, "figures/psf.png")]
+
+
+def test_scan_images_ignores_fenced_examples() -> None:
+    assert scan_images("```\n![x](y.png)\n```\n") == []
+
+
+def test_validate_chapter_flags_missing_image(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A referenced figure that does not exist fails the build with an actionable message."""
+    chapter = tmp_path / "chapter.md"
+    chapter.write_text("# C\n\n![Missing](figures/nope.png)\n", encoding="utf-8")
+    monkeypatch.setattr(build_manual, "REPO", tmp_path)
+
+    problems = validate_chapter(chapter)
+    assert len(problems) == 1
+    assert "figures/nope.png" in problems[0]
+    assert "action:" in problems[0]
+
+
+def test_validate_chapter_accepts_resolvable_image(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "figures").mkdir()
+    (tmp_path / "figures" / "psf.png").write_bytes(b"")
+    chapter = tmp_path / "chapter.md"
+    chapter.write_text("# C\n\n![There](figures/psf.png)\n", encoding="utf-8")
+    monkeypatch.setattr(build_manual, "REPO", tmp_path)
+
+    assert validate_chapter(chapter) == []
+
+
+# --- Volume registry -----------------------------------------------------------------
+
+
+def test_registry_declares_the_four_volumes() -> None:
+    assert list(VOLUMES) == ["theory", "users_guide", "tech_ref", "examples"]
+    for key, volume in VOLUMES.items():
+        assert volume.key == key
+        assert volume.title and volume.subtitle
+        assert volume.phase_note
+
+
+def test_theory_volume_binds_the_six_existing_chapters() -> None:
+    """Phase 0 rebinds only; atmosphere_models.md and the appendix arrive in Phase 1."""
+    assert VOLUMES["theory"].chapters == (
+        "theory/radiometric_chain.md",
+        "theory/geometry.md",
+        "theory/spatial_model.md",
+        "theory/noise_model.md",
+        "theory/performance_metrics.md",
+        "theory/references.md",
+    )
+
+
+@pytest.mark.parametrize("key", list(VOLUMES))
+def test_every_bound_chapter_exists(key: str) -> None:
+    for chapter in VOLUMES[key].chapters:
+        assert (DOCS / chapter).is_file(), f"volume '{key}' binds a missing file: {chapter}"
+
+
+@pytest.mark.parametrize("key", list(VOLUMES))
+def test_populated_volumes_validate_clean(key: str) -> None:
+    assert validate_volume(VOLUMES[key]) == []
+
+
+def test_validate_volume_reports_a_missing_chapter() -> None:
+    ghost = Volume(key="ghost", title="T", subtitle="S", chapters=("theory/nope.md",))
+    problems = validate_volume(ghost)
+    assert len(problems) == 1
+    assert "theory/nope.md" in problems[0]
+    assert "action:" in problems[0]
+
+
+# --- Cover metadata ------------------------------------------------------------------
+
+
+def test_package_version_matches_the_package() -> None:
+    assert package_version() == "0.1.0"
+
+
+def test_version_string_is_latex_safe() -> None:
+    text = version_string()
+    assert text.startswith("v0.1.0")
+    assert not set(text) & set("\\{}$&#%_^~")
+
+
+def test_latex_escape_handles_specials() -> None:
+    assert latex_escape("Examples & Validation") == r"Examples \& Validation"
+    assert latex_escape("a_b") == r"a\_b"

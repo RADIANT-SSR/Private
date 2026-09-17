@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-365 — Element-config parser silently ignores `emissivity:` (and mismatched transfer keys) instead of rejecting over-specification
+
+**Discovered**: Gap 131 Phase 3b (branch `gap131/phase3-users-guide`) troubleshooting-chapter verification, 2026-09-16.
+**Status**: Open.
+**File**: `src/radiant/io/element_config.py::_parse_element`.
+**Symptom**: an optical-element entry carrying `emissivity:` (or `transmittance:` on a REFLECTIVE row) is silently ignored by the parser, retained in the document, and round-tripped into saved YAML — the user believes their emissivity is in effect while Kirchhoff derivation governs.
+**Why it still matters**: workflow-visible (intake test 4) and a Rule 5 / Rule 17 seam — Rule 5 says validate-and-derive (reject over-specification, never accept emissivity on an optical element), Rule 17 forbids silent handling; the shipped User's Guide ch. 12 documents the actionable-rejection philosophy this parser undercuts.
+**Suggested fix**: (a) inline-fix-now — `_parse_element` raises `ElementConfigError` (what/why/action) on `emissivity:` for any element and on transfer keys inconsistent with the element kind; add round-trip test. Effort S; category B.
+
 ### CU-363 — DetectorInputsForm paints blank / clipped field values at off-default widths (family)
 
 **Discovered**: Gap 131 Phase 4 figure review (offscreen screenshot pipeline), 2026-09-16. Reproduced with a live probe: model values intact (`field_value_text` returns `'18 µm'` etc.) while every entry box paints empty; 20 extra event-loop turns do not heal it. Family head.

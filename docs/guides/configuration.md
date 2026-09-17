@@ -8,9 +8,11 @@ How to define, customize, and manage RADIANT config files.
 
 ## YAML Structure
 
-A RADIANT config file has seven top-level parameter sections matching the
-signal-chain stages. Here is an annotated example showing the most commonly
-used parameters:
+A RADIANT config file is a YAML document whose top-level keys are the signal-chain stage
+names. There are ten parameter namespaces in all — `geometry`, `source`, `atmosphere`,
+`optics`, `platform`, `spectral_integration`, `detector`, `readout`, `calibration`,
+`performance` — and a config only names the ones it needs. Here is an annotated example
+using the seven most commonly populated sections:
 
 ```yaml
 # --- Source (target and background) ---
@@ -71,8 +73,24 @@ readout:
   # n_coadds: 1               # number of coadded frames
 ```
 
-See the [Parameter Reference](parameter_reference.md) for the exhaustive list
-of all 91 parameters with types, defaults, and bounds.
+Besides the parameter namespaces, four top-level keys carry something other than
+parameters. Each is covered in its own section below:
+
+| Key | What it is |
+|-----|-----------|
+| `_radiant` | Session metadata: format marker, spectral grid density, tolerance distributions |
+| `optical_elements` | A declarative optical-element train (ADR-0009) |
+| `fpa` | The name of a bundled FPA preset to apply (Gap 119) |
+| `configurations` | Turns the file into a multi-configuration *study* (ADR-0010) |
+
+Three further top-level keys — `_extends`, `_imports`, `_vars` — are **reserved** for
+config-inheritance features that are designed but not implemented. A config containing
+one is rejected with an actionable error rather than loading with the directive silently
+ignored, which would produce physics from a different parameter set than intended.
+
+See the [Parameter Reference](parameter_reference.md) for the exhaustive list of all 218
+parameters with types, defaults, bounds, and descriptions. That chapter is generated from
+the schema registry, so it cannot drift from the code.
 
 ---
 
@@ -185,39 +203,205 @@ is specified in micrometers, altitude in meters.
 
 ---
 
+## Resolution Precedence
+
+Parameters resolve in a fixed priority order, lowest to highest:
+
+| Priority | Source | Provenance tag |
+|----------|--------|----------------|
+| 1 (lowest) | Schema default (`ParameterDef.default`) | `DEFAULT` |
+| 2 | An applied FPA preset | `PRESET` |
+| 3 | The config-file body | `CONFIG_FILE` |
+| 4 | `Sensor.set()` / `set_many()` | `USER_SET` |
+| 5 (highest) | CLI `--set` | `USER_SET` |
+
+An FPA preset sits below the config file deliberately: presets seed, explicit values win,
+in any key order.
+
+Every resolved parameter carries its provenance tag plus a source label — the config file
+path, `Sensor.set`, or the CLI. Derived parameters carry `DERIVED` and a `derived_from`
+record naming the inputs and their values, which is what `radiant explain` prints.
+
+Setting every member of a consistency group explicitly triggers a consistency check; a
+value conflicting with the derived one beyond the group tolerance is an error.
+
+---
+
+## File Paths Inside a Config
+
+Parameters that name a file (a QE curve, a measured emissivity spectrum, a tape7, a
+Zernike export) are resolved **relative to the config file's own directory**, not the
+process working directory. A config and its data files therefore move together as a unit.
+
+`Sensor.save()` and `to_yaml(relative_to=...)` write the reverse transform: an absolute
+path stored in memory comes back out relative to the directory the YAML will live in.
+That keeps a round-tripped config portable rather than pinned to one machine.
+
+---
+
 ## Using Templates
 
-RADIANT ships 12 templates and 4 CLI-embedded templates spanning VNIR, SWIR,
-MWIR, and LWIR bands at various altitudes.
+RADIANT ships nine mission templates spanning VNIR, SWIR, MWIR, and LWIR bands at
+altitudes from a 5 m lab bench to GEO, covering all three radiometric regimes. They are
+the same set the GUI welcome screen offers.
 
 ```bash
-radiant template list              # see all available templates
-radiant template show mwir_leo_pushbroom   # print the YAML
-radiant template create mwir_leo_pushbroom # write to mwir_leo_pushbroom.yaml
+radiant template list                        # see all available templates
+radiant template show leo_mapping_extended   # print the YAML
+radiant template create leo_mapping_extended # write leo_mapping_extended.yaml
 ```
 
-The six mission templates ship inside the package at `radiant/data/templates/` (CU-349 — they arrive with `pip install radiant`, and the GUI welcome screen offers them on launch; in a source checkout the same files sit at `src/radiant/data/templates/`):
+The templates ship inside the package at `radiant/data/templates/` (CU-349 — they arrive
+with `pip install radiant`; in a source checkout the same files sit at
+`src/radiant/data/templates/`), so a template can also be run in place:
 
 ```bash
 radiant run src/radiant/data/templates/leo_mapping_extended.yaml
 ```
 
+The per-template table is in the [Command-Line Interface](tech_cli.md) chapter under
+`radiant template`.
+
 ---
 
-## Loading MODTRAN Atmosphere Files
+## Session Metadata — the `_radiant` Block
 
-For high-fidelity atmospheric modeling, provide MODTRAN output files:
+`Sensor.save(path)` writes an optional top-level `_radiant` mapping holding session state
+that is not a chain parameter:
+
+```yaml
+_radiant:
+  format: 1
+  wavelength_points: 500          # spectral grid density
+  tolerances:                     # only present when tolerances are set
+    detector.qe_value:
+      distribution: gaussian
+      params: {std: 0.02}
+optics:
+  aperture_diameter_m: 0.3        # m
+```
+
+The loader strips the block before parameter flattening, applies `tolerances`, and raises
+a `ConfigError` on a malformed block — a non-mapping, a missing `distribution` or
+`params`, or an unknown parameter name. `wavelength_points` is session level:
+`Sensor.load(path)` consumes it; a bare parameter load ignores it. Configs without a
+`_radiant` block are unaffected, and a file `Sensor.save` wrote remains loadable by
+`from_yaml` and the CLI.
+
+Note what a saved file contains: **explicitly-set inputs only**, in input units. Defaults
+and derived values are not written, so reloading reproduces the original resolution and
+provenance exactly rather than freezing today's defaults into the file.
+
+---
+
+## Optical Element Trains — the `optical_elements` Section
+
+A config may carry a declarative optical-element document instead of (or alongside) the
+scalar `optics.transmission_scalar`. Each entry names an element, its transfer mode, its
+temperature, and its reflectance or transmittance:
+
+```yaml
+optics:
+  aperture_diameter_m: 0.3        # m
+optical_elements:
+  - {name: M1, transfer_mode: REFLECTIVE, reflectance: 0.97, temperature_K: 293.0}
+  - {name: cold_filter, transfer_mode: REFRACTIVE, kind: FILTER,
+     transmittance: 0.90, temperature_K: 240.0}
+```
+
+R and T values may be scalars, paths to a spectral CSV, or an inline spectral table
+(`{wavelength_um: [...], values: [...]}` — the form the GUI's spectrum dialog writes,
+which persists in the YAML with no external file).
+
+**Emissivity never appears in an entry.** It is derived from Kirchhoff's law —
+$\varepsilon = 1 - R$ for a mirror, $\varepsilon = 1 - T - R$ for a transmissive element.
+An entry that supplies both R and $\varepsilon$ over-specifies the energy balance and is
+rejected.
+
+`Sensor.from_yaml` / `Sensor.load` / `Sensor.from_dict` parse and attach the section, and
+`Sensor.save` writes it back out. Spectral-file references are made absolute on attach —
+so the document evaluates from any working directory — and relative to the destination
+directory on save, so a saved element-bearing config stays portable: move the config and
+its data files together and the references still resolve.
+
+`radiant run` and `radiant validate` both act on the section: run parses the document onto
+the run grid, validate normalizes it and reports its errors.
+
+---
+
+## Named FPA Presets — the `fpa` Key
+
+A scalar section naming one preset from the bundled FPA library:
+
+```yaml
+fpa: teledyne-h2rg-2p5
+readout:
+  read_noise_e_rms: 6.0   # e- RMS — explicit, wins over the preset's value
+```
+
+Every `detector.*` / `readout.*` value the preset carries is applied with provenance
+`PRESET` **unless the config sets that dot-path explicitly — explicit values always win**,
+in any key order. The applied set and the kept set are both reported through
+`Sensor.fpa_applications()`.
+
+`Sensor.save` writes the applied values as ordinary explicit inputs and does *not*
+re-serialize the `fpa:` key: reloading a saved config reproduces the same numbers with
+config-file provenance, while the preset attribution lives in the preset document. The
+part list is in the [Data Libraries](tech_data_libraries.md) chapter.
+
+---
+
+## Atmosphere Configuration
+
+RADIANT ships a real MODTRAN-derived atmosphere library, so a high-fidelity atmosphere
+needs no MODTRAN license and no external files:
+
+```yaml
+atmosphere:
+  model: interpolated        # measured MODTRAN data, interpolated over the scene geometry
+```
+
+With `interpolated` and no `atmosphere.interpolated_data_dir`, the loader selects the
+bundled family that matches the scene's line-of-sight direction and the configured
+`atmosphere.interpolation_axes`. The model does not extrapolate: outside a family's nodes
+it refuses, by design, rather than inventing an answer. Point it at your own MODTRAN run
+matrix with:
+
+```yaml
+atmosphere:
+  model: interpolated
+  interpolated_data_dir: path/to/my_runs   # directory of NPZ runs
+```
+
+`atmosphere.model` takes five values. `simple` is the always-works analytic baseline —
+the only backend that can serve an arbitrary path topology, so it is the right answer
+when you are unsure. `exo` is an explicitly vacuum path. The two file-driven backends are
+geometry-agnostic by construction — they do not respond to the scene at all — and need
+explicit paths:
 
 ```yaml
 atmosphere:
   model: tabulated
-  tabulated_transmittance_file: path/to/transmittance.csv
+  tabulated_transmittance_file: path/to/transmittance.csv   # or a single .npz
   tabulated_path_radiance_file: path/to/path_radiance.csv
+  tabulated_downwelling_file: path/to/downwelling.csv       # optional
 ```
 
-The CSV files must have `wavelength_um` as the first column. See
-`data/atmospheres/README.md` for details on why atmosphere data is computed
-rather than bundled.
+```yaml
+atmosphere:
+  model: modtran
+  modtran:
+    tape7_path: path/to/tape7
+```
+
+CSV files must have `wavelength_um` as the first column. Choosing between the five
+backends for a given scene is the subject of the
+[Atmosphere Selection Guide](atmosphere_selection.md).
+
+The shipped families, their coverage, and the provenance of the underlying MODTRAN run
+matrix are documented in the [Data Libraries](tech_data_libraries.md) chapter and in
+`src/radiant/data/tables/atmospheres/README.md`. Ingest of external atmosphere data is
+covered in [External Data Interfaces](tech_external_data.md).
 
 ---
 
@@ -261,7 +445,7 @@ source:
 
 # --- what makes this file a study ---
 configurations:
-  names: [MWIR, LWIR]           # 1-8 unique names; defines the value order below
+  names: [MWIR, LWIR]           # 1-12 unique names; defines the value order below
   active: MWIR                  # configuration the GUI opens on (optional)
   baseline: MWIR                # delta reference for comparisons (optional)
   wavelength_points:            # optional per-configuration grid density
@@ -283,8 +467,8 @@ study states what differs, not what is repeated.
 The binding rules, all checked at load time with an error naming the file, the
 configuration, and the parameter:
 
-- **`names`** --- 1 to 8 unique, non-empty names. This list defines the order of
-  every value list below it.
+- **`names`** --- 1 to 12 unique, non-empty names (`ConfigurationSet.MAX_CONFIGS`, raised
+  from 8 to 12 in 2026-09). This list defines the order of every value list below it.
 - **`parameters`** --- every list has exactly as many values as there are names.
   The lists are dense by construction: there is no "unset for this
   configuration" and nothing is padded for you.

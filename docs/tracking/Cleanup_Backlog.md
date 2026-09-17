@@ -47,6 +47,19 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-363 — DetectorInputsForm paints blank / clipped field values at off-default widths (family)
+
+**Discovered**: Gap 131 Phase 4 figure review (offscreen screenshot pipeline), 2026-09-16. Reproduced with a live probe: model values intact (`field_value_text` returns `'18 µm'` etc.) while every entry box paints empty; 20 extra event-loop turns do not heal it. Family head.
+**Status**: Open — GUI fix; per the live-review rule the fix merges only after the owner sees it running.
+**File**: `src/radiant/gui/widgets/detector_inputs_form.py` (`_relayout_columns`, `resizeEvent`).
+**Symptom**: checklist —
+
+- [ ] Narrowing the central area past the form's column-relayout threshold (e.g. widening the parameter dock to 520 px at a 1440×900 window, or an operator narrowing the window) rebuilds the rows with every painted field value blank until the next `refresh()`; the model keeps the values, so an operator sees an empty form over a correct sensor
+- [ ] At the default 1440×900 layout the full-schema form is wider than its viewport (horizontal scrollbar), right-clipping value text — "2048" reads "204", "18 µm" reads "18 µ" — a units/legibility defect in the operator's normal view
+
+**Why it still matters**: workflow-visible (intake test 4) — any window resize can blank the detector form, and the clipped digits misread as wrong values; also caps the manual's figure quality (Gap 131 captures avoid wide-dock detector shots until fixed — see the CU-363 comments in `scripts/gen_gui_screenshots.py`).
+**Suggested fix**: (b) stand-alone GUI task — make `_relayout_columns` re-apply row values after a rebuild (or bind rows to the model so a rebuild repaints), and give the form a sane minimum-width/eliding policy so values never silently truncate. Effort S-M; category A. Live-review required.
+
 ### CU-359 — Theory Manual v1.0 coverage gaps: 13 implemented-physics areas with no manual section (family)
 
 **Discovered**: Gap 131 Phase 1 physics-inventory audit (branch `gap131/phase1-theory`), 2026-09-16. Family head (Rule 21 family-CU provision).

@@ -48,15 +48,30 @@ def render() -> str:
     lines.append(f"**Total parameters: {len(defs)}**")
     lines.append("")
 
+    # Chain order (ADR-0006 geometry-first, then the signal chain). Every namespace in
+    # the registry MUST appear here: CU-364 was three namespaces silently omitted while
+    # the header claimed the full count, invisible to --check (which compares the
+    # generator to its own output). The guard below makes a new namespace loud.
     stage_order = [
+        "geometry",
         "source",
         "atmosphere",
-        "geometry",
         "optics",
-        "detector",
+        "platform",
         "spectral_integration",
+        "detector",
         "readout",
+        "calibration",
+        "performance",
     ]
+    unlisted = sorted(set(groups) - set(stage_order))
+    if unlisted:
+        raise SystemExit(
+            f"error: parameter namespace(s) {', '.join(unlisted)} are not in stage_order.\n"
+            "  why: every registry namespace must be emitted, or the reference silently\n"
+            "       under-documents the schema while claiming the full count (CU-364).\n"
+            "  action: add the namespace(s) to stage_order in gen_param_reference.py."
+        )
 
     for stage in stage_order:
         if stage not in groups:

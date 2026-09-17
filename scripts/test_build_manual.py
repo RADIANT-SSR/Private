@@ -35,6 +35,7 @@ from build_manual import (  # noqa: E402
     validate_chapter,
     validate_volume,
     version_string,
+    write_appendix_marker,
 )
 
 #: The three specs Volume III Part 3 binds verbatim (plan §6) — the real consumers of
@@ -150,7 +151,7 @@ def test_scan_raw_html_detects_self_closing_and_void_tags() -> None:
 
 def test_theory_chapters_carry_no_raw_html() -> None:
     """The bound Volume I chapters are Pandoc-subset clean today (§5.4 rule 2)."""
-    for chapter in VOLUMES["theory"].chapters:
+    for chapter in VOLUMES["theory"].sources:
         text = (DOCS / chapter).read_text(encoding="utf-8")
         assert scan_raw_html(text) == [], f"{chapter} has raw HTML"
 
@@ -171,7 +172,7 @@ def test_count_display_math_flags_odd_count() -> None:
     assert count_display_math("$$\na = b\n") % 2 == 1
 
 
-@pytest.mark.parametrize("chapter", VOLUMES["theory"].chapters)
+@pytest.mark.parametrize("chapter", VOLUMES["theory"].sources)
 def test_theory_chapters_have_balanced_display_math(chapter: str) -> None:
     text = (DOCS / chapter).read_text(encoding="utf-8")
     assert count_display_math(text) % 2 == 0, f"{chapter} has an unpaired $$"
@@ -226,22 +227,90 @@ def test_registry_declares_the_four_volumes() -> None:
         assert volume.phase_note
 
 
-def test_theory_volume_binds_the_six_existing_chapters() -> None:
-    """Phase 0 rebinds only; atmosphere_models.md and the appendix arrive in Phase 1."""
+def test_theory_volume_binds_the_phase_1_toc() -> None:
+    """Volume I v1.0 order (plan §4): front matter, intro, geometry BEFORE radiometry."""
     assert VOLUMES["theory"].chapters == (
-        "theory/radiometric_chain.md",
+        "theory/notation.md",
+        "theory/introduction.md",
         "theory/geometry.md",
+        "theory/radiometric_chain.md",
+        "theory/atmosphere_models.md",
         "theory/spatial_model.md",
         "theory/noise_model.md",
+        "theory/calibration_model.md",
         "theory/performance_metrics.md",
+    )
+    assert VOLUMES["theory"].appendices == (
+        "theory/radiometric_model_mixed_train.md",
+        "theory/references.md",
+    )
+
+
+def test_appendices_default_to_empty() -> None:
+    """A volume that declares no appendices stages no marker (the field is optional)."""
+    plain = Volume(key="v", title="T", subtitle="S", chapters=("theory/notation.md",))
+    assert plain.appendices == ()
+    assert plain.sources == ("theory/notation.md",)
+
+
+def test_sources_orders_chapters_then_appendices() -> None:
+    volume = Volume(
+        key="v",
+        title="T",
+        subtitle="S",
+        chapters=("theory/notation.md", "theory/introduction.md"),
+        appendices=("theory/references.md",),
+    )
+    assert volume.sources == (
+        "theory/notation.md",
+        "theory/introduction.md",
         "theory/references.md",
     )
 
 
 @pytest.mark.parametrize("key", list(VOLUMES))
 def test_every_bound_chapter_exists(key: str) -> None:
-    for chapter in VOLUMES[key].chapters:
+    for chapter in VOLUMES[key].sources:
         assert (DOCS / chapter).is_file(), f"volume '{key}' binds a missing file: {chapter}"
+
+
+def test_validate_volume_reports_a_missing_appendix() -> None:
+    """Registry integrity covers appendices, not just chapters."""
+    ghost = Volume(
+        key="ghost",
+        title="T",
+        subtitle="S",
+        chapters=("theory/notation.md",),
+        appendices=("theory/nope.md",),
+    )
+    problems = validate_volume(ghost)
+    assert len(problems) == 1
+    assert "theory/nope.md" in problems[0]
+
+
+# --- Appendix marker -----------------------------------------------------------------
+
+
+def test_appendix_marker_is_a_raw_latex_block(tmp_path: Path) -> None:
+    """The staged marker is exactly a ``{=latex}`` fence holding ``\\appendix``."""
+    path = write_appendix_marker(tmp_path)
+
+    assert path.parent == tmp_path
+    text = path.read_text(encoding="utf-8")
+    assert text == "```{=latex}\n\\appendix\n```\n"
+    # It is raw LaTeX, so the prose scans must see nothing at all in it.
+    assert scan_raw_html(text) == []
+    assert count_display_math(text) == 0
+
+
+def test_appendix_marker_is_written_into_the_staging_directory(tmp_path: Path) -> None:
+    """Nothing is written under docs/ — the marker is a build artifact (Rule 26)."""
+    staged = tmp_path / "stage"
+    staged.mkdir()
+    path = write_appendix_marker(staged)
+
+    assert path.is_file()
+    assert list(staged.iterdir()) == [path]
 
 
 @pytest.mark.parametrize("key", list(VOLUMES))

@@ -95,7 +95,11 @@ Deliberately **not** chaptered yet: the script/command window (pending capabilit
 
 Paper-quality GUI documentation lives or dies on current screenshots. Hand-captured images go stale with every GUI PR.
 
-- New `scripts/gen_gui_screenshots.py`: drives the GUI offscreen (same pytest-qt/`QWidget.grab()` machinery the GUI suite uses), loads a fixed demo config (a flagship-mission baseline), captures each documented workspace/panel at a fixed window size, writes `docs/guides/figures/gui/<workspace>_<view>.png`.
+Feasibility is proven (spike, 2026-09-16): the real `RADIANTMainWindow` built under `QT_QPA_PLATFORM=offscreen` on `examples/mwir_leo_minimal.yaml` auto-evaluated on its worker thread and yielded clean 1440×900 `QWidget.grab()` captures of the Performance, Geometry, Optics, and Detector workspaces — no display, no new dependencies. Spike lessons folded in below: per-figure dock/splitter geometry (default widths elide parameter names), panel-level grabs for detail figures, and the note that offscreen rendering uses Fusion-style chrome rather than native macOS decorations (platform-neutral figures; owner may want native captures for any hero shots — §10, Q7).
+
+Because Volume IV's GUI-led examples need the same machinery, the generator itself is **Phase 0 infrastructure**; Phases 3 and 4 only add capture definitions and prose.
+
+- New `scripts/gen_gui_screenshots.py`: drives the GUI offscreen (same pytest-qt/`QWidget.grab()` machinery the GUI suite uses), loads a fixed demo config (a flagship-mission baseline) or a named exercise baseline, captures each documented workspace/panel at a fixed window size and dock geometry, writes `docs/guides/figures/gui/<workspace>_<view>.png`.
 - Figures are committed (Rule 26(b): doc-referenced) with a `MANIFEST.md` naming the generator, input config, and commit.
 - Regeneration is a release-checklist step and can be re-run after any GUI change that alters documented surfaces; a stale screenshot is then a one-command fix, not an archaeology project.
 
@@ -135,18 +139,45 @@ Binding the Part-3 specs verbatim is deliberate: they are already Rule-20 lock-s
 
 ## 7. Volume IV — RADIANT Worked Examples & Validation
 
-Subtitle: *Case Studies, Example Scripts, and Validation Evidence*.
+Subtitle: *Case Studies, Example Scripts, and Validation Evidence*. **Mixed-modality by design (owner direction 2026-09-16):** the volume interleaves GUI-driven worked examples (screenshot-illustrated walkthroughs) with scripted examples, so a reader sees both ways of driving the tool. The repo already sources both sides: every scenario carries a mandatory `gui_workflow.md`, and the GUI exercise layer ships GUI-openable baselines per chain scenario.
+
+**Part A — Driving RADIANT from the GUI:**
 
 | Ch | Title | Content | Source |
 |---|---|---|---|
-| 1 | Running the Examples | setup, extras, where inputs/outputs live | new + `scenarios/README.md` |
-| 2 | Scripting Examples | the six `examples/scripts/` programs, each with listing excerpts, output, and commentary (basic evaluation, aperture sweep, compare configs, custom loop, tolerance analysis, dual-band configuration set) | code + new prose |
-| 3–9 | Persona Case Studies | one chapter per persona, one curated scenario each (proposed: 1.1 MWIR maritime surveillance, 2.1 InSb vs HgCdTe noise budget, 3.1 ISR pass planning, 4.1 target detection matrix, 5.1 WFE budget allocation, 6.1 published SNR benchmark, 7.1 NEDT reconciliation) plus 10.2 air-to-air IRST as the general-direction study | adapted from each scenario's `walkthrough.md` — mission context, inputs, run, results with units, regime discussion |
-| 10 | Flagship-Mission Validation | Sentinel-2 MSI SNR, Landsat OLI-2 SNR, Landsat TIRS NEDT, MODIS TEB NEDT vs published values; MODTRAN parity; MWIR single-wave ground truth | scenarios 9.1–9.4 + `docs/validation/` |
-| 11 | Trade-Study Cookbook | worked sweep/sensitivity/Monte-Carlo recipes | `guides/trade_studies.md` |
+| 1 | Running the Examples | setup, extras, the two modalities (GUI baselines vs. scripts), where inputs/outputs live | new + `scenarios/README.md` |
+| 2 | GUI Worked Examples | short task-oriented walkthroughs with screenshots: build a sensor from scratch; open a flagship baseline and read every metric group; pick an FPA preset; edit an element train; run a sweep; compare two configs | new prose + `scenarios/GUI_EXERCISE_INDEX.md` + exercise baselines; figures via the Phase-0 screenshot generator |
+
+**Part B — Driving RADIANT from Scripts:**
+
+| Ch | Title | Content | Source |
+|---|---|---|---|
+| 3 | Scripting Examples | the six `examples/scripts/` programs, each with listing excerpts, output, and commentary (basic evaluation, aperture sweep, compare configs, custom loop, tolerance analysis, dual-band configuration set) | code + new prose |
+
+**Part C — Persona Case Studies (one per persona, modality assigned to match the persona's natural workflow):**
+
+| Ch | Case study | Modality |
+|---|---|---|
+| 4 | 1.1 MWIR maritime surveillance (Sarah, systems engineer) | **GUI-led** |
+| 5 | 2.1 InSb vs HgCdTe noise budget (Mike, detector engineer — FPA presets, comparison mode) | **GUI-led** |
+| 6 | 3.1 ISR pass planning (Raj, mission planner — geometry modes, GUI sweep surface) | **GUI-led** |
+| 7 | 4.1 target detection matrix (Lisa, analyst — batch matrix) | script-led |
+| 8 | 5.1 WFE budget allocation (Tom, optical designer — Zernike import) | script-led |
+| 9 | 6.1 published SNR benchmark (Dr. Chen, researcher) | script-led |
+| 10 | 7.1 NEDT reconciliation (Karen, test engineer — measured-data import) | script-led |
+| 11 | 10.2 air-to-air level IRST (general direction) | **GUI-led** |
+
+Each case study is adapted from the scenario's `walkthrough.md` (mission context, inputs, run, results with units, regime discussion); GUI-led chapters follow the scenario's `gui_workflow.md` with screenshots of each step, and every chapter closes with a one-paragraph pointer to the other modality (the exercise baseline for script-led chapters, the run script for GUI-led ones) so neither path is a dead end.
+
+**Part D — Validation & Cookbook:**
+
+| Ch | Title | Content | Source |
+|---|---|---|---|
+| 12 | Flagship-Mission Validation | Sentinel-2 MSI SNR, Landsat OLI-2 SNR, Landsat TIRS NEDT, MODIS TEB NEDT vs published values; MODTRAN parity; MWIR single-wave ground truth | scenarios 9.1–9.4 + `docs/validation/` (script-led — these are batch comparisons) |
+| 13 | Trade-Study Cookbook | worked sweep/sensitivity/Monte-Carlo recipes, GUI sweep surface and scripted sweeps side by side | `guides/trade_studies.md` |
 | A | Appendix: Full Scenario Catalog | one-line index of all 52 scenarios (generated from `guides/scenario_catalog.md`) | exists |
 
-Curation, not exhaustiveness: 52 scenario walkthroughs would produce a 400-page volume nobody reads. The eight case studies above cover every persona and every regime; the appendix points at the rest (owner may swap picks — §10, Q3).
+Curation, not exhaustiveness: 52 scenario walkthroughs would produce a 400-page volume nobody reads. The eight case studies above cover every persona and every regime, with a 4/4 GUI/script split; the appendix points at the rest (owner may swap picks or flip modalities — §10, Q3).
 
 ## 8. Build Pipeline (Phase 0)
 
@@ -165,11 +196,11 @@ Each phase = one or more normal PRs through the standard gate battery (docs-only
 
 | Phase | Deliverable | Size | Depends on |
 |---|---|---|---|
-| 0 | Multi-volume builder, shared template, portable fonts, build-time validation; Volume I rebinds and builds under the new template | S | — |
+| 0 | Multi-volume builder, shared template, portable fonts, build-time validation; `gen_gui_screenshots.py` (offscreen capture generator — spike-proven, see §5); Volume I rebinds and builds under the new template | S–M | — |
 | 1 | **Theory Manual v1.0**: chapters 1/7/front-matter written, 4/A bound, physics-inventory audit dispositioned | M | 0 |
 | 2 | **Technical Reference v1.0**: orientation chapters, CLI/API/error/data-library chapters, generated parameter reference bound, Part-3 specs bound | M | 0 |
-| 3 | **User's Guide v1.0**: screenshot pipeline + figures, chapters 1–12 + appendix; owner reviews rendered PDF per chapter batch (the GUI live-review principle applied to its manual) | L | 0 |
-| 4 | **Examples & Validation v1.0**: case-study curation + flagship validation chapter | M | 0 (content-independent of 1–3) |
+| 3 | **User's Guide v1.0**: capture definitions + figures, chapters 1–12 + appendix; owner reviews rendered PDF per chapter batch (the GUI live-review principle applied to its manual) | L | 0 |
+| 4 | **Examples & Validation v1.0**: GUI worked examples + case-study curation (4 GUI-led / 4 script-led) + flagship validation chapter; GUI-led figures via the Phase-0 generator | M | 0 (content-independent of 1–3) |
 | 5 | **Shipping**: release build step, distribution mechanics per §10 ruling, CHANGELOG entry (Rule 29(c): capability added), gap closure | S | 1–4 |
 
 Phases 1, 2, 4 are parallelizable across sessions once Phase 0 lands (one branch per phase, normal worktree hygiene). Phase 3 is the long pole; its chapter batches can interleave with owner review.
@@ -178,10 +209,11 @@ Phases 1, 2, 4 are parallelizable across sessions once Phase 0 lands (one branch
 
 1. **Shipping mechanism.** PDFs are regenerable and gitignored; how do they "ship"? (a) built at release and included in the wheel (adds ~5–20 MB; install-local docs), (b) attached as release/distribution artifacts alongside the wheel, (c) both. **Recommendation: (c)** — wheel carries them under `radiant/manuals/` via a release build step; the repo never commits them.
 2. **Volume III Part 3 sourcing.** Bind the architecture specs verbatim (zero drift risk, agent-toned prose) vs. rewrite user-neutral (nicer read, second copy to maintain). **Recommendation: bind verbatim** with a one-page reader's preface; revisit tone only on reader complaints.
-3. **Case-study picks** (§7 list of eight). Approve or swap.
+3. **Case-study picks and modalities** (§7 Part C: eight studies, 4 GUI-led / 4 script-led). Approve, swap picks, or flip modalities.
 4. **Mission-type framing in Vol II ch. 4**: present the declared scenario-type selector (pending two-tier proposal) or document only the shipped regime machinery? **Recommendation: shipped machinery only**; manuals follow code (Rule 20 direction), never lead it.
 5. **CI docs build.** Add an optional CI job that runs `build_manual.py --tex --all` (Pandoc only, no TeX install) to catch conversion breakage? This extends CI, so it needs an explicit owner waiver of the process-machinery moratorium. **Recommendation: yes, as a non-blocking job** — `--tex` needs no LaTeX and catches the only silent failure class (Markdown that stops converting).
 6. **Cover identity.** Any branding beyond title/subtitle/version (logo, distribution statement, document number scheme)? Distribution/markings matter if these PDFs leave the building.
+7. **Screenshot chrome.** Offscreen captures render Fusion-style chrome, not native macOS decorations — workspace content is identical, window dressing differs. Accept platform-neutral figures throughout (recommended: befits a cross-platform tool, and keeps every figure regenerable), or hand-capture native hero shots for covers/openers?
 
 ## 11. Tracking & Governance
 

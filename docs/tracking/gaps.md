@@ -1829,6 +1829,18 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 
 ---
 
+## Gap 131: No shipped documentation suite — RADIANT has no typeset manuals; documentation exists only as repo Markdown and the mkdocs site
+
+| | |
+|---|---|
+| **Found in** | Owner direction 2026-09-16 ("get serious about generating the radiant support documentation"); plan drafted and ratified same window. |
+| **Status** | OPEN — plan Active: `docs/plans/Support_Documentation_Plan.md` (four volumes: Theory Manual, User's Guide, Technical Reference, Worked Examples & Validation; Phases 0–5). |
+| **Description** | RADIANT ships no paper-quality documentation. The theory manual exists only as an unshipped local Pandoc build of six chapters; there is no GUI operation manual, no bound technical reference, no worked-examples volume, and no distribution mechanism. Rule 29(c): a tracked capability. |
+| **Impact** | Operators and evaluators have no citable, versioned reference; GUI operation is documented only in an architecture spec written for developers. |
+| **Suggested fix** | Execute the Support Documentation Plan (owner rulings 1–7 ratified 2026-09-16: ship in wheel + release artifacts; Vol III internals bound verbatim; Vol IV tiered all-52 case coverage; shipped machinery only; non-blocking CI `--tex` job — moratorium waived for that job; minimal covers; all-offscreen figures). Closes at plan Phase 5. |
+
+---
+
 ## Summary Table (retired 2026-09-08)
 
 The per-gap summary table was retired at the early quarterly sweep: its rows

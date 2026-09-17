@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-364 — gen_param_reference.py silently omits platform/calibration/performance (34 of 218 parameters)
+
+**Discovered**: Gap 131 Phase 2 (branch `gap131/phase2-tech-ref`) API-fidelity verification, 2026-09-16.
+**Status**: Open.
+**File**: `scripts/gen_param_reference.py:51-58` (`stage_order` hardcodes seven namespaces).
+**Symptom**: the generator's `stage_order` list omits `platform` (6 params), `calibration` (21), and `performance` (7); the emitted `docs/guides/parameter_reference.md` header still prints "Total parameters: 218" while documenting 184. `--check` compares the generator to its own output, so the gate can never see the hole. Volume III binds the document as its chapter 6, so the manual ships the same gap.
+**Why it still matters**: workflow-visible (intake test 4) — a user looking up `calibration.scheme` or `platform.jitter_rms_urad` in the Parameter Reference finds nothing, with a header asserting completeness.
+**Suggested fix**: (a) inline-fix-now — add the three namespaces to `stage_order`, regenerate, `--check` green. Effort S; category A.
+
 ### CU-363 — DetectorInputsForm paints blank / clipped field values at off-default widths (family)
 
 **Discovered**: Gap 131 Phase 4 figure review (offscreen screenshot pipeline), 2026-09-16. Reproduced with a live probe: model values intact (`field_value_text` returns `'18 µm'` etc.) while every entry box paints empty; 20 extra event-loop turns do not heal it. Family head.

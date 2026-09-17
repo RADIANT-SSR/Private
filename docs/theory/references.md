@@ -17,6 +17,7 @@ Full citations for the short keys used across the theory chapters (e.g. `[Holst 
 | [Noll 1976] | Noll, R. J., "Zernike polynomials and atmospheric turbulence," *J. Opt. Soc. Am.* 66(3), 207–211 (1976). |
 | [O'Neill 1956] | O'Neill, E. L., "Transfer Function for an Annular Aperture," *J. Opt. Soc. Am.* 46(4), 285–288 (1956). |
 | [Planck 1901] | Planck, M., "Ueber das Gesetz der Energieverteilung im Normalspectrum," *Ann. Phys.* 309(3), 553–563 (1901). |
+| [Schulz & Caldwell 1995] | Schulz, M., Caldwell, L., "Nonuniformity correction and correctability of infrared focal plane arrays," *Infrared Physics & Technology* 36(4), 763–777 (1995). |
 | [Vallado 2013] | Vallado, D. A., *Fundamentals of Astrodynamics and Applications*, 4th ed., Microcosm Press, 2013. |
 | [Vincent 1990] | Vincent, J. D., *Fundamentals of Infrared Detector Operation and Testing*, Wiley, 1990. |
 | [Wertz & Larson 1999] | Wertz, J. R., Larson, W. J. (eds.), *Space Mission Analysis and Design*, 3rd ed., Microcosm/Kluwer, 1999. |

@@ -57,17 +57,27 @@ class Volume:
 
     ``chapters`` are paths relative to ``docs/``, in binding order. An empty tuple means
     the volume is registered but its content has not been written yet.
+
+    ``appendices`` are chapters bound *after* a LaTeX ``\\appendix`` marker, so they are
+    lettered rather than numbered. They are ordinary Markdown sources — validated,
+    staged, and resource-pathed exactly like chapters.
     """
 
     key: str
     title: str
     subtitle: str
     chapters: tuple[str, ...]
+    appendices: tuple[str, ...] = ()
 
     @property
     def phase_note(self) -> str:
         """Which plan phase writes this volume's chapters (used in the skip/error text)."""
         return _PHASE_NOTES[self.key]
+
+    @property
+    def sources(self) -> tuple[str, ...]:
+        """Every bound source in binding order — chapters then appendices."""
+        return (*self.chapters, *self.appendices)
 
 
 #: Which Support_Documentation_Plan §9 phase populates each volume. Kept beside the
@@ -79,20 +89,28 @@ _PHASE_NOTES: dict[str, str] = {
     "examples": "Phase 4 (Examples & Validation v1.0)",
 }
 
-#: The four-volume suite (Support_Documentation_Plan §3). Volume I binds the six theory
-#: chapters it bound before the registry existed; ``atmosphere_models.md`` and the
-#: mixed-train appendix join it in Phase 1, not here.
+#: The four-volume suite (Support_Documentation_Plan §3). Volume I is bound in the plan's
+#: §4 TOC order: front-matter notation, introduction, then geometry BEFORE the radiometric
+#: chain (the geometry-first ordering of ADR-0006), the atmosphere, spatial, noise,
+#: calibration and metric chapters, the mixed-train appendix, and references last.
 VOLUMES: dict[str, Volume] = {
     "theory": Volume(
         key="theory",
         title="RADIANT Theory Manual",
         subtitle="Physics Reference for the RADIANT EO Sensor Performance Model",
         chapters=(
-            "theory/radiometric_chain.md",
+            "theory/notation.md",
+            "theory/introduction.md",
             "theory/geometry.md",
+            "theory/radiometric_chain.md",
+            "theory/atmosphere_models.md",
             "theory/spatial_model.md",
             "theory/noise_model.md",
+            "theory/calibration_model.md",
             "theory/performance_metrics.md",
+        ),
+        appendices=(
+            "theory/radiometric_model_mixed_train.md",
             "theory/references.md",
         ),
     ),
@@ -303,9 +321,9 @@ def validate_chapter(path: Path) -> list[str]:
 
 
 def validate_volume(volume: Volume) -> list[str]:
-    """Return one problem string per defect in *volume*'s bound sources."""
+    """Return one problem string per defect in *volume*'s bound sources (appendices too)."""
     problems: list[str] = []
-    for chapter in volume.chapters:
+    for chapter in volume.sources:
         path = DOCS / chapter
         if not path.is_file():
             problems.append(
@@ -429,6 +447,24 @@ def prepare_chapter(chapter: str, tmpdir: Path, index: int) -> Path:
     return staged
 
 
+def write_appendix_marker(tmpdir: Path) -> Path:
+    """Write the generated source that opens the appendix run, and return its path.
+
+    A raw-LaTeX block carrying ``\\appendix``: everything pandoc emits after it is
+    lettered rather than numbered. It is a generated staging file, never a repository
+    source — the marker belongs to the binding, not to any chapter's text. Passing it
+    through needs ``raw_attribute`` in the reader's format (``manual.yaml``), which
+    admits fenced ``{=latex}`` blocks and nothing else, so ordinary prose is unaffected.
+    """
+    path = tmpdir / "00_appendix_marker.md"
+    path.write_text(
+        "```{=latex}\n\\appendix\n```\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return path
+
+
 def build_volume(volume: Volume, *, as_tex: bool) -> int:
     """Build one volume. Returns 0 on success, nonzero on failure."""
     problems = validate_volume(volume)
@@ -447,9 +483,15 @@ def build_volume(volume: Volume, *, as_tex: bool) -> int:
             prepare_chapter(chapter, tmpdir, i)
             for i, chapter in enumerate(volume.chapters, start=1)
         ]
+        if volume.appendices:
+            sources.append(write_appendix_marker(tmpdir))
+            sources.extend(
+                prepare_chapter(chapter, tmpdir, i)
+                for i, chapter in enumerate(volume.appendices, start=len(volume.chapters) + 1)
+            )
         metadata = write_metadata_file(volume, tmpdir, date.today().isoformat())
         volume_header = write_volume_header(volume, tmpdir)
-        resource_dirs = [str(REPO), *dict.fromkeys(str((DOCS / c).parent) for c in volume.chapters)]
+        resource_dirs = [str(REPO), *dict.fromkeys(str((DOCS / c).parent) for c in volume.sources)]
 
         cmd = [
             "pandoc",

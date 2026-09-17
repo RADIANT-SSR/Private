@@ -13,7 +13,13 @@
 # Equation treatment: $...$ / $$...$$ (OPERATING_MODEL §5.4). pandoc-crossref is
 # deliberately NOT used — per-equation numbering is not worth a toolchain dependency
 # (Support_Documentation_Plan §8).
-from: gfm+tex_math_dollars
+#
+# raw_attribute admits fenced ```{=latex} blocks and nothing else — it is what lets the
+# builder stage its generated \appendix marker between the last chapter and the first
+# appendix. Ordinary prose, including a fenced block with any other (or no) language
+# tag, converts exactly as before; this is not a raw-HTML door (§5.4 rule 2 stands, and
+# the builder's own scan still fails a chapter carrying raw HTML).
+from: gfm+tex_math_dollars+raw_attribute
 
 standalone: true
 toc: true

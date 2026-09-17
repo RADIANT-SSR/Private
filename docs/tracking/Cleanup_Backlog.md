@@ -47,6 +47,28 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-366 — Scenario 1.1 walkthrough argues its reflected-sky physics against the wrong hull emissivity
+
+**Discovered**: Gap 131 Phase 4b (branch `gap131/phase4-examples`) case-study adaptation, 2026-09-16.
+**Status**: Open — owner-gated: the walkthrough's published physics interpretation needs an owner-sanctioned correction.
+**File**: `scenarios/01_sarah_systems_engineer/1.1_*/walkthrough.md` (CU-321/CU-324 physics paragraphs).
+**Symptom**: the prose calls the target "the ε = 0.95 hull" / "this ρ = 0.05 hull", but both the runner config and the GUI baseline point `source.target.emissivity_path` at the library `steel` curve — band-averaged ε = 0.266, ρ = 0.734 over 3.5–5.0 µm (ε = 0.95 is the schema's scalar default, unused here). The result tables are from the real run and are correct; the reflected-sky reasoning around them describes a hull ~10× less reflective than the one modelled. Volume IV's maritime case study quotes the run numbers and avoids repeating the mis-attributed argument.
+**Why it still matters**: owner-gated (intake test 2) — a published physics note argued from wrong premises; correcting it changes interpretation text, not numbers.
+**Suggested fix**: (a) inline-fix-now once ruled — rewrite the two paragraphs against the steel curve's ε(λ) (or switch the config to a painted-hull curve and refresh, which IS results-affecting). Effort S; category C either way.
+
+### CU-367 — T7 point-intensity targets render the 1e-12 m² projected-area sentinel in operator-facing surfaces (family)
+
+**Discovered**: Gap 131 Phase 4b figure work on scenario 10.2 (air-to-air IRST), 2026-09-16. Family head.
+**Status**: Open.
+**File**: `src/radiant/gui/` source-stage plots and geometry schematic labels; sentinel origin in the source/geometry seam (`A_sentinel = 1e-12 m²`).
+**Symptom**: checklist —
+
+- [ ] Source → "Target — point source" plots `spectral_source_emission` as `I / A_sentinel` ≈ 2–4 × 10¹³ W/m²/sr/µm and flattens the sky-background trace to zero — a physically meaningless radiance drawn for a physically meaningful intensity target (figure dropped from the Volume IV IRST chapter because of it)
+- [ ] The geometry schematic's target pill prints the sentinel verbatim: `A_t 1e-12 m² · 0.0 px`
+
+**Why it still matters**: workflow-visible (intake test 4) in a scenario that is run (10.2): an operator inspecting a T7 target sees sentinel arithmetic presented as physics.
+**Suggested fix**: (b) stand-alone GUI task — the point-source view should plot intensity `I(λ)` [W/sr/µm] directly and the schematic should label a T7 target "point (intensity input)" instead of printing the sentinel area. Live-review required. Effort S-M; category A.
+
 ### CU-365 — Element-config parser silently ignores `emissivity:` (and mismatched transfer keys) instead of rejecting over-specification
 
 **Discovered**: Gap 131 Phase 3b (branch `gap131/phase3-users-guide`) troubleshooting-chapter verification, 2026-09-16.

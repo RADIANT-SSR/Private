@@ -47,15 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-364 — gen_param_reference.py silently omits platform/calibration/performance (34 of 218 parameters)
-
-**Discovered**: Gap 131 Phase 2 (branch `gap131/phase2-tech-ref`) API-fidelity verification, 2026-09-16.
-**Status**: Open.
-**File**: `scripts/gen_param_reference.py:51-58` (`stage_order` hardcodes seven namespaces).
-**Symptom**: the generator's `stage_order` list omits `platform` (6 params), `calibration` (21), and `performance` (7); the emitted `docs/guides/parameter_reference.md` header still prints "Total parameters: 218" while documenting 184. `--check` compares the generator to its own output, so the gate can never see the hole. Volume III binds the document as its chapter 6, so the manual ships the same gap.
-**Why it still matters**: workflow-visible (intake test 4) — a user looking up `calibration.scheme` or `platform.jitter_rms_urad` in the Parameter Reference finds nothing, with a header asserting completeness.
-**Suggested fix**: (a) inline-fix-now — add the three namespaces to `stage_order`, regenerate, `--check` green. Effort S; category A.
-
 ### CU-363 — DetectorInputsForm paints blank / clipped field values at off-default widths (family)
 
 **Discovered**: Gap 131 Phase 4 figure review (offscreen screenshot pipeline), 2026-09-16. Reproduced with a live probe: model values intact (`field_value_text` returns `'18 µm'` etc.) while every entry box paints empty; 20 extra event-loop turns do not heal it. Family head.
@@ -171,6 +162,16 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-364 — gen_param_reference.py silently omits platform/calibration/performance (34 of 218 parameters) — RESOLVED 2026-09-16 (commit trailer)
+
+**Discovered**: Gap 131 Phase 2 (branch `gap131/phase2-tech-ref`) API-fidelity verification, 2026-09-16.
+**Status**: Resolved — fixed the day it was minted, in the Phase 2 branch that surfaced it.
+**File**: `scripts/gen_param_reference.py:51-58` (`stage_order` hardcodes seven namespaces).
+**Symptom**: the generator's `stage_order` list omits `platform` (6 params), `calibration` (21), and `performance` (7); the emitted `docs/guides/parameter_reference.md` header still prints "Total parameters: 218" while documenting 184. `--check` compares the generator to its own output, so the gate can never see the hole. Volume III binds the document as its chapter 6, so the manual ships the same gap.
+**Why it still matters**: workflow-visible (intake test 4) — a user looking up `calibration.scheme` or `platform.jitter_rms_urad` in the Parameter Reference finds nothing, with a header asserting completeness.
+**Suggested fix**: (a) inline-fix-now — add the three namespaces to `stage_order`, regenerate, `--check` green. Effort S; category A.
+**Resolution**: `stage_order` now lists all ten namespaces in chain order (geometry-first per ADR-0006), and a guard makes any namespace missing from the list fail the generator loudly instead of silently under-documenting; `parameter_reference.md` regenerated (184 → 218 parameters emitted), `--check` green, Volume III chapter 6 binds the complete reference.
 
 ### CU-357 — Element-document commits record no undo command; config_set has no position-preserving structure operation (family) — RESOLVED 2026-09-12 (commit trailer)
 

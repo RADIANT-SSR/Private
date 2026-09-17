@@ -65,6 +65,7 @@ by name in check 8 — that list is frozen and must never grow.
 
 - [ ] Narrowing the central area past the form's column-relayout threshold (e.g. widening the parameter dock to 520 px at a 1440×900 window, or an operator narrowing the window) rebuilds the rows with every painted field value blank until the next `refresh()`; the model keeps the values, so an operator sees an empty form over a correct sensor
 - [ ] At the default 1440×900 layout the full-schema form is wider than its viewport (horizontal scrollbar), right-clipping value text — "2048" reads "204", "18 µm" reads "18 µ" — a units/legibility defect in the operator's normal view
+- [ ] Same trigger, third symptom (Phase 3a): at `param_dock_width=520` the Geometry Inputs mode cards clip value fields mid-number (`705000 m` renders `'05000 m`) — clipping, not blanking, on GeometryModeForm
 
 **Why it still matters**: workflow-visible (intake test 4) — any window resize can blank the detector form, and the clipped digits misread as wrong values; also caps the manual's figure quality (Gap 131 captures avoid wide-dock detector shots until fixed — see the CU-363 comments in `scripts/gen_gui_screenshots.py`).
 **Suggested fix**: (b) stand-alone GUI task — make `_relayout_columns` re-apply row values after a rebuild (or bind rows to the model so a rebuild repaints), and give the form a sane minimum-width/eliding policy so values never silently truncate. Effort S-M; category A. Live-review required.

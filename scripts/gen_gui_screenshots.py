@@ -25,7 +25,15 @@ workspace, applies any per-figure dock geometry, and writes ``QWidget.grab()`` t
 Two spike lessons (plan §5) are first-class registry fields: the default parameter-dock
 width elides long parameter names, so a capture can widen it (``param_dock_width``), and
 detail figures are made by grabbing a single child widget rather than the whole window
-(``target``).
+(``target``). A third field, ``tab``, selects one of a stage's sub-view tabs by its visible
+label (Geometry *Inputs | Schematic*, Optics *Inputs | Transmission | MTF | PSF + Pupil*,
+Detector *Inputs | Noise | Detector + PSF*) — without it every tabbed stage would only ever
+be photographed on its first tab.
+
+Input configs are read with :meth:`radiant.api.ConfigurationSet.load`, the same reader the
+GUI's ``File → Open`` uses, so a capture may name either a plain config or a
+``configurations:`` study; a study opens with the configuration selector and the
+per-configuration metric columns visible, exactly as it does for an operator.
 
 Usage::
 
@@ -107,6 +115,12 @@ class Capture:
     stage:
         Stage namespace whose workspace to show (``"performance"``, ``"geometry"``, …),
         or ``None`` to capture the window as it opens.
+    tab:
+        Visible label of the stage sub-view tab to select before grabbing (e.g.
+        ``"Schematic"``, ``"MTF"``, ``"Noise"``). ``None`` leaves the stage on the tab it
+        opens with — the first one. Only the tabbed stages (Geometry, Source, Optics,
+        Platform, Detector) have sub-views; naming a tab on a single-pane stage is a
+        capture error rather than a silent no-op.
     target:
         Dotted attribute path of a child widget to grab instead of the whole window
         (e.g. ``"parameter_panel"``, ``"central_canvas.stage_center"``). Panel-level
@@ -130,6 +144,7 @@ class Capture:
     name: str
     config: str
     stage: str | None = None
+    tab: str | None = None
     target: str | None = None
     width: int = DEFAULT_WIDTH
     height: int = DEFAULT_HEIGHT
@@ -151,8 +166,28 @@ class Capture:
 
 _MINIMAL = "examples/mwir_leo_minimal.yaml"
 
-#: The capture registry. Phase 0 ships the four workspaces the feasibility spike proved;
-#: Phases 3–4 add definitions here (and only here) as the prose needs them.
+#: Landsat 9 TIRS band 10 — the flagship baseline Volume IV ch. 2 reads metric group by
+#: metric group. A thermal band computes the whole metric surface (SNR *and* NEDT *and*
+#: the spatial family), so no group's cards are empty in the figures.
+_TIRS_B10 = "scenarios/09_flagship_missions/9.2_landsat_tirs_nedt/tirs_b10_nedt_300k.yaml"
+
+#: Landsat 9 OLI-2 band 4 — a single-band config carrying a real coated optical train
+#: (mirrors, refractive corrector, per-band interference filter), so the element rows in
+#: the Optics → Transmission figure are the shipped provenance-cited ones.
+_OLI2_B04 = "scenarios/09_flagship_missions/9.4_landsat_oli2_snr/oli2_b04_snr_ltyp.yaml"
+
+#: The OLI-2 nine-band study — the one committed ``configurations:`` document. Opening it
+#: is how Volume IV ch. 2 shows configuration comparison without inventing a config.
+_OLI2_STUDY = "scenarios/09_flagship_missions/9.4_landsat_oli2_snr/oli2_all_bands_study.yaml"
+
+#: A GeoSNAP-18 MWIR config built on an FPA part-library preset (Gap 119), used for the
+#: preset walkthrough's figure.
+_FPA_PRESET = (
+    "scenarios/02_mike_detector_engineer/2.8_fpa_part_library/inputs/geosnap18_mwir_leo.yaml"
+)
+
+#: The capture registry. Phase 0 shipped the four workspaces the feasibility spike proved;
+#: Phase 4 adds the Volume IV ch. 2 walkthrough figures. Definitions go here and only here.
 CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="performance_workspace",
@@ -164,19 +199,120 @@ CAPTURES: tuple[Capture, ...] = (
         name="geometry_workspace",
         config=_MINIMAL,
         stage="geometry",
-        caption="Geometry workspace — viewing schematic and derived ranges.",
+        caption="Geometry workspace as it opens — the Inputs tab, mode cards and ranges.",
     ),
     Capture(
         name="optics_workspace",
         config=_MINIMAL,
         stage="optics",
-        caption="Optics workspace — PSF and MTF views.",
+        caption="Optics workspace as it opens — the Inputs tab and the derived optics outputs.",
     ),
     Capture(
         name="detector_workspace",
         config=_MINIMAL,
         stage="detector",
         caption="Detector workspace — QE and noise-term breakdown.",
+    ),
+    # -- Volume IV ch. 2, walkthrough 1: build a sensor from scratch ------------------
+    Capture(
+        name="build_geometry_inputs",
+        config=_MINIMAL,
+        stage="geometry",
+        tab="Inputs",
+        param_dock_width=520,
+        caption=(
+            "Geometry workspace, Inputs tab, with the Parameters dock widened so the "
+            "full dot-paths are readable."
+        ),
+    ),
+    Capture(
+        name="build_geometry_schematic",
+        config=_MINIMAL,
+        stage="geometry",
+        tab="Schematic",
+        caption="Geometry workspace, Schematic tab — the 2D viewing-triangle schematic.",
+    ),
+    Capture(
+        name="build_optics_inputs",
+        config=_MINIMAL,
+        stage="optics",
+        tab="Inputs",
+        param_dock_width=520,
+        caption="Optics workspace, Inputs tab — aperture, focal length, and derived outputs.",
+    ),
+    # -- Volume IV ch. 2, walkthrough 2: read a flagship baseline ---------------------
+    Capture(
+        name="flagship_performance",
+        config=_TIRS_B10,
+        stage="performance",
+        caption=(
+            "Performance workspace on the Landsat 9 TIRS band-10 baseline — every metric "
+            "group card populated after evaluation."
+        ),
+    ),
+    Capture(
+        name="flagship_mtf_budget",
+        config=_TIRS_B10,
+        stage="optics",
+        tab="MTF",
+        caption="Optics workspace, MTF tab — system MTF curve and the per-term budget table.",
+    ),
+    Capture(
+        name="flagship_noise_budget",
+        config=_TIRS_B10,
+        stage="detector",
+        tab="Noise",
+        caption="Detector workspace, Noise tab — the noise-budget table beside its chart.",
+    ),
+    # -- Volume IV ch. 2, walkthrough 3: pick an FPA preset ---------------------------
+    Capture(
+        name="fpa_preset_detector",
+        config=_FPA_PRESET,
+        stage="detector",
+        tab="Inputs",
+        # No param_dock_width: widening the dock narrows the central form past its
+        # column-relayout threshold, where the painted field values go blank (CU-363).
+        # At default width the fields paint, and the dock's `preset` badges — the
+        # figure's subject — are visible anyway.
+        caption=(
+            "Detector workspace, Inputs tab, on a config built from the GeoSNAP-18 FPA "
+            "preset — the preset-supplied fields carry the part's provenance."
+        ),
+    ),
+    # -- Volume IV ch. 2, walkthrough 4: edit an element train ------------------------
+    Capture(
+        name="element_train_transmission",
+        config=_OLI2_B04,
+        stage="optics",
+        tab="Transmission",
+        param_dock_width=520,
+        caption=(
+            "Optics workspace, Transmission tab, on the Landsat 9 OLI-2 band-4 config — "
+            "the element train and the transmission it produces."
+        ),
+    ),
+    # -- Volume IV ch. 2, walkthrough 5: run a sweep ----------------------------------
+    Capture(
+        name="sweep_parameter_panel",
+        config=_MINIMAL,
+        stage="optics",
+        tab="Inputs",
+        target="parameter_panel",
+        param_dock_width=560,
+        caption=(
+            "Parameters dock (panel-level grab) — the optics branch holding "
+            "optics.aperture_diameter_m, the axis the sweep walkthrough varies."
+        ),
+    ),
+    # -- Volume IV ch. 2, walkthrough 6: compare configurations -----------------------
+    Capture(
+        name="compare_configurations",
+        config=_OLI2_STUDY,
+        stage="performance",
+        caption=(
+            "Performance workspace on the nine-configuration OLI-2 study — one metric "
+            "column per configuration, deltas measured against the baseline."
+        ),
     ),
 )
 
@@ -226,6 +362,16 @@ def validate_registry(captures: tuple[Capture, ...] = CAPTURES) -> list[str]:
                     f"{capture.name}: {label}={dock_width} does not fit in a "
                     f"{capture.width}px-wide window"
                 )
+        if capture.tab is not None and not capture.tab.strip():
+            problems.append(
+                f"{capture.name}: tab must be a visible tab label, not blank "
+                "(e.g. 'Inputs', 'Schematic', 'MTF')"
+            )
+        if capture.tab is not None and capture.stage is None:
+            problems.append(
+                f"{capture.name}: tab={capture.tab!r} needs a stage — sub-view tabs belong "
+                "to a stage workspace, and no workspace is selected without one"
+            )
         for object_name, sizes in capture.splitter_sizes.items():
             if not sizes or any(size <= 0 for size in sizes):
                 problems.append(
@@ -315,6 +461,8 @@ def render_manifest(
     for capture in captures:
         target = f"`{capture.target}`" if capture.target else "full window"
         stage = f"`{capture.stage}`" if capture.stage else "as opened"
+        if capture.tab:
+            stage = f"{stage} → {capture.tab}"
         lines.append(
             f"| `{capture.filename}` | `{capture.name}` | `{capture.config}` | "
             f"{stage} | {target} | {capture.width}×{capture.height} |"
@@ -408,16 +556,62 @@ def _settle(app: Any, *, turns: int = 3) -> None:
         app.processEvents(QEventLoop.ProcessEventsFlag.AllEvents, 50)
 
 
-def _apply_geometry(window: Any, capture: Capture) -> None:
-    """Apply the capture's dock widths and named splitter sizes.
+#: Qt ``objectName`` of the per-stage sub-view tab bar (``StagePane``). Every tabbed
+#: stage builds one; the unselected stages keep theirs in the tree as hidden pages, which
+#: is why the selector filters on visibility.
+STAGE_SUBVIEW_TABS = "stageSubViewTabs"
 
-    Called **after** the window is shown, evaluated and switched to the capture's
-    stage: the per-stage composites (and their splitters) are built on selection, and
-    the dock split is renegotiated by the swap, so an earlier application would be
-    overwritten — or would look for a widget that does not exist yet.
+
+def _select_tab(window: Any, capture: Capture) -> None:
+    """Select the capture's named sub-view tab in the currently shown stage workspace.
+
+    Called after the stage is selected — the per-stage composite (and its tab bar) is
+    built on selection, so there is nothing to search before then. Only *visible* tab
+    bars are considered: the stages that are not showing keep theirs in the widget tree,
+    and a bare ``findChild`` would happily switch a tab nobody is looking at.
+    """
+    from PySide6.QtWidgets import QTabWidget
+
+    if capture.tab is None:
+        return
+    visible = [t for t in window.findChildren(QTabWidget, STAGE_SUBVIEW_TABS) if t.isVisible()]
+    if not visible:
+        raise ScreenshotError(
+            f"{capture.name}: the {capture.stage!r} workspace has no sub-view tabs, but the "
+            f"capture asks for tab {capture.tab!r}.\n"
+            "  why: only the tabbed stages (Geometry, Source, Optics, Platform, Detector)\n"
+            "       declare sub-views; the rest render a single pane.\n"
+            "  action: drop the capture's `tab` field, or name a stage that has tabs."
+        )
+    labels: list[str] = []
+    for tabs in visible:
+        for index in range(tabs.count()):
+            label = tabs.tabText(index)
+            labels.append(label)
+            if label == capture.tab:
+                tabs.setCurrentIndex(index)
+                return
+    raise ScreenshotError(
+        f"{capture.name}: no sub-view tab labelled {capture.tab!r} in the {capture.stage!r} "
+        f"workspace.\n"
+        f"  why: tabs are selected by their visible label. This workspace offers: "
+        f"{', '.join(repr(text) for text in labels)}.\n"
+        "  action: use one of those labels (they are the tab titles in "
+        "src/radiant/gui/stage_views.py)."
+    )
+
+
+def _apply_dock_widths(window: Any, capture: Capture) -> None:
+    """Resize the parameter / right-rail docks to the capture's widths.
+
+    Caution (CU-363): narrowing the central area past a schema form's column-relayout
+    threshold leaves ``DetectorInputsForm``'s field values painted blank (the model
+    keeps them; the rebuilt rows do not repaint) — regardless of whether the resize
+    lands before or after the stage is selected. Until that is fixed, captures of the
+    full-schema detector form should not request a wide parameter dock.
     """
     from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QDockWidget, QSplitter
+    from PySide6.QtWidgets import QDockWidget
 
     docks: list[QDockWidget] = []
     widths: list[int] = []
@@ -438,6 +632,16 @@ def _apply_geometry(window: Any, capture: Capture) -> None:
         widths.append(wanted)
     if docks:
         window.resizeDocks(docks, widths, Qt.Orientation.Horizontal)
+
+
+def _apply_splitters(window: Any, capture: Capture) -> None:
+    """Apply the capture's named splitter sizes.
+
+    Called **after** the stage and tab selection: the per-stage composites (and their
+    splitters) are built on selection, so an earlier application would look for a
+    widget that does not exist yet.
+    """
+    from PySide6.QtWidgets import QSplitter
 
     for object_name, sizes in capture.splitter_sizes.items():
         # Several stage composites build a splitter with the *same* objectName (e.g.
@@ -508,7 +712,7 @@ def _qapplication(settings_dir: Path) -> Any:
 
 def capture_one(app: Any, capture: Capture, out_dir: Path) -> Path:
     """Build the window for *capture*, wait for its evaluation, grab it, write the PNG."""
-    from radiant.api.sensor import Sensor
+    from radiant.api import ConfigurationSet
     from radiant.gui.main_window import RADIANTMainWindow
     from radiant.gui.settings_store import SettingsStore
 
@@ -519,8 +723,15 @@ def capture_one(app: Any, capture: Capture, out_dir: Path) -> Path:
             "  action: fix the capture's `config` field in scripts/gen_gui_screenshots.py."
         )
 
-    sensor = Sensor.load(capture.config_path)
-    window = RADIANTMainWindow(sensor, path=str(capture.config_path), settings=SettingsStore())
+    # The GUI's File → Open reads every document through ConfigurationSet.load, which
+    # returns the full study for a `configurations:` file and the degenerate
+    # one-configuration set for a plain config. Using the same reader here is what lets a
+    # capture name a multi-configuration study and get the selector and the
+    # per-configuration metric columns the operator sees.
+    config_set = ConfigurationSet.load(capture.config_path)
+    window = RADIANTMainWindow(
+        config_set=config_set, path=str(capture.config_path), settings=SettingsStore()
+    )
     try:
         # Size first (the layout the window realizes must be the captured one), then
         # show, evaluate, select the stage, and only then apply the fine geometry.
@@ -532,7 +743,10 @@ def capture_one(app: Any, capture: Capture, out_dir: Path) -> Path:
         if capture.stage is not None:
             window.stage_strip.stageClicked.emit(capture.stage)
             _settle(app, turns=5)
-        _apply_geometry(window, capture)
+        _select_tab(window, capture)
+        _settle(app, turns=3)
+        _apply_dock_widths(window, capture)
+        _apply_splitters(window, capture)
         _settle(app, turns=3)
 
         widget = _resolve_target(window, capture.target) if capture.target else window

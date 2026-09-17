@@ -1,0 +1,191 @@
+# RADIANT Support Documentation Plan
+
+**Status:** Draft — awaiting owner ratification of the volume structure, TOCs, and shipping mechanics (§10)
+**Date:** 2026-09-16
+**Scope:** The shipped RADIANT documentation suite — a set of paper-quality, typeset PDF manuals covering the physics theory, GUI operation, the underlying codebase, and worked examples.
+
+---
+
+## 1. Objective
+
+Produce a professional, versioned set of PDF manuals that ship with RADIANT. The suite must:
+
+1. Cover four content areas: **physics theory**, **GUI operation**, **the underlying codebase** (API, parameters, architecture), and **worked examples with validation evidence**.
+2. Be **paper quality**: XeLaTeX typesetting, LaTeX equations, numbered sections, hyperlinked tables of contents and cross-references, consistent notation, cover pages, version and date stamps.
+3. Be **single-sourced from Markdown** under `docs/` per OPERATING_MODEL §5.4 — the PDFs are generated artifacts (Rule 26), never hand-edited, never forked to `.tex`.
+4. Stay correct by construction where possible: generated content (parameter reference, GUI screenshots) is produced by scripts from the code itself, so Rule-20 lock-step extends into the manuals.
+
+## 2. Governing Constraints
+
+| Constraint | Consequence for this plan |
+|---|---|
+| §5.4 single-source rule | All manual text lives as Markdown in `docs/theory/` and `docs/guides/`; Pandoc + XeLaTeX generates the PDFs. No parallel `.tex` sources. |
+| Rule 26 (regenerable artifacts) | PDFs are gitignored and built on demand / at release. Screenshots committed for the GUI manual are doc-referenced figures with a generator named in a manifest — the permitted class (b). |
+| Rule 20 (doc/code lock-step) | Manual chapters that restate a public surface must be either generated (preferred) or added to the lock-step review surface. The plan minimizes hand-restated API content. |
+| Rule 30 (cross-platform) | The build must work on macOS **and** Windows. The current `build_manual.py` font choices (Helvetica Neue / Menlo) are macOS-only — Phase 0 replaces them with TeX-Live-bundled fonts (Findings_Log 2026-09-16). |
+| Process-machinery moratorium | No new merge-gate checks are added for the manuals without owner approval (§10, Q5). Build validation runs inside the builder itself. |
+| §1 closed folder taxonomy | No new `docs/` top-level folder. Theory chapters → `docs/theory/`, user-facing chapters → `docs/guides/`, figures → `docs/guides/figures/`. |
+
+## 3. The Suite — Four Volumes
+
+| Vol | Title | Content area | Primary audience | Est. size |
+|---|---|---|---|---|
+| I | **RADIANT Theory Manual** | Physics: governing equations for every stage | Analysts, physicists, reviewers | 90–120 pp |
+| II | **RADIANT User's Guide** | Installation, concepts, GUI operation, workflows | Tool operators (the seven personas) | 70–100 pp |
+| III | **RADIANT Technical Reference** | Scripting API, CLI, YAML, parameters, architecture, extending | Script authors, developers, agents | 100–140 pp |
+| IV | **RADIANT Worked Examples & Validation** | Example scripts, persona case studies, flagship-mission validation | New users, evaluators, V&V reviewers | 60–90 pp |
+
+All four share one visual identity: common LaTeX template (cover page, headers/footers, fonts, table style), a shared **Notation and Symbols** table (canonical home: Volume I front matter; Volumes II–IV reference it), section numbering `--number-sections`, `--toc` depth 2, hyperref-linked internal references.
+
+Volume I already exists in embryo: `scripts/build_manual.py` binds six `docs/theory/` chapters today. This plan generalizes that builder to a volume registry and grows each volume in phases.
+
+---
+
+## 4. Volume I — RADIANT Theory Manual
+
+Subtitle: *Physics Reference for the RADIANT EO Sensor Performance Model* (unchanged).
+
+### Table of contents
+
+| Ch | Title | Source | State |
+|---|---|---|---|
+| — | Front matter: cover, TOC, **Notation & Symbols** | new (extracted from `radiometric_chain.md` §Notation + `RADIANT_Conventions.md` units table) | new |
+| 1 | Introduction — the signal chain at a glance, regimes, model scope | new short chapter (~6 pp), distilled from `radiometric_chain.md` §"The Chain at a Glance" + `regime_selection.md` | new |
+| 2 | Viewing Geometry & Sampling | `theory/geometry.md` (viewing triangle, slant range, orbit kinematics, GSD, swath/access, smear & TDI line-rate, solar geometry, Euler ZYX, ground sampling) | exists |
+| 3 | The Radiometric Signal Chain | `theory/radiometric_chain.md` (foundations, source → readout radiometry, assumptions) | exists |
+| 4 | Atmosphere Models | `theory/atmosphere_models.md` (two families, simple parametric model, library-backed/MODTRAN models, limits) | exists — **not yet bound into the manual**; add to `CHAPTERS` |
+| 5 | The Spatial Model — PSF and MTF | `theory/spatial_model.md` (dual-path Rule 4, pupil autocorrelation, Zernike/Strehl, detector/platform kernels, turbulence, TDI mis-registration, EE_box & pixel phase, Nyquist/Q/folded MTF, RER) | exists |
+| 6 | The Noise Model | `theory/noise_model.md` (RSS composition, 16-term taxonomy, acquisition scaling, regime selection, dominance map) | exists |
+| 7 | Calibration Error Model | **new** `theory/calibration_model.md` — post-NUC residuals, drift, bias budget, calibration-limited NEDT (the Gap 120/122 stage has an architecture doc but no theory chapter) | new |
+| 8 | Performance Metrics | `theory/performance_metrics.md` (SNR family, NEDT, NEI/NEP/D\*, GIQE-5 NIIRS, Johnson criteria, detection range, saturation/DR/BLIP, inversions) | exists |
+| A | Appendix: Mixed Optical-Train Radiometric Model | `theory/radiometric_model_mixed_train.md` — currently excluded from the binding; bring in as an appendix | exists |
+| — | References | `theory/references.md`, grown as chapters cite | exists |
+
+### Work items
+
+- Add chapters 4 and A to the binding; write chapters 1, 7, and the front-matter notation table.
+- **Physics-inventory audit:** diff the manual's coverage against `architecture/RADIANT_Physics_Inventory.md`; every implemented physics computation must be traceable to a manual section (or an explicit "not covered, see spec" line). Findings feed a chapter gap list before v1.0 is declared.
+- Equation pass: new/edited equation content in `$...$` / `$$...$$` per §5.4 (grandfathered Unicode math stays until a chapter is wholesale rewritten).
+
+## 5. Volume II — RADIANT User's Guide
+
+Subtitle: *Installing, Configuring, and Operating RADIANT*. Mostly **new writing**; the GUI has a 2,200-line architecture spec but no user-facing manual. Chapters are new `lowercase_snake.md` files in `docs/guides/` unless noted.
+
+### Table of contents
+
+| Ch | Title | Content | Source |
+|---|---|---|---|
+| 1 | Introduction | What RADIANT predicts; who it serves (the persona set); mission types (extended / sub-pixel / point-source) | new; `RADIANT_Personas.md` distilled |
+| 2 | Installation & Launch | pip install, extras (`gui`, `scenarios`, `dev`), Windows & macOS notes, `radiant gui` | extends `guides/quickstart.md` |
+| 3 | Quickstart Tour | First evaluation end-to-end in the GUI, then the same run from YAML/CLI | new + `guides/quickstart.md` |
+| 4 | Core Concepts | Signal chain stages; parameters, units & entry/display symmetry; radiometric regimes; configurations | `guides/regime_selection.md` + new |
+| 5 | The Main Window | Contextual per-stage workspace layout; persistent right rail (Pinned, YAML button, Messages); menu map | new; from `RADIANT_GUI_Architecture.md` §4, §10 |
+| 6 | Defining the Scene | Geometry workspace + 2D geometry viewer; target & background (source workspace); atmosphere workspace + model selection guidance | new; `guides/atmosphere_selection.md` folded in |
+| 7 | Defining the Sensor | Optics & element trains (configured element rows, undo); platform (jitter/smear); detector incl. FPA preset library; readout (TDI, DROIC); calibration terms | new |
+| 8 | Configuration Sets | Multi-configuration model (up to 12), per-configuration overrides, comparison mode | new; ADR-0010 distilled |
+| 9 | Running & Reading Results | Metric selection (metric groups, spatial-path skip), performance displays, messages & advisory notes, warnings taxonomy from the operator's view | new |
+| 10 | Sweeps & Trade Studies in the GUI | Sweep surface, config-file comparison mode | new; `guides/trade_studies.md` GUI-side |
+| 11 | YAML Round-Trip | Config import/export, file format orientation (full reference → Vol III), GUI ↔ script ↔ YAML interoperability | `guides/configuration.md` distilled |
+| 12 | Troubleshooting | Actionable-error philosophy, common rejections (bounds, Kirchhoff, consistency groups), where to look (Messages rail, logs) | new |
+| A | Appendix: Menu & Shortcut Reference | generated or hand-maintained table | new |
+
+Deliberately **not** chaptered yet: the script/command window (pending capability — added as a chapter when it ships).
+
+### Screenshot pipeline (the enabling work)
+
+Paper-quality GUI documentation lives or dies on current screenshots. Hand-captured images go stale with every GUI PR.
+
+- New `scripts/gen_gui_screenshots.py`: drives the GUI offscreen (same pytest-qt/`QWidget.grab()` machinery the GUI suite uses), loads a fixed demo config (a flagship-mission baseline), captures each documented workspace/panel at a fixed window size, writes `docs/guides/figures/gui/<workspace>_<view>.png`.
+- Figures are committed (Rule 26(b): doc-referenced) with a `MANIFEST.md` naming the generator, input config, and commit.
+- Regeneration is a release-checklist step and can be re-run after any GUI change that alters documented surfaces; a stale screenshot is then a one-command fix, not an archaeology project.
+
+## 6. Volume III — RADIANT Technical Reference
+
+Subtitle: *API, Configuration, Parameters, and Architecture*. Three parts with different sourcing strategies to avoid a hand-maintained restatement of the code (the Rule-20 drift trap):
+
+**Part 1 — Orientation (new, distilled):**
+
+| Ch | Title | Source |
+|---|---|---|
+| 1 | System Overview | signal chain, stage list, dual spatial path, geometry-first design — distilled from `RADIANT_Master_Architecture.md` |
+| 2 | Conventions | canonical units, coordinate system, spectral variable — from `RADIANT_Conventions.md` |
+
+**Part 2 — Reference (reuse guides + generated content):**
+
+| Ch | Title | Source |
+|---|---|---|
+| 3 | Scripting API | `Sensor`, `SensorConfig`, `ChainResult`, `SweepResult`, `BatchRunner`, progress/cancellation — grown from `guides/scripting.md` + `RADIANT_Scripting_API.md` |
+| 4 | Command-Line Interface | `radiant run / validate / explain / gui` — new short chapter |
+| 5 | YAML Configuration Format | from `guides/configuration.md` + `RADIANT_Config_Format.md` |
+| 6 | Parameter Reference | **generated** — `gen_param_reference.py` output (`guides/parameter_reference.md`) bound directly; stays fresh via the existing `--check` gate |
+| 7 | Error Taxonomy | the `RadiantError` tree, per-class meaning and typical triggers |
+| 8 | Data Libraries | `SpectralLibrary`, `FPALibrary` (21 presets + provenance manifest), bundled atmosphere libraries |
+| 9 | External Data Interfaces | MODTRAN tape7 ingest, measured-data import, spreadsheet interfaces |
+
+**Part 3 — Internals (bind existing architecture specs):**
+
+| Ch | Title | Source |
+|---|---|---|
+| 10 | Signal-Chain Internals | `RADIANT_Signal_Chain_Architecture.md` (stage protocol, `ChainState`) — bound as-is |
+| 11 | Parameter System Internals | `RADIANT_Parameter_System.md` — bound as-is |
+| 12 | Testing & Validation Framework | `RADIANT_Testing_Validation.md` — bound as-is |
+| 13 | Extending RADIANT | new stage / new parameter walkthrough; import rules; plugins (DEFERRED banner carried over) |
+
+Binding the Part-3 specs verbatim is deliberate: they are already Rule-20 lock-step maintained, so the manual inherits their freshness for free. A light Pandoc-compatibility pass (raw-HTML removal if any, table width fixes) is in scope; a rewrite is not (see §10, Q2).
+
+## 7. Volume IV — RADIANT Worked Examples & Validation
+
+Subtitle: *Case Studies, Example Scripts, and Validation Evidence*.
+
+| Ch | Title | Content | Source |
+|---|---|---|---|
+| 1 | Running the Examples | setup, extras, where inputs/outputs live | new + `scenarios/README.md` |
+| 2 | Scripting Examples | the six `examples/scripts/` programs, each with listing excerpts, output, and commentary (basic evaluation, aperture sweep, compare configs, custom loop, tolerance analysis, dual-band configuration set) | code + new prose |
+| 3–9 | Persona Case Studies | one chapter per persona, one curated scenario each (proposed: 1.1 MWIR maritime surveillance, 2.1 InSb vs HgCdTe noise budget, 3.1 ISR pass planning, 4.1 target detection matrix, 5.1 WFE budget allocation, 6.1 published SNR benchmark, 7.1 NEDT reconciliation) plus 10.2 air-to-air IRST as the general-direction study | adapted from each scenario's `walkthrough.md` — mission context, inputs, run, results with units, regime discussion |
+| 10 | Flagship-Mission Validation | Sentinel-2 MSI SNR, Landsat OLI-2 SNR, Landsat TIRS NEDT, MODIS TEB NEDT vs published values; MODTRAN parity; MWIR single-wave ground truth | scenarios 9.1–9.4 + `docs/validation/` |
+| 11 | Trade-Study Cookbook | worked sweep/sensitivity/Monte-Carlo recipes | `guides/trade_studies.md` |
+| A | Appendix: Full Scenario Catalog | one-line index of all 52 scenarios (generated from `guides/scenario_catalog.md`) | exists |
+
+Curation, not exhaustiveness: 52 scenario walkthroughs would produce a 400-page volume nobody reads. The eight case studies above cover every persona and every regime; the appendix points at the rest (owner may swap picks — §10, Q3).
+
+## 8. Build Pipeline (Phase 0)
+
+Generalize the existing single-volume builder; keep the name and CLI shape.
+
+- **Volume registry** in `scripts/build_manual.py`: each volume = title, subtitle, ordered chapter list (paths may span `theory/`, `guides/`, `architecture/`). CLI: `build_manual.py [theory|users_guide|tech_ref|examples|--all] [--tex]`.
+- **Shared template** under `scripts/manual_assets/`: Pandoc defaults file + LaTeX template — cover page (title, subtitle, version from `radiant.__version__` + git describe, date), headers/footers, `hyperref`, `longtable` styling, code-listing style.
+- **Cross-platform fonts (Rule 30 fix):** replace Helvetica Neue/Menlo with TeX-Live-bundled faces (proposed: TeX Gyre Termes body — a serif face befitting a paper-quality manual — TeX Gyre Heros headings, DejaVu Sans Mono code; all cover µ/°/²). Closes the 2026-09-16 Findings_Log line.
+- **Build-time validation** inside the builder (not a merge gate — moratorium): chapters exist, referenced images resolve, raw-HTML scan on manual-class files, balanced `$$`. Fails the build with an actionable message.
+- Output: `build/manuals/radiant_<volume>.pdf`, gitignored. Pandoc/XeLaTeX remain the only external tools; missing tools keep raising actionable errors.
+- Equation treatment: `$...$`/`$$...$$` through `--from gfm+tex_math_dollars`, numbered **sections**; per-equation numbering/cross-referencing (pandoc-crossref) is explicitly deferred — it adds a toolchain dependency for cosmetic gain.
+
+## 9. Phasing
+
+Each phase = one or more normal PRs through the standard gate battery (docs-only phases ride the docs-only gate set; Phase 0/3 touch `scripts/`, so full battery).
+
+| Phase | Deliverable | Size | Depends on |
+|---|---|---|---|
+| 0 | Multi-volume builder, shared template, portable fonts, build-time validation; Volume I rebinds and builds under the new template | S | — |
+| 1 | **Theory Manual v1.0**: chapters 1/7/front-matter written, 4/A bound, physics-inventory audit dispositioned | M | 0 |
+| 2 | **Technical Reference v1.0**: orientation chapters, CLI/API/error/data-library chapters, generated parameter reference bound, Part-3 specs bound | M | 0 |
+| 3 | **User's Guide v1.0**: screenshot pipeline + figures, chapters 1–12 + appendix; owner reviews rendered PDF per chapter batch (the GUI live-review principle applied to its manual) | L | 0 |
+| 4 | **Examples & Validation v1.0**: case-study curation + flagship validation chapter | M | 0 (content-independent of 1–3) |
+| 5 | **Shipping**: release build step, distribution mechanics per §10 ruling, CHANGELOG entry (Rule 29(c): capability added), gap closure | S | 1–4 |
+
+Phases 1, 2, 4 are parallelizable across sessions once Phase 0 lands (one branch per phase, normal worktree hygiene). Phase 3 is the long pole; its chapter batches can interleave with owner review.
+
+## 10. Open Questions (owner rulings requested)
+
+1. **Shipping mechanism.** PDFs are regenerable and gitignored; how do they "ship"? (a) built at release and included in the wheel (adds ~5–20 MB; install-local docs), (b) attached as release/distribution artifacts alongside the wheel, (c) both. **Recommendation: (c)** — wheel carries them under `radiant/manuals/` via a release build step; the repo never commits them.
+2. **Volume III Part 3 sourcing.** Bind the architecture specs verbatim (zero drift risk, agent-toned prose) vs. rewrite user-neutral (nicer read, second copy to maintain). **Recommendation: bind verbatim** with a one-page reader's preface; revisit tone only on reader complaints.
+3. **Case-study picks** (§7 list of eight). Approve or swap.
+4. **Mission-type framing in Vol II ch. 4**: present the declared scenario-type selector (pending two-tier proposal) or document only the shipped regime machinery? **Recommendation: shipped machinery only**; manuals follow code (Rule 20 direction), never lead it.
+5. **CI docs build.** Add an optional CI job that runs `build_manual.py --tex --all` (Pandoc only, no TeX install) to catch conversion breakage? This extends CI, so it needs an explicit owner waiver of the process-machinery moratorium. **Recommendation: yes, as a non-blocking job** — `--tex` needs no LaTeX and catches the only silent failure class (Markdown that stops converting).
+6. **Cover identity.** Any branding beyond title/subtitle/version (logo, distribution statement, document number scheme)? Distribution/markings matter if these PDFs leave the building.
+
+## 11. Tracking & Governance
+
+- On ratification: this plan → **Active**; mint a `docs/tracking/gaps.md` entry ("shipped PDF documentation suite" — a Rule 29(c) tracked capability), stub pushed to `origin/main` per reservation protocol; the gap closes at Phase 5.
+- Figures and any committed generated content carry Rule-26 manifests naming generator + input + commit.
+- New chapters are §5.4-compliant from birth; grandfathered Unicode math in existing bound chapters stays until wholesale rewrite (no churn PRs).
+- Completion: the PR that lands Phase 5 moves this plan to `docs/archive/` (Rule 24).

@@ -249,14 +249,35 @@ def count_display_math(text: str) -> int:
 
 
 def scan_images(text: str) -> list[tuple[int, str]]:
-    """Return ``(line_number, destination)`` for every local Markdown image."""
+    """Return ``(line_number, destination)`` for every local Markdown image.
+
+    Prose lines are joined paragraph-wise before matching, because an image whose
+    caption wraps across source lines (``![long caption\\n...](dest)``) is invisible
+    to a per-line regex — that hole let a missing figure through the Phase 0
+    validator. The reported line number is the paragraph's first line.
+    """
     found: list[tuple[int, str]] = []
+    para_start: int | None = None
+    buffer: list[str] = []
+
+    def flush() -> None:
+        nonlocal para_start, buffer
+        if buffer and para_start is not None:
+            joined = " ".join(buffer)
+            for match in _IMAGE_RE.finditer(joined):
+                dest = match.group(1)
+                if not dest.lower().startswith(_REMOTE_PREFIXES):
+                    found.append((para_start, dest))
+        para_start, buffer = None, []
+
     for lineno, line in content_lines(text):
-        for match in _IMAGE_RE.finditer(line):
-            dest = match.group(1)
-            if dest.lower().startswith(_REMOTE_PREFIXES):
-                continue
-            found.append((lineno, dest))
+        if line.strip():
+            if para_start is None:
+                para_start = lineno
+            buffer.append(line)
+        else:
+            flush()
+    flush()
     return found
 
 

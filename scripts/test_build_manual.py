@@ -190,6 +190,18 @@ def test_scan_images_ignores_fenced_examples() -> None:
     assert scan_images("```\n![x](y.png)\n```\n") == []
 
 
+def test_scan_images_sees_wrapped_caption() -> None:
+    # A caption wrapped across source lines split the reference across lines; the
+    # per-line scan missed it and a missing figure sailed through (Phase 4 review).
+    text = "Intro prose.\n\n![A caption that wraps to\nthe next line.](figures/gui/x.png)\n"
+    assert scan_images(text) == [(3, "figures/gui/x.png")]
+
+
+def test_scan_images_wrapped_remote_still_ignored() -> None:
+    text = "![Wrapped remote\ncaption](https://example.com/x.png)\n"
+    assert scan_images(text) == []
+
+
 def test_validate_chapter_flags_missing_image(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

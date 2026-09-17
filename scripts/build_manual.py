@@ -172,8 +172,11 @@ VOLUMES: dict[str, Volume] = {
             "guides/examples_case_datasheet_benchmark.md",
             "guides/examples_case_nedt_reconciliation.md",
             "guides/examples_case_irst_level_arm.md",
-            # Part C tier 2 (the scenario digest compendium) and Part D (validation,
-            # cookbook, index) land here.
+            # Part C tier 2 — the scenario digest compendium (plan §7, owner ruling Q3:
+            # every scenario appears; the ~40 not covered at full depth get 1-2 page
+            # digests, grouped by persona in catalog order).
+            "guides/examples_digests.md",
+            # Part D (validation, cookbook, index) lands here.
         ),
     ),
 }

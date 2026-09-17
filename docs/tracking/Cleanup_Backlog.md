@@ -47,6 +47,64 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-359 — Theory Manual v1.0 coverage gaps: 13 implemented-physics areas with no manual section (family)
+
+**Discovered**: Gap 131 Phase 1 physics-inventory audit (branch `gap131/phase1-theory`), 2026-09-16. Family head (Rule 21 family-CU provision).
+**Status**: Open — owner-gated: whether these are Volume I v1.1 chapters/sections or accepted v1.0 limitations. Chapter 1 §4 already names the major absences so the manual does not imply coverage.
+**File**: `docs/theory/` (Volume I binding, `scripts/build_manual.py` VOLUMES).
+**Symptom**: the Phase 1 audit diffing Volume I against `docs/architecture/RADIANT_Physics_Inventory.md` found 13 implemented computations with no manual section. Checklist:
+
+- [ ] G1 DROIC photon counting (Gap 117 machinery) — counting well, quantization, up/down differential, residue readout, max count rate: no chapter anywhere (largest gap)
+- [ ] G2 Pixel phase / straddle factor (Gap 129) — the four `pixel_phase_mode` sampling phases and the `straddle_factor` metric
+- [ ] G3 Cn²(h) → r₀ path integration (Gap 110) — Hufnagel-Valley and tabulated profile integration
+- [ ] G4 Geometry input modes / scene classes (ADR-0011) — mode manifest and scene classification
+- [ ] G5 Cold-stop efficiency — chapter-level equation (only inside Appendix A today)
+- [ ] G6 Electronics MTF (`readout.electronics_sigma_um`)
+- [ ] G7 Target-plane sample distance metric (non-Earth target plane)
+- [ ] G8 Stray-light input modes — absolute/fraction modes, halo σ
+- [ ] G9 Defocus (`optics.defocus_um`) pupil-phase term
+- [ ] G10 QE temperature dependence (`qe_temperature_coeff_per_K`)
+- [ ] G11 Lab-test / no-atmosphere subcase (`source.lab_test_mode`)
+- [ ] G12 Scan-feasibility dwell guard (`max_integration_time_s`)
+- [ ] G13 Surface-scatter halo (`optics/scatter.py`, `surface_roughness_nm`)
+
+**Why it still matters**: owner-gated (intake test 2) — the shipped Theory Manual's completeness claim is an owner call; G1/G3 are chapters' worth of implemented physics invisible to a manual reader.
+**Suggested fix**: (b) stand-alone Volume I v1.1 task(s) after Gap 131 Phase 5, ordered G1, G3, then the section-sized rest. Effort M total; category A (docs).
+
+### CU-360 — RADIANT_Physics_Inventory.md is stale: ~19 items marked IN v1 have no implementation and no parameter
+
+**Discovered**: Gap 131 Phase 1 physics-inventory audit (branch `gap131/phase1-theory`), 2026-09-16.
+**Status**: Open — owner-gated: re-triage or re-status the inventory.
+**File**: `docs/architecture/RADIANT_Physics_Inventory.md` (Version 0.1, 2026-04-06, "Draft — Pending Scope Triage Review").
+**Symptom**: items S6, S10, A10, O15, O16, D15, D20, D21, D25, D26, R16, SP8, SP13, SC4, SC12 (plus stubs D24/SP16/R17/R15) carry ✅ IN v1 with nothing behind them (verified against the 218-parameter schema sweep). Any audit that diffs against the inventory re-derives this drift.
+**Why it still matters**: owner-gated (intake test 2) — it is the scope-of-record document; audits and manuals key off it (the Phase 1 audit had to fork "manual gap" from "inventory drift" by hand).
+**Suggested fix**: (b) stand-alone re-triage pass stamping each phantom item OUT/DEFERRED with a date, or a fresh triage review; effort S-M; category A.
+
+### CU-361 — examples/scripts defects: NaN NEDT column in a shipped example, unitless tables, prose/number drift (family)
+
+**Discovered**: Gap 131 Phase 4 Parts A+B (branch `gap131/phase4-examples`), 2026-09-16, while running all six examples for Volume IV chapter 3. Family head.
+**Status**: Open.
+**File**: `examples/scripts/` (five of six programs; ships in the wheel since Gap 126).
+**Symptom**: checklist —
+
+- [ ] `custom_loop.py:44` reads `result.metrics.get("nedt")`; the registered key is `nedt_K`, so every NEDT cell prints `nan` (workflow-visible defect in a shipped example)
+- [ ] `compare_configs.py`, `basic_evaluation.py` print bare metric tables whose units survive only where the key carries them; `tolerance_analysis.py` prints Mean/Std/percentiles with no units at all (violates the units-on-all-outputs hard rule; `dual_band_configuration_set.py`'s `metric_records()` pattern is the fix)
+- [ ] `tolerance_analysis.py:52-53` — `%%` inside an f-string prints a literal `%%` (cosmetic)
+- [ ] `aperture_sweep.py` writes `aperture_sweep_snr.png` into `examples/scripts/` — not gitignored, so running the shipped example dirties the tree (Rule 26)
+- [ ] `dual_band_configuration_set.py` §4 prose hardcodes "59 %" well fill and "~15 %" NEDT margin while its own printed table says 84.3 % and 10.6 % (prose drifted from computed values)
+
+**Why it still matters**: workflow-visible (intake test 4) — these are the first scripts a new user runs, and Volume IV chapter 3 reproduces their output verbatim (the NaN column and the drifted prose are now typeset in the manual until fixed).
+**Suggested fix**: (a) inline-fix-now, one small PR (key fix + metric_records() adoption + %% + gitignore + prose from computed values), then refresh Volume IV ch. 3 outputs. Effort S; category A.
+
+### CU-362 — Scenario catalog/index staleness: duplicate scenario number 2.7, README and GUI_EXERCISE_INDEX counts wrong, 09-series unindexed
+
+**Discovered**: Gap 131 Phase 4 Parts A+B (branch `gap131/phase4-examples`), 2026-09-16.
+**Status**: Open.
+**File**: `scenarios/README.md`, `scenarios/GUI_EXERCISE_INDEX.md`, `scenarios/02_mike_detector_engineer/` (two folders both numbered 2.7).
+**Symptom**: README's status table stops at 2.5/9.3 and claims "44 of 44" while the tree holds 2.6, two distinct 2.7s (`2.7_calibration_limited_nedt` and `2.7_updown_background_subtraction`), 2.8, and 9.4; GUI_EXERCISE_INDEX says "37 scenarios / 34 baselines" and omits the entire 09 series and 2.6–2.8; the 09 flagship scenarios ship no `.gui.yaml` baselines and have no index rows.
+**Why it still matters**: workflow-visible (intake test 4) — operators navigate by these indexes, and Volume IV's Part C digest compendium (owner ruling Q3: all 52 scenarios) needs an authoritative scenario enumeration; the duplicate 2.7 breaks unique addressing.
+**Suggested fix**: (a) inline-fix-now for the indexes + an owner-consulted renumber of one 2.7; effort S; category A. Blocking-adjacent for Volume IV Part C (the digest chapter keys off the catalog).
+
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).

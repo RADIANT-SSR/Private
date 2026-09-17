@@ -1,115 +1,590 @@
-"""Build the RADIANT theory manual as a single typeset PDF (or .tex) via Pandoc.
+"""Build the RADIANT manual suite as typeset PDFs (or ``.tex``) via Pandoc + XeLaTeX.
 
-Single-source rule (OPERATING_MODEL §5.4): the Markdown chapters under ``docs/theory/``
-are the canonical text; this script *generates* the typeset output. The PDF is a
-regenerable artifact (Rule 26) — gitignored, never hand-edited, never forked to ``.tex``.
+Single-source rule (OPERATING_MODEL §5.4): the Markdown chapters under ``docs/`` are the
+canonical text; this script *generates* the typeset output. The PDFs are regenerable
+artifacts (Rule 26) — gitignored, never hand-edited, never forked to ``.tex`` sources.
 
-Usage:
-    python scripts/build_manual.py            # PDF via xelatex -> build/radiant_theory_manual.pdf
-    python scripts/build_manual.py --tex      # emit standalone .tex instead
-                                              # (no LaTeX install needed)
+The suite is defined by :data:`VOLUMES` (Support_Documentation_Plan §8). Each volume names
+its title, subtitle and an ordered chapter list of paths relative to ``docs/``; a chapter
+may live under ``theory/``, ``guides/`` or ``architecture/``. Volumes whose chapter list is
+still empty are content that lands in a later phase of that plan: ``--all`` skips them with
+a printed note, and asking for one by name is an error.
 
-Requires ``pandoc`` on PATH; PDF output additionally requires ``xelatex`` (e.g. TeX Live
-or MacTeX). Missing tools raise an actionable error rather than a stack trace.
+Usage::
+
+    python scripts/build_manual.py theory              # -> build/manuals/radiant_theory.pdf
+    python scripts/build_manual.py theory --tex        # -> build/manuals/radiant_theory.tex
+    python scripts/build_manual.py --all               # every volume that has chapters
+    python scripts/build_manual.py --all --tex         # conversion-only (no TeX install)
+
+Requires ``pandoc`` on PATH; PDF output additionally requires ``xelatex`` (TeX Live or
+MacTeX). Missing tools raise an actionable error rather than a stack trace.
+
+Before invoking pandoc the builder validates the bound sources (chapters exist, referenced
+local images resolve, no raw HTML in manual-class Markdown, balanced ``$$``). This is a
+build-time check, not a merge gate — the process-machinery moratorium stands.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
+import os
+import re
 import shutil
 import subprocess
 import sys
+import tempfile
+from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-THEORY = REPO / "docs" / "theory"
-BUILD = REPO / "build"
+DOCS = REPO / "docs"
+ARCHITECTURE = DOCS / "architecture"
+ASSETS = Path(__file__).resolve().parent / "manual_assets"
+DEFAULTS_FILE = ASSETS / "manual.yaml"
+HEADER_FILE = ASSETS / "manual_header.tex"
+BUILD = REPO / "build" / "manuals"
 
-# Manual order: signal-chain order, references last. radiometric_model_mixed_train.md is a
-# specialized supplement and is deliberately not part of the bound manual.
-CHAPTERS: list[str] = [
-    "radiometric_chain.md",
-    "geometry.md",
-    "spatial_model.md",
-    "noise_model.md",
-    "performance_metrics.md",
-    "references.md",
-]
-
-METADATA: list[str] = [
-    "--metadata",
-    "title=RADIANT Theory Manual",
-    "--metadata",
-    "subtitle=Physics Reference for the RADIANT EO Sensor Performance Model",
-    "--metadata",
-    "author=RADIANT Project",
-]
-
-PANDOC_ARGS: list[str] = [
-    "--from",
-    "gfm+tex_math_dollars",
-    "--toc",
-    "--toc-depth=2",
-    "--number-sections",
-    "-V",
-    "geometry:margin=1in",
-    "-V",
-    "mainfont=Helvetica Neue",
-    "-V",
-    "monofont=Menlo",
-]
+#: Author line on every cover page (ruling Q6 — minimal cover identity).
+AUTHOR = "RADIANT Project"
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument(
-        "--tex", action="store_true", help="emit standalone .tex (no xelatex needed)"
+@dataclass(frozen=True)
+class Volume:
+    """One bound volume of the suite.
+
+    ``chapters`` are paths relative to ``docs/``, in binding order. An empty tuple means
+    the volume is registered but its content has not been written yet.
+    """
+
+    key: str
+    title: str
+    subtitle: str
+    chapters: tuple[str, ...]
+
+    @property
+    def phase_note(self) -> str:
+        """Which plan phase writes this volume's chapters (used in the skip/error text)."""
+        return _PHASE_NOTES[self.key]
+
+
+#: Which Support_Documentation_Plan §9 phase populates each volume. Kept beside the
+#: registry so the "not yet written" message names the work item rather than shrugging.
+_PHASE_NOTES: dict[str, str] = {
+    "theory": "Phase 1 (Theory Manual v1.0)",
+    "users_guide": "Phase 3 (User's Guide v1.0)",
+    "tech_ref": "Phase 2 (Technical Reference v1.0)",
+    "examples": "Phase 4 (Examples & Validation v1.0)",
+}
+
+#: The four-volume suite (Support_Documentation_Plan §3). Volume I binds the six theory
+#: chapters it bound before the registry existed; ``atmosphere_models.md`` and the
+#: mixed-train appendix join it in Phase 1, not here.
+VOLUMES: dict[str, Volume] = {
+    "theory": Volume(
+        key="theory",
+        title="RADIANT Theory Manual",
+        subtitle="Physics Reference for the RADIANT EO Sensor Performance Model",
+        chapters=(
+            "theory/radiometric_chain.md",
+            "theory/geometry.md",
+            "theory/spatial_model.md",
+            "theory/noise_model.md",
+            "theory/performance_metrics.md",
+            "theory/references.md",
+        ),
+    ),
+    "users_guide": Volume(
+        key="users_guide",
+        title="RADIANT User's Guide",
+        subtitle="Installation, Concepts, and GUI Operation",
+        chapters=(),
+    ),
+    "tech_ref": Volume(
+        key="tech_ref",
+        title="RADIANT Technical Reference",
+        subtitle="Scripting API, Configuration, Parameters, and Architecture",
+        chapters=(),
+    ),
+    "examples": Volume(
+        key="examples",
+        title="RADIANT Worked Examples & Validation",
+        subtitle="Case Studies, Scenario Digests, and Validation Evidence",
+        chapters=(),
+    ),
+}
+
+
+# --------------------------------------------------------------------------------------
+# Source scanning helpers (pure functions — unit-tested in scripts/test_build_manual.py)
+# --------------------------------------------------------------------------------------
+
+#: A fenced-code delimiter: up to three leading spaces, then 3+ backticks or tildes.
+_FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+
+#: An inline code span. Blanked before scanning so a ``<div>`` *shown* as code is not
+#: mistaken for raw HTML.
+_INLINE_CODE_RE = re.compile(r"`+[^`\n]*`+")
+
+#: An opening or closing HTML tag. The ``(?=[\s/>])`` lookahead is what keeps Markdown
+#: autolinks out of the match: ``<https://example.com>`` has ``:`` after the name and
+#: ``<user@example.com>`` has ``@``, so neither can match.
+_TAG_RE = re.compile(r"</?([A-Za-z][A-Za-z0-9]*)(?=[\s/>])[^<>]*>")
+
+#: Tag names the raw-HTML scan reports. An allowlist rather than "any tag-shaped thing",
+#: so prose such as ``$a <b>$`` in grandfathered Unicode math cannot fail a build.
+_HTML_TAGS = frozenset(
+    {
+        "a", "b", "big", "blockquote", "br", "center", "code", "details", "div", "em",
+        "figcaption", "figure", "font", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "i",
+        "iframe", "img", "kbd", "li", "mark", "ol", "p", "pre", "script", "small",
+        "span", "strong", "style", "sub", "summary", "sup", "table", "tbody", "td",
+        "tfoot", "th", "thead", "tr", "u", "ul",
+    }
+)  # fmt: skip
+
+#: A Markdown image. Captures the destination, tolerating pointy-bracket destinations.
+_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(\s*<?([^)>\s]+)>?")
+
+#: Destinations the image check does not try to resolve on disk.
+_REMOTE_PREFIXES = ("http://", "https://", "data:", "ftp://", "mailto:", "//")
+
+#: ``**Key:**`` at the start of a line — the metadata block form the ``architecture/``
+#: specs use under their H1 (``**Date:**``, ``**Status:**``, ``**Depends on:**``,
+#: ``**Scope:**``). Ruling Q2 strips this block when a spec is bound as a chapter.
+_META_LINE_RE = re.compile(r"^\*\*[A-Za-z][A-Za-z0-9 _/&'\-]*:\*\*")
+
+#: A thematic break closing the metadata block.
+_RULE_RE = re.compile(r"^ {0,3}(-{3,}|\*{3,}|_{3,})\s*$")
+
+
+def content_lines(text: str) -> list[tuple[int, str]]:
+    """Return ``(line_number, line)`` for prose lines only.
+
+    Fenced code blocks are dropped whole and inline code spans are blanked, so the
+    scans below see only text that pandoc will typeset as prose. Line numbers are
+    1-based and refer to the original file.
+    """
+    out: list[tuple[int, str]] = []
+    fence: str | None = None
+    for lineno, raw in enumerate(text.splitlines(), start=1):
+        match = _FENCE_RE.match(raw)
+        marker = match.group(1)[0] if match else None
+        if fence is None:
+            if marker is not None:
+                fence = marker
+            else:
+                out.append((lineno, _INLINE_CODE_RE.sub(" ", raw)))
+        elif marker == fence:
+            fence = None
+    return out
+
+
+def scan_raw_html(text: str) -> list[tuple[int, str]]:
+    """Return ``(line_number, tag)`` for every raw HTML tag outside code (§5.4 rule 2)."""
+    found: list[tuple[int, str]] = []
+    for lineno, line in content_lines(text):
+        for match in _TAG_RE.finditer(line):
+            if match.group(1).lower() in _HTML_TAGS:
+                found.append((lineno, match.group(0)))
+    return found
+
+
+def count_display_math(text: str) -> int:
+    """Return the number of ``$$`` delimiters outside code; an odd count is unbalanced."""
+    return sum(line.count("$$") for _, line in content_lines(text))
+
+
+def scan_images(text: str) -> list[tuple[int, str]]:
+    """Return ``(line_number, destination)`` for every local Markdown image."""
+    found: list[tuple[int, str]] = []
+    for lineno, line in content_lines(text):
+        for match in _IMAGE_RE.finditer(line):
+            dest = match.group(1)
+            if dest.lower().startswith(_REMOTE_PREFIXES):
+                continue
+            found.append((lineno, dest))
+    return found
+
+
+def strip_spec_header(text: str) -> str:
+    """Drop the leading ``**Key:**`` metadata block of an ``architecture/`` spec.
+
+    Ruling Q2: the three Part-3 specs are bound verbatim, minus their
+    Date/Status/Depends-on/Scope header, which is repository bookkeeping rather than
+    manual content. The block is the run of ``**Key:**`` lines immediately after the H1;
+    a thematic break that closes it is removed with it. Files on disk are never modified
+    — the stripped text goes to a temp file.
+
+    Text that does not open with an H1 followed by such a block is returned unchanged.
+    """
+    lines = text.splitlines()
+    head = next((i for i, line in enumerate(lines) if line.startswith("# ")), None)
+    if head is None:
+        return text
+
+    cursor = head + 1
+    while cursor < len(lines) and not lines[cursor].strip():
+        cursor += 1
+    if cursor >= len(lines) or not _META_LINE_RE.match(lines[cursor].rstrip()):
+        return text
+    while cursor < len(lines) and _META_LINE_RE.match(lines[cursor].rstrip()):
+        cursor += 1
+
+    tail = cursor
+    while tail < len(lines) and not lines[tail].strip():
+        tail += 1
+    if tail < len(lines) and _RULE_RE.match(lines[tail]):
+        tail += 1
+        while tail < len(lines) and not lines[tail].strip():
+            tail += 1
+
+    kept = [*lines[: head + 1], "", *lines[tail:]]
+    return "\n".join(kept) + ("\n" if text.endswith("\n") else "")
+
+
+# --------------------------------------------------------------------------------------
+# Build-time validation
+# --------------------------------------------------------------------------------------
+
+
+def validate_chapter(path: Path) -> list[str]:
+    """Return one problem string per defect found in the chapter at *path*."""
+    problems: list[str] = []
+    rel = path.relative_to(REPO).as_posix()
+    text = path.read_text(encoding="utf-8")
+
+    for lineno, tag in scan_raw_html(text):
+        problems.append(
+            f"{rel}:{lineno}: raw HTML tag `{tag}` in a manual-class chapter\n"
+            f"    why: OPERATING_MODEL §5.4 keeps manual sources in the Pandoc subset; "
+            f"raw HTML is dropped or mis-typeset by the LaTeX writer.\n"
+            f"    action: rewrite as Markdown (pipe table, fenced block, or `$...$` math)."
+        )
+
+    delimiters = count_display_math(text)
+    if delimiters % 2 != 0:
+        problems.append(
+            f"{rel}: unbalanced display math — {delimiters} `$$` delimiters outside code\n"
+            f"    why: an unclosed `$$` swallows the rest of the chapter into math mode.\n"
+            f"    action: find the unpaired `$$` and close it."
+        )
+
+    for lineno, dest in scan_images(text):
+        target = (path.parent / dest).resolve()
+        if not target.is_file():
+            problems.append(
+                f"{rel}:{lineno}: image `{dest}` does not resolve to a file\n"
+                f"    why: pandoc emits a missing-image warning and the figure is lost.\n"
+                f"    action: fix the relative path, or generate the figure before building."
+            )
+    return problems
+
+
+def validate_volume(volume: Volume) -> list[str]:
+    """Return one problem string per defect in *volume*'s bound sources."""
+    problems: list[str] = []
+    for chapter in volume.chapters:
+        path = DOCS / chapter
+        if not path.is_file():
+            problems.append(
+                f"docs/{chapter}: chapter file is missing\n"
+                f"    why: volume '{volume.key}' binds it; pandoc cannot open it.\n"
+                f"    action: restore the file, or drop it from VOLUMES in this script."
+            )
+            continue
+        problems.extend(validate_chapter(path))
+    return problems
+
+
+# --------------------------------------------------------------------------------------
+# Version and cover-page metadata
+# --------------------------------------------------------------------------------------
+
+#: Anything outside this set is replaced in the version string — it lands in LaTeX.
+_VERSION_SAFE_RE = re.compile(r"[^A-Za-z0-9.+\- ]")
+
+
+def package_version() -> str:
+    """``__version__`` read out of ``src/radiant/__init__.py``.
+
+    Read rather than imported: the builder must work in a checkout with no installed
+    package (the CI conversion tripwire installs pandoc only).
+    """
+    init = REPO / "src" / "radiant" / "__init__.py"
+    try:
+        text = init.read_text(encoding="utf-8")
+    except OSError:
+        return "unknown"
+    match = re.search(r"^__version__\s*=\s*[\"']([^\"']+)[\"']", text, re.MULTILINE)
+    return match.group(1) if match else "unknown"
+
+
+def git_describe() -> str:
+    """``git describe --always --dirty``, or ``""`` when git or the history is absent."""
+    if shutil.which("git") is None:
+        return ""
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--always", "--dirty"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+    except OSError:
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
+def version_string() -> str:
+    """The cover-page version line, e.g. ``v0.1.0 (776e1c9d-dirty)``."""
+    version = _VERSION_SAFE_RE.sub("-", package_version())
+    described = _VERSION_SAFE_RE.sub("-", git_describe())
+    return f"v{version} ({described})" if described else f"v{version}"
+
+
+def latex_escape(text: str) -> str:
+    """Escape the LaTeX specials that can appear in a volume title."""
+    out = text.replace("\\", r"\textbackslash{}")
+    for char in "&%$#_{}":
+        out = out.replace(char, "\\" + char)
+    return out.replace("~", r"\textasciitilde{}").replace("^", r"\textasciicircum{}")
+
+
+def write_metadata_file(volume: Volume, tmpdir: Path, built_on: str) -> Path:
+    """Write the per-build Pandoc metadata (cover page) file and return its path."""
+    path = tmpdir / "metadata.yaml"
+    path.write_text(
+        "---\n"
+        f"title: {json.dumps(volume.title)}\n"
+        f"subtitle: {json.dumps(volume.subtitle)}\n"
+        f"author: {json.dumps(AUTHOR)}\n"
+        "date: |\n"
+        f"  {version_string()}\\\n"
+        f"  Built {built_on}\n"
+        "---\n",
+        encoding="utf-8",
+        newline="\n",
     )
-    args = parser.parse_args()
+    return path
 
+
+def write_volume_header(volume: Volume, tmpdir: Path) -> Path:
+    """Write the per-build LaTeX snippet carrying the running-head text."""
+    path = tmpdir / "volume_header.tex"
+    path.write_text(
+        "% Generated per build by scripts/build_manual.py — do not edit.\n"
+        f"\\newcommand{{\\radiantrunninghead}}{{{latex_escape(volume.title)}}}\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return path
+
+
+# --------------------------------------------------------------------------------------
+# Build
+# --------------------------------------------------------------------------------------
+
+
+def prepare_chapter(chapter: str, tmpdir: Path, index: int) -> Path:
+    """Return the path pandoc should read for *chapter*.
+
+    Usually the source itself. For an ``architecture/`` spec whose metadata header is
+    stripped (ruling Q2), a temp copy of the stripped text.
+    """
+    source = DOCS / chapter
+    if ARCHITECTURE not in source.parents:
+        return source
+    text = source.read_text(encoding="utf-8")
+    stripped = strip_spec_header(text)
+    if stripped == text:
+        return source
+    staged = tmpdir / f"{index:02d}_{source.name}"
+    staged.write_text(stripped, encoding="utf-8", newline="\n")
+    return staged
+
+
+def build_volume(volume: Volume, *, as_tex: bool) -> int:
+    """Build one volume. Returns 0 on success, nonzero on failure."""
+    problems = validate_volume(volume)
+    if problems:
+        print(f"error: volume '{volume.key}' failed source validation:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return 1
+
+    BUILD.mkdir(parents=True, exist_ok=True)
+    out = BUILD / f"radiant_{volume.key}.{'tex' if as_tex else 'pdf'}"
+
+    with tempfile.TemporaryDirectory(prefix="radiant-manual-") as tmpname:
+        tmpdir = Path(tmpname)
+        sources = [
+            prepare_chapter(chapter, tmpdir, i)
+            for i, chapter in enumerate(volume.chapters, start=1)
+        ]
+        metadata = write_metadata_file(volume, tmpdir, date.today().isoformat())
+        volume_header = write_volume_header(volume, tmpdir)
+        resource_dirs = [str(REPO), *dict.fromkeys(str((DOCS / c).parent) for c in volume.chapters)]
+
+        cmd = [
+            "pandoc",
+            "--defaults",
+            str(DEFAULTS_FILE),
+            "--metadata-file",
+            str(metadata),
+            "--resource-path",
+            os.pathsep.join(resource_dirs),
+            "--include-in-header",
+            str(volume_header),
+            "--include-in-header",
+            str(HEADER_FILE),
+            *[str(p) for p in sources],
+            "-o",
+            str(out),
+        ]
+        result = subprocess.run(cmd, cwd=REPO, check=False)
+
+    if result.returncode != 0:
+        print(
+            f"error: pandoc failed while building volume '{volume.key}' (see output above).\n"
+            f"  why: the Markdown sources did not convert.\n"
+            f"  action: fix the reported construct in the chapter pandoc names, then re-run.",
+            file=sys.stderr,
+        )
+        return result.returncode
+    print(f"built {out.relative_to(REPO).as_posix()}  ({volume.title})")
+    return 0
+
+
+def check_tools(*, as_tex: bool) -> int:
+    """Verify the external toolchain is present. Returns 0 when it is."""
     if shutil.which("pandoc") is None:
         print(
             "error: pandoc not found on PATH.\n"
-            "  why: the manual is single-sourced from Markdown; pandoc performs the conversion.\n"
+            "  why: the manuals are single-sourced from Markdown; pandoc does the conversion.\n"
             "  action: install pandoc (https://pandoc.org/installing.html) and re-run.",
             file=sys.stderr,
         )
         return 1
-    if not args.tex and shutil.which("xelatex") is None:
+    if not as_tex and shutil.which("xelatex") is None:
         print(
             "error: xelatex not found on PATH (needed for PDF output).\n"
-            "  why: XeLaTeX handles the manual's Unicode (µ, °, ²) natively.\n"
+            "  why: XeLaTeX handles the manuals' Unicode (µ, °, ²) and the TeX Gyre /\n"
+            "       DejaVu OpenType faces the shared template selects.\n"
             "  action: install TeX Live / MacTeX (or BasicTeX + `tlmgr install xetex`),\n"
-            "          or run with --tex to emit a .tex file without typesetting.",
+            "          or run with --tex to emit .tex without typesetting.",
             file=sys.stderr,
         )
         return 1
+    for asset in (DEFAULTS_FILE, HEADER_FILE):
+        if not asset.is_file():
+            print(
+                f"error: shared manual template asset missing: "
+                f"{asset.relative_to(REPO).as_posix()}\n"
+                "  why: every volume is typeset from one template; there is no per-volume fork.\n"
+                "  action: restore the file from git (scripts/manual_assets/).",
+                file=sys.stderr,
+            )
+            return 1
+    return 0
 
-    missing = [c for c in CHAPTERS if not (THEORY / c).is_file()]
-    if missing:
+
+def resolve_volumes(names: list[str], *, build_all: bool) -> tuple[list[Volume], int]:
+    """Turn CLI selection into the list of volumes to build. Returns ``(volumes, status)``."""
+    known = ", ".join(VOLUMES)
+    if build_all:
+        selected: list[Volume] = []
+        for volume in VOLUMES.values():
+            if volume.chapters:
+                selected.append(volume)
+            else:
+                print(
+                    f"note: skipping volume '{volume.key}' ({volume.title}) — no chapters "
+                    f"bound yet; content lands in {volume.phase_note}."
+                )
+        return selected, 0
+
+    if not names:
         print(
-            f"error: missing chapter file(s) under docs/theory/: {', '.join(missing)}",
+            "error: no volume selected.\n"
+            f"  why: the suite has four volumes ({known}); the builder does not guess.\n"
+            "  action: name one or more volumes, or pass --all.",
             file=sys.stderr,
         )
-        return 1
+        return [], 2
 
-    BUILD.mkdir(exist_ok=True)
-    out = BUILD / ("radiant_theory_manual.tex" if args.tex else "radiant_theory_manual.pdf")
-    cmd = [
-        "pandoc",
-        *[str(THEORY / c) for c in CHAPTERS],
-        *METADATA,
-        *PANDOC_ARGS,
-        *([] if args.tex else ["--pdf-engine=xelatex"]),
-        *(["--standalone"] if args.tex else []),
-        "-o",
-        str(out),
-    ]
-    result = subprocess.run(cmd, cwd=REPO, check=False)
-    if result.returncode != 0:
-        print("error: pandoc failed (see output above).", file=sys.stderr)
-        return result.returncode
-    print(f"built {out.relative_to(REPO)}")
+    selected = []
+    for name in names:
+        volume = VOLUMES.get(name)
+        if volume is None:
+            print(
+                f"error: unknown volume '{name}'.\n"
+                f"  why: the suite is a closed set defined by VOLUMES in this script.\n"
+                f"  action: choose one of: {known} (or pass --all).",
+                file=sys.stderr,
+            )
+            return [], 2
+        if not volume.chapters:
+            print(
+                f"error: volume '{name}' ({volume.title}) has no chapters bound yet.\n"
+                f"  why: its content is written in {volume.phase_note} of "
+                f"docs/plans/Support_Documentation_Plan.md.\n"
+                f"  action: build a populated volume (--all skips the empty ones), or add "
+                f"its chapters to VOLUMES first.",
+                file=sys.stderr,
+            )
+            return [], 1
+        selected.append(volume)
+    return selected, 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="build_manual.py",
+        description="Build one or more volumes of the RADIANT manual suite.",
+    )
+    parser.add_argument(
+        "volumes",
+        nargs="*",
+        metavar="VOLUME",
+        help=f"volume key(s) to build: {', '.join(VOLUMES)}",
+    )
+    parser.add_argument("--all", action="store_true", help="build every populated volume")
+    parser.add_argument(
+        "--tex", action="store_true", help="emit standalone .tex (no xelatex needed)"
+    )
+    args = parser.parse_args(argv)
+
+    if args.all and args.volumes:
+        print(
+            "error: --all and an explicit volume list are mutually exclusive.\n"
+            "  why: the two say different things about what to build.\n"
+            "  action: pass --all, or name the volumes, not both.",
+            file=sys.stderr,
+        )
+        return 2
+
+    volumes, status = resolve_volumes(args.volumes, build_all=args.all)
+    if status != 0:
+        return status
+    if not volumes:
+        print("note: nothing to build — no volume has chapters bound yet.")
+        return 0
+
+    status = check_tools(as_tex=args.tex)
+    if status != 0:
+        return status
+
+    failures = [v.key for v in volumes if build_volume(v, as_tex=args.tex) != 0]
+    if failures:
+        print(f"error: {len(failures)} volume(s) failed: {', '.join(failures)}", file=sys.stderr)
+        return 1
     return 0
 
 

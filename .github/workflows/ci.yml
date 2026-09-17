@@ -112,6 +112,29 @@ jobs:
         # per RADIANT_Testing_Validation §5.3 rather than loosening the test.
         run: xvfb-run -a python -m pytest dev_tools/geometry_gui_v2 -q
 
+  manual-conversion:
+    name: Manual conversion tripwire (non-blocking)
+    runs-on: ubuntu-latest
+    # Ruling Q5 (docs/plans/Support_Documentation_Plan.md §10): the owner waived
+    # the process-machinery moratorium for exactly this one job. It is a
+    # tripwire, never a gate — Markdown that stops converting shows up red here
+    # and merges continue regardless.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pandoc (no TeX — .tex conversion only)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pandoc
+      - name: Convert every populated volume to .tex
+        # The builder is stdlib-only and reads __version__ out of the source
+        # tree, so no package install is needed. --tex stops short of XeLaTeX,
+        # which is the whole point: this checks conversion, not typesetting.
+        run: python scripts/build_manual.py --all --tex
+
   golden:
     name: Golden regression (main only)
     runs-on: ubuntu-latest

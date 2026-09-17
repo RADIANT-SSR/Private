@@ -1,6 +1,6 @@
 # RADIANT Support Documentation Plan
 
-**Status:** Draft — awaiting owner ratification of the volume structure, TOCs, and shipping mechanics (§10)
+**Status:** Active — structure, TOCs, and all seven §10 rulings ratified by the owner 2026-09-16; tracked as Gap 131
 **Date:** 2026-09-16
 **Scope:** The shipped RADIANT documentation suite — a set of paper-quality, typeset PDF manuals covering the physics theory, GUI operation, the underlying codebase, and worked examples.
 
@@ -23,7 +23,7 @@ Produce a professional, versioned set of PDF manuals that ship with RADIANT. The
 | Rule 26 (regenerable artifacts) | PDFs are gitignored and built on demand / at release. Screenshots committed for the GUI manual are doc-referenced figures with a generator named in a manifest — the permitted class (b). |
 | Rule 20 (doc/code lock-step) | Manual chapters that restate a public surface must be either generated (preferred) or added to the lock-step review surface. The plan minimizes hand-restated API content. |
 | Rule 30 (cross-platform) | The build must work on macOS **and** Windows. The current `build_manual.py` font choices (Helvetica Neue / Menlo) are macOS-only — Phase 0 replaces them with TeX-Live-bundled fonts (Findings_Log 2026-09-16). |
-| Process-machinery moratorium | No new merge-gate checks are added for the manuals without owner approval (§10, Q5). Build validation runs inside the builder itself. |
+| Process-machinery moratorium | The owner waived the moratorium for exactly one non-blocking CI conversion job (§10, ruling Q5); no manual-related check gates a merge. Build validation otherwise runs inside the builder itself. |
 | §1 closed folder taxonomy | No new `docs/` top-level folder. Theory chapters → `docs/theory/`, user-facing chapters → `docs/guides/`, figures → `docs/guides/figures/`. |
 
 ## 3. The Suite — Four Volumes
@@ -33,7 +33,7 @@ Produce a professional, versioned set of PDF manuals that ship with RADIANT. The
 | I | **RADIANT Theory Manual** | Physics: governing equations for every stage | Analysts, physicists, reviewers | 90–120 pp |
 | II | **RADIANT User's Guide** | Installation, concepts, GUI operation, workflows | Tool operators (the seven personas) | 70–100 pp |
 | III | **RADIANT Technical Reference** | Scripting API, CLI, YAML, parameters, architecture, extending | Script authors, developers, agents | 100–140 pp |
-| IV | **RADIANT Worked Examples & Validation** | Example scripts, persona case studies, flagship-mission validation | New users, evaluators, V&V reviewers | 60–90 pp |
+| IV | **RADIANT Worked Examples & Validation** | Example scripts, persona case studies (tiered, all 52 scenarios), flagship-mission validation | New users, evaluators, V&V reviewers | 150–200 pp |
 
 All four share one visual identity: common LaTeX template (cover page, headers/footers, fonts, table style), a shared **Notation and Symbols** table (canonical home: Volume I front matter; Volumes II–IV reference it), section numbering `--number-sections`, `--toc` depth 2, hyperref-linked internal references.
 
@@ -95,7 +95,7 @@ Deliberately **not** chaptered yet: the script/command window (pending capabilit
 
 Paper-quality GUI documentation lives or dies on current screenshots. Hand-captured images go stale with every GUI PR.
 
-Feasibility is proven (spike, 2026-09-16): the real `RADIANTMainWindow` built under `QT_QPA_PLATFORM=offscreen` on `examples/mwir_leo_minimal.yaml` auto-evaluated on its worker thread and yielded clean 1440×900 `QWidget.grab()` captures of the Performance, Geometry, Optics, and Detector workspaces — no display, no new dependencies. Spike lessons folded in below: per-figure dock/splitter geometry (default widths elide parameter names), panel-level grabs for detail figures, and the note that offscreen rendering uses Fusion-style chrome rather than native macOS decorations (platform-neutral figures; owner may want native captures for any hero shots — §10, Q7).
+Feasibility is proven (spike, 2026-09-16): the real `RADIANTMainWindow` built under `QT_QPA_PLATFORM=offscreen` on `examples/mwir_leo_minimal.yaml` auto-evaluated on its worker thread and yielded clean 1440×900 `QWidget.grab()` captures of the Performance, Geometry, Optics, and Detector workspaces — no display, no new dependencies. Spike lessons folded in below: per-figure dock/splitter geometry (default widths elide parameter names), panel-level grabs for detail figures, and the note that offscreen rendering uses Fusion-style chrome rather than native macOS decorations (platform-neutral figures; ruled Q7: all figures offscreen, no native hero shots).
 
 Because Volume IV's GUI-led examples need the same machinery, the generator itself is **Phase 0 infrastructure**; Phases 3 and 4 only add capture definitions and prose.
 
@@ -154,7 +154,9 @@ Subtitle: *Case Studies, Example Scripts, and Validation Evidence*. **Mixed-moda
 |---|---|---|---|
 | 3 | Scripting Examples | the six `examples/scripts/` programs, each with listing excerpts, output, and commentary (basic evaluation, aperture sweep, compare configs, custom loop, tolerance analysis, dual-band configuration set) | code + new prose |
 
-**Part C — Persona Case Studies (one per persona, modality assigned to match the persona's natural workflow):**
+**Part C — Persona Case Studies (tiered — owner-ratified 2026-09-16, ruling Q3: every scenario appears; eight at full depth, the rest as digests):**
+
+*Tier 1 — full-depth case studies* (one per persona, modality matched to the persona's natural workflow):
 
 | Ch | Case study | Modality |
 |---|---|---|
@@ -167,17 +169,19 @@ Subtitle: *Case Studies, Example Scripts, and Validation Evidence*. **Mixed-moda
 | 10 | 7.1 NEDT reconciliation (Karen, test engineer — measured-data import) | script-led |
 | 11 | 10.2 air-to-air level IRST (general direction) | **GUI-led** |
 
-Each case study is adapted from the scenario's `walkthrough.md` (mission context, inputs, run, results with units, regime discussion); GUI-led chapters follow the scenario's `gui_workflow.md` with screenshots of each step, and every chapter closes with a one-paragraph pointer to the other modality (the exercise baseline for script-led chapters, the run script for GUI-led ones) so neither path is a dead end.
+Each full-depth case study is adapted from the scenario's `walkthrough.md` (mission context, inputs, run, results with units, regime discussion); GUI-led chapters follow the scenario's `gui_workflow.md` with screenshots of each step, and every chapter closes with a one-paragraph pointer to the other modality (the exercise baseline for script-led chapters, the run script for GUI-led ones) so neither path is a dead end.
+
+*Tier 2 — scenario digest compendium* (ch. 12): a 1–2 page digest of **every** scenario not covered at full depth elsewhere (the 40 remaining after the eight case studies and the four flagship-validation scenarios), grouped by persona in catalog order. Fixed digest format, condensed from each `walkthrough.md`: mission setup, key inputs, headline results with units, regime in effect, takeaway, and a pointer to the scenario folder. No new runs — digests report the committed walkthrough numbers.
 
 **Part D — Validation & Cookbook:**
 
 | Ch | Title | Content | Source |
 |---|---|---|---|
-| 12 | Flagship-Mission Validation | Sentinel-2 MSI SNR, Landsat OLI-2 SNR, Landsat TIRS NEDT, MODIS TEB NEDT vs published values; MODTRAN parity; MWIR single-wave ground truth | scenarios 9.1–9.4 + `docs/validation/` (script-led — these are batch comparisons) |
-| 13 | Trade-Study Cookbook | worked sweep/sensitivity/Monte-Carlo recipes, GUI sweep surface and scripted sweeps side by side | `guides/trade_studies.md` |
-| A | Appendix: Full Scenario Catalog | one-line index of all 52 scenarios (generated from `guides/scenario_catalog.md`) | exists |
+| 13 | Flagship-Mission Validation | Sentinel-2 MSI SNR, Landsat OLI-2 SNR, Landsat TIRS NEDT, MODIS TEB NEDT vs published values; MODTRAN parity; MWIR single-wave ground truth | scenarios 9.1–9.4 + `docs/validation/` (script-led — these are batch comparisons) |
+| 14 | Trade-Study Cookbook | worked sweep/sensitivity/Monte-Carlo recipes, GUI sweep surface and scripted sweeps side by side | `guides/trade_studies.md` |
+| A | Appendix: Scenario Index | one-line index of all 52 scenarios with their chapter/digest location (generated from `guides/scenario_catalog.md`) | exists |
 
-Curation, not exhaustiveness: 52 scenario walkthroughs would produce a 400-page volume nobody reads. The eight case studies above cover every persona and every regime, with a 4/4 GUI/script split; the appendix points at the rest (owner may swap picks or flip modalities — §10, Q3).
+Coverage is total by owner ruling (Q3, 2026-09-16): all 52 scenarios appear — eight at full depth (4 GUI-led / 4 script-led), four as the validation chapter, forty as digests. The tiering is what keeps the volume at ~150–200 pp instead of 400.
 
 ## 8. Build Pipeline (Phase 0)
 
@@ -187,6 +191,8 @@ Generalize the existing single-volume builder; keep the name and CLI shape.
 - **Shared template** under `scripts/manual_assets/`: Pandoc defaults file + LaTeX template — cover page (title, subtitle, version from `radiant.__version__` + git describe, date), headers/footers, `hyperref`, `longtable` styling, code-listing style.
 - **Cross-platform fonts (Rule 30 fix):** replace Helvetica Neue/Menlo with TeX-Live-bundled faces (proposed: TeX Gyre Termes body — a serif face befitting a paper-quality manual — TeX Gyre Heros headings, DejaVu Sans Mono code; all cover µ/°/²). Closes the 2026-09-16 Findings_Log line.
 - **Build-time validation** inside the builder (not a merge gate — moratorium): chapters exist, referenced images resolve, raw-HTML scan on manual-class files, balanced `$$`. Fails the build with an actionable message.
+- **Bound-spec header stripping (ruling Q2):** when a chapter source is an `architecture/` spec, the builder drops the leading Date/Status/Depends-on metadata block before conversion — the spec files themselves are untouched.
+- **CI conversion tripwire (ruling Q5 — moratorium waived for this one job):** a non-blocking CI job runs `build_manual.py --tex --all` (Pandoc only, no TeX install) so Markdown that stops converting is visible without gating merges.
 - Output: `build/manuals/radiant_<volume>.pdf`, gitignored. Pandoc/XeLaTeX remain the only external tools; missing tools keep raising actionable errors.
 - Equation treatment: `$...$`/`$$...$$` through `--from gfm+tex_math_dollars`, numbered **sections**; per-equation numbering/cross-referencing (pandoc-crossref) is explicitly deferred — it adds a toolchain dependency for cosmetic gain.
 
@@ -196,28 +202,30 @@ Each phase = one or more normal PRs through the standard gate battery (docs-only
 
 | Phase | Deliverable | Size | Depends on |
 |---|---|---|---|
-| 0 | Multi-volume builder, shared template, portable fonts, build-time validation; `gen_gui_screenshots.py` (offscreen capture generator — spike-proven, see §5); Volume I rebinds and builds under the new template | S–M | — |
+| 0 | Multi-volume builder, shared template, portable fonts, build-time validation, bound-spec header stripping; `gen_gui_screenshots.py` (offscreen capture generator — spike-proven, see §5); non-blocking CI `--tex` job (ruling Q5); Volume I rebinds and builds under the new template | S–M | — |
 | 1 | **Theory Manual v1.0**: chapters 1/7/front-matter written, 4/A bound, physics-inventory audit dispositioned | M | 0 |
 | 2 | **Technical Reference v1.0**: orientation chapters, CLI/API/error/data-library chapters, generated parameter reference bound, Part-3 specs bound | M | 0 |
 | 3 | **User's Guide v1.0**: capture definitions + figures, chapters 1–12 + appendix; owner reviews rendered PDF per chapter batch (the GUI live-review principle applied to its manual) | L | 0 |
-| 4 | **Examples & Validation v1.0**: GUI worked examples + case-study curation (4 GUI-led / 4 script-led) + flagship validation chapter; GUI-led figures via the Phase-0 generator | M | 0 (content-independent of 1–3) |
-| 5 | **Shipping**: release build step, distribution mechanics per §10 ruling, CHANGELOG entry (Rule 29(c): capability added), gap closure | S | 1–4 |
+| 4 | **Examples & Validation v1.0**: GUI worked examples + eight full case studies (4 GUI-led / 4 script-led) + 40-scenario digest compendium + flagship validation chapter; GUI-led figures via the Phase-0 generator | L | 0 (content-independent of 1–3) |
+| 5 | **Shipping**: release build step, wheel inclusion under `radiant/manuals/` + release artifacts (ruling Q1), CHANGELOG entry (Rule 29(c): capability added), Gap 131 closure | S | 1–4 |
 
 Phases 1, 2, 4 are parallelizable across sessions once Phase 0 lands (one branch per phase, normal worktree hygiene). Phase 3 is the long pole; its chapter batches can interleave with owner review.
 
-## 10. Open Questions (owner rulings requested)
+## 10. Ratified Rulings (owner, 2026-09-16)
 
-1. **Shipping mechanism.** PDFs are regenerable and gitignored; how do they "ship"? (a) built at release and included in the wheel (adds ~5–20 MB; install-local docs), (b) attached as release/distribution artifacts alongside the wheel, (c) both. **Recommendation: (c)** — wheel carries them under `radiant/manuals/` via a release build step; the repo never commits them.
-2. **Volume III Part 3 sourcing.** Bind the architecture specs verbatim (zero drift risk, agent-toned prose) vs. rewrite user-neutral (nicer read, second copy to maintain). **Recommendation: bind verbatim** with a one-page reader's preface; revisit tone only on reader complaints.
-3. **Case-study picks and modalities** (§7 Part C: eight studies, 4 GUI-led / 4 script-led). Approve, swap picks, or flip modalities.
-4. **Mission-type framing in Vol II ch. 4**: present the declared scenario-type selector (pending two-tier proposal) or document only the shipped regime machinery? **Recommendation: shipped machinery only**; manuals follow code (Rule 20 direction), never lead it.
-5. **CI docs build.** Add an optional CI job that runs `build_manual.py --tex --all` (Pandoc only, no TeX install) to catch conversion breakage? This extends CI, so it needs an explicit owner waiver of the process-machinery moratorium. **Recommendation: yes, as a non-blocking job** — `--tex` needs no LaTeX and catches the only silent failure class (Markdown that stops converting).
-6. **Cover identity.** Any branding beyond title/subtitle/version (logo, distribution statement, document number scheme)? Distribution/markings matter if these PDFs leave the building.
-7. **Screenshot chrome.** Offscreen captures render Fusion-style chrome, not native macOS decorations — workspace content is identical, window dressing differs. Accept platform-neutral figures throughout (recommended: befits a cross-platform tool, and keeps every figure regenerable), or hand-capture native hero shots for covers/openers?
+All seven questions were put to the owner one at a time and ruled on 2026-09-16:
+
+1. **Shipping mechanism — BOTH.** A release build step puts the PDFs in the wheel under `radiant/manuals/` and attaches them to the release/distribution as standalone artifacts. The repo never commits them.
+2. **Volume III Part 3 sourcing — BIND VERBATIM.** The three architecture specs are bound as-is with a one-page reader's preface; the builder strips the Date/Status/Depends-on metadata headers mechanically. No second lock-step copy is created.
+3. **Case studies — ALL 52, TIERED.** The eight proposed full-depth studies with the 4 GUI-led / 4 script-led split stand; every remaining scenario gets a 1–2 page digest (§7 Part C tier 2). Total coverage, tiered depth.
+4. **Mission-type framing — SHIPPED MACHINERY ONLY.** The User's Guide documents the auto-classification regime machinery as built; the mission-type selector gets a chapter when (if) it ships.
+5. **CI docs build — YES, NON-BLOCKING.** The owner waives the process-machinery moratorium for exactly one CI job: `build_manual.py --tex --all` (Pandoc only, no TeX install), non-blocking — visible red, never gates a merge.
+6. **Cover identity — MINIMAL.** Title, subtitle, version + git describe, build date, "RADIANT Project" author line. No logo, no document numbers, no distribution markings.
+7. **Screenshot chrome — ALL OFFSCREEN.** Every figure is an offscreen capture with platform-neutral Fusion-style chrome; no hand-captured native shots. Every figure stays regenerable by one command.
 
 ## 11. Tracking & Governance
 
-- On ratification: this plan → **Active**; mint a `docs/tracking/gaps.md` entry ("shipped PDF documentation suite" — a Rule 29(c) tracked capability), stub pushed to `origin/main` per reservation protocol; the gap closes at Phase 5.
+- Ratified 2026-09-16: plan **Active**; tracked as **Gap 131** (`docs/tracking/gaps.md`, minted and pushed the same day); the gap closes at Phase 5.
 - Figures and any committed generated content carry Rule-26 manifests naming generator + input + commit.
 - New chapters are §5.4-compliant from birth; grandfathered Unicode math in existing bound chapters stays until wholesale rewrite (no churn PRs).
 - Completion: the PR that lands Phase 5 moves this plan to `docs/archive/` (Rule 24).

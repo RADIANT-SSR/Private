@@ -323,6 +323,31 @@ def scan_images(text: str) -> list[tuple[int, str]]:
     return found
 
 
+#: An emphasized ``*Persona: ...*`` audience tag near a chapter's top. Repo-internal
+#: metadata (the RADIANT_Personas.md user model) that orients repo readers and agents;
+#: meaningless to a manual reader, so the builder drops it at build time (sources keep
+#: their tags — owner-flagged on the first render review, 2026-09-17).
+_PERSONA_LINE_RE = re.compile(r"^\*Persona:.*\*\s*$")
+
+
+def strip_persona_line(text: str) -> str:
+    """Drop a leading ``*Persona: ...*`` tag line (and its trailing blank line).
+
+    Only a line within the first few lines of the chapter is considered, so a
+    literal mention of the word deeper in prose is never touched. Text without
+    such a line is returned unchanged.
+    """
+    lines = text.splitlines()
+    for i, line in enumerate(lines[:6]):
+        if _PERSONA_LINE_RE.match(line):
+            tail = i + 1
+            while tail < len(lines) and not lines[tail].strip():
+                tail += 1
+            kept = [*lines[:i], *lines[tail:]]
+            return "\n".join(kept) + ("\n" if text.endswith("\n") else "")
+    return text
+
+
 def strip_spec_header(text: str) -> str:
     """Drop the leading ``**Key:**`` metadata block of an ``architecture/`` spec.
 
@@ -513,10 +538,10 @@ def prepare_chapter(chapter: str, tmpdir: Path, index: int) -> Path:
     stripped (ruling Q2), a temp copy of the stripped text.
     """
     source = DOCS / chapter
-    if ARCHITECTURE not in source.parents:
-        return source
     text = source.read_text(encoding="utf-8")
-    stripped = strip_spec_header(text)
+    stripped = strip_persona_line(text)
+    if ARCHITECTURE in source.parents:
+        stripped = strip_spec_header(stripped)
     if stripped == text:
         return source
     staged = tmpdir / f"{index:02d}_{source.name}"

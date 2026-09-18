@@ -117,3 +117,19 @@
   \newunicodechar{′}{\ensuremath{{}^{\prime}}}%
   \newunicodechar{″}{\ensuremath{{}^{\prime\prime}}}%
 }{}
+
+% --- GUI-chrome symbols ------------------------------------------------------
+% The User's Guide quotes interface chrome verbatim (menu arrows, the Inspector
+% and Manage buttons, badge marks). Termes has none of these glyphs; DejaVu Sans
+% (TeX-Live/MiKTeX-bundled, like the mono face) has them all, so map each to a
+% one-off DejaVu run rather than to a lookalike math symbol.
+\newfontfamily{\radiantsymbol}{DejaVuSans}[Extension=.ttf, Scale=MatchLowercase]
+\IfFileExists{newunicodechar.sty}{%
+  \newunicodechar{▸}{{\radiantsymbol ▸}}%
+  \newunicodechar{◈}{{\radiantsymbol ◈}}%
+  \newunicodechar{⚙}{{\radiantsymbol ⚙}}%
+  \newunicodechar{⚠}{{\radiantsymbol ⚠}}%
+  \newunicodechar{⚡}{{\radiantsymbol ⚡}}%
+  \newunicodechar{✓}{{\radiantsymbol ✓}}%
+  \newunicodechar{✕}{{\radiantsymbol ✕}}%
+}{}

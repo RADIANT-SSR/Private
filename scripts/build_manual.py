@@ -125,7 +125,24 @@ VOLUMES: dict[str, Volume] = {
         key="users_guide",
         title="RADIANT User's Guide",
         subtitle="Installation, Concepts, and GUI Operation",
-        chapters=(),
+        chapters=(
+            # Batch 1 — orientation and the scene side (ch. 1–6)
+            "guides/ug_introduction.md",
+            "guides/ug_installation.md",
+            "guides/ug_quickstart_tour.md",
+            "guides/ug_core_concepts.md",
+            "guides/ug_main_window.md",
+            "guides/ug_defining_scene.md",
+            # Batch 2 — the sensor side and the workflows around it (ch. 7–12)
+            "guides/ug_defining_sensor.md",
+            "guides/ug_configuration_sets.md",
+            "guides/ug_running_results.md",
+            "guides/ug_sweeps_trades.md",
+            "guides/ug_yaml_roundtrip.md",
+            "guides/ug_troubleshooting.md",
+        ),
+        # Appendix A — bound behind the \appendix break so it numbers A, not 13.
+        appendices=("guides/ug_menu_reference.md",),
     ),
     "tech_ref": Volume(
         key="tech_ref",

@@ -314,6 +314,40 @@ result.noise_budget().table()
 
 ---
 
+## Release Checklist
+
+A release ships the four typeset manual volumes and the scenario suite, both inside the
+wheel and as standalone artifacts. Neither the PDFs nor the GUI figures they embed are
+committed — both are regenerable (Rule 26), so they are rebuilt at release time.
+
+**1. Regenerate the GUI figures** — only needed after a GUI-visible change (layout,
+widget labels, the geometry viewer, any panel the User's Guide or Examples volume shows):
+
+```bash
+python scripts/gen_gui_screenshots.py --all
+```
+
+The captures are offscreen and platform-neutral (Support Documentation ruling Q7), so no
+display is required and the output does not depend on the developer's window manager.
+
+**2. Build the release** — manuals, wheel, sdist, and the artifact set, in one command:
+
+```bash
+export PATH="$PATH:/Library/TeX/texbin"     # macOS MacTeX, if not already on PATH
+python scripts/build_release.py
+```
+
+It refuses to run on a dirty tree (every cover page carries `git describe --dirty`;
+`--allow-dirty` overrides for a test build), builds every volume with
+`scripts/build_manual.py`, stages the PDFs and the git-tracked scenario suite into the
+package, builds and then *verifies* the wheel (volume count, scenario file count against
+`git ls-files`, no `__pycache__`, no bytecode), and leaves everything in
+`build/release/`. The two staging trees under `src/radiant/` are ephemeral — created,
+packed, removed (`--keep` retains them for debugging). Prerequisites are `pandoc`,
+`xelatex`, and `pip install build`; each missing one produces a named, actionable error.
+
+---
+
 ## Contributing
 
 1. **Branch naming:** `feature/<short-description>` or `fix/<issue-number>-short-description`

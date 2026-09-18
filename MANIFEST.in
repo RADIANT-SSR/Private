@@ -3,3 +3,11 @@
 # Data lives inside the package at src/radiant/data/tables/ so it installs with
 # `pip install radiant` (Rule 30: loaders resolve it relative to their module).
 recursive-include src/radiant/data/tables *.npz *.csv *.md *.yaml
+
+# Gap 131 Phase 5: the typeset manual PDFs and the scenario suite. Both trees are STAGED
+# by scripts/build_release.py (created, packed, removed) and gitignored, so in a normal
+# checkout neither exists and `python -m build` prints a benign "no previously-included
+# files found" note for these two lines. `graft` rather than a pattern list because the
+# scenario suite carries dotfiles (.gitkeep) that a `*` pattern would skip.
+recursive-include src/radiant/manuals *.pdf
+graft src/radiant/scenarios

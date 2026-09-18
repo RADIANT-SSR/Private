@@ -20,7 +20,7 @@ stability-guaranteed surface.
 
 ---
 
-## 1. The Actionability Contract
+## 1. The actionability contract
 
 An exception that says only "invalid parameter" is a bug. Every raise site carries three
 things:
@@ -83,7 +83,7 @@ information in the message string. The classes with structured `what`/`why`/`act
 
 Many classes co-inherit a built-in exception type — `ValueError`, `RuntimeError`,
 `KeyError`, `NotImplementedError`. That is a deliberate back-compat carve-out from the
-CU-043 migration: sites that historically raised a bare `ValueError` are caught as such
+migration to the RADIANT hierarchy: sites that historically raised a bare `ValueError` are caught as such
 throughout the test suite and in user code, and those `except ValueError` blocks keep
 working. `RadiantError` remains the canonical base. **New** RADIANT exception classes
 should inherit from `RadiantError` only.
@@ -104,7 +104,7 @@ forbidden. Physics-layer modules — source through readout — keep the univers
 
 ---
 
-## 2. The Tree
+## 2. The tree
 
 ```
 Exception
@@ -157,7 +157,7 @@ it. `core.viewing_triangle` uses it for geometry-consistency violations, for exa
 
 ---
 
-## 4. Physics Stages
+## 4. Physics stages
 
 | Class | Bases | Module | What raises it, with an example message |
 |-------|-------|--------|------------------------------------------|
@@ -173,7 +173,7 @@ it. `core.viewing_triangle` uses it for geometry-consistency violations, for exa
 | `KirchhoffViolationError` | `RadiantError`, `ValueError` | `optics.element` | An optical surface whose R and T violate energy conservation, or one given an independent emissivity. *"CavityModel: energy violation — T_sys + R_sys = 1.04 > 1. Check surface coating values."* |
 | `PlatformValidationError` | `RadiantError`, `ValueError` | `platform.errors` | Platform input guards. *"smear_width_m must be non-negative, got -1e-05"* |
 | `SpectralIntegrationValidationError` | `RadiantError`, `ValueError` | `spectral_integration.errors` | Missing or malformed spectral input at the collapse. *"SpectralIntegrationStage: 'post_optics' frame has no spectral_radiance."* |
-| `SpectralIntegrationStateError` | `RadiantError`, `RuntimeError` | `spectral_integration.errors` | A Rule-9 invariant violated upstream. *"EE_box != 1.0 but regime is 'extended' (EE_box=0.82). In extended-scene mode, EE_box must not be applied (Rule 9). This is a programming error in PlatformStage."* |
+| `SpectralIntegrationStateError` | `RadiantError`, `RuntimeError` | `spectral_integration.errors` | The ensquared-energy invariant violated upstream. *"EE_box != 1.0 but regime is 'extended' (EE_box=0.82). In extended-scene mode, EE_box must not be applied (Rule 9). This is a programming error in PlatformStage."* |
 | `DetectorValidationError` | `RadiantError`, `ValueError` | `detector.errors` | Detector input guards. *"diffusion_length_m must be non-negative, got -2e-06"* |
 | `PersistenceSequenceError` | `RadiantError` | `detector.persistence_sequence` | Invalid persistence-sequence input. *"prior_signal_e must be ≥ 0, got -5.0."* |
 | `ReadoutValidationError` | `RadiantError`, `ValueError` | `readout.errors` | Readout input guards. *"check_well_saturation: full_well_capacity_e = 0.0 must be > 0."* |
@@ -208,7 +208,7 @@ all guard the same way: a domain violation on a metric input.
 
 ---
 
-## 5. I/O and Data — `radiant.io`, `radiant.data`
+## 5. I/O and data — `radiant.io`, `radiant.data`
 
 | Class | Bases | Module | What raises it, with an example message |
 |-------|-------|--------|------------------------------------------|
@@ -225,12 +225,12 @@ all guard the same way: a domain violation on a metric input.
 
 ---
 
-## 6. API and Front Ends
+## 6. API and front ends
 
 | Class | Bases | Module | What raises it, with an example message |
 |-------|-------|--------|------------------------------------------|
 | `ApiValidationError` | `RadiantError`, `ValueError` | `api.errors` | A `radiant.api` call given a bad argument. *"Sensor.load: '_radiant.wavelength_points' must be an integer >= 2, got 1 in my_config.yaml."* |
-| `OperationCancelledError` | `RadiantError` | `api._progress` | A long-running operation aborted through its `cancel()` callback. Carries `operation`, `done`, `total`. *"sweep cancelled after 12/51 evaluations. No result is returned for a cancelled operation; re-run, or sweep in smaller chunks if partial results are needed."* |
+| `OperationCancelledError` | `RadiantError` | `api._progress` | A long-running operation aborted through its `cancel()` callback. Carries `operation`, `done`, `total`. *"sweep canceled after 12/51 evaluations. No result is returned for a canceled operation; re-run, or sweep in smaller chunks if partial results are needed."* |
 | `SolveBracketError` | `RadiantError` | `api.solve` | `solve_for` given a bracket that does not contain the target; carries both endpoint metric values. *"solve_for('optics.aperture_diameter_m'): bounds must satisfy lo < hi, got (1.0, 0.05)."* |
 | `BatchRunnerError` | `RadiantError` | `api.batch` | Invalid batch construction or an invalid pivot query. *"BatchRunner needs at least one axis; got an empty sequence."* |
 | `ComparisonError` | `RadiantError` | `api.compare` | An invalid `compare_configs` request. *"compare_configs needs at least 2 configurations, got 1. Pass two or more (label, ChainResult) pairs."* |
@@ -244,7 +244,7 @@ all guard the same way: a domain violation on a metric input.
 
 ---
 
-## 7. Catching Selectively
+## 7. Catching selectively
 
 Catch `RadiantError` when you want "the framework said no" and nothing else. Catch a
 specific class when you intend to recover from that one condition:

@@ -24,7 +24,7 @@ Three habits apply to all six, and each of them has cost someone a re-run:
 
 - **Declare the envelope before you run.** A tolerance, a threshold, or a pass band
   chosen *after* the numbers are on screen is not an analysis result. Put
-  `TOLERANCE_PCT`, the SNR floor, or the acceptable NEdT in the script as a named
+  `TOLERANCE_PCT`, the SNR floor, or the acceptable NEDT in the script as a named
   constant at the top.
 - **Read the warnings.** Every trade tool in RADIANT evaluates the full chain, and the
   chain warns rather than silently clipping. A sweep whose curve flattens may be
@@ -69,7 +69,7 @@ print(f"first point with SNR >= 1000: {hit}")
 sweep.to_csv("aperture_sweep.csv")         # tidy per-point export
 ```
 
-```
+```text
   D = 0.10 m   SNR =   374.54 [-]
   D = 0.20 m   SNR =   749.31 [-]
   D = 0.30 m   SNR =  1124.03 [-]
@@ -84,7 +84,7 @@ with diameter — which is the shot-noise limit's signature, since signal grows 
 and shot noise as $D$. The last three are identical to the digit, and *that* is not
 physics: the run warns
 
-```
+```text
 pixel saturated: signal 5.054e+06 e- clipped to 2.000e+06 e- — the well
 capacity remaining after the non-signal pedestal
 ```
@@ -154,7 +154,7 @@ print(grid.grid.round(1))
 grid.to_csv("aperture_dwell_grid.csv")
 ```
 
-```
+```text
 (3, 2)
 [[ 335.   749.3]
  [ 502.6 1124. ]
@@ -172,14 +172,14 @@ alongside the metric.
 
 The same **Run → Run Sweep…** dialog. Tick **Second parameter (2-D grid)** and a second
 parameter/Start/Stop/Points block appears, each with its own unit chip and log-spacing
-option. The result renders as a heatmap with both axes and the colour bar unit-suffixed
+option. The result renders as a heatmap with both axes and the color bar unit-suffixed
 in the units you typed. Progress, cancel, **Copy as script** and CSV export behave
 exactly as in the 1-D case.
 
 ### Seen in anger
 
 No tier-1 case study runs a `sweep_2d` — which is itself informative. When the two axes
-are *discrete and labelled* (three atmospheres × six targets) the right tool is Recipe
+are *discrete and labeled* (three atmospheres × six targets) the right tool is Recipe
 6's batch matrix, and that is what the **target detection matrix** case study uses. The
 2-D sweep earns its place when both axes are continuous and the answer is a surface,
 not a table of named cells.
@@ -190,7 +190,7 @@ not a table of named cells.
 
 ### When to reach for it
 
-You already know the answer you need — SNR = 50, NEdT = 30 mK, NIIRS = 4.5 — and want
+You already know the answer you need — SNR = 50, NEDT = 30 mK, NIIRS = 4.5 — and want
 the parameter value that produces it. A sweep can only tell you which of its grid
 points crossed; a solve gives you the crossing itself, usually in fewer evaluations
 than a coarse sweep would take.
@@ -218,7 +218,7 @@ else:
           f"in {solution.n_evaluations} evaluations")
 ```
 
-```
+```text
 optics.aperture_diameter_m = 0.06678 m
 achieved snr = 250.000 [-] in 9 evaluations
 ```
@@ -286,7 +286,7 @@ print("correlation with inputs:", corr)
 mc.to_csv("mc_trials.csv")     # one row per trial
 ```
 
-```
+```text
 mean  1122.04 [-]
 std   27.99 [-]
 5th percentile  1071.41 [-]
@@ -323,7 +323,7 @@ so a scaffolded script picks up the session's declared spreads.
 of this volume: three toleranced parameters, 50 trials, and the statistics printed with
 units. No tier-1 case study runs a Monte Carlo — the eight were chosen for breadth of
 persona, and tolerancing is a specialist's tool that a systems engineer reaches for
-once a programme rather than weekly.
+once a program rather than weekly.
 
 ---
 
@@ -359,7 +359,7 @@ for entry in sorted(ranking.entries, key=lambda e: abs(e.sensitivity), reverse=T
 print(f"nominal {ranking.metric_name} = {ranking.entries[0].metric_nominal:.2f} [-]")
 ```
 
-```
+```text
   optics.aperture_diameter_m                    +1.000
   detector.qe_value                             +0.500
   optics.transmission_scalar                    +0.500
@@ -367,7 +367,7 @@ print(f"nominal {ranking.metric_name} = {ranking.entries[0].metric_nominal:.2f} 
 nominal snr = 1124.03 [-]
 ```
 
-**The sensitivity is normalised**: a value of 2.0 means a 1 % change in the parameter
+**The sensitivity is normalized**: a value of 2.0 means a 1 % change in the parameter
 produces a 2 % change in the metric, and a negative value means the metric falls as the
 parameter rises. It is therefore directly comparable across parameters with wildly
 different units, which is the whole point.
@@ -380,7 +380,7 @@ exactly. When a sensitivity comes back at an exponent you cannot explain from th
 physics, that is worth a second look before it is worth a design decision.
 
 Each `SensitivityEntry` also carries `nominal_value`, `metric_nominal`, `metric_plus`
-and `metric_minus`, so the two-sided behaviour is inspectable — useful where a
+and `metric_minus`, so the two-sided behavior is inspectable — useful where a
 parameter is near a boundary and the response is asymmetric. Omit `param_names`
 entirely and the analysis runs over the toleranced parameters, or over all float
 parameters if none are toleranced.
@@ -405,7 +405,7 @@ noise budget's own language.
 
 ### When to reach for it
 
-Two or more **discrete, labelled** axes whose cells you want in a table with the labels
+Two or more **discrete, labeled** axes whose cells you want in a table with the labels
 attached: three sensors × four targets × two atmospheres. Unlike a sweep, each cell can
 change several parameters at once, the axis labels survive into the output, and a cell
 that fails is *recorded* rather than aborting the run — which matters when a corner of
@@ -444,7 +444,7 @@ for row in batch.rows:
           f"SNR {row['snr']:8.1f} [-]   NEdT {row['nedt_mK']:6.1f} [mK]")
 ```
 
-```
+```text
 failed cells: 0
    25 cm x  2 ms: SNR    592.3 [-]   NEdT   47.4 [mK]
    25 cm x  5 ms: SNR    936.7 [-]   NEdT   30.0 [mK]
@@ -466,7 +466,7 @@ would misreport coverage; this one reports `n_failed` and keeps the row.
 ### From the GUI
 
 **Run → Batch Run…**, like Monte Carlo, opens the scripting window with a prefilled
-`BatchRunner` skeleton — two labelled axes, an `evaluate` function, the run, a `pivot`
+`BatchRunner` skeleton — two labeled axes, an `evaluate` function, the run, a `pivot`
 and the failed-cell count — for the same reason: the shape of a batch is the analysis,
 and it belongs in a script.
 
@@ -496,7 +496,7 @@ Two boundaries are worth restating because they are the ones people cross by acc
 A **configuration set** is for up to twelve *named* designs that differ in several
 parameters each, save as one document, and appear side by side in the GUI's comparison
 view — if you are naming sweep points, that is what you want. A **batch matrix** is for
-the Cartesian product of labelled axes evaluated into a tidy table — if you are adding a
+the Cartesian product of labeled axes evaluated into a tidy table — if you are adding a
 thirteenth configuration to trace a trend, you want a sweep instead.
 
 And whichever you reach for: the numbers it prints are only as good as the

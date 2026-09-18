@@ -21,7 +21,7 @@ through the strip is moving forward through the physics.
 | 5 | **Platform** | jitter RMS, ground velocity, smear length | jitter and smear kernels on the PSF, the ensquared-energy fraction |
 | 6 | **Spectral Integration** | the filter band edges and the integration time | electrons per pixel: signal, background, contrast |
 | 7 | **Detector** | pixel geometry, QE, dark current and glow, 1/f, fixed-pattern terms, IPC and diffusion — or a part from the FPA preset library | the per-term noise budget and the detector MTF terms |
-| 8 | **Readout** | read noise, gain, ADC depth, full well, TDI, co-adds, binning, frame timing, readout architecture | the digitised signal, well fill, quantisation |
+| 8 | **Readout** | read noise, gain, ADC depth, full well, TDI, co-adds, binning, frame timing, readout architecture | the digitized signal, well fill, quantization |
 | 9 | **Calibration** | the calibration scheme and its cal points, drift, source and gain uncertainty | post-correction residual noise and the bias budget |
 | 10 | **Performance** | which metric groups to compute | SNR, NEDT, NIIRS, MTF budgets, margins, detection range |
 
@@ -62,7 +62,7 @@ schema, which is why a parameter added to the model appears in the tree without 
 updating the interface — and why this manual does not reproduce the list. The full
 enumeration is generated from the code: Volume III's parameter reference.
 
-Three behaviours follow from the schema and are visible everywhere:
+Three behaviors follow from the schema and are visible everywhere:
 
 **Validation happens before computation.** An edit is checked — type, bounds, enumeration
 membership, consistency-group sanity, cross-parameter over-specification — before it reaches
@@ -81,7 +81,7 @@ nothing that changes two things because it seemed convenient.
 ## 3. Units, and the display-symmetry rule
 
 RADIANT's internals are canonical: wavelength in µm, angles in radians, time in seconds,
-length in metres, radiance in W/m²/sr/µm, noise in e- RMS, temperature in K. Conversions
+length in meters, radiance in W/m²/sr/µm, noise in e- RMS, temperature in K. Conversions
 happen exactly once, at the boundary where you type a value or a file is read. No physics
 module converts units.
 
@@ -95,8 +95,8 @@ The mechanism is a per-row display unit, remembered for the session. Open the fu
 editor on a dimensional parameter and it offers a unit selector built from the conversions
 the framework actually supports (never a hand-written list), with a live preview of the
 canonical result — type `8`, choose `km`, and the preview confirms `= 8000 m`. Commit, and
-from then on that row displays in kilometres, including when you type into it inline: typing
-`550` into a km-displaying row stores 550 000 m.
+from then on that row displays in kilometers, including when you type into it inline: typing
+`550` into a km-displaying row stores 550,000 m.
 
 Angles get their own switch, because radians are canonical and nobody thinks in them:
 **View ▸ Angles in Degrees** is on by default and persists across launches. It is display
@@ -208,7 +208,7 @@ MTF*, *Radiometric*, *Interpretability*, *Saturation* — and the `Compute:` row
 of them the chain produces. Deselecting a group stops its computation, which is how you buy
 back time on an expensive configuration; it is not a display filter.
 
-Two behaviours are worth expecting in advance:
+Two behaviors are worth expecting in advance:
 
 **A metric that cannot be computed says so.** RADIANT's metric layer is allowed to return a
 named failure instead of a number, and the interface never fills the gap with a blank, a

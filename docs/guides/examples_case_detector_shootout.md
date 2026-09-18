@@ -38,7 +38,7 @@ action is.
 | Collimator aperture | 0.025 m | 2.5 cm. |
 | Collimator focal length | 0.0575 m | 5.75 cm, giving f/2.3. |
 | Optical transmission | 0.90 | Collimator plus window, as a scalar lump. |
-| Cold filter passband | 3.5 – 5.0 µm | The common band both parts are traded in. |
+| Cold filter passband | 3.5–5.0 µm | The common band both parts are traded in. |
 | Pixel pitch | 15 µm × 15 µm | The shared ROIC. |
 | Fill factor | 1 | Full-fill. |
 | Node capacitance | 3.3 × 10⁻¹⁴ F | 33 fF. |
@@ -48,7 +48,7 @@ action is.
 | Integration time | 0.001 s | 1 ms frame. |
 | Operating temperature | 77 K | The nominal set point the trade starts from. |
 | Quantum efficiency (InSb) | 0.86 | Band-average of the vendor curve over 3.5–5.0 µm. |
-| Dark rate (InSb) | 280 868 e-/s at 77 K | $J(77\ \mathrm{K}) \cdot A_{pix} / q$ from the vendor table. |
+| Dark rate (InSb) | 280,868 e-/s at 77 K | $J(77\ \mathrm{K}) \cdot A_{pix} / q$ from the vendor table. |
 | Read noise (InSb) | 18 e- RMS | Vendor CDS figure. |
 | Atmosphere | `exo` | There is no atmosphere between a plate and a collimator 5 cm away. |
 | Sensor altitude | 1.0 m | A bench placeholder — the chain needs a geometry, and this one is not a real one. |
@@ -73,7 +73,7 @@ rate.](figures/gui/case_shootout_detector.png)
 Three things on this page are worth naming.
 
 **The FPA part library row** across the top reads `FPA part library  no part applied`,
-with `Choose part & apply…` live and `Open datasheet/paper` greyed out. RADIANT ships a
+with `Choose part & apply…` live and `Open datasheet/paper` grayed out. RADIANT ships a
 library of real focal-plane presets, each traced to a datasheet line in a manifest, and
 applying one writes a whole set of detector parameters at once with a `preset` badge on
 each. Mike is not using one here — and that is the right call for this study, because
@@ -93,7 +93,7 @@ unphysical curve.
 This baseline carries the **scalar**, 0.86 — the band-average of the InSb curve. That
 choice is visible in the results and is discussed under step 4.
 
-**The dark current** reads 280 868 1/s at a 77 K reference temperature. That is not a
+**The dark current** reads 280,868 1/s at a 77 K reference temperature. That is not a
 datasheet number typed in; it is $J(77\ \mathrm{K})\,A_{pix}/q$ evaluated from the
 vendor's measured $J_{dark}(T)$ table, with the A/cm² → e-/s conversion done once in
 the loader. The loader's interpolation is Arrhenius-faithful — $\ln J$ linear in $1/T$,
@@ -142,12 +142,12 @@ regime the scene *is* the source — a 300 K plate filling the aperture — so t
 separate background photon population to add on top of it. The bench-ambient
 temperature in the config feeds the contrast scene, not a second shot term. The
 signal-integration stage's own outputs say the same thing in numbers:
-`signal_e` = 1 055 678 e-, `background_e` = 0, `contrast_e` = 1 055 678 e-, which is why
+`signal_e` = 1,055,678 e-, `background_e` = 0, `contrast_e` = 1,055,678 e-, which is why
 SNR, contrast SNR and SCNR will all read the same value on the Performance page.
 
 **The headline for the cooler budget: at 77 K the dark current is irrelevant.** Dark
 shot noise is 16.76 e- RMS against 1027 e- RMS of photon noise. The 40× dark-current
-advantage HgCdTe holds over InSb — 7022 e-/s against 280 868 e-/s — buys essentially
+advantage HgCdTe holds over InSb — 7022 e-/s against 280,868 e-/s — buys essentially
 nothing *at this set point on this bright bench*. The trade at 77 K is a QE trade, and
 InSb wins it.
 
@@ -164,11 +164,11 @@ Select stage **10 Performance**.
 ![Performance workspace on the InSb bench branch.](figures/gui/case_shootout_performance.png)
 
 **Radiometric.** SNR 1023, contrast SNR 1023, SCNR 1023, NEDT 27.46 mK. The three SNR
-flavours coincide because `contrast_e` equals `signal_e`, as step 3 explained.
+flavors coincide because `contrast_e` equals `signal_e`, as step 3 explained.
 
 **Spatial / MTF.** FWHM 15.54 µm, RER 0.6992, ensquared energy 0.5316 in the central
 pixel and 0.917 over 3 × 3, MTF at Nyquist 0.3756, folded MTF 0.7529, alias fraction
-0.5012, Strehl 1. $Q$ = 0.6517 at band centre, classified `detector-limited` — an f/2.3
+0.5012, Strehl 1. $Q$ = 0.6517 at band center, classified `detector-limited` — an f/2.3
 collimator at 4.25 µm blurs to well under a 15 µm pixel, which is what a bench is
 supposed to do.
 
@@ -185,12 +185,12 @@ gap.
 
 **Saturation.** Well margin 13.51 dB, ADC margin 13.50 dB, dynamic range 73.71 dB. The
 margin is $20\log_{10}$ of capacity over filled charge, so 13.51 dB is a factor of 4.74:
-the 1 ms frame fills about a fifth of the 5 Me- well — 1 055 678 e- of 5 × 10⁶ e-, which
+the 1 ms frame fills about a fifth of the 5 Me- well — 1,055,678 e- of 5 × 10⁶ e-, which
 is the signal-integration output step 3 quoted.
 
 > **Running the second detector.** The committed GUI baseline is the InSb branch. In
 > the window, the HgCdTe branch is three edits in the Parameters dock —
-> `detector.qe_value` 0.86 → 0.782, `detector.dark_rate_e_per_s` 280 868 → 7022,
+> `detector.qe_value` 0.86 → 0.782, `detector.dark_rate_e_per_s` 280,868 → 7022,
 > `readout.read_noise_e_rms` 18 → 12 — after which the window re-evaluates on its
 > debounce and the Noise tab redraws. To see both at once rather than one after the
 > other, save the edited version and use `Tools → Compare Config Files…`, which
@@ -213,7 +213,7 @@ than a band-averaged scalar, and reports:
 | `dark_shot` | 16.76 | 2.65 |
 | `glow_shot` | 0.07 | 0.07 |
 | **Total (RSS)** | **1037.73** | **989.32** |
-| Signal [e-] | 1 068 522 | 970 841 |
+| Signal [e-] | 1,068,522 | 970,841 |
 | SNR | 1029.7 | 981.3 |
 
 and, from the exact Arrhenius inversion of the vendor tables rather than a temperature
@@ -221,14 +221,14 @@ sweep:
 
 | Quantity | InSb | HgCdTe |
 |---|---:|---:|
-| Dark rate at 77 K [e-/s] | 280 868 | 7 022 |
+| Dark rate at 77 K [e-/s] | 280,868 | 7,022 |
 | Crossover temperature [K] | 77.3 | 84.1 |
 | BLIP temperature [K] | 101.7 | 115.4 |
 | NEI [photons/s/cm²] | 5.363 × 10¹¹ | 5.620 × 10¹¹ |
 
 **The GUI baseline is the InSb scalar-QE branch, and it reproduces the runner's own
-scalar column exactly.** The runner reports scalar-QE signal 1 055 678 e- against
-spectral 1 068 522 e- (+1.22 %), and $\sqrt{1\,055\,678} = 1027.5$ — the 1027 e- RMS on
+scalar column exactly.** The runner reports scalar-QE signal 1,055,678 e- against
+spectral 1,068,522 e- (+1.22 %), and $\sqrt{1\,055\,678} = 1027.5$ — the 1027 e- RMS on
 the figure above. Carried through, that is SNR 1023 in the window against SNR 1029.7 in
 the spectral run. The gap is not a disagreement: it is the price of a band-averaged QE.
 A flat average cannot know that the in-band photons concentrate at the long-wavelength

@@ -6,7 +6,7 @@ Using the Python API for programmatic sensor modeling, sweeps, and analysis.
 
 ---
 
-## The Import Surface
+## The import surface
 
 Two names are guaranteed stable and live at the top level:
 
@@ -21,17 +21,16 @@ Everything else is reached through `radiant.api` (`ChainResult`, `SweepResult`,
 top-level import.
 
 There are no `SensorConfig` or `ScenarioConfig` builder classes. `Sensor.from_yaml()`
-and `Sensor.from_dict()` already accept everything such a wrapper would have carried
-(see `docs/adr/ADR-C-public-api-surface.md`).
+and `Sensor.from_dict()` already accept everything such a wrapper would have carried.
 
 ---
 
-## The Sensor Class
+## The Sensor class
 
 `Sensor` is the primary Python entry point. It wraps configuration, parameter
 resolution, and chain execution into a single object.
 
-### Creating a Sensor
+### Creating a sensor
 
 From a YAML file:
 
@@ -79,7 +78,7 @@ coarse = sensor.with_wavelength_points(200)   # a clone; `sensor` is untouched
 tolerance distributions, and the grid size from the file's `_radiant` block. A plain
 config loads exactly as through `from_yaml`.
 
-### Setting and Getting Parameters
+### Setting and getting parameters
 
 ```python
 from radiant.api import Sensor
@@ -116,10 +115,10 @@ schema default, not to the file value — there is no layered history. To get th
 exactly, reload it. `reset_all(scope="all")` removes every explicit input, leaving pure
 schema defaults.
 
-### Entering a Value in Your Own Unit
+### Entering a value in your own unit
 
-`set()` takes a `unit=` keyword and converts at that boundary — the one conversion point
-(Rule 2). The value you pass is in *your* unit; what gets stored is canonical.
+`set()` takes a `unit=` keyword and converts at that boundary — the single conversion
+point for user input. The value you pass is in *your* unit; what gets stored is canonical.
 
 ```python
 from radiant.api import Sensor
@@ -135,7 +134,7 @@ input and shown by `resolved()` and `explain()`. It defaults to `"Sensor.set"`; 
 setting values on behalf of a named context passes its own label. The provenance *class*
 stays `USER_SET` either way.
 
-### Inspecting Parameters and Provenance
+### Inspecting parameters and provenance
 
 ```python
 from radiant.api import Sensor
@@ -159,7 +158,7 @@ print(sensor.explain())                  # full chain walkthrough of the latest 
 `Provenance` members are `USER_SET`, `CONFIG_FILE`, `DEFAULT`, `DERIVED`, `SAMPLED`, and
 `PRESET`.
 
-### Saving a Sensor
+### Saving a sensor
 
 ```python
 from radiant.api import Sensor
@@ -181,7 +180,7 @@ RADIANT config — `from_yaml` and the CLI read it too.
 `to_yaml(relative_to=...)` rewrites absolute file-path parameters relative to the
 directory the emitted YAML will live in, so an element-bearing config stays portable.
 
-### Applying an FPA Preset
+### Applying an FPA preset
 
 ```python
 from radiant.api import Sensor
@@ -201,7 +200,7 @@ Presets seed; explicit values win, in any order. Values applied by a preset pers
 through `save()` as ordinary explicit inputs — the `fpa:` key itself is not
 re-serialized. The bundled part list is in the **Data Libraries** chapter.
 
-### Attaching an Optical Element Train
+### Attaching an optical element train
 
 ```python
 from radiant.api import Sensor
@@ -221,9 +220,9 @@ check, so an entry carrying both reflectance and emissivity is rejected — norm
 parsed onto the current wavelength grid at every evaluation. Unlike raw stage-output
 injections it *is* written by `save()` and restored by `load()`. Pass `None` to remove it.
 
-### Injecting Non-Scalar Inputs
+### Injecting non-scalar inputs
 
-Stages never read files (Rule 6), so file-derived objects are built before the chain and
+Stages never read files, so file-derived objects are built before the chain and
 injected as pre-chain stage outputs:
 
 ```python
@@ -242,7 +241,7 @@ Monte Carlo runs. They are **not** serialized by `save()` — only the declarati
 
 ---
 
-## Working with ChainResult
+## Working with a ChainResult
 
 `sensor.evaluate()` returns a `ChainResult` with several views into the
 completed signal chain.
@@ -305,7 +304,7 @@ result.nedt()     # K    — reads metrics['nedt_K']
 result.niirs()    # dimensionless
 ```
 
-### Stage Outputs
+### Stage outputs
 
 Each stage stores intermediate results accessible via `result.stage_outputs`:
 
@@ -318,7 +317,7 @@ regime = result.stage_outputs["optics"]["regime"]
 tau_atm = result.stage_outputs["atmosphere"]["tau_atm"]
 ```
 
-### Radiometric Frames
+### Radiometric frames
 
 Frames are snapshots of the signal at key propagation points:
 
@@ -337,7 +336,7 @@ Which frames exist depends on the scene: a reflective scene registers
 `result.signal_at(...)` (below) when you want a value at a *named reference frame*
 regardless of which snapshots this particular run happened to register.
 
-### Noise Terms
+### Noise terms
 
 Individual noise contributions (in electrons):
 
@@ -371,7 +370,7 @@ print(exp.description)  # the same fields pre-formatted, with units
 
 An unknown term name raises `KeyError` listing the available terms — never a `None`.
 
-### Reading a Value at Another Reference Frame
+### Reading a value at another reference frame
 
 Signal and noise can be read at any point in the chain, propagated through the stored
 transfer factors:
@@ -389,11 +388,11 @@ n_shot = result.noise_at("dn", "signal_shot")  # one term at that frame
 
 The six frames are `at_target`, `at_aperture`, `post_optics`, `photoelectrons`,
 `post_readout`, and `dn` (the `ReferenceFrame` enum in `radiant.core.quantity`; a plain
-string works too). Pre-integration frames are spectral-only by design — Rule 8 allows
+string works too). Pre-integration frames are spectral-only by design — the chain allows
 exactly one spectral collapse — so `result.frames["at_aperture"].in_band_value` is
 deliberately `None` and `signal_at` is the only way to read an in-band scalar there.
 
-### Saturation Status
+### Saturation status
 
 ```python
 from radiant.api import Sensor
@@ -409,14 +408,14 @@ well.full_well_capacity_e   # e-
 well.is_saturated           # bool
 ```
 
-### Browsing the Whole Result
+### Browsing the whole result
 
 ```python
 print(result.inspect())            # the full readable result tree
 print(result.inspect("optics"))    # scoped to one stage
 ```
 
-### Saving and Reloading a Result
+### Saving and reloading a result
 
 ```python
 from radiant.api import ChainResult
@@ -451,9 +450,9 @@ blocking a run.
 
 ---
 
-## Parameter Sweeps
+## Parameter sweeps
 
-### 1D Sweep
+### 1-D sweep
 
 ```python
 from radiant.api import Sensor
@@ -495,7 +494,7 @@ result = sensor.sweep(
 `n_workers` above 1 runs the points in parallel processes; `keep_results=False` drops the
 per-point `ChainResult` objects when only the metric curve is wanted.
 
-### 2D Sweep
+### 2-D sweep
 
 ```python
 from radiant.api import Sensor
@@ -516,7 +515,7 @@ result = sensor.sweep_2d(
 
 ---
 
-## Solving for a Parameter Value
+## Solving for a parameter value
 
 The inverse of a sweep: find the parameter value that hits a target metric. Brent root
 finding runs on the forward model over the given bracket, in input units.
@@ -540,7 +539,7 @@ message tells you which way to widen the bracket.
 
 ---
 
-## Monte Carlo Tolerance Analysis
+## Monte Carlo tolerance analysis
 
 Assign statistical tolerances to parameters and run a Monte Carlo ensemble:
 
@@ -581,7 +580,7 @@ identical trials.
 
 ---
 
-## Sensitivity Analysis
+## Sensitivity analysis
 
 Determine which parameters have the largest impact on a metric:
 
@@ -614,13 +613,13 @@ normalized and therefore dimensionless:
 
 $$S = \frac{\Delta M / M}{\Delta p / p}$$
 
-so an $S$ of $+2.0$ means a 1% increase in the parameter raises the metric by about 2%.
+so an $S$ of $+2.0$ means a 1 % increase in the parameter raises the metric by about 2 %.
 With `param_names=None` the analysis perturbs the toleranced parameters if any are set,
 otherwise every float parameter. `delta_fraction=0.01` is a $\pm 1\%$ perturbation.
 
 ---
 
-## Progress Reporting and Cancellation
+## Progress reporting and cancellation
 
 `sweep`, `sweep_2d`, `monte_carlo`, `sensitivity`, and `BatchRunner.run` all accept the
 same two callbacks:
@@ -650,12 +649,12 @@ except OperationCancelledError as exc:
 
 Both callbacks run on the calling thread — a GUI typically flips a flag from its event
 loop and reads progress into a bar. An exception raised inside `progress` is **not**
-swallowed: a broken callback fails the operation loudly. A cancelled operation returns no
+swallowed: a broken callback fails the operation loudly. A canceled operation returns no
 partial result; sweep in chunks if partials are needed.
 
 ---
 
-## Batch Matrices
+## Batch matrices
 
 `BatchRunner` evaluates the cartesian product of labeled axes — N targets × M atmospheres
 × K sensors — and returns a tidy table. The runner owns the mechanics (product, per-cell
@@ -703,7 +702,7 @@ programming bug and propagates. Failed cells appear as `None` in a pivot.
 
 ---
 
-## Using the Data Library
+## Using the data library
 
 The `SpectralLibrary` provides bundled material emissivity, detector QE, and
 solar irradiance data:
@@ -726,7 +725,7 @@ arrays, plus `.unit`, `.source`, and `.name` metadata.
 
 ---
 
-## Cloning for Comparison
+## Cloning for comparison
 
 ```python
 from radiant.api import Sensor
@@ -742,7 +741,7 @@ delta_snr = r_upgrade.metrics["snr"] - r_base.metrics["snr"]
 
 ---
 
-## Configuration Sets
+## Configuration sets
 
 Cloning gives you two independent sensors. A `ConfigurationSet` instead keeps
 **one** document with up to twelve named *configurations* of the same problem: a
@@ -781,17 +780,17 @@ yaml_text = cs.to_yaml()           # the whole study as one document
 ```
 
 `cs.save(path)` writes that document and `ConfigurationSet.load(path)` reads it
-back --- names and order, `active` / `baseline`, per-configuration
+back — names and order, `active` / `baseline`, per-configuration
 `wavelength_points`, and the configured table all round-trip. A plain config
 file loads as the degenerate one-configuration set; a study file loaded through
 `Sensor.from_yaml` raises an error pointing at `ConfigurationSet.load`.
 
-The full member list is in `docs/architecture/RADIANT_Scripting_API.md` §2.5c,
-and `examples/scripts/dual_band_configuration_set.py` is the worked study.
+The repository's scripting-API specification carries the full member list, and
+`examples/scripts/dual_band_configuration_set.py` is the worked study.
 
 ---
 
-## Exporting Results
+## Exporting results
 
 ### CLI export
 
@@ -813,17 +812,17 @@ metrics_dict = dict(result.metrics)
 
 ---
 
-## See Also
+## See also
 
 Example scripts in `examples/scripts/`:
 
-- `basic_evaluation.py` --- load, evaluate, inspect
-- `aperture_sweep.py` --- 1D sweep with plotting
-- `tolerance_analysis.py` --- Monte Carlo workflow
-- `compare_configs.py` --- side-by-side comparison of two `Sensor` objects
-- `custom_loop.py` --- advanced iteration patterns
-- `dual_band_configuration_set.py` --- a `ConfigurationSet` study (MWIR vs LWIR
-  on one telescope), worked end to end: see **Configuration Sets** above
+- `basic_evaluation.py` — load, evaluate, inspect
+- `aperture_sweep.py` — 1D sweep with plotting
+- `tolerance_analysis.py` — Monte Carlo workflow
+- `compare_configs.py` — side-by-side comparison of two `Sensor` objects
+- `custom_loop.py` — advanced iteration patterns
+- `dual_band_configuration_set.py` — a `ConfigurationSet` study (MWIR vs LWIR
+  on one telescope), worked end to end: see **Configuration sets** above
 
 Plot functions are available in `radiant.api.plot` for sweep results,
 noise budgets, PSF images, MTF curves, and spectral data visualization.

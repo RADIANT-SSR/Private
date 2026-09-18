@@ -5,7 +5,7 @@ exports, Zemax wavefront reports, spectral-library files, and Excel workbooks. E
 of them follows the same two rules.
 
 **Conversion happens at the reader, once.** A tape7 is in wavenumber and W/cm²; a vendor
-QE curve may be in nanometres and percent; a dark-current plot is in A/cm². Each reader
+QE curve may be in nanometers and percent; a dark-current plot is in A/cm². Each reader
 converts to canonical units at the file boundary and hands the rest of the framework a
 clean object. No physics module ever sees a foreign unit.
 
@@ -78,12 +78,11 @@ matrix; the tape7-import path is the supported one.
 ### The shipped alternative
 
 Most users need neither: the bundled atmosphere library is MODTRAN-derived data,
-available through `atmosphere.model: interpolated`. See the
-[Data Libraries](tech_data_libraries.md) chapter.
+available through `atmosphere.model: interpolated`. See the Data Libraries chapter.
 
 ---
 
-## 2. Measured Curves
+## 2. Measured curves
 
 `radiant.io.measurement.load_measured_curve` reads a two-column $(x, y)$ curve from any
 delimited text file — measured MTF against spatial frequency, measured transmission
@@ -116,7 +115,7 @@ Excel workbooks are out of scope for this reader — export the sheet to CSV fir
 
 ---
 
-## 3. Vendor Detector Data
+## 3. Vendor detector data
 
 ### QE curves
 
@@ -136,8 +135,8 @@ qe.band_averaged_qe(3.5, 5.0)            # band mean over 3.5-5.0 µm
 ```
 
 Unit resolution in `"auto"` mode is header-driven, never magnitude-driven: a header token
-containing `nm` means nanometres, one containing `um` / `µm` / `micron` means
-micrometres, and a token containing `pct` / `percent` / `%` means percent. A header with
+containing `nm` means nanometers, one containing `um` / `µm` / `micron` means
+micrometers, and a token containing `pct` / `percent` / `%` means percent. A header with
 no hint raises `QeCsvParseError` asking for an explicit `wavelength_unit` rather than
 guessing. A fraction-mode curve carrying values above 1.0 raises with a pointer at
 `qe_unit="percent"` instead of producing unphysical QE.
@@ -170,7 +169,7 @@ silently extrapolating an exponential is how dark-current budgets go wrong.
 
 ---
 
-## 4. Zemax Wavefront Reports
+## 4. Zemax wavefront reports
 
 `radiant.io.zemax_zernike.load_zemax_zernike` parses the text report Zemax (OpticStudio)
 writes from *Analyze → Wavefront → Zernike Standard Coefficients → Save As Text*. It does
@@ -201,7 +200,7 @@ pre-chain, superseding the scalar `optics.wfe_rms_waves` path.
 
 ---
 
-## 5. Spectral Libraries
+## 5. Spectral libraries
 
 `radiant.io.aster_library.load_aster_spectrum` reads one file of the JPL/NASA ASTER
 spectral library — the `Name:` / `Type:` metadata header followed by two
@@ -225,8 +224,8 @@ Emissivity for an opaque scene material is $\varepsilon(\lambda) = 1 - \rho(\lam
 This is the legitimate independent-emissivity case — Kirchhoff's derived-only constraint
 binds optical elements, not scene targets.
 
-RADIANT's own bundled material and QE curves are covered in
-[Data Libraries](tech_data_libraries.md). A measured background emissivity can also be
+RADIANT's own bundled material and QE curves are covered in the Data Libraries chapter.
+A measured background emissivity can also be
 attached from a config through `source.background.emissivity_path` (a two-column
 `wavelength_um, emissivity` CSV), and a target reflectance or brightness temperature the
 same way.
@@ -284,7 +283,7 @@ own column, so the workbook is usable as data rather than only as a report.
 
 ### Not implemented: `radiant export` / `radiant import`
 
-`RADIANT_Config_Format.md` §2 describes an XLSX *convenience view* of a config file —
+The repository's config-format document describes an XLSX *convenience view* of a config file —
 one sheet per namespace, editable value column, round-trippable back to YAML for
 reviewers who do not write YAML. **This is a design target.** There is no `radiant export`
 or `radiant import` command and no XLSX config code in `radiant.io`. (The existing
@@ -293,7 +292,7 @@ the GUI workbook export above.
 
 ---
 
-## 7. Other File-Valued Parameters
+## 7. Other file-valued parameters
 
 Beyond the importers above, several schema parameters take a file path directly. The API
 layer loads each one before the chain and injects the product:

@@ -4,14 +4,13 @@
 
 The radiometry foundations of RADIANT: the governing equations that carry a
 photon from source emission to a photoelectron count, each stated with its
-derivation, validity limits, classic implementation pitfalls, a pinned numeric
-anchor, and the exact place in the code where it lives. This chapter covers
-the radiometric quantities themselves; the spatial (PSF/MTF) treatment is in
-[Spatial Model](spatial_model.md) and the noise taxonomy is in
-[Noise Model](noise_model.md).
+derivation, validity limits, classic implementation pitfalls, and a pinned
+numeric anchor. This chapter covers the radiometric quantities themselves;
+the spatial (PSF/MTF) treatment is the Spatial Model chapter and the noise
+taxonomy is the Noise Model chapter.
 
 Every numeric anchor below was independently re-derived from the physics
-literature (no access to RADIANT source) in the 2026-07 assurance audit and
+literature, without reference to the implementation, and
 then verified against the implementation.
 
 ---
@@ -19,7 +18,7 @@ then verified against the implementation.
 ## Notation
 
 Symbols and canonical units are defined once for the whole manual in the
-front matter, [Notation and Symbols](notation.md); this chapter uses them
+front matter, Notation and Symbols; this chapter uses them
 without redefinition. RADIANT canonical units throughout: wavelength in µm,
 angles in radians, lengths in meters, spectral radiance in W/m²/sr/µm.
 
@@ -30,10 +29,10 @@ where the $10^{-6}$ lives.
 
 ---
 
-## The Chain at a Glance
+## The chain at a glance
 
-RADIANT models the end-to-end signal chain as ten sequential stages
-(geometry-first, per ADR-0006). Each stage is a pure function that transforms
+RADIANT models the end-to-end signal chain as ten sequential stages, the
+first of which resolves the scene geometry. Each stage is a pure function that transforms
 an immutable `ChainState`, adding radiometric frames, noise terms, and MTF
 contributions:
 
@@ -57,7 +56,7 @@ at the end.
 
 ## Foundations
 
-### Planck Spectral Radiance
+### Planck spectral radiance
 
 **Equation.**
 
@@ -114,7 +113,7 @@ Constants come from `core/constants.py` (`two_hc2`, `hc_over_kB`; CODATA 2018).
 
 ---
 
-### Temperature Derivative of Planck Radiance — the NEDT Kernel
+### Temperature derivative of Planck radiance — the NEDT kernel
 
 **Equation.**
 
@@ -162,11 +161,11 @@ differences to $\leq 3\times 10^{-10}$ relative).
 `src/radiant/core/tests/test_blackbody.py::test_planck_dBdT_anchor_literal`
 and `test_dBdT_finite_difference`.
 
-**References.** [Planck 1901], [Holst], [CODATA 2018].
+**References.** [Planck 1901], [Holst 2008], [CODATA 2018].
 
 ---
 
-### Band-Integrated and Band-Averaged Radiance
+### Band-integrated and band-averaged radiance
 
 **Equation.**
 
@@ -215,11 +214,11 @@ W/m²/sr, consistent with blackbody band-fraction tables.
 stage integrates) · anchored by
 `src/radiant/source/tests/test_invert_band_radiance.py::TestForwardIntegralMonotone::test_forward_integral_absolute_anchor`.
 
-**References.** [Siegel & Howell §1.6], [Holst].
+**References.** [Siegel & Howell §1.6], [Holst 2008].
 
 ---
 
-### Brightness Temperature — Spectral (Monochromatic) Inversion
+### Brightness temperature — spectral (monochromatic) inversion
 
 **Equation.** Given spectral radiance $L$ [W/m²/sr/µm] at wavelength
 $\lambda$, the brightness temperature is the closed-form inverse of Planck:
@@ -268,11 +267,11 @@ building $L(\lambda) = B(\lambda, T_B(\lambda))$ pointwise:
 and `test_roundtrip_within_1e_4_kelvin`. The closed-form inverse above is the
 theory statement of what that round-trip test verifies.
 
-**References.** [Planck 1901], [NIST ITS-90], [Holst].
+**References.** [Planck 1901], [NIST ITS-90], [Holst 2008].
 
 ---
 
-### Band Radiance Temperature — Band-Integrated Inversion
+### Band radiance temperature — band-integrated inversion
 
 **Equation.** Given a measured band radiance $L_{\mathrm{meas}}$ [W/m²/sr]
 over $[\lambda_1, \lambda_2]$, the band radiance temperature $T_R$ solves
@@ -307,7 +306,7 @@ mismatch masquerades as a temperature bias (a 0.15 % radiance error is
   at band center — close for narrow bands, a systematic bias for wide bands
   (Planck is nonlinear across the band).
 - Solver bracket too narrow (e.g. [200, 400] K fails on hot targets).
-  RADIANT brackets [1, 10 000] K and raises an actionable error if
+  RADIANT brackets [1, 10,000] K and raises an actionable error if
   $L_{\mathrm{meas}}$ falls outside the image of the bracket.
 - Comparing per-µm to band-integrated units (W/m²/sr/µm vs W/m²/sr) — a
   $(\lambda_2 - \lambda_1)$ factor error.
@@ -334,7 +333,7 @@ anchored by
 
 ---
 
-### Graybody Emission (Scene Targets)
+### Graybody emission (scene targets)
 
 **Equation.**
 
@@ -394,11 +393,11 @@ point-source variant $I(\lambda) = A_t\, \varepsilon\, B(\lambda, T)$ is
 anchored by
 `src/radiant/source/tests/test_point_source.py::TestBlackbodyIntensitySource::test_basic_formula`.
 
-**References.** [Kirchhoff 1860], [Siegel & Howell §3], [Holst].
+**References.** [Kirchhoff 1860], [Siegel & Howell §3], [Holst 2008].
 
 ---
 
-### Kirchhoff-Derived Emissivity of Optical Elements (Rule 5)
+### Kirchhoff-derived emissivity of optical elements
 
 **Equation.** For any optical element *inside the sensor*, emissivity is
 never an input — it is derived:
@@ -434,7 +433,7 @@ band averages.
 **Pitfalls.**
 
 - Accepting $\varepsilon$ as an independent parameter for an optical surface
-  — the over-specification bug Rule 5 exists to forbid. RADIANT raises
+  — an over-specification of the energy balance. RADIANT raises
   `KirchhoffViolationError` instead.
 - Applying $\varepsilon = 1 - R$ to a *transparent* element (missing the
   $T$ term).
@@ -453,12 +452,11 @@ enforcement in `OpticalElement.__post_init__`) · anchored by
 `src/radiant/optics/tests/test_element.py::TestKirchhoffIdentity::test_mirror_kirchhoff`
 and `TestKirchhoffViolations::test_t_plus_r_exceeds_one`.
 
-**References.** [Kirchhoff 1860], [Wolfe & Zissis §5], RADIANT Master
-Architecture Rule 5.
+**References.** [Kirchhoff 1860], [Wolfe & Zissis §5].
 
 ---
 
-### Top-of-Atmosphere Solar Irradiance
+### Top-of-atmosphere solar irradiance
 
 **Equation.**
 
@@ -527,7 +525,7 @@ difference — it is a shape parameter, not an energy one.
 
 ---
 
-### Reflected Solar Radiance
+### Reflected solar radiance
 
 **Equation.**
 
@@ -586,11 +584,11 @@ $E_{0,\mathrm{impl}}/1870$ before comparing implementation output against it.
 `src/radiant/source/tests/test_reflected.py::TestReflectedSolarSource::test_lambertian_noon_hand_calc`,
 `test_oblique_sun`, and `test_distance_scaling`.
 
-**References.** [Nicodemus 1977], [Holst], [ASTM E490].
+**References.** [Nicodemus 1977], [Holst 2008], [ASTM E490].
 
 ---
 
-### BRDF Normalization — Lambertian and Phong
+### BRDF normalization — Lambertian and Phong
 
 **Equation.** BRDF definition: $f_r(\omega_i, \omega_o) = dL_o / dE_i$
 [sr⁻¹]. Energy conservation requires
@@ -665,7 +663,7 @@ $(n+2)/(2\pi)$ hemispherical-integral normalization itself (as of 2026-07).
 
 ---
 
-### Point-Source Irradiance and Pixel Solid Angle
+### Point-source irradiance and pixel solid angle
 
 **Equation.** A point source of spectral intensity $I(\lambda)$ [W/sr/µm] at
 range $R$ [m] through path transmittance $\tau_{\mathrm{atm}}(\lambda)$
@@ -691,7 +689,7 @@ $\Phi = L_{\mathrm{target}} \cdot A_{\mathrm{ap}} \cdot \Omega_t$ with
 $\Omega_t = A_t/R^2$ — identical to $I/R^2 \cdot A_{\mathrm{ap}}$ because
 $I = L A_t$. The blur spreads this energy per the PSF; the ensquared-energy
 fraction $\mathrm{EE}_{\mathrm{box}}$ multiplies the in-pixel signal, applied
-exactly once, downstream (Rule 9).
+exactly once, downstream in spectral integration.
 
 **Assumptions & validity.** Point-source regime valid when the source's
 angular extent $\ll$ IFOV *and* $\ll$ PSF width. $\Omega = A/R^2$ is the
@@ -713,7 +711,7 @@ transmittance, not the vertical column.
 - Range in km fed to a formula expecting m — a $10^6$ error in
   $E_{\mathrm{ap}}$.
 - Applying $\mathrm{EE}_{\mathrm{box}}$ anywhere but once, in
-  spectral integration (Rule 9).
+  spectral integration.
 
 **Numeric anchor.** $I = 100$ W/sr/µm, $\tau = 0.7$, $R = 500$ km:
 $E_{\mathrm{ap}} = 2.80000000 \times 10^{-10}$ W/m²/µm. Pixel solid angle
@@ -728,11 +726,11 @@ for GSD = 3 m at $R$ = 500 km: $\Omega_{\mathrm{pix}} = 3.60000000 \times
 and `test_hand_calculated_flat_source`. $\Omega_{\mathrm{pix}}$ is published
 by the optics stage (`optics/aperture.py`) as `Omega_pixel`.
 
-**References.** [Holst], [Wolfe & Zissis §1].
+**References.** [Holst 2008], [Wolfe & Zissis §1].
 
 ---
 
-### Sub-Pixel Fill Fraction and Radiance Mixing
+### Sub-pixel fill fraction and radiance mixing
 
 **Equation.** When the target's solid angle is smaller than the pixel's:
 
@@ -775,8 +773,8 @@ explicit `fill_fraction` parameter rather than guessing.
 - Forgetting the $(1 - f\!f)$ background complement — the unfilled pixel
   area still sees background radiance.
 - Applying $\mathrm{EE}_{\mathrm{box}}$ to the background term — background
-  is extended; EE applies to the compact target only (Rule 9; RADIANT
-  guards this explicitly).
+  is extended; EE applies to the compact target only, and RADIANT guards
+  this explicitly.
 - Splitting path radiance by $f\!f$ — it fills the pixel uniformly.
 - Deriving $f\!f$ from nadir GSD² off-nadir — the footprint grows with
   incidence.
@@ -792,11 +790,11 @@ equation is the sub-pixel branch of
 `spectral_integration/stage.py::SpectralIntegrationStage.run`, anchored by
 `src/radiant/spectral_integration/tests/test_stage.py::test_EE_box_exempts_background_sub_pixel`.
 
-**References.** [Holst], RADIANT Source/Target System doc §3.
+**References.** [Holst 2008], RADIANT Source/Target System doc §3.
 
 ---
 
-### Photon Conversion — Spectral Power to Photoelectron Rate
+### Photon conversion — spectral power to photoelectron rate
 
 **Equation.** Photon energy $E_{\mathrm{ph}} = hc/\lambda_m$ [J]. The
 photoelectron rate from spectral power $\Phi(\lambda)$ [W/µm] at the detector
@@ -805,7 +803,7 @@ is
 $$\dot{n}_e = \int \mathrm{QE}(\lambda)\, \Phi(\lambda)\, \frac{\lambda_m}{h c}\, d\lambda \qquad \left[\mathrm{e^{-}/s}\right], \quad \lambda_m = \lambda \cdot 10^{-6}$$
 
 integrated over $\lambda$ in µm; total signal $N_e = \dot{n}_e \cdot
-t_{\mathrm{int}}$ [e⁻]. RADIANT packages the same physics as an
+t_{\mathrm{int}}$ [e-]. RADIANT packages the same physics as an
 aperture-referred spectral responsivity
 
 $$R(\lambda) = A_{\mathrm{ap}}\, \Omega_{\mathrm{pix}}\, \tau_{\mathrm{opt}}(\lambda)\, \mathrm{QE}(\lambda)\, \frac{\lambda_m}{h c} \qquad \left[\mathrm{e^{-}/s}\ \text{per}\ \text{W/m}^2\text{/sr/µm}\right]$$
@@ -814,7 +812,7 @@ with $R_{\mathrm{band}} = \int R(\lambda)\, d\lambda$ used for backward
 propagation ($L_{\mathrm{aperture}} = N_e / (R_{\mathrm{band}}\,
 t_{\mathrm{int}})$).
 
-**Symbols.** $\Phi(\lambda)$ [W/µm]; $\mathrm{QE}(\lambda)$ [e⁻/photon,
+**Symbols.** $\Phi(\lambda)$ [W/µm]; $\mathrm{QE}(\lambda)$ [e-/photon,
 dimensionless]; $\lambda_m/(hc)$ [photons/J] converts watts to photons/s;
 $t_{\mathrm{int}}$ [s]; $A_{\mathrm{ap}}$ [m²]; $\Omega_{\mathrm{pix}}$ [sr];
 $\tau_{\mathrm{opt}}$ [—].
@@ -849,7 +847,7 @@ gain scaling corrupts the Poisson statistics.
   converting to amperes.
 
 **Numeric anchor.** Monochromatic $\Phi = 10^{-12}$ W at $\lambda = 4$ µm
-with QE = 0.7: $\dot{n}_e = 1.40955264 \times 10^{7}$ e⁻/s (check:
+with QE = 0.7: $\dot{n}_e = 1.40955264 \times 10^{7}$ e-/s (check:
 $E_{\mathrm{ph}}(4\ \text{µm}) = 4.96611464 \times 10^{-20}$ J, and
 $0.7 \times 10^{-12}\,\mathrm{W} / 4.96611464 \times 10^{-20}\,\mathrm{J}$
 reproduces the rate).
@@ -862,28 +860,28 @@ and `band_integrated_responsivity` · anchored by
 `src/radiant/core/tests/test_responsivity.py::test_band_integral_closed_form_anchor`
 and `test_round_trip_recovers_known_radiance`.
 
-**References.** [Holst], [Janesick 2001], [CODATA 2018].
+**References.** [Holst 2008], [Janesick 2001], [CODATA 2018].
 
 ---
 
-## How the Foundations Feed the Chain
+## How the foundations feed the chain
 
 The ten stages consume the foundations above in a fixed order. Each stage is
-a pure function `run(state, params) -> state` (Rule 6); all inter-stage data
-flows through the immutable `ChainState`.
+a pure function of the chain state and the parameters; all inter-stage data
+flows through one immutable state object, which no stage mutates.
 
 | # | Stage | Radiometric role | Foundations used | Detailed in |
 |---|---|---|---|---|
-| 0 | Geometry (`geometry/`) | Slant range $R$, incidence, solar geometry | — (feeds $R$, $\theta_{\mathrm{sun}}$ to everything) | ADR-0006 |
-| 1 | Source (`source/`) | Build $L_{\mathrm{target}}(\lambda)$, $L_{\mathrm{bg}}(\lambda)$; tentative regime | Planck, graybody, reflected solar, BRDF, brightness/radiance temperature converters, point-source intensity | this chapter |
-| 2 | Atmosphere (`atmosphere/`) | $L_{\mathrm{ap}} = L\,\tau_{\mathrm{atm}} + L_{\mathrm{path}}$ | band integration on the $\tau(\lambda)$ grid | atmosphere docs |
-| 3 | Optics (`optics/`) | Throughput $\tau_{\mathrm{opt}}$, $A_{\mathrm{ap}}$, $\Omega_{\mathrm{pix}}$; warm-optics self-emission; **final regime** | Kirchhoff Rule-5 emissivity, Planck (self-emission), pixel solid angle | [Spatial Model](spatial_model.md) for PSF/MTF |
-| 4 | Platform (`platform/`) | Smear/jitter degradation; $\mathrm{EE}_{\mathrm{box}}$ from the fully degraded PSF | — | [Spatial Model](spatial_model.md) |
-| 5 | Spectral Integration (`spectral_integration/`) | Spectral → scalar, exactly once (Rule 8); $\mathrm{EE}_{\mathrm{box}}$ applied exactly once (Rule 9) | photon conversion, point-source/sub-pixel regime radiometry, fill-fraction mixing | this chapter |
-| 6 | Detector (`detector/`) | Noise budget (16 terms) | $\sqrt{N_e}$ shot statistics | [Noise Model](noise_model.md) |
-| 7 | Readout (`readout/`) | TDI, binning, coadd, gain, ADC scaling | — | [Noise Model](noise_model.md) |
-| 8 | Calibration (`calibration/`) | Post-NUC residuals, drift, bias budget — calibration noise terms and accuracy inputs (terms-only, ADR-0012) | Planck at the calibration points, band responsivity | [Calibration Error Model](calibration_model.md) |
-| 9 | Performance (`performance/`) | SNR, NEDT, NIIRS, system MTF | $\partial B/\partial T$ (NEDT kernel), band responsivity (backward propagation) | performance docs |
+| 0 | Geometry | Slant range $R$, incidence, solar geometry | — (feeds $R$, $\theta_{\mathrm{sun}}$ to everything) | Ch. 2 |
+| 1 | Source | Build $L_{\mathrm{target}}(\lambda)$, $L_{\mathrm{bg}}(\lambda)$; tentative regime | Planck, graybody, reflected solar, BRDF, brightness/radiance temperature converters, point-source intensity | this chapter |
+| 2 | Atmosphere | $L_{\mathrm{ap}} = L\,\tau_{\mathrm{atm}} + L_{\mathrm{path}}$ | band integration on the $\tau(\lambda)$ grid | Ch. 4 |
+| 3 | Optics | Throughput $\tau_{\mathrm{opt}}$, $A_{\mathrm{ap}}$, $\Omega_{\mathrm{pix}}$; warm-optics self-emission; **final regime** | Kirchhoff emissivity, Planck (self-emission), pixel solid angle | Ch. 5 |
+| 4 | Platform | Smear/jitter degradation; $\mathrm{EE}_{\mathrm{box}}$ from the fully degraded PSF | — | Ch. 5 |
+| 5 | Spectral Integration | Spectral → scalar, exactly once; $\mathrm{EE}_{\mathrm{box}}$ applied exactly once | photon conversion, point-source/sub-pixel regime radiometry, fill-fraction mixing | this chapter |
+| 6 | Detector | Noise budget (16 terms) | $\sqrt{N_e}$ shot statistics | Ch. 6 |
+| 7 | Readout | TDI, binning, coadd, gain, ADC scaling | — | Ch. 6 |
+| 8 | Calibration | Post-NUC residuals, drift, bias budget — calibration noise terms and accuracy inputs; the stage adds terms and never a frame | Planck at the calibration points, band responsivity | Ch. 7 |
+| 9 | Performance | SNR, NEDT, NIIRS, system MTF | $\partial B/\partial T$ (NEDT kernel), band responsivity (backward propagation) | Ch. 8 |
 
 Three chain-glue equations worth stating here because they are pure
 radiometry:
@@ -896,14 +894,14 @@ where $\tau_{\mathrm{atm}}$ follows Beer–Lambert along the slant path and
 $L_{\mathrm{path}}$ is atmospheric self-emission and scatter into the line
 of sight.
 
-**Extended-scene signal electrons** (Spectral Integration stage, Rule 8 —
-the only spectral-to-scalar collapse in the chain):
+**Extended-scene signal electrons** (Spectral Integration stage — the only
+spectral-to-scalar collapse in the chain):
 
 $$N_e = \int_{\lambda_1}^{\lambda_2} L_{\mathrm{ap}}(\lambda)\, \tau_{\mathrm{opt}}(\lambda)\, A_{\mathrm{ap}}\, \Omega_{\mathrm{pix}}\, \mathrm{QE}(\lambda)\, \frac{\lambda_m}{h c}\, t_{\mathrm{int}}\, d\lambda$$
 
 with $\mathrm{EE}_{\mathrm{box}}$ multiplying the target term only in
 point-source and sub-pixel regimes, never in extended scenes and never on
-the background term (Rule 9).
+the background term.
 
 **SNR** (Performance stage): $\mathrm{SNR} = N_e / \sigma_{\mathrm{total}}$
 with $\sigma_{\mathrm{total}}$ the RSS of the noise budget; contrast SNR uses
@@ -920,10 +918,10 @@ the noise-equivalent radiance by the band-integrated $\partial B/\partial T$
 | Atmosphere | W/m²/sr/µm | W/m²/sr/µm | × τ_atm + L_path |
 | Optics | W/m²/sr/µm | W/m²/sr/µm (+ A_ap [m²], Ω_pix [sr] published) | × τ_opt |
 | Platform | — (radiometric pass-through) | EE_box [—] | PSF ensquared energy |
-| Spectral Integration | W/m²/sr/µm, m², sr, s | e⁻ | × A·Ω · QE · λ_m/hc · t_int, ∫dλ |
-| Detector | e⁻ | e⁻ RMS (noise terms) | noise model |
-| Readout | e⁻ | e⁻ (scaled), DN | × N_TDI · M_bin · N_coadd; ÷ gain |
-| Performance | e⁻ | dimensionless (SNR), K (NEDT), NIIRS | S/σ; σ_L / ∫(∂B/∂T)dλ |
+| Spectral Integration | W/m²/sr/µm, m², sr, s | e- | × A·Ω · QE · λ_m/hc · t_int, ∫dλ |
+| Detector | e- | e- RMS (noise terms) | noise model |
+| Readout | e- | e- (scaled), DN | × N_TDI · M_bin · N_coadd; ÷ gain |
+| Performance | e- | dimensionless (SNR), K (NEDT), NIIRS | S/σ; σ_L / ∫(∂B/∂T)dλ |
 
 Every row must check; integrating a per-µm density over µm is the only
 "conversion-free" collapse, and the two $10^{-6}$ factors in the chain

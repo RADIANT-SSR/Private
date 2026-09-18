@@ -5,10 +5,9 @@ installing Python, fetching the repository, making a virtual environment, and ru
 `pip` command. Everything in this chapter works the same way on Windows and on macOS; where
 the shell syntax differs, both forms are given.
 
-The repository's `README.md` carries the same install in condensed form, and
-`docs/guides/quickstart.md` is the five-minute version. This chapter is the fuller
-treatment: what each step is for, which extras exist and what they actually add, how to
-prove the install is sound, and what the common failures look like.
+Chapter 3 is the five-minute version — install, open the example, read the answer. This
+chapter is the fuller treatment: what each step is for, which extras exist and what they
+actually add, how to prove the install is sound, and what the common failures look like.
 
 ## 1. Prerequisites
 
@@ -49,7 +48,7 @@ python -m venv .venv
 ```
 
 Your prompt now carries `(.venv)`. Every new terminal needs the activate command again;
-forgetting it is the most common cause of "`radiant` is not recognised".
+forgetting it is the most common cause of "`radiant` is not recognized".
 
 If PowerShell refuses to run the activation script, Windows' execution policy is blocking
 it. Allow signed local scripts for your own account once:
@@ -190,9 +189,9 @@ one states *what* was rejected, *why* it is not acceptable, and *what to do*. Re
 action line before changing anything — the parameter named there is almost always the one
 to change. Chapter 12 catalogues the common rejections.
 
-**The numbers moved after a `git pull`.** Check `radiant --version` for the new commit, then
-the repository's `CHANGELOG.md`, which records every change that moves a computed result and
-states the direction and rough size.
+**The numbers moved after an upgrade.** Check `radiant --version` for the new build, then the
+release's change log, which records every change that moves a computed result and states the
+direction and rough size.
 
 ## 8. Keeping it current
 

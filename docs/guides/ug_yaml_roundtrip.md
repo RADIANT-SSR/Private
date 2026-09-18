@@ -1,12 +1,12 @@
 # YAML Round-Trip
 
-RADIANT's document is a YAML file, and the GUI is one editor of it. The other editors are your
+RADIANT's document is a YAML file, and the application is one editor of it. The other editors are your
 text editor, the scripting window, and the CLI. This chapter is about moving between them
 without losing anything — which values travel, which do not, and why.
 
 The full file-format reference — every section, every reserved key, the dot-path convention,
-the template and MODTRAN sections — is the [Configuration Guide](configuration.md) and, in
-typeset form, Volume III chapter 5. This chapter does not repeat those tables. It covers the
+the template and MODTRAN sections — is Volume III's Configuration chapter. This chapter does
+not repeat those tables. It covers the
 round trip as an operator experiences it.
 
 ## 1. What the document holds

@@ -44,7 +44,7 @@ radiant 0.1.0
 
 ---
 
-## `radiant run` — Evaluate a Config
+## `radiant run` — evaluate a config
 
 ```
 Usage: radiant run [OPTIONS] CONFIG
@@ -53,7 +53,7 @@ Usage: radiant run [OPTIONS] CONFIG
 | Option | Meaning |
 |--------|---------|
 | `--set TEXT` | Parameter override, `key=value`, repeatable |
-| `--configuration NAME` | Which configuration of a study file to evaluate (ADR-0010) |
+| `--configuration NAME` | Which configuration of a study file to evaluate |
 | `--wavelength-min FLOAT` | Override the spectral grid minimum [µm] |
 | `--wavelength-max FLOAT` | Override the spectral grid maximum [µm] |
 | `--wavelength-points INTEGER` | Grid point count (default 500 points) |
@@ -94,7 +94,7 @@ body → programmatic `Sensor.set()` → CLI `--set`.
 
 ---
 
-## `radiant validate` — Check a Config Without Running It
+## `radiant validate` — check a config without running it
 
 ```
 Usage: radiant validate [OPTIONS] CONFIG
@@ -118,7 +118,7 @@ configuration's failure hides another's. The exit status is non-zero if any fail
 
 ---
 
-## `radiant explain` — Where a Value Came From
+## `radiant explain` — where a value came from
 
 ```
 Usage: radiant explain [OPTIONS] CONFIG PARAM
@@ -145,7 +145,7 @@ derived it from these two inputs".
 
 ---
 
-## `radiant gui` — Launch the Desktop Application
+## `radiant gui` — launch the desktop application
 
 ```
 Usage: radiant gui [OPTIONS] [CONFIG]
@@ -167,7 +167,7 @@ Passing a study file opens it with its configuration tab strip.
 
 ---
 
-## `radiant sweep` — 1-D Sweep from the Shell
+## `radiant sweep` — 1-D sweep from the shell
 
 ```
 Usage: radiant sweep [OPTIONS] CONFIG PARAM
@@ -190,7 +190,7 @@ radiant sweep examples/mwir_leo_minimal.yaml optics.aperture_diameter_m \
 
 ---
 
-## `radiant tolerance` — Monte Carlo from the Shell
+## `radiant tolerance` — Monte Carlo from the shell
 
 ```
 Usage: radiant tolerance [OPTIONS] CONFIG
@@ -215,7 +215,7 @@ Tolerances may also live in the config's `_radiant.tolerances` block, in which c
 
 ---
 
-## `radiant compare` — Two Files Side by Side
+## `radiant compare` — two files side by side
 
 ```
 Usage: radiant compare [OPTIONS] CONFIG1 CONFIG2
@@ -232,7 +232,7 @@ This compares two *files* — two separate designs. To compare named configurati
 
 ---
 
-## `radiant schema` — List the Parameter Definitions
+## `radiant schema` — list the parameter definitions
 
 ```
 Usage: radiant schema [OPTIONS]
@@ -254,7 +254,7 @@ this volume, so the two never disagree.
 
 ---
 
-## `radiant template` — Bundled Starting Points
+## `radiant template` — bundled starting points
 
 ```
 Usage: radiant template [OPTIONS] COMMAND [ARGS]...
@@ -292,7 +292,7 @@ They ship inside the package at `radiant/data/templates/`, so they arrive with
 
 ---
 
-## `radiant convert` — Scalar Unit Conversion
+## `radiant convert` — scalar unit conversion
 
 ```
 Usage: radiant convert [OPTIONS] VALUE FROM_UNIT TO_UNIT

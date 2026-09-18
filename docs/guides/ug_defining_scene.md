@@ -40,7 +40,7 @@ yourself is always computed, whatever the scene class.
 ### 1.2 One mode per family
 
 Beneath the scene card, geometry is entered through **families**, and you pick exactly one
-**mode** in each. This is the flexibility the personas need: a mission planner has a ground
+**mode** in each. This is the flexibility different disciplines need: a mission planner has a ground
 range, an optical designer has an off-boresight angle, a test engineer has a slant range, and
 none of them should have to convert.
 
@@ -52,7 +52,7 @@ none of them should have to convert.
 | **Line-of-sight rate** | Platform motion only (derived, K0) · Direct LOS rate (K1) · Target velocity (K2) |
 
 Each family card carries a mode selector, and only the active mode's fields are editable. The
-others stay visible and greyed — they are not missing features, they are the doors you did
+others stay visible and grayed — they are not missing features, they are the doors you did
 not take, and their values are derived from the one you did. In the figure the viewing family
 is on V1, so `path_zenith_rad` is enterable while `sensor_off_boresight_rad`, `ground_range_m`,
 `elevation_angle_rad` and `target_range_m` are computed.
@@ -65,7 +65,7 @@ The active mode is detected from provenance, never guessed: the mode is whicheve
 actually supplied a value for. If you supply two doors of the same family, the evaluation
 raises an over-specification error, the application tints the offending family's card, and
 jumps you to the Geometry screen. The *what / why / action* text is in the error dialog and
-the Messages rail; the tint is just the locator.
+the Messages panel; the tint is just the locator.
 
 A standalone **site elevation** card carries `geometry.site_elevation_m`. It is not a mode —
 it is a scene fact (the ground under the observer), and it is results-affecting: the
@@ -221,8 +221,8 @@ its own heading (`0 m` meaning turbulence off).
 ### 3.2 The guidance, in one page
 
 The full decision table, the ten bundled MODTRAN families with their verbatim coverage lines,
-and the catalogue of every warning and refusal are in
-[`atmosphere_selection.md`](atmosphere_selection.md). The operator's summary:
+and the catalog of every warning and refusal are in the repository's atmosphere-selection
+guide. The operator's summary:
 
 - **`simple` never refuses a legal geometry.** In the thermal bands it is within tens of
   percent of MODTRAN; in the daytime visible and near-infrared it under-reads sky radiance by
@@ -254,7 +254,7 @@ zenith, target ceiling, lower endpoint — so a family the picker names is one t
 accept.
 
 When **no** bundled family serves the scene you get exactly **one** advisory in the Messages
-rail, naming the single closest miss, and the configuration stays as it was. Coverage
+panel, naming the single closest miss, and the configuration stays as it was. Coverage
 refusals appear as advisories rather than as a "Parameter Rejected" dialog, and the
 distinction is deliberate: your scene is legal and your inputs are legal — the bundled library
 simply has no measured column for it, and the remedy is a different family or `simple`.

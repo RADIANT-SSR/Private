@@ -241,7 +241,7 @@ divided by are both proportional to $dS/dT$.
 **Numeric anchor.** MWIR 3.0–5.0 µm, scene 300.0 K, scene signal $5.000 \times 10^4$ e-,
 cal points 280.0 K and 320.0 K: $D_1 = 950.3$ e-/K and $D_2 = 3123.9$ e-/K. With
 $\Delta T_{unif} = 0.020$ K the residual at the scene signal is 34.51 e- RMS. Against the
-scene's own derivative $dS/dT = 1795$ e-/K that is 0.0192 K — within 4% of
+scene's own derivative $dS/dT = 1795$ e-/K that is 0.0192 K — within 4 % of
 $\Delta T_{unif}$, as the floor argument predicts.
 
 **In RADIANT.** `calibration/source_uniformity.py`, with the cal-point derivatives from
@@ -339,7 +339,7 @@ $r_g = 0.20\%$/hour and $r_o = 10.0$ e-/hour at $t_{cal} = 1800$ s, full-apertur
 | **Calibration RSS** $\sigma_{cal}$ | **88.81 e- RMS** | — |
 
 Against a temporal (post-readout) total of 300.0 e- RMS this gives
-$\sigma_{tot} = 312.9$ e- RMS: the SNR falls from 166.7 to 159.8, a 4.1% loss that no
+$\sigma_{tot} = 312.9$ e- RMS: the SNR falls from 166.7 to 159.8, a 4.1 % loss that no
 amount of integration time recovers.
 
 **Rule-4 non-interaction.** None of these terms has a PSF kernel or an MTF factor. Adding
@@ -421,12 +421,12 @@ A scene with no thermal derivative reports the fractional value with a named fai
 the kelvin conversion rather than a silent NaN.
 
 **Numeric anchors.** $\Delta T_{src} = 0.10$ K on a 300.0 K cal source gives
-$b_{src} = 3.590 \times 10^{-3}$ (0.359%) in a 3.0–5.0 µm band and
-$1.615 \times 10^{-3}$ (0.161%) in an 8.0–12.0 µm band — the MWIR band's steeper Planck
+$b_{src} = 3.590 \times 10^{-3}$ (0.359 %) in a 3.0–5.0 µm band and
+$1.615 \times 10^{-3}$ (0.161 %) in an 8.0–12.0 µm band — the MWIR band's steeper Planck
 slope makes it 2.2× as unforgiving of source-temperature error. An emissivity uncertainty of
 0.002 on an $\varepsilon_{src} = 0.99$ cavity gives $b_\varepsilon = 2.020 \times 10^{-3}$.
 A band-center uncertainty $\delta\lambda = 0.005$ µm with the scene at 300.0 K and the cal
-at 320.0 K in the 3.0–5.0 µm band gives $b_{spec} = 6.121 \times 10^{-4}$ (0.061%), from
+at 320.0 K in the 3.0–5.0 µm band gives $b_{spec} = 6.121 \times 10^{-4}$ (0.061 %), from
 $g(300\ \mathrm{K}) = 1.5459$ µm⁻¹ and $g(320\ \mathrm{K}) = 1.4235$ µm⁻¹.
 
 **Pitfalls.** RSS-ing a bias into the noise total, which makes an accuracy error look like
@@ -465,6 +465,6 @@ refuses instead of dividing by a vanishing span.
 
 ## Parameter cross-reference
 
-See [Parameter Reference](../guides/parameter_reference.md) for the `calibration.*`
-namespace with types, defaults, bounds, and entry units. Every cal-related default is the
+Volume III's Parameter Reference lists the `calibration.*` namespace with types,
+defaults, bounds, and entry units. Every cal-related default is the
 model-off limit.

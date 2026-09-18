@@ -1,10 +1,10 @@
-# Appendix — Scenario Index
+# Scenario Index
 
 Fifty-one scenario folders live under `scenarios/` in the RADIANT repository. This
 appendix indexes every one of them, in catalog order, with the place in this volume
 where it is covered.
 
-**Coverage is total, at tiered depth** (owner ruling Q3, 2026-09-16): eight scenarios
+**Coverage is total, at tiered depth**: eight scenarios
 are walked at full depth as case studies, four are the subject of the
 flagship-validation chapter, and the remaining thirty-nine appear as digests in the
 compendium. Nothing in the repository is unrepresented here.
@@ -56,11 +56,11 @@ authority for their scenario; this volume's chapters quote them.
 | 3.3 | Multi-Sensor Comparison for Procurement | Raj, mission planner | yes | yes | Digest 3.3 |
 | 3.4 | Off-Nadir Performance Degradation | Raj, mission planner | yes | yes | Digest 3.4 |
 | 3.5 | Nighttime MWIR Imaging Feasibility | Raj, mission planner | yes | yes | Digest 3.5 |
-| 4.1 | Target Detection Matrix | Lisa, analyst | yes | yes | Case study — A Target Detection Matrix |
-| 4.2 | Maritime Ship Classification (Johnson DRI) | Lisa, analyst | no | yes | Digest 4.2 |
-| 4.3 | Camouflage Effectiveness Analysis | Lisa, analyst | yes | yes | Digest 4.3 |
-| 4.4 | Time-of-Day (Diurnal) Thermal Detectability | Lisa, analyst | yes | yes | Digest 4.4 |
-| 4.5 | Microbolometer UAV Altitude Trade (NETD-Specified) | Lisa, analyst | yes | yes | Digest 4.5 |
+| 4.1 | Target Detection Matrix | Lisa, detection/targeting analyst | yes | yes | Case study — A Target Detection Matrix |
+| 4.2 | Maritime Ship Classification (Johnson DRI) | Lisa, detection/targeting analyst | no | yes | Digest 4.2 |
+| 4.3 | Camouflage Effectiveness Analysis | Lisa, detection/targeting analyst | yes | yes | Digest 4.3 |
+| 4.4 | Time-of-Day (Diurnal) Thermal Detectability | Lisa, detection/targeting analyst | yes | yes | Digest 4.4 |
+| 4.5 | Microbolometer UAV Altitude Trade (NETD-Specified) | Lisa, detection/targeting analyst | yes | yes | Digest 4.5 |
 | 5.1 | WFE Budget Allocation | Tom, optical designer | yes | yes | Case study — Allocating a Wavefront-Error Budget |
 | 5.2 | Pixel Pitch and the Sampling Parameter Q | Tom, optical designer | yes | yes | Digest 5.2 |
 | 5.3 | Monochromatic vs Polychromatic PSF | Tom, optical designer | yes | yes | Digest 5.3 |
@@ -95,7 +95,7 @@ authority for their scenario; this volume's chapters quote them.
 | 1 — Sarah, systems engineer | 6 | 1 | 0 | 5 |
 | 2 — Mike, detector engineer | 9 | 1 | 0 | 8 |
 | 3 — Raj, mission planner | 5 | 1 | 0 | 4 |
-| 4 — Lisa, analyst | 5 | 1 | 0 | 4 |
+| 4 — Lisa, detection/targeting analyst | 5 | 1 | 0 | 4 |
 | 5 — Tom, optical designer | 5 | 1 | 0 | 4 |
 | 6 — Dr. Chen, researcher | 5 | 1 | 0 | 4 |
 | 7 — Karen, test engineer | 5 | 1 | 0 | 4 |

@@ -60,7 +60,7 @@ Below the inputs, the stage's outputs include the one classification the whole d
 chain reads: **`Regime`** (`extended` in the figure). The Optics stage is where the
 radiometric regime is finalized; nothing downstream re-decides it.
 
-### 1.2 Transmission — one home for τ_opt
+### 1.2 Transmission — one home for optical throughput
 
 ![Optics workspace, Transmission tab, in Scalar throughput mode — the mode selector, the
 banner stating which definition is in force, the single τ_opt field, and the flat τ_opt(λ)
@@ -208,7 +208,7 @@ Three tabs: **Inputs · Noise · Detector + PSF**. The Inputs tab is the largest
 the application, because the detector is where the noise model lives.
 
 ![Detector workspace, Inputs tab — the FPA part-library row above the full detector schema in
-labelled groups, with no preset applied.](figures/gui/ug_detector_inputs.png)
+labeled groups, with no preset applied.](figures/gui/ug_detector_inputs.png)
 
 ### 3.1 The FPA part library
 
@@ -257,7 +257,7 @@ application does not interrupt you with a modal for each parameter you have not 
 
 ### 3.2 The detector form
 
-Below the strip, the full detector schema in labelled groups. The groups reflow into one or
+Below the strip, the full detector schema in labeled groups. The groups reflow into one or
 two columns with the pane width; they never scroll sideways.
 
 | Group | What it holds |
@@ -281,12 +281,12 @@ anywhere.
 
 The **Noise** tab shows the noise budget as a log-scale bar beside the per-term table, with
 click-to-explain on each term. The **Detector + PSF** tab draws the pixel itself — a
-not-to-scale schematic labelled with its pitch and fill factor — beside the convolution kernel
+not-to-scale schematic labeled with its pitch and fill factor — beside the convolution kernel
 that pixel imposes, with the PSF and the pixel grid overlaid below.
 
 ### 3.3 Pixel sampling phase
 
-A point source does not land politely on a pixel centre. Where it lands changes how much of
+A point source does not land politely on a pixel center. Where it lands changes how much of
 its energy one pixel collects, and therefore the ensquared-energy fraction the chain applies
 — by tens of percent between the best and worst placement. The **Pixel sampling phase** group
 is where you say which placement the run should assume. It affects the point-source and
@@ -297,13 +297,13 @@ sub-pixel regimes only; an extended scene has no single image point to place.
 | Mode | What it assumes | When to use it |
 |---|---|---|
 | `average` | the phase is unknown, so the result is the expectation over one pitch | the default, and the right answer for a source you cannot place — a survey, a detection study, a link budget |
-| `centered` | the image sits on a pixel centre | the best case; use it to bound the optimistic end, or when a tracker really does keep the target centred |
+| `centered` | the image sits on a pixel center | the best case; use it to bound the optimistic end, or when a tracker really does keep the target centered |
 | `worst_case` | the image sits on a four-pixel corner, straddling all four | the pessimistic bound; the number to quote when the requirement must hold for any placement |
-| `specified` | the image sits where you say | a measured or simulated placement; `detector.pixel_phase_x` and `pixel_phase_y` carry the offset from the pixel centre as a fraction of the pitch, each in the range −0.5 to +0.5 |
+| `specified` | the image sits where you say | a measured or simulated placement; `detector.pixel_phase_x` and `pixel_phase_y` carry the offset from the pixel center as a fraction of the pitch, each in the range −0.5 to +0.5 |
 
 The Platform workspace reports what the choice cost you: `Ee box` is the fraction under the
-mode you picked, `Ee box centered` the fraction the same PSF would give on a pixel centre, and
-`Straddle factor` is their ratio. A straddle factor of 1.00 means you asked for the centred
+mode you picked, `Ee box centered` the fraction the same PSF would give on a pixel center, and
+`Straddle factor` is their ratio. A straddle factor of 1.00 means you asked for the centered
 case; the further below 1.00 it sits, the more energy the assumed placement spills into
 neighbouring pixels.
 
@@ -350,15 +350,15 @@ rate and integration time.
 
 | Group | Fields |
 |---|---|
-| Read noise | per-frame read noise, e⁻ RMS |
-| ADC | conversion gain (e⁻/DN), bit depth |
-| Full well | saturation capacity, e⁻ |
+| Read noise | per-frame read noise, e- RMS |
+| ADC | conversion gain (e-/DN), bit depth |
+| Full well | saturation capacity, e- |
 | TDI | stage count, mode, cross-scan misalignment in pixels |
 | Co-adds | frame count, combination mode |
 | Binning | on-chip and off-chip factors, x and y |
 | Acquisition | integration time, frame period |
 
-**On-chip versus off-chip binning is a real distinction, not a labelling one.** On-chip binning
+**On-chip versus off-chip binning is a real distinction, not a labeling one.** On-chip binning
 sums charge before the read, so the read noise is paid once for the binned pixel; off-chip
 binning sums after, so each contributing pixel brings its own read noise. The two give
 different SNR for the same binning factor.
@@ -410,7 +410,7 @@ a screenful of inert rows.
 An unset cal temperature renders as **words** — `unset — required` — never as a plausible-looking
 `0 K`. A scheme switched on without its cal point is an *expected* incomplete state, so the
 evaluation routes it as an advisory rather than a modal: only the Calibration chip goes red, the
-status bar names what is missing, and the Messages rail carries the full text. Chapter 12, §4
+status bar names what is missing, and the Messages panel carries the full text. Chapter 12, §4
 shows exactly that state.
 
 ### 5.3 The three error families
@@ -424,7 +424,7 @@ beside each other and never RSSes one into the other.
 | NUC residual (`nonlinearity_pct`) | noise | the per-pixel quadratic residual two-point correction cannot remove |
 | Drift since cal (time since cal, gain-drift rate, offset-drift rate) | noise | how far the correction has aged since it was applied |
 | Cal source (emissivity, uniformity, ΔT, Δε) | bias | how well you know the source you calibrated against |
-| Spectral cal (band-centre Δλ) | bias | how well you know where your band actually sits |
+| Spectral cal (band-center Δλ) | bias | how well you know where your band actually sits |
 | Internal cal (cal path, elements before shutter, narcissus FPN) | bias | what an internal shutter sees that the scene path does not |
 | Absolute gain (gain uncertainty) | bias | the residual scale error on the whole measurement |
 

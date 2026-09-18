@@ -28,7 +28,7 @@ Two of those rows deserve a note.
 as a *backend* test case: a run script that assembles a `Sensor` in Python, sweeps
 it, and writes a workbook. A Python script is not something `File → Open` can
 consume, so `scenarios/tools/emit_gui_yaml.py` imports each runner's validated
-config factory and serialises `Sensor.to_yaml()` into `inputs/<slug>.gui.yaml`,
+config factory and serializes `Sensor.to_yaml()` into `inputs/<slug>.gui.yaml`,
 alongside a headline-metric snapshot in `inputs/<slug>.gui.expected.json`. Opening a
 baseline in the GUI therefore reproduces the same numbers the backend scenario
 validated — that equality is a gate (`scenarios/tools/verify_gui_yaml.py`), not a
@@ -93,7 +93,7 @@ Inputs are committed; results generally are not.
 
 A scenario folder has a fixed shape:
 
-```
+```text
 NN_persona/
   N.M_scenario_slug/
     inputs/      # vendor-format data, the .gui.yaml baseline, the metric snapshot

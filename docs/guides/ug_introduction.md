@@ -27,7 +27,7 @@ each handing its outputs to the next:
 | 5 | Platform | jitter and smear, as blur on that PSF |
 | 6 | Spectral Integration | the collapse from spectra to electrons in a pixel |
 | 7 | Detector | quantum efficiency, dark current, and most of the noise-term budget |
-| 8 | Readout | TDI, co-adds, gain, full well, analogue-to-digital conversion |
+| 8 | Readout | TDI, co-adds, gain, full well, analog-to-digital conversion |
 | 9 | Calibration | post-correction residuals, drift, and the bias budget |
 | 10 | Performance | SNR, NEDT, NIIRS, MTF budgets, margins, detection range |
 
@@ -50,7 +50,7 @@ tool — though it will ingest MODTRAN output when you have it.
 
 ## 2. Who it is for
 
-RADIANT is built around seven working archetypes. You will recognise yourself in one or
+RADIANT is built around seven working archetypes. You will recognize yourself in one or
 two of them; the application is arranged so that each can reach their own question without
 first learning everybody else's.
 
@@ -117,7 +117,7 @@ surprising SNR is worth one glance at the regime line before it is worth anythin
 
 ## 4. How this volume is arranged
 
-Chapters 1–6 — this batch — take you from an empty machine to a described scene:
+Chapters 1–6 take you from an empty machine to a described scene:
 
 - **Chapter 2, Installation & Launch** — Python, the install, the extras, and starting the
   application on Windows and macOS.

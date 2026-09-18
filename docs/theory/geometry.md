@@ -3,17 +3,15 @@
 *Persona: Sarah (systems engineer), Lisa (analyst)*
 
 Spherical-Earth viewing geometry, orbit kinematics, ground sampling, smear kinematics,
-solar geometry, and attitude conventions as implemented in RADIANT (geometry-first per
-ADR-0006). Numeric anchors are blind-derived values from the 2026-07 assurance audit
-(independently re-derived from the literature, then verified against the
-implementation); RADIANT uses
-the IUGG **mean Earth radius $R = 6371.0$ km** (`core/constants.py::R_EARTH_M`), so
-anchors below are quoted for that radius (the audit tabulates WGS-84 equatorial variants
-— an ~8 km radius difference moves a 500 km/30° slant range by ~9 m and the orbit period
-by ~9 s, so always match radii before comparing numbers).
+solar geometry, and attitude conventions as implemented in RADIANT, which resolves the
+scene geometry before any radiometry. Numeric anchors were re-derived from the literature
+independently of the code and then checked against it. RADIANT uses the IUGG **mean Earth
+radius $R = 6371.0$ km**, so the anchors below are quoted for that radius: an ~8 km radius
+difference — the gap to the WGS-84 equatorial value — moves a 500 km/30° slant range by
+~9 m and the orbit period by ~9 s, so always match radii before comparing numbers.
 
 **Symbols and the code's naming.** Classical texts parameterize the viewing triangle by
-the look angle at the satellite; RADIANT is **$\theta_o$-referenced** (ADR-0006):
+the look angle at the satellite; RADIANT is **$\theta_o$-referenced**:
 
 | Classical symbol | Meaning | RADIANT name |
 |---|---|---|
@@ -70,7 +68,7 @@ $\sin\eta > R/(R+h)$, beyond the limb; the boundary is
 $\eta_{max} = \arcsin\!\frac{R}{R+h}$ with tangent-ray range $\sqrt{2Rh + h^2}$.
 
 **Pitfalls.** Plus-root selection (returns ~11 Mm at nadir instead of $h$); silent NaN on
-a beyond-horizon geometry instead of an actionable error (Rule 15); near $\eta_{max}$,
+a beyond-horizon geometry instead of an actionable error; near $\eta_{max}$,
 $dR_s/d\eta \to \infty$ — solvers should re-parameterize in $\Lambda$ or $\varepsilon$
 there.
 
@@ -95,12 +93,12 @@ The $R/(R+h)$ factor: satellite and nadir point share one angular rate $\omega$;
 speed is $\omega$ times each circle's radius. It is a projection of angular motion, not a
 velocity-vector projection.
 
-**Assumptions & validity.** Two-body, circular, no $J_2$ (~0.1% LEO period effect);
+**Assumptions & validity.** Two-body, circular, no $J_2$ (~0.1 % LEO period effect);
 non-rotating Earth for $v_g$ — Earth rotation adds up to $\pm465\cos(\text{lat})$ m/s
-(~6.6% equatorial) to the true relative ground speed, unmodeled.
+(~6.6 % equatorial) to the true relative ground speed, unmodeled.
 
-**Pitfalls.** $\sqrt{\mu/R}$ instead of $\sqrt{\mu/(R+h)}$ (3.8% at 500 km); **orbital
-$v$ where ground $v_g$ belongs** in smear/line-rate math — a +7.8% error at 500 km that
+**Pitfalls.** $\sqrt{\mu/R}$ instead of $\sqrt{\mu/(R+h)}$ (3.8 % at 500 km); **orbital
+$v$ where ground $v_g$ belongs** in smear/line-rate math — a +7.8 % error at 500 km that
 looks plausible; $\mu$ in km³/s² mixed with meters.
 
 **Numeric anchors** (mean-R): $v = 7616.6$ m/s, $T = 94.469$ min at $h = 500$ km.
@@ -129,9 +127,9 @@ $1/\cos\theta_o$ elongation and `cross_track_m` the range-only factor. The formu
 exact on the sphere: differentiating the viewing triangle gives
 $R\,d\Lambda/d\eta = R_s/\cos\theta_o$ identically.
 
-**Pitfalls.** $\cos\eta$ for $\cos\theta_o$ (2.75% at the anchor geometry, unbounded
+**Pitfalls.** $\cos\eta$ for $\cos\theta_o$ (2.75 % at the anchor geometry, unbounded
 toward the limb); $\cos$ vs $1/\cos$ (GSD must *grow* off-nadir); applying the obliquity
-factor to both directions (a further ~19% area error at the anchor); quoting one
+factor to both directions (a further ~19 % area error at the anchor); quoting one
 off-nadir "GSD" without naming the direction.
 
 **Numeric anchors** (mean-R, $p = 10$ µm, $f = 2$ m, $h = 500$ km): nadir 2.500000 m;
@@ -148,11 +146,9 @@ $\cos\eta$-discriminator assertion). **References.** [Wertz & Larson 1999],
 ## 5. Swath and access
 
 **Equations.** Swath from the cross-track GSD and detector format:
-$W = \mathrm{GSD}_{cross}\cdot N_{pix}$ (`performance/swath_width.py`); area access rate
-$\dot A = W\,v_g$ (`performance/access_rate.py`); ground range from the central angle,
-$R\,\Lambda$ (`performance/ground_range.py`,
-`viewing_triangle.ground_range_from_theta_o_m`). Wide-FOV swath uses the full spherical
-mapping $\Lambda(\eta)$ — the flat-Earth $2h\tan\eta_{half}$ is 0.3% low at ±15° and
+$W = \mathrm{GSD}_{cross}\cdot N_{pix}$; area access rate $\dot A = W\,v_g$; ground range
+from the central angle, $R\,\Lambda$. Wide-FOV swath uses the full spherical
+mapping $\Lambda(\eta)$ — the flat-Earth $2h\tan\eta_{half}$ is 0.3 % low at ±15° and
 diverges beyond ~30°.
 
 **In RADIANT.** modules above · anchored by
@@ -172,7 +168,7 @@ $p\,f_{line} = v_{img} \iff t_{line} = \mathrm{GSD}/v_g$; residual per-stage mis
 smear multiplies by $N$ stages. The MTF consequence of $d_{img}$ is the smear sinc of
 the spatial chapter's *Platform kernels: jitter and smear*.
 
-**Pitfalls.** Orbital $v$ for $v_g$ (+7.8%); $f/R$ or $f/(R+h)$ for the magnification;
+**Pitfalls.** Orbital $v$ for $v_g$ (+7.8 %); $f/R$ or $f/(R+h)$ for the magnification;
 ground meters compared to focal-plane microns without $f/R_s$; conflating $t_{int}$ with
 $t_{line}$ in TDI ($t_{int} = N\,t_{line}$; the matching condition constrains
 $t_{line}$).
@@ -194,9 +190,9 @@ matched line time is ~354 µs.
 
 $$\cos\theta_z = \sin\phi\sin\delta + \cos\phi\cos\delta\cos H$$
 
-($\phi$ latitude, $\delta$ declination, $H$ hour angle from solar noon). Declination and
-LTAN-based hour angle come from `core/solar_geometry.py::solar_declination_deg`,
-`local_solar_time_from_ltan`.
+($\phi$ latitude, $\delta$ declination, $H$ hour angle from solar noon). Declination comes
+from the day of year, and the hour angle from either the local solar time or the local
+time of the ascending node.
 
 **Pitfalls.** Clock time vs apparent solar time (equation of time, ±4° in $H$);
 elevation returned where zenith is expected (downstream $\cos\theta_z$ irradiance factors

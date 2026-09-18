@@ -58,9 +58,9 @@ configuration.](figures/gui/ug_configuration_bar.png)
 
 A study adds one band between the menu bar and the stage strip. Reading it left to right: the
 **CONFIGURATIONS** label, a **⚙ Manage…** button, and one tab per configuration in set order,
-each carrying a small coloured chip. The chip's colour is assigned by position and is stable —
+each carrying a small colored chip. The chip's color is assigned by position and is stable —
 the same configuration keeps the same hue in the selector, in the per-parameter value editor,
-and in the Performance columns, so a colour means one thing everywhere in the window.
+and in the Performance columns, so a color means one thing everywhere in the window.
 
 Clicking a tab is **display state only**. It changes which configuration stages 1–9 are showing
 and nothing else; it computes nothing, because every configuration has already been evaluated
@@ -89,8 +89,8 @@ Then one row per configuration:
 
 | Column | What it does |
 |---|---|
-| chip + name | the configuration's stable accent colour and its name, editable in place; the **baseline** is marked |
-| Grid points | an integer override, or blank to inherit the shared default — a blank box shows `shared: 500 pts` in grey, so "blank" is never an unexplained gap |
+| chip + name | the configuration's stable accent color and its name, editable in place; the **baseline** is marked |
+| Grid points | an integer override, or blank to inherit the shared default — a blank box shows `shared: 500 pts` in gray, so "blank" is never an unexplained gap |
 | Status | `OK`, or the failing configuration's *what*-line with the full what/why/action on hover |
 
 The status column is resolve-only: **opening this dialog never runs physics.** It tells you
@@ -113,7 +113,7 @@ a configuration named 'LWIR' already exists
 
 **Removing the displayed configuration is allowed**, and the policy is printed in the dialog
 before you do it: *removing the displayed configuration moves the display to the first
-remaining one.* That is the model's own behaviour, stated rather than reinvented, and it is why
+remaining one.* That is the model's own behavior, stated rather than reinvented, and it is why
 the removal is confirmed instead of silent.
 
 ## 4. Configuring a parameter
@@ -130,7 +130,7 @@ lists every configuration's value for that parameter, with units.
 There are two ways to change a configured value, and they do different things on purpose.
 
 **Edit it in place** — in the dock, or in a stage form — and you change **the displayed
-configuration only**. That is the behaviour the model is named for: you are looking at
+configuration only**. That is the behavior the model is named for: you are looking at
 configuration *X*, so you are editing *X*. Editing an unmarked (shared) parameter changes the
 one shared value, as always. There is no hidden scope mode and no modifier key: what you are
 looking at is what you are editing.
@@ -156,7 +156,7 @@ Switching tabs shows a result that already exists; it does not queue a run.
 
 A configuration that **fails** is named and kept, never dropped. If the failing one is not the
 one you are looking at, it does not interrupt you with a modal — it appears in the Messages
-rail prefixed with its name, and the study carries on with the configurations that worked.
+panel prefixed with its name, and the study carries on with the configurations that worked.
 
 ![Performance workspace on the nine-configuration OLI-2 study — one metric column per
 configuration.](figures/gui/compare_configurations.png)
@@ -170,7 +170,7 @@ study, because a card carrying nine columns needs the full pane width.
 Three rules govern the cells, and each one is a decision rather than an accident:
 
 - **Plain values only.** A cell carries a value and its unit. No delta, no best-mark, no
-  colour scale. Cross-configuration deltas and best-per-metric live on the scripting
+  color scale. Cross-configuration deltas and best-per-metric live on the scripting
   `compare` surface, where the baseline designation is used and the result is a table you can
   export — not a visual encoding that invites conclusions the numbers may not support.
 - **Absent is absent.** A metric a configuration did not compute renders as an em dash. Never
@@ -178,7 +178,7 @@ Three rules govern the cells, and each one is a decision rather than an accident
 - **A failed configuration keeps its column.** Its cells read as not evaluated and its header
   carries a ✕ with the error's *what*-line on hover, so you see *which* configuration failed
   rather than a silently narrower table. A header ⚠ points at that configuration's entries in
-  the Messages rail.
+  the Messages panel.
 
 The **baseline** designation stays in the model whether or not the GUI paints anything with
 it: it is the reference the scripting comparison measures deltas against.

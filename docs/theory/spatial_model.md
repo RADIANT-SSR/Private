@@ -4,8 +4,8 @@
 
 PSF construction, the MTF budget, ensquared energy, sampling, and the dual-path
 architecture that keeps them consistent — as implemented in RADIANT. Numeric anchors are
-blind-derived literature values from the 2026-07 assurance audit (independently re-derived from the literature, then verified against
-the implementation).
+literature values re-derived independently of the implementation, then checked against
+it.
 
 **Symbols used throughout:** $\lambda$ wavelength [µm] ($\lambda_m = \lambda\cdot10^{-6}$ m
 where SI is needed); $D$ aperture diameter [m]; $f$ focal length [m]; $F_\# = f/D$;
@@ -15,7 +15,7 @@ $\nu_{Nyq} = 1/(2p)$ Nyquist.
 
 ---
 
-## 1. The two spatial paths (Rule 4)
+## 1. The two spatial paths
 
 RADIANT maintains **two parallel spatial representations, both rooted in the same complex
 pupil**:
@@ -72,14 +72,14 @@ $$I(v) = \frac{I_0}{(1-\epsilon^2)^2}\left[\frac{2J_1(v)}{v} - \epsilon^2\,\frac
 **Implementation.** RADIANT does not evaluate the Bessel form; it FFT-propagates the
 sampled complex pupil (aperture mask incl. obscuration and spider vanes, plus wavefront
 phase) and takes $|\cdot|^2$ — the Airy pattern is the *test oracle*, not the algorithm.
-Polychromatic PSFs are photon-flux-weighted sums of monochromatic PSFs
-(`optics/psf_poly.py`, `optics.psf_n_wavelengths`).
+Polychromatic PSFs are photon-flux-weighted sums of monochromatic PSFs, one per
+wavelength on a sub-sampled grid whose size is a parameter.
 
 **Assumptions & validity.** Scalar Fraunhofer diffraction; $F_\# \gtrsim 2$ for the scalar
-approximation; grid effects controlled by `pupil_npix=128`, `psf_oversample=8` defaults
-(`optics/sampling.py`).
+approximation; grid effects controlled by the pupil-sampling and PSF-oversampling
+parameters, whose defaults are 128 pupil samples across and 8× oversampling.
 
-**Pitfalls.** 1.22 vs the exact 1.2196699 (0.03% — matters for tight baselines); amplitude
+**Pitfalls.** 1.22 vs the exact 1.2196699 (0.03 % — matters for tight baselines); amplitude
 vs irradiance PSF; forgetting the $(1-\epsilon^2)^{-2}$ energy renormalization; applying
 the unobscured EE formula to an annular pupil.
 
@@ -133,7 +133,7 @@ so detector effects cancel — and the analytic `strehl_marechal` diagnostic.
 
 **Assumptions & validity.** Maréchal reliable for $\sigma \lesssim \lambda/10$; Noll
 normalization (coefficient = RMS) — the Wyant convention differs by $\sqrt3$-type factors.
-Zernike modes are orthonormal on the unbobscured unit disk; annular pupils strictly need
+Zernike modes are orthonormal on the unobscured unit disk; annular pupils strictly need
 annular polynomials.
 
 **Pitfalls.** Waves vs radians in the Maréchal exponent (factor $(2\pi)^2$); P-V vs RMS
@@ -159,24 +159,23 @@ convolution:
 
 $$\mathrm{MTF}_{det}(\nu) = \left|\frac{\sin(\pi w \nu)}{\pi w \nu}\right|,$$
 
-first zero at $\nu = 1/w$. With areal fill factor FF, $w = p\sqrt{\mathrm{FF}}$ (CU-074) —
-the same width used by the PSF-path pixel kernel (`optics/pixel_kernel.py`, area-overlap
-sampled per CU-003), so the Rule-4 paths agree.
+first zero at $\nu = 1/w$. With areal fill factor FF, $w = p\sqrt{\mathrm{FF}}$ — the same
+width the PSF path's pixel kernel uses, sampled by area overlap, so the two paths agree.
 
 **Charge diffusion.** Gaussian carrier spread of RMS $\sigma_d$:
 $\mathrm{MTF}_{diff}(\nu) = \exp(-2\pi^2\sigma_d^2\nu^2)$.
 
-**Inter-pixel capacitance.** Pitch-spaced coupling kernel with fraction $\alpha$
-(`detector.ipc_coupling`): $\mathrm{MTF}_{IPC}(\nu) = (1-4\alpha) + 2\alpha\cos(2\pi\nu p)$
+**Inter-pixel capacitance.** Pitch-spaced coupling kernel with fraction $\alpha$:
+$\mathrm{MTF}_{IPC}(\nu) = (1-4\alpha) + 2\alpha\cos(2\pi\nu p)$
 per axis (nearest-neighbor form).
 
 **Pitfalls.** The sinc convention: NumPy's `np.sinc(x)` already includes π —
 `np.sinc(w·ν)` is correct, `np.sinc(π·w·ν)` double-counts π and moves the first zero to
 $1/(\pi w)$. Pitch vs aperture width when FF < 1. IPC and diffusion both exist in kernel
-form for the PSF path and analytic form for the MTF path — adding one side only violates
-Rule 4.
+form for the PSF path and analytic form for the MTF path — adding one side only breaks
+the agreement between them.
 
-**Numeric anchor.** 100% fill at Nyquist: $\sin(\pi/2)/(\pi/2) = 2/\pi = 0.636620$.
+**Numeric anchor.** 100 % fill at Nyquist: $\sin(\pi/2)/(\pi/2) = 2/\pi = 0.636620$.
 
 **In RADIANT.** `detector/stage.py` (aperture term, with $\sqrt{\mathrm{FF}}$),
 `detector/diffusion.py::diffusion_mtf`, `detector/ipc.py::ipc_mtf_1d` +
@@ -189,8 +188,8 @@ Rule 4.
 ## 6. Platform kernels: jitter and smear
 
 **Jitter** (random LOS motion, many cycles per integration): Gaussian blur of RMS
-$\sigma$ at the focal plane ($\sigma = \sigma_\theta f$ for angular jitter
-$\sigma_\theta$):
+$\sigma$ at the focal plane ($\sigma = \sigma_j f$ for the RMS angular jitter
+$\sigma_j$ of the notation table):
 
 $$\mathrm{MTF}_{jit}(\nu) = \exp(-2\pi^2\sigma^2\nu^2).$$
 
@@ -202,7 +201,7 @@ $$\mathrm{MTF}_{smear}(\nu) = \left|\frac{\sin(\pi d \nu)}{\pi d \nu}\right|,$$
 applied along the motion direction only. $v_{image}$ derives from the **ground-track**
 velocity ($v_g = v\,R/(R+h)$, see the geometry chapter's *GSD — nadir and off-nadir*)
 times the magnification
-$f/R_s$ — using orbital $v$ instead of $v_g$ inflates smear by $h/R$ (+7.8% at 500 km).
+$f/R_s$ — using orbital $v$ instead of $v_g$ inflates smear by $h/R$ (+7.8 % at 500 km).
 
 **Assumptions & validity.** Jitter Gaussian form requires jitter frequency ≫ $1/t_{int}$;
 comparable-period motion is neither pure jitter nor pure smear. A $d/\sqrt{12}$
@@ -233,7 +232,7 @@ $$\mathrm{MTF}_{LE}(f_a) = \exp\!\left[-3.44\left(\frac{\lambda f_a}{r_0}\right)
 The 3.44 is half the structure-function constant 6.88. Turbulence is the one contributor
 legitimately multiplied into the budget without pupil-level treatment: in the
 long-exposure ensemble average the atmosphere is statistically independent of the pupil.
-The PSF path receives the matching kernel (`platform/turbulence_kernel.py`).
+The PSF path receives the matching kernel.
 
 **Assumptions & validity.** Kolmogorov spectrum (infinite outer scale), weak fluctuations,
 full tilt averaging (long exposure). Short-exposure (tilt-removed) imaging needs Fried's
@@ -270,7 +269,7 @@ the Rule-4 consistency comparison.
 
 **Pitfalls.** Tolerancing θ without N (degradation scales with total drift, so the θ
 tolerance tightens as N grows); the discrete Dirichlet form exceeds the sinc form by up to
-~0.6% at small N.
+~0.6 % at small N.
 
 **Numeric anchor.** Total drift $0.5\,p$ at Nyquist, $N=16$: 0.9007 (Dirichlet) vs
 0.900316 (sinc).
@@ -293,19 +292,19 @@ $$EE_{n\times n} = \int_{-np/2}^{np/2}\!\!\int_{-np/2}^{np/2}\mathrm{PSF}(x,y)\,
 Computed in `PlatformStage` from the **fully degraded** `EffectivePSF` (jitter, smear,
 turbulence included) and applied exactly once, in `SpectralIntegrationStage`, to
 point-source and sub-pixel target signals only — never to the background term, never in
-the extended regime (Rules 4/9).
+the extended regime.
 
 **Discretization.** Each PSF cell is weighted by the fraction of its area inside the box
-(cell-area-overlap, CU-188) — second-order accurate; the earlier full-weight edge-cell
-scheme carried an $O(dx)$ bias (+24% at Q=2 at default sampling) that overstated
+(cell-area overlap) — second-order accurate; the earlier full-weight edge-cell
+scheme carried an $O(dx)$ bias (+24 % at Q=2 at default sampling) that overstated
 point-source SNR.
 
 **Pitfalls.** Ensquared ≠ encircled (a square of side $p$ is not a circle of diameter
-$p$ — quoting the 83.8% first-ring figure for a pixel box is a category error); Airy ring
+$p$ — quoting the 83.8 % first-ring figure for a pixel box is a category error); Airy ring
 tails decay as $1/u^2$, so truncated normalization biases EE.
 
 **Numeric anchor.** Unaberrated Airy at critical sampling ($Q=2$):
-$EE_{1\times1} = 0.177327$ — only ~18% of a point source's energy lands in the center
+$EE_{1\times1} = 0.177327$ — only ~18 % of a point source's energy lands in the center
 pixel.
 
 **In RADIANT.** `optics/psf/effective.py::EffectivePSF.ensquared_energy` /
@@ -326,8 +325,8 @@ $$Q = \frac{\lambda F_\#}{p},\qquad \frac{\nu_c}{\nu_{Nyq}} = \frac{2}{Q}.$$
   $[\nu_{Nyq}, \nu_c]$ folds.
 - $Q > 2$: oversampled.
 
-The folded MTF adds the aliased response back onto the baseband
-(`performance/folded_mtf.py`). Sampling on a pitch $p$ replicates the pre-sampling spectrum
+The folded MTF adds the aliased response back onto the baseband. Sampling on a pitch $p$
+replicates the pre-sampling spectrum
 at integer multiples of the **sampling** frequency $\nu_s = 1/p = 2\nu_{Nyq}$, so
 
 $$\mathrm{MTF}_{fold}(\nu) = \sum_{k=-N}^{+N} \mathrm{MTF}_{opt}\!\left(\left|\nu + k\,\nu_s\right|\right).$$
@@ -339,13 +338,13 @@ oversampled sanity check. The alias fraction
 $(\mathrm{MTF}_{fold} - \mathrm{MTF}_{opt})/\mathrm{MTF}_{fold}$ is evaluated only where
 $\mathrm{MTF}_{fold} > 10^{-9}$ of its DC value; below that floor both terms are
 round-off, and the reported fraction is exactly zero — an oversampled design has no
-aliased energy (CU-315). GIQE consumes RER from the PSF path and the MTF budget per
-`theory/performance_metrics.md`.
+aliased energy. GIQE consumes RER from the PSF path and the MTF budget, as the
+Performance Metrics chapter describes.
 
 **Pitfalls.** "Q = 1 critical" is a different (sampling-frequency) convention — RADIANT's
 statement is $\nu_c/\nu_{Nyq} = 2/Q$, critical at $Q=2$; sampling frequency $1/p$ vs
 Nyquist $1/(2p)$ — replicating the spectrum at $\nu_{Nyq}$ instead of $\nu_s$ puts the
-$k=-1$ copy on DC and adds $\mathrm{MTF}(0)=1$ to every system (CU-209); ground-projecting
+$k=-1$ copy on DC and adds $\mathrm{MTF}(0)=1$ to every system; ground-projecting
 Nyquist twice.
 
 **Numeric anchor.** $\lambda = 0.55$ µm, $F_\# = 4$, $p = 10$ µm: $Q = 0.22$ —
@@ -367,7 +366,7 @@ function (itself the 1-D projection of the PSF); the relative edge response per 
 $$\mathrm{RER}_x = \mathrm{ERF}_x(+p/2) - \mathrm{ERF}_x(-p/2),$$
 
 and the reported scalar is the **geometric mean** $\sqrt{\mathrm{RER}_x\,\mathrm{RER}_y}$
-(GIQE-5 usage). All of LSF/ERF/RER derive from the same `EffectivePSF` (Rule 4).
+(GIQE-5 usage). All of LSF/ERF/RER derive from that one degraded PSF.
 
 **In RADIANT.** `optics/psf/effective.py::EffectivePSF.rer` (with `lsf`/`erf`) · anchored
 by `optics/tests/test_psf.py`; consumed by `performance/giqe.py`.
@@ -377,7 +376,7 @@ by `optics/tests/test_psf.py`; consumed by `performance/giqe.py`.
 
 ## Scope and deferred effects
 
-No ghost images, no measured-BSDF scatter beyond the TIS/halo model
-(`optics/scatter.py`, `optics/stray_light.py` — see `RADIANT_Optics.md`), no chromatic
+No ghost images, no measured-BSDF scatter beyond the total-integrated-scatter and halo
+model, no chromatic
 aberration model, no short-exposure turbulence. The project's scope-decision
 register records the full list.

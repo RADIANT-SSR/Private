@@ -1,6 +1,6 @@
 # Case Study — A Target Detection Matrix
 
-**Scenario 4.1** · persona: Lisa, analyst · modality: script-led · scenario folder:
+**Scenario 4.1** · persona: Lisa, detection/targeting analyst · modality: script-led · scenario folder:
 `scenarios/04_lisa_analyst/4.1_target_detection_matrix/`
 
 ---
@@ -54,26 +54,26 @@ farm is a third its size at ε = 0.95. Those two facts will fight each other lat
 |---|---|---|---|
 | Aperture | 0.18 m | 0.50 m | 0.35 m |
 | Focal length | 0.45 m (f/2.5) | 1.50 m (f/3.0) | 0.70 m (f/2.0) |
-| Band | 3.6 – 4.9 µm | 3.6 – 4.9 µm | 8.0 – 11.5 µm |
+| Band | 3.6–4.9 µm | 3.6–4.9 µm | 8.0–11.5 µm |
 | Pixel pitch | 15 µm | 12 µm | 17 µm |
 | **GSD at nadir** | **16.7 m** | **4.0 m** | **12.1 m** |
 | Quantum efficiency | 0.72 | 0.78 | 0.65 |
-| Dark rate | 5 000 e-/s at 80 K | 2 000 e-/s at 75 K | 200 000 e-/s at 60 K |
+| Dark rate | 5,000 e-/s at 80 K | 2,000 e-/s at 75 K | 200,000 e-/s at 60 K |
 | Read noise | 35 e- RMS | 25 e- RMS | 40 e- RMS |
 | Integration time | 4 ms | 4 ms | 2 ms |
 
-Sensor C's YAML is deliberately stale — it still carries the pre-ADR-0006 name
+Sensor C's YAML is deliberately stale — it still carries the old name
 `platform.h_sensor` where the current schema says `geometry.sensor_altitude_m`. RADIANT
 accepts it through the deprecated-alias mechanism and says so:
 
-```
+```text
   OUTDATED PARAMETER NAME absorbed: sensor C's YAML still says
-  'platform.h_sensor' (pre-ADR-0006 name). RADIANT accepted it
+  'platform.h_sensor' (the superseded name). RADIANT accepted it
   through the deprecated-alias mechanism (1 DeprecationWarning(s) raised) and mapped it to
   geometry.sensor_altitude_m — the config still runs, loudly.
 ```
 
-That is the intended behaviour for an aged config: run, but warn. A config archive
+That is the intended behavior for an aged config: run, but warn. A config archive
 that silently breaks on a schema rename is a config archive nobody keeps.
 
 **Four atmospheres**, each pairing a visibility with the profile that physically goes
@@ -107,7 +107,7 @@ a warm Earth is photon-rich. A criterion that every cell passes is not a criteri
 
 Real sub-pixel detection against a terrestrial background is **clutter-limited**: what
 defeats you is not the sensor's noise but the scene's own spatial variability, patches
-of ground that are as different from their neighbours as your target is. So the script
+of ground that are as different from their neighbors as your target is. So the script
 models rural scene clutter at 2 % of the in-pixel background and forms a
 signal-to-clutter-plus-noise ratio:
 
@@ -162,7 +162,7 @@ slant back through the same `slant_range_from_theta_o_m` the chain uses, so the
 footprint it computes and the geometry the chain runs cannot diverge.
 
 **`Sensor.get` returns canonical units.** `detector.pixel_pitch_x_um` comes back in
-**metres**, despite the `_um` suffix in the name — the suffix records the *input* unit,
+**meters**, despite the `_um` suffix in the name — the suffix records the *input* unit,
 not the storage unit. An initial version of this script multiplied by $10^{-6}$ again
 and made the pixel footprint $10^{12}$ times too small; the symptom was a printed GSD
 of 0.0 m.
@@ -195,7 +195,7 @@ detection_range_km = slant_range_from_theta_o_m(0.5 * (lo + hi), ALTITUDE_M, 0.0
 Nine bisection steps on the zenith angle, bracketed at nadir and at the 66° practical
 swath edge (the true horizon at 500 km is 68.0°). Two early exits keep the cost honest:
 a cell that fails at nadir is "not detectable" without any search, and a cell that still
-passes at the swath edge is reported as **swath-edge limited** at 1 061 km — the sensor's
+passes at the swath edge is reported as **swath-edge limited** at 1,061 km — the sensor's
 access, not the atmosphere, is what ends it there. Nine steps give ~0.13° of zenith
 resolution, about 0.5 % in range; that figure matters when reading the tables below.
 
@@ -233,7 +233,7 @@ contract: the extrapolation is available, but you have to ask for it in writing.
 
 ## Real output — the three matrices
 
-```
+```text
 === Running the matrix: 12 × 4 × 3 = 144 cells ===
   Detection criterion: SCNR ≥ 5 — |contrast| over RSS(noise + clutter),
   scene clutter = 2% of in-pixel background (rural)
@@ -245,7 +245,7 @@ contract: the extrapolation is available, but you have to ask for it in writing.
 
 **Sensor A — MWIR smallsat, 16.7 m GSD, 278 m² pixel footprint at nadir:**
 
-```
+```text
   Target                         clear            haze   tropical_haze    arctic_clear
   ------------------------------------------------------------------------------------
   MBT tank              not detectable  not detectable  not detectable  not detectable
@@ -264,7 +264,7 @@ contract: the extrapolation is available, but you have to ask for it in writing.
 
 **Sensor B — MWIR flagship, 4.0 m GSD, 16 m² pixel footprint at nadir:**
 
-```
+```text
   Target                         clear            haze   tropical_haze    arctic_clear
   ------------------------------------------------------------------------------------
   MBT tank                         696             688             560             901
@@ -283,7 +283,7 @@ contract: the extrapolation is available, but you have to ask for it in writing.
 
 **Sensor C — LWIR wide, 12.1 m GSD:**
 
-```
+```text
   Target                         clear            haze   tropical_haze    arctic_clear
   ------------------------------------------------------------------------------------
   MBT tank              not detectable  not detectable  not detectable  not detectable
@@ -300,7 +300,7 @@ contract: the extrapolation is available, but you have to ask for it in writing.
   Small UAV (parked)    not detectable  not detectable  not detectable  not detectable
 ```
 
-```
+```text
 === Worst-case target ===
   Hardest: Technical (pickup) — mean detection range 199 km
            across all 12 sensor×atmosphere cells
@@ -311,9 +311,9 @@ contract: the extrapolation is available, but you have to ask for it in writing.
 ==========================================================================
 ```
 
-All ranges are **slant range in kilometres** at SCNR = 5; `*` marks a cell that is
+All ranges are **slant range in kilometers** at SCNR = 5; `*` marks a cell that is
 swath-edge limited (SCNR ≥ 5 all the way out to the 66° practical edge, slant
-1 061 km). The full run takes 5 min 15 s — about 1 300 chain evaluations.
+1,061 km). The full run takes 5 min 15 s — about 1,300 chain evaluations.
 
 ## What the matrix says
 
@@ -412,9 +412,9 @@ and mean (Technical pickup, 199 km) and the easiest (fuel bladder farm, 991 km).
 Two cells differ, both on sensor B, and both are reported here with both values rather
 than reconciled away:
 
-| Cell | Walkthrough (2026-08-30 vintage) | This run (2026-09-16) | Δ |
+| Cell | Walkthrough, as committed | This run | Δ |
 |---|---:|---:|---:|
-| Fighter aircraft, `haze` | 1 029 km | **1 033 km** | +4 km (+0.39 %) |
+| Fighter aircraft, `haze` | 1,029 km | **1,033 km** | +4 km (+0.39 %) |
 | Small UAV (parked), `clear` | 685 km | **686 km** | +1 km (+0.15 %) |
 
 Both shifts are below the bisection's own stated resolution — nine steps give ~0.13° in
@@ -426,7 +426,7 @@ landings previously passed through this scenario unremarked; nothing in the mach
 baselines covers a script-side SCNR bisection.
 
 A related inconsistency, noted in passing and not corrected here: the walkthrough's
-CU-335 refresh note attributes its single moving cell to "sensor A's small UAV,
+own refresh note attributes its single moving cell to "sensor A's small UAV,
 686 → 685 km", but sensor A's Small UAV is `not detectable` in every column in both the
 walkthrough's own table and this run. The cell it describes is sensor B's, which this run
 reports back at 686 km. The walkthrough's physics discussion also quotes "688 vs 695 km"

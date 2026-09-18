@@ -44,7 +44,7 @@ selected.](figures/gui/ug_stage_strip.png)
 
 Ten chips, in the order the chain runs, each showing its number, name and a one-line physics
 caption (`PSF · MTF`, `∫ dλ`, `TDI · ADC`). Clicking one is **navigation only** — it computes
-nothing. It swaps the centre to that stage's workspace and scrolls the Parameters dock to
+nothing. It swaps the center to that stage's workspace and scrolls the Parameters dock to
 that stage's namespace.
 
 The dot on each chip is a **health indicator**, and it reports the whole run rather than that
@@ -55,12 +55,12 @@ stage alone:
 | green | the last evaluation finished with no warnings |
 | yellow | the last evaluation finished and carried at least one warning |
 | red | the last evaluation raised an error |
-| grey | stale — no result yet, or a parameter has been edited since the last run |
+| gray | stale — no result yet, or a parameter has been edited since the last run |
 
 The dots move together on purpose. Captured warnings are free text that cannot be reliably
 attributed to a single stage, and a raised error does not reliably carry the stage it came
 from, so the strip marks every chip rather than guessing which one is at fault. A yellow
-strip means *this run has something to read in Messages*, not *this stage is unhealthy*. Grey
+strip means *this run has something to read in Messages*, not *this stage is unhealthy*. Gray
 appearing the instant you type is the other half of the same honesty: the numbers on screen
 no longer describe the model you have now, and they say so until the pending re-evaluation
 lands.
@@ -104,7 +104,7 @@ The dock hides and shows with **F6**.
 
 ## 4. The stage workspace
 
-The centre column shows the selected stage and nothing else. Every workspace is built from
+The center column shows the selected stage and nothing else. Every workspace is built from
 the same three sections, in order: **Inputs** (this stage's editable parameters, each with
 its unit), **Outputs** (what the stage computed, read-only, each with its unit and symbol,
 read verbatim from the stage's own outputs), and **Plots** (that stage's figures).
@@ -113,24 +113,24 @@ Stages with substantial separable content are tabbed — Geometry is *Inputs | S
 Source has five tabs, Optics four, Platform and Detector two or three; the rest are a single
 pane. Chapter 4, §1 has the full map.
 
-Three behaviours belong to the centre column rather than to any one stage:
+Three behaviors belong to the center column rather than to any one stage:
 
 **Derived fields are inert.** They show a lightning bolt and a `derived` badge, and they are
 not editable, exactly as in the dock.
 
 **Irrelevant fields are shown disabled, not hidden.** Where a stage accepts one mode out of
 several — one geometry mode per family, one transmission definition, one readout
-architecture — the alternatives stay visible and greyed. You can see what you did not choose,
+architecture — the alternatives stay visible and grayed. You can see what you did not choose,
 which is the difference between a tool that has no such feature and one where you took the
 other door.
 
 **The saturation banner lives here.** When the pixel is clipping, a persistent,
-non-dismissible banner appears at the top of the centre column with the well fill and the
+non-dismissible banner appears at the top of the center column with the well fill and the
 accumulated-versus-capacity charge in electrons. It is deliberately not folded into the
-Messages list: silent clipping invalidates every downstream number, so it gets its own
+Messages panel: silent clipping invalidates every downstream number, so it gets its own
 strip.
 
-With no configuration loaded, the centre shows the **welcome screen** instead of dead space:
+With no configuration loaded, the center shows the **welcome screen** instead of dead space:
 a grid of mission-template cards (name, one-line blurb, specification line), a **Blank
 config** card, a **Worked examples** group of bundled studies, and an **Open recent** list.
 Activating any card is an ordinary file open with a known path.
@@ -171,17 +171,12 @@ The rail hides and shows with **F7**.
 
 RADIANT re-evaluates on its own, and understanding when is worth a paragraph.
 
-- **On load**, once, automatically. A file you open is a file you have already evaluated.
-- **After an edit**, on a 200 ms debounce. Edits inside that window coalesce into one run, so
-  dragging through several fields costs one evaluation, not five.
-- **On demand**, via **Evaluate** — `F5`, or `Ctrl+Return` (`⌘Return` on macOS, provided
-  because a bare `F5` needs the `Fn` modifier on stock macOS keyboards).
-
-Every run happens on a worker thread; the window stays responsive, and closing it during a long
-study cancels cleanly rather than stranding the thread. There is no Cancel affordance for the
-evaluate loop itself in this build (chapter 9, §1). The whole chain re-runs every time — there
-is no partial or incremental re-evaluation, and none is planned, because a stale subgraph is a
-class of bug that silent partial updates make invisible.
+Three things start a run and nothing else does: **loading a file**, **editing anything**
+(on a 200 ms debounce, so edits coalesce), and **Evaluate** on demand — `F5`, or
+`Ctrl+Return` (`⌘Return` on macOS, provided because a bare `F5` needs the `Fn` modifier on
+stock macOS keyboards). Chapter 9, §1 is the full treatment: what counts as an edit, why
+the whole chain re-runs every time, and what the worker thread does and does not let you
+interrupt.
 
 **A failed evaluation leaves the previous result on screen**, marked stale, with the failure
 in Messages. It never shows a blank, and it never shows a mixture of old and new numbers.
@@ -190,76 +185,19 @@ in Messages. It never shows a blank, and it never shows a mixture of old and new
 check runs from the command line as `radiant validate <config>`, and the configuration
 manager's Status column applies it per configuration (chapter 8, §3).
 
-## 7. Menu map
+## 7. Menus
 
-Actions that a build does not implement are present but disabled, so the menus read as the
-full surface rather than shifting shape between versions. The notes below say which are which
-in the shipped build.
+Every action lives in the menu bar, and actions a build does not implement are present but
+disabled, so the menus read as the full surface rather than shifting shape between
+versions. **Appendix A is the menu reference** — every entry of File, Edit, View, Run,
+Tools and Help, with its shortcut, what it does, and whether it is wired in this build.
+It also catalogues the affordances that are not in a menu at all: the right rail's **Edit
+Config (YAML)** button, the Parameters dock's context menu, the per-row configuration
+scope, and the import dialogs that hang off the Optics and Detector workspaces.
 
-**File**
-
-| Action | Shortcut | Notes |
-|---|---|---|
-| New | | blank configuration, after the unsaved-edits guard |
-| Open YAML… | `Ctrl+O` | plain configuration or study, same action |
-| Open Recent ▸ | | persisted between launches; disabled while empty |
-| Save | `Ctrl+S` | writes the inputs scope |
-| Save As… | | |
-| Export YAML… | | the configuration as a file |
-| Export JSON Result… | | the provenance record of the last run; enabled after the first evaluation |
-| Export Resolved YAML… | | the fully specified configuration, defaults included |
-| Export Metrics CSV… | | enabled after the first evaluation |
-| Export Sweep CSV… | | enabled once a sweep has been run |
-| Export XLSX Workbook… | | enabled after the first evaluation |
-| Quit | `Ctrl+Q` | |
-
-**Edit**
-
-| Action | Shortcut | Notes |
-|---|---|---|
-| Undo / Redo | `Ctrl+Z` / the platform's redo (`Ctrl+Shift+Z`; `Ctrl+Y` on Windows) | parameter edits and element-train edits; a whole-document swap clears the history |
-| Reset to Defaults | | |
-| Configurations… | | the configuration manager (chapter 8) |
-| Find Parameter | `Ctrl+F` | present, not wired in this build — use the dock's filter box |
-
-**View**
-
-| Action | Shortcut | Notes |
-|---|---|---|
-| Show/Hide Parameter Panel | `F6` | state persists |
-| Dark/Light Theme | | persists; re-themes figures and custom-drawn views too |
-| Font Size + / − | | present, not wired in this build |
-| Show/Hide Right Rail | `F7` | state persists |
-| Angles in Degrees | | display only; on by default, persists |
-| Go to Stage ▸ | `Ctrl+1`…`Ctrl+9`, `Ctrl+0` | the ten stages; the tenth wraps to `Ctrl+0` |
-
-**Run**
-
-| Action | Shortcut | Notes |
-|---|---|---|
-| Evaluate | `F5`, `Ctrl+Return` | |
-| Validate Only | `Ctrl+R` | present, not wired in this build — use `radiant validate` |
-| Run Sweep… | | 1-D or 2-D sweep, on a worker thread (chapter 10) |
-| Monte Carlo… | | opens a prefilled Monte-Carlo **script scaffold**, seeded with the tolerances you have set |
-| Batch Run… | | opens a prefilled `BatchRunner` **script scaffold** |
-
-**Tools**
-
-| Action | Shortcut | Notes |
-|---|---|---|
-| Inspector | `Ctrl+I` | every intermediate value of the last run, as a tree; non-modal; enabled after the first evaluation |
-| Scripting Window | `Ctrl+Shift+P` | a separate top-level window — command line and workspace — bound to the displayed sensor |
-| Parameter Schema Browser | | |
-| Compare Config Files… | | evaluates this configuration against other *files* and tables the metrics (chapter 10) |
-| Compare Measured MTF… | | overlays measured MTF data; enabled after the first evaluation |
-| Solve for Parameter… | | inverse solve: what value of X gives metric Y |
-| Explain Parameter… | | pick a dot-path and read its derivation trace |
-| Preferences… | | present, not wired in this build |
-
-**Help** — Documentation, Example Configs, About RADIANT: present, not wired in this build.
-
-The menu bar's right-hand corner carries a **◈ Inspector** button that triggers the same
-Tools action and shares its enabled state.
+Three menu entries are worth knowing before you get there, because they are the ones an
+operator reaches for first: **Run ▸ Evaluate** (`F5`), **Edit ▸ Configurations…** (the
+configuration manager of chapter 8), and **Tools ▸ Scripting Window** (`Ctrl+Shift+P`).
 
 ## 8. Shortcut summary
 

@@ -38,16 +38,16 @@ point-spread functions.
 | Optical transmission | 75 % | Two-mirror train plus filter, lumped. |
 | Optics temperature | 20 °C ( = 293.15 K) | Not load-bearing in the VNIR; the scene is solar-reflective. |
 | WFE reference wavelength | 633 nm ( = 0.633 µm) | HeNe. Every interferometric measurement Tom will ever take is referenced here. |
-| Spectral band | 500 – 800 nm ( = 0.500 – 0.800 µm) | The VNIR passband; band centre 650 nm. |
+| Spectral band | 500–800 nm ( = 0.500–0.800 µm) | The VNIR passband; band center 650 nm. |
 | Pixel pitch | 10.0 µm | The CCD. |
 | Quantum efficiency | 85 % | Detector, band-average. |
 | Dark current | 3.0 e-/s | Cooled CCD. |
 | Read noise | 5.0 e- RMS | Detector. |
-| Full well | 100 000 e- | Detector. |
+| Full well | 100,000 e- | Detector. |
 | Integration time | 2.0 ms | A short VNIR dwell. |
 | Orbit altitude | 500 km | Sets GSD 1.25 m at 2.5 µrad IFOV. |
 | Target / background reflectance | 0.15 / 0.10 | A low-contrast land scene. |
-| Solar zenith angle | 30 deg | A good-illumination reference case. |
+| Solar zenith angle | 30° | A good-illumination reference case. |
 | Atmosphere | `simple`, visibility 23 km, PWV 20 mm | Standard clear column. |
 
 The derived numbers the script prints before it starts are the ones to hold onto:
@@ -78,7 +78,7 @@ detector has already spent most of.
 | Z15 | 2nd Coma X | 0.001 |
 | **RSS total** | | **0.0513** |
 
-Spherical, coma-Y and defocus dominate. Because Noll-normalised coefficients *are*
+Spherical, coma-Y and defocus dominate. Because Noll-normalized coefficients *are*
 per-mode RMS contributions, the total RMS is their root-sum-square — which is also
 what makes the allocation below a clean RSS budget rather than a linear one.
 
@@ -192,7 +192,7 @@ same RMS, different modal mix, everything else identical.
 
 ### Real output — the sweep
 
-```
+```text
        WFE    Strehl     MTF@Nyq   EE(1x1)   EE(3x3)       RER       SNR     NIIRS
    [waves]      [--]        [--]      [--]      [--]      [--]      [--]      [--]
   --------  --------  ----------  --------  --------  --------  --------  --------
@@ -213,7 +213,7 @@ same RMS, different modal mix, everything else identical.
 
 ### Real output — the budget
 
-```
+```text
 === WFE Error Budget (ErrorBudget, Gaps 23+28) ===
 Error budget: wfe [waves @ 633 nm]
 Contributor                           RMS    Share
@@ -237,7 +237,7 @@ RSS headroom                      0.04969
 
 ### Real output — the prescription against its scalar twin
 
-```
+```text
   Both runs: total WFE RMS = 0.0513 [waves at 633 nm]
 
   Metric                  Zernike (actual)   Scalar screen           Δ
@@ -319,7 +319,7 @@ The noise budget is likewise constant:
 | `dark_shot` | 0.1 | < 0.1 % |
 | **Total (RSS)** | **120.4** | |
 
-Signal 14 468 e-, and $\sqrt{14\,468} = 120.3$: shot-limited, as a bright VNIR scene at
+Signal 14,468 e-, and $\sqrt{14\,468} = 120.3$: shot-limited, as a bright VNIR scene at
 2 ms should be. NIIRS therefore changes with WFE almost entirely through the GIQE-5
 RER term ($3.32 \log_{10}\mathrm{RER}$), with the SNR term held fixed. That is the
 cleanest possible separation of a spatial effect from a radiometric one, and it means
@@ -349,14 +349,14 @@ Nyquist falls 66.1 % while RER falls only 42.9 %. A low-order aberration attacks
 mid-frequency contrast harder than it attacks edge slope. A model that degraded every
 spatial metric by one common factor could not produce that spread, and the fact that
 RADIANT does is a check on the pupil-domain implementation: all five spatial metrics
-come off the same `EffectivePSF`, so their *relative* behaviour is physics rather than
-parameterisation.
+come off the same `EffectivePSF`, so their *relative* behavior is physics rather than
+parameterization.
 
 ## Two caveats the run itself raises
 
 **Annular Zernikes are not implemented.** The very first line of output is a warning:
 
-```
+```text
 UserWarning: Obscuration ratio 0.35 > 0.30: standard Zernike polynomials are NOT
 orthogonal on an annular pupil. Individual coefficient interpretations may be
 misleading. Annular Zernikes (Mahajan 1981) are not implemented.
@@ -376,7 +376,7 @@ at 0.25 waves, Maréchal gives 0.085 against RADIANT's 0.468. Two separate effec
 produce that. Maréchal's $S = \exp[-(2\pi\,\mathrm{OPD_{rms}}/\lambda)^2]$ is a
 small-aberration expansion that is simply invalid below Strehl $\approx 0.3$; and the
 table's Maréchal column is evaluated at the 633 nm reference while RADIANT works at
-the 650 nm band centre, where the same physical OPD is a smaller fraction of a wave.
+the 650 nm band center, where the same physical OPD is a smaller fraction of a wave.
 RADIANT's reported Strehl is the degraded-PSF peak over the diffraction-limited
 reference peak — a computed ratio, not a closed-form approximation — and it is the one
 to quote.

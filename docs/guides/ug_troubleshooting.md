@@ -51,7 +51,7 @@ its context, never by matching words in its message.
 | Surface | Carries |
 |---|---|
 | **Inline on the row** + the **Parameter Rejected** dialog | a rejected *edit*: the value you just typed is wrong on its own terms |
-| **The Messages rail** | everything a completed run had to say — warnings, advisories, and failures |
+| **The Messages panel** | everything a completed run had to say — warnings, advisories, and failures |
 | **The status bar** | a one-line summary of the last action, and the specific thing to fix when a failure is attributable |
 | **The stage strip** | which stage is implicated, when that can be known |
 
@@ -147,7 +147,7 @@ Action: Set exactly one of these parameters (the others derive from it), or make
 This one comes with a **locator**: the application tints the offending family's card and jumps
 you to the Geometry workspace, so you do not have to work out which of four family cards the
 dot-paths belong to. The tint is navigation only — the actionable text is in the dialog and the
-Messages rail, as always.
+Messages panel, as always.
 
 ### 3.5 A required parameter with no value
 
@@ -162,16 +162,15 @@ This is the family that has **no modal**, on purpose — see §4.
 
 ### 3.6 Kirchhoff and the element train
 
-The Kirchhoff constraint of Rule 5 is enforced by making the over-specification unrepresentable
-rather than by refusing it after the fact. There is no emissivity input for an optical element
+Kirchhoff's law is enforced by making the over-specification unrepresentable rather than by
+refusing it after the fact. There is no emissivity input for an optical element
 anywhere in the GUI, the YAML, or the API: a mirror row takes a reflectance, a refractive row
 takes a transmittance, and ε is derived and shown read-only.
 
 The document parser reinforces that: a row's transfer mode decides which single value is read —
 `reflectance` for `REFLECTIVE`, `transmittance` for `REFRACTIVE` — so a train you author in the
 GUI, in YAML, or through the API cannot state an $R$ and a $T$ for the same surface, and cannot
-state an ε at all. The over-specification Rule 5 forbids is unrepresentable rather than
-refused.
+state an ε at all.
 
 What you *can* get wrong is the value:
 
@@ -197,11 +196,11 @@ and the row stays as a visible pending draft until it validates (chapter 7, §1.
 
 Some evaluations fail for reasons that are not a bad input at all: you are half-way through
 building something, or your scene is perfectly legal and the bundled data simply does not cover
-it. Rendering those as **Parameter Rejected** miscategorises them, and because they fire one
+it. Rendering those as **Parameter Rejected** miscategorizes them, and because they fire one
 gate at a time, it turns a normal working session into a wall of modals.
 
-So these are **advisories**: no dialog, the implicated stage's chip red and the rest grey, the
-specific fix named in the status bar, and the full what / why / action in the Messages rail.
+So these are **advisories**: no dialog, the implicated stage's chip red and the rest gray, the
+specific fix named in the status bar, and the full what / why / action in the Messages panel.
 
 | Situation | Status bar says |
 |---|---|
@@ -250,7 +249,7 @@ What that means in practice:
   reached one path and not the other, which is a defect worth reporting. And the window logs a
   warning if an evaluation worker outlives a close by more than five seconds.
 - **Everything an operator needs is in the window.** Warnings from the run are in the Messages
-  rail verbatim; failures are in the rail and, where appropriate, in a dialog. The stderr stream
+  panel verbatim; failures are in the rail and, where appropriate, in a dialog. The stderr stream
   is developer diagnostics, not a second copy of the user-facing messages.
 - **To capture it**, redirect: `radiant gui config.yaml 2> radiant-gui.log`.
 
@@ -287,7 +286,7 @@ cancels the whole action; you cannot lose work by accident.
 
 ### 6.3 From nothing
 
-**File ▸ New** — or launching with no file — puts the welcome screen in the centre column
+**File ▸ New** — or launching with no file — puts the welcome screen in the center column
 instead of dead space, and it is a recovery surface as much as an onboarding one:
 
 - a grid of **mission-template cards**, each with a name, a one-line description and a
@@ -322,7 +321,7 @@ believe has its own short checklist.
 5. **Is a metric missing because it was switched off?** A card reading
    `n/a — not computed for this run` is a metric group you deselected (chapter 9, §2), not a
    failure.
-6. **Has something aged out?** A grey strip and an amber **Re-evaluate** button mean the numbers
+6. **Has something aged out?** A gray strip and an amber **Re-evaluate** button mean the numbers
    predate your last edit.
 7. **Open the Inspector** (`Ctrl+I`) and walk the intermediates. The stage that first looks
    wrong is nearly always upstream of the stage whose metric looked wrong.

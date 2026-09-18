@@ -44,26 +44,26 @@ ke-, ms, km, kt and °C, and the import maps every one of them once.
 | Optical transmission | 75 % | 0.750 |
 | Central obscuration | 0 % | 0 — a filled refractive pupil |
 | WFE RMS | 0.05 waves | 0.05 waves at 0.633 µm |
-| Spectral band | 3.50 – 5.00 µm | same |
+| Spectral band | 3.50–5.00 µm | same |
 | Pixel pitch | 20 µm | 20 µm |
 | Fill factor | 100 % | 1.00 |
 | Quantum efficiency | 80 % | 0.80 |
-| Dark current | 50 000 e-/s | 50 000 e-/s |
+| Dark current | 50,000 e-/s | 50,000 e-/s |
 | FPA temperature | 80 K | 80 K |
 | Read noise | 40 e- RMS | 40 e- RMS |
 | Full well | 1000 ke- | 1.000 × 10⁶ e- |
 | System gain | 61 e-/DN | 61 e-/DN |
 | ADC | 14 bits | 14 bits |
 | Frame integration | 0.10 ms | 1.00 × 10⁻⁴ s |
-| Own-ship / target altitude | 10 km / 10 km | 10 000 m / 10 000 m |
-| Slant range | 50 km | 50 000 m |
+| Own-ship / target altitude | 10 km / 10 km | 10,000 m / 10,000 m |
+| Slant range | 50 km | 50,000 m |
 | Target hot parts | 226.85 °C, 0.36 m², 90 % | 500.00 K, 0.36 m², 0.90 |
 | Own-ship TAS | 480 kt | 246.93 m/s |
 | Illumination | — | `night` |
 | Atmosphere | midlat_summer, PWV 2.92 cm, vis 23 km, rural | same |
 
 The derived instrument scales follow immediately: IFOV = $p/f$ = 44.44 µrad, band
-centre 4.250 µm, $Q = \lambda F/\# / p = 0.6375$ — undersampled, which is normal for a
+center 4.250 µm, $Q = \lambda F/\# / p = 0.6375$ — undersampled, which is normal for a
 search IRST that is trading resolution for field of view.
 
 The atmosphere is deliberately set to the same profile, water content, visibility and
@@ -95,13 +95,13 @@ explicitly set `performance.metrics.*` group flag always wins — so a missing m
 never ambiguous between "irrelevant" and "failed".
 
 The viewing family is in mode **V0**, `Direct slant range`. `sensor_altitude_m` and
-`target_altitude_m` both read 10 000 m and `target_range_m` reads 50 000 m; the four
-angular fields are greyed. For equal altitudes the chord fixes the Earth-centre central
+`target_altitude_m` both read 10,000 m and `target_range_m` reads 50,000 m; the four
+angular fields are grayed. For equal altitudes the chord fixes the Earth-center central
 angle directly, which is the solution that subsumed the old geometry-free carve-out.
 
 > **Proving the guard works.** The scenario's workflow has Sarah set
 > `Assert scene class = air_to_air` (nothing changes — the assertion agrees with the
-> derivation), then change `target_altitude_m` from 10 000 m to 10 m, the classic
+> derivation), then change `target_altitude_m` from 10,000 m to 10 m, the classic
 > wrong-magnitude typo. The scene now derives `air_to_ground`, contradicting the
 > assertion, and the geometry stage raises. The GUI answers in three places at once: the
 > actionable-error dialog carrying the what/why/action verbatim, a row in the right-rail
@@ -124,7 +124,7 @@ This is the figure the Phase-4 geometry work exists for. Three things to check:
   regression rather than a cosmetic complaint.
 - **The altitude leader pills** read `h_t 10.0 km` at the target and `h_s 10.0` at the
   sensor, whose unit is clipped by the right edge of the viewport; the mode form beside
-  the picture confirms both at 10 000 m. Altitude is *told*, not drawn to scale — the
+  the picture confirms both at 10,000 m. Altitude is *told*, not drawn to scale — the
   not-to-scale idiom that governs every RADIANT schematic.
 - **The `Δh 49 m` pill** on the arm itself. It has no toggle; it is drawn whenever the
   scene is a level arm and hidden otherwise, exactly like the altitude pills.
@@ -137,7 +137,7 @@ each endpoint looks very slightly **down** at the other. The depression is
 
 $$\Delta h = (R_E + h)\,(1 - \sin\zeta_{low}) \approx \frac{L^2}{8(R_E+h)},$$
 
-which at $L = 50$ km is 48.97 m. Forty-nine metres over a fifty-kilometre arm is
+which at $L = 50$ km is 48.97 m. Forty-nine meters over a fifty-kilometer arm is
 invisible at any honest drawing scale, so it is annotated rather than drawn. And it
 matters: Δh is the variable the horizon guard classifies a level path on, so this pill
 is the analyst's early warning that a longer arm will trip it. The schematic calls
@@ -145,10 +145,10 @@ is the analyst's early warning that a longer arm will trip it. The schematic cal
 than restating the formula, so the pill and the guard cannot disagree.
 
 The same sag is why the path zenith at the target is *greater* than 90 degrees. The
-derived readout below the mode form — scroll the centre pane — reports
+derived readout below the mode form — scroll the center pane — reports
 $\theta_o = 1.574714$ rad = **90.2245°** at the target and $\eta = 89.7755°$ at the
-sensor, with ground range 49 922 m. Those two sum to exactly 180.0000° and differ by the
-Earth-centre central angle $\varphi = 0.44896°$, with $\theta_o = \pi/2 + \varphi/2$.
+sensor, with ground range 49,922 m. Those two sum to exactly 180.0000° and differ by the
+Earth-center central angle $\varphi = 0.44896°$, with $\theta_o = \pi/2 + \varphi/2$.
 That identity is checkable on screen by revealing the $\theta_o$ and $\eta$ arcs from
 the ANGLES panel; on a level arm the $\zeta_{low}$ arc coincides with $\theta_o$
 exactly, and seeing the two overlap is the visual proof that the down/level and
@@ -205,8 +205,8 @@ read, quantization and dark — combines to 67.9 e- RMS.
 
 That matters because a detection-range solver has to scale the noise as well as the
 signal. Push the target out and its own shot noise goes with it, leaving the 67.9 e-
-floor; freeze the total noise at its reference value instead, as the solver did before
-CU-263, and the near-field answer comes out strongly pessimistic. The shipped solver
+floor; freeze the total noise at its reference value instead, as a frozen-noise solver
+does, and the near-field answer comes out strongly pessimistic. The shipped solver
 uses $\sigma^2(R) = S(R) + N_0^2$ with $N_0$ the target-free floor, and the consequence
 is visible in the next figure.
 
@@ -221,7 +221,7 @@ class, target-plane sample distance in its place.](figures/gui/case_irst_perform
 target-plane sample distance 2.222 m in x, y and geometric mean. That is $p\,d/f =
 20\ \mu\mathrm{m} \times 50\ \mathrm{km} / 0.45\ \mathrm{m}$, and it is the right
 substitute for GSD when there is no ground plane to project a footprint onto. $Q$ reads
-0.6375 at band centre (0.525 at the short edge, 0.75 at the long one), classified
+0.6375 at band center (0.525 at the short edge, 0.75 at the long one), classified
 `detector-limited`, with a diffraction limit of 34.57 µrad. **There is no GSD row, no
 ground range, no swath width, no access rate** — the eleven metrics the scene-class card
 listed are genuinely absent from the result, not blank.
@@ -261,7 +261,7 @@ fraction is applied once, in spectral integration, to the target term only. The
 background is `SkyBackground`, selected by the line-of-sight termination classifier: the
 ray continues *past* the target, and a level arm at 10 km leaves the atmosphere rather
 than striking the ground. The same configuration aimed at a ground target would have
-selected a ground background. Nothing in the scenario asks for either behaviour.
+selected a ground background. Nothing in the scenario asks for either behavior.
 
 ## What the study concludes
 
@@ -293,14 +293,14 @@ shoulder (75–100 km, Δh 110.2–195.9 m); the analytic crossover
 $L = \sqrt{8 r \Delta h_{clean}} = 71.45$ km falls between the 70 km and 75 km rungs.
 The warning text names the excluded physics — RADIANT models no atmospheric refraction —
 and sizes it: under the standard $k = 4/3$ effective-radius model the 100 km path would
-bottom out 146.9 m below its lower endpoint rather than 195.9 m, so the modelled ray
+bottom out 146.9 m below its lower endpoint rather than 195.9 m, so the modeled ray
 samples air about 32.6 m lower on average than the real one, worth roughly **0.91 %** in
 band transmittance. That is the right verdict for operational work: the scene computes,
 the caveat is named and quantified, and the analyst decides.
 
 **Target kinematics cost more than they look like they cost.** Platform motion alone
-gives $\omega_{LOS}$ = 4.939 mrad/s; the crossing target (580 kt, heading 270 deg,
-2 deg climb) raises it to **10.905 mrad/s**, a factor of 2.21. The two do *not* combine
+gives $\omega_{LOS}$ = 4.939 mrad/s; the crossing target (580 kt, heading 270°,
+2° climb) raises it to **10.905 mrad/s**, a factor of 2.21. The two do *not* combine
 in quadrature — they are two contributions to one focal-plane translation, so they
 compose in the velocity domain and only then become a smear, and an RSS of two smears
 would have returned 7.745 mrad/s and understated the blur by 29 %. At the 100 µs search

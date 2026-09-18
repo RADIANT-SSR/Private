@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Shipped documentation suite and scenario suite (Gap 131).** RADIANT now
+  ships four typeset PDF volumes — Theory Manual (91 pp.), User's Guide
+  (97 pp.), Technical Reference (161 pp.), Worked Examples & Validation
+  (162 pp.) — and the full 51-scenario suite. A `pip install radiant` carries
+  both inside the wheel, at `radiant/manuals/` and `radiant/scenarios/`; the
+  same PDFs, a `radiant_scenarios_<version>.zip`, and the wheel + sdist are
+  assembled as standalone release artifacts. One command builds and verifies
+  the lot: `python scripts/build_release.py` (see DEVELOPMENT.md → Release
+  Checklist). The PDFs and the GUI figures they embed remain regenerable
+  artifacts and are never committed (Rule 26); the scenario suite's single
+  canonical home stays `scenarios/`, the in-package tree being a build
+  product. No computed result changes.
 - **Element-train undo and position-preserving structure edits (CU-357).**
   Every element-document commit in the GUI — a cell edit, add/remove/reorder,
   a configure-across, an un-configure, a mode detach — now records one undo

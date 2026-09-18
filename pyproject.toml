@@ -80,6 +80,24 @@ where = ["src"]
     "examples/*.yaml",
     "examples/oli2/*.csv",
 ]
+# Gap 131 Phase 5 (plan §9 / ruling Q1 + owner direction 2026-09-17). Both trees are
+# STAGED by scripts/build_release.py — created, packed, removed — and gitignored, so a
+# normal checkout has neither and these patterns simply match nothing. `manuals/` holds
+# the four typeset volumes; `scenarios/` holds the git-tracked scenario suite the manuals
+# document. The scenario `.py` files ship as DATA: there is no `__init__.py` anywhere in
+# the staged tree, so `radiant.scenarios` is not an importable subpackage (the release
+# build verifies this against the built wheel).
+"radiant" = [
+    "manuals/*.pdf",
+    # setuptools >= 62.3 expands package-data globs with `glob(recursive=True)`, so `**`
+    # spans any number of directory levels — verified against the built wheel rather than
+    # assumed. The second pattern is NOT redundant: `glob` never matches a leading dot, so
+    # `**/*` silently dropped all 87 `scenarios/*/*/{inputs,outputs,scripts}/.gitkeep`
+    # placeholders (623 of 710 files shipped) until the release build's count check caught
+    # it. The placeholders carry the per-scenario directory layout a user runs against.
+    "scenarios/**/*",
+    "scenarios/**/.gitkeep",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["src", "tests"]

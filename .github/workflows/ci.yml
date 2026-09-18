@@ -115,7 +115,7 @@ jobs:
   manual-conversion:
     name: Manual conversion tripwire (non-blocking)
     runs-on: ubuntu-latest
-    # Ruling Q5 (docs/plans/Support_Documentation_Plan.md §10): the owner waived
+    # Ruling Q5 (docs/archive/Support_Documentation_Plan.md §10): the owner waived
     # the process-machinery moratorium for exactly this one job. It is a
     # tripwire, never a gate — Markdown that stops converting shows up red here
     # and merges continue regardless.

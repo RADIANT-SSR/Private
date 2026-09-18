@@ -1,6 +1,8 @@
+> **HISTORICAL — archived 2026-09-17 (completed by the coding agent; Phases 0–5 all landed, the last on branch `gap131/phase5-shipping`).** The suite ships: **Theory Manual** (91 pp.), **User's Guide** (97 pp.), **Technical Reference** (161 pp.), **Worked Examples & Validation** (162 pp.), built from the Markdown chapters under `docs/` by `scripts/build_manual.py` on the shared `scripts/manual_assets/` template. `scripts/build_release.py` is the one-command release step: it builds all four volumes, stages them into the wheel at `radiant/manuals/` and the 710 git-tracked files of the 51-scenario suite at `radiant/scenarios/` (owner direction 2026-09-17), builds and verifies the sdist + wheel, and assembles `build/release/` — the four PDFs, `radiant_scenarios_<version>.zip`, the wheel and the sdist. Ruling Q1 is satisfied in both directions, with no PDF committed (Rule 26). Gap 131 closed 2026-09-17. Two §6 TOC lines were found stale during Phase 2 and are recorded in `docs/tracking/Findings_Log.md` rather than edited here.
+
 # RADIANT Support Documentation Plan
 
-**Status:** Active — structure, TOCs, and all seven §10 rulings ratified by the owner 2026-09-16; tracked as Gap 131
+**Status:** Complete — all five phases delivered 2026-09-16..17; structure, TOCs, and all seven §10 rulings were ratified by the owner 2026-09-16; tracked as Gap 131 (closed)
 **Date:** 2026-09-16
 **Scope:** The shipped RADIANT documentation suite — a set of paper-quality, typeset PDF manuals covering the physics theory, GUI operation, the underlying codebase, and worked examples.
 

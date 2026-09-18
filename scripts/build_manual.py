@@ -755,7 +755,7 @@ def resolve_volumes(names: list[str], *, build_all: bool) -> tuple[list[Volume],
             print(
                 f"error: volume '{name}' ({volume.title}) has no chapters bound yet.\n"
                 f"  why: its content is written in {volume.phase_note} of "
-                f"docs/plans/Support_Documentation_Plan.md.\n"
+                f"docs/archive/Support_Documentation_Plan.md.\n"
                 f"  action: build a populated volume (--all skips the empty ones), or add "
                 f"its chapters to VOLUMES first.",
                 file=sys.stderr,

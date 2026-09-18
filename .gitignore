@@ -43,6 +43,13 @@ coverage.xml
 # mkdocs build output
 site/
 
+# Release staging trees (Gap 131 Phase 5). scripts/build_release.py copies the built
+# manual PDFs and the git-tracked scenario suite into the package so they ship in the
+# wheel, then removes both. They are build products of `scenarios/` and `docs/` — the
+# canonical homes — and must never be committed (Rule 26 / Rule 27).
+src/radiant/manuals/
+src/radiant/scenarios/
+
 # Scenario results workbooks — regenerate-on-demand (OPERATING_MODEL Rule 26);
 # committed scenario figures are inventoried in each outputs/MANIFEST.md
 scenarios/*/*/outputs/*.xlsx

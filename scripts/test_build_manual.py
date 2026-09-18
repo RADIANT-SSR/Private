@@ -242,8 +242,9 @@ def test_registry_declares_the_four_volumes() -> None:
 
 def test_theory_volume_binds_the_phase_1_toc() -> None:
     """Volume I v1.0 order (plan §4): front matter, intro, geometry BEFORE radiometry."""
+    assert VOLUMES["theory"].front_matter == ("theory/notation.md",)
+    assert VOLUMES["theory"].back_matter == ("theory/references.md",)
     assert VOLUMES["theory"].chapters == (
-        "theory/notation.md",
         "theory/introduction.md",
         "theory/geometry.md",
         "theory/radiometric_chain.md",
@@ -253,10 +254,7 @@ def test_theory_volume_binds_the_phase_1_toc() -> None:
         "theory/calibration_model.md",
         "theory/performance_metrics.md",
     )
-    assert VOLUMES["theory"].appendices == (
-        "theory/radiometric_model_mixed_train.md",
-        "theory/references.md",
-    )
+    assert VOLUMES["theory"].appendices == ("theory/radiometric_model_mixed_train.md",)
 
 
 def test_appendices_default_to_empty() -> None:

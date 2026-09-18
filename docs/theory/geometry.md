@@ -5,7 +5,8 @@
 Spherical-Earth viewing geometry, orbit kinematics, ground sampling, smear kinematics,
 solar geometry, and attitude conventions as implemented in RADIANT (geometry-first per
 ADR-0006). Numeric anchors are blind-derived values from the 2026-07 assurance audit
-(`docs/reports/assurance_audit_2026-07/track_a4_geometry_derivation.md`); RADIANT uses
+(independently re-derived from the literature, then verified against the
+implementation); RADIANT uses
 the IUGG **mean Earth radius $R = 6371.0$ km** (`core/constants.py::R_EARTH_M`), so
 anchors below are quoted for that radius (the audit tabulates WGS-84 equatorial variants
 — an ~8 km radius difference moves a 500 km/30° slant range by ~9 m and the orbit period

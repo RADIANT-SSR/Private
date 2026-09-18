@@ -4,8 +4,8 @@
 
 PSF construction, the MTF budget, ensquared energy, sampling, and the dual-path
 architecture that keeps them consistent — as implemented in RADIANT. Numeric anchors are
-blind-derived literature values from the 2026-07 assurance audit
-(`docs/reports/assurance_audit_2026-07/track_a2_spatial_derivation.md`).
+blind-derived literature values from the 2026-07 assurance audit (independently re-derived from the literature, then verified against
+the implementation).
 
 **Symbols used throughout:** $\lambda$ wavelength [µm] ($\lambda_m = \lambda\cdot10^{-6}$ m
 where SI is needed); $D$ aperture diameter [m]; $f$ focal length [m]; $F_\# = f/D$;
@@ -377,5 +377,5 @@ by `optics/tests/test_psf.py`; consumed by `performance/giqe.py`.
 
 No ghost images, no measured-BSDF scatter beyond the TIS/halo model
 (`optics/scatter.py`, `optics/stray_light.py` — see `RADIANT_Optics.md`), no chromatic
-aberration model, no short-exposure turbulence. See
-`docs/architecture/RADIANT_Scope_Decisions.md`.
+aberration model, no short-exposure turbulence. The project's scope-decision
+register records the full list.

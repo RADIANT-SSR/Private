@@ -574,5 +574,5 @@ names, the configured table, and the shared parameters all come back identical.
 
 Batch matrices over more than two axes, measured-data import and reconciliation,
 Zernike wavefront import, and the flagship-mission validation comparisons all live in
-the scenario suite rather than in `examples/scripts/`. `docs/guides/scenario_catalog.md`
-indexes them, and later chapters of this volume work several of them end to end.
+the scenario suite rather than in `examples/scripts/`. The repository's scenario
+catalog indexes them, and later chapters of this volume work several of them end to end.

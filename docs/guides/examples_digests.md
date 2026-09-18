@@ -593,8 +593,8 @@ reports only one* — no NEDT or spatial metric is quoted.
 background-shot dominated; the binding capacity is the 2.6 Me⁻ charge well.
 
 **Takeaway.** The preset library is a provenance mechanism as much as a convenience:
-every value traces `fpa:geosnap-18/<source>`, the cited PDFs live under
-`docs/validation/fpa_datasheets/` with SHA-256 manifest rows, and `FPALibrary` refuses
+every value traces `fpa:geosnap-18/<source>`, the cited datasheet PDFs are kept
+in the repository's validation tree with SHA-256 manifest rows, and `FPALibrary` refuses
 any preset whose attribution is incomplete. The deliberately-absent dark current is the
 model being honest — dark is a function of cutoff and temperature that this custom-cutoff
 part's datasheet does not fix.

@@ -43,6 +43,15 @@ retroactively reconstructed.
   Default mode `temperature` — existing results bit-identical. GUI:
   Calibration card cal-point rows switch with the mode.
 
+### Fixed
+- **Geometry schematic: an airborne target viewed from above now draws the
+  sensor and sun rays from the target (CU-368).** The down-looking composition
+  placed both glyphs along their rays from the scene origin, so the lift an
+  airborne target gets flattened the drawn target→sensor line (a 550 km sensor,
+  9 km target, 60° off-boresight scene drew ~5° of elevation where the stage's
+  θ_o = 70° means 20°) and the θ_o / ζ_low arcs ended off the glyph ray. Ground
+  targets are unchanged; no computed number changes.
+
 ### Changed
 - **Results-affecting: pure-thermal targets no longer lose the daytime sky
   (CU-356).** The solar geometry now rides the line of sight for every

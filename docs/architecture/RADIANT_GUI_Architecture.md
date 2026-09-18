@@ -1532,7 +1532,12 @@ applying PBR materials or realistic shading; keep the schematic line-art aesthet
   `theta_o_dir` ray instead of the sensor-vertex off-nadir `eta_dir` one, so the glyph ray
   and the target-anchored θ_o / ζ_low arcs coincide in all three compositions. The glyph is
   placed *from the target*, which is the vertex θ_o is subtended at; the two rays differ by
-  the Earth-centre central angle (~2.2° for a 705 km scene). A state carrying no stage θ_o
+  the Earth-centre central angle (~2.2° for a 705 km scene). Down-looking, "from the
+  target" means from `target_top` — where the vectors land and every target-anchored arc
+  has its apex — for the sun glyph too (CU-368: both were placed from the scene *origin*,
+  which is the target only for a ground target; an airborne target is lifted to
+  `_TARGET_AIRBORNE_Z`, and that lift flattened the drawn ray — 20° of stage elevation drew
+  as ~5° — and put the arcs off the glyph ray again). A state carrying no stage θ_o
   (a partial or pre-ADR-0011 result) keeps the η ray, which for a genuine vertical path is
   the same vector. No displayed **number** changed — the arcs already swept to their own
   rays. There is an **up-looking** layout in

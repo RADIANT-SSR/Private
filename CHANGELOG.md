@@ -20,6 +20,15 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.1.0] - 2026-09-17
+
+First tagged release: the full modeling framework (ten-stage signal chain,
+GUI, scripting API, CLI), the four-volume typeset documentation suite, and
+the 51-scenario suite, in one wheel. Everything below accumulated in
+[Unreleased] since this changelog began 2026-07-07 and ships here.
+
 ### Added
 - **Shipped documentation suite and scenario suite (Gap 131).** RADIANT now
   ships four typeset PDF volumes — Theory Manual (91 pp.), User's Guide

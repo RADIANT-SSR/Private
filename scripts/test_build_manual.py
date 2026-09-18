@@ -31,6 +31,7 @@ from build_manual import (  # noqa: E402
     package_version,
     scan_images,
     scan_raw_html,
+    strip_persona_line,
     strip_spec_header,
     validate_chapter,
     validate_volume,
@@ -354,3 +355,27 @@ def test_version_string_is_latex_safe() -> None:
 def test_latex_escape_handles_specials() -> None:
     assert latex_escape("Examples & Validation") == r"Examples \& Validation"
     assert latex_escape("a_b") == r"a\_b"
+
+
+# --- Persona-line strip --------------------------------------------------------------
+
+
+def test_strip_persona_line_removes_leading_tag() -> None:
+    text = "# Spatial Model\n\n*Persona: Tom (optical designer)*\n\nPSF construction.\n"
+    assert strip_persona_line(text) == "# Spatial Model\n\nPSF construction.\n"
+
+
+def test_strip_persona_line_ignores_deep_mentions() -> None:
+    text = "# X\n\nProse one.\n\nProse two.\n\nProse three.\n\n*Persona: deep*\n"
+    assert strip_persona_line(text) == text
+
+
+def test_strip_persona_line_noop_without_tag() -> None:
+    text = "# X\n\nNo tag here.\n"
+    assert strip_persona_line(text) == text
+
+
+def test_every_theory_chapter_persona_tag_is_stripped() -> None:
+    for chapter in VOLUMES["theory"].sources:
+        text = (DOCS / chapter).read_text(encoding="utf-8")
+        assert "*Persona:" not in strip_persona_line(text)

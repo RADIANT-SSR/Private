@@ -19,39 +19,10 @@ then verified against the implementation — see
 
 ## Notation
 
-One symbol table for the whole chapter. RADIANT canonical units throughout:
-wavelength in µm, angles in radians, lengths in meters, spectral radiance in
-W/m²/sr/µm.
-
-| Symbol | Meaning | Units |
-|---|---|---|
-| $\lambda$ | wavelength (canonical spectral variable) | µm |
-| $\lambda_m$ | wavelength converted to meters, $\lambda_m = \lambda \cdot 10^{-6}$ | m |
-| $T$ | absolute temperature | K |
-| $B(\lambda, T)$ | Planck blackbody spectral radiance | W/m²/sr/µm |
-| $L(\lambda)$ | spectral radiance (general) | W/m²/sr/µm |
-| $L_{\mathrm{band}}$ | band-integrated radiance | W/m²/sr |
-| $\bar{L}$ | band-averaged radiance | W/m²/sr/µm |
-| $E(\lambda)$ | spectral irradiance | W/m²/µm |
-| $I(\lambda)$ | spectral intensity (point source) | W/sr/µm |
-| $\Phi(\lambda)$ | spectral power (flux) | W/µm |
-| $\varepsilon(\lambda)$ | emissivity | dimensionless, 0–1 |
-| $\rho(\lambda)$ | hemispherical (Lambertian) reflectance / albedo | dimensionless, 0–1 |
-| $\tau$ | transmittance (atmospheric or optical, per context) | dimensionless, 0–1 |
-| $f_r$ | bidirectional reflectance distribution function (BRDF) | sr⁻¹ |
-| $\theta_{\mathrm{sun}}$ | solar zenith angle at the surface | rad |
-| $h, c, k_B$ | Planck constant, speed of light, Boltzmann constant (CODATA 2018) | J·s, m/s, J/K |
-| $x$ | dimensionless Planck argument, $x = hc/(\lambda_m k_B T)$ | — |
-| $c_2$ | second radiation constant $hc/k_B = 1.4387769 \times 10^{-2}$ m·K | m·K |
-| $R$ | slant range, observer to target | m |
-| $A_t$ | target projected area | m² |
-| $A_{\mathrm{ap}}$ | collecting aperture area | m² |
-| $\Omega_{\mathrm{pix}}$ | pixel solid angle, $p_x p_y / f^2$ | sr |
-| $\Omega_t$ | target solid angle, $A_t / R^2$ | sr |
-| $f\!f$ | sub-pixel fill fraction | dimensionless, 0–1 |
-| $\mathrm{QE}(\lambda)$ | quantum efficiency | e⁻/photon |
-| $t_{\mathrm{int}}$ | integration time | s |
-| $\mathrm{EE}_{\mathrm{box}}$ | ensquared energy in one pixel, from the degraded PSF | dimensionless, 0–1 |
+Symbols and canonical units are defined once for the whole manual in the
+front matter, [Notation and Symbols](notation.md); this chapter uses them
+without redefinition. RADIANT canonical units throughout: wavelength in µm,
+angles in radians, lengths in meters, spectral radiance in W/m²/sr/µm.
 
 Where a formula needs $\lambda$ in meters (anything with $h$, $c$, $k_B$ in
 it), we write $\lambda_m$ explicitly. The µm-to-m bookkeeping is the single
@@ -62,14 +33,15 @@ where the $10^{-6}$ lives.
 
 ## The Chain at a Glance
 
-RADIANT models the end-to-end signal chain as nine sequential stages
+RADIANT models the end-to-end signal chain as ten sequential stages
 (geometry-first, per ADR-0006). Each stage is a pure function that transforms
 an immutable `ChainState`, adding radiometric frames, noise terms, and MTF
 contributions:
 
 ```
 GeometryStage → SourceStage → AtmosphereStage → OpticsStage → PlatformStage
-→ SpectralIntegrationStage → DetectorStage → ReadoutStage → PerformanceStage
+→ SpectralIntegrationStage → DetectorStage → ReadoutStage → CalibrationStage
+→ PerformanceStage
 ```
 
 The final `ChainState` contains everything needed to compute performance
@@ -886,7 +858,7 @@ and `test_round_trip_recovers_known_radiance`.
 
 ## How the Foundations Feed the Chain
 
-The nine stages consume the foundations above in a fixed order. Each stage is
+The ten stages consume the foundations above in a fixed order. Each stage is
 a pure function `run(state, params) -> state` (Rule 6); all inter-stage data
 flows through the immutable `ChainState`.
 
@@ -900,7 +872,8 @@ flows through the immutable `ChainState`.
 | 5 | Spectral Integration (`spectral_integration/`) | Spectral → scalar, exactly once (Rule 8); $\mathrm{EE}_{\mathrm{box}}$ applied exactly once (Rule 9) | photon conversion, point-source/sub-pixel regime radiometry, fill-fraction mixing | this chapter |
 | 6 | Detector (`detector/`) | Noise budget (16 terms) | $\sqrt{N_e}$ shot statistics | [Noise Model](noise_model.md) |
 | 7 | Readout (`readout/`) | TDI, binning, coadd, gain, ADC scaling | — | [Noise Model](noise_model.md) |
-| 8 | Performance (`performance/`) | SNR, NEDT, NIIRS, system MTF | $\partial B/\partial T$ (NEDT kernel), band responsivity (backward propagation) | performance docs |
+| 8 | Calibration (`calibration/`) | Post-NUC residuals, drift, bias budget — calibration noise terms and accuracy inputs (terms-only, ADR-0012) | Planck at the calibration points, band responsivity | [Calibration Error Model](calibration_model.md) |
+| 9 | Performance (`performance/`) | SNR, NEDT, NIIRS, system MTF | $\partial B/\partial T$ (NEDT kernel), band responsivity (backward propagation) | performance docs |
 
 Three chain-glue equations worth stating here because they are pure
 radiometry:

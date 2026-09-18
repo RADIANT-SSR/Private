@@ -34,7 +34,7 @@ are the scripted half; the closing section points at them.
 |---|---|---|
 | Sensor altitude | 500 000 m | The procurement's sun-synchronous reference orbit. |
 | Path zenith angle | 20 deg | A representative off-nadir look, not a nadir best case. |
-| Slant range to target | 532 089 m | Derived from the two above — not entered. |
+| Slant range to target | 532 089 m | Carried in the config file; the altitude and look angle above imply it to within 0.5 %. |
 | Target projected area | 240 m² | A 30 m × 8 m hull, presented broadside. |
 | Target temperature | 288 K | Sea-surface temperature; the hull is in thermal equilibrium with it. |
 | Target emissivity | `steel` curve, band-average ε = 0.266 | RADIANT's library curve over 3.5–5.0 µm; the catalog wants a rust-specific curve, which does not exist. |
@@ -115,14 +115,22 @@ plane and every ground-projection metric applies.
 The viewing family sits in mode **V1**, `Path zenith at lower endpoint`. The three
 entered fields are `sensor_altitude_m` = 500 000 m, `target_altitude_m` = 0 m and
 `path_zenith_rad` = 20 deg; `sensor_off_boresight_rad`, `ground_range_m`,
-`elevation_angle_rad` and `target_range_m` are greyed because they are *derived from*
-that choice, not alternatives to it. The derived slant range reads 532 089 m —
-19 % longer than the 500 km altitude, which is the whole cost of a 20 deg look.
+`elevation_angle_rad` and `target_range_m` are greyed because they belong to *other*
+doors of the same family, not because they are unavailable. The slant range reads
+532 089 m — 6 % longer than the 500 km altitude, which is the cost of a 20 deg look.
 
 In the Parameters dock on the left, five rows carry a `config` badge —
 `sensor_altitude_m`, `path_zenith_rad`, `target_range_m`, `target.projected_area_m2`
 at 240 m², and the solar setting — and everything else reads `default`. That column
 is how you tell what the analyst specified from what the schema supplied.
+
+`target_range_m` appearing in both lists is not a contradiction, and it is worth
+understanding once. The *mode form* greys it because mode V1 does not read it — the
+slant range is solved from the altitude and the zenith angle. The *dock* badges it
+`config` because the baseline file carries a value for it anyway: this file was written
+by `Sensor.to_yaml()`, which records the range it resolved. The form is telling you what
+this mode takes as input; the dock is telling you where a value came from. They answer
+different questions about the same row.
 
 ### Step 3 — Declare the scene type, and let the tool argue with you
 

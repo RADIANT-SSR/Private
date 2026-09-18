@@ -381,7 +381,7 @@ Geometry, timing, and configuration do **not** flow through the chain state. The
 
 ```python
 def run(self, state: ChainState, params: ParameterSet) -> ChainState:
-    aperture = params.get("sensor.optics.aperture_diameter")  # m
+    aperture = params.get("optics.aperture_diameter_m")  # m
     ...
 ```
 

@@ -84,6 +84,15 @@ with $A_d$ in **cm²** (Jones convention). BLIP-limit PV detectivity
 $(\lambda_m/hc)\sqrt{\eta/(2Q_b)}$; photoconductors are $\sqrt2$ lower
 (generation *and* recombination noise).
 
+**Symbols in this section.** $\eta$ is the detector **quantum efficiency**
+[dimensionless] and $\eta_{sys}$ the end-to-end **photon-to-electron efficiency**
+(optical throughput × QE), following the detector literature these expressions come
+from. This is the one place in the manual where $\eta$ is not the look angle of the
+geometry chapter (notation §9); the two never appear in one equation. $Q_b$ is the
+**background photon flux at the detector** [photon/s/cm²] that sets the BLIP limit —
+the same in-band background the noise chapter integrates, expressed as a photon
+irradiance on $A_d$ rather than as electrons per frame.
+
 **Pitfalls.** $\Delta f = 1/t_{int}$ vs $1/(2t_{int})$ — a $\sqrt2$ error of exactly the
 PV/PC magnitude, easily conflated; $A_d$ in m² (inflates $D^*$ ×100); omitting the
 ensquared-energy factor in NEI (optimistic by $1/EE$); photon/energy domain mixing (the

@@ -39,14 +39,31 @@ message string:
 from radiant.core.parameters import ParameterBoundsError
 
 raise ParameterBoundsError(
-    what=f"sensor.detector.operating_temp = {T} K is out of bounds",
-    why="HgCdTe operates at cryogenic temperature (1–300 K)",
-    action="Set operating_temp to 77–120 K for HgCdTe detectors",
-    context={"param": "sensor.detector.operating_temp", "value": T, "bounds": (1, 300)},
+    what=f"detector.detector_temperature_K = {T} K is out of bounds",
+    why="HgCdTe operates at cryogenic temperature (1-300 K)",
+    action="Set detector.detector_temperature_K to 77-120 K for HgCdTe detectors",
+    context={
+        "param": "detector.detector_temperature_K",
+        "value": T,
+        "bounds": (1, 300),
+    },
 )
 ```
 
-Rendered, the three fields flatten into one message:
+Note the dot-path: parameter names have no `sensor.` root anywhere in RADIANT, in an
+error message no more than in a config file or a `Sensor.set()` call.
+
+Rendered, the three fields flatten into one message (shown wrapped; the exception
+carries it on one line):
+
+```
+detector.detector_temperature_K = 320.0 K is out of bounds
+ | Why: HgCdTe operates at cryogenic temperature (1-300 K)
+ | Action: Set detector.detector_temperature_K to 77-120 K for HgCdTe detectors
+```
+
+The bounds check the framework performs for itself renders the same way, with the
+domain filled in from the schema:
 
 ```
 Parameter 'source.target.emissivity' = 1.5 out of bounds [0.0, 1.0] (dimensionless)

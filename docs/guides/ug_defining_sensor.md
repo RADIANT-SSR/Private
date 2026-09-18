@@ -192,7 +192,7 @@ The outputs block is the payoff: `Jitter sigma x`, `Jitter sigma y`, `Smear widt
 **`Ee box`** — the ensquared-energy fraction computed here, from the *fully degraded* PSF, and
 applied once downstream in Spectral Integration. `Ee box centered`, `Straddle factor` and the
 three `Pixel phase` outputs beside it say where on the pixel grid the image was assumed to
-land; chapter 4, §6 covers the sampling-phase modes.
+land; section 3.3 of this chapter covers the sampling-phase modes.
 
 The second tab, **PSF degradation**, draws the convolution kernels this stage applied beside
 the PSF that came out of them. Its note is worth reading once: the PSF carries an accumulated
@@ -263,7 +263,7 @@ two columns with the pane width; they never scroll sideways.
 | Group | What it holds |
 |---|---|
 | Pixel geometry & temperature | pitch x and y, fill factor, cross-track pixel count, detector temperature |
-| Pixel sampling phase | the straddle mode and the x/y image offsets it uses (chapter 4, §6) |
+| Pixel sampling phase | the straddle mode and the x/y image offsets it uses (section 3.3) |
 | Quantum efficiency | scalar QE, a QE curve CSV, a library material, and the temperature coefficient/reference pair |
 | Dark current & glow | dark rate with its reference temperature and activation energy, plus ROIC glow |
 | 1/f noise | the coefficient $K$ and the band edges it is integrated over |
@@ -283,6 +283,34 @@ The **Noise** tab shows the noise budget as a log-scale bar beside the per-term 
 click-to-explain on each term. The **Detector + PSF** tab draws the pixel itself — a
 not-to-scale schematic labelled with its pitch and fill factor — beside the convolution kernel
 that pixel imposes, with the PSF and the pixel grid overlaid below.
+
+### 3.3 Pixel sampling phase
+
+A point source does not land politely on a pixel centre. Where it lands changes how much of
+its energy one pixel collects, and therefore the ensquared-energy fraction the chain applies
+— by tens of percent between the best and worst placement. The **Pixel sampling phase** group
+is where you say which placement the run should assume. It affects the point-source and
+sub-pixel regimes only; an extended scene has no single image point to place.
+
+`detector.pixel_phase_mode` takes four values:
+
+| Mode | What it assumes | When to use it |
+|---|---|---|
+| `average` | the phase is unknown, so the result is the expectation over one pitch | the default, and the right answer for a source you cannot place — a survey, a detection study, a link budget |
+| `centered` | the image sits on a pixel centre | the best case; use it to bound the optimistic end, or when a tracker really does keep the target centred |
+| `worst_case` | the image sits on a four-pixel corner, straddling all four | the pessimistic bound; the number to quote when the requirement must hold for any placement |
+| `specified` | the image sits where you say | a measured or simulated placement; `detector.pixel_phase_x` and `pixel_phase_y` carry the offset from the pixel centre as a fraction of the pitch, each in the range −0.5 to +0.5 |
+
+The Platform workspace reports what the choice cost you: `Ee box` is the fraction under the
+mode you picked, `Ee box centered` the fraction the same PSF would give on a pixel centre, and
+`Straddle factor` is their ratio. A straddle factor of 1.00 means you asked for the centred
+case; the further below 1.00 it sits, the more energy the assumed placement spills into
+neighbouring pixels.
+
+Two cautions. The default `average` is the *expectation*, not the middle of the range, and it
+is what earlier versions of RADIANT computed — so it is the mode that keeps old numbers
+comparable. And the offsets are measured from the geometric image point, the chief ray, not
+from the centroid of the blurred spot; on an asymmetric PSF those are not the same place.
 
 ## 4. Readout
 

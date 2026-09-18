@@ -500,11 +500,22 @@ the API. Small-angle solid angle is excellent ($\Omega_{\mathrm{sun}} \approx
   not at all.
 - Using the solar radius/distance ratio unsquared.
 
-**Numeric anchor.** A pure 5772 K blackbody Sun gives $E(0.55\ \text{µm}) =
-1748.50$ W/m²/µm at 1 AU ($\Omega_{\mathrm{sun}} = 6.79427 \times 10^{-5}$
-sr) — within 7 % of the measured $\approx 1870$ W/m²/µm [ASTM E490]; the
-real Sun exceeds the blackbody near 0.55 µm. RADIANT's calibrated model
-integrates to $S_0 = 1361.0$ W/m² over 0.05–50 µm to ~$10^{-6}$ relative.
+**Numeric anchor.** An uncalibrated 5778 K blackbody Sun gives
+$E(0.55\ \text{µm}) = 1756.84$ W/m²/µm at 1 AU ($\Omega_{\mathrm{sun}} =
+6.79427 \times 10^{-5}$ sr). The flat calibration multiplies that by
+$k_{\mathrm{scale}} = 0.99574$, so RADIANT's shipped model returns
+$1749.35$ W/m²/µm — within 7 % of the measured $\approx 1870$ W/m²/µm
+[ASTM E490], the real Sun exceeding the blackbody near 0.55 µm. The
+calibrated model integrates to $S_0 = 1361.0$ W/m² over 0.05–50 µm to
+~$10^{-6}$ relative.
+
+A note on the temperature, because two values circulate: the IAU nominal
+solar effective temperature is 5772 K, while 5778 K is the older value that
+pairs with the nominal radius and 1 AU to reproduce $S_0$ most closely.
+RADIANT uses **5778 K** (`blackbody_5778`). The choice moves
+$E(0.55\ \text{µm})$ by 0.5 % before calibration and *nothing at all*
+after it in integrated terms, since $k_{\mathrm{scale}}$ absorbs the
+difference — it is a shape parameter, not an energy one.
 
 **In RADIANT.** `core/solar.py::toa_solar_spectral_irradiance` (and
 `toa_solar_equivalent_radiance` for the $/\pi$ variant) · anchored by

@@ -470,8 +470,8 @@ and it belongs in a script.
 
 ### Seen in anger
 
-The **target detection matrix** case study is this recipe at full scale: six targets ×
-three atmospheres × three sensors, with a bisection search for detection range inside
+The **target detection matrix** case study is this recipe at full scale: twelve targets ×
+four atmospheres × three sensors — 144 cells — with a bisection search for detection range inside
 each cell's `evaluate`, early exits at nadir and at the swath edge, and `pivot` used to
 build the briefing tables directly. Read it for how much analysis can live inside the
 cell callback.

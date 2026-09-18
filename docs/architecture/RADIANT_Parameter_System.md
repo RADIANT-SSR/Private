@@ -197,7 +197,8 @@ readout.binning_x_onchip              # int
 readout.binning_y_onchip              # int
 
 calibration.scheme                    # enum: "none" (default — model off, today's PRNU/DSNU behavior),
-                                      #   "one_point", "two_point" (Gap 120, ADR-0012)
+                                      #   "one_point", "two_point", "three_point"
+                                      #   (Gap 120, ADR-0012)
 calibration.cal_temp_low_K            # K — (lower) cal-point source temperature (0.0 = unset sentinel;
                                       #   required at evaluate time when a scheme is active)
 calibration.cal_temp_high_K           # K — upper cal point (two_point only; must exceed low; 0.0 = unset)
@@ -267,7 +268,7 @@ performance.detection_snr_threshold   # dimensionless; SNR at which a point
                                       # to this threshold.
 ```
 
-The nine parameter namespaces are `geometry`, `source`, `atmosphere`, `optics`, `platform`, `spectral_integration`, `detector`, `readout`, and `performance`. Every first segment is an owning stage — since ADR-0006 `geometry.*` is owned by `GeometryStage` (stage 0), which resolves the scene-geometry input modes and publishes the derived quantities; it is no longer a stage-less shared block. `performance` holds only analyst-tuned metric thresholds — most performance metrics are derived from upstream chain quantities and take no parameters.
+The ten parameter namespaces are `geometry`, `source`, `atmosphere`, `optics`, `platform`, `spectral_integration`, `detector`, `readout`, `calibration`, and `performance`. Every first segment is an owning stage — since ADR-0006 `geometry.*` is owned by `GeometryStage` (stage 0), which resolves the scene-geometry input modes and publishes the derived quantities; it is no longer a stage-less shared block. `performance` holds only analyst-tuned metric thresholds — most performance metrics are derived from upstream chain quantities and take no parameters.
 
 Renames use `ParameterDef.deprecated_aliases` (warn-and-redirect at `set()`/`get()`): `source.target.range_m` → `geometry.target_range_m` and `platform.h_sensor` → `geometry.sensor_altitude_m` (CU-090 fold) — both ADR-0006, 2026-07-12.
 
@@ -874,12 +875,17 @@ platform:
 
 ### Loading precedence
 
-1. Schema defaults (lowest priority)
-2. Sensor config file (e.g., `sensors/baseline_mwir.yaml`)
-3. Scenario config file (e.g., `scenarios/desert_noon.yaml`)
-4. Programmatic overrides via `params.set()` (highest priority)
+Five levels, lowest to highest, each with the provenance tag it records:
 
-Each layer records its provenance. If the same parameter appears in multiple layers, the highest-priority layer wins, and the provenance shows the winning source.
+1. Schema defaults — `DEFAULT`
+2. An applied FPA preset — `PRESET`
+3. The config-file body — `CONFIG_FILE`
+4. `Sensor.set()` / `set_many()` — `USER_SET`
+5. CLI `--set` — `USER_SET`
+
+An FPA preset sits below the config file deliberately: presets seed, explicit values win, in any key order.
+
+Each layer records its provenance. If the same parameter appears in multiple layers, the highest-priority layer wins, and the provenance shows the winning source. Derived parameters carry `DERIVED` and a `derived_from` record naming the inputs and their values.
 
 ---
 

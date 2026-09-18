@@ -28,7 +28,7 @@ These tests are **the ground truth for the entire tool**. They use no RADIANT in
 
 ### 2.1 Planck and Stefan-Boltzmann
 
-**Test:** Numerical integral of `Planck(T=300K, λ)` over 0.01–100 µm equals `σ × T⁴`.
+**Test:** Numerical integral of `Planck(T=300K, λ)` over 0.1–200 µm equals `σ × T⁴`.
 
 ```python
 def test_planck_stefan_boltzmann():
@@ -541,9 +541,9 @@ Reproducibility today rests on determinism, not a dedicated tool:
 
 ### 8.1 Every Error Must Answer Three Questions
 
-1. **What:** What went wrong, stated precisely. Not "parameter error" — `sensor.optics.aperture_diameter = -0.30 is invalid`.
+1. **What:** What went wrong, stated precisely. Not "parameter error" — `optics.aperture_diameter_m = -0.30 is invalid`.
 2. **Why:** Why it's wrong. "Aperture diameter must be positive (it is a physical length)."
-3. **What to do:** What the user should change. "Set sensor.optics.aperture_diameter to a positive value in meters."
+3. **What to do:** What the user should change. "Set optics.aperture_diameter_m to a positive value in meters."
 
 The base class `RadiantError` lives in `radiant.core.exceptions` (re-exported as `radiant.RadiantError`). It is currently a plain `Exception` subclass — the structured `what / why / action / context` payload is carried by `ParameterBoundsError`, the most user-facing subclass. The other concrete subclasses (`KirchhoffViolationError`, `ModtranUnavailableError`, `Tape7ParseError`, `ConfigError`, `ElementConfigError`) carry the same information in their message strings until the carve-out is generalized.
 
@@ -588,7 +588,7 @@ Error messages have two levels:
 
 **Summary (always shown):**
 ```
-ConfigError in configs/leo_mwir_clear.yaml: sensor.detector.operating_temp = 400 K
+ConfigError in configs/leo_mwir_clear.yaml: detector.detector_temperature_K = 400 K
   (out of bounds: 1–300 K)
 ```
 (The config loader raises `radiant.io.config.ConfigError`; a bad parameter value raises `ParameterBoundsError`. There is no `ConfigValidationError` class.)
@@ -596,10 +596,10 @@ ConfigError in configs/leo_mwir_clear.yaml: sensor.detector.operating_temp = 400
 **Detail (shown with --verbose or when requested):**
 ```
 [1] ParameterBoundsError
-    Parameter: sensor.detector.operating_temp
+    Parameter: detector.detector_temperature_K
     Value: 400 K
     Source: sensors/baseline_mwir.yaml, line 18
-    Bounds: 1 K ≤ operating_temp ≤ 300 K
+    Bounds: 1 K ≤ detector_temperature_K ≤ 300 K
     Why: HgCdTe and InSb detectors operate at cryogenic temperatures.
          300 K is the upper bound because above this, dark current is
          astronomically high (Rule 07 activation).
@@ -612,51 +612,58 @@ ConfigError in configs/leo_mwir_clear.yaml: sensor.detector.operating_temp = 400
 
 ### 8.5 Exception Hierarchy
 
-Current hierarchy (matches code). `RadiantError` is a single-tier base — every concrete class derives directly from it, and most co-inherit the built-in exception they historically raised as (shown in parentheses) per the Rule 15 / CU-043 back-compat carve-out. `tests/test_exceptions.py` pins this set.
+Every framework-defined error derives from `RadiantError`, and most concrete classes
+co-inherit the built-in exception they historically raised as — `ValueError`,
+`RuntimeError`, `KeyError`, `NotImplementedError` — per the Rule 15 / CU-043 back-compat
+carve-out. New classes inherit from `RadiantError` only.
+
+The hierarchy is **two-tier**, not flat: four classes specialize another RADIANT error
+rather than deriving directly from `RadiantError`.
 
 ```
 RadiantError (radiant.core.exceptions; re-exported as radiant.RadiantError)
 │
-├── Core / parameters
-│   ├── CoreValidationError        (ValueError)   — radiant.core.exceptions
-│   ├── CoreStateError             (RuntimeError) — radiant.core.exceptions
-│   ├── UnknownParameterError      (KeyError)     — radiant.core.parameters
-│   ├── ParameterBoundsError       (ValueError)   — radiant.core.parameters  [structured what/why/action/context]
-│   └── ParameterEnumError         (ValueError)   — radiant.core.parameters
+├── CoreValidationError (ValueError)          — radiant.core.exceptions
+│   └── RequiredParameterError                — radiant.core.parameters
+├── ReadoutValidationError (ValueError)       — radiant.readout.errors
+│   ├── ArchitectureOverSpecificationError    — radiant.readout.errors
+│   └── CountingConfigIncompleteError         — radiant.readout.errors
+├── CalibrationValidationError (ValueError)   — radiant.calibration.errors
+│   └── CalibrationConfigIncompleteError      — radiant.calibration.errors
 │
-├── Per-stage validation / state families
-│   ├── GeometrySpecificationError                — radiant.geometry.errors
-│   ├── SourceValidationError      (ValueError)   — radiant.source.errors
-│   ├── AtmosphereValidationError  (ValueError)   — radiant.atmosphere.errors
-│   ├── AtmosphereStateError       (RuntimeError) — radiant.atmosphere.errors
-│   ├── ModtranUnavailableError    (RuntimeError) — radiant.atmosphere.modtran
-│   ├── Tape7ParseError            (ValueError)   — radiant.atmosphere.modtran
-│   ├── OpticsValidationError      (ValueError)   — radiant.optics.errors
-│   ├── KirchhoffViolationError    (ValueError)   — radiant.optics.element
-│   ├── PlatformValidationError    (ValueError)   — radiant.platform.errors
-│   ├── SpectralIntegrationValidationError (ValueError)   — radiant.spectral_integration.errors
-│   ├── SpectralIntegrationStateError      (RuntimeError) — radiant.spectral_integration.errors
-│   ├── DetectorValidationError    (ValueError)   — radiant.detector.errors
-│   ├── ReadoutValidationError     (ValueError)   — radiant.readout.errors
-│   └── PerformanceValidationError (ValueError)   — radiant.performance.errors
-│
-├── I/O
-│   ├── ConfigError                               — radiant.io.config
-│   └── ElementConfigError         (ValueError)   — radiant.io.element_config
-│
-└── API / CLI / GUI
-    ├── ApiValidationError         (ValueError)   — radiant.api.errors
-    ├── BatchRunnerError                          — radiant.api.batch
-    ├── ErrorBudgetError                          — radiant.api.error_budget
-    ├── SolveBracketError                         — radiant.api.solve
-    ├── CalibrationAnalysisError                  — radiant.api.calibration_analysis
-    ├── MtfComparisonError                        — radiant.api.compare
-    ├── ComparisonError                           — radiant.api.compare
-    ├── OperationCancelledError                   — radiant.api._progress
-    └── GuiValidationError         (ValueError)   — radiant.gui.errors
+└── ~60 further classes deriving directly from RadiantError, in four families:
+    ├── core / parameters     CoreStateError, UnknownParameterError,
+    │                         ParameterBoundsError, ParameterEnumError,
+    │                         OrbitError, SolarGeometryError, RepeatGroundTrackError
+    ├── per-stage             <Stage>ValidationError (ValueError) in every physics
+    │                         stage except geometry, which raises
+    │                         GeometrySpecificationError (RadiantError only);
+    │                         <Stage>StateError (RuntimeError) where an
+    │                         invalid-chain-state raise exists; plus the
+    │                         computation-scoped classes of radiant.performance
+    │                         (one per metric module) and the atmosphere's
+    │                         AtmosphereCapabilityError / TurbulenceSpecificationError /
+    │                         ModtranUnavailableError / Tape7ParseError
+    ├── I/O                   ConfigError, ElementConfigError, QeCsvParseError,
+    │                         DarkCurrentCsvParseError, ZemaxParseError,
+    │                         MeasurementParseError, ResultArchiveError,
+    │                         AsterLibraryError, TargetLibraryError, FPAPresetError
+    └── API / CLI / GUI       ApiValidationError, BatchRunnerError, ErrorBudgetError,
+                              SolveBracketError, CalibrationAnalysisError,
+                              ComparisonError, MtfComparisonError, ConfigSetError,
+                              OperationCancelledError, GuiValidationError,
+                              GuiUnavailableError, ConfigurationScopeError
 ```
 
-`RadiantError` itself is importable from `radiant` (top-level re-export) and from `radiant.core.exceptions`. Each concrete subclass is importable from the module that raises it. Catching `RadiantError` catches every framework-defined error while letting unrelated bugs (`KeyError`, `AttributeError` from a buggy stage) propagate.
+The **full enumeration** — every class, its bases, its module, and an example message —
+is the error-taxonomy chapter of the Technical Reference, which is generated from the
+code. It is not duplicated here; this section describes the *shape* of the hierarchy,
+which is what a test author needs. `tests/test_exceptions.py` pins the set.
+
+`RadiantError` itself is importable from `radiant` (top-level re-export) and from
+`radiant.core.exceptions`. Each concrete subclass is importable from the module that
+raises it. Catching `RadiantError` catches every framework-defined error while letting
+unrelated bugs (`KeyError`, `AttributeError` from a buggy stage) propagate.
 
 ---
 

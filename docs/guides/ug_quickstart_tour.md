@@ -46,9 +46,11 @@ Four things are worth naming before anything else:
 ## 2. Read the answer
 
 The rail already carries the headline: **SNR 1124**, **NEDT 24.96 mK**, **GSD 0.12 m**,
-**MTF @ Nyq 0.2668**. NIIRS reads `n/a — not computed for this run`, which is the tool
-declining to extrapolate the GIQE-5 regression outside its range rather than printing a
-number it does not stand behind.
+**MTF @ Nyq 0.2668**. NIIRS reads `n/a — not computed for this run`: no NIIRS value was
+produced, because the tool declined to extrapolate the GIQE-5 regression outside its
+calibration range rather than print a number it does not stand behind. That card text is
+the same one a metric you switched off shows — it says only that nothing was computed;
+chapter 4 covers where the reason for a particular one lives.
 
 For the full metric surface, select stage **10 Performance**.
 
@@ -80,7 +82,7 @@ tour leaves the shipped example as it found it.
 
 ## 4. The same run, from the file
 
-Close the application. Everything above is also a two-line file and one command.
+Close the application. Everything above is also a short file and one command.
 
 The configuration is short because RADIANT writes down only what you *chose* — the rest is
 schema defaults, and they stay visible as defaults rather than being frozen into your file:

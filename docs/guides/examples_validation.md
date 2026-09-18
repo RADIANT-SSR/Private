@@ -38,9 +38,9 @@ is what makes the comparison meaningful:
   out of the loop. What is under test is the aperture-to-electrons radiometry: solid
   angle, collecting area, throughput, quantum efficiency, integration time, and the
   noise stack.
-- **Every instrument input carries a provenance class.** The four dossiers in
-  `docs/validation/` — `sentinel2_msi_source_data.md`, `landsat_tirs_source_data.md`,
-  `modis_teb_source_data.md`, `landsat_oli2_source_data.md` — tag each number as
+- **Every instrument input carries a provenance class.** The four source-data
+  dossiers maintained with the validation records (Sentinel-2 MSI, Landsat TIRS,
+  MODIS TEB, Landsat OLI-2) tag each number as
   *published*, *model value*, or *assumption*, with the citation. Aperture and focal
   length are published; band-average quantum efficiency usually is not.
 - **The assumption envelope is declared before the run.** Where an input is an
@@ -94,7 +94,7 @@ modelled — four VNIR silicon bands and one SWIR MCT band:
 | B8 | 832.8 | 118 | 103.00 | 174 | — |
 | B11 | 1613.7 | 88 | 4.00 | 100 | 133 |
 
-Source: `docs/validation/sentinel2_msi_source_data.md`, which carries the full
+Source: the Sentinel-2 MSI source-data dossier, which carries the full
 instrument table with per-row confidence classes.
 
 ### How the scenario models it
@@ -189,8 +189,8 @@ the Landsat 8 Thermal Infrared Sensor*, Remote Sensing 6(12) — Table 2:
 | B11 (11.5–12.5 µm) | 300 | 0.400 | 0.052 |
 
 Provenance and the full instrument table, including the [Reuter 2015] optical
-prescription and the [Jhabvala 2011] focal-plane parameters:
-`docs/validation/landsat_tirs_source_data.md`.
+prescription and the [Jhabvala 2011] focal-plane parameters: the Landsat TIRS
+source-data dossier.
 
 ### How the scenario models it
 
@@ -281,7 +281,7 @@ NEdT specification; [XIONG-2023] Table 5 publishes the Aqua measured NEdT:
 | 31 | 10.780 – 11.280 | 9.55 | 50 | 20 |
 | 32 | 11.770 – 12.270 | 8.94 | 50 | 30 |
 
-Provenance: `docs/validation/modis_teb_source_data.md`.
+Provenance: the MODIS TEB source-data dossier.
 
 ### How the scenario models it
 
@@ -355,7 +355,7 @@ both OLI and OLI-2.
 Requirements from [Irons 2012] (*The next Landsat satellite: The Landsat Data
 Continuity Mission*, Remote Sensing of Environment 122); Landsat 8 measured values
 from [Morfitt 2015], recalled at ±15 % and flagged as such in the scenario's own gap
-list. Provenance: `docs/validation/landsat_oli2_source_data.md`.
+list. Provenance: the Landsat OLI-2 source-data dossier.
 
 ### How the scenario models it
 
@@ -480,9 +480,8 @@ the next two sections and §8 are for.
 
 The atmosphere backends are measured against an owner-run MODTRAN 6 run matrix rather
 than against field radiometry. The full record — every table, every test that pins it,
-and a seventeen-entry limitations register — is
-`docs/validation/atmosphere_modtran_parity.md`.
-This section quotes its headline numbers; it does not replace it.
+and a seventeen-entry limitations register — is the MODTRAN-parity validation
+record. This section quotes its headline numbers; it does not replace it.
 
 **The run set.** 132 authored rows, of which **130 tape7 runs are delivered**, plus
 four ground-level flux sidecars = 134 artifacts. They span seventeen blocks: the six
@@ -557,8 +556,8 @@ gas and aerosol, which matters to any product that separates the two.
 
 The oldest anchor in the codebase is also the simplest: one MWIR case worked by hand
 from CODATA 2018 constants to an SNR, with every intermediate value written down.
-`docs/validation/ground_truth_mwir_singlewave.md`
-is the full derivation; `examples/ground_truth_mwir.yaml` is the configuration, and
+The single-wave ground-truth record is the full derivation;
+`examples/ground_truth_mwir.yaml` is the configuration, and
 `tests/integration/test_ground_truth_mwir.py` asserts the chain against it.
 
 The configuration is deliberately stripped of everything that could hide an error: a

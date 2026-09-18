@@ -45,6 +45,9 @@ ARCHITECTURE = DOCS / "architecture"
 ASSETS = Path(__file__).resolve().parent / "manual_assets"
 DEFAULTS_FILE = ASSETS / "manual.yaml"
 HEADER_FILE = ASSETS / "manual_header.tex"
+TABLE_FILTER = ASSETS / "wide_tables.lua"
+HEADING_FILTER = ASSETS / "heading_numbers.lua"
+CODE_FILTER = ASSETS / "code_breaks.lua"
 BUILD = REPO / "build" / "manuals"
 
 #: Author line on every cover page (ruling Q6 — minimal cover identity).
@@ -59,8 +62,11 @@ class Volume:
     the volume is registered but its content has not been written yet.
 
     ``appendices`` are chapters bound *after* a LaTeX ``\\appendix`` marker, so they are
-    lettered rather than numbered. They are ordinary Markdown sources — validated,
-    staged, and resource-pathed exactly like chapters.
+    lettered rather than numbered. ``front_matter`` binds before the numbered chapters
+    and ``back_matter`` after everything, both typeset UNNUMBERED (``{.unnumbered}`` on
+    the staged H1) — so the numbered chapters match the plan TOCs and the in-prose
+    "Ch. N" cross-references. All are ordinary Markdown sources — validated, staged,
+    and resource-pathed exactly like chapters.
     """
 
     key: str
@@ -68,6 +74,8 @@ class Volume:
     subtitle: str
     chapters: tuple[str, ...]
     appendices: tuple[str, ...] = ()
+    front_matter: tuple[str, ...] = ()
+    back_matter: tuple[str, ...] = ()
 
     @property
     def phase_note(self) -> str:
@@ -76,8 +84,8 @@ class Volume:
 
     @property
     def sources(self) -> tuple[str, ...]:
-        """Every bound source in binding order — chapters then appendices."""
-        return (*self.chapters, *self.appendices)
+        """Every bound source in binding order."""
+        return (*self.front_matter, *self.chapters, *self.appendices, *self.back_matter)
 
 
 #: Which Support_Documentation_Plan §9 phase populates each volume. Kept beside the
@@ -98,8 +106,8 @@ VOLUMES: dict[str, Volume] = {
         key="theory",
         title="RADIANT Theory Manual",
         subtitle="Physics Reference for the RADIANT EO Sensor Performance Model",
+        front_matter=("theory/notation.md",),
         chapters=(
-            "theory/notation.md",
             "theory/introduction.md",
             "theory/geometry.md",
             "theory/radiometric_chain.md",
@@ -109,10 +117,8 @@ VOLUMES: dict[str, Volume] = {
             "theory/calibration_model.md",
             "theory/performance_metrics.md",
         ),
-        appendices=(
-            "theory/radiometric_model_mixed_train.md",
-            "theory/references.md",
-        ),
+        appendices=("theory/radiometric_model_mixed_train.md",),
+        back_matter=("theory/references.md",),
     ),
     "users_guide": Volume(
         key="users_guide",
@@ -218,6 +224,10 @@ _HTML_TAGS = frozenset(
 #: A Markdown image. Captures the destination, tolerating pointy-bracket destinations.
 _IMAGE_RE = re.compile(r"!\[[^\]]*\]\(\s*<?([^)>\s]+)>?")
 
+#: XeLaTeX's log line for a glyph the font cannot supply, e.g.
+#: ``Missing character: There is no ⁻ (U+207B) in font ...``. Captures the character.
+_MISSING_CHAR_RE = re.compile(r"Missing character: There is no (\S+) \(U\+[0-9A-Fa-f]+\)")
+
 #: Destinations the image check does not try to resolve on disk.
 _REMOTE_PREFIXES = ("http://", "https://", "data:", "ftp://", "mailto:", "//")
 
@@ -298,6 +308,31 @@ def scan_images(text: str) -> list[tuple[int, str]]:
             flush()
     flush()
     return found
+
+
+#: An emphasized ``*Persona: ...*`` audience tag near a chapter's top. Repo-internal
+#: metadata (the RADIANT_Personas.md user model) that orients repo readers and agents;
+#: meaningless to a manual reader, so the builder drops it at build time (sources keep
+#: their tags — owner-flagged on the first render review, 2026-09-17).
+_PERSONA_LINE_RE = re.compile(r"^\*Persona:.*\*\s*$")
+
+
+def strip_persona_line(text: str) -> str:
+    """Drop a leading ``*Persona: ...*`` tag line (and its trailing blank line).
+
+    Only a line within the first few lines of the chapter is considered, so a
+    literal mention of the word deeper in prose is never touched. Text without
+    such a line is returned unchanged.
+    """
+    lines = text.splitlines()
+    for i, line in enumerate(lines[:6]):
+        if _PERSONA_LINE_RE.match(line):
+            tail = i + 1
+            while tail < len(lines) and not lines[tail].strip():
+                tail += 1
+            kept = [*lines[:i], *lines[tail:]]
+            return "\n".join(kept) + ("\n" if text.endswith("\n") else "")
+    return text
 
 
 def strip_spec_header(text: str) -> str:
@@ -483,17 +518,26 @@ def write_volume_header(volume: Volume, tmpdir: Path) -> Path:
 # --------------------------------------------------------------------------------------
 
 
-def prepare_chapter(chapter: str, tmpdir: Path, index: int) -> Path:
+def prepare_chapter(chapter: str, tmpdir: Path, index: int, *, unnumbered: bool = False) -> Path:
     """Return the path pandoc should read for *chapter*.
 
-    Usually the source itself. For an ``architecture/`` spec whose metadata header is
-    stripped (ruling Q2), a temp copy of the stripped text.
+    Usually the source itself. A temp copy is staged when something must change for
+    typesetting: an ``architecture/`` spec's metadata header is stripped (ruling Q2),
+    a ``*Persona: ...*`` tag is dropped, or a front-/back-matter chapter's H1 gains
+    ``{.unnumbered}`` so --number-sections skips it.
     """
     source = DOCS / chapter
-    if ARCHITECTURE not in source.parents:
-        return source
     text = source.read_text(encoding="utf-8")
-    stripped = strip_spec_header(text)
+    stripped = strip_persona_line(text)
+    if ARCHITECTURE in source.parents:
+        stripped = strip_spec_header(stripped)
+    if unnumbered:
+        lines = stripped.splitlines()
+        for i, line in enumerate(lines):
+            if line.startswith("# "):
+                lines[i] = line.rstrip() + " {.unnumbered}"
+                break
+        stripped = "\n".join(lines) + ("\n" if stripped.endswith("\n") else "")
     if stripped == text:
         return source
     staged = tmpdir / f"{index:02d}_{source.name}"
@@ -533,16 +577,23 @@ def build_volume(volume: Volume, *, as_tex: bool) -> int:
 
     with tempfile.TemporaryDirectory(prefix="radiant-manual-") as tmpname:
         tmpdir = Path(tmpname)
+        counter = iter(range(1, len(volume.sources) + 1))
         sources = [
-            prepare_chapter(chapter, tmpdir, i)
-            for i, chapter in enumerate(volume.chapters, start=1)
+            prepare_chapter(chapter, tmpdir, next(counter), unnumbered=True)
+            for chapter in volume.front_matter
         ]
+        sources.extend(
+            prepare_chapter(chapter, tmpdir, next(counter)) for chapter in volume.chapters
+        )
         if volume.appendices:
             sources.append(write_appendix_marker(tmpdir))
             sources.extend(
-                prepare_chapter(chapter, tmpdir, i)
-                for i, chapter in enumerate(volume.appendices, start=len(volume.chapters) + 1)
+                prepare_chapter(chapter, tmpdir, next(counter)) for chapter in volume.appendices
             )
+        sources.extend(
+            prepare_chapter(chapter, tmpdir, next(counter), unnumbered=True)
+            for chapter in volume.back_matter
+        )
         metadata = write_metadata_file(volume, tmpdir, date.today().isoformat())
         volume_header = write_volume_header(volume, tmpdir)
         resource_dirs = [str(REPO), *dict.fromkeys(str((DOCS / c).parent) for c in volume.sources)]
@@ -559,13 +610,28 @@ def build_volume(volume: Volume, *, as_tex: bool) -> int:
             str(volume_header),
             "--include-in-header",
             str(HEADER_FILE),
+            # The gfm reader assigns no column widths, so wide tables overflow the
+            # page; this filter replicates the markdown reader's width heuristic.
+            "--lua-filter",
+            str(TABLE_FILTER),
+            # Hand-numbered headings ("## 3. Foo") would double up against
+            # --number-sections; the literal ordinal is dropped at build time only.
+            "--lua-filter",
+            str(HEADING_FILTER),
+            # After the table filter (its width measurement cannot see RawInline):
+            # long inline code wraps at separators instead of clipping at the margin.
+            "--lua-filter",
+            str(CODE_FILTER),
             *[str(p) for p in sources],
             "-o",
             str(out),
         ]
-        result = subprocess.run(cmd, cwd=REPO, check=False)
+        result = subprocess.run(
+            cmd, cwd=REPO, check=False, capture_output=True, text=True, encoding="utf-8"
+        )
 
     if result.returncode != 0:
+        sys.stderr.write(result.stderr)
         print(
             f"error: pandoc failed while building volume '{volume.key}' (see output above).\n"
             f"  why: the Markdown sources did not convert.\n"
@@ -573,6 +639,23 @@ def build_volume(volume: Volume, *, as_tex: bool) -> int:
             file=sys.stderr,
         )
         return result.returncode
+
+    # XeTeX drops a glyph the font lacks SILENTLY in the PDF and only mentions it in
+    # a log warning — "e⁻" typesetting as "e" is a correctness defect, not cosmetics.
+    # The shared preamble maps the known grandfathered characters to LaTeX; anything
+    # NOT covered by that list fails the build here rather than shipping dropped text.
+    missing = sorted(set(_MISSING_CHAR_RE.findall(result.stderr)))
+    if missing:
+        sys.stderr.write(result.stderr)
+        print(
+            f"error: volume '{volume.key}' typeset with dropped glyphs: {' '.join(missing)}\n"
+            "  why: the selected fonts lack these characters; XeTeX omits them from the\n"
+            "       PDF silently, so text like 'e⁻' would print as 'e'.\n"
+            "  action: add a \\newunicodechar mapping for each to\n"
+            "          scripts/manual_assets/manual_header.tex (see the existing block).",
+            file=sys.stderr,
+        )
+        return 1
     print(f"built {out.relative_to(REPO).as_posix()}  ({volume.title})")
     return 0
 
@@ -597,7 +680,7 @@ def check_tools(*, as_tex: bool) -> int:
             file=sys.stderr,
         )
         return 1
-    for asset in (DEFAULTS_FILE, HEADER_FILE):
+    for asset in (DEFAULTS_FILE, HEADER_FILE, TABLE_FILTER, HEADING_FILTER, CODE_FILTER):
         if not asset.is_file():
             print(
                 f"error: shared manual template asset missing: "

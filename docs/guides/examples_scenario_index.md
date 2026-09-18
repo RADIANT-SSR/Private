@@ -113,6 +113,6 @@ three flagship folders that are pure configuration comparisons — are driven by
 external-validation dossier.
 
 The catalog itself — one paragraph per scenario, with the persona's motivating question
-— is `docs/guides/scenario_catalog.md`. It is the front door for
+— is the repository's scenario catalog. It is the front door for
 "which scenario is closest to my problem"; this appendix is the front door for "where
 does this volume discuss it".

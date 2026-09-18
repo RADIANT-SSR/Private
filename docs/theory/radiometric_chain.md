@@ -12,8 +12,7 @@ the radiometric quantities themselves; the spatial (PSF/MTF) treatment is in
 
 Every numeric anchor below was independently re-derived from the physics
 literature (no access to RADIANT source) in the 2026-07 assurance audit and
-then verified against the implementation — see
-`docs/reports/assurance_audit_2026-07/track_a1_radiometry_derivation.md`.
+then verified against the implementation.
 
 ---
 
@@ -934,5 +933,4 @@ Every row must check; integrating a per-µm density over µm is the only
 - No ghost images, BSDF scatter, or chromatic aberration
 - No optical crosstalk between pixels
 - No temporal variability in scene
-- See `docs/architecture/RADIANT_Scope_Decisions.md` for the full list of
-  deferred effects
+- The project's scope-decision register records the full list of deferred effects

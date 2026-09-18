@@ -4,8 +4,8 @@
 
 Complete noise taxonomy, equations, scaling rules, and acquisition timing as implemented
 in RADIANT. All noise in electrons RMS (Rule 2 canonical unit). Numeric anchors are
-blind-derived values from the 2026-07 assurance audit
-(`docs/reports/assurance_audit_2026-07/track_a3_noise_metrics_derivation.md`).
+blind-derived values from the 2026-07 assurance audit (independently re-derived from the literature, then verified against
+the implementation).
 
 ---
 

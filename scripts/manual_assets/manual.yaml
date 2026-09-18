@@ -44,14 +44,43 @@ variables:
     - margin=1in
   linestretch: 1.05
 
+  # Under XeTeX, load mathspec instead of unicode-math (the template default).
+  # unicode-math makes prose Unicode symbols (′ ″ ↔ ∈ …) math-active, which
+  # breaks the manual_header.tex newunicodechar mappings with "Missing $" errors
+  # (first real PDF build, 2026-09-17); mathspec leaves text catcodes alone and
+  # classic Latin Modern math stands in for the few real formulas.
+  mathspec: true
+
   # Cross-platform faces (Rule 30). All three ship with TeX Live / MiKTeX on both
   # macOS and Windows and cover the µ / ° / ² / λ characters these chapters use.
   # The previous Helvetica Neue / Menlo pinning was macOS-only (Findings_Log
   # 2026-09-16); do not reintroduce platform-local faces here.
-  mainfont: TeX Gyre Termes
-  sansfont: TeX Gyre Heros
-  monofont: DejaVu Sans Mono
+  #
+  # Loaded by FILENAME (kpathsea lookup inside the TeX tree), not by family name:
+  # on macOS XeTeX resolves family names through CoreText, which cannot see
+  # texmf-dist fonts, so "TeX Gyre Termes" fails on a stock MacTeX even though the
+  # .otf files are installed (first real PDF build, 2026-09-17). Filename lookup
+  # works identically on TeX Live (macOS/Linux) and MiKTeX (Windows).
+  mainfont: texgyretermes
+  mainfontoptions:
+    - Extension=.otf
+    - UprightFont=*-regular
+    - BoldFont=*-bold
+    - ItalicFont=*-italic
+    - BoldItalicFont=*-bolditalic
+  sansfont: texgyreheros
+  sansfontoptions:
+    - Extension=.otf
+    - UprightFont=*-regular
+    - BoldFont=*-bold
+    - ItalicFont=*-italic
+    - BoldItalicFont=*-bolditalic
+  monofont: DejaVuSansMono
   monofontoptions:
+    - Extension=.ttf
+    - BoldFont=*-Bold
+    - ItalicFont=*-Oblique
+    - BoldItalicFont=*-BoldOblique
     - Scale=0.85
 
   # Hyperlinked TOC and cross-references, printable colours.

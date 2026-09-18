@@ -78,3 +78,42 @@
 \widowpenalty=10000
 \clubpenalty=10000
 \raggedbottom
+
+% --- Unicode coverage for grandfathered source characters --------------------
+% The bound chapters carry Unicode super/subscripts and math symbols in prose
+% (grandfathered per the plan — no churn rewrites). TeX Gyre Termes lacks the
+% glyphs, and XeTeX drops a missing character SILENTLY, so "e⁻" would typeset
+% as "e" (first real PDF build, 2026-09-17: 327 dropped glyphs across three
+% volumes). Map each to its LaTeX equivalent instead; the builder now also
+% fails the build if xelatex reports any character this list does not cover.
+\usepackage{amssymb}
+\IfFileExists{newunicodechar.sty}{%
+  \usepackage{newunicodechar}%
+  \newunicodechar{⁻}{\textsuperscript{--}}%
+  \newunicodechar{⁰}{\textsuperscript{0}}%
+  \newunicodechar{⁴}{\textsuperscript{4}}%
+  \newunicodechar{⁵}{\textsuperscript{5}}%
+  \newunicodechar{⁶}{\textsuperscript{6}}%
+  \newunicodechar{⁷}{\textsuperscript{7}}%
+  \newunicodechar{⁸}{\textsuperscript{8}}%
+  \newunicodechar{⁹}{\textsuperscript{9}}%
+  \newunicodechar{₀}{\textsubscript{0}}%
+  \newunicodechar{₁}{\textsubscript{1}}%
+  \newunicodechar{₂}{\textsubscript{2}}%
+  \newunicodechar{₃}{\textsubscript{3}}%
+  \newunicodechar{₄}{\textsubscript{4}}%
+  \newunicodechar{↔}{\ensuremath{\leftrightarrow}}%
+  \newunicodechar{⇒}{\ensuremath{\Rightarrow}}%
+  \newunicodechar{∫}{\ensuremath{\int}}%
+  \newunicodechar{∏}{\ensuremath{\prod}}%
+  \newunicodechar{≫}{\ensuremath{\gg}}%
+  \newunicodechar{≪}{\ensuremath{\ll}}%
+  \newunicodechar{≡}{\ensuremath{\equiv}}%
+  \newunicodechar{≳}{\ensuremath{\gtrsim}}%
+  \newunicodechar{≲}{\ensuremath{\lesssim}}%
+  \newunicodechar{∝}{\ensuremath{\propto}}%
+  \newunicodechar{∈}{\ensuremath{\in}}%
+  \newunicodechar{⊥}{\ensuremath{\perp}}%
+  \newunicodechar{′}{\ensuremath{{}^{\prime}}}%
+  \newunicodechar{″}{\ensuremath{{}^{\prime\prime}}}%
+}{}

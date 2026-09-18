@@ -55,6 +55,13 @@ by name in check 8 — that list is frozen and must never grow.
 **Symptom**: headline items from the 134-finding report — degree signs inside math spans typeset as "ř" in three volumes; tape7 conversion formula printed a factor 10⁴ off the (correct) implementation, in two chapters and the module docstring; dimensionally inconsistent mixed-train appendix irradiance formula (missing emitting-element area); 12 citation keys with no References entry; generated parameter-reference cells truncated (unescaped `|`) and columns colliding; ~26 dead repo-relative `.md` hyperlinks; repo-internal CU/Gap/Rule/path leakage in shipped prose beyond the strip-filters' reach; result tables and commands overflowing the printed page.
 **Why it still matters**: workflow-visible (intake test 4) — every operator and evaluator reading the shipped manuals hits the render defects, and the two accuracy items would mislead a reader implementing the printed physics.
 **Suggested fix**: (b) stand-alone fix campaign worked from the report's priority order (report §8 groups the findings into workable batches; owner picks the suite-wide style conventions where flagged). Effort M–L; category A.
+**Progress** (fix campaign, 2026-09-18; owner rulings on the §8/B6 style picks received: US English, `e-`, sentence-case sections, "Messages panel", comma thousands separators, `°` in prose / "deg" in quoted entry strings, unspaced en-dash ranges, NEDT canonical):
+
+- [x] B1 build/template + B2 generator/schema + B7 broken captures (II-022, IV-032) — merged `74e69019`. X-01 verified 26→0 "ř" across three volumes; 55 figures now captioned; III-019 resolved as conversion-inert unit declarations (CHANGELOG'd). III-021 disproven — V6 is a published mode (`RADIANT_Geometry.md:49`), finding withdrawn from the checklist; residual mode-letter-key observation → Findings Log.
+- [ ] B3 accuracy + B5 page-fit (branch fix370/accuracy)
+- [ ] B4 leakage/link policy + B6 style sweeps (branch fix370/prose)
+- [ ] B7 remainder — X-07 panel-grab sweep after B4/B6 so figures and describing prose move together
+- Deferred (GUI change required, live-review gated — move to a fresh stub CU at closure): II-003, II-015, II-009's GUI-string option, IV-031 (GeometryViewer must clamp leader pills inside the viewport; capture-side fix proven impossible), plus the clipped mode-form values visible in `case_irst_schematic.png` (`solar_zenith_rad` renders "6479 deg").
 
 ### CU-366 — Scenario 1.1 walkthrough argues its reflected-sky physics against the wrong hull emissivity
 

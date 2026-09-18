@@ -2,8 +2,8 @@
 
 Every RADIANT module obeys one set of conventions. No module defines its own local ones,
 and a violation is a bug rather than a style preference. This chapter is the working
-summary; the binding statement, with the justification for each choice and the
-comparison against other tools, is `docs/architecture/RADIANT_Conventions.md`.
+summary; the repository's conventions document carries the binding statement, with the
+justification for each choice and the comparison against other tools.
 
 ---
 

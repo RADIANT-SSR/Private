@@ -3,17 +3,15 @@
 *Persona: Sarah (systems engineer), Lisa (analyst)*
 
 Spherical-Earth viewing geometry, orbit kinematics, ground sampling, smear kinematics,
-solar geometry, and attitude conventions as implemented in RADIANT (geometry-first per
-ADR-0006). Numeric anchors are blind-derived values from the 2026-07 assurance audit
-(independently re-derived from the literature, then verified against the
-implementation); RADIANT uses
-the IUGG **mean Earth radius $R = 6371.0$ km** (`core/constants.py::R_EARTH_M`), so
-anchors below are quoted for that radius (the audit tabulates WGS-84 equatorial variants
-— an ~8 km radius difference moves a 500 km/30° slant range by ~9 m and the orbit period
-by ~9 s, so always match radii before comparing numbers).
+solar geometry, and attitude conventions as implemented in RADIANT, which resolves the
+scene geometry before any radiometry. Numeric anchors were re-derived from the literature
+independently of the code and then checked against it. RADIANT uses the IUGG **mean Earth
+radius $R = 6371.0$ km**, so the anchors below are quoted for that radius: an ~8 km radius
+difference — the gap to the WGS-84 equatorial value — moves a 500 km/30° slant range by
+~9 m and the orbit period by ~9 s, so always match radii before comparing numbers.
 
 **Symbols and the code's naming.** Classical texts parameterize the viewing triangle by
-the look angle at the satellite; RADIANT is **$\theta_o$-referenced** (ADR-0006):
+the look angle at the satellite; RADIANT is **$\theta_o$-referenced**:
 
 | Classical symbol | Meaning | RADIANT name |
 |---|---|---|
@@ -70,7 +68,7 @@ $\sin\eta > R/(R+h)$, beyond the limb; the boundary is
 $\eta_{max} = \arcsin\!\frac{R}{R+h}$ with tangent-ray range $\sqrt{2Rh + h^2}$.
 
 **Pitfalls.** Plus-root selection (returns ~11 Mm at nadir instead of $h$); silent NaN on
-a beyond-horizon geometry instead of an actionable error (Rule 15); near $\eta_{max}$,
+a beyond-horizon geometry instead of an actionable error; near $\eta_{max}$,
 $dR_s/d\eta \to \infty$ — solvers should re-parameterize in $\Lambda$ or $\varepsilon$
 there.
 
@@ -148,10 +146,8 @@ $\cos\eta$-discriminator assertion). **References.** [Wertz & Larson 1999],
 ## 5. Swath and access
 
 **Equations.** Swath from the cross-track GSD and detector format:
-$W = \mathrm{GSD}_{cross}\cdot N_{pix}$ (`performance/swath_width.py`); area access rate
-$\dot A = W\,v_g$ (`performance/access_rate.py`); ground range from the central angle,
-$R\,\Lambda$ (`performance/ground_range.py`,
-`viewing_triangle.ground_range_from_theta_o_m`). Wide-FOV swath uses the full spherical
+$W = \mathrm{GSD}_{cross}\cdot N_{pix}$; area access rate $\dot A = W\,v_g$; ground range
+from the central angle, $R\,\Lambda$. Wide-FOV swath uses the full spherical
 mapping $\Lambda(\eta)$ — the flat-Earth $2h\tan\eta_{half}$ is 0.3% low at ±15° and
 diverges beyond ~30°.
 
@@ -194,9 +190,9 @@ matched line time is ~354 µs.
 
 $$\cos\theta_z = \sin\phi\sin\delta + \cos\phi\cos\delta\cos H$$
 
-($\phi$ latitude, $\delta$ declination, $H$ hour angle from solar noon). Declination and
-LTAN-based hour angle come from `core/solar_geometry.py::solar_declination_deg`,
-`local_solar_time_from_ltan`.
+($\phi$ latitude, $\delta$ declination, $H$ hour angle from solar noon). Declination comes
+from the day of year, and the hour angle from either the local solar time or the local
+time of the ascending node.
 
 **Pitfalls.** Clock time vs apparent solar time (equation of time, ±4° in $H$);
 elevation returned where zenith is expected (downstream $\cos\theta_z$ irradiance factors

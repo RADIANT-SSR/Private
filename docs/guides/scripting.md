@@ -21,8 +21,7 @@ Everything else is reached through `radiant.api` (`ChainResult`, `SweepResult`,
 top-level import.
 
 There are no `SensorConfig` or `ScenarioConfig` builder classes. `Sensor.from_yaml()`
-and `Sensor.from_dict()` already accept everything such a wrapper would have carried
-(see `docs/adr/ADR-C-public-api-surface.md`).
+and `Sensor.from_dict()` already accept everything such a wrapper would have carried.
 
 ---
 
@@ -118,8 +117,8 @@ schema defaults.
 
 ### Entering a Value in Your Own Unit
 
-`set()` takes a `unit=` keyword and converts at that boundary — the one conversion point
-(Rule 2). The value you pass is in *your* unit; what gets stored is canonical.
+`set()` takes a `unit=` keyword and converts at that boundary — the single conversion
+point for user input. The value you pass is in *your* unit; what gets stored is canonical.
 
 ```python
 from radiant.api import Sensor
@@ -223,7 +222,7 @@ injections it *is* written by `save()` and restored by `load()`. Pass `None` to 
 
 ### Injecting Non-Scalar Inputs
 
-Stages never read files (Rule 6), so file-derived objects are built before the chain and
+Stages never read files, so file-derived objects are built before the chain and
 injected as pre-chain stage outputs:
 
 ```python
@@ -389,7 +388,7 @@ n_shot = result.noise_at("dn", "signal_shot")  # one term at that frame
 
 The six frames are `at_target`, `at_aperture`, `post_optics`, `photoelectrons`,
 `post_readout`, and `dn` (the `ReferenceFrame` enum in `radiant.core.quantity`; a plain
-string works too). Pre-integration frames are spectral-only by design — Rule 8 allows
+string works too). Pre-integration frames are spectral-only by design — the chain allows
 exactly one spectral collapse — so `result.frames["at_aperture"].in_band_value` is
 deliberately `None` and `signal_at` is the only way to read an in-band scalar there.
 
@@ -786,8 +785,8 @@ back --- names and order, `active` / `baseline`, per-configuration
 file loads as the degenerate one-configuration set; a study file loaded through
 `Sensor.from_yaml` raises an error pointing at `ConfigurationSet.load`.
 
-The full member list is in `docs/architecture/RADIANT_Scripting_API.md` §2.5c,
-and `examples/scripts/dual_band_configuration_set.py` is the worked study.
+The repository's scripting-API specification carries the full member list, and
+`examples/scripts/dual_band_configuration_set.py` is the worked study.
 
 ---
 

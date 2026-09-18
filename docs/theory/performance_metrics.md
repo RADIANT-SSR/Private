@@ -3,13 +3,14 @@
 *Persona: Lisa (analyst), Sarah (systems engineer)*
 
 The metric layer: how RADIANT turns the signal/noise/spatial chain state into SNR, NEDT,
-NIIRS, detection range, and their relatives. Numeric anchors are blind-derived values
-from the 2026-07 assurance audit (`track_a3_noise_metrics_derivation.md`). Metric-layer
-functions may return result-typed failures with a structured `failure_reason` instead of
-raising (CLAUDE.md Rule 17 carve-out / ADR-B) — silent NaN propagation remains forbidden.
+NIIRS, detection range, and their relatives. Numeric anchors were re-derived from the
+literature independently of the implementation. This is the one layer permitted to report
+a *named failure* instead of a number — a metric that cannot be computed for a scene says
+so, with a reason the caller can read; silently returning NaN remains forbidden anywhere
+in RADIANT.
 
 **Symbols:** $S$ target signal [e-]; $S_{bg}$ background signal [e-];
-$\sigma_{tot}$ total noise [e- RMS] (see `theory/noise_model.md`); $t_{int}$ [s];
+$\sigma_{tot}$ total noise [e- RMS] (see the Noise Model chapter); $t_{int}$ [s];
 $p$ pixel pitch [m]; GSD [m].
 
 ---
@@ -48,7 +49,7 @@ with the thermal responsivity band-integrated in the photon domain:
 $$\frac{dS}{dT} = t_{int}\,G \int \frac{\lambda_m}{hc}\,QE(\lambda)\,\tau(\lambda)\,\frac{\partial L_\lambda}{\partial T}\,d\lambda\quad[\mathrm{e^-/K}],$$
 
 $\partial L_\lambda/\partial T$ the analytic Planck derivative
-(`theory/radiometric_chain.md`), $G$ the étendue. RADIANT computes $dS/dT$ in
+(the Radiometric Chain chapter), $G$ the étendue. RADIANT computes $dS/dT$ in
 `SpectralIntegrationStage` (`ds_dt_e_per_K` stage output) and divides in the metric layer;
 a fallback `compute_nedt_from_snr` uses the SNR route when the derivative output is
 absent.
@@ -123,12 +124,12 @@ pinned exactly by test; GSD in **inches** (geometric mean of the two ground-samp
 directions the geometry chapter derives),
 RER the geometric mean from the PSF path, $H$ edge overshoot, $G$ noise gain.
 
-**Fit-envelope gating (CU-166):** GIQE-5 was fit over GSD 1.18–31.5 in, RER 0.2–0.95,
+**Fit-envelope gating.** GIQE-5 was fit over GSD 1.18–31.5 in, RER 0.2–0.95,
 SNR 2–130. Outside the envelope RADIANT refuses by default (result-typed failure with
 `failure_reason`), computes only when `performance.niirs.allow_extrapolated = true`, and
 flags `niirs_extrapolated = 1`.
 
-**IIRS status (Gap 100):** the MWIR/LWIR interpretability metric currently **reuses
+**IIRS status.** The MWIR/LWIR interpretability metric currently **reuses
 GIQE-5 verbatim** — same formula, envelope, and coefficients. Treat IR "IIRS" outputs as
 GIQE-5-on-IR until a real IIRS lands.
 
@@ -152,7 +153,7 @@ $$N_{cyc} = \frac{d_c}{2\,\mathrm{IFOV}\,R_s}$$
 (the factor 2 converting pixels to cycles), compared against the Johnson thresholds
 (detect ≈ 1, recognize ≈ 4, identify ≈ 8 cycles, 50% probability). `johnson_range_m`
 inverts for range at a given task. Minimum-resolvable temperature/contrast couple the MTF
-budget to NEDT/SNR thresholds (`minimum_resolvable.py`).
+budget to NEDT/SNR thresholds.
 
 **Pitfalls.** Cycles vs pixels (factor 2); using nadir IFOV footprint at slant geometry;
 50%-probability thresholds quoted as certainties.
@@ -184,9 +185,9 @@ inverts in closed form — the signal a threshold $T$ demands is
 $S^* = \tfrac12\left(T^2 + \sqrt{T^4 + 4T^2N_0^2}\right)$, so in vacuum the answer is
 $R = R_{ref}\sqrt{S_{ref}/S^*}$ with no root finding at all. Both forms agree at
 $R_{ref}$ by construction, so the answer no longer depends on the range the chain was
-evaluated at (CU-263; the superseded frozen-noise form solved $S(R)/\sigma_{ref} = T$
+evaluated at. The superseded frozen-noise form solved $S(R)/\sigma_{ref} = T$ instead,
 and gave 123.4 km referenced at 25 km against 182.5 km referenced at 100 km for one
-unchanged configuration).
+unchanged configuration — a range that depended on where you asked from.
 
 **Pitfalls.** Applying extended-scene SNR to the point-source range equation; forgetting
 that EE_box and jitter enter through the signal chain, not as post-hoc factors; α from a
@@ -234,12 +235,12 @@ $\sigma_{bg} = 70.7$ vs other-RSS 60.0 e-, $f_{BLIP} = 0.762$.
 
 ## 8. Radiometric inversions and sensitivity relatives
 
-**NEΔL / NEΔρ** — noise-equivalent radiance/reflectance differences, currently computed
-as `radiance/SNR` and `reflectance/SNR` helpers (`nedl.py`, `nedr.py`; **not wired into
-`PerformanceStage`** — Gap 78, disclosed in `RADIANT_Metrics.md` §6). **Temperature
-retrieval** — band-radiance inversion with emissivity and temperature Jacobians
-(`temperature_retrieval.py::retrieve_temperature_K`; the forward
-`band_planck_radiance` is anchored to the audit's 38.5 W/m²/sr at 300 K, 8–12 µm).
+**NEΔL / NEΔρ** — noise-equivalent radiance and reflectance differences, computed as
+radiance/SNR and reflectance/SNR. They are available as helpers but are **not part of the
+chain's metric surface**, so a run does not report them. **Temperature retrieval** —
+band-radiance inversion with emissivity and temperature Jacobians; the forward
+band-integrated Planck radiance it inverts is anchored at 38.5 W/m²/sr for a 300 K scene
+over 8–12 µm.
 
 **In RADIANT.** modules above · anchored by
 `performance/tests/test_temperature_retrieval.py` (absolute anchor added by the audit
@@ -247,13 +248,15 @@ remediation), `test_noise_spec_converters.py`.
 
 ---
 
-## Metric selection and the registry
+## Metric selection
 
-Which metrics compute is governed by the five Gap-96 group flags
-(`performance/_schema.py`, all default true) resolved through
-`performance/metric_selection.py` with dependency closure; every computed key is
-registered in `performance/registry.py` and reconciled one-for-one against
-`RADIANT_Metrics.md` §6 by `tests/integration/test_metric_registry_reconciliation.py`.
-When the whole Spatial-MTF group is deselected and nothing needs a spatial input, the
-spatial path — including the Rule-4 consistency check — is skipped entirely
-(owner-ratified, 2026-07-18).
+Metrics are computed in five groups — radiometric, sampling/geometry, spatial-MTF,
+saturation, interpretability — each of which can be switched off. All five are on by
+default, and switching one off stops the computation rather than hiding the result:
+a metric another enabled group depends on is still computed, because the selection
+closes over dependencies.
+
+Deselecting the whole Spatial-MTF group is the one case that saves real time. When
+nothing else needs a spatial input, the PSF convolution stack and the MTF product are
+skipped entirely, and with them the consistency check that normally compares the two
+spatial paths on every run — there is no spatial computation left to check.

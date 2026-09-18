@@ -83,7 +83,7 @@ information in the message string. The classes with structured `what`/`why`/`act
 
 Many classes co-inherit a built-in exception type — `ValueError`, `RuntimeError`,
 `KeyError`, `NotImplementedError`. That is a deliberate back-compat carve-out from the
-CU-043 migration: sites that historically raised a bare `ValueError` are caught as such
+migration to the RADIANT hierarchy: sites that historically raised a bare `ValueError` are caught as such
 throughout the test suite and in user code, and those `except ValueError` blocks keep
 working. `RadiantError` remains the canonical base. **New** RADIANT exception classes
 should inherit from `RadiantError` only.
@@ -173,7 +173,7 @@ it. `core.viewing_triangle` uses it for geometry-consistency violations, for exa
 | `KirchhoffViolationError` | `RadiantError`, `ValueError` | `optics.element` | An optical surface whose R and T violate energy conservation, or one given an independent emissivity. *"CavityModel: energy violation — T_sys + R_sys = 1.04 > 1. Check surface coating values."* |
 | `PlatformValidationError` | `RadiantError`, `ValueError` | `platform.errors` | Platform input guards. *"smear_width_m must be non-negative, got -1e-05"* |
 | `SpectralIntegrationValidationError` | `RadiantError`, `ValueError` | `spectral_integration.errors` | Missing or malformed spectral input at the collapse. *"SpectralIntegrationStage: 'post_optics' frame has no spectral_radiance."* |
-| `SpectralIntegrationStateError` | `RadiantError`, `RuntimeError` | `spectral_integration.errors` | A Rule-9 invariant violated upstream. *"EE_box != 1.0 but regime is 'extended' (EE_box=0.82). In extended-scene mode, EE_box must not be applied (Rule 9). This is a programming error in PlatformStage."* |
+| `SpectralIntegrationStateError` | `RadiantError`, `RuntimeError` | `spectral_integration.errors` | The ensquared-energy invariant violated upstream. *"EE_box != 1.0 but regime is 'extended' (EE_box=0.82). In extended-scene mode, EE_box must not be applied (Rule 9). This is a programming error in PlatformStage."* |
 | `DetectorValidationError` | `RadiantError`, `ValueError` | `detector.errors` | Detector input guards. *"diffusion_length_m must be non-negative, got -2e-06"* |
 | `PersistenceSequenceError` | `RadiantError` | `detector.persistence_sequence` | Invalid persistence-sequence input. *"prior_signal_e must be ≥ 0, got -5.0."* |
 | `ReadoutValidationError` | `RadiantError`, `ValueError` | `readout.errors` | Readout input guards. *"check_well_saturation: full_well_capacity_e = 0.0 must be > 0."* |

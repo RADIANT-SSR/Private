@@ -6,8 +6,8 @@ fifteen pages apiece, and there are fifty-one scenarios in the repository. Cover
 them all that way would produce a four-hundred-page volume in which the interesting
 cases were buried.
 
-The owner's ruling (Q3, 2026-09-16) was **total coverage at tiered depth**: every
-scenario appears, eight at full depth, four in the flagship-validation chapter, and
+The compendium's principle is **total coverage at tiered depth**: every scenario
+appears, eight at full depth, four in the flagship-validation chapter, and
 the rest here as digests. A digest is one to two pages and answers five questions —
 what was the mission, what went in, what came out, which radiometric regime was in
 force, and what the analyst should take away — plus a pointer to the scenario folder
@@ -122,7 +122,7 @@ arrives as a JPL/NASA ASTER-library text file. The band decision is the delivera
 contrast 220,998 e⁻ vs 1,217,206 e⁻; total noise 541.6 e⁻ RMS vs 52,411.7 e⁻ RMS, of
 which clutter is 225.9 and 52,366.3 e⁻ RMS respectively. **SCNR including clutter:
 408.0 (MWIR) vs 23.2 (LWIR)** — a 17× advantage. NEDT runs the other way, 229.9 mK
-(MWIR) vs 165.4 mK (LWIR), both carrying the Gap 43 single-wavelength caveat. Over a
+(MWIR) vs 165.4 mK (LWIR), both carrying the single-wavelength NEDT caveat. Over a
 400–1200 K fire sweep, MWIR holds $P_d \approx 1$ throughout while **LWIR misses the
 400 K smolder outright** (SCNR 1.1, $P_d = 0.000$ against a 4.75σ threshold). MWIR
 saturates first, at ≈1200 K and ~98 % of the 4 Me⁻ well. Band-integrated radiance
@@ -167,9 +167,9 @@ is why TDI is fundamentally a VNIR technology.)
 scene, the noise caps at $\sqrt{FWC} \approx 245$ e⁻ too, so SNR flattens rather than
 falling. Saturation onset is $N_{TDI}=96$ (100 % fill); $N_{TDI}=64$ runs at 78.1 %.
 NIIRS rises 4.62 → 6.21 over the same span (extrapolated GIQE-5 — the configuration is
-outside the calibration envelope, CU-166). TDI misalignment MTF falls 0.9959 → 0.5508
+outside the calibration envelope). TDI misalignment MTF falls 0.9959 → 0.5508
 from $N=1$ to $N=128$ as registration error accumulates as $\sqrt{N}$. A calibration
-variant (Gap 120) re-runs the sweep with a one-point NUC and 2 % pre-correction PRNU:
+variant re-runs the sweep with a one-point NUC and 2 % pre-correction PRNU:
 the correlated floor caps SNR near **56** by $N_{TDI} \approx 16$–32, which **changes
 the design answer qualitatively** from "96 stages, SNR 245."
 
@@ -303,7 +303,7 @@ capping at $f_c$ — capped values would be 217.8 / 173.5 / 113.0 e⁻ RMS. That
 gap, stated plainly in the walkthrough.
 
 **Regime.** `extended` — the whole-FOV LWIR radiance field is one scene, so there is no
-separate `background_shot` term (ADR-0002 Decision #13) and `signal_shot` carries it.
+separate `background_shot` term, and `signal_shot` carries it.
 
 **Takeaway.** In a background-limited LWIR system 1/f noise is buried: the photon shot
 noise from a 293 K background swamps it. Mike does not need to negotiate the flicker
@@ -331,8 +331,8 @@ on all five and needs to know how much IPC the system can tolerate.
 | Requirements | MTF at Nyquist ≥ 0.15, EE 1×1 ≥ 0.60, SNR ≥ 100 |
 
 **Headline results.** Baseline (no IPC): MTF at Nyquist **0.2668**, SNR **782.84**,
-EE 1×1 **0.4141**, GSD 7.50 m, $Q$ 0.944, NEDT 38.1 mK, NIIRS 4.82 (extrapolated,
-CU-166), Strehl 1.000. **The binding constraint is EE 1×1, and it fails at baseline**
+EE 1×1 **0.4141**, GSD 7.50 m, $Q$ 0.944, NEDT 38.1 mK, NIIRS 4.82 (extrapolated),
+Strehl 1.000. **The binding constraint is EE 1×1, and it fails at baseline**
 (0.4141 against a 0.60 requirement) before any IPC is applied; the MTF requirement is
 met comfortably across the whole 0–5 % range. RADIANT's native IPC convolution now
 tracks the analytic form $MTF_{IPC}(f_{Nyq}) = 1 - 4\alpha$ to within rounding — at
@@ -469,11 +469,11 @@ comparator ($f_{max} \gtrsim 90$ MHz), a larger packet, or up/down mode.
 ### 2.7 (calibration-limited NEDT) — Two-Point NUC Floor in an LWIR Starer
 
 *Two distinct scenario folders in persona 02 both carry the number 2.7. They are
-disambiguated here by folder name; the collision is tracked as **CU-362**.*
+disambiguated here by folder name.*
 
 **Mission setup.** The datasheet NEDT of Mike's LWIR staring camera (~25 mK) comes from
 the temporal noise budget. Every such system he has fielded is limited instead by the
-residual fixed-pattern noise the two-point NUC leaves behind. The Gap 120 calibration
+residual fixed-pattern noise the two-point NUC leaves behind. The calibration
 model lets him model the calibration process itself — cal-point placement, detector
 nonlinearity, correction decay, and the blackbody source's own uncertainty.
 
@@ -500,7 +500,7 @@ uncertainty produces a **bias** of 0.955 % of radiance, or **591.5 mK at scene
 temperature**, reported beside the 26.02 mK precision figure and never RSS'd into it.
 
 **Regime.** `extended` LWIR imaging, with `detector.noise_regime = "imaging"`. The
-calibration residual is added *after* readout scaling (ADR-0012), so correlated errors
+calibration residual is added *after* readout scaling, so correlated errors
 do not average down.
 
 **Takeaway.** Cal-point placement is now a design trade the tool can answer, and a
@@ -514,7 +514,7 @@ Calibration screen.
 
 ### 2.7 (up/down background subtraction) — In-Pixel Pedestal Removal
 
-*The second folder numbered 2.7; see the CU-362 note above.*
+*The second folder numbered 2.7; see the note above.*
 
 **Mission setup.** Mike's DROIC vendor offers an up/down counting mode: the in-pixel
 counter increments during the scene phase and decrements during a reference phase,
@@ -562,8 +562,8 @@ names both phases.
 
 **Mission setup.** Every prior scenario began with Mike transcribing datasheet values
 by hand. For a MWIR airborne study he wants the part he is actually being offered — a
-Teledyne GeoSnap-18 — modelled from the FPA preset library that ships with RADIANT
-(Gap 119): one `fpa:` line, every value carrying its datasheet citation.
+Teledyne GeoSnap-18 — modelled from the FPA preset library that ships with RADIANT:
+one `fpa:` line, every value carrying its datasheet citation.
 
 **Key inputs.**
 
@@ -746,7 +746,7 @@ A GUI baseline ships.
 
 **Mission setup.** Can an airborne sensor image a warm building complex (295 K) against
 terrain (288 K) **at night**, and how does MWIR compare with LWIR for a 7 K thermal
-scene? The scenario exercises the first-class extended contrast reference (ADR-0005),
+scene? The scenario exercises the first-class extended contrast reference,
 the NEDT and MRT-at-Nyquist metrics, and an analytic solar-versus-thermal comparison.
 
 **Key inputs.**
@@ -868,7 +868,7 @@ carries no separate scene-background photon term, the differential is formed exp
 from two runs: $SCNR = |S_{option} - S_{scrub}| / \text{noise}_{scrub}$. Spectral
 emissivity enters through the tabulated-radiance path
 (`source.target.user_radiance_path`) because the chain has no spectral target-emissivity
-input (Gap 47).
+input of its own.
 
 **Takeaway.** **Camouflage is radiance matching, not emission lowering.** The intuitive
 low-ε choice over-corrects: Net A at ε = 0.60 reads distinctly *cold* (−510 k e⁻), a
@@ -907,7 +907,7 @@ each. **Median NEDT across the day is 36.7 mK, essentially constant.**
 
 **Regime.** `extended` for each pixel run; the differential is built at the scenario
 level as $(S_t - S_b)/\sqrt{N_t^2 + N_b^2}$, because the chain's own `contrast_e` is
-populated only in the sub-pixel regime (Gap 52).
+populated only in the sub-pixel regime.
 
 **Takeaway.** **The washout is a scene effect, not a sensor effect** — the detector is
 exactly as sensitive at crossover as at noon; there is simply nothing to detect. And
@@ -950,7 +950,7 @@ on long slant paths. Across 1–11 km the fill fraction falls ×28.6 while τ fa
 
 **Regime.** Sub-pixel dilution applied as an apparent-contrast threshold
 ($ff \cdot \Delta T \cdot \tau$ against $4 \times$ NETD), not a chain `contrast_snr`.
-**A false saturation warning fires** (Gap 101): the chain checks a photoelectron count
+**A false saturation warning fires**: the chain checks a photoelectron count
 against a charge well, but a bolometer measures resistance change over its thermal
 frame. The SNR the baseline reports is a photon-FPA quantity with no bolometric meaning;
 the scenario's actual metric is independent of the well and ADC path.
@@ -996,7 +996,7 @@ GSD 3.3 → 12.5 m, SNR 199.8 → 1268.8, MTF at Nyquist 0.000 → 0.409, EE 1×
 18 µm** — and an SNR/GSD figure of merit picks **18 µm** (94.3 against 15 µm's
 80.0) at $Q$ = 0.94, SNR 706.9, GSD 7.5 m, NEDT 42.3 mK. The 8 µm pixel fails both
 spatial requirements; 12 µm now fails EE 1×1 at 0.269 against the 0.30 floor,
-having passed before CU-188's cell-area-overlap EE_box lowered every EE 1×1 by
+having passed before the cell-area-overlap EE_box refinement lowered every EE 1×1 by
 11–13 %; 24 and 30 µm fail GSD. **MTF at Nyquist of exactly 0.000 at 8 µm is
 physical, not a defect** — Nyquist at 62.5 cy/mm sits above the ~59 cy/mm
 diffraction cutoff, so there is genuinely no modulation there to measure.
@@ -1081,7 +1081,7 @@ approximation — the jitter kernel convolves into the `EffectivePSF` and
 | Thresholds | ΔNIIRS = −0.5, ΔNIIRS = −1.0, absolute NIIRS = 6.0 |
 
 **Headline results.** Baseline signal 2109 e⁻ (2.1 % well), noise 46.2 e⁻ RMS of
-which `signal_shot` is 98.6 %, and — from the CU-355-refreshed sweep — zero-jitter
+which `signal_shot` is 98.6 %, and — from the refreshed sweep — zero-jitter
 MTF at Nyquist 0.2186, RER 0.5724, NIIRS 6.03. **SNR is exactly 45.6 at all 51
 sweep points, spread 0.0000**: jitter blurs the image without removing a photon, so
 NIIRS degrades entirely through the RER term. Focal-plane blur is
@@ -1090,11 +1090,11 @@ at Nyquist falls 1.0000 → 0.1455 (1 µrad) → 0.0072 (1.6 µrad, one full IFO
 0.5724 → 0.4013 → 0.1193 at 5 µrad; NIIRS 6.03 → 5.52 → 3.77. The budget lines are
 **1.0 µrad for ΔNIIRS = −0.5, 1.8 µrad for −1.0, and 0.2 µrad for the absolute
 NIIRS = 6.0 floor**. Past ~2.6 µrad RER drops below 0.20 and the NIIRS tail is
-extrapolated GIQE-5 output (CU-178).
+extrapolated GIQE-5 output.
 
 *Internal inconsistencies worth knowing:* the "Baseline Results" box (MTF 0.2330,
 RER 0.5483, NIIRS 5.97) and a paragraph asserting "the NIIRS = 6.0 floor is no longer
-reachable at any jitter" are the pre-CU-355 vintage, contradicting the refreshed sweep
+reachable at any jitter" are of an earlier vintage, contradicting the refreshed sweep
 and threshold tables above them. The digest quotes the refreshed tables.
 
 **Regime.** `extended` — a reflective ground scene fills the pixel, which is why SNR
@@ -1138,7 +1138,7 @@ times the signal itself — taking SNR to 124.3, contrast SNR to 49.4 and ΔNIIR
 budget clause breaks. The scenario also found and fixed the `veiling_glare` mode:
 it had scaled in-FOV irradiance by the *pixel IFOV* solid angle instead of the
 *f-cone*, under-reporting stray by ~10⁷–10⁸ so that any VGI produced ~zero stray
-(CU-062). Fixed, the mode reproduces the identity $stray_e = VGI \cdot signal_e$ to
+Fixed, the mode reproduces the identity $stray_e = VGI \cdot signal_e$ to
 the digit — 9.729 × 10⁴ e⁻ at VGI 10 %. *(The absolute NIIRS values of ~11 sit far
 above the rating scale's 9-point ceiling — unflagged GIQE-5 extrapolation on a fine-GSD
 airborne pan scene; only the ΔNIIRS column is meaningful.)*
@@ -1190,8 +1190,9 @@ span a **uniform −4.7 % to −9.8 %** across all six profiles — Simple is
 systematically slightly *too transparent*, and the offset no longer varies with
 climate. SNR residuals run **−6.6 % to −16.6 %** and now track the τ residuals
 (tropical worst on both, subarctic_winter best on both), with real-MODTRAN SNR nearly
-profile-independent at 567–579. The τ table is the CU-161 acceptance evidence: the
-first real-data run in 2026-07 found residuals spanning **−43 % to +62 %**, and the
+profile-independent at 567–579. The τ table is the acceptance evidence for the
+gas-band calibration: the first real-data run found residuals spanning **−43 % to
++62 %**, and the
 gas-band recalibration that finding triggered collapsed them **6×** to the band
 above.
 
@@ -1236,14 +1237,14 @@ spectral integral (the band-centre $E_{photon}$ shortcut reads ~5.5 % low for a 
 source in this band) and the Kirchhoff reflected-solar term (ρ = 1 − ε = 0.05 of the
 TOA solar spectrum, ~9 % of the in-band signal). `background_shot` and
 `nearfield_shot` are both 0 by design. **NEDT is the one disagreement: 21.79 mK
-reported against 23.92 mK exact, 8.9 % apart** — registry Gap 43, because the stage
+reported against 23.92 mK exact, 8.9 % apart** — a recorded limitation, because the stage
 uses the single-wavelength Planck-factor form and its SNR numerator includes the
 reflected-solar signal, which does not vary with target temperature. *(The
 performance table reports MTF at Nyquist 0.2668 where the MTF budget's own system row
 reads 0.2688.)*
 
 **Regime.** `extended` — the 300 K target fills the pixel IFOV, so there is no
-separate scene-background photon stream (ADR-0002 Decision #13) and the background
+separate scene-background photon stream, and the background
 inputs define only the contrast scene.
 
 **Takeaway.** A 0.00 % agreement across all terms simultaneously pins the Planck
@@ -1432,11 +1433,11 @@ values. Other metrics: Strehl 0.9494, RER 0.7818, FWHM 10.15 µm.
 N/A (altitude = 0, no thermal scene in the VNIR), and the noise budget is dark 0.32,
 read 8.00, quantization 2.31 e⁻ with essentially no photon flux.
 
-**Takeaway.** **This scenario's own diagnosis drove a model change.** At the 2026-08
+**Takeaway.** **This scenario's own diagnosis drove a model change.** At the earlier
 vintage the residual was 0.0917 RMS and the walkthrough diagnosed it as the *shape
 ambiguity of scalar WFE* — a white-noise phase screen dumps aberrated energy into a
 compact halo and drops low frequencies toward the Strehl plateau, where a real
-optic's smooth aberrations hold them near 1. CU-355 replaced the screen with a
+optic's smooth aberrations hold them near 1. The fix replaced the screen with a
 deterministic low-order Zernike expansion and the residual fell **4.3×**. The
 secondary lesson is the rejection workflow itself: a hypothesis that does not reduce
 the residual is reported as rejected, not quietly fitted. And at $Q$ = 0.195 the pixel
@@ -1467,7 +1468,7 @@ shuttered-background lab readings mean?
 
 **Headline results.** One effective pupil drives everything:
 $D_{eff} = (1-u)D$, and from it $A_{collect}$, $N_{eff}$, the complex pupil (hence
-PSF *and* MTF, Rule 4) and the étendue cone $\Omega_{cone}$. At $u$ = 0: signal
+PSF *and* MTF alike) and the étendue cone $\Omega_{cone}$. At $u$ = 0: signal
 2,994,945 e⁻, near-field 106,631 e⁻, SNR 1699.3, NEDT 17.00 mK, MTF at Nyquist
 0.3017. Over 0 → 10 %: **$A_{collect}$ −19.0 %, $\Omega_{cone}$ −18.8 %, near-field
 −18.8 %, signal −19.0 %, SNR −10.0 %, MTF at Nyquist −11.6 %** — about 1 % of SNR and
@@ -1478,7 +1479,7 @@ sit *below* the model, inverting to an implied per-mirror reflectance of R ≈
 
 **Regime.** `extended` — the blackbody fills the FOV, so `background_e` = 0 by design
 and the only background terms are warm-optics near-field and dark. The bench runs as
-`exo` with a placeholder `sensor_altitude_m` (registry Gap 42).
+`exo` with a placeholder `sensor_altitude_m` — a recorded limitation.
 
 **Takeaway.** **Undersizing is not a background-control knob.** Signal and near-field
 fall together because both come from the same effective pupil — the physics the
@@ -1488,7 +1489,7 @@ near-field are optics temperature and coating emissivity. And the 57 % spread ac
 cold-stop *positions* is what the new rules cannot explain and should not fit: with a
 true aperture stop, position cannot move the background, so a monotone rise says the
 stop has stopped being the aperture stop — a finding for the mechanical team, recorded
-as an accepted Gap 128 limitation.
+as an accepted limitation of the near-field model.
 
 **Where to go deeper.** `scenarios/07_karen_test_engineer/7.4_cold_stop_sweep/`.
 A GUI baseline ships.
@@ -1520,7 +1521,7 @@ rises 34.01 → 41.07 mK, driven by dark shot noise climbing **0.9 → 466.5 e�
 from negligible to the second-largest term. Over 70 → 95 K **QE falls 9 % while dark
 current rises 294,612×**, and NEDT with QE(T) versus QE frozen differs by only a few
 percent. Spec holds through **82 K** (NEDT 34.88 mK, 0.1 mK of margin); 85 K fails on
-NEDT. The correctly-modelled warm-optics near-field (Gap 128 raised it 7,496 →
+NEDT. The correctly-modelled warm-optics near-field (the étendue-cone model raised it 7,496 →
 31,840 e⁻) costs ~6 K of the compliant range the ε = 1 − τ fallacy had appeared to
 buy. *(Key Results recommends operating at 79 K with a 3 K guard band; the next-steps
 list says 85 K, the first temperature the same table fails on.)*
@@ -1562,7 +1563,7 @@ actually beat grabbing the nearest one?
 | Family | `zenith_fan_us_standard` — real MODTRAN 6 runs A1/B1/B2/B3 |
 | Query | 37.5° path zenith |
 | Bracketing runs | B1 at 30°, B2 at 45° |
-| Method | linear in $\log \tau$, on the **airmass** axis $\sec\theta$ (CU-160) |
+| Method | linear in $\log \tau$, on the **airmass** axis $\sec\theta$ |
 | Band | 3.5 – 5.0 µm |
 
 **Headline results.** A holdout test predicts the real 45° run from its 30° and 60°
@@ -1647,7 +1648,7 @@ SNR?
 ceiling but below the 100 km atmosphere top, so the interpolator refuses the query and
 the script marks the rungs **PENDING** rather than inventing numbers — this band is the
 acceptance driver for the MODTRAN boost-ladder expansion. **Vacuum (≥ 100 km):**
-τ_up ≡ 1.0000 by the Gap 95 exo-altitude leg, with SNR 590.18 (100 km) → 1183.67
+τ_up ≡ 1.0000 by the exo-altitude leg, with SNR 590.18 (100 km) → 1183.67
 (300 km).
 
 **Regime.** `sub_pixel`, locked by `source.regime_override`. A 4 m² plume at LEO slant
@@ -1668,7 +1669,8 @@ not the first.
 
 ## Direction-General Scenarios (folder 10)
 
-Folder 10 is not a persona either. It is the acceptance suite for ADR-0011 and the
+Folder 10 is not a persona either. It is the acceptance suite for the direction-general
+geometry work and the
 Geometry-Flexibility work: one scenario per cell of the observer × target matrix that
 RADIANT could not previously *express*, because `core/viewing_triangle.py` rejected a
 sensor below its target and the canonical target-side path zenith $\theta_o$ was
@@ -1707,7 +1709,7 @@ full chain along the real ray, runs **66.88 km at the zenith down to 44.20 km at
 RADIANT's own `detection_range_m` metric is deliberately **absent**, with a named
 result-typed failure: the continuation past a 10 km target is still inside the
 atmosphere and the metric layer has no altitude-resolved extinction profile to
-integrate. *(The Gap-128 retune paragraph in §2 reports post-retune values of SNR
+integrate. *(The near-field retune paragraph in the scenario's own walkthrough reports post-retune values of SNR
 142.23 and NEDT 621.2 mK that the sweep table below it does not carry.)*
 
 **Regime.** `point_source` — the nozzle's angular extent is 0.0602 of the PSF FWHM,
@@ -1731,7 +1733,8 @@ A GUI baseline ships.
 **Mission setup.** A space-surveillance site runs a 1 m visible tracking telescope on
 a small LEO object at 700 km during the terminator window: the sun is 12° below the
 *site's* horizon, so the sky at the telescope is dark while the object overhead is
-still in full sunlight. Before ADR-0011 the scene was doubly inexpressible — the
+still in full sunlight. Before the direction-general geometry work the scene was doubly
+inexpressible — the
 sensor had to be above the target, and the sun was hard-bounded above the horizon.
 
 **Key inputs.**
@@ -1753,7 +1756,7 @@ detection range (SNR = 3) 24,678 km. The measurement is decisively
 a ratio of 4.05, and turbulence takes MTF at Nyquist from 0.46250 to **0.00862** while
 RER falls 0.7704 → 0.3317. Across the pass ($\zeta_{low}$ 0 → 75°) SNR falls 6.6×,
 with transmittance contributing only 1.56× and $r_0$ shrinking as
-$\sec\zeta^{-3/5}$ — since CU-253 corrected the Rayleigh term, **seeing plus
+$\sec\zeta^{-3/5}$ — and with the Rayleigh term correct, **seeing plus
 inverse-square, not extinction, is most of the decay**. Four anchors: the closed-form
 point-source identity reproduces the chain signal to 0.000 %, the apparent magnitude
 lands at 5.54 mag (inside the 4–8 naked-eye-satellite band), transmittance
@@ -1813,7 +1816,7 @@ collapsing EE_box to 0.0597 and SNR to 8.29. **Open-loop SNR peaks at 250 ms and
 falls** — past that the smear kernel grows faster than $\sqrt t$ — while the
 rate-tracked curve keeps rising as $\sqrt t$ because the scene is background-free.
 Every vacuum transport identity is checked bitwise, not toleranced. *(The §4.3 prose
-and cross-check 3 both still carry pre-CU-355 numbers — an open-loop collapse of
+and cross-check 3 both still carry numbers of an earlier vintage — an open-loop collapse of
 "0.223 → 0.054, SNR 24.5 → 7.6", and a hand-vs-chain signal of 1177.2 e⁻ against the
 refreshed 1295.78 e⁻.)*
 
@@ -1830,7 +1833,7 @@ untracked stare throws away two-thirds of the SNR and has an optimum three times
 shorter. The scenario also retired a framework defect found here and in 10.2
 independently: the detection-range solver froze the noise at the reference range, and
 since signal shot noise carries 51 % of the noise power here, that made $R_{det}$
-conservative by 15.2 % and dependent on where the chain was evaluated (CU-263).
+conservative by 15.2 % and dependent on where the chain was evaluated.
 
 **Where to go deeper.** `scenarios/10_direction_general/10.4_leo_to_geo_exo/`.
 A GUI baseline ships.

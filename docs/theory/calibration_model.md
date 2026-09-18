@@ -465,6 +465,6 @@ refuses instead of dividing by a vanishing span.
 
 ## Parameter cross-reference
 
-See [Parameter Reference](../guides/parameter_reference.md) for the `calibration.*`
-namespace with types, defaults, bounds, and entry units. Every cal-related default is the
+Volume III's Parameter Reference lists the `calibration.*` namespace with types,
+defaults, bounds, and entry units. Every cal-related default is the
 model-off limit.

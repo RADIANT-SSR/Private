@@ -99,9 +99,9 @@ $$\sigma_{\text{mol}}(\lambda) \;=\; \frac{\tau_{R,\mathrm{vert}}(\lambda)}{H_{\
 
 and is scaled along the path by $e^{-h/H_{\text{mol}}}$.
 
-Deriving $\sigma_0$ rather than storing it independently is the fix for CU-253, in which
-the published optical depth was consumed *as* the km⁻¹ coefficient — inflating every
-VIS/NIR molecular optical depth by exactly the column depth, $\approx 8\times$.
+Deriving $\sigma_0$ rather than storing it independently is what prevents the classic
+error of consuming the published optical depth *as* the km⁻¹ coefficient, which inflates
+every VIS/NIR molecular optical depth by exactly the column depth, $\approx 8\times$.
 
 *Record:* CU-253, resolved 2026-07-28 (commit `d169feb`).
 *Enforced by:* `src/radiant/atmosphere/tests/test_simple.py` (Rayleigh anchors); the
@@ -177,11 +177,10 @@ of what Rayleigh and aerosol already supply:
 
 $$\mathrm{OD}_{\text{region}}(w) \;=\; \mathrm{floor\_od} \;+\; k\,w_{\mathrm{eff}}^{\,b}$$
 
-The floor rides the molecular scale height (CU-161 defines it as a fraction of the
-molecular column), and it enters the single-scattering albedo denominator as a **pure
-absorber** (*Single-scatter solar path radiance*). Its absence is what made the
-pre-CU-161 model attribute the MWIR CO₂
-floor to water and evaluate $\omega_0 \approx 1$ for space columns.
+The floor rides the molecular scale height — it is defined as a fraction of the molecular
+column — and it enters the single-scattering albedo denominator as a **pure absorber**
+(*Single-scatter solar path radiance*). Without it a model attributes the MWIR CO₂ floor
+to water and evaluates $\omega_0 \approx 1$ for space columns.
 
 The calibrated table, exactly as shipped (`_CALIBRATED_GAS_REGIONS`):
 
@@ -201,81 +200,62 @@ Spectral shape *within* a region is flat: the model's contract is band-integrate
 fidelity, not line structure. Wavelengths outside 0.30–14.29 µm clamp to the edge regions'
 calibration.
 
-**The eight bold `floor_od` values are the CU-335 re-fit** (2026-08-30) **as corrected by
-CU-336** (2026-09-01). Those rows had
-been fitted on 2026-07-17 against a Rayleigh optical depth ~8× too large; because
-`floor_add` is the measured opacity *in excess of* Rayleigh + aerosol and is clamped at
-zero rather than allowed to go negative, the two visible rows clamped. CU-253 cut
-Rayleigh on 2026-07-28 and the fit was never re-run, so the model was ~15 % too
-transmissive in the visible until the re-fit. Only `floor_od` moves — $k$ and $b$ are
-solved in closed form from the MODTRAN ladder alone and never see the RADIANT model, so
-their bit-identity across the re-fit is the check that the calibration *reference*
-changed and the fit did not. Everything from 5.00 µm up, including the CU-330 ozone
-triple, is bit-identical; the 2.40–5.00 µm motion is the Rayleigh $\lambda^{-4}$ tail at
-$\le 0.001$ optical depths. Measured at the fit's own anchor (us_standard, rural 23 km,
-nadir full column) the model's 0.45–0.70 µm band optical depth went from 0.320 against
-MODTRAN's 0.456 to 0.476, and RMS band-mean τ parity over thirteen full-column anchors
-improved 5.3× on 0.45–0.70 µm and 4.2× on 0.40–0.90 µm.
+**The eight bold `floor_od` values are a re-fit of the visible, near-infrared and
+short-wave rows.** `floor_add` is the measured opacity *in excess of* Rayleigh + aerosol
+and is clamped at zero, so an over-large Rayleigh reference pins the visible rows to that
+clamp and leaves the model too transmissive. Only `floor_od` moves in such a re-fit: $k$
+and $b$ are solved in closed form from the MODTRAN ladder alone and never see the RADIANT
+model, so their bit-identity across a re-fit is the check that the calibration *reference*
+changed and the fit did not.
 
-**CU-336 then fixed the calibration convention CU-335 had recorded as its residual.**
-`floor_add` is a *difference* of two band optical depths, and the two were measured on
-different grids: the ladder's on MODTRAN's native grid, which is uniform in wavenumber
-(1 cm⁻¹, so $\Delta\lambda \propto \lambda^2$), and the model's non-water reference on a
-uniform-$\lambda$ one. Where the spectrum is steep the two weightings disagree, always
-toward an over-large floor: **+0.0222 OD at 0.45–0.70 µm, +0.0114 at 0.70–1.30 µm,
-$\le 0.0004$ beyond 1.3 µm**. The generator now evaluates the reference on the ladder's
-grid, and the two rows land at exactly those corrected values (0.1597 → 0.1375,
-0.0517 → 0.0402), with $k$ and $b$ bit-identical a second time and everything from
-5.00 µm up unmoved again.
+**The fit is evaluated on the ladder's own grid.** `floor_add` is a *difference* of two
+band optical depths, and the two have to be weighted alike. MODTRAN's native grid is
+uniform in wavenumber (1 cm⁻¹, so $\Delta\lambda \propto \lambda^2$); a
+uniform-$\lambda$ reference disagrees with it wherever the spectrum is steep, always
+toward an over-large floor — a few hundredths of an optical depth in the visible,
+$\le 0.0004$ beyond 1.3 µm. The generator evaluates the reference on the ladder's grid,
+so the two weightings match.
 
-The same convention removed a *coverage* mismatch in the first row. The delivered tape7
-grid starts at 0.374953 µm, so the measured 0.30–0.45 µm optical depth was always the
-0.375–0.45 µm mean while the reference spanned the whole region — including
-0.30–0.375 µm, where Rayleigh alone is enormous. That inflated reference, not the
-aerosol, is what held the row at the zero clamp; measured over the same interval it
-reads 0.642 against the ladder's 0.768, and the row carries **0.1262**. The result sits
-within 0.014 OD of the 0.45–0.70 µm floor, replacing an artificial 0.16 OD step at the
-0.45 µm edge with the continuous short-wavelength deficit — physically what one expects,
-since whatever supplies that deficit does not know where a table boundary is. Its
-residual limitation: the row is fitted from 0.375–0.45 µm and applied across
-0.30–0.45 µm, because no anchor data exists below 0.374953 µm.
+The same convention removes a *coverage* mismatch in the first row. The delivered tape7
+grid starts at 0.374953 µm, so the measured 0.30–0.45 µm optical depth is really the
+0.375–0.45 µm mean, while an unrestricted reference spans the whole region — including
+0.30–0.375 µm, where Rayleigh alone is enormous. Measured over the same interval the row
+reads 0.642 against the ladder's 0.768 and carries **0.1262**, within 0.014 OD of the
+0.45–0.70 µm floor: a continuous short-wavelength deficit rather than an artificial
+0.16 OD step at the 0.45 µm edge, which is physically what one expects, since whatever
+supplies that deficit does not know where a table boundary is. **Its residual limitation:
+the row is fitted from 0.375–0.45 µm and applied across 0.30–0.45 µm**, because no anchor
+data exists below 0.374953 µm.
 
-Post-CU-336 the A1 anchor reads 0.4566 against MODTRAN's 0.4561 (**0.1 %**, from 4.3 %),
-full-column 0.45–0.70 µm parity improves a further 2.6× to 0.0111 (14× since CU-161),
-and the 0.70–1.30 µm row that CU-335 degraded recovers to 0.0286, past its 0.0312
-starting point. The one composite that gives a little back is 0.40–0.90 µm
-(0.0244 → 0.0292): its 0.40–0.45 µm half was 8–21 % too transmissive on every anchor
-and is now inside 0.4 %, so what the band mean loses is a cancellation, not accuracy.
+At the fit's own anchor (us_standard, rural 23 km, nadir full column) the model's
+0.45–0.70 µm band optical depth reads 0.4566 against MODTRAN's 0.4561 — **0.1 %**. RMS
+band-mean τ parity across thirteen full-column anchors is 0.0111 on 0.45–0.70 µm and
+0.0292 on 0.40–0.90 µm.
 
-One residual is still recorded rather than tuned away: 0.14 optical depths is far more
-than real 0.45–0.70 µm gas chemistry supplies — the O₃ Chappuis band contributes ~0.03 —
-so part of the visible floor is standing in for an aerosol-model deficit. The band total
-is right; the attribution between gas and aerosol is not resolved by this fit, and the
-0.30–0.45 µm row landing beside it is further evidence of that (CU-337). It is in the
-parity document's limitations register.
+One residual is recorded rather than tuned away: 0.14 optical depths is far more than real
+0.45–0.70 µm gas chemistry supplies — the O₃ Chappuis band contributes ~0.03 — so part of
+the visible floor is standing in for an aerosol-model deficit. The band total is right;
+the attribution between gas and aerosol is not resolved by this fit, and the 0.30–0.45 µm
+row landing beside it is further evidence of that.
 
-**The 8.00–9.40 / 9.40–9.90 / 9.90–10.00 µm partition is the CU-330 ozone split**
-(2026-08-29). Until then one flat row
-spanned 8.00–10.00 µm — a 2 µm slab covering both the clean window and the O₃ ν₂
-fundamental — so the model carried no identifiable ozone opacity: on a nadir full column
-$\tau(9.60)$ and $\tau(8.70)$ agreed to six figures. Re-running the same fit on a
-partition cut at the band edges the delivered ladder shows (water-free OD rises
-$0.24 \to 0.89$ across 9.372–9.416 µm and falls $0.52 \to 0.33$ across 9.901–9.911 µm)
-gives a band-core floor **5.9× the adjacent window's**, which is the ozone. Two
-consequences follow directly from the table:
+**The 8.00–9.40 / 9.40–9.90 / 9.90–10.00 µm partition is an ozone split.** One flat row
+across 8.00–10.00 µm is a 2 µm slab covering both the clean window and the O₃ ν₂
+fundamental, so the model carries no identifiable ozone opacity at all: on a nadir full
+column $\tau(9.60)$ and $\tau(8.70)$ agree to six figures. Cutting the partition at the
+band edges the delivered ladder shows — water-free OD rises $0.24 \to 0.89$ across
+9.372–9.416 µm and falls $0.52 \to 0.33$ across 9.901–9.911 µm — gives a band-core floor
+**5.9× the adjacent window's**, which is the ozone. Two consequences follow directly from
+the table:
 
-- The **ozone share of the in-feature floor is now arithmetic**, not fitted:
+- The **ozone share of the in-feature floor is arithmetic**, not fitted:
   $(0.8877 - 0.1494)/0.8877 = 0.832$, the band-core floor above the continuum floor the
-  neighbouring window measures. That is the free parameter CU-324 item 2 was missing.
+  neighbouring window measures.
 - The floor still rides the **molecular** scale height, so the identified ozone is placed
-  at ~8 km rather than ~25 km. Full columns barely notice; partial columns do (parity
-  document §2.14(b)). Placing it is CU-324 item 2, which this split unblocks and does not
-  itself perform.
+  at ~8 km rather than ~25 km. Full columns barely notice; partial columns do. Placing it
+  correctly is separate work that this split unblocks and does not itself perform.
 
-**The whole table is now one vintage** — regenerated 2026-09-01 from a single run of the
-generator, which reproduces the CU-330 rows bit-for-bit and reproduces its own output
-bit-for-bit on a re-run. The per-row vintage split that stood between 2026-08-29 and
-2026-08-30 is closed.
+The whole table is one vintage, regenerated from a single run of the generator, which
+reproduces its own output bit-for-bit on a re-run.
 
 *Record:* CU-161, resolved 2026-07-18; 8–10 µm re-partitioned by CU-330, 2026-08-29;
 VIS/NIR/SWIR floors re-fitted by CU-335, 2026-08-30 (both owner-scheduled); the fit's
@@ -311,14 +291,14 @@ c(\lambda) \;=\; c_{lo} + (c_{hi} - c_{lo})\,S(u)$$
 with $S(0) = 0$, $S(1) = 1$, $S'(0) = S'(1) = 0$ — the ramp meets the flat calibrated
 regions with matching value *and* slope — and $S(\tfrac12) = \tfrac12$, so the edge itself
 carries the exact arithmetic mean of the two regions. At the 0.70 µm edge, for instance,
-$k$ evaluates to $(0.0025 + 0.1245)/2 = 0.0635$ exactly and, since CU-335, `floor_od`
-carries real work rather than the $(0 + 0)/2 = 0$ it had before: $(0.1597 + 0.0517)/2
-= 0.1057$ then, and $(0.1375 + 0.0402)/2 = 0.08885$ since CU-336.
+$k$ evaluates to $(0.0025 + 0.1245)/2 = 0.0635$ exactly, and `floor_od` to
+$(0.1375 + 0.0402)/2 = 0.08885$ — real work on both sides of the edge, where an
+uncalibrated pair of zeros would have contributed nothing.
 
 Outside the ramps nothing changes: a $\lambda$ at or beyond $h_w$ from every edge keeps
 the bit-identical calibrated coefficient. Every region is wider than $2 h_w$ — the
-narrowest is 0.10 µm at 9.90–10.00 µm, two and a half times the full ramp width (it was
-0.20 µm at 1.30–1.50 µm before CU-330 added the ozone tail) — so no two ramps overlap,
+narrowest is 0.10 µm at 9.90–10.00 µm, two and a half times the full ramp width — so no
+two ramps overlap,
 which is the invariant that stops a future refit from silently invalidating the blend.
 
 Read literally, the step table made $\tau(\lambda)$ jump at every edge and made a band-mean
@@ -359,7 +339,7 @@ r_0 \;=\; (R_E + h_{lo})\,\sin\zeta_{lo}$$
 where $S_i$ is the density-weighted spherical column about the ray's perigee radius $r_0$
 (`grazing_column.grazing_slant_column_km`, a graded-grid quadrature anchored analytically
 against Chapman's grazing limit). The well-mixed-gas floor rides $m_{\text{mol}}$, because
-CU-161 defines it as a fraction of the molecular column.
+it is defined as a fraction of the molecular column.
 
 Three properties matter, and all three are measured rather than asserted:
 
@@ -399,7 +379,7 @@ $m_{\mathrm{h2o}}^{\,b-1}$, and $\omega_0$ with it, wherever water absorbs.
 **All three evaluators now linearise against the slant column** — the amount actually
 traversed, which is what the linearisation is *of*. `column_segment_optical_depth`
 publishes `slant_column_mol_km` / `_aer_km` / `_h2o_km` provenance under the same key names
-the near-horizon branch already used, so the convention is inspectable (Rule 16).
+the near-horizon branch already used, so the convention is inspectable.
 
 Note the scope precisely: this is the convention for the **linearised local weights**. The
 optical depth itself is still built as *vertical column × species air mass* (*Air mass*);
@@ -474,13 +454,13 @@ the adoption criterion, and the thermal-control inertness),
 ### 2.10 Thermal path radiance — Kirchhoff emission at a height-resolved temperature
 
 The thermal term on any column is a one-slab Kirchhoff graybody whose emissivity is
-derived from the column's own transmittance (Rule 5 — never an independent input):
+derived from the column's own transmittance by Kirchhoff's law, never taken as an
+independent input:
 
 $$L_{\text{path,therm}}(\lambda) \;=\; \bigl[1 - \tau_{atm}(\lambda)\bigr]\,B\!\left(\lambda,\,T_{\text{eff}}(\lambda)\right)$$
 
 It applies whether or not the sun is up — a night down-looking scene has scattered $\equiv 0$
-and thermal $> 0$ — and it is computed by one module called from both directions
-(`atmosphere/segment_thermal.py`).
+and thermal $> 0$ — and one implementation serves both directions of travel.
 
 **What $T_{\text{eff}}$ is.** It is the single temperature that makes this one-slab form
 reproduce the **layered formal solution** of the segment's own non-isothermal air. Slice
@@ -532,7 +512,7 @@ coefficient:
 $$H_{\text{emit}} \;=\; \left(\frac{1}{H_a} + \frac{1}{H_{\text{air}}}\right)^{-1}$$
 
   which takes the well-mixed floor from 8 km to **4 km** and water from 2 km to **1.6 km**.
-- **Layered absorbers** (ozone, since CU-324) — a species produced photochemically in the
+- **Layered absorbers** (ozone) — a species produced photochemically in the
   mid stratosphere has no scale height at all, so it is placed on a Gaussian layer instead:
 
 $$\rho_{\mathrm{O_3}}(z) \;\propto\; \exp\!\left(-\tfrac{1}{2}\left(\frac{z - z_0}{w}\right)^{2}\right),
@@ -558,28 +538,29 @@ follow:
   automatically and
   there is no coefficient in the emission model to go stale. An absorption *band* stands
   on top of the continuum its neighbours carry, so the excess — not the total — is ozone;
-- **placement is continuous in $\lambda$** — both floors pass through the same CU-267
-  smoothstep, so the share inherits its $C^1$ ramp at 9.40 and 9.90 µm rather than needing
+- **placement is continuous in $\lambda$** — both floors pass through the same
+  region-edge smoothstep, so the share inherits its $C^1$ ramp at 9.40 and 9.90 µm rather
+  than needing
   a second ramp implementation that could drift from the first;
 - **$\tau$ is untouched** — the two parts sum to the floor the model already had. This is a
   redistribution in altitude and nothing else, as every placement rule here is.
 
 Outside the band the share is exactly zero, no layer is constructed, and $T_{\text{eff}}$ is
 bit-identical to the four-species form. The 9.90–10.00 µm long-wave tail (floor 0.3013,
-3.3× its continuum) is a **documented exception**: part of it is ozone too, but CU-324
-item 2 scoped the split to the band core the parity is measured in, so a narrow-band
-product centred on 9.95 µm still places its ozone at 4 km.
+3.3× its continuum) is a **documented exception**: part of it is ozone too, but the split
+is scoped to the band core the parity is measured in, so a narrow-band product centred on
+9.95 µm still places its ozone at 4 km.
 
 The sub-layer count is a convergence-tested quadrature parameter, not a tuning knob:
 `EMISSION_LAYERS_PER_SPECIES = 32`, whose discretisation error against a 512-per-species
 reference is $\max|\Delta T_{\text{eff}}| = 0.016$ K over the whole anchor set — two orders
-of magnitude below the model's own $\approx 4$ K accuracy against MODTRAN. Nothing in this
-module therefore needs a `ParameterDef` (Rule 12).
+of magnitude below the model's own $\approx 4$ K accuracy against MODTRAN. It is therefore
+fixed, not exposed as a user parameter.
 
 **Vacuum limit.** A segment with no opacity has no emission to weight; the function falls
 back to the temperature of its densest air so the value stays finite. The radiance it
-multiplies is exactly zero there, so it is unobservable — it exists only so nothing returns
-NaN (Rule 17).
+multiplies is exactly zero there, so it is unobservable — it exists only so nothing
+returns NaN.
 
 *Record:* CU-321, resolved 2026-08-03 (owner-approved 2026-08-02), on top of CU-224
 (resolved 2026-08-02), which added the thermal term to the down-looking direction at all —
@@ -616,72 +597,45 @@ $T(\cdot)$ is the fixed-lapse ICAO standard-atmosphere lookup (6.5 K/km, floored
 216.65 K tropopause above 11 km). The emission-height offset $z_{em} = 200$ m is fitted to
 the real up-looking MODTRAN H-runs (downwelling is dominated by near-surface air).
 
-**The flux-diffusivity exponent $D$ is not fitted.** Since CU-324 (owner-ratified
-2026-08-29) it is a geometric identity,
+**The flux-diffusivity exponent $D$ is not fitted.** It is a geometric identity,
 
 $$D \;=\; \sec 48.2° \;=\; 1.50030\ldots,$$
 
 the secant of the diffusivity angle the entire downwelling reference set was run at: every
-H- and P-block deck is an up-looking MODTRAN run at 48.2°, and the quantity this model is
-scored against is $\pi L(48.2°)$ — the hemispheric-flux proxy, itself validated to ~15 %
-against the E1 flux table's true hemispheric DOWN. Scoring against a 48.2° pencil and then
-weighting the emissivity by any other factor mixes two different hemispheric
-approximations; taking the exponent from the reference geometry removes a free parameter
-instead of re-tuning one. (The textbook Elsasser diffusivity factor 1.66 is $\sec 53.13°$ —
-a different angle and a different approximation, not what this reference set uses.)
-
-The retired value was $D = 1.1$, fitted 2026-07-18 jointly with $z_{em}$ against H2 and H4
-alone, the only up-looking decks that then existed. The nine-rung P ladder that would have
-constrained it postdates that fit by six weeks, and on it the geometric value wins — the
-measurement below.
+reference deck is an up-looking MODTRAN run at 48.2°, and the quantity this model is scored
+against is $\pi L(48.2°)$ — the hemispheric-flux proxy, itself validated to ~15 % against a
+true hemispheric-flux table. Scoring against a 48.2° pencil and then weighting the
+emissivity by any other factor mixes two different hemispheric approximations; taking the
+exponent from the reference geometry removes a free parameter instead of re-tuning one.
+(The textbook Elsasser diffusivity factor 1.66 is $\sec 53.13°$ — a different angle and a
+different approximation, not what this reference set uses.)
 
 Because $z_{em}$ is fitted *through this one closed form*, a directional path-radiance
-product still cannot inherit it. That is why the height-resolved thermal path-radiance
-model and this
-graybody coexist deliberately: they are different products, not two versions of one
-(Rule 27 does not apply).
+product cannot inherit it. That is why the height-resolved thermal path-radiance model and
+this graybody coexist deliberately: they are different products, not two versions of one.
 
-**Why the layered solution did not replace it (CU-324 item 1, measured 2026-08-29).** The
-obvious refinement is to compute the downwelling directly — evaluate the sky column's
-emergent radiance at the 48.2° diffusivity angle escaping toward the ground, $\pi L(48.2°)$,
-from that height-resolved machinery — and retire both fitted constants. It was measured
-against the
-nine-rung P-block ladder (H5 + P1–P8: measured hemispheric-proxy downwelling at
-0/1/5/10/20/29/50/60/80 km) and **not adopted**. The decisive numbers are the four corners
-of (emissivity exponent) × (emission temperature), as RMS $|\ln(\text{model} / \pi
-L_{\text{MODTRAN}})|$ over nine rungs × two bands:
+**The obvious refinement was measured and declined.** Computing the downwelling directly —
+evaluating the sky column's emergent radiance at 48.2° from the height-resolved machinery,
+and retiring both fitted constants — was scored against a nine-rung ladder of measured
+hemispheric-proxy downwelling from 0 to 80 km, as RMS $|\ln(\text{model}/\pi
+L_{\mathrm{MODTRAN}})|$ over nine rungs × two bands. The shipped pairing of $\sec 48.2°$
+with the near-surface emission height scores **1.9233**; swapping in the layered
+temperature scores 1.9385, and restricted to the four tropospheric rungs — the only ones
+where the two temperatures differ, the standard profile being isothermal above the
+tropopause — it is worse still, 0.3087 against 0.4771.
 
-| emissivity exponent | $T(h+z_{em})$ | layered $T_{\text{eff}}$ |
-|---|---|---|
-| $D = 1.1$ (fitted, retired) | 2.0776 | 2.1080 |
-| $\sec 48.2° = 1.50030$ (the ladder's own, **ships**) | **1.9233** | 1.9385 |
+The band split behind that is worth knowing, because it says what would have to change
+first. Isolating the temperature shows the layered form is a 3.8× improvement in the LWIR —
+the near-surface proxy runs 5–22 K too warm on a semi-transparent window that genuinely
+samples the whole column — and a 3.7× degradation in the MWIR, running 3.5–10.6 K too cold.
+With the region-flat 3–5 µm gas floor supplying too little opacity, the layered weighting
+reaches too high into cold air, and the fitted warm bias was compensating for a
+$\tau$-shape error rather than a temperature error. The layered temperature therefore waits
+on a finer MWIR gas model, not on the emission-placement machinery.
 
-The composite swap does beat what was then shipped (2.0776 → 1.9385), but the gain belongs
-entirely to the *exponent*: against either exponent the layered temperature costs, and the
-best corner keeps $z_{em}$. Restricted to the four tropospheric rungs — the only ones where the two
-temperatures differ at all, because the ICAO profile is isothermal above the tropopause and
-returns 222.65 K for every stratospheric rung either way — the layered form is worse still
-(0.3087 → 0.4771).
-
-Borrowing MODTRAN's own emissivity to isolate the temperature (the CU-321 attribution
-metric) shows *why*, and the answer is band-split rather than uniform: over the eight
-tropospheric band-means the layered temperature is a **3.8× improvement in the LWIR**
-(RMS $|\ln|$ 0.3110 → 0.0827; the near-surface proxy runs 5–22 K too warm on a
-semi-transparent window that genuinely samples the whole column) and a **3.7× degradation
-in the MWIR** (0.1187 → 0.4380, running 3.5–10.6 K too cold). The MWIR loss is the CU-321
-un-masking pattern again: with the region-flat 3–5 µm gas floor supplying too little
-opacity, the layered weighting reaches too high into cold air, and the fitted warm bias was
-compensating for a $\tau$-shape error rather than for a temperature error. Adopting the
-layered form would ship a variant strictly worse than the $(\sec, z_{em})$ corner already
-available, so the layered temperature was declined and the **exponent alone** was put to
-the owner — who approved it on 2026-08-29. The shipped form is now that best corner.
-
-Results effect of the swap: the downwelling effective emissivity rises everywhere, by
-$\sec/1.1 = 1.364\times$ in the optically thin limit and asymptotically not at all where
-the sky column already saturates, so every reflected-sky term rises. Scored on the two
-decks $D = 1.1$ was fitted against (H2/H4, §2.7 of the parity record) the MWIR moves toward
-unity and the LWIR further above it — the expected shape of retiring a fit on its own fit
-set, and not the criterion; the criterion is the nine-rung ladder the fit never saw.
+Adopting $\sec 48.2°$ raises the downwelling effective emissivity everywhere — by
+$\sec 48.2°/1.1 = 1.364\times$ in the optically thin limit, and asymptotically not at all
+where the sky column already saturates — so every reflected-sky term rises.
 
 *Enforced by:* `tests/integration/test_emission_placement_cu324.py` (all four corners, and
 the assertion that its $(\sec, z_{em})$ corner is bit-identical to what ships) and
@@ -694,7 +648,7 @@ $$E_{\text{sky,scattered}}(\lambda) \;=\; E_{\text{TOA}}(\lambda)\,\cos\theta_s\
 
 $\omega_{0,\text{eff}}$ is **not** the internal column $\omega_0$ of *Single-scatter solar
 path radiance*. It is a
-MODTRAN-derived effective single-scattering albedo (`atmosphere/omega0_eff.py`): band-median
+MODTRAN-derived effective single-scattering albedo: band-median
 values per aerosol regime over VIS 0.4–0.7 / NIR 0.7–1.4 / SWIR 1.4–2.5 µm, edge-extended
 outside, obtained by inverting *this closed form* against the real ground-level
 diffuse-flux tables — so it absorbs MODTRAN's multiple-scatter contribution as an effective
@@ -778,7 +732,7 @@ $$S_i \;=\; 2\,S\!\left(r_p;\, h_p \to h_{\text{arm}}\right) \;+\; S\!\left(r_p;
 \qquad
 r_p \;=\; \sqrt{r_{\text{arm}}^2 - (L/2)^2}$$
 
-evaluated once by `atmosphere/level_whole_path.py`. Rooting a single ascending arc at the
+evaluated once, in one place. Rooting a single ascending arc at the
 sensor — the up-looking branch's shape — would drop the arm entirely, recovering only
 83.0 % of the true traversed molecular column for a 100 km arm at 3 km and 75.1 % for a
 150 km arm at 10 km. A zero-length arm reduces the whole-path evaluator **exactly** to the
@@ -860,7 +814,7 @@ Note also that RADIANT models the target as a horizontal Lambertian facet, so th
 solar term is multiplied by $\cos\theta_s$ clamped at zero: for any $\theta_s > \pi/2$ the
 direct term vanishes regardless of $\tau_{\text{sun}}$, because the beam arrives from below
 the facet. $\tau_{\text{sun}}$ is still published correctly, because it is an inspectable
-physical quantity (Rule 16) that a non-horizontal target model would consume.
+physical quantity that a non-horizontal target model would consume.
 
 *Record:* ADR-0011 decision 21 (GF-9); provisional status recorded in
 `RADIANT_Atmosphere.md` §4.2e.
@@ -954,8 +908,8 @@ every query wavelength and a cell midpoint must return $\sqrt{\tau_i \tau_{i+1}}
 `modtran` each perform only one resample — no operation order to get wrong — but a
 different *convention* meant the same stored MODTRAN column returned different numbers
 depending on which backend served it. All three now carry every $\tau$-like array
-(`transmittance`, $\tau_{up}$, $\tau_{sun}$, $\tau_{\text{full,up}}$) through the single
-implementation in `atmosphere/log_tau_resample.py`. Scope, in both directions:
+(`transmittance`, $\tau_{up}$, $\tau_{sun}$, $\tau_{\text{full,up}}$) through one shared
+implementation. Scope, in both directions:
 
 - **log-$\tau$**: transmittance only, in every backend.
 - **linear**: $L_{\text{path}}$, $L_{\text{atm,down}}$, and every irradiance.
@@ -1002,13 +956,13 @@ node set).
 
 Stored transmittance is floored at `TAU_FLOOR` $= 10^{-30}$ (equivalently
 $\mathrm{OD} \approx 69$) before the logarithm, so $\ln\tau$ is finite everywhere and an
-opaque band resamples to that floor rather than to $-\infty$ or NaN. One definition, owned
-by `atmosphere/log_tau_resample.py` and imported by every consumer.
+opaque band resamples to that floor rather than to $-\infty$ or NaN. One definition,
+imported by every consumer.
 
 The floor is deliberately **not** matched by a cap at 1.0. A $\tau > 1$ array is invalid
 data, and capping it would convert a mis-scaled tape7 into a plausible-looking column —
-exactly the silent-repair Rule 17 forbids. Instead it survives the resample and fails loud
-downstream in `AtmosphericQuantities.__post_init__`. Negative $\tau$ raises inside the
+exactly the kind of silent repair RADIANT forbids. Instead it survives the resample and
+fails loudly downstream. Negative $\tau$ raises inside the
 resample itself.
 
 *Record:* CU-316 resolution, 2026-08-02 (the deliberate departure is recorded there).
@@ -1067,9 +1021,9 @@ never silent: a `UserWarning` is raised, an INFO record is logged, and
 from which model. Where the two models must agree — $\tau_{\text{sun}}$, $E_{\text{TOA}}$,
 and both $E_{\text{sky}}$ terms, all served by the companion alone — they are bit-identical.
 
-**Owner-ratified 2026-08-01, conditionally.** The ratification is conditional on the
-compromise staying *declared*: the warning, the INFO record and the `backend_split` marker
-are part of what was ratified and must not be softened into silence. The measured
+**The compromise is accepted only while it stays declared.** The warning, the INFO record
+and the `backend_split` marker are part of what makes it acceptable and must never be
+softened into silence. The measured
 divergence between the two legs is in the parity document §2.11.
 
 The one re-audit condition: the split exists because an up-looking family is one leg of
@@ -1093,21 +1047,18 @@ record, and the provenance marker each have a test).
 ## 4. What the models do not represent
 
 Recorded here because a physics document that omits its own boundaries is misleading. Each
-item's tracking home is named; the *measured* consequences are in the parity document §3.
+item is tracked in the repository, where the measured consequences are tabulated in full.
 
 - **Line structure inside a calibrated region.** The simple model's spectral shape is flat
-  within each of the 17 regions (CU-161, CU-330); the 0.04 µm edge ramps remove the
-  discontinuity,
-  not the underlying flatness. This is now the named dominant residual of the thermal path
-  radiance (CU-321 closure).
-- **Multiple scattering.** The single-scatter source under-predicts the daytime VIS/NIR sky
-  (Gap 38); the sub-3 µm provisional warning is what says so to an operator.
-- **Refraction.** The geometry is unrefracted (ADR-0011 decision 5). It is the dominant
-  geometric error inside the horizon guard's warn band, and the on/off calibration decks
-  (Q5/Q6) are unrun.
+  within each of the 17 regions; the 0.04 µm edge ramps remove the discontinuity, not the
+  underlying flatness. It is the dominant residual of the thermal path radiance.
+- **Multiple scattering.** The single-scatter source under-predicts the daytime VIS/NIR
+  sky; the sub-3 µm provisional warning is what says so to an operator.
+- **Refraction.** The geometry is unrefracted. It is the dominant geometric error inside
+  the horizon guard's warn band, and the decks that would calibrate it have not been run.
 - **Stratospheric structure.** The fixed-lapse ICAO profile is isothermal above the
-  tropopause, so real stratospheric warming is not represented (CU-324). Measured on the
-  P ladder: MODTRAN's recovered emission temperature reaches 268 K at the 50 km stratopause
+  tropopause, so real stratospheric warming is not represented. Measured on the
+  downwelling ladder: MODTRAN's recovered emission temperature reaches 268 K at the 50 km stratopause
   and falls to 178 K at 80 km, while the profile answers 222.65 K at every one of those
   altitudes. This is why the five stratospheric rungs of the downwelling ladder are
   insensitive to *any* emission-placement choice — every candidate form returns the same
@@ -1115,29 +1066,28 @@ item's tracking home is named; the *measured* consequences are in the parity doc
   terms' fitted constants.
 - **Grazing-arc opacity distribution.** A grazing arc's air lies along the arc, not along
   the vertical between its endpoints; the emission weighting is approximate there, though
-  the *total* optical depth is exact (CU-324). Measured 2026-08-29: on a ground-rooted
-  column at 85/88/89.5° (M6–M8) the two placements differ by ≤ 1.2 % in band-mean thermal
+  the *total* optical depth is exact. Measured on a ground-rooted column at 85/88/89.5°,
+  the two placements differ by ≤ 1.2 % in band-mean thermal
   radiance — under the 3–6 % model/MODTRAN residual there, so those runs cannot settle it.
   The effect is only measurable on an arc rooted at an elevated tangent point *below* the
   tropopause (modelled separation 7.9 %/9.8 % at 5 km, 16.1 %/13.1 % at 8 km, MWIR/LWIR,
-  and exactly 0 at 15 km for the isothermal reason above); run-matrix rows R1–R3 are
-  authored for that geometry and unrun.
+  and exactly 0 at 15 km for the isothermal reason above); the reference runs for that
+  geometry are authored and not yet executed.
 - **O₃ emission altitude.** The well-mixed-gas floor lumps CO₂/N₂O/CH₄ with O₃, which peaks
-  near 25 km, so 9.6 µm emission is placed too low (CU-324 item 2). The τ side is now
-  fixed: CU-330 split the 8–10 µm region at the band edges (*The well-mixed-gas absorption
-  floor*), so the ozone share of
-  the in-feature floor is arithmetic — $0.832$ — rather than a free parameter. The
+  near 25 km, so 9.6 µm emission is placed too low. The τ side is settled: the 8–10 µm
+  region is split at the band edges (*The well-mixed-gas absorption floor*), so the ozone
+  share of the in-feature floor is arithmetic — $0.832$ — rather than a free parameter. The
   *placement* is not: the identified opacity still rides the molecular scale height, so
-  the model puts ozone near 8 km instead of 25 km. Re-measured 2026-08-29 on the fourteen
-  matched pairs with the split table in place, the 9.4–9.9 µm feature reads RMS
+  the model puts ozone near 8 km instead of 25 km. Measured on fourteen matched pairs with
+  the split table in place, the 9.4–9.9 µm feature reads RMS
   $|\ln$ ratio$|$ 0.3581 (it was 0.1519 when the flat slab under-supplied the in-band
   opacity), and moving the τ-determined share onto a 25 km layer recovers it to 0.1456 —
   within 7 % of the sweep's unconstrained best, 0.1365 at share 0.70. The remaining
   degeneracy in the layer's centre and width is unchanged in kind (0.133–0.191 across
   20–30 km centres and 3–8 km widths) because the profile is isothermal wherever the layer
-  sits. Full tables in the parity document §2.14(b).
+  sits.
 - **Polarization, 3D/heterogeneous atmospheres, time dependence, adjacency, aurora/airglow,
-  cloud microphysics.** Out of scope for v1 (`RADIANT_Atmosphere.md` §11).
+  cloud microphysics.** Out of scope for this version of the model.
 
 ---
 

@@ -213,15 +213,14 @@ Point `atmosphere.interpolated_data_dir` at your own directory of NPZ runs to us
 private run matrix — the bundled catalogue is a convenience, not a constraint.
 
 Full detail, including the family tables, the run provenance, and the known limitations,
-is in `src/radiant/data/tables/atmospheres/MANIFEST.md` and `README.md`. Choosing between
-the five atmosphere backends for a given scene is the subject of the
-[Atmosphere Selection Guide](atmosphere_selection.md).
+is in the shipped library's own manifest and README. Choosing between the five atmosphere
+backends for a given scene is the subject of the repository's atmosphere-selection guide.
 
 ---
 
 ## 4. Mission Templates
 
 Not a data library in the same sense, but shipped in the same tree: nine complete,
-runnable mission configs at `radiant/data/templates/`, listed in the
-[Command-Line Interface](tech_cli.md) chapter under `radiant template`. They are the
+runnable mission configs at `radiant/data/templates/`, listed in the Command-Line
+Interface chapter under `radiant template`. They are the
 GUI welcome-screen set and the fastest way to a working config in a new band or regime.

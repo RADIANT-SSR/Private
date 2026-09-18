@@ -78,8 +78,7 @@ matrix; the tape7-import path is the supported one.
 ### The shipped alternative
 
 Most users need neither: the bundled atmosphere library is MODTRAN-derived data,
-available through `atmosphere.model: interpolated`. See the
-[Data Libraries](tech_data_libraries.md) chapter.
+available through `atmosphere.model: interpolated`. See the Data Libraries chapter.
 
 ---
 
@@ -225,8 +224,8 @@ Emissivity for an opaque scene material is $\varepsilon(\lambda) = 1 - \rho(\lam
 This is the legitimate independent-emissivity case — Kirchhoff's derived-only constraint
 binds optical elements, not scene targets.
 
-RADIANT's own bundled material and QE curves are covered in
-[Data Libraries](tech_data_libraries.md). A measured background emissivity can also be
+RADIANT's own bundled material and QE curves are covered in the Data Libraries chapter.
+A measured background emissivity can also be
 attached from a config through `source.background.emissivity_path` (a two-column
 `wavelength_um, emissivity` CSV), and a target reflectance or brightness temperature the
 same way.
@@ -284,7 +283,7 @@ own column, so the workbook is usable as data rather than only as a report.
 
 ### Not implemented: `radiant export` / `radiant import`
 
-`RADIANT_Config_Format.md` §2 describes an XLSX *convenience view* of a config file —
+The repository's config-format document describes an XLSX *convenience view* of a config file —
 one sheet per namespace, editable value column, round-trippable back to YAML for
 reviewers who do not write YAML. **This is a design target.** There is no `radiant export`
 or `radiant import` command and no XLSX config code in `radiant.io`. (The existing

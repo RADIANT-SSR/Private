@@ -62,13 +62,13 @@ farm is a third its size at ε = 0.95. Those two facts will fight each other lat
 | Read noise | 35 e- RMS | 25 e- RMS | 40 e- RMS |
 | Integration time | 4 ms | 4 ms | 2 ms |
 
-Sensor C's YAML is deliberately stale — it still carries the pre-ADR-0006 name
+Sensor C's YAML is deliberately stale — it still carries the old name
 `platform.h_sensor` where the current schema says `geometry.sensor_altitude_m`. RADIANT
 accepts it through the deprecated-alias mechanism and says so:
 
 ```
   OUTDATED PARAMETER NAME absorbed: sensor C's YAML still says
-  'platform.h_sensor' (pre-ADR-0006 name). RADIANT accepted it
+  'platform.h_sensor' (the superseded name). RADIANT accepted it
   through the deprecated-alias mechanism (1 DeprecationWarning(s) raised) and mapped it to
   geometry.sensor_altitude_m — the config still runs, loudly.
 ```
@@ -412,7 +412,7 @@ and mean (Technical pickup, 199 km) and the easiest (fuel bladder farm, 991 km).
 Two cells differ, both on sensor B, and both are reported here with both values rather
 than reconciled away:
 
-| Cell | Walkthrough (2026-08-30 vintage) | This run (2026-09-16) | Δ |
+| Cell | Walkthrough, as committed | This run | Δ |
 |---|---:|---:|---:|
 | Fighter aircraft, `haze` | 1 029 km | **1 033 km** | +4 km (+0.39 %) |
 | Small UAV (parked), `clear` | 685 km | **686 km** | +1 km (+0.15 %) |
@@ -426,7 +426,7 @@ landings previously passed through this scenario unremarked; nothing in the mach
 baselines covers a script-side SCNR bisection.
 
 A related inconsistency, noted in passing and not corrected here: the walkthrough's
-CU-335 refresh note attributes its single moving cell to "sensor A's small UAV,
+own refresh note attributes its single moving cell to "sensor A's small UAV,
 686 → 685 km", but sensor A's Small UAV is `not detectable` in every column in both the
 walkthrough's own table and this run. The cell it describes is sensor B's, which this run
 reports back at 686 km. The walkthrough's physics discussion also quotes "688 vs 695 km"

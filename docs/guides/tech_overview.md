@@ -8,9 +8,9 @@ and every MTF contributor at the stage where it physically originates.
 
 This chapter orients a script author or developer in that machine: what the stages are,
 how data moves between them, why there are two parallel spatial paths, and why geometry
-runs first. The authoritative statement of each constraint lives in
-`docs/architecture/RADIANT_Master_Architecture.md`; Part 3 of this volume binds the stage
-protocol, the parameter system, and the test framework verbatim.
+runs first. Part 3 of this volume binds the stage protocol, the parameter system, and the
+test framework verbatim; the repository's master architecture document is where each
+constraint is stated in binding form.
 
 ---
 
@@ -45,7 +45,7 @@ Two ordering decisions in that table are load-bearing and are **not** free to ch
 - **`calibration` runs after `readout`, not before.** Post-NUC residual fixed-pattern
   terms are appended after TDI and coadd scaling, which is precisely what makes them
   structurally exempt from $\sqrt{N}$ averaging. Moving the stage earlier would silently
-  average away the error the stage exists to model (ADR-0012).
+  average away the error the stage exists to model.
 
 ### Stages are pure functions
 
@@ -185,8 +185,7 @@ active, and the stage solves the spherical viewing triangle from whichever door 
 
 Because the families are independent, a ground-to-air scenario (up-looking `V4`
 elevation, `K2` target kinematics) and a nadir mapping pass (`V1` path zenith, `circular`
-orbit) use the same solver with no special cases. The full contract is ADR-0006 and
-ADR-0011.
+orbit) use the same solver with no special cases.
 
 ---
 
@@ -211,7 +210,7 @@ guarantees.
 `ChainResult` is importable from `radiant.io.results` (and re-exported from
 `radiant.api`) but is not top-level. `BatchRunner` is a semi-public
 `radiant.api.batch` class. There are no `SensorConfig` or `ScenarioConfig` builder
-classes — ADR-C dropped them because `Sensor.from_yaml()` and `Sensor.from_dict()`
+classes — they were dropped because `Sensor.from_yaml()` and `Sensor.from_dict()`
 already accept the same data. Anything under `radiant.core.*` or an individual stage
 package is internal.
 

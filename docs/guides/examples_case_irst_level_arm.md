@@ -205,8 +205,8 @@ read, quantization and dark — combines to 67.9 e- RMS.
 
 That matters because a detection-range solver has to scale the noise as well as the
 signal. Push the target out and its own shot noise goes with it, leaving the 67.9 e-
-floor; freeze the total noise at its reference value instead, as the solver did before
-CU-263, and the near-field answer comes out strongly pessimistic. The shipped solver
+floor; freeze the total noise at its reference value instead, as a frozen-noise solver
+does, and the near-field answer comes out strongly pessimistic. The shipped solver
 uses $\sigma^2(R) = S(R) + N_0^2$ with $N_0$ the target-free floor, and the consequence
 is visible in the next figure.
 

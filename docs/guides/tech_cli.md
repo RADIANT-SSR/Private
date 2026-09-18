@@ -53,7 +53,7 @@ Usage: radiant run [OPTIONS] CONFIG
 | Option | Meaning |
 |--------|---------|
 | `--set TEXT` | Parameter override, `key=value`, repeatable |
-| `--configuration NAME` | Which configuration of a study file to evaluate (ADR-0010) |
+| `--configuration NAME` | Which configuration of a study file to evaluate |
 | `--wavelength-min FLOAT` | Override the spectral grid minimum [µm] |
 | `--wavelength-max FLOAT` | Override the spectral grid maximum [µm] |
 | `--wavelength-points INTEGER` | Grid point count (default 500 points) |

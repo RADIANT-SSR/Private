@@ -40,7 +40,7 @@ yourself is always computed, whatever the scene class.
 ### 1.2 One mode per family
 
 Beneath the scene card, geometry is entered through **families**, and you pick exactly one
-**mode** in each. This is the flexibility the personas need: a mission planner has a ground
+**mode** in each. This is the flexibility different disciplines need: a mission planner has a ground
 range, an optical designer has an off-boresight angle, a test engineer has a slant range, and
 none of them should have to convert.
 
@@ -221,8 +221,8 @@ its own heading (`0 m` meaning turbulence off).
 ### 3.2 The guidance, in one page
 
 The full decision table, the ten bundled MODTRAN families with their verbatim coverage lines,
-and the catalogue of every warning and refusal are in
-[`atmosphere_selection.md`](atmosphere_selection.md). The operator's summary:
+and the catalogue of every warning and refusal are in the repository's atmosphere-selection
+guide. The operator's summary:
 
 - **`simple` never refuses a legal geometry.** In the thermal bands it is within tens of
   percent of MODTRAN; in the daytime visible and near-infrared it under-reads sky radiance by

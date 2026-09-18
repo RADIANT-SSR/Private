@@ -162,16 +162,15 @@ This is the family that has **no modal**, on purpose — see §4.
 
 ### 3.6 Kirchhoff and the element train
 
-The Kirchhoff constraint of Rule 5 is enforced by making the over-specification unrepresentable
-rather than by refusing it after the fact. There is no emissivity input for an optical element
+Kirchhoff's law is enforced by making the over-specification unrepresentable rather than by
+refusing it after the fact. There is no emissivity input for an optical element
 anywhere in the GUI, the YAML, or the API: a mirror row takes a reflectance, a refractive row
 takes a transmittance, and ε is derived and shown read-only.
 
 The document parser reinforces that: a row's transfer mode decides which single value is read —
 `reflectance` for `REFLECTIVE`, `transmittance` for `REFRACTIVE` — so a train you author in the
 GUI, in YAML, or through the API cannot state an $R$ and a $T$ for the same surface, and cannot
-state an ε at all. The over-specification Rule 5 forbids is unrepresentable rather than
-refused.
+state an ε at all.
 
 What you *can* get wrong is the value:
 

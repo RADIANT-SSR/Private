@@ -188,7 +188,7 @@ Everything above has a scripting equivalent, and the scripted forms are where a 
 becomes repeatable: sweeps and 2-D grids, Monte-Carlo tolerance analysis, sensitivity ranking,
 config-file comparison, and building a configuration set programmatically. The recipes — with
 the interpretation notes for SNR-versus-aperture, the noise budget, and MTF terms — are in
-[`trade_studies.md`](trade_studies.md), and worked end to end in Volume IV's trade-study
+the repository's trade-studies guide, and worked end to end in Volume IV's trade-study
 cookbook.
 
 The **Copy as script** button in the sweep dialog is the bridge between the two: the GUI is

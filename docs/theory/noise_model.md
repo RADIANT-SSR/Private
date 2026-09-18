@@ -3,9 +3,9 @@
 *Persona: Mike (detector engineer), Dr. Chen (researcher)*
 
 Complete noise taxonomy, equations, scaling rules, and acquisition timing as implemented
-in RADIANT. All noise in electrons RMS (Rule 2 canonical unit). Numeric anchors are
-blind-derived values from the 2026-07 assurance audit (independently re-derived from the literature, then verified against
-the implementation).
+in RADIANT. All noise in electrons RMS, the manual's canonical noise unit. Numeric anchors
+were re-derived from the literature independently of the implementation, then checked
+against it.
 
 ---
 
@@ -73,8 +73,8 @@ true ratio (audit anchor: $E_g = 0.1$ eV diffusion, 77→84 K: dark current ×4.
 ~1 PC — the same generation-AND-recombination doubling that costs photoconductors
 $\sqrt2$ in D*).
 
-**Johnson noise** (from $R_0A$) and **1/f noise** (flicker coefficient over a frequency
-band) per the forms in `detector/noise/detector_material.py`.
+**Johnson noise** (from $R_0A$) and **1/f noise** (flicker coefficient integrated over a
+frequency band) follow the standard material forms.
 
 **In RADIANT.** `detector/dark_current.py`, `detector/noise/detector_material.py` ·
 anchored by `detector/tests/test_dark_current.py`, `test_noise.py`.
@@ -127,9 +127,8 @@ dispersion is DSNU's job).
 
 ### Other (2 terms)
 
-**Persistence** (residual charge from prior exposure, exponential decay model —
-`detector/persistence_sequence.py`) and **ROIC glow shot** ($\sqrt{R_{glow} t_{int}}$)
-per `detector/noise/other.py`.
+**Persistence** — residual charge from the prior exposure, on an exponential-decay
+model — and **ROIC glow shot**, $\sqrt{R_{glow} t_{int}}$.
 
 ---
 
@@ -168,7 +167,7 @@ the sum). Signal scales with the binned area in both.
 **In RADIANT.** `readout/binning_onchip.py`, `readout/binning_offchip.py` · anchored by
 `readout/tests/test_binning.py`.
 
-### Frame timing (Conventions §4)
+### Frame timing
 
 Frame period is stored independently of integration time:
 
@@ -197,7 +196,7 @@ calibrated imaging chain removes the static component.
 
 | Regime | Dominant noise | Typical scenario |
 |--------|---------------|-----------------|
-| BLIP (background-limited) | Background shot | IR, long $t_{int}$, low read noise — see `theory/performance_metrics.md` for the BLIP criterion and $f_{BLIP}$ |
+| BLIP (background-limited) | Background shot | IR, long $t_{int}$, low read noise — the Performance Metrics chapter gives the BLIP criterion and $f_{BLIP}$ |
 | Read-noise limited | Read | Short $t_{int}$, low flux |
 | Dark-current limited | Dark shot | Long $t_{int}$, warm detector |
 | FPN-limited | PRNU/clutter | $S > 1/k^2$, no scan averaging |
@@ -209,5 +208,5 @@ $\sqrt{N_{bg}}$ past the crossover.
 
 ## Parameter cross-reference
 
-See [Parameter Reference](../guides/parameter_reference.md) for all detector/readout
-parameters with types, defaults, and bounds.
+Volume III's Parameter Reference lists every detector and readout parameter with its
+type, default, and bounds.

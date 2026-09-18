@@ -79,16 +79,16 @@ parameters. Each is covered in its own section below:
 | Key | What it is |
 |-----|-----------|
 | `_radiant` | Session metadata: format marker, spectral grid density, tolerance distributions |
-| `optical_elements` | A declarative optical-element train (ADR-0009) |
-| `fpa` | The name of a bundled FPA preset to apply (Gap 119) |
-| `configurations` | Turns the file into a multi-configuration *study* (ADR-0010) |
+| `optical_elements` | A declarative optical-element train |
+| `fpa` | The name of a bundled FPA preset to apply |
+| `configurations` | Turns the file into a multi-configuration *study* |
 
 Three further top-level keys — `_extends`, `_imports`, `_vars` — are **reserved** for
 config-inheritance features that are designed but not implemented. A config containing
 one is rejected with an actionable error rather than loading with the directive silently
 ignored, which would produce physics from a different parameter set than intended.
 
-See the [Parameter Reference](parameter_reference.md) for the exhaustive list of all 218
+The Parameter Reference chapter of this volume lists all 218
 parameters with types, defaults, bounds, and descriptions. That chapter is generated from
 the schema registry, so it cannot drift from the code.
 
@@ -202,9 +202,8 @@ radiant convert 45 deg rad       # 45 deg = 0.785398 rad
 radiant convert 5 ms s           # 5 ms = 0.005 s
 ```
 
-Parameter values in YAML are in the input units documented in the
-[Parameter Reference](parameter_reference.md) --- for example, pixel pitch
-is specified in micrometers, altitude in meters.
+Parameter values in YAML are in the input units the Parameter Reference chapter
+documents --- for example, pixel pitch is specified in micrometers, altitude in meters.
 
 ---
 
@@ -256,15 +255,15 @@ radiant template show leo_mapping_extended   # print the YAML
 radiant template create leo_mapping_extended # write leo_mapping_extended.yaml
 ```
 
-The templates ship inside the package at `radiant/data/templates/` (CU-349 — they arrive
-with `pip install radiant`; in a source checkout the same files sit at
-`src/radiant/data/templates/`), so a template can also be run in place:
+The templates ship inside the installed package at `radiant/data/templates/`; in a source
+checkout the same files sit at `src/radiant/data/templates/`. Either way a template can be
+run in place:
 
 ```bash
 radiant run src/radiant/data/templates/leo_mapping_extended.yaml
 ```
 
-The per-template table is in the [Command-Line Interface](tech_cli.md) chapter under
+The per-template table is in the Command-Line Interface chapter, under
 `radiant template`.
 
 ---
@@ -352,7 +351,7 @@ in any key order. The applied set and the kept set are both reported through
 `Sensor.save` writes the applied values as ordinary explicit inputs and does *not*
 re-serialize the `fpa:` key: reloading a saved config reproduces the same numbers with
 config-file provenance, while the preset attribution lives in the preset document. The
-part list is in the [Data Libraries](tech_data_libraries.md) chapter.
+part list is in the Data Libraries chapter.
 
 ---
 
@@ -400,13 +399,13 @@ atmosphere:
 ```
 
 CSV files must have `wavelength_um` as the first column. Choosing between the five
-backends for a given scene is the subject of the
-[Atmosphere Selection Guide](atmosphere_selection.md).
+backends for a given scene is the subject of the repository's atmosphere-selection
+guide.
 
 The shipped families, their coverage, and the provenance of the underlying MODTRAN run
-matrix are documented in the [Data Libraries](tech_data_libraries.md) chapter and in
-`src/radiant/data/tables/atmospheres/README.md`. Ingest of external atmosphere data is
-covered in [External Data Interfaces](tech_external_data.md).
+matrix are documented in the Data Libraries chapter and in the shipped library's own
+manifest. Ingest of external atmosphere data is covered in the External Data Interfaces
+chapter.
 
 ---
 
@@ -472,8 +471,8 @@ study states what differs, not what is repeated.
 The binding rules, all checked at load time with an error naming the file, the
 configuration, and the parameter:
 
-- **`names`** --- 1 to 12 unique, non-empty names (`ConfigurationSet.MAX_CONFIGS`, raised
-  from 8 to 12 in 2026-09). This list defines the order of every value list below it.
+- **`names`** --- 1 to 12 unique, non-empty names (`ConfigurationSet.MAX_CONFIGS`). This
+  list defines the order of every value list below it.
 - **`parameters`** --- every list has exactly as many values as there are names.
   The lists are dense by construction: there is no "unset for this
   configuration" and nothing is padded for you.
@@ -512,9 +511,8 @@ study file, conversely, is only loaded by tools that understand the section:
 error pointing at the right entry point, so a study is never silently run as if
 its shared body were the whole model.
 
-For building, evaluating, and comparing a study, see the
-[Trade Studies Guide](trade_studies.md); for the complete section
-specification, `docs/architecture/RADIANT_Config_Format.md` §1.9.
+For building, evaluating, and comparing a study, see the repository's trade-studies
+guide; the complete section specification is in its config-format document.
 
 ---
 
@@ -533,8 +531,8 @@ radiant compare config_a.yaml config_b.yaml
 ```
 
 This compares two *files* --- two separate designs. To compare named
-configurations *within* one study file, see **Configuration Sets** above and
-the [Trade Studies Guide](trade_studies.md).
+configurations *within* one study file, see **Configuration Sets** above and the
+repository's trade-studies guide.
 
 ### Batch many scenarios (Python)
 

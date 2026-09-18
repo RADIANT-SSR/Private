@@ -117,7 +117,7 @@ surprising SNR is worth one glance at the regime line before it is worth anythin
 
 ## 4. How this volume is arranged
 
-Chapters 1–6 — this batch — take you from an empty machine to a described scene:
+Chapters 1–6 take you from an empty machine to a described scene:
 
 - **Chapter 2, Installation & Launch** — Python, the install, the extras, and starting the
   application on Windows and macOS.

@@ -277,7 +277,8 @@ at run time through `pyproject.toml` entry points, so that an organization with 
 proprietary atmosphere model or a custom metric can extend RADIANT without forking it.
 
 **That design is deferred and not implemented.** The `src/radiant/plugins/` package does
-not exist — its former stub was removed in 2026-07 — and none of the ABCs or registration
+not exist — an empty stub was removed rather than left to mislead — and none of the ABCs
+or registration
 machinery described in that document is importable. The specification is preserved as the
 v2 design, not as a description of current behavior. Do not write code against those
 symbols.

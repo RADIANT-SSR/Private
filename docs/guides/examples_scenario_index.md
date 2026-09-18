@@ -4,7 +4,7 @@ Fifty-one scenario folders live under `scenarios/` in the RADIANT repository. Th
 appendix indexes every one of them, in catalog order, with the place in this volume
 where it is covered.
 
-**Coverage is total, at tiered depth** (owner ruling Q3, 2026-09-16): eight scenarios
+**Coverage is total, at tiered depth**: eight scenarios
 are walked at full depth as case studies, four are the subject of the
 flagship-validation chapter, and the remaining thirty-nine appear as digests in the
 compendium. Nothing in the repository is unrepresented here.

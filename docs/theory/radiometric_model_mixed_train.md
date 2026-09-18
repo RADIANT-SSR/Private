@@ -1,4 +1,13 @@
-# Radiometric model — mixed refractive and reflective optical train
+# Radiometric Model — Mixed Refractive and Reflective Optical Train
+
+**This appendix is an implementation recipe, and it is written like one.** The chapters
+before it state each equation with its derivation, its validity limits and a pinned
+numeric anchor; this appendix instead gives the quantities in the order a program must
+compute them, in the ASCII notation the implementation uses, so that a reader working
+through the code can follow it line for line. There are no derivations or pitfalls
+sections here, and the equation blocks are deliberately not typeset as display
+mathematics — they are the recipe, not the physics. The physics they assemble is in the
+radiometric-chain and spatial chapters.
 
 Two separate radiometric paths are modeled:
 
@@ -32,7 +41,7 @@ differ fundamentally between the two types.
 
 ---
 
-## Part 1 — Per-element radiometric quantities
+## Per-element radiometric quantities
 
 ### 1.1 Refractive element i
 
@@ -98,13 +107,13 @@ Constants are the CODATA 2018 values of the Notation chapter's physical-constant
 table; they are defined once in the code and never re-entered here.
 
 `B` is a **per-wavelength** spectral radiance in W/m²/sr/µm. Evaluate the expression
-above with `λ` in metres and it returns W/m²/sr/m; the per-µm form used everywhere in
+above with `λ` in meters and it returns W/m²/sr/m; the per-µm form used everywhere in
 this manual carries the Jacobian factor 10⁻⁶ that converts the spectral density from
-per-metre to per-micrometre. Mixing the two is the single most common radiometry error.
+per-meter to per-micrometer. Mixing the two is the single most common radiometry error.
 
 ---
 
-## Part 2 — Signal path through the full optical train
+## Signal path through the full optical train
 
 ### 2.1 Cascaded system transfer
 
@@ -145,7 +154,7 @@ E_signal,total = ∫[λ1 to λ2]  E_signal,FP(λ) dλ
 
 ---
 
-## Part 3 — Thermal background path from each element
+## Thermal background path from each element
 
 Each element `i` emits thermal radiation that propagates through all downstream
 elements `j > i` before reaching the focal plane.
@@ -245,7 +254,7 @@ E_background,total = ∫[λ1 to λ2]  E_background,FP(λ) dλ
 
 ---
 
-## Part 4 — Combined focal plane irradiance
+## Combined focal plane irradiance
 
 ```
 E_FP,total(λ) = E_signal,FP(λ)  +  E_background,FP(λ)
@@ -259,7 +268,7 @@ SBR(λ) = E_signal,FP(λ) / E_background,FP(λ)
 
 ---
 
-## Part 5 — Kirchhoff self-consistency check
+## Kirchhoff self-consistency check
 
 ### Refractive element i
 
@@ -288,7 +297,7 @@ eps_i(λ)     ≈ A_total,i(λ)                       ← must hold at each λ
 
 ---
 
-## Part 6 — Implementation recipe
+## Implementation recipe
 
 ```
 Inputs per element i:
@@ -362,7 +371,7 @@ Validation:
 
 ---
 
-## Part 7 — Key physical distinctions summary
+## Key physical distinctions summary
 
 | Property                  | Refractive element         | Reflective element          |
 |---------------------------|----------------------------|-----------------------------|

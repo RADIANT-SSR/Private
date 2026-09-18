@@ -36,7 +36,7 @@ and converts at the boundary.
 | Effective focal length | 121.5 cm | 1.215 m | Gives f/4.05, not the f/4.00 nominal — 1.25 % slow. |
 | Optical transmission | 71.0 % | 0.710 | 73 % nominal; 2 points lost in the as-built coatings. |
 | Optics temperature | 22.0 °C | 295.15 K | Lab ambient. The optics are *warm*. |
-| Spectral band | 3500 – 5000 nm | 3.50 – 5.00 µm | MWIR cold filter at 77 K. |
+| Spectral band | 3500–5000 nm | 3.50–5.00 µm | MWIR cold filter at 77 K. |
 | Blackbody emissivity | 0.995 | 0.995 | CI Systems SR-800R, ±0.02 °C stability. |
 | Shroud | 22.0 °C, ε = 0.95 | 295.15 K | The TVAC chamber wall. |
 
@@ -49,11 +49,11 @@ comparison:
 | Quantum efficiency | 68.0 % | 72.0 % | −4 points |
 | Dark current | 135 e-/s | 100 e-/s | +35 % |
 | Read noise (post-CDS) | 14.2 e- RMS | 12.0 e- RMS | +18 % |
-| Full well | 500 000 e- | — | — |
+| Full well | 500,000 e- | — | — |
 | System gain / ADC | 12 e-/DN / 14 bit | — | — |
 | Integration time | 0.5 ms | — | Lab test value; 8 ms in orbit. |
 | IPC coupling | 1.5 % | — | — |
-| ROIC glow | 5 e-/s | — | Measured, and **not modelled** — see below. |
+| ROIC glow | 5 e-/s | — | Measured, and **not modeled** — see below. |
 
 **NEDT measurements** (sheet 3) — seven temperatures, 500 frames each, with the
 measurement's own $\sigma$ so that the comparison carries error bars.
@@ -160,12 +160,12 @@ sigma_missing = math.sqrt(sigma_missing_sq)
 
 Run the measured NEDT *backwards* through the same $\partial S/\partial T$ to get the
 noise the measurement implies, then subtract the model's noise in quadrature. What is
-left is the unmodelled noise, in electrons, which is a far more actionable quantity
+left is the unmodeled noise, in electrons, which is a far more actionable quantity
 than a millikelvin discrepancy.
 
 ### Real output — the comparison
 
-```
+```text
 === Predicted vs. Measured NEDT ===
  BB T [°C] BB T [K] Meas [mK] Pred [mK]  Δ [mK] Signal [e⁻] dS/dT [e⁻/K] σ_total [e⁻]
   --------  -------  --------  --------  ------  ----------  -----------  -----------
@@ -180,7 +180,7 @@ than a millikelvin discrepancy.
 
 ### Real output — the noise budget at the primary test point
 
-```
+```text
 === NEDT Breakdown at Primary Test Point (25°C / 298.15 K) ===
   Signal:            143,203 e⁻
   dS/dT:              5105.7 e⁻/K
@@ -205,7 +205,7 @@ than a millikelvin discrepancy.
 
 ### Real output — the gap analysis
 
-```
+```text
 === Gap Analysis ===
   σ_predicted:    378.70 e⁻ RMS
   σ_measured:     648.42 e⁻ RMS  (from NEDT = 127.0 mK)
@@ -223,7 +223,7 @@ than a millikelvin discrepancy.
 
 ### Real output — sensitivity, and nominal versus as-built
 
-```
+```text
   Ranked by |sensitivity| (most impactful first):
     1. f-number (via focal length): 0.7428 mK per 1% change
     2. Optical transmission: 0.3714 mK per 1% change
@@ -253,7 +253,7 @@ term.
 ### The model is signal-shot-limited, and nothing else is close
 
 99.9 % of the predicted noise is `signal_shot`. Read noise contributes 2.78 mK of the
-74.17 mK, quantization 0.68 mK, dark shot 0.05 mK. On a 143 203 e- signal the
+74.17 mK, quantization 0.68 mK, dark shot 0.05 mK. On a 143,203 e- signal the
 electronics are simply not in the conversation.
 
 This is worth stating plainly because it forecloses an entire class of corrective
@@ -276,7 +276,7 @@ better; it was closer because a spurious term happened to push it that way. Anyo
 reading an older baseline of this scenario should know that the smaller gap it reports
 is not a better model.
 
-### 526 e- of noise is missing, and no single modelled term can supply it
+### 526 e- of noise is missing, and no single modeled term can supply it
 
 The reconciliation: $\sigma_{meas} = 0.127 \times 5105.7 = 648.42$ e- RMS against
 $\sigma_{pred} = 378.70$ e- RMS, leaving
@@ -284,15 +284,15 @@ $\sqrt{648.42^2 - 378.70^2} = 526.34$ e- RMS unaccounted — **139 % of the pred
 noise**, worth 103.09 mK on its own.
 
 The "what would it take" table is the script's most useful output and its verdict is
-uniform: read noise would have to rise 3608 %, dark shot 202 490 %, quantization
-15 095 %. Even signal shot — the one term large enough to be in the running — would
+uniform: read noise would have to rise 3608 %, dark shot 202,490 %, quantization
+15,095 %. Even signal shot — the one term large enough to be in the running — would
 need to rise 71.3 %, which would require the collected signal to be 2.9 times what the
-radiometry says it is. **No single modelled term explains the gap**, which is precisely
+radiometry says it is. **No single modeled term explains the gap**, which is precisely
 the finding that sends Karen to look outside the model.
 
 Four candidates, in the order Karen should test them:
 
-1. **Unmodelled mirror self-emission.** `nearfield_shot` is 0.00 e- and should not be.
+1. **Unmodeled mirror self-emission.** `nearfield_shot` is 0.00 e- and should not be.
    In scalar-transmission mode the lumped optical element is treated as refractive: by
    Kirchhoff, $T + R = 1$ so $\varepsilon = 1 - T - R = 0$, and a zero-emissivity
    element emits nothing. But these are **mirrors at 295 K in the MWIR**, and real
@@ -305,7 +305,7 @@ Four candidates, in the order Karen should test them:
    RADIANT's `prnu` and `dsnu` terms are both 0.00 e- here because the config does not
    enable them. A spatial $\sigma$ compared against a temporal $\sigma$ is not the same
    measurement, and on an uncorrected FPA the difference is easily this large.
-3. **Unmodelled ROIC glow.** The workbook records 5 e-/s of ROIC glow. RADIANT's
+3. **Unmodeled ROIC glow.** The workbook records 5 e-/s of ROIC glow. RADIANT's
    `glow_shot` term is always zero — the physics is not implemented. At 0.5 ms this is
    a small contributor, but it is a known-missing term rather than a negligible one.
 4. **Blackbody calibration and chamber reflections.** The SR-800R's ±0.02 °C stability
@@ -332,9 +332,9 @@ wasted effort.
 
 From 15 °C to 50 °C, measured NEDT falls 160 → 81 mK and predicted 83.86 → 56.93 mK.
 Both curves fall because $\partial S/\partial T$ grows faster than the noise does:
-across that range $\partial S/\partial T$ rises 3759 → 10 057 e-/K (2.68×) while
+across that range $\partial S/\partial T$ rises 3759 → 10,057 e-/K (2.68×) while
 $\sigma_{total}$ rises only 315 → 573 e- (1.82×), because shot noise grows as
-$\sqrt{S}$. This is the Wien-side behaviour of the Planck function in the MWIR, and
+$\sqrt{S}$. This is the Wien-side behavior of the Planck function in the MWIR, and
 the fact that both the measurement and the model show it is a check that the
 *responsivity* half of the NEDT ratio is right even though the *noise* half is not.
 
@@ -350,7 +350,7 @@ The three hottest test points — 35 °C, 40 °C and 50 °C, at all three finite
 perturbations — **exceed the 14-bit ADC full scale** at the as-built 12 e-/DN gain. The
 run emits nine warnings of the form:
 
-```
+```text
 UserWarning: ReadoutStage: ADC saturated — signal 2.73e+04 DN exceeds full scale
 16383 DN (14-bit at 12 e-/DN). Signal clipped to 16383 DN. Increase
 readout.gain_e_per_dn or readout.adc_bits, or reduce the signal (integration time,
@@ -361,7 +361,7 @@ The NEDT column is unaffected: the signal and $\partial S/\partial T$ the script
 are electron-domain quantities, and the monotone $\partial S/\partial T$ progression in
 the results table confirms the clip does not propagate into them. But a *real*
 measurement at those three temperatures, on this ROIC at this gain, would have been
-digitizer-limited — 327 553 e- is 27 296 DN against a 16 383 DN full scale — and the
+digitizer-limited — 327,553 e- is 27,296 DN against a 16,383 DN full scale — and the
 comparison at 50 °C is therefore between a model of an unclipped sensor and a
 measurement of a clipped one. The three lowest test points are clean. The scenario's
 `walkthrough.md` does not mention this; the warning is the tool behaving correctly and
@@ -371,11 +371,11 @@ the omission is in the narrative, not the code.
 
 1. **The gap is real and it is 52.83 mK**, or equivalently 526 e- RMS of noise the
    model does not contain — 139 % of the noise it does.
-2. **No modelled term can absorb it.** Every candidate would need an implausible
+2. **No modeled term can absorb it.** Every candidate would need an implausible
    increase; the reconciliation table makes that quantitative rather than rhetorical.
 3. **The three leading explanations are all outside the current model**: warm-mirror
    self-emission that scalar transmission mode cannot produce, a spatial-versus-temporal
-   mismatch in what "NEDT" means on each side of the comparison, and unmodelled ROIC
+   mismatch in what "NEDT" means on each side of the comparison, and unmodeled ROIC
    glow.
 4. **The hardware is fine.** As-built deviations cost 3.98 mK; the sensitivity analysis
    shows no ±1 % parameter perturbation could close the remaining gap.
@@ -399,8 +399,8 @@ reports the 74.17 mK directly, so the prediction half of the reconciliation is a
 single click rather than a script. The scenario's `gui_workflow.md` specifies what a
 complete reconciliation workspace would add: a spreadsheet-import step that maps the
 three sheets onto optics, detector and validation-target data with the unit
-conversions highlighted; a nominal-versus-as-built table with deviations colour-coded;
-a **Lab / TVAC test mode** that recognises the bench context and proposes
+conversions highlighted; a nominal-versus-as-built table with deviations color-coded;
+a **Lab / TVAC test mode** that recognizes the bench context and proposes
 `atmosphere.model = "exo"` rather than leaving the analyst to know that; a progress
 view over the seven temperatures × three runs; and the three comparison charts — NEDT
 versus temperature with measurement error bars and the gap shaded, the noise-budget

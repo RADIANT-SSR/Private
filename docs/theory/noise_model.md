@@ -27,7 +27,7 @@ Terms are classed **temporal** (frame-independent, average down as $\sqrt{N}$) o
 **spatial** (fixed-pattern).
 
 **Numeric anchor.** $N_{target}=10000$, $N_{bg}=5000$, $N_{dark}=1000$ e-,
-$\sigma_{read}=50$ e-, PRNU 0.1% ($\sigma_{PRNU}=10$ e-):
+$\sigma_{read}=50$ e-, PRNU 0.1 % ($\sigma_{PRNU}=10$ e-):
 $\sigma_{tot} = \sqrt{16000 + 2500 + 100} = 136.381817$ e- RMS.
 
 **In RADIANT.** `detector/noise/budget.py` (assembly), `core/noise_budget.py`
@@ -110,7 +110,7 @@ $\sigma_{ADC} = 1.76193$ e- RMS.
 
 **PRNU** — multiplicative gain dispersion, **linear in signal** (not $\sqrt{N}$):
 $\sigma_{PRNU} = k\,S$ with $k$ the residual non-uniformity after NUC. Shot/PRNU
-crossover at $N = 1/k^2$ (0.1% → $10^6$ e-): above it, more integration cannot improve
+crossover at $N = 1/k^2$ (0.1 % → $10^6$ e-): above it, more integration cannot improve
 single-frame spatial SNR — only better flat-fielding can.
 
 **DSNU** — dark-signal non-uniformity, a fixed spatial floor (`dsnu_e_rms`).

@@ -7,7 +7,7 @@ justification for each choice and the comparison against other tools.
 
 ---
 
-## 1. Canonical Internal Units
+## 1. Canonical internal units
 
 These are the units every quantity is stored and computed in, everywhere inside the
 framework.
@@ -23,8 +23,8 @@ framework.
 | Spectral irradiance $E(\lambda)$ | W/m²/µm | |
 | Spectral intensity $I(\lambda)$ | W/sr/µm | Point sources |
 | Spectral photon radiance $L_q(\lambda)$ | photons/s/m²/sr/µm | Derived: $L_q = L\lambda/(hc)$ |
-| Signal | e⁻ | After QE and integration time |
-| Noise | e⁻ RMS | Every noise term, at its origin frame |
+| Signal | e- | After QE and integration time |
+| Noise | e- RMS | Every noise term, at its origin frame |
 | Temperature | K | Entry in K, °C, or °F; converted once at `set()` |
 | SNR | dimensionless | $S/\sigma_\text{total}$ |
 | NEDT | K | |
@@ -39,7 +39,7 @@ framework.
 | User input | deg → rad, µrad → rad, ms → s, °C/°F → K | `ParameterSet.set(..., unit=...)` |
 | MODTRAN tape7 import | cm⁻¹ → µm, W/cm² → W/m² ($\times 10^4$), descending → ascending $\lambda$ | `radiant.atmosphere.modtran` reader |
 | Vendor QE CSV | nm → µm, percent → fraction | `radiant.io.qe_csv` |
-| Vendor dark-current CSV | A/cm² → e⁻/s/pixel | `radiant.io.dark_current_csv` |
+| Vendor dark-current CSV | A/cm² → e-/s/pixel | `radiant.io.dark_current_csv` |
 | Detector QE stage | W/m²/sr/µm → photons/s/m²/sr/µm | `SpectralIntegrationStage` |
 | Output formatting | rad → deg or µrad, s → ms | Output formatter / GUI |
 
@@ -79,7 +79,7 @@ to radians exactly once, at the `set()` boundary.**
 
 ---
 
-## 2. Spatial Coordinate System
+## 2. Spatial coordinate system
 
 | Property | Convention |
 |----------|-----------|
@@ -110,7 +110,7 @@ transform module — never inside a physics module.
 
 ---
 
-## 3. Spectral Conventions
+## 3. Spectral conventions
 
 | Property | Convention |
 |----------|-----------|
@@ -121,7 +121,7 @@ transform module — never inside a physics module.
 | Conversion | $\nu\,[\text{cm}^{-1}] = 10000 / \lambda\,[\text{µm}]$ |
 
 Wavelength in µm keeps every band in single digits: UV 0.2–0.4 µm, VIS 0.4–0.7 µm,
-SWIR 0.7–2.5 µm, MWIR 3–5 µm, LWIR 8–14 µm. Nanometres make MWIR/LWIR unwieldy
+SWIR 0.7–2.5 µm, MWIR 3–5 µm, LWIR 8–14 µm. Nanometers make MWIR/LWIR unwieldy
 (3000–14000 nm); wavenumber inverts the intuition.
 
 MODTRAN's native tape7 output is ascending wavenumber, which is *descending* wavelength.
@@ -143,7 +143,7 @@ the chain.
 
 ---
 
-## 4. Time Conventions
+## 4. Time conventions
 
 | Property | Convention |
 |----------|-----------|
@@ -164,7 +164,7 @@ Display may use SI prefixes (10.0 ms, 250 µs); internal storage is always secon
 
 ---
 
-## 5. Radiometric Modelling Conventions
+## 5. Radiometric modeling conventions
 
 **Energy units upstream, photons at the detector.** The chain computes in W through
 source, atmosphere, and optics. The conversion to photons happens once, where QE is
@@ -176,7 +176,7 @@ Carrying photon quantities upstream would force a $\lambda/(hc)$ spectral weight
 through stages that should be spectrally agnostic, such as geometric throughput.
 
 **Noise lives in electrons at its origin frame.** Every noise term carries a value in
-e⁻ RMS and the reference frame where it was generated. Conversion to another frame — DN,
+e- RMS and the reference frame where it was generated. Conversion to another frame — DN,
 aperture-referred irradiance — happens at query time from the stored forward factors,
 never at generation time.
 
@@ -189,7 +189,7 @@ material property.
 
 ---
 
-## 6. Physical Constants
+## 6. Physical constants
 
 All constants are CODATA 2018 exact values, defined once in `radiant.core.constants` and
 imported everywhere else.
@@ -207,7 +207,7 @@ $c \approx 3 \times 10^{8}$ m/s is forbidden.
 
 ---
 
-## 7. Parameter Naming
+## 7. Parameter naming
 
 Parameters are dot-paths of the form `namespace.parameter_name`, lowercase with
 underscores, mapping directly onto YAML nesting:

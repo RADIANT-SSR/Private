@@ -38,9 +38,9 @@ regenerates the workbook from the same values.
 |---|---|---|
 | Published $D^*$ | $2.00 \times 10^{11}$ Jones | The figure under test. "Jones" is cm·Hz$^{1/2}$/W. |
 | Published NETD | 25.0 mK | The second figure under test. |
-| Spectral band | 8.0 – 12.0 µm | The datasheet's stated LWIR passband. |
+| Spectral band | 8.0–12.0 µm | The datasheet's stated LWIR passband. |
 | Pixel pitch | 30 µm × 30 µm | Sets the detector area $A_d = 9.00 \times 10^{-6}$ cm². |
-| f-number | 2.0 | The datasheet's reference cold-stop f/#; realised as a 0.05 m aperture at 0.10 m focal length. |
+| f-number | 2.0 | The datasheet's reference cold-stop f/#; realized as a 0.05 m aperture at 0.10 m focal length. |
 | Scene temperature | 300 K, ε = 0.98 | The reference scene the NETD is quoted against. |
 | Integration time | 30 µs | The datasheet's reference dwell. It is short *because* the LWIR flux is intense. |
 | Quantum efficiency | 0.75 | Datasheet, band-average. |
@@ -75,7 +75,7 @@ The first converts a noise in electrons to a noise-equivalent optical power in w
 divide by the quantum efficiency to get from electrons to absorbed photons, multiply
 by the photon energy $hc/\lambda$ to get joules, divide by the integration time to
 get watts. The second is the definition of specific detectivity — detector area and
-noise bandwidth normalised out, so that arrays of different size and frame rate can
+noise bandwidth normalized out, so that arrays of different size and frame rate can
 be compared.
 
 The third is the one worth pausing on. $\Delta f = 1/(2 t_{int})$ is the **equivalent
@@ -161,7 +161,7 @@ approximation.
 
 ### Real output
 
-```
+```text
 ==========================================================================
 SCENARIO 6.1 — PUBLISHED-DATASHEET BENCHMARK (D*/NETD)
 ==========================================================================
@@ -214,7 +214,7 @@ noise term in the budget — the 60 e- read noise, the 3 e- of dark shot over 30
 is invisible in quadrature against photon shot noise. The system is **BLIP**,
 background-limited in performance.
 
-A datasheet's peak $D^*$ is a near-intrinsic figure: it characterises the *detector*,
+A datasheet's peak $D^*$ is a near-intrinsic figure: it characterizes the *detector*,
 measured under conditions chosen to expose the detector's own noise floor. A real
 system staring at a 300 K scene through an f/2 cold stop is not in that condition —
 it is drowning in scene photons — so its *system* detectivity is necessarily lower
@@ -291,7 +291,7 @@ The scenario ships a GUI-openable baseline of this configuration,
 `inputs/6.1_published_snr_benchmark.gui.yaml`, with its headline metrics snapshotted
 in the neighbouring `.gui.expected.json`. Opening it puts the same LWIR FPA in the
 window, where the Detector workspace's Noise tab shows the sixteen-term budget the
-`signal_e / snr` shortcut above summarises, and the Performance workspace reports the
+`signal_e / snr` shortcut above summarizes, and the Performance workspace reports the
 NETD directly. The scenario's `gui_workflow.md` specifies what a full benchmark
 workflow would add on top: a datasheet-import step, a side-by-side benchmark panel
 with the tolerance band shaded and a PASS/FAIL verdict — the content of

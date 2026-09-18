@@ -25,7 +25,7 @@ Evaluated — 500 wavelength points
 ```
 
 ![The main window on the minimal MWIR example: stage strip across the top, Parameters dock
-at the left, the Geometry workspace in the centre, and the persistent right rail with the
+at the left, the Geometry workspace in the center, and the persistent right rail with the
 pinned metric cards.](figures/gui/ug_window_anatomy.png)
 
 Four things are worth naming before anything else:
@@ -36,11 +36,11 @@ Four things are worth naming before anything else:
 - **The left dock is every parameter in the model**, as a tree, with a *Source* column
   saying where each value came from. `sensor_altitude_m` reads `8000 m` with a `config`
   badge because the file set it; the rows around it read `default`.
-- **The centre is one stage at a time.** Clicking a stage in the strip swaps the centre to
+- **The center is one stage at a time.** Clicking a stage in the strip swaps the center to
   that stage's workspace — its editable inputs, its computed outputs, its plots. The window
   opened on Geometry.
 - **The right rail is always there.** Five metric cards are pinned by default (SNR, NEDT,
-  NIIRS, GSD, MTF at Nyquist), below them the `Edit Config (YAML)` button and the Messages
+  NIIRS, GSD, MTF at Nyquist), below them the **Edit Config (YAML)** button and the Messages
   panel, and pinned at the bottom the accent **Evaluate** button with its `F5` label.
 
 ## 2. Read the answer

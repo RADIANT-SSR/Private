@@ -32,9 +32,9 @@ are the scripted half; the closing section points at them.
 
 | Quantity | Value | Why |
 |---|---|---|
-| Sensor altitude | 500 000 m | The procurement's sun-synchronous reference orbit. |
-| Path zenith angle | 20 deg | A representative off-nadir look, not a nadir best case. |
-| Slant range to target | 532 089 m | Carried in the config file; the altitude and look angle above imply it to within 0.5 %. |
+| Sensor altitude | 500,000 m | The procurement's sun-synchronous reference orbit. |
+| Path zenith angle | 20° | A representative off-nadir look, not a nadir best case. |
+| Slant range to target | 532,089 m | Carried in the config file; the altitude and look angle above imply it to within 0.5 %. |
 | Target projected area | 240 m² | A 30 m × 8 m hull, presented broadside. |
 | Target temperature | 288 K | Sea-surface temperature; the hull is in thermal equilibrium with it. |
 | Target emissivity | `steel` curve, band-average ε = 0.266 | RADIANT's library curve over 3.5–5.0 µm; the catalog wants a rust-specific curve, which does not exist. |
@@ -42,11 +42,11 @@ are the scripted half; the closing section points at them.
 | Aperture diameter | 0.30 m | Mid-point of the 0.15–0.45 m trade. |
 | Focal length | 0.75 m | Holds f/2.5 at the mid-point. |
 | Optical transmission | 0.85 | Scalar lump — this study does not model a coated train. |
-| Spectral band | 3.5 – 5.0 µm | MWIR cold-filter passband. |
+| Spectral band | 3.5–5.0 µm | MWIR cold-filter passband. |
 | Integration time | 0.005 s | 5 ms, a long dwell for a pushbroom but plausible for a staring frame. |
 | Pixel pitch | 15 µm × 15 µm | The vendor's InSb array. |
 | Quantum efficiency | 0.773476 | Band-average of the vendor's InSb QE curve over 3.5–5.0 µm. |
-| Dark rate | 50 000 e-/s at 77 K | Vendor figure at the cryogenic set point. |
+| Dark rate | 50,000 e-/s at 77 K | Vendor figure at the cryogenic set point. |
 | Read noise | 30 e- RMS | Vendor ROIC. |
 | Full well / gain / ADC | 8 × 10⁶ e- / 500 e-/DN / 14 bit | Vendor ROIC. |
 | Atmosphere | parametric, `midlat_summer`, maritime aerosol, 23 km visibility | Matched to the profile the MODTRAN column was run against. |
@@ -89,7 +89,7 @@ wavelength grid. The **target path** panel carries two curves: $\tau_{up}$, flat
 a little under half scale from 3.5 µm to about 4.9 µm and then falling off the
 5.0 µm filter edge, and $L_{path}$, the up-welling path radiance, climbing steadily
 across the band. The scenario's runner reports the in-band mean as
-$\bar\tau = 0.4594$ — a maritime MWIR column at 20 deg off nadir passes under half
+$\bar\tau = 0.4594$ — a maritime MWIR column at 20° off nadir passes under half
 the target's emission. The **background path** panel below repeats the exercise for
 the ground-to-sensor leg.
 
@@ -113,11 +113,11 @@ off — the three target-plane sample distances — because a ground scene *has*
 plane and every ground-projection metric applies.
 
 The viewing family sits in mode **V1**, `Path zenith at lower endpoint`. The three
-entered fields are `sensor_altitude_m` = 500 000 m, `target_altitude_m` = 0 m and
+entered fields are `sensor_altitude_m` = 500,000 m, `target_altitude_m` = 0 m and
 `path_zenith_rad` = 20 deg; `sensor_off_boresight_rad`, `ground_range_m`,
-`elevation_angle_rad` and `target_range_m` are greyed because they belong to *other*
+`elevation_angle_rad` and `target_range_m` are grayed because they belong to *other*
 doors of the same family, not because they are unavailable. The slant range reads
-532 089 m — 6 % longer than the 500 km altitude, which is the cost of a 20 deg look.
+532,089 m — 6 % longer than the 500 km altitude, which is the cost of a 20° look.
 
 In the Parameters dock on the left, five rows carry a `config` badge —
 `sensor_altitude_m`, `path_zenith_rad`, `target_range_m`, `target.projected_area_m2`
@@ -141,7 +141,7 @@ the angular extent that justifies it.](figures/gui/case_maritime_scene_regime.pn
 
 `Scene type (declared)` and `Regime override (force)` both read `sub_pixel`, and the
 Outputs list beneath reports `Regime tentative` = `sub_pixel`, projected area 240 m²,
-range 532 089 m, fill fraction 1, and — the number the declaration rests on — an
+range 532,089 m, fill fraction 1, and — the number the declaration rests on — an
 **angular extent of 2.91153 × 10⁻⁵ rad**, i.e. 29.1 µrad.
 
 That is the number to reason from. The diffraction-limited angular blur at this
@@ -158,7 +158,7 @@ The scenario's GUI workflow asks for this refusal to be surfaced inline, with th
 numeric ratio shown, rather than as a raw traceback. That advisory is still a gap; the
 numbers it would quote are the two on this page.
 
-### Step 4 — Give it a telescope, and watch the regime be finalised
+### Step 4 — Give it a telescope, and watch the regime be finalized
 
 Select stage **4 Optics**, tab **Inputs**.
 
@@ -197,7 +197,7 @@ Sixteen noise terms are computed; five are non-zero. In order:
 | `background_shot` | 1408 | The sea filling the rest of the pixel. |
 | `quantization` | 144.3 | $g/\sqrt{12}$ at 500 e-/DN. |
 | `read_noise` | 30 | Vendor ROIC. |
-| `dark_shot` | 15.81 | 50 000 e-/s over 5 ms. |
+| `dark_shot` | 15.81 | 50,000 e-/s over 5 ms. |
 | **Total (RSS)** | **2003** | |
 
 **Signal shot and background shot are the same size, and the figure lets you read why.**
@@ -222,10 +222,10 @@ Select stage **10 Performance**.
 evaluation.](figures/gui/case_maritime_performance.png)
 
 **Sampling / geometry.** GSD 10.59 m cross-track and 11.27 m along-track, geometric
-mean 10.93 m; ground range 1.68 × 10⁵ m; $Q$ = 0.7083 at band centre (0.5833 at the
+mean 10.93 m; ground range 1.68 × 10⁵ m; $Q$ = 0.7083 at band center (0.5833 at the
 short edge, 0.8333 at the long one), classified `detector-limited`; diffraction limit
 17.28 µrad, projecting to 9.152 m at the target. The two GSD axes are not equal, and
-the ratio is exactly the obliquity: $11.27 / 10.59 = 1.064 = 1/\cos 20^\circ$. A 20 deg
+the ratio is exactly the obliquity: $11.27 / 10.59 = 1.064 = 1/\cos 20^\circ$. A 20°
 look stretches the ground footprint in the plane of the tilt and leaves the
 perpendicular axis alone.
 
@@ -297,7 +297,7 @@ hull". The config — the scenario's runner and this GUI baseline alike — poin
 **ε = 0.266** over 3.5–5.0 µm, so the hull is ρ = 0.734 and strongly reflective in this
 band. The prose predates the emissivity-path wiring; ε = 0.95 is the schema's scalar
 default, not the value the run resolves. The numbers in the walkthrough's result table
-are from the real run and are unaffected; only that sentence's characterisation is.
+are from the real run and are unaffected; only that sentence's characterization is.
 
 One caveat carries into the proposal. The detection ranges above come from
 `detection_range_beer_lambert`, which extrapolates the reference-range SNR outward on
@@ -305,7 +305,7 @@ an extinction coefficient measured at 532 km. It is not a full chain re-evaluati
 each range, and it assumes that coefficient holds out past 2000 km, which curvature,
 refraction and the real atmospheric profile all say it does not. The GUI baseline does
 not publish a `detection_range_m` metric for this scene at all — the scenario's runner
-composes it. Treat those kilometres as a *relative* parametric-versus-MODTRAN
+composes it. Treat those kilometers as a *relative* parametric-versus-MODTRAN
 sensitivity, not as an operational range.
 
 ## The same study from a script

@@ -28,7 +28,7 @@ $\sqrt{S - S_{bg}}$ in the denominator overstates contrast SNR by large factors 
 the audit anchor).
 
 **Numeric anchor.** $S = 10000$, $S_{bg} = 5000$, $N_{dark} = 1000$ e-,
-$\sigma_{read} = 50$ e-, PRNU 0.1%: $\sigma_{tot} = 136.38$ e-, SNR $= 73.32$,
+$\sigma_{read} = 50$ e-, PRNU 0.1 %: $\sigma_{tot} = 136.38$ e-, SNR $= 73.32$,
 CSNR $= 36.66$.
 
 **In RADIANT.** `performance/snr.py::compute_snr`,
@@ -54,8 +54,8 @@ $\partial L_\lambda/\partial T$ the analytic Planck derivative
 a fallback `compute_nedt_from_snr` uses the SNR route when the derivative output is
 absent.
 
-**Pitfalls.** Paraxial étendue $A_d\pi/(4F_\#^2)$ vs exact $A_d\pi/(4F_\#^2+1)$ — 6.25%
-at $f/2$, 25% at $f/1$ (understates NEDT); finite-difference $\Delta T = 1$ K instead of
+**Pitfalls.** Paraxial étendue $A_d\pi/(4F_\#^2)$ vs exact $A_d\pi/(4F_\#^2+1)$ — 6.25 %
+at $f/2$, 25 % at $f/1$ (understates NEDT); finite-difference $\Delta T = 1$ K instead of
 the analytic derivative; energy-domain radiance without the $\lambda_m/hc$ photon factor;
 quoting mK NEDT that implies an impossible well fill (the audit's LWIR example: an $f/2$,
 1 ms configuration implies 800× a 100 ke- well — always sanity-check
@@ -151,7 +151,7 @@ value).
 $$N_{cyc} = \frac{d_c}{2\,\mathrm{IFOV}\,R_s}$$
 
 (the factor 2 converting pixels to cycles), compared against the Johnson thresholds
-(detect ≈ 1, recognize ≈ 4, identify ≈ 8 cycles, 50% probability). `johnson_range_m`
+(detect ≈ 1, recognize ≈ 4, identify ≈ 8 cycles, 50 % probability). `johnson_range_m`
 inverts for range at a given task. Minimum-resolvable temperature/contrast couple the MTF
 budget to NEDT/SNR thresholds.
 
@@ -175,7 +175,7 @@ reference range: the target's own shot variance in electrons is the signal itsel
 
 $$\sigma^2(R) = S(R) + N_0^2, \qquad N_0^2 = \sigma_{ref}^2 - S_{ref}$$
 
-with $N_0$ the target-free floor (background shot, dark, read, kTC, quantisation).
+with $N_0$ the target-free floor (background shot, dark, read, kTC, quantization).
 RADIANT solves
 
 $$\frac{S(R)}{\sqrt{S(R) + N_0^2}} = \mathrm{SNR}_{threshold}$$

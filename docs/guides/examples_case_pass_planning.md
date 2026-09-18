@@ -8,7 +8,7 @@ folder: `scenarios/03_raj_mission_planner/3.1_isr_pass_planning/`
 ## The question
 
 Raj tasks a sun-synchronous imager and has to defend a collection plan in a tasking
-review. The spacecraft flies at 600 km, can slew 45 deg off nadir, and the customer
+review. The spacecraft flies at 600 km, can slew 45° off nadir, and the customer
 will not accept imagery below NIIRS 6.0. Three questions come out of that:
 
 1. What are the orbit kinematics — period, ground speed, revisit rate — that set how
@@ -23,30 +23,30 @@ cannot produce a coverage rate on its own. The orbit model supplies the ground-t
 speed; the chain supplies the swath; `performance.access_rate` multiplies them.
 
 This chapter walks the image-quality half in the GUI on the scenario's committed
-baseline, `inputs/3.1_isr_pass_planning.gui.yaml`, which is the 30 deg off-nadir
+baseline, `inputs/3.1_isr_pass_planning.gui.yaml`, which is the 30° off-nadir
 nominal look. The angle sweep and the orbit arithmetic are the scripted half.
 
 ## The system, and why it is what it is
 
 | Quantity | Value | Why |
 |---|---|---|
-| Sensor altitude | 600 000 m | The mission orbit. |
-| Path zenith angle | 30 deg | The nominal look this baseline evaluates; the study sweeps 0–45 deg. |
-| Solar zenith angle | 35 deg | A mid-morning sun-synchronous descending pass. |
+| Sensor altitude | 600,000 m | The mission orbit. |
+| Path zenith angle | 30° | The nominal look this baseline evaluates; the study sweeps 0–45°. |
+| Solar zenith angle | 35° | A mid-morning sun-synchronous descending pass. |
 | Aperture diameter | 0.50 m | The instrument. |
-| Focal length | 6.0 m | f/12 — a long-focal-length imager, as a sub-metre GSD needs. |
+| Focal length | 6.0 m | f/12 — a long-focal-length imager, as a sub-meter GSD needs. |
 | Optical transmission | 0.85 | Scalar lump. |
-| Spectral band | 0.45 – 0.70 µm | Panchromatic visible. |
+| Spectral band | 0.45–0.70 µm | Panchromatic visible. |
 | Integration time | 0.0005 s | 0.5 ms — a fast pushbroom line time. |
 | Pixel pitch | 6.5 µm × 6.5 µm | Silicon detector. |
 | Cross-track pixel count | 8000 | The array width — this is what sets the swath. |
 | Quantum efficiency | 0.85 | Silicon in the visible. |
 | Target reflectance | 0.30 | A generic land scene. |
 | Dark rate | 50 e-/s at 280 K | Room-temperature silicon; negligible at 0.5 ms. |
-| Full well / gain / ADC | 30 000 e- / 8 e-/DN / 12 bit | A small-well visible ROIC. |
+| Full well / gain / ADC | 30,000 e- / 8 e-/DN / 12 bit | A small-well visible ROIC. |
 | Read noise | 20 e- RMS | Typical CMOS. |
 | Atmosphere | parametric, `us_standard` | No specific site; the generic column. |
-| Collection constraints | slew ≤ 45 deg, NIIRS ≥ 6.0 | The tasking rules the plan has to satisfy. |
+| Collection constraints | slew ≤ 45°, NIIRS ≥ 6.0 | The tasking rules the plan has to satisfy. |
 
 The two collection constraints are not RADIANT parameters — they are the customer's
 rules. What RADIANT supplies is the curve they are applied to.
@@ -57,7 +57,7 @@ rules. What RADIANT supplies is the curve they are applied to.
 
 Select stage **1 Geometry**, tab **Inputs**.
 
-![Geometry workspace, Inputs tab — the 600 km orbit looking 30 deg off nadir through the
+![Geometry workspace, Inputs tab — the 600 km orbit looking 30° off nadir through the
 V1 path-zenith mode.](figures/gui/case_pass_geometry.png)
 
 The scene-class card derives `Scene: space → ground (space_to_ground)`, and only the
@@ -65,9 +65,9 @@ three target-plane sample distances default off — a ground scene wants every
 ground-projection metric there is, which is exactly what a collection planner is after.
 
 The viewing family is in mode **V1**, `Path zenith at lower endpoint`. Raj entered
-`sensor_altitude_m` = 600 000 m and `path_zenith_rad` = 30 deg; `ground_range_m`,
-`target_range_m`, `elevation_angle_rad` and `sensor_off_boresight_rad` are greyed
-because this mode derives all four. That greyed-not-hidden idiom matters for a planner:
+`sensor_altitude_m` = 600,000 m and `path_zenith_rad` = 30 deg; `ground_range_m`,
+`target_range_m`, `elevation_angle_rad` and `sensor_off_boresight_rad` are grayed
+because this mode derives all four. That grayed-not-hidden idiom matters for a planner:
 the alternatives stay visible, so it is obvious that a pointing plan expressed as a
 *ground range* rather than an angle is available in another mode of the same family,
 not in another tool.
@@ -95,9 +95,9 @@ $\theta_o$ (path zenith), $\zeta_{low}$ (lower-endpoint zenith) and $\eta$ (off-
 is an individually revealable arc, unchecked here. They are separate toggles rather
 than one "show angles" switch because the angles differ from each other by fractions of
 a degree at LEO, and drawing all six at once is unreadable. Ticking $\theta_o$ and
-$\eta$ together is the quickest way to see that the 30 deg the config names at the
-*target* is not the 30 deg the spacecraft slews through at the *sensor* — they differ
-by the Earth-centre central angle.
+$\eta$ together is the quickest way to see that the 30° the config names at the
+*target* is not the 30° the spacecraft slews through at the *sensor* — they differ
+by the Earth-center central angle.
 
 The mode form is repeated on the right of this tab, so a pointing change can be made
 without leaving the picture: edit `path_zenith_rad` there and the schematic and the
@@ -107,7 +107,7 @@ metrics both move on the next debounce.
 
 Select stage **10 Performance**.
 
-![Performance workspace at 30 deg off nadir.](figures/gui/case_pass_performance.png)
+![Performance workspace at 30° off nadir.](figures/gui/case_pass_performance.png)
 
 **Sampling / geometry** is the group a collection planner lives in:
 
@@ -118,7 +118,7 @@ Select stage **10 Performance**.
 | GSD (geometric mean) | 0.7953 m |
 | Ground range | 3.123 × 10⁵ m |
 | Swath width | 5921 m |
-| $Q$ (band centre) | 1.062 |
+| $Q$ (band center) | 1.062 |
 | Sampling regime | near-critical |
 | Diffraction limit (angular) | 1.403 µrad |
 | Diffraction limit (at target) | 0.9585 m |
@@ -127,7 +127,7 @@ Three of those carry the whole argument. **Ground range 312 km** is how far
 cross-track this one look reaches — that is the corridor coordinate. **Swath width
 5921 m** is 8000 pixels of 0.7401 m cross-track GSD, and it is what will multiply the
 ground-track speed into a coverage rate. And the **GSD ratio**,
-$0.8546/0.7401 = 1.155 = 1/\cos 30^\circ$, is the obliquity stretch: a 30 deg look
+$0.8546/0.7401 = 1.155 = 1/\cos 30^\circ$, is the obliquity stretch: a 30° look
 lengthens the footprint in the plane of the tilt by exactly the secant, and leaves the
 perpendicular axis alone.
 
@@ -150,12 +150,12 @@ contrast term.
 
 **Interpretability.** MRT at Nyquist 0.4819 K, **NIIRS 6.381**, and
 `NIIRS (extrapolated): no` — this GSD is inside the GIQE-5 calibration range, so the
-rating is a real one rather than an extrapolated trend. At 30 deg the look clears the
+rating is a real one rather than an extrapolated trend. At 30° the look clears the
 6.0 floor by 0.38.
 
 **Saturation.** Well margin 14.48 dB, ADC margin 15.25 dB, dynamic range 51.71 dB. The
 margin is $20\log_{10}$ of capacity over filled charge, so 14.48 dB is a factor of 5.3 —
-the 30 000 e- well is about a fifth full on a 0.30-reflectance scene. Enough here, and
+the 30,000 e- well is about a fifth full on a 0.30-reflectance scene. Enough here, and
 worth watching over bright desert or cloud.
 
 ### Step 4 — Sweep the pointing angle
@@ -167,8 +167,8 @@ axis.](figures/gui/case_pass_sweep_axis.png)
 
 The dock, widened so the full dot-paths are legible, shows what will be swept and what
 will follow it. `geometry.path_zenith_rad` reads 30 deg with a `config` badge;
-`sensor_altitude_m` 600 000 m and `solar_zenith_rad` 35 deg are the other two `config`
-rows and are held. Everything greyed — `target.projected_area_m2`, the whole
+`sensor_altitude_m` 600,000 m and `solar_zenith_rad` 35 deg are the other two `config`
+rows and are held. Everything grayed — `target.projected_area_m2`, the whole
 `target.shape.*` family — belongs to target-extent modes this extended scene does not
 use.
 
@@ -188,7 +188,7 @@ The result, from the scenario's runner over the same range:
 | 30 | 0.80 | 6.38 | 72.7 | 312 | 5.9 |
 | 45 | 1.05 | 5.97 | 71.3 | 527 | 7.1 |
 
-The 30 deg row is the baseline this chapter evaluated, and the GUI's own numbers —
+The 30° row is the baseline this chapter evaluated, and the GUI's own numbers —
 GSD 0.7953 m, NIIRS 6.381, SNR 72.69, ground range 3.123 × 10⁵ m, swath 5921 m — are
 that row at full precision.
 
@@ -202,12 +202,12 @@ spacecraft traces one of radius $a = R_E + h$. Earth rotation is neglected, whic
 few-percent direction-dependent cross-term at LEO and adequate for coverage sizing.
 
 **Coverage**, composed from the two halves: nadir swath 5.2 km × 6.91 km/s gives an
-area-coverage rate of **35.9 km²/s**, or roughly 104 000 km² per daylight pass.
+area-coverage rate of **35.9 km²/s**, or roughly 104,000 km² per daylight pass.
 
 **The corridor, and the planning verdict.** NIIRS falls monotonically with off-nadir
-angle — 6.67 at nadir to 5.97 at 45 deg — and crosses the 6.0 floor at **42 deg**. The
-spacecraft can *slew* to 45 deg, reaching 527 km cross-track, but it can only *image at
-spec* out to 42 deg, which is a 478 km half-width. **Image quality, not agility, sets
+angle — 6.67 at nadir to 5.97 at 45° — and crosses the 6.0 floor at **42°**. The
+spacecraft can *slew* to 45°, reaching 527 km cross-track, but it can only *image at
+spec* out to 42°, which is a 478 km half-width. **Image quality, not agility, sets
 the usable access corridor**, and the last 3 degrees of slew buy reach the imagery
 cannot use.
 
@@ -216,17 +216,17 @@ Two mechanisms are worth separating, because they run opposite ways:
 - **GSD grows with off-nadir angle** roughly as $1/\cos^2$ — one factor from the
   lengthening slant range, one from the projection stretch — and drags NIIRS down with
   it through the GIQE-5 resolution term.
-- **SNR *rises* slightly off nadir**, from 72.0 at nadir to 72.8 at 15 deg, before
-  easing to 71.3 at 45 deg. The ground footprint per pixel grows faster than the
+- **SNR *rises* slightly off nadir**, from 72.0 at nadir to 72.8 at 15°, before
+  easing to 71.3 at 45°. The ground footprint per pixel grows faster than the
   slant-range path loss costs, so each pixel collects more photons from a sunlit
   extended scene. Image quality still degrades, because resolution and not SNR is the
   binding term: the GIQE-5 SNR contribution is $1.559\log_{10}(\mathrm{SNR})$, so a 2 %
   SNR change is 0.013 NIIRS against the 0.42 the slew itself costs.
 
-A caveat for the far end of the sweep: above about 42 deg the GSD passes outside the
+A caveat for the far end of the sweep: above about 42° the GSD passes outside the
 GIQE-5 calibration range and NIIRS extrapolation warnings fire. The runner opts into
 the extrapolated trend deliberately, and those tail values should be read as a relative
-trend. The floor crossing at 42 deg is inside the calibrated range, so the verdict does
+trend. The floor crossing at 42° is inside the calibrated range, so the verdict does
 not rest on an extrapolation.
 
 The regime throughout is **extended**: the sunlit surface fills the pixel, and the
@@ -242,7 +242,7 @@ python scripts/run_pass_planning.py
 
 The runner reads the mission constants transcribed from `inputs/raj_orbit_sensor.xlsx`,
 calls `radiant.core.orbit` for the kinematics, walks 16 pointing angles from 0 to
-45 deg through the chain, finds the NIIRS-floor crossing, composes the coverage rate
+45° through the chain, finds the NIIRS-floor crossing, composes the coverage rate
 through `radiant.performance.access_rate.compute_access_rate_m2_s`, and writes
 `outputs/fig1_offnadir_image_quality.png` and `outputs/fig2_access_corridor.png`.
 `scripts/gui_console_3.1_isr_pass_planning.py` is the same work as a paste-in for the

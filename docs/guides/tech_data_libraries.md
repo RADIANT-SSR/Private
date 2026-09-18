@@ -78,7 +78,7 @@ It is the illumination source for every reflective-regime scene.
 
 ---
 
-## 2. FPALibrary — 21 Presets
+## 2. FPALibrary — 21 presets
 
 An FPA preset is a curated set of `detector.*` and `readout.*` values taken from one
 vendor datasheet or paper, with **per-value attribution**: every number records the unit
@@ -165,7 +165,7 @@ preset, rendered by `scripts/gen_fpa_configs.py` and freshness-gated by a test.
 
 ---
 
-## 3. Atmosphere Library
+## 3. Atmosphere library
 
 The atmosphere tables are the largest shipped data product: NPZ spectra derived from a
 real MODTRAN 6 run matrix, packaged for the `tabulated` and `interpolated` models so a
@@ -210,7 +210,7 @@ outside a family's node coverage is refused with an actionable error naming the 
 it does have, rather than silently producing an invented atmosphere.
 
 Point `atmosphere.interpolated_data_dir` at your own directory of NPZ runs to use a
-private run matrix — the bundled catalogue is a convenience, not a constraint.
+private run matrix — the bundled catalog is a convenience, not a constraint.
 
 Full detail, including the family tables, the run provenance, and the known limitations,
 is in the shipped library's own manifest and README. Choosing between the five atmosphere
@@ -218,7 +218,7 @@ backends for a given scene is the subject of the repository's atmosphere-selecti
 
 ---
 
-## 4. Mission Templates
+## 4. Mission templates
 
 Not a data library in the same sense, but shipped in the same tree: nine complete,
 runnable mission configs at `radiant/data/templates/`, listed in the Command-Line

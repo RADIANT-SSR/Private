@@ -29,7 +29,7 @@ where the $10^{-6}$ lives.
 
 ---
 
-## The Chain at a Glance
+## The chain at a glance
 
 RADIANT models the end-to-end signal chain as ten sequential stages, the
 first of which resolves the scene geometry. Each stage is a pure function that transforms
@@ -56,7 +56,7 @@ at the end.
 
 ## Foundations
 
-### Planck Spectral Radiance
+### Planck spectral radiance
 
 **Equation.**
 
@@ -113,7 +113,7 @@ Constants come from `core/constants.py` (`two_hc2`, `hc_over_kB`; CODATA 2018).
 
 ---
 
-### Temperature Derivative of Planck Radiance — the NEDT Kernel
+### Temperature derivative of Planck radiance — the NEDT kernel
 
 **Equation.**
 
@@ -161,11 +161,11 @@ differences to $\leq 3\times 10^{-10}$ relative).
 `src/radiant/core/tests/test_blackbody.py::test_planck_dBdT_anchor_literal`
 and `test_dBdT_finite_difference`.
 
-**References.** [Planck 1901], [Holst], [CODATA 2018].
+**References.** [Planck 1901], [Holst 2008], [CODATA 2018].
 
 ---
 
-### Band-Integrated and Band-Averaged Radiance
+### Band-integrated and band-averaged radiance
 
 **Equation.**
 
@@ -214,11 +214,11 @@ W/m²/sr, consistent with blackbody band-fraction tables.
 stage integrates) · anchored by
 `src/radiant/source/tests/test_invert_band_radiance.py::TestForwardIntegralMonotone::test_forward_integral_absolute_anchor`.
 
-**References.** [Siegel & Howell §1.6], [Holst].
+**References.** [Siegel & Howell §1.6], [Holst 2008].
 
 ---
 
-### Brightness Temperature — Spectral (Monochromatic) Inversion
+### Brightness temperature — spectral (monochromatic) inversion
 
 **Equation.** Given spectral radiance $L$ [W/m²/sr/µm] at wavelength
 $\lambda$, the brightness temperature is the closed-form inverse of Planck:
@@ -267,11 +267,11 @@ building $L(\lambda) = B(\lambda, T_B(\lambda))$ pointwise:
 and `test_roundtrip_within_1e_4_kelvin`. The closed-form inverse above is the
 theory statement of what that round-trip test verifies.
 
-**References.** [Planck 1901], [NIST ITS-90], [Holst].
+**References.** [Planck 1901], [NIST ITS-90], [Holst 2008].
 
 ---
 
-### Band Radiance Temperature — Band-Integrated Inversion
+### Band radiance temperature — band-integrated inversion
 
 **Equation.** Given a measured band radiance $L_{\mathrm{meas}}$ [W/m²/sr]
 over $[\lambda_1, \lambda_2]$, the band radiance temperature $T_R$ solves
@@ -306,7 +306,7 @@ mismatch masquerades as a temperature bias (a 0.15 % radiance error is
   at band center — close for narrow bands, a systematic bias for wide bands
   (Planck is nonlinear across the band).
 - Solver bracket too narrow (e.g. [200, 400] K fails on hot targets).
-  RADIANT brackets [1, 10 000] K and raises an actionable error if
+  RADIANT brackets [1, 10,000] K and raises an actionable error if
   $L_{\mathrm{meas}}$ falls outside the image of the bracket.
 - Comparing per-µm to band-integrated units (W/m²/sr/µm vs W/m²/sr) — a
   $(\lambda_2 - \lambda_1)$ factor error.
@@ -333,7 +333,7 @@ anchored by
 
 ---
 
-### Graybody Emission (Scene Targets)
+### Graybody emission (scene targets)
 
 **Equation.**
 
@@ -393,11 +393,11 @@ point-source variant $I(\lambda) = A_t\, \varepsilon\, B(\lambda, T)$ is
 anchored by
 `src/radiant/source/tests/test_point_source.py::TestBlackbodyIntensitySource::test_basic_formula`.
 
-**References.** [Kirchhoff 1860], [Siegel & Howell §3], [Holst].
+**References.** [Kirchhoff 1860], [Siegel & Howell §3], [Holst 2008].
 
 ---
 
-### Kirchhoff-Derived Emissivity of Optical Elements
+### Kirchhoff-derived emissivity of optical elements
 
 **Equation.** For any optical element *inside the sensor*, emissivity is
 never an input — it is derived:
@@ -456,7 +456,7 @@ and `TestKirchhoffViolations::test_t_plus_r_exceeds_one`.
 
 ---
 
-### Top-of-Atmosphere Solar Irradiance
+### Top-of-atmosphere solar irradiance
 
 **Equation.**
 
@@ -525,7 +525,7 @@ difference — it is a shape parameter, not an energy one.
 
 ---
 
-### Reflected Solar Radiance
+### Reflected solar radiance
 
 **Equation.**
 
@@ -584,11 +584,11 @@ $E_{0,\mathrm{impl}}/1870$ before comparing implementation output against it.
 `src/radiant/source/tests/test_reflected.py::TestReflectedSolarSource::test_lambertian_noon_hand_calc`,
 `test_oblique_sun`, and `test_distance_scaling`.
 
-**References.** [Nicodemus 1977], [Holst], [ASTM E490].
+**References.** [Nicodemus 1977], [Holst 2008], [ASTM E490].
 
 ---
 
-### BRDF Normalization — Lambertian and Phong
+### BRDF normalization — Lambertian and Phong
 
 **Equation.** BRDF definition: $f_r(\omega_i, \omega_o) = dL_o / dE_i$
 [sr⁻¹]. Energy conservation requires
@@ -663,7 +663,7 @@ $(n+2)/(2\pi)$ hemispherical-integral normalization itself (as of 2026-07).
 
 ---
 
-### Point-Source Irradiance and Pixel Solid Angle
+### Point-source irradiance and pixel solid angle
 
 **Equation.** A point source of spectral intensity $I(\lambda)$ [W/sr/µm] at
 range $R$ [m] through path transmittance $\tau_{\mathrm{atm}}(\lambda)$
@@ -726,11 +726,11 @@ for GSD = 3 m at $R$ = 500 km: $\Omega_{\mathrm{pix}} = 3.60000000 \times
 and `test_hand_calculated_flat_source`. $\Omega_{\mathrm{pix}}$ is published
 by the optics stage (`optics/aperture.py`) as `Omega_pixel`.
 
-**References.** [Holst], [Wolfe & Zissis §1].
+**References.** [Holst 2008], [Wolfe & Zissis §1].
 
 ---
 
-### Sub-Pixel Fill Fraction and Radiance Mixing
+### Sub-pixel fill fraction and radiance mixing
 
 **Equation.** When the target's solid angle is smaller than the pixel's:
 
@@ -790,11 +790,11 @@ equation is the sub-pixel branch of
 `spectral_integration/stage.py::SpectralIntegrationStage.run`, anchored by
 `src/radiant/spectral_integration/tests/test_stage.py::test_EE_box_exempts_background_sub_pixel`.
 
-**References.** [Holst], RADIANT Source/Target System doc §3.
+**References.** [Holst 2008], RADIANT Source/Target System doc §3.
 
 ---
 
-### Photon Conversion — Spectral Power to Photoelectron Rate
+### Photon conversion — spectral power to photoelectron rate
 
 **Equation.** Photon energy $E_{\mathrm{ph}} = hc/\lambda_m$ [J]. The
 photoelectron rate from spectral power $\Phi(\lambda)$ [W/µm] at the detector
@@ -803,7 +803,7 @@ is
 $$\dot{n}_e = \int \mathrm{QE}(\lambda)\, \Phi(\lambda)\, \frac{\lambda_m}{h c}\, d\lambda \qquad \left[\mathrm{e^{-}/s}\right], \quad \lambda_m = \lambda \cdot 10^{-6}$$
 
 integrated over $\lambda$ in µm; total signal $N_e = \dot{n}_e \cdot
-t_{\mathrm{int}}$ [e⁻]. RADIANT packages the same physics as an
+t_{\mathrm{int}}$ [e-]. RADIANT packages the same physics as an
 aperture-referred spectral responsivity
 
 $$R(\lambda) = A_{\mathrm{ap}}\, \Omega_{\mathrm{pix}}\, \tau_{\mathrm{opt}}(\lambda)\, \mathrm{QE}(\lambda)\, \frac{\lambda_m}{h c} \qquad \left[\mathrm{e^{-}/s}\ \text{per}\ \text{W/m}^2\text{/sr/µm}\right]$$
@@ -812,7 +812,7 @@ with $R_{\mathrm{band}} = \int R(\lambda)\, d\lambda$ used for backward
 propagation ($L_{\mathrm{aperture}} = N_e / (R_{\mathrm{band}}\,
 t_{\mathrm{int}})$).
 
-**Symbols.** $\Phi(\lambda)$ [W/µm]; $\mathrm{QE}(\lambda)$ [e⁻/photon,
+**Symbols.** $\Phi(\lambda)$ [W/µm]; $\mathrm{QE}(\lambda)$ [e-/photon,
 dimensionless]; $\lambda_m/(hc)$ [photons/J] converts watts to photons/s;
 $t_{\mathrm{int}}$ [s]; $A_{\mathrm{ap}}$ [m²]; $\Omega_{\mathrm{pix}}$ [sr];
 $\tau_{\mathrm{opt}}$ [—].
@@ -847,7 +847,7 @@ gain scaling corrupts the Poisson statistics.
   converting to amperes.
 
 **Numeric anchor.** Monochromatic $\Phi = 10^{-12}$ W at $\lambda = 4$ µm
-with QE = 0.7: $\dot{n}_e = 1.40955264 \times 10^{7}$ e⁻/s (check:
+with QE = 0.7: $\dot{n}_e = 1.40955264 \times 10^{7}$ e-/s (check:
 $E_{\mathrm{ph}}(4\ \text{µm}) = 4.96611464 \times 10^{-20}$ J, and
 $0.7 \times 10^{-12}\,\mathrm{W} / 4.96611464 \times 10^{-20}\,\mathrm{J}$
 reproduces the rate).
@@ -860,11 +860,11 @@ and `band_integrated_responsivity` · anchored by
 `src/radiant/core/tests/test_responsivity.py::test_band_integral_closed_form_anchor`
 and `test_round_trip_recovers_known_radiance`.
 
-**References.** [Holst], [Janesick 2001], [CODATA 2018].
+**References.** [Holst 2008], [Janesick 2001], [CODATA 2018].
 
 ---
 
-## How the Foundations Feed the Chain
+## How the foundations feed the chain
 
 The ten stages consume the foundations above in a fixed order. Each stage is
 a pure function of the chain state and the parameters; all inter-stage data
@@ -918,10 +918,10 @@ the noise-equivalent radiance by the band-integrated $\partial B/\partial T$
 | Atmosphere | W/m²/sr/µm | W/m²/sr/µm | × τ_atm + L_path |
 | Optics | W/m²/sr/µm | W/m²/sr/µm (+ A_ap [m²], Ω_pix [sr] published) | × τ_opt |
 | Platform | — (radiometric pass-through) | EE_box [—] | PSF ensquared energy |
-| Spectral Integration | W/m²/sr/µm, m², sr, s | e⁻ | × A·Ω · QE · λ_m/hc · t_int, ∫dλ |
-| Detector | e⁻ | e⁻ RMS (noise terms) | noise model |
-| Readout | e⁻ | e⁻ (scaled), DN | × N_TDI · M_bin · N_coadd; ÷ gain |
-| Performance | e⁻ | dimensionless (SNR), K (NEDT), NIIRS | S/σ; σ_L / ∫(∂B/∂T)dλ |
+| Spectral Integration | W/m²/sr/µm, m², sr, s | e- | × A·Ω · QE · λ_m/hc · t_int, ∫dλ |
+| Detector | e- | e- RMS (noise terms) | noise model |
+| Readout | e- | e- (scaled), DN | × N_TDI · M_bin · N_coadd; ÷ gain |
+| Performance | e- | dimensionless (SNR), K (NEDT), NIIRS | S/σ; σ_L / ∫(∂B/∂T)dλ |
 
 Every row must check; integrating a per-µm density over µm is the only
 "conversion-free" collapse, and the two $10^{-6}$ factors in the chain

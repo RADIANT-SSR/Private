@@ -1,6 +1,6 @@
 # YAML Round-Trip
 
-RADIANT's document is a YAML file, and the GUI is one editor of it. The other editors are your
+RADIANT's document is a YAML file, and the application is one editor of it. The other editors are your
 text editor, the scripting window, and the CLI. This chapter is about moving between them
 without losing anything — which values travel, which do not, and why.
 

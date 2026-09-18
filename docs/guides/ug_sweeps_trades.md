@@ -1,8 +1,8 @@
-# Sweeps and Trade Studies in the GUI
+# Sweeps and Trade Studies in the Application
 
 A single evaluation answers "what does this design do". A trade study answers "what should this
-design be". The GUI carries four surfaces for the second question, and they answer four
-different shapes of it.
+design be". The application carries four surfaces for the second question, and they answer
+four different shapes of it.
 
 | Surface | Where | The question it answers |
 |---|---|---|
@@ -70,7 +70,7 @@ mutated by a trade study.
 
 ### 1.3 Reading and keeping the result
 
-A 1-D sweep draws a marked line; a 2-D sweep draws a colour mesh with a labelled colourbar —
+A 1-D sweep draws a marked line; a 2-D sweep draws a color mesh with a labeled colourbar —
 drawn on the real coordinate arrays, so a log-spaced axis places its cells correctly rather
 than smearing them across a linear extent. Both axes and the colourbar carry their units.
 
@@ -89,7 +89,7 @@ sweep = sensor.sweep("optics.aperture_diameter_m", values1, metric="snr", keep_r
 The emitted endpoints are the canonical values the sweep actually ran, in the unit you typed,
 so pasting the block into the scripting window (`Ctrl+Shift+P`) reproduces the plotted numbers
 exactly. This is the intended graduation path: configure the trade where it is easy to
-configure, then take it to a script when it needs to be repeatable, parameterised, or part of
+configure, then take it to a script when it needs to be repeatable, parameterized, or part of
 something larger.
 
 The last-run specification persists across dialog openings, so a loop you run several times a
@@ -139,7 +139,7 @@ Monte Carlo scaffold opened in the script editor — edit and Run
 
 That is a deliberate design choice rather than an unfinished feature: both of these are
 *programs*, not forms. A Monte-Carlo run is a distribution over tolerances plus whatever
-post-processing you want; a batch is a cartesian product of labelled axes plus a per-cell
+post-processing you want; a batch is a cartesian product of labeled axes plus a per-cell
 function that returns whatever you care about. Wrapping either in a dialog would fix choices
 that need to stay open, so the GUI teaches the API instead and hands you a working starting
 point bound to the sensor already on screen.
@@ -162,7 +162,7 @@ for name in mc.metric_names:
 If you have set none, it says that and shows you how — both the scripting call and the
 Tolerance section in any parameter editor dialog.
 
-The Batch scaffold is a `BatchRunner` skeleton with two labelled axes, an `evaluate` function,
+The Batch scaffold is a `BatchRunner` skeleton with two labeled axes, an `evaluate` function,
 and a pivot at the end; edit the axes to yours and run it.
 
 ## 5. Which surface for which trade

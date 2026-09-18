@@ -54,7 +54,7 @@ is what makes the comparison meaningful:
 - **The implied-parameter inversion is the diagnostic.** In the shot-noise limit
   $\mathrm{SNR} \propto \sqrt{\eta\,\tau\,t_{int}\,N_{TDI}}$, so a measured SNR can be
   inverted for the throughput product it implies. A residual that implies a physically
-  plausible $\eta\tau$ is a modelling assumption being wrong in a known direction; one
+  plausible $\eta\tau$ is a modeling assumption being wrong in a known direction; one
   that implies an impossible $\eta\tau$ would be a defect.
 
 **Provenance of the numbers below.** Every table in the four flagship sections is
@@ -63,9 +63,9 @@ scenario's committed `walkthrough.md`. Because the four scenarios run in under a
 second each on a vacuum path with no fenced data, they were re-run while this chapter
 was written: all four reproduce their committed tables. Two numbers of
 extra precision have moved since the walkthroughs were written and are flagged where
-they appear. Envelope and implied-throughput columns that the walkthroughs summarise
+they appear. Envelope and implied-throughput columns that the walkthroughs summarize
 in prose are quoted from a fresh run of `scripts/run_external_validation.py`, which is
-the script the dossiers are executable through, and are labelled as such.
+the script the dossiers are executable through, and are labeled as such.
 
 ---
 
@@ -85,9 +85,9 @@ civil service, and ESA publishes both its **radiometric requirement** and its
 ESA's SentiWiki mission pages ([S2-SW], `https://sentiwiki.copernicus.eu/web/s2-mission`)
 give, in Table 3, each band's reference radiance $L_{\text{ref}}$ [W/m²/sr/µm] and the
 SNR required at it; Table 4 gives the SNR measured on Sentinel-2C. Five bands are
-modelled — four VNIR silicon bands and one SWIR MCT band:
+modeled — four VNIR silicon bands and one SWIR MCT band:
 
-| Band | λ centre [nm] | FWHM [nm] | $L_{\text{ref}}$ [W/m²/sr/µm] | SNR required [-] | SNR measured, S2C [-] |
+| Band | λ center [nm] | FWHM [nm] | $L_{\text{ref}}$ [W/m²/sr/µm] | SNR required [-] | SNR measured, S2C [-] |
 |---|---:|---:|---:|---:|---:|
 | B2 | 492.7 | 64 | 128.00 | 154 | 162 |
 | B3 | 559.8 | 35 | 128.00 | 168 | — |
@@ -105,7 +105,7 @@ Each band is one config file in
 user-radiance spectrum equal to that band's $L_{\text{ref}}$ (`data/s2_msi_*_lref.csv`),
 propagated through `atmosphere.model: exo`. The regime is **extended** — a uniform
 scene fills the pixel footprint, so the ensquared-energy factor is unity and never
-applied. TDI is modelled as a 2-line charge sum, which is what the published
+applied. TDI is modeled as a 2-line charge sum, which is what the published
 "1 TDI stage for 2 lines" means radiometrically: signal doubles, one read. The line
 time follows from GSD and ground-track speed, $\approx 1.50$ ms for the 10 m bands.
 B11 differs in pixel pitch (15 µm) and in its QE assumption; nothing else changes
@@ -129,11 +129,11 @@ The assumption envelope and the shot-limit inversion, from
 
 | Band | Envelope, SNR [-] | Collected signal [e-] | Implied $\eta\tau$ from measured [-] |
 |---|---|---:|---:|
-| B2 | 188.0 – 308.6 | 65 615 | 0.153 |
-| B3 | 157.2 – 251.5 | 44 847 | — |
-| B4 | 145.0 – 232.6 | 38 506 | 0.341 |
-| B8 | 253.7 – 430.2 | 115 183 | — |
-| B11 | 263.6 – 375.3 | 110 810 | 0.091 |
+| B2 | 188.0–308.6 | 65,615 | 0.153 |
+| B3 | 157.2–251.5 | 44,847 | — |
+| B4 | 145.0–232.6 | 38,506 | 0.341 |
+| B8 | 253.7–430.2 | 115,183 | — |
+| B11 | 263.6–375.3 | 110,810 | 0.091 |
 
 ### What the residuals mean
 
@@ -142,11 +142,11 @@ Every band clears its requirement, several by a wide margin, and the prediction 
 expected and is the honest reading of the model: RADIANT is computing a photon-limited
 SNR with generous throughput assumptions, and it models no pixel-response
 non-uniformity, no detector striping, no calibration-transfer noise, and no
-quantisation of the on-ground processing chain — all of which are present in the flight
+quantization of the on-ground processing chain — all of which are present in the flight
 number.
 
 Of the three bands with a measured anchor, only **B4** has its measurement inside the
-declared envelope (175 sits comfortably in 145.0 – 232.6). B2's 162 and B11's 133 fall
+declared envelope (175 sits comfortably in 145.0–232.6). B2's 162 and B11's 133 fall
 *below* their envelopes, and the dossier resolves both by inversion rather than by
 widening the envelope after the fact:
 
@@ -215,8 +215,8 @@ Walkthrough table, verbatim:
 
 | Band | RADIANT NEdT, this config [mK] | Bracket [mK] | Spec [mK] | Measured [mK] |
 |---|---:|---|---:|---:|
-| B10 | 58 | 58 – 124 | ≤ 400 | 49 |
-| B11 | 52 | 52 – 89 | ≤ 400 | 52 |
+| B10 | 58 | 58–124 | ≤ 400 | 49 |
+| B11 | 52 | 52–89 | ≤ 400 | 52 |
 
 The re-run reproduces these to the digit the walkthrough rounds to: 58.07 mK
 (B10) and 52.02 mK (B11), against collected signals of $1.62 \times 10^{6}$ e- and
@@ -225,12 +225,12 @@ scene temperatures, from the same run of `scripts/run_external_validation.py`:
 
 | Band | Scene T [K] | Raw-CE prediction [mK] | Saturation-CE prediction [mK] | Measured [mK] | Well fill [-] |
 |---|---:|---|---|---:|---:|
-| B10 | 270 | 102.5 – 153.1 | 63.6 – 84.3 | 57 | 0.23 |
-| B10 | 300 | 90.3 – 124.1 | 58.0 – 71.3 | 49 | 0.35 |
-| B10 | 320 | 85.7 – 112.6 | 56.0 – 66.3 | 45 | 0.46 |
-| B11 | 270 | 76.3 – 103.4 | 55.0 – 68.6 | 60 | 0.32 |
-| B11 | 300 | 70.8 – 89.4 | 52.0 – 61.1 | 52 | 0.49 |
-| B11 | 320 | 68.9 – 83.9 | 51.0 – 58.3 | 51 | 0.62 |
+| B10 | 270 | 102.5–153.1 | 63.6–84.3 | 57 | 0.23 |
+| B10 | 300 | 90.3–124.1 | 58.0–71.3 | 49 | 0.35 |
+| B10 | 320 | 85.7–112.6 | 56.0–66.3 | 45 | 0.46 |
+| B11 | 270 | 76.3–103.4 | 55.0–68.6 | 60 | 0.32 |
+| B11 | 300 | 70.8–89.4 | 52.0–61.1 | 52 | 0.49 |
+| B11 | 320 | 68.9–83.9 | 51.0–58.3 | 51 | 0.62 |
 
 (The inner width of each bracket is the read-noise envelope: 260 e- RMS for the ROIC
 typical value, up to 1033 e- RMS when the 1000 e- electronics spec ceiling is RSS'd in.)
@@ -264,7 +264,7 @@ Verdict: CONSISTENT.
 MODIS is a 705 km whiskbroom scanner with a 17.78 cm aperture, a double-sided scan
 mirror completing a 1.4771 s revolution, 1354 frames per Earth scan, and separate
 focal planes at roughly 83 K for the short- and long-wave infrared. Aqua MODIS has a
-twenty-year on-orbit calibration record, which makes it the best-characterised thermal
+twenty-year on-orbit calibration record, which makes it the best-characterized thermal
 emissive band set in existence.
 
 ### The published anchors
@@ -277,10 +277,10 @@ NEdT specification; [XIONG-2023] Table 5 publishes the Aqua measured NEdT:
 
 | Band | λ range [µm] | $L_{\text{typ}}$ [W/m²/sr/µm] | NEdT spec [mK] | NEdT measured [mK] |
 |---|---|---:|---:|---:|
-| 20 | 3.660 – 3.840 | 0.45 | 50 | 20 |
-| 29 | 8.400 – 8.700 | 9.58 | 50 | 20 |
-| 31 | 10.780 – 11.280 | 9.55 | 50 | 20 |
-| 32 | 11.770 – 12.270 | 8.94 | 50 | 30 |
+| 20 | 3.660–3.840 | 0.45 | 50 | 20 |
+| 29 | 8.400–8.700 | 9.58 | 50 | 20 |
+| 31 | 10.780–11.280 | 9.55 | 50 | 20 |
+| 32 | 11.770–12.270 | 8.94 | 50 | 30 |
 
 Provenance: the MODIS TEB source-data dossier.
 
@@ -315,15 +315,15 @@ are all that participate.
 
 | Band | RADIANT photon/read floor [mK] | Spec [mK] | Measured [mK] | Implied detector noise $\sigma_{det}$ [e-] |
 |---|---|---:|---:|---:|
-| 20 | 8.10 – 10.56 | 50 | 20 | $7.4 \times 10^{3}$ |
-| 29 | 2.12 – 2.73 | 50 | 20 | $2.4 \times 10^{5}$ |
-| 31 | 1.76 – 2.27 | 50 | 20 | $4.4 \times 10^{5}$ |
-| 32 | 1.89 – 2.44 | 50 | 30 | $6.2 \times 10^{5}$ |
+| 20 | 8.10–10.56 | 50 | 20 | $7.4 \times 10^{3}$ |
+| 29 | 2.12–2.73 | 50 | 20 | $2.4 \times 10^{5}$ |
+| 31 | 1.76–2.27 | 50 | 20 | $4.4 \times 10^{5}$ |
+| 32 | 1.89–2.44 | 50 | 30 | $6.2 \times 10^{5}$ |
 
 The band-20 chain value at the scenario's central assumptions is ≈ 10 mK, reproduced
 on re-run as 10.27 mK. The floors for bands 29, 31, and 32 are computed pre-readout by
 `scripts/run_external_validation.py`, because those bands well-clip in the full chain
-at 300 K — a modelling limitation recorded in the scenario's own `gaps.md`, not a
+at 300 K — a modeling limitation recorded in the scenario's own `gaps.md`, not a
 physical statement about MODIS.
 
 The required ordering holds in every band: **floor < measured < spec**. That is the
@@ -340,15 +340,15 @@ would be done in.
 
 ---
 
-## 4. Landsat 9 OLI-2 — nine-band SNR with a modelled coating train
+## 4. Landsat 9 OLI-2 — nine-band SNR with a modeled coating train
 
 ### Mission context
 
 The Operational Land Imager 2 is a 135 mm four-mirror off-axis anastigmat pushbroom
 imager at 705 km, covering nine reflective bands from the 443 nm coastal-aerosol band
 to the 2.2 µm SWIR, with silicon PIN detectors for the VNIR and HgCdTe for the SWIR on
-a single 210 K focal plane, digitised to 14 bits. Requirements are published per band
-at a typical radiance $L_{\text{typ}}$, and on-orbit SNR has been characterised for
+a single 210 K focal plane, digitized to 14 bits. Requirements are published per band
+at a typical radiance $L_{\text{typ}}$, and on-orbit SNR has been characterized for
 both OLI and OLI-2.
 
 ### The published anchor
@@ -402,7 +402,7 @@ total noise, and dark charge stays under 180 e- per frame even in the SWIR.
 ### What the residuals mean
 
 **Verdict: CONSISTENT.** Every prediction clears its requirement, and every
-prediction-to-flight ratio lands in the 0.8 – 2.0× envelope that scenario 9.1
+prediction-to-flight ratio lands in the 0.8–2.0× envelope that scenario 9.1
 established for assumption-class $\eta\tau$ — with B7 at 2.04 sitting on the boundary.
 
 The two bands that land *below* flight are the informative ones. B1 (16 nm wide) and
@@ -441,7 +441,7 @@ far below the precision of any published comparison in the table above. The comm
 walkthrough is quoted as it stands, and the drift is recorded rather than absorbed.
 
 This is not a physics result — the equality is expected *by construction*, because
-materialising configuration N reproduces standalone N's effective document field for
+materializing configuration N reproduces standalone N's effective document field for
 field, so both sides drive the same deterministic chain. It is a regression guard on
 the configuration-set machinery, and it is the kind of check that catches a
 configured-row bug the physics tests would not. It has caught one already: the study
@@ -468,7 +468,7 @@ validated", and it is worth stating the narrow claim precisely:
   correctly identifies itself as a *bound* where the instrument is detector-limited
   (the MODIS section, claim 2).
 - **The direction of every residual is explained**, and the explanations are all of
-  one kind: RADIANT computes an idealised photon-limited performance, so it
+  one kind: RADIANT computes an idealized photon-limited performance, so it
   over-predicts flight SNR wherever the flight instrument carries non-uniformity,
   striping, or calibration-transfer noise that the model does not represent.
 
@@ -488,7 +488,7 @@ record. This section quotes its headline numbers; it does not replace it.
 **The run set.** 132 authored rows, of which **130 tape7 runs are delivered**, plus
 four ground-level flux sidecars = 134 artifacts. They span seventeen blocks: the six
 standard profiles at nadir, a zenith fan at 30°/45°/60°, partial columns, a
-visibility and water-vapour ladder, sky-irradiance runs, airborne and space sensor
+visibility and water-vapor ladder, sky-irradiance runs, airborne and space sensor
 geometries, thermal downwelling at the 48.2° diffusivity angle, a 5 × 5 horizontal-path
 grid from 5 km to 100 km range, and near-horizon probes out to 89.5°. Two rows — the
 refraction on/off calibration pair — remain unrun.
@@ -548,7 +548,7 @@ there is no line structure inside the seventeen calibrated regions, which under-
 up-looking MWIR thermal radiance by 25–40 % on columns deeper than 5 km. Alongside it:
 the visible and near-infrared sky is a provisional single-scatter model that
 under-predicts the daytime visible sky by roughly 2× near the horizon (and warns at
-runtime below 3 µm); refraction is unmodelled, worth about 0.5° of lift near the
+runtime below 3 µm); refraction is unmodeled, worth about 0.5° of lift near the
 horizon; and the visible band's opacity is right in total but mis-attributed between
 gas and aerosol, which matters to any product that separates the two.
 
@@ -581,7 +581,7 @@ The chain, step by step:
 | 7 | Electron rate, $\times\,\eta$ | 5.3951e+07 | e-/s/pixel/µm |
 | 8 | Signal over the band, $\times\,t_{int}$ | 539.508 | e- |
 | 9 | Shot noise $\sqrt{S}$ | 23.23 | e- RMS |
-| 10–12 | Dark / read / quantisation noise | 0.0 / 30.0 / 0.2887 | e- RMS |
+| 10–12 | Dark / read / quantization noise | 0.0 / 30.0 / 0.2887 | e- RMS |
 | 13 | Total noise (RSS) | 37.94 | e- RMS |
 | 14 | **SNR** | **14.22** | – |
 
@@ -595,7 +595,7 @@ closed-form expressions.
 
 What this anchor validates is the **arithmetic and unit handling** of the radiometric
 core: solid angle, collecting area, the photon-energy conversion $\lambda/hc$, the
-spectral integral, and the noise RSS. What it does not validate is any *modelling
+spectral integral, and the noise RSS. What it does not validate is any *modeling
 choice* — there is no atmosphere, no background, no spatial path, no real detector
 physics in it. It is the floor of the validation stack, not its ceiling.
 
@@ -603,40 +603,43 @@ physics in it. It is the floor of the validation stack, not its ceiling.
 
 ## 8. What validation does **not** yet cover
 
-> RADIANT's validated core is **extended-scene, vacuum-path radiometry from aperture
-> to electrons, plus the photon-and-read noise stack**: four flight instruments,
-> twenty bands, 443 nm to 12.3 µm, agreeing within the declared envelopes of their
-> unpublished parameters, on top of a hand-calculated arithmetic anchor good to
-> $7 \times 10^{-7}$. Outside that core, the evidence thins in five specific ways, and
-> none of them is closed by the chapter above. **First, nothing here validates the
-> spatial path against measurement.** No flight or laboratory MTF, ensquared-energy,
-> or NIIRS figure is anchored anywhere in the repository; the PSF/MTF dual-path
-> consistency check proves the two spatial paths agree with *each other* to 2e-2,
-> which is an internal-consistency guarantee and not an external one, and the one
-> scenario that compares predicted against "measured" MTF uses a synthetic
-> measurement. **Second, the atmosphere is validated against MODTRAN, not against the
-> sky.** It is a model-to-model comparison over one deck set, its residuals
-> are large where the register says they are large — 25–40 % on deep up-looking MWIR
-> columns, a factor of two on the near-horizon daytime visible sky, an order of
-> magnitude on 100 km MWIR horizontal arms — and no geometry outside the delivered run
-> matrix is measured at all. **Third, the flagship comparisons deliberately bypass the
-> atmosphere and the scene model**: all four run `atmosphere.model: exo` against a
-> stated at-aperture radiance, so there is no end-to-end validated case in which a
-> scene model, an atmosphere, and a sensor model are simultaneously under test against
-> a published number. **Fourth, the point-source and sub-pixel regimes have no external
-> anchor.** Every flagship is extended-scene; detection range, the Johnson criteria,
-> and the ensquared-energy coupling that governs sub-pixel targets are exercised by
-> scenarios but validated against no published instrument. **Fifth, the detector and
-> calibration models are datasheet-anchored, not measurement-anchored**: 1/f and
-> generation-recombination noise, inter-pixel capacitance, persistence, well
-> saturation, and the whole post-NUC calibration residual model rest on vendor
-> datasheet values and internal consistency, and the MODIS section above quantifies
-> exactly how much
-> that matters — MODIS's measured NEdT sits 10–40× above the photon floor RADIANT can
-> currently compute, and the detector-noise term that accounts for the difference is
-> named as an unknown rather than modelled. A reader deciding whether to trust a
-> RADIANT number should ask which of those five categories it falls in before asking
-> how many digits it printed.
+RADIANT's validated core is **extended-scene, vacuum-path radiometry from aperture to
+electrons, plus the photon-and-read noise stack**: four flight instruments, twenty bands,
+443 nm to 12.3 µm, agreeing within the declared envelopes of their unpublished
+parameters, on top of a hand-calculated arithmetic anchor good to $7 \times 10^{-7}$.
+
+Outside that core the evidence thins in five specific ways, and none of them is closed by
+the chapter above.
+
+1. **Nothing here validates the spatial path against measurement.** No flight or
+   laboratory MTF, ensquared-energy, or NIIRS figure is anchored anywhere in the
+   repository. The PSF/MTF dual-path consistency check proves the two spatial paths agree
+   with *each other* to 2e-2, which is an internal-consistency guarantee and not an
+   external one, and the one scenario that compares predicted against "measured" MTF uses
+   a synthetic measurement.
+2. **The atmosphere is validated against MODTRAN, not against the sky.** It is a
+   model-to-model comparison over one deck set. Its residuals are large where the register
+   says they are large — 25–40 % on deep up-looking MWIR columns, a factor of two on the
+   near-horizon daytime visible sky, an order of magnitude on 100 km MWIR horizontal arms
+   — and no geometry outside the delivered run matrix is measured at all.
+3. **The flagship comparisons deliberately bypass the atmosphere and the scene model.**
+   All four run `atmosphere.model: exo` against a stated at-aperture radiance, so there is
+   no end-to-end validated case in which a scene model, an atmosphere, and a sensor model
+   are simultaneously under test against a published number.
+4. **The point-source and sub-pixel regimes have no external anchor.** Every flagship is
+   extended-scene; detection range, the Johnson criteria, and the ensquared-energy
+   coupling that governs sub-pixel targets are exercised by scenarios but validated
+   against no published instrument.
+5. **The detector and calibration models are datasheet-anchored, not
+   measurement-anchored.** 1/f and generation-recombination noise, inter-pixel
+   capacitance, persistence, well saturation, and the whole post-NUC calibration residual
+   model rest on vendor datasheet values and internal consistency. The MODIS section above
+   quantifies exactly how much that matters: MODIS's measured NEdT sits 10–40× above the
+   photon floor RADIANT can currently compute, and the detector-noise term that accounts
+   for the difference is named as an unknown rather than modeled.
+
+A reader deciding whether to trust a RADIANT number should ask which of those five
+categories it falls in before asking how many digits it printed.
 
 Three further boundaries are worth stating in the same spirit, because they are
 properties of the *evidence*, not of the model:

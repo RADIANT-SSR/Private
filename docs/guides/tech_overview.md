@@ -14,7 +14,7 @@ constraint is stated in binding form.
 
 ---
 
-## 1. The Signal Chain
+## 1. The signal chain
 
 A RADIANT evaluation is one pass through ten stages, in a fixed order. The order is a
 physics statement, not a convenience: each stage consumes quantities the previous stages
@@ -26,11 +26,11 @@ published, and no stage reaches backwards.
 | 1 | `source` | `radiant.source` | Target/background temperature [K], emissivity [--], reflectance [--] | Target and background spectral radiance [W/m²/sr/µm], tentative regime |
 | 2 | `atmosphere` | `radiant.atmosphere` | Path geometry, atmosphere model selection | $\tau_\text{atm}(\lambda)$ [--], path radiance $L_\text{path}(\lambda)$ [W/m²/sr/µm] |
 | 3 | `optics` | `radiant.optics` | Aperture [m], focal length [m], wavefront error [waves], element train | Complex pupil, `EffectivePSF`, `MTF_optics`, throughput [--], **final regime** |
-| 4 | `platform` | `radiant.platform` | Jitter [µrad RMS], smear rate [rad/s], turbulence $C_n^2$ [m^(-2/3)] | Degraded `EffectivePSF`, jitter/smear/turbulence MTF, `EE_box` [--] |
-| 5 | `spectral_integration` | `radiant.spectral_integration` | All spectral arrays, QE($\lambda$) [--], $t_\text{int}$ [s] | Per-pixel signal [e⁻] — the spectral-to-scalar boundary |
-| 6 | `detector` | `radiant.detector` | Dark rate [e⁻/s], pixel pitch [µm], operating temperature [K] | Detector noise terms [e⁻ RMS], detector-aperture / diffusion / IPC MTF |
-| 7 | `readout` | `radiant.readout` | Read noise [e⁻ RMS], gain [e⁻/DN], ADC bits [--], TDI stages [--] | Digitized signal [DN], read/quantization noise [e⁻ RMS], TDI MTF |
-| 8 | `calibration` | `radiant.calibration` | Calibration scheme, NUC residual terms | Post-NUC residual noise [e⁻ RMS], bias budget [--] (fractional $\Delta L/L$) |
+| 4 | `platform` | `radiant.platform` | Jitter [µrad RMS], smear rate [rad/s], turbulence $C_n^2$ [$\mathrm{m}^{-2/3}$] | Degraded `EffectivePSF`, jitter/smear/turbulence MTF, `EE_box` [--] |
+| 5 | `spectral_integration` | `radiant.spectral_integration` | All spectral arrays, QE($\lambda$) [--], $t_\text{int}$ [s] | Per-pixel signal [e-] — the spectral-to-scalar boundary |
+| 6 | `detector` | `radiant.detector` | Dark rate [e-/s], pixel pitch [µm], operating temperature [K] | Detector noise terms [e- RMS], detector-aperture / diffusion / IPC MTF |
+| 7 | `readout` | `radiant.readout` | Read noise [e- RMS], gain [e-/DN], ADC bits [--], TDI stages [--] | Digitized signal [DN], read/quantization noise [e- RMS], TDI MTF |
+| 8 | `calibration` | `radiant.calibration` | Calibration scheme, NUC residual terms | Post-NUC residual noise [e- RMS], bias budget [--] (fractional $\Delta L/L$) |
 | 9 | `performance` | `radiant.performance` | Everything above | SNR [--], NEDT [K], NIIRS [--], system MTF [--], detection range [m] |
 
 The stage names in the first column are the literal keys of
@@ -41,7 +41,7 @@ Two ordering decisions in that table are load-bearing and are **not** free to ch
 
 - **`spectral_integration` sits between `platform` and `detector`.** Everything above it
   carries spectral arrays of length $N_\lambda$; everything below it carries per-pixel
-  scalars in e⁻ and DN. The collapse happens exactly once.
+  scalars in e- and DN. The collapse happens exactly once.
 - **`calibration` runs after `readout`, not before.** Post-NUC residual fixed-pattern
   terms are appended after TDI and coadd scaling, which is precisely what makes them
   structurally exempt from $\sqrt{N}$ averaging. Moving the stage earlier would silently
@@ -69,7 +69,7 @@ API layer and injected as pre-chain stage outputs. The full mechanism is in Part
 
 ---
 
-## 2. Radiometric Regimes
+## 2. Radiometric regimes
 
 RADIANT classifies every scene into one of three radiometric regimes, because the signal
 equation is genuinely different in each:
@@ -91,7 +91,7 @@ rule.
 
 ---
 
-## 3. The Dual Spatial Path
+## 3. The dual spatial path
 
 RADIANT maintains **two** parallel spatial descriptions, both rooted in the *same*
 complex pupil function. This is the single most frequently misunderstood part of the
@@ -156,7 +156,7 @@ enabled metric needs a spatial input — there is then no spatial computation to
 
 ---
 
-## 4. Geometry-First Design
+## 4. Geometry-first design
 
 Geometry is Stage 0, not a helper called from inside the radiometry. Every downstream
 stage that needs a range, an angle, a GSD, or a ground speed reads it from
@@ -189,13 +189,13 @@ orbit) use the same solver with no special cases.
 
 ---
 
-## 5. Units, Provenance, and the Stable Surface
+## 5. Units, provenance, and the stable surface
 
 **Units convert exactly once**, at a boundary: `params.set()` for user input, or a file
 reader for external data (the MODTRAN reader's $\times 10^4$ for W/cm² → W/m² is the
 canonical example). Inside a physics module, a `* math.pi / 180` or a `* 1e4` is a bug
 unless it is computing physics. Canonical internal units: wavelength in µm, angles in
-rad, time in s, length in m, radiance in W/m²/sr/µm, noise in e⁻ RMS. The next chapter
+rad, time in s, length in m, radiance in W/m²/sr/µm, noise in e- RMS. The next chapter
 gives the full table.
 
 **Provenance is mandatory and cannot be disabled.** Every `ChainResult` carries
@@ -216,7 +216,7 @@ package is internal.
 
 ---
 
-## 6. Where to Go Next
+## 6. Where to go next
 
 | You want to | Read |
 |-------------|------|

@@ -73,9 +73,9 @@ the orbit's LTAN plus target latitude and date into the solar zenith angle.
 |---|---|
 | Held GSD | 0.5 m (nadir) |
 | Pixel pitch | 6.5 µm |
-| Band | 450 – 700 nm (pan) |
-| Aperture sweep | 20 – 80 cm |
-| Altitude sweep | 400 – 600 km |
+| Band | 450–700 nm (pan) |
+| Aperture sweep | 20–80 cm |
+| Altitude sweep | 400–600 km |
 | Orbit / latitude | 10:30 LTAN sun-sync, 35 °N |
 | SNR spec | 50 |
 | Detector QE | Si CCD curve, digitized from a datasheet plot, band-averaged over 450–700 nm |
@@ -118,14 +118,14 @@ arrives as a JPL/NASA ASTER-library text file. The band decision is the delivera
 | Fire-mode integration | 5 µs (MWIR), 25 µs (LWIR) |
 | Scene clutter | 3 % of background (σ) |
 
-**Headline results.** At 600 K: MWIR pixel signal 228,529 e⁻ against LWIR 2,962,748 e⁻;
-contrast 220,998 e⁻ vs 1,217,206 e⁻; total noise 541.6 e⁻ RMS vs 52,411.7 e⁻ RMS, of
-which clutter is 225.9 and 52,366.3 e⁻ RMS respectively. **SCNR including clutter:
+**Headline results.** At 600 K: MWIR pixel signal 228,529 e- against LWIR 2,962,748 e-;
+contrast 220,998 e- vs 1,217,206 e-; total noise 541.6 e- RMS vs 52,411.7 e- RMS, of
+which clutter is 225.9 and 52,366.3 e- RMS respectively. **SCNR including clutter:
 408.0 (MWIR) vs 23.2 (LWIR)** — a 17× advantage. NEDT runs the other way, 229.9 mK
 (MWIR) vs 165.4 mK (LWIR), both carrying the single-wavelength NEDT caveat. Over a
 400–1200 K fire sweep, MWIR holds $P_d \approx 1$ throughout while **LWIR misses the
 400 K smolder outright** (SCNR 1.1, $P_d = 0.000$ against a 4.75σ threshold). MWIR
-saturates first, at ≈1200 K and ~98 % of the 4 Me⁻ well. Band-integrated radiance
+saturates first, at ≈1200 K and ~98 % of the 4 Me- well. Band-integrated radiance
 contrast at 600 K is nearly equal — 373.6 W/m²/sr (MWIR) vs 382.0 W/m²/sr (LWIR).
 
 **Regime.** `sub_pixel` — the 5 m² hotspot fills 31 % of the 16 m² pixel footprint, so
@@ -145,7 +145,7 @@ A GUI baseline ships.
 **Mission setup.** A VNIR panchromatic pushbroom imager on a 500 km sun-synchronous
 orbit: ground velocity caps the per-line integration at ~0.2 ms, so time-delay
 integration is what builds SNR. How many TDI stages, and where does the well stop the
-gain? (The concept started MWIR; a 300 K thermal scene saturates at $N_{TDI}=1$, which
+gain? (The concept started as MWIR; a 300 K thermal scene saturates at $N_{TDI}=1$, which
 is why TDI is fundamentally a VNIR technology.)
 
 **Key inputs.**
@@ -153,33 +153,30 @@ is why TDI is fundamentally a VNIR technology.)
 | Quantity | Value |
 |---|---|
 | Aperture / focal length | 25 cm / 250 cm (f/10) |
-| Band | 500 – 850 nm |
+| Band | 500–850 nm |
 | Pixel pitch / QE | 7.0 µm / 80 % |
-| Read noise / FWC | 15 e⁻ RMS / 60,000 e⁻ |
+| Read noise / FWC | 15 e- RMS / 60,000 e- |
 | Ground velocity / line period | 6954.2 m/s / 0.2013 ms |
 | GSD / Q | 1.40 m / 0.964 (undersampled) |
 | TDI mode / misalignment | analog / 0.1 pixel per stage |
-| $N_{TDI}$ sweep | 1 – 128 |
+| $N_{TDI}$ sweep | 1–128 |
 
-**Headline results.** Per-line signal 732 e⁻. SNR climbs 23.7 ($N=1$) → 107.2 ($N=16$)
-→ 216.0 ($N=64$) and **plateaus at 244.5** once the signal clips at the 60,000 e⁻ well
+**Headline results.** Per-line signal 732 e-. SNR climbs 23.7 ($N=1$) → 107.2 ($N=16$)
+→ 216.0 ($N=64$) and **plateaus at 244.5** once the signal clips at the 60,000 e- well
 — because there is no separable background photon term in an extended reflective
-scene, the noise caps at $\sqrt{FWC} \approx 245$ e⁻ too, so SNR flattens rather than
+scene, the noise caps at $\sqrt{FWC} \approx 245$ e- too, so SNR flattens rather than
 falling. Saturation onset is $N_{TDI}=96$ (100 % fill); $N_{TDI}=64$ runs at 78.1 %.
 NIIRS rises 4.62 → 6.21 over the same span (extrapolated GIQE-5 — the configuration is
 outside the calibration envelope). TDI misalignment MTF falls 0.9959 → 0.5508
 from $N=1$ to $N=128$ as registration error accumulates as $\sqrt{N}$. A calibration
 variant re-runs the sweep with a one-point NUC and 2 % pre-correction PRNU:
 the correlated floor caps SNR near **56** by $N_{TDI} \approx 16$–32, which **changes
-the design answer qualitatively** from "96 stages, SNR 245."
-
-*Internal inconsistency worth knowing:* the sweep table gives NIIRS 6.12 at
-$N_{TDI}=64$, while the Physics Discussion quotes 6.05 for the same point and twice
-names $N_{TDI}=64$ as the saturation onset the refreshed table puts at 96 — stale prose
-against a refreshed table.
+the design answer qualitatively** from "96 stages, SNR 245." *(The walkthrough's
+Physics Discussion quotes NIIRS 6.05 at $N_{TDI}=64$ against the sweep table's 6.12, and
+twice names $N_{TDI}=64$ as the saturation onset the refreshed table puts at 96.)*
 
 **Regime.** `extended` — a reflective ground scene fills the pixel, which is exactly
-why the saturation behaviour is a plateau and not a cliff.
+why the saturation behavior is a plateau and not a cliff.
 
 **Takeaway.** Thirty-two stages is the conservative sweet spot (NIIRS 5.89, 39 % well)
 — but only if the calibration residual is ignored. With a realistic one-point NUC the
@@ -203,7 +200,7 @@ RADIANT's spider-vane pupil masking (`optics.n_spiders`, `optics.spider_width_m`
 |---|---|
 | Aperture / f-number | 50 cm / f/12 |
 | Central obscuration | ε = 0.30 (linear) |
-| Spider arms | 4, 3 cm wide (baseline); swept 0 – 5 cm |
+| Spider arms | 4, 3 cm wide (baseline); swept 0–5 cm |
 | Band / altitude | VNIR pan, 500 km |
 
 **Headline results.** Three-configuration comparison: unobstructed SNR 75.1, EE_3×3
@@ -241,13 +238,13 @@ surface radiance times an area.
 | Quantity | Value |
 |---|---|
 | Aperture / f-number | 0.30 m / f/5 |
-| Band / integration | 3.5 – 5.0 µm / 10 ms |
+| Band / integration | 3.5–5.0 µm / 10 ms |
 | Pixel pitch | 15 µm (InSb-class) |
 | Target intensity | graybody: 290 K, 8 m² emitting area, ε = 0.85 |
 | Range | `geometry.target_range_m` = 729,287 m (explicit) |
 
-**Headline results.** Signal **20,939 e⁻**, **SNR 20.32**, **detection range (SNR = 6)
-1346.7 km**, sampling $Q$ at band centre 1.42. Signal scales linearly with emitting
+**Headline results.** Signal **20,939 e-**, **SNR 20.32**, **detection range (SNR = 6)
+1346.7 km**, sampling $Q$ at band center 1.42. Signal scales linearly with emitting
 area, emissivity and intensity, and inverse-square with range — the point-source camera
 equation. The blackbody point-intensity input reproduces an equivalent hand-built
 intensity CSV exactly.
@@ -271,12 +268,12 @@ physics-refresh sweep and carried a stale SNR for a month.
 
 Mike evaluates focal planes. His scenarios are noise budgets, ROIC architecture trades,
 and calibration floors — the questions where a vendor datasheet number and a fielded
-system's behaviour diverge.
+system's behavior diverge.
 
 ### 2.2 — 1/f Noise Corner Frequency in an LWIR Staring Array
 
 **Mission setup.** A 640×512 LWIR HgCdTe staring array with a measured flicker
-coefficient $K = 2.5\times10^{4}$ e⁻² and a corner frequency $f_c = 200$ Hz, operated at
+coefficient $K = 2.5\times10^{4}$ e-² and a corner frequency $f_c = 200$ Hz, operated at
 30, 60 and 120 Hz. How much does 1/f noise cost in NEDT, and how should the flicker
 band limits be set at each frame rate?
 
@@ -285,21 +282,21 @@ band limits be set at each frame rate?
 | Quantity | Value |
 |---|---|
 | Optics | 15 cm Ge objective, f/2, 85 % transmission, 20 °C |
-| Band | 8.0 – 10.0 µm |
-| Detector | 24 µm HgCdTe, QE 55 %, dark 5×10⁵ e⁻/s, read 350 e⁻ RMS |
-| FWC / integration | 20 Me⁻ / 100 µs (well-limited) |
+| Band | 8.0–10.0 µm |
+| Detector | 24 µm HgCdTe, QE 55 %, dark 5×10⁵ e-/s, read 350 e- RMS |
+| FWC / integration | 20 Me- / 100 µs (well-limited) |
 | Flicker band | $f_{low}$ = frame rate, $f_{high} = 1/(2 t_{int})$ = 5000 Hz |
 | Atmosphere | `exo` — short range, negligible path |
 
 **Headline results.** $\sigma_{1/f} = \sqrt{K \ln(f_{high}/f_{low})}$ gives 357.6, 332.5
-and 305.4 e⁻ RMS at 30, 60 and 120 Hz — a 4× frame-rate change moves it only 15 %,
+and 305.4 e- RMS at 30, 60 and 120 Hz — a 4× frame-rate change moves it only 15 %,
 because the dependence is logarithmic. NEDT with 1/f is **27.8 / 27.7 / 27.7 mK**
 against 27.4 mK without: a **0.3–0.4 mK, ~1 % penalty**. The 60 Hz noise budget reads
-`signal_shot` 2105.0 e⁻ RMS (92.5 % of variance), quantization 352.2, read 350.0,
-flicker 332.5, dark 7.1, for an RSS total of 2188.2 e⁻ RMS. Sweeping $f_{low}$ from
+`signal_shot` 2105.0 e- RMS (92.5 % of variance), quantization 352.2, read 350.0,
+flicker 332.5, dark 7.1, for an RSS total of 2188.2 e- RMS. Sweeping $f_{low}$ from
 1 Hz to 500 Hz moves NEDT only 28.00 → 27.55 mK. **RADIANT overestimates
 $\sigma_{1/f}$ by 64–170 %** because it integrates $K/f$ across the full band instead of
-capping at $f_c$ — capped values would be 217.8 / 173.5 / 113.0 e⁻ RMS. That is an open
+capping at $f_c$ — capped values would be 217.8 / 173.5 / 113.0 e- RMS. That is an open
 gap, stated plainly in the walkthrough.
 
 **Regime.** `extended` — the whole-FOV LWIR radiance field is one scene, so there is no
@@ -308,7 +305,7 @@ separate `background_shot` term, and `signal_shot` carries it.
 **Takeaway.** In a background-limited LWIR system 1/f noise is buried: the photon shot
 noise from a 293 K background swamps it. Mike does not need to negotiate the flicker
 spec. It would matter in read-noise-limited systems, below ~10 Hz frame rates, or with
-$K > 10^6$ e⁻² — none of which apply here.
+$K > 10^6$ e-² — none of which apply here.
 
 **Where to go deeper.** `scenarios/02_mike_detector_engineer/2.2_1f_noise_corner_frequency/`.
 A GUI baseline ships.
@@ -317,7 +314,7 @@ A GUI baseline ships.
 
 **Mission setup.** Five HgCdTe MWIR samples from one wafer lot, each with a different
 inter-pixel capacitance — a parasitic coupling that leaks charge to the four nearest
-neighbours after photon conversion. Mike has lab MTF and ensquared-energy measurements
+neighbors after photon conversion. Mike has lab MTF and ensquared-energy measurements
 on all five and needs to know how much IPC the system can tolerate.
 
 **Key inputs.**
@@ -325,9 +322,9 @@ on all five and needs to know how much IPC the system can tolerate.
 | Quantity | Value |
 |---|---|
 | Optics | 30 cm aperture, f/4, 72 % transmission |
-| Detector | 18 µm pitch, QE 72 %, dark 50 e⁻/s |
+| Detector | 18 µm pitch, QE 72 %, dark 50 e-/s |
 | Geometry | 500 km LEO, nadir; 310 K ground scene, 295 K background |
-| IPC sweep | 0 – 5 % per-neighbour coupling, 51 steps |
+| IPC sweep | 0–5 % per-neighbor coupling, 51 steps |
 | Requirements | MTF at Nyquist ≥ 0.15, EE 1×1 ≥ 0.60, SNR ≥ 100 |
 
 **Headline results.** Baseline (no IPC): MTF at Nyquist **0.2668**, SNR **782.84**,
@@ -363,18 +360,18 @@ scene that follows? First consumer of the multi-frame model
 
 | Quantity | Value |
 |---|---|
-| Prior bright exposure | 150,000 e⁻ |
-| Current scene | 20,000 e⁻ |
+| Prior bright exposure | 150,000 e- |
+| Current scene | 20,000 e- |
 | Residual fraction $f$ (frame 1) | 1.5 % |
 | Trap time constant τ | 50 ms |
 | Frame period | 16.67 ms (60 Hz) |
-| Gain (1 LSB) | 100 e⁻/DN |
+| Gain (1 LSB) | 100 e-/DN |
 
 **Headline results.** Residual decays as
-$\text{residual}(n) = \text{prior} \cdot f \cdot e^{-(n-1)\Delta t/\tau}$: 2250 e⁻
-(22.5 LSB) in frame 1, 828 e⁻ (8.3 LSB) at frame 4, 218 e⁻ (2.2 LSB) at frame 8, 11 e⁻
+$\text{residual}(n) = \text{prior} \cdot f \cdot e^{-(n-1)\Delta t/\tau}$: 2250 e-
+(22.5 LSB) in frame 1, 828 e- (8.3 LSB) at frame 4, 218 e- (2.2 LSB) at frame 8, 11 e-
 (0.1 LSB) at frame 17. **Frames to clear below 1 LSB: 11**, about 183 ms of dead time.
-Persistence *shot* noise is small — 47.4 e⁻ RMS in frame 1 against 300 e⁻ read noise —
+Persistence *shot* noise is small — 47.4 e- RMS in frame 1 against 300 e- read noise —
 so scene SNR barely moves, 59.0 → 58.4 (−1 %).
 
 **Regime.** No chain regime applies: this is a closed-form temporal sequence
@@ -383,14 +380,14 @@ calculation with no atmosphere, optics or chain radiometry in the loop.
 **Takeaway.** **The bias is the problem, not the noise.** A 22-LSB ghost image of the
 calibration source is false structure a detection algorithm will flag as real, and
 unlike random noise it does not average away — the only remedies are waiting out the
-eleven frames or subtracting a modelled ghost.
+eleven frames or subtracting a modeled ghost.
 
 **Where to go deeper.** `scenarios/02_mike_detector_engineer/2.4_persistence_bright_source/`.
 **No GUI baseline ships.**
 
 ### 2.5 — Well Capacity Optimization: Integration Time vs Dynamic Range
 
-**Mission setup.** A MWIR HgCdTe FPA (640×512, 15 µm pitch, 2 Me⁻ well) in an f/2
+**Mission setup.** A MWIR HgCdTe FPA (640×512, 15 µm pitch, 2 Me- well) in an f/2
 ground-based surveillance system looks at a scene containing both 200 K cold sky and
 1500 K jet exhaust. Mike needs one integration time that gives SNR ≥ 10 on the cold
 target without saturating on the hot one.
@@ -400,24 +397,24 @@ target without saturating on the hot one.
 | Quantity | Value |
 |---|---|
 | Aperture / focal length | 20 cm / 40 cm (f/2) |
-| Band | 3.5 – 5.0 µm |
-| Detector | QE 72 %, dark 100 e⁻/s, read 20 e⁻ RMS, FWC 2.0 Me⁻ |
-| ADC / gain | 14 bit / 130 e⁻/DN |
-| Sweep | 50 log-spaced $t_{int}$, 1 µs – 50 ms × 10 scene temperatures (200 – 1500 K) |
+| Band | 3.5–5.0 µm |
+| Detector | QE 72 %, dark 100 e-/s, read 20 e- RMS, FWC 2.0 Me- |
+| ADC / gain | 14 bit / 130 e-/DN |
+| Sweep | 50 log-spaced $t_{int}$, 1 µs – 50 ms × 10 scene temperatures (200–1500 K) |
 | Requirements | SNR ≥ 10 at 200 K; ≤ 70 % fill on hot targets; 90 % absolute limit |
 
 **Headline results.** SNR ≥ 10 on the 200 K target requires **$t_{int} \geq 103.2$ µs**
-(565 e⁻, SNR 11.6). At that integration the hottest scene staying under 90 % well fill
+(565 e-, SNR 11.6). At that integration the hottest scene staying under 90 % well fill
 is **400 K**; at 1 ms it has fallen to 300 K, barely above ambient. **1000 K and 1500 K
 saturate even at 1 µs.** The 200–1500 K dynamic range is therefore physically
 impossible in a single integration — a 1500 K blackbody radiates ~389× more in-band
-power than a 200 K one. The 1 ms noise budget at 200 K reads `signal_shot` 74.0 e⁻ RMS
-(75.2 % of variance), quantization 37.5 (19.3 %), read 20.0 (5.5 %), RSS 85.3 e⁻ RMS;
-at 400 K `signal_shot` is 1414.2 e⁻ RMS and 99.9 % of the variance.
+power than a 200 K one. The 1 ms noise budget at 200 K reads `signal_shot` 74.0 e- RMS
+(75.2 % of variance), quantization 37.5 (19.3 %), read 20.0 (5.5 %), RSS 85.3 e- RMS;
+at 400 K `signal_shot` is 1414.2 e- RMS and 99.9 % of the variance.
 
 **Regime.** `extended` — one radiance field, so no separate `background_shot` term. The
 walkthrough flags `nearfield_shot = 0` as a known scalar-mode limitation: warm-optics
-self-emission is not modelled, which under-predicts cold-target noise.
+self-emission is not modeled, which under-predicts cold-target noise.
 
 **Takeaway.** The requirement is not achievable and the tool says so cleanly. The cold
 end is where ROIC choices show up — a quarter of the 200 K noise variance is
@@ -431,18 +428,18 @@ A GUI baseline ships.
 
 **Mission setup.** Scenario 2.5 ended at a physical wall. A vendor offers a
 Senseeker-class digital-pixel ROIC for the same MWIR HgCdTe FPA: in-pixel 16-bit
-counters with 4.5 ke⁻ charge-subtraction packets and analog residue readout. What does
+counters with 4.5 ke- charge-subtraction packets and analog residue readout. What does
 that buy at the 1 ms cold-target working point?
 
 **Key inputs.**
 
 | Quantity | Analog | DROIC |
 |---|---|---|
-| Well / effective well | 2.0 Me⁻ | $2^{16} \times 4500$ = 294.9 Me⁻ |
-| Dead-time ceiling (5 MHz × 1 ms × 4500 e⁻) | — | 22.5 Me⁻ |
+| Well / effective well | 2.0 Me- | $2^{16} \times 4500$ = 294.9 Me- |
+| Dead-time ceiling (5 MHz × 1 ms × 4500 e-) | — | 22.5 Me- |
 | Governing bound at 1 ms | charge well | dead time |
-| ADC | 14 bit at 130 e⁻/DN | 14-bit residue, 0.275 e⁻/DN |
-| Read / counting-chain noise | 20 e⁻ RMS | 20 e⁻ RMS |
+| ADC | 14 bit at 130 e-/DN | 14-bit residue, 0.275 e-/DN |
+| Read / counting-chain noise | 20 e- RMS | 20 e- RMS |
 
 Shared: 20 cm f/2 optics, 3.5–5.0 µm, QE 72 %, 15 µm pitch, 1.0 ms integration.
 
@@ -451,7 +448,7 @@ SNR 1413.6 clipped, NEDT 34.56 mK on a clipped signal) while the DROIC delivers
 **SNR 3828.9 at 65.2 % fill and NEDT 12.76 mK** — a 2.7× better NEDT where the analog
 part has stopped measuring. In the unsaturated 200–300 K overlap the two are
 equivalent: SNR agrees within 0.8 %, NEDT within 0.3 mK, with the DROIC's residue
-quantization floor (0.079 e⁻ RMS) actually below the analog ADC's (37.5 e⁻ RMS).
+quantization floor (0.079 e- RMS) actually below the analog ADC's (37.5 e- RMS).
 Dynamic range at the matched 200 K point goes **76.3 dB → 97.4 dB (+21.1 dB)**. Above
 ~450 K the DROIC clips too, with `saturation_mechanism = "dead_time"`.
 
@@ -459,7 +456,7 @@ Dynamic range at the matched 200 K point goes **76.3 dB → 97.4 dB (+21.1 dB)**
 entirely in the readout architecture.
 
 **Takeaway.** **The dead-time ceiling, not the counter, is the DROIC's real limit** —
-22.5 Me⁻ is 7.6 % of the 294.9 Me⁻ counter capacity. The 2.5 requirement is still not
+22.5 Me- is 7.6 % of the 294.9 Me- counter capacity. The 2.5 requirement is still not
 met end to end, but the wall moved from 300 K to 400 K; covering 1500 K needs a faster
 comparator ($f_{max} \gtrsim 90$ MHz), a larger packet, or up/down mode.
 
@@ -481,13 +478,13 @@ nonlinearity, correction decay, and the blackbody source's own uncertainty.
 
 | Quantity | Value |
 |---|---|
-| Optics / band | 10 cm f/1.5, 8 – 12 µm, 85 % transmission |
-| Detector | 12 µm pitch, QE 65 %, dark 5×10⁵ e⁻/s at 60 K, read 350 e⁻ RMS, 20 Me⁻ well |
+| Optics / band | 10 cm f/1.5, 8–12 µm, 85 % transmission |
+| Detector | 12 µm pitch, QE 65 %, dark 5×10⁵ e-/s at 60 K, read 350 e- RMS, 20 Me- well |
 | Integration | 120 µs (~50 % fill at 300 K) |
 | Scheme / cal points | two-point NUC at 290 / 310 K |
 | Nonlinearity dispersion (1σ) | 1.0 % of full scale |
-| Pre-cal PRNU / DSNU (1σ) | 2.0 % / 300 e⁻ |
-| Drift | gain 0.005 %/hour; offset 720 e⁻/hour |
+| Pre-cal PRNU / DSNU (1σ) | 2.0 % / 300 e- |
+| Drift | gain 0.005 %/hour; offset 720 e-/hour |
 | Cal source | ε = 0.98, ΔT(1σ) = 0.5 K, Δε(1σ) = 0.005 |
 
 **Headline results.** The achieved NEDT is **exactly the temporal floor at the two cal
@@ -527,23 +524,23 @@ counter range on the pedestal. What does up/down buy, and what does it cost?
 | Quantity | Value |
 |---|---|
 | Aperture / focal length | 15 cm / 30 cm (f/2) |
-| Band | 3.5 – 5.0 µm |
+| Band | 3.5–5.0 µm |
 | Target | 500 K, ε = 0.9, 0.001 m² at 10 km |
-| Background (swept) | 250 – 330 K, ε = 0.95 |
+| Background (swept) | 250–330 K, ε = 0.95 |
 | Platform / atmosphere | 8 km altitude, mid-latitude summer |
 | Integration (up = down phase) | 50 ms |
-| Counter | 14 bit × 2000 e⁻/count |
-| `up` bound / `up_down` signed bound | 32.77 Me⁻ / 16.38 Me⁻ |
-| Counting-chain noise per phase | 5 e⁻ RMS |
+| Counter | 14 bit × 2000 e-/count |
+| `up` bound / `up_down` signed bound | 32.77 Me- / 16.38 Me- |
+| Counting-chain noise per phase | 5 e- RMS |
 
-**Headline results.** Target charge over the up phase is ≈4.86 Me⁻ (29.6 % of signed
-capacity); the pedestal grows 15.9 Me⁻ (250 K) → 88.9 Me⁻ (330 K). Plain `up` counting
+**Headline results.** Target charge over the up phase is ≈4.86 Me- (29.6 % of signed
+capacity); the pedestal grows 15.9 Me- (250 K) → 88.9 Me- (330 K). Plain `up` counting
 saturates at ~290 K background (113.6 % fill, usable SNR collapsing to 67.6 and then
 0.0); **`up_down` fill is background-independent at 29.6 % across the whole sweep**,
 with SNR 802.2 → 359.2 over 250 → 330 K. At 250 K, where both modes are clean, the
 up/down penalty is visible: **802.2 vs 1066.0, a ratio of 0.75** — between 1 and
-$1/\sqrt{2} = 0.707$, because the target's own shot noise (2203 e⁻ RMS) does not double,
-only the background terms do (`reference_shot` = 3984 e⁻ RMS at 250 K). At 290 K the
+$1/\sqrt{2} = 0.707$, because the target's own shot noise (2203 e- RMS) does not double,
+only the background terms do (`reference_shot` = 3984 e- RMS at 250 K). At 290 K the
 comparison inverts to an 8.6× usable-SNR advantage.
 
 **Regime.** A dim target over a bright common background, with the in-pixel background
@@ -562,7 +559,7 @@ names both phases.
 
 **Mission setup.** Every prior scenario began with Mike transcribing datasheet values
 by hand. For a MWIR airborne study he wants the part he is actually being offered — a
-Teledyne GeoSnap-18 — modelled from the FPA preset library that ships with RADIANT:
+Teledyne GeoSnap-18 — modeled from the FPA preset library that ships with RADIANT:
 one `fpa:` line, every value carrying its datasheet citation.
 
 **Key inputs.**
@@ -573,24 +570,24 @@ one `fpa:` line, every value carrying its datasheet citation.
 | Target temperature | 300 K | Mike |
 | Sensor altitude | 8000 m | Mike |
 | Aperture / focal length | 0.30 m / 1.20 m (f/4) | Mike |
-| Band / integration | 3.5 – 5.0 µm / 5 ms | Mike |
-| Dark rate | 5.0×10⁴ e⁻/s | Mike (explicit, by design) |
+| Band / integration | 3.5–5.0 µm / 5 ms | Mike |
+| Dark rate | 5.0×10⁴ e-/s | Mike (explicit, by design) |
 
 The preset supplies 18 µm pitch, 2048 cross-track pixels, 100 % fill factor, QE 85 %,
-110 K detector temperature, `analog_well` architecture, a 2.6 Me⁻ well, 400 e⁻ RMS ROIC
-noise, a 14-bit ADC at a derived full-scale-matched 158.7 e⁻/DN, and an 85 Hz frame
+110 K detector temperature, `analog_well` architecture, a 2.6 Me- well, 400 e- RMS ROIC
+noise, a 14-bit ADC at a derived full-scale-matched 158.7 e-/DN, and an 85 Hz frame
 period.
 
-**Headline results.** **SNR 1177.9**, readout architecture `analog_well`. The 400 e⁻ RMS
+**Headline results.** **SNR 1177.9**, readout architecture `analog_well`. The 400 e- RMS
 preset entry is the vendor's ROIC-only noise for the large well; the measured 13.2 µm
-science device shows 360 e⁻ RMS *system* read noise (Bowens et al. 2024), so the preset
+science device shows 360 e- RMS *system* read noise (Bowens et al. 2024), so the preset
 is honest to within 10 %. Quantization at the matched gain is $158.7/\sqrt{12} \approx
-45.8$ e⁻ RMS, small against 400 e⁻ read noise, and the full well digitizes
+45.8$ e- RMS, small against 400 e- read noise, and the full well digitizes
 warning-free. *The digest has only this one headline metric because the walkthrough
 reports only one* — no NEDT or spatial metric is quoted.
 
 **Regime.** `extended` — a 300 K scene fills the pixel and the chain is
-background-shot dominated; the binding capacity is the 2.6 Me⁻ charge well.
+background-shot dominated; the binding capacity is the 2.6 Me- charge well.
 
 **Takeaway.** The preset library is a provenance mechanism as much as a convenience:
 every value traces `fpa:geosnap-18/<source>`, the cited datasheet PDFs are kept
@@ -614,18 +611,18 @@ repeatedly find that the intuitive driver is not the binding one.
 
 **Mission setup.** A baselined MWIR reconnaissance sensor on a 500 km sun-synchronous
 orbit needs a weather go/no-go threshold. At what visibility does performance drop
-below the NIIRS ≥ 4.0 requirement, and how much does precipitable water vapour cost?
+below the NIIRS ≥ 4.0 requirement, and how much does precipitable water vapor cost?
 
 **Key inputs.**
 
 | Quantity | Value |
 |---|---|
 | Aperture / focal length | 30 cm / 120 cm (f/4) |
-| Band / target | 3.5 – 5.0 µm; 300 K target, 290 K background |
-| Detector | 18 µm pitch, QE 70 %, dark 150 e⁻/s, read 18 e⁻ RMS, 500 ke⁻ well |
+| Band / target | 3.5–5.0 µm; 300 K target, 290 K background |
+| Detector | 18 µm pitch, QE 70 %, dark 150 e-/s, read 18 e- RMS, 500 ke- well |
 | Integration / GSD | 1.0 ms / 7.5 m |
-| Visibility sweep | 2 – 100 km (25 points) at PWV 1.4 cm |
-| PWV sweep | 0.5 – 5.0 cm (15 points) at visibility 23 km |
+| Visibility sweep | 2–100 km (25 points) at PWV 1.4 cm |
+| PWV sweep | 0.5–5.0 cm (15 points) at visibility 23 km |
 | Requirement / goal | NIIRS ≥ 4.0 / ≥ 5.0 |
 
 **Headline results.** Across the **entire** 2–100 km visibility range, band-mean τ moves
@@ -634,7 +631,7 @@ moves 0.5932 → 0.4398 and NIIRS falls just **0.04** (SNR 508.7 → 481.3). All
 weather conditions from Arctic dry to heavy haze are **GO**; the whole 36-cell
 visibility × PWV grid spans 4.45–4.50 NIIRS. **No condition meets the NIIRS ≥ 5.0 goal**
 — the best case reaches 4.50. The baseline noise budget is 99.8 % `signal_shot`
-(502.0 e⁻ RMS of a 502.4 e⁻ RMS total, signal 252,041 e⁻). A real-MODTRAN cross-check
+(502.0 e- RMS of a 502.4 e- RMS total, signal 252,041 e-). A real-MODTRAN cross-check
 validates both axes: measured visibility response 23 → 5 km gives τ 0.555 → 0.511
 against the model's 0.552 → 0.526, and the PWV slope matches at −0.038 vs −0.039 per cm.
 
@@ -659,11 +656,16 @@ GSD; which meet the requirements; and where should each vendor invest to gain th
 interpretability? A composition scenario: the chain plus `giqe5_sensitivity`, no new
 model.
 
-**Key inputs.** Three vendor spec columns transcribed to a common workbook (PDF
-spec-sheet parsing is explicitly out of scope). Vendor A: 3.7–4.8 µm, balanced. Vendor
-B: 3.0–5.0 µm, fast f/3, large pixel, 77 K. Vendor C: 3.7–4.8 µm, 10 µm pixel behind
-f/5, warmer and lower-QE. Requirements: SNR ≥ 50, NIIRS ≥ 4.0, NEDT ≤ 50 mK, GSD ≤ 1.5 m,
-MTF at Nyquist ≥ 0.25.
+**Key inputs.**
+
+| Quantity | Value |
+|---|---|
+| Source | three vendor spec columns transcribed to a common workbook (PDF spec-sheet parsing is out of scope) |
+| Vendor A | 3.7–4.8 µm, balanced |
+| Vendor B | 3.0–5.0 µm, fast f/3, large pixel, 77 K |
+| Vendor C | 3.7–4.8 µm, 10 µm pixel behind f/5, warmer and lower-QE |
+| Common operating point | 600 km, 300 K extended scene, 8 ms |
+| Requirements | SNR ≥ 50, NIIRS ≥ 4.0, NEDT ≤ 50 mK, GSD ≤ 1.5 m, MTF at Nyquist ≥ 0.25 |
 
 **Headline results.**
 
@@ -706,10 +708,10 @@ nadir track.
 |---|---|
 | Aperture / focal length | 35 cm / 350 cm (f/10) TMA |
 | Obscuration / WFE | 20 % / 0.05 waves RMS at 633 nm |
-| Band / pitch / QE | 450 – 900 nm / 8 µm / 80 % |
+| Band / pitch / QE | 450–900 nm / 8 µm / 80 % |
 | Integration / altitude | 0.5 ms / 600 km, 10:30 LTAN, solar zenith 30° |
 | Nadir GSD / $Q$ | 1.37 m / 0.844 (slightly undersampled) |
-| Sweep | path zenith 0 – 45° in 5° steps |
+| Sweep | path zenith 0–45° in 5° steps |
 
 **Headline results.** Over 0 → 45°: slant range 600.0 → 814.8 km, air mass 1.0000 →
 1.3580, ground range 0 → **527.2 km**, band-mean τ 0.6594 → 0.5581 (−15.9 %). Cross-track
@@ -722,14 +724,9 @@ offsets it. Nadir diagnostics: NEDT 64.0 mK, Strehl 0.9065, RER 0.5372, EE 1×1 
 folded MTF at Nyquist 0.4544 with a 0.5000 alias fraction. RADIANT's `gsd_cross_track_m`
 and `gsd_along_track_m` now reproduce the scenario's independent spherical-Earth
 calculation on **both** axes to double-precision round-off (worst residual
-1.4 × 10⁻¹³ %).
-
-*Internal inconsistencies worth knowing:* the "Access vs Quality Trade" table carries
-an older NIIRS vintage (5.35 / 5.14 / 4.78 at 0 / 30 / 45°) than the sweep table above
-it (5.43 / 5.22 / 4.86); the gap-closure list quotes NIIRS 5.32 and well margin 27.6 dB
-against the metrics table's 26.9 dB; and one refresh note says "the NIIRS penalty at 45°
-is still −0.90" where the refreshed table reads −0.57. The digest quotes the sweep
-table, which is the most recently refreshed.
+1.4 × 10⁻¹³ %). *(The walkthrough's "Access vs Quality Trade" table, gap-closure list
+and one refresh note carry an older vintage — NIIRS 5.35 / 5.14 / 4.78, well margin
+27.6 dB, a −0.90 penalty at 45° — against the refreshed sweep table quoted here.)*
 
 **Regime.** `extended` — one reflective radiance field, hence no separate
 `background_shot` term.
@@ -756,10 +753,10 @@ the NEDT and MRT-at-Nyquist metrics, and an analytic solar-versus-thermal compar
 | Scene | 295 K target against 288 K terrain (ΔT = 7 K) |
 | Platform | 3 km AGL airborne, tropical atmosphere |
 | Water column | 4.1 cm precipitable water — **set explicitly**, not implied by the profile |
-| Bands | MWIR 3.5 – 5.0 µm and LWIR 8 – 12 µm |
+| Bands | MWIR 3.5–5.0 µm and LWIR 8–12 µm |
 | Optics / pitch | f/4, 30 µm pixels |
-| Integration / well | 0.2 ms / 1×10⁷ e⁻ — sized so neither band saturates |
-| Terrain envelope | NOAA LST strip, 287.6 – 288.6 K |
+| Integration / well | 0.2 ms / 1×10⁷ e- — sized so neither band saturates |
+| Terrain envelope | NOAA LST strip, 287.6–288.6 K |
 
 **Headline results.** MWIR: SNR 375.7, contrast SNR 38.1, NEDT 72.5 mK (ΔT/NEDT = 97×),
 MRT at Nyquist 0.399 K. LWIR: SNR 2773.3, contrast SNR 101.0, NEDT 21.6 mK
@@ -768,7 +765,7 @@ LWIR wins on every figure, as the ~10 µm Planck peak of a 290 K scene implies. 
 independence, band-integrated thermal against a daytime reflected-solar upper bound:
 MWIR 1.379 vs 0.305 W/m²/sr (**×5**), LWIR 32.60 vs 0.0331 W/m²/sr (**×986**). Across
 the terrain envelope MWIR contrast SNR stays ≥ 34 (34.6 at the hottest background, 40.4
-at the coolest) and LWIR spans 89.3 – 108.8.
+at the coolest) and LWIR spans 89.3–108.8.
 
 **Regime.** `extended` thermal self-emission, with `source.contrast_reference` set to
 the 288 K terrain so `contrast_snr` is a true two-pixel differential with combined
@@ -842,7 +839,7 @@ spectrally shaped curve, and a three-point quote sheet.
 
 | Quantity | Value |
 |---|---|
-| Sensor / band | airborne LWIR FLIR at 3 km, 8 – 12 µm |
+| Sensor / band | airborne LWIR FLIR at 3 km, 8–12 µm |
 | Bare vehicle | oxidized steel, ASTER library, ε ≈ 0.80 |
 | Net A | broadband metalized weave, mean ε ≈ 0.60 |
 | Net B | spectrally shaped — low 8–10 µm, high 10–12 µm |
@@ -851,7 +848,7 @@ spectrally shaped curve, and a three-point quote sheet.
 
 **Headline results.**
 
-| Option | Contrast [e⁻] | SCNR | Well fill [%] | Signature reduction |
+| Option | Contrast [e-] | SCNR | Well fill [%] | Signature reduction |
 |---|---:|---:|---:|---:|
 | Bare vehicle | +1,851,019 | 1283.5 | 32.3 | — |
 | Net A (ε ≈ 0.60) | −509,543 | 353.3 | 12.6 | 72.5 % |
@@ -871,7 +868,7 @@ emissivity enters through the tabulated-radiance path
 input of its own.
 
 **Takeaway.** **Camouflage is radiance matching, not emission lowering.** The intuitive
-low-ε choice over-corrects: Net A at ε = 0.60 reads distinctly *cold* (−510 k e⁻), a
+low-ε choice over-corrects: Net A at ε = 0.60 reads distinctly *cold* (−510 k e-), a
 large negative contrast an $|contrast|$ detector sees just as well as a hot one. Net C,
 whose high flat emissivity sits near the scrub's 0.96, cuts the signature 95.5 %. And no
 net defeats detection at 3 km — they reduce signature, which is the operational metric.
@@ -891,7 +888,7 @@ is input data; no new framework model is involved.
 
 | Quantity | Value |
 |---|---|
-| Sensor / band / altitude | LWIR, 8 – 12 µm, 3 km AGL |
+| Sensor / band / altitude | LWIR, 8–12 µm, 3 km AGL |
 | Target | painted metal, ε = 0.92, low thermal inertia (large early swing) |
 | Background | soil, ε = 0.95, higher inertia (smaller lagged swing) |
 | Profile | measured 24-hour CSV, sampled every 0.5 h |
@@ -935,7 +932,7 @@ small warm ground target? Second consumer of the D*/NEP/NETD converter set
 | Target | 1 m, ΔT = 4 K against background |
 | Frame time | 16 ms (the bolometer thermal time constant) |
 | Detection floor | 4 × NETD = 200 mK (recognition-grade) |
-| Altitude sweep | 1 – 11 km |
+| Altitude sweep | 1–11 km |
 
 **Headline results.** Converter outputs: $dP/dT = 1.515 \times 10^{-10}$ W/K,
 $NEP = 7.576 \times 10^{-12}$ W, $D^* = 1.254 \times 10^{9}$ Jones — the textbook order
@@ -984,10 +981,10 @@ against sensitivity while meeting every requirement?
 | Quantity | Value |
 |---|---|
 | Aperture / f-number | 30 cm / f/4 |
-| Band / geometry | 3.5 – 5.0 µm / 500 km LEO, nadir |
+| Band / geometry | 3.5–5.0 µm / 500 km LEO, nadir |
 | Airy disk at 4.25 µm | 41.6 µm ($2.44\,\lambda\,f/\#$) |
 | Pitch candidates | 8, 12, 15, 18, 24, 30 µm, each with matched vendor specs |
-| Matched-spec span | QE 70 → 68 %, dark 15 → 120 e⁻/s, FWC 40 ke⁻ → 2.5 Me⁻, read 8 → 28 e⁻ RMS |
+| Matched-spec span | QE 70 → 68 %, dark 15 → 120 e-/s, FWC 40 ke- → 2.5 Me-, read 8 → 28 e- RMS |
 | Requirements | GSD < 10 m, MTF at Nyquist ≥ 0.10, EE 1×1 ≥ 0.30, SNR ≥ 100 |
 
 **Headline results.** Across 8 → 30 µm: $Q = \lambda\,(f/\#)/p$ runs 2.12 → 0.57,
@@ -1021,7 +1018,7 @@ this scenario's own.)
 **Mission setup.** With the 18 µm pitch chosen in 5.2, is the spatial analysis that
 chose it even accurate? Diffraction scales linearly with wavelength, so across a
 3.5–5.0 µm band — a 43 % span — the Airy diameter grows 34.2 → 48.8 µm. Does a
-monochromatic PSF at band centre give the right spatial metrics, or is a
+monochromatic PSF at band center give the right spatial metrics, or is a
 flux-weighted polychromatic PSF required?
 
 **Key inputs.**
@@ -1029,7 +1026,7 @@ flux-weighted polychromatic PSF required?
 | Quantity | Value |
 |---|---|
 | Optics / pitch | f/4, 18 µm (the 5.2 selection) |
-| Band | 3.5 – 5.0 µm |
+| Band | 3.5–5.0 µm |
 | Per-λ probes | 3.5, 4.0, 4.25, 4.5, 5.0 µm in ±50 nm narrow bands |
 | PSF model | `optics.psf_n_wavelengths` = 1 (mono), 5, 11, 21 |
 | Weighting | in-band **photon** spectral flux of the 300 K scene |
@@ -1051,7 +1048,7 @@ against the table's 0.8 % — stale prose against a refreshed table.)*
 extended regime SNR depends on total signal and noise, not PSF shape.
 
 **Takeaway.** **Monochromatic analysis always overstates, never understates**, and
-by a knowable amount: band centre is sharper than the flux-weighted average, and a
+by a knowable amount: band center is sharper than the flux-weighted average, and a
 thermal source's in-band photon flux is biased toward the long-wavelength end.
 The error concentrates entirely in the single-pixel metrics — EE 1×1 and MTF at
 Nyquist — which is exactly where point-source detection sensitivity lives.
@@ -1074,13 +1071,13 @@ approximation — the jitter kernel convolves into the `EffectivePSF` and
 |---|---|
 | Aperture / focal length | 50 cm / 500 cm (f/10) |
 | Obscuration / WFE | 30 % / 0.05 waves RMS |
-| Band / pitch / QE | 450 – 700 nm / 8 µm / 85 % |
-| Integration / FWC | 0.5 ms / 100,000 e⁻ |
+| Band / pitch / QE | 450–700 nm / 8 µm / 85 % |
+| Integration / FWC | 0.5 ms / 100,000 e- |
 | GSD / $Q$ / IFOV | 0.80 m / 0.72 (undersampled) / 1.6 µrad |
-| Jitter sweep | 0 – 5.0 µrad, 51 points |
+| Jitter sweep | 0–5.0 µrad, 51 points |
 | Thresholds | ΔNIIRS = −0.5, ΔNIIRS = −1.0, absolute NIIRS = 6.0 |
 
-**Headline results.** Baseline signal 2109 e⁻ (2.1 % well), noise 46.2 e⁻ RMS of
+**Headline results.** Baseline signal 2109 e- (2.1 % well), noise 46.2 e- RMS of
 which `signal_shot` is 98.6 %, and — from the refreshed sweep — zero-jitter
 MTF at Nyquist 0.2186, RER 0.5724, NIIRS 6.03. **SNR is exactly 45.6 at all 51
 sweep points, spread 0.0000**: jitter blurs the image without removing a photon, so
@@ -1090,12 +1087,9 @@ at Nyquist falls 1.0000 → 0.1455 (1 µrad) → 0.0072 (1.6 µrad, one full IFO
 0.5724 → 0.4013 → 0.1193 at 5 µrad; NIIRS 6.03 → 5.52 → 3.77. The budget lines are
 **1.0 µrad for ΔNIIRS = −0.5, 1.8 µrad for −1.0, and 0.2 µrad for the absolute
 NIIRS = 6.0 floor**. Past ~2.6 µrad RER drops below 0.20 and the NIIRS tail is
-extrapolated GIQE-5 output.
-
-*Internal inconsistencies worth knowing:* the "Baseline Results" box (MTF 0.2330,
-RER 0.5483, NIIRS 5.97) and a paragraph asserting "the NIIRS = 6.0 floor is no longer
-reachable at any jitter" are of an earlier vintage, contradicting the refreshed sweep
-and threshold tables above them. The digest quotes the refreshed tables.
+extrapolated GIQE-5 output. *(The walkthrough's "Baseline Results" box — MTF 0.2330,
+RER 0.5483, NIIRS 5.97 — and its claim that the NIIRS = 6.0 floor is unreachable at any
+jitter are of an earlier vintage than the refreshed tables quoted here.)*
 
 **Regime.** `extended` — a reflective ground scene fills the pixel, which is why SNR
 is jitter-invariant. For point-source detection jitter *would* cost per-pixel SNR;
@@ -1122,24 +1116,24 @@ rooftop (ρ = 0.30) against vegetation (ρ = 0.15) from 7 km.
 
 | Quantity | Value |
 |---|---|
-| Optics / band | 15 cm f/6 / 0.5 – 0.8 µm |
+| Optics / band | 15 cm f/6 / 0.5–0.8 µm |
 | Platform / illumination | airborne 7 km, solar zenith 30° |
 | Target / background reflectance | 0.30 / 0.15 |
 | Stray mode 1 | `veiling_glare`, VGI = 3 % |
 | Stray mode 2 | `absolute_irradiance`, 2.5 W/m² out-of-field |
-| Well | 3.0 × 10⁵ e⁻ (target pixel saturates) |
+| Well | 3.0 × 10⁵ e- (target pixel saturates) |
 | Budget | ΔNIIRS ≤ 0.2 **and** contrast SNR ≥ 50 |
 
 **Headline results.** Clean: SNR 546.7, contrast SNR 217.4, NIIRS 11.052. **3 %
-veiling glare** adds 2.92 × 10⁴ stray e⁻ → SNR 522.0, contrast SNR 208.6, ΔNIIRS
-**−0.031**. **The 2.5 W/m² out-of-field term** adds 5.52 × 10⁶ stray e⁻ — several
+veiling glare** adds 2.92 × 10⁴ stray e- → SNR 522.0, contrast SNR 208.6, ΔNIIRS
+**−0.031**. **The 2.5 W/m² out-of-field term** adds 5.52 × 10⁶ stray e- — several
 times the signal itself — taking SNR to 124.3, contrast SNR to 49.4 and ΔNIIRS to
 **−1.003**, a full NIIRS level. Tolerance: VGI can rise to **~10 %** before either
 budget clause breaks. The scenario also found and fixed the `veiling_glare` mode:
 it had scaled in-FOV irradiance by the *pixel IFOV* solid angle instead of the
 *f-cone*, under-reporting stray by ~10⁷–10⁸ so that any VGI produced ~zero stray
 Fixed, the mode reproduces the identity $stray_e = VGI \cdot signal_e$ to
-the digit — 9.729 × 10⁴ e⁻ at VGI 10 %. *(The absolute NIIRS values of ~11 sit far
+the digit — 9.729 × 10⁴ e- at VGI 10 %. *(The absolute NIIRS values of ~11 sit far
 above the rating scale's 9-point ceiling — unflagged GIQE-5 extrapolation on a fine-GSD
 airborne pan scene; only the ΔNIIRS column is meaningful.)*
 
@@ -1151,7 +1145,7 @@ degrades contrast SNR purely through the shot noise it adds.
 percent of veiling glare costs 0.03 NIIRS; the out-of-field irradiance costs a
 full level, and that is the term the baffle design must control. What the scalar
 model does *not* capture is the spatial half — there is no veiling-glare MTF and no
-2-D PSF/PST importer, so the radiometric hit is modelled and the contrast-modulation
+2-D PSF/PST importer, so the radiometric hit is modeled and the contrast-modulation
 hit is not.
 
 **Where to go deeper.** `scenarios/05_tom_optical_designer/5.5_stray_light_veiling_glare/`.
@@ -1180,7 +1174,7 @@ set is not staged, so a bare clone still runs.
 |---|---|
 | Profiles | us_standard, tropical, midlat summer/winter, subarctic summer/winter |
 | Geometry | nadir, 100 km sensor (the A-block matrix, not the catalog's 10°/500 km) |
-| Band | 3.5 – 5.0 µm |
+| Band | 3.5–5.0 µm |
 | Scene | 300 K target against 288 K background |
 | Reference | real MODTRAN 6 `A1–A6.tp7`, imported via `atmosphere.model = "modtran"` |
 | Comparison | identical sensor config run twice per profile, isolating the atmosphere term |
@@ -1223,17 +1217,17 @@ solar irradiance table.
 | Quantity | Value |
 |---|---|
 | Optics | 30 cm f/4, 70 % transmission, 293 K |
-| Detector | 18 µm pitch, QE 70 %, dark 100 e⁻/s, read 20 e⁻ RMS, FWC 2 Me⁻, 14-bit at 1 e⁻/DN |
-| Scene / band / integration | 300 K, ε = 0.95 / 3.5 – 5.0 µm / 5 ms |
+| Detector | 18 µm pitch, QE 70 %, dark 100 e-/s, read 20 e- RMS, FWC 2 Me-, 14-bit at 1 e-/DN |
+| Scene / band / integration | 300 K, ε = 0.95 / 3.5–5.0 µm / 5 ms |
 | Platform / atmosphere | 8 km airborne / `exo` (vacuum) |
 | Entry path | raw vendor units through `Sensor.set(..., unit=...)`, cross-checked to 1e-12 |
 
 **Headline results.** **Every noise term agrees to 0.00 %**: `signal_shot` 1280.68,
-`dark_shot` 0.71, `read_noise` 20.00, `quantization` 0.29 e⁻ RMS, RSS total 1280.83
-e⁻ RMS, SNR 1280.52. The underlying signals match to better than 0.01 % — 1,506,203
-thermal + 133,931 solar = 1,640,135 e⁻ by hand against RADIANT's 1,640,136. That
+`dark_shot` 0.71, `read_noise` 20.00, `quantization` 0.29 e- RMS, RSS total 1280.83
+e- RMS, SNR 1280.52. The underlying signals match to better than 0.01 % — 1,506,203
+thermal + 133,931 solar = 1,640,135 e- by hand against RADIANT's 1,640,136. That
 exactness required two upgrades to the *hand* model, not the code: a photon-weighted
-spectral integral (the band-centre $E_{photon}$ shortcut reads ~5.5 % low for a 300 K
+spectral integral (the band-center $E_{photon}$ shortcut reads ~5.5 % low for a 300 K
 source in this band) and the Kirchhoff reflected-solar term (ρ = 1 − ε = 0.05 of the
 TOA solar spectrum, ~9 % of the in-band signal). `background_shot` and
 `nearfield_shot` are both 0 by design. **NEDT is the one disagreement: 21.79 mK
@@ -1251,7 +1245,7 @@ inputs define only the contrast scene.
 integral, the solar coupling, the Kirchhoff reflectance, the pixel étendue, the QE
 and transmission application and the shot-noise square root in one check. The two
 hand-model upgrades are the lesson: **a thermal-only textbook formula verifies a
-nighttime scene**, and a band-centre photon energy is a 5.5 % error on any
+nighttime scene**, and a band-center photon energy is a 5.5 % error on any
 wide-band thermal source.
 
 **Where to go deeper.** `scenarios/06_dr_chen_researcher/6.3_noise_model_verification/`.
@@ -1269,13 +1263,13 @@ consumer of `radiant.performance.roc`.
 | Quantity | Value |
 |---|---|
 | Sensor | 5 cm aperture, f/20, 25 µm pitch (25 µrad IFOV), 0.5 ms |
-| Band / background | LWIR 8 – 12 µm / uniform 290 K |
-| Targets | five, 10 – 200 km range, 15 – 40 K hotter than background |
+| Band / background | LWIR 8–12 µm / uniform 290 K |
+| Targets | five, 10–200 km range, 15–40 K hotter than background |
 | Reference target | 305 K, 3 m, ε = 0.93 |
 | Fill fraction | $ff = (\text{size}/\text{GSD})^2$, capped at 1 |
 | Detection model | equal-variance Gaussian, $P_d = Q(Q^{-1}(P_{fa}) - SNR)$ |
 
-**Headline results.** Background pixel 4.972 × 10⁵ e⁻ with σ = 713 e⁻,
+**Headline results.** Background pixel 4.972 × 10⁵ e- with σ = 713 e-,
 shot-noise-limited. **All five nominal targets are trivially detected** — contrast
 SNR 487.3 (10 km) down to 51.2 (200 km, the only sub-pixel one at $ff$ = 0.36), every
 $P_d$ = 1.000 at $P_{fa}$ = 10⁻⁴. A ROC of those five is uninformative, so the
@@ -1297,7 +1291,7 @@ identity.
 trade.** At 800 km the target is well separated from the background by any
 integrated measure, and a detector held to one false alarm in ten thousand still
 finds it only one time in three. The near targets being "too easy" is the physical
-answer, not a modelling artefact, and the scenario moves the analysis rather than
+answer, not a modeling artifact, and the scenario moves the analysis rather than
 tuning the scene.
 
 **Where to go deeper.** `scenarios/06_dr_chen_researcher/6.4_synthetic_scene_generation/`.
@@ -1316,9 +1310,9 @@ bias compare with the sensor's own NEDT? First consumer of
 | Quantity | Value |
 |---|---|
 | True scene | T = 300 K, ε = 0.95 |
-| Band | LWIR 8 – 12 µm |
+| Band | LWIR 8–12 µm |
 | System NEDT | 50 mK |
-| Assumed-ε sweep | 0.90 – 1.00 |
+| Assumed-ε sweep | 0.90–1.00 |
 | Method | band-averaged Planck; Brent root-find inversion plus the analytic Jacobian |
 
 **Headline results.** The Jacobian at the operating point gives
@@ -1358,7 +1352,7 @@ turns out to be made of.
 points from 280 to 360 K, recording 100-frame mean DN at each. She needs RADIANT's
 as-built prediction beside the measurement **in DN**, the unit her data system
 actually records, plus responsivity, a linearity check and per-point uncertainty —
-with the lab ambient and the instrument's own self-emission modelled, because that is
+with the lab ambient and the instrument's own self-emission modeled, because that is
 what a calibration's offset term physically is.
 
 **Key inputs.**
@@ -1366,11 +1360,11 @@ what a calibration's offset term physically is.
 | Quantity | Value |
 |---|---|
 | Optics | 15 cm / 30 cm (f/2.0), τ = 0.72 net |
-| Modelled train | 3 × R = 0.98 mirror + AR cold window ⇒ emitting ε ≈ 0.045, not the workbook's ε = 28 % |
+| Modeled train | 3 × R = 0.98 mirror + AR cold window ⇒ emitting ε ≈ 0.045, not the workbook's ε = 28 % |
 | Optics temperature | 20 °C (bench ambient) |
-| Detector | 15 µm pitch, QE 75 %, dark 5 × 10⁴ e⁻/s, read 30 e⁻ RMS, 2 Me⁻ well |
-| Band / integration / gain | 3.7 – 4.9 µm / 0.25 ms / 125 e⁻/DN, 14 bit |
-| Set points | 280, 300, 320, 340, 360 K (5 – 60 % well) |
+| Detector | 15 µm pitch, QE 75 %, dark 5 × 10⁴ e-/s, read 30 e- RMS, 2 Me- well |
+| Band / integration / gain | 3.7–4.9 µm / 0.25 ms / 125 e-/DN, 14 bit |
+| Set points | 280, 300, 320, 340, 360 K (5–60 % well) |
 
 **Headline results.** Predicted DN runs 742.1 → 9615.1 against measured 795.5 →
 9815.0, residuals **−6.72 % at the cold end narrowing to −2.04 % at the hot end**.
@@ -1388,11 +1382,11 @@ fitted residual, itself informative.
 **Regime.** `extended` — the blackbody fills the aperture, so the scene-background
 photon term is skipped and the lab-ambient parameters feed only the contrast scene.
 The instrument terms that genuinely move the offset, near-field and dark, are both
-modelled.
+modeled.
 
 **Takeaway.** **Raw residuals of −2 to −7 % are not a model failure; they are an
 uncalibrated instrument.** Two coefficients absorb them completely, which is the
-entire point of the exercise. That the modelled near-field now exceeds the fitted
+entire point of the exercise. That the modeled near-field now exceeds the fitted
 offset says either the bench train is better coated than the assumed R = 0.98 or its
 barrel is colder than 20 °C — a testable statement, which is where 7.4 picks up.
 
@@ -1411,7 +1405,7 @@ budget, compute the residual, and find out what the residual is made of.
 | Quantity | Value |
 |---|---|
 | Optics | 20 cm Cassegrain, f/3.0, 25 % obscuration, 82 % transmission |
-| Band / test wavelength | 550 – 750 nm / 650 nm collimator |
+| Band / test wavelength | 550–750 nm / 650 nm collimator |
 | Detector | 10 µm pitch, 100 % fill, IPC 1.0 % |
 | As-built WFE / defocus | 0.07 waves RMS at 633 nm / 5 µm |
 | Sampling | $f_{Nyq}$ 50.0 cy/mm against a 512.8 cy/mm cutoff; $Q$ = 0.195 |
@@ -1431,7 +1425,7 @@ values. Other metrics: Strehl 0.9494, RER 0.7818, FWHM 10.15 µm.
 
 **Regime.** A bench measurement, not a scene: GSD, NIIRS and NEDT are all reported
 N/A (altitude = 0, no thermal scene in the VNIR), and the noise budget is dark 0.32,
-read 8.00, quantization 2.31 e⁻ with essentially no photon flux.
+read 8.00, quantization 2.31 e- with essentially no photon flux.
 
 **Takeaway.** **This scenario's own diagnosis drove a model change.** At the earlier
 vintage the residual was 0.0917 RMS and the walkthrough diagnosed it as the *shape
@@ -1460,20 +1454,20 @@ shuttered-background lab readings mean?
 | Quantity | Value |
 |---|---|
 | Optics | 25 cm / 1.0 m (f/4.0), net τ = 0.68 |
-| Modelled train | 3 × R = 0.98 mirror (ε = 0.02 each) + AR cold window (ε = 0) ⇒ ε_emit 0.06, not 0.32 |
-| Detector | dark 499,376 e⁻/s (from 80 fA/pixel), read 25 e⁻ RMS |
-| Band / integration | 3.70 – 4.80 µm / 8 ms |
+| Modeled train | 3 × R = 0.98 mirror (ε = 0.02 each) + AR cold window (ε = 0) ⇒ ε_emit 0.06, not 0.32 |
+| Detector | dark 499,376 e-/s (from 80 fA/pixel), read 25 e- RMS |
+| Band / integration | 3.70–4.80 µm / 8 ms |
 | Sweep | undersizing $u$ = 0 → 10 % |
-| Requirement | shuttered background < 40,000 e⁻ |
+| Requirement | shuttered background < 40,000 e- |
 
 **Headline results.** One effective pupil drives everything:
 $D_{eff} = (1-u)D$, and from it $A_{collect}$, $N_{eff}$, the complex pupil (hence
 PSF *and* MTF alike) and the étendue cone $\Omega_{cone}$. At $u$ = 0: signal
-2,994,945 e⁻, near-field 106,631 e⁻, SNR 1699.3, NEDT 17.00 mK, MTF at Nyquist
+2,994,945 e-, near-field 106,631 e-, SNR 1699.3, NEDT 17.00 mK, MTF at Nyquist
 0.3017. Over 0 → 10 %: **$A_{collect}$ −19.0 %, $\Omega_{cone}$ −18.8 %, near-field
 −18.8 %, signal −19.0 %, SNR −10.0 %, MTF at Nyquist −11.6 %** — about 1 % of SNR and
-1.2 % of resolution per 1 % of pupil diameter. The 40,000 e⁻ requirement **fails at
-both ends** (106,631 → 86,561 e⁻). Karen's six lab readings, 35,500 → 55,750 e⁻, all
+1.2 % of resolution per 1 % of pupil diameter. The 40,000 e- requirement **fails at
+both ends** (106,631 → 86,561 e-). Karen's six lab readings, 35,500 → 55,750 e-, all
 sit *below* the model, inverting to an implied per-mirror reflectance of R ≈
 0.990–0.993 against the assumed 0.98.
 
@@ -1506,9 +1500,9 @@ operating point with margin against the acceptance spec.
 
 | Quantity | Value |
 |---|---|
-| Optics | f/2.0, net τ = 0.74; train modelled as 3 × R = 0.98 + AR cold window (ε_emit 0.06) |
+| Optics | f/2.0, net τ = 0.74; train modeled as 3 × R = 0.98 + AR cold window (ε_emit 0.06) |
 | Scene | 300 K chamber shroud, fills the aperture |
-| Sweep | FPA temperature 70 – 95 K, measured $J(T)$ driving `detector.dark_rate_e_per_s` |
+| Sweep | FPA temperature 70–95 K, measured $J(T)$ driving `detector.dark_rate_e_per_s` |
 | QE | interpolated from three measured points; every run repeated with QE frozen at 77 K |
 | Integration | 0.6 ms |
 | Spec | SNR ≥ 750 **and** NEDT ≤ 35 mK |
@@ -1516,13 +1510,13 @@ operating point with margin against the acceptance spec.
 **Headline results.** The measured dark curve matches an Arrhenius fit
 ($E_a$ = 0.240 eV) exactly through 82 K and then diverges catastrophically:
 **+10 % at 85 K, +90 % at 88 K, +201.8 % at 90 K, +735.8 % at 95 K** (395,723,319
-against a fitted 47,345,161 e⁻/s). Across the sweep SNR falls 814.7 → 674.6 and NEDT
-rises 34.01 → 41.07 mK, driven by dark shot noise climbing **0.9 → 466.5 e⁻ RMS**
+against a fitted 47,345,161 e-/s). Across the sweep SNR falls 814.7 → 674.6 and NEDT
+rises 34.01 → 41.07 mK, driven by dark shot noise climbing **0.9 → 466.5 e- RMS**
 from negligible to the second-largest term. Over 70 → 95 K **QE falls 9 % while dark
 current rises 294,612×**, and NEDT with QE(T) versus QE frozen differs by only a few
 percent. Spec holds through **82 K** (NEDT 34.88 mK, 0.1 mK of margin); 85 K fails on
-NEDT. The correctly-modelled warm-optics near-field (the étendue-cone model raised it 7,496 →
-31,840 e⁻) costs ~6 K of the compliant range the ε = 1 − τ fallacy had appeared to
+NEDT. The correctly-modeled warm-optics near-field (the étendue-cone model raised it 7,496 →
+31,840 e-) costs ~6 K of the compliant range the ε = 1 − τ fallacy had appeared to
 buy. *(Key Results recommends operating at 79 K with a 3 K guard band; the next-steps
 list says 85 K, the first temperature the same table fails on.)*
 
@@ -1564,21 +1558,21 @@ actually beat grabbing the nearest one?
 | Query | 37.5° path zenith |
 | Bracketing runs | B1 at 30°, B2 at 45° |
 | Method | linear in $\log \tau$, on the **airmass** axis $\sec\theta$ |
-| Band | 3.5 – 5.0 µm |
+| Band | 3.5–5.0 µm |
 
 **Headline results.** A holdout test predicts the real 45° run from its 30° and 60°
-neighbours and compares against ground truth (in-band τ = 0.4988): interpolating in
+neighbors and compares against ground truth (in-band τ = 0.4988): interpolating in
 $\log\tau$ **linear in angle** gives 0.4785, a **−4.07 %** error; **linear in airmass**
-gives 0.4983, **−0.10 %**; nearest-neighbour (30°) gives 0.5329, **+6.84 %**. At the
+gives 0.4983, **−0.10 %**; nearest-neighbor (30°) gives 0.5329, **+6.84 %**. At the
 actual 37.5° query, interpolated τ is 0.5185 with chain SNR 552.1, against
-nearest-neighbour τ 0.4988 and SNR 541.6 — a nearest-neighbour error of **−3.8 % in
+nearest-neighbor τ 0.4988 and SNR 541.6 — a nearest-neighbor error of **−3.8 % in
 transmittance and −1.9 % in SNR**.
 
 **Regime.** Not a regime study — one atmosphere-data-source comparison fed through an
 identical chain config evaluated at the true 37.5° geometry, isolating the data-source
 effect.
 
-**Takeaway.** The method beats nearest-neighbour by about 1.7× against real ground
+**Takeaway.** The method beats nearest-neighbor by about 1.7× against real ground
 truth, and the residual that remained had a knowable cause with a 40× fix: optical depth
 scales with airmass, not angle. The axis correction was a coordinate transform, not new
 data, and it now governs the shipped atmosphere library too.
@@ -1600,11 +1594,11 @@ show the tool generalizes.
 | Family | `altitude_ladder_stratospheric` — **synthetic** tape7 data |
 | Query | 15 km target altitude |
 | Ladder spacing | 1, 4, 5, 10, 9 km gaps — deliberately non-uniform |
-| Band | 8 – 12 µm |
+| Band | 8–12 µm |
 
 **Headline results.** The ladder reads in-band τ 0.5774 (0 km), 0.7039 (1 km), 0.8822
 (5 km), 0.9151 (10 km), **0.9291 interpolated at 15 km**, 0.9447 (20 km), 0.9790
-(29 km). Nearest-neighbour selection (20 km) is **+1.7 % in transmittance** and **+0.7 %
+(29 km). Nearest-neighbor selection (20 km) is **+1.7 % in transmittance** and **+0.7 %
 in full-chain SNR** — the SNR error is smaller because the extended-scene
 target/background contrast partially cancels atmosphere effects common to both terms.
 *The walkthrough is explicit that the +0.7 % SNR figure was carried forward, not
@@ -1616,8 +1610,8 @@ synthetic MODTRAN set that is absent on a clean checkout.*
 prerequisite rather than failing with a bare `FileNotFoundError`.
 
 **Takeaway.** The 15 km query lands in the ladder's widest gap, which is exactly where
-nearest-neighbour is weakest and interpolation earns its keep. The method does not care
-whether the free axis is an angle or an altitude — it only needs monotone behaviour in
+nearest-neighbor is weakest and interpolation earns its keep. The method does not care
+whether the free axis is an angle or an altitude — it only needs monotone behavior in
 optical depth along that axis. Note the recurring friction: full-well saturation
 silently zeroed the atmosphere effect on the first attempt, the third scenario to hit
 that failure mode.
@@ -1637,11 +1631,11 @@ SNR?
 
 | Quantity | Value |
 |---|---|
-| Sensor / band | 500 km LEO, nadir; 3 – 5 µm |
+| Sensor / band | 500 km LEO, nadir; 3–5 µm |
 | Target | 900 K plume, 4 m² |
 | Atmosphere | `interpolated`, `midlat_summer_ladders` (real MODTRAN, 5 cm⁻¹ FWHM slit) |
 | Interpolation axes | `sensor_altitude_m,target_altitude_m` |
-| Sweep | target altitude 0 – 300 km |
+| Sweep | target altitude 0–300 km |
 
 **Headline results.** Three regimes. **Interpolated (0–29 km):** τ_up rises 0.4143 →
 0.9425 and SNR 304.33 → 485.23. **Pending (29–100 km):** above the ladder's 29 km
@@ -1691,15 +1685,15 @@ how far can the target be held, and does any of it agree with MODTRAN?
 | Quantity | Value |
 |---|---|
 | Optics | 100 mm / 200 mm (f/2.0), τ = 0.75 |
-| Modelled train | 3 × R = 0.98 mirror + AR cold window ⇒ emitting ε = 0.06, not the datasheet's 25 % |
-| Detector | 15 µm pitch, QE 75 %, dark 5 × 10⁴ e⁻/s, read 250 e⁻ RMS, 11 Me⁻ well |
-| Band / integration | 3.0 – 5.0 µm / 0.5 ms |
+| Modeled train | 3 × R = 0.98 mirror + AR cold window ⇒ emitting ε = 0.06, not the datasheet's 25 % |
+| Detector | 15 µm pitch, QE 75 %, dark 5 × 10⁴ e-/s, read 250 e- RMS, 11 Me- well |
+| Band / integration | 3.0–5.0 µm / 0.5 ms |
 | Target | 550 K nozzle, ε = 0.90, 2.827 × 10⁻³ m² at 10 km |
 | Atmosphere / illumination | `simple`, midlat summer, 23 km visibility, rural aerosol / night |
 | Sweep | sensor-side zenith $\zeta_{low}$ = 0 → 60° (elevation 90 → 30°) |
 
 **Headline results.** At the nominal 60°-elevation point: slant range 11,543.99 m,
-band-mean τ 0.4520, signal 8.062 × 10⁴ e⁻ against a sky background of 1.507 × 10⁵ e⁻,
+band-mean τ 0.4520, signal 8.062 × 10⁴ e- against a sky background of 1.507 × 10⁵ e-,
 **SNR 144.64, NEDT 610.8 mK**. Over the whole sweep (90° → 30° elevation) τ falls
 0.4995 → 0.2668, signal falls **7.21×** and SNR 204.52 → 29.24. The extra factor over
 the 3.98× inverse-square loss is air mass; meanwhile **up-path radiance rises 64.1 %**
@@ -1718,7 +1712,7 @@ target term only. Eleven ground-projection metrics are off by scene class, and G
 stays absent even when the group is force-enabled: the ground-plane cosine projection
 is undefined at an incidence angle of 150°.
 
-**Takeaway.** The MODTRAN anchor is reported as a **characterisation, not an
+**Takeaway.** The MODTRAN anchor is reported as a **characterization, not an
 agreement claim**: τ is systematically too transparent in the MWIR (+29.5 % on a 1 km
 column, converging to +9.3 % by 20 km) and up-path radiance is too low (−45.3 % at the
 scenario's own geometry), both pushing the same way, so **the quoted SNR should be
@@ -1742,7 +1736,7 @@ sensor had to be above the target, and the sun was hard-bounded above the horizo
 | Quantity | Value |
 |---|---|
 | Site / telescope | 900 m MSL / 1.000 m aperture, f/10, 60 % transmission |
-| Band / detector | 400 – 900 nm / 15 µm pitch, QE 80 %, read 5 e⁻ RMS, 400 ke⁻ well |
+| Band / detector | 400–900 nm / 15 µm pitch, QE 80 %, read 5 e- RMS, 400 ke- well |
 | Exposure | 5 ms (set by tracking accuracy, not the well) |
 | Target | 700 km, ρ = 0.25, $A_{proj}$ = 1.00 m², solar phase 35° |
 | Target door | `source.target.user_intensity_path` — a measured $I(\lambda)$ CSV |
@@ -1750,7 +1744,7 @@ sensor had to be above the target, and the sun was hard-bounded above the horizo
 | Turbulence / visibility | HV-5/7 $C_n^2$ profile / 100 km |
 
 **Headline results.** At the nominal tasking: band-mean $\tau_{up}$ 0.7652, Fried
-parameter **$r_0$ = 19.820 cm**, **EE_box 0.12075**, signal 49,220 e⁻, **SNR 221.78**,
+parameter **$r_0$ = 19.820 cm**, **EE_box 0.12075**, signal 49,220 e-, **SNR 221.78**,
 detection range (SNR = 3) 24,678 km. The measurement is decisively
 **seeing-limited**: seeing FWHM 3.214 µrad (0.663″) against diffraction's 0.793 µrad,
 a ratio of 4.05, and turbulence takes MTF at Nyquist from 0.46250 to **0.00862** while
@@ -1778,7 +1772,7 @@ itself should be read as optimistic by roughly 2×: the Hufnagel-Valley ground t
 conventionally above *ground* level but the model evaluates it against MSL, so a
 900 m site silently loses its own boundary layer. And the extinction anchor's failure
 is instructive rather than fatal: the MODTRAN-scored comparison on the same band
-*improved* while this one worsened, which localises the residual to aerosol
+*improved* while this one worsened, which localizes the residual to aerosol
 attribution rather than the gas fit.
 
 **Where to go deeper.** `scenarios/10_direction_general/10.3_ground_to_space_sst_visible/`.
@@ -1799,14 +1793,14 @@ was.
 | Quantity | Value |
 |---|---|
 | Telescope | 350 mm / 2100 mm (f/6.0), 25 % obscuration, 60 % transmission, 0.05 waves WFE |
-| Detector | 18 µm pitch (8.571 µrad IFOV), QE 75 %, dark 1000 e⁻/s, read 25 e⁻ RMS, 100 ke⁻ well |
-| Band / integration | 3.5 – 5.0 µm / 500 ms rate-tracked stare |
+| Detector | 18 µm pitch (8.571 µrad IFOV), QE 75 %, dark 1000 e-/s, read 25 e- RMS, 100 ke- well |
+| Band / integration | 3.5–5.0 µm / 500 ms rate-tracked stare |
 | Geometry | 500 km LEO → 35,786 km GEO, $\zeta_{low}$ = 0°, night (eclipse) |
-| Target | 280 K grey body, ε = 0.85, 20 m² projected area |
+| Target | 280 K gray body, ε = 0.85, 20 m² projected area |
 | Rate-track residual | 1 % of the open-loop LOS rate |
 
-**Headline results.** EE_box 0.245670, in-pixel signal 1295.78 e⁻, total noise 49.233
-e⁻ RMS, **SNR 26.32**, **detection range (SNR = 5) 94,438 km** — 2.67× the LEO→GEO
+**Headline results.** EE_box 0.245670, in-pixel signal 1295.78 e-, total noise 49.233
+e- RMS, **SNR 26.32**, **detection range (SNR = 5) 94,438 km** — 2.67× the LEO→GEO
 range, so the belt sits comfortably inside the single-frame horizon. Background shot
 noise is **exactly zero**: the up-looking LOS exits into deep space and selects
 `ColdSpaceBackground`. The kinematics are the design driver: LEO 1108.508 µrad/s
@@ -1817,8 +1811,8 @@ falls** — past that the smear kernel grows faster than $\sqrt t$ — while the
 rate-tracked curve keeps rising as $\sqrt t$ because the scene is background-free.
 Every vacuum transport identity is checked bitwise, not toleranced. *(The §4.3 prose
 and cross-check 3 both still carry numbers of an earlier vintage — an open-loop collapse of
-"0.223 → 0.054, SNR 24.5 → 7.6", and a hand-vs-chain signal of 1177.2 e⁻ against the
-refreshed 1295.78 e⁻.)*
+"0.223 → 0.054, SNR 24.5 → 7.6", and a hand-vs-chain signal of 1177.2 e- against the
+refreshed 1295.78 e-.)*
 
 **Regime.** `point_source`, finalized in `OpticsStage`. A 20 m² bus at 35,286 km
 subtends 0.1267 µrad — 68× smaller than the detector IFOV and far inside the 14.8 µrad

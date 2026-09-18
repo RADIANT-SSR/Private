@@ -14,7 +14,7 @@ from the repository root:
 PYTHONPATH=src python examples/scripts/<name>.py
 ```
 
-Long tables are trimmed where the trim is marked; nothing is retyped or idealised.
+Long tables are trimmed where the trim is marked; nothing is retyped or idealized.
 
 All six run against `examples/mwir_leo_minimal.yaml`: a 0.30 m f/4 telescope at 8 km
 altitude looking straight down at a 300 K, ε = 0.95 extended scene through a
@@ -49,7 +49,7 @@ print(f"Stages executed: {' → '.join(result.history)}")
 
 Output (metric list trimmed to the rows discussed):
 
-```
+```text
 === RADIANT Basic Evaluation ===
 Config: mwir_leo_minimal.yaml
 
@@ -143,7 +143,7 @@ fig.savefig(OUTPUT, dpi=150)
 
 Output (five saturation warnings elided — they are discussed below):
 
-```
+```text
 === Aperture Sweep: SNR vs Aperture Diameter ===
      D (m)           SNR
 ------------------------
@@ -164,7 +164,7 @@ Plot saved to: examples/scripts/aperture_sweep_snr.png
 **What to notice.**
 
 *The first five points are a straight line through the origin.* 561.94 / 0.150 m =
-3746 per metre; 1311.38 / 0.350 m = 3747 per metre. For a shot-limited extended
+3746 per meter; 1311.38 / 0.350 m = 3747 per meter. For a shot-limited extended
 source the collected signal scales as the collecting area, $S \propto D^2$, while the
 dominant noise is its own square root, $\sqrt{S} \propto D$. So
 $\mathrm{SNR} \propto D$ — linear in diameter, not quadratic. Doubling the aperture
@@ -173,7 +173,7 @@ doubles the SNR and costs four times the glass.
 *The last five points are not physics.* From 0.40 m onward the answer is pinned at
 1414.17 and the run emits a warning per point:
 
-```
+```text
 UserWarning: ReadoutStage: full well saturated — signal + dark + glow + near-field
 + stray = 2.246e+06 e- exceeds full_well_capacity_e = 2e+06 e- (fill fraction 1.12).
 Signal clipped to 2e+06 e-. Downstream SNR/NEDT/NIIRS reflect the CLIPPED signal and
@@ -218,7 +218,7 @@ for name in all_metrics:
 
 Output (trimmed to the informative rows; the full table is 33 metrics):
 
-```
+```text
 === Configuration Comparison ===
 
               Metric      Baseline      Modified         Delta     %Change
@@ -299,7 +299,7 @@ for t_int in t_int_values:
 
 Output (three saturation warnings elided):
 
-```
+```text
 === Custom Loop: Integration Time Analysis ===
 
   t_int (ms)         SNR      SNR/√t    NEDT (K)
@@ -368,7 +368,7 @@ for param, r in sorted(corr.items(), key=lambda kv: abs(kv[1]), reverse=True):
 
 Output (per-metric blocks trimmed to four of the thirty-three):
 
-```
+```text
 === Monte Carlo Tolerance Analysis ===
 Trials: 50
 Seed:   42
@@ -435,7 +435,7 @@ meaning. Harmless, and the numbers either side of it are correct.
 **Demonstrates:** the multi-configuration API — `ConfigurationSet`, `configure()`,
 `evaluate_all()`, `compare()`, `save()`/`load()` — and per-configuration warning
 attribution. At 470 lines it is the largest example, and most of those lines are the
-printed explanation rather than the modelling.
+printed explanation rather than the modeling.
 
 The study is a single 0.30 m f/4 telescope at 8 km altitude on one 18 µm-pitch focal
 plane, operated three ways:
@@ -476,7 +476,7 @@ Output (heavily trimmed — the program prints about 310 lines; the focus-metric
 table is re-laid out to fit the page, with each metric's unit moved into its
 name column, and every value is the program's own):
 
-```
+```text
 Summary (one line per configuration, evaluation order = active first):
 
   MWIR      *  ok   snr = 1124 [dimensionless]; nedt_K = 0.02496 [K];
@@ -509,7 +509,7 @@ well_margin_dB [dB]               3.98901       1.48629 (-2.5)    0.00579252 (-3
 
 and, later, the program's own reading of those numbers:
 
-```
+```text
   MWIR         GSD =   0.12 m   diffraction blur = 0.1383 m   Q = 0.944 [dimensionless]
   LWIR         GSD =   0.12 m   diffraction blur = 0.3253 m   Q =  2.22 [dimensionless]
   LWIR_long    GSD =   0.12 m   diffraction blur = 0.3253 m   Q =  2.22 [dimensionless]

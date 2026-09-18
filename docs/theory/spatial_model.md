@@ -79,7 +79,7 @@ wavelength on a sub-sampled grid whose size is a parameter.
 approximation; grid effects controlled by the pupil-sampling and PSF-oversampling
 parameters, whose defaults are 128 pupil samples across and 8× oversampling.
 
-**Pitfalls.** 1.22 vs the exact 1.2196699 (0.03% — matters for tight baselines); amplitude
+**Pitfalls.** 1.22 vs the exact 1.2196699 (0.03 % — matters for tight baselines); amplitude
 vs irradiance PSF; forgetting the $(1-\epsilon^2)^{-2}$ energy renormalization; applying
 the unobscured EE formula to an annular pupil.
 
@@ -133,7 +133,7 @@ so detector effects cancel — and the analytic `strehl_marechal` diagnostic.
 
 **Assumptions & validity.** Maréchal reliable for $\sigma \lesssim \lambda/10$; Noll
 normalization (coefficient = RMS) — the Wyant convention differs by $\sqrt3$-type factors.
-Zernike modes are orthonormal on the unbobscured unit disk; annular pupils strictly need
+Zernike modes are orthonormal on the unobscured unit disk; annular pupils strictly need
 annular polynomials.
 
 **Pitfalls.** Waves vs radians in the Maréchal exponent (factor $(2\pi)^2$); P-V vs RMS
@@ -175,7 +175,7 @@ $1/(\pi w)$. Pitch vs aperture width when FF < 1. IPC and diffusion both exist i
 form for the PSF path and analytic form for the MTF path — adding one side only breaks
 the agreement between them.
 
-**Numeric anchor.** 100% fill at Nyquist: $\sin(\pi/2)/(\pi/2) = 2/\pi = 0.636620$.
+**Numeric anchor.** 100 % fill at Nyquist: $\sin(\pi/2)/(\pi/2) = 2/\pi = 0.636620$.
 
 **In RADIANT.** `detector/stage.py` (aperture term, with $\sqrt{\mathrm{FF}}$),
 `detector/diffusion.py::diffusion_mtf`, `detector/ipc.py::ipc_mtf_1d` +
@@ -188,8 +188,8 @@ the agreement between them.
 ## 6. Platform kernels: jitter and smear
 
 **Jitter** (random LOS motion, many cycles per integration): Gaussian blur of RMS
-$\sigma$ at the focal plane ($\sigma = \sigma_\theta f$ for angular jitter
-$\sigma_\theta$):
+$\sigma$ at the focal plane ($\sigma = \sigma_j f$ for the RMS angular jitter
+$\sigma_j$ of the notation table):
 
 $$\mathrm{MTF}_{jit}(\nu) = \exp(-2\pi^2\sigma^2\nu^2).$$
 
@@ -201,7 +201,7 @@ $$\mathrm{MTF}_{smear}(\nu) = \left|\frac{\sin(\pi d \nu)}{\pi d \nu}\right|,$$
 applied along the motion direction only. $v_{image}$ derives from the **ground-track**
 velocity ($v_g = v\,R/(R+h)$, see the geometry chapter's *GSD — nadir and off-nadir*)
 times the magnification
-$f/R_s$ — using orbital $v$ instead of $v_g$ inflates smear by $h/R$ (+7.8% at 500 km).
+$f/R_s$ — using orbital $v$ instead of $v_g$ inflates smear by $h/R$ (+7.8 % at 500 km).
 
 **Assumptions & validity.** Jitter Gaussian form requires jitter frequency ≫ $1/t_{int}$;
 comparable-period motion is neither pure jitter nor pure smear. A $d/\sqrt{12}$
@@ -269,7 +269,7 @@ the Rule-4 consistency comparison.
 
 **Pitfalls.** Tolerancing θ without N (degradation scales with total drift, so the θ
 tolerance tightens as N grows); the discrete Dirichlet form exceeds the sinc form by up to
-~0.6% at small N.
+~0.6 % at small N.
 
 **Numeric anchor.** Total drift $0.5\,p$ at Nyquist, $N=16$: 0.9007 (Dirichlet) vs
 0.900316 (sinc).
@@ -296,15 +296,15 @@ the extended regime.
 
 **Discretization.** Each PSF cell is weighted by the fraction of its area inside the box
 (cell-area overlap) — second-order accurate; the earlier full-weight edge-cell
-scheme carried an $O(dx)$ bias (+24% at Q=2 at default sampling) that overstated
+scheme carried an $O(dx)$ bias (+24 % at Q=2 at default sampling) that overstated
 point-source SNR.
 
 **Pitfalls.** Ensquared ≠ encircled (a square of side $p$ is not a circle of diameter
-$p$ — quoting the 83.8% first-ring figure for a pixel box is a category error); Airy ring
+$p$ — quoting the 83.8 % first-ring figure for a pixel box is a category error); Airy ring
 tails decay as $1/u^2$, so truncated normalization biases EE.
 
 **Numeric anchor.** Unaberrated Airy at critical sampling ($Q=2$):
-$EE_{1\times1} = 0.177327$ — only ~18% of a point source's energy lands in the center
+$EE_{1\times1} = 0.177327$ — only ~18 % of a point source's energy lands in the center
 pixel.
 
 **In RADIANT.** `optics/psf/effective.py::EffectivePSF.ensquared_energy` /

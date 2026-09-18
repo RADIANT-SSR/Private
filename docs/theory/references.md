@@ -1,16 +1,22 @@
 # References
 
-Full citations for the short keys used across the theory chapters (e.g. `[Holst §3.2]`,
-`[Fried 1966]`). One list, alphabetical by key; chapters cite by key only.
+Full citations for the short keys used across the theory chapters (e.g.
+`[Holst 2008]`, `[Fried 1966]`). One list, alphabetical by key; chapters cite by key
+only, adding a section locator after the key where one helps — `[Holst 2008 §3.2]`.
 
 | Key | Full citation |
 |---|---|
 | [ASTM E490] | ASTM E490-00a(2019), *Standard Solar Constant and Zero Air Mass Solar Spectral Irradiance Tables*, ASTM International, West Conshohocken, PA. |
+| [Bucholtz 1995] | Bucholtz, A., "Rayleigh-scattering calculations for the terrestrial atmosphere," *Appl. Opt.* 34(15), 2765–2773 (1995). |
 | [Boreman 2001] | Boreman, G. D., *Modulation Transfer Function in Optical and Electro-Optical Systems*, SPIE Press, 2001. |
+| [Chapman 1931] | Chapman, S., "The absorption and dissociative or ionizing effect of monochromatic radiation in an atmosphere on a rotating earth," *Proc. Phys. Soc.* 43, 26–45 (1931). |
 | [CODATA 2018] | Tiesinga, E., Mohr, P. J., Newell, D. B., Taylor, B. N., "CODATA recommended values of the fundamental physical constants: 2018," *Rev. Mod. Phys.* 93, 025010 (2021). |
 | [Dereniak & Boreman 1996] | Dereniak, E. L., Boreman, G. D., *Infrared Detectors and Systems*, Wiley, 1996. |
+| [Elsasser 1942] | Elsasser, W. M., *Heat Transfer by Infrared Radiation in the Atmosphere*, Harvard Meteorological Studies 6, 1942. |
 | [Fried 1966] | Fried, D. L., "Optical Resolution Through a Randomly Inhomogeneous Medium for Very Long and Very Short Exposures," *J. Opt. Soc. Am.* 56(10), 1372–1379 (1966). |
 | [Gaskill 1978] | Gaskill, J. D., *Linear Systems, Fourier Transforms, and Optics*, Wiley, 1978. |
+| [Hansen & Travis 1974] | Hansen, J. E., Travis, L. D., "Light scattering in planetary atmospheres," *Space Sci. Rev.* 16, 527–610 (1974). |
+| [Henyey & Greenstein 1941] | Henyey, L. G., Greenstein, J. L., "Diffuse radiation in the galaxy," *Astrophys. J.* 93, 70–83 (1941). |
 | [Goodman 2005] | Goodman, J. W., *Introduction to Fourier Optics*, 3rd ed., Roberts & Company, 2005. |
 | [Harrington 2015] | Harrington, L., et al., "General Image Quality Equation, version 5 (GIQE-5)," NGA Technical Documentation, 2015. |
 | [Holst 2008] | Holst, G. C., *Electro-Optical Imaging System Performance*, 5th ed., JCD Publishing / SPIE Press, 2008. |
@@ -19,6 +25,7 @@ Full citations for the short keys used across the theory chapters (e.g. `[Holst 
 | [Kirchhoff 1860] | Kirchhoff, G., "Ueber das Verhaeltniss zwischen dem Emissionsvermoegen und dem Absorptionsvermoegen der Koerper fuer Waerme und Licht," *Ann. Phys.* 185(2), 275–301 (1860). |
 | [Kopp & Lean 2011] | Kopp, G., Lean, J. L., "A new, lower value of total solar irradiance: evidence and climate significance," *Geophys. Res. Lett.* 38, L01706 (2011). |
 | [Lewis 1994] | Lewis, R. R., "Making shaders more physically plausible," *Computer Graphics Forum* 13(2), 109–120 (1994). |
+| [McClatchey 1972] | McClatchey, R. A., et al., *Optical Properties of the Atmosphere*, 3rd ed., AFCRL-72-0497, 1972. |
 | [Nicodemus 1977] | Nicodemus, F. E., Richmond, J. C., Hsia, J. J., Ginsberg, I. W., Limperis, T., *Geometrical Considerations and Nomenclature for Reflectance*, NBS Monograph 160, National Bureau of Standards, 1977. |
 | [NIST ITS-90] | Preston-Thomas, H., "The International Temperature Scale of 1990 (ITS-90)," *Metrologia* 27(1), 3–10 (1990). |
 | [Noll 1976] | Noll, R. J., "Zernike polynomials and atmospheric turbulence," *J. Opt. Soc. Am.* 66(3), 207–211 (1976). |

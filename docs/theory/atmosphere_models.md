@@ -89,7 +89,7 @@ a per-km coefficient:
 $$\tau_{R,\mathrm{vert}}(\lambda) \;=\; 0.0088\,\lambda_{\mu m}^{-4.09}$$
 
 At $\lambda = 0.55$ µm this evaluates to $0.101484$, against the published
-whole-atmosphere value $0.0973$–$0.10$ (Hansen & Travis 1974; Bucholtz 1995). The
+whole-atmosphere value $0.0973$–$0.10$ ([Hansen & Travis 1974], [Bucholtz 1995]). The
 sea-level volume extinction the slant integral needs is **derived** from it through the
 exponential profile's own identity $\tau_{\mathrm{vert}} = \sigma_0 H$:
 
@@ -134,11 +134,11 @@ clamp engages.
 
 *Record:* CU-088, resolved 2026-07-12 (`AEROSOL_CLAMP_WAVELENGTH_UM`). Aerosol scale
 height 1.2 km. *Enforced by:* `src/radiant/atmosphere/tests/test_simple.py` (clamp
-behaviour and the once-per-run warning).
+behavior and the once-per-run warning).
 
-### 2.4 Water vapour — the curve of growth
+### 2.4 Water vapor — the curve of growth
 
-Water vapour is **not** linear in Beer's law over a real band, because the strong lines
+Water vapor is **not** linear in Beer's law over a real band, because the strong lines
 saturate long before the windows between them do. The calibrated model is a 17-region
 curve of growth:
 
@@ -154,7 +154,7 @@ dominates and the absorber's own pressure broadening compounds with amount.
 This replaced a five-Lorentzian line fit whose far wings made the MWIR water response
 $\approx 5\times$ too steep.
 
-Standard-profile water columns (McClatchey et al. 1972, AFCRL-72-0497, carried into
+Standard-profile water columns ([McClatchey 1972], carried into
 MODTRAN MODELs 1–6) supply the default when the operator selects a climate profile and
 leaves the water column at its schema default:
 
@@ -343,7 +343,7 @@ it is defined as a fraction of the molecular column.
 
 Three properties matter, and all three are measured rather than asserted:
 
-- **It has to be per species.** Water vapour's 2 km profile hugs the tangent point far
+- **It has to be per species.** Water vapor's 2 km profile hugs the tangent point far
   harder than the 8 km molecular one, so a single corrected scalar cannot serve both — at
   $\zeta = 89.4°$ the two diverge by $2.27\times$ in error.
 - **The direction is toward more signal.** The spherical air mass is always the smaller
@@ -364,24 +364,24 @@ divergence, hand-over predicate, monotonicity, sign) and
 `src/radiant/atmosphere/tests/test_near_horizon_handover.py` (zero drift inside the band,
 step bound, all three call sites).
 
-### 2.8 One linearisation convention — the slant column
+### 2.8 One linearization convention — the slant column
 
 Two calibrated terms — the water curve of growth and the gas floor — are *column* optical
 depths, the integral of no local coefficient. Wherever the model needs a **local**
 extinction (the single-scatter weights of *Single-scatter solar path radiance*, the level
 arm of *Path topologies*), they must be
-linearised: divided by a reference column to produce an equivalent per-km coefficient.
+linearized: divided by a reference column to produce an equivalent per-km coefficient.
 
-Because the curve of growth is sub-linear, that choice is not neutral. Linearising against
+Because the curve of growth is sub-linear, that choice is not neutral. Linearizing against
 the vertical column instead of the slant one scales the effective water weight by
 $m_{\mathrm{h2o}}^{\,b-1}$, and $\omega_0$ with it, wherever water absorbs.
 
-**All three evaluators now linearise against the slant column** — the amount actually
-traversed, which is what the linearisation is *of*. `column_segment_optical_depth`
+**All three evaluators now linearize against the slant column** — the amount actually
+traversed, which is what the linearization is *of*. `column_segment_optical_depth`
 publishes `slant_column_mol_km` / `_aer_km` / `_h2o_km` provenance under the same key names
 the near-horizon branch already used, so the convention is inspectable.
 
-Note the scope precisely: this is the convention for the **linearised local weights**. The
+Note the scope precisely: this is the convention for the **linearized local weights**. The
 optical depth itself is still built as *vertical column × species air mass* (*Air mass*);
 the two
 are consistent because $m_i$ is defined as the ratio of the slant to the vertical column.
@@ -504,7 +504,7 @@ coefficient:
 
 - **Scattering species** (Rayleigh, aerosol) — extinction is proportional to number
   density, so the weighting profile is the species' own density scale height, unchanged.
-- **Pressure-broadened absorbers** (the well-mixed-gas floor, water vapour) — a Lorentz
+- **Pressure-broadened absorbers** (the well-mixed-gas floor, water vapor) — a Lorentz
   line's absorption coefficient goes as number density *times* the collisional half-width,
   and the half-width goes as total pressure, so $\alpha \propto \rho_a\,p_{\text{air}}$ and
   the emission weighting rides the harmonic combination
@@ -529,7 +529,7 @@ $$\mathrm{share}_{\mathrm{O_3}}(\lambda) \;=\; 1 - \frac{\text{floor}_{\text{con
 \quad\text{inside the band},$$
 
 where $\text{floor}_{\text{continuum}}$ is the same region table evaluated with the band's
-row carrying its clean-window neighbour's floor. That share of the gas floor rides the
+row carrying its clean-window neighbor's floor. That share of the gas floor rides the
 ozone layer; the remainder keeps the 4 km pressure-broadened placement. Three properties
 follow:
 
@@ -537,7 +537,7 @@ follow:
   (the well-mixed-gas floor's 8.00–9.40 and 9.40–9.90 µm regions), so a re-fit moves it
   automatically and
   there is no coefficient in the emission model to go stale. An absorption *band* stands
-  on top of the continuum its neighbours carry, so the excess — not the total — is ozone;
+  on top of the continuum its neighbors carry, so the excess — not the total — is ozone;
 - **placement is continuous in $\lambda$** — both floors pass through the same
   region-edge smoothstep, so the share inherits its $C^1$ ramp at 9.40 and 9.90 µm rather
   than needing
@@ -548,11 +548,11 @@ follow:
 Outside the band the share is exactly zero, no layer is constructed, and $T_{\text{eff}}$ is
 bit-identical to the four-species form. The 9.90–10.00 µm long-wave tail (floor 0.3013,
 3.3× its continuum) is a **documented exception**: part of it is ozone too, but the split
-is scoped to the band core the parity is measured in, so a narrow-band product centred on
+is scoped to the band core the parity is measured in, so a narrow-band product centered on
 9.95 µm still places its ozone at 4 km.
 
 The sub-layer count is a convergence-tested quadrature parameter, not a tuning knob:
-`EMISSION_LAYERS_PER_SPECIES = 32`, whose discretisation error against a 512-per-species
+`EMISSION_LAYERS_PER_SPECIES = 32`, whose discretization error against a 512-per-species
 reference is $\max|\Delta T_{\text{eff}}| = 0.016$ K over the whole anchor set — two orders
 of magnitude below the model's own $\approx 4$ K accuracy against MODTRAN. It is therefore
 fixed, not exposed as a user parameter.
@@ -702,7 +702,7 @@ L_{\text{path}}(\lambda) \;=\; \bigl[1 - \tau(\lambda)\bigr] B(\lambda, T_{\text
 
 with $\alpha$ the **local** extinction at the arm's altitude [km⁻¹] and $L$ the **true
 spherical chord** between the endpoints [km] — not a flat-Earth range. No new calibration
-is introduced: the water and gas terms are linearised exactly as *One linearisation
+is introduced: the water and gas terms are linearized exactly as *One linearization
 convention* prescribes, against
 a reference column independent of the arm's own length, which is what makes $\alpha$ a
 property of altitude alone and $\tau$ a pure exponential in $L$.
@@ -791,7 +791,7 @@ $$\text{sunlit}(h, \theta_s) \iff \theta_s \le \frac{\pi}{2}
 so a 60 km booster is sunlit at 5° solar depression while the ground beneath it (shadow
 height $\approx 24$ km) is not. The assumption is a **sharp terminator** — opaque sphere,
 point Sun, no refraction; the $\approx 200$ m penumbral blur and the $\approx 0.5°$ of
-unmodelled refractive lift are documented, not smoothed.
+unmodeled refractive lift are documented, not smoothed.
 
 For a **sunlit** target with $\theta_s > \pi/2$ the direct beam is a tangent transit, not
 a descending column, so the solar transmittance is the two-arm decomposition
@@ -804,7 +804,7 @@ identically zero; the thermal sky is untouched.
 
 **This branch is provisional.** The twilight transit carries the largest optical depths
 anywhere in RADIANT (30–70 air masses), where both the exponential-in-column transmittance
-and the unmodelled refraction are at their worst. The twilight pair Q7/Q8 *was* delivered —
+and the unmodeled refraction are at their worst. The twilight pair Q7/Q8 *was* delivered —
 with Card-3 ANGLE hand-set to 93° / 96° and `LENN = 1`, and the hand edit verified against
 the matrix by the Card-3 echo sweep — but both rows are `dev_only`: no library family and no
 radiometric parity test consumes them, so the transit's **transmittance remains unanchored**
@@ -978,7 +978,7 @@ because the intervening path is provably vacuum. Both are gated on the shared co
 **Sensor axis.** MODTRAN's atmosphere ends at $h_{\text{atm,top}}$, so a sensor above a
 node at or above the column top sees an *exactly identical* column — the added path has
 zero extinction and zero emission. This is why the ladders duplicate their 100 km TOA state
-at a 40 000 km node: an orbital sensor then falls inside the hull, and the duplication is a
+at a 40,000 km node: an orbital sensor then falls inside the hull, and the duplication is a
 physical identity, not an approximation. The same identity exempts such a query from the
 non-axis geometry-mismatch warning.
 
@@ -1015,7 +1015,7 @@ interpolated backend is a declared hybrid: the family serves the leg it measured
 | illumination (solar column + sky above the target) | the `SimpleAtmosphere` companion | no rung of a sensor→target ladder is the column *above* the target, and the down-looking proxy query an up-looking family would need is refused by construction |
 | sky at aperture (sensor → $h_{\text{atm,top}}$) | the `SimpleAtmosphere` companion | reading a partial ladder's top rung as "the sky" would be extrapolation past the hull |
 
-Two independently-calibrated models in one answer is a real modelling compromise, so it is
+Two independently-calibrated models in one answer is a real modeling compromise, so it is
 never silent: a `UserWarning` is raised, an INFO record is logged, and
 `stage_outputs["atmosphere"]["topology_provenance"]["backend_split"]` names which leg came
 from which model. Where the two models must agree — $\tau_{\text{sun}}$, $E_{\text{TOA}}$,
@@ -1070,7 +1070,7 @@ item is tracked in the repository, where the measured consequences are tabulated
   the two placements differ by ≤ 1.2 % in band-mean thermal
   radiance — under the 3–6 % model/MODTRAN residual there, so those runs cannot settle it.
   The effect is only measurable on an arc rooted at an elevated tangent point *below* the
-  tropopause (modelled separation 7.9 %/9.8 % at 5 km, 16.1 %/13.1 % at 8 km, MWIR/LWIR,
+  tropopause (modeled separation 7.9 %/9.8 % at 5 km, 16.1 %/13.1 % at 8 km, MWIR/LWIR,
   and exactly 0 at 15 km for the isothermal reason above); the reference runs for that
   geometry are authored and not yet executed.
 - **O₃ emission altitude.** The well-mixed-gas floor lumps CO₂/N₂O/CH₄ with O₃, which peaks
@@ -1083,8 +1083,8 @@ item is tracked in the repository, where the measured consequences are tabulated
   $|\ln$ ratio$|$ 0.3581 (it was 0.1519 when the flat slab under-supplied the in-band
   opacity), and moving the τ-determined share onto a 25 km layer recovers it to 0.1456 —
   within 7 % of the sweep's unconstrained best, 0.1365 at share 0.70. The remaining
-  degeneracy in the layer's centre and width is unchanged in kind (0.133–0.191 across
-  20–30 km centres and 3–8 km widths) because the profile is isothermal wherever the layer
+  degeneracy in the layer's center and width is unchanged in kind (0.133–0.191 across
+  20–30 km centers and 3–8 km widths) because the profile is isothermal wherever the layer
   sits.
 - **Polarization, 3D/heterogeneous atmospheres, time dependence, adjacency, aurora/airglow,
   cloud microphysics.** Out of scope for this version of the model.
@@ -1093,17 +1093,9 @@ item is tracked in the repository, where the measured consequences are tabulated
 
 ## References
 
-- Hansen, J. E. and Travis, L. D. (1974). "Light scattering in planetary atmospheres."
-  *Space Science Reviews* 16, 527–610. — Rayleigh whole-atmosphere optical depth.
-- Bucholtz, A. (1995). "Rayleigh-scattering calculations for the terrestrial atmosphere."
-  *Applied Optics* 34(15), 2765–2773.
-- McClatchey, R. A. et al. (1972). *Optical Properties of the Atmosphere* (3rd ed.),
-  AFCRL-72-0497. — standard-profile water columns.
-- Henyey, L. G. and Greenstein, J. L. (1941). "Diffuse radiation in the galaxy."
-  *Astrophysical Journal* 93, 70–83.
-- Elsasser, W. M. (1942). *Heat Transfer by Infrared Radiation in the Atmosphere.*
-  Harvard Meteorological Studies 6. — the diffusivity-factor context for $D$.
-- Chapman, S. (1931). "The absorption and dissociative or ionizing effect of monochromatic
-  radiation in an atmosphere on a rotating earth." *Proc. Phys. Soc.* 43, 26–45. — the
-  grazing-limit anchor for the spherical slant column.
-- The References chapter at the end of this manual — the project-wide reference list.
+This chapter cites, by the keys of the manual's single References list:
+[Hansen & Travis 1974] and [Bucholtz 1995] for the Rayleigh whole-atmosphere optical
+depth, [McClatchey 1972] for the standard-profile water columns,
+[Henyey & Greenstein 1941] for the aerosol phase function, [Elsasser 1942] for the
+diffusivity-factor context of $D$, and [Chapman 1931] for the grazing-limit anchor of
+the spherical slant column.

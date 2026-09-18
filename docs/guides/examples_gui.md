@@ -16,7 +16,7 @@ python scripts/gen_gui_screenshots.py --all
 
 The offscreen renderer paints platform-neutral chrome, so the figures look the same
 whoever produced them and on whichever operating system. Your own window will carry
-your platform's title bar and, if you have chosen the dark theme, your own colours;
+your platform's title bar and, if you have chosen the dark theme, your own colors;
 nothing else differs.
 
 **A convention used throughout.** The window has three permanent columns: the
@@ -46,7 +46,7 @@ therefore also filling them in the order the physics consumes them.
    in the Geometry workspace with every parameter at its schema default.
 
 2. **Place the sensor and the target.** Select stage **1 Geometry**, tab **Inputs**.
-   The centre pane leads with a derived scene-class label — `Scene: air → ground
+   The center pane leads with a derived scene-class label — `Scene: air → ground
    (air_to_ground) — derived` — and then offers one card per geometry *family*, each
    asking you to pick one mode. Set `sensor_altitude_m` to 8000 m and leave
    `target_altitude_m` at 0 m and `path_zenith_rad` at 0 deg; that is a nadir view
@@ -60,7 +60,7 @@ therefore also filling them in the order the physics consumes them.
    what you have actually specified from what the schema supplied — and it is the
    same distinction the YAML round-trip preserves.
 
-   The greyed fields are not disabled features. Geometry accepts one mode per
+   The grayed fields are not disabled features. Geometry accepts one mode per
    family, and the fields of the modes you did not pick are shown inert rather than
    hidden, so the alternatives stay visible. Here `path_zenith_rad` is the chosen
    viewing mode, so `sensor_off_boresight_rad`, `ground_range_m`,
@@ -70,13 +70,13 @@ therefore also filling them in the order the physics consumes them.
    the **Schematic** tab.
 
    ![Geometry workspace, Schematic tab — the 2D viewing-triangle schematic with the
-   sensor, target, sun vector, and the labelled angle set.](figures/gui/build_geometry_schematic.png)
+   sensor, target, sun vector, and the labeled angle set.](figures/gui/build_geometry_schematic.png)
 
    The schematic is deliberately **not to scale**: an 8 km altitude drawn to scale
    against a 6371 km Earth radius would be invisible. Altitudes are carried by leader
    labels (`h_s 8.0 km`) while the geometry itself stays legible. The sun vector
    (orange) and the sensor line of sight (blue) are drawn from the solar geometry you
-   set — here a 28.65 deg solar zenith at day-of-year 80, local solar time 12 h.
+   set — here a 28.65° solar zenith at day-of-year 80, local solar time 12 h.
 
 4. **Give it a telescope.** Select stage **4 Optics**, tab **Inputs**.
 
@@ -142,7 +142,7 @@ path — the same view the published on-orbit NEdT is measured against.
    buy back time on an expensive configuration.
 
    - **Sampling / geometry** — GSD 99.02 m in both axes (against the published 100 m
-     thermal product), ground range 0 m (nadir), $Q$ = 0.7153 at band centre, and
+     thermal product), ground range 0 m (nadir), $Q$ = 0.7153 at band center, and
      the resulting classification `detector-limited`. $Q = \lambda F/\# / p$ compares
      the optical blur to the pixel: below 1 the optics pass more detail than the
      25 µm pixels can sample. The diffraction limit is 122.6 µrad, which projects to
@@ -156,10 +156,11 @@ path — the same view the published on-orbit NEdT is measured against.
      above-Nyquist scene content. Strehl reads 1 because this config carries no
      wavefront error.
    - **Radiometric** — SNR 1160, contrast SNR 1160, SCNR 1160, NEDT 58.07 mK. The
-     three SNR flavours coincide because the scene is a uniform blackbody: there is
+     three SNR flavors coincide because the scene is a uniform blackbody: there is
      no separate clutter or contrast term to divide them.
    - **Interpretability** — minimum resolvable temperature difference (MRT) at
-     Nyquist 0.3698 K, and NIIRS reported as `yes — outside GIQE-5`. The MRT is the
+     Nyquist 0.3698 K, and **no NIIRS value** — the card reports the configuration as
+     outside the GIQE-5 calibration envelope rather than printing a rating. The MRT is the
      NEDT divided by the system MTF at that frequency; it is the temperature
      difference a human observer needs to resolve a bar pattern at the sampling
      limit.
@@ -167,7 +168,7 @@ path — the same view the published on-orbit NEdT is measured against.
      71.08 dB. Margins are the headroom between the filled well and its capacity;
      they go to 0 dB exactly when the pixel clips.
 
-   The result to check: RADIANT predicts NEdT = 58.07 mK where the flight-measured
+   The result to check: RADIANT predicts NEDT = 58.07 mK where the flight-measured
    value is 49 mK and the requirement is ≤ 400 mK. The prediction sits inside the
    58–124 mK bracket the scenario derives from the two published conversion-efficiency
    bounds, and it clears the spec by almost an order of magnitude.
@@ -314,7 +315,7 @@ silver train plus a refractive window and a per-band interference filter.
    typical radiance and the recalled Landsat 8 flight value is about 225, so 341 is a
    consistent over-prediction of the kind this model produces where band-average QE
    and filter peak are generous and where PRNU, striping, and calibration-transfer
-   noise are not modelled.
+   noise are not modeled.
 
 ---
 
@@ -344,7 +345,7 @@ silver train plus a refractive window and a per-band interference filter.
 
 3. **Fill it in.** Parameter `optics.aperture_diameter_m`, start 0.15 m, stop 0.60 m,
    10 points, metric `snr`. The run evaluates on a worker thread, so the window stays
-   responsive and the run can be cancelled.
+   responsive and the run can be canceled.
 
 4. **Read the curve — and the place it stops being a curve.** The result for this
    configuration:
@@ -363,12 +364,12 @@ silver train plus a refractive window and a per-band interference filter.
    | 0.600 | 1414.17 |
 
    Up to 0.35 m, SNR is exactly linear in diameter: 561.94 / 0.150 = 3746 and
-   1311.38 / 0.350 = 3747 per metre. That is the signature of a shot-noise-limited
+   1311.38 / 0.350 = 3747 per meter. That is the signature of a shot-noise-limited
    extended-source system. Collected signal goes as $D^2$, shot noise goes as
    $\sqrt{S} \propto D$, so $\mathrm{SNR} \propto D$ — not $D^2$.
 
    At 0.40 m the curve goes flat at 1414.17 and stays there. This is not a physical
-   asymptote; it is the full well. The Messages rail fills with saturation warnings
+   asymptote; it is the full well. The Messages panel fills with saturation warnings
    ("full well saturated — signal + dark + glow + near-field + stray = 2.246 × 10⁶ e-
    exceeds full_well_capacity_e = 2 × 10⁶ e-, fill fraction 1.12. Signal clipped …
    Downstream SNR/NEDT/NIIRS reflect the CLIPPED signal"). Clipped signal divided by
@@ -406,14 +407,14 @@ all nine Landsat 9 OLI-2 bands as one study on one instrument.
    configuration.](figures/gui/compare_configurations.png)
 
 2. **Read the selector.** The `CONFIGURATIONS` bar lists B1_CA through B9_Cirrus,
-   each with a colour chip, and B4_Red is the displayed one. Selecting a different
+   each with a color chip, and B4_Red is the displayed one. Selecting a different
    tab swaps which configuration the stage workspaces and the pinned cards describe;
    it does not re-run anything, because all nine were evaluated in one pass on load.
    The status bar confirms it: `B4_Red — Evaluated — 500 wavelength points (9
    configurations evaluated)`.
 
 3. **Read the matrix.** Every metric group card grows one column per configuration,
-   colour-keyed to the selector. In Sampling / geometry, GSD is 28.65 m in every
+   color-keyed to the selector. In Sampling / geometry, GSD is 28.65 m in every
    column — pitch, focal length, and altitude are shared, so the ground sample cannot
    differ. What does differ is everything wavelength-dependent: the diffraction limit
    runs 4.003 µrad in B1 (443 nm) to 5.915 µrad in B4 (655 nm), and at the target

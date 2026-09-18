@@ -9,7 +9,7 @@ one of them is not an extension — it is a fork in disguise.
 
 ---
 
-## 1. Adding a Parameter
+## 1. Adding a parameter
 
 Every user-facing quantity is defined exactly once, as a `ParameterDef` in the owning
 stage's `_schema.py`. Nothing tuneable is hardcoded in a physics module; a magic number in
@@ -119,7 +119,7 @@ never read two different velocities.
 
 ---
 
-## 2. Adding a Stage
+## 2. Adding a stage
 
 A new stage is a substantial change — it extends the chain protocol — but the mechanics
 are small.
@@ -185,7 +185,7 @@ run, which is exactly what that check exists for.
 
 ---
 
-## 3. Import Rules
+## 3. Import rules
 
 Module boundaries are machine-enforced by `import-linter`, and a violating change is
 blocked before it merges. The contracts:
@@ -227,7 +227,7 @@ lint-imports --config pyproject.toml
 
 ---
 
-## 4. Adding a Metric
+## 4. Adding a metric
 
 Each distinct metric gets its own module under `radiant/performance/`, with its own error
 class and its own Level 0 test. Bundling unrelated computations into one file because they
@@ -251,7 +251,7 @@ physics-layer modules keep the universal raise rule.
 
 ---
 
-## 5. Testing an Extension
+## 5. Testing an extension
 
 The test hierarchy is specified in full in the preceding chapter. In short:
 
@@ -269,7 +269,7 @@ baseline changes are deliberate and explained.
 
 ---
 
-## 6. Plugins — Deferred
+## 6. Plugins — deferred
 
 `docs/architecture/RADIANT_Plugins.md` specifies a formal extension-point system: abstract
 base classes for source, atmosphere, metric, detector, and file-format plugins, discovered

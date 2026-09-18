@@ -48,7 +48,7 @@ python -m venv .venv
 ```
 
 Your prompt now carries `(.venv)`. Every new terminal needs the activate command again;
-forgetting it is the most common cause of "`radiant` is not recognised".
+forgetting it is the most common cause of "`radiant` is not recognized".
 
 If PowerShell refuses to run the activation script, Windows' execution policy is blocking
 it. Allow signed local scripts for your own account once:

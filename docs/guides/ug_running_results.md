@@ -38,9 +38,9 @@ configurations, fewer wavelength points, or fewer metric groups (§2).
 
 The instant you edit anything, three things change before any new number arrives:
 
-- every stage chip's dot goes **grey**;
+- every stage chip's dot goes **gray**;
 - the **Evaluate** button turns amber and relabels itself **Re-evaluate F5**;
-- the centre column gains a stale notice, and each pinned card appends a `→?` marker to its
+- the center column gains a stale notice, and each pinned card appends a `→?` marker to its
   value.
 
 All of that says one thing: *the numbers on screen no longer describe the model you have now*.
@@ -54,7 +54,7 @@ hybrid that was true of none.
 ### 1.2 The saturation banner
 
 One condition gets its own strip rather than a message row. When the detector well clips, a
-persistent, non-dismissible banner appears at the top of the centre column:
+persistent, non-dismissible banner appears at the top of the center column:
 
 ```text
 ⚠ Detector well saturated — well fill 1.16× (462,700 e- accumulated vs 400,000 e-
@@ -82,14 +82,14 @@ readout read from the same table, so they cannot drift apart.
 
 | Group | Metrics it owns |
 |---|---|
-| Sampling / geometry | GSD (cross-track, along-track, geometric mean), target-plane sample distances, ground range, swath width, access rate, Q at band centre / min / max, sampling regime, diffraction limits, maximum integration time |
+| Sampling / geometry | GSD (cross-track, along-track, geometric mean), target-plane sample distances, ground range, swath width, access rate, Q at band center / min / max, sampling regime, diffraction limits, maximum integration time |
 | Spatial / MTF | FWHM x and y, RER, ensquared energy 1×1 and 3×3, straddle factor, MTF at Nyquist, Strehl (PSF-derived and Maréchal), system MTF at Nyquist x/y, folded MTF, alias fraction |
 | Radiometric | SNR, contrast SNR, SCNR, NEDT, detection range, radiometric accuracy (% and K) |
 | Interpretability | NIIRS, extrapolated NIIRS, MRT at Nyquist |
 | Saturation | well margin, ADC margin, dynamic range |
 
 **Unchecking a group stops the computation, not just the display.** That is the distinction
-worth internalising: this is not a view filter. The stage computes only what the enabled groups
+worth internalizing: this is not a view filter. The stage computes only what the enabled groups
 need — plus any hidden prerequisites their dependency closure requires — and any warning a
 disabled metric would have raised is not raised either.
 
@@ -195,24 +195,14 @@ not the displayed one appears here as a named error row and nothing more.
 
 ## 5. The warnings taxonomy, as an operator sees it
 
-The stage strip's dots report the **run**, not the individual stage, and move together:
-
-| Dot | Meaning |
-|---|---|
-| green | the last evaluation finished with no warnings |
-| yellow | the last evaluation finished and carried at least one warning |
-| red | the last evaluation raised an error |
-| grey | stale — no result yet, or an edit since the last run |
-
-They move together on purpose. Captured warnings are free text that cannot be reliably
-attributed to one stage, and a raised error does not reliably carry the stage it came from, so
-the strip marks every chip rather than guessing which one is at fault.
+The stage strip's dots report the **run**, not the individual stage, and move together —
+chapter 5, §2 has the color table and the reason they move as one.
 
 **A yellow strip means "there is something to read in Messages", not "this stage is
 unhealthy".** The advisory routes of §4.2 are the deliberate exception: where the failure *can*
 be attributed structurally — a calibration scheme without its cal point, a counting
 architecture without its charge packet, a required parameter with no value — only that stage's
-chip goes red and the rest go grey, because nine red chips read as "the run is broken" instead
+chip goes red and the rest go gray, because nine red chips read as "the run is broken" instead
 of "fix this one thing".
 
 The bar to hold yourself to: **a valid scenario evaluates warning-free.** A warning that fires

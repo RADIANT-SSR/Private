@@ -6,7 +6,7 @@ How to define, customize, and manage RADIANT config files.
 
 ---
 
-## YAML Structure
+## YAML structure
 
 A RADIANT config file is a YAML document whose top-level keys are the signal-chain stage
 names. There are ten parameter namespaces in all — `geometry`, `source`, `atmosphere`,
@@ -94,7 +94,7 @@ the schema registry, so it cannot drift from the code.
 
 ---
 
-## Parameter Dot-Path Convention
+## Parameter dot-path convention
 
 Every parameter has a dot-separated path that maps directly to YAML nesting:
 
@@ -108,7 +108,7 @@ This path is used everywhere: CLI overrides, Python API, `explain`, `sweep`.
 
 ---
 
-## Defaults and Required Parameters
+## Defaults and required parameters
 
 Most parameters have sensible defaults. Ten carry none, and a configuration
 that omits one cannot resolve:
@@ -136,7 +136,7 @@ Everything else defaults to a physically reasonable value. Run
 
 ---
 
-## Overriding Parameters
+## Overriding parameters
 
 ### CLI: `--set`
 
@@ -172,7 +172,7 @@ result = sensor.evaluate()
 
 ---
 
-## Consistency Groups
+## Consistency groups
 
 Some parameters are linked by physical relationships. The f-number
 consistency group enforces:
@@ -203,11 +203,11 @@ radiant convert 5 ms s           # 5 ms = 0.005 s
 ```
 
 Parameter values in YAML are in the input units the Parameter Reference chapter
-documents --- for example, pixel pitch is specified in micrometers, altitude in meters.
+documents — for example, pixel pitch is specified in micrometers, altitude in meters.
 
 ---
 
-## Resolution Precedence
+## Resolution precedence
 
 Parameters resolve in a fixed priority order, lowest to highest:
 
@@ -231,7 +231,7 @@ value conflicting with the derived one beyond the group tolerance is an error.
 
 ---
 
-## File Paths Inside a Config
+## File paths inside a config
 
 Parameters that name a file (a QE curve, a measured emissivity spectrum, a tape7, a
 Zernike export) are resolved **relative to the config file's own directory**, not the
@@ -243,7 +243,7 @@ That keeps a round-tripped config portable rather than pinned to one machine.
 
 ---
 
-## Using Templates
+## Using templates
 
 RADIANT ships nine mission templates spanning VNIR, SWIR, MWIR, and LWIR bands at
 altitudes from a 5 m lab bench to GEO, covering all three radiometric regimes. They are
@@ -268,7 +268,7 @@ The per-template table is in the Command-Line Interface chapter, under
 
 ---
 
-## Session Metadata — the `_radiant` Block
+## Session metadata — the `_radiant` block
 
 `Sensor.save(path)` writes an optional top-level `_radiant` mapping holding session state
 that is not a chain parameter:
@@ -298,7 +298,7 @@ provenance exactly rather than freezing today's defaults into the file.
 
 ---
 
-## Optical Element Trains — the `optical_elements` Section
+## Optical element trains — the `optical_elements` section
 
 A config may carry a declarative optical-element document instead of (or alongside) the
 scalar `optics.transmission_scalar`. Each entry names an element, its transfer mode, its
@@ -333,7 +333,7 @@ the run grid, validate normalizes it and reports its errors.
 
 ---
 
-## Named FPA Presets — the `fpa` Key
+## Named FPA presets — the `fpa` key
 
 A scalar section naming one preset from the bundled FPA library:
 
@@ -355,7 +355,7 @@ part list is in the Data Libraries chapter.
 
 ---
 
-## Atmosphere Configuration
+## Atmosphere configuration
 
 RADIANT ships a real MODTRAN-derived atmosphere library, so a high-fidelity atmosphere
 needs no MODTRAN license and no external files:
@@ -409,7 +409,7 @@ chapter.
 
 ---
 
-## Configuration Sets --- Several Configurations in One File
+## Configuration sets — several configurations in one file
 
 One config file can describe **one modeling problem in up to twelve named
 variants of itself**: MWIR vs. LWIR on the same telescope, nominal vs.
@@ -418,12 +418,12 @@ and the file becomes a **study**.
 
 Three words, used consistently everywhere in RADIANT:
 
-- **config file** --- the YAML artifact on disk.
-- **configuration** --- one member of a configuration set (`MWIR`, `LWIR`).
-- **configuration set** (or **study**) --- the whole document: the shared
+- **config file** — the YAML artifact on disk.
+- **configuration** — one member of a configuration set (`MWIR`, `LWIR`).
+- **configuration set** (or **study**) — the whole document: the shared
   parameters plus the per-configuration ones.
 
-Everything in the ordinary body of the file is **shared** --- one value for
+Everything in the ordinary body of the file is **shared** — one value for
 every configuration. The `configurations:` section names the configurations and
 lists only the parameters that *differ*, each as a dense list of values aligned
 with the names:
@@ -462,25 +462,25 @@ configurations:
     readout.full_well_capacity_e: [2.0e6, 6.0e6]              # e-
 ```
 
-Read that as a table: `MWIR` is 3.5--5.0 um integrated 5.0 ms at QE 0.70,
-`LWIR` is 8.0--12.0 um integrated 0.5 ms at QE 0.55, and both look through the
+Read that as a table: `MWIR` is 3.5–5.0 µm integrated 5.0 ms at QE 0.70,
+`LWIR` is 8.0–12.0 µm integrated 0.5 ms at QE 0.55, and both look through the
 same 0.30 m f/4 telescope from 8000 m at the same 300 K scene. Change
-`optics.aperture_diameter_m` once and both configurations move together --- the
+`optics.aperture_diameter_m` once and both configurations move together — the
 study states what differs, not what is repeated.
 
 The binding rules, all checked at load time with an error naming the file, the
 configuration, and the parameter:
 
-- **`names`** --- 1 to 12 unique, non-empty names (`ConfigurationSet.MAX_CONFIGS`). This
+- **`names`** — 1 to 12 unique, non-empty names (`ConfigurationSet.MAX_CONFIGS`). This
   list defines the order of every value list below it.
-- **`parameters`** --- every list has exactly as many values as there are names.
+- **`parameters`** — every list has exactly as many values as there are names.
   The lists are dense by construction: there is no "unset for this
   configuration" and nothing is padded for you.
 - **Shared or configured, never both.** A dot-path that appears in
-  `configurations.parameters` must *not* also appear in the shared body ---
+  `configurations.parameters` must *not* also appear in the shared body —
   the shared value would be silently shadowed. Move a parameter into the
   section, do not copy it.
-- **Values are in input units** --- exactly the units the shared body uses, so
+- **Values are in input units** — exactly the units the shared body uses, so
   `filter_min_um` is micrometers here too. Type, bounds, and enum checks run
   per configuration.
 - **Shared regardless:** tolerance distributions, the `optical_elements`
@@ -503,7 +503,7 @@ signal-chain strip, and **Edit -> Configurations...** adds, renames, reorders,
 and duplicates configurations.
 
 **Plain config files are unchanged.** A file with no `configurations:` key is
-byte-for-byte today's format and loads everywhere exactly as before --- nothing
+byte-for-byte today's format and loads everywhere exactly as before — nothing
 in this section is required, and nothing about it changed existing output. A
 study file, conversely, is only loaded by tools that understand the section:
 `radiant run --configuration` / `radiant validate` and, in Python,
@@ -516,7 +516,7 @@ guide; the complete section specification is in its config-format document.
 
 ---
 
-## Common Patterns
+## Common patterns
 
 ### Change one parameter and re-run
 
@@ -530,8 +530,8 @@ radiant run config.yaml --set optics.aperture_diameter_m=0.40
 radiant compare config_a.yaml config_b.yaml
 ```
 
-This compares two *files* --- two separate designs. To compare named
-configurations *within* one study file, see **Configuration Sets** above and the
+This compares two *files* — two separate designs. To compare named
+configurations *within* one study file, see **Configuration sets** above and the
 repository's trade-studies guide.
 
 ### Batch many scenarios (Python)

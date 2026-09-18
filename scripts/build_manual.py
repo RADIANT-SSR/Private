@@ -685,7 +685,8 @@ def check_tools(*, as_tex: bool) -> int:
             file=sys.stderr,
         )
         return 1
-    for asset in (DEFAULTS_FILE, HEADER_FILE, TABLE_FILTER, HEADING_FILTER, CODE_FILTER, ANCHOR_FILTER):
+    assets = (DEFAULTS_FILE, HEADER_FILE, TABLE_FILTER, HEADING_FILTER, CODE_FILTER, ANCHOR_FILTER)
+    for asset in assets:
         if not asset.is_file():
             print(
                 f"error: shared manual template asset missing: "

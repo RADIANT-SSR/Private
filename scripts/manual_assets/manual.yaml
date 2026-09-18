@@ -19,7 +19,8 @@
 # appendix. Ordinary prose, including a fenced block with any other (or no) language
 # tag, converts exactly as before; this is not a raw-HTML door (§5.4 rule 2 stands, and
 # the builder's own scan still fails a chapter carrying raw HTML).
-from: gfm+tex_math_dollars+raw_attribute
+# +attributes lets the builder mark staged front-/back-matter H1s {.unnumbered}.
+from: gfm+tex_math_dollars+raw_attribute+attributes
 
 standalone: true
 toc: true

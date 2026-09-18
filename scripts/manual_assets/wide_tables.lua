@@ -39,25 +39,6 @@ local MIN_FRAC = 0.06
 -- so the cap protects the code columns' share.
 local CAP_CHARS = 46
 
--- LaTeX-escape one character of code text.
-local LATEX_ESC = {
-  ["\\"] = "\\textbackslash{}", ["{"] = "\\{", ["}"] = "\\}", ["$"] = "\\$",
-  ["&"] = "\\&", ["#"] = "\\#", ["^"] = "\\textasciicircum{}", ["_"] = "\\_",
-  ["%"] = "\\%", ["~"] = "\\textasciitilde{}",
-}
-
--- A code span in a width-managed cell becomes raw LaTeX with a break opportunity
--- after each separator: \texttt cannot wrap, so a 43-character dot-path would
--- otherwise overprint its neighbour column however the widths are chosen.
-local function breakable_code(code)
-  local out = {}
-  for ch in code.text:gmatch(".") do
-    out[#out + 1] = LATEX_ESC[ch] or ch
-    if ch == "." or ch == "_" or ch == "/" then out[#out + 1] = "\\allowbreak{}" end
-  end
-  return pandoc.RawInline("latex", "\\texttt{" .. table.concat(out) .. "}")
-end
-
 local function widen(tbl)
   local ncols = #tbl.colspecs
   if ncols < 2 then return nil end
@@ -98,7 +79,8 @@ local function widen(tbl)
   for i = 1, ncols do
     tbl.colspecs[i] = { tbl.colspecs[i][1], fracs[i] / sum }
   end
-  return tbl:walk({ Code = breakable_code })
+  -- Cell code spans wrap via code_breaks.lua, which runs after this filter.
+  return tbl
 end
 
 return { { Table = widen } }

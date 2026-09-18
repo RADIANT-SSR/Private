@@ -8,8 +8,8 @@ plot nobody can act on.
 This chapter is the recipe card for all six. Each entry says **when to reach for it**,
 gives a short scripted recipe with its **real output**, names the **GUI route** where
 one exists, and points at the case study earlier in this volume that uses it in anger.
-It is deliberately not the reference: the Trade Studies Guide
-(`docs/guides/trade_studies.md`) holds the full API surface, the configuration-set
+It is deliberately not the reference: the project's Trade Studies Guide
+holds the full API surface, the configuration-set
 model, and the result-interpretation notes, and this chapter does not repeat them.
 
 ## The worked configuration, and three habits

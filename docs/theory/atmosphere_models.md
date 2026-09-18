@@ -8,12 +8,12 @@ models — organized by model rather than by change history. What each model com
 what first principles, and which measurement or test holds each claim in place.
 
 This document is the *physics*. The measured accuracy of every model against the MODTRAN
-run set lives in [`docs/validation/atmosphere_modtran_parity.md`](../validation/atmosphere_modtran_parity.md);
-the architecture contract (`AtmosphericQuantities`, backend dispatch, guard structure)
-lives in [`docs/architecture/RADIANT_Atmosphere.md`](../architecture/RADIANT_Atmosphere.md);
-which model an operator should reach for lives in `docs/guides/atmosphere_selection.md`.
-Atmospheric **turbulence** is a spatial effect and is documented with the rest of the MTF
-cascade in [`docs/theory/spatial_model.md`](spatial_model.md) §7; it is not repeated here.
+run set is recorded in the MODTRAN-parity validation record; the architecture contract
+(`AtmosphericQuantities`, backend dispatch, guard structure) is specified in the
+atmosphere architecture document; which model an operator should reach for is the
+User's Guide's model-selection guidance. Atmospheric **turbulence** is a spatial effect
+and is documented with the rest of the MTF cascade in the spatial-model chapter §7; it
+is not repeated here.
 
 **Citation convention.** Every quantitative claim below carries its provenance in the form
 *Record:* the CU entry (with resolution date) that measured it — *Enforced by:* the test
@@ -1137,4 +1137,4 @@ item's tracking home is named; the *measured* consequences are in the parity doc
 - Chapman, S. (1931). "The absorption and dissociative or ionizing effect of monochromatic
   radiation in an atmosphere on a rotating earth." *Proc. Phys. Soc.* 43, 26–45. — the
   grazing-limit anchor for the spherical slant column.
-- `docs/theory/references.md` — the project-wide reference list.
+- The References chapter at the end of this manual — the project-wide reference list.

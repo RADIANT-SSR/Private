@@ -47,6 +47,7 @@ DEFAULTS_FILE = ASSETS / "manual.yaml"
 HEADER_FILE = ASSETS / "manual_header.tex"
 TABLE_FILTER = ASSETS / "wide_tables.lua"
 HEADING_FILTER = ASSETS / "heading_numbers.lua"
+CODE_FILTER = ASSETS / "code_breaks.lua"
 BUILD = REPO / "build" / "manuals"
 
 #: Author line on every cover page (ruling Q6 — minimal cover identity).
@@ -61,8 +62,11 @@ class Volume:
     the volume is registered but its content has not been written yet.
 
     ``appendices`` are chapters bound *after* a LaTeX ``\\appendix`` marker, so they are
-    lettered rather than numbered. They are ordinary Markdown sources — validated,
-    staged, and resource-pathed exactly like chapters.
+    lettered rather than numbered. ``front_matter`` binds before the numbered chapters
+    and ``back_matter`` after everything, both typeset UNNUMBERED (``{.unnumbered}`` on
+    the staged H1) — so the numbered chapters match the plan TOCs and the in-prose
+    "Ch. N" cross-references. All are ordinary Markdown sources — validated, staged,
+    and resource-pathed exactly like chapters.
     """
 
     key: str
@@ -70,6 +74,8 @@ class Volume:
     subtitle: str
     chapters: tuple[str, ...]
     appendices: tuple[str, ...] = ()
+    front_matter: tuple[str, ...] = ()
+    back_matter: tuple[str, ...] = ()
 
     @property
     def phase_note(self) -> str:
@@ -78,8 +84,8 @@ class Volume:
 
     @property
     def sources(self) -> tuple[str, ...]:
-        """Every bound source in binding order — chapters then appendices."""
-        return (*self.chapters, *self.appendices)
+        """Every bound source in binding order."""
+        return (*self.front_matter, *self.chapters, *self.appendices, *self.back_matter)
 
 
 #: Which Support_Documentation_Plan §9 phase populates each volume. Kept beside the
@@ -100,8 +106,8 @@ VOLUMES: dict[str, Volume] = {
         key="theory",
         title="RADIANT Theory Manual",
         subtitle="Physics Reference for the RADIANT EO Sensor Performance Model",
+        front_matter=("theory/notation.md",),
         chapters=(
-            "theory/notation.md",
             "theory/introduction.md",
             "theory/geometry.md",
             "theory/radiometric_chain.md",
@@ -111,10 +117,8 @@ VOLUMES: dict[str, Volume] = {
             "theory/calibration_model.md",
             "theory/performance_metrics.md",
         ),
-        appendices=(
-            "theory/radiometric_model_mixed_train.md",
-            "theory/references.md",
-        ),
+        appendices=("theory/radiometric_model_mixed_train.md",),
+        back_matter=("theory/references.md",),
     ),
     "users_guide": Volume(
         key="users_guide",
@@ -514,17 +518,26 @@ def write_volume_header(volume: Volume, tmpdir: Path) -> Path:
 # --------------------------------------------------------------------------------------
 
 
-def prepare_chapter(chapter: str, tmpdir: Path, index: int) -> Path:
+def prepare_chapter(chapter: str, tmpdir: Path, index: int, *, unnumbered: bool = False) -> Path:
     """Return the path pandoc should read for *chapter*.
 
-    Usually the source itself. For an ``architecture/`` spec whose metadata header is
-    stripped (ruling Q2), a temp copy of the stripped text.
+    Usually the source itself. A temp copy is staged when something must change for
+    typesetting: an ``architecture/`` spec's metadata header is stripped (ruling Q2),
+    a ``*Persona: ...*`` tag is dropped, or a front-/back-matter chapter's H1 gains
+    ``{.unnumbered}`` so --number-sections skips it.
     """
     source = DOCS / chapter
     text = source.read_text(encoding="utf-8")
     stripped = strip_persona_line(text)
     if ARCHITECTURE in source.parents:
         stripped = strip_spec_header(stripped)
+    if unnumbered:
+        lines = stripped.splitlines()
+        for i, line in enumerate(lines):
+            if line.startswith("# "):
+                lines[i] = line.rstrip() + " {.unnumbered}"
+                break
+        stripped = "\n".join(lines) + ("\n" if stripped.endswith("\n") else "")
     if stripped == text:
         return source
     staged = tmpdir / f"{index:02d}_{source.name}"
@@ -564,16 +577,23 @@ def build_volume(volume: Volume, *, as_tex: bool) -> int:
 
     with tempfile.TemporaryDirectory(prefix="radiant-manual-") as tmpname:
         tmpdir = Path(tmpname)
+        counter = iter(range(1, len(volume.sources) + 1))
         sources = [
-            prepare_chapter(chapter, tmpdir, i)
-            for i, chapter in enumerate(volume.chapters, start=1)
+            prepare_chapter(chapter, tmpdir, next(counter), unnumbered=True)
+            for chapter in volume.front_matter
         ]
+        sources.extend(
+            prepare_chapter(chapter, tmpdir, next(counter)) for chapter in volume.chapters
+        )
         if volume.appendices:
             sources.append(write_appendix_marker(tmpdir))
             sources.extend(
-                prepare_chapter(chapter, tmpdir, i)
-                for i, chapter in enumerate(volume.appendices, start=len(volume.chapters) + 1)
+                prepare_chapter(chapter, tmpdir, next(counter)) for chapter in volume.appendices
             )
+        sources.extend(
+            prepare_chapter(chapter, tmpdir, next(counter), unnumbered=True)
+            for chapter in volume.back_matter
+        )
         metadata = write_metadata_file(volume, tmpdir, date.today().isoformat())
         volume_header = write_volume_header(volume, tmpdir)
         resource_dirs = [str(REPO), *dict.fromkeys(str((DOCS / c).parent) for c in volume.sources)]
@@ -598,6 +618,10 @@ def build_volume(volume: Volume, *, as_tex: bool) -> int:
             # --number-sections; the literal ordinal is dropped at build time only.
             "--lua-filter",
             str(HEADING_FILTER),
+            # After the table filter (its width measurement cannot see RawInline):
+            # long inline code wraps at separators instead of clipping at the margin.
+            "--lua-filter",
+            str(CODE_FILTER),
             *[str(p) for p in sources],
             "-o",
             str(out),
@@ -656,7 +680,7 @@ def check_tools(*, as_tex: bool) -> int:
             file=sys.stderr,
         )
         return 1
-    for asset in (DEFAULTS_FILE, HEADER_FILE, TABLE_FILTER, HEADING_FILTER):
+    for asset in (DEFAULTS_FILE, HEADER_FILE, TABLE_FILTER, HEADING_FILTER, CODE_FILTER):
         if not asset.is_file():
             print(
                 f"error: shared manual template asset missing: "

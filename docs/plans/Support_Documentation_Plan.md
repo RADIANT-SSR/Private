@@ -207,7 +207,7 @@ Each phase = one or more normal PRs through the standard gate battery (docs-only
 | 2 | **Technical Reference v1.0**: orientation chapters, CLI/API/error/data-library chapters, generated parameter reference bound, Part-3 specs bound | M | 0 |
 | 3 | **User's Guide v1.0**: capture definitions + figures, chapters 1–12 + appendix; owner reviews rendered PDF per chapter batch (the GUI live-review principle applied to its manual) | L | 0 |
 | 4 | **Examples & Validation v1.0**: GUI worked examples + eight full case studies (4 GUI-led / 4 script-led) + 40-scenario digest compendium + flagship validation chapter; GUI-led figures via the Phase-0 generator | L | 0 (content-independent of 1–3) |
-| 5 | **Shipping**: release build step, wheel inclusion under `radiant/manuals/` + release artifacts (ruling Q1), CHANGELOG entry (Rule 29(c): capability added), Gap 131 closure | S | 1–4 |
+| 5 | **Shipping**: release build step stages the manuals (`radiant/manuals/`, ruling Q1) **and the full 51-scenario suite** (`radiant/scenarios/` — owner-directed 2026-09-17: the manuals document every scenario, so pip-installed users get the suite the manual points at; ~13 MB, single canonical home stays `scenarios/`) into the wheel and attaches both as release artifacts; CHANGELOG entry (Rule 29(c): capability added), Gap 131 closure | S–M | 1–4 |
 
 Phases 1, 2, 4 are parallelizable across sessions once Phase 0 lands (one branch per phase, normal worktree hygiene). Phase 3 is the long pole; its chapter batches can interleave with owner review.
 
@@ -228,4 +228,5 @@ All seven questions were put to the owner one at a time and ruled on 2026-09-16:
 - Ratified 2026-09-16: plan **Active**; tracked as **Gap 131** (`docs/tracking/gaps.md`, minted and pushed the same day); the gap closes at Phase 5.
 - Figures and any committed generated content carry Rule-26 manifests naming generator + input + commit.
 - New chapters are §5.4-compliant from birth; grandfathered Unicode math in existing bound chapters stays until wholesale rewrite (no churn PRs).
+- Owner direction 2026-09-17 (render review): repo-internal anchors (Persona tags, `In RADIANT.`/`Record:`/`Enforced by:` paragraphs, repo doc-path pointers) stay in sources, out of the typeset volumes — implemented as build-time filters; and the scenario suite ships with radiant (folded into Phase 5 above).
 - Completion: the PR that lands Phase 5 moves this plan to `docs/archive/` (Rule 24).

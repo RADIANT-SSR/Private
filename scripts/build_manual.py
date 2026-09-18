@@ -48,6 +48,7 @@ HEADER_FILE = ASSETS / "manual_header.tex"
 TABLE_FILTER = ASSETS / "wide_tables.lua"
 HEADING_FILTER = ASSETS / "heading_numbers.lua"
 CODE_FILTER = ASSETS / "code_breaks.lua"
+ANCHOR_FILTER = ASSETS / "internal_anchors.lua"
 BUILD = REPO / "build" / "manuals"
 
 #: Author line on every cover page (ruling Q6 — minimal cover identity).
@@ -618,6 +619,10 @@ def build_volume(volume: Volume, *, as_tex: bool) -> int:
             # --number-sections; the literal ordinal is dropped at build time only.
             "--lua-filter",
             str(HEADING_FILTER),
+            # Repo implementation-anchor paragraphs (In RADIANT. / Record: /
+            # Enforced by:) stay in the sources, out of the typeset manuals.
+            "--lua-filter",
+            str(ANCHOR_FILTER),
             # After the table filter (its width measurement cannot see RawInline):
             # long inline code wraps at separators instead of clipping at the margin.
             "--lua-filter",
@@ -680,7 +685,7 @@ def check_tools(*, as_tex: bool) -> int:
             file=sys.stderr,
         )
         return 1
-    for asset in (DEFAULTS_FILE, HEADER_FILE, TABLE_FILTER, HEADING_FILTER, CODE_FILTER):
+    for asset in (DEFAULTS_FILE, HEADER_FILE, TABLE_FILTER, HEADING_FILTER, CODE_FILTER, ANCHOR_FILTER):
         if not asset.is_file():
             print(
                 f"error: shared manual template asset missing: "

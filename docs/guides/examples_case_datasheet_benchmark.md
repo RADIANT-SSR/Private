@@ -90,8 +90,8 @@ datasheet's 30 µs it gives $\Delta f = 16.7$ kHz.
 One script does the whole study:
 
 ```bash
-PYTHONPATH=src python \
-  scenarios/06_dr_chen_researcher/6.1_published_snr_benchmark/scripts/run_datasheet_benchmark.py
+S=scenarios/06_dr_chen_researcher/6.1_published_snr_benchmark
+PYTHONPATH=src python $S/scripts/run_datasheet_benchmark.py
 ```
 
 ### The sensor, built in code rather than loaded from YAML

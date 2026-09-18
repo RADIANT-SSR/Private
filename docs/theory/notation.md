@@ -9,7 +9,8 @@ for that section only.
 Two rules govern everything below:
 
 - **One canonical unit per quantity.** RADIANT computes internally in the units of the
-  table in §1 — wavelength in µm, angles in radians, length in meters, time in seconds,
+  canonical-units table below — wavelength in µm, angles in radians, length in meters,
+  time in seconds,
   radiance in W/m²/sr/µm, noise in e- RMS. No module works in any other unit.
 - **Conversion happens exactly once, at a boundary.** User input converts on entry;
   external files convert in their reader. A unit conversion inside a physics equation is

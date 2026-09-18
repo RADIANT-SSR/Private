@@ -170,7 +170,7 @@ $$d_{img} = v_g\,t_{int}\,\frac{f}{R_s}\quad(= v_g t_{int} f/h\ \text{at nadir})
 TDI requires the line clock to match the image velocity:
 $p\,f_{line} = v_{img} \iff t_{line} = \mathrm{GSD}/v_g$; residual per-stage mismatch
 smear multiplies by $N$ stages. The MTF consequence of $d_{img}$ is the smear sinc of
-`theory/spatial_model.md` §6.
+the spatial chapter's *Platform kernels: jitter and smear*.
 
 **Pitfalls.** Orbital $v$ for $v_g$ (+7.8%); $f/R$ or $f/(R+h)$ for the magnification;
 ground meters compared to focal-plane microns without $f/R_s$; conflating $t_{int}$ with
@@ -235,6 +235,8 @@ Rule 3) · anchored by `core/tests/test_geometry.py`.
 ## 9. Sampling on the ground
 
 Focal-plane Nyquist $1/(2p)$ projects to ground Nyquist $1/(2\,\mathrm{GSD})$ —
-direction-dependent off-nadir (use the direction's GSD from §4). The optics-vs-sampling
-budget ($Q = \lambda F_\#/p$, aliasing, folded MTF) lives in `theory/spatial_model.md`
-§10; the geometry chapter's contribution is the GSD that scales it to the ground.
+direction-dependent off-nadir (use the direction's GSD from *GSD — nadir and off-nadir*
+above). The optics-vs-sampling
+budget ($Q = \lambda F_\#/p$, aliasing, folded MTF) lives in the spatial chapter's
+*Sampling: Nyquist, Q, and folded MTF*; the geometry chapter's contribution is the GSD
+that scales it to the ground.

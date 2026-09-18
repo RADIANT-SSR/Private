@@ -32,29 +32,29 @@ Not a free-form DAG. Not bare function composition. A `Chain` is an ordered list
 ### Stages in v1
 
 ```
-0. GeometryStage       — resolves the scene-geometry input mode (ADR-0006); publishes LOS,
-                         slant/ground range, solar geometry via stage_outputs["geometry"]
-1. SourceStage         — assembles target/background emission and reflection; classifies regime
-2. AtmosphereStage     — applies τ(λ), L_path(λ), L_atm(λ); publishes r0_m (Fried parameter).
-                         It does NOT add a turbulence MTF: the turbulence PSF kernel is applied in
-                         PlatformStage and the turbulence MTF term is written by PerformanceStage,
-                         both when r0_m > 0 (see D6 fix, 2026-07)
-3. OpticsStage         — applies A, Ω, τ_opt(λ), warm-optics emission, cold stop, narcissus;
-                         adds diffraction MTF, WFE/Strehl, defocus MTF, vignetting, encircled energy
-4. PlatformStage       — adds smear MTF and jitter MTF; degrades the EffectivePSF with the jitter,
-                         smear, and turbulence kernels; publishes EE_box from the degraded PSF
-5. SpectralIntegrationStage — collapses spectral radiance to in-band photoelectrons per pixel;
-                              applies regime-dependent spatial factors (Ω_pixel or EE_box)
-6. DetectorStage       — applies QE, dark current, full well, generates noise terms;
-                         adds pixel aperture MTF, IPC MTF, charge-diffusion MTF
-7. ReadoutStage        — applies TDI signal gain, binning, coadds, gain, ADC; adds quantization noise;
-                         writes TDI-misregistration MTF and electronics MTF; finalizes noise budget
-8. CalibrationStage    — terms-only (Gap 120, ADR-0012): appends post-NUC residual-FPN noise terms
-                         AFTER readout's TDI/coadd scaling (structurally exempt from sqrt(N) averaging)
-                         and calibration-scale bias terms to the accuracy budget; no frame, no MTF.
-                         scheme="none" (default) is a recorded no-op
-9. PerformanceStage    — composes system MTF from all accumulated MTF terms;
-                         computes SNR, NEDT, RER, NIIRS, detection range
+0. GeometryStage — resolves the scene-geometry input mode (ADR-0006); publishes LOS,
+     slant/ground range, solar geometry via stage_outputs["geometry"]
+1. SourceStage — assembles target/background emission and reflection; classifies regime
+2. AtmosphereStage — applies τ(λ), L_path(λ), L_atm(λ); publishes r0_m (Fried
+     parameter). It does NOT add a turbulence MTF: the turbulence PSF kernel is applied
+     in PlatformStage and the turbulence MTF term is written by PerformanceStage, both
+     when r0_m > 0 (see D6 fix, 2026-07)
+3. OpticsStage — applies A, Ω, τ_opt(λ), warm-optics emission, cold stop, narcissus;
+     adds diffraction MTF, WFE/Strehl, defocus MTF, vignetting, encircled energy
+4. PlatformStage — adds smear MTF and jitter MTF; degrades the EffectivePSF with the
+     jitter, smear, and turbulence kernels; publishes EE_box from the degraded PSF
+5. SpectralIntegrationStage — collapses spectral radiance to in-band photoelectrons per
+     pixel; applies regime-dependent spatial factors (Ω_pixel or EE_box)
+6. DetectorStage — applies QE, dark current, full well, generates noise terms; adds
+     pixel aperture MTF, IPC MTF, charge-diffusion MTF
+7. ReadoutStage — applies TDI signal gain, binning, coadds, gain, ADC; adds quantization
+     noise; writes TDI-misregistration MTF and electronics MTF; finalizes noise budget
+8. CalibrationStage — terms-only (Gap 120, ADR-0012): appends post-NUC residual-FPN
+     noise terms AFTER readout's TDI/coadd scaling (structurally exempt from sqrt(N)
+     averaging) and calibration-scale bias terms to the accuracy budget; no frame, no
+     MTF. scheme="none" (default) is a recorded no-op
+9. PerformanceStage — composes system MTF from all accumulated MTF terms; computes SNR,
+     NEDT, RER, NIIRS, detection range
 ```
 
 **Spatial and radiometric effects are interleaved through the chain**, not separated into parallel tracks. Each stage that has a spatial effect (diffraction, pixel aperture, jitter, IPC, etc.) writes its MTF contribution into `state.mtf_terms` at the same time it writes its radiometric contribution into a reference frame. `PerformanceStage` reads the accumulated MTF terms at the end and forms the system MTF as their product.
@@ -170,7 +170,8 @@ A `RadiometricFrame` is a snapshot of the radiometric state at one reference poi
 ```python
 @dataclass(frozen=True)
 class RadiometricFrame:
-    name: str                           # registered snapshots, e.g. "at_aperture", "post_optics", "photoelectrons"
+    name: str                           # registered snapshots, e.g. "at_aperture",
+                                        #   "post_optics", "photoelectrons"
     wavelength_um: np.ndarray
     spectral_radiance: np.ndarray | None   # W/m²/sr/µm  — when meaningful
     spectral_irradiance: np.ndarray | None # W/m²/µm     — when meaningful
@@ -210,16 +211,18 @@ The framework auto-detects the regime in **two steps** (§ "Architectural placem
 angular_extent_rad = sqrt(A_target) / R              # small-angle approximation
 ifov_rad = pixel_pitch / focal_length
 
-if angular_extent_rad >= 2.0  * ifov_rad:   regime = EXTENDED       # REGIME_EXTENDED_IFOV_MULTIPLE = 2.0
-elif angular_extent_rad <= 0.25 * ifov_rad: regime = POINT_SOURCE   # REGIME_POINT_SOURCE_IFOV_MULTIPLE = 0.25
+# REGIME_EXTENDED_IFOV_MULTIPLE = 2.0, REGIME_POINT_SOURCE_IFOV_MULTIPLE = 0.25
+if angular_extent_rad >= 2.0  * ifov_rad:   regime = EXTENDED
+elif angular_extent_rad <= 0.25 * ifov_rad: regime = POINT_SOURCE
 else:                                       regime = SUB_PIXEL
 ```
 
 **Step 2 — OpticsStage (final), against the diffraction PSF FWHM** (`optics/stage.py` constants). After the PSF is computed, `psf_fwhm_rad = fwhm_m / focal_length`:
 
 ```
-if angular_extent_rad >= 2.0 * psf_fwhm_rad: regime = EXTENDED      # _EXTENDED_PSF_FWHM_MULTIPLE = 2.0
-elif angular_extent_rad <= 0.5 * psf_fwhm_rad: regime = POINT_SOURCE # _POINT_SOURCE_PSF_FWHM_MULTIPLE = 0.5
+# _EXTENDED_PSF_FWHM_MULTIPLE = 2.0, _POINT_SOURCE_PSF_FWHM_MULTIPLE = 0.5
+if angular_extent_rad >= 2.0 * psf_fwhm_rad:   regime = EXTENDED
+elif angular_extent_rad <= 0.5 * psf_fwhm_rad: regime = POINT_SOURCE
 else:                                          regime = SUB_PIXEL
 ```
 

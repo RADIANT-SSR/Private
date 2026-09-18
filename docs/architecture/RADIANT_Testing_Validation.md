@@ -38,9 +38,9 @@ def test_planck_stefan_boltzmann():
     from scipy.integrate import quad
 
     T = 300.0  # K
-    def planck_w_m2_sr_um(lam_um):
+    def planck_w_m2_sr_um(lam_um):                      # W/m²/sr/µm
         lam_m = lam_um * 1e-6
-        return (2 * h * c**2 / lam_m**5) / (np.exp(h * c / (lam_m * k_B * T)) - 1) * 1e-6  # W/m²/sr/µm
+        return (2 * h * c**2 / lam_m**5) / (np.exp(h * c / (lam_m * k_B * T)) - 1) * 1e-6
 
     integral, _ = quad(planck_w_m2_sr_um, 0.1, 200.0, limit=500)
     expected = sigma_sb * T**4 / np.pi  # W/m²/sr (Lambertian hemisphere)
@@ -156,7 +156,9 @@ def test_ktc_cds_cancellation():
 
     # With CDS enabled: kTC contribution = 0
     assert ktc_reset_noise(C_node, T_roic, cds_enabled=True) == 0.0
-    assert ktc_reset_noise(C_node, T_roic, cds_enabled=False) == pytest.approx(expected, rel=1e-6)
+    assert ktc_reset_noise(C_node, T_roic, cds_enabled=False) == pytest.approx(
+        expected, rel=1e-6
+    )
 ```
 
 ### 2.7 TDI Signal and Noise Scaling
@@ -188,7 +190,9 @@ def test_beer_lambert_matches_hand_calc():
     state = simple_atmosphere.build_state(...)      # Rayleigh-only configuration
     od = sigma_0 * col_mol                          # hand-computed column OD
     expected_tau = math.exp(-od)
-    assert state.transmittance.values[i] == pytest.approx(expected_tau, rel=1e-12, abs=1e-12)
+    assert state.transmittance.values[i] == pytest.approx(
+        expected_tau, rel=1e-12, abs=1e-12
+    )
 ```
 
 ### 2.9 Encircled Energy — Airy Disk
@@ -332,19 +336,30 @@ Each value in the real golden file is a `{value, unit, provenance}` object (not 
             "spectral_integration", "detector", "readout", "performance"
         ],
         "generated_by": "scripts/update_golden.py",
-        "notes": "CU-155 refresh (2026-07-18). ... human-readable history of every value change ...",
+        "notes": "CU-155 refresh (2026-07-18). ... human-readable history of every
+                  value change ...",
         "last_updated": "2026-07-20T12:52:23.144171+00:00"
     },
-    "signal_e":          {"value": 956457.31579691, "unit": "e-",        "provenance": "chain output, T3Mixed routing"},
-    "e_rate_per_s":      {"value": 191291463.159382, "unit": "e-/s",     "provenance": "signal_e / t_int"},
-    "A_collect":         {"value": 0.07068583470577035, "unit": "m^2",   "provenance": "pi/4 * 0.30^2"},
-    "Omega_pixel":       {"value": 2.25e-10, "unit": "sr",               "provenance": "(18e-6)^2 / 1.20^2"},
-    "noise_shot":        {"value": 977.9863576742315, "unit": "e- RMS",  "provenance": "sqrt(signal_e)"},
-    "noise_dark_shot":   {"value": 0.7071067811865476, "unit": "e- RMS", "provenance": "sqrt(dark_rate * t_int)"},
-    "noise_read":        {"value": 5.0, "unit": "e- RMS",                "provenance": "readout.read_noise_e_rms"},
-    "noise_quantization":{"value": 9.237604307034013, "unit": "e- RMS",  "provenance": "gain / sqrt(12)"},
-    "noise_rss":         {"value": 978.0430200815521, "unit": "e- RMS",  "provenance": "RSS of the noise terms"},
-    "snr":               {"value": 977.9296985496178, "unit": "dimensionless", "provenance": "signal_e_final / sigma_total_e"}
+    "signal_e":           {"value": 956457.31579691,     "unit": "e-",
+                           "provenance": "chain output, T3Mixed routing"},
+    "e_rate_per_s":       {"value": 191291463.159382,    "unit": "e-/s",
+                           "provenance": "signal_e / t_int"},
+    "A_collect":          {"value": 0.07068583470577035, "unit": "m^2",
+                           "provenance": "pi/4 * 0.30^2"},
+    "Omega_pixel":        {"value": 2.25e-10,            "unit": "sr",
+                           "provenance": "(18e-6)^2 / 1.20^2"},
+    "noise_shot":         {"value": 977.9863576742315,   "unit": "e- RMS",
+                           "provenance": "sqrt(signal_e)"},
+    "noise_dark_shot":    {"value": 0.7071067811865476,  "unit": "e- RMS",
+                           "provenance": "sqrt(dark_rate * t_int)"},
+    "noise_read":         {"value": 5.0,                 "unit": "e- RMS",
+                           "provenance": "readout.read_noise_e_rms"},
+    "noise_quantization": {"value": 9.237604307034013,   "unit": "e- RMS",
+                           "provenance": "gain / sqrt(12)"},
+    "noise_rss":          {"value": 978.0430200815521,   "unit": "e- RMS",
+                           "provenance": "RSS of the noise terms"},
+    "snr":                {"value": 977.9296985496178,   "unit": "dimensionless",
+                           "provenance": "signal_e_final / sigma_total_e"}
 }
 ```
 

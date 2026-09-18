@@ -215,7 +215,7 @@ labelled groups, with no preset applied.](figures/gui/ug_detector_inputs.png)
 The strip across the top is the shortcut past the form beneath it:
 
 ```text
-FPA part library    no part applied        [ Choose part & apply… ]  [ Open datasheet/paper ]
+FPA part library   no part applied   [ Choose part & apply… ]  [ Open datasheet/paper ]
 ```
 
 **Choose part & apply…** opens a sortable browser of the shipped parts — class, band, and a

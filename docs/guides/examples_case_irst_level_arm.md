@@ -330,8 +330,9 @@ there was no mechanism for the two paths to diverge — and the check confirms n
 ## The same study from a script
 
 ```bash
-python scenarios/10_direction_general/10.2_air_to_air_level_irst/inputs/create_spreadsheet.py
-python scenarios/10_direction_general/10.2_air_to_air_level_irst/scripts/run_air_to_air_level_irst.py
+cd scenarios/10_direction_general/10.2_air_to_air_level_irst
+python inputs/create_spreadsheet.py
+python scripts/run_air_to_air_level_irst.py
 ```
 
 The runner takes about seven seconds and does 39 chain evaluations: the 16-point range

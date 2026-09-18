@@ -119,7 +119,8 @@ anchored by `performance/tests/test_detector_figures_of_merit.py`,
 $$\mathrm{NIIRS} = c_0 + c_1\log_{10}\mathrm{GSD_{in}} + c_2\log_{10}\mathrm{RER} + c_3\log_{10}\mathrm{SNR} + c_4 H + c_5 G$$
 
 with the literature coefficients $(9.57,\ -3.32,\ 3.32,\ 1.559,\ -0.334,\ -0.01)$
-pinned exactly by test; GSD in **inches** (geometric mean of the §4-geometry directions),
+pinned exactly by test; GSD in **inches** (geometric mean of the two ground-sample
+directions the geometry chapter derives),
 RER the geometric mean from the PSF path, $H$ edge overshoot, $G$ noise gain.
 
 **Fit-envelope gating (CU-166):** GIQE-5 was fit over GSD 1.18–31.5 in, RER 0.2–0.95,

@@ -253,7 +253,8 @@ The verdict the trade produces:
 ## The same study from a script
 
 ```bash
-python scenarios/02_mike_detector_engineer/2.1_insb_vs_hgcdte_noise_budget/scripts/run_detector_shootout.py
+cd scenarios/02_mike_detector_engineer/2.1_insb_vs_hgcdte_noise_budget
+python scripts/run_detector_shootout.py
 ```
 
 The runner loads all four vendor CSVs through `radiant.io.qe_csv.load_qe_csv` and

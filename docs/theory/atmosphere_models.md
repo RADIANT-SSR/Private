@@ -12,7 +12,8 @@ run set is recorded in the MODTRAN-parity validation record; the architecture co
 (`AtmosphericQuantities`, backend dispatch, guard structure) is specified in the
 atmosphere architecture document; which model an operator should reach for is the
 User's Guide's model-selection guidance. Atmospheric **turbulence** is a spatial effect
-and is documented with the rest of the MTF cascade in the spatial-model chapter §7; it
+and is documented with the rest of the MTF cascade in the spatial chapter's *Atmospheric
+turbulence*; it
 is not repeated here.
 
 **Citation convention.** Every quantitative claim below carries its provenance in the form
@@ -62,17 +63,19 @@ $$\tau_{atm}(\lambda) \;=\; \exp\!\left[-\mathrm{OD}_{tot}(\lambda)\right],
 \mathrm{OD}_{tot}(\lambda) \;=\; \sum_{i} m_i \,\mathrm{OD}_{i,\mathrm{vert}}(\lambda)$$
 
 with $i \in \{\text{mol}, \text{aer}, \text{h2o}, \text{gas}\}$ and $m_i$ the species air
-mass of §2.7. The **vertical** column each species presents between two altitudes is the
+mass of *Air mass* below. The **vertical** column each species presents between two
+altitudes is the
 analytic exponential integral
 
 $$\mathrm{col}_i(h_{lo}, h_{hi}) \;=\; \int_{h_{lo}}^{h_{hi}} e^{-h/H_i}\,\mathrm{d}h
 \;=\; H_i\left(e^{-h_{lo}/H_i} - e^{-h_{hi}/H_i}\right) \quad [\text{km}]$$
 
 which is endpoint-symmetric, so one segment read in either direction presents one column —
-the structural reason transmittance is single-valued (§2.12).
+the structural reason transmittance is single-valued (*Path topologies*).
 
 Scale heights: $H_{\text{mol}} = 8000$ m, $H_{\text{aer}} = 1200$ m, $H_{\text{h2o}} = 2000$ m.
-The well-mixed-gas floor rides the molecular profile by construction (§2.5).
+The well-mixed-gas floor rides the molecular profile by construction (*The
+well-mixed-gas absorption floor*).
 
 *Record:* module constants `H_MOL_M` / `H_AER_M` / `H_H2O_M`, `src/radiant/atmosphere/simple.py`.
 *Enforced by:* `src/radiant/atmosphere/tests/test_simple.py`, and the segment↔evaluate
@@ -176,7 +179,8 @@ $$\mathrm{OD}_{\text{region}}(w) \;=\; \mathrm{floor\_od} \;+\; k\,w_{\mathrm{ef
 
 The floor rides the molecular scale height (CU-161 defines it as a fraction of the
 molecular column), and it enters the single-scattering albedo denominator as a **pure
-absorber** (§2.9). Its absence is what made the pre-CU-161 model attribute the MWIR CO₂
+absorber** (*Single-scatter solar path radiance*). Its absence is what made the
+pre-CU-161 model attribute the MWIR CO₂
 floor to water and evaluate $\omega_0 \approx 1$ for space columns.
 
 The calibrated table, exactly as shipped (`_CALIBRATED_GAS_REGIONS`):
@@ -384,7 +388,8 @@ step bound, all three call sites).
 
 Two calibrated terms — the water curve of growth and the gas floor — are *column* optical
 depths, the integral of no local coefficient. Wherever the model needs a **local**
-extinction (the single-scatter weights of §2.9, the level arm of §2.12), they must be
+extinction (the single-scatter weights of *Single-scatter solar path radiance*, the level
+arm of *Path topologies*), they must be
 linearised: divided by a reference column to produce an equivalent per-km coefficient.
 
 Because the curve of growth is sub-linear, that choice is not neutral. Linearising against
@@ -397,7 +402,8 @@ publishes `slant_column_mol_km` / `_aer_km` / `_h2o_km` provenance under the sam
 the near-horizon branch already used, so the convention is inspectable (Rule 16).
 
 Note the scope precisely: this is the convention for the **linearised local weights**. The
-optical depth itself is still built as *vertical column × species air mass* (§2.7); the two
+optical depth itself is still built as *vertical column × species air mass* (*Air mass*);
+the two
 are consistent because $m_i$ is defined as the ratio of the slant to the vertical column.
 
 At $\zeta = 0$ the air mass is exactly 1, so slant $\equiv$ vertical and every vertical
@@ -548,7 +554,8 @@ ozone layer; the remainder keeps the 4 km pressure-broadened placement. Three pr
 follow:
 
 - **the share is arithmetic, not fitted** — it is read off the two committed table rows
-  (§2.5's 8.00–9.40 and 9.40–9.90 µm regions), so a re-fit moves it automatically and
+  (the well-mixed-gas floor's 8.00–9.40 and 9.40–9.90 µm regions), so a re-fit moves it
+  automatically and
   there is no coefficient in the emission model to go stale. An absorption *band* stands
   on top of the continuum its neighbours carry, so the excess — not the total — is ozone;
 - **placement is continuous in $\lambda$** — both floors pass through the same CU-267
@@ -629,14 +636,16 @@ constrained it postdates that fit by six weeks, and on it the geometric value wi
 measurement below.
 
 Because $z_{em}$ is fitted *through this one closed form*, a directional path-radiance
-product still cannot inherit it. That is why §2.10's height-resolved model and this
+product still cannot inherit it. That is why the height-resolved thermal path-radiance
+model and this
 graybody coexist deliberately: they are different products, not two versions of one
 (Rule 27 does not apply).
 
 **Why the layered solution did not replace it (CU-324 item 1, measured 2026-08-29).** The
 obvious refinement is to compute the downwelling directly — evaluate the sky column's
 emergent radiance at the 48.2° diffusivity angle escaping toward the ground, $\pi L(48.2°)$,
-from §2.10's machinery — and retire both fitted constants. It was measured against the
+from that height-resolved machinery — and retire both fitted constants. It was measured
+against the
 nine-rung P-block ladder (H5 + P1–P8: measured hemispheric-proxy downwelling at
 0/1/5/10/20/29/50/60/80 km) and **not adopted**. The decisive numbers are the four corners
 of (emissivity exponent) × (emission temperature), as RMS $|\ln(\text{model} / \pi
@@ -683,7 +692,8 @@ the assertion that its $(\sec, z_{em})$ corner is bit-identical to what ships) a
 
 $$E_{\text{sky,scattered}}(\lambda) \;=\; E_{\text{TOA}}(\lambda)\,\cos\theta_s\;\omega_{0,\text{eff}}(\lambda,\ \text{aerosol})\;\bigl[1 - \tau_{\text{down,vert}}(\lambda)\bigr]$$
 
-$\omega_{0,\text{eff}}$ is **not** the internal column $\omega_0$ of §2.9. It is a
+$\omega_{0,\text{eff}}$ is **not** the internal column $\omega_0$ of *Single-scatter solar
+path radiance*. It is a
 MODTRAN-derived effective single-scattering albedo (`atmosphere/omega0_eff.py`): band-median
 values per aerosol regime over VIS 0.4–0.7 / NIR 0.7–1.4 / SWIR 1.4–2.5 µm, edge-extended
 outside, obtained by inverting *this closed form* against the real ground-level
@@ -712,7 +722,7 @@ topologies and they are not variations of one form:
 
 | Spec | Fields | Topology | Air mass |
 |---|---|---|---|
-| `ColumnSegmentSpec` | $h_{low}$, $h_{high}$ [m], $\zeta_{low}$ [rad] | **endpoint-minimum** — the path's lowest point is an endpoint | §2.7 |
+| `ColumnSegmentSpec` | $h_{low}$, $h_{high}$ [m], $\zeta_{low}$ [rad] | **endpoint-minimum** — the path's lowest point is an endpoint | *Air mass* |
 | `LevelArmSpec` | altitude [m], length [m] | **interior-tangent** — the lowest point is in the middle | none at all |
 
 One evaluated product, `SegmentQuantities`, carries **one** $\tau$ and **two** directional
@@ -738,7 +748,8 @@ L_{\text{path}}(\lambda) \;=\; \bigl[1 - \tau(\lambda)\bigr] B(\lambda, T_{\text
 
 with $\alpha$ the **local** extinction at the arm's altitude [km⁻¹] and $L$ the **true
 spherical chord** between the endpoints [km] — not a flat-Earth range. No new calibration
-is introduced: the water and gas terms are linearised exactly as §2.8 prescribes, against
+is introduced: the water and gas terms are linearised exactly as *One linearisation
+convention* prescribes, against
 a reference column independent of the arm's own length, which is what makes $\alpha$ a
 property of altitude alone and $\tau$ a pure exponential in $L$.
 
@@ -778,8 +789,13 @@ the ellipsoid — so the integration floor is clamped at MSL and the model warns
 **Sky radiance along the LOS.** The radiance a receiver at $h_{\text{start}}$ sees looking
 up along a ray of zenith $\zeta$ with nothing behind the atmosphere but cold space:
 
-$$L_{\text{sky}}(h_{\text{start}}, \zeta) \;=\; \mathrm{SegmentQuantities}\!\left(\mathrm{ColumnSegmentSpec}(h_{\text{start}}, h_{\text{atm,top}}, \zeta)\right).L_{\text{toward lower}} \;+\; \tau_{\text{seg}} L_{\text{beyond}},
-\qquad L_{\text{beyond}} \equiv 0$$
+$$\begin{aligned}
+L_{\text{sky}}(h_{\text{start}}, \zeta) \;=\;
+  &\ \mathrm{SegmentQuantities}\!\left(\mathrm{ColumnSegmentSpec}(h_{\text{start}}, h_{\text{atm,top}}, \zeta)\right).L_{\text{toward lower}} \\
+  &+\; \tau_{\text{seg}}\, L_{\text{beyond}}
+\end{aligned}$$
+
+with $L_{\text{beyond}} \equiv 0$ — there is nothing behind the atmosphere but cold space.
 
 The 2.7 K cosmic background contributes $< 10^{-9}$ W/m²/sr/µm anywhere in the 0.3–14 µm
 working range, so the composition is a no-op and the module is a thin, well-named wrapper
@@ -915,7 +931,7 @@ and would misbehave at zeros.
 
 **No extrapolation.** A query outside the convex hull of the nodes always raises. The one
 query served from outside the node span is not an exception but an application of the rule
-— see §3.6.
+— see *Vacuum-equivalence identities*.
 
 ### 3.3 Wavelength resampling in log-$\tau$, and why the two must commute
 
@@ -956,7 +972,8 @@ three-backend agreement test.
 ### 3.4 Zenith axes interpolate in $\sec\zeta$
 
 A zenith-angle axis is mapped $\zeta \mapsto \sec\zeta$ before interpolation. Combined with
-§3.2 this is Beer-Lambert-**exact** between nodes: the path length along a zenith axis is
+the log-$\tau$ geometry interpolation above, this is Beer-Lambert-**exact** between nodes:
+the path length along a zenith axis is
 $\propto \sec\zeta$, so $\ln\tau$ linear in $\sec\zeta$ reproduces Beer at every query
 angle. Linear-in-angle carried a measured in-band bias at fan midpoints (parity document
 §2.10).
@@ -1094,7 +1111,8 @@ item's tracking home is named; the *measured* consequences are in the parity doc
   and falls to 178 K at 80 km, while the profile answers 222.65 K at every one of those
   altitudes. This is why the five stratospheric rungs of the downwelling ladder are
   insensitive to *any* emission-placement choice — every candidate form returns the same
-  temperature there — and why they carry no information about §2.11's fitted constants.
+  temperature there — and why they carry no information about the hemispheric downwelling
+  terms' fitted constants.
 - **Grazing-arc opacity distribution.** A grazing arc's air lies along the arc, not along
   the vertical between its endpoints; the emission weighting is approximate there, though
   the *total* optical depth is exact (CU-324). Measured 2026-08-29: on a ground-rooted
@@ -1106,7 +1124,8 @@ item's tracking home is named; the *measured* consequences are in the parity doc
   authored for that geometry and unrun.
 - **O₃ emission altitude.** The well-mixed-gas floor lumps CO₂/N₂O/CH₄ with O₃, which peaks
   near 25 km, so 9.6 µm emission is placed too low (CU-324 item 2). The τ side is now
-  fixed: CU-330 split the 8–10 µm region at the band edges (§2.5), so the ozone share of
+  fixed: CU-330 split the 8–10 µm region at the band edges (*The well-mixed-gas absorption
+  floor*), so the ozone share of
   the in-feature floor is arithmetic — $0.832$ — rather than a free parameter. The
   *placement* is not: the identified opacity still rides the molecular scale height, so
   the model puts ozone near 8 km instead of 25 km. Re-measured 2026-08-29 on the fourteen

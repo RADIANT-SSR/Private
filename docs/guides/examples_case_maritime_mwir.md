@@ -314,7 +314,8 @@ Everything above is one evaluation of one config; the study is a sweep of both. 
 scenario's runner does the whole thing:
 
 ```bash
-python scenarios/01_sarah_systems_engineer/1.1_mwir_maritime_surveillance/scripts/run_mwir_maritime_surveillance.py
+cd scenarios/01_sarah_systems_engineer/1.1_mwir_maritime_surveillance
+python scripts/run_mwir_maritime_surveillance.py
 ```
 
 It builds the two atmosphere configurations — `SimpleAtmosphere` and the imported

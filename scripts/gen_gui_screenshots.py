@@ -484,6 +484,15 @@ CAPTURES: tuple[Capture, ...] = (
         name="ug_atmosphere_workspace",
         config=_MINIMAL,
         stage="atmosphere",
+        # The atmosphere workspace stacks two spectra under the model card, which is
+        # taller than the default window: as a full-window shot the Background-path
+        # plot was cut mid-axes and the figure read as broken (CU-370 II-022). The
+        # chapter's prose discusses only this pane — the model selector and the two
+        # spectra — so it becomes a panel grab, big enough to hold the whole stack
+        # and legible in print rather than set at 4 pt (X-07).
+        target="central_canvas.stage_center",
+        width=1720,
+        height=1300,
         caption=(
             "Atmosphere workspace — the model selector with only the active backend's "
             "knobs shown, above the transmittance and path-radiance spectra."
@@ -657,6 +666,11 @@ CAPTURES: tuple[Capture, ...] = (
         config=_CASE_MARITIME,
         stage="atmosphere",
         target="central_canvas.stage_center",
+        # The grabbed panel is only as tall and wide as the window leaves it: at the
+        # default size the Background-path plot was cut mid-axes and the target-path
+        # plot's two y-axis labels overlapped each other (CU-370 IV-032).
+        width=1720,
+        height=1300,
         caption=(
             "Atmosphere workspace (panel grab) — the parametric maritime/midlat_summer "
             "inputs and the target-path transmittance and path radiance they produce."

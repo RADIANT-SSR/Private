@@ -23,7 +23,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_manual  # noqa: E402  (path insert must precede the import)
 from build_manual import (  # noqa: E402
     ARCHITECTURE,
+    DEFAULTS_FILE,
     DOCS,
+    HEADER_FILE,
     VOLUMES,
     Volume,
     count_display_math,
@@ -33,6 +35,7 @@ from build_manual import (  # noqa: E402
     scan_raw_html,
     strip_persona_line,
     strip_spec_header,
+    unmapped_risk_chars,
     validate_chapter,
     validate_volume,
     version_string,
@@ -350,6 +353,25 @@ def test_version_string_is_latex_safe() -> None:
     assert not set(text) & set("\\{}$&#%_^~")
 
 
+def test_version_string_drops_a_git_describe_that_repeats_the_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """On the release tag itself, git describe echoes the version — CU-370 X-02."""
+    monkeypatch.setattr(build_manual, "package_version", lambda: "0.1.0")
+    monkeypatch.setattr(build_manual, "git_describe", lambda: "v0.1.0")
+    assert version_string() == "v0.1.0"
+    monkeypatch.setattr(build_manual, "git_describe", lambda: "0.1.0")
+    assert version_string() == "v0.1.0"
+
+
+def test_version_string_keeps_a_git_describe_that_adds_information(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(build_manual, "package_version", lambda: "0.1.0")
+    monkeypatch.setattr(build_manual, "git_describe", lambda: "v0.1.0-3-gabc1234")
+    assert version_string() == "v0.1.0 (v0.1.0-3-gabc1234)"
+
+
 def test_latex_escape_handles_specials() -> None:
     assert latex_escape("Examples & Validation") == r"Examples \& Validation"
     assert latex_escape("a_b") == r"a\_b"
@@ -377,3 +399,38 @@ def test_every_theory_chapter_persona_tag_is_stripped() -> None:
     for chapter in VOLUMES["theory"].sources:
         text = (DOCS / chapter).read_text(encoding="utf-8")
         assert "*Persona:" not in strip_persona_line(text)
+
+
+# --- Wrong-glyph guard (CU-370 X-01) --------------------------------------------------
+
+
+def test_every_wrong_glyph_risk_char_is_mapped_in_the_preamble() -> None:
+    """The companion of the missing-glyph log check, which cannot see substitutions.
+
+    ``°`` inside a math span reached the math font, whose T1 slot 0xB0 holds ``ř``, and
+    XeLaTeX reported nothing — dozens of corrupted numeric anchors shipped in three
+    volumes. The mapping is what fixes it, so its removal must fail loudly.
+    """
+    assert unmapped_risk_chars(HEADER_FILE.read_text(encoding="utf-8")) == []
+
+
+def test_unmapped_risk_chars_reports_a_preamble_without_the_mapping() -> None:
+    assert unmapped_risk_chars("% no mappings here\n") == list(build_manual._WRONG_GLYPH_RISK_CHARS)
+
+
+def test_degree_mapping_is_math_aware() -> None:
+    """The mapping must survive math mode, where the bug lived, and leave prose alone."""
+    preamble = HEADER_FILE.read_text(encoding="utf-8")
+    assert r"\newunicodechar{°}{\ifmmode^{\circ}\else\textdegree\fi}" in preamble
+
+
+# --- Pandoc reader extensions (CU-370 X-11 / X-12) ------------------------------------
+
+
+def test_reader_enables_smart_punctuation_and_implicit_figures() -> None:
+    defaults = DEFAULTS_FILE.read_text(encoding="utf-8")
+    reader = next(
+        line.split(":", 1)[1].strip() for line in defaults.splitlines() if line.startswith("from:")
+    )
+    assert "+smart" in reader
+    assert "+implicit_figures" in reader

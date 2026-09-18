@@ -246,6 +246,14 @@ _IMAGE_RE = re.compile(r"!\[[^\]]*\]\(\s*<?([^)>\s]+)>?")
 #: ``Missing character: There is no ⁻ (U+207B) in font ...``. Captures the character.
 _MISSING_CHAR_RE = re.compile(r"Missing character: There is no (\S+) \(U\+[0-9A-Fa-f]+\)")
 
+#: Characters XeLaTeX renders as the WRONG glyph rather than dropping, so the
+#: missing-glyph guard above cannot see them: the character reaches a font whose slot
+#: at that code point holds something else. ``°`` is the confirmed instance — in math
+#: mode it lands in Latin Modern's T1 slot 0xB0 and prints "ř" (CU-370 X-01). Each must
+#: carry a ``\newunicodechar`` mapping in the shared preamble; :func:`unmapped_risk_chars`
+#: fails the build if one is dropped, which is the regression check for that defect.
+_WRONG_GLYPH_RISK_CHARS: tuple[str, ...] = ("°",)
+
 #: Destinations the image check does not try to resolve on disk.
 _REMOTE_PREFIXES = ("http://", "https://", "data:", "ftp://", "mailto:", "//")
 
@@ -427,6 +435,16 @@ def validate_chapter(path: Path) -> list[str]:
     return problems
 
 
+def unmapped_risk_chars(header_text: str) -> list[str]:
+    """Return every :data:`_WRONG_GLYPH_RISK_CHARS` entry unmapped in *header_text*.
+
+    The companion of the missing-glyph check in :func:`build_volume`: that one reads
+    XeLaTeX's log, which stays silent when a character is substituted rather than
+    dropped, so this one reads the preamble instead.
+    """
+    return [c for c in _WRONG_GLYPH_RISK_CHARS if f"\\newunicodechar{{{c}}}" not in header_text]
+
+
 def validate_volume(volume: Volume) -> list[str]:
     """Return one problem string per defect in *volume*'s bound sources (appendices too)."""
     problems: list[str] = []
@@ -487,10 +505,19 @@ def git_describe() -> str:
 
 
 def version_string() -> str:
-    """The cover-page version line, e.g. ``v0.1.0 (776e1c9d-dirty)``."""
+    """The cover-page version line, e.g. ``v0.1.0 (776e1c9d-dirty)``.
+
+    The git-describe parenthetical says *which build* of a version this is, so it is
+    emitted only when it adds something: on a checkout sitting exactly on the release
+    tag, ``git describe`` returns the tag itself and every cover page printed
+    "v0.1.0 (v0.1.0)" (CU-370 X-02).
+    """
     version = _VERSION_SAFE_RE.sub("-", package_version())
     described = _VERSION_SAFE_RE.sub("-", git_describe())
-    return f"v{version} ({described})" if described else f"v{version}"
+    tagged = f"v{version}"
+    if not described or described in (version, tagged):
+        return tagged
+    return f"{tagged} ({described})"
 
 
 def latex_escape(text: str) -> str:
@@ -713,6 +740,17 @@ def check_tools(*, as_tex: bool) -> int:
                 file=sys.stderr,
             )
             return 1
+    unmapped = unmapped_risk_chars(HEADER_FILE.read_text(encoding="utf-8"))
+    if unmapped:
+        print(
+            f"error: shared preamble has no mapping for: {' '.join(unmapped)}\n"
+            "  why: XeLaTeX substitutes a WRONG glyph for these instead of dropping them,\n"
+            "       so nothing appears in the log — `$30°$` silently typeset as '30ř'.\n"
+            "  action: restore the \\newunicodechar mapping in\n"
+            "          scripts/manual_assets/manual_header.tex (see the wrong-glyph block).",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 

@@ -46,6 +46,7 @@ ASSETS = Path(__file__).resolve().parent / "manual_assets"
 DEFAULTS_FILE = ASSETS / "manual.yaml"
 HEADER_FILE = ASSETS / "manual_header.tex"
 TABLE_FILTER = ASSETS / "wide_tables.lua"
+HEADING_FILTER = ASSETS / "heading_numbers.lua"
 BUILD = REPO / "build" / "manuals"
 
 #: Author line on every cover page (ruling Q6 — minimal cover identity).
@@ -568,6 +569,10 @@ def build_volume(volume: Volume, *, as_tex: bool) -> int:
             # page; this filter replicates the markdown reader's width heuristic.
             "--lua-filter",
             str(TABLE_FILTER),
+            # Hand-numbered headings ("## 3. Foo") would double up against
+            # --number-sections; the literal ordinal is dropped at build time only.
+            "--lua-filter",
+            str(HEADING_FILTER),
             *[str(p) for p in sources],
             "-o",
             str(out),
@@ -626,7 +631,7 @@ def check_tools(*, as_tex: bool) -> int:
             file=sys.stderr,
         )
         return 1
-    for asset in (DEFAULTS_FILE, HEADER_FILE, TABLE_FILTER):
+    for asset in (DEFAULTS_FILE, HEADER_FILE, TABLE_FILTER, HEADING_FILTER):
         if not asset.is_file():
             print(
                 f"error: shared manual template asset missing: "

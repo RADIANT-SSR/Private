@@ -202,6 +202,15 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: workflow-visible (intake test 4) — every air-target scene (scenarios 10.x IRST, 9.x airborne targets) shows a viewing angle that contradicts the numbers next to it.
 **Suggested fix**: (a) inline-fix-now — anchor `sensor_pos` / `sun_pos` at `target_top` in the down-looking branch (the ascending branch already anchors at the target); pin a test that the drawn target→sensor elevation equals π/2 − θ_o for an airborne target. Effort S; category A.
 
+### CU-369 — Geometry schematic: up-looking / level compositions anchor the target BODY BASE as the path endpoint while the vectors land on its top
+
+**Discovered**: CU-368 fix (branch `gui/airborne-sensor-anchor`), offscreen screenshot sweep, 2026-09-17.
+**Status**: Open — owner-gated: the level composition's "both endpoints at one fixed height" rule (`RADIANT_GUI_Architecture.md` §6.2, pinned by `TestLevelComposition`) is defined on the body base, so moving the anchor to the top (CU-368's down-looking fix) would sink a 2-unit sphere body below the ground grid in a level arm; the alternative is to land the SENSOR→TARGET / SUN→TARGET vectors and the θ_o apex at the base (or body centre) instead. Either changes a documented composition.
+**File**: `src/radiant/gui/viewer/schematic_view.py` (`build_scene`, ascending branch: `anchor = (0, 0, target_z)`; `SchematicScene.target_top` is where vectors land and `_arc_apex` sits).
+**Symptom**: ground→air sphere target at θ_o = 150° (ζ_low = 30° at the sensor): the drawn SENSOR→TARGET vector runs from the sensor glyph to the sphere *top*, 2 abstract units above the anchored base, and departs ~11° from the ζ_low arc's ray (drawn elevation −70.8° vs the stage's −60°). A point target (`shape = none`) is exact; the error scales with the body's abstract height, which is fixed (not-to-scale), so it is the same for every shaped target.
+**Why it still matters**: workflow-visible (intake test 4) — scenario 10.x air-to-air IRST and every ground→air scene with a shaped target draws a viewing angle that disagrees with the arc label beside it; the same class of defect CU-250 and CU-368 removed from the down-looking composition.
+**Suggested fix**: (b) stand-alone GUI task once ruled — most likely land the vectors and arc apex at the body *centre* in every composition and carry the centre along the ray, so no composition rule moves. Live-review required. Effort S; category A.
+
 ## Resolved
 
 ### CU-364 — gen_param_reference.py silently omits platform/calibration/performance (34 of 218 parameters) — RESOLVED 2026-09-16 (commit trailer)

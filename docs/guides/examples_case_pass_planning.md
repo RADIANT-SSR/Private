@@ -236,7 +236,8 @@ angular-extent checks — is unused.
 ## The same study from a script
 
 ```bash
-python scenarios/03_raj_mission_planner/3.1_isr_pass_planning/scripts/run_pass_planning.py
+cd scenarios/03_raj_mission_planner/3.1_isr_pass_planning
+python scripts/run_pass_planning.py
 ```
 
 The runner reads the mission constants transcribed from `inputs/raj_orbit_sensor.xlsx`,

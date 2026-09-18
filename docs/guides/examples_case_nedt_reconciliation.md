@@ -91,8 +91,8 @@ $$\mathrm{NEDT}_i = \frac{\sigma_i}{\partial S/\partial T},
 ## The scripted path
 
 ```bash
-PYTHONPATH=src python \
-  scenarios/07_karen_test_engineer/7.1_nedt_reconciliation/scripts/run_nedt_reconciliation.py
+S=scenarios/07_karen_test_engineer/7.1_nedt_reconciliation
+PYTHONPATH=src python $S/scripts/run_nedt_reconciliation.py
 ```
 
 ### Importing measured data
@@ -167,15 +167,15 @@ than a millikelvin discrepancy.
 
 ```
 === Predicted vs. Measured NEDT ===
- BB T [°C]    BB T [K]   Meas [mK]   Pred [mK]    Δ [mK]   Signal [e⁻]  dS/dT [e⁻/K]  σ_total [e⁻]
-----------  ----------  ----------  ----------  --------  ------------  ------------  ------------
-      15.0      288.15       160.0       83.86     76.14        99,144        3758.9        315.21
-      20.0      293.15       142.0       78.76     63.24       119,491        4392.9        345.98
-      25.0      298.15       127.0       74.17     52.83       143,203        5105.7        378.70
-      30.0      303.15       114.0       70.03     43.97       170,688        5903.0        413.40
-      35.0      308.15       104.0       66.28     37.72       202,383        6790.9        450.11
-      40.0      313.15        95.0       62.87     32.13       238,756        7775.2        488.84
-      50.0      323.15        81.0       56.93     24.07       327,553       10056.9        572.51
+ BB T [°C] BB T [K] Meas [mK] Pred [mK]  Δ [mK] Signal [e⁻] dS/dT [e⁻/K] σ_total [e⁻]
+  --------  -------  --------  --------  ------  ----------  -----------  -----------
+      15.0   288.15     160.0     83.86   76.14      99,144       3758.9       315.21
+      20.0   293.15     142.0     78.76   63.24     119,491       4392.9       345.98
+      25.0   298.15     127.0     74.17   52.83     143,203       5105.7       378.70
+      30.0   303.15     114.0     70.03   43.97     170,688       5903.0       413.40
+      35.0   308.15     104.0     66.28   37.72     202,383       6790.9       450.11
+      40.0   313.15      95.0     62.87   32.13     238,756       7775.2       488.84
+      50.0   323.15      81.0     56.93   24.07     327,553      10056.9       572.51
 ```
 
 ### Real output — the noise budget at the primary test point
@@ -212,12 +212,12 @@ than a millikelvin discrepancy.
   σ_missing:      526.34 e⁻ RMS  (RSS gap)
   NEDT_missing:   103.09 mK
 
-  Noise Term                  Current σ [e⁻]   Required σ [e⁻]   Increase [%]  Plausible?
-  -------------------------  ---------------  ----------------  -------------  --------------------
-  signal_shot                         378.42            648.26           71.3  Unlikely alone
-  read_noise                           14.20            526.54         3608.0  Cannot explain alone
-  quantization                          3.46            526.36        15094.6  Cannot explain alone
-  dark_shot                             0.26            526.34       202489.9  Cannot explain alone
+  Noise Term      Current σ [e⁻] Required σ [e⁻] Increase [%]  Plausible?
+  --------------  -------------- --------------- ------------  --------------------
+  signal_shot             378.42          648.26         71.3  Unlikely alone
+  read_noise               14.20          526.54       3608.0  Cannot explain alone
+  quantization              3.46          526.36      15094.6  Cannot explain alone
+  dark_shot                 0.26          526.34     202489.9  Cannot explain alone
   ...                          (twelve further terms, all "Cannot explain alone")
 ```
 

@@ -1526,8 +1526,8 @@ buy. *(Key Results recommends operating at 79 K with a 3 K guard band; the next-
 list says 85 K, the first temperature the same table fails on.)*
 
 **Regime.** `extended` — the 300 K shroud fills the aperture, so the background
-photon term is skipped and the budget is signal-shot + dark-shot + read + near-field
-+ quantization.
+photon term is skipped and the budget is signal-shot + dark-shot + read +
+near-field + quantization.
 
 **Takeaway.** **Extrapolating a cold-side activation energy is the failure mode this
 test exists to catch**: the Arrhenius line would call 95 K eight times better than it

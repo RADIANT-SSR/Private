@@ -16,9 +16,10 @@ Unit conversions (exactly once, in :meth:`Tape7Reader.to_radiant_units`):
 
 - Wavenumber ``cm-1`` -> wavelength ``um``: ``lam = 10000 / nu``
 - Radiance ``W/cm2/sr/cm-1`` -> ``W/m2/sr/um``:
-  ``L(lam) = L(nu) * nu**2 / 1e4``
-  (factor 1e4 from cm-2 -> m-2; the nu**2 / 1e4 is the Jacobian
-  |d nu / d lam| = 1e4 / lam**2 = nu**2 / 1e4)
+  ``L(lam) = L(nu) * nu**2``
+  (two factors whose powers of ten cancel: the spectral-axis Jacobian
+  |d nu / d lam| = 1e4 / lam**2 = nu**2 / 1e4, times the 1e4 that
+  carries cm-2 -> m-2 on the area)
 - Transmittance is dimensionless and unchanged.
 - Arrays reversed from descending wavenumber to ascending wavelength.
 

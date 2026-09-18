@@ -25,8 +25,8 @@ compendium. Nothing in the repository is unrepresented here.
   (`PYTHONPATH=src python scenarios/<...>/scripts/<name>.py`). A folder without one is
   driven from the GUI or from `radiant run`.
 - **Covered in** — where in this volume to read about it. *Case study* names the
-  full-depth chapter; *Validation §N* is the section of the flagship-mission validation
-  chapter; *Digest* is the entry in the scenario digest compendium, filed under the
+  full-depth chapter; *Validation* names the mission's section of the flagship-mission
+  validation chapter; *Digest* is the entry in the scenario digest compendium, filed under the
   same identifier.
 
 Every folder, without exception, carries a `walkthrough.md` (the narrative and the
@@ -79,10 +79,10 @@ authority for their scenario; this volume's chapters quote them.
 | 8.1 | Off-Nadir Angle Interpolation | Tool demonstration | yes | yes | Digest 8.1 |
 | 8.2 | Target-Altitude Interpolation | Tool demonstration | yes | yes | Digest 8.2 |
 | 8.3 | Boost-Phase Target-Altitude Sweep (skeleton) | Tool demonstration | no | yes | Digest 8.3 |
-| 9.1 | Sentinel-2 MSI — SNR at Reference Radiance | Flagship validation | yes, *configs* | no | Validation §1 |
-| 9.2 | Landsat 8 TIRS — Thermal NEdT | Flagship validation | yes, *configs* | no | Validation §2 |
-| 9.3 | MODIS (Aqua) Thermal Emissive Bands | Flagship validation | yes, *configs* | no | Validation §3 |
-| 9.4 | Landsat 9 OLI-2 — Nine-Band SNR, Per-Element Coated Optics | Flagship validation | yes, *configs* | yes | Validation §4 |
+| 9.1 | Sentinel-2 MSI — SNR at Reference Radiance | Flagship validation | yes, *configs* | no | Validation — Sentinel-2 MSI |
+| 9.2 | Landsat 8 TIRS — Thermal NEdT | Flagship validation | yes, *configs* | no | Validation — Landsat 8 TIRS |
+| 9.3 | MODIS (Aqua) Thermal Emissive Bands | Flagship validation | yes, *configs* | no | Validation — Aqua MODIS |
+| 9.4 | Landsat 9 OLI-2 — Nine-Band SNR, Per-Element Coated Optics | Flagship validation | yes, *configs* | yes | Validation — Landsat 9 OLI-2 |
 | 10.1 | Ground-to-Air MWIR Detection | Direction-general | yes | yes | Digest 10.1 |
 | 10.2 | Air-to-Air Level-Arm MWIR IRST | Direction-general | yes | yes | Case study — Air-to-Air IRST on a Level Arm |
 | 10.3 | Ground-to-Space SST, Visible Band | Direction-general | yes | yes | Digest 10.3 |

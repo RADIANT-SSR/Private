@@ -129,7 +129,8 @@ correct remedy is to declare the cal points as flux fractions.
 
 ### 1.4 The full-scale reference
 
-The nonlinearity coefficient of §2 is referenced to full scale, so the reference $S_{ref}$
+The nonlinearity coefficient of *Post-NUC residual* below is referenced to full scale, so
+the reference $S_{ref}$
 must live in the same summed domain as the signal it is compared against: the counting
 detector's effective well when that branch ran, otherwise the per-pixel full-well capacity
 scaled by the accumulation gain the signal actually received through TDI, binning, and
@@ -160,13 +161,15 @@ quadratically outside them. The peak sits at the midpoint of the cal span and ha
 value $\beta\,(S_2-S_1)^2/(4 S_{ref})$, which is the one number worth memorizing: the
 residual is quadratic in the *span*, so halving the separation between cal points quarters
 the worst-case residual inside it. Gain and offset dispersion (PRNU and DSNU) are removed
-exactly by the correction itself and re-enter only through the drift terms of §4.
+exactly by the correction itself and re-enter only through the drift terms of *Drift
+between calibration events*.
 
 **Symbols.** $S$ scene signal [e-]; $S_1, S_2$ cal-point signals [e-]; $\beta$ 1σ
 nonlinearity fraction at full scale [dimensionless]; $S_{ref}$ full-scale reference [e-].
 
 **Pitfalls.** Quoting the residual at a cal point (it is zero there by construction, which
-is why §3 exists); referencing $\beta$ to the signal instead of to full scale, which makes
+is why *Cal-source spatial non-uniformity* exists); referencing $\beta$ to the signal
+instead of to full scale, which makes
 the residual cubic; taking $S_{ref}$ in the per-pixel domain while $S$ is in the summed
 TDI domain, which makes the residual appear to shrink with $N_{TDI}$.
 
@@ -182,7 +185,8 @@ the single cal point:
 
 $$\sigma_{1pt}(S) = k\,\lvert S - S_1\rvert\quad[\mathrm{e}\text{-}\ \mathrm{RMS}]$$
 
-with $k$ the pre-correction PRNU fraction. The contrast with §2.1 is the point of running
+with $k$ the pre-correction PRNU fraction. The contrast with the two-point correction
+above is the point of running
 two points at all: the one-point residual is *linear* in the departure and carries the
 full PRNU coefficient, so it is typically an order of magnitude larger.
 
@@ -199,7 +203,8 @@ range the nearest segment extrapolates, exactly as the two-point model extrapola
 its own span. The model stops at three points by design; beyond that a real instrument
 uses a response curve, not more anchors.
 
-**Numeric anchor.** Same $\beta$ and $S_{ref}$ as §2.1 with a mid point at
+**Numeric anchor.** Same $\beta$ and $S_{ref}$ as the two-point correction, with a mid
+point at
 $5.000 \times 10^4$ e-: the residual at $3.500 \times 10^4$ e- (the midpoint of the lower
 segment) is 11.25 e- RMS, a quarter of the 45.00 e- RMS two-point peak.
 
@@ -291,7 +296,7 @@ of Chapter 3 and the appendix.
 
 That uncorrected offset produces two distinct effects. Its mean is an **offset bias**,
 $S_{fore}/S$ as a fraction of the scene signal, which belongs in the accuracy budget of
-§8. The part of it that varies across the array — cold-stop reflections, vignetting of the
+*The bias budget* below. The part of it that varies across the array — cold-stop reflections, vignetting of the
 warm fore-optics — is **narcissus fixed-pattern noise**, a spatial noise term equal to a
 declared fraction of $S_{fore}$.
 
@@ -355,7 +360,8 @@ $\sqrt{N}$ averaging, lengthening the integration or adding TDI stages raises th
 and the residual together, leaving $\mathrm{NEDT}_{cal}$ where it was. A system whose
 temporal NEDT has been pushed below its calibration floor has bought nothing.
 
-**Numeric anchor.** Continuing the §6 example, $dS/dT = 1795$ e-/K at the 300.0 K scene:
+**Numeric anchor.** Continuing the *Composition* example, $dS/dT = 1795$ e-/K at the
+300.0 K scene:
 
 | Quantity | Value |
 |---|---|
@@ -400,7 +406,8 @@ exactly zero when the scene sits at the cal temperature and grows with the scene
 separation; short-wave (Wien-side) bands are the sensitive ones. Band-*width* drift is a
 distinct and typically smaller mechanism and is not modeled.
 
-**Internal-cal offset.** The uncorrected fore-optics emission of §5 as a fraction of the
+**Internal-cal offset.** The uncorrected fore-optics emission of *The internal-shutter cal
+path* as a fraction of the
 scene signal, $S_{fore}/S$.
 
 **Absolute gain.** A directly declared fractional uncertainty in the radiometric gain.
@@ -437,7 +444,7 @@ budget assembled by `performance/radiometric_accuracy.py`.
 | Assumption | Why it holds | What breaks it |
 |---|---|---|
 | Quadratic response over the cal span | The departure from linearity of a well-behaved photodiode is smooth and small over the calibrated range | Approach to saturation, where the response is not polynomial and the residual is a lower bound |
-| Band photon-radiance ratio for cal points | Only the ratio enters, anchored at nearby temperatures, so the response slope largely cancels | Strongly sloped $\mathrm{QE}\tau$ across the band; a scene whose signal is not thermal at the declared temperature (§1.3) |
+| Band photon-radiance ratio for cal points | Only the ratio enters, anchored at nearby temperatures, so the response slope largely cancels | Strongly sloped $\mathrm{QE}\tau$ across the band; a scene whose signal is not thermal at the declared temperature (see *When the thermal anchor does not describe the scene*) |
 | Fully correlated source-uniformity imprints | The same plate is viewed at every cal point and a cavity gradient is temperature-independent in K to first order | A source whose gradient changes shape with temperature |
 | Time-linear drift | Adequate over a cal interval short compared with the thermal time constants driving it | Long intervals, or drift driven by focal-plane temperature excursions (not modeled) |
 | Full PRNU correlation along a TDI column | Takes the correlated limit, an upper bound on the residual floor | Long TDI columns with partially decorrelated pixel gains — the true residual is then lower than modeled |

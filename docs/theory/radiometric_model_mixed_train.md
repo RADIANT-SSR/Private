@@ -94,7 +94,13 @@ B(λ, T_i) =         2 h c²  /  λ⁵
              exp(h c / λ k_B T_i)  −  1
 ```
 
-Constants: `h = 6.626e-34` J·s, `c = 2.998e8` m/s, `k_B = 1.381e-23` J/K
+Constants are the CODATA 2018 values of the Notation chapter's physical-constants
+table; they are defined once in the code and never re-entered here.
+
+`B` is a **per-wavelength** spectral radiance in W/m²/sr/µm. Evaluate the expression
+above with `λ` in metres and it returns W/m²/sr/m; the per-µm form used everywhere in
+this manual carries the Jacobian factor 10⁻⁶ that converts the spectral density from
+per-metre to per-micrometre. Mixing the two is the single most common radiometry error.
 
 ---
 
@@ -167,37 +173,39 @@ tau_3(λ) = C_4
 tau_4(λ) = 1.0
 ```
 
-### 3.2 Geometric transfer factor
+### 3.2 The acceptance cone — one geometry for every element
 
-For upstream element `i`, only emission intercepted by the downstream limiting
-aperture reaches the focal plane:
+The Lagrange invariant caps how much solid angle the focal plane can accept from an
+in-beam element. Whatever the internal layout, each element is seen through the
+reimaging optics and can fill at most the cone the working f-number sets:
 
 ```
-G_i = A_stop,i · cos(θ_i)
-      ─────────────────────
-            z_i²
+Omega_cone = 2 · π · (1 − cos(theta)),    theta = arctan(1 / (2 · N_eff))
 ```
 
 Where:
-- `A_stop,i` = area of the first downstream limiting aperture (stop or clear aperture)
-- `z_i`      = distance from element `i` to that aperture
-- `θ_i`      = on-axis angle (= 0 for paraxial systems)
+- `N_eff` = effective (post-cold-stop) f-number, `f / D_eff`
+- `theta` = half-angle of the marginal ray
+
+The exact form is used rather than the paraxial `π / (4 · N_eff²)`: the two agree to
+0.5 % at f/6 and 5 % at f/2, and the paraxial form over-states the cone, exceeding
+2·π as `N_eff` → 0, which no solid angle may do.
+
+There is **no per-element geometry**. An element does not gain acceptance by sitting
+close to the focal plane: a private `Omega_i = π (D_i/2)² / z_i²` is not bounded by the
+invariant — a 0.3 m mirror 1.0 m from the focal plane would claim 0.0707 sr against an
+f/6 cone of 0.0217 sr, 3.2× more than physics permits. Nor is there a cold-stop
+attenuation factor: in-cone emission arrives through the imaging path itself and cannot
+be blocked, while out-of-cone warm structure is taken to be blocked completely. What a
+cold stop does control is the size of the pupil, hence `N_eff`, hence `Omega_cone`.
 
 ### 3.3 Focal plane irradiance from each element
 
-**Last element N** (fills full focal plane cone):
+Every element, last or upstream, emits as a graybody into that one cone, attenuated by
+everything downstream of it:
 
 ```
-E_FP,N(λ) = π · L_thermal,N(λ) · sin²(θ_FP)
-```
-
-This applies regardless of whether element N is refractive or reflective —
-both fill the focal plane cone by definition as the last element.
-
-**Upstream elements i = 1 to N-1:**
-
-```
-E_FP,i(λ) = L_thermal,i(λ) · G_i / A_FP  ·  tau_i(λ)
+E_FP,i(λ) = Omega_cone · L_thermal,i(λ) · tau_i(λ)
 ```
 
 Fully expanded:
@@ -205,25 +213,28 @@ Fully expanded:
 **Refractive element i:**
 
 ```
-E_FP,i(λ) =  eps_eff,i(λ) · B(λ, T_i)
-           ·  A_stop,i · cos(θ_i) / (z_i² · A_FP)
+E_FP,i(λ) =  Omega_cone · eps_eff,i(λ) · B(λ, T_i)
            ·  ∏[j=i+1 to N] C_j(λ)
 ```
 
 **Reflective element i:**
 
 ```
-E_FP,i(λ) =  eps_i(λ) · B(λ, T_i)
-           ·  A_stop,i · cos(θ_i) / (z_i² · A_FP)
+E_FP,i(λ) =  Omega_cone · eps_i(λ) · B(λ, T_i)
            ·  ∏[j=i+1 to N] C_j(λ)
 ```
 
 The structure is identical — only the emissivity model differs between the two types.
+The last element is not a special case: `tau_N = 1`, so it contributes
+`Omega_cone · L_thermal,N(λ)`.
+
+Dimensionally, sr × [--] × W/m²/sr/µm × [--] = W/m²/µm, the spectral irradiance the
+focal plane sees.
 
 ### 3.4 Total thermal background irradiance at the focal plane
 
 ```
-E_background,FP(λ) = E_FP,N(λ)  +  ∑[i=1 to N-1] E_FP,i(λ)
+E_background,FP(λ) = ∑[i=1 to N] E_FP,i(λ)
 ```
 
 Total in-band thermal background:
@@ -298,11 +309,10 @@ Inputs per element i:
     A_coat,i(λ)            coating absorptance (optional; 0 if unknown)
     T_i                     temperature
 
-  System geometry (all elements):
+  System geometry (all elements — one cone, not one per element):
     theta_FP               focal plane convergence half-angle
-    z_i                    distance from element i to limiting downstream aperture
-    A_stop,i               area of limiting downstream aperture for element i
-    A_FP                   detector / pixel area
+    N_eff                  effective (post-cold-stop) f-number
+    Omega_cone             2 · pi · (1 − cos(arctan(1 / (2 · N_eff))))  [sr]
 
 ─────────────────────────────────────────────────────────
 Per element, compute transfer factor C_i and emissivity:
@@ -332,12 +342,10 @@ Thermal background path (build tau as reverse cumulative product):
   tau_N     = 1.0
   tau_i     = ∏ C_j(λ)    for j = i+1 to N   [reverse cumulative product]
 
-  E_FP,N(λ) = π · L_N(λ) · sin²(θ_FP)
+  For i = 1 to N:
+    E_FP,i(λ) = Omega_cone · L_i(λ) · tau_i(λ)
 
-  For i = 1 to N-1:
-    E_FP,i(λ) = L_i(λ) · A_stop,i · cos(θ_i) / (z_i² · A_FP) · tau_i(λ)
-
-  E_background(λ) = E_FP,N(λ) + ∑ E_FP,i(λ)
+  E_background(λ) = ∑[i=1 to N] E_FP,i(λ)
 
 ─────────────────────────────────────────────────────────
 Total:

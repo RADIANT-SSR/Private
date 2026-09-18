@@ -26,7 +26,7 @@ each handing its outputs to the next:
 | 4 | Optics | the pupil, the point-spread function, throughput — and the final regime |
 | 5 | Platform | jitter and smear, as blur on that PSF |
 | 6 | Spectral Integration | the collapse from spectra to electrons in a pixel |
-| 7 | Detector | quantum efficiency, dark current, and sixteen noise terms |
+| 7 | Detector | quantum efficiency, dark current, and most of the noise-term budget |
 | 8 | Readout | TDI, co-adds, gain, full well, analogue-to-digital conversion |
 | 9 | Calibration | post-correction residuals, drift, and the bias budget |
 | 10 | Performance | SNR, NEDT, NIIRS, MTF budgets, margins, detection range |

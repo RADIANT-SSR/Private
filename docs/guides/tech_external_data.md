@@ -43,12 +43,13 @@ Conversions applied exactly once, in `Tape7Reader.to_radiant_units`:
 | From | To | Relation |
 |------|----|----------|
 | Wavenumber $\nu$ [cm⁻¹] | Wavelength $\lambda$ [µm] | $\lambda = 10000/\nu$ |
-| Radiance [W/cm²/sr/cm⁻¹] | [W/m²/sr/µm] | $L(\lambda) = L(\nu)\,\nu^2/10^4$ |
+| Radiance [W/cm²/sr/cm⁻¹] | [W/m²/sr/µm] | $L(\lambda) = L(\nu)\,\nu^2$ |
 | Transmittance [--] | [--] | unchanged |
 | Descending $\lambda$ | Ascending $\lambda$ | array reversed |
 
-The $\nu^2/10^4$ factor is the Jacobian $|d\nu/d\lambda| = 10^4/\lambda^2$ combined with
-the cm⁻² → m⁻² area conversion. A tape7 that yields fewer than two spectral rows, or whose
+The $\nu^2$ factor is two conversions whose powers of ten cancel: the spectral-axis
+Jacobian $|d\nu/d\lambda| = 10^4/\lambda^2 = \nu^2/10^4$, times the $10^4$ that carries
+cm⁻² → m⁻² on the area. A tape7 that yields fewer than two spectral rows, or whose
 columns cannot be located, raises `Tape7ParseError` naming the file.
 
 A tape7 is **geometry-agnostic**: it is one path, already computed. The model does not

@@ -23,11 +23,19 @@ local LATEX_ESC = {
 
 local BREAK_AFTER = { ["."] = true, ["_"] = true, ["/"] = true, [":"] = true, ["-"] = true }
 
+-- A break opportunity after the FINAL character would move nothing but the
+-- punctuation that follows the span: a path ending in "/" let the sentence's
+-- period start the next line on its own (". A GUI baseline ships." in five
+-- scenario digests — CU-370 IV-030). Break opportunities go between characters,
+-- never after the last one.
 local function with_breaks(text)
   local out = {}
+  local last = #text
+  local i = 0
   for ch in text:gmatch(".") do
+    i = i + 1
     out[#out + 1] = LATEX_ESC[ch] or ch
-    if BREAK_AFTER[ch] then out[#out + 1] = "\\allowbreak{}" end
+    if BREAK_AFTER[ch] and i < last then out[#out + 1] = "\\allowbreak{}" end
   end
   return table.concat(out)
 end

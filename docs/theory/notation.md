@@ -9,7 +9,8 @@ for that section only.
 Two rules govern everything below:
 
 - **One canonical unit per quantity.** RADIANT computes internally in the units of the
-  table in §1 — wavelength in µm, angles in radians, length in meters, time in seconds,
+  canonical-units table below — wavelength in µm, angles in radians, length in meters,
+  time in seconds,
   radiance in W/m²/sr/µm, noise in e- RMS. No module works in any other unit.
 - **Conversion happens exactly once, at a boundary.** User input converts on entry;
   external files convert in their reader. A unit conversion inside a physics equation is
@@ -38,7 +39,7 @@ Two rules govern everything below:
 | Noise | $\sigma$ | e- RMS | Every noise term, before any DN conversion |
 | Digital number | DN | DN | $\mathrm{DN} = S/g$ with $g$ in e-/DN |
 | Spatial frequency (focal plane) | $\nu$ | cy/m | Quoted as cy/mm in worked numbers; always labeled |
-| Spatial frequency (angular) | $\nu_{ang}$ | cy/mrad | $\nu_{ang} = \nu f$ with $f$ in m; always labeled |
+| Spatial frequency (angular) | $\nu_{ang}$ | cy/mrad | $\nu f$ with $f$ in m is cy/rad, so $\nu_{ang} = \nu f / 1000$; always labeled |
 | Transfer function | $\mathrm{MTF}(\nu)$ | dimensionless | $0 \le \mathrm{MTF} \le 1$ |
 | Dimensionless fractions | $\varepsilon$, $\rho$, $\tau$, $\mathrm{EE}$ | dimensionless | Stated on the interval $[0, 1]$ where physical |
 
@@ -166,7 +167,7 @@ the sensor, the Earth central angle $\Lambda$, and the slant range $R_s$ follow.
 | $\sigma_{read}$ | read noise | e- RMS |
 | $\sigma_{kTC}$ | reset (kTC) noise, $\sqrt{k_B T C_{node}}/q$ | e- RMS |
 | $\sigma_{ADC}$ | quantization noise, $g/\sqrt{12}$ | e- RMS |
-| $k$ | residual PRNU fraction (multiplicative gain dispersion) | dimensionless |
+| $k$ | PRNU fraction (multiplicative gain dispersion) — the *residual* after NUC in the noise chapter's $\sigma_{PRNU} = kS$, the *pre-correction* value in the calibration chapter's one-point residual, which is what an offset-only correction leaves intact | dimensionless |
 | $\sigma_{DSNU}$ | dark-signal non-uniformity | e- RMS |
 | $\sigma_{clutter}$ | scene-induced spatial variance term | e- RMS |
 | $N_{TDI}$, $N_{coadd}$, $M_{bin}$ | TDI stages, co-added frames, binned pixels | dimensionless counts |
@@ -199,8 +200,10 @@ the sensor, the Earth central angle $\Lambda$, and the slant range $R_s$ follow.
 
 ## 8. Physical constants
 
-All constants are the CODATA 2018 exact values, defined once in the code and never
-re-entered in an equation.
+Every constant is defined once in the code and never re-entered in an equation. The
+first six rows are the CODATA 2018 values — the first five exact by the SI definitions,
+the second radiation constant derived from them. The last row is not a CODATA quantity:
+it is the mean Earth radius, a geodetic convention (see the geometry chapter).
 
 | Constant | Symbol | Value | Units |
 |---|---|---|---|
@@ -225,9 +228,13 @@ re-entered in an equation.
 | $\mathcal{F}\{\cdot\}$ | Fourier transform |
 | $\prod_i$, $\sum_i$ | product and sum over contributor index $i$ |
 
-Three symbols carry more than one meaning across the classical literature this manual
+Four symbols carry more than one meaning across the classical literature this manual
 follows. They are disambiguated by chapter, and never used in two senses in one equation:
 
+- $\eta$ is the **look (off-nadir) angle** everywhere except the performance chapter's
+  NEI/NEP/D\* section, where the detector literature's $\eta$ (quantum efficiency) and
+  $\eta_{sys}$ (end-to-end photon-to-electron efficiency) are kept; that section defines
+  both at the point of use.
 - $\varepsilon$ is **emissivity** in the radiometric, atmosphere, and calibration
   chapters. The geometry chapter's grazing/elevation angle is written $\varepsilon_{el}$
   here to keep the two apart.
@@ -268,6 +275,7 @@ spectral power as $\Phi(\lambda)$ [W/µm].
 | IPC | interpixel capacitance |
 | LOS | line of sight |
 | LSF | line spread function |
+| MRT | minimum resolvable temperature difference |
 | MTF | modulation transfer function |
 | NEDL | noise-equivalent differential radiance |
 | NEDT | noise-equivalent differential temperature |

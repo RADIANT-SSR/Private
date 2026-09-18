@@ -143,7 +143,7 @@ regime; the Optics stage makes the final call once the PSF is known; every downs
 reads the final one. You do not declare a mission type to get this — the chain derives it
 from the scene you described.
 
-The tentative step compares the target's angular extent $\theta = \sqrt{A_t}/R$ against the
+The tentative step compares the target's angular extent $\theta = \sqrt{A_t}/R_s$ (slant range, not Earth radius) against the
 pixel's instantaneous field of view $\mathrm{IFOV} = p/f$, in this order:
 
 1. a declared `source.target.fill_fraction` below 1 means **sub-pixel**;
@@ -211,10 +211,19 @@ back time on an expensive configuration; it is not a display filter.
 Two behaviours are worth expecting in advance:
 
 **A metric that cannot be computed says so.** RADIANT's metric layer is allowed to return a
-named failure instead of a number, and the interface shows that name: `n/a — not computed for
-this run` on a metric whose group is off, or `n/a (<reason>)` where a metric is out of its
-model's validated range. NIIRS on a 0.12 m thermal scene is the common case — the GIQE-5
-regression is out of range, and the tool declines rather than extrapolating.
+named failure instead of a number, and the interface never fills the gap with a blank, a
+zero, or a stale value. A card reads `n/a — not computed for this run` whenever the run
+produced no value for that metric at all: because its group is switched off, because the
+scene class does not populate it, or because the metric declined to answer. It reads
+`n/a (<reason>)` in the narrower case where a value *was* produced but is not a usable
+number, and the failure carries a name.
+
+NIIRS on a 0.12 m thermal scene is the common case of the first form. The GIQE-5 regression
+is out of its calibration range, so the tool declines rather than extrapolating, and emits
+no NIIRS value — which is why the card says *not computed* rather than naming the range.
+The full explanation is on the run itself, in `stage_outputs["performance"]["niirs_result"]`
+(`failure_reason`), and `performance.niirs.allow_extrapolated = true` opts back into the
+extrapolated number, still flagged.
 
 **A warning is never swallowed.** Chain warnings — saturation clipping, an extrapolated
 rating, an atmosphere model used outside its comfortable band — are captured with the result

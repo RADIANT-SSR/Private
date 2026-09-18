@@ -78,9 +78,12 @@ class ParameterDef:
     group: str | None = None        # Consistency group name: "fnumber"
     tags: frozenset[str] = frozenset()  # Metadata: {"detector", "noise", "mwir"}
     default_justification: str = ""     # One-line rationale for a non-obvious default
-    deprecated_aliases: frozenset[str] = frozenset()  # Old names (renames), warn + redirect
-    required_unless: str | None = None  # Alternative param that supersedes this one (Gap 66)
-    is_file_path: bool = False          # str value names a data file — stored portably (CU-177)
+    deprecated_aliases: frozenset[str] = frozenset()  # Old names (renames), warn +
+                                                      #   redirect
+    required_unless: str | None = None  # Alternative param that supersedes this one
+                                        #   (Gap 66)
+    is_file_path: bool = False          # str value names a data file — stored portably
+                                        #   (CU-177)
 ```
 
 Key properties:
@@ -140,21 +143,36 @@ optics.focal_length_m                 # m
 optics.f_number                       # dimensionless
 optics.obscuration_ratio              # dimensionless (0–1)
 optics.wfe_rms_waves                  # waves (at optics.wfe_reference_wavelength_um)
-optics.zernike_file                   # path — Zemax 'Zernike Standard Coefficients' export; loaded
-                                      #   pre-chain (Rule 6), injects a ZERNIKE WavefrontError that
-                                      #   supersedes the scalar WFE; report wavelength honored,
-                                      #   wfe_reference_wavelength_um is the no-header fallback
-optics.transmission_scalar            # dimensionless (0–1); the scalar lump never emits (Gap 127)
+optics.zernike_file                   # path — Zemax 'Zernike Standard Coefficients'
+                                      #   export; loaded pre-chain (Rule 6), injects a
+                                      #   ZERNIKE WavefrontError that supersedes the
+                                      #   scalar WFE; report wavelength honored,
+                                      #   wfe_reference_wavelength_um is the no-header
+                                      #   fallback
+optics.transmission_scalar            # dimensionless (0–1); the scalar lump never emits
+                                      #   (Gap 127)
 optics.defocus_um                     # µm
-optics.surface_roughness_nm           # nm, effective train RMS roughness (TIS scatter; 0 = off)
-optics.scatter_halo_sigma_um          # µm, Gaussian scatter-halo width on the focal plane
-optics.cold_stop_undersize_frac       # dimensionless (0–0.49); fractional pupil-DIAMETER reduction the cold stop imposes: D_eff = (1 − u)·D. The cold stop is the aperture stop (Gap 128); the effective pupil feeds A_collect, f/#, the PSF/MTF, and Ω_cone together
-optics.cold_stop_obscuration_ratio    # dimensionless (0–0.99); obscuration the cold shield imposes; effective obscuration = max(this, optics.obscuration_ratio)
+optics.surface_roughness_nm           # nm, effective train RMS roughness (TIS scatter;
+                                      #   0 = off)
+optics.scatter_halo_sigma_um          # µm, Gaussian scatter-halo width on the focal
+                                      #   plane
+optics.cold_stop_undersize_frac       # dimensionless (0–0.49); fractional
+                                      #   pupil-DIAMETER reduction the cold stop
+                                      #   imposes: D_eff = (1 − u)·D. The cold stop is
+                                      #   the aperture stop (Gap 128); the effective
+                                      #   pupil feeds A_collect, f/#, the PSF/MTF, and
+                                      #   Ω_cone together
+optics.cold_stop_obscuration_ratio    # dimensionless (0–0.99); obscuration the cold
+                                      #   shield imposes; effective obscuration =
+                                      #   max(this, optics.obscuration_ratio)
 optics.stray.veiling_glare_fraction   # dimensionless (0–1)
-optics.stray.veiling_glare_mtf        # int 0/1; 1 = spatial halo model (kernel + MTF pair), 0 = pedestal-only (default)
-optics.stray.halo_sigma_um            # µm, Gaussian veiling-glare halo width on the focal plane
+optics.stray.veiling_glare_mtf        # int 0/1; 1 = spatial halo model (kernel + MTF
+                                      #   pair), 0 = pedestal-only (default)
+optics.stray.halo_sigma_um            # µm, Gaussian veiling-glare halo width on the
+                                      #   focal plane
 
-readout.electronics_sigma_um          # µm, equivalent Gaussian blur from amplifier bandwidth (x-axis only)
+readout.electronics_sigma_um          # µm, equivalent Gaussian blur from amplifier
+                                      #   bandwidth (x-axis only)
 
 detector.pixel_pitch_x_um             # µm
 detector.pixel_pitch_y_um             # µm
@@ -169,48 +187,69 @@ detector.n_pixels_cross               # int (cross-track)
 readout.read_noise_e_rms              # e- RMS
 readout.gain_e_per_dn                 # e-/DN
 readout.adc_bits                      # int
-readout.full_well_capacity_e          # e- (analog_well only — rejected if explicitly set under digital_counting)
-readout.architecture                  # enum: "analog_well", "digital_counting" — DROIC dispatch (Gap 117;
-                                      #   digital_counting is schema-only until Digital_Pixel_Readout_Plan Phase 1
-                                      #   lands: ReadoutStage validates the parameters, then raises an actionable
+readout.full_well_capacity_e          # e- (analog_well only — rejected if explicitly
+                                      #   set under digital_counting)
+readout.architecture                  # enum: "analog_well", "digital_counting" — DROIC
+                                      #   dispatch (Gap 117; digital_counting is
+                                      #   schema-only until Digital_Pixel_Readout_Plan
+                                      #   Phase 1 lands: ReadoutStage validates the
+                                      #   parameters, then raises an actionable
                                       #   not-implemented error before any physics)
-readout.counter_bits                  # int — in-pixel counter depth N; effective well = 2^N × count_packet_e
-                                      #   (counting-only: rejected if explicitly set under analog_well)
-readout.count_packet_e                # e- per count — charge-subtraction quantum (counting-only; REQUIRED > 0
-                                      #   when architecture = digital_counting; schema default 0.0 = unset sentinel)
-readout.residue_readout               # bool — read the analog residue through the existing ADC model
-                                      #   (counting-only)
-readout.max_count_rate_hz             # Hz — comparator dead-time flux ceiling (counting-only; 0.0 = unset
-                                      #   ⇒ no ceiling, counter rollover governs)
-readout.counting_mode                 # enum: "up", "up_down" — signed-differential background subtraction
-                                      #   (plan Phase 4, D1/D6; counting-only; reference params rejected under "up")
-readout.reference_source              # enum: "background_term" (sub-pixel/point-source only, D6),
-                                      #   "user_level" (extended-scene fallback); up_down-only
-readout.reference_rate_e_per_s        # e-/s — down-phase reference charge rate (REQUIRED > 0 under
-                                      #   "user_level"; 0.0 = unset sentinel); up_down-only
-readout.reference_integration_s       # s — down-phase duration (0.0 = unset ⇒ equal to the scene
-                                      #   integration time, D7); up_down-only
+readout.counter_bits                  # int — in-pixel counter depth N; effective well =
+                                      #   2^N × count_packet_e (counting-only: rejected
+                                      #   if explicitly set under analog_well)
+readout.count_packet_e                # e- per count — charge-subtraction quantum
+                                      #   (counting-only; REQUIRED > 0 when architecture
+                                      #   = digital_counting; schema default 0.0 = unset
+                                      #   sentinel)
+readout.residue_readout               # bool — read the analog residue through the
+                                      #   existing ADC model (counting-only)
+readout.max_count_rate_hz             # Hz — comparator dead-time flux ceiling
+                                      #   (counting-only; 0.0 = unset ⇒ no ceiling,
+                                      #   counter rollover governs)
+readout.counting_mode                 # enum: "up", "up_down" — signed-differential
+                                      #   background subtraction (plan Phase 4, D1/D6;
+                                      #   counting-only; reference params rejected under
+                                      #   "up")
+readout.reference_source              # enum: "background_term" (sub-pixel/point-source
+                                      #   only, D6), "user_level" (extended-scene
+                                      #   fallback); up_down-only
+readout.reference_rate_e_per_s        # e-/s — down-phase reference charge rate
+                                      #   (REQUIRED > 0 under "user_level"; 0.0 = unset
+                                      #   sentinel); up_down-only
+readout.reference_integration_s       # s — down-phase duration (0.0 = unset ⇒ equal to
+                                      #   the scene integration time, D7); up_down-only
 readout.cds_enabled                   # int (1 = yes, 0 = no; dtype=int, default 1)
 readout.n_tdi                         # int
 readout.n_coadds                      # int
 readout.binning_x_onchip              # int
 readout.binning_y_onchip              # int
 
-calibration.scheme                    # enum: "none" (default — model off, today's PRNU/DSNU behavior),
-                                      #   "one_point", "two_point" (Gap 120, ADR-0012)
-calibration.cal_temp_low_K            # K — (lower) cal-point source temperature (0.0 = unset sentinel;
-                                      #   required at evaluate time when a scheme is active)
-calibration.cal_temp_high_K           # K — upper cal point (two_point only; must exceed low; 0.0 = unset)
-calibration.nonlinearity_pct          # % → fraction — per-pixel quadratic-nonlinearity dispersion (1σ);
-                                      #   sets the two_point post-NUC residual amplitude
-calibration.time_since_cal_s          # s (input: hour) — drift terms grow linearly with this (D4)
-calibration.gain_drift_frac_per_s     # 1/s (input: %/hour) — gain-drift rate → "gain_drift" term
-calibration.offset_drift_e_per_s      # e-/s (input: e-/hour) — offset-drift rate → "offset_drift" term
-calibration.source_temp_uncertainty_K # K — cal-source ΔT (1σ) → BIAS term (accuracy budget only)
+calibration.scheme                    # enum: "none" (default — model off, today's
+                                      #   PRNU/DSNU behavior), "one_point", "two_point",
+                                      #   "three_point" (Gap 120, ADR-0012)
+calibration.cal_temp_low_K            # K — (lower) cal-point source temperature (0.0 =
+                                      #   unset sentinel; required at evaluate time when
+                                      #   a scheme is active)
+calibration.cal_temp_high_K           # K — upper cal point (two_point only; must exceed
+                                      #   low; 0.0 = unset)
+calibration.nonlinearity_pct          # % → fraction — per-pixel quadratic-nonlinearity
+                                      #   dispersion (1σ); sets the two_point post-NUC
+                                      #   residual amplitude
+calibration.time_since_cal_s          # s (input: hour) — drift terms grow linearly with
+                                      #   this (D4)
+calibration.gain_drift_frac_per_s     # 1/s (input: %/hour) — gain-drift rate →
+                                      #   "gain_drift" term
+calibration.offset_drift_e_per_s      # e-/s (input: e-/hour) — offset-drift rate →
+                                      #   "offset_drift" term
+calibration.source_temp_uncertainty_K # K — cal-source ΔT (1σ) → BIAS term
+                                      #   (accuracy budget only)
 calibration.source_emissivity_uncertainty  # fraction — cal-source Δε (1σ) → BIAS term
-calibration.source_emissivity         # fraction — nominal cal-source emissivity (independent input:
-                                      #   a source material property, not a Rule-5 optical element)
-calibration.gain_uncertainty_pct      # % → fraction — absolute gain uncertainty (1σ) → BIAS term
+calibration.source_emissivity         # fraction — nominal cal-source emissivity
+                                      #   (independent input: a source material
+                                      #   property, not a Rule-5 optical element)
+calibration.gain_uncertainty_pct      # % → fraction — absolute gain uncertainty (1σ) →
+                                      #   BIAS term
 
 spectral_integration.filter_min_um    # µm
 spectral_integration.filter_max_um    # µm
@@ -218,14 +257,20 @@ spectral_integration.integration_time_s  # s
 
 geometry.sensor_altitude_m            # m
 geometry.target_altitude_m            # m
-geometry.site_elevation_m             # m — terrain elevation under the LOS (default 0 = MSL);
-                                      #     references the Hufnagel-Valley Cn² SURFACE term only
-                                      #     (CU-262, RADIANT_Atmosphere.md §7.1). Not derived from
-                                      #     the LOS lower endpoint — see that section.
-geometry.target.shape                 # enum: none/sphere/cylinder/flat_plate/box/cone — target spatial extent (ADR-0008; was source.target.shape, now a deprecated alias)
-geometry.target.shape_radius_m        # m   (+ shape_length_m/width_m/height_m/base_radius_m)
-geometry.target.shape_yaw_rad         # rad (+ shape_pitch_rad/shape_roll_rad) — body ZYX Euler
-geometry.target.projected_area_m2     # m²  — projected area facing observer (0.0 = extended default)
+geometry.site_elevation_m             # m — terrain elevation under the LOS (default 0 =
+                                      #   MSL); references the Hufnagel-Valley Cn²
+                                      #   SURFACE term only (CU-262,
+                                      #   RADIANT_Atmosphere.md §7.1). Not derived from
+                                      #   the LOS lower endpoint — see that section.
+geometry.target.shape                 # enum: none/sphere/cylinder/flat_plate/box/cone —
+                                      #   target spatial extent (ADR-0008; was
+                                      #   source.target.shape, now a deprecated alias)
+geometry.target.shape_radius_m        # m (+
+                                      #   shape_length_m/width_m/height_m/base_radius_m)
+geometry.target.shape_yaw_rad         # rad (+ shape_pitch_rad/shape_roll_rad) — body
+                                      #   ZYX Euler
+geometry.target.projected_area_m2     # m² — projected area facing observer (0.0 =
+                                      #   extended default)
 geometry.path_zenith_rad              # rad (input: deg)
 geometry.solar_zenith_rad             # rad (input: deg)
 geometry.solar_azimuth_rad            # rad (input: deg)
@@ -234,24 +279,31 @@ geometry.ground_speed_m_s             # m/s
 # and (post-CU-009) by SourceStage's `_infer_los` for
 # `LineOfSightGeometry` construction.  See RADIANT_Atmosphere.md §6.5.
 
-atmosphere.model                      # enum: "simple", "exo", "tabulated", "modtran", "interpolated"
+atmosphere.model                      # enum: "simple", "exo", "tabulated", "modtran",
+                                      #   "interpolated"
 atmosphere.visibility_km              # km
 atmosphere.precipitable_water_cm      # cm
-atmosphere.standard_atmosphere        # enum: "tropical", "midlat_summer", "midlat_winter",
-                                      #        "subarctic_summer", "subarctic_winter", "us_standard"
+atmosphere.standard_atmosphere        # enum: "tropical", "midlat_summer",
+                                      #   "midlat_winter", "subarctic_summer",
+                                      #   "subarctic_winter", "us_standard"
 atmosphere.modtran.binary_path        # str (file path)
 atmosphere.modtran.h2o_scale          # dimensionless
 atmosphere.r0_m                       # m (Fried parameter)
 
 source.target.temperature             # K
 source.target.emissivity              # dimensionless (0–1)
-source.target.emissivity_path         # str — 2-col CSV ε(λ); spectral thermal target ε(λ)·B(λ,T) (Gap 47); mutually exclusive with scalar ε / reflective / radiance / brightness-temp surfaces
-source.target.is_hot_target           # bool — MWIR routing opt-out (CU-007); see source._inferrer matrix §3.2
+source.target.emissivity_path         # str — 2-col CSV ε(λ); spectral thermal target
+                                      #   ε(λ)·B(λ,T) (Gap 47); mutually exclusive with
+                                      #   scalar ε / reflective / radiance /
+                                      #   brightness-temp surfaces
+source.target.is_hot_target           # bool — MWIR routing opt-out (CU-007); see
+                                      #   source._inferrer matrix §3.2
 source.target.reflectance             # dimensionless (0–1), Lambertian
 # Target spatial extent (shape/dims/orientation/projected_area) moved to the
 # geometry.target.* namespace (ADR-0008); source.target.shape*/projected_area_m2
 # remain as deprecated aliases. Spectral/material params above stay in source.
-source.target.range_m                 # m — deprecated alias of geometry.target_range_m (ADR-0006)
+source.target.range_m                 # m — deprecated alias of geometry.target_range_m
+                                      #   (ADR-0006)
 source.target.fill_fraction           # dimensionless (0–1) — sub-pixel, stays in source
 source.background.temperature         # K
 source.background.emissivity          # dimensionless (0–1)
@@ -267,7 +319,7 @@ performance.detection_snr_threshold   # dimensionless; SNR at which a point
                                       # to this threshold.
 ```
 
-The nine parameter namespaces are `geometry`, `source`, `atmosphere`, `optics`, `platform`, `spectral_integration`, `detector`, `readout`, and `performance`. Every first segment is an owning stage — since ADR-0006 `geometry.*` is owned by `GeometryStage` (stage 0), which resolves the scene-geometry input modes and publishes the derived quantities; it is no longer a stage-less shared block. `performance` holds only analyst-tuned metric thresholds — most performance metrics are derived from upstream chain quantities and take no parameters.
+The ten parameter namespaces are `geometry`, `source`, `atmosphere`, `optics`, `platform`, `spectral_integration`, `detector`, `readout`, `calibration`, and `performance`. Every first segment is an owning stage — since ADR-0006 `geometry.*` is owned by `GeometryStage` (stage 0), which resolves the scene-geometry input modes and publishes the derived quantities; it is no longer a stage-less shared block. `performance` holds only analyst-tuned metric thresholds — most performance metrics are derived from upstream chain quantities and take no parameters.
 
 Renames use `ParameterDef.deprecated_aliases` (warn-and-redirect at `set()`/`get()`): `source.target.range_m` → `geometry.target_range_m` and `platform.h_sensor` → `geometry.sensor_altitude_m` (CU-090 fold) — both ADR-0006, 2026-07-12.
 
@@ -339,7 +391,8 @@ Any scalar parameter can carry a tolerance specification for Monte Carlo / sensi
 ```python
 @dataclass
 class Tolerance:
-    distribution: str          # "gaussian", "uniform", "truncated_gaussian", "log_normal"
+    distribution: str          # "gaussian", "uniform", "truncated_gaussian",
+                               #   "log_normal"
     params: dict               # distribution-specific parameters, in input_unit
 
 # Examples (all in input units):
@@ -388,9 +441,12 @@ A consistency group defines:
 class ConsistencyGroup:
     name: str
     parameters: tuple[str, ...]
-    constraint: str                            # human-readable: "f_number = focal_length_m / aperture_diameter_m"
-    derivations: dict[str, Callable]           # {free_param: function(known_values) -> value}
-    tolerance: float = 1e-9                    # relative tolerance for the over-specification check
+    constraint: str                            # human-readable: "f_number =
+                                               #   focal_length_m / aperture_diameter_m"
+    derivations: dict[str, Callable]           # {free_param: function(known_values) ->
+                                               #   value}
+    tolerance: float = 1e-9                    # relative tolerance for the
+                                               #   over-specification check
 ```
 
 ### Resolution algorithm
@@ -606,7 +662,8 @@ class ResolvedValue:
     value: Any                             # In canonical units
     input_value: Any                       # In input units (as the user provided it)
     provenance: Provenance
-    source: str                            # "user", "/path/to/sensor_abc.yaml", "default", "derived:f/D"
+    source: str                            # "user", "/path/to/sensor_abc.yaml",
+                                           #   "default", "derived:f/D"
     derived_from: dict[str, Any] | None    # For DERIVED: {param_name: value_used}
     timestamp: str                         # ISO 8601 when this value was set/computed
 ```
@@ -766,7 +823,8 @@ All spectral data is interpolated onto a single common wavelength grid before an
 grid = numpy.linspace(
     spectral_integration.filter_min_um,   # µm — lower filter edge (schema parameter)
     spectral_integration.filter_max_um,   # µm — upper filter edge (schema parameter)
-    wavelength_points,                    # Sensor(...) constructor argument, NOT a schema param
+    wavelength_points,                    # Sensor(...) constructor argument, NOT a
+                                          #   schema param
 )
 ```
 
@@ -781,9 +839,9 @@ class SpectralData:
     wavelength_um: np.ndarray           # ascending, in µm
     values: np.ndarray                  # same length, in canonical units
     unit: str                           # "dimensionless", "W/m2/sr/um", etc.
-    source: str                         # "file:data/qe_hgcdte.csv",
-                                        # "computed:from filter_center_wavelength, filter_bandwidth",
-                                        # "modtran:tape7.out"
+    source: str                         # "file:data/qe_hgcdte.csv", "computed:from
+                                        #   filter_center_wavelength, filter_bandwidth",
+                                        #   "modtran:tape7.out"
     source_parameters: dict[str, Any]   # scalar params used to generate this data
 ```
 
@@ -874,12 +932,17 @@ platform:
 
 ### Loading precedence
 
-1. Schema defaults (lowest priority)
-2. Sensor config file (e.g., `sensors/baseline_mwir.yaml`)
-3. Scenario config file (e.g., `scenarios/desert_noon.yaml`)
-4. Programmatic overrides via `params.set()` (highest priority)
+Five levels, lowest to highest, each with the provenance tag it records:
 
-Each layer records its provenance. If the same parameter appears in multiple layers, the highest-priority layer wins, and the provenance shows the winning source.
+1. Schema defaults — `DEFAULT`
+2. An applied FPA preset — `PRESET`
+3. The config-file body — `CONFIG_FILE`
+4. `Sensor.set()` / `set_many()` — `USER_SET`
+5. CLI `--set` — `USER_SET`
+
+An FPA preset sits below the config file deliberately: presets seed, explicit values win, in any key order.
+
+Each layer records its provenance. If the same parameter appears in multiple layers, the highest-priority layer wins, and the provenance shows the winning source. Derived parameters carry `DERIVED` and a `derived_from` record naming the inputs and their values.
 
 ---
 

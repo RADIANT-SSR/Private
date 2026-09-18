@@ -29,7 +29,7 @@ framework.
 | SNR | dimensionless | $S/\sigma_\text{total}$ |
 | NEDT | K | |
 | NIIRS | dimensionless | |
-| MTF | dimensionless | $0 \le \text{MTF}(f) \le 1$ |
+| MTF | dimensionless | $0 \le \text{MTF}(\nu) \le 1$ |
 | Spatial frequency | cycles/mm (focal plane) or cycles/mrad (angular) | Always labeled; never "cycles/pixel" as a primary unit |
 
 ### Conversion happens exactly once
@@ -127,9 +127,11 @@ SWIR 0.7–2.5 µm, MWIR 3–5 µm, LWIR 8–14 µm. Nanometres make MWIR/LWIR u
 MODTRAN's native tape7 output is ascending wavenumber, which is *descending* wavelength.
 On import RADIANT reverses the array and applies the Jacobian of the transformation:
 
-$$L(\lambda) = L(\nu)\,\frac{\nu^2}{10^4}$$
+$$L(\lambda) = L(\nu)\,\nu^2$$
 
-where the $10^4$ also carries the cm⁻² → m⁻² area conversion.
+The $\nu^2$ is two factors whose powers of ten cancel: the spectral-axis Jacobian
+$|d\nu/d\lambda| = 10^4/\lambda^2 = \nu^2/10^4$, times the $10^4$ that carries the
+cm⁻² → m⁻² area conversion. Written either factor alone, the relation is off by $10^4$.
 
 **Every spectral array must be monotonically increasing in $\lambda$.** Non-monotonic
 input is an error, not something silently reordered.

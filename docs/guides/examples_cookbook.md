@@ -279,8 +279,10 @@ mc = sensor.monte_carlo(n_trials=64, seed=42)
 print(f"mean  {mc.mean('snr'):.2f} [-]")
 print(f"std   {mc.std('snr'):.2f} [-]")
 print(f"5th percentile  {mc.percentile('snr', 5):.2f} [-]")
-print(f"P(SNR >= {REQUIRED_SNR:.0f}) = {mc.probability_of_exceeding('snr', REQUIRED_SNR):.2f}")
-print("correlation with inputs:", {k: round(v, 2) for k, v in mc.correlation("snr").items()})
+p_ok = mc.probability_of_exceeding("snr", REQUIRED_SNR)
+print(f"P(SNR >= {REQUIRED_SNR:.0f}) = {p_ok:.2f}")
+corr = {k: round(v, 2) for k, v in mc.correlation("snr").items()}
+print("correlation with inputs:", corr)
 mc.to_csv("mc_trials.csv")     # one row per trial
 ```
 
@@ -430,7 +432,7 @@ def evaluate(sensor, labels):
     return {"snr": result.metrics["snr"], "nedt_mK": 1e3 * result.metrics["nedt_K"]}
 
 runner = BatchRunner(
-    base_config={},                                   # unused here — the factory loads the YAML
+    base_config={},                    # unused here — the factory loads the YAML
     axes=axes,
     sensor_factory=lambda cfg: Sensor.from_yaml(CFG),
 )
@@ -470,8 +472,8 @@ and it belongs in a script.
 
 ### Seen in anger
 
-The **target detection matrix** case study is this recipe at full scale: six targets ×
-three atmospheres × three sensors, with a bisection search for detection range inside
+The **target detection matrix** case study is this recipe at full scale: twelve targets ×
+four atmospheres × three sensors — 144 cells — with a bisection search for detection range inside
 each cell's `evaluate`, early exits at nadir and at the swath edge, and `pivot` used to
 build the briefing tables directly. Read it for how much analysis can live inside the
 cell callback.

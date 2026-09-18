@@ -31,7 +31,7 @@ source:
 # --- Atmosphere ---
 atmosphere:
   standard_atmosphere: midlat_summer   # midlat_summer | midlat_winter | ...
-  # model: simple                      # simple | exo | tabulated | modtran
+  # model: simple                      # simple | interpolated | tabulated | modtran | exo
   # visibility_km: 23.0               # meteorological visibility
   # precipitable_water_cm: 1.4        # precipitable water vapor
 
@@ -110,21 +110,26 @@ This path is used everywhere: CLI overrides, Python API, `explain`, `sweep`.
 
 ## Defaults and Required Parameters
 
-Most parameters have sensible defaults. The minimum required set for a
-working evaluation is:
+Most parameters have sensible defaults. Ten carry none, and a configuration
+that omits one cannot resolve:
 
-- `source.target.temperature`
-- `source.target.emissivity`
-- `optics.aperture_diameter_m`
-- `optics.focal_length_m`
-- `detector.pixel_pitch_x_um` and `pixel_pitch_y_um`
-- `detector.qe_value`
-- `spectral_integration.filter_min_um` and `filter_max_um`
-- `spectral_integration.integration_time_s`
-- `readout.read_noise_e_rms`
-- `readout.gain_e_per_dn`
-- `readout.adc_bits`
 - `geometry.sensor_altitude_m`
+- `optics.aperture_diameter_m`, `optics.focal_length_m`, `optics.f_number`
+- `detector.pixel_pitch_x_um`, `detector.pixel_pitch_y_um`
+- `detector.qe_value`
+- `spectral_integration.filter_min_um`, `spectral_integration.filter_max_um`
+- `spectral_integration.integration_time_s`
+
+The three optics parameters are a consistency group, so you state any two and
+the third is derived — which is why all three appear here and no configuration
+sets all three. The **required** column of the Parameter Reference is the
+authoritative list; it is generated from the schema.
+
+Separately, a handful of parameters *do* default but should be stated
+explicitly in any configuration whose results you intend to defend, because
+the default is a convention rather than a property of your sensor:
+`source.target.temperature`, `source.target.emissivity`,
+`readout.read_noise_e_rms`, `readout.gain_e_per_dn`, and `readout.adc_bits`.
 
 Everything else defaults to a physically reasonable value. Run
 `radiant validate <config>` to check completeness.

@@ -30,7 +30,7 @@ published, and no stage reaches backwards.
 | 5 | `spectral_integration` | `radiant.spectral_integration` | All spectral arrays, QE($\lambda$) [--], $t_\text{int}$ [s] | Per-pixel signal [e⁻] — the spectral-to-scalar boundary |
 | 6 | `detector` | `radiant.detector` | Dark rate [e⁻/s], pixel pitch [µm], operating temperature [K] | Detector noise terms [e⁻ RMS], detector-aperture / diffusion / IPC MTF |
 | 7 | `readout` | `radiant.readout` | Read noise [e⁻ RMS], gain [e⁻/DN], ADC bits [--], TDI stages [--] | Digitized signal [DN], read/quantization noise [e⁻ RMS], TDI MTF |
-| 8 | `calibration` | `radiant.calibration` | Calibration scheme, NUC residual terms | Post-NUC residual noise [e⁻ RMS], bias budget [e⁻] |
+| 8 | `calibration` | `radiant.calibration` | Calibration scheme, NUC residual terms | Post-NUC residual noise [e⁻ RMS], bias budget [--] (fractional $\Delta L/L$) |
 | 9 | `performance` | `radiant.performance` | Everything above | SNR [--], NEDT [K], NIIRS [--], system MTF [--], detection range [m] |
 
 The stage names in the first column are the literal keys of
@@ -102,7 +102,7 @@ have genuinely different natural homes.
 
 Every spatial degradation enters as a convolution kernel on one `EffectivePSF` object:
 the diffraction-and-aberration PSF from the pupil, then the detector aperture kernel,
-then jitter, smear, turbulence, diffusion, and IPC. Encircled energy (`EE_box`), RER,
+then jitter, smear, turbulence, diffusion, and IPC. Ensquared energy (`EE_box`), RER,
 FWHM, Strehl ratio, LSF, and ERF are computed **only** from that one object.
 
 Strehl ratio is the degraded-PSF peak divided by the diffraction-limited
@@ -120,7 +120,7 @@ Wiener–Khinchin theorem this equals $|\mathcal{F}\{\text{PSF}\}|$, but computi
 directly from the pupil is what makes it correct: aberrations interact with diffraction
 *inside* the pupil and cannot be factored. Writing
 
-$$\text{MTF}_\text{optics}(f) = \text{MTF}_\text{diffraction}(f) \times \text{MTF}_\text{aberration}(f)$$
+$$\text{MTF}_\text{optics}(\nu) = \text{MTF}_\text{diffraction}(\nu) \times \text{MTF}_\text{aberration}(\nu)$$
 
 is wrong, and RADIANT never does it. There is one `MTF_optics` term.
 
@@ -128,7 +128,7 @@ Each downstream contributor — detector aperture, jitter, smear, diffusion, IPC
 turbulence — supplies an analytic or kernel-derived MTF, and the system MTF is their
 product:
 
-$$\text{MTF}_\text{sys}(f) = \prod_i \text{MTF}_i(f)$$
+$$\text{MTF}_\text{sys}(\nu) = \prod_i \text{MTF}_i(\nu)$$
 
 MTF budgets, MTF-at-Nyquist, folded MTF, and GIQE/NIIRS all consume this path.
 
@@ -206,7 +206,8 @@ of every consumed input file, and the ordered list of stages that ran. Given tha
 the run reproduces.
 
 **The stable surface is small.** The top-level `__all__` of `radiant` is
-`{Sensor, RadiantError, __version__}`; those two names carry stability guarantees.
+`{Sensor, RadiantError, __version__}`; `Sensor` and `RadiantError` carry stability
+guarantees.
 `ChainResult` is importable from `radiant.io.results` (and re-exported from
 `radiant.api`) but is not top-level. `BatchRunner` is a semi-public
 `radiant.api.batch` class. There are no `SensorConfig` or `ScenarioConfig` builder

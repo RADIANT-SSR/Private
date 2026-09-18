@@ -246,68 +246,69 @@ contract: the extrapolation is available, but you have to ask for it in writing.
 **Sensor A — MWIR smallsat, 16.7 m GSD, 278 m² pixel footprint at nadir:**
 
 ```
-  Target                             clear              haze     tropical_haze      arctic_clear
-  ----------------------------------------------------------------------------------------------
-  MBT tank                  not detectable    not detectable    not detectable    not detectable
-  APC                       not detectable    not detectable    not detectable    not detectable
-  Cargo truck               not detectable    not detectable    not detectable    not detectable
-  Technical (pickup)        not detectable    not detectable    not detectable    not detectable
-  SAM TEL                   not detectable    not detectable    not detectable    not detectable
-  Towed artillery           not detectable    not detectable    not detectable    not detectable
-  Patrol boat               not detectable    not detectable    not detectable             534
-  Fast attack craft         not detectable    not detectable    not detectable             788
-  Transport aircraft        not detectable    not detectable    not detectable           1,061*
-  Fighter aircraft          not detectable    not detectable    not detectable    not detectable
-  Fuel bladder farm                  823               813               742             1,061*
-  Small UAV (parked)        not detectable    not detectable    not detectable    not detectable
+  Target                         clear            haze   tropical_haze    arctic_clear
+  ------------------------------------------------------------------------------------
+  MBT tank              not detectable  not detectable  not detectable  not detectable
+  APC                   not detectable  not detectable  not detectable  not detectable
+  Cargo truck           not detectable  not detectable  not detectable  not detectable
+  Technical (pickup)    not detectable  not detectable  not detectable  not detectable
+  SAM TEL               not detectable  not detectable  not detectable  not detectable
+  Towed artillery       not detectable  not detectable  not detectable  not detectable
+  Patrol boat           not detectable  not detectable  not detectable             534
+  Fast attack craft     not detectable  not detectable  not detectable             788
+  Transport aircraft    not detectable  not detectable  not detectable          1,061*
+  Fighter aircraft      not detectable  not detectable  not detectable  not detectable
+  Fuel bladder farm                823             813             742          1,061*
+  Small UAV (parked)    not detectable  not detectable  not detectable  not detectable
 ```
 
 **Sensor B — MWIR flagship, 4.0 m GSD, 16 m² pixel footprint at nadir:**
 
 ```
-  Target                             clear              haze     tropical_haze      arctic_clear
-  ----------------------------------------------------------------------------------------------
-  MBT tank                           696               688               560               901
-  APC                                673               666               612               865
-  Cargo truck                        773               763               699             1,029
-  Technical (pickup)                 575               570               527               718
-  SAM TEL                            870               858               782             1,061*
-  Towed artillery                    893               883               800             1,061*
-  Patrol boat                      1,061*            1,061*              998             1,061*
-  Fast attack craft                1,061*            1,061*              924             1,061*
-  Transport aircraft               1,047             1,022               737             1,061*
-  Fighter aircraft                 1,059             1,033               753             1,061*
-  Fuel bladder farm                1,061*            1,061*            1,059             1,061*
-  Small UAV (parked)                 686               678               621               901
+  Target                         clear            haze   tropical_haze    arctic_clear
+  ------------------------------------------------------------------------------------
+  MBT tank                         696             688             560             901
+  APC                              673             666             612             865
+  Cargo truck                      773             763             699           1,029
+  Technical (pickup)               575             570             527             718
+  SAM TEL                          870             858             782          1,061*
+  Towed artillery                  893             883             800          1,061*
+  Patrol boat                   1,061*          1,061*             998          1,061*
+  Fast attack craft             1,061*          1,061*             924          1,061*
+  Transport aircraft             1,047           1,022             737          1,061*
+  Fighter aircraft               1,059           1,033             753          1,061*
+  Fuel bladder farm             1,061*          1,061*           1,059          1,061*
+  Small UAV (parked)               686             678             621             901
 ```
 
 **Sensor C — LWIR wide, 12.1 m GSD:**
 
 ```
-  Target                             clear              haze     tropical_haze      arctic_clear
-  ----------------------------------------------------------------------------------------------
-  MBT tank                  not detectable    not detectable    not detectable    not detectable
-  APC                       not detectable    not detectable    not detectable    not detectable
-  Cargo truck               not detectable    not detectable    not detectable    not detectable
-  Technical (pickup)        not detectable    not detectable    not detectable    not detectable
-  SAM TEL                   not detectable    not detectable    not detectable             565
-  Towed artillery           not detectable    not detectable    not detectable             523
-  Patrol boat                        841               830               711             1,061*
-  Fast attack craft                1,061*            1,061*              981             1,061*
-  Transport aircraft               1,061*            1,061*            1,061*            1,061*
-  Fighter aircraft                   938               926               782             1,061*
-  Fuel bladder farm                1,061*            1,061*            1,029             1,061*
-  Small UAV (parked)        not detectable    not detectable    not detectable    not detectable
+  Target                         clear            haze   tropical_haze    arctic_clear
+  ------------------------------------------------------------------------------------
+  MBT tank              not detectable  not detectable  not detectable  not detectable
+  APC                   not detectable  not detectable  not detectable  not detectable
+  Cargo truck           not detectable  not detectable  not detectable  not detectable
+  Technical (pickup)    not detectable  not detectable  not detectable  not detectable
+  SAM TEL               not detectable  not detectable  not detectable             565
+  Towed artillery       not detectable  not detectable  not detectable             523
+  Patrol boat                      841             830             711          1,061*
+  Fast attack craft             1,061*          1,061*             981          1,061*
+  Transport aircraft            1,061*          1,061*          1,061*          1,061*
+  Fighter aircraft                 938             926             782          1,061*
+  Fuel bladder farm             1,061*          1,061*           1,029          1,061*
+  Small UAV (parked)    not detectable  not detectable  not detectable  not detectable
 ```
 
 ```
 === Worst-case target ===
-  Hardest: Technical (pickup) — mean detection range 199 km across all 12 sensor×atmosphere cells
+  Hardest: Technical (pickup) — mean detection range 199 km
+           across all 12 sensor×atmosphere cells
   Easiest: Fuel bladder farm — mean 991 km
 
-====================================================================================================
+==========================================================================
   DONE — 144 cells evaluated (0 failures recorded)
-====================================================================================================
+==========================================================================
 ```
 
 All ranges are **slant range in kilometres** at SCNR = 5; `*` marks a cell that is

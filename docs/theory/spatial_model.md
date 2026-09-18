@@ -43,7 +43,8 @@ be factored into (clear-aperture MTF) × (aberration-only multiplier). True aber
 can go negative (defocus contrast reversal); no positive scalar multiplier can reproduce
 that. Only genuinely independent *image-plane convolutions* (detector aperture, diffusion,
 IPC, jitter, smear) and statistically independent ensemble averages (turbulence) multiply.
-The one deliberate MTF-only term is TDI mis-registration (§8) — a readout-timing effect
+The one deliberate MTF-only term is TDI mis-registration (*TDI mis-registration — the
+one MTF-only term*, below) — a readout-timing effect
 with no instantaneous kernel, excluded from the consistency comparison.
 
 **In RADIANT.** `performance/consistency_check.py::check_dual_path_consistency`
@@ -99,7 +100,7 @@ $$\mathrm{MTF}(\tilde\nu) = \frac{2}{\pi}\left[\arccos\tilde\nu - \tilde\nu\sqrt
 
 RADIANT computes the general case (obscuration, spiders, aberrations) by direct
 autocorrelation of the complex pupil — a single `MTF_optics` term, never a factored
-product (§1).
+product (*The two spatial paths*, above).
 
 **Assumptions & validity.** Incoherent illumination (the coherent cutoff is $\nu_c/2$ — a
 classic factor-2 trap); monochromatic per-λ, spectrally weighted for broadband.
@@ -199,7 +200,8 @@ blur,
 $$\mathrm{MTF}_{smear}(\nu) = \left|\frac{\sin(\pi d \nu)}{\pi d \nu}\right|,$$
 
 applied along the motion direction only. $v_{image}$ derives from the **ground-track**
-velocity ($v_g = v\,R/(R+h)$, see `theory/geometry.md` §4) times the magnification
+velocity ($v_g = v\,R/(R+h)$, see the geometry chapter's *GSD — nadir and off-nadir*)
+times the magnification
 $f/R_s$ — using orbital $v$ instead of $v_g$ inflates smear by $h/R$ (+7.8% at 500 km).
 
 **Assumptions & validity.** Jitter Gaussian form requires jitter frequency ≫ $1/t_{int}$;

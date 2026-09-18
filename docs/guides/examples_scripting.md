@@ -265,9 +265,9 @@ group. They are cheap and they are the honesty check on everything else.
 *Units are in the names, not in the columns.* This script prints a bare numeric table
 whose only unit information is what the metric names carry (`nedt_K`,
 `gsd_along_track_m`, `well_margin_dB`). That is enough to read it, but it is thinner
-than the rest of the repository's convention: compare the configuration-set study in
-§6, which pulls each metric's unit from the metric registry and prints it in its own
-column.
+than the rest of the repository's convention: compare the configuration-set study of
+`dual_band_configuration_set.py` below, which pulls each metric's unit from the metric
+registry and prints it in its own column.
 
 ---
 
@@ -472,14 +472,19 @@ altitude, pixel pitch, read noise, scene temperature, emissivity, and the atmosp
 A change to any shared value moves all three configurations at once. That is the
 whole point of the model: the study states what differs, not what is repeated.
 
-Output (heavily trimmed — the program prints about 310 lines):
+Output (heavily trimmed — the program prints about 310 lines; the focus-metric
+table is re-laid out to fit the page, with each metric's unit moved into its
+name column, and every value is the program's own):
 
 ```
 Summary (one line per configuration, evaluation order = active first):
 
-  MWIR      *  ok   snr = 1124 [dimensionless]; nedt_K = 0.02496 [K]; gsd_geometric_mean_m = 0.12 [m]
-  LWIR         ok   snr = 2248 [dimensionless]; nedt_K = 0.02761 [K]; gsd_geometric_mean_m = 0.12 [m]
-  LWIR_long    ok   snr = 2448 [dimensionless]; nedt_K = 0.02536 [K]; gsd_geometric_mean_m = 0.12 [m]   (2 warnings)
+  MWIR      *  ok   snr = 1124 [dimensionless]; nedt_K = 0.02496 [K];
+                    gsd_geometric_mean_m = 0.12 [m]
+  LWIR         ok   snr = 2248 [dimensionless]; nedt_K = 0.02761 [K];
+                    gsd_geometric_mean_m = 0.12 [m]
+  LWIR_long    ok   snr = 2448 [dimensionless]; nedt_K = 0.02536 [K];
+                    gsd_geometric_mean_m = 0.12 [m]   (2 warnings)
   (* = baseline: 'MWIR'; 0 of 3 configuration(s) failed)
 
 Warning attribution — each warning belongs to exactly one configuration:
@@ -490,16 +495,16 @@ Warning attribution — each warning belongs to exactly one configuration:
 
 Focus metrics (value [unit], then delta vs baseline):
 
-metric                      unit                     MWIR                  LWIR             LWIR_long
------------------------------------------------------------------------------------------------------
-snr                         dimensionless         1123.79   2248.25 (+1.12e+03)   2447.71 (+1.32e+03)
-nedt_K                      K                   0.0249632  0.0276141 (+0.00265)  0.0253638 (+0.000401)
-gsd_geometric_mean_m        m                        0.12                  0.12                  0.12
-diffraction_limit_ground_m  m                    0.138267     0.325333 (+0.187)     0.325333 (+0.187)
-q_center                    dimensionless        0.944444       2.22222 (+1.28)       2.22222 (+1.28)
-mtf_at_nyquist              dimensionless        0.266683  5.42079e-17 (-0.267)  5.42079e-17 (-0.267)
-ee_1x1                      fraction             0.414038    0.135344 (-0.279)     0.135344 (-0.279)
-well_margin_dB              dB                    3.98901        1.48629 (-2.5)    0.00579252 (-3.98)
+metric [unit]                        MWIR                 LWIR             LWIR_long
+------------------------------------------------------------------------------------
+snr [dimensionless]               1123.79  2248.25 (+1.12e+03)   2447.71 (+1.32e+03)
+nedt_K [K]                      0.0249632 0.0276141 (+0.00265) 0.0253638 (+0.000401)
+gsd_geometric_mean_m [m]             0.12                 0.12                  0.12
+diffraction_limit_ground_m [m]   0.138267    0.325333 (+0.187)     0.325333 (+0.187)
+q_center [dimensionless]         0.944444      2.22222 (+1.28)       2.22222 (+1.28)
+mtf_at_nyquist [dimensionless]   0.266683 5.42079e-17 (-0.267)  5.42079e-17 (-0.267)
+ee_1x1 [fraction]                0.414038    0.135344 (-0.279)     0.135344 (-0.279)
+well_margin_dB [dB]               3.98901       1.48629 (-2.5)    0.00579252 (-3.98)
 ```
 
 and, later, the program's own reading of those numbers:

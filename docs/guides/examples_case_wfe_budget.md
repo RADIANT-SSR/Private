@@ -87,8 +87,8 @@ what makes the allocation below a clean RSS budget rather than a linear one.
 One script does the whole study:
 
 ```bash
-PYTHONPATH=src python \
-  scenarios/05_tom_optical_designer/5.1_wfe_budget_allocation/scripts/run_wfe_budget_trade.py
+S=scenarios/05_tom_optical_designer/5.1_wfe_budget_allocation
+PYTHONPATH=src python $S/scripts/run_wfe_budget_trade.py
 ```
 
 ### Step 1 — Parse the Zemax export, and refuse to run on a mismatch

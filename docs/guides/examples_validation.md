@@ -57,7 +57,8 @@ is what makes the comparison meaningful:
   plausible $\eta\tau$ is a modelling assumption being wrong in a known direction; one
   that implies an impossible $\eta\tau$ would be a defect.
 
-**Provenance of the numbers below.** Every table in §§1–4 is quoted from the
+**Provenance of the numbers below.** Every table in the four flagship sections is
+quoted from the
 scenario's committed `walkthrough.md`. Because the four scenarios run in under a
 second each on a vacuum path with no fenced data, they were re-run while this chapter
 was written (2026-09-17): all four reproduce their committed tables. Two numbers of
@@ -460,11 +461,12 @@ validated", and it is worth stating the narrow claim precisely:
   twenty bands, spanning 443 nm to 12.3 µm, silicon and MCT and QWIP, pushbroom and
   whiskbroom, SNR and NEdT.
 - **The Planck integral and the band-averaging are right to 0.1 %** against four
-  independently published radiance anchors (§3, claim 1).
+  independently published radiance anchors (the MODIS section, claim 1).
 - **The noise stack is right to roughly 20 % or better where the instrument is
-  photon-and-read-limited** (§2: 52 mK against 52 mK, 58 mK against 49 mK) and
+  photon-and-read-limited** (the TIRS section: 52 mK against 52 mK, 58 mK against
+  49 mK) and
   correctly identifies itself as a *bound* where the instrument is detector-limited
-  (§3, claim 2).
+  (the MODIS section, claim 2).
 - **The direction of every residual is explained**, and the explanations are all of
   one kind: RADIANT computes an idealised photon-limited performance, so it
   over-predicts flight SNR wherever the flight instrument carries non-uniformity,
@@ -472,7 +474,7 @@ validated", and it is worth stating the narrow claim precisely:
 
 Every one of these comparisons runs on a **vacuum path**. None of them validates the
 atmosphere, the scene model, the spatial path, or the calibration model. That is what
-the next two sections and §8 are for.
+the next two sections and *What validation does not yet cover* are for.
 
 ---
 
@@ -628,7 +630,8 @@ physics in it. It is the floor of the validation stack, not its ceiling.
 > calibration models are datasheet-anchored, not measurement-anchored**: 1/f and
 > generation-recombination noise, inter-pixel capacitance, persistence, well
 > saturation, and the whole post-NUC calibration residual model rest on vendor
-> datasheet values and internal consistency, and §3 above quantifies exactly how much
+> datasheet values and internal consistency, and the MODIS section above quantifies
+> exactly how much
 > that matters — MODIS's measured NEdT sits 10–40× above the photon floor RADIANT can
 > currently compute, and the detector-noise term that accounts for the difference is
 > named as an unknown rather than modelled. A reader deciding whether to trust a

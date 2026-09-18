@@ -101,7 +101,9 @@ n/a
 not computed for this run
 ```
 
-— not a blank, not a zero, not a stale value. A metric you switched off says so.
+— not a blank, not a zero, not a stale value. A metric you switched off says so. The text
+is not exclusive to that case: it is what any metric the run did not produce shows,
+switched off or declined (chapter 4, section 7).
 
 **The spatial path itself is skipped** when the Spatial / MTF group is off *and* no enabled
 metric needs a spatial input. That is the case where the saving is real rather than cosmetic:

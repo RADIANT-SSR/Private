@@ -158,10 +158,11 @@ path — the same view the published on-orbit NEdT is measured against.
    - **Radiometric** — SNR 1160, contrast SNR 1160, SCNR 1160, NEDT 58.07 mK. The
      three SNR flavours coincide because the scene is a uniform blackbody: there is
      no separate clutter or contrast term to divide them.
-   - **Interpretability** — MRT at Nyquist 0.3698 K, and NIIRS reported as
-     `yes — outside GIQE-5`. The MRT is the NEDT divided by the system MTF at that
-     frequency; it is the temperature difference a human observer needs to resolve a
-     bar pattern at the sampling limit.
+   - **Interpretability** — minimum resolvable temperature difference (MRT) at
+     Nyquist 0.3698 K, and NIIRS reported as `yes — outside GIQE-5`. The MRT is the
+     NEDT divided by the system MTF at that frequency; it is the temperature
+     difference a human observer needs to resolve a bar pattern at the sampling
+     limit.
    - **Saturation** — well margin 9.791 dB, ADC margin 9.789 dB, dynamic range
      71.08 dB. Margins are the headroom between the filled well and its capacity;
      they go to 0 dB exactly when the pixel clips.

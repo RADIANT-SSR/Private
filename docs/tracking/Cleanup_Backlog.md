@@ -58,10 +58,11 @@ by name in check 8 — that list is frozen and must never grow.
 **Progress** (fix campaign, 2026-09-18; owner rulings on the §8/B6 style picks received: US English, `e-`, sentence-case sections, "Messages panel", comma thousands separators, `°` in prose / "deg" in quoted entry strings, unspaced en-dash ranges, NEDT canonical):
 
 - [x] B1 build/template + B2 generator/schema + B7 broken captures (II-022, IV-032) — merged `74e69019`. X-01 verified 26→0 "ř" across three volumes; 55 figures now captioned; III-019 resolved as conversion-inert unit declarations (CHANGELOG'd). III-021 disproven — V6 is a published mode (`RADIANT_Geometry.md:49`), finding withdrawn from the checklist; residual mode-letter-key observation → Findings Log.
-- [ ] B3 accuracy + B5 page-fit (branch fix370/accuracy)
+- [x] B3 accuracy + B5 page-fit — merged `f3013a5e`. I-005 resolved by rewriting the appendix recipe to the shipped shared-étendue model (the printed formula described the per-element solid-angle model Gap 128 retired); III-001 fixed in both chapters + the `modtran.py` docstring; 12 References entries added; bound-spec corrections verified against code (ten namespaces, two-tier 68-class error hierarchy, `three_point`, 5-level precedence, 0.1–200 µm). IV-003 disproven (both quoted warnings current — different warnings; residue → Findings Log). I-031/II-024 (orphan longtable rows) attempted and longtable-resistant — re-check after B4/B6 reflow, then fix-or-decline.
 - [ ] B4 leakage/link policy + B6 style sweeps (branch fix370/prose)
 - [ ] B7 remainder — X-07 panel-grab sweep after B4/B6 so figures and describing prose move together
-- Deferred (GUI change required, live-review gated — move to a fresh stub CU at closure): II-003, II-015, II-009's GUI-string option, IV-031 (GeometryViewer must clamp leader pills inside the viewport; capture-side fix proven impossible), plus the clipped mode-form values visible in `case_irst_schematic.png` (`solar_zenith_rad` renders "6479 deg").
+- [ ] I-031 / II-024 re-check after prose reflow
+- Deferred (GUI change required, live-review gated — move to a fresh stub CU at closure): II-003, II-015, II-009's GUI-string option (batch 2 confirmed `badge_display` conflates three distinct absent-metric states and the NIIRS `failure_reason` never reaches the card), IV-031 (GeometryViewer must clamp leader pills inside the viewport; capture-side fix proven impossible), plus the clipped mode-form values visible in `case_irst_schematic.png` (`solar_zenith_rad` renders "6479 deg").
 
 ### CU-366 — Scenario 1.1 walkthrough argues its reflected-sky physics against the wrong hull emissivity
 

@@ -539,10 +539,11 @@ def build_scene(state: ViewerState) -> SchematicScene:
     derived from the altitude pair, never a user switch):
 
     * ``"down"`` — the target sits at the scene origin (lifted to ``_TARGET_AIRBORNE_Z``
-      when airborne) and the sensor is placed from the origin along the **θ_o** ray at
-      ``_SENSOR_DIST`` (CU-250 — θ_o is the zenith subtended at the target, which is the
-      vertex the glyph is placed from; it was the off-nadir η ray, read at the *other*
-      vertex, until then). A state with no stage θ_o falls back to the η ray, which for a
+      when airborne) and the sensor is placed from the **target's top** along the **θ_o**
+      ray at ``_SENSOR_DIST`` (CU-250 — θ_o is the zenith subtended at the target, which is
+      the vertex the glyph is placed from; it was the off-nadir η ray, read at the *other*
+      vertex, until then; CU-368 — it was placed from the *origin*, which flattened the ray
+      by the airborne lift). A state with no stage θ_o falls back to the η ray, which for a
       genuine vertical path is the same vector.
     * ``"up"`` — the SENSOR is the path's lower endpoint. It is anchored at the height
       :func:`_lower_endpoint_z` gives for the scene class (on the ground plane for a ground
@@ -577,13 +578,10 @@ def build_scene(state: ViewerState) -> SchematicScene:
     if ascending:
         # The sensor is the lower endpoint: anchor it, then carry the target up the θ_o ray.
         # target→sensor is the θ_o direction (obtuse θ_o ⇒ its z is ≤ 0), so placing the
-        # sensor at ``target + θ_o_dir · _SENSOR_DIST`` puts the target above the sensor by
-        # ``−_SENSOR_DIST·cos θ_o`` and the SENSOR→TARGET vector ascends.
+        # sensor at ``target + θ_o_dir · _SENSOR_DIST`` (below) puts the target above the
+        # sensor by ``−_SENSOR_DIST·cos θ_o`` and the SENSOR→TARGET vector ascends.
         sensor_dir = theta_o_dir
         target_z = _lower_endpoint_z(state) - _SENSOR_DIST * math.cos(state.theta_o_rad)
-        target_anchor = np.array([0.0, 0.0, target_z], dtype=np.float64)
-        sensor_pos = target_anchor + sensor_dir * _SENSOR_DIST
-        sun_pos = target_anchor + sun_dir * _SUN_DIST
         # ζ_low is read at the sensor, where the ray runs back toward the target — the
         # opposite scene azimuth from the target-anchored arcs.
         zeta_low_dir = dir_from_az_zen(180.0, math.degrees(zeta_low_rad))
@@ -597,8 +595,6 @@ def build_scene(state: ViewerState) -> SchematicScene:
         # a vertical path has η = 0 too, so for a genuine nadir scene the two rays are the
         # same vector — the fallback is a no-op there and the pre-Phase-4 layout elsewhere.
         sensor_dir = theta_o_dir if state.theta_o_rad > 0.0 else eta_dir
-        sensor_pos = sensor_dir * _SENSOR_DIST
-        sun_pos = sun_dir * _SUN_DIST
         target_z = _TARGET_AIRBORNE_Z if airborne else 0.0
         # Down-looking: the target IS the lower endpoint, so ζ_low is θ_o at the target.
         zeta_low_dir = dir_from_az_zen(0.0, math.degrees(zeta_low_rad))
@@ -623,6 +619,19 @@ def build_scene(state: ViewerState) -> SchematicScene:
     )
 
     target_top = np.array([0.0, 0.0, top_z], dtype=np.float64)
+
+    # Sun and sensor glyphs are placed along their stage rays FROM THE TARGET — the vertex
+    # θ_o and θ_s are subtended at, and where the SUN→TARGET / SENSOR→TARGET vectors land
+    # (``target_top``, also every target-anchored arc's apex). Down-looking they used to be
+    # placed from the scene *origin* instead, which is the target only for a ground target:
+    # an airborne target is lifted to ``_TARGET_AIRBORNE_Z``, so the drawn target→sensor
+    # line was flattened by that lift (a 20° stage elevation drew as ~5°) and the θ_o /
+    # ζ_low arcs ended off the glyph ray again (CU-368). The ascending construction keeps
+    # its base-of-body anchor: ``target_z`` there is derived from the sensor's fixed height,
+    # so the sensor sits exactly ``_SENSOR_DIST`` down the θ_o ray from the body base.
+    anchor = np.array([0.0, 0.0, target_z], dtype=np.float64) if ascending else target_top
+    sensor_pos = anchor + sensor_dir * _SENSOR_DIST
+    sun_pos = anchor + sun_dir * _SUN_DIST
 
     # The target's ground projection (nadir footprint): the point on the ground plane (z = 0)
     # directly below the body. For a ground target this is the origin (target == ground); for

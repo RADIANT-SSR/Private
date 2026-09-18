@@ -193,6 +193,15 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: VIS/NIR reflective scenarios that route through the MODTRAN **binary** flavor (or a single-file import) still lose the solar-zenith dependence that Stage 6's E_sky decomposition exposes. The analytic backend is fine; the file-import flavor is fine when both files are supplied.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
+### CU-368 — Geometry schematic flattens the sensor and sun rays for an airborne target viewed from above
+
+**Discovered**: Owner GUI session 2026-09-17 (space-to-air scene: sensor 550 km, target 9 km, off-boresight 60°) — "I know what 60 degrees is and this is not that".
+**Status**: Open.
+**File**: `src/radiant/gui/viewer/schematic_view.py:600` (`build_scene`, down-looking branch).
+**Symptom**: the down-looking branch places the sensor and sun glyphs along their stage rays from the scene **origin** (`sensor_dir * _SENSOR_DIST`), while an airborne target is lifted to `_TARGET_AIRBORNE_Z = 0.9`. The drawn target→sensor line therefore rises only ~5° above the target's horizontal where the stage θ_o = 69.96° says 20°; the θ_o / ζ_low arcs (anchored at `target_top`) no longer end on the glyph ray — the exact mismatch CU-250 removed for ground targets. Ground targets (target at the origin) are unaffected.
+**Why it still matters**: workflow-visible (intake test 4) — every air-target scene (scenarios 10.x IRST, 9.x airborne targets) shows a viewing angle that contradicts the numbers next to it.
+**Suggested fix**: (a) inline-fix-now — anchor `sensor_pos` / `sun_pos` at `target_top` in the down-looking branch (the ascending branch already anchors at the target); pin a test that the drawn target→sensor elevation equals π/2 − θ_o for an airborne target. Effort S; category A.
+
 ## Resolved
 
 ### CU-364 — gen_param_reference.py silently omits platform/calibration/performance (34 of 218 parameters) — RESOLVED 2026-09-16 (commit trailer)

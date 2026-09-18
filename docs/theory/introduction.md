@@ -215,3 +215,8 @@ train in full, and the front matter holds the notation on which all of it depend
 Throughout, an equation is stated in the form the model actually evaluates. Where the
 implementation makes an approximation, the approximation is named where the equation is
 given, not deferred to a limitations list.
+
+Every quantitative claim in the source documents behind this manual is anchored to the
+implementation function that evaluates it and to a committed test that pins its value;
+the repository sources carry those anchors as the project's traceability record. The
+typeset manual omits the pointers and keeps the physics.

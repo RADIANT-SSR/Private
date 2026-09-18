@@ -45,6 +45,7 @@ ARCHITECTURE = DOCS / "architecture"
 ASSETS = Path(__file__).resolve().parent / "manual_assets"
 DEFAULTS_FILE = ASSETS / "manual.yaml"
 HEADER_FILE = ASSETS / "manual_header.tex"
+TABLE_FILTER = ASSETS / "wide_tables.lua"
 BUILD = REPO / "build" / "manuals"
 
 #: Author line on every cover page (ruling Q6 — minimal cover identity).
@@ -234,6 +235,10 @@ _HTML_TAGS = frozenset(
 
 #: A Markdown image. Captures the destination, tolerating pointy-bracket destinations.
 _IMAGE_RE = re.compile(r"!\[[^\]]*\]\(\s*<?([^)>\s]+)>?")
+
+#: XeLaTeX's log line for a glyph the font cannot supply, e.g.
+#: ``Missing character: There is no ⁻ (U+207B) in font ...``. Captures the character.
+_MISSING_CHAR_RE = re.compile(r"Missing character: There is no (\S+) \(U\+[0-9A-Fa-f]+\)")
 
 #: Destinations the image check does not try to resolve on disk.
 _REMOTE_PREFIXES = ("http://", "https://", "data:", "ftp://", "mailto:", "//")
@@ -576,13 +581,20 @@ def build_volume(volume: Volume, *, as_tex: bool) -> int:
             str(volume_header),
             "--include-in-header",
             str(HEADER_FILE),
+            # The gfm reader assigns no column widths, so wide tables overflow the
+            # page; this filter replicates the markdown reader's width heuristic.
+            "--lua-filter",
+            str(TABLE_FILTER),
             *[str(p) for p in sources],
             "-o",
             str(out),
         ]
-        result = subprocess.run(cmd, cwd=REPO, check=False)
+        result = subprocess.run(
+            cmd, cwd=REPO, check=False, capture_output=True, text=True, encoding="utf-8"
+        )
 
     if result.returncode != 0:
+        sys.stderr.write(result.stderr)
         print(
             f"error: pandoc failed while building volume '{volume.key}' (see output above).\n"
             f"  why: the Markdown sources did not convert.\n"
@@ -590,6 +602,23 @@ def build_volume(volume: Volume, *, as_tex: bool) -> int:
             file=sys.stderr,
         )
         return result.returncode
+
+    # XeTeX drops a glyph the font lacks SILENTLY in the PDF and only mentions it in
+    # a log warning — "e⁻" typesetting as "e" is a correctness defect, not cosmetics.
+    # The shared preamble maps the known grandfathered characters to LaTeX; anything
+    # NOT covered by that list fails the build here rather than shipping dropped text.
+    missing = sorted(set(_MISSING_CHAR_RE.findall(result.stderr)))
+    if missing:
+        sys.stderr.write(result.stderr)
+        print(
+            f"error: volume '{volume.key}' typeset with dropped glyphs: {' '.join(missing)}\n"
+            "  why: the selected fonts lack these characters; XeTeX omits them from the\n"
+            "       PDF silently, so text like 'e⁻' would print as 'e'.\n"
+            "  action: add a \\newunicodechar mapping for each to\n"
+            "          scripts/manual_assets/manual_header.tex (see the existing block).",
+            file=sys.stderr,
+        )
+        return 1
     print(f"built {out.relative_to(REPO).as_posix()}  ({volume.title})")
     return 0
 
@@ -614,7 +643,7 @@ def check_tools(*, as_tex: bool) -> int:
             file=sys.stderr,
         )
         return 1
-    for asset in (DEFAULTS_FILE, HEADER_FILE):
+    for asset in (DEFAULTS_FILE, HEADER_FILE, TABLE_FILTER):
         if not asset.is_file():
             print(
                 f"error: shared manual template asset missing: "

@@ -20,7 +20,7 @@ for this build.
 | *result* | available once an evaluation has completed |
 | *sweep* | available once a sweep has been run |
 
-## A.1 File
+## File
 
 | Action | Shortcut | Available | Notes |
 |---|---|---|---|
@@ -37,7 +37,7 @@ for this build.
 | Export XLSX Workbook… | | result | config + metrics + any retained sweep in one workbook |
 | Quit | `Ctrl+Q` | always | passes the unsaved-edits guard |
 
-## A.2 Edit
+## Edit
 
 | Action | Shortcut | Available | Notes |
 |---|---|---|---|
@@ -47,7 +47,7 @@ for this build.
 | Configurations… | | config | the configuration manager (chapter 8, §3) — also the door a single-model session becomes a study through |
 | Find Parameter | `Ctrl+F` | — | **not wired** in this build; use the Parameters dock's filter box |
 
-## A.3 View
+## View
 
 | Action | Shortcut | Available | Notes |
 |---|---|---|---|
@@ -69,7 +69,7 @@ The stage-jump submenu lists the namespaces in chain order:
 | `Ctrl+4` | optics | `Ctrl+9` | calibration |
 | `Ctrl+5` | platform | `Ctrl+0` | performance |
 
-## A.4 Run
+## Run
 
 | Action | Shortcut | Available | Notes |
 |---|---|---|---|
@@ -79,7 +79,7 @@ The stage-jump submenu lists the namespaces in chain order:
 | Monte Carlo… | | config | opens a prefilled Monte-Carlo **script scaffold** in the scripting window, seeded with the tolerances you have set |
 | Batch Run… | | config | opens a prefilled `BatchRunner` **script scaffold** |
 
-## A.5 Tools
+## Tools
 
 | Action | Shortcut | Available | Notes |
 |---|---|---|---|
@@ -96,7 +96,7 @@ The stage-jump submenu lists the namespaces in chain order:
 portable `Ctrl` to macOS's `⌘`, and command-backtick is an OS-reserved shortcut that never
 reaches the application.
 
-## A.6 Help
+## Help
 
 | Action | Shortcut | Available | Notes |
 |---|---|---|---|
@@ -104,13 +104,13 @@ reaches the application.
 | Example Configs | | — | **not wired** in this build |
 | About RADIANT | | — | **not wired** in this build |
 
-## A.7 The menu-bar corner
+## The menu-bar corner
 
 The menu bar's right-hand corner carries a **◈ Inspector** button. It triggers the same action
 as Tools ▸ Inspector and shares its enabled state, so it greys out before the first evaluation
 too.
 
-## A.8 Shortcut summary
+## Shortcut summary
 
 | Key | Action |
 |---|---|
@@ -128,7 +128,7 @@ too.
 | `Ctrl+F` | Find Parameter — **not wired** |
 | `Ctrl+R` | Validate Only — **not wired** |
 
-## A.9 Affordances that are not in a menu
+## Affordances that are not in a menu
 
 Several actions have no menu entry at all, and are listed here so the appendix is a complete
 map of the surface.

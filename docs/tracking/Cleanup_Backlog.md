@@ -47,6 +47,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-370 — Manual suite ships editorial, accuracy, and render defects across all four volumes (2026-09 editorial-audit family)
+
+**Discovered**: Owner-chartered editorial audit of the Gap 131 manual suite, 2026-09-17..18 (`docs/reports/manual_editorial_audit_2026-09/`).
+**Status**: Open — family CU; the audit report (`docs/reports/manual_editorial_audit_2026-09/Findings.md`) is the checklist source. The CU tracks the accuracy- and render-defect subset plus the suite-wide consistency fixes; sub-CU cosmetics stay in the report / Findings Log.
+**File**: `docs/theory/*`, `docs/guides/*` (manual sources), `scripts/manual_assets/*` + title-page template (build), `scripts/gen_param_reference.py` + stage `_schema.py` descriptions (generated reference), `src/radiant/atmosphere/modtran.py:17-21` (docstring), GUI advisory/refusal strings (recapture after reword).
+**Symptom**: headline items from the 130-finding report — degree signs inside math spans typeset as "ř" in three volumes; tape7 conversion formula printed a factor 10⁴ off the (correct) implementation, in two chapters and the module docstring; dimensionally inconsistent mixed-train appendix irradiance formula (missing emitting-element area); 12 citation keys with no References entry; generated parameter-reference cells truncated (unescaped `|`) and columns colliding; ~26 dead repo-relative `.md` hyperlinks; repo-internal CU/Gap/Rule/path leakage in shipped prose beyond the strip-filters' reach; result tables and commands overflowing the printed page.
+**Why it still matters**: workflow-visible (intake test 4) — every operator and evaluator reading the shipped manuals hits the render defects, and the two accuracy items would mislead a reader implementing the printed physics.
+**Suggested fix**: (b) stand-alone fix campaign worked from the report's priority order (report §8 groups the findings into workable batches; owner picks the suite-wide style conventions where flagged). Effort M–L; category A.
+
 ### CU-366 — Scenario 1.1 walkthrough argues its reflected-sky physics against the wrong hull emissivity
 
 **Discovered**: Gap 131 Phase 4b (branch `gap131/phase4-examples`) case-study adaptation, 2026-09-16.

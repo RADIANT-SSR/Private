@@ -34,16 +34,42 @@
 }
 
 % --- Headings in the sans face ----------------------------------------------
+% \raggedright plus the infinite hyphenation penalties in the chapter <format>
+% group keep display chapter titles from breaking mid-word ("Wavefront-Error
+% Bud-get" in Volume IV — CU-370 IV-026); a title too long for one line wraps at
+% a space instead.
 \IfFileExists{titlesec.sty}{%
   \usepackage{titlesec}%
   \titleformat{\chapter}[display]%
-    {\sffamily\bfseries}%
+    {\sffamily\bfseries\raggedright\hyphenpenalty=10000\exhyphenpenalty=10000}%
     {\normalsize\sffamily\chaptertitlename\ \thechapter}{8pt}{\Huge}%
   \titlespacing*{\chapter}{0pt}{0pt}{24pt}%
   \titleformat*{\section}{\sffamily\Large\bfseries}%
   \titleformat*{\subsection}{\sffamily\large\bfseries}%
   \titleformat*{\subsubsection}{\sffamily\normalsize\bfseries}%
 }{}
+
+% --- Running head on unnumbered chapters ------------------------------------
+% Front- and back-matter chapters are staged {.unnumbered}, so pandoc emits
+% \chapter*, which — unlike \chapter — sets no header mark. The running head then
+% kept whatever the previous page left behind: "Contents" across the whole
+% Notation chapter of Volume I (CU-370 I-009). Patch the class's starred-chapter
+% hook to set the mark the way \@chapter does for numbered chapters. Placed after
+% the titlesec block above, so it wraps whatever definition titlesec leaves.
+\makeatletter
+\let\radiant@orig@schapter\@schapter
+\def\@schapter#1{\radiant@orig@schapter{#1}\markboth{#1}{#1}}
+\makeatother
+
+% --- Table of contents ------------------------------------------------------
+% The report class allots 2.3em to a section number in the TOC, which a two-digit
+% chapter overruns: "12.10Schema Introspection" ran together in Volume III
+% (CU-370 III-020). Widen the number box (and the subsection one, for symmetry if
+% toc-depth is ever raised).
+\makeatletter
+\renewcommand*\l@section{\@dottedtocline{1}{1.5em}{3.4em}}
+\renewcommand*\l@subsection{\@dottedtocline{2}{4.9em}{4.2em}}
+\makeatother
 
 % --- Tables -----------------------------------------------------------------
 % The theory chapters and the bound architecture specs carry wide GFM tables
@@ -74,6 +100,16 @@
   \ifdefined\hypersetup\hypersetup{bookmarksnumbered=true,bookmarksopen=true}\fi
 }
 
+% --- Figures ----------------------------------------------------------------
+% +implicit_figures (manual.yaml) turns a lone image paragraph into a LaTeX
+% figure so the Markdown alt text prints as a numbered caption. A figure is a
+% float, and the manual's prose says "the figure below" — pin the floats where
+% they are written so the numbering adds captions without reordering anything.
+\IfFileExists{float.sty}{%
+  \usepackage{float}%
+  \floatplacement{figure}{H}%
+}{}
+
 % --- Typographic polish -----------------------------------------------------
 \widowpenalty=10000
 \clubpenalty=10000
@@ -86,9 +122,18 @@
 % as "e" (first real PDF build, 2026-09-17: 327 dropped glyphs across three
 % volumes). Map each to its LaTeX equivalent instead; the builder now also
 % fails the build if xelatex reports any character this list does not cover.
+%
+% A *wrong*-glyph substitution is worse still, because xelatex reports nothing at
+% all: U+00B0 DEGREE SIGN reaches the math font (mathspec routes math characters
+% to Latin Modern, which has no degree sign) and byte 0xB0 of that font's T1
+% encoding is "ř". Every `$\eta = 30°$` in Volumes I, III and IV printed "30ř"
+% (CU-370 X-01). The mapping below routes ° to \circ in math and to the text
+% font's own degree sign in prose, where it already rendered correctly.
+% scripts/build_manual.py::unmapped_risk_chars fails the build if it is removed.
 \usepackage{amssymb}
 \IfFileExists{newunicodechar.sty}{%
   \usepackage{newunicodechar}%
+  \newunicodechar{°}{\ifmmode^{\circ}\else\textdegree\fi}%
   \newunicodechar{⁻}{\textsuperscript{--}}%
   \newunicodechar{⁰}{\textsuperscript{0}}%
   \newunicodechar{⁴}{\textsuperscript{4}}%

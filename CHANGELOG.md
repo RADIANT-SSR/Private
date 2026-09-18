@@ -20,7 +20,38 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+- **Four electron-valued parameters now declare their unit (CU-370 III-019).**
+  `detector.dsnu_e_rms`, `detector.prior_signal_e` and
+  `readout.full_well_capacity_e` carry `e-`, and `detector.flicker_K` carries
+  `e-^2`, where all four previously declared no unit at all and printed "---"
+  in the Parameter Reference. Input unit equals canonical unit in every case,
+  so no value is converted and no computed result moves; what changes is the
+  unit shown in the reference, in GUI field rows, in provenance output and in
+  bounds-error messages, and `Sensor.set(..., unit="e-")` now resolves for
+  these parameters instead of raising.
+
+### Fixed
+- **Degree signs inside math no longer corrupt (CU-370 X-01).** `$30°$`
+  typeset as "30ř" throughout the Theory Manual, Technical Reference and
+  Worked Examples volumes — a wrong-glyph substitution XeLaTeX reports
+  nowhere. The manual build now maps `°` and fails if the mapping is removed.
+- **Manual figures carry numbered captions (CU-370 X-12)** — the 25 User's
+  Guide and 30 Worked Examples figures shipped bare while the prose said "the
+  figure".
+- **Parameter Reference cells no longer truncate or lose wildcards (CU-370
+  III-002, III-006).** An unescaped `|` cut the
+  `geometry.los_angular_rate_rad_s` description at "…LOS direction rotates,",
+  dropping both Gap-111 doors and the 1 % agreement rule; unescaped `*`
+  swallowed the `gsd_*` / `q_*` / `diffraction_limit_*` wildcards in
+  `performance.metrics.sampling`.
+- **Wide generated tables no longer overprint their neighbours (CU-370
+  III-005, III-007)** — "1.5707963rad", "**required**m", and identifiers
+  hyphenated mid-word as "radi-ant.api".
+- **Manual cover pages no longer print the version twice (CU-370 X-02)**, the
+  Notation chapter's running head no longer reads "Contents" (I-009), the
+  table of contents fits two-digit section numbers (III-020), and display
+  chapter titles no longer hyphenate mid-word (IV-026).
 
 ## [0.1.0] - 2026-09-17
 

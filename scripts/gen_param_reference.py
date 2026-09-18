@@ -24,6 +24,23 @@ from radiant.api._param_registry import build_parameter_set  # noqa: E402
 
 _OUT_PATH = Path(__file__).resolve().parent.parent / "docs" / "guides" / "parameter_reference.md"
 
+#: Characters that change a GFM pipe-table cell's meaning rather than printing.
+#: ``|`` ends the cell — an unescaped one truncated the rendered
+#: ``geometry.los_angular_rate_rad_s`` description at ``|v_rel,perp|`` and silently
+#: dropped both Gap-111 doors (CU-370 III-002). ``*`` opens emphasis — a pair of
+#: wildcard suffixes (``gsd_*`` … ``q_*``) italicized the text between them and
+#: swallowed the wildcards themselves (III-006). Both are written by schema authors
+#: in ordinary prose, so the generator escapes them rather than the schema quoting
+#: them. ``\`` is escaped first, so an escape cannot itself be escaped away.
+_CELL_ESCAPES = ("\\", "|", "*")
+
+
+def escape_cell(text: str) -> str:
+    """Escape the Markdown specials that would change a table cell's structure."""
+    for char in _CELL_ESCAPES:
+        text = text.replace(char, "\\" + char)
+    return text
+
 
 def render() -> str:
     """Render the full parameter-reference markdown from the live registry."""
@@ -84,10 +101,11 @@ def render() -> str:
 
         for pdef in pdefs:
             dtype = pdef.dtype.__name__ if hasattr(pdef.dtype, "__name__") else str(pdef.dtype)
-            default = pdef.default if pdef.default is not None else "**required**"
-            unit = pdef.input_unit or "---"
-            bounds = f"{pdef.bounds}" if pdef.bounds is not None else "---"
-            desc = getattr(pdef, "description", "") or ""
+            # "**required**" is deliberate markup, so it is written after escaping.
+            default = escape_cell(f"{pdef.default}") if pdef.default is not None else "**required**"
+            unit = escape_cell(pdef.input_unit) if pdef.input_unit else "---"
+            bounds = escape_cell(f"{pdef.bounds}") if pdef.bounds is not None else "---"
+            desc = escape_cell(getattr(pdef, "description", "") or "")
             lines.append(f"| `{pdef.name}` | {dtype} | {default} | {unit} | {bounds} | {desc} |")
 
         lines.append("")

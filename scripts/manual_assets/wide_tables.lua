@@ -27,6 +27,18 @@ local function cell_width(cell)
   return widest
 end
 
+-- Longest whitespace-free run, in characters, in one table cell. A p{} column
+-- wraps at spaces only, so a token wider than the column does not wrap — it
+-- overprints the neighbouring column.
+local function cell_token(cell)
+  local text = pandoc.utils.stringify(pandoc.Pandoc(cell.contents))
+  local widest = 0
+  for token in text:gmatch("%S+") do
+    if #token > widest then widest = #token end
+  end
+  return widest
+end
+
 -- Characters that fit one body line of the manuals (letterpaper, 1in margins,
 -- \footnotesize longtable per manual_header.tex). Beyond this, wrap.
 local FIT_CHARS = 100
@@ -38,6 +50,14 @@ local MIN_FRAC = 0.06
 -- the Parameter Reference's first wrapped render). Prose wraps; code does not —
 -- so the cap protects the code columns' share.
 local CAP_CHARS = 46
+-- A column's floor also has to clear its longest unbreakable token, or that token
+-- prints past the column edge and over its neighbour — the Parameter Reference's
+-- Default column ran "1.5707963" into the Input Unit column's "rad" (CU-370
+-- III-005). One character of slack covers the intercolumn padding the character
+-- metric does not model. Capped, so one pathological identifier in a prose column
+-- cannot claim the whole line.
+local TOKEN_SLACK = 1
+local TOKEN_FLOOR_CAP = 18
 
 local function widen(tbl)
   local ncols = #tbl.colspecs
@@ -46,14 +66,19 @@ local function widen(tbl)
     if spec[2] ~= nil then return nil end -- explicit widths present: hands off
   end
 
-  local widths = {}
+  local widths, tokens = {}, {}
   for i = 1, ncols do widths[i] = 1 end -- floor of one character per column
+  for i = 1, ncols do tokens[i] = 1 end
 
   local function scan(rows)
     for _, row in ipairs(rows) do
       for i, cell in ipairs(row.cells) do
-        local w = cell_width(cell)
-        if i <= ncols and w > widths[i] then widths[i] = w end
+        if i <= ncols then
+          local w = cell_width(cell)
+          if w > widths[i] then widths[i] = w end
+          local t = cell_token(cell)
+          if t > tokens[i] then tokens[i] = t end
+        end
       end
     end
   end
@@ -73,7 +98,9 @@ local function widen(tbl)
   for i = 1, ncols do capped_total = capped_total + math.min(widths[i], CAP_CHARS) end
   local fracs, sum = {}, 0
   for i = 1, ncols do
-    fracs[i] = math.max(math.min(widths[i], CAP_CHARS) / capped_total, MIN_FRAC)
+    local token_floor = math.min(tokens[i] + TOKEN_SLACK, TOKEN_FLOOR_CAP) / FIT_CHARS
+    local floor = math.max(MIN_FRAC, token_floor)
+    fracs[i] = math.max(math.min(widths[i], CAP_CHARS) / capped_total, floor)
     sum = sum + fracs[i]
   end
   for i = 1, ncols do

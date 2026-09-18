@@ -20,7 +20,19 @@
 # tag, converts exactly as before; this is not a raw-HTML door (§5.4 rule 2 stands, and
 # the builder's own scan still fails a chapter carrying raw HTML).
 # +attributes lets the builder mark staged front-/back-matter H1s {.unnumbered}.
-from: gfm+tex_math_dollars+raw_attribute+attributes
+#
+# +smart turns straight double quotes into typographic pairs (the sources carry no
+# typographic quote characters of their own, so the volumes shipped `"` against
+# TeX's automatic `'` ligature — CU-370 X-11). Code spans and fenced blocks are
+# exempt by construction: the reader never applies smart punctuation inside them,
+# so quoted GUI/CLI output stays verbatim.
+#
+# +implicit_figures promotes a paragraph holding nothing but an image into a
+# numbered LaTeX figure whose caption is the Markdown alt text. Without it every
+# figure shipped bare and uncaptioned while the prose said "the figure"
+# (CU-370 X-12). manual_header.tex pins the float in place so the numbering does
+# not reorder the figures relative to the prose that discusses them.
+from: gfm+tex_math_dollars+raw_attribute+attributes+smart+implicit_figures
 
 standalone: true
 toc: true

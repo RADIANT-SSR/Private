@@ -627,10 +627,22 @@ class ParameterSet:
             # Fall through to the circular dependency check below.
             pass
 
+        # Stage 3a: required parameters first (CU-373 F-13). A required
+        # parameter still unset after the fixed-point loop is the actionable
+        # fact about an incomplete set — "set optics.aperture_diameter_m" — and
+        # it is raised BEFORE the cycle detector below, which on a blank set
+        # would otherwise report the fnumber group (three required members,
+        # none set) as "Circular dependency detected", a developer diagnostic
+        # that sent the GUI a modal on every edit until the aperture existed.
+        self._raise_if_required_unset()
+
         # Check for circular dependencies: if any group still has exactly one
         # unresolved member after the fixed-point loop, something is cyclic.
         # Also check for fully-unresolved groups where all parameters are required
-        # (no default) — these indicate a cycle with no entry point.
+        # (no default) — these indicate a cycle with no entry point. (After the
+        # required check above, an all-required fully-unresolved group has
+        # already been reported as its first missing member; this branch is
+        # kept for the one-member-short case.)
         unresolvable: list[str] = []
         for group in self._groups:
             unset = [p for p in group.parameters if p not in self._resolved]
@@ -651,31 +663,14 @@ class ParameterSet:
                 f"cycles (A derived from B, B derived from A)."
             )
 
-        # Stage 3: apply defaults for unset, non-required parameters
+        # Stage 3b: apply defaults for unset, non-required parameters. A
+        # required parameter superseded by its ``required_unless`` alternative
+        # stays unresolved (get() raises if any code path reads it anyway, so
+        # nothing consumes a phantom); every other required parameter was
+        # verified set in Stage 3a.
         for name, pdef in self._defs.items():
-            if name in self._resolved:
+            if name in self._resolved or pdef.default is None:
                 continue
-            if pdef.default is None:
-                if pdef.required_unless is not None and self._alternative_is_set(
-                    pdef.required_unless
-                ):
-                    # The superseding alternative is explicitly set — this
-                    # parameter stays unresolved (get() raises if any code
-                    # path reads it anyway, so nothing consumes a phantom).
-                    continue
-                unless_hint = (
-                    f"  (or set '{pdef.required_unless}' instead, which supersedes it)\n"
-                    if pdef.required_unless is not None
-                    else ""
-                )
-                raise RequiredParameterError(
-                    f"Required parameter '{name}' is not set.\n"
-                    f"  Description: {pdef.description}\n"
-                    f"  Expected type: {pdef.dtype.__name__} in "
-                    f"{pdef.input_unit or 'dimensionless'}\n"
-                    f"  Set it via: params.set('{name}', value)\n" + unless_hint,
-                    param=name,
-                )
             self._resolved[name] = self._validate_and_convert(
                 name,
                 pdef.default,
@@ -684,6 +679,34 @@ class ParameterSet:
             )
 
         self._resolved_flag = True
+
+    def _raise_if_required_unset(self) -> None:
+        """Raise :class:`RequiredParameterError` for the first unset required parameter.
+
+        A required parameter has no schema default; it is satisfied by an
+        explicit input, a consistency-group derivation (already in
+        ``_resolved`` after the fixed-point loop), or an explicitly-set
+        ``required_unless`` alternative. Schema order decides which missing
+        parameter is named, so the report is deterministic for a given schema.
+        """
+        for name, pdef in self._defs.items():
+            if name in self._resolved or pdef.default is not None:
+                continue
+            if pdef.required_unless is not None and self._alternative_is_set(pdef.required_unless):
+                continue
+            unless_hint = (
+                f"  (or set '{pdef.required_unless}' instead, which supersedes it)\n"
+                if pdef.required_unless is not None
+                else ""
+            )
+            raise RequiredParameterError(
+                f"Required parameter '{name}' is not set.\n"
+                f"  Description: {pdef.description}\n"
+                f"  Expected type: {pdef.dtype.__name__} in "
+                f"{pdef.input_unit or 'dimensionless'}\n"
+                f"  Action: set '{name}' — it has no default\n" + unless_hint,
+                param=name,
+            )
 
     def _alternative_is_set(self, name: str) -> bool:
         """True when any ``required_unless`` alternative is explicitly set.

@@ -19,6 +19,7 @@ from radiant.core.parameters import (
     ParameterEnumError,
     ParameterSet,
     Provenance,
+    RequiredParameterError,
     ResolvedValue,
     Tolerance,
 )
@@ -515,7 +516,7 @@ def test_error_msg_missing_required_contains_set_instruction() -> None:
     with pytest.raises(ValueError) as exc_info:
         ps.resolve()
     msg = str(exc_info.value)
-    assert "Set it via" in msg or "params.set" in msg
+    assert "Action: set" in msg and "params.set" not in msg  # CU-373 F-12: no scripting text
 
 
 @pytest.mark.level0
@@ -641,9 +642,66 @@ def test_circular_dependency_raises_value_error() -> None:
         },
     )
     ps = ParameterSet(schema, [group_ab])
-    # Do NOT set either A or B — the cycle has no entry point
+    # Do NOT set either A or B — the cycle has no entry point. Both members are
+    # required, so the required-parameter check (which runs BEFORE the cycle
+    # detector since CU-373 F-13) names the first missing member: that is the
+    # actionable fact — set A (or B) and the group resolves.
     ps.set("cyc.C", 1.0)
-    with pytest.raises(ValueError, match="[Cc]ircular|[Cc]ycle|could not be resolved"):
+    with pytest.raises(RequiredParameterError, match="Required parameter 'cyc.A'") as info:
+        ps.resolve()
+    assert info.value.param == "cyc.A"
+    assert "Circular" not in str(info.value)
+
+
+@pytest.mark.level0
+def test_required_check_runs_before_cycle_detector_on_blank_set() -> None:
+    """CU-373 F-13: a blank set reports its first required parameter, not a cycle.
+
+    The fnumber group (aperture, focal length, f-number: three required members,
+    none set) used to trip the cycle detector — "Circular dependency detected …
+    could not be resolved after 10 passes" — a developer diagnostic the GUI
+    routed to a modal on every edit until the aperture existed. The required
+    check now runs first, so the failure is a ``RequiredParameterError`` naming
+    a group member (schema order), which the GUI routes as a quiet advisory.
+    """
+    schema, groups = _make_fno_schema()
+    ps = ParameterSet(schema, groups)
+    with pytest.raises(RequiredParameterError) as info:
+        ps.resolve()
+    assert info.value.param == schema[0].name
+    assert "Circular" not in str(info.value)
+    assert "params.set" not in str(info.value)
+
+
+@pytest.mark.level0
+def test_required_check_names_next_member_once_one_is_set() -> None:
+    """With one fnumber member set the report moves to the next unset member."""
+    schema, groups = _make_fno_schema()
+    ps = ParameterSet(schema, groups)
+    ps.set(schema[0].name, 0.3)
+    with pytest.raises(RequiredParameterError) as info:
+        ps.resolve()
+    assert info.value.param == schema[1].name
+
+
+@pytest.mark.level0
+def test_over_constrained_group_still_wins_over_required_on_incomplete_set() -> None:
+    """Stage 2 (group consistency) still runs before the required check.
+
+    A disagreeing third member on an otherwise incomplete set must report the
+    over-constraint — the resolver validates what IS set before reporting what
+    is not, so the GUI's differential guard can reject the disagreeing value at
+    the door (CU-372 F-06).
+    """
+    schema, groups = _make_fno_schema()
+    extra = ParameterDef(
+        name="other.required", description="r", dtype=float, canonical_unit="", input_unit=""
+    )
+    ps = ParameterSet([*schema, extra], groups)
+    ps.set(schema[0].name, 0.3)  # aperture
+    ps.set(schema[1].name, 1.2)  # focal length
+    ps.set(schema[2].name, 6.0)  # f-number: disagrees (1.2 / 0.3 = 4)
+    with pytest.raises(ValueError, match="over-constrained"):
         ps.resolve()
 
 

@@ -155,7 +155,7 @@ Messages panel, as always.
 Required parameter 'detector.pixel_pitch_x_um' is not set.
   Description: Pixel pitch along the cross-track (x) axis.
   Expected type: float in um
-  Set it via: params.set('detector.pixel_pitch_x_um', value)
+  Action: set 'detector.pixel_pitch_x_um' — it has no default
 ```
 
 This is the family that has **no modal**, on purpose — see §4.

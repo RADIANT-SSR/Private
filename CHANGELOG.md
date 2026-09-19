@@ -21,6 +21,21 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Changed
+- **Results-affecting (message terms only): an incomplete configuration now
+  reports its first unset required parameter before any consistency-group
+  cycle check (CU-373 F-13).** `ParameterSet.resolve()` runs the
+  required-parameter check ahead of the cycle detector, so a blank
+  configuration raises `RequiredParameterError` ("Required parameter
+  'optics.aperture_diameter_m' is not set …") where it previously raised the
+  developer diagnostic "Circular dependency detected: parameters
+  ['optics.aperture_diameter_m', 'optics.focal_length_m', 'optics.f_number']
+  could not be resolved after 10 passes". No resolved value changes; only
+  which error an unresolvable set raises. The message's last line is now
+  `Action: set '<name>' — it has no default` (was `Set it via:
+  params.set('<name>', value)`, scripting text in a GUI session — F-12). In
+  the GUI the change ends the blank-config modal spray: every edit before the
+  aperture existed opened a *Parameter Rejected* modal; the failure is now the
+  quiet required-parameter advisory.
 - **Four electron-valued parameters now declare their unit (CU-370 III-019).**
   `detector.dsnu_e_rms`, `detector.prior_signal_e` and
   `readout.full_well_capacity_e` carry `e-`, and `detector.flicker_K` carries

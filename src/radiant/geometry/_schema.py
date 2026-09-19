@@ -64,8 +64,8 @@ SITE_ELEVATION_M = ParameterDef(
     description=(
         "Terrain elevation of the scene's ground site above mean sea level "
         "[m] — the altitude of the SURFACE beneath the line of sight, which "
-        "is NOT the same thing as the lowest point of the line of sight "
-        ". It is the reference the surface boundary layer sits on: "
+        "is NOT the same thing as the lowest point of the line of sight. "
+        "It is the reference the surface boundary layer sits on: "
         "the Hufnagel-Valley Cn2 surface term is evaluated at (h - "
         "site_elevation_m) so that a mountain-top observatory keeps its own "
         "boundary layer, while the tropopause and middle-atmosphere terms "

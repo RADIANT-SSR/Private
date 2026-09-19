@@ -285,7 +285,11 @@ from. When a number is not what you expect, this answers "who set this" in one s
 
 **`Ctrl+Z`** undoes parameter edits and element-train edits, twenty steps deep. A whole-document
 swap — File ▸ Open, or an Apply in the YAML editor — clears the history, because it is not a
-reversible edit.
+reversible edit. What undo restores is the *input*, not the number: undoing the first value
+you ever typed into a row returns that row to its `default` badge (the input is withdrawn), it
+does not write the default back as something you set. An action that moves more than one input
+at once — a take-over of a derived row, a readout-architecture switch that clears its
+companions, a shape pick that seeds its dimensions — undoes as one step.
 
 ### 6.2 Per document
 

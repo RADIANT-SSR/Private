@@ -1116,12 +1116,9 @@ class RADIANTMainWindow(QMainWindow):
         (no empty-macro artifact on the stack).
         """
         self._central.stage_center.clear_geometry_highlight()
-        if len(dotpaths) > 1:
-            self._undo_stack.beginMacro(f"Set {dotpaths[0]} (+{len(dotpaths) - 1} seeded)")
-            for dotpath in dotpaths:
-                self._push_edit_command(dotpath)
-            self._undo_stack.endMacro()
-        elif dotpaths:
+        if dotpaths:
+            # One push records every explicit input that moved (F-20) — the shape and
+            # its seeded dimensions land under one macro by construction.
             self._push_edit_command(dotpaths[0])
         self._mark_dirty()
         self._stage_strip.set_all_status("stale")
@@ -2500,57 +2497,75 @@ class RADIANTMainWindow(QMainWindow):
             self.statusBar().showMessage("Reset to schema defaults")
 
     def _refresh_snapshot(self) -> None:
-        """Snapshot the resolved input values (the undo before-value baseline).
+        """Snapshot the **explicit inputs** (the undo before-state baseline, CU-372 F-20).
 
         Rebuilt after each clean evaluation and on a sensor swap. Reads the public
-        :meth:`Sensor.get_input` surface; a parameter that is present-but-unresolved raises
-        ``KeyError`` (skipped), and a whole config that does not resolve yet (a blank File →
-        New) raises a ``RadiantError`` — caught so the baseline is simply empty until the
-        first clean run fills it. No silent physics swallow (Rule 17): this is undo
-        bookkeeping over already-validated inputs.
+        :meth:`Sensor.inputs` view — dot-path → input-unit value for every parameter
+        holding an explicit input, and nothing else — which never resolves, so the
+        baseline exists on a blank configuration too (edits made before the first clean
+        run are undoable). A parameter absent from the snapshot has no explicit input:
+        undoing a first-time set withdraws the input rather than writing the schema
+        default back as a user-set value.
         """
-        snapshot: dict[str, Any] = {}
         sensor = self._sensor
-        if sensor is not None:
-            try:
-                for dotpath in sensor.parameter_defs():
-                    try:
-                        value = sensor.get_input(dotpath)
-                    except KeyError:
-                        continue
-                    if value is not None:
-                        snapshot[dotpath] = value
-            except RadiantError:
-                snapshot = {}
-        self._input_snapshot = snapshot
+        self._input_snapshot = dict(sensor.inputs()) if sensor is not None else {}
 
     def _push_edit_command(self, dotpath: str) -> None:
-        """Record *dotpath*'s just-applied edit as a reversible command (Phase 9).
+        """Record the just-applied edit as a reversible command (Phase 9).
 
-        The panel signals an edit only after applying it, so the *new* value is read from
-        the sensor and the *old* value from the committed snapshot. A non-scalar, unresolved,
-        or no-op edit records nothing (there is nothing meaningful to reverse). A shape pick
-        and the dimensions seeded alongside it are recorded together under one undo macro via
-        :meth:`_on_compound_parameter_edited` (CU-141), so they reverse as a single step.
+        The panel signals an edit only after applying it, so the after-state is read
+        from the sensor's explicit inputs and the before-state from the committed
+        snapshot. **Every** explicit input that differs from the snapshot is recorded —
+        the named *dotpath* first — because one user action can move more than one
+        input: a derived member's take-over releases a sibling (F-04), an architecture
+        switch clears its companions (Gap 117), a shape pick seeds its dimensions
+        (CU-141). Several changes go under one undo macro so they reverse as a single
+        step; a no-op edit records nothing (there is nothing to reverse).
         """
         sensor = self._sensor
         cs = self._config_set
         if sensor is None or cs is None:
             return
+        inputs = dict(sensor.inputs())
+        changed = [
+            name
+            for name in [dotpath, *sorted(set(inputs) | set(self._input_snapshot))]
+            if inputs.get(name) != self._input_snapshot.get(name)
+        ]
+        changed = list(dict.fromkeys(changed))  # dotpath first, no duplicates
+        if not changed:
+            return
+        if len(changed) > 1:
+            self._undo_stack.beginMacro(f"Set {dotpath} (+{len(changed) - 1} related)")
+        for name in changed:
+            self._push_one_input_change(name, inputs.get(name))
+        if len(changed) > 1:
+            self._undo_stack.endMacro()
+
+    def _push_one_input_change(self, dotpath: str, new_value: Any) -> None:
+        """Record one explicit-input change (``None`` = withdrawn) against the snapshot."""
+        sensor = self._sensor
+        cs = self._config_set
+        if sensor is None or cs is None:  # pragma: no cover - guarded by the caller
+            return
         try:
-            new_value = sensor.get_input(dotpath)
             pdef = sensor.parameter_def(dotpath)
-        except (KeyError, RadiantError):
+        except KeyError:  # pragma: no cover - inputs are schema-checked at set()
             return
+        old_value = self._input_snapshot.get(dotpath)
         if new_value is None:
-            return
-        old_value = self._input_snapshot.get(dotpath, new_value)
-        self._input_snapshot[dotpath] = new_value
+            self._input_snapshot.pop(dotpath, None)
+        else:
+            self._input_snapshot[dotpath] = new_value
         if old_value == new_value:
             return
         if not self._mirror_edit_to_set(dotpath, new_value, pdef.input_unit or None):
             return
-        text = f"Set {dotpath} = {format_value(new_value, pdef.input_unit)}"
+        text = (
+            f"Reset {dotpath}"
+            if new_value is None
+            else f"Set {dotpath} = {format_value(new_value, pdef.input_unit)}"
+        )
         command = SetParameterCommand(
             cs.base,
             dotpath,
@@ -2582,12 +2597,24 @@ class RADIANTMainWindow(QMainWindow):
         it records its own, scope-aware command here (Phase 4b): the before/after states
         are that parameter's whole configured column, so undo restores the column — and
         therefore the value *and* the store it lives in (plan §6, 4b).
+
+        *value* ``None`` is a withdrawn input (CU-372 F-20): a shared parameter is
+        ``reset`` on the base; a configured column has no "unset" cell, so the
+        displayed configuration's cell takes the resolved default when there is one
+        and the withdrawal is otherwise left to the next evaluation to report.
         """
         cs = self._config_set
         if cs is None or self._is_degenerate():
             return True
         try:
             if cs.is_configured(dotpath):
+                if value is None:
+                    try:
+                        value = self._sensor.get_input(dotpath) if self._sensor else None
+                    except (KeyError, RadiantError):
+                        return False
+                    if value is None:
+                        return False
                 before = ScopeState.configured_column(cs.configured()[dotpath])
                 cs.set_value(dotpath, cs.active, value, unit=unit)
                 after = ScopeState.configured_column(cs.configured()[dotpath])
@@ -2607,7 +2634,9 @@ class RADIANTMainWindow(QMainWindow):
                     self._config_scope.notify_changed()
                 self.statusBar().showMessage(f"Edited {dotpath} in configuration {cs.active} only")
                 return False
-            if unit:
+            if value is None:
+                cs.base.reset(dotpath)
+            elif unit:
                 cs.base.set(dotpath, value, unit=unit)
             else:
                 cs.base.set(dotpath, value)
@@ -2972,11 +3001,10 @@ class RADIANTMainWindow(QMainWindow):
         if sensor is not None:
             self._parameter_panel.populate(sensor)
             self._central.stage_center.refresh_forms()
-            try:
-                value = sensor.get_input(dotpath)
-            except (KeyError, RadiantError):
-                value = None
-            if value is not None:
+            value = sensor.peek_input(dotpath)
+            if value is None:
+                self._input_snapshot.pop(dotpath, None)
+            else:
                 self._input_snapshot[dotpath] = value
         self._mark_dirty()
         self._stage_strip.set_all_status("stale")

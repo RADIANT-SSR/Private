@@ -393,3 +393,63 @@ class TestF06OverConstrainedGroupRejectedAtTheDoor:
                 _dialog_set(window, dotpath, text)
         assert opened == []
         assert window.last_result is not None
+
+
+class TestF20UndoRestoresProvenance:
+    """F-20: Edit ▸ Undo of a first-time set wrote the schema default back as a
+    user-set value (jitter `0 µrad user-set`), so provenance lied afterwards."""
+
+    def test_undo_of_a_first_time_set_returns_the_row_to_default(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """J-1.2 step 28: platform.jitter_rms_urad set to 5, then Edit ▸ Undo."""
+        window = _complete_window(qtbot, monkeypatch)
+        panel = window.parameter_panel
+        jitter = "platform.jitter_rms_urad"
+        assert panel.source_text(jitter) == "default"
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, jitter, "5")
+        assert panel.value_text(jitter) == "5 µrad"
+        assert panel.source_text(jitter) == "user-set"
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.undo").trigger()
+
+        assert window.sensor.peek_input(jitter) is None  # the input is withdrawn
+        assert panel.value_text(jitter) == "0 µrad"
+        assert panel.source_text(jitter) == "default"
+        panel._changed_only.setChecked(True)  # noqa: SLF001
+        assert jitter not in panel.visible_dotpaths()
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.redo").trigger()
+        assert panel.value_text(jitter) == "5 µrad"
+        assert panel.source_text(jitter) == "user-set"
+
+    def test_edits_on_a_blank_config_are_undoable(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """The undo baseline no longer waits for the first clean evaluation."""
+        window = _blank_window(qtbot)
+        _capture_modals(monkeypatch, "radiant.gui.main_window")
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, _ALT, "500000")
+        assert window._undo_stack.count() == 1  # noqa: SLF001
+        assert window._undo_stack.command(0).text() == f"Set {_ALT} = 500000 m"  # noqa: SLF001
+        window.action("edit.undo").trigger()
+        assert window.sensor.peek_input(_ALT) is None
+        assert window.parameter_panel.value_text(_ALT) == "—"
+
+    def test_takeover_undoes_as_one_step(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """F-04's take-over moved two inputs; one Undo restores both (macro)."""
+        window = _complete_window(qtbot, monkeypatch)
+        panel = window.parameter_panel
+        focal = "optics.focal_length_m"
+        dialog = ParameterEditorDialog(window.sensor, focal, panel._after_dialog_commit, panel)  # noqa: SLF001
+        qtbot.addWidget(dialog)
+        dialog.value_editor.setText("1.8")
+        before = window._undo_stack.count()  # noqa: SLF001
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            dialog.apply(close=True)
+        assert window._undo_stack.count() == before + 1  # noqa: SLF001
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.undo").trigger()
+        assert window.sensor.inputs()["optics.f_number"] == 4.0
+        assert focal not in window.sensor.inputs()
+        assert panel.value_text(focal) == "⚡ 1.2 m"

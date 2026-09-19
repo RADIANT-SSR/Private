@@ -907,7 +907,19 @@ for `fnumber` (aperture, focal length, f-number) typing a focal length releases 
 f-number and keeps the aperture. Only when no sibling holds an explicit input (the value
 derives from defaults) does the dialog open read-only, with a Close button. Before F-04
 the derived editor was always read-only and the only route to "specify focal length
-instead of f-number" was an undocumented Reset on the f-number row followed by a set. **In a study** the same dialog carries the per-configuration value boxes and the
+instead of f-number" was an undocumented Reset on the f-number row followed by a set.
+
+**Undo history is over explicit inputs (CU-372 F-20).** The window's before-state
+snapshot is `Sensor.inputs()` (explicit inputs only, no resolve — so it exists on a blank
+configuration and edits made before the first clean run are undoable), and
+`SetParameterCommand` carries `None` on either side for "no explicit input": undoing a
+first-time set withdraws the input (`Sensor.reset`) and the row returns to `default`
+provenance, rather than writing the schema default back as a user-set value (which made
+*Changed only*, preset precedence and saved files all treat an undone edit as typed).
+After an accepted edit the window records **every** explicit input that differs from the
+snapshot — the edited dot-path first — under one macro when more than one moved, so a
+take-over (release + set), an architecture switch's companion resets, and a shape pick's
+seeded dimensions each reverse as a single step. **In a study** the same dialog carries the per-configuration value boxes and the
 *Configure across configurations…* affordance — see §4.2c, which owns that spec.
 
 **Path parameters get a Browse… picker (owner request 2026-07-18).** A `str` parameter

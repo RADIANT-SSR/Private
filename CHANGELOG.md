@@ -26,6 +26,15 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Undo restores provenance, not just the number (CU-372 F-20).** Undoing
+  the first value typed into a row wrote the schema default back as a
+  *user-set* input (`jitter_rms_urad 0 µrad user-set`), so *Changed only*
+  listed it, a preset treated it as explicit, and a saved file carried it. The
+  undo history is now over explicit inputs: that undo withdraws the input and
+  the row returns to `default`. Edits made on a blank configuration are
+  undoable before the first evaluation, and an action that moves several
+  inputs (a take-over, an architecture switch's companion resets) undoes as
+  one step.
 - **A disagreeing consistency-group member is refused where it is typed
   (CU-372 F-06).** On an incomplete configuration the editor's bounds-only
   fallback admitted a third `fnumber` value that disagreed with the other two;

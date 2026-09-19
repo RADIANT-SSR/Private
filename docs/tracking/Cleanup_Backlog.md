@@ -47,6 +47,22 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-371 — GUI strings and widgets leak process language or clip content into the shipped manuals (live-review family)
+
+**Discovered**: CU-370 manual-suite fix campaign, 2026-09-18 — the deferred GUI-gated remainder of the 2026-09 editorial audit (II-003, II-015, II-009's GUI side, IV-031, plus two campaign discoveries).
+**Status**: Open — every item needs a GUI source/string change, so the live-review rule gates each merge; the manual figures and quoted strings inherit the fixes on recapture/re-quote.
+**File**: `src/radiant/gui/` — advisory/refusal strings, `metric_format.badge_display`, `viewer` (GeometryViewer leader pills), MTF-budget/element-train table widgets.
+**Symptom**: checklist —
+
+- [ ] II-003: the Platform workspace advisory string ships "v1-minimal (owner ratified…)… (ADR-0006 §4 / CU-122)… post-v1 task" — process language in the product, now rendered 1.8× more legibly by the CU-370 panel-grab figure. Reword, then recapture `ug_platform_workspace.png`.
+- [ ] II-015: the 13th-configuration refusal message cites "(ADR-0010 D-E)". Reword; the Volume II quote inherits on recapture.
+- [ ] II-009 GUI side: `badge_display` returns "n/a — not computed for this run" for three distinct states (metric group off / regime did not populate / metric declined), and the NIIRS refusal's `failure_reason` on `stage_outputs["performance"]["niirs_result"]` never reaches the card — `metric_failure_reason` only consults present-but-non-finite metrics. Surface the reason; the manuals were aligned to current behavior in CU-370 B3 and will need a touch-up when this lands.
+- [ ] IV-031: GeometryViewer does not clamp altitude leader pills inside the viewport — the `h_s` pill is clipped in `case_irst_schematic.png` (capture-side fix proven impossible in the CU-370 campaign); regenerate the figure after the fix. (The mode-form value clipping visible in the same schematic — "6479 deg" — is CU-363's checklist, not this one.)
+- [ ] The MTF-budget and element-train tables use bounded inner scroll boxes showing 5–6 rows regardless of window height, so `flagship_mtf_budget.png` cannot show the `mtf_pixel_aperture` row the prose quotes (caption adjusted as a stopgap in CU-370 B7).
+
+**Why it still matters**: workflow-visible (intake test 4) — operators read these strings and plots in every session, and the CU-370 panel grabs magnified them; also blocking (test 3) — these items complete the manual figure/quote set the docs-side campaign could not touch.
+**Suggested fix**: (b) stand-alone GUI task(s), live-review required before each merge; recapture and rebuild the affected volumes after. Effort S–M; category A.
+
 ### CU-370 — Manual suite ships editorial, accuracy, and render defects across all four volumes (2026-09 editorial-audit family)
 
 **Discovered**: Owner-chartered editorial audit of the Gap 131 manual suite, 2026-09-17..18 (`docs/reports/manual_editorial_audit_2026-09/`).

@@ -237,6 +237,7 @@ all guard the same way: a domain violation on a metric input.
 | Class | Bases | Module | What raises it, with an example message |
 |-------|-------|--------|------------------------------------------|
 | `ApiValidationError` | `RadiantError`, `ValueError` | `api.errors` | A `radiant.api` call given a bad argument. *"Sensor.load: '_radiant.wavelength_points' must be an integer >= 2, got 1 in my_config.yaml."* |
+| `SpectralBandError` | `ApiValidationError` | `api.errors` | The filter band edges are inverted or coincide, checked before any stage runs; structured what/why/action naming both edges, routed by the GUI as an advisory (CU-373 F-21). *"spectral_integration.filter_min_um (8 µm) is not below spectral_integration.filter_max_um (5 µm)"* |
 | `OperationCancelledError` | `RadiantError` | `api._progress` | A long-running operation aborted through its `cancel()` callback. Carries `operation`, `done`, `total`. *"sweep canceled after 12/51 evaluations. No result is returned for a canceled operation; re-run, or sweep in smaller chunks if partial results are needed."* |
 | `SolveBracketError` | `RadiantError` | `api.solve` | `solve_for` given a bracket that does not contain the target; carries both endpoint metric values. *"solve_for('optics.aperture_diameter_m'): bounds must satisfy lo < hi, got (1.0, 0.05)."* |
 | `BatchRunnerError` | `RadiantError` | `api.batch` | Invalid batch construction or an invalid pivot query. *"BatchRunner needs at least one axis; got an empty sequence."* |

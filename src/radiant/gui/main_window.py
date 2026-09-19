@@ -56,6 +56,7 @@ from radiant.api.config_set import (
     ConfigurationSet,
     ElementTrainState,
 )
+from radiant.api.errors import SpectralBandError
 from radiant.api.readout_architecture import (
     is_counting_config_incomplete,
     is_readout_architecture_conflict,
@@ -1644,6 +1645,11 @@ class RADIANTMainWindow(QMainWindow):
                     "Transmission tab, or switch optics.transmission_input_mode back"
                 ),
             )
+            return
+        if isinstance(exc, SpectralBandError):
+            # CU-373 F-21: widening a band upward is two edits and always visits
+            # the inverted-band state — an advisory naming the edges, never a modal.
+            self._advise("spectral_integration", f"{exc.what} — {exc.action}")
             return
         if isinstance(exc, ConsistencyGroupError):
             stage = exc.parameters[0].split(".", 1)[0] if exc.parameters else ""

@@ -262,3 +262,29 @@ class TestF12FailuresTitledByCause:
         outer = ConfigSetError(what="outer", why="w", action="a")
         outer.__cause__ = inner
         assert RADIANTMainWindow._underlying(outer) is root  # noqa: SLF001
+
+
+class TestF21BandEdgesAdvisory:
+    """F-21: widening a band upward passed through a state that failed with an
+    internal-grid message blaming emissivity, as a modal."""
+
+    def test_inverted_band_is_an_advisory_naming_the_edges(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """J-1.3 step 29: filter_min_um = 8 while filter_max_um is still 5."""
+        from radiant.api.errors import SpectralBandError
+
+        window = _complete_window(qtbot, monkeypatch)
+        opened = _capture_modals(monkeypatch)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, "spectral_integration.filter_min_um", "8")
+        assert opened == []
+        assert _chip_status(window, "spectral_integration") == "err"
+        assert _chip_status(window, "source") == "stale"
+        status = window.statusBar().currentMessage()
+        assert "filter_min_um (8 µm)" in status and "filter_max_um (5 µm)" in status
+        assert "emissivity" not in status
+        assert isinstance(window.right_rail.messages.error, SpectralBandError)
+        # The second edit of the widening completes it.
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, "spectral_integration.filter_max_um", "12")
+        assert opened == []
+        assert _chip_status(window, "spectral_integration") in ("ok", "warn")

@@ -21,6 +21,11 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`SpectralBandError(ApiValidationError)`** — raised by `Sensor.evaluate`
+  (and every path that builds the evaluation grid) before any stage runs when
+  `filter_min_um` is not below `filter_max_um`; structured what/why/action
+  naming both edges (CU-373 F-21). Previously the source stage raised
+  "source.target.emissivity: wavelength_um must be strictly ascending".
 - **Three structural error classes for mid-switch and conflict states (CU-373
   F-09):** `ConsistencyGroupError(CoreValidationError)` — raised by the
   resolver for an over-constrained group, carrying `group` and `parameters`;
@@ -37,6 +42,12 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **An inverted filter band is an advisory that names the edges (CU-373
+  F-21).** Raising `filter_min_um` above `filter_max_um` — the first of the
+  two edits any upward band widening needs — failed with a modal reading
+  "source.target.emissivity: wavelength_um must be strictly ascending". It is
+  now the Spectral chip red and a status line naming both edges and the
+  order to edit them in.
 - **Evaluation failures are titled by their cause (CU-373 F-12).** A genuine
   rejection found at evaluation opened under *Parameter Rejected — Cannot set
   "evaluate"*; it now opens as *Evaluation Failed — The configuration did not

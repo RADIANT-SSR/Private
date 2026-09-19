@@ -149,6 +149,7 @@ class TestStageErrorClasses:
         ("radiant.calibration.errors", "CalibrationModeConflictError", ValueError),
         ("radiant.performance.errors", "PerformanceValidationError", ValueError),
         ("radiant.api.errors", "ApiValidationError", ValueError),
+        ("radiant.api.errors", "SpectralBandError", ValueError),
     ]
 
     @pytest.mark.parametrize("module,name,builtin", STAGE_CLASSES)

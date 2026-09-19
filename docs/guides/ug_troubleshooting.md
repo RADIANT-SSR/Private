@@ -134,7 +134,10 @@ Consistency group 'fnumber' is over-constrained:
 Read it as: *these three numbers cannot all be true*. The tolerance is 0.1 %, so a value that
 agrees to rounding is accepted. The fix is in the message: drop one of the three — in the GUI,
 right-click the row and **Reset to Default**, which clears your input so the parameter reverts
-to being derived — or make the third value consistent.
+to being derived — or make the third value consistent. To change *which* member is the input
+without passing through this state at all, open the editor on the derived row and type the
+value you want: its **Derive instead** selector releases one sibling and sets your value in one
+step (chapter 3, §3).
 
 **Geometry has its own version, and it is the one you are most likely to hit.** Each geometry
 family accepts exactly one mode, and setting a second door of the same family is

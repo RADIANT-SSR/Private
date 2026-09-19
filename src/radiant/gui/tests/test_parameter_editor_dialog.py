@@ -297,17 +297,29 @@ class TestRejection:
         assert sensor.get(_ALT) == pytest.approx(600000.0, abs=0)
 
 
-class TestReadOnlyDerived:
-    def test_derived_param_opens_read_only(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """A ⚡ derived parameter opens informative-only: editors disabled, no commit."""
+class TestDerivedTakeover:
+    def test_derived_param_opens_in_takeover_mode(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """A ⚡ derived parameter with explicit siblings opens editable, offering which
+        sibling to release (CU-372 F-04) — no longer informative-only."""
         d = _dialog(sensor, _DERIVED, qtbot)
-        assert d.read_only
-        assert not d.value_editor.isEnabled()
-        if d.unit_combo is not None:
-            assert not d.unit_combo.isEnabled()
-        before = sensor.get(_DERIVED)
-        d.apply(close=False)  # read-only apply is a no-op
-        assert sensor.get(_DERIVED) == before
+        assert not d.read_only
+        assert d.value_editor.isEnabled()
+        assert d.release_combo is not None
+        choices = [d.release_combo.itemData(i) for i in range(d.release_combo.count())]
+        assert choices == ["optics.aperture_diameter_m", "optics.focal_length_m"]
+        assert d.takeover_release == "optics.focal_length_m"  # last in group order
+
+    def test_takeover_sets_this_and_derives_the_released_sibling(
+        self, sensor: Sensor, qtbot
+    ) -> None:  # type: ignore[no-untyped-def]
+        d = _dialog(sensor, _DERIVED, qtbot)
+        d.value_editor.setText("8")
+        d.apply(close=False)
+        assert not d.error_frame.isVisibleTo(d)
+        assert sensor.inputs()[_DERIVED] == 8.0
+        assert "optics.focal_length_m" not in sensor.inputs()  # released
+        assert sensor.get("optics.focal_length_m") == pytest.approx(2.4, rel=1e-12)
+        assert sensor.get("optics.aperture_diameter_m") == pytest.approx(0.3, rel=1e-12)
 
 
 class TestEditorTypes:

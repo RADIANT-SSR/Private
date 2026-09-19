@@ -26,6 +26,12 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **A derived consistency-group member can be taken over from its editor
+  (CU-372 F-04).** The Parameter Editor on a ⚡ derived row opened read-only,
+  so "specify focal length instead of f-number" needed an undocumented Reset
+  on the f-number row followed by a set. The editor now opens live with a
+  *Derive instead* selector naming which explicit sibling releases its input;
+  Apply releases it and sets the typed value as one validated action.
 - **The YAML editor's Apply resolves the document before adopting it, refuses
   inline, and the editor always opens (CU-372 F-32).** Apply admitted an
   out-of-bounds value into the live configuration, the status bar called it

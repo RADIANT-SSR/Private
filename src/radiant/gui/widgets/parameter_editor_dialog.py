@@ -89,7 +89,7 @@ from radiant.core.exceptions import RadiantError
 from radiant.gui.config_scope import scope_of
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.display_units import global_display_unit
-from radiant.gui.edit_guard import apply_edit, validate_edit
+from radiant.gui.edit_guard import apply_edit, apply_takeover, validate_edit, validate_takeover
 from radiant.gui.param_format import (
     DERIVED_BADGE,
     display_in_unit,
@@ -221,10 +221,20 @@ class ParameterEditorDialog(QDialog):
             or self._pdef.input_unit
         )
 
-        # Read-only when the value is derived from a consistency group (⚡): the dialog
-        # opens informative but the editors stay disabled (arch doc §4.3, Rule 4).
+        # A value derived from a consistency group (⚡) is a consequence of its explicit
+        # siblings. Typing into it means choosing it as the input (CU-372 F-04): the
+        # dialog opens in **take-over** mode — editors live, plus a selector naming which
+        # sibling releases its input so the group derives that one instead. Read-only
+        # only when no sibling holds an explicit input to release (the value is then
+        # derived from defaults, and its inputs are what to change — Rule 4).
         provenance = safe_provenance(sensor, dotpath)
-        self._read_only = is_derived(provenance)
+        self._derived_at_open = is_derived(provenance)
+        self._release_choices: tuple[str, ...] = (
+            self._explicit_siblings() if self._derived_at_open else ()
+        )
+        self._takeover = self._derived_at_open and bool(self._release_choices)
+        self._read_only = self._derived_at_open and not self._takeover
+        self._release_combo: QComboBox | None = None
 
         # Multi-configuration state (§4.2c). ``_per_config`` is the live block of
         # per-configuration boxes (None in single-value mode); ``_staged_configure``
@@ -316,6 +326,27 @@ class ParameterEditorDialog(QDialog):
             note = self._value_field("derived from a consistency group — read-only")
             note.setObjectName("paramEditorDerivedNote")
             self._add_row(form, "State", note)
+        elif self._takeover:
+            siblings = ", ".join(self._release_choices)
+            note = self._value_field(
+                f"derived from {siblings} — set a value here and the parameter chosen "
+                "below is derived instead"
+            )
+            note.setObjectName("paramEditorDerivedNote")
+            self._add_row(form, "State", note)
+            combo = QComboBox(self)
+            combo.setObjectName("paramEditorReleaseCombo")
+            for sibling in self._release_choices:
+                combo.addItem(sibling, sibling)
+            # Default: the last explicit sibling in group order — for the fnumber
+            # group (aperture, focal length, f-number) that releases the f-number, so
+            # typing a focal length keeps the aperture (the hardware) and lets the
+            # ratio follow.
+            combo.setCurrentIndex(combo.count() - 1)
+            combo.currentIndexChanged.connect(lambda _i: self._update_preview())
+            self._size_combo_popup(combo)
+            self._add_row(form, "Derive instead", combo)
+            self._release_combo = combo
 
         layout.addLayout(form)
 
@@ -658,7 +689,7 @@ class ParameterEditorDialog(QDialog):
         an altitude the user set as 500 km reads ``500 km``, not ``500000 m``.
         """
         value_text = format_value(self._current_display_value(), self._display_unit)
-        if self._read_only:
+        if is_derived(provenance):
             value_text = f"{DERIVED_BADGE} {value_text}"
         label = provenance_label(provenance)
         self._current_label.setText(f"{value_text}  ·  {label}" if label else value_text)
@@ -897,6 +928,7 @@ class ParameterEditorDialog(QDialog):
             return
         value = self._editor_value()
         unit = self._chosen_unit()
+        release = self.takeover_release
         canonical, rejection, unexpected = self._try_resolve(value, unit)
         if rejection is not None:
             self._show_error(rejection)
@@ -920,8 +952,16 @@ class ParameterEditorDialog(QDialog):
         # Accepted: the single mandated API call on the live sensor — plus, for a
         # readout architecture or counting-mode switch (Gap 117, live-review fix
         # 2026-09-06), the companion resets that clear the explicit inputs the new
-        # selection rejects, as one logical action (shared applier, CU-372).
-        apply_edit(self._sensor, self._dotpath, value, unit)
+        # selection rejects, as one logical action (shared applier, CU-372). A
+        # take-over (F-04) releases the chosen sibling and sets this value as one
+        # logical action; the row is then an ordinary user-set input.
+        if release is not None:
+            apply_takeover(self._sensor, self._dotpath, value, unit, release)
+            self._takeover = False
+            if self._release_combo is not None:
+                self._release_combo.setEnabled(False)
+        else:
+            apply_edit(self._sensor, self._dotpath, value, unit)
         if write_tolerance is not None:
             write_tolerance()
 
@@ -1021,8 +1061,26 @@ class ParameterEditorDialog(QDialog):
         in-place dock editor runs the identical guard, so the two entry paths reject
         identically by construction.
         """
-        verdict = validate_edit(self._sensor, self._dotpath, value, unit)
+        release = self.takeover_release
+        verdict = (
+            validate_takeover(self._sensor, self._dotpath, value, unit, release)
+            if release is not None
+            else validate_edit(self._sensor, self._dotpath, value, unit)
+        )
         return verdict.canonical, verdict.rejection, verdict.unexpected
+
+    def _explicit_siblings(self) -> tuple[str, ...]:
+        """The consistency-group siblings this derived value came from that hold inputs.
+
+        Read off the structured ``derived_from`` of the resolved record (group order)
+        and filtered to explicit inputs — only an input can be released.
+        """
+        try:
+            derived_from = self._sensor.resolved(self._dotpath).derived_from or {}
+        except (RadiantError, KeyError):
+            return ()
+        inputs = self._sensor.inputs()
+        return tuple(sibling for sibling in derived_from if sibling in inputs)
 
     def _update_preview(self) -> None:
         """Recompute the canonical preview for the current editor value + unit.
@@ -1137,6 +1195,18 @@ class ParameterEditorDialog(QDialog):
     def read_only(self) -> bool:
         """True when the parameter is derived and the dialog opened informative-only."""
         return self._read_only
+
+    @property
+    def release_combo(self) -> QComboBox | None:
+        """The *Derive instead* selector (take-over mode on a derived row), else ``None``."""
+        return self._release_combo
+
+    @property
+    def takeover_release(self) -> str | None:
+        """The sibling a take-over Apply releases, or ``None`` when not in take-over mode."""
+        if not self._takeover or self._release_combo is None:
+            return None
+        return str(self._release_combo.currentData())
 
     @property
     def path_label(self) -> QLabel:

@@ -51,7 +51,14 @@ from radiant.gui.target_spec_guard import introduced_target_spec_conflict
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
 
-__all__ = ["EditVerdict", "apply_edit", "validate_edit", "validate_reset"]
+__all__ = [
+    "EditVerdict",
+    "apply_edit",
+    "apply_takeover",
+    "validate_edit",
+    "validate_reset",
+    "validate_takeover",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +135,45 @@ def validate_reset(live: Sensor, dotpath: str) -> EditVerdict:
         # value after the reset — a legal, visible unset state (Rule 17).
         canonical = None
     return EditVerdict(canonical, None, None)
+
+
+def validate_takeover(
+    live: Sensor, dotpath: str, value: Any, unit: str | None, release: str
+) -> EditVerdict:
+    """Validate "set *dotpath* and let *release* derive instead" on a clone (F-04).
+
+    A derived consistency-group member is a consequence of its explicit siblings;
+    typing into it means choosing it as the input, which needs one sibling to be
+    released (its explicit input withdrawn so the group derives it). Both steps are
+    applied to a throwaway clone — reset *release*, then set *dotpath* — and the
+    same differential rule decides. Released and set as one logical action, so the
+    group never passes through an under- or over-specified state on the live sensor.
+    """
+    trial = live.clone()
+    try:
+        trial.reset(release)
+        if unit is not None:
+            trial.set(dotpath, value, unit=unit)
+        else:
+            trial.set(dotpath, value)
+        canonical = trial.get(dotpath)
+    except RadiantError as exc:
+        return EditVerdict(None, _introduced_failure(live, exc), None)
+    except Exception as exc:  # genuine bug — never swallow
+        return EditVerdict(None, None, exc)
+    conflict = introduced_target_spec_conflict(live, trial)
+    if conflict is not None:
+        return EditVerdict(None, conflict, None)
+    return EditVerdict(canonical, None, None)
+
+
+def apply_takeover(live: Sensor, dotpath: str, value: Any, unit: str | None, release: str) -> None:
+    """Apply an **accepted** take-over to *live*: reset *release*, then set *dotpath*."""
+    live.reset(release)
+    if unit is not None:
+        live.set(dotpath, value, unit=unit)
+    else:
+        live.set(dotpath, value)
 
 
 def apply_edit(live: Sensor, dotpath: str, value: Any, unit: str | None) -> tuple[str, ...]:

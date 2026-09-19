@@ -287,3 +287,52 @@ class TestF32YamlApplyValidates:
         assert dialog is not None
         qtbot.addWidget(dialog)
         assert "aperture_diameter_m: -1.0" in dialog.yaml_text()
+
+
+class TestF04DerivedTakeover:
+    """F-04: a derived group member's editor was read-only with no take-over
+    affordance; swapping which member is the input needed a reset plus a set."""
+
+    def test_typing_into_a_derived_member_takes_it_over(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """Steps: (1) Aperture 0.3 m and f-number 4 set; focal length shows ⚡ 1.2 m
+        derived. (2) Open the editor on optics.focal_length_m, type 1.8, Apply."""
+        window = _complete_window(qtbot, monkeypatch)
+        panel = window.parameter_panel
+        focal = "optics.focal_length_m"
+        assert panel.value_text(focal) == "⚡ 1.2 m"
+        assert panel.source_text(focal) == "derived"
+        dialog = ParameterEditorDialog(window.sensor, focal, panel._after_dialog_commit, panel)  # noqa: SLF001
+        qtbot.addWidget(dialog)
+        assert not dialog.read_only
+        assert dialog.takeover_release == "optics.f_number"
+        dialog.value_editor.setText("1.8")
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            dialog.apply(close=True)
+        assert window.sensor.inputs()[focal] == 1.8
+        assert "optics.f_number" not in window.sensor.inputs()
+        assert panel.value_text(focal) == "1.8 m"
+        assert panel.source_text(focal) == "user-set"
+        assert panel.value_text("optics.f_number") == "⚡ 6"
+        assert panel.source_text("optics.f_number") == "derived"
+        assert panel.value_text("optics.aperture_diameter_m") == "0.3 m"
+
+    def test_takeover_can_release_the_other_sibling(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """The selector is a real choice: releasing the aperture keeps the f-number."""
+        window = _complete_window(qtbot, monkeypatch)
+        panel = window.parameter_panel
+        dialog = ParameterEditorDialog(
+            window.sensor,
+            "optics.focal_length_m",
+            panel._after_dialog_commit,
+            panel,  # noqa: SLF001
+        )
+        qtbot.addWidget(dialog)
+        combo = dialog.release_combo
+        assert combo is not None
+        combo.setCurrentIndex(combo.findData("optics.aperture_diameter_m"))
+        dialog.value_editor.setText("1.8")
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            dialog.apply(close=True)
+        assert "optics.aperture_diameter_m" not in window.sensor.inputs()
+        assert window.sensor.inputs()["optics.f_number"] == 4.0
+        assert panel.value_text("optics.aperture_diameter_m") == "⚡ 0.45 m"

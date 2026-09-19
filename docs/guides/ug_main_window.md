@@ -108,8 +108,12 @@ input so the parameter reverts to its default or is re-derived. A reset is valid
 throwaway copy first: one that would leave a working configuration unable to resolve is
 refused, with a `Cannot reset` dialog naming what would go missing, and nothing changes.
 
-A derived row opens read-only. That is not a restriction to work around: the value is a
-consequence, and its inputs are what you change.
+A derived row's editor opens live, with a **Derive instead** selector: typing into a derived
+consistency-group member means you are choosing it as the input, and the selector names which
+of its siblings gives up its value and becomes the derived one. Enter a focal length on the
+derived `focal_length_m` row and, by default, `f_number` is released and derives — the aperture
+you set stays. Both halves are applied together, so the group is never over-specified along
+the way. Only a value derived purely from defaults opens read-only.
 
 The dock hides and shows with **F6**.
 

@@ -895,9 +895,19 @@ exactly one `sensor.set(dotpath, value, unit=<chosen>)` (§4.1), validated first
 throwaway `sensor.clone()` so a rejected value never touches the live sensor; a rejection
 renders its what/why/action **inside** the dialog (themed error area) and keeps it open for
 correction, while an accepted edit refreshes the tree (the panel's existing refresh path)
-and — via **Apply & Close** — dismisses (plain **Apply** keeps it open). A derived (⚡)
-parameter opens read-only: the value/unit editors are disabled and only a Close button is
-offered. **In a study** the same dialog carries the per-configuration value boxes and the
+and — via **Apply & Close** — dismisses (plain **Apply** keeps it open). **A derived (⚡)
+parameter opens in take-over mode (CU-372 F-04):** the value/unit editors are live and a
+*Derive instead* selector lists the explicit consistency-group siblings the value came
+from (`Sensor.resolved(dotpath).derived_from`, filtered to explicit inputs); Apply
+releases the chosen sibling and sets this value as one logical action
+(`edit_guard.validate_takeover` / `apply_takeover`, clone-validated by the same
+differential rule), so the group never passes through an under- or over-specified state
+on the live sensor. The default release is the last explicit sibling in group order —
+for `fnumber` (aperture, focal length, f-number) typing a focal length releases the
+f-number and keeps the aperture. Only when no sibling holds an explicit input (the value
+derives from defaults) does the dialog open read-only, with a Close button. Before F-04
+the derived editor was always read-only and the only route to "specify focal length
+instead of f-number" was an undocumented Reset on the f-number row followed by a set. **In a study** the same dialog carries the per-configuration value boxes and the
 *Configure across configurations…* affordance — see §4.2c, which owns that spec.
 
 **Path parameters get a Browse… picker (owner request 2026-07-18).** A `str` parameter

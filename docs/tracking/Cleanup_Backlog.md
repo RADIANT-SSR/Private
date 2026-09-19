@@ -47,6 +47,90 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-377 — Mode and door switching has no switch affordance: selectors are display-only, other doors' values linger, inactive doors show schema defaults (usability-audit family, owner-gated)
+
+**Discovered**: GUI usability audit phases 1–4 and live session 1, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Bootstrap_Recovery.md` F-05/F-07/F-15, `Findings_Journeys_P1_P4.md` F-25/F-26, `Findings_Journeys_P5_P7.md` F-43, `Findings_Live_Session_1.md` F-48).
+**Status**: Open — owner-gated: the fix is a design decision (does picking a mode withdraw the other doors?) that belongs with the Gap 85 mission-type ruling; nothing here should be built ahead of it.
+**File**: `src/radiant/gui/widgets/geometry_mode_form.py`, `source_inputs_form.py`, `calibration_inputs_form.py`, `target_spec_guard.py`; guide `docs/guides/ug_defining_scene.md` §1.2.
+**Symptom**: checklist —
+
+- [ ] F-05 (S2): a second viewing door entered through the dock is accepted, fails at evaluate on every re-run, the card auto-selects the new door and greys the field that must be withdrawn; the selector changes nothing. Exit = dock right-click Reset on a greyed field (confirmed natively 2026-09-19).
+- [ ] F-07 (S3): thermal↔reflective, point-intensity and cal-point-mode switches each need N resets in the right order; the rejection names the parameters but nothing sequences them.
+- [ ] F-15/F-26 (S3): on a blank configuration the family cards open on V2 / S2 / direct / K1, not the documented V1 / S1 / direct / K0.
+- [ ] F-25 (S3): the S3 site-and-time card offers LTAN and local solar time as two editable fields of one mode; entering both over-specifies.
+- [ ] F-48 (S3, live): inactive doors display schema defaults (ground range 0 m, elevation 90°) rather than the derived values the guide promises.
+- [ ] F-43 (S3): a bench (both altitudes 0 m, 2 m range) is refused by the ±0.5° horizon guard; lab mode has no door and needs an invented altitude.
+
+**Why it still matters**: workflow-visible (intake test 4) — this is the owner's "conflict you cannot fix one edit at a time" report, and it is owner-gated (test 2) because the remedy is a mode-model decision.
+**Suggested fix**: (b) stand-alone task after the Gap 85 ruling — either a mode selector that withdraws the other doors' explicit values (with an undo step), or a "withdraw and switch" action on the rejection; show derived values in inactive fields; make LTAN/LST exclusive on the card; add a lab door. Effort M–L; Category D.
+
+### CU-376 — Parameters dock ergonomics: full rebuild on every accepted edit loses selection and scroll, names elided at default width, in-place editor unusable on a blank configuration, small-window clipping (usability-audit family)
+
+**Discovered**: GUI usability audit, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Bootstrap_Recovery.md` F-14, `Findings_Tracks.md` F-38, `Findings_Live_Session_1.md` F-45/F-46/F-49).
+**Status**: Open — live-review rule gates the merge.
+**File**: `src/radiant/gui/widgets/parameter_panel.py` (`populate` → `_tree.clear()`), `parameter_delegate.py`, `stage_center.py` (tab labels), `main_window.py` (dock sizing).
+**Symptom**: checklist —
+
+- [ ] F-45 (S2, live): every accepted edit clears and rebuilds the tree, so the selected row is lost and the view jumps to the top; on a from-scratch build the operator re-scrolls after every value (owner: "very annoying").
+- [ ] F-46 (S2, live): on a blank configuration the Value column collapses to ~10 px and the in-place editor, when reached, accepts typing and then reverts to `—` with no message (the headless path shows the rejection modal; natively it is lost in the editor-close sequence).
+- [ ] F-14 (S3): at the default dock width names elide to `sens…de_m`, `targ…ge_m`; the `target.shape.*` rows are indistinguishable.
+- [ ] F-38 (S3): at 1024×640 the stage strip scrolls, the Compute row shows two of five groups, rail messages clamp at three lines.
+- [ ] F-49 (S4, live): Source tab labels truncate to "Target — th…", "Target — point s…" at 1440 px.
+
+**Why it still matters**: workflow-visible (intake test 4); the dock is the only surface that reaches every parameter and the from-scratch path lives in it.
+**Suggested fix**: (b) stand-alone task — update rows in place (or restore selection, expansion and scroll after populate); give the Value column a floor; route the in-place rejection through the same inline error state the dialog uses; size the dock by content. Effort M; Category D (GUI tests).
+
+### CU-375 — Trade surfaces hide the result's own flags: sweeps and solves over clipped or refused metrics report success, the solve dialog defaults to the alphabetically first metric, detection pass/fail is a vanished row, batch scaffold starts from an empty config, compare refuses study files (usability-audit family)
+
+**Discovered**: GUI usability audit phases 2 and 4, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Journeys_P1_P4.md` F-18/F-19/F-23/F-24/F-27, `Findings_Journeys_P5_P7.md` F-41).
+**Status**: Open — live-review rule gates the merge.
+**File**: `src/radiant/gui/widgets/sweep_dialog.py`, `solve_dialog.py`, `comparison_dialog.py`, `performance_metrics_form.py`, `main_window.py` (`_on_batch_scaffold`).
+**Symptom**: checklist —
+
+- [ ] F-18 (S3): a sweep over a well-clipped configuration returns a flat metric with *Done — N points* and no saturation notice; a solve on an insensitive or clipped metric says "widen the bounds" (confirmed natively 2026-09-19).
+- [ ] F-19/F-41 (S3): the solve target list is `sorted(metrics)` so it opens on `adc_margin_dB`, offers codes and flags as targets, silently keeps the first metric when the requested one is absent, and never says why NIIRS is missing (the CU-371 II-009 seam).
+- [ ] F-27 (S3): below the detection threshold `detection_range_m` simply disappears; no pass/fail reading, threshold not echoed.
+- [ ] F-24 (S2): Run ▸ Batch Run… scaffold starts from `base = {}` instead of the displayed sensor (the Monte Carlo scaffold binds `sensor`).
+- [ ] F-23 (S3): Tools ▸ Compare Config Files… refuses a study file the operator just saved, with "load it with ConfigurationSet.load(path)".
+
+**Why it still matters**: workflow-visible (intake test 4) — Sarah's and Lisa's deliverables come from exactly these surfaces.
+**Suggested fix**: (b) stand-alone task — carry the run's saturation/refusal flags into the sweep and solve status and CSV; order the solve list by metric group with SNR first and grey absent metrics with their reason; render detection as a pass/fail card; `base = sensor.to_dict()`; let compare read studies with the same reader File ▸ Open uses. Effort M; Category D.
+
+### CU-374 — Export formats: sweep CSV without units and with numpy literals, study workbook exports one unlabeled configuration, stale results export without a marker, audit-trail exports carry no provenance (usability-audit family)
+
+**Discovered**: GUI usability audit phases 2 and 4, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Journeys_P1_P4.md` F-17/F-22/F-31, `Findings_Tracks.md` F-34/F-35, `Findings_Journeys_P5_P7.md` F-42).
+**Status**: Open.
+**File**: `src/radiant/api/sweep.py` (`to_csv`), `src/radiant/gui/xlsx_export.py`, `main_window.py` export handlers, `src/radiant/api/sensor.py` (`to_yaml` resolved export), `api/build_info.py`.
+**Symptom**: checklist —
+
+- [ ] F-17 (S2): sweep CSV header is bare names, twelve cells read `np.float64(…)`, axis values carry float noise (confirmed natively 2026-09-19); the metrics CSV from the same session has `name,value,unit,description`.
+- [ ] F-22 (S2): the workbook export of a study holds the displayed configuration only, unlabeled; the `Config` sheet's unit column reads the string `None` for unitless parameters.
+- [ ] F-34/F-35 (S3): a retained sweep is exportable after edits that made it stale; a metrics export after a failed re-evaluation writes the previous result with no stale flag or run stamp.
+- [ ] F-42 (S3): Export Resolved YAML carries no per-value provenance; Export JSON Result reports `git_commit: unknown` on a source checkout whose title bar shows the commit.
+- [ ] F-31 (S4): `sampling_regime_code` and `niirs_extrapolated` are exported as metrics; without the description column they read as values.
+
+**Why it still matters**: results-affecting for the reader (intake test 1 in spirit — the numbers leave the tool wrong or unlabeled) and workflow-visible; product principle 5 says units on everything.
+**Suggested fix**: (b) stand-alone task — unit row or `name [unit]` headers and plain floats in `SweepResult.to_csv`; one column per configuration in the workbook; a run stamp + stale/config-hash line in every export; provenance comments in the resolved YAML; resolve `git_commit` from `build_info` the way the title bar does. Effort M; Category B/D.
+
+### CU-373 — Evaluation-failure routing: incomplete and mid-switch states are a modal per re-evaluation, the blank-config failure is a cycle diagnostic, advisories point at stages whose forms lack the field, a document swap leaves the previous result's banners on screen, and `radiant gui` never shows the welcome screen (usability-audit family)
+
+**Discovered**: GUI usability audit phases 1–4 and live session 1, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Bootstrap_Recovery.md` F-09/F-10/F-12/F-13, `Findings_Journeys_P1_P4.md` F-21/F-28, `Findings_Live_Session_1.md` F-44/F-47/F-51).
+**Status**: Open — live-review rule gates the merge.
+**File**: `src/radiant/gui/main_window.py` (`_on_eval_failed`, `_on_parameter_edited`, `_adopt_sensor`), `src/radiant/core/parameters.py:649`, `src/radiant/cli/gui.py`, `src/radiant/gui/widgets/actionable_error_dialog.py`.
+**Symptom**: checklist —
+
+- [ ] F-13 (S3): on a blank configuration every accepted edit schedules an evaluation whose first failure is *Circular dependency detected … Check consistency groups for cycles* (the resolver's cycle detector fires before the required-parameter check) and it is routed to a modal; the count equals the edits before the aperture (confirmed natively).
+- [ ] F-09 (S3): readout architecture and calibration scheme get the advisory; cal-point mode, transmission mode, geometry door conflicts and consistency groups get a modal per re-evaluation with all ten chips red.
+- [ ] F-12 (S3): every evaluation failure is titled *Parameter Rejected — Cannot set "evaluate"*; on a blank config the text is the configuration-set wrapper's ("Configuration 'Configuration 1' … configured values are [] … shared on the base"); the required-parameter advisory ends "Set it via: params.set(…)"; modals print raw `context.*` rows.
+- [ ] F-10 (S3): a `tabulated` model with no files is announced in the status bar as "The atmosphere library does not cover this scene".
+- [ ] F-21 (S3): widening a band upward fails with "source.target.emissivity: wavelength_um must be strictly ascending".
+- [ ] F-47 (S2, live): the required-parameter advisory for `spectral_integration.integration_time_s` reddens the Spectral chip and the Spectral form has no such field — it lives on Readout ▸ Acquisition; the namespace is not the form.
+- [ ] F-51 (S3, live): after a YAML Apply that leaves the document unresolvable, the previous result's saturation banner and warnings stay on screen with no stale marker and the centre drops to the "New configuration" placeholder.
+- [ ] F-44 (S3, live): `radiant gui` with no file hands the window a blank `Sensor`, so the welcome screen (templates, Blank config, recent) appears only after File ▸ New; the guide and `launch_gui`'s docstring say it appears at launch. The two blank states also carry different status-bar texts.
+
+**Why it still matters**: workflow-visible (intake test 4) — this is the owner's "errors on every edit until everything is defined" report.
+**Suggested fix**: (b) stand-alone task — run the required-parameter check before the cycle detector (or map the cycle error on an unresolved set to `RequiredParameterError`); route every mid-switch/incomplete state through the CU-322 advisory pattern; title failures by cause; point advisories at the form that owns the field; clear or mark stale banners on document swap; open the welcome screen from the CLI path. Effort M; Category D.
+
 ### CU-372 — GUI edit discipline misrepresents state on unresolved configurations and consistency-group members (usability-audit family)
 
 **Discovered**: GUI usability audit phase 1 (`docs/reports/gui_usability_audit_2026-09/Findings_Bootstrap_Recovery.md`), 2026-09-19 — reproduced headlessly through the real dock and editor-dialog paths from Blank config; native confirmation queued for live session 1.
@@ -59,6 +143,7 @@ by name in check 8 — that list is frozen and must never grow.
 - [ ] F-03 (S1): *Reset to Default* on a consistency-group member whose partner is unset shows a *Parameter Rejected* modal but applies the reset on the live sensor anyway — row keeps the old value as user-set, no undo step, no re-evaluate, no dirty change.
 - [ ] F-04 (S2): a derived group member's editor is read-only with no take-over affordance; swapping which member is the input needs a reset (F-03) plus a set, undocumented.
 - [ ] F-06 (S2): an over-constrained group authored on an incomplete configuration is admitted (bounds-only fallback), surfaces only when the configuration completes, then raises a modal on every further edit naming the first-set member rather than the value typed last.
+- [ ] F-20 (S2, phase 2): Edit ▸ Undo of a first-time set writes the schema default back as a *user-set* value (jitter `0 µrad user-set`; confirmed natively 2026-09-19); F-37 (S3, phase 4): View ▸ Angles in Degrees does not reach a row edited through the dialog because the dialog's chosen unit is a sticky per-row override.
 - [ ] F-32 (S1, phase 4 — `Findings_Tracks.md`): the YAML editor's Apply admits an out-of-bounds value into the live sensor (`document_yaml` → `Sensor.to_yaml` resolves only on the *next* open), reports it as "Configuration incomplete", clears undo, and the editor then cannot be reopened (uncaught `ParameterBoundsError` in `serialize_document`).
 
 **Why it still matters**: workflow-visible (intake test 4) — these are the two symptoms the owner reported on 2026-09-19 (a conflict that cannot be repaired one edit at a time; errors on every edit from a blank scenario), and F-01/F-03 make the GUI misstate its own state, which the product principles forbid outright.
@@ -75,6 +160,7 @@ by name in check 8 — that list is frozen and must never grow.
 - [ ] II-015: the 13th-configuration refusal message cites "(ADR-0010 D-E)". Reword; the Volume II quote inherits on recapture.
 - [ ] II-009 GUI side: `badge_display` returns "n/a — not computed for this run" for three distinct states (metric group off / regime did not populate / metric declined), and the NIIRS refusal's `failure_reason` on `stage_outputs["performance"]["niirs_result"]` never reaches the card — `metric_failure_reason` only consults present-but-non-finite metrics. Surface the reason; the manuals were aligned to current behavior in CU-370 B3 and will need a touch-up when this lands.
 - [ ] IV-031: GeometryViewer does not clamp altitude leader pills inside the viewport — the `h_s` pill is clipped in `case_irst_schematic.png` (capture-side fix proven impossible in the CU-370 campaign); regenerate the figure after the fix. (The mode-form value clipping visible in the same schematic — "6479 deg" — is CU-363's checklist, not this one.)
+- [ ] Usability audit 2026-09-19 (F-52/F-53, `Findings_Live_Session_1.md`): product strings still carrying process language — "Gap 65" in the three saturation warnings, "deferred (Gap 92) … (Rule 8)" on the Spectral outputs note, "ADR-0011 decision 6" in the horizon-guard refusal, "v1-minimal (owner-ratified …) (ADR-0006 §4 / CU-122)" on the Platform note (II-003); the required-parameter advisory's "Set it via: params.set(…)" line; `modtran.binary_path` showing a POSIX default in the dock.
 - [ ] The MTF-budget and element-train tables use bounded inner scroll boxes showing 5–6 rows regardless of window height, so `flagship_mtf_budget.png` cannot show the `mtf_pixel_aperture` row the prose quotes (caption adjusted as a stopgap in CU-370 B7).
 
 **Why it still matters**: workflow-visible (intake test 4) — operators read these strings and plots in every session, and the CU-370 panel grabs magnified them; also blocking (test 3) — these items complete the manual figure/quote set the docs-side campaign could not touch.

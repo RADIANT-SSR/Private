@@ -86,6 +86,17 @@ class TestBuildAtmosphereModel:
             build_atmosphere_model(_make_params("tabulated"))
 
     @pytest.mark.level0
+    def test_tabulated_without_files_is_a_required_parameter_error(self) -> None:
+        """CU-373 F-10: incomplete, not a coverage refusal — structural, names the file."""
+        from radiant.atmosphere.errors import is_coverage_refusal
+        from radiant.core.parameters import RequiredParameterError
+
+        with pytest.raises(RequiredParameterError) as info:
+            build_atmosphere_model(_make_params("tabulated"))
+        assert info.value.param == "atmosphere.tabulated_transmittance_file"
+        assert not is_coverage_refusal(info.value)
+
+    @pytest.mark.level0
     def test_interpolated_without_dir_defaults_to_shipped_fan(self) -> None:
         """Unset data dir + default axes → the shipped us_standard_zenith_fan
         family loads (owner request 2026-07-18: interpolated works out of the box)."""

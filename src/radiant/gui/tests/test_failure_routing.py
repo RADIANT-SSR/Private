@@ -197,3 +197,24 @@ class TestF09MidSwitchStatesAreAdvisories:
         assert _chip_status(window, "calibration") == "err"
         assert _chip_status(window, "readout") == "stale"
         assert "Calibration panel" in window.statusBar().currentMessage()
+
+
+class TestF10TabulatedWithoutFiles:
+    """F-10: a `tabulated` model with no files was announced in the status bar as
+    "The atmosphere library does not cover this scene" — the loader raised the
+    class the coverage predicate treats wholesale as a refusal."""
+
+    def test_missing_files_read_as_an_incomplete_config_naming_the_file(
+        self, qtbot, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        """T-B b6: complete configuration, then atmosphere.model = tabulated."""
+        window = _complete_window(qtbot, monkeypatch)
+        opened = _capture_modals(monkeypatch)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_choose(window, "atmosphere.model", "tabulated")
+        assert opened == []
+        status = window.statusBar().currentMessage()
+        assert status.startswith("Config incomplete — set atmosphere.tabulated_transmittance_file")
+        assert "does not cover" not in status
+        assert _chip_status(window, "atmosphere") == "err"
+        assert _chip_status(window, "optics") == "stale"

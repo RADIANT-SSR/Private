@@ -33,7 +33,7 @@ from radiant.atmosphere.interpolation_coverage import (
     check_interpolation_coverage,
     shipped_family_catalogue_text,
 )
-from radiant.core.parameters import ParameterSet
+from radiant.core.parameters import ParameterSet, RequiredParameterError
 
 if TYPE_CHECKING:  # type-only: keeps scipy out of this module's import cost
     from radiant.atmosphere.interpolated import GeometryPoint
@@ -170,10 +170,23 @@ def _build_tabulated(params: ParameterSet) -> object:
     ldown_file = params.get("atmosphere.tabulated_downwelling_file")
 
     if not tau_file or not lpath_file:
-        raise AtmosphereValidationError(
+        # A file-mode atmosphere without its files is an INCOMPLETE configuration,
+        # not a coverage refusal: raised as the structural required-parameter
+        # error (CU-373 F-10) so a message surface names the file to set, rather
+        # than as the atmosphere validation class the coverage predicate treats
+        # wholesale as "the library does not cover this scene".
+        missing = (
+            "atmosphere.tabulated_transmittance_file"
+            if not tau_file
+            else "atmosphere.tabulated_path_radiance_file"
+        )
+        raise RequiredParameterError(
             "build_atmosphere_model: model='tabulated' requires "
             "atmosphere.tabulated_transmittance_file and "
-            "atmosphere.tabulated_path_radiance_file to be set."
+            "atmosphere.tabulated_path_radiance_file to be set.\n"
+            f"  Action: set '{missing}' (and the other file), or choose another "
+            "atmosphere.model",
+            param=missing,
         )
 
     # Detect format by extension.

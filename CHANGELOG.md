@@ -37,6 +37,13 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **A `tabulated` atmosphere with no files is reported as incomplete, not as
+  a library-coverage refusal (CU-373 F-10).** The loader raised the atmosphere
+  validation class the coverage predicate treats wholesale as "the library
+  does not cover this scene", so the status bar misrouted the state while the
+  Messages rail said the right thing. It now raises `RequiredParameterError`
+  naming the file parameter, so the status bar reads `Config incomplete — set
+  atmosphere.tabulated_transmittance_file …` with the Atmosphere chip red.
 - **Four more evaluate-time states are advisories, not a modal per
   re-evaluation (CU-373 F-09).** A geometry door conflict, an over-constrained
   consistency group, a cal-point-mode conflict and a transmission mode without

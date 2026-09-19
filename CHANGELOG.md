@@ -20,6 +20,19 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **`Sensor.input_provenances()`** — the provenance companion of `inputs()`
+  (dot-path → `Provenance` for every explicitly-set input, no resolve);
+  passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
+
+### Fixed
+- **The Parameters dock shows what you have entered on an incomplete
+  configuration (CU-372 F-01).** On a blank configuration every row — the
+  values just accepted included — read `—` with no Source badge, and *Changed
+  only* listed nothing, until the last required parameter was set. A row the
+  operator has set now shows its committed value and `user-set` badge from the
+  inputs view; only rows with no input read `—`.
+
 ### Changed
 - **Results-affecting (message terms only): an incomplete configuration now
   reports its first unset required parameter before any consistency-group

@@ -187,6 +187,15 @@ class TestParamFormatHelpers:
         assert provenance_label(None) == ""
         assert provenance_label("") == ""
 
+    def test_safe_provenance_reads_input_provenance_on_unresolved_sensor(self) -> None:
+        """CU-372 F-01: a set-but-unresolvable parameter is labelled by its input provenance."""
+        from radiant.api.sensor import Sensor
+
+        blank = Sensor()
+        blank.set("geometry.sensor_altitude_m", 500000.0)
+        assert safe_provenance(blank, "geometry.sensor_altitude_m") == "user_set"
+        assert safe_provenance(blank, "optics.aperture_diameter_m") == ""  # nothing set
+
     def test_safe_provenance_empty_for_unresolved_sensor(self) -> None:
         """CU-105: an unresolvable sensor yields "" (not a crash) via safe_provenance."""
         from radiant.api.sensor import Sensor

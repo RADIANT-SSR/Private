@@ -81,6 +81,11 @@ Every parameter in the model, grouped by namespace in chain order, in three colu
 Above the tree, a **filter box** narrows by substring across dot-paths, and **Changed only**
 hides every row still at its schema default — your configuration, as a short list.
 
+On a configuration that cannot resolve yet — a blank start with required parameters still
+unset — a row you have set shows the value you entered with a `user-set` badge, and only the
+rows with no input read `—`. The dock never waits for the whole configuration to complete
+before showing you what you typed.
+
 **Editing.** Double-clicking the *Value* cell of a non-derived row opens the editor its type
 calls for: a combo box for an enumeration (with the choices read from the schema), a
 checkbox for a boolean, a spin box for an integer, a text field for a float or string.

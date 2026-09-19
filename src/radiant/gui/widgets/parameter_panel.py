@@ -470,10 +470,11 @@ class ParameterPanel(QWidget):
         """One leaf row: value + display unit, ⚡-marked, provenance-labelled, editable.
 
         A sensor that cannot resolve yet (a blank File → New: required parameters
-        unset) still gets a full tree — every row falls back to an unset display
-        (no provenance label, — value) instead of crashing populate (found
-        2026-07-16: `explain`/`get_input` resolve internally and raised
-        `CoreValidationError` through the File → New path).
+        unset) still gets a full tree: a row the operator has set shows its
+        committed value and input provenance (CU-372 F-01), every other row
+        falls back to an unset display (no provenance label, — value) instead of
+        crashing populate (found 2026-07-16: `explain`/`get_input` resolve
+        internally and raised `CoreValidationError` through the File → New path).
         """
         provenance = safe_provenance(sensor, dotpath)
         derived = is_derived(provenance)
@@ -528,17 +529,26 @@ class ParameterPanel(QWidget):
 
     @staticmethod
     def _resolved_value(sensor: Sensor, dotpath: str) -> object | None:
-        """Resolved value in input units, or ``None`` if the parameter is unset.
+        """Resolved value in input units, or the committed input, or ``None`` if unset.
 
         A required-unless parameter superseded by an alternative resolves to no
         value; ``Sensor.get_input`` raises ``KeyError`` for it. Rendering that as
         an explicit em-dash (``None`` here) is a visible state, not a swallowed
         error (Rule 17) — the row still appears, marked unresolved.
+
+        A configuration that cannot resolve yet (a blank config with required
+        parameters unset) raises a ``RadiantError`` from the resolved accessor;
+        the row then shows the value the operator **committed**
+        (:meth:`Sensor.peek_input`, no resolve) so an accepted value is visible
+        where it was accepted (CU-372 F-01), and only a parameter with no
+        explicit input reads as unset.
         """
         try:
             return sensor.get_input(dotpath)
         except KeyError:
             return None
+        except RadiantError:
+            return sensor.peek_input(dotpath)
 
     # -- display units ------------------------------------------------------
 

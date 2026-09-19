@@ -798,6 +798,8 @@ ps.inputs()              # Mapping[str, Any] — explicit inputs only (name → 
                          # input-unit value); defaults/derived excluded. The
                          # persistence surface: re-setting exactly these on a
                          # fresh set reproduces this resolution (Gap 67).
+ps.input_provenances()   # Mapping[str, Provenance] — the provenance companion of
+                         # inputs() (Gap 93); explicit inputs only, no resolve.
 ps.is_resolved           # bool property: resolve() has run and no input changed.
 ps.copy()                # Unresolved deep-enough copy: schema, groups, inputs
                          # (with provenance), tolerances, loaded-file records.

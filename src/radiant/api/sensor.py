@@ -430,6 +430,18 @@ class Sensor:
         """
         return self._params.inputs()
 
+    def input_provenances(self) -> Mapping[str, Provenance]:
+        """Read-only snapshot of the explicitly-set inputs' provenance (CU-372 F-01).
+
+        The provenance-aware companion of :meth:`inputs` — dot-path →
+        :class:`~radiant.core.parameters.Provenance` for every parameter that
+        holds an explicit input, and nothing else (defaults and derived values
+        do not appear). Never resolves, so a display surface can label a value
+        the operator just entered as *user-set* while the configuration is
+        still incomplete. Passthrough to :meth:`ParameterSet.input_provenances`.
+        """
+        return self._params.input_provenances()
+
     def resolve(self) -> Sensor:
         """Resolve the parameter set now, if it is not already resolved (CU-208).
 

@@ -821,8 +821,15 @@ derived) comes from the resolved set. The shipped tree (GUI plan Phase 2) render
 as three columns — **Parameter / Value / Source** — where Value carries the value + unit
 (⚡-prefixed when derived) and Source is the provenance label; provenance is read from
 the structured public `Sensor.resolved(dotpath)` / `Sensor.provenance(dotpath)` accessors
-(CU-105, resolved — no longer parsed out of the `Sensor.explain` text). A search box
-filters by substring across dot-paths.
+(CU-105, resolved — no longer parsed out of the `Sensor.explain` text). **On a
+configuration that cannot resolve yet** (a blank config with required parameters unset)
+the resolved accessors raise, and the row falls back to the **inputs view** —
+`Sensor.peek_input(dotpath)` for the value and `Sensor.input_provenances()` for the
+badge, neither of which resolves — so a value the operator has set shows where it was
+accepted, with its provenance, and only a parameter with no explicit input reads `—`
+(CU-372 F-01; before that every row read unset until the configuration completed).
+*Changed only* reads the same fallback, so it lists what has been set on an incomplete
+configuration too. A search box filters by substring across dot-paths.
 
 **Editing (Task B).** Double-click (or the platform edit key) on a non-derived row
 opens the editor its `ParameterDef` dtype calls for: a combo box for an enum (choices

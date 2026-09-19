@@ -7,3 +7,4 @@ Generator: the audit's scratch offscreen driver (Audit_Plan.md §2.1; `QT_QPA_PL
 | `geometry_door_conflict.png` | T-B b3, step 16 (evaluate after a second viewing door) | `Findings_Bootstrap_Recovery.md` F-05, F-11, F-14 |
 | `bootstrap_dock_blank.png` | T-A dialog path, geometry-first order, step 5 (after the fourth accepted edit) | `Findings_Bootstrap_Recovery.md` F-01, F-13 |
 | `bootstrap_form_vs_dock.png` | T-A forms probe, step 3 (Geometry form after one accepted edit on a blank config) | `Findings_Bootstrap_Recovery.md` F-01, F-15 |
+| `study_columns.png` | J-4.1, step 16 (Performance workspace after configuring aperture across three configurations) | `Findings_Journeys_P1_P4.md` J-4.1, F-22 |

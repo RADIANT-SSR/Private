@@ -1407,12 +1407,13 @@ class RADIANTMainWindow(QMainWindow):
         :class:`~radiant.api.config_set.ConfigSetError` naming that configuration.
         The GUI's failure surfaces (the actionable modal, the geometry-conflict
         locator, the Messages item) key on the *original* error's structured
-        ``what`` / ``context``, so the wrapper is unwrapped here — a
-        single-configuration session then renders exactly the error it rendered
-        before this phase.
+        ``what`` / ``context``, so the wrapper is unwrapped here — every layer of
+        it (CU-373 F-12: a single-model session must never read "configuration
+        'Configuration 1' does not resolve … configured values are []") — and a
+        single-configuration session then renders exactly the underlying error.
         """
-        if isinstance(exc, ConfigSetError) and isinstance(exc.__cause__, RadiantError):
-            return exc.__cause__
+        while isinstance(exc, ConfigSetError) and isinstance(exc.__cause__, RadiantError):
+            exc = exc.__cause__
         return exc
 
     def _attributed_warnings(self, run: ConfigSetRunResult) -> list[str]:
@@ -1706,7 +1707,17 @@ class RADIANTMainWindow(QMainWindow):
             )
             return
         if isinstance(exc, RadiantError):
-            exec_dialog(ActionableErrorDialog(exc, "evaluate", self))
+            # A genuine rejection found at evaluation: titled by its cause (CU-373
+            # F-12) — nothing named "evaluate" was set.
+            exec_dialog(
+                ActionableErrorDialog(
+                    exc,
+                    "evaluate",
+                    self,
+                    title="Evaluation Failed",
+                    header="The configuration did not evaluate",
+                )
+            )
         else:
             exec_dialog(UnexpectedErrorDialog(exc, "Evaluating the signal chain", self))
 

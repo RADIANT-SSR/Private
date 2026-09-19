@@ -62,7 +62,10 @@ its context, never by matching words in its message.
 | **The stage strip** | which stage is implicated, when that can be known |
 
 The **Parameter Rejected** dialog is headed `Cannot set "<dot-path>"` (or `Cannot reset …`)
-and lists What / Why / Action / context, each selectable so you can copy it into a bug report. A failure that is *not*
+and lists What / Why / Action / context, each selectable so you can copy it into a bug report.
+A failure the *evaluation* finds that is not one of the advisories of §4 — a genuine rejection
+the door could not see — uses the same layout under the title **Evaluation Failed**, headed
+`The configuration did not evaluate`; it never claims something named "evaluate" was set. A failure that is *not*
 a RADIANT error — a genuine bug rather than a bad input — gets a different dialog instead, with
 the message up front and the full traceback behind a **Show details** fold. Nothing is
 swallowed either way.

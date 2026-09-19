@@ -37,6 +37,14 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Evaluation failures are titled by their cause (CU-373 F-12).** A genuine
+  rejection found at evaluation opened under *Parameter Rejected — Cannot set
+  "evaluate"*; it now opens as *Evaluation Failed — The configuration did not
+  evaluate*, with the same What / Why / Action body. A single-model session
+  never shows the configuration-set wrapper text ("configuration
+  'Configuration 1' does not resolve … configured values are []"): every
+  wrapper layer is unwrapped to the underlying error. (The advisory's
+  `Set it via: params.set(…)` line was replaced under F-13.)
 - **A `tabulated` atmosphere with no files is reported as incomplete, not as
   a library-coverage refusal (CU-373 F-10).** The loader raised the atmosphere
   validation class the coverage predicate treats wholesale as "the library

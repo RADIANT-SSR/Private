@@ -57,6 +57,12 @@ class ActionableErrorDialog(QDialog):
         What was attempted on *dotpath* — ``"set"`` (the default) for an edit,
         ``"reset"`` for a withdrawal — so the header says what actually failed
         (audit F-03: a refused *Reset to Default* read "Cannot set").
+    title, header:
+        The window title and the header line, for a failure that is not a
+        parameter rejection at all — an evaluation that failed passes
+        ``title="Evaluation Failed"`` and a header saying so, instead of
+        *Parameter Rejected — Cannot set "evaluate"* (audit F-12: nothing named
+        "evaluate" was set). ``header`` defaults to ``Cannot <verb> “<dotpath>”``.
     """
 
     def __init__(
@@ -66,10 +72,12 @@ class ActionableErrorDialog(QDialog):
         parent: QWidget | None = None,
         *,
         verb: str = "set",
+        title: str = "Parameter Rejected",
+        header: str | None = None,
     ) -> None:
         super().__init__(parent)
         self.setObjectName("actionableErrorDialog")
-        self.setWindowTitle("Parameter Rejected")
+        self.setWindowTitle(title)
         self.setModal(True)
 
         what, why, action, context = _payload(exc)
@@ -78,11 +86,11 @@ class ActionableErrorDialog(QDialog):
         layout.setContentsMargins(18, 18, 18, 14)
         layout.setSpacing(10)
 
-        self._header_text = f"Cannot {verb} “{dotpath}”"
-        header = QLabel(self._header_text, self)
-        header.setObjectName("errorDialogHeader")
-        header.setWordWrap(True)
-        layout.addWidget(header)
+        self._header_text = header if header is not None else f"Cannot {verb} “{dotpath}”"
+        header_label = QLabel(self._header_text, self)
+        header_label.setObjectName("errorDialogHeader")
+        header_label.setWordWrap(True)
+        layout.addWidget(header_label)
 
         form = QFormLayout()
         form.setSpacing(6)

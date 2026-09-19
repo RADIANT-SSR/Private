@@ -218,3 +218,47 @@ class TestF10TabulatedWithoutFiles:
         assert "does not cover" not in status
         assert _chip_status(window, "atmosphere") == "err"
         assert _chip_status(window, "optics") == "stale"
+
+
+class TestF12FailuresTitledByCause:
+    """F-12: every evaluation failure was titled *Parameter Rejected — Cannot set
+    "evaluate"*, and on a blank config the text was the configuration-set
+    wrapper's ("Configuration 'Configuration 1' … configured values are [] …")."""
+
+    def test_a_genuine_evaluation_failure_is_titled_as_one(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        from radiant.core.exceptions import CoreValidationError
+
+        window = _complete_window(qtbot, monkeypatch)
+        opened = _capture_modals(monkeypatch)
+        window._on_eval_failed(CoreValidationError("some genuine rejection"))  # noqa: SLF001
+        assert len(opened) == 1
+        dialog = opened[0]
+        assert dialog.windowTitle() == "Evaluation Failed"
+        assert dialog.header_text == "The configuration did not evaluate"
+        assert "evaluate”" not in dialog.header_text
+
+    def test_a_single_model_session_never_shows_the_configuration_set_wrapper(
+        self, qtbot, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        window = _blank_window(qtbot)
+        _capture_modals(monkeypatch)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, "geometry.sensor_altitude_m", "500000")
+        error = window.right_rail.messages.error
+        assert error is not None
+        text = str(error)
+        assert "configured values are" not in text
+        assert "Configuration 1" not in text
+        assert text.startswith("Required parameter ")
+
+    def test_unwrap_walks_every_wrapper_layer(self) -> None:
+        from radiant.api.config_set import ConfigSetError
+        from radiant.core.parameters import RequiredParameterError
+        from radiant.gui.main_window import RADIANTMainWindow
+
+        root = RequiredParameterError("Required parameter 'x' is not set.", param="x")
+        inner = ConfigSetError(what="inner", why="w", action="a")
+        inner.__cause__ = root
+        outer = ConfigSetError(what="outer", why="w", action="a")
+        outer.__cause__ = inner
+        assert RADIANTMainWindow._underlying(outer) is root  # noqa: SLF001

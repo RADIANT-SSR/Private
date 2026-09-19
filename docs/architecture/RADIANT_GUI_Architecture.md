@@ -1265,12 +1265,20 @@ its `failure_reason` (Rule 17 carve-out), never a blank.
 **document** — since Phase 4e the whole study when the session is one, `configurations:`
 section included, and exactly today's single-config text when it is not (§4.2f decides
 which, once, for this modal and for Save alike). **Apply re-parses the edited text through
-the framework** (`ConfigurationSet.load`, the one reader that takes both document kinds);
-**invalid YAML → an actionable error and the document is left unchanged** (the live
-document is never corrupted — the edit is parsed on a throwaway first, exactly the §4.1
-validate-before-commit discipline), and a section violation's error already names the
-configuration and the parameter. This is the relocation of the shipped read-only YAML tab
-into an editable modal. As shipped, the serialized text is the **inputs** scope and there
+the framework** (`ConfigurationSet.load`, the one reader that takes both document kinds)
+**and then resolves the parsed document** (`document_yaml.document_rejection` →
+`ConfigurationSet.validate_all`, CU-372 F-32) with the same differential posture as every
+other commit path: an incomplete document (its only failure a `RequiredParameterError`) is
+admitted, any other resolve failure — bounds, enum, over-constrained group, a non-attaching
+element train — is refused. **Invalid YAML or a refused value → an actionable error
+rendered inline in the dialog's themed error area, and the document is left unchanged**
+(the live document is never corrupted — the edit is parsed and resolved on a throwaway
+first, exactly the §4.1 validate-before-commit discipline; the dialog never raises a modal
+over itself), and a section violation's error already names the configuration and the
+parameter. The preloaded serialization never resolves (`Sensor.to_yaml(validate=False)`),
+so the editor opens on an unresolvable document — before F-32 an out-of-bounds value that
+reached the live sensor left the editor unable to reopen. This is the relocation of the
+shipped read-only YAML tab into an editable modal. As shipped, the serialized text is the **inputs** scope and there
 is no resolved-scope serialize surface (**Gap 88**); the modal shows the inputs scope until
 that lands.
 

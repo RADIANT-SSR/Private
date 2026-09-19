@@ -161,9 +161,11 @@ the value with its unit, and the stage it came from; a metric that failed shows 
 rather than a blank. The pinned set is per session.
 
 **Edit Config (YAML).** Opens a roomy modal editor on the document — the whole study when
-the session is one. **Apply** re-parses the edited text through the framework, on a throwaway
-first, so invalid YAML produces an actionable error and leaves the live document untouched.
-The text is the *inputs* scope: what you specified, not the resolved two hundred.
+the session is one. **Apply** re-parses and resolves the edited text through the framework,
+on a throwaway first, so invalid YAML or a value the framework refuses produces an actionable
+error inline in the editor and leaves the live document untouched (an incomplete document is
+admitted; a wrong one is not). The editor opens whether or not the document resolves. The
+text is the *inputs* scope: what you specified, not the resolved two hundred.
 
 **Messages.** Warnings and errors from the last run, one row each, verbatim and never
 deduplicated. The header reads `⚠ N warnings` with the first inline; clicking opens the full

@@ -26,6 +26,15 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **The YAML editor's Apply resolves the document before adopting it, refuses
+  inline, and the editor always opens (CU-372 F-32).** Apply admitted an
+  out-of-bounds value into the live configuration, the status bar called it
+  "incomplete", and Edit Config (YAML) then raised the bounds error before it
+  could open — the one surface that could repair the document was dead. Apply
+  now resolves the freshly parsed document (an incomplete document is still
+  admitted; a wrong value is refused) and renders the refusal's what / why /
+  action inline beneath the text instead of a modal; the preloaded text is
+  serialized without resolving, so the editor opens on any document.
 - **Reset to Default either refuses cleanly or applies honestly (CU-372
   F-03).** Resetting a consistency-group member whose partner was derived from
   it showed a *Parameter Rejected* modal but applied the reset on the live

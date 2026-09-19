@@ -228,3 +228,62 @@ class TestF03ResetToDefaultIsClean:
         assert window._undo_stack.count() == undo_before + 1  # noqa: SLF001
         assert window.action("edit.undo").isEnabled()
         assert window._dirty  # noqa: SLF001
+
+
+class TestF32YamlApplyValidates:
+    """F-32: the YAML editor's Apply admitted an out-of-bounds value into the live
+    sensor, reported it as "incomplete", and the editor then could not be reopened."""
+
+    def test_out_of_bounds_apply_is_refused_inline_and_changes_nothing(
+        self, qtbot, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        """Steps: (1) Complete configuration. (2) Right rail ▸ Edit Config (YAML).
+        (3) Change aperture_diameter_m: 0.3 to -1.0. (4) Apply."""
+        window = _complete_window(qtbot, monkeypatch)
+        yaml_modals = _capture_modals(monkeypatch, "radiant.gui.widgets.yaml_editor_dialog")
+        document_before = window.configuration_set
+        dialog = window.open_yaml_editor()
+        assert dialog is not None
+        qtbot.addWidget(dialog)
+        text = dialog.yaml_text()
+        assert "aperture_diameter_m: 0.3" in text
+        dialog.editor.setPlainText(
+            text.replace("aperture_diameter_m: 0.3", "aperture_diameter_m: -1.0")
+        )
+
+        dialog.apply_button.click()
+
+        assert dialog.result() != 1  # not accepted: the dialog stays open with the text
+        assert "aperture_diameter_m: -1.0" in dialog.yaml_text()
+        assert dialog.error_frame.isVisibleTo(dialog)
+        rejection = dialog.last_rejection
+        assert rejection is not None and "out of bounds" in str(rejection)
+        assert yaml_modals == []
+        # The live document is untouched — same object, same value, undo history kept.
+        assert window.configuration_set is document_before
+        assert window.sensor.peek_input("optics.aperture_diameter_m") == 0.3
+        assert window.parameter_panel.value_text("optics.aperture_diameter_m") == "0.3 m"
+
+    def test_incomplete_document_is_still_admitted(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """Deleting a required value is a legal edit (incomplete, not wrong)."""
+        window = _complete_window(qtbot, monkeypatch)
+        dialog = window.open_yaml_editor()
+        assert dialog is not None
+        qtbot.addWidget(dialog)
+        text = dialog.yaml_text()
+        assert "  qe_value: 0.7\n" in text
+        dialog.editor.setPlainText(text.replace("  qe_value: 0.7\n", ""))
+        dialog.apply_button.click()  # an unresolvable document adopts without evaluating
+        assert dialog.result() == 1  # accepted
+        assert window.sensor.peek_input("detector.qe_value") is None
+        assert "incomplete" in window.statusBar().currentMessage()
+
+    def test_editor_opens_on_an_unresolvable_document(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """A document that cannot resolve (reached through the API, as a script would)
+        still opens in the editor, so it can be repaired there."""
+        window = _complete_window(qtbot, monkeypatch)
+        window.sensor.set("optics.aperture_diameter_m", -1.0)  # bypasses the GUI guards
+        dialog = window.open_yaml_editor()  # raised ParameterBoundsError before the fix
+        assert dialog is not None
+        qtbot.addWidget(dialog)
+        assert "aperture_diameter_m: -1.0" in dialog.yaml_text()

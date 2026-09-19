@@ -14,6 +14,7 @@ import pytest
 
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 
+import pytest
 from PySide6.QtWidgets import QLabel  # noqa: E402
 
 from radiant.gui.main_window import RADIANTMainWindow  # noqa: E402
@@ -453,3 +454,47 @@ class TestF20UndoRestoresProvenance:
         assert window.sensor.inputs()["optics.f_number"] == 4.0
         assert focal not in window.sensor.inputs()
         assert panel.value_text(focal) == "⚡ 1.2 m"
+
+
+class TestF37AnglesToggleReachesEditedRows:
+    """F-37: View ▸ Angles in Degrees did not change a row edited through the dialog —
+    the dialog's chosen unit was a sticky per-row override that outranked the toggle."""
+
+    def test_toggle_wins_over_the_dialog_unit_and_entry_follows(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """T-U: path_zenith_rad typed as 30 with degrees on; toggle off; type 0.5; toggle on."""
+        from radiant.gui import display_units
+
+        window = _complete_window(qtbot, monkeypatch)
+        panel = window.parameter_panel
+        zenith = "geometry.path_zenith_rad"
+        toggle = window.action("view.angles_deg")
+        assert toggle.isChecked()
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, zenith, "30")  # the dialog opens in deg: 30 deg
+        assert panel.value_text(zenith) == "30 deg"
+        assert window.sensor.peek_input(zenith) == pytest.approx(0.5235987755982988)
+
+        toggle.trigger()  # degrees OFF
+        assert not display_units.angles_in_degrees()
+        assert panel.value_text(zenith) == "0.523599 rad"  # the row follows the toggle
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            panel._commit_edit(zenith, 0.5)  # noqa: SLF001 — typed "in radians"
+        assert window.sensor.peek_input(zenith) == pytest.approx(0.5)  # stored as 0.5 rad
+        assert panel.value_text(zenith) == "0.5 rad"
+
+        toggle.trigger()  # degrees ON again
+        assert panel.value_text(zenith) == "28.6479 deg"
+        display_units.set_angles_in_degrees(True)
+
+    def test_a_genuine_per_row_unit_survives_the_toggle(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """mrad on a rad row is a real choice, not the toggle's business."""
+        from radiant.gui import display_units
+
+        window = _complete_window(qtbot, monkeypatch)
+        panel = window.parameter_panel
+        zenith = "geometry.path_zenith_rad"
+        panel.display_units[zenith] = "mrad"
+        window.action("view.angles_deg").trigger()
+        assert panel.display_units.get(zenith) == "mrad"
+        window.action("view.angles_deg").trigger()
+        display_units.set_angles_in_degrees(True)

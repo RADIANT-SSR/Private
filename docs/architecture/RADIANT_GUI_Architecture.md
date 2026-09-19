@@ -965,7 +965,14 @@ in the row's display unit and write it with `sensor.set(dotpath, value, unit=dis
 so entry and display stay symmetric (type `550` into a km-displaying row → `550000 m`
 canonical, row shows `550 km`). The unit suffix is always part of the displayed string
 (R-UNITS). The preference is **session-scoped**; QSettings persistence across launches
-arrives in Phase 9. Loading a new sensor resets the preferences.
+arrives in Phase 9. Loading a new sensor resets the preferences. **The global angles toggle
+outranks a per-row `rad`/`deg` override (CU-372 F-37):** a commit whose chosen unit is the
+unit the row would show anyway records no override, and flipping View → *Angles in
+Degrees* clears every `rad`/`deg` override on a `rad`-schema row
+(`display_units.drop_governed_overrides`) so those rows follow the toggle again — before
+this, a row edited through the dialog kept the dialog's unit after the toggle and a value
+typed "in radians" landed in degrees. An override in any other unit (`mrad`, `km`) is a
+genuine per-row choice and survives.
 
 ### 4.4a Welcome Screen — mission templates at the no-config state (owner-confirmed brief 2026-08-31)
 

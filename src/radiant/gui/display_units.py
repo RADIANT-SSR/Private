@@ -31,7 +31,11 @@ instrument look lives or dies on this (Visible Unit Rule).
 
 from __future__ import annotations
 
-from typing import Final
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Final
+
+if TYPE_CHECKING:
+    from radiant.core.parameters import ParameterDef
 
 #: The global preference when "angles in degrees" is ON (the shipped default):
 #: schema input-unit → preferred display unit.
@@ -63,6 +67,42 @@ def global_display_unit(input_unit: str) -> str | None:
     resolved by the caller *before* consulting this.
     """
     return _active.get(input_unit)
+
+
+def default_display_unit(input_unit: str) -> str:
+    """The unit a row displays in with **no** per-row override: preference, else schema."""
+    return global_display_unit(input_unit) or input_unit
+
+
+#: The units the angles toggle governs — an override in one of these is the toggle's
+#: business, not a per-row choice that should outrank it.
+_GOVERNED_ANGLE_UNITS: Final[frozenset[str]] = frozenset({"rad", *_ANGLES_IN_DEGREES.values()})
+
+
+def drop_governed_overrides(
+    store: dict[str, str], defs: Mapping[str, ParameterDef]
+) -> tuple[str, ...]:
+    """Drop per-row overrides the angles toggle governs; return the dot-paths cleared.
+
+    CU-372 F-37: the unit chosen in a Parameter Editor commit becomes the row's sticky
+    display unit, and that override *outranked* the global toggle — a row edited while
+    degrees were on kept reading ``deg`` after the toggle went off, and a value then
+    typed "in radians" landed in degrees. The toggle is the outer authority for the
+    rad↔deg choice: flipping it clears every override that is itself ``rad`` or
+    ``deg`` on a ``rad``-schema row, so those rows follow the toggle again. An
+    override in any other unit (``mrad`` on a rad row, ``km`` on a length row) is a
+    genuine per-row choice and survives.
+    """
+    cleared = tuple(
+        dotpath
+        for dotpath, unit in store.items()
+        if unit in _GOVERNED_ANGLE_UNITS
+        and dotpath in defs
+        and (defs[dotpath].input_unit or "") == "rad"
+    )
+    for dotpath in cleared:
+        del store[dotpath]
+    return cleared
 
 
 #: ASCII → typeset display forms for unit strings. Display-side only; the

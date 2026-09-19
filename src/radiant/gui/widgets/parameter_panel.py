@@ -74,7 +74,7 @@ from PySide6.QtWidgets import (
 
 from radiant.core.exceptions import RadiantError
 from radiant.gui.dialog_lifetime import exec_dialog
-from radiant.gui.display_units import global_display_unit
+from radiant.gui.display_units import default_display_unit, global_display_unit
 from radiant.gui.edit_guard import apply_edit, validate_edit, validate_reset
 from radiant.gui.param_format import (
     DERIVED_BADGE,
@@ -813,7 +813,13 @@ class ParameterPanel(QWidget):
         if self._sensor is None:
             return
         if unit is not None:
-            self._display_units[dotpath] = unit
+            pdef = self._sensor.parameter_def(dotpath)
+            if unit == default_display_unit(pdef.input_unit or ""):
+                # The unit the row would show anyway is not a per-row choice: record
+                # nothing, so the row keeps following the global toggle (F-37).
+                self._display_units.pop(dotpath, None)
+            else:
+                self._display_units[dotpath] = unit
         self._clear_error_state()
         self.populate(self._sensor)
         self.parameterEdited.emit(dotpath)

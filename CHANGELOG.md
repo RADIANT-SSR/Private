@@ -26,6 +26,13 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **View ▸ Angles in Degrees now reaches rows edited through the Parameter
+  Editor (CU-372 F-37).** The unit chosen in the editor became a sticky
+  per-row display unit that outranked the global toggle: a zenith typed as
+  30° kept reading `30 deg` after the toggle went off, and `0.5` typed next
+  was stored as 0.5°. The toggle now clears the `rad`/`deg` overrides it
+  governs, and a chosen unit equal to the row's default records none; other
+  per-row units (`mrad`, `km`) still stick.
 - **Undo restores provenance, not just the number (CU-372 F-20).** Undoing
   the first value typed into a row wrote the schema default back as a
   *user-set* input (`jitter_rms_urad 0 µrad user-set`), so *Changed only*

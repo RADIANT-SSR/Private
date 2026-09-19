@@ -62,7 +62,7 @@ from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import RequiredParameterError
 from radiant.gui.config_scope import ConfigurationScope
 from radiant.gui.dialog_lifetime import exec_dialog
-from radiant.gui.display_units import set_angles_in_degrees
+from radiant.gui.display_units import drop_governed_overrides, set_angles_in_degrees
 from radiant.gui.document_yaml import is_study
 from radiant.gui.errors import GuiValidationError
 from radiant.gui.geometry_modes import implicated_families
@@ -3116,12 +3116,18 @@ class RADIANTMainWindow(QMainWindow):
         """Flip the global angles-in-degrees display preference (CU-326).
 
         Persists the choice, installs the module state every display surface
-        reads, and re-renders the parameter tree + stage forms so every visible
-        angle re-expresses immediately. Values are untouched (display-only,
-        Rule 2); an open editor keeps the unit it was opened with.
+        reads, clears the per-row ``rad``/``deg`` overrides the toggle governs (so a
+        row edited through the editor follows the toggle too — CU-372 F-37), and
+        re-renders the parameter tree + stage forms so every visible angle
+        re-expresses immediately. Values are untouched (display-only, Rule 2); an
+        open editor keeps the unit it was opened with.
         """
         self._settings.set_angles_in_degrees(enabled)
         set_angles_in_degrees(enabled)
+        if self._sensor is not None:
+            drop_governed_overrides(
+                self._parameter_panel.display_units, self._sensor.parameter_defs()
+            )
         self._parameter_panel.populate(self._sensor)
         self._central.stage_center.refresh_forms()
 

@@ -101,7 +101,11 @@ from then on that row displays in kilometers, including when you type into it in
 Angles get their own switch, because radians are canonical and nobody thinks in them:
 **View ▸ Angles in Degrees** is on by default and persists across launches. It is display
 only — the stored value is unchanged — which is why the figures in this manual show
-`path_zenith_rad` reading `0 deg` and `solar_zenith_rad` reading `28.6479 deg`.
+`path_zenith_rad` reading `0 deg` and `solar_zenith_rad` reading `28.6479 deg`. The switch
+is the authority for every angle row, including rows you have edited: flipping it re-expresses
+a row whose editor you last used in degrees, and what you type into that row afterwards is read
+in the unit the row now shows. A unit you chose deliberately that the switch does not govern —
+milliradians on an angle row, kilometres on a length — stays.
 
 Metric cards scale for legibility on the same principle: NEDT renders in mK, a 2.13 × 10⁻⁵ m
 FWHM renders as 21.3 µm, and a dimensionless ratio renders as a bare number. One metric shows

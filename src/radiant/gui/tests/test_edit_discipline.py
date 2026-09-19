@@ -14,6 +14,8 @@ import pytest
 
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 
+from PySide6.QtWidgets import QLabel  # noqa: E402
+
 from radiant.gui.main_window import RADIANTMainWindow  # noqa: E402
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog  # noqa: E402
 
@@ -336,3 +338,58 @@ class TestF04DerivedTakeover:
         assert "optics.aperture_diameter_m" not in window.sensor.inputs()
         assert window.sensor.inputs()["optics.f_number"] == 4.0
         assert panel.value_text("optics.aperture_diameter_m") == "⚡ 0.45 m"
+
+
+class TestF06OverConstrainedGroupRejectedAtTheDoor:
+    """F-06: an over-constrained group authored on a blank configuration was admitted
+    (bounds-only fallback), surfaced only when the configuration completed, then
+    raised a modal on every further edit naming the first-set member."""
+
+    def test_disagreeing_third_member_is_rejected_on_its_own_row(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """Steps: (1) Blank config. (2) Aperture 0.3, focal length 1.2, then f-number 6."""
+        window = _blank_window(qtbot)
+        _capture_modals(monkeypatch, "radiant.gui.main_window")
+        panel = window.parameter_panel
+        _dialog_set(window, "optics.aperture_diameter_m", "0.3")
+        _dialog_set(window, "optics.focal_length_m", "1.2")
+        dialog = ParameterEditorDialog(
+            window.sensor,
+            "optics.f_number",
+            panel._after_dialog_commit,
+            panel,  # noqa: SLF001
+        )
+        qtbot.addWidget(dialog)
+        dialog.value_editor.setText("6")
+        dialog.apply(close=False)
+        # Refused at the door, on the row being edited, with the group's own message.
+        assert dialog.error_frame.isVisibleTo(dialog)
+        rendered = "\n".join(lbl.text() for lbl in dialog.error_frame.findChildren(QLabel))
+        assert "over-constrained" in rendered
+        assert "optics.f_number" not in window.sensor.inputs()
+        # A consistent value is accepted.
+        dialog.value_editor.setText("4")
+        dialog.apply(close=True)
+        assert window.sensor.inputs()["optics.f_number"] == 4.0
+
+    def test_the_remaining_parameters_then_enter_without_a_modal(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """Step (3): enter the remaining eight — ten modals before, none now."""
+        window = _blank_window(qtbot)
+        opened = _capture_modals(monkeypatch, "radiant.gui.main_window")
+        panel = window.parameter_panel
+        _dialog_set(window, "optics.aperture_diameter_m", "0.3")
+        _dialog_set(window, "optics.focal_length_m", "1.2")
+        rejected = ParameterEditorDialog(
+            window.sensor,
+            "optics.f_number",
+            panel._after_dialog_commit,
+            panel,  # noqa: SLF001
+        )
+        qtbot.addWidget(rejected)
+        rejected.value_editor.setText("6")
+        rejected.apply(close=False)
+        rest = [(d, v) for d, v in _COMPLETE if not d.startswith("optics.")]
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            for dotpath, text in rest:
+                _dialog_set(window, dotpath, text)
+        assert opened == []
+        assert window.last_result is not None

@@ -26,6 +26,13 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **A disagreeing consistency-group member is refused where it is typed
+  (CU-372 F-06).** On an incomplete configuration the editor's bounds-only
+  fallback admitted a third `fnumber` value that disagreed with the other two;
+  the over-constraint surfaced only once the configuration completed, then as
+  a modal on every further edit naming the first-set member. The shared guard
+  now refuses it at the door, on the row being edited, with the group's own
+  message; the other members are untouched.
 - **A derived consistency-group member can be taken over from its editor
   (CU-372 F-04).** The Parameter Editor on a ⚡ derived row opened read-only,
   so "specify focal length instead of f-number" needed an undocumented Reset

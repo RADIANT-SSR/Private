@@ -156,7 +156,7 @@ CONTRAST_REFERENCE_TEMPERATURE = ParameterDef(
     description=(
         "Temperature [K] of the reference (background) scene in the "
         "neighbouring extended pixel, used only for the extended "
-        "contrast_snr differential (ADR-0005). 0 = no contrast reference "
+        "contrast_snr differential. 0 = no contrast reference "
         "(default). Never enters the noise budget."
     ),
     dtype=float,
@@ -171,7 +171,7 @@ CONTRAST_REFERENCE_TEMPERATURE = ParameterDef(
 CONTRAST_REFERENCE_EMISSIVITY = ParameterDef(
     name="source.contrast_reference.emissivity",
     description=(
-        "Emissivity of the extended contrast-reference scene (ADR-0005). "
+        "Emissivity of the extended contrast-reference scene. "
         "Only used when source.contrast_reference.temperature > 0."
     ),
     dtype=float,
@@ -293,7 +293,7 @@ LAB_TEST_MODE = ParameterDef(
     name="source.lab_test_mode",
     description=(
         "Positive dark/lit assertion for the ground_test / lab_test "
-        "sub-cases (Gap 40). 'dark' declares a no-external-illumination "
+        "sub-cases. 'dark' declares a no-external-illumination "
         "configuration (no lamp, no solar — thermal self-emission only, "
         "the D-lab dark-cal sub-mode) and is VALIDATED: a user-set "
         "source.target.reflectance contradicts it and is rejected. 'lit' "
@@ -318,11 +318,11 @@ BACKGROUND_MATERIAL = ParameterDef(
     name="source.background.material",
     description=(
         "Named spectral-library material for the sub-pixel/point-source "
-        "GroundBackground emissivity ε_g(λ) (CU-008). 'grey' (default) uses "
+        "GroundBackground emissivity ε_g(λ). 'grey' (default) uses "
         "the scalar source.background.emissivity as a flat spectrum — the "
         "back-compat path. Any other name is resolved against "
         "radiant.data.SpectralLibrary (vegetation_green, snow, soil_dry, "
-        "asphalt, ...) by the API layer before chain execution (Rule 6); "
+        "asphalt, ...) by the API layer before chain execution; "
         "unknown names are rejected with the legal vocabulary. "
         "source.background.emissivity_path overrides this when set."
     ),
@@ -343,8 +343,8 @@ BACKGROUND_EMISSIVITY_PATH = ParameterDef(
     description=(
         "Two-column CSV (wavelength_um, emissivity) giving a measured "
         "background emissivity spectrum ε_g(λ) for the sub-pixel/"
-        "point-source GroundBackground (CU-008). Loaded by the API layer "
-        "before chain execution (Rule 6) and resampled onto the chain "
+        "point-source GroundBackground. Loaded by the API layer "
+        "before chain execution and resampled onto the chain "
         "grid. Takes precedence over source.background.material."
     ),
     dtype=str,
@@ -413,7 +413,7 @@ BRIGHTNESS_TEMPERATURE_PATH = ParameterDef(
         "Path to a 2-column CSV (wavelength_um, T_B_K) carrying a "
         "wavelength-dependent brightness temperature.  When set, routes "
         "through the S11 converter; λ-varying T_B emits "
-        "T6TabulatedAtSource with L_source = B(λ, T_B(λ)) per ADR-0003. "
+        "T6TabulatedAtSource with L_source = B(λ, T_B(λ)). "
         "Mutually exclusive with source.target.brightness_temperature_K."
     ),
     dtype=str,
@@ -584,7 +584,7 @@ EMISSIVITY_PATH = ParameterDef(
     is_file_path=True,
     description=(
         "Path to a 2-column CSV (wavelength_um, emissivity) carrying a "
-        "λ-dependent emissivity ε(λ) for a thermal target (Gap 47). When "
+        "λ-dependent emissivity ε(λ) for a thermal target. When "
         "set, the inferrer builds the thermal descriptor with L_t(λ) = "
         "ε(λ)·B(λ, source.target.temperature) instead of a grey ε. "
         "Mutually exclusive with the scalar source.target.emissivity and "
@@ -633,7 +633,7 @@ USER_INTENSITY_PATH = ParameterDef(
         "carrying a user-supplied spectral intensity at the target "
         "plane, for unresolved (point-source) targets.  When set, "
         "routes through the Phase 5 inferrer to a T7IntensityAtSource "
-        "descriptor (S10 — ADR-0004; no physical model applied, the "
+        "descriptor (S10 — no physical model applied, the "
         "user owns the physics).  Mutually exclusive with every other "
         "target spec form ((ε, T), reflectance/albedo, "
         "brightness_temperature, radiance_temperature, user_radiance).  "
@@ -700,8 +700,9 @@ POINT_INTENSITY_EMISSIVITY = ParameterDef(
     name="source.target.point_intensity_emissivity",
     description=(
         "Scalar emissivity ε ∈ [0, 1] of a blackbody point source (the ε in "
-        "I(λ) = ε·A·B(λ,T)). Independent material property (Rule 5 applies to optical "
-        "elements, not scene targets)."
+        "I(λ) = ε·A·B(λ,T)). An independent material property: the "
+        "Kirchhoff-derived emissivity rule binds optical elements, not "
+        "scene targets."
     ),
     dtype=float,
     canonical_unit="",

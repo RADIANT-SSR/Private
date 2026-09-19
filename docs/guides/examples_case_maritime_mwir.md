@@ -74,7 +74,7 @@ offscreen where modal dialogs cannot be photographed cleanly, so the figure belo
 shows the state that matters instead: the Atmosphere workspace as the baseline
 config leaves it, on the **parametric** side of the comparison.
 
-![Atmosphere workspace (panel grab) on the scenario 1.1 baseline — the parametric
+![Atmosphere workspace on the scenario 1.1 baseline — the parametric
 model's four inputs above, the target-path transmittance and path radiance they
 produce below.](figures/gui/case_maritime_atmosphere.png)
 
@@ -136,7 +136,7 @@ different questions about the same row.
 
 Select stage **2 Source**, tab **Scene & regime**.
 
-![Source workspace, Scene & regime tab (panel grab) — the declared sub-pixel scene and
+![Source workspace, Scene & regime tab — the declared sub-pixel scene and
 the angular extent that justifies it.](figures/gui/case_maritime_scene_regime.png)
 
 `Scene type (declared)` and `Regime override (force)` both read `sub_pixel`, and the

@@ -146,7 +146,7 @@ QE_TABLE_PATH = ParameterDef(
     description=(
         "Path to a wavelength-vs-QE CSV. When set, RadiantSession loads it "
         "(io.qe_csv) onto the wavelength grid and applies it spectrally, "
-        "superseding the scalar qe_value; past-cutoff QE is zero (Gap 44)."
+        "superseding the scalar qe_value; past-cutoff QE is zero."
     ),
     dtype=str,
     canonical_unit="",
@@ -159,9 +159,9 @@ QE_TABLE_PATH = ParameterDef(
 QE_MATERIAL = ParameterDef(
     name="detector.qe_material",
     description=(
-        "Named bundled detector QE curve (Gap 69): a material in the bundled detector "
+        "Named bundled detector QE curve: a material in the bundled detector "
         "library (e.g. 'insb', 'hgcdte_mwir', 'silicon' — the API rejects unknown names "
-        "with the legal vocabulary). Resolved pre-chain by the API layer (Rule 6) onto the "
+        "with the legal vocabulary). Resolved pre-chain by the API layer onto the "
         "wavelength grid, QE = 0 past the data span. Precedence: qe_table_path (explicit "
         "file) > qe_material (library) > qe_value (scalar). Empty = disabled."
     ),
@@ -179,7 +179,7 @@ QE_TEMPERATURE_COEFF_PER_K = ParameterDef(
         "Linear QE temperature coefficient [1/K]. QE(T) = QE_base · "
         "(1 + coeff·(detector_temperature_K − qe_temperature_ref_K)), applied "
         "to the scalar qe_value or the qe_table_path curve. Default 0 "
-        "(temperature-independent QE). Gap 48."
+        "(temperature-independent QE)."
     ),
     dtype=float,
     canonical_unit="1/K",

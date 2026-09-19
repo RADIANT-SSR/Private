@@ -226,7 +226,8 @@ substitute for GSD when there is no ground plane to project a footprint onto. $Q
 ground range, no swath width, no access rate** — the eleven metrics the scene-class card
 listed are genuinely absent from the result, not blank.
 
-The pinned cards say the same thing in a second place: GSD and NIIRS both read
+The right rail's pinned cards, outside the pane shown above, say the same thing in a
+second place: GSD and NIIRS both read
 `n/a — not computed for this run`, and the Interpretability group carries only MRT at
 Nyquist, 0.5364 K. Nothing in the configuration asked for this; it follows from the
 derived scene class through one declarative relevance map.

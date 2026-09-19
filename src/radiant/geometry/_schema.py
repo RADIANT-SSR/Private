@@ -36,7 +36,7 @@ SENSOR_ALTITUDE_M = ParameterDef(
         "altitude the "
         "no_atmosphere 'space' sub-case uses for the Earth-limb intercept "
         "check (formerly the separate platform.h_sensor stop-gap — folded "
-        "as a deprecated alias per CU-090/ADR-0006)."
+        "as a deprecated alias)."
     ),
     dtype=float,
     canonical_unit="m",
@@ -64,8 +64,8 @@ SITE_ELEVATION_M = ParameterDef(
     description=(
         "Terrain elevation of the scene's ground site above mean sea level "
         "[m] — the altitude of the SURFACE beneath the line of sight, which "
-        "is NOT the same thing as the lowest point of the line of sight "
-        "(CU-262). It is the reference the surface boundary layer sits on: "
+        "is NOT the same thing as the lowest point of the line of sight. "
+        "It is the reference the surface boundary layer sits on: "
         "the Hufnagel-Valley Cn2 surface term is evaluated at (h - "
         "site_elevation_m) so that a mountain-top observatory keeps its own "
         "boundary layer, while the tropopause and middle-atmosphere terms "
@@ -81,8 +81,8 @@ SITE_ELEVATION_M = ParameterDef(
         "profile is taken as given against MSL and is not shifted, and "
         "'direct' has no profile at all. A non-zero value set against "
         "either of those is inert and emits a UserWarning naming why "
-        "(CU-302) rather than being dropped silently. The "
-        "default 0 reproduces every pre-CU-262 result bit-identically."
+        "rather than being dropped silently. The default 0 places the site "
+        "at mean sea level."
     ),
     dtype=float,
     canonical_unit="m",
@@ -104,7 +104,7 @@ PATH_ZENITH_RAD = ParameterDef(
     name="geometry.path_zenith_rad",
     description=(
         "Line-of-sight zenith angle at the path's LOWER endpoint [rad] — "
-        "mode V1 entry (ADR-0011 decision 3). When the sensor is above the "
+        "mode V1 entry. When the sensor is above the "
         "target (every classic scene) the target IS the lower endpoint, so "
         "this is the canonical target-side zenith theta_o and 0 = sensor at "
         "the target's zenith (nadir view). When the sensor is below the "
@@ -130,8 +130,7 @@ SOLAR_ZENITH_RAD = ParameterDef(
     name="geometry.solar_zenith_rad",
     description=(
         "Solar zenith angle [rad]. Domain is the full closed interval [0, π] "
-        "since Geometry-Flexibility Phase 2 (ADR-0011 decision 10 / ratified "
-        "decision 21): θ_s > π/2 puts the sun below the *local* horizontal, "
+        "θ_s > π/2 puts the sun below the *local* horizontal, "
         "which a target high enough to clear the terminator shadow can still "
         "see. Whether a given point is lit is decided per-altitude by the "
         "shadow-height test in radiant.atmosphere.solar_shadow, not by this "
@@ -164,7 +163,7 @@ SOLAR_AZIMUTH_RAD = ParameterDef(
 SOLAR_ILLUMINATION = ParameterDef(
     name="geometry.solar_illumination",
     description=(
-        "Day/night solar toggle (Gap 59). 'day' (default) illuminates "
+        "Day/night solar toggle. 'day' (default) illuminates "
         "reflective and mixed (T2/T3) targets with the sun at "
         "geometry.solar_zenith_rad — the historical behavior, in which the "
         "0.5 rad zenith default meant every T2/T3 scene carried a daytime "
@@ -373,7 +372,7 @@ SHAPE_BASE_RADIUS = ParameterDef(
 SHAPE_YAW = ParameterDef(
     name="geometry.target.shape_yaw_rad",
     description=(
-        "Target body yaw [rad] about scene +Z (ZYX Euler, Rule 3).  "
+        "Target body yaw [rad] about scene +Z (ZYX Euler).  "
         "Applied to the selected TargetShape's ``orientation_rad`` "
         "tuple in Step 1.2."
     ),
@@ -399,7 +398,7 @@ SHAPE_YAW = ParameterDef(
 
 SHAPE_PITCH = ParameterDef(
     name="geometry.target.shape_pitch_rad",
-    description=("Target body pitch [rad] about scene +Y (ZYX Euler, Rule 3)."),
+    description=("Target body pitch [rad] about scene +Y (ZYX Euler)."),
     dtype=float,
     canonical_unit="rad",
     input_unit="rad",
@@ -422,7 +421,7 @@ SHAPE_PITCH = ParameterDef(
 
 SHAPE_ROLL = ParameterDef(
     name="geometry.target.shape_roll_rad",
-    description=("Target body roll [rad] about scene +X (ZYX Euler, Rule 3)."),
+    description=("Target body roll [rad] about scene +X (ZYX Euler)."),
     dtype=float,
     canonical_unit="rad",
     input_unit="rad",
@@ -452,7 +451,7 @@ SENSOR_OFF_NADIR_RAD = ParameterDef(
     name="geometry.sensor_off_boresight_rad",
     description=(
         "Sensor off-BORESIGHT angle [rad] — mode V2 entry. The reference "
-        "axis is resolved from the altitudes (ADR-0011), never declared: "
+        "axis is resolved from the altitudes, never declared: "
         "the sensor's NADIR when the sensor is above the target (the "
         "classic off-nadir look angle eta, converted to the target-side "
         "path zenith by the spherical-Earth sine rule, "
@@ -506,7 +505,7 @@ ELEVATION_ANGLE_RAD = ParameterDef(
         "classic sensor-above-target scene the lower endpoint is the "
         "target, so this is the sensor's elevation seen from the target "
         "and path zenith = pi/2 - elevation exactly as before. NEGATIVE "
-        "elevation is legal since ADR-0011 — the path leaves its lower "
+        "elevation is legal — the path leaves its lower "
         "endpoint on a descending shoulder (a level or near-level arm sags "
         "below the horizontal). Unused unless explicitly set."
     ),
@@ -658,7 +657,7 @@ SCENE_CLASS = ParameterDef(
     name="geometry.scene_class",
     description=(
         "OPTIONAL assertion of the scene class — the observer x target "
-        "altitude-band label of the ADR-0011 taxonomy "
+        "altitude-band label of the scene taxonomy "
         "(ground: h < 1 km; air: 1-100 km; space: h > 100 km, the h_atm_top "
         "convention). The class is ALWAYS derived from "
         "geometry.sensor_altitude_m and geometry.target_altitude_m and "
@@ -668,8 +667,8 @@ SCENE_CLASS = ParameterDef(
         "stage raises GeometrySpecificationError naming both — which is how a "
         "wrong-magnitude altitude typo (600 m where 600 km was meant) is "
         "caught, since pure derivation renders it as a self-consistent scene "
-        "of the wrong class. Physics NEVER branches on the class (ADR-0011 "
-        "decision 8): it drives defaults, metric relevance, validation, and "
+        "of the wrong class. Physics NEVER branches on the class: it drives "
+        "defaults, metric relevance, validation, and "
         "GUI composition only. 'auto' = unset (no assertion, the default)."
     ),
     dtype=str,
@@ -705,14 +704,14 @@ LOS_ANGULAR_RATE_RAD_S = ParameterDef(
     name="geometry.los_angular_rate_rad_s",
     description=(
         "Line-of-sight angular rate [rad/s] entered DIRECTLY — mode K1, the "
-        "first of the two Gap 111 doors. This is the rate at which the "
+        "first of the two kinematics doors. This is the rate at which the "
         "sensor-target LOS direction rotates, |v_rel,perp| / slant_range, "
         "including both platform and target motion. Use it when the rate is "
         "known (a tracker's measured slew) rather than the velocities. The "
         "alternative door is the target-velocity triple "
         "(geometry.target_speed_m_s / target_heading_rad / target_climb_rad), "
         "from which the same rate is derived; setting both is legal only if "
-        "they agree within 1% (ADR-0006 rule 2). Unused unless explicitly "
+        "they agree within 1%. Unused unless explicitly "
         "set: with neither door set the published rate is the platform-only "
         "value derived from geometry.ground_speed_m_s."
     ),
@@ -728,7 +727,7 @@ LOS_ANGULAR_RATE_RAD_S = ParameterDef(
 TARGET_SPEED_M_S = ParameterDef(
     name="geometry.target_speed_m_s",
     description=(
-        "Target speed [m/s] — mode K2 entry (target-velocity door, Gap 111). "
+        "Target speed [m/s] — mode K2 entry (the target-velocity door). "
         "Magnitude only; direction is geometry.target_heading_rad (azimuth) "
         "and geometry.target_climb_rad (elevation). 0 = a stationary target, "
         "which is the default and reduces the published LOS rate exactly to "

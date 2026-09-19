@@ -23,8 +23,8 @@ SCHEME = ParameterDef(
         "(per-pixel gain and offset corrected at two cal points; residual "
         "set by nonlinearity dispersion and drift), or 'three_point' "
         "(piecewise gain+offset through three cal points — each segment's "
-        "nonlinearity parabola shrinks to that segment's span; Gap 122 "
-        "item 2, owner-scoped to three points). Active schemes emit the "
+        "nonlinearity parabola shrinks to that segment's span). Active "
+        "schemes emit the "
         "post-NUC residual noise terms and calibration bias terms."
     ),
     dtype=str,
@@ -70,7 +70,7 @@ CAL_TEMP_MID_K = ParameterDef(
     name="calibration.cal_temp_mid_K",
     description=(
         "Middle calibration-source temperature [K] for the 'three_point' "
-        "scheme (Gap 122 item 2). Must satisfy cal_temp_low_K < cal_temp_mid_K "
+        "scheme. Must satisfy cal_temp_low_K < cal_temp_mid_K "
         "< cal_temp_high_K; 0.0 = unset (evaluate-time validation when the "
         "scheme is active, matching the other cal points' sentinel)."
     ),
@@ -146,12 +146,11 @@ SOURCE_UNIFORMITY_K = ParameterDef(
     name="calibration.source_uniformity_K",
     description=(
         "Calibration-source spatial non-uniformity (1-sigma) across the "
-        "aperture [K] (Gap 122 item 1). Imprinted into the correction at cal "
+        "aperture [K]. Imprinted into the correction at cal "
         "time: residual FPN = dT_unif x dS/dT at the cal temperature(s), "
         "non-zero even AT the cal points (unlike the NUC nonlinearity "
         "parabola). Cavity blackbodies typically hold 0.01-0.05 K. "
-        "0.0 (default) = perfectly uniform source, term off — bit-identical "
-        "to the pre-Gap-122 model."
+        "0.0 (default) = perfectly uniform source, term off."
     ),
     dtype=float,
     canonical_unit="K",
@@ -197,7 +196,8 @@ SOURCE_EMISSIVITY = ParameterDef(
     description=(
         "Calibration-source emissivity (nominal). A scene-side material "
         "property of the cal source, so a legitimate independent input "
-        "(Rule 5 applies to optical elements, not sources). Must be > 0 "
+        "(Kirchhoff-derived emissivity is required of optical elements, not "
+        "of sources). Must be > 0 "
         "when an emissivity uncertainty is set; validated at evaluate time."
     ),
     dtype=float,
@@ -215,7 +215,7 @@ CAL_POINT_MODE = ParameterDef(
         "mapped to cal signals through the band Planck photon-radiance "
         "ratio — the v1 form) or 'flux_fraction' (cal_flux_* as fractions "
         "of the scene signal — the integrating-sphere / flat-field form, "
-        "the CU-346 flux-ratio door, Gap 122 item 5). Under flux_fraction "
+        "the flux-ratio door). Under flux_fraction "
         "the temperature-anchored inputs (cal_temp_*_K, "
         "source_temp_uncertainty_K, source_uniformity_K, "
         "band_center_uncertainty_um, source_emissivity_uncertainty) have "
@@ -282,8 +282,7 @@ CAL_PATH = ParameterDef(
         "v1 behavior) or 'internal_shutter' (a flag/shutter inside the "
         "train — the NUC never sees the emission of elements in FRONT of "
         "it, which returns in operation as an uncorrected offset bias plus "
-        "narcissus-pattern FPN; Gap 122 item 4, the ADR-0012 ops-level "
-        "growth path). Requires an active scheme and "
+        "narcissus-pattern FPN). Requires an active scheme and "
         "shutter_after_element >= 1."
     ),
     dtype=str,
@@ -338,7 +337,7 @@ BAND_CENTER_UNCERTAINTY_UM = ParameterDef(
         "or filter drift as a rigid band shift. Becomes a scene-temperature-"
         "dependent radiance BIAS term: the calibration absorbs the scale "
         "error at its own temperature, so the residual is the scene-vs-cal "
-        "difference of band-shift log-derivatives (Gap 122 item 3) — "
+        "difference of band-shift log-derivatives — "
         "accuracy budget only, never RSS'd into noise. Zero at "
         "T_scene = T_cal; Wien-side (short-wave) bands are most sensitive."
     ),

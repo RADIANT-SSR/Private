@@ -45,7 +45,10 @@ from PySide6.QtWidgets import (
 
 from radiant.api.atmosphere_families import is_atmosphere_coverage_refusal
 from radiant.api.build_info import build_info
-from radiant.api.calibration_state import is_calibration_config_incomplete
+from radiant.api.calibration_state import (
+    is_calibration_config_incomplete,
+    is_calibration_mode_conflict,
+)
 from radiant.api.config_io import read_template_meta
 from radiant.api.config_set import (
     ConfigSetError,
@@ -58,8 +61,9 @@ from radiant.api.readout_architecture import (
     is_readout_architecture_conflict,
 )
 from radiant.api.sensor import Sensor
+from radiant.api.transmission_state import is_transmission_config_incomplete
 from radiant.core.exceptions import RadiantError
-from radiant.core.parameters import RequiredParameterError
+from radiant.core.parameters import ConsistencyGroupError, RequiredParameterError
 from radiant.gui.config_scope import ConfigurationScope
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.display_units import drop_governed_overrides, set_angles_in_degrees
@@ -95,12 +99,15 @@ from radiant.gui.widgets.scoped_parameter_command import ScopedParameterCommand,
 from radiant.gui.widgets.scripting_console import ScriptingConsole
 from radiant.gui.widgets.scripting_window import ScriptingWindow
 from radiant.gui.widgets.set_parameter_command import SetParameterCommand
-from radiant.gui.widgets.stage_strip import STAGE_NAMESPACES, StageStrip
+from radiant.gui.widgets.stage_strip import STAGE_NAMESPACES, STAGE_TITLES, StageStrip
 from radiant.gui.widgets.sweep_dialog import SweepDialog
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
 from radiant.gui.widgets.welcome_screen import WelcomeScreen
 from radiant.gui.widgets.yaml_editor_dialog import YamlEditorDialog
 from radiant.gui.workers import ConfigSetEvaluationWorker
+
+# Chip title per schema namespace, for advisory text that names the panel to fix.
+_STAGE_TITLE: dict[str, str] = dict(zip(STAGE_NAMESPACES, STAGE_TITLES, strict=True))
 
 
 @lru_cache(maxsize=1)
@@ -1614,6 +1621,49 @@ class RADIANTMainWindow(QMainWindow):
                 "shown, stale)"
             )
             return
+        # CU-373 F-09: four more mid-switch / conflict states were a modal per
+        # re-evaluation with every chip red. Each is a legal-inputs state whose
+        # remedy is to withdraw or add an input, not to revert a value — the same
+        # advisory pattern, routed structurally (type or structured context).
+        if is_calibration_mode_conflict(exc):
+            self._advise(
+                "calibration",
+                (
+                    "Cal-point mode conflict — unset the temperature-anchored inputs on "
+                    "the Calibration panel, or set calibration.cal_point_mode = "
+                    "'temperature'"
+                ),
+            )
+            return
+        if is_transmission_config_incomplete(exc):
+            self._advise(
+                "optics",
+                (
+                    "Transmission mode needs its inputs — add elements on the Optics ▸ "
+                    "Transmission tab, or switch optics.transmission_input_mode back"
+                ),
+            )
+            return
+        if isinstance(exc, ConsistencyGroupError):
+            stage = exc.parameters[0].split(".", 1)[0] if exc.parameters else ""
+            members = ", ".join(exc.parameters)
+            self._advise(
+                stage,
+                (
+                    f"Consistency group '{exc.group}' is over-constrained — Reset to "
+                    f"Default on one of {members}, or make them agree"
+                ),
+            )
+            return
+        if self._is_geometry_conflict(exc):
+            self._advise(
+                "geometry",
+                (
+                    "Geometry conflict — set exactly one input per family; the tinted "
+                    "card on the Geometry workspace is the one to fix"
+                ),
+            )
+            return
         if is_counting_config_incomplete(exc) or is_readout_architecture_conflict(exc):
             # Gap 117 readout-architecture states: one stage's configuration
             # is incomplete (mid-switch, packet not yet entered) or mixed
@@ -1659,6 +1709,31 @@ class RADIANTMainWindow(QMainWindow):
             exec_dialog(ActionableErrorDialog(exc, "evaluate", self))
         else:
             exec_dialog(UnexpectedErrorDialog(exc, "Evaluating the signal chain", self))
+
+    def _advise(self, stage: str, hint: str) -> None:
+        """Render an evaluate-time advisory: one chip red, the rest stale, the fix named.
+
+        The CU-322 advisory pattern, in one place (CU-373 F-09): no modal, the
+        implicated stage's chip is the error site, every other chip merely stale,
+        and the status bar names the fix — the Messages rail already carries the
+        full what/why/action.
+        """
+        self._stage_strip.set_all_status("stale")
+        if stage in STAGE_NAMESPACES:
+            self._stage_strip.set_status(stage, "err")
+        self.statusBar().showMessage(f"{hint} (see Messages; the previous result is shown, stale)")
+
+    @staticmethod
+    def _is_geometry_conflict(exc: BaseException) -> bool:
+        """Whether *exc* is a geometry mode-family over/under-specification.
+
+        Structural: decided from the error's ``context`` keys alone (the family
+        manifest), never from message text — the same predicate the locator uses,
+        with the text fallback switched off.
+        """
+        raw_context = getattr(exc, "context", None)
+        context = raw_context if isinstance(raw_context, dict) else None
+        return bool(context) and bool(implicated_families("", context))
 
     def _highlight_geometry_conflict(self, exc: BaseException) -> None:
         """Tint + navigate to the geometry control a conflict names (task 3 / Phase 4).

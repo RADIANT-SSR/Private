@@ -19,7 +19,7 @@ import numpy as np
 from radiant.core.spectral import SpectralData, SpectralGrid
 from radiant.optics.element import OpticalElement
 from radiant.optics.element_factories import make_lumped_element
-from radiant.optics.errors import OpticsValidationError
+from radiant.optics.errors import OpticsValidationError, TransmissionConfigIncompleteError
 from radiant.optics.filters import FilterSpec, filter_to_element, make_filter_transmission
 from radiant.optics.system_transmission import compute_system_transmission
 
@@ -179,7 +179,7 @@ def _resolve_scalar(
     (ε = 0, Gap 127). Warm-optics near-field requires defined elements.
     """
     if transmission_scalar is None:
-        raise OpticsValidationError(
+        raise TransmissionConfigIncompleteError(
             "resolve_transmission: SCALAR mode requires transmission_scalar."
         )
     tau_sd = SpectralData(
@@ -206,7 +206,7 @@ def _resolve_spectral_file(
 ) -> TransmissionResult:
     """Mode 2: spectral transmission from file (pre-loaded)."""
     if transmission_spectral is None:
-        raise OpticsValidationError(
+        raise TransmissionConfigIncompleteError(
             "resolve_transmission: SPECTRAL_FILE mode requires transmission_spectral "
             "(a SpectralData curve). Inject it pre-chain via "
             "stage_outputs['optics_config']['transmission_spectral'] — e.g. "
@@ -233,7 +233,7 @@ def _resolve_telescope_filters(
 ) -> TransmissionResult:
     """Mode 3: telescope broadband throughput * filter stack."""
     if telescope_transmission is None:
-        raise OpticsValidationError(
+        raise TransmissionConfigIncompleteError(
             "resolve_transmission: TELESCOPE_PLUS_FILTERS mode requires "
             "telescope_transmission (scalar or SpectralData; filter_specs "
             "optional). Inject pre-chain via stage_outputs['optics_config']"
@@ -291,7 +291,7 @@ def _resolve_key_elements(
 ) -> TransmissionResult:
     """Mode 4: key elements plus a residual lumped transmission."""
     if not key_elements:
-        raise OpticsValidationError(
+        raise TransmissionConfigIncompleteError(
             "resolve_transmission: KEY_ELEMENTS mode requires at least one "
             "OpticalElement in key_elements (residual_transmission optional). "
             "Inject pre-chain via stage_outputs['optics_config']['key_elements'] "

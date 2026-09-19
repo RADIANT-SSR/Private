@@ -453,7 +453,7 @@ class ConsistencyGroup:
 
 1. Count how many parameters in the group are user-specified.
 2. If exactly N−1 are specified: derive the Nth using the appropriate rule. Set provenance = DERIVED.
-3. If all N are specified: validate consistency. If |computed − specified| > tolerance, raise error with diagnostic message showing the inconsistency.
+3. If all N are specified: validate consistency. If |computed − specified| > tolerance, raise `ConsistencyGroupError` (a `CoreValidationError` carrying `group` and `parameters` structurally, CU-373 F-09) with a diagnostic message showing the inconsistency.
 4. If fewer than N−1 are specified: check if any have defaults. Apply defaults, then re-evaluate. If still underdetermined, raise an error listing what's missing.
 
 ### v1 consistency groups

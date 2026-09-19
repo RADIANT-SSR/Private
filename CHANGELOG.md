@@ -21,11 +21,30 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Three structural error classes for mid-switch and conflict states (CU-373
+  F-09):** `ConsistencyGroupError(CoreValidationError)` — raised by the
+  resolver for an over-constrained group, carrying `group` and `parameters`;
+  `CalibrationModeConflictError(CalibrationValidationError)` — a cal-point
+  mode mixed with the other mode's inputs; and
+  `TransmissionConfigIncompleteError(OpticsValidationError)` — a transmission
+  input mode selected without its inputs. Each replaces a flat parent-class
+  raise at the same site with the same message, so `except` sites and
+  message matches are unaffected. Predicates `is_calibration_mode_conflict`
+  (`radiant.api.calibration_state`) and `is_transmission_config_incomplete`
+  (new `radiant.api.transmission_state`) publish the seams.
 - **`Sensor.input_provenances()`** — the provenance companion of `inputs()`
   (dot-path → `Provenance` for every explicitly-set input, no resolve);
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Four more evaluate-time states are advisories, not a modal per
+  re-evaluation (CU-373 F-09).** A geometry door conflict, an over-constrained
+  consistency group, a cal-point-mode conflict and a transmission mode without
+  its inputs each raised *Parameter Rejected — Cannot set "evaluate"* on every
+  debounced re-evaluation with all ten chips red. They now take the advisory
+  path readout and calibration-scheme states already took: the implicated
+  chip red, the rest stale, the fix named in the status bar, the full message
+  in the Messages rail. Routing is by exception type or structured context.
 - **View ▸ Angles in Degrees now reaches rows edited through the Parameter
   Editor (CU-372 F-37).** The unit chosen in the editor became a sticky
   per-row display unit that outranked the global toggle: a zenith typed as

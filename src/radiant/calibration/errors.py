@@ -14,8 +14,10 @@ from radiant.core.exceptions import RadiantError
 
 __all__ = [
     "CalibrationConfigIncompleteError",
+    "CalibrationModeConflictError",
     "CalibrationValidationError",
     "is_calibration_config_incomplete",
+    "is_calibration_mode_conflict",
 ]
 
 
@@ -31,6 +33,23 @@ class CalibrationConfigIncompleteError(CalibrationValidationError):
     temperature still unset). The remedy is to finish the switch, not to revert
     an input. Message surfaces route on the type, never the text.
     """
+
+
+class CalibrationModeConflictError(CalibrationValidationError):
+    """A cal-point mode is selected while inputs of the other mode are still set.
+
+    ``cal_point_mode = 'flux_fraction'`` with a cal temperature (or another
+    temperature-anchored input) still explicit is a mixed state, reachable from
+    any mutation surface and detected at evaluate time. Structurally distinct so
+    a message surface can route it as an advisory beside the calibration inputs
+    (CU-373 F-09) — the remedy is to unset the other mode's inputs, not to revert
+    a value — never a modal per evaluation.
+    """
+
+
+def is_calibration_mode_conflict(exc: BaseException) -> bool:
+    """True when *exc* is a cal-point-mode mixed state (structural, never text)."""
+    return isinstance(exc, CalibrationModeConflictError)
 
 
 def is_calibration_config_incomplete(exc: BaseException) -> bool:

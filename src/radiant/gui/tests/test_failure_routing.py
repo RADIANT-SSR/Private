@@ -47,6 +47,55 @@ def _capture_modals(monkeypatch) -> list[object]:  # type: ignore[no-untyped-def
     return opened
 
 
+def _dialog_choose(window: RADIANTMainWindow, dotpath: str, text: str) -> None:
+    """Pick *text* for an enum *dotpath* through the Parameter Editor's combo."""
+    from PySide6.QtWidgets import QComboBox
+
+    panel = window.parameter_panel
+    dialog = ParameterEditorDialog(
+        window.sensor,
+        dotpath,
+        panel._after_dialog_commit,
+        panel,  # noqa: SLF001
+    )
+    editor = dialog.value_editor
+    assert isinstance(editor, QComboBox)
+    editor.setCurrentText(text)
+    dialog.apply(close=True)
+
+
+# The audit's minimal complete configuration (Findings_Bootstrap_Recovery §1).
+_COMPLETE: tuple[tuple[str, str], ...] = (
+    ("optics.aperture_diameter_m", "0.3"),
+    ("optics.f_number", "4"),
+    ("detector.pixel_pitch_x_um", "18"),
+    ("detector.pixel_pitch_y_um", "18"),
+    ("detector.qe_value", "0.7"),
+    ("spectral_integration.filter_min_um", "3.4"),
+    ("spectral_integration.filter_max_um", "5.0"),
+    ("spectral_integration.integration_time_s", "0.005"),
+    ("source.target.temperature", "300"),
+    ("source.target.emissivity", "0.95"),
+    ("geometry.sensor_altitude_m", "500000"),
+)
+
+
+def _complete_window(qtbot, monkeypatch) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
+    window = _blank_window(qtbot)
+    _capture_modals(
+        monkeypatch,
+    )
+    with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+        for dotpath, text in _COMPLETE:
+            _dialog_set(window, dotpath, text)
+    assert window.last_result is not None
+    return window
+
+
+def _chip_status(window: RADIANTMainWindow, namespace: str) -> str:
+    return window.stage_strip.chip(namespace).status
+
+
 class TestF13BlankConfigFirstFailure:
     """F-13: on a blank configuration every accepted edit schedules an evaluation
     whose failure was the resolver's cycle diagnostic, routed to a modal."""
@@ -80,3 +129,71 @@ class TestF13BlankConfigFirstFailure:
                 _dialog_set(window, dotpath, text)
         assert opened == []
         assert window.statusBar().currentMessage().startswith("Config incomplete — set ")
+
+
+class TestF09MidSwitchStatesAreAdvisories:
+    """F-09: readout architecture and calibration scheme got the advisory; cal-point
+    mode, transmission mode, geometry door conflicts and consistency groups got a
+    modal per re-evaluation with all ten chips red."""
+
+    def test_geometry_door_conflict_is_an_advisory_on_the_geometry_chip(
+        self, qtbot, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        """T-B b3: path_zenith_rad set, then ground_range_m (a second viewing door)."""
+        window = _complete_window(qtbot, monkeypatch)
+        opened = _capture_modals(monkeypatch)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, "geometry.path_zenith_rad", "17")
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, "geometry.ground_range_m", "300000")
+        assert opened == []
+        assert _chip_status(window, "geometry") == "err"
+        assert _chip_status(window, "optics") == "stale"
+        assert window.statusBar().currentMessage().startswith("Geometry conflict")
+        assert window.right_rail.messages.has_error()
+
+    def test_over_constrained_group_is_an_advisory_naming_the_members(
+        self, qtbot, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        """Reached the way YAML / console / a config file reach it: past the door guard."""
+        window = _complete_window(qtbot, monkeypatch)
+        opened = _capture_modals(monkeypatch)
+        window.sensor.set("optics.focal_length_m", 1.5)  # aperture 0.3, f/4 → disagrees
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window._evaluate_now()  # noqa: SLF001
+        assert opened == []
+        assert _chip_status(window, "optics") == "err"
+        assert _chip_status(window, "geometry") == "stale"
+        status = window.statusBar().currentMessage()
+        assert "'fnumber'" in status and "optics.f_number" in status
+
+    def test_transmission_mode_without_elements_is_an_advisory_pointing_at_the_tab(
+        self, qtbot, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        """T-B b10: optics.transmission_input_mode = key_elements with no element."""
+        window = _complete_window(qtbot, monkeypatch)
+        opened = _capture_modals(monkeypatch)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_choose(window, "optics.transmission_input_mode", "key_elements")
+        assert opened == []
+        assert _chip_status(window, "optics") == "err"
+        assert "Transmission tab" in window.statusBar().currentMessage()
+
+    def test_cal_point_mode_conflict_is_an_advisory_on_the_calibration_chip(
+        self, qtbot, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        """T-B b9: the routing seam, driven with the stage's own error type."""
+        from radiant.calibration.errors import CalibrationModeConflictError
+
+        window = _complete_window(qtbot, monkeypatch)
+        opened = _capture_modals(monkeypatch)
+        window._on_eval_failed(  # noqa: SLF001 — the worker's failure slot
+            CalibrationModeConflictError(
+                "calibration.cal_temp_low_K is set, but calibration.cal_point_mode = "
+                "'flux_fraction'."
+            )
+        )
+        assert opened == []
+        assert _chip_status(window, "calibration") == "err"
+        assert _chip_status(window, "readout") == "stale"
+        assert "Calibration panel" in window.statusBar().currentMessage()

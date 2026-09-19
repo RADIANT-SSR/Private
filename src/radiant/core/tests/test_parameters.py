@@ -14,6 +14,7 @@ import pytest
 
 from radiant.core.parameters import (
     ConsistencyGroup,
+    ConsistencyGroupError,
     ParameterBoundsError,
     ParameterDef,
     ParameterEnumError,
@@ -701,8 +702,11 @@ def test_over_constrained_group_still_wins_over_required_on_incomplete_set() -> 
     ps.set(schema[0].name, 0.3)  # aperture
     ps.set(schema[1].name, 1.2)  # focal length
     ps.set(schema[2].name, 6.0)  # f-number: disagrees (1.2 / 0.3 = 4)
-    with pytest.raises(ValueError, match="over-constrained"):
+    with pytest.raises(ConsistencyGroupError, match="over-constrained") as info:
         ps.resolve()
+    # CU-373 F-09: structural — the GUI routes on the type and names the members.
+    assert info.value.group == groups[0].name
+    assert info.value.parameters == tuple(groups[0].parameters)
 
 
 # ---------------------------------------------------------------------------

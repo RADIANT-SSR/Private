@@ -105,6 +105,23 @@ class RequiredParameterError(CoreValidationError):
         self.param = param
 
 
+class ConsistencyGroupError(CoreValidationError):
+    """A consistency group is over-constrained: every member is set and they disagree.
+
+    Carries the group name and its member dot-paths structurally (``group``,
+    ``parameters``) so a surface can route the state without parsing the message
+    (Rule 15): the GUI treats an evaluate-time over-constraint as an advisory beside
+    the owning stage — the remedy is to withdraw one member, not to revert an input
+    (CU-373 F-09). Subclasses :class:`CoreValidationError`, so existing ``except``
+    sites and message-based tests are unaffected.
+    """
+
+    def __init__(self, message: str, *, group: str, parameters: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.group = group
+        self.parameters = parameters
+
+
 class ParameterBoundsError(RadiantError, ValueError):
     """A user-controlled parameter is out of its valid physical domain.
 
@@ -827,7 +844,7 @@ class ParameterSet:
             computed = group.derivations[free](known)
             actual = self._resolved[free].value
             if abs(computed - actual) > group.tolerance * max(abs(actual), 1.0):
-                raise CoreValidationError(
+                raise ConsistencyGroupError(
                     f"Consistency group '{group.name}' is over-constrained:\n"
                     f"  Constraint: {group.constraint}\n"
                     f"  User-specified '{free}' = {actual}\n"
@@ -836,7 +853,9 @@ class ParameterSet:
                     f"{abs(computed - actual) / max(abs(actual), 1.0):.3e} "
                     f"(tolerance: {group.tolerance:.3e})\n"
                     f"  Fix: either remove '{free}' from inputs and let it be "
-                    f"derived, or correct the inconsistent value."
+                    f"derived, or correct the inconsistent value.",
+                    group=group.name,
+                    parameters=tuple(group.parameters),
                 )
             return
 

@@ -129,6 +129,8 @@ class TestStageErrorClasses:
         ("radiant.atmosphere.errors", "AtmosphereValidationError", ValueError),
         ("radiant.atmosphere.errors", "AtmosphereStateError", RuntimeError),
         ("radiant.optics.errors", "OpticsValidationError", ValueError),
+        ("radiant.optics.errors", "TransmissionConfigIncompleteError", ValueError),
+        ("radiant.core.parameters", "ConsistencyGroupError", ValueError),
         ("radiant.platform.errors", "PlatformValidationError", ValueError),
         (
             "radiant.spectral_integration.errors",
@@ -144,6 +146,7 @@ class TestStageErrorClasses:
         ("radiant.readout.errors", "ReadoutValidationError", ValueError),
         ("radiant.calibration.errors", "CalibrationValidationError", ValueError),
         ("radiant.calibration.errors", "CalibrationConfigIncompleteError", ValueError),
+        ("radiant.calibration.errors", "CalibrationModeConflictError", ValueError),
         ("radiant.performance.errors", "PerformanceValidationError", ValueError),
         ("radiant.api.errors", "ApiValidationError", ValueError),
     ]

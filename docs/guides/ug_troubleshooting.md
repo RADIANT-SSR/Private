@@ -155,8 +155,11 @@ Action: Set exactly one of these parameters (the others derive from it), or make
 
 This one comes with a **locator**: the application tints the offending family's card and jumps
 you to the Geometry workspace, so you do not have to work out which of four family cards the
-dot-paths belong to. The tint is navigation only — the actionable text is in the dialog and the
-Messages panel, as always.
+dot-paths belong to. The tint is navigation only — the actionable text is in the Messages panel,
+as always. When the conflict is caught at evaluation (you set the second door and the
+re-evaluation found it) it is an **advisory**, not a dialog: the Geometry chip goes red, the
+status bar names the fix, and nothing interrupts you on every later edit (§4). The same holds
+for an over-constrained consistency group found at evaluation.
 
 ### 3.5 A required parameter with no value
 
@@ -217,6 +220,10 @@ specific fix named in the status bar, and the full what / why / action in the Me
 | a calibration scheme is active without its cal point | `The calibration scheme needs its cal temperature(s) — set them on the Calibration panel (see Messages; the previous result is shown, stale)` |
 | digital counting is selected without a charge packet | `Digital counting needs a charge packet — set readout.count_packet_e on the Readout panel (see Messages; the previous result is shown, stale)` |
 | the interpolated atmosphere library has no column for this scene | `The atmosphere library does not cover this scene — see Messages (the previous result is shown, stale)` |
+| two doors of one geometry family are set (an over-specified viewing, solar or kinematics family) | `Geometry conflict — set exactly one input per family; the tinted card on the Geometry workspace is the one to fix (see Messages; the previous result is shown, stale)` |
+| every member of a consistency group is set and they disagree | `Consistency group 'fnumber' is over-constrained — Reset to Default on one of optics.aperture_diameter_m, optics.focal_length_m, optics.f_number, or make them agree (see Messages; the previous result is shown, stale)` |
+| a cal-point mode is selected while the other mode's inputs are still set | `Cal-point mode conflict — unset the temperature-anchored inputs on the Calibration panel, or set calibration.cal_point_mode = 'temperature' (see Messages; the previous result is shown, stale)` |
+| a transmission input mode is selected without its inputs (`key_elements` with no element yet) | `Transmission mode needs its inputs — add elements on the Optics ▸ Transmission tab, or switch optics.transmission_input_mode back (see Messages; the previous result is shown, stale)` |
 
 ![The right rail after a failed evaluation — the pinned cards flipped to their stale marker and
 the Messages panel carrying the error.](figures/gui/ug_messages_error.png)

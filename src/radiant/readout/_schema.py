@@ -416,7 +416,7 @@ ELECTRONICS_SIGMA_UM = ParameterDef(
         "rate. Blurs the readout (cross-scan, x) axis only. Zero "
         "(default) = ideal electronics, no blur. Enters both the "
         "EffectivePSF (kernel) and the MTF product (analytic term) per "
-        "Rule 4."
+        "spatial paths agree."
     ),
     dtype=float,
     canonical_unit="m",

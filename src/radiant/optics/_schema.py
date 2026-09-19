@@ -257,7 +257,7 @@ WFE_MODE = ParameterDef(
         "zernike / field_dependent (WavefrontError object injected via "
         "stage_outputs['optics_config']['wavefront_error']). opd_map is "
         "not offered: OPD maps have no pupil-phase representation in v1 "
-        "(Gap 68 un-advertised the always-raising mode)."
+        "(the mode is not offered rather than offered and always raising)."
     ),
     dtype=str,
     canonical_unit="",
@@ -272,7 +272,7 @@ ZERNIKE_FILE = ParameterDef(
     is_file_path=True,
     description=(
         "Path to a Zemax 'Zernike Standard Coefficients' text export. When set, the "
-        "API layer loads it pre-chain (Rule 6) and injects the resulting ZERNIKE-mode "
+        "API layer loads it pre-chain and injects the resulting ZERNIKE-mode "
         "WavefrontError via stage_outputs['optics_config']['wavefront_error'], which "
         "supersedes wfe_mode/wfe_rms_waves. The report's own reference wavelength is "
         "honored; optics.wfe_reference_wavelength_um is the fallback when the export "
@@ -343,8 +343,9 @@ SURFACE_ROUGHNESS_NM = ParameterDef(
         "for the TIS scatter model: TIS = 1 - exp(-(4πσ/λ)²) at band "
         "center. Zero (default) = no scatter. Smooth-surface limit — a "
         "warning fires when TIS > 0.3. Scattered energy lands in a "
-        "Gaussian halo of width optics.scatter_halo_sigma_um (Rule 4: "
-        "kernel on the PSF path + analytic MTF term, exact Fourier pair)."
+        "Gaussian halo of width optics.scatter_halo_sigma_um, entering both "
+        "spatial paths: a kernel on the PSF path and an analytic MTF term, "
+        "an exact Fourier pair."
     ),
     dtype=float,
     canonical_unit="m",
@@ -410,7 +411,8 @@ STRAY_INPUT_MODE = ParameterDef(
         "spectral_file (curve injected via stage_outputs['optics_config']"
         "['stray_light_spectral']). pst_file is not offered: PST-based "
         "stray light needs a scene radiance distribution RADIANT v1 does "
-        "not model (Gap 68 un-advertised the always-raising mode)."
+        "not model (the mode is not offered rather than offered and always "
+        "raising)."
     ),
     dtype=str,
     canonical_unit="",
@@ -453,7 +455,7 @@ STRAY_ABSOLUTE_IRRADIANCE = ParameterDef(
 STRAY_VEILING_GLARE_MTF = ParameterDef(
     name="optics.stray.veiling_glare_mtf",
     description=(
-        "Enable the SPATIAL veiling-glare model (Gap 60): the veiling-glare "
+        "Enable the SPATIAL veiling-glare model: the veiling-glare "
         "fraction is re-imaged as a Gaussian halo, entering the PSF path as "
         "a kernel (1−vgf)·δ + vgf·G(σ_halo) and the MTF product path as its "
         "exact Fourier pair (1−vgf) + vgf·exp(−2π²σ²f²) — the low-frequency "
@@ -478,7 +480,7 @@ STRAY_HALO_SIGMA_UM = ParameterDef(
     name="optics.stray.halo_sigma_um",
     description=(
         "Gaussian half-width of the veiling-glare halo on the focal plane "
-        "[µm] (Gap 60). Must be small enough to fit the PSF grid for the "
+        "[µm]. Must be small enough to fit the PSF grid for the "
         "kernel and analytic MTF term to stay exact Fourier pairs (the "
         "kernel is truncated at the grid edge)."
     ),
@@ -569,11 +571,11 @@ PUPIL_NPIX = ParameterDef(
     description=(
         "Side length of the square pupil grid before FFT padding, in samples. "
         "Sets the resolution of the complex pupil that BOTH spatial paths "
-        "derive from (Rule 4): the PSF (FT of the pupil) and the optical MTF "
+        "derive from: the PSF (FT of the pupil) and the optical MTF "
         "(pupil autocorrelation). Larger values resolve finer aperture "
         "structure (thin spider vanes, small obscurations) at quadratically "
         "higher FFT cost — this is the dominant cost of a chain evaluation "
-        "(CU-288)."
+        "of a chain evaluation."
     ),
     dtype=int,
     canonical_unit="",
@@ -598,9 +600,9 @@ PSF_OVERSAMPLE = ParameterDef(
         "(EE_box, RER, FWHM) at higher FFT cost. The schema floor is 4, "
         "above compute_sampling's Nyquist floor of 2: at oversample ≤ 3 the "
         "padded grid can land at exactly 2× the pupil width and the "
-        "FFT-of-PSF path aliases at the grid edge, breaching the Rule-4 "
-        "dual-path tolerance (measured 0.032 vs 0.02 on the reference MWIR "
-        "config, CU-288)."
+        "FFT-of-PSF path aliases at the grid edge, breaching the tolerance "
+        "the two spatial paths must agree to (measured 0.032 against 0.02 on "
+        "the reference MWIR config)."
     ),
     dtype=int,
     canonical_unit="",

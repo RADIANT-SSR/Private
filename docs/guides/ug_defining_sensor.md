@@ -171,7 +171,7 @@ PSF map shows and what the MTF budget's optics row says are two views of one obj
 ## 2. Platform
 
 ![Platform workspace, Inputs tab, with an 8 µrad isotropic jitter entered — the jitter and
-motion/smear knobs beside the jitter σ, smear width and EE_box the stage derives from
+motion/smear knobs above the jitter σ, smear width and EE_box the stage derives from
 them.](figures/gui/ug_platform_workspace.png)
 
 Two tabs, and a deliberately small first one. Platform is **v1-minimal**: there is no
@@ -207,8 +207,9 @@ agreeing with your configuration, not missing data.
 Three tabs: **Inputs · Noise · Detector + PSF**. The Inputs tab is the largest single form in
 the application, because the detector is where the noise model lives.
 
-![Detector workspace, Inputs tab — the FPA part-library row above the full detector schema in
-labeled groups, with no preset applied.](figures/gui/ug_detector_inputs.png)
+![Detector workspace, Inputs tab — the FPA part-library row above the detector schema in
+labeled groups, with no preset applied; the form continues past the foot of the
+pane.](figures/gui/ug_detector_inputs.png)
 
 ### 3.1 The FPA part library
 
@@ -315,7 +316,7 @@ from the centroid of the blurred spot; on an asymmetric PSF those are not the sa
 ## 4. Readout
 
 ![Readout workspace on the Landsat 9 OLI-2 band-4 config — architecture, read noise, ADC, full
-well, TDI, co-adds, binning and acquisition groups beside the DN and noise
+well, TDI, co-adds, binning and acquisition groups above the DN and noise
 outputs.](figures/gui/ug_readout_workspace.png)
 
 One pane, grouped in reading order, and **the first group decides what the rest of the screen

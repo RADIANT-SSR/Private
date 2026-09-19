@@ -15,7 +15,7 @@ DETECTION_SNR_THRESHOLD = ParameterDef(
     name="performance.detection_snr_threshold",
     description=(
         "SNR at which a point target counts as detected — the threshold the "
-        "in-chain detection-range solver bisects to (Gap 77). 5.0 is the "
+        "in-chain detection-range solver bisects to. 5.0 is the "
         "classic Rose-criterion / SNR=5 detection threshold."
     ),
     dtype=float,
@@ -44,7 +44,7 @@ METRICS_RADIOMETRIC = ParameterDef(
     description=(
         "Surface the Radiometric metric group: snr, contrast_snr, scnr, "
         "detection_range_m, nedt_K. Off stops their computation and any "
-        "warnings they emit (Gap 96)."
+        "warnings they emit."
     ),
     dtype=bool,
     canonical_unit="",
@@ -59,9 +59,9 @@ METRICS_SPATIAL_MTF = ParameterDef(
     description=(
         "Surface the Spatial-MTF metric group: fwhm, rer, ee_1x1/3x3, "
         "mtf_at_nyquist, strehl(+marechal), mtf_system/folded/alias at "
-        "Nyquist. Off stops the PSF/MTF spatial path (and its Rule-4 "
-        "dual-path consistency check) unless an enabled metric needs a "
-        "spatial input (Gap 96)."
+        "Nyquist. Off stops the PSF/MTF spatial path, and with it the "
+        "consistency check that compares the two spatial paths, unless an "
+        "enabled metric needs a spatial input."
     ),
     dtype=bool,
     canonical_unit="",
@@ -76,7 +76,7 @@ METRICS_INTERPRETABILITY = ParameterDef(
     description=(
         "Surface the Interpretability metric group: niirs, "
         "niirs_extrapolated, mrt_at_nyquist_K. Off stops the GIQE/IIRS and "
-        "MRT computation (Gap 96)."
+        "MRT computation."
     ),
     dtype=bool,
     canonical_unit="",
@@ -92,7 +92,7 @@ METRICS_SAMPLING = ParameterDef(
         "Surface the Sampling/geometry metric group: gsd_*, ground_range_m, "
         "swath_width_m, access_rate_m2_s, q_*, sampling_regime_code, "
         "diffraction_limit_*, max_integration_time_s. Off stops their "
-        "computation (Gap 96)."
+        "computation."
     ),
     dtype=bool,
     canonical_unit="",
@@ -106,7 +106,7 @@ METRICS_SATURATION = ParameterDef(
     name="performance.metrics.saturation",
     description=(
         "Surface the Saturation metric group: well_margin_dB, adc_margin_dB, "
-        "dynamic_range_dB. Off stops their computation (Gap 96)."
+        "dynamic_range_dB. Off stops their computation."
     ),
     dtype=bool,
     canonical_unit="",
@@ -125,8 +125,8 @@ NIIRS_ALLOW_EXTRAPOLATED = ParameterDef(
         "SNR) is outside the published calibration ranges. Default False: an "
         "out-of-envelope configuration gets NIIRS as N/A (a result-typed "
         "failure_reason on niirs_result, no niirs metric) because the fitted "
-        "formula is unreliable there (CU-166; owner-ratified 2026-07-20 — "
-        "strict refusal). True restores the extrapolated value, still "
+        "formula is unreliable there — a strict refusal rather than a "
+        "flagged extrapolation. True restores the extrapolated value, still "
         "flagged via niirs_extrapolated."
     ),
     dtype=bool,

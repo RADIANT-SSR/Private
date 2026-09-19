@@ -52,8 +52,10 @@ therefore also filling them in the order the physics consumes them.
    `target_altitude_m` at 0 m and `path_zenith_rad` at 0 deg; that is a nadir view
    from 8 km.
 
-   ![Geometry workspace, Inputs tab. The Parameters dock is widened so the full
-   dot-path of every parameter is legible.](figures/gui/build_geometry_inputs.png)
+   ![The whole window on the geometry step: the Parameters dock on the left, the mode
+   cards in the center, the pinned cards on the right. This is one of the few figures
+   kept at full width, because the next two paragraphs read the dock and the form
+   together.](figures/gui/build_geometry_inputs.png)
 
    Note the third column of the Parameters dock. `sensor_altitude_m` reads `config`
    because you set it; everything else reads `default`. That badge is how you tell
@@ -176,7 +178,7 @@ path — the same view the published on-orbit NEdT is measured against.
 4. **Ask where the spatial number came from.** Select stage **4 Optics**, tab **MTF**.
 
    ![Optics workspace, MTF tab — the system MTF with its contributor terms, and the
-   per-term budget table beneath.](figures/gui/flagship_mtf_budget.png)
+   first rows of the per-term budget table beneath.](figures/gui/flagship_mtf_budget.png)
 
    The system curve (black) is the product of every contributor. Only two contributors
    bite here: the optics term (blue, from the autocorrelation of the complex pupil)

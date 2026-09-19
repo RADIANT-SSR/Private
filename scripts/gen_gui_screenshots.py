@@ -25,7 +25,13 @@ workspace, applies any per-figure dock geometry, and writes ``QWidget.grab()`` t
 Two spike lessons (plan §5) are first-class registry fields: the default parameter-dock
 width elides long parameter names, so a capture can widen it (``param_dock_width``), and
 detail figures are made by grabbing a single child widget rather than the whole window
-(``target``). A third field, ``tab``, selects one of a stage's sub-view tabs by its visible
+(``target``). Most figures are the second kind: a full-window shot printed at text width
+renders the in-app type at 3-5 pt, so any figure whose prose discusses one pane grabs
+:data:`STAGE_PANE` instead and reads roughly 1.8x larger on the page (CU-370 X-07). The
+whole window is kept only where the subject *is* the window — the anatomy figures, and
+the few that deliberately pair a form with its Parameters-dock badges.
+
+A third field, ``tab``, selects one of a stage's sub-view tabs by its visible
 label (Geometry *Inputs | Schematic*, Optics *Inputs | Transmission | MTF | PSF + Pupil*,
 Detector *Inputs | Noise | Detector + PSF*) — without it every tabbed stage would only ever
 be photographed on its first tab. A fourth, ``set_parameters``, applies field edits to the
@@ -86,6 +92,24 @@ MANIFEST_NAME = "MANIFEST.md"
 #: Default capture geometry (plan §5: 1440×900, the size the spike proved).
 DEFAULT_WIDTH = 1440
 DEFAULT_HEIGHT = 900
+
+#: Window geometry for a **panel grab of the stage workspace** (CU-370 X-07). A
+#: full-window capture printed at text width puts the in-app labels at 3-5 pt: the
+#: window is 1440 px wide, so 6.5 in of page carries 222 px/in and the type is
+#: unreadable. Grabbing ``central_canvas.stage_center`` alone drops the Parameters
+#: dock and the right rail, so the same 6.5 in carries only the ~790 px-wide pane —
+#: the in-app type comes out roughly 1.8x larger with no loss of subject. The extra
+#: window height is what keeps the pane's own scroll area from clipping its content
+#: mid-plot, which is the defect II-022 and IV-032 recorded on two panes that were
+#: already grabs.
+#:
+#: A figure whose prose reads the dock, the rail, or the configuration bar keeps the
+#: whole window: cropping it would delete the subject. Those are the window-anatomy
+#: figures and the few that deliberately pair a form with its dock badges.
+PANEL_WIDTH = 1440
+PANEL_HEIGHT = 1500
+#: The stage workspace pane — the panel-grab target for every converted figure.
+STAGE_PANE = "central_canvas.stage_center"
 
 #: A capture name must be a safe, lowercase file stem — it *is* the PNG filename.
 NAME_RE = re.compile(r"^[a-z0-9]+(?:_[a-z0-9]+)*$")
@@ -274,6 +298,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="build_geometry_schematic",
         config=_MINIMAL,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="geometry",
         tab="Schematic",
         caption="Geometry workspace, Schematic tab — the 2D viewing-triangle schematic.",
@@ -281,15 +308,20 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="build_optics_inputs",
         config=_MINIMAL,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="optics",
         tab="Inputs",
-        param_dock_width=520,
         caption="Optics workspace, Inputs tab — aperture, focal length, and derived outputs.",
     ),
     # -- Volume IV ch. 2, walkthrough 2: read a flagship baseline ---------------------
     Capture(
         name="flagship_performance",
         config=_TIRS_B10,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="performance",
         caption=(
             "Performance workspace on the Landsat 9 TIRS band-10 baseline — every metric "
@@ -299,6 +331,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="flagship_mtf_budget",
         config=_TIRS_B10,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="optics",
         tab="MTF",
         caption="Optics workspace, MTF tab — system MTF curve and the per-term budget table.",
@@ -306,6 +341,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="flagship_noise_budget",
         config=_TIRS_B10,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="detector",
         tab="Noise",
         caption="Detector workspace, Noise tab — the noise-budget table beside its chart.",
@@ -329,9 +367,11 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="element_train_transmission",
         config=_OLI2_B04,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="optics",
         tab="Transmission",
-        param_dock_width=520,
         caption=(
             "Optics workspace, Transmission tab, on the Landsat 9 OLI-2 band-4 config — "
             "the element train and the transmission it produces."
@@ -424,7 +464,7 @@ CAPTURES: tuple[Capture, ...] = (
         config=_TIRS_B10,
         stage="geometry",
         tab="Inputs",
-        # No param_dock_width: the subject is the centre pane (scene-class card + mode
+        # No param_dock_width: the subject is the center pane (scene-class card + mode
         # cards), and a widened dock squeezes the mode cards until their value fields
         # are clipped at the right edge. The Parameters dock has its own detail figure.
         caption=(
@@ -435,6 +475,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="ug_geometry_schematic",
         config=_TIRS_B10,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="geometry",
         tab="Schematic",
         # Give the tab's side panel enough width that its mode-card values are not
@@ -448,6 +491,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="ug_source_scene_regime",
         config=_MINIMAL,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="source",
         tab="Scene & regime",
         caption=(
@@ -458,6 +504,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="ug_source_thermal",
         config=_MINIMAL,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="source",
         tab="Target — thermal",
         caption=(
@@ -473,6 +522,9 @@ CAPTURES: tuple[Capture, ...] = (
         # OLI-2 configs — whose coating and radiance CSVs are relative on disk — would
         # have leaked one into the manual).
         config="src/radiant/data/templates/aerial_vnir_imaging.yaml",
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="source",
         tab="Target — reflective",
         caption=(
@@ -506,9 +558,11 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="ug_optics_inputs",
         config=_TIRS_B10,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="optics",
         tab="Inputs",
-        param_dock_width=520,
         caption=(
             "Optics workspace, Inputs tab, on the Landsat 9 TIRS band-10 baseline — "
             "aperture and wavefront-error fields above the stage's derived outputs, "
@@ -518,9 +572,11 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="ug_optics_transmission_scalar",
         config=_MINIMAL,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="optics",
         tab="Transmission",
-        param_dock_width=440,
         caption=(
             "Optics workspace, Transmission tab, in Scalar throughput mode — the mode "
             "selector, the banner stating which definition is in force, the single "
@@ -530,9 +586,11 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="ug_platform_workspace",
         config=_TIRS_B10,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="platform",
         tab="Inputs",
-        param_dock_width=520,
         # Every committed config leaves jitter and smear at zero, which makes the whole
         # output block read 0 m with EE_box 1 — true, and it teaches nothing. One
         # isotropic jitter value (the field an operator types first) gives the derived
@@ -547,20 +605,25 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="ug_detector_inputs",
         config=_TIRS_B10,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="detector",
         tab="Inputs",
         # No param_dock_width (CU-363): narrowing the central area past the detector
         # form's column-relayout threshold blanks its painted field values.
         caption=(
             "Detector workspace, Inputs tab — the FPA part-library row above the "
-            "full detector schema in labelled groups, with no preset applied."
+            "detector schema in labeled groups, with no preset applied."
         ),
     ),
     Capture(
         name="ug_readout_workspace",
         config=_OLI2_B04,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="readout",
-        param_dock_width=520,
         caption=(
             "Readout workspace on the Landsat 9 OLI-2 band-4 config — architecture, "
             "read noise, ADC, full well, TDI, co-adds, binning and acquisition groups "
@@ -570,8 +633,10 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="ug_calibration_workspace",
         config=_TIRS_B10,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="calibration",
-        param_dock_width=520,
         # The committed configs all leave calibration.scheme at 'none', which shows the
         # selector and nothing else — a true but uninformative picture of a stage whose
         # whole design is scheme-contextual. Two edits put it in the state the chapter
@@ -596,6 +661,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="ug_performance_selection",
         config=_MINIMAL,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="performance",
         # Two groups switched off — exactly what the Compute checkboxes do, one
         # sensor.set each. No committed config ships a reduced metric selection, and
@@ -679,9 +747,11 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_maritime_optics",
         config=_CASE_MARITIME,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="optics",
         tab="Inputs",
-        param_dock_width=520,
         caption=(
             "Optics workspace, Inputs tab — the 30 cm f/2.5 aperture and the stage "
             "outputs, including the final radiometric regime."
@@ -690,6 +760,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_maritime_noise",
         config=_CASE_MARITIME,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="detector",
         tab="Noise",
         caption=(
@@ -700,6 +773,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_maritime_performance",
         config=_CASE_MARITIME,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="performance",
         caption=(
             "Performance workspace on the scenario 1.1 baseline — all five metric "
@@ -710,6 +786,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_shootout_detector",
         config=_CASE_SHOOTOUT,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="detector",
         tab="Inputs",
         caption=(
@@ -720,6 +799,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_shootout_noise",
         config=_CASE_SHOOTOUT,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="detector",
         tab="Noise",
         caption=(
@@ -739,6 +821,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_shootout_performance",
         config=_CASE_SHOOTOUT,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="performance",
         caption=(
             "Performance workspace on the InSb bench branch — the metric groups a "
@@ -749,6 +834,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_pass_geometry",
         config=_CASE_PASS_PLANNING,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="geometry",
         tab="Inputs",
         caption=(
@@ -759,9 +847,11 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_pass_schematic",
         config=_CASE_PASS_PLANNING,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="geometry",
         tab="Schematic",
-        param_dock_width=220,
         caption=(
             "Geometry workspace, Schematic tab — the off-nadir look with the sun vector "
             "and the not-to-scale altitude leader pill."
@@ -782,6 +872,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_pass_performance",
         config=_CASE_PASS_PLANNING,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="performance",
         caption=(
             "Performance workspace at 30 deg off nadir — GSD, swath, NIIRS and SNR, the "
@@ -792,6 +885,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_irst_scene_class",
         config=_CASE_IRST,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="geometry",
         tab="Inputs",
         caption=(
@@ -802,9 +898,11 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_irst_schematic",
         config=_CASE_IRST,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="geometry",
         tab="Schematic",
-        param_dock_width=220,
         caption=(
             "Geometry workspace, Schematic tab — the level composition with both "
             "endpoints at altitude and the tangent-depression leader pill."
@@ -813,6 +911,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_irst_mtf",
         config=_CASE_IRST,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="optics",
         tab="MTF",
         caption=(
@@ -823,6 +924,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_irst_noise",
         config=_CASE_IRST,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="detector",
         tab="Noise",
         caption=(
@@ -833,6 +937,9 @@ CAPTURES: tuple[Capture, ...] = (
     Capture(
         name="case_irst_performance",
         config=_CASE_IRST,
+        target=STAGE_PANE,
+        width=PANEL_WIDTH,
+        height=PANEL_HEIGHT,
         stage="performance",
         caption=(
             "Performance workspace on the level arm — the ground-projection metric "
@@ -1050,6 +1157,55 @@ def require_pyside() -> None:
         ) from exc
 
 
+#: Rows of background kept beneath a panel grab's last content pixel.
+TRIM_MARGIN_PX = 12
+#: Columns skipped at each side when reading a row: a framed pane paints its border
+#: for the full height, and the pane's scrollbar gutter rides the right edge.
+_TRIM_EDGE_PX = 16
+#: Pixels a row may carry that differ from its dominant colour and still count as
+#: empty. The tail of a short pane is a stack of flat bands separated by hairline,
+#: antialiased borders — a handful of stray pixels on an otherwise uniform row — while
+#: a row of text, a plot curve or a field box differs from its background by hundreds.
+_TRIM_CONTENT_PIXELS = 24
+
+
+def _row_is_blank(image: Any, y: int, width: int) -> bool:
+    """True when row *y* carries no content — one flat band, give or take a border."""
+    counts: dict[int, int] = {}
+    interior = width - 2 * _TRIM_EDGE_PX
+    for x in range(_TRIM_EDGE_PX, width - _TRIM_EDGE_PX):
+        pixel = image.pixel(x, y)
+        counts[pixel] = counts.get(pixel, 0) + 1
+    return interior - max(counts.values()) <= _TRIM_CONTENT_PIXELS
+
+
+def _trim_bottom_margin(pixmap: Any) -> Any:
+    """Crop the empty tail below a panel grab's content.
+
+    A panel grab is the stage pane as the window sizes it, so the window has to be
+    tall enough for the tallest pane or that pane's scroll area clips its content
+    mid-plot (CU-370 II-022/IV-032). Every *shorter* pane then carries the surplus as
+    dead space, which a figure pays for twice: once in the page it occupies, and again
+    in the type size, because the renderer scales the whole image down to fit the text
+    block. Trimming the empty tail lets one window height serve every pane.
+
+    Only the bottom is trimmed — the other three edges are the pane's own borders and
+    belong to the figure — and a pane whose content reaches the bottom is returned
+    unchanged.
+    """
+    image = pixmap.toImage()
+    width, height = image.width(), image.height()
+    if width < 2 * _TRIM_EDGE_PX + 2 or height < 2:
+        return pixmap
+    last = height - 1
+    while last > 0 and _row_is_blank(image, last, width):
+        last -= 1
+    keep = min(height, last + 1 + TRIM_MARGIN_PX)
+    if keep >= height or keep < 200:
+        return pixmap
+    return pixmap.copy(0, 0, width, keep)
+
+
 def _resolve_target(window: object, dotted: str) -> QWidget:
     """Resolve a dotted attribute path against *window*, e.g. ``central_canvas.stage_center``."""
     current: Any = window
@@ -1145,7 +1301,7 @@ def _select_tab(window: Any, capture: Capture) -> None:
                 tabs.setCurrentIndex(index)
                 return
     raise ScreenshotError(
-        f"{capture.name}: no sub-view tab labelled {capture.tab!r} in the {capture.stage!r} "
+        f"{capture.name}: no sub-view tab labeled {capture.tab!r} in the {capture.stage!r} "
         f"workspace.\n"
         f"  why: tabs are selected by their visible label. This workspace offers: "
         f"{', '.join(repr(text) for text in labels)}.\n"
@@ -1335,6 +1491,8 @@ def capture_one(app: Any, capture: Capture, out_dir: Path) -> Path:
                 "  why: an unrealized or zero-sized widget cannot be rendered.\n"
                 "  action: check the capture's target and window size."
             )
+        if capture.target is not None:
+            pixmap = _trim_bottom_margin(pixmap)
         out_dir.mkdir(parents=True, exist_ok=True)
         path = out_dir / capture.filename
         if not pixmap.save(str(path), "PNG"):

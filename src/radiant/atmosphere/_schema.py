@@ -183,7 +183,7 @@ MODTRAN_TAPE7_PATH = ParameterDef(
     description=(
         "Path to a MODTRAN tape7 output file produced elsewhere. When set "
         "(with atmosphere.model='modtran'), the atmospheric state is built "
-        "from this file — parsed before chain execution (Rule 6) — and the "
+        "from this file — parsed before chain execution — and the "
         "MODTRAN binary, cache, and fallback are never consulted. Unset "
         "(empty) leaves the binary/cache/fallback behavior unchanged. Like "
         "tabulated files, an imported tape7 is geometry-agnostic: the "
@@ -203,7 +203,7 @@ MODTRAN_TAPE7_PATH = ParameterDef(
 MODTRAN_TAPE7_SUN_PATH = ParameterDef(
     name="atmosphere.modtran.tape7_sun_path",
     description=(
-        "Optional sun-leg tape7 file for the two-leg split (CU-011, file "
+        "Optional sun-leg tape7 file for the two-leg split (file "
         "flavor). Requires atmosphere.modtran.tape7_path. When set, tau_sun "
         "(the sun→target down-leg transmittance) comes from this file's "
         "TOT TRANS column — a MODTRAN run along the solar-zenith slant "
@@ -225,7 +225,7 @@ MODTRAN_TAPE7_UP_PATH = ParameterDef(
     name="atmosphere.modtran.tape7_up_path",
     description=(
         "Optional target→sensor up-leg tape7 file for airborne targets "
-        "(Gap 94, file flavor). Requires atmosphere.modtran.tape7_path "
+        "(file flavor). Requires atmosphere.modtran.tape7_path "
         "(which then supplies the ground→sensor full column the "
         "background branch needs). When set, tau_up and L_path_up (the "
         "target→sensor partial column) come from this file — a MODTRAN "
@@ -250,13 +250,13 @@ MODTRAN_FLUX_PATH = ParameterDef(
     description=(
         "Optional MODTRAN spectral flux CSV (a Block E irradiance run's "
         "*_flux.csv sidecar) supplying the downwelling sky irradiance for "
-        "the tape7-import path (CU-157, Gap 38). Requires "
+        "the tape7-import path. Requires "
         "atmosphere.modtran.tape7_path. When set, the ground-level DOWN "
         "column (thermal emission + scattered solar) feeds the sky-"
         "reflection terms: E_sky_scattered from the reflective-solar band "
-        "and E_sky_thermal from the thermal band — superseding the Gap 81 "
-        "zero for flux-equipped imports. Unset, a standard IEMSCT=2 tape7 "
-        "carries no downwelling column, so both terms stay zero (Gap 81)."
+        "and E_sky_thermal from the thermal band — replacing the zero "
+        "downwelling a flux-less import would carry. Unset, a standard "
+        "IEMSCT=2 tape7 has no downwelling column, so both terms stay zero."
     ),
     dtype=str,
     canonical_unit="",
@@ -465,14 +465,14 @@ FRIED_PARAMETER_M = ParameterDef(
 R0_REFERENCE_WAVELENGTH_UM = ParameterDef(
     name="atmosphere.r0_reference_wavelength_um",
     description=(
-        "Wavelength [µm] that atmosphere.r0_m is quoted at (CU-228). Seeing is "
+        "Wavelength [µm] that atmosphere.r0_m is quoted at. Seeing is "
         "habitually reported at 0.5 µm, but r₀ is strongly wavelength-dependent "
         "(r₀ ∝ λ^(6/5)), so an r₀ entered at 500 nm and applied at 4 µm is ~8x "
         "too small — a silent order-of-magnitude error in the turbulence MTF. "
         "When set, r0_resolution rescales the entered value to the band centre "
         "by (λ_band / λ_ref)^(6/5). The default 0.0 means 'the value I entered "
-        "is already at the operating wavelength' and preserves the pre-CU-228 "
-        "behaviour bit-identically. Ignored unless atmosphere.r0_m is set "
+        "is already at the operating wavelength', which rescales nothing. "
+        "Ignored unless atmosphere.r0_m is set "
         "directly (a Cn² profile derives r₀ at the band centre already)."
     ),
     dtype=float,
@@ -492,8 +492,8 @@ CN2_PROFILE = ParameterDef(
     name="atmosphere.cn2_profile",
     description=(
         "Optical-turbulence profile Cn²(h) used to derive the Fried parameter "
-        "(Gap 110). 'direct' (default) uses atmosphere.r0_m as given — the "
-        "pre-Gap-110 behaviour. 'hufnagel_valley' integrates the analytic HV "
+        "for turbulence. 'direct' (default) uses atmosphere.r0_m as given, "
+        "with no profile at all. 'hufnagel_valley' integrates the analytic HV "
         "profile along the line of sight (parameters cn2_hv_wind_rms_m_s and "
         "cn2_hv_ground_strength; the defaults are HV-5/7). 'tabulated' uses the "
         "two-column CSV named by atmosphere.cn2_tabulated_file."
@@ -555,7 +555,7 @@ CN2_TABULATED_FILE = ParameterDef(
         "Two-column CSV 'altitude_m,cn2_m^-2/3' (ascending altitude, '#' "
         "comments allowed) defining a measured or externally-modelled Cn²(h) "
         "profile. Required when atmosphere.cn2_profile = 'tabulated'. Read "
-        "before chain execution (Rule 6) and injected at "
+        "before chain execution and injected at "
         "stage_outputs['atmosphere_config']['cn2_profile']."
     ),
     dtype=str,

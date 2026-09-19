@@ -60,3 +60,21 @@ Track T-H; figure `figures/small_window_performance.png`. Chips 1–2 scroll off
 ## 4. Deferred to close
 
 T-I (keyboard only), T-L (soak), T-R (template recovery), T-S (scripting as escape hatch) were not run under this charter's phase 4: T-I and T-R are better judged natively and belong to live session 2; T-L and T-S are queued for phase 6 with the Recommendation.
+
+---
+
+## Addendum 2026-09-19 — T-L soak (phase 6)
+
+Run after the body above was recorded; appended, not edited in, because the record is immutable. 200 accepted edits (`detector.qe_value`, dialog path) on the complete configuration, then 10 three-point sweeps, then 40 Inspector open/close cycles, offscreen, production debounce.
+
+| Point | Resident memory | Mean edit + evaluate |
+|---|---|---|
+| start (12 evaluations) | 529 MB | — |
+| after 50 edits | 992 MB | 0.56 s |
+| after 100 | 1055 MB | 0.55 s |
+| after 200 | 1105 MB | 0.55 s |
+| after 10 sweeps | 1324 MB | — |
+| after 40 inspector cycles | 1325 MB | — |
+
+### F-55 — Memory grows with every accepted edit and every sweep and is not released — Severity: **S3**
+About 460 MB in the first 50 edits, then ~1 MB per edit, ~22 MB per three-point sweep, nothing back after any of it; the Inspector cycles are clean. Timing is flat, so nothing is degrading yet, but an analyst's day of sweeps is measured in gigabytes. Rail warnings and undo behaved throughout (3 warnings, never duplicated; undo enabled). Disposition in `Recommendation.md` §3: Planned, profiled after CU-376.

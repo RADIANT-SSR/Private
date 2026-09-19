@@ -1,6 +1,6 @@
 # GUI Usability Audit — Plan
 
-**Status:** Active — §10 ruled by the owner 2026-09-19 ("whatever you think is best"; no Windows machine; the target is irritation in real workflows). Phase 1 findings: `Findings_Bootstrap_Recovery.md`.
+**Status:** Complete — closed 2026-09-19 by `Recommendation.md` (every finding dispositioned per Rule 28); phases 3 (live session 1) and 6 done, live session 2 deferred. §10 ruled by the owner 2026-09-19 ("whatever you think is best"; no Windows machine; the target is irritation in real workflows). Phase 1 findings: `Findings_Bootstrap_Recovery.md`.
 **Date initiated:** 2026-09-19
 **Owner trigger:** Jason Forsyth, 2026-09-19 — "a critical look into the GUI … challenges and problems encountered when actually using the tool … switching between different types of analysis and scenarios without opening up pre-existing scenarios."
 **Auditor:** coding agent (headless scripted drive) + owner (live native sessions), see §2.

@@ -104,7 +104,9 @@ value either way.
 
 Right-clicking a row offers **Edit…**, **Copy dot-path**, **Explain** (the same derivation
 trace `radiant explain` prints, in a dialog), and **Reset to Default**, which clears your
-input so the parameter reverts to its default or is re-derived.
+input so the parameter reverts to its default or is re-derived. A reset is validated on a
+throwaway copy first: one that would leave a working configuration unable to resolve is
+refused, with a `Cannot reset` dialog naming what would go missing, and nothing changes.
 
 A derived row opens read-only. That is not a restriction to work around: the value is a
 consequence, and its inputs are what you change.

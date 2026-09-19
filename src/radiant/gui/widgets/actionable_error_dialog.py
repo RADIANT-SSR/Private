@@ -53,6 +53,10 @@ class ActionableErrorDialog(QDialog):
         The parameter the edit targeted, shown in the header.
     parent:
         The owning widget, if any.
+    verb:
+        What was attempted on *dotpath* — ``"set"`` (the default) for an edit,
+        ``"reset"`` for a withdrawal — so the header says what actually failed
+        (audit F-03: a refused *Reset to Default* read "Cannot set").
     """
 
     def __init__(
@@ -60,6 +64,8 @@ class ActionableErrorDialog(QDialog):
         exc: BaseException,
         dotpath: str,
         parent: QWidget | None = None,
+        *,
+        verb: str = "set",
     ) -> None:
         super().__init__(parent)
         self.setObjectName("actionableErrorDialog")
@@ -72,7 +78,8 @@ class ActionableErrorDialog(QDialog):
         layout.setContentsMargins(18, 18, 18, 14)
         layout.setSpacing(10)
 
-        header = QLabel(f"Cannot set “{dotpath}”", self)
+        self._header_text = f"Cannot {verb} “{dotpath}”"
+        header = QLabel(self._header_text, self)
         header.setObjectName("errorDialogHeader")
         header.setWordWrap(True)
         layout.addWidget(header)
@@ -91,6 +98,11 @@ class ActionableErrorDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok, self)
         buttons.accepted.connect(self.accept)
         layout.addWidget(buttons)
+
+    @property
+    def header_text(self) -> str:
+        """The header line (``Cannot set “<dot-path>”`` / ``Cannot reset …``)."""
+        return self._header_text
 
     def _add_field(self, form: QFormLayout, label: str, text: str) -> None:
         """Add one label→value row; the value wraps and is selectable."""

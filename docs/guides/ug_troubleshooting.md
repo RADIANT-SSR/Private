@@ -270,6 +270,13 @@ If you want a machine-readable record of a *run* rather than of the application,
 schema default or is re-derived. This is the correct fix for an over-constrained consistency
 group: you are not setting a value, you are withdrawing one.
 
+A reset is validated on a throwaway copy first, like an edit. If withdrawing the value would
+leave a working configuration unable to resolve — resetting `optics.f_number` while the
+focal length is derived from it, say — the reset is **refused**: a `Cannot reset
+"<dot-path>"` dialog names the parameter that would go missing, the row keeps its value,
+and nothing else changes (no undo step, no dirty marker, no re-evaluation). A reset that is
+accepted applies at once, records an undo step, marks the document unsaved and re-evaluates.
+
 **Right-click ▸ Explain** prints the derivation trace — value, provenance, and where it came
 from. When a number is not what you expect, this answers "who set this" in one step.
 

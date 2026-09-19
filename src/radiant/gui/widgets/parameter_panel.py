@@ -33,7 +33,9 @@ tree:
   traceback fold (Rules 15/17 — nothing swallowed).
 * Right-click: Copy dot-path, Explain (``sensor.explain`` in
   :class:`~radiant.gui.widgets.explain_dialog.ExplainDialog`), Reset to Default
-  (``sensor.reset``).
+  (``sensor.reset``, clone-validated first; a refused reset shows the modal
+  :class:`~radiant.gui.widgets.actionable_error_dialog.ActionableErrorDialog` under a
+  *Cannot reset* header).
 
 Multi-configuration Phase 4b adds, on top of that, the configured-parameter surface
 (ADR-0010 D-2): given a :class:`~radiant.gui.config_scope.ConfigurationScope`, a row
@@ -73,7 +75,7 @@ from PySide6.QtWidgets import (
 from radiant.core.exceptions import RadiantError
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.display_units import global_display_unit
-from radiant.gui.edit_guard import apply_edit, validate_edit
+from radiant.gui.edit_guard import apply_edit, validate_edit, validate_reset
 from radiant.gui.param_format import (
     DERIVED_BADGE,
     display_in_unit,
@@ -837,21 +839,30 @@ class ParameterPanel(QWidget):
         ``Sensor.reset`` clears the user/config input so the parameter reverts to
         its default (or is re-derived from a consistency group) on the next resolve.
         Resetting a parameter that had no explicit input is a harmless no-op.
+
+        The withdrawal is validated on a throwaway clone first
+        (:func:`radiant.gui.edit_guard.validate_reset`, CU-372 F-03): a reset that
+        would leave a resolvable configuration unresolvable — withdrawing one of
+        the two set members of a consistency group — is **refused**, the live
+        sensor untouched, the row unchanged, and the resolver's actionable error
+        shown under a *Cannot reset* header. An accepted reset applies, refreshes
+        the tree, and emits :attr:`parameterEdited` so the window records the undo
+        step, marks the document dirty, and schedules the re-evaluation.
         """
-        if self._sensor is None:
+        sensor = self._sensor
+        if sensor is None:
             return
-        try:
-            self._sensor.reset(dotpath)
-            self._sensor.get_input(dotpath)  # force resolve; surfaces any error now
-        except RadiantError as exc:
-            self._set_error_state(dotpath, exc)
-            exec_dialog(ActionableErrorDialog(exc, dotpath, self))
+        verdict = validate_reset(sensor, dotpath)
+        if verdict.rejection is not None:
+            self._set_error_state(dotpath, verdict.rejection)
+            exec_dialog(ActionableErrorDialog(verdict.rejection, dotpath, self, verb="reset"))
             return
-        except Exception as exc:
-            exec_dialog(UnexpectedErrorDialog(exc, f"Resetting “{dotpath}”", self))
+        if verdict.unexpected is not None:
+            exec_dialog(UnexpectedErrorDialog(verdict.unexpected, f"Resetting “{dotpath}”", self))
             return
+        sensor.reset(dotpath)
         self._clear_error_state()
-        self.populate(self._sensor)
+        self.populate(sensor)
         self.parameterEdited.emit(dotpath)
 
     def reveal_row(self, dotpath: str) -> None:

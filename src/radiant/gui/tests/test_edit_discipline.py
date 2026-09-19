@@ -174,3 +174,57 @@ class TestF02InPlaceEditorOnBlankConfig:
             assert (rejection is None) == (verdict.rejection is None)
             if rejection is not None:
                 assert str(rejection) == str(verdict.rejection)
+
+
+class TestF03ResetToDefaultIsClean:
+    """F-03: Reset to Default on a consistency-group member reported a rejection but
+    applied the reset anyway — row stale, no undo step, no re-evaluate, not dirty."""
+
+    def test_reset_that_would_break_the_group_is_refused_and_changes_nothing(
+        self, qtbot, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        """Steps: (1) Complete configuration with aperture and f-number set (focal
+        length derived). (2) Right-click optics.f_number ▸ Reset to Default."""
+        window = _complete_window(qtbot, monkeypatch)
+        panel_modals = _capture_modals(monkeypatch, "radiant.gui.widgets.parameter_panel")
+        panel = window.parameter_panel
+        f_number = "optics.f_number"
+        undo_before = window._undo_stack.count()  # noqa: SLF001
+        dirty_before = window._dirty  # noqa: SLF001
+
+        panel._reset_to_default(f_number)  # noqa: SLF001
+
+        # Refused: the input is still there, the row still says so, nothing moved.
+        assert window.sensor.peek_input(f_number) == 4.0
+        assert panel.value_text(f_number) == "4"
+        assert panel.source_text(f_number) == "user-set"
+        assert window._undo_stack.count() == undo_before  # noqa: SLF001
+        assert window._dirty == dirty_before  # noqa: SLF001
+        assert not window.evaluation_scheduled
+        # The refusal names what is missing, under a header that says "reset".
+        assert len(panel_modals) == 1
+        modal = panel_modals[0]
+        assert modal.header_text == "Cannot reset “optics.f_number”"
+        assert panel.has_error(f_number)
+        assert "optics.focal_length_m" in panel.error_banner.text()
+
+    def test_legal_reset_applies_with_undo_dirty_and_reevaluation(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """The other half of the contract: an accepted reset says so everywhere."""
+        window = _complete_window(qtbot, monkeypatch)
+        _capture_modals(monkeypatch, "radiant.gui.widgets.parameter_panel")
+        panel = window.parameter_panel
+        jitter = "platform.jitter_rms_urad"
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, jitter, "5")
+        assert panel.source_text(jitter) == "user-set"
+        window._dirty = False  # noqa: SLF001 — isolate the reset's own dirty mark
+        undo_before = window._undo_stack.count()  # noqa: SLF001
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            panel._reset_to_default(jitter)  # noqa: SLF001
+
+        assert window.sensor.peek_input(jitter) is None
+        assert panel.source_text(jitter) == "default"
+        assert window._undo_stack.count() == undo_before + 1  # noqa: SLF001
+        assert window.action("edit.undo").isEnabled()
+        assert window._dirty  # noqa: SLF001

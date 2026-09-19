@@ -26,6 +26,15 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Reset to Default either refuses cleanly or applies honestly (CU-372
+  F-03).** Resetting a consistency-group member whose partner was derived from
+  it showed a *Parameter Rejected* modal but applied the reset on the live
+  sensor anyway: the row kept the old value as user-set, no undo step was
+  recorded, no re-evaluation ran, and the title's dirty marker did not change.
+  The reset is now validated on a clone first; one that would leave a working
+  configuration unable to resolve is refused with nothing changed, under a
+  `Cannot reset "<dot-path>"` header, and an accepted reset records an undo
+  step, marks the document unsaved and re-evaluates.
 - **The in-place Value-column editor works on a blank configuration, and
   rejects inline (CU-372 F-02 / F-46).** The dock's in-place editor had no
   differential guard, so on a blank configuration every edit was rejected —

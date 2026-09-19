@@ -869,7 +869,17 @@ dtype before the commit (text that does not parse reaches the resolver's own typ
 error), so a float row never stores a string input. Right-click: Copy dot-path, Explain
 (renders `Sensor.explain(dotpath)` in a themed modal `ExplainDialog` — the surface chosen
 to match the `Tools → Explain Parameter…` menu), Reset to Default (`Sensor.reset(dotpath)`,
-which clears the input so the parameter reverts to its default or is re-derived).
+which clears the input so the parameter reverts to its default or is re-derived). **Reset
+is clone-validated like an edit (CU-372 F-03):** `edit_guard.validate_reset` applies the
+withdrawal to a throwaway clone and resolves it; a reset that would leave a resolvable
+configuration unresolvable (withdrawing one of the two set members of a consistency group)
+is refused — the live sensor untouched, the row unchanged, no undo step, no dirty mark, no
+re-evaluation — and the resolver's own error renders under a `Cannot reset “<dot-path>”`
+header (the modal's `verb` argument). An accepted reset applies, refreshes the tree, and
+emits `parameterEdited` exactly as an edit does, so the window records the undo step,
+marks the document dirty, and schedules the re-evaluation. Before this, `_reset_to_default`
+reset the **live** sensor and only then resolved: the failure rendered as a rejection while
+the reset had already applied (row stale, no undo, no re-evaluate).
 
 **Parameter Editor dialog (Phase 3 checkpoint punch-list).** The narrow dock truncates
 long dot-paths, so a full-detail **Parameter Editor** (`ParameterEditorDialog`, one widget

@@ -41,6 +41,7 @@ DOCS_TOP_ALLOWED = {
     "guides",
     "theory",
     "validation",
+    "manuals",
     "tracking",
     "plans",
     "reports",

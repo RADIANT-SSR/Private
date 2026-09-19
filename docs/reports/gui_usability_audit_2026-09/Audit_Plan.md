@@ -1,6 +1,6 @@
 # GUI Usability Audit — Plan
 
-**Status:** Draft — awaiting owner ratification of the §10 decisions.
+**Status:** Active — §10 ruled by the owner 2026-09-19 ("whatever you think is best"; no Windows machine; the target is irritation in real workflows). Phase 1 findings: `Findings_Bootstrap_Recovery.md`.
 **Date initiated:** 2026-09-19
 **Owner trigger:** Jason Forsyth, 2026-09-19 — "a critical look into the GUI … challenges and problems encountered when actually using the tool … switching between different types of analysis and scenarios without opening up pre-existing scenarios."
 **Auditor:** coding agent (headless scripted drive) + owner (live native sessions), see §2.
@@ -345,7 +345,17 @@ Native confirmation: <live session date | not attempted>
 Related: <CU / Gap if any>
 ```
 
-## 10. Owner decisions needed before Active
+## 10. Owner decisions — ruled 2026-09-19
+
+Rulings (owner delegated the calls; recorded here so they bind the later phases):
+
+1. **Templates** — journeys start from Blank config only; mission-template cards are exercised in T-R alone.
+2. **Live sessions** — two, scripted by the agent; session 1 takes J-1.1 and J-4.1 plus the S1/S2 queue from phase 1 (`Findings_Bootstrap_Recovery.md` §7).
+3. **Windows** — no machine available; T-W is deferred and the audit records nothing platform-specific.
+4. **Fix timing** — no fixes under the charter; S1 findings are minted as CUs at each phase merge so they can be scheduled before close, everything else at close.
+5. **Seed findings** — kept as Findings-Log lines; promoted with their families at close (one family CU per mechanism, per `Findings_Bootstrap_Recovery.md` §6).
+
+The questions as originally posed:
 
 1. **Templates.** Confirm the ground rule: journeys start from Blank config only; mission-template cards are exercised in T-R alone. (Alternative: also allow a template as the starting point for the P3/P4 journeys, which matches how those personas would really start.)
 2. **Live sessions.** Two sessions of roughly an hour each, scripted by the agent; confirm the two journeys chosen for session 1 (J-1.1, J-4.1) or name others.

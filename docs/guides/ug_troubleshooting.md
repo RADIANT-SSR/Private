@@ -38,8 +38,13 @@ Three consequences of this design worth knowing as an operator.
 fields the framework produced, verbatim.
 
 **A rejected value never reaches your model.** Every edit is validated on a throwaway copy of
-the configuration first. When a value is refused, the row keeps the value it had, and nothing
-downstream saw the bad one.
+the configuration first, by one rule shared by the in-place editor, the Parameter Editor and
+Reset to Default: only a failure *your change introduces* is a rejection. When a value is
+refused, the row keeps the value it had, and nothing downstream saw the bad one. On a
+configuration that is still incomplete, a legal value is accepted — the missing parameters
+are Evaluate's advisory to report, not your value's fault — but a value that is wrong on its
+own terms (out of bounds, a disagreeing member of a consistency group) is refused however
+incomplete the configuration is.
 
 **A rejection is not a failure of the run.** The last result stays on screen, marked stale.
 
@@ -50,13 +55,14 @@ its context, never by matching words in its message.
 
 | Surface | Carries |
 |---|---|
-| **Inline on the row** + the **Parameter Rejected** dialog | a rejected *edit*: the value you just typed is wrong on its own terms |
+| **Inline where you typed** — the row's tint, banner and tooltip for an in-place edit; the error area inside the Parameter Editor for a dialog edit | a rejected *edit*: the value you just typed is wrong on its own terms |
+| The **Parameter Rejected** dialog | a refused **Reset to Default** (headed `Cannot reset "<dot-path>"`), and the rejection of an edit made outside the dock — a stage form or the YAML editor |
 | **The Messages panel** | everything a completed run had to say — warnings, advisories, and failures |
 | **The status bar** | a one-line summary of the last action, and the specific thing to fix when a failure is attributable |
 | **The stage strip** | which stage is implicated, when that can be known |
 
-The **Parameter Rejected** dialog is titled `Cannot set "<dot-path>"` and lists What / Why /
-Action / context, each selectable so you can copy it into a bug report. A failure that is *not*
+The **Parameter Rejected** dialog is headed `Cannot set "<dot-path>"` (or `Cannot reset …`)
+and lists What / Why / Action / context, each selectable so you can copy it into a bug report. A failure that is *not*
 a RADIANT error — a genuine bug rather than a bad input — gets a different dialog instead, with
 the message up front and the full traceback behind a **Show details** fold. Nothing is
 swallowed either way.

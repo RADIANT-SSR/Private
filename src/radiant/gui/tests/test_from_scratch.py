@@ -50,7 +50,8 @@ class TestBootstrapEditing:
         assert rejection is not None  # Rule 16: wrong is wrong, incomplete or not
         enum_dialog = ParameterEditorDialog(sensor, "atmosphere.model", lambda *a: None)
         qtbot.addWidget(enum_dialog)
-        assert enum_dialog._validate_value_shallow("marshmallow", None) is not None  # noqa: SLF001
+        _c, rejection, _u = enum_dialog._try_resolve("marshmallow", None)  # noqa: SLF001
+        assert rejection is not None  # the resolver's enum check, via the shared guard
 
     def test_full_from_scratch_config_builds_and_evaluates(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """The complete journey: blank sensor → set values (the dialog's accept path

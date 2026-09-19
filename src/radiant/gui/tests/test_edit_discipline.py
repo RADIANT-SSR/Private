@@ -65,6 +65,17 @@ def _capture_modals(monkeypatch, module: str) -> list[object]:  # type: ignore[n
     return opened
 
 
+def _complete_window(qtbot, monkeypatch) -> RADIANTMainWindow:  # type: ignore[no-untyped-def]
+    """Blank config built up to the audit's complete configuration (optics-first)."""
+    window = _blank_window(qtbot)
+    _capture_modals(monkeypatch, "radiant.gui.main_window")
+    with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+        for dotpath, text in _COMPLETE:
+            _dialog_set(window, dotpath, text)
+    assert window.last_result is not None, "the complete configuration must evaluate"
+    return window
+
+
 class TestF01DockShowsCommittedValues:
     """F-01: on an unresolved configuration every dock row read `—` with no
     provenance, including the values just accepted through the dialog."""
@@ -96,3 +107,70 @@ class TestF01DockShowsCommittedValues:
         panel = window.parameter_panel
         panel._changed_only.setChecked(True)  # noqa: SLF001
         assert panel.visible_dotpaths() == {_ALT}
+
+
+class TestF02InPlaceEditorOnBlankConfig:
+    """F-02 / F-46: the in-place Value-column editor had no differential guard, so on
+    a blank configuration every edit was rejected with the cycle diagnostic (headless:
+    a modal from inside the editor-close sequence; natively: a silent revert)."""
+
+    def test_in_place_edit_is_accepted_on_blank_config(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """Steps: (1) Blank config. (2) Double-click the Value cell of
+        geometry.sensor_altitude_m, type 500000, Enter (the delegate's commit)."""
+        window = _blank_window(qtbot)
+        window_modals = _capture_modals(monkeypatch, "radiant.gui.main_window")
+        panel_modals = _capture_modals(monkeypatch, "radiant.gui.widgets.parameter_panel")
+        panel = window.parameter_panel
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            panel._commit_edit(_ALT, 500000.0)  # noqa: SLF001 — the delegate's commit
+        assert window.sensor.peek_input(_ALT) == 500000.0
+        assert panel.value_text(_ALT) == "500000 m"
+        assert panel.source_text(_ALT) == "user-set"
+        assert not panel.has_error(_ALT)
+        assert window_modals == [] and panel_modals == []
+
+    def test_every_audit_parameter_enters_in_place_in_geometry_first_order(
+        self, qtbot, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        """The audit's inline run rejected 11 of 11; all eleven now enter and evaluate."""
+        window = _blank_window(qtbot)
+        _capture_modals(monkeypatch, "radiant.gui.main_window")
+        panel_modals = _capture_modals(monkeypatch, "radiant.gui.widgets.parameter_panel")
+        panel = window.parameter_panel
+        geometry_first = sorted(_COMPLETE, key=lambda item: item[0] != _ALT)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            for dotpath, text in geometry_first:
+                panel._commit_edit(dotpath, float(text))  # noqa: SLF001
+                assert not panel.has_error(dotpath), dotpath
+        assert panel_modals == []
+        assert window.last_result is not None
+
+    def test_bad_in_place_value_on_blank_config_is_rejected_inline_not_modal(
+        self, qtbot, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        """F-46: a value wrong on its own terms still fails — inline, never a modal."""
+        window = _blank_window(qtbot)
+        panel_modals = _capture_modals(monkeypatch, "radiant.gui.widgets.parameter_panel")
+        panel = window.parameter_panel
+        aperture = "optics.aperture_diameter_m"
+        panel._commit_edit(aperture, -5.0)  # noqa: SLF001
+        assert window.sensor.peek_input(aperture) is None  # never reached the sensor
+        assert panel.value_text(aperture) == "—"
+        assert panel.has_error(aperture)
+        assert "out of bounds" in panel.error_banner.text()
+        assert panel_modals == []
+
+    def test_dialog_and_in_place_paths_reject_identically(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """One resolver, both paths: the dialog's verdict is the delegate's verdict."""
+        from radiant.gui.edit_guard import validate_edit
+
+        window = _blank_window(qtbot)
+        sensor = window.sensor
+        panel = window.parameter_panel
+        dialog = ParameterEditorDialog(sensor, _ALT, panel._after_dialog_commit, panel)  # noqa: SLF001
+        for value in ("500000", "-1"):
+            _c, rejection, _u = dialog._try_resolve(value, None)  # noqa: SLF001
+            verdict = validate_edit(sensor, _ALT, value, None)
+            assert (rejection is None) == (verdict.rejection is None)
+            if rejection is not None:
+                assert str(rejection) == str(verdict.rejection)

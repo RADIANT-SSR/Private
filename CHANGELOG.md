@@ -26,6 +26,18 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **The in-place Value-column editor works on a blank configuration, and
+  rejects inline (CU-372 F-02 / F-46).** The dock's in-place editor had no
+  differential guard, so on a blank configuration every edit was rejected —
+  nothing could be entered through that path while the Parameter Editor
+  accepted the same values. Both paths (and Reset to Default) now decide
+  through one shared clone-validate rule: a configuration incomplete with or
+  without the edit accepts it; a value wrong on its own terms is refused. An
+  in-place rejection renders on the row (tint, banner, tooltip) and no longer
+  raises a modal from inside the editor-close sequence, where it was lost
+  natively. A float or int row's typed text is coerced to the schema type
+  before the commit, so a saved file no longer carries a quoted number for a
+  value entered in place.
 - **The Parameters dock shows what you have entered on an incomplete
   configuration (CU-372 F-01).** On a blank configuration every row — the
   values just accepted included — read `—` with no Source badge, and *Changed

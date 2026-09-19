@@ -841,18 +841,32 @@ validating — no reimplemented physics); only a clean value is applied to the l
 and the row (value + provenance) is refreshed by re-reading the resolved set.
 `ParameterBoundsError` / `UnknownParameterError` / consistency-group violations (all
 surfaced by the resolver — the generic schema-bounds path raises a flat
-`CoreValidationError`, tracked as CU-107) render their what/why/action inline on the row
-(a themed error tint + banner) **and** in a modal `ActionableErrorDialog`; the rejected
+`CoreValidationError`, tracked as CU-107) render their what/why/action **inline on the
+row** (a themed error tint, the full text as the Value cell's tooltip, and the banner);
+the in-place path raises **no modal** — the commit runs inside the delegate's
+editor-close sequence, where a modal is lost natively (audit F-46) — and the rejected
 value never sticks. An unexpected exception raises `UnexpectedErrorDialog` with a
-traceback fold (Rules 15/17 — nothing swallowed). Both clone-validate commit paths
-(this inline tree edit and the `ParameterEditorDialog` below) additionally screen an
-accepted value through the resolve-time target-spec seam (CU-244): the shared
+traceback fold (Rules 15/17 — nothing swallowed). **One resolver, every commit path
+(CU-372 F-02):** the in-place tree edit, the `ParameterEditorDialog` below, and *Reset
+to Default* all decide acceptance through `radiant.gui.edit_guard` — the change is
+applied to a throwaway clone and resolved; only a failure *this change introduces* is
+a rejection. A configuration incomplete with or without the change accepts it (the
+from-scratch contract of 2026-07-17, now on both paths — the delegate used to reject
+every edit on a blank configuration); a failure identical to the live sensor's
+pre-existing one is not this edit's fault (Evaluate reports it); and because the
+resolver validates every explicit input and every consistency group before it reports
+a missing required parameter (CU-373 F-13 ordering), a value wrong on its own terms —
+out of bounds, a bad enum, a disagreeing third member of the `fnumber` group (F-06) —
+is rejected at the door however incomplete the configuration is. An accepted value is
+additionally screened through the resolve-time target-spec seam (CU-244): the shared
 `radiant.gui.target_spec_guard.introduced_target_spec_conflict` differential calls
 `Sensor.validate_target_spec()` on the trial clone and rejects a cross-parameter
 over-specification **this edit introduces** (e.g. a second reflectance surface) at
 the door, with the identical what/why/action `evaluate()` would produce; a conflict
 that pre-exists on the live sensor never blocks an unrelated edit — Evaluate remains
-the surface that reports it. Right-click: Copy dot-path, Explain
+the surface that reports it. The in-place line edit coerces its text to the schema
+dtype before the commit (text that does not parse reaches the resolver's own type
+error), so a float row never stores a string input. Right-click: Copy dot-path, Explain
 (renders `Sensor.explain(dotpath)` in a themed modal `ExplainDialog` — the surface chosen
 to match the `Tools → Explain Parameter…` menu), Reset to Default (`Sensor.reset(dotpath)`,
 which clears the input so the parameter reverts to its default or is re-derived).

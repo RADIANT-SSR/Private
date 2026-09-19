@@ -95,8 +95,12 @@ unit and provenance, the bounds in those units, and — for a dimensional parame
 selector with a live canonical preview.
 
 Both paths commit the same way: the value is validated on a throwaway copy of the model
-first, so a rejected value never reaches the live one. A rejection is rendered inline on the
-row *and* as a dialog, in *what / why / action* form, and the row keeps its previous value.
+first, by one shared rule, so a rejected value never reaches the live one and the two paths
+accept and reject identically — on a blank configuration either one takes your first value.
+A rejection is rendered in *what / why / action* form where you typed it: on the row itself
+(the tint, the banner under the tree, and the full text as the cell's tooltip) for the
+in-place editor, and inside the Parameter Editor for the dialog. The row keeps its previous
+value either way.
 
 Right-clicking a row offers **Edit…**, **Copy dot-path**, **Explain** (the same derivation
 trace `radiant explain` prints, in a dialog), and **Reset to Default**, which clears your

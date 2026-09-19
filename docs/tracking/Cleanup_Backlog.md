@@ -47,6 +47,22 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-372 — GUI edit discipline misrepresents state on unresolved configurations and consistency-group members (usability-audit family)
+
+**Discovered**: GUI usability audit phase 1 (`docs/reports/gui_usability_audit_2026-09/Findings_Bootstrap_Recovery.md`), 2026-09-19 — reproduced headlessly through the real dock and editor-dialog paths from Blank config; native confirmation queued for live session 1.
+**Status**: Open — every item is a `src/radiant/gui/` change, so the live-review rule gates the merge; the three S1 items are minted now per the audit's §10 ruling 4, the two S2 items ride along because they share the mechanism.
+**File**: `src/radiant/gui/widgets/parameter_panel.py` (`populate`, `_commit_edit`, `_reset_to_default`), `src/radiant/gui/widgets/parameter_editor_dialog.py` (`_try_resolve` differential guard, read-only derived rows).
+**Symptom**: checklist —
+
+- [ ] F-01 (S1): on an unresolved configuration every dock row shows `—` with no provenance — including values just accepted — and *Changed only* lists nothing, while the stage form shows the same value; the display lies until the configuration completes.
+- [ ] F-02 (S1): the inline Value-column editor has no differential guard, so on a Blank config every edit is rejected with the *Cannot set "<param>" — Circular dependency detected…* modal; nothing can be entered through that path, while the editor dialog accepts the same values.
+- [ ] F-03 (S1): *Reset to Default* on a consistency-group member whose partner is unset shows a *Parameter Rejected* modal but applies the reset on the live sensor anyway — row keeps the old value as user-set, no undo step, no re-evaluate, no dirty change.
+- [ ] F-04 (S2): a derived group member's editor is read-only with no take-over affordance; swapping which member is the input needs a reset (F-03) plus a set, undocumented.
+- [ ] F-06 (S2): an over-constrained group authored on an incomplete configuration is admitted (bounds-only fallback), surfaces only when the configuration completes, then raises a modal on every further edit naming the first-set member rather than the value typed last.
+
+**Why it still matters**: workflow-visible (intake test 4) — these are the two symptoms the owner reported on 2026-09-19 (a conflict that cannot be repaired one edit at a time; errors on every edit from a blank scenario), and F-01/F-03 make the GUI misstate its own state, which the product principles forbid outright.
+**Suggested fix**: (b) stand-alone task, one design for the seam — populate rows from inputs + provenance without requiring a resolve; share the dialog's differential acceptance with `_commit_edit` (or route the inline editor through the dialog's resolver); make `_reset_to_default` clone-validate and either refuse cleanly or apply with an undo command and a scheduled re-evaluate; give the read-only derived editor a "set this, derive <other>" action; have the differential guard still run the consistency-group check on the members that *are* set. Effort M; Category D (GUI + integration tests via `gui/tests`). Owner-gated only on the F-04 affordance wording.
+
 ### CU-371 — GUI strings and widgets leak process language or clip content into the shipped manuals (live-review family)
 
 **Discovered**: CU-370 manual-suite fix campaign, 2026-09-18 — the deferred GUI-gated remainder of the 2026-09 editorial audit (II-003, II-015, II-009's GUI side, IV-031, plus two campaign discoveries).

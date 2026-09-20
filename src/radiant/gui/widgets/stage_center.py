@@ -407,6 +407,11 @@ class StagePane(QWidget):
             # Tabbed composite (deferred hook): one scoped composite per named sub-view.
             self._tabs = QTabWidget(body)
             self._tabs.setObjectName("stageSubViewTabs")
+            # Tab titles are never elided (CU-376 F-49: "Target — th…", "Target —
+            # point s…" at 1440 px); when the bar is short of room it scrolls.
+            self._tabs.tabBar().setElideMode(Qt.TextElideMode.ElideNone)
+            self._tabs.tabBar().setExpanding(False)
+            self._tabs.setUsesScrollButtons(True)
             for subview in composition.subviews:
                 tab = QWidget(self._tabs)
                 tab_layout = QVBoxLayout(tab)

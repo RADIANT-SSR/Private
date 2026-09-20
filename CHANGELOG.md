@@ -42,6 +42,9 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Stage tab labels are never truncated (CU-376 F-49).** The Source stage's
+  five tabs read "Target — th…", "Target — point s…" at 1440 px. Tab titles
+  now show whole; when the bar is short of room it scrolls.
 - **Small windows wrap and scroll instead of clipping (CU-376 F-38).** At
   1024×640 the Performance stage's *Compute:* row showed two of its five
   metric-group checkboxes and each Messages row was cut at three lines with

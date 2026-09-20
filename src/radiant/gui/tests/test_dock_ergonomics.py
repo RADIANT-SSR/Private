@@ -223,3 +223,46 @@ class TestF38SmallWindow:
             # Each row is laid out at its full wrapped height — nothing is cut.
             assert item.height() >= item.heightForWidth(item.width()), item.height()
         assert panel._scroll.verticalScrollBar().maximum() > 0  # noqa: SLF001 — it scrolls
+
+
+class TestF49TabLabelsWhole:
+    """F-49: Source tab labels truncated to "Target — th…", "Target — point s…" at
+    1440 px. The truncation is the macOS style's default tab-elide hint; the headless
+    Fusion style never elides, so the test installs a proxy style carrying the macOS
+    hint — the pre-fix bar then elides exactly as it did natively."""
+
+    def test_source_tab_titles_are_never_elided(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QFontMetrics
+        from PySide6.QtWidgets import QApplication, QProxyStyle, QStyle
+
+        from radiant.gui.stage_views import STAGE_COMPOSITIONS
+        from radiant.gui.widgets.stage_center import StagePane
+
+        class _MacLikeStyle(QProxyStyle):
+            def styleHint(self, hint, option=None, widget=None, return_data=None):  # type: ignore[no-untyped-def]  # noqa: N802
+                if hint == QStyle.StyleHint.SH_TabBar_ElideMode:
+                    return Qt.TextElideMode.ElideRight.value
+                return super().styleHint(hint, option, widget, return_data)
+
+        app = QApplication.instance()
+        assert app is not None
+        previous = app.style().objectName()
+        app.setStyle(_MacLikeStyle())
+        try:
+            pane = StagePane("source", STAGE_COMPOSITIONS["source"])
+            qtbot.addWidget(pane)
+            pane.resize(560, 600)  # narrower than the five titles need side by side
+            pane.show()
+            qtbot.waitExposed(pane)
+            tabs = pane._tabs  # noqa: SLF001
+            assert tabs is not None
+            bar = tabs.tabBar()
+            assert bar.elideMode() == Qt.TextElideMode.ElideNone
+            metrics = QFontMetrics(bar.font())
+            for i in range(bar.count()):
+                text = bar.tabText(i).replace("&&", "&")
+                assert bar.tabRect(i).width() >= metrics.horizontalAdvance(text), text
+            assert tabs.usesScrollButtons()
+        finally:
+            app.setStyle(previous)

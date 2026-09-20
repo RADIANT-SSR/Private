@@ -21,6 +21,7 @@ import pytest
 
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 
+from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QComboBox, QLabel  # noqa: E402
 
 from radiant.gui.main_window import RADIANTMainWindow  # noqa: E402
@@ -381,3 +382,37 @@ class TestF07DoorEntryWithdrawsTheOtherDoor:
         assert window.last_result is not None
         assert not window.right_rail.messages.has_error()
         assert modals == []
+
+
+class TestF43BenchGeometryHasADoor:
+    """F-43: a bench (both altitudes 0 m, 2 m range) was refused; the operator invented
+    an altitude, and nothing on the geometry surface offered a bench door."""
+
+    def test_level_bench_through_the_slant_range_door(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """Steps: (1) Complete configuration; both altitudes 0 m; path zenith 0 (the
+        pre-fix card's invitation). (2) Pick Direct slant range (V0). (3) target_range_m
+        = 2 m."""
+        window = _complete_window(qtbot, monkeypatch)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, _ALT, "0")
+            _dialog_set(window, "geometry.target_altitude_m", "0")
+            _dialog_set(window, _ZENITH, "0")
+        form = _form(window)
+        combo = form.selector("viewing")
+        hint = str(combo.itemData(combo.findData("V0"), Qt.ItemDataRole.ToolTipRole))
+        assert "bench" in hint.lower()
+
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            form.choose_mode("viewing", "V0")
+        assert _ZENITH not in window.sensor.inputs()
+        assert form.is_field_editable(_RANGE)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, _RANGE, "2")
+        assert window.sensor.inputs()[_RANGE] == 2.0
+        assert not window.right_rail.messages.has_error()
+        result = window.last_result
+        assert result is not None
+        geometry = result.stage_outputs["geometry"]
+        assert "chord" in geometry["viewing_mode"]
+        assert geometry["slant_range_m"] == pytest.approx(2.0, rel=1e-9)
+        assert geometry["theta_o_rad"] == pytest.approx(math.pi / 2, abs=1e-6)

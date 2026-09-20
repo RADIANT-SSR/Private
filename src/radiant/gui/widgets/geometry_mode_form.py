@@ -64,6 +64,7 @@ from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.edit_guard import apply_mode_switch, validate_mode_switch
 from radiant.gui.geometry_modes import (
     MODE_FAMILIES,
+    MODE_HINTS,
     SUBDOORS,
     GeometryModeFamily,
     active_mode_key,
@@ -140,8 +141,11 @@ class _FamilyBlock(QWidget):
         )
         self._selector.setMinimumContentsLength(6)
         self._selector.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        for mode in family.modes:
+        for index, mode in enumerate(family.modes):
             self._selector.addItem(mode_label(mode.key), mode.key)
+            hint = MODE_HINTS.get(mode.key)
+            if hint:
+                self._selector.setItemData(index, hint, Qt.ItemDataRole.ToolTipRole)
         self._selector.currentIndexChanged.connect(self._apply_active_mode)
         # ``activated`` fires only on a user pick (never on setCurrentIndex), so a
         # refresh that re-selects the detected mode cannot trigger a switch.

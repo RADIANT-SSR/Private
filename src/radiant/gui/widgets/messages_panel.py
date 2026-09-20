@@ -31,8 +31,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QLabel, QScrollArea, QVBoxLayout, QWidget
 
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
@@ -99,7 +99,19 @@ class MessagesPanel(QWidget):
         self._items_layout = QVBoxLayout(self._items_host)
         self._items_layout.setContentsMargins(0, 0, 0, 0)
         self._items_layout.setSpacing(7)
-        layout.addWidget(self._items_host)
+        # The list scrolls when the messages outgrow the rail (CU-376 F-38): a
+        # plain host squeezed each wrapped row to a few lines with no way to read
+        # the rest short of clicking every row.
+        self._scroll = QScrollArea(self)
+        self._scroll.setObjectName("messagesScroll")
+        self._scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._scroll.viewport().setAutoFillBackground(False)
+        self._items_host.setAutoFillBackground(False)
+        self._scroll.setWidget(self._items_host)
+        layout.addWidget(self._scroll, 1)
 
         self._empty = QLabel(_EMPTY_TEXT, self)
         self._empty.setObjectName("messagesEmpty")

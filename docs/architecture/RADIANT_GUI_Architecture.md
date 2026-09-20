@@ -838,7 +838,17 @@ box for an int, a line edit for a float or free string. Each commit is exactly o
 `sensor.set(dotpath, value)` (§4.1). To keep the live sensor untouched on rejection, the
 value is first validated on a throwaway `sensor.clone()` (the API's own resolve does the
 validating — no reimplemented physics); only a clean value is applied to the live sensor
-and the row (value + provenance) is refreshed by re-reading the resolved set.
+and the row (value + provenance) is refreshed by re-reading the resolved set — **in
+place** (CU-376 F-45): a re-populate with the same sensor object re-renders the existing
+rows through the one row renderer instead of clearing and rebuilding the tree, so the
+selected row, the expansion state and the scroll position survive every accepted edit
+(before F-45 the view jumped to the top after each value). Only a different sensor
+object (Open, New, a YAML Apply) rebuilds. Column geometry: the Value column is
+content-sized between a floor (`_VALUE_FLOOR_PX`, CU-376 F-46 — on a blank configuration
+every cell is "—" and pure content-sizing collapsed the column to a few pixels, so the
+first double-click opened the dialog from the name column) and a cap (`_VALUE_CAP_PX`,
+CU-348 — one long path default must not starve the names); Source is content-sized; the
+name column takes the remainder down to its floor, below which the tree scrolls.
 `ParameterBoundsError` / `UnknownParameterError` / consistency-group violations (all
 surfaced by the resolver — the generic schema-bounds path raises a flat
 `CoreValidationError`, tracked as CU-107) render their what/why/action **inline on the
@@ -1321,6 +1331,13 @@ shipped `WarningListDialog`). Captured warnings are also re-logged, so nothing i
 swallowed (Rule 17). **Errors surface here too**: a `RadiantError` renders its actionable
 **what / why / action** (Rule 15), and clicking opens the full message. This is the
 warning strip relocated and widened to carry errors as well as warnings.
+
+*Small-window behaviour (CU-376 F-38).* The message rows sit in a vertical
+`QScrollArea` (`messagesScroll`), so at a short rail the list scrolls instead of squeezing
+each wrapped row to a few lines; the Performance stage's *Compute:* checkbox row is a
+`FlowLayout` (`widgets/flow_layout.py`) that wraps at narrow widths instead of clipping
+three of its five groups. The stage strip's horizontal scroll at narrow widths is the
+documented contract (§4.2) and is unchanged.
 
 *Document swap hygiene (CU-373 F-51).* `_adopt_config_set` — the one place a document
 becomes live — clears the previous result's saturation banner, warnings, stale notice and

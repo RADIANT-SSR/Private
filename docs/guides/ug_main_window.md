@@ -84,7 +84,9 @@ hides every row still at its schema default — your configuration, as a short l
 On a configuration that cannot resolve yet — a blank start with required parameters still
 unset — a row you have set shows the value you entered with a `user-set` badge, and only the
 rows with no input read `—`. The dock never waits for the whole configuration to complete
-before showing you what you typed.
+before showing you what you typed. An accepted edit refreshes the rows where they are: the row
+you selected stays selected and the tree stays scrolled where you left it, so a from-scratch
+build is one pass down the tree, not a re-scroll after every value.
 
 **Editing.** Double-clicking the *Value* cell of a non-derived row opens the editor its type
 calls for: a combo box for an enumeration (with the choices read from the schema), a
@@ -172,7 +174,8 @@ admitted; a wrong one is not). The editor opens whether or not the document reso
 text is the *inputs* scope: what you specified, not the resolved two hundred.
 
 **Messages.** Warnings and errors from the last run, one row each, verbatim and never
-deduplicated. The header reads `⚠ N warnings` with the first inline; clicking opens the full
+deduplicated; the list scrolls when the rows outgrow the rail, so a long warning is never
+cut short. The header reads `⚠ N warnings` with the first inline; clicking opens the full
 list. Errors render their *what / why / action*. In a study each message is prefixed with the
 configuration that raised it, so a per-band effect never reads as a property of the whole
 study. The panel also carries advisory notes that are not failures — an atmosphere family

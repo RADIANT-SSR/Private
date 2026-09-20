@@ -42,6 +42,30 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Stage tab labels are never truncated (CU-376 F-49).** The Source stage's
+  five tabs read "Target — th…", "Target — point s…" at 1440 px. Tab titles
+  now show whole; when the bar is short of room it scrolls.
+- **Small windows wrap and scroll instead of clipping (CU-376 F-38).** At
+  1024×640 the Performance stage's *Compute:* row showed two of its five
+  metric-group checkboxes and each Messages row was cut at three lines with
+  no way to read the rest. The checkbox row now wraps, and the Messages list
+  scrolls. The stage strip's horizontal scroll at narrow widths is documented
+  behaviour and is unchanged.
+- **Parameter names are readable at the default dock width (CU-376 F-14).**
+  At 1400×900 the name column sat at its floor and read `sens…de_m`,
+  `targ…ge_m`, with the `target.shape.*` rows indistinguishable. The default
+  dock is wider (420 px), the value column's cap is lower (numbers and units
+  still fit; a long path default elides with its tooltip) and the name floor
+  higher, so every geometry, detector and calibration name shows whole.
+- **The Value column has a width on a blank configuration (CU-376 F-46).**
+  With every cell reading `—`, content-sizing collapsed the column to about
+  ten pixels, so the first double-click landed on the name column and opened
+  the dialog. The column now has a floor, so the in-place editor is reachable
+  from the first row. (Its rejection path was fixed under CU-372.)
+- **The Parameters dock keeps your place across an edit (CU-376 F-45).**
+  Every accepted edit rebuilt the tree, losing the selected row and jumping
+  the view to the top. Rows are now refreshed in place; selection, expansion
+  and scroll survive.
 - **A horizon-guard refusal is an advisory, not a modal per re-evaluation
   (CU-373 F-28, routing half).** Lowering a sensor while a ground-range door
   still held the old range passed through a grazing geometry whose refusal

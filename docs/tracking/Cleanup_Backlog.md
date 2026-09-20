@@ -50,7 +50,7 @@ by name in check 8 — that list is frozen and must never grow.
 ### CU-377 — Mode and door switching has no switch affordance: selectors are display-only, other doors' values linger, inactive doors show schema defaults (usability-audit family, owner-gated)
 
 **Discovered**: GUI usability audit phases 1–4 and live session 1, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Bootstrap_Recovery.md` F-05/F-07/F-15, `Findings_Journeys_P1_P4.md` F-25/F-26, `Findings_Journeys_P5_P7.md` F-43, `Findings_Live_Session_1.md` F-48).
-**Status**: Open — owner-gated: the fix is a design decision (does picking a mode withdraw the other doors?) that belongs with the Gap 85 mission-type ruling; nothing here should be built ahead of it.
+**Status**: Open — ruling recorded 2026-09-20 (owner: "I think it should" / "lets do it"): **a family's mode selector switches the family; switching withdraws the other doors' explicit inputs as one undoable action, seeds the new door from the derived value where one exists, and inactive doors display derived values; a second door set outside the selector is refused at the door** (a resolve-time `validate_geometry_modes` seam on the shared edit guard). The same rule applies to the source target doors (thermal / reflective / point intensity) and the calibration cal-point mode, via the Gap 117 companion-reset pattern. Gap 85's scene-type tier stays separate. Built as usability-audit fix batch 4 (`fix377/mode-switching`), live-review gated.
 **File**: `src/radiant/gui/widgets/geometry_mode_form.py`, `source_inputs_form.py`, `calibration_inputs_form.py`, `target_spec_guard.py`; guide `docs/guides/ug_defining_scene.md` §1.2.
 **Symptom**: checklist —
 

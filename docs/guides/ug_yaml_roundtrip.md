@@ -217,7 +217,7 @@ run exists:
 | Export JSON Result… | the provenance record of the last run — run id, RADIANT version, the git commit of the checkout the package is loaded from (or `unknown` for an installed wheel), Python and dependency versions, every resolved input, file hashes |
 | Export Metrics CSV… | the metric surface with units |
 | Export Sweep CSV… | the retained sweep (enabled once a sweep has run — chapter 10) |
-| Export XLSX Workbook… | configuration, metrics, and any retained sweep, in one workbook |
+| Export XLSX Workbook… | configuration, metrics, and any retained sweep, in one workbook — a study writes one column per configuration on the `Config` and `Metrics` sheets |
 
 The XLSX export is the one to reach for when a result is going to someone who will open it in a
 spreadsheet: it carries the configuration that produced the numbers in the same file as the

@@ -234,7 +234,7 @@ Once a run exists, the File menu's export actions enable:
 |---|---|
 | Export JSON Result… | the provenance record of the last run |
 | Export Metrics CSV… | the metric surface as CSV |
-| Export XLSX Workbook… | config, metrics, and any retained sweep in one workbook |
+| Export XLSX Workbook… | config, metrics, and any retained sweep in one workbook; in a study, the `Config` and `Metrics` sheets carry one value column per configuration, named as on screen |
 
 Export Sweep CSV… joins them once a sweep has been run (chapter 10). The two YAML exports
 write configuration rather than results, and are chapter 11's subject.

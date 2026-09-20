@@ -42,6 +42,12 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **The workbook export writes every configuration of a study (CU-374
+  F-22).** The XLSX held the displayed configuration only, unlabeled, and the
+  `Config` sheet's unit column read `None` for unitless parameters. In a
+  study the `Config` and `Metrics` sheets now carry one value column per
+  configuration, named as on screen (a failed configuration is an empty
+  cell); unit cells are blank when there is no unit.
 - **Every result export carries a run stamp with a stale marker (CU-374
   F-34 / F-35).** A retained sweep exported after edits, and a metrics export
   written after a failed re-evaluation, could not be told from current ones.

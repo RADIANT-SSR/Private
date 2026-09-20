@@ -198,3 +198,55 @@ class TestF34F35RunStamps:
         assert "Run" in book.sheetnames
         rows = {row[0].value: row[1].value for row in book["Run"].iter_rows(min_row=2)}
         assert rows["stale"] == "no" and rows["run_id"]
+
+
+class TestF22StudyWorkbook:
+    """F-22: the workbook export of a study held the displayed configuration only,
+    unlabeled; the Config sheet's unit column read the string `None`."""
+
+    def test_study_workbook_has_one_column_per_configuration(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """J-4.1 step 19: three configurations on screen, one in the file."""
+        import openpyxl
+
+        from radiant.api.config_set import ConfigurationSet
+        from radiant.gui.xlsx_export import export_workbook
+
+        cs = ConfigurationSet(Sensor.load(_EXAMPLE), names=("Configuration 1", "Sensor B"))
+        cs.configure("optics.aperture_diameter_m", [0.3, 0.5])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            run = cs.evaluate_all()
+        result = run.entry_for("Configuration 1").result
+        out = export_workbook(
+            tmp_path / "study.xlsx", cs.base, result, None, config_set=cs, run=run
+        )
+        book = openpyxl.load_workbook(out)
+        config = book["Config"]
+        assert [c.value for c in config[1]] == ["parameter", "unit", "Configuration 1", "Sensor B"]
+        rows = {row[0].value: [c.value for c in row] for row in config.iter_rows(min_row=2)}
+        assert rows["optics.aperture_diameter_m"][1:] == ["m", 0.3, 0.5]
+        assert not any(row[1] == "None" for row in rows.values())  # unit cells never 'None'
+        metrics = book["Metrics"]
+        assert [c.value for c in metrics[1]] == [
+            "name",
+            "unit",
+            "description",
+            "Configuration 1",
+            "Sensor B",
+        ]
+        snr = next(row for row in metrics.iter_rows(min_row=2) if row[0].value == "snr")
+        assert snr[3].value != snr[4].value  # two apertures, two SNRs, both present
+
+    def test_plain_session_keeps_the_single_layout(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        import openpyxl
+
+        from radiant.gui.xlsx_export import export_workbook
+
+        sensor = Sensor.load(_EXAMPLE)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = sensor.evaluate()
+        book = openpyxl.load_workbook(export_workbook(tmp_path / "plain.xlsx", sensor, result))
+        assert [c.value for c in book["Config"][1]] == ["parameter", "value", "unit"]
+        units = [row[2].value for row in book["Config"].iter_rows(min_row=2)]
+        assert "None" not in units  # a unitless parameter is a blank cell, not the string

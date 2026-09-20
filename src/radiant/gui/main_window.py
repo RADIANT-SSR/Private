@@ -2593,7 +2593,15 @@ class RADIANTMainWindow(QMainWindow):
         stamp = self.result_stamp()
         if self.last_sweep_result is not None:
             stamp.update({f"sweep_{k}": v for k, v in self.sweep_stamp().items()})
-        export_workbook(filename, sensor, self._last_result, self.last_sweep_result, stamp=stamp)
+        export_workbook(
+            filename,
+            sensor,
+            self._last_result,
+            self.last_sweep_result,
+            stamp=stamp,
+            config_set=self._config_set,
+            run=self._last_run,
+        )
         self.statusBar().showMessage(f"Workbook exported to {filename}{self._stale_note(stamp)}")
 
     def _on_schema_browser(self) -> None:

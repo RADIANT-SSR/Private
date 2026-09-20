@@ -47,6 +47,16 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-378 — GUI resident memory grows ~0.8 MB per accepted edit and ~17 MB per three-point sweep and is never released (usability-audit F-55)
+
+**Discovered**: GUI usability audit T-L soak addendum (`docs/reports/gui_usability_audit_2026-09/Findings_Tracks.md`, F-55, 2026-09-19); re-measured 2026-09-20 on merged `main` (266a9d9c) after CU-376's in-place tree refresh removed the suspected cause — unchanged.
+**Status**: Investigating — attribution pass (tracemalloc diff between edit 100 and edit 200; live `ChainResult` / matplotlib `Figure` census) in progress.
+**File**: `src/radiant/gui/main_window.py` (result retention across evaluations), `src/radiant/gui/widgets/stage_center.py` / `matplotlib_canvas.py` (figure replacement), `src/radiant/gui/widgets/sweep_dialog.py` (retained sweep results); mechanism not yet named.
+**Symptom**: 200 accepted `detector.qe_value` edits through the editor dialog on the audit's complete from-scratch configuration, offscreen, production debounce: resident memory 415 → 997 MB after 50 edits, 1040 after 100, 1077 after 200 (≈0.8 MB/edit steady), 1243 MB after ten three-point sweeps (≈17 MB/sweep), flat across 40 Inspector cycles; per-edit time flat at 0.58 s. The audit's 2026-09-19 numbers were 529 / 992 / 1055 / 1105 / 1324 MB — the same shape, so the `populate()` rebuild CU-376 removed was not the mechanism.
+**Why it still matters**: workflow-visible (intake test 4) — an analyst's day of sweeps is measured in gigabytes; the T-L soak is the documented reproduction.
+**Suggested fix**: (b) stand-alone task — name the retainer (per-evaluation `ChainResult` objects held somewhere across edits, figures behind replaced canvases, or the sweep dialog's kept results), release it, and pin the soak's slope in a test. Effort S–M; Category D.
+
+
 ### CU-377 — Mode and door switching has no switch affordance: selectors are display-only, other doors' values linger, inactive doors show schema defaults (usability-audit family, owner-gated)
 
 **Discovered**: GUI usability audit phases 1–4 and live session 1, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Bootstrap_Recovery.md` F-05/F-07/F-15, `Findings_Journeys_P1_P4.md` F-25/F-26, `Findings_Journeys_P5_P7.md` F-43, `Findings_Live_Session_1.md` F-48).

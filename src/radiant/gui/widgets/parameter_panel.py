@@ -434,10 +434,18 @@ class ParameterPanel(QWidget):
         loaded" state. Rebuilding clears any transient rejected-edit state.
 
         A genuinely *new* sensor (a different object — the ``radiant gui CONFIG`` or an
-        Open action) resets the session's display-unit preferences; a refresh with the
-        *same* sensor object (the post-edit re-populate) preserves them so a row the
-        user re-unitted keeps that unit across edits.
+        Open action) resets the session's display-unit preferences and rebuilds the
+        tree; a refresh with the *same* sensor object (the post-edit re-populate)
+        **re-renders the existing rows in place** (CU-376 F-45): the selected row,
+        the expansion state and the scroll position survive, and the display-unit
+        preferences are preserved so a row the user re-unitted keeps that unit
+        across edits. Before F-45 every accepted edit cleared and rebuilt the tree,
+        so the current row was lost and the view jumped to the top after each value
+        (owner: "very annoying").
         """
+        if sensor is not None and sensor is self._sensor and self._items:
+            self._refresh_rows(sensor)
+            return
         if sensor is not self._sensor:
             self._display_units.clear()
         self._sensor = sensor
@@ -465,6 +473,23 @@ class ParameterPanel(QWidget):
         self._size_value_column()
         self._rebalance_name_column()
 
+    def _refresh_rows(self, sensor: Sensor) -> None:
+        """Re-render every existing row from *sensor* without rebuilding the tree (F-45).
+
+        Values, provenance, derived/tolerance badges, regime dimming, the configured
+        marker and the editable flag are all re-read through the same renderer the
+        build path uses (:meth:`_render_row`), so a refreshed row is exactly what a
+        rebuilt row would have been — minus the lost selection and scroll. Any
+        transient rejected-edit state is cleared, as a rebuild cleared it.
+        """
+        self._clear_error_state()
+        defs = sensor.parameter_defs()
+        for dotpath, item in self._items.items():
+            self._render_row(item, sensor, dotpath, defs[dotpath])
+        self._apply_filter(self._filter.text())
+        self._size_value_column()
+        self._rebalance_name_column()
+
     def _build_row(
         self,
         sensor: Sensor,
@@ -480,6 +505,34 @@ class ParameterPanel(QWidget):
         crashing populate (found 2026-07-16: `explain`/`get_input` resolve
         internally and raised `CoreValidationError` through the File → New path).
         """
+        # Leaf label is the dot-path remainder after the namespace prefix.
+        leaf = dotpath.split(".", 1)[1] if "." in dotpath else dotpath
+        item = QTreeWidgetItem([leaf, "", ""])
+        item.setData(0, _DOTPATH_ROLE, dotpath)
+        # Values are always mono (§8.2), right-aligned so digits line up like a
+        # calibrated column (2026-08-03 critique — the value column previously
+        # inherited the proportional UI face).
+        item.setFont(1, mono_font())
+        item.setTextAlignment(1, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self._render_row(item, sensor, dotpath, pdef)
+        return item
+
+    def _render_row(
+        self,
+        item: QTreeWidgetItem,
+        sensor: Sensor,
+        dotpath: str,
+        pdef: ParameterDef,
+    ) -> None:
+        """(Re)write everything about *item* that depends on the sensor's state.
+
+        The one renderer behind both the build and the in-place refresh (F-45):
+        value + display unit, ⚡ / ± badges, provenance label, regime dimming, the
+        configured marker and the editable flag. Every property is set
+        unconditionally (dimming cleared when no longer excluded, the editable
+        flag dropped when a row becomes derived) so a refresh can never leave a
+        stale attribute behind.
+        """
         provenance = safe_provenance(sensor, dotpath)
         derived = is_derived(provenance)
         try:
@@ -493,26 +546,17 @@ class ParameterPanel(QWidget):
         # set in this row's editor dialog; persisted via _radiant.tolerances).
         if dotpath in sensor.tolerances():
             value_text = f"± {value_text}"
+        item.setText(1, value_text)
+        item.setText(2, provenance_label(provenance))
+        item.setToolTip(0, f"{dotpath}\n{pdef.description}" if pdef.description else dotpath)
         # GT-7 (Gap 85 close-out): a declared scene type dims rows whose regime tags
         # exclude it — textual badge + tooltip, theme-neutral, never hidden and never
         # blocked (the tree stays the escape hatch; the stage forms do the disabling).
+        # Regime exclusion reads as a *dimmed* row + tooltip, not a suffix inside the
+        # value cell — the old "(n/a: <type>)" text blew the content-sized Value
+        # column wide open and starved the names (2026-08-03 critique; the owner
+        # hit it live on scenario 10.1). Never hidden, never blocked.
         excluded_by = self._regime_exclusion(sensor, dotpath)
-
-        # Leaf label is the dot-path remainder after the namespace prefix.
-        leaf = dotpath.split(".", 1)[1] if "." in dotpath else dotpath
-        item = QTreeWidgetItem([leaf, value_text, provenance_label(provenance)])
-        item.setData(0, _DOTPATH_ROLE, dotpath)
-        item.setToolTip(0, f"{dotpath}\n{pdef.description}" if pdef.description else dotpath)
-        # Values are always mono (§8.2), right-aligned so digits line up like a
-        # calibrated column (2026-08-03 critique — the value column previously
-        # inherited the proportional UI face).
-        item.setFont(1, mono_font())
-        item.setTextAlignment(1, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        # Regime exclusion (GT-7/Gap 85) reads as a *dimmed* row + tooltip, not a
-        # suffix inside the value cell — the old "(n/a: <type>)" text blew the
-        # content-sized Value column wide open and starved the names (2026-08-03
-        # critique; the owner hit it live on scenario 10.1). Never hidden, never
-        # blocked — the dimming is the affordance, the tooltip is the sentence.
         if excluded_by is not None:
             dim = QColor(active_theme().muted_2)
             for column in range(3):
@@ -522,14 +566,19 @@ class ParameterPanel(QWidget):
                 f"Not applicable for a declared '{excluded_by}' scene "
                 "(regime tags) — the value is kept but unused in this regime.",
             )
+        else:
+            for column in range(3):
+                item.setData(column, Qt.ItemDataRole.ForegroundRole, None)
+            item.setToolTip(1, "")
         # The configured-parameter marker (Phase 4b): a small red "C" whose tooltip
         # lists every configuration's value with units (ADR-0010 D-2).
         self._apply_badge(item, dotpath)
         # Editable unless derived (Rule 4 / §4.3: ⚡ rows are read-only). The
         # ItemIsEditable flag on column 1 is what lets the delegate open an editor.
-        if not derived:
+        if derived:
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        else:
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
-        return item
 
     @staticmethod
     def _resolved_value(sensor: Sensor, dotpath: str) -> object | None:

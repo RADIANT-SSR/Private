@@ -85,6 +85,12 @@ Done — 121 points.
 Done — 11×11 grid.
 ```
 
+A 1-D sweep whose points hard-clip the detector well says so on the same line — `Done — 6
+points. Well clipped at 6 of 6 points — the metric is flat because the signal saturates;
+reduce the signal or raise the full-well capacity.` — and the exported CSV carries a
+`well_status` column (`clipped` / `ok`) per point, so a flat curve never leaves the tool
+looking like a result.
+
 **Copy as script** puts a complete, runnable reproduction block on the clipboard:
 
 ```python
@@ -120,7 +126,9 @@ you ask for it.
 
 A target that is not bracketed by your endpoints fails with both endpoint metric values shown,
 so you can widen the bracket knowingly. A metric that is flat over the bracket cannot be
-bracketed at all, and the message says that rather than returning an arbitrary root.
+bracketed at all, and the message says that rather than returning an arbitrary root — and when
+it is flat because both endpoints hard-clip the well, the message says *that*, with the remedy
+(reduce the signal, or raise the full-well capacity) instead of advice to widen the bounds.
 
 ## 3. Tools ▸ Compare Config Files…
 

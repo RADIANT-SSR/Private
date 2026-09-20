@@ -553,7 +553,17 @@ class SweepDialog(QDialog):
             axis.set_ylabel(self._metric_axis_label(metric_key, result))
             if spec.get("log1"):
                 axis.set_xscale("log")
-            self._status.setText(f"Done — {len(result.values)} points.")
+            clipped = len(result.clipped_points()) if hasattr(result, "clipped_points") else 0
+            note = ""
+            if clipped:
+                # CU-375 F-18: a flat curve over a saturating configuration is not a
+                # result to keep; the run's own well status explains it.
+                note = (
+                    f" Well clipped at {clipped} of {len(result.values)} points — the "
+                    "metric is flat because the signal saturates; reduce the signal or "
+                    "raise the full-well capacity."
+                )
+            self._status.setText(f"Done — {len(result.values)} points.{note}")
         else:
             # pcolormesh with the real coordinate arrays: correct for log-spaced
             # axes, where imshow's linear extent silently mis-places every cell.

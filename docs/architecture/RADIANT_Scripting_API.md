@@ -685,6 +685,8 @@ with open("run_provenance.json", "w") as f:
 
 `result.to_csv(path, stamp=…)`, `SweepResult.to_csv(path, stamp=…)`, `Sweep2DResult.to_csv(path, stamp=…)` accept an optional `stamp` mapping written first as `# key: value` comment lines (the GUI passes its run stamp — run id, evaluated-at, RADIANT build, config path, stale — CU-374 F-34/F-35; `radiant.io.results.write_stamp_lines` is the shared writer). Omitted, the files are unchanged.
 
+`SweepResult.clipped_points()` lists the indices whose well saturated (from the kept results' `well_status()`), and the 1-D CSV carries a trailing `well_status` column (`clipped` / `ok`) when results are kept; `SolveBracketError.saturated` is True when both bracket endpoints clipped, and the message then names the saturation rather than advising a wider bracket (CU-375 F-18).
+
 `SweepResult.to_csv` / `Sweep2DResult.to_csv` write `name [unit]` headers (the axis in the parameter's input unit — carried as `param_unit` / `param1_unit`, `param2_unit` — and each metric in its registry unit; a code/flag metric reads `[code]` / `[0/1 flag]`) and plain 15-significant-digit cells, never a numpy literal (CU-374 F-17/F-31). `radiant.api.sweep.labeled_header` and `metric_units` are the shared helpers the workbook export uses.
 
 `result.to_records()` returns metrics as plain dicts (name/value/unit/description) and `result.to_csv(path)` writes them as CSV (Gap 88, 2026-07-16); `SweepResult` / `Sweep2DResult` / `MonteCarloResult` carry matching `to_csv`. There is still no `result.to_json()` (the `.radiant` archive in §3.9 is the full-fidelity persistence).

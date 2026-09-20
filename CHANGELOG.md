@@ -46,6 +46,15 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **A sweep or solve over a clipped configuration says so (CU-375 F-18).**
+  A sweep over a saturating configuration reported a flat metric as
+  `Done — 6 points` with no saturation notice, and a solve on it advised
+  "widen or shift the bounds". The sweep status now names the clipped points
+  (`Well clipped at 6 of 6 points — the metric is flat because the signal
+  saturates …`), the sweep CSV carries a `well_status` column when results
+  are kept (`SweepResult.clipped_points()` is the API), and a bracket
+  refusal whose endpoints both clip names the saturation and the remedy
+  (`SolveBracketError.saturated`).
 - **Sweep and solve target lists open on SNR, leave out codes and flags,
   and explain a missing metric (CU-375 F-19 / F-41).** The solve dialog
   opened alphabetically on `adc_margin_dB`, offered `sampling_regime_code`

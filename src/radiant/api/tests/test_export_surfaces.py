@@ -192,3 +192,51 @@ class TestElementDocumentPortability:
         csv_path = self._mirror_csv(tmp_path)
         text = self._element_sensor(csv_path).to_yaml()
         assert str(csv_path.resolve()) in text
+
+
+class TestSaturationFlags:
+    """CU-375 F-18: a sweep or solve over a clipped configuration says so."""
+
+    @staticmethod
+    def _saturating() -> Sensor:
+        # The audit's minimal from-scratch configuration saturates the default well
+        # (fill 7.9–11x).
+        s = Sensor()
+        for dotpath, value in (
+            ("optics.aperture_diameter_m", 0.3),
+            ("optics.f_number", 4.0),
+            ("detector.pixel_pitch_x_um", 18.0),
+            ("detector.pixel_pitch_y_um", 18.0),
+            ("detector.qe_value", 0.7),
+            ("spectral_integration.filter_min_um", 3.4),
+            ("spectral_integration.filter_max_um", 5.0),
+            ("spectral_integration.integration_time_s", 0.005),
+            ("source.target.temperature", 300.0),
+            ("source.target.emissivity", 0.95),
+            ("geometry.sensor_altitude_m", 500000.0),
+        ):
+            s.set(dotpath, value)
+        return s
+
+    def test_sweep_reports_clipped_points_and_writes_the_column(self, tmp_path: Path) -> None:
+        s = self._saturating()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sweep = s.sweep("optics.aperture_diameter_m", np.linspace(0.15, 0.6, 3))
+        assert sweep.clipped_points() == (0, 1, 2)
+        out = sweep.to_csv(tmp_path / "flat.csv")
+        rows = list(csv.reader(out.read_text(encoding="utf-8").splitlines()))
+        assert rows[0][-1] == "well_status"
+        assert [row[-1] for row in rows[1:]] == ["clipped", "clipped", "clipped"]
+
+    def test_solve_over_a_clipped_bracket_names_the_saturation(self) -> None:
+        from radiant.api.solve import SolveBracketError
+
+        s = self._saturating()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with pytest.raises(SolveBracketError) as info:
+                s.solve_for("platform.jitter_rms_urad", 150.0, bounds=(0.0, 50.0), metric="snr")
+        assert info.value.saturated
+        assert "hard-clip" in str(info.value)
+        assert "Widen or shift" not in str(info.value)

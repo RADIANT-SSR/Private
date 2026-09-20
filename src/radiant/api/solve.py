@@ -24,8 +24,25 @@ from radiant.io.results import ChainResult
 MetricFn = Callable[[ChainResult], float]
 
 
+def _is_clipped(result: ChainResult) -> bool:
+    """Whether *result*'s well saturated (False for a result with no readout stage)."""
+    try:
+        return bool(result.well_status().is_saturated)
+    except KeyError:
+        return False
+
+
 class SolveBracketError(RadiantError):
-    """Raised when the bracket does not straddle the target."""
+    """Raised when the bracket does not straddle the target.
+
+    ``saturated`` (CU-375 F-18) is True when both endpoint evaluations
+    hard-clipped the well: the metric is flat because the signal saturates,
+    and widening the bracket cannot help — the message says so.
+    """
+
+    def __init__(self, message: str, *, saturated: bool = False) -> None:
+        super().__init__(message)
+        self.saturated = saturated
 
 
 @dataclass(frozen=True)
@@ -122,19 +139,30 @@ def solve_for(
         return value - target
 
     f_lo = f(lo)
+    clipped_lo = _is_clipped(last_result["r"])
     f_hi = f(hi)
+    clipped_hi = _is_clipped(last_result["r"])
     if f_lo == 0.0:
         root = lo
     elif f_hi == 0.0:
         root = hi
     elif f_lo * f_hi > 0.0:
+        saturated = clipped_lo and clipped_hi
+        # CU-375 F-18: over a clipped configuration the metric is flat and
+        # 'widen the bounds' cannot help — say what is actually wrong.
+        advice = (
+            "Both bracket endpoints hard-clip the detector well, so the signal "
+            "saturates and the metric is flat here; reduce the signal (integration "
+            "time, aperture) or raise the full-well capacity before solving."
+            if saturated
+            else "Widen or shift the bounds so the target lies between the endpoint metric values."
+        )
         raise SolveBracketError(
             f"solve_for('{param_name}'): {metric_name} does not reach the "
             f"target {target:g} inside the bracket [{lo:g}, {hi:g}] — "
             f"{metric_name}({lo:g}) = {f_lo + target:g}, "
-            f"{metric_name}({hi:g}) = {f_hi + target:g}. "
-            "Widen or shift the bounds so the target lies between the "
-            "endpoint metric values."
+            f"{metric_name}({hi:g}) = {f_hi + target:g}. " + advice,
+            saturated=saturated,
         )
     else:
         root = float(brentq(f, lo, hi, rtol=rtol, maxiter=max_iter))

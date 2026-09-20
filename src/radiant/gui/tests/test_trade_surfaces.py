@@ -214,3 +214,62 @@ class TestF19F41TargetMetricLists:
         qtbot.addWidget(dialog)
         assert "mtf_at_nyquist is not available for this run" in dialog.status_text
         assert dialog._metric.currentData() != "mtf_at_nyquist"  # noqa: SLF001
+
+
+class TestF18ClippedTradesSaySo:
+    """F-18: a sweep over a well-clipped configuration returned a flat metric with
+    'Done — N points' and no saturation notice; a solve on it said 'widen the bounds'."""
+
+    @staticmethod
+    def _saturating() -> Sensor:
+        s = Sensor()
+        for dotpath, value in (
+            ("optics.aperture_diameter_m", 0.3),
+            ("optics.f_number", 4.0),
+            ("detector.pixel_pitch_x_um", 18.0),
+            ("detector.pixel_pitch_y_um", 18.0),
+            ("detector.qe_value", 0.7),
+            ("spectral_integration.filter_min_um", 3.4),
+            ("spectral_integration.filter_max_um", 5.0),
+            ("spectral_integration.integration_time_s", 0.005),
+            ("source.target.temperature", 300.0),
+            ("source.target.emissivity", 0.95),
+            ("geometry.sensor_altitude_m", 500000.0),
+        ):
+            s.set(dotpath, value)
+        return s
+
+    def test_sweep_status_names_the_clipped_points(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """J-1.1 step 19: aperture 0.15–0.60 m over Sarah's saturating configuration."""
+        from radiant.gui.widgets.sweep_dialog import SweepDialog
+
+        dialog = SweepDialog(self._saturating(), ("snr",))
+        qtbot.addWidget(dialog)
+        dialog._param1.setCurrentText("optics.aperture_diameter_m")  # noqa: SLF001
+        dialog._start1.setText("0.15")  # noqa: SLF001
+        dialog._stop1.setText("0.6")  # noqa: SLF001
+        dialog._n1.setText("3")  # noqa: SLF001
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with qtbot.waitSignal(dialog._worker_done_signal(), timeout=120000):  # noqa: SLF001
+                dialog.start_sweep()
+        assert dialog.status_text.startswith("Done — 3 points.")
+        assert "Well clipped at 3 of 3 points" in dialog.status_text
+
+    def test_solve_status_names_the_saturation(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """J-1.2 step 26: solve jitter for SNR 150 over [0, 50] on the same configuration."""
+        from radiant.gui.widgets.solve_dialog import SolveDialog
+
+        dialog = SolveDialog(self._saturating(), ("snr",))
+        qtbot.addWidget(dialog)
+        dialog._param.setCurrentText("platform.jitter_rms_urad")  # noqa: SLF001
+        dialog._target.setText("150")  # noqa: SLF001
+        dialog._lo.setText("0")  # noqa: SLF001
+        dialog._hi.setText("50")  # noqa: SLF001
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with qtbot.waitSignal(dialog.solveSettled, timeout=120000):
+                dialog.start_solve()
+        assert dialog.solve_result is None
+        assert "hard-clip" in dialog.status_text
+        assert "Widen or shift" not in dialog.status_text

@@ -95,6 +95,22 @@ class SweepResult:
             dtype=np.float64,
         )
 
+    def clipped_points(self) -> tuple[int, ...]:
+        """Indices of the sweep points whose well saturated (signal hard-clipped).
+
+        Read off the kept results' :meth:`ChainResult.well_status` (CU-375 F-18:
+        a sweep over a clipped configuration reported a flat metric as success).
+        Empty when results were not kept, or when no point clipped.
+        """
+        clipped: list[int] = []
+        for i, result in enumerate(self.results):
+            try:
+                if result.well_status().is_saturated:
+                    clipped.append(i)
+            except KeyError:
+                continue  # a synthetic result without a readout stage
+        return tuple(clipped)
+
     def to_csv(self, path: str | Path, *, stamp: Mapping[str, str] | None = None) -> Path:
         """Write the sweep as CSV: param column + the primary metric — Gap 88.
 
@@ -118,6 +134,7 @@ class SweepResult:
                 set().union(*(set(r.metrics) for r in self.results)) - {self.metric_name}
             )
         units = metric_units(self.results)
+        clipped = set(self.clipped_points())
         with open(out, "w", encoding="utf-8", newline="") as f:
             write_stamp_lines(f, stamp)
             writer = _csv.writer(f)
@@ -126,6 +143,9 @@ class SweepResult:
                     labeled_header(self.param_name, self.param_unit),
                     labeled_header(self.metric_name, units.get(self.metric_name, "")),
                     *(labeled_header(name, units.get(name, "")) for name in extra_names),
+                    # With kept results every row says whether its well clipped
+                    # (CU-375 F-18) — a flat metric column then explains itself.
+                    *(["well_status"] if self.results else []),
                 ]
             )
             for i, (v, m) in enumerate(zip(self.values, self.metric_values, strict=True)):
@@ -137,7 +157,8 @@ class SweepResult:
                     if self.results
                     else []
                 )
-                writer.writerow([_number(v), _number(m), *extras])
+                status = ["clipped" if i in clipped else "ok"] if self.results else []
+                writer.writerow([_number(v), _number(m), *extras, *status])
         return out
 
     def at_metric_threshold(

@@ -42,6 +42,13 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **`radiant gui` with no file opens on the welcome screen (CU-373 F-44).**
+  The CLI handed the window a blank configuration, so the mission templates,
+  Blank config card, worked examples and recent list appeared only after
+  File ▸ New, and the two blank states greeted differently. The bare launch
+  now hands the window no document — the welcome screen — as the guide and
+  `launch_gui`'s docstring already said; Blank config is the from-scratch
+  path.
 - **An inverted filter band is an advisory that names the edges (CU-373
   F-21).** Raising `filter_min_um` above `filter_max_um` — the first of the
   two edits any upward band widening needs — failed with a modal reading

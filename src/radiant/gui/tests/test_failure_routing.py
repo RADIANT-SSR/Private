@@ -288,3 +288,23 @@ class TestF21BandEdgesAdvisory:
             _dialog_set(window, "spectral_integration.filter_max_um", "12")
         assert opened == []
         assert _chip_status(window, "spectral_integration") in ("ok", "warn")
+
+
+class TestF44BareLaunchShowsWelcome:
+    """F-44: `radiant gui` handed the window a blank Sensor, so the welcome screen
+    appeared only after File ▸ New. The CLI half is pinned in cli/tests (gui may not
+    import cli); this pins the window contract the CLI now relies on."""
+
+    def test_launch_gui_with_no_document_opens_on_the_welcome_screen(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from PySide6.QtWidgets import QApplication
+
+        from radiant.gui.app import launch_gui
+
+        assert launch_gui(config_set=None) == 0  # pytest-qt owns the loop: returns at once
+        windows = [w for w in QApplication.topLevelWidgets() if isinstance(w, RADIANTMainWindow)]
+        assert windows, "launch_gui must have shown a main window"
+        window = windows[-1]
+        qtbot.addWidget(window)
+        assert window.is_welcome()
+        assert window.sensor is None
+        assert "template" in window.statusBar().currentMessage()

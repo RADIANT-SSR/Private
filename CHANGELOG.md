@@ -21,6 +21,10 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`Sensor.to_dict()`** — the nested inputs dict `from_dict` accepts (inputs
+  by namespace, the `_radiant` meta block, any attached element document), so
+  `Sensor.from_dict(s.to_dict(), wavelength_points=s.wavelength_points)`
+  reproduces a sensor (CU-375 F-24).
 - **`SpectralBandError(ApiValidationError)`** — raised by `Sensor.evaluate`
   (and every path that builds the evaluation grid) before any stage runs when
   `filter_min_um` is not below `filter_max_um`; structured what/why/action
@@ -42,6 +46,10 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Run ▸ Batch Run… scaffolds from the configuration on screen (CU-375
+  F-24).** The skeleton started from `base = {}` and asked the operator to
+  reconstruct her sensor as a dict; it now starts from `sensor.to_dict()`
+  with a factory that keeps the session's wavelength grid.
 - **The workbook export writes every configuration of a study (CU-374
   F-22).** The XLSX held the displayed configuration only, unlabeled, and the
   `Config` sheet's unit column read `None` for unitless parameters. In a

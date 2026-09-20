@@ -92,7 +92,8 @@ class TestScaffolds:
         window.action("run.batch").trigger()
         tab = window._scripting_window.editor.current_tab()  # noqa: SLF001
         text = tab.toPlainText()
-        assert "BatchRunner(base, axes).run(evaluate)" in text
+        assert "BatchRunner(base, axes, sensor_factory=make).run(evaluate)" in text
+        assert "base = sensor.to_dict()" in text  # CU-375 F-24: the sensor on screen
         assert 'pivot("snr", rows="aperture", cols="t_int")' in text
 
     def test_tree_shows_tolerance_badge(self, qtbot) -> None:  # type: ignore[no-untyped-def]

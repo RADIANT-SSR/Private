@@ -24,6 +24,7 @@ from typing import Any
 
 import numpy as np
 import numpy.typing as npt
+import yaml
 
 from radiant.api._param_registry import build_parameter_set
 from radiant.api.config_io import normalize_element_document
@@ -429,6 +430,20 @@ class Sensor:
         reads to tell shared from configured parameters.
         """
         return self._params.inputs()
+
+    def to_dict(self) -> dict[str, Any]:
+        """The nested inputs dict :meth:`from_dict` accepts — the on-screen configuration.
+
+        The inverse of :meth:`from_dict` (CU-375 F-24): the explicit inputs nested
+        by namespace exactly as :meth:`to_yaml`'s inputs scope writes them, plus
+        the ``_radiant`` meta block (format, wavelength points, tolerances) and any
+        attached ``optical_elements`` document, so ``Sensor.from_dict(s.to_dict())``
+        reproduces this sensor's inputs. ``wavelength_points`` is a constructor
+        argument, not a parameter: pass ``wavelength_points=s.wavelength_points``
+        to :meth:`from_dict` (or a factory) to keep the same evaluation grid.
+        """
+        loaded = yaml.safe_load(self.to_yaml(scope="inputs", validate=False))
+        return dict(loaded) if isinstance(loaded, dict) else {}
 
     def input_provenances(self) -> Mapping[str, Provenance]:
         """Read-only snapshot of the explicitly-set inputs' provenance (CU-372 F-01).

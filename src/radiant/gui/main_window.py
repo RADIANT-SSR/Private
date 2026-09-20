@@ -2476,8 +2476,15 @@ class RADIANTMainWindow(QMainWindow):
         snippet = (
             "# Batch scaffold (Run → Batch Run…) — cartesian product of labeled axes\n"
             "from radiant.api.batch import BatchRunner\n"
+            "from radiant.api.sensor import Sensor\n"
             "\n"
-            "base = {}  # or a nested config dict; cells start from Sensor.from_dict(base)\n"
+            "# Every cell starts from the configuration on screen (the console binds\n"
+            "# `sensor`); the factory keeps its wavelength grid.\n"
+            "base = sensor.to_dict()\n"
+            "\n"
+            "def make(config):\n"
+            "    return Sensor.from_dict(config, wavelength_points=sensor.wavelength_points)\n"
+            "\n"
             "axes = [\n"
             '    ("aperture", {"25cm": {"optics.aperture_diameter_m": 0.25},\n'
             '                  "35cm": {"optics.aperture_diameter_m": 0.35}}),\n'
@@ -2489,7 +2496,7 @@ class RADIANTMainWindow(QMainWindow):
             "    r = cell_sensor.evaluate()\n"
             '    return {"snr": r.metrics["snr"]}\n'
             "\n"
-            "batch = BatchRunner(base, axes).run(evaluate)\n"
+            "batch = BatchRunner(base, axes, sensor_factory=make).run(evaluate)\n"
             'print(batch.pivot("snr", rows="aperture", cols="t_int"))\n'
             'print(f"failed cells: {batch.n_failed}")\n'
         )

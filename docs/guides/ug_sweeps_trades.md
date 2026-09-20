@@ -166,8 +166,10 @@ for name in mc.metric_names:
 If you have set none, it says that and shows you how — both the scripting call and the
 Tolerance section in any parameter editor dialog.
 
-The Batch scaffold is a `BatchRunner` skeleton with two labeled axes, an `evaluate` function,
-and a pivot at the end; edit the axes to yours and run it.
+The Batch scaffold is a `BatchRunner` skeleton whose base is **the configuration on screen**
+(`base = sensor.to_dict()`, with a one-line factory that keeps the session's wavelength grid),
+two labeled axes, an `evaluate` function, and a pivot at the end; edit the axes to yours and run
+it — every cell varies the sensor you built, not an empty one.
 
 ## 5. Which surface for which trade
 

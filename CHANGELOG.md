@@ -42,6 +42,11 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **The Value column has a width on a blank configuration (CU-376 F-46).**
+  With every cell reading `—`, content-sizing collapsed the column to about
+  ten pixels, so the first double-click landed on the name column and opened
+  the dialog. The column now has a floor, so the in-place editor is reachable
+  from the first row. (Its rejection path was fixed under CU-372.)
 - **The Parameters dock keeps your place across an edit (CU-376 F-45).**
   Every accepted edit rebuilt the tree, losing the selected row and jumping
   the view to the top. Rows are now refreshed in place; selection, expansion

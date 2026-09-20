@@ -843,7 +843,12 @@ place** (CU-376 F-45): a re-populate with the same sensor object re-renders the 
 rows through the one row renderer instead of clearing and rebuilding the tree, so the
 selected row, the expansion state and the scroll position survive every accepted edit
 (before F-45 the view jumped to the top after each value). Only a different sensor
-object (Open, New, a YAML Apply) rebuilds.
+object (Open, New, a YAML Apply) rebuilds. Column geometry: the Value column is
+content-sized between a floor (`_VALUE_FLOOR_PX`, CU-376 F-46 — on a blank configuration
+every cell is "—" and pure content-sizing collapsed the column to a few pixels, so the
+first double-click opened the dialog from the name column) and a cap (`_VALUE_CAP_PX`,
+CU-348 — one long path default must not starve the names); Source is content-sized; the
+name column takes the remainder down to its floor, below which the tree scrolls.
 `ParameterBoundsError` / `UnknownParameterError` / consistency-group violations (all
 surfaced by the resolver — the generic schema-bounds path raises a flat
 `CoreValidationError`, tracked as CU-107) render their what/why/action **inline on the

@@ -132,6 +132,10 @@ _EMPTY_MESSAGE = "No configuration loaded — open a YAML to inspect parameters"
 # middle-elides and its row tooltip carries the full text).
 _NAME_FLOOR_PX: int = 120
 _VALUE_CAP_PX: int = 150
+# CU-376 F-46: the value column's floor. Content-sizing on a blank configuration
+# (every cell "—") collapsed the column to ~10 px ("Va"), so the first double-click
+# landed on the name column and opened the dialog instead of the in-place editor.
+_VALUE_FLOOR_PX: int = 84
 
 
 class ParameterPanel(QWidget):
@@ -407,9 +411,15 @@ class ParameterPanel(QWidget):
         return super().eventFilter(obj, event)
 
     def _size_value_column(self) -> None:
-        """Content-size the value column, capped at ``_VALUE_CAP_PX``."""
+        """Content-size the value column between ``_VALUE_FLOOR_PX`` and ``_VALUE_CAP_PX``.
+
+        The floor keeps the column a real click target on a blank configuration
+        (every cell "—"), where pure content-sizing collapsed it to a few pixels
+        (CU-376 F-46); the cap keeps one long path default from starving the names
+        (CU-348).
+        """
         content = self._tree.sizeHintForColumn(1)
-        self._tree.header().resizeSection(1, min(max(content, 1), _VALUE_CAP_PX))
+        self._tree.header().resizeSection(1, min(max(content, _VALUE_FLOOR_PX), _VALUE_CAP_PX))
 
     def _rebalance_name_column(self) -> None:
         """Name column = remaining viewport, never below ``_NAME_FLOOR_PX``.

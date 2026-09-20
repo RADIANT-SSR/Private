@@ -115,3 +115,30 @@ class TestF45EditKeepsPlace:
         assert panel.is_editable(focal)
         assert panel.value_text("optics.f_number") == "⚡ 6"
         assert not panel.is_editable("optics.f_number")
+
+
+class TestF46ValueColumnHasWidthOnBlankConfig:
+    """F-46: on a blank configuration the Value column collapsed to about ten pixels
+    ("Va"), so the first double-click landed on the name column."""
+
+    def test_value_column_keeps_its_floor_on_a_blank_config(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.parameter_panel import _VALUE_FLOOR_PX
+
+        window = _blank_window(qtbot)
+        header = window.parameter_panel.tree.header()
+        assert header.sectionSize(1) >= _VALUE_FLOOR_PX
+        assert header.sectionSize(1) >= 60  # a real click target, whatever the constant
+
+    def test_value_cell_is_the_one_a_double_click_lands_on(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """The delegate's editor opens from the Value cell, not the dialog from the name."""
+        window = _blank_window(qtbot)
+        panel = window.parameter_panel
+        tree = panel.tree
+        item = panel._items["geometry.sensor_altitude_m"]  # noqa: SLF001
+        from PySide6.QtCore import QPoint
+
+        rect = tree.visualItemRect(item)
+        header = tree.header()
+        x = header.sectionPosition(1) + header.sectionSize(1) // 2
+        index = tree.indexAt(QPoint(x, rect.center().y()))
+        assert index.column() == 1

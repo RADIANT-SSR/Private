@@ -12,8 +12,12 @@ the document (``File → Save`` / ``Export YAML``, the right rail's *Edit Config
 (YAML)* modal, and the scripting console's Refresh) cannot drift apart:
 
 * :func:`is_study` — the predicate;
-* :func:`serialize_document` — the document's YAML text;
-* :func:`load_document_from_text` — the inverse, through the public loader.
+* :func:`serialize_document` — the document's YAML text (never resolves, so the
+  editor opens on an unresolvable document too — CU-372 F-32);
+* :func:`load_document_from_text` — the inverse, through the public loader;
+* :func:`document_rejection` — the resolve-time check the YAML editor's Apply runs
+  on the freshly parsed document, with the same differential posture as every
+  other commit path (incompleteness is admitted, a wrong value is refused).
 
 Both directions round-trip: a study's text carries its ``configurations:`` section
 and reloads as the full set; a plain session's text carries none and reloads as the
@@ -32,6 +36,9 @@ import logging
 import os
 import tempfile
 from typing import TYPE_CHECKING
+
+from radiant.core.exceptions import RadiantError
+from radiant.core.parameters import RequiredParameterError
 
 if TYPE_CHECKING:
     from radiant.api.config_set import ConfigurationSet
@@ -62,10 +69,47 @@ def serialize_document(config_set: ConfigurationSet) -> str:
     for a study (shared body + ``configurations:``). The text round-trips through
     :func:`load_document_from_text` exactly, which is the contract the YAML editor's
     Apply and the Export surface both rely on.
+
+    Neither call resolves (``validate=False``; the study writer never did): the
+    inputs scope needs no resolved value, and the editor must open on a document
+    that cannot resolve — that is exactly when the operator needs it (CU-372 F-32:
+    an out-of-bounds value applied through the editor left the editor unable to
+    reopen, because the serializer raised the bounds error first).
     """
     if is_study(config_set):
         return config_set.to_yaml()
-    return config_set.base.to_yaml(scope="inputs")
+    return config_set.base.to_yaml(scope="inputs", validate=False)
+
+
+def document_rejection(config_set: ConfigurationSet) -> RadiantError | None:
+    """The resolve-time error that refuses *config_set* as a document, or ``None``.
+
+    The YAML editor's Apply validates on the freshly parsed document exactly as
+    every other commit path validates on a clone (:mod:`radiant.gui.edit_guard`,
+    CU-372): each configuration is resolved (``ConfigurationSet.validate_all``,
+    resolution only — no physics), and the verdict follows the differential
+    posture. An **incomplete** document — one whose only failure is a
+    :class:`~radiant.core.parameters.RequiredParameterError` — is admitted, because
+    an operator may legitimately build a configuration in the editor and Evaluate's
+    advisory names what is still missing. Any other resolve failure — an
+    out-of-bounds value, a bad enum, an over-constrained consistency group, a
+    configuration whose element train does not attach — is returned so the caller
+    can refuse the Apply with its what/why/action and keep the live document
+    untouched. In a plain session the per-configuration wrapper is unwrapped to the
+    underlying error (there is no configuration to name); in a study the wrapper
+    stays, since it names which configuration failed.
+    """
+    plain = not is_study(config_set)
+    for error in config_set.validate_all().values():
+        if error is None:
+            continue
+        underlying = error
+        while isinstance(underlying.__cause__, RadiantError):
+            underlying = underlying.__cause__
+        if isinstance(underlying, RequiredParameterError):
+            continue
+        return underlying if plain else error
+    return None
 
 
 def load_document_from_text(yaml_text: str) -> ConfigurationSet:
@@ -98,4 +142,4 @@ def load_document_from_text(yaml_text: str) -> ConfigurationSet:
             logger.debug("Could not remove temp YAML file %s: %s", tmp_path, exc)
 
 
-__all__ = ["is_study", "load_document_from_text", "serialize_document"]
+__all__ = ["document_rejection", "is_study", "load_document_from_text", "serialize_document"]

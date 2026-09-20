@@ -14,10 +14,23 @@ from __future__ import annotations
 from radiant.calibration.errors import (
     is_calibration_config_incomplete as _is_calibration_config_incomplete,
 )
+from radiant.calibration.errors import (
+    is_calibration_mode_conflict as _is_calibration_mode_conflict,
+)
 
-__all__ = ["is_calibration_config_incomplete"]
+__all__ = ["is_calibration_config_incomplete", "is_calibration_mode_conflict"]
 
 
 def is_calibration_config_incomplete(exc: BaseException) -> bool:
     """True when *exc* says a calibration config is incomplete, not wrong."""
     return _is_calibration_config_incomplete(exc)
+
+
+def is_calibration_mode_conflict(exc: BaseException) -> bool:
+    """True when *exc* says a cal-point mode is mixed with the other mode's inputs.
+
+    ``cal_point_mode = 'flux_fraction'`` with a cal temperature still set (or the
+    reverse) is an evaluate-time mixed state, not a rejected input; it routes as an
+    advisory beside the calibration inputs (CU-373 F-09).
+    """
+    return _is_calibration_mode_conflict(exc)

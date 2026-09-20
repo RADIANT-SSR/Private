@@ -12,6 +12,13 @@ public unit seam with no ad-hoc conversion (Rule 2). The command captures the li
 construction; the window clears the whole stack whenever the sensor is swapped (Open / New /
 YAML-apply / console refresh), so a command never references a stale sensor.
 
+**The unit of history is the explicit input, not the resolved value (CU-372 F-20).** Either
+side of the command may be ``None``, meaning *no explicit input* — the parameter sits at
+its schema default or is derived. Undoing a first-time set therefore withdraws the input
+(``Sensor.reset``) and the row returns to `default` provenance; it does not write the
+schema default back as a user-set value, which is what made *Changed only*, presets and
+saved files all treat an undone edit as something the operator had typed.
+
 No colour/font/size literal lives here (GUI plan §4.9); this is pure command logic.
 """
 
@@ -36,7 +43,9 @@ class SetParameterCommand(QUndoCommand):
     dotpath:
         The parameter dot-path (e.g. ``"optics.aperture_diameter_m"``).
     old_value, new_value:
-        The parameter's value **in its input unit**, before and after the edit.
+        The parameter's explicit input **in its input unit**, before and after the
+        edit — ``None`` for "no explicit input" (default / derived provenance), which
+        applies as ``Sensor.reset`` rather than a ``set``.
     unit:
         The input unit to pass to :meth:`Sensor.set` (``None`` for a dimensionless /
         enum parameter, whose value carries no unit).
@@ -87,8 +96,10 @@ class SetParameterCommand(QUndoCommand):
     # -- helpers ------------------------------------------------------------
 
     def _apply(self, value: Any) -> None:
-        """Set *value* on the live sensor (in the input unit) and notify the window."""
-        if self._unit:
+        """Restore *value* as the explicit input (``None`` withdraws it) and notify the window."""
+        if value is None:
+            self._sensor.reset(self._dotpath)
+        elif self._unit:
             self._sensor.set(self._dotpath, value, unit=self._unit)
         else:
             self._sensor.set(self._dotpath, value)

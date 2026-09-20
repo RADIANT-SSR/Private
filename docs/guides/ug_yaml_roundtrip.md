@@ -64,14 +64,16 @@ document, preloaded with exactly the text above, with **Apply / Revert / Cancel*
 stating the contract:
 
 ```text
-Apply re-parses through the framework; invalid YAML leaves the config unchanged.
+Apply re-parses and resolves through the framework; invalid YAML or a value the framework
+refuses leaves the config unchanged.
 ```
 
 In a study the caption instead says:
 
 ```text
 This is the whole study — the shared parameters plus the configurations: section.
-Apply re-parses through the framework; invalid YAML leaves the study unchanged.
+Apply re-parses and resolves through the framework; invalid YAML or a value the framework
+refuses leaves the study unchanged.
 ```
 
 That distinction is the one to remember about this editor: **it edits the document, not the
@@ -80,17 +82,27 @@ displayed configuration.** A study's text is the whole study.
 ### 2.1 What Apply does
 
 Apply loads the edited text into a **fresh** document through the ordinary loader — the same
-one File ▸ Open uses — and only hands it back to the window on success. Two outcomes:
+one File ▸ Open uses — then **resolves** that fresh document, and only hands it back to the
+window on success. Two outcomes:
 
-- **It parses.** The window adopts the new document, rebinds the parameter tree, the stage
-  forms and the scripting console, and re-evaluates. The result is marked unsaved, keeps the
-  current file path, and **the undo stack is reset** — a whole-document replacement is not a
-  reversible edit, and pretending otherwise would let `Ctrl+Z` walk you into a state that never
-  existed.
+- **It parses and resolves.** The window adopts the new document, rebinds the parameter tree,
+  the stage forms and the scripting console, and re-evaluates. The result is marked unsaved,
+  keeps the current file path, and **the undo stack is reset** — a whole-document replacement
+  is not a reversible edit, and pretending otherwise would let `Ctrl+Z` walk you into a state
+  that never existed.
 - **It does not.** The live document is untouched, the dialog stays open with your text still
-  in it, and you get the real error: a `RadiantError` (bad YAML, a schema violation, a section
-  violation naming the configuration and the parameter) renders as what / why / action;
-  anything else shows its traceback. Nothing is swallowed.
+  in it, and the real error renders **inline beneath the text**, as what / why / action: a
+  `RadiantError` — bad YAML, a schema violation, a section violation naming the configuration
+  and the parameter, or a value the framework refuses (out of bounds, a bad enum, an
+  over-constrained consistency group). Anything else shows its traceback. Nothing is
+  swallowed, and no dialog appears over the editor.
+
+The resolve check has the same posture as every other edit: a document that is merely
+**incomplete** — a required parameter deleted — is admitted, the window says `Configuration
+incomplete`, and Evaluate's advisory names what is missing. A document that is **wrong** is
+refused. Before this check, an out-of-bounds value typed here reached the live configuration,
+was reported as "incomplete", and left the editor unable to reopen; the editor now opens on
+any document, resolvable or not, so you can always repair one here.
 
 **Revert** restores the editor to the current document's text. **Cancel** closes without
 applying.

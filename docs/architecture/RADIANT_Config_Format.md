@@ -603,7 +603,7 @@ ValueError: Consistency group 'fnumber' is over-constrained:
 ValueError: Required parameter 'optics.aperture_diameter_m' is not set.
   Description: Clear entrance-pupil diameter of the primary [m].
   Expected type: float in m
-  Set it via: params.set('optics.aperture_diameter_m', value)
+  Action: set 'optics.aperture_diameter_m' — it has no default
 ```
 
 ---

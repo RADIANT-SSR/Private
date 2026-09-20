@@ -46,10 +46,12 @@ def launch_gui(
     ----------
     sensor:
         An already-configured :class:`~radiant.api.sensor.Sensor` to open the
-        GUI on (the script → GUI hand-off, arch doc §5). ``None`` opens an empty
-        window with no sensor loaded — the state after ``radiant gui`` with no
-        config argument. Mutually exclusive with *config_set* (the window takes
-        at most one document).
+        GUI on (the script → GUI hand-off, arch doc §5). ``None`` (with no
+        *config_set* either) opens the window on the **welcome screen** — mission
+        templates, Blank config, worked examples and recent files (arch doc
+        §4.4a) — which is the state ``radiant gui`` with no config argument
+        launches into (CU-373 F-44). Mutually exclusive with *config_set* (the
+        window takes at most one document).
     path:
         The config path the document was loaded from, if any — shown in the
         window title (with the dirty marker) and seeded into the recent-files

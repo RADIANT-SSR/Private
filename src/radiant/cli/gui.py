@@ -63,8 +63,8 @@ def gui(config: str | None) -> None:
     sys.exit(launch_gui(config_set=config_set, path=config))
 
 
-def _load_config_set(config: str | None) -> ConfigurationSet:
-    """Load *config* as a :class:`ConfigurationSet`, or a blank one for no config.
+def _load_config_set(config: str | None) -> ConfigurationSet | None:
+    """Load *config* as a :class:`ConfigurationSet`; ``None`` for no config.
 
     Every file goes through :meth:`ConfigurationSet.load` — the API decides the
     document kind (CU-342), exactly the one-reader dispatch the GUI's File → Open
@@ -75,13 +75,12 @@ def _load_config_set(config: str | None) -> ConfigurationSet:
     :class:`RadiantError` subclasses.
     """
     if config is None:
-        # From-scratch flow (owner report 2026-07-17): a bare `radiant gui` opens an
-        # editable blank configuration (schema defaults, no file) — the File → New
-        # state — instead of a dead window with everything disabled.
-        from radiant.api.config_set import ConfigurationSet
-        from radiant.api.sensor import Sensor
-
-        return ConfigurationSet(Sensor())
+        # A bare `radiant gui` opens on the welcome screen (mission templates,
+        # Blank config, worked examples, recent files — arch doc §4.4a), which is
+        # what a window with no document shows. Handing it a blank Sensor instead
+        # (the pre-welcome from-scratch flow of 2026-07-17) skipped that surface
+        # until File → New (CU-373 F-44); the Blank card is the from-scratch path.
+        return None
 
     config_path = Path(config)
     if not config_path.exists():

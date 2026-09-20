@@ -56,12 +56,10 @@ class TestGuiSubcommand:
     def test_launches_with_no_config(
         self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """With the extra present, `radiant gui` hands launch_gui a **blank
-        editable** degenerate configuration set for the no-config case — the
-        from-scratch flow (owner report 2026-07-17); a dead ``None`` window was
-        the bug (CU-158; set-shaped since CU-342)."""
-        from radiant.api.config_set import ConfigurationSet
-
+        """With the extra present, `radiant gui` hands launch_gui **no document**
+        for the no-config case, so the window opens on the welcome screen
+        (templates, Blank config, recent — CU-373 F-44). The earlier blank-Sensor
+        hand-off (CU-158/CU-342, pre-welcome) skipped that surface until File → New."""
         calls: list[object] = []
 
         def fake_launch(
@@ -74,22 +72,15 @@ class TestGuiSubcommand:
         result = runner.invoke(cli, ["gui"], standalone_mode=False)
         assert result.exit_code == 0
         assert len(calls) == 1
-        cs = calls[0]
-        assert isinstance(cs, ConfigurationSet)
-        assert len(cs) == 1  # degenerate — observably the single-model session
-        assert dict(cs.base._params.inputs()) == {}  # noqa: SLF001 — truly blank
+        assert calls[0] is None  # no document → the welcome screen
 
-    def test_loader_returns_blank_set_for_no_config(self) -> None:
-        """`_load_config_set(None)` builds the blank editable degenerate set
-        directly (moved here from the gui tests — gui may not import cli;
-        CU-158/CU-342)."""
-        from radiant.api.config_set import ConfigurationSet
+    def test_loader_returns_no_document_for_no_config(self) -> None:
+        """`_load_config_set(None)` is ``None`` (CU-373 F-44) — the GUI's welcome
+        screen is the no-document state; the gui suite pins that a launch with no
+        document shows it (gui may not import cli — CU-158)."""
         from radiant.cli.gui import _load_config_set
 
-        cs = _load_config_set(None)
-        assert isinstance(cs, ConfigurationSet)
-        assert len(cs) == 1
-        assert dict(cs.base._params.inputs()) == {}  # noqa: SLF001 — truly blank
+        assert _load_config_set(None) is None
 
     def test_plain_config_launches_as_degenerate_set(
         self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch

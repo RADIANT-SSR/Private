@@ -20,7 +20,166 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **`SpectralBandError(ApiValidationError)`** — raised by `Sensor.evaluate`
+  (and every path that builds the evaluation grid) before any stage runs when
+  `filter_min_um` is not below `filter_max_um`; structured what/why/action
+  naming both edges (CU-373 F-21). Previously the source stage raised
+  "source.target.emissivity: wavelength_um must be strictly ascending".
+- **Three structural error classes for mid-switch and conflict states (CU-373
+  F-09):** `ConsistencyGroupError(CoreValidationError)` — raised by the
+  resolver for an over-constrained group, carrying `group` and `parameters`;
+  `CalibrationModeConflictError(CalibrationValidationError)` — a cal-point
+  mode mixed with the other mode's inputs; and
+  `TransmissionConfigIncompleteError(OpticsValidationError)` — a transmission
+  input mode selected without its inputs. Each replaces a flat parent-class
+  raise at the same site with the same message, so `except` sites and
+  message matches are unaffected. Predicates `is_calibration_mode_conflict`
+  (`radiant.api.calibration_state`) and `is_transmission_config_incomplete`
+  (new `radiant.api.transmission_state`) publish the seams.
+- **`Sensor.input_provenances()`** — the provenance companion of `inputs()`
+  (dot-path → `Provenance` for every explicitly-set input, no resolve);
+  passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
+
+### Fixed
+- **A horizon-guard refusal is an advisory, not a modal per re-evaluation
+  (CU-373 F-28, routing half).** Lowering a sensor while a ground-range door
+  still held the old range passed through a grazing geometry whose refusal
+  repeated as a modal on every edit. The guard now stamps a structured
+  marker on the errors it raises (`context["surface"] == "horizon_guard"`,
+  `radiant.core.viewing_triangle.is_horizon_guard_refusal`), and the GUI
+  routes it to the Geometry chip with the fix named. The refusal's wording
+  (it cites an ADR) is CU-371's.
+- **A document swap clears the previous result (CU-373 F-51).** After a
+  YAML Apply that left the configuration unresolvable, the old result's
+  saturation banner and warnings stayed on screen with no stale marker, and
+  the centre dropped to the "New configuration" placeholder although a stage
+  was selected. Adopting a document now clears the banner, warnings, stale
+  notice and chip colours, and the selected stage keeps its editable screen.
+- **The incomplete-config advisory names the panel that carries the field
+  (CU-373 F-47).** `Config incomplete — set spectral_integration.integration_time_s`
+  reddened the Spectral chip, whose form holds only the filter edges; the
+  field is on Readout ▸ Acquisition. The chip and the status line now follow
+  the form that edits the parameter (`… on the Readout panel`), falling back
+  to the schema namespace for dock-only parameters.
+- **`radiant gui` with no file opens on the welcome screen (CU-373 F-44).**
+  The CLI handed the window a blank configuration, so the mission templates,
+  Blank config card, worked examples and recent list appeared only after
+  File ▸ New, and the two blank states greeted differently. The bare launch
+  now hands the window no document — the welcome screen — as the guide and
+  `launch_gui`'s docstring already said; Blank config is the from-scratch
+  path.
+- **An inverted filter band is an advisory that names the edges (CU-373
+  F-21).** Raising `filter_min_um` above `filter_max_um` — the first of the
+  two edits any upward band widening needs — failed with a modal reading
+  "source.target.emissivity: wavelength_um must be strictly ascending". It is
+  now the Spectral chip red and a status line naming both edges and the
+  order to edit them in.
+- **Evaluation failures are titled by their cause (CU-373 F-12).** A genuine
+  rejection found at evaluation opened under *Parameter Rejected — Cannot set
+  "evaluate"*; it now opens as *Evaluation Failed — The configuration did not
+  evaluate*, with the same What / Why / Action body. A single-model session
+  never shows the configuration-set wrapper text ("configuration
+  'Configuration 1' does not resolve … configured values are []"): every
+  wrapper layer is unwrapped to the underlying error. (The advisory's
+  `Set it via: params.set(…)` line was replaced under F-13.)
+- **A `tabulated` atmosphere with no files is reported as incomplete, not as
+  a library-coverage refusal (CU-373 F-10).** The loader raised the atmosphere
+  validation class the coverage predicate treats wholesale as "the library
+  does not cover this scene", so the status bar misrouted the state while the
+  Messages rail said the right thing. It now raises `RequiredParameterError`
+  naming the file parameter, so the status bar reads `Config incomplete — set
+  atmosphere.tabulated_transmittance_file …` with the Atmosphere chip red.
+- **Four more evaluate-time states are advisories, not a modal per
+  re-evaluation (CU-373 F-09).** A geometry door conflict, an over-constrained
+  consistency group, a cal-point-mode conflict and a transmission mode without
+  its inputs each raised *Parameter Rejected — Cannot set "evaluate"* on every
+  debounced re-evaluation with all ten chips red. They now take the advisory
+  path readout and calibration-scheme states already took: the implicated
+  chip red, the rest stale, the fix named in the status bar, the full message
+  in the Messages rail. Routing is by exception type or structured context.
+- **View ▸ Angles in Degrees now reaches rows edited through the Parameter
+  Editor (CU-372 F-37).** The unit chosen in the editor became a sticky
+  per-row display unit that outranked the global toggle: a zenith typed as
+  30° kept reading `30 deg` after the toggle went off, and `0.5` typed next
+  was stored as 0.5°. The toggle now clears the `rad`/`deg` overrides it
+  governs, and a chosen unit equal to the row's default records none; other
+  per-row units (`mrad`, `km`) still stick.
+- **Undo restores provenance, not just the number (CU-372 F-20).** Undoing
+  the first value typed into a row wrote the schema default back as a
+  *user-set* input (`jitter_rms_urad 0 µrad user-set`), so *Changed only*
+  listed it, a preset treated it as explicit, and a saved file carried it. The
+  undo history is now over explicit inputs: that undo withdraws the input and
+  the row returns to `default`. Edits made on a blank configuration are
+  undoable before the first evaluation, and an action that moves several
+  inputs (a take-over, an architecture switch's companion resets) undoes as
+  one step.
+- **A disagreeing consistency-group member is refused where it is typed
+  (CU-372 F-06).** On an incomplete configuration the editor's bounds-only
+  fallback admitted a third `fnumber` value that disagreed with the other two;
+  the over-constraint surfaced only once the configuration completed, then as
+  a modal on every further edit naming the first-set member. The shared guard
+  now refuses it at the door, on the row being edited, with the group's own
+  message; the other members are untouched.
+- **A derived consistency-group member can be taken over from its editor
+  (CU-372 F-04).** The Parameter Editor on a ⚡ derived row opened read-only,
+  so "specify focal length instead of f-number" needed an undocumented Reset
+  on the f-number row followed by a set. The editor now opens live with a
+  *Derive instead* selector naming which explicit sibling releases its input;
+  Apply releases it and sets the typed value as one validated action.
+- **The YAML editor's Apply resolves the document before adopting it, refuses
+  inline, and the editor always opens (CU-372 F-32).** Apply admitted an
+  out-of-bounds value into the live configuration, the status bar called it
+  "incomplete", and Edit Config (YAML) then raised the bounds error before it
+  could open — the one surface that could repair the document was dead. Apply
+  now resolves the freshly parsed document (an incomplete document is still
+  admitted; a wrong value is refused) and renders the refusal's what / why /
+  action inline beneath the text instead of a modal; the preloaded text is
+  serialized without resolving, so the editor opens on any document.
+- **Reset to Default either refuses cleanly or applies honestly (CU-372
+  F-03).** Resetting a consistency-group member whose partner was derived from
+  it showed a *Parameter Rejected* modal but applied the reset on the live
+  sensor anyway: the row kept the old value as user-set, no undo step was
+  recorded, no re-evaluation ran, and the title's dirty marker did not change.
+  The reset is now validated on a clone first; one that would leave a working
+  configuration unable to resolve is refused with nothing changed, under a
+  `Cannot reset "<dot-path>"` header, and an accepted reset records an undo
+  step, marks the document unsaved and re-evaluates.
+- **The in-place Value-column editor works on a blank configuration, and
+  rejects inline (CU-372 F-02 / F-46).** The dock's in-place editor had no
+  differential guard, so on a blank configuration every edit was rejected —
+  nothing could be entered through that path while the Parameter Editor
+  accepted the same values. Both paths (and Reset to Default) now decide
+  through one shared clone-validate rule: a configuration incomplete with or
+  without the edit accepts it; a value wrong on its own terms is refused. An
+  in-place rejection renders on the row (tint, banner, tooltip) and no longer
+  raises a modal from inside the editor-close sequence, where it was lost
+  natively. A float or int row's typed text is coerced to the schema type
+  before the commit, so a saved file no longer carries a quoted number for a
+  value entered in place.
+- **The Parameters dock shows what you have entered on an incomplete
+  configuration (CU-372 F-01).** On a blank configuration every row — the
+  values just accepted included — read `—` with no Source badge, and *Changed
+  only* listed nothing, until the last required parameter was set. A row the
+  operator has set now shows its committed value and `user-set` badge from the
+  inputs view; only rows with no input read `—`.
+
 ### Changed
+- **Results-affecting (message terms only): an incomplete configuration now
+  reports its first unset required parameter before any consistency-group
+  cycle check (CU-373 F-13).** `ParameterSet.resolve()` runs the
+  required-parameter check ahead of the cycle detector, so a blank
+  configuration raises `RequiredParameterError` ("Required parameter
+  'optics.aperture_diameter_m' is not set …") where it previously raised the
+  developer diagnostic "Circular dependency detected: parameters
+  ['optics.aperture_diameter_m', 'optics.focal_length_m', 'optics.f_number']
+  could not be resolved after 10 passes". No resolved value changes; only
+  which error an unresolvable set raises. The message's last line is now
+  `Action: set '<name>' — it has no default` (was `Set it via:
+  params.set('<name>', value)`, scripting text in a GUI session — F-12). In
+  the GUI the change ends the blank-config modal spray: every edit before the
+  aperture existed opened a *Parameter Rejected* modal; the failure is now the
+  quiet required-parameter advisory.
 - **Four electron-valued parameters now declare their unit (CU-370 III-019).**
   `detector.dsnu_e_rms`, `detector.prior_signal_e` and
   `readout.full_well_capacity_e` carry `e-`, and `detector.flicker_K` carries

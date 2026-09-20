@@ -19,19 +19,23 @@ tree:
   Derived (⚡) rows stay read-only.
 * Commit runs **one** ``sensor.set(dotpath, value)`` (§4.1). To keep the live sensor
   untouched when a value is rejected, the edit is first validated on a throwaway
-  ``sensor.clone()`` (the API's own resolve does the validating — no reimplemented
-  physics); only a clean value is applied to the live sensor. A rejected value never
-  reaches the display and never mutates the sensor.
+  ``sensor.clone()`` by the differential guard every commit path shares
+  (:mod:`radiant.gui.edit_guard`, CU-372 — the API's own resolve does the
+  validating, no reimplemented physics); only a clean value is applied to the live
+  sensor. A rejected value never reaches the display and never mutates the sensor.
 * Rejections (``ParameterBoundsError`` / ``UnknownParameterError`` / consistency-group
-  violations — all surfaced by the resolver) render inline on the row (themed error
-  tint + tooltip + a themed banner) **and** in a modal
-  (:class:`~radiant.gui.widgets.actionable_error_dialog.ActionableErrorDialog`); an
-  unexpected exception raises
+  violations — all surfaced by the resolver) render **inline** on the row (themed
+  error tint + tooltip + a themed banner), never as a modal — the commit runs inside
+  the delegate's editor-close sequence, where a modal is lost natively (audit F-46);
+  the full what/why/action is the row's tooltip and the banner. An unexpected
+  exception raises
   :class:`~radiant.gui.widgets.unexpected_error_dialog.UnexpectedErrorDialog` with a
   traceback fold (Rules 15/17 — nothing swallowed).
 * Right-click: Copy dot-path, Explain (``sensor.explain`` in
   :class:`~radiant.gui.widgets.explain_dialog.ExplainDialog`), Reset to Default
-  (``sensor.reset``).
+  (``sensor.reset``, clone-validated first; a refused reset shows the modal
+  :class:`~radiant.gui.widgets.actionable_error_dialog.ActionableErrorDialog` under a
+  *Cannot reset* header).
 
 Multi-configuration Phase 4b adds, on top of that, the configured-parameter surface
 (ADR-0010 D-2): given a :class:`~radiant.gui.config_scope.ConfigurationScope`, a row
@@ -70,7 +74,8 @@ from PySide6.QtWidgets import (
 
 from radiant.core.exceptions import RadiantError
 from radiant.gui.dialog_lifetime import exec_dialog
-from radiant.gui.display_units import global_display_unit
+from radiant.gui.display_units import default_display_unit, global_display_unit
+from radiant.gui.edit_guard import apply_edit, validate_edit, validate_reset
 from radiant.gui.param_format import (
     DERIVED_BADGE,
     display_in_unit,
@@ -81,7 +86,6 @@ from radiant.gui.param_format import (
     provenance_label,
     safe_provenance,
 )
-from radiant.gui.target_spec_guard import introduced_target_spec_conflict
 from radiant.gui.themes.fonts import mono_font
 from radiant.gui.themes.stylesheet import active_theme
 from radiant.gui.widgets.actionable_error_dialog import ActionableErrorDialog
@@ -470,10 +474,11 @@ class ParameterPanel(QWidget):
         """One leaf row: value + display unit, ⚡-marked, provenance-labelled, editable.
 
         A sensor that cannot resolve yet (a blank File → New: required parameters
-        unset) still gets a full tree — every row falls back to an unset display
-        (no provenance label, — value) instead of crashing populate (found
-        2026-07-16: `explain`/`get_input` resolve internally and raised
-        `CoreValidationError` through the File → New path).
+        unset) still gets a full tree: a row the operator has set shows its
+        committed value and input provenance (CU-372 F-01), every other row
+        falls back to an unset display (no provenance label, — value) instead of
+        crashing populate (found 2026-07-16: `explain`/`get_input` resolve
+        internally and raised `CoreValidationError` through the File → New path).
         """
         provenance = safe_provenance(sensor, dotpath)
         derived = is_derived(provenance)
@@ -528,17 +533,26 @@ class ParameterPanel(QWidget):
 
     @staticmethod
     def _resolved_value(sensor: Sensor, dotpath: str) -> object | None:
-        """Resolved value in input units, or ``None`` if the parameter is unset.
+        """Resolved value in input units, or the committed input, or ``None`` if unset.
 
         A required-unless parameter superseded by an alternative resolves to no
         value; ``Sensor.get_input`` raises ``KeyError`` for it. Rendering that as
         an explicit em-dash (``None`` here) is a visible state, not a swallowed
         error (Rule 17) — the row still appears, marked unresolved.
+
+        A configuration that cannot resolve yet (a blank config with required
+        parameters unset) raises a ``RadiantError`` from the resolved accessor;
+        the row then shows the value the operator **committed**
+        (:meth:`Sensor.peek_input`, no resolve) so an accepted value is visible
+        where it was accepted (CU-372 F-01), and only a parameter with no
+        explicit input reads as unset.
         """
         try:
             return sensor.get_input(dotpath)
         except KeyError:
             return None
+        except RadiantError:
+            return sensor.peek_input(dotpath)
 
     # -- display units ------------------------------------------------------
 
@@ -635,13 +649,17 @@ class ParameterPanel(QWidget):
         return value
 
     def _commit_edit(self, dotpath: str, value: Any) -> None:
-        """Apply one edit: validate on a clone, then ``sensor.set`` if accepted.
+        """Apply one in-place edit: validate on a clone, then ``sensor.set`` if accepted.
 
-        The live sensor is mutated by exactly one ``set`` call, and only for a value
-        the API accepts. Validation runs first on a throwaway clone so a rejected
-        value leaves the live sensor — and therefore the displayed tree — untouched
-        (verified by the edit-reject test via the public API). Rejections surface
-        inline and in a modal; unexpected errors get a traceback dialog (Rules 15/17).
+        The shared differential guard (:func:`radiant.gui.edit_guard.validate_edit`,
+        CU-372 F-02) decides exactly as the Parameter Editor dialog does: the live
+        sensor is mutated by one ``set`` (plus a switch's companion resets), and only
+        for a value the API accepts; a configuration incomplete with or without this
+        edit accepts it; a value wrong on its own terms is rejected however incomplete
+        the configuration is. A rejection renders **inline** — the row's themed error
+        tint + tooltip and the banner — and never a modal: this handler runs inside the
+        delegate's editor-close sequence, where a modal is lost natively (audit F-46).
+        An unexpected exception still gets the traceback dialog (Rules 15/17).
 
         The typed number is interpreted in the row's **display unit** (owner feedback
         2026-07-13; extended to the global preference by the 2026-08-03 CU-326
@@ -659,45 +677,19 @@ class ParameterPanel(QWidget):
         unit = self._effective_display_unit(dotpath, pdef)
         write_unit = unit if unit != pdef.input_unit else None
 
-        trial = sensor.clone()
-        try:
-            self._set_on(trial, dotpath, value, write_unit)
-            # Force a full resolve on the clone: bounds/enum/type checks and
-            # consistency-group validation all fire here (not at set() time).
-            trial.get_input(dotpath)
-        except RadiantError as exc:
-            self._reject_edit(dotpath, exc)
+        verdict = validate_edit(sensor, dotpath, value, write_unit)
+        if verdict.rejection is not None:
+            self._set_error_state(dotpath, verdict.rejection)
             return
-        except Exception as exc:  # genuine bug, not a rejected input — never swallow
-            exec_dialog(UnexpectedErrorDialog(exc, f"Editing “{dotpath}”", self))
-            return
-
-        # CU-244: resolve-time target-spec seam — a cross-parameter
-        # over-specification this edit introduces (e.g. a second reflectance
-        # surface) is rejected at the door with the evaluate-time error text.
-        conflict = introduced_target_spec_conflict(sensor, trial)
-        if conflict is not None:
-            self._reject_edit(dotpath, conflict)
+        if verdict.unexpected is not None:
+            exec_dialog(UnexpectedErrorDialog(verdict.unexpected, f"Editing “{dotpath}”", self))
             return
 
         # Accepted: the single mandated API call on the live sensor.
-        self._set_on(sensor, dotpath, value, write_unit)
+        apply_edit(sensor, dotpath, value, write_unit)
         self._clear_error_state()
         self.populate(sensor)  # refresh value + provenance + any derived rows
         self.parameterEdited.emit(dotpath)
-
-    @staticmethod
-    def _set_on(sensor: Sensor, dotpath: str, value: Any, unit: str | None) -> None:
-        """One ``sensor.set`` — with ``unit=`` only when a display-unit override is active."""
-        if unit is not None:
-            sensor.set(dotpath, value, unit=unit)
-        else:
-            sensor.set(dotpath, value)
-
-    def _reject_edit(self, dotpath: str, exc: RadiantError) -> None:
-        """Show the rejected-edit state inline + modal; the value never sticks."""
-        self._set_error_state(dotpath, exc)
-        exec_dialog(ActionableErrorDialog(exc, dotpath, self))
 
     def _set_error_state(self, dotpath: str, exc: RadiantError) -> None:
         """Mark *dotpath*'s row rejected (tint + tooltip) and show the banner."""
@@ -821,7 +813,13 @@ class ParameterPanel(QWidget):
         if self._sensor is None:
             return
         if unit is not None:
-            self._display_units[dotpath] = unit
+            pdef = self._sensor.parameter_def(dotpath)
+            if unit == default_display_unit(pdef.input_unit or ""):
+                # The unit the row would show anyway is not a per-row choice: record
+                # nothing, so the row keeps following the global toggle (F-37).
+                self._display_units.pop(dotpath, None)
+            else:
+                self._display_units[dotpath] = unit
         self._clear_error_state()
         self.populate(self._sensor)
         self.parameterEdited.emit(dotpath)
@@ -847,20 +845,30 @@ class ParameterPanel(QWidget):
         ``Sensor.reset`` clears the user/config input so the parameter reverts to
         its default (or is re-derived from a consistency group) on the next resolve.
         Resetting a parameter that had no explicit input is a harmless no-op.
+
+        The withdrawal is validated on a throwaway clone first
+        (:func:`radiant.gui.edit_guard.validate_reset`, CU-372 F-03): a reset that
+        would leave a resolvable configuration unresolvable — withdrawing one of
+        the two set members of a consistency group — is **refused**, the live
+        sensor untouched, the row unchanged, and the resolver's actionable error
+        shown under a *Cannot reset* header. An accepted reset applies, refreshes
+        the tree, and emits :attr:`parameterEdited` so the window records the undo
+        step, marks the document dirty, and schedules the re-evaluation.
         """
-        if self._sensor is None:
+        sensor = self._sensor
+        if sensor is None:
             return
-        try:
-            self._sensor.reset(dotpath)
-            self._sensor.get_input(dotpath)  # force resolve; surfaces any error now
-        except RadiantError as exc:
-            self._reject_edit(dotpath, exc)
+        verdict = validate_reset(sensor, dotpath)
+        if verdict.rejection is not None:
+            self._set_error_state(dotpath, verdict.rejection)
+            exec_dialog(ActionableErrorDialog(verdict.rejection, dotpath, self, verb="reset"))
             return
-        except Exception as exc:
-            exec_dialog(UnexpectedErrorDialog(exc, f"Resetting “{dotpath}”", self))
+        if verdict.unexpected is not None:
+            exec_dialog(UnexpectedErrorDialog(verdict.unexpected, f"Resetting “{dotpath}”", self))
             return
+        sensor.reset(dotpath)
         self._clear_error_state()
-        self.populate(self._sensor)
+        self.populate(sensor)
         self.parameterEdited.emit(dotpath)
 
     def reveal_row(self, dotpath: str) -> None:

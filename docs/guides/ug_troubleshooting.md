@@ -38,8 +38,13 @@ Three consequences of this design worth knowing as an operator.
 fields the framework produced, verbatim.
 
 **A rejected value never reaches your model.** Every edit is validated on a throwaway copy of
-the configuration first. When a value is refused, the row keeps the value it had, and nothing
-downstream saw the bad one.
+the configuration first, by one rule shared by the in-place editor, the Parameter Editor and
+Reset to Default: only a failure *your change introduces* is a rejection. When a value is
+refused, the row keeps the value it had, and nothing downstream saw the bad one. On a
+configuration that is still incomplete, a legal value is accepted — the missing parameters
+are Evaluate's advisory to report, not your value's fault — but a value that is wrong on its
+own terms (out of bounds, a disagreeing member of a consistency group) is refused however
+incomplete the configuration is.
 
 **A rejection is not a failure of the run.** The last result stays on screen, marked stale.
 
@@ -50,13 +55,17 @@ its context, never by matching words in its message.
 
 | Surface | Carries |
 |---|---|
-| **Inline on the row** + the **Parameter Rejected** dialog | a rejected *edit*: the value you just typed is wrong on its own terms |
+| **Inline where you typed** — the row's tint, banner and tooltip for an in-place edit; the error area inside the Parameter Editor for a dialog edit | a rejected *edit*: the value you just typed is wrong on its own terms |
+| The **Parameter Rejected** dialog | a refused **Reset to Default** (headed `Cannot reset "<dot-path>"`), and the rejection of an edit made outside the dock — a stage form or the YAML editor |
 | **The Messages panel** | everything a completed run had to say — warnings, advisories, and failures |
 | **The status bar** | a one-line summary of the last action, and the specific thing to fix when a failure is attributable |
 | **The stage strip** | which stage is implicated, when that can be known |
 
-The **Parameter Rejected** dialog is titled `Cannot set "<dot-path>"` and lists What / Why /
-Action / context, each selectable so you can copy it into a bug report. A failure that is *not*
+The **Parameter Rejected** dialog is headed `Cannot set "<dot-path>"` (or `Cannot reset …`)
+and lists What / Why / Action / context, each selectable so you can copy it into a bug report.
+A failure the *evaluation* finds that is not one of the advisories of §4 — a genuine rejection
+the door could not see — uses the same layout under the title **Evaluation Failed**, headed
+`The configuration did not evaluate`; it never claims something named "evaluate" was set. A failure that is *not*
 a RADIANT error — a genuine bug rather than a bad input — gets a different dialog instead, with
 the message up front and the full traceback behind a **Show details** fold. Nothing is
 swallowed either way.
@@ -128,7 +137,10 @@ Consistency group 'fnumber' is over-constrained:
 Read it as: *these three numbers cannot all be true*. The tolerance is 0.1 %, so a value that
 agrees to rounding is accepted. The fix is in the message: drop one of the three — in the GUI,
 right-click the row and **Reset to Default**, which clears your input so the parameter reverts
-to being derived — or make the third value consistent.
+to being derived — or make the third value consistent. To change *which* member is the input
+without passing through this state at all, open the editor on the derived row and type the
+value you want: its **Derive instead** selector releases one sibling and sets your value in one
+step (chapter 3, §3).
 
 **Geometry has its own version, and it is the one you are most likely to hit.** Each geometry
 family accepts exactly one mode, and setting a second door of the same family is
@@ -146,8 +158,11 @@ Action: Set exactly one of these parameters (the others derive from it), or make
 
 This one comes with a **locator**: the application tints the offending family's card and jumps
 you to the Geometry workspace, so you do not have to work out which of four family cards the
-dot-paths belong to. The tint is navigation only — the actionable text is in the dialog and the
-Messages panel, as always.
+dot-paths belong to. The tint is navigation only — the actionable text is in the Messages panel,
+as always. When the conflict is caught at evaluation (you set the second door and the
+re-evaluation found it) it is an **advisory**, not a dialog: the Geometry chip goes red, the
+status bar names the fix, and nothing interrupts you on every later edit (§4). The same holds
+for an over-constrained consistency group found at evaluation.
 
 ### 3.5 A required parameter with no value
 
@@ -155,7 +170,7 @@ Messages panel, as always.
 Required parameter 'detector.pixel_pitch_x_um' is not set.
   Description: Pixel pitch along the cross-track (x) axis.
   Expected type: float in um
-  Set it via: params.set('detector.pixel_pitch_x_um', value)
+  Action: set 'detector.pixel_pitch_x_um' — it has no default
 ```
 
 This is the family that has **no modal**, on purpose — see §4.
@@ -204,10 +219,17 @@ specific fix named in the status bar, and the full what / why / action in the Me
 
 | Situation | Status bar says |
 |---|---|
-| a required parameter is unset (e.g. after removing an FPA preset that supplied it) | `Config incomplete — set detector.pixel_pitch_x_um (see Messages; the previous result is shown, stale)` |
+| a required parameter is unset (e.g. after removing an FPA preset that supplied it) | `Config incomplete — set detector.pixel_pitch_x_um on the Detector panel (see Messages; the previous result is shown, stale)` — the panel named, and the chip reddened, is the one whose form carries the field (`integration_time_s` is a Spectral parameter edited on Readout ▸ Acquisition, so it says Readout) |
+| a file-mode atmosphere (`atmosphere.model: tabulated`) has no files set | the same incomplete-config advisory, naming `atmosphere.tabulated_transmittance_file` — not a coverage refusal |
 | a calibration scheme is active without its cal point | `The calibration scheme needs its cal temperature(s) — set them on the Calibration panel (see Messages; the previous result is shown, stale)` |
 | digital counting is selected without a charge packet | `Digital counting needs a charge packet — set readout.count_packet_e on the Readout panel (see Messages; the previous result is shown, stale)` |
 | the interpolated atmosphere library has no column for this scene | `The atmosphere library does not cover this scene — see Messages (the previous result is shown, stale)` |
+| two doors of one geometry family are set (an over-specified viewing, solar or kinematics family) | `Geometry conflict — set exactly one input per family; the tinted card on the Geometry workspace is the one to fix (see Messages; the previous result is shown, stale)` |
+| every member of a consistency group is set and they disagree | `Consistency group 'fnumber' is over-constrained — Reset to Default on one of optics.aperture_diameter_m, optics.focal_length_m, optics.f_number, or make them agree (see Messages; the previous result is shown, stale)` |
+| a cal-point mode is selected while the other mode's inputs are still set | `Cal-point mode conflict — unset the temperature-anchored inputs on the Calibration panel, or set calibration.cal_point_mode = 'temperature' (see Messages; the previous result is shown, stale)` |
+| the path grazes the horizon mid-pivot (a sensor lowered while a ground-range door still holds the old range) | `Path grazes the horizon — raise the sensor, shorten the path or tilt the geometry on the Geometry workspace (see Messages; the previous result is shown, stale)` |
+| the filter band is inverted mid-edit (`filter_min_um` raised above `filter_max_um` while widening a band upward) | `spectral_integration.filter_min_um (8 µm) is not below spectral_integration.filter_max_um (5 µm) — Set filter_max_um above filter_min_um (to widen a band upward, raise filter_max_um first). (see Messages; the previous result is shown, stale)` |
+| a transmission input mode is selected without its inputs (`key_elements` with no element yet) | `Transmission mode needs its inputs — add elements on the Optics ▸ Transmission tab, or switch optics.transmission_input_mode back (see Messages; the previous result is shown, stale)` |
 
 ![The right rail after a failed evaluation — the pinned cards flipped to their stale marker and
 the Messages panel carrying the error.](figures/gui/ug_messages_error.png)
@@ -264,12 +286,23 @@ If you want a machine-readable record of a *run* rather than of the application,
 schema default or is re-derived. This is the correct fix for an over-constrained consistency
 group: you are not setting a value, you are withdrawing one.
 
+A reset is validated on a throwaway copy first, like an edit. If withdrawing the value would
+leave a working configuration unable to resolve — resetting `optics.f_number` while the
+focal length is derived from it, say — the reset is **refused**: a `Cannot reset
+"<dot-path>"` dialog names the parameter that would go missing, the row keeps its value,
+and nothing else changes (no undo step, no dirty marker, no re-evaluation). A reset that is
+accepted applies at once, records an undo step, marks the document unsaved and re-evaluates.
+
 **Right-click ▸ Explain** prints the derivation trace — value, provenance, and where it came
 from. When a number is not what you expect, this answers "who set this" in one step.
 
 **`Ctrl+Z`** undoes parameter edits and element-train edits, twenty steps deep. A whole-document
 swap — File ▸ Open, or an Apply in the YAML editor — clears the history, because it is not a
-reversible edit.
+reversible edit. What undo restores is the *input*, not the number: undoing the first value
+you ever typed into a row returns that row to its `default` badge (the input is withdrawn), it
+does not write the default back as something you set. An action that moves more than one input
+at once — a take-over of a derived row, a readout-architecture switch that clears its
+companions, a shape pick that seeds its dimensions — undoes as one step.
 
 ### 6.2 Per document
 

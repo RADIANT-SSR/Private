@@ -156,7 +156,7 @@ class TestYamlEditor:
     def test_invalid_apply_shows_error_and_leaves_config_unchanged(  # type: ignore[no-untyped-def]
         self, qtbot, monkeypatch
     ) -> None:
-        """Apply with invalid YAML shows the actionable error; the live config is untouched."""
+        """Apply with invalid YAML shows the actionable error inline; the config is untouched."""
         window = _load_window(qtbot)
         before = window.sensor.to_yaml(scope="inputs")
         sensor_obj = window.sensor
@@ -171,8 +171,11 @@ class TestYamlEditor:
         dialog.editor.setPlainText("optics:\n  aperture_diameter_m: [broken")
         dialog.apply_button.click()
 
-        # The actionable (RadiantError) dialog was shown; the config is NEVER mutated.
-        assert len(shown) == 1
+        # The actionable (RadiantError) payload renders INLINE (CU-372 F-32) — no
+        # modal over the editor; the config is NEVER mutated.
+        assert shown == []
+        assert dialog.error_frame.isVisibleTo(dialog)
+        assert dialog.last_rejection is not None
         assert applied == []  # configApplied did not fire
         assert window.sensor is sensor_obj  # same live sensor object
         assert window.sensor.to_yaml(scope="inputs") == before  # unchanged via the public surface

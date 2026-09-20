@@ -180,8 +180,11 @@ class TestEditReject:
         assert panel.has_error(_TEMP)
         assert panel.error_banner.isVisibleTo(panel)  # offscreen: relative visibility
         assert "out of bounds" in panel.error_banner.text()
-        # A modal was raised (captured, not blocked) carrying the rejecting exception.
-        assert _CapturingDialog.calls, "reject must surface an ActionableErrorDialog"
+        # No modal: the in-place commit runs inside the delegate's editor-close
+        # sequence, where a modal is lost natively (audit F-46) — the row's tooltip
+        # carries the full text instead (CU-372).
+        assert not _CapturingDialog.calls, "an in-place rejection renders inline only"
+        assert "out of bounds" in panel.tree.currentItem().toolTip(1)
 
     def test_a_following_accept_clears_the_error_state(
         self, panel: ParameterPanel, monkeypatch: pytest.MonkeyPatch
@@ -213,7 +216,7 @@ class TestEditReject:
         assert sensor.get(rho) == before  # live sensor untouched
         assert panel.has_error(rho)
         assert "mutually exclusive" in panel.error_banner.text()
-        assert _CapturingDialog.calls, "reject must surface an ActionableErrorDialog"
+        assert not _CapturingDialog.calls, "an in-place rejection renders inline only (CU-372)"
 
 
 class TestEditorTypes:

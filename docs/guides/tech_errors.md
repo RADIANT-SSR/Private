@@ -110,14 +110,18 @@ forbidden. Physics-layer modules — source through readout — keep the univers
 Exception
 └── RadiantError
     ├── CoreValidationError (ValueError)
-    │   └── RequiredParameterError
+    │   ├── RequiredParameterError
+    │   └── ConsistencyGroupError
     ├── CoreStateError (RuntimeError)
     ├── <Stage>ValidationError (ValueError)      — one per physics stage
     │   ├── ReadoutValidationError
     │   │   ├── ArchitectureOverSpecificationError
     │   │   └── CountingConfigIncompleteError
-    │   └── CalibrationValidationError
-    │       └── CalibrationConfigIncompleteError
+    │   ├── CalibrationValidationError
+    │   │   ├── CalibrationConfigIncompleteError
+    │   │   └── CalibrationModeConflictError
+    │   └── OpticsValidationError
+    │       └── TransmissionConfigIncompleteError
     ├── <Stage>StateError (RuntimeError)          — where invalid-chain-state raises exist
     └── ~50 module-scoped classes (below)
 ```
@@ -140,7 +144,8 @@ universal.
 | `CoreValidationError` | `RadiantError`, `ValueError` | `core.exceptions` | Generic `radiant.core` input rejection. *"RadiometricFrame 'at_aperture': wavelength_um must be a 1-D array with at least 2 samples, got shape (1,)."* |
 | `CoreStateError` | `RadiantError`, `RuntimeError` | `core.exceptions` | A core object used before it is ready (e.g. reading a `ParameterSet` before `resolve()`). *"radiant.core.solar: calibration integral is non-positive. Check the solar model constants."* |
 | `UnknownParameterError` | `RadiantError`, `KeyError` | `core.parameters` | A dot-path that is not in the schema; the message suggests near matches. *"Unknown parameter: 'optics.nonexistent_param'. Did you mean: 'optics.focal_length_m', 'optics.n_spiders', 'optics.defocus_um'?"* |
-| `RequiredParameterError` | `CoreValidationError` | `core.parameters` | Resolution with a required parameter unset. *"Required parameter 'optics.aperture_diameter_m' is not set. … Set it via: params.set('optics.aperture_diameter_m', value)"* |
+| `ConsistencyGroupError` | `CoreValidationError` | `core.parameters` | A consistency group whose members are all set and disagree; carries `group` and `parameters` structurally so the GUI routes it as an advisory. *"Consistency group 'fnumber' is over-constrained: … Fix: either remove 'optics.aperture_diameter_m' from inputs and let it be derived, or correct the inconsistent value."* |
+| `RequiredParameterError` | `CoreValidationError` | `core.parameters` | Resolution with a required parameter unset. *"Required parameter 'optics.aperture_diameter_m' is not set. … Action: set 'optics.aperture_diameter_m' — it has no default"* |
 | `ParameterBoundsError` | `RadiantError`, `ValueError` | `core.parameters` | A value outside its declared physical domain. *"Parameter 'source.target.emissivity' = 1.5 out of bounds [0.0, 1.0] (dimensionless) \| Why: … \| Action: Set it to a value in [0.0, 1.0]"* |
 | `ParameterEnumError` | `RadiantError`, `ValueError` | `core.parameters` | A fixed-choice parameter given a value outside its closed set. *"Parameter 'atmosphere.model' = 'fancy'; must be one of ['simple', 'exo', 'tabulated', 'modtran', 'interpolated'] \| … \| Action: Set it to one of […]"* |
 | `OrbitError` | `RadiantError` | `core.orbit` | Invalid orbital input. *"altitude_m must be positive (a LEO altitude), got -100.0."* |
@@ -169,6 +174,7 @@ it. `core.viewing_triangle` uses it for geometry-consistency violations, for exa
 | `TurbulenceSpecificationError` | `RadiantError` | `atmosphere.errors` | An over- or under-specified turbulence input ($r_0$ vs. $C_n^2$ profile) — structured fields. |
 | `ModtranUnavailableError` | `RadiantError`, `RuntimeError` | `atmosphere.modtran` | The MODTRAN binary is absent, the cache misses, and fallback is disabled. The message names the binary path that was tried. |
 | `Tape7ParseError` | `RadiantError`, `ValueError` | `atmosphere.modtran` | A tape7 file that cannot be parsed. *"MODTRAN tape7 /path/tape7: fewer than 2 spectral data rows parsed. The output may be incomplete."* |
+| `TransmissionConfigIncompleteError` | `OpticsValidationError` | `optics.errors` | A transmission input mode selected without its inputs (`key_elements` with no element, `spectral_file` with no curve, …) — a mid-switch state the GUI routes as an advisory. *"resolve_transmission: KEY_ELEMENTS mode requires at least one OpticalElement in key_elements …"* |
 | `OpticsValidationError` | `RadiantError`, `ValueError` | `optics.errors` | Optics input guards. *"scalar_rms_zernike_coeffs: rms_waves must be >= 0, got -0.05. An RMS wavefront error is a magnitude; set optics.wfe_rms_waves >= 0."* |
 | `KirchhoffViolationError` | `RadiantError`, `ValueError` | `optics.element` | An optical surface whose R and T violate energy conservation, or one given an independent emissivity. *"CavityModel: energy violation — T_sys + R_sys = 1.04 > 1. Check surface coating values."* |
 | `PlatformValidationError` | `RadiantError`, `ValueError` | `platform.errors` | Platform input guards. *"smear_width_m must be non-negative, got -1e-05"* |
@@ -180,6 +186,7 @@ it. `core.viewing_triangle` uses it for geometry-consistency violations, for exa
 | `ArchitectureOverSpecificationError` | `ReadoutValidationError` | `readout.errors` | A readout architecture given a parameter its model derives. *"readout.full_well_capacity_e = 2e+06 e- is explicitly set while readout.architecture = 'digital_counting'. Under counting the effective well is 2^counter_bits × count_packet_e."* |
 | `CountingConfigIncompleteError` | `ReadoutValidationError` | `readout.errors` | A digital-counting readout missing the parameter that sizes the count. *"readout.count_packet_e is required when readout.architecture = 'digital_counting'."* |
 | `CalibrationValidationError` | `RadiantError`, `ValueError` | `calibration.errors` | Calibration input guards. *"signal_e = -3.0 must be finite and non-negative. Why: the gain-drift residual is proportional to signal. Action: supply the post-integration signal in electrons."* |
+| `CalibrationModeConflictError` | `CalibrationValidationError` | `calibration.errors` | A cal-point mode mixed with the other mode's inputs (`flux_fraction` with a cal temperature still set) — a mid-switch state the GUI routes as an advisory. *"calibration.cal_temp_low_K is set, but calibration.cal_point_mode = 'flux_fraction'. … Action: unset calibration.cal_temp_low_K, or use cal_point_mode = 'temperature'."* |
 | `CalibrationConfigIncompleteError` | `CalibrationValidationError` | `calibration.errors` | An active NUC scheme with no cal point. *"calibration.scheme = 'two_point' needs a cal point, but calibration.cal_temp_low_K is unset. Why: an active NUC scheme corrects at known cal-source temperatures; without them there is nothing to correct against."* |
 | `PerformanceValidationError` | `RadiantError`, `ValueError` | `performance.errors` | Metric input guards. *"GSD must be positive, got along=0.0, cross=0.35"* |
 
@@ -230,6 +237,7 @@ all guard the same way: a domain violation on a metric input.
 | Class | Bases | Module | What raises it, with an example message |
 |-------|-------|--------|------------------------------------------|
 | `ApiValidationError` | `RadiantError`, `ValueError` | `api.errors` | A `radiant.api` call given a bad argument. *"Sensor.load: '_radiant.wavelength_points' must be an integer >= 2, got 1 in my_config.yaml."* |
+| `SpectralBandError` | `ApiValidationError` | `api.errors` | The filter band edges are inverted or coincide, checked before any stage runs; structured what/why/action naming both edges, routed by the GUI as an advisory (CU-373 F-21). *"spectral_integration.filter_min_um (8 µm) is not below spectral_integration.filter_max_um (5 µm)"* |
 | `OperationCancelledError` | `RadiantError` | `api._progress` | A long-running operation aborted through its `cancel()` callback. Carries `operation`, `done`, `total`. *"sweep canceled after 12/51 evaluations. No result is returned for a canceled operation; re-run, or sweep in smaller chunks if partial results are needed."* |
 | `SolveBracketError` | `RadiantError` | `api.solve` | `solve_for` given a bracket that does not contain the target; carries both endpoint metric values. *"solve_for('optics.aperture_diameter_m'): bounds must satisfy lo < hi, got (1.0, 0.05)."* |
 | `BatchRunnerError` | `RadiantError` | `api.batch` | Invalid batch construction or an invalid pivot query. *"BatchRunner needs at least one axis; got an empty sequence."* |

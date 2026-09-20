@@ -338,8 +338,9 @@ class TestGeometryPaneWiring:
 
         The LEO example derives a space observer; asserting ``ground_to_ground`` makes
         the stage raise its ``GeometrySpecificationError`` (the CU-093 redundant-entry
-        pattern). The window routes it to this card and shows the Geometry screen; the
-        actionable dialog is captured so it does not block the event loop.
+        pattern). The window routes it to this card and shows the Geometry screen as an
+        advisory (Geometry chip red, no modal — CU-373 F-09); the dialog patch below
+        proves none opens.
         """
         window = _load_window(qtbot)
         shown: list[aed.ActionableErrorDialog] = []
@@ -349,7 +350,9 @@ class TestGeometryPaneWiring:
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             window.parameter_panel.parameterEdited.emit(SCENE_CLASS_PARAM)
 
-        assert len(shown) == 1  # the stage's actionable error surfaced
+        assert shown == []  # advisory, never a modal per re-evaluation (CU-373 F-09)
+        assert window.stage_strip.chip("geometry").status == "err"
+        assert window.right_rail.messages.has_error()
         panel = window.central_canvas.stage_center.pane("geometry").scene_class_panel
         assert panel is not None
         assert panel.is_conflicting()

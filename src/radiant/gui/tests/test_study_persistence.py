@@ -42,7 +42,6 @@ from radiant.gui.document_yaml import (  # noqa: E402
     serialize_document,
 )
 from radiant.gui.main_window import RADIANTMainWindow  # noqa: E402
-from radiant.gui.widgets import yaml_editor_dialog as yed  # noqa: E402
 from radiant.gui.widgets.configuration_manager_dialog import (  # noqa: E402
     ConfigurationManagerDialog,
 )
@@ -284,22 +283,6 @@ class TestStudyYamlEditor:
         assert cs_before is not None
         state_before = _state(cs_before)
 
-        # Capture the exception where the dialog renders it, so the assertion is on the
-        # actionable payload the analyst reads, not on a dialog attribute.
-        raised: list[BaseException] = []
-
-        class _Recorder(QDialog):
-            """A real QDialog: `exec_dialog` deleteLater()s what it runs (CU-216)."""
-
-            def __init__(self, exc: BaseException, _label: str, _parent: object = None) -> None:
-                super().__init__()
-                raised.append(exc)
-
-            def exec(self) -> int:
-                return 0
-
-        monkeypatch.setattr(yed, "ActionableErrorDialog", _Recorder)
-
         dialog = window.open_yaml_editor()
         assert dialog is not None
         qtbot.addWidget(dialog)
@@ -311,9 +294,12 @@ class TestStudyYamlEditor:
         dialog.editor.setPlainText(text.replace("    - 3.5\n    - 8.0\n", "    - 3.5\n"))
         dialog.apply_button.click()
 
-        assert len(raised) == 1
+        # The refusal renders inline in the editor (CU-372 F-32); the assertion is on
+        # the actionable payload the analyst reads.
+        assert dialog.error_frame.isVisibleTo(dialog)
+        assert dialog.last_rejection is not None
         # The io layer's ConfigError names the offending parameter and the counts.
-        message = str(raised[0])
+        message = str(dialog.last_rejection)
         assert _FILTER_MIN in message
         assert "2" in message  # the configuration count the column had to match
         assert applied == []

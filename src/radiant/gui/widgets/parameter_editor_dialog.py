@@ -86,12 +86,10 @@ from PySide6.QtWidgets import (
 
 from radiant.api.units import units_for
 from radiant.core.exceptions import RadiantError
-from radiant.core.parameters import ParameterBoundsError
-from radiant.core.units import convert
-from radiant.gui.architecture_switch import SWITCH_DOTPATHS, apply_companion_resets
 from radiant.gui.config_scope import scope_of
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.display_units import global_display_unit
+from radiant.gui.edit_guard import apply_edit, apply_takeover, validate_edit, validate_takeover
 from radiant.gui.param_format import (
     DERIVED_BADGE,
     display_in_unit,
@@ -101,7 +99,6 @@ from radiant.gui.param_format import (
     safe_provenance,
 )
 from radiant.gui.path_picker import default_browse_dir, path_picker_kind
-from radiant.gui.target_spec_guard import introduced_target_spec_conflict
 from radiant.gui.tolerance_units import convert_tolerance_value, field_unit_label
 from radiant.gui.widgets.configure_menu import CONFIGURE_TEXT, SINGLE_CONFIGURATION_HINT
 from radiant.gui.widgets.per_configuration_values import PerConfigurationValues
@@ -224,10 +221,20 @@ class ParameterEditorDialog(QDialog):
             or self._pdef.input_unit
         )
 
-        # Read-only when the value is derived from a consistency group (⚡): the dialog
-        # opens informative but the editors stay disabled (arch doc §4.3, Rule 4).
+        # A value derived from a consistency group (⚡) is a consequence of its explicit
+        # siblings. Typing into it means choosing it as the input (CU-372 F-04): the
+        # dialog opens in **take-over** mode — editors live, plus a selector naming which
+        # sibling releases its input so the group derives that one instead. Read-only
+        # only when no sibling holds an explicit input to release (the value is then
+        # derived from defaults, and its inputs are what to change — Rule 4).
         provenance = safe_provenance(sensor, dotpath)
-        self._read_only = is_derived(provenance)
+        self._derived_at_open = is_derived(provenance)
+        self._release_choices: tuple[str, ...] = (
+            self._explicit_siblings() if self._derived_at_open else ()
+        )
+        self._takeover = self._derived_at_open and bool(self._release_choices)
+        self._read_only = self._derived_at_open and not self._takeover
+        self._release_combo: QComboBox | None = None
 
         # Multi-configuration state (§4.2c). ``_per_config`` is the live block of
         # per-configuration boxes (None in single-value mode); ``_staged_configure``
@@ -319,6 +326,27 @@ class ParameterEditorDialog(QDialog):
             note = self._value_field("derived from a consistency group — read-only")
             note.setObjectName("paramEditorDerivedNote")
             self._add_row(form, "State", note)
+        elif self._takeover:
+            siblings = ", ".join(self._release_choices)
+            note = self._value_field(
+                f"derived from {siblings} — set a value here and the parameter chosen "
+                "below is derived instead"
+            )
+            note.setObjectName("paramEditorDerivedNote")
+            self._add_row(form, "State", note)
+            combo = QComboBox(self)
+            combo.setObjectName("paramEditorReleaseCombo")
+            for sibling in self._release_choices:
+                combo.addItem(sibling, sibling)
+            # Default: the last explicit sibling in group order — for the fnumber
+            # group (aperture, focal length, f-number) that releases the f-number, so
+            # typing a focal length keeps the aperture (the hardware) and lets the
+            # ratio follow.
+            combo.setCurrentIndex(combo.count() - 1)
+            combo.currentIndexChanged.connect(lambda _i: self._update_preview())
+            self._size_combo_popup(combo)
+            self._add_row(form, "Derive instead", combo)
+            self._release_combo = combo
 
         layout.addLayout(form)
 
@@ -661,7 +689,7 @@ class ParameterEditorDialog(QDialog):
         an altitude the user set as 500 km reads ``500 km``, not ``500000 m``.
         """
         value_text = format_value(self._current_display_value(), self._display_unit)
-        if self._read_only:
+        if is_derived(provenance):
             value_text = f"{DERIVED_BADGE} {value_text}"
         label = provenance_label(provenance)
         self._current_label.setText(f"{value_text}  ·  {label}" if label else value_text)
@@ -900,6 +928,7 @@ class ParameterEditorDialog(QDialog):
             return
         value = self._editor_value()
         unit = self._chosen_unit()
+        release = self.takeover_release
         canonical, rejection, unexpected = self._try_resolve(value, unit)
         if rejection is not None:
             self._show_error(rejection)
@@ -920,20 +949,19 @@ class ParameterEditorDialog(QDialog):
             self._show_error(f"Tolerance not applied — {tol_error}")
             return
 
-        # Accepted: the single mandated API call on the live sensor.
-        if unit is not None:
-            self._sensor.set(self._dotpath, value, unit=unit)
+        # Accepted: the single mandated API call on the live sensor — plus, for a
+        # readout architecture or counting-mode switch (Gap 117, live-review fix
+        # 2026-09-06), the companion resets that clear the explicit inputs the new
+        # selection rejects, as one logical action (shared applier, CU-372). A
+        # take-over (F-04) releases the chosen sibling and sets this value as one
+        # logical action; the row is then an ordinary user-set input.
+        if release is not None:
+            apply_takeover(self._sensor, self._dotpath, value, unit, release)
+            self._takeover = False
+            if self._release_combo is not None:
+                self._release_combo.setEnabled(False)
         else:
-            self._sensor.set(self._dotpath, value)
-        # Gap 117 (live-review fix 2026-09-06): a readout architecture or
-        # counting-mode switch clears the explicit inputs the new selection
-        # rejects (e.g. a config-pinned full_well_capacity_e under
-        # digital_counting; the reference group when returning to 'up') as
-        # part of the same logical action — otherwise the switch commits
-        # cleanly and the very next evaluation fails on parameters the form
-        # no longer even shows, surfacing as the "Cannot set 'evaluate'" modal.
-        if self._dotpath in SWITCH_DOTPATHS:
-            apply_companion_resets(self._sensor, self._dotpath, value)
+            apply_edit(self._sensor, self._dotpath, value, unit)
         if write_tolerance is not None:
             write_tolerance()
 
@@ -1022,96 +1050,37 @@ class ParameterEditorDialog(QDialog):
     ) -> tuple[Any | None, RadiantError | None, BaseException | None]:
         """Resolve *value* on a throwaway clone: ``(canonical, rejection, unexpected)``.
 
-        The clone carries the one ``set`` (with the chosen unit, so the Rule-2
-        conversion happens exactly once, inside the API) and a full resolve
-        (``get`` forces bounds/enum/consistency validation). A ``RadiantError`` is a
-        rejected input; any other exception is an unexpected bug. The live sensor is
-        never touched.
-
-        An accepted value is additionally screened by the resolve-time
-        target-spec seam (CU-244): a cross-parameter over-specification this
-        edit introduces (e.g. a second reflectance surface) is rejected at the
-        door with the same what/why/action ``evaluate()`` would produce, via
-        the shared differential guard.
+        The shared differential guard (:func:`radiant.gui.edit_guard.validate_edit`,
+        CU-372) decides: the clone carries the one ``set`` (with the chosen unit, so
+        the Rule-2 conversion happens exactly once, inside the API) and a full
+        resolve; only a failure this edit *introduces* is a rejection, a
+        configuration incomplete with or without it accepts the edit (the
+        from-scratch bootstrap of 2026-07-17), and a value wrong on its own terms
+        (bounds / enum / a disagreeing consistency-group member) is rejected however
+        incomplete the configuration is. The live sensor is never touched. The
+        in-place dock editor runs the identical guard, so the two entry paths reject
+        identically by construction.
         """
-        trial = self._sensor.clone()
+        release = self.takeover_release
+        verdict = (
+            validate_takeover(self._sensor, self._dotpath, value, unit, release)
+            if release is not None
+            else validate_edit(self._sensor, self._dotpath, value, unit)
+        )
+        return verdict.canonical, verdict.rejection, verdict.unexpected
+
+    def _explicit_siblings(self) -> tuple[str, ...]:
+        """The consistency-group siblings this derived value came from that hold inputs.
+
+        Read off the structured ``derived_from`` of the resolved record (group order)
+        and filtered to explicit inputs — only an input can be released.
+        """
         try:
-            if unit is not None:
-                trial.set(self._dotpath, value, unit=unit)
-            else:
-                trial.set(self._dotpath, value)
-            canonical = trial.get(self._dotpath)
-        except RadiantError as exc:
-            # Differential test (from-scratch bootstrap, 2026-07-17): if the config
-            # fails to resolve identically WITHOUT this edit, the failure is the
-            # config's incompleteness, not this value — accept the edit (the
-            # per-value bounds/enum checks already ran inside set()); Evaluate
-            # remains the surface that reports what is still missing. Only a
-            # failure this edit *introduces* is a rejection.
-            baseline = self._sensor.clone()
-            try:
-                baseline.get(self._dotpath)
-            except RadiantError:
-                # Pre-existing incompleteness — but the VALUE itself must still pass
-                # the schema checks (Rule 16: a negative aperture is wrong regardless
-                # of how incomplete the config is).
-                shallow = self._validate_value_shallow(value, unit)
-                if shallow is not None:
-                    return None, shallow, None
-                return None, None, None
-            return None, exc, None
-        except Exception as exc:  # genuine bug, not a rejected input — never swallow
-            return None, None, exc
-        conflict = introduced_target_spec_conflict(self._sensor, trial)
-        if conflict is not None:
-            return None, conflict, None
-        return canonical, None, None
-
-    def _validate_value_shallow(self, value: Any, unit: str | None) -> RadiantError | None:
-        """Schema-only value check for configs that cannot fully resolve yet.
-
-        Bounds (canonical units, converted once from the chosen/input unit) and
-        enum membership — the checks a full resolve would have run for this one
-        parameter. Returns the rejection or None.
-        """
-        pdef = self._pdef
-        if pdef.enum_values is not None and value not in pdef.enum_values:
-            return ParameterBoundsError(
-                what=f"{self._dotpath} = {value!r} is not a valid choice",
-                why=f"Allowed values: {', '.join(pdef.enum_values)}.",
-                action="Pick one of the listed values.",
-                context={"param": self._dotpath, "value": value},
-            )
-        if pdef.dtype is float and pdef.bounds is not None:
-            try:
-                numeric = float(value)
-            except (TypeError, ValueError):
-                return ParameterBoundsError(
-                    what=f"{self._dotpath} = {value!r} is not a number",
-                    why="This parameter takes a numeric value.",
-                    action="Enter a number.",
-                    context={"param": self._dotpath, "value": value},
-                )
-            # ParameterDef.bounds are in the INPUT unit (Parameter System doc: "the
-            # user thinks in input units; validation should too") — convert only when
-            # a different display unit was chosen, then compare in input units.
-            from_unit = unit or pdef.input_unit
-            in_input_unit = numeric
-            if from_unit and from_unit != pdef.input_unit:
-                in_input_unit = convert(numeric, from_unit, pdef.input_unit)
-            lo, hi = pdef.bounds
-            if not (lo <= in_input_unit <= hi):
-                return ParameterBoundsError(
-                    what=(f"{self._dotpath} = {numeric:g} {from_unit or ''} is out of bounds"),
-                    why=f"Allowed range: [{lo:g}, {hi:g}] {pdef.input_unit or ''}.",
-                    action="Enter a value inside the allowed range.",
-                    context={
-                        "param": self._dotpath,
-                        "value": in_input_unit,
-                        "bounds": (lo, hi),
-                    },
-                )
-        return None
+            derived_from = self._sensor.resolved(self._dotpath).derived_from or {}
+        except (RadiantError, KeyError):
+            return ()
+        inputs = self._sensor.inputs()
+        return tuple(sibling for sibling in derived_from if sibling in inputs)
 
     def _update_preview(self) -> None:
         """Recompute the canonical preview for the current editor value + unit.
@@ -1226,6 +1195,18 @@ class ParameterEditorDialog(QDialog):
     def read_only(self) -> bool:
         """True when the parameter is derived and the dialog opened informative-only."""
         return self._read_only
+
+    @property
+    def release_combo(self) -> QComboBox | None:
+        """The *Derive instead* selector (take-over mode on a derived row), else ``None``."""
+        return self._release_combo
+
+    @property
+    def takeover_release(self) -> str | None:
+        """The sibling a take-over Apply releases, or ``None`` when not in take-over mode."""
+        if not self._takeover or self._release_combo is None:
+            return None
+        return str(self._release_combo.currentData())
 
     @property
     def path_label(self) -> QLabel:

@@ -27,7 +27,7 @@ import numpy.typing as npt
 
 from radiant.api._param_registry import build_parameter_set
 from radiant.api.config_io import normalize_element_document
-from radiant.api.errors import ApiValidationError
+from radiant.api.errors import ApiValidationError, SpectralBandError
 from radiant.api.fpa_preset import FPAApplyReport, apply_fpa_preset, remove_fpa_preset
 from radiant.api.sensitivity import SensitivityResult, sensitivity
 from radiant.api.session import RadiantSession
@@ -429,6 +429,18 @@ class Sensor:
         reads to tell shared from configured parameters.
         """
         return self._params.inputs()
+
+    def input_provenances(self) -> Mapping[str, Provenance]:
+        """Read-only snapshot of the explicitly-set inputs' provenance (CU-372 F-01).
+
+        The provenance-aware companion of :meth:`inputs` — dot-path →
+        :class:`~radiant.core.parameters.Provenance` for every parameter that
+        holds an explicit input, and nothing else (defaults and derived values
+        do not appear). Never resolves, so a display surface can label a value
+        the operator just entered as *user-set* while the configuration is
+        still incomplete. Passthrough to :meth:`ParameterSet.input_provenances`.
+        """
+        return self._params.input_provenances()
 
     def resolve(self) -> Sensor:
         """Resolve the parameter set now, if it is not already resolved (CU-208).
@@ -1261,9 +1273,33 @@ class Sensor:
         return sections or None
 
     def _wavelength_grid(self) -> npt.NDArray[np.float64]:
-        """The evaluation wavelength grid (filter band × wavelength_points)."""
+        """The evaluation wavelength grid (filter band × wavelength_points).
+
+        The band edges are checked here, before any stage runs (Rule 16): an
+        inverted or empty band raises :class:`~radiant.api.errors.SpectralBandError`
+        naming the two edges, instead of the internal "wavelength_um must be
+        strictly ascending" the source stage raised against its emissivity table
+        (CU-373 F-21).
+        """
         fmin: float = self._params.get("spectral_integration.filter_min_um")
         fmax: float = self._params.get("spectral_integration.filter_max_um")
+        if not fmin < fmax:
+            raise SpectralBandError(
+                what=(
+                    f"spectral_integration.filter_min_um ({fmin:g} µm) is not below "
+                    f"spectral_integration.filter_max_um ({fmax:g} µm)"
+                ),
+                why=(
+                    "The evaluation grid spans the filter band from its lower edge to "
+                    "its upper edge; an inverted or empty band has no wavelengths to "
+                    "integrate over."
+                ),
+                action=(
+                    "Set filter_max_um above filter_min_um (to widen a band upward, "
+                    "raise filter_max_um first)."
+                ),
+                context={"filter_min_um": fmin, "filter_max_um": fmax},
+            )
         return np.linspace(fmin, fmax, self._wl_points)
 
     def _build_session(self) -> RadiantSession:

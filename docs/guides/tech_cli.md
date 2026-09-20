@@ -163,7 +163,9 @@ message naming the install:
 pip install "radiant[gui]"
 ```
 
-Passing a study file opens it with its configuration tab strip.
+With no `CONFIG` the window opens on the welcome screen — mission-template cards, **Blank
+config**, the worked examples and the recent-files list — exactly the surface **File ▸ New**
+returns to. Passing a study file opens it with its configuration tab strip.
 
 ---
 

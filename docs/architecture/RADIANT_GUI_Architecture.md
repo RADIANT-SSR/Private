@@ -821,8 +821,15 @@ derived) comes from the resolved set. The shipped tree (GUI plan Phase 2) render
 as three columns — **Parameter / Value / Source** — where Value carries the value + unit
 (⚡-prefixed when derived) and Source is the provenance label; provenance is read from
 the structured public `Sensor.resolved(dotpath)` / `Sensor.provenance(dotpath)` accessors
-(CU-105, resolved — no longer parsed out of the `Sensor.explain` text). A search box
-filters by substring across dot-paths.
+(CU-105, resolved — no longer parsed out of the `Sensor.explain` text). **On a
+configuration that cannot resolve yet** (a blank config with required parameters unset)
+the resolved accessors raise, and the row falls back to the **inputs view** —
+`Sensor.peek_input(dotpath)` for the value and `Sensor.input_provenances()` for the
+badge, neither of which resolves — so a value the operator has set shows where it was
+accepted, with its provenance, and only a parameter with no explicit input reads `—`
+(CU-372 F-01; before that every row read unset until the configuration completed).
+*Changed only* reads the same fallback, so it lists what has been set on an incomplete
+configuration too. A search box filters by substring across dot-paths.
 
 **Editing (Task B).** Double-click (or the platform edit key) on a non-derived row
 opens the editor its `ParameterDef` dtype calls for: a combo box for an enum (choices
@@ -834,21 +841,45 @@ validating — no reimplemented physics); only a clean value is applied to the l
 and the row (value + provenance) is refreshed by re-reading the resolved set.
 `ParameterBoundsError` / `UnknownParameterError` / consistency-group violations (all
 surfaced by the resolver — the generic schema-bounds path raises a flat
-`CoreValidationError`, tracked as CU-107) render their what/why/action inline on the row
-(a themed error tint + banner) **and** in a modal `ActionableErrorDialog`; the rejected
+`CoreValidationError`, tracked as CU-107) render their what/why/action **inline on the
+row** (a themed error tint, the full text as the Value cell's tooltip, and the banner);
+the in-place path raises **no modal** — the commit runs inside the delegate's
+editor-close sequence, where a modal is lost natively (audit F-46) — and the rejected
 value never sticks. An unexpected exception raises `UnexpectedErrorDialog` with a
-traceback fold (Rules 15/17 — nothing swallowed). Both clone-validate commit paths
-(this inline tree edit and the `ParameterEditorDialog` below) additionally screen an
-accepted value through the resolve-time target-spec seam (CU-244): the shared
+traceback fold (Rules 15/17 — nothing swallowed). **One resolver, every commit path
+(CU-372 F-02):** the in-place tree edit, the `ParameterEditorDialog` below, and *Reset
+to Default* all decide acceptance through `radiant.gui.edit_guard` — the change is
+applied to a throwaway clone and resolved; only a failure *this change introduces* is
+a rejection. A configuration incomplete with or without the change accepts it (the
+from-scratch contract of 2026-07-17, now on both paths — the delegate used to reject
+every edit on a blank configuration); a failure identical to the live sensor's
+pre-existing one is not this edit's fault (Evaluate reports it); and because the
+resolver validates every explicit input and every consistency group before it reports
+a missing required parameter (CU-373 F-13 ordering), a value wrong on its own terms —
+out of bounds, a bad enum, a disagreeing third member of the `fnumber` group (F-06) —
+is rejected at the door however incomplete the configuration is. An accepted value is
+additionally screened through the resolve-time target-spec seam (CU-244): the shared
 `radiant.gui.target_spec_guard.introduced_target_spec_conflict` differential calls
 `Sensor.validate_target_spec()` on the trial clone and rejects a cross-parameter
 over-specification **this edit introduces** (e.g. a second reflectance surface) at
 the door, with the identical what/why/action `evaluate()` would produce; a conflict
 that pre-exists on the live sensor never blocks an unrelated edit — Evaluate remains
-the surface that reports it. Right-click: Copy dot-path, Explain
+the surface that reports it. The in-place line edit coerces its text to the schema
+dtype before the commit (text that does not parse reaches the resolver's own type
+error), so a float row never stores a string input. Right-click: Copy dot-path, Explain
 (renders `Sensor.explain(dotpath)` in a themed modal `ExplainDialog` — the surface chosen
 to match the `Tools → Explain Parameter…` menu), Reset to Default (`Sensor.reset(dotpath)`,
-which clears the input so the parameter reverts to its default or is re-derived).
+which clears the input so the parameter reverts to its default or is re-derived). **Reset
+is clone-validated like an edit (CU-372 F-03):** `edit_guard.validate_reset` applies the
+withdrawal to a throwaway clone and resolves it; a reset that would leave a resolvable
+configuration unresolvable (withdrawing one of the two set members of a consistency group)
+is refused — the live sensor untouched, the row unchanged, no undo step, no dirty mark, no
+re-evaluation — and the resolver's own error renders under a `Cannot reset “<dot-path>”`
+header (the modal's `verb` argument). An accepted reset applies, refreshes the tree, and
+emits `parameterEdited` exactly as an edit does, so the window records the undo step,
+marks the document dirty, and schedules the re-evaluation. Before this, `_reset_to_default`
+reset the **live** sensor and only then resolved: the failure rendered as a rejection while
+the reset had already applied (row stale, no undo, no re-evaluate).
 
 **Parameter Editor dialog (Phase 3 checkpoint punch-list).** The narrow dock truncates
 long dot-paths, so a full-detail **Parameter Editor** (`ParameterEditorDialog`, one widget
@@ -864,9 +895,31 @@ exactly one `sensor.set(dotpath, value, unit=<chosen>)` (§4.1), validated first
 throwaway `sensor.clone()` so a rejected value never touches the live sensor; a rejection
 renders its what/why/action **inside** the dialog (themed error area) and keeps it open for
 correction, while an accepted edit refreshes the tree (the panel's existing refresh path)
-and — via **Apply & Close** — dismisses (plain **Apply** keeps it open). A derived (⚡)
-parameter opens read-only: the value/unit editors are disabled and only a Close button is
-offered. **In a study** the same dialog carries the per-configuration value boxes and the
+and — via **Apply & Close** — dismisses (plain **Apply** keeps it open). **A derived (⚡)
+parameter opens in take-over mode (CU-372 F-04):** the value/unit editors are live and a
+*Derive instead* selector lists the explicit consistency-group siblings the value came
+from (`Sensor.resolved(dotpath).derived_from`, filtered to explicit inputs); Apply
+releases the chosen sibling and sets this value as one logical action
+(`edit_guard.validate_takeover` / `apply_takeover`, clone-validated by the same
+differential rule), so the group never passes through an under- or over-specified state
+on the live sensor. The default release is the last explicit sibling in group order —
+for `fnumber` (aperture, focal length, f-number) typing a focal length releases the
+f-number and keeps the aperture. Only when no sibling holds an explicit input (the value
+derives from defaults) does the dialog open read-only, with a Close button. Before F-04
+the derived editor was always read-only and the only route to "specify focal length
+instead of f-number" was an undocumented Reset on the f-number row followed by a set.
+
+**Undo history is over explicit inputs (CU-372 F-20).** The window's before-state
+snapshot is `Sensor.inputs()` (explicit inputs only, no resolve — so it exists on a blank
+configuration and edits made before the first clean run are undoable), and
+`SetParameterCommand` carries `None` on either side for "no explicit input": undoing a
+first-time set withdraws the input (`Sensor.reset`) and the row returns to `default`
+provenance, rather than writing the schema default back as a user-set value (which made
+*Changed only*, preset precedence and saved files all treat an undone edit as typed).
+After an accepted edit the window records **every** explicit input that differs from the
+snapshot — the edited dot-path first — under one macro when more than one moved, so a
+take-over (release + set), an architecture switch's companion resets, and a shape pick's
+seeded dimensions each reverse as a single step. **In a study** the same dialog carries the per-configuration value boxes and the
 *Configure across configurations…* affordance — see §4.2c, which owns that spec.
 
 **Path parameters get a Browse… picker (owner request 2026-07-18).** A `str` parameter
@@ -912,7 +965,14 @@ in the row's display unit and write it with `sensor.set(dotpath, value, unit=dis
 so entry and display stay symmetric (type `550` into a km-displaying row → `550000 m`
 canonical, row shows `550 km`). The unit suffix is always part of the displayed string
 (R-UNITS). The preference is **session-scoped**; QSettings persistence across launches
-arrives in Phase 9. Loading a new sensor resets the preferences.
+arrives in Phase 9. Loading a new sensor resets the preferences. **The global angles toggle
+outranks a per-row `rad`/`deg` override (CU-372 F-37):** a commit whose chosen unit is the
+unit the row would show anyway records no override, and flipping View → *Angles in
+Degrees* clears every `rad`/`deg` override on a `rad`-schema row
+(`display_units.drop_governed_overrides`) so those rows follow the toggle again — before
+this, a row edited through the dialog kept the dialog's unit after the toggle and a value
+typed "in radians" landed in degrees. An override in any other unit (`mrad`, `km`) is a
+genuine per-row choice and survives.
 
 ### 4.4a Welcome Screen — mission templates at the no-config state (owner-confirmed brief 2026-08-31)
 
@@ -1234,12 +1294,20 @@ its `failure_reason` (Rule 17 carve-out), never a blank.
 **document** — since Phase 4e the whole study when the session is one, `configurations:`
 section included, and exactly today's single-config text when it is not (§4.2f decides
 which, once, for this modal and for Save alike). **Apply re-parses the edited text through
-the framework** (`ConfigurationSet.load`, the one reader that takes both document kinds);
-**invalid YAML → an actionable error and the document is left unchanged** (the live
-document is never corrupted — the edit is parsed on a throwaway first, exactly the §4.1
-validate-before-commit discipline), and a section violation's error already names the
-configuration and the parameter. This is the relocation of the shipped read-only YAML tab
-into an editable modal. As shipped, the serialized text is the **inputs** scope and there
+the framework** (`ConfigurationSet.load`, the one reader that takes both document kinds)
+**and then resolves the parsed document** (`document_yaml.document_rejection` →
+`ConfigurationSet.validate_all`, CU-372 F-32) with the same differential posture as every
+other commit path: an incomplete document (its only failure a `RequiredParameterError`) is
+admitted, any other resolve failure — bounds, enum, over-constrained group, a non-attaching
+element train — is refused. **Invalid YAML or a refused value → an actionable error
+rendered inline in the dialog's themed error area, and the document is left unchanged**
+(the live document is never corrupted — the edit is parsed and resolved on a throwaway
+first, exactly the §4.1 validate-before-commit discipline; the dialog never raises a modal
+over itself), and a section violation's error already names the configuration and the
+parameter. The preloaded serialization never resolves (`Sensor.to_yaml(validate=False)`),
+so the editor opens on an unresolvable document — before F-32 an out-of-bounds value that
+reached the live sensor left the editor unable to reopen. This is the relocation of the
+shipped read-only YAML tab into an editable modal. As shipped, the serialized text is the **inputs** scope and there
 is no resolved-scope serialize surface (**Gap 88**); the modal shows the inputs scope until
 that lands.
 
@@ -1253,6 +1321,13 @@ shipped `WarningListDialog`). Captured warnings are also re-logged, so nothing i
 swallowed (Rule 17). **Errors surface here too**: a `RadiantError` renders its actionable
 **what / why / action** (Rule 15), and clicking opens the full message. This is the
 warning strip relocated and widened to carry errors as well as warnings.
+
+*Document swap hygiene (CU-373 F-51).* `_adopt_config_set` — the one place a document
+becomes live — clears the previous result's saturation banner, warnings, stale notice and
+chip health before binding the new document, so a swap to an unresolvable document (a YAML
+Apply that deletes a required value) does not leave the old configuration's banners on
+screen with no stale marker; and `StageCenter.bind_sensor` keeps a selected stage on its
+editable composite rather than forcing the placeholder.
 
 *Multi-configuration attribution (Phase 4a).* In a study, each warning is prefixed with
 the configuration that raised it (`LWIR: UserWarning: …`) so a per-band effect never reads

@@ -286,7 +286,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 31 source + 22 tests
+### `api/` — 32 source + 23 tests
 
 Public scripting API.
 
@@ -310,6 +310,7 @@ api/
 ├── metric_groups.py       # re-export bridge: performance metric-group taxonomy (Gap 96)
 ├── geometry_modes.py      # re-export bridge: ADR-0006 mode manifest (CU-120)
 ├── atmosphere_families.py # shipped interpolation-family catalogue seam for the GUI (CU-239)
+├── transmission_state.py  # re-export bridge: transmission-mode incomplete predicate (CU-373 F-09)
 ├── stage_output_units.py  # canonical display units for scalar stage outputs (CU-118)
 ├── config_io.py           # config-document facade for structured configuration
 ├── errors.py              # stage-scoped RADIANT error types (Rule 15)

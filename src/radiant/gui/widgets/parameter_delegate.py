@@ -143,7 +143,30 @@ class ParameterEditDelegate(QStyledItemDelegate):
         commits it to the sensor, and — only if accepted — refreshes the row from
         the resolved set. A rejected value therefore never reaches the display.
         """
-        self._commit(self._dotpath(index), self._editor_value(editor))
+        dotpath = self._dotpath(index)
+        self._commit(dotpath, self._typed_value(dotpath, self._editor_value(editor)))
+
+    def _typed_value(self, dotpath: str, value: Any) -> Any:
+        """Coerce a line-edit string to the schema dtype when it parses; else pass it on.
+
+        A float/int row's line edit yields text; handing that text to ``sensor.set``
+        stored a *string* input (``sensor_altitude_m: '500000'`` in a saved file) that
+        only the resolver's stage-1 conversion turned into a number. The dialog path
+        converts in its own editor; the in-place path now does the same (CU-372
+        F-02 — one commit contract). Text that does not parse is passed through
+        unchanged so the resolver's actionable type error is what rejects it.
+        """
+        if not isinstance(value, str):
+            return value
+        pdef = self._pdef_for(dotpath)
+        try:
+            if pdef.dtype is float:
+                return float(value)
+            if pdef.dtype is int:
+                return int(value)
+        except ValueError:
+            return value
+        return value
 
     # -- error-row tint -----------------------------------------------------
 

@@ -107,19 +107,24 @@ def display_in_unit(
 
 
 def safe_provenance(sensor: Sensor, dotpath: str) -> str:
-    """Provenance token for *dotpath*, or "" when the sensor cannot resolve yet.
+    """Provenance token for *dotpath*, or "" when nothing is known about it yet.
 
     Reads the structured :meth:`Sensor.resolved` accessor (CU-105) and returns the
     ``Provenance`` value string ("user_set", "config_file", "derived", …). On a config
     that cannot resolve (a blank File → New with required parameters unset) the accessor
-    raises, and on a present-but-unresolved parameter it raises ``KeyError``; either way
-    a display surface that only wants a provenance label gets "" instead of a crash
-    (CU-140 guard tests).
+    raises, and on a present-but-unresolved parameter it raises ``KeyError``. Either
+    way the answer then comes from the **inputs view** (:meth:`Sensor.input_provenances`,
+    no resolve): a value the operator has set is labelled by its input provenance
+    ("user_set" / "config_file" / "preset") whether or not the whole configuration
+    resolves yet, and only a parameter with no explicit input reads "" (CU-372 F-01 —
+    the dock previously showed every row, including ones just accepted, as unset until
+    the configuration completed).
     """
     try:
         return sensor.resolved(dotpath).provenance.value
     except (RadiantError, KeyError):
-        return ""
+        provenance = sensor.input_provenances().get(dotpath)
+        return provenance.value if provenance is not None else ""
 
 
 def field_display_text(

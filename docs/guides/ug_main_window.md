@@ -81,6 +81,11 @@ Every parameter in the model, grouped by namespace in chain order, in three colu
 Above the tree, a **filter box** narrows by substring across dot-paths, and **Changed only**
 hides every row still at its schema default — your configuration, as a short list.
 
+On a configuration that cannot resolve yet — a blank start with required parameters still
+unset — a row you have set shows the value you entered with a `user-set` badge, and only the
+rows with no input read `—`. The dock never waits for the whole configuration to complete
+before showing you what you typed.
+
 **Editing.** Double-clicking the *Value* cell of a non-derived row opens the editor its type
 calls for: a combo box for an enumeration (with the choices read from the schema), a
 checkbox for a boolean, a spin box for an integer, a text field for a float or string.
@@ -90,15 +95,25 @@ unit and provenance, the bounds in those units, and — for a dimensional parame
 selector with a live canonical preview.
 
 Both paths commit the same way: the value is validated on a throwaway copy of the model
-first, so a rejected value never reaches the live one. A rejection is rendered inline on the
-row *and* as a dialog, in *what / why / action* form, and the row keeps its previous value.
+first, by one shared rule, so a rejected value never reaches the live one and the two paths
+accept and reject identically — on a blank configuration either one takes your first value.
+A rejection is rendered in *what / why / action* form where you typed it: on the row itself
+(the tint, the banner under the tree, and the full text as the cell's tooltip) for the
+in-place editor, and inside the Parameter Editor for the dialog. The row keeps its previous
+value either way.
 
 Right-clicking a row offers **Edit…**, **Copy dot-path**, **Explain** (the same derivation
 trace `radiant explain` prints, in a dialog), and **Reset to Default**, which clears your
-input so the parameter reverts to its default or is re-derived.
+input so the parameter reverts to its default or is re-derived. A reset is validated on a
+throwaway copy first: one that would leave a working configuration unable to resolve is
+refused, with a `Cannot reset` dialog naming what would go missing, and nothing changes.
 
-A derived row opens read-only. That is not a restriction to work around: the value is a
-consequence, and its inputs are what you change.
+A derived row's editor opens live, with a **Derive instead** selector: typing into a derived
+consistency-group member means you are choosing it as the input, and the selector names which
+of its siblings gives up its value and becomes the derived one. Enter a focal length on the
+derived `focal_length_m` row and, by default, `f_number` is released and derives — the aperture
+you set stays. Both halves are applied together, so the group is never over-specified along
+the way. Only a value derived purely from defaults opens read-only.
 
 The dock hides and shows with **F6**.
 
@@ -150,9 +165,11 @@ the value with its unit, and the stage it came from; a metric that failed shows 
 rather than a blank. The pinned set is per session.
 
 **Edit Config (YAML).** Opens a roomy modal editor on the document — the whole study when
-the session is one. **Apply** re-parses the edited text through the framework, on a throwaway
-first, so invalid YAML produces an actionable error and leaves the live document untouched.
-The text is the *inputs* scope: what you specified, not the resolved two hundred.
+the session is one. **Apply** re-parses and resolves the edited text through the framework,
+on a throwaway first, so invalid YAML or a value the framework refuses produces an actionable
+error inline in the editor and leaves the live document untouched (an incomplete document is
+admitted; a wrong one is not). The editor opens whether or not the document resolves. The
+text is the *inputs* scope: what you specified, not the resolved two hundred.
 
 **Messages.** Warnings and errors from the last run, one row each, verbatim and never
 deduplicated. The header reads `⚠ N warnings` with the first inline; clicking opens the full
@@ -180,6 +197,12 @@ interrupt.
 
 **A failed evaluation leaves the previous result on screen**, marked stale, with the failure
 in Messages. It never shows a blank, and it never shows a mixture of old and new numbers.
+
+**A new document starts clean.** Opening a file, applying a YAML edit or starting a blank
+configuration clears the previous document's result — its saturation banner, its warnings,
+the stale notice and the chip colours — because that result described a configuration that is
+gone; a document that resolves re-evaluates at once, one that does not shows its stage screens
+editable with the incomplete-configuration status line.
 
 **Run ▸ Validate Only** (`Ctrl+R`) is present but not wired in this build. The resolve-only
 check runs from the command line as `radiant validate <config>`, and the configuration

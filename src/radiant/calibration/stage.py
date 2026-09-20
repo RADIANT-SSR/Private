@@ -50,6 +50,7 @@ from radiant.calibration.cal_source_bias import (
 )
 from radiant.calibration.errors import (
     CalibrationConfigIncompleteError,
+    CalibrationModeConflictError,
     CalibrationValidationError,
 )
 from radiant.calibration.gain_drift import gain_drift_residual_e
@@ -183,7 +184,7 @@ def _validate_flux_mode(scheme: str, params: ParameterSet) -> None:
     )
     for name, unset in rejected:
         if float(params.get(name)) != unset:
-            raise CalibrationValidationError(
+            raise CalibrationModeConflictError(
                 f"{name} is set, but calibration.cal_point_mode = "
                 "'flux_fraction'.\n"
                 "  Why: a flux-declared cal point has no thermal anchor — "

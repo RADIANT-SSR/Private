@@ -45,7 +45,10 @@ from PySide6.QtWidgets import (
 
 from radiant.api.atmosphere_families import is_atmosphere_coverage_refusal
 from radiant.api.build_info import build_info
-from radiant.api.calibration_state import is_calibration_config_incomplete
+from radiant.api.calibration_state import (
+    is_calibration_config_incomplete,
+    is_calibration_mode_conflict,
+)
 from radiant.api.config_io import read_template_meta
 from radiant.api.config_set import (
     ConfigSetError,
@@ -53,16 +56,19 @@ from radiant.api.config_set import (
     ConfigurationSet,
     ElementTrainState,
 )
+from radiant.api.errors import SpectralBandError
 from radiant.api.readout_architecture import (
     is_counting_config_incomplete,
     is_readout_architecture_conflict,
 )
 from radiant.api.sensor import Sensor
+from radiant.api.transmission_state import is_transmission_config_incomplete
 from radiant.core.exceptions import RadiantError
-from radiant.core.parameters import RequiredParameterError
+from radiant.core.parameters import ConsistencyGroupError, RequiredParameterError
+from radiant.core.viewing_triangle import is_horizon_guard_refusal
 from radiant.gui.config_scope import ConfigurationScope
 from radiant.gui.dialog_lifetime import exec_dialog
-from radiant.gui.display_units import set_angles_in_degrees
+from radiant.gui.display_units import drop_governed_overrides, set_angles_in_degrees
 from radiant.gui.document_yaml import is_study
 from radiant.gui.errors import GuiValidationError
 from radiant.gui.geometry_modes import implicated_families
@@ -95,12 +101,15 @@ from radiant.gui.widgets.scoped_parameter_command import ScopedParameterCommand,
 from radiant.gui.widgets.scripting_console import ScriptingConsole
 from radiant.gui.widgets.scripting_window import ScriptingWindow
 from radiant.gui.widgets.set_parameter_command import SetParameterCommand
-from radiant.gui.widgets.stage_strip import STAGE_NAMESPACES, StageStrip
+from radiant.gui.widgets.stage_strip import STAGE_NAMESPACES, STAGE_TITLES, StageStrip
 from radiant.gui.widgets.sweep_dialog import SweepDialog
 from radiant.gui.widgets.unexpected_error_dialog import UnexpectedErrorDialog
 from radiant.gui.widgets.welcome_screen import WelcomeScreen
 from radiant.gui.widgets.yaml_editor_dialog import YamlEditorDialog
 from radiant.gui.workers import ConfigSetEvaluationWorker
+
+# Chip title per schema namespace, for advisory text that names the panel to fix.
+_STAGE_TITLE: dict[str, str] = dict(zip(STAGE_NAMESPACES, STAGE_TITLES, strict=True))
 
 
 @lru_cache(maxsize=1)
@@ -1116,12 +1125,9 @@ class RADIANTMainWindow(QMainWindow):
         (no empty-macro artifact on the stack).
         """
         self._central.stage_center.clear_geometry_highlight()
-        if len(dotpaths) > 1:
-            self._undo_stack.beginMacro(f"Set {dotpaths[0]} (+{len(dotpaths) - 1} seeded)")
-            for dotpath in dotpaths:
-                self._push_edit_command(dotpath)
-            self._undo_stack.endMacro()
-        elif dotpaths:
+        if dotpaths:
+            # One push records every explicit input that moved (F-20) — the shape and
+            # its seeded dimensions land under one macro by construction.
             self._push_edit_command(dotpaths[0])
         self._mark_dirty()
         self._stage_strip.set_all_status("stale")
@@ -1403,12 +1409,13 @@ class RADIANTMainWindow(QMainWindow):
         :class:`~radiant.api.config_set.ConfigSetError` naming that configuration.
         The GUI's failure surfaces (the actionable modal, the geometry-conflict
         locator, the Messages item) key on the *original* error's structured
-        ``what`` / ``context``, so the wrapper is unwrapped here — a
-        single-configuration session then renders exactly the error it rendered
-        before this phase.
+        ``what`` / ``context``, so the wrapper is unwrapped here — every layer of
+        it (CU-373 F-12: a single-model session must never read "configuration
+        'Configuration 1' does not resolve … configured values are []") — and a
+        single-configuration session then renders exactly the underlying error.
         """
-        if isinstance(exc, ConfigSetError) and isinstance(exc.__cause__, RadiantError):
-            return exc.__cause__
+        while isinstance(exc, ConfigSetError) and isinstance(exc.__cause__, RadiantError):
+            exc = exc.__cause__
         return exc
 
     def _attributed_warnings(self, run: ConfigSetRunResult) -> list[str]:
@@ -1617,6 +1624,66 @@ class RADIANTMainWindow(QMainWindow):
                 "shown, stale)"
             )
             return
+        # CU-373 F-09: four more mid-switch / conflict states were a modal per
+        # re-evaluation with every chip red. Each is a legal-inputs state whose
+        # remedy is to withdraw or add an input, not to revert a value — the same
+        # advisory pattern, routed structurally (type or structured context).
+        if is_calibration_mode_conflict(exc):
+            self._advise(
+                "calibration",
+                (
+                    "Cal-point mode conflict — unset the temperature-anchored inputs on "
+                    "the Calibration panel, or set calibration.cal_point_mode = "
+                    "'temperature'"
+                ),
+            )
+            return
+        if is_transmission_config_incomplete(exc):
+            self._advise(
+                "optics",
+                (
+                    "Transmission mode needs its inputs — add elements on the Optics ▸ "
+                    "Transmission tab, or switch optics.transmission_input_mode back"
+                ),
+            )
+            return
+        if isinstance(exc, SpectralBandError):
+            # CU-373 F-21: widening a band upward is two edits and always visits
+            # the inverted-band state — an advisory naming the edges, never a modal.
+            self._advise("spectral_integration", f"{exc.what} — {exc.action}")
+            return
+        if isinstance(exc, ConsistencyGroupError):
+            stage = exc.parameters[0].split(".", 1)[0] if exc.parameters else ""
+            members = ", ".join(exc.parameters)
+            self._advise(
+                stage,
+                (
+                    f"Consistency group '{exc.group}' is over-constrained — Reset to "
+                    f"Default on one of {members}, or make them agree"
+                ),
+            )
+            return
+        if is_horizon_guard_refusal(exc):
+            # CU-373 F-28 (routing half): a grazing path mid-pivot is a legal,
+            # transient state — advisory beside the geometry inputs, not a modal
+            # per re-evaluation. The wording of the refusal itself is CU-371's.
+            self._advise(
+                "geometry",
+                (
+                    "Path grazes the horizon — raise the sensor, shorten the path or "
+                    "tilt the geometry on the Geometry workspace"
+                ),
+            )
+            return
+        if self._is_geometry_conflict(exc):
+            self._advise(
+                "geometry",
+                (
+                    "Geometry conflict — set exactly one input per family; the tinted "
+                    "card on the Geometry workspace is the one to fix"
+                ),
+            )
+            return
         if is_counting_config_incomplete(exc) or is_readout_architecture_conflict(exc):
             # Gap 117 readout-architecture states: one stage's configuration
             # is incomplete (mid-switch, packet not yet entered) or mixed
@@ -1648,20 +1715,55 @@ class RADIANTMainWindow(QMainWindow):
         # the owning stage's chip goes red, everything else stale, the status
         # bar names the parameter, and the Messages rail carries the full text.
         if isinstance(exc, RequiredParameterError):
-            self._stage_strip.set_all_status("stale")
-            stage = exc.param.split(".", 1)[0]
-            with_chip = stage in STAGE_NAMESPACES
-            if with_chip:
-                self._stage_strip.set_status(stage, "err")
-            self.statusBar().showMessage(
-                f"Config incomplete — set {exc.param} (see Messages; the previous "
-                "result is shown, stale)"
+            # The chip and the hint name the panel whose form carries the field,
+            # not the schema namespace (CU-373 F-47): integration_time_s is a
+            # spectral_integration parameter edited on Readout ▸ Acquisition.
+            stage = (
+                self._central.stage_center.stage_owning_field(exc.param)
+                or exc.param.split(".", 1)[0]
             )
+            where = f" on the {_STAGE_TITLE[stage]} panel" if stage in _STAGE_TITLE else ""
+            self._advise(stage, f"Config incomplete — set {exc.param}{where}")
             return
         if isinstance(exc, RadiantError):
-            exec_dialog(ActionableErrorDialog(exc, "evaluate", self))
+            # A genuine rejection found at evaluation: titled by its cause (CU-373
+            # F-12) — nothing named "evaluate" was set.
+            exec_dialog(
+                ActionableErrorDialog(
+                    exc,
+                    "evaluate",
+                    self,
+                    title="Evaluation Failed",
+                    header="The configuration did not evaluate",
+                )
+            )
         else:
             exec_dialog(UnexpectedErrorDialog(exc, "Evaluating the signal chain", self))
+
+    def _advise(self, stage: str, hint: str) -> None:
+        """Render an evaluate-time advisory: one chip red, the rest stale, the fix named.
+
+        The CU-322 advisory pattern, in one place (CU-373 F-09): no modal, the
+        implicated stage's chip is the error site, every other chip merely stale,
+        and the status bar names the fix — the Messages rail already carries the
+        full what/why/action.
+        """
+        self._stage_strip.set_all_status("stale")
+        if stage in STAGE_NAMESPACES:
+            self._stage_strip.set_status(stage, "err")
+        self.statusBar().showMessage(f"{hint} (see Messages; the previous result is shown, stale)")
+
+    @staticmethod
+    def _is_geometry_conflict(exc: BaseException) -> bool:
+        """Whether *exc* is a geometry mode-family over/under-specification.
+
+        Structural: decided from the error's ``context`` keys alone (the family
+        manifest), never from message text — the same predicate the locator uses,
+        with the text fallback switched off.
+        """
+        raw_context = getattr(exc, "context", None)
+        context = raw_context if isinstance(raw_context, dict) else None
+        return bool(context) and bool(implicated_families("", context))
 
     def _highlight_geometry_conflict(self, exc: BaseException) -> None:
         """Tint + navigate to the geometry control a conflict names (task 3 / Phase 4).
@@ -1924,6 +2026,15 @@ class RADIANTMainWindow(QMainWindow):
         """
         self._config_set = config_set
         self._last_run = None
+        # The previous document's result is gone with it (CU-373 F-51): its
+        # saturation banner, warnings, stale notice and chip health must not stay
+        # on screen describing a configuration that no longer exists — a swap to
+        # an unresolvable document produces no run to replace them.
+        self._last_result = None
+        self._central.saturation_banner.clear_banner()
+        self._central.stale_notice.setVisible(False)
+        self._right_rail.messages.set_warnings(())
+        self._stage_strip.set_all_status("stale")
         try:
             self._sensor = self._materialize_display_sensor()
         except RadiantError as exc:
@@ -2500,57 +2611,75 @@ class RADIANTMainWindow(QMainWindow):
             self.statusBar().showMessage("Reset to schema defaults")
 
     def _refresh_snapshot(self) -> None:
-        """Snapshot the resolved input values (the undo before-value baseline).
+        """Snapshot the **explicit inputs** (the undo before-state baseline, CU-372 F-20).
 
         Rebuilt after each clean evaluation and on a sensor swap. Reads the public
-        :meth:`Sensor.get_input` surface; a parameter that is present-but-unresolved raises
-        ``KeyError`` (skipped), and a whole config that does not resolve yet (a blank File →
-        New) raises a ``RadiantError`` — caught so the baseline is simply empty until the
-        first clean run fills it. No silent physics swallow (Rule 17): this is undo
-        bookkeeping over already-validated inputs.
+        :meth:`Sensor.inputs` view — dot-path → input-unit value for every parameter
+        holding an explicit input, and nothing else — which never resolves, so the
+        baseline exists on a blank configuration too (edits made before the first clean
+        run are undoable). A parameter absent from the snapshot has no explicit input:
+        undoing a first-time set withdraws the input rather than writing the schema
+        default back as a user-set value.
         """
-        snapshot: dict[str, Any] = {}
         sensor = self._sensor
-        if sensor is not None:
-            try:
-                for dotpath in sensor.parameter_defs():
-                    try:
-                        value = sensor.get_input(dotpath)
-                    except KeyError:
-                        continue
-                    if value is not None:
-                        snapshot[dotpath] = value
-            except RadiantError:
-                snapshot = {}
-        self._input_snapshot = snapshot
+        self._input_snapshot = dict(sensor.inputs()) if sensor is not None else {}
 
     def _push_edit_command(self, dotpath: str) -> None:
-        """Record *dotpath*'s just-applied edit as a reversible command (Phase 9).
+        """Record the just-applied edit as a reversible command (Phase 9).
 
-        The panel signals an edit only after applying it, so the *new* value is read from
-        the sensor and the *old* value from the committed snapshot. A non-scalar, unresolved,
-        or no-op edit records nothing (there is nothing meaningful to reverse). A shape pick
-        and the dimensions seeded alongside it are recorded together under one undo macro via
-        :meth:`_on_compound_parameter_edited` (CU-141), so they reverse as a single step.
+        The panel signals an edit only after applying it, so the after-state is read
+        from the sensor's explicit inputs and the before-state from the committed
+        snapshot. **Every** explicit input that differs from the snapshot is recorded —
+        the named *dotpath* first — because one user action can move more than one
+        input: a derived member's take-over releases a sibling (F-04), an architecture
+        switch clears its companions (Gap 117), a shape pick seeds its dimensions
+        (CU-141). Several changes go under one undo macro so they reverse as a single
+        step; a no-op edit records nothing (there is nothing to reverse).
         """
         sensor = self._sensor
         cs = self._config_set
         if sensor is None or cs is None:
             return
+        inputs = dict(sensor.inputs())
+        changed = [
+            name
+            for name in [dotpath, *sorted(set(inputs) | set(self._input_snapshot))]
+            if inputs.get(name) != self._input_snapshot.get(name)
+        ]
+        changed = list(dict.fromkeys(changed))  # dotpath first, no duplicates
+        if not changed:
+            return
+        if len(changed) > 1:
+            self._undo_stack.beginMacro(f"Set {dotpath} (+{len(changed) - 1} related)")
+        for name in changed:
+            self._push_one_input_change(name, inputs.get(name))
+        if len(changed) > 1:
+            self._undo_stack.endMacro()
+
+    def _push_one_input_change(self, dotpath: str, new_value: Any) -> None:
+        """Record one explicit-input change (``None`` = withdrawn) against the snapshot."""
+        sensor = self._sensor
+        cs = self._config_set
+        if sensor is None or cs is None:  # pragma: no cover - guarded by the caller
+            return
         try:
-            new_value = sensor.get_input(dotpath)
             pdef = sensor.parameter_def(dotpath)
-        except (KeyError, RadiantError):
+        except KeyError:  # pragma: no cover - inputs are schema-checked at set()
             return
+        old_value = self._input_snapshot.get(dotpath)
         if new_value is None:
-            return
-        old_value = self._input_snapshot.get(dotpath, new_value)
-        self._input_snapshot[dotpath] = new_value
+            self._input_snapshot.pop(dotpath, None)
+        else:
+            self._input_snapshot[dotpath] = new_value
         if old_value == new_value:
             return
         if not self._mirror_edit_to_set(dotpath, new_value, pdef.input_unit or None):
             return
-        text = f"Set {dotpath} = {format_value(new_value, pdef.input_unit)}"
+        text = (
+            f"Reset {dotpath}"
+            if new_value is None
+            else f"Set {dotpath} = {format_value(new_value, pdef.input_unit)}"
+        )
         command = SetParameterCommand(
             cs.base,
             dotpath,
@@ -2582,12 +2711,24 @@ class RADIANTMainWindow(QMainWindow):
         it records its own, scope-aware command here (Phase 4b): the before/after states
         are that parameter's whole configured column, so undo restores the column — and
         therefore the value *and* the store it lives in (plan §6, 4b).
+
+        *value* ``None`` is a withdrawn input (CU-372 F-20): a shared parameter is
+        ``reset`` on the base; a configured column has no "unset" cell, so the
+        displayed configuration's cell takes the resolved default when there is one
+        and the withdrawal is otherwise left to the next evaluation to report.
         """
         cs = self._config_set
         if cs is None or self._is_degenerate():
             return True
         try:
             if cs.is_configured(dotpath):
+                if value is None:
+                    try:
+                        value = self._sensor.get_input(dotpath) if self._sensor else None
+                    except (KeyError, RadiantError):
+                        return False
+                    if value is None:
+                        return False
                 before = ScopeState.configured_column(cs.configured()[dotpath])
                 cs.set_value(dotpath, cs.active, value, unit=unit)
                 after = ScopeState.configured_column(cs.configured()[dotpath])
@@ -2607,7 +2748,9 @@ class RADIANTMainWindow(QMainWindow):
                     self._config_scope.notify_changed()
                 self.statusBar().showMessage(f"Edited {dotpath} in configuration {cs.active} only")
                 return False
-            if unit:
+            if value is None:
+                cs.base.reset(dotpath)
+            elif unit:
                 cs.base.set(dotpath, value, unit=unit)
             else:
                 cs.base.set(dotpath, value)
@@ -2972,11 +3115,10 @@ class RADIANTMainWindow(QMainWindow):
         if sensor is not None:
             self._parameter_panel.populate(sensor)
             self._central.stage_center.refresh_forms()
-            try:
-                value = sensor.get_input(dotpath)
-            except (KeyError, RadiantError):
-                value = None
-            if value is not None:
+            value = sensor.peek_input(dotpath)
+            if value is None:
+                self._input_snapshot.pop(dotpath, None)
+            else:
                 self._input_snapshot[dotpath] = value
         self._mark_dirty()
         self._stage_strip.set_all_status("stale")
@@ -3088,12 +3230,18 @@ class RADIANTMainWindow(QMainWindow):
         """Flip the global angles-in-degrees display preference (CU-326).
 
         Persists the choice, installs the module state every display surface
-        reads, and re-renders the parameter tree + stage forms so every visible
-        angle re-expresses immediately. Values are untouched (display-only,
-        Rule 2); an open editor keeps the unit it was opened with.
+        reads, clears the per-row ``rad``/``deg`` overrides the toggle governs (so a
+        row edited through the editor follows the toggle too — CU-372 F-37), and
+        re-renders the parameter tree + stage forms so every visible angle
+        re-expresses immediately. Values are untouched (display-only, Rule 2); an
+        open editor keeps the unit it was opened with.
         """
         self._settings.set_angles_in_degrees(enabled)
         set_angles_in_degrees(enabled)
+        if self._sensor is not None:
+            drop_governed_overrides(
+                self._parameter_panel.display_units, self._sensor.parameter_defs()
+            )
         self._parameter_panel.populate(self._sensor)
         self._central.stage_center.refresh_forms()
 

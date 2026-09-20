@@ -112,6 +112,28 @@ GUARD_DH_CLEAN_M = 100.0
 #: Interior-tangent topology — tangent-height depression above which the path is rejected [m].
 GUARD_DH_RAISE_M = 2000.0
 
+#: Structured marker the horizon guard stamps on the errors it raises
+#: (``context[HORIZON_GUARD_SURFACE_KEY] == HORIZON_GUARD_SURFACE``), so a message
+#: surface can route a grazing-path refusal by structure, never by text — the
+#: CU-322 coverage-refusal pattern (CU-373 F-28, routing half).
+HORIZON_GUARD_SURFACE_KEY = "surface"
+HORIZON_GUARD_SURFACE = "horizon_guard"
+
+
+def is_horizon_guard_refusal(exc: BaseException) -> bool:
+    """True when *exc* is the horizon guard refusing a near-horizontal path.
+
+    The inputs are legal and the path is merely grazing — usually a transient state
+    mid-pivot (lowering a sensor while a ground-range door still holds the old
+    range). It belongs beside the geometry inputs as an advisory, not in a modal
+    per re-evaluation.
+    """
+    context = getattr(exc, "context", None)
+    if not isinstance(context, dict):
+        return False
+    return bool(context.get(HORIZON_GUARD_SURFACE_KEY) == HORIZON_GUARD_SURFACE)
+
+
 #: Effective-Earth-radius factor used to *size* (never to model) the refraction the
 #: shoulder warning excludes — the standard k = 4/3 approximation, in which a ray
 #: bends as if the Earth had radius k·R and the tangent depression of a given
@@ -904,6 +926,7 @@ def _check_segment(
     payload: dict[str, Any] = dict(context)
     payload.update(
         {
+            HORIZON_GUARD_SURFACE_KEY: HORIZON_GUARD_SURFACE,
             "topology": result.topology,
             "slant_range_m": result.slant_range_m,
             "guard_hard_rad": GUARD_HARD_RAD,

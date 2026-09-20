@@ -64,6 +64,7 @@ from radiant.core.parameters import (
 )
 from radiant.geometry.modes import resolve_solar, resolve_viewing
 from radiant.io.config import (
+    document_as_dict,
     load_config,
     read_radiant_meta,
     save_config,
@@ -429,6 +430,29 @@ class Sensor:
         reads to tell shared from configured parameters.
         """
         return self._params.inputs()
+
+    def to_dict(self) -> dict[str, Any]:
+        """The nested inputs dict :meth:`from_dict` accepts — the on-screen configuration.
+
+        The inverse of :meth:`from_dict` (CU-375 F-24): the explicit inputs nested
+        by namespace exactly as :meth:`to_yaml`'s inputs scope writes them, plus
+        the ``_radiant`` meta block (format, wavelength points, tolerances) and any
+        attached ``optical_elements`` document, so ``Sensor.from_dict(s.to_dict())``
+        reproduces this sensor's inputs. ``wavelength_points`` is a constructor
+        argument, not a parameter: pass ``wavelength_points=s.wavelength_points``
+        to :meth:`from_dict` (or a factory) to keep the same evaluation grid.
+        """
+        meta: dict[str, Any] = {"format": 1, "wavelength_points": self._wl_points}
+        tolerances = {
+            name: {"distribution": tol.distribution, "params": dict(tol.params)}
+            for name, tol in self._params.tolerances().items()
+        }
+        if tolerances:
+            meta["tolerances"] = tolerances
+        nested, _provenance = document_as_dict(
+            self._params, meta=meta, scope="inputs", sections=self._sections(None)
+        )
+        return nested
 
     def input_provenances(self) -> Mapping[str, Provenance]:
         """Read-only snapshot of the explicitly-set inputs' provenance (CU-372 F-01).

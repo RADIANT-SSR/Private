@@ -126,9 +126,10 @@ Two conventions to know:
 
 **A failed metric names its reason.** The performance layer is allowed to return a typed
 failure instead of raising, so a metric that could not be computed renders as
-`n/a (<reason>)` — for example a detection range with no threshold crossing. What it never
-renders as is a bare `nan`, and what it never does is propagate silently into a metric that
-depends on it.
+`n/a (<reason>)` — for example a detection range below the threshold you set, which reads
+`n/a (Target not detectable at minimum range 5000 m: SNR = 5.80 < 6.0)` in its own row of the
+Radiometric card: the pass/fail and the threshold, together. What it never renders as is a
+bare `nan`, and what it never does is propagate silently into a metric that depends on it.
 
 **Absence is shown, not filled.** A metric the run did not produce is an em dash.
 
@@ -234,7 +235,25 @@ Once a run exists, the File menu's export actions enable:
 |---|---|
 | Export JSON Result… | the provenance record of the last run |
 | Export Metrics CSV… | the metric surface as CSV |
-| Export XLSX Workbook… | config, metrics, and any retained sweep in one workbook |
+| Export XLSX Workbook… | config, metrics, and any retained sweep in one workbook; in a study, the `Config` and `Metrics` sheets carry one value column per configuration, named as on screen |
 
 Export Sweep CSV… joins them once a sweep has been run (chapter 10). The two YAML exports
 write configuration rather than results, and are chapter 11's subject.
+
+**Every result export carries a run stamp.** The CSVs open with `# key: value` comment lines
+and the workbook carries a `Run` sheet:
+
+```text
+# run_id: 3f9c…
+# evaluated_at: 2026-09-20T14:02:11+00:00
+# radiant: v1.4.0 (+bf8a2118)
+# config: /…/mwir_leo_minimal.yaml
+# stale: no
+```
+
+`stale` is the line to read. It says `yes — the configuration was edited after this run` when
+the numbers on screen predate your last edit (the gray strip, the amber **Re-evaluate**), and
+`yes — the last re-evaluation failed; this is the previous result` when the window is showing
+the result it kept after a failed run. A sweep's stamp says when it ran and whether the
+configuration was edited after it. The status bar repeats the stale note when it applies, so a
+file cannot leave the tool looking current when it is not.

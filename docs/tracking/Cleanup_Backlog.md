@@ -64,38 +64,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: workflow-visible (intake test 4) — this is the owner's "conflict you cannot fix one edit at a time" report, and it is owner-gated (test 2) because the remedy is a mode-model decision.
 **Suggested fix**: (b) stand-alone task after the Gap 85 ruling — either a mode selector that withdraws the other doors' explicit values (with an undo step), or a "withdraw and switch" action on the rejection; show derived values in inactive fields; make LTAN/LST exclusive on the card; add a lab door. Effort M–L; Category D.
 
-### CU-375 — Trade surfaces hide the result's own flags: sweeps and solves over clipped or refused metrics report success, the solve dialog defaults to the alphabetically first metric, detection pass/fail is a vanished row, batch scaffold starts from an empty config, compare refuses study files (usability-audit family)
-
-**Discovered**: GUI usability audit phases 2 and 4, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Journeys_P1_P4.md` F-18/F-19/F-23/F-24/F-27, `Findings_Journeys_P5_P7.md` F-41).
-**Status**: Open — live-review rule gates the merge.
-**File**: `src/radiant/gui/widgets/sweep_dialog.py`, `solve_dialog.py`, `comparison_dialog.py`, `performance_metrics_form.py`, `main_window.py` (`_on_batch_scaffold`).
-**Symptom**: checklist —
-
-- [ ] F-18 (S3): a sweep over a well-clipped configuration returns a flat metric with *Done — N points* and no saturation notice; a solve on an insensitive or clipped metric says "widen the bounds" (confirmed natively 2026-09-19).
-- [ ] F-19/F-41 (S3): the solve target list is `sorted(metrics)` so it opens on `adc_margin_dB`, offers codes and flags as targets, silently keeps the first metric when the requested one is absent, and never says why NIIRS is missing (the CU-371 II-009 seam).
-- [ ] F-27 (S3): below the detection threshold `detection_range_m` simply disappears; no pass/fail reading, threshold not echoed.
-- [ ] F-24 (S2): Run ▸ Batch Run… scaffold starts from `base = {}` instead of the displayed sensor (the Monte Carlo scaffold binds `sensor`).
-- [ ] F-23 (S3): Tools ▸ Compare Config Files… refuses a study file the operator just saved, with "load it with ConfigurationSet.load(path)".
-
-**Why it still matters**: workflow-visible (intake test 4) — Sarah's and Lisa's deliverables come from exactly these surfaces.
-**Suggested fix**: (b) stand-alone task — carry the run's saturation/refusal flags into the sweep and solve status and CSV; order the solve list by metric group with SNR first and grey absent metrics with their reason; render detection as a pass/fail card; `base = sensor.to_dict()`; let compare read studies with the same reader File ▸ Open uses. Effort M; Category D.
-
-### CU-374 — Export formats: sweep CSV without units and with numpy literals, study workbook exports one unlabeled configuration, stale results export without a marker, audit-trail exports carry no provenance (usability-audit family)
-
-**Discovered**: GUI usability audit phases 2 and 4, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Journeys_P1_P4.md` F-17/F-22/F-31, `Findings_Tracks.md` F-34/F-35, `Findings_Journeys_P5_P7.md` F-42).
-**Status**: Open.
-**File**: `src/radiant/api/sweep.py` (`to_csv`), `src/radiant/gui/xlsx_export.py`, `main_window.py` export handlers, `src/radiant/api/sensor.py` (`to_yaml` resolved export), `api/build_info.py`.
-**Symptom**: checklist —
-
-- [ ] F-17 (S2): sweep CSV header is bare names, twelve cells read `np.float64(…)`, axis values carry float noise (confirmed natively 2026-09-19); the metrics CSV from the same session has `name,value,unit,description`.
-- [ ] F-22 (S2): the workbook export of a study holds the displayed configuration only, unlabeled; the `Config` sheet's unit column reads the string `None` for unitless parameters.
-- [ ] F-34/F-35 (S3): a retained sweep is exportable after edits that made it stale; a metrics export after a failed re-evaluation writes the previous result with no stale flag or run stamp.
-- [ ] F-42 (S3): Export Resolved YAML carries no per-value provenance; Export JSON Result reports `git_commit: unknown` on a source checkout whose title bar shows the commit.
-- [ ] F-31 (S4): `sampling_regime_code` and `niirs_extrapolated` are exported as metrics; without the description column they read as values.
-
-**Why it still matters**: results-affecting for the reader (intake test 1 in spirit — the numbers leave the tool wrong or unlabeled) and workflow-visible; product principle 5 says units on everything.
-**Suggested fix**: (b) stand-alone task — unit row or `name [unit]` headers and plain floats in `SweepResult.to_csv`; one column per configuration in the workbook; a run stamp + stale/config-hash line in every export; provenance comments in the resolved YAML; resolve `git_commit` from `build_info` the way the title bar does. Effort M; Category B/D.
-
 ### CU-371 — GUI strings and widgets leak process language or clip content into the shipped manuals (live-review family)
 
 **Discovered**: CU-370 manual-suite fix campaign, 2026-09-18 — the deferred GUI-gated remainder of the 2026-09 editorial audit (II-003, II-015, II-009's GUI side, IV-031, plus two campaign discoveries).
@@ -105,7 +73,7 @@ by name in check 8 — that list is frozen and must never grow.
 
 - [ ] II-003: the Platform workspace advisory string ships "v1-minimal (owner ratified…)… (ADR-0006 §4 / CU-122)… post-v1 task" — process language in the product, now rendered 1.8× more legibly by the CU-370 panel-grab figure. Reword, then recapture `ug_platform_workspace.png`.
 - [ ] II-015: the 13th-configuration refusal message cites "(ADR-0010 D-E)". Reword; the Volume II quote inherits on recapture.
-- [ ] II-009 GUI side: `badge_display` returns "n/a — not computed for this run" for three distinct states (metric group off / regime did not populate / metric declined), and the NIIRS refusal's `failure_reason` on `stage_outputs["performance"]["niirs_result"]` never reaches the card — `metric_failure_reason` only consults present-but-non-finite metrics. Surface the reason; the manuals were aligned to current behavior in CU-370 B3 and will need a touch-up when this lands.
+- [ ] II-009 GUI side (reason surfacing landed under CU-375 F-27, 2026-09-20: `_FAILURE_RESULT_KEY` maps `niirs`/`detection_range_m` to their result objects, `badge_display` and the metric cards name the declined reason; the remaining item is the three-state wording of the true "not computed" case): `badge_display` returns "n/a — not computed for this run" for three distinct states (metric group off / regime did not populate / metric declined), and the NIIRS refusal's `failure_reason` on `stage_outputs["performance"]["niirs_result"]` never reaches the card — `metric_failure_reason` only consults present-but-non-finite metrics. Surface the reason; the manuals were aligned to current behavior in CU-370 B3 and will need a touch-up when this lands.
 - [ ] IV-031: GeometryViewer does not clamp altitude leader pills inside the viewport — the `h_s` pill is clipped in `case_irst_schematic.png` (capture-side fix proven impossible in the CU-370 campaign); regenerate the figure after the fix. (The mode-form value clipping visible in the same schematic — "6479 deg" — is CU-363's checklist, not this one.)
 - [ ] Usability audit 2026-09-19 (F-52/F-53, `Findings_Live_Session_1.md`): product strings still carrying process language — "Gap 65" in the three saturation warnings, "deferred (Gap 92) … (Rule 8)" on the Spectral outputs note, "ADR-0011 decision 6" in the horizon-guard refusal, "v1-minimal (owner-ratified …) (ADR-0006 §4 / CU-122)" on the Platform note (II-003); ~~the required-parameter advisory's "Set it via: params.set(…)" line~~ (replaced by `Action: set '<name>' — it has no default` under CU-373 F-13/F-12, 2026-09-20); `modtran.binary_path` showing a POSIX default in the dock.
 - [ ] The MTF-budget and element-train tables use bounded inner scroll boxes showing 5–6 rows regardless of window height, so `flagship_mtf_budget.png` cannot show the `mtf_pixel_aperture` row the prose quotes (caption adjusted as a stopgap in CU-370 B7).
@@ -269,6 +237,40 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix**: (b) stand-alone GUI task once ruled — most likely land the vectors and arc apex at the body *centre* in every composition and carry the centre along the ray, so no composition rule moves. Live-review required. Effort S; category A.
 
 ## Resolved
+
+### CU-374 — Export formats: sweep CSV without units and with numpy literals, study workbook exports one unlabeled configuration, stale results export without a marker, audit-trail exports carry no provenance (usability-audit family) — RESOLVED 2026-09-20 (commit trailer)
+
+**Discovered**: GUI usability audit phases 2 and 4, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Journeys_P1_P4.md` F-17/F-22/F-31, `Findings_Tracks.md` F-34/F-35, `Findings_Journeys_P5_P7.md` F-42).
+**Status**: Resolved 2026-09-20 — usability-audit fix batch 3 (`fix374-375/exports-trades`, stacked on batch 2; one commit per checklist item, each with a pinning test that fails on the pre-fix code); live-reviewed per the GUI live-review rule before merge.
+**File**: `src/radiant/api/sweep.py` (`to_csv`), `src/radiant/gui/xlsx_export.py`, `main_window.py` export handlers, `src/radiant/api/sensor.py` (`to_yaml` resolved export), `api/build_info.py`.
+**Symptom**: checklist —
+
+- [x] F-17 (S2): sweep CSV header is bare names, twelve cells read `np.float64(…)`, axis values carry float noise (confirmed natively 2026-09-19); the metrics CSV from the same session has `name,value,unit,description`.
+- [x] F-22 (S2): the workbook export of a study holds the displayed configuration only, unlabeled; the `Config` sheet's unit column reads the string `None` for unitless parameters.
+- [x] F-34/F-35 (S3): a retained sweep is exportable after edits that made it stale; a metrics export after a failed re-evaluation writes the previous result with no stale flag or run stamp.
+- [x] F-42 (S3): Export Resolved YAML carries no per-value provenance; Export JSON Result reports `git_commit: unknown` on a source checkout whose title bar shows the commit.
+- [x] F-31 (S4): `sampling_regime_code` and `niirs_extrapolated` are exported as metrics; without the description column they read as values.
+
+**Why it still matters**: results-affecting for the reader (intake test 1 in spirit — the numbers leave the tool wrong or unlabeled) and workflow-visible; product principle 5 says units on everything.
+**Suggested fix**: (b) stand-alone task — unit row or `name [unit]` headers and plain floats in `SweepResult.to_csv`; one column per configuration in the workbook; a run stamp + stale/config-hash line in every export; provenance comments in the resolved YAML; resolve `git_commit` from `build_info` the way the title bar does. Effort M; Category B/D.
+**Resolution**: sweep CSVs and the workbook's Sweep sheet carry `name [unit]` headers (codes/flags self-describing as `[code]` / `[0/1 flag]`), plain 15-significant-digit cells and the typed axis; the workbook writes one column per configuration of a study with blank unit cells; every result export carries a `# key: value` run stamp (run id, evaluated-at, build, config, `stale`) or a `Run` sheet, with the status bar repeating the stale note; the resolved YAML comments every leaf with its provenance and the JSON record's `git_commit` is resolved at the loaded package.
+
+### CU-375 — Trade surfaces hide the result's own flags: sweeps and solves over clipped or refused metrics report success, the solve dialog defaults to the alphabetically first metric, detection pass/fail is a vanished row, batch scaffold starts from an empty config, compare refuses study files (usability-audit family) — RESOLVED 2026-09-20 (commit trailer)
+
+**Discovered**: GUI usability audit phases 2 and 4, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Journeys_P1_P4.md` F-18/F-19/F-23/F-24/F-27, `Findings_Journeys_P5_P7.md` F-41).
+**Status**: Resolved 2026-09-20 — usability-audit fix batch 3 (`fix374-375/exports-trades`, stacked on batch 2; one commit per checklist item, each with a pinning test that fails on the pre-fix code); live-reviewed per the GUI live-review rule before merge.
+**File**: `src/radiant/gui/widgets/sweep_dialog.py`, `solve_dialog.py`, `comparison_dialog.py`, `performance_metrics_form.py`, `main_window.py` (`_on_batch_scaffold`).
+**Symptom**: checklist —
+
+- [x] F-18 (S3): a sweep over a well-clipped configuration returns a flat metric with *Done — N points* and no saturation notice; a solve on an insensitive or clipped metric says "widen the bounds" (confirmed natively 2026-09-19).
+- [x] F-19/F-41 (S3): the solve target list is `sorted(metrics)` so it opens on `adc_margin_dB`, offers codes and flags as targets, silently keeps the first metric when the requested one is absent, and never says why NIIRS is missing (the CU-371 II-009 seam).
+- [x] F-27 (S3): below the detection threshold `detection_range_m` simply disappears; no pass/fail reading, threshold not echoed.
+- [x] F-24 (S2): Run ▸ Batch Run… scaffold starts from `base = {}` instead of the displayed sensor (the Monte Carlo scaffold binds `sensor`).
+- [x] F-23 (S3): Tools ▸ Compare Config Files… refuses a study file the operator just saved, with "load it with ConfigurationSet.load(path)".
+
+**Why it still matters**: workflow-visible (intake test 4) — Sarah's and Lisa's deliverables come from exactly these surfaces.
+**Suggested fix**: (b) stand-alone task — carry the run's saturation/refusal flags into the sweep and solve status and CSV; order the solve list by metric group with SNR first and grey absent metrics with their reason; render detection as a pass/fail card; `base = sensor.to_dict()`; let compare read studies with the same reader File ▸ Open uses. Effort M; Category D.
+**Resolution**: a clipped sweep names its clipped points and writes a `well_status` column, and a clipped solve bracket names the saturation; the sweep and solve pickers share one target list (SNR's group first, codes/flags excluded, declined metrics greyed with their reason, an absent remembered metric named); a declined metric keeps its row as `n/a (<reason>)` (detection below threshold echoes the threshold; refused NIIRS names the envelope — the GUI half of CU-371 II-009); the Batch scaffold starts from `sensor.to_dict()` (new API); Compare Config Files reads study files, one column per configuration.
 
 ### CU-376 — Parameters dock ergonomics: full rebuild on every accepted edit loses selection and scroll, names elided at default width, in-place editor unusable on a blank configuration, small-window clipping (usability-audit family) — RESOLVED 2026-09-20 (commit trailer)
 

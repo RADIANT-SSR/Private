@@ -21,6 +21,10 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`Sensor.to_dict()`** — the nested inputs dict `from_dict` accepts (inputs
+  by namespace, the `_radiant` meta block, any attached element document), so
+  `Sensor.from_dict(s.to_dict(), wavelength_points=s.wavelength_points)`
+  reproduces a sensor (CU-375 F-24).
 - **`SpectralBandError(ApiValidationError)`** — raised by `Sensor.evaluate`
   (and every path that builds the evaluation grid) before any stage runs when
   `filter_min_um` is not below `filter_max_um`; structured what/why/action
@@ -42,6 +46,71 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **A sweep or solve over a clipped configuration says so (CU-375 F-18).**
+  A sweep over a saturating configuration reported a flat metric as
+  `Done — 6 points` with no saturation notice, and a solve on it advised
+  "widen or shift the bounds". The sweep status now names the clipped points
+  (`Well clipped at 6 of 6 points — the metric is flat because the signal
+  saturates …`), the sweep CSV carries a `well_status` column when results
+  are kept (`SweepResult.clipped_points()` is the API), and a bracket
+  refusal whose endpoints both clip names the saturation and the remedy
+  (`SolveBracketError.saturated`).
+- **Sweep and solve target lists open on SNR, leave out codes and flags,
+  and explain a missing metric (CU-375 F-19 / F-41).** The solve dialog
+  opened alphabetically on `adc_margin_dB`, offered `sampling_regime_code`
+  and `niirs_extrapolated` as targets, and never said why NIIRS was absent;
+  a remembered sweep metric this run lacked was silently swapped for the
+  first entry. Both pickers now share one list — radiometric metrics first,
+  internal columns excluded, declined metrics greyed with their reason (a
+  solve or sweep aimed at one is refused with that reason), and a
+  remembered metric the run lacks named in the status line.
+- **A declined metric keeps its row and names its reason (CU-375 F-27; the
+  GUI half of CU-371 II-009).** Below the detection threshold
+  `detection_range_m` simply disappeared from the readout, and a refused
+  NIIRS read `n/a — not computed for this run`. Both now render
+  `n/a (<reason>)` in their group — the detection row echoes the threshold
+  and the SNR that missed it, the NIIRS row says the GIQE-5 envelope was
+  refused — and the pinned cards say the same.
+- **Compare Config Files… reads study files (CU-375 F-23).** A study the
+  operator had just saved was refused with "load it with
+  ConfigurationSet.load(path)". The dialog now reads every file through the
+  loader File ▸ Open uses; a study contributes one column per configuration,
+  named `file:configuration`.
+- **Run ▸ Batch Run… scaffolds from the configuration on screen (CU-375
+  F-24).** The skeleton started from `base = {}` and asked the operator to
+  reconstruct her sensor as a dict; it now starts from `sensor.to_dict()`
+  with a factory that keeps the session's wavelength grid.
+- **The workbook export writes every configuration of a study (CU-374
+  F-22).** The XLSX held the displayed configuration only, unlabeled, and the
+  `Config` sheet's unit column read `None` for unitless parameters. In a
+  study the `Config` and `Metrics` sheets now carry one value column per
+  configuration, named as on screen (a failed configuration is an empty
+  cell); unit cells are blank when there is no unit.
+- **Every result export carries a run stamp with a stale marker (CU-374
+  F-34 / F-35).** A retained sweep exported after edits, and a metrics export
+  written after a failed re-evaluation, could not be told from current ones.
+  The metrics and sweep CSVs now open with `# key: value` lines (run id,
+  evaluated-at, RADIANT build and commit, config path, `stale`), the workbook
+  gains a `Run` sheet, and the status bar repeats the stale note.
+  `ChainResult.to_csv`, `SweepResult.to_csv` and `Sweep2DResult.to_csv` gain
+  an optional `stamp=` mapping; `radiant.io.results.write_stamp_lines` is the
+  shared writer.
+- **Sweep exports carry units, plain numbers and the axis as typed (CU-374
+  F-17 / F-31).** The sweep CSV and the workbook's Sweep sheet had bare
+  column names, `np.float64(…)` literals in the FWHM cells and axis values
+  like `0.32999999999999996`; `sampling_regime_code` and `niirs_extrapolated`
+  read as metric values. Headers are now `name [unit]` (`[code]` and
+  `[0/1 flag]` for the two internal columns), every cell is a plain
+  15-significant-digit number, and the axis reads the typed values.
+  `SweepResult` gains `param_unit`; `Sweep2DResult` gains `param1_unit`,
+  `param2_unit`, `metric_unit`.
+- **The audit-trail exports say where every value came from (CU-374 F-42).**
+  `Export Resolved YAML…` (`Sensor.to_yaml(scope="resolved")`) now comments
+  every parameter leaf with its provenance (`# user-set`, `# config`,
+  `# default`, `# derived`, `# preset`); the document re-parses unchanged.
+  `Export JSON Result…` no longer reports `git_commit: unknown` on a source
+  checkout launched from another directory: the commit is resolved at the
+  loaded package's location, the same anchor the window title uses.
 - **Stage tab labels are never truncated (CU-376 F-49).** The Source stage's
   five tabs read "Target — th…", "Target — point s…" at 1440 px. Tab titles
   now show whole; when the bar is short of room it scrolls.

@@ -51,6 +51,8 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.gui.metric_format import (
+    DeclinedRecord,
+    declined_metrics,
     grouped_metric_records,
     metric_display_label,
     metric_value_display,
@@ -365,6 +367,9 @@ class MetricGroupCards(QWidget):
             self._grid.setColumnStretch(column, 1)
 
         self._rows: dict[str, _MetricRow] = {}
+        # Rows for metrics the run DECLINED with a reason (CU-375 F-27): rendered
+        # in their group as ``n/a (<reason>)``, tracked apart from the computed rows.
+        self._declined: dict[str, _MetricRow] = {}
         self._headings: list[str] = []
         self._cells: dict[tuple[str, str], QLabel] = {}
         self._headers: dict[str, _ColumnHeader] = {}
@@ -387,8 +392,18 @@ class MetricGroupCards(QWidget):
         # matrix mode zeroes column 1, so re-assert on every single-model render).
         for column in range(_COLUMNS):
             self._grid.setColumnStretch(column, 1)
-        for index, (heading, records) in enumerate(grouped_metric_records(result.metric_records())):
-            card = self._build_card(heading, records, result)
+        # A declined metric keeps its row (CU-375 F-27): "n/a (Target not detectable
+        # at minimum range 5000 m: SNR = 5.80 < 6.0)" is Raj's pass/fail reading and
+        # echoes the threshold he set; before, the row simply vanished.
+        records: list[Any] = list(result.metric_records())
+        declined_keys = set()
+        for key, reason in declined_metrics(result):
+            records.append(
+                DeclinedRecord(name=key, value=float("nan"), unit="", description=reason)
+            )
+            declined_keys.add(key)
+        for index, (heading, group_records) in enumerate(grouped_metric_records(records)):
+            card = self._build_card(heading, group_records, result, declined_keys)
             self._grid.addWidget(
                 card, index // _COLUMNS, index % _COLUMNS, Qt.AlignmentFlag.AlignTop
             )
@@ -560,7 +575,13 @@ class MetricGroupCards(QWidget):
         box.addLayout(body)
         return card
 
-    def _build_card(self, heading: str, records: tuple[Any, ...], result: ChainResult) -> QWidget:
+    def _build_card(
+        self,
+        heading: str,
+        records: tuple[Any, ...],
+        result: ChainResult,
+        declined_keys: set[str] | None = None,
+    ) -> QWidget:
         """One themed group card: an uppercase heading over its metric rows."""
         card = QWidget(self)
         card.setObjectName("geoModeFamily")
@@ -579,14 +600,22 @@ class MetricGroupCards(QWidget):
             row = _MetricRow(label, metric_value_display(result, rec), card)
             row.pinClicked.connect(lambda k=rec.name, la=label: self.pinMetricRequested.emit(k, la))
             box.addWidget(row)
-            self._rows[rec.name] = row
+            if declined_keys and rec.name in declined_keys:
+                row.setToolTip(rec.description)
+                self._declined[rec.name] = row
+            else:
+                self._rows[rec.name] = row
         return card
 
     # -- accessors (tests) --------------------------------------------------
 
     def rendered_keys(self) -> set[str]:
-        """The metric keys currently rendered as rows (both modes)."""
+        """The metric keys currently rendered as computed rows (both modes)."""
         return set(self._rows) | set(self._labels)
+
+    def declined_keys(self) -> set[str]:
+        """The metrics the run declined with a reason, rendered as ``n/a (<reason>)`` rows."""
+        return set(self._declined)
 
     def rendered_group_headings(self) -> tuple[str, ...]:
         """The card headings currently rendered, in display order."""
@@ -594,11 +623,11 @@ class MetricGroupCards(QWidget):
 
     def value_text(self, key: str) -> str:
         """The rendered 'value + unit' text for metric *key* (KeyError if unknown)."""
-        return self._rows[key].value_text()
+        return self.row(key).value_text()
 
     def row(self, key: str) -> _MetricRow:
-        """The row widget for metric *key* (KeyError if unknown)."""
-        return self._rows[key]
+        """The row widget for metric *key*, computed or declined (KeyError if unknown)."""
+        return self._rows[key] if key in self._rows else self._declined[key]
 
     def is_matrix(self) -> bool:
         """True while the cards render per-configuration columns (a study session)."""
@@ -634,6 +663,7 @@ class MetricGroupCards(QWidget):
     def _clear(self) -> None:
         """Remove every card before a re-populate."""
         self._rows.clear()
+        self._declined.clear()
         self._headings.clear()
         self._cells.clear()
         self._headers.clear()

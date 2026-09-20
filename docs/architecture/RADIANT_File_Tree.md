@@ -286,7 +286,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 32 source + 23 tests
+### `api/` — 32 source + 24 tests
 
 Public scripting API.
 

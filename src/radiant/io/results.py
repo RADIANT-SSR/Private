@@ -116,6 +116,17 @@ class WellStatus:
         return self.status == "clipped"
 
 
+def write_stamp_lines(handle: Any, stamp: Mapping[str, str] | None) -> None:
+    """Write *stamp* as ``# key: value`` lines to an open text *handle* (CU-374).
+
+    The one writer every CSV export shares, so a run stamp reads identically on
+    the metrics CSV, the sweep CSVs and the Monte Carlo trials. ``None`` or an
+    empty mapping writes nothing.
+    """
+    for key, value in (stamp or {}).items():
+        handle.write(f"# {key}: {value}\n")
+
+
 class ChainResult:
     """Read-only view over a completed chain run.
 
@@ -271,10 +282,15 @@ class ChainResult:
             for rec in self.metric_records()
         ]
 
-    def to_csv(self, path: str | Path) -> Path:
+    def to_csv(self, path: str | Path, *, stamp: Mapping[str, str] | None = None) -> Path:
         """Write the metrics as a CSV (name,value,unit,description) — Gap 88.
 
-        Rule 30: UTF-8, explicit ``newline=""`` (the csv-module contract).
+        *stamp* (CU-374 F-34/F-35) is an optional mapping written first as
+        ``# key: value`` comment lines — the run stamp (run id, when it was
+        evaluated, which RADIANT, which configuration, whether the result is
+        stale) so the file can be told apart from a current one; every reader
+        that honours ``#`` comments skips them. Rule 30: UTF-8, explicit
+        ``newline=""`` (the csv-module contract).
         """
         import csv as _csv
         from pathlib import Path as _Path
@@ -282,6 +298,7 @@ class ChainResult:
         out = _Path(path)
         out.parent.mkdir(parents=True, exist_ok=True)
         with open(out, "w", encoding="utf-8", newline="") as f:
+            write_stamp_lines(f, stamp)
             writer = _csv.writer(f)
             writer.writerow(["name", "value", "unit", "description"])
             for rec in self.metric_records():

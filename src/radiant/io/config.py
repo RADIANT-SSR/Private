@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -535,11 +535,45 @@ def serialize_config(
                 f"serialize_config: unknown structured section(s) {keys}; "
                 f"registered sections: {sorted(_SECTION_KEYS)}."
             )
+    nested, provenance_of = document_as_dict(
+        params, meta=meta, scope=scope, sections=sections, relative_to=relative_to
+    )
+    text = yaml.dump(
+        nested,
+        default_flow_style=False,
+        sort_keys=True,
+        allow_unicode=True,
+    )
+    if provenance_of:
+        text = _annotate_provenance(text, provenance_of)
+    return header + text
+
+
+def document_as_dict(
+    params: ParameterSet,
+    *,
+    meta: dict[str, Any] | None = None,
+    scope: str = "resolved",
+    sections: dict[str, Any] | None = None,
+    relative_to: Path | None = None,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """The nested document dict :func:`serialize_config` dumps, plus per-leaf provenance.
+
+    The dict half of the serializer, published so ``Sensor.to_dict`` (CU-375 F-24)
+    builds the same document a saved file holds without re-parsing YAML text.
+    Returns ``(nested, provenance_of)``; *provenance_of* maps dot-path →
+    ``Provenance`` value and is empty for the inputs scope.
+    """
+    provenance_of: dict[str, str] = {}
     if scope == "inputs":
         flat = dict(params.inputs())
     else:
         resolved = params.all_resolved()
         flat = {name: rv.input_value for name, rv in resolved.items()}
+        # CU-374 F-42: a resolved export is the audit trail of a prediction; every
+        # leaf carries where its value came from, so what the operator typed can be
+        # told from what the schema supplied or a group derived.
+        provenance_of = {name: rv.provenance.value for name, rv in resolved.items()}
     if relative_to is not None:
         _relativize_file_paths(flat, params, relative_to)
     nested = _unflatten(flat)
@@ -556,9 +590,44 @@ def serialize_config(
         nested.update(sections)
     if meta is not None:
         nested[_META_KEY] = meta
-    return header + yaml.dump(
-        nested,
-        default_flow_style=False,
-        sort_keys=True,
-        allow_unicode=True,
-    )
+    return nested, provenance_of
+
+
+#: Comment labels for the resolved export, by ``Provenance`` value.
+_PROVENANCE_COMMENT: dict[str, str] = {
+    "user_set": "user-set",
+    "config_file": "config",
+    "default": "default",
+    "derived": "derived",
+    "preset": "preset",
+    "sampled": "sampled",
+}
+
+
+def _annotate_provenance(text: str, provenance_of: Mapping[str, str]) -> str:
+    """Append ``# <provenance>`` to every parameter leaf of a dumped YAML *text*.
+
+    Walks the block-style dump line by line, reconstructing each leaf's dot-path
+    from the two-space indentation, and comments the leaves whose dot-path the
+    resolved set knows (structured sections and the ``_radiant`` meta block are
+    left untouched — they are not parameters). YAML ignores the comments, so
+    the file re-parses exactly as before.
+    """
+    out: list[str] = []
+    stack: list[str] = []
+    for line in text.splitlines():
+        stripped = line.lstrip(" ")
+        indent = (len(line) - len(stripped)) // 2
+        if not stripped or stripped.startswith(("#", "-")) or ":" not in stripped:
+            out.append(line)
+            continue
+        key, _, rest = stripped.partition(":")
+        del stack[indent:]
+        stack.append(key.strip())
+        if rest.strip() == "":
+            out.append(line)  # a mapping node, not a leaf
+            continue
+        dotpath = ".".join(stack)
+        label = _PROVENANCE_COMMENT.get(provenance_of.get(dotpath, ""), "")
+        out.append(f"{line}  # {label}" if label else line)
+    return "\n".join(out) + "\n"

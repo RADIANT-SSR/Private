@@ -41,7 +41,13 @@ Ticking **Second parameter (2-D grid)** reveals an identical second block. A 2-D
 *different* parameters; naming the same one twice is refused before anything runs.
 
 **Metric** chooses what is plotted. The list is the live metric set from the last result, so
-it reflects the metric groups you actually have switched on (chapter 9, §2).
+it reflects the metric groups you actually have switched on (chapter 9, §2). It is ordered
+for the question you are asking — SNR and the other radiometric metrics first, then
+interpretability, spatial, sampling and saturation — and it leaves out the two internal code
+and flag columns. A metric the run *declined* (NIIRS outside its calibration envelope, a
+detection range below threshold) is listed greyed with its reason, so its absence is explained
+rather than silent; a remembered metric that this run does not have is named in the status
+line instead of being swapped for the first entry.
 
 ### 1.2 Running it
 
@@ -79,6 +85,12 @@ Done — 121 points.
 Done — 11×11 grid.
 ```
 
+A 1-D sweep whose points hard-clip the detector well says so on the same line — `Done — 6
+points. Well clipped at 6 of 6 points — the metric is flat because the signal saturates;
+reduce the signal or raise the full-well capacity.` — and the exported CSV carries a
+`well_status` column (`clipped` / `ok`) per point, so a flat curve never leaves the tool
+looking like a result.
+
 **Copy as script** puts a complete, runnable reproduction block on the clipboard:
 
 ```python
@@ -96,19 +108,27 @@ The last-run specification persists across dialog openings, so a loop you run se
 week reopens already configured.
 
 The completed sweep is retained on the window: **File ▸ Export Sweep CSV…** enables, and the
-XLSX workbook export picks the sweep up as a sheet.
+XLSX workbook export picks the sweep up as a sheet. Every column of that CSV carries its unit in
+the header — `optics.aperture_diameter_m [m]`, `nedt_K [K]`, `snr` bare when dimensionless — and
+a code or flag metric says so (`niirs_extrapolated [0/1 flag]`, `sampling_regime_code [code]`)
+so it cannot be read as a value; cells are plain numbers, and the axis column reads the values
+you typed.
 
 ## 2. Tools ▸ Solve for Parameter…
 
 The inverse of a sweep. Pick the free parameter, the target metric and the value you want, and
-a bracket in the parameter's input unit; a Brent iteration runs on a worker thread against a
+a bracket in the parameter's input unit; the target list is the sweep dialog's — SNR first,
+codes and flags left out, declined metrics greyed with their reason (asking for one is refused
+with that reason, never a solve against something else); a Brent iteration runs on a worker thread against a
 clone. Success reports the solution with its unit, the metric value actually achieved, and how
 many evaluations it took, and offers **Apply solution** — one edit to the live sensor, only if
 you ask for it.
 
 A target that is not bracketed by your endpoints fails with both endpoint metric values shown,
 so you can widen the bracket knowingly. A metric that is flat over the bracket cannot be
-bracketed at all, and the message says that rather than returning an arbitrary root.
+bracketed at all, and the message says that rather than returning an arbitrary root — and when
+it is flat because both endpoints hard-clip the well, the message says *that*, with the remedy
+(reduce the signal, or raise the full-well capacity) instead of advice to widen the bounds.
 
 ## 3. Tools ▸ Compare Config Files…
 
@@ -118,7 +138,9 @@ study, and *those* are compared by the Performance columns (chapter 8, §5) and 
 `ConfigurationSet.compare`. This dialog is the file-level comparison, and the two are unrelated
 mechanisms.
 
-Add files; each column evaluates once, sequentially, on a worker thread with progress. The
+Add files — a plain config becomes one column named by its file stem, and a **study file**
+becomes one column per configuration, named `file:configuration`, read through the same loader
+File ▸ Open uses. Each column evaluates once, sequentially, on a worker thread with progress. The
 result is an aligned matrix: union-of-metrics rows with their registry units, per-metric deltas
 against the baseline column you choose, and conservative best-per-metric marks rendered bold
 with a ✓. A metric absent from one config shows an em dash — never a zero.
@@ -162,8 +184,10 @@ for name in mc.metric_names:
 If you have set none, it says that and shows you how — both the scripting call and the
 Tolerance section in any parameter editor dialog.
 
-The Batch scaffold is a `BatchRunner` skeleton with two labeled axes, an `evaluate` function,
-and a pivot at the end; edit the axes to yours and run it.
+The Batch scaffold is a `BatchRunner` skeleton whose base is **the configuration on screen**
+(`base = sensor.to_dict()`, with a one-line factory that keeps the session's wavelength grid),
+two labeled axes, an `evaluate` function, and a pivot at the end; edit the axes to yours and run
+it — every cell varies the sensor you built, not an empty one.
 
 ## 5. Which surface for which trade
 

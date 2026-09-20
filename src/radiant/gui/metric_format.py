@@ -29,6 +29,7 @@ MTF@Nyq ``mtf_at_nyquist``    dimensionless
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final
 
 from radiant.api.metric_groups import group_of
@@ -68,6 +69,11 @@ _BARE_UNITS: Final[frozenset[str]] = frozenset({"dimensionless", "NIIRS level"})
 _FAILURE_RESULT_KEY: Final[dict[str, str]] = {
     "snr": "snr_result",
     "nedt_K": "nedt_result",
+    # CU-375 F-27 / CU-371 II-009: a metric the run DECLINED (no metrics entry at
+    # all) still carries its named reason on the result object — a detection
+    # range below threshold, NIIRS outside the GIQE-5 envelope.
+    "niirs": "niirs_result",
+    "detection_range_m": "detection_range_result",
 }
 
 # Shown in the value slot for a failed / unavailable metric — explicitly *not a
@@ -335,6 +341,82 @@ def metric_failure_reason(result: ChainResult, metric_key: str) -> str | None:
     return str(reason) if reason else None
 
 
+def declined_metrics(result: ChainResult) -> tuple[tuple[str, str], ...]:
+    """``(metric_key, failure_reason)`` for every metric the run declined with a reason.
+
+    A declined metric is absent from ``result.metrics`` but its result object on
+    ``stage_outputs["performance"]`` carries a ``failure_reason`` (the ADR-B
+    result-typed failure). Before CU-375 F-27 such a metric simply vanished from
+    the readout — Raj's pass/fail was the absence of a row in a 33-row table.
+    Pure and Qt-free; order follows :data:`_FAILURE_RESULT_KEY`.
+    """
+    declined: list[tuple[str, str]] = []
+    present = {rec.name for rec in result.metric_records()}
+    for key in _FAILURE_RESULT_KEY:
+        if key in present:
+            continue
+        reason = metric_failure_reason(result, key)
+        if reason:
+            declined.append((key, reason))
+    return tuple(declined)
+
+
+#: Group order for a *target* list (a sweep's or solve's metric picker): what an
+#: analyst wants to hit first — SNR and its radiometric kin — then
+#: interpretability, then the spatial and sampling descriptors, saturation last
+#: (CU-375 F-19: the picker used to open alphabetically on ``adc_margin_dB``).
+TARGET_GROUP_ORDER: Final[tuple[str, ...]] = (
+    "radiometric",
+    "interpretability",
+    "spatial_mtf",
+    "sampling",
+    "saturation",
+)
+
+
+def metric_choices(result: ChainResult) -> tuple[str, ...]:
+    """Metric keys a sweep or solve may target, from *result*, in target order.
+
+    Every computed metric except the ``code`` / ``flag`` kinds (an enumeration or
+    a 0/1 flag is not a quantity to sweep toward — CU-375 F-19 / F-31), grouped
+    by :data:`TARGET_GROUP_ORDER` with SNR's group first, and within a group in
+    the registry's physics reading order (:data:`METRIC_DISPLAY_LABELS`). Pure and
+    Qt-free; the declined metrics a picker greys out come from
+    :func:`declined_metrics`.
+    """
+    display_rank = {key: i for i, key in enumerate(METRIC_DISPLAY_LABELS)}
+    unranked = len(display_rank)
+    buckets: dict[str, list[str]] = {group: [] for group in TARGET_GROUP_ORDER}
+    ungrouped: list[str] = []
+    for rec in result.metric_records():
+        if rec.kind in ("code", "flag") or rec.name in _SUPPRESSED_DISPLAY_KEYS:
+            continue
+        try:
+            buckets[group_of(rec.name)].append(rec.name)
+        except KeyError:
+            ungrouped.append(rec.name)
+    ordered: list[str] = []
+    for group in TARGET_GROUP_ORDER:
+        ordered.extend(sorted(buckets[group], key=lambda k: display_rank.get(k, unranked)))
+    ordered.extend(ungrouped)
+    return tuple(ordered)
+
+
+@dataclass(frozen=True, slots=True)
+class DeclinedRecord:
+    """A stand-in metric record for a declined metric (renders as ``n/a (<reason>)``).
+
+    Duck-compatible with :class:`~radiant.io.results.MetricRecord` for the card
+    renderer: a non-finite ``value`` routes through the named-failure path.
+    """
+
+    name: str
+    value: float
+    unit: str
+    description: str
+    kind: str = "declined"
+
+
 def badge_display(result: ChainResult, metric_key: str) -> tuple[str, str | None]:
     """Compute a badge's ``(value_text, failure_reason)`` for *metric_key*.
 
@@ -345,8 +427,12 @@ def badge_display(result: ChainResult, metric_key: str) -> tuple[str, str | None
     * ``(NOT_AVAILABLE, reason)`` — the metric is present but non-finite (a
       result-typed failure); ``reason`` is its ``failure_reason`` when one exists,
       else a generic "unavailable" note.
+    * ``(NOT_AVAILABLE, reason)`` — the metric is absent from ``metrics`` but the
+      run declined it with a named reason (a detection range below threshold,
+      NIIRS outside the GIQE-5 envelope — CU-375 F-27);
     * ``(NOT_AVAILABLE, "not computed for this run")`` — the metric is absent from
-      ``metrics`` (a regime that did not populate it).
+      ``metrics`` and carries no reason (a group switched off, a regime that did
+      not populate it).
 
     Units come from :meth:`ChainResult.metric_records` (registry-sourced), so the
     widget never hardcodes a unit string (R-UNITS, GUI plan §4.6).
@@ -354,7 +440,11 @@ def badge_display(result: ChainResult, metric_key: str) -> tuple[str, str | None
     records = {rec.name: rec for rec in result.metric_records()}
     rec = records.get(metric_key)
     if rec is None:
-        return NOT_AVAILABLE, "not computed for this run"
+        # A declined metric names its reason (CU-375 F-27 / CU-371 II-009);
+        # only a metric the run never produced reads "not computed".
+        return NOT_AVAILABLE, metric_failure_reason(
+            result, metric_key
+        ) or "not computed for this run"
     if not math.isfinite(rec.value):
         reason = metric_failure_reason(result, metric_key)
         return NOT_AVAILABLE, reason or "unavailable (non-finite result)"
@@ -362,6 +452,10 @@ def badge_display(result: ChainResult, metric_key: str) -> tuple[str, str | None
 
 
 __all__ = [
+    "TARGET_GROUP_ORDER",
+    "metric_choices",
+    "DeclinedRecord",
+    "declined_metrics",
     "BADGE_METRICS",
     "BADGE_KEYS",
     "METRIC_DISPLAY_LABELS",

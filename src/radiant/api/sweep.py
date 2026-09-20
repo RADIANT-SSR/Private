@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import pickle
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field
@@ -23,7 +23,7 @@ import numpy.typing as npt
 from radiant.api._progress import CancelFn, ProgressFn, check_cancel
 from radiant.api.errors import ApiValidationError
 from radiant.core.parameters import ParameterSet
-from radiant.io.results import ChainResult
+from radiant.io.results import ChainResult, write_stamp_lines
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +68,9 @@ class SweepResult:
         ``keep_results=False``).
     metric_name:
         Human-readable label for the metric.
+    param_unit:
+        The swept parameter's input unit ("" when dimensionless) — the unit
+        ``values`` are in, carried so exports can label the axis (CU-374 F-17).
     """
 
     param_name: str
@@ -75,6 +78,7 @@ class SweepResult:
     metric_values: npt.NDArray[np.float64]
     results: tuple[ChainResult, ...] = field(default_factory=tuple)
     metric_name: str = "metric"
+    param_unit: str = ""
 
     def __getitem__(self, metric_key: str) -> npt.NDArray[np.float64]:
         """Look up any metric across all stored results.
@@ -91,11 +95,34 @@ class SweepResult:
             dtype=np.float64,
         )
 
-    def to_csv(self, path: str | Path) -> Path:
+    def clipped_points(self) -> tuple[int, ...]:
+        """Indices of the sweep points whose well saturated (signal hard-clipped).
+
+        Read off the kept results' :meth:`ChainResult.well_status` (CU-375 F-18:
+        a sweep over a clipped configuration reported a flat metric as success).
+        Empty when results were not kept, or when no point clipped.
+        """
+        clipped: list[int] = []
+        for i, result in enumerate(self.results):
+            try:
+                if result.well_status().is_saturated:
+                    clipped.append(i)
+            except KeyError:
+                continue  # a synthetic result without a readout stage
+        return tuple(clipped)
+
+    def to_csv(self, path: str | Path, *, stamp: Mapping[str, str] | None = None) -> Path:
         """Write the sweep as CSV: param column + the primary metric — Gap 88.
 
+        *stamp* writes ``# key: value`` lines first (the run stamp, CU-374 F-34).
+
         With kept results, every metric across all points is included (one
-        column per metric key). Rule 30: UTF-8, ``newline=""``.
+        column per metric key). Every column header carries its unit as
+        ``name [unit]`` (the axis in the parameter's input unit, each metric in
+        its registry unit — a code or flag metric reads ``[code]`` /
+        ``[0/1 flag]``), and every cell is a plain number with 15 significant
+        digits, so ``0.33`` is written as ``0.33`` and never as a numpy literal
+        (CU-374 F-17 / F-31). Rule 30: UTF-8, ``newline=""``.
         """
         import csv as _csv
 
@@ -106,16 +133,32 @@ class SweepResult:
             extra_names = sorted(
                 set().union(*(set(r.metrics) for r in self.results)) - {self.metric_name}
             )
+        units = metric_units(self.results)
+        clipped = set(self.clipped_points())
         with open(out, "w", encoding="utf-8", newline="") as f:
+            write_stamp_lines(f, stamp)
             writer = _csv.writer(f)
-            writer.writerow([self.param_name, self.metric_name, *extra_names])
+            writer.writerow(
+                [
+                    labeled_header(self.param_name, self.param_unit),
+                    labeled_header(self.metric_name, units.get(self.metric_name, "")),
+                    *(labeled_header(name, units.get(name, "")) for name in extra_names),
+                    # With kept results every row says whether its well clipped
+                    # (CU-375 F-18) — a flat metric column then explains itself.
+                    *(["well_status"] if self.results else []),
+                ]
+            )
             for i, (v, m) in enumerate(zip(self.values, self.metric_values, strict=True)):
                 extras = (
-                    [repr(self.results[i].metrics.get(name, float("nan"))) for name in extra_names]
+                    [
+                        _number(self.results[i].metrics.get(name, float("nan")))
+                        for name in extra_names
+                    ]
                     if self.results
                     else []
                 )
-                writer.writerow([repr(float(v)), repr(float(m)), *extras])
+                status = ["clipped" if i in clipped else "ok"] if self.results else []
+                writer.writerow([_number(v), _number(m), *extras, *status])
         return out
 
     def at_metric_threshold(
@@ -151,6 +194,11 @@ class Sweep2DResult:
         2-D metric array, shape ``(len(values1), len(values2))``.
     metric_name:
         Human-readable label for the metric.
+    param1_unit, param2_unit:
+        The two parameters' input units ("" when dimensionless), for export
+        labels (CU-374 F-17).
+    metric_unit:
+        The metric's registry unit ("" when unknown), for the export label.
     """
 
     param1_name: str
@@ -159,22 +207,66 @@ class Sweep2DResult:
     values2: npt.NDArray[np.float64]
     grid: npt.NDArray[np.float64]
     metric_name: str = "metric"
+    param1_unit: str = ""
+    param2_unit: str = ""
+    metric_unit: str = ""
 
-    def to_csv(self, path: str | Path) -> Path:
-        """Write the 2-D grid in long form (param1,param2,metric) — Gap 88."""
+    def to_csv(self, path: str | Path, *, stamp: Mapping[str, str] | None = None) -> Path:
+        """Write the 2-D grid in long form (param1,param2,metric) — Gap 88.
+
+        Headers carry units as ``name [unit]``; cells are plain 15-significant-
+        digit numbers (CU-374 F-17); *stamp* writes ``# key: value`` lines first.
+        """
         import csv as _csv
 
         out = Path(path)
         out.parent.mkdir(parents=True, exist_ok=True)
         with open(out, "w", encoding="utf-8", newline="") as f:
+            write_stamp_lines(f, stamp)
             writer = _csv.writer(f)
-            writer.writerow([self.param1_name, self.param2_name, self.metric_name])
+            writer.writerow(
+                [
+                    labeled_header(self.param1_name, self.param1_unit),
+                    labeled_header(self.param2_name, self.param2_unit),
+                    labeled_header(self.metric_name, self.metric_unit),
+                ]
+            )
             for i, v1 in enumerate(self.values1):
                 for j, v2 in enumerate(self.values2):
-                    writer.writerow(
-                        [repr(float(v1)), repr(float(v2)), repr(float(self.grid[i, j]))]
-                    )
+                    writer.writerow([_number(v1), _number(v2), _number(self.grid[i, j])])
         return out
+
+
+def labeled_header(name: str, unit: str) -> str:
+    """``name [unit]`` for a CSV header, or the bare name when unitless."""
+    return f"{name} [{unit}]" if unit else name
+
+
+def _number(value: object) -> str:
+    """A plain decimal cell: 15 significant digits, never a numpy literal.
+
+    ``repr(np.float64(x))`` writes ``np.float64(x)`` on NumPy 2 and ``repr(float)``
+    writes the shortest round-trip form (``0.32999999999999996`` for a linspace
+    value the operator typed as 0.33); ``.15g`` writes the value the operator
+    recognises, at full double precision short of the last bit.
+    """
+    return f"{float(value):.15g}"  # type: ignore[arg-type]
+
+
+def metric_units(results: Sequence[ChainResult]) -> dict[str, str]:
+    """Registry unit per metric key, read off the first kept result that has it."""
+    units: dict[str, str] = {}
+    for result in results:
+        try:
+            records = result.metric_records()
+        except KeyError:
+            # A result carrying a metric the registry does not know (a synthetic
+            # or foreign result): no units to offer — headers stay bare rather
+            # than the export failing.
+            continue
+        for rec in records:
+            units.setdefault(rec.name, "" if rec.unit == "dimensionless" else rec.unit)
+    return units
 
 
 # ------------------------------------------------------------------
@@ -257,6 +349,7 @@ def sweep(
         metric_values=metric_vals,
         results=tuple(results_list) if keep_results else (),
         metric_name=metric_name,
+        param_unit=params.parameter_def(param_name).input_unit or "",
     )
 
 
@@ -392,12 +485,14 @@ def sweep_2d(
     total = v1.size * v2.size
     done = 0
     op = f"sweep_2d({param1_name}, {param2_name})"
+    last_result: list[ChainResult] = []
     for i, a in enumerate(v1):
         for j, b in enumerate(v2):
             check_cancel(cancel, op, done, total)
             ps = _clone_with(params, param1_name, float(a))
             ps = _clone_with(ps, param2_name, float(b))
             r = run_fn(ps)
+            last_result[:] = [r]  # one result kept, for the metric's registry unit
             grid[i, j] = metric(r)
             done += 1
             if progress is not None:
@@ -410,6 +505,9 @@ def sweep_2d(
         values2=v2,
         grid=grid,
         metric_name=metric_name,
+        param1_unit=params.parameter_def(param1_name).input_unit or "",
+        param2_unit=params.parameter_def(param2_name).input_unit or "",
+        metric_unit=metric_units(last_result).get(metric_name, ""),
     )
 
 

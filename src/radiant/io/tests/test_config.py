@@ -636,3 +636,37 @@ class TestElementSectionPortability:
             build_parameter_set(), out, scope="inputs", sections={"optical_elements": section}
         )
         assert section[0]["reflectance"] == abs_ref
+
+
+class TestResolvedProvenanceComments:
+    """CU-374 F-42: the resolved export marks every leaf with its provenance."""
+
+    def test_resolved_scope_comments_every_leaf(self, tmp_path: Path) -> None:
+        import yaml
+
+        from radiant.api.sensor import Sensor
+
+        example = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
+        sensor = Sensor.load(example).set("detector.qe_value", 0.62)
+        text = sensor.to_yaml(scope="resolved")
+        lines = text.splitlines()
+        assert any(
+            line.startswith("  qe_value: 0.62") and line.endswith("# user-set") for line in lines
+        )
+        assert any(
+            line.startswith("  aperture_diameter_m:") and line.endswith("# config")
+            for line in lines
+        )
+        assert any(line.startswith("  f_number:") and line.endswith("# derived") for line in lines)
+        assert any(line.endswith("# default") for line in lines)
+        # The comments are comments: the document re-parses to the same values.
+        loaded = yaml.safe_load(text)
+        assert loaded["detector"]["qe_value"] == 0.62
+        assert "_radiant" in loaded
+
+    def test_inputs_scope_carries_no_comments(self) -> None:
+        from radiant.api.sensor import Sensor
+
+        example = Path(__file__).resolve().parents[4] / "examples" / "mwir_leo_minimal.yaml"
+        text = Sensor.load(example).to_yaml(scope="inputs")
+        assert "# user-set" not in text and "# config" not in text

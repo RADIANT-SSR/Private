@@ -81,12 +81,22 @@ class TestGitCommit:
     def test_returns_unknown_outside_repo(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Outside any git repo, the helper degrades gracefully."""
-        monkeypatch.chdir(tmp_path)
+        """A package loaded from outside any git repo (a wheel) degrades gracefully."""
+        from radiant.core import provenance
+
+        monkeypatch.setattr(provenance, "_PACKAGE_DIR", tmp_path)
         # `git rev-parse` exits non-zero outside a repo; helper returns
         # the sentinel string rather than raising.
         sha = git_commit()
         assert sha == "unknown"
+
+    def test_answer_does_not_depend_on_the_process_cwd(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CU-374 F-42: the question is asked at the package, not the CWD — a GUI
+        launched from an unrelated directory still records the checkout's commit."""
+        monkeypatch.chdir(tmp_path)
+        assert git_commit() != "unknown"
 
     def test_returns_unknown_when_git_binary_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """If the ``git`` binary is unavailable, helper returns ``"unknown"``."""

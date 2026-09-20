@@ -56,7 +56,7 @@ from radiant.api import OperationCancelledError
 from radiant.core.exceptions import RadiantError
 from radiant.gui.display_units import pretty_unit
 from radiant.gui.errors import GuiValidationError
-from radiant.gui.metric_format import metric_display_label
+from radiant.gui.metric_format import declined_metrics, metric_choices, metric_display_label
 from radiant.gui.settings_store import SettingsStore
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
 
@@ -138,6 +138,8 @@ class SweepDialog(QDialog):
         metric_names: tuple[str, ...],
         parent: QWidget | None = None,
         settings: SettingsStore | None = None,
+        *,
+        result: Any | None = None,
     ) -> None:
         super().__init__(parent)
         self.setObjectName("sweepDialog")
@@ -198,9 +200,19 @@ class SweepDialog(QDialog):
         grid.addWidget(self._log2, 6, 2, 1, 2)
 
         self._metric = QComboBox(self)
+        self._declined: dict[str, str] = {}
+        # Target metrics (CU-375 F-19 / F-41): grouped with SNR first, codes and
+        # flags left out, declined metrics greyed with their reason — one list
+        # rule shared with the solve dialog (metric_format.metric_choices).
+        if result is not None:
+            metric_names = tuple(metric_choices(result))
+            self._declined = dict(declined_metrics(result))
         for key in metric_names or ("snr",):
             # Display name in the row, registry key as the data (the spec uses keys).
             self._metric.addItem(metric_display_label(key), userData=key)
+        for key, reason in self._declined.items():
+            self._metric.addItem(f"{metric_display_label(key)} — n/a: {reason}", userData=key)
+            self._metric.model().item(self._metric.count() - 1).setEnabled(False)
         grid.addWidget(QLabel("Metric"), 7, 0)
         grid.addWidget(self._metric, 7, 1, 1, 3)
         layout.addWidget(grid_host)
@@ -309,8 +321,17 @@ class SweepDialog(QDialog):
             self._n1.setText(raw["n1"])
             self._log1.setChecked(bool(raw.get("log1", False)))
             index = self._metric.findData(raw.get("metric"))
-            if index >= 0:
+            if index >= 0 and raw.get("metric") not in self._declined:
                 self._metric.setCurrentIndex(index)
+            elif raw.get("metric"):
+                # CU-375 F-41: the last run's metric is not in this run's set (its
+                # group is off, or the run declined it) — say so instead of
+                # silently landing on the first entry.
+                self._status.setText(
+                    f"Last run's metric {raw['metric']} is not available for this run "
+                    "— its group may be switched off (Performance ▸ Compute). "
+                    "Pick a metric."
+                )
             if raw.get("mode") == "2d" and raw.get("param2") in self._defs:
                 self._enable_2d.setChecked(True)
                 self._param2.setCurrentText(raw["param2"])
@@ -432,8 +453,20 @@ class SweepDialog(QDialog):
 
     # -- run --------------------------------------------------------------------
 
+    def _declined_target(self) -> str | None:
+        """The declined metric the picker sits on, else ``None`` (CU-375 F-19)."""
+        key = str(self._metric.currentData() or "")
+        return key if key in self._declined else None
+
     def start_sweep(self) -> None:
         """Validate the spec and launch the worker (UI stays live)."""
+        declined = self._declined_target()
+        if declined is not None:
+            self._status.setText(
+                f"{metric_display_label(declined)} is not available for this run — "
+                f"{self._declined[declined]} A sweep cannot target it."
+            )
+            return
         try:
             spec = self._build_spec()
         except (ValueError, KeyError) as exc:
@@ -520,7 +553,17 @@ class SweepDialog(QDialog):
             axis.set_ylabel(self._metric_axis_label(metric_key, result))
             if spec.get("log1"):
                 axis.set_xscale("log")
-            self._status.setText(f"Done — {len(result.values)} points.")
+            clipped = len(result.clipped_points()) if hasattr(result, "clipped_points") else 0
+            note = ""
+            if clipped:
+                # CU-375 F-18: a flat curve over a saturating configuration is not a
+                # result to keep; the run's own well status explains it.
+                note = (
+                    f" Well clipped at {clipped} of {len(result.values)} points — the "
+                    "metric is flat because the signal saturates; reduce the signal or "
+                    "raise the full-well capacity."
+                )
+            self._status.setText(f"Done — {len(result.values)} points.{note}")
         else:
             # pcolormesh with the real coordinate arrays: correct for log-spaced
             # axes, where imshow's linear extent silently mis-places every cell.

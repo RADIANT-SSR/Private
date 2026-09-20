@@ -2187,7 +2187,12 @@ plan):
   parameters at the wrong magnitude). Linear or log spacing, **per axis**. Ranges are
   validated against the schema bounds **before** launch (fail at 0/N, endpoint named).
 - **Metric picker**: the live metric set from the last result (fallback `snr`), shown
-  under display names (`SNR`), keyed by registry name.
+  under display names (`SNR`), keyed by registry name — ordered by
+  `metric_format.metric_choices` (radiometric group first, codes and flags excluded),
+  with every declined metric (`metric_format.declined_metrics`) appended greyed as
+  `<label> — n/a: <reason>`; a remembered metric this run lacks is named in the status
+  line rather than silently swapped (CU-375 F-19 / F-41). The solve dialog shares the
+  same list rule and refuses a declined target with its reason.
 - **Execution**: `Sensor.sweep` / `sweep_2d` on a **clone** (a trade study never mutates the
   session config), on a worker `QThread` with the Gap 72 `progress(done,total)` / `cancel()`
   hooks driving a progress bar (hidden until a run exists). **Cancel is a first-class
@@ -2217,7 +2222,10 @@ per-configuration surface — that is §4.2e's Performance columns and the scrip
 `ConfigurationSet.compare`.
 
 - **Columns**: the current live config (always first, evaluated on a clone) plus N config
-  files added via a file picker; baseline column selectable.
+  files added via a file picker; baseline column selectable. A file is read through
+  `ConfigurationSet.load` — the one reader File → Open uses — so a **study file** contributes
+  one column per configuration, labelled `stem:name` and materialized through `sensor_for`
+  (CU-375 F-23; the dialog used to refuse a study with an API instruction).
 - **Execution**: each column evaluates once, sequentially, on a worker thread with progress;
   a failed column reports which config failed and why (actionable), never a partial table.
 - **Matrix**: `compare_configs` (Gap 79) — union-of-metrics rows, registry units, per-metric

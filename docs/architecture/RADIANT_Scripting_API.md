@@ -109,6 +109,7 @@ The full public surface of `Sensor` (verified against `src/radiant/api/sensor.py
 | `Sensor.from_dict(data, *, wavelength_points=500, sections_out=None)` | Classmethod. Load a nested config dict, with the same section handling. |
 | `s.set(dotpath, value, *, unit=None, source="Sensor.set")` | Set a parameter by dot-path (input units). `unit=` converts from the caller's native unit at this boundary (Gap 6). `source=` is the provenance **label** recorded with the input and shown by `resolved()`/`explain()` (CU-208) — the provenance *class* stays `USER_SET`; `ConfigurationSet` passes `source="config:<name>"` (§2.5c). Returns `self` for chaining. |
 | `s.set_many({dotpath: value, ...}, *, source="Sensor.set_many")` | Set multiple parameters at once, with the same provenance-label seam as `set` (CU-208). Returns `self`. |
+| `s.to_dict()` | The nested inputs dict `from_dict` accepts — the inverse of `from_dict` (CU-375 F-24): explicit inputs by namespace, the `_radiant` meta block (format, wavelength points, tolerances) and any attached `optical_elements`. `wavelength_points` stays a constructor argument: pass `wavelength_points=s.wavelength_points` to keep the grid. |
 | `s.inputs()` | Read-only snapshot of the **explicitly-set** inputs: dot-path → value in input units (CU-208). Defaults and derived values are absent — this is the persistence/inspection surface `save()` writes and `ConfigurationSet` reads to tell shared from configured parameters. Passthrough to `ParameterSet.inputs()`. |
 | `s.input_provenances()` | Read-only snapshot of the explicitly-set inputs' **provenance**: dot-path → `Provenance` (`USER_SET` / `CONFIG_FILE` / `PRESET`) for every parameter holding an explicit input, nothing else (CU-372 F-01). Never resolves — the GUI's Parameters dock labels a value the operator just entered while the configuration is still incomplete. Passthrough to `ParameterSet.input_provenances()`. |
 | `s.resolve()` | Resolve the parameter set now if it is not already resolved (CU-208) — idempotent, and the same resolution `evaluate()`/`get()`/`save()` trigger implicitly. Calling it explicitly surfaces an over-constrained group or out-of-bounds value at a chosen point. Returns `self`. |
@@ -679,6 +680,14 @@ import json
 with open("run_provenance.json", "w") as f:
     json.dump(result.to_provenance_record(), f, indent=2)
 ```
+
+`s.to_yaml(scope="resolved")` (and `Export Resolved YAML…`) comments every parameter leaf with its provenance — `# user-set` / `# config` / `# default` / `# derived` / `# preset` (CU-374 F-42); the inputs scope carries no comments. `to_provenance_record()["git_commit"]` is resolved at the loaded package's location (the same anchor as `build_info`), not the process CWD.
+
+`result.to_csv(path, stamp=…)`, `SweepResult.to_csv(path, stamp=…)`, `Sweep2DResult.to_csv(path, stamp=…)` accept an optional `stamp` mapping written first as `# key: value` comment lines (the GUI passes its run stamp — run id, evaluated-at, RADIANT build, config path, stale — CU-374 F-34/F-35; `radiant.io.results.write_stamp_lines` is the shared writer). Omitted, the files are unchanged.
+
+`SweepResult.clipped_points()` lists the indices whose well saturated (from the kept results' `well_status()`), and the 1-D CSV carries a trailing `well_status` column (`clipped` / `ok`) when results are kept; `SolveBracketError.saturated` is True when both bracket endpoints clipped, and the message then names the saturation rather than advising a wider bracket (CU-375 F-18).
+
+`SweepResult.to_csv` / `Sweep2DResult.to_csv` write `name [unit]` headers (the axis in the parameter's input unit — carried as `param_unit` / `param1_unit`, `param2_unit` — and each metric in its registry unit; a code/flag metric reads `[code]` / `[0/1 flag]`) and plain 15-significant-digit cells, never a numpy literal (CU-374 F-17/F-31). `radiant.api.sweep.labeled_header` and `metric_units` are the shared helpers the workbook export uses.
 
 `result.to_records()` returns metrics as plain dicts (name/value/unit/description) and `result.to_csv(path)` writes them as CSV (Gap 88, 2026-07-16); `SweepResult` / `Sweep2DResult` / `MonteCarloResult` carry matching `to_csv`. There is still no `result.to_json()` (the `.radiant` archive in §3.9 is the full-fidelity persistence).
 

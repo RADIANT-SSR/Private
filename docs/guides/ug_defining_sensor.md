@@ -408,6 +408,12 @@ a screenful of inert rows.
 - **`flux_fraction`** — cal sources given as a fraction of full-scale flux, for a system whose
   cal source is not a blackbody. The temperature rows are hidden.
 
+Flipping the mode is one action: the other mode's inputs — the cal temperatures and every
+temperature-anchored bias term under `flux_fraction`, the flux points on the way back — are
+withdrawn with the commit, the editor's *Withdraws* line names them first, and one Undo
+restores them. A flux-mode scheme without its flux point is then the same *expected*
+incomplete state as a scheme without its cal temperature, and routes as an advisory.
+
 An unset cal temperature renders as **words** — `unset — required` — never as a plausible-looking
 `0 K`. A scheme switched on without its cal point is an *expected* incomplete state, so the
 evaluation routes it as an advisory rather than a modal: only the Calibration chip goes red, the

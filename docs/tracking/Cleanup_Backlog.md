@@ -47,23 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-377 — Mode and door switching has no switch affordance: selectors are display-only, other doors' values linger, inactive doors show schema defaults (usability-audit family, owner-gated)
-
-**Discovered**: GUI usability audit phases 1–4 and live session 1, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Bootstrap_Recovery.md` F-05/F-07/F-15, `Findings_Journeys_P1_P4.md` F-25/F-26, `Findings_Journeys_P5_P7.md` F-43, `Findings_Live_Session_1.md` F-48).
-**Status**: Open — ruling recorded 2026-09-20 (owner: "I think it should" / "lets do it"): **a family's mode selector switches the family; switching withdraws the other doors' explicit inputs as one undoable action, seeds the new door from the derived value where one exists, and inactive doors display derived values; a second door set outside the selector is refused at the door** (a resolve-time `validate_geometry_modes` seam on the shared edit guard). The same rule applies to the source target doors (thermal / reflective / point intensity) and the calibration cal-point mode, via the Gap 117 companion-reset pattern. Gap 85's scene-type tier stays separate. Built as usability-audit fix batch 4 (`fix377/mode-switching`), live-review gated.
-**File**: `src/radiant/gui/widgets/geometry_mode_form.py`, `source_inputs_form.py`, `calibration_inputs_form.py`, `target_spec_guard.py`; guide `docs/guides/ug_defining_scene.md` §1.2.
-**Symptom**: checklist —
-
-- [ ] F-05 (S2): a second viewing door entered through the dock is accepted, fails at evaluate on every re-run, the card auto-selects the new door and greys the field that must be withdrawn; the selector changes nothing. Exit = dock right-click Reset on a greyed field (confirmed natively 2026-09-19).
-- [ ] F-07 (S3): thermal↔reflective, point-intensity and cal-point-mode switches each need N resets in the right order; the rejection names the parameters but nothing sequences them.
-- [ ] F-15/F-26 (S3): on a blank configuration the family cards open on V2 / S2 / direct / K1, not the documented V1 / S1 / direct / K0.
-- [ ] F-25 (S3): the S3 site-and-time card offers LTAN and local solar time as two editable fields of one mode; entering both over-specifies.
-- [ ] F-48 (S3, live): inactive doors display schema defaults (ground range 0 m, elevation 90°) rather than the derived values the guide promises.
-- [ ] F-43 (S3): a bench (both altitudes 0 m, 2 m range) is refused by the ±0.5° horizon guard; lab mode has no door and needs an invented altitude.
-
-**Why it still matters**: workflow-visible (intake test 4) — this is the owner's "conflict you cannot fix one edit at a time" report, and it is owner-gated (test 2) because the remedy is a mode-model decision.
-**Suggested fix**: (b) stand-alone task after the Gap 85 ruling — either a mode selector that withdraws the other doors' explicit values (with an undo step), or a "withdraw and switch" action on the rejection; show derived values in inactive fields; make LTAN/LST exclusive on the card; add a lab door. Effort M–L; Category D.
-
 ### CU-371 — GUI strings and widgets leak process language or clip content into the shipped manuals (live-review family)
 
 **Discovered**: CU-370 manual-suite fix campaign, 2026-09-18 — the deferred GUI-gated remainder of the 2026-09 editorial audit (II-003, II-015, II-009's GUI side, IV-031, plus two campaign discoveries).
@@ -298,6 +281,23 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: workflow-visible (intake test 4); the dock is the only surface that reaches every parameter and the from-scratch path lives in it.
 **Suggested fix**: (b) stand-alone task — update rows in place (or restore selection, expansion and scroll after populate); give the Value column a floor; route the in-place rejection through the same inline error state the dialog uses; size the dock by content. Effort M; Category D (GUI tests).
 **Resolution**: rows refresh in place after an edit (selection, expansion and scroll survive); the Value column has a floor so it is a click target on a blank configuration (its rejection path landed under CU-372); the default dock is 420 px with a 110 px value cap and a 200 px name floor, measured against the widest leaf names; the Performance *Compute:* row wraps (`widgets/flow_layout.py`) and the Messages list scrolls; stage tab titles never elide. F-38's stage-strip half is the documented horizontal-scroll contract (Findings-Log line).
+
+### CU-377 — Mode and door switching has no switch affordance: selectors are display-only, other doors' values linger, inactive doors show schema defaults (usability-audit family, owner-gated) — RESOLVED 2026-09-20 (commit trailer)
+
+**Discovered**: GUI usability audit phases 1–4 and live session 1, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Bootstrap_Recovery.md` F-05/F-07/F-15, `Findings_Journeys_P1_P4.md` F-25/F-26, `Findings_Journeys_P5_P7.md` F-43, `Findings_Live_Session_1.md` F-48).
+**Status**: Resolved 2026-09-20 — usability-audit fix batch 4 (`fix377/mode-switching`; one commit per checklist item where the items separate — F-05/F-48/F-25 are one mechanism in one widget and share a commit that says so — each with a pinning test in `gui/tests/test_mode_switching.py` that fails on the pre-fix code); live-reviewed per the GUI live-review rule before merge. Ruling (owner, "I think it should" / "lets do it"): **a family's mode selector switches the family; switching withdraws the other doors' explicit inputs as one undoable action, seeds the new door from the derived value where one exists, and inactive doors display derived values; a second door set outside the selector is refused at the door** (a resolve-time `validate_geometry_modes` seam on the shared edit guard). The same rule applies to the source target doors (thermal / reflective / point intensity) and the calibration cal-point mode, via the Gap 117 companion-reset pattern. Gap 85's scene-type tier stays separate. Implemented as ruled; the physics-side pieces are `geometry/door_values.py` + `geometry/mode_guard.py` behind `Sensor.geometry_door_values()` / `Sensor.validate_geometry_modes()`, the GUI-side `gui/mode_switch.py`, `gui/geometry_mode_guard.py`, `gui/source_door_switch.py`, `gui/calibration_switch.py` on the shared edit guard.
+**File**: `src/radiant/gui/widgets/geometry_mode_form.py`, `source_inputs_form.py`, `calibration_inputs_form.py`, `target_spec_guard.py`; guide `docs/guides/ug_defining_scene.md` §1.2.
+**Symptom**: checklist —
+
+- [x] F-05 (S2) — the selector switches the family (withdraw + seed, one undo step); a second door outside it is refused inline by the one-door-per-family seam: a second viewing door entered through the dock is accepted, fails at evaluate on every re-run, the card auto-selects the new door and greys the field that must be withdrawn; the selector changes nothing. Exit = dock right-click Reset on a greyed field (confirmed natively 2026-09-19).
+- [x] F-07 (S3) — a door entry / cal-point mode commit withdraws the other door's explicit inputs (`edit_guard.companion_withdrawals`), the editor names them on a *Withdraws* row, one Undo restores them: thermal↔reflective, point-intensity and cal-point-mode switches each need N resets in the right order; the rejection names the parameters but nothing sequences them.
+- [x] F-15/F-26 (S3) — detection reads explicit provenance only; defaults display: on a blank configuration the family cards open on V2 / S2 / direct / K1, not the documented V1 / S1 / direct / K0.
+- [x] F-25 (S3) — S3 hour angle is a toggle (`geometry_modes.SUBDOORS`); flipping withdraws the other entry: the S3 site-and-time card offers LTAN and local solar time as two editable fields of one mode; entering both over-specifies.
+- [x] F-48 (S3, live) — inactive doors show `Sensor.geometry_door_values()` with a derived tooltip: inactive doors display schema defaults (ground range 0 m, elevation 90°) rather than the derived values the guide promises.
+- [x] F-43 (S3) — the level chord door (V0) is the bench door; the selector withdraws a contradicting angle and the V0 item carries a usage hint; guide §1.2 documents it (the horizon guard was never the refuser — an explicit angle on the level path was): a bench (both altitudes 0 m, 2 m range) is refused by the ±0.5° horizon guard; lab mode has no door and needs an invented altitude.
+
+**Why it still matters**: workflow-visible (intake test 4) — this is the owner's "conflict you cannot fix one edit at a time" report, and it is owner-gated (test 2) because the remedy is a mode-model decision.
+**Resolution**: fix batch 4 as ruled — see the checklist; the physics manifest is unchanged, the two seams are additive. Original suggested fix: (b) stand-alone task after the Gap 85 ruling — either a mode selector that withdraws the other doors' explicit values (with an undo step), or a "withdraw and switch" action on the rejection; show derived values in inactive fields; make LTAN/LST exclusive on the card; add a lab door. Effort M–L; Category D.
 
 ### CU-372 — GUI edit discipline misrepresents state on unresolved configurations and consistency-group members (usability-audit family) — RESOLVED 2026-09-20 (commit trailer)
 

@@ -54,10 +54,7 @@ from radiant.gui.geometry_modes import (
     implicated_families,
     mode_label,
 )
-from radiant.gui.param_format import (
-    field_display_text,
-    safe_provenance,
-)
+from radiant.gui.param_format import field_display_text
 from radiant.gui.widgets.field_row import UNSET as _UNSET
 from radiant.gui.widgets.field_row import FieldRow as _FieldRow
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog
@@ -260,9 +257,14 @@ class GeometryModeForm(QWidget):
 
     @staticmethod
     def _is_provided(sensor: Sensor, dotpath: str) -> bool:
-        """True when *dotpath* resolved from an explicit input (not its schema default)."""
-        provenance = safe_provenance(sensor, dotpath)
-        return provenance is not None and provenance != "default"
+        """True when *dotpath* holds an explicit input (user-set / config / preset).
+
+        Read off the inputs view, never off resolved provenance: on a configuration
+        that cannot resolve yet every resolved provenance is unknown, and treating
+        "unknown" as "provided" made a blank configuration open on V2 / S2 / K1
+        instead of the documented default doors (CU-377 F-15 / F-26).
+        """
+        return dotpath in sensor.input_provenances()
 
     @staticmethod
     def _input_value(sensor: Sensor, dotpath: str) -> Any:

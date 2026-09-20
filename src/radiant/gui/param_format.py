@@ -153,9 +153,23 @@ def field_display_text(
         # missing (Gap 119 live review 2026-09-06: 'updates are not taking');
         # unset fields show — as before (CU-140 guard tests).
         value = sensor.peek_input(dotpath)
-    # Per-row override → global preference (angles in degrees by default,
-    # CU-326 owner ruling) → schema input_unit; same chain as the panel rows.
-    target = display_units.get(dotpath)
+        if value is None:
+            # Nothing committed either: show the schema default the resolver
+            # would apply — a defaulted field is a value, not an unknown (CU-377
+            # F-15: on a blank configuration every field read "—", including
+            # `target_altitude_m = 0 m` and `solar_illumination = day`). A
+            # required parameter (default None) still reads "—".
+            value = pdef.default
+    return input_display_text(pdef, value, display_units.get(dotpath))
+
+
+def input_display_text(pdef: ParameterDef, value: Any, display_unit: str | None) -> str:
+    """Format an **input-unit** *value* of *pdef* in its display unit (— for ``None``).
+
+    Per-row override → global preference (angles in degrees by default, CU-326
+    owner ruling) → schema ``input_unit``; the same chain as the panel rows.
+    """
+    target = display_unit
     if target is None:
         target = global_display_unit(pdef.input_unit or "") or pdef.input_unit
     if target == pdef.input_unit:
@@ -164,6 +178,29 @@ def field_display_text(
         shown = display_in_unit(value, pdef.input_unit, target, pdef.canonical_unit)
     except KeyError:
         return format_value(value, pdef.input_unit)
+    return format_value(shown, target)
+
+
+def canonical_display_text(pdef: ParameterDef, value: Any, display_unit: str | None) -> str:
+    """Format a **canonical-unit** *value* of *pdef* in its display unit (— for ``None``).
+
+    The twin of :func:`input_display_text` for values that never passed through
+    ``set`` — a derived door value (:meth:`Sensor.geometry_door_values`, CU-377
+    F-48) — converted once through the public registry seam (Rule 2); a
+    dimensionless or boolean value is rendered as is.
+    """
+    if value is None:
+        return UNSET_TEXT
+    if isinstance(value, bool) or not pdef.canonical_unit:
+        return format_value(value, pdef.input_unit)
+    target = display_unit
+    if target is None:
+        target = global_display_unit(pdef.input_unit or "") or pdef.input_unit
+    try:
+        shown = inverse_convert(float(value), pdef.canonical_unit, target)
+    except KeyError:
+        shown = inverse_convert(float(value), pdef.canonical_unit, pdef.input_unit)
+        target = pdef.input_unit
     return format_value(shown, target)
 
 
@@ -232,7 +269,9 @@ __all__ = [
     "PROVENANCE_LABELS",
     "format_value",
     "display_in_unit",
+    "canonical_display_text",
     "field_display_text",
+    "input_display_text",
     "safe_provenance",
     "provenance_label",
     "is_derived",

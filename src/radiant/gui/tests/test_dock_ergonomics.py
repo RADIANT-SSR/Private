@@ -174,3 +174,52 @@ class TestF14NamesReadableAtDefaultWidth:
             if dotpath.startswith("geometry.target.shape")
         ]
         assert len(shape_rows) >= 6 and len(set(shape_rows)) == len(shape_rows)
+
+
+class TestF38SmallWindow:
+    """F-38: at 1024x640 the Compute row showed two of five metric groups and each
+    rail message was cut at three lines with no expander. (The stage strip's
+    horizontal scroll at that width is the documented, tested contract — ug_main_window
+    §2 — and is unchanged.)"""
+
+    def test_compute_row_wraps_instead_of_clipping(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from PySide6.QtWidgets import QCheckBox
+
+        from radiant.gui.widgets.performance_metrics_form import PerformanceMetricsForm
+
+        form = PerformanceMetricsForm()
+        qtbot.addWidget(form)
+        form.resize(380, 200)
+        form.show()
+        qtbot.waitExposed(form)
+        layout = form.layout()
+        assert layout is not None and layout.hasHeightForWidth()
+        assert layout.heightForWidth(380) > layout.heightForWidth(1200)  # it wrapped
+        checks = form.findChildren(QCheckBox)
+        assert len(checks) == 5
+        for check in checks:
+            assert check.geometry().right() <= form.width(), check.text()
+            assert check.geometry().left() >= 0
+
+    def test_messages_scroll_rather_than_squeeze(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.message_item import MessageItem
+        from radiant.gui.widgets.messages_panel import MessagesPanel
+
+        panel = MessagesPanel()
+        qtbot.addWidget(panel)
+        panel.resize(240, 220)  # the rail's floor width, a short rail
+        panel.show()
+        qtbot.waitExposed(panel)
+        long_line = (
+            "UserWarning: full-well saturation — accumulated charge 2.3e7 e- exceeds the "
+            "2.0e6 e- capacity (fill 11.5x); the signal is hard-clipped and every downstream "
+            "metric reflects the clipped value. Reduce integration time or aperture."
+        )
+        panel.set_warnings([long_line, long_line, long_line])
+        qtbot.wait(20)
+        items = panel.findChildren(MessageItem)
+        assert len(items) == 3
+        for item in items:
+            # Each row is laid out at its full wrapped height — nothing is cut.
+            assert item.height() >= item.heightForWidth(item.width()), item.height()
+        assert panel._scroll.verticalScrollBar().maximum() > 0  # noqa: SLF001 — it scrolls

@@ -174,7 +174,8 @@ admitted; a wrong one is not). The editor opens whether or not the document reso
 text is the *inputs* scope: what you specified, not the resolved two hundred.
 
 **Messages.** Warnings and errors from the last run, one row each, verbatim and never
-deduplicated. The header reads `⚠ N warnings` with the first inline; clicking opens the full
+deduplicated; the list scrolls when the rows outgrow the rail, so a long warning is never
+cut short. The header reads `⚠ N warnings` with the first inline; clicking opens the full
 list. Errors render their *what / why / action*. In a study each message is prefixed with the
 configuration that raised it, so a per-band effect never reads as a property of the whole
 study. The panel also carries advisory notes that are not failures — an atmosphere family

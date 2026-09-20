@@ -28,11 +28,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QWidget
+from PySide6.QtWidgets import QCheckBox, QLabel, QWidget
 
 from radiant.api.metric_groups import GROUP_PARAMS
 from radiant.core.exceptions import RadiantError
 from radiant.gui.metric_format import METRIC_GROUP_HEADINGS
+from radiant.gui.widgets.flow_layout import FlowLayout
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
@@ -57,9 +58,9 @@ class PerformanceMetricsForm(QWidget):
 
         self._sensor: Sensor | None = None
 
-        row = QHBoxLayout(self)
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(14)
+        # A wrapping row (CU-376 F-38): at 1024x640 a fixed horizontal row showed
+        # two of the five groups; the flow layout breaks the line instead.
+        row = FlowLayout(self, spacing=14)
 
         prompt = QLabel("Compute:", self)
         prompt.setObjectName("outputsRowLabel")
@@ -76,7 +77,6 @@ class PerformanceMetricsForm(QWidget):
             check.toggled.connect(lambda checked, dp=dotpath: self._on_toggle(dp, checked))
             row.addWidget(check)
             self._checks[dotpath] = check
-        row.addStretch(1)
 
     # -- binding / refresh --------------------------------------------------
 

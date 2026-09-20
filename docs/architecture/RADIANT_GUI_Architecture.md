@@ -1332,6 +1332,13 @@ swallowed (Rule 17). **Errors surface here too**: a `RadiantError` renders its a
 **what / why / action** (Rule 15), and clicking opens the full message. This is the
 warning strip relocated and widened to carry errors as well as warnings.
 
+*Small-window behaviour (CU-376 F-38).* The message rows sit in a vertical
+`QScrollArea` (`messagesScroll`), so at a short rail the list scrolls instead of squeezing
+each wrapped row to a few lines; the Performance stage's *Compute:* checkbox row is a
+`FlowLayout` (`widgets/flow_layout.py`) that wraps at narrow widths instead of clipping
+three of its five groups. The stage strip's horizontal scroll at narrow widths is the
+documented contract (§4.2) and is unchanged.
+
 *Document swap hygiene (CU-373 F-51).* `_adopt_config_set` — the one place a document
 becomes live — clears the previous result's saturation banner, warnings, stale notice and
 chip health before binding the new document, so a swap to an unresolvable document (a YAML

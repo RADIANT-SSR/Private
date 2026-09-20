@@ -42,6 +42,12 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Small windows wrap and scroll instead of clipping (CU-376 F-38).** At
+  1024×640 the Performance stage's *Compute:* row showed two of its five
+  metric-group checkboxes and each Messages row was cut at three lines with
+  no way to read the rest. The checkbox row now wraps, and the Messages list
+  scrolls. The stage strip's horizontal scroll at narrow widths is documented
+  behaviour and is unchanged.
 - **Parameter names are readable at the default dock width (CU-376 F-14).**
   At 1400×900 the name column sat at its floor and read `sens…de_m`,
   `targ…ge_m`, with the `target.shape.*` rows indistinguishable. The default

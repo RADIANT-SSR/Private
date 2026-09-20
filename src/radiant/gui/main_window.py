@@ -182,7 +182,10 @@ def _debounce_interval_ms() -> int:
 # truncating "sens…"/"targe…"; the stretchy Parameter column now has room.
 _DEFAULT_WIDTH: int = 1440
 _DEFAULT_HEIGHT: int = 900
-_PARAM_DOCK_WIDTH: int = 360
+# CU-376 F-14: 420 px leaves the name column ~210 px at the audit's 1400x900
+# window (value cap 110 + Source ~56 + margins), enough for every namespace but
+# the longest source leaves, which elide with a tooltip.
+_PARAM_DOCK_WIDTH: int = 420
 _RAIL_DOCK_WIDTH: int = 288
 
 # Undo/redo depth (arch doc §10, GUI plan Phase 9): the last ~20 parameter edits are

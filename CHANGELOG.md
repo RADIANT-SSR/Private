@@ -42,6 +42,12 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Parameter names are readable at the default dock width (CU-376 F-14).**
+  At 1400×900 the name column sat at its floor and read `sens…de_m`,
+  `targ…ge_m`, with the `target.shape.*` rows indistinguishable. The default
+  dock is wider (420 px), the value column's cap is lower (numbers and units
+  still fit; a long path default elides with its tooltip) and the name floor
+  higher, so every geometry, detector and calibration name shows whole.
 - **The Value column has a width on a blank configuration (CU-376 F-46).**
   With every cell reading `—`, content-sizing collapsed the column to about
   ten pixels, so the first double-click landed on the name column and opened

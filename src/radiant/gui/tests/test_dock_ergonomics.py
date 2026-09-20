@@ -142,3 +142,35 @@ class TestF46ValueColumnHasWidthOnBlankConfig:
         x = header.sectionPosition(1) + header.sectionSize(1) // 2
         index = tree.indexAt(QPoint(x, rect.center().y()))
         assert index.column() == 1
+
+
+class TestF14NamesReadableAtDefaultWidth:
+    """F-14: at the default dock width in a 1400x900 window the name column showed
+    `sens…de_m`, `targ…ge_m`; the eight target.shape.* rows were indistinguishable."""
+
+    def test_geometry_leaf_names_fit_unelided(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        from PySide6.QtGui import QFontMetrics
+
+        window = _blank_window(qtbot, 1400, 900)
+        _capture_modals(monkeypatch)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            for dotpath, text in _COMPLETE:
+                _dialog_set(window, dotpath, text)  # values present, as in the finding
+        panel = window.parameter_panel
+        tree = panel.tree
+        width = tree.header().sectionSize(0)
+        metrics = QFontMetrics(tree.font())
+        indent = tree.indentation()
+        elided = [
+            item.text(0)
+            for dotpath, item in panel._items.items()  # noqa: SLF001
+            if dotpath.startswith("geometry.")
+            and metrics.horizontalAdvance(item.text(0)) + indent + 6 > width
+        ]
+        assert elided == [], f"name column {width}px elides {elided}"
+        shape_rows = [
+            item.text(0)
+            for dotpath, item in panel._items.items()  # noqa: SLF001
+            if dotpath.startswith("geometry.target.shape")
+        ]
+        assert len(shape_rows) >= 6 and len(set(shape_rows)) == len(shape_rows)

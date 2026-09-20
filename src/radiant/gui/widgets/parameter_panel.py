@@ -130,8 +130,14 @@ _EMPTY_MESSAGE = "No configuration loaded — open a YAML to inspect parameters"
 # content-width cap (so one long path default cannot starve every name;
 # numeric value + unit strings fit well inside it — an overflowing value
 # middle-elides and its row tooltip carries the full text).
-_NAME_FLOOR_PX: int = 120
-_VALUE_CAP_PX: int = 150
+# CU-376 F-14 (measured 2026-09-20 at the 1400x900 audit window): a typical leaf
+# name needs ~200 px with the tree indent (geometry 196, detector 208, calibration
+# 203; the source namespace's longest 273), a numeric value + unit ~80 px in the
+# mono face, and the Source badge ~56 px. The old 120/150 split left names at the
+# floor ("sens…de_m") at the default dock width; these floors and caps, with the
+# 420 px default dock in main_window, give the names ~210 px.
+_NAME_FLOOR_PX: int = 200
+_VALUE_CAP_PX: int = 110
 # CU-376 F-46: the value column's floor. Content-sizing on a blank configuration
 # (every cell "—") collapsed the column to ~10 px ("Va"), so the first double-click
 # landed on the name column and opened the dialog instead of the in-place editor.

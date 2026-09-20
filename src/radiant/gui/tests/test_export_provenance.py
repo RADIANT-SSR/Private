@@ -112,9 +112,13 @@ class TestF17SweepCsvUnitsAndNumbers:
         assert "sampling_regime_code [code]" in header
         assert [row[0] for row in rows[1:]] == ["0.33", "0.36", "0.39", "0.42"]
         assert not any(cell.startswith("np.") for row in rows for cell in row)
+        # With kept results the last column is the per-point well status (F-18,
+        # CU-375): text by design; every other cell is a number.
+        assert header[-1] == "well_status"
         for row in rows[1:]:
-            for cell in row:
-                float(cell)  # every cell is a number
+            assert row[-1] in ("ok", "clipped")
+            for cell in row[:-1]:
+                float(cell)
 
 
 def _stamp_lines(path: Path) -> dict[str, str]:

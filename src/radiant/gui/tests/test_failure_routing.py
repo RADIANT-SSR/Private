@@ -371,3 +371,35 @@ class TestF51DocumentSwapClearsThePreviousResult:
         assert canvas.stage_center.selected_stage == "optics"
         assert not canvas.stage_center.is_placeholder()  # the editable composite
         assert "incomplete" in window.statusBar().currentMessage()
+
+
+class TestF28HorizonGuardIsAnAdvisory:
+    """F-28 (routing half): a pivot that passes through a grazing geometry raised the
+    horizon-guard refusal as a modal on every re-evaluation."""
+
+    def test_grazing_path_routes_to_the_geometry_chip(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        import math
+
+        from radiant.core.exceptions import RadiantError
+        from radiant.core.viewing_triangle import check_horizon_guard, is_horizon_guard_refusal
+
+        # J-3.3: a 10 km sensor looking almost along the horizon plane — inside
+        # the ±0.5° hard band at the lower endpoint. (Exactly π/2 is the topology
+        # domain check, a different refusal; step just inside it.)
+        refusal: RadiantError | None = None
+        for theta_deg in (89.95, 89.9, 89.8, 89.7, 89.6):
+            try:
+                check_horizon_guard(math.radians(theta_deg), 10_000.0)
+            except RadiantError as exc:
+                if is_horizon_guard_refusal(exc):
+                    refusal = exc
+                    break
+        assert refusal is not None, "no grazing angle tripped the horizon guard"
+        info_value = refusal
+        window = _complete_window(qtbot, monkeypatch)
+        opened = _capture_modals(monkeypatch)
+        window._on_eval_failed(info_value)  # noqa: SLF001 — the worker's failure slot
+        assert opened == []
+        assert _chip_status(window, "geometry") == "err"
+        assert _chip_status(window, "source") == "stale"
+        assert window.statusBar().currentMessage().startswith("Path grazes the horizon")

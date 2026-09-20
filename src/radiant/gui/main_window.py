@@ -65,6 +65,7 @@ from radiant.api.sensor import Sensor
 from radiant.api.transmission_state import is_transmission_config_incomplete
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ConsistencyGroupError, RequiredParameterError
+from radiant.core.viewing_triangle import is_horizon_guard_refusal
 from radiant.gui.config_scope import ConfigurationScope
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.display_units import drop_governed_overrides, set_angles_in_degrees
@@ -1659,6 +1660,18 @@ class RADIANTMainWindow(QMainWindow):
                 (
                     f"Consistency group '{exc.group}' is over-constrained — Reset to "
                     f"Default on one of {members}, or make them agree"
+                ),
+            )
+            return
+        if is_horizon_guard_refusal(exc):
+            # CU-373 F-28 (routing half): a grazing path mid-pivot is a legal,
+            # transient state — advisory beside the geometry inputs, not a modal
+            # per re-evaluation. The wording of the refusal itself is CU-371's.
+            self._advise(
+                "geometry",
+                (
+                    "Path grazes the horizon — raise the sensor, shorten the path or "
+                    "tilt the geometry on the Geometry workspace"
                 ),
             )
             return

@@ -42,6 +42,14 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **A horizon-guard refusal is an advisory, not a modal per re-evaluation
+  (CU-373 F-28, routing half).** Lowering a sensor while a ground-range door
+  still held the old range passed through a grazing geometry whose refusal
+  repeated as a modal on every edit. The guard now stamps a structured
+  marker on the errors it raises (`context["surface"] == "horizon_guard"`,
+  `radiant.core.viewing_triangle.is_horizon_guard_refusal`), and the GUI
+  routes it to the Geometry chip with the fix named. The refusal's wording
+  (it cites an ADR) is CU-371's.
 - **A document swap clears the previous result (CU-373 F-51).** After a
   YAML Apply that left the configuration unresolvable, the old result's
   saturation banner and warnings stayed on screen with no stale marker, and

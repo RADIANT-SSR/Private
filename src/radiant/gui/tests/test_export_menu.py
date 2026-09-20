@@ -65,7 +65,10 @@ class TestExports:
             mw.QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (str(dest), ""))
         )
         window.action("file.export_metrics_csv").trigger()
-        assert dest.read_text(encoding="utf-8").startswith("name,value,unit")
+        lines = dest.read_text(encoding="utf-8").splitlines()
+        # CU-374 F-34/F-35: `# key: value` stamp lines lead; the header follows.
+        header = next(line for line in lines if not line.startswith("#"))
+        assert header.startswith("name,value,unit")
 
     def test_workbook_sheets_and_values(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
         import openpyxl

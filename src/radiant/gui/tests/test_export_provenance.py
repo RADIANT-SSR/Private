@@ -100,7 +100,10 @@ class TestF17SweepCsvUnitsAndNumbers:
         dest = tmp_path / "sweep.csv"
         _save_to(monkeypatch, dest)
         window.action("file.export_sweep_csv").trigger()
-        rows = list(csv.reader(dest.read_text(encoding="utf-8").splitlines()))
+        body = [
+            ln for ln in dest.read_text(encoding="utf-8").splitlines() if not ln.startswith("#")
+        ]
+        rows = list(csv.reader(body))
         header = rows[0]
         assert header[0] == "optics.aperture_diameter_m [m]"
         assert "snr" in header  # dimensionless: bare name
@@ -112,3 +115,86 @@ class TestF17SweepCsvUnitsAndNumbers:
         for row in rows[1:]:
             for cell in row:
                 float(cell)  # every cell is a number
+
+
+def _stamp_lines(path: Path) -> dict[str, str]:
+    stamp: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("# "):
+            break
+        key, _, value = line[2:].partition(": ")
+        stamp[key] = value
+    return stamp
+
+
+class TestF34F35RunStamps:
+    """F-34: a retained sweep exported after edits that made it stale, unmarked.
+    F-35: after a failed re-evaluation the metrics export wrote the previous
+    result with no stale flag, no run stamp."""
+
+    def test_fresh_metrics_export_carries_a_run_stamp(self, qtbot, tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        window = _window(qtbot)
+        dest = tmp_path / "metrics.csv"
+        _save_to(monkeypatch, dest)
+        window.action("file.export_metrics_csv").trigger()
+        stamp = _stamp_lines(dest)
+        assert stamp["stale"] == "no"
+        assert stamp["run_id"] and stamp["evaluated_at"] and stamp["radiant"].startswith("v")
+        assert stamp["config"].endswith("mwir_leo_minimal.yaml")
+        # The header follows the stamp lines unchanged.
+        lines = dest.read_text(encoding="utf-8").splitlines()
+        assert lines[len(stamp)] == "name,value,unit,description"
+
+    def test_metrics_export_after_a_failed_reevaluation_is_marked_stale(
+        self, qtbot, tmp_path, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        """T-G: success, then an edit that fails; the previous result is what exports."""
+        from radiant.core.exceptions import CoreValidationError
+
+        window = _window(qtbot)
+        monkeypatch.setattr("radiant.gui.main_window.exec_dialog", lambda dlg, *a, **k: 0)
+        window._on_eval_failed(CoreValidationError("some genuine rejection"))  # noqa: SLF001
+        dest = tmp_path / "metrics.csv"
+        _save_to(monkeypatch, dest)
+        window.action("file.export_metrics_csv").trigger()
+        assert _stamp_lines(dest)["stale"].startswith("yes — the last re-evaluation failed")
+        assert "stale" in window.statusBar().currentMessage()
+
+    def test_sweep_export_after_an_edit_is_marked_stale(self, qtbot, tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """T-F: sweep, then edit detector.qe_value, then File ▸ Export Sweep CSV."""
+        import numpy as np
+
+        window = _window(qtbot)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sweep = window.sensor.sweep(
+                "optics.aperture_diameter_m", np.linspace(0.25, 0.35, 3), keep_results=False
+            )
+        window.last_sweep_result = sweep
+        window._sweep_run_at = "2026-09-20T00:00:00+00:00"  # noqa: SLF001 — as _on_run_sweep records
+        window._sweep_model_serial = window._model_serial  # noqa: SLF001
+        window.action("file.export_sweep_csv").setEnabled(True)
+        fresh = tmp_path / "sweep_fresh.csv"
+        _save_to(monkeypatch, fresh)
+        window.action("file.export_sweep_csv").trigger()
+        assert _stamp_lines(fresh)["stale"] == "no"
+
+        window.sensor.set("detector.qe_value", 0.5)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.parameter_panel.parameterEdited.emit("detector.qe_value")
+        stale = tmp_path / "sweep_stale.csv"
+        _save_to(monkeypatch, stale)
+        window.action("file.export_sweep_csv").trigger()
+        assert _stamp_lines(stale)["stale"].startswith("yes — the configuration was edited")
+
+    def test_workbook_carries_a_run_sheet(self, qtbot, tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        import openpyxl
+
+        window = _window(qtbot)
+        dest = tmp_path / "wb.xlsx"
+        _save_to(monkeypatch, dest)
+        window.action("file.export_xlsx").trigger()
+        book = openpyxl.load_workbook(dest)
+        assert "Run" in book.sheetnames
+        rows = {row[0].value: row[1].value for row in book["Run"].iter_rows(min_row=2)}
+        assert rows["stale"] == "no" and rows["run_id"]

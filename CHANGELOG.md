@@ -42,6 +42,15 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Every result export carries a run stamp with a stale marker (CU-374
+  F-34 / F-35).** A retained sweep exported after edits, and a metrics export
+  written after a failed re-evaluation, could not be told from current ones.
+  The metrics and sweep CSVs now open with `# key: value` lines (run id,
+  evaluated-at, RADIANT build and commit, config path, `stale`), the workbook
+  gains a `Run` sheet, and the status bar repeats the stale note.
+  `ChainResult.to_csv`, `SweepResult.to_csv` and `Sweep2DResult.to_csv` gain
+  an optional `stamp=` mapping; `radiant.io.results.write_stamp_lines` is the
+  shared writer.
 - **Sweep exports carry units, plain numbers and the axis as typed (CU-374
   F-17 / F-31).** The sweep CSV and the workbook's Sweep sheet had bare
   column names, `np.float64(…)` literals in the FWHM cells and axis values

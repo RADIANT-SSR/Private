@@ -238,3 +238,21 @@ Once a run exists, the File menu's export actions enable:
 
 Export Sweep CSV… joins them once a sweep has been run (chapter 10). The two YAML exports
 write configuration rather than results, and are chapter 11's subject.
+
+**Every result export carries a run stamp.** The CSVs open with `# key: value` comment lines
+and the workbook carries a `Run` sheet:
+
+```text
+# run_id: 3f9c…
+# evaluated_at: 2026-09-20T14:02:11+00:00
+# radiant: v1.4.0 (+bf8a2118)
+# config: /…/mwir_leo_minimal.yaml
+# stale: no
+```
+
+`stale` is the line to read. It says `yes — the configuration was edited after this run` when
+the numbers on screen predate your last edit (the gray strip, the amber **Re-evaluate**), and
+`yes — the last re-evaluation failed; this is the previous result` when the window is showing
+the result it kept after a failed run. A sweep's stamp says when it ran and whether the
+configuration was edited after it. The status bar repeats the stale note when it applies, so a
+file cannot leave the tool looking current when it is not.

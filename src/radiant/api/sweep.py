@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import pickle
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field
@@ -23,7 +23,7 @@ import numpy.typing as npt
 from radiant.api._progress import CancelFn, ProgressFn, check_cancel
 from radiant.api.errors import ApiValidationError
 from radiant.core.parameters import ParameterSet
-from radiant.io.results import ChainResult
+from radiant.io.results import ChainResult, write_stamp_lines
 
 logger = logging.getLogger(__name__)
 
@@ -95,8 +95,10 @@ class SweepResult:
             dtype=np.float64,
         )
 
-    def to_csv(self, path: str | Path) -> Path:
+    def to_csv(self, path: str | Path, *, stamp: Mapping[str, str] | None = None) -> Path:
         """Write the sweep as CSV: param column + the primary metric — Gap 88.
+
+        *stamp* writes ``# key: value`` lines first (the run stamp, CU-374 F-34).
 
         With kept results, every metric across all points is included (one
         column per metric key). Every column header carries its unit as
@@ -117,6 +119,7 @@ class SweepResult:
             )
         units = metric_units(self.results)
         with open(out, "w", encoding="utf-8", newline="") as f:
+            write_stamp_lines(f, stamp)
             writer = _csv.writer(f)
             writer.writerow(
                 [
@@ -187,17 +190,18 @@ class Sweep2DResult:
     param2_unit: str = ""
     metric_unit: str = ""
 
-    def to_csv(self, path: str | Path) -> Path:
+    def to_csv(self, path: str | Path, *, stamp: Mapping[str, str] | None = None) -> Path:
         """Write the 2-D grid in long form (param1,param2,metric) — Gap 88.
 
         Headers carry units as ``name [unit]``; cells are plain 15-significant-
-        digit numbers (CU-374 F-17).
+        digit numbers (CU-374 F-17); *stamp* writes ``# key: value`` lines first.
         """
         import csv as _csv
 
         out = Path(path)
         out.parent.mkdir(parents=True, exist_ok=True)
         with open(out, "w", encoding="utf-8", newline="") as f:
+            write_stamp_lines(f, stamp)
             writer = _csv.writer(f)
             writer.writerow(
                 [

@@ -22,7 +22,8 @@ from __future__ import annotations
 import json
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -322,6 +323,13 @@ class RADIANTMainWindow(QMainWindow):
         self._last_run: ConfigSetRunResult | None = None
         # GT-1: the last completed sweep (SweepResult | Sweep2DResult), for export.
         self.last_sweep_result: object | None = None
+        # Run stamps (CU-374 F-34/F-35): when the displayed result was evaluated,
+        # when the retained sweep ran, and a model serial that every model change
+        # bumps so an export can say whether what it writes is stale.
+        self._result_evaluated_at: str | None = None
+        self._sweep_run_at: str | None = None
+        self._model_serial: int = 0
+        self._sweep_model_serial: int | None = None
         self._evaluation_count: int = 0
         # The config-time atmosphere-coverage refusal this window put in the Messages
         # rail on edit (CU-239), so it can be cleared again — and only it (Rule 17).
@@ -1498,6 +1506,7 @@ class RADIANTMainWindow(QMainWindow):
         surfaced.
         """
         self._last_result = result
+        self._result_evaluated_at = datetime.now(UTC).isoformat(timespec="seconds")
         # Bind the fresh result into the scripting console (updates `result`/`plot` and
         # clears its stale banner — the GUI and console now agree, arch doc §2.5), then
         # refresh the Workspace so it reflects the newly-bound `result` (a result re-bind
@@ -2029,6 +2038,8 @@ class RADIANTMainWindow(QMainWindow):
         """
         self._config_set = config_set
         self._last_run = None
+        self._model_serial += 1
+        self._result_evaluated_at = None
         # The previous document's result is gone with it (CU-373 F-51): its
         # saturation banner, warnings, stale notice and chip health must not stay
         # on screen describing a configuration that no longer exists — a swap to
@@ -2317,6 +2328,7 @@ class RADIANTMainWindow(QMainWindow):
         if self._sensor is None:
             return
         self._dirty = True
+        self._model_serial += 1
         self.setWindowTitle(self._compose_title())
 
     # -- Undo / redo (arch doc §10, GUI plan Phase 9) ----------------------
@@ -2381,6 +2393,8 @@ class RADIANTMainWindow(QMainWindow):
         exec_dialog(dialog)
         if dialog.sweep_result is not None:
             self.last_sweep_result = dialog.sweep_result
+            self._sweep_run_at = datetime.now(UTC).isoformat(timespec="seconds")
+            self._sweep_model_serial = self._model_serial
             self.action("file.export_sweep_csv").setEnabled(True)
             self.statusBar().showMessage(
                 "Sweep complete — result retained (export via SweepResult.to_csv)"
@@ -2481,6 +2495,48 @@ class RADIANTMainWindow(QMainWindow):
         )
         self._open_script_scaffold("Batch", snippet)
 
+    def result_stamp(self) -> dict[str, str]:
+        """The run stamp every result export carries (CU-374 F-34/F-35).
+
+        Which run (id, when), which RADIANT (version + commit), which document
+        and configuration, and — the line that matters — whether the result on
+        screen is **stale**: the configuration was edited after it, or the last
+        re-evaluation failed and the window is still showing the previous result.
+        """
+        result = self._last_result
+        stale = "no"
+        if self._right_rail.messages.has_error():
+            stale = "yes — the last re-evaluation failed; this is the previous result"
+        elif self._right_rail.run_button.is_stale():
+            stale = "yes — the configuration was edited after this run"
+        cs = self._config_set
+        stamp = {
+            "run_id": str(getattr(getattr(result, "state", None), "run_id", "") or ""),
+            "evaluated_at": self._result_evaluated_at or "",
+            "radiant": build_info().one_line(),
+            "config": str(self._current_path) if self._current_path else "unsaved",
+            "stale": stale,
+        }
+        if cs is not None and len(cs) > 1:
+            stamp["configuration"] = cs.active
+        return stamp
+
+    def sweep_stamp(self) -> dict[str, str]:
+        """The run stamp the sweep export carries (CU-374 F-34)."""
+        stale = "no"
+        if self._sweep_model_serial is not None and self._sweep_model_serial != self._model_serial:
+            stale = "yes — the configuration was edited after this sweep ran"
+        return {
+            "swept_at": self._sweep_run_at or "",
+            "radiant": build_info().one_line(),
+            "config": str(self._current_path) if self._current_path else "unsaved",
+            "stale": stale,
+        }
+
+    @staticmethod
+    def _stale_note(stamp: Mapping[str, str]) -> str:
+        return " (stale — see the stamp lines)" if stamp.get("stale", "no") != "no" else ""
+
     def _save_dialog(self, title: str, default: str, filter_: str) -> str | None:
         filename, _ = QFileDialog.getSaveFileName(self, title, default, filter_)
         return filename or None
@@ -2508,8 +2564,9 @@ class RADIANTMainWindow(QMainWindow):
         filename = self._save_dialog("Export metrics CSV", "metrics.csv", "CSV (*.csv)")
         if filename is None:
             return
-        self._last_result.to_csv(filename)
-        self.statusBar().showMessage(f"Metrics exported to {filename}")
+        stamp = self.result_stamp()
+        self._last_result.to_csv(filename, stamp=stamp)
+        self.statusBar().showMessage(f"Metrics exported to {filename}{self._stale_note(stamp)}")
 
     def _on_export_sweep_csv(self) -> None:
         """File → Export Sweep CSV… (GT-4): the retained sweep's to_csv (FW-B)."""
@@ -2519,8 +2576,9 @@ class RADIANTMainWindow(QMainWindow):
         filename = self._save_dialog("Export sweep CSV", "sweep.csv", "CSV (*.csv)")
         if filename is None:
             return
-        sweep.to_csv(filename)
-        self.statusBar().showMessage(f"Sweep exported to {filename}")
+        stamp = self.sweep_stamp()
+        sweep.to_csv(filename, stamp=stamp)  # type: ignore[attr-defined]
+        self.statusBar().showMessage(f"Sweep exported to {filename}{self._stale_note(stamp)}")
 
     def _on_export_xlsx(self) -> None:
         """File → Export XLSX Workbook… (GT-4, owner D2): config + metrics + sweep."""
@@ -2532,8 +2590,11 @@ class RADIANTMainWindow(QMainWindow):
             return
         from radiant.gui.xlsx_export import export_workbook
 
-        export_workbook(filename, sensor, self._last_result, self.last_sweep_result)
-        self.statusBar().showMessage(f"Workbook exported to {filename}")
+        stamp = self.result_stamp()
+        if self.last_sweep_result is not None:
+            stamp.update({f"sweep_{k}": v for k, v in self.sweep_stamp().items()})
+        export_workbook(filename, sensor, self._last_result, self.last_sweep_result, stamp=stamp)
+        self.statusBar().showMessage(f"Workbook exported to {filename}{self._stale_note(stamp)}")
 
     def _on_schema_browser(self) -> None:
         """Tools → Parameter Schema Browser: the read-only Gap-70 schema tree."""

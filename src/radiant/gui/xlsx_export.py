@@ -14,6 +14,7 @@ their own column (R-UNITS). Rule 30: openpyxl owns the file encoding.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -30,8 +31,15 @@ def export_workbook(
     sensor: Sensor,
     result: ChainResult | None,
     sweep: Any | None = None,
+    *,
+    stamp: Mapping[str, str] | None = None,
 ) -> Path:
-    """Write the config/metrics/sweep workbook to *path* and return it."""
+    """Write the config/metrics/sweep workbook to *path* and return it.
+
+    *stamp* (CU-374 F-34/F-35) adds a **Run** sheet of ``key / value`` rows — the
+    run stamp every export carries, so the workbook says which run it describes
+    and whether that run is stale.
+    """
     from openpyxl import Workbook
 
     book = Workbook()
@@ -89,6 +97,11 @@ def export_workbook(
                 )
                 sweep_sheet.append([float(v), float(m), *extras])
 
+    if stamp:
+        run_sheet = book.create_sheet("Run")
+        run_sheet.append(["key", "value"])
+        for key, value in stamp.items():
+            run_sheet.append([key, value])
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     book.save(out)

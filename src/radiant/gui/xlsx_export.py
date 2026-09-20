@@ -17,6 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from radiant.api.sweep import labeled_header, metric_units
 from radiant.core.exceptions import RadiantError
 
 if TYPE_CHECKING:
@@ -56,7 +57,13 @@ def export_workbook(
     if sweep is not None:
         sweep_sheet = book.create_sheet("Sweep")
         if hasattr(sweep, "grid"):  # Sweep2DResult — long form
-            sweep_sheet.append([sweep.param1_name, sweep.param2_name, sweep.metric_name])
+            sweep_sheet.append(
+                [
+                    labeled_header(sweep.param1_name, sweep.param1_unit),
+                    labeled_header(sweep.param2_name, sweep.param2_unit),
+                    labeled_header(sweep.metric_name, sweep.metric_unit),
+                ]
+            )
             for i, v1 in enumerate(sweep.values1):
                 for j, v2 in enumerate(sweep.values2):
                     sweep_sheet.append([float(v1), float(v2), float(sweep.grid[i, j])])
@@ -66,7 +73,14 @@ def export_workbook(
                 extra = sorted(
                     set().union(*(set(r.metrics) for r in sweep.results)) - {sweep.metric_name}
                 )
-            sweep_sheet.append([sweep.param_name, sweep.metric_name, *extra])
+            units = metric_units(sweep.results)
+            sweep_sheet.append(
+                [
+                    labeled_header(sweep.param_name, sweep.param_unit),
+                    labeled_header(sweep.metric_name, units.get(sweep.metric_name, "")),
+                    *(labeled_header(name, units.get(name, "")) for name in extra),
+                ]
+            )
             for i, (v, m) in enumerate(zip(sweep.values, sweep.metric_values, strict=True)):
                 extras = (
                     [float(sweep.results[i].metrics.get(name, float("nan"))) for name in extra]

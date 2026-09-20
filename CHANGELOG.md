@@ -42,6 +42,15 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Sweep exports carry units, plain numbers and the axis as typed (CU-374
+  F-17 / F-31).** The sweep CSV and the workbook's Sweep sheet had bare
+  column names, `np.float64(…)` literals in the FWHM cells and axis values
+  like `0.32999999999999996`; `sampling_regime_code` and `niirs_extrapolated`
+  read as metric values. Headers are now `name [unit]` (`[code]` and
+  `[0/1 flag]` for the two internal columns), every cell is a plain
+  15-significant-digit number, and the axis reads the typed values.
+  `SweepResult` gains `param_unit`; `Sweep2DResult` gains `param1_unit`,
+  `param2_unit`, `metric_unit`.
 - **The audit-trail exports say where every value came from (CU-374 F-42).**
   `Export Resolved YAML…` (`Sensor.to_yaml(scope="resolved")`) now comments
   every parameter leaf with its provenance (`# user-set`, `# config`,

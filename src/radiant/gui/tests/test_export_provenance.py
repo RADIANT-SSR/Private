@@ -76,3 +76,39 @@ class TestF42AuditTrail:
         assert record["git_commit"].startswith(expected[:7]) or expected.startswith(
             record["git_commit"][:7]
         )
+
+
+class TestF17SweepCsvUnitsAndNumbers:
+    """F-17 / F-31: the sweep CSV had bare column names, `np.float64(…)` literals in
+    twelve cells, float-noise axis values, and codes/flags that read as values."""
+
+    def test_sweep_csv_has_units_plain_numbers_and_typed_axis(
+        self, qtbot, tmp_path, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        """J-1.1 step 21: sweep aperture 0.33 → 0.42 in 4 points, export the CSV."""
+        import csv
+
+        import numpy as np
+
+        window = _window(qtbot)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            window.last_sweep_result = window.sensor.sweep(
+                "optics.aperture_diameter_m", np.linspace(0.33, 0.42, 4), keep_results=True
+            )
+        window.action("file.export_sweep_csv").setEnabled(True)
+        dest = tmp_path / "sweep.csv"
+        _save_to(monkeypatch, dest)
+        window.action("file.export_sweep_csv").trigger()
+        rows = list(csv.reader(dest.read_text(encoding="utf-8").splitlines()))
+        header = rows[0]
+        assert header[0] == "optics.aperture_diameter_m [m]"
+        assert "snr" in header  # dimensionless: bare name
+        assert "fwhm_x_m [m]" in header
+        assert "niirs_extrapolated [0/1 flag]" in header  # F-31: self-describing
+        assert "sampling_regime_code [code]" in header
+        assert [row[0] for row in rows[1:]] == ["0.33", "0.36", "0.39", "0.42"]
+        assert not any(cell.startswith("np.") for row in rows for cell in row)
+        for row in rows[1:]:
+            for cell in row:
+                float(cell)  # every cell is a number

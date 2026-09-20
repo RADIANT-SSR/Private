@@ -94,9 +94,11 @@ class TestSweepAndMcExports:
             )
         out = sweep.to_csv(tmp_path / "sweep.csv")
         rows = list(csv.reader(out.read_text(encoding="utf-8").splitlines()))
-        assert rows[0][0] == "optics.aperture_diameter_m"
+        assert rows[0][0] == "optics.aperture_diameter_m [m]"  # CU-374 F-17: units in headers
         assert len(rows) == 4  # header + 3 points
-        assert "contrast_snr" in rows[0]  # kept results widen to all metrics
+        assert "contrast_snr" in rows[0]  # kept results widen to all metrics (unitless)
+        assert rows[1][0] == "0.2" and rows[2][0] == "0.3"  # plain numbers, no float noise
+        assert not any(cell.startswith("np.") for row in rows for cell in row)
 
     def test_mc_to_csv(self, tmp_path: Path) -> None:
         s = _sensor().set_tolerance("detector.qe_value", "gaussian", std=0.02)

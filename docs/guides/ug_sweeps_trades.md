@@ -96,7 +96,11 @@ The last-run specification persists across dialog openings, so a loop you run se
 week reopens already configured.
 
 The completed sweep is retained on the window: **File ▸ Export Sweep CSV…** enables, and the
-XLSX workbook export picks the sweep up as a sheet.
+XLSX workbook export picks the sweep up as a sheet. Every column of that CSV carries its unit in
+the header — `optics.aperture_diameter_m [m]`, `nedt_K [K]`, `snr` bare when dimensionless — and
+a code or flag metric says so (`niirs_extrapolated [0/1 flag]`, `sampling_regime_code [code]`)
+so it cannot be read as a value; cells are plain numbers, and the axis column reads the values
+you typed.
 
 ## 2. Tools ▸ Solve for Parameter…
 

@@ -424,10 +424,17 @@ class TestFrozenLabelColumn:
         configuration column beside dead whitespace.
         """
         window = _open_three_band(qtbot, tmp_path)
-        window.resize(1200, 800)
+        # The default 1440 px window. This test used to pass at 1200 px only because
+        # the Performance pane OVERFLOWED its column: the fixed Compute row forced a
+        # ~690 px minimum width inside a 540 px centre. CU-376 F-38 made that row
+        # wrap, so the pane now honestly takes the centre's width (and F-14 widened
+        # the dock by 60 px); narrower than the grid, it scrolls inside the card —
+        # the CU-347 contract tested above — rather than the pane overflowing.
+        window.resize(1440, 900)
         cards = _cards(window)
         window.show()
         qtbot.waitExposed(window)
+        label_w = max(label.width() for label in cards._labels.values())
         for scroll in self._scrolls(cards):
             card = scroll.parentWidget()
             # The empty second grid column must not steal pane width from the card…
@@ -435,9 +442,16 @@ class TestFrozenLabelColumn:
                 f"matrix card is {card.width()}px in a {cards.width()}px pane — "
                 "the two-up flow's empty grid column is taking half the width"
             )
-            # …and at 1200 px a three-configuration value grid must fit unclipped.
-            content_w = scroll.widget().sizeHint().width()
-            assert scroll.viewport().width() >= content_w, (
-                f"value viewport {scroll.viewport().width()}px clips its "
-                f"{content_w}px content — the scroll area is not stretching"
+            # …the value area stretches to the card (not its size hint), whatever
+            # the dock leaves the centre column…
+            assert scroll.width() >= card.width() - label_w - 48, (
+                f"value scroll {scroll.width()}px in a {card.width()}px card beside a "
+                f"{label_w}px label column — the scroll area is not stretching"
+            )
+            # …and at the default window a three-configuration value grid needs no
+            # horizontal scroll (the grid's size hint grows with the viewport, so the
+            # scrollbar range — driven by the minimum hint — is the honest measure).
+            assert scroll.horizontalScrollBar().maximum() == 0, (
+                f"value viewport {scroll.viewport().width()}px scrolls a three-"
+                "configuration grid at the default window width"
             )

@@ -64,22 +64,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: workflow-visible (intake test 4) — this is the owner's "conflict you cannot fix one edit at a time" report, and it is owner-gated (test 2) because the remedy is a mode-model decision.
 **Suggested fix**: (b) stand-alone task after the Gap 85 ruling — either a mode selector that withdraws the other doors' explicit values (with an undo step), or a "withdraw and switch" action on the rejection; show derived values in inactive fields; make LTAN/LST exclusive on the card; add a lab door. Effort M–L; Category D.
 
-### CU-376 — Parameters dock ergonomics: full rebuild on every accepted edit loses selection and scroll, names elided at default width, in-place editor unusable on a blank configuration, small-window clipping (usability-audit family)
-
-**Discovered**: GUI usability audit, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Bootstrap_Recovery.md` F-14, `Findings_Tracks.md` F-38, `Findings_Live_Session_1.md` F-45/F-46/F-49).
-**Status**: Open — live-review rule gates the merge.
-**File**: `src/radiant/gui/widgets/parameter_panel.py` (`populate` → `_tree.clear()`), `parameter_delegate.py`, `stage_center.py` (tab labels), `main_window.py` (dock sizing).
-**Symptom**: checklist —
-
-- [ ] F-45 (S2, live): every accepted edit clears and rebuilds the tree, so the selected row is lost and the view jumps to the top; on a from-scratch build the operator re-scrolls after every value (owner: "very annoying").
-- [ ] F-46 (S2, live): on a blank configuration the Value column collapses to ~10 px and the in-place editor, when reached, accepts typing and then reverts to `—` with no message (the headless path shows the rejection modal; natively it is lost in the editor-close sequence).
-- [ ] F-14 (S3): at the default dock width names elide to `sens…de_m`, `targ…ge_m`; the `target.shape.*` rows are indistinguishable.
-- [ ] F-38 (S3): at 1024×640 the stage strip scrolls, the Compute row shows two of five groups, rail messages clamp at three lines.
-- [ ] F-49 (S4, live): Source tab labels truncate to "Target — th…", "Target — point s…" at 1440 px.
-
-**Why it still matters**: workflow-visible (intake test 4); the dock is the only surface that reaches every parameter and the from-scratch path lives in it.
-**Suggested fix**: (b) stand-alone task — update rows in place (or restore selection, expansion and scroll after populate); give the Value column a floor; route the in-place rejection through the same inline error state the dialog uses; size the dock by content. Effort M; Category D (GUI tests).
-
 ### CU-375 — Trade surfaces hide the result's own flags: sweeps and solves over clipped or refused metrics report success, the solve dialog defaults to the alphabetically first metric, detection pass/fail is a vanished row, batch scaffold starts from an empty config, compare refuses study files (usability-audit family)
 
 **Discovered**: GUI usability audit phases 2 and 4, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Journeys_P1_P4.md` F-18/F-19/F-23/F-24/F-27, `Findings_Journeys_P5_P7.md` F-41).
@@ -285,6 +269,23 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix**: (b) stand-alone GUI task once ruled — most likely land the vectors and arc apex at the body *centre* in every composition and carry the centre along the ray, so no composition rule moves. Live-review required. Effort S; category A.
 
 ## Resolved
+
+### CU-376 — Parameters dock ergonomics: full rebuild on every accepted edit loses selection and scroll, names elided at default width, in-place editor unusable on a blank configuration, small-window clipping (usability-audit family) — RESOLVED 2026-09-20 (commit trailer)
+
+**Discovered**: GUI usability audit, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Bootstrap_Recovery.md` F-14, `Findings_Tracks.md` F-38, `Findings_Live_Session_1.md` F-45/F-46/F-49).
+**Status**: Resolved 2026-09-20 — usability-audit fix batch 2 (`fix376/dock-ergonomics`, stacked on batch 1; one commit per checklist item, each with a pinning test that fails on the pre-fix code); live-reviewed per the GUI live-review rule before merge.
+**File**: `src/radiant/gui/widgets/parameter_panel.py` (`populate` → `_tree.clear()`), `parameter_delegate.py`, `stage_center.py` (tab labels), `main_window.py` (dock sizing).
+**Symptom**: checklist —
+
+- [x] F-45 (S2, live): every accepted edit clears and rebuilds the tree, so the selected row is lost and the view jumps to the top; on a from-scratch build the operator re-scrolls after every value (owner: "very annoying").
+- [x] F-46 (S2, live): on a blank configuration the Value column collapses to ~10 px and the in-place editor, when reached, accepts typing and then reverts to `—` with no message (the headless path shows the rejection modal; natively it is lost in the editor-close sequence).
+- [x] F-14 (S3): at the default dock width names elide to `sens…de_m`, `targ…ge_m`; the `target.shape.*` rows are indistinguishable.
+- [x] F-38 (S3): at 1024×640 the stage strip scrolls, the Compute row shows two of five groups, rail messages clamp at three lines.
+- [x] F-49 (S4, live): Source tab labels truncate to "Target — th…", "Target — point s…" at 1440 px.
+
+**Why it still matters**: workflow-visible (intake test 4); the dock is the only surface that reaches every parameter and the from-scratch path lives in it.
+**Suggested fix**: (b) stand-alone task — update rows in place (or restore selection, expansion and scroll after populate); give the Value column a floor; route the in-place rejection through the same inline error state the dialog uses; size the dock by content. Effort M; Category D (GUI tests).
+**Resolution**: rows refresh in place after an edit (selection, expansion and scroll survive); the Value column has a floor so it is a click target on a blank configuration (its rejection path landed under CU-372); the default dock is 420 px with a 110 px value cap and a 200 px name floor, measured against the widest leaf names; the Performance *Compute:* row wraps (`widgets/flow_layout.py`) and the Messages list scrolls; stage tab titles never elide. F-38's stage-strip half is the documented horizontal-scroll contract (Findings-Log line).
 
 ### CU-372 — GUI edit discipline misrepresents state on unresolved configurations and consistency-group members (usability-audit family) — RESOLVED 2026-09-20 (commit trailer)
 

@@ -838,7 +838,12 @@ box for an int, a line edit for a float or free string. Each commit is exactly o
 `sensor.set(dotpath, value)` (§4.1). To keep the live sensor untouched on rejection, the
 value is first validated on a throwaway `sensor.clone()` (the API's own resolve does the
 validating — no reimplemented physics); only a clean value is applied to the live sensor
-and the row (value + provenance) is refreshed by re-reading the resolved set.
+and the row (value + provenance) is refreshed by re-reading the resolved set — **in
+place** (CU-376 F-45): a re-populate with the same sensor object re-renders the existing
+rows through the one row renderer instead of clearing and rebuilding the tree, so the
+selected row, the expansion state and the scroll position survive every accepted edit
+(before F-45 the view jumped to the top after each value). Only a different sensor
+object (Open, New, a YAML Apply) rebuilds.
 `ParameterBoundsError` / `UnknownParameterError` / consistency-group violations (all
 surfaced by the resolver — the generic schema-bounds path raises a flat
 `CoreValidationError`, tracked as CU-107) render their what/why/action **inline on the

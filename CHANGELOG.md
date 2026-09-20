@@ -42,6 +42,10 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **The Parameters dock keeps your place across an edit (CU-376 F-45).**
+  Every accepted edit rebuilt the tree, losing the selected row and jumping
+  the view to the top. Rows are now refreshed in place; selection, expansion
+  and scroll survive.
 - **A horizon-guard refusal is an advisory, not a modal per re-evaluation
   (CU-373 F-28, routing half).** Lowering a sensor while a ground-range door
   still held the old range passed through a grazing geometry whose refusal

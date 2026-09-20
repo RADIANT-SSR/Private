@@ -126,9 +126,10 @@ Two conventions to know:
 
 **A failed metric names its reason.** The performance layer is allowed to return a typed
 failure instead of raising, so a metric that could not be computed renders as
-`n/a (<reason>)` — for example a detection range with no threshold crossing. What it never
-renders as is a bare `nan`, and what it never does is propagate silently into a metric that
-depends on it.
+`n/a (<reason>)` — for example a detection range below the threshold you set, which reads
+`n/a (Target not detectable at minimum range 5000 m: SNR = 5.80 < 6.0)` in its own row of the
+Radiometric card: the pass/fail and the threshold, together. What it never renders as is a
+bare `nan`, and what it never does is propagate silently into a metric that depends on it.
 
 **Absence is shown, not filled.** A metric the run did not produce is an em dash.
 

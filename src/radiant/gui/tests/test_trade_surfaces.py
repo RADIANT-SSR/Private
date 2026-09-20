@@ -102,3 +102,51 @@ class TestF23CompareReadsStudies:
         dialog.start_comparison()
         assert dialog.status_text.startswith("Config load failed")
         assert "ConfigurationSet.load" not in dialog.status_text
+
+
+class TestF27DeclinedMetricsKeepTheirRow:
+    """F-27: below the detection threshold `detection_range_m` simply disappeared —
+    no pass/fail reading, the threshold not echoed anywhere near the result."""
+
+    def test_below_threshold_detection_shows_the_reason_and_threshold(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """J-3.2 step 25: a point-source scene whose SNR at the reference range misses
+        the threshold. The shipped air-to-air IRST example delivers SNR ~298; the
+        schema's ceiling threshold (100) with a 10x shorter integration (SNR ~87)
+        puts the target below it, exactly Raj's 5 km-visibility case."""
+        import radiant
+
+        irst = (
+            Path(radiant.__file__).resolve().parent / "data" / "examples" / "air_to_air_irst.yaml"
+        )
+        sensor = (
+            Sensor.load(irst)
+            .set("performance.detection_snr_threshold", 100.0)
+            .set("spectral_integration.integration_time_s", 1e-5)
+        )
+        window = RADIANTMainWindow(sensor, path=str(irst))
+        qtbot.addWidget(window)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+                pass
+        assert "detection_range_m" not in window.last_result.metrics  # the run declined it
+        window.central_canvas.stage_center.select_stage("performance")
+        cards = window.central_canvas.stage_center.pane("performance").metric_cards
+        assert cards is not None
+        assert "detection_range_m" in cards.declined_keys()
+        assert "detection_range_m" not in cards.rendered_keys()  # not a computed value
+        text = cards.value_text("detection_range_m")
+        assert text.startswith("n/a (")
+        assert "not detectable" in text and "100" in text  # the pass/fail and the threshold
+
+    def test_niirs_declined_names_its_reason_on_the_pinned_card(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """F-19's other half: NIIRS refused (outside GIQE-5) says why, not 'not computed'."""
+        from radiant.gui.metric_format import badge_display
+
+        window = _window(qtbot)
+        result = window.last_result
+        assert "niirs" not in result.metrics
+        value, reason = badge_display(result, "niirs")
+        assert value == "n/a"
+        assert reason is not None and reason != "not computed for this run"
+        assert "GIQE" in reason or "extrapolat" in reason

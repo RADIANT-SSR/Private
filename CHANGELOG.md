@@ -46,6 +46,13 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **A declined metric keeps its row and names its reason (CU-375 F-27; the
+  GUI half of CU-371 II-009).** Below the detection threshold
+  `detection_range_m` simply disappeared from the readout, and a refused
+  NIIRS read `n/a — not computed for this run`. Both now render
+  `n/a (<reason>)` in their group — the detection row echoes the threshold
+  and the SNR that missed it, the NIIRS row says the GIQE-5 envelope was
+  refused — and the pinned cards say the same.
 - **Compare Config Files… reads study files (CU-375 F-23).** A study the
   operator had just saved was refused with "load it with
   ConfigurationSet.load(path)". The dialog now reads every file through the

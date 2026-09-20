@@ -423,8 +423,9 @@ class TestGeometryScreenIntegration:
 
         Two disagreeing viewing doors are set through the public API, forcing the stage's
         ``GeometrySpecificationError`` at evaluate; the window highlights the viewing
-        selector and shows the Geometry screen (Phase 5 task 3). The actionable dialog is
-        captured so it does not block the event loop.
+        selector and shows the Geometry screen (Phase 5 task 3). Since CU-373 F-09 the
+        conflict is an advisory (Geometry chip red, no modal); the dialog patch below
+        proves none opens.
         """
         window = _load_window(qtbot)
         shown: list[aed.ActionableErrorDialog] = []
@@ -436,7 +437,9 @@ class TestGeometryScreenIntegration:
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             window.parameter_panel.parameterEdited.emit("geometry.path_zenith_rad")
 
-        assert len(shown) == 1  # the stage's actionable error surfaced
+        assert shown == []  # advisory, never a modal per re-evaluation (CU-373 F-09)
+        assert window.stage_strip.chip("geometry").status == "err"
+        assert window.right_rail.messages.has_error()
         form = window.central_canvas.stage_center.pane("geometry").geometry_form
         assert form is not None
         assert form.is_conflicting("viewing")

@@ -295,10 +295,14 @@ class TestEvaluateAll:
         # The displayed configuration still rendered its own result.
         assert window.right_rail.pinned.cards["snr"].value_text() != "—"
 
-    def test_displayed_failure_takes_todays_modal_path(  # type: ignore[no-untyped-def]
+    def test_displayed_failure_takes_the_single_model_path(  # type: ignore[no-untyped-def]
         self, qtbot, tmp_path, monkeypatch
     ) -> None:
-        """A failure in the displayed configuration behaves exactly as before."""
+        """A failure in the displayed configuration behaves exactly as in a plain session.
+
+        Since CU-373 F-09 an over-constrained consistency group found at evaluation is
+        an advisory (Optics chip red, no modal), so that is the path asserted here.
+        """
         window = _open_study(qtbot, tmp_path)
         shown: list[aed.ActionableErrorDialog] = []
         monkeypatch.setattr(aed.ActionableErrorDialog, "exec", lambda self: shown.append(self) or 0)
@@ -309,7 +313,8 @@ class TestEvaluateAll:
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
             window._evaluate_now()
 
-        assert len(shown) == 1
+        assert shown == []  # advisory, as in a plain session (CU-373 F-09)
+        assert window.stage_strip.chip("optics").status == "err"
         assert window.right_rail.messages.has_error()
         assert window.central_canvas.stale_notice.isHidden() is False
         # The underlying physics error is shown, not the configuration-set wrapper —

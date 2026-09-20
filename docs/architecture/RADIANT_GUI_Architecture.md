@@ -1322,6 +1322,13 @@ swallowed (Rule 17). **Errors surface here too**: a `RadiantError` renders its a
 **what / why / action** (Rule 15), and clicking opens the full message. This is the
 warning strip relocated and widened to carry errors as well as warnings.
 
+*Document swap hygiene (CU-373 F-51).* `_adopt_config_set` — the one place a document
+becomes live — clears the previous result's saturation banner, warnings, stale notice and
+chip health before binding the new document, so a swap to an unresolvable document (a YAML
+Apply that deletes a required value) does not leave the old configuration's banners on
+screen with no stale marker; and `StageCenter.bind_sensor` keeps a selected stage on its
+editable composite rather than forcing the placeholder.
+
 *Multi-configuration attribution (Phase 4a).* In a study, each warning is prefixed with
 the configuration that raised it (`LWIR: UserWarning: …`) so a per-band effect never reads
 as a property of the whole study; a **single-configuration session shows the bare text it

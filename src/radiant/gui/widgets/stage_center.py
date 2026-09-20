@@ -1469,9 +1469,10 @@ class StageCenter(QWidget):
         # (live review 2026-09-07): the no-document prompt read as a refusal.
         self._placeholder.show_edit_prompt(sensor is not None)
         # Re-render: a stage already selected switches to its editable
-        # composite immediately (pre-result display gate below).
+        # composite immediately (pre-result display gate below) — and stays
+        # there; forcing the placeholder here dropped the centre to "New
+        # configuration" although a stage was selected (CU-373 F-51).
         self._render_selection()
-        self._stack.setCurrentWidget(self._placeholder)
         for pane in self._panes.values():
             pane.bind_sensor(sensor, display_units)
 

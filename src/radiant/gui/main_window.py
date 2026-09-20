@@ -2013,6 +2013,15 @@ class RADIANTMainWindow(QMainWindow):
         """
         self._config_set = config_set
         self._last_run = None
+        # The previous document's result is gone with it (CU-373 F-51): its
+        # saturation banner, warnings, stale notice and chip health must not stay
+        # on screen describing a configuration that no longer exists — a swap to
+        # an unresolvable document produces no run to replace them.
+        self._last_result = None
+        self._central.saturation_banner.clear_banner()
+        self._central.stale_notice.setVisible(False)
+        self._right_rail.messages.set_warnings(())
+        self._stage_strip.set_all_status("stale")
         try:
             self._sensor = self._materialize_display_sensor()
         except RadiantError as exc:

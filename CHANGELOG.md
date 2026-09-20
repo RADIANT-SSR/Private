@@ -42,6 +42,12 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **A document swap clears the previous result (CU-373 F-51).** After a
+  YAML Apply that left the configuration unresolvable, the old result's
+  saturation banner and warnings stayed on screen with no stale marker, and
+  the centre dropped to the "New configuration" placeholder although a stage
+  was selected. Adopting a document now clears the banner, warnings, stale
+  notice and chip colours, and the selected stage keeps its editable screen.
 - **The incomplete-config advisory names the panel that carries the field
   (CU-373 F-47).** `Config incomplete — set spectral_integration.integration_time_s`
   reddened the Spectral chip, whose form holds only the filter edges; the

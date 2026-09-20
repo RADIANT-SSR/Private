@@ -198,6 +198,12 @@ interrupt.
 **A failed evaluation leaves the previous result on screen**, marked stale, with the failure
 in Messages. It never shows a blank, and it never shows a mixture of old and new numbers.
 
+**A new document starts clean.** Opening a file, applying a YAML edit or starting a blank
+configuration clears the previous document's result — its saturation banner, its warnings,
+the stale notice and the chip colours — because that result described a configuration that is
+gone; a document that resolves re-evaluates at once, one that does not shows its stage screens
+editable with the incomplete-configuration status line.
+
 **Run ▸ Validate Only** (`Ctrl+R`) is present but not wired in this build. The resolve-only
 check runs from the command line as `radiant validate <config>`, and the configuration
 manager's Status column applies it per configuration (chapter 8, §3).

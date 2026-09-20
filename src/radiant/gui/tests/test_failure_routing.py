@@ -336,3 +336,38 @@ class TestF47AdvisoryNamesTheOwningPanel:
         assert center.stage_owning_field("spectral_integration.filter_min_um") == (
             "spectral_integration"
         )
+
+
+class TestF51DocumentSwapClearsThePreviousResult:
+    """F-51: after a YAML Apply that left the document unresolvable, the previous
+    result's saturation banner and warnings stayed with no stale marker, and the
+    centre dropped to the "New configuration" placeholder although a stage was
+    selected."""
+
+    def test_swap_to_an_unresolvable_document_clears_banners_and_keeps_the_stage(
+        self, qtbot, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
+        window = _complete_window(qtbot, monkeypatch)
+        canvas = window.central_canvas
+        # The audit's minimal configuration saturates: banner up, warnings listed.
+        assert not canvas.saturation_banner.isHidden()
+        assert window.right_rail.messages.warning_count > 0
+        window.stage_strip.stageClicked.emit("optics")
+        assert canvas.stage_center.selected_stage == "optics"
+
+        dialog = window.open_yaml_editor()
+        assert dialog is not None
+        qtbot.addWidget(dialog)
+        text = dialog.yaml_text()
+        dialog.editor.setPlainText(text.replace("  qe_value: 0.7\n", ""))
+        dialog.apply_button.click()  # admitted (incomplete), adopts without a run
+
+        assert window.sensor.peek_input("detector.qe_value") is None
+        assert canvas.saturation_banner.isHidden()
+        assert canvas.stale_notice.isHidden()
+        assert window.right_rail.messages.warning_count == 0
+        assert not window.right_rail.messages.has_error()
+        assert all(_chip_status(window, ns) == "stale" for ns in ("optics", "detector"))
+        assert canvas.stage_center.selected_stage == "optics"
+        assert not canvas.stage_center.is_placeholder()  # the editable composite
+        assert "incomplete" in window.statusBar().currentMessage()

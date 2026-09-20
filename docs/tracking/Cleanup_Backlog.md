@@ -47,16 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-378 — GUI resident memory grows ~0.8 MB per accepted edit and ~17 MB per three-point sweep and is never released (usability-audit F-55)
-
-**Discovered**: GUI usability audit T-L soak addendum (`docs/reports/gui_usability_audit_2026-09/Findings_Tracks.md`, F-55, 2026-09-19); re-measured 2026-09-20 on merged `main` (266a9d9c) after CU-376's in-place tree refresh removed the suspected cause — unchanged.
-**Status**: Investigated 2026-09-20 — mechanism named, owner ruling pending (ACCEPTED proposed). Attribution: (1) the growth reproduces through the bare API with no window (200 alternating `Sensor.evaluate` calls keeping only the latest result: 242 → 938 MB), so the GUI is not the retainer; (2) one retained `ChainResult` keeps ~34 MB alive, almost all PSF grids in `stage_outputs` (`optics.effective_psf`, `optics.reference_psf`, `platform.effective_psf`, `performance.effective_psf` — 16.8 MB each with sharing — plus an 8 MB pupil grid), so a sweep with kept results holds ~100 MB and releases it when dropped (measured −126 MB); (3) resident memory **plateaus**: 600 API evaluations ran 241 → 534 → 610 → 1004 → 1038 → 1055 → 1055 MB, flat from ~400 on — the stepwise growth is the allocator retaining freed 8–17 MB FFT/PSF grids for reuse, not a Python-level leak (tracemalloc between edits 100 and 200 attributes only the retained result's grids). The audit's "measured in gigabytes" extrapolation does not hold; the ceiling is ~1.1 GB for one sensor, ~1.3 GB with retained sweeps.
-**File**: `src/radiant/gui/main_window.py` (result retention across evaluations), `src/radiant/gui/widgets/stage_center.py` / `matplotlib_canvas.py` (figure replacement), `src/radiant/gui/widgets/sweep_dialog.py` (retained sweep results); mechanism not yet named.
-**Symptom**: 200 accepted `detector.qe_value` edits through the editor dialog on the audit's complete from-scratch configuration, offscreen, production debounce: resident memory 415 → 997 MB after 50 edits, 1040 after 100, 1077 after 200 (≈0.8 MB/edit steady), 1243 MB after ten three-point sweeps (≈17 MB/sweep), flat across 40 Inspector cycles; per-edit time flat at 0.58 s. The audit's 2026-09-19 numbers were 529 / 992 / 1055 / 1105 / 1324 MB — the same shape, so the `populate()` rebuild CU-376 removed was not the mechanism.
-**Why it still matters**: workflow-visible (intake test 4) — an analyst's day of sweeps is measured in gigabytes; the T-L soak is the documented reproduction.
-**Suggested fix**: ACCEPTED (owner ruling requested) — a bounded ~1.1–1.3 GB working set from allocator retention of freed PSF grids plus ~34 MB per retained result; no GUI change would move it, and shrinking the per-result grids (float32, or dropping the duplicated `effective_psf` publications) is a results-adjacent library decision outside this CU. If the plateau is judged too high for the target machines, the follow-on is a library task on the PSF grid footprint, not a GUI one.
-
-
 ### CU-377 — Mode and door switching has no switch affordance: selectors are display-only, other doors' values linger, inactive doors show schema defaults (usability-audit family, owner-gated)
 
 **Discovered**: GUI usability audit phases 1–4 and live session 1, 2026-09-19 (`docs/reports/gui_usability_audit_2026-09/Findings_Bootstrap_Recovery.md` F-05/F-07/F-15, `Findings_Journeys_P1_P4.md` F-25/F-26, `Findings_Journeys_P5_P7.md` F-43, `Findings_Live_Session_1.md` F-48).
@@ -247,6 +237,16 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix**: (b) stand-alone GUI task once ruled — most likely land the vectors and arc apex at the body *centre* in every composition and carry the centre along the ray, so no composition rule moves. Live-review required. Effort S; category A.
 
 ## Resolved
+
+### CU-378 — GUI resident memory grows ~0.8 MB per accepted edit and ~17 MB per three-point sweep and is never released (usability-audit F-55) — ACCEPTED 2026-09-20 (no commit — limitation: resident memory plateaus at ~1.1 GB for one sensor, ~1.3 GB with retained sweeps — allocator retention of freed PSF grids plus ~34 MB per retained result; not a leak, not GUI-caused)
+
+**Discovered**: GUI usability audit T-L soak addendum (`docs/reports/gui_usability_audit_2026-09/Findings_Tracks.md`, F-55, 2026-09-19); re-measured 2026-09-20 on merged `main` (266a9d9c) after CU-376's in-place tree refresh removed the suspected cause — unchanged.
+**Status**: Accepted 2026-09-20 — owner ruling ("accepted") after the attribution below; the plateau is the model's known working set on the target machines.
+**File**: `src/radiant/gui/main_window.py` (result retention across evaluations), `src/radiant/gui/widgets/stage_center.py` / `matplotlib_canvas.py` (figure replacement), `src/radiant/gui/widgets/sweep_dialog.py` (retained sweep results); mechanism not yet named.
+**Symptom**: 200 accepted `detector.qe_value` edits through the editor dialog on the audit's complete from-scratch configuration, offscreen, production debounce: resident memory 415 → 997 MB after 50 edits, 1040 after 100, 1077 after 200 (≈0.8 MB/edit steady), 1243 MB after ten three-point sweeps (≈17 MB/sweep), flat across 40 Inspector cycles; per-edit time flat at 0.58 s. The audit's 2026-09-19 numbers were 529 / 992 / 1055 / 1105 / 1324 MB — the same shape, so the `populate()` rebuild CU-376 removed was not the mechanism.
+**Why it still matters**: workflow-visible (intake test 4) — an analyst's day of sweeps is measured in gigabytes; the T-L soak is the documented reproduction.
+**Suggested fix**: ACCEPTED (owner ruling requested) — a bounded ~1.1–1.3 GB working set from allocator retention of freed PSF grids plus ~34 MB per retained result; no GUI change would move it, and shrinking the per-result grids (float32, or dropping the duplicated `effective_psf` publications) is a results-adjacent library decision outside this CU. If the plateau is judged too high for the target machines, the follow-on is a library task on the PSF grid footprint, not a GUI one.
+**Resolution**: ACCEPTED — the growth is bounded (600 bare-API evaluations plateau at 1055 MB from ~400 on) and reproduces without the GUI; the audit's per-day extrapolation does not hold. Should the ceiling ever matter on a target machine, the follow-on is a library task on the PSF grid footprint (one published grid instead of four, or single precision — results-adjacent), minted then.
 
 ### CU-374 — Export formats: sweep CSV without units and with numpy literals, study workbook exports one unlabeled configuration, stale results export without a marker, audit-trail exports carry no provenance (usability-audit family) — RESOLVED 2026-09-20 (commit trailer)
 

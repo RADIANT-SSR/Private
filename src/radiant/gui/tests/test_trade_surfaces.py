@@ -57,3 +57,48 @@ class TestF24BatchScaffoldStartsFromTheScreen:
         # changed — the same order of magnitude as the on-screen SNR, never a blank
         # configuration's.
         assert all(0.1 * base_snr < v < 10 * base_snr for v in values), values
+
+
+class TestF23CompareReadsStudies:
+    """F-23: Tools ▸ Compare Config Files… refused a study file the operator had just
+    saved, with "load it with ConfigurationSet.load(path)"."""
+
+    def test_a_saved_study_compares_one_column_per_configuration(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """J-4.2: File ▸ Save As on a study, then add that file to the comparison."""
+        from radiant.api.config_set import ConfigurationSet
+        from radiant.gui.widgets.comparison_dialog import ComparisonDialog
+
+        sensor = Sensor.load(_EXAMPLE)
+        study = ConfigurationSet(sensor.clone(), names=("MWIR", "Wide"))
+        study.configure("optics.aperture_diameter_m", [0.3, 0.5])
+        study_path = tmp_path / "j42_study.yaml"
+        study.save(study_path)
+
+        dialog = ComparisonDialog(sensor)
+        qtbot.addWidget(dialog)
+        dialog.add_config(study_path)
+        assert "2 configurations" in dialog._config_list.item(1).text()  # noqa: SLF001
+        baselines = [dialog._baseline.itemText(i) for i in range(dialog._baseline.count())]  # noqa: SLF001
+        assert baselines == ["current", "j42_study:MWIR", "j42_study:Wide"]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with qtbot.waitSignal(dialog.comparisonSettled, timeout=_WAIT_MS):
+                dialog.start_comparison()
+        assert "load failed" not in dialog.status_text
+        cmp_ = dialog.comparison
+        assert cmp_ is not None
+        assert cmp_.labels == ("current", "j42_study:MWIR", "j42_study:Wide")
+        snr = cmp_.row("snr")
+        assert snr.best_index == 2  # the wide aperture wins SNR
+
+    def test_a_bad_file_still_reports_plainly(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.comparison_dialog import ComparisonDialog
+
+        dialog = ComparisonDialog(Sensor.load(_EXAMPLE))
+        qtbot.addWidget(dialog)
+        bad = tmp_path / "junk.yaml"
+        bad.write_text("nonsense: {here: true}\n", encoding="utf-8")
+        dialog.add_config(bad)
+        dialog.start_comparison()
+        assert dialog.status_text.startswith("Config load failed")
+        assert "ConfigurationSet.load" not in dialog.status_text

@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.api import ComparisonError, Sensor, compare_configs
+from radiant.api.config_set import ConfigurationSet
 from radiant.core.exceptions import RadiantError
 
 # The one place the Tools action and the dialog title agree on their wording (CU-214).
@@ -52,6 +53,31 @@ COMPARE_FILES_TITLE: str = "Compare Config Files"
 
 if TYPE_CHECKING:
     from radiant.api import ComparisonResult
+
+
+def _column_labels(path: Path) -> list[str]:
+    """The column labels *path* will contribute, without evaluating anything.
+
+    One label (the stem) for a plain config or an unreadable file (its failure
+    surfaces when the comparison runs); ``stem:name`` per configuration for a study.
+    """
+    try:
+        config_set = ConfigurationSet.load(path)
+    except RadiantError:
+        return [path.stem]
+    if len(config_set) == 1 and not config_set.configured():
+        return [path.stem]
+    return [f"{path.stem}:{name}" for name in config_set.names()]
+
+
+def _columns_for(path: Path) -> list[tuple[str, Sensor]]:
+    """``(label, sensor)`` columns for *path* — the loaded plain config, or each
+    configuration of a study materialized through ``sensor_for`` (the API's one
+    materialization path, so configured values and element rows apply)."""
+    config_set = ConfigurationSet.load(path)
+    if len(config_set) == 1 and not config_set.configured():
+        return [(path.stem, config_set.base)]
+    return [(f"{path.stem}:{name}", config_set.sensor_for(name)) for name in config_set.names()]
 
 
 class _EvaluateAllWorker(QThread):
@@ -90,7 +116,11 @@ class ComparisonDialog(QDialog):
         self._sensor = sensor
         self._worker: _EvaluateAllWorker | None = None
         self.comparison: ComparisonResult | None = None
-        self._extra_paths: list[Path] = []
+        # Added files: (path, column labels). A plain config is one column named by
+        # its stem; a study file is one column per configuration, "stem:name"
+        # (CU-375 F-23 — the dialog reads both kinds through the one loader File ▸
+        # Open uses, instead of refusing a study with an API instruction).
+        self._entries: list[tuple[Path, list[str]]] = []
 
         layout = QVBoxLayout(self)
 
@@ -151,18 +181,30 @@ class ComparisonDialog(QDialog):
             self.add_config(Path(filename))
 
     def add_config(self, path: Path) -> None:
-        """Add a config file column (label = file stem)."""
-        self._extra_paths.append(path)
-        self._config_list.addItem(str(path))
-        self._baseline.addItem(path.stem)
+        """Add a config file: one column (file stem) or, for a study, one per configuration.
+
+        The file is read now to learn its columns (``ConfigurationSet.load`` reads
+        both document kinds, exactly as File ▸ Open does); a file that does not load
+        is still listed, so **Run comparison** reports the failure actionably.
+        """
+        labels = _column_labels(path)
+        self._entries.append((path, labels))
+        suffix = f"  ({len(labels)} configurations)" if len(labels) > 1 else ""
+        self._config_list.addItem(f"{path}{suffix}")
+        for label in labels:
+            self._baseline.addItem(label)
 
     def _on_remove(self) -> None:
         index = self._config_list.currentRow()
         if index <= 0:  # the current-sensor column is fixed
             return
         self._config_list.takeItem(index)
-        self._extra_paths.pop(index - 1)
-        self._baseline.removeItem(index)
+        _path, labels = self._entries.pop(index - 1)
+        # Baseline items mirror the evaluated columns: "current", then every
+        # entry's labels in order — drop this entry's block.
+        first = 1 + sum(len(entry_labels) for _p, entry_labels in self._entries[: index - 1])
+        for _ in labels:
+            self._baseline.removeItem(first)
 
     # -- run -----------------------------------------------------------------------
 
@@ -170,10 +212,11 @@ class ComparisonDialog(QDialog):
         """Load + evaluate every column on the worker, then build the matrix."""
         items: list[tuple[str, Sensor]] = [("current", self._sensor.clone())]
         try:
-            for path in self._extra_paths:
-                items.append((path.stem, Sensor.load(path)))
+            for path, _labels in self._entries:
+                items.extend(_columns_for(path))
         except RadiantError as exc:
-            self._status.setText(f"Config load failed — {exc}")
+            what = str(getattr(exc, "what", "") or exc)
+            self._status.setText(f"Config load failed — {what}")
             return
         if len(items) < 2:
             self._status.setText("Add at least one config file to compare against.")

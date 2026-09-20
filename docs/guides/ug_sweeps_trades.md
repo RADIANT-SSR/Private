@@ -122,7 +122,9 @@ study, and *those* are compared by the Performance columns (chapter 8, §5) and 
 `ConfigurationSet.compare`. This dialog is the file-level comparison, and the two are unrelated
 mechanisms.
 
-Add files; each column evaluates once, sequentially, on a worker thread with progress. The
+Add files — a plain config becomes one column named by its file stem, and a **study file**
+becomes one column per configuration, named `file:configuration`, read through the same loader
+File ▸ Open uses. Each column evaluates once, sequentially, on a worker thread with progress. The
 result is an aligned matrix: union-of-metrics rows with their registry units, per-metric deltas
 against the baseline column you choose, and conservative best-per-metric marks rendered bold
 with a ✓. A metric absent from one config shows an em dash — never a zero.

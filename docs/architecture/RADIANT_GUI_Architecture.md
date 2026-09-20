@@ -2217,7 +2217,10 @@ per-configuration surface — that is §4.2e's Performance columns and the scrip
 `ConfigurationSet.compare`.
 
 - **Columns**: the current live config (always first, evaluated on a clone) plus N config
-  files added via a file picker; baseline column selectable.
+  files added via a file picker; baseline column selectable. A file is read through
+  `ConfigurationSet.load` — the one reader File → Open uses — so a **study file** contributes
+  one column per configuration, labelled `stem:name` and materialized through `sensor_for`
+  (CU-375 F-23; the dialog used to refuse a study with an API instruction).
 - **Execution**: each column evaluates once, sequentially, on a worker thread with progress;
   a failed column reports which config failed and why (actionable), never a partial table.
 - **Matrix**: `compare_configs` (Gap 79) — union-of-metrics rows, registry units, per-metric

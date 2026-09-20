@@ -46,6 +46,11 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Compare Config Files… reads study files (CU-375 F-23).** A study the
+  operator had just saved was refused with "load it with
+  ConfigurationSet.load(path)". The dialog now reads every file through the
+  loader File ▸ Open uses; a study contributes one column per configuration,
+  named `file:configuration`.
 - **Run ▸ Batch Run… scaffolds from the configuration on screen (CU-375
   F-24).** The skeleton started from `base = {}` and asked the operator to
   reconstruct her sensor as a dict; it now starts from `sensor.to_dict()`

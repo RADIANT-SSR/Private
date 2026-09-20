@@ -308,3 +308,31 @@ class TestF44BareLaunchShowsWelcome:
         assert window.is_welcome()
         assert window.sensor is None
         assert "template" in window.statusBar().currentMessage()
+
+
+class TestF47AdvisoryNamesTheOwningPanel:
+    """F-47: the required-parameter advisory reddened the Spectral chip for
+    spectral_integration.integration_time_s, and the Spectral form has no such field —
+    it lives on Readout ▸ Acquisition."""
+
+    def test_integration_time_advisory_points_at_readout(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        window = _blank_window(qtbot)
+        opened = _capture_modals(monkeypatch)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            for dotpath, text in _COMPLETE:
+                if dotpath != "spectral_integration.integration_time_s":
+                    _dialog_set(window, dotpath, text)
+        assert opened == []
+        status = window.statusBar().currentMessage()
+        assert "set spectral_integration.integration_time_s on the Readout panel" in status
+        assert _chip_status(window, "readout") == "err"
+        assert _chip_status(window, "spectral_integration") == "stale"
+
+    def test_owning_stage_is_read_from_the_forms(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        window = _blank_window(qtbot)
+        center = window.central_canvas.stage_center
+        assert center.stage_owning_field("spectral_integration.integration_time_s") == "readout"
+        assert center.stage_owning_field("detector.pixel_pitch_x_um") == "detector"
+        assert center.stage_owning_field("spectral_integration.filter_min_um") == (
+            "spectral_integration"
+        )

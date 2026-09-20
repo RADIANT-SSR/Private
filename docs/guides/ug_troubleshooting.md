@@ -219,7 +219,7 @@ specific fix named in the status bar, and the full what / why / action in the Me
 
 | Situation | Status bar says |
 |---|---|
-| a required parameter is unset (e.g. after removing an FPA preset that supplied it) | `Config incomplete — set detector.pixel_pitch_x_um (see Messages; the previous result is shown, stale)` |
+| a required parameter is unset (e.g. after removing an FPA preset that supplied it) | `Config incomplete — set detector.pixel_pitch_x_um on the Detector panel (see Messages; the previous result is shown, stale)` — the panel named, and the chip reddened, is the one whose form carries the field (`integration_time_s` is a Spectral parameter edited on Readout ▸ Acquisition, so it says Readout) |
 | a file-mode atmosphere (`atmosphere.model: tabulated`) has no files set | the same incomplete-config advisory, naming `atmosphere.tabulated_transmittance_file` — not a coverage refusal |
 | a calibration scheme is active without its cal point | `The calibration scheme needs its cal temperature(s) — set them on the Calibration panel (see Messages; the previous result is shown, stale)` |
 | digital counting is selected without a charge packet | `Digital counting needs a charge packet — set readout.count_packet_e on the Readout panel (see Messages; the previous result is shown, stale)` |

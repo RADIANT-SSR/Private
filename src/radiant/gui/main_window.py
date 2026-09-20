@@ -1702,15 +1702,15 @@ class RADIANTMainWindow(QMainWindow):
         # the owning stage's chip goes red, everything else stale, the status
         # bar names the parameter, and the Messages rail carries the full text.
         if isinstance(exc, RequiredParameterError):
-            self._stage_strip.set_all_status("stale")
-            stage = exc.param.split(".", 1)[0]
-            with_chip = stage in STAGE_NAMESPACES
-            if with_chip:
-                self._stage_strip.set_status(stage, "err")
-            self.statusBar().showMessage(
-                f"Config incomplete — set {exc.param} (see Messages; the previous "
-                "result is shown, stale)"
+            # The chip and the hint name the panel whose form carries the field,
+            # not the schema namespace (CU-373 F-47): integration_time_s is a
+            # spectral_integration parameter edited on Readout ▸ Acquisition.
+            stage = (
+                self._central.stage_center.stage_owning_field(exc.param)
+                or exc.param.split(".", 1)[0]
             )
+            where = f" on the {_STAGE_TITLE[stage]} panel" if stage in _STAGE_TITLE else ""
+            self._advise(stage, f"Config incomplete — set {exc.param}{where}")
             return
         if isinstance(exc, RadiantError):
             # A genuine rejection found at evaluation: titled by its cause (CU-373

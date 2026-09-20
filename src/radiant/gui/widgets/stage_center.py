@@ -1199,6 +1199,29 @@ class StagePane(QWidget):
             or self._metric_selection_forms
         )
 
+    def owns_field(self, dotpath: str) -> bool:
+        """True when one of this pane's input forms carries an editable row for *dotpath*.
+
+        Read off the forms' own ``field_dotpaths()`` manifests, so the answer is the
+        screen's, not the schema namespace's: ``spectral_integration.integration_time_s``
+        is edited on the Readout pane's Acquisition group (CU-373 F-47).
+        """
+        forms: list[object] = [
+            *self._source_forms,
+            *self._optics_forms,
+            *self._detector_forms,
+            *self._spectral_forms,
+            *self._platform_forms,
+            *self._readout_forms,
+            *self._calibration_forms,
+            *self._atmosphere_forms,
+        ]
+        for form in forms:
+            field_dotpaths = getattr(form, "field_dotpaths", None)
+            if field_dotpaths is not None and dotpath in field_dotpaths():
+                return True
+        return False
+
     def show_awaiting(self) -> None:
         """Enter the pre-result state: input forms live, result sections labelled.
 
@@ -1411,6 +1434,20 @@ class StageCenter(QWidget):
     def pane(self, namespace: str) -> StagePane:
         """The :class:`StagePane` for *namespace* (KeyError if unknown — programmer error)."""
         return self._panes[namespace]
+
+    def stage_owning_field(self, dotpath: str) -> str | None:
+        """The namespace of the stage whose form edits *dotpath*, or ``None``.
+
+        Chain order; the first pane carrying the field wins. A parameter no form
+        shows (dock-only) returns ``None`` and the caller falls back to the schema
+        namespace. This is what lets an advisory point at the panel where the
+        operator can actually act (CU-373 F-47: the Spectral chip reddened for
+        ``integration_time_s`` while the Spectral form had no such field).
+        """
+        for namespace, pane in self._panes.items():
+            if pane.owns_field(dotpath):
+                return namespace
+        return None
 
     def bind_sensor(self, sensor: Sensor | None, display_units: dict[str, str]) -> None:
         """Bind the live *sensor* + shared display-unit store into every stage's forms.

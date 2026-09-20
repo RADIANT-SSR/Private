@@ -42,6 +42,12 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **The incomplete-config advisory names the panel that carries the field
+  (CU-373 F-47).** `Config incomplete — set spectral_integration.integration_time_s`
+  reddened the Spectral chip, whose form holds only the filter edges; the
+  field is on Readout ▸ Acquisition. The chip and the status line now follow
+  the form that edits the parameter (`… on the Readout panel`), falling back
+  to the schema namespace for dock-only parameters.
 - **`radiant gui` with no file opens on the welcome screen (CU-373 F-44).**
   The CLI handed the window a blank configuration, so the mission templates,
   Blank config card, worked examples and recent list appeared only after

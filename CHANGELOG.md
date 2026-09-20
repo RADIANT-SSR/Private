@@ -46,6 +46,15 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Sweep and solve target lists open on SNR, leave out codes and flags,
+  and explain a missing metric (CU-375 F-19 / F-41).** The solve dialog
+  opened alphabetically on `adc_margin_dB`, offered `sampling_regime_code`
+  and `niirs_extrapolated` as targets, and never said why NIIRS was absent;
+  a remembered sweep metric this run lacked was silently swapped for the
+  first entry. Both pickers now share one list — radiometric metrics first,
+  internal columns excluded, declined metrics greyed with their reason (a
+  solve or sweep aimed at one is refused with that reason), and a
+  remembered metric the run lacks named in the status line.
 - **A declined metric keeps its row and names its reason (CU-375 F-27; the
   GUI half of CU-371 II-009).** Below the detection threshold
   `detection_range_m` simply disappeared from the readout, and a refused

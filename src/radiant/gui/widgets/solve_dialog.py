@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from radiant.core.exceptions import RadiantError
+from radiant.gui.metric_format import declined_metrics, metric_choices, metric_display_label
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
@@ -72,6 +73,8 @@ class SolveDialog(QDialog):
         sensor: Sensor,
         metric_names: tuple[str, ...],
         parent: QWidget | None = None,
+        *,
+        result: Any | None = None,
     ) -> None:
         super().__init__(parent)
         self.setObjectName("solveDialog")
@@ -98,8 +101,21 @@ class SolveDialog(QDialog):
         grid.addWidget(self._param, 0, 1, 1, 3)
         grid.addWidget(self._unit, 0, 4)
 
+        # Target metrics (CU-375 F-19 / F-41): from the last result when there is
+        # one — grouped with SNR's group first, codes and flags left out, and every
+        # metric the run DECLINED listed greyed with its reason so its absence is
+        # explained rather than silently swapped for the first entry.
         self._metric = QComboBox(self)
-        self._metric.addItems(list(metric_names) or ["snr"])
+        self._declined: dict[str, str] = {}
+        choices = tuple(metric_choices(result)) if result is not None else tuple(metric_names)
+        for key in choices or ("snr",):
+            self._metric.addItem(metric_display_label(key), userData=key)
+        if result is not None:
+            for key, reason in declined_metrics(result):
+                self._declined[key] = reason
+                self._metric.addItem(f"{metric_display_label(key)} — n/a: {reason}", userData=key)
+                item = self._metric.model().item(self._metric.count() - 1)
+                item.setEnabled(False)
         self._target = QLineEdit("500", self)
         grid.addWidget(QLabel("Target metric"), 1, 0)
         grid.addWidget(self._metric, 1, 1)
@@ -144,10 +160,17 @@ class SolveDialog(QDialog):
 
     def start_solve(self) -> None:
         """Validate the spec and launch the worker (clone — never the live sensor)."""
+        metric_key = str(self._metric.currentData() or self._metric.currentText())
+        if metric_key in self._declined:
+            self._status.setText(
+                f"{metric_display_label(metric_key)} is not available for this run — "
+                f"{self._declined[metric_key]} A solve cannot target it."
+            )
+            return
         try:
             spec = {
                 "param": self._param.currentText(),
-                "metric": self._metric.currentText(),
+                "metric": metric_key,
                 "target": float(self._target.text()),
                 "bounds": (float(self._lo.text()), float(self._hi.text())),
             }
@@ -194,6 +217,11 @@ class SolveDialog(QDialog):
         self._status.setText(
             f"Applied: {result.param_name} = {result.solution:.6g} — re-evaluate to see it."
         )
+
+    @property
+    def metric_combo(self) -> QComboBox:
+        """The target-metric selector (tests)."""
+        return self._metric
 
     @property
     def status_text(self) -> str:

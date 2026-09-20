@@ -73,6 +73,7 @@ from radiant.gui.display_units import drop_governed_overrides, set_angles_in_deg
 from radiant.gui.document_yaml import is_study
 from radiant.gui.errors import GuiValidationError
 from radiant.gui.geometry_modes import implicated_families
+from radiant.gui.metric_format import metric_choices
 from radiant.gui.metric_matrix import ConfigurationColumns, build_metric_matrix
 from radiant.gui.param_format import format_value
 from radiant.gui.settings_store import SettingsStore
@@ -2386,10 +2387,10 @@ class RADIANTMainWindow(QMainWindow):
         if sensor is None:
             return
         if self._last_result is not None:
-            metric_names = tuple(sorted(self._last_result.metrics))
+            metric_names = metric_choices(self._last_result)
         else:
             metric_names = ("snr",)
-        dialog = SweepDialog(sensor, metric_names, self)
+        dialog = SweepDialog(sensor, metric_names, self, result=self._last_result)
         exec_dialog(dialog)
         if dialog.sweep_result is not None:
             self.last_sweep_result = dialog.sweep_result
@@ -2406,11 +2407,11 @@ class RADIANTMainWindow(QMainWindow):
         if sensor is None:
             return
         metric_names = (
-            tuple(sorted(self._last_result.metrics)) if self._last_result is not None else ("snr",)
+            metric_choices(self._last_result) if self._last_result is not None else ("snr",)
         )
         from radiant.gui.widgets.solve_dialog import SolveDialog
 
-        exec_dialog(SolveDialog(sensor, metric_names, self))
+        exec_dialog(SolveDialog(sensor, metric_names, self, result=self._last_result))
 
     def _on_mtf_overlay(self) -> None:
         """Tools → Compare Measured MTF… (GT-5): lab points over the predicted curve."""

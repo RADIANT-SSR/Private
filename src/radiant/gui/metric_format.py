@@ -361,6 +361,47 @@ def declined_metrics(result: ChainResult) -> tuple[tuple[str, str], ...]:
     return tuple(declined)
 
 
+#: Group order for a *target* list (a sweep's or solve's metric picker): what an
+#: analyst wants to hit first — SNR and its radiometric kin — then
+#: interpretability, then the spatial and sampling descriptors, saturation last
+#: (CU-375 F-19: the picker used to open alphabetically on ``adc_margin_dB``).
+TARGET_GROUP_ORDER: Final[tuple[str, ...]] = (
+    "radiometric",
+    "interpretability",
+    "spatial_mtf",
+    "sampling",
+    "saturation",
+)
+
+
+def metric_choices(result: ChainResult) -> tuple[str, ...]:
+    """Metric keys a sweep or solve may target, from *result*, in target order.
+
+    Every computed metric except the ``code`` / ``flag`` kinds (an enumeration or
+    a 0/1 flag is not a quantity to sweep toward — CU-375 F-19 / F-31), grouped
+    by :data:`TARGET_GROUP_ORDER` with SNR's group first, and within a group in
+    the registry's physics reading order (:data:`METRIC_DISPLAY_LABELS`). Pure and
+    Qt-free; the declined metrics a picker greys out come from
+    :func:`declined_metrics`.
+    """
+    display_rank = {key: i for i, key in enumerate(METRIC_DISPLAY_LABELS)}
+    unranked = len(display_rank)
+    buckets: dict[str, list[str]] = {group: [] for group in TARGET_GROUP_ORDER}
+    ungrouped: list[str] = []
+    for rec in result.metric_records():
+        if rec.kind in ("code", "flag") or rec.name in _SUPPRESSED_DISPLAY_KEYS:
+            continue
+        try:
+            buckets[group_of(rec.name)].append(rec.name)
+        except KeyError:
+            ungrouped.append(rec.name)
+    ordered: list[str] = []
+    for group in TARGET_GROUP_ORDER:
+        ordered.extend(sorted(buckets[group], key=lambda k: display_rank.get(k, unranked)))
+    ordered.extend(ungrouped)
+    return tuple(ordered)
+
+
 @dataclass(frozen=True, slots=True)
 class DeclinedRecord:
     """A stand-in metric record for a declined metric (renders as ``n/a (<reason>)``).
@@ -411,6 +452,8 @@ def badge_display(result: ChainResult, metric_key: str) -> tuple[str, str | None
 
 
 __all__ = [
+    "TARGET_GROUP_ORDER",
+    "metric_choices",
     "DeclinedRecord",
     "declined_metrics",
     "BADGE_METRICS",

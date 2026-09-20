@@ -41,7 +41,13 @@ Ticking **Second parameter (2-D grid)** reveals an identical second block. A 2-D
 *different* parameters; naming the same one twice is refused before anything runs.
 
 **Metric** chooses what is plotted. The list is the live metric set from the last result, so
-it reflects the metric groups you actually have switched on (chapter 9, §2).
+it reflects the metric groups you actually have switched on (chapter 9, §2). It is ordered
+for the question you are asking — SNR and the other radiometric metrics first, then
+interpretability, spatial, sampling and saturation — and it leaves out the two internal code
+and flag columns. A metric the run *declined* (NIIRS outside its calibration envelope, a
+detection range below threshold) is listed greyed with its reason, so its absence is explained
+rather than silent; a remembered metric that this run does not have is named in the status
+line instead of being swapped for the first entry.
 
 ### 1.2 Running it
 
@@ -105,7 +111,9 @@ you typed.
 ## 2. Tools ▸ Solve for Parameter…
 
 The inverse of a sweep. Pick the free parameter, the target metric and the value you want, and
-a bracket in the parameter's input unit; a Brent iteration runs on a worker thread against a
+a bracket in the parameter's input unit; the target list is the sweep dialog's — SNR first,
+codes and flags left out, declined metrics greyed with their reason (asking for one is refused
+with that reason, never a solve against something else); a Brent iteration runs on a worker thread against a
 clone. Success reports the solution with its unit, the metric value actually achieved, and how
 many evaluations it took, and offers **Apply solution** — one edit to the live sensor, only if
 you ask for it.

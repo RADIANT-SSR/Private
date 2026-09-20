@@ -150,3 +150,67 @@ class TestF27DeclinedMetricsKeepTheirRow:
         assert value == "n/a"
         assert reason is not None and reason != "not computed for this run"
         assert "GIQE" in reason or "extrapolat" in reason
+
+
+class TestF19F41TargetMetricLists:
+    """F-19: the solve dialog opened on `adc_margin_dB`, offered codes and flags as
+    targets, and never said why NIIRS was missing. F-41: a metric absent from the
+    list was silently swapped for the first entry."""
+
+    def test_solve_list_opens_on_snr_without_codes_and_names_declined_metrics(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.solve_dialog import SolveDialog
+
+        window = _window(qtbot)
+        result = window.last_result
+        dialog = SolveDialog(window.sensor, ("snr",), result=result)
+        qtbot.addWidget(dialog)
+        combo = dialog.metric_combo
+        keys = [combo.itemData(i) for i in range(combo.count())]
+        assert keys[0] == "snr" and combo.itemText(0) == "SNR"
+        assert "sampling_regime_code" not in keys and "niirs_extrapolated" not in keys
+        assert "niirs" in keys  # declined (outside GIQE-5): listed, greyed, with its reason
+        niirs_index = keys.index("niirs")
+        assert not combo.model().item(niirs_index).isEnabled()
+        assert combo.itemText(niirs_index).startswith("NIIRS — n/a: ")
+
+    def test_solving_for_a_declined_metric_is_refused_with_the_reason(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        from radiant.gui.widgets.solve_dialog import SolveDialog
+
+        window = _window(qtbot)
+        dialog = SolveDialog(window.sensor, ("snr",), result=window.last_result)
+        qtbot.addWidget(dialog)
+        combo = dialog.metric_combo
+        combo.setCurrentIndex([combo.itemData(i) for i in range(combo.count())].index("niirs"))
+        dialog.start_solve()
+        assert dialog.solve_result is None
+        assert dialog.status_text.startswith("NIIRS is not available for this run")
+        assert "adc_margin_dB" not in dialog.status_text
+
+    def test_sweep_restore_names_a_metric_this_run_lacks(self, qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+        """J-5.3: last run swept mtf_at_nyquist; this run has the Spatial/MTF group off."""
+        from PySide6.QtCore import QSettings
+
+        from radiant.gui.settings_store import SettingsStore
+        from radiant.gui.widgets.sweep_dialog import SweepDialog
+
+        sensor = Sensor.load(_EXAMPLE).set("performance.metrics.spatial_mtf", False)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = sensor.evaluate()
+        assert "mtf_at_nyquist" not in result.metrics
+        settings = SettingsStore(QSettings(str(tmp_path / "s.ini"), QSettings.Format.IniFormat))
+        settings.set_last_sweep_spec(
+            {
+                "mode": "1d",
+                "param1": "optics.aperture_diameter_m",
+                "start1": "0.2",
+                "stop1": "0.4",
+                "n1": "3",
+                "log1": False,
+                "metric": "mtf_at_nyquist",
+            }
+        )
+        dialog = SweepDialog(sensor, ("snr",), settings=settings, result=result)
+        qtbot.addWidget(dialog)
+        assert "mtf_at_nyquist is not available for this run" in dialog.status_text
+        assert dialog._metric.currentData() != "mtf_at_nyquist"  # noqa: SLF001

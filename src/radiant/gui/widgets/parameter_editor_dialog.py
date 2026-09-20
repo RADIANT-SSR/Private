@@ -89,7 +89,13 @@ from radiant.core.exceptions import RadiantError
 from radiant.gui.config_scope import scope_of
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.display_units import global_display_unit
-from radiant.gui.edit_guard import apply_edit, apply_takeover, validate_edit, validate_takeover
+from radiant.gui.edit_guard import (
+    apply_edit,
+    apply_takeover,
+    companion_withdrawals,
+    validate_edit,
+    validate_takeover,
+)
 from radiant.gui.param_format import (
     DERIVED_BADGE,
     display_in_unit,
@@ -348,6 +354,18 @@ class ParameterEditorDialog(QDialog):
             self._add_row(form, "Derive instead", combo)
             self._release_combo = combo
 
+        # A switch commit withdraws the inputs the new selection rejects (a
+        # readout architecture / counting mode, a cal-point mode, a source target
+        # door — CU-377 F-07). The operator sees the list *before* committing;
+        # hidden for an ordinary edit. Kept in step with the editor's value.
+        self._withdraw_label = self._value_field("")
+        self._withdraw_label.setObjectName("paramEditorDerivedNote")
+        self._withdraw_label.setWordWrap(True)
+        self._withdraw_row_label = QLabel("Withdraws", self)
+        form.addRow(self._withdraw_row_label, self._withdraw_label)
+        self._withdraw_row_label.setVisible(False)
+        self._withdraw_label.setVisible(False)
+
         layout.addLayout(form)
 
     def _build_editor_row(self, layout: QVBoxLayout) -> QWidget:
@@ -583,6 +601,7 @@ class ParameterEditorDialog(QDialog):
             combo.addItems(list(pdef.enum_values))  # choices are schema-sourced
             pos = combo.findText("" if current is None else str(current))
             combo.setCurrentIndex(max(pos, 0))
+            combo.currentIndexChanged.connect(self._update_preview)
             return combo
         if pdef.dtype is bool:
             check = QCheckBox(self)
@@ -1090,6 +1109,7 @@ class ParameterEditorDialog(QDialog):
         state, not a swallowed failure — Apply is the honest surface that renders the
         actual actionable error (Rule 17).
         """
+        self._update_withdrawal_note()
         if self._unit_combo is None:
             return
         if self._per_config is not None:
@@ -1102,6 +1122,22 @@ class ParameterEditorDialog(QDialog):
             self._preview_label.setText(_PREVIEW_UNSET)
         else:
             self._preview_label.setText(f"= {format_value(canonical, self._pdef.canonical_unit)}")
+
+    def _update_withdrawal_note(self) -> None:
+        """Name the explicit inputs a commit of the current value would withdraw."""
+        if self._read_only or self._per_config is not None:
+            names: tuple[str, ...] = ()
+        else:
+            names = companion_withdrawals(self._sensor, self._dotpath, self._editor_value())
+        self._withdraw_label.setText(", ".join(names))
+        self._withdraw_row_label.setVisible(bool(names))
+        self._withdraw_label.setVisible(bool(names))
+
+    @property
+    def withdrawals(self) -> tuple[str, ...]:
+        """The inputs a commit of the current editor value withdraws (empty for an edit)."""
+        text = self._withdraw_label.text()
+        return tuple(text.split(", ")) if text else ()
 
     # -- error area ---------------------------------------------------------
 

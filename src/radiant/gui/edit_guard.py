@@ -39,6 +39,18 @@ and the one-door-per-geometry-family seam
 CU-377 — a second viewing/solar/kinematics/LOS-rate door entered outside the
 family's mode selector is refused at the door).
 
+**Companion withdrawals (Gap 117 pattern, generalised by CU-377).** Some commits
+are *switches*: a readout architecture or counting mode
+(:mod:`~radiant.gui.architecture_switch`), a cal-point mode
+(:mod:`~radiant.gui.calibration_switch`), or a value entered into one source
+target door while another door holds inputs
+(:mod:`~radiant.gui.source_door_switch`). The explicit inputs the new selection
+rejects are withdrawn **as part of the same logical action** — on the trial
+clone before the candidate ``set`` (so the seams judge the switched state, not
+the mixed one) and on the live sensor in the same order — and the window
+records the whole move as one undo step. :func:`companion_withdrawals` names
+them ahead of time so the editor can say what a commit will withdraw.
+
 **Mode switches (CU-377 F-05).** A geometry family's selector choice is planned
 by :mod:`~radiant.gui.mode_switch` (withdraw the other doors, seed the chosen
 one) and validated/applied here (:func:`validate_mode_switch` /
@@ -55,7 +67,7 @@ from typing import TYPE_CHECKING, Any
 
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import RequiredParameterError
-from radiant.gui.architecture_switch import SWITCH_DOTPATHS, apply_companion_resets
+from radiant.gui import architecture_switch, calibration_switch, source_door_switch
 from radiant.gui.geometry_mode_guard import introduced_geometry_mode_conflict
 from radiant.gui.target_spec_guard import introduced_target_spec_conflict
 
@@ -68,6 +80,7 @@ __all__ = [
     "apply_edit",
     "apply_mode_switch",
     "apply_takeover",
+    "companion_withdrawals",
     "validate_edit",
     "validate_mode_switch",
     "validate_reset",
@@ -107,6 +120,8 @@ def validate_edit(live: Sensor, dotpath: str, value: Any, unit: str | None) -> E
     """
     trial = live.clone()
     try:
+        for name in companion_withdrawals(live, dotpath, value):
+            trial.reset(name)
         if unit is not None:
             trial.set(dotpath, value, unit=unit)
         else:
@@ -120,6 +135,23 @@ def validate_edit(live: Sensor, dotpath: str, value: Any, unit: str | None) -> E
     if conflict is not None:
         return EditVerdict(None, conflict, None)
     return EditVerdict(canonical, None, None)
+
+
+def companion_withdrawals(live: Sensor, dotpath: str, value: Any) -> tuple[str, ...]:
+    """The explicit inputs a commit of ``dotpath = value`` withdraws alongside it.
+
+    Union of the three switch manifests (readout architecture / counting mode,
+    cal-point mode, source target doors), filtered to inputs the live sensor
+    actually holds — so the list is exactly what the commit will move, and is
+    empty for an ordinary edit. Read-only; the live sensor is not touched.
+    """
+    explicit = set(live.inputs())
+    names = (
+        *architecture_switch.companion_resets_for(dotpath, value),
+        *calibration_switch.companion_resets_for(dotpath, value),
+        *source_door_switch.companion_resets_for(dotpath),
+    )
+    return tuple(name for name in dict.fromkeys(names) if name in explicit and name != dotpath)
 
 
 def validate_reset(live: Sensor, dotpath: str) -> EditVerdict:
@@ -191,21 +223,24 @@ def apply_takeover(live: Sensor, dotpath: str, value: Any, unit: str | None, rel
 
 
 def apply_edit(live: Sensor, dotpath: str, value: Any, unit: str | None) -> tuple[str, ...]:
-    """Apply an **accepted** edit to *live*: one ``set``, plus its companion resets.
+    """Apply an **accepted** edit to *live*: its companion withdrawals, then one ``set``.
 
     The single mandated API call on the live sensor (§4.1), with ``unit=`` only
-    when a display-unit override is active. A readout architecture or counting-mode
-    switch (Gap 117) clears the explicit inputs the new selection rejects as part of
-    the same logical action, whichever path committed it; the cleared dot-paths are
-    returned so the caller can name them.
+    when a display-unit override is active. A switch (readout architecture or
+    counting mode, Gap 117; cal-point mode or a source target door, CU-377)
+    withdraws the explicit inputs the new selection rejects as part of the same
+    logical action, whichever path committed it — the same order the trial clone
+    was validated in; the withdrawn dot-paths are returned so the caller can name
+    them.
     """
+    withdrawn = companion_withdrawals(live, dotpath, value)
+    for name in withdrawn:
+        live.reset(name)
     if unit is not None:
         live.set(dotpath, value, unit=unit)
     else:
         live.set(dotpath, value)
-    if dotpath in SWITCH_DOTPATHS:
-        return apply_companion_resets(live, dotpath, value)
-    return ()
+    return withdrawn
 
 
 def validate_mode_switch(live: Sensor, plan: ModeSwitchPlan) -> EditVerdict:

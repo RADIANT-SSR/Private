@@ -293,3 +293,91 @@ class TestF25SiteAndTimeHourAngleToggle:
         toggle = form.subdoor_selector("S3")
         assert toggle is not None
         assert toggle.isHidden()  # S1 is active
+
+
+class TestF07DoorEntryWithdrawsTheOtherDoor:
+    """F-07: thermal ↔ reflective, point intensity and cal-point-mode switches each
+    needed N resets in the right order."""
+
+    def test_reflectance_withdraws_the_thermal_pair_in_one_step(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """Steps (thermal → reflective): (1) Complete configuration with temperature
+        and emissivity set. (2) source.target.reflectance = 0.5 through the editor.
+        (3) Edit → Undo."""
+        window = _complete_window(qtbot, monkeypatch)
+        dialog = _dialog(window, "source.target.reflectance")
+        qtbot.addWidget(dialog)
+        dialog.value_editor.setText("0.5")
+        assert dialog.withdrawals == ("source.target.temperature", "source.target.emissivity")
+        before = window._undo_stack.count()  # noqa: SLF001
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            dialog.apply(close=True)
+        inputs = window.sensor.inputs()
+        assert inputs["source.target.reflectance"] == 0.5
+        assert "source.target.temperature" not in inputs
+        assert "source.target.emissivity" not in inputs
+        assert not dialog.error_frame.isVisibleTo(dialog)
+        assert window._undo_stack.count() == before + 1  # noqa: SLF001
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            window.action("edit.undo").trigger()
+        inputs = window.sensor.inputs()
+        assert inputs["source.target.temperature"] == 300.0
+        assert inputs["source.target.emissivity"] == 0.95
+        assert "source.target.reflectance" not in inputs
+
+    def test_going_back_is_the_mirror(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        window = _complete_window(qtbot, monkeypatch)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, "source.target.reflectance", "0.5")
+        dialog = _dialog(window, "source.target.temperature")
+        qtbot.addWidget(dialog)
+        dialog.value_editor.setText("320")
+        assert dialog.withdrawals == ("source.target.reflectance",)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            dialog.apply(close=True)
+        inputs = window.sensor.inputs()
+        assert inputs["source.target.temperature"] == 320.0
+        assert "source.target.reflectance" not in inputs
+
+    def test_point_intensity_withdraws_the_thermal_pair(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """b5: a point intensity entered on a thermal configuration was rejected until
+        the temperature was reset."""
+        window = _complete_window(qtbot, monkeypatch)
+        dialog = _dialog(window, "source.target.point_intensity_band_W_per_sr")
+        qtbot.addWidget(dialog)
+        dialog.value_editor.setText("10")
+        assert dialog.withdrawals == ("source.target.temperature", "source.target.emissivity")
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            dialog.apply(close=True)
+        inputs = window.sensor.inputs()
+        assert inputs["source.target.point_intensity_band_W_per_sr"] == 10.0
+        assert "source.target.temperature" not in inputs
+        assert not dialog.error_frame.isVisibleTo(dialog)
+
+    def test_cal_point_mode_flip_withdraws_the_temperature_inputs(self, qtbot, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """b9: (1) Complete configuration, scheme one_point, cal_temp_low_K = 300.
+        (2) cal_point_mode = flux_fraction. (3) cal_flux_low = 0.5."""
+        window = _complete_window(qtbot, monkeypatch)
+        modals = _capture_modals(monkeypatch, "radiant.gui.main_window")
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, "calibration.scheme", "one_point")
+            _dialog_set(window, "calibration.cal_temp_low_K", "300")
+        assert window.last_result is not None
+        dialog = _dialog(window, "calibration.cal_point_mode")
+        qtbot.addWidget(dialog)
+        editor = dialog.value_editor
+        assert isinstance(editor, QComboBox)
+        editor.setCurrentText("flux_fraction")
+        assert dialog.withdrawals == ("calibration.cal_temp_low_K",)
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            dialog.apply(close=True)
+        inputs = window.sensor.inputs()
+        assert inputs["calibration.cal_point_mode"] == "flux_fraction"
+        assert "calibration.cal_temp_low_K" not in inputs
+        # The mid-switch incompleteness (no flux point yet) is an advisory, not a
+        # modal per re-evaluation; entering the flux point completes the switch.
+        assert modals == []
+        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
+            _dialog_set(window, "calibration.cal_flux_low", "0.5")
+        assert window.last_result is not None
+        assert not window.right_rail.messages.has_error()
+        assert modals == []

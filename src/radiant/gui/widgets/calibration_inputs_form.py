@@ -15,9 +15,14 @@ the stage note rather than by a wall of inert rows. ``one_point`` shows the
 single cal point + drift + source + gain groups. ``two_point`` adds the upper
 cal point and the nonlinearity dispersion (the quadratic-residual knob is
 meaningless under offset-only correction). Unlike the readout architecture
-switch, a scheme switch strands no rejected parameters — inactive knobs are
-simply unused, so there are no companion resets (``architecture_switch.py`` has
-no calibration sibling by design, not omission).
+switch, a *scheme* switch strands no rejected parameters — inactive knobs are
+simply unused, so it carries no companion resets. The **cal-point mode** is
+different: ``flux_fraction`` rejects every temperature-anchored input, so a
+mode commit withdraws the other mode's explicit inputs as one logical action
+(``radiant.gui.calibration_switch``, CU-377 F-07 — before it, a flip on a
+configuration with cal temperatures set failed on every re-evaluation until
+each was reset by hand). The shared editor names the withdrawals before the
+commit; Undo restores them as one step.
 
 **Sentinel rendering.** The cal temperatures use the 0.0-unset sentinel
 (schema); an unset cal point renders as words ("unset — required"), never as a

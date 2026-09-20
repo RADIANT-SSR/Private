@@ -53,19 +53,44 @@ none of them should have to convert.
 
 Each family card carries a mode selector, and only the active mode's fields are editable. The
 others stay visible and grayed — they are not missing features, they are the doors you did
-not take, and their values are derived from the one you did. In the figure the viewing family
-is on V1, so `path_zenith_rad` is enterable while `sensor_off_boresight_rad`, `ground_range_m`,
-`elevation_angle_rad` and `target_range_m` are computed.
+not take, and they display the value **derived** from the one you did. In the figure the
+viewing family is on V1, so `path_zenith_rad` is enterable while `sensor_off_boresight_rad`,
+`ground_range_m`, `elevation_angle_rad` and `target_range_m` show what that zenith implies.
+A blank configuration opens every family on its documented default door — V1, S1, direct
+ground speed, platform-motion-only — with the schema defaults showing.
+
+**The selector is the switch.** Picking another mode does three things as one action: it
+withdraws the old door's value, it seeds the new door with the derived value you were just
+looking at, and it makes that field editable. The scene does not move — a 10° path zenith
+becomes the same 10° expressed as a ground range — so you then type the number you actually
+have. One Edit → Undo reverses the whole switch. A door that cannot be derived (site and
+time, target velocity) opens empty and waits for your values. Choosing *Circular orbit*
+sets the flag; choosing *Direct ground speed* again seeds the orbital speed the flag implied.
 
 Every viewing angle is read at the path's **lower endpoint**, and the reference axis is
 resolved from the altitudes rather than declared — the same door works looking down from
 orbit and up from the ground.
 
 The active mode is detected from provenance, never guessed: the mode is whichever one you
-actually supplied a value for. If you supply two doors of the same family, the evaluation
-raises an over-specification error, the application tints the offending family's card, and
-jumps you to the Geometry screen. The *what / why / action* text is in the error dialog and
-the Messages panel; the tint is just the locator.
+actually supplied a value for. There is one door per family, and the application holds you
+to it at the door: a second door entered anywhere else — the Parameters dock, a YAML apply —
+is rejected inline (*Two viewing doors are set …*) with the selector named as the way to
+switch. A configuration file that already carries two agreeing doors still loads and
+evaluates (the engine tolerates a consistent pair); disagreeing doors raise an
+over-specification error at evaluation, the application tints the offending family's card,
+and jumps you to the Geometry screen. The *what / why / action* text is in the error dialog
+and the Messages panel; the tint is just the locator.
+
+Inside the **Site + time** door the hour angle is one quantity with two spellings, so the
+card carries a toggle: *Local solar time*, or *LTAN* for a sun-synchronous orbit. Flipping it
+withdraws the other entry; the two are never both live.
+
+**Bench and lab geometry.** A bench has no viewing angle. Set both altitudes to the same
+value (0 m will do), pick *Direct slant range (V0)* and enter the separation — the level path
+is then fixed by the range alone, and the horizon guard, which exists for refraction over
+kilometres of air, has nothing to say about two metres of it. Do not also enter an angle: on a
+level path a zero zenith or elevation contradicts the range, and the selector withdraws one
+for you if you pick V0 after the fact. The selector's V0 entry carries this hint as a tooltip.
 
 A standalone **site elevation** card carries `geometry.site_elevation_m`. It is not a mode —
 it is a scene fact (the ground under the observer), and it is results-affecting: the
@@ -167,6 +192,12 @@ A sunlit target is described by its reflectance: either the scalar
 exclusive, and an over-specified pair is rejected at the moment you commit it, with the same
 message the evaluation would have produced.
 
+The thermal, reflective and point-intensity tabs are **doors** onto one target, and entering
+a value through one of them is how you switch. Commit a reflectance on a target that has a
+temperature and emissivity and both are withdrawn in the same action — the editor lists
+them on a *Withdraws* line before you apply, and one Undo brings them back. Going the other
+way is the mirror: a temperature withdraws the reflectance.
+
 The tab pairs cause with effect: $\rho(\lambda)$ on the left — here a flat 0.30 across
 0.4–0.9 µm — and the reflected radiance leaving the target on the right, peaking near
 95 W/m²/sr/µm at about 0.55 µm under this scene's 40° sun. Change one and watch the other.
@@ -186,7 +217,10 @@ A point source is defined by **intensity**, not by radiance times area, so it ge
 tab and its own inputs (in-band radiant intensity, or an equivalent temperature, area and
 emissivity). The surface-radiance rows are disabled there, and the point-source rows are
 disabled elsewhere — the tab set follows the declared scene type rather than offering every
-input at once.
+input at once. Entering an intensity on a target that still carries a temperature and
+emissivity withdraws them as part of the same commit (the editor's *Withdraws* line names
+them); the blackbody triple and the band-integrated intensity are two forms of one door and
+withdraw each other the same way.
 
 ### 2.5 Background & contrast
 

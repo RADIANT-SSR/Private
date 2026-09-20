@@ -31,8 +31,30 @@ resolved (the API's own resolve does the validating — no reimplemented physics
     configuration turns "required parameter unset" into "over-constrained") → rejected
     with the clone's error, at the door, on the row being edited.
 
-An accepted value is additionally screened by the resolve-time target-spec seam
-(:func:`~radiant.gui.target_spec_guard.introduced_target_spec_conflict`, CU-244).
+An accepted value is additionally screened by two resolve-time seams, both
+differential: the target-spec seam
+(:func:`~radiant.gui.target_spec_guard.introduced_target_spec_conflict`, CU-244)
+and the one-door-per-geometry-family seam
+(:func:`~radiant.gui.geometry_mode_guard.introduced_geometry_mode_conflict`,
+CU-377 — a second viewing/solar/kinematics/LOS-rate door entered outside the
+family's mode selector is refused at the door).
+
+**Companion withdrawals (Gap 117 pattern, generalised by CU-377).** Some commits
+are *switches*: a readout architecture or counting mode
+(:mod:`~radiant.gui.architecture_switch`), a cal-point mode
+(:mod:`~radiant.gui.calibration_switch`), or a value entered into one source
+target door while another door holds inputs
+(:mod:`~radiant.gui.source_door_switch`). The explicit inputs the new selection
+rejects are withdrawn **as part of the same logical action** — on the trial
+clone before the candidate ``set`` (so the seams judge the switched state, not
+the mixed one) and on the live sensor in the same order — and the window
+records the whole move as one undo step. :func:`companion_withdrawals` names
+them ahead of time so the editor can say what a commit will withdraw.
+
+**Mode switches (CU-377 F-05).** A geometry family's selector choice is planned
+by :mod:`~radiant.gui.mode_switch` (withdraw the other doors, seed the chosen
+one) and validated/applied here (:func:`validate_mode_switch` /
+:func:`apply_mode_switch`) under the same differential rule.
 
 Qt-free by design so the rule is unit-tested without a widget. Every call is one
 public ``radiant.api`` call (R-API); the live sensor is never mutated here.
@@ -45,17 +67,22 @@ from typing import TYPE_CHECKING, Any
 
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import RequiredParameterError
-from radiant.gui.architecture_switch import SWITCH_DOTPATHS, apply_companion_resets
+from radiant.gui import architecture_switch, calibration_switch, source_door_switch
+from radiant.gui.geometry_mode_guard import introduced_geometry_mode_conflict
 from radiant.gui.target_spec_guard import introduced_target_spec_conflict
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
+    from radiant.gui.mode_switch import ModeSwitchPlan
 
 __all__ = [
     "EditVerdict",
     "apply_edit",
+    "apply_mode_switch",
     "apply_takeover",
+    "companion_withdrawals",
     "validate_edit",
+    "validate_mode_switch",
     "validate_reset",
     "validate_takeover",
 ]
@@ -93,6 +120,8 @@ def validate_edit(live: Sensor, dotpath: str, value: Any, unit: str | None) -> E
     """
     trial = live.clone()
     try:
+        for name in companion_withdrawals(live, dotpath, value):
+            trial.reset(name)
         if unit is not None:
             trial.set(dotpath, value, unit=unit)
         else:
@@ -102,10 +131,27 @@ def validate_edit(live: Sensor, dotpath: str, value: Any, unit: str | None) -> E
         return EditVerdict(None, _introduced_failure(live, exc), None)
     except Exception as exc:  # genuine bug, not a rejected input — never swallow
         return EditVerdict(None, None, exc)
-    conflict = introduced_target_spec_conflict(live, trial)
+    conflict = _introduced_seam_conflict(live, trial)
     if conflict is not None:
         return EditVerdict(None, conflict, None)
     return EditVerdict(canonical, None, None)
+
+
+def companion_withdrawals(live: Sensor, dotpath: str, value: Any) -> tuple[str, ...]:
+    """The explicit inputs a commit of ``dotpath = value`` withdraws alongside it.
+
+    Union of the three switch manifests (readout architecture / counting mode,
+    cal-point mode, source target doors), filtered to inputs the live sensor
+    actually holds — so the list is exactly what the commit will move, and is
+    empty for an ordinary edit. Read-only; the live sensor is not touched.
+    """
+    explicit = set(live.inputs())
+    names = (
+        *architecture_switch.companion_resets_for(dotpath, value),
+        *calibration_switch.companion_resets_for(dotpath, value),
+        *source_door_switch.companion_resets_for(dotpath),
+    )
+    return tuple(name for name in dict.fromkeys(names) if name in explicit and name != dotpath)
 
 
 def validate_reset(live: Sensor, dotpath: str) -> EditVerdict:
@@ -161,7 +207,7 @@ def validate_takeover(
         return EditVerdict(None, _introduced_failure(live, exc), None)
     except Exception as exc:  # genuine bug — never swallow
         return EditVerdict(None, None, exc)
-    conflict = introduced_target_spec_conflict(live, trial)
+    conflict = _introduced_seam_conflict(live, trial)
     if conflict is not None:
         return EditVerdict(None, conflict, None)
     return EditVerdict(canonical, None, None)
@@ -177,21 +223,71 @@ def apply_takeover(live: Sensor, dotpath: str, value: Any, unit: str | None, rel
 
 
 def apply_edit(live: Sensor, dotpath: str, value: Any, unit: str | None) -> tuple[str, ...]:
-    """Apply an **accepted** edit to *live*: one ``set``, plus its companion resets.
+    """Apply an **accepted** edit to *live*: its companion withdrawals, then one ``set``.
 
     The single mandated API call on the live sensor (§4.1), with ``unit=`` only
-    when a display-unit override is active. A readout architecture or counting-mode
-    switch (Gap 117) clears the explicit inputs the new selection rejects as part of
-    the same logical action, whichever path committed it; the cleared dot-paths are
-    returned so the caller can name them.
+    when a display-unit override is active. A switch (readout architecture or
+    counting mode, Gap 117; cal-point mode or a source target door, CU-377)
+    withdraws the explicit inputs the new selection rejects as part of the same
+    logical action, whichever path committed it — the same order the trial clone
+    was validated in; the withdrawn dot-paths are returned so the caller can name
+    them.
     """
+    withdrawn = companion_withdrawals(live, dotpath, value)
+    for name in withdrawn:
+        live.reset(name)
     if unit is not None:
         live.set(dotpath, value, unit=unit)
     else:
         live.set(dotpath, value)
-    if dotpath in SWITCH_DOTPATHS:
-        return apply_companion_resets(live, dotpath, value)
-    return ()
+    return withdrawn
+
+
+def validate_mode_switch(live: Sensor, plan: ModeSwitchPlan) -> EditVerdict:
+    """Validate a geometry mode switch — withdrawals then seeds — on a clone (F-05).
+
+    Seeds are canonical-unit values (:meth:`Sensor.geometry_door_values`), so they
+    are set with ``unit=`` the schema's canonical unit and the API converts once
+    (Rule 2). The differential rule decides as for any edit; a switch on a
+    configuration that cannot resolve yet is accepted (withdrawing and seeding
+    cannot make it less complete in a way Evaluate would not report).
+    """
+    trial = live.clone()
+    try:
+        _apply_plan(trial, plan)
+        trial.resolve()
+    except RadiantError as exc:
+        return EditVerdict(None, _introduced_failure(live, exc), None)
+    except Exception as exc:  # genuine bug — never swallow
+        return EditVerdict(None, None, exc)
+    conflict = _introduced_seam_conflict(live, trial)
+    if conflict is not None:
+        return EditVerdict(None, conflict, None)
+    return EditVerdict(None, None, None)
+
+
+def apply_mode_switch(live: Sensor, plan: ModeSwitchPlan) -> None:
+    """Apply an **accepted** mode switch to *live* in the validated order."""
+    _apply_plan(live, plan)
+
+
+def _apply_plan(sensor: Sensor, plan: ModeSwitchPlan) -> None:
+    for name in plan.withdraw:
+        sensor.reset(name)
+    for name, value in plan.seeds:
+        canonical_unit = sensor.parameter_def(name).canonical_unit
+        if canonical_unit and not isinstance(value, bool):
+            sensor.set(name, value, unit=canonical_unit)
+        else:
+            sensor.set(name, value)
+
+
+def _introduced_seam_conflict(live: Sensor, trial: Sensor) -> RadiantError | None:
+    """The first resolve-time seam conflict *trial* introduces over *live*, if any."""
+    conflict = introduced_target_spec_conflict(live, trial)
+    if conflict is not None:
+        return conflict
+    return introduced_geometry_mode_conflict(live, trial)
 
 
 def _introduced_failure(live: Sensor, trial_error: RadiantError) -> RadiantError | None:

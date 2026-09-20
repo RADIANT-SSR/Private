@@ -198,25 +198,27 @@ class TestEditReject:
         assert not panel.has_error(_TEMP)
         assert not panel.error_banner.isVisibleTo(panel)
 
-    def test_target_spec_conflict_rejected_at_commit(
+    def test_target_door_entry_switches_the_door_in_place(
         self, panel: ParameterPanel, sensor: Sensor, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """CU-244: an edit introducing a target-spec over-specification is rejected.
+        """CU-377 F-07: a reflectance typed on a thermal (ε, T) target is a door switch.
 
-        The example config carries a thermal (ε, T) target, so committing a
-        reflectance value introduces the ρ-vs-(ε, T) conflict; the resolve-time
-        seam rejects it at the door with the evaluate-time error text.
+        Before CU-377 the CU-244 seam rejected the ρ-vs-(ε, T) pair at the door and
+        left the operator to reset both thermal inputs by hand. The in-place path now
+        runs the same companion withdrawals as the dialog: the thermal pair is
+        withdrawn with the commit, nothing is rejected, and no dialog opens.
         """
         monkeypatch.setattr(panel_mod, "ActionableErrorDialog", _CapturingDialog)
         rho = "source.target.reflectance"
-        before = sensor.get(rho)
+        assert "source.target.temperature" in sensor.inputs()
 
         panel._commit_edit(rho, 0.3)
 
-        assert sensor.get(rho) == before  # live sensor untouched
-        assert panel.has_error(rho)
-        assert "mutually exclusive" in panel.error_banner.text()
-        assert not _CapturingDialog.calls, "an in-place rejection renders inline only (CU-372)"
+        assert sensor.inputs()[rho] == 0.3
+        assert "source.target.temperature" not in sensor.inputs()
+        assert "source.target.emissivity" not in sensor.inputs()
+        assert not panel.has_error(rho)
+        assert not _CapturingDialog.calls
 
 
 class TestEditorTypes:

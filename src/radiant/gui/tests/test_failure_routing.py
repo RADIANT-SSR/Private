@@ -8,10 +8,13 @@ the finding numbers refer to ``docs/reports/gui_usability_audit_2026-09/``.
 
 from __future__ import annotations
 
+import warnings
+
 import pytest
 
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 
+from radiant.core.exceptions import RadiantError  # noqa: E402
 from radiant.gui.main_window import RADIANTMainWindow  # noqa: E402
 from radiant.gui.widgets.parameter_editor_dialog import ParameterEditorDialog  # noqa: E402
 
@@ -139,13 +142,18 @@ class TestF09MidSwitchStatesAreAdvisories:
     def test_geometry_door_conflict_is_an_advisory_on_the_geometry_chip(
         self, qtbot, monkeypatch
     ) -> None:  # type: ignore[no-untyped-def]
-        """T-B b3: path_zenith_rad set, then ground_range_m (a second viewing door)."""
+        """T-B b3: path_zenith_rad set, then ground_range_m (a second viewing door).
+
+        Since CU-377 the editor refuses the second door at the door, so the
+        conflict is reached the way a config file or the console reach it —
+        past the door guard, through the API — and the evaluation routes it.
+        """
         window = _complete_window(qtbot, monkeypatch)
         opened = _capture_modals(monkeypatch)
+        window.sensor.set("geometry.path_zenith_rad", 17.0, unit="deg")
+        window.sensor.set("geometry.ground_range_m", 300000.0)
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            _dialog_set(window, "geometry.path_zenith_rad", "17")
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            _dialog_set(window, "geometry.ground_range_m", "300000")
+            window.parameter_panel.parameterEdited.emit("geometry.ground_range_m")
         assert opened == []
         assert _chip_status(window, "geometry") == "err"
         assert _chip_status(window, "optics") == "stale"
@@ -182,17 +190,26 @@ class TestF09MidSwitchStatesAreAdvisories:
     def test_cal_point_mode_conflict_is_an_advisory_on_the_calibration_chip(
         self, qtbot, monkeypatch
     ) -> None:  # type: ignore[no-untyped-def]
-        """T-B b9: the routing seam, driven with the stage's own error type."""
-        from radiant.calibration.errors import CalibrationModeConflictError
+        """T-B b9: the routing seam, driven with the stage's own error type.
 
+        The error instance comes from the public API — a throwaway clone evaluated
+        in the mixed state — not from a cross-stage import: ``radiant.gui`` (tests
+        included) may import only ``radiant.api`` and ``radiant.core``, and the
+        direct import this test used to carry left main's import-linter gate red
+        from the batch-1 merge until CU-377's batch found it.
+        """
         window = _complete_window(qtbot, monkeypatch)
         opened = _capture_modals(monkeypatch)
-        window._on_eval_failed(  # noqa: SLF001 — the worker's failure slot
-            CalibrationModeConflictError(
-                "calibration.cal_temp_low_K is set, but calibration.cal_point_mode = "
-                "'flux_fraction'."
-            )
-        )
+        probe = window.sensor.clone()
+        probe.set("calibration.scheme", "one_point")
+        probe.set("calibration.cal_temp_low_K", 300.0)
+        probe.set("calibration.cal_point_mode", "flux_fraction")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with pytest.raises(RadiantError) as info:
+                probe.evaluate()
+        assert type(info.value).__name__ == "CalibrationModeConflictError"
+        window._on_eval_failed(info.value)  # noqa: SLF001 — the worker's failure slot
         assert opened == []
         assert _chip_status(window, "calibration") == "err"
         assert _chip_status(window, "readout") == "stale"

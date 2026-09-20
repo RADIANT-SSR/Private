@@ -132,6 +132,19 @@ display labels). The manifest is hand-maintained next to the resolvers;
 resolver behaviour and the `mode_entry` / `solar_site` schema tags, so it
 cannot drift silently.
 
+Two read-only companions sit beside the manifest (CU-377, owner-ratified
+2026-09-20): `geometry/door_values.py` — `door_values(params)`, the value every
+door would carry under the resolved scene (the inverse of each door's entry
+rule; `None` where a door has no inverse or the scene has no path) — and
+`geometry/mode_guard.py` — `validate_mode_doors(params)`, a provenance read
+that refuses explicit inputs in two doors of one family (and the S3
+`ltan_h`/`local_solar_time_h` pair). The guard is stricter than rule 2 by
+design: the resolvers still accept an agreeing pair at evaluate, the guard is
+the GUI's at-the-door contract ("one door per family; the selector is the
+switch"). Both reach view layers as `Sensor.geometry_door_values()` and
+`Sensor.validate_geometry_modes()`; `geometry/tests/test_door_values.py`
+proves every door round-trips to the same θ_o / θ_s / speed / rate.
+
 Coverage runs the other way too: every `geometry.*` schema parameter must be
 either a manifest door or explicitly *not* one. The three categories are
 

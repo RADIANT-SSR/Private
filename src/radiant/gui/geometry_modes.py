@@ -78,6 +78,36 @@ MODE_LABELS: Final[Mapping[str, str]] = {
     "K2": "Target velocity (K2)",
 }
 
+#: Sub-doors inside one mode: mutually exclusive entries for the same quantity
+#: that the card offers as a toggle (CU-377 F-25). S3's hour angle is entered as a
+#: local solar time or, for a sun-synchronous orbit, as the LTAN — never both
+#: (mode-resolution rule 5). Ordered; the first entry is the default choice.
+SUBDOORS: Final[Mapping[str, tuple[tuple[str, tuple[str, ...]], ...]]] = {
+    "S3": (
+        ("Local solar time", ("geometry.local_solar_time_h",)),
+        ("LTAN (sun-synchronous orbit)", ("geometry.ltan_h",)),
+    ),
+}
+
+#: Seed values a selector choice writes that are *not* derived door values
+#: (CU-377 F-05): choosing the circular-orbit door means "the kinematics come
+#: from the orbit", i.e. the flag itself, not the flag's current (false) value.
+MODE_SEEDS: Final[Mapping[str, Mapping[str, Any]]] = {
+    "circular": {"geometry.circular_orbit": True},
+}
+
+#: One-line usage hints per mode, shown as the selector's item tooltip. Only the
+#: doors whose use is not obvious from the label carry one (F-43: the bench /
+#: level-path door had no discoverable entry).
+MODE_HINTS: Final[Mapping[str, str]] = {
+    "V0": (
+        "Enter the sensor→target separation directly. This is the bench / lab door: "
+        "with both altitudes equal (e.g. 0 m) the range alone fixes the level path — "
+        "no angle is needed and none should be set."
+    ),
+    "K0": "No input: the rate follows from the platform ground speed and the slant range.",
+}
+
 # Import-time drift guard (developer invariant, not user input): a mode or
 # family added to the manifest without wording here must fail the GUI import
 # loudly, not render a blank selector entry.
@@ -169,6 +199,9 @@ __all__ = [
     "MODE_FAMILIES",
     "FAMILY_TITLES",
     "MODE_LABELS",
+    "MODE_HINTS",
+    "MODE_SEEDS",
+    "SUBDOORS",
     "family_title",
     "mode_label",
     "all_mode_params",

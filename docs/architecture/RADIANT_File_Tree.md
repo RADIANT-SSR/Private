@@ -5,8 +5,8 @@
 **Source of truth:** `find src/radiant -name '*.py'` — this doc is a derived
 view, not a spec. When in doubt, run the find command.
 
-**Current file count:** 590 `.py` files under `src/radiant/` (326 source +
-222 test + 42 `__init__.py`), plus 41 integration tests under
+**Current file count:** 600 `.py` files under `src/radiant/` (332 source +
+226 test + 42 `__init__.py`), plus 41 integration tests under
 `tests/integration/` and 6 top-level test files (`tests/test_public_api.py`,
 `tests/test_exceptions.py`, `tests/test_provenance.py`,
 `tests/test_calibration_analysis.py`, `tests/test_error_budget.py`,
@@ -77,13 +77,15 @@ core/
 geometry/
 ├── __init__.py          # GeometryStage, GeometrySpecificationError re-exports
 ├── _schema.py           # the geometry.* namespace (32 ParameterDefs, incl. the geometry.target.* extent params — ADR-0008)
+├── door_values.py       # every manifest door's value under the resolved scene (CU-377 — the GUI's derived display + seed)
 ├── errors.py            # GeometrySpecificationError (over/under-specification)
 ├── los_rate.py          # relative LOS angular rate ω = |v_rel,⊥| / R (Gap 111)
+├── mode_guard.py        # one explicit door per family — the at-the-door seam (CU-377)
 ├── mode_manifest.py     # family → mode → param manifest as data (ADR-0006; CU-120)
 ├── modes.py             # input-mode detection + resolution (V/S/K families)
 ├── scene_class.py       # derived observer×target band label + optional assertion (ADR-0011 decision 8)
 ├── stage.py             # GeometryStage — publishes stage_outputs["geometry"]
-└── tests/               # mode matrix, stage contract, alias behavior, manifest drift, scene class, LOS rate
+└── tests/               # mode matrix, stage contract, alias behavior, manifest drift, scene class, LOS rate, door values, door guard
 ```
 
 Stage 0: resolves the scene-geometry input mode and publishes LOS + derived
@@ -286,7 +288,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 32 source + 24 tests
+### `api/` — 32 source + 25 tests
 
 Public scripting API.
 
@@ -336,6 +338,8 @@ gui/
 ├── display_units.py     # global display-unit preference (angles→deg default) + pretty_unit (CU-326)
 ├── document_yaml.py     # is_study / serialize_document / load_document_from_text (4e)
 ├── target_spec_guard.py # introduced_target_spec_conflict — CU-244 differential door guard shared by both clone-validate edit paths
+├── geometry_mode_guard.py# differential one-door-per-family guard on the edit path (CU-377)
+├── mode_switch.py       # plan a selector pick: withdraw the other doors, seed the chosen one (CU-377)
 ├── tolerance_units.py   # Qt-free: per-field tolerance unit conversion (std=difference, low/high=absolute, sigma=dimensionless)
 ├── workers.py           # ConfigSetEvaluationWorker(QThread) — off-thread evaluate_all (Phase 4a)
 ├── widgets/             # one widget/dialog class per file (Rule 19 spirit)

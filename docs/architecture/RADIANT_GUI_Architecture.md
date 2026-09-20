@@ -1082,7 +1082,12 @@ hidden (explicit FWC rejected, gain unused — the D2 DN gain derives from the p
 `effective_well_e` [e-], `saturation_mechanism`) surface in the Outputs readout.
 Two live-review fixes (2026-09-06) make the switch survivable on real configs: an
 architecture commit through the shared editor also **clears the explicit inputs the new
-architecture rejects** (`gui/architecture_switch.py` — e.g. a config-pinned
+architecture rejects** (`gui/architecture_switch.py`; CU-377 generalised the pattern to
+`edit_guard.companion_withdrawals` — the cal-point mode via `gui/calibration_switch.py` and
+the source target doors via `gui/source_door_switch.py` withdraw the other mode's / door's
+explicit inputs the same way, the editor's *Withdraws* row names them before the commit, and
+the withdrawals are applied on the trial clone before the candidate set so the resolve-time
+seams judge the switched state — e.g. a config-pinned
 `full_well_capacity_e` under `digital_counting`, and the counting quartet on the way
 back), one logical action so the very next evaluation cannot fail on parameters the form
 no longer shows; and the expected **mid-switch incompleteness** (packet not yet entered)
@@ -1112,8 +1117,20 @@ the public `radiant.api.geometry_modes` bridge (CU-120, the `metric_groups` prec
 `radiant.gui.geometry_modes` keeps only the display wording (family titles, mode labels —
 checked complete against the manifest at import) and the error→family highlight map. Each family carries a mode combo; only the **active** mode's
 fields are editable, the rest disabled, so the user drives exactly one door per family
-(ADR-0006 rule 1). The active mode is detected from **provenance** (mirroring
-`radiant.geometry.modes`), never guessed. Every field is schema-driven (`Sensor.parameter_def`
+(ADR-0006 rule 1). The active mode is detected from **explicit** provenance
+(`Sensor.input_provenances`, mirroring `radiant.geometry.modes`), never guessed — so a
+blank configuration opens on the documented default doors (CU-377 F-15/F-26). **The
+selector is the switch** (CU-377, owner-ratified 2026-09-20): a user pick plans a switch
+(`gui/mode_switch.py` — withdraw the other doors' explicit inputs, seed the chosen door from
+`Sensor.geometry_door_values()`, the value it carries under the current scene), the shared
+edit guard validates it on a clone and applies it as one action, and the window's
+input-snapshot diff records it as one undo macro; inactive doors display those derived
+values (F-48); a door with no inverse (S3 site-and-time, K2 target velocity) is a pending
+choice the form holds until a value lands; the S3 hour angle is a sub-door toggle (local
+solar time / LTAN, `gui/geometry_modes.SUBDOORS`, F-25). A second door entered outside the
+selector is refused at the door: `Sensor.validate_geometry_modes()` (the one-door-per-family
+seam over `radiant.geometry.mode_guard`) runs differentially in `edit_guard` after every
+candidate set, the twin of the CU-244 target-spec seam. Every field is schema-driven (`Sensor.parameter_def`
 — value/unit/bounds/editor), never transcribed (Gap 70); editing opens the shared
 `ParameterEditorDialog`, so a commit is one `sensor.set` validated on a clone first (the
 Phase-2 edit+reject discipline, actionable error inline) and the value shows in the row's

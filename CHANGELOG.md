@@ -21,6 +21,14 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`Sensor.validate_geometry_modes()`** and **`Sensor.geometry_door_values()`**
+  (CU-377). The first is the one-door-per-family seam: a provenance read that
+  raises `GeometrySpecificationError` when a geometry family holds explicit
+  inputs in two of its doors (or the S3 door carries both `ltan_h` and
+  `local_solar_time_h`) — stricter than `evaluate()`, which still accepts an
+  agreeing pair. The second reports what every geometry door would carry under
+  the resolved scene (canonical units; `None` for a door with no inverse or an
+  unresolvable configuration). Both back the GUI's mode selectors.
 - **`Sensor.to_dict()`** — the nested inputs dict `from_dict` accepts (inputs
   by namespace, the `_radiant` meta block, any attached element document), so
   `Sensor.from_dict(s.to_dict(), wavelength_points=s.wavelength_points)`
@@ -46,6 +54,22 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **GUI mode and door switching (CU-377, usability audit F-05/F-07/F-15/F-25/F-26/F-43/F-48;
+  owner-ratified 2026-09-20).** A geometry family's mode selector now *switches* the family:
+  picking a mode withdraws the other doors' explicit inputs and seeds the chosen door from
+  the value it carries under the current scene, as one undoable action (the scene does not
+  move); a second door entered outside the selector — dock, editor, YAML — is refused
+  inline (*Two viewing doors are set …*) instead of failing every re-evaluation; inactive
+  doors display derived values, not schema defaults; a blank configuration opens on the
+  documented default doors (V1 / S1 / direct / K0) with the schema defaults showing; the
+  S3 site-and-time card offers local solar time and LTAN as a toggle, never two live
+  fields; a source target-door entry (ρ on a thermal target, an intensity, and the mirrors)
+  and a cal-point mode flip withdraw the other door's inputs with the commit, the editor
+  naming them on a **Withdraws** row; and the bench / level-path door (V0, equal altitudes,
+  range alone) is discoverable from the selector's tooltip and documented. Behaviour
+  change in messages only: an edit that used to be accepted and then refused at evaluate
+  is now refused at the door with the selector named; a loaded file with two *agreeing*
+  doors still evaluates as before.
 - **A sweep or solve over a clipped configuration says so (CU-375 F-18).**
   A sweep over a saturating configuration reported a flat metric as
   `Done — 6 points` with no saturation notice, and a solve on it advised

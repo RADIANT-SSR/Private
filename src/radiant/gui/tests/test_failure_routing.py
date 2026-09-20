@@ -142,13 +142,18 @@ class TestF09MidSwitchStatesAreAdvisories:
     def test_geometry_door_conflict_is_an_advisory_on_the_geometry_chip(
         self, qtbot, monkeypatch
     ) -> None:  # type: ignore[no-untyped-def]
-        """T-B b3: path_zenith_rad set, then ground_range_m (a second viewing door)."""
+        """T-B b3: path_zenith_rad set, then ground_range_m (a second viewing door).
+
+        Since CU-377 the editor refuses the second door at the door, so the
+        conflict is reached the way a config file or the console reach it —
+        past the door guard, through the API — and the evaluation routes it.
+        """
         window = _complete_window(qtbot, monkeypatch)
         opened = _capture_modals(monkeypatch)
+        window.sensor.set("geometry.path_zenith_rad", 17.0, unit="deg")
+        window.sensor.set("geometry.ground_range_m", 300000.0)
         with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            _dialog_set(window, "geometry.path_zenith_rad", "17")
-        with qtbot.waitSignal(window.evaluationFinished, timeout=_WAIT_MS):
-            _dialog_set(window, "geometry.ground_range_m", "300000")
+            window.parameter_panel.parameterEdited.emit("geometry.ground_range_m")
         assert opened == []
         assert _chip_status(window, "geometry") == "err"
         assert _chip_status(window, "optics") == "stale"

@@ -437,29 +437,30 @@ class TestBrowseStartLocation:
 class TestTargetSpecSeam:
     """CU-244: a cross-parameter target-spec conflict is rejected at commit time.
 
-    The example config carries a thermal (ε, T) target, so committing a
-    reflectance surface introduces the ρ-vs-(ε, T) over-specification; a second
-    reflectance surface introduces the alias over-specification. Both must be
-    rejected at the door — same what/why/action as ``evaluate()`` — while a
-    conflict that pre-exists on the live sensor never blocks an unrelated edit.
+    The example config carries a thermal (ε, T) target. A second reflectance
+    surface introduces the alias over-specification and must be rejected at the
+    door — same what/why/action as ``evaluate()`` — while a conflict that
+    pre-exists on the live sensor never blocks an unrelated edit. Committing a
+    reflectance on the thermal target is, since CU-377 (F-07), a **door switch**:
+    the thermal pair is withdrawn with the commit (named on the dialog's
+    *Withdraws* row), not rejected.
     """
 
     _RHO = "source.target.reflectance"
     _RHO_PATH = "source.target.reflectance_path"
 
-    def test_rho_vs_thermal_rejected_at_commit(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
+    def test_rho_on_thermal_target_switches_the_door(self, sensor: Sensor, qtbot) -> None:  # type: ignore[no-untyped-def]
         d = _dialog(sensor, self._RHO, qtbot)
-        before = sensor.get(self._RHO)
-
         d.value_editor.setText("0.3")
+        assert d.withdrawals == ("source.target.temperature", "source.target.emissivity")
+
         d.apply(close=False)
 
-        assert sensor.get(self._RHO) == before  # live sensor untouched
-        assert d.error_frame.isVisibleTo(d)
-        assert d.result() != QDialog.DialogCode.Accepted  # dialog stayed open
-        rendered = "\n".join(lbl.text() for lbl in d.error_frame.findChildren(QLabel))
-        assert "mutually exclusive" in rendered
-        assert "Remove source.target.temperature" in rendered  # actionable action text
+        assert sensor.inputs()[self._RHO] == 0.3
+        assert "source.target.temperature" not in sensor.inputs()
+        assert "source.target.emissivity" not in sensor.inputs()
+        assert not d.error_frame.isVisibleTo(d)
+        assert d.withdrawals == ()  # nothing left to withdraw after the switch
 
     def test_second_reflectance_surface_rejected_at_commit(
         self, sensor: Sensor, qtbot, tmp_path: Path

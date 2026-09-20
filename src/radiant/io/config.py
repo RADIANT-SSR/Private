@@ -535,6 +535,35 @@ def serialize_config(
                 f"serialize_config: unknown structured section(s) {keys}; "
                 f"registered sections: {sorted(_SECTION_KEYS)}."
             )
+    nested, provenance_of = document_as_dict(
+        params, meta=meta, scope=scope, sections=sections, relative_to=relative_to
+    )
+    text = yaml.dump(
+        nested,
+        default_flow_style=False,
+        sort_keys=True,
+        allow_unicode=True,
+    )
+    if provenance_of:
+        text = _annotate_provenance(text, provenance_of)
+    return header + text
+
+
+def document_as_dict(
+    params: ParameterSet,
+    *,
+    meta: dict[str, Any] | None = None,
+    scope: str = "resolved",
+    sections: dict[str, Any] | None = None,
+    relative_to: Path | None = None,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """The nested document dict :func:`serialize_config` dumps, plus per-leaf provenance.
+
+    The dict half of the serializer, published so ``Sensor.to_dict`` (CU-375 F-24)
+    builds the same document a saved file holds without re-parsing YAML text.
+    Returns ``(nested, provenance_of)``; *provenance_of* maps dot-path →
+    ``Provenance`` value and is empty for the inputs scope.
+    """
     provenance_of: dict[str, str] = {}
     if scope == "inputs":
         flat = dict(params.inputs())
@@ -561,15 +590,7 @@ def serialize_config(
         nested.update(sections)
     if meta is not None:
         nested[_META_KEY] = meta
-    text = yaml.dump(
-        nested,
-        default_flow_style=False,
-        sort_keys=True,
-        allow_unicode=True,
-    )
-    if provenance_of:
-        text = _annotate_provenance(text, provenance_of)
-    return header + text
+    return nested, provenance_of
 
 
 #: Comment labels for the resolved export, by ``Provenance`` value.

@@ -24,7 +24,6 @@ from typing import Any
 
 import numpy as np
 import numpy.typing as npt
-import yaml
 
 from radiant.api._param_registry import build_parameter_set
 from radiant.api.config_io import normalize_element_document
@@ -65,6 +64,7 @@ from radiant.core.parameters import (
 )
 from radiant.geometry.modes import resolve_solar, resolve_viewing
 from radiant.io.config import (
+    document_as_dict,
     load_config,
     read_radiant_meta,
     save_config,
@@ -442,8 +442,17 @@ class Sensor:
         argument, not a parameter: pass ``wavelength_points=s.wavelength_points``
         to :meth:`from_dict` (or a factory) to keep the same evaluation grid.
         """
-        loaded = yaml.safe_load(self.to_yaml(scope="inputs", validate=False))
-        return dict(loaded) if isinstance(loaded, dict) else {}
+        meta: dict[str, Any] = {"format": 1, "wavelength_points": self._wl_points}
+        tolerances = {
+            name: {"distribution": tol.distribution, "params": dict(tol.params)}
+            for name, tol in self._params.tolerances().items()
+        }
+        if tolerances:
+            meta["tolerances"] = tolerances
+        nested, _provenance = document_as_dict(
+            self._params, meta=meta, scope="inputs", sections=self._sections(None)
+        )
+        return nested
 
     def input_provenances(self) -> Mapping[str, Provenance]:
         """Read-only snapshot of the explicitly-set inputs' provenance (CU-372 F-01).

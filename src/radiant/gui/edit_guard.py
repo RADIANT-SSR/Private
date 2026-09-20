@@ -31,8 +31,18 @@ resolved (the API's own resolve does the validating — no reimplemented physics
     configuration turns "required parameter unset" into "over-constrained") → rejected
     with the clone's error, at the door, on the row being edited.
 
-An accepted value is additionally screened by the resolve-time target-spec seam
-(:func:`~radiant.gui.target_spec_guard.introduced_target_spec_conflict`, CU-244).
+An accepted value is additionally screened by two resolve-time seams, both
+differential: the target-spec seam
+(:func:`~radiant.gui.target_spec_guard.introduced_target_spec_conflict`, CU-244)
+and the one-door-per-geometry-family seam
+(:func:`~radiant.gui.geometry_mode_guard.introduced_geometry_mode_conflict`,
+CU-377 — a second viewing/solar/kinematics/LOS-rate door entered outside the
+family's mode selector is refused at the door).
+
+**Mode switches (CU-377 F-05).** A geometry family's selector choice is planned
+by :mod:`~radiant.gui.mode_switch` (withdraw the other doors, seed the chosen
+one) and validated/applied here (:func:`validate_mode_switch` /
+:func:`apply_mode_switch`) under the same differential rule.
 
 Qt-free by design so the rule is unit-tested without a widget. Every call is one
 public ``radiant.api`` call (R-API); the live sensor is never mutated here.
@@ -46,16 +56,20 @@ from typing import TYPE_CHECKING, Any
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import RequiredParameterError
 from radiant.gui.architecture_switch import SWITCH_DOTPATHS, apply_companion_resets
+from radiant.gui.geometry_mode_guard import introduced_geometry_mode_conflict
 from radiant.gui.target_spec_guard import introduced_target_spec_conflict
 
 if TYPE_CHECKING:
     from radiant.api.sensor import Sensor
+    from radiant.gui.mode_switch import ModeSwitchPlan
 
 __all__ = [
     "EditVerdict",
     "apply_edit",
+    "apply_mode_switch",
     "apply_takeover",
     "validate_edit",
+    "validate_mode_switch",
     "validate_reset",
     "validate_takeover",
 ]
@@ -102,7 +116,7 @@ def validate_edit(live: Sensor, dotpath: str, value: Any, unit: str | None) -> E
         return EditVerdict(None, _introduced_failure(live, exc), None)
     except Exception as exc:  # genuine bug, not a rejected input — never swallow
         return EditVerdict(None, None, exc)
-    conflict = introduced_target_spec_conflict(live, trial)
+    conflict = _introduced_seam_conflict(live, trial)
     if conflict is not None:
         return EditVerdict(None, conflict, None)
     return EditVerdict(canonical, None, None)
@@ -161,7 +175,7 @@ def validate_takeover(
         return EditVerdict(None, _introduced_failure(live, exc), None)
     except Exception as exc:  # genuine bug — never swallow
         return EditVerdict(None, None, exc)
-    conflict = introduced_target_spec_conflict(live, trial)
+    conflict = _introduced_seam_conflict(live, trial)
     if conflict is not None:
         return EditVerdict(None, conflict, None)
     return EditVerdict(canonical, None, None)
@@ -192,6 +206,53 @@ def apply_edit(live: Sensor, dotpath: str, value: Any, unit: str | None) -> tupl
     if dotpath in SWITCH_DOTPATHS:
         return apply_companion_resets(live, dotpath, value)
     return ()
+
+
+def validate_mode_switch(live: Sensor, plan: ModeSwitchPlan) -> EditVerdict:
+    """Validate a geometry mode switch — withdrawals then seeds — on a clone (F-05).
+
+    Seeds are canonical-unit values (:meth:`Sensor.geometry_door_values`), so they
+    are set with ``unit=`` the schema's canonical unit and the API converts once
+    (Rule 2). The differential rule decides as for any edit; a switch on a
+    configuration that cannot resolve yet is accepted (withdrawing and seeding
+    cannot make it less complete in a way Evaluate would not report).
+    """
+    trial = live.clone()
+    try:
+        _apply_plan(trial, plan)
+        trial.resolve()
+    except RadiantError as exc:
+        return EditVerdict(None, _introduced_failure(live, exc), None)
+    except Exception as exc:  # genuine bug — never swallow
+        return EditVerdict(None, None, exc)
+    conflict = _introduced_seam_conflict(live, trial)
+    if conflict is not None:
+        return EditVerdict(None, conflict, None)
+    return EditVerdict(None, None, None)
+
+
+def apply_mode_switch(live: Sensor, plan: ModeSwitchPlan) -> None:
+    """Apply an **accepted** mode switch to *live* in the validated order."""
+    _apply_plan(live, plan)
+
+
+def _apply_plan(sensor: Sensor, plan: ModeSwitchPlan) -> None:
+    for name in plan.withdraw:
+        sensor.reset(name)
+    for name, value in plan.seeds:
+        canonical_unit = sensor.parameter_def(name).canonical_unit
+        if canonical_unit and not isinstance(value, bool):
+            sensor.set(name, value, unit=canonical_unit)
+        else:
+            sensor.set(name, value)
+
+
+def _introduced_seam_conflict(live: Sensor, trial: Sensor) -> RadiantError | None:
+    """The first resolve-time seam conflict *trial* introduces over *live*, if any."""
+    conflict = introduced_target_spec_conflict(live, trial)
+    if conflict is not None:
+        return conflict
+    return introduced_geometry_mode_conflict(live, trial)
 
 
 def _introduced_failure(live: Sensor, trial_error: RadiantError) -> RadiantError | None:

@@ -62,6 +62,8 @@ from radiant.core.parameters import (
     ResolvedValue,
     Tolerance,
 )
+from radiant.geometry.door_values import door_values as _door_values
+from radiant.geometry.mode_guard import validate_mode_doors as _validate_mode_doors
 from radiant.geometry.modes import resolve_solar, resolve_viewing
 from radiant.io.config import (
     document_as_dict,
@@ -798,6 +800,50 @@ class Sensor:
             user-set. A no-op otherwise.
         """
         _validate_target_spec(self._params)
+
+    def validate_geometry_modes(self) -> None:
+        """Raise if a geometry family holds explicit inputs in two of its doors.
+
+        The resolve-time seam for the one-door-per-family rule (CU-377): a pure
+        provenance read over the ADR-0006 manifest, no physics, no resolve, so it
+        runs on a half-entered configuration. Stricter than ``evaluate()`` by
+        design — the resolvers accept two doors that *agree* (ADR-0006 rule 2);
+        this seam refuses the second door outright, because the GUI's mode
+        selector is the switch and a second explicit door is the wedge the
+        usability audit reported (F-05). The GUI's edit guard applies it
+        differentially, so a configuration file that already carries an
+        agreeing pair still loads and evaluates; only an edit that *introduces*
+        a second door is refused at the door. Also refuses the ``ltan_h`` /
+        ``local_solar_time_h`` pair inside the S3 door (F-25).
+
+        Raises
+        ------
+        radiant.geometry.GeometrySpecificationError
+            Naming the family and each conflicting parameter (``context`` keys).
+        """
+        _validate_mode_doors(self._params)
+
+    def geometry_door_values(self) -> Mapping[str, float | bool | None]:
+        """Every geometry door's value under the currently resolved scene (CU-377).
+
+        Dot-path → the value that door would carry to reproduce the geometry the
+        active door produced — the inverse of each door's entry rule (every
+        viewing angle read at the path's lower endpoint): ``path_zenith_rad`` is
+        ζ_low, ``sensor_off_boresight_rad`` is η (or ζ_low when the sensor is the
+        lower endpoint), ``ground_range_m`` the arc, ``elevation_angle_rad``
+        ``π/2 − ζ_low``, ``target_range_m`` the slant range; ``solar_zenith_rad``
+        θ_s and ``solar_elevation_rad`` ``π/2 − θ_s``; ``ground_speed_m_s`` the
+        resolved ground-track speed and ``circular_orbit`` whether the orbit door
+        resolved it; ``los_angular_rate_rad_s`` the resolved LOS rate. Doors with
+        no inverse (the S3 site-and-time inputs, the K2 target-velocity triple)
+        read ``None``, as does every door when the scene has no path (coincident
+        endpoints), the solar doors at night, and everything when the
+        configuration cannot resolve. Canonical units. The GUI's Geometry screen
+        shows these in the inactive doors and seeds a newly selected door from
+        them, so a mode switch re-expresses the scene rather than changing it.
+        Never raises on a refused geometry — that is ``evaluate()``'s report.
+        """
+        return _door_values(self._params)
 
     def validate_atmosphere_coverage(self) -> None:
         """Raise if the interpolated atmosphere's axes cannot serve this scene.

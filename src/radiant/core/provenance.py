@@ -56,17 +56,26 @@ def new_run_id() -> str:
     return str(uuid.uuid4())
 
 
-def git_commit() -> str:
-    """Return the short SHA of ``HEAD`` for the current working tree.
+#: The directory the git question is asked from: the loaded package's own
+#: location, so the answer is "which RADIANT am I running" — the same anchor
+#: :func:`radiant.api.build_info.build_info` uses for the window title (CU-374
+#: F-42: asked from the process CWD, a GUI launched from elsewhere reported
+#: ``unknown`` while its title bar showed the commit).
+_PACKAGE_DIR = Path(__file__).resolve().parent
 
-    Best-effort: returns ``"unknown"`` if any of (a) we are not in a
-    git repository, (b) the ``git`` binary is unavailable, (c) the
-    subprocess fails for any reason. Never raises — provenance must
-    not block a chain run.
+
+def git_commit() -> str:
+    """Return the short SHA of ``HEAD`` for the checkout the package is loaded from.
+
+    Best-effort: returns ``"unknown"`` if any of (a) the package does not live
+    in a git repository (a wheel install), (b) the ``git`` binary is
+    unavailable, (c) the subprocess fails for any reason. Never raises —
+    provenance must not block a chain run.
     """
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
+            cwd=_PACKAGE_DIR,
             capture_output=True,
             text=True,
             timeout=2.0,

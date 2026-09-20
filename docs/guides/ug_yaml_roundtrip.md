@@ -191,7 +191,17 @@ application tells you at the moment it happens.
 `Export Resolved YAML…` writes the fully specified configuration: every parameter, including
 every default and every derived value. It is a *documentation* export — a complete statement of
 the model that produced a result, suitable for an appendix, a review package, or a diff against
-another run.
+another run. Every value carries its provenance as a trailing comment — `# user-set`, `# config`,
+`# default`, `# derived`, `# preset` — so what you typed can be told from what the schema
+supplied or a consistency group derived, exactly as the Parameters dock shows it:
+
+```yaml
+detector:
+  qe_value: 0.62  # user-set
+  read_noise_e_rms: 5.0  # config
+optics:
+  f_number: 4.0  # derived
+```
 
 It is not the file you should keep working in. Because every default is now an explicit input,
 a resolved export stops tracking schema defaults, and a derived value written as an input will
@@ -204,7 +214,7 @@ run exists:
 
 | Action | Contents |
 |---|---|
-| Export JSON Result… | the provenance record of the last run |
+| Export JSON Result… | the provenance record of the last run — run id, RADIANT version, the git commit of the checkout the package is loaded from (or `unknown` for an installed wheel), Python and dependency versions, every resolved input, file hashes |
 | Export Metrics CSV… | the metric surface with units |
 | Export Sweep CSV… | the retained sweep (enabled once a sweep has run — chapter 10) |
 | Export XLSX Workbook… | configuration, metrics, and any retained sweep, in one workbook |

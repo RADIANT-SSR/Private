@@ -42,6 +42,13 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **The audit-trail exports say where every value came from (CU-374 F-42).**
+  `Export Resolved YAML…` (`Sensor.to_yaml(scope="resolved")`) now comments
+  every parameter leaf with its provenance (`# user-set`, `# config`,
+  `# default`, `# derived`, `# preset`); the document re-parses unchanged.
+  `Export JSON Result…` no longer reports `git_commit: unknown` on a source
+  checkout launched from another directory: the commit is resolved at the
+  loaded package's location, the same anchor the window title uses.
 - **Stage tab labels are never truncated (CU-376 F-49).** The Source stage's
   five tabs read "Target — th…", "Target — point s…" at 1440 px. Tab titles
   now show whole; when the bar is short of room it scrolls.

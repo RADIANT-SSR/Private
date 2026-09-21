@@ -45,8 +45,8 @@ This is more accurate than the analytic erfinv/erf approach used in the first ve
 | Signal | 2,109 | e- (2.1% well) |
 | Total noise | 46.2 | e- RMS |
 | SNR | 45.6 | -- |
-| MTF@Nyquist | 0.2330 | -- |
-| RER | 0.5483 | -- |
+| MTF@Nyquist | 0.2186 | -- |
+| RER | 0.5724 | -- |
 | NIIRS | 6.03 | -- |
 
 *Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
@@ -126,10 +126,11 @@ requirement is an absolute NIIRS ≥ 6.0, essentially the entire jitter
 budget is consumed by it — a far tighter constraint than either ΔNIIRS
 threshold.*
 
-**The NIIRS = 6.0 floor is no longer reachable at any jitter.** CU-253 lowered
-the zero-jitter NIIRS 6.45 → 6.17, CU-335 took it to 5.96 and CU-336 to 5.97, which is below the
-floor with the optics perfectly stable — so the runner now reports "floor not
-reached in sweep range" where it previously reported a 0.5 µrad jitter budget.
+**The NIIRS = 6.0 floor sits at 0.2 µrad of jitter (threshold table above).** CU-253 lowered
+the zero-jitter NIIRS 6.45 → 6.17, CU-335 took it to 5.96 and CU-336 to 5.97 — below the
+floor with the optics perfectly stable, when the runner reported "floor not reached in
+sweep range" — and CU-355's deterministic scalar-WFE expansion lifted it to 6.03, so the
+floor is reachable again but consumes essentially the whole jitter budget.
 The design's shortfall is radiometric, not a pointing problem: at this signal
 level no jitter specification recovers the grade, and the fix is aperture,
 integration time or band, not stability. The two ΔNIIRS thresholds are relative

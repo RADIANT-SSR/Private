@@ -100,3 +100,6 @@ scenarios/04_lisa_analyst/4.3_camouflage_effectiveness/outputs/derived/
 PRODUCT.md
 DESIGN.md
 .impeccable/
+
+# Figures the shipped example scripts write next to themselves (regenerate on demand, Rule 26)
+examples/scripts/*.png

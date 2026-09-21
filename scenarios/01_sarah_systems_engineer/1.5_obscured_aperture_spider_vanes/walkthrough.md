@@ -66,9 +66,6 @@ The 2026-08-02 refresh before it moved SNR −1.5 % per row under CU-253/CU-267.
 
 | Configuration | SNR | EE_3×3 | RER | MTF@Nyq | Strehl |
 |---------------|-----|--------|-----|---------|--------|
-
-| Configuration | SNR | EE_3×3 | RER | MTF@Nyq | Strehl |
-|---------------|-----|--------|-----|---------|--------|
 | Unobstructed | 75.1 | 0.864 | 0.582 | 0.228 | 1.000 |
 | Obscured only (ε=0.30) | 71.5 | 0.763 | 0.517 | 0.207 | 1.000 |
 | Obscured + 4× 3 cm spiders | 66.8 | 0.657 | 0.485 | 0.221 | 1.000 |

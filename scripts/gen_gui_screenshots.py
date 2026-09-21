@@ -47,7 +47,7 @@ per-configuration metric columns visible, exactly as it does for an operator.
 Usage::
 
     python scripts/gen_gui_screenshots.py --list             # capture names
-    python scripts/gen_gui_screenshots.py optics_workspace   # one (or several)
+    python scripts/gen_gui_screenshots.py ug_optics_inputs   # one (or several)
     python scripts/gen_gui_screenshots.py --all              # everything
     python scripts/gen_gui_screenshots.py --all --out /tmp/x # smoke-test elsewhere
 
@@ -264,24 +264,6 @@ CAPTURES: tuple[Capture, ...] = (
         config=_MINIMAL,
         stage="performance",
         caption="Performance workspace on the minimal MWIR LEO example, after evaluation.",
-    ),
-    Capture(
-        name="geometry_workspace",
-        config=_MINIMAL,
-        stage="geometry",
-        caption="Geometry workspace as it opens — the Inputs tab, mode cards and ranges.",
-    ),
-    Capture(
-        name="optics_workspace",
-        config=_MINIMAL,
-        stage="optics",
-        caption="Optics workspace as it opens — the Inputs tab and the derived optics outputs.",
-    ),
-    Capture(
-        name="detector_workspace",
-        config=_MINIMAL,
-        stage="detector",
-        caption="Detector workspace — QE and noise-term breakdown.",
     ),
     # -- Volume IV ch. 2, walkthrough 1: build a sensor from scratch ------------------
     Capture(

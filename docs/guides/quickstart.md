@@ -38,7 +38,9 @@ a 300 K target viewed from 8 km altitude through a 0.30 m aperture.
 radiant run examples/mwir_leo_minimal.yaml
 ```
 
-Output includes SNR, contrast SNR, MTF at Nyquist, RER, and encircled energy.
+The text output is the signal, the sixteen noise terms, their RSS and the SNR; the full
+metric surface (contrast SNR, MTF at Nyquist, RER, encircled energy, …) comes with
+`--format csv` or `--format json`.
 
 Override a parameter on the fly:
 
@@ -144,7 +146,7 @@ radiant validate examples/mwir_leo_minimal.yaml
 - [Configuration Guide](configuration.md) --- YAML structure, defaults, overrides
 - [Scripting Guide](scripting.md) --- Python API for sweeps, Monte Carlo, sensitivity
 - [Trade Studies](trade_studies.md) --- worked examples of common trade study workflows
-- [Parameter Reference](parameter_reference.md) --- all 91 parameters with types and defaults
+- [Parameter Reference](parameter_reference.md) --- every parameter with its type, unit, bounds and default
 - [Regime Selection](regime_selection.md) --- extended-scene vs. sub-pixel vs. point-source
 - Several named designs in one file? See **Configuration Sets** in the
   [Configuration Guide](configuration.md) and [Trade Studies](trade_studies.md)

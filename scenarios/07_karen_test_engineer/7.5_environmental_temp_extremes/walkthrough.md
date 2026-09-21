@@ -134,7 +134,7 @@ no new gap).
 
 ## What Karen Would Do Next
 
-1. **Set the flight operating point at 85 K** and document the 3 K guard
+1. **Set the flight operating point at 79 K** and document the 3 K guard
    band and the 88 K knee in the acceptance data package
 2. **Investigate the knee mechanism** (bias dependence, pixel-to-pixel
    spread) — a defect-assisted onset often has an operability tail worse

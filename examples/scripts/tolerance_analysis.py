@@ -37,6 +37,9 @@ def main() -> None:
 
     # Run Monte Carlo with 50 trials (fast for demo)
     mc_result = sensor.monte_carlo(n_trials=50, seed=42)
+    # The registered unit of every metric, so the statistics below carry units
+    # (a bare "Mean: 0.0250" says nothing about what was measured).
+    units = {rec.name: rec.unit for rec in sensor.evaluate().metric_records()}
 
     # Print statistics
     print("=== Monte Carlo Tolerance Analysis ===")
@@ -49,11 +52,12 @@ def main() -> None:
         std = mc_result.std(metric)
         p5 = mc_result.percentile(metric, 5.0)
         p95 = mc_result.percentile(metric, 95.0)
-        print(f"{metric}:")
-        print(f"  Mean:  {mean:.4f}")
-        print(f"  Std:   {std:.4f}")
-        print(f"  5th %%: {p5:.4f}")
-        print(f"  95th %%: {p95:.4f}")
+        unit = units.get(metric, "")
+        print(f"{metric} [{unit}]:")
+        print(f"  Mean:  {mean:.4f} {unit}")
+        print(f"  Std:   {std:.4f} {unit}")
+        print(f"  5th %: {p5:.4f} {unit}")
+        print(f"  95th %: {p95:.4f} {unit}")
         print()
 
     # Correlations with SNR

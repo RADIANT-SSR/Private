@@ -194,7 +194,7 @@ no degradation). For this system:
 - FWC: 60,000 e-
 - Theoretical max N_tdi (100% fill): 60,000 / 732 = 81.9
 - Saturation first reached at N_tdi = 96; NIIRS plateaus at 6.21 from there on
-- Practical choice: N_tdi = 64 (NIIRS 6.05, 78% fill) for peak quality with saturation
+- Practical choice: N_tdi = 64 (NIIRS 6.12, 78 % fill) for peak quality with saturation
   margin, or N_tdi = 32 (NIIRS 5.89, 39% fill) for a conservative margin
 
 (If the readout added digital-TDI read noise growth, or if a genuinely separable

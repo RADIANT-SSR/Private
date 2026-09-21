@@ -58,6 +58,16 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Shipped example scripts (CU-361).** `custom_loop.py` reads `nedt_K` (its
+  NEDT column printed `nan`); `basic_evaluation.py`, `compare_configs.py` and
+  `tolerance_analysis.py` print every metric with its registered unit;
+  `compare_configs.py` prints `n/a` instead of `nan%` for a zero baseline;
+  `dual_band_configuration_set.py` builds its commentary from its own run; the
+  figure `aperture_sweep.py` writes is gitignored. Volume IV's quoted outputs
+  follow. Docs-drift batch C also corrects the scenario catalog (51 scenarios,
+  not 44), five stale guide claims, and twenty walkthrough passages that had
+  fallen one refresh behind their own tables; CI's ruff jobs now cover the six
+  trees the merge battery governs.
 - **GUI strings and widgets (CU-371).** Product strings no longer carry the
   project's tracking vocabulary ("Gap 65", "ADR-0010 D-E", "v1-minimal
   (owner-ratified …)", "Rule 8", "v1.x", "Phase 2 MODTRAN calibration"): the

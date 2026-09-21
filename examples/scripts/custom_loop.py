@@ -38,8 +38,9 @@ def main() -> None:
         result = s.evaluate()
 
         snr = result.metrics["snr"]
-        nedt_val = result.metrics.get("nedt")
-        nedt = float(nedt_val) if nedt_val is not None else float("nan")
+        # The registered key carries its unit in its name (result.metric_records()
+        # lists every name with its unit); "nedt" alone is not a key.
+        nedt = float(result.metrics["nedt_K"])
 
         # Time-normalized SNR: SNR / sqrt(t_int) — useful for comparing
         # detector performance independent of integration time.

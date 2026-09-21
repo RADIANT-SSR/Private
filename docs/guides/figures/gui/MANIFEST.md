@@ -16,16 +16,13 @@ python scripts/gen_gui_screenshots.py --all
 ```
 
 - Generator: `scripts/gen_gui_screenshots.py`
-- Commit: `95871c6f`
+- Commit: `f6b91058`
 - Generated: 2026-09-20
-- Figures: 53
+- Figures: 50
 
 | Figure | Capture | Input config | Workspace | Target | Window |
 |---|---|---|---|---|---|
 | `performance_workspace.png` | `performance_workspace` | `examples/mwir_leo_minimal.yaml` | `performance` | full window | 1440×900 |
-| `geometry_workspace.png` | `geometry_workspace` | `examples/mwir_leo_minimal.yaml` | `geometry` | full window | 1440×900 |
-| `optics_workspace.png` | `optics_workspace` | `examples/mwir_leo_minimal.yaml` | `optics` | full window | 1440×900 |
-| `detector_workspace.png` | `detector_workspace` | `examples/mwir_leo_minimal.yaml` | `detector` | full window | 1440×900 |
 | `build_geometry_inputs.png` | `build_geometry_inputs` | `examples/mwir_leo_minimal.yaml` | `geometry` → Inputs | full window | 1440×900 |
 | `build_geometry_schematic.png` | `build_geometry_schematic` | `examples/mwir_leo_minimal.yaml` | `geometry` → Schematic | `central_canvas.stage_center` | 1440×1500 |
 | `build_optics_inputs.png` | `build_optics_inputs` | `examples/mwir_leo_minimal.yaml` | `optics` → Inputs | `central_canvas.stage_center` | 1440×1500 |
@@ -88,9 +85,6 @@ These figures show a state an operator reaches by editing a field, so the genera
 ## Captions
 
 - `performance_workspace.png` — Performance workspace on the minimal MWIR LEO example, after evaluation.
-- `geometry_workspace.png` — Geometry workspace as it opens — the Inputs tab, mode cards and ranges.
-- `optics_workspace.png` — Optics workspace as it opens — the Inputs tab and the derived optics outputs.
-- `detector_workspace.png` — Detector workspace — QE and noise-term breakdown.
 - `build_geometry_inputs.png` — Geometry workspace, Inputs tab, with the Parameters dock widened so the full dot-paths are readable.
 - `build_geometry_schematic.png` — Geometry workspace, Schematic tab — the 2D viewing-triangle schematic.
 - `build_optics_inputs.png` — Optics workspace, Inputs tab — aperture, focal length, and derived outputs.

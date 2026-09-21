@@ -29,17 +29,26 @@ def main() -> None:
     # Compare metrics
     print("=== Configuration Comparison ===")
     print()
-    header = f"{'Metric':>20s}  {'Baseline':>12s}  {'Modified':>12s}  {'Delta':>12s}"
-    print(header + f"  {'%Change':>10s}")
-    print("-" * 70)
+    # 91 columns: the manual quotes this table verbatim at text width.
+    header = f"{'Metric':>27s}  {'Unit':<13s}  {'Baseline':>11s}  {'Modified':>11s}  {'Delta':>11s}"
+    print(header + f"  {'%Change':>7s}")
+    print("-" * 91)
 
+    # metric_records() carries each metric's registered unit — a table of bare
+    # numbers would violate the units-on-all-outputs rule.
+    units = {rec.name: rec.unit for rec in baseline_result.metric_records()}
+    units.update({rec.name: rec.unit for rec in modified_result.metric_records()})
     all_metrics = sorted(set(baseline_result.metrics.keys()) | set(modified_result.metrics.keys()))
     for name in all_metrics:
         v_base = baseline_result.metrics.get(name, float("nan"))
         v_mod = modified_result.metrics.get(name, float("nan"))
         delta = v_mod - v_base
-        pct = (delta / v_base * 100.0) if v_base != 0.0 else float("nan")
-        print(f"{name:>20s}  {v_base:12.4f}  {v_mod:12.4f}  {delta:+12.4f}  {pct:+9.1f}%")
+        # A zero baseline has no percentage change: say so rather than print nan.
+        pct_text = f"{delta / v_base * 100.0:+6.1f}%" if v_base != 0.0 else "    n/a"
+        unit = units.get(name, "")
+        print(
+            f"{name:>27s}  {unit:<13s}  {v_base:11.4f}  {v_mod:11.4f}  {delta:+11.4f}  {pct_text}"
+        )
 
     print()
     print("Changes applied:")

@@ -91,17 +91,24 @@ Run all of these before submitting a PR. CI runs them automatically.
 # Type checking (must pass --strict on core and api):
 mypy --strict src/radiant/core src/radiant/api
 
-# Linting (zero warnings):
-ruff check src/
+# Linting (zero warnings) — the six trees the merge battery governs:
+ruff check src/ tests/ scripts/ dev_tools/ scenarios/ examples/
 
-# Formatting (auto-fix):
-ruff format src/
+# Formatting (the check is a merge gate; drop --check to auto-fix):
+ruff format --check src/ tests/ scripts/ dev_tools/ scenarios/ examples/
 
-# Import rule enforcement:
-import-linter --config pyproject.toml
+# Import rule enforcement (the console script is lint-imports; inside a git
+# worktree prefix PYTHONPATH=./src, or it grades the editable-install tree):
+PYTHONPATH=./src lint-imports
+
+# Tooling under scripts/ (outside pytest's testpaths):
+pytest scripts/ -q
 
 # Organization rules (placement + naming per docs/OPERATING_MODEL.md):
 python scripts/check_org_rules.py
+
+# Parameter-reference doc freshness:
+python scripts/gen_param_reference.py --check
 
 # Coverage gate (≥ 85%):
 pytest --cov=radiant --cov-fail-under=85

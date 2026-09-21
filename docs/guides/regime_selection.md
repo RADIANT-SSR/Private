@@ -33,7 +33,7 @@ The source stage computes the target's angular extent:
 
 $$\theta = \sqrt{A_{\text{target}}} \;/\; R$$
 
-where $A_{\text{target}}$ is `source.target.projected_area_m2` and $R$ is
+where $A_{\text{target}}$ is `geometry.target.projected_area_m2` and $R$ is
 the slant range. It compares $\theta$ to the pixel IFOV:
 
 $$\text{IFOV} = p_{\text{pitch}} \;/\; f$$
@@ -118,7 +118,7 @@ Typical targets: small vehicles, people, small boats from high altitude.
 from radiant.api import Sensor
 
 sensor = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
-sensor.set("source.target.projected_area_m2", 10.0)  # 10 m^2 vehicle
+sensor.set("geometry.target.projected_area_m2", 10.0)  # 10 m^2 vehicle
 sensor.set("geometry.target_range_m", 8000.0)
 sensor.set("source.target.fill_fraction", 0.3)
 sub_result = sensor.evaluate()
@@ -137,7 +137,7 @@ Typical targets: stars, distant missiles, satellites, laser glints.
 from radiant.api import Sensor
 
 sensor = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
-sensor.set("source.target.projected_area_m2", 0.01)   # tiny
+sensor.set("geometry.target.projected_area_m2", 0.01)   # tiny
 sensor.set("geometry.target_range_m", 100000.0)          # 100 km
 result = sensor.evaluate()
 ```

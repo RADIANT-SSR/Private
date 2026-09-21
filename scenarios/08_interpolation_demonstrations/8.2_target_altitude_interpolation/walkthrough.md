@@ -51,6 +51,7 @@ sweep: every value above is bit-identical (CU-321 changes emission altitude, not
 optical depth). This scenario's GUI baseline **did** move — SNR 1730.9 → 1658.8,
 NEDT 0.02500 → 0.02624 — because the `.gui.yaml` payload runs the `simple`
 model, where the height-resolved path-thermal emission applies. The +0.7 % SNR
+figure in the Results table above is **carried forward from the 2026-07 run, not re-measured**: the
 error above is a ratio between two interpolated-atmosphere runs and could not be
 re-verified in this sweep: the runner's chain half needs the generated synthetic
 MODTRAN set, which is absent on a clean tree (the fresh-clone dependency logged

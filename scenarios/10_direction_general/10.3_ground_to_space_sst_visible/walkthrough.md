@@ -545,7 +545,7 @@ the Rayleigh term and CU-335 re-fitted the gas floors that had absorbed its erro
 **The batch-2 ladder is now the deciding check**, because the two anchors this
 scenario does have disagree: the model's 0.45–0.70 µm band optical depth is within
 4 % of the delivered MODTRAN water ladder at that ladder's own configuration, while
-Anchor 2's good-site astronomical extinction band says the same column is 1.4× too
+Anchor 2's good-site astronomical extinction band says the same column is 1.3× too
 absorbing. A ground-to-space ladder run at *this* site's elevation and aerosol would
 settle which of the two this scenario should be scored against.
 
@@ -601,7 +601,7 @@ settle which of the two this scenario should be scored against.
 2. ~~Re-run with the Rayleigh coefficient corrected~~ — **done**: CU-253 landed the
    correction and the pass SNR budget above is the re-derived one (+24 % at nominal).
 3. Add a real sky pedestal to the *nominal* tasking. The class-level block is gone
-   (§9 — a daylight re-tasking now carries a 3.2774 W/m²/sr/µm pedestal), but the
+   (§9 — a daylight re-tasking now carries a 3.8794 W/m²/sr/µm pedestal), but the
    intensity door still strips θ_s, so this scene needs either a reflective
    point-source door (`gaps.md` G1/G3) or a measured sky spectrum injected through
    `UserSpectralBackground` before an SST detection limit can be quoted.

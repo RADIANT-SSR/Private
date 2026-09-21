@@ -355,10 +355,20 @@ def print_physics_discussion(study: ConfigurationSet, run: ConfigSetRunResult) -
             f"well fill = {result.well_status().fill_fraction * 100:>5.1f} %"
         )
     print()
+    # Quote the run, never a remembered number: the prose below is built from
+    # the same metrics the table above printed (CU-361).
+    mwir_m, lwir_m = results["MWIR"].metrics, results["LWIR"].metrics
+    nedt_gap_pct = (lwir_m["nedt_K"] / mwir_m["nedt_K"] - 1.0) * 100.0
+    t_ratio = study.configured()["spectral_integration.integration_time_s"]
+    t_mwir = t_ratio[study.names().index("MWIR")]
+    t_lwir = t_ratio[study.names().index("LWIR")]
+    mwir_fill = results["MWIR"].well_status().fill_fraction * 100.0
+    lwir_fill = results["LWIR"].well_status().fill_fraction * 100.0
     print("  Read those rows together, not column by column. The LWIR")
-    print("  configuration reaches an NEDT within ~15 % of the MWIR one while")
-    print("  integrating TEN TIMES shorter — and it still fills a well three")
-    print("  times deeper to 59 %. That is the non-obvious result: at 300 K the")
+    print(f"  configuration reaches an NEDT within {nedt_gap_pct:.0f} % of the MWIR one while")
+    print(f"  integrating {t_mwir / t_lwir:.0f}x shorter — and it still fills its well to")
+    print(f"  {lwir_fill:.0f} % against the MWIR's {mwir_fill:.0f} %. That is the")
+    print("  non-obvious result: at 300 K the")
     print("  scene's spectral radiance peaks near 9.7 um, and dL/dT (the")
     print("  radiance change per kelvin, which is what NEDT actually measures)")
     print("  is far larger in absolute terms in the LWIR. The band is not")
@@ -390,7 +400,10 @@ def print_physics_discussion(study: ConfigurationSet, run: ConfigSetRunResult) -
     print()
     if long_status.is_saturated:
         print("  LWIR_long saturates: 4x the integration time overfills a well")
-        print("  that LWIR already fills to ~59 %. The chain clips the signal and")
+        print(
+            f"  that LWIR already fills to {lwir_status.fill_fraction * 100:.0f} %. "
+            "The chain clips the signal and"
+        )
         print("  says so (see the warnings above, attributed to LWIR_long alone).")
         print("  Its reported SNR and NEDT are computed from the CLIPPED signal,")
         print("  so they no longer respond to the scene at all — a saturated")

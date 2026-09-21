@@ -222,3 +222,15 @@ The ten namespaces are the ten stage names. A unit suffix on the name (`_m`, `_u
 `_rad`, `_s`, `_e_rms`) names the canonical stored unit; a parameter with no natural
 unit carries none. Every parameter has exactly one `ParameterDef` in its owning stage's
 `_schema.py`, and nothing tuneable is hardcoded in a physics module.
+
+## Geometry input-mode letters
+
+The Parameter Reference tags each geometry entry with a mode letter — *V1 … V4, V0* for
+the viewing family, *S1 … S3* for the solar family, *V6* for the circular-orbit kinematics
+door, *K0 … K2* for the line-of-sight rate — and does not expand them. They are the
+doors of the ADR-0006 input-mode manifest, one active per family, detected from which
+parameter you set: V1 path zenith at the lower endpoint, V2 off-boresight angle, V3
+ground range, V4 signed elevation, V0 direct slant range; S1 solar zenith, S2 solar
+elevation, S3 site and time; V6 a circular orbit in place of a direct ground speed; K0
+platform motion only, K1 a direct LOS rate, K2 a target velocity. The User's Guide's
+scene chapter walks each card; `RADIANT_Geometry.md` is the normative source.

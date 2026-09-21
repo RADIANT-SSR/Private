@@ -78,7 +78,7 @@ Results:
 
 *Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
 2026-08-30). One mover: **CU-336** — the gas fit's grid convention was corrected,
-so the floors CU-335 had over-fitted come down. This is an 8–12 µm scene, so the
+so the floors CU-335 had over-fitted come down. This is a 3.5–5.0 µm scene, so the
 reach is again only the λ⁻⁴ tail (3.50–5.00 µm floor 0.4498 -> 0.4494 OD): the
 same two largest pitches move in the seventh figure (24 µm
 1,060,809 -> 1,061,117 e⁻, SNR 1029.7 -> 1029.9; 30 µm 1,610,156 -> 1,610,625 e⁻,

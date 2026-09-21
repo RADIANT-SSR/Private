@@ -176,7 +176,7 @@ NIIRS follows through the GIQE-5 SNR term (5.32 → 5.35 at nadir, 4.42 → 4.45
 45°). The geometry columns (slant range, air mass, ground range, GSD) are
 bit-identical. Both structural conclusions hold: SNR still *rises* with
 off-nadir angle (59.8 → 71.6, +19.8 %) because the growing ground footprint
-outruns the path loss, and the NIIRS penalty at 45° is still −0.90.*
+outruns the path loss, and the NIIRS penalty at 45° now reads −0.57 (it was −0.90 at this note's vintage).*
 
 *Prior vintage, 2026-08-30. **CU-335** put those two floors on the table for the
 first time (0.1597 / 0.0517, against a pre-CU-253 Rayleigh ~8× too large that
@@ -336,9 +336,9 @@ already replaced, plus the CU-340 GM/NIIRS movements of this refresh.*
 
 | Angle [deg] | Ground Range [km] | GSD GM [m] | NIIRS | NEDT [mK] | Access Rate [km^2/s] |
 |-------------|-------------------|------------|-------|-----------|----------------------|
-| 0           | 0                 | 1.37       | 5.35  | 64.0      | 114                  |
-| 30          | 312               | 1.68       | 5.14  | 56.7      | 129                  |
-| 45          | 527               | 2.21       | 4.78  | 53.6      | 154                  |
+| 0           | 0                 | 1.37       | 5.43  | 64.0      | 114                  |
+| 30          | 312               | 1.68       | 5.22  | 56.7      | 129                  |
+| 45          | 527               | 2.21       | 4.86  | 53.6      | 154                  |
 
 At 45 deg off-nadir, Raj can image a target 527 km from nadir ground track,
 but at the cost of -0.57 NIIRS.  Whether this trade is acceptable depends on
@@ -400,13 +400,13 @@ comparison script in the session record for commit-linked provenance.
 
 **Newly closed gaps (metrics now available):**
 - NEDT is now available via `result.metrics["nedt_K"]` -- 64.0 mK at nadir
-- NIIRS is now available via `result.metrics["niirs"]` -- 5.32 at nadir
+- NIIRS is now available via `result.metrics["niirs"]` -- 5.43 at nadir (refreshed sweep table)
 - GSD is now available via `result.metrics["gsd_cross_track_m"]` -- 1.37 m at nadir
 - Q is now available via `result.metrics["q_center"]` -- 0.844
 - Strehl is now available via `result.metrics["strehl"]` -- 0.9065
 - RER is now available via `result.metrics["rer"]` -- 0.5372
 - MTF budget is now available via `result.stage_outputs["performance"]["mtf_budget"]`
-- Well margin is now available via `result.metrics["well_margin_dB"]` -- 27.6 dB
+- Well margin is now available via `result.metrics["well_margin_dB"]` -- 26.9 dB (metrics table)
 - Folded MTF is now available via `result.metrics["mtf_folded_at_nyquist"]` -- 0.4544, with
   `alias_fraction_at_nyquist` = 0.5000. Sampling replicates the pre-sampling spectrum at the
   sampling frequency `f_s = 2 × f_Nyquist` (CU-209), so at Nyquist the `k = -1` replica lands

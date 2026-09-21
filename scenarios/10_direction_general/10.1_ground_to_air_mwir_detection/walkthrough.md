@@ -99,7 +99,7 @@ the emitting emissivity is a realistic 0.06 [-]. An element carries no geometry:
 in-beam element is seen through the one étendue acceptance cone
 Ω_cone = 2π(1 − cos θ) = 0.18760 sr at f/2.0.
 
-**What moved (Gap 128 retune).** SNR 144.64 → 142.23 [-] (−1.67 %), NEDT 610.8 → 621.2
+**What moved (Gap 128 retune).** *(Nominal point only: the §6 elevation sweep, the §7 detection-range table and the header refresh note still carry the pre-retune 144.64 / 610.8 mK vintage; only the near-field term was propagated.)* SNR 144.64 → 142.23 [-] (−1.67 %), NEDT 610.8 → 621.2
 mK (+1.70 %), near-field 1.348 × 10⁴ → 2.413 × 10⁴ e⁻ (+79 %). Signal, A_collect and
 MTF are unchanged: the cold stop is matched to the pupil, so only the near-field term
 moved.
@@ -280,7 +280,7 @@ where the point-source form is refused, SNR = 3279 against SCNR = 5256. That poi
 saturates the well, so the pair is illustrative of the *definition* difference, not a
 usable operating point.)
 
-**NEDT is large (474–3432 mK)** and that is correct, not a defect: NEDT is a
+**NEDT is large (431–3044 mK)** and that is correct, not a defect: NEDT is a
 *background-referenced* sensitivity, and this camera is a 0.5 ms track camera with
 250 e⁻ read noise looking at a dim MWIR sky. It is a point-target tracker, not a
 thermal imager, and SNR/SCNR are the metrics its requirement is written against.

@@ -101,8 +101,8 @@ _OUTPUT_TOOLTIPS: dict[str, dict[str, str]] = {
     "spectral_integration": {
         "signal_e": (
             "Target electrons collected in-band this integration: spectral radiance "
-            "× chain throughput × QE, integrated over the filter band (Rule 8 — "
-            "spectral collapses to scalar exactly here)."
+            "× chain throughput × QE, integrated over the filter band (spectral collapses "
+            "to scalar exactly here)."
         ),
         "e_rate_per_s": (
             "The same band integral per second, before the integration time is applied."
@@ -114,11 +114,11 @@ _OUTPUT_TOOLTIPS: dict[str, dict[str, str]] = {
             "Detectable target-vs-reference-pixel differential; regime-dependent: "
             "point source = Signal (background is common-mode and cancels), sub-pixel "
             "subtracts only the displaced footprint background, extended compares "
-            "against the reference scene (ADR-0005)."
+            "against the reference scene."
         ),
         "ds_dt_e_per_K": (
             "Temperature sensitivity of the in-band signal via the Planck derivative "
-            "(1/B)(dB/dT) — exact-NEDT support (Gap 43); downstream "
+            "(1/B)(dB/dT) — exact-NEDT support; downstream "
             "NEDT = σ_total / (dS/dT)."
         ),
         "nearfield_e": (

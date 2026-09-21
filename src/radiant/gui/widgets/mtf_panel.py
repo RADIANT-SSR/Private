@@ -47,6 +47,7 @@ from PySide6.QtWidgets import (
 
 from radiant.gui.metric_format import format_metric_value
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
+from radiant.gui.widgets.table_sizing import fit_height_to_rows
 
 if TYPE_CHECKING:
     from radiant.api import ChainResult
@@ -207,6 +208,9 @@ class MtfPanel(QWidget):
         for row, name in enumerate(names):
             self._fill_row(table, row, name, fraction_table.per_term[name])
         self._fill_row(table, len(names), _SYSTEM_ROW, fraction_table.system)
+        # Every contributor row visible at once — the pane scrolls, the table never
+        # does (CU-371: the fixed-height table hid the rows the manual quotes).
+        fit_height_to_rows(table, floor=_TABLE_MIN_HEIGHT)
 
     @staticmethod
     def _fill_row(

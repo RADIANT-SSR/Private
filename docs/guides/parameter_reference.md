@@ -94,7 +94,7 @@
 | `atmosphere.modtran.aerosol_model` | str | rural | --- | --- | Aerosol model for MODTRAN (maps to IHAZE card). |
 | `atmosphere.modtran.allow_fallback` | bool | False | --- | --- | If True and MODTRAN binary is unavailable, fall back to SimpleAtmosphere with translated parameters. |
 | `atmosphere.modtran.atmosphere_profile` | str | us_standard | --- | --- | Standard atmosphere profile for MODTRAN (maps to MODEL card). Same enum as atmosphere.standard_atmosphere. |
-| `atmosphere.modtran.binary_path` | str | /usr/local/bin/modtran | --- | --- | Path to the MODTRAN executable. |
+| `atmosphere.modtran.binary_path` | str |  | --- | --- | Path to the MODTRAN executable. Empty (the default) resolves at run time: 'modtran' on PATH if present, else the platform's conventional install location. |
 | `atmosphere.modtran.cache_dir` | str | ~/.radiant/modtran_cache | --- | --- | Directory for caching MODTRAN tape7 results. Keyed by SHA-256 hash of the rendered tape5 deck. |
 | `atmosphere.modtran.flux_path` | str |  | --- | --- | Optional MODTRAN spectral flux CSV (a Block E irradiance run's \*_flux.csv sidecar) supplying the downwelling sky irradiance for the tape7-import path. Requires atmosphere.modtran.tape7_path. When set, the ground-level DOWN column (thermal emission + scattered solar) feeds the sky-reflection terms: E_sky_scattered from the reflective-solar band and E_sky_thermal from the thermal band — replacing the zero downwelling a flux-less import would carry. Unset, a standard IEMSCT=2 tape7 has no downwelling column, so both terms stay zero. |
 | `atmosphere.modtran.h2o_scale` | float | 1.0 | --- | (0.01, 10.0) | Water vapor column scaling factor for MODTRAN. |

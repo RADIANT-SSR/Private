@@ -28,6 +28,7 @@ gating in :func:`PerformanceStage.run`.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 
 from radiant.performance.registry import METRIC_SPECS
 
@@ -164,6 +165,23 @@ def dependency_closure(seed: frozenset[str]) -> frozenset[str]:
                 closure.add(req)
                 frontier.add(req)
     return frozenset(closure)
+
+
+@dataclass(frozen=True, slots=True)
+class MetricSelectionRecord:
+    """What the run selected, published as ``stage_outputs["performance"]["metric_selection"]``.
+
+    A metric absent from ``result.metrics`` is absent for one of three reasons, and
+    a readout should say which (CU-371 II-009): its group's ``performance.metrics.*``
+    flag was off (``enabled_groups``), the scene-class relevance map switched it off
+    by default (``suppressed`` — selecting the group explicitly overrides that), or
+    the run computed the group but the metric was not defined for the regime. All
+    three are sorted tuples so the record serializes and compares plainly.
+    """
+
+    enabled_groups: tuple[str, ...]
+    surfaced: tuple[str, ...]
+    suppressed: tuple[str, ...]
 
 
 def resolve_selection(

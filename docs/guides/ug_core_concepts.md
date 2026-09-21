@@ -219,9 +219,10 @@ named failure instead of a number, and the interface never fills the gap with a 
 zero, or a stale value. A card reads `n/a (<reason>)` whenever the metric was declined or
 failed with a name — a detection range below the threshold you set (`n/a (Target not
 detectable at minimum range 5000 m: SNR = 5.80 < 6.0)` is the pass/fail reading, threshold
-included), NIIRS outside the GIQE-5 envelope — and `n/a — not computed for this run` only
-when the run produced nothing for it at all: its group is switched off, or the scene class
-does not populate it. A declined metric keeps its row in the Performance readout, in its
+included), NIIRS outside the GIQE-5 envelope — and, when the run produced nothing for it
+at all, a reason that says which of three things happened: `not computed — the
+Interpretability metric group is off`, `not computed — off by default for this scene
+class; select the … group to compute it`, or `not computed — not defined for this regime`. A declined metric keeps its row in the Performance readout, in its
 group, rather than vanishing.
 
 NIIRS on a 0.12 m thermal scene is the common declined case. The GIQE-5 regression is out

@@ -137,7 +137,7 @@ _MUTATION_MARKERS: Final[tuple[str, ...]] = (
 _BANNER: Final[str] = (
     "RADIANT scripting console — live  sensor ,  configs , and  result  are bound.\n"
     "  result.snr            a metric with units\n"
-    "  inspect_result(result)  the full variable dump (result.inspect() is Gap 87)\n"
+    "  result.inspect()      the full variable dump\n"
     "  sensor.set('optics.aperture_diameter_m', 0.3)   then click Refresh\n"
     "  configs               the session document (ConfigurationSet); configs.names()\n"
     "  plot.mtf()            a figure — pops out into its own window\n"

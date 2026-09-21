@@ -77,7 +77,7 @@ class TestSpectralComposition:
         # CU-242 (owner-directed): one plot — this stage's own spectral product.
         assert [p.method for p in comp.plots] == ["spectral_irradiance_at_image"]
         # The note names the deferral so it reads as intentional, not missing.
-        assert comp.note is not None and "Gap 92" in comp.note
+        assert comp.note is not None and "per-wavelength noise spectrum" in comp.note
 
     def test_stage_stays_a_flat_pane(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         """Spectral Integration is a single flat pane (no sub-view tabs) — owner judgment."""
@@ -148,7 +148,7 @@ class TestSpectralPane:
 
         pane = _spectral_pane(qtbot, Sensor.from_yaml(_EXAMPLE))
         notes = [lbl.text() for lbl in pane.findChildren(QLabel) if lbl.objectName() == "stageNote"]
-        assert any("Gap 92" in text for text in notes)
+        assert any("per-wavelength noise spectrum" in text for text in notes)
 
 
 # ---------------------------------------------------------------------------
@@ -265,7 +265,7 @@ class TestOwnerDirectedScreenSpec:
         readout = pane.outputs_readout
         assert readout is not None
         tip = readout.tooltip_for("signal_e")
-        assert "Rule 8" in tip
+        assert "spectral collapses to scalar" in tip
         assert "filter band" in tip
         assert "Planck derivative" in readout.tooltip_for("ds_dt_e_per_K")
 

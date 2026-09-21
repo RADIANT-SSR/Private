@@ -98,8 +98,16 @@ are gone from the readout entirely. And the pinned **MTF @ Nyq** card reads
 
 ```text
 n/a
-not computed for this run
+not computed — the Interpretability metric group is off
 ```
+
+The second line is the reason, and it says which of three things happened: the metric's
+group is switched off (as above); the scene-class relevance map turned it off by default —
+`not computed — off by default for this scene class; select the Sampling / geometry group
+to compute it` — and selecting the group overrides that; or the group ran and the metric is
+simply not defined here — `not computed — not defined for this regime` (detection range on
+an extended scene, say). A metric the run *declined* keeps its own reason instead, such as
+the GIQE-5 calibration range.
 
 — not a blank, not a zero, not a stale value. A metric you switched off says so. The text
 is not exclusive to that case: it is what any metric the run did not produce shows,

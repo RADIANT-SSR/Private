@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from radiant.atmosphere._modtran_paths import default_modtran_binary
 from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.interpolation_coverage import (
     BUNDLED_ATMOSPHERES_DIR,
@@ -95,6 +96,21 @@ def model_requires_prebuild(params: ParameterSet) -> bool:
         # Partial-chain fixtures may not register the modtran schema.
         return False
     return bool(tape7_path)
+
+
+def modtran_binary_path(configured: str) -> Path:
+    """The MODTRAN executable for a configured ``atmosphere.modtran.binary_path``.
+
+    An explicit path is used verbatim; the empty default resolves at run time to
+    ``modtran`` on PATH, else the platform's conventional install location
+    (:func:`radiant.atmosphere._modtran_paths.default_modtran_binary`), so the
+    schema never carries one platform's path as every platform's default
+    (CU-371 F-53). Existence is checked where the binary is invoked (CU-151).
+    """
+    stripped = configured.strip()
+    if stripped:
+        return Path(stripped)
+    return default_modtran_binary()
 
 
 def build_atmosphere_model(params: ParameterSet) -> object:
@@ -215,7 +231,7 @@ def _build_modtran(params: ParameterSet) -> object:
     )
 
     config = ModtranConfig(
-        binary_path=Path(params.get("atmosphere.modtran.binary_path")),
+        binary_path=modtran_binary_path(str(params.get("atmosphere.modtran.binary_path"))),
         cache_dir=Path(
             str(params.get("atmosphere.modtran.cache_dir")).replace(
                 "~",

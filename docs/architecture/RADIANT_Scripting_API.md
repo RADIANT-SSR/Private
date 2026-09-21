@@ -634,7 +634,7 @@ Every stage publishes named intermediate values. Keys observed in a standard run
 | `spectral_integration` | `signal_e`, `background_e`, `contrast_e`, `e_rate_per_s`, `qe_scalar` |
 | `detector` | `signal_e`, `background_e`, `dark_e`, `noise_budget_raw` |
 | `readout` | `signal_e_final`, `signal_dn_final`, `sigma_total_e`, `well_status`, `well_fill_fraction`, `total_well_e` [e-], `full_well_capacity_e` [e-], `adc_status`, `noise_regime` |
-| `performance` | `mtf_budget`, `mtf_x`, `mtf_y`, `folded_mtf_x`, `snr_result`, `nedt_result`, `niirs_result`, `dual_path_consistency` |
+| `performance` | `mtf_budget`, `mtf_x`, `mtf_y`, `folded_mtf_x`, `snr_result`, `nedt_result`, `niirs_result`, `dual_path_consistency`, `metric_selection` (a `MetricSelectionRecord` — `enabled_groups`, `surfaced`, `suppressed`, sorted tuples: what the run selected, so a readout can say *why* a metric is absent — group off, off by default for the scene class, or not defined for the regime; CU-371) |
 
 **EE_box note (2026-07):** the ensquared-energy coupling factor is computed in **PlatformStage** from the fully degraded PSF (optics × jitter × smear × turbulence) and published as `stage_outputs["platform"]["EE_box"]`. It is applied exactly once, in `SpectralIntegrationStage`, only for point-source and sub-pixel regimes (Rule 9). For extended scenes `EE_box = 1.0` and it is not applied.
 

@@ -518,7 +518,7 @@ class ConfigurationSet:
                 what=f"cannot add configuration {name!r}: the set already holds "
                 f"{len(self._names)} of at most {self.MAX_CONFIGS}",
                 why=f"a set is capped at {self.MAX_CONFIGS} configurations so the always-on "
-                "evaluate-all pass and the side-by-side comparison stay bounded (ADR-0010 D-E)",
+                "evaluate-all pass and the side-by-side comparison stay bounded",
                 action="Remove a configuration you no longer need, or split the study "
                 "into two sets.",
                 context={
@@ -1301,8 +1301,7 @@ class ConfigurationSet:
         if failed:
             raise ConfigSetError(
                 what=f"cannot compare: configuration(s) {failed} failed to evaluate",
-                why="a comparison matrix with a silently missing column would misreport the "
-                "study (Rule 17)",
+                why="a comparison matrix with a silently missing column would misreport the study",
                 action="Fix the failing configuration(s) and re-run evaluate_all(), or call "
                 "compare_configs() directly on the subset you want to compare; "
                 "`run.failures` holds each recorded error.",
@@ -1536,7 +1535,7 @@ class ConfigurationSet:
             raise ConfigSetError(
                 what=f"{operation}: element row index must be an int, got {index!r}",
                 why="element rows are addressed by position — the row identity of a "
-                "configured element document (Gap 103 v1.1)",
+                "configured element document",
                 action=f"Pass a row index in 0 … {max(self.element_count() - 1, 0)}.",
                 context={"element_row": index},
             )
@@ -1619,8 +1618,8 @@ class ConfigurationSet:
             raise ConfigSetError(
                 what=f"configuration {name!r}: parameter(s) {clashes} are configured but the "
                 "base also holds a shared value for them",
-                why="a configured parameter lives only in the per-configuration table "
-                "(ADR-0010 D-B); a shared value set on the base afterwards would be "
+                why="a configured parameter lives only in the per-configuration table; "
+                "a shared value set on the base afterwards would be "
                 "silently shadowed by the configured column",
                 action=f"Set per-configuration values with set_values({clashes[0]!r}, [...]) "
                 f"or set_value({clashes[0]!r}, config, v), or unconfigure({clashes[0]!r}) "
@@ -1651,7 +1650,7 @@ class ConfigurationSet:
                 what=f"parameter {name!r} needs exactly {len(self._names)} values "
                 f"(one per configuration), got {len(column)}",
                 why="configured parameters are dense by construction — every configuration "
-                "carries a value, so a short list is never padded (ADR-0010 D-A)",
+                "carries a value, so a short list is never padded",
                 action=f"Pass one value per configuration, in the order {list(self._names)}.",
                 context={"param": name, "expected": len(self._names), "got": len(column)},
             )
@@ -1736,7 +1735,7 @@ class ConfigurationSet:
                 what=f"a configuration set holds at most {self.MAX_CONFIGS} configurations, "
                 f"got {len(names)}",
                 why="the cap bounds the always-on evaluate-all pass and keeps the "
-                "side-by-side comparison surface readable (ADR-0010 D-E)",
+                "side-by-side comparison surface readable",
                 action=f"Pass at most {self.MAX_CONFIGS} names, or split the study into two sets.",
                 context={"count": len(names), "max": self.MAX_CONFIGS},
             )

@@ -135,6 +135,7 @@ from radiant.gui.widgets.configured_name_delegate import (
 )
 from radiant.gui.widgets.matplotlib_canvas import MatplotlibCanvas
 from radiant.gui.widgets.spectral_table_dialog import SpectralTableDialog
+from radiant.gui.widgets.table_sizing import fit_height_to_rows
 
 if TYPE_CHECKING:
     from radiant.api.config_set import ConfigurationSet
@@ -232,14 +233,14 @@ _REMOVE_CONFIGURED_BODY = (
 # the configured-parameter badge tooltips (ConfigurationScope.summary).
 _SUMMARY_SEPARATOR = " · "
 
-_EPS_TOOLTIP = "ε is Kirchhoff-derived (1 − R − T) — read-only (Rule 5)."
+_EPS_TOOLTIP = "ε is Kirchhoff-derived (1 − R − T) — read-only (Kirchhoff's law)."
 
 # The coating-detail header. It names the **selected row** — its element and its
 # position in the train — because the pane follows the selection and nothing else said
 # so: the owner walkthrough (2026-09-10) added two mirrors, read a header that said only
 # "Coating detail — mirror", and had no way to tell which of them was drawn, or that
 # clicking the other row would redraw it.
-_DETAIL_TITLE_IDLE = "Coating detail — R / T / ε on the coating's own grid (Gap 116)"
+_DETAIL_TITLE_IDLE = "Coating detail — R / T / ε on the coating's own grid"
 _DETAIL_TITLE_ROW = "Coating detail — {name} (row {row}) · R / T / ε on the coating's own grid"
 _DETAIL_PROMPT = (
     "Select a row above to inspect its coating — this plot follows the selected row, "
@@ -256,6 +257,9 @@ _DETAIL_DUPLICATE = (
 )
 # Tall enough for two stacked autoscaled panels; the figure follows the widget.
 _DETAIL_MIN_HEIGHT = 260
+# The element table shows every row (CU-371); this floor only keeps an empty train
+# from collapsing to a header sliver.
+_TABLE_FLOOR = 96
 
 # Gap 128 deleted per-element near-field geometry (``diameter_m`` /
 # ``distance_to_fpa_m``): an element has no near-field geometry of its own, because every
@@ -1043,6 +1047,7 @@ class OpticalElementEditor(QWidget):
     def _append_row(self, entry: dict[str, Any], origin: int) -> None:
         with self._silent():
             self._build_row(entry, origin)
+        fit_height_to_rows(self._table, floor=_TABLE_FLOOR)
 
     def _build_row(self, entry: dict[str, Any], origin: int) -> None:
         """Render *entry* as a new last row, carrying the entry itself on the row.
@@ -1211,6 +1216,7 @@ class OpticalElementEditor(QWidget):
             return
         with self._silent():
             self._table.removeRow(row)
+        fit_height_to_rows(self._table, floor=_TABLE_FLOOR)
         self._refresh_configured_marks()
         self.refresh_coating_detail()
         self._commit_structure(f"Remove element row {origin}")
@@ -1283,6 +1289,7 @@ class OpticalElementEditor(QWidget):
     def _reload_rows(self, rows: list[tuple[dict[str, Any], int]]) -> None:
         with self._silent():
             self._table.setRowCount(0)
+            fit_height_to_rows(self._table, floor=_TABLE_FLOOR)
             for entry, origin in rows:
                 self._build_row(entry, origin)
 

@@ -227,8 +227,9 @@ ground range, no swath width, no access rate** — the eleven metrics the scene-
 listed are genuinely absent from the result, not blank.
 
 The right rail's pinned cards, outside the pane shown above, say the same thing in a
-second place: GSD and NIIRS both read
-`n/a — not computed for this run`, and the Interpretability group carries only MRT at
+second place: GSD and NIIRS both read `n/a — not computed — off by default for this scene
+class`, each naming the group to select to override it (Sampling / geometry, and
+Interpretability), and the Interpretability group carries only MRT at
 Nyquist, 0.5364 K. Nothing in the configuration asked for this; it follows from the
 derived scene class through one declarative relevance map.
 

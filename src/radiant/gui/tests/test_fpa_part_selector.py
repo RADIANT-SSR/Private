@@ -48,7 +48,7 @@ class TestPickerDialog:
         dialog.select_part("senseeker-calcium-rp0033")
         row = dialog._table.currentRow()
         assert "ROIC" in dialog._table.item(row, 1).text()
-        assert "Gap 121" in dialog._details.text()
+        assert "belong to the mated diode" in dialog._details.text()
         dialog.select_part("geosnap-18")
         row = dialog._table.currentRow()
         assert dialog._table.item(row, 1).text() == "FPA"

@@ -36,6 +36,7 @@ from radiant.performance.gsd import compute_gsd_from_geometry
 from radiant.performance.metric_selection import (
     ALL_GROUPED_METRICS,
     GROUP_PARAMS,
+    MetricSelectionRecord,
     resolve_selection,
 )
 from radiant.performance.minimum_resolvable import minimum_resolvable_temperature_K
@@ -1139,7 +1140,20 @@ class PerformanceStage:
         # target-plane metrics this phase introduced, so a ground-target
         # scene's selection is bit-identical to the pre-Phase-3 one.
         suppressed = suppressed_metrics(_scene_class(state), _groups_at_default(params))
-        surfaced, compute = resolve_selection(_enabled_groups(params), suppressed)
+        enabled = _enabled_groups(params)
+        surfaced, compute = resolve_selection(enabled, suppressed)
+        # The selection itself is a published fact (CU-371 II-009): a readout can then
+        # say *why* a metric is absent — group off, off by default for the scene
+        # class, or not defined for the regime — instead of one blanket "not computed".
+        state = state.with_stage_output(
+            "performance",
+            "metric_selection",
+            MetricSelectionRecord(
+                enabled_groups=tuple(sorted(enabled)),
+                surfaced=tuple(sorted(surfaced)),
+                suppressed=tuple(sorted(suppressed)),
+            ),
+        )
 
         snr_result = None
         if "snr" in compute:

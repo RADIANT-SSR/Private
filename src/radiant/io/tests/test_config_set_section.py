@@ -114,7 +114,7 @@ class TestValidationMatrix:
         msg = str(exc.value)
         assert "study.yaml" in msg
         assert "detector.qe_value" in msg
-        assert "shared" in msg and "ADR-0010 D-B" in msg
+        assert "shared" in msg and "never both" in msg
         assert "MWIR" in msg
 
     def test_unknown_dotpath_keeps_did_you_mean(self) -> None:

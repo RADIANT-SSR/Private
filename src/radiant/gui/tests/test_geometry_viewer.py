@@ -176,3 +176,35 @@ class TestViewerImportsNoPhysicsStage:
             if pv_re.findall(path.read_text(encoding="utf-8"))
         }
         assert not offenders, f"pyvista imports remain in the viewer: {offenders}"
+
+
+class TestLeaderPillsStayInside:
+    """CU-371 IV-031: a leader pill anchored near the viewport edge is shifted back
+    inside rather than clipped (the h_s pill was cut off in ``case_irst_schematic``)."""
+
+    def test_pills_are_clamped_into_the_viewport(self, qtbot, evaluated) -> None:  # type: ignore[no-untyped-def]
+        from PySide6.QtCore import QRectF
+
+        from radiant.gui.viewer.schematic_view import SchematicView
+
+        sensor, result = evaluated
+        view = SchematicView()
+        qtbot.addWidget(view)
+        view.set_state(ViewerState.from_chain_result(result, sensor))
+        view.setMinimumSize(1, 1)  # the view's own floor would keep it larger
+        view.resize(140, 100)  # small enough that the offset pills would overrun
+        assert view.width() == 140 and view.height() == 100
+        view.grab()  # paints offscreen
+        assert view.pill_rects, "the h_s pill is always drawn"
+        bounds = QRectF(0.0, 0.0, 140.0, 100.0)
+        for rect in view.pill_rects:
+            assert bounds.contains(rect), f"pill {rect} outside the {bounds} viewport"
+
+    def test_clamp_rect_is_the_smallest_shift(self) -> None:
+        from radiant.gui.viewer.pill_clamp import clamp_rect
+
+        assert clamp_rect(10.0, 10.0, 50.0, 20.0, 200.0, 100.0) == (10.0, 10.0)
+        assert clamp_rect(180.0, 10.0, 50.0, 20.0, 200.0, 100.0) == (146.0, 10.0)
+        assert clamp_rect(-30.0, 95.0, 50.0, 20.0, 200.0, 100.0) == (4.0, 76.0)
+        # Wider than the viewport: pin to the left margin rather than overrun.
+        assert clamp_rect(50.0, 10.0, 300.0, 20.0, 200.0, 100.0) == (4.0, 10.0)

@@ -174,7 +174,7 @@ PSF map shows and what the MTF budget's optics row says are two views of one obj
 motion/smear knobs above the jitter σ, smear width and EE_box the stage derives from
 them.](figures/gui/ug_platform_workspace.png)
 
-Two tabs, and a deliberately small first one. Platform is **v1-minimal**: there is no
+Two tabs, and a deliberately small first one. Platform is deliberately small: there is no
 dedicated MTF view here, because the jitter and smear MTF terms already appear in the Optics
 MTF budget and the Performance surface, and a third place to read them would be a third place
 to disagree.

@@ -46,11 +46,12 @@ Four things are worth naming before anything else:
 ## 2. Read the answer
 
 The rail already carries the headline: **SNR 1124**, **NEDT 24.96 mK**, **GSD 0.12 m**,
-**MTF @ Nyq 0.2668**. NIIRS reads `n/a — not computed for this run`: no NIIRS value was
-produced, because the tool declined to extrapolate the GIQE-5 regression outside its
-calibration range rather than print a number it does not stand behind. That card text is
-the same one a metric you switched off shows — it says only that nothing was computed;
-chapter 4 covers where the reason for a particular one lives.
+**MTF @ Nyq 0.2668**. NIIRS reads `n/a`, with its reason on the card — *NIIRS/IIRS not
+applicable: SNR = 1.12e+03 is outside the GIQE-5 calibration range [2, 130]* — because the
+tool declined to extrapolate the GIQE-5 regression rather than print a number it does not
+stand behind. A metric you switched off reads differently, `n/a — not computed — the
+Interpretability metric group is off`, so the two states are never confused; chapter 4
+covers the reasons a card can carry.
 
 For the full metric surface, select stage **10 Performance**.
 

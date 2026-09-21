@@ -47,23 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-371 — GUI strings and widgets leak process language or clip content into the shipped manuals (live-review family)
-
-**Discovered**: CU-370 manual-suite fix campaign, 2026-09-18 — the deferred GUI-gated remainder of the 2026-09 editorial audit (II-003, II-015, II-009's GUI side, IV-031, plus two campaign discoveries).
-**Status**: Open — every item needs a GUI source/string change, so the live-review rule gates each merge; the manual figures and quoted strings inherit the fixes on recapture/re-quote.
-**File**: `src/radiant/gui/` — advisory/refusal strings, `metric_format.badge_display`, `viewer` (GeometryViewer leader pills), MTF-budget/element-train table widgets.
-**Symptom**: checklist —
-
-- [ ] II-003: the Platform workspace advisory string ships "v1-minimal (owner ratified…)… (ADR-0006 §4 / CU-122)… post-v1 task" — process language in the product, now rendered 1.8× more legibly by the CU-370 panel-grab figure. Reword, then recapture `ug_platform_workspace.png`.
-- [ ] II-015: the 13th-configuration refusal message cites "(ADR-0010 D-E)". Reword; the Volume II quote inherits on recapture.
-- [ ] II-009 GUI side (reason surfacing landed under CU-375 F-27, 2026-09-20: `_FAILURE_RESULT_KEY` maps `niirs`/`detection_range_m` to their result objects, `badge_display` and the metric cards name the declined reason; the remaining item is the three-state wording of the true "not computed" case): `badge_display` returns "n/a — not computed for this run" for three distinct states (metric group off / regime did not populate / metric declined), and the NIIRS refusal's `failure_reason` on `stage_outputs["performance"]["niirs_result"]` never reaches the card — `metric_failure_reason` only consults present-but-non-finite metrics. Surface the reason; the manuals were aligned to current behavior in CU-370 B3 and will need a touch-up when this lands.
-- [ ] IV-031: GeometryViewer does not clamp altitude leader pills inside the viewport — the `h_s` pill is clipped in `case_irst_schematic.png` (capture-side fix proven impossible in the CU-370 campaign); regenerate the figure after the fix. (The mode-form value clipping visible in the same schematic — "6479 deg" — is CU-363's checklist, not this one.)
-- [ ] Usability audit 2026-09-19 (F-52/F-53, `Findings_Live_Session_1.md`): product strings still carrying process language — "Gap 65" in the three saturation warnings, "deferred (Gap 92) … (Rule 8)" on the Spectral outputs note, "ADR-0011 decision 6" in the horizon-guard refusal, "v1-minimal (owner-ratified …) (ADR-0006 §4 / CU-122)" on the Platform note (II-003); ~~the required-parameter advisory's "Set it via: params.set(…)" line~~ (replaced by `Action: set '<name>' — it has no default` under CU-373 F-13/F-12, 2026-09-20); `modtran.binary_path` showing a POSIX default in the dock.
-- [ ] The MTF-budget and element-train tables use bounded inner scroll boxes showing 5–6 rows regardless of window height, so `flagship_mtf_budget.png` cannot show the `mtf_pixel_aperture` row the prose quotes (caption adjusted as a stopgap in CU-370 B7).
-
-**Why it still matters**: workflow-visible (intake test 4) — operators read these strings and plots in every session, and the CU-370 panel grabs magnified them; also blocking (test 3) — these items complete the manual figure/quote set the docs-side campaign could not touch.
-**Suggested fix**: (b) stand-alone GUI task(s), live-review required before each merge; recapture and rebuild the affected volumes after. Effort S–M; category A.
-
 ### CU-366 — Scenario 1.1 walkthrough argues its reflected-sky physics against the wrong hull emissivity
 
 **Discovered**: Gap 131 Phase 4b (branch `gap131/phase4-examples`) case-study adaptation, 2026-09-16.
@@ -298,6 +281,23 @@ by name in check 8 — that list is frozen and must never grow.
 
 **Why it still matters**: workflow-visible (intake test 4) — this is the owner's "conflict you cannot fix one edit at a time" report, and it is owner-gated (test 2) because the remedy is a mode-model decision.
 **Resolution**: fix batch 4 as ruled — see the checklist; the physics manifest is unchanged, the two seams are additive. Original suggested fix: (b) stand-alone task after the Gap 85 ruling — either a mode selector that withdraws the other doors' explicit values (with an undo step), or a "withdraw and switch" action on the rejection; show derived values in inactive fields; make LTAN/LST exclusive on the card; add a lab door. Effort M–L; Category D.
+
+### CU-371 — GUI strings and widgets leak process language or clip content into the shipped manuals (live-review family) — RESOLVED 2026-09-20 (commit trailer)
+
+**Discovered**: CU-370 manual-suite fix campaign, 2026-09-18 — the deferred GUI-gated remainder of the 2026-09 editorial audit (II-003, II-015, II-009's GUI side, IV-031, plus two campaign discoveries).
+**Status**: Resolved 2026-09-20 — usability-audit fix batch 5 (`fix371/gui-strings`; one commit per checklist item, each with a pinning test that fails on the pre-fix code); live-reviewed per the GUI live-review rule before merge; the GUI figures were regenerated and the four manuals rebuilt in the same batch.
+**File**: `src/radiant/gui/` — advisory/refusal strings, `metric_format.badge_display`, `viewer` (GeometryViewer leader pills), MTF-budget/element-train table widgets.
+**Symptom**: checklist —
+
+- [x] II-003 — reworded (the Platform, Readout, Spectral, Source, Calibration and PSF-kernel notes and the Platform inputs title), figure recaptured: the Platform workspace advisory string ships "v1-minimal (owner ratified…)… (ADR-0006 §4 / CU-122)… post-v1 task" — process language in the product, now rendered 1.8× more legibly by the CU-370 panel-grab figure. Reword, then recapture `ug_platform_workspace.png`.
+- [x] II-015 — reworded, with its D-A/D-B siblings in io and api: the 13th-configuration refusal message cites "(ADR-0010 D-E)". Reword; the Volume II quote inherits on recapture.
+- [x] II-009 GUI side — the performance stage publishes `metric_selection`; `badge_display` names the group that is off, the scene-class suppression (and how to override it), or 'not defined for this regime'; seven guide passages re-quoted (reason surfacing landed under CU-375 F-27, 2026-09-20: `_FAILURE_RESULT_KEY` maps `niirs`/`detection_range_m` to their result objects, `badge_display` and the metric cards name the declined reason; the remaining item is the three-state wording of the true "not computed" case): `badge_display` returns "n/a — not computed for this run" for three distinct states (metric group off / regime did not populate / metric declined), and the NIIRS refusal's `failure_reason` on `stage_outputs["performance"]["niirs_result"]` never reaches the card — `metric_failure_reason` only consults present-but-non-finite metrics. Surface the reason; the manuals were aligned to current behavior in CU-370 B3 and will need a touch-up when this lands.
+- [x] IV-031 — `viewer/pill_clamp.py`, pills shifted inside the viewport; figure regenerated: GeometryViewer does not clamp altitude leader pills inside the viewport — the `h_s` pill is clipped in `case_irst_schematic.png` (capture-side fix proven impossible in the CU-370 campaign); regenerate the figure after the fix. (The mode-form value clipping visible in the same schematic — "6479 deg" — is CU-363's checklist, not this one.)
+- [x] Usability audit 2026-09-19 (F-52/F-53) — every product string reworded (`gui/tests/test_product_strings.py` scans string literals for tracking tokens); `modtran.binary_path` defaults to empty and resolves at run time, `Findings_Live_Session_1.md`): product strings still carrying process language — "Gap 65" in the three saturation warnings, "deferred (Gap 92) … (Rule 8)" on the Spectral outputs note, "ADR-0011 decision 6" in the horizon-guard refusal, "v1-minimal (owner-ratified …) (ADR-0006 §4 / CU-122)" on the Platform note (II-003); ~~the required-parameter advisory's "Set it via: params.set(…)" line~~ (replaced by `Action: set '<name>' — it has no default` under CU-373 F-13/F-12, 2026-09-20); `modtran.binary_path` showing a POSIX default in the dock.
+- [x] `widgets/table_sizing.py` — both tables size to their rows; the MTF-budget and element-train tables use bounded inner scroll boxes showing 5–6 rows regardless of window height, so `flagship_mtf_budget.png` cannot show the `mtf_pixel_aperture` row the prose quotes (caption adjusted as a stopgap in CU-370 B7).
+
+**Why it still matters**: workflow-visible (intake test 4) — operators read these strings and plots in every session, and the CU-370 panel grabs magnified them; also blocking (test 3) — these items complete the manual figure/quote set the docs-side campaign could not touch.
+**Suggested fix**: (b) stand-alone GUI task(s), live-review required before each merge; recapture and rebuild the affected volumes after. Effort S–M; category A.
 
 ### CU-372 — GUI edit discipline misrepresents state on unresolved configurations and consistency-group members (usability-audit family) — RESOLVED 2026-09-20 (commit trailer)
 

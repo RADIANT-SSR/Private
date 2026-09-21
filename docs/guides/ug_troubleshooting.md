@@ -352,8 +352,9 @@ believe has its own short checklist.
    and it decides whether ensquared energy is applied, whether the background term exists, and
    which SNR definition is in force.
 5. **Is a metric missing because it was switched off?** A card reading
-   `n/a — not computed for this run` is a metric group you deselected (chapter 9, §2), not a
-   failure.
+   `n/a — not computed — the … metric group is off` is a metric group you deselected
+   (chapter 9, §2), not a failure; `off by default for this scene class` is the relevance
+   map, and selecting the group overrides it.
 6. **Has something aged out?** A gray strip and an amber **Re-evaluate** button mean the numbers
    predate your last edit.
 7. **Open the Inspector** (`Ctrl+I`) and walk the intermediates. The stage that first looks

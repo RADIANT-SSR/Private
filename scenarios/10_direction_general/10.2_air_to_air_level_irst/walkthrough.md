@@ -171,7 +171,7 @@ by running the script.)
 
 SNR falls 9.9× over a 4× range increase — steeper than inverse-square because
 the band transmittance falls from 0.634 to 0.163 over the same span. No pixel
-saturates anywhere in the sweep (well margin 5.5 dB at the near end).
+saturates anywhere in the sweep (well margin 4.6 dB at the near end, per the 25 km row).
 
 **One warning other than the horizon guard is raised, at every sweep point.**
 The runner classifies it as UNEXPECTED and prints it in full:

@@ -52,6 +52,10 @@ model the veiling-glare MTF / contrast-modulation reduction (gaps.md, Gap 60).
 | Veiling glare 3 % (native mode) | 2.92×10⁴ | 522.0 | 208.6 | 11.021 | −0.031 |
 | Out-of-field 2.5 W/m² | 5.52×10⁶ | 124.3 | 49.4 | 10.049 | **−1.003** |
 
+*The absolute NIIRS column is a GIQE-5 extrapolation two levels above the 9-point rating
+scale (a fine-GSD 7 km airborne pan scene sits outside the fit's envelope); only the
+ΔNIIRS column carries meaning here.*
+
 *Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
 2026-08-30). Sole mover: **CU-336** — the same fit's grid convention was
 corrected, so the two floors come down to 0.1375 and 0.0402 and this VNIR scene

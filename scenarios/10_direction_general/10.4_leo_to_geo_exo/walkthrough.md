@@ -207,8 +207,8 @@ $$\omega_\mathrm{LOS} = \frac{|v_\mathrm{LEO} - v_\mathrm{GEO}|}{h_\mathrm{GEO} 
  = \frac{7616.56 - 3074.92 \ \mathrm{m/s}}{3.5286\times10^{7}\ \mathrm{m}} = 128.709\ \mu\mathrm{rad/s}.$$
 
 That rate is the design driver. An inertially-fixed 500 ms stare drags the point
-source across **7.5 pixels**, collapsing EE_box from 0.223 to 0.054 and SNR from
-24.5 to 7.6. Open-loop SNR actually *peaks* at 250 ms and then falls: past that
+source across **7.5 pixels**, collapsing EE_box from 0.2457 to 0.0597 and SNR from
+26.32 to 8.29. Open-loop SNR actually *peaks* at 250 ms and then falls: past that
 point the smear kernel grows faster than $\sqrt{t}$, so integrating longer loses
 SNR. The rate-tracked curve keeps rising as $\sqrt{t}$ because the scene is
 background-free (cold space) and dark-current-limited.

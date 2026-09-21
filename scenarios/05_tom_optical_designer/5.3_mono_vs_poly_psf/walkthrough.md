@@ -117,13 +117,13 @@ N=11 vs N=21 agrees well within 1% on all metrics (MTF 0.32%, EE 1×1 0.22%, FWH
 
 2. **SNR is unaffected.** The PSF model choice does not change SNR because SNR in extended-scene regime depends on total signal and noise, not the PSF shape. The signal is the same regardless of how the PSF is computed.
 
-3. **EE 3×3 is robust to chromaticism.** Only 0.9% error in EE 3×3 because the 3×3 box is large enough to capture the PSF regardless of wavelength-dependent broadening. EE 1×1 is much more sensitive because a single pixel is comparable in size to the PSF.
+3. **EE 3×3 is robust to chromaticism.** Only 0.8% error in EE 3×3 because the 3×3 box is large enough to capture the PSF regardless of wavelength-dependent broadening. EE 1×1 is much more sensitive because a single pixel is comparable in size to the PSF.
 
 4. **N=11 wavelengths is sufficient** for this band. Convergence is achieved within ~0.3% of the N=21 result. N=5 also gives similar results (within ~1–2% of N=11).
 
 5. **The FWHM result.** Polychromatic FWHM (21.1 µm) is marginally smaller than monochromatic (21.3 µm), a 0.8% difference — small enough to be a wash at this band ratio. The polychromatic PSF has a tighter core from the short-wavelength contributions but broader wings from the long-wavelength contributions. FWHM measures only the core width, so the sharper short-wavelength PSFs hold the FWHM roughly level while the broader wings reduce EE 1×1. (Pre-CU-224 this difference read 2.0%; CU-224's flux re-weighting all but cancelled it, and CU-321's re-weighting brings a little of it back.)
 
-6. **For Tom's design review**: the 18 µm pixel still passes all requirements under polychromatic analysis. MTF at Nyquist drops from 0.267 to 0.246 (requirement: ≥ 0.10) and EE 1×1 drops from 0.414 to 0.394 (requirement: ≥ 0.30). Both are still above thresholds, though EE 1×1 now clears its floor by 31% rather than the 47% of the previous vintage.
+6. **For Tom's design review**: the 18 µm pixel still passes all requirements under polychromatic analysis. MTF at Nyquist drops from 0.267 to 0.248 (requirement: ≥ 0.10) and EE 1×1 drops from 0.414 to 0.396 (requirement: ≥ 0.30). Both are still above thresholds, though EE 1×1 now clears its floor by 31% rather than the 47% of the previous vintage.
 
 ## Gaps Identified
 

@@ -69,7 +69,7 @@ scenario 6.1's pattern for a self-contained, reproducible run).
 
 *Numbers refreshed 2026-09-01. One mover since the previous vintage:
 **CU-336** corrected the gas fit's grid convention, so the floors CU-335 had
-over-fitted come down. This is an 8–12 µm intercomparison, so the reach is again
+over-fitted come down. This is a 3.5–5.0 µm intercomparison, so the reach is again
 the λ⁻⁴ tail (3.50–5.00 µm floor 0.4498 -> 0.4494 OD): every profile's band-mean
 τ and SNR moves in the fourth decimal / fifth figure (us_standard τ
 0.5516 -> 0.5518, SNR 651.28 -> 651.37). Two rows cross a rounding boundary in

@@ -74,7 +74,7 @@ the chain's own spherical viewing triangle (`slant_range_from_theta_o_m`).
 > CU-335** — the calibrated gas table's VIS/NIR/SWIR rows were re-fitted against
 > the post-CU-253 Rayleigh. Every sensor here is MWIR or LWIR, so the reach is
 > only the λ⁻⁴ tail in the 2.40–5.00 µm floors (≤ 0.001 OD): **one cell in the
-> whole 12 × 4 × 3 matrix moves**, sensor A's small UAV, 686 → 685 km. Nothing
+> whole 12 × 4 × 3 matrix moves**, sensor B's small UAV, 686 → 685 km. Nothing
 > else changes to the printed precision and no status flips.
 >
 > **Prior vintage 2026-08-29. One mover: CU-324.**
@@ -256,7 +256,7 @@ weighting, so its pixel departs least and it is hardest to separate: mean
 199 km, and it falls out entirely on the LWIR sensor. What the ordering is
 *not* is a size or temperature ranking: the cool 12 m² Small UAV (294 K) and
 the hot 28 m² MBT tank (310 K) sit within 1 % of each other on sensor B
-(688 vs 695 km clear) and both beat the smaller, cooler Technical, because what
+(685 vs 696 km clear) and both beat the smaller, cooler Technical, because what
 sets detectability is distance from the weighted-background null. This is
 correct single-pixel radiometry; a multi-pixel
 matched filter (summing the target energy that EE_box spread to neighbours)

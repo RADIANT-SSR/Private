@@ -12,7 +12,7 @@ Approach (refreshed 2026-07-07, Phase R):
   2. Build the WFE allocation as a radiant.api.ErrorBudget (Gaps 23+28):
      RSS contributors per Zernike mode, allocation = lambda/14, margin and
      remaining-allocation queries.
-  3. Sweep scalar optics.wfe_rms_waves (random phase screen) for the budget
+  3. Sweep scalar optics.wfe_rms_waves (deterministic equal-RMS Noll Z4–Z11 expansion) for the budget
      threshold curves — the total-RMS trade.
   4. Run one chain evaluation with the ACTUAL Zernike prescription
      (WavefrontError ZERNIKE mode injected via
@@ -411,7 +411,7 @@ def main() -> None:
     # ---------------------------------------------------------------------------
     # Step 5b: Zernike-mode run — the actual prescription vs scalar RMS
     # ---------------------------------------------------------------------------
-    # The scalar sweep above assumes a random phase screen at each RMS. Tom's
+    # The scalar sweep above expands each RMS into the deterministic equal-RMS Noll Z4–Z11 set (CU-355). Tom's
     # actual aberrations are structured (coma + spherical dominate), and shape
     # matters: the same total RMS distributed differently across modes lands
     # the aberrated energy differently (cf. scenario 7.3, where the scalar-WFE
@@ -868,7 +868,9 @@ def main() -> None:
     print("    with < 0.25 NIIRS degradation.")
 
     print("\n  Limitations:")
-    print("    - The scalar-RMS sweep uses a random phase screen; the SAME total RMS")
+    print(
+        "    - The scalar-RMS sweep uses the deterministic equal-RMS Noll Z4–Z11 expansion; the SAME total RMS"
+    )
     print("      with a different modal mix lands differently (see Step 5b). The")
     print("      Zernike route (load_zemax_zernike + injected WavefrontError) is the")
     print("      shape-faithful path and is preferred when a prescription exists.")

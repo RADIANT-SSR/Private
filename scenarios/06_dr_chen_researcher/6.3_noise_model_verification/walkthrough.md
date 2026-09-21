@@ -110,7 +110,7 @@ longer exists in extended regime.)
 | NEDT | 21.79 | 23.92 | mK | 8.91% (Gap 43 — see below) |
 | NIIRS | 11.12 | -- | -- | -- |
 | GSD | 0.1200 | 0.1200 | m | 0.00% |
-| MTF at Nyquist | 0.2668 | -- | -- | -- |
+| MTF at Nyquist (PSF path, `mtf_at_nyquist`) | 0.2668 | -- | -- | -- |
 | Strehl | 1.0000 | -- | -- | -- |
 | Q (sampling) | 0.9444 | 0.9444 | -- | 0.00% |
 | EE (1x1) | 0.4141 | -- | -- | -- |
@@ -137,7 +137,7 @@ expected for an `exo` (vacuum) path that CU-224 and CU-267 cannot touch.*
 | IPC | 1.0000 | 1.0000 |
 | Charge diffusion | 1.0000 | 1.0000 |
 | TDI | 1.0000 | 1.0000 |
-| **System** | **0.2688** | **0.2688** |
+| **System** (MTF-product path, `mtf_system_at_nyquist_x`) | **0.2688** | **0.2688** |
 
 ## Physics Discussion
 

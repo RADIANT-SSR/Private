@@ -62,6 +62,8 @@ LABEL_COLUMN_WIDTH = 170
 LABEL_COLUMN_MIN = 70
 VALUE_BOX_MIN = 72
 VALUE_BOX_MAX = 280
+# Left + right inner padding of a value box around its text (theme padding + frame).
+_VALUE_TEXT_PADDING_PX = 24
 
 
 class ElidingLabel(QLabel):
@@ -218,8 +220,16 @@ class FieldRow(QWidget):
         self._on_edit(self._dotpath)
 
     def set_value_text(self, text: str) -> None:
-        """Set the displayed value+unit text."""
+        """Set the displayed value+unit text — and never let the box clip it.
+
+        A push button does not elide: in a narrow column the box used to cut a
+        value mid-number ("705000 m" read "'05000 m", CU-363). The box's minimum
+        width now follows its text (within the shared cap), so a tight column
+        scrolls rather than silently truncating a digit.
+        """
         self._value.setText(text)
+        needed = self._value.fontMetrics().horizontalAdvance(text) + _VALUE_TEXT_PADDING_PX
+        self._value.setMinimumWidth(min(VALUE_BOX_MAX, max(VALUE_BOX_MIN, needed)))
 
     def value_text(self) -> str:
         """The displayed value+unit text (for tests)."""

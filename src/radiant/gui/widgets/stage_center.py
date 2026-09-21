@@ -81,6 +81,7 @@ from radiant.gui.widgets.performance_metrics_form import PerformanceMetricsForm
 from radiant.gui.widgets.platform_inputs_form import PlatformInputsForm
 from radiant.gui.widgets.plot_placeholder import PlotPlaceholder
 from radiant.gui.widgets.readout_inputs_form import ReadoutInputsForm
+from radiant.gui.widgets.responsive_splitter import ResponsiveSplitter
 from radiant.gui.widgets.scene_class_panel import SceneClassPanel
 from radiant.gui.widgets.site_elevation_panel import SiteElevationPanel
 from radiant.gui.widgets.source_inputs_form import SourceInputsForm
@@ -451,6 +452,11 @@ class StagePane(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         scroll.setWidget(tab)
+        # A plots-beside-panel split follows this viewport's width and stacks when
+        # the two minimums do not fit side by side (CU-363). Wired here, not on show:
+        # a tab page that is not current never receives a show event.
+        for split in tab.findChildren(ResponsiveSplitter):
+            split.follow(scroll.viewport())
         return scroll
 
     def _build_sections(
@@ -637,6 +643,10 @@ class StagePane(QWidget):
             # shared bind_sensor / refresh path binds and syncs it exactly like the Inputs-tab
             # form; its parameterEdited re-emits so an edit re-evaluates and re-renders the scene.
             schematic_form = geometry_panel.geometry_form
+            # Two views of one sensor: a pending door choice made on either tab
+            # shows on both (Findings Log 2026-09-20, batch A).
+            for inputs_form in self._geometry_forms:
+                inputs_form.share_pending_with(schematic_form)
             schematic_form.parameterEdited.connect(self.parameterEdited)
             self._geometry_forms.append(schematic_form)
             split.addWidget(geometry_viewer)
@@ -742,7 +752,9 @@ class StagePane(QWidget):
         if spec.panel_placement == PANEL_BESIDE and plots_host is not None:
             # Chart left, table right, user-draggable. Stretch favours the chart:
             # the table needs enough width to show its terms, not half the pane.
-            split = QSplitter(Qt.Orientation.Horizontal, parent)
+            # Stacks vertically when the pane is narrower than the two minimums
+            # summed (CU-363: the default layout clipped the panel's value boxes).
+            split = ResponsiveSplitter(parent)
             split.setObjectName("stagePanelSplit")
             plots_host.setMinimumWidth(_PLOT_MIN_WIDTH_PX)
             split.addWidget(plots_host)

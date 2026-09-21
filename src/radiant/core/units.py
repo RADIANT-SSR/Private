@@ -60,8 +60,13 @@ _CONVERSIONS: dict[tuple[str, str], float] = {
     # Temperature offsets are NOT multiplicative; only K is accepted.
     # Dose
     ("krad", "krad"): 1.0,
-    # Area
+    # Area — two spellings are registered: "m2" (the geometry.target extent) and
+    # "m^2" (the source-stage areas); each converts to the other at 1.0 so a caller
+    # may pass either spelling to Sensor.set(..., unit=...) for either parameter.
     ("m2", "m2"): 1.0,
+    ("m^2", "m^2"): 1.0,
+    ("m^2", "m2"): 1.0,
+    ("m2", "m^2"): 1.0,
     # Velocity
     ("m/s", "m/s"): 1.0,
     ("km/s", "m/s"): 1e3,

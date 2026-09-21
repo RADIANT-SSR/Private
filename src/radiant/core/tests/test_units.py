@@ -336,3 +336,10 @@ def test_photon_rate_invalid_wavelength_raises() -> None:
     """photon_rate with invalid wavelength propagates ValueError from photon_energy_J."""
     with pytest.raises(ValueError, match="wavelength must be > 0"):
         photon_rate(1.0, 0.0)
+
+
+def test_area_spellings_convert_both_ways() -> None:
+    """Findings Log 2026-09-18: "m2" and "m^2" are two spellings of one unit."""
+    assert convert(2.5, "m^2", "m2") == pytest.approx(2.5, rel=1e-15)
+    assert convert(2.5, "m2", "m^2") == pytest.approx(2.5, rel=1e-15)
+    assert convert(2.5, "m^2", "m^2") == pytest.approx(2.5, rel=1e-15)

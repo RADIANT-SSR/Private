@@ -659,11 +659,17 @@ def build_scene(state: ViewerState) -> SchematicScene:
         eta_dir=eta_dir,
         theta_o_dir=theta_o_dir,
         zeta_low_dir=zeta_low_dir,
-        target_area_label=_area_label(
-            state.projected_area_m2,
-            state.angular_extent_rad,
-            state.pixel_pitch_m,
-            state.focal_length_m,
+        # A point-intensity target has no area to print: its 1e-12 m² reference area is
+        # a cancellation device, not a size (CU-367); say what it is instead.
+        target_area_label=(
+            "point (intensity input)"
+            if state.intensity_target
+            else _area_label(
+                state.projected_area_m2,
+                state.angular_extent_rad,
+                state.pixel_pitch_m,
+                state.focal_length_m,
+            )
         ),
         has_sun=state.has_sun,
         los_direction=state.los_direction,
@@ -1014,8 +1020,18 @@ class SchematicView(QWidget):
         painter.setBrush(Qt.BrushStyle.NoBrush)
 
     def _text(self, painter: QPainter, x: float, y: float, text: str, color: str) -> None:
+        """Draw *text* with its baseline at (x, y), shifted inside the viewport if needed.
+
+        Marker names ("SENSOR", "TARGET") sit at a fixed offset from projected
+        points, so a marker near the edge used to lose its name off-screen — the
+        pills were clamped under CU-371 IV-031, the plain labels were not.
+        """
+        metrics = painter.fontMetrics()
+        width = float(metrics.horizontalAdvance(text))
+        height = float(metrics.height())
+        left, top = clamp_rect(x, y - metrics.ascent(), width, height, self.width(), self.height())
         painter.setPen(QPen(QColor(color)))
-        painter.drawText(QPointF(x, y), text)
+        painter.drawText(QPointF(left, top + metrics.ascent()), text)
 
     def _label_font(self) -> QFont:
         """A small font for value/leader pills (inherits the app family; size only)."""
@@ -1041,6 +1057,17 @@ class SchematicView(QWidget):
         left, top = clamp_rect(
             rect.left(), rect.top(), rect.width(), rect.height(), self.width(), self.height()
         )
+        # Pills placed at fixed offsets from projected points can land on each other
+        # when the fit scale is small (the A_t pill over the Δφ pill on a tall scene);
+        # a pill that would cover an earlier one steps down until it is clear.
+        step = rect.height() + 2.0
+        for _ in range(8):
+            probe = QRectF(left, top, rect.width(), rect.height())
+            if not any(probe.intersects(prior) for prior in self._pill_rects):
+                break
+            left, top = clamp_rect(
+                left, top + step, rect.width(), rect.height(), self.width(), self.height()
+            )
         x += left - rect.left()
         y += top - rect.top()
         rect.moveTo(left, top)

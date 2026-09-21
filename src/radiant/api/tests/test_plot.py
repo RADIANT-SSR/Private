@@ -449,8 +449,8 @@ class TestPlotAtmosphereSpectral:
         wl = np.linspace(3.5, 5.0, 50)
         fig = plot_atmosphere_spectral(wl, 0.8 * np.ones_like(wl), 0.3 * np.ones_like(wl))
         ylabels = {a.get_ylabel() for a in fig.axes}
-        assert "τ_atm (–)" in ylabels
-        assert "L_path (W/m²/sr/µm)" in ylabels
+        assert "τ_atm\n(–)" in ylabels  # two-line labels: the stacked axes' labels cannot touch
+        assert "L_path\n(W/m²/sr/µm)" in ylabels
         # The over-long spelled-out prefixes are gone.
         assert all("Transmittance" not in y for y in ylabels)
         assert all("Path radiance" not in y for y in ylabels)

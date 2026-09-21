@@ -22,6 +22,7 @@ from typing import Any
 import numpy as np
 
 from radiant.api.errors import ApiValidationError
+from radiant.core.descriptors import T7IntensityAtSource
 from radiant.io.results import ChainResult
 
 logger = logging.getLogger(__name__)
@@ -529,6 +530,21 @@ class ResultPlotNamespace:
         view). Raises :class:`ApiValidationError` when the frame is absent.
         """
         from radiant.api.plot import plot_spectral_multi
+
+        descriptor = self._result.stage_outputs.get("source", {}).get("target")
+        if isinstance(descriptor, T7IntensityAtSource) and descriptor.I_t_source is not None:
+            # A point-intensity target has no surface radiance: the stored
+            # at-source frame is I / A_reference with a 1e-12 m² cancellation
+            # area (ADR-0004), a number with no physical reading. Plot what the
+            # operator entered — the intensity itself (CU-367).
+            intensity = descriptor.I_t_source
+            return plot_spectral_multi(
+                intensity.wavelength_um,
+                {"target intensity": intensity.values},
+                title="Source intensity I(λ) at the target (point source, before atmosphere)",
+                ylabel="Intensity (W/sr/µm)",
+                **kwargs,
+            )
 
         frames = self._result.frames
         target = frames.get("at_source_target")

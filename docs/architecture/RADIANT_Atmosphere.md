@@ -1075,8 +1075,9 @@ single source of truth (Rule 27). The subsections below carry only *design conte
 - `atmosphere.modtran.flux_path` — optional spectral flux CSV supplying downwelling (CU-157).
   Requires `tape7_path`. Set → the DOWN column feeds the two `E_sky` terms, superseding the
   Gap 81 zeros.
-- `atmosphere.modtran.binary_path` — cross-platform default (CU-151): `modtran` on `PATH`,
-  else the per-platform install location (POSIX `/usr/local/bin/modtran`; Windows
+- `atmosphere.modtran.binary_path` — empty by default (CU-371 F-53: the schema no longer
+  carries the authoring machine's resolved path); the loader resolves an empty value at run
+  time (CU-151): `modtran` on `PATH`, else the per-platform install location (POSIX `/usr/local/bin/modtran`; Windows
   `C:\Program Files\MODTRAN\modtran.exe`). Existence is checked at first use (not config
   load) and a missing binary raises `ModtranUnavailableError`.
 - `atmosphere.modtran.cache_dir` — created if missing.

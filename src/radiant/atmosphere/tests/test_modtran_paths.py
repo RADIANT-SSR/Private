@@ -44,9 +44,15 @@ def test_str_form_matches_path_form(monkeypatch: pytest.MonkeyPatch) -> None:
     assert default_modtran_binary_str() == str(default_modtran_binary())
 
 
-def test_config_and_schema_defaults_agree() -> None:
-    """The dataclass factory and the schema default resolve to the same value."""
-    assert str(ModtranConfig().binary_path) == MODTRAN_BINARY_PATH.default
+def test_schema_default_is_empty_and_resolves_at_run_time() -> None:
+    """The schema default is empty (CU-371 F-53); the loader resolves it to the
+    same path the dataclass factory uses, and an explicit path is used verbatim."""
+    from radiant.atmosphere.loaders import modtran_binary_path
+
+    assert MODTRAN_BINARY_PATH.default == ""
+    assert modtran_binary_path("") == ModtranConfig().binary_path
+    assert modtran_binary_path("   ") == default_modtran_binary()
+    assert modtran_binary_path("/custom/modtran") == Path("/custom/modtran")
 
 
 def test_config_serialization_round_trip_preserves_binary_path() -> None:

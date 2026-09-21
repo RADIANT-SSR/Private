@@ -6,7 +6,6 @@ plus the interpolated model and viewing geometry parameters.
 
 from __future__ import annotations
 
-from radiant.atmosphere._modtran_paths import default_modtran_binary_str
 from radiant.atmosphere.interpolation_coverage import shipped_family_catalogue_text
 from radiant.core.parameters import ParameterDef
 
@@ -271,16 +270,22 @@ MODTRAN_FLUX_PATH = ParameterDef(
 
 MODTRAN_BINARY_PATH = ParameterDef(
     name="atmosphere.modtran.binary_path",
-    description="Path to the MODTRAN executable.",
+    description=(
+        "Path to the MODTRAN executable. Empty (the default) resolves at run time: "
+        "'modtran' on PATH if present, else the platform's conventional install location."
+    ),
     dtype=str,
     canonical_unit="",
     input_unit="",
-    default=default_modtran_binary_str(),
+    default="",
     tags=frozenset({"atmosphere", "modtran"}),
     default_justification=(
-        "MODTRAN on PATH if present, else the conventional per-platform install "
-        "location (POSIX /usr/local/bin/modtran; Windows Program Files). Availability "
-        "is authoritatively checked at run time (CU-151, Rule 30)."
+        "Empty means 'resolve at run time' (MODTRAN on PATH, else the conventional "
+        "per-platform install location — POSIX /usr/local/bin/modtran, Windows Program "
+        "Files). The schema used to carry the resolved path of the *authoring* machine "
+        "as its default, so a POSIX path showed as the default on every platform and in "
+        "the GUI (CU-371 F-53). Availability is authoritatively checked at run time "
+        "(CU-151, Rule 30)."
     ),
 )
 

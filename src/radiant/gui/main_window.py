@@ -2874,8 +2874,9 @@ class RADIANTMainWindow(QMainWindow):
 
         *value* ``None`` is a withdrawn input (CU-372 F-20): a shared parameter is
         ``reset`` on the base; a configured column has no "unset" cell, so the
-        displayed configuration's cell takes the resolved default when there is one
-        and the withdrawal is otherwise left to the next evaluation to report.
+        withdrawal is refused with an actionable reason (set a value, or un-configure
+        the parameter) and the displayed sensor is re-materialized from the document
+        so the two never sit silently apart (batch B, 2026-09-20).
         """
         cs = self._config_set
         if cs is None or self._is_degenerate():
@@ -2883,12 +2884,37 @@ class RADIANTMainWindow(QMainWindow):
         try:
             if cs.is_configured(dotpath):
                 if value is None:
-                    try:
-                        value = self._sensor.get_input(dotpath) if self._sensor else None
-                    except (KeyError, RadiantError):
-                        return False
-                    if value is None:
-                        return False
+                    # A configured column has no empty cell (ADR-0010 D-A): the
+                    # withdrawal cannot land on the document. Writing the schema
+                    # default into the cell instead (the previous behaviour) changed
+                    # the configuration's value without saying so; the withdrawal
+                    # is refused with the reason and the displayed sensor is put
+                    # back in step with the document (Findings Log 2026-09-20).
+                    exec_dialog(
+                        ActionableErrorDialog(
+                            ConfigSetError(
+                                what=(
+                                    f"{dotpath} is configured per configuration and "
+                                    f"cannot be left unset in {cs.active!r}"
+                                ),
+                                why=(
+                                    "a configured parameter carries one value in every "
+                                    "configuration; there is no empty cell to withdraw to"
+                                ),
+                                action=(
+                                    "Set a value for this configuration, or un-configure "
+                                    "the parameter (right-click ▸ Un-configure) to return "
+                                    "it to the shared base"
+                                ),
+                                context={"configuration": cs.active, "parameter": dotpath},
+                            ),
+                            dotpath,
+                            self,
+                            verb="reset",
+                        )
+                    )
+                    self._resync_display_sensor()
+                    return False
                 before = ScopeState.configured_column(cs.configured()[dotpath])
                 cs.set_value(dotpath, cs.active, value, unit=unit)
                 after = ScopeState.configured_column(cs.configured()[dotpath])

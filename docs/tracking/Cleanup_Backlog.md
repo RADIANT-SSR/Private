@@ -56,10 +56,10 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: owner-gated (intake test 2) — a published physics note argued from wrong premises; correcting it changes interpretation text, not numbers.
 **Suggested fix**: (a) inline-fix-now once ruled — rewrite the two paragraphs against the steel curve's ε(λ) (or switch the config to a painted-hull curve and refresh, which IS results-affecting). Effort S; category C either way.
 
-### CU-365 — Element-config parser silently ignores `emissivity:` (and mismatched transfer keys) instead of rejecting over-specification
+### CU-365 — Element-config parser silently ignores `emissivity:` (and mismatched transfer keys) instead of rejecting over-specification — RESOLVED 2026-09-20 (commit trailer)
 
 **Discovered**: Gap 131 Phase 3b (branch `gap131/phase3-users-guide`) troubleshooting-chapter verification, 2026-09-16.
-**Status**: Open.
+**Status**: Resolved 2026-09-20 — engine-consistency batch B (`engine-consistency/batch-b`): `_parse_element` refuses `emissivity:` on every element and transfer keys foreign to the row's mode, each with an actionable `ElementConfigError`; pinning tests in `io/tests/test_element_overspecification.py`; ug_troubleshooting §7 states the refusal.
 **File**: `src/radiant/io/element_config.py::_parse_element`.
 **Symptom**: an optical-element entry carrying `emissivity:` (or `transmittance:` on a REFLECTIVE row) is silently ignored by the parser, retained in the document, and round-tripped into saved YAML — the user believes their emissivity is in effect while Kirchhoff derivation governs.
 **Why it still matters**: workflow-visible (intake test 4) and a Rule 5 / Rule 17 seam — Rule 5 says validate-and-derive (reject over-specification, never accept emissivity on an optical element), Rule 17 forbids silent handling; the shipped User's Guide ch. 12 documents the actionable-rejection philosophy this parser undercuts.

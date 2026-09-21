@@ -263,7 +263,7 @@ resolution engine, and `radiant.core` is untouched.
 | `ConfigurationSet(base, names=None)` | Wrap a `Sensor` as the shared base. `names` defaults to a single `"Configuration 1"`. The base is **owned**, not copied — pass `sensor.clone()` to keep an independent handle. |
 | `ConfigurationSet.MAX_CONFIGS` | `12`. A thirteenth configuration raises `ConfigSetError` (ADR-0010 D-E; raised 8 → 12, owner-ratified 2026-09-01). |
 | `cs.base` | The shared base `Sensor`. Editing it (`cs.base.set(...)`) edits the shared value of a parameter that is *not* configured. |
-| `cs.names()` / `len(cs)` / `name in cs` | Configuration names in set order; count; membership. |
+| `cs.names()` / `len(cs)` / `name in cs` | Configuration names in set order; count; membership. (`names()` is a method on the set; `ConfigSetRunResult.names` is a property — the two spellings are deliberate and documented rather than renamed across 126 call sites, batch B 2026-09-20.) |
 | `cs.add(name, *, copy_from=None)` | Append a configuration. Every configured parameter **and every configured element row** gains an entry: copied from `copy_from` (the duplicate route), else from **configuration #1**. `remove` drops that configuration's entry from every row, and `rename`/`reorder` re-key and re-order them, so a row can never be left sparse or holding an entry for a configuration that no longer exists. |
 | `cs.remove(name)` | Remove a configuration and drop its column. The last one cannot be removed; an active/baseline designation moves to the first remaining configuration. |
 | `cs.rename(old, new)` / `cs.reorder(names)` | Rename in place; reorder by a **permutation** of the current names (value columns permute with them, so alignment is preserved). |

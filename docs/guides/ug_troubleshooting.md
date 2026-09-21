@@ -178,9 +178,12 @@ This is the family that has **no modal**, on purpose — see §4.
 ### 3.6 Kirchhoff and the element train
 
 Kirchhoff's law is enforced by making the over-specification unrepresentable rather than by
-refusing it after the fact. There is no emissivity input for an optical element
-anywhere in the GUI, the YAML, or the API: a mirror row takes a reflectance, a refractive row
-takes a transmittance, and ε is derived and shown read-only.
+refusing it after the fact. There is no emissivity input for an optical element anywhere in
+the GUI, the YAML, or the API: a mirror row takes a reflectance, a refractive row takes a
+transmittance, and ε is derived and shown read-only. An `emissivity:` key in a YAML element
+entry — like a refractive key on a mirror row, `transmittance`, `alpha`, `n_refr` or
+`thickness_m` — is refused when the document is read, not ignored. (A `reflectance` on a
+lens row is kept: a surface reflectance is a real property of a lens.)
 
 The document parser reinforces that: a row's transfer mode decides which single value is read —
 `reflectance` for `REFLECTIVE`, `transmittance` for `REFRACTIVE` — so a train you author in the

@@ -196,6 +196,45 @@ def _reject_removed_keys(entry: dict[str, Any], element_name: str) -> None:
             )
 
 
+#: Keys a REFLECTIVE row must not carry — they belong to the refractive model.
+#: ``emissivity`` is refused on every element: Rule 5 derives it (ε = 1 − R for a
+#: mirror, 1 − T − R through a lens), so an entered value would either be ignored
+#: or over-specify the element. A ``reflectance`` on a REFRACTIVE row is *not*
+#: refused: a lens surface's reflectance is a real property (the cavity model
+#: reads R1/R2, and the simple model's ε = 1 − T − R has a place for it), and the
+#: element editor's entry-faithfulness contract carries it through unchanged.
+_REFLECTIVE_FOREIGN_KEYS: tuple[str, ...] = ("transmittance", "alpha", "n_refr", "thickness_m")
+
+
+def _reject_overspecified_keys(
+    entry: dict[str, Any], element_name: str, transfer_mode: str
+) -> None:
+    """Refuse ``emissivity`` on any element and refractive keys on a mirror (CU-365).
+
+    Before this check the keys were silently ignored, retained in the document and
+    round-tripped into saved YAML — the author believed their emissivity was in
+    effect while Kirchhoff derivation governed (Rule 5, Rule 17).
+    """
+    if "emissivity" in entry:
+        raise ElementConfigError(
+            f"Element '{element_name}': 'emissivity' is not an element input. "
+            "An optical element's emissivity is derived from its reflectance and "
+            "transmittance (ε = 1 − R for a mirror, ε = 1 − T − R through a lens); an "
+            "entered value would over-specify it. Remove the key — or, to raise the "
+            "element's thermal emission, lower its reflectance/transmittance and set "
+            "temperature_K."
+        )
+    foreign = _REFLECTIVE_FOREIGN_KEYS if transfer_mode == "REFLECTIVE" else ()
+    present = [key for key in foreign if key in entry]
+    if present:
+        raise ElementConfigError(
+            f"Element '{element_name}': {present} do not apply to transfer_mode = "
+            f"'{transfer_mode}' and would be silently ignored. A REFLECTIVE element takes "
+            "'reflectance'; 'transmittance', 'alpha', 'n_refr' and 'thickness_m' belong to "
+            "a REFRACTIVE element. Remove the stray key or change transfer_mode."
+        )
+
+
 def _require(entry: dict[str, Any], key: str, element_name: str) -> Any:
     """Get a required key from an element dict, or raise with clear message."""
     if key not in entry:
@@ -215,6 +254,7 @@ def _parse_element(
     name = _require(entry, "name", "<unnamed>")
     _reject_removed_keys(entry, str(name))
     transfer_mode = _require(entry, "transfer_mode", name).upper()
+    _reject_overspecified_keys(entry, str(name), transfer_mode)
 
     # Common thermal field. An element carries no geometry (Gap 128).
     temperature_K = float(entry.get("temperature_K", 0.0))

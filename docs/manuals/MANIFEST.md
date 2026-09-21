@@ -9,14 +9,14 @@ that changes them replaces all four files and this manifest in one commit.
 **Generator**: `python scripts/build_manual.py --all` (XeLaTeX; inputs are the
 bound sources under `docs/theory/` and `docs/guides/` plus the build assets
 under `scripts/manual_assets/`).
-**Source commit**: `cfcaf082` (post docs-drift batch C/D, 2026-09-20).
+**Source commit**: `bd977ae3` (tag `v0.2.0`, 2026-09-21).
 
 | File | Volume | Pages | SHA-256 |
 |---|---|---|---|
-| `radiant_theory.pdf` | I — Theory Manual | 86 | `5b27da2b69deb9f36720d8bf3e489c529c3e50fb8a7ab1d328528500769735b4` |
-| `radiant_users_guide.pdf` | II — User's Guide | 102 | `242d6d44e61fced43be0f8539e7327e7420c0f0d2ccaeb4be448b5695f55cd26` |
-| `radiant_tech_ref.pdf` | III — Technical Reference | 160 | `cc987a4eab7d6fd67d2380d30b873e268928d2500d9239dddcaf67fb72062959` |
-| `radiant_examples.pdf` | IV — Worked Examples & Validation | 181 | `cf9b6570ab30513b699a69a5db1c4cd4b57a067296dbf8d04540c82fbe6f80a0` |
+| `radiant_theory.pdf` | I — Theory Manual | 86 | `1320f01cb6aca46cbdce639c6ee49c1ab84632f493a16ec52e4d140043ded921` |
+| `radiant_users_guide.pdf` | II — User's Guide | 102 | `965e5e8a05ae777b0e70933a141ace6512363ef755f81703bb1cc30a4f5b6402` |
+| `radiant_tech_ref.pdf` | III — Technical Reference | 160 | `dbb9099f9b8dafcdd8a2dd5bafa5e78fad29d6d1931abc3c41aa541501b09cd9` |
+| `radiant_examples.pdf` | IV — Worked Examples & Validation | 181 | `a35bf3d18f1242e71097b9ffb7c70274ccb4cc97f268dcd2b3fd1e09e2396f64` |
 
 Title pages print the version with a git-describe parenthetical when the build
 tree sits past the release tag; a build on the tagged commit prints the bare

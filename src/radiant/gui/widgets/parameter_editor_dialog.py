@@ -84,7 +84,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from radiant.api.units import units_for
+from radiant.api.units import convert, units_for
 from radiant.core.exceptions import RadiantError
 from radiant.gui.config_scope import scope_of
 from radiant.gui.dialog_lifetime import exec_dialog
@@ -1115,9 +1115,14 @@ class ParameterEditorDialog(QDialog):
         if self._per_config is not None:
             self._preview_label.setText(self._per_configuration_preview())
             return
-        canonical, _rejection, _unexpected = self._try_resolve(
-            self._editor_value(), self._chosen_unit()
-        )
+        value = self._editor_value()
+        unit = self._chosen_unit()
+        canonical, rejection, _unexpected = self._try_resolve(value, unit)
+        if canonical is None and rejection is None:
+            # Accepted on a configuration that cannot resolve yet: there is no
+            # resolved value to preview, but the unit conversion is still known
+            # (audit F-50 — the preview read "= —" while a value was typed).
+            canonical = self._converted_only(value, unit)
         if canonical is None:
             self._preview_label.setText(_PREVIEW_UNSET)
         else:
@@ -1138,6 +1143,24 @@ class ParameterEditorDialog(QDialog):
         """The inputs a commit of the current editor value withdraws (empty for an edit)."""
         text = self._withdraw_label.text()
         return tuple(text.split(", ")) if text else ()
+
+    def _converted_only(self, value: Any, unit: str | None) -> Any | None:
+        """*value* in canonical units by the registry alone (no resolve), or ``None``.
+
+        Only for a numeric parameter with a parsable value; the registry seam is
+        the same one ``Sensor.set`` uses, so the number shown is the number that
+        would be stored.
+        """
+        if self._pdef.dtype not in (float, int) or not self._pdef.canonical_unit:
+            return None
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return None
+        try:
+            return convert(number, unit or self._pdef.input_unit, self._pdef.canonical_unit)
+        except (KeyError, ValueError):
+            return None
 
     # -- error area ---------------------------------------------------------
 

@@ -74,7 +74,7 @@ The stage-jump submenu lists the namespaces in chain order:
 | Action | Shortcut | Available | Notes |
 |---|---|---|---|
 | Evaluate | `F5`, `Ctrl+Return` | config | runs the whole chain on a worker thread. The `Ctrl+Return` alternate exists because a bare `F5` needs the `Fn` modifier on stock macOS keyboards |
-| Validate Only | `Ctrl+R` | — | **not wired** in this build. The resolve-only check is available from the command line as `radiant validate <config>`, and the configuration manager's Status column runs it per configuration |
+| Validate Only | `Ctrl+R` | config | resolves the displayed configuration and runs the resolve-time seams (target spec, geometry doors, atmosphere coverage) with no physics; a failure routes like an evaluation failure, results untouched. The same check runs from the command line as `radiant validate <config>`, and the configuration manager's Status column runs it per configuration |
 | Run Sweep… | | config | the 1-D / 2-D sweep dialog, on a clone, with progress and cancel (chapter 10, §1) |
 | Monte Carlo… | | config | opens a prefilled Monte-Carlo **script scaffold** in the scripting window, seeded with the tolerances you have set |
 | Batch Run… | | config | opens a prefilled `BatchRunner` **script scaffold** |

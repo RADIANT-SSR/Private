@@ -978,7 +978,9 @@ class ParameterPanel(QWidget):
                     token = (
                         safe_provenance(self._sensor, dotpath) if self._sensor is not None else ""
                     )
-                    matches = token in ("user_set", "config_file")
+                    # An FPA preset's values are the operator's choice too (Gap 119):
+                    # "changed" is every explicit input, whatever supplied it.
+                    matches = token in ("user_set", "config_file", "preset")
                 child.setHidden(not matches)
                 visible_children += int(matches)
             group.setHidden(narrowed and visible_children == 0)

@@ -207,8 +207,12 @@ the stale notice and the chip colours — because that result described a config
 gone; a document that resolves re-evaluates at once, one that does not shows its stage screens
 editable with the incomplete-configuration status line.
 
-**Run ▸ Validate Only** (`Ctrl+R`) is present but not wired in this build. The resolve-only
-check runs from the command line as `radiant validate <config>`, and the configuration
+**Run ▸ Validate Only** (`Ctrl+R`) runs the resolve-only check on the displayed configuration
+without any physics: the resolver (types, bounds, consistency groups, required parameters)
+and the resolve-time seams (target spec, geometry doors, atmosphere coverage). A clean
+configuration reports in the status bar; a failing one is routed exactly as an evaluation
+failure would be — the advisory or the dialog — with the results on screen untouched. The
+same check runs from the command line as `radiant validate <config>`, and the configuration
 manager's Status column applies it per configuration (chapter 8, §3).
 
 ## 7. Menus
@@ -230,7 +234,7 @@ configuration manager of chapter 8), and **Tools ▸ Scripting Window** (`Ctrl+S
 | Key | Action |
 |---|---|
 | `F5` / `Ctrl+Return` | Evaluate |
-| `Ctrl+R` | Validate only — present, not wired in this build |
+| `Ctrl+R` | Validate only — resolve and the door seams, no physics |
 | `F6` / `F7` | Show or hide the Parameters dock / right rail |
 | `Ctrl+1`…`Ctrl+9`, `Ctrl+0` | Jump to stage 1…10 |
 | `Ctrl+O` / `Ctrl+S` | Open / Save |

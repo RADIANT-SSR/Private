@@ -41,9 +41,8 @@ class GuiUnavailableError(RadiantError):
 def gui(config: str | None) -> None:
     """Launch the RADIANT desktop GUI, optionally on a YAML config file.
 
-    Requires the optional GUI extra::
-
-        pip install "radiant[gui]"
+    The GUI ships with the base install (PySide6 is a core dependency); if the
+    import fails the error names what is missing.
 
     Examples::
 
@@ -55,8 +54,9 @@ def gui(config: str | None) -> None:
     except ImportError as exc:  # PySide6 (or another gui-extra dep) is missing.
         raise GuiUnavailableError(
             what="the RADIANT desktop GUI is not available",
-            why=f"the optional 'gui' extra is not installed ({exc})",
-            action='install it with: pip install "radiant[gui]"',
+            why=f"a GUI dependency failed to import ({exc})",
+            action='reinstall RADIANT (pip install -e ".[dev]" from a checkout, or the '
+            "wheel) so PySide6 and its companions are present",
         ) from exc
 
     config_set = _load_config_set(config)

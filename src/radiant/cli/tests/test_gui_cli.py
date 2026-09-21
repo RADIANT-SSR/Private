@@ -50,7 +50,7 @@ class TestGuiSubcommand:
         assert isinstance(result.exception, GuiUnavailableError)
         exc = result.exception
         assert isinstance(exc, GuiUnavailableError)
-        assert 'pip install "radiant[gui]"' in exc.action
+        assert "reinstall RADIANT" in exc.action and "PySide6" in exc.action
         assert "not available" in exc.what
 
     def test_launches_with_no_config(

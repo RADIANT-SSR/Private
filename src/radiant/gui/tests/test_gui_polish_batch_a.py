@@ -86,23 +86,26 @@ class TestCU363DetectorFormFitsItsViewport:
         assert form.width() <= scroll.viewport().width()
 
 
-class TestCU363ValueBoxNeverClipsItsText:
-    def test_minimum_width_follows_the_text(self, qtbot) -> None:  # type: ignore[no-untyped-def]
-        """A geometry card value such as "705000 m" used to render "'05000 m" at a
-        narrow dock width; the box now asks for at least its text width."""
-        from radiant.gui.widgets.field_row import VALUE_BOX_MAX, FieldRow
+class TestCU363ValueBoxNeverClipsSilently:
+    def test_a_value_that_does_not_fit_is_elided_with_the_full_text_as_tooltip(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """ "705000 m" used to render "'05000 m" in a narrow column — a cut with no
+        sign of it. The box now shows a middle ellipsis and carries the full value."""
+        from radiant.gui.widgets.field_row import FieldRow
 
         row = FieldRow("geometry.sensor_altitude_m", "sensor_altitude_m", lambda _d: None)
         qtbot.addWidget(row)
-        from radiant.gui.widgets.field_row import VALUE_BOX_MIN
-
-        long_text = "1234567.890123 km"  # wider than the shared floor
-        row.set_value_text(long_text)
-        needed = row.value_button.fontMetrics().horizontalAdvance(long_text)
-        assert needed > VALUE_BOX_MIN
-        assert needed <= row.value_button.minimumWidth() <= VALUE_BOX_MAX
-        row.set_value_text("—")
-        assert row.value_button.minimumWidth() == VALUE_BOX_MIN  # back to the floor
+        row.set_value_text("705000 m")
+        row.resize(160, 28)  # label floor + a 72 px box: too narrow for the value
+        row.show()
+        qtbot.wait(1)
+        assert row.value_text() == "705000 m"  # the model text is whole
+        assert row.value_button.toolTip() == "705000 m"
+        shown = row.shown_value_text()
+        assert shown != "705000 m" and "…" in shown
+        assert shown.endswith("m")  # the unit survives a middle elision
+        row.resize(480, 28)
+        qtbot.wait(1)
+        assert row.shown_value_text() == "705000 m"
 
 
 class TestCU367PointIntensityTarget:

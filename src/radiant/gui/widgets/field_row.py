@@ -120,6 +120,7 @@ class FieldRow(QWidget):
         self._on_edit = on_edit
         self._scope: ConfigurationScope | None = None
         self._read_only = False
+        self._full_value_text = UNSET
         self.setObjectName("geoModeFieldRow")
 
         row = QGridLayout(self)
@@ -220,20 +221,42 @@ class FieldRow(QWidget):
         self._on_edit(self._dotpath)
 
     def set_value_text(self, text: str) -> None:
-        """Set the displayed value+unit text — and never let the box clip it.
+        """Set the value+unit text — shown whole when it fits, visibly elided when not.
 
         A push button does not elide: in a narrow column the box used to cut a
-        value mid-number ("705000 m" read "'05000 m", CU-363). The box's minimum
-        width now follows its text (within the shared cap), so a tight column
-        scrolls rather than silently truncating a digit.
+        value mid-number ("705000 m" read "'05000 m", CU-363) with nothing to say
+        so. A wider floor is not the answer — the narrowest accordion column
+        (240 px) must stay free of a horizontal scrollbar (owner bug 2026-07-14) —
+        so a value that does not fit is elided in the **middle** with an ellipsis
+        (the digits on both ends and the unit survive) and the full text is the
+        box's tooltip. :meth:`value_text` always returns the full text.
         """
-        self._value.setText(text)
-        needed = self._value.fontMetrics().horizontalAdvance(text) + _VALUE_TEXT_PADDING_PX
-        self._value.setMinimumWidth(min(VALUE_BOX_MAX, max(VALUE_BOX_MIN, needed)))
+        self._full_value_text = text
+        self._value.setToolTip(text)
+        self._apply_value_elision()
 
     def value_text(self) -> str:
-        """The displayed value+unit text (for tests)."""
+        """The full value+unit text (for tests) — never the elided rendering."""
+        return self._full_value_text
+
+    def shown_value_text(self) -> str:
+        """The text the box actually paints: the value, or its middle-elided form."""
         return self._value.text()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:  # noqa: N802 — Qt override
+        super().resizeEvent(event)
+        self._apply_value_elision()
+
+    def _apply_value_elision(self) -> None:
+        full = self._full_value_text
+        metrics = self._value.fontMetrics()
+        available = self._value.width() - _VALUE_TEXT_PADDING_PX
+        if self._value.width() <= 0 or metrics.horizontalAdvance(full) <= available:
+            self._value.setText(full)
+            return
+        self._value.setText(
+            metrics.elidedText(full, Qt.TextElideMode.ElideMiddle, max(available, 12))
+        )
 
     def set_editable(self, editable: bool) -> None:
         """Enable/disable the field (only the active mode's fields are editable)."""

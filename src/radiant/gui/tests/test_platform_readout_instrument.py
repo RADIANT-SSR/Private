@@ -90,7 +90,7 @@ class TestComposition:
         assert inputs.platform_inputs is True
         assert inputs.outputs is True
         assert inputs.plots == ()
-        assert inputs.note is not None and "v1-minimal" in inputs.note
+        assert inputs.note is not None and "the values the stage derives" in inputs.note
 
     def test_platform_psf_degradation_tab_shows_kernels_and_result(self) -> None:
         """Item 15: the kernels this stage applies, beside the PSF they produced."""
@@ -105,7 +105,7 @@ class TestComposition:
         assert comp.readout_inputs is True
         assert comp.outputs is True
         assert [p.method for p in comp.plots] == ["noise_budget"]
-        assert comp.note is not None and "v1-minimal" in comp.note
+        assert comp.note is not None and "the values the stage derives" in comp.note
         assert comp.subviews == ()
 
 
@@ -149,7 +149,7 @@ class TestPlatformPane:
 
         pane = _pane(qtbot, "platform", Sensor.from_yaml(_EXAMPLE))
         notes = [lbl.text() for lbl in pane.findChildren(QLabel) if lbl.objectName() == "stageNote"]
-        assert any("v1-minimal" in text for text in notes)
+        assert any("the values the stage derives" in text for text in notes)
 
 
 class TestReadoutPane:

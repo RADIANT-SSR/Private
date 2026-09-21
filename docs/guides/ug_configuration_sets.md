@@ -41,7 +41,7 @@ surface narrow enough to read honestly — and a thirteenth is refused in as man
 ```text
 cannot add configuration 'C13': the set already holds 12 of at most 12
   Why: a set is capped at 12 configurations so the always-on evaluate-all pass and the
-       side-by-side comparison stay bounded (ADR-0010 D-E)
+       side-by-side comparison stay bounded
   Action: Remove a configuration you no longer need, or split the study into two sets.
 ```
 

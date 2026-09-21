@@ -61,7 +61,7 @@ _STAGE: Final[str] = "optics"
 _TITLE: Final[str] = "Cold stop & effective pupil"
 
 _HINT: Final[str] = (
-    "The cold stop IS the aperture stop (Gap 128): undersizing it shrinks the pupil "
+    "The cold stop IS the aperture stop : undersizing it shrinks the pupil "
     "diameter, D_eff = (1 − u)·D, and every quantity below follows. A cold stop cannot "
     "attenuate in-cone warm-optics emission, so there is no blocked-fraction knob — a "
     "vendor 'cold shield 90 % efficient' figure has no model home here."
@@ -89,7 +89,7 @@ _DERIVED_TOOLTIPS: Final[dict[str, str]] = {
     "f_number_eff": "Working f-number N_eff = f / D_eff — the cone the focal plane sees.",
     "A_collect": "Clear collecting area of the effective pupil (obscuration removed).",
     "Omega_cone": (
-        "Étendue acceptance cone Ω_cone — the only near-field geometry (Gap 128). "
+        "Étendue acceptance cone Ω_cone — the only near-field geometry. "
         "Every in-beam warm element is seen through this one cone."
     ),
 }

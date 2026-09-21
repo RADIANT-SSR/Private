@@ -139,7 +139,7 @@ class FPAPartPickerDialog(QDialog):
         sources = "; ".join(s.title for s in info.sources)
         kind_note = (
             "Bare ROIC: detector-side values (QE, dark, band) belong to the mated "
-            "diode — set them per study (Gap 121). "
+            "diode — set them per study. "
             if info.part_kind == "roic"
             else ""
         )

@@ -462,7 +462,7 @@ class TestHorizonGuard:
             guard = check_horizon_guard(theta_o, 10_000.0, 10_000.0, where="test")
         assert guard.dh_m is not None
         text = str(record[0].message)
-        assert "refraction is NOT modelled" in text
+        assert "refraction is not modelled" in text
         assert f"{guard.dh_m / GUARD_REFRACTION_K:.1f} m" in text
         assert "on average" in text
 

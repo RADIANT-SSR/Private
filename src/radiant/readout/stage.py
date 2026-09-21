@@ -545,7 +545,7 @@ class ReadoutStage:
                 f"Signal clipped to {signal_e:.4g} e-. Downstream SNR/NEDT/NIIRS "
                 f"reflect the CLIPPED signal. {remedy} "
                 f"(readout.well_status = 'clipped'; readout.saturation_mechanism = "
-                f"'{bound_mechanism}'; Gap 117)",
+                f"'{bound_mechanism}')",
                 UserWarning,
                 stacklevel=2,
             )
@@ -795,7 +795,7 @@ class ReadoutStage:
                 f"the comparator ceiling {dead_up:.4g} e- "
                 f"(f_max x t_up x Q_pkt). Scene signal clipped to "
                 f"{signal_e:.4g} e-. (readout.saturation_mechanism = "
-                f"'dead_time'; Gap 117 Phase 4)",
+                f"'dead_time')",
                 UserWarning,
                 stacklevel=3,
             )
@@ -807,7 +807,7 @@ class ReadoutStage:
                 f"reference phase exceeds the comparator ceiling "
                 f"{dead_down:.4g} e- (f_max x t_down x Q_pkt); reference "
                 f"charge clipped. The differential mean no longer cancels "
-                f"the background exactly. (Gap 117 Phase 4)",
+                f"the background exactly.",
                 UserWarning,
                 stacklevel=3,
             )
@@ -828,8 +828,7 @@ class ReadoutStage:
                 f"{differential.delta_q_e:.4g} e-. Balance the phases "
                 f"(reference_integration_s), raise counter_bits / "
                 f"count_packet_e, or reduce the flux asymmetry. "
-                f"(readout.saturation_mechanism = 'differential_overflow'; "
-                f"Gap 117 Phase 4)",
+                f"(readout.saturation_mechanism = 'differential_overflow')",
                 UserWarning,
                 stacklevel=3,
             )
@@ -1108,7 +1107,7 @@ class ReadoutStage:
                 f"signal and will not respond to scene/atmosphere changes. Reduce "
                 f"spectral_integration.integration_time_s, reduce aperture/throughput, "
                 f"or raise readout.full_well_capacity_e if this well is unrealistic. "
-                f"(readout.well_status = 'clipped'; Gap 65)",
+                f"(readout.well_status = 'clipped')",
                 UserWarning,
                 stacklevel=2,
             )
@@ -1148,7 +1147,7 @@ class ReadoutStage:
                 f"{gain_e_per_dn:.4g} e-/DN). Signal clipped to {max_dn} DN. "
                 f"Increase readout.gain_e_per_dn or readout.adc_bits, or reduce "
                 f"the signal (integration time, aperture). "
-                f"(readout.adc_status = 'clipped'; Gap 65)",
+                f"(readout.adc_status = 'clipped')",
                 UserWarning,
                 stacklevel=2,
             )

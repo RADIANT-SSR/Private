@@ -300,36 +300,35 @@ _SOURCE_NOTE: Final[str] = (
     "Pathways (mutually exclusive by engine design): thermal ε+T "
     "(Kirchhoff ρ=1−ε adds a daytime reflected-solar term — mixed emit+reflect); pure "
     "reflectance ρ alone (VIS/solar); declared scene type cross-checks the derived regime "
-    "(warning on mismatch). All inputs shown ungated; per-scenario-type relevance is the "
-    "Gap 85 fast-follow."
+    "(warning on mismatch); a declared type also gates which inputs are editable."
 )
 _PLATFORM_NOTE: Final[str] = (
-    "Platform view is v1-minimal (owner-ratified: no dedicated MTF here — more detail is a "
-    "post-v1 task). The smear and jitter MTF terms appear in the Optics and Performance MTF "
-    "overlays. Platform/sensor attitude has no stage owner yet (ADR-0006 §4 / CU-122); the "
-    "target RPY triad ships from source.target.*."
+    "The Platform view carries the jitter and smear inputs and the values the stage derives "
+    "from them; there is no separate MTF view here because the smear and jitter MTF terms "
+    "appear in the Optics and Performance MTF overlays. Sensor attitude (yaw, pitch, roll) "
+    "is not an input yet; the target's orientation is set on Geometry → Schematic."
 )
 _PLATFORM_PSF_NOTE: Final[str] = (
-    "Each kernel card names the stage that applied it (CU-243). The PSF carries an "
+    "Each kernel card names the stage that applied it. The PSF carries an "
     "accumulated stack, so kernels from Optics (optical, pixel aperture, charge "
-    "diffusion — front-loaded so this stage's EE_box ensquares a real pixel, Rules "
-    "4/9) and Performance (IPC) appear here too; Platform's own are jitter, smear "
+    "diffusion — front-loaded so this stage's EE_box ensquares a real pixel) and "
+    "Performance (IPC) appear here too; Platform's own are jitter, smear "
     "and turbulence. Kernels appear only for degradations configured non-zero, so a "
     "scene with none contributes none and this view shows only what it inherited — "
     "that is the model agreeing with the configuration, not a missing-data bug. The "
-    "PSF shown is the fully degraded one every spatial metric derives from (Rule 4)."
+    "PSF shown is the fully degraded one every spatial metric derives from."
 )
 _SPECTRAL_NOTE: Final[str] = (
-    "A per-wavelength noise spectrum is deferred (Gap 92); noise is scalar per term, "
-    "computed post-integration (Rule 8) — see the Detector view for the noise budget."
+    "Noise is computed per term after spectral integration, so there is no per-wavelength "
+    "noise spectrum on this view — see the Detector view for the noise budget."
 )
 _READOUT_NOTE: Final[str] = (
-    "Readout view is v1-minimal (owner-ratified — more detail is a post-v1 task). The noise "
-    "budget shown here (read noise + quantization live in this stage) is the same "
-    "result.plot.noise_budget as the Detector view."
+    "The Readout view carries the read-noise, ADC and well inputs beside the values the "
+    "stage derives. The noise budget shown here (read noise and quantization live in this "
+    "stage) is the same result.plot.noise_budget as the Detector view."
 )
 _CALIBRATION_NOTE: Final[str] = (
-    "Calibration error model (Gap 120). Scheme 'none' (the default) reproduces today's "
+    "Calibration error model. Scheme 'none' (the default) reproduces today's "
     "results exactly — PRNU/DSNU act as static dispersions. An active NUC scheme "
     "replaces them with the post-NUC residual terms (nuc_residual, gain_drift, "
     "offset_drift), added after TDI/coadd scaling — correlated errors do not average "

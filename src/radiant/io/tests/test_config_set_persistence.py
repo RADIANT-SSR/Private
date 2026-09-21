@@ -267,7 +267,7 @@ class TestLoadValidation:
         )
         with pytest.raises(ConfigError) as exc:
             ConfigurationSet.load(path)
-        assert "ADR-0010 D-B" in str(exc.value)
+        assert "never both" in str(exc.value)
 
     def test_unknown_dotpath(self, tmp_path: Path) -> None:
         path = self._write(

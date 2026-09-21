@@ -2466,7 +2466,7 @@ class RADIANTMainWindow(QMainWindow):
             "    p50 = mc.percentile(name, 50)\n"
             "    p95 = mc.percentile(name, 95)\n"
             '    print(f"{name}: p5={p5:.4g}  median={p50:.4g}  p95={p95:.4g}")\n'
-            '# mc.to_csv("mc_trials.csv")  # per-trial export (Gap 88)\n'
+            '# mc.to_csv("mc_trials.csv")  # per-trial export\n'
         )
         self._open_script_scaffold("Monte Carlo", snippet)
 

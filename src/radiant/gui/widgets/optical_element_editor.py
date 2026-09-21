@@ -232,14 +232,14 @@ _REMOVE_CONFIGURED_BODY = (
 # the configured-parameter badge tooltips (ConfigurationScope.summary).
 _SUMMARY_SEPARATOR = " · "
 
-_EPS_TOOLTIP = "ε is Kirchhoff-derived (1 − R − T) — read-only (Rule 5)."
+_EPS_TOOLTIP = "ε is Kirchhoff-derived (1 − R − T) — read-only (Kirchhoff's law)."
 
 # The coating-detail header. It names the **selected row** — its element and its
 # position in the train — because the pane follows the selection and nothing else said
 # so: the owner walkthrough (2026-09-10) added two mirrors, read a header that said only
 # "Coating detail — mirror", and had no way to tell which of them was drawn, or that
 # clicking the other row would redraw it.
-_DETAIL_TITLE_IDLE = "Coating detail — R / T / ε on the coating's own grid (Gap 116)"
+_DETAIL_TITLE_IDLE = "Coating detail — R / T / ε on the coating's own grid"
 _DETAIL_TITLE_ROW = "Coating detail — {name} (row {row}) · R / T / ε on the coating's own grid"
 _DETAIL_PROMPT = (
     "Select a row above to inspect its coating — this plot follows the selected row, "

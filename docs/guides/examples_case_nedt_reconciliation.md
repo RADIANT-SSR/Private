@@ -354,7 +354,7 @@ run emits nine warnings of the form:
 UserWarning: ReadoutStage: ADC saturated — signal 2.73e+04 DN exceeds full scale
 16383 DN (14-bit at 12 e-/DN). Signal clipped to 16383 DN. Increase
 readout.gain_e_per_dn or readout.adc_bits, or reduce the signal (integration time,
-aperture). (readout.adc_status = 'clipped'; Gap 65)
+aperture). (readout.adc_status = 'clipped')
 ```
 
 The NEDT column is unaffected: the signal and $\partial S/\partial T$ the script reads

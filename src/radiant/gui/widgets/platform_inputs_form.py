@@ -68,7 +68,7 @@ _MOTION_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Smear length (focal-plane)", "platform.smear_length_um"),
 )
 
-_TITLE = "Platform — jitter & smear (v1-minimal)"
+_TITLE = "Platform — jitter & smear"
 _JITTER_HEADING = "Jitter"
 _MOTION_HEADING = "Motion & smear"
 

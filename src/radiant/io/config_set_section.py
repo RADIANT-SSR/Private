@@ -265,7 +265,7 @@ def _parse_names(
     if len(names) > max_configurations:
         raise ConfigError(
             f"'{SECTION_KEY}.names' holds {len(names)} configurations; the maximum is "
-            f"{max_configurations} (ADR-0010 D-E — the cap bounds the always-on "
+            f"{max_configurations} (the cap bounds the always-on "
             "evaluate-all pass and keeps the side-by-side comparison readable). "
             f"Drop {len(names) - max_configurations} configuration(s), or split the "
             "study into two config files.",
@@ -382,7 +382,7 @@ def _parse_parameters(
                 f"parameter '{canonical}' appears both in the shared body (value "
                 f"{shared_inputs[canonical]!r}) and in '{SECTION_KEY}.parameters' "
                 f"(configurations {list(names)}). A parameter is shared **or** "
-                "configured, never both (ADR-0010 D-B) — the shared value would be "
+                "configured, never both — the shared value would be "
                 "silently shadowed by the per-configuration column. Delete whichever "
                 "of the two the study does not mean.",
                 path=path,
@@ -400,7 +400,7 @@ def _parse_parameters(
                 f"'{SECTION_KEY}.parameters.{canonical}' has {len(column)} value(s) but "
                 f"the set holds {len(names)} configurations {list(names)}. Configured "
                 "parameters are dense — every configuration carries a value, so a short "
-                "list is never padded (ADR-0010 D-A). Give one value per configuration, "
+                "list is never padded. Give one value per configuration, "
                 "in that order.",
                 path=path,
             )
@@ -430,6 +430,6 @@ def _check_dense(section: ConfigurationsSection, *, path: str | Path | None) -> 
             raise ConfigError(
                 f"'{SECTION_KEY}.parameters.{dotpath}' has {len(values)} value(s) for "
                 f"{len(section.names)} configurations {list(section.names)} — refusing to "
-                "write a sparse configuration table (ADR-0010 D-A).",
+                "write a sparse configuration table.",
                 path=path,
             )

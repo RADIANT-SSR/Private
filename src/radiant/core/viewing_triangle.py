@@ -337,7 +337,7 @@ def _validate_hemisphere(
             "θ_o > π/2 ⇔ h_sensor <= h_target (equal altitudes give "
             "θ_o = π/2 + φ/2).  θ_o = π/2 with unequal altitudes is the "
             "horizontal-launch grazing case, rejected by the horizon guard "
-            "(ADR-0011 decision 6, no refraction model)."
+            "(RADIANT models no atmospheric refraction)."
         ),
         action=(
             "Either correct the altitudes or replace theta_o_rad with the "
@@ -585,7 +585,7 @@ def theta_o_from_ground_range_m(
             action=(
                 "Enter this near-level geometry from its lower endpoint with "
                 "solve_from_lower_zenith(zeta_low_rad, h_low_m, h_high_m), which is "
-                "unambiguous by construction (ADR-0011 decision 3)."
+                "unambiguous by construction."
             ),
             context={
                 "ground_range_m": ground_range_m,
@@ -962,9 +962,8 @@ def _check_segment(
                 why=(
                     "A path whose tangent point sinks that far below its endpoints is "
                     "a limb-like transit: it samples air far denser than either "
-                    "endpoint and its bending is dominated by refraction, which v1.x "
-                    "does not model (ADR-0011 decision 5 — limb paths declined, "
-                    "guarded rather than approximated)."
+                    "endpoint and its bending is dominated by refraction, which RADIANT "
+                    "does not model (limb paths are guarded rather than approximated)."
                 ),
                 action=(
                     "Shorten the path, raise both endpoints, or tilt the geometry "
@@ -980,9 +979,8 @@ def _check_segment(
             ),
             why=(
                 "Within a half-degree of the geometric horizontal, atmospheric "
-                "refraction dominates the path geometry and v1.x has no refraction "
-                "model, so any number returned here would be quietly wrong "
-                "(ADR-0011 decision 6)."
+                "refraction dominates the path geometry and RADIANT models no "
+                "refraction, so any number returned here would be quietly wrong."
             ),
             action=(
                 f"Move the path more than {math.degrees(GUARD_WARN_RAD):g}° off the "
@@ -1016,10 +1014,10 @@ def _check_segment(
             )
         warnings.warn(
             f"{where}: near-horizontal path — {result.detail}. Computing anyway, but "
-            "atmospheric refraction is NOT modelled in v1.x and is the dominant "
+            "atmospheric refraction is not modelled and is the dominant "
             "geometric error in this band (hard guard at "
             f"±{math.degrees(GUARD_HARD_RAD):g}° / {GUARD_DH_RAISE_M:.0f} m tangent depression; "
-            f"thresholds provisional pending Phase 2 MODTRAN calibration).{size}",
+            f"the thresholds are provisional).{size}",
             UserWarning,
             stacklevel=3,
         )

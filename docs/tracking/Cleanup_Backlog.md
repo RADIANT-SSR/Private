@@ -69,15 +69,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: workflow-visible (intake test 4) in a scenario that is run (10.2): an operator inspecting a T7 target sees sentinel arithmetic presented as physics.
 **Suggested fix**: (b) stand-alone GUI task — the point-source view should plot intensity `I(λ)` [W/sr/µm] directly and the schematic should label a T7 target "point (intensity input)" instead of printing the sentinel area. Live-review required. Effort S-M; category A.
 
-### CU-365 — Element-config parser silently ignores `emissivity:` (and mismatched transfer keys) instead of rejecting over-specification
-
-**Discovered**: Gap 131 Phase 3b (branch `gap131/phase3-users-guide`) troubleshooting-chapter verification, 2026-09-16.
-**Status**: Open.
-**File**: `src/radiant/io/element_config.py::_parse_element`.
-**Symptom**: an optical-element entry carrying `emissivity:` (or `transmittance:` on a REFLECTIVE row) is silently ignored by the parser, retained in the document, and round-tripped into saved YAML — the user believes their emissivity is in effect while Kirchhoff derivation governs.
-**Why it still matters**: workflow-visible (intake test 4) and a Rule 5 / Rule 17 seam — Rule 5 says validate-and-derive (reject over-specification, never accept emissivity on an optical element), Rule 17 forbids silent handling; the shipped User's Guide ch. 12 documents the actionable-rejection philosophy this parser undercuts.
-**Suggested fix**: (a) inline-fix-now — `_parse_element` raises `ElementConfigError` (what/why/action) on `emissivity:` for any element and on transfer keys inconsistent with the element kind; add round-trip test. Effort S; category B.
-
 ### CU-363 — DetectorInputsForm paints blank / clipped field values at off-default widths (family)
 
 **Discovered**: Gap 131 Phase 4 figure review (offscreen screenshot pipeline), 2026-09-16. Reproduced with a live probe: model values intact (`field_value_text` returns `'18 µm'` etc.) while every entry box paints empty; 20 extra event-loop turns do not heal it. Family head.
@@ -91,6 +82,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 **Why it still matters**: workflow-visible (intake test 4) — any window resize can blank the detector form, and the clipped digits misread as wrong values; also caps the manual's figure quality (Gap 131 captures avoid wide-dock detector shots until fixed — see the CU-363 comments in `scripts/gen_gui_screenshots.py`).
 **Suggested fix**: (b) stand-alone GUI task — make `_relayout_columns` re-apply row values after a rebuild (or bind rows to the model so a rebuild repaints), and give the form a sane minimum-width/eliding policy so values never silently truncate. Effort S-M; category A. Live-review required.
+
+### CU-365 — Element-config parser silently ignores `emissivity:` (and mismatched transfer keys) instead of rejecting over-specification — RESOLVED 2026-09-20 (commit trailer)
+
+**Discovered**: Gap 131 Phase 3b (branch `gap131/phase3-users-guide`) troubleshooting-chapter verification, 2026-09-16.
+**Status**: Resolved 2026-09-20 — engine-consistency batch B (`engine-consistency/batch-b`): `_parse_element` refuses `emissivity:` on every element and transfer keys foreign to the row's mode, each with an actionable `ElementConfigError`; pinning tests in `io/tests/test_element_overspecification.py`; ug_troubleshooting §7 states the refusal.
+**File**: `src/radiant/io/element_config.py::_parse_element`.
+**Symptom**: an optical-element entry carrying `emissivity:` (or `transmittance:` on a REFLECTIVE row) is silently ignored by the parser, retained in the document, and round-tripped into saved YAML — the user believes their emissivity is in effect while Kirchhoff derivation governs.
+**Why it still matters**: workflow-visible (intake test 4) and a Rule 5 / Rule 17 seam — Rule 5 says validate-and-derive (reject over-specification, never accept emissivity on an optical element), Rule 17 forbids silent handling; the shipped User's Guide ch. 12 documents the actionable-rejection philosophy this parser undercuts.
+**Suggested fix**: (a) inline-fix-now — `_parse_element` raises `ElementConfigError` (what/why/action) on `emissivity:` for any element and on transfer keys inconsistent with the element kind; add round-trip test. Effort S; category B.
 
 ### CU-359 — Theory Manual v1.0 coverage gaps: 13 implemented-physics areas with no manual section (family)
 

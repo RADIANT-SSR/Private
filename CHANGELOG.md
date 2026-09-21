@@ -58,6 +58,19 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **Engine consistency batch B (CU-365 and three Findings-Log lines).** The
+  optical-element document parser refuses an `emissivity:` key on any element
+  and a transfer key foreign to the row's mode (`transmittance` on a mirror,
+  `reflectance` on a lens) with an actionable `ElementConfigError` instead of
+  silently ignoring it; a flux-fraction cal point under
+  `calibration.cal_point_mode = 'temperature'` is a `CalibrationModeConflictError`,
+  the mirror of the flux-mode rule, instead of silently doing nothing; the two
+  area-unit spellings `m2` and `m^2` convert to each other, so either is accepted
+  for either area parameter; and in a GUI study, withdrawing a configured
+  parameter's value is refused with a reason (a configured column has no empty
+  cell) and the displayed configuration is put back in step with the document.
+  A file that previously loaded with an ignored key or flux point now fails to
+  load with the reason named — message terms only, no computed result changes.
 - **GUI strings and widgets (CU-371).** Product strings no longer carry the
   project's tracking vocabulary ("Gap 65", "ADR-0010 D-E", "v1-minimal
   (owner-ratified …)", "Rule 8", "v1.x", "Phase 2 MODTRAN calibration"): the

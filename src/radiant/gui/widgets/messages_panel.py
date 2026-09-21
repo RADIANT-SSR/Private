@@ -118,7 +118,10 @@ class MessagesPanel(QWidget):
         self._empty.setWordWrap(True)
         layout.addWidget(self._empty)
 
-        layout.addStretch(1)
+        # No trailing stretch: it dated from the plain-host days, and once the
+        # list became a scroll area (F-38) it competed with the scroll area's own
+        # stretch, leaving half the rail's free height empty above Evaluate
+        # (owner, live review 2026-09-21). The scroll area takes all the slack.
         self._rebuild()
 
     # -- accessors ----------------------------------------------------------

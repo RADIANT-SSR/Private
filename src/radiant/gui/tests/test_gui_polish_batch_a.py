@@ -283,3 +283,22 @@ class TestExplainEchoHasNoStraySpace:
         first = text.splitlines()[0]
         assert "  (" not in first and " )" not in first
         assert first.startswith("optics.f_number = ")
+
+
+class TestMessagesPanelFillsTheRail:
+    def test_message_list_takes_the_free_height(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """Live review 2026-09-21: the warnings box used half the space above Evaluate;
+        a trailing stretch left over from the pre-scroll-area layout took the rest."""
+        from radiant.gui.widgets.messages_panel import MessagesPanel
+
+        panel = MessagesPanel()
+        qtbot.addWidget(panel)
+        panel.set_warnings(["first warning " * 6, "second warning " * 6])
+        panel.resize(300, 600)
+        panel.show()
+        qtbot.wait(1)
+        scroll = panel._scroll  # noqa: SLF001
+        header_h = panel.height() - scroll.height()
+        # Everything that is not the list (header, empty label, margins) is small;
+        # the list gets the rest — not half of it.
+        assert scroll.height() >= 0.75 * panel.height(), (scroll.height(), panel.height(), header_h)

@@ -144,3 +144,17 @@ class TestGuiSubcommand:
         result = runner.invoke(cli, ["gui", "does_not_exist.yaml"], standalone_mode=False)
         assert result.exit_code == 1
         assert "file not found" in result.output
+
+
+class TestGuiHelpText:
+    """Findings Log 2026-09-16: the help claimed the optional gui extra (GUI polish batch A)."""
+
+    def test_help_no_longer_claims_an_extra(self) -> None:
+        from click.testing import CliRunner
+
+        from radiant.cli.main import cli
+
+        result = CliRunner().invoke(cli, ["gui", "--help"])
+        assert result.exit_code == 0
+        assert "radiant[gui]" not in result.output
+        assert "base install" in result.output

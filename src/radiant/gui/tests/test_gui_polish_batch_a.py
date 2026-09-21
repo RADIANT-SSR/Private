@@ -280,15 +280,3 @@ class TestExplainEchoHasNoStraySpace:
         first = text.splitlines()[0]
         assert "  (" not in first and " )" not in first
         assert first.startswith("optics.f_number = ")
-
-
-class TestCliGuiHelp:
-    def test_help_no_longer_claims_an_extra(self) -> None:
-        from click.testing import CliRunner
-
-        from radiant.cli.main import cli
-
-        result = CliRunner().invoke(cli, ["gui", "--help"])
-        assert result.exit_code == 0
-        assert "radiant[gui]" not in result.output
-        assert "base install" in result.output

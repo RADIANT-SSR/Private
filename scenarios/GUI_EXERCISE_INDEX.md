@@ -2,7 +2,7 @@
 
 Status: Active
 
-The 37 scenarios were built to validate the **backend engine** (they run as
+The 51 scenarios were built to validate the **backend engine** (they run as
 `scripts/run_*.py` against the API). This campaign re-runs the same scenarios
 **through the GUI** to shake out the desktop app. It adds three artifacts per
 scenario and three headless gates, and it points at each scenario's
@@ -36,7 +36,7 @@ python scenarios/tools/emit_gui_yaml.py          # writes *.gui.yaml + *.expecte
 python scenarios/tools/gen_gui_console.py        # writes gui_console_*.py
 
 # 2. API-level gate: every YAML reloads and reproduces its snapshot
-python scenarios/tools/verify_gui_yaml.py        # -> "N/37 scenarios PASS"
+python scenarios/tools/verify_gui_yaml.py        # -> "N/38 scenarios PASS"
 
 # 3. Widget-level gate: every YAML opens in the REAL RADIANTMainWindow and its
 #    console script runs inside the REAL ScriptingConsole — no display needed
@@ -170,9 +170,26 @@ the scenarios listed):
   Opening 6.4 and hitting Run in the GUI freezes for ~2 minutes; its console
   sweep would take ~15 minutes. Tracked for investigation as **CU-165**.
 
+
+### Scenarios added after the index was written (2026-09-20, CU-362)
+
+| Scenario | GUI exercise |
+|---|---|
+| 1.6 mwir_point_source_sda | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
+| 2.6 droic_vs_analog_hdr | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
+| 2.7 calibration_limited_nedt | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
+| 2.7 updown_background_subtraction | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
+| 2.8 fpa_part_library | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
+| 8.3 boost_phase_target_altitude_sweep | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
+| 9.1 sentinel2_msi_snr | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
+| 9.2 landsat_tirs_nedt | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
+| 9.3 modis_teb_nedt | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
+| 9.4 landsat_oli2_snr | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
+
 ## Coverage and verification status
 
-**34 of 37 scenarios** ship a GUI baseline + console script. The three
+**38 of 51 scenarios** ship a GUI baseline + console script (recounted
+2026-09-20, CU-362: the index said 34 of 37 while the tree held 51). Three of the
 exclusions are not chain scenarios — their runners call a physics **sub-module
 directly** and never assemble a full `Sensor` config, so there is nothing for
 `File → Open YAML` to load. Exercise them from the scripting window instead:

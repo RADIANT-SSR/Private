@@ -75,7 +75,7 @@ are analytic sub-module demos with no sensor-chain config, so they have no
 
 ## Status
 
-**All 35 persona scenarios plus both interpolation demonstrations are
+**All 40 persona scenarios plus the three interpolation demonstrations are
 implemented and executed** (walkthrough / gaps / gui_workflow trio present in
 every folder; executed 2026-07-08/09). The previous table under-reported
 maturity by marking 21 executed scenarios "stub" and omitting the 08 series
@@ -89,12 +89,17 @@ maturity by marking 21 executed scenarios "stub" and omitting the 08 series
 | 1.3_dual_band_mwir_lwir | implemented |
 | 1.4_tdi_pushbroom_optimization | implemented |
 | 1.5_obscured_aperture_spider_vanes | implemented |
+| 1.6_mwir_point_source_sda | implemented |
 | **02 Mike — detector engineer** | |
 | 2.1_insb_vs_hgcdte_noise_budget | implemented |
 | 2.2_1f_noise_corner_frequency | implemented |
 | 2.3_ipc_impact_on_mtf | implemented |
 | 2.4_persistence_bright_source | implemented |
 | 2.5_well_capacity_optimization | implemented |
+| 2.6_droic_vs_analog_hdr | implemented |
+| 2.7_calibration_limited_nedt | implemented — **numbered 2.7 alongside the next row; renumbering one of the two awaits the owner (CU-362)** |
+| 2.7_updown_background_subtraction | implemented — see the row above |
+| 2.8_fpa_part_library | implemented |
 | **03 Raj — mission planner** | |
 | 3.1_isr_pass_planning | implemented |
 | 3.2_weather_sensitivity | implemented |
@@ -128,18 +133,21 @@ maturity by marking 21 executed scenarios "stub" and omitting the 08 series
 | **08 Interpolation demonstrations** | |
 | 8.1_off_nadir_angle_interpolation | implemented |
 | 8.2_target_altitude_interpolation | implemented |
+| 8.3_boost_phase_target_altitude_sweep | implemented |
 | **09 Flagship missions (external validation)** | |
 | 9.1_sentinel2_msi_snr | implemented (config-driven; canonical comparison in scripts/run_external_validation.py) |
 | 9.2_landsat_tirs_nedt | implemented (config-driven) |
 | 9.3_modis_teb_nedt | implemented (config-driven) |
+| 9.4_landsat_oli2_snr | implemented (config-driven; all nine bands, study-vs-standalone parity) |
 | **10 Direction-general validation (Geometry-Flexibility Phase 5)** | |
 | 10.1_ground_to_air_mwir_detection | implemented (executed 2026-07-28; MODTRAN K-ladder anchor) |
 | 10.2_air_to_air_level_irst | implemented (executed 2026-07-28; MODTRAN L-grid anchor) |
 | 10.3_ground_to_space_sst_visible | implemented (executed 2026-07-28; MODTRAN anchor deferred — owner batch 2) |
 | 10.4_leo_to_geo_exo | implemented (executed 2026-07-28; vacuum-identity anchors, exact) |
 
-44 of 44 implemented (35 persona + 2 interpolation + 3 flagship-mission
-validation + 4 direction-general validation). Each folder carries the
+51 of 51 implemented (40 persona + 3 interpolation + 4 flagship-mission
+validation + 4 direction-general validation; recounted 2026-09-20, CU-362 — the
+previous line said 44 of 44 while the tree held 1.6, 2.6, both 2.7s, 2.8, 8.3 and 9.4). Each folder carries the
 `walkthrough.md` / `gaps.md` / `gui_workflow.md` trio and executed
 `inputs/scripts/outputs`.
 

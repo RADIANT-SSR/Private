@@ -42,11 +42,13 @@ class TestForeignTransferKeysAreRefused:
         ):
             parse_element_entries([_mirror(transmittance=0.0)])
 
-    def test_reflectance_on_a_refractive_row(self) -> None:
-        with pytest.raises(
-            ElementConfigError, match="do not apply to transfer_mode = 'REFRACTIVE'"
-        ):
-            parse_element_entries([_lens(reflectance=0.01)])
+    def test_reflectance_on_a_refractive_row_is_kept(self) -> None:
+        """A lens surface's reflectance is a real property (Rule 5: ε = 1 − T − R) and the
+        element editor carries it through unchanged; it is not a foreign key."""
+        elements = parse_element_entries(
+            [_lens(reflectance=0.01)], wavelength_um=np.linspace(3.0, 5.0, 5)
+        )
+        assert [e.name for e in elements] == ["l1"]
 
 
 class TestCleanEntriesStillParse:

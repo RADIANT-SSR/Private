@@ -181,8 +181,9 @@ Kirchhoff's law is enforced by making the over-specification unrepresentable rat
 refusing it after the fact. There is no emissivity input for an optical element anywhere in
 the GUI, the YAML, or the API: a mirror row takes a reflectance, a refractive row takes a
 transmittance, and ε is derived and shown read-only. An `emissivity:` key in a YAML element
-entry — like a transfer key that belongs to the other mode, `transmittance` on a mirror or
-`reflectance` on a lens — is refused when the document is read, not ignored.
+entry — like a refractive key on a mirror row, `transmittance`, `alpha`, `n_refr` or
+`thickness_m` — is refused when the document is read, not ignored. (A `reflectance` on a
+lens row is kept: a surface reflectance is a real property of a lens.)
 
 The document parser reinforces that: a row's transfer mode decides which single value is read —
 `reflectance` for `REFLECTIVE`, `transmittance` for `REFRACTIVE` — so a train you author in the

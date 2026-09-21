@@ -822,8 +822,6 @@ class TestThreeBandStudyIsEntryFaithful:
             "  parameters:\n"
             "    spectral_integration.filter_min_um: [3.6, 4.0]\n"
             "    spectral_integration.filter_max_um: [4.0, 4.4]\n"
-            # (A refractive row carries no `reflectance:` — the parser refuses the stray key
-            # since CU-365; the filter's reflection is not an input of a simple lens.)
             "optical_elements:\n"
             "- {name: M1_primary, transfer_mode: REFLECTIVE, reflectance: 0.97, "
             "temperature_K: 293.0}\n"
@@ -831,9 +829,9 @@ class TestThreeBandStudyIsEntryFaithful:
             "temperature_K: 293.0}\n"
             "- configured:\n"
             "    B1: {name: band_filter, transfer_mode: REFRACTIVE, kind: FILTER, "
-            "temperature_K: 240.0, transmittance: filter_b1.csv}\n"
+            "reflectance: 0.02, temperature_K: 240.0, transmittance: filter_b1.csv}\n"
             "    B2: {name: band_filter, transfer_mode: REFRACTIVE, kind: FILTER, "
-            "temperature_K: 240.0, transmittance: filter_b2.csv}\n",
+            "reflectance: 0.02, temperature_K: 240.0, transmittance: filter_b2.csv}\n",
             encoding="utf-8",
         )
         return study

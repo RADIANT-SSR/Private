@@ -196,18 +196,20 @@ def _reject_removed_keys(entry: dict[str, Any], element_name: str) -> None:
             )
 
 
-#: Keys a REFLECTIVE row must not carry (they belong to the other transfer mode)
-#: and keys a REFRACTIVE row must not carry. ``emissivity`` is refused on every
-#: element: Rule 5 derives it (ε = 1 − R for a mirror, 1 − T − R through a lens),
-#: so an entered value would either be ignored or over-specify the element.
+#: Keys a REFLECTIVE row must not carry — they belong to the refractive model.
+#: ``emissivity`` is refused on every element: Rule 5 derives it (ε = 1 − R for a
+#: mirror, 1 − T − R through a lens), so an entered value would either be ignored
+#: or over-specify the element. A ``reflectance`` on a REFRACTIVE row is *not*
+#: refused: a lens surface's reflectance is a real property (the cavity model
+#: reads R1/R2, and the simple model's ε = 1 − T − R has a place for it), and the
+#: element editor's entry-faithfulness contract carries it through unchanged.
 _REFLECTIVE_FOREIGN_KEYS: tuple[str, ...] = ("transmittance", "alpha", "n_refr", "thickness_m")
-_REFRACTIVE_FOREIGN_KEYS: tuple[str, ...] = ("reflectance",)
 
 
 def _reject_overspecified_keys(
     entry: dict[str, Any], element_name: str, transfer_mode: str
 ) -> None:
-    """Refuse ``emissivity`` on any element and transfer keys foreign to the mode (CU-365).
+    """Refuse ``emissivity`` on any element and refractive keys on a mirror (CU-365).
 
     Before this check the keys were silently ignored, retained in the document and
     round-tripped into saved YAML — the author believed their emissivity was in
@@ -223,16 +225,13 @@ def _reject_overspecified_keys(
             "temperature_K."
         )
     foreign = _REFLECTIVE_FOREIGN_KEYS if transfer_mode == "REFLECTIVE" else ()
-    if transfer_mode == "REFRACTIVE":
-        foreign = _REFRACTIVE_FOREIGN_KEYS
     present = [key for key in foreign if key in entry]
     if present:
         raise ElementConfigError(
             f"Element '{element_name}': {present} do not apply to transfer_mode = "
             f"'{transfer_mode}' and would be silently ignored. A REFLECTIVE element takes "
-            "'reflectance'; a REFRACTIVE element takes 'transmittance' (or the cavity "
-            "surfaces R1/T1/R2/T2 with alpha, n_refr and thickness_m). Remove the stray "
-            "key or change transfer_mode."
+            "'reflectance'; 'transmittance', 'alpha', 'n_refr' and 'thickness_m' belong to "
+            "a REFRACTIVE element. Remove the stray key or change transfer_mode."
         )
 
 

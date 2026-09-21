@@ -75,6 +75,7 @@ from radiant.core.viewing_triangle import classify_horizon_topology
 from radiant.gui.themes.tokens import LIGHT, Theme
 from radiant.gui.viewer import angle_catalog
 from radiant.gui.viewer.angle_overlay import AngleToggleOverlay
+from radiant.gui.viewer.pill_clamp import clamp_rect
 from radiant.gui.viewer.projection import (
     Camera,
     ProjectedPoint,
@@ -692,6 +693,7 @@ class SchematicView(QWidget):
 
     def __init__(self, parent: QWidget | None = None, theme: Theme | None = None) -> None:
         super().__init__(parent)
+        self._pill_rects: list[QRectF] = []
         self.setObjectName("geometrySchematic")
         self._theme: Theme = theme if theme is not None else LIGHT
         self._state: ViewerState | None = None
@@ -919,7 +921,13 @@ class SchematicView(QWidget):
 
     # -- drawing ------------------------------------------------------------
 
+    @property
+    def pill_rects(self) -> tuple[QRectF, ...]:
+        """The label pills drawn by the last paint, in widget coordinates (tests)."""
+        return tuple(self._pill_rects)
+
     def paintEvent(self, _event: object) -> None:  # noqa: N802 — Qt override
+        self._pill_rects = []
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
@@ -1028,6 +1036,15 @@ class SchematicView(QWidget):
         text_w = metrics.horizontalAdvance(text)
         text_h = metrics.height()
         rect = QRectF(x, y - text_h + pad_y, text_w + 2 * pad_x, text_h + pad_y)
+        # A pill anchored near the viewport edge is shifted back inside rather than
+        # clipped (CU-371 IV-031); the leader offset is a preference, legibility is not.
+        left, top = clamp_rect(
+            rect.left(), rect.top(), rect.width(), rect.height(), self.width(), self.height()
+        )
+        x += left - rect.left()
+        y += top - rect.top()
+        rect.moveTo(left, top)
+        self._pill_rects.append(rect)
         path = QPainterPath()
         path.addRoundedRect(rect, 3.0, 3.0)
         painter.setPen(self._pen(color, 0.6))

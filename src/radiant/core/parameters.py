@@ -1039,9 +1039,10 @@ class ParameterSet:
             return f"Parameter '{name}' is not resolved."
         rv = self._resolved[name]
         pdef = self._defs[name]
+        canonical = f"{rv.value} {rv.canonical_unit}".rstrip()
+        entered = f"{rv.input_value} {rv.input_unit}".rstrip()
         lines = [
-            f"{name} = {rv.input_value} {rv.input_unit} "
-            f"(canonical: {rv.value} {rv.canonical_unit})",
+            f"{name} = {entered} (canonical: {canonical})",
             f"  Description: {pdef.description}",
             f"  Provenance: {rv.provenance.value}",
             f"  Source: {rv.source}",

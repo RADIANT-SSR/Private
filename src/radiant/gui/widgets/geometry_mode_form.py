@@ -297,6 +297,7 @@ class GeometryModeForm(QWidget):
         # lands in the chosen door — then provenance detection takes over.
         self._pending_mode: dict[str, str] = {}
         self._pending_subdoor: dict[str, int] = {}
+        self._pending_peers: list[GeometryModeForm] = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -338,6 +339,21 @@ class GeometryModeForm(QWidget):
         if sensor is not None:
             self._assert_schema_present(sensor)
         self.refresh()
+
+    def share_pending_with(self, other: GeometryModeForm) -> None:
+        """Let *other* show the same pending door choice as this form.
+
+        The Inputs-tab and Schematic-tab forms are two views of one sensor; a
+        no-inverse door (site-and-time, target velocity) picked on one used to
+        show on the other only once a value landed (Findings Log 2026-09-20).
+        The choice is one dict object shared by reference, both ways.
+        """
+        other._pending_mode = self._pending_mode
+        other._pending_subdoor = self._pending_subdoor
+        if other not in self._pending_peers:
+            self._pending_peers.append(other)
+        if self not in other._pending_peers:
+            other._pending_peers.append(self)
 
     def refresh(self) -> None:
         """Re-read every field's value and re-detect the active mode per family.
@@ -475,6 +491,8 @@ class GeometryModeForm(QWidget):
             return
         if plan.is_empty:
             self.refresh()
+            for peer in self._pending_peers:
+                peer.refresh()
             return
         verdict = validate_mode_switch(sensor, plan)
         if verdict.unexpected is not None:
@@ -498,6 +516,8 @@ class GeometryModeForm(QWidget):
             return
         apply_mode_switch(sensor, plan)
         self.refresh()
+        for peer in self._pending_peers:
+            peer.refresh()
         self.parameterEdited.emit(plan.headline)
 
     # -- value formatting (display unit, R-UNITS) ---------------------------

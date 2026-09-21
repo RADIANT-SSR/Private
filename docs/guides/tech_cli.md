@@ -156,12 +156,9 @@ radiant gui
 radiant gui examples/mwir_leo_minimal.yaml
 ```
 
-The GUI ships in the optional extra. Without it, the command exits 1 with an actionable
-message naming the install:
-
-```bash
-pip install "radiant[gui]"
-```
+The GUI ships with the base install (PySide6 is a core dependency). If a GUI dependency
+fails to import, the command exits 1 with an actionable message naming what is missing and
+how to reinstall.
 
 With no `CONFIG` the window opens on the welcome screen — mission-template cards, **Blank
 config**, the worked examples and the recent-files list — exactly the surface **File ▸ New**

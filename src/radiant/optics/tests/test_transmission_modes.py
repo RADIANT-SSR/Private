@@ -286,7 +286,7 @@ class TestFullPrescriptionMode:
 
     @pytest.mark.level1
     def test_empty_raises(self) -> None:
-        with pytest.raises(ValueError, match="full_elements"):
+        with pytest.raises(ValueError, match="full_prescription transmission mode needs"):
             resolve_transmission(
                 TransmissionInputMode.FULL_PRESCRIPTION,
                 WL,

@@ -36,6 +36,8 @@ _LIBRARY_FILES = (
     "core/viewing_triangle.py",
     "io/config_set_section.py",
     "api/config_set.py",
+    "spectral_integration/stage.py",
+    "optics/transmission_modes.py",
 )
 
 #: The stylesheet's string is CSS whose comments cite the design history; it is never

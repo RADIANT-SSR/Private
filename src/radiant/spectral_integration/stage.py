@@ -171,7 +171,7 @@ class SpectralIntegrationStage:
                     "SpectralIntegrationStage: no EE_box found in "
                     "stage_outputs['platform'] or stage_outputs['optics'] "
                     f"but regime is '{regime.value}', which requires EE_box "
-                    "coupling (Rule 9). Run PlatformStage before "
+                    "coupling. Run PlatformStage before "
                     "SpectralIntegrationStage, or inject an EE_box stage "
                     "output for partial-chain tests."
                 )
@@ -182,7 +182,7 @@ class SpectralIntegrationStage:
             raise SpectralIntegrationStateError(
                 "SpectralIntegrationStage: EE_box != 1.0 but regime is "
                 f"'extended' (EE_box={EE_box}). In extended-scene mode, "
-                "EE_box must not be applied (Rule 9). This is a programming "
+                "EE_box must not be applied. This is a programming "
                 "error in PlatformStage."
             )
 

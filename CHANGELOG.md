@@ -58,6 +58,24 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **GUI polish batch A (CU-363, CU-367 and fourteen Findings-Log lines).** The
+  Detector Inputs sub-view no longer overflows its viewport at the default
+  layout (the plots-beside-panel split stacks when the two minimums do not fit)
+  and a value box is never narrower than its own text; a point-intensity target
+  plots its entered intensity I(λ) instead of a sentinel radiance and its
+  schematic pill reads "point (intensity input)"; marker names and leader pills
+  stay inside the schematic and never cover each other; the stacked atmosphere
+  axes carry two-line labels; **Run ▸ Validate Only** (Ctrl+R) is wired (resolve
+  plus the three resolve-time seams, no physics) and a **Cancel** button appears
+  beside Evaluate while a run is in flight; the seven never-wired menu actions
+  say why and name the route that exists; the editor's preview shows the unit
+  conversion while a configuration cannot resolve; the Edited… status line names
+  the 20-edit undo limit once the history is full; "Changed only" counts
+  preset-supplied values; the scene-class card lists each metric once; the two
+  geometry forms share a pending door choice; the last process-language strings
+  (spectral integration, the four transmission-mode refusals) are reworded;
+  `radiant gui --help` no longer claims a gui extra; `Sensor.explain` prints no
+  stray space for a dimensionless parameter. Message terms only.
 - **Shipped example scripts (CU-361).** `custom_loop.py` reads `nedt_K` (its
   NEDT column printed `nan`); `basic_evaluation.py`, `compare_configs.py` and
   `tolerance_analysis.py` print every metric with its registered unit;

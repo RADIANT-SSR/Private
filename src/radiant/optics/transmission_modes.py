@@ -207,11 +207,11 @@ def _resolve_spectral_file(
     """Mode 2: spectral transmission from file (pre-loaded)."""
     if transmission_spectral is None:
         raise TransmissionConfigIncompleteError(
-            "resolve_transmission: SPECTRAL_FILE mode requires transmission_spectral "
-            "(a SpectralData curve). Inject it pre-chain via "
-            "stage_outputs['optics_config']['transmission_spectral'] — e.g. "
-            "Sensor.evaluate(extra_stage_outputs={'optics_config': "
-            "{'transmission_spectral': curve}}) (Rule 6: stages do not read files)."
+            "resolve_transmission: the spectral_file transmission mode needs a "
+            "transmission curve, and this configuration carries none. Attach one as the "
+            "optics_config 'transmission_spectral' input (a SpectralData curve, supplied "
+            "by the calling script), or set optics.transmission_input_mode to 'scalar' "
+            "or an element-based mode (Optics ▸ Transmission)."
         )
     transmission_spectral = _on_grid(transmission_spectral, wavelength_um)
     lumped = make_lumped_element(
@@ -234,11 +234,12 @@ def _resolve_telescope_filters(
     """Mode 3: telescope broadband throughput * filter stack."""
     if telescope_transmission is None:
         raise TransmissionConfigIncompleteError(
-            "resolve_transmission: TELESCOPE_PLUS_FILTERS mode requires "
-            "telescope_transmission (scalar or SpectralData; filter_specs "
-            "optional). Inject pre-chain via stage_outputs['optics_config']"
-            "['telescope_transmission'] / ['filter_specs'] — e.g. "
-            "Sensor.evaluate(extra_stage_outputs={'optics_config': {...}})."
+            "resolve_transmission: the telescope_plus_filters transmission mode needs "
+            "a telescope transmission (a scalar or a SpectralData curve; filter_specs "
+            "optional), and this configuration carries none. Attach it as the "
+            "optics_config 'telescope_transmission' input (supplied by the calling "
+            "script), or set optics.transmission_input_mode to 'scalar' or an "
+            "element-based mode (Optics ▸ Transmission)."
         )
 
     # Resolve telescope transmission to SpectralData.
@@ -292,11 +293,11 @@ def _resolve_key_elements(
     """Mode 4: key elements plus a residual lumped transmission."""
     if not key_elements:
         raise TransmissionConfigIncompleteError(
-            "resolve_transmission: KEY_ELEMENTS mode requires at least one "
-            "OpticalElement in key_elements (residual_transmission optional). "
-            "Inject pre-chain via stage_outputs['optics_config']['key_elements'] "
-            "— e.g. Sensor.evaluate(extra_stage_outputs={'optics_config': "
-            "{'key_elements': (elem1, elem2)}})."
+            "resolve_transmission: the key_elements transmission mode needs at least "
+            "one optical element, and this configuration carries none. Add the "
+            "elements on Optics ▸ Transmission (the optical_elements document; "
+            "residual_transmission is optional), or set "
+            "optics.transmission_input_mode to 'scalar'."
         )
 
     # Resolve residual.
@@ -348,12 +349,11 @@ def _resolve_full_prescription(
     """Mode 5: full element-by-element prescription."""
     if not full_elements:
         raise OpticsValidationError(
-            "resolve_transmission: FULL_PRESCRIPTION mode requires at "
-            "least one element in full_elements. Inject the ordered element "
-            "list pre-chain via stage_outputs['optics_config']['element_list'] "
-            "— e.g. Sensor.evaluate(extra_stage_outputs={'optics_config': "
-            "{'element_list': elements}}); the stage then selects this mode "
-            "automatically."
+            "resolve_transmission: the full_prescription transmission mode needs an "
+            "ordered element list, and this configuration carries none. Add the "
+            "elements on Optics ▸ Transmission (the optical_elements document) — the "
+            "stage then selects this mode itself — or set "
+            "optics.transmission_input_mode to 'scalar'."
         )
     tau_sd = compute_system_transmission(full_elements, wavelength_um)
     return TransmissionResult(

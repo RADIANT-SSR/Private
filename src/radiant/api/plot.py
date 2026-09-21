@@ -1790,7 +1790,7 @@ def plot_atmosphere_spectral(
     fig, axes = _subplots(2, 1, sharex=True)
     ax_tau, ax_lp = axes
     ax_tau.plot(wavelength_um, tau_atm, color=series[0], **kwargs)
-    ax_tau.set_ylabel("\u03c4_atm (\u2013)")
+    ax_tau.set_ylabel("\u03c4_atm\n(\u2013)")
     ax_tau.set_ylim(0.0, 1.05)
     ax_tau.set_title(title)
     mid = len(wavelength_um) // 2
@@ -1805,7 +1805,7 @@ def plot_atmosphere_spectral(
         ha="center",
     )
     ax_lp.plot(wavelength_um, l_path, color=series[1], **kwargs)
-    ax_lp.set_ylabel("L_path (W/m\u00b2/sr/\u00b5m)")
+    ax_lp.set_ylabel("L_path\n(W/m\u00b2/sr/\u00b5m)")
     ax_lp.set_xlabel("Wavelength (\u00b5m)")
     k = int(len(wavelength_um) * 0.7)
     ax_lp.annotate(

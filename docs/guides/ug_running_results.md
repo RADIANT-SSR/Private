@@ -28,11 +28,12 @@ indeterminate progress strip on the right while a pass is in flight, reading `Ev
 study evaluates every configuration in one pass on that worker: the displayed configuration
 first, so the visible views refresh at single-model latency, then the rest.
 
-**There is no Cancel button for the main loop in this build.** The cancellation machinery
-exists — it is what lets you close the window during a long study without stranding a thread,
-and the sweep dialog exposes its own Cancel (chapter 10) — but the evaluate loop itself runs to
-completion. If you need to stop a long study, the practical answer is to reduce it: fewer
-configurations, fewer wavelength points, or fewer metric groups (§2).
+**Cancel** appears beside Evaluate in the rail footer while a run is in flight. It stops the
+pass at the next configuration boundary — the configuration being evaluated finishes first,
+because the chain has no interior cancellation point — and leaves the results on screen as
+they were, marked stale. The sweep dialog has its own Cancel (chapter 10). A long study is
+still cheaper to reduce than to interrupt: fewer configurations, fewer wavelength points, or
+fewer metric groups (§2).
 
 ### 1.1 Staleness — the trust signal
 

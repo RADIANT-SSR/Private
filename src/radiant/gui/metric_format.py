@@ -169,6 +169,12 @@ METRIC_DISPLAY_LABELS: Final[dict[str, str]] = {
 # "Diffraction limit (at target, legacy key)" showed as a visible duplicate).
 _SUPPRESSED_DISPLAY_KEYS: Final[frozenset[str]] = frozenset({"diffraction_limit_ground_m"})
 
+
+def is_display_suppressed(metric_key: str) -> bool:
+    """True for a deprecated alias whose canonical twin carries the row (never shown twice)."""
+    return metric_key in _SUPPRESSED_DISPLAY_KEYS
+
+
 # Display-time decode for ``kind="code"`` / ``kind="flag"`` metrics: the registry
 # vocabulary ("0 code", "1 0/1 flag") is for the API; the analyst reads words.
 # An unlisted value falls through to the numeric render — never a blank.
@@ -486,6 +492,7 @@ def badge_display(result: ChainResult, metric_key: str) -> tuple[str, str | None
 
 
 __all__ = [
+    "is_display_suppressed",
     "not_computed_reason",
     "TARGET_GROUP_ORDER",
     "metric_choices",

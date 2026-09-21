@@ -62,7 +62,11 @@ from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from radiant.api.scene_relevance import SCENE_CLASS_KEYS, default_off_metrics
 from radiant.core.exceptions import RadiantError
 from radiant.gui.dialog_lifetime import exec_dialog
-from radiant.gui.metric_format import METRIC_DISPLAY_LABELS, metric_display_label
+from radiant.gui.metric_format import (
+    METRIC_DISPLAY_LABELS,
+    is_display_suppressed,
+    metric_display_label,
+)
 from radiant.gui.param_format import field_display_text, safe_provenance
 from radiant.gui.widgets.field_row import UNSET as _UNSET
 from radiant.gui.widgets.field_row import FieldRow
@@ -124,7 +128,8 @@ def off_metric_labels(scene_class: str | None) -> tuple[str, ...]:
     rank = {key: index for index, key in enumerate(METRIC_DISPLAY_LABELS)}
     unranked = len(rank)
     ordered = sorted(
-        default_off_metrics(scene_class), key=lambda key: (rank.get(key, unranked), key)
+        (key for key in default_off_metrics(scene_class) if not is_display_suppressed(key)),
+        key=lambda key: (rank.get(key, unranked), key),
     )
     return tuple(metric_display_label(key) for key in ordered)
 

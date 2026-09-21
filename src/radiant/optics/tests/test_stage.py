@@ -571,7 +571,7 @@ class TestNonScalarModeInjection:
         params = _make_params()
         params.set("optics.transmission_input_mode", "key_elements")
         params.resolve()
-        with pytest.raises(ValueError, match="optics_config.*key_elements"):
+        with pytest.raises(ValueError, match="key_elements transmission mode needs"):
             OpticsStage().run(_make_state(wl), params)
 
     @pytest.mark.level1

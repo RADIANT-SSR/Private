@@ -88,6 +88,18 @@ class RightRail(QWidget):
         footer_layout.setContentsMargins(0, 0, 0, 0)
         footer_layout.setSpacing(0)
         footer_layout.addStretch(1)
+        # Cancel (Findings Log 2026-09-16): the evaluate loop had no way to stop a
+        # long study from the window; the worker's cancel hook was reached only from
+        # closeEvent. Hidden until a run is in flight.
+        self._cancel_button = QPushButton("Cancel", footer)
+        self._cancel_button.setObjectName("cancelRunButton")
+        self._cancel_button.setToolTip(
+            "Stop the evaluation at the next configuration boundary; results on "
+            "screen stay as they were"
+        )
+        self._cancel_button.setVisible(False)
+        footer_layout.addWidget(self._cancel_button)
+        footer_layout.addSpacing(8)
         self._run_button = RunButton(footer)
         footer_layout.addWidget(self._run_button)
         layout.addWidget(footer)
@@ -113,6 +125,11 @@ class RightRail(QWidget):
     def run_button(self) -> RunButton:
         """The accent Evaluate (F5) button, pinned at the bottom-right rail footer (§4.5)."""
         return self._run_button
+
+    @property
+    def cancel_button(self) -> QPushButton:
+        """The Cancel button beside Evaluate; visible only while a run is in flight."""
+        return self._cancel_button
 
 
 def _make_caption(text: str, parent: QWidget) -> QWidget:

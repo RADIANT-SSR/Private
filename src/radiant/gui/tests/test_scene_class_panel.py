@@ -27,7 +27,11 @@ import radiant.gui.widgets.actionable_error_dialog as aed
 from radiant.api.scene_relevance import default_off_metrics
 from radiant.api.sensor import Sensor
 from radiant.gui.main_window import RADIANTMainWindow
-from radiant.gui.metric_format import METRIC_DISPLAY_LABELS, metric_display_label
+from radiant.gui.metric_format import (
+    METRIC_DISPLAY_LABELS,
+    is_display_suppressed,
+    metric_display_label,
+)
 from radiant.gui.stage_views import STAGE_COMPOSITIONS
 from radiant.gui.widgets import scene_class_panel as scp
 from radiant.gui.widgets.scene_class_panel import (
@@ -94,7 +98,11 @@ class TestOffMetricLabels:
 
     def test_air_target_matches_the_bridge(self) -> None:
         """An air target's off-set is the bridge's, rendered with human labels."""
-        expected = {metric_display_label(k) for k in default_off_metrics("ground_to_air")}
+        expected = {
+            metric_display_label(k)
+            for k in default_off_metrics("ground_to_air")
+            if not is_display_suppressed(k)  # the deprecated alias rides its canonical twin
+        }
         assert set(off_metric_labels("ground_to_air")) == expected
 
     def test_ground_and_air_differ_the_documented_way(self) -> None:

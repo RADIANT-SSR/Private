@@ -54,6 +54,8 @@ import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, Protocol
 
+from radiant.core.descriptors import T7IntensityAtSource
+
 if TYPE_CHECKING:
     from radiant.api import ChainResult
 
@@ -125,6 +127,8 @@ class ViewerState:
     # sun glyph and every sun-derived vector/arc instead of fabricating angles. The
     # angle fields above then hold inert 0.0 placeholders (never drawn).
     has_sun: bool = True
+    #: A point-intensity (T7) target: sized by intensity, not by area (CU-367).
+    intensity_target: bool = False
 
     # -- Generalized viewing geometry (ADR-0011), bound verbatim from the stage ----
     # These five drive the schematic's *composition* (which endpoint is the lower one,
@@ -231,6 +235,7 @@ class ViewerState:
             # SourceStage publishes these as None when no target area is defined
             # (extended scene); coerce to 0.0 so the schematic simply hides the pill.
             projected_area_m2=float(source.get("projected_area_m2") or 0.0),
+            intensity_target=isinstance(source.get("target"), T7IntensityAtSource),
             angular_extent_rad=float(source.get("angular_extent_rad") or 0.0),
             focal_length_m=float(params.get("optics.focal_length_m")),  # type: ignore[arg-type]
             # get() returns the canonical value (metres) despite the ``_um`` input-unit

@@ -56,19 +56,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: owner-gated (intake test 2) — a published physics note argued from wrong premises; correcting it changes interpretation text, not numbers.
 **Suggested fix**: (a) inline-fix-now once ruled — rewrite the two paragraphs against the steel curve's ε(λ) (or switch the config to a painted-hull curve and refresh, which IS results-affecting). Effort S; category C either way.
 
-### CU-367 — T7 point-intensity targets render the 1e-12 m² projected-area sentinel in operator-facing surfaces (family)
-
-**Discovered**: Gap 131 Phase 4b figure work on scenario 10.2 (air-to-air IRST), 2026-09-16. Family head.
-**Status**: Open.
-**File**: `src/radiant/gui/` source-stage plots and geometry schematic labels; sentinel origin in the source/geometry seam (`A_sentinel = 1e-12 m²`).
-**Symptom**: checklist —
-
-- [ ] Source → "Target — point source" plots `spectral_source_emission` as `I / A_sentinel` ≈ 2–4 × 10¹³ W/m²/sr/µm and flattens the sky-background trace to zero — a physically meaningless radiance drawn for a physically meaningful intensity target (figure dropped from the Volume IV IRST chapter because of it)
-- [ ] The geometry schematic's target pill prints the sentinel verbatim: `A_t 1e-12 m² · 0.0 px`
-
-**Why it still matters**: workflow-visible (intake test 4) in a scenario that is run (10.2): an operator inspecting a T7 target sees sentinel arithmetic presented as physics.
-**Suggested fix**: (b) stand-alone GUI task — the point-source view should plot intensity `I(λ)` [W/sr/µm] directly and the schematic should label a T7 target "point (intensity input)" instead of printing the sentinel area. Live-review required. Effort S-M; category A.
-
 ### CU-365 — Element-config parser silently ignores `emissivity:` (and mismatched transfer keys) instead of rejecting over-specification
 
 **Discovered**: Gap 131 Phase 3b (branch `gap131/phase3-users-guide`) troubleshooting-chapter verification, 2026-09-16.
@@ -77,20 +64,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Symptom**: an optical-element entry carrying `emissivity:` (or `transmittance:` on a REFLECTIVE row) is silently ignored by the parser, retained in the document, and round-tripped into saved YAML — the user believes their emissivity is in effect while Kirchhoff derivation governs.
 **Why it still matters**: workflow-visible (intake test 4) and a Rule 5 / Rule 17 seam — Rule 5 says validate-and-derive (reject over-specification, never accept emissivity on an optical element), Rule 17 forbids silent handling; the shipped User's Guide ch. 12 documents the actionable-rejection philosophy this parser undercuts.
 **Suggested fix**: (a) inline-fix-now — `_parse_element` raises `ElementConfigError` (what/why/action) on `emissivity:` for any element and on transfer keys inconsistent with the element kind; add round-trip test. Effort S; category B.
-
-### CU-363 — DetectorInputsForm paints blank / clipped field values at off-default widths (family)
-
-**Discovered**: Gap 131 Phase 4 figure review (offscreen screenshot pipeline), 2026-09-16. Reproduced with a live probe: model values intact (`field_value_text` returns `'18 µm'` etc.) while every entry box paints empty; 20 extra event-loop turns do not heal it. Family head.
-**Status**: Open — GUI fix; per the live-review rule the fix merges only after the owner sees it running.
-**File**: `src/radiant/gui/widgets/detector_inputs_form.py` (`_relayout_columns`, `resizeEvent`).
-**Symptom**: checklist —
-
-- [ ] Narrowing the central area past the form's column-relayout threshold (e.g. widening the parameter dock to 520 px at a 1440×900 window, or an operator narrowing the window) rebuilds the rows with every painted field value blank until the next `refresh()`; the model keeps the values, so an operator sees an empty form over a correct sensor
-- [ ] At the default 1440×900 layout the full-schema form is wider than its viewport (horizontal scrollbar), right-clipping value text — "2048" reads "204", "18 µm" reads "18 µ" — a units/legibility defect in the operator's normal view
-- [ ] Same trigger, third symptom (Phase 3a): at `param_dock_width=520` the Geometry Inputs mode cards clip value fields mid-number (`705000 m` renders `'05000 m`) — clipping, not blanking, on GeometryModeForm
-
-**Why it still matters**: workflow-visible (intake test 4) — any window resize can blank the detector form, and the clipped digits misread as wrong values; also caps the manual's figure quality (Gap 131 captures avoid wide-dock detector shots until fixed — see the CU-363 comments in `scripts/gen_gui_screenshots.py`).
-**Suggested fix**: (b) stand-alone GUI task — make `_relayout_columns` re-apply row values after a rebuild (or bind rows to the model so a rebuild repaints), and give the form a sane minimum-width/eliding policy so values never silently truncate. Effort S-M; category A. Live-review required.
 
 ### CU-361 — examples/scripts defects: NaN NEDT column in a shipped example, unitless tables, prose/number drift (family) — RESOLVED 2026-09-20 (commit trailer)
 
@@ -298,6 +271,33 @@ by name in check 8 — that list is frozen and must never grow.
 
 **Why it still matters**: workflow-visible (intake test 4) — operators read these strings and plots in every session, and the CU-370 panel grabs magnified them; also blocking (test 3) — these items complete the manual figure/quote set the docs-side campaign could not touch.
 **Suggested fix**: (b) stand-alone GUI task(s), live-review required before each merge; recapture and rebuild the affected volumes after. Effort S–M; category A.
+
+### CU-367 — T7 point-intensity targets render the 1e-12 m² projected-area sentinel in operator-facing surfaces (family) — RESOLVED 2026-09-20 (commit trailer)
+
+**Discovered**: Gap 131 Phase 4b figure work on scenario 10.2 (air-to-air IRST), 2026-09-16. Family head.
+**Status**: Resolved 2026-09-20 — GUI polish batch A (`gui-polish/batch-a`), live-reviewed; pinning tests in `gui/tests/test_gui_polish_batch_a.py`.
+**File**: `src/radiant/gui/` source-stage plots and geometry schematic labels; sentinel origin in the source/geometry seam (`A_sentinel = 1e-12 m²`).
+**Symptom**: checklist —
+
+- [x] `spectral_source_emission` detects a `T7IntensityAtSource` target and plots the entered intensity I(λ) [W/sr/µm] instead of the sentinel radiance. Originally: Source → "Target — point source" plots `spectral_source_emission` as `I / A_sentinel` ≈ 2–4 × 10¹³ W/m²/sr/µm and flattens the sky-background trace to zero — a physically meaningless radiance drawn for a physically meaningful intensity target (figure dropped from the Volume IV IRST chapter because of it)
+- [x] `ViewerState.intensity_target` (from the T7 descriptor) labels the target pill "point (intensity input)". Originally: the geometry schematic's target pill prints the sentinel verbatim: `A_t 1e-12 m² · 0.0 px`
+
+**Why it still matters**: workflow-visible (intake test 4) in a scenario that is run (10.2): an operator inspecting a T7 target sees sentinel arithmetic presented as physics.
+**Suggested fix**: (b) stand-alone GUI task — the point-source view should plot intensity `I(λ)` [W/sr/µm] directly and the schematic should label a T7 target "point (intensity input)" instead of printing the sentinel area. Live-review required. Effort S-M; category A.
+
+### CU-363 — DetectorInputsForm paints blank / clipped field values at off-default widths (family) — RESOLVED 2026-09-20 (commit trailer)
+
+**Discovered**: Gap 131 Phase 4 figure review (offscreen screenshot pipeline), 2026-09-16. Reproduced with a live probe: model values intact (`field_value_text` returns `'18 µm'` etc.) while every entry box paints empty; 20 extra event-loop turns do not heal it. Family head.
+**Status**: Resolved 2026-09-20 — GUI polish batch A (`gui-polish/batch-a`), live-reviewed per the GUI live-review rule; pinning tests in `gui/tests/test_gui_polish_batch_a.py`.
+**File**: `src/radiant/gui/widgets/detector_inputs_form.py` (`_relayout_columns`, `resizeEvent`).
+**Symptom**: checklist —
+
+- [x] Not reproducible on current main (probed 2026-09-20 at 2000→1100 px, 2→1 columns: every row keeps its geometry and text; the F-45 in-place refresh and the masonry relayout of 2026-09-06 removed the rebuild that blanked values). Originally: narrowing the central area past the form's column-relayout threshold (e.g. widening the parameter dock to 520 px at a 1440×900 window, or an operator narrowing the window) rebuilds the rows with every painted field value blank until the next `refresh()`; the model keeps the values, so an operator sees an empty form over a correct sensor
+- [x] Root cause was the Inputs sub-view's plots-beside-panel splitter: 420 px figure floor + the illustration's 240 px exceeded the 622 px viewport by 42 px. `widgets/responsive_splitter.py` stacks the two when they do not fit side by side, so the sub-view never scrolls sideways. Originally: at the default 1440×900 layout the full-schema form is wider than its viewport (horizontal scrollbar), right-clipping value text — "2048" reads "204", "18 µm" reads "18 µ" — a units/legibility defect in the operator's normal view
+- [x] A value that does not fit its box is elided in the middle with an ellipsis (digits on both ends and the unit survive) and the full value is the box's tooltip; a wider floor was tried first and refused by the 240 px no-scrollbar accordion contract (owner 2026-07-14). Originally: same trigger, third symptom (Phase 3a): at `param_dock_width=520` the Geometry Inputs mode cards clip value fields mid-number (`705000 m` renders `'05000 m`) — clipping, not blanking, on GeometryModeForm
+
+**Why it still matters**: workflow-visible (intake test 4) — any window resize can blank the detector form, and the clipped digits misread as wrong values; also caps the manual's figure quality (Gap 131 captures avoid wide-dock detector shots until fixed — see the CU-363 comments in `scripts/gen_gui_screenshots.py`).
+**Suggested fix**: (b) stand-alone GUI task — make `_relayout_columns` re-apply row values after a rebuild (or bind rows to the model so a rebuild repaints), and give the form a sane minimum-width/eliding policy so values never silently truncate. Effort S-M; category A. Live-review required.
 
 ### CU-372 — GUI edit discipline misrepresents state on unresolved configurations and consistency-group members (usability-audit family) — RESOLVED 2026-09-20 (commit trailer)
 

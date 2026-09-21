@@ -26,7 +26,7 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Final, cast
 
 from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QUndoStack
@@ -506,6 +506,20 @@ class RADIANTMainWindow(QMainWindow):
             study = f" ({len(cs)} configuration{plural})"
         return f"{marker}{name}{study} — {suffix}"
 
+    #: Actions the build shows but does not implement, each with the reason and the
+    #: route that does exist (audit F-36: eight disabled entries explained nothing).
+    _NOT_IN_THIS_BUILD: Final[dict[str, str]] = {
+        "edit.find": "Not in this build — the Parameters dock's filter box searches by name",
+        "view.font_larger": "Not in this build — use the operating system's display scaling",
+        "view.font_smaller": "Not in this build — use the operating system's display scaling",
+        "tools.preferences": "Not in this build — there are no preferences to set yet",
+        "help.docs": "Not in this build — the four manuals ship in the wheel under radiant/manuals",
+        "help.examples": "Not in this build — the examples ship under radiant/examples; "
+        "File ▸ Open one of them",
+        "help.about": "Not in this build — the version and commit are in the title bar and in "
+        "Export JSON Result",
+    }
+
     def _add_action(
         self,
         menu: QMenu,
@@ -527,6 +541,10 @@ class RADIANTMainWindow(QMainWindow):
             action.setShortcut(shortcut)
         action.setEnabled(enabled)
         menu.addAction(action)
+        reason = self._NOT_IN_THIS_BUILD.get(key)
+        if reason is not None:
+            action.setStatusTip(reason)
+            action.setToolTip(reason)
         self._actions[key] = action
         return action
 
@@ -1060,7 +1078,7 @@ class RADIANTMainWindow(QMainWindow):
         self._stage_strip.set_all_status("stale")
         self._right_rail.run_button.set_stale(True)
         self._refresh_coverage_advisory()
-        self.statusBar().showMessage(f"Edited {dotpath} — re-evaluating…")
+        self.statusBar().showMessage(f"Edited {dotpath} — re-evaluating…{self._undo_full_note()}")
         self._debounce.start()
 
     def _refresh_coverage_advisory(self) -> None:
@@ -1330,6 +1348,8 @@ class RADIANTMainWindow(QMainWindow):
         # F5 / menu and the accent Run button both trigger an immediate run.
         evaluate_action.triggered.connect(self._evaluate_now)
         run_button.clicked.connect(self._evaluate_now)
+        self.action("run.validate").triggered.connect(self._validate_only)
+        self._right_rail.cancel_button.clicked.connect(self._cancel_evaluation)
 
     def _set_sensor_actions_enabled(self, enabled: bool) -> None:
         """Enable/disable every action that needs a loaded sensor (Phase 9).
@@ -1340,6 +1360,7 @@ class RADIANTMainWindow(QMainWindow):
         swapped (File → Open / New), or when the window opens bare.
         """
         self.action("run.evaluate").setEnabled(enabled)
+        self.action("run.validate").setEnabled(enabled)
         self._right_rail.run_button.setEnabled(enabled)
         self._right_rail.yaml_button.setEnabled(enabled)
         self.action("tools.scripting_window").setEnabled(enabled)
@@ -1397,9 +1418,56 @@ class RADIANTMainWindow(QMainWindow):
         worker = ConfigSetEvaluationWorker(cs.clone())
         worker.finished_ok.connect(self._on_eval_ok)
         worker.failed.connect(self._on_eval_failed)
+        worker.cancelled.connect(self._on_eval_cancelled)
         worker.finished.connect(self._on_worker_finished)
         self._worker = worker
         worker.start()
+
+    def _cancel_evaluation(self) -> None:
+        """The rail's Cancel: stop the in-flight pass at the next configuration boundary."""
+        worker = self._worker
+        if worker is None or not worker.isRunning():
+            return
+        worker.request_cancel()
+        self.statusBar().showMessage(
+            "Cancelling — the configuration being evaluated finishes first"
+        )
+
+    def _on_eval_cancelled(self) -> None:
+        """A deliberate stop: nothing to render, the previous result stays and reads stale."""
+        self._rerun_pending = False
+        self._right_rail.run_button.set_stale(True)
+        self.statusBar().showMessage(
+            "Evaluation cancelled — results on screen are from before the last edit", 8000
+        )
+
+    def _validate_only(self) -> None:
+        """Run ▸ Validate Only (Ctrl+R): resolve and run the door seams, no physics.
+
+        The same checks a run would fail on before its first stage — the resolver
+        (types, bounds, consistency groups, required parameters) and the
+        resolve-time seams (target spec, geometry doors, atmosphere coverage) —
+        reported through the run-failure path, so an incomplete configuration is
+        the same advisory Evaluate would give. Never touches the results on screen.
+        """
+        sensor = self._sensor
+        if sensor is None:
+            return
+        try:
+            probe = sensor.clone()
+            probe.resolve()
+            probe.validate_target_spec()
+            probe.validate_geometry_modes()
+            probe.validate_atmosphere_coverage()
+        except RadiantError as exc:
+            self._on_eval_failed(exc)
+            return
+        count = len(sensor.inputs())
+        self.statusBar().showMessage(
+            f"Configuration valid — {count} explicit inputs resolve; no physics was run "
+            "(Validate Only)",
+            8000,
+        )
 
     def _on_eval_ok(self, run: ConfigSetRunResult) -> None:
         """Retain the whole pass and render the displayed configuration from it."""
@@ -1858,6 +1926,7 @@ class RADIANTMainWindow(QMainWindow):
         # All three were connected in ``_start_worker``, so none of these can raise.
         worker.finished_ok.disconnect(self._on_eval_ok)
         worker.failed.disconnect(self._on_eval_failed)
+        worker.cancelled.disconnect(self._on_eval_cancelled)
         worker.finished.disconnect(self._on_worker_finished)
         if not worker.isRunning():
             return
@@ -1873,8 +1942,9 @@ class RADIANTMainWindow(QMainWindow):
             worker.wait()
 
     def _set_busy(self, busy: bool) -> None:
-        """Show/hide the status-bar busy indicator around a worker run."""
+        """Show/hide the status-bar busy indicator and the rail's Cancel around a run."""
         self._busy.setVisible(busy)
+        self._right_rail.cancel_button.setVisible(busy)
         if busy:
             self.statusBar().showMessage("Evaluating…")
 
@@ -2735,6 +2805,16 @@ class RADIANTMainWindow(QMainWindow):
             self._push_one_input_change(name, inputs.get(name))
         if len(changed) > 1:
             self._undo_stack.endMacro()
+
+    def _undo_full_note(self) -> str:
+        """A status-line suffix once the undo history is full (audit F-33).
+
+        The stack silently dropped its oldest edit at the limit; the note names
+        the limit so an operator knows Undo will not reach past it.
+        """
+        if self._undo_stack.count() < _UNDO_LIMIT:
+            return ""
+        return f" · undo history keeps the last {_UNDO_LIMIT} edits"
 
     def _push_one_input_change(self, dotpath: str, new_value: Any) -> None:
         """Record one explicit-input change (``None`` = withdrawn) against the snapshot."""

@@ -15,6 +15,7 @@ from radiant.calibration._schema import ALL_PARAMETERS
 from radiant.calibration.cal_points import cal_point_signal_e
 from radiant.calibration.errors import (
     CalibrationConfigIncompleteError,
+    CalibrationModeConflictError,
     CalibrationValidationError,
     is_calibration_config_incomplete,
 )
@@ -730,3 +731,21 @@ class TestFluxFractionCalPoints:
         cal = out.stage_outputs["calibration"]
         assert cal["s2_e"] == _pytest.approx(18_000.0, rel=1e-12)
         assert cal["s3_e"] == _pytest.approx(27_000.0, rel=1e-12)
+
+
+class TestTemperatureModeRejectsFluxPoints:
+    """Findings Log 2026-09-20 (batch B): the mirror of the flux-mode rule — a
+    flux-declared cal point under the temperature mode was silently ignored."""
+
+    def test_flux_low_under_temperature_mode_is_a_mode_conflict(self) -> None:
+        params = _params(
+            calibration__scheme="one_point",
+            calibration__cal_temp_low_K=300.0,
+            calibration__cal_flux_low=0.5,
+        )
+        with pytest.raises(CalibrationModeConflictError, match="cal_flux_low is set, but"):
+            CalibrationStage().run(_evaluated_state(), params)
+
+    def test_temperature_mode_without_flux_points_still_runs(self) -> None:
+        params = _params(calibration__scheme="one_point", calibration__cal_temp_low_K=300.0)
+        CalibrationStage().run(_evaluated_state(), params)

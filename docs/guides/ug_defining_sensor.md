@@ -411,7 +411,8 @@ a screenful of inert rows.
 Flipping the mode is one action: the other mode's inputs — the cal temperatures and every
 temperature-anchored bias term under `flux_fraction`, the flux points on the way back — are
 withdrawn with the commit, the editor's *Withdraws* line names them first, and one Undo
-restores them. A flux-mode scheme without its flux point is then the same *expected*
+restores them. A file that carries both is refused in either direction: a flux point under
+the temperature mode is as much a conflict as a cal temperature under the flux mode. A flux-mode scheme without its flux point is then the same *expected*
 incomplete state as a scheme without its cal temperature, and routes as an advisory.
 
 An unset cal temperature renders as **words** — `unset — required` — never as a plausible-looking

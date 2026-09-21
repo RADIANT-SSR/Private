@@ -111,6 +111,24 @@ def _validate_active_scheme(scheme: str, params: ParameterSet) -> None:
     mid-switch config — advisory routing) and the plain validation error
     when values present are unphysical (a rejected input — modal routing).
     """
+    # Symmetric to _validate_flux_mode (Rule 16 / Rule 17): a flux-declared cal
+    # point under the temperature mode would silently do nothing (the CU-093
+    # failure class). The GUI's cal-point switch withdraws them; a YAML file can
+    # still carry both, and then the mixed state is named, not ignored.
+    for name in (
+        "calibration.cal_flux_low",
+        "calibration.cal_flux_mid",
+        "calibration.cal_flux_high",
+    ):
+        if float(params.get(name)) != _UNSET:
+            raise CalibrationModeConflictError(
+                f"{name} is set, but calibration.cal_point_mode = 'temperature'.\n"
+                "  Why: the temperature mode anchors its cal points at cal_temp_*_K; a "
+                "flux-fraction cal point has no meaning under it and would silently do "
+                "nothing.\n"
+                f"  Action: unset {name}, or use cal_point_mode = 'flux_fraction'."
+            )
+
     t_low: float = params.get("calibration.cal_temp_low_K")
     t_high: float = params.get("calibration.cal_temp_high_K")
 

@@ -341,6 +341,37 @@ def metric_failure_reason(result: ChainResult, metric_key: str) -> str | None:
     return str(reason) if reason else None
 
 
+_NOT_COMPUTED_GENERIC: Final[str] = "not computed for this run"
+
+
+def not_computed_reason(result: ChainResult, metric_key: str) -> str:
+    """Why *metric_key* is absent from the run, from its ``metric_selection`` record.
+
+    Three honest answers (CU-371 II-009): the metric's group was switched off
+    (names the group as the readout headings do), the scene-class relevance map
+    switched it off by default (and how to override that), or the group ran and the
+    metric is not defined for this regime. A run without the record reads the
+    generic wording.
+    """
+    performance = result.stage_outputs.get("performance", {})
+    selection = performance.get("metric_selection")
+    if selection is None:
+        return _NOT_COMPUTED_GENERIC
+    try:
+        group = group_of(metric_key)
+    except KeyError:
+        return _NOT_COMPUTED_GENERIC
+    heading = dict(METRIC_GROUP_HEADINGS).get(group, group)
+    if metric_key in getattr(selection, "suppressed", ()):
+        return (
+            f"not computed — off by default for this scene class; select the "
+            f"{heading} group to compute it"
+        )
+    if group not in getattr(selection, "enabled_groups", ()):
+        return f"not computed — the {heading} metric group is off"
+    return "not computed — not defined for this regime"
+
+
 def declined_metrics(result: ChainResult) -> tuple[tuple[str, str], ...]:
     """``(metric_key, failure_reason)`` for every metric the run declined with a reason.
 
@@ -430,9 +461,12 @@ def badge_display(result: ChainResult, metric_key: str) -> tuple[str, str | None
     * ``(NOT_AVAILABLE, reason)`` — the metric is absent from ``metrics`` but the
       run declined it with a named reason (a detection range below threshold,
       NIIRS outside the GIQE-5 envelope — CU-375 F-27);
-    * ``(NOT_AVAILABLE, "not computed for this run")`` — the metric is absent from
-      ``metrics`` and carries no reason (a group switched off, a regime that did
-      not populate it).
+    * ``(NOT_AVAILABLE, reason)`` — the metric is absent from ``metrics`` with no
+      declined reason; ``reason`` then says **why** it was not computed (CU-371
+      II-009), read off the run's own ``metric_selection`` record: its metric group
+      is off, the scene-class relevance map turned it off by default, or the group
+      ran and the metric is simply not defined for this regime. A result without
+      the record (an older run) reads the generic "not computed for this run".
 
     Units come from :meth:`ChainResult.metric_records` (registry-sourced), so the
     widget never hardcodes a unit string (R-UNITS, GUI plan §4.6).
@@ -442,9 +476,9 @@ def badge_display(result: ChainResult, metric_key: str) -> tuple[str, str | None
     if rec is None:
         # A declined metric names its reason (CU-375 F-27 / CU-371 II-009);
         # only a metric the run never produced reads "not computed".
-        return NOT_AVAILABLE, metric_failure_reason(
+        return NOT_AVAILABLE, metric_failure_reason(result, metric_key) or not_computed_reason(
             result, metric_key
-        ) or "not computed for this run"
+        )
     if not math.isfinite(rec.value):
         reason = metric_failure_reason(result, metric_key)
         return NOT_AVAILABLE, reason or "unavailable (non-finite result)"
@@ -452,6 +486,7 @@ def badge_display(result: ChainResult, metric_key: str) -> tuple[str, str | None
 
 
 __all__ = [
+    "not_computed_reason",
     "TARGET_GROUP_ORDER",
     "metric_choices",
     "DeclinedRecord",

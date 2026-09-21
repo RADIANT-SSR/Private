@@ -177,8 +177,9 @@ the diffraction limit "at target" reads 0.2074 mm. Those are honest arithmetic o
 placeholder: $p\,h/f = 15\ \mu\mathrm{m} \times 1.0\ \mathrm{m} / 0.0575\ \mathrm{m} =
 0.2609$ mm, where the 1.0 m is the bench stand-in for a sensor altitude. There is no
 ground plane in a laboratory, and the ground-projection family means nothing here. The
-tool does refuse the one metric it can refuse: the pinned NIIRS card reads
-`n/a — not computed for this run`, and the Interpretability group carries only MRT at
+tool does refuse the one metric it can refuse: the pinned NIIRS card reads `n/a` with its
+reason — *NIIRS/IIRS not applicable: GSD = 0.0103 inch is outside the GIQE-5 calibration
+range [1.18, 31.5] inch* — and the Interpretability group carries only MRT at
 Nyquist (0.1645 K) plus the `yes — outside GIQE-5` flag. A dedicated detector-only bench
 mode, which would switch the whole family off the way an air target does, is a tracked
 gap.

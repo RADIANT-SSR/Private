@@ -14,8 +14,15 @@ from __future__ import annotations
 from radiant.performance.metric_selection import (
     GROUP_PARAMS,
     METRIC_GROUPS,
+    MetricSelectionRecord,
     group_of,
     resolve_selection,
 )
 
-__all__ = ["GROUP_PARAMS", "METRIC_GROUPS", "group_of", "resolve_selection"]
+__all__ = [
+    "GROUP_PARAMS",
+    "METRIC_GROUPS",
+    "MetricSelectionRecord",
+    "group_of",
+    "resolve_selection",
+]

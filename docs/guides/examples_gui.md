@@ -109,9 +109,9 @@ therefore also filling them in the order the physics consumes them.
 
    For this configuration the headline numbers are SNR 1124, NEDT 24.96 mK, GSD
    0.12 m, and system MTF at Nyquist 0.2668. The pinned cards in the right rail carry
-   the same four plus NIIRS, which reads `n/a — not computed for this run`: the
-   GIQE-5 regression is out of range for a 0.12 m GSD thermal scene, and the tool
-   says so rather than extrapolating quietly.
+   the same four plus NIIRS, which reads `n/a` with its reason — *NIIRS/IIRS not
+   applicable: SNR = 1.12e+03 is outside the GIQE-5 calibration range [2, 130]* — the
+   tool says so rather than extrapolating quietly.
 
 7. **Save it.** `File → Save As…` writes exactly what you specified — the `config`
    rows, not the defaults — so the file stays readable and the schema stays free to

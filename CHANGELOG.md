@@ -21,6 +21,10 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **`stage_outputs["performance"]["metric_selection"]`** — a `MetricSelectionRecord`
+  (enabled groups, surfaced and suppressed metrics; re-exported by
+  `radiant.api.metric_groups`) so a readout can say why a metric is absent
+  (CU-371 II-009).
 - **`Sensor.validate_geometry_modes()`** and **`Sensor.geometry_door_values()`**
   (CU-377). The first is the one-door-per-family seam: a provenance read that
   raises `GeometrySpecificationError` when a geometry family holds explicit
@@ -54,6 +58,19 @@ retroactively reconstructed.
   passthrough to `ParameterSet.input_provenances()` (CU-372 F-01).
 
 ### Fixed
+- **GUI strings and widgets (CU-371).** Product strings no longer carry the
+  project's tracking vocabulary ("Gap 65", "ADR-0010 D-E", "v1-minimal
+  (owner-ratified …)", "Rule 8", "v1.x", "Phase 2 MODTRAN calibration"): the
+  stage notes, tooltips, the console banner, the readout saturation warnings,
+  the horizon-guard refusals and the configuration-set errors are reworded
+  with the same what/why/action (message terms only). Metric badges say why a
+  metric was not computed — the group is off, off by default for the scene
+  class (and how to override it), or not defined for the regime — instead of
+  one blanket "not computed for this run". The schematic's leader pills stay
+  inside the viewport. The MTF-budget and element-train tables show every
+  row instead of a five-row scroll box. `atmosphere.modtran.binary_path`
+  defaults to empty (resolved at run time) instead of the authoring machine's
+  POSIX path.
 - **GUI mode and door switching (CU-377, usability audit F-05/F-07/F-15/F-25/F-26/F-43/F-48;
   owner-ratified 2026-09-20).** A geometry family's mode selector now *switches* the family:
   picking a mode withdraws the other doors' explicit inputs and seeds the chosen door from

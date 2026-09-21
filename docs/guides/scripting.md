@@ -435,7 +435,7 @@ returned unchanged by `to_provenance_record()`.
 ```python
 rec = result.to_provenance_record()
 rec["run_id"]               # UUID4 minted by the chain runner
-rec["radiant_version"]      # e.g. '0.1.0'
+rec["radiant_version"]      # e.g. '0.2.0'
 rec["git_commit"]           # short SHA, or 'unknown' outside a git repo
 rec["python_version"]       # 'MAJOR.MINOR.PATCH'
 rec["dependency_versions"]  # {name: version} for numpy, scipy, pyyaml, click

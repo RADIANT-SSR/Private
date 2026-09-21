@@ -20,6 +20,18 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.2.0] - 2026-09-21
+
+Second tagged release: the GUI usability audit (the 2026-09-19 audit's
+batches 1–5, CU-371 through CU-377) and the follow-on GUI polish and engine
+consistency batches, a `Sensor` API that reports its inputs, their
+provenance and its geometry doors, structured error classes for every
+conflict the GUI used to swallow, and the shipped examples and manuals
+brought back in step with the code. No computed result changes; every
+results-affecting entry below is message terms only.
+
 ### Added
 - **`stage_outputs["performance"]["metric_selection"]`** — a `MetricSelectionRecord`
   (enabled groups, surfaced and suppressed metrics; re-exported by

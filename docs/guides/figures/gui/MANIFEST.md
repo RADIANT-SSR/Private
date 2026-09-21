@@ -16,7 +16,7 @@ python scripts/gen_gui_screenshots.py --all
 ```
 
 - Generator: `scripts/gen_gui_screenshots.py`
-- Commit: `95871c6f`
+- Commit: `77ba0a4b`
 - Generated: 2026-09-20
 - Figures: 53
 

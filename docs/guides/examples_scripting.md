@@ -53,19 +53,39 @@ Output (metric list trimmed to the rows discussed):
 === RADIANT Basic Evaluation ===
 Config: mwir_leo_minimal.yaml
 
-  ee_1x1               = 0.414137
-  ee_3x3               = 0.878017
-  gsd_geometric_mean_m = 0.12
-  mtf_at_nyquist       = 0.266771
-  mtf_folded_at_nyquist = 0.53355
-  nedt_K               = 0.024958
-  niirs_extrapolated   = 1
-  q_center             = 0.944444
-  rer                  = 0.610069
-  snr                  = 1124.03
-  strehl               = 1
-  well_margin_dB       = 3.98876
-  ...                                   (35 metrics in total)
+  adc_margin_dB                        = 4.40063 dB
+  alias_fraction_at_nyquist            = 0.500007 fraction
+  contrast_snr                         = 1124.03
+  diffraction_limit_angular_urad       = 17.2833 µrad
+  diffraction_limit_ground_m           = 0.138267 m
+  diffraction_limit_target_plane_m     = 0.138267 m
+  dynamic_range_dB                     = 65.0043 dB
+  ee_1x1                               = 0.414137 fraction
+  ee_3x3                               = 0.878017 fraction
+  fwhm_x_m                             = 2.12972e-05 m
+  fwhm_y_m                             = 2.12972e-05 m
+  ground_range_m                       = 0 m
+  gsd_along_track_m                    = 0.12 m
+  gsd_cross_track_m                    = 0.12 m
+  gsd_geometric_mean_m                 = 0.12 m
+  mrt_at_nyquist_K                     = 0.210501 K
+  mtf_at_nyquist                       = 0.266771
+  mtf_folded_at_nyquist                = 0.53355
+  mtf_system_at_nyquist_x              = 0.26884
+  mtf_system_at_nyquist_y              = 0.26884
+  nedt_K                               = 0.024958 K
+  niirs_extrapolated                   = 1 0/1 flag
+  q_center                             = 0.944444
+  q_max                                = 1.11111
+  q_min                                = 0.777778
+  rer                                  = 0.610069
+  sampling_regime_code                 = 0 code
+  scnr                                 = 1124.03
+  snr                                  = 1124.03
+  straddle_factor                      = 1
+  strehl                               = 1
+  strehl_marechal                      = 1
+  well_margin_dB                       = 3.98876 dB
 
 Noise budget:
   signal_shot                1124.0766 e- RMS
@@ -85,8 +105,7 @@ Noise budget:
   persistence_noise          0.0000 e- RMS
   glow_shot                  0.0000 e- RMS
 
-Stages executed: geometry → source → atmosphere → optics → platform →
-spectral_integration → detector → readout → calibration → performance
+Stages executed: geometry → source → atmosphere → optics → platform → spectral_integration → detector → readout → calibration → performance
 ```
 
 **What to notice.**
@@ -177,8 +196,12 @@ doubles the SNR and costs four times the glass.
 UserWarning: ReadoutStage: full well saturated — signal + dark + glow + near-field
 + stray = 2.246e+06 e- exceeds full_well_capacity_e = 2e+06 e- (fill fraction 1.12).
 Signal clipped to 2e+06 e-. Downstream SNR/NEDT/NIIRS reflect the CLIPPED signal and
-will not respond to scene/atmosphere changes.
+will not respond to scene/atmosphere changes. …
 ```
+
+(Quoted with its remedy clause elided. The same points emit a second, distinct
+warning from the ADC — `ReadoutStage: ADC saturated — … Signal clipped to 16383 DN` —
+because a well that overfills also overfills the digitizer.)
 
 1414.17 is $\sqrt{2 \times 10^{6}}$ — the shot-limited SNR of a pixel filled exactly
 to its 2 Me- capacity, and therefore a constant independent of the scene. A trade
@@ -221,21 +244,41 @@ Output (trimmed to the informative rows; the full table is 33 metrics):
 ```text
 === Configuration Comparison ===
 
-              Metric      Baseline      Modified         Delta     %Change
-----------------------------------------------------------------------
-       adc_margin_dB        4.4006        0.4119       -3.9888      -90.6%
-        contrast_snr     1124.0273     4020.4751    +2896.4478     +257.7%
-diffraction_limit_ground_m  0.1383        0.0922       -0.0461      -33.3%
-              ee_1x1        0.4141        0.5444       +0.1302      +31.4%
-              ee_3x3        0.8780        0.9199       +0.0419       +4.8%
-   gsd_along_track_m        0.1200        0.1200       +0.0000       +0.0%
-    mrt_at_nyquist_K        0.2105        0.1158       -0.0947      -45.0%
-      mtf_at_nyquist        0.2668        0.3854       +0.1186      +44.5%
-              nedt_K        0.0250        0.0198       -0.0051      -20.5%
-            q_center        0.9444        0.6296       -0.3148      -33.3%
-                 rer        0.6101        0.7065       +0.0964      +15.8%
-                 snr     1124.0273     1414.1738     +290.1465      +25.8%
-      well_margin_dB        3.9888        0.0000       -3.9888     -100.0%
+                     Metric  Unit              Baseline     Modified        Delta  %Change
+-------------------------------------------------------------------------------------------
+              adc_margin_dB  dB                  4.4006       0.4119      -3.9888   -90.6%
+  alias_fraction_at_nyquist  fraction            0.5000       0.5043      +0.0043    +0.9%
+               contrast_snr  dimensionless    1124.0273    4020.4751   +2896.4478  +257.7%
+diffraction_limit_angular_urad  µrad               17.2833      11.5222      -5.7611   -33.3%
+ diffraction_limit_ground_m  m                   0.1383       0.0922      -0.0461   -33.3%
+diffraction_limit_target_plane_m  m                   0.1383       0.0922      -0.0461   -33.3%
+           dynamic_range_dB  dB                 65.0043      63.0101      -1.9942    -3.1%
+                     ee_1x1  fraction            0.4141       0.5444      +0.1302   +31.4%
+                     ee_3x3  fraction            0.8780       0.9199      +0.0419    +4.8%
+                   fwhm_x_m  m                   0.0000       0.0000      -0.0000   -12.9%
+                   fwhm_y_m  m                   0.0000       0.0000      -0.0000   -12.9%
+             ground_range_m  m                   0.0000       0.0000      +0.0000      n/a
+          gsd_along_track_m  m                   0.1200       0.1200      +0.0000    +0.0%
+          gsd_cross_track_m  m                   0.1200       0.1200      +0.0000    +0.0%
+       gsd_geometric_mean_m  m                   0.1200       0.1200      +0.0000    +0.0%
+           mrt_at_nyquist_K  K                   0.2105       0.1158      -0.0947   -45.0%
+             mtf_at_nyquist  dimensionless       0.2668       0.3854      +0.1186   +44.5%
+      mtf_folded_at_nyquist  dimensionless       0.5335       0.7774      +0.2439   +45.7%
+    mtf_system_at_nyquist_x  dimensionless       0.2688       0.3859      +0.1170   +43.5%
+    mtf_system_at_nyquist_y  dimensionless       0.2688       0.3859      +0.1170   +43.5%
+                     nedt_K  K                   0.0250       0.0198      -0.0051   -20.5%
+         niirs_extrapolated  0/1 flag            1.0000       1.0000      +0.0000    +0.0%
+                   q_center  dimensionless       0.9444       0.6296      -0.3148   -33.3%
+                      q_max  dimensionless       1.1111       0.7407      -0.3704   -33.3%
+                      q_min  dimensionless       0.7778       0.5185      -0.2593   -33.3%
+                        rer  dimensionless       0.6101       0.7065      +0.0964   +15.8%
+       sampling_regime_code  code                0.0000       0.0000      +0.0000      n/a
+                       scnr  dimensionless    1124.0273    4020.4751   +2896.4478  +257.7%
+                        snr  dimensionless    1124.0273    1414.1738    +290.1465   +25.8%
+            straddle_factor  dimensionless       1.0000       1.0000      +0.0000    +0.0%
+                     strehl  dimensionless       1.0000       1.0000      +0.0000    +0.0%
+            strehl_marechal  dimensionless       1.0000       1.0000      +0.0000    +0.0%
+             well_margin_dB  dB                  3.9888       0.0000      -3.9888  -100.0%
 
 Changes applied:
   optics.aperture_diameter_m: 0.30 → 0.45 m
@@ -304,12 +347,12 @@ Output (three saturation warnings elided):
 
   t_int (ms)         SNR      SNR/√t    NEDT (K)
 ----------------------------------------------
-         1.0      502.59    15893.37         nan
-         2.0      710.85    15895.11         nan
-         5.0     1124.03    15896.15         nan
-        10.0     1414.17    14141.74         nan
-        20.0     1414.17     9999.71         nan
-        50.0     1414.17     6324.37         nan
+         1.0      502.59    15893.37    0.055817
+         2.0      710.85    15895.11    0.039465
+         5.0     1124.03    15896.15    0.024958
+        10.0     1414.17    14141.74    0.019837
+        20.0     1414.17     9999.71    0.019837
+        50.0     1414.17     6324.37    0.019837
 
 SNR/√t should be approximately constant if the system is
 photon-noise-limited (shot noise ∝ √signal ∝ √t_int).
@@ -328,15 +371,15 @@ $\mathrm{SNR}/\sqrt{t}$ is a diagnostic for "photon-limited"; a *falling* one is
 diagnostic for "saturated or read-noise-limited", and telling those two apart is
 exactly what this column is for.
 
-*The NEDT column is a bug in the example, not in the chain.* The metric is registered
-as `nedt_K`, carrying its unit in its name, and the script asks for `nedt`. `.get()`
-returns `None`, the guard turns it into `nan`, and every row prints `nan`. The right
-lookup is `result.metrics["nedt_K"]`, which returns 0.024958 K for the 5 ms row — the
-same value `basic_evaluation.py` prints. The column header says `NEDT (K)`, so the
-unit convention is intact; the key is not. Treat this as the cautionary example it
-accidentally is: `result.metrics` is a plain mapping, `.get()` on a mis-remembered
-key fails silently, and `result.metric_records()` is the surface that will tell you
-the registered names and their units.
+*The NEDT column reads in kelvin, from the registered key.* The metric is registered
+as `nedt_K`, carrying its unit in its name, and the script reads
+`result.metrics["nedt_K"]` — 0.024958 K for the 5 ms row, the same value
+`basic_evaluation.py` prints. (An earlier revision asked for `nedt` with `.get()`,
+which returned `None` and printed `nan` down the whole column: `result.metrics` is a
+plain mapping, `.get()` on a mis-remembered key fails silently, and
+`result.metric_records()` is the surface that tells you the registered names and
+their units.) Past the saturation knee the NEDT column freezes with the SNR column,
+for the same reason.
 
 ---
 
@@ -354,12 +397,14 @@ sensor.set_tolerance("detector.qe_value",          "gaussian", std_fraction=0.03
 
 mc_result = sensor.monte_carlo(n_trials=50, seed=42)
 
+units = {rec.name: rec.unit for rec in sensor.evaluate().metric_records()}
 for metric in mc_result.metric_names:
-    print(f"{metric}:")
-    print(f"  Mean:  {mc_result.mean(metric):.4f}")
-    print(f"  Std:   {mc_result.std(metric):.4f}")
-    print(f"  5th %%: {mc_result.percentile(metric, 5.0):.4f}")
-    print(f"  95th %%: {mc_result.percentile(metric, 95.0):.4f}")
+    unit = units.get(metric, "")
+    print(f"{metric} [{unit}]:")
+    print(f"  Mean:  {mc_result.mean(metric):.4f} {unit}")
+    print(f"  Std:   {mc_result.std(metric):.4f} {unit}")
+    print(f"  5th %: {mc_result.percentile(metric, 5.0):.4f} {unit}")
+    print(f"  95th %: {mc_result.percentile(metric, 95.0):.4f} {unit}")
 
 corr = mc_result.correlation("snr")
 for param, r in sorted(corr.items(), key=lambda kv: abs(kv[1]), reverse=True):
@@ -373,34 +418,208 @@ Output (per-metric blocks trimmed to four of the thirty-three):
 Trials: 50
 Seed:   42
 
-snr:
-  Mean:  1119.8083
-  Std:   38.5357
-  5th %%: 1065.5523
-  95th %%: 1170.0833
+adc_margin_dB [dB]:
+  Mean:  4.4759 dB
+  Std:   0.5916 dB
+  5th %: 3.7031 dB
+  95th %: 5.3286 dB
 
-nedt_K:
-  Mean:  0.0251
-  Std:   0.0008
-  5th %%: 0.0240
-  95th %%: 0.0263
+alias_fraction_at_nyquist [fraction]:
+  Mean:  0.5000 fraction
+  Std:   0.0000 fraction
+  5th %: 0.5000 fraction
+  95th %: 0.5000 fraction
 
-ee_1x1:
-  Mean:  0.4142
-  Std:   0.0073
-  5th %%: 0.4049
-  95th %%: 0.4268
+contrast_snr [dimensionless]:
+  Mean:  1119.8083 dimensionless
+  Std:   38.5357 dimensionless
+  5th %: 1065.5523 dimensionless
+  95th %: 1170.0833 dimensionless
 
-well_margin_dB:
-  Mean:  4.0640
-  Std:   0.5916
-  5th %%: 3.2912
-  95th %%: 4.9168
+diffraction_limit_angular_urad [µrad]:
+  Mean:  17.2882 µrad
+  Std:   0.3000 µrad
+  5th %: 16.7862 µrad
+  95th %: 17.6788 µrad
+
+diffraction_limit_ground_m [m]:
+  Mean:  0.1383 m
+  Std:   0.0024 m
+  5th %: 0.1343 m
+  95th %: 0.1414 m
+
+diffraction_limit_target_plane_m [m]:
+  Mean:  0.1383 m
+  Std:   0.0024 m
+  5th %: 0.1343 m
+  95th %: 0.1414 m
+
+dynamic_range_dB [dB]:
+  Mean:  65.0419 dB
+  Std:   0.2958 dB
+  5th %: 64.6556 dB
+  95th %: 65.4683 dB
+
+ee_1x1 [fraction]:
+  Mean:  0.4142 fraction
+  Std:   0.0073 fraction
+  5th %: 0.4049 fraction
+  95th %: 0.4268 fraction
+
+ee_3x3 [fraction]:
+  Mean:  0.8780 fraction
+  Std:   0.0020 fraction
+  5th %: 0.8754 fraction
+  95th %: 0.8813 fraction
+
+fwhm_x_m [m]:
+  Mean:  0.0000 m
+  Std:   0.0000 m
+  5th %: 0.0000 m
+  95th %: 0.0000 m
+
+fwhm_y_m [m]:
+  Mean:  0.0000 m
+  Std:   0.0000 m
+  5th %: 0.0000 m
+  95th %: 0.0000 m
+
+ground_range_m [m]:
+  Mean:  0.0000 m
+  Std:   0.0000 m
+  5th %: 0.0000 m
+  95th %: 0.0000 m
+
+gsd_along_track_m [m]:
+  Mean:  0.1200 m
+  Std:   0.0000 m
+  5th %: 0.1200 m
+  95th %: 0.1200 m
+
+gsd_cross_track_m [m]:
+  Mean:  0.1200 m
+  Std:   0.0000 m
+  5th %: 0.1200 m
+  95th %: 0.1200 m
+
+gsd_geometric_mean_m [m]:
+  Mean:  0.1200 m
+  Std:   0.0000 m
+  5th %: 0.1200 m
+  95th %: 0.1200 m
+
+mrt_at_nyquist_K [K]:
+  Mean:  0.2117 K
+  Std:   0.0106 K
+  5th %: 0.1956 K
+  95th %: 0.2281 K
+
+mtf_at_nyquist [dimensionless]:
+  Mean:  0.2668 dimensionless
+  Std:   0.0065 dimensionless
+  5th %: 0.2584 dimensionless
+  95th %: 0.2779 dimensionless
+
+mtf_folded_at_nyquist [dimensionless]:
+  Mean:  0.5336 dimensionless
+  Std:   0.0131 dimensionless
+  5th %: 0.5168 dimensionless
+  95th %: 0.5558 dimensionless
+
+mtf_system_at_nyquist_x [dimensionless]:
+  Mean:  0.2688 dimensionless
+  Std:   0.0058 dimensionless
+  5th %: 0.2612 dimensionless
+  95th %: 0.2786 dimensionless
+
+mtf_system_at_nyquist_y [dimensionless]:
+  Mean:  0.2688 dimensionless
+  Std:   0.0058 dimensionless
+  5th %: 0.2612 dimensionless
+  95th %: 0.2786 dimensionless
+
+nedt_K [K]:
+  Mean:  0.0251 K
+  Std:   0.0008 K
+  5th %: 0.0240 K
+  95th %: 0.0263 K
+
+niirs_extrapolated [0/1 flag]:
+  Mean:  1.0000 0/1 flag
+  Std:   0.0000 0/1 flag
+  5th %: 1.0000 0/1 flag
+  95th %: 1.0000 0/1 flag
+
+q_center [dimensionless]:
+  Mean:  0.9447 dimensionless
+  Std:   0.0164 dimensionless
+  5th %: 0.9173 dimensionless
+  95th %: 0.9661 dimensionless
+
+q_max [dimensionless]:
+  Mean:  1.1114 dimensionless
+  Std:   0.0193 dimensionless
+  5th %: 1.0792 dimensionless
+  95th %: 1.1365 dimensionless
+
+q_min [dimensionless]:
+  Mean:  0.7780 dimensionless
+  Std:   0.0135 dimensionless
+  5th %: 0.7554 dimensionless
+  95th %: 0.7956 dimensionless
+
+rer [dimensionless]:
+  Mean:  0.6101 dimensionless
+  Std:   0.0047 dimensionless
+  5th %: 0.6042 dimensionless
+  95th %: 0.6182 dimensionless
+
+sampling_regime_code [code]:
+  Mean:  0.0000 code
+  Std:   0.0000 code
+  5th %: 0.0000 code
+  95th %: 0.0000 code
+
+scnr [dimensionless]:
+  Mean:  1119.8083 dimensionless
+  Std:   38.5357 dimensionless
+  5th %: 1065.5523 dimensionless
+  95th %: 1170.0833 dimensionless
+
+snr [dimensionless]:
+  Mean:  1119.8083 dimensionless
+  Std:   38.5357 dimensionless
+  5th %: 1065.5523 dimensionless
+  95th %: 1170.0833 dimensionless
+
+straddle_factor [dimensionless]:
+  Mean:  1.0000 dimensionless
+  Std:   0.0000 dimensionless
+  5th %: 1.0000 dimensionless
+  95th %: 1.0000 dimensionless
+
+strehl [dimensionless]:
+  Mean:  1.0000 dimensionless
+  Std:   0.0000 dimensionless
+  5th %: 1.0000 dimensionless
+  95th %: 1.0000 dimensionless
+
+strehl_marechal [dimensionless]:
+  Mean:  1.0000 dimensionless
+  Std:   0.0000 dimensionless
+  5th %: 1.0000 dimensionless
+  95th %: 1.0000 dimensionless
+
+well_margin_dB [dB]:
+  Mean:  4.0640 dB
+  Std:   0.5916 dB
+  5th %: 3.2912 dB
+  95th %: 4.9168 dB
 
 Correlation with SNR:
   optics.transmission_scalar                r = +0.8184
   optics.aperture_diameter_m                r = +0.5109
-  detector.qe_value                          r = +0.4983
+  detector.qe_value                         r = +0.4983
 ```
 
 **What to notice.**
@@ -424,9 +643,9 @@ reading anything into a sub-σ shift.
 *The run is reproducible.* `seed=42` is echoed in the output, and the same seed gives
 the same 50 draws and the same statistics on any machine.
 
-*One cosmetic defect.* The `5th %%:` and `95th %%:` labels print a doubled percent
-sign: the script uses printf-style `%%` escaping inside an f-string, where it has no
-meaning. Harmless, and the numbers either side of it are correct.
+*Every statistic carries its unit.* The script reads each metric's registered unit
+from `metric_records()` once and prints it beside the mean, the spread and both
+percentiles, so a line such as `Std: 0.0007 K` is a statement, not a bare number.
 
 ---
 

@@ -26,8 +26,11 @@ def main() -> None:
     print("=== RADIANT Basic Evaluation ===")
     print(f"Config: {CONFIG.name}")
     print()
-    for name, value in sorted(result.metrics.items()):
-        print(f"  {name:20s} = {value:.6g}")
+    # metric_records() carries each metric's registered unit; a bare metrics[]
+    # table would print numbers with no units (the units-on-all-outputs rule).
+    for rec in sorted(result.metric_records(), key=lambda r: r.name):
+        unit = f" {rec.unit}" if rec.unit and rec.unit != "dimensionless" else ""
+        print(f"  {rec.name:36s} = {rec.value:.6g}{unit}")
 
     # Print noise terms
     print()

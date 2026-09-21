@@ -92,6 +92,22 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: workflow-visible (intake test 4) — any window resize can blank the detector form, and the clipped digits misread as wrong values; also caps the manual's figure quality (Gap 131 captures avoid wide-dock detector shots until fixed — see the CU-363 comments in `scripts/gen_gui_screenshots.py`).
 **Suggested fix**: (b) stand-alone GUI task — make `_relayout_columns` re-apply row values after a rebuild (or bind rows to the model so a rebuild repaints), and give the form a sane minimum-width/eliding policy so values never silently truncate. Effort S-M; category A. Live-review required.
 
+### CU-361 — examples/scripts defects: NaN NEDT column in a shipped example, unitless tables, prose/number drift (family) — RESOLVED 2026-09-20 (commit trailer)
+
+**Discovered**: Gap 131 Phase 4 Parts A+B (branch `gap131/phase4-examples`), 2026-09-16, while running all six examples for Volume IV chapter 3. Family head.
+**Status**: Resolved 2026-09-20 — docs-drift batch C: every item fixed in the scripts and Volume IV's quoted outputs (`examples_scripting.md`) refreshed from fresh runs of all six programs.
+**File**: `examples/scripts/` (five of six programs; ships in the wheel since Gap 126).
+**Symptom**: checklist —
+
+- [x] `custom_loop.py` reads `result.metrics["nedt_K"]`; the column prints kelvin. Originally: `custom_loop.py:44` reads `result.metrics.get("nedt")`; the registered key is `nedt_K`, so every NEDT cell prints `nan` (workflow-visible defect in a shipped example)
+- [x] all three print units from `metric_records()` (a unit column, a unit suffix, and units on every Monte Carlo statistic); the comparison table fits the manual's 91-column text width and prints n/a for a zero baseline. Originally: `compare_configs.py`, `basic_evaluation.py` print bare metric tables whose units survive only where the key carries them; `tolerance_analysis.py` prints Mean/Std/percentiles with no units at all (violates the units-on-all-outputs hard rule; `dual_band_configuration_set.py`'s `metric_records()` pattern is the fix)
+- [x] fixed. Originally: `tolerance_analysis.py:52-53` — `%%` inside an f-string prints a literal `%%` (cosmetic)
+- [x] `examples/scripts/*.png` is gitignored. Originally: `aperture_sweep.py` writes `aperture_sweep_snr.png` into `examples/scripts/` — not gitignored, so running the shipped example dirties the tree (Rule 26)
+- [x] the prose is built from the run's own metrics (NEDT gap, integration-time ratio, both well fills). Originally: `dual_band_configuration_set.py` §4 prose hardcodes "59 %" well fill and "~15 %" NEDT margin while its own printed table says 84.3 % and 10.6 % (prose drifted from computed values)
+
+**Why it still matters**: workflow-visible (intake test 4) — these are the first scripts a new user runs, and Volume IV chapter 3 reproduces their output verbatim (the NaN column and the drifted prose are now typeset in the manual until fixed).
+**Suggested fix**: (a) inline-fix-now, one small PR (key fix + metric_records() adoption + %% + gitignore + prose from computed values), then refresh Volume IV ch. 3 outputs. Effort S; category A.
+
 ### CU-359 — Theory Manual v1.0 coverage gaps: 13 implemented-physics areas with no manual section (family)
 
 **Discovered**: Gap 131 Phase 1 physics-inventory audit (branch `gap131/phase1-theory`), 2026-09-16. Family head (Rule 21 family-CU provision).
@@ -125,26 +141,10 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: owner-gated (intake test 2) — it is the scope-of-record document; audits and manuals key off it (the Phase 1 audit had to fork "manual gap" from "inventory drift" by hand).
 **Suggested fix**: (b) stand-alone re-triage pass stamping each phantom item OUT/DEFERRED with a date, or a fresh triage review; effort S-M; category A.
 
-### CU-361 — examples/scripts defects: NaN NEDT column in a shipped example, unitless tables, prose/number drift (family)
-
-**Discovered**: Gap 131 Phase 4 Parts A+B (branch `gap131/phase4-examples`), 2026-09-16, while running all six examples for Volume IV chapter 3. Family head.
-**Status**: Open.
-**File**: `examples/scripts/` (five of six programs; ships in the wheel since Gap 126).
-**Symptom**: checklist —
-
-- [ ] `custom_loop.py:44` reads `result.metrics.get("nedt")`; the registered key is `nedt_K`, so every NEDT cell prints `nan` (workflow-visible defect in a shipped example)
-- [ ] `compare_configs.py`, `basic_evaluation.py` print bare metric tables whose units survive only where the key carries them; `tolerance_analysis.py` prints Mean/Std/percentiles with no units at all (violates the units-on-all-outputs hard rule; `dual_band_configuration_set.py`'s `metric_records()` pattern is the fix)
-- [ ] `tolerance_analysis.py:52-53` — `%%` inside an f-string prints a literal `%%` (cosmetic)
-- [ ] `aperture_sweep.py` writes `aperture_sweep_snr.png` into `examples/scripts/` — not gitignored, so running the shipped example dirties the tree (Rule 26)
-- [ ] `dual_band_configuration_set.py` §4 prose hardcodes "59 %" well fill and "~15 %" NEDT margin while its own printed table says 84.3 % and 10.6 % (prose drifted from computed values)
-
-**Why it still matters**: workflow-visible (intake test 4) — these are the first scripts a new user runs, and Volume IV chapter 3 reproduces their output verbatim (the NaN column and the drifted prose are now typeset in the manual until fixed).
-**Suggested fix**: (a) inline-fix-now, one small PR (key fix + metric_records() adoption + %% + gitignore + prose from computed values), then refresh Volume IV ch. 3 outputs. Effort S; category A.
-
 ### CU-362 — Scenario catalog/index staleness: duplicate scenario number 2.7, README and GUI_EXERCISE_INDEX counts wrong, 09-series unindexed
 
 **Discovered**: Gap 131 Phase 4 Parts A+B (branch `gap131/phase4-examples`), 2026-09-16.
-**Status**: Open.
+**Status**: Open — indexes corrected 2026-09-20 (docs-drift batch C: README status table lists 1.6, 2.6, both 2.7s, 2.8, 8.3 and 9.4 and counts 51 of 51; GUI_EXERCISE_INDEX recounted to 51 scenarios / 38 baselines with rows for the ten it never listed); the remaining item is the **owner-gated renumber of one 2.7** (`2.7_calibration_limited_nedt` vs `2.7_updown_background_subtraction`), after which the index rows for the renamed folder follow.
 **File**: `scenarios/README.md`, `scenarios/GUI_EXERCISE_INDEX.md`, `scenarios/02_mike_detector_engineer/` (two folders both numbered 2.7).
 **Symptom**: README's status table stops at 2.5/9.3 and claims "44 of 44" while the tree holds 2.6, two distinct 2.7s (`2.7_calibration_limited_nedt` and `2.7_updown_background_subtraction`), 2.8, and 9.4; GUI_EXERCISE_INDEX says "37 scenarios / 34 baselines" and omits the entire 09 series and 2.6–2.8; the 09 flagship scenarios ship no `.gui.yaml` baselines and have no index rows.
 **Why it still matters**: workflow-visible (intake test 4) — operators navigate by these indexes, and Volume IV's Part C digest compendium (owner ruling Q3: all 52 scenarios) needs an authoritative scenario enumeration; the duplicate 2.7 breaks unique addressing.

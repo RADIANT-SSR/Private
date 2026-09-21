@@ -1758,7 +1758,7 @@ reciprocity holds to 1.1 × 10⁻¹⁶, and **published astronomical extinction 
 0.261 mag/airmass against a published 0.12–0.20 band. *(Two stale figures ride along:
 the deliberate-non-anchor paragraph still calls that failure 1.4× the published top
 where the refreshed anchor reads 1.3×, and the closing to-do list quotes a daylight
-sky pedestal of 3.2774 W/m²/sr/µm where §9 computes 3.8794.)*
+sky pedestal of 3.2774 W/m²/sr/µm where the scenario walkthrough's §9 computes 3.8794.)*
 
 **Regime.** `point_source`, entered through the intensity door because RADIANT has no
 reflective point-source door: the reflective path multiplies by
@@ -1809,7 +1809,7 @@ drags the point source across **7.5 pixels** in a 500 ms inertially-fixed stare,
 collapsing EE_box to 0.0597 and SNR to 8.29. **Open-loop SNR peaks at 250 ms and then
 falls** — past that the smear kernel grows faster than $\sqrt t$ — while the
 rate-tracked curve keeps rising as $\sqrt t$ because the scene is background-free.
-Every vacuum transport identity is checked bitwise, not toleranced. *(The §4.3 prose
+Every vacuum transport identity is checked bitwise, not toleranced. *(The scenario walkthrough's §4.3 prose
 and cross-check 3 both still carry numbers of an earlier vintage — an open-loop collapse of
 "0.223 → 0.054, SNR 24.5 → 7.6", and a hand-vs-chain signal of 1177.2 e- against the
 refreshed 1295.78 e-.)*

@@ -239,7 +239,7 @@ document as a string without touching disk.
 
 | Use | For |
 |-----|-----|
-| **Configuration set** | A handful of **named, discrete designs** --- MWIR vs. LWIR, nominal vs. as-built, three candidate geometries. Several parameters differ at once per design, each design gets a name you recognize in the output, and the whole study saves as one file. Up to 8. |
+| **Configuration set** | A handful of **named, discrete designs** --- MWIR vs. LWIR, nominal vs. as-built, three candidate geometries. Several parameters differ at once per design, each design gets a name you recognize in the output, and the whole study saves as one file. Up to 12. |
 | **Sweep** (`sweep`, `sweep_2d`) | A **continuous axis** --- SNR vs. aperture from 0.10 m to 0.60 m in 20 steps. One parameter (or two) varies, the answer is a curve or a surface, and no individual point deserves a name. |
 
 If you find yourself naming sweep points, you want a configuration set; if you

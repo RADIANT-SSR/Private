@@ -447,7 +447,7 @@ a shared edit stays undoable **across** a selector switch. An inline edit of a p
 the study marks *configured* is written to the displayed configuration's own column
 (ADR-0010 D-8) and, since Phase 4b, is undoable as a scoped command (§4.2c).
 
-Since Phase 4c the strip also carries a trailing **gear** at its right end, which opens
+Since Phase 4c the strip also carries a leading **⚙ Manage…** button before the tabs (moved from a trailing gear on 2026-09-03), which opens
 the configuration manager (§4.2d) — the same dialog `Edit → Configurations…` opens. The
 selector itself is still display-only: it chooses which configuration is shown, and the
 manager is the one place membership changes.
@@ -584,7 +584,7 @@ requirement (`gui/tests/test_configured_parameters.py`,
 
 The dialog that answers the owner's first study requirement — *"the user can define the
 number of configurations and then name them"* (plan §4 item 1). It is reached from
-**`Edit → Configurations…`** and from the **gear** at the right end of the selector band
+**`Edit → Configurations…`** and from the **⚙ Manage…** button before the selector tabs
 (§4.2b); both trigger the one `edit.configurations` action. It lives in Edit rather than
 Tools because it edits the *document's* shape; Tools' neighbouring
 *Compare Config Files…* compares this config against other config **files on disk** and
@@ -998,8 +998,7 @@ File→Open pipeline; discovery is `radiant.api.mission_templates.discover_examp
 the exact mirror of the template seam. Examples are curated snapshots (provenance
 line in each file) pinned loadable-and-warning-clean by
 `tests/integration/test_shipped_examples.py`, deliberately not value-pinned.
-Templates are the **metadata-carrying** YAMLs bundled at `radiant/data/templates/` (in-package since CU-349, so a wheel install offers them too; discovery is module-relative via `radiant.api.mission_templates`, never repo-walking) — six
-hand-authored archetypes (the Phase-2E configs sharing the directory are the
+Templates are the **metadata-carrying** YAMLs bundled at `radiant/data/templates/` (in-package since CU-349, so a wheel install offers them too; discovery is module-relative via `radiant.api.mission_templates`, never repo-walking) — nine bundled templates (`radiant template list` enumerates them; the count was six when this section was written) (the Phase-2E configs sharing the directory are the
 source-inferrer golden corpus, invisible here; their relocation is CU-339) —
 discovered by the Qt-free `radiant.gui.mission_templates` seam, which reads each file's `_radiant.template` metadata (name / blurb / specs /
 `tune_next`) through `radiant.api.config_io.read_template_meta` (the GUI cannot

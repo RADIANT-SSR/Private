@@ -178,7 +178,7 @@ path — the same view the published on-orbit NEdT is measured against.
 4. **Ask where the spatial number came from.** Select stage **4 Optics**, tab **MTF**.
 
    ![Optics workspace, MTF tab — the system MTF with its contributor terms, and the
-   first rows of the per-term budget table beneath.](figures/gui/flagship_mtf_budget.png)
+   full per-term budget table beneath.](figures/gui/flagship_mtf_budget.png)
 
    The system curve (black) is the product of every contributor. Only two contributors
    bite here: the optics term (blue, from the autocorrelation of the complex pupil)

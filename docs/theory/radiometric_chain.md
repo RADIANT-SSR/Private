@@ -866,6 +866,18 @@ photon and integrate across the band. The $10^{-6}$ lives in $\lambda_m$:
 $\lambda$ in µm must be converted to meters so $\lambda_m/(hc)$ has units
 1/J.
 
+**QE temperature dependence.** The base QE — the scalar `detector.qe_value` or the
+`qe_table_path` curve — is scaled by a linear factor in the detector temperature,
+
+$$\mathrm{QE}(\lambda, T) = \mathrm{QE}_{base}(\lambda)\,\bigl[1 + c\,(T_{det} - T_{ref})\bigr],$$
+
+$c$ = `detector.qe_temperature_coeff_per_K` (default 0: temperature-independent), $T_{ref}$
+= `detector.qe_temperature_ref_K`. The product is clamped to $[0, 1]$ with a warning when
+the factor pushes it out of range — never silently. Physics note: a linear coefficient is
+the small-excursion form of the cutoff-wavelength shift of a narrow-gap material; a
+20 K excursion at $c = -0.002$ K⁻¹ is a 4 % change, and beyond a few tens of kelvin the
+curve, not the coefficient, is the right input.
+
 **Assumptions & validity.** One photoelectron per detected photon, weighted
 by QE (no avalanche gain — gain is a separate downstream stage). $\lambda/hc$
 must stay *inside* the integral: photon energy varies across the band, and

@@ -114,6 +114,12 @@ _GRID_STEP: float = 0.8
 _ELEVATED_ENDPOINT_Z: float = _TARGET_AIRBORNE_Z
 # Abstract height of an endpoint that IS on the ground (a ground observer looking up).
 _GROUND_ENDPOINT_Z: float = 0.0
+# Up-looking / level compositions carry the target BODY CENTRE up the θ_o ray from the
+# sensor (CU-369), so a tall body in a near-horizontal arm would hang below the ground
+# grid. When its base would come within this clearance of the grid, both endpoints are
+# lifted together by the shortfall — the arm keeps its angle, the LOS keeps its tilt, and
+# the "fixed abstract height" simply starts a little higher for that one scene.
+_BODY_GROUND_CLEARANCE: float = 0.25
 
 # -- Target wireframe abstract proportions (scene units; NEVER metric magnitude) -
 # The full shape library (CU-131) draws each primitive at an *abstract* size that
@@ -294,9 +300,13 @@ class SchematicScene:
     sensor_dir: np.ndarray
     sun_pos: np.ndarray
     sensor_pos: np.ndarray
-    target_top: np.ndarray  # where the sun/sensor vectors land (top of the body)
+    target_top: np.ndarray  # top of the body: TARGET label + h_t pill anchor
     target_z: float
-    target_center: np.ndarray  # body rotation pivot + triad origin
+    # Body centre: rotation pivot, triad origin, AND the vertex every target-anchored arc
+    # is swept about and the SUN→TARGET / SENSOR→TARGET vectors land on (CU-369). The
+    # glyphs are placed along their stage rays from here in every composition, so the
+    # drawn vector, the glyph ray and the arcs share one point for any body shape.
+    target_center: np.ndarray
     ground_point: np.ndarray  # target's ground projection / nadir footprint (origin if on ground)
     airborne: bool
     target_shape: str
@@ -540,20 +550,27 @@ def build_scene(state: ViewerState) -> SchematicScene:
     derived from the altitude pair, never a user switch):
 
     * ``"down"`` — the target sits at the scene origin (lifted to ``_TARGET_AIRBORNE_Z``
-      when airborne) and the sensor is placed from the **target's top** along the **θ_o**
-      ray at ``_SENSOR_DIST`` (CU-250 — θ_o is the zenith subtended at the target, which is
-      the vertex the glyph is placed from; it was the off-nadir η ray, read at the *other*
-      vertex, until then; CU-368 — it was placed from the *origin*, which flattened the ray
-      by the airborne lift). A state with no stage θ_o falls back to the η ray, which for a
-      genuine vertical path is the same vector.
+      when airborne) and the sensor is placed from the **target's body centre** along the
+      **θ_o** ray at ``_SENSOR_DIST`` (CU-250 — θ_o is the zenith subtended at the target,
+      which is the vertex the glyph is placed from; it was the off-nadir η ray, read at the
+      *other* vertex, until then; CU-368 — it was placed from the *origin*, which flattened
+      the ray by the airborne lift; CU-369 — from the body *top* until the centre became the
+      one vertex of every composition). A state with no stage θ_o falls back to the η ray,
+      which for a genuine vertical path is the same vector.
     * ``"up"`` — the SENSOR is the path's lower endpoint. It is anchored at the height
       :func:`_lower_endpoint_z` gives for the scene class (on the ground plane for a ground
-      observer, lifted otherwise) and the target is carried *above* it along the θ_o ray, so
-      the SENSOR→TARGET vector ascends.
+      observer, lifted otherwise) and the target's body centre is carried *above* it along
+      the θ_o ray, so the SENSOR→TARGET vector ascends and departs the sensor at exactly
+      the stage's ζ_low (CU-369: the *base* used to ride the ray while the vector landed on
+      the top, so a shaped target drew an elevation off by its own body height).
     * ``"level"`` — the same construction with both endpoints anchored at the one fixed
       off-ground height, which (θ_o being within a couple of degrees of π/2 for any arm the
       horizon guard admits) draws the LOS horizontal. The true tangent sag of the arm is
       annotated as the Δh leader pill instead of being drawn.
+
+    In the two ascending compositions a body whose base would come within
+    ``_BODY_GROUND_CLEARANCE`` of the ground grid lifts *both* endpoints by the shortfall,
+    so the arm keeps its angle and nothing hangs in the ground plane.
     """
     sun_az = math.degrees(state.relative_azimuth_rad)
     sun_zen = math.degrees(state.solar_zenith_rad)
@@ -576,13 +593,23 @@ def build_scene(state: ViewerState) -> SchematicScene:
     airborne = state.target_altitude_m > 0.0
     ascending = state.los_direction in (angle_catalog.LOS_UP, angle_catalog.LOS_LEVEL)
 
+    shape = state.target_shape
+    is_point = shape not in _SHAPE_DIMS
+    # The body's abstract height (0 for a point) — needed before the base is placed, because
+    # the ascending compositions put the body CENTRE on the ray, not the base.
+    body_height = 0.0 if is_point else _shape_edges(shape, state, 0.0)[1]
+
     if ascending:
-        # The sensor is the lower endpoint: anchor it, then carry the target up the θ_o ray.
-        # target→sensor is the θ_o direction (obtuse θ_o ⇒ its z is ≤ 0), so placing the
-        # sensor at ``target + θ_o_dir · _SENSOR_DIST`` (below) puts the target above the
-        # sensor by ``−_SENSOR_DIST·cos θ_o`` and the SENSOR→TARGET vector ascends.
+        # The sensor is the lower endpoint: anchor it, then carry the target's body centre
+        # up the θ_o ray. target→sensor is the θ_o direction (obtuse θ_o ⇒ its z is ≤ 0), so
+        # placing the sensor at ``centre + θ_o_dir · _SENSOR_DIST`` (below) puts the centre
+        # above the sensor by ``−_SENSOR_DIST·cos θ_o`` and the SENSOR→TARGET vector ascends.
         sensor_dir = theta_o_dir
-        target_z = _lower_endpoint_z(state) - _SENSOR_DIST * math.cos(state.theta_o_rad)
+        centre_z = _lower_endpoint_z(state) - _SENSOR_DIST * math.cos(state.theta_o_rad)
+        target_z = centre_z - body_height * 0.5
+        # A tall body in a near-horizontal arm would hang in the ground grid: lift the whole
+        # arm (both endpoints, same amount) so the base clears it. The angle is untouched.
+        target_z += max(0.0, _BODY_GROUND_CLEARANCE - target_z)
         # ζ_low is read at the sensor, where the ray runs back toward the target — the
         # opposite scene azimuth from the target-anchored arcs.
         zeta_low_dir = dir_from_az_zen(180.0, math.degrees(zeta_low_rad))
@@ -600,8 +627,6 @@ def build_scene(state: ViewerState) -> SchematicScene:
         # Down-looking: the target IS the lower endpoint, so ζ_low is θ_o at the target.
         zeta_low_dir = dir_from_az_zen(0.0, math.degrees(zeta_low_rad))
 
-    shape = state.target_shape
-    is_point = shape not in _SHAPE_DIMS
     if is_point:
         base_edges: list[tuple[np.ndarray, np.ndarray]] = []
         top_z = target_z
@@ -621,18 +646,17 @@ def build_scene(state: ViewerState) -> SchematicScene:
 
     target_top = np.array([0.0, 0.0, top_z], dtype=np.float64)
 
-    # Sun and sensor glyphs are placed along their stage rays FROM THE TARGET — the vertex
-    # θ_o and θ_s are subtended at, and where the SUN→TARGET / SENSOR→TARGET vectors land
-    # (``target_top``, also every target-anchored arc's apex). Down-looking they used to be
-    # placed from the scene *origin* instead, which is the target only for a ground target:
-    # an airborne target is lifted to ``_TARGET_AIRBORNE_Z``, so the drawn target→sensor
-    # line was flattened by that lift (a 20° stage elevation drew as ~5°) and the θ_o /
-    # ζ_low arcs ended off the glyph ray again (CU-368). The ascending construction keeps
-    # its base-of-body anchor: ``target_z`` there is derived from the sensor's fixed height,
-    # so the sensor sits exactly ``_SENSOR_DIST`` down the θ_o ray from the body base.
-    anchor = np.array([0.0, 0.0, target_z], dtype=np.float64) if ascending else target_top
-    sensor_pos = anchor + sensor_dir * _SENSOR_DIST
-    sun_pos = anchor + sun_dir * _SUN_DIST
+    # Sun and sensor glyphs are placed along their stage rays FROM THE TARGET'S BODY CENTRE
+    # in every composition — the vertex θ_o and θ_s are subtended at, where the SUN→TARGET /
+    # SENSOR→TARGET vectors land, and every target-anchored arc's apex (CU-369). Down-looking
+    # they used to be placed from the scene *origin* (the target only for a ground target;
+    # the airborne lift flattened a 20° stage elevation to ~5° — CU-368) and then from the
+    # body *top*; the ascending compositions placed them from the body *base* while the
+    # vectors still landed on the top, so any shaped target drew a viewing angle off by its
+    # own abstract height (~11° for the default sphere) and disagreed with the arc label
+    # beside it. One vertex for the ray, the vector and the arcs removes that for any shape.
+    sensor_pos = target_center + sensor_dir * _SENSOR_DIST
+    sun_pos = target_center + sun_dir * _SUN_DIST
 
     # The target's ground projection (nadir footprint): the point on the ground plane (z = 0)
     # directly below the body. For a ground target this is the origin (target == ground); for
@@ -1120,7 +1144,7 @@ class SchematicView(QWidget):
             angle_catalog.LOS_LEVEL,
         ):
             return scene.sensor_pos
-        return scene.target_top
+        return scene.target_center
 
     def _arc_points(self, scene: SchematicScene, name: str) -> list[np.ndarray]:
         """The world-space arc polyline for annotation *name* (empty if not drawable).
@@ -1240,7 +1264,7 @@ class SchematicView(QWidget):
         # Level-arm tangent sag (ADR-0011): pinned at the midpoint of the horizontal LOS,
         # the one place on the drawing where the (invisible) sag actually is.
         if scene.level_sag_label is not None:
-            mid = cam.project((scene.sensor_pos + scene.target_top) * 0.5)
+            mid = cam.project((scene.sensor_pos + scene.target_center) * 0.5)
             self._label_pill(
                 painter,
                 mid.x + 8,
@@ -1415,10 +1439,10 @@ class SchematicView(QWidget):
         # Sun → target (amber solid, absent at night) and sensor → target (blue solid).
         if scene.has_sun:
             self._vector(
-                painter, cam, scene.sun_pos, scene.target_top, palette.SOLAR_FAMILY, _W_VECTOR
+                painter, cam, scene.sun_pos, scene.target_center, palette.SOLAR_FAMILY, _W_VECTOR
             )
         self._vector(
-            painter, cam, scene.sensor_pos, scene.target_top, palette.SATELLITE_FAMILY, _W_VECTOR
+            painter, cam, scene.sensor_pos, scene.target_center, palette.SATELLITE_FAMILY, _W_VECTOR
         )
 
     def _legend_entries(self, scene: SchematicScene) -> list[tuple[str, str, bool]]:

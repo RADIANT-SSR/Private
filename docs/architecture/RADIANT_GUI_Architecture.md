@@ -1640,21 +1640,29 @@ applying PBR materials or realistic shading; keep the schematic line-art aesthet
   `theta_o_dir` ray instead of the sensor-vertex off-nadir `eta_dir` one, so the glyph ray
   and the target-anchored θ_o / ζ_low arcs coincide in all three compositions. The glyph is
   placed *from the target*, which is the vertex θ_o is subtended at; the two rays differ by
-  the Earth-centre central angle (~2.2° for a 705 km scene). Down-looking, "from the
-  target" means from `target_top` — where the vectors land and every target-anchored arc
-  has its apex — for the sun glyph too (CU-368: both were placed from the scene *origin*,
-  which is the target only for a ground target; an airborne target is lifted to
-  `_TARGET_AIRBORNE_Z`, and that lift flattened the drawn ray — 20° of stage elevation drew
-  as ~5° — and put the arcs off the glyph ray again). A state carrying no stage θ_o
-  (a partial or pre-ADR-0011 result) keeps the η ray, which for a genuine vertical path is
-  the same vector. No displayed **number** changed — the arcs already swept to their own
-  rays. There is an **up-looking** layout in
+  the Earth-centre central angle (~2.2° for a 705 km scene). In every composition, "from
+  the target" means from the **body centre** (`target_center`) — where the SUN→TARGET /
+  SENSOR→TARGET vectors land and every target-anchored arc has its apex — for the sun
+  glyph too (CU-368: down-looking, both were placed from the scene *origin*, which is the
+  target only for a ground target; an airborne target is lifted to `_TARGET_AIRBORNE_Z`,
+  and that lift flattened the drawn ray — 20° of stage elevation drew as ~5° — and put the
+  arcs off the glyph ray again. CU-369: the anchor was then the body *top* down-looking and
+  the body *base* up/level while the vectors landed on the top, so any shaped target in an
+  ascending scene drew an elevation off by its own abstract body height — ~11° for the
+  default sphere — against the ζ_low arc beside it; one vertex for the ray, the vector and
+  the arcs holds for every shape, and a point target is unchanged, its centre being its
+  top). The `TARGET` label and the h_t pill stay at the body top. A state carrying no
+  stage θ_o (a partial or pre-ADR-0011 result) keeps the η ray, which for a genuine
+  vertical path is the same vector. No displayed **number** changed — the arcs already
+  swept to their own rays. There is an **up-looking** layout in
   which the SENSOR is the path's lower endpoint — sitting *on* the ground plane for a
   `ground` observer class, lifted to the fixed abstract off-ground height otherwise — with
-  the target carried above it along the θ_o ray so the SENSOR→TARGET vector ascends; and a
-  **level** layout with both endpoints at the one fixed abstract height (LOS horizontal).
-  All placements are fixed abstract scene units (§6.1); the scene class places the ground
-  plane and nothing else. The **h_t altitude pill** keeps the original airborne-only rule
+  the target's body centre carried above it along the θ_o ray so the SENSOR→TARGET vector
+  ascends; and a **level** layout with both endpoints at the one fixed abstract height
+  (LOS horizontal). In both, a body whose base would come within `_BODY_GROUND_CLEARANCE`
+  of the ground grid lifts *both* endpoints by the shortfall (the arm keeps its angle and
+  tilt; a point target never lifts). All placements are fixed abstract scene units (§6.1);
+  the scene class places the ground plane and nothing else. The **h_t altitude pill** keeps the original airborne-only rule
   for down-looking and is always shown for up/level (both endpoints are drawn apart, so
   both magnitudes are annotated — including a surface-level arm's 0 m). **Level arms** add
   the **Δh tangent-sag leader pill** ("Δh  49 m"): the LOS's tangent-height depression,

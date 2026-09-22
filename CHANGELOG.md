@@ -20,6 +20,18 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **The geometry schematic's viewing vector agrees with its angle arc for a shaped
+  target in an up-looking or level scene (CU-369).** The SENSOR→TARGET and SUN→TARGET
+  vectors, the sensor and sun glyph rays, and every target-anchored arc now share the
+  target's body centre in all three compositions; the ascending layouts carried the
+  body base up the θ_o ray while the vector landed on the body top, so a sphere at
+  θ_o = 150° drew about 71° of elevation against the 60° the arc label reported. Any
+  shape now draws the stage angle exactly; a point target is unchanged. A tall body in
+  a near-horizontal arm lifts both endpoints together so it never hangs in the ground
+  grid. Down-looking scenes move the anchor from the body top to its centre (same
+  angles, glyphs half a body lower). Display only; no computed result changes.
+
 ### Changed
 - **Scenario 2.7 (up/down counting) is now scenario 2.9.** The shipped suite carried
   two folders numbered 2.7; `2.7_updown_background_subtraction` is renamed

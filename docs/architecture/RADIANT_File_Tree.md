@@ -5,8 +5,8 @@
 **Source of truth:** `find src/radiant -name '*.py'` — this doc is a derived
 view, not a spec. When in doubt, run the find command.
 
-**Current file count:** 609 `.py` files under `src/radiant/` (335 source +
-232 test + 42 `__init__.py`), plus 41 integration tests under
+**Current file count:** 610 `.py` files under `src/radiant/` (335 source +
+233 test + 42 `__init__.py`), plus 41 integration tests under
 `tests/integration/` and 6 top-level test files (`tests/test_public_api.py`,
 `tests/test_exceptions.py`, `tests/test_provenance.py`,
 `tests/test_calibration_analysis.py`, `tests/test_error_budget.py`,
@@ -144,7 +144,7 @@ atmosphere/
 └── r0_resolution.py     # direct r0 vs profile-derived r0 (CU-093 agreement)
 ```
 
-### `optics/` — 32 source + 28 tests
+### `optics/` — 32 source + 29 tests
 
 Stage 3: PSF (dual-path), MTF terms, throughput, EE_box, regime final. Largest package alongside `source/` and `performance/` because spatial physics (pupil → PSF → MTF) lives here.
 

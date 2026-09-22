@@ -130,6 +130,26 @@ dispersion is DSNU's job).
 **Persistence** — residual charge from the prior exposure, on an exponential-decay
 model — and **ROIC glow shot**, $\sqrt{R_{glow} t_{int}}$.
 
+### Stray light — pedestal and halo
+
+Stray light adds electrons, and their shot noise, to every pixel uniformly; it is never
+part of the signal numerator. The in-band irradiance at the focal plane comes from one of
+three input modes (`optics.stray.input_mode`): **veiling glare**,
+$E_{stray}(\lambda) = g\,E_{in\text{-}FOV}(\lambda)$ with $g$ =
+`optics.stray.veiling_glare_fraction`; **absolute irradiance**, a total in-band
+$E_{stray}$ (`optics.stray.absolute_irradiance_W_m2`) spread as a flat spectral density
+over the band; or a **spectral file** injected before the chain runs. A point-source
+transmittance (PST) mode is not offered: it needs a scene radiance distribution the model
+does not carry. `optics.stray.includes_thermal` says a measured stray-light figure already
+contains the warm-optics scatter, and suppresses the near-field term so it is not counted
+twice. The pedestal is radiometric only; the *spatial* consequence of veiling glare — a
+low-frequency contrast loss — is the optional halo of the spatial chapter (*Halo terms
+outside the pupil*).
+
+**In RADIANT.** `optics/stray_light.py::compute_stray_light_irradiance`,
+`spectral_integration/stage.py` (the stray electron term) · anchored by
+`optics/tests/test_stray_light.py`.
+
 ---
 
 ## Acquisition scaling

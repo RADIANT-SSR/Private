@@ -47,14 +47,14 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-365 — Element-config parser silently ignores `emissivity:` (and mismatched transfer keys) instead of rejecting over-specification — RESOLVED 2026-09-20 (commit trailer)
+### CU-379 — Defocus-to-Z4 fold uses δ/(8√3 λ N²): twice the RMS defocus a given detector-plane displacement produces
 
-**Discovered**: Gap 131 Phase 3b (branch `gap131/phase3-users-guide`) troubleshooting-chapter verification, 2026-09-16.
-**Status**: Resolved 2026-09-20 — engine-consistency batch B (`engine-consistency/batch-b`): `_parse_element` refuses `emissivity:` on every element and transfer keys foreign to the row's mode, each with an actionable `ElementConfigError`; pinning tests in `io/tests/test_element_overspecification.py`; ug_troubleshooting §7 states the refusal.
-**File**: `src/radiant/io/element_config.py::_parse_element`.
-**Symptom**: an optical-element entry carrying `emissivity:` (or `transmittance:` on a REFLECTIVE row) is silently ignored by the parser, retained in the document, and round-tripped into saved YAML — the user believes their emissivity is in effect while Kirchhoff derivation governs.
-**Why it still matters**: workflow-visible (intake test 4) and a Rule 5 / Rule 17 seam — Rule 5 says validate-and-derive (reject over-specification, never accept emissivity on an optical element), Rule 17 forbids silent handling; the shipped User's Guide ch. 12 documents the actionable-rejection philosophy this parser undercuts.
-**Suggested fix**: (a) inline-fix-now — `_parse_element` raises `ElementConfigError` (what/why/action) on `emissivity:` for any element and on transfer keys inconsistent with the element kind; add round-trip test. Effort S; category B.
+**Discovered**: CU-359 Volume I coverage task (branch `cu359/theory-coverage`), 2026-09-21, while writing the Theory Manual's defocus paragraph from the code.
+**Status**: Open — owner-gated (results-affecting).
+**File**: `src/radiant/optics/stage.py::_add_defocus_to_wfe` (the consumer table in `docs/architecture/RADIANT_Optics.md` repeats the coefficient).
+**Symptom**: `optics.defocus_um` = δ is folded into the pupil as Z4 = δ / (8√3 λ N²) waves RMS. The wavefront sag of a detector-plane shift δ at working f/# N is W(ρ) = δ ρ² / (8 N²) — the marginal-ray OPD δ(1 − cos u) ≈ δ u²/2 with u = 1/(2N) — so the P-V defocus is δ / (8 N²), the textbook depth-of-focus statement (λ/4 P-V ⇔ δ = 2 λ N²). Noll Z4 carries P-V = 2√3 a₄, hence a₄ = δ / (16√3 λ N²). The code's coefficient is twice this: a configured δ acts as 2δ, and quarter-wave P-V is reached at δ = λ N² instead of 2 λ N². No test pins the coefficient against an independent value — the CU-058 tests check ± symmetry and dual-path agreement only.
+**Why it still matters**: results-affecting (intake test 1) — every run with a non-zero `optics.defocus_um` carries twice the intended defocus OPD, so Strehl, MTF, EE_box and NIIRS all move; the schema default 0 is unaffected, so goldens at default are untouched.
+**Suggested fix**: (a) inline-fix-now once ruled — coefficient 16√3, a Level-0 test pinning λ/4 P-V at δ = 2 λ N² (and the classic Strehl ≈ 0.80 there), the RADIANT_Optics.md table, the Theory Manual paragraph, a re-run of the scenarios that set defocus (5.x optical-designer cases), CHANGELOG **Results-affecting**. Effort S; category C.
 
 ### CU-361 — examples/scripts defects: NaN NEDT column in a shipped example, unitless tables, prose/number drift (family) — RESOLVED 2026-09-20 (commit trailer)
 
@@ -257,6 +257,15 @@ by name in check 8 — that list is frozen and must never grow.
 
 **Why it still matters**: workflow-visible (intake test 4) — this is the owner's "conflict you cannot fix one edit at a time" report, and it is owner-gated (test 2) because the remedy is a mode-model decision.
 **Resolution**: fix batch 4 as ruled — see the checklist; the physics manifest is unchanged, the two seams are additive. Original suggested fix: (b) stand-alone task after the Gap 85 ruling — either a mode selector that withdraws the other doors' explicit values (with an undo step), or a "withdraw and switch" action on the rejection; show derived values in inactive fields; make LTAN/LST exclusive on the card; add a lab door. Effort M–L; Category D.
+
+### CU-365 — Element-config parser silently ignores `emissivity:` (and mismatched transfer keys) instead of rejecting over-specification — RESOLVED 2026-09-20 (commit trailer)
+
+**Discovered**: Gap 131 Phase 3b (branch `gap131/phase3-users-guide`) troubleshooting-chapter verification, 2026-09-16.
+**Status**: Resolved 2026-09-20 — engine-consistency batch B (`engine-consistency/batch-b`): `_parse_element` refuses `emissivity:` on every element and transfer keys foreign to the row's mode, each with an actionable `ElementConfigError`; pinning tests in `io/tests/test_element_overspecification.py`; ug_troubleshooting §7 states the refusal.
+**File**: `src/radiant/io/element_config.py::_parse_element`.
+**Symptom**: an optical-element entry carrying `emissivity:` (or `transmittance:` on a REFLECTIVE row) is silently ignored by the parser, retained in the document, and round-tripped into saved YAML — the user believes their emissivity is in effect while Kirchhoff derivation governs.
+**Why it still matters**: workflow-visible (intake test 4) and a Rule 5 / Rule 17 seam — Rule 5 says validate-and-derive (reject over-specification, never accept emissivity on an optical element), Rule 17 forbids silent handling; the shipped User's Guide ch. 12 documents the actionable-rejection philosophy this parser undercuts.
+**Suggested fix**: (a) inline-fix-now — `_parse_element` raises `ElementConfigError` (what/why/action) on `emissivity:` for any element and on transfer keys inconsistent with the element kind; add round-trip test. Effort S; category B.
 
 ### CU-371 — GUI strings and widgets leak process language or clip content into the shipped manuals (live-review family) — RESOLVED 2026-09-20 (commit trailer)
 

@@ -382,7 +382,7 @@ $$EE(\delta) = \iint \mathrm{PSF}(\mathbf x)\,\mathrm{rect}_p(\mathbf x - \delta
 = (\mathrm{PSF}\circledast\mathrm{rect}_p)(\delta),$$
 
 and its average over one pitch is the pitch-wide box integral of the pixel-convolved PSF
-(rect ⊛ rect is a triangle) — which is exactly what the default computes, so the phase
+(a rect convolved with a rect is a triangle) — which is exactly what the default computes, so the phase
 average is the value the chain has always applied. The platform stage publishes
 $EE_{box}$ at the selected phase, $EE_{box,centered}$ as the reference, and the
 straddle factor $EE_{box}/EE_{box,centered}$ beside them. Offsets are measured from the

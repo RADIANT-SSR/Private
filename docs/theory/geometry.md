@@ -173,14 +173,31 @@ ground meters compared to focal-plane microns without $f/R_s$; conflating $t_{in
 $t_{line}$ in TDI ($t_{int} = N\,t_{line}$; the matching condition constrains
 $t_{line}$).
 
+**Dwell-time feasibility guard.** The full scan subsystem (line-rate derivation,
+cross-track and target-motion smear) is not implemented; what is implemented is the one
+guard whose absence would let an unphysical TDI timing report an authoritative SNR. The
+ground advances one along-track sample in the dwell time, and each TDI stage must
+integrate within it:
+
+$$t_{dwell} = \frac{\mathrm{GSD}_{along}}{v_g},\qquad t_{int} \le t_{dwell},\qquad
+\text{smear} = \frac{t_{int}}{t_{dwell}}\ \text{[pixels]}.$$
+
+The chain publishes `max_integration_time_s` ($= t_{dwell}$), `smear_pixels` and a
+`feasible` flag; a longer integration smears the target across more than one pixel per
+stage and breaks TDI registration.
+
 **Numeric anchor.** $h = 500$ km, $p = 10$ µm, $f = 2$ m, $t_{int} = 1$ ms:
 $d_{img} \approx 2.8$ pixels — uncompensated millisecond integration is not viable; the
-matched line time is ~354 µs.
+matched line time is ~354 µs, which is also the guard's `max_integration_time_s`
+(2.5 m / 7.06 km/s), so the same configuration reports `smear_pixels` ≈ 2.8 and
+`feasible = False`.
 
 **In RADIANT.** `platform/smear.py` (smear length from
 `platform.ground_velocity_m_s`/`smear_length_um`), consistency group
-`_GROUND_SPEED_GROUP` ties `ground_velocity_m_s` to the orbit value · anchored by
-`platform/tests/test_smear.py`, `test_sampling.py`. **References.** [Holst 2008].
+`_GROUND_SPEED_GROUP` ties `ground_velocity_m_s` to the orbit value;
+`performance/scan_feasibility.py::scan_feasibility` (the dwell guard) · anchored by
+`platform/tests/test_smear.py`, `test_sampling.py`,
+`performance/tests/test_scan_feasibility.py`. **References.** [Holst 2008].
 
 ---
 

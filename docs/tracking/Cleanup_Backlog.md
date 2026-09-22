@@ -75,7 +75,7 @@ by name in check 8 — that list is frozen and must never grow.
 ### CU-359 — Theory Manual v1.0 coverage gaps: 13 implemented-physics areas with no manual section (family)
 
 **Discovered**: Gap 131 Phase 1 physics-inventory audit (branch `gap131/phase1-theory`), 2026-09-16. Family head (Rule 21 family-CU provision).
-**Status**: Open — owner-gated: whether these are Volume I v1.1 chapters/sections or accepted v1.0 limitations. Chapter 1 §4 already names the major absences so the manual does not imply coverage.
+**Status**: Open — owner ruled 2026-09-21: write all 13 as a Volume I docs task (ordered G1, G3, then the section- and paragraph-sized rest; one commit per item; Chapter 1 §4 absence list shrunk to match). Scheduled as the docs batch following the 2026-09-21 dispositions walk-through.
 **File**: `docs/theory/` (Volume I binding, `scripts/build_manual.py` VOLUMES).
 **Symptom**: the Phase 1 audit diffing Volume I against `docs/architecture/RADIANT_Physics_Inventory.md` found 13 implemented computations with no manual section. Checklist:
 

@@ -236,3 +236,67 @@ above). The optics-vs-sampling
 budget ($Q = \lambda F_\#/p$, aliasing, folded MTF) lives in the spatial chapter's
 *Sampling: Nyquist, Q, and folded MTF*; the geometry chapter's contribution is the GSD
 that scales it to the ground.
+
+---
+
+## 10. Input modes and scene classes
+
+**Input modes.** The scene is expressed in exactly one mode per family, and the mode is
+detected by *provenance*: a parameter left at its default was not provided, so there is
+no mode switch to set. The **viewing** family resolves to $\theta_o$: V0 direct range
+(`geometry.target_range_m`; on a level path with no angle entered the range is the chord
+that builds the triangle, $\varphi = 2\arcsin(d/2r)$, $\theta_o = \pi/2 + \varphi/2$),
+V1 path zenith at the lower endpoint (`path_zenith_rad`), V2 off-boresight angle at the
+sensor (`sensor_off_boresight_rad`, its reference axis nadir when the sensor is the upper
+endpoint and zenith when it is the lower one), V3 ground range (`ground_range_m`,
+direction-free: the surface arc fixes $\Lambda = \text{arc}/R$ whichever endpoint is
+higher), V4 elevation above the horizontal at the lower endpoint (`elevation_angle_rad`,
+signed: $\zeta_{low} = \pi/2 - \varepsilon$), and V6 circular orbit (ground speed and
+period from the sensor altitude). Every entered viewing angle is referenced to the path's
+**lower** endpoint — exactly what it always meant when the sensor was above the target;
+when the sensor is the lower endpoint, $\theta_o = \pi - \zeta_{up}$ is derived and the
+published mode label says so. The **solar** family resolves to $\theta_s, \Delta\phi$:
+S0 night (thermal-only), S1 direct zenith, S2 elevation, S3 site and time (latitude, day
+of year, local solar time or LTAN → declination and hour angle). The **LOS-rate** family
+resolves to $\omega$: K0 platform-only $\omega = v_g/R_s$ (the default), K1 direct rate,
+K2 target velocity $\omega = |\mathbf v_{rel,\perp}|/R_s$ with
+$\mathbf v_{rel} = \mathbf v_{target} - \mathbf v_{sensor}$.
+
+**Resolution rules.** Redundant entries for one canonical quantity must agree within 1 %
+(1 µrad absolute floor for angles) or the stage raises, naming every entry and the value
+it implies; every derived quantity is published with its mode label; no entries at all
+gives the documented defaults (nadir view, 0.5 rad solar zenith by day) — never a silent
+NaN.
+
+**LOS direction and scene class.** Up, down or level follows from the two altitudes and
+$\theta_o$ — never a user switch. The canonical $\theta_o$ lives on $[0, \pi)$:
+below $\pi/2$ the sensor is above the target's horizon plane (every classic scene), above
+it the sensor is below — the same Earth-centre / target / sensor triangle read from the
+other vertex. The scene class is the observer × target band: **ground** ($h < 1$ km),
+**air** ($1 \le h \le 100$ km) and **space** ($h > 100$ km, the atmosphere-top
+convention), both boundaries closed from below. Physics never branches on the class — a
+scene at 999 m and one at 1001 m compute identically — it drives defaults, metric
+relevance, validation and the GUI composition only. `geometry.scene_class` is an optional
+assertion cross-checked against the derivation: what it catches is a wrong-magnitude
+altitude (600 m typed for 600 km), which pure derivation would render as a self-consistent
+scene of the wrong class. The **horizon guard** refuses $|\theta_o - \pi/2| < 0.5°$
+(refraction, unmodelled, dominates there) and computes between 0.5° and ~2° with a warning.
+`geometry.site_elevation_m` is a *third* altitude — the terrain under the line of sight —
+not an input mode; the Hufnagel-Valley surface term (atmosphere chapter) is its consumer,
+and the terrain-bearing endpoint must sit at or above it.
+
+**Pitfalls.** Entering the sensor's own zenith as V1 for an up-looking scene and expecting
+it to be $\theta_o$ (V1 is the lower endpoint's zenith, so it *is* the sensor's there and
+$\theta_o = \pi - \zeta$ follows); ground range typed where slant range was meant; two
+doors set, one of them stale, which the 1 % rule reports rather than resolves.
+
+**Numeric anchors.** V4 with $\varepsilon = -10°$ at the lower endpoint:
+$\zeta_{low} = 100°$. A level chord $d = 200$ km at $r = R + 5$ km:
+$\varphi = 2\arcsin(100/6376) = 1.7973°$, $\theta_o = 90.8987°$.
+
+**In RADIANT.** `geometry/modes.py` (`resolve_viewing`, `resolve_solar`,
+`resolve_kinematics`, `resolve_los_rate`, `viewing_direction`),
+`geometry/scene_class.py`, `geometry/mode_manifest.py`, `core/viewing_triangle.py`
+(symmetric solutions) · anchored by `geometry/tests/test_modes.py`,
+`test_scene_class.py`, `test_mode_manifest.py`, `test_mode_guard.py`.
+**References.** [Wertz & Larson 1999].

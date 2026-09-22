@@ -302,18 +302,42 @@ the extended regime.
 scheme carried an $O(dx)$ bias (+24 % at Q=2 at default sampling) that overstated
 point-source SNR.
 
+**Pixel sampling phase (straddle).** The box integral above is the box *centred on the
+image point*. `detector.pixel_phase_mode` selects where the geometric image point sits on
+the pixel grid: `average` (the default) is the expectation over a source placed uniformly
+across one pitch; `centered` puts it on a pixel centre; `worst_case` on a four-pixel
+corner, $\delta = (\tfrac12, \tfrac12)\,p$; `specified` at
+(`detector.pixel_phase_x`, `pixel_phase_y`) in pitches, each in $[-\tfrac12, \tfrac12]$.
+With the photosite rect already convolved into the PSF, the energy a full-pitch box at
+phase $\delta$ collects is that pixel-convolved PSF read at $\delta$,
+
+$$EE(\delta) = \iint \mathrm{PSF}(\mathbf x)\,\mathrm{rect}_p(\mathbf x - \delta)\,d\mathbf x
+= (\mathrm{PSF}\circledast\mathrm{rect}_p)(\delta),$$
+
+and its average over one pitch is the pitch-wide box integral of the pixel-convolved PSF
+(rect ⊛ rect is a triangle) — which is exactly what the default computes, so the phase
+average is the value the chain has always applied. The platform stage publishes
+$EE_{box}$ at the selected phase, $EE_{box,centered}$ as the reference, and the
+straddle factor $EE_{box}/EE_{box,centered}$ beside them. Offsets are measured from the
+PSF grid centre (the chief-ray image point), never from the degraded PSF's centroid; the
+fill factor is applied downstream, so every value is normalized to the pitch box.
+
 **Pitfalls.** Ensquared ≠ encircled (a square of side $p$ is not a circle of diameter
 $p$ — quoting the 83.8 % first-ring figure for a pixel box is a category error); Airy ring
-tails decay as $1/u^2$, so truncated normalization biases EE.
+tails decay as $1/u^2$, so truncated normalization biases EE; referencing a specified
+phase to the PSF centroid instead of the chief-ray point (a smeared PSF moves its
+centroid, not the pixel grid); applying the straddle factor to the background term, which
+never sees $EE_{box}$.
 
 **Numeric anchor.** Unaberrated Airy at critical sampling ($Q=2$):
 $EE_{1\times1} = 0.177327$ — only ~18 % of a point source's energy lands in the center
 pixel.
 
 **In RADIANT.** `optics/psf/effective.py::EffectivePSF.ensquared_energy` /
-`ensquared_energy_nxn`, wrapped by `optics/ee_box.py` · anchored by
-`optics/tests/test_ee_box.py::test_ee_box_airy_q2_anchor` (abs=1e-3 at default sampling).
-**References.** [Holst 2008].
+`ensquared_energy_nxn` / `pixel_block_energy_at`, `optics/pixel_phase.py::resolve_pixel_phase`,
+wrapped by `optics/ee_box.py` and evaluated in `platform/stage.py::_compute_ee_box` ·
+anchored by `optics/tests/test_ee_box.py::test_ee_box_airy_q2_anchor` (abs=1e-3 at default
+sampling) and `optics/tests/test_pixel_phase.py`. **References.** [Holst 2008].
 
 ---
 

@@ -149,7 +149,7 @@ with `u = optics.cold_stop_undersize_frac` ∈ [0, 0.49] and
 | Working f/# | `N_eff` | `stage_outputs["optics"]["f_number_eff"]` |
 | Complex pupil | `D_eff`, `obs_eff` → PSF **and** MTF product (Rule 4: one pupil, both paths) | `_build_effective_psf`, `_compute_optical_mtf_terms` |
 | Sampling | `D_eff` → `compute_sampling` | `optics/sampling.py` |
-| Defocus Z4 | `N_eff` (`Z4 = δ / (8√3 λ N_eff²)`) | `_add_defocus_to_wfe` |
+| Defocus Z4 | `N_eff` (`Z4 = δ / (16√3 λ N_eff²)` (CU-379)) | `_add_defocus_to_wfe` |
 | Diffraction limit metric | `D_eff` | `performance/stage.py` |
 | Near-field | `Ω_cone` from `N_eff` (§7.3) | `stage_outputs["optics"]["Omega_cone"]` |
 

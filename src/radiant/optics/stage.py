@@ -112,9 +112,13 @@ def _add_defocus_to_wfe(
 
     The Noll Z4 (defocus) coefficient in waves is::
 
-        Z4 = δ / (8 √3 λ f/#²)
+        Z4 = δ / (16 √3 λ f/#²)
 
-    where δ is the axial defocus [m] and λ is the wavelength [m].
+    where δ is the axial defocus [m] and λ is the wavelength [m]: the
+    marginal-ray sag of a detector-plane shift δ is δ/(8 f/#²) peak-to-valley
+    (the λ/4 P-V ⇔ δ = 2 λ f/#² depth-of-focus rule), and Noll's Z4 carries
+    P-V = 2√3·a₄. The coefficient was 8√3 until CU-379 (2026-09-21), which made
+    a configured δ act as 2δ.
     (The Z4 OPD in metres, ``z4_waves × λ_ref``, is wavelength-independent,
     so any reference wavelength gives the same physical pupil after the
     ref→operating rescale in ``make_pupil_phase_zernike``.)
@@ -129,7 +133,7 @@ def _add_defocus_to_wfe(
         return wfe
 
     defocus_m = defocus_um * 1e-6
-    z4_waves = defocus_m / (8.0 * math.sqrt(3.0) * wavelength_m * f_number**2)
+    z4_waves = defocus_m / (16.0 * math.sqrt(3.0) * wavelength_m * f_number**2)
 
     if wfe is None:
         return WavefrontError(

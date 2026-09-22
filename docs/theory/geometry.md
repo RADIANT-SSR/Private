@@ -237,6 +237,24 @@ budget ($Q = \lambda F_\#/p$, aliasing, folded MTF) lives in the spatial chapter
 *Sampling: Nyquist, Q, and folded MTF*; the geometry chapter's contribution is the GSD
 that scales it to the ground.
 
+**Target-plane sample distance.** An air or space target has no ground plane to project
+onto. The reference there is the plane through the target *normal to the line of sight*,
+and the sample distance in it is the pixel's angular subtense at the slant range:
+
+$$d_x = \frac{p_x R_s}{f},\qquad d_y = \frac{p_y R_s}{f},\qquad d = \sqrt{d_x d_y}$$
+
+— GSD without the $1/\cos$ projection (the chord/arc distinction is below any modelling
+fidelity: $\tan(\mathrm{IFOV})/\mathrm{IFOV} - 1 < 3\times10^{-7}$ for IFOV ≲ 1 mrad).
+There is deliberately no target-orientation term: the metric answers how far apart two
+adjacent samples are *where the target is*, an optics-and-range question with one answer,
+not how much of the target's skin a pixel covers, which needs an attitude the framework
+does not carry. The geometric mean is defined the way GIQE-5 averages GSD, so the two
+families are directly comparable and meet at zero incidence when a target crosses the
+air/ground scene-class boundary. **Numeric anchor.** $p = 10$ µm, $f = 2$ m,
+$R_s = 500$ km: 2.5 m per axis. **In RADIANT.**
+`performance/target_plane_sample_distance.py::target_plane_sample_distance` · anchored by
+`performance/tests/test_target_plane_sample_distance.py`.
+
 ---
 
 ## 10. Input modes and scene classes

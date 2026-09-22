@@ -152,7 +152,7 @@ default 0.633 µm); `optics/strehl.py::compute_strehl` (PSF ratio),
 
 ---
 
-## 5. Detector-plane kernels: pixel aperture, diffusion, IPC
+## 5. Detector-plane kernels: pixel aperture, diffusion, IPC, electronics
 
 **Pixel aperture.** A photosite of linear width $w$ integrates the image — a rect
 convolution:
@@ -169,6 +169,16 @@ $\mathrm{MTF}_{diff}(\nu) = \exp(-2\pi^2\sigma_d^2\nu^2)$.
 $\mathrm{MTF}_{IPC}(\nu) = (1-4\alpha) + 2\alpha\cos(2\pi\nu p)$
 per axis (nearest-neighbor form).
 
+**Electronics.** Finite readout-amplifier bandwidth low-passes the video waveform; at the
+pixel clock rate the temporal response maps onto the focal plane as a one-dimensional blur
+along the readout (cross-scan, $x$) axis with equivalent Gaussian sigma $\sigma_e$
+(`readout.electronics_sigma_um`, 0 = ideal):
+$\mathrm{MTF}_{elec}(\nu_x) = \exp(-2\pi^2\sigma_e^2\nu_x^2)$, unity along $y$. It is a
+readout-side term but a genuine spatial one — a Gaussian-in-$x$ kernel on the PSF path
+and this analytic factor on the MTF path — so unlike TDI mis-registration it takes part in
+the dual-path consistency check. **Numeric anchor.** $\sigma_e = 5$ µm at 25 cy/mm
+(Nyquist for a 20 µm pitch): $\mathrm{MTF}_{elec} = 0.7346$.
+
 **Pitfalls.** The sinc convention: NumPy's `np.sinc(x)` already includes π —
 `np.sinc(w·ν)` is correct, `np.sinc(π·w·ν)` double-counts π and moves the first zero to
 $1/(\pi w)$. Pitch vs aperture width when FF < 1. IPC and diffusion both exist in kernel
@@ -179,8 +189,10 @@ the agreement between them.
 
 **In RADIANT.** `detector/stage.py` (aperture term, with $\sqrt{\mathrm{FF}}$),
 `detector/diffusion.py::diffusion_mtf`, `detector/ipc.py::ipc_mtf_1d` +
-`ipc_kernel_pitch_spaced` · anchored by `detector/tests/test_stage_mtf_term.py`,
-`test_diffusion.py`, `test_ipc.py` (kernel-FFT vs analytic cross-checks).
+`ipc_kernel_pitch_spaced`, `readout/electronics_mtf.py` (`electronics_mtf_1d`,
+`electronics_kernel_2d`, pushed by `readout/stage.py`) · anchored by
+`detector/tests/test_stage_mtf_term.py`, `test_diffusion.py`, `test_ipc.py` (kernel-FFT vs
+analytic cross-checks), `readout/tests/test_electronics_mtf.py`.
 **References.** [Boreman 2001], [Holst 2008].
 
 ---

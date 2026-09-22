@@ -1130,7 +1130,47 @@ $r_0(4\ \text{µm})/r_0(0.5\ \text{µm}) = 8^{6/5} = 12.1257$; the Paranal media
 
 ---
 
-## 5. What the models do not represent
+## 5. The no-atmosphere sub-cases
+
+A scene can declare that no atmosphere lies between sensor and target: the target
+descriptor's `no_atmosphere` location with one of three sub-cases — **space** (both
+endpoints above the atmosphere: satellite-to-satellite, space surveillance),
+**ground_test** (an outdoor test range short enough to neglect) and **lab_test** (a
+chamber). The atmospheric products are then the identity family's — $\tau \equiv 1$,
+$L_{path} \equiv 0$, $L_{down} \equiv 0$, the `exo` backend — which is a statement that the
+intervening medium has unity transmittance and no emission, not an absence of physics: the
+cosmic background still arrives as a 2.725 K blackbody from the source stage.
+
+**Preconditions, refused rather than defaulted.** The space sub-case requires a sensor
+altitude on the line of sight and a path that clears the Earth's limb (there is no
+earthlimb model). The two test sub-cases require an explicit spectral background —
+the chamber or range wall — because there is no sky to supply one: the source stage builds
+a grey-body wall, $L_{bg}(\lambda) = \varepsilon_{bg}\,B(\lambda, T_{bg})$, from
+`source.background.temperature` and `source.background.emissivity`, warning when the
+temperature was left at its default rather than baking an ambient value in silently; a
+measured $L_{bg}(\lambda)$ can be injected in its place.
+
+**Illumination assertion.** `source.lab_test_mode = "dark"` declares a chamber with no
+external illumination — no lamp, no sun, thermal self-emission only, the dark-calibration
+sub-mode — and is validated: a user-set target reflectance contradicts it and is
+rejected, since a reflectance-driven target has nothing to reflect in a dark chamber.
+`"lit"` records an externally illuminated bench for readability (unvalidated until a lamp
+surface exists); the empty default asserts nothing.
+
+**Pitfalls.** Treating the vacuum case as "skip the atmosphere stage" (the stage still
+runs and publishes unity and zero, so every downstream consumer sees one contract); a
+ground-test range long enough for real extinction declared as no-atmosphere; a lab scene
+with a reflectance target and no illumination assertion, which computes a reflected term
+from the schema's default solar geometry.
+
+**In RADIANT.** `atmosphere/exo.py::ExoAtmosphere`,
+`atmosphere/assembly.py::validate_no_atmosphere_subcase`, the chamber background in
+`source/_inferrer.py`, `core/descriptors.py` (`TargetLocation`, `NoAtmosphereSubcase`) ·
+anchored by `source/tests/test_no_atmosphere_subcases.py`, `atmosphere/tests/test_exo.py`.
+
+---
+
+## 6. What the models do not represent
 
 Recorded here because a physics document that omits its own boundaries is misleading. Each
 item is tracked in the repository, where the measured consequences are tabulated in full.

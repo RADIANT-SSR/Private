@@ -162,16 +162,16 @@ mtf_pixel = pixel_aperture_mtf_1d(meas_freq_cy_m, 10e-6)  # 10 um pixel
 2. Dashboard displays all available metrics in organized panels:
 
 **Spatial Metrics Panel:**
-- Strehl: 0.8206 [--]
-- RER: 0.6773 [--]
-- FWHM_x: 10.18 [um]
-- EE(1x1): 0.5718 [--]
+- Strehl: 0.9663 [--]
+- RER: 0.7978 [--]
+- FWHM_x: 10.22 [um]
+- EE(1x1): 0.6686 [--]
 - Q (center/min/max): 0.195 / 0.165 / 0.225 [--]
 
 **MTF Budget Panel:**
 - Table showing per-component MTF at Nyquist (x and y axes)
-- Optics: 0.6699, Pixel: 0.6364, IPC: 0.9602
-- System product: 0.4961 [--]
+- Optics: 0.7535, Pixel: 0.6364, IPC: 0.9602
+- System product: 0.4607 [--]
 - Bar chart of MTF contributions (log scale)
 
 **Noise Panel:**

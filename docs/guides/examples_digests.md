@@ -1411,17 +1411,18 @@ budget, compute the residual, and find out what the residual is made of.
 | Sampling | $f_{Nyq}$ 50.0 cy/mm against a 512.8 cy/mm cutoff; $Q$ = 0.195 |
 | Atmosphere | `exo` (bench) |
 
-**Headline results.** **Measured MTF at Nyquist 0.4441 against RADIANT's 0.4361**,
-with a **residual RMS of 0.0215** across all 50 measured points — slanted-edge
+**Headline results.** **Measured MTF at Nyquist 0.4441 against RADIANT's 0.4575**,
+with a **residual RMS of 0.0206** across all 50 measured points — slanted-edge
 measurement-noise level. The analytic four-term composition reads 0.5339 with a
 0.0606 RMS residual, so **RADIANT now beats the analytic model**. The budget at
 Nyquist: optics (diffraction + obscuration + WFE + defocus-Z4, from one pupil)
-0.6699, pixel aperture 0.6364, IPC 0.9602, everything else unity, system product
-0.4392 against the PSF path's 0.4361. Defocus is negligible: 5 µm costs 0.9 % of MTF
+0.7535, pixel aperture 0.6364, IPC 0.9602, everything else unity, system product
+0.4607 against the PSF path's 0.4575. Defocus is negligible: 5 µm costs 0.9 % of MTF
 at Nyquist, and even 15 µm only 7.4 %. Two residual explainers were tested on a grid
-and **both rejected** — electronics blur (1 µm ⇒ RMS 0.0292) and TIS surface
-roughness (5 nm ⇒ 0.0248) each make the fit *worse*, bounding them below those
-values. Other metrics: Strehl 0.9494, RER 0.7818, FWHM 10.15 µm.
+and **neither is supported** — TIS surface roughness (5 nm ⇒ RMS 0.0220) makes the
+fit *worse*, and electronics blur (1 µm ⇒ 0.0205) moves it by 0.0001, below the
+measurement noise, so both are bounded rather than detected. Other metrics: Strehl
+0.9663, RER 0.7978, FWHM 10.22 µm.
 
 **Regime.** A bench measurement, not a scene: GSD, NIIRS and NEDT are all reported
 N/A (altitude = 0, no thermal scene in the VNIR), and the noise budget is dark 0.32,
@@ -1432,7 +1433,7 @@ vintage the residual was 0.0917 RMS and the walkthrough diagnosed it as the *sha
 ambiguity of scalar WFE* — a white-noise phase screen dumps aberrated energy into a
 compact halo and drops low frequencies toward the Strehl plateau, where a real
 optic's smooth aberrations hold them near 1. The fix replaced the screen with a
-deterministic low-order Zernike expansion and the residual fell **4.3×**. The
+deterministic low-order Zernike expansion and the residual fell **4.5×**. The
 secondary lesson is the rejection workflow itself: a hypothesis that does not reduce
 the residual is reported as rejected, not quietly fitted. And at $Q$ = 0.195 the pixel
 sinc, not the optics, is the dominant contributor — improving WFE buys almost nothing.

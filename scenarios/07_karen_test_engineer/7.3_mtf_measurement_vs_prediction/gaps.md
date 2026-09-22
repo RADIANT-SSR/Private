@@ -26,7 +26,8 @@ kernel; product: pupil Z4). **Resolved** (commit f5c8fda): defocus now folds
 into the pupil once — screen preserved, Z4 alongside — and both paths build
 their pupil phase through one shared dispatch, so the consistency check
 passes on every run of this scenario and the budget's Optics term carries
-the full pupil (0.8115 → 0.6699 at Nyquist). This scenario's rerun under
+the full pupil (0.8115 → 0.6699 at Nyquist; 0.7535 once CU-379 corrected the
+defocus-to-Z4 coefficient on 2026-09-21). This scenario's rerun under
 the fix is the closure evidence.
 
 ### Odd-kernel crash on even PSF grids (FIXED, commit 8a5d9e8)

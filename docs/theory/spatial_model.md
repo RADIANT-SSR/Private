@@ -239,14 +239,17 @@ full tilt averaging (long exposure). Short-exposure (tilt-removed) imaging needs
 corrected form — not the shipped default.
 
 **Pitfalls.** Quoting $r_0$ at 0.5 µm and using it unscaled in the IR (at 4 µm,
-$r_0$ is 12× larger); 3.44 vs 6.88; gating on platform type instead of $r_0 > 0$ (RADIANT
-gates on the parameter `atmosphere.r0_m`, and the MTF term is written by
-**PerformanceStage**, not AtmosphereStage — the atmosphere stage publishes `r0_m` only).
+$r_0$ is 12× larger); 3.44 vs 6.88; gating on platform type instead of the resolved $r_0 > 0$ (RADIANT
+gates on the Fried parameter the atmosphere chapter's *Optical turbulence* section
+resolves — entered directly or integrated from a $C_n^2$ profile — and the MTF term is
+written by **PerformanceStage**, not AtmosphereStage — the atmosphere stage publishes
+`r0_m` only).
 
 **Numeric anchors.** $\mathrm{MTF}_{LE} = 0.338398$ at $\lambda f_a/r_0 = 0.5$;
 $r_0 = 0.10$ m @ 0.5 µm → 1.21257 m @ 4 µm.
 
-**In RADIANT.** `atmosphere/turbulence.py::turbulence_mtf` (evaluated via
+**In RADIANT.** `atmosphere/r0_resolution.py` (which $r_0$ the chain uses),
+`atmosphere/turbulence.py::turbulence_mtf` (evaluated via
 `performance/turbulence_mtf_term.py` and `performance/stage.py`),
 `platform/turbulence_kernel.py` (PSF path) · anchored by
 `atmosphere/tests/test_turbulence.py`, `performance/tests/test_turbulence_mtf_term.py`,

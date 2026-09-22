@@ -1044,7 +1044,93 @@ record, and the provenance marker each have a test).
 
 ---
 
-## 4. What the models do not represent
+## 4. Optical turbulence — from $C_n^2(h)$ to $r_0$
+
+The spatial chapter consumes one number: the Fried parameter $r_0$ at the band-centre
+wavelength of the scene's spectral grid. This section is where that number comes from.
+
+**Resolution policy** (`atmosphere.cn2_profile`). `direct` (the default) uses
+`atmosphere.r0_m` exactly as entered — 0 means turbulence off — rescaled to the band
+centre when `atmosphere.r0_reference_wavelength_um` says what wavelength it was quoted at:
+
+$$r_0(\lambda_b) = r_0(\lambda_{ref})\left(\frac{\lambda_b}{\lambda_{ref}}\right)^{6/5}.$$
+
+`hufnagel_valley` and `tabulated` derive $r_0$ from a profile by the path integral below.
+An explicit `r0_m` entered beside a profile wins, and the profile becomes a cross-check:
+the two must agree within 1 % or the resolver raises. A profile beside an explicit
+`r0_m = 0` is a contradiction ("compute the turbulence" and "there is none") and raises.
+
+**Path integral.** With $k = 2\pi/\lambda$ and $\zeta$ the LOS zenith angle at the
+segment's *lower* endpoint,
+
+$$r_0 = \left[\,0.423\,k^2\sec\zeta\int_{h_{low}}^{h_{high}} C_n^2(h)\,W(h)\,dh\right]^{-3/5},$$
+
+integrated over the part of the line of sight inside the atmosphere — the endpoint
+altitudes clipped to $[0, h_{atm,top}]$ — as a plane-parallel slab, $\sec\zeta$ turning
+vertical thickness into path length. The weighting $W$ is the wave type
+(`atmosphere.turbulence_wave_type`): $W = 1$ for `plane` (the default: the source is
+effectively at infinity, the imaging case and the convention every published $r_0$ uses)
+and $W = u^{5/3}$ for `spherical`, $u$ the fraction of the way from the *target* to the
+aperture — the finite-range point-source coherence radius, in which turbulence near the
+sensor dominates. A level arm is not a column ($\sec\zeta$ diverges): it integrates along
+its length $L$ at its altitude, $\int C_n^2 W\,ds = C_n^2(h)\,L\times\{1,\ 3/8\}$ for
+plane and spherical, since $\int_0^1 u^{5/3}du = 3/8$. A space sensor has no column above
+it: the integral is empty, $r_0$ saturates at a large sentinel flagged *negligible*, and
+the turbulence term is omitted rather than multiplied in as unity.
+
+**Hufnagel-Valley profile** (`hufnagel_valley`):
+
+$$C_n^2(h) = 0.00594\left(\frac{w}{27}\right)^2\left(10^{-5}h\right)^{10}e^{-h/1000}
++ 2.7\times10^{-16}e^{-h/1500} + A\,e^{-(h - h_{site})/100}$$
+
+with $h$ in metres above mean sea level and $C_n^2$ in m$^{-2/3}$: a jet-stream term
+scaled by the RMS upper-atmosphere wind $w$ (`atmosphere.cn2_hv_wind_rms_m_s`; the
+$h^{10}e^{-h/1000}$ shape peaks at exactly 10 km), a fixed middle-atmosphere term, and a
+100 m-scale-height surface layer scaled by the ground strength $A$
+(`atmosphere.cn2_hv_ground_strength`) and referenced to the site elevation
+`geometry.site_elevation_m`. The defaults are HV-5/7 — $w = 21$ m/s,
+$A = 1.7\times10^{-14}$ m$^{-2/3}$ — named for the $r_0 = 5$ cm and
+$\theta_0 = 7$ µrad it produces at 0.5 µm on a vertical path. $A$ is a site-quality
+parameter: solve the path integral for the $A$ that reproduces a site's measured seeing.
+
+**Tabulated profile** (`tabulated`, `atmosphere.cn2_tabulated_file`): a two-column
+altitude / $C_n^2$ table interpolated *linearly in* $\log C_n^2$ against altitude —
+exponential inside each interval, the shape every analytic profile has — with a linear
+fallback across a zero-valued node. Outside the table the profile is zero; the integral
+warns with how much of the path was uncovered rather than extrapolating a power law it was
+not given.
+
+**Units.** $C_n^2$ [m$^{-2/3}$] × $dh$ [m] = m$^{1/3}$; × $k^2$ [m$^{-2}$] = m$^{-5/3}$;
+to the $-3/5$ power gives metres.
+
+**Assumptions & validity.** Kolmogorov statistics; plane-parallel slab (the profile is
+evaluated against altitude, so the integral is exact only away from the horizon — the
+same zenith ceiling the column models carry); HV is a climatological fit, not a
+measurement, and its surface term describes daytime sea-level turbulence unless $A$ is
+re-derived for the site.
+
+**Pitfalls.** Applying an $r_0$ quoted at 0.5 µm unscaled in the infrared (at 4 µm it is
+12× larger, so the MTF is badly pessimistic); reversing the spherical weighting (it peaks
+at the aperture, not the source); carrying the HV-5/7 ground strength to a mountain site
+now that the surface term is site-referenced, which double-counts the elevation; reading
+$\zeta$ at the wrong endpoint of an up-looking path.
+
+**Numeric anchors.** HV-5/7, vertical, plane wave, 0.5 µm: $r_0 = 5$ cm (the preset's
+defining value); $\int_0^1 u^{5/3}du = 3/8$ exactly;
+$r_0(4\ \text{µm})/r_0(0.5\ \text{µm}) = 8^{6/5} = 12.1257$; the Paranal median of
+0.80 arcsec at 2635 m is reproduced by $A = 2.70\times10^{-15}$ m$^{-2/3}$.
+
+**In RADIANT.** `atmosphere/r0_resolution.py::resolve_fried_parameter`,
+`atmosphere/r0_path.py::path_fried_parameter_from_los` and
+`fried_parameter_from_integral_m`, `atmosphere/cn2_hufnagel_valley.py`,
+`atmosphere/cn2_tabulated.py` · anchored by `atmosphere/tests/test_r0_path.py`,
+`test_r0_resolution.py`, `test_cn2_hufnagel_valley.py`, `test_cn2_tabulated.py`,
+`test_r0_stage_wiring.py`. **References.** [Andrews & Phillips 2005], [Beland 1993],
+[Valley 1980], [Fried 1966].
+
+---
+
+## 5. What the models do not represent
 
 Recorded here because a physics document that omits its own boundaries is misleading. Each
 item is tracked in the repository, where the measured consequences are tabulated in full.

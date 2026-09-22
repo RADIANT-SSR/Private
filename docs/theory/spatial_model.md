@@ -112,9 +112,39 @@ cutoff; treating the annular-pupil MTF as clear-MTF × scalar (the true ratio cr
 **Numeric anchor.** $\mathrm{MTF}(0.5\nu_c) = \frac{2}{\pi}\left(\frac{\pi}{3} - \frac{\sqrt3}{4}\right) = 0.391002$;
 $\nu_c = 62.5$ cy/mm at $\lambda = 4$ µm, $F_\# = 4$.
 
-**In RADIANT.** `optics/pupil_mtf.py::pupil_autocorrelation_mtf_1d` (and `_2d`) · anchored
-by `optics/tests/test_pupil_mtf.py` (analytic circular form) and the dual-path tests
-`tests/integration/test_dual_path_mtf.py`. **References.** [Goodman 2005], [O'Neill 1956].
+**Halo terms outside the pupil.** Two optical degradations are not pupil phenomena and
+enter as kernel / MTF pairs beside the pupil term, each an exact Fourier pair on the two
+paths. **Surface scatter.** Micro-roughness scatters a fraction of the specular beam into a
+wide halo; in the smooth-surface (Rayleigh–Rice) limit at normal incidence the total
+integrated scatter of the train's effective RMS roughness $\sigma_s$
+(`optics.surface_roughness_nm`, 0 = none) is
+
+$$\mathrm{TIS} = 1 - \exp\!\left[-\left(\frac{4\pi\sigma_s}{\lambda}\right)^2\right]
+\approx \left(\frac{4\pi\sigma_s}{\lambda}\right)^2\ (\sigma_s \ll \lambda),$$
+
+evaluated at the band centre, and the scattered energy lands in an isotropic Gaussian halo
+of focal-plane width $\sigma_h$ (`optics.scatter_halo_sigma_um`):
+$k(r) = (1-\mathrm{TIS})\,\delta(r) + \mathrm{TIS}\,G(r;\sigma_h)$,
+$\mathrm{MTF}(\nu) = (1-\mathrm{TIS}) + \mathrm{TIS}\,e^{-2\pi^2\sigma_h^2\nu^2}$ —
+a contrast floor of $1-\mathrm{TIS}$ at every frequency the halo cannot resolve. A
+warning fires above TIS = 0.3, where the smooth-surface limit degrades; the halo width is
+a model input to tune to a measured halo, not a derived quantity. **Veiling glare.** The
+veiling-glare fraction of the noise chapter's stray-light model is, by default, a
+radiometric pedestal only; with `optics.stray.veiling_glare_mtf` on, the same fraction is
+re-imaged as a Gaussian halo of width `optics.stray.halo_sigma_um` with the identical
+kernel / MTF form — the low-frequency contrast loss a pedestal cannot express. Both halos
+are truncated at the PSF grid edge, so the halo widths must fit the grid for the pairs to
+stay exact.
+
+**Numeric anchors.** $\sigma_s = 20$ nm: TIS = 0.2233 at 0.5 µm but 0.00394 at 4 µm — the
+$\lambda^{-2}$ scaling is why the same polish is a VIS problem and an MWIR non-event.
+
+**In RADIANT.** `optics/pupil_mtf.py::pupil_autocorrelation_mtf_1d` (and `_2d`),
+`optics/scatter.py` (`total_integrated_scatter`, `scatter_mtf_1d`, `scatter_kernel_2d`),
+the veiling-glare halo in `optics/stage.py` · anchored by `optics/tests/test_pupil_mtf.py`
+(analytic circular form), `test_scatter.py`, `test_stray_light.py` and the dual-path tests
+`tests/integration/test_dual_path_mtf.py`. **References.** [Goodman 2005],
+[O'Neill 1956], [Bennett & Porteus 1961], [Stover 2012].
 
 ---
 
@@ -131,6 +161,26 @@ RADIANT reports two Strehls: the **PSF-derived** `strehl` — degraded-PSF peak 
 diffraction-limited `reference_psf` peak, with the *same* detector kernels applied to both
 so detector effects cancel — and the analytic `strehl_marechal` diagnostic.
 
+**Defocus as a pupil term.** A detector-plane displacement $\delta$ from best focus
+(`optics.defocus_um`, sign irrelevant) is a quadratic wavefront: the marginal ray at
+half-angle $u$, $\tan u = 1/(2N_{eff})$, acquires OPD $\delta(1-\cos u) \approx \delta/(8N_{eff}^2)$
+at the pupil edge, so $W(\rho) = \delta\rho^2/(8N_{eff}^2)$, peak-to-valley
+$\delta/(8N_{eff}^2)$ — the depth-of-focus statement $\lambda/4$ P-V $\Leftrightarrow$
+$\delta = 2\lambda N_{eff}^2$. Fitted to Noll $Z_4$ (P-V $= 2\sqrt3\,a_4$) the RMS
+coefficient is
+
+$$a_4 = \frac{\delta}{16\sqrt3\,\lambda N_{eff}^2}\ \text{waves}.$$
+
+RADIANT folds $\delta$ into the *same* complex pupil as the wavefront error — added to an
+existing $Z_4$, or carried beside a scalar-RMS screen — once, before either spatial path,
+so PSF and MTF derive defocus from one pupil and the consistency invariant holds by
+construction; there is no separate defocus kernel. **Implementation note (CU-379).** The
+shipped fold uses the coefficient $\delta/(8\sqrt3\,\lambda N_{eff}^2)$, twice the value
+above: a configured $\delta$ currently acts as $2\delta$, and quarter-wave P-V is reached
+at $\delta = \lambda N_{eff}^2$ rather than $2\lambda N_{eff}^2$. The default $\delta = 0$ is
+unaffected. The correction is tracked as results-affecting and awaits the owner's ruling;
+this paragraph states the physics, the note states the code.
+
 **Assumptions & validity.** Maréchal reliable for $\sigma \lesssim \lambda/10$; Noll
 normalization (coefficient = RMS) — the Wyant convention differs by $\sqrt3$-type factors.
 Zernike modes are orthonormal on the unobscured unit disk; annular pupils strictly need
@@ -141,18 +191,23 @@ annular polynomials.
 scalar diagnostic only).
 
 **Numeric anchors.** $S(\sigma = \lambda/14) = 0.817569$ (the classic ≈0.8
-diffraction-limited threshold); quarter-wave P-V defocus → $S = 0.814$.
+diffraction-limited threshold); quarter-wave P-V defocus → $S = 0.814$, reached physically
+at $\delta = 2\lambda N^2 = 128$ µm for $\lambda = 4$ µm, $f/4$ (64 µm under the shipped
+coefficient).
 
 **In RADIANT.** `optics/zernike.py`, `optics/zernike_opd.py`, `optics/wavefront.py`
 (modes: `scalar_rms` / `zernike` / `kolmogorov`, `optics.wfe_reference_wavelength_um`
 default 0.633 µm); `optics/strehl.py::compute_strehl` (PSF ratio),
-`performance/strehl.py::compute_strehl` (Maréchal metric) · anchored by
+`performance/strehl.py::compute_strehl` (Maréchal metric),
+`optics/stage.py::_add_defocus_to_wfe` (the $Z_4$ fold) · anchored by
 `optics/tests/test_zernike.py` (orthonormality integrals),
-`performance/tests/test_strehl.py`. **References.** [Noll 1976], [Goodman 2005].
+`performance/tests/test_strehl.py`, `optics/tests/test_stage.py` (±δ symmetry, defocus in
+the pupil not a kernel). **References.** [Noll 1976], [Goodman 2005],
+[Wyant & Creath 1992].
 
 ---
 
-## 5. Detector-plane kernels: pixel aperture, diffusion, IPC
+## 5. Detector-plane kernels: pixel aperture, diffusion, IPC, electronics
 
 **Pixel aperture.** A photosite of linear width $w$ integrates the image — a rect
 convolution:
@@ -169,6 +224,16 @@ $\mathrm{MTF}_{diff}(\nu) = \exp(-2\pi^2\sigma_d^2\nu^2)$.
 $\mathrm{MTF}_{IPC}(\nu) = (1-4\alpha) + 2\alpha\cos(2\pi\nu p)$
 per axis (nearest-neighbor form).
 
+**Electronics.** Finite readout-amplifier bandwidth low-passes the video waveform; at the
+pixel clock rate the temporal response maps onto the focal plane as a one-dimensional blur
+along the readout (cross-scan, $x$) axis with equivalent Gaussian sigma $\sigma_e$
+(`readout.electronics_sigma_um`, 0 = ideal):
+$\mathrm{MTF}_{elec}(\nu_x) = \exp(-2\pi^2\sigma_e^2\nu_x^2)$, unity along $y$. It is a
+readout-side term but a genuine spatial one — a Gaussian-in-$x$ kernel on the PSF path
+and this analytic factor on the MTF path — so unlike TDI mis-registration it takes part in
+the dual-path consistency check. **Numeric anchor.** $\sigma_e = 5$ µm at 25 cy/mm
+(Nyquist for a 20 µm pitch): $\mathrm{MTF}_{elec} = 0.7346$.
+
 **Pitfalls.** The sinc convention: NumPy's `np.sinc(x)` already includes π —
 `np.sinc(w·ν)` is correct, `np.sinc(π·w·ν)` double-counts π and moves the first zero to
 $1/(\pi w)$. Pitch vs aperture width when FF < 1. IPC and diffusion both exist in kernel
@@ -179,8 +244,10 @@ the agreement between them.
 
 **In RADIANT.** `detector/stage.py` (aperture term, with $\sqrt{\mathrm{FF}}$),
 `detector/diffusion.py::diffusion_mtf`, `detector/ipc.py::ipc_mtf_1d` +
-`ipc_kernel_pitch_spaced` · anchored by `detector/tests/test_stage_mtf_term.py`,
-`test_diffusion.py`, `test_ipc.py` (kernel-FFT vs analytic cross-checks).
+`ipc_kernel_pitch_spaced`, `readout/electronics_mtf.py` (`electronics_mtf_1d`,
+`electronics_kernel_2d`, pushed by `readout/stage.py`) · anchored by
+`detector/tests/test_stage_mtf_term.py`, `test_diffusion.py`, `test_ipc.py` (kernel-FFT vs
+analytic cross-checks), `readout/tests/test_electronics_mtf.py`.
 **References.** [Boreman 2001], [Holst 2008].
 
 ---
@@ -239,14 +306,17 @@ full tilt averaging (long exposure). Short-exposure (tilt-removed) imaging needs
 corrected form — not the shipped default.
 
 **Pitfalls.** Quoting $r_0$ at 0.5 µm and using it unscaled in the IR (at 4 µm,
-$r_0$ is 12× larger); 3.44 vs 6.88; gating on platform type instead of $r_0 > 0$ (RADIANT
-gates on the parameter `atmosphere.r0_m`, and the MTF term is written by
-**PerformanceStage**, not AtmosphereStage — the atmosphere stage publishes `r0_m` only).
+$r_0$ is 12× larger); 3.44 vs 6.88; gating on platform type instead of the resolved $r_0 > 0$ (RADIANT
+gates on the Fried parameter the atmosphere chapter's *Optical turbulence* section
+resolves — entered directly or integrated from a $C_n^2$ profile — and the MTF term is
+written by **PerformanceStage**, not AtmosphereStage — the atmosphere stage publishes
+`r0_m` only).
 
 **Numeric anchors.** $\mathrm{MTF}_{LE} = 0.338398$ at $\lambda f_a/r_0 = 0.5$;
 $r_0 = 0.10$ m @ 0.5 µm → 1.21257 m @ 4 µm.
 
-**In RADIANT.** `atmosphere/turbulence.py::turbulence_mtf` (evaluated via
+**In RADIANT.** `atmosphere/r0_resolution.py` (which $r_0$ the chain uses),
+`atmosphere/turbulence.py::turbulence_mtf` (evaluated via
 `performance/turbulence_mtf_term.py` and `performance/stage.py`),
 `platform/turbulence_kernel.py` (PSF path) · anchored by
 `atmosphere/tests/test_turbulence.py`, `performance/tests/test_turbulence_mtf_term.py`,
@@ -299,18 +369,42 @@ the extended regime.
 scheme carried an $O(dx)$ bias (+24 % at Q=2 at default sampling) that overstated
 point-source SNR.
 
+**Pixel sampling phase (straddle).** The box integral above is the box *centred on the
+image point*. `detector.pixel_phase_mode` selects where the geometric image point sits on
+the pixel grid: `average` (the default) is the expectation over a source placed uniformly
+across one pitch; `centered` puts it on a pixel centre; `worst_case` on a four-pixel
+corner, $\delta = (\tfrac12, \tfrac12)\,p$; `specified` at
+(`detector.pixel_phase_x`, `pixel_phase_y`) in pitches, each in $[-\tfrac12, \tfrac12]$.
+With the photosite rect already convolved into the PSF, the energy a full-pitch box at
+phase $\delta$ collects is that pixel-convolved PSF read at $\delta$,
+
+$$EE(\delta) = \iint \mathrm{PSF}(\mathbf x)\,\mathrm{rect}_p(\mathbf x - \delta)\,d\mathbf x
+= (\mathrm{PSF}\circledast\mathrm{rect}_p)(\delta),$$
+
+and its average over one pitch is the pitch-wide box integral of the pixel-convolved PSF
+(a rect convolved with a rect is a triangle) — which is exactly what the default computes, so the phase
+average is the value the chain has always applied. The platform stage publishes
+$EE_{box}$ at the selected phase, $EE_{box,centered}$ as the reference, and the
+straddle factor $EE_{box}/EE_{box,centered}$ beside them. Offsets are measured from the
+PSF grid centre (the chief-ray image point), never from the degraded PSF's centroid; the
+fill factor is applied downstream, so every value is normalized to the pitch box.
+
 **Pitfalls.** Ensquared ≠ encircled (a square of side $p$ is not a circle of diameter
 $p$ — quoting the 83.8 % first-ring figure for a pixel box is a category error); Airy ring
-tails decay as $1/u^2$, so truncated normalization biases EE.
+tails decay as $1/u^2$, so truncated normalization biases EE; referencing a specified
+phase to the PSF centroid instead of the chief-ray point (a smeared PSF moves its
+centroid, not the pixel grid); applying the straddle factor to the background term, which
+never sees $EE_{box}$.
 
 **Numeric anchor.** Unaberrated Airy at critical sampling ($Q=2$):
 $EE_{1\times1} = 0.177327$ — only ~18 % of a point source's energy lands in the center
 pixel.
 
 **In RADIANT.** `optics/psf/effective.py::EffectivePSF.ensquared_energy` /
-`ensquared_energy_nxn`, wrapped by `optics/ee_box.py` · anchored by
-`optics/tests/test_ee_box.py::test_ee_box_airy_q2_anchor` (abs=1e-3 at default sampling).
-**References.** [Holst 2008].
+`ensquared_energy_nxn` / `pixel_block_energy_at`, `optics/pixel_phase.py::resolve_pixel_phase`,
+wrapped by `optics/ee_box.py` and evaluated in `platform/stage.py::_compute_ee_box` ·
+anchored by `optics/tests/test_ee_box.py::test_ee_box_airy_q2_anchor` (abs=1e-3 at default
+sampling) and `optics/tests/test_pixel_phase.py`. **References.** [Holst 2008].
 
 ---
 

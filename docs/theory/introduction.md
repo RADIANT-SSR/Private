@@ -195,8 +195,9 @@ efficiency in CCDs, and radiation-damage accumulation are outside the current mo
 
 **Spatial.** No geometric distortion, no frame-to-frame registration error, no whiskbroom
 scan-mechanism transfer function, and no short-exposure turbulence branch — turbulence
-enters as the long-exposure Kolmogorov result, and is omitted entirely when no Fried
-parameter is available.
+enters as the long-exposure Kolmogorov result, from a Fried parameter entered directly or
+integrated from a $C_n^2$ profile (Chapter 4), and is omitted entirely when that parameter
+resolves to zero or negligible.
 
 ---
 

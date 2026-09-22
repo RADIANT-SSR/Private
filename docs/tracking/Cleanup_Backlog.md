@@ -72,39 +72,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: workflow-visible (intake test 4) — these are the first scripts a new user runs, and Volume IV chapter 3 reproduces their output verbatim (the NaN column and the drifted prose are now typeset in the manual until fixed).
 **Suggested fix**: (a) inline-fix-now, one small PR (key fix + metric_records() adoption + %% + gitignore + prose from computed values), then refresh Volume IV ch. 3 outputs. Effort S; category A.
 
-### CU-359 — Theory Manual v1.0 coverage gaps: 13 implemented-physics areas with no manual section (family)
-
-**Discovered**: Gap 131 Phase 1 physics-inventory audit (branch `gap131/phase1-theory`), 2026-09-16. Family head (Rule 21 family-CU provision).
-**Status**: Open — owner ruled 2026-09-21: write all 13 as a Volume I docs task (ordered G1, G3, then the section- and paragraph-sized rest; one commit per item; Chapter 1 §4 absence list shrunk to match). Scheduled as the docs batch following the 2026-09-21 dispositions walk-through.
-**File**: `docs/theory/` (Volume I binding, `scripts/build_manual.py` VOLUMES).
-**Symptom**: the Phase 1 audit diffing Volume I against `docs/architecture/RADIANT_Physics_Inventory.md` found 13 implemented computations with no manual section. Checklist:
-
-- [ ] G1 DROIC photon counting (Gap 117 machinery) — counting well, quantization, up/down differential, residue readout, max count rate: no chapter anywhere (largest gap)
-- [ ] G2 Pixel phase / straddle factor (Gap 129) — the four `pixel_phase_mode` sampling phases and the `straddle_factor` metric
-- [ ] G3 Cn²(h) → r₀ path integration (Gap 110) — Hufnagel-Valley and tabulated profile integration
-- [ ] G4 Geometry input modes / scene classes (ADR-0011) — mode manifest and scene classification
-- [ ] G5 Cold-stop efficiency — chapter-level equation (only inside Appendix A today)
-- [ ] G6 Electronics MTF (`readout.electronics_sigma_um`)
-- [ ] G7 Target-plane sample distance metric (non-Earth target plane)
-- [ ] G8 Stray-light input modes — absolute/fraction modes, halo σ
-- [ ] G9 Defocus (`optics.defocus_um`) pupil-phase term
-- [ ] G10 QE temperature dependence (`qe_temperature_coeff_per_K`)
-- [ ] G11 Lab-test / no-atmosphere subcase (`source.lab_test_mode`)
-- [ ] G12 Scan-feasibility dwell guard (`max_integration_time_s`)
-- [ ] G13 Surface-scatter halo (`optics/scatter.py`, `surface_roughness_nm`)
-
-**Why it still matters**: owner-gated (intake test 2) — the shipped Theory Manual's completeness claim is an owner call; G1/G3 are chapters' worth of implemented physics invisible to a manual reader.
-**Suggested fix**: (b) stand-alone Volume I v1.1 task(s) after Gap 131 Phase 5, ordered G1, G3, then the section-sized rest. Effort M total; category A (docs).
-
-### CU-360 — RADIANT_Physics_Inventory.md is stale: ~19 items marked IN v1 have no implementation and no parameter
-
-**Discovered**: Gap 131 Phase 1 physics-inventory audit (branch `gap131/phase1-theory`), 2026-09-16.
-**Status**: Open — owner ruled 2026-09-21: re-triage pass stamping every phantom item DEFERRED (dated, with a pointer to its gap entry where one exists) and moving the header out of draft; OUT rulings stay the owner's for a later review. Folded into the CU-359 Volume I docs batch.
-**File**: `docs/architecture/RADIANT_Physics_Inventory.md` (Version 0.1, 2026-04-06, "Draft — Pending Scope Triage Review").
-**Symptom**: items S6, S10, A10, O15, O16, D15, D20, D21, D25, D26, R16, SP8, SP13, SC4, SC12 (plus stubs D24/SP16/R17/R15) carry ✅ IN v1 with nothing behind them (verified against the 218-parameter schema sweep). Any audit that diffs against the inventory re-derives this drift.
-**Why it still matters**: owner-gated (intake test 2) — it is the scope-of-record document; audits and manuals key off it (the Phase 1 audit had to fork "manual gap" from "inventory drift" by hand).
-**Suggested fix**: (b) stand-alone re-triage pass stamping each phantom item OUT/DEFERRED with a date, or a fresh triage review; effort S-M; category A.
-
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).
@@ -149,6 +116,41 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-359 — Theory Manual v1.0 coverage gaps: 13 implemented-physics areas with no manual section (family) — RESOLVED 2026-09-21 (commit trailer)
+
+**Discovered**: Gap 131 Phase 1 physics-inventory audit (branch `gap131/phase1-theory`), 2026-09-16. Family head (Rule 21 family-CU provision).
+**Status**: Resolved 2026-09-21 — owner ruled 2026-09-21: write all 13 as a Volume I docs task (ordered G1, G3, then the section- and paragraph-sized rest; one commit per item; Chapter 1 §4 absence list shrunk to match). Scheduled as the docs batch following the 2026-09-21 dispositions walk-through.
+**File**: `docs/theory/` (Volume I binding, `scripts/build_manual.py` VOLUMES).
+**Symptom**: the Phase 1 audit diffing Volume I against `docs/architecture/RADIANT_Physics_Inventory.md` found 13 implemented computations with no manual section. Checklist:
+
+- [x] G1 DROIC photon counting (Gap 117 machinery) — counting well, quantization, up/down differential, residue readout, max count rate: no chapter anywhere (largest gap)
+- [x] G2 Pixel phase / straddle factor (Gap 129) — the four `pixel_phase_mode` sampling phases and the `straddle_factor` metric
+- [x] G3 Cn²(h) → r₀ path integration (Gap 110) — Hufnagel-Valley and tabulated profile integration
+- [x] G4 Geometry input modes / scene classes (ADR-0011) — mode manifest and scene classification
+- [x] G5 Cold-stop efficiency — chapter-level equation (only inside Appendix A today)
+- [x] G6 Electronics MTF (`readout.electronics_sigma_um`)
+- [x] G7 Target-plane sample distance metric (non-Earth target plane)
+- [x] G8 Stray-light input modes — absolute/fraction modes, halo σ
+- [x] G9 Defocus (`optics.defocus_um`) pupil-phase term
+- [x] G10 QE temperature dependence (`qe_temperature_coeff_per_K`)
+- [x] G11 Lab-test / no-atmosphere subcase (`source.lab_test_mode`)
+- [x] G12 Scan-feasibility dwell guard (`max_integration_time_s`)
+- [x] G13 Surface-scatter halo (`optics/scatter.py`, `surface_roughness_nm`)
+
+**Why it still matters**: owner-gated (intake test 2) — the shipped Theory Manual's completeness claim is an owner call; G1/G3 are chapters' worth of implemented physics invisible to a manual reader.
+**Suggested fix**: (b) stand-alone Volume I v1.1 task(s) after Gap 131 Phase 5, ordered G1, G3, then the section-sized rest. Effort M total; category A (docs).
+**Resolution**: all 13 written as Volume I sections from the code they describe, one commit each (branch `cu359/theory-coverage`): G1 noise chapter *Digital-pixel counting readout*; G3 atmosphere chapter §4 *Optical turbulence — Cn² to r₀*; G2 spatial §9 pixel-phase paragraph; G4 geometry §10 *Input modes and scene classes*; G5 radiometric chain *The effective pupil* (the cold-stop efficiency of the audit no longer exists — Gap 128 replaced it with the undersized aperture stop, which is what is documented); G6 spatial §5 electronics; G7 geometry §9 target-plane sample distance; G8 noise chapter *Stray light* + the veiling-glare halo in spatial §3; G9 spatial §4 defocus (which surfaced CU-379); G10 radiometric chain QE(T); G11 atmosphere §5 *The no-atmosphere sub-cases*; G12 geometry §6 dwell guard; G13 spatial §3 surface scatter. Chapter 1 §4's turbulence line updated; six references added.
+
+### CU-360 — RADIANT_Physics_Inventory.md is stale: ~19 items marked IN v1 have no implementation and no parameter — RESOLVED 2026-09-21 (commit trailer)
+
+**Discovered**: Gap 131 Phase 1 physics-inventory audit (branch `gap131/phase1-theory`), 2026-09-16.
+**Status**: Resolved 2026-09-21 — owner ruled 2026-09-21: re-triage pass stamping every phantom item DEFERRED (dated, with a pointer to its gap entry where one exists) and moving the header out of draft; OUT rulings stay the owner's for a later review. Folded into the CU-359 Volume I docs batch.
+**File**: `docs/architecture/RADIANT_Physics_Inventory.md` (Version 0.1, 2026-04-06, "Draft — Pending Scope Triage Review").
+**Symptom**: items S6, S10, A10, O15, O16, D15, D20, D21, D25, D26, R16, SP8, SP13, SC4, SC12 (plus stubs D24/SP16/R17/R15) carry ✅ IN v1 with nothing behind them (verified against the 218-parameter schema sweep). Any audit that diffs against the inventory re-derives this drift.
+**Why it still matters**: owner-gated (intake test 2) — it is the scope-of-record document; audits and manuals key off it (the Phase 1 audit had to fork "manual gap" from "inventory drift" by hand).
+**Suggested fix**: (b) stand-alone re-triage pass stamping each phantom item OUT/DEFERRED with a date, or a fresh triage review; effort S-M; category A.
+**Resolution**: the 15 ✅ IN and 4 🔶 STUBBED items with nothing behind them are stamped ❌ DEFERRED with the re-triage date (A10/SC12 → Gap 82, O16 → Gap 130, SC4 → Gap 125); the header is Version 0.2, out of draft, and says OUT rulings stay the owner's. The summary table is recounted from the rows (75 IN / 2 STUBBED / 49 DEFERRED of 126 — the old 82/8/26 = 116 table had drifted from its own rows before this pass).
 
 ### CU-369 — Geometry schematic: up-looking / level compositions anchor the target BODY BASE as the path endpoint while the vectors land on its top — RESOLVED 2026-09-21 (commit trailer)
 

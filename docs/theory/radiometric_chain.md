@@ -730,6 +730,49 @@ by the optics stage (`optics/aperture.py`) as `Omega_pixel`.
 
 ---
 
+### The effective pupil — the cold stop as the aperture stop
+
+**Equation.** In a cooled instrument the cold stop *is* the system aperture stop, built
+slightly smaller than the geometric primary so that alignment and thermal tolerances can
+never let the focal plane see past it to warm structure. That one fact has one modelling
+consequence: the pupil the system works with is the cold stop's, and everything derived
+from the pupil uses it —
+
+$$D_{eff} = (1-u)\,D,\qquad \epsilon_{eff} = \max(\epsilon,\ \epsilon_{cs}),\qquad
+N_{eff} = \frac{f}{D_{eff}} = \frac{N}{1-u},\qquad
+A_{collect} = \frac{\pi}{4}D_{eff}^2\,(1-\epsilon_{eff}^2),$$
+
+with $u$ = `optics.cold_stop_undersize_frac` (the fractional reduction of the pupil
+*diameter*), $\epsilon_{cs}$ = `optics.cold_stop_obscuration_ratio` (what the cold shield
+itself blocks, governing only when it exceeds the telescope's own obscuration), and
+`optics.f_number` always the primary's — $N_{eff}$ is derived, never entered. The
+collecting area (signal), the working f/# (pixel étendue), the complex pupil (diffraction
+PSF *and* MTF — one pupil, both spatial paths), the sampling ratio $Q$, the defocus fold,
+and the near-field acceptance cone $\Omega_{cone} = 2\pi(1-\cos\theta)$,
+$\theta = \arctan[1/(2N_{eff})]$ (Appendix A) all read the effective pupil, so signal
+and warm-optics background scale together as they physically do. There is no cold-stop
+*efficiency*: in-cone emission arrives through the imaging path and cannot be blocked,
+out-of-cone warm structure is blocked completely, and undersizing is not a way to buy a
+darker background for free.
+
+**Assumptions & validity.** A cold stop that undersizes by more than half the diameter
+($u \ge 0.5$) is no longer describing tolerancing margin and is refused; at the defaults
+($u = 0$, $\epsilon_{cs} = 0$) the effective pupil is the primary pupil bit-for-bit.
+
+**Pitfalls.** Entering the working f/# as `optics.f_number` (it is the primary's; the
+working value is a published output); scaling the signal by $(1-u)^2$ but leaving the
+PSF, $Q$ or $\Omega_{cone}$ on the primary; a per-element near-field solid angle instead
+of the one étendue cone.
+
+**Numeric anchor.** $u = 0.05$: $A_{collect}$ falls to $0.95^2 = 90.25$ % of the
+primary's, $N_{eff}$ rises by $1/0.95 = 1.0526$, and $\Omega_{cone}$ at $f/4$ falls from
+0.048520 sr to 0.043838 sr.
+
+**In RADIANT.** `optics/effective_pupil.py::resolve_effective_pupil`,
+`optics/etendue_cone.py::etendue_cone_solid_angle_sr`, consumed once at the top of
+`optics/stage.py` · anchored by `optics/tests/test_effective_pupil.py`,
+`optics/tests/test_stage_pupil_maps.py`. **References.** [Holst 2008].
+
 ### Sub-pixel fill fraction and radiance mixing
 
 **Equation.** When the target's solid angle is smaller than the pixel's:
@@ -822,6 +865,18 @@ $1/E_{\mathrm{ph}} = \lambda_m/hc$ photons per second. Weight by QE per
 photon and integrate across the band. The $10^{-6}$ lives in $\lambda_m$:
 $\lambda$ in µm must be converted to meters so $\lambda_m/(hc)$ has units
 1/J.
+
+**QE temperature dependence.** The base QE — the scalar `detector.qe_value` or the
+`qe_table_path` curve — is scaled by a linear factor in the detector temperature,
+
+$$\mathrm{QE}(\lambda, T) = \mathrm{QE}_{base}(\lambda)\,\bigl[1 + c\,(T_{det} - T_{ref})\bigr],$$
+
+$c$ = `detector.qe_temperature_coeff_per_K` (default 0: temperature-independent), $T_{ref}$
+= `detector.qe_temperature_ref_K`. The product is clamped to $[0, 1]$ with a warning when
+the factor pushes it out of range — never silently. Physics note: a linear coefficient is
+the small-excursion form of the cutoff-wavelength shift of a narrow-gap material; a
+20 K excursion at $c = -0.002$ K⁻¹ is a 4 % change, and beyond a few tens of kelvin the
+curve, not the coefficient, is the right input.
 
 **Assumptions & validity.** One photoelectron per detected photon, weighted
 by QE (no avalanche gain — gain is a separate downstream stage). $\lambda/hc$

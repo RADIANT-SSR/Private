@@ -173,14 +173,31 @@ ground meters compared to focal-plane microns without $f/R_s$; conflating $t_{in
 $t_{line}$ in TDI ($t_{int} = N\,t_{line}$; the matching condition constrains
 $t_{line}$).
 
+**Dwell-time feasibility guard.** The full scan subsystem (line-rate derivation,
+cross-track and target-motion smear) is not implemented; what is implemented is the one
+guard whose absence would let an unphysical TDI timing report an authoritative SNR. The
+ground advances one along-track sample in the dwell time, and each TDI stage must
+integrate within it:
+
+$$t_{dwell} = \frac{\mathrm{GSD}_{along}}{v_g},\qquad t_{int} \le t_{dwell},\qquad
+\text{smear} = \frac{t_{int}}{t_{dwell}}\ \text{[pixels]}.$$
+
+The chain publishes `max_integration_time_s` ($= t_{dwell}$), `smear_pixels` and a
+`feasible` flag; a longer integration smears the target across more than one pixel per
+stage and breaks TDI registration.
+
 **Numeric anchor.** $h = 500$ km, $p = 10$ µm, $f = 2$ m, $t_{int} = 1$ ms:
 $d_{img} \approx 2.8$ pixels — uncompensated millisecond integration is not viable; the
-matched line time is ~354 µs.
+matched line time is ~354 µs, which is also the guard's `max_integration_time_s`
+(2.5 m / 7.06 km/s), so the same configuration reports `smear_pixels` ≈ 2.8 and
+`feasible = False`.
 
 **In RADIANT.** `platform/smear.py` (smear length from
 `platform.ground_velocity_m_s`/`smear_length_um`), consistency group
-`_GROUND_SPEED_GROUP` ties `ground_velocity_m_s` to the orbit value · anchored by
-`platform/tests/test_smear.py`, `test_sampling.py`. **References.** [Holst 2008].
+`_GROUND_SPEED_GROUP` ties `ground_velocity_m_s` to the orbit value;
+`performance/scan_feasibility.py::scan_feasibility` (the dwell guard) · anchored by
+`platform/tests/test_smear.py`, `test_sampling.py`,
+`performance/tests/test_scan_feasibility.py`. **References.** [Holst 2008].
 
 ---
 
@@ -236,3 +253,85 @@ above). The optics-vs-sampling
 budget ($Q = \lambda F_\#/p$, aliasing, folded MTF) lives in the spatial chapter's
 *Sampling: Nyquist, Q, and folded MTF*; the geometry chapter's contribution is the GSD
 that scales it to the ground.
+
+**Target-plane sample distance.** An air or space target has no ground plane to project
+onto. The reference there is the plane through the target *normal to the line of sight*,
+and the sample distance in it is the pixel's angular subtense at the slant range:
+
+$$d_x = \frac{p_x R_s}{f},\qquad d_y = \frac{p_y R_s}{f},\qquad d = \sqrt{d_x d_y}$$
+
+— GSD without the $1/\cos$ projection (the chord/arc distinction is below any modelling
+fidelity: $\tan(\mathrm{IFOV})/\mathrm{IFOV} - 1 < 3\times10^{-7}$ for IFOV ≲ 1 mrad).
+There is deliberately no target-orientation term: the metric answers how far apart two
+adjacent samples are *where the target is*, an optics-and-range question with one answer,
+not how much of the target's skin a pixel covers, which needs an attitude the framework
+does not carry. The geometric mean is defined the way GIQE-5 averages GSD, so the two
+families are directly comparable and meet at zero incidence when a target crosses the
+air/ground scene-class boundary. **Numeric anchor.** $p = 10$ µm, $f = 2$ m,
+$R_s = 500$ km: 2.5 m per axis. **In RADIANT.**
+`performance/target_plane_sample_distance.py::target_plane_sample_distance` · anchored by
+`performance/tests/test_target_plane_sample_distance.py`.
+
+---
+
+## 10. Input modes and scene classes
+
+**Input modes.** The scene is expressed in exactly one mode per family, and the mode is
+detected by *provenance*: a parameter left at its default was not provided, so there is
+no mode switch to set. The **viewing** family resolves to $\theta_o$: V0 direct range
+(`geometry.target_range_m`; on a level path with no angle entered the range is the chord
+that builds the triangle, $\varphi = 2\arcsin(d/2r)$, $\theta_o = \pi/2 + \varphi/2$),
+V1 path zenith at the lower endpoint (`path_zenith_rad`), V2 off-boresight angle at the
+sensor (`sensor_off_boresight_rad`, its reference axis nadir when the sensor is the upper
+endpoint and zenith when it is the lower one), V3 ground range (`ground_range_m`,
+direction-free: the surface arc fixes $\Lambda = \text{arc}/R$ whichever endpoint is
+higher), V4 elevation above the horizontal at the lower endpoint (`elevation_angle_rad`,
+signed: $\zeta_{low} = \pi/2 - \varepsilon$), and V6 circular orbit (ground speed and
+period from the sensor altitude). Every entered viewing angle is referenced to the path's
+**lower** endpoint — exactly what it always meant when the sensor was above the target;
+when the sensor is the lower endpoint, $\theta_o = \pi - \zeta_{up}$ is derived and the
+published mode label says so. The **solar** family resolves to $\theta_s, \Delta\phi$:
+S0 night (thermal-only), S1 direct zenith, S2 elevation, S3 site and time (latitude, day
+of year, local solar time or LTAN → declination and hour angle). The **LOS-rate** family
+resolves to $\omega$: K0 platform-only $\omega = v_g/R_s$ (the default), K1 direct rate,
+K2 target velocity $\omega = |\mathbf v_{rel,\perp}|/R_s$ with
+$\mathbf v_{rel} = \mathbf v_{target} - \mathbf v_{sensor}$.
+
+**Resolution rules.** Redundant entries for one canonical quantity must agree within 1 %
+(1 µrad absolute floor for angles) or the stage raises, naming every entry and the value
+it implies; every derived quantity is published with its mode label; no entries at all
+gives the documented defaults (nadir view, 0.5 rad solar zenith by day) — never a silent
+NaN.
+
+**LOS direction and scene class.** Up, down or level follows from the two altitudes and
+$\theta_o$ — never a user switch. The canonical $\theta_o$ lives on $[0, \pi)$:
+below $\pi/2$ the sensor is above the target's horizon plane (every classic scene), above
+it the sensor is below — the same Earth-centre / target / sensor triangle read from the
+other vertex. The scene class is the observer × target band: **ground** ($h < 1$ km),
+**air** ($1 \le h \le 100$ km) and **space** ($h > 100$ km, the atmosphere-top
+convention), both boundaries closed from below. Physics never branches on the class — a
+scene at 999 m and one at 1001 m compute identically — it drives defaults, metric
+relevance, validation and the GUI composition only. `geometry.scene_class` is an optional
+assertion cross-checked against the derivation: what it catches is a wrong-magnitude
+altitude (600 m typed for 600 km), which pure derivation would render as a self-consistent
+scene of the wrong class. The **horizon guard** refuses $|\theta_o - \pi/2| < 0.5°$
+(refraction, unmodelled, dominates there) and computes between 0.5° and ~2° with a warning.
+`geometry.site_elevation_m` is a *third* altitude — the terrain under the line of sight —
+not an input mode; the Hufnagel-Valley surface term (atmosphere chapter) is its consumer,
+and the terrain-bearing endpoint must sit at or above it.
+
+**Pitfalls.** Entering the sensor's own zenith as V1 for an up-looking scene and expecting
+it to be $\theta_o$ (V1 is the lower endpoint's zenith, so it *is* the sensor's there and
+$\theta_o = \pi - \zeta$ follows); ground range typed where slant range was meant; two
+doors set, one of them stale, which the 1 % rule reports rather than resolves.
+
+**Numeric anchors.** V4 with $\varepsilon = -10°$ at the lower endpoint:
+$\zeta_{low} = 100°$. A level chord $d = 200$ km at $r = R + 5$ km:
+$\varphi = 2\arcsin(100/6376) = 1.7973°$, $\theta_o = 90.8987°$.
+
+**In RADIANT.** `geometry/modes.py` (`resolve_viewing`, `resolve_solar`,
+`resolve_kinematics`, `resolve_los_rate`, `viewing_direction`),
+`geometry/scene_class.py`, `geometry/mode_manifest.py`, `core/viewing_triangle.py`
+(symmetric solutions) · anchored by `geometry/tests/test_modes.py`,
+`test_scene_class.py`, `test_mode_manifest.py`, `test_mode_guard.py`.
+**References.** [Wertz & Larson 1999].

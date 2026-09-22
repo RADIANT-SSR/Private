@@ -20,7 +20,12 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+- **Scenario 2.7 (up/down counting) is now scenario 2.9.** The shipped suite carried
+  two folders numbered 2.7; `2.7_updown_background_subtraction` is renamed
+  `2.9_updown_background_subtraction` (2.8 was already the FPA part library) and
+  every index, digest and heading follows. `2.7_calibration_limited_nedt` keeps
+  its number. Paths only; no computed result changes (CU-362).
 
 ## [0.2.0] - 2026-09-21
 

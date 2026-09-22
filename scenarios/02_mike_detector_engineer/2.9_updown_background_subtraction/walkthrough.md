@@ -1,4 +1,4 @@
-# Scenario 2.7 Walkthrough: Up/Down Counting — In-Pixel Background Subtraction
+# Scenario 2.9 Walkthrough: Up/Down Counting — In-Pixel Background Subtraction
 
 ## Persona
 Mike, detector engineer. His DROIC vendor's part supports an up/down mode:
@@ -62,7 +62,7 @@ the background pedestal grows from ~15.9 Me- (250 K) to ~88.9 Me- (330 K).
 ## Reproduce
 
 ```bash
-cd scenarios/02_mike_detector_engineer/2.7_updown_background_subtraction/scripts
+cd scenarios/02_mike_detector_engineer/2.9_updown_background_subtraction/scripts
 python run_updown_trade.py
 ```
 

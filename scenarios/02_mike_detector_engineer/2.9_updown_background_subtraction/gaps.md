@@ -1,4 +1,4 @@
-# Scenario 2.7 Gaps: Up/Down Counting — Background Subtraction Trade
+# Scenario 2.9 Gaps: Up/Down Counting — Background Subtraction Trade
 
 ## Summary
 The up/down mode moves the saturation wall from the pedestal to the

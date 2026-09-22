@@ -1,4 +1,4 @@
-# Outputs Manifest — Scenario 2.7
+# Outputs Manifest — Scenario 2.9
 
 | File | Generator | Input |
 |---|---|---|

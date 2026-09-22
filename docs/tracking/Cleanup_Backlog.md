@@ -99,7 +99,7 @@ by name in check 8 — that list is frozen and must never grow.
 ### CU-360 — RADIANT_Physics_Inventory.md is stale: ~19 items marked IN v1 have no implementation and no parameter
 
 **Discovered**: Gap 131 Phase 1 physics-inventory audit (branch `gap131/phase1-theory`), 2026-09-16.
-**Status**: Open — owner-gated: re-triage or re-status the inventory.
+**Status**: Open — owner ruled 2026-09-21: re-triage pass stamping every phantom item DEFERRED (dated, with a pointer to its gap entry where one exists) and moving the header out of draft; OUT rulings stay the owner's for a later review. Folded into the CU-359 Volume I docs batch.
 **File**: `docs/architecture/RADIANT_Physics_Inventory.md` (Version 0.1, 2026-04-06, "Draft — Pending Scope Triage Review").
 **Symptom**: items S6, S10, A10, O15, O16, D15, D20, D21, D25, D26, R16, SP8, SP13, SC4, SC12 (plus stubs D24/SP16/R17/R15) carry ✅ IN v1 with nothing behind them (verified against the 218-parameter schema sweep). Any audit that diffs against the inventory re-derives this drift.
 **Why it still matters**: owner-gated (intake test 2) — it is the scope-of-record document; audits and manuals key off it (the Phase 1 audit had to fork "manual gap" from "inventory drift" by hand).

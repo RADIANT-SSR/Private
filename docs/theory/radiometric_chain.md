@@ -766,7 +766,7 @@ of the one étendue cone.
 
 **Numeric anchor.** $u = 0.05$: $A_{collect}$ falls to $0.95^2 = 90.25$ % of the
 primary's, $N_{eff}$ rises by $1/0.95 = 1.0526$, and $\Omega_{cone}$ at $f/4$ falls from
-0.048893 sr to 0.044188 sr.
+0.048520 sr to 0.043838 sr.
 
 **In RADIANT.** `optics/effective_pupil.py::resolve_effective_pupil`,
 `optics/etendue_cone.py::etendue_cone_solid_angle_sr`, consumed once at the top of

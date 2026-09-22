@@ -48,6 +48,7 @@ from radiant.gui.viewer.projection import (  # noqa: E402
 )
 from radiant.gui.viewer.scene import palette  # noqa: E402
 from radiant.gui.viewer.schematic_view import (  # noqa: E402
+    _BODY_GROUND_CLEARANCE,
     _ELEVATED_ENDPOINT_Z,
     _GROUND_ENDPOINT_Z,
     _SENSOR_DIST,
@@ -304,12 +305,12 @@ class TestSceneBuild:
 
     def test_glyphs_sit_at_fixed_abstract_distance(self) -> None:
         scene = build_scene(self._state(target_shape="sphere"))
-        # Radii are measured from the target's top — the vertex the vectors land on and the
-        # arcs are drawn about (CU-368) — not from the scene origin.
-        assert np.linalg.norm(scene.sun_pos - scene.target_top) == pytest.approx(
+        # Radii are measured from the target's body centre — the vertex the vectors land on
+        # and the arcs are drawn about (CU-368 moved it off the origin, CU-369 off the top).
+        assert np.linalg.norm(scene.sun_pos - scene.target_center) == pytest.approx(
             _SUN_DIST, abs=1e-9
         )
-        assert np.linalg.norm(scene.sensor_pos - scene.target_top) == pytest.approx(
+        assert np.linalg.norm(scene.sensor_pos - scene.target_center) == pytest.approx(
             _SENSOR_DIST, abs=1e-9
         )
 
@@ -1226,12 +1227,17 @@ class TestDownLookingRegression:
     two genuinely differ (``space_to_ground_down``, θ_o = 25° at 705 km) is asserted in
     :class:`TestDownLookingGlyphRay`, which is where the reset actually bites.
 
-    **CU-368 reset (2026-09-17).** The sun and sensor glyphs are now placed from the
-    target's TOP (``target_top`` — where the vectors land and every target-anchored arc has
-    its apex) instead of the scene origin. The default state's sphere body is 2.0 abstract
-    units tall, so both ``*_pos`` pins moved up by exactly ``[0, 0, 2.0]``; every direction
-    and every other field is unchanged. Before the reset the drawn TARGET→SENSOR vector
-    (top of body → glyph) rose 47° above the horizontal for a stage θ_o of 20° (70°).
+    **CU-368 reset (2026-09-17).** The sun and sensor glyphs were placed from the
+    target's TOP (``target_top``) instead of the scene origin. The default state's sphere
+    body is 2.0 abstract units tall, so both ``*_pos`` pins moved up by exactly
+    ``[0, 0, 2.0]``; every direction and every other field is unchanged. Before the reset
+    the drawn TARGET→SENSOR vector (top of body → glyph) rose 47° above the horizontal for
+    a stage θ_o of 20° (70°).
+
+    **CU-369 reset (2026-09-21).** The anchor moved from the body top to the body CENTRE
+    (``target_center`` — where the vectors land and every target-anchored arc has its apex,
+    in every composition). Both ``*_pos`` pins moved down by exactly ``[0, 0, 1.0]`` (half
+    the sphere); ``target_top`` and every direction are unchanged.
     """
 
     def test_default_state_scene_fields_are_pinned(self) -> None:
@@ -1244,10 +1250,10 @@ class TestDownLookingRegression:
             scene.sensor_dir, [0.0, 0.3420201433256687, 0.9396926207859084], atol=1e-15
         )
         assert np.allclose(
-            scene.sun_pos, [0.5366396101273692, 2.524690867743999, 5.686184199300463], atol=1e-15
+            scene.sun_pos, [0.5366396101273692, 2.524690867743999, 4.686184199300463], atol=1e-15
         )
         assert np.allclose(
-            scene.sensor_pos, [0.0, 1.1970705016398404, 5.2889241727506793], atol=1e-15
+            scene.sensor_pos, [0.0, 1.1970705016398404, 4.288924172750679], atol=1e-15
         )
         assert np.allclose(scene.target_top, [0.0, 0.0, 2.0], atol=1e-15)
         assert scene.target_z == pytest.approx(0.0, abs=1e-15)
@@ -1332,11 +1338,11 @@ class TestDownLookingGlyphRay:
         assert not np.allclose(scene.eta_dir, scene.theta_o_dir, atol=1e-3)
 
     def test_glyph_lies_on_the_path_zenith_ray(self) -> None:
-        """Geometry-level: the sensor sits θ_o's ray × the fixed radius from the target top."""
+        """Geometry-level: the sensor sits θ_o's ray × the fixed radius from the body centre."""
         _state, scene = self._down_scene()
         assert np.allclose(scene.sensor_dir, scene.theta_o_dir, atol=1e-15)
         assert np.allclose(
-            scene.sensor_pos - scene.target_top, scene.theta_o_dir * _SENSOR_DIST, atol=1e-15
+            scene.sensor_pos - scene.target_center, scene.theta_o_dir * _SENSOR_DIST, atol=1e-15
         )
 
     def test_glyph_is_not_on_the_eta_ray(self) -> None:
@@ -1401,26 +1407,28 @@ class TestAirborneDownLookingAnchor:
         assert scene.airborne is True
         assert scene.los_direction == "down"
         assert scene.target_z == pytest.approx(_TARGET_AIRBORNE_Z, abs=1e-12)
-        # The default body is a sphere, so the top (where the glyphs are placed from) sits
+        # The default body is a sphere, so the centre (where the glyphs are placed from) sits
         # above the lifted base — both are strictly off the ground plane.
-        assert scene.target_top[2] >= scene.target_z > 0.0
+        assert scene.target_center[2] >= scene.target_z > 0.0
 
     def test_drawn_elevation_is_the_stage_complement_of_theta_o(self) -> None:
         """The target→sensor line rises π/2 − θ_o above the target's horizontal."""
         state, scene = self._airborne_scene()
-        d = scene.sensor_pos - scene.target_top
+        d = scene.sensor_pos - scene.target_center
         elevation = math.atan2(float(d[2]), float(math.hypot(d[0], d[1])))
         assert elevation == pytest.approx(math.pi / 2.0 - state.theta_o_rad, abs=1e-12)
         # Discriminator: the old origin anchor gave ~5° here, not 20°.
         assert math.degrees(elevation) == pytest.approx(20.0, abs=1e-9)
 
-    def test_sensor_and_sun_are_placed_from_the_target_top(self) -> None:
-        """Both glyphs sit at their fixed radii down their stage rays from ``target_top``."""
+    def test_sensor_and_sun_are_placed_from_the_body_centre(self) -> None:
+        """Both glyphs sit at their fixed radii down their stage rays from ``target_center``."""
         _state, scene = self._airborne_scene()
         assert np.allclose(
-            scene.sensor_pos - scene.target_top, scene.theta_o_dir * _SENSOR_DIST, atol=1e-15
+            scene.sensor_pos - scene.target_center, scene.theta_o_dir * _SENSOR_DIST, atol=1e-15
         )
-        assert np.allclose(scene.sun_pos - scene.target_top, scene.sun_dir * _SUN_DIST, atol=1e-15)
+        assert np.allclose(
+            scene.sun_pos - scene.target_center, scene.sun_dir * _SUN_DIST, atol=1e-15
+        )
 
     def test_origin_placement_is_excluded(self) -> None:
         """The pre-CU-368 placement (rays from the origin) is now excluded, not tolerated."""
@@ -1437,7 +1445,7 @@ class TestAirborneDownLookingAnchor:
         points = canvas._arc_points(scene, name)  # noqa: SLF001
         assert points
         apex = canvas._arc_apex(scene, name)  # noqa: SLF001
-        assert np.allclose(apex, scene.target_top, atol=1e-15)
+        assert np.allclose(apex, scene.target_center, atol=1e-15)
         far = points[-1] - apex
         far_unit = far / float(np.linalg.norm(far))
         glyph = scene.sensor_pos - apex
@@ -1445,12 +1453,109 @@ class TestAirborneDownLookingAnchor:
         assert np.allclose(far_unit, glyph_unit, atol=1e-9)
 
     def test_ground_target_placement_is_unchanged(self) -> None:
-        """A ground point target's top IS the origin, so CU-250's placement is untouched."""
+        """A ground point target's centre IS the origin, so CU-250's placement is untouched."""
         state, _geo = _case_state_and_geometry("space_to_ground_down", target_shape="none")
         scene = build_scene(state)
         assert scene.airborne is False
-        assert np.allclose(scene.target_top, 0.0, atol=1e-15)
+        assert np.allclose(scene.target_center, 0.0, atol=1e-15)
         assert np.allclose(scene.sensor_pos, scene.theta_o_dir * _SENSOR_DIST, atol=1e-15)
+
+
+class TestBodyCentreAnchor:
+    """CU-369: the vector, the glyph ray and the arcs share the body CENTRE in every
+    composition.
+
+    Up-looking and level scenes used to carry the body *base* up the θ_o ray from the
+    sensor while the SENSOR→TARGET vector landed on the body *top*, so any shaped target
+    drew a viewing angle off by its own abstract height — ~11° for the default sphere at
+    θ_o = 150° (drawn elevation −70.8° against the stage's −60°) — and disagreed with the
+    ζ_low arc label beside it. Every assertion below measures the *drawn* vector.
+    """
+
+    @staticmethod
+    def _up_scene(**overrides: object) -> tuple[ViewerState, SchematicScene]:
+        state, _geo = _case_state_and_geometry("ground_to_air_up", **overrides)
+        return state, build_scene(state)
+
+    def test_the_fixture_has_a_body_with_height(self) -> None:
+        """Guard: a point target never showed the defect, so the case must be shaped."""
+        _state, scene = self._up_scene()
+        assert scene.is_point is False
+        assert scene.target_top[2] - scene.target_z == pytest.approx(2.0, abs=1e-12)
+
+    def test_drawn_vector_rises_at_the_stage_theta_o_complement(self) -> None:
+        """SENSOR→TARGET rises at exactly θ_o − π/2 above the sensor's horizontal (the glyph
+        rides the θ_o ray from the centre, so the drawn line IS that ray)."""
+        state, scene = self._up_scene()
+        d = scene.target_center - scene.sensor_pos
+        elevation = math.atan2(float(d[2]), float(math.hypot(d[0], d[1])))
+        assert elevation == pytest.approx(state.theta_o_rad - math.pi / 2.0, abs=1e-12)
+        assert math.degrees(elevation) == pytest.approx(60.0, abs=1e-9)
+
+    def test_top_landing_is_excluded(self) -> None:
+        """The pre-CU-369 vector (sensor → body top) was ~11° steeper; it no longer is."""
+        _state, scene = self._up_scene()
+        d = scene.target_top - scene.sensor_pos
+        elevation = math.degrees(math.atan2(float(d[2]), float(math.hypot(d[0], d[1]))))
+        assert elevation > 60.0 + 5.0  # the old drawing — still wrong, and not what is drawn
+
+    def test_glyphs_are_placed_from_the_body_centre(self) -> None:
+        _state, scene = self._up_scene()
+        assert np.allclose(
+            scene.sensor_pos - scene.target_center, scene.theta_o_dir * _SENSOR_DIST, atol=1e-15
+        )
+        assert np.allclose(
+            scene.sun_pos - scene.target_center, scene.sun_dir * _SUN_DIST, atol=1e-15
+        )
+
+    def test_sensor_still_sits_on_the_ground_plane(self) -> None:
+        """Carrying the centre (not the base) up the ray does not move the ground observer."""
+        _state, scene = self._up_scene()
+        assert scene.sensor_pos[2] == pytest.approx(_GROUND_ENDPOINT_Z, abs=1e-12)
+        assert scene.target_z > _BODY_GROUND_CLEARANCE
+
+    def test_target_apex_arcs_land_on_the_drawn_vector(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """θ_o is swept about the body centre and ends on the drawn SENSOR→TARGET line."""
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        _state, scene = self._up_scene()
+        apex = canvas._arc_apex(scene, "path_zenith")  # noqa: SLF001
+        assert np.allclose(apex, scene.target_center, atol=1e-15)
+        points = canvas._arc_points(scene, "path_zenith")  # noqa: SLF001
+        far = points[-1] - apex
+        glyph = scene.sensor_pos - apex
+        assert np.allclose(far / np.linalg.norm(far), glyph / np.linalg.norm(glyph), atol=1e-9)
+
+    def test_lower_zenith_arc_at_the_sensor_agrees_with_the_drawn_vector(self, qtbot) -> None:  # type: ignore[no-untyped-def]
+        """ζ_low is swept at the sensor to its OWN stage ray (§6.3), which differs from the
+        drawn line only by the Earth-centre central angle — a fraction of a degree for a
+        12 km arm, not the ~11° the body height used to add."""
+        canvas = SchematicView()
+        qtbot.addWidget(canvas)
+        state, scene = self._up_scene()
+        points = canvas._arc_points(scene, "lower_zenith")  # noqa: SLF001
+        far = points[-1] - scene.sensor_pos
+        drawn = scene.target_center - scene.sensor_pos
+        cos = float(far @ drawn) / float(np.linalg.norm(far) * np.linalg.norm(drawn))
+        gap_deg = math.degrees(math.acos(min(1.0, cos)))
+        # ζ_low = π − η at the sensor vs π − θ_o along the drawn ray: they differ by θ_o − η.
+        central_deg = math.degrees(abs(state.theta_o_rad - state.observer_look_angle_rad))
+        assert gap_deg == pytest.approx(central_deg, abs=1e-6)
+        assert gap_deg < 0.5
+
+    @pytest.mark.parametrize("shape", ["sphere", "cylinder", "cone", "box", "flat_plate"])
+    def test_every_shape_draws_the_same_angle(self, shape: str) -> None:
+        """Not-to-scale bodies of any height draw the one stage angle."""
+        _state, scene = self._up_scene(target_shape=shape)
+        d = scene.target_center - scene.sensor_pos
+        elevation = math.degrees(math.atan2(float(d[2]), float(math.hypot(d[0], d[1]))))
+        assert elevation == pytest.approx(60.0, abs=1e-9)
+
+    def test_point_target_is_unchanged(self) -> None:
+        """A point target's centre, top and base coincide: the exact case stays exact."""
+        _state, scene = self._up_scene(target_shape="none")
+        assert np.allclose(scene.target_center, scene.target_top, atol=1e-15)
+        assert scene.target_center[2] == pytest.approx(scene.target_z, abs=1e-15)
 
 
 class TestUpLookingComposition:
@@ -1491,8 +1596,7 @@ class TestUpLookingComposition:
         far, _geo2 = _case_state_and_geometry("ground_to_space_up")  # 400 km
         for state in (near, far):
             scene = build_scene(state)
-            anchor = np.array([0.0, 0.0, scene.target_z])
-            assert float(np.linalg.norm(scene.sensor_pos - anchor)) == pytest.approx(
+            assert float(np.linalg.norm(scene.sensor_pos - scene.target_center)) == pytest.approx(
                 _SENSOR_DIST, abs=1e-9
             )
 
@@ -1551,21 +1655,34 @@ class TestLevelComposition:
     """Level arms: both endpoints lifted to one abstract height, LOS drawn horizontal."""
 
     def test_both_endpoints_share_the_elevated_height(self) -> None:
-        state, _geo = _case_state_and_geometry("air_to_air_level")
+        """A point target (no body to clear the grid) pins the composition's own height."""
+        state, _geo = _case_state_and_geometry("air_to_air_level", target_shape="none")
         scene = build_scene(state)
         assert scene.sensor_pos[2] == pytest.approx(_ELEVATED_ENDPOINT_Z, abs=1e-12)
         # The target rides the true θ_o ray, so it clears the sensor by the arm's own
         # (sub-degree) tilt — the horizon guard admits at most ±2° off horizontal.
         drop = _SENSOR_DIST * math.sin(math.radians(2.0))
-        assert scene.target_z == pytest.approx(_ELEVATED_ENDPOINT_Z, abs=drop)
-        assert scene.target_z > scene.sensor_pos[2]
+        assert scene.target_center[2] == pytest.approx(_ELEVATED_ENDPOINT_Z, abs=drop)
+        assert scene.target_center[2] > scene.sensor_pos[2]
+
+    def test_a_tall_body_lifts_both_endpoints_together(self) -> None:
+        """CU-369: the default sphere (2 units tall) would hang in the grid at the fixed
+        height; both endpoints rise by the same shortfall and the arm keeps its tilt."""
+        point, _geo = _case_state_and_geometry("air_to_air_level", target_shape="none")
+        sphere, _geo2 = _case_state_and_geometry("air_to_air_level")
+        p, s = build_scene(point), build_scene(sphere)
+        lift = s.sensor_pos[2] - p.sensor_pos[2]
+        assert lift > 0.0
+        assert s.target_z == pytest.approx(_BODY_GROUND_CLEARANCE, abs=1e-12)
+        assert s.target_center[2] - p.target_center[2] == pytest.approx(lift, abs=1e-12)
+        assert np.allclose(s.sensor_pos - s.target_center, p.sensor_pos - p.target_center)
 
     def test_los_is_horizontal_within_the_guard_band(self) -> None:
         state, _geo = _case_state_and_geometry("air_to_air_level")
         scene = build_scene(state)
-        # Measure the LOS between the two endpoint anchors (the target's body height is not
-        # part of the path).
-        los = np.array([0.0, 0.0, scene.target_z]) - scene.sensor_pos
+        # Measure the LOS between the two endpoint vertices (the sensor glyph and the body
+        # centre the vector lands on).
+        los = scene.target_center - scene.sensor_pos
         elevation_deg = math.degrees(math.asin(los[2] / float(np.linalg.norm(los))))
         assert abs(elevation_deg) < 2.0
 
@@ -1667,7 +1784,7 @@ class TestGeneralizedAnnotations:
         assert np.allclose(canvas._arc_apex(up_scene, "lower_zenith"), up_scene.sensor_pos)  # noqa: SLF001
         down_state, _g2 = _case_state_and_geometry("space_to_ground_down")
         down_scene = build_scene(down_state)
-        assert np.allclose(canvas._arc_apex(down_scene, "lower_zenith"), down_scene.target_top)  # noqa: SLF001
+        assert np.allclose(canvas._arc_apex(down_scene, "lower_zenith"), down_scene.target_center)  # noqa: SLF001
 
     def test_arc_labels_pin_the_stage_value_in_degrees(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         canvas = SchematicView()

@@ -112,9 +112,39 @@ cutoff; treating the annular-pupil MTF as clear-MTF × scalar (the true ratio cr
 **Numeric anchor.** $\mathrm{MTF}(0.5\nu_c) = \frac{2}{\pi}\left(\frac{\pi}{3} - \frac{\sqrt3}{4}\right) = 0.391002$;
 $\nu_c = 62.5$ cy/mm at $\lambda = 4$ µm, $F_\# = 4$.
 
-**In RADIANT.** `optics/pupil_mtf.py::pupil_autocorrelation_mtf_1d` (and `_2d`) · anchored
-by `optics/tests/test_pupil_mtf.py` (analytic circular form) and the dual-path tests
-`tests/integration/test_dual_path_mtf.py`. **References.** [Goodman 2005], [O'Neill 1956].
+**Halo terms outside the pupil.** Two optical degradations are not pupil phenomena and
+enter as kernel / MTF pairs beside the pupil term, each an exact Fourier pair on the two
+paths. **Surface scatter.** Micro-roughness scatters a fraction of the specular beam into a
+wide halo; in the smooth-surface (Rayleigh–Rice) limit at normal incidence the total
+integrated scatter of the train's effective RMS roughness $\sigma_s$
+(`optics.surface_roughness_nm`, 0 = none) is
+
+$$\mathrm{TIS} = 1 - \exp\!\left[-\left(\frac{4\pi\sigma_s}{\lambda}\right)^2\right]
+\approx \left(\frac{4\pi\sigma_s}{\lambda}\right)^2\ (\sigma_s \ll \lambda),$$
+
+evaluated at the band centre, and the scattered energy lands in an isotropic Gaussian halo
+of focal-plane width $\sigma_h$ (`optics.scatter_halo_sigma_um`):
+$k(r) = (1-\mathrm{TIS})\,\delta(r) + \mathrm{TIS}\,G(r;\sigma_h)$,
+$\mathrm{MTF}(\nu) = (1-\mathrm{TIS}) + \mathrm{TIS}\,e^{-2\pi^2\sigma_h^2\nu^2}$ —
+a contrast floor of $1-\mathrm{TIS}$ at every frequency the halo cannot resolve. A
+warning fires above TIS = 0.3, where the smooth-surface limit degrades; the halo width is
+a model input to tune to a measured halo, not a derived quantity. **Veiling glare.** The
+veiling-glare fraction of the noise chapter's stray-light model is, by default, a
+radiometric pedestal only; with `optics.stray.veiling_glare_mtf` on, the same fraction is
+re-imaged as a Gaussian halo of width `optics.stray.halo_sigma_um` with the identical
+kernel / MTF form — the low-frequency contrast loss a pedestal cannot express. Both halos
+are truncated at the PSF grid edge, so the halo widths must fit the grid for the pairs to
+stay exact.
+
+**Numeric anchors.** $\sigma_s = 20$ nm: TIS = 0.2233 at 0.5 µm but 0.00394 at 4 µm — the
+$\lambda^{-2}$ scaling is why the same polish is a VIS problem and an MWIR non-event.
+
+**In RADIANT.** `optics/pupil_mtf.py::pupil_autocorrelation_mtf_1d` (and `_2d`),
+`optics/scatter.py` (`total_integrated_scatter`, `scatter_mtf_1d`, `scatter_kernel_2d`),
+the veiling-glare halo in `optics/stage.py` · anchored by `optics/tests/test_pupil_mtf.py`
+(analytic circular form), `test_scatter.py`, `test_stray_light.py` and the dual-path tests
+`tests/integration/test_dual_path_mtf.py`. **References.** [Goodman 2005],
+[O'Neill 1956], [Bennett & Porteus 1961], [Stover 2012].
 
 ---
 

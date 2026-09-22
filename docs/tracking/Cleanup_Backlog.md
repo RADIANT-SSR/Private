@@ -47,15 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-366 — Scenario 1.1 walkthrough argues its reflected-sky physics against the wrong hull emissivity
-
-**Discovered**: Gap 131 Phase 4b (branch `gap131/phase4-examples`) case-study adaptation, 2026-09-16.
-**Status**: Open — owner-gated: the walkthrough's published physics interpretation needs an owner-sanctioned correction.
-**File**: `scenarios/01_sarah_systems_engineer/1.1_*/walkthrough.md` (CU-321/CU-324 physics paragraphs).
-**Symptom**: the prose calls the target "the ε = 0.95 hull" / "this ρ = 0.05 hull", but both the runner config and the GUI baseline point `source.target.emissivity_path` at the library `steel` curve — band-averaged ε = 0.266, ρ = 0.734 over 3.5–5.0 µm (ε = 0.95 is the schema's scalar default, unused here). The result tables are from the real run and are correct; the reflected-sky reasoning around them describes a hull ~10× less reflective than the one modelled. Volume IV's maritime case study quotes the run numbers and avoids repeating the mis-attributed argument.
-**Why it still matters**: owner-gated (intake test 2) — a published physics note argued from wrong premises; correcting it changes interpretation text, not numbers.
-**Suggested fix**: (a) inline-fix-now once ruled — rewrite the two paragraphs against the steel curve's ε(λ) (or switch the config to a painted-hull curve and refresh, which IS results-affecting). Effort S; category C either way.
-
 ### CU-365 — Element-config parser silently ignores `emissivity:` (and mismatched transfer keys) instead of rejecting over-specification — RESOLVED 2026-09-20 (commit trailer)
 
 **Discovered**: Gap 131 Phase 3b (branch `gap131/phase3-users-guide`) troubleshooting-chapter verification, 2026-09-16.
@@ -167,6 +158,16 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix**: (b) stand-alone GUI task once ruled — most likely land the vectors and arc apex at the body *centre* in every composition and carry the centre along the ray, so no composition rule moves. Live-review required. Effort S; category A.
 
 ## Resolved
+
+### CU-366 — Scenario 1.1 walkthrough argues its reflected-sky physics against the wrong hull emissivity — RESOLVED 2026-09-21 (commit trailer)
+
+**Discovered**: Gap 131 Phase 4b (branch `gap131/phase4-examples`) case-study adaptation, 2026-09-16.
+**Status**: Resolved 2026-09-21 — owner ruled option (a): prose corrected against the steel curve as modelled; the hull's input choice is unchanged.
+**File**: `scenarios/01_sarah_systems_engineer/1.1_*/walkthrough.md` (CU-321/CU-324 physics paragraphs).
+**Symptom**: the prose calls the target "the ε = 0.95 hull" / "this ρ = 0.05 hull", but both the runner config and the GUI baseline point `source.target.emissivity_path` at the library `steel` curve — band-averaged ε = 0.266, ρ = 0.734 over 3.5–5.0 µm (ε = 0.95 is the schema's scalar default, unused here). The result tables are from the real run and are correct; the reflected-sky reasoning around them describes a hull ~10× less reflective than the one modelled. Volume IV's maritime case study quotes the run numbers and avoids repeating the mis-attributed argument.
+**Why it still matters**: owner-gated (intake test 2) — a published physics note argued from wrong premises; correcting it changes interpretation text, not numbers.
+**Suggested fix**: (a) inline-fix-now once ruled — rewrite the two paragraphs against the steel curve's ε(λ) (or switch the config to a painted-hull curve and refresh, which IS results-affecting). Effort S; category C either way.
+**Resolution**: owner ruled 2026-09-21 for the prose fix. The two walkthrough passages now argue from the library steel curve (band-averaged ε = 0.266, ρ = 0.734 over 3.5–5.0 µm) and say why the reflected-sky term dominates; Volume IV's maritime chapter note is reworded to state the same fact instead of flagging the walkthrough. No numbers changed. The steel-vs-painted-hull input fidelity stays recorded in the scenario's gaps.md.
 
 ### CU-362 — Scenario catalog/index staleness: duplicate scenario number 2.7, README and GUI_EXERCISE_INDEX counts wrong, 09-series unindexed — RESOLVED 2026-09-21 (commit trailer)
 

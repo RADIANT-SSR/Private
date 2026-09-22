@@ -290,14 +290,12 @@ Three findings survive out of the aperture sweep the script runs:
   follow from the same fact: this is a modest target against a bright, isothermal
   background at the edge of being resolved.
 
-One note for anyone reading the scenario's own walkthrough alongside this chapter.
-Its physics discussion describes the hull as "the ε = 0.95 hull" and "this ρ = 0.05
-hull". The config — the scenario's runner and this GUI baseline alike — points
+One fact worth holding onto when reading the atmosphere-column reasoning. The config —
+the scenario's runner and this GUI baseline alike — points
 `source.target.emissivity_path` at the library's `steel` curve, which band-averages to
 **ε = 0.266** over 3.5–5.0 µm, so the hull is ρ = 0.734 and strongly reflective in this
-band. The prose predates the emissivity-path wiring; ε = 0.95 is the schema's scalar
-default, not the value the run resolves. The numbers in the walkthrough's result table
-are from the real run and are unaffected; only that sentence's characterization is.
+band. That is why every change to the modelled downwelling sky moves the SNR: the
+reflected-sky term is the larger of the hull's two signal contributions here.
 
 One caveat carries into the proposal. The detection ranges above come from
 `detection_range_beer_lambert`, which extrapolates the reference-range SNR outward on

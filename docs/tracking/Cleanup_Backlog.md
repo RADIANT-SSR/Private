@@ -47,15 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-379 — Defocus-to-Z4 fold uses δ/(8√3 λ N²): twice the RMS defocus a given detector-plane displacement produces
-
-**Discovered**: CU-359 Volume I coverage task (branch `cu359/theory-coverage`), 2026-09-21, while writing the Theory Manual's defocus paragraph from the code.
-**Status**: Open — owner-gated (results-affecting).
-**File**: `src/radiant/optics/stage.py::_add_defocus_to_wfe` (the consumer table in `docs/architecture/RADIANT_Optics.md` repeats the coefficient).
-**Symptom**: `optics.defocus_um` = δ is folded into the pupil as Z4 = δ / (8√3 λ N²) waves RMS. The wavefront sag of a detector-plane shift δ at working f/# N is W(ρ) = δ ρ² / (8 N²) — the marginal-ray OPD δ(1 − cos u) ≈ δ u²/2 with u = 1/(2N) — so the P-V defocus is δ / (8 N²), the textbook depth-of-focus statement (λ/4 P-V ⇔ δ = 2 λ N²). Noll Z4 carries P-V = 2√3 a₄, hence a₄ = δ / (16√3 λ N²). The code's coefficient is twice this: a configured δ acts as 2δ, and quarter-wave P-V is reached at δ = λ N² instead of 2 λ N². No test pins the coefficient against an independent value — the CU-058 tests check ± symmetry and dual-path agreement only.
-**Why it still matters**: results-affecting (intake test 1) — every run with a non-zero `optics.defocus_um` carries twice the intended defocus OPD, so Strehl, MTF, EE_box and NIIRS all move; the schema default 0 is unaffected, so goldens at default are untouched.
-**Suggested fix**: (a) inline-fix-now once ruled — coefficient 16√3, a Level-0 test pinning λ/4 P-V at δ = 2 λ N² (and the classic Strehl ≈ 0.80 there), the RADIANT_Optics.md table, the Theory Manual paragraph, a re-run of the scenarios that set defocus (5.x optical-designer cases), CHANGELOG **Results-affecting**. Effort S; category C.
-
 ### CU-361 — examples/scripts defects: NaN NEDT column in a shipped example, unitless tables, prose/number drift (family) — RESOLVED 2026-09-20 (commit trailer)
 
 **Discovered**: Gap 131 Phase 4 Parts A+B (branch `gap131/phase4-examples`), 2026-09-16, while running all six examples for Volume IV chapter 3. Family head.
@@ -116,6 +107,16 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-379 — Defocus-to-Z4 fold uses δ/(8√3 λ N²): twice the RMS defocus a given detector-plane displacement produces — RESOLVED 2026-09-21 (commit trailer)
+
+**Discovered**: CU-359 Volume I coverage task (branch `cu359/theory-coverage`), 2026-09-21, while writing the Theory Manual's defocus paragraph from the code.
+**Status**: Resolved 2026-09-21 — owner ruled "yes fix it" 2026-09-21.
+**File**: `src/radiant/optics/stage.py::_add_defocus_to_wfe` (the consumer table in `docs/architecture/RADIANT_Optics.md` repeats the coefficient).
+**Symptom**: `optics.defocus_um` = δ is folded into the pupil as Z4 = δ / (8√3 λ N²) waves RMS. The wavefront sag of a detector-plane shift δ at working f/# N is W(ρ) = δ ρ² / (8 N²) — the marginal-ray OPD δ(1 − cos u) ≈ δ u²/2 with u = 1/(2N) — so the P-V defocus is δ / (8 N²), the textbook depth-of-focus statement (λ/4 P-V ⇔ δ = 2 λ N²). Noll Z4 carries P-V = 2√3 a₄, hence a₄ = δ / (16√3 λ N²). The code's coefficient is twice this: a configured δ acts as 2δ, and quarter-wave P-V is reached at δ = λ N² instead of 2 λ N². No test pins the coefficient against an independent value — the CU-058 tests check ± symmetry and dual-path agreement only.
+**Why it still matters**: results-affecting (intake test 1) — every run with a non-zero `optics.defocus_um` carries twice the intended defocus OPD, so Strehl, MTF, EE_box and NIIRS all move; the schema default 0 is unaffected, so goldens at default are untouched.
+**Suggested fix**: (a) inline-fix-now once ruled — coefficient 16√3, a Level-0 test pinning λ/4 P-V at δ = 2 λ N² (and the classic Strehl ≈ 0.80 there), the RADIANT_Optics.md table, the Theory Manual paragraph, a re-run of the scenarios that set defocus (5.x optical-designer cases), CHANGELOG **Results-affecting**. Effort S; category C.
+**Resolution**: coefficient 8√3 → 16√3 in `_add_defocus_to_wfe`; `optics/tests/test_defocus_fold.py` pins λ/4 P-V at δ = 2λN², the paraxial sag identity, the exact marginal-ray sag to 1.5 %, Maréchal 0.8141, and excludes the old coefficient (6 of 7 fail on pre-fix code). RADIANT_Optics.md table, Theory Manual §5.4 (note removed), CHANGELOG Results-affecting. Scenario 7.3 (the one shipped case with defocus set) re-run: walkthrough, gui_workflow, gaps, Volume IV digest and the GUI baseline refreshed; its residual-explainer verdict softened from "both rejected" to "neither supported" (1 µm electronics blur now moves the RMS by 0.0001).
 
 ### CU-359 — Theory Manual v1.0 coverage gaps: 13 implemented-physics areas with no manual section (family) — RESOLVED 2026-09-21 (commit trailer)
 

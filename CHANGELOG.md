@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Fixed
+- **Results-affecting: a configured defocus now produces the defocus it names
+  (CU-379).** `optics.defocus_um` was folded into the pupil as a Noll Z4 of
+  δ / (8√3 λ N²) waves RMS; the marginal-ray sag of a detector-plane shift δ is
+  δ / (8N²) peak-to-valley (λ/4 at δ = 2λN², the textbook depth of focus), which
+  fits Z4 at δ / (16√3 λ N²). Every run with a non-zero defocus carried twice the
+  intended defocus OPD; it now carries the stated amount, so those runs gain
+  MTF, Strehl and EE_box (scenario 7.3's 5 µm bench: optics MTF at Nyquist
+  0.6699 → 0.7535, system 0.4361 → 0.4575, Strehl 0.9494 → 0.9663). The default
+  0 µm and every result at it are unchanged; 7.3's GUI baseline is re-pinned.
 - **The geometry schematic's viewing vector agrees with its angle arc for a shaped
   target in an up-looking or level scene (CU-369).** The SENSOR→TARGET and SUN→TARGET
   vectors, the sensor and sun glyph rays, and every target-anchored arc now share the

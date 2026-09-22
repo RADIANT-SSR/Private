@@ -174,12 +174,7 @@ $$a_4 = \frac{\delta}{16\sqrt3\,\lambda N_{eff}^2}\ \text{waves}.$$
 RADIANT folds $\delta$ into the *same* complex pupil as the wavefront error — added to an
 existing $Z_4$, or carried beside a scalar-RMS screen — once, before either spatial path,
 so PSF and MTF derive defocus from one pupil and the consistency invariant holds by
-construction; there is no separate defocus kernel. **Implementation note (CU-379).** The
-shipped fold uses the coefficient $\delta/(8\sqrt3\,\lambda N_{eff}^2)$, twice the value
-above: a configured $\delta$ currently acts as $2\delta$, and quarter-wave P-V is reached
-at $\delta = \lambda N_{eff}^2$ rather than $2\lambda N_{eff}^2$. The default $\delta = 0$ is
-unaffected. The correction is tracked as results-affecting and awaits the owner's ruling;
-this paragraph states the physics, the note states the code.
+construction; there is no separate defocus kernel.
 
 **Assumptions & validity.** Maréchal reliable for $\sigma \lesssim \lambda/10$; Noll
 normalization (coefficient = RMS) — the Wyant convention differs by $\sqrt3$-type factors.
@@ -192,8 +187,7 @@ scalar diagnostic only).
 
 **Numeric anchors.** $S(\sigma = \lambda/14) = 0.817569$ (the classic ≈0.8
 diffraction-limited threshold); quarter-wave P-V defocus → $S = 0.814$, reached physically
-at $\delta = 2\lambda N^2 = 128$ µm for $\lambda = 4$ µm, $f/4$ (64 µm under the shipped
-coefficient).
+at $\delta = 2\lambda N^2 = 128$ µm for $\lambda = 4$ µm, $f/4$.
 
 **In RADIANT.** `optics/zernike.py`, `optics/zernike_opd.py`, `optics/wavefront.py`
 (modes: `scalar_rms` / `zernike` / `kolmogorov`, `optics.wfe_reference_wavelength_um`
@@ -201,8 +195,9 @@ default 0.633 µm); `optics/strehl.py::compute_strehl` (PSF ratio),
 `performance/strehl.py::compute_strehl` (Maréchal metric),
 `optics/stage.py::_add_defocus_to_wfe` (the $Z_4$ fold) · anchored by
 `optics/tests/test_zernike.py` (orthonormality integrals),
-`performance/tests/test_strehl.py`, `optics/tests/test_stage.py` (±δ symmetry, defocus in
-the pupil not a kernel). **References.** [Noll 1976], [Goodman 2005],
+`performance/tests/test_strehl.py`, `optics/tests/test_defocus_fold.py` (the coefficient,
+from the marginal-ray sag), `optics/tests/test_stage.py` (±δ symmetry, defocus in the pupil
+not a kernel). **References.** [Noll 1976], [Goodman 2005],
 [Wyant & Creath 1992].
 
 ---

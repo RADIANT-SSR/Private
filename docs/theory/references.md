@@ -10,6 +10,7 @@ only, adding a section locator after the key where one helps — `[Holst 2008 §
 | [ASTM E490] | ASTM E490-00a(2019), *Standard Solar Constant and Zero Air Mass Solar Spectral Irradiance Tables*, ASTM International, West Conshohocken, PA. |
 | [Bucholtz 1995] | Bucholtz, A., "Rayleigh-scattering calculations for the terrestrial atmosphere," *Appl. Opt.* 34(15), 2765–2773 (1995). |
 | [Beland 1993] | Beland, R. R., "Propagation through Atmospheric Optical Turbulence," in *The Infrared and Electro-Optical Systems Handbook*, Vol. 2, SPIE / ERIM, 1993. |
+| [Bennett & Porteus 1961] | Bennett, H. E., Porteus, J. O., "Relation between surface roughness and specular reflectance at normal incidence," *J. Opt. Soc. Am.* 51(2), 123–129 (1961). |
 | [Boreman 2001] | Boreman, G. D., *Modulation Transfer Function in Optical and Electro-Optical Systems*, SPIE Press, 2001. |
 | [Chapman 1931] | Chapman, S., "The absorption and dissociative or ionizing effect of monochromatic radiation in an atmosphere on a rotating earth," *Proc. Phys. Soc.* 43, 26–45 (1931). |
 | [CODATA 2018] | Tiesinga, E., Mohr, P. J., Newell, D. B., Taylor, B. N., "CODATA recommended values of the fundamental physical constants: 2018," *Rev. Mod. Phys.* 93, 025010 (2021). |
@@ -38,12 +39,14 @@ only, adding a section locator after the key where one helps — `[Holst 2008 §
 | [Press et al.] | Press, W. H., Teukolsky, S. A., Vetterling, W. T., Flannery, B. P., *Numerical Recipes: The Art of Scientific Computing*, 3rd ed., Cambridge University Press, 2007. |
 | [Schulz & Caldwell 1995] | Schulz, M., Caldwell, L., "Nonuniformity correction and correctability of infrared focal plane arrays," *Infrared Physics & Technology* 36(4), 763–777 (1995). |
 | [Siegel & Howell] | Siegel, R., Howell, J. R., *Thermal Radiation Heat Transfer*, 4th ed., Taylor & Francis, 2002. |
+| [Stover 2012] | Stover, J. C., *Optical Scattering: Measurement and Analysis*, 3rd ed., SPIE Press, 2012. |
 | [Vallado 2013] | Vallado, D. A., *Fundamentals of Astrodynamics and Applications*, 4th ed., Microcosm Press, 2013. |
 | [Valley 1980] | Valley, G. C., "Isoplanatic degradation of tilt correction and short-term imaging systems," *Appl. Opt.* 19(4), 574–577 (1980). |
 | [Vincent 1990] | Vincent, J. D., *Fundamentals of Infrared Detector Operation and Testing*, Wiley, 1990. |
 | [Wehrli 1985] | Wehrli, C., *Extraterrestrial Solar Spectrum*, Publication No. 615, Physikalisch-Meteorologisches Observatorium Davos / World Radiation Center (PMOD/WRC), Davos Dorf, Switzerland, 1985. |
 | [Wertz & Larson 1999] | Wertz, J. R., Larson, W. J. (eds.), *Space Mission Analysis and Design*, 3rd ed., Microcosm/Kluwer, 1999. |
 | [Wolfe & Zissis] | Wolfe, W. L., Zissis, G. J. (eds.), *The Infrared Handbook*, rev. ed., Environmental Research Institute of Michigan (for the Office of Naval Research), 1985. |
+| [Wyant & Creath 1992] | Wyant, J. C., Creath, K., "Basic Wavefront Aberration Theory for Optical Metrology," in *Applied Optics and Optical Engineering*, Vol. XI, Academic Press, 1992. |
 
 Chapters may add keys; keep this table alphabetical and one-key-per-row. Citations here are
 to editions actually consulted — do not bump edition numbers without checking the cited

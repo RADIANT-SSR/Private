@@ -463,7 +463,7 @@ comparator ($f_{max} \gtrsim 90$ MHz), a larger packet, or up/down mode.
 **Where to go deeper.** `scenarios/02_mike_detector_engineer/2.6_droic_vs_analog_hdr/`.
 **No GUI baseline ships.**
 
-### 2.7 (calibration-limited NEDT) — Two-Point NUC Floor in an LWIR Starer
+### 2.7 — Two-Point NUC Floor in an LWIR Starer
 
 *Two distinct scenario folders in persona 02 both carry the number 2.7. They are
 disambiguated here by folder name.*
@@ -508,52 +508,6 @@ everywhere outside the cal span.
 **Where to go deeper.** `scenarios/02_mike_detector_engineer/2.7_calibration_limited_nedt/`.
 **No GUI baseline ships**, though a `gui_workflow.md` walks the same study through the
 Calibration screen.
-
-### 2.7 (up/down background subtraction) — In-Pixel Pedestal Removal
-
-*The second folder numbered 2.7; see the note above.*
-
-**Mission setup.** Mike's DROIC vendor offers an up/down counting mode: the in-pixel
-counter increments during the scene phase and decrements during a reference phase,
-subtracting the background pedestal before readout. The driving case is a dim
-point-source target over a bright common background, where plain up-counting spends the
-counter range on the pedestal. What does up/down buy, and what does it cost?
-
-**Key inputs.**
-
-| Quantity | Value |
-|---|---|
-| Aperture / focal length | 15 cm / 30 cm (f/2) |
-| Band | 3.5–5.0 µm |
-| Target | 500 K, ε = 0.9, 0.001 m² at 10 km |
-| Background (swept) | 250–330 K, ε = 0.95 |
-| Platform / atmosphere | 8 km altitude, mid-latitude summer |
-| Integration (up = down phase) | 50 ms |
-| Counter | 14 bit × 2000 e-/count |
-| `up` bound / `up_down` signed bound | 32.77 Me- / 16.38 Me- |
-| Counting-chain noise per phase | 5 e- RMS |
-
-**Headline results.** Target charge over the up phase is ≈4.86 Me- (29.6 % of signed
-capacity); the pedestal grows 15.9 Me- (250 K) → 88.9 Me- (330 K). Plain `up` counting
-saturates at ~290 K background (113.6 % fill, usable SNR collapsing to 67.6 and then
-0.0); **`up_down` fill is background-independent at 29.6 % across the whole sweep**,
-with SNR 802.2 → 359.2 over 250 → 330 K. At 250 K, where both modes are clean, the
-up/down penalty is visible: **802.2 vs 1066.0, a ratio of 0.75** — between 1 and
-$1/\sqrt{2} = 0.707$, because the target's own shot noise (2203 e- RMS) does not double,
-only the background terms do (`reference_shot` = 3984 e- RMS at 250 K). At 290 K the
-comparison inverts to an 8.6× usable-SNR advantage.
-
-**Regime.** A dim target over a bright common background, with the in-pixel background
-term explicitly retained — the noise budget carries `reference_shot`, a ×√2 counting
-read, and `packet_reset` over both phases.
-
-**Takeaway.** Up/down moves the wall from the pedestal to the differential, at an
-honest √2-class reference penalty. Any model that cancels the mean without paying the
-reference noise overstates the mode by up to √2 — which is exactly why the noise budget
-names both phases.
-
-**Where to go deeper.** `scenarios/02_mike_detector_engineer/2.7_updown_background_subtraction/`.
-**No GUI baseline ships.**
 
 ### 2.8 — Real-Part Quick Start: GeoSnap-18 by Name
 
@@ -600,6 +554,52 @@ part's datasheet does not fix.
 **No GUI baseline ships.**
 
 ---
+
+### 2.9 — Up/Down Counting: In-Pixel Pedestal Removal
+
+*The second folder numbered 2.7; see the note above.*
+
+**Mission setup.** Mike's DROIC vendor offers an up/down counting mode: the in-pixel
+counter increments during the scene phase and decrements during a reference phase,
+subtracting the background pedestal before readout. The driving case is a dim
+point-source target over a bright common background, where plain up-counting spends the
+counter range on the pedestal. What does up/down buy, and what does it cost?
+
+**Key inputs.**
+
+| Quantity | Value |
+|---|---|
+| Aperture / focal length | 15 cm / 30 cm (f/2) |
+| Band | 3.5–5.0 µm |
+| Target | 500 K, ε = 0.9, 0.001 m² at 10 km |
+| Background (swept) | 250–330 K, ε = 0.95 |
+| Platform / atmosphere | 8 km altitude, mid-latitude summer |
+| Integration (up = down phase) | 50 ms |
+| Counter | 14 bit × 2000 e-/count |
+| `up` bound / `up_down` signed bound | 32.77 Me- / 16.38 Me- |
+| Counting-chain noise per phase | 5 e- RMS |
+
+**Headline results.** Target charge over the up phase is ≈4.86 Me- (29.6 % of signed
+capacity); the pedestal grows 15.9 Me- (250 K) → 88.9 Me- (330 K). Plain `up` counting
+saturates at ~290 K background (113.6 % fill, usable SNR collapsing to 67.6 and then
+0.0); **`up_down` fill is background-independent at 29.6 % across the whole sweep**,
+with SNR 802.2 → 359.2 over 250 → 330 K. At 250 K, where both modes are clean, the
+up/down penalty is visible: **802.2 vs 1066.0, a ratio of 0.75** — between 1 and
+$1/\sqrt{2} = 0.707$, because the target's own shot noise (2203 e- RMS) does not double,
+only the background terms do (`reference_shot` = 3984 e- RMS at 250 K). At 290 K the
+comparison inverts to an 8.6× usable-SNR advantage.
+
+**Regime.** A dim target over a bright common background, with the in-pixel background
+term explicitly retained — the noise budget carries `reference_shot`, a ×√2 counting
+read, and `packet_reset` over both phases.
+
+**Takeaway.** Up/down moves the wall from the pedestal to the differential, at an
+honest √2-class reference penalty. Any model that cancels the mean without paying the
+reference noise overstates the mode by up to √2 — which is exactly why the noise budget
+names both phases.
+
+**Where to go deeper.** `scenarios/02_mike_detector_engineer/2.9_updown_background_subtraction/`.
+**No GUI baseline ships.**
 
 ## Persona 3 — Raj, Mission Planner
 

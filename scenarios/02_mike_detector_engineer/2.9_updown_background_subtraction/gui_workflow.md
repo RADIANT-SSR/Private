@@ -1,4 +1,4 @@
-# Scenario 2.7 GUI Workflow: Up/Down Counting Trade
+# Scenario 2.9 GUI Workflow: Up/Down Counting Trade
 
 How Mike runs the up-vs-up_down comparison in the GUI, and what the Phase 4
 GUI increment must provide.

@@ -48,9 +48,9 @@ authority for their scenario; this volume's chapters quote them.
 | 2.4 | Persistence Characterization: Bright-Source Recovery | Mike, detector engineer | no | yes | Digest 2.4 |
 | 2.5 | Well Capacity Optimization: Integration Time vs Dynamic Range | Mike, detector engineer | yes | yes | Digest 2.5 |
 | 2.6 | DROIC vs Analog ROIC: Single-Frame HDR | Mike, detector engineer | no | yes | Digest 2.6 |
-| 2.7 | Calibration-Limited NEDT: Two-Point NUC Floor | Mike, detector engineer | no | yes | Digest 2.7 (calibration-limited NEDT) |
-| 2.7 | Up/Down Counting: In-Pixel Background Subtraction | Mike, detector engineer | no | yes | Digest 2.7 (up/down background subtraction) |
+| 2.7 | Calibration-Limited NEDT: Two-Point NUC Floor | Mike, detector engineer | no | yes | Digest 2.7 |
 | 2.8 | Real-Part Quick Start: GeoSnap-18 by Name | Mike, detector engineer | no | yes | Digest 2.8 |
+| 2.9 | Up/Down Counting: In-Pixel Background Subtraction | Mike, detector engineer | no | yes | Digest 2.9 |
 | 3.1 | ISR Orbit Geometry and Pass Planning | Raj, mission planner | yes | yes | Case study — ISR Pass Planning |
 | 3.2 | Weather Sensitivity: How Bad Can It Get? | Raj, mission planner | yes | yes | Digest 3.2 |
 | 3.3 | Multi-Sensor Comparison for Procurement | Raj, mission planner | yes | yes | Digest 3.3 |

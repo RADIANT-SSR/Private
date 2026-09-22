@@ -1,4 +1,4 @@
-"""Scenario 2.7: Up/Down Counting — In-Pixel Background Subtraction Trade.
+"""Scenario 2.9: Up/Down Counting — In-Pixel Background Subtraction Trade.
 
 The plan §2.4 use case made workflow-visible: a dim 500 K point source over
 a bright common background on a 14-bit DROIC. `up` counting spends the
@@ -128,7 +128,7 @@ def evaluate(bg_temp_K: float, counting_mode: str) -> dict[str, Any]:
 
 def main() -> None:
     print("=" * 92)
-    print("SCENARIO 2.7: Up/Down Counting — dim 500 K point source over a bright background")
+    print("SCENARIO 2.9: Up/Down Counting — dim 500 K point source over a bright background")
     print("=" * 92)
     print(
         f"\nSystem: {aperture_m * 100:.0f} cm f/{focal_m / aperture_m:.1f} MWIR "

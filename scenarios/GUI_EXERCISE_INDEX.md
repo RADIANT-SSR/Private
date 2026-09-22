@@ -178,8 +178,8 @@ the scenarios listed):
 | 1.6 mwir_point_source_sda | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
 | 2.6 droic_vs_analog_hdr | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
 | 2.7 calibration_limited_nedt | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
-| 2.7 updown_background_subtraction | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
 | 2.8 fpa_part_library | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
+| 2.9 updown_background_subtraction | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
 | 8.3 boost_phase_target_altitude_sweep | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
 | 9.1 sentinel2_msi_snr | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |
 | 9.2 landsat_tirs_nedt | see its `gui_workflow.md` — no `.gui.yaml` baseline yet |

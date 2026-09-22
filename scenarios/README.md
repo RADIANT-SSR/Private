@@ -97,9 +97,9 @@ maturity by marking 21 executed scenarios "stub" and omitting the 08 series
 | 2.4_persistence_bright_source | implemented |
 | 2.5_well_capacity_optimization | implemented |
 | 2.6_droic_vs_analog_hdr | implemented |
-| 2.7_calibration_limited_nedt | implemented — **numbered 2.7 alongside the next row; renumbering one of the two awaits the owner (CU-362)** |
-| 2.7_updown_background_subtraction | implemented — see the row above |
+| 2.7_calibration_limited_nedt | implemented |
 | 2.8_fpa_part_library | implemented |
+| 2.9_updown_background_subtraction | implemented (renumbered from 2.7, 2026-09-21, CU-362) |
 | **03 Raj — mission planner** | |
 | 3.1_isr_pass_planning | implemented |
 | 3.2_weather_sensitivity | implemented |

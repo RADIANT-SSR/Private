@@ -114,15 +114,6 @@ by name in check 8 — that list is frozen and must never grow.
 **Why it still matters**: owner-gated (intake test 2) — it is the scope-of-record document; audits and manuals key off it (the Phase 1 audit had to fork "manual gap" from "inventory drift" by hand).
 **Suggested fix**: (b) stand-alone re-triage pass stamping each phantom item OUT/DEFERRED with a date, or a fresh triage review; effort S-M; category A.
 
-### CU-362 — Scenario catalog/index staleness: duplicate scenario number 2.7, README and GUI_EXERCISE_INDEX counts wrong, 09-series unindexed
-
-**Discovered**: Gap 131 Phase 4 Parts A+B (branch `gap131/phase4-examples`), 2026-09-16.
-**Status**: Open — indexes corrected 2026-09-20 (docs-drift batch C: README status table lists 1.6, 2.6, both 2.7s, 2.8, 8.3 and 9.4 and counts 51 of 51; GUI_EXERCISE_INDEX recounted to 51 scenarios / 38 baselines with rows for the ten it never listed); the remaining item is the **owner-gated renumber of one 2.7** (`2.7_calibration_limited_nedt` vs `2.7_updown_background_subtraction`), after which the index rows for the renamed folder follow.
-**File**: `scenarios/README.md`, `scenarios/GUI_EXERCISE_INDEX.md`, `scenarios/02_mike_detector_engineer/` (two folders both numbered 2.7).
-**Symptom**: README's status table stops at 2.5/9.3 and claims "44 of 44" while the tree holds 2.6, two distinct 2.7s (`2.7_calibration_limited_nedt` and `2.7_updown_background_subtraction`), 2.8, and 9.4; GUI_EXERCISE_INDEX says "37 scenarios / 34 baselines" and omits the entire 09 series and 2.6–2.8; the 09 flagship scenarios ship no `.gui.yaml` baselines and have no index rows.
-**Why it still matters**: workflow-visible (intake test 4) — operators navigate by these indexes, and Volume IV's Part C digest compendium (owner ruling Q3: all 52 scenarios) needs an authoritative scenario enumeration; the duplicate 2.7 breaks unique addressing.
-**Suggested fix**: (a) inline-fix-now for the indexes + an owner-consulted renumber of one 2.7; effort S; category A. Blocking-adjacent for Volume IV Part C (the digest chapter keys off the catalog).
-
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).
@@ -176,6 +167,16 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix**: (b) stand-alone GUI task once ruled — most likely land the vectors and arc apex at the body *centre* in every composition and carry the centre along the ray, so no composition rule moves. Live-review required. Effort S; category A.
 
 ## Resolved
+
+### CU-362 — Scenario catalog/index staleness: duplicate scenario number 2.7, README and GUI_EXERCISE_INDEX counts wrong, 09-series unindexed — RESOLVED 2026-09-21 (commit trailer)
+
+**Discovered**: Gap 131 Phase 4 Parts A+B (branch `gap131/phase4-examples`), 2026-09-16.
+**Status**: Resolved 2026-09-21 — indexes corrected 2026-09-20 (docs-drift batch C: README status table lists 1.6, 2.6, both 2.7s, 2.8, 8.3 and 9.4 and counts 51 of 51; GUI_EXERCISE_INDEX recounted to 51 scenarios / 38 baselines with rows for the ten it never listed); the remaining item is the **owner-gated renumber of one 2.7** (`2.7_calibration_limited_nedt` vs `2.7_updown_background_subtraction`), after which the index rows for the renamed folder follow.
+**File**: `scenarios/README.md`, `scenarios/GUI_EXERCISE_INDEX.md`, `scenarios/02_mike_detector_engineer/` (two folders both numbered 2.7).
+**Symptom**: README's status table stops at 2.5/9.3 and claims "44 of 44" while the tree holds 2.6, two distinct 2.7s (`2.7_calibration_limited_nedt` and `2.7_updown_background_subtraction`), 2.8, and 9.4; GUI_EXERCISE_INDEX says "37 scenarios / 34 baselines" and omits the entire 09 series and 2.6–2.8; the 09 flagship scenarios ship no `.gui.yaml` baselines and have no index rows.
+**Why it still matters**: workflow-visible (intake test 4) — operators navigate by these indexes, and Volume IV's Part C digest compendium (owner ruling Q3: all 52 scenarios) needs an authoritative scenario enumeration; the duplicate 2.7 breaks unique addressing.
+**Suggested fix**: (a) inline-fix-now for the indexes + an owner-consulted renumber of one 2.7; effort S; category A. Blocking-adjacent for Volume IV Part C (the digest chapter keys off the catalog).
+**Resolution**: owner ruled 2026-09-21: `2.7_updown_background_subtraction` renumbered to 2.9 (2.8 was taken); folder, headings, runner banner, README, GUI_EXERCISE_INDEX, scenario index, digest section (moved after 2.8) and the Gap 117 entry follow; `2.7_calibration_limited_nedt` keeps 2.7.
 
 ### CU-378 — GUI resident memory grows ~0.8 MB per accepted edit and ~17 MB per three-point sweep and is never released (usability-audit F-55) — ACCEPTED 2026-09-20 (no commit — limitation: resident memory plateaus at ~1.1 GB for one sensor, ~1.3 GB with retained sweeps — allocator retention of freed PSF grids plus ~34 MB per retained result; not a leak, not GUI-caused)
 

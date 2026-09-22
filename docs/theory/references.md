@@ -22,6 +22,7 @@ only, adding a section locator after the key where one helps — `[Holst 2008 §
 | [Holst 2008] | Holst, G. C., *Electro-Optical Imaging System Performance*, 5th ed., JCD Publishing / SPIE Press, 2008. |
 | [Janesick 2001] | Janesick, J. R., *Scientific Charge-Coupled Devices*, SPIE Press, 2001. |
 | [Johnson 1958] | Johnson, J., "Analysis of Image Forming Systems," *Proc. Image Intensifier Symposium*, U.S. Army ERDL, 1958. |
+| [Kelly et al. 2013] | Kelly, M. W., Blackwell, M. H., Brown, M. G., et al., "Digital-pixel focal plane array technology," *Lincoln Laboratory Journal* 20(2), 36–51 (2013). |
 | [Kirchhoff 1860] | Kirchhoff, G., "Ueber das Verhaeltniss zwischen dem Emissionsvermoegen und dem Absorptionsvermoegen der Koerper fuer Waerme und Licht," *Ann. Phys.* 185(2), 275–301 (1860). |
 | [Kopp & Lean 2011] | Kopp, G., Lean, J. L., "A new, lower value of total solar irradiance: evidence and climate significance," *Geophys. Res. Lett.* 38, L01706 (2011). |
 | [Lewis 1994] | Lewis, R. R., "Making shaders more physically plausible," *Computer Graphics Forum* 13(2), 109–120 (1994). |

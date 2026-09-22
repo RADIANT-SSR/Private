@@ -183,6 +183,93 @@ readout); duty > 1 is rejected with an actionable error. Outputs
 
 ---
 
+## Digital-pixel counting readout
+
+`readout.architecture = "digital_counting"` replaces the analog charge well with an
+in-pixel comparator and an $N$-bit counter: every time the integrated charge crosses the
+packet $Q_{pkt}$ (`readout.count_packet_e`, required under counting) the counter
+increments and $Q_{pkt}$ is subtracted from the well — the charge-subtraction reset of a
+digital-pixel readout (DROIC / DFPA). Everything upstream of the readout is unchanged; the
+counting branch replaces four things in the budget: the saturation bound, the
+quantization term, the per-frame kTC term, and the DN conversion.
+
+**Effective well and saturation.**
+
+$$Q_{eff} = 2^N Q_{pkt},\qquad Q_{dead} = f_{max}\,t_{int}\,Q_{pkt},\qquad
+Q_{sat} = \min(Q_{eff},\,Q_{dead}),$$
+
+with $N$ = `readout.counter_bits` and $f_{max}$ = `readout.max_count_rate_hz`, the
+comparator's dead-time flux ceiling (0 = no ceiling; rollover alone governs). Counter
+rollover is treated as saturation — the word clips, it does not wrap. An explicit analog
+full well under counting is rejected as over-specification: the effective well *is*
+$2^N Q_{pkt}$.
+
+**Count conversion.** $n = \lfloor Q_{int}/Q_{pkt}\rfloor$ counts and an analog residue
+$Q_{res} = Q_{int} \bmod Q_{pkt} \in [0, Q_{pkt})$.
+
+**Quantization noise.** With the residue discarded (`readout.residue_readout = 0`) the
+quantizer step is the packet itself; with the residue digitized by the existing ADC model
+scoped to a full scale of one packet (the default), the step is the residue LSB:
+
+$$\sigma_q = \frac{Q_{pkt}}{\sqrt{12}}\quad\text{(bare counter)},\qquad
+\sigma_q = \frac{Q_{pkt}/2^M}{\sqrt{12}}\quad\text{(residue ADC, } M = \texttt{adc\_bits}).$$
+
+Both are the uniform-quantizer result and are flux-ensemble statements: valid when the
+signal spans several steps. Below $Q_{int} \lesssim Q_{pkt}$ without residue readout the
+residue *is* the signal and the uniform assumption degrades.
+
+**Packet reset noise.** Each charge subtraction is a reset, so the kTC term accumulates
+over the counts of the frame instead of entering once:
+$\sigma_{reset} = \sqrt{n}\,\sigma_{kTC}$ (budget term `packet_reset`).
+
+**Up/down differential counting** (`readout.counting_mode = "up_down"`). The counter
+becomes a signed modulo accumulator that increments during the scene (up) phase and
+decrements during a reference (down) phase, ending at
+
+$$\Delta Q = Q_{up} - Q_{down},\qquad |\Delta Q| \le 2^{N-1} Q_{pkt},$$
+
+the in-pixel background subtraction for a dim target on a bright common background.
+Wrap during the up phase is not a failure — the down phase unwinds it — so the capacity
+constraint moves from rollover to the signed differential (clip mechanism
+`differential_overflow`). The down phase integrates for $t_{down}$
+(`readout.reference_integration_s`; 0 = equal to $t_{int}$, the balanced case) against a
+reference flux that is either the chain's own background term (sub-pixel and point-source
+regimes, where target and background are separate terms) or a user rate
+(`readout.reference_rate_e_per_s`), plus the dark, glow, near-field and stray electrons
+scaled by $t_{down}/t_{up}$. The means cancel; the noise does not: the reference phase
+pays its own shot noise, $\sigma_{ref} = \sqrt{Q_{down}}$ — up to a $\sqrt2$ penalty on
+the background noise relative to a noiseless reference. Packet reset noise accumulates over
+$n_{up} + n_{down}$, and the dead-time ceiling is checked on both phases. The signed count
+uses floor semantics, $n = \lfloor\Delta Q/Q_{pkt}\rfloor$ with a non-negative residue —
+a two's-complement word plus the same residue convention as up-counting.
+
+**Assumptions & validity.** Ideal comparator (no threshold noise beyond the kTC reset);
+equal packets; flux constant within a phase; the uniform-quantizer formula holds only when
+the signal spans several steps.
+
+**Pitfalls.** Reading the counter word alone as the signal at low flux with the residue
+discarded; subtracting the reference *mean* without adding its shot noise — the flattering
+model that up/down counting forbids here; quoting $2^N Q_{pkt}$ as the up/down capacity
+(it is $2^{N-1} Q_{pkt}$); an analog `full_well_capacity_e` set beside the counting
+parameters.
+
+**Numeric anchors.** $N = 16$, $Q_{pkt} = 2000$ e-: $Q_{eff} = 131.07$ Me-, up/down
+capacity $65.54$ Me-; $\sigma_q = 577.35$ e- for the bare counter and $0.5638$ e- with a
+10-bit residue ADC ($2000/1024/\sqrt{12}$). $N = 14$, $Q_{pkt} = 2000$ e-:
+$Q_{eff} = 32.77$ Me- (the up-counting bound of scenario 2.9).
+
+**In RADIANT.** `readout/counting_well.py` (`effective_well_e`, `dead_time_ceiling_e`,
+`counting_saturation`, `convert_to_counts`, `packet_reset_noise_e`),
+`readout/counting_quantization.py::counting_quantization_noise_e`,
+`readout/updown_differential.py` (`differential_capacity_e`, `updown_differential`,
+`reference_shot_noise_e`), composed by the `digital_counting` branch of
+`readout/stage.py` · anchored by `readout/tests/test_counting_well.py`,
+`test_counting_quantization.py`, `test_updown_differential.py`, `test_counting_stage.py`,
+`test_updown_stage.py` and `tests/integration/test_counting_chain.py`.
+**References.** [Kelly et al. 2013].
+
+---
+
 ## Noise regime selection
 
 `detector.noise_regime` controls the budget composition: `"imaging"` (temporal terms

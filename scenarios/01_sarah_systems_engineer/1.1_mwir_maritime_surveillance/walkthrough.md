@@ -86,8 +86,10 @@ VIS/NIR/SWIR rows against the post-CU-253 Rayleigh, and the same λ⁻⁴ tail m
 flux-diffusivity exponent became the geometric
 `sec 48.2° = 1.50030` — the secant of the angle every up-looking MODTRAN deck in
 the downwelling reference set was run at — instead of the CU-155 fitted
-`D = 1.1`. The sky's effective emissivity rises, so the ε = 0.95 hull's
-Kirchhoff-reflected sky term rises with it: SNR 980.55 → 1001.47 (+2.1 %),
+`D = 1.1`. The sky's effective emissivity rises, and the steel hull — the
+library curve band-averages to ε = 0.266, ρ = 0.734 over 3.5–5.0 µm — reflects
+nearly three-quarters of it, so its Kirchhoff-reflected sky term rises with it:
+SNR 980.55 → 1001.47 (+2.1 %),
 NEDT 0.0256 → 0.0251 K, NIIRS 4.59 → 4.61, range 2344.6 → 2356.7 km. τ was
 untouched (0.4593, bit-identical — the swap changes the downwelling emissivity,
 not any optical depth). The **MODTRAN 6** column did not move at all: it
@@ -120,7 +122,9 @@ under CU-321 (SNR 1152.37 → 980.55) and the MODTRAN column under CU-316
   emission temperature in altitude — a 100 km MWIR column emits mostly from
   cold air aloft, not from the boundary layer — and rose to ~9% high when
   CU-324 made the downwelling exponent geometric, which lifts the reflected-sky
-  term of this ρ = 0.05 hull. The remaining gap is the parametric model being
+  term of this ρ = 0.73 steel hull — for a hull this reflective the sky term is
+  the larger of its two signal contributions in this band, which is why every
+  downwelling change above shows up in SNR. The remaining gap is the parametric model being
   marginally the more transparent of the two, and its noise floor is
   correspondingly lower (NEDT 0.0251 vs 0.0266 K). τ, SNR, and range still do
   not move together — quote the metric the decision needs.

@@ -161,6 +161,26 @@ RADIANT reports two Strehls: the **PSF-derived** `strehl` — degraded-PSF peak 
 diffraction-limited `reference_psf` peak, with the *same* detector kernels applied to both
 so detector effects cancel — and the analytic `strehl_marechal` diagnostic.
 
+**Defocus as a pupil term.** A detector-plane displacement $\delta$ from best focus
+(`optics.defocus_um`, sign irrelevant) is a quadratic wavefront: the marginal ray at
+half-angle $u$, $\tan u = 1/(2N_{eff})$, acquires OPD $\delta(1-\cos u) \approx \delta/(8N_{eff}^2)$
+at the pupil edge, so $W(\rho) = \delta\rho^2/(8N_{eff}^2)$, peak-to-valley
+$\delta/(8N_{eff}^2)$ — the depth-of-focus statement $\lambda/4$ P-V $\Leftrightarrow$
+$\delta = 2\lambda N_{eff}^2$. Fitted to Noll $Z_4$ (P-V $= 2\sqrt3\,a_4$) the RMS
+coefficient is
+
+$$a_4 = \frac{\delta}{16\sqrt3\,\lambda N_{eff}^2}\ \text{waves}.$$
+
+RADIANT folds $\delta$ into the *same* complex pupil as the wavefront error — added to an
+existing $Z_4$, or carried beside a scalar-RMS screen — once, before either spatial path,
+so PSF and MTF derive defocus from one pupil and the consistency invariant holds by
+construction; there is no separate defocus kernel. **Implementation note (CU-379).** The
+shipped fold uses the coefficient $\delta/(8\sqrt3\,\lambda N_{eff}^2)$, twice the value
+above: a configured $\delta$ currently acts as $2\delta$, and quarter-wave P-V is reached
+at $\delta = \lambda N_{eff}^2$ rather than $2\lambda N_{eff}^2$. The default $\delta = 0$ is
+unaffected. The correction is tracked as results-affecting and awaits the owner's ruling;
+this paragraph states the physics, the note states the code.
+
 **Assumptions & validity.** Maréchal reliable for $\sigma \lesssim \lambda/10$; Noll
 normalization (coefficient = RMS) — the Wyant convention differs by $\sqrt3$-type factors.
 Zernike modes are orthonormal on the unobscured unit disk; annular pupils strictly need
@@ -171,14 +191,19 @@ annular polynomials.
 scalar diagnostic only).
 
 **Numeric anchors.** $S(\sigma = \lambda/14) = 0.817569$ (the classic ≈0.8
-diffraction-limited threshold); quarter-wave P-V defocus → $S = 0.814$.
+diffraction-limited threshold); quarter-wave P-V defocus → $S = 0.814$, reached physically
+at $\delta = 2\lambda N^2 = 128$ µm for $\lambda = 4$ µm, $f/4$ (64 µm under the shipped
+coefficient).
 
 **In RADIANT.** `optics/zernike.py`, `optics/zernike_opd.py`, `optics/wavefront.py`
 (modes: `scalar_rms` / `zernike` / `kolmogorov`, `optics.wfe_reference_wavelength_um`
 default 0.633 µm); `optics/strehl.py::compute_strehl` (PSF ratio),
-`performance/strehl.py::compute_strehl` (Maréchal metric) · anchored by
+`performance/strehl.py::compute_strehl` (Maréchal metric),
+`optics/stage.py::_add_defocus_to_wfe` (the $Z_4$ fold) · anchored by
 `optics/tests/test_zernike.py` (orthonormality integrals),
-`performance/tests/test_strehl.py`. **References.** [Noll 1976], [Goodman 2005].
+`performance/tests/test_strehl.py`, `optics/tests/test_stage.py` (±δ symmetry, defocus in
+the pupil not a kernel). **References.** [Noll 1976], [Goodman 2005],
+[Wyant & Creath 1992].
 
 ---
 

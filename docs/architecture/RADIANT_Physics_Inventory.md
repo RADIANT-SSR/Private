@@ -1,8 +1,8 @@
 # RADIANT Physics Inventory
 
-**Version:** 0.1  
-**Date:** 2026-04-06  
-**Status:** Draft — Pending Scope Triage Review  
+**Version:** 0.2  
+**Date:** 2026-09-21 (triage 2026-04-06; re-triage 2026-09-21)  
+**Status:** Re-triaged 2026-09-21 (CU-360) — every item marked IN or STUBBED has an implementation or a parameter behind it in v0.2.0; the 19 items that had neither are DEFERRED with the re-triage date and, where one exists, their gap entry. OUT rulings remain the owner's for a later review.  
 **Purpose:** Exhaustive enumeration of physical effects that influence EO sensor performance, UV through LWIR. Each effect is characterized and triaged for v1 scope. No effect is silently ignored — every deferral is explicit.
 
 ---
@@ -206,11 +206,11 @@ Legend: ✅ IN v1 | 🔶 STUBBED v1 (placeholder returns, no real model) | ❌ D
 | S3 | Reflected diffuse sky radiance | ✅ IN | Hemispherical integral over L_sky(λ); additive source term; L_sky from MODTRAN or simple model |
 | S4 | Target emissivity | ✅ IN | First-order effect; scalar ε(λ) is sufficient |
 | S5 | Target BRDF | ✅ IN | Lambertian model in v1; hook for full BRDF |
-| S6 | Target temperature non-uniformity | ✅ IN | Two-temperature or histogram model; weighted Planck sum over area fractions |
+| S6 | Target temperature non-uniformity | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0)* | Two-temperature or histogram model; weighted Planck sum over area fractions |
 | S7 | Self-luminous emission | ✅ IN | User-supplied L_source(λ); additive term in source stage; molecular plume spectroscopy (S8) remains DEFERRED |
 | S8 | Spectrally selective emission | ❌ DEFERRED | Requires molecular spectroscopy engine; plume model explicitly out of scope |
 | S9 | Reflected earthshine | ❌ DEFERRED | Space-to-space geometry; low priority for v1 |
-| S10 | Reflected moonlight | ✅ IN | Lunar irradiance spectrum scaled by phase angle; enables nighttime VIS performance prediction |
+| S10 | Reflected moonlight | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0)* | Lunar irradiance spectrum scaled by phase angle; enables nighttime VIS performance prediction |
 | S11 | Airglow | ❌ DEFERRED | Space-based looking-up geometry; specialized |
 | S12 | Doppler shift | ❌ DEFERRED | Not in scope for passive broadband |
 | S13 | Fluorescence | ❌ DEFERRED | Specialized vegetation/biological sensing |
@@ -230,7 +230,7 @@ Legend: ✅ IN v1 | 🔶 STUBBED v1 (placeholder returns, no real model) | ❌ D
 | A7 | Aerosol phase function | ✅ IN | Henyey-Greenstein model (asymmetry parameter g); MODTRAN handles in full mode |
 | A8 | Water vapor continuum | ✅ IN | Included in MODTRAN; bulk PWV parameter in simple mode |
 | A9 | Ozone absorption | ✅ IN | Included in MODTRAN; ozone column parameter in simple mode |
-| A10 | Cloud/fog attenuation | ✅ IN | Beer-Lambert model from cloud optical depth τ_cloud; binary flag is τ_cloud → ∞ degenerate case |
+| A10 | Cloud/fog attenuation | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0 — see Gap 82)* | Beer-Lambert model from cloud optical depth τ_cloud; binary flag is τ_cloud → ∞ degenerate case |
 | A11 | Rain attenuation | ❌ DEFERRED | Specialized; low priority |
 | A12 | Atmospheric refraction | ❌ DEFERRED | Pointing/geolocation tool; not radiometric |
 | A13 | Turbulence (r₀, Cn²) | ✅ IN | Cn²(h) profiles (Hufnagel-Valley, tabulated) integrated along the LOS to r₀; direct r₀ entry retained (Gap 110) |
@@ -259,8 +259,8 @@ Legend: ✅ IN v1 | 🔶 STUBBED v1 (placeholder returns, no real model) | ❌ D
 | O12 | Wavefront error (Strehl) | ✅ IN | Bulk Strehl reduction to PSF core |
 | O13 | Defocus | ✅ IN | Jinc MTF term parameterized by blur circle diameter d; feeds SP11 |
 | O14 | Chromatic aberration | ❌ DEFERRED | Refractive system design tool |
-| O15 | Thermal defocus | ✅ IN | dn/dT × ΔT → Δfocus → blur circle diameter → feeds O13; trivial given O13 is IN |
-| O16 | Vignetting | ✅ IN | Field-angle-dependent throughput T(θ_x, θ_y); polynomial or table lookup |
+| O15 | Thermal defocus | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0)* | dn/dT × ΔT → Δfocus → blur circle diameter → feeds O13; trivial given O13 is IN |
+| O16 | Vignetting | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0 — see Gap 130)* | Field-angle-dependent throughput T(θ_x, θ_y); polynomial or table lookup |
 | O17 | Polarization in optics | ❌ DEFERRED | Out of scope v1 |
 | O18 | F/# and plate scale | ✅ IN | Fundamental; IFOV, Ω, plate scale |
 | O19 | Étendue | ✅ IN | Implicit in A × Ω × T chain |
@@ -283,18 +283,18 @@ Legend: ✅ IN v1 | 🔶 STUBBED v1 (placeholder returns, no real model) | ❌ D
 | D12 | Quantization noise | ✅ IN | LSB/√12; important at low signal |
 | D13 | Saturation / full well | ✅ IN | Sets dynamic range ceiling |
 | D14 | Nonlinearity | ✅ IN | Polynomial correction model; residual error term after correction |
-| D15 | Blooming | ✅ IN | Overflow fraction × FWC spills to N neighbor pixels; simple nearest-neighbor model |
+| D15 | Blooming | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0)* | Overflow fraction × FWC spills to N neighbor pixels; simple nearest-neighbor model |
 | D16 | Electrical crosstalk (IPC) | ✅ IN | Nearest-neighbor coupling coefficient α; modifies effective pixel MTF |
 | D17 | Optical crosstalk | ❌ DEFERRED | Requires detailed detector model |
 | D18 | Charge diffusion | ✅ IN | Gaussian MTF term; diffusion length L_d as input parameter |
 | D19 | Persistence | ✅ IN | Exponential decay: residual = f_persist × S_prev × exp(−t/τ); S_prev is a user input (prior frame signal level), not live state |
-| D20 | Cosmic rays | ✅ IN | Poisson rate model; returns event rate statistic for space sensor pixel availability |
-| D21 | Radiation damage | ✅ IN | Arrhenius dark current scaling vs. TID; multiplies J_dark in D4 as time-dependent mission age parameter |
+| D20 | Cosmic rays | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0)* | Poisson rate model; returns event rate statistic for space sensor pixel availability |
+| D21 | Radiation damage | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0)* | Arrhenius dark current scaling vs. TID; multiplies J_dark in D4 as time-dependent mission age parameter |
 | D22 | Detector glow | ✅ IN | Combined with R12 as single internal glow DC offset term (e⁻/s/pixel); user input |
 | D23 | Trapping states | ❌ DEFERRED | Too detailed for performance tool |
-| D24 | Snow/sparkle (RTS) | 🔶 STUBBED | Modeled as bad pixel fraction |
-| D25 | CTE (CCD) | ✅ IN | Signal loss = CTE^N_transfers; conditional on detector type = CCD |
-| D26 | Bad/dead pixels | ✅ IN | Fraction parameter; affects effective sensitivity |
+| D24 | Snow/sparkle (RTS) | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was 🔶 STUBBED with no parameter hook as of v0.2.0)* | Modeled as bad pixel fraction |
+| D25 | CTE (CCD) | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0)* | Signal loss = CTE^N_transfers; conditional on detector type = CCD |
+| D26 | Bad/dead pixels | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0)* | Fraction parameter; affects effective sensitivity |
 | D27 | Temperature effects on dark current | ✅ IN | Arrhenius model; critical for cooling trade |
 
 ### Stage 5: Readout Electronics
@@ -315,9 +315,9 @@ Legend: ✅ IN v1 | 🔶 STUBBED v1 (placeholder returns, no real model) | ❌ D
 | R12 | Multiplexer glow | ✅ IN | Combined with D22 as single internal glow term; ROIC photon emission contribution |
 | R13 | Clock feedthrough | ❌ DEFERRED | Electronics design level |
 | R14 | Power supply noise | ❌ DEFERRED | Electronics design level |
-| R15 | Data rate / compression | 🔶 STUBBED | Flag if lossy; no artifact model |
-| R16 | Anti-blooming drain | ✅ IN | FWC_eff = FWC × (1 − drain_efficiency); reduces dynamic range ceiling |
-| R17 | Rolling shutter | 🔶 STUBBED | Snapshot assumed; rolling shutter flag reserved |
+| R15 | Data rate / compression | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was 🔶 STUBBED with no parameter hook as of v0.2.0)* | Flag if lossy; no artifact model |
+| R16 | Anti-blooming drain | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0)* | FWC_eff = FWC × (1 − drain_efficiency); reduces dynamic range ceiling |
+| R17 | Rolling shutter | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was 🔶 STUBBED with no parameter hook as of v0.2.0)* | Snapshot assumed; rolling shutter flag reserved |
 
 ### Stage 6: Spatial Effects
 
@@ -330,15 +330,15 @@ Legend: ✅ IN v1 | 🔶 STUBBED v1 (placeholder returns, no real model) | ❌ D
 | SP5 | Linear smear MTF | ✅ IN | Sinc from integration time × velocity |
 | SP6 | Random jitter MTF | ✅ IN | Gaussian blur from angular jitter σ |
 | SP7 | LOS drift | ✅ IN | Combined with SP5 as sinc MTF from (v_smear + v_drift) × t_int |
-| SP8 | Platform vibration | ✅ IN | PSD integration → RMS jitter; preprocessing step feeding SP6 |
+| SP8 | Platform vibration | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0)* | PSD integration → RMS jitter; preprocessing step feeding SP6 |
 | SP9 | Turbulence MTF | 🔶 STUBBED | Long-exposure model only; return 1.0 for space |
 | SP10 | TDI alignment MTF | ✅ IN | Sinc MTF from yaw misalignment angle; feeds MTF chain for TDI sensors |
 | SP11 | Defocus MTF | ✅ IN | Jinc MTF from blur circle diameter d; required coupling with O13 |
 | SP12 | Scan mechanism MTF | ❌ DEFERRED | Whiskbroom scanner specific |
-| SP13 | Registration error | ✅ IN | Gaussian MTF equivalent to registration RMS error; feeds system MTF chain |
+| SP13 | Registration error | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0)* | Gaussian MTF equivalent to registration RMS error; feeds system MTF chain |
 | SP14 | Geometric distortion | ❌ DEFERRED | Geometric calibration tool |
 | SP15 | Aliasing | ✅ IN | Computed from system Q; flag if undersampled |
-| SP16 | Pointing knowledge error | 🔶 STUBBED | Geolocation budget; return pointing knowledge parameter |
+| SP16 | Pointing knowledge error | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was 🔶 STUBBED with no parameter hook as of v0.2.0)* | Geolocation budget; return pointing knowledge parameter |
 | SP17 | Charge diffusion MTF | ✅ IN | Gaussian MTF term from diffusion length L_d; required coupling with D18 |
 
 ### Stage 7: Scene / Background
@@ -348,7 +348,7 @@ Legend: ✅ IN v1 | 🔶 STUBBED v1 (placeholder returns, no real model) | ❌ D
 | SC1 | Background radiance | ✅ IN | Fundamental; drives photon noise floor |
 | SC2 | Background spatial clutter | ✅ IN | σ_clutter as input; detection threshold = f(SNR, clutter-to-noise ratio); no spatial scene generation |
 | SC3 | Thermal background variability | ✅ IN | ΔT input for detection range calculations |
-| SC4 | Sun glint | ✅ IN | Cox-Munk geometry check; returns estimated glint radiance and saturation risk flag |
+| SC4 | Sun glint | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0 — see Gap 125)* | Cox-Munk geometry check; returns estimated glint radiance and saturation risk flag |
 | SC5 | Shadow effects | ❌ DEFERRED | Scene geometry tool |
 | SC6 | Mixed pixel / fill fraction | ✅ IN | Target fill fraction η; area-weighted radiance |
 | SC7 | Target-background contrast | ✅ IN | ΔL = L_target − L_background; core detection metric |
@@ -356,7 +356,7 @@ Legend: ✅ IN v1 | 🔶 STUBBED v1 (placeholder returns, no real model) | ❌ D
 | SC9 | Urban heat island | ❌ DEFERRED | Scene-specific; not a sensor performance parameter |
 | SC10 | Terrain-induced variation | ❌ DEFERRED | Scene generation tool |
 | SC11 | Spectral clutter | ❌ DEFERRED | Multispectral/hyperspectral use case; phase 2 |
-| SC12 | Partial cloud cover | ✅ IN | Cloud fraction × A10 optical depth model; area-weighted transmission per resolution element |
+| SC12 | Partial cloud cover | ❌ DEFERRED *(re-triaged 2026-09-21, CU-360: was ✅ IN with no implementation and no parameter as of v0.2.0 — see Gap 82)* | Cloud fraction × A10 optical depth model; area-weighted transmission per resolution element |
 
 ---
 
@@ -364,10 +364,10 @@ Legend: ✅ IN v1 | 🔶 STUBBED v1 (placeholder returns, no real model) | ❌ D
 
 | Status | Count |
 |--------|-------|
-| ✅ IN v1 | 82 |
-| 🔶 STUBBED v1 | 8 |
-| ❌ DEFERRED | 26 |
-| **Total** | **116** |
+| ✅ IN v1 | 75 |
+| 🔶 STUBBED v1 | 2 |
+| ❌ DEFERRED | 49 |
+| **Total** | **126** |
 
 ---
 

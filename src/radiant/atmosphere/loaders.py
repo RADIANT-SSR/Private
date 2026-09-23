@@ -174,6 +174,7 @@ def _build_simple(params: ParameterSet) -> Any:
         aerosol_type=params.get("atmosphere.aerosol_type"),
         precipitable_water_cm=pwv_cm,
         standard_atmosphere=profile,
+        background_aerosol_scale=params.get("atmosphere.background_aerosol_scale"),
     )
 
 

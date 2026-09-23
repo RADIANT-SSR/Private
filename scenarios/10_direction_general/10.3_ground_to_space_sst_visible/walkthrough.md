@@ -411,7 +411,7 @@ dispatcher returns τ_up ≡ 1) **now completes**, and returns
 vacuum sky exactly zero rather than absent, which closes `gaps.md` G7 — the identity
 is now confirmed by a second chain run as well as analytically.
 
-### Anchor 2 — published astronomical extinction ❌ FAIL (was ✅ PASS before CU-335)
+### Anchor 2 — published astronomical extinction ⚠️ REACHABLE, and the default is outside it
 
 Broadband V-band zenith extinction at good astronomical sites is
 k_V ≈ 0.12–0.20 mag/airmass (Hardie 1962 photometric-reduction practice;
@@ -422,9 +422,31 @@ at typical observatories). A magnitude is −2.5 log₁₀ of a flux ratio, so
 | | value |
 |---|---|
 | published τ(0.55 µm) at zenith | 0.8318 – 0.8954 |
-| **RADIANT τ(0.55 µm) at zenith** | **0.7866** |
-| **RADIANT extinction** | **0.261 mag/airmass** |
-| verdict | **FAIL — 1.3× the top of the published band** |
+| **RADIANT τ(0.55 µm) at zenith**, default background | **0.7882** |
+| **RADIANT extinction**, default background | **0.258 mag/airmass** |
+| **RADIANT extinction**, `background_aerosol_scale = 0.25` | **0.173 mag/airmass** |
+| verdict | **the band is now reachable, and it takes a site setting to reach it** |
+
+**CU-337 landed 2026-09-22 and changed what this anchor measures.** The paragraphs
+below are the diagnosis that produced the fix; read them as the record of how it was
+found. What is true now: the 0.45–0.70 µm opacity beyond Rayleigh and the boundary
+layer is split into the 0.020 optical depths the band's own gas chemistry supplies and
+0.1175 of **background aerosol** — free-tropospheric and stratospheric, which no
+surface visibility reading describes. τ is unchanged at the default, so the 0.258
+figure stands exactly where it did; what changed is that the term is now *addressable*.
+`atmosphere.background_aerosol_scale` = 1.0 is the continental-rural climatology the
+model is calibrated against, and a good observatory site carries a fraction of it:
+
+| `background_aerosol_scale` | τ(0.55 µm) | k_V [mag/airmass] | |
+|---|---:|---:|---|
+| 1.00 | 0.7882 | 0.258 | continental rural — the calibration default |
+| 0.50 | 0.8307 | 0.201 | |
+| **0.25** | **0.8528** | **0.173** | **a clean high site — inside the published band** |
+| 0.00 | 0.8755 | 0.144 | no background aerosol at all |
+
+The honest verdict is therefore no longer FAIL: it is that the scenario's tasking card
+sets a visibility but never said anything about the free troposphere, and the model's
+default assumes a continental column. A mountaintop site is expressed by saying so.
 
 **This anchor flipped from PASS to FAIL when CU-335 landed (2026-08-30), and the
 flip is worth reading carefully, because the *other* anchor on the same band
@@ -457,19 +479,16 @@ reconciliation:
   is configured with, so it is the internally consistent comparison, and it is
   the one CU-161's fit is defined against.
 
-What the flip therefore says (measured 2026-09-01, the CU-337 ruling's
-premise): the anchor is **unreachable at any visibility setting** — with the
-scene already at 100 km the k_V floor sits at 0.258 mag/airmass against the
-published ≤ 0.20 — because the *fitted gas floor itself* carries the aerosol
-deficit and no visibility knob touches it. There is no cleaner-site
-configuration fix; the fix is CU-337 (fit the aerosol VIS deficit explicitly,
-re-fit the gas floors with aerosol corrected), and this anchor stays FAIL
-until it lands.
-One genuine caveat rides along: the fit assigns the whole reconciliation to the
-*gas* floor, and 0.16 optical depths is far more than real 0.45–0.70 µm gas
-chemistry supplies (the O₃ Chappuis band contributes ~0.03), so part of that
-floor is standing in for an aerosol-model deficit. The band total is right; the
-attribution between gas and aerosol is not resolved by this fit.
+What the flip therefore said (measured 2026-09-01, the CU-337 ruling's
+premise): the anchor was **unreachable at any visibility setting** — with the
+scene already at 100 km the k_V floor sat at 0.258 mag/airmass against the
+published ≤ 0.20 — because the *fitted gas floor itself* carried the aerosol
+deficit and no visibility knob touched it. There was no cleaner-site
+configuration fix. CU-337 (2026-09-22) is that fix: the visible rows are split
+at their own gas chemistry and the remainder is carried as a scattering,
+visibility-independent background aerosol with its own knob. The band total and
+τ are untouched — the diagnosis above stands — and the anchor is reachable, as
+the table at the head of this section shows.
 
 **This anchor failed when the scenario was written, and the failure is what produced
 the fix.** `radiant.atmosphere.simple` used

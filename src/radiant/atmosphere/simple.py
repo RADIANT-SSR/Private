@@ -261,28 +261,138 @@ class _GasRegion:
     floor_od: float  # vertical full-column well-mixed-gas OD [-]
     k_h2o: float  # water OD at 1 cm effective path water [per cm^b]
     b_h2o: float  # water curve-of-growth exponent [-]
+    # CU-337: visibility-independent background aerosol vertical OD [-], full
+    # column (free-tropospheric + stratospheric aerosol MODTRAN carries at every
+    # visibility). Rides the molecular scale height; scatters with the aerosol
+    # single-scattering albedo. Fitted as the band opacity the corrected
+    # boundary layer, Rayleigh and the gas chemistry prior cannot supply.
+    aer_bg_od: float = 0.0
 
 
 _CALIBRATED_GAS_REGIONS: tuple[_GasRegion, ...] = (
-    _GasRegion(lo_um=0.30, hi_um=0.45, floor_od=0.1262, k_h2o=0.0000, b_h2o=1.000),
-    _GasRegion(lo_um=0.45, hi_um=0.70, floor_od=0.1375, k_h2o=0.0025, b_h2o=0.874),
-    _GasRegion(lo_um=0.70, hi_um=1.30, floor_od=0.0402, k_h2o=0.1245, b_h2o=0.434),
-    _GasRegion(lo_um=1.30, hi_um=1.50, floor_od=0.0000, k_h2o=1.0933, b_h2o=0.327),
-    _GasRegion(lo_um=1.50, hi_um=1.75, floor_od=0.0217, k_h2o=0.0282, b_h2o=0.645),
-    _GasRegion(lo_um=1.75, hi_um=2.05, floor_od=0.0000, k_h2o=1.1186, b_h2o=0.216),
-    _GasRegion(lo_um=2.05, hi_um=2.40, floor_od=0.0747, k_h2o=0.0320, b_h2o=0.843),
-    _GasRegion(lo_um=2.40, hi_um=3.10, floor_od=0.7440, k_h2o=0.9666, b_h2o=0.560),
-    _GasRegion(lo_um=3.10, hi_um=3.50, floor_od=0.1370, k_h2o=0.5824, b_h2o=0.457),
-    _GasRegion(lo_um=3.50, hi_um=5.00, floor_od=0.4494, k_h2o=0.0944, b_h2o=0.808),
-    _GasRegion(lo_um=5.00, hi_um=7.50, floor_od=1.3543, k_h2o=1.7850, b_h2o=0.530),
-    _GasRegion(lo_um=7.50, hi_um=8.00, floor_od=0.9424, k_h2o=0.9210, b_h2o=0.673),
+    _GasRegion(
+        lo_um=0.30,
+        hi_um=0.45,
+        floor_od=0.0030,
+        k_h2o=0.0000,
+        b_h2o=1.000,
+        aer_bg_od=0.1232,
+    ),
+    _GasRegion(
+        lo_um=0.45,
+        hi_um=0.70,
+        floor_od=0.0200,
+        k_h2o=0.0025,
+        b_h2o=0.874,
+        aer_bg_od=0.1175,
+    ),
+    _GasRegion(
+        lo_um=0.70,
+        hi_um=1.30,
+        floor_od=0.0402,
+        k_h2o=0.1245,
+        b_h2o=0.434,
+    ),
+    _GasRegion(
+        lo_um=1.30,
+        hi_um=1.50,
+        floor_od=0.0000,
+        k_h2o=1.0933,
+        b_h2o=0.327,
+    ),
+    _GasRegion(
+        lo_um=1.50,
+        hi_um=1.75,
+        floor_od=0.0217,
+        k_h2o=0.0282,
+        b_h2o=0.645,
+    ),
+    _GasRegion(
+        lo_um=1.75,
+        hi_um=2.05,
+        floor_od=0.0000,
+        k_h2o=1.1186,
+        b_h2o=0.216,
+    ),
+    _GasRegion(
+        lo_um=2.05,
+        hi_um=2.40,
+        floor_od=0.0747,
+        k_h2o=0.0320,
+        b_h2o=0.843,
+    ),
+    _GasRegion(
+        lo_um=2.40,
+        hi_um=3.10,
+        floor_od=0.7440,
+        k_h2o=0.9666,
+        b_h2o=0.560,
+    ),
+    _GasRegion(
+        lo_um=3.10,
+        hi_um=3.50,
+        floor_od=0.1370,
+        k_h2o=0.5824,
+        b_h2o=0.457,
+    ),
+    _GasRegion(
+        lo_um=3.50,
+        hi_um=5.00,
+        floor_od=0.4494,
+        k_h2o=0.0944,
+        b_h2o=0.808,
+    ),
+    _GasRegion(
+        lo_um=5.00,
+        hi_um=7.50,
+        floor_od=1.3543,
+        k_h2o=1.7850,
+        b_h2o=0.530,
+    ),
+    _GasRegion(
+        lo_um=7.50,
+        hi_um=8.00,
+        floor_od=0.9424,
+        k_h2o=0.9210,
+        b_h2o=0.673,
+    ),
     # CU-330: the former single 8.00–10.00 µm row split at the measured
     # O₃ ν₂ band edges — clean window / band core / long-wave tail.
-    _GasRegion(lo_um=8.00, hi_um=9.40, floor_od=0.1494, k_h2o=0.0992, b_h2o=1.204),
-    _GasRegion(lo_um=9.40, hi_um=9.90, floor_od=0.8877, k_h2o=0.0409, b_h2o=1.701),
-    _GasRegion(lo_um=9.90, hi_um=10.00, floor_od=0.3013, k_h2o=0.0379, b_h2o=1.805),
-    _GasRegion(lo_um=10.00, hi_um=12.00, floor_od=0.0471, k_h2o=0.0602, b_h2o=1.750),
-    _GasRegion(lo_um=12.00, hi_um=14.29, floor_od=0.5956, k_h2o=0.1398, b_h2o=1.583),
+    _GasRegion(
+        lo_um=8.00,
+        hi_um=9.40,
+        floor_od=0.1494,
+        k_h2o=0.0992,
+        b_h2o=1.204,
+    ),
+    _GasRegion(
+        lo_um=9.40,
+        hi_um=9.90,
+        floor_od=0.8877,
+        k_h2o=0.0409,
+        b_h2o=1.701,
+    ),
+    _GasRegion(
+        lo_um=9.90,
+        hi_um=10.00,
+        floor_od=0.3013,
+        k_h2o=0.0379,
+        b_h2o=1.805,
+    ),
+    _GasRegion(
+        lo_um=10.00,
+        hi_um=12.00,
+        floor_od=0.0471,
+        k_h2o=0.0602,
+        b_h2o=1.750,
+    ),
+    _GasRegion(
+        lo_um=12.00,
+        hi_um=14.29,
+        floor_od=0.5956,
+        k_h2o=0.1398,
+        b_h2o=1.583,
+    ),
 )
 
 # Half-width [µm] of the C¹ smoothstep ramp that joins one gas region's
@@ -454,6 +564,10 @@ class SimpleAtmosphere:
     standard_atmosphere:
         Atmosphere profile selector — currently informational only;
         defaults are tuned to ``us_standard``. Stored for provenance.
+    background_aerosol_scale:
+        Multiplier on the calibrated visibility-independent background
+        aerosol (CU-337). ``1.0`` is the MODTRAN rural climatology the
+        model is anchored to; ``0`` removes it (a pristine site).
     name:
         Optional human-readable label.
 
@@ -468,10 +582,20 @@ class SimpleAtmosphere:
     aerosol_type: str = "rural"
     precipitable_water_cm: float = 1.4
     standard_atmosphere: str = "us_standard"
+    # CU-337: multiplier on the calibrated visibility-independent background
+    # aerosol (``_GasRegion.aer_bg_od``); 1.0 = the MODTRAN rural climatology.
+    background_aerosol_scale: float = 1.0
     name: str = "simple_atmosphere"
     _tag: str = field(default="simple", init=False, repr=False)
 
     def __post_init__(self) -> None:
+        if not math.isfinite(self.background_aerosol_scale) or self.background_aerosol_scale < 0.0:
+            raise AtmosphereValidationError(
+                f"SimpleAtmosphere '{self.name}': background_aerosol_scale = "
+                f"{self.background_aerosol_scale} is invalid. It multiplies the calibrated "
+                "background-aerosol optical depth and must be a finite number ≥ 0 "
+                "(0 = no background aerosol, 1 = the MODTRAN rural climatology)."
+            )
         if not math.isfinite(self.visibility_km) or self.visibility_km <= 0.0:
             raise AtmosphereValidationError(
                 f"SimpleAtmosphere '{self.name}': visibility_km = "
@@ -819,10 +943,26 @@ class SimpleAtmosphere:
         """
         if regions is None:
             regions = _CALIBRATED_GAS_REGIONS
+        floor, k, b = SimpleAtmosphere._blend_region_fields(
+            wavelength_um, regions, ("floor_od", "k_h2o", "b_h2o")
+        )
+        return floor, k, b
+
+    @staticmethod
+    def _blend_region_fields(
+        wavelength_um: np.ndarray,
+        regions: tuple[_GasRegion, ...],
+        fields: tuple[str, ...],
+    ) -> tuple[np.ndarray, ...]:
+        """The CU-267 C¹ smoothstep blend of any set of ``_GasRegion`` fields.
+
+        One ramp implementation for every per-region coefficient — the gas
+        floor and water terms (:meth:`_region_params`) and the CU-337 aerosol
+        shape and background (:meth:`_aerosol_region_params`) — so the aerosol
+        terms cross a region edge on exactly the ramp the floor does.
+        """
         lam = np.asarray(wavelength_um, dtype=np.float64)
-        floor = np.empty_like(lam)
-        k = np.empty_like(lam)
-        b = np.empty_like(lam)
+        out = [np.empty_like(lam) for _ in fields]
         for i, region in enumerate(regions):
             if i == 0:
                 mask = lam < region.hi_um
@@ -830,10 +970,8 @@ class SimpleAtmosphere:
                 mask = lam >= region.lo_um
             else:
                 mask = (lam >= region.lo_um) & (lam < region.hi_um)
-            floor[mask] = region.floor_od
-            k[mask] = region.k_h2o
-            b[mask] = region.b_h2o
-
+            for arr, name in zip(out, fields, strict=True):
+                arr[mask] = getattr(region, name)
         hw = GAS_REGION_BLEND_HALF_WIDTH_UM
         for lo_region, hi_region in zip(regions[:-1], regions[1:], strict=True):
             edge_um = hi_region.lo_um
@@ -842,10 +980,26 @@ class SimpleAtmosphere:
                 continue
             u = 0.5 + (lam[in_ramp] - edge_um) / (2.0 * hw)
             s = u * u * (3.0 - 2.0 * u)
-            floor[in_ramp] = lo_region.floor_od + (hi_region.floor_od - lo_region.floor_od) * s
-            k[in_ramp] = lo_region.k_h2o + (hi_region.k_h2o - lo_region.k_h2o) * s
-            b[in_ramp] = lo_region.b_h2o + (hi_region.b_h2o - lo_region.b_h2o) * s
-        return floor, k, b
+            for arr, name in zip(out, fields, strict=True):
+                lo_v = getattr(lo_region, name)
+                arr[in_ramp] = lo_v + (getattr(hi_region, name) - lo_v) * s
+        return tuple(out)
+
+    @staticmethod
+    def _background_aerosol_region_od(
+        wavelength_um: np.ndarray,
+        regions: tuple[_GasRegion, ...] | None = None,
+    ) -> np.ndarray:
+        """Per-wavelength full-column ``aer_bg_od`` from the live region table (CU-337).
+
+        Blended across region edges by the same C¹ smoothstep the gas floor
+        uses, so the background aerosol and the floor it was split from cross
+        an edge together.
+        """
+        if regions is None:
+            regions = _CALIBRATED_GAS_REGIONS
+        (bg,) = SimpleAtmosphere._blend_region_fields(wavelength_um, regions, ("aer_bg_od",))
+        return bg
 
     def _h2o_vertical_od(self, wavelength_um: np.ndarray, col_h2o_km: float) -> np.ndarray:
         """Water-vapor vertical optical depth for a partial column.
@@ -884,6 +1038,42 @@ class SimpleAtmosphere:
             return np.zeros_like(np.asarray(wavelength_um, dtype=np.float64))
         floor, _k, _b = SimpleAtmosphere._region_params(wavelength_um)
         return floor * (col_mol_km / (H_MOL_M / 1000.0))
+
+    def _background_aerosol_vertical_od(
+        self, wavelength_um: np.ndarray, col_mol_km: float
+    ) -> np.ndarray:
+        """Visibility-independent background-aerosol vertical OD for a partial column (CU-337).
+
+        The calibrated ``aer_bg_od`` is the full-column value of the aerosol
+        MODTRAN carries above the boundary layer at every visibility. It lives
+        in the free troposphere and stratosphere, so it is apportioned on the
+        molecular scale height exactly as the gas floor it was split from —
+        which keeps every geometry's τ where the CU-336 calibration put it and
+        moves only the *attribution* (and, through the aerosol single-scattering
+        albedo, the scattered path radiance).
+        """
+        if col_mol_km <= 0.0:
+            return np.zeros_like(np.asarray(wavelength_um, dtype=np.float64))
+        bg = SimpleAtmosphere._background_aerosol_region_od(wavelength_um)
+        return self.background_aerosol_scale * bg * (col_mol_km / (H_MOL_M / 1000.0))
+
+    def _background_aerosol_extinction_km(
+        self, wavelength_um: np.ndarray, altitude_m: float
+    ) -> np.ndarray:
+        """Background-aerosol volume extinction at *altitude_m* [1/km] (CU-337).
+
+        The full-column ``aer_bg_od`` spread over the molecular scale height:
+        ``σ_bg(h) = aer_bg_od / H_mol · exp(−h / H_mol)``. Used only as the
+        scattering-weight companion of :meth:`_aerosol_extinction_km` in the
+        single-scattering albedo and phase function, never for optical depth.
+        """
+        bg = SimpleAtmosphere._background_aerosol_region_od(wavelength_um)
+        return (
+            self.background_aerosol_scale
+            * bg
+            / (H_MOL_M / 1000.0)
+            * math.exp(-altitude_m / H_MOL_M)
+        )
 
     # ------------------------------------------------------------------
     # Atmosphere protocol
@@ -939,7 +1129,14 @@ class SimpleAtmosphere:
         od_mol = sigma_mol_0 * col_mol
         od_aer = sigma_aer_0 * col_aer
         od_h2o = self._h2o_vertical_od(lam, col_h2o)
-        od_gas = self._gas_floor_vertical_od(lam, col_mol)
+        # CU-337: the background aerosol rides the molecular column — and, on a
+        # near-horizon path, the molecular air mass — exactly like the gas floor
+        # it was split from, so τ is where the calibration put it for every
+        # geometry. It scatters, though: the SSA/phase weights below count it
+        # with the aerosol, never with the gas.
+        od_gas = self._gas_floor_vertical_od(lam, col_mol) + self._background_aerosol_vertical_od(
+            lam, col_mol
+        )
 
         # Apply geometric air mass factor for off-nadir viewing.
         airmass = geometry.air_mass()
@@ -955,7 +1152,9 @@ class SimpleAtmosphere:
         # their scale heights, keeping the weights consistent with the
         # OD actually in the path.
         sigma_mol = self._rayleigh_extinction_km(lam, mean_alt_m)
-        sigma_aer = self._aerosol_extinction_km(lam, mean_alt_m)
+        sigma_aer = self._aerosol_extinction_km(
+            lam, mean_alt_m
+        ) + self._background_aerosol_extinction_km(lam, mean_alt_m)
         h2o_scale = math.exp(-mean_alt_m / H_H2O_M)
         sigma_h2o = (od_h2o / max(col_h2o, 1e-12)) * h2o_scale
         sigma_gas = (od_gas / max(col_mol, 1e-12)) * math.exp(-mean_alt_m / H_MOL_M)
@@ -1286,7 +1485,9 @@ class SimpleAtmosphere:
         od_mol_up = sigma_mol_0 * col_mol_up
         od_aer_up = sigma_aer_0 * col_aer_up
         od_h2o_up = self._h2o_vertical_od(lam, col_h2o_up)
-        od_gas_up = self._gas_floor_vertical_od(lam, col_mol_up)
+        od_gas_up = self._gas_floor_vertical_od(
+            lam, col_mol_up
+        ) + self._background_aerosol_vertical_od(lam, col_mol_up)
         od_vert_up = od_mol_up + od_aer_up + od_h2o_up + od_gas_up
         if near_horizon_up:
             masses_up = near_horizon_species_air_mass(
@@ -1324,7 +1525,9 @@ class SimpleAtmosphere:
         od_mol_sun = sigma_mol_0 * col_mol_sun
         od_aer_sun = sigma_aer_0 * col_aer_sun
         od_h2o_sun = self._h2o_vertical_od(lam, col_h2o_sun)
-        od_gas_sun = self._gas_floor_vertical_od(lam, col_mol_sun)
+        od_gas_sun = self._gas_floor_vertical_od(
+            lam, col_mol_sun
+        ) + self._background_aerosol_vertical_od(lam, col_mol_sun)
         od_vert_sun = od_mol_sun + od_aer_sun + od_h2o_sun + od_gas_sun
         if near_horizon_sun:
             masses_sun = near_horizon_species_air_mass(
@@ -1363,7 +1566,9 @@ class SimpleAtmosphere:
             od_mol_full = sigma_mol_0 * col_mol_full
             od_aer_full = sigma_aer_0 * col_aer_full
             od_h2o_full = self._h2o_vertical_od(lam, col_h2o_full)
-            od_gas_full = self._gas_floor_vertical_od(lam, col_mol_full)
+            od_gas_full = self._gas_floor_vertical_od(
+                lam, col_mol_full
+            ) + self._background_aerosol_vertical_od(lam, col_mol_full)
             od_vert_full = od_mol_full + od_aer_full + od_h2o_full + od_gas_full
             if near_horizon_up:
                 # Same ray, rooted at the ground: r·sin ζ is invariant along a
@@ -1412,7 +1617,9 @@ class SimpleAtmosphere:
         # column actually being integrated.
         mean_alt_m = 0.5 * (h_tgt + h_sensor_m)
         sigma_mol = self._rayleigh_extinction_km(lam, mean_alt_m)
-        sigma_aer = self._aerosol_extinction_km(lam, mean_alt_m)
+        sigma_aer = self._aerosol_extinction_km(
+            lam, mean_alt_m
+        ) + self._background_aerosol_extinction_km(lam, mean_alt_m)
         h2o_scale = math.exp(-mean_alt_m / H_H2O_M)
         # Column-mean water/gas "extinctions" from the up-leg ODs (CU-161),
         # scaled to the mean altitude by their scale heights — relative
@@ -1528,7 +1735,9 @@ class SimpleAtmosphere:
         else:
             mean_alt_full_m = 0.5 * h_sensor_m
             sigma_mol_full = self._rayleigh_extinction_km(lam, mean_alt_full_m)
-            sigma_aer_full = self._aerosol_extinction_km(lam, mean_alt_full_m)
+            sigma_aer_full = self._aerosol_extinction_km(
+                lam, mean_alt_full_m
+            ) + self._background_aerosol_extinction_km(lam, mean_alt_full_m)
             h2o_scale_full = math.exp(-mean_alt_full_m / H_H2O_M)
             col_h2o_full_w = self._column_length_km(0.0, h_sensor_m, H_H2O_M)
             col_mol_full_w = self._column_length_km(0.0, h_sensor_m, H_MOL_M)

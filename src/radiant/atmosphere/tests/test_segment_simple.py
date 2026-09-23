@@ -382,7 +382,10 @@ def test_species_weights_are_taken_at_the_lower_endpoint() -> None:
     col_mol = lengths["col_length_mol_km"]
     col_h2o = lengths["col_length_h2o_km"]
     sigma_mol = atm._rayleigh_extinction_km(lam, h_low)
-    sigma_aer = atm._aerosol_extinction_km(lam, h_low)
+    # CU-337: the scattering weight counts the background aerosol with the boundary layer.
+    sigma_aer = atm._aerosol_extinction_km(lam, h_low) + atm._background_aerosol_extinction_km(
+        lam, h_low
+    )
     sigma_h2o = (atm._h2o_vertical_od(lam, col_h2o) / col_h2o) * math.exp(-h_low / H_H2O_M)
     sigma_gas = (atm._gas_floor_vertical_od(lam, col_mol) / col_mol) * math.exp(-h_low / H_MOL_M)
     omega0 = atm._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o, sigma_gas)
@@ -490,7 +493,10 @@ def test_curve_of_growth_is_linearised_against_the_slant_column() -> None:
     assert air_mass > 1.9  # ζ = 60° really is ~2 air masses
 
     sigma_mol = atm._rayleigh_extinction_km(lam, h_low)
-    sigma_aer = atm._aerosol_extinction_km(lam, h_low)
+    # CU-337: the scattering weight counts the background aerosol with the boundary layer.
+    sigma_aer = atm._aerosol_extinction_km(lam, h_low) + atm._background_aerosol_extinction_km(
+        lam, h_low
+    )
     sigma_h2o = (atm._h2o_vertical_od(lam, s_h2o) / s_h2o) * math.exp(-h_low / H_H2O_M)
     sigma_gas = (atm._gas_floor_vertical_od(lam, s_mol) / s_mol) * math.exp(-h_low / H_MOL_M)
     omega0 = atm._single_scattering_albedo(sigma_mol, sigma_aer, sigma_h2o, sigma_gas)

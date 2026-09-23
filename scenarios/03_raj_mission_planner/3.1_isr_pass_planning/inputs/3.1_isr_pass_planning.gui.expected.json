@@ -2,9 +2,9 @@
   "id": "3.1",
   "title": "ISR pass planning \u2014 30 deg off-nadir baseline",
   "metrics": {
-    "snr": 72.69272583631032,
-    "nedt_K": 0.04882567948964279,
-    "niirs": 6.381394478533111
+    "snr": 73.5529598551742,
+    "nedt_K": 0.04826667740632486,
+    "niirs": 6.389359720643722
   },
   "notes": "Nominal 30 deg off-nadir look."
 }

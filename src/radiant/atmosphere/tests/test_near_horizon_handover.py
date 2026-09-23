@@ -71,7 +71,12 @@ def _vertical_od(atm: SimpleAtmosphere, lam: np.ndarray, h_low: float, h_high: f
         atm._rayleigh_extinction_km(lam, 0.0) * col_mol
         + atm._aerosol_extinction_km(lam, 0.0) * col_aer
         + atm._h2o_vertical_od(lam, col_h2o)
-        + atm._gas_floor_vertical_od(lam, col_mol),
+        # CU-337: the background aerosol rides the molecular column like the floor —
+        # summed with it first, as the model does, so the bit-for-bit claim holds.
+        + (
+            atm._gas_floor_vertical_od(lam, col_mol)
+            + atm._background_aerosol_vertical_od(lam, col_mol)
+        ),
         dtype=np.float64,
     )
 

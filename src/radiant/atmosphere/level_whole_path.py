@@ -229,7 +229,10 @@ def level_whole_path_optical_depth(
     od_vert_mol = atmosphere._rayleigh_extinction_km(lam, 0.0) * columns["mol"]
     od_vert_aer = atmosphere._aerosol_extinction_km(lam, 0.0) * columns["aer"]
     od_vert_h2o = atmosphere._h2o_vertical_od(lam, columns["h2o"])
-    od_vert_gas = atmosphere._gas_floor_vertical_od(lam, columns["mol"])
+    # CU-337: background aerosol on the molecular column and air mass (see simple.py).
+    od_vert_gas = atmosphere._gas_floor_vertical_od(
+        lam, columns["mol"]
+    ) + atmosphere._background_aerosol_vertical_od(lam, columns["mol"])
     od = apply_species_air_mass(
         masses,
         od_vert_mol=od_vert_mol,
@@ -428,7 +431,9 @@ def _whole_path_single_scatter_terms(
     s_mol = masses.slant_column_mol_km
     s_h2o = masses.slant_column_h2o_km
     sigma_mol = atmosphere._rayleigh_extinction_km(lam, altitude_m)
-    sigma_aer = atmosphere._aerosol_extinction_km(lam, altitude_m)
+    sigma_aer = atmosphere._aerosol_extinction_km(
+        lam, altitude_m
+    ) + atmosphere._background_aerosol_extinction_km(lam, altitude_m)
     sigma_h2o = (atmosphere._h2o_vertical_od(lam, s_h2o) / max(s_h2o, 1e-12)) * math.exp(
         -altitude_m / H_H2O_M
     )

@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 218**
+**Total parameters: 219**
 
 ## geometry
 
@@ -83,6 +83,7 @@
 | Parameter | Type | Default | Input Unit | Bounds | Description |
 |-----------|------|---------|------------|--------|-------------|
 | `atmosphere.aerosol_type` | str | rural | --- | --- | Aerosol type label. Selects an Ångström exponent and single-scatter albedo: rural (α=1.3), urban (α=1.5), maritime (α=0.7). |
+| `atmosphere.background_aerosol_scale` | float | 1.0 | --- | (0.0, 10.0) | Multiplier on the simple model's visibility-independent background aerosol (the free-tropospheric and stratospheric aerosol MODTRAN's rural climatology carries above the boundary layer, ~0.09 vertical optical depth in the 0.45–0.70 µm band). 1.0 = the calibrated MODTRAN rural-23 background; 0 = none (a pristine high-altitude site); visibility_km never touches this term (CU-337). |
 | `atmosphere.cn2_hv_ground_strength` | float | 1.7e-14 | m^(-2/3) | (0.0, 1e-10) | Hufnagel-Valley ground-level structure constant A [m^(-2/3)]. Scales the 100 m-scale-height surface layer of Cn²(h). Used only when atmosphere.cn2_profile = 'hufnagel_valley'. |
 | `atmosphere.cn2_hv_wind_rms_m_s` | float | 21.0 | m/s | (0.0, 100.0) | Hufnagel-Valley RMS upper-atmosphere (5–20 km) wind speed w [m/s]. Scales the jet-stream term of Cn²(h). Used only when atmosphere.cn2_profile = 'hufnagel_valley'. |
 | `atmosphere.cn2_profile` | str | direct | --- | --- | Optical-turbulence profile Cn²(h) used to derive the Fried parameter for turbulence. 'direct' (default) uses atmosphere.r0_m as given, with no profile at all. 'hufnagel_valley' integrates the analytic HV profile along the line of sight (parameters cn2_hv_wind_rms_m_s and cn2_hv_ground_strength; the defaults are HV-5/7). 'tabulated' uses the two-column CSV named by atmosphere.cn2_tabulated_file. |

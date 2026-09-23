@@ -56,6 +56,30 @@ VISIBILITY_KM = ParameterDef(
     ),
 )
 
+BACKGROUND_AEROSOL_SCALE = ParameterDef(
+    name="atmosphere.background_aerosol_scale",
+    description=(
+        "Multiplier on the simple model's visibility-independent background "
+        "aerosol (the free-tropospheric and stratospheric aerosol MODTRAN's "
+        "rural climatology carries above the boundary layer, ~0.09 vertical "
+        "optical depth in the 0.45–0.70 µm band). 1.0 = the calibrated MODTRAN "
+        "rural-23 background; 0 = none (a pristine high-altitude site); "
+        "visibility_km never touches this term (CU-337)."
+    ),
+    dtype=float,
+    canonical_unit="",
+    input_unit="",
+    default=1.0,
+    bounds=(0.0, 10.0),
+    tags=frozenset({"atmosphere", "simple", "aerosol"}),
+    default_justification=(
+        "1.0 reproduces the MODTRAN 6 rural-23 anchor set the simple model is "
+        "calibrated against; the knob exists because a good observatory site "
+        "carries a fraction of that background and no visibility setting can "
+        "express it (scenario 10.3)."
+    ),
+)
+
 AEROSOL_TYPE = ParameterDef(
     name="atmosphere.aerosol_type",
     description=(
@@ -599,6 +623,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     ATMOSPHERE_MODEL,
     # Simple parametric
     VISIBILITY_KM,
+    BACKGROUND_AEROSOL_SCALE,
     AEROSOL_TYPE,
     PRECIPITABLE_WATER_CM,
     STANDARD_ATMOSPHERE,

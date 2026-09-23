@@ -2,9 +2,9 @@
   "id": "3.4",
   "title": "Off-nadir agility \u2014 nadir baseline config",
   "metrics": {
-    "snr": 59.822055211441985,
-    "nedt_K": 0.0640381088705184,
-    "niirs": 5.425081224165302
+    "snr": 61.78719854931889,
+    "nedt_K": 0.061769722559796916,
+    "niirs": 5.446965180453028
   },
   "notes": "Runner's module-level base_config (nadir); the sweep varies path zenith. NIIRS-vs-off-nadir is the headline trade, so allow_extrapolated=true opts the baseline into the GIQE-5 rating past its SNR-calibration envelope (CU-166/CU-170)."
 }

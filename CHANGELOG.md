@@ -20,6 +20,37 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **`atmosphere.background_aerosol_scale`** — a multiplier on the simple
+  model's visibility-independent background aerosol (the free-tropospheric and
+  stratospheric aerosol above the Koschmieder boundary layer). 1.0, the
+  default, is the MODTRAN rural climatology the model is calibrated against;
+  0 is a pristine site. No surface visibility reading describes this term, so
+  before it existed a clean observatory could not be expressed at all (CU-337).
+
+### Changed
+- **Results-affecting: the visible gas floor is split into gas and aerosol
+  (CU-337).** The 0.30–0.45 and 0.45–0.70 µm rows of the calibrated table
+  carried 0.1262 and 0.1375 optical depths as *well-mixed gas*, roughly six
+  times what those bands' chemistry supplies (the ozone Chappuis band gives
+  about 0.020 in the visible). The excess was an aerosol deficit wearing a gas
+  label: it could neither scatter nor answer to a site. Each row is now split
+  at its chemistry — 0.0030 and 0.0200 of gas — with the remainder carried as
+  background aerosol. **Both totals are conserved exactly, so no transmittance
+  changes**; what moves is the visible single-scatter path radiance and sky,
+  because the opacity now scatters with the aerosol albedo instead of
+  absorbing. Every rung of the up-looking parity ladder improves (worst visible
+  excursion 1.231× → 1.153×) and no other band moves at all. Scenario 10.3's
+  astronomical-extinction anchor, previously unreachable at any visibility,
+  lands inside the published 0.12–0.20 mag/airmass band at a quarter of the
+  continental background.
+
+  Eight solar-reflective visible GUI baselines move with it, all the same way:
+  scattered opacity redirects photons instead of destroying them, so some reach
+  the ground and reflect, and the target term rises faster than the background.
+  SNR **+1.4 % to +5.1 %** (1.2, 1.4, 1.5, 3.1, 3.4, 5.1, 5.4, 5.5), NEDT down
+  in step, NIIRS +0.01 to +0.03. Thermal and infrared scenarios are untouched.
+
 ### Fixed
 - **Results-affecting: a configured defocus now produces the defocus it names
   (CU-379).** `optics.defocus_um` was folded into the pupil as a Noll Z4 of

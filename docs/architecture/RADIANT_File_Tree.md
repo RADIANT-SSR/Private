@@ -5,8 +5,8 @@
 **Source of truth:** `find src/radiant -name '*.py'` — this doc is a derived
 view, not a spec. When in doubt, run the find command.
 
-**Current file count:** 610 `.py` files under `src/radiant/` (335 source +
-233 test + 42 `__init__.py`), plus 41 integration tests under
+**Current file count:** 611 `.py` files under `src/radiant/` (335 source +
+234 test + 42 `__init__.py`), plus 41 integration tests under
 `tests/integration/` and 6 top-level test files (`tests/test_public_api.py`,
 `tests/test_exceptions.py`, `tests/test_provenance.py`,
 `tests/test_calibration_analysis.py`, `tests/test_error_budget.py`,
@@ -110,7 +110,7 @@ source/shapes/         # box, cone, cylinder, flat_plate, sphere — projected_a
                        # implementations for sub-pixel target geometry
 ```
 
-### `atmosphere/` — 41 source + 49 tests
+### `atmosphere/` — 41 source + 50 tests
 
 Stage 2: τ_atm, L_path, L_atm.
 

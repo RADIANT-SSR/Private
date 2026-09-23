@@ -193,9 +193,20 @@ def test_mixing_the_grids_recovers_the_added_depth_wrong_by_the_offset(
 
 @pytest.mark.level0
 def test_the_shipped_visnir_floors_are_the_corrected_ones() -> None:
-    """0.1375 and 0.0402 — the CU-335 values less the measured offsets."""
-    assert _region(0.45, 0.70).floor_od == 0.1375
+    """0.1375 and 0.0402 — the CU-335 values less the measured offsets.
+
+    CU-337 (2026-09-22) split the visible row's 0.1375 into the 0.0200 its own
+    gas chemistry supplies (the ozone Chappuis band) and 0.1175 of
+    visibility-independent background aerosol, so the row's opacity beyond
+    Rayleigh and the boundary layer is now ``floor_od + aer_bg_od``. The total
+    is the CU-336 value exactly — the split moved attribution, not opacity —
+    and the NIR row was left whole.
+    """
+    vis = _region(0.45, 0.70)
+    assert (vis.floor_od, vis.aer_bg_od) == (0.0200, 0.1175)
+    assert vis.floor_od + vis.aer_bg_od == pytest.approx(0.1375, abs=1e-12)
     assert _region(0.70, 1.30).floor_od == 0.0402
+    assert _region(0.70, 1.30).aer_bg_od == 0.0
 
 
 @pytest.mark.level0
@@ -208,9 +219,11 @@ def test_the_045um_edge_no_longer_steps_by_a_measurement_convention() -> None:
     the neighbouring real step at 0.70 µm (0.1375 → 0.0402) so the bound is a
     comparison rather than a bare constant.
     """
+    # CU-337: measured on the row total (gas floor + background aerosol), the
+    # quantity the fit resolves; the split between them is a separate question.
     uv, vis, nir = (
-        _region(0.30, 0.45).floor_od,
-        _region(0.45, 0.70).floor_od,
-        _region(0.70, 1.30).floor_od,
+        _region(0.30, 0.45).floor_od + _region(0.30, 0.45).aer_bg_od,
+        _region(0.45, 0.70).floor_od + _region(0.45, 0.70).aer_bg_od,
+        _region(0.70, 1.30).floor_od + _region(0.70, 1.30).aer_bg_od,
     )
     assert abs(vis - uv) < 0.2 * abs(vis - nir)

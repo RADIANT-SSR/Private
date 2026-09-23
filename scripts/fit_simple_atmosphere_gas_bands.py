@@ -43,6 +43,25 @@ real deficit; on the shared grid the 0.30–0.45 µm row picks up a floor. Note 
 residual limitation: that row is fitted from 0.375–0.45 µm and applied across
 0.30–0.45 µm (no anchor data exists below 0.375 µm).
 
+**Aerosol attribution (CU-337).** Two further per-region coefficients are derived
+here and printed with the floors:
+
+- ``aer_shape`` — the boundary-layer aerosol *spectral-shape* factor: the ratio
+  of MODTRAN's visibility-scaled band opacity to the Koschmieder-Ångström
+  law's, measured on the rural 5 km / 23 km pair (``D1 − A1``: same profile,
+  same water, same gases — the difference is aerosol and nothing else) and
+  normalised to 1.0 in the 0.45–0.70 µm region so that ``σ(550 nm) = 3.912/V``
+  keeps its exact Koschmieder meaning. The same pair sets ``H_AER_M`` (the
+  effective boundary-layer column, 1.35 km) in ``simple.py``.
+- ``aer_bg_od`` — the visibility-independent *background* aerosol (free
+  troposphere + stratosphere) MODTRAN carries at every visibility. Before
+  CU-337 it sat on the well-mixed-gas floor, where it neither scattered nor
+  answered to a visibility sweep. It is fitted as the band opacity left after
+  Rayleigh, the shape-corrected boundary layer and a **gas chemistry prior**
+  are subtracted, on the three rows below 1.30 µm where an aerosol background
+  is resolvable above the gas chemistry (``CHEMISTRY_PRIOR_OD``); longer rows
+  keep their whole floor as gas.
+
 Usage::
 
     python scripts/fit_simple_atmosphere_gas_bands.py
@@ -110,6 +129,29 @@ SEGMENTS: tuple[tuple[float, float], ...] = (
 )
 
 LADDER = (("D4", 0.7), ("A1", 1.4), ("D5", 2.8))
+# CU-337: the aerosol pair — rural 5 km (D1) against rural 23 km (A1); everything
+# but IHAZE/VIS identical, so D1 − A1 is a pure boundary-layer aerosol difference.
+AEROSOL_PAIR = (("D1", 5.0), ("A1", 23.0))
+# CU-337: gas-chemistry prior [vertical OD] for the rows where an aerosol
+# background is resolvable — what real gas absorption supplies in the band at
+# the A1 deck's columns (O₃ 0.000736 g/cm² = 344 DU), so the remainder of the
+# fitted floor is aerosol. Hand calculations on the tape7 wavenumber grid
+# (band means of −ln τ, the same estimator as the floors):
+#   0.30–0.45 µm: O₃ Huggins tail (< 0.001) + NO₂ at MODTRAN's default
+#                 column (~0.003)                                  → 0.003
+#   0.45–0.70 µm: O₃ Chappuis band, peak σ = 4.6e-21 cm² at 602 nm
+#                 (Gaussian half-width 55 nm) × 9.23e18 cm⁻² → peak τ 0.0425,
+#                 band mean 0.0201; O₂ B band (687 nm) < 0.001    → 0.020
+# The prior carries ±50 % uncertainty; it moves the gas/aerosol split, never
+# the band total, which stays anchored to the ladder. The 0.70–1.30 µm row is
+# deliberately absent: its floor (0.0402) sits far closer to its own chemistry
+# (the O₂ A band, which A1 measures at ~0.010) than the visible row's did, and
+# re-attributing it costs the NIR single-scatter sky its 1.30x adoption
+# ceiling — see ``AEROSOL_SHAPE_MAX_UM``.
+CHEMISTRY_PRIOR_OD: dict[tuple[float, float], float] = {
+    (0.30, 0.45): 0.003,
+    (0.45, 0.70): 0.020,
+}
 PROFILES = (("A6", 0.42), ("A4", 0.85), ("A5", 2.08), ("A3", 2.92), ("A2", 4.11))
 
 B_MIN, B_MAX = 0.10, 2.50  # exponent guard for noisy/transparent segments
@@ -118,6 +160,38 @@ B_MIN, B_MAX = 0.10, 2.50  # exponent guard for noisy/transparent segments
 def _band_od(wl: np.ndarray, tau: np.ndarray, lo: float, hi: float) -> float:
     band = (wl >= lo) & (wl <= hi)
     return -float(np.log(max(float(tau[band].mean()), 1e-9)))
+
+
+def _aerosol_ratio_diagnostic(
+    spectra: dict[str, tuple[np.ndarray, np.ndarray]], wl: np.ndarray
+) -> dict[tuple[float, float], float]:
+    """Measured/model boundary-layer aerosol ratio per segment (CU-337 diagnostic).
+
+    ``measured`` is the band-OD difference between the 5 km and 23 km decks;
+    ``model`` is the same difference for the Koschmieder-Ångström law on the
+    anchor grid with the shipped ``H_AER_M`` and the 5 µm clamp. Printed, never
+    applied — see the module docstring for why.
+    """
+    from radiant.atmosphere import simple as simple_mod
+
+    def model_bl_od(v_km: float) -> np.ndarray:
+        alpha = simple_mod._AEROSOL_TABLE["rural"]["angstrom"]
+        lam_eff = np.minimum(wl, simple_mod.AEROSOL_CLAMP_WAVELENGTH_UM)
+        sigma = (simple_mod.KOSCHMIEDER / v_km) * (
+            lam_eff / simple_mod.AEROSOL_REFERENCE_WAVELENGTH_UM
+        ) ** (-alpha)
+        h_km = simple_mod.H_AER_M / 1000.0
+        return sigma * h_km * (1.0 - np.exp(-100_000.0 / simple_mod.H_AER_M))
+
+    (run_lo, v_lo), (run_hi, v_hi) = AEROSOL_PAIR
+    raw: dict[tuple[float, float], float] = {}
+    for seg in SEGMENTS:
+        measured = _band_od(*spectra[run_lo], *seg) - _band_od(*spectra[run_hi], *seg)
+        band = (wl >= seg[0]) & (wl <= seg[1])
+        od_lo = -float(np.log(np.exp(-model_bl_od(v_lo)[band]).mean()))
+        od_hi = -float(np.log(np.exp(-model_bl_od(v_hi)[band]).mean()))
+        raw[seg] = measured / (od_lo - od_hi)
+    return raw
 
 
 def _model_nonwater_od(wl: np.ndarray) -> dict[tuple[float, float], float]:
@@ -178,8 +252,10 @@ def _model_nonwater_od(wl: np.ndarray) -> dict[tuple[float, float], float]:
         delta_phi=None,
     )
     shipped_regions = simple_mod._CALIBRATED_GAS_REGIONS
+    # CU-337: the background aerosol is zeroed alongside the floors — both are
+    # what this script derives, so neither may be in its own reference.
     simple_mod._CALIBRATED_GAS_REGIONS = tuple(
-        replace(region, floor_od=0.0) for region in shipped_regions
+        replace(region, floor_od=0.0, aer_bg_od=0.0) for region in shipped_regions
     )
     try:
         with warnings.catch_warnings():
@@ -197,7 +273,7 @@ def main() -> int:
         return 1
 
     spectra = {}
-    for run, _w in (*LADDER, *PROFILES):
+    for run, _w in (*LADDER, *PROFILES, *AEROSOL_PAIR):
         wl, tau, _, _ = Tape7Reader(REAL_RUNS / f"{run}.tp7").to_radiant_units()
         spectra[run] = (wl, tau)
 
@@ -218,10 +294,14 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+    aer_ratio = _aerosol_ratio_diagnostic(spectra, anchor_grid)
     nonwater = _model_nonwater_od(anchor_grid)
 
     rows = []
-    print(f"{'segment':16} {'OD0':>7} {'k':>8} {'b':>6} {'nonwater':>9} {'floor_add':>9}")
+    print(
+        f"{'segment':16} {'OD0':>7} {'k':>8} {'b':>6} {'nonwater':>9} {'floor_add':>9} "
+        f"{'aer_ratio':>9} {'gas':>7} {'aer_bg':>7}"
+    )
     for lo, hi in SEGMENTS:
         od = [_band_od(*spectra[run], lo, hi) for run, _w in LADDER]
         d1, d2 = od[1] - od[0], od[2] - od[1]
@@ -240,18 +320,29 @@ def main() -> int:
                 k = od[1] / 1.4**b
                 od0 = 0.0
         floor_add = max(od0 - nonwater[(lo, hi)], 0.0)
-        rows.append((lo, hi, floor_add, k, b))
+        # CU-337 split: on the rows with a chemistry prior, the gas floor is the
+        # prior (capped at what was fitted) and the remainder is background
+        # aerosol; every other row keeps its whole floor as gas.
+        prior = CHEMISTRY_PRIOR_OD.get((lo, hi))
+        if prior is None:
+            gas, aer_bg = floor_add, 0.0
+        else:
+            gas = min(prior, floor_add)
+            aer_bg = floor_add - gas
+        rows.append((lo, hi, gas, k, b, aer_bg))
         print(
             f"{lo:5.2f}–{hi:5.2f} µm  {od0:7.3f} {k:8.4f} {b:6.3f} "
-            f"{nonwater[(lo, hi)]:9.3f} {floor_add:9.3f}"
+            f"{nonwater[(lo, hi)]:9.3f} {floor_add:9.3f} {aer_ratio[(lo, hi)]:9.3f} "
+            f"{gas:7.4f} {aer_bg:7.4f}"
         )
 
     print("\n# Paste into radiant/atmosphere/simple.py:")
     print("_CALIBRATED_GAS_REGIONS: tuple[_GasRegion, ...] = (")
-    for lo, hi, floor, k, b in rows:
+    for lo, hi, floor, k, b, aer_bg in rows:
         print(
             f"    _GasRegion(lo_um={lo}, hi_um={hi}, "
-            f"floor_od={floor:.4f}, k_h2o={k:.4f}, b_h2o={b:.3f}),"
+            f"floor_od={floor:.4f}, k_h2o={k:.4f}, b_h2o={b:.3f}, "
+            f"aer_bg_od={aer_bg:.4f}),"
         )
     print(")")
 
@@ -271,7 +362,7 @@ def main() -> int:
         deltas = []
         for lo, hi in checks:
             row = next(r for r in rows if r[0] == lo)
-            od0_fit = row[2] + nonwater[(lo, hi)]
+            od0_fit = row[2] + row[5] + nonwater[(lo, hi)]
             tau_fit = float(np.exp(-(od0_fit + row[3] * w ** row[4])))
             tau_real = float(np.exp(-_band_od(*spectra[run], lo, hi)))
             deltas.append(f"{lo:g}–{hi:g}:{tau_fit - tau_real:+.3f}")

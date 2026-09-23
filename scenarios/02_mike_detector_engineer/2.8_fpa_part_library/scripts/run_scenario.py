@@ -46,9 +46,18 @@ def main() -> None:
     print("  extended-scene: per-pixel signal, no EE_box coupling applies)")
     print(f"Readout architecture: {ro['architecture']} (CTIA + on-chip 14-bit ADC —")
     print("  GeoSnap is a digital-interface FPA, NOT an in-pixel counter; see preset notes)")
+    ro_out = result.stage_outputs["readout"]
     print(f"SNR: {result.metrics['snr']:.1f} (dimensionless)")
-    if "nedt" in result.metrics:
-        print(f"NEDT: {result.metrics['nedt'] * 1000.0:.2f} mK")
+    # The metric key is ``nedt_K``; this line read ``nedt`` and so printed
+    # nothing at all until the September 2026 findings sweep.
+    print(f"NEDT: {result.metrics['nedt_K'] * 1000.0:.2f} mK")
+    print(f"GSD (geometric mean): {result.metrics['gsd_geometric_mean_m']:.3f} m")
+    print(f"MTF at Nyquist: {result.metrics['mtf_at_nyquist']:.4f} (dimensionless)")
+    print(f"Q (band centre): {result.metrics['q_center']:.3f} (dimensionless)")
+    print(
+        f"Well fill: {ro_out['well_fill_fraction'] * 100.0:.1f} % of "
+        f"{ro_out['full_well_capacity_e'] / 1e6:.2f} Me- ({ro_out['well_status']})"
+    )
     print()
     print("Physics notes:")
     print("  - The preset's 400 e- RMS read noise is the vendor's ROIC-only figure for")

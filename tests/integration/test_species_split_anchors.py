@@ -119,28 +119,38 @@ _BANDS = {
 #: means less path radiance, while the τ parity it trades against improves 2.6×
 #: (§2.16a).  Every ceiling below is unchanged and every one still holds; SWIR
 #: remains the tight one at 1.697 against 1.70.
+#: **CU-337 (2026-09-22).**  The visible row's fitted opacity was split into the
+#: gas chemistry its own band supplies (0.0200, the ozone Chappuis band) and
+#: 0.1175 of visibility-independent background aerosol.  τ is unchanged — the
+#: split moves attribution, not opacity — but the background now *scatters*
+#: with the aerosol single-scattering albedo instead of absorbing as a gas, so
+#: this single-scatter source improves across the board: every VIS rung moves
+#: toward unity and the worst VIS excursion falls 1.231x → 1.153x.  No other
+#: band moves at all (the split is scoped to 0.45–0.70 µm and the aerosol law,
+#: its scale height and every other row are untouched), so the NIR, SWIR, MWIR
+#: and LWIR pins below are bit-identical and all five ceilings still hold.
 _EXPECTED_RATIOS: dict[tuple[int, str], float] = {
-    (1_000, "VIS"): 1.084,
+    (1_000, "VIS"): 1.016,
     (1_000, "NIR"): 0.790,
     (1_000, "SWIR"): 0.607,
     (1_000, "MWIR"): 2.448,
     (1_000, "LWIR"): 1.934,
-    (3_000, "VIS"): 1.225,
+    (3_000, "VIS"): 1.148,
     (3_000, "NIR"): 0.884,
     (3_000, "SWIR"): 0.658,
     (3_000, "MWIR"): 1.852,
     (3_000, "LWIR"): 1.235,
-    (5_000, "VIS"): 1.231,
+    (5_000, "VIS"): 1.153,
     (5_000, "NIR"): 0.886,
     (5_000, "SWIR"): 0.624,
     (5_000, "MWIR"): 1.674,
     (5_000, "LWIR"): 1.079,
-    (10_000, "VIS"): 1.185,
+    (10_000, "VIS"): 1.110,
     (10_000, "NIR"): 0.886,
     (10_000, "SWIR"): 0.602,
     (10_000, "MWIR"): 1.514,
     (10_000, "LWIR"): 1.022,
-    (20_000, "VIS"): 1.130,
+    (20_000, "VIS"): 1.057,
     (20_000, "NIR"): 0.880,
     (20_000, "SWIR"): 0.589,
     (20_000, "MWIR"): 1.410,

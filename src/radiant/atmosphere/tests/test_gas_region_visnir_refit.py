@@ -60,27 +60,28 @@ from radiant.atmosphere.simple import (
 
 HW: float = GAS_REGION_BLEND_HALF_WIDTH_UM
 
-#: The shipped table after the CU-335 re-fit **and the CU-336 grid
-#: correction**, exactly as ``scripts/fit_simple_atmosphere_gas_bands.py``
-#: prints it: ``(lo_um, hi_um, floor_od, k_h2o, b_h2o)``.
-EXPECTED_TABLE: tuple[tuple[float, float, float, float, float], ...] = (
-    (0.30, 0.45, 0.1262, 0.0000, 1.000),
-    (0.45, 0.70, 0.1375, 0.0025, 0.874),
-    (0.70, 1.30, 0.0402, 0.1245, 0.434),
-    (1.30, 1.50, 0.0000, 1.0933, 0.327),
-    (1.50, 1.75, 0.0217, 0.0282, 0.645),
-    (1.75, 2.05, 0.0000, 1.1186, 0.216),
-    (2.05, 2.40, 0.0747, 0.0320, 0.843),
-    (2.40, 3.10, 0.7440, 0.9666, 0.560),
-    (3.10, 3.50, 0.1370, 0.5824, 0.457),
-    (3.50, 5.00, 0.4494, 0.0944, 0.808),
-    (5.00, 7.50, 1.3543, 1.7850, 0.530),
-    (7.50, 8.00, 0.9424, 0.9210, 0.673),
-    (8.00, 9.40, 0.1494, 0.0992, 1.204),
-    (9.40, 9.90, 0.8877, 0.0409, 1.701),
-    (9.90, 10.00, 0.3013, 0.0379, 1.805),
-    (10.00, 12.00, 0.0471, 0.0602, 1.750),
-    (12.00, 14.29, 0.5956, 0.1398, 1.583),
+#: The shipped table after the CU-335 re-fit, the CU-336 grid correction
+#: **and the CU-337 visible-row aerosol split** (2026-09-22), exactly as
+#: ``scripts/fit_simple_atmosphere_gas_bands.py`` prints it:
+#: ``(lo_um, hi_um, floor_od, k_h2o, b_h2o, aer_bg_od)``.
+EXPECTED_TABLE: tuple[tuple[float, ...], ...] = (
+    (0.30, 0.45, 0.0030, 0.0000, 1.000, 0.1232),
+    (0.45, 0.70, 0.0200, 0.0025, 0.874, 0.1175),
+    (0.70, 1.30, 0.0402, 0.1245, 0.434, 0.0000),
+    (1.30, 1.50, 0.0000, 1.0933, 0.327, 0.0000),
+    (1.50, 1.75, 0.0217, 0.0282, 0.645, 0.0000),
+    (1.75, 2.05, 0.0000, 1.1186, 0.216, 0.0000),
+    (2.05, 2.40, 0.0747, 0.0320, 0.843, 0.0000),
+    (2.40, 3.10, 0.7440, 0.9666, 0.560, 0.0000),
+    (3.10, 3.50, 0.1370, 0.5824, 0.457, 0.0000),
+    (3.50, 5.00, 0.4494, 0.0944, 0.808, 0.0000),
+    (5.00, 7.50, 1.3543, 1.7850, 0.530, 0.0000),
+    (7.50, 8.00, 0.9424, 0.9210, 0.673, 0.0000),
+    (8.00, 9.40, 0.1494, 0.0992, 1.204, 0.0000),
+    (9.40, 9.90, 0.8877, 0.0409, 1.701, 0.0000),
+    (9.90, 10.00, 0.3013, 0.0379, 1.805, 0.0000),
+    (10.00, 12.00, 0.0471, 0.0602, 1.750, 0.0000),
+    (12.00, 14.29, 0.5956, 0.1398, 1.583, 0.0000),
 )
 
 #: ``floor_od`` as it shipped *before* CU-335 — the CU-161 vintage for
@@ -139,13 +140,13 @@ def test_the_table_has_the_same_seventeen_regions_as_before() -> None:
     review.  CU-335 is a re-calibration of the existing partition.
     """
     partition = tuple((r.lo_um, r.hi_um) for r in _CALIBRATED_GAS_REGIONS)
-    assert partition == tuple((lo, hi) for lo, hi, _f, _k, _b in EXPECTED_TABLE)
+    assert partition == tuple((lo, hi) for lo, hi, *_rest in EXPECTED_TABLE)
 
 
 @pytest.mark.level0
 @pytest.mark.parametrize("row", EXPECTED_TABLE, ids=lambda r: f"{r[0]}-{r[1]}um")
 def test_every_shipped_row_matches_the_generator_output(
-    row: tuple[float, float, float, float, float],
+    row: tuple[float, ...],
 ) -> None:
     """Bit-exact pin of the table the generator printed.
 
@@ -153,11 +154,12 @@ def test_every_shipped_row_matches_the_generator_output(
     (Rule 26), so any difference at all means the paste and the
     generator have diverged.
     """
-    lo_um, hi_um, floor_od, k_h2o, b_h2o = row
+    lo_um, hi_um, floor_od, k_h2o, b_h2o, aer_bg_od = row
     region = _region(lo_um, hi_um)
     assert region.floor_od == floor_od
     assert region.k_h2o == k_h2o
     assert region.b_h2o == b_h2o
+    assert region.aer_bg_od == aer_bg_od
 
 
 # ----------------------------------------------------------------------
@@ -319,7 +321,11 @@ def test_the_vis_nir_floors_come_down_by_the_measured_grid_offset(
     0.0517 − 0.0114 = 0.0403 arithmetic, because the offset's own fourth
     decimal is 0.01145 rounded down.
     """
-    assert _region(*band).floor_od == pytest.approx(cu335_value - measured_offset, abs=1.5e-4)
+    # CU-337 split the visible row, so the fitted quantity is the row total.
+    region = _region(*band)
+    assert region.floor_od + region.aer_bg_od == pytest.approx(
+        cu335_value - measured_offset, abs=1.5e-4
+    )
 
 
 @pytest.mark.level0
@@ -354,8 +360,9 @@ def test_the_two_visible_rows_dominate_the_change() -> None:
     monotonically with wavelength.  A table whose largest motion sat in
     the SWIR would mean something other than Rayleigh had moved.
     """
+    # CU-337: on the row total, the quantity the fit resolves.
     moved = {
-        (r.lo_um, r.hi_um): r.floor_od - FLOOR_BEFORE[(r.lo_um, r.hi_um)]
+        (r.lo_um, r.hi_um): r.floor_od + r.aer_bg_od - FLOOR_BEFORE[(r.lo_um, r.hi_um)]
         for r in _CALIBRATED_GAS_REGIONS
     }
     total = sum(moved.values())
@@ -446,8 +453,11 @@ def test_the_070um_edge_carries_the_new_arithmetic_mean_floor() -> None:
     one place the two re-fitted rows meet, so it is the sharpest
     single-number statement that both moved.
     """
+    # (0.0200 + 0.0402) / 2 since CU-337 moved the visible row's aerosol share
+    # into ``aer_bg_od``; that term's own edge mean is asserted in
+    # test_gas_region_blend.py.
     floor, _k, _b = _coeffs(np.array([0.70]))
-    assert float(floor[0]) == pytest.approx(0.08885, rel=1e-12, abs=1e-15)
+    assert float(floor[0]) == pytest.approx(0.0301, rel=1e-12, abs=1e-15)
 
 
 @pytest.mark.level0

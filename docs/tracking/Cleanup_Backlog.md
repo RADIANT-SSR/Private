@@ -47,22 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-361 — examples/scripts defects: NaN NEDT column in a shipped example, unitless tables, prose/number drift (family) — RESOLVED 2026-09-20 (commit trailer)
-
-**Discovered**: Gap 131 Phase 4 Parts A+B (branch `gap131/phase4-examples`), 2026-09-16, while running all six examples for Volume IV chapter 3. Family head.
-**Status**: Resolved 2026-09-20 — docs-drift batch C: every item fixed in the scripts and Volume IV's quoted outputs (`examples_scripting.md`) refreshed from fresh runs of all six programs.
-**File**: `examples/scripts/` (five of six programs; ships in the wheel since Gap 126).
-**Symptom**: checklist —
-
-- [x] `custom_loop.py` reads `result.metrics["nedt_K"]`; the column prints kelvin. Originally: `custom_loop.py:44` reads `result.metrics.get("nedt")`; the registered key is `nedt_K`, so every NEDT cell prints `nan` (workflow-visible defect in a shipped example)
-- [x] all three print units from `metric_records()` (a unit column, a unit suffix, and units on every Monte Carlo statistic); the comparison table fits the manual's 91-column text width and prints n/a for a zero baseline. Originally: `compare_configs.py`, `basic_evaluation.py` print bare metric tables whose units survive only where the key carries them; `tolerance_analysis.py` prints Mean/Std/percentiles with no units at all (violates the units-on-all-outputs hard rule; `dual_band_configuration_set.py`'s `metric_records()` pattern is the fix)
-- [x] fixed. Originally: `tolerance_analysis.py:52-53` — `%%` inside an f-string prints a literal `%%` (cosmetic)
-- [x] `examples/scripts/*.png` is gitignored. Originally: `aperture_sweep.py` writes `aperture_sweep_snr.png` into `examples/scripts/` — not gitignored, so running the shipped example dirties the tree (Rule 26)
-- [x] the prose is built from the run's own metrics (NEDT gap, integration-time ratio, both well fills). Originally: `dual_band_configuration_set.py` §4 prose hardcodes "59 %" well fill and "~15 %" NEDT margin while its own printed table says 84.3 % and 10.6 % (prose drifted from computed values)
-
-**Why it still matters**: workflow-visible (intake test 4) — these are the first scripts a new user runs, and Volume IV chapter 3 reproduces their output verbatim (the NaN column and the drifted prose are now typeset in the manual until fixed).
-**Suggested fix**: (a) inline-fix-now, one small PR (key fix + metric_records() adoption + %% + gitignore + prose from computed values), then refresh Volume IV ch. 3 outputs. Effort S; category A.
-
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).
@@ -260,6 +244,22 @@ by name in check 8 — that list is frozen and must never grow.
 
 **Why it still matters**: workflow-visible (intake test 4) — this is the owner's "conflict you cannot fix one edit at a time" report, and it is owner-gated (test 2) because the remedy is a mode-model decision.
 **Resolution**: fix batch 4 as ruled — see the checklist; the physics manifest is unchanged, the two seams are additive. Original suggested fix: (b) stand-alone task after the Gap 85 ruling — either a mode selector that withdraws the other doors' explicit values (with an undo step), or a "withdraw and switch" action on the rejection; show derived values in inactive fields; make LTAN/LST exclusive on the card; add a lab door. Effort M–L; Category D.
+
+### CU-361 — examples/scripts defects: NaN NEDT column in a shipped example, unitless tables, prose/number drift (family) — RESOLVED 2026-09-20 (commit trailer)
+
+**Discovered**: Gap 131 Phase 4 Parts A+B (branch `gap131/phase4-examples`), 2026-09-16, while running all six examples for Volume IV chapter 3. Family head.
+**Status**: Resolved 2026-09-20 — docs-drift batch C: every item fixed in the scripts and Volume IV's quoted outputs (`examples_scripting.md`) refreshed from fresh runs of all six programs.
+**File**: `examples/scripts/` (five of six programs; ships in the wheel since Gap 126).
+**Symptom**: checklist —
+
+- [x] `custom_loop.py` reads `result.metrics["nedt_K"]`; the column prints kelvin. Originally: `custom_loop.py:44` reads `result.metrics.get("nedt")`; the registered key is `nedt_K`, so every NEDT cell prints `nan` (workflow-visible defect in a shipped example)
+- [x] all three print units from `metric_records()` (a unit column, a unit suffix, and units on every Monte Carlo statistic); the comparison table fits the manual's 91-column text width and prints n/a for a zero baseline. Originally: `compare_configs.py`, `basic_evaluation.py` print bare metric tables whose units survive only where the key carries them; `tolerance_analysis.py` prints Mean/Std/percentiles with no units at all (violates the units-on-all-outputs hard rule; `dual_band_configuration_set.py`'s `metric_records()` pattern is the fix)
+- [x] fixed. Originally: `tolerance_analysis.py:52-53` — `%%` inside an f-string prints a literal `%%` (cosmetic)
+- [x] `examples/scripts/*.png` is gitignored. Originally: `aperture_sweep.py` writes `aperture_sweep_snr.png` into `examples/scripts/` — not gitignored, so running the shipped example dirties the tree (Rule 26)
+- [x] the prose is built from the run's own metrics (NEDT gap, integration-time ratio, both well fills). Originally: `dual_band_configuration_set.py` §4 prose hardcodes "59 %" well fill and "~15 %" NEDT margin while its own printed table says 84.3 % and 10.6 % (prose drifted from computed values)
+
+**Why it still matters**: workflow-visible (intake test 4) — these are the first scripts a new user runs, and Volume IV chapter 3 reproduces their output verbatim (the NaN column and the drifted prose are now typeset in the manual until fixed).
+**Suggested fix**: (a) inline-fix-now, one small PR (key fix + metric_records() adoption + %% + gitignore + prose from computed values), then refresh Volume IV ch. 3 outputs. Effort S; category A.
 
 ### CU-365 — Element-config parser silently ignores `emissivity:` (and mismatched transfer keys) instead of rejecting over-specification — RESOLVED 2026-09-20 (commit trailer)
 

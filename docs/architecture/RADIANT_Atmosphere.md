@@ -217,14 +217,24 @@ Contract properties this document owns:
   blend ramps rather than carrying a second copy of them. τ is untouched: this is a
   redistribution in altitude, like every other placement rule here.
 
+- **Aerosol is two terms, and only one of them is visibility** (CU-337, 2026-09-22): the
+  Koschmieder-Ångström **boundary layer** on its 1.2 km scale height, and a
+  visibility-independent **background** (free troposphere + stratosphere) carried as a
+  per-region `aer_bg_od` on the molecular scale height and scaled by
+  `atmosphere.background_aerosol_scale`. The background is calibrated only where the
+  anchors resolve it — the two regions below 0.70 µm — and it **scatters**, entering ω₀
+  and the phase function with the aerosol albedo. Before the split it sat on the
+  well-mixed gas floor, where it could neither scatter nor answer to a site: a clean
+  observatory was unreachable at *any* visibility setting (scenario 10.3).
+
 **Known fragilities**, named here and sized in the parity document: region-flat spectral
 shape inside each calibrated region; linear air-mass scaling on saturated bands; edge-region
-clamping outside 0.30–14.29 µm; the VIS band's gas-versus-aerosol attribution (CU-335 fixed
-the band *total* — within 4 % of MODTRAN at the anchor, from 30 % under — but assigned the
-correction to the well-mixed gas floor, which carries more than 0.45–0.70 µm gas chemistry
-supplies); and the generator's mixed-grid non-water reference, which biases the VIS/NIR
-floors high by +0.022 / +0.011 optical depths. Cross-validated against
-the five non-calibration profile anchors (A2–A6) in the water-relevant windows.
+clamping outside 0.30–14.29 µm; the gas/aerosol attribution *above* 0.70 µm, which CU-337
+left whole because the anchors do not resolve a background there and re-attributing the
+NIR row costs its single-scatter sky the 1.30× adoption ceiling; and the measured
+boundary-layer column itself, which the delivered visibility pair says is ~13 % deeper
+than a 1.2 km exponential in the visible. Cross-validated against the five
+non-calibration profile anchors (A2–A6) in the water-relevant windows.
 
 **Inputs** (§6.2): `atmosphere.visibility_km`, `atmosphere.aerosol_type`,
 `atmosphere.precipitable_water_cm`, `atmosphere.standard_atmosphere`.

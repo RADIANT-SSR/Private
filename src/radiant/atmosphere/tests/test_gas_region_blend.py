@@ -289,10 +289,16 @@ def test_edge_midpoint_hand_value_at_0p70_um() -> None:
     large.  The re-fit lifted them to 0.1597 and 0.0517; CU-336
     (2026-09-01) then measured the fit's non-water reference on the
     ladder's own wavenumber grid and they came down to 0.1375 and
-    0.0402, so the edge now carries their mean, 0.08885.
+    0.0402, so the edge carried their mean, 0.08885.  CU-337 (2026-09-22) then
+    split the visible row into 0.0200 of ozone-Chappuis chemistry and 0.1175 of
+    background aerosol, so the *gas* floor at the edge is the mean of 0.0200 and
+    0.0402 — and the background aerosol ramps from 0.1175 to zero across the
+    same edge, reaching 0.05875 at its midpoint.
     """
     floor, k, b = _coeffs(np.array([0.70]))
-    assert float(floor[0]) == pytest.approx(0.08885, rel=1e-14, abs=1e-15)
+    assert float(floor[0]) == pytest.approx(0.0301, rel=1e-14, abs=1e-15)
+    bg = SimpleAtmosphere._background_aerosol_region_od(np.array([0.70]))
+    assert float(bg[0]) == pytest.approx(0.05875, rel=1e-14, abs=1e-15)
     assert float(k[0]) == pytest.approx(0.0635, rel=1e-14)
     assert float(b[0]) == pytest.approx(0.654, rel=1e-14)
 

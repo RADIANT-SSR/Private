@@ -171,7 +171,11 @@ def test_the_moved_row_reproduces_from_the_delivered_ladder(
     reference_grid, _tau = _spectrum(_REFERENCE_RUN)
     floor_add = max(od0 - _nonwater_od(monkeypatch, reference_grid, band), 0.0)
     shipped = _region(*band)
-    assert floor_add == pytest.approx(shipped.floor_od, abs=5.0e-5)
+    # CU-337 (2026-09-22) split the two visible rows into the gas chemistry
+    # their own bands supply and a visibility-independent background aerosol,
+    # so the quantity this re-derivation resolves — the opacity beyond
+    # Rayleigh and the boundary layer — is the row total, not ``floor_od``.
+    assert floor_add == pytest.approx(shipped.floor_od + shipped.aer_bg_od, abs=5.0e-5)
     assert k_h2o == pytest.approx(shipped.k_h2o, abs=5.0e-5)
     assert b_h2o == pytest.approx(shipped.b_h2o, abs=5.0e-4)
 

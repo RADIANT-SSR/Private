@@ -132,9 +132,25 @@ $\lambda_{\text{clamp}} = 5.0$ µm — beyond it the extinction is frozen at its
 rather than decaying unphysically toward zero, and the model warns once per run when the
 clamp engages.
 
+**Background aerosol — the term visibility does not reach.** The Koschmieder relation
+describes the *boundary layer*, whose 1.2 km scale height empties by ~5 km. Above it the
+atmosphere still carries free-tropospheric and stratospheric aerosol, at an amount a
+surface visibility reading says nothing about. RADIANT carries that separately, as a
+per-region vertical optical depth `aer_bg_od` on the molecular scale height:
+
+$$\mathrm{OD}_{\text{bg}}(\lambda)\;=\;s\;\cdot\;\texttt{aer\_bg\_od}(\lambda)\;\cdot\;\frac{\mathrm{col}_{\text{mol}}}{H_{\text{mol}}}$$
+
+with $s$ = `atmosphere.background_aerosol_scale` (1.0 = the MODTRAN rural climatology the
+model is calibrated against; 0 = none). It is calibrated only where the anchors resolve
+it, the two regions below 0.70 µm, and is zero elsewhere. It **scatters** — it enters
+$\omega_0$ and the phase function with the aerosol's single-scattering albedo, not as a
+pure absorber — which is the whole reason it is not left on the gas floor.
+
 *Record:* CU-088, resolved 2026-07-12 (`AEROSOL_CLAMP_WAVELENGTH_UM`). Aerosol scale
-height 1.2 km. *Enforced by:* `src/radiant/atmosphere/tests/test_simple.py` (clamp
-behavior and the once-per-run warning).
+height 1.2 km; background aerosol CU-337, 2026-09-22. *Enforced by:*
+`src/radiant/atmosphere/tests/test_simple.py` (clamp behavior and the once-per-run
+warning), `test_background_aerosol.py` (the background's column, its scattering, and the
+visibility independence that is its point).
 
 ### 2.4 Water vapor — the curve of growth
 
@@ -182,12 +198,22 @@ column — and it enters the single-scattering albedo denominator as a **pure ab
 (*Single-scatter solar path radiance*). Without it a model attributes the MWIR CO₂ floor
 to water and evaluates $\omega_0 \approx 1$ for space columns.
 
+**What the floor is, and what it is not (CU-337).** `floor_od` is *gas*. The fit that
+produces it measures the band opacity beyond Rayleigh and the boundary-layer aerosol, and
+below 0.70 µm that quantity is mostly not gas: the 0.45–0.70 µm window's chemistry (the
+ozone Chappuis band, with a narrow O₂ B contribution) supplies about 0.020 optical
+depths, against the 0.1375 the fit resolves. The remainder is the background aerosol of
+§2.3. The two visible rows are therefore split at their chemistry — 0.0030 and 0.0200 —
+with the rest carried as `aer_bg_od`; the **totals are unchanged**, so no transmittance
+moves. The rows above 0.70 µm sit close enough to their own chemistry that the anchors do
+not resolve a background, and they carry their whole floor as gas.
+
 The calibrated table, exactly as shipped (`_CALIBRATED_GAS_REGIONS`):
 
 | Region [µm] | `floor_od` | $k$ | $b$ | Region [µm] | `floor_od` | $k$ | $b$ |
 |---|---:|---:|---:|---|---:|---:|---:|
-| **0.30–0.45** | **0.1262** | 0.0000 | 1.000 | **3.10–3.50** | **0.1370** | 0.5824 | 0.457 |
-| **0.45–0.70** | **0.1375** | 0.0025 | 0.874 | **3.50–5.00** | **0.4494** | 0.0944 | 0.808 |
+| **0.30–0.45** | **0.0030** | 0.0000 | 1.000 | **3.10–3.50** | **0.1370** | 0.5824 | 0.457 |
+| **0.45–0.70** | **0.0200** | 0.0025 | 0.874 | **3.50–5.00** | **0.4494** | 0.0944 | 0.808 |
 | **0.70–1.30** | **0.0402** | 0.1245 | 0.434 | 5.00–7.50 | 1.3543 | 1.7850 | 0.530 |
 | 1.30–1.50 | 0.0000 | 1.0933 | 0.327 | 7.50–8.00 | 0.9424 | 0.9210 | 0.673 |
 | **1.50–1.75** | **0.0217** | 0.0282 | 0.645 | 8.00–9.40 | 0.1494 | 0.0992 | 1.204 |
@@ -195,6 +221,9 @@ The calibrated table, exactly as shipped (`_CALIBRATED_GAS_REGIONS`):
 | **2.05–2.40** | **0.0747** | 0.0320 | 0.843 | 9.90–10.00 | 0.3013 | 0.0379 | 1.805 |
 | **2.40–3.10** | **0.7440** | 0.9666 | 0.560 | 10.00–12.00 | 0.0471 | 0.0602 | 1.750 |
 | | | | | 12.00–14.29 | 0.5956 | 0.1398 | 1.583 |
+
+The two visible rows carry a companion `aer_bg_od` of 0.1232 and 0.1175 — the background
+aerosol split out of them, so their pre-CU-337 totals (0.1262 and 0.1375) are conserved.
 
 Spectral shape *within* a region is flat: the model's contract is band-integrated
 fidelity, not line structure. Wavelengths outside 0.30–14.29 µm clamp to the edge regions'

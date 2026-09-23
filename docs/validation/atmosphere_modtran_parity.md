@@ -1417,6 +1417,78 @@ when both sides share a grid and wrong by precisely the offset when they do not)
 `src/radiant/atmosphere/tests/test_gas_region_visnir_refit.py` (all seventeen shipped
 rows and the blend invariants under the corrected floors).
 
+### 2.17 The visible rows' gas-versus-aerosol attribution — τ held, the sky improved
+
+§2.16a left the 0.45–0.70 µm row at `floor_od` = 0.1375, and limitation row 14 named what
+was wrong with it: real gas chemistry in that window supplies about 0.020 optical depths
+(the ozone Chappuis band, with a narrow O₂ B contribution at the anchor deck's 344 DU
+column), so roughly six-sevenths of the fitted "gas" floor was an aerosol deficit wearing
+a gas label. CU-337 splits the two rows below 0.70 µm at their chemistry and carries the
+remainder as a **background aerosol** — visibility-independent, on the molecular scale
+height, scattering with the aerosol albedo, and scaled by
+`atmosphere.background_aerosol_scale`.
+
+**The totals are conserved exactly**, so this moves no transmittance anywhere:
+
+| Region [µm] | CU-336 `floor_od` | CU-337 `floor_od` (gas) | `aer_bg_od` (background) | total |
+|---|---:|---:|---:|---:|
+| 0.30–0.45 | 0.1262 | **0.0030** | **0.1232** | 0.1262 |
+| 0.45–0.70 | 0.1375 | **0.0200** | **0.1175** | 0.1375 |
+| every other row | — | unchanged | 0.0000 | unchanged |
+
+**What moved.** Only the single-scatter sky, and only in the visible — the opacity now
+scatters instead of absorbing. Every rung of the up-looking ladder moves *toward* unity,
+the first anchor of this document's §2.3 to do so under a table change:
+
+| Rung | VIS before | after |
+|---|---:|---:|
+| 1 km | 1.084 | **1.016** |
+| 3 km | 1.225 | **1.148** |
+| 5 km | 1.231 | **1.153** |
+| 10 km | 1.185 | **1.110** |
+| 20 km | 1.130 | **1.057** |
+
+Worst VIS excursion 1.231× → 1.153×, against a 1.40× ceiling. **NIR, SWIR, MWIR and LWIR
+are bit-identical** — the split touches two rows, the aerosol law and its scale height are
+untouched, and all five adoption ceilings hold unchanged, including the 1.70× SWIR
+ceiling this document has flagged as the tight one since CU-336.
+
+**What it unblocks.** Scenario 10.3's astronomical-extinction anchor, FAIL since CU-335
+and measured on 2026-09-01 as *unreachable at any visibility*: with the opacity on the gas
+floor, a clean observatory site could not be expressed. It now can —
+
+| `background_aerosol_scale` | τ(0.55 µm) at zenith | k_V [mag/airmass] |
+|---|---:|---:|
+| 1.00 (continental rural) | 0.7882 | 0.258 |
+| 0.50 | 0.8307 | 0.201 |
+| 0.25 (clean site) | 0.8528 | **0.173** |
+| 0.00 | 0.8755 | 0.144 |
+
+against the published 0.12–0.20 band. The anchor is reachable at a quarter of the
+continental background, which is the physically expected setting for a high, dry site and
+is what the scenario now documents.
+
+**What was deliberately not done.** The same deck pair (D1 − A1, rural 5 km against
+23 km — one aerosol difference and nothing else) also measures the boundary layer's own
+depth, and says MODTRAN's rural column is ~13 % deeper than a 1.2 km exponential in the
+visible, rising to ~1.9× the clamped law in the infrared. The generator prints that ratio
+as a diagnostic and does not apply it: it is the CU-088 Ångström clamp and the power law's
+known MWIR weakness (row 13 below, Gap 38), and applying it moved the LWIR thermal parity,
+the ozone placement, and the SWIR sky past its ceiling — none of which is this CU's
+subject. Likewise the 0.70–1.30 µm row keeps its whole floor as gas: it sits far closer to
+its own chemistry (the O₂ A band, ~0.010 against a 0.0402 floor) than the visible row did,
+and re-attributing it takes the NIR sky from 1.266× to 1.328× past its 1.30× ceiling. Both
+are recorded as the open half of row 14 rather than forced.
+
+*Record:* CU-337, 2026-09-22. **Results-affecting on the visible single-scatter sky and
+on any product that separates aerosol from gas; τ is unchanged everywhere.**
+*Enforced by:* `src/radiant/atmosphere/tests/test_background_aerosol.py` (the conserved
+totals, the chemistry prior stated independently, the scattering, the visibility
+independence, and the 10.3 band as a Level-0 assertion);
+`tests/integration/test_species_split_anchors.py` (the moved VIS pins and the five
+unchanged ceilings); `tests/integration/test_gas_region_visnir_refit_cu335.py` (the row
+totals still re-derive from the delivered ladder).
+
 ---
 
 ## 3. Known limitations register
@@ -1438,7 +1510,7 @@ Each entry names what is not measured or not modelled, and where it is tracked.
 | 11 | **Twilight transit is unanchored.** Q7/Q8 were delivered but are `dev_only` — no family or parity test consumes them. | The transit carries 30–70 air masses, where both the exponential τ and the unmodelled refraction are at their worst. Treat as an order-of-magnitude bound. | `RADIANT_Atmosphere.md` §4.2e PROVISIONAL banner; run-matrix rows Q7/Q8. |
 | 12 | ~~**`theta_s` stripped for pure-thermal targets.**~~ **CLOSED 2026-09-12 (CU-356).** The descriptor predicate in `source/_inferrer` was removed: the solar pair now rides the LOS for every target descriptor under day illumination, so a pure-thermal target on a VIS/NIR grid gets the same scattered-solar sky — and the same sub-3 µm provisional warning — as a reflective one. | Was: the scattered sky component absent for the whole T1-on-VIS/NIR scene class (daytime background understated, SNR flattered). | `RADIANT_Atmosphere.md` §4.2g (repaired caveat); contract asserted by `tests/integration/test_direction_aware_atmosphere.py::TestProvisionalScatteredSkyWarning::test_a_pure_thermal_target_keeps_the_daytime_vis_sky`; CU-356, resolved 2026-09-12. |
 | 13 | **Aerosol Ångström law beyond 5 µm.** Frozen at its 5 µm value rather than decaying. | A deliberate clamp toward physical behaviour, warned once per run; a tabulated IR aerosol cross-section remains the higher-fidelity alternative. | CU-088, resolved 2026-07-12; `RADIANT_Atmosphere.md` §12 open question 2. |
-| 14 | **VIS band opacity is right in total, mis-attributed in detail.** CU-335 (§2.16) closed the *magnitude* error — the 0.45–0.70 µm band total now sits within 4 % of MODTRAN at the anchor geometry, against 30 % under before — but it did so by putting optical depths on the well-mixed **gas** floor that real 0.45–0.70 µm gas chemistry cannot supply — it gives only ~0.03 (O₃ Chappuis, narrow O₂ B/A). The remainder is the aerosol model's own deficit, wearing a gas label. CU-336 (2026-09-01) trimmed the row 0.1597 → 0.1375 and, in the same pass, put 0.1262 on the 0.30–0.45 µm row — a near-continuous short-λ deficit across the 0.45 µm edge, which is what an aerosol mismatch looks like and what a gas band does not. | Band total: within 0.1 % at the A1 anchor (was 30 % under). Attribution: ~0.11 of 0.14 optical depths is aerosol dressed as gas, so any product that separates the two — or is scored against a source assuming a *cleaner* aerosol than the one configured — reads wrong. Scenario 10.3's astronomical-extinction anchor flips PASS → FAIL on exactly this. | §2.16 and §2.16a; Gap 38. Superseded the pre-CU-335 statement ("~2× high at rural-23"), whose sign the CU-253 Rayleigh correction had already reversed. |
+| 14 | **Gas-versus-aerosol attribution above 0.70 µm.** CU-337 (§2.17) closed the visible half: the 0.30–0.45 and 0.45–0.70 µm rows are split at their own gas chemistry and the remainder is carried as a visibility-independent, *scattering* background aerosol, conserving both totals. What remains open is the 0.70–1.30 µm row, whose 0.0402 floor still exceeds the O₂ A band's ~0.010, and the infrared rows, where the same deck pair measures a boundary layer 1.0–1.9× the clamped law. Neither is forced: re-attributing the NIR row takes its single-scatter sky from 1.266× to 1.328× past the 1.30× adoption ceiling, and applying the infrared ratio moves the LWIR thermal parity and the ozone placement. | NIR row: ~0.030 of 0.0402 optical depths is plausibly aerosol. Infrared: the boundary layer is a small term there, so the attribution error is ≤ 0.013 OD per row. | §2.17; CU-337 (visible half, closed); Gap 38 and row 13 (the infrared law). |
 | 15 | ~~**The gas-floor fit mixes two spectral grids.**~~ **CLOSED 2026-09-01 (CU-336).** The reference is now evaluated on the ladder's own grid, so `floor_add` is a difference of two like-for-like band means. What survives is narrower and is recorded as limitation 16: the 0.30–0.45 µm row is fitted from 0.375–0.45 µm, the delivered decks carrying nothing below 0.374953 µm. | Was +0.022 OD at 0.45–0.70 µm and +0.011 at 0.70–1.30 µm, always toward an over-large floor. Removing it took the A1 anchor's band-OD error 4.3 % → 0.1 %, recovered the 0.70–1.30 µm parity 0.0402 → 0.0286 (past its 0.0312 pre-CU-335 value) and improved 0.45–0.70 µm a further 2.6× (§2.16a). | §2.16a; CU-336, resolved 2026-09-01. |
 | 16 | **The 0.30–0.45 µm row is calibrated on 62 % of its own span.** The delivered tape7 grid starts at 0.374953 µm, so the row's `floor_od` (0.1262) is the 0.375–0.45 µm band mean applied across 0.30–0.45 µm. | Unmeasurable with the present run set. Bounded by physics rather than by data: the deficit the floor absorbs grows toward the blue (it tracks a Rayleigh/aerosol mismatch), so a flat extrapolation under-states it below 0.375 µm rather than over-stating it. On the part of the row that *is* measured, parity improves 8× (0.1369 → 0.0170 RMS). | §2.16a. **No open registry entry** — closing it needs MODTRAN decks below 0.375 µm, not a code change. |
 | 17 | **Ozone opacity rides the molecular scale height on the τ side.** The calibrated `floor_od` is apportioned to a partial column by the fraction $\text{col}_{\text{mol}}/H_{\text{mol}}$, so a 0–5 km column is handed 9.6 µm ozone opacity that is not physically there. The emission side now places whatever ozone a segment is given at 25 km (§2.14b), which makes the τ-side mis-attribution visible instead of cancelling it. Two further narrowings sit alongside: the 9.90–10.00 µm long-wave tail (floor 0.3013, 3.3× its continuum) is still placed as well mixed, and the ICAO profile is isothermal above 11 km, so the layer's own centre/width remain weakly observable. | Shallow-column LWIR: model/MODTRAN moves away from unity on the 1/3/5 km rungs (§2.3, e.g. 1.059 → 1.079 at 5 km) while the 10 and 20 km rungs move toward it (0.950 → 1.020). Full columns are unaffected — that is the geometry the floor was fitted at. Layer geometry is worth ≤ 2.4 % across the measured 20–30 km × 3–8 km grid. | **No open registry entry.** The remedy is an ozone-aware *vertical* apportionment on the τ side (a per-species profile in the region table), which is CU-161-scale work, not a placement refinement. §2.15's partial-column row is the same finding read on τ. |

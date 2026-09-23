@@ -134,7 +134,9 @@ def local_extinction_per_km(
     col_h2o_ref = atmosphere._column_length_km(h, h_atm_top_m, H_H2O_M)
 
     alpha_mol = atmosphere._rayleigh_extinction_km(lam, h)
-    alpha_aer = atmosphere._aerosol_extinction_km(lam, h)
+    alpha_aer = atmosphere._aerosol_extinction_km(
+        lam, h
+    ) + atmosphere._background_aerosol_extinction_km(lam, h)
     alpha_h2o = (
         atmosphere._h2o_vertical_od(lam, col_h2o_ref) / max(col_h2o_ref, 1e-12)
     ) * math.exp(-h / H_H2O_M)

@@ -203,6 +203,12 @@ def ozone_continuum_regions(regions: Sequence[_Region]) -> tuple[_Region, ...]:
     return tuple(regions[:index]) + (replaced,) + tuple(regions[index + 1 :])
 
 
+#: Tolerance on the blend-ramp rounding residue in the continuum/shipped floor
+#: comparison [optical depth]. Twelve orders below the smallest calibrated floor
+#: the table carries, so it admits float noise and nothing else.
+_BLEND_ROUNDING_TOL: float = 1.0e-12
+
+
 def ozone_share_of_gas_floor(
     floor_od: np.ndarray,
     continuum_floor_od: np.ndarray,
@@ -255,7 +261,15 @@ def ozone_share_of_gas_floor(
             context={"floor_min": float(np.min(floor)), "continuum_min": float(np.min(continuum))},
         )
     excess = floor - continuum
-    if float(np.min(excess)) < 0.0:
+    # The two floors are built by the same blend from tables that differ only
+    # inside the ozone band, so outside it they agree analytically — but the
+    # ramp arithmetic ``lo + (hi − lo)·s`` rounds differently for the two ``lo``
+    # values, so where the ramps converge the continuum can sit one ulp above
+    # the shipped floor. The guard is against a *physical* deficit, so it is
+    # posed at a tolerance far below any optical depth the table carries and
+    # the residue is clamped away (CU-337 surfaced this: the 9.90 µm ramp's
+    # residue is ~6e-17 under the re-fitted floors).
+    if float(np.min(excess)) < -_BLEND_ROUNDING_TOL:
         raise ParameterBoundsError(
             what=(
                 "ozone_share_of_gas_floor: the continuum floor exceeds the shipped floor "
@@ -270,5 +284,5 @@ def ozone_share_of_gas_floor(
         )
     positive = floor > 0.0
     share = np.zeros_like(floor)
-    share[positive] = excess[positive] / floor[positive]
+    share[positive] = np.maximum(excess[positive], 0.0) / floor[positive]
     return share

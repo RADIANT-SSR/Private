@@ -45,6 +45,12 @@ retroactively reconstructed.
   lands inside the published 0.12–0.20 mag/airmass band at a quarter of the
   continental background.
 
+  Eight solar-reflective visible GUI baselines move with it, all the same way:
+  scattered opacity redirects photons instead of destroying them, so some reach
+  the ground and reflect, and the target term rises faster than the background.
+  SNR **+1.4 % to +5.1 %** (1.2, 1.4, 1.5, 3.1, 3.4, 5.1, 5.4, 5.5), NEDT down
+  in step, NIIRS +0.01 to +0.03. Thermal and infrared scenarios are untouched.
+
 ### Fixed
 - **Results-affecting: a configured defocus now produces the defocus it names
   (CU-379).** `optics.defocus_um` was folded into the pupil as a Noll Z4 of

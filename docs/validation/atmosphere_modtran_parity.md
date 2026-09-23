@@ -1468,6 +1468,26 @@ against the published 0.12–0.20 band. The anchor is reachable at a quarter of 
 continental background, which is the physically expected setting for a high, dry site and
 is what the scenario now documents.
 
+**What moved downstream.** Eight shipped GUI baselines, all solar-reflective and all in
+the visible, and all in the same direction — which is the physical signature of the
+change rather than a surprise. Scattered opacity redirects photons instead of destroying
+them, so some of what the gas floor used to absorb now reaches the ground and reflects,
+and the target term gains faster than the background it sits against:
+
+| Scenario | SNR before → after | NEDT [K] | NIIRS |
+|---|---|---|---|
+| 1.2 VNIR GSD / aperture | 61.21 → 62.04 | 0.0582 → 0.0574 | 6.874 → 6.883 |
+| 1.4 TDI pushbroom | 23.67 → 24.75 | 0.1703 → 0.1621 | 4.625 → 4.655 |
+| 1.5 obscured aperture | 69.94 → 70.76 | 0.0509 → 0.0503 | 6.717 → 6.725 |
+| 3.1 ISR pass planning | 72.69 → 73.55 | 0.0488 → 0.0483 | 6.381 → 6.389 |
+| 3.4 off-nadir agility | 59.82 → 61.79 | 0.0640 → 0.0618 | 5.425 → 5.447 |
+| 5.1 WFE budget | 120.18 → 125.18 | 0.0326 → 0.0312 | 6.141 → 6.169 |
+| 5.4 jitter blur | 45.62 → 47.94 | 0.0741 → 0.0709 | 6.034 → 6.068 |
+| 5.5 stray light | 440.07 → 442.01 | 0.00906 → 0.00902 | 10.906 → 10.909 |
+
+Every thermal and infrared baseline is bit-identical. The snapshots were regenerated with
+`scenarios/tools/emit_gui_yaml.py` under the §5.3 golden-update protocol.
+
 **What was deliberately not done.** The same deck pair (D1 − A1, rural 5 km against
 23 km — one aerosol difference and nothing else) also measures the boundary layer's own
 depth, and says MODTRAN's rural column is ~13 % deeper than a 1.2 km exponential in the

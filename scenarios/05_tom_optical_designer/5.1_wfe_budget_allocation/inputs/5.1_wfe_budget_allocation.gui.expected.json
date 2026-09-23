@@ -2,9 +2,9 @@
   "id": "5.1",
   "title": "WFE budget \u2014 nominal base config",
   "metrics": {
-    "snr": 120.1768792881915,
-    "nedt_K": 0.0326432795011659,
-    "niirs": 6.141292053032061
+    "snr": 125.1786068374164,
+    "nedt_K": 0.03123264284443296,
+    "niirs": 6.168900682726717
   },
   "notes": "Runner's module-level base_config; the sweep varies WFE RMS. NIIRS-vs-WFE is the headline budget metric, so allow_extrapolated=true opts the baseline into the GIQE-5 rating past its SNR-calibration envelope (CU-166/CU-170)."
 }

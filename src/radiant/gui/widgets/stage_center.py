@@ -122,23 +122,32 @@ _PLOT_MAX_HEIGHT_RATIO: float = 1.0
 # nothing (see the 2 %-of-card measurement above): the Optics three-map row gave each
 # figure 197 px in a 700 px pane. Sections keep this floor even when it makes the block
 # wider than the pane — the enclosing scroll area then scrolls horizontally, which is
-# strictly better than three unreadable maps. Distinct from ``_PLOT_MIN_WIDTH_PX`` below,
-# which floors the whole plot *column* against an embedded panel beside it.
+# strictly better than three unreadable maps. It is also the floor the plot column keeps
+# when a panel sits beside it — see ``_PLOT_PREFERRED_WIDTH_PX`` below, which only steers
+# that splitter's opening division.
 _PLOT_MIN_SECTION_WIDTH_PX: int = 320
 
 # Gap between plot sections inside a multi-column plot block (layout geometry, not a
 # theme token — the QSS owns colour and type, this owns only spacing between figures).
 _PLOT_BLOCK_SPACING_PX: int = 8
 
-# Floor on the width of a plot column when an embedded panel sits beside it
+# Preferred width of a plot column when an embedded panel sits beside it
 # (PANEL_BESIDE). A matplotlib figure squeezed below roughly this width cannot lay
 # out its title, colorbar and axis labels without overlapping or clipping them —
 # constrained_layout has nowhere left to go. The Detector "Detector + PSF" tab hit
 # exactly that: the pixel illustration took half the pane and both figures were
 # crushed into a ~250 px column with a clipped title and an overstruck colorbar
-# (CU-241, third instance). The splitter stays user-draggable; this only stops the
-# *initial* division from starving the figures.
-_PLOT_MIN_WIDTH_PX: int = 420
+# (CU-241, third instance). The splitter stays user-draggable; this only steers the
+# *initial* division away from starving the figures.
+#
+# It is the splitter's opening size, **not** a minimum on the column (findings
+# sweep, 2026-09-22). Set as a minimum it propagated into the enclosing page's
+# minimum size hint, so a pane anywhere between the section floor and this value
+# raised a horizontal scrollbar on a page whose content fitted — the hairline
+# "2 px wider than its viewport, nothing clipped" the Detector ▸ Noise tab showed
+# at 1440×900. The column's real floor is one readable figure,
+# ``_PLOT_MIN_SECTION_WIDTH_PX``.
+_PLOT_PREFERRED_WIDTH_PX: int = 420
 
 # Which ``result.plot.*`` accessors belong to which transmission mode (Transmission
 # tab). Each describes a structure the other mode does not have, so the tab shows one
@@ -756,11 +765,15 @@ class StagePane(QWidget):
             # summed (CU-363: the default layout clipped the panel's value boxes).
             split = ResponsiveSplitter(parent)
             split.setObjectName("stagePanelSplit")
-            plots_host.setMinimumWidth(_PLOT_MIN_WIDTH_PX)
+            # The floor is one readable figure; the 420 px preference is expressed
+            # as the opening division below, where it cannot reach the page's
+            # minimum size hint.
+            plots_host.setMinimumWidth(_PLOT_MIN_SECTION_WIDTH_PX)
             split.addWidget(plots_host)
             split.addWidget(panel)
             split.setStretchFactor(0, 3)
             split.setStretchFactor(1, 2)
+            split.setSizes([_PLOT_PREFERRED_WIDTH_PX, max(1, panel.sizeHint().width())])
             # The figures are the point of the tab; the panel annotates them. Neither
             # may be collapsed to nothing by a stray drag, and the panel's own size
             # hint must not push the figures below the readable floor (CU-241).

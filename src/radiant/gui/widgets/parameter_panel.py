@@ -78,6 +78,7 @@ from radiant.gui.display_units import default_display_unit, global_display_unit
 from radiant.gui.edit_guard import apply_edit, validate_edit, validate_reset
 from radiant.gui.param_format import (
     DERIVED_BADGE,
+    compact_path,
     display_in_unit,
     format_value,
     group_by_namespace,
@@ -556,6 +557,10 @@ class ParameterPanel(QWidget):
         except RadiantError:
             value, unit = None, (pdef.input_unit or "")
         value_text = format_value(value, unit)
+        # A file-valued row shows the file, not the machine it was opened on;
+        # the absolute path stays on the value column's tooltip below.
+        full_path_text = value_text if compact_path(value_text) != value_text else ""
+        value_text = compact_path(value_text)
         if derived:
             value_text = f"{DERIVED_BADGE} {value_text}"
         # GT-2: a toleranced parameter shows a ± badge (the Monte Carlo annotation,
@@ -577,15 +582,17 @@ class ParameterPanel(QWidget):
             dim = QColor(active_theme().muted_2)
             for column in range(3):
                 item.setForeground(column, dim)
-            item.setToolTip(
-                1,
+            excluded_note = (
                 f"Not applicable for a declared '{excluded_by}' scene "
-                "(regime tags) — the value is kept but unused in this regime.",
+                "(regime tags) — the value is kept but unused in this regime."
+            )
+            item.setToolTip(
+                1, f"{full_path_text}\n{excluded_note}" if full_path_text else excluded_note
             )
         else:
             for column in range(3):
                 item.setData(column, Qt.ItemDataRole.ForegroundRole, None)
-            item.setToolTip(1, "")
+            item.setToolTip(1, full_path_text)
         # The configured-parameter marker (Phase 4b): a small red "C" whose tooltip
         # lists every configuration's value with units (ADR-0010 D-2).
         self._apply_badge(item, dotpath)

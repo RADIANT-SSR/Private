@@ -75,6 +75,35 @@ def format_value(value: Any, unit: str) -> str:
     return f"{text} {pretty_unit(unit)}" if unit else text
 
 
+#: How many trailing path components a file-valued parameter shows.  Two — the
+#: file and the directory holding it — is what identifies a spectral table or a
+#: tape7 among its siblings; anything above that is the operator's own machine.
+_PATH_TAIL_PARTS: int = 2
+
+
+def compact_path(text: str) -> str:
+    """A file path shortened to its last two components, or *text* unchanged.
+
+    File-valued parameters resolve to absolute paths, so the dock rendered a
+    row as ``/Users/<someone>/SSR_Tool/src/radiant/data/tables/…/steel.csv``:
+    the part that identifies the file is at the end, and the part in front is
+    the host it happened to run on.  A dock capture then carried that host into
+    a figure the manuals ship (findings sweep, 2026-09-22).  The full path stays
+    one hover away — callers put it in the row's tooltip.
+
+    A value that does not look like a path is returned untouched, so this is
+    safe to apply to every row: it needs a separator *and* a suffix on the last
+    component, which a mode enum, a material name or a bare number never has.
+    """
+    sep = "\\" if "\\" in text else "/"
+    if sep not in text:
+        return text
+    parts = [p for p in text.split(sep) if p]
+    if len(parts) <= _PATH_TAIL_PARTS or "." not in parts[-1]:
+        return text
+    return f"...{sep}" + sep.join(parts[-_PATH_TAIL_PARTS:])
+
+
 def display_in_unit(
     value: Any,
     source_unit: str,

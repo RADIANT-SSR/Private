@@ -8,10 +8,16 @@ where r₀ is the Fried parameter (coherence diameter) and f is spatial
 frequency in cycles per radian (angular) or cycles per metre (focal
 plane, after converting via f_focal = f_angular / focal_length).
 
-This is a stub implementation for v1 — the Fried parameter r₀ is a
-direct user input, not computed from a turbulence profile.
+Which r₀ the chain uses is decided by :mod:`radiant.atmosphere.r0_resolution`:
+``atmosphere.cn2_profile = "direct"`` takes ``atmosphere.r0_m`` as entered
+(rescaled to the band centre when ``r0_reference_wavelength_um`` says what it
+was quoted at), while ``"hufnagel_valley"`` and ``"tabulated"`` integrate a
+Cn²(h) profile along the line of sight
+(:mod:`radiant.atmosphere.r0_path`) — Gap 110, delivered. This module owns the
+MTF and nothing else.
 
-See RADIANT_Spatial_Complete.md §6 (step 8), §9 row 12.
+See RADIANT_Spatial_Complete.md §6 (step 8), §9 row 12, and the Theory
+Manual's atmosphere chapter §4 for the r₀ resolution policy.
 """
 
 from __future__ import annotations

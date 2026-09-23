@@ -33,12 +33,25 @@ cutoff wavelength and temperature (the datasheet only says so in nA/cm²).
 The preset notes call this out; Mike sets his programme estimate for a
 5.3 µm cutoff at 110 K.
 
-## Result (scripts/run_scenario.py, 2026-09-06)
+## Result (scripts/run_scenario.py, 2026-09-22)
 | Metric | Value | Unit |
 |---|---|---|
 | Radiometric regime | extended | — |
 | Readout architecture | analog_well | — |
 | **SNR** | **1177.9** | — |
+| NEDT | 23.82 | mK |
+| Well fill | 59.0 (1.53 of 2.60 Me⁻) | % |
+| GSD (geometric mean) | 0.120 | m |
+| MTF at Nyquist | 0.2668 | — |
+| Q (band centre) | 0.944 | — |
+| Well margin | 4.58 | dB |
+| Dynamic range | 66.00 | dB |
+
+*(The NEDT row and the four below it were absent until 2026-09-22: the runner
+tested for a `nedt` metric where the chain publishes `nedt_K`, so the line it
+guarded never printed. The scenario is a preset-application demonstration, but
+a part is chosen on more than one number — these are what a detector engineer
+compares against a sibling part.)*
 
 Physics worth knowing (also printed by the script):
 

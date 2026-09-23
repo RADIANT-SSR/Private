@@ -107,6 +107,15 @@ At each of Karen's seven measurement temperatures, the script runs RADIANT three
 | 40.0 | 313.15 | 95.0 | 62.87 | 32.13 | 238,756 | 7,775 |
 | 50.0 | 323.15 | 81.0 | 56.93 | 24.07 | 327,553 | 10,057 |
 
+**The three hottest points are digitizer-limited, and a real measurement there would have
+been too.** At the as-built 12 e⁻/DN gain a 14-bit ADC saturates at 196,596 e⁻, so the
+35 °C, 40 °C and 50 °C rows — and all three finite-difference perturbations of each —
+exceed full scale and the run emits nine `readout.adc_status = 'clipped'` warnings
+(Gap 65). The NEDT chain here is unaffected because it is computed in the electron domain
+from dS/dT, which stays monotone; but the DN those rows would produce on Karen's bench are
+clipped, so the measured column at those three temperatures is reporting a digitizer
+limit as well as a detector one. Read the 15–30 °C rows as the clean comparison.
+
 The predicted NEDT is systematically lower than measured by 24–76 mK (30–48%), with the gap larger at lower temperatures. Both curves show the expected 1/√(signal) behavior — NEDT decreases as the blackbody temperature increases because higher temperatures produce more signal. **The gap is larger than in older baselines** because the prediction no longer includes a spurious shroud `background_shot` term (Decision #13 — see the noise breakdown below); the cleaner prediction exposes the true model-vs-measurement discrepancy.
 
 ### Step 5: Noise Breakdown at Primary Test Point (25°C)

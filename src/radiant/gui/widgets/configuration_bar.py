@@ -82,8 +82,8 @@ class ConfigurationBar(QWidget):
         emitted for programmatic updates (:meth:`set_configurations`,
         :meth:`set_active`), so a host re-binding its state cannot re-enter.
     manageRequested():
-        Emitted when the user clicks the trailing gear — the host opens the
-        configuration manager (§4.2d).
+        Emitted when the user clicks the ``⚙ Manage…`` button — the host opens
+        the configuration manager (§4.2d).
     """
 
     configurationSelected = Signal(str)
@@ -175,7 +175,11 @@ class ConfigurationBar(QWidget):
 
     @property
     def manage_button(self) -> QPushButton:
-        """The trailing gear that opens the configuration manager (§4.2d)."""
+        """The leading ``⚙ Manage…`` button that opens the manager (§4.2d).
+
+        Placed *before* the configuration tabs since 2026-09-03; the docstrings
+        said "trailing gear" until the September findings sweep.
+        """
         return self._manage_button
 
     def accent_for(self, name: str) -> str:

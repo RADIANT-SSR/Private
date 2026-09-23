@@ -133,6 +133,13 @@ columns —
 | APC | 673 | 666 | 612 | 865 |
 | Technical (pickup) | 575 | 570 | 527 | 718 |
 
+> **Vintage note (2026-09-22).** Re-running the unmodified runner reproduces 142 of these
+> 144 cells exactly and moves two: fighter aircraft / haze 1,029 → 1,033 km (+0.39 %) and
+> small UAV / clear 685 → 686 km (+0.15 %). Both sit below the bisection's own ~0.5 %
+> range resolution, and no detect/no-detect verdict, ranking or column mean changes, so
+> the table is left at its published vintage rather than re-cut for two sub-resolution
+> cells. Quote it to that precision.
+
 **Sensor C — LWIR wide (12.1 m GSD):** ships and the largest air targets
 reach or approach the swath edge; SAM TEL and towed artillery now detect only
 in the arctic column; small ground vehicles fall below threshold everywhere —

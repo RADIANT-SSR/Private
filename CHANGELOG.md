@@ -51,6 +51,13 @@ retroactively reconstructed.
   SNR **+1.4 % to +5.1 %** (1.2, 1.4, 1.5, 3.1, 3.4, 5.1, 5.4, 5.5), NEDT down
   in step, NIIRS +0.01 to +0.03. Thermal and infrared scenarios are untouched.
 
+
+- **Scenario 2.7 (up/down counting) is now scenario 2.9.** The shipped suite carried
+  two folders numbered 2.7; `2.7_updown_background_subtraction` is renamed
+  `2.9_updown_background_subtraction` (2.8 was already the FPA part library) and
+  every index, digest and heading follows. `2.7_calibration_limited_nedt` keeps
+  its number. Paths only; no computed result changes (CU-362).
+
 ### Fixed
 - **Results-affecting: a configured defocus now produces the defocus it names
   (CU-379).** `optics.defocus_um` was folded into the pupil as a Noll Z4 of
@@ -71,13 +78,6 @@ retroactively reconstructed.
   a near-horizontal arm lifts both endpoints together so it never hangs in the ground
   grid. Down-looking scenes move the anchor from the body top to its centre (same
   angles, glyphs half a body lower). Display only; no computed result changes.
-
-### Changed
-- **Scenario 2.7 (up/down counting) is now scenario 2.9.** The shipped suite carried
-  two folders numbered 2.7; `2.7_updown_background_subtraction` is renamed
-  `2.9_updown_background_subtraction` (2.8 was already the FPA part library) and
-  every index, digest and heading follows. `2.7_calibration_limited_nedt` keeps
-  its number. Paths only; no computed result changes (CU-362).
 
 ## [0.2.0] - 2026-09-21
 

@@ -20,6 +20,17 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.3.0] - 2026-09-25
+
+Third tagged release. Two results-affecting physics corrections — the
+visible atmosphere's gas-versus-aerosol attribution and the defocus-to-Zernike
+coefficient — plus the geometry schematic's viewing vector, the Theory Manual's
+thirteen missing physics sections, and the shipped scenario catalogue's
+duplicate number. Transmittance is unchanged everywhere; the moved results are
+the visible single-scatter sky and any run that configured a defocus.
+
 ### Added
 - **`atmosphere.background_aerosol_scale`** — a multiplier on the simple
   model's visibility-independent background aerosol (the free-tropospheric and

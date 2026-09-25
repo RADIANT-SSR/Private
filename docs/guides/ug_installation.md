@@ -95,7 +95,7 @@ radiant --version
 ```
 
 ```text
-radiant 0.2.0
+radiant 0.3.0
   loaded from: /path/to/SSR_Tool/src/radiant
   git commit:  f1ae9933 (clean)
 ```

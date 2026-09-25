@@ -344,12 +344,12 @@ def test_validate_volume_reports_a_missing_chapter() -> None:
 
 
 def test_package_version_matches_the_package() -> None:
-    assert package_version() == "0.2.0"
+    assert package_version() == "0.3.0"
 
 
 def test_version_string_is_latex_safe() -> None:
     text = version_string()
-    assert text.startswith("v0.2.0")
+    assert text.startswith("v0.3.0")
     assert not set(text) & set("\\{}$&#%_^~")
 
 

@@ -99,15 +99,40 @@ retroactively reconstructed.
   `optical_elements:` train with each surface's `temperature_K`, or set
   `nearfield_enabled: 0` to state that zero is intended. No computed value
   changes anywhere (CU-380).
-- **Twelve shipped artifacts now state their warm-optics omission explicitly**
-  rather than carrying it silently: both top-level examples, 7 mission
-  templates, and 3 bundled examples all set `optics.nearfield_enabled: 0` with
-  a comment naming what is omitted, what it is worth, and the remedy. Results
-  are bit-identical — scalar transmission could not carry the term anyway. The
-  two top-level examples are *intended* omissions (a hand-computable anchor and
-  a deliberately minimal config); the other ten need real warm trains, which
-  needs an instrument-specific optics temperature for each and is tracked as
-  CU-380's open item.
+- **Results-affecting: ten shipped thermal artifacts now model their warm
+  optics.** Seven mission templates and three bundled examples declared
+  `transmission_scalar` in a thermal band, so their warm-optics emission was
+  identically zero (CU-380). Each now declares a two-mirror `optical_elements:`
+  train at `R = sqrt(tau)`, which reproduces the net throughput exactly — the
+  **scene signal is unchanged** — while each surface now emits at its Kirchhoff
+  `eps = 1 - R`. SNR falls in every case, which is the correction:
+
+  | `sda_space_to_space` | 150 | 26.3194 | 21.05 | -20.0 % |
+  | `geo_lwir_staring` | 250 | 1851.5329 | 1640.31 | -11.4 % |
+  | `leo_mapping_extended` | 280 | 672.7802 | 595.23 | -11.5 % |
+  | `maritime_subpixel_lwir` | 280 | 2010.0796 | 1879.60 | -6.5 % |
+  | `mwir_maritime_surveillance` | 280 | 1001.5453 | 965.71 | -3.6 % |
+  | `air_to_air_irst` | 290 | 298.1129 | 272.49 | -8.6 % |
+  | `airborne_hotspot_mwir` | 290 | 464.2452 | 462.52 | -0.4 % |
+  | `airborne_lwir_surveillance` | 290 | 2950.1579 | 2541.07 | -13.9 % |
+  | `ground_to_air_mwir_detection` | 290 | 29.8896 | 25.43 | -14.9 % |
+  | `lab_blackbody_calibration` | 290 | 1207.1383 | 1170.36 | -3.0 % |
+
+  Optics temperatures follow a platform-class convention (owner-ratified
+  2026-09-30): 290 K uncooled airborne/ground/lab, 280 K LEO bus-mounted,
+  250 K GEO passively-cooled telescope. **`sda_space_to_space` is a deliberate
+  departure at 150 K**, because the case does not work at bus-ambient: a
+  measured sweep in the file shows the well saturating on optics self-emission
+  alone down to 200 K, with detection only below ~180 K. A MWIR point-source
+  space-surveillance instrument requires deeply cooled optics — a design
+  conclusion the template now teaches instead of hiding behind a zero.
+  Every temperature is commented as a starting point to be replaced with the
+  instrument's real value.
+- The two top-level `examples/` configs keep `optics.nearfield_enabled: 0` with
+  a comment naming what is omitted and what it is worth. Both omissions are
+  *intended*: `ground_truth_mwir.yaml` exists to be hand-computable end to end
+  and `mwir_leo_minimal.yaml` to be minimal, so neither should carry a train.
+  Their results are bit-identical (CU-380).
 - Both shipped examples now set `optics.nearfield_enabled: 0` explicitly, with a
   comment stating why and what the omission is worth. A hand-computable anchor
   (`ground_truth_mwir.yaml`) and a deliberately *minimal* config

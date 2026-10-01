@@ -229,11 +229,12 @@ and the relevance preview, and an asserted-vs-derived mismatch tints the card
 in-context.
 
 **Consumers** (Geometry_Stage_Plan Phase 2, shipped): SourceStage adopts the
-published `los_geometry` (descriptor-adjusted in `_adjust_scene_los` — T1
-solar-strip, at_aperture → None, and the `no_atmosphere` `h_tgt` → 0 override,
+published `los_geometry` (descriptor-adjusted in `_adjust_scene_los` —
+at_aperture → None, and the `no_atmosphere` `h_tgt` → 0 override,
 which since ADR-0011 applies only on a down-looking path: rewriting `h_tgt`
 while keeping `h_sensor` and θ_o would otherwise fabricate a triple that
-violates the hemisphere invariant) and feeds the
+violates the hemisphere invariant; the solar pair is **not** adjusted — it
+rides the LOS for every target descriptor, `RADIANT_Atmosphere.md` §6.5) and feeds the
 published θ_o to shape view directions; AtmosphereStage receives the adopted
 LOS through source's output as before (ADR-0002 unchanged); PlatformStage
 consumes `slant_range_m` for velocity smear; PerformanceStage consumes

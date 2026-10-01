@@ -20,6 +20,19 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Dark-rate, DSNU and ROIC-glow ceilings raised to 1e12** (from 1e9, 1e6 and
+  1e6). A 20 µm pixel at 1 A/m² dark-current density — a routine LWIR figure —
+  needs 2.50e9 e-/s and was previously inexpressible, silently clamping a
+  legitimate detector. Each old ceiling was its *default's* rationale (a
+  room-temperature Si CCD) applied to the bound, which is a category error: a
+  default describes the typical part, a bound describes every expressible one.
+  DSNU and glow moved with dark rather than separately, because DSNU is a
+  fraction of the dark signal and glow is the same physical quantity in the
+  same units. No default changed, so no existing result moves; runs that were
+  hitting the clamp will now report higher dark noise, which is the correct
+  value they should have had (CU-382).
+
 ### Fixed
 - **The CLI no longer crashes on a default Windows console.** `radiant schema`
   died with `UnicodeEncodeError: 'charmap' codec can't encode character 'α'`

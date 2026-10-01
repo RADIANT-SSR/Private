@@ -208,6 +208,20 @@ QE_TEMPERATURE_REF_K = ParameterDef(
 # ---------------------------------------------------------------------------
 # Dark current
 # ---------------------------------------------------------------------------
+#
+# Ceiling rationale (CU-382). The three bounds below — dark rate, DSNU, and
+# ROIC glow — were 1e9 / 1e6 / 1e6, which excluded real parts. A 20 um pixel at
+# 1 A/m^2 dark-current density (1e-4 A/cm^2, a routine LWIR figure) needs
+# 1 * (20e-6)^2 / 1.602e-19 = 2.50e9 e-/s, above the old dark ceiling; DSNU is a
+# few percent of the dark SIGNAL, so its ceiling has to track dark x t_int; and
+# glow is the same physical quantity as dark in the same units. Each old ceiling
+# was its DEFAULT's rationale (a room-temperature Si CCD) applied to the bound,
+# which is a category error: a default describes the typical part, a bound
+# describes every expressible part. All three are now 1e12: that clears a 50 um
+# pixel at 10 A/m^2 (1.56e11 e-/s) with room to spare, and it is the same ceiling
+# readout.full_well_capacity_e carries, so a dark signal larger than the largest
+# expressible well is unreachable anyway. Nothing downstream assumes a magnitude.
+# Bounds are enforced at resolve time, not at set() — see the tests.
 
 DARK_RATE_E_PER_S = ParameterDef(
     name="detector.dark_rate_e_per_s",
@@ -216,7 +230,7 @@ DARK_RATE_E_PER_S = ParameterDef(
     canonical_unit="1/s",
     input_unit="1/s",
     default=100.0,
-    bounds=(0.0, 1e9),
+    bounds=(0.0, 1e12),
     tags=frozenset({"detector", "noise", "dark"}),
     default_justification="Order-of-magnitude room-temperature Si CCD reference.",
 )
@@ -349,7 +363,7 @@ DSNU_E_RMS = ParameterDef(
     canonical_unit="e-",
     input_unit="e-",
     default=0.0,
-    bounds=(0.0, 1e6),
+    bounds=(0.0, 1e12),
     tags=frozenset({"detector", "noise", "spatial"}),
 )
 
@@ -422,7 +436,7 @@ GLOW_E_PER_S = ParameterDef(
     canonical_unit="1/s",
     input_unit="1/s",
     default=0.0,
-    bounds=(0.0, 1e6),
+    bounds=(0.0, 1e12),
     tags=frozenset({"detector", "noise"}),
 )
 

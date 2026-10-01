@@ -431,7 +431,7 @@ The Lagrange invariant fixes how much solid angle a detector pixel can accept. W
 Ω_cone = 2π · (1 − cos θ),   θ = arctan(1 / (2 · N_eff))     [sr]
 ```
 
-with `N_eff` the **effective** (post-cold-stop) f-number from §3.6. The exact form is used, not the paraxial `π / (4 N²)`: the two differ by 0.52 % at f/6 and 4.7 % at f/2, and the paraxial form exceeds 2π sr for fast systems, which no solid angle may do. Implementation: `optics/etendue_cone.py`; published as `stage_outputs["optics"]["Omega_cone"]`.
+with `N_eff` the **effective** (post-cold-stop) f-number from §3.6. The exact form is used, not the paraxial `π / (4 N²)`: the two differ by 0.52 % at f/6, 4.7 % at f/2 and **18.4 % at f/1** (0.6633 sr exact vs 0.7854 sr paraxial), and the paraxial form exceeds 2π sr for fast systems, which no solid angle may do. The divergence matters when reconciling against another model: `Ω_cone` multiplies the warm-optics term directly, so at fast f/# it can account for an entire near-field discrepancy on its own (external review 2026-09-30, where the Ω ratio matched the warm-optics signal ratio to 3e-5). Implementation: `optics/etendue_cone.py`; published as `stage_outputs["optics"]["Omega_cone"]`.
 
 **Superseded model.** Each element formerly carried a private `Ω_i = π (D_i/2)² / d_i²`, which the invariant does not permit: a 0.3 m mirror 1.0 m from the FPA claimed 0.0707 sr against an f/6 cone of 0.0217 sr — 3.2× more than physics allows. The legacy scalar lump was étendue-correct only by coincidence (D = aperture, d = focal length ⇒ exactly `π/(4N²)`). Per-element `diameter_m` / `distance_to_fpa_m` are deleted; an element close to the focal plane does **not** contribute more near-field than one further away.
 
@@ -456,6 +456,23 @@ Micro-roughness scatters a fraction TIS = 1 − exp(−(4π σ_s/λ)²) of the s
 ### 7.5 Output
 
 The total `nearfield_irradiance_at_fpa(λ)` is summed over all elements and stored on `OpticsState`. The detector stage adds it to the photon-flux integrand at the FPA — it does not pass through the signal etendue (it is already an irradiance on the FPA).
+
+### 7.6 When the near-field term is structurally zero (CU-380)
+
+`optics.nearfield_enabled` defaults to 1, but transmission modes 1–4 synthesize lumped elements at 0 K (`transmission_modes._SYNTHESIZED_TEMPERATURE_K`) and §7.1's loop skips any element at 0 K. A thermal-band config selecting `transmission_scalar` therefore computes warm optics as **identically zero while believing the term is on**. The ε = 0 model is correct — a synthesized lump is bookkeeping, not a surface — so the defect was the silence, not the physics. It shipped through v0.2.0 and v0.3.0; on `examples/mwir_leo_minimal.yaml` the omitted term is 37 % of signal (SNR 17 % optimistic), and in a background-dominated f/1 point-source case it measured 19×.
+
+`OpticsStage` now raises a `UserWarning` when the term is on, the band is thermal, and no declared surface can emit. The predicate lives in `optics/nearfield_advisory.py`:
+
+| Condition | Why it is part of the test |
+|---|---|
+| `nearfield_enabled` truthy | the analyst has not turned the term off |
+| `not stray_includes_thermal` | otherwise warm optics is carried by the stray term and zero here is correct |
+| no element with `temperature_K > 0` | **mode-agnostic** — also catches a Mode 4/5 train whose rows were given no temperature |
+| grid long-wave edge > `THERMAL_BAND_FLOOR_UM` (2.5 µm) | below it a zero warm-optics term is the right answer, and a warning that fires where it does not apply is one operators learn to skip |
+
+The band edge is taken from the **chain wavelength grid**, not `spectral_integration.filter_max_um`: the grid is the band actually integrated, it is already in the stage's hand, and reading it there keeps the check working for stage-level tests that build a ParameterSet with no spectral_integration section.
+
+Remedies the message names: declare an `optical_elements:` train carrying each surface's `temperature_K`, or set `nearfield_enabled: 0` to state that zero is intended. Both shipped examples take the second route, because a hand-computable anchor and a *minimal* config both legitimately exclude the term — see their comments.
 
 ---
 

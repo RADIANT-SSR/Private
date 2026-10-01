@@ -19,9 +19,11 @@ For each cell, the test either:
 * **XFAIL** — Cells that are genuinely deferred for an architectural
   reason (e.g. require a parameter surface that doesn't yet exist).
 
-Emits a JSON coverage report (``_use_case_coverage.json``) after the
+Emits a JSON coverage report (``build/_use_case_coverage.json``) after the
 sweep so downstream documentation (``docs/archive/Use_Case_gaps.md``) can be
-updated by comparing test-run outputs directly.
+updated by comparing test-run outputs directly. The artifact is
+regenerate-on-demand and untracked (Rule 26, CU-386); the archived gaps doc
+links its historical in-tree location.
 
 The test is parametrized per-cell so failures are isolated — one cell
 failing does not blank out the rest of the sweep.
@@ -341,7 +343,13 @@ ALL_CELLS: tuple[CellSpec, ...] = tuple(_build_primary_cells() + _build_subcase_
 # ---------------------------------------------------------------------------
 
 
-_COVERAGE_PATH = Path(__file__).parent / "_use_case_coverage.json"
+# Regenerate-on-demand (Rule 26, CU-386): the coverage artifact has no test
+# asserting against it and no live consumer, so it is not committed. It lands
+# under the gitignored build/ tree — a pytest run must never modify a tracked
+# file, because RADIANT resolves the git commit at the loaded package location
+# for export provenance, and a dirty tree stamps every subsequent export
+# "-dirty".
+_COVERAGE_PATH = Path(__file__).resolve().parents[2] / "build" / "_use_case_coverage.json"
 _COVERAGE_RESULTS: dict[str, str] = {}
 
 
@@ -368,7 +376,8 @@ def _write_coverage_report_at_end() -> Iterable[None]:
     for cid, out in _COVERAGE_RESULTS.items():
         if cid not in ordered:
             ordered[cid] = out
-    _COVERAGE_PATH.write_text(json.dumps(ordered, indent=2) + "\n")
+    _COVERAGE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _COVERAGE_PATH.write_text(json.dumps(ordered, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 # ---------------------------------------------------------------------------

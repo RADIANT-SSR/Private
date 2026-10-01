@@ -95,10 +95,16 @@ _DARK_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("ROIC glow", "detector.glow_e_per_s"),
 )
 
+# Order matters: the corner frequency sits directly under K because it is the
+# one the analyst must supply alongside it (CU-381 — unset, the reported
+# flicker_1f is an upper bound and the run warns). The two band edges follow as
+# what they now are: optional overrides on a band otherwise derived from the
+# measurement's own timing.
 _FLICKER_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("1/f coefficient K", "detector.flicker_K"),
-    ("1/f band low edge", "detector.flicker_f_low_hz"),
-    ("1/f band high edge", "detector.flicker_f_high_hz"),
+    ("1/f corner frequency", "detector.flicker_corner_hz"),
+    ("1/f band low edge (override)", "detector.flicker_f_low_hz"),
+    ("1/f band high edge (override)", "detector.flicker_f_high_hz"),
 )
 
 _GR_FIELDS: Final[tuple[tuple[str, str], ...]] = (

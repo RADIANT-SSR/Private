@@ -144,7 +144,7 @@ atmosphere/
 └── r0_resolution.py     # direct r0 vs profile-derived r0 (CU-093 agreement)
 ```
 
-### `optics/` — 32 source + 29 tests
+### `optics/` — 33 source + 30 tests
 
 Stage 3: PSF (dual-path), MTF terms, throughput, EE_box, regime final. Largest package alongside `source/` and `performance/` because spatial physics (pupil → PSF → MTF) lives here.
 
@@ -155,7 +155,7 @@ Top-level modules group by concern:
 - **MTF product path:** `pupil_mtf.py` (optical MTF from autocorrelation), `pixel_kernel.py`, `diffusion_kernel.py`, `sampling.py`
 - **Throughput / element model:** `element.py`, `element_factories.py`, `system_transmission.py`, `transmission_modes.py`, `filters.py`, `cavity_model.py`, `stray_light.py`
 - **Cold stop / étendue (Gap 128):** `effective_pupil.py` (D_eff, obs_eff, N_eff — resolved once, feeds both spatial paths and Ω_cone), `etendue_cone.py` (Ω_cone = 2π(1 − cos θ))
-- **Stage glue:** `stage.py`, `_schema.py`, `ee_box.py`, `fnumber.py`, `nearfield_irradiance.py`, `telescope.py`
+- **Stage glue:** `stage.py`, `_schema.py`, `ee_box.py`, `fnumber.py`, `nearfield_irradiance.py`, `nearfield_advisory.py`, `telescope.py`
 
 ### `platform/` — 9 source + 9 tests
 
@@ -200,7 +200,7 @@ noise/
 └── other.py              # 1/f, glow, persistence, etc.
 ```
 
-### `readout/` — 16 source + 17 tests
+### `readout/` — 18 source + 18 tests
 
 Stage 7: TDI, ADC, gain, read noise, binning, coadds, saturation, and the
 digital-pixel counting model (Gap 117). The architecture dispatch
@@ -219,6 +219,8 @@ readout/
 ├── tdi_scaling.py
 ├── tdi_mtf.py
 ├── coadds.py
+├── flicker_transfer.py       # 1/f through the measurement's transfer function (CU-381)
+├── flicker_inputs.py         # resolves the 1/f band from the configured timing (CU-381)
 ├── binning_onchip.py
 ├── binning_offchip.py
 ├── counting_well.py          # 2^N·Q_pkt effective well, dead-time ceiling, count conversion
@@ -268,7 +270,7 @@ io/
 └── results.py             # ChainResult: signal_at, noise_at, snr/nedt/niirs accessors
 ```
 
-### `cli/` — 13 source + 2 tests
+### `cli/` — 14 source + 3 tests
 
 Command-line interface (Click-based). Subcommand-per-file plus shared helpers.
 
@@ -276,6 +278,7 @@ Command-line interface (Click-based). Subcommand-per-file plus shared helpers.
 cli/
 ├── main.py                # `radiant` entry point
 ├── _common.py             # shared CLI helpers
+├── _encoding.py           # forces stdout/stderr to UTF-8 (CU-385, Rule 30)
 ├── _study.py              # study (configuration-set) helpers for run/validate (ADR-0010)
 ├── run.py                 # `radiant run` (+ `--configuration` for study files)
 ├── validate.py            # `radiant validate` (every configuration of a study)
@@ -288,13 +291,14 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 32 source + 25 tests
+### `api/` — 33 source + 25 tests
 
 Public scripting API.
 
 ```
 api/
 ├── sensor.py              # Sensor — public class (also re-exported at top level)
+├── precheck.py             # pre-chain stage cross-parameter checks (CU-383)
 ├── session.py             # RadiantSession — internal session orchestrator
 ├── sweep.py               # SweepResult, 1-D and 2-D parameter sweeps
 ├── batch.py               # batch matrix execution (one evaluation per grid cell)
@@ -537,7 +541,7 @@ convention and may differ slightly.
 | calibration/           | 11     | 10    | calibration error model (Gap 120 + Gap 122 items 1–4) |
 | performance/           | 56     | 39    | one metric per module (Rule 19) |
 | io/                    | 12     | 14    | config, results, element_config |
-| cli/                   | 13     | 2     | subcommand-per-file (incl. `radiant gui`, templates) |
+| cli/                   | 14     | 3     | subcommand-per-file (incl. `radiant gui`, templates) |
 | api/                   | 31     | 22    | public + internal session |
 | gui/                   | 106    | 63    | PySide6 shell + widgets + design-system theme — optional `gui` extra |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |

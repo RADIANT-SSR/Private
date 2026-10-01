@@ -73,6 +73,7 @@ from radiant.api._progress import CancelFn, ProgressFn, check_cancel
 from radiant.api._warning_capture import capture_warnings
 from radiant.api.compare import ComparisonResult, compare_configs
 from radiant.api.config_io import normalize_element_document
+from radiant.api.precheck import precheck_parameters
 from radiant.api.sensor import Sensor
 from radiant.core.exceptions import RadiantError
 from radiant.core.parameters import ParameterSet, Provenance
@@ -1167,7 +1168,18 @@ class ConfigurationSet:
         status: dict[str, RadiantError | None] = {}
         for name in self._names:
             try:
-                self.sensor_for(name)
+                sensor = self.sensor_for(name)
+                # Stage cross-parameter checks (CU-383). Without these,
+                # validate_all reported "0 failed" for a study whose
+                # configurations ReadoutStage would reject on sight, because
+                # the architecture over-specification check lived inside
+                # ReadoutStage.run. Still no physics: every check here is a
+                # function of the resolved ParameterSet alone.
+                # Intra-package access: Sensor and ConfigurationSet are api
+                # siblings, and sensor_for has already resolved the set.
+                # Adding a public accessor for one internal caller would be
+                # new public surface for no user-facing gain.
+                precheck_parameters(sensor._params)
             except RadiantError as exc:
                 status[name] = exc
             else:

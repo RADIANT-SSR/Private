@@ -10,6 +10,7 @@ import click
 from radiant import RadiantError
 from radiant.api.config_io import normalize_element_document
 from radiant.api.config_set import ConfigurationSet
+from radiant.api.precheck import precheck_parameters
 from radiant.api.session import RadiantSession
 from radiant.cli._common import coerce_value, parse_overrides, set_option
 from radiant.cli._study import SECTION_KEY, die, is_study, load_study
@@ -101,10 +102,21 @@ def validate(config: str, overrides: tuple[str, ...]) -> None:
             errors.append(f"Unknown parameter: '{key}'")
 
     # Resolve — collect resolve errors.
+    resolved_ok = True
     try:
         params.resolve()
     except (ValueError, TypeError) as exc:
         errors.append(str(exc))
+        resolved_ok = False
+
+    # Stage cross-parameter checks (CU-383). These used to run only inside
+    # ReadoutStage.run, so `validate` passed configurations that `evaluate`
+    # rejected. They need a resolved ParameterSet, hence the guard.
+    if resolved_ok:
+        try:
+            precheck_parameters(params)
+        except RadiantError as exc:
+            errors.append(str(exc))
 
     if errors:
         click.echo("Validation failed:", err=True)

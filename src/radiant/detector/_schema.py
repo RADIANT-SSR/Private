@@ -208,6 +208,20 @@ QE_TEMPERATURE_REF_K = ParameterDef(
 # ---------------------------------------------------------------------------
 # Dark current
 # ---------------------------------------------------------------------------
+#
+# Ceiling rationale (CU-382). The three bounds below — dark rate, DSNU, and
+# ROIC glow — were 1e9 / 1e6 / 1e6, which excluded real parts. A 20 um pixel at
+# 1 A/m^2 dark-current density (1e-4 A/cm^2, a routine LWIR figure) needs
+# 1 * (20e-6)^2 / 1.602e-19 = 2.50e9 e-/s, above the old dark ceiling; DSNU is a
+# few percent of the dark SIGNAL, so its ceiling has to track dark x t_int; and
+# glow is the same physical quantity as dark in the same units. Each old ceiling
+# was its DEFAULT's rationale (a room-temperature Si CCD) applied to the bound,
+# which is a category error: a default describes the typical part, a bound
+# describes every expressible part. All three are now 1e12: that clears a 50 um
+# pixel at 10 A/m^2 (1.56e11 e-/s) with room to spare, and it is the same ceiling
+# readout.full_well_capacity_e carries, so a dark signal larger than the largest
+# expressible well is unreachable anyway. Nothing downstream assumes a magnitude.
+# Bounds are enforced at resolve time, not at set() — see the tests.
 
 DARK_RATE_E_PER_S = ParameterDef(
     name="detector.dark_rate_e_per_s",
@@ -216,7 +230,7 @@ DARK_RATE_E_PER_S = ParameterDef(
     canonical_unit="1/s",
     input_unit="1/s",
     default=100.0,
-    bounds=(0.0, 1e9),
+    bounds=(0.0, 1e12),
     tags=frozenset({"detector", "noise", "dark"}),
     default_justification="Order-of-magnitude room-temperature Si CCD reference.",
 )
@@ -305,26 +319,78 @@ FLICKER_K = ParameterDef(
     tags=frozenset({"detector", "noise"}),
 )
 
-FLICKER_F_LOW = ParameterDef(
-    name="detector.flicker_f_low_hz",
-    description="Lower frequency bound for 1/f integration [Hz].",
+# The 1/f band is set by the measurement's own transfer function (CU-381,
+# radiant.readout.flicker_transfer): the per-frame boxcar rolls off at ~1/t_int,
+# the co-add comb sets the correlation, and the corner frequency marks where the
+# white floor (already charged as read noise) takes over. The two band
+# parameters below are therefore OVERRIDES, not required inputs — both default
+# to 0.0 = unset, following readout.frame_period_s's precedent.
+
+FLICKER_CORNER_HZ = ParameterDef(
+    name="detector.flicker_corner_hz",
+    description=(
+        "Frequency where the 1/f PSD meets the white noise floor [Hz]. "
+        "Above it the power is charged as read noise. 0 = unset."
+    ),
     dtype=float,
     canonical_unit="Hz",
     input_unit="Hz",
-    default=0.01,
-    bounds=(1e-6, 1e6),
+    default=0.0,
+    bounds=(0.0, 1e9),
     tags=frozenset({"detector", "noise"}),
+    default_justification=(
+        "0.0 = unset. There is no universal corner frequency — it is a measured "
+        "ROIC property. Left unset with flicker_K > 0, RADIANT integrates to the "
+        "boxcar roll-off instead, which OVERSTATES the term (the band above the "
+        "corner is billed twice: once here, once as read noise) and warns saying "
+        "so. Overstating noise is the safe direction for an unsupplied input; "
+        "silently picking a corner is not."
+    ),
+)
+
+FLICKER_F_LOW = ParameterDef(
+    name="detector.flicker_f_low_hz",
+    description=(
+        "Low-frequency limit for 1/f integration [Hz] — the reciprocal of the "
+        "longest timescale the measurement is compared over. "
+        "0 = derive from the stack duration (n_coadds x frame_period_s)."
+    ),
+    dtype=float,
+    canonical_unit="Hz",
+    input_unit="Hz",
+    default=0.0,
+    bounds=(0.0, 1e6),
+    tags=frozenset({"detector", "noise"}),
+    default_justification=(
+        "0.0 = derive as 1 / (n_coadds x frame_period_s). The 1/f integral "
+        "diverges at DC for an un-referenced sum — slow drift couples in with "
+        "full weight, and a single integration cannot tell 1/f drift from signal "
+        "— so what makes 1/f *noise* rather than *offset* is the comparison "
+        "window. Deriving it from the stack duration states that; the former "
+        "0.01 Hz default corresponded to no timing anywhere in RADIANT."
+    ),
 )
 
 FLICKER_F_HIGH = ParameterDef(
     name="detector.flicker_f_high_hz",
-    description="Upper frequency bound for 1/f integration [Hz].",
+    description=(
+        "Optional upper clamp on the 1/f integration band [Hz]. 0 = unset; "
+        "rarely needed, since the integration-time boxcar already rolls off."
+    ),
     dtype=float,
     canonical_unit="Hz",
     input_unit="Hz",
-    default=1.0e6,
-    bounds=(1e-3, 1e9),
+    default=0.0,
+    bounds=(0.0, 1e9),
     tags=frozenset({"detector", "noise"}),
+    default_justification=(
+        "0.0 = unset. Physically redundant: H_box = sinc(pi f t_int) rolls off at "
+        "~1/t_int, which IS the upper limit, and flicker_corner_hz cuts where the "
+        "white floor takes over. The former 1.0e6 default was a fiction the sinc "
+        "would have handled — at t_int = 5 ms it integrated 3.5 decades the "
+        "detector cannot respond to. Retained as an override so an analyst can "
+        "clamp the band explicitly (e.g. scenario 2.2's corner sweep)."
+    ),
 )
 
 # ---------------------------------------------------------------------------
@@ -349,7 +415,7 @@ DSNU_E_RMS = ParameterDef(
     canonical_unit="e-",
     input_unit="e-",
     default=0.0,
-    bounds=(0.0, 1e6),
+    bounds=(0.0, 1e12),
     tags=frozenset({"detector", "noise", "spatial"}),
 )
 
@@ -422,7 +488,7 @@ GLOW_E_PER_S = ParameterDef(
     canonical_unit="1/s",
     input_unit="1/s",
     default=0.0,
-    bounds=(0.0, 1e6),
+    bounds=(0.0, 1e12),
     tags=frozenset({"detector", "noise"}),
 )
 
@@ -484,6 +550,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     GR_FACTOR,
     R0A_OHM_CM2,
     FLICKER_K,
+    FLICKER_CORNER_HZ,
     FLICKER_F_LOW,
     FLICKER_F_HIGH,
     PRNU_PCT,

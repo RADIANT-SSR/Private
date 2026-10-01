@@ -104,6 +104,23 @@ OUTPUT_UNITS: dict[str, str] = {
 }
 
 
+def validate_params(params: ParameterSet) -> None:
+    """Run CalibrationStage's cross-parameter checks without running the chain (CU-383).
+
+    Mirrors the scheme dispatch in ``run()``: a scheme of ``none`` has nothing
+    to check, and otherwise the flux-fraction and temperature-anchored paths
+    have different required-and-forbidden sets. Both are functions of the
+    ParameterSet alone.
+    """
+    scheme: str = params.get("calibration.scheme")
+    if scheme == "none":
+        return
+    if params.get("calibration.cal_point_mode") == "flux_fraction":
+        _validate_flux_mode(scheme, params)
+    else:
+        _validate_active_scheme(scheme, params)
+
+
 def _validate_active_scheme(scheme: str, params: ParameterSet) -> None:
     """Rule 16: validate an active scheme's configuration before any physics.
 

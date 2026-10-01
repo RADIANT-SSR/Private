@@ -22,7 +22,6 @@ from radiant.core.noise_budget import (
 )
 from radiant.detector.noise.detector_material import (
     dark_shot_noise,
-    flicker_1f_noise,
     gr_noise,
     johnson_noise,
 )
@@ -69,9 +68,6 @@ def compute_noise_budget(
     pixel_area_m2: float = 0.0,
     detector_temp_K: float = 77.0,
     t_int_s: float = 0.01,
-    flicker_K: float = 0.0,
-    flicker_f_low_hz: float = 0.01,
-    flicker_f_high_hz: float = 1.0e6,
     read_noise_e_rms: float = 0.0,
     node_capacitance_F: float = 0.0,
     cds_enabled: bool = True,
@@ -97,7 +93,12 @@ def compute_noise_budget(
         "dark_shot": dark_shot_noise(dark_e),
         "gr_noise": gr_noise(dark_e, gr_factor),
         "johnson_noise": johnson_noise(r0a_ohm_cm2, pixel_area_m2, detector_temp_K, t_int_s),
-        "flicker_1f": flicker_1f_noise(flicker_K, flicker_f_low_hz, flicker_f_high_hz),
+        # Supplied by ReadoutStage (CU-381). 1/f noise depends on the
+        # measurement's transfer function — the per-frame boxcar, the co-add
+        # comb, and any reference differencing — so it cannot be evaluated
+        # from detector properties alone. The key is kept so the budget still
+        # carries exactly ALL_NOISE_TERMS; the value is replaced downstream.
+        "flicker_1f": 0.0,
         "read_noise": read_noise_term(read_noise_e_rms),
         "ktc_reset": ktc_reset_noise(node_capacitance_F, detector_temp_K, cds_enabled),
         "quantization": quantization_noise(gain_e_per_dn),

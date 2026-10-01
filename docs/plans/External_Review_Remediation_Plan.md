@@ -1,6 +1,6 @@
 # External Review Remediation Plan (2026-09-30)
 
-**Status:** Active — opened 2026-09-30.
+**Status:** Active — opened 2026-09-30; **six of six code items landed 2026-09-30** (branch `review/2026-09-batch`). Open: CU-380's scenario sweep, CU-384, CU-387. Not archivable until those close (Rule 24).
 **Charter:** owner direction 2026-09-30: "log all the gaps/CUs, formulate a plan
 and then kick off the fix … I want these fixes done tonight so I can redeploy
 tomorrow and test."
@@ -24,14 +24,14 @@ ruling or an ADR amendment; they are planned here and left Open.
 
 ### In scope tonight (code-backed, closable)
 
-| CU | Finding | Size | Gate consequence |
+| CU | Finding | Size | Outcome |
 |---|---|---|---|
-| CU-386 | tests write a tracked file without encoding/newline | S | none |
-| CU-385 | CLI stdout/stderr not UTF-8 (Rule 30) | S | none |
-| CU-382 | rate-parameter ceilings justified by their default | S | `_schema.py` ⇒ full GUI suite |
-| CU-380 | warm-optics nearfield silently zero | M | results-affecting; goldens + 6 files |
-| CU-381 | 1/f model — first-principles replacement | L | `_schema.py` ⇒ full GUI suite; new module |
-| CU-383 | stage cross-param validators unreachable from `validate` | M | none |
+| CU-386 | tests write a tracked file without encoding/newline | S | **CLOSED** — artifact untracked to `build/`, both keywords supplied |
+| CU-385 | CLI stdout/stderr not UTF-8 (Rule 30) | S | **CLOSED** — 81 affected strings across 36 modules; `µ`/`°` were never the problem |
+| CU-382 | rate-parameter ceilings justified by their default | S | **CLOSED** — three coupled ceilings raised, not one |
+| CU-380 | warm-optics nearfield silently zero | M | **PARTIAL** — warning + examples landed; 5-scenario sweep deferred (reasons in the CU) |
+| CU-381 | 1/f model — first-principles replacement | L | **CLOSED** — transfer-function integral; 21 Level-0 limits; Gap 137 spun out |
+| CU-383 | stage cross-param validators unreachable from `validate` | M | **CLOSED** — 3 of 4 validators moved pre-chain; the 4th provably cannot |
 
 ### Planned, not built tonight
 
@@ -156,3 +156,37 @@ This plan is complete when CU-380, 381, 382, 383, 385 and 386 are Resolved
 with `CU-Closes:` trailers, and CU-384 and CU-387 carry a current deferral
 record naming their gating condition. At that point the plan moves to
 `docs/archive/` with a HISTORICAL banner in the same PR (Rule 24).
+
+---
+
+## 7. Outcome notes (added 2026-09-30, at the batch's close)
+
+Where the plan was wrong, recorded so the next plan is better:
+
+- **§4's acceptance limit "K = 1 reproduces today's closed form" was overstated.**
+  With the boxcar weight it holds only in the narrowband limit `f·t_int ≪ 1`,
+  which the shipped 1 MHz / 5 ms default badly violated — itself defect (b).
+  The limit is still a valid anchor, with that condition stated.
+- **§4 assumed `f_low`/`f_high` were kept for back-compatibility.** `f_low`
+  survives for a *physical* reason instead (the DC divergence of an
+  un-referenced sum is real), and `f_high` turned out to be physically
+  unnecessary — the integration-time boxcar already provides the roll-off.
+  Better than planned.
+- **§3's "remediate `examples/`" assumed element trains.** The right fix was
+  the opposite: a hand-computable anchor and a *minimal* config both
+  legitimately exclude warm optics, so they state it explicitly and the golden
+  stays bit-identical. The plan's assumption would have changed a golden for no
+  gain.
+- **CU-380's commit carried a premature `CU-Closes: 380` trailer.** The engine
+  fix landed; the scenario sweep did not. Corrected in the registry entry,
+  which is the authoritative record.
+- **CU-380's verification was too narrow.** It ran the optics and golden suites
+  but not `api`, and missed a test the example annotation broke. CU-383's
+  commit fixed it. The merge battery would have caught it regardless — which is
+  what the battery is for — but a per-CU suite selection by "which files did I
+  touch" is exactly the unsound predictor CLAUDE.md warns about, and this is
+  another instance of it.
+- **Two new tests had to move out of stage test directories.** A stage test may
+  not `import radiant`, because the top-level package reaches `api`/`io` and the
+  physics-stages-import-only-core contract is machine-enforced. Both moved to
+  `tests/integration/`.

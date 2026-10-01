@@ -18,6 +18,15 @@ optics:
   aperture_diameter_m: 0.30  # m
   focal_length_m: 1.50       # m → f/5
   transmission_scalar: 0.75
+  # Warm-optics self-emission is deliberately OFF (CU-380). This case exists to
+  # be hand-computable end to end, so every term a calculator cannot reach is
+  # excluded by construction — as are the atmosphere (model: exo) and target
+  # emissivity (ε = 1). Scalar transmission cannot carry warm optics anyway: a
+  # synthesized lump has no Kirchhoff emissivity, so the term would be zero
+  # either way; stating it here makes that a choice instead of a silence.
+  # A realistic thermal design declares an `optical_elements:` train with each
+  # surface's temperature_K — see scenarios/10_direction_general/.
+  nearfield_enabled: 0
 
 detector:
   pixel_pitch_x_um: 15.0     # um

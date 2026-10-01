@@ -133,10 +133,22 @@ where *being explicitly set* is the trigger. No in-study workaround exists.
 **F6 — broader than reported.** There is no `sys.stdout.reconfigure` anywhere
 in `src/radiant/cli/`. Non-ASCII in schema descriptions confirmed across three
 `_schema.py` files (`µ` in spectral_integration and platform; `α`, `Ω`, `₀` in
-detector). Worse: RADIANT's *error messages* routinely carry `µ` and `°`, so on
-a default Windows console a parameter-bounds error can itself die in
-`UnicodeEncodeError` — the diagnostic fails exactly when it is needed. Rule 30
-requires unmodified Windows operation; the CLI does not meet it.
+detector).
+
+Which characters actually kill a cp1252 console matters, and it is not the
+obvious ones — **`µ`, `°`, `²`, `³` and `×` all encode fine in cp1252**. The
+fatal set is `α λ ε Ω τ σ Δ θ ρ ₀ ⁻ √ ≈`. Measured exposure: **81 candidate
+user-facing strings across 36 modules** carry a member of that set, including
+raised `ParameterBoundsError` text — `source/_inferrer.py:587` ships
+`"needs at least one (λ, ρ) pair"` and `core/descriptors.py:358` ships
+`"needs ε(λ) for Kirchhoff self-emission"`. So the strong form of the claim
+holds: on a default Windows console a parameter-bounds error can itself die in
+`UnicodeEncodeError`, and the diagnostic fails exactly when it is needed. Rule
+30 requires unmodified Windows operation; the CLI does not meet it.
+
+Reproduced on macOS by handing Python a cp1252 stdout, which is what a default
+Windows console gives it: `PYTHONIOENCODING=cp1252 radiant schema --stage
+detector` exits 1 before the fix and 0 after.
 
 **F7 — harder than reported.** Both coverage writers call `write_text()` with
 **no `encoding="utf-8"` and no `newline="\n"`**:
@@ -169,3 +181,16 @@ acceptance-cone convention in `RADIANT_Optics.md` §7), logged to
 
 Commands used are in `reproduce.py` in this folder (run with `PYTHONPATH=./src python docs/reports/external_review_2026-09/reproduce.py` from the repo root). All results above were
 measured on `v0.3.0-1-g8948dd43` with `PYTHONPATH=./src`.
+
+
+---
+
+## Correction, 2026-09-30
+
+The F6 paragraph above was revised the same day it was written. Its first
+version named `µ` and `°` as the characters that break a Windows console. They
+do not — both are in cp1252. The conclusion was right but the mechanism was
+wrong, and the mechanism is what a reader would act on, so it is corrected in
+place rather than footnoted. The fatal set, the 81-string measurement, and the
+`PYTHONIOENCODING=cp1252` reproduction were added at the same time. Recorded
+here because this document is otherwise immutable under Rule 24.

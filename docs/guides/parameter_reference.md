@@ -2,7 +2,7 @@
 
 *Auto-generated from the parameter registry. Do not edit by hand --- re-run `python scripts/gen_param_reference.py` to update.*
 
-**Total parameters: 219**
+**Total parameters: 220**
 
 ## geometry
 
@@ -175,15 +175,16 @@
 | `detector.charge_diffusion_length_m` | float | 0.0 | m | (0.0, 0.001) | RMS charge diffusion length [m]. Zero disables diffusion MTF. |
 | `detector.clutter_sigma` | float | 0.0 | --- | (0.0, 1.0) | Scene clutter coefficient (fractional). Zero disables. |
 | `detector.dark_activation_energy_eV` | float | 0.0 | eV | (0.0, 5.0) | Arrhenius activation energy for dark-rate temperature scaling. Zero disables scaling. |
-| `detector.dark_rate_e_per_s` | float | 100.0 | 1/s | (0.0, 1000000000.0) | Dark current generation rate per pixel [e-/s]. |
+| `detector.dark_rate_e_per_s` | float | 100.0 | 1/s | (0.0, 1000000000000.0) | Dark current generation rate per pixel [e-/s]. |
 | `detector.dark_reference_temperature_K` | float | 77.0 | K | (1.0, 500.0) | Temperature at which dark_rate_e_per_s is specified [K]. |
 | `detector.detector_temperature_K` | float | 77.0 | K | (1.0, 500.0) | Detector operating temperature [K]. |
-| `detector.dsnu_e_rms` | float | 0.0 | e- | (0.0, 1000000.0) | Dark-signal non-uniformity [e- RMS]. Zero disables. |
+| `detector.dsnu_e_rms` | float | 0.0 | e- | (0.0, 1000000000000.0) | Dark-signal non-uniformity [e- RMS]. Zero disables. |
 | `detector.fill_factor` | float | 1.0 | --- | (0.0, 1.0) | Photosensitive fraction of the pixel cell. |
 | `detector.flicker_K` | float | 0.0 | e-^2 | (0.0, 1000000000000.0) | 1/f flicker noise coefficient [e-²]. Zero disables. |
-| `detector.flicker_f_high_hz` | float | 1000000.0 | Hz | (0.001, 1000000000.0) | Upper frequency bound for 1/f integration [Hz]. |
-| `detector.flicker_f_low_hz` | float | 0.01 | Hz | (1e-06, 1000000.0) | Lower frequency bound for 1/f integration [Hz]. |
-| `detector.glow_e_per_s` | float | 0.0 | 1/s | (0.0, 1000000.0) | Detector/ROIC glow rate [e-/s/pixel]. Zero disables. |
+| `detector.flicker_corner_hz` | float | 0.0 | Hz | (0.0, 1000000000.0) | Frequency where the 1/f PSD meets the white noise floor [Hz]. Above it the power is charged as read noise. 0 = unset. |
+| `detector.flicker_f_high_hz` | float | 0.0 | Hz | (0.0, 1000000000.0) | Optional upper clamp on the 1/f integration band [Hz]. 0 = unset; rarely needed, since the integration-time boxcar already rolls off. |
+| `detector.flicker_f_low_hz` | float | 0.0 | Hz | (0.0, 1000000.0) | Low-frequency limit for 1/f integration [Hz] — the reciprocal of the longest timescale the measurement is compared over. 0 = derive from the stack duration (n_coadds x frame_period_s). |
+| `detector.glow_e_per_s` | float | 0.0 | 1/s | (0.0, 1000000000000.0) | Detector/ROIC glow rate [e-/s/pixel]. Zero disables. |
 | `detector.gr_factor` | float | 0.0 | --- | (0.0, 10.0) | G-R noise factor (0 = disabled, 1 = classic HgCdTe). |
 | `detector.ipc_coupling` | float | 0.0 | --- | (0.0, 0.25) | Inter-pixel capacitance coupling fraction α [0, 0.25). |
 | `detector.n_pixels_cross` | int | 0 | --- | (0, 1000000) | Number of detector pixels in the cross-track direction. |

@@ -20,7 +20,132 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+- **Results-affecting: 1/f flicker noise is now computed from the measurement's
+  own transfer function** instead of a closed form over a user-declared band.
+  The old model was wrong in three coupled directions: it never capped the band
+  at the corner frequency (a 64–170 % overestimate measured at 30–120 Hz), its
+  band was decoupled from every timing quantity in the model (a 100 µs and a
+  100 ms frame got the identical σ), and co-adding scaled it ×√K, averaging
+  down power that is common to every frame and cannot average (up to a factor
+  √K low — ×22 at 500 co-adds). The first and third pull in opposite
+  directions and partially cancelled, which is why the term looked plausible
+  through v0.2.0 and v0.3.0.
+
+  `σ² = ∫ S(f)·|H_box|²·|D_K|²·|H_ref|² df` — the 1/f PSD seen through the
+  per-frame integration boxcar, the co-add comb, and any reference differencing.
+  All three defects are now limits of one integral rather than three patches:
+  the co-add correlation is **not an exponent any more** (measured effective
+  exponent 0.921 on K for a 1 ms/2 ms/200 Hz case, between √K and fully
+  correlated, derived by the comb rather than chosen), √K is recovered exactly
+  where it is correct (white PSD), and integration time finally enters at all.
+
+  **Direction and magnitude:** for a co-added stack the term grows
+  substantially — at 500 co-adds the stack value is ~10× the old one (per-frame
+  ×0.73 from dropping the full-band fiction, stack scaling ×13.7). **No shipped
+  result moves**: `detector.flicker_K` defaults to 0, so the term is off unless
+  a user opted in. Anyone who had set it should re-run (CU-381).
+- `detector.flicker_f_low_hz` and `detector.flicker_f_high_hz` are now
+  **optional overrides**, default `0` = unset. `f_low` derives from the stack
+  duration (`n_coadds × frame_period_s`) — the comparison window, which is what
+  makes 1/f *noise* rather than *offset*; the old 0.01 Hz default corresponded
+  to no timing anywhere in RADIANT. `f_high` is physically redundant (the
+  integration-time boxcar already rolls off at ~1/t_int) and is kept only as an
+  explicit clamp (CU-381).
+
+- **Dark-rate, DSNU and ROIC-glow ceilings raised to 1e12** (from 1e9, 1e6 and
+  1e6). A 20 µm pixel at 1 A/m² dark-current density — a routine LWIR figure —
+  needs 2.50e9 e-/s and was previously inexpressible, silently clamping a
+  legitimate detector. Each old ceiling was its *default's* rationale (a
+  room-temperature Si CCD) applied to the bound, which is a category error: a
+  default describes the typical part, a bound describes every expressible one.
+  DSNU and glow moved with dark rather than separately, because DSNU is a
+  fraction of the dark signal and glow is the same physical quantity in the
+  same units. No default changed, so no existing result moves; runs that were
+  hitting the clamp will now report higher dark noise, which is the correct
+  value they should have had (CU-382).
+
+### Added
+- **`detector.flicker_corner_hz`** — the frequency where the 1/f PSD meets the
+  white noise floor. Load-bearing for the new model, and it has no safe
+  default: left unset with `flicker_K > 0`, RADIANT integrates to the boxcar
+  roll-off, warns that the reported `flicker_1f` is an **upper bound** (power
+  above the real corner is billed twice, here and as read noise), and names the
+  parameter. Overstating noise for an unsupplied input is the safe direction;
+  silently inventing a corner is not (CU-381).
+
+### Removed
+- **`radiant.detector.noise.detector_material.flicker_1f_noise`** and the three
+  `flicker_*` arguments to `compute_noise_budget`. The 1/f band depends on the
+  readout timing the detector stage does not have, so the term is now supplied
+  by `ReadoutStage` — the same shape as the Gap-117 counting-term swap. The
+  detector's raw budget still carries the `flicker_1f` key (value 0) so the
+  term count is unchanged (CU-381, Rule 27).
+
+- **Results-affecting (warning only — no computed value changes): RADIANT now
+  warns when warm-optics emission is structurally zero.** `optics.nearfield_enabled`
+  defaults to 1, but transmission modes 1–4 synthesize lumped elements at 0 K and
+  the near-field loop skips those, so any thermal-band config using
+  `transmission_scalar` (or any non-prescription mode) computed warm optics as
+  **identically zero while the term appeared to be on** — silently, through
+  v0.2.0 and v0.3.0. For a thermal system warm optics is usually the dominant
+  background: on RADIANT's own `examples/mwir_leo_minimal.yaml` the omitted term
+  is 37 % of signal and the reported SNR is **17 % optimistic**; in a
+  background-dominated f/1 point-source case it measured **19×**, and flipped
+  `detection_range_m` from declined to a fabricated value. The ε = 0 model is
+  correct (a synthesized lump is not a surface, so Kirchhoff gives it no
+  emissivity) — the defect was the silence. The warning fires only in a thermal
+  band (grid long-wave edge > 2.5 µm) and names both remedies: declare an
+  `optical_elements:` train with each surface's `temperature_K`, or set
+  `nearfield_enabled: 0` to state that zero is intended. No computed value
+  changes anywhere (CU-380).
+- **Twelve shipped artifacts now state their warm-optics omission explicitly**
+  rather than carrying it silently: both top-level examples, 7 mission
+  templates, and 3 bundled examples all set `optics.nearfield_enabled: 0` with
+  a comment naming what is omitted, what it is worth, and the remedy. Results
+  are bit-identical — scalar transmission could not carry the term anyway. The
+  two top-level examples are *intended* omissions (a hand-computable anchor and
+  a deliberately minimal config); the other ten need real warm trains, which
+  needs an instrument-specific optics temperature for each and is tracked as
+  CU-380's open item.
+- Both shipped examples now set `optics.nearfield_enabled: 0` explicitly, with a
+  comment stating why and what the omission is worth. A hand-computable anchor
+  (`ground_truth_mwir.yaml`) and a deliberately *minimal* config
+  (`mwir_leo_minimal.yaml`) both legitimately exclude the term; stating it makes
+  that a choice rather than a silence. Golden results are bit-identical.
+
+### Fixed
+- **`validate` now rejects configurations that `evaluate` rejects.** `radiant
+  validate` reported *"Study OK — 3 configuration(s), 0 failed"* for a study in
+  which two of the three could not run: the readout architecture
+  over-specification check lived inside `ReadoutStage.run`, so only `evaluate`
+  reached it. The error itself was precise and actionable — it was simply
+  unreachable from the command whose job is to find it, and a validate that
+  misses whole classes of configuration error teaches operators not to rely on
+  it. New `radiant.api.precheck.precheck_parameters()` runs every stage
+  cross-parameter check that is a function of the ParameterSet alone (readout
+  architecture, calibration scheme completeness and flux-mode anchors), from
+  both `radiant validate` and `ConfigurationSet.validate_all()`. Still no
+  physics. `optics._validate_psf_regime_consistency` cannot join — it needs the
+  computed PSF — and that limit is pinned by a test rather than left implicit
+  (CU-383).
+- **The CLI no longer crashes on a default Windows console.** `radiant schema`
+  died with `UnicodeEncodeError: 'charmap' codec can't encode character 'α'`
+  and was unusable without `PYTHONIOENCODING=utf-8`. The CLI now reconfigures
+  its output streams to UTF-8 at entry. The exposure was wider than one
+  command: 81 user-facing strings across 36 modules carry a character cp1252
+  cannot encode — including raised `ParameterBoundsError` text, so a bounds
+  error could itself die on the way to the screen. Note `µ`, `°`, `²`, `³` and
+  `×` were never the problem (cp1252 has them); the fatal set is
+  `α λ ε Ω τ σ Δ θ ρ ₀ ⁻ √ ≈` (CU-385, Rule 30).
+- **Exported results are no longer stamped `-dirty` after a test run.** A
+  `pytest` run rewrote the tracked `tests/integration/_use_case_coverage.json`,
+  and because RADIANT resolves the git commit at the loaded package location
+  for export provenance, every result exported afterwards carried a dirty stamp
+  although the source was byte-identical. The coverage artifact is now written
+  to the untracked `build/` tree (Rule 26 — no test asserts against it and it
+  has no live consumer), with `encoding="utf-8"` and `newline="\n"` on both
+  writers (Rule 30). A test run no longer modifies any tracked file (CU-386).
 
 ## [0.3.0] - 2026-09-25
 

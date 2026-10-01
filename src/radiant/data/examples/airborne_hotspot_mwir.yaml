@@ -32,6 +32,22 @@ optics:
   aperture_diameter_m: 0.025
   focal_length_m: 0.05
   transmission_scalar: 0.78
+  # Warm-optics self-emission is OFF and that is a deliberate, temporary
+  # statement, not a model claim (CU-380). Scalar transmission cannot carry the
+  # term — a synthesized lump has no Kirchhoff emissivity — so the value here is
+  # zero either way; this line makes the omission explicit instead of silent.
+  #
+  # For a thermal band the warm optics is usually the DOMINANT background, so
+  # this is understated, not merely incomplete: declaring the same net tau as a
+  # warm mirror train on RADIANT's MWIR example adds 37 % of signal in
+  # background and drops SNR 17 %, and in a background-dominated point-source
+  # case the same mechanism measured 19x. Before trusting a thermal-band SNR
+  # from this file, replace `transmission_scalar` with an `optical_elements:`
+  # train carrying each surface's `temperature_K`.
+  #
+  # Choosing those temperatures is an instrument-specific judgement, so it is
+  # tracked as CU-380's open item rather than guessed here.
+  nearfield_enabled: 0
 readout:
   adc_bits: 14
   full_well_capacity_e: 4000000.0

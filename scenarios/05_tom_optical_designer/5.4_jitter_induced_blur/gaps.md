@@ -20,10 +20,10 @@ fell to 6.17; the two relative dNIIRS thresholds are unmoved.*
 |---|-----|----------|--------|----------|
 | — | Platform jitter not wired (master Gap 18) | High | **CLOSED** | `platform.jitter_rms_urad` ingested by PlatformStage; ePSF convolution confirmed |
 | 1 | No MTF budget decomposition | Medium | **CLOSED** | `result.stage_outputs["performance"]["mtf_budget"].per_term_at_nyquist` exposes per-contributor MTF |
-| 2 | No GIQE-5 sensitivity analysis | Low | Open | No d(NIIRS)/d(parameter) utility; designers must compute by finite differences |
-| 3 | No jitter PSD / frequency dependence | Large | Open | Assumes well-sampled stationary jitter; no partition between in-band blur and out-of-band frame shift |
-| 4 | RER below GIQE-5 calibration range | Low | Open | For jitter > 2.5 urad, RER < 0.2 is extrapolation; warning raised but results reported |
-| 5 | No jitter-source allocation tool | Medium | Open | No RSS budget utility for RW / solar / cryo / struct / ACS contributors |
+| 2 | No GIQE-5 sensitivity analysis | Low | OPEN | No d(NIIRS)/d(parameter) utility; designers must compute by finite differences — **CU-387 triage 2026-09-30: already tracked** as gaps.md GUI-12 (the tornado panel). Cross-referenced. |
+| 3 | No jitter PSD / frequency dependence | Large | OPEN | Assumes well-sampled stationary jitter; no partition between in-band blur and out-of-band frame shift — **CU-387 triage 2026-09-30: promoted to [[Gap 139]]** (jitter PSD; in-band blur versus out-of-band frame shift). [[CU-381]]'s transfer-function machinery is the precedent to copy — the frame boxcar is the identical sinc filter. |
+| 4 | RER below GIQE-5 calibration range | Low | FIXED | For jitter > 2.5 urad, RER < 0.2 is extrapolation; warning raised but results reported — **CU-387 triage 2026-09-30: closed — working as intended.** The row records that a warning *is* raised when RER falls below the GIQE-5 calibration range and the result is still reported. That is the designed behaviour for an extrapolation: name it, do not refuse it. |
+| 5 | No jitter-source allocation tool | Medium | OPEN | No RSS budget utility for RW / solar / cryo / struct / ACS contributors — **CU-387 triage 2026-09-30: already tracked** as gaps.md GUI-12 (the RSS jitter-budget panel). Cross-referenced. |
 
 ## Non-Gap Observations
 - SNR is exactly 61.45 across all 51 sweep points — confirms jitter spreads light but doesn't change photon counts or noise.

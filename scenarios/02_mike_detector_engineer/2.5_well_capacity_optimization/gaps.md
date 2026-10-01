@@ -15,13 +15,13 @@ whole-FOV radiance in `signal_shot` (ADR-0002 Decision #13).
 
 | # | Gap | Severity | Status | Evidence |
 |---|-----|----------|--------|----------|
-| 1 | No HDR / dual-integration mode | Medium | Open | No built-in dual-t_int combination |
-| 2 | Well fill excludes background/nearfield/dark | Medium | Open | RADIANT clips `signal_e` at FWC; total well charge not tracked |
+| 1 | No HDR / dual-integration mode | Medium | OPEN | No built-in dual-t_int combination — **CU-387 triage 2026-09-30: promoted to [[Gap 138]]** (HDR / dual-integration mode). |
+| 2 | Well fill excludes background/nearfield/dark | Medium | FIXED | RADIANT clips `signal_e` at FWC; total well charge not tracked — **CU-387 triage 2026-09-30: verified FIXED.** `readout.total_well_e` tracks the full pedestal — signal + dark + glow + near-field + stray — and the saturation warning reports it (20 references in `readout/stage.py`). |
 | 3 | No saturation map output | Low | **PARTIALLY CLOSED** | `result.metrics["well_margin_dB"]` exposed; no per-pixel map |
-| 4 | No automatic trade study support | Low | Open | 500 evaluations run manually |
-| 5 | No NEDT-at-saturation warning | Low | Open | At FWC, dS/dT = 0 ⇒ NEDT → ∞ silently |
-| 6 | No spectral narrowing analysis | Low | Open | No band-optimization mode |
-| 7 | **NEW — Nearfield emission = 0 in scalar transmission mode** | **HIGH** | Open | Mirror self-emission from warm optics not modeled; noise under-predicted for cold targets |
+| 4 | No automatic trade study support | Low | FIXED | 500 evaluations run manually — **CU-387 triage 2026-09-30: verified FIXED.** `Sensor.sweep`, `sweep_2d`, `solve_for`, `sensitivity`, `monte_carlo` and `tolerances` all exist on the public API; the 500 manual evaluations this row describes are now one `sweep_2d` call. |
+| 5 | No NEDT-at-saturation warning | Low | OPEN | At FWC, dS/dT = 0 ⇒ NEDT → ∞ silently — **CU-387 triage 2026-09-30: stays open, Findings-Log tier.** Saturation *is* warned generally (well, ADC, and a performance-stage clipped-signal advisory naming `contrast_snr` as unreliable); what is absent is the NEDT-specific statement that dS/dT -> 0 at the well. Fails all four CU intake tests. |
+| 6 | No spectral narrowing analysis | Low | OPEN | No band-optimization mode — **CU-387 triage 2026-09-30: stays open, Findings-Log tier** (a band-optimization mode; no result moves, nothing blocked). |
+| 7 | **NEW — Nearfield emission = 0 in scalar transmission mode** | **HIGH** | FIXED | Mirror self-emission from warm optics not modeled; noise under-predicted for cold targets — **CU-387 triage 2026-09-30: superseded by [[CU-380]]** — one of the five independent recordings of the same defect. Warm train for this scenario is CU-380's open item. |
 
 ## Gap 7 Detail — Nearfield Emission Missing (HIGH)
 

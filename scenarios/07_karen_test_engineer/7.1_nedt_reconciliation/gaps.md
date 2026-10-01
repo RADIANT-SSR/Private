@@ -19,11 +19,11 @@ the post-Decision-#13 prediction that `walkthrough.md` already carried.*
 | # | Gap | Severity | Status | Evidence |
 |---|-----|----------|--------|----------|
 | 1 | No per-term NEDT breakdown | Medium | **CLOSED** | `result.metrics["nedt_K"]` and `result.noise_terms` both available; script computes `NEDT_i = σ_i / (dS/dT)` |
-| 2 | No built-in `reconcile(measured)` method | Low | Open | Script computes σ_missing = √(σ_meas² − σ_pred²) manually |
+| 2 | No built-in `reconcile(measured)` method | Low | OPEN | Script computes σ_missing = √(σ_meas² − σ_pred²) manually — **CU-387 triage 2026-09-30: promoted to [[Gap 140]]** (trade-study reporting helpers) — consolidated with 3.2 rows 2 and 4. |
 | 3 | No lab/TVAC mode documentation | Low | **CLOSED** | `atmosphere.model: "exo"` is the documented approach; works correctly |
-| 4 | dS/dT not exposed (finite-difference workaround) | Low | Open | Script runs RADIANT at T, T±δ and computes derivative numerically |
-| 5 | ROIC glow not modeled as noise source | Low | Open | `glow_shot` noise term exists but always evaluates to 0 |
-| 6 | **NEW — Nearfield emission = 0 in scalar transmission mode** | **HIGH** | Open | In scalar mode, lumped element is refractive (ε = 1 − T − R = 0 by Kirchhoff); no mirror self-emission |
+| 4 | dS/dT not exposed (finite-difference workaround) | Low | FIXED | Script runs RADIANT at T, T±δ and computes derivative numerically — **CU-387 triage 2026-09-30: verified FIXED.** `nedt_result.ds_dt_e_per_K` is exposed; the finite-difference workaround is no longer needed. |
+| 5 | ROIC glow not modeled as noise source | Low | FIXED | `glow_shot` noise term exists but always evaluates to 0 — **CU-387 triage 2026-09-30: closed — the row is wrong.** `glow_shot` does not always evaluate to 0; it was zero only because `detector.glow_e_per_s` defaults to 0. Measured 2026-09-30: at `glow_e_per_s = 1e5` over the example's 5 ms frame, `glow_e = 500 e-` and `glow_shot = 22.3607 e-` = sqrt(500), exactly Poisson. An unset optional parameter is not an unmodelled noise source. |
+| 6 | **NEW — Nearfield emission = 0 in scalar transmission mode** | **HIGH** | FIXED | In scalar mode, lumped element is refractive (ε = 1 − T − R = 0 by Kirchhoff); no mirror self-emission — **CU-387 triage 2026-09-30: superseded by [[CU-380]]** — one of the five independent recordings. |
 
 ## Gap 6 Detail — Nearfield Emission Missing (HIGH)
 

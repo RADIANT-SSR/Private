@@ -397,6 +397,75 @@ def check_gap_closures(text: str) -> list[str]:
     return errors
 
 
+#: Statuses that mean a scenario finding is settled. Anything else — OPEN,
+#: WORKAROUND, BLOCKED, PARTIAL — is unresolved and must name a registry home.
+_SETTLED_STATUS = re.compile(r"\b(FIXED|RESOLVED|CLOSED|DECLINED|SUPERSEDED|N/?A)\b", re.I)
+
+#: A governed-registry reference: a CU, a gap, a GUI-NN gap row, or the
+#: Findings Log (Rule 21 tier 2).
+_REGISTRY_REF = re.compile(r"\b(CU-\d+|Gap\s+\d+|GUI-\d+|Findings[- ]Log)\b", re.I)
+
+
+def check_scenario_gap_promotion(files: list[str]) -> list[str]:
+    """Every unresolved scenario-gaps row names its governed-registry home.
+
+    The promotion rule (OPERATING_MODEL §3, CU-387). A scenario ``gaps.md`` is
+    the right place to *record* a finding and the wrong place to *track* one:
+    nothing above reads it, so a finding that stops there is never scheduled.
+    The 2026-09-30 external review's top finding had been recorded in five of
+    these files, rated HIGH in four, and shipped through two releases anyway;
+    triaging the rest surfaced four more results-affecting defects, one of them
+    a 55.5 % error from a first-class parameter door.
+
+    Two row shapes exist in the tree and both are checked: the per-gap table
+    (``| 3 | symptom | Medium | Open | evidence |``) and the vertical field
+    layout (``| **Status** | OPEN |``) that scenarios 10.3 and 10.4 use. The
+    first triage pass of CU-387 missed the second shape entirely, which is
+    precisely why this is machine-checked rather than left to a reviewer's eye.
+    """
+    errors: list[str] = []
+    for rel in files:
+        if not (rel.startswith("scenarios/") and rel.endswith("/gaps.md")):
+            continue
+        lines = (REPO / rel).read_text(encoding="utf-8").splitlines()
+        heading = ""
+        for n, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                heading = stripped.lstrip("# ").strip()
+            if not stripped.startswith("|"):
+                continue
+            cells = [c.strip() for c in stripped.strip("|").split("|")]
+            if len(cells) < 2:
+                continue
+
+            # Vertical layout: | **Status** | <value> |
+            if cells[0].strip("*").strip().lower() == "status":
+                status_text, context = cells[1], " ".join(cells[1:])
+            # Table layout: the status is the cell that carries a status word.
+            elif len(cells) >= 4 and any(
+                c.strip("*").strip().upper() in {"OPEN", "WORKAROUND", "BLOCKED", "PARTIAL"}
+                for c in cells
+            ):
+                status_text, context = stripped, stripped
+            else:
+                continue
+
+            if _SETTLED_STATUS.search(status_text):
+                continue
+            if _REGISTRY_REF.search(context):
+                continue
+            where = f"{rel}:{n}"
+            label = heading or cells[0][:40]
+            errors.append(
+                f"unresolved scenario-gaps row names no registry home "
+                f"(OPERATING_MODEL §3 promotion rule, CU-387): {where} ({label!r}). "
+                f"Add the CU-NNN / Gap NNN / GUI-NN it was promoted to, or "
+                f"'Findings-Log' if it is sub-CU grade."
+            )
+    return errors
+
+
 def tracked_files() -> list[str]:
     out = subprocess.run(
         ["git", "ls-files"], capture_output=True, text=True, cwd=REPO, check=True
@@ -509,6 +578,13 @@ def main() -> int:
     from check_file_tree_counts import check as _check_file_tree_counts
 
     errors.extend(_check_file_tree_counts())
+
+    # CU-387: scenario findings must reach a governed registry. The gate battery
+    # checks code; this finding class never reaches code, so nothing else caught
+    # it — a HIGH-severity results-affecting defect shipped twice while sitting
+    # in five of these files. Permitted under the process-machinery moratorium's
+    # own carve-out: a real defect escaped through this specific hole.
+    errors.extend(check_scenario_gap_promotion(files))
 
     if errors:
         print(f"check_org_rules: {len(errors)} violation(s)\n")

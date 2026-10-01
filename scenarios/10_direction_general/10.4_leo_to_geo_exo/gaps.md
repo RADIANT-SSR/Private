@@ -41,7 +41,7 @@ Rule 25, one registry per concern). This file is the per-scenario record.
 | Field | Value |
 |---|---|
 | **Found in** | Scenario 10.4 (LEO → GEO relative kinematics, Gap 111 doors) |
-| **Status** | WORKAROUND |
+| **Status** | WORKAROUND — **promoted to [[CU-391]] by the CU-387 triage, 2026-09-30.** The scenario's quantified +55.5 % is the CU's headline measurement. |
 | **Severity** | Medium for space targets; none for ground targets |
 | **Description** | `radiant.geometry.los_rate` models the sensor's velocity as `v_g ê_⊥` where `v_g` is `geometry.ground_speed_m_s` — documented and derived (V6 `circular_orbit`) as the **sub-satellite ground-track** speed `v·R_E/a`. That is the correct scaling for the LOS rate to a *ground* target, where the off-boresight angle changes at `v_g/h`. For a **space** target the LOS rate depends on the platform's **inertial** velocity, and additionally on the target's own orbital motion, neither of which the platform-only (K0) path can express. |
 | **Quantified here** | Setting `geometry.circular_orbit = True` on this scene (the framework's own platform-kinematics door) publishes `los_angular_rate_rad_s` = **200.1 µrad/s** against the correct **128.7 µrad/s** — **+55.5 %**. Two causes compound: ground-track speed 7 062.3 m/s is used where the inertial 7 616.6 m/s belongs, and the GEO target's own 3 074.9 m/s co-rotating motion (which *subtracts*) is absent. |
@@ -59,7 +59,7 @@ Rule 25, one registry per concern). This file is the per-scenario record.
 | Field | Value |
 |---|---|
 | **Found in** | Scenario 10.4 (vertical up-look, θ_o = π exactly) |
-| **Status** | OPEN — documentation only, no numerical consequence |
+| **Status** | OPEN — documentation only, no numerical consequence — **CU-387 triage 2026-09-30**: Findings-Log tier. Logged in `docs/tracking/Findings_Log.md`. |
 | **Severity** | Low |
 | **Description** | `geometry.target_heading_rad` is measured in the target's local horizontal plane **from the azimuth of the sensor's ground point**. For a radial LOS (θ_o = 0 or π) the ground range is 0 m, so that azimuth reference does not exist. A user setting up a co-rotating LEO/GEO pair has no documented guidance for which heading to enter. |
 | **Why it is harmless numerically** | The rate is ω = \|v_rel × û\| / R, which at θ_o = π reduces to `hypot(v_perp, v_par)/R` — invariant under rotation about the vertical. The scenario verified this: K2 with heading π/2 reproduces the hand kinematics exactly. |

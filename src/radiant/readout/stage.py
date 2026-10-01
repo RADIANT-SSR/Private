@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 import math
 import warnings
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -70,6 +71,8 @@ from radiant.readout.errors import (
     CountingConfigIncompleteError,
     ReadoutValidationError,
 )
+from radiant.readout.flicker_inputs import resolve_flicker_band
+from radiant.readout.flicker_transfer import flicker_noise_e
 from radiant.readout.frame_timing import compute_frame_timing
 from radiant.readout.saturation import (
     SaturationStatus,
@@ -197,6 +200,138 @@ def _validate_architecture_params(params: ParameterSet, architecture: str) -> No
         )
 
 
+@dataclass(frozen=True)
+class _FlickerContext:
+    """Timing and band the 1/f transfer model needs (CU-381)."""
+
+    flicker_K_e2: float
+    t_int_s: float
+    frame_period_s: float
+    corner_hz: float
+    f_low_hz: float
+    reference_separation_s: float
+
+
+def _scaled_flicker(
+    *,
+    flicker: _FlickerContext,
+    n_tdi: int,
+    tdi_digital: bool,
+    mx_on: int,
+    my_on: int,
+    px_off: int,
+    py_off: int,
+    n_coadds: int,
+    coadd_mode: CoaddMode,
+) -> float:
+    """1/f noise at the output, through the measurement's transfer function.
+
+    The **co-add axis is handled inside** :func:`flicker_noise_e` by the
+    Dirichlet comb, not by a scale factor: that is the whole point of CU-381.
+    What remains here is the other two axes, and they are not the same:
+
+    - **TDI** — analog TDI reads a *different physical pixel* at each stage, and
+      independent pixels have independent 1/f, so ×√N. Digital TDI re-reads the
+      *same* pixel, so its 1/f is the same process and adds coherently, ×N. This
+      is exactly the rule PRNU/DSNU already follow. Getting it wrong in the
+      obvious direction — applying the co-add correlation blanket-fashion across
+      every axis — would over-charge analog TDI by √N.
+    - **Binning** — always independent pixels, ×√M and ×√P.
+
+    ``AVERAGE`` is the summed value over K exactly: for white noise that
+    recovers ÷√K, and for perfectly correlated noise it correctly gives no
+    reduction at all. ``MEDIAN`` takes the average's value times the
+    median-vs-mean efficiency factor, which is an approximation — the median is
+    not a linear filter, so it has no transfer function.
+    """
+    sigma = flicker_noise_e(
+        flicker_K_e2=flicker.flicker_K_e2,
+        t_int_s=flicker.t_int_s,
+        frame_period_s=flicker.frame_period_s,
+        n_coadds=n_coadds,
+        corner_hz=flicker.corner_hz,
+        f_low_hz=flicker.f_low_hz,
+        reference_separation_s=flicker.reference_separation_s,
+    )
+    if sigma == 0.0:
+        return 0.0
+
+    # Analog TDI reads a DIFFERENT physical pixel at each stage, and independent
+    # pixels have independent 1/f (×√N); digital TDI re-reads the SAME pixel, so
+    # it is one process adding coherently (×N). Same rule PRNU/DSNU follow.
+    tdi_scale = tdi_scale_fpn if tdi_digital else tdi_scale_shot_noise
+    sigma = tdi_scale(sigma, n_tdi)
+    sigma = onchip_scale_shot_noise(sigma, mx_on, my_on)
+    sigma = offchip_scale_shot_noise(sigma, px_off, py_off)
+
+    if coadd_mode is CoaddMode.SUM or n_coadds == 1:
+        return sigma
+    if coadd_mode is CoaddMode.AVERAGE:
+        return sigma / n_coadds
+    # MEDIAN: the average's value, times the sample median's efficiency
+    # relative to the sample mean for Gaussian noise.
+    if n_coadds == 2:
+        return sigma / n_coadds
+    return (sigma / n_coadds) * math.sqrt(math.pi / 2.0)
+
+
+def _build_flicker_context(
+    params: ParameterSet,
+    *,
+    n_coadds: int,
+) -> _FlickerContext | None:
+    """Assemble the 1/f transfer model's inputs, or None when it cannot run.
+
+    Returns None when ``flicker_K`` is zero (term disabled) or when the
+    integration time is unavailable, which happens in a partial chain. In the
+    second case the legacy per-frame value keeps its generic temporal scaling —
+    a documented degradation, not a silent one: without ``t_int`` there is no
+    boxcar and therefore no transfer function to evaluate.
+    """
+    flicker_k: float = params.get("detector.flicker_K")
+    if flicker_k <= 0.0:
+        return None
+    try:
+        integration_time_s: float | None = params.get("spectral_integration.integration_time_s")
+    except (UnknownParameterError, KeyError):
+        integration_time_s = None
+    frame_period_s: float = params.get("readout.frame_period_s")
+    if integration_time_s is None or integration_time_s <= 0.0:
+        logger.debug(
+            "ReadoutStage: flicker_K is set but spectral_integration."
+            "integration_time_s is unavailable (partial chain); the 1/f term "
+            "keeps its per-frame value and generic coadd scaling."
+        )
+        return None
+
+    # An unset frame period means continuous readout: the frame repeats as fast
+    # as it integrates (frame_timing's own convention).
+    effective_period_s = frame_period_s if frame_period_s > 0.0 else integration_time_s
+
+    band = resolve_flicker_band(
+        flicker_K_e2=flicker_k,
+        f_low_hz=params.get("detector.flicker_f_low_hz"),
+        corner_hz=params.get("detector.flicker_corner_hz"),
+        f_high_hz=params.get("detector.flicker_f_high_hz"),
+        t_int_s=integration_time_s,
+        frame_period_s=effective_period_s,
+        n_coadds=n_coadds,
+    )
+    return _FlickerContext(
+        flicker_K_e2=flicker_k,
+        t_int_s=integration_time_s,
+        frame_period_s=effective_period_s,
+        corner_hz=band.corner_hz,
+        f_low_hz=band.f_low_hz,
+        # Reference high-pass (CDS / up_down chopping) is modelled and tested in
+        # flicker_transfer but not yet wired from the readout timing — CU-381
+        # checklist item. 0.0 is the un-referenced case, which is the
+        # conservative one: it keeps the low-frequency power a reference would
+        # have suppressed.
+        reference_separation_s=0.0,
+    )
+
+
 def _scale_noise_term(
     raw_value: float,
     term_name: str,
@@ -208,6 +343,7 @@ def _scale_noise_term(
     py_off: int,
     n_coadds: int,
     coadd_mode: CoaddMode,
+    flicker: _FlickerContext | None = None,
 ) -> float:
     """Apply TDI → on-chip bin → off-chip bin → coadd scaling to one noise term.
 
@@ -218,7 +354,23 @@ def _scale_noise_term(
     - Quantization: × 1 (TDI), × 1 (on-chip), × √P (off-chip), coadd_temporal
     - FPN (spatial): × N_tdi (correlated along TDI column),
       × √M (on-chip, independent pixels), × √P (off-chip, independent pixels)
+    - 1/f flicker: the co-add axis is **not** a scale factor at all — it is the
+      Dirichlet comb inside ``flicker_transfer`` (CU-381). TDI and binning scale
+      as below; see ``_scaled_flicker``.
     """
+    if term_name == "flicker_1f" and flicker is not None:
+        return _scaled_flicker(
+            flicker=flicker,
+            n_tdi=n_tdi,
+            tdi_digital=tdi_digital,
+            mx_on=mx_on,
+            my_on=my_on,
+            px_off=px_off,
+            py_off=py_off,
+            n_coadds=n_coadds,
+            coadd_mode=coadd_mode,
+        )
+
     is_spatial = term_name in SPATIAL_TERMS
     is_read_like = term_name in ("read_noise", "ktc_reset", "quantization")
 
@@ -600,11 +752,14 @@ class ReadoutStage:
         sigma_ktc_raw = raw_terms.pop("ktc_reset", 0.0)  # already CDS-gated
         raw_terms.pop("quantization", None)  # analog-ADC term: replaced
 
+        flicker_ctx = _build_flicker_context(params, n_coadds=n_coadds)
+
         scaled_terms: dict[str, float] = {}
         for term_name, raw_value in raw_terms.items():
             scaled_terms[term_name] = _scale_noise_term(
                 raw_value=raw_value,
                 term_name=term_name,
+                flicker=flicker_ctx,
                 n_tdi=n_tdi,
                 tdi_digital=tdi_digital,
                 mx_on=mx_on,
@@ -862,11 +1017,14 @@ class ReadoutStage:
         if "read_noise" in raw_terms:
             raw_terms["read_noise"] = raw_terms["read_noise"] * math.sqrt(2.0)
 
+        flicker_ctx = _build_flicker_context(params, n_coadds=n_coadds)
+
         scaled_terms: dict[str, float] = {}
         for term_name, raw_value in raw_terms.items():
             scaled_terms[term_name] = _scale_noise_term(
                 raw_value=raw_value,
                 term_name=term_name,
+                flicker=flicker_ctx,
                 n_tdi=n_tdi,
                 tdi_digital=tdi_digital,
                 mx_on=mx_on,
@@ -1170,11 +1328,14 @@ class ReadoutStage:
         contrast_e_final = coadd_scale_signal(contrast_e_scaled, n_coadds, coadd_mode)
 
         # ---- 12. Scale all 16 noise terms and emit NoiseTerms ----
+        flicker_ctx = _build_flicker_context(params, n_coadds=n_coadds)
+
         scaled_terms: dict[str, float] = {}
         for term_name, raw_value in budget_raw.terms.items():
             scaled_terms[term_name] = _scale_noise_term(
                 raw_value=raw_value,
                 term_name=term_name,
+                flicker=flicker_ctx,
                 n_tdi=n_tdi,
                 tdi_digital=tdi_digital,
                 mx_on=mx_on,

@@ -20,7 +20,68 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Results-affecting: 1/f flicker noise is now computed from the measurement's
+  own transfer function** instead of a closed form over a user-declared band.
+  The old model was wrong in three coupled directions: it never capped the band
+  at the corner frequency (a 64–170 % overestimate measured at 30–120 Hz), its
+  band was decoupled from every timing quantity in the model (a 100 µs and a
+  100 ms frame got the identical σ), and co-adding scaled it ×√K, averaging
+  down power that is common to every frame and cannot average (up to a factor
+  √K low — ×22 at 500 co-adds). The first and third pull in opposite
+  directions and partially cancelled, which is why the term looked plausible
+  through v0.2.0 and v0.3.0.
+
+  `σ² = ∫ S(f)·|H_box|²·|D_K|²·|H_ref|² df` — the 1/f PSD seen through the
+  per-frame integration boxcar, the co-add comb, and any reference differencing.
+  All three defects are now limits of one integral rather than three patches:
+  the co-add correlation is **not an exponent any more** (measured effective
+  exponent 0.921 on K for a 1 ms/2 ms/200 Hz case, between √K and fully
+  correlated, derived by the comb rather than chosen), √K is recovered exactly
+  where it is correct (white PSD), and integration time finally enters at all.
+
+  **Direction and magnitude:** for a co-added stack the term grows
+  substantially — at 500 co-adds the stack value is ~10× the old one (per-frame
+  ×0.73 from dropping the full-band fiction, stack scaling ×13.7). **No shipped
+  result moves**: `detector.flicker_K` defaults to 0, so the term is off unless
+  a user opted in. Anyone who had set it should re-run (CU-381).
+- `detector.flicker_f_low_hz` and `detector.flicker_f_high_hz` are now
+  **optional overrides**, default `0` = unset. `f_low` derives from the stack
+  duration (`n_coadds × frame_period_s`) — the comparison window, which is what
+  makes 1/f *noise* rather than *offset*; the old 0.01 Hz default corresponded
+  to no timing anywhere in RADIANT. `f_high` is physically redundant (the
+  integration-time boxcar already rolls off at ~1/t_int) and is kept only as an
+  explicit clamp (CU-381).
+
+- **Dark-rate, DSNU and ROIC-glow ceilings raised to 1e12** (from 1e9, 1e6 and
+  1e6). A 20 µm pixel at 1 A/m² dark-current density — a routine LWIR figure —
+  needs 2.50e9 e-/s and was previously inexpressible, silently clamping a
+  legitimate detector. Each old ceiling was its *default's* rationale (a
+  room-temperature Si CCD) applied to the bound, which is a category error: a
+  default describes the typical part, a bound describes every expressible one.
+  DSNU and glow moved with dark rather than separately, because DSNU is a
+  fraction of the dark signal and glow is the same physical quantity in the
+  same units. No default changed, so no existing result moves; runs that were
+  hitting the clamp will now report higher dark noise, which is the correct
+  value they should have had (CU-382).
+
 ### Added
+- **`detector.flicker_corner_hz`** — the frequency where the 1/f PSD meets the
+  white noise floor. Load-bearing for the new model, and it has no safe
+  default: left unset with `flicker_K > 0`, RADIANT integrates to the boxcar
+  roll-off, warns that the reported `flicker_1f` is an **upper bound** (power
+  above the real corner is billed twice, here and as read noise), and names the
+  parameter. Overstating noise for an unsupplied input is the safe direction;
+  silently inventing a corner is not (CU-381).
+
+### Removed
+- **`radiant.detector.noise.detector_material.flicker_1f_noise`** and the three
+  `flicker_*` arguments to `compute_noise_budget`. The 1/f band depends on the
+  readout timing the detector stage does not have, so the term is now supplied
+  by `ReadoutStage` — the same shape as the Gap-117 counting-term swap. The
+  detector's raw budget still carries the `flicker_1f` key (value 0) so the
+  term count is unchanged (CU-381, Rule 27).
+
 - **Results-affecting (warning only — no computed value changes): RADIANT now
   warns when warm-optics emission is structurally zero.** `optics.nearfield_enabled`
   defaults to 1, but transmission modes 1–4 synthesize lumped elements at 0 K and
@@ -43,19 +104,6 @@ retroactively reconstructed.
   (`ground_truth_mwir.yaml`) and a deliberately *minimal* config
   (`mwir_leo_minimal.yaml`) both legitimately exclude the term; stating it makes
   that a choice rather than a silence. Golden results are bit-identical.
-
-### Changed
-- **Dark-rate, DSNU and ROIC-glow ceilings raised to 1e12** (from 1e9, 1e6 and
-  1e6). A 20 µm pixel at 1 A/m² dark-current density — a routine LWIR figure —
-  needs 2.50e9 e-/s and was previously inexpressible, silently clamping a
-  legitimate detector. Each old ceiling was its *default's* rationale (a
-  room-temperature Si CCD) applied to the bound, which is a category error: a
-  default describes the typical part, a bound describes every expressible one.
-  DSNU and glow moved with dark rather than separately, because DSNU is a
-  fraction of the dark signal and glow is the same physical quantity in the
-  same units. No default changed, so no existing result moves; runs that were
-  hitting the clamp will now report higher dark noise, which is the correct
-  value they should have had (CU-382).
 
 ### Fixed
 - **The CLI no longer crashes on a default Windows console.** `radiant schema`

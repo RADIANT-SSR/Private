@@ -25,7 +25,6 @@ from radiant.core.noise_budget import (
 from radiant.detector.noise.budget import compute_noise_budget
 from radiant.detector.noise.detector_material import (
     dark_shot_noise,
-    flicker_1f_noise,
     gr_noise,
     johnson_noise,
 )
@@ -164,23 +163,26 @@ class TestJohnsonNoise:
 
 
 class TestFlicker1f:
-    @pytest.mark.level0
-    def test_known_value(self) -> None:
-        """K=100 e-², f_low=1 Hz, f_high=1000 Hz → √(100·ln(1000))."""
-        K = 100.0
-        expected = math.sqrt(K * math.log(1000.0))
-        assert flicker_1f_noise(K, 1.0, 1000.0) == pytest.approx(expected, rel=1e-12)
+    """The 1/f term is no longer a detector-local closed form (CU-381).
+
+    It is now the measurement's transfer-function integral, which needs the
+    readout timing this stage does not have, so it lives in
+    ``radiant.readout.flicker_transfer`` and is tested there
+    (``readout/tests/test_flicker_transfer.py``, 21 Level-0 limits). The
+    detector's raw budget carries the key with value 0 so the term count is
+    unchanged; ReadoutStage supplies the value.
+    """
 
     @pytest.mark.level0
-    def test_zero_K(self) -> None:
-        assert flicker_1f_noise(0.0, 1.0, 1000.0) == 0.0
-
-    @pytest.mark.level0
-    def test_bad_freq_raises(self) -> None:
-        with pytest.raises(ValueError, match="f_low_hz"):
-            flicker_1f_noise(1.0, 0.0, 1000.0)
-        with pytest.raises(ValueError, match="f_high_hz"):
-            flicker_1f_noise(1.0, 100.0, 50.0)
+    def test_detector_budget_defers_the_flicker_term(self) -> None:
+        budget = compute_noise_budget(
+            signal_e=1000.0,
+            background_e=0.0,
+            dark_e=0.0,
+        )
+        # Present (the ALL_NOISE_TERMS contract) but deferred, not computed.
+        assert "flicker_1f" in budget.terms
+        assert budget.terms["flicker_1f"] == 0.0
 
 
 # ---------------------------------------------------------------------------

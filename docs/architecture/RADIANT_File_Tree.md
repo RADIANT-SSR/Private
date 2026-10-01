@@ -200,7 +200,7 @@ noise/
 └── other.py              # 1/f, glow, persistence, etc.
 ```
 
-### `readout/` — 16 source + 17 tests
+### `readout/` — 18 source + 18 tests
 
 Stage 7: TDI, ADC, gain, read noise, binning, coadds, saturation, and the
 digital-pixel counting model (Gap 117). The architecture dispatch
@@ -219,6 +219,8 @@ readout/
 ├── tdi_scaling.py
 ├── tdi_mtf.py
 ├── coadds.py
+├── flicker_transfer.py       # 1/f through the measurement's transfer function (CU-381)
+├── flicker_inputs.py         # resolves the 1/f band from the configured timing (CU-381)
 ├── binning_onchip.py
 ├── binning_offchip.py
 ├── counting_well.py          # 2^N·Q_pkt effective well, dead-time ceiling, count conversion

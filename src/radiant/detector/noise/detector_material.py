@@ -7,7 +7,9 @@ Sources:
     dark_shot_noise   — Dark-current shot noise: sqrt(J·t)
     gr_noise          — Generation-recombination noise (Burstein form)
     johnson_noise     — Johnson (thermal) noise from detector R₀A
-    flicker_1f_noise  — 1/f flicker noise
+    (1/f flicker noise moved to radiant.readout.flicker_transfer — CU-381:
+     the band is set by the measurement's transfer function, which needs the
+     readout timing this stage does not have.)
 
 See ``docs/architecture/RADIANT_Detector_Complete.md`` §4.
 """
@@ -91,28 +93,3 @@ def johnson_noise(
     # accounts for non-ideal integrator roll-off in practical ROIC designs.
     variance_e2 = 4.0 * k_B * temp_K * pixel_area_m2 / r0a_ohm_m2 * t_int_s / (q * q)
     return math.sqrt(variance_e2)
-
-
-def flicker_1f_noise(flicker_K: float, f_low_hz: float, f_high_hz: float) -> float:
-    """1/f flicker noise.
-
-    ``σ = √(K · ln(f_high / f_low))`` [e- RMS].
-
-    Parameters
-    ----------
-    flicker_K:
-        Flicker noise coefficient [e-²]. Zero disables.
-    f_low_hz:
-        Lower frequency bound [Hz]. Must be > 0.
-    f_high_hz:
-        Upper frequency bound [Hz]. Must be > f_low_hz.
-    """
-    if flicker_K <= 0.0:
-        return 0.0
-    if f_low_hz <= 0.0:
-        raise DetectorValidationError(f"flicker_1f_noise: f_low_hz = {f_low_hz} must be > 0.")
-    if f_high_hz <= f_low_hz:
-        raise DetectorValidationError(
-            f"flicker_1f_noise: f_high_hz = {f_high_hz} must be > f_low_hz = {f_low_hz}."
-        )
-    return math.sqrt(flicker_K * math.log(f_high_hz / f_low_hz))

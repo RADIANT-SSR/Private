@@ -159,7 +159,7 @@ Photon-shot terms have **no free parameters** beyond the upstream electron rates
 | 5 | `dark_shot` | Poisson on thermally generated carriers | `√(J_dark · t_int)` | Always; dominant cooled IR | `J_dark`, `T_det` |
 | 6 | `gr_noise` | Generation-recombination through trap states | `√(2 · J_gen · t_int)` Burstein form | HgCdTe / T2SL | `gr_factor` (scales above shot) |
 | 7 | `johnson_noise` | Thermal noise across detector R₀A | `√(4kT/(R₀A) · A · t_int) · e/q` | Photovoltaic IR | `R0A_ohm_cm2`, `T_det` |
-| 8 | `flicker_1f` | 1/f flicker in detector + ROIC | `σ_1f² = K · ln(f_high/f_low)` | Long integrations, low signal | `flicker_K`, `flicker_f_low`, `flicker_f_high` |
+| 8 | `flicker_1f` | 1/f flicker in detector + ROIC | `σ_1f² = ∫ S(f)·\|H_box\|²·\|D_K\|²·\|H_ref\|² df` (CU-381) | Long integrations, low signal, co-added stacks | `flicker_K`, `flicker_corner_hz`, `flicker_f_low` / `_f_high` (overrides) |
 
 `gr_noise`, `johnson_noise`, `flicker_1f` are zero by default and only kick in when their parameters are set. Users running a Si visible system see all three at zero.
 
@@ -220,7 +220,7 @@ Correlated double sampling subtracts a reset frame from a signal frame, suppress
 | Term | Effect of CDS |
 |------|---------------|
 | `ktc_reset_noise` | Set to 0 |
-| `flicker_1f` | **Unaffected** — RADIANT does not currently model CDS 1/f suppression. (A `cds_1f_suppression` 0.7 factor was documented but never implemented; removed CU-077.) |
+| `flicker_1f` | **Unaffected for now.** The transfer model carries the reference high-pass `\|H_ref(f)\|² = 4sin²(πf·t_sep)` that CDS and `counting_mode: up_down` produce, and it is unit-tested, but it is **not yet wired** from the readout timing — an open CU-381 checklist item. Until it is, `reference_separation_s = 0`, the un-referenced and conservative case: it keeps the low-frequency power a reference would have suppressed. (A `cds_1f_suppression` 0.7 factor was documented but never implemented; removed CU-077.) |
 | `read_noise` | **Unaffected** — `read_noise_e_rms` is the *effective per-frame (post-CDS)* value delivered to the signal path; RADIANT does not apply a pre/post-CDS √2 scaling. (The unread `read_noise_is_post_cds` toggle was removed CU-077.) |
 | All others | Unaffected |
 
@@ -370,7 +370,7 @@ Noise term scalings (multiply each term in §4 by the factor in the matrix):
 | `dark_shot` | √N | √(MN) | √(PN) | √K |
 | `gr_noise` | √N | √(MN) | √(PN) | √K |
 | `johnson_noise` | √N | √(MN) | √(PN) | √K |
-| `flicker_1f` | depends (correlated within readout) | √(MN) | √(PN) | √K |
+| `flicker_1f` | √N analog / × N digital | √(MN) | √(PN) | **not a factor — see §9.1** |
 | `read_noise` | × 1 | × 1 | × √(PN) | × √K |
 | `ktc_reset_noise` | × 1 | × 1 | × √(PN) | × √K |
 | `quantization_noise` | × 1 | × 1 | × √(PN) | × √K |
@@ -380,7 +380,31 @@ Noise term scalings (multiply each term in §4 by the factor in the matrix):
 | `persistence_noise` | √N | √(MN) | √(PN) | grows w/ K |
 | `glow_shot` | √N | √(MN) | √(PN) | √K |
 
-The `flicker_1f` row deliberately uses words because the right scaling depends on whether the integration time is increased (`× N`) or the rate is increased (`× 1`); the framework picks based on which knob the user used and records the choice.
+#### 9.1 Why `flicker_1f` has no co-add column (CU-381)
+
+The co-add axis is not a scale factor for 1/f noise. It is the **Dirichlet comb**
+`|D_K(f)|² = sin²(πfKt_frame)/sin²(πft_frame)` inside the transfer integral
+(`radiant.readout.flicker_transfer`), and the correlation it produces is a
+*function of frequency*: coherent (`K²` in variance) below `1/T_total`,
+incoherent (`K`) far above. No single exponent is correct, so none is applied.
+The measured effective exponent on K is ~0.92 for a 1 ms/2 ms/200 Hz case —
+between √K and fully correlated, and derived rather than chosen.
+
+The TDI column, by contrast, *is* a factor, and it differs by TDI mode for a
+physical reason: analog TDI reads a **different physical pixel** at each stage,
+and independent pixels have independent 1/f (√N); digital TDI re-reads the
+**same** pixel, so it is one process adding coherently (× N). This is the rule
+PRNU/DSNU already follow. Applying the co-add correlation blanket-fashion across
+every axis — the tempting shortcut — would over-charge analog TDI by √N.
+
+**Superseded model.** Before CU-381 the term was `σ_1f = √(K·ln(f_high/f_low))`
+over a band from two free parameters, scaled × √K on co-add. That was wrong in
+three coupled directions: no corner-frequency cut (64–170 % overestimate
+measured at 30–120 Hz), a band decoupled from every timing quantity in the model
+(a 100 µs and a 100 ms frame got the identical σ), and √K averaging of power
+that cannot average (up to a factor √K low at the stack level). The first and
+third pull in opposite directions and partially cancelled, which is why the term
+looked plausible through v0.2.0 and v0.3.0.
 
 For AVERAGE coadd mode, divide every column "× K coadds" entry by K (since signal stays unchanged but noise reduces).
 
@@ -410,8 +434,8 @@ section is the authoritative, reconciled inventory (verified against
 **Dark current (4):** `dark_rate_e_per_s`, `dark_activation_energy_eV`,
 `dark_reference_temperature_K`, `detector_temperature_K`.
 
-**Other detector noise (9):** `gr_factor`, `r0a_ohm_cm2`, `flicker_K`,
-`flicker_f_low_hz`, `flicker_f_high_hz`, `persistence_fraction`,
+**Other detector noise (10):** `gr_factor`, `r0a_ohm_cm2`, `flicker_K`,
+`flicker_corner_hz`, `flicker_f_low_hz`, `flicker_f_high_hz`, `persistence_fraction`,
 `persistence_tau_s`, `prior_signal_e`, `glow_e_per_s`.
 
 **Fixed-pattern / regime (4):** `prnu_pct`, `dsnu_e_rms`, `clutter_sigma`,

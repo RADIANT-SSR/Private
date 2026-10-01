@@ -47,15 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-389 — The >80° air-mass switch keys on the segment's geometric Δh rather than the atmospheric column, giving non-monotonic transmittance
-
-**Discovered**: scenario 10.3 runner section 10b, recorded as its G5 and never promoted; surfaced by the [[CU-387]] triage, 2026-09-30.
-**Status**: Open.
-**File**: `src/radiant/atmosphere/protocol.py::AtmosphericGeometry.slant_path_length_m` (switch at `SPHERICAL_SWITCH_RAD` = 80°); possibly `segment_simple::column_*`.
-**Symptom**: above 80° zenith the path length switches from `Δh/cos ζ` to the spherical root form `R_E·[√(cos²ζ + 2x + x²) − cos ζ]` with `x = Δh/R_E`. For a segment whose Δh is the *geometric* endpoint separation rather than the atmospheric column thickness, that form is wrong for an exo-atmospheric endpoint, and the handover produces **non-monotonic transmittance** across the switch.
-**Why it still matters**: results-affecting (intake test 1) for any up- or down-looking path with an exo-atmospheric endpoint evaluated above 80° zenith. Scenario 10.3 avoids it by staying at ζ ≤ 75°, inside the flat-Earth branch where sec ζ is correct to < 0.5 % — a workaround that works only because the scenario chose its geometry around the defect.
-**Suggested fix**: (b) stand-alone task — use the atmospheric column thickness, or clip the segment at `h_atm_top` before computing the air mass. Touches a widely used helper, so the down-looking goldens are a required zero-drift check. Effort S–M; category C.
-
 ### CU-391 — `geometry.circular_orbit` publishes a LOS angular rate 55.5 % high for space targets: the sensor's velocity is the sub-satellite ground-track speed, not its inertial speed
 
 **Discovered**: scenario 10.4 (`leo_to_geo_exo`), recorded in its own `gaps.md` as G10.4-2 and never promoted; surfaced by the [[CU-387]] triage, 2026-09-30.
@@ -134,6 +125,18 @@ The 34 extended-scene thermal scenarios remain out of scope for this CU (charter
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-389 — The >80° air-mass switch keys on the segment's geometric Δh rather than the atmospheric column, giving non-monotonic transmittance — SUPERSEDED 2026-10-01 (no commit — the engine fix landed 2026-07-29 as [[CU-255]], commits `00769a7` + `5c0f3dd` via [[CU-274]]; this entry is a duplicate promotion of the same scenario finding)
+
+**Discovered**: scenario 10.3 runner section 10b, recorded as its G5 and never promoted; surfaced by the [[CU-387]] triage, 2026-09-30.
+**Status**: Superseded 2026-10-01 by [[CU-255]] — the *same finding from the same scenario* (10.3, filed 2026-07-28), resolved 2026-07-29 in two halves: the thickness half (`_absorbing_thickness_m` clamps both branches at the column top and `air_mass` normalises by the same thickness, so a ground site viewing a 700 km target no longer gets a 700 km slab) and the continuity half (CU-274, which established by measurement that the root form was not an air-mass form at all).
+**File**: `src/radiant/atmosphere/protocol.py::AtmosphericGeometry.slant_path_length_m` (switch at `SPHERICAL_SWITCH_RAD` = 80°); possibly `segment_simple::column_*`.
+**Symptom**: above 80° zenith the path length switches from `Δh/cos ζ` to the spherical root form `R_E·[√(cos²ζ + 2x + x²) − cos ζ]` with `x = Δh/R_E`. For a segment whose Δh is the *geometric* endpoint separation rather than the atmospheric column thickness, that form is wrong for an exo-atmospheric endpoint, and the handover produces **non-monotonic transmittance** across the switch.
+**Why it still matters**: results-affecting (intake test 1) for any up- or down-looking path with an exo-atmospheric endpoint evaluated above 80° zenith. Scenario 10.3 avoids it by staying at ζ ≤ 75°, inside the flat-Earth branch where sec ζ is correct to < 0.5 % — a workaround that works only because the scenario chose its geometry around the defect.
+**Suggested fix**: (b) stand-alone task — use the atmospheric column thickness, or clip the segment at `h_atm_top` before computing the air mass. Touches a widely used helper, so the down-looking goldens are a required zero-drift check. Effort S–M; category C.
+
+**Resolution**: none needed — third of three duplicates from the CU-387 triage pass. Scenario 10.3's G5 row still read `OPEN` because nobody updated it when CU-255 landed, and my triage promoted the row's *status* rather than verifying the engine. Two independent corroborations arrived during this batch: the CU-388 agent's Beer-Lambert sec-law fit to `τ_sun` fits the two flat-Earth points to ≤1e-3 while departing 9 % past the 80° switch, confirming the hand-over is real and distinct; and CU-255's own entry records that it was *itself* once left in the Open section with `Status: Open` while its body recorded the fix — the identical phantom state, one generation earlier. The residual near-horizon overestimate past 80° remains tracked as [[CU-275]] (FOLDED into CU-324), which is where it belongs.
+
 
 ### CU-386 — Integration tests write a tracked file with no encoding and no newline control, dirtying the tree and stamping exports `-dirty` (Rule 30) — RESOLVED 2026-09-30 (commit trailer)
 

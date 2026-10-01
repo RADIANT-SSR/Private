@@ -28,23 +28,17 @@ geometry:
 optics:
   aperture_diameter_m: 0.50
   focal_length_m: 2.00
-  transmission_scalar: 0.65
-  # Warm-optics self-emission is OFF and that is a deliberate, temporary
-  # statement, not a model claim (CU-380). Scalar transmission cannot carry the
-  # term — a synthesized lump has no Kirchhoff emissivity — so the value here is
-  # zero either way; this line makes the omission explicit instead of silent.
+  # Warm-optics self-emission is modelled from a declared train (CU-380).
+  # Two reflective surfaces at R = sqrt(0.65) = 0.806226 reproduce the net
+  # throughput this file previously declared as `transmission_scalar: 0.65`,
+  # so the SCENE signal is unchanged; what is new is that each mirror now
+  # EMITS, since Kirchhoff gives a mirror eps = 1 - R = 0.193774.
   #
-  # For a thermal band the warm optics is usually the DOMINANT background, so
-  # this is understated, not merely incomplete: declaring the same net tau as a
-  # warm mirror train on RADIANT's MWIR example adds 37 % of signal in
-  # background and drops SNR 17 %, and in a background-dominated point-source
-  # case the same mechanism measured 19x. Before trusting a thermal-band SNR
-  # from this file, replace `transmission_scalar` with an `optical_elements:`
-  # train carrying each surface's `temperature_K`.
-  #
-  # Choosing those temperatures is an instrument-specific judgement, so it is
-  # tracked as CU-380's open item rather than guessed here.
-  nearfield_enabled: 0
+  # temperature_K below is a STARTING POINT for this platform class
+  # (GEO (35 786 km) — passively cooled staring telescope), not a claim about any specific
+  # instrument. Set it to your optics' actual temperature — in a thermal
+  # band it is usually the dominant background, so it is the single most
+  # important number in this file after the aperture.
 readout:
   adc_bits: 14
   full_well_capacity_e: 5000000.0
@@ -59,3 +53,9 @@ spectral_integration:
   filter_min_um: 8.0
   filter_max_um: 12.0
   integration_time_s: 0.0002
+
+optical_elements:
+  - {name: M1, transfer_mode: REFLECTIVE, kind: MIRROR,
+     reflectance: 0.806226, temperature_K: 250.0}
+  - {name: M2, transfer_mode: REFLECTIVE, kind: MIRROR,
+     reflectance: 0.806226, temperature_K: 250.0}

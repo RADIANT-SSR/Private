@@ -47,6 +47,43 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-388 — `_adjust_scene_los` strips the solar geometry for intensity-declared targets, so every VIS/NIR point-source-by-intensity scene loses its sky pedestal
+
+**Discovered**: scenario 10.3 (`ground_to_space_sst_visible`) runner section 8, recorded in its own `gaps.md` as G3 and never promoted; surfaced by the [[CU-387]] triage, 2026-09-30.
+**Status**: Open.
+**File**: `src/radiant/source/_inferrer.py::_adjust_scene_los`.
+**Symptom**: the function keeps `theta_s` / `delta_phi` only for `T2Reflective` and `T3Mixed` — the CU-009 "a pure-thermal radiance has no solar leg" predicate. `T7IntensityAtSource` falls into the else-branch, so the atmosphere loses the solar geometry and the sky background pedestal disappears. Scenario 10.3 rates it **High** and records that its reported SNR is target-shot-noise-plus-detector only. **No workaround is available from the config surface.**
+**Why it still matters**: results-affecting (intake test 1) and workflow-visible (test 4). Every VIS/NIR point-source-declared-by-intensity scene is optimistic by whatever the sky pedestal would have contributed — and for a daylight visible measurement the sky is usually the dominant noise source, so the omission is not a correction but a missing term of leading order. The predicate conflates two different reasons for having no solar leg: "the target self-emits" and "the user pre-integrated the illumination".
+**Suggested fix**: (b) stand-alone task — split the predicate so an intensity-declared target keeps `theta_s` for the atmosphere's own sky computation while still not re-illuminating the target. T1 thermal scenes must stay byte-identical (goldens). Effort S–M; category C. Rerun scenario 10.3 §8 and 1.6 as a zero-drift check.
+
+### CU-389 — The >80° air-mass switch keys on the segment's geometric Δh rather than the atmospheric column, giving non-monotonic transmittance
+
+**Discovered**: scenario 10.3 runner section 10b, recorded as its G5 and never promoted; surfaced by the [[CU-387]] triage, 2026-09-30.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/protocol.py::AtmosphericGeometry.slant_path_length_m` (switch at `SPHERICAL_SWITCH_RAD` = 80°); possibly `segment_simple::column_*`.
+**Symptom**: above 80° zenith the path length switches from `Δh/cos ζ` to the spherical root form `R_E·[√(cos²ζ + 2x + x²) − cos ζ]` with `x = Δh/R_E`. For a segment whose Δh is the *geometric* endpoint separation rather than the atmospheric column thickness, that form is wrong for an exo-atmospheric endpoint, and the handover produces **non-monotonic transmittance** across the switch.
+**Why it still matters**: results-affecting (intake test 1) for any up- or down-looking path with an exo-atmospheric endpoint evaluated above 80° zenith. Scenario 10.3 avoids it by staying at ζ ≤ 75°, inside the flat-Earth branch where sec ζ is correct to < 0.5 % — a workaround that works only because the scenario chose its geometry around the defect.
+**Suggested fix**: (b) stand-alone task — use the atmospheric column thickness, or clip the segment at `h_atm_top` before computing the air mass. Touches a widely used helper, so the down-looking goldens are a required zero-drift check. Effort S–M; category C.
+
+### CU-390 — The HV-5/7 Cn² profile is evaluated against MSL altitude, not above-ground-level, so r₀ is optimistic by ~2× at any non-sea-level site
+
+**Discovered**: scenario 10.3 runner section 9, recorded as its G8 and never promoted; surfaced by the [[CU-387]] triage, 2026-09-30.
+**Status**: Open.
+**File**: `src/radiant/atmosphere/cn2_hufnagel_valley.py` (ground term, 100 m scale height); `r0_path` integrates from `h_low = h_sensor` in MSL.
+**Symptom**: the HV-5/7 ground term has a 100 m scale height and is evaluated against MSL altitude. A site at 900 m MSL therefore sits ~9 scale heights up the ground term, which has effectively decayed away — so the near-ground turbulence that dominates seeing is simply absent, and **r₀ comes out ~2× optimistic for any sensor above ~200 m MSL**.
+**Why it still matters**: results-affecting (intake test 1) for every turbulence result at a non-sea-level site, which is most real ground sites. A workaround exists — enter `atmosphere.r0_m` directly, where the direct door wins under the CU-093 agreement check — but it requires the analyst to already know the answer the model was asked for.
+**Suggested fix**: (a) inline-fix-now once ruled — reference the ground term to site altitude via an AGL offset parameter; failing that, the docstring must state the MSL convention and the schema must expose it, because a silent 2× is worse than a documented limitation. Effort S plus a Rule 20 doc update; category C. `tests/integration/test_phase3_conditioning.py` uses a sea-level site and is unaffected.
+
+### CU-391 — `geometry.circular_orbit` publishes a LOS angular rate 55.5 % high for space targets: the sensor's velocity is the sub-satellite ground-track speed, not its inertial speed
+
+**Discovered**: scenario 10.4 (`leo_to_geo_exo`), recorded in its own `gaps.md` as G10.4-2 and never promoted; surfaced by the [[CU-387]] triage, 2026-09-30.
+**Status**: Open.
+**File**: `src/radiant/geometry/los_rate.py`; `src/radiant/geometry/modes.py::resolve_kinematics` / `resolve_los_rate`; `src/radiant/geometry/_schema.py` (needs a sensor-velocity door distinct from ground-track speed).
+**Symptom**: `los_rate` models the sensor velocity as `v_g ê_⊥` with `v_g = geometry.ground_speed_m_s`, which V6 `circular_orbit` derives as the **sub-satellite ground-track** speed `v·R_E/a`. For a space target that is the wrong velocity. **Quantified in the scenario**: setting `geometry.circular_orbit = True` on the LEO→GEO scene publishes `los_angular_rate_rad_s` = **200.1 µrad/s** against the correct **128.7 µrad/s** — **+55.5 %**, produced by the framework's own platform-kinematics door.
+**Why it still matters**: results-affecting (intake test 1). The rate feeds `platform.smear_width_m`, the smear MTF, EE_box, SNR and detection range, so a 55 % rate error moves every spatial and radiometric result for a moving space target. Ground-target scenes are unaffected — the ground-track speed is the right quantity there — which is exactly why the defect survived: the door is correct for the case it was built against and silently wrong for the case it was later reused in. Scenario 10.4 avoids it by never using `circular_orbit` and entering both inertial speeds by hand.
+**Suggested fix**: (b) stand-alone task — a sensor-velocity door distinct from ground-track speed, with provenance-resolved agreement checking in the ADR-0006 rule-2 pattern K1/K2 already use. Effort M; category C. Affects any future `*_to_space` / `*_to_air` scene whose target moves.
+
+
 ### CU-380 — Warm-optics nearfield is identically zero in every non-prescription transmission mode, with no warning (external review 2026-09-30 F1; independently found internally ≤2026-08-02 and lost)
 
 **Discovered**: external review `docs/reports/external_review_2026-09/` F1, received 2026-09-30. **Independently discovered internally no later than 2026-08-02** and recorded only in scenario-local `gaps.md` files — scenario 2.2 Gap 5 (HIGH, "cross-scenario"), 7.1 Gap 6 (HIGH), plus three more — where it sat `Open` through the v0.2.0 and v0.3.0 releases. The promotion failure is tracked separately as [[CU-387]].

@@ -75,7 +75,9 @@ MODE_LABELS: Final[Mapping[str, str]] = {
     "circular": "Circular orbit (V6)",
     "K0": "Platform motion only (derived)",
     "K1": "Direct LOS rate (K1)",
-    "K2": "Target velocity (K2)",
+    # K2 carries BOTH endpoint velocities since CU-391 (the target triple plus
+    # the sensor's own speed), so the label names the relative quantity.
+    "K2": "Relative velocity (K2)",
 }
 
 #: Sub-doors inside one mode: mutually exclusive entries for the same quantity

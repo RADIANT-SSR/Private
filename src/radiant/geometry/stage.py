@@ -30,10 +30,17 @@ instead of re-deriving:
                         the two pieces of scene_class ("ground"/"air"/"space")
     theta_s_rad / delta_phi_rad / solar_illumination
     ground_speed_m_s / orbital_period_s (circular-orbit mode only)
+    sensor_speed_m_s / sensor_speed_mode
+                        the speed the LOS-rate model puts on the SENSOR
+                        endpoint, and which door produced it (CU-391).
+                        Equal to ground_speed_m_s unless
+                        geometry.sensor_speed_m_s stated the platform's
+                        inertial speed — the quantity that belongs when the
+                        target is not Earth-fixed
     los_angular_rate_rad_s
                         relative LOS angular rate (Gap 111); None only for
                         coincident endpoints.  With no kinematics input set
-                        it is the platform-only value ground_speed / slant
+                        it is the platform-only value sensor_speed / slant
     viewing_mode / solar_mode / kinematics_mode / los_rate_mode
                         which input mode produced each family — surfaced
                         by result.inspect() and the GUI
@@ -53,12 +60,17 @@ material reflects it.
 from __future__ import annotations
 
 import logging
+import warnings
 
 from radiant.core.chain import ChainState
 from radiant.core.los_geometry import LineOfSightGeometry
+from radiant.core.orbit import orbital_velocity_m_s
 from radiant.core.parameters import ParameterSet
 from radiant.geometry.errors import GeometrySpecificationError
 from radiant.geometry.modes import (
+    GROUND_TRACK_SENSOR_SPEED_MODE,
+    KinematicsResolution,
+    LosRateResolution,
     check_range_consistency,
     resolve_kinematics,
     resolve_los_rate,
@@ -125,6 +137,62 @@ def _check_site_elevation_consistency(
             )
 
 
+def _warn_if_ground_track_speed_against_a_space_target(
+    kinematics: KinematicsResolution,
+    los_rate: LosRateResolution,
+    target_class: str,
+    h_sensor_m: float,
+) -> None:
+    """Advisory: the LOS rate is using the ground-track speed for a space target (CU-391).
+
+    The sensor endpoint's velocity in ``ω = |v_rel,⊥| / R`` defaults to the
+    sub-satellite **ground-track** speed ``v·R_E/a``, which is the right
+    quantity only for an **Earth-fixed** target seen from a nadir-stabilised
+    platform (``dη/dt = v_g/h``).  Against a target that is not Earth-fixed the
+    platform's **inertial** speed belongs, and the difference is not small: a
+    500 km LEO staring at the geostationary belt publishes 200.1 µrad/s where
+    128.7 µrad/s is correct, +55.5 % — which then moves ``smear_width_m``, the
+    smear MTF, EE_box, SNR and detection range.
+
+    The number is not changed here (that would break every pre-CU-391 scene and
+    is the analyst's frame choice to make, through ``geometry.sensor_speed_m_s``);
+    what changes is that the choice is no longer silent (Rule 17).  Scene class
+    gates only the *advice*, never the physics (ADR-0011 decision 8).
+    """
+    if target_class != "space":
+        return
+    if los_rate.los_angular_rate_rad_s is None:
+        return
+    if "geometry.los_angular_rate_rad_s" in los_rate.mode:
+        return  # K1 entered the rate directly — the velocity model is unused.
+    if kinematics.sensor_speed_mode != GROUND_TRACK_SENSOR_SPEED_MODE:
+        return  # the door is open; the analyst stated the sensor's speed.
+    if kinematics.sensor_speed_m_s <= 0.0:
+        return  # a static platform has nothing to mis-attribute.
+    v_inertial = orbital_velocity_m_s(h_sensor_m) if h_sensor_m > 0.0 else None
+    inertial_note = (
+        f" For a circular orbit at {h_sensor_m:.0f} m that speed is {v_inertial:.1f} m/s."
+        if v_inertial is not None
+        else ""
+    )
+    warnings.warn(
+        "GeometryStage: the published line-of-sight angular rate puts the "
+        f"sub-satellite ground-track speed ({kinematics.sensor_speed_m_s:.1f} m/s) "
+        "on the sensor endpoint, but this scene's target is in space and "
+        "therefore not Earth-fixed. The ground-track speed v*R_E/a is the "
+        "correct LOS-rate scaling only for an Earth-fixed target seen from a "
+        "nadir-stabilised platform; for a space target the platform's INERTIAL "
+        f"speed belongs.{inertial_note} Set geometry.sensor_speed_m_s to the "
+        "inertial speed (and geometry.target_speed_m_s / target_heading_rad for "
+        "the target's own orbital motion), or enter the rate directly with "
+        "geometry.los_angular_rate_rad_s. Left as it is, the rate — and the "
+        "smear, EE_box, SNR and detection range it feeds — can be tens of "
+        "percent wrong (CU-391).",
+        UserWarning,
+        stacklevel=2,
+    )
+
+
 class GeometryStage:
     """Stage 0 — canonical scene geometry (pure function, Rule 6)."""
 
@@ -172,6 +240,11 @@ class GeometryStage:
         )
 
         los_rate = resolve_los_rate(params, viewing, kinematics)
+        # CU-391: the ground-track default is right for an Earth-fixed target
+        # and wrong for a space one — say so rather than publish it silently.
+        _warn_if_ground_track_speed_against_a_space_target(
+            kinematics, los_rate, scene.target_class, viewing.h_sensor_m
+        )
 
         logger.debug(
             "GeometryStage: viewing=%s (%s) solar=%s kinematics=%s theta_o=%.6f rad slant=%s m",
@@ -207,6 +280,11 @@ class GeometryStage:
             ("delta_phi_rad", solar.delta_phi_rad),
             ("solar_illumination", params.get("geometry.solar_illumination")),
             ("ground_speed_m_s", kinematics.ground_speed_m_s),
+            # CU-391: the speed the LOS-rate model puts on the SENSOR endpoint
+            # — the ground-track speed above unless geometry.sensor_speed_m_s
+            # stated the platform's inertial speed instead.
+            ("sensor_speed_m_s", kinematics.sensor_speed_m_s),
+            ("sensor_speed_mode", kinematics.sensor_speed_mode),
             ("orbital_period_s", kinematics.orbital_period_s),
             # Derived scene class (ADR-0011 decision 8): a label consumed by
             # metric relevance, defaults, validation, and the GUI — never by

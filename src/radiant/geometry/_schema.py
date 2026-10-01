@@ -696,7 +696,9 @@ SCENE_CLASS = ParameterDef(
 )
 
 # ---------------------------------------------------------------------------
-# Target kinematics — the two doors onto the LOS angular rate (Gap 111)
+# Relative kinematics — the two doors onto the LOS angular rate (Gap 111):
+# K1 (the rate itself) and K2 (the endpoint velocities — the target's triple
+# plus, since CU-391, the sensor's own speed).
 # Defaults are inert; mode detection is by provenance.
 # ---------------------------------------------------------------------------
 
@@ -722,6 +724,46 @@ LOS_ANGULAR_RATE_RAD_S = ParameterDef(
     bounds=(0.0, 1.0e4),
     tags=frozenset({"geometry", "mode_entry", "kinematics"}),
     default_justification="Inert — provenance-based mode detection ignores defaults.",
+)
+
+SENSOR_SPEED_M_S = ParameterDef(
+    name="geometry.sensor_speed_m_s",
+    description=(
+        "Sensor speed [m/s] used as the SENSOR endpoint's velocity in the "
+        "line-of-sight angular rate — mode K2 entry (the relative-velocity "
+        "door), the counterpart of geometry.target_speed_m_s (CU-391). "
+        "Magnitude only; the direction is the cross-track convention "
+        "radiant.geometry.los_rate models the platform track with. This is a "
+        "SECOND expression of the one platform velocity, NOT a second "
+        "velocity: geometry.ground_speed_m_s is its sub-satellite "
+        "ground-track projection v*R_E/a (what the access-rate metric and the "
+        "platform smear arm consume), and this is its INERTIAL magnitude "
+        "sqrt(mu/a). Which one belongs in the LOS rate is a frame question "
+        "the target decides: for an EARTH-FIXED target seen from a "
+        "nadir-stabilised platform the off-boresight angle changes at "
+        "v_g/h, so the ground-track speed is correct and this door should be "
+        "left unset; for a target that is NOT Earth-fixed (another "
+        "spacecraft, an exo-atmospheric body) the inertial speed belongs, and "
+        "leaving this unset understates or overstates the rate — on a 500 km "
+        "LEO to GEO stare by +55.5 % (CU-391). Unused unless explicitly set: "
+        "with the door closed the LOS rate uses geometry.ground_speed_m_s, "
+        "which is every pre-CU-391 configuration's behaviour bit-for-bit. "
+        "When geometry.circular_orbit is also true this value must agree "
+        "within 1 % with the derived sqrt(mu/a) (ADR-0006 rule 2) or the "
+        "stage raises."
+    ),
+    dtype=float,
+    canonical_unit="m/s",
+    input_unit="m/s",
+    default=0.0,
+    bounds=(0.0, 50_000.0),
+    tags=frozenset({"geometry", "mode_entry", "kinematics"}),
+    default_justification=(
+        "0 = door closed — the LOS rate falls back to geometry.ground_speed_m_s, "
+        "which is the pre-CU-391 behaviour of every existing configuration and "
+        "the physically correct quantity for an Earth-fixed target. Inert for "
+        "provenance-based mode detection."
+    ),
 )
 
 TARGET_SPEED_M_S = ParameterDef(
@@ -826,6 +868,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     CIRCULAR_ORBIT,
     SCENE_CLASS,
     LOS_ANGULAR_RATE_RAD_S,
+    SENSOR_SPEED_M_S,
     TARGET_SPEED_M_S,
     TARGET_HEADING_RAD,
     TARGET_CLIMB_RAD,

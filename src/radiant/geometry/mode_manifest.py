@@ -133,9 +133,15 @@ LOS_RATE_FAMILY: Final[GeometryModeFamily] = GeometryModeFamily(
     modes=(
         # K0 = platform-only (derived from the kinematics family's ground
         # speed and the viewing slant range — no field of its own);
-        # K1 = the rate entered directly; K2 = the target-velocity triple.
+        # K1 = the rate entered directly; K2 = the endpoint velocities.
         # Both doors ship together, provenance-resolved, per ADR-0011
         # decision 10 / plan §8.3 answer 4 (Gap 111).
+        #
+        # K2 is the RELATIVE-velocity door: ω = |v_target − v_sensor|,⊥ / R is a
+        # two-endpoint quantity, so ``geometry.sensor_speed_m_s`` (CU-391) is a
+        # member of the same mode as the target triple rather than a mode of its
+        # own — it combines with them, it does not compete with them. Closed, the
+        # sensor endpoint carries the kinematics family's ground-track speed.
         GeometryMode("K0", ()),
         GeometryMode("K1", ("geometry.los_angular_rate_rad_s",)),
         GeometryMode(
@@ -144,6 +150,7 @@ LOS_RATE_FAMILY: Final[GeometryModeFamily] = GeometryModeFamily(
                 "geometry.target_speed_m_s",
                 "geometry.target_heading_rad",
                 "geometry.target_climb_rad",
+                "geometry.sensor_speed_m_s",
             ),
         ),
     ),
@@ -200,7 +207,8 @@ def active_mode_key(
       door among S2/S3/S1, else the default (S1).
     * **kinematics** — circular when ``circular_orbit`` is set true, else direct.
     * **los_rate** — K1 when the rate is entered directly, else K2 when any
-      target-velocity field is set, else the default (K0, platform-only).
+      endpoint-velocity field is set (the target triple or the sensor's own
+      speed), else the default (K0, platform-only).
 
     Parameters
     ----------

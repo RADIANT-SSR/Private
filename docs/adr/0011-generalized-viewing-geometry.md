@@ -180,8 +180,16 @@ this upgrade becomes unmaintainable. Plan §3.5 names the four attractors
       "provisional — single-scatter underestimates daytime sky" `UserWarning`
       until MODTRAN-anchored.
     - **Target kinematics (Gap 111) ships both doors,** provenance-resolved:
-      direct LOS-rate entry and a target-velocity-vector mode deriving it, with
-      the V0–V4 agreement-check pattern on disagreement.
+      direct LOS-rate entry (K1) and a velocity-vector mode deriving it (K2),
+      with the V0–V4 agreement-check pattern on disagreement. **Amended
+      2026-10-01 (CU-391):** K2 is the *relative*-velocity door and carries
+      both endpoints — `geometry.sensor_speed_m_s` joined the target triple, so
+      a scene whose target is not Earth-fixed can state the platform's
+      **inertial** speed where the default ground-track speed $v R_E/a$ is the
+      wrong magnitude (measured +55.5 % on a LEO→GEO stare). The door is opt-in
+      and agreement-checked against the circular-orbit $\sqrt{\mu/a}$
+      derivation; it adds no mode key, because the sensor's speed *combines*
+      with the target's rather than competing with it.
     - **The up-looking/horizontal MODTRAN library families are owner-run**: the
       batch-1 decks (ground-to-air up-looking partial-column ladder, horizontal
       constant-altitude set, CU-065 elevated-endpoint ANGLE convention check)

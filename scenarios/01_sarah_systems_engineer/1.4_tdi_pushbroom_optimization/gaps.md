@@ -9,11 +9,11 @@ Below saturation SNR grows as √N (shot-limited); above, signal clips at FWC wh
 
 | # | Gap | Severity | Status | Evidence |
 |---|-----|----------|--------|----------|
-| 1 | Smear MTF not applied inside ChainRunner | Medium | Open | `platform/smear.py` exists but PlatformStage still doesn't convolve motion smear into ePSF; walkthrough applies it analytically |
-| 2 | No orbital-velocity → line-period calculator | Low | Open | Script computes ground velocity and line period manually; no built-in module |
-| 3 | No automatic saturation warning during N_tdi sweep | Low | Open | Signal clips at FWC silently; user must inspect well-fill column |
-| 4 | TDI misalignment MTF not in chain | Medium | Open | `readout/tdi.py` provides helpers but misalignment kernel is never convolved into ePSF |
-| 5 | No effective integration time output | Low | Open | No `result.metrics["t_int_effective_s"]` exposing N_tdi × line_period |
+| 1 | Smear MTF not applied inside ChainRunner | Medium | FIXED | `platform/smear.py` exists but PlatformStage still doesn't convolve motion smear into ePSF; walkthrough applies it analytically — **CU-387 triage 2026-09-30: verified FIXED.** `PlatformStage` convolves motion smear into the ePSF and publishes the smear MTF (72 references in `platform/stage.py`); the row predates that landing. |
+| 2 | No orbital-velocity → line-period calculator | Low | OPEN | Script computes ground velocity and line period manually; no built-in module — **CU-387 triage 2026-09-30: stays open, Findings-Log tier** (fails all four Rule-21 CU intake tests — a convenience calculator, no result moves). Logged in `docs/tracking/Findings_Log.md`. |
+| 3 | No automatic saturation warning during N_tdi sweep | Low | FIXED | Signal clips at FWC silently; user must inspect well-fill column — **CU-387 triage 2026-09-30: verified FIXED.** `ReadoutStage` warns on both well and ADC saturation, naming the fill fraction and the remedy. |
+| 4 | TDI misalignment MTF not in chain | Medium | FIXED | `readout/tdi.py` provides helpers but misalignment kernel is never convolved into ePSF — **CU-387 triage 2026-09-30: verified FIXED — and by design.** TDI mis-registration is the one deliberate MTF-only term (CLAUDE.md Rule 4): it is a readout-timing effect with no spatial kernel, so it enters the MTF product and is excluded from the dual-path consistency check. It is not missing from the ePSF; it never belonged there. |
+| 5 | No effective integration time output | Low | OPEN | No `result.metrics["t_int_effective_s"]` exposing N_tdi × line_period — **CU-387 triage 2026-09-30: folded into [[Gap 134]]** (echo derived and converted quantities) — `t_int_effective = N_tdi x line_period` is exactly the class of computed value Gap 134 exists to surface. |
 
 ## Non-Gap Observations
 - SNR scaling tracks √N within the unsaturated regime (1.00, 1.46, 2.10, 3.00, 4.26 at N=1,2,4,8,16 against √N = 1.00, 1.41, 2.00, 2.83, 4.00), confirming shot-noise-limited operation with analog TDI (read noise fixed at 15 e⁻); it runs slightly *above* √N because the fixed 15 e⁻ read-noise floor matters less as the signal grows.

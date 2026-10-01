@@ -16,14 +16,14 @@ bit-identical.*
 
 | # | Gap | Severity | Status | Evidence |
 |---|-----|----------|--------|----------|
-| 1 | NIIRS ceiling not surfaced (GSD-limited) | Medium | Open | No `niirs_ceiling_from_gsd` metric; user must reason about GIQE |
-| 2 | No threshold-crossing finder | Low | Open | Script manually interpolates NIIRS = 4.0 crossing |
-| 3 | No named atmosphere presets | Low | Open | Raj must specify visibility + PWV numerically |
-| 4 | No go/no-go report format | Low | Open | Script builds table manually |
-| 5 | No 2D contour output | Low | Open | 2D grid of NIIRS values not rendered with constraint contours |
-| 6 | Band-mean transmittance not in scalar outputs | Low | Open | `tau_atm` is spectral array; no scalar `tau_band_mean` |
-| 7 | Visibility-to-aerosol mapping doc missing | Low | Open | No documentation that visibility is a visible-band concept |
-| 8 | **NEW — Nearfield emission = 0 in scalar transmission mode** | **HIGH** | Open | Mirror self-emission not modeled; noise under-predicted by ~15–20% for warm-optics MWIR systems |
+| 1 | NIIRS ceiling not surfaced (GSD-limited) | Medium | OPEN | No `niirs_ceiling_from_gsd` metric; user must reason about GIQE — **CU-387 triage 2026-09-30: stays open, Findings-Log tier.** A GSD-limited NIIRS ceiling metric is a convenience over the existing GIQE path; no result moves. |
+| 2 | No threshold-crossing finder | Low | OPEN | Script manually interpolates NIIRS = 4.0 crossing — **CU-387 triage 2026-09-30: promoted to [[Gap 140]]** (trade-study reporting helpers) — consolidated with 3.2 row 4 and 7.1 row 2, since all three are the same shape and `solve_for` already provides the root-finding. |
+| 3 | No named atmosphere presets | Low | FIXED | Raj must specify visibility + PWV numerically — **CU-387 triage 2026-09-30: verified FIXED.** `atmosphere.standard_atmosphere` offers six named presets (tropical, midlat_summer, midlat_winter, subarctic_summer, subarctic_winter, us_standard). |
+| 4 | No go/no-go report format | Low | OPEN | Script builds table manually — **CU-387 triage 2026-09-30: promoted to [[Gap 140]]** (trade-study reporting helpers). |
+| 5 | No 2D contour output | Low | OPEN | 2D grid of NIIRS values not rendered with constraint contours — **CU-387 triage 2026-09-30: already tracked** as gaps.md GUI-12 (bespoke analysis panels). Cross-referenced, no new entry. |
+| 6 | Band-mean transmittance not in scalar outputs | Low | OPEN | `tau_atm` is spectral array; no scalar `tau_band_mean` — **CU-387 triage 2026-09-30: folded into [[Gap 134]]** (echo derived and converted quantities) — a scalar band-mean transmittance beside the spectral array is that gap's shape exactly. |
+| 7 | Visibility-to-aerosol mapping doc missing | Low | FIXED | No documentation that visibility is a visible-band concept — **CU-387 triage 2026-09-30: verified FIXED.** The visibility-to-aerosol relationship is documented in `docs/architecture/RADIANT_Atmosphere.md` and `docs/theory/atmosphere_models.md`, including the Koschmieder boundary-layer treatment and `atmosphere.background_aerosol_scale` (CU-337). |
+| 8 | **NEW — Nearfield emission = 0 in scalar transmission mode** | **HIGH** | FIXED | Mirror self-emission not modeled; noise under-predicted by ~15–20% for warm-optics MWIR systems — **CU-387 triage 2026-09-30: superseded by [[CU-380]]** — one of the five independent recordings. This row's own ~15-20 % impact estimate matches the 17 % later measured on the MWIR example. |
 | — | NIIRS metric not exposed | Medium | **CLOSED** | `result.metrics["niirs"]` now available |
 | — | GSD metric not exposed | Low | **CLOSED** | `result.metrics["gsd_geometric_mean_m"]` + cross/along-track |
 

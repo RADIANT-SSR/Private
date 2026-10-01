@@ -22,7 +22,7 @@ Rayleigh optical depth, which halved `E_sky_scattered` and took SNR 250.6 →
 | # | Gap | Severity | Status | Evidence |
 |---|-----|----------|--------|----------|
 | 1 | No Zernike-to-PSF integration | Medium | **CLOSED** (this refresh) | ZERNIKE-mode `WavefrontError` injected via `stage_outputs["optics_config"]["wavefront_error"]`; Step 5b runs Tom's actual prescription end-to-end |
-| 2 | No field-dependent WFE | Medium | Open | `FieldWfeSample` lookup exists in `OpticsStage` (field_x/field_y params); not exercised by this scenario — needs a field-dependent prescription input |
+| 2 | No field-dependent WFE | Medium | FIXED | `FieldWfeSample` lookup exists in `OpticsStage` (field_x/field_y params); not exercised by this scenario — needs a field-dependent prescription input — **CU-387 triage 2026-09-30: closed — not a code gap.** The row states it itself: the `FieldWfeSample` lookup exists in `OpticsStage`. What is missing is a field-dependent prescription *in this scenario's inputs*, which is scenario coverage, not an engine capability. |
 | 3 | No Zemax importer | Low | **CLOSED** — registry Gap 26 | `radiant.io.zemax_zernike.load_zemax_zernike` parses the "Zernike Standard Coefficients" text export (`tom_zernike_zemax.txt`); cross-checked against the workbook sheet |
 | 4 | MTF frequency axis in normalized units only | Low | **CLOSED** — registry Gap 27 | `performance.frequency_units` conversion (cy/m, cy/mm, cy/mrad, cy/pixel) |
 | 5 | No WFE sub-budget allocation tool | Low | **CLOSED** — registry Gaps 23+28 | `radiant.api.ErrorBudget`: per-mode RSS contributors, allocation = λ/14, `.table()`, `margin`, `remaining_allocation()` |

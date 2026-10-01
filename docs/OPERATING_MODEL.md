@@ -73,6 +73,14 @@ The repo is the tracker. Three views replace a board:
 
 **Intake rule (one door, two tiers):** anything actionable — bug, debt, doc drift, missing feature, audit finding — enters through Rule 21's intake test: a **CU entry** in `Cleanup_Backlog.md` (Rule 21 fields) if it is results-affecting, owner-gated, blocking, or workflow-visible; a **one-line entry** in `Findings_Log.md` otherwise. Nothing is tracked in chat logs, memory, TODO comments, or side files.
 
+**Scenario-finding promotion rule (CU-387, 2026-09-30).** A scenario exercise records its findings in its own `scenarios/<persona>/<slug>/gaps.md`, which is the right place for them: they are part of the scenario's narrative and belong beside it. But a scenario `gaps.md` is **not a tracker**. A finding recorded only there is invisible to every registry view above, so nothing schedules it.
+
+Therefore: **an unresolved row in a scenario `gaps.md` must name its governed-registry home** — a `CU-NNN`, a `Gap NNN`, a `GUI-NN`, or `Findings-Log` — in the same PR that records it. "Unresolved" means any status other than FIXED / RESOLVED / CLOSED (so OPEN, WORKAROUND, BLOCKED and PARTIAL all require a reference). Enforced mechanically by `scripts/check_org_rules.py`.
+
+Why this is a rule and not a convention: the 2026-09-30 external review's #1 critical finding had been independently recorded in **five** scenario `gaps.md` files, rated HIGH in four, with correct physics and a correct impact estimate — and it shipped through v0.2.0 and v0.3.0 because none of the five reached a registry. Triaging the rest found four more results-affecting defects the same way, including a first-class parameter door publishing a line-of-sight rate **55.5 % high** ([[CU-391]]). The gate battery checks code; this class of finding never reaches code, so nothing else catches it. A second cost: of the 38 table-format rows triaged, **18 were already fixed** — so the files misinformed in both directions, hiding real defects and reporting phantom ones.
+
+This is the one addition the process-machinery moratorium permits here, under its own carve-out: a real defect escaped to `main` through this specific hole.
+
 **Sizing rule:** a CU that is one PR of work needs nothing else. A CU that needs multiple PRs or design gets a plan doc in `plans/` that references the CU(s) — the plan is the "epic," the CUs are the "tickets."
 
 **The work loop (every effort, no exceptions):**

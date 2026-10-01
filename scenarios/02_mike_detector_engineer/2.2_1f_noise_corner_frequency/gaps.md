@@ -11,11 +11,11 @@ RADIANT overestimates σ_1f by ~92% because it does not cap the integration at t
 
 | # | Gap | Severity | Status | Evidence |
 |---|-----|----------|--------|----------|
-| 1 | No corner frequency model | Medium | Open | σ_1f = √(K·ln(f_high/f_low)) integrates over full band; should cap at f_c. Overestimate 64–170% at 30–120 Hz |
-| 2 | No frame-rate-aware f_low | Low | Open | User must manually set `flicker_f_low_hz`; no `detector.frame_rate_hz` shortcut |
-| 3 | No noise PSD output | Low | Open | Only integrated σ available — no `result.noise_psd(f)` method |
+| 1 | No corner frequency model | Medium | FIXED | σ_1f = √(K·ln(f_high/f_low)) integrates over full band; should cap at f_c. Overestimate 64–170% at 30–120 Hz — **CU-387 triage 2026-09-30: FIXED by [[CU-381]]** — `detector.flicker_corner_hz` added, and the corner now enters as the shape of S(f) in the transfer integral rather than as a post-hoc cap. This row's 64-170 % overestimate measurement is cited in CU-381's resolution as one of its three truth anchors. |
+| 2 | No frame-rate-aware f_low | Low | FIXED | User must manually set `flicker_f_low_hz`; no `detector.frame_rate_hz` shortcut — **CU-387 triage 2026-09-30: FIXED by [[CU-381]]** — `flicker_f_low_hz` now defaults to 0 = derive from the stack duration (`n_coadds x frame_period_s`), so the band follows the configured timing instead of a hand-set constant. |
+| 3 | No noise PSD output | Low | OPEN | Only integrated σ available — no `result.noise_psd(f)` method — **CU-387 triage 2026-09-30: already tracked** as `docs/tracking/gaps.md` GUI-12 (bespoke analysis panels, which enumerates the 1/f PSD panel and names this scenario). No new entry — cross-referenced instead. |
 | 4 | Per-term NEDT breakdown missing | Medium | **CLOSED** | `result.metrics["nedt_K"]` exposes total; per-term via `σ_i / (dS/dT)` |
-| 5 | **NEW — Nearfield emission = 0 in scalar transmission mode** | **HIGH** (cross-scenario) | Open | Scalar mode assumes refractive lump (ε = 1 − T − R = 0). Mirror self-emission from warm optics not captured. Low impact here because extended-scene signal_shot dominates, but high impact for cold-stop (7.4) and point-source scenarios. |
+| 5 | **NEW — Nearfield emission = 0 in scalar transmission mode** | **HIGH** (cross-scenario) | FIXED | Scalar mode assumes refractive lump (ε = 1 − T − R = 0). Mirror self-emission from warm optics not captured. Low impact here because extended-scene signal_shot dominates, but high impact for cold-stop (7.4) and point-source scenarios. — **CU-387 triage 2026-09-30: superseded by [[CU-380]]** — the engine now warns when warm-optics emission is structurally zero. This row is one of **five** independent recordings of that defect across scenario gaps.md files; none reached a governed registry, which is what CU-387 is about. The remaining work (a warm train for this scenario) is CU-380's open checklist item. |
 
 ## Gap 1 Detail — Corner Frequency Model (Medium)
 

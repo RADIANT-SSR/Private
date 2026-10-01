@@ -13,7 +13,7 @@ numbers. **No RADIANT source file was modified by this scenario.**
 | Field | Value |
 |---|---|
 | **Found in** | Scenario 10.3, runner section 8 (GEO reflective door, twilight) |
-| **Status** | WORKAROUND |
+| **Status** | WORKAROUND — **CU-387 triage 2026-09-30**: stays a capability gap. Folded into [[Gap 136]] (declined metrics naming what would change them), since the missing reflective point-source door is the same shape: the config surface cannot express the case and does not say what would. No new ID. |
 | **Severity** | High — blocks the headline use case of the scene class |
 | **Description** | RADIANT's reflective target path (`T2Reflective`/`T3Mixed`) computes the direct-solar term as `ρ · τ_sun · E_TOA · max(cos θ_s, 0) / π` (`atmosphere/assembly.py::_cos_theta_s`). For θ_s > π/2 the clamp gives exactly zero. But ADR-0011 decision 10's shadow-height test (`atmosphere/solar_shadow.sunlit`) declares a 700 km / GEO object **sunlit** at θ_s = 102°, and the chain publishes `tau_sun = 1.0` (vacuum solar leg). The two subsystems disagree: GF-9 says lit, assembly says dark. Verified: the GEO reflective run at θ_s = 102° returns band-mean target radiance 1.36e-18 W/m²/sr/µm and SNR = 0.000, while `sunlit(3.5786e7, 102°) is True` and `tau_sun = 1.0000`. The clamp is right for a *horizontal ground facet*; it is wrong for a satellite, whose illuminated face is not the local horizontal. The physically meaningful variable is the **solar phase angle**, for which RADIANT has no input door. Consequently there is no reflective *point-source* door at all: shape + albedo cannot express a sunlit object over a dark site. |
 | **Workaround** | Enter the object through `source.target.user_intensity_path` (T7IntensityAtSource) with a pre-computed signature I(λ) = ρ·A·E_sun(λ)·p(α)/π; `inputs/create_spreadsheet.py` does the reflective physics outside RADIANT. |
@@ -27,7 +27,7 @@ numbers. **No RADIANT source file was modified by this scenario.**
 | Field | Value |
 |---|---|
 | **Found in** | Scenario 10.3, runner section 7 |
-| **Status** | OPEN (documentation/UX) |
+| **Status** | OPEN (documentation/UX) — **CU-387 triage 2026-09-30**: Findings-Log tier (fails all four Rule-21 CU intake tests; the verdict is computed and reported, it simply does not reach the signal path, with no numerical consequence). Logged in `docs/tracking/Findings_Log.md`. |
 | **Severity** | Medium — silent wrong answer for an eclipsed object |
 | **Description** | `T7IntensityAtSource` consumes I(λ) verbatim, so `tau_sun` (which carries the GF-9 shadow verdict, including the hard 0 for an eclipsed target) never multiplies the target term. Re-running the nominal at 30° solar depression — where `sunlit(7e5, 120°) is False` and the chain sets `tau_sun = 0` — returns the *same* signal, 34 961 e-. Nothing warns. |
 | **Workaround** | The scenario gates the signature on the shadow test in the runner narrative and states the ownership explicitly. |
@@ -41,7 +41,7 @@ numbers. **No RADIANT source file was modified by this scenario.**
 | Field | Value |
 |---|---|
 | **Found in** | Scenario 10.3, runner section 8 (nominal background radiance) |
-| **Status** | OPEN |
+| **Status** | OPEN — **promoted to [[CU-388]] by the CU-387 triage, 2026-09-30.** Results-affecting with no config-surface workaround; this row sat unpromoted while the defect shipped. |
 | **Severity** | High — deletes the dominant noise source of a visible measurement |
 | **Description** | `source/_inferrer.py::_adjust_scene_los` keeps `theta_s`/`delta_phi` only for `T2Reflective` and `T3Mixed` (the CU-009 "a pure-thermal radiance has no solar leg" predicate). `T7IntensityAtSource` falls into the else-branch, so the atmosphere receives `theta_s = None` and builds a **pure-thermal** sky and path radiance — ~1e-18 W/m²/sr/µm at 0.4–0.9 µm. But an intensity descriptor is agnostic about what the intensity represents; a sunlit satellite signature is reflective. Measured: nominal at-aperture background = 1.2719e-18 W/m²/sr/µm at θ_s = 102°, and *identical* at θ_s = 80°. The daytime sky is therefore absent from every intensity-door scene. |
 | **Workaround** | None available from the config surface. The scenario reports the missing pedestal and states that its SNR is target-shot-noise-plus-detector only. |
@@ -69,7 +69,7 @@ numbers. **No RADIANT source file was modified by this scenario.**
 | Field | Value |
 |---|---|
 | **Found in** | Scenario 10.3, runner section 10b (air-mass handover probe) |
-| **Status** | OPEN |
+| **Status** | OPEN — **promoted to [[CU-389]] by the CU-387 triage, 2026-09-30.** |
 | **Severity** | Medium — non-monotonic transmittance; the scenario avoids the band |
 | **Description** | `atmosphere/protocol.py::AtmosphericGeometry.slant_path_length_m` switches at `SPHERICAL_SWITCH_RAD` (80°) from `Δh/cos ζ` to `R_E·[√(cos²ζ + 2x + x²) − cos ζ]` with `x = Δh/R_E`. That root form is the standard spherical air-mass approximation for a *thin atmospheric slab*. For an up-looking observer segment the spec runs site → target, so Δh = 699 km (x = 0.110) rather than the ~10 km of atmosphere, and the correction is applied to a thickness three orders of magnitude too large. Measured: τ(0.55 µm) at ζ_low = 79.9° is 0.01373 (optical depth 4.288) and at 80.1° is 0.09796 (optical depth 2.323) — the optical depth **drops** as the path lengthens. Transmittance is non-monotonic in zenith angle above 80°, and the spherical branch under-estimates the column. |
 | **Workaround** | Every reported number in scenario 10.3 is at ζ_low ≤ 75°, inside the flat-Earth branch where sec ζ is correct to < 0.5 %. |
@@ -113,7 +113,7 @@ numbers. **No RADIANT source file was modified by this scenario.**
 | Field | Value |
 |---|---|
 | **Found in** | Scenario 10.3, runner section 9 |
-| **Status** | OPEN |
+| **Status** | OPEN — **promoted to [[CU-390]] by the CU-387 triage, 2026-09-30.** |
 | **Severity** | Medium — r₀ optimistic by ~2× for any non-sea-level site |
 | **Description** | `atmosphere/cn2_hufnagel_valley.py` evaluates the HV-5/7 profile — whose ground term has a 100 m scale height — against MSL altitude, and `r0_path` integrates from `h_low = h_sensor` in MSL. A site at 900 m MSL therefore starts the integral above its own boundary layer and loses it entirely. Measured: chain r₀ = 19.820 cm at 0.650 µm, i.e. 14.5 cm at 0.5 µm (0.70″ seeing) where a real 0.9 km high-desert site runs 1.0–1.5″. The sea-level integral of the same profile gives 4.961 cm at 0.5 µm, matching the HV-5/7 "≈ 5 cm" definition. |
 | **Workaround** | The scenario states the caveat and quotes the sea-level anchor beside the chain value. A user wanting realistic seeing can enter `atmosphere.r0_m` directly (the direct door wins, with the CU-093 agreement check). |
@@ -155,7 +155,7 @@ numbers. **No RADIANT source file was modified by this scenario.**
 | Field | Value |
 |---|---|
 | **Found in** | Scenario 10.3, cross-check (e) |
-| **Status** | BLOCKED — awaiting owner |
+| **Status** | BLOCKED — awaiting owner — **CU-387 triage 2026-09-30**: covered by the owner's standing MODTRAN deferral (2026-09-07), alongside [[CU-011]] / [[CU-087]] / [[CU-324]]. Re-audit with that family; no separate ID. |
 | **Severity** | Medium — the class ships without its trusted-tool anchor |
 | **Description** | ADR-0011 decision 10 assigns the SST full-column up-looking MODTRAN ladder to **batch 2**, which has not been run. There is therefore no MODTRAN comparison for τ(λ), L_path, or the sky background in this scene class. **This scenario reports no MODTRAN comparison and fabricates none.** The substitutes used instead are a closed-form vacuum-limit identity, a published-extinction anchor, an apparent-magnitude anchor, and the HV-5/7 literature r₀ — all recorded in `walkthrough.md` §10. |
 | **Workaround** | The four anchors above. Note that the published-extinction anchor already *failed* and root-caused G9; a MODTRAN run would have found the same thing. |
@@ -169,7 +169,7 @@ numbers. **No RADIANT source file was modified by this scenario.**
 | Field | Value |
 |---|---|
 | **Found in** | Scenario 10.3, while looking for the GF-9 verdict in `result.stage_outputs` |
-| **Status** | OPEN (low) |
+| **Status** | OPEN (low) — **CU-387 triage 2026-09-30**: Findings-Log tier (provenance dropped before it reaches the consumer; no result moves). Logged in `docs/tracking/Findings_Log.md`. |
 | **Severity** | Low — inspectability (Rule 16), not a wrong number |
 | **Description** | `uplooking_quantities.UplookingProducts` carries a `provenance` dict with the GF-9 illumination note (`"target at … is inside the Earth's shadow …"` / `"… above the modelled column and sunlit … (tau_sun = 1)"`), the observer-leg description, and the sky-continuation note. `topology.TopologyProducts` has no provenance field, so `evaluate_path_topology` discards it and `AtmosphereStage` never publishes it. The information exists only in an `INFO` log record. A user cannot inspect *why* `tau_sun` took its value. |
 | **Workaround** | The scenario calls `atmosphere.solar_shadow.sunlit` / `shadow_height_m` directly to reproduce the verdict. |

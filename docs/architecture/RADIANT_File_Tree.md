@@ -92,7 +92,7 @@ Stage 0: resolves the scene-geometry input mode and publishes LOS + derived
 quantities. The θ_o-based spherical-triangle math lives in
 `core/viewing_triangle.py` (core, like its η-based siblings in `core/geometry.py`).
 
-### `source/` — 18 source + 33 tests
+### `source/` — 18 source + 34 tests
 
 Stage 1: target + background spectral radiance. The largest physics package because of the spec-form fan-out (S1-S9), shape catalog, BRDF models, and converters.
 

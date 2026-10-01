@@ -26,8 +26,9 @@ each door (ADR-0011 decision 3 — every viewing angle is read at the path's
   one θ_s) and read ``None``;
 * **direct** ``ground_speed_m_s`` = the resolved ground-track speed;
   ``circular_orbit`` = whether the kinematics resolved through the orbit door;
-* **K1** ``los_angular_rate_rad_s`` = the resolved LOS rate; the **K2**
-  target-velocity triple has no inverse and reads ``None``.
+* **K1** ``los_angular_rate_rad_s`` = the resolved LOS rate; **K2**
+  ``sensor_speed_m_s`` = the speed the LOS rate puts on the sensor endpoint
+  (CU-391), while the target-velocity triple has no inverse and reads ``None``.
 
 ``None`` also stands for "no path" (coincident endpoints), a night scene's
 solar doors, and — for every door — a parameter set that cannot resolve at all.
@@ -55,6 +56,10 @@ _S3_DOORS = (
     "geometry.local_solar_time_h",
     "geometry.ltan_h",
 )
+#: K2 doors with no inverse: a given ω admits many target headings/climbs, so
+#: the target triple cannot be read back from the resolved scene.  The sensor
+#: speed is the exception — it IS a resolved canonical value (CU-391), so it is
+#: filled in below rather than listed here.
 _K2_DOORS = (
     "geometry.target_speed_m_s",
     "geometry.target_heading_rad",
@@ -108,6 +113,11 @@ def door_values(params: ParameterSet) -> dict[str, float | bool | None]:
 
     values["geometry.ground_speed_m_s"] = kinematics.ground_speed_m_s
     values["geometry.circular_orbit"] = kinematics.mode == "circular_orbit"
+    # CU-391: the sensor-velocity door reads the speed the LOS rate currently
+    # puts on the sensor endpoint, so opening it seeds the identity (the scene
+    # does not move) and a closed door displays the ground-track fallback
+    # instead of its inert 0.0 default.
+    values["geometry.sensor_speed_m_s"] = kinematics.sensor_speed_m_s
 
     values["geometry.los_angular_rate_rad_s"] = los_rate.los_angular_rate_rad_s
     for name in _K2_DOORS:

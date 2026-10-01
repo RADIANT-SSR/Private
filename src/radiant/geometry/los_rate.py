@@ -71,29 +71,45 @@ moving horizontally *toward the sensor's ground point*, ψ = π away from it —
 and climb :math:`\gamma` (``geometry.target_climb_rad``) measured from that
 horizontal plane, positive upward.
 
-**Sensor velocity** is taken as :math:`\mathbf{v}_S = v_g \hat{e}_\perp`: the
-platform's ground-track velocity, **cross-track** with respect to the LOS
-azimuth plane.  Two simplifications are being made here, and both are
-deliberate:
+**Sensor velocity** is taken as :math:`\mathbf{v}_S = v_S \hat{e}_\perp`: the
+platform's velocity, **cross-track** with respect to the LOS azimuth plane.
+One simplification is being made in its *direction* and one genuine modelling
+choice remains in its *magnitude*:
 
-1. *Direction.*  RADIANT has no ground-track-azimuth parameter — the platform
-   is described by a scalar ``geometry.ground_speed_m_s`` (or the circular-orbit
-   derivation).  The cross-track choice is the standard push-broom geometry
-   that ``platform/smear.py`` already assumes (it uses ω = v/R with no
-   projection factor, which is the exact rate only when the velocity is
-   perpendicular to the LOS), so adopting it here makes the platform-only limit
-   of this module reduce **exactly** to the rate the smear arm already derives,
-   for every down-looking geometry rather than only at nadir.  An *along-track*
-   off-boresight look has the smaller rate :math:`v_g \cos^2\eta / h`; expressing
-   it needs a track-azimuth input this stage does not yet have.
-2. *Magnitude.*  ``ground_speed_m_s`` is the **ground-track** speed
-   (:math:`v R_E / a` for a circular orbit — ``core.orbit``), not the inertial
-   orbital speed.  That is the correct scaling for the LOS rate seen by a
-   nadir-stabilised platform: with the sensor at central-angle rate
-   :math:`\omega_o = v/a`, a fixed ground target's off-boresight angle changes at
-   :math:`\mathrm{d}\eta/\mathrm{d}t = R_E \omega_o / h = v_g / h`.  It is the
-   same quantity ``platform.ground_velocity_m_s`` carries (Gap 75 collapse), so
-   the two arms of the model cannot disagree.
+1. *Direction (simplification).*  RADIANT has no ground-track-azimuth parameter
+   — the platform is described by a scalar speed.  The cross-track choice is the
+   standard push-broom geometry that ``platform/smear.py`` already assumes (it
+   uses ω = v/R with no projection factor, which is the exact rate only when the
+   velocity is perpendicular to the LOS), so adopting it here makes the
+   platform-only limit of this module reduce **exactly** to the rate the smear
+   arm already derives, for every down-looking geometry rather than only at
+   nadir.  An *along-track* off-boresight look has the smaller rate
+   :math:`v_g \cos^2\eta / h`; expressing it needs a track-azimuth input this
+   stage does not yet have.
+2. *Magnitude (the caller's choice — CU-391).*  There are two speeds a circular
+   orbit has, and which one belongs here is a **frame** question the target
+   decides:
+
+   * the **ground-track** speed :math:`v_g = v R_E / a` (``core.orbit``,
+     ``geometry.ground_speed_m_s``) is the rate seen by a *nadir-stabilised*
+     platform against an *Earth-fixed* target: with the sensor at central-angle
+     rate :math:`\omega_o = v/a`, a fixed ground target's off-boresight angle
+     changes at :math:`\mathrm{d}\eta/\mathrm{d}t = R_E \omega_o / h = v_g / h`.
+     It is the same quantity ``platform.ground_velocity_m_s`` carries (Gap 75
+     collapse), so the two arms of the model cannot disagree there;
+   * the **inertial** speed :math:`v = \sqrt{\mu/a}`
+     (``geometry.sensor_speed_m_s``) is what belongs whenever the target is
+     *not* Earth-fixed — another spacecraft, an exo-atmospheric body — because
+     then the ground-track reduction's premise (a target at radius
+     :math:`R_E` co-rotating with the surface) is simply false.
+
+   The caller passes whichever it means; :func:`radiant.geometry.modes.
+   resolve_kinematics` resolves the door and defaults to the ground-track speed,
+   which keeps every pre-CU-391 scene bit-identical.  Entering the ground-track
+   speed against a space target is the defect CU-391 names: on a 500 km LEO
+   staring at the geostationary belt it publishes 200.1 µrad/s where 128.7
+   µrad/s is correct (+55.5 %).  ``GeometryStage`` warns on exactly that
+   combination rather than leaving it silent.
 
 Degenerate case
 ---------------
@@ -128,7 +144,7 @@ def _require_finite(name: str, value: float) -> None:
 
 def relative_velocity_m_s(
     *,
-    sensor_ground_speed_m_s: float = 0.0,
+    sensor_speed_m_s: float = 0.0,
     target_speed_m_s: float = 0.0,
     target_heading_rad: float = 0.0,
     target_climb_rad: float = 0.0,
@@ -137,14 +153,15 @@ def relative_velocity_m_s(
 
     Returns the components along ``(ê_∥, ê_⊥, ê_up)`` as defined in the module
     docstring: ``ê_∥`` horizontal toward the sensor's ground point, ``ê_⊥``
-    horizontal at +90° (the sensor's ground-track direction), ``ê_up`` the
-    target's local vertical.
+    horizontal at +90° (the sensor's track direction), ``ê_up`` the target's
+    local vertical.
 
     Parameters
     ----------
-    sensor_ground_speed_m_s:
-        Platform ground-track speed [m/s], along ``+ê_⊥`` (cross-track).
-        Must be non-negative.
+    sensor_speed_m_s:
+        Platform speed [m/s], along ``+ê_⊥`` (cross-track) — the ground-track
+        speed for an Earth-fixed target, the inertial speed otherwise (see the
+        module docstring, CU-391).  Must be non-negative.
     target_speed_m_s:
         Target speed [m/s].  Must be non-negative.
     target_heading_rad:
@@ -160,14 +177,14 @@ def relative_velocity_m_s(
         ``[−π/2, π/2]``.
     """
     for name, value in (
-        ("sensor_ground_speed_m_s", sensor_ground_speed_m_s),
+        ("sensor_speed_m_s", sensor_speed_m_s),
         ("target_speed_m_s", target_speed_m_s),
         ("target_heading_rad", target_heading_rad),
         ("target_climb_rad", target_climb_rad),
     ):
         _require_finite(name, value)
     for name, value in (
-        ("sensor_ground_speed_m_s", sensor_ground_speed_m_s),
+        ("sensor_speed_m_s", sensor_speed_m_s),
         ("target_speed_m_s", target_speed_m_s),
     ):
         if value < 0.0:
@@ -197,7 +214,7 @@ def relative_velocity_m_s(
 
     cos_climb = math.cos(target_climb_rad)
     v_par = target_speed_m_s * cos_climb * math.cos(target_heading_rad)
-    v_perp = target_speed_m_s * cos_climb * math.sin(target_heading_rad) - sensor_ground_speed_m_s
+    v_perp = target_speed_m_s * cos_climb * math.sin(target_heading_rad) - sensor_speed_m_s
     v_up = target_speed_m_s * math.sin(target_climb_rad)
     return (v_par, v_perp, v_up)
 
@@ -206,7 +223,7 @@ def relative_los_angular_rate_rad_s(
     *,
     slant_range_m: float,
     theta_o_rad: float,
-    sensor_ground_speed_m_s: float = 0.0,
+    sensor_speed_m_s: float = 0.0,
     target_speed_m_s: float = 0.0,
     target_heading_rad: float = 0.0,
     target_climb_rad: float = 0.0,
@@ -226,7 +243,7 @@ def relative_los_angular_rate_rad_s(
     theta_o_rad:
         Canonical target-side path zenith [rad] on the closed domain ``[0, π]``
         (ADR-0011): acute = down-looking, ``π/2`` = level, obtuse = up-looking.
-    sensor_ground_speed_m_s, target_speed_m_s, target_heading_rad, target_climb_rad:
+    sensor_speed_m_s, target_speed_m_s, target_heading_rad, target_climb_rad:
         See :func:`relative_velocity_m_s`.
 
     Returns
@@ -281,7 +298,7 @@ def relative_los_angular_rate_rad_s(
         )
 
     v_par, v_perp, v_up = relative_velocity_m_s(
-        sensor_ground_speed_m_s=sensor_ground_speed_m_s,
+        sensor_speed_m_s=sensor_speed_m_s,
         target_speed_m_s=target_speed_m_s,
         target_heading_rad=target_heading_rad,
         target_climb_rad=target_climb_rad,

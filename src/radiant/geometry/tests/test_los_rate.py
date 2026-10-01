@@ -61,7 +61,7 @@ class TestCrossingTarget:
         omega = relative_los_angular_rate_rad_s(
             slant_range_m=1_000.0,
             theta_o_rad=0.7,
-            sensor_ground_speed_m_s=100.0,
+            sensor_speed_m_s=100.0,
         )
         assert omega == 0.1  # exactly v / R, no rounding
 
@@ -71,7 +71,7 @@ class TestCrossingTarget:
         omega = relative_los_angular_rate_rad_s(
             slant_range_m=2_500.0,
             theta_o_rad=theta_o,
-            sensor_ground_speed_m_s=250.0,
+            sensor_speed_m_s=250.0,
         )
         assert omega == pytest.approx(0.1, rel=1e-15)
 
@@ -144,7 +144,7 @@ class TestRadialMotion:
         """Same speed, same direction as the platform: zero relative velocity."""
         speed = 220.0
         v_par, v_perp, v_up = relative_velocity_m_s(
-            sensor_ground_speed_m_s=speed,
+            sensor_speed_m_s=speed,
             target_speed_m_s=speed,
             target_heading_rad=math.pi / 2.0,
         )
@@ -154,7 +154,7 @@ class TestRadialMotion:
         omega = relative_los_angular_rate_rad_s(
             slant_range_m=1_000.0,
             theta_o_rad=0.4,
-            sensor_ground_speed_m_s=speed,
+            sensor_speed_m_s=speed,
             target_speed_m_s=speed,
             target_heading_rad=math.pi / 2.0,
         )
@@ -175,7 +175,7 @@ class TestLeoSanity:
         omega = relative_los_angular_rate_rad_s(
             slant_range_m=self.H,
             theta_o_rad=0.0,
-            sensor_ground_speed_m_s=v_g,
+            sensor_speed_m_s=v_g,
         )
         a = R_EARTH_M + self.H
         omega_orbit = orbital_velocity_m_s(self.H) / a  # rad/s about the Earth centre
@@ -212,7 +212,7 @@ class TestFailureModes:
             )
         with pytest.raises(GeometrySpecificationError, match="negative"):
             relative_los_angular_rate_rad_s(
-                slant_range_m=1.0, theta_o_rad=0.5, sensor_ground_speed_m_s=-3.0
+                slant_range_m=1.0, theta_o_rad=0.5, sensor_speed_m_s=-3.0
             )
 
     def test_climb_outside_half_pi_raises(self) -> None:

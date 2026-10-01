@@ -59,12 +59,14 @@ by name in check 8 — that list is frozen and must never grow.
 ### CU-391 — `geometry.circular_orbit` publishes a LOS angular rate 55.5 % high for space targets: the sensor's velocity is the sub-satellite ground-track speed, not its inertial speed
 
 **Discovered**: scenario 10.4 (`leo_to_geo_exo`), recorded in its own `gaps.md` as G10.4-2 and never promoted; surfaced by the [[CU-387]] triage, 2026-09-30.
-**Status**: Open.
+**Status**: Open — **the door is delivered; the headline symptom is not closed.** Owner ruling needed (see the residual below).
+
+- [x] A sensor-velocity door distinct from ground-track speed, which is what the CU's suggested fix asked for. **DONE 2026-10-01**: `geometry.sensor_speed_m_s` states the platform's *inertial* speed and joins the existing **K2** door rather than becoming a new mode — ω = |v_target − v_sensor|_⊥ / R is a two-endpoint quantity, so the sensor's speed combines with the target triple instead of competing with it, and mode keys are unchanged. `ground_speed_m_s` keeps its exact meaning. The rule-2 agreement check mirrors the existing ground-speed one (a user-set `sensor_speed_m_s` must agree within 1 % with `√(μ/a)` under `circular_orbit`, naming both derived speeds so the error teaches which is which). Ground-target results are bit-identical **by construction**: with the door closed the resolver returns `ground_speed_m_s` itself, so the default path carries no new arithmetic, and the pre-existing `test_matches_smear_implied_rate` reduction contract passes untouched at rel = 1e-15. 41 new tests; no golden moved.
+- [ ] **`circular_orbit = True` alone still publishes 200.1 µrad/s on the 10.4 scene, not 128.7** — and the implementing agent was right to refuse the acceptance criterion I set, which was wrong. Independently re-derived at integration: ground-track 200.14, **inertial-only 215.85**, correct two-body 128.71 µrad/s. The +55.5 % has *two* causes, and fixing only the sensor speed moves the answer **further from correct**, because 62 % of the correction is the GEO target's own 3074.9 m/s co-rotating motion, which subtracts. That second part is not derivable from `sensor_altitude_m`: it would require assuming the space target sits on a co-planar, co-rotating **circular** orbit — physics the analyst never stated, and the invented abstraction CLAUDE.md forbids. Gating the switch on the target's altitude band is physics branching on scene class, which ADR-0011 decision 8 forbids outright. So the wrong combination is now **loud instead of silent**: a `UserWarning` on exactly `target_class == space` + door closed + moving platform + rate not entered via K1, naming the inertial speed to enter and the target door to pair it with. Scene class gates the *advice*, never a number. **Gating condition**: an owner ruling on whether `circular_orbit` alone should ever produce a two-body relative rate — which needs a target-orbit door, or an attitude/stabilisation concept, either of which is a larger decision than this CU. **Re-audit**: 2026-12-31.
 **File**: `src/radiant/geometry/los_rate.py`; `src/radiant/geometry/modes.py::resolve_kinematics` / `resolve_los_rate`; `src/radiant/geometry/_schema.py` (needs a sensor-velocity door distinct from ground-track speed).
 **Symptom**: `los_rate` models the sensor velocity as `v_g ê_⊥` with `v_g = geometry.ground_speed_m_s`, which V6 `circular_orbit` derives as the **sub-satellite ground-track** speed `v·R_E/a`. For a space target that is the wrong velocity. **Quantified in the scenario**: setting `geometry.circular_orbit = True` on the LEO→GEO scene publishes `los_angular_rate_rad_s` = **200.1 µrad/s** against the correct **128.7 µrad/s** — **+55.5 %**, produced by the framework's own platform-kinematics door.
 **Why it still matters**: results-affecting (intake test 1). The rate feeds `platform.smear_width_m`, the smear MTF, EE_box, SNR and detection range, so a 55 % rate error moves every spatial and radiometric result for a moving space target. Ground-target scenes are unaffected — the ground-track speed is the right quantity there — which is exactly why the defect survived: the door is correct for the case it was built against and silently wrong for the case it was later reused in. Scenario 10.4 avoids it by never using `circular_orbit` and entering both inertial speeds by hand.
 **Suggested fix**: (b) stand-alone task — a sensor-velocity door distinct from ground-track speed, with provenance-resolved agreement checking in the ADR-0006 rule-2 pattern K1/K2 already use. Effort M; category C. Affects any future `*_to_space` / `*_to_air` scene whose target moves.
-
 
 ### CU-380 — Warm-optics nearfield is identically zero in every non-prescription transmission mode, with no warning (external review 2026-09-30 F1; independently found internally ≤2026-08-02 and lost)
 
@@ -90,15 +92,6 @@ The 34 extended-scene thermal scenarios remain out of scope for this CU (charter
 **Why it still matters**: results-affecting (intake test 1) and workflow-visible (test 4). Exposure: 54 `scenarios/`+`examples/` files use a non-prescription mode, **39 of them in a thermal band** (`filter_max_um > 2.5 µm`), **5 of those 39 point-source / sub-pixel / detection-range** — the cases where this flips a verdict rather than shading it. The error scales with how background-dominated the case is. The underlying ε = 0 model is correct (a synthesized lump is not a surface; `optics.optics_temperature_K` was removed 2026-09-10 on that ground) — **the defect is the silence, not the model.**
 **Suggested fix**: (a) inline-fix-now, per the 2026-09-30 owner ruling — (1) a `UserWarning` from `OpticsStage` on the predicate *`nearfield_enabled` truthy AND `not stray_includes_thermal` AND no element has `temperature_K > 0`*, gated to thermal bands (`filter_max_um > 2.5 µm`) so it does not fire on the 15 VIS/NIR files where warm optics is physically irrelevant; the predicate is mode-agnostic so it also catches a Mode 4/5 train with forgotten temperatures. (2) Remediate `examples/` plus the 5 point-source scenarios (results-affecting; CHANGELOG **Results-affecting:**). The 34 extended-scene thermal scenarios are left warning for the chartered scenario sweep, since their walkthrough narratives quote numbers that would all need rewriting. **DECLINED within this CU** (owner, 2026-09-30): the external report's suggested fix #2 (hard error on thermal bands — a cryogenic telescope legitimately has zero warm-optics emission, and it would break 39 of our own files) and #3 (lumped ε + T convenience — a scalar ε on a lump with no R/T decomposition is the Rule 5 over-specification the 2026-09-10 ruling removed). Effort M; category C. Related: [[CU-387]], [[Gap 132]].
 
-### CU-382 — Rate-parameter ceilings justified by their default's rationale: `dark_rate_e_per_s` caps at 1e9 and excludes real large-pixel LWIR detectors
-
-**Discovered**: external review `docs/reports/external_review_2026-09/` F3, 2026-09-30.
-**Status**: Open.
-**File**: `src/radiant/detector/_schema.py:219` (`DARK_RATE_E_PER_S`, `bounds=(0.0, 1e9)`); `detector.glow_e_per_s` (1e6) shares the pattern.
-**Symptom**: a 20 µm pixel at 1 A/m² dark-current density — a routine LWIR figure — needs 2.50e9 e-/s (`1 A/m² × (20e-6 m)² / 1.602e-19 C`), above the ceiling. The bound's `default_justification` is *"Order-of-magnitude room-temperature Si CCD reference"*, which is the rationale for the **default** (100.0), not for the ceiling. Pinned at the ceiling, dark contributed 40 % of its true value in the external reconciliation; `glow_e_per_s` caps at 1e6 and cannot absorb the remainder.
-**Why it still matters**: blocking (intake test 3) — a legitimate detector cannot be expressed, and no workaround exists. Results-affecting for anyone who hit the clamp.
-**Suggested fix**: (a) inline-fix-now — raise `dark_rate_e_per_s` to ~1e12, and **sweep the rate-parameter ceilings as a class** rather than fixing the one instance, since the default-justifies-ceiling pattern is what produced it. Nothing downstream assumes a magnitude. Effort S; category B.
-
 ### CU-384 — A `configurations:` study cannot express a parameter whose legality is conditional on another parameter
 
 **Discovered**: external review `docs/reports/external_review_2026-09/` F5, 2026-09-30.
@@ -107,24 +100,6 @@ The 34 extended-scene thermal scenarios remain out of scope for this CU (charter
 **Symptom**: `configurations.parameters` lists are dense — one value per name, mismatch is an error, never padded. But `readout.reference_source` / `reference_integration_s` are legal only under `counting_mode: up_down`, and *being explicitly set* is the refusal trigger, including when set to 0. So a study comparing an `up` configuration against an `up_down` one cannot name the reference parameters at all. Density and conditional legality are in direct conflict, with no in-study workaround.
 **Why it still matters**: owner-gated (intake test 2) — the fix amends a ratified ADR. The reported case escaped only because the wanted value happened to be the D7 default; a study needing a *non-default* conditional parameter has nowhere to put it.
 **Suggested fix**: (b) stand-alone task on an owner ruling — allow an explicit null/omitted sentinel in a `configurations.parameters` list meaning "leave at default for this member", distinct from a set value, preserving density (list length still matches) while restoring expressiveness. Effort M; category B. Requires an ADR-0010 amendment in lock-step (Rule 20).
-
-### CU-385 — The CLI writes non-ASCII through an unconfigured stdout, so RADIANT is unusable on a default Windows console (Rule 30)
-
-**Discovered**: external review `docs/reports/external_review_2026-09/` F6, 2026-09-30. Verification found it broader than reported.
-**Status**: Open.
-**File**: `src/radiant/cli/` — no `sys.stdout.reconfigure(encoding="utf-8")` anywhere; `src/radiant/cli/main.py` is the natural home. Non-ASCII schema descriptions confirmed in `spectral_integration/_schema.py` (`µ`), `platform/_schema.py` (`µ`), `detector/_schema.py` (`α`, `Ω`, `₀`).
-**Symptom**: `radiant schema` dies with `UnicodeEncodeError: 'charmap' codec can't encode character 'α'` on a default Windows terminal; the command is unusable without `PYTHONIOENCODING=utf-8`. **Broader than reported**: the fatal set is `α λ ε Ω τ σ Δ θ ρ ₀ ⁻ √ ≈` — note `µ`, `°`, `²`, `³`, `×` all encode fine in cp1252, so the obvious suspects are not the problem — and **81 candidate user-facing strings across 36 modules** carry a member of it, including raised `ParameterBoundsError` text (`source/_inferrer.py:587` "needs at least one (λ, ρ) pair"; `core/descriptors.py:358` "needs ε(λ) for Kirchhoff self-emission"). So a parameter-bounds error can itself die in `UnicodeEncodeError` — the diagnostic fails exactly when it is needed.
-**Why it still matters**: workflow-visible (intake test 4) and a direct Rule 30 violation — RADIANT must run unmodified on Windows, and it does not.
-**Suggested fix**: (a) inline-fix-now — reconfigure the CLI output and error streams to UTF-8 at entry (with a fallback for streams that cannot be reconfigured), not ASCII-fold the descriptions: the characters are correct and the units are load-bearing. Effort S; category A.
-
-### CU-386 — Integration tests write a tracked file with no encoding and no newline control, dirtying the tree and stamping exports `-dirty` (Rule 30)
-
-**Discovered**: external review `docs/reports/external_review_2026-09/` F7, 2026-09-30. Verification found the Rule 30 breach the report did not name.
-**Status**: Open.
-**File**: `tests/integration/test_use_case_matrix.py:371` and `tests/integration/test_spec_form_matrix.py:176` — both `_COVERAGE_PATH.write_text(...)` with **neither `encoding="utf-8"` nor `newline="\n"`**; the target `tests/integration/_use_case_coverage.json` is tracked.
-**Symptom**: a plain `pytest` run rewrites a tracked file. On Windows the rewrite lands CRLF, `git describe --dirty` then reports `-dirty`, and since RADIANT resolves the git commit at the loaded package location for export stamps, **every result exported after a test run is stamped dirty** though the source is byte-identical.
-**Why it still matters**: workflow-visible (intake test 4) and it corrupts export provenance, which is a results-adjacent record. The two missing `write_text` keywords are unconditional Rule 30 violations independent of the dirty-tree symptom (`.gitattributes` already carries `* text=auto eol=lf`, so the CRLF diff itself is local-git-config dependent).
-**Suggested fix**: (a) inline-fix-now — add `encoding="utf-8"` to both sites, and stop writing a tracked file: move the artifact under `build/` and gitignore it, or untrack it. A test run must not modify tracked files. Effort S; category A.
 
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
@@ -160,6 +135,42 @@ The 34 extended-scene thermal scenarios remain out of scope for this CU (charter
 
 ## Resolved
 
+### CU-386 — Integration tests write a tracked file with no encoding and no newline control, dirtying the tree and stamping exports `-dirty` (Rule 30) — RESOLVED 2026-09-30 (commit trailer)
+
+**Discovered**: external review `docs/reports/external_review_2026-09/` F7, 2026-09-30. Verification found the Rule 30 breach the report did not name.
+**Status**: Resolved 2026-09-30.
+**File**: `tests/integration/test_use_case_matrix.py:371` and `tests/integration/test_spec_form_matrix.py:176` — both `_COVERAGE_PATH.write_text(...)` with **neither `encoding="utf-8"` nor `newline="\n"`**; the target `tests/integration/_use_case_coverage.json` is tracked.
+**Symptom**: a plain `pytest` run rewrites a tracked file. On Windows the rewrite lands CRLF, `git describe --dirty` then reports `-dirty`, and since RADIANT resolves the git commit at the loaded package location for export stamps, **every result exported after a test run is stamped dirty** though the source is byte-identical.
+**Why it still matters**: workflow-visible (intake test 4) and it corrupts export provenance, which is a results-adjacent record. The two missing `write_text` keywords are unconditional Rule 30 violations independent of the dirty-tree symptom (`.gitattributes` already carries `* text=auto eol=lf`, so the CRLF diff itself is local-git-config dependent).
+**Suggested fix**: (a) inline-fix-now — add `encoding="utf-8"` to both sites, and stop writing a tracked file: move the artifact under `build/` and gitignore it, or untrack it. A test run must not modify tracked files. Effort S; category A.
+
+**Resolution**: the coverage artifact moved to the gitignored `build/` tree with `encoding="utf-8"` and `newline="\n"` supplied at both writers (Rule 30). It qualifies under none of Rule 26's three committed-artifact causes — no test asserts against it and nothing live reads it — so it is regenerate-on-demand and untracked. A `pytest` run no longer modifies any tracked file, so exported results are no longer stamped `-dirty`.
+
+
+### CU-385 — The CLI writes non-ASCII through an unconfigured stdout, so RADIANT is unusable on a default Windows console (Rule 30) — RESOLVED 2026-09-30 (commit trailer)
+
+**Discovered**: external review `docs/reports/external_review_2026-09/` F6, 2026-09-30. Verification found it broader than reported.
+**Status**: Resolved 2026-09-30.
+**File**: `src/radiant/cli/` — no `sys.stdout.reconfigure(encoding="utf-8")` anywhere; `src/radiant/cli/main.py` is the natural home. Non-ASCII schema descriptions confirmed in `spectral_integration/_schema.py` (`µ`), `platform/_schema.py` (`µ`), `detector/_schema.py` (`α`, `Ω`, `₀`).
+**Symptom**: `radiant schema` dies with `UnicodeEncodeError: 'charmap' codec can't encode character 'α'` on a default Windows terminal; the command is unusable without `PYTHONIOENCODING=utf-8`. **Broader than reported**: the fatal set is `α λ ε Ω τ σ Δ θ ρ ₀ ⁻ √ ≈` — note `µ`, `°`, `²`, `³`, `×` all encode fine in cp1252, so the obvious suspects are not the problem — and **81 candidate user-facing strings across 36 modules** carry a member of it, including raised `ParameterBoundsError` text (`source/_inferrer.py:587` "needs at least one (λ, ρ) pair"; `core/descriptors.py:358` "needs ε(λ) for Kirchhoff self-emission"). So a parameter-bounds error can itself die in `UnicodeEncodeError` — the diagnostic fails exactly when it is needed.
+**Why it still matters**: workflow-visible (intake test 4) and a direct Rule 30 violation — RADIANT must run unmodified on Windows, and it does not.
+**Suggested fix**: (a) inline-fix-now — reconfigure the CLI output and error streams to UTF-8 at entry (with a fallback for streams that cannot be reconfigured), not ASCII-fold the descriptions: the characters are correct and the units are load-bearing. Effort S; category A.
+
+**Resolution**: new `cli/_encoding.py` reconfigures stdout and stderr to UTF-8, called from the click group body and separately from the eager `--version` callback (which echoes during parsing, before the group body runs). Non-reconfigurable streams are left alone, catching only the narrow errors they raise. Measured exposure: **81 user-facing strings across 36 modules** carry a cp1252-fatal character, including raised `ParameterBoundsError` text. Correction recorded in the report: `µ`, `°`, `²`, `³`, `×` are all cp1252-SAFE — the fatal set is `α λ ε Ω τ σ Δ θ ρ ₀ ⁻ √ ≈`. 9 tests reproduce the Windows failure on macOS via `PYTHONIOENCODING=cp1252`; 2 go red against a neutered helper.
+
+
+### CU-382 — Rate-parameter ceilings justified by their default's rationale: `dark_rate_e_per_s` caps at 1e9 and excludes real large-pixel LWIR detectors — RESOLVED 2026-09-30 (commit trailer)
+
+**Discovered**: external review `docs/reports/external_review_2026-09/` F3, 2026-09-30.
+**Status**: Resolved 2026-09-30.
+**File**: `src/radiant/detector/_schema.py:219` (`DARK_RATE_E_PER_S`, `bounds=(0.0, 1e9)`); `detector.glow_e_per_s` (1e6) shares the pattern.
+**Symptom**: a 20 µm pixel at 1 A/m² dark-current density — a routine LWIR figure — needs 2.50e9 e-/s (`1 A/m² × (20e-6 m)² / 1.602e-19 C`), above the ceiling. The bound's `default_justification` is *"Order-of-magnitude room-temperature Si CCD reference"*, which is the rationale for the **default** (100.0), not for the ceiling. Pinned at the ceiling, dark contributed 40 % of its true value in the external reconciliation; `glow_e_per_s` caps at 1e6 and cannot absorb the remainder.
+**Why it still matters**: blocking (intake test 3) — a legitimate detector cannot be expressed, and no workaround exists. Results-affecting for anyone who hit the clamp.
+**Suggested fix**: (a) inline-fix-now — raise `dark_rate_e_per_s` to ~1e12, and **sweep the rate-parameter ceilings as a class** rather than fixing the one instance, since the default-justifies-ceiling pattern is what produced it. Nothing downstream assumes a magnitude. Effort S; category B.
+
+**Resolution**: `dark_rate_e_per_s` 1e9 → 1e12, and the class audit the CU asked for found two coupled parameters with the same defect: `dsnu_e_rms` (1e6) is a fraction of the dark *signal* so its ceiling must track dark × t_int, and `glow_e_per_s` (1e6) is the same physical quantity as dark in the same units. All three now 1e12, matching `readout.full_well_capacity_e`'s ceiling. 8 new tests, 3 of which go red against the old 1e9. No default moved, so no existing result changes.
+
+
 ### CU-390 — The HV-5/7 Cn² profile is evaluated against MSL altitude, not above-ground-level, so r₀ is optimistic by ~2× at any non-sea-level site — SUPERSEDED 2026-10-01 (no commit — the engine fix landed 2026-07-30 as [[CU-262]], commit `243e596`; this entry is a duplicate promotion of the same scenario finding)
 
 **Discovered**: scenario 10.3 runner section 9, recorded as its G8 and never promoted; surfaced by the [[CU-387]] triage, 2026-09-30.
@@ -190,7 +201,6 @@ The 34 extended-scene thermal scenarios remain out of scope for this CU (charter
 *Collateral, markdown only.* `RADIANT_Geometry.md`'s consumer paragraph still advertised a "T1 solar-strip" that CU-356 had removed — repaired here (Rule 20). Scenario 10.3's `gaps.md` G3 row moves to RESOLVED citing CU-258/CU-356 and carrying the re-measured numbers, per the promotion gate. No `CHANGELOG.md` entry: nothing user-observable changed, and the entries for the landings that *did* change results are already there under CU-258 and CU-356.
 
 *Not done, deliberately.* The scenario runner's section 8 and the walkthrough's §9 item 1 still assert the stripped-θ_s mechanism beside their own contradicting measurements; a drafted correction and a drafted Level-0/integration regression pin for the T7 door were both set aside to keep this closure markdown-only, and are recorded as Findings-Log lines instead of being re-authored here.
-
 ### CU-387 — Scenario `gaps.md` files are an unpromoted fourth registry: 51 files, 20 carrying HIGH/CRITICAL findings, with no path into the three registries Rule 25 governs — RESOLVED 2026-09-30 (commit trailer)
 
 **Discovered**: external review triage, 2026-09-30 — while confirming F1 and F2, both were found already recorded in scenario-local `gaps.md` files and never promoted.

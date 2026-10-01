@@ -87,16 +87,39 @@ decision 10):
 |------|------------------|------------|
 | K0 platform-only (default) | *(none)* | ω = ground-track speed / slant range — the value `platform/smear.py` already derives. `None` when the endpoints are coincident (no LOS to rotate) |
 | K1 direct rate | `geometry.los_angular_rate_rad_s` | taken as given; needs no geometry, so it is the door that still works for a coincident-endpoint scene |
-| K2 target velocity | `geometry.target_speed_m_s`, `geometry.target_heading_rad`, `geometry.target_climb_rad` | ω = \|v_rel,⊥\| / R with v_rel = v_target − v_sensor (`geometry/los_rate.py`) |
+| K2 relative velocity | `geometry.target_speed_m_s`, `geometry.target_heading_rad`, `geometry.target_climb_rad`, `geometry.sensor_speed_m_s` | ω = \|v_rel,⊥\| / R with v_rel = v_target − v_sensor (`geometry/los_rate.py`) |
 
 Heading is measured in the target's local horizontal plane **from the
 observer's ground azimuth** — the same zero and sense `delta_phi` uses
 (Δφ = φ_s − φ_o with φ_o ≡ 0) — and climb is the velocity's elevation above
-that plane. The platform's ground track is modelled as **cross-track** to the
+that plane. The platform's track is modelled as **cross-track** to the
 LOS azimuth plane (the push-broom convention `platform/smear.py` already
 assumes, RADIANT having no track-azimuth input), which is what makes the K0
 limit reduce *exactly* to the smear arm's rate at every θ_o rather than only at
 nadir. Both doors set must agree within 1 % (rule 2 below) or the stage raises.
+
+**Which speed the sensor endpoint carries is a frame question the target
+decides** (CU-391). A circular orbit has two speeds and the LOS rate needs
+whichever is measured in the frame the *target's* velocity is expressed in:
+
+| Target | Sensor speed in ω | Why |
+|--------|-------------------|-----|
+| Earth-fixed (ground) | ground-track $v_g = v R_E / a$ — `geometry.ground_speed_m_s`, the default | A nadir-stabilised platform's off-boresight angle changes at $\mathrm{d}\eta/\mathrm{d}t = R_E\,\omega_o/h = v_g/h$; this is also the quantity `platform.ground_velocity_m_s` carries (Gap 75), so the two arms cannot disagree |
+| Not Earth-fixed (another spacecraft, exo-atmospheric body) | inertial $v = \sqrt{\mu/a}$ — enter it at `geometry.sensor_speed_m_s` | The ground-track reduction's premise (a co-rotating target at radius $R_E$) is false, so $v_g$ is simply the wrong magnitude |
+
+`geometry.sensor_speed_m_s` is therefore a **second expression of the one
+platform velocity**, not a second velocity: `ground_speed_m_s` stays the
+ground-track projection the access-rate metric and the smear arm consume, and
+the door changes only what the LOS-rate model puts on the sensor endpoint. The
+door is opt-in and defaults to the ground-track speed, so every pre-CU-391
+configuration is bit-identical; the resolved value and its origin are published
+as `sensor_speed_m_s` / `sensor_speed_mode` (§3). Leaving it closed against a
+space target is the CU-391 defect — a 500 km LEO staring at the geostationary
+belt publishes 200.1 µrad/s where 128.7 µrad/s is correct, **+55.5 %** — so
+GeometryStage raises a `UserWarning` on exactly that combination (`target_class`
+= `space`, the door closed, a non-zero platform speed, and the rate not entered
+directly through K1). Scene class gates the *advice* only, never the physics
+(ADR-0011 decision 8).
 
 ### Mode-resolution rules (normative; enforced in `geometry/modes.py`)
 
@@ -114,7 +137,11 @@ nadir. Both doors set must agree within 1 % (rule 2 below) or the stage raises.
 5. `geometry.ltan_h` and `geometry.local_solar_time_h` are mutually
    exclusive; setting both raises.
 6. A user-set `geometry.ground_speed_m_s` that disagrees (>1 %) with the
-   circular-orbit derivation raises.
+   circular-orbit **ground-track** derivation $v R_E/a$ raises.
+7. A user-set `geometry.sensor_speed_m_s` that disagrees (>1 %) with the
+   circular-orbit **inertial** derivation $\sqrt{\mu/a}$ raises (CU-391). The
+   two checks are independent: they compare different entries against
+   different derived quantities, and neither is compared against the other.
 
 ### Machine-readable manifest (`geometry/mode_manifest.py`)
 
@@ -181,7 +208,9 @@ satisfy one test tree and break the other (CU-309).
 | `los_angular_rate_rad_s` | float \| None | relative LOS angular rate [rad/s] (Gap 111); `None` only for coincident endpoints |
 | `theta_s_rad`, `delta_phi_rad` | float \| None | solar geometry (None at night) |
 | `solar_illumination` | str | `day` / `night` |
-| `ground_speed_m_s` | float | direct or orbit-derived |
+| `ground_speed_m_s` | float | ground-track speed — direct or orbit-derived |
+| `sensor_speed_m_s` | float | the speed the LOS-rate model puts on the **sensor** endpoint (CU-391); equals `ground_speed_m_s` unless the `geometry.sensor_speed_m_s` door stated the platform's inertial speed |
+| `sensor_speed_mode` | str | which of the two produced `sensor_speed_m_s` |
 | `orbital_period_s` | float \| None | circular-orbit mode only |
 | `viewing_mode`, `solar_mode`, `kinematics_mode`, `los_rate_mode` | str | which input mode resolved each family |
 
@@ -378,13 +407,13 @@ G4 deferral recorded at Phase 3 (gating stage Phase 5, honoured on schedule).
 
 ## 5. Parameters
 
-Thirty-two `ParameterDef`s in `geometry/_schema.py` — the seven canonical
+Thirty-three `ParameterDef`s in `geometry/_schema.py` — the seven canonical
 definitions moved verbatim from `atmosphere/_schema.py`, plus
 `geometry.target_range_m` (moved from `source/_schema.py`;
 `source.target.range_m` survives as a deprecated alias, warn-and-redirect),
-plus nine viewing/solar mode-entry parameters, plus the four **target-kinematics**
+plus nine viewing/solar mode-entry parameters, plus the five **relative-kinematics**
 parameters (`los_angular_rate_rad_s`; `target_speed_m_s` / `target_heading_rad` /
-`target_climb_rad`) and the optional **`geometry.scene_class`** assertion
+`target_climb_rad`; `sensor_speed_m_s`) and the optional **`geometry.scene_class`** assertion
 (not a mode door — see §3.1 — and therefore deliberately outside the mode
 manifest), plus the ten **`geometry.target.*` target-extent
 parameters** (shape, five dimensions, three orientation angles, projected area)

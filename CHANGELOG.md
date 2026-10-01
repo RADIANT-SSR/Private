@@ -66,6 +66,28 @@ retroactively reconstructed.
   value they should have had (CU-382).
 
 ### Added
+- **`geometry.sensor_speed_m_s`** — the sensor endpoint's speed in the
+  line-of-sight angular rate, a second expression of the one platform velocity
+  distinct from the ground-track `geometry.ground_speed_m_s` (CU-391). A
+  circular orbit has two speeds and the LOS rate needs the one measured in the
+  frame the target's velocity lives in: the ground-track projection
+  $v R_E/a$ for an **Earth-fixed** target seen from a nadir-stabilised platform
+  (where the off-boresight angle changes at $v_g/h$), and the **inertial**
+  $\sqrt{\mu/a}$ for a target that is not Earth-fixed. It joins the K2
+  relative-velocity door (manifest mode unchanged; the target triple and the
+  sensor's speed combine rather than compete), is agreement-checked against the
+  circular-orbit inertial derivation within 1 % per ADR-0006 rule 2, and is
+  published as `stage_outputs["geometry"]["sensor_speed_m_s"]` with its
+  `sensor_speed_mode`. **Not results-affecting on its own:** the door is
+  opt-in, and left closed the sensor endpoint carries the ground-track speed
+  exactly as before, so every existing configuration is bit-identical.
+- **A `UserWarning` when the LOS rate uses the ground-track speed against a
+  space target** (CU-391) — the combination that was silently wrong. On a
+  500 km LEO staring at the geostationary belt the old default published
+  200.1 µrad/s where 128.7 µrad/s is correct (**+55.5 %**), and that rate feeds
+  `platform.smear_width_m`, the smear MTF, EE_box, SNR and detection range.
+  Ground-target scenes never warn — there the ground-track speed is the right
+  quantity. Opening the door, or entering the rate through K1, silences it.
 - **`detector.flicker_corner_hz`** — the frequency where the 1/f PSD meets the
   white noise floor. Load-bearing for the new model, and it has no safe
   default: left unset with `flicker_K > 0`, RADIANT integrates to the boxcar

@@ -203,6 +203,14 @@ non-rotating Earth for ground-track speed; plane-of-date solar geometry.
 - **Public API:** `Sensor.set_ground_velocity_from_orbit()` → `ground_track_speed_m_s`
   → `platform.ground_velocity_m_s` (identity-grouped with `geometry.ground_speed_m_s`,
   RADIANT_Parameter_System.md §Consistency-Groups).
+- **Line-of-sight rate:** `orbital_velocity_m_s` (the **inertial** speed
+  $\sqrt{\mu/a}$, not the ground-track speed) is the quantity the relative
+  LOS rate puts on the sensor endpoint when the target is not Earth-fixed —
+  entered at `geometry.sensor_speed_m_s` and agreement-checked against this
+  derivation (CU-391; RADIANT_Geometry.md §2 LOS-rate family). Which of the two
+  speeds belongs is a frame question, not a unit conversion: $v_g = v R_E/a$ is
+  the rate a nadir-stabilised platform sees against a **co-rotating surface**
+  target, and nothing about a space target satisfies that premise.
 - **Performance metrics:** GSD, ground range, swath width, access rate, and
   the diffraction-limit ground projection consume the values GeometryStage
   publishes (`stage_outputs["geometry"]` — ADR-0006 Phase 2), which are

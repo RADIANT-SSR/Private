@@ -8,9 +8,11 @@ resolves them to the canonical internal representation:
     viewing:  theta_o (target-side path zenith), eta, slant range,
               ground range, altitudes
     solar:    theta_s, delta_phi (or None/None at night)
-    kinematics: ground-track speed (+ orbital period for circular orbits)
-    los_rate: LOS angular rate — direct (K1) or from the target velocity
-              triple (K2), defaulting to the platform-only value (K0)
+    kinematics: ground-track speed and the LOS-rate sensor speed
+              (+ orbital period for circular orbits)
+    los_rate: LOS angular rate — direct (K1) or from the endpoint
+              velocities (K2: the target-velocity triple and the sensor's
+              own speed), defaulting to the platform-only value (K0)
 
 Rules (normative, ADR-0006):
   1. Mode detection is by provenance — a parameter left at DEFAULT
@@ -59,7 +61,11 @@ import warnings
 from dataclasses import dataclass
 
 from radiant.core.los_geometry import theta_o_from_eta
-from radiant.core.orbit import ground_track_speed_m_s, orbital_period_s
+from radiant.core.orbit import (
+    ground_track_speed_m_s,
+    orbital_period_s,
+    orbital_velocity_m_s,
+)
 from radiant.core.parameters import ParameterSet, Provenance
 from radiant.core.solar_geometry import (
     local_solar_time_from_ltan,
@@ -128,10 +134,27 @@ class SolarResolution:
 
 @dataclass(frozen=True, kw_only=True)
 class KinematicsResolution:
-    """Canonical platform kinematics after mode resolution."""
+    """Canonical platform kinematics after mode resolution.
+
+    The platform has **one** velocity and this carries two expressions of its
+    magnitude (CU-391), because which one a consumer needs is a frame question:
+
+    * ``ground_speed_m_s`` — the sub-satellite **ground-track** speed
+      ``v·R_E/a``.  Consumed by the access-rate metric and (through
+      ``platform.ground_velocity_m_s``, Gap 75) the smear arm, and the correct
+      LOS-rate scaling for an Earth-fixed target seen from a nadir-stabilised
+      platform.
+    * ``sensor_speed_m_s`` — the speed the **LOS-rate** model puts on the sensor
+      endpoint.  Equal to ``ground_speed_m_s`` unless the
+      ``geometry.sensor_speed_m_s`` door is open, which is how a scene whose
+      target is not Earth-fixed states the platform's *inertial* speed instead.
+      ``sensor_speed_mode`` names which of the two produced it.
+    """
 
     mode: str
     ground_speed_m_s: float
+    sensor_speed_m_s: float
+    sensor_speed_mode: str
     orbital_period_s: float | None
 
 
@@ -450,17 +473,92 @@ def resolve_solar(params: ParameterSet) -> SolarResolution:
     return SolarResolution(mode=mode, theta_s_rad=theta_s, delta_phi_rad=delta_phi)
 
 
+#: The LOS-rate sensor-velocity door (CU-391) — the inertial counterpart of
+#: ``geometry.ground_speed_m_s``, opened by provenance like every other door.
+_SENSOR_SPEED_DOOR = "geometry.sensor_speed_m_s"
+
+#: ``KinematicsResolution.sensor_speed_mode`` when the CU-391 door is closed and
+#: the LOS rate falls back to the ground-track speed.  Named rather than
+#: string-matched so :mod:`radiant.geometry.stage`'s frame advisory and this
+#: resolver cannot drift apart.
+GROUND_TRACK_SENSOR_SPEED_MODE = "geometry.ground_speed_m_s (ground track)"
+
+
+def _resolve_sensor_speed(
+    params: ParameterSet,
+    *,
+    ground_speed_m_s: float,
+    circular: bool,
+    h_sensor_m: float,
+) -> tuple[float, str]:
+    """The speed the LOS rate puts on the sensor endpoint, and its mode label.
+
+    CU-391.  Closed door ⇒ the ground-track speed, which is every pre-CU-391
+    configuration's behaviour bit-for-bit *and* the physically correct scaling
+    for an Earth-fixed target (``dη/dt = v_g/h``).  Open door ⇒ the entered
+    speed, which for a circular orbit is a redundant entry for
+    ``sqrt(mu/a)`` and must agree with it within 1 % (ADR-0006 rule 2), exactly
+    as a user-set ``ground_speed_m_s`` must agree with ``v·R_E/a``.
+    """
+    if not _provided(params, _SENSOR_SPEED_DOOR):
+        return ground_speed_m_s, GROUND_TRACK_SENSOR_SPEED_MODE
+
+    entered = float(params.get(_SENSOR_SPEED_DOOR))
+    if not circular:
+        return entered, _SENSOR_SPEED_DOOR
+
+    v_inertial = orbital_velocity_m_s(h_sensor_m)
+    if not _agree(v_inertial, entered):
+        raise GeometrySpecificationError(
+            what=(
+                f"geometry.circular_orbit derives an inertial orbital speed of "
+                f"{v_inertial:.1f} m/s from the {h_sensor_m:.0f} m altitude, but "
+                f"geometry.sensor_speed_m_s is explicitly set to {entered:.1f} m/s"
+            ),
+            why=(
+                "A circular orbit's inertial speed sqrt(mu/a) is fully "
+                "determined by its altitude; a disagreeing explicit speed "
+                "over-specifies the sensor endpoint's velocity. Note this is "
+                "NOT the ground-track speed "
+                f"({ground_speed_m_s:.1f} m/s) — geometry.sensor_speed_m_s is "
+                "the inertial magnitude, which is the one the line-of-sight "
+                "rate needs when the target is not Earth-fixed (CU-391)."
+            ),
+            action=(
+                "Remove the explicit geometry.sensor_speed_m_s (the orbit "
+                f"derivation supplies {v_inertial:.1f} m/s), or set "
+                "circular_orbit=false for a non-orbital platform."
+            ),
+            context={
+                "derived_inertial_m_s": v_inertial,
+                "explicit_sensor_speed_m_s": entered,
+                "derived_ground_track_m_s": ground_speed_m_s,
+            },
+        )
+    return entered, f"{_SENSOR_SPEED_DOOR} + circular_orbit (consistent)"
+
+
 def resolve_kinematics(params: ParameterSet) -> KinematicsResolution:
     """Resolve platform kinematics (mode V6 circular orbit, or direct)."""
     circular: bool = bool(params.get("geometry.circular_orbit"))
     ground_speed_param: float = float(params.get("geometry.ground_speed_m_s"))
+    h_sensor: float = params.get("geometry.sensor_altitude_m")
 
     if not circular:
+        sensor_speed, sensor_speed_mode = _resolve_sensor_speed(
+            params,
+            ground_speed_m_s=ground_speed_param,
+            circular=False,
+            h_sensor_m=h_sensor,
+        )
         return KinematicsResolution(
-            mode="direct", ground_speed_m_s=ground_speed_param, orbital_period_s=None
+            mode="direct",
+            ground_speed_m_s=ground_speed_param,
+            sensor_speed_m_s=sensor_speed,
+            sensor_speed_mode=sensor_speed_mode,
+            orbital_period_s=None,
         )
 
-    h_sensor: float = params.get("geometry.sensor_altitude_m")
     v_orbit = ground_track_speed_m_s(h_sensor)
     if (
         _provided(params, "geometry.ground_speed_m_s")
@@ -489,19 +587,30 @@ def resolve_kinematics(params: ParameterSet) -> KinematicsResolution:
                 "explicit_m_s": ground_speed_param,
             },
         )
+    sensor_speed, sensor_speed_mode = _resolve_sensor_speed(
+        params, ground_speed_m_s=v_orbit, circular=True, h_sensor_m=h_sensor
+    )
     return KinematicsResolution(
         mode="circular_orbit",
         ground_speed_m_s=v_orbit,
+        sensor_speed_m_s=sensor_speed,
+        sensor_speed_mode=sensor_speed_mode,
         orbital_period_s=orbital_period_s(h_sensor),
     )
 
 
-#: The K2 door: any user-set member selects the target-velocity mode.
+#: The target half of the K2 door — the triple whose zero-speed combination
+#: warrants the "target contributes nothing" advisory.
 _TARGET_VELOCITY_DOORS: tuple[str, ...] = (
     "geometry.target_speed_m_s",
     "geometry.target_heading_rad",
     "geometry.target_climb_rad",
 )
+
+#: The whole K2 door (CU-391): the relative velocity is a two-endpoint
+#: quantity, so the sensor's own speed opens the same mode the target triple
+#: does.  Any user-set member selects K2.
+_RELATIVE_VELOCITY_DOORS: tuple[str, ...] = (*_TARGET_VELOCITY_DOORS, _SENSOR_SPEED_DOOR)
 
 
 def resolve_los_rate(
@@ -509,7 +618,7 @@ def resolve_los_rate(
     viewing: ViewingResolution,
     kinematics: KinematicsResolution,
 ) -> LosRateResolution:
-    """Resolve the LOS angular rate (modes K0 default / K1 direct / K2 target velocity).
+    """Resolve the LOS angular rate (modes K0 default / K1 direct / K2 relative velocity).
 
     Gap 111 ships **both doors, provenance-resolved** (ADR-0011 decision 10 /
     plan §8.3 answer 4):
@@ -517,9 +626,12 @@ def resolve_los_rate(
     * **K1** — ``geometry.los_angular_rate_rad_s`` entered directly.  Needs no
       geometry at all, so it is the door that still works for a coincident-
       endpoint scene.
-    * **K2** — ``geometry.target_speed_m_s`` + ``target_heading_rad`` +
-      ``target_climb_rad``, combined with the platform's ground-track velocity
-      by :func:`radiant.geometry.los_rate.relative_los_angular_rate_rad_s`.
+    * **K2** — the endpoint velocities: ``geometry.target_speed_m_s`` +
+      ``target_heading_rad`` + ``target_climb_rad`` for the target, and
+      ``geometry.sensor_speed_m_s`` for the sensor (CU-391), combined by
+      :func:`radiant.geometry.los_rate.relative_los_angular_rate_rad_s`.  With
+      the sensor door closed the sensor endpoint carries the platform's
+      ground-track speed, which is what every pre-CU-391 scene used.
     * **K0** — neither door set: the rate is derived from the platform motion
       alone, which is exactly ``ground_speed / slant_range`` (the value
       ``platform/smear.py`` already derives) because a zero target velocity
@@ -530,6 +642,7 @@ def resolve_los_rate(
     """
     direct_provided = _provided(params, "geometry.los_angular_rate_rad_s")
     target_provided = any(_provided(params, name) for name in _TARGET_VELOCITY_DOORS)
+    relative_provided = any(_provided(params, name) for name in _RELATIVE_VELOCITY_DOORS)
     slant = viewing.slant_range_m
 
     candidates: list[tuple[str, float]] = []
@@ -540,24 +653,29 @@ def resolve_los_rate(
                 float(params.get("geometry.los_angular_rate_rad_s")),
             )
         )
-    if target_provided:
+    if relative_provided:
         target_speed = float(params.get("geometry.target_speed_m_s"))
-        if target_speed <= 0.0:
+        if target_provided and target_speed <= 0.0:
             warnings.warn(
                 "GeometryStage: a target-velocity input "
                 "(geometry.target_heading_rad / target_climb_rad) is set but "
                 "geometry.target_speed_m_s is 0 m/s, so the target contributes "
                 "nothing to the line-of-sight rate — the published rate is the "
-                "platform-only value. Set geometry.target_speed_m_s > 0 for a "
-                "moving target.",
+                "sensor-motion-only value. Set geometry.target_speed_m_s > 0 "
+                "for a moving target.",
                 UserWarning,
                 stacklevel=2,
             )
+        # The label names what the door actually carried, so result.inspect()
+        # distinguishes a target-only K2 (every pre-CU-391 scene, label
+        # unchanged) from one that also stated the sensor's own speed.
+        label = (
+            "relative velocity (K2)"
+            if _provided(params, _SENSOR_SPEED_DOOR)
+            else "target velocity (K2)"
+        )
         candidates.append(
-            (
-                "target velocity (K2)",
-                _los_rate_from_velocity(params, viewing, kinematics, target_speed),
-            )
+            (label, _los_rate_from_velocity(params, viewing, kinematics, target_speed))
         )
 
     if not candidates:
@@ -575,7 +693,7 @@ def resolve_los_rate(
             los_angular_rate_rad_s=relative_los_angular_rate_rad_s(
                 slant_range_m=slant,
                 theta_o_rad=viewing.theta_o_rad,
-                sensor_ground_speed_m_s=kinematics.ground_speed_m_s,
+                sensor_speed_m_s=kinematics.sensor_speed_m_s,
             ),
         )
     if len(candidates) == 1:
@@ -597,18 +715,23 @@ def _los_rate_from_velocity(
     kinematics: KinematicsResolution,
     target_speed_m_s: float,
 ) -> float:
-    """K2: LOS rate from the target-velocity triple + the platform ground track."""
+    """K2: LOS rate from the target-velocity triple + the sensor's own speed.
+
+    The sensor endpoint carries ``kinematics.sensor_speed_m_s`` — the
+    ground-track speed unless the CU-391 door stated the inertial one.
+    """
     slant = viewing.slant_range_m
     if slant is None or slant <= 0.0:
         raise GeometrySpecificationError(
             what=(
-                "geometry.target_speed_m_s (and its heading/climb) were set, but "
-                "the scene has no line of sight: the sensor and target are "
+                "a K2 relative-velocity input (geometry.target_speed_m_s and its "
+                "heading/climb, or geometry.sensor_speed_m_s) was set, but the "
+                "scene has no line of sight: the sensor and target are "
                 "coincident (equal altitudes with no separation supplied)"
             ),
             why=(
                 "The LOS angular rate is |v_rel,perp| / slant_range. With zero "
-                "separation the LOS has no direction, so a target velocity "
+                "separation the LOS has no direction, so an endpoint velocity "
                 "cannot be turned into a rate at which that direction changes."
             ),
             action=(
@@ -618,6 +741,7 @@ def _los_rate_from_velocity(
             ),
             context={
                 "geometry.target_speed_m_s": target_speed_m_s,
+                "geometry.sensor_speed_m_s": kinematics.sensor_speed_m_s,
                 "geometry.sensor_altitude_m": viewing.h_sensor_m,
                 "geometry.target_altitude_m": viewing.h_target_m,
                 "viewing_mode": viewing.mode,
@@ -626,7 +750,7 @@ def _los_rate_from_velocity(
     return relative_los_angular_rate_rad_s(
         slant_range_m=slant,
         theta_o_rad=viewing.theta_o_rad,
-        sensor_ground_speed_m_s=kinematics.ground_speed_m_s,
+        sensor_speed_m_s=kinematics.sensor_speed_m_s,
         target_speed_m_s=target_speed_m_s,
         target_heading_rad=float(params.get("geometry.target_heading_rad")),
         target_climb_rad=float(params.get("geometry.target_climb_rad")),

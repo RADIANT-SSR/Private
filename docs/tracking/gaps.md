@@ -1901,6 +1901,18 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 
 ---
 
+## Gap 137: CDS and up/down chopping do not suppress 1/f — the reference high-pass is modelled but not wired
+
+| | |
+|---|---|
+| **Found in** | [[CU-381]] implementation, 2026-09-30. The external review's F2 named the staring-versus-chopped trade as the design question a 1/f model exists to answer. |
+| **Status** | OPEN |
+| **Description** | `radiant.readout.flicker_transfer` carries the reference differencing term `\|H_ref(f)\|² = 4 sin²(π f t_sep)` — the high-pass a chopped or correlated-double-sampled measurement applies — and it is unit-tested (`test_flicker_transfer.py::TestReferenceHighPass`). It is **not wired** from the readout timing: `_build_flicker_context` passes `reference_separation_s = 0.0` unconditionally, so `readout.cds_enabled` and `counting_mode: up_down` currently buy no 1/f suppression. Wiring it needs a ruling on what `t_sep` is in each case (for up/down, the separation between phase centroids, `(t_up + t_down)/2`). |
+| **Impact** | The un-referenced value is the **conservative** one — it keeps the low-frequency power a reference would have removed — so nothing is optimistic today. What is missing is the *comparison*: RADIANT cannot yet show that a chopped sensor beats a staring one by moving its signal off the 1/f knee, which is the central architecture trade for a 1/f-limited design. Rule 29(c): a tracked capability. |
+| **Suggested fix** | Wire `reference_separation_s` from `readout.cds_enabled` and the up/down phase durations, with a Level-0 test pinning the suppression against the analytic `4 sin²` form, and a scenario demonstrating the staring-vs-chopped crossover. The machinery and its tests already exist; this is plumbing plus a `t_sep` definition ruling. |
+
+---
+
 ## Summary Table (retired 2026-09-08)
 
 The per-gap summary table was retired at the early quarterly sweep: its rows

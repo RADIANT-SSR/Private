@@ -66,6 +66,10 @@ from radiant.optics.effective_pupil import resolve_effective_pupil
 from radiant.optics.element import ElementTransferMode
 from radiant.optics.errors import OpticsValidationError
 from radiant.optics.etendue_cone import etendue_cone_solid_angle_sr
+from radiant.optics.nearfield_advisory import (
+    nearfield_is_silently_zero,
+    nearfield_zero_message,
+)
 from radiant.optics.nearfield_irradiance import compute_nearfield_irradiance
 from radiant.optics.pixel_kernel import make_pixel_aperture_kernel_2d
 from radiant.optics.psf.builder import build_effective_psf
@@ -1100,6 +1104,23 @@ class OpticsStage:
         stray_includes_thermal: int = params.get("optics.stray.includes_thermal")
 
         if nearfield_enabled and not stray_includes_thermal:
+            # A thermal-band run whose train has no emitting surface computes a
+            # structurally zero warm-optics term; say so rather than return a
+            # confident optimistic number (CU-380).
+            if nearfield_is_silently_zero(
+                nearfield_enabled=bool(nearfield_enabled),
+                stray_includes_thermal=bool(stray_includes_thermal),
+                elements=tx_result.elements,
+                band_max_um=float(state.wavelength_um.max()),
+            ):
+                warnings.warn(
+                    nearfield_zero_message(
+                        band_max_um=float(state.wavelength_um.max()),
+                        n_elements=len(tx_result.elements),
+                    ),
+                    UserWarning,
+                    stacklevel=2,
+                )
             nf_result = compute_nearfield_irradiance(
                 tx_result.elements,
                 state.wavelength_um,

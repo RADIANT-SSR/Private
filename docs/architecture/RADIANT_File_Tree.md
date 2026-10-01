@@ -144,7 +144,7 @@ atmosphere/
 └── r0_resolution.py     # direct r0 vs profile-derived r0 (CU-093 agreement)
 ```
 
-### `optics/` — 32 source + 29 tests
+### `optics/` — 33 source + 30 tests
 
 Stage 3: PSF (dual-path), MTF terms, throughput, EE_box, regime final. Largest package alongside `source/` and `performance/` because spatial physics (pupil → PSF → MTF) lives here.
 
@@ -155,7 +155,7 @@ Top-level modules group by concern:
 - **MTF product path:** `pupil_mtf.py` (optical MTF from autocorrelation), `pixel_kernel.py`, `diffusion_kernel.py`, `sampling.py`
 - **Throughput / element model:** `element.py`, `element_factories.py`, `system_transmission.py`, `transmission_modes.py`, `filters.py`, `cavity_model.py`, `stray_light.py`
 - **Cold stop / étendue (Gap 128):** `effective_pupil.py` (D_eff, obs_eff, N_eff — resolved once, feeds both spatial paths and Ω_cone), `etendue_cone.py` (Ω_cone = 2π(1 − cos θ))
-- **Stage glue:** `stage.py`, `_schema.py`, `ee_box.py`, `fnumber.py`, `nearfield_irradiance.py`, `telescope.py`
+- **Stage glue:** `stage.py`, `_schema.py`, `ee_box.py`, `fnumber.py`, `nearfield_irradiance.py`, `nearfield_advisory.py`, `telescope.py`
 
 ### `platform/` — 9 source + 9 tests
 
@@ -183,7 +183,7 @@ spectral_integration/
 └── _schema.py
 ```
 
-### `detector/` — 10 source + 10 tests
+### `detector/` — 10 source + 11 tests
 
 Stage 6: QE, dark current, full well, noise terms, detector MTF.
 

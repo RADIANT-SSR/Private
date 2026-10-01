@@ -20,6 +20,30 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **Results-affecting (warning only — no computed value changes): RADIANT now
+  warns when warm-optics emission is structurally zero.** `optics.nearfield_enabled`
+  defaults to 1, but transmission modes 1–4 synthesize lumped elements at 0 K and
+  the near-field loop skips those, so any thermal-band config using
+  `transmission_scalar` (or any non-prescription mode) computed warm optics as
+  **identically zero while the term appeared to be on** — silently, through
+  v0.2.0 and v0.3.0. For a thermal system warm optics is usually the dominant
+  background: on RADIANT's own `examples/mwir_leo_minimal.yaml` the omitted term
+  is 37 % of signal and the reported SNR is **17 % optimistic**; in a
+  background-dominated f/1 point-source case it measured **19×**, and flipped
+  `detection_range_m` from declined to a fabricated value. The ε = 0 model is
+  correct (a synthesized lump is not a surface, so Kirchhoff gives it no
+  emissivity) — the defect was the silence. The warning fires only in a thermal
+  band (grid long-wave edge > 2.5 µm) and names both remedies: declare an
+  `optical_elements:` train with each surface's `temperature_K`, or set
+  `nearfield_enabled: 0` to state that zero is intended. No computed value
+  changes anywhere (CU-380).
+- Both shipped examples now set `optics.nearfield_enabled: 0` explicitly, with a
+  comment stating why and what the omission is worth. A hand-computable anchor
+  (`ground_truth_mwir.yaml`) and a deliberately *minimal* config
+  (`mwir_leo_minimal.yaml`) both legitimately exclude the term; stating it makes
+  that a choice rather than a silence. Golden results are bit-identical.
+
 ### Changed
 - **Dark-rate, DSNU and ROIC-glow ceilings raised to 1e12** (from 1e9, 1e6 and
   1e6). A 20 µm pixel at 1 A/m² dark-current density — a routine LWIR figure —

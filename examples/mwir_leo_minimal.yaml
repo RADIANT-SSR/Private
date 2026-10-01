@@ -18,6 +18,18 @@ optics:
   aperture_diameter_m: 0.30   # m
   focal_length_m: 1.20        # m  (f/4.0)
   transmission_scalar: 0.70
+  # Warm-optics self-emission is deliberately OFF (CU-380). This file is the
+  # *minimal* valid config, and a warm-optics term needs a full
+  # `optical_elements:` train with a temperature on every surface — which is no
+  # longer minimal. Scalar transmission cannot carry the term regardless (a
+  # synthesized lump has no Kirchhoff emissivity), so this line changes no
+  # number; it states the omission instead of leaving it silent.
+  #
+  # The omission is NOT negligible: declaring this same net τ = 0.70 as two
+  # 290 K mirrors adds 4.65e5 e- of warm-optics background — 37 % of signal —
+  # and moves SNR from 1124 to 961. Copy this file as a starting point, but
+  # declare a real train before trusting a thermal-band SNR.
+  nearfield_enabled: 0
 
 detector:
   pixel_pitch_x_um: 18.0      # um

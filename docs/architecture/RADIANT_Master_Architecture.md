@@ -127,7 +127,7 @@ Full detail in RADIANT_Scope_Decisions.md. Summary:
 | Atmosphere | MODTRAN tape7 interface (τ, L_path, L_atm), simple Beer-Lambert model, 6 standard atmospheres |
 | Optics | Optical MTF from pupil autocorrelation (circular aperture ± obscuration, WFE, defocus — Rule 4), PSF-derived Strehl (+ `strehl_marechal` diagnostic), throughput, warm optics emission, cold stop, filter bandpass, EE_box |
 | Platform/Spatial | Smear MTF (sinc), jitter MTF (Gaussian), pixel aperture MTF (sinc), IPC MTF, charge-diffusion MTF |
-| Detector | 12+ noise terms (shot, dark-current shot, read, 1/f, kTC, DSNU, PRNU, NUC residual, glow, IPC, quantization, persistence), Rule 07 dark current, HgCdTe/InSb/InGaAs/Si QE models |
+| Detector | 12+ noise terms (shot, dark-current shot, read, 1/f, kTC, DSNU, PRNU, NUC residual, glow, IPC, quantization, persistence), Rule 07 / Rule 22 predictive HgCdTe dark current (Gap 123), HgCdTe/InSb/InGaAs/Si QE models |
 | Readout | TDI signal/noise scaling, binning, coadds, CDS, Fowler-N, gain, 14/16-bit ADC, quantization |
 | Performance | SNR, NEDT, GIQE5 (EO-NIIRS), IIRS (IR NIIRS), detection range, MTF budget, RER |
 | Regimes | Extended scene, point source, sub-pixel target (auto-detect with user override) |

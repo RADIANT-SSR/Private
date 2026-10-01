@@ -433,6 +433,30 @@ section is the authoritative, reconciled inventory (verified against
 
 **Dark current (4):** `dark_rate_e_per_s`, `dark_activation_energy_eV`,
 `dark_reference_temperature_K`, `detector_temperature_K`.
+**Dark current (6):** `dark_model`, `dark_cutoff_um`, `dark_rate_e_per_s`,
+`dark_activation_energy_eV`, `dark_reference_temperature_K`,
+`detector_temperature_K`.
+
+`dark_model` selects the dark-current source (Gap 123). `measured` (default)
+uses `dark_rate_e_per_s` at `dark_reference_temperature_K` with optional
+Arrhenius scaling via `dark_activation_energy_eV` — the historical behaviour,
+bit-identical. `rule07` / `rule22` derive the per-pixel rate from the published
+empirical HgCdTe p-on-n laws J(λc, T) — Tennant et al., J. Electron. Mater. 37,
+1406 (2008) and M. Zandian, J. Electron. Mater. 52, 7095 (2023) respectively —
+using `dark_cutoff_um`, `detector_temperature_K`, and the full pixel cell area
+(`pixel_pitch_x_um · pixel_pitch_y_um`; dark generation scales with junction
+area, so `fill_factor` is deliberately not applied). The laws live in
+`detector/rule07.py` and `detector/rule22.py` (one law, one module); the
+published A/cm² output crosses to the canonical e⁻/s/pixel rate exactly once,
+in `dark_current.dark_rate_e_per_s_from_density`. Selecting a predictive model
+while explicitly setting `dark_rate_e_per_s` or `dark_activation_energy_eV`
+is rejected as an over-specified dark budget (`DetectorValidationError`);
+evaluations outside a law's published fit range (Rule 07: λe·T ∈ [400, 1700]
+µm·K, T ≥ 77 K; Rule 22: λc ∈ [1.6, 17] µm, T ∈ [20, 330] K) surface a
+structured `dark_model_note` stage output (CU-081 pattern), and the derived
+`dark_rate_e_per_s` and `dark_current_density_a_per_cm2` are stored as
+diagnostics in `stage_outputs["detector"]`. Both laws describe HgCdTe only —
+they say nothing about InSb, InGaAs, Si, or microbolometers.
 
 **Other detector noise (10):** `gr_factor`, `r0a_ohm_cm2`, `flicker_K`,
 `flicker_corner_hz`, `flicker_f_low_hz`, `flicker_f_high_hz`, `persistence_fraction`,

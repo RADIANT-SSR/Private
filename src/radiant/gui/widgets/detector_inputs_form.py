@@ -89,6 +89,8 @@ _QE_FIELDS: Final[tuple[tuple[str, str], ...]] = (
 )
 
 _DARK_FIELDS: Final[tuple[tuple[str, str], ...]] = (
+    ("Dark model", "detector.dark_model"),
+    ("Dark cutoff wavelength", "detector.dark_cutoff_um"),
     ("Dark rate", "detector.dark_rate_e_per_s"),
     ("Dark reference temperature", "detector.dark_reference_temperature_K"),
     ("Dark activation energy", "detector.dark_activation_energy_eV"),

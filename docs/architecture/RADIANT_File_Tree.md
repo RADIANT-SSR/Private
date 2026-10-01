@@ -183,11 +183,11 @@ spectral_integration/
 └── _schema.py
 ```
 
-### `detector/` — 10 source + 10 tests
+### `detector/` — 12 source + 12 tests
 
 Stage 6: QE, dark current, full well, noise terms, detector MTF.
 
-Top-level: `stage.py`, `_schema.py`, `qe.py`, `dark_current.py`, `shot_noise.py`, `pixel.py`, `ipc.py`, `diffusion.py`.
+Top-level: `stage.py`, `_schema.py`, `qe.py`, `dark_current.py`, `rule07.py`, `rule22.py`, `shot_noise.py`, `pixel.py`, `ipc.py`, `diffusion.py`. (`rule07.py` / `rule22.py` are the Gap 123 predictive HgCdTe dark-current laws — one law, one module.)
 
 `detector/noise/` subpackage:
 ```
@@ -544,6 +544,14 @@ convention and may differ slightly.
 | cli/                   | 14     | 3     | subcommand-per-file (incl. `radiant gui`, templates) |
 | api/                   | 31     | 22    | public + internal session |
 | gui/                   | 106    | 63    | PySide6 shell + widgets + design-system theme — optional `gui` extra |
+| detector/              | 18     | 12    | includes `detector/noise/` subpackage; Gap 123 rule07/rule22 laws |
+| readout/               | 12     | 9     | TDI, ADC, binning, coadds |
+| calibration/           | 8      | 7     | calibration error model (Gap 120) — physics landed, dispatch Phase 2 |
+| performance/           | 55     | 37    | one metric per module (Rule 19) |
+| io/                    | 11     | 11    | config, results, element_config |
+| cli/                   | 12     | 2     | subcommand-per-file (incl. `radiant gui`) |
+| api/                   | 21     | 14    | public + internal session |
+| gui/                   | 81     | 44    | PySide6 shell + 56 widgets + design-system theme — optional `gui` extra |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |
 | data/                  | 2      | 5     | packaged-data accessor |
 | **Subtotal**           | **425**| **331**| 756 non-init files |

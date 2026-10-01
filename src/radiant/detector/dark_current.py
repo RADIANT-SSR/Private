@@ -17,8 +17,34 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
-from radiant.core.constants import k_B
+from radiant.core.constants import k_B, q
 from radiant.detector.errors import DetectorValidationError
+
+
+def dark_rate_e_per_s_from_density(j_dark_a_per_cm2: float, pixel_area_m2: float) -> float:
+    """Convert a dark current density [A/cm²] to a per-pixel rate [e⁻/s].
+
+    This is the single boundary where the predictive laws' published unit
+    (A/cm², see :mod:`radiant.detector.rule07` / ``rule22``) meets the
+    chain-canonical per-pixel electron rate: rate = J · A_pixel / q, with
+    the cm² → m² factor applied exactly once here (Rule 2; same pattern as
+    the R₀A ohm·cm² handling in ``noise/detector_material.py``). Dark
+    generation scales with junction area, so the full pixel cell area
+    (pitch_x · pitch_y) is used — fill factor describes optical collection,
+    not dark generation.
+    """
+    if not math.isfinite(j_dark_a_per_cm2) or j_dark_a_per_cm2 < 0.0:
+        raise DetectorValidationError(
+            f"dark_rate_e_per_s_from_density: j_dark_a_per_cm2 = "
+            f"{j_dark_a_per_cm2} is invalid. Dark current density must be a "
+            "non-negative finite number in A/cm²."
+        )
+    if not math.isfinite(pixel_area_m2) or pixel_area_m2 <= 0.0:
+        raise DetectorValidationError(
+            f"dark_rate_e_per_s_from_density: pixel_area_m2 = {pixel_area_m2} "
+            "is invalid. Pixel area must be a positive finite number in m²."
+        )
+    return j_dark_a_per_cm2 * 1.0e4 * pixel_area_m2 / q
 
 
 @dataclass(frozen=True)
@@ -111,9 +137,6 @@ class DarkCurrent:
                 name=self.name,
             )
         # Activation energy eV → J: multiply by the elementary charge.
-        # Keep dependency on constants.py rather than hardcoding q.
-        from radiant.core.constants import q
-
         ea_joules = self.activation_energy_eV * q
         factor = math.exp(
             -ea_joules / k_B * (1.0 / temperature_K - 1.0 / self.reference_temperature_K)

@@ -1117,6 +1117,18 @@ the 51-scenario suite, in one wheel. Everything below accumulated in
   to the previous model; at 0.05 K on the MWIR reference config the term sets
   a calibration-limited NEDT floor (~25 → ~55 mK). GUI: field in the
   calibration Source group; stage output `cal_source_uniformity_e`.
+- **Predictive HgCdTe dark-current laws (Gap 123)** — new
+  `detector.dark_model` parameter (`measured` | `rule07` | `rule22`) and
+  `detector.dark_cutoff_um`. `rule07` / `rule22` derive the per-pixel dark
+  rate from the published empirical HgCdTe p-on-n laws J(λc, T) (Tennant
+  2008; Zandian 2023) using the cutoff wavelength, detector temperature,
+  and pixel area — for blank-sheet design studies with no measured
+  datasheet rate. Default `measured` preserves existing behaviour
+  bit-identically (not results-affecting unless selected). Explicitly
+  setting a measured rate or Arrhenius energy alongside a predictive model
+  is rejected as over-specified; out-of-fit-range use surfaces a
+  `dark_model_note` stage output, and the derived rate and current density
+  are stored as detector stage outputs.
 - **Reflective-scene cal-point guard (CU-346)** — with an active calibration
   scheme on a scene whose sensing band carries no thermal photons at the
   declared scene temperature (or a pure-reflective `T2Reflective` target),

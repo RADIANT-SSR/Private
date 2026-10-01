@@ -125,6 +125,27 @@ def test_invalid_integration_time_raises() -> None:
         dc.shot_noise_e(math.nan)
 
 
+@pytest.mark.level0
+def test_density_to_rate_conversion() -> None:
+    # J = 1e-6 A/cm², 20 µm pixel: rate = 1e-6·1e4·(20e-6)²/q = 2.4966e7 e⁻/s.
+    from radiant.detector.dark_current import dark_rate_e_per_s_from_density
+
+    rate = dark_rate_e_per_s_from_density(1.0e-6, 20e-6 * 20e-6)
+    assert rate == pytest.approx(2.4966036e7, rel=1e-5)
+
+
+@pytest.mark.level0
+def test_density_to_rate_invalid_inputs_raise() -> None:
+    from radiant.detector.dark_current import dark_rate_e_per_s_from_density
+
+    with pytest.raises(ValueError, match="j_dark_a_per_cm2"):
+        dark_rate_e_per_s_from_density(-1.0, 1e-10)
+    with pytest.raises(ValueError, match="j_dark_a_per_cm2"):
+        dark_rate_e_per_s_from_density(math.nan, 1e-10)
+    with pytest.raises(ValueError, match="pixel_area_m2"):
+        dark_rate_e_per_s_from_density(1e-6, 0.0)
+
+
 @pytest.mark.level1
 def test_round_trip() -> None:
     dc = DarkCurrent(

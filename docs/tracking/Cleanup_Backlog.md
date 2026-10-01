@@ -47,15 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-388 — `_adjust_scene_los` strips the solar geometry for intensity-declared targets, so every VIS/NIR point-source-by-intensity scene loses its sky pedestal
-
-**Discovered**: scenario 10.3 (`ground_to_space_sst_visible`) runner section 8, recorded in its own `gaps.md` as G3 and never promoted; surfaced by the [[CU-387]] triage, 2026-09-30.
-**Status**: Open.
-**File**: `src/radiant/source/_inferrer.py::_adjust_scene_los`.
-**Symptom**: the function keeps `theta_s` / `delta_phi` only for `T2Reflective` and `T3Mixed` — the CU-009 "a pure-thermal radiance has no solar leg" predicate. `T7IntensityAtSource` falls into the else-branch, so the atmosphere loses the solar geometry and the sky background pedestal disappears. Scenario 10.3 rates it **High** and records that its reported SNR is target-shot-noise-plus-detector only. **No workaround is available from the config surface.**
-**Why it still matters**: results-affecting (intake test 1) and workflow-visible (test 4). Every VIS/NIR point-source-declared-by-intensity scene is optimistic by whatever the sky pedestal would have contributed — and for a daylight visible measurement the sky is usually the dominant noise source, so the omission is not a correction but a missing term of leading order. The predicate conflates two different reasons for having no solar leg: "the target self-emits" and "the user pre-integrated the illumination".
-**Suggested fix**: (b) stand-alone task — split the predicate so an intensity-declared target keeps `theta_s` for the atmosphere's own sky computation while still not re-illuminating the target. T1 thermal scenes must stay byte-identical (goldens). Effort S–M; category C. Rerun scenario 10.3 §8 and 1.6 as a zero-drift check.
-
 ### CU-389 — The >80° air-mass switch keys on the segment's geometric Δh rather than the atmospheric column, giving non-monotonic transmittance
 
 **Discovered**: scenario 10.3 runner section 10b, recorded as its G5 and never promoted; surfaced by the [[CU-387]] triage, 2026-09-30.
@@ -177,6 +168,27 @@ The 34 extended-scene thermal scenarios remain out of scope for this CU (charter
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-388 — `_adjust_scene_los` strips the solar geometry for intensity-declared targets, so every VIS/NIR point-source-by-intensity scene loses its sky pedestal — SUPERSEDED 2026-10-01 (no commit — the engine fix landed 2026-07-28 as [[CU-258]], commit f3f1d1d; this entry is a duplicate promotion of the same scenario finding)
+
+**Discovered**: scenario 10.3 (`ground_to_space_sst_visible`) runner section 8, recorded in its own `gaps.md` as G3 and never promoted; surfaced by the [[CU-387]] triage, 2026-09-30.
+**Status**: SUPERSEDED 2026-10-01 — **a duplicate promotion of the finding [[CU-258]] already closed**. The defect was real when scenario 10.3 recorded it, and was fixed twice before this entry existed: CU-258 (2026-07-28, commit f3f1d1d) added `T7IntensityAtSource` to `_adjust_scene_los`'s solar-keeping set, and [[CU-356]] (2026-09-12, commit c0fba65f) then removed the descriptor predicate for every descriptor. The CU-387 triage promoted scenario 10.3's G3 row, which still read `OPEN` because nobody updated it when CU-258 landed — the row outlived its defect. **No code landed under this number and none was needed.**
+**File**: `src/radiant/source/_inferrer.py::_adjust_scene_los`.
+**Symptom**: the function keeps `theta_s` / `delta_phi` only for `T2Reflective` and `T3Mixed` — the CU-009 "a pure-thermal radiance has no solar leg" predicate. `T7IntensityAtSource` falls into the else-branch, so the atmosphere loses the solar geometry and the sky background pedestal disappears. Scenario 10.3 rates it **High** and records that its reported SNR is target-shot-noise-plus-detector only. **No workaround is available from the config surface.**
+**Why it still matters**: results-affecting (intake test 1) and workflow-visible (test 4). Every VIS/NIR point-source-declared-by-intensity scene is optimistic by whatever the sky pedestal would have contributed — and for a daylight visible measurement the sky is usually the dominant noise source, so the omission is not a correction but a missing term of leading order. The predicate conflates two different reasons for having no solar leg: "the target self-emits" and "the user pre-integrated the illumination".
+**Suggested fix**: (b) stand-alone task — split the predicate so an intensity-declared target keeps `theta_s` for the atmosphere's own sky computation while still not re-illuminating the target. T1 thermal scenes must stay byte-identical (goldens). Effort S–M; category C. Rerun scenario 10.3 §8 and 1.6 as a zero-drift check.
+
+**Resolution**: closed on verification, not on code. `src/radiant/source/_inferrer.py` is untouched by this entry and byte-identical to `main`; no golden moved (`pytest src/radiant/source/tests/ tests/integration/` — 1954 passed, 2 skipped, 0 failed).
+
+*The fix is present and complete.* `_adjust_scene_los` carries `theta_s, delta_phi = scene_los.theta_s, scene_los.delta_phi` unconditionally — no descriptor predicate survives — and the docstring at `_inferrer.py:428` names the T7 case explicitly. Checked for the two partial-fix shapes that would have changed the disposition, on a VIS up-looking intensity-door scene: **Δφ is kept as well as θ_s** (adopted LOS reproduces an input pair of 20°/0°, 40°/45°, 70°/135°, 85°/90° exactly), and **the solar leg is genuinely live, not merely carried** — τ_sun runs 0.937733 → 0.924212 → 0.838798 → 0.545814 across those four sun angles, `E_sky_scattered` 68.49 → 6.35 W/m²/µm, and the at-aperture background 65.98 → 1.14 W/m²/sr/µm. τ_sun matches a hand `exp(−τ₀ sec θ_s)` fit to 2e-5 at 40° and 6e-4 at 70°; the 85° point departs because it is past the 80° spherical-air-mass switch, which is [[CU-389]]'s subject, not this one.
+
+*And the target is not double-counted.* On scenario 10.3's own tasking the at-source target radiance is bit-identical (9.763572e+13 W/m²/sr/µm) at every sun angle, the at-source reflected-solar frame is exactly zero, and `τ_up·L_source + L_path_up` reconstructs the at-aperture target frame to 0.0 relative error — so the whole θ_s dependence of that frame is the additive observer-leg path term, which is correct. The T7 arm carries no ρ term for the sun to enter through. (That the intensity door also ignores τ_sun for the *target* is deliberate — the analyst owns the illumination gate — and is scenario 10.3's G2, already a Findings-Log line. It is not a hole in CU-258's fix.)
+
+*What the fix was worth, measured.* Reinstating the old predicate locally reproduced the scenario's reported symptom exactly — the background froze at 4.1687e-19 W/m²/sr/µm at every sun angle — and quantified the omission on 10.3's configuration: SNR **221.78 against the correct 120.32** at θ_s = 30° (**+84 % optimistic**), 221.78 vs 176.37 at 60°, 221.78 vs 206.71 at 80°. Today the same sweep gives backgrounds of 4.1687e-19 (θ_s = 102°, the dark site — the physically right answer there), 1.3360 (80°), 5.0800 (60°), 20.560 (30°).
+
+*Collateral, markdown only.* `RADIANT_Geometry.md`'s consumer paragraph still advertised a "T1 solar-strip" that CU-356 had removed — repaired here (Rule 20). Scenario 10.3's `gaps.md` G3 row moves to RESOLVED citing CU-258/CU-356 and carrying the re-measured numbers, per the promotion gate. No `CHANGELOG.md` entry: nothing user-observable changed, and the entries for the landings that *did* change results are already there under CU-258 and CU-356.
+
+*Not done, deliberately.* The scenario runner's section 8 and the walkthrough's §9 item 1 still assert the stripped-θ_s mechanism beside their own contradicting measurements; a drafted correction and a drafted Level-0/integration regression pin for the T7 door were both set aside to keep this closure markdown-only, and are recorded as Findings-Log lines instead of being re-authored here.
 
 ### CU-387 — Scenario `gaps.md` files are an unpromoted fourth registry: 51 files, 20 carrying HIGH/CRITICAL findings, with no path into the three registries Rule 25 governs — RESOLVED 2026-09-30 (commit trailer)
 

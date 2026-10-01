@@ -70,15 +70,6 @@ The 34 extended-scene thermal scenarios remain out of scope for this CU (charter
 **Why it still matters**: blocking (intake test 3) — a legitimate detector cannot be expressed, and no workaround exists. Results-affecting for anyone who hit the clamp.
 **Suggested fix**: (a) inline-fix-now — raise `dark_rate_e_per_s` to ~1e12, and **sweep the rate-parameter ceilings as a class** rather than fixing the one instance, since the default-justifies-ceiling pattern is what produced it. Nothing downstream assumes a magnitude. Effort S; category B.
 
-### CU-383 — Stage-level cross-parameter validators are unreachable from `validate`, so `validate` passes configurations `evaluate` rejects
-
-**Discovered**: external review `docs/reports/external_review_2026-09/` F4, 2026-09-30.
-**Status**: Open.
-**File**: `src/radiant/readout/stage.py:124` (`_validate_architecture_params`, runs inside `ReadoutStage.run`); `src/radiant/api/config_set.py:1152` (`validate_all`, documents itself "Resolution only — no physics runs"); `src/radiant/cli/validate.py`.
-**Symptom**: `radiant validate` reported *"Study OK — 3 configuration(s), 0 failed"* for a study in which two of three configurations could not run; evaluating them raised the up/down-only over-specification error. The error itself is precise and actionable — it is simply unreachable from the command whose job is to find it.
-**Why it still matters**: workflow-visible (intake test 4) — a validate that misses whole classes of configuration error trains operators not to rely on it, which is the same pathology as a warning that always fires.
-**Suggested fix**: (b) stand-alone task — add a stage-level dry-run validation hook invoked from the validate path, then **audit which stage cross-checks are reachable from `validate`** rather than wiring the one that was reported. Effort M; category D.
-
 ### CU-384 — A `configurations:` study cannot express a parameter whose legality is conditional on another parameter
 
 **Discovered**: external review `docs/reports/external_review_2026-09/` F5, 2026-09-30.
@@ -149,6 +140,27 @@ The 34 extended-scene thermal scenarios remain out of scope for this CU (charter
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-383 — Stage-level cross-parameter validators are unreachable from `validate`, so `validate` passes configurations `evaluate` rejects — RESOLVED 2026-09-30 (commit trailer)
+
+**Discovered**: external review `docs/reports/external_review_2026-09/` F4, 2026-09-30.
+**Status**: Resolved 2026-09-30.
+**File**: `src/radiant/readout/stage.py:124` (`_validate_architecture_params`, runs inside `ReadoutStage.run`); `src/radiant/api/config_set.py:1152` (`validate_all`, documents itself "Resolution only — no physics runs"); `src/radiant/cli/validate.py`.
+**Symptom**: `radiant validate` reported *"Study OK — 3 configuration(s), 0 failed"* for a study in which two of three configurations could not run; evaluating them raised the up/down-only over-specification error. The error itself is precise and actionable — it is simply unreachable from the command whose job is to find it.
+**Why it still matters**: workflow-visible (intake test 4) — a validate that misses whole classes of configuration error trains operators not to rely on it, which is the same pathology as a warning that always fires.
+**Suggested fix**: (b) stand-alone task — add a stage-level dry-run validation hook invoked from the validate path, then **audit which stage cross-checks are reachable from `validate`** rather than wiring the one that was reported. Effort M; category D.
+
+**Resolution**: new `api/precheck.py` (Rule 19) exposes `precheck_parameters(params)`, called from both `cli/validate.py` and `ConfigurationSet.validate_all`. `ReadoutStage` and `CalibrationStage` gained module-level `validate_params(params)` entry points wrapping their existing private checks; neither duplicates logic.
+
+**The audit the CU asked for** — four stage-level cross-parameter validators exist, and the split is clean: `readout._validate_architecture_params`, `calibration._validate_active_scheme` and `calibration._validate_flux_mode` are functions of the ParameterSet alone and now run pre-chain; `optics._validate_psf_regime_consistency` **cannot**, because it compares the scene's angular extent against the computed `EffectivePSF`, which does not exist before the chain runs. That is a real limit of pre-chain validation rather than an oversight, so `test_validate_precheck.py::test_optics_psf_check_is_deliberately_absent` pins the absence with its reason — a future params-only optics check has to update it deliberately.
+
+Two things found while implementing, both of which made the change better:
+
+1. `precheck_parameters` on an unresolved ParameterSet surfaced "ParameterSet not resolved" — a true statement that tells a user nothing about their config. It now resolves first (idempotent), so the caller gets the actual configuration error.
+2. The tests initially "failed" on `examples/mwir_leo_minimal.yaml` switched to `digital_counting`. Not a bug: the example sets `full_well_capacity_e` explicitly, which genuinely over-specifies a counting readout. That is the validator working, and it is now pinned as its own test (`test_an_explicit_analog_well_under_counting_is_rejected`).
+
+**Verification**: 9 new tests, including the reviewer's exact up/down-under-mode-`up` case asserted to raise *the same exception type* from `precheck_parameters` as from `evaluate` — the property that was violated. api + cli + io + readout + calibration suites 1433 passed. One pre-existing test needed a fix that CU-380 caused rather than this CU: `api/tests/test_config_io.py::test_elements_change_results_physically` asserts a declared warm train emits, which the newly annotated `nearfield_enabled: 0` example suppressed; it now re-enables the term explicitly, since emission is exactly what that test is about. Docs in lock-step: `RADIANT_Scripting_API.md` `validate_all` row plus a new pre-chain-validation subsection; file tree.
+
 
 ### CU-381 — The 1/f noise model is wrong in three coupled directions: no corner frequency, a bandwidth decoupled from all timing, and co-add averaging of correlated power (family) — RESOLVED 2026-09-30 (commit trailer)
 

@@ -127,6 +127,11 @@ class TestSensorAttach:
 
     def test_elements_change_results_physically(self) -> None:
         s = Sensor.from_yaml(_EXAMPLE)
+        # The example sets nearfield_enabled: 0 (CU-380) — deliberately, since a
+        # *minimal* config cannot carry a warm train and scalar transmission
+        # could not emit anyway. This test is specifically about the emission a
+        # declared train produces, so it turns the term back on.
+        s.set("optics.nearfield_enabled", 1)
         baseline = s.clone().evaluate()
         s.set_optical_elements(_train())
         with_train = s.evaluate()

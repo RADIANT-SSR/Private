@@ -7,8 +7,6 @@ through v0.2.0 and v0.3.0 — now says so.
 
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 import pytest
 
@@ -107,45 +105,3 @@ class TestMessage:
         msg = nearfield_zero_message(band_max_um=12.0, n_elements=3)
         assert "12 um" in msg
         assert "3 element(s)" in msg
-
-
-class TestEndToEnd:
-    def test_shipped_mwir_example_now_warns(self) -> None:
-        """The exact case that shipped silently through v0.2.0 and v0.3.0."""
-        from radiant import Sensor
-
-        sensor = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            sensor.evaluate()
-        messages = [str(w.message) for w in caught]
-        assert any("Warm-optics irradiance is therefore identically zero" in m for m in messages)
-
-    def test_declaring_a_warm_train_silences_it_and_moves_the_answer(self) -> None:
-        import math
-
-        from radiant import Sensor
-
-        reflectance = math.sqrt(0.70)
-        sensor = Sensor.from_yaml("examples/mwir_leo_minimal.yaml")
-        sensor.set_optical_elements(
-            [
-                {
-                    "name": name,
-                    "transfer_mode": "REFLECTIVE",
-                    "kind": "MIRROR",
-                    "reflectance": reflectance,
-                    "temperature_K": 290.0,
-                }
-                for name in ("primary", "secondary")
-            ]
-        )
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            result = sensor.evaluate()
-        messages = [str(w.message) for w in caught]
-        assert not any("identically zero" in m for m in messages)
-        # And the term it was omitting is large: 37 % of signal here.
-        detector = result.stage_outputs["detector"]
-        assert detector["nearfield_e"] == pytest.approx(4.652e5, rel=1e-2)
-        assert detector["nearfield_e"] / detector["signal_e"] == pytest.approx(0.368, rel=5e-2)

@@ -124,6 +124,22 @@ def _is_explicitly_set(params: ParameterSet, name: str) -> bool:
     return params.get_resolved(name).provenance is not Provenance.DEFAULT
 
 
+def validate_params(params: ParameterSet) -> None:
+    """Run ReadoutStage's cross-parameter checks without running the chain (CU-383).
+
+    ``radiant validate`` reported "Study OK" for configurations that could not
+    run, because the architecture over-specification checks lived inside
+    ``run()`` and so were reachable only from ``evaluate``. A validate that
+    misses whole classes of configuration error teaches operators not to rely
+    on it, which is worse than having none.
+
+    Everything checked here is a function of the ParameterSet alone, so it is
+    safe before any physics. Checks that need computed state cannot move here —
+    see ``radiant.api.precheck`` for the audit of which ones those are.
+    """
+    _validate_architecture_params(params, params.get("readout.architecture"))
+
+
 def _validate_architecture_params(params: ParameterSet, architecture: str) -> None:
     """Cross-parameter validation for the readout-architecture dispatch (Rule 16).
 

@@ -287,7 +287,7 @@ resolution engine, and `radiant.core` is untouched.
 | `cs.move_element(index, to_index)` / `cs.remove_element(index)` | The position-preserving structure operations (CU-357): reposition or drop a row **in every configuration**, renumbering the configured rows with their per-configuration entries intact — no delete + append round-trip, so nothing is collapsed or re-seeded. `move_element` has `list.insert(to, list.pop(index))` semantics; `remove_element` of a configured row discards every configuration's entry for it (interactive callers confirm first), and removing the last row detaches the document. These are what let the GUI's Remove / reorder buttons act across configured rows instead of refusing. |
 | `cs.element_state()` / `cs.restore_element_state(state)` | The whole-train snapshot pair (CU-357): `element_state()` returns an immutable, deep-copied `ElementTrainState` — the shared rows plus the configured-row table with positions — and `restore_element_state` writes one back over **both stores as one unit** (an empty state detaches the document). The GUI's element undo commands carry exactly this before/after pair. Restore raises `ConfigSetError` for a snapshot from a different study (an unknown configuration name, or a configured position outside the restored document). |
 | `cs.sensor_for(name)` | Materialize a configuration as an isolated `Sensor` (resolved here, so a per-configuration consistency-group error surfaces named). When the set has configured rows, that configuration's **effective** document is attached through the ordinary `Sensor.set_optical_elements`; with no configured row the cloned base's document (then the whole train) is left untouched. Later edits to the set do not reach it, and vice versa. |
-| `cs.validate_all()` | `{name: None or RadiantError}` in set order — resolve-only, **no physics**. One configuration's failure never hides another's. |
+| `cs.validate_all()` | `{name: None or RadiantError}` in set order — resolution **plus the stage cross-parameter prechecks** (`radiant.api.precheck`, CU-383), still **no physics**. One configuration's failure never hides another's. |
 | `cs.evaluate_all(*, progress=None, cancel=None)` | Evaluate every configuration, **active first**. Returns `ConfigSetRunResult`. Same `progress(done, total)` / `cancel()` contract as `sweep` (§2.3). Each configuration is evaluated inside its **own** warning-capture window, so the warnings it raises land on its `ConfigRun.warnings` and on no other (see below). |
 | `cs.compare(run)` | Adapt a run into `compare_configs` (§2.5b): columns in **set order** = `cs.names()` (stable when `active` changes), delta reference = the index of `cs.baseline`. **Raises** `ConfigSetError` naming any failed configuration rather than dropping its column (see below). |
 | `ConfigurationSet.load(path)` | Classmethod (ADR-0010 D-D). Load a study config file: the shared body exactly as `Sensor.load` reads it (parameters, tolerances, `_radiant.wavelength_points`, `optical_elements`) plus the `configurations:` section — names and order, `active`/`baseline`, per-configuration `wavelength_points`, and the configured table. An `optical_elements` document holding **configured rows** is split here: its shared rows attach to the base, its configured rows become the per-configuration element table. A config file **without** the section loads as the degenerate one-configuration set. Every violation raises `ConfigError` naming the config file and the configuration, plus the parameter or the element row (`RADIANT_Config_Format.md` §1.9). |
@@ -377,6 +377,31 @@ travel with their configuration through `rename` (re-keyed), `remove` (dropped),
 (seeded from `copy_from` or configuration #1 — dense, like a configured parameter),
 `reorder` (re-ordered with the names), and `clone` (deep-copied), so a row is never sparse and
 never holds an entry for a configuration that no longer exists. `evaluate_all` and
+### Pre-chain validation (`radiant.api.precheck`, CU-383)
+
+`precheck_parameters(params)` runs every stage cross-parameter check that is a
+function of the ParameterSet alone, so `validate` rejects what `evaluate`
+rejects. Before it existed, `radiant validate` reported *"Study OK — 3
+configuration(s), 0 failed"* for a study whose configurations `ReadoutStage`
+would refuse on sight, because the architecture over-specification check lived
+inside `run()`.
+
+Covered today: `readout` (architecture over-specification — counting-only
+parameters under `analog_well`, an explicit `full_well_capacity_e` under
+`digital_counting`, up/down-only parameters under `counting_mode: up`) and
+`calibration` (active-scheme completeness, and the flux-fraction mode's
+forbidden temperature anchors). `stage_validator_names()` reports the list.
+
+`optics._validate_psf_regime_consistency` **cannot** join: it compares the
+scene's angular extent against the computed `EffectivePSF`, which does not
+exist before the chain runs. That is a real limit of pre-chain validation, and
+`tests/integration/test_validate_precheck.py` pins it so the absence reads as a
+reason rather than an oversight.
+
+A stage joins by exposing a module-level `validate_params(params)` that raises
+`RadiantError` and does not mutate the set, and being listed in
+`precheck._STAGE_VALIDATORS`.
+
 `validate_all` pick each configuration's train up through `sensor_for`, and `save`/`load`
 round-trip the rows **in place** in the `optical_elements` document
 (`RADIANT_Config_Format.md` §1.9), spectral-file paths included (CU-177).

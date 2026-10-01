@@ -183,7 +183,7 @@ spectral_integration/
 └── _schema.py
 ```
 
-### `detector/` — 10 source + 11 tests
+### `detector/` — 10 source + 10 tests
 
 Stage 6: QE, dark current, full well, noise terms, detector MTF.
 
@@ -291,13 +291,14 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 32 source + 25 tests
+### `api/` — 33 source + 25 tests
 
 Public scripting API.
 
 ```
 api/
 ├── sensor.py              # Sensor — public class (also re-exported at top level)
+├── precheck.py             # pre-chain stage cross-parameter checks (CU-383)
 ├── session.py             # RadiantSession — internal session orchestrator
 ├── sweep.py               # SweepResult, 1-D and 2-D parameter sweeps
 ├── batch.py               # batch matrix execution (one evaluation per grid cell)

@@ -6,8 +6,11 @@ describes the typical part; a bound describes every expressible part. These
 tests pin the physical cases the old ceilings excluded, so a future narrowing
 has to argue with a number rather than a habit.
 
-Bounds are enforced at ``Sensor.set``, which is the surface a user meets, so
-that is the level these assert at.
+Bounds are enforced at resolve time through the public ``Sensor`` surface, so
+that is the level these assert at — which also means the file lives under
+``tests/integration/`` rather than ``detector/tests/``: a stage test may not
+import the top-level API, because ``radiant`` reaches ``radiant.readout`` and
+the detector-may-not-import-readout contract is machine-enforced.
 """
 
 from __future__ import annotations

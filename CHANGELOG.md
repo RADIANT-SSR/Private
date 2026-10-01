@@ -106,6 +106,20 @@ retroactively reconstructed.
   that a choice rather than a silence. Golden results are bit-identical.
 
 ### Fixed
+- **`validate` now rejects configurations that `evaluate` rejects.** `radiant
+  validate` reported *"Study OK — 3 configuration(s), 0 failed"* for a study in
+  which two of the three could not run: the readout architecture
+  over-specification check lived inside `ReadoutStage.run`, so only `evaluate`
+  reached it. The error itself was precise and actionable — it was simply
+  unreachable from the command whose job is to find it, and a validate that
+  misses whole classes of configuration error teaches operators not to rely on
+  it. New `radiant.api.precheck.precheck_parameters()` runs every stage
+  cross-parameter check that is a function of the ParameterSet alone (readout
+  architecture, calibration scheme completeness and flux-mode anchors), from
+  both `radiant validate` and `ConfigurationSet.validate_all()`. Still no
+  physics. `optics._validate_psf_regime_consistency` cannot join — it needs the
+  computed PSF — and that limit is pinned by a test rather than left implicit
+  (CU-383).
 - **The CLI no longer crashes on a default Windows console.** `radiant schema`
   died with `UnicodeEncodeError: 'charmap' codec can't encode character 'α'`
   and was unusable without `PYTHONIOENCODING=utf-8`. The CLI now reconfigures

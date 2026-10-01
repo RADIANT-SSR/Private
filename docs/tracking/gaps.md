@@ -1913,6 +1913,42 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 
 ---
 
+## Gap 138: No HDR / dual-integration mode — a high-dynamic-range frame cannot be composed from two integration times
+
+| | |
+|---|---|
+| **Found in** | Scenario 2.5 (Mike — well-capacity optimization), its `gaps.md` row 1, logged ≤2026-08 and promoted by the [[CU-387]] triage 2026-09-30. |
+| **Status** | OPEN |
+| **Description** | There is no way to combine two integration times into one high-dynamic-range result. A bright-target scene that saturates at the long `t_int` and is read-noise-limited at the short one has to be run as two separate evaluations and composed by hand in a script. Note the adjacent capability that *does* exist: `readout.architecture: digital_counting` (Gap 117) gives dynamic range through counter depth rather than dual integration, and scenario 2.6 demonstrates that trade — so this gap is specifically about the analog dual-`t_int` composition. |
+| **Impact** | A real design technique is unrepresentable, so a study comparing analog HDR against a DROIC has to hand-build one side of the comparison. Rule 29(c): a tracked capability. |
+| **Suggested fix** | A readout-level HDR mode taking two integration times and a crossover rule, with the composed noise following each pixel's originating exposure. Needs an owner ruling on the composition rule before implementation. |
+
+---
+
+## Gap 139: Jitter is modelled as stationary and well-sampled — no PSD, so in-band blur and out-of-band frame shift are not separated
+
+| | |
+|---|---|
+| **Found in** | Scenario 5.4 (Tom — jitter-induced blur), its `gaps.md` row 3 (rated **Large**), logged ≤2026-08 and promoted by the [[CU-387]] triage 2026-09-30. |
+| **Status** | OPEN |
+| **Description** | The jitter model takes an RMS amplitude and treats all of it as blur within the frame. Real jitter has a spectrum: power above ~1/t_int blurs the image (the modelled behaviour), while power below it shifts the whole frame and is a pointing error, not a blur. With no PSD input there is no way to partition them, so a low-frequency-dominated jitter budget is reported entirely as MTF loss when much of it is really boresight drift. |
+| **Impact** | Over-states blur and under-states pointing error for any platform whose jitter is dominated by low-frequency sources (reaction wheels at low rates, solar-array flexing, thermal snap). The split matters because the two have different fixes — better isolation versus better attitude control. Rule 29(c). |
+| **Suggested fix** | Accept a jitter PSD (tabulated or parametric) and integrate it against the same transfer-function machinery [[CU-381]] introduced for 1/f: the frame boxcar is the identical `sinc(pi f t_int)` filter, and the partition falls out of where the power sits relative to `1/t_int`. The 1/f work is the precedent to copy, not a separate design. Large. |
+
+---
+
+## Gap 140: Trade-study reporting is hand-rolled — no threshold-crossing finder, go/no-go formatter, or measured-vs-predicted reconciler
+
+| | |
+|---|---|
+| **Found in** | Three scenario `gaps.md` rows with one shape, consolidated by the [[CU-387]] triage 2026-09-30: 3.2 row 2 (NIIRS = 4.0 crossing interpolated by hand), 3.2 row 4 (go/no-go table built manually), 7.1 row 2 (no `reconcile(measured)` — the script computes `sigma_missing = sqrt(sigma_meas^2 - sigma_pred^2)` itself). |
+| **Status** | OPEN |
+| **Description** | Each is the same complaint: a routine analyst output that every scenario script re-implements. `solve_for` already does brentq root-finding on any parameter, so the threshold finder is a thin wrapper over existing machinery rather than new numerics; the reconciler is one subtraction in quadrature with a sign guard; the formatter is presentation. |
+| **Impact** | Not an error — repeated hand-arithmetic, which is where silent mistakes live, and the reason several scenarios carry near-identical helper code. Related to [[Gap 136]] (detection range below threshold), which is the same `solve_for`-wrapper shape. Rule 29(c). |
+| **Suggested fix** | Land the threshold finder and the reconciler as API methods with Level-0 tests; leave the report formatting to the GUI/CLI surfaces rather than the library. Consider doing it with [[Gap 136]], since both wrap `solve_for`. |
+
+---
+
 ## Summary Table (retired 2026-09-08)
 
 The per-gap summary table was retired at the early quarterly sweep: its rows

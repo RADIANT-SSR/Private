@@ -20,7 +20,15 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+- **Exported results are no longer stamped `-dirty` after a test run.** A
+  `pytest` run rewrote the tracked `tests/integration/_use_case_coverage.json`,
+  and because RADIANT resolves the git commit at the loaded package location
+  for export provenance, every result exported afterwards carried a dirty stamp
+  although the source was byte-identical. The coverage artifact is now written
+  to the untracked `build/` tree (Rule 26 — no test asserts against it and it
+  has no live consumer), with `encoding="utf-8"` and `newline="\n"` on both
+  writers (Rule 30). A test run no longer modifies any tracked file (CU-386).
 
 ## [0.3.0] - 2026-09-25
 

@@ -17,8 +17,8 @@ For each spec form, the test parametrizes a representative scene type
   cross-field check.
 
 The status per S-form is aggregated into a ``spec_forms`` block of
-``_use_case_coverage.json`` so docs tooling can track which spec-form
-surfaces are live.
+``build/_use_case_coverage.json`` (untracked, Rule 26) so docs tooling can
+track which spec-form surfaces are live.
 """
 
 from __future__ import annotations
@@ -145,7 +145,13 @@ _CELLS: tuple[SpecCell, ...] = (
 # ---------------------------------------------------------------------------
 
 
-_COVERAGE_PATH = Path(__file__).parent / "_use_case_coverage.json"
+# Regenerate-on-demand (Rule 26, CU-386): the coverage artifact has no test
+# asserting against it and no live consumer, so it is not committed. It lands
+# under the gitignored build/ tree — a pytest run must never modify a tracked
+# file, because RADIANT resolves the git commit at the loaded package location
+# for export provenance, and a dirty tree stamps every subsequent export
+# "-dirty".
+_COVERAGE_PATH = Path(__file__).resolve().parents[2] / "build" / "_use_case_coverage.json"
 _SPEC_RESULTS: dict[str, dict[str, str]] = {}
 
 
@@ -161,7 +167,7 @@ def _augment_coverage_with_spec_forms() -> Iterable[None]:
     if not _SPEC_RESULTS:
         return
     try:
-        existing: dict[str, object] = json.loads(_COVERAGE_PATH.read_text())
+        existing: dict[str, object] = json.loads(_COVERAGE_PATH.read_text(encoding="utf-8"))
     except FileNotFoundError:
         existing = {}
     except json.JSONDecodeError:
@@ -172,7 +178,8 @@ def _augment_coverage_with_spec_forms() -> Iterable[None]:
             key=lambda kv: int(kv[0][1:]),  # natural S1..S12 order
         )
     )
-    _COVERAGE_PATH.write_text(json.dumps(existing, indent=2) + "\n")
+    _COVERAGE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _COVERAGE_PATH.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 # ---------------------------------------------------------------------------

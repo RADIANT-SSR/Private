@@ -99,6 +99,15 @@ retroactively reconstructed.
   `optical_elements:` train with each surface's `temperature_K`, or set
   `nearfield_enabled: 0` to state that zero is intended. No computed value
   changes anywhere (CU-380).
+- **Twelve shipped artifacts now state their warm-optics omission explicitly**
+  rather than carrying it silently: both top-level examples, 7 mission
+  templates, and 3 bundled examples all set `optics.nearfield_enabled: 0` with
+  a comment naming what is omitted, what it is worth, and the remedy. Results
+  are bit-identical — scalar transmission could not carry the term anyway. The
+  two top-level examples are *intended* omissions (a hand-computable anchor and
+  a deliberately minimal config); the other ten need real warm trains, which
+  needs an instrument-specific optics temperature for each and is tracked as
+  CU-380's open item.
 - Both shipped examples now set `optics.nearfield_enabled: 0` explicitly, with a
   comment stating why and what the omission is worth. A hand-computable anchor
   (`ground_truth_mwir.yaml`) and a deliberately *minimal* config

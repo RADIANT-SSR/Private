@@ -27,7 +27,15 @@ geometry:
 optics:
   aperture_diameter_m: 0.30
   focal_length_m: 1.5
-  transmission_scalar: 0.85
+  # Warm optics declared rather than lumped (CU-380). Two reflective surfaces
+  # at R = sqrt(0.85) = 0.921954 reproduce the net throughput this file used to
+  # declare as `transmission_scalar: 0.85`, so the SCENE signal is unchanged;
+  # each mirror now emits at its Kirchhoff eps = 1 - R = 0.078046.
+  # 280 K is the LEO bus-mounted starting point from the platform-class
+  # convention (owner-ratified 2026-09-30). Unlike the sda_space_to_space
+  # template, this scene tolerates it: its signal is 2.09e4 e- against that
+  # case's 1.3e3, so the warm term costs SNR 20.32 -> 19.02 rather than
+  # saturating the well.
 readout:
   adc_bits: 14
   full_well_capacity_e: 6000000.0
@@ -47,3 +55,9 @@ spectral_integration:
   integration_time_s: 0.01
 performance:
   detection_snr_threshold: 6.0
+
+optical_elements:
+  - {name: M1, transfer_mode: REFLECTIVE, kind: MIRROR,
+     reflectance: 0.921954, temperature_K: 280.0}
+  - {name: M2, transfer_mode: REFLECTIVE, kind: MIRROR,
+     reflectance: 0.921954, temperature_K: 280.0}

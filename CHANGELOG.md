@@ -128,6 +128,16 @@ retroactively reconstructed.
   conclusion the template now teaches instead of hiding behind a zero.
   Every temperature is commented as a starting point to be replaced with the
   instrument's real value.
+- **Results-affecting: scenario 1.6 (MWIR point-source SDA) now models its warm
+  optics.** Two-mirror train at `R = √0.85`, 280 K (LEO bus-mounted class), so
+  the scene signal is unchanged at 20,939 e⁻ while each surface emits at
+  `ε = 1 − R = 0.078`. **SNR 20.32 → 19.02 (−6.4 %), detection range
+  1,346.7 → 1,302.2 km (−3.3 %)**, with the emitting-area sweep moving in step.
+  Scenarios 1.1, 1.3, 10.2 and 10.4 are unchanged for now: their configs are
+  built in Python rather than read from the generated `.gui.yaml`, and their
+  runners print conclusions that depend on the noise composition (10.2 states
+  its case is *"not background limited at short range"*), so each needs its
+  analysis re-derived rather than its config edited — tracked on CU-380.
 - The two top-level `examples/` configs keep `optics.nearfield_enabled: 0` with
   a comment naming what is omitted and what it is worth. Both omissions are
   *intended*: `ground_truth_mwir.yaml` exists to be hand-computable end to end

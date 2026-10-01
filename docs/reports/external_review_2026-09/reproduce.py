@@ -7,6 +7,12 @@ Point-in-time record (Rule 24). Run from the repo root::
 Written against ``v0.3.0-1-g8948dd43``. Once CU-380/CU-381 land, Finding 1's
 case emits a warning and Finding 2's scaling changes — that is the point; this
 script records what the engine did *before* the fixes.
+
+Amended 2026-09-30, post-merge, so the record stays *runnable*: CU-380 made both
+shipped examples set ``nearfield_enabled: 0`` explicitly, so Finding 1's
+mechanism has to be reconstructed by turning the term back on, which is what a
+user copying the file and declaring a scalar transmission would get. The
+measured values are unchanged; only the setup line is new.
 """
 
 from __future__ import annotations
@@ -27,6 +33,9 @@ def finding_1() -> None:
     """Warm-optics nearfield is identically zero in scalar transmission mode."""
     print("=== Finding 1 — warm optics silently zero ===")
     sensor = Sensor.from_yaml(str(EXAMPLE))
+    # The shipped example now disables the term explicitly (CU-380), so the
+    # pre-fix condition is reconstructed here.
+    sensor.set("optics.nearfield_enabled", 1)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         result = sensor.evaluate()
@@ -36,13 +45,14 @@ def finding_1() -> None:
     nearfield = optics["nearfield_irradiance_at_fpa"]
     print(f"  elements:                 {[(e.name, e.temperature_K) for e in optics['elements']]}")
     print(f"  nearfield irradiance sum: {float(np.sum(nearfield.values))} W/m^2/um")
-    print(f"  nearfield_per_element:    {optics['nearfield_per_element']}")
+    print(f"  nearfield_per_element:    {optics.get('nearfield_per_element', {})}")
     print(f"  detector.nearfield_e:     {detector['nearfield_e']} e-")
     print(f"  warnings raised:          {messages}")
 
     # The same net transmission, declared as two warm mirrors.
     reflectance = math.sqrt(0.70)
     warm = Sensor.from_yaml(str(EXAMPLE))
+    warm.set("optics.nearfield_enabled", 1)
     warm.set_optical_elements(
         [
             {

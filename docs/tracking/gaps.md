@@ -1841,6 +1841,66 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 
 ---
 
+## Gap 132: No background-composition breakdown — a dominant background term can evaluate to zero with nothing in the output to show it
+
+| | |
+|---|---|
+| **Found in** | External review 2026-09-30 (`docs/reports/external_review_2026-09/`), recommended output #1 + #2 — ranked by the reviewer as the highest-value informational addition, and by RADIANT's own triage as higher-leverage than the [[CU-380]] warning it would have caught. |
+| **Status** | OPEN |
+| **Description** | Nothing reports the composition of the no-target background. Each contributor — nearfield, dark, scene, stray, glow — should be reported as an absolute **and as a percentage of total**. The plumbing exists: `stage_outputs["optics"]["nearfield_per_element"]` and the `detector` per-term scalars are already published; what is missing is the composed, proportioned view. Subsumes the reviewer's more general rule (#1): *if a term is enabled by a parameter and evaluates to exactly zero because of a modelling choice elsewhere, say so* — other candidates are `flicker_K = 0` where 1/f matters, and stray light enabled with a zero coefficient. |
+| **Impact** | This is the output that converts a silent wrong answer into an obvious one. CU-380 cost two releases and an external reconciliation to find; one proportioned line would have made it visible in seconds. It also tells a designer immediately where to spend effort. Rule 29(c): a tracked capability. |
+| **Suggested fix** | A background-composition record in `stage_outputs` plus surfacing in `summary()`, the CLI, and the GUI. Pairs with [[Gap 133]] and [[Gap 134]] as one "show your work" batch. |
+
+---
+
+## Gap 133: The noise breakdown does not report what scaling was applied to each term, so a wrong correlation class is invisible
+
+| | |
+|---|---|
+| **Found in** | External review 2026-09-30, recommended output #3. |
+| **Status** | OPEN |
+| **Description** | Each noise term is scaled through TDI, on-chip and off-chip binning, and co-adding, with a correlation class that differs per term (`clutter` scene-correlated ×N; PRNU/DSNU ×N digital TDI / ×√N analog; shot-like ×√N; FPN ×K on co-add). None of that is reported. The breakdown should carry, per term, the **applied exponent on each axis** and the **correlation class** that chose it. |
+| **Impact** | [[CU-381]] was invisible for two releases precisely because of this: the co-added 1/f number was simply smaller than it should be, with nothing to indicate why. Reporting the exponent makes the temporal/spatial and correlated/independent classification auditable by the person best placed to notice it is wrong — which is never the person who wrote the dispatch. Rule 29(c). |
+| **Suggested fix** | Extend the noise-breakdown record emitted by `ReadoutStage` with per-term scaling provenance; surface in `summary()`, CLI and GUI. Should land with or after [[CU-381]], whose dispatch it documents. |
+
+---
+
+## Gap 134: Derived and converted quantities are not surfaced — the values an external model will disagree about are the ones RADIANT computes silently
+
+| | |
+|---|---|
+| **Found in** | External review 2026-09-30, recommended output #4. |
+| **Status** | OPEN |
+| **Description** | `Omega_cone` was decisive in the external reconciliation (it accounted for an entire warm-optics term discrepancy — the reviewer's model used the paraxial `π/(4N²)`, 18.4 % high at f/1) and it is reachable only by digging in `stage_outputs`. The class of value needs prominent, unit-bearing exposure: acceptance cone, effective well **and whether it came from a counter or an analog well**, counts, IFOV, effective wavelength, and any rate converted from a density (see [[Gap 135]]). |
+| **Impact** | Anything RADIANT *computes* from user input is exactly what an external model will disagree about, so these are the highest-value values to show. Rule 29(c). |
+| **Suggested fix** | A derived-quantities section in `summary()` / CLI / GUI. Pairs with [[Gap 132]] and [[Gap 133]]. |
+
+---
+
+## Gap 135: No alternate input units for the quantities every external model states differently — dark-current density and photon-unit noise equivalents
+
+| | |
+|---|---|
+| **Found in** | External review 2026-09-30, unit-and-interop table. |
+| **Status** | OPEN |
+| **Description** | RADIANT has a unit layer (`radiant convert`) and an `input_unit` concept in the schema, but the quantities most often stated in other conventions have no alternate input: **dark current** as a density (A/m², A/cm²) rather than `dark_rate_e_per_s` [e-/s/pixel], and **noise equivalents** in photon units (NER/NEI, ph/s/m²) alongside the radiometric `W/m²/sr`. The dark-current conversion needs pixel area *and* q, so it is two chances to slip, and the m²/cm² choice is a 10⁴ trap. |
+| **Impact** | Not an error — a hand-conversion step where a silent factor-of-10ⁿ mistake is easy and undetectable. Removing it removes most of the arithmetic in any cross-model check, which is the activity that found seven real defects. Rule 29(c). |
+| **Suggested fix** | Accept `detector.dark_current_density_A_per_m2` and `_A_per_cm2` with conversion at `params.set()` (Rule 2: convert at boundaries only), echoing the converted per-pixel rate per [[Gap 134]]; add photon-unit NER/NEI outputs. The 1/f α-form in the same table is **not** convertible in general and belongs to [[CU-381]], not here. |
+
+---
+
+## Gap 136: `detection_range_m` is declined exactly when it is most wanted — when the current range does not meet threshold
+
+| | |
+|---|---|
+| **Found in** | External review 2026-09-30, recommended output #6. |
+| **Status** | OPEN |
+| **Description** | `detection_range_m` is declined whenever the current range is below the SNR threshold. But detection *range* is the natural headline output of a point-source model, and the below-threshold case is precisely when an analyst wants it. `solve_for` (`src/radiant/api/solve.py`) already does brentq root-finding on any parameter, so the machinery exists; nothing wires it to detection range or documents the recipe as the supported route. |
+| **Impact** | An analyst sizing a point-source system gets a declined metric and no stated path to the number. The `metric_selection` record correctly names *why* a metric is absent; this gap is about also naming **what would change it**. Rule 29(c). |
+| **Suggested fix** | Either wire `solve_for` to detection range as a first-class metric path, or document the recipe prominently in the User's Guide and the declined-metric reason string. Low effort either way; the solver exists. |
+
+---
+
 ## Summary Table (retired 2026-09-08)
 
 The per-gap summary table was retired at the early quarterly sweep: its rows

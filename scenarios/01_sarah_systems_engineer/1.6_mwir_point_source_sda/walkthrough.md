@@ -65,11 +65,31 @@ Run `scripts/run_point_source_sda.py` (or `Sensor.from_yaml(...).evaluate()`):
 |---|---|---|
 | Regime | point_source | — |
 | Signal | 20,939 | e⁻ |
-| **SNR** | **20.32** | — |
-| **Detection range** (SNR = 6) | **1346.7** | km |
+| **SNR** | **19.02** | — |
+| **Detection range** (SNR = 6) | **1302.2** | km |
 | Sampling Q (band center) | 1.42 | — |
 
-*(Refreshed 2026-09-01. One mover: **CU-336** corrected the gas fit's grid
+*(Refreshed 2026-09-30. One mover, and it is a real physics addition rather
+than a fit correction: **CU-380** found that `transmission_scalar` in a thermal
+band produced **identically zero** warm-optics emission — modes 1–4 synthesize a
+lumped element at 0 K, and the near-field loop skips it — so this scene had been
+reporting no optics self-emission at all. The input now declares a two-mirror
+train at `R = √0.85 = 0.921954`, which reproduces the same net throughput, so
+the **scene signal is unchanged at 20,939 e⁻**; what is new is that each mirror
+emits at its Kirchhoff `ε = 1 − R = 0.078`. At the 280 K LEO bus-mounted
+starting temperature that adds 1.502e5 e⁻ of warm-optics background and costs
+**SNR 20.32 → 19.02, range 1,346.7 → 1,302.2 km** (−6.4 % and −3.3 %). The
+emitting-area sweep moves with it: SNR 10.21/20.32/40.24/78.97 → 9.55/19.02/
+37.71/74.17 at A_emit = 4/8/16/32 m².*
+
+*This scene tolerates bus-ambient optics; the `sda_space_to_space` template does
+not, and the contrast is instructive. Its signal is 1.3e3 e⁻ against this
+scene's 2.09e4, so the same ε and temperature saturate its well on self-emission
+alone — the template is set to 150 K for that reason. The lesson is that a MWIR
+point-source instrument's optics temperature requirement scales with how much
+signal it collects, not with its platform class.)*
+
+*(Prior refresh, 2026-09-01. One mover: **CU-336** corrected the gas fit's grid
 convention — `floor_add` had been subtracting a band optical depth measured on a
 uniform-λ grid from one measured on MODTRAN's wavenumber grid. This is a 3–5 µm
 scene, so the reach is again the λ⁻⁴ tail (3.50–5.00 µm floor 0.4498 → 0.4494 OD):

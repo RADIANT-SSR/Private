@@ -268,7 +268,7 @@ io/
 └── results.py             # ChainResult: signal_at, noise_at, snr/nedt/niirs accessors
 ```
 
-### `cli/` — 13 source + 2 tests
+### `cli/` — 14 source + 3 tests
 
 Command-line interface (Click-based). Subcommand-per-file plus shared helpers.
 
@@ -276,6 +276,7 @@ Command-line interface (Click-based). Subcommand-per-file plus shared helpers.
 cli/
 ├── main.py                # `radiant` entry point
 ├── _common.py             # shared CLI helpers
+├── _encoding.py           # forces stdout/stderr to UTF-8 (CU-385, Rule 30)
 ├── _study.py              # study (configuration-set) helpers for run/validate (ADR-0010)
 ├── run.py                 # `radiant run` (+ `--configuration` for study files)
 ├── validate.py            # `radiant validate` (every configuration of a study)
@@ -537,7 +538,7 @@ convention and may differ slightly.
 | calibration/           | 11     | 10    | calibration error model (Gap 120 + Gap 122 items 1–4) |
 | performance/           | 56     | 39    | one metric per module (Rule 19) |
 | io/                    | 12     | 14    | config, results, element_config |
-| cli/                   | 13     | 2     | subcommand-per-file (incl. `radiant gui`, templates) |
+| cli/                   | 14     | 3     | subcommand-per-file (incl. `radiant gui`, templates) |
 | api/                   | 31     | 22    | public + internal session |
 | gui/                   | 106    | 63    | PySide6 shell + widgets + design-system theme — optional `gui` extra |
 | **plugins/** | —  | —     | removed 2026-07-06 (v2-deferred; not in tree) |

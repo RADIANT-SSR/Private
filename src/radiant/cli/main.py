@@ -17,6 +17,7 @@ Usage::
 import click
 
 from radiant.api.build_info import build_info
+from radiant.cli._encoding import force_utf8_streams
 from radiant.cli.compare import compare
 from radiant.cli.convert import convert_cmd
 from radiant.cli.explain import explain
@@ -38,6 +39,7 @@ def _print_version(ctx: click.Context, _param: click.Parameter, value: bool) -> 
     """
     if not value or ctx.resilient_parsing:
         return
+    force_utf8_streams()  # eager callback: runs before the group body (CU-385)
     click.echo(build_info().multi_line())
     ctx.exit()
 
@@ -53,6 +55,9 @@ def _print_version(ctx: click.Context, _param: click.Parameter, value: bool) -> 
 )
 def cli() -> None:
     """RADIANT — first-principles EO sensor performance modeling."""
+    # Unit symbols and error text are UTF-8; a default Windows console is
+    # cp1252 and would raise UnicodeEncodeError mid-command (CU-385, Rule 30).
+    force_utf8_streams()
 
 
 cli.add_command(run)

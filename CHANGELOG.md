@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Fixed
+- **The CLI no longer crashes on a default Windows console.** `radiant schema`
+  died with `UnicodeEncodeError: 'charmap' codec can't encode character 'α'`
+  and was unusable without `PYTHONIOENCODING=utf-8`. The CLI now reconfigures
+  its output streams to UTF-8 at entry. The exposure was wider than one
+  command: 81 user-facing strings across 36 modules carry a character cp1252
+  cannot encode — including raised `ParameterBoundsError` text, so a bounds
+  error could itself die on the way to the screen. Note `µ`, `°`, `²`, `³` and
+  `×` were never the problem (cp1252 has them); the fatal set is
+  `α λ ε Ω τ σ Δ θ ρ ₀ ⁻ √ ≈` (CU-385, Rule 30).
 - **Exported results are no longer stamped `-dirty` after a test run.** A
   `pytest` run rewrote the tracked `tests/integration/_use_case_coverage.json`,
   and because RADIANT resolves the git commit at the loaded package location

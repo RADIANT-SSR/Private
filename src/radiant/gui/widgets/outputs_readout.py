@@ -90,6 +90,18 @@ _INPUT_ECHO_KEYS: dict[str, frozenset[str]] = {
 # ``_HIDE_WHEN_ZERO_KEYS`` — conditionally-relevant terms whose zero means "this path
 # is not configured", not "this path contributes nothing measurable". Rendering
 # `0 e-` invites the reader to conclude the model found the term negligible.
+# Advisory `_note` outputs (October sweep, owner-ratified 2026-09-12): a
+# string output whose key ends in `_note` is provenance for a number, not a
+# quantity — it NEVER renders as a value row. A mapped companion row carries
+# it as a visible info marker + tooltip, keeping the explanation adjacent to
+# the number it explains; an unmapped note renders as a distinct advisory
+# block below the rows (visible, pin-less, never a fake value).
+_NOTE_SUFFIX = "_note"
+_NOTE_MARKER = " \u24d8"
+_NOTE_COMPANIONS: dict[str, dict[str, str]] = {
+    "detector": {"dark_temperature_note": "dark_e"},
+}
+
 _HIDE_WHEN_ZERO_KEYS: dict[str, frozenset[str]] = {
     "spectral_integration": frozenset({"nearfield_e", "stray_e"}),
 }
@@ -190,6 +202,8 @@ class OutputsReadout(QWidget):
 
         # Keyed by output key so tests can read a rendered value back.
         self._value_labels: dict[str, QLabel] = {}
+        self._note_marked: set[str] = set()
+        self._advisories: list[str] = []
 
     # -- row sources --------------------------------------------------------
 
@@ -200,8 +214,25 @@ class OutputsReadout(QWidget):
         plots, not scalars. Each row's pin routes to :attr:`pinOutputRequested`.
         """
         self._clear()
+        # Partition the advisory notes out before row building.
+        notes: dict[str, str] = {
+            key: value
+            for key, value in outputs.items()
+            if key.endswith(_NOTE_SUFFIX) and isinstance(value, str) and value
+        }
+        companions = _NOTE_COMPANIONS.get(stage, {})
+        attached: dict[str, str] = {}  # companion key -> note text
+        orphans: list[str] = []
+        for key, text in notes.items():
+            companion = companions.get(key)
+            if companion is not None and _is_scalar(outputs.get(companion)):
+                attached[companion] = text
+            else:
+                orphans.append(text)
         row = 0
         for key, value in outputs.items():
+            if key in notes:
+                continue
             if not _is_scalar(value):
                 continue
             # A descriptor key that is None means "absent" — skip it rather than
@@ -221,20 +252,42 @@ class OutputsReadout(QWidget):
             display = value.value if isinstance(value, Enum) else value
             unit = stage_output_unit(stage, key)
             label = _humanize(key)
+            note_text = attached.get(key)
+            tooltip = _OUTPUT_TOOLTIPS.get(stage, {}).get(key, "")
+            if note_text is not None:
+                label += _NOTE_MARKER
+                tooltip = f"{tooltip}\n\n{note_text}" if tooltip else note_text
+                self._note_marked.add(key)
             self._add_row(
                 row,
                 key,
                 label,
                 _format_scalar(display, unit),
-                tooltip=_OUTPUT_TOOLTIPS.get(stage, {}).get(key, ""),
+                tooltip=tooltip,
             )
             self._add_pin(
                 row, lambda k=key, la=label, u=unit: self.pinOutputRequested.emit(stage, k, la, u)
             )
             row += 1
+        for text in orphans:
+            advisory = QLabel(text, self)
+            advisory.setObjectName("outputsAdvisoryNote")
+            advisory.setWordWrap(True)
+            advisory.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            self._grid.addWidget(advisory, row, 0, 1, 3)
+            self._advisories.append(text)
+            row += 1
         self._grid.setRowStretch(row, 1)
 
     # -- accessors (tests) --------------------------------------------------
+
+    def has_note_marker(self, key: str) -> bool:
+        """Whether *key*'s row carries an attached advisory-note marker."""
+        return key in self._note_marked
+
+    def advisory_texts(self) -> tuple[str, ...]:
+        """The advisory-block texts rendered below the rows (unmapped notes)."""
+        return tuple(self._advisories)
 
     def rendered_keys(self) -> set[str]:
         """The output keys currently rendered as rows."""
@@ -294,6 +347,8 @@ class OutputsReadout(QWidget):
     def _clear(self) -> None:
         """Remove all existing rows before a re-populate."""
         self._value_labels.clear()
+        self._note_marked.clear()
+        self._advisories.clear()
         while self._grid.count():
             item = self._grid.takeAt(0)
             widget = item.widget()

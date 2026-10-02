@@ -22,8 +22,10 @@ from radiant.core.parameters import ParameterSet, Provenance, UnknownParameterEr
 from radiant.performance.access_rate import compute_access_rate_m2_s
 from radiant.performance.adc_margin import compute_adc_margin
 from radiant.performance.background_composition import compute_background_composition
+from radiant.performance.band_mean import band_mean
 from radiant.performance.consistency_check import check_dual_path_consistency
 from radiant.performance.contrast_snr import compute_contrast_snr
+from radiant.performance.derived_quantities import collect_derived_quantities
 from radiant.performance.detection import DetectionRangeResult
 from radiant.performance.detection_beer_lambert import detection_range_beer_lambert
 from radiant.performance.detection_path_aware import detection_range_path_aware
@@ -34,6 +36,7 @@ from radiant.performance.diffraction_limit import (
 from radiant.performance.dynamic_range import compute_dynamic_range
 from radiant.performance.folded_mtf import compute_folded_mtf
 from radiant.performance.gsd import compute_gsd_from_geometry
+from radiant.performance.ifov import ifov_rad
 from radiant.performance.metric_selection import (
     ALL_GROUPED_METRICS,
     GROUP_PARAMS,
@@ -214,6 +217,59 @@ def _compute_spatial_metrics(
         glow_e=float(det_out.get("glow_e", 0.0)),
     )
     state = state.with_stage_output("performance", "background_composition", background)
+
+    # Derived quantities, labelled and unit-bearing (Gap 134). The review's
+    # point: the values an external model will disagree about are exactly the
+    # ones RADIANT works out silently. Omega_cone was its worked case — the
+    # exact etendue cone against the paraxial pi/(4N^2) accounted for a whole
+    # warm-optics discrepancy, and was reachable only by digging.
+    focal_m: float | None = None
+    try:
+        focal_m = float(params.get("optics.focal_length_m"))
+    except (KeyError, TypeError):
+        focal_m = None
+    ifov_x = ifov_y = None
+    if focal_m is not None and focal_m > 0.0:
+        ifov_x = ifov_rad(pixel_pitch_m, focal_m)
+        try:
+            pitch_y_m = float(params.get("detector.pixel_pitch_y_um"))
+            ifov_y = ifov_rad(pitch_y_m, focal_m)
+        except (KeyError, TypeError):
+            ifov_y = None
+
+    def _band_mean_of(stage_name: str, key: str) -> float | None:
+        """Band mean of a published spectral quantity, or None if absent.
+
+        Two shapes occur in ``stage_outputs``: a ``SpectralData`` carrying its
+        own grid, and a bare ndarray on the chain grid (``tau_atm`` is the
+        latter). Both are handled; anything else is simply absent, which is the
+        honest answer on a partial chain. A malformed curve is NOT swallowed —
+        ``band_mean`` raises and that propagates, because a transmittance array
+        that cannot be averaged is an upstream defect, not a missing metric
+        (Rule 17).
+        """
+        published = state.stage_outputs.get(stage_name, {}).get(key)
+        if published is None:
+            return None
+        values = getattr(published, "values", None)
+        grid = getattr(published, "wavelength_um", None)
+        if values is None and isinstance(published, np.ndarray):
+            values, grid = published, state.wavelength_um
+        if values is None or grid is None:
+            return None
+        return band_mean(np.asarray(grid, dtype=np.float64), np.asarray(values, dtype=np.float64))
+
+    derived = collect_derived_quantities(
+        state.stage_outputs,
+        ifov_x_rad=ifov_x,
+        ifov_y_rad=ifov_y,
+        tau_atm_band_mean=_band_mean_of("atmosphere", "tau_atm"),
+        tau_opt_band_mean=_band_mean_of("optics", "tau_opt_spectral"),
+        dark_rate_from_density=(
+            "dark_current_density_a_per_cm2" in state.stage_outputs.get("detector", {})
+        ),
+    )
+    state = state.with_stage_output("performance", "derived_quantities", derived)
 
     # Folded (aliased) MTF: meaningful for Q < 2.0.
     f_ny = nyquist_freq(pixel_pitch_m)

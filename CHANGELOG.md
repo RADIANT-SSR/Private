@@ -21,6 +21,19 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Derived quantities are echoed with units and provenance** —
+  `stage_outputs["performance"]["derived_quantities"]` carries every value
+  RADIANT works out for itself as `(name, value, unit, source)`, never a bare
+  number: étendue cone, pixel solid angle, effective f/# and pupil, collecting
+  area, IFOV both axes, band-mean τ_atm and τ_opt, frame rate, duty cycle, the
+  well **and which well it is**, the three σ values, and the dark rate **with a
+  note when it was converted from a density**. The review's point was that the
+  values an external model disagrees about are the ones RADIANT derives
+  silently — its worked case, `Omega_cone`, now names the exact-vs-paraxial
+  convention in its own source string. Two were genuinely missing, not just
+  buried, and each got its own module: **`ifov_rad`** (which
+  `johnson_criteria` already consumed while nothing published it) and
+  **`band_mean`** (unweighted, deliberately). No result changes (Gap 134).
 - **Background composition breakdown** —
   `stage_outputs["performance"]["background_composition"]` reports each
   contributor to the no-target pedestal (`nearfield`, `scene`, `dark`, `stray`,

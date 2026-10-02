@@ -159,6 +159,37 @@ Photon-shot terms have **no free parameters** beyond the upstream electron rates
 | 5 | `dark_shot` | Poisson on thermally generated carriers | `√(J_dark · t_int)` | Always; dominant cooled IR | `J_dark`, `T_det` |
 | 6 | `gr_noise` | Generation-recombination through trap states | `√(2 · J_gen · t_int)` Burstein form | HgCdTe / T2SL | `gr_factor` (scales above shot) |
 | 7 | `johnson_noise` | Thermal noise across detector R₀A | `√(4kT/(R₀A) · A · t_int) · e/q` | Photovoltaic IR | `R0A_ohm_cm2`, `T_det` |
+#### Derived quantities are echoed with units and provenance (Gap 134)
+
+`stage_outputs["performance"]["derived_quantities"]` is a tuple of
+`DerivedQuantity(name, value, unit, source)` — every value RADIANT worked out
+for itself, never a bare number. 18 rows on a typical MWIR run: the étendue
+cone, pixel solid angle, effective f/# and pupil, collecting area, IFOV in both
+axes, band-mean τ_atm and τ_opt, frame rate and duty cycle, the well (**and
+which well it is** — counter-derived or analog), the three σ values, and the
+per-pixel dark rate **with a note when it was converted from a density**.
+
+The review's reasoning: *"anything RADIANT computed from user input is exactly
+what an external model will disagree about."* Its worked case was `Omega_cone`,
+where the exact étendue form against the paraxial `π/(4N²)` — 18.4 % apart at
+f/1 — accounted for an entire warm-optics discrepancy and was reachable only by
+digging in `stage_outputs`. That row now names the convention in its own
+`source` string.
+
+Two quantities were genuinely missing rather than merely buried, and each got
+its own module (Rule 19): `performance/ifov.py` — which
+`performance/johnson_criteria.py` already *consumed* while the chain never
+published it — and `performance/band_mean.py`, the unweighted band mean
+scenario 3.2 had to compute by hand. The mean is unweighted deliberately: it is
+what an external model's "band transmittance" almost always means, it assumes
+nothing about the source, and a weighted figure would silently bake in a
+spectrum the caller did not choose.
+
+Four rows from the CU-387 scenario triage fold in here, having been one
+complaint in four costumes: an effective integration time, a scalar band-mean
+τ, a first-class total-noise value, and an MTF budget reachable only by
+string-parsing `*_x`/`*_y` suffixes.
+
 #### The background pedestal is reported as a composition (Gap 132)
 
 `stage_outputs["performance"]["background_composition"]` decomposes the

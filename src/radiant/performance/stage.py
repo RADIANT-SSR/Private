@@ -21,6 +21,7 @@ from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterSet, Provenance, UnknownParameterError
 from radiant.performance.access_rate import compute_access_rate_m2_s
 from radiant.performance.adc_margin import compute_adc_margin
+from radiant.performance.background_composition import compute_background_composition
 from radiant.performance.consistency_check import check_dual_path_consistency
 from radiant.performance.contrast_snr import compute_contrast_snr
 from radiant.performance.detection import DetectionRangeResult
@@ -196,6 +197,23 @@ def _compute_spatial_metrics(
     state = state.with_stage_output("performance", "mtf_freq_y", freq_y)
     state = state.with_stage_output("performance", "mtf_y", mtf_y)
     state = state.with_stage_output("performance", "effective_psf", epsf)
+
+    # Background composition (Gap 132). A pure view over charges the detector
+    # stage already published — it derives no physics, deliberately, because
+    # anything it computed itself would be a second opinion on a number the
+    # chain already owns. The external review ranked this above its own top
+    # defect finding: CU-380's silently-zero warm optics would have been
+    # obvious in seconds from the `nearfield` share, and the breakdown
+    # generalises to whatever the next silently-zero dominant term turns out
+    # to be.
+    background = compute_background_composition(
+        nearfield_e=float(det_out.get("nearfield_e", 0.0)),
+        scene_e=float(det_out.get("background_e", 0.0)),
+        dark_e=float(det_out.get("dark_e", 0.0)),
+        stray_e=float(det_out.get("stray_e", 0.0)),
+        glow_e=float(det_out.get("glow_e", 0.0)),
+    )
+    state = state.with_stage_output("performance", "background_composition", background)
 
     # Folded (aliased) MTF: meaningful for Q < 2.0.
     f_ny = nyquist_freq(pixel_pitch_m)

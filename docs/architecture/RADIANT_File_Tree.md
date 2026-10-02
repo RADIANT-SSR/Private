@@ -252,7 +252,7 @@ calibration/
 └── internal_cal.py      # internal-shutter fore-optics emission split (Gap 122 item 4)
 ```
 
-### `performance/` — 56 source + 39 tests
+### `performance/` — 57 source + 40 tests
 
 Stage 9: SNR, NEDT, NEDL, NEDR, NIIRS, GIQE, IIRS, MTF system + budget, detection range, GSD, swath, access, dynamic range, saturation. Each metric is its own module (Rule 19 — one computation, one module).
 

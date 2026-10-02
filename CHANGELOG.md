@@ -21,6 +21,18 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Background composition breakdown** —
+  `stage_outputs["performance"]["background_composition"]` reports each
+  contributor to the no-target pedestal (`nearfield`, `scene`, `dark`, `stray`,
+  `glow`) as an absolute charge **and a share of the total**, names the dominant
+  one, and lists the terms that are exactly zero. The external review ranked
+  this above its own top defect finding: CU-380's warm optics evaluating to
+  identically zero, while the term appeared switched on, cost two releases and
+  an outside reconciliation — and one proportioned line of output would have
+  shown it. Measured on the shipped templates: `geo_lwir_staring` is **100 %
+  warm optics**, `sda_space_to_space` 73 % warm optics / 27 % dark. It computes
+  no physics, only views what the detector stage already published, so no
+  result changes (Gap 132).
 - **`detector.dark_current_density_a_per_cm2`** — dark current may now be
   declared as a **current density**, which is how every datasheet and every
   external radiometric model states it, instead of only as a per-pixel electron

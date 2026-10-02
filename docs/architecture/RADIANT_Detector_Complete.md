@@ -159,6 +159,37 @@ Photon-shot terms have **no free parameters** beyond the upstream electron rates
 | 5 | `dark_shot` | Poisson on thermally generated carriers | `√(J_dark · t_int)` | Always; dominant cooled IR | `J_dark`, `T_det` |
 | 6 | `gr_noise` | Generation-recombination through trap states | `√(2 · J_gen · t_int)` Burstein form | HgCdTe / T2SL | `gr_factor` (scales above shot) |
 | 7 | `johnson_noise` | Thermal noise across detector R₀A | `√(4kT/(R₀A) · A · t_int) · e/q` | Photovoltaic IR | `R0A_ohm_cm2`, `T_det` |
+#### The background pedestal is reported as a composition (Gap 132)
+
+`stage_outputs["performance"]["background_composition"]` decomposes the
+no-target pedestal into `nearfield` / `scene` / `dark` / `stray` / `glow`, each
+as an absolute charge **and a share of the total**, with the dominant
+contributor named and a `zero_terms()` report.
+
+It computes no physics — it is a pure view over charges the detector stage
+already published, deliberately, because anything it derived itself would be a
+second opinion on a number the chain owns. `test_background_composition_chain`
+pins that it reconciles exactly against those terms.
+
+Why it exists, in the external review's own ranking: it was placed *above* the
+review's top defect finding. CU-380 — warm-optics emission evaluating to
+identically zero while the term appeared enabled — cost two releases and an
+outside reconciliation, and one proportioned line would have shown it. Measured
+on the shipped templates after CU-380's warm trains landed:
+
+| template | dominant | nearfield share |
+|---|---|---|
+| `geo_lwir_staring` | `nearfield` | 100.00 % |
+| `sda_space_to_space` | `nearfield` | 73.17 % (dark 26.83 %) |
+| `ground_to_air_mwir_detection` | `scene` | 34.43 % |
+
+Three conventions worth knowing: shares are of the **pedestal**, not of signal
+(a share of signal would move when the target changes, which is useless for
+"where is my background from"); a zero total gives **zero shares, not NaN**,
+because a cold-shielded configuration is well-defined rather than undefined;
+and `dominant` is `None` at a zero total rather than an arbitrary winner among
+five zeros.
+
 #### Dark current may be declared as a density (Gap 135)
 
 `detector.dark_rate_e_per_s` is the chain-canonical form — electrons per second

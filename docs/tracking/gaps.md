@@ -1882,7 +1882,7 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | | |
 |---|---|
 | **Found in** | External review 2026-09-30, unit-and-interop table. |
-| **Status** | OPEN |
+| **Status** | **PARTIAL** — the dark-current half is delivered 2026-10-01 (`detector.dark_current_density_a_per_cm2`, with `A/m2` accepted via the unit layer; `rate = J·A_pixel/q` through the helper Gap 123 already used; both doors set is rejected as over-specification; default 0 so no result moved). The **photon-unit NER/NEI half remains OPEN.** |
 | **Description** | RADIANT has a unit layer (`radiant convert`) and an `input_unit` concept in the schema, but the quantities most often stated in other conventions have no alternate input: **dark current** as a density (A/m², A/cm²) rather than `dark_rate_e_per_s` [e-/s/pixel], and **noise equivalents** in photon units (NER/NEI, ph/s/m²) alongside the radiometric `W/m²/sr`. The dark-current conversion needs pixel area *and* q, so it is two chances to slip, and the m²/cm² choice is a 10⁴ trap. |
 | **Impact** | Not an error — a hand-conversion step where a silent factor-of-10ⁿ mistake is easy and undetectable. Removing it removes most of the arithmetic in any cross-model check, which is the activity that found seven real defects. Rule 29(c). |
 | **Suggested fix** | Accept `detector.dark_current_density_A_per_m2` and `_A_per_cm2` with conversion at `params.set()` (Rule 2: convert at boundaries only), echoing the converted per-pixel rate per [[Gap 134]]; add photon-unit NER/NEI outputs. The 1/f α-form in the same table is **not** convertible in general and belongs to [[CU-381]], not here. |

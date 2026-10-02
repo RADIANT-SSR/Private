@@ -20,6 +20,20 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **`detector.dark_current_density_a_per_cm2`** — dark current may now be
+  declared as a **current density**, which is how every datasheet and every
+  external radiometric model states it, instead of only as a per-pixel electron
+  rate. Converted once as `rate = J · A_pixel / q`, reusing the helper Gap 123's
+  predictive laws already used. **`A/m²` is accepted** via
+  `set(..., unit="A/m2")`: the m²/cm² choice is a silent 10⁴ trap when an
+  analyst converts by hand, and removing that hand-conversion was the external
+  review's highest-value interop request. The routine LWIR figure the review
+  cited — 1 A/m² on a 20 µm pixel, needing 2.50e9 e⁻/s — is now a one-line
+  entry. Default `0.0` = unset, so **no existing result moves**; setting both
+  doors is rejected as over-specification rather than silently preferring one
+  (Gap 135).
+
 ### Changed
 - **Results-affecting: 1/f flicker noise is now computed from the measurement's
   own transfer function** instead of a closed form over a user-declared band.

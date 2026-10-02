@@ -84,8 +84,40 @@ class DetectorStage:
         dark_temperature_note = ""
         dark_model_note = ""
         if dark_model == "measured":
+            # Two alternate spellings of the SAME measured quantity (Gap 135):
+            # a per-pixel electron rate, or the current density every datasheet
+            # and every external radiometric model actually publishes. Both set
+            # is over-specification, not a preference to resolve silently — the
+            # same posture the predictive branch below takes, and Rule 5's.
+            density_a_per_cm2: float = params.get("detector.dark_current_density_a_per_cm2")
+            density_is_set = (
+                params.get_resolved("detector.dark_current_density_a_per_cm2").provenance
+                is not Provenance.DEFAULT
+            )
+            rate_is_set = (
+                params.get_resolved("detector.dark_rate_e_per_s").provenance
+                is not Provenance.DEFAULT
+            )
+            if density_is_set and rate_is_set:
+                raise DetectorValidationError(
+                    "detector.dark_current_density_a_per_cm2 and "
+                    "detector.dark_rate_e_per_s are both explicitly set — the dark "
+                    "budget is over-specified. They are two spellings of one "
+                    "measured quantity (rate = J x A_pixel / q), so RADIANT will "
+                    "not silently prefer one. Clear whichever you did not mean; "
+                    "the density is the datasheet form, the rate the per-pixel one."
+                )
+            if density_is_set:
+                measured_rate_e_per_s = dark_rate_e_per_s_from_density(
+                    density_a_per_cm2, pixel_area_m2
+                )
+                state = state.with_stage_output(
+                    "detector", "dark_current_density_a_per_cm2", density_a_per_cm2
+                )
+            else:
+                measured_rate_e_per_s = params.get("detector.dark_rate_e_per_s")
             dark = DarkCurrent(
-                rate_e_per_s=params.get("detector.dark_rate_e_per_s"),
+                rate_e_per_s=measured_rate_e_per_s,
                 reference_temperature_K=params.get("detector.dark_reference_temperature_K"),
                 activation_energy_eV=params.get("detector.dark_activation_energy_eV"),
             )
@@ -101,6 +133,7 @@ class DetectorStage:
                     "scaling, or reference the dark rate to the operating temperature (CU-081)."
                 )
             dark_e = dark.electrons_accumulated(t_int)
+            state = state.with_stage_output("detector", "dark_rate_e_per_s", dark.rate_e_per_s)
         else:
             # Predictive HgCdTe laws (Gap 123): J(λc, T) → e⁻/s/pixel. A
             # measured rate or Arrhenius energy explicitly set alongside a
@@ -109,6 +142,10 @@ class DetectorStage:
             # the Kirchhoff Rule 5 guard).
             for over_name, why in (
                 ("detector.dark_rate_e_per_s", "the law derives the rate"),
+                (
+                    "detector.dark_current_density_a_per_cm2",
+                    "the law derives the density itself",
+                ),
                 ("detector.dark_activation_energy_eV", "the law is evaluated at temperature"),
             ):
                 if params.get_resolved(over_name).provenance is not Provenance.DEFAULT:

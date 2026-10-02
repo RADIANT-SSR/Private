@@ -159,6 +159,34 @@ Photon-shot terms have **no free parameters** beyond the upstream electron rates
 | 5 | `dark_shot` | Poisson on thermally generated carriers | `√(J_dark · t_int)` | Always; dominant cooled IR | `J_dark`, `T_det` |
 | 6 | `gr_noise` | Generation-recombination through trap states | `√(2 · J_gen · t_int)` Burstein form | HgCdTe / T2SL | `gr_factor` (scales above shot) |
 | 7 | `johnson_noise` | Thermal noise across detector R₀A | `√(4kT/(R₀A) · A · t_int) · e/q` | Photovoltaic IR | `R0A_ohm_cm2`, `T_det` |
+#### Dark current may be declared as a density (Gap 135)
+
+`detector.dark_rate_e_per_s` is the chain-canonical form — electrons per second
+per pixel. But every HgCdTe datasheet, and every external radiometric model
+RADIANT gets compared against, publishes a **current density** instead. Both of
+Gap 123's predictive laws are published that way too.
+
+So `detector.dark_current_density_a_per_cm2` is a second door onto the *same*
+measured quantity, converted once at
+`dark_current.dark_rate_e_per_s_from_density` as `rate = J · A_pixel / q`. The
+pixel cell area (`pitch_x · pitch_y`) is used, not the optically active area:
+dark generation scales with junction area, and fill factor describes optical
+collection.
+
+| | |
+|---|---|
+| canonical unit | `A/cm2` — the datasheet convention, the unit both predictive laws publish, and the unit the conversion helper already took. Same precedent as `r0a_ohm_cm2`. |
+| `A/m2` entry | accepted via the unit layer (`set(..., unit="A/m2")`, factor 1e-4). The m²/cm² choice is a silent 10⁴ trap when converted by hand — removing that is the point of the gap. |
+| default | `0.0` = unset, so the rate door stays in force and no existing result moves. |
+| both set | **rejected as over-specification.** They are two spellings of one quantity, so RADIANT will not silently prefer one — the same posture the predictive branch takes, and Rule 5's. A config that already declares a rate must clear it (`Sensor.reset`) before entering a density. |
+| under a predictive `dark_model` | rejected, exactly as an explicit rate is: the law derives the density itself. |
+| Arrhenius | the density is a measured value at `dark_reference_temperature_K`, so it scales identically to a rate — it is converted first, then fed the same `DarkCurrent` path. |
+
+The resolved per-pixel rate is published at
+`stage_outputs["detector"]["dark_rate_e_per_s"]` on both doors, so a
+density-declared run is inspectable (Rule 16) and the converted number is
+visible rather than implicit — which is what [[Gap 134]] asks for generally.
+
 | 8 | `flicker_1f` | 1/f flicker in detector + ROIC | `σ_1f² = ∫ S(f)·\|H_box\|²·\|D_K\|²·\|H_ref\|² df` (CU-381) | Long integrations, low signal, co-added stacks | `flicker_K`, `flicker_corner_hz`, `flicker_f_low` / `_f_high` (overrides) |
 
 `gr_noise`, `johnson_noise`, `flicker_1f` are zero by default and only kick in when their parameters are set. Users running a Si visible system see all three at zero.
@@ -458,7 +486,7 @@ structured `dark_model_note` stage output (CU-081 pattern), and the derived
 diagnostics in `stage_outputs["detector"]`. Both laws describe HgCdTe only —
 they say nothing about InSb, InGaAs, Si, or microbolometers.
 
-**Other detector noise (10):** `gr_factor`, `r0a_ohm_cm2`, `flicker_K`,
+**Other detector noise (11):** `gr_factor`, `r0a_ohm_cm2`, `flicker_K`,
 `flicker_corner_hz`, `flicker_f_low_hz`, `flicker_f_high_hz`, `persistence_fraction`,
 `persistence_tau_s`, `prior_signal_e`, `glow_e_per_s`.
 

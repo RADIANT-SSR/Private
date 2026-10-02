@@ -92,6 +92,10 @@ _DARK_FIELDS: Final[tuple[tuple[str, str], ...]] = (
     ("Dark model", "detector.dark_model"),
     ("Dark cutoff wavelength", "detector.dark_cutoff_um"),
     ("Dark rate", "detector.dark_rate_e_per_s"),
+    # Sits immediately under the rate because it is the same measured
+    # quantity in the unit datasheets publish (Gap 135); setting both is
+    # rejected as over-specification, so adjacency is the affordance.
+    ("Dark current density", "detector.dark_current_density_a_per_cm2"),
     ("Dark reference temperature", "detector.dark_reference_temperature_K"),
     ("Dark activation energy", "detector.dark_activation_energy_eV"),
     ("ROIC glow", "detector.glow_e_per_s"),

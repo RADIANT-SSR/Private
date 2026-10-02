@@ -183,7 +183,7 @@ spectral_integration/
 └── _schema.py
 ```
 
-### `detector/` — 12 source + 12 tests
+### `detector/` — 12 source + 13 tests
 
 Stage 6: QE, dark current, full well, noise terms, detector MTF.
 

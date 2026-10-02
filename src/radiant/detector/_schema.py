@@ -272,6 +272,28 @@ DARK_RATE_E_PER_S = ParameterDef(
     default_justification="Order-of-magnitude room-temperature Si CCD reference.",
 )
 
+DARK_CURRENT_DENSITY_A_PER_CM2 = ParameterDef(
+    name="detector.dark_current_density_a_per_cm2",
+    description=(
+        "Dark current density [A/cm²] — the form every datasheet and external "
+        "radiometric model states. Converted to a per-pixel rate as J·A_pixel/q. "
+        "Enter A/m² with unit='A/m2'. 0 = unset; mutually exclusive with "
+        "dark_rate_e_per_s."
+    ),
+    dtype=float,
+    canonical_unit="A/cm2",
+    input_unit="A/cm2",
+    default=0.0,
+    bounds=(0.0, 1e6),
+    tags=frozenset({"detector", "noise", "dark"}),
+    default_justification=(
+        "0.0 = unset, so the historical dark_rate_e_per_s door stays the one in "
+        "force and no existing result moves. The two are alternate spellings of "
+        "the same measured quantity, not two quantities, so setting both is "
+        "rejected as over-specification rather than silently preferring one."
+    ),
+)
+
 DARK_REFERENCE_TEMP = ParameterDef(
     name="detector.dark_reference_temperature_K",
     description="Temperature at which dark_rate_e_per_s is specified [K].",
@@ -583,6 +605,7 @@ ALL_PARAMETERS: tuple[ParameterDef, ...] = (
     DARK_MODEL,
     DARK_CUTOFF_UM,
     DARK_RATE_E_PER_S,
+    DARK_CURRENT_DENSITY_A_PER_CM2,
     DARK_REFERENCE_TEMP,
     DARK_ACTIVATION_EV,
     DETECTOR_TEMPERATURE_K,

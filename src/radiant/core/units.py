@@ -81,6 +81,16 @@ _CONVERSIONS: dict[tuple[str, str], float] = {
     # Radiance
     ("W/m2/sr/um", "W/m2/sr/um"): 1.0,
     ("W/cm2/sr/um", "W/m2/sr/um"): 1e4,
+    # Current density (canonical A/cm2 — the unit every HgCdTe datasheet and
+    # both predictive laws in Gap 123 are published in, and the unit
+    # dark_rate_e_per_s_from_density already takes. Same datasheet-unit
+    # precedent as the R0A ohm*cm2 handling. Accepting A/m2 here is the whole
+    # point of Gap 135: the m2/cm2 choice is a silent 1e4 trap when an analyst
+    # converts by hand.
+    ("A/cm2", "A/cm2"): 1.0,
+    ("A/m2", "A/cm2"): 1e-4,
+    ("A/cm2", "A/m2"): 1e4,
+    ("A/m2", "A/m2"): 1.0,
 }
 
 # (from_unit, to_unit) -> (scale, offset) for AFFINE conversions: to = from*scale + offset.

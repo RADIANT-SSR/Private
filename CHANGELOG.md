@@ -20,6 +20,23 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Fixed
+- **Setting a dark-current door to 0 now clears it, instead of raising
+  "over-specified".** Reported from the GUI: setting `dark_rate_e_per_s` to 0
+  and then entering a `dark_current_density_a_per_cm2` was rejected as an
+  over-specified dark budget. The guard asked *"did the user touch this?"* via
+  provenance, when it meant *"is this value in play?"* — and typing `0` in a
+  form field **is** touching it. In the GUI that matters more than in the API,
+  because a field cannot be un-typed: entering the no-op value is the only
+  clearing gesture available there, while `Sensor.reset()` exists only for
+  scripts. Both doors non-zero is still rejected, and the error now quotes both
+  values and names `0` as the remedy.
+- **The same conflation, latent since 2026-09-07, is fixed in the predictive
+  dark branch**: setting `dark_activation_energy_eV` to `0.0` — *its own
+  default*, meaning no Arrhenius scaling — was rejected as over-specification
+  under `dark_model = rule07`/`rule22`. Setting a parameter to its documented
+  no-op value cannot over-specify anything (Gap 123, Gap 135, CU-392).
+
 ### Added
 - **Each noise term now reports the scaling it received** —
   `stage_outputs["readout"]["noise_scaling"]` gives the factor applied on every

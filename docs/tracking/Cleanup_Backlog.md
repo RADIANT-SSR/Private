@@ -47,6 +47,16 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-392 — Over-specification guards conflate "the user touched this" with "this value is in play", so typing a no-op value to clear a door raises instead of working
+
+**Discovered**: owner report from the GUI, 2026-10-02 — set `detector.dark_rate_e_per_s` to 0, entered a dark-current density, got "the dark budget is over-specified". Two instances were fixed in the reporting commit; this entry tracks the rest of the family.
+**Status**: Open.
+**File**: `src/radiant/readout/stage.py::_is_explicitly_set` / `_validate_architecture_params` (the confirmed remaining instance); audit needed across every provenance-based guard.
+**Symptom**: these guards ask `provenance is not Provenance.DEFAULT` — "did the user touch this?" — when what they mean is "is this value in play?". The two differ for every parameter whose zero means *off*, and the difference is exactly the clearing gesture a GUI offers: a form field cannot be un-typed, so entering the no-op value is the only way to take a door out of play there. `Sensor.reset()` exists for the API; the GUI has no equivalent. **Measured 2026-10-02**: `readout.architecture = 'analog_well'` with `readout.count_packet_e` explicitly set to **0.0 — its own documented unset default** — raises "counting-only parameter(s) are explicitly set".
+**Why it still matters**: workflow-visible (intake test 4). It blocks the obvious gesture at the exact moment a user is switching between mutually exclusive doors, which is when these guards are supposed to be helping. It is also self-inflicted: every one of these guards is a good idea implemented with the wrong predicate.
+**Suggested fix**: (a) inline-fix-now — the detector stage's `_is_in_play(params, name, off_value=0.0)` helper (landed 2026-10-02) is the pattern; apply it to the readout architecture guard and audit the remaining provenance-based guards for the same conflation. Each needs its no-op value stated rather than assumed — `0.0` is right for the rate/density/packet family but is **not** universal, so this is a per-guard judgement, not a blanket substitution. Effort S; category B. Consider also whether the GUI should offer an explicit "clear to default" affordance, which would make the no-op convention unnecessary rather than merely workable — that part is owner-gated (new public surface).
+
+
 ### CU-391 — `geometry.circular_orbit` publishes a LOS angular rate 55.5 % high for space targets: the sensor's velocity is the sub-satellite ground-track speed, not its inertial speed
 
 **Discovered**: scenario 10.4 (`leo_to_geo_exo`), recorded in its own `gaps.md` as G10.4-2 and never promoted; surfaced by the [[CU-387]] triage, 2026-09-30.

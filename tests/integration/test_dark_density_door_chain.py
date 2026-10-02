@@ -19,6 +19,7 @@ from radiant import RadiantError, Sensor
 from radiant.core.parameters import ParameterBoundsError
 from radiant.detector.dark_current import dark_rate_e_per_s_from_density
 
+_EXAMPLE = "examples/mwir_leo_minimal.yaml"
 _PITCH_M = 20e-6
 _AREA_M2 = _PITCH_M**2
 
@@ -134,3 +135,109 @@ class TestTheDoor:
         rate = s.evaluate().stage_outputs["detector"]["dark_rate_e_per_s"]
         assert rate == pytest.approx(2.4969e9, rel=1e-3)
         assert math.isfinite(rate)
+
+
+class TestZeroClearsADoor:
+    """Typing 0 takes a door out of play (reported from the GUI, 2026-10-02).
+
+    The guards originally asked "was this explicitly set?" via provenance.
+    Typing ``0`` in a form field *is* explicitly setting it, so a user who set
+    the dark rate to 0 and then entered a density — the obvious gesture, and in
+    the GUI the only clearing gesture available, since a field cannot be
+    un-typed — was told the budget was over-specified. It wasn't.
+
+    The guards now ask "is this value in play?", which is the question they
+    always meant.
+    """
+
+    @staticmethod
+    def _sensor() -> Sensor:
+        s = Sensor.from_yaml(_EXAMPLE)
+        s.set("detector.pixel_pitch_x_um", 20.0)
+        s.set("detector.pixel_pitch_y_um", 20.0)
+        s.set("readout.full_well_capacity_e", 1e12)
+        s.set("readout.gain_e_per_dn", 1e6)
+        s.set("readout.adc_bits", 24)
+        return s
+
+    def test_rate_zeroed_then_density_entered_is_the_reported_case(self) -> None:
+        s = self._sensor()
+        s.set("detector.dark_rate_e_per_s", 0.0)
+        s.set("detector.dark_current_density_a_per_cm2", 1.0e-4)
+        rate = s.evaluate().stage_outputs["detector"]["dark_rate_e_per_s"]
+        assert rate == pytest.approx(dark_rate_e_per_s_from_density(1.0e-4, _AREA_M2), rel=1e-9)
+
+    def test_density_zeroed_then_rate_entered_is_the_mirror_case(self) -> None:
+        s = self._sensor()
+        s.set("detector.dark_current_density_a_per_cm2", 0.0)
+        s.set("detector.dark_rate_e_per_s", 250.0)
+        assert s.evaluate().stage_outputs["detector"]["dark_rate_e_per_s"] == pytest.approx(
+            250.0, rel=1e-12
+        )
+
+    def test_both_zero_means_no_dark_current(self) -> None:
+        s = self._sensor()
+        s.set("detector.dark_rate_e_per_s", 0.0)
+        s.set("detector.dark_current_density_a_per_cm2", 0.0)
+        assert s.evaluate().stage_outputs["detector"]["dark_e"] == pytest.approx(0.0, abs=1e-12)
+
+    def test_both_non_zero_is_still_a_genuine_conflict(self) -> None:
+        """The guard must not have been weakened into uselessness."""
+        s = self._sensor()
+        s.set("detector.dark_rate_e_per_s", 250.0)
+        s.set("detector.dark_current_density_a_per_cm2", 1.0e-4)
+        with pytest.raises(RadiantError, match="over-specified"):
+            s.evaluate()
+
+    def test_the_error_names_both_values_so_the_remedy_is_obvious(self) -> None:
+        s = self._sensor()
+        s.set("detector.dark_rate_e_per_s", 250.0)
+        s.set("detector.dark_current_density_a_per_cm2", 1.0e-4)
+        with pytest.raises(RadiantError) as exc:
+            s.evaluate()
+        message = str(exc.value)
+        assert "250" in message and "0.0001" in message
+        assert "set whichever you did not mean to 0" in message.lower()
+
+
+class TestZeroClearsAPredictiveOverSpecification:
+    """The same conflation, latent in Gap 123 since 2026-09-07.
+
+    Setting ``dark_activation_energy_eV`` to ``0.0`` — its own default, meaning
+    "no Arrhenius scaling" — was rejected as over-specification under a
+    predictive ``dark_model``. Setting a parameter to its documented no-op value
+    cannot be over-specifying anything.
+    """
+
+    @staticmethod
+    def _rule07() -> Sensor:
+        s = Sensor.from_yaml(_EXAMPLE)
+        s.set("detector.dark_model", "rule07")
+        s.set("detector.dark_cutoff_um", 5.0)
+        s.set("detector.dark_rate_e_per_s", 0.0)
+        return s
+
+    def test_activation_energy_zero_is_accepted(self) -> None:
+        s = self._rule07()
+        s.set("detector.dark_activation_energy_eV", 0.0)
+        assert s.evaluate().stage_outputs["detector"]["dark_rate_e_per_s"] > 0.0
+
+    def test_a_real_activation_energy_is_still_rejected(self) -> None:
+        s = self._rule07()
+        s.set("detector.dark_activation_energy_eV", 0.5)
+        with pytest.raises(RadiantError, match="over-specified"):
+            s.evaluate()
+
+    def test_a_zeroed_rate_no_longer_blocks_a_predictive_model(self) -> None:
+        assert self._rule07().evaluate().stage_outputs["detector"]["dark_rate_e_per_s"] > 0.0
+
+    def test_a_real_rate_still_blocks_a_predictive_model(self) -> None:
+        s = self._rule07()
+        s.set("detector.dark_rate_e_per_s", 500.0)
+        with pytest.raises(RadiantError, match="over-specified"):
+            s.evaluate()
+
+    def test_a_zeroed_density_no_longer_blocks_a_predictive_model(self) -> None:
+        s = self._rule07()
+        s.set("detector.dark_current_density_a_per_cm2", 0.0)
+        assert s.evaluate().stage_outputs["detector"]["dark_rate_e_per_s"] > 0.0

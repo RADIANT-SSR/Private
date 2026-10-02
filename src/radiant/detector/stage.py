@@ -47,6 +47,30 @@ OUTPUT_UNITS: dict[str, str] = {
 }
 
 
+def _is_in_play(params: ParameterSet, name: str, *, off_value: float = 0.0) -> bool:
+    """True when *name* is explicitly set **and** not parked at its no-op value.
+
+    Over-specification guards must ask "is this value in play?", not "did the
+    user touch this?". Those differ for every parameter whose zero means *off*,
+    and conflating them makes the obvious gesture — type 0 to take a door out of
+    play — raise instead of work.
+
+    Two real defects came from the conflation. A user who set
+    ``dark_rate_e_per_s = 0`` and then entered a density was told the budget was
+    over-specified (Gap 135, reported from the GUI 2026-10-02), and setting
+    ``dark_activation_energy_eV`` to ``0.0`` — *its own default*, meaning no
+    Arrhenius scaling — was rejected under a predictive ``dark_model`` (Gap 123,
+    latent since 2026-09-07). Neither user over-specified anything.
+
+    The GUI makes this sharper than the API: ``Sensor.reset`` can return a
+    parameter to DEFAULT provenance, but a form field cannot be un-typed, so
+    entering the no-op value is the only clearing gesture available there.
+    """
+    if params.get_resolved(name).provenance is Provenance.DEFAULT:
+        return False
+    return float(params.get(name)) != off_value
+
+
 class DetectorStage:
     """Chain stage for detector electron counts and raw noise budget."""
 
@@ -90,22 +114,20 @@ class DetectorStage:
             # is over-specification, not a preference to resolve silently — the
             # same posture the predictive branch below takes, and Rule 5's.
             density_a_per_cm2: float = params.get("detector.dark_current_density_a_per_cm2")
-            density_is_set = (
-                params.get_resolved("detector.dark_current_density_a_per_cm2").provenance
-                is not Provenance.DEFAULT
-            )
-            rate_is_set = (
-                params.get_resolved("detector.dark_rate_e_per_s").provenance
-                is not Provenance.DEFAULT
-            )
+            # "In play", not "touched": a zero takes a door OUT of play, which is
+            # the only clearing gesture a GUI form field offers.
+            density_is_set = _is_in_play(params, "detector.dark_current_density_a_per_cm2")
+            rate_is_set = _is_in_play(params, "detector.dark_rate_e_per_s")
             if density_is_set and rate_is_set:
                 raise DetectorValidationError(
-                    "detector.dark_current_density_a_per_cm2 and "
-                    "detector.dark_rate_e_per_s are both explicitly set — the dark "
-                    "budget is over-specified. They are two spellings of one "
-                    "measured quantity (rate = J x A_pixel / q), so RADIANT will "
-                    "not silently prefer one. Clear whichever you did not mean; "
-                    "the density is the datasheet form, the rate the per-pixel one."
+                    "detector.dark_current_density_a_per_cm2 "
+                    f"({density_a_per_cm2:g} A/cm²) and detector.dark_rate_e_per_s "
+                    f"({params.get('detector.dark_rate_e_per_s'):g} e-/s) are both "
+                    "set to non-zero values — the dark budget is over-specified. "
+                    "They are two spellings of one measured quantity "
+                    "(rate = J × A_pixel / q), so RADIANT will not silently prefer "
+                    "one. Set whichever you did not mean to 0: the density is the "
+                    "datasheet form, the rate the per-pixel one."
                 )
             if density_is_set:
                 measured_rate_e_per_s = dark_rate_e_per_s_from_density(
@@ -148,7 +170,7 @@ class DetectorStage:
                 ),
                 ("detector.dark_activation_energy_eV", "the law is evaluated at temperature"),
             ):
-                if params.get_resolved(over_name).provenance is not Provenance.DEFAULT:
+                if _is_in_play(params, over_name):
                     raise DetectorValidationError(
                         f"detector.dark_model = '{dark_model}' derives the dark "
                         f"current from cutoff and temperature, but {over_name} is "

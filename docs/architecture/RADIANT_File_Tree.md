@@ -200,7 +200,7 @@ noise/
 └── other.py              # 1/f, glow, persistence, etc.
 ```
 
-### `readout/` — 18 source + 18 tests
+### `readout/` — 19 source + 19 tests
 
 Stage 7: TDI, ADC, gain, read noise, binning, coadds, saturation, and the
 digital-pixel counting model (Gap 117). The architecture dispatch

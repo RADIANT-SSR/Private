@@ -159,6 +159,44 @@ Photon-shot terms have **no free parameters** beyond the upstream electron rates
 | 5 | `dark_shot` | Poisson on thermally generated carriers | `√(J_dark · t_int)` | Always; dominant cooled IR | `J_dark`, `T_det` |
 | 6 | `gr_noise` | Generation-recombination through trap states | `√(2 · J_gen · t_int)` Burstein form | HgCdTe / T2SL | `gr_factor` (scales above shot) |
 | 7 | `johnson_noise` | Thermal noise across detector R₀A | `√(4kT/(R₀A) · A · t_int) · e/q` | Photovoltaic IR | `R0A_ohm_cm2`, `T_det` |
+#### Each noise term reports the scaling it received (Gap 133)
+
+`stage_outputs["readout"]["noise_scaling"]` carries, per term, the factor
+applied on each axis — TDI, on-chip binning, off-chip binning, co-add — and the
+**correlation class that chose it**. Rendered:
+
+```
+clutter      spatial            TDI x4  bin x1/x1  coadd x8     [scene-correlated …]
+prnu         spatial            TDI x2  bin x1/x1  coadd x8     [different physical pixels …]
+signal_shot  shot               TDI x2  bin x1/x1  coadd x2.828
+read_noise   read_like          TDI x1  bin x1/x1  coadd x2.828 [injected once after …]
+flicker_1f   transfer_function  TDI x2  bin x1/x1  coadd —      [the Dirichlet comb …]
+```
+
+Why it exists: CU-381 was invisible for two releases because the co-added 1/f
+number was simply *smaller than it should be*, with nothing to say what had
+been applied. The scaling rests on a correlation judgement — is this the same
+fluctuation in every frame, or an independent draw? — made in code and reported
+nowhere, while the person best placed to notice it is wrong is the analyst
+reading the budget.
+
+Two properties make the record trustworthy rather than decorative:
+
+**The factors are measured, not described.** Each is obtained by pushing `1.0`
+through the *same* helper the stage applies to the real value, so it is the
+factor actually applied rather than a second implementation that could drift. A
+test pins `reported_factor × raw == scaled` for every multiplicative term,
+under both TDI modes and all three co-add modes.
+
+**`None` is not 1.0.** A dash means *no factor was applied on that axis*, which
+is different from a factor of one. `flicker_1f` has no co-add factor at all
+since CU-381 — its co-add behaviour is the Dirichlet comb, a frequency-dependent
+crossover with no single correct exponent — and the record says so in words
+instead of inventing a number. The two Gap-117 counting terms likewise report no
+TDI or on-chip factor, because `n_counts` already carries both and a factor
+there would double-count. That classification was **wrong in this module's
+first version**, and the reconciliation test caught it.
+
 #### Derived quantities are echoed with units and provenance (Gap 134)
 
 `stage_outputs["performance"]["derived_quantities"]` is a tuple of

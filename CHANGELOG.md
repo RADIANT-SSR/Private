@@ -21,6 +21,19 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Each noise term now reports the scaling it received** —
+  `stage_outputs["readout"]["noise_scaling"]` gives the factor applied on every
+  axis (TDI, on-chip, off-chip, co-add) plus the correlation class that chose
+  it. CU-381 was invisible for two releases precisely because this was absent:
+  the co-added 1/f value was simply smaller than it should be, with nothing to
+  indicate why. The factors are **measured** — obtained by pushing 1.0 through
+  the same helpers the stage uses — and a test pins
+  `reported_factor × raw == scaled` for every multiplicative term, so the
+  report cannot drift from the dispatch. A `None` factor means *no factor on
+  that axis*, not 1.0: `flicker_1f` has no co-add factor at all (its
+  correlation is the frequency-dependent Dirichlet comb), and the Gap-117
+  counting terms have no TDI or on-chip factor because `n_counts` already
+  carries both. No result changes (Gap 133).
 - **Derived quantities are echoed with units and provenance** —
   `stage_outputs["performance"]["derived_quantities"]` carries every value
   RADIANT works out for itself as `(name, value, unit, source)`, never a bare

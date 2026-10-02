@@ -74,6 +74,7 @@ from radiant.readout.errors import (
 from radiant.readout.flicker_inputs import resolve_flicker_band
 from radiant.readout.flicker_transfer import flicker_noise_e
 from radiant.readout.frame_timing import compute_frame_timing
+from radiant.readout.noise_scaling_record import describe_noise_scaling
 from radiant.readout.saturation import (
     SaturationStatus,
     check_adc_saturation,
@@ -802,6 +803,29 @@ class ReadoutStage:
             value = coadd_scale_temporal_noise(value, n_coadds, coadd_mode)
             scaled_terms[term_name] = value
 
+        # Per-term scaling provenance (Gap 133). CU-381 was invisible for two
+        # releases because the co-added 1/f number was simply smaller than it
+        # should be, with nothing in the output to say what had been applied.
+        # The factors are measured by pushing 1.0 through the same helpers, so
+        # the report cannot drift from the dispatch.
+        state = state.with_stage_output(
+            "readout",
+            "noise_scaling",
+            tuple(
+                describe_noise_scaling(
+                    name,
+                    n_tdi=n_tdi,
+                    tdi_digital=tdi_digital,
+                    mx_on=mx_on,
+                    my_on=my_on,
+                    px_off=px_off,
+                    py_off=py_off,
+                    n_coadds=n_coadds,
+                    coadd_mode=coadd_mode,
+                )
+                for name in sorted(scaled_terms)
+            ),
+        )
         temporal_var = sum(v**2 for k, v in scaled_terms.items() if k in TEMPORAL_TERMS)
         spatial_var = sum(v**2 for k, v in scaled_terms.items() if k in SPATIAL_TERMS)
         sigma_temporal_e = math.sqrt(temporal_var)
@@ -1070,6 +1094,29 @@ class ReadoutStage:
         reference_s = coadd_scale_temporal_noise(reference_s, n_coadds, coadd_mode)
         scaled_terms["reference_shot"] = reference_s
 
+        # Per-term scaling provenance (Gap 133). CU-381 was invisible for two
+        # releases because the co-added 1/f number was simply smaller than it
+        # should be, with nothing in the output to say what had been applied.
+        # The factors are measured by pushing 1.0 through the same helpers, so
+        # the report cannot drift from the dispatch.
+        state = state.with_stage_output(
+            "readout",
+            "noise_scaling",
+            tuple(
+                describe_noise_scaling(
+                    name,
+                    n_tdi=n_tdi,
+                    tdi_digital=tdi_digital,
+                    mx_on=mx_on,
+                    my_on=my_on,
+                    px_off=px_off,
+                    py_off=py_off,
+                    n_coadds=n_coadds,
+                    coadd_mode=coadd_mode,
+                )
+                for name in sorted(scaled_terms)
+            ),
+        )
         temporal_var = sum(v**2 for k, v in scaled_terms.items() if k in TEMPORAL_TERMS)
         spatial_var = sum(v**2 for k, v in scaled_terms.items() if k in SPATIAL_TERMS)
         sigma_temporal_e = math.sqrt(temporal_var)
@@ -1363,6 +1410,29 @@ class ReadoutStage:
             )
 
         # Compute final temporal and spatial RSS
+        # Per-term scaling provenance (Gap 133). CU-381 was invisible for two
+        # releases because the co-added 1/f number was simply smaller than it
+        # should be, with nothing in the output to say what had been applied.
+        # The factors are measured by pushing 1.0 through the same helpers, so
+        # the report cannot drift from the dispatch.
+        state = state.with_stage_output(
+            "readout",
+            "noise_scaling",
+            tuple(
+                describe_noise_scaling(
+                    name,
+                    n_tdi=n_tdi,
+                    tdi_digital=tdi_digital,
+                    mx_on=mx_on,
+                    my_on=my_on,
+                    px_off=px_off,
+                    py_off=py_off,
+                    n_coadds=n_coadds,
+                    coadd_mode=coadd_mode,
+                )
+                for name in sorted(scaled_terms)
+            ),
+        )
         temporal_var = sum(v**2 for k, v in scaled_terms.items() if k in TEMPORAL_TERMS)
         spatial_var = sum(v**2 for k, v in scaled_terms.items() if k in SPATIAL_TERMS)
         sigma_temporal_e = math.sqrt(temporal_var)

@@ -7,6 +7,40 @@
 
 ---
 
+
+## Over-specification guards: "in play", not "touched"
+
+`ParameterSet.is_in_play(name, inert_values=())` is the predicate an
+over-specification guard should ask. It is **not** the same question as
+"did the user touch this?", and conflating the two shipped three defects.
+
+A value is *not* in play when:
+
+1. its provenance is `DEFAULT` — never set;
+2. **it equals the parameter's own schema default** — the universal rule, since
+   the system then behaves exactly as if it were unset, so it cannot
+   over-specify anything;
+3. it equals one of `inert_values` — the per-parameter escape for a no-op that
+   is *not* the default. `detector.dark_rate_e_per_s` is the motivating case:
+   its default is 100.0 e-/s, but 0.0 means "this door contributes nothing".
+
+Why rule 2 rather than "is it zero": the defaults a real guard spans are
+heterogeneous. The readout architecture doors alone default to `16`, `0.0`,
+`True`, `'up'` and `'background_term'`, so there is no universal numeric no-op.
+
+**This is deliberately not the predicate a mode-entry *door* wants.** Several
+doors key on raw provenance precisely because an explicit set is the signal,
+even to the default value — `geometry.los_angular_rate_rad_s` says so in its
+own `default_justification`. Those must keep reading `get_resolved(...)`
+directly. This helper is for guards asking whether a value *conflicts* with
+another, not for doors asking whether a value was *offered*.
+
+Why it matters most in the GUI: a form field cannot be un-typed. `Sensor.reset`
+returns a parameter to `DEFAULT` provenance, but the GUI has no equivalent, so
+entering the inert value is the only clearing gesture available there. A guard
+that reads that as "touched" blocks the user at exactly the moment they are
+switching between mutually exclusive doors.
+
 ## Critical Decision: Spectral Arrays
 
 ### Choice: **(c) Hybrid**

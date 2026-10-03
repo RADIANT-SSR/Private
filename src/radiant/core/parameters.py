@@ -991,6 +991,50 @@ class ParameterSet:
             raise UnknownParameterError(self._suggest(name))
         return self._resolved[name].value
 
+    def is_in_play(self, name: str, *, inert_values: tuple[object, ...] = ()) -> bool:
+        """True when *name* is set to a value that actually does something.
+
+        Over-specification guards must ask "is this value in play?" rather than
+        "did the user touch this?". The two differ whenever a parameter can be
+        set to a value that changes nothing, and conflating them makes the
+        obvious gesture — type the no-op value to take a door out of play —
+        raise instead of work. That matters most in the GUI, where a form field
+        cannot be un-typed: entering the inert value is the only clearing
+        gesture available, while :meth:`Sensor.reset` exists only for scripts.
+
+        A value is *not* in play when any of these hold:
+
+        1. its provenance is :attr:`Provenance.DEFAULT` — never set at all;
+        2. it equals the parameter's own schema default — setting a parameter
+           to its default cannot over-specify anything, because the system
+           behaves identically to it being unset. This is the universal case
+           and needs no per-parameter knowledge;
+        3. it equals one of *inert_values* — the per-parameter escape for a
+           no-op that is **not** the default. ``detector.dark_rate_e_per_s`` is
+           the motivating case: its default is 100.0 e-/s, but 0.0 means "this
+           door contributes nothing", so 0.0 is inert while 100.0 is not.
+
+        Three real defects came from the conflation, all found 2026-10-02/03:
+        a dark rate zeroed before entering a density was rejected as
+        over-specified (Gap 135); ``dark_activation_energy_eV`` set to its own
+        default of 0.0 was rejected under a predictive dark model (Gap 123,
+        latent since 2026-09-07); and ``count_packet_e`` set to its own default
+        of 0.0 was rejected under ``analog_well`` (CU-392).
+
+        Note this is deliberately **not** the predicate a mode-entry *door*
+        wants. Several doors use raw provenance precisely because an explicit
+        set is the signal, even to the default value — see
+        ``geometry.los_angular_rate_rad_s``, whose justification says so. Those
+        must keep using :meth:`get_resolved` directly; this helper is for
+        guards that ask whether a value conflicts with another.
+        """
+        if self.get_resolved(name).provenance is Provenance.DEFAULT:
+            return False
+        value = self.get(name)
+        if value == self.parameter_def(name).default:
+            return False
+        return all(value != inert for inert in inert_values)
+
     def get_resolved(self, name: str) -> ResolvedValue:
         """Return the full ResolvedValue with provenance."""
         self._require_resolved()

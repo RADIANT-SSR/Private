@@ -20,6 +20,18 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **`ParameterSet.is_in_play(name, inert_values=())`** — the predicate an
+  over-specification guard should ask, replacing the raw provenance check that
+  conflated "is this value in play?" with "did the user touch this?". A value
+  is not in play when it was never set, when it **equals its own schema
+  default** (the universal rule — the system then behaves as if unset), or when
+  it matches a declared per-parameter inert value. The detector's dark-current
+  guards now use it. Note this is *not* the predicate a mode-entry door wants:
+  several doors key on raw provenance deliberately, because an explicit set is
+  the signal even at the default value (CU-392).
+
+
 ### Changed
 - **Results-affecting: `detection_range_m` is now reported when the target is
   *below* threshold at its current range**, instead of being declined. A target

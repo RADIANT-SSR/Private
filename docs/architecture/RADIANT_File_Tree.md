@@ -43,7 +43,7 @@ in their own right and are **not** folded into the parent's count. Run
 `find src/radiant/<pkg> -name '*.py'` for the full enumeration; this doc highlights the
 structure and the load-bearing modules per package.
 
-### `core/` — 25 source + 22 tests
+### `core/` — 25 source + 23 tests
 
 Foundational abstractions; no physics, no sensor knowledge. The only package physics modules may import from.
 

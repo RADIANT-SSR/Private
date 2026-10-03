@@ -17,7 +17,7 @@ import math
 import numpy as np
 
 from radiant.core.chain import ChainState
-from radiant.core.parameters import ParameterSet, Provenance, UnknownParameterError
+from radiant.core.parameters import ParameterSet, UnknownParameterError
 from radiant.detector.dark_current import DarkCurrent, dark_rate_e_per_s_from_density
 from radiant.detector.diffusion import diffusion_mtf_1d
 from radiant.detector.errors import DetectorValidationError
@@ -47,28 +47,12 @@ OUTPUT_UNITS: dict[str, str] = {
 }
 
 
-def _is_in_play(params: ParameterSet, name: str, *, off_value: float = 0.0) -> bool:
-    """True when *name* is explicitly set **and** not parked at its no-op value.
-
-    Over-specification guards must ask "is this value in play?", not "did the
-    user touch this?". Those differ for every parameter whose zero means *off*,
-    and conflating them makes the obvious gesture — type 0 to take a door out of
-    play — raise instead of work.
-
-    Two real defects came from the conflation. A user who set
-    ``dark_rate_e_per_s = 0`` and then entered a density was told the budget was
-    over-specified (Gap 135, reported from the GUI 2026-10-02), and setting
-    ``dark_activation_energy_eV`` to ``0.0`` — *its own default*, meaning no
-    Arrhenius scaling — was rejected under a predictive ``dark_model`` (Gap 123,
-    latent since 2026-09-07). Neither user over-specified anything.
-
-    The GUI makes this sharper than the API: ``Sensor.reset`` can return a
-    parameter to DEFAULT provenance, but a form field cannot be un-typed, so
-    entering the no-op value is the only clearing gesture available there.
-    """
-    if params.get_resolved(name).provenance is Provenance.DEFAULT:
-        return False
-    return float(params.get(name)) != off_value
+#: Per-parameter no-op values that are NOT the schema default (CU-392).
+#: ``dark_rate_e_per_s`` defaults to 100.0 e-/s, but 0.0 means "this door
+#: contributes nothing", so a user clearing it by typing 0 must not trip the
+#: over-specification guard. Everything else here is inert at its own default
+#: and needs no entry.
+_DARK_INERT: dict[str, tuple[float, ...]] = {"detector.dark_rate_e_per_s": (0.0,)}
 
 
 class DetectorStage:
@@ -116,8 +100,8 @@ class DetectorStage:
             density_a_per_cm2: float = params.get("detector.dark_current_density_a_per_cm2")
             # "In play", not "touched": a zero takes a door OUT of play, which is
             # the only clearing gesture a GUI form field offers.
-            density_is_set = _is_in_play(params, "detector.dark_current_density_a_per_cm2")
-            rate_is_set = _is_in_play(params, "detector.dark_rate_e_per_s")
+            density_is_set = params.is_in_play("detector.dark_current_density_a_per_cm2")
+            rate_is_set = params.is_in_play("detector.dark_rate_e_per_s", inert_values=(0.0,))
             if density_is_set and rate_is_set:
                 raise DetectorValidationError(
                     "detector.dark_current_density_a_per_cm2 "
@@ -170,7 +154,7 @@ class DetectorStage:
                 ),
                 ("detector.dark_activation_energy_eV", "the law is evaluated at temperature"),
             ):
-                if _is_in_play(params, over_name):
+                if params.is_in_play(over_name, inert_values=_DARK_INERT.get(over_name, ())):
                     raise DetectorValidationError(
                         f"detector.dark_model = '{dark_model}' derives the dark "
                         f"current from cutoff and temperature, but {over_name} is "

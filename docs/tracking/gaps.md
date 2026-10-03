@@ -1949,6 +1949,18 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 
 ---
 
+## Gap 141: 1/f is signal-independent only — a ROIC's measured signal-proportional α cannot be entered, so `flicker_K` will not transfer across operating points
+
+| | |
+|---|---|
+| **Found in** | External review 2026-09-30, Finding 2's closing paragraph and the unit-and-interop table. **Missed by the original triage**: this is the one item of that report that reached no registry at all, found 2026-10-03 while auditing whether every finding had been dispositioned — the same failure mode [[CU-387]] was chartered to close, one layer up. |
+| **Status** | OPEN |
+| **Description** | RADIANT's 1/f term is **signal-independent**: [[CU-381]] replaced the closed form with the measurement's transfer-function integral, but the PSD it integrates is still `S(f) = K_f/f`, with `flicker_K` a fixed coefficient in e-². Many ROIC datasheets and in-house noise models instead parameterise 1/f as **signal-proportional**, `σ = α·S·√(ln(f_hi/f_lo))`, because that is what is measured on a real part. The two forms are not algebraically interchangeable, so `flicker_K` can only be calibrated at a single operating point and does not transfer across integration time, signal level, or co-add count. |
+| **Impact** | Cross-validating RADIANT's 1/f against a vendor or in-house model requires a **per-point refit** — exactly the hand-arithmetic [[Gap 135]] removed for dark current. It also means a sweep over integration time or signal level silently holds the 1/f coefficient fixed when a real part's would move. Not wrong for a stated operating point; wrong for a trade study across them. Rule 29(c): a tracked capability. |
+| **Suggested fix** | Accept an α + reference-signal input mode alongside `flicker_K`, resolving to the same PSD the transfer integral already consumes (so [[CU-381]]'s machinery is reused, not duplicated) with the two doors mutually exclusive in the [[CU-392]] "in play, not touched" pattern. Needs an owner ruling on which signal the proportionality references — the per-frame charge, the accumulated stack charge, or the photocurrent — since those differ by K and the choice is not inferable. |
+
+---
+
 ## Summary Table (retired 2026-09-08)
 
 The per-gap summary table was retired at the early quarterly sweep: its rows

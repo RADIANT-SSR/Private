@@ -20,6 +20,23 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Results-affecting: `detection_range_m` is now reported when the target is
+  *below* threshold at its current range**, instead of being declined. A target
+  that cannot be detected where it sits still has a well-posed detection range
+  — a shorter one — and "how close would I have to be?" is exactly the question
+  a below-threshold result raises. The solver bracketed outward only, clamped
+  its vacuum factor at 1.0, and then reported "no interval to search", so the
+  metric was absent in precisely the case an analyst most wants it. Measured: a
+  target at SNR 0.17 at 1000 km now reports detection within 178.9 km.
+  **Direction:** a metric that was previously absent now appears; no previously
+  reported range changes, because the outward bracket is untouched.
+  **Scope:** the constant-extinction solver only. The path-aware solver still
+  declines, for a real reason rather than a bracket artefact — its profile
+  carries the leg's *total* optical depth, not its interior distribution, so it
+  cannot be evaluated inside the leg at all. That half of Gap 136 stays open
+  (Gap 136).
+
 ### Fixed
 - **Setting a dark-current door to 0 now clears it, instead of raising
   "over-specified".** Reported from the GUI: setting `dark_rate_e_per_s` to 0

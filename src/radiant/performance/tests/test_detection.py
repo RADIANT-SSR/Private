@@ -112,17 +112,67 @@ class TestBeerLambertDetection:
         assert result.snr_at_range == pytest.approx(5.0, rel=0.01)
 
     @pytest.mark.level1
-    def test_undetectable_at_ref(self) -> None:
-        """Signal too weak even at reference range."""
+    def test_below_threshold_at_ref_now_answers_how_close(self) -> None:
+        """Below threshold where it sits -> the range is INWARD, not a decline.
+
+        This test previously asserted the opposite — ``not result.ok`` with
+        "not detectable" — and that contract was the subject of Gap 136. A
+        target that is below threshold at its current range still has a
+        perfectly well-posed detection range: it is shorter than the current
+        range, and "how close would I have to be?" is precisely the question a
+        below-threshold result raises. The solver used to bracket outward only,
+        so it declined the metric in exactly the case an analyst most wants it.
+
+        The constant-extinction model supports this honestly, because
+        ``exp(-α(r − R_ref))`` evaluated at ``r < R_ref`` is a shorter path
+        through the same uniform medium the model already assumes. The
+        path-aware solver still declines, for a real reason rather than a
+        bracket artefact: its profile carries the leg's total optical depth and
+        not its interior distribution, so it cannot be evaluated inside the leg
+        at all. That half of Gap 136 remains open.
+        """
         result = detection_range_beer_lambert(
-            signal_e_at_ref=1.0,
-            noise_e=100.0,
-            ref_range_m=1000.0,
+            signal_e_at_ref=10.0,
+            noise_e=60.0,
+            ref_range_m=1.0e6,
             extinction_coeff=0.0,
             snr_threshold=5.0,
         )
-        assert not result.ok
-        assert "not detectable" in result.failure_reason
+        assert result.ok, result.failure_reason
+        assert result.range_m < 1.0e6  # inward: closer than where it sits
+        # rel=1e-4, not tighter: the solver's tol_m is 1 m ABSOLUTE, which on a
+        # ~179 km answer is ~6e-6 in range and so ~1e-5 in SNR. This is matching
+        # the documented tolerance, not loosening past a defect — the exactness
+        # of the root is pinned separately below with a tightened tol_m.
+        assert result.snr_at_range == pytest.approx(5.0, rel=1e-4)
+
+    @pytest.mark.level1
+    def test_the_inward_answer_obeys_inverse_square_in_vacuum(self) -> None:
+        """With no extinction the answer is exact: R = R_ref·sqrt(S_ref/S*).
+
+        ``tol_m`` is tightened because the solver's tolerance is ABSOLUTE in
+        metres, so an inward answer — which can be orders of magnitude shorter
+        than the reference range — carries correspondingly coarser relative
+        precision at the default 1 m. That is pre-existing behaviour made more
+        visible by inward solving, and it is recorded in the Findings Log.
+        """
+        import math
+
+        from radiant.performance.detection_noise_floor import target_free_noise_floor_e
+        from radiant.performance.detection_shot_consistent_snr import threshold_signal_e
+
+        signal_e, noise_e, ref_m = 10.0, 60.0, 1.0e6
+        result = detection_range_beer_lambert(
+            signal_e_at_ref=signal_e,
+            noise_e=noise_e,
+            ref_range_m=ref_m,
+            extinction_coeff=0.0,
+            snr_threshold=5.0,
+            tol_m=1.0e-3,
+        )
+        floor = target_free_noise_floor_e(noise_e, signal_e)
+        expected = ref_m * math.sqrt(signal_e / threshold_signal_e(5.0, floor))
+        assert result.range_m == pytest.approx(expected, rel=1e-6)
 
     @pytest.mark.level1
     def test_zero_signal_fails(self) -> None:

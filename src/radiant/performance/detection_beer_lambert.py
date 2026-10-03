@@ -26,8 +26,10 @@ from __future__ import annotations
 import math
 
 from radiant.performance.detection import DetectionRangeResult
+from radiant.performance.detection_bracket import vacuum_bracket
 from radiant.performance.detection_generic import detection_range_generic
 from radiant.performance.detection_noise_floor import target_free_noise_floor_e
+from radiant.performance.detection_shot_consistent_snr import threshold_signal_e
 
 __all__ = ["detection_range_beer_lambert"]
 
@@ -125,12 +127,29 @@ def detection_range_beer_lambert(
         atm_factor = math.exp(-extinction_coeff * (r - ref_range_m))
         return signal_e_at_ref * range_factor * atm_factor
 
+    # Bracket on whichever side the root lies (Gap 136). The constant-extinction
+    # model is defined INWARD as well as outward — exp(-α(r − R_ref)) with
+    # r < R_ref is a shorter path through the same uniform medium, which is
+    # exactly what the model claims the atmosphere is — so a target that is below
+    # threshold where it sits still has a well-posed answer here: "you would have
+    # to be this close". The path-aware solver cannot do this, because its
+    # profile carries the leg's TOTAL optical depth and not its interior
+    # distribution; that half of Gap 136 stays open.
+    signal_at_threshold_e = threshold_signal_e(snr_threshold, noise_floor_e)
+    bracket = vacuum_bracket(
+        signal_e_at_ref=signal_e_at_ref,
+        signal_at_threshold_e=signal_at_threshold_e,
+        ref_range_m=ref_range_m,
+    )
+    search_min_m = bracket.r_min_m if bracket.inward else ref_range_m
+    search_max_m = bracket.r_max_m if bracket.inward else max_range_m
+
     return detection_range_generic(
         signal_at_range_fn=signal_at_range,
         noise_floor_e=noise_floor_e,
         snr_threshold=snr_threshold,
-        r_min_m=ref_range_m,
-        r_max_m=max_range_m,
+        r_min_m=search_min_m,
+        r_max_m=search_max_m,
         tol_m=tol_m,
         max_iter=max_iter,
     )

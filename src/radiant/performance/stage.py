@@ -34,6 +34,7 @@ from radiant.performance.diffraction_limit import (
     diffraction_limited_ground_m,
 )
 from radiant.performance.dynamic_range import compute_dynamic_range
+from radiant.performance.effective_photon_energy import effective_photon_energy
 from radiant.performance.folded_mtf import compute_folded_mtf
 from radiant.performance.gsd import compute_gsd_from_geometry
 from radiant.performance.ifov import ifov_rad
@@ -48,6 +49,9 @@ from radiant.performance.mtf_budget import compute_mtf_budget
 from radiant.performance.mtf_fraction_table import compute_mtf_fraction_table
 from radiant.performance.nedt import compute_nedt, compute_nedt_from_snr
 from radiant.performance.niirs import compute_niirs
+from radiant.performance.noise_equivalent_irradiance import (
+    noise_equivalent_irradiance_ph_s_cm2,
+)
 from radiant.performance.optics_cutoff import optics_cutoff_freq_cycles_per_mrad
 from radiant.performance.path_optical_depth import resolve_path_optical_depth
 from radiant.performance.qsample import compute_q
@@ -65,6 +69,14 @@ from radiant.performance.turbulence_mtf_term import kolmogorov_mtf_1d
 from radiant.performance.well_margin import compute_well_margin
 
 logger = logging.getLogger(__name__)
+
+
+def _num_or_none(value: object) -> float | None:
+    """A finite float, or None — so a partial chain yields fewer outputs, not junk."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    out = float(value)
+    return out if math.isfinite(out) else None
 
 
 def _pixel_phase_params(params: ParameterSet) -> tuple[str, float, float]:
@@ -270,6 +282,51 @@ def _compute_spatial_metrics(
         ),
     )
     state = state.with_stage_output("performance", "derived_quantities", derived)
+
+    # Photon-unit noise equivalent (Gap 135, second half). The review asked for
+    # photon-unit NER/NEI so a cross-model check needs no hand arithmetic. The
+    # NEI itself already existed from Gap 45 and already returned photon units —
+    # it was simply never wired into the chain, so nothing could reach it. The
+    # effective photon energy that converts it to watts is computed from the
+    # chain's own detected spectrum rather than a band centre, which is the
+    # hidden approximation the review's units table warned about.
+    si_out = state.stage_outputs.get("spectral_integration", {})
+    sigma_total_e = _num_or_none(state.stage_outputs.get("readout", {}).get("sigma_total_e"))
+    flux = si_out.get("spectral_irradiance_at_image")
+    qe_curve = si_out.get("qe_curve")
+    photon = None
+    if flux is not None and isinstance(flux, np.ndarray) and flux.size == state.wavelength_um.size:
+        weight = np.asarray(flux, dtype=np.float64)
+        if isinstance(qe_curve, np.ndarray) and qe_curve.size == weight.size:
+            weight = weight * np.asarray(qe_curve, dtype=np.float64)
+        # Precondition, not a swallowed exception (Rule 17): with no detected
+        # photons the mean photon energy is undefined rather than zero, and
+        # effective_photon_energy says so by raising. Some legitimate scenes have
+        # none at the image plane — a VIS point-source cell carries its signal
+        # through the ensquared-energy path — so those publish no photon-unit
+        # outputs at all, following the same "fewer rows, not junk" convention
+        # the derived-quantities record uses.
+        if float(np.trapezoid(weight, state.wavelength_um)) > 0.0:
+            photon = effective_photon_energy(state.wavelength_um, weight)
+    if photon is not None:
+        state = state.with_stage_output("performance", "photon_energy_j", photon.energy_j)
+        state = state.with_stage_output("performance", "lambda_eff_um", photon.lambda_eff_um)
+
+        qe_scalar = _num_or_none(si_out.get("qe_scalar"))
+        t_int_s = _num_or_none(params.get("spectral_integration.integration_time_s"))
+        if (
+            sigma_total_e is not None
+            and qe_scalar is not None
+            and t_int_s is not None
+            and 0.0 < qe_scalar <= 1.0
+            and t_int_s > 0.0
+        ):
+            pixel_area_cm2 = (pixel_pitch_m * 1.0e2) ** 2  # units-ok: m -> cm at this boundary
+            nei_ph = noise_equivalent_irradiance_ph_s_cm2(
+                sigma_total_e, qe_scalar, pixel_area_cm2, t_int_s
+            )
+            state = state.with_stage_output("performance", "nei_ph_s_cm2", nei_ph)
+            state = state.with_stage_output("performance", "nei_w_cm2", nei_ph * photon.energy_j)
 
     # Folded (aliased) MTF: meaningful for Q < 2.0.
     f_ny = nyquist_freq(pixel_pitch_m)

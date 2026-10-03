@@ -21,6 +21,15 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **Noise-equivalent irradiance in photon units** — `nei_ph_s_cm2` and
+  `nei_w_cm2`, with the `photon_energy_j` / `lambda_eff_um` pair that converts
+  between them, now reach `stage_outputs["performance"]`. The photon-unit NEI
+  had existed and been tested since Gap 45 but was **never wired into the
+  chain**, so no result could reach it. The watt conversion needs an effective
+  wavelength — the hidden step the review's units table warned about — and
+  RADIANT now computes it from the chain's own detected spectrum as the
+  detected-photon-weighted mean energy, rather than assuming a band centre
+  (Gap 135).
 - **`ParameterSet.is_in_play(name, inert_values=())`** — the predicate an
   over-specification guard should ask, replacing the raw provenance check that
   conflated "is this value in play?" with "did the user touch this?". A value

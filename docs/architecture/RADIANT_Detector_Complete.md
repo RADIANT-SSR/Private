@@ -259,6 +259,41 @@ because a cold-shielded configuration is well-defined rather than undefined;
 and `dominant` is `None` at a zero total rather than an arbitrary winner among
 five zeros.
 
+#### Noise-equivalent irradiance is reported in photon units (Gap 135)
+
+`stage_outputs["performance"]` now carries `nei_ph_s_cm2` and `nei_w_cm2`, plus
+the `photon_energy_j` / `lambda_eff_um` pair that converts between them.
+
+The photon-unit NEI itself is not new — `noise_equivalent_irradiance_ph_s_cm2`
+landed with Gap 45 for scenario 2.1 and has been tested ever since. It was
+simply **never wired into the chain**, so nothing could reach it from a result.
+Wiring it is most of what the review's "offer photon-unit NER/NEI" asked for.
+
+The conversion to watts is the part worth stating. It needs a photon energy and
+therefore an effective wavelength, which the review's units table named as the
+hidden step in every such conversion. RADIANT computes it rather than assuming
+it (`performance/effective_photon_energy.py`):
+
+```
+E_eff = ∫ Φ(λ)·QE(λ)·(hc/λ) dλ  /  ∫ Φ(λ)·QE(λ) dλ
+```
+
+— the **detected-photon-weighted mean energy**, which is exactly the number that
+turns a detected photon rate into the radiant power that produced it. Two
+choices in that formula are deliberate:
+
+- **Weighted by the *detected* flux, not the incident flux.** The quantity being
+  converted counts photons that produced electrons, so photons that did not are
+  not in the average. A QE sloping across the band therefore moves `E_eff`,
+  which is why this is not the band centre.
+- **An energy average, not a wavelength average.** `⟨hc/λ⟩ ≠ hc/⟨λ⟩`, and by
+  Jensen the energy average is the larger, so `lambda_eff_um` — back-solved as
+  `hc/E_eff` — is *shorter than the flux-weighted mean wavelength*. On the
+  shipped MWIR example: flux-weighted mean 4.4849 µm, `lambda_eff` 4.4500 µm.
+  Note both sit above the 4.25 µm band midpoint, because a 300 K source's
+  spectrum rises toward 5 µm — `lambda_eff` is not required to be below the
+  midpoint, only below the flux-weighted mean.
+
 #### Dark current may be declared as a density (Gap 135)
 
 `detector.dark_rate_e_per_s` is the chain-canonical form — electrons per second

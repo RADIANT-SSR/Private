@@ -159,8 +159,29 @@ def make_config(
         "optics": {
             "aperture_diameter_m": aperture_m,
             "focal_length_m": aperture_m * F_NUMBER,
-            "transmission_scalar": 0.85,
+            # Warm optics declared rather than lumped (CU-380). Two reflective
+            # surfaces at R = sqrt(0.85) = 0.921954 reproduce the net throughput this
+            # scenario previously declared as a scalar, so the SCENE signal is
+            # unchanged; each mirror now emits at its Kirchhoff eps = 1 - R =
+            # 0.078046. 280 K is the LEO bus-mounted starting point from the
+            # platform-class convention (owner-ratified 2026-09-30).
         },
+        "optical_elements": [
+            {
+                "name": "M1",
+                "transfer_mode": "REFLECTIVE",
+                "kind": "MIRROR",
+                "reflectance": 0.921954,
+                "temperature_K": 280.0,
+            },
+            {
+                "name": "M2",
+                "transfer_mode": "REFLECTIVE",
+                "kind": "MIRROR",
+                "reflectance": 0.921954,
+                "temperature_K": 280.0,
+            },
+        ],
         "detector": {
             "pixel_pitch_x_um": PIXEL_PITCH_UM,
             "pixel_pitch_y_um": PIXEL_PITCH_UM,

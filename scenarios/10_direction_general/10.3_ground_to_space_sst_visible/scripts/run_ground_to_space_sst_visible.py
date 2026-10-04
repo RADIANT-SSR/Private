@@ -189,6 +189,14 @@ def build_config(vendor: dict[str, object], signature_csv_um: Path) -> dict[str,
     return {
         "geometry": {
             "sensor_altitude_m": site_alt_m,
+            # The terrain the observatory stands on (CU-393). This is NOT a
+            # duplicate of sensor_altitude_m: the Hufnagel-Valley surface term is
+            # evaluated at (h - site_elevation_m), so leaving the 0 m default in
+            # place models this 900 m site's boundary layer 900 m below it and
+            # drops the whole surface layer out of the Cn2 integral. The scenario
+            # shipped that way until 2026-10-04 and published an r0 2.876x too
+            # optimistic as a result.
+            "site_elevation_m": site_alt_m,
             "target_altitude_m": target_alt_m,
             # ADR-0011 decision 3: an entered path zenith is referenced to the
             # path's LOWER endpoint.  Up-looking ⇒ that endpoint is the
@@ -790,7 +798,13 @@ def section_turbulence(result, sensor: Sensor) -> dict[str, object]:
     optics_key = next((k for k in keys if "optic" in k and k.endswith("x")), None)
 
     # Diffraction-only reference: same chain with turbulence switched off.
-    no_turb = sensor.clone().set("atmosphere.cn2_profile", "direct")
+    # site_elevation_m goes back to 0 with it: the terrain only exists to
+    # position the Hufnagel-Valley surface layer, and 'direct' has no profile
+    # for it to sit on, so leaving it set would be an inert input -- which the
+    # atmosphere stage correctly warns about (CU-302).
+    no_turb = (
+        sensor.clone().set("atmosphere.cn2_profile", "direct").set("geometry.site_elevation_m", 0.0)
+    )
     no_turb_result = no_turb.evaluate()
     mtf_no_turb = np.asarray(no_turb_result.stage_outputs["performance"]["mtf_x"], dtype=np.float64)
     freq_no_turb = np.asarray(

@@ -2,9 +2,9 @@
   "id": "10.3",
   "title": "Ground-to-space SST \u2014 visible, seeing-limited, full column",
   "metrics": {
-    "snr": 221.77868455686226,
-    "contrast_snr": 221.77868455686226,
-    "mtf_at_nyquist": 0.008872336668760847,
+    "snr": 86.81139181768933,
+    "contrast_snr": 86.81139181768933,
+    "mtf_at_nyquist": 2.9354296527664196e-05,
     "geometry.theta_o_rad": 2.828286962715728,
     "geometry.slant_range_m": 739155.8770111911
   },

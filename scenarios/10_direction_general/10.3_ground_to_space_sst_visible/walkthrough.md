@@ -7,7 +7,40 @@ atmosphere, scene-class metric conditioning, the Phase-4 GUI surfaces)
 **Runner:** `scripts/run_ground_to_space_sst_visible.py`
 **Module-level factory:** `make_sensor() -> Sensor`
 
-*Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
+*Numbers re-authored 2026-10-04. **CU-393** — the runner placed the telescope at
+900 m MSL but left `geometry.site_elevation_m` at its 0 m default. The
+Hufnagel-Valley surface term is evaluated at (h − site_elevation_m), so the site's
+own boundary layer was modelled 900 m below it and dropped out of the Cn² integral
+entirely. Declaring the terrain costs **2.876× in r₀** and is the largest single
+correction this scenario has taken:
+
+| | before | after |
+|---|---:|---:|
+| ∫ Cn² W ds [m^(1/3)] | 3.7552e-13 | 2.1844e-12 |
+| Fried parameter r₀ (0.650 µm) | 19.820 cm | **6.891 cm** |
+| D / r₀ | 5.05 | **14.51** |
+| seeing FWHM | 3.214 µrad (0.663″) | **9.244 µrad (1.907″)** |
+| EE_box | 0.12075 | **0.01857** |
+| signal, central pixel | 49 220 e⁻ | **7 570 e⁻** |
+| SNR | 221.78 | **86.81** |
+| detection range | 24 678.1 km | **9 678.0 km** |
+| MTF_system at Nyquist | 0.00862 | **0.00000** |
+
+**Two verdicts move.** The system no longer carries *any* modulation at Nyquist —
+0.00862 was already marginal, and realistic seeing takes it to zero, so this design
+is unambiguously seeing-limited rather than nearly so. And the scenario's own
+conclusion 4, "seeing beats aperture", goes from EE_box 12.1 % to 1.9 %: the thesis
+is the same and the evidence for it is six times stronger.
+
+**The scenario had already diagnosed this.** §7's literature cross-check ended
+"Treat the seeing here as optimistic by roughly 2×", and `gaps.md` G8 named the
+mechanism — the HV ground term referenced to MSL rather than AGL, promoted to CU-262
+and re-found as CU-390. What was missing was the input that answers it. Geometry,
+airmass, τ and every radiometric quantity upstream of the turbulence integral are
+bit-identical; the hand-vs-chain signal cross-check still agrees to 0.000e+00, which
+is the proof that this is a corrected input and not a changed model.*
+
+*Prior vintage, 2026-09-01, from the then-unmodified runner (previous vintage
 2026-08-30). Sole mover since then: **CU-336**, the grid-convention correction to
 that same gas fit — SNR 220.98 -> 221.78 (+0.4 %), band-mean τ_up
 0.7619 -> 0.7652, and the §10 Anchor 2 extinction eases 0.282 -> 0.261
@@ -152,16 +185,16 @@ signal 54 035 → 48 868 e⁻, SNR 232.38 → 220.98 (−4.9 %) and the detectio
 | band-mean τ_up | 0.7652 | dimensionless |
 | τ_up at 0.55 µm | 0.7746 | dimensionless |
 | τ_sun (TOA → object) | 1.0000 | dimensionless (vacuum solar leg) |
-| Fried parameter r₀ (0.650 µm) | 19.820 | cm |
-| EE_box | 0.12075 | dimensionless |
-| signal, central pixel | 49 220 | e- |
-| SNR | 221.78 | dimensionless |
-| detection range (SNR = 3 threshold) | 24 678.1 | km |
+| Fried parameter r₀ (0.650 µm) | 6.891 | cm |
+| EE_box | 0.01857 | dimensionless |
+| signal, central pixel | 7 570 | e- |
+| SNR | 86.81 | dimensionless |
+| detection range (SNR = 3 threshold) | 9 678.0 | km |
 | sampling Q_center | 0.433 | dimensionless |
-| PSF FWHM (x) | 35.41 | µm on the focal plane |
+| PSF FWHM (x) | 94.03 | µm on the focal plane |
 
 **Rule-4 dual-path consistency: PASSED, silently.** `passed_x = passed_y = True`,
-max |FFT(PSF) − Π MTFᵢ| = **3.935 × 10⁻³** against the 2 × 10⁻² tolerance, and the
+max |FFT(PSF) − Π MTFᵢ| = **1.697 × 10⁻³** against the 2 × 10⁻² tolerance, and the
 nominal run raised **zero** warnings of any kind. The turbulence term therefore
 enters *both* spatial paths correctly in this scene class (the CU-234 regression
 that once made `mtf_turbulence_*` ≡ 1 is not present here).
@@ -226,18 +259,18 @@ With this door the analyst owns the illumination gate (`gaps.md` G2).
 ```
 r0 resolution mode           profile (hufnagel_valley)
 reference wavelength         0.6500 µm  (band centre)
-∫ Cn² W ds                   3.7552e-13 m^(1/3)
+∫ Cn² W ds                   2.1844e-12 m^(1/3)
 lower-endpoint zenith        20.000 deg
 integration span             0.900 – 100.0 km MSL
-Fried parameter r0           19.820 cm
-D / r0                       5.05
+Fried parameter r0            6.891 cm
+D / r0                       14.51
 ```
 
 | Blur term | Angular FWHM | In arcsec |
 |---|---|---|
-| seeing, 0.98 λ/r₀ | 3.214 µrad | 0.663 |
+| seeing, 0.98 λ/r₀ | 9.244 µrad | 1.907 |
 | diffraction, 1.22 λ/D | 0.793 µrad | 0.164 |
-| ratio | **4.05** | — |
+| ratio | **11.66** | — |
 
 **Verdict: seeing-limited.** The 1 m aperture buys photons, not resolution: the
 long-exposure core is set by r₀, and doubling D would leave the blur diameter
@@ -245,11 +278,11 @@ unchanged while doubling D/r₀. The MTF consequence is severe —
 
 | | with HV-5/7 | without turbulence |
 |---|---|---|
-| MTF_system at Nyquist (333.3 cycles/mrad) | 0.00862 | 0.46250 |
-| PSF FWHM (x) | 35.41 µm | 15.24 µm |
-| RER | 0.3317 | 0.7704 |
-| EE 3×3 | 0.6246 | 0.9445 |
-| SNR | 221.78 | 512.53 |
+| MTF_system at Nyquist (333.3 cycles/mrad) | **0.00000** | 0.46250 |
+| PSF FWHM (x) | 94.03 µm | 15.24 µm |
+| RER | 0.1305 | 0.7704 |
+| EE 3×3 | 0.1520 | 0.9445 |
+| SNR | 86.81 | 512.53 |
 
 — turbulence removes essentially all modulation at the sampling limit while the
 diffraction-limited system still carries 46 %. Note the "without turbulence" PSF
@@ -259,13 +292,22 @@ FWHM of 15.24 µm is *pixel*-dominated (the 15 µm aperture), not diffraction-do
 **Literature cross-check on r₀** (anchor 4 below): HV-5/7 is *defined* by r₀ ≈ 5 cm at
 0.5 µm, sea level, zenith. The exact vertical integral of the analytic profile from
 0 m gives 4.961 cm at 0.5 µm; scaling by $r_0 \propto \lambda^{6/5}\sec\zeta^{-3/5}$ to
-0.650 µm and 20° gives 6.547 cm. The chain returns 19.820 cm because the integral
-starts at the 900 m site altitude, above the profile's 100 m-scale-height surface
-term. **Caveat (`gaps.md` G8):** the HV ground term is conventionally *above ground
-level*, but `cn2_hufnagel_valley` evaluates the profile against MSL, so a site at
-900 m MSL silently loses its own boundary layer. Scaled to 0.5 µm the chain r₀ is
-14.5 cm — 0.70″ seeing, world-class-site quality — where a real 0.9 km high-desert
-site runs 1.0–1.5″. **Treat the seeing here as optimistic by roughly 2×.**
+0.650 µm and 20° gives 6.547 cm. The chain returns **6.891 cm**, within 5 % of that
+hand scaling — the site sits at 900 m, so it keeps a slightly reduced but real
+boundary layer. Scaled back to 0.5 µm the chain r₀ is **5.0 cm — 2.01″ seeing**,
+which is the right order for a 0.9 km high-desert site (1.0–1.5″ on a good night).
+
+*Resolved 2026-10-04 (CU-393).* This paragraph used to end **"Treat the seeing here
+as optimistic by roughly 2×"**, and it was right to: the runner declared the sensor at
+900 m but left `geometry.site_elevation_m` at its 0 m default, so the
+Hufnagel-Valley surface term was evaluated 900 m below the site and the entire
+boundary layer dropped out of the integral. The chain returned 19.820 cm — 0.70″,
+world-class-site quality, for a scenario whose own text said that could not be right.
+Declaring the site elevation costs **2.876× in r₀** and is the single largest
+correction this scenario has taken. The caveat it carried (`gaps.md` G8, promoted to
+CU-262 and re-found as CU-390) was about the HV ground term being referenced to MSL
+rather than AGL; that is the same defect, and `site_elevation_m` is the parameter
+that answers it.
 
 ## 8. The pass — pointing-zenith ladder
 
@@ -273,12 +315,18 @@ site runs 1.0–1.5″. **Treat the seeing here as optimistic by roughly 2×.**
 
 | ζ_low [deg] | θ_o [deg] | R [km] | airmass | band-mean τ | r₀ [cm] | SNR | PSF FWHM [µrad] |
 |---|---|---|---|---|---|---|---|
-| 0 | 180.0000 | 699.1 | 1.000 | 0.7775 | 20.573 | 243.23 | 3.433 |
-| 20 | 162.0489 | 739.2 | 1.064 | 0.7652 | 19.820 | 221.78 | 3.541 |
-| 40 | 144.6032 | 882.8 | 1.305 | 0.7205 | 17.533 | 163.54 | 3.933 |
-| 55 | 132.4248 | 1115.5 | 1.743 | 0.6464 | 14.739 | 106.10 | 4.589 |
-| 65 | 125.2440 | 1387.5 | 2.366 | 0.5545 | 12.271 | 67.28 | 5.427 |
-| 75 | 119.4918 | 1831.9 | 3.864 | 0.3854 | 9.143 | 32.21 | 7.160 |
+| 0 | 180.0000 | 699.1 | 1.000 | 0.7775 | 7.153 | 95.90 | 9.069 |
+| 20 | 162.0489 | 739.2 | 1.064 | 0.7652 | 6.891 | 86.81 | 9.403 |
+| 40 | 144.6032 | 882.8 | 1.305 | 0.7205 | 6.096 | 62.63 | 10.595 |
+| 55 | 132.4248 | 1115.5 | 1.743 | 0.6464 | 5.124 | 39.49 | 12.558 |
+| 65 | 125.2440 | 1387.5 | 2.366 | 0.5545 | 4.266 | 24.24 | 15.040 |
+| 75 | 119.4918 | 1831.9 | 3.864 | 0.3854 | 3.179 | 10.60 | 20.130 |
+
+*r₀, SNR and PSF FWHM re-authored 2026-10-04 (CU-393 — the site elevation is now
+declared). Geometry, airmass and τ columns are bit-identical: the correction is to the
+turbulence integral alone. Note what it does to the ladder's **shape** as well as its
+level — SNR now falls 9.0× from culmination to 75°, against 7.6× before, because r₀
+degrades with airmass from a worse starting point.*
 
 θ_o = 180° at culmination is not a singularity — it is the ordinary vertical
 up-looking geometry with the object at the site's zenith, and ADR-0011's closed
@@ -378,7 +426,7 @@ thermal and MODTRAN-anchored, which is why the band gate sits at 3 µm.
 
 **Consequence for this scenario's headline SNR:** the *nominal* run is still a
 sunless twilight scene through the intensity door, so its sky pedestal remains
-numerically zero and the SNR of 221.78 should still be read as *shot-noise-on-target
+numerically zero and the SNR of 86.81 should still be read as *shot-noise-on-target
 plus detector noise only*, not as an end-to-end SST link budget. What has changed is
 that the class can now express a sky at all — a daylight re-tasking of the same
 telescope carries one.
@@ -398,7 +446,7 @@ $$ S = t_{int}\,\eta_{QE}\,\mathrm{EE_{box}} \int \tau_{opt}(\lambda)\,\tau_{atm
 |---|---|
 | A_collect | 0.785398 m² |
 | band-mean τ_opt | 0.600000 |
-| EE_box | 0.120752 |
+| EE_box | 0.018571 |
 | R | 739.156 km |
 | t_int | 5.0 ms |
 | **hand-computed signal** | **49 219.595 e-** |
@@ -579,7 +627,7 @@ settle which of the two this scenario should be scored against.
 
 - `source.target.temperature` / `emissivity` — unused; the intensity door takes I(λ)
   verbatim and no emission model runs.
-- `nedt_K` = 0.0178 K is meaningless here: it is dS/dT taken against the *default*
+- `nedt_K` = 0.0454 K is meaningless here: it is dS/dT taken against the *default*
   target temperature, a parameter this scene never sets. It is present because the
   thermal metric group is on by default.
 - `geometry.solar_azimuth_rad` enters only the single-scatter sky phase function,
@@ -608,7 +656,7 @@ settle which of the two this scenario should be scored against.
    fills the pixel behind it. In the point-source regime the target term uses
    Ω_target = A_t/R² with the path-radiance pedestal stripped, while the background
    enters at the full pixel solid angle Ω_pixel and shot-noises.
-4. **Seeing beats aperture.** EE_box is 12.1 %, not because the optics are poor but
+4. **Seeing beats aperture.** EE_box is 1.9 %, not because the optics are poor but
    because the seeing disc spread over the pixel grid puts most of the object's
    photons outside the central pixel. EE_box is computed once in `PlatformStage` from
    the fully degraded PSF and applied once in spectral integration (Rules 4 and 9).

@@ -619,10 +619,14 @@ class TestMakeRefractiveCavityElement:
 
     @pytest.mark.level1
     def test_absorbing_glass_nonzero_eps(self) -> None:
-        """Glass with absorption has nonzero emissivity via n^2 formula.
+        """Glass with absorption has nonzero emissivity.
 
-        eps_eff = T2 * n^2 * (1 - beer) / denom.
-        For n > 1, eps_eff > absorptance (enhanced photon density of states).
+        eps_eff = T2 * (1 - beer) * (1 + R1 * beer) / denom — the slab's side-2
+        absorptance. Updated by CU-396: this test asserted the n^2 form and the
+        property "eps_eff > absorptance for n > 1", which was the defect stated as a
+        contract. The n^2 density-of-states enhancement inside the dielectric is
+        cancelled exactly by the 1/n^2 radiance de-magnification on escape, so
+        emissivity IS the absorptance, with no enhancement.
         """
 
         elem = make_refractive_cavity_element(
@@ -638,17 +642,21 @@ class TestMakeRefractiveCavityElement:
         )
         beer = math.exp(-10.0 * 0.003)
         denom = 1.0 - 0.04 * 0.04 * beer**2
-        expected_eps = 0.96 * 1.5**2 * (1.0 - beer) / denom
+        expected_eps = 0.96 * (1.0 - beer) * (1.0 + 0.04 * beer) / denom
 
         np.testing.assert_allclose(elem.emissivity.values, expected_eps, rtol=1e-10)
         assert np.all(elem.emissivity.values > 0)
 
     @pytest.mark.level1
     def test_eps_eff_matches_cavity_formula(self) -> None:
-        """Cavity element eps matches T2 * n^2 * (1 - beer) / denom.
+        """Cavity element eps matches T2 * (1 - beer) * (1 + R1 * beer) / denom.
 
-        For n > 1, eps_eff > absorptance = 1 - T - R due to the n^2
-        enhancement factor (photon density of states inside dielectric).
+        Updated by CU-396, which removed the n^2 factor. This element is
+        deliberately **asymmetric** (R1 = 0.03, R2 = 0.05), which makes it the right
+        place to pin the side the identity is taken on: emission leaves through
+        surface 2, so eps equals the SIDE-2 absorptance. The tempting shorthand
+        `1 - T_sys - R_sys` uses the side-1 reflectance and is wrong here — it is
+        right only when R1 == R2.
         """
 
         elem = make_refractive_cavity_element(
@@ -664,16 +672,23 @@ class TestMakeRefractiveCavityElement:
         )
         beer = math.exp(-15.0 * 0.005)
         denom = 1.0 - 0.03 * 0.05 * beer**2
-        expected_eps = 0.95 * 1.5**2 * (1.0 - beer) / denom
+        expected_eps = 0.95 * (1.0 - beer) * (1.0 + 0.03 * beer) / denom
 
         np.testing.assert_allclose(
             elem.emissivity.values,
             expected_eps,
             rtol=1e-10,
         )
-        # eps_eff > absorptance for n > 1.
-        absorptance = 1.0 - elem.transmittance.values - elem.reflectance.values
-        assert np.all(elem.emissivity.values > absorptance)
+        # eps IS the side-2 absorptance (CU-396), not something larger than it.
+        # elem.reflectance is the side-1 R_sys, so the side-2 value is rebuilt here —
+        # the difference between the two is exactly what this asymmetric case exists
+        # to catch.
+        r_side2 = 0.05 + 0.95**2 * 0.03 * beer**2 / denom
+        absorptance_side2 = 1.0 - elem.transmittance.values - r_side2
+        np.testing.assert_allclose(elem.emissivity.values, absorptance_side2, rtol=1e-12)
+        # And the side-1 shorthand genuinely differs for this element.
+        absorptance_side1 = 1.0 - elem.transmittance.values - elem.reflectance.values
+        assert not np.allclose(elem.emissivity.values, absorptance_side1, rtol=1e-6)
 
     @pytest.mark.level1
     def test_mirror_kind_rejected(self) -> None:

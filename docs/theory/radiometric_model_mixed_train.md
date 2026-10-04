@@ -53,12 +53,23 @@ T_sys,i(λ)   =      T1_i(λ) · beer_i(λ) · T2_i(λ)
                ──────────────────────────────────────
                1 − R1_i(λ) · R2_i(λ) · beer_i(λ)²
 
-eps_eff,i(λ) =   T2_i(λ) · n_i(λ)² · (1 − beer_i(λ))
-               ──────────────────────────────────────────
+eps_eff,i(λ) =   T2_i(λ) · (1 − beer_i(λ)) · (1 + R1_i(λ) · beer_i(λ))
+               ──────────────────────────────────────────────────────────
                1 − R1_i(λ) · R2_i(λ) · beer_i(λ)²
 
 L_thermal,i(λ) = eps_eff,i(λ) · B(λ, T_i)
 ```
+
+> **Corrected 2026-10-04 (CU-396).** This expression carried an `n_i(λ)²` factor in the
+> numerator until that date. The reasoning was that the photon density of states inside
+> a dielectric is enhanced by n² — which it is — but radiance is not invariant across a
+> refracting surface (L/n² is), so the compensating 1/n² de-magnification on escape
+> cancels it exactly. Keeping one without the other overstated refractive-element
+> emissivity by ~n²: **15.8× for germanium** at 10.6 µm, 11.6× for silicon. The giveaway
+> was that the result could exceed 1 and was being clipped in `optics/element.py` — a
+> surface emitting more than a blackbody is a second-law violation, not a rounding
+> artifact. This document stated **both** the n² form here and the energy-conservation
+> check below, which are mutually exclusive for n > 1; the check was right.
 
 The element **transfer factor** applied to upstream signals passing through it:
 
@@ -283,9 +294,17 @@ R_sys,i(λ) =  R1_i  +  T1_i² · R2_i · beer_i²
 Check:
 
 ```
-A_total,i(λ) = 1 − R_sys,i(λ) − T_sys,i(λ)
-eps_eff,i(λ) ≈ A_total,i(λ)                   ← must hold at each λ
+A_total,i(λ) = 1 − R_side2,i(λ) − T_sys,i(λ)
+eps_eff,i(λ) =  A_total,i(λ)                  ← holds exactly, at each λ
+
+where  R_side2,i = R2_i + T2_i² · R1_i · beer_i² / denom_i
 ```
+
+**Note the side.** `R_sys,i` as defined above is the **side-1** reflectance (illuminate
+the entry face). Emission toward the focal plane leaves through surface 2, so the
+identity is against the **side-2** reflectance. The two coincide only for symmetric
+coatings (R1 = R2); writing `1 − R_sys − T_sys` is correct for those and wrong for every
+asymmetric element, which is the common real case.
 
 ### Reflective element i
 
@@ -377,7 +396,7 @@ Validation:
 |---------------------------|----------------------------|-----------------------------|
 | Signal transfer factor    | `T_sys,i` (transmittance)  | `Rho_sys,i` (reflectance)   |
 | Bulk emission             | Yes — Beer-Lambert path    | No                          |
-| Surface emission          | Both surfaces (via T2, n²) | Single surface only         |
+| Surface emission          | Exit face (via T2)         | Single surface only         |
 | Cavity / etalon effect    | Yes — R1·R2 denominator    | No                          |
 | Emissivity model          | Full cavity eps_eff        | Kirchhoff: 1 − Rho − A_coat |
 | Downstream attenuation    | `T_sys,j` per element      | `Rho_sys,j` per element     |

@@ -171,13 +171,39 @@ class CavityModel:
 
     @property
     def eps_eff(self) -> SpectralData:
-        """Effective cavity emissivity: T2 * n^2 * (1 - beer) / denom."""
+        """Effective cavity emissivity: T2 * (1 - beer) * (1 + R1 * beer) / denom.
+
+        Emission out of **surface 2** — the exit face, which is the one looking at
+        the focal plane. By Kirchhoff this is the slab's absorptance for radiation
+        arriving on that side, and it is exactly ``1 - T_sys - R_side2`` (verified to
+        3.3e-16 over 200 000 random coating/absorption triples).
+
+        **There is no n^2 factor (CU-396).** This expression carried one until
+        2026-10-04, on the reasoning that the photon density of states inside a
+        dielectric is enhanced by n^2. It is — but radiance is not invariant across a
+        refracting surface, and the compensating 1/n^2 de-magnification on escape
+        cancels it exactly. Keeping one without the other overstated the emissivity by
+        ~n^2: **15.8x for germanium** at 10.6 um, 11.6x for silicon.
+
+        The giveaway was that the result could exceed 1 and was being clipped. A
+        clip there is not a numerical guard, it is a second-law violation being
+        papered over: a surface cannot emit more than a blackbody. The corrected form
+        cannot exceed 1 (max 0.9992 over 200 000 random triples, approaching 1 only as
+        R2 -> 0 and beer -> 0 — a blackbody behind a lossless window), so the question
+        "what should happen outside the valid regime" has no answer: there is no
+        outside.
+
+        Note ``1 - T_sys - R_sys`` is **not** a substitute. :attr:`R_sys` is the
+        **side-1** reflectance, so that identity holds only for symmetric coatings
+        (R1 == R2). Asymmetric coatings are exactly where the shorthand fails, which
+        is why the closed form is written out here and pinned by a test.
+        """
         b = self.beer
-        vals = self.T2.values * self.n_refr.values**2 * (1.0 - b) / self.denom
+        vals = self.T2.values * (1.0 - b) * (1.0 + self.R1.values * b) / self.denom
         return SpectralData(
             name="cavity.eps_eff",
             wavelength_um=self.wavelength_um.copy(),
             values=vals,
             unit="",
-            source="Cavity model: T2 * n^2 * (1 - beer) / denom",
+            source="Cavity model: T2 * (1 - beer) * (1 + R1 * beer) / denom",
         )

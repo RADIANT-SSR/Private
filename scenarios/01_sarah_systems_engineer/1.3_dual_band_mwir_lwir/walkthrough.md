@@ -41,6 +41,43 @@ regime weights the target by `source.target.fill_fraction` (CU-060 — the
 original execution left it at the default 1.0, overstating the fire signal
 ~3× and pulling the saturation temperatures down).
 
+*Numbers re-authored 2026-10-03. **CU-380**: the runner set
+`optics.transmission_scalar` from the workbook's 78 % and stopped there. A
+scalar transmittance has no Kirchhoff emissivity — ε = 1 − T − R is undefined
+for a lump — so this telescope could not emit, and the **"Optics temperature:
+5 °C" Sarah's own spreadsheet supplies was silently discarded** (it appeared in
+`inputs/create_spreadsheet.py` and was read by nothing). The train is now two
+reflective surfaces at R = √0.78 = 0.883176 each, which reproduces the net
+78 % the workbook specifies — so the scene signal is untouched — each emitting
+at ε = 1 − R = 0.116824 at the declared 278.15 K. Note the departure from the
+290 K airborne platform-class default: a scenario that states its own optics
+temperature is the authority, and the class convention is only the fallback.
+
+The new `nearfield_shot` term lands **371,856 e⁻ in LWIR against 1,136 e⁻ in
+MWIR** — 7.2 % of the LWIR clutter-free noise power versus 0.5 % of the MWIR —
+because 278 K optics radiate inside the 8–12 µm band and down the Wien flank of
+3.5–5 µm. The consequences separate by metric, which is the instructive part:
+
+- **SNR and NEDT, which exclude clutter, take the hit**: LWIR SNR
+  1 357.8 → 1 307.7 (−3.7 %), NEDT 165.4 → 171.8 mK (+3.9 %); MWIR barely
+  moves (464.2 → 463.2, 229.9 → 230.5 mK, −0.2 %).
+- **SCNR does not move at all in LWIR** (23.2, and the whole 400–1200 K sweep
+  column is unchanged to the quoted precision). LWIR SCNR is 99.9 % scene
+  clutter, and 610 e⁻ RMS added in quadrature to 52 369 e⁻ RMS is invisible.
+  MWIR SCNR, which is *not* clutter-dominated, falls everywhere — 408.0 → 407.2
+  at 600 K, 42.7 → 42.4 at 400 K.
+- **No verdict changes.** MWIR still detects at every temperature, LWIR still
+  misses the 400 K smolder (SCNR 1.1, P_d 0.000), MWIR still saturates first at
+  ≈1200 K, and NEDT still favours LWIR. Warm optics cost LWIR the metric it
+  was already winning on and cost MWIR nothing it needed.
+
+A small part of the LWIR movement is not CU-380: the measured pre-change run
+differs from the 2026-09-01 vintage recorded below in the fifth significant
+figure (pixel signal 2 962 748 → 2 962 820 e⁻, clutter 52 366.3 → 52 369.4 e⁻
+RMS, ~2 × 10⁻⁵ relative, LWIR only), which is uncaptured refresh residue from a
+later atmosphere landing, not this change. It is folded into the table below
+rather than tracked, since this refresh corrects it.*
+
 *Numbers refreshed 2026-08-30 from the unmodified runner. **CU-324 item 2** now
 places the 9.6 µm ozone share of the gas floor on the 25 km ozone layer instead
 of the 4 km well-mixed profile, so the LWIR column's own thermal emission falls:
@@ -96,15 +133,16 @@ rather than the column's near-surface temperature, which took pixel signal LWIR
 
 | Quantity | MWIR | LWIR |
 |----------|-----:|-----:|
-| Pixel signal [e⁻] | 228,529 | 2,962,748 |
-| Contrast (fire − forest) [e⁻] | 220,998 | 1,217,206 |
+| Pixel signal [e⁻] | 228,529 | 2,962,820 |
+| Contrast (fire − forest) [e⁻] | 220,998 | 1,217,173 |
 | Well fill [%] | 5.7 | 24.7 |
-| Total noise [e⁻ RMS] | 541.6 | 52,411.7 |
-| — of which clutter [e⁻ RMS] | 225.9 | 52,366.3 |
-| SNR [--] | 464.2 | 1,357.8 |
-| Contrast SNR [--] | 448.9 | 557.8 |
-| **SCNR (incl. clutter) [--]** | **408.0** | **23.2** |
-| NEDT [mK] (Gap 43 approximation) | 229.9 | 165.4 |
+| Total noise [e⁻ RMS] | 542.7 | 52,418.4 |
+| — of which clutter [e⁻ RMS] | 225.9 | 52,369.4 |
+| — of which warm optics (`nearfield_shot`) [e⁻ RMS] | 33.7 | 609.8 |
+| SNR [--] | 463.2 | 1,307.7 |
+| Contrast SNR [--] | 447.9 | 537.2 |
+| **SCNR (incl. clutter) [--]** | **407.2** | **23.2** |
+| NEDT [mK] (Gap 43 approximation) | 230.5 | 171.8 |
 
 ### Spectral contrast (hand Planck, ASTER ε_bg(λ))
 
@@ -119,11 +157,11 @@ different signal-to-clutter.
 
 | T_fire [K] | MWIR SCNR | sat? | LWIR SCNR | sat? | P_d MWIR | P_d LWIR |
 |-----------:|----------:|:----:|----------:|:----:|:--------:|:--------:|
-| 400 | 42.7 | no | 1.1 | no | 1.000 | **0.000** |
-| 500 | 188.0 | no | 10.7 | no | 1.000 | 1.000 |
-| 600 | 408.0 | no | 23.2 | no | 1.000 | 1.000 |
-| 800 | 924.3 | no | 54.2 | no | 1.000 | 1.000 |
-| 1000 | 1,464.5 | no | 90.1 | no | 1.000 | 1.000 |
+| 400 | 42.4 | no | 1.1 | no | 1.000 | **0.000** |
+| 500 | 187.3 | no | 10.7 | no | 1.000 | 1.000 |
+| 600 | 407.2 | no | 23.2 | no | 1.000 | 1.000 |
+| 800 | 923.8 | no | 54.2 | no | 1.000 | 1.000 |
+| 1000 | 1,464.1 | no | 90.1 | no | 1.000 | 1.000 |
 | 1200 | 2,004.4 | **YES** | 128.8 | no | 1.000 | 1.000 |
 
 MWIR detects the 5 m² fire with P_d ≈ 1 at every temperature; **LWIR
@@ -141,15 +179,15 @@ cannot be retrieved.
 
 ## Physics Discussion
 
-1. **Clutter, not noise, is the LWIR penalty.** LWIR total noise is ~102×
-   MWIR's, and 99.9% of it is scene clutter — 3% of a background that is
+1. **Clutter, not noise, is the LWIR penalty.** LWIR total noise is ~97×
+   MWIR's, and 99.8% of it is scene clutter — 3% of a background that is
    an order of magnitude brighter in-band. MWIR detection rides on the
    Wien-side contrast steepness with a dim background underneath.
 2. **ΔL alone is misleading.** The band-integrated radiance contrasts are
    within 2% of each other at 600 K; a briefing chart that stopped at ΔL
    would call the bands equivalent. The chain comparison (photon
    conversion, per-band QE/dark/read, clutter) is what separates them.
-3. **NEDT favors LWIR (165.4 vs 229.9 mK)** — for mapping ambient-
+3. **NEDT favors LWIR (171.8 vs 230.5 mK)** — for mapping ambient-
    temperature scenes LWIR remains the right band; NEDT is the wrong
    figure of merit for fire *detection* (both values carry the Gap 43
    single-λ caveat; the reflected-solar component of that caveat is
@@ -165,6 +203,17 @@ cannot be retrieved.
    cool fires from 10 km at this fill. MWIR stays at P_d ≈ 1 everywhere.
    (ROC-grade detection modeling now exists — `performance.roc`, scenario
    6.4 — and could replace the single-threshold model here.)
+6. **Warm optics are a band-asymmetric tax, and which metric notices depends
+   on what already dominates.** The same two 278 K mirrors put 371,856 e⁻ into
+   the LWIR pixel and 1,136 e⁻ into the MWIR one — a 327× split, because the
+   optics radiate inside 8–12 µm and down the Wien flank of 3.5–5 µm. Yet LWIR
+   *SCNR* does not move: at 52 369 e⁻ RMS of scene clutter, 610 e⁻ RMS in
+   quadrature is below the rounding. It is LWIR NEDT — a clutter-free figure of
+   merit — that pays, +3.9 %. Reading only the detection metric would have
+   reported this change as a no-op; reading only NEDT would have reported it as
+   an LWIR regression. Both readings are incomplete, which is the general
+   lesson for any warm-optics trade: quote the metric whose noise basis the new
+   term actually enters.
 
 ## Recommendation
 

@@ -1,0 +1,339 @@
+
+Zinc Selenide ZnSe - Crystran
+We are technical experts and global provider of optical components in the UV/VIS/IR
+
+ for enquiries: +44(0) 1202 307650
+ Products search 
+About Us
+News
+Knowledge Centre
+Contact Us
+My account
+Orders
+Edit Address
+Account Information
+0
+£
+0.00
+Stock Optics
+Windows
+Barium Fluoride
+Caesium Iodide
+Calcium Fluoride
+Crystal Quartz
+Fused Silica IR (Waterfree)
+Fused Silica UV
+Germanium
+Glass
+KRS5 Thallium Bromo-Iodide Windows
+Lithium Fluoride
+Magnesium Fluoride
+Potassium Bromide
+Potassium Chloride
+Sapphire
+Silicon
+Sodium Chloride
+Strontium Fluoride
+Zinc Selenide
+Zinc Sulphide FLIR
+Zinc Sulphide Multispectral (Clear)
+Lenses
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Magnesium Fluoride
+Zinc Selenide
+Prisms and ATRs
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Germanium
+Glass
+KRS5
+Sapphire
+Silicon
+Zinc Selenide
+Bespoke Optics
+Optical Materials
+Handbook
+Optical Metrology
+ Menu
+0
+£
+0.00
+< Back to Optical Materials
+Zinc Selenide ZnSe
+Zinc Selenide (ZnSe) SDS
+Download
+Zinc Selenide (ZnSe) Data Sheet
+Download
+ZnSe is used widely for IR components, windows and lenses, and for spectroscopic ATR prisms. Zinc Selenide is one of the materials of choice for CO2 laser optics operating at 10.6 microns.
+Zinc Selenide is produced by synthesis from Zinc vapour and H2Se gas, forming as sheets on Graphite susceptors. Zinc Selenide is microcrystalline in structure, the grain size being controlled to produce maximum strength. Single crystal ZnSe is available, and has been reported as having lower absorption and thus more effective for CO2 optics, although we have no source and cannot currently offer single crystal ZnSe.
+Zinc Selenide oxidizes significantly at 300°C, exhibits plastic deformation at about 500°C and dissociates about 700°C. For safety, Zinc Selenide windows should not be used above 250°C in normal atmosphere
+Products
+Windows
+Lenses
+Prisms & ATR
+Product Data
+Refractive Index
+References & Notes
+Transmission Range
+0.6 to 21 μm
+Refractive Index
+2.4028 at 10.6 μm
+Reflection Loss
+29.1% at 10.6 μm (2 surfaces)
+Absorption Coefficient
+0.0005 cm-1 @ 10.6 μm (2)
+0.0004 cm-1 @ 5.25 μm (2)
+0.0004 cm-1 @ 3.8 μm (2)
+0.0007 cm-1 @ 2.7 μm (2)
+0.005 cm-1 @ 1.3 μm (2)
+Reststrahlen Peak
+45.7 μm
+dn/dT
++61 x 10-6/°C at 10.6 μm at 298K
+dn/dμ
+0
+Density
+5.27 g/cc
+Melting Point
+1525°C (See notes below)
+Thermal Conductivity
+18 W m-1 K-1 @ 298 K
+Thermal Expansion
+7.1 x 10-6/°C @ 273 K
+Hardness
+Knoop 120 with 500g indenter
+Specific Heat Capacity
+339 J Kg-1 K-1
+Dielectric Constant
+n/a
+Youngs Modulus (E)
+67.2 GPa
+Shear Modulus (G)
+n/a
+Bulk Modulus (K)
+40 GPa
+Elastic Coefficients
+n/a
+Apparent Elastic Limit
+55.1 MPa (8000psi)
+Poisson Ratio
+0.28
+Solubility
+0.001 g/100g water
+Molecular Weight
+144.33
+Class/Structure
+FCC Cubic, F43m (#216), Zinc Blende structure. (Polycrystalline)
+Zinc Selenide oxidizes significantly at 300°C, exhibits plastic deformation at about 500°C and dissociates about 700°C. For safety, Zinc Selenide windows should not be used above 250°C in normal atmosphere
+Download Zinc Selenide Guide to Cutting
+Download Zinc Selenide Handling Guide
+μm
+No
+μm
+No
+μm
+No
+0.54
+2.6754
+4.20
+2.4324
+12.2
+2.3915
+0.58
+2.632
+4.60
+2.4309
+12.6
+2.3883
+0.62
+2.5994
+5.00
+2.4295
+13.0
+2.3850
+0.66
+2.5755
+5.40
+2.4281
+13.4
+2.3816
+0.70
+2.5568
+5.80
+2.4265
+13.8
+2.3781
+0.74
+2.5418
+6.20
+2.4251
+14.2
+2.3744
+0.78
+2.5295
+6.60
+2.4235
+14.6
+2.3705
+0.82
+2.5193
+7.00
+2.4218
+15.0
+2.3665
+0.86
+2.5107
+7.40
+2.4201
+15.4
+2.3623
+0.90
+2.5034
+7.80
+2.4183
+15.8
+2.3579
+0.94
+2.4971
+8.20
+2.4163
+16.2
+2.3535
+0.98
+2.4916
+8.60
+2.4143
+16.6
+2.3487
+1.00
+2.4892
+9.00
+2.4122
+17.0
+2.3438
+1.40
+2.4609
+9.40
+2.4100
+17.4
+2.3387
+1.80
+2.4496
+9.80
+2.4077
+17.8
+2.3333
+2.20
+2.4437
+10.2
+2.4053
+18.2
+2.3278
+2.60
+2.4401
+10.6
+2.4028
+3.00
+2.4376
+11.0
+2.4001
+3.40
+2.4356
+11.4
+2.3974
+3.80
+2.4339
+11.8
+2.3945
+REFERENCES
+(1) Manufacturing Methods Program ZnSe Blanks. US Army R&D Feb 1980
+(2) Manufacturers Published Data
+< Back to Optical Materials
+Welcome to Crystran Ltd
+World Wide Optics Source
+Visit Our Online Shop
+Need something we aren’t listing? Get In Touch
+Get our monthly newsletter to your mailbox?
+Crystran Ltd
+Unit 1
+Broom Road Business Park
+Poole
+Dorset
+BH12 4PA
+Tel: +44 (0) 1202 307650
+Fax: +44 (0) 1202 307651
+Email: sales@crystran.co.uk
+Quick Links
+About us
+Knowledge Centre
+Contact Us
+Privacy Policy
+Terms and Conditions
+Employment
+Stock Items
+Windows
+Lenses
+Prisms & ATR
+Social media
+Follow
+Follow
+Follow
+Certificates
+ISO 9001 certified through LRQA and ISO 14001 certified through SGS
+Secret Link
+About Us
+News
+Knowledge Centre
+Contact Us
+My account
+Orders
+Edit Address
+Account Information
+ Back
+Stock Optics
+Windows
+Barium Fluoride
+Caesium Iodide
+Calcium Fluoride
+Crystal Quartz
+Fused Silica IR (Waterfree)
+Fused Silica UV
+Germanium
+Glass
+KRS5 Thallium Bromo-Iodide Windows
+Lithium Fluoride
+Magnesium Fluoride
+Potassium Bromide
+Potassium Chloride
+Sapphire
+Silicon
+Sodium Chloride
+Strontium Fluoride
+Zinc Selenide
+Zinc Sulphide FLIR
+Zinc Sulphide Multispectral (Clear)
+ Back
+Lenses
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Magnesium Fluoride
+Zinc Selenide
+ Back
+Prisms and ATRs
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Germanium
+Glass
+KRS5
+Sapphire
+Silicon
+Zinc Selenide
+ Back
+ Back
+ × Close Panel 
+0

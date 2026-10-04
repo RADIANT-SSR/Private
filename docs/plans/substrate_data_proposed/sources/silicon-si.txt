@@ -1,0 +1,276 @@
+
+Silicon Si - Crystran
+We are technical experts and global provider of optical components in the UV/VIS/IR
+
+ for enquiries: +44(0) 1202 307650
+ Products search 
+About Us
+News
+Knowledge Centre
+Contact Us
+My account
+Orders
+Edit Address
+Account Information
+0
+£
+0.00
+Stock Optics
+Windows
+Barium Fluoride
+Caesium Iodide
+Calcium Fluoride
+Crystal Quartz
+Fused Silica IR (Waterfree)
+Fused Silica UV
+Germanium
+Glass
+KRS5 Thallium Bromo-Iodide Windows
+Lithium Fluoride
+Magnesium Fluoride
+Potassium Bromide
+Potassium Chloride
+Sapphire
+Silicon
+Sodium Chloride
+Strontium Fluoride
+Zinc Selenide
+Zinc Sulphide FLIR
+Zinc Sulphide Multispectral (Clear)
+Lenses
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Magnesium Fluoride
+Zinc Selenide
+Prisms and ATRs
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Germanium
+Glass
+KRS5
+Sapphire
+Silicon
+Zinc Selenide
+Bespoke Optics
+Optical Materials
+Handbook
+Optical Metrology
+ Menu
+0
+£
+0.00
+< Back to Optical Materials
+Silicon Si
+Silicon (Si) SDS
+Download
+Siicon (Si) Data Sheet
+Download
+Silicon is used as an optical window primarily in the 3 to 5 micron band and as a substrate for production of optical filters. Large blocks of Silicon with polished faces are also employed as neutron targets in Physics experiments.
+Products
+Windows
+Prisms & ATR
+Product Data
+Refractive Index
+References & Notes
+Transmission Range
+1.2 to 15 μm and 30 to >100 μm (1)
+Refractive Index
+3.4223 at 5 μm (1) (2)
+Reflection Loss
+46.2% at 5 μm (2 surfaces)
+Absorption Coefficient
+0.01 cm-1 @ 3 μm
+Reststrahlen Peak
+n/a
+dn/dT
+160 x 10-6/°C (3)
+dn/dμ
+10.4 μm
+Density
+2.33 g/cc
+Melting Point
+1420°C
+Thermal Conductivity
+163 W m-1 K-1 @ 273 K
+Thermal Expansion
+2.6 x 10-6/°C @ 20°C
+Hardness
+Knoop 1150
+Specific Heat Capacity
+703 J Kg-1 K-1
+Dielectric Constant
+13 at 10 GHz
+Young's Modulus (E)
+131 GPa (4)
+Shear Modulus (G)
+79.9 GPa (4)
+Bulk Modulus (K)
+102 GPa
+Elastic Coefficients
+C11 = 167; C12 = 65; C44 = 80 (4)
+Apparent Elastic Limit
+124.1 MPa (18,000 psi)
+Poisson Ratio
+0.266 (4)
+Solubility
+Insoluble in water
+Molecular Weight
+28.09
+Class/Structure
+Cubic diamond, Fd3m
+μm
+No
+μm
+No
+μm
+No
+1.357
+3.4975
+2.714
+3.4358
+6.500
+3.4195
+1.367
+3.4962
+3.000
+3.4320
+7.000
+3.4186
+1.395
+3.4929
+3.303
+3.4300
+7.500
+3.4186
+1.5295
+3.4795
+3.500
+3.4284
+8.000
+3.4184
+1.660
+3.4696
+4.000
+3.4257
+8.500
+3.4182
+1.709
+3.4664
+4.258
+3.4245
+10.00
+3.4179
+1.813
+3.4608
+4.500
+3.4236
+10.50
+3.4178
+1.970
+3.4537
+5.000
+3.4223
+11.04
+3.4176
+2.153
+3.4476
+5.500
+3.4213
+2.325
+3.4430
+6.000
+3.4202
+Silicon is grown by Czochralski pulling techniques (CZ) and contains some oxygen which causes an absorption band at 9 microns. To avoid this, Silicon can be prepared by a Float-Zone (FZ) process. Optical Silicon is generally lightly doped ( 15 to 40 ohm cm) for best transmission above 10 microns. Silicon has a further pass band 30 to 100 microns which is effective only in very high resistivity uncompensated material. Doping is usually Boron (p-type) and Phosphorus (n-type).
+REFERENCES:
+(1) Handbook Optical Constants, ed Palik, V1, ISBN 0-12-544420-6
+(2) Li, Refractive Index of Germanium etc, J.Phys Chem, V9, p561, 1980
+(3) Icenogle et al, Appl. Opt. V15, 2348 (1976)
+(4) Wortman & Evans, V36, (1), P153 (1965)
+< Back to Optical Materials
+Welcome to Crystran Ltd
+World Wide Optics Source
+Visit Our Online Shop
+Need something we aren’t listing? Get In Touch
+Get our monthly newsletter to your mailbox?
+Crystran Ltd
+Unit 1
+Broom Road Business Park
+Poole
+Dorset
+BH12 4PA
+Tel: +44 (0) 1202 307650
+Fax: +44 (0) 1202 307651
+Email: sales@crystran.co.uk
+Quick Links
+About us
+Knowledge Centre
+Contact Us
+Privacy Policy
+Terms and Conditions
+Employment
+Stock Items
+Windows
+Lenses
+Prisms & ATR
+Social media
+Follow
+Follow
+Follow
+Certificates
+ISO 9001 certified through LRQA and ISO 14001 certified through SGS
+Secret Link
+About Us
+News
+Knowledge Centre
+Contact Us
+My account
+Orders
+Edit Address
+Account Information
+ Back
+Stock Optics
+Windows
+Barium Fluoride
+Caesium Iodide
+Calcium Fluoride
+Crystal Quartz
+Fused Silica IR (Waterfree)
+Fused Silica UV
+Germanium
+Glass
+KRS5 Thallium Bromo-Iodide Windows
+Lithium Fluoride
+Magnesium Fluoride
+Potassium Bromide
+Potassium Chloride
+Sapphire
+Silicon
+Sodium Chloride
+Strontium Fluoride
+Zinc Selenide
+Zinc Sulphide FLIR
+Zinc Sulphide Multispectral (Clear)
+ Back
+Lenses
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Magnesium Fluoride
+Zinc Selenide
+ Back
+Prisms and ATRs
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Germanium
+Glass
+KRS5
+Sapphire
+Silicon
+Zinc Selenide
+ Back
+ Back
+ × Close Panel 
+0

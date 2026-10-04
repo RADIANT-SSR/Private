@@ -1,0 +1,62 @@
+substrate: 1
+name: germanium
+formula: Ge
+aliases: [ge, germanium]
+window_um: [1.90, 14.00]
+reference_temperature_K: 293
+description: >
+  Single-crystal Czochralski germanium, optical grade. The workhorse LWIR
+  refractive substrate: n ~ 4.00 and almost flat from 3 to 14 um, so it is
+  achromatic by default, but that same n = 4 makes it the material where the
+  cavity emissivity expression's n^2 factor matters most (study section 7.3).
+  Optical Ge is specified by room-temperature resistivity (5-40 ohm.cm) because
+  resistivity sets the free-carrier contribution to alpha.
+grade_note: >
+  alpha in the window is grade- and resistivity-dependent. The anchors below are
+  the "typical" optical grade values; >40 ohm.cm material runs lower at 10.6 um
+  and 5 ohm.cm material higher (study section 7.2, table C).
+
+n_refr:
+  kind: ri_table
+  source_file: sources/main__Ge__nk__Li-293K.yml
+  source: li1993
+  note: >
+    Critically-evaluated tabulated n, 1.90-18 um at 293 K. Cross-checks against
+    the Barnes & Piltch temperature-dependent Sellmeier (formula 2 coefficients
+    8.28156 6.72880 0.44105 0.21307 3870.1, 2.5-12 um) to 5e-4 in n at 10 um.
+
+alpha:
+  unit: cm^-1
+  grade_sensitivity: "2-5x (resistivity)"
+  interpolation: log10-log10 through anchors
+  anchors:
+    - {lambda_um: 2.7, alpha_cm_inv: 0.005, source: crystran_ge, basis: "manufacturer typical, upper bound ('<0.005')"}
+    - {lambda_um: 5.6, alpha_cm_inv: 0.006, source: crystran_ge, basis: "manufacturer typical"}
+    - {lambda_um: 10.6, alpha_cm_inv: 0.027, source: crystran_ge, basis: "manufacturer typical, upper bound ('<0.027')"}
+    - {lambda_um: 12.0, alpha_cm_inv: 0.040, source: derived, basis: "multiphonon continuation of the 5.6-10.6 um log-log slope; NOT measured"}
+  temperature_note: >
+    Free-carrier absorption adds (lambda/10.6 um)^2 * alpha_FC(T) with
+    alpha_FC(300 K) ~ 0.0016 cm^-1 for 40 ohm.cm and ~0.009 cm^-1 for 5 ohm.cm --
+    i.e. 6-30 % of the 10.6 um total at 300 K. It is negligible below 250 K
+    (carrier freeze-out) and runs away above ~350 K. See study section 7.2.
+
+sources:
+  li1993:
+    type: paper
+    title: "Refractive index of silicon and germanium and its wavelength and temperature derivatives"
+    authors: "H. H. Li"
+    venue: "J. Phys. Chem. Ref. Data 9, 561-658 (1980/1993)"
+    doi: 10.1063/1.555624
+    retrieved_via: "refractiveindex.info database (CC0), main/Ge/nk/Li-293K.yml"
+    url: "https://refractiveindex.info/?shelf=main&book=Ge&page=Li-293K"
+  crystran_ge:
+    type: manufacturer_page
+    title: "Germanium (Ge) optical material"
+    publisher: "Crystran Ltd"
+    url: "https://www.crystran.co.uk/optical-materials/germanium-ge"
+    local_copy: sources/germanium-ge.txt
+    note: >
+      Crystran attributes its absorption-coefficient row to "(7) Manufacturers
+      Published Data" -- a secondary citation. It is the best retrievable
+      window-region alpha for Ge; a primary laser-calorimetry source would be
+      better and is listed as an open item in the study.

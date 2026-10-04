@@ -1,0 +1,55 @@
+substrate: 1
+name: sapphire
+formula: Al2O3
+aliases: [al2o3, sapphire, synthetic sapphire]
+window_um: [0.40, 5.00]
+reference_temperature_K: 293
+description: >
+  Synthetic single-crystal sapphire, ordinary ray. Used for domes and windows
+  rather than lenses (hardness, erosion resistance). Birefringent -- this entry
+  carries the ordinary ray only, which is what a c-axis-normal window sees. The
+  window closes hard at 5.5 um, so sapphire is a VIS/SWIR/short-MWIR material;
+  it is not a candidate for LWIR.
+grade_note: >
+  Only ONE published window alpha anchor exists (3e-4 cm^-1 at 2.4 um). Its
+  alpha(lambda) is therefore the weakest in this library -- effectively a
+  constant with a modelled multiphonon rise.
+
+n_refr:
+  kind: formula
+  formula: sellmeier_1
+  coefficients: [0, 1.4313493, 0.0726631, 0.65054713, 0.1193242, 5.3414021, 18.028251]
+  valid_um: [0.20, 5.0]
+  source: malitson1972
+  note: >
+    Checks against Crystran's published n_o = 1.75449 at 1.06 um. Extraordinary
+    ray differs by ~0.008; a birefringent entry needs a direction field, which
+    this format version does not carry (study section 7.1, deferred).
+
+alpha:
+  unit: cm^-1
+  grade_sensitivity: "unknown -- single anchor"
+  interpolation: log10-log10 through anchors
+  anchors:
+    - {lambda_um: 2.4, alpha_cm_inv: 0.0003, source: crystran_sapphire, basis: "published value, the only one"}
+    - {lambda_um: 4.0, alpha_cm_inv: 0.02, source: estimated, basis: "multiphonon rise toward the 5.5 um cut-off; ORDER-OF-MAGNITUDE ESTIMATE"}
+    - {lambda_um: 5.0, alpha_cm_inv: 1.0, source: estimated, basis: "approaching the cut-off; ORDER-OF-MAGNITUDE ESTIMATE"}
+  temperature_note: "Wide-gap oxide; no free-carrier term in any EO operating range."
+
+sources:
+  malitson1972:
+    type: paper
+    title: "Refractive index and birefringence of synthetic sapphire / Refractive index (Handbook of Laser Science and Technology IV)"
+    authors: "I. H. Malitson, M. J. Dodge"
+    venue: "J. Opt. Soc. Am. 62, 1405 (1972); CRC Press, 1986, p. 30"
+    retrieved_via: "refractiveindex.info database (CC0), main/Al2O3/nk/Malitson-o.yml"
+    url: "https://refractiveindex.info/?shelf=main&book=Al2O3&page=Malitson-o"
+  crystran_sapphire:
+    type: manufacturer_page
+    title: "Sapphire (Al2O3) optical material"
+    publisher: "Crystran Ltd"
+    url: "https://www.crystran.co.uk/optical-materials/sapphire-al2o3"
+    local_copy: sources/sapphire-al2o3.txt
+  estimated:
+    type: estimate
+    note: "Shape-only; not a traceable measurement (study section 7.1)."

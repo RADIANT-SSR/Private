@@ -1,0 +1,285 @@
+
+Zinc Sulphide (Zinc Sulfide) Multispectral (ZnS) - Crystran
+We are technical experts and global provider of optical components in the UV/VIS/IR
+
+ for enquiries: +44(0) 1202 307650
+				Products search			
+About Us
+News
+Knowledge Centre
+Contact Us
+My account
+Orders
+Edit Address
+Account Information
+0
+£
+0.00
+Stock Optics
+Windows
+Barium Fluoride
+Caesium Iodide
+Calcium Fluoride
+Crystal Quartz
+Fused Silica IR (Waterfree)
+Fused Silica UV
+Germanium
+Glass
+KRS5 Thallium Bromo-Iodide Windows
+Lithium Fluoride
+Magnesium Fluoride
+Potassium Bromide
+Potassium Chloride
+Sapphire
+Silicon
+Sodium Chloride
+Strontium Fluoride
+Zinc Selenide
+Zinc Sulphide FLIR
+Zinc Sulphide Multispectral (Clear)
+Lenses
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Magnesium Fluoride
+Zinc Selenide
+Prisms and ATRs
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Germanium
+Glass
+KRS5
+Sapphire
+Silicon
+Zinc Selenide
+Bespoke Optics
+Optical Materials
+Handbook
+Optical Metrology
+ Menu
+0
+£
+0.00
+< Back to Optical Materials
+Zinc Sulphide (Zinc Sulfide) Multispectral (ZnS)
+Zinc Sulphide (ZnS) SDS
+Download
+Zinc Sulphide Multispectral (ZnS) Data Sheet
+Download
+ZnS Multispectral (water-clear) is used for IR windows and lenses in the thermal band (8 to 14 μm) where maximum transmission and lowest absorption is required. Also selected for use where visible alignment is an advantage.
+♦ 
+ZnS MS Visible transmission data ©2020
+. Open source with acknowledgement to Crystran Ltd.
+♦ 
+ZnS MS IR Transmission data ©2020
+. Open source with acknowledgement to Crystran Ltd.
+Products
+Windows
+Product Data
+Refractive Index
+References & Notes
+Transmission Range
+0.37 to 13.5 μm
+Refractive Index
+2.20084 at 10 μm (1)
+Reflection Loss
+24.7% at 10 μm (2 surfaces)
+Absorption Coefficient
+0.2 cm-1 @ 10.6 μm
+0.006 cm-1 @ 9.27 μm
+0.0006 cm-1 @ 3.8 μm
+0.0001 cm-1 @ 2.7 μm
+0.0006 cm-1 @ 1.3 μm
+Reststrahlen Peak
+30.5 μm
+dn/dT
++38.7 x 10-6 /°C at 3.39 μm
+dn/dμ
+0
+Density
+4.09 g/cc
+Melting Point
+1827°C (see References & Notes)
+Thermal Conductivity
+27.2 W m-1 K-1 @ 298 K
+Thermal Expansion
+6.5 x 10-6/°C @ 273 K
+Hardness
+Knoop 240 with 50g indenter
+Specific Heat Capacity
+515 J Kg-1 K-1
+Dielectric Constant
+88
+Youngs Modulus (E)
+74.5 GPa
+Shear Modulus (G)
+n/a
+Bulk Modulus (K)
+n/a
+Elastic Coefficients
+C11 = 89.2 C12 = 40.0 C44 = 25.4 (2)
+Apparent Elastic Limit
+26.9 MPa (3900psi) (4)
+Poisson Ratio
+0.28
+Solubility
+65 x 10-6 g/100g water
+Molecular Weight
+97.43
+Class/Structure
+HIP polycrystalline cubic, ZnS, F42m
+μm
+No
+μm
+No
+μm
+No
+0.4047
+2.54515
+0.8521
+2.30659
+9.000
+2.21290
+0.4358
+2.48918
+0.8943
+2.30183
+10.00
+2.20084
+0.4678
+2.44915
+1.0140
+2.29165
+11.25
+2.18317
+0.4800
+2.43691
+1.1287
+2.28485
+12.00
+2.17101
+0.5086
+2.41279
+1.5296
+2.27191
+13.00
+2.15252
+0.5461
+2.38838
+2.0581
+2.26442
+0.5476
+2.36789
+3.000
+2.25772
+0.6438
+2.34731
+3.500
+2.25498
+0.6678
+2.34033
+4.000
+2.25231
+0.7065
+2.33073
+4.500
+2.24955
+0.7800
+2.31669
+5.000
+2.24661
+0.7948
+2.31438
+8.000
+2.22334
+Zinc Sulphide is produced by synthesis from Zinc vapour and H2S gas, forming as sheets on Graphite susceptors. Zinc Sulphide is microcrystalline in structure, the grain size being controlled to produce maximum strength. Multispectral grade is then Hot Isostatically Pressed (HIP) to improve the mid IR transmission and produce the visibly clear form. Single crystal ZnS is available, but is not common.
+Zinc Sulphide oxidizes significantly at 300°C, exhibits plastic deformation at about 500°C and dissociates about 700°C. For safety, Zinc Sulphide windows should not be used above 250°C in normal atmosphere.
+References:
+(1) Refractive Index of Zinc Sulfide in the 0.405 – 13µm range. Mary Debenham (NPL) Applied Optics / Vol 23, No 14 / July 1984
+< Back to Optical Materials
+Welcome to Crystran Ltd
+World Wide Optics Source
+Visit Our Online Shop
+Need something we aren’t listing? Get In Touch
+Get our monthly newsletter to your mailbox?
+Crystran Ltd
+Unit 1
+Broom Road Business Park
+Poole
+Dorset
+BH12 4PA
+Tel: +44 (0) 1202 307650
+Fax: +44 (0) 1202 307651
+Email: sales@crystran.co.uk
+Quick Links
+About us
+Knowledge Centre
+Contact Us
+Privacy Policy
+Terms and Conditions
+Employment
+Stock Items
+Windows
+Lenses
+Prisms & ATR
+Social media
+Follow
+Follow
+Follow
+Certificates
+ISO 9001 certified through LRQA and ISO 14001 certified through SGS
+Secret Link
+About Us
+News
+Knowledge Centre
+Contact Us
+My account
+Orders
+Edit Address
+Account Information
+ Back
+Stock Optics
+Windows
+Barium Fluoride
+Caesium Iodide
+Calcium Fluoride
+Crystal Quartz
+Fused Silica IR (Waterfree)
+Fused Silica UV
+Germanium
+Glass
+KRS5 Thallium Bromo-Iodide Windows
+Lithium Fluoride
+Magnesium Fluoride
+Potassium Bromide
+Potassium Chloride
+Sapphire
+Silicon
+Sodium Chloride
+Strontium Fluoride
+Zinc Selenide
+Zinc Sulphide FLIR
+Zinc Sulphide Multispectral (Clear)
+ Back
+Lenses
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Magnesium Fluoride
+Zinc Selenide
+ Back
+Prisms and ATRs
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Germanium
+Glass
+KRS5
+Sapphire
+Silicon
+Zinc Selenide
+ Back
+ Back
+				× Close Panel			
+0

@@ -1,0 +1,56 @@
+substrate: 1
+name: fused_silica
+formula: SiO2
+aliases: [sio2, fused silica, silica, fused quartz]
+window_um: [0.40, 2.50]
+reference_temperature_K: 293
+description: >
+  Synthetic fused silica, n ~ 1.45. The VIS/NIR workhorse. Included in the
+  candidate set because RADIANT models visible instruments, but it is NOT a
+  thermal-emission material: it is opaque past ~3 um (2.2 um for standard grade,
+  3 um for IR grades), and in its own passband a 300 K element's Planck radiance
+  is radiometrically irrelevant. Its presence in the library is for throughput
+  bookkeeping, not emission.
+grade_note: >
+  One published alpha anchor (1e-5 cm^-1 at 1 um). alpha in the 0.4-2.2 um
+  passband is dominated by the OH content of the specific grade and varies by
+  more than 100x across commercial grades (low-OH IR grade vs standard).
+
+n_refr:
+  kind: formula
+  formula: sellmeier_1
+  coefficients: [0, 0.6961663, 0.0684043, 0.4079426, 0.1162414, 0.8974794, 9.896161]
+  valid_um: [0.21, 6.7]
+  source: malitson1965
+  note: >
+    Checks against Crystran's published n = 1.47012 at 4 um -- i.e. the formula
+    still tracks beyond this entry's window; the window is set by TRANSMISSION,
+    not by the dispersion fit's validity.
+
+alpha:
+  unit: cm^-1
+  grade_sensitivity: ">100x (OH content)"
+  interpolation: log10-log10 through anchors
+  anchors:
+    - {lambda_um: 1.0, alpha_cm_inv: 1.0e-5, source: crystran_silica, basis: "published value, the only one"}
+    - {lambda_um: 2.5, alpha_cm_inv: 0.05, source: estimated, basis: "approaching the OH/multiphonon edge; ORDER-OF-MAGNITUDE ESTIMATE"}
+  temperature_note: "Amorphous oxide; no free-carrier term in any EO operating range."
+
+sources:
+  malitson1965:
+    type: paper
+    title: "Interspecimen comparison of the refractive index of fused silica"
+    authors: "I. H. Malitson"
+    venue: "J. Opt. Soc. Am. 55, 1205-1208 (1965)"
+    doi: 10.1364/JOSA.55.001205
+    retrieved_via: "refractiveindex.info database (CC0), main/SiO2/nk/Malitson.yml"
+    url: "https://refractiveindex.info/?shelf=main&book=SiO2&page=Malitson"
+  crystran_silica:
+    type: manufacturer_page
+    title: "Fused Silica (SiO2) optical material"
+    publisher: "Crystran Ltd"
+    url: "https://www.crystran.co.uk/optical-materials/fused-silica-glass-sio2"
+    local_copy: sources/fused-silica-glass-sio2.txt
+  estimated:
+    type: estimate
+    note: "Shape-only; not a traceable measurement (study section 7.1)."

@@ -1,0 +1,51 @@
+substrate: 1
+name: barium_fluoride
+formula: BaF2
+aliases: [baf2, barium fluoride]
+window_um: [0.40, 12.00]
+reference_temperature_K: 293
+description: >
+  Single-crystal barium fluoride, n ~ 1.46. Reaches further into the LWIR than
+  CaF2 (12 um vs 10 um cut-off) and is the usual low-index partner in
+  broadband MWIR/LWIR correctors. Hygroscopic and thermal-shock sensitive, so it
+  appears as an internal element rather than an external window.
+grade_note: >
+  One published window alpha anchor only (3.2e-4 cm^-1 at 6 um). The
+  long-wavelength rise is modelled, not measured.
+
+n_refr:
+  kind: formula
+  formula: sellmeier_1
+  coefficients: [0.33973, 0.81070, 0.10065, 0.19652, 29.87, 4.52469, 53.82]
+  valid_um: [0.15, 15.0]
+  source: li1980
+  note: "Checks against Crystran's published n = 1.45 at 5 um."
+
+alpha:
+  unit: cm^-1
+  grade_sensitivity: "unknown -- single anchor"
+  interpolation: log10-log10 through anchors
+  anchors:
+    - {lambda_um: 6.0, alpha_cm_inv: 0.00032, source: crystran_baf2, basis: "published value, the only one"}
+    - {lambda_um: 9.5, alpha_cm_inv: 0.05, source: estimated, basis: "multiphonon rise, scaled from the CaF2 edge shifted by the 12/10 um cut-off ratio; ORDER-OF-MAGNITUDE ESTIMATE"}
+    - {lambda_um: 12.0, alpha_cm_inv: 2.0, source: estimated, basis: "approaching the cut-off; ORDER-OF-MAGNITUDE ESTIMATE"}
+  temperature_note: "Wide-gap ionic crystal; no free-carrier term in any EO operating range."
+
+sources:
+  li1980:
+    type: paper
+    title: "Refractive index of alkaline earth halides and its wavelength and temperature derivatives"
+    authors: "H. H. Li"
+    venue: "J. Phys. Chem. Ref. Data 9, 161-289 (1980)"
+    doi: 10.1063/1.555616
+    retrieved_via: "refractiveindex.info database (CC0), main/BaF2/nk/Li.yml"
+    url: "https://refractiveindex.info/?shelf=main&book=BaF2&page=Li"
+  crystran_baf2:
+    type: manufacturer_page
+    title: "Barium Fluoride (BaF2) optical material"
+    publisher: "Crystran Ltd"
+    url: "https://www.crystran.co.uk/optical-materials/barium-fluoride-baf2"
+    local_copy: sources/barium-fluoride-baf2.txt
+  estimated:
+    type: estimate
+    note: "Shape-only; not a traceable measurement (study section 7.1)."

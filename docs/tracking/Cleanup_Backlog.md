@@ -47,6 +47,18 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-397 — A header-row spectral CSV crashes the element loader with a raw ValueError
+
+**Discovered**: Gap 142 substrate-library work, 2026-10-04, while verifying that each cavity surface accepts a coating from a file (owner requirement, same day).
+**Status**: **Open.**
+**File**: `src/radiant/io/element_config.py:86` (`_load_spectral_csv`).
+
+**Symptom**: a two-column CSV whose first line is a column header — `wavelength_um,value`, which is what Excel, pandas and every other export produces — reaches `float(row[0])` and raises a bare `ValueError: could not convert string to float: 'wavelength_um'` out of `parse_element_entries`. The reader skips `#`-comment lines and blank lines but has no notion of a header row. Reproduce: point any element's `reflectance`/`R1`/`T1`/`R2`/`T2` at such a file.
+
+**Why it still matters**: it is a Rule 15 violation on a user-facing input path — the message names no file, no element and no remedy, and it is a raw Python exception rather than a `RadiantError`, so a caller catching `RadiantError` does not catch it (Rule 15's whole contract). It is reached from the GUI's *CSV file…* button, so an operator hits it with the most ordinary file they could supply. Sharpened by the fact that the **substrate library's own CSVs use exactly that header format** (read by `csv.DictReader` in `data/substrate.py`), so the codebase now carries two CSV conventions in two readers and the one an operator is most likely to imitate is the one the element loader rejects.
+
+**Suggested fix**: (a) inline-fix-now — skip a leading non-numeric row, and convert any residual parse failure into an `ElementConfigError` naming the file, the line number and the element property. ~1 h, category B. Decide separately whether the two readers should converge on one convention.
+
 ### CU-394 — A datasheet-level refractive train cannot express warm-optics emission at all
 
 **Discovered**: promoted from a Findings-Log line, 2026-10-04 (origin CU-380 scenario re-authoring, 2026-10-03).

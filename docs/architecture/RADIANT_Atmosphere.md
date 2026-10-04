@@ -1139,6 +1139,17 @@ sky-background coupling: §4.2g caveat.)
   `hufnagel_valley` profile. A non-zero value set against any other `cn2_profile` is
   **inert, and says so** — `cn2_profiles.warn_if_site_elevation_inert` raises a `UserWarning`
   naming why the input cannot reach that profile and what to do instead (CU-302, Rule 17).
+  The **converse** is also advised, and it is the commoner trap (CU-393,
+  `site_elevation_advisory.warn_if_site_elevation_defaulted`): a *ground* sensor above
+  200 m MSL that leaves the elevation at its default has its own boundary layer evaluated
+  at sea level, where the 100 m-scale-height surface term has already decayed away, so r₀
+  comes back optimistic — measured at **2.876× on a 900 m site**. Two things make that
+  predicate non-obvious. It is gated on `observer_class == "ground"`, because an
+  *airborne* sensor over sea-level terrain satisfies the identical altitude test and is
+  correct; scene class gates the validation and never the physics, as ADR-0011 decision 10
+  requires and CU-391's refusal already does. And it keys on **provenance, not value**: an
+  explicit `0.0` means the analyst answered the question for a sea-level site and is not
+  warned, while an unset parameter is.
 - `atmosphere.cn2_tabulated_file` — two-column `altitude_m,cn2_m^-2/3` CSV, read pre-chain
   (Rule 6) by `loaders.build_cn2_profile` and injected at
   `stage_outputs["atmosphere_config"]["cn2_profile"]`.

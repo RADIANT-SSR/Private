@@ -110,7 +110,7 @@ source/shapes/         # box, cone, cylinder, flat_plate, sphere — projected_a
                        # implementations for sub-pixel target geometry
 ```
 
-### `atmosphere/` — 41 source + 50 tests
+### `atmosphere/` — 42 source + 51 tests
 
 Stage 2: τ_atm, L_path, L_atm.
 
@@ -141,7 +141,8 @@ atmosphere/
 ├── cn2_hufnagel_valley.py  # Hufnagel-Valley Cn²(h) preset (HV-5/7 defaults)
 ├── cn2_tabulated.py     # user-tabulated Cn²(h) profile
 ├── r0_path.py           # path-weighted Fried parameter over the LOS
-└── r0_resolution.py     # direct r0 vs profile-derived r0 (CU-093 agreement)
+├── r0_resolution.py     # direct r0 vs profile-derived r0 (CU-093 agreement)
+└── site_elevation_advisory.py  # ground site left at the 0 m default (CU-393)
 ```
 
 ### `optics/` — 33 source + 30 tests
@@ -532,7 +533,7 @@ convention and may differ slightly.
 | core/                  | 25     | 22    | foundational abstractions |
 | geometry/              | 7      | 5     | scene geometry / LOS (ADR-0006, ADR-0011) |
 | source/                | 41     | 35    | spec-form fan-out + shape catalog |
-| atmosphere/            | 41     | 49    | MODTRAN + simple + exo + tabulated + interpolated + loaders |
+| atmosphere/            | 42     | 50    | MODTRAN + simple + exo + tabulated + interpolated + loaders |
 | optics/                | 36     | 28    | dual-path PSF/MTF + element model |
 | platform/              | 9      | 9     | smear, relative-motion smear, jitter, sampling, turbulence |
 | spectral_integration/  | 3      | 1     | single-stage collapse |

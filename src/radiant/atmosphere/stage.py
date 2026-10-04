@@ -105,14 +105,36 @@ from radiant.atmosphere.assembly import (
 from radiant.atmosphere.errors import AtmosphereValidationError
 from radiant.atmosphere.loaders import build_atmosphere_model, model_requires_prebuild
 from radiant.atmosphere.r0_resolution import resolve_fried_parameter
+from radiant.atmosphere.site_elevation_advisory import warn_if_site_elevation_defaulted
 from radiant.atmosphere.topology import TopologyProducts, evaluate_path_topology
 from radiant.core.chain import ChainState
 from radiant.core.descriptors import GroundBackground
 from radiant.core.los_geometry import LineOfSightGeometry
-from radiant.core.parameters import ParameterBoundsError, ParameterSet
+from radiant.core.parameters import ParameterBoundsError, ParameterSet, Provenance
 from radiant.core.radiometry import RadiometricFrame
 
 logger = logging.getLogger(__name__)
+
+
+def _warn_site_elevation_defaulted(state: ChainState, params: ParameterSet) -> None:
+    """Read the geometry class and the elevation's provenance, then advise (CU-393)."""
+    geometry_out = state.stage_outputs.get("geometry", {})
+    observer_class = geometry_out.get("observer_class")
+    if not isinstance(observer_class, str):
+        return
+    try:
+        resolved = params.get_resolved("geometry.site_elevation_m")
+        profile_name = str(params.get("atmosphere.cn2_profile"))
+        h_site_m = float(params.get("geometry.sensor_altitude_m"))
+    except (KeyError, ParameterBoundsError):
+        return
+    warn_if_site_elevation_defaulted(
+        profile_name=profile_name,
+        observer_class=observer_class,
+        site_elevation_m=float(resolved.value),
+        site_elevation_is_default=resolved.provenance is Provenance.DEFAULT,
+        h_site_m=h_site_m,
+    )
 
 
 class AtmosphereStage:
@@ -370,6 +392,14 @@ class AtmosphereStage:
         # path integral — Gap 110) and store it for downstream stages.
         # atmosphere.cn2_profile = 'direct' (the default) reproduces the
         # pre-Gap-110 behaviour exactly.
+        # CU-393: the converse of the inert-elevation advisory. A ground sensor on
+        # high terrain that never set site_elevation_m loses its own boundary layer
+        # silently. Gated on observer_class because an AIRBORNE sensor over sea-level
+        # terrain satisfies the identical altitude predicate and is correct — scene
+        # class gates the validation, never the physics (ADR-0011 decision 8, and the
+        # CU-391 precedent). observer_class arrives through ChainState, not an import.
+        _warn_site_elevation_defaulted(state, params)
+
         r0_resolution = resolve_fried_parameter(
             params,
             los,

@@ -289,10 +289,35 @@ def make_config(
         "optics": {
             "aperture_diameter_m": c["aperture_m"],
             "focal_length_m": c["focal_length_m"],
-            "transmission_scalar": c["tau_optics"],
             "obscuration_ratio": c["obscuration"],
             "wfe_rms_waves": c["wfe_rms_waves"],
         },
+        # Warm optics declared rather than lumped (CU-380). `transmission_scalar`
+        # synthesizes a lump, and a lump has no Kirchhoff emissivity, so this
+        # head could not emit -- and the datasheet's own "Optics temperature:
+        # -23.15 degC" (= 250.0 K, "uncooled fore-optics soaked at flight OAT")
+        # reached nothing but the derived-inputs printout below. Two reflective
+        # surfaces at R = sqrt(tau_optics) reproduce the net 75 % the datasheet
+        # specifies, so the SCENE signal is unchanged, and each now emits at its
+        # Kirchhoff eps = 1 - R = 0.133975.
+        #
+        # The datasheet calls this a refractive head. The two-mirror form is the
+        # owner-ratified convention (CU-380, 2026-09-30) for declaring net
+        # throughput plus Kirchhoff emission, and it is what the shipped
+        # templates carry. A literally refractive train would need the cavity
+        # model -- a simple refractive element is eps = 0 by design (Gap 127,
+        # absorption unmodelled) -- and the cavity needs R1/T1/R2/T2, alpha,
+        # n_refr and thickness, none of which this datasheet supplies.
+        "optical_elements": [
+            {
+                "name": name,
+                "transfer_mode": "REFLECTIVE",
+                "kind": "MIRROR",
+                "reflectance": math.sqrt(c["tau_optics"]),
+                "temperature_K": c["optics_temp_K"],
+            }
+            for name in ("M1", "M2")
+        ],
         "detector": {
             "pixel_pitch_x_um": c["pitch_um"],
             "pixel_pitch_y_um": c["pitch_um"],

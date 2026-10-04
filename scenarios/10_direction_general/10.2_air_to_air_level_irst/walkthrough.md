@@ -119,12 +119,48 @@ pill reads `Δh  49 m`.
 
 | Range [km] | θ_o [deg] | Δh [m] | guard | τ MWIR [–] | signal [e⁻] | noise [e⁻ rms] | SNR [–] | det. range [km] | well margin [dB] |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 25 | 90.11224 | 12.2 | clean | 0.6337 | 5.8803e5 | 769.8 | 763.9 | 202.4 | 4.6 |
-| 40 | 90.17958 | 31.3 | clean | 0.4824 | 1.7478e5 | 423.5 | 412.7 | 202.5 | 15.2 |
-| 50 | 90.22448 | 49.0 | clean | 0.4023 | 9.3262e4 | 312.8 | 298.1 | 202.5 | 20.6 |
-| 70 | 90.31427 | 96.0 | clean | 0.2799 | 3.3094e4 | 194.3 | 170.3 | 202.5 | 29.6 |
-| 75 | 90.33672 | 110.2 | **warn** | 0.2556 | 2.6329e4 | 176.1 | 149.5 | 202.5 | 31.6 |
-| 100 | 90.44896 | 195.9 | **warn** | 0.1625 | 9.4131e3 | 119.1 | 79.0 | 202.2 | 40.5 |
+| 25 | 90.11224 | 12.2 | clean | 0.6337 | 5.8803e5 | 772.0 | 761.7 | 193.0 | 4.6 |
+| 40 | 90.17958 | 31.3 | clean | 0.4824 | 1.7478e5 | 427.5 | 408.9 | 193.1 | 15.2 |
+| 50 | 90.22448 | 49.0 | clean | 0.4023 | 9.3262e4 | 318.2 | 293.1 | 193.2 | 20.6 |
+| 70 | 90.31427 | 96.0 | clean | 0.2799 | 3.3094e4 | 202.8 | 163.2 | 193.2 | 29.6 |
+| 75 | 90.33672 | 110.2 | **warn** | 0.2556 | 2.6329e4 | 185.4 | 142.0 | 193.2 | 31.6 |
+| 100 | 90.44896 | 195.9 | **warn** | 0.1625 | 9.4131e3 | 132.5 | 71.1 | 193.2 | 40.5 |
+
+*Re-authored 2026-10-03. **CU-380** — this scenario's optics now emit, which
+is the change section 4.2's own warning block had been documenting as absent
+(see below: the UNEXPECTED warning is gone, and the vendor table's optics
+temperature is no longer inert). The scalar lump is replaced by two reflective
+surfaces at R = √0.75 = 0.866025, net throughput unchanged by construction, so
+**τ, α_eff, signal and well margin are bit-identical at every rung** — the
+scene path never moved. Each surface emits at ε = 1 − R = 0.133975 at the
+datasheet's own 250.0 K (−23.15 °C, "uncooled fore-optics soaked at flight
+OAT"), so what changes is the noise column and everything downstream of it:
+
+- **The target-free noise floor rises 69.2 → 90.2 e⁻ rms (+30 %)**, which is
+  the whole of this change. Warm optics are a target-independent background,
+  so they land entirely in the floor.
+- **Detection range 202.5 → 193.2 km (−4.6 %)** at the nominal 50 km
+  reference, and the reference-invariance property survives intact (193.0 km
+  from the 25 km row against 193.2 km from the 100 km row, still 1.00×).
+- **SNR falls most where the floor matters most**: −0.3 % at 25 km (761.7),
+  where the target's own shot noise still dominates, against −9.9 % at 100 km
+  (71.1), where the floor is nearly all of the noise. The range dependence of
+  the penalty *is* the floor-limited transition, measured.
+- **The shot-consistent cross-check tightens**, 0.7 % → 0.5 %. A larger floor
+  makes the far field more nearly floor-limited, which is precisely the
+  condition the floor-only bound assumes, so the two solves converge.
+- **The "not background limited at short range" verdict stands.** At 25 km the
+  total noise is 772.0 e⁻ rms of which 766.8 is the target's own shot noise;
+  the floor is 88.9. Warm optics raised the floor by 30 % and did not come
+  close to changing which term dominates the near field.
+
+Also folded in: the measured pre-change run differed from the numbers recorded
+below in the noise decomposition of §4.2 (25 km total noise 733.8 → 769.8 e⁻
+rms, target shot 730.7 → 766.8; 100 km 115.5 → 119.1 and 92.5 → 97.0) and in
+the floor-only cross-check (200.0 → 203.6 km against 198.7 → 202.2 km). That is
+uncaptured residue from the CU-355 refresh, which updated the sweep table but
+not these two derived blocks — not CU-380 movement. The tables below are
+measured, so the residue is corrected here.*
 
 *Refreshed 2026-09-12 (chartered sweep). Sole mover: **CU-355** — the
 scalar-WFE screen became the deterministic low-order expansion, which keeps
@@ -169,12 +205,17 @@ digit here.*
 (The full 16-row table is in `outputs/10.2_air_to_air_results.xlsx`, regenerated
 by running the script.)
 
-SNR falls 9.9× over a 4× range increase — steeper than inverse-square because
+SNR falls 10.7× over a 4× range increase — steeper than inverse-square because
 the band transmittance falls from 0.634 to 0.163 over the same span. No pixel
 saturates anywhere in the sweep (well margin 4.6 dB at the near end, per the 25 km row).
 
-**One warning other than the horizon guard is raised, at every sweep point.**
-The runner classifies it as UNEXPECTED and prints it in full:
+**No warning other than the horizon guard is raised anywhere in the sweep** —
+as of CU-380 (2026-10-03). This subsection is kept because its history is the
+clearest record in the scenario suite of a defect being reported correctly,
+read correctly, and still shipping twice.
+
+For two generations this scenario raised an UNEXPECTED warning at every sweep
+point, and the runner printed it in full:
 
 <!-- Superseded 2026-09-10: optics.optics_temperature_K was removed (inert after
      Gap 127) and this warning with it. Quoted verbatim as a record of the run. -->
@@ -189,19 +230,35 @@ The runner classifies it as UNEXPECTED and prints it in full:
 `optics.scalar_emissivity`. The firing condition and every computed value in
 this walkthrough are unchanged — this scenario declares no element list.)*
 
-This is CU-261/265's inert-optics-temperature warning, and it is telling the
-truth about *this* configuration: the vendor table's −23.15 °C optics
-temperature (§2) is carried through the config but is radiometrically inert,
-because the scenario models the refractive head as a scalar transmission lump
-rather than as a Kirchhoff-derived element list (under Gap 127, 2026-09-09, a
-scalar lump never emits at all).
-Every number in this walkthrough is therefore independent of the optics
-temperature. The scenario config is left unmodified rather than silenced — the
-warning is the correct Rule-17 report of an over-specified input, not a defect
-to suppress.
+This was CU-261/265's inert-optics-temperature warning, and it told the exact
+truth about that configuration: the vendor table's −23.15 °C optics
+temperature (§2) was carried through the config, printed in the derived-inputs
+table, and radiometrically inert — because the scenario modelled the
+refractive head as a scalar transmission lump rather than a Kirchhoff-derived
+element list, and under Gap 127 a scalar lump never emits. The walkthrough then
+drew the defensible-looking conclusion that *"every number in this walkthrough
+is therefore independent of the optics temperature"*, and left the config
+unmodified rather than silenced, on the ground that the warning was a correct
+Rule-17 report rather than a defect to suppress.
+
+That reasoning was right about the warning and wrong about the scenario. The
+warning was not reporting an over-specified input; it was reporting a **missing
+background term** — the one an uncooled MWIR fore-optic contributes, which for
+this design is 30 % of the target-free noise floor and 4.6 % of the detection
+range. "Independent of the optics temperature" was true of the model as
+configured and false of the instrument it represented. The general lesson, now
+tracked as [[CU-380]] and its bookkeeping sibling [[CU-387]]: a warning that
+is *accurate* about the configuration can still be describing physics the
+scenario needed. Inertness is a finding about the model, not a property of the
+hardware.
+
+Since CU-380 the train is declared (two surfaces at R = √0.75 = 0.866025,
+250.0 K from the datasheet), the temperature is live, the warning is silent
+because its condition is genuinely gone, and the sweep reports zero unexpected
+warnings.
 
 **Non-obvious result — `detection_range_m` is reference-range invariant**
-(202.4 km referenced at 25 km, 202.2 km referenced at 100 km, a factor 1.00; digits refreshed 2026-09-12, CU-355).
+(193.0 km referenced at 25 km, 193.2 km referenced at 100 km, a factor 1.00; digits refreshed 2026-10-03, CU-380).
 The path-aware solver scales the *signal* along the path,
 $S(R) = S_{ref}(R_{ref}/R)^2\,\tau(R)/\tau(R_{ref})$, **and the target's own
 shot noise with it**: $\sigma^2(R) = S(R) + N_0^2$, with $N_0$ the target-free
@@ -211,23 +268,26 @@ short range:
 
 | range [km] | total noise [e⁻ rms] | of which target shot [e⁻ rms] | target-free floor [e⁻ rms] |
 |---:|---:|---:|---:|
-| 25 | 733.8 | 730.7 | 67.5 |
-| 100 | 115.5 | 92.5 | 69.2 |
+| 25 | 772.0 | 766.8 | 88.9 |
+| 100 | 132.5 | 97.0 | 90.2 |
 
 At 25 km the noise is almost entirely the *target's own* shot noise, which
 vanishes as the target recedes. Freezing it used to make the near-field answer
 strongly pessimistic — **123.4 km referenced at 25 km against 182.5 km
 referenced at 100 km, a 1.48× spread on one unchanged design**, which is what
 CU-263 was filed against. The nominal 50 km answer moved **150.9 km → 199.1 km
-(+31.9 %)** with the fix. The residual 0.3 km spread across the sweep is the
+(+31.9 %)** with the fix — 199.1 km being the reading current when CU-263
+landed; it is 193.2 km today, after CU-355 and CU-380. The residual spread across the sweep is the
 band-mean τ model's own reference dependence ($\alpha_{eff}$ moves in the fifth
-digit, 0.01826 → 0.01818 km⁻¹), not the noise treatment.
+digit, 0.01826 → 0.01818 km⁻¹), not the noise treatment. (0.2 km as measured
+since CU-380 — a higher floor leaves slightly less of the spread to the α_eff
+reference dependence.)
 
 Cross-check: re-solving against the target-free floor **alone** (sky background
-shot + read + quantisation + dark = **69.2 e⁻ rms**, dropping the target's own
-residual shot noise entirely) gives **200.0 km at SNR = 5** — the fully
-floor-limited bound, which must sit just *above* the chain's 198.7 km. They
-agree to 0.7 %. That is the number an IRST engineer would quote for this design
+shot + warm-optics shot + read + quantisation + dark = **90.2 e⁻ rms**,
+dropping the target's own residual shot noise entirely) gives **194.2 km at
+SNR = 5** — the fully floor-limited bound, which must sit just *above* the
+chain's 193.2 km. They agree to 0.5 %. That is the number an IRST engineer would quote for this design
 against this target on the simple model, and the shipped metric now reproduces
 it.
 

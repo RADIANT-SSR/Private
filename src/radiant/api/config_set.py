@@ -636,12 +636,32 @@ class ConfigurationSet:
         *,
         unit: str | None = None,
     ) -> None:
-        """Promote *dotpath* to a configured parameter (one value per configuration).
+        """Promote *dotpath* to a configured parameter (one entry per configuration).
 
         With *values*, they are used directly (length must equal the number of
         configurations — dense, never padded). Without, all configurations are
         seeded from the parameter's current **shared** value: the base's
         explicit input when it has one, otherwise its resolved default.
+
+        **Two different meanings of ``None``**, which are worth keeping apart:
+
+        * ``values=None`` — the whole argument omitted — *seeds* every
+          configuration from the shared value, as above.
+        * a ``None`` **entry inside** *values* is the CU-384 **default
+          sentinel**: that configuration leaves the parameter at its schema
+          default, so no input is set for it and its provenance stays
+          ``DEFAULT``. The column is still dense (the entry is present), the
+          entry is not validated against the parameter's domain (there is no
+          value to validate), and an all-``None`` column is refused because it
+          configures nothing.
+
+        The sentinel exists for a parameter whose legality is conditional on
+        another parameter, where *being set at all* is the refusal trigger:
+        ``readout.reference_integration_s`` is legal only under
+        ``counting_mode: up_down``, so a study spanning both modes writes
+        ``[None, 0.0025]``. It is **not** the same as passing the default
+        value — a guard asking "was this set?" sees an explicit default and not
+        the sentinel.
 
         With ``unit``, **every** supplied value is read in the caller's unit and
         converted at this boundary (Rule 2), exactly as :meth:`set_values` does;
@@ -689,9 +709,19 @@ class ConfigurationSet:
             column = list(values)
             self._check_column_length(name, column)
         validated = tuple(
-            self._validated(name, value, config, unit=unit)
+            None if value is None else self._validated(name, value, config, unit=unit)
             for value, config in zip(column, self._names, strict=True)
         )
+        if all(value is None for value in validated):
+            raise ConfigSetError(
+                what=f"configure({name!r}, ...) was given None for every configuration",
+                why="a column of all-None configures nothing — every member would "
+                "leave the parameter at its default, which is what not configuring "
+                "it already means (CU-384)",
+                action=f"Give at least one configuration a value, or leave {name!r} "
+                "off the configured table entirely.",
+                context={"param": name, "configurations": list(self._names)},
+            )
         # Move, never copy: clearing the base input is what makes the
         # single-store invariant unrepresentable-to-violate through the API.
         self._base.reset(name)
@@ -715,7 +745,12 @@ class ConfigurationSet:
             )
         index = 0 if keep is None else self._index(keep, "unconfigure")
         kept = self._configured.pop(name)[index]
-        self._base.set(name, kept)
+        if kept is None:
+            # CU-384: the kept configuration left this parameter at its default,
+            # so collapsing to it means the base holds no explicit input either.
+            self._base.reset(name)
+        else:
+            self._base.set(name, kept)
 
     def set_value(
         self,
@@ -733,9 +768,30 @@ class ConfigurationSet:
         """
         name = self._require_configured(dotpath, "set_value")
         index = self._index(config, "set_value")
-        validated = self._validated(name, value, config, unit=unit)
         column = list(self._configured[name])
-        column[index] = validated
+        if value is None:
+            # CU-384: leave this configuration at the parameter's default.
+            if unit is not None:
+                raise ConfigSetError(
+                    what=f"set_value({name!r}, {config!r}, None, unit={unit!r}) "
+                    "was given a unit with the default sentinel",
+                    why="None means 'leave this configuration at the parameter's "
+                    "default' — there is no value to convert (CU-384)",
+                    action="Drop the unit, or pass the value you mean.",
+                    context={"param": name, "configuration": config, "unit": unit},
+                )
+            if all(v is None for i, v in enumerate(column) if i != index):
+                raise ConfigSetError(
+                    what=f"set_value({name!r}, {config!r}, None) would leave every "
+                    "configuration at the default",
+                    why="an all-None column configures nothing, which is what not "
+                    "configuring the parameter already means (CU-384)",
+                    action=f"Use unconfigure({name!r}) instead.",
+                    context={"param": name, "configuration": config},
+                )
+            column[index] = None
+        else:
+            column[index] = self._validated(name, value, config, unit=unit)
         self._configured[name] = tuple(column)
 
     def set_values(
@@ -764,8 +820,16 @@ class ConfigurationSet:
         name = self._require_configured(dotpath, "set_values")
         column = list(values)
         self._check_column_length(name, column)
+        if all(value is None for value in column):
+            raise ConfigSetError(
+                what=f"set_values({name!r}, ...) was given None for every configuration",
+                why="an all-None column configures nothing, which is what not "
+                "configuring the parameter already means (CU-384)",
+                action=f"Give at least one configuration a value, or use unconfigure({name!r}).",
+                context={"param": name, "configurations": list(self._names)},
+            )
         self._configured[name] = tuple(
-            self._validated(name, value, config, unit=unit)
+            None if value is None else self._validated(name, value, config, unit=unit)
             for value, config in zip(column, self._names, strict=True)
         )
 
@@ -1124,6 +1188,13 @@ class ConfigurationSet:
             self._base.clone() if n_points is None else self._base.with_wavelength_points(n_points)
         )
         for dotpath, values in self._configured.items():
+            # CU-384: a None entry means "leave this parameter at its default
+            # for this configuration" — the column stays dense (length still
+            # matches `names`) but no input is set here, so provenance stays
+            # DEFAULT and a conditional-legality guard that keys on *being set*
+            # does not fire. Not the same thing as setting the default value.
+            if values[index] is None:
+                continue
             sensor.set(dotpath, values[index], source=f"config:{name}")
         if self._element_rows:
             effective = self.effective_optical_elements(name)

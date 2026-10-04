@@ -25,9 +25,12 @@ Two consequences follow, and they are the whole reason for the design.
 that N parallel YAML files always produce: two models that diverge in a parameter nobody
 noticed, because a shared edit was applied to three files out of four.
 
-**There is no resolution order to learn.** A configured parameter is *dense* — it has a value
+**There is no resolution order to learn.** A configured parameter is *dense* — it has an entry
 in every configuration, not an overlay that may or may not be present — so there is no
-inheritance chain, no precedence rule, no "which layer won". Configuring a parameter **moves**
+inheritance chain, no precedence rule, no "which layer won". One entry may say *"leave this one
+at the default"* (write `null` in YAML, or pass `None` in the API), which is still an entry and
+still dense; it is there for parameters that are only legal under some other parameter's
+setting. Configuring a parameter **moves**
 it out of the shared base and seeds every configuration from its current shared value;
 un-configuring collapses it back to one shared value again.
 
@@ -206,7 +209,12 @@ spectral_integration:
 
 Reading it: `names` is the set order, `active` is which configuration the GUI reopens on,
 `baseline` is the comparison reference, and every list under `parameters` is exactly as long as
-`names` — dense, by construction. A length mismatch is a load error, never padded. A dot-path
+`names` — dense, by construction. A length mismatch is a load error, never padded. An entry may
+be `null`, the **default sentinel**: that configuration leaves the parameter at its schema
+default, no input is set for it, and the list stays the right length. Use it when a parameter is
+legal only under another parameter's value — `readout.reference_integration_s` needs
+`counting_mode: up_down`, so a study comparing `up` against `up_down` writes
+`[null, 0.0025]`. An all-`null` column is refused, since it configures nothing. A dot-path
 may not appear both in the shared body and under `parameters`; that is checked at load.
 
 An optional `wavelength_points:` map carries per-configuration grid-point overrides for the

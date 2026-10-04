@@ -66,6 +66,17 @@ _LABELS: Final[Mapping[str, tuple[str, str]]] = {
     "solar_mode": ("Solar mode", ""),
     "viewing_mode": ("Viewing mode", ""),
     "kinematics_mode": ("Kinematics mode", ""),
+    # Added 2026-10-04: these published keys had no label and rendered as raw
+    # dotted names in the appended "Other" group. The grouping degraded safely,
+    # which is why it went unnoticed through the CU-391 landing that added the
+    # last two.
+    "sensor_speed_m_s": ("Sensor speed (inertial)", "v_sen"),
+    "sensor_speed_mode": ("Sensor-speed mode", ""),
+    "los_angular_rate_rad_s": ("LOS angular rate", "ω_LOS"),
+    "los_rate_mode": ("LOS-rate mode", ""),
+    "scene_class": ("Scene class", ""),
+    "observer_class": ("Observer class", ""),
+    "target_class": ("Target class", ""),
 }
 
 # Reference-frame grouping (Phase 5 task 2). Ordered (group title, output keys). A key

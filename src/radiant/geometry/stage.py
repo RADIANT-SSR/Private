@@ -200,7 +200,7 @@ def _refuse_ground_track_speed_against_a_space_target(
             "either from the altitude alone — the target's velocity would require "
             "assuming a co-planar, co-rotating circular orbit you have not stated "
             "— and the resulting rate drives smear, EE_box, SNR and detection "
-            "range, so it cannot be published on a guess (CU-391)"
+            "range, so it cannot be published on a guess"
         ),
         action=(
             f"state the velocities: set {inertial_clause}, together with "

@@ -717,7 +717,7 @@ class ConfigurationSet:
                 what=f"configure({name!r}, ...) was given None for every configuration",
                 why="a column of all-None configures nothing — every member would "
                 "leave the parameter at its default, which is what not configuring "
-                "it already means (CU-384)",
+                "it already means",
                 action=f"Give at least one configuration a value, or leave {name!r} "
                 "off the configured table entirely.",
                 context={"param": name, "configurations": list(self._names)},
@@ -776,7 +776,7 @@ class ConfigurationSet:
                     what=f"set_value({name!r}, {config!r}, None, unit={unit!r}) "
                     "was given a unit with the default sentinel",
                     why="None means 'leave this configuration at the parameter's "
-                    "default' — there is no value to convert (CU-384)",
+                    "default' — there is no value to convert",
                     action="Drop the unit, or pass the value you mean.",
                     context={"param": name, "configuration": config, "unit": unit},
                 )
@@ -785,7 +785,7 @@ class ConfigurationSet:
                     what=f"set_value({name!r}, {config!r}, None) would leave every "
                     "configuration at the default",
                     why="an all-None column configures nothing, which is what not "
-                    "configuring the parameter already means (CU-384)",
+                    "configuring the parameter already means",
                     action=f"Use unconfigure({name!r}) instead.",
                     context={"param": name, "configuration": config},
                 )
@@ -824,7 +824,7 @@ class ConfigurationSet:
             raise ConfigSetError(
                 what=f"set_values({name!r}, ...) was given None for every configuration",
                 why="an all-None column configures nothing, which is what not "
-                "configuring the parameter already means (CU-384)",
+                "configuring the parameter already means",
                 action=f"Give at least one configuration a value, or use unconfigure({name!r}).",
                 context={"param": name, "configurations": list(self._names)},
             )

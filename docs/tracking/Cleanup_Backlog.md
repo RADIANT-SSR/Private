@@ -47,6 +47,33 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
+### CU-393 — `geometry.site_elevation_m` defaults to 0, so a ground sensor on high terrain silently loses its whole Hufnagel-Valley surface layer
+
+**Discovered**: promoted from two Findings-Log lines, 2026-10-04 (origin CU-390 closure, 2026-10-01).
+**Status**: Open — **owner ruling needed** on the notice's predicate (below).
+**File**: `src/radiant/atmosphere/r0_resolution.py` (the site-elevation read, above the `"direct"` short-circuit); `scenarios/10_direction_general/10.3_ground_to_space_sst_visible/scripts/run_ground_to_space_sst_visible.py:191` (the scenario the trap sprang on).
+**Symptom**: `geometry.site_elevation_m` defaults to 0 m. The Hufnagel-Valley surface term is evaluated at `h - site_elevation_m`, so a sensor on high terrain with the default left in place has its entire boundary layer modelled below the site and dropped out of the integral. **Measured: 2.876× in r₀ at a 900 m site.** CU-302 warns on the *converse* and rarer case (a non-zero `site_elevation_m` that is inert); nothing notices this one. Scenario 10.3 places its sensor at 900 m MSL, leaves the default, and still publishes the pre-CU-262 optimistic r₀ of 19.820 cm at 0.650 µm.
+**Why it still matters**: results-affecting (intake test 1) — r₀ drives the turbulence MTF and every spatial metric downstream of it — and owner-gated (test 2), because the notice cannot be made unconditional: an up-looking **airborne** sensor over sea-level terrain satisfies the identical predicate and is correct. The two cases are distinguishable only by something the config does not currently state.
+**Suggested fix**: (b) stand-alone task on an owner ruling — either "the sensor is ground-mounted" becomes a declaration the engine can key on, or the notice is advisory only and fires on the predicate with an explicit "if your sensor is airborne, ignore this" clause. Then re-author 10.3 (new r₀, new analytical narrative, walkthrough refresh — CU-380 shape, not a config edit). Effort M; category C.
+
+### CU-394 — A datasheet-level refractive train cannot express warm-optics emission at all
+
+**Discovered**: promoted from a Findings-Log line, 2026-10-04 (origin CU-380 scenario re-authoring, 2026-10-03).
+**Status**: Open — **owner ruling needed** before implementation (the split below is not an implementation detail).
+**File**: `src/radiant/io/element_config.py:275` (the REFRACTIVE dispatch); `src/radiant/optics/cavity_model.py` (`eps_eff`).
+**Symptom**: a simple refractive element is ε = 0 by ratified design (Gap 127 rule 3 — absorption unmodelled), so the only emitting refractive path is the cavity model, which requires `R1`/`T1`/`R2`/`T2`, `alpha` [1/m], `n_refr` and `thickness_m`. Real vendor datasheets quote a band-averaged net transmission and a surface count and none of those five: 10.2's says "refractive head", 10.4's says "6 surfaces + cold filter, 60 %". Both scenarios were therefore re-authored under the ratified two-mirror/N-surface convention — **a refractive instrument modelled as fictitious mirrors**, documented in each runner but not what the analyst has in hand.
+**Why it still matters**: results-affecting (intake test 1) for any refractive thermal instrument, and owner-gated (test 2). The n² enhancement in `eps_eff` makes the answer strongly sensitive to the surface-vs-bulk split of the loss, which no datasheet states: putting a 25 % net loss entirely in bulk absorption drives ε above 1 (clipped) for a two-element high-index train, while putting it in surface reflection gives ε = 0. The door needs a ruling on what to assume, not just an implementation.
+**Suggested fix**: (b) stand-alone task on an owner ruling — a door that derives `alpha` from a declared net absorptance, or from `1 − T − R` at a stated per-surface reflectance, with the assumed split stated in the config rather than inferred. Effort M; category C. Related: [[CU-380]], Gap 127.
+
+### CU-395 — Parameter descriptions carry tracking vocabulary into the shipped manual
+
+**Discovered**: promoted from a Findings-Log line, 2026-10-04 (origin CU-371 gate widening).
+**Status**: Open — **owner scope decision** (how much of the surface to sweep).
+**File**: `src/radiant/*/_schema.py` (`ParameterDef.description`); surfaces at `docs/guides/parameter_reference.md` and the GUI's parameter tooltips.
+**Symptom**: CU-371's rule — product strings carry no process language — is now enforced across every library module's warnings and exceptions, but `_schema.py` files are excluded. Their literals are parameter descriptions that reach the operator twice: as GUI tooltips and through the generated `parameter_reference.md`, which ships inside the Technical Reference manual. **Measured: 21 descriptions across 7 schema modules cite a cleanup unit, gap, ADR or architectural rule** — e.g. `geometry.sensor_speed_m_s` carries "(CU-391)" into a shipped manual.
+**Why it still matters**: workflow-visible (intake test 4) — an operator reading a tooltip or the manual meets the project's tracking system — and owner-gated (test 2) on scope, since the parameter reference runs to a few hundred entries and a description often *earns* its citation by explaining why a default is what it is.
+**Suggested fix**: (b) stand-alone task on an owner ruling — decide whether schema descriptions are product copy (sweep them and extend the scan) or developer-facing reference (state the exemption in the test and in `RADIANT_Parameter_System.md`, so it is a documented choice rather than an accident). Effort S for the ruling, M for the sweep; category A. Related: [[CU-371]].
+
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).

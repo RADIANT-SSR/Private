@@ -1959,6 +1959,17 @@ OPEN: GUI-6 (→ Gap 78 charter), GUI-11, GUI-12 (per-panel one-offs), GUI-13, G
 | **Impact** | Cross-validating RADIANT's 1/f against a vendor or in-house model requires a **per-point refit** — exactly the hand-arithmetic [[Gap 135]] removed for dark current. It also means a sweep over integration time or signal level silently holds the 1/f coefficient fixed when a real part's would move. Not wrong for a stated operating point; wrong for a trade study across them. Rule 29(c): a tracked capability. |
 | **Suggested fix** | Accept an α + reference-signal input mode alongside `flicker_K`, resolving to the same PSD the transfer integral already consumes (so [[CU-381]]'s machinery is reused, not duplicated) with the two doors mutually exclusive in the [[CU-392]] "in play, not touched" pattern. Needs an owner ruling on which signal the proportionality references — the per-frame charge, the accumulated stack charge, or the photocurrent — since those differ by K and the choice is not inferable. |
 
+
+## Gap 142: no substrate material library — a refractive element's emission needs α(λ) and n(λ), which belong to germanium rather than to the instrument
+
+| | |
+|---|---|
+| **Found in** | Refractive Substrate Emission design study, 2026-10-04, chartered from [[CU-394]] on an owner ruling. Plan: `docs/plans/Refractive_Substrate_Emission_Plan.md` (Active; §7 ratified 2026-10-04). |
+| **Status** | OPEN — ratified and scoped; implementation is this entry. |
+| **Description** | A refractive element emits only through the cavity model, which requires `alpha` [1/m], `n_refr` and `thickness_m`. Thickness belongs to the lens, but **α and n are properties of the material** — germanium, silicon, ZnSe — not of the instrument. An analyst holding a lens drawing knows the substrate and the thickness; they do not know the bulk absorption coefficient at 4.2 µm, and should not have to. The gap is a bundled, named material library, structurally parallel to `FPALibrary` (Gap 119). |
+| **Impact** | Today a datasheet-level refractive train cannot express warm-optics emission at all, so scenarios 10.2 and 10.4 model refractive heads as Kirchhoff-equivalent **reflective** trains at `R = τ^(1/N)` — defensible numerically, documented in each runner, and not what the analyst has in hand. Every future refractive thermal instrument hits the same wall. |
+| **Suggested fix** | Per the ratified plan: `src/radiant/data/tables/substrates/*.yaml` + `data/substrate.py`, resolved pre-chain in io/API so Rule 6 is untouched and the optics stage sees no change. Six materials in two confidence tiers (ZnSe/CaF₂/ZnS-MS measured; Ge/Si/BaF₂ flagged). α(λ) at 293 K with a hard bounds error outside Ge's [250, 330] K. A `1/cm` ↔ `1/m` unit pair (the registry currently has no reciprocal-length dimension at all). **The explicit `alpha`/`n_refr` path survives unchanged as the custom-material door (§7.5) — mutually exclusive with the named one, refused if both are given.** The GUI surface is specified in §9 and is a separate piece, gated on the live-review loop. |
+
 ---
 
 ## Summary Table (retired 2026-09-08)

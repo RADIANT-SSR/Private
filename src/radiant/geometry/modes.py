@@ -522,7 +522,7 @@ def _resolve_sensor_speed(
                 "NOT the ground-track speed "
                 f"({ground_speed_m_s:.1f} m/s) — geometry.sensor_speed_m_s is "
                 "the inertial magnitude, which is the one the line-of-sight "
-                "rate needs when the target is not Earth-fixed (CU-391)."
+                "rate needs when the target is not Earth-fixed."
             ),
             action=(
                 "Remove the explicit geometry.sensor_speed_m_s (the orbit "
@@ -803,7 +803,7 @@ def check_range_consistency(
             why=(
                 "Both describe the sensor→target slant range; the chain "
                 "cannot use two different distances for one line of sight "
-                "(CU-093: regime/detection would use one, GSD/ground "
+                "(regime/detection would use one, GSD/ground "
                 "metrics the other)."
             ),
             action=("Set exactly one of them (the other derives), or make them agree within 1%."),
@@ -821,7 +821,7 @@ def check_range_consistency(
             f"regime classification and detection range; spatial/ground "
             f"metrics use the default-nadir geometry. Set a viewing angle "
             f"(e.g. geometry.path_zenith_rad or geometry.sensor_off_boresight_rad) "
-            f"to make the scene self-consistent (CU-093)."
+            f"to make the scene self-consistent."
         ),
         UserWarning,
         stacklevel=2,

@@ -1383,13 +1383,13 @@ class SimpleAtmosphere:
                     "from h_tgt upward to h_sensor; h_sensor must be at or "
                     "above h_tgt for the integral to be well-defined.  The "
                     "direction-aware (up-looking / level) atmosphere arrives "
-                    "in Geometry-Flexibility Phase 2 (Gaps 108/109) — "
+                    "for this direction — "
                     "AtmosphereStage rejects such a path at stage entry; this "
                     "is the same refusal for a direct backend call."
                 ),
                 action=(
                     "Raise the sensor altitude on the LOS above h_tgt, or "
-                    "wait for the Phase 2 up-looking column."
+                    "wait for the up-looking column."
                 ),
                 context={"h_sensor_m": h_sensor_m, "h_tgt": h_tgt},
             )

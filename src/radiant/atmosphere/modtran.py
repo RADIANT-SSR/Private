@@ -714,7 +714,7 @@ class Tape7Reader:
             warnings.warn(
                 f"MODTRAN tape7 {self._path}: no 'FREQ' column-header "
                 "line found; falling back to the version-dependent "
-                "positional column assumption (CU-066). This may "
+                "positional column assumption. This may "
                 "misassign columns on real MODTRAN output — verify "
                 "against the tape7 header.",
                 UserWarning,
@@ -1670,7 +1670,7 @@ class ModtranAtmosphere:
                     "up-leg import also τ_up=τ_full_up and L_path_up=L_path_full, "
                     "the single MODTRAN column).  Provide a sun-leg file via "
                     "atmosphere.modtran.tape7_sun_path (file-import flavor), or "
-                    "wait for the binary two-run flavor (CU-011)."
+                    "wait for the binary two-run flavor."
                 ),
                 UserWarning,
                 stacklevel=2,
@@ -1809,7 +1809,7 @@ class ModtranAtmosphere:
                 "in thermal bands this MODTRAN state is lower-fidelity than "
                 "SimpleAtmosphere for the background. Use atmosphere.model='simple' "
                 "where downwelling matters, or supply the run's spectral flux CSV "
-                "via atmosphere.modtran.flux_path (CU-157; Gap 81).",
+                "via atmosphere.modtran.flux_path.",
                 UserWarning,
                 stacklevel=2,
             )

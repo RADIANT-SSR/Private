@@ -118,7 +118,7 @@ def segment_thermal_emission(
                 f"(min={float(np.nanmin(t)):g}, max={float(np.nanmax(t)):g})"
             ),
             why=(
-                "Emissivity is derived from transmittance (Kirchhoff, Rule 5); "
+                "Emissivity is derived from transmittance (Kirchhoff); "
                 "a τ outside [0, 1] yields an emissivity outside [0, 1]."
             ),
             action="Fix the optical-depth computation that produced τ.",
@@ -133,7 +133,7 @@ def segment_thermal_emission(
             ),
             why=(
                 "A height-resolved emission temperature is spectrally resolved on the same "
-                "grid as the transmittance it multiplies (CU-321)."
+                "grid as the transmittance it multiplies."
             ),
             action="Pass a scalar T_eff, or evaluate T_eff(λ) on the chain wavelength grid.",
             context={"t_eff_shape": t_eff.shape, "lam_shape": lam.shape},
@@ -205,7 +205,7 @@ def directional_segment_thermal(
             what=f"directional_segment_thermal: species_od is missing {missing}",
             why=(
                 "The emission weighting places each species' opacity on its own "
-                "profile; a missing species would be silently unplaced (Rule 17)."
+                "profile; a missing species would be silently unplaced."
             ),
             action=f"Supply a slant optical depth for each of {list(SPECIES_KEYS)}.",
             context={"missing": missing, "supplied": sorted(species_od)},

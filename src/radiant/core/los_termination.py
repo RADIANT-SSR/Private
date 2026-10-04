@@ -139,7 +139,7 @@ def classify_los_termination(los: LineOfSightGeometry) -> LosTermination:
     if not math.isfinite(theta_o) or not (0.0 <= theta_o <= math.pi):
         raise ParameterBoundsError(
             what=f"classify_los_termination: theta_o = {theta_o} rad is outside [0, π]",
-            why="Observer zenith at the target is a zenith angle (ADR-0011 closed domain).",
+            why="Observer zenith at the target is a zenith angle on the closed domain [0, π].",
             action="Wrap theta_o into [0, π] rad.",
             context={"theta_o": theta_o},
         )

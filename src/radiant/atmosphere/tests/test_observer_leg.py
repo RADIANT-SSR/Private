@@ -128,12 +128,18 @@ class TestFailureModes:
             observer_leg_from_los(_los(h_tgt=0.0, h_sensor=800_000.0, theta_o=0.3))
 
     @pytest.mark.level0
-    def test_missing_sensor_endpoint_raises_with_the_g2_reason(self) -> None:
+    def test_missing_sensor_endpoint_raises_naming_the_single_source(self) -> None:
+        """The reason is the single-source rule, stated in the reader's terms.
+
+        It used to assert on the literal "G2" guardrail label; that is tracking
+        vocabulary, not something a message should say, so the test now pins the
+        substance it was standing in for.
+        """
         with pytest.raises(ParameterBoundsError) as exc:
             observer_leg_from_los(_los(h_tgt=10_000.0, theta_o=2.5))
         message = str(exc.value)
         assert "h_sensor is None" in message
-        assert "G2" in message
+        assert "two live sources for one" in message
 
     @pytest.mark.level0
     def test_delta_phi_none_defaults_to_zero(self) -> None:

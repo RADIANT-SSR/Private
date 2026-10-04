@@ -84,7 +84,7 @@ def two_point_uniformity_residual_e(
         raise CalibrationValidationError(
             f"two-point cal points coincide (s1_e = s2_e = {s1_e} e-).\n"
             "  Why: the two-point correction is ill-conditioned as the cal "
-            "points converge (plan §15), and the interpolation weights are "
+            "points converge, and the interpolation weights are "
             "undefined.\n"
             "  Action: separate the cal temperatures so the cal signals differ."
         )

@@ -60,7 +60,7 @@ def two_point_residual_e(
         raise CalibrationValidationError(
             f"two-point cal points coincide (s1_e = s2_e = {s1_e} e-).\n"
             "  Why: the two-point correction is ill-conditioned as the cal "
-            "points converge (plan §15).\n"
+            "points converge.\n"
             "  Action: separate the cal temperatures so the cal signals differ."
         )
     if full_well_e <= 0.0 or not math.isfinite(full_well_e):
@@ -102,7 +102,7 @@ def three_point_residual_e(
             f"three-point cal signals must be strictly increasing, got "
             f"s1_e = {s1_e}, s2_e = {s2_e}, s3_e = {s3_e} [e-].\n"
             "  Why: the piecewise correction needs ordered, distinct segments; "
-            "coincident or unordered points make it ill-conditioned (plan §15).\n"
+            "coincident or unordered points make it ill-conditioned.\n"
             "  Action: order the cal temperatures so the band maps them to "
             "strictly increasing signals (t_low < t_mid < t_high on a thermal "
             "band)."

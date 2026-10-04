@@ -231,7 +231,7 @@ def resolve_fried_parameter(
                 ),
                 why=(
                     "Two inputs were set for one canonical quantity and they disagree "
-                    "by more than 1 % (the CU-093 redundant-entry pattern). RADIANT "
+                    "by more than 1 % (the redundant-entry pattern). RADIANT "
                     "cannot know which describes the intended scene: the MTF product "
                     "and the PSF kernel would both use one of them, silently."
                 ),

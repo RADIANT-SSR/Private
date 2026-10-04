@@ -444,7 +444,9 @@ class TestStageModelInjection:
         """Rule 6: the stage must not read files inside run()."""
         wl = np.linspace(3.0, 5.0, 20)
         state = ChainState(wavelength_um=wl)
-        with pytest.raises(ValueError, match="Rule 6"):
+        with pytest.raises(
+            ValueError, match="requires file I/O and must be constructed before chain execution"
+        ):
             AtmosphereStage().run(state, _make_params("tabulated"))
 
     @pytest.mark.level1
@@ -454,7 +456,9 @@ class TestStageModelInjection:
         _write_named_header_tape7(tape7)
         wl = np.linspace(3.0, 5.0, 20)
         state = ChainState(wavelength_um=wl)
-        with pytest.raises(ValueError, match="Rule 6"):
+        with pytest.raises(
+            ValueError, match="requires file I/O and must be constructed before chain execution"
+        ):
             AtmosphereStage().run(
                 state,
                 _make_params("modtran", atmosphere__modtran__tape7_path=str(tape7)),

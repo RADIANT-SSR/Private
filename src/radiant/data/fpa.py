@@ -213,7 +213,7 @@ def _parse_entry(
     if not dotpath.startswith(_ALLOWED_NAMESPACES):
         raise FPAPresetError(
             what=f"Preset '{path.name}' sets '{dotpath}', outside detector./readout.",
-            why="Presets model the FPA/ROIC through readout only (plan §8.2.4); "
+            why="Presets model the FPA/ROIC through readout only; "
             "optics or geometry values from a core datasheet belong elsewhere",
             action="Remove the entry, or move the value to the document that owns it",
             context=ctx,
@@ -269,7 +269,7 @@ def _parse_entry(
         if not isinstance(note, str) or not note.strip():
             raise FPAPresetError(
                 what=f"Preset '{path.name}' entry '{dotpath}' is assumed but has no note",
-                why="An assumption ships only with its justification (plan §3.1)",
+                why="An assumption ships only with its justification",
                 action="Add note: <why this value, what regime it assumes>",
                 context=ctx,
             )
@@ -344,7 +344,7 @@ def _parse_source(key: str, raw: Any, *, path: Path) -> FPASource:
         raise FPAPresetError(
             what=f"Preset '{path.name}' source '{key}' has neither url nor doi",
             why="A citation nobody can locate is not a citation (wheel users get "
-            "the URL/DOI; the committed PDF is repo-only, plan §3.5)",
+            "the URL/DOI; the committed PDF is repo-only)",
             action="Add url: (fetch URL, Wayback URL if delisted) or doi:",
             context=ctx,
         )
@@ -368,7 +368,7 @@ def _parse_preset(doc: Any, *, path: Path) -> FPAPreset:
     if not isinstance(doc, Mapping):
         raise FPAPresetError(
             what=f"Preset file '{path.name}' is not a YAML mapping",
-            why="A preset is a structured document (plan §3.1), not a scalar or list",
+            why="A preset is a structured document, not a scalar or list",
             action="Start from an existing preset in tables/fpa/ as a template",
             context={"path": str(path)},
         )
@@ -385,7 +385,7 @@ def _parse_preset(doc: Any, *, path: Path) -> FPAPreset:
         raise FPAPresetError(
             what=f"Preset '{path.name}' is missing required key(s) {missing_top}",
             why="Identity, attribution, and format version are all mandatory",
-            action="Add the missing keys (see plan §3.1 for the format)",
+            action="Add the missing keys for the preset format",
             context={"path": str(path), "missing": missing_top},
         )
     if doc["fpa_preset"] != FORMAT_VERSION:
@@ -410,7 +410,7 @@ def _parse_preset(doc: Any, *, path: Path) -> FPAPreset:
         raise FPAPresetError(
             what=f"Preset '{path.name}' part_kind '{part_kind}' is not one of {sorted(PART_KINDS)}",
             why="'roic' marks a bare readout circuit whose detector-side values "
-            "(QE, dark, band) belong to the mated diode (Gap 121)",
+            "(QE, dark, band) belong to the mated diode",
             action="Use 'fpa' (hybridized part, the default) or 'roic'",
             context={"path": str(path), "part_kind": part_kind},
         )
@@ -439,7 +439,7 @@ def _parse_preset(doc: Any, *, path: Path) -> FPAPreset:
         raise FPAPresetError(
             what=f"Preset '{path.name}' parameters block is missing or empty",
             why="A preset that sets nothing models nothing",
-            action="Add the sourced detector.*/readout.* values (plan §3.2 minimum set)",
+            action="Add the sourced detector.*/readout.* values of the minimum set",
             context={"path": str(path)},
         )
     source_keys = frozenset(sources)

@@ -141,7 +141,7 @@ def _validate_map() -> None:
     unknown = named - ALL_GROUPED_METRICS
     if unknown:
         raise PerformanceValidationError(
-            f"scene_relevance names metric(s) unknown to the Gap 96 taxonomy: "
+            f"scene_relevance names metric(s) unknown to the metric taxonomy: "
             f"{sorted(unknown)}. Every metric in a relevance off-set must be "
             "registered in radiant.performance.registry.METRIC_SPECS and assigned "
             "a group in radiant.performance.metric_selection.METRIC_GROUPS."

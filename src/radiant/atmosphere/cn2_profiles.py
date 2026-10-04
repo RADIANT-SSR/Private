@@ -135,7 +135,7 @@ def warn_if_site_elevation_inert(profile_name: str, site_elevation_m: float) -> 
     warnings.warn(
         f"geometry.site_elevation_m = {site_elevation_m:g} m MSL has no effect on this "
         f"run. {reason}. The parameter reaches only the Hufnagel-Valley surface term "
-        "(atmosphere.cn2_profile = 'hufnagel_valley', CU-262). Either set "
+        "(atmosphere.cn2_profile = 'hufnagel_valley'). Either set "
         "atmosphere.cn2_profile = 'hufnagel_valley' to model an elevated site "
         "analytically, or supply a table whose altitudes already describe the site "
         "and leave geometry.site_elevation_m at 0.",
@@ -179,7 +179,7 @@ def resolve_cn2_profile(
         if tabulated is None:
             raise AtmosphereValidationError(
                 "atmosphere.cn2_profile = 'tabulated' but no tabulated profile was "
-                "supplied. Rule 6 keeps file I/O out of the stage: set "
+                "supplied. File I/O happens outside the stage: set "
                 "atmosphere.cn2_tabulated_file and run the chain through "
                 "RadiantSession/Sensor (which calls "
                 "radiant.atmosphere.loaders.build_cn2_profile and injects the result "

@@ -407,7 +407,7 @@ class PlatformStage:
                 "PlatformStage: platform.ground_velocity_m_s > 0 but "
                 "geometry.sensor_altitude_m is missing or ≤ 0, so the velocity "
                 "smear is not computed (returned 0). Set a positive altitude, "
-                "or provide platform.smear_length_um directly (CU-085).",
+                "or provide platform.smear_length_um directly.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -423,7 +423,7 @@ class PlatformStage:
                 "spectral_integration.integration_time_s is missing or ≤ 0, so "
                 "the velocity smear is not computed (returned 0). Set a positive "
                 "integration time, or provide platform.smear_length_um "
-                "directly (CU-085).",
+                "directly.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -484,7 +484,7 @@ class PlatformStage:
                 "spectral_integration.integration_time_s is missing or ≤ 0, so "
                 "the relative-motion smear is not computed (returned 0). Set a "
                 "positive integration time, or provide platform.smear_length_um "
-                "directly (CU-085).",
+                "directly.",
                 UserWarning,
                 stacklevel=2,
             )

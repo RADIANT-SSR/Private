@@ -120,7 +120,9 @@ class TestLoadElementList:
         """)
         path = tmp_path / "legacy.yaml"
         path.write_text(content, encoding="utf-8")
-        with pytest.raises(ElementConfigError, match="Gap 128") as exc:
+        with pytest.raises(
+            ElementConfigError, match="near-field model became étendue-conserving"
+        ) as exc:
             load_element_list(path, wavelength_um=WL)
         assert key in str(exc.value)
 

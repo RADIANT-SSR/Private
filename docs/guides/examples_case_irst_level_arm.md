@@ -206,8 +206,7 @@ shot, the telescope's own warm-optics emission, read, quantization and dark — 
 to 89.2 e- RMS. (That floor was 67.9 e- RMS before CU-380, 2026-10-03, gave this
 uncooled head the fore-optics temperature its own datasheet states — −23.15 °C =
 250.0 K, "soaked at flight OAT"; `nearfield_shot` is the new term, and raising the floor 31 % is the
-whole of that change. *The GUI figures in this chapter predate it and show five
-non-zero terms.*)
+whole of that change.)
 
 That matters because a detection-range solver has to scale the noise as well as the
 signal. Push the target out and its own shot noise goes with it, leaving the 67.9 e-

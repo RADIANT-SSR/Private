@@ -448,10 +448,7 @@ class T3Mixed(TargetDescriptor):
         if self.epsilon is None:
             raise ParameterBoundsError(
                 what="T3Mixed: epsilon is required",
-                why=(
-                    "Mixed emit+reflect needs ε(λ); ρ(λ) = 1 − ε(λ) is "
-                    "derived via Kirchhoff (Rule 5)."
-                ),
+                why=("Mixed emit+reflect needs ε(λ); ρ(λ) = 1 − ε(λ) is derived via Kirchhoff."),
                 action="Supply epsilon: SpectralData.",
                 context={},
             )
@@ -568,10 +565,7 @@ class T6TabulatedAtSource(TargetDescriptor):
         if vals.size == 0 or bool((vals < 0.0).any()):
             raise ParameterBoundsError(
                 what=("T6TabulatedAtSource: L_t_source contains negative or empty values"),
-                why=(
-                    "Spectral radiance is non-negative (Rule 17 — no silent "
-                    "failure on unphysical inputs)."
-                ),
+                why=("Spectral radiance is non-negative (no silent failure on unphysical inputs)."),
                 action=(
                     "Resample / clean L_t_source so that every value is "
                     "≥ 0 on a non-empty wavelength grid."
@@ -682,7 +676,7 @@ class T7IntensityAtSource(TargetDescriptor):
                     f"'W/sr/um'"
                 ),
                 why=(
-                    "Rule 2: internal canonical units are fixed; "
+                    "Internal canonical units are fixed; "
                     "conversions happen at boundary readers, so a "
                     "descriptor with a non-canonical unit indicates a "
                     "missed conversion upstream."
@@ -698,8 +692,7 @@ class T7IntensityAtSource(TargetDescriptor):
             raise ParameterBoundsError(
                 what=("T7IntensityAtSource: I_t_source contains negative or empty values"),
                 why=(
-                    "Spectral intensity is non-negative (Rule 17 — no "
-                    "silent failure on unphysical inputs)."
+                    "Spectral intensity is non-negative (no silent failure on unphysical inputs)."
                 ),
                 action=(
                     "Resample / clean I_t_source so every value is ≥ 0 "
@@ -743,7 +736,7 @@ def raise_if_epsilon_and_rho_both_set(
             why=(
                 "Kirchhoff's law ties ρ and ε together for an opaque "
                 "Lambertian surface (ρ = 1 − ε).  Supplying both "
-                "over-specifies the system (Rule 5)."
+                "over-specifies the system."
             ),
             action="Supply only one of epsilon or rho; the other is derived.",
             context={},

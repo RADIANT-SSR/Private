@@ -92,7 +92,7 @@ def _validate(h_m: float, theta_s_rad: float, where: str) -> None:
             ),
             why=(
                 "Solar zenith is a zenith angle: 0 is overhead, π/2 the local "
-                "horizontal, π directly underfoot.  Since ADR-0011 decision 10 the "
+                "horizontal, π directly underfoot.  The "
                 "domain is the full closed interval so twilight and night geometry "
                 "are expressible; nothing outside it is a zenith angle."
             ),
@@ -191,7 +191,7 @@ def solar_tangent_radius_m(h_m: float, theta_s_rad: float) -> float:
                 "A shadowed point has no unobstructed solar path, so there is no "
                 "two-arm transit to decompose.  Returning the geometric perigee "
                 "anyway would let the caller integrate an optical column straight "
-                "through the Earth (Rule 17 — no silently wrong answer)."
+                "through the Earth, which would be silently wrong."
             ),
             action=(
                 f"Test with solar_shadow.sunlit() first: this point needs "

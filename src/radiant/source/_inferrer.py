@@ -1251,7 +1251,7 @@ def _maybe_build_from_user_intensity(
             ),
             why=(
                 "Extrapolating user-supplied intensity outside the "
-                "tabulated grid would silently invent physics.  Rule 17 "
+                "tabulated grid would silently invent physics.  The loader "
                 "— the loader refuses rather than falling back to "
                 "zero-fill or constant extrapolation."
             ),
@@ -1569,8 +1569,8 @@ def _select_los_termination_background(
                 f"limb-crossing column ({termination.detail})"
             ),
             why=(
-                "Earthlimb backgrounds (Use-Case Matrix B4) are declined for v1.x — "
-                "ADR-0011 decision 5 guards a limb termination with an actionable "
+                "Earthlimb backgrounds (Use-Case Matrix B4) are declined — "
+                "a limb termination is guarded with an actionable "
                 "error naming the tangent altitude rather than approximating a "
                 "radiance RADIANT cannot model."
             ),

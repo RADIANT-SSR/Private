@@ -262,7 +262,7 @@ class AtmosphereFamilySuggestion:
                 "The bundled interpolation library is a closed set of MODTRAN runs. "
                 "Every family is rendered at a fixed lower endpoint, over a fixed "
                 "span of target altitudes and LOS zenith angles, and the backend "
-                "never extrapolates outside the runs it holds (Rule 17) — so a scene "
+                "never extrapolates outside the runs it holds — so a scene "
                 "outside every family's span has no measured column to interpolate."
             ),
             action=(

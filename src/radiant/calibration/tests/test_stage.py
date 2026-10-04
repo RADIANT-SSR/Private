@@ -328,7 +328,7 @@ class TestReflectiveSceneGuard:
 
     def test_active_scheme_on_t2_warns_and_publishes_note(self) -> None:
         state = self._reflective_state()
-        with pytest.warns(UserWarning, match="CU-346"):
+        with pytest.warns(UserWarning, match="flux"):
             out = CalibrationStage().run(
                 state, _params(calibration__scheme="one_point", calibration__cal_temp_low_K=290.0)
             )
@@ -348,7 +348,7 @@ class TestReflectiveSceneGuard:
         declared temperature emits ~1e-22 of its photons in-band, so the
         guard fires on the band-thermal-fraction test, no descriptor check
         needed (the harness state carries no descriptor at all)."""
-        with pytest.warns(UserWarning, match="CU-346"):
+        with pytest.warns(UserWarning, match="flux"):
             out = CalibrationStage().run(
                 _evaluated_state(),
                 _params(

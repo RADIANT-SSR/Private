@@ -289,7 +289,7 @@ def relative_los_angular_rate_rad_s(
             ),
             why=(
                 "theta_o is the canonical target-side path zenith; its closed "
-                "domain is [0, π] (ADR-0011). Outside it the LOS unit vector "
+                "domain is [0, π]. Outside it the LOS unit vector "
                 "sin(theta_o) e_par + cos(theta_o) e_up is not a direction the "
                 "viewing triangle produced."
             ),

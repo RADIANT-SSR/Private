@@ -220,9 +220,9 @@ telescope's own emission — two mirrors at $R = \sqrt{0.85}$ and 280 K, each ra
 its Kirchhoff $\varepsilon = 1 - R = 0.078$ — and it contributes 3.03 × 10⁵ e- of
 charge, 13.3 % of this pixel's background. Before CU-380 (2026-10-03) this scenario
 declared its train as a scalar transmittance, which has no Kirchhoff emissivity, so the
-term was identically zero and absent from this table. *The GUI figures in this chapter
-were captured before that change and show five non-zero terms; the numbers in the text
-are current.*
+term was identically zero and absent from this table. The figure above is generated
+from the shipped GUI on this scenario's committed config, so it shows the near-field
+bar and the 2,077 e- RMS total alongside the others.
 
 ### Step 6 — Read the result, and pick the right SNR
 

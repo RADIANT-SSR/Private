@@ -201,7 +201,7 @@ def _resolve_surface(
     if reflectance is None and transmittance is None:
         raise OpticsValidationError(
             f"make_refractive_cavity_element '{name}': {surface} needs R or T. "
-            "Surfaces are lossless (R + T = 1, Gap 127): specify either the "
+            "Surfaces are lossless (R + T = 1): specify either the "
             "reflectance or the transmittance and the other is derived."
         )
     if reflectance is not None:

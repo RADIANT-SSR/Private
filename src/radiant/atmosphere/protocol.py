@@ -146,7 +146,7 @@ class AtmosphericGeometry:
                 f"({math.degrees(self.solar_zenith_rad):.2f}°) is out of [0, 180°]. "
                 "Solar zenith is a zenith angle: 0 is overhead, π/2 the local "
                 "horizontal, π directly underfoot. The domain is the full closed "
-                "interval since Geometry-Flexibility Phase 2 (ADR-0011 decision 10) so "
+                "interval so "
                 "that twilight and sunlit-above-the-terminator geometry is "
                 "expressible; whether a given altitude is actually lit is decided by "
                 "radiant.atmosphere.solar_shadow, not by this bound."

@@ -24,6 +24,7 @@ from check_org_rules import (  # noqa: E402  (path insert must precede the impor
     REPO,
     ancestor_index,
     check_cited_shas,
+    check_phantom_open,
     check_trailer_closures,
     trailer_closed_ids,
 )
@@ -175,3 +176,42 @@ def test_the_ancestor_index_is_keyed_on_seven_chars() -> None:
     for prefix, fulls in index.items():
         assert len(prefix) == 7
         assert all(len(f) == 40 and f.startswith(prefix) for f in fulls)
+
+
+# ---------------------------------------------------------------------------
+# The converse of the trailer check: an entry whose fix already landed
+# ---------------------------------------------------------------------------
+
+
+_PHANTOM_FIXTURE = (
+    "# Backlog\n\n## Open\n\n"
+    "### CU-999 — a fix that landed but was never moved\n\n"
+    "**Status**: Open.\n\n"
+    "\n## Resolved\n\n"
+    "### CU-998 — something else — RESOLVED 2026-10-04 (commit trailer)\n"
+)
+
+
+def test_phantom_open_is_flagged_when_the_trailer_already_landed() -> None:
+    """CU-382/385/386 sat in '## Open' with their trailers merged; so did CU-255."""
+    errors = check_phantom_open(_PHANTOM_FIXTURE, frozenset({"CU-999"}))
+    assert len(errors) == 1
+    assert "CU-999" in errors[0]
+    assert "'## Open'" in errors[0]
+
+
+def test_an_open_entry_with_no_trailer_is_fine() -> None:
+    """The ordinary case: open work, no closing commit. Must stay silent."""
+    assert check_phantom_open(_PHANTOM_FIXTURE, frozenset()) == []
+
+
+def test_a_resolved_entry_is_not_read_by_the_converse_check() -> None:
+    """CU-998 is below '## Resolved' and carries a trailer — that is check 10's job."""
+    assert check_phantom_open(_PHANTOM_FIXTURE, frozenset({"CU-998"})) == []
+
+
+def test_the_live_registry_has_no_phantom_open_entries() -> None:
+    """The gate's own assertion against the real backlog."""
+    path = REPO / "docs" / "tracking" / "Cleanup_Backlog.md"
+    errors = check_phantom_open(path.read_text(encoding="utf-8"), trailer_closed_ids())
+    assert errors == [], "\n".join(errors)

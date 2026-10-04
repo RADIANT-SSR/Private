@@ -430,7 +430,20 @@ Four things about it are load-bearing:
   scenario's gitignored `outputs/` tree reloads only in the tree that just ran the scenario;
   `test_gui_baseline_references_only_committed_files` is the static guard against it.
 
-Three further sweep-protocol rules (October sweep, owner-ratified 2026-09-12):
+Four further sweep-protocol rules (the first added 2026-10-04; the rest from the
+October sweep, owner-ratified 2026-09-12):
+
+- **Refresh the whole walkthrough, not its headline table.** A scenario's numbers are
+  not confined to its results table: they recur in noise-decomposition blocks,
+  cross-check tables, hand-calculation comparisons and prose further down. Refreshing
+  the table alone leaves those silently stale, and they are the ones a reader trusts
+  most, because a cross-check that "agrees" is the scenario's own evidence. Measured on
+  three of the four CU-380 scenarios: 1.3's LWIR column was stale in the fifth figure;
+  10.2's noise decomposition and floor-only cross-check had not been refreshed by
+  CU-355 (25 km total noise 733.8 against a measured 769.8 e⁻ rms); 10.4's
+  hand-radiometry and frozen-noise cross-check tables likewise (signal 1 177.2 against
+  a measured 1 295.8 e⁻). The mechanical check: grep the walkthrough for every value
+  the runner prints, not just the ones in the table you edited.
 
 - **Enumerate moved scenes from the RUNNERS, never from the GUI baselines.** Nine scenario
   folders have no baseline (1.6, 2.4, 4.2, 6.5, 8.3, 9.1–9.4), so a baseline-driven sweep

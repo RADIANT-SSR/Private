@@ -6,8 +6,18 @@ Every figure in this folder is produced by `scripts/gen_gui_screenshots.py`,
 which drives the real `RADIANTMainWindow` under `QT_QPA_PLATFORM=offscreen` on a
 committed input config and grabs the window (or a named panel) after the window's
 auto-evaluation completes. Offscreen rendering uses platform-neutral Fusion chrome
-(Support_Documentation_Plan §10, ruling Q7), so the figures do not depend on who
-regenerated them.
+(Support_Documentation_Plan §10, ruling Q7), so the figures do not depend on the host
+platform.
+
+**They are not, however, byte-reproducible run to run.** Measured 2026-10-04:
+`case_maritime_noise` produced three distinct SHA-256s over four consecutive runs in one
+environment, and `case_irst_noise`, `case_shootout_noise` and `flagship_noise_budget`
+vary the same way, while `case_pass_geometry` and `build_geometry_inputs` are stable. A
+pixel diff localises the whole difference to a **single 1-px-wide vertical column**
+(405 px tall, 0.102 % of the image) — a splitter handle rounding to a different pixel
+depending on layout timing, not content. The practical consequence: a regeneration
+always dirties those four files, so a figure diff is evidence that *something* ran, not
+that a number moved. Compare the runner's stdout when you need to know which.
 
 Regenerate the whole set with:
 

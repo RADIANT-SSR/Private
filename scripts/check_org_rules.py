@@ -248,6 +248,44 @@ def check_trailer_closures(text: str, trailers: frozenset[str]) -> list[str]:
     return errors
 
 
+#: Any ``### CU-NNN`` heading, used to read the Open section for the converse check.
+_ANY_CU_HEADING = re.compile(r"^### (CU-\d+) — ")
+
+
+def check_phantom_open(text: str, trailers: frozenset[str]) -> list[str]:
+    """Errors for every **Open** entry whose fix already landed with a ``CU-Closes`` trailer.
+
+    The converse of :func:`check_trailer_closures`. That one asks "marked closed ⇒ does
+    the commit exist?"; this asks "does the commit exist ⇒ is the entry still Open?".
+    Without it an entry whose fix merged *with* its trailer, but which nobody moved to
+    ``## Resolved``, stays silently phantom-open — the registry says there is work left
+    where there is none.
+
+    This is the third recurrence of the class: CU-382, CU-385 and CU-386 all sat in
+    ``## Open`` with their trailers merged (found by audit 2026-10-01), and CU-255's own
+    entry records the same state one generation earlier. The process-machinery moratorium
+    reserves gate extensions for a defect that actually escaped through the specific hole
+    being closed; three entries escaping through this one is that defect.
+    """
+    errors: list[str] = []
+    if "\n## Resolved\n" not in text:
+        return errors
+    open_section = text.split("\n## Resolved\n", 1)[0]
+    if "\n## Open\n" in open_section:
+        open_section = open_section.split("\n## Open\n", 1)[1]
+    for line in open_section.splitlines():
+        match = _ANY_CU_HEADING.match(line)
+        if match and match.group(1) in trailers:
+            errors.append(
+                f"{match.group(1)} is in '## Open' but a commit in HEAD's ancestry "
+                f"already carries a 'CU-Closes: {match.group(1).removeprefix('CU-')}' "
+                "trailer (Rule 22). Either move the entry to '## Resolved' with its "
+                "closure record, or — if the trailer was premature — say so in the "
+                "entry's Status line, as CU-380's does."
+            )
+    return errors
+
+
 #: Frozen grandfather set: entries closed before the registry carried commit links
 #: at all (CU-001/002/010/014, 2026-04-24), one whose closure cites a SHA *range*
 #: that cannot be rewritten as a list without changing what it claims (CU-176),
@@ -561,7 +599,9 @@ def main() -> int:
         if path.name == "Cleanup_Backlog.md":
             errors.extend(check_resolved_headings(text))
             if not shallow:
-                errors.extend(check_trailer_closures(text, trailer_closed_ids()))
+                trailers = trailer_closed_ids()
+                errors.extend(check_trailer_closures(text, trailers))
+                errors.extend(check_phantom_open(text, trailers))
         else:
             errors.extend(check_gap_closures(text))
 

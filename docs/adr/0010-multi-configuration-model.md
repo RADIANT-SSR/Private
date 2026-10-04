@@ -57,10 +57,35 @@ promotes a parameter to carry one value per configuration.
 A **configuration set** is a shared base plus an explicitly configured table:
 
 - A parameter is **shared** (one value across all configurations) by default.
-- The user explicitly marks a parameter as **configured**. It then carries **one value per
-  configuration** — **dense by construction**: a configured parameter has a value in *every*
-  configuration. There are no sparse overlays, no per-configuration presence variance, no
-  tombstones, and no inheritance chain to resolve.
+- The user explicitly marks a parameter as **configured**. It then carries **one entry per
+  configuration** — **dense by construction**: a configured parameter has an entry in *every*
+  configuration. There are no sparse overlays, no per-configuration presence variance, and no
+  inheritance chain to resolve.
+- **Amended 2026-10-03 (CU-384).** An entry may be the explicit **default sentinel** `null`,
+  meaning *leave this parameter at its schema default for this configuration* — so no input is
+  set, and provenance stays `DEFAULT`. Density is unchanged: the list length still equals
+  `len(names)`, a short list is still a `ConfigError`, and there is still exactly one entry per
+  configuration. What the sentinel adds is the ability for that entry to say "nothing".
+
+  **Why it was needed.** A parameter can be legal only under some *other* parameter's value,
+  and for several such parameters *being explicitly set at all* is the refusal trigger,
+  whatever the value — `readout.reference_source` and `reference_integration_s` are legal only
+  under `counting_mode: up_down`. A study comparing an `up` configuration against an `up_down`
+  one therefore could not name the reference parameters at all: a value refused the `up` member,
+  and omitting the entry broke density. Conditional legality and density were in direct
+  conflict with no in-study workaround (external review F5).
+
+  **Why a sentinel rather than sparse lists.** The sentinel is *not* a tombstone or an overlay:
+  it carries no inheritance, resolves against nothing, and is visible in the file as an entry.
+  The alternative — permitting short lists and padding from the base — would reintroduce the
+  presence variance and resolution order this decision exists to forbid. An all-`null` column is
+  refused, because it configures nothing and that is what not configuring the parameter already
+  means.
+
+  **Why it is distinct from setting the default value.** Provenance, not value. A guard asking
+  "was this set?" fires for an explicitly-set default and not for the sentinel, which is the
+  entire point — see [[CU-392]] for the converse case, where a guard asking that question
+  of a value that *was* in play was the defect.
 - Everything not configured — tolerances, the optical element document, stage-output
   injections — stays shared.
 
@@ -117,8 +142,10 @@ configurations:
 ```
 
 Binding rules: every `parameters` list length equals `len(names)` (dense — a mismatch is a
-`ConfigError`, never padded); dotpaths validate against the schema at load with the existing
-did-you-mean; a dotpath may not appear in both the shared body and `parameters` (D-B, checked
+`ConfigError`, never padded); an entry may be `null`, the CU-384 default sentinel, which leaves
+that configuration at the parameter's schema default and is not validated against the
+parameter's domain (there is no value to validate), while an all-`null` column is refused;
+dotpaths validate against the schema at load with the existing did-you-mean; a dotpath may not appear in both the shared body and `parameters` (D-B, checked
 at load); values are input-unit scalars; `is_file_path` values relativize and resolve exactly
 like shared values. **A file with no `configurations:` section is byte-for-byte today's
 format** — backward compatibility is structural, not a migration. A section-bearing file

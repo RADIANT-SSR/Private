@@ -47,15 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-384 — A `configurations:` study cannot express a parameter whose legality is conditional on another parameter
-
-**Discovered**: external review `docs/reports/external_review_2026-09/` F5, 2026-09-30.
-**Status**: **Stage-deferred 2026-09-30** — owner-accepted recommendation, 2026-09-30: do not build it yet. Rationale: the reporting reviewer hit this and found a clean escape (an unset `reference_integration_s` defaults to equal phases, ruling D7, which was the wanted value), so demand for a *non-default* architecture-conditional parameter in a study is currently hypothetical. The fix changes a ratified ADR's dense-list semantics, and building schema semantics for a case nobody has hit is how a registry accumulates work that never pays off. **Gating condition**: a study that actually needs a non-default architecture-conditional parameter — at which point the null-sentinel design below is ready to implement. **Re-audit**: 2026-12-31.
-**File**: `src/radiant/io/config_set_section.py` (dense-by-construction lists, ADR-0010 D-A); `src/radiant/readout/stage.py:752` (the D7 equal-phase default that provided the escape in the reported case).
-**Symptom**: `configurations.parameters` lists are dense — one value per name, mismatch is an error, never padded. But `readout.reference_source` / `reference_integration_s` are legal only under `counting_mode: up_down`, and *being explicitly set* is the refusal trigger, including when set to 0. So a study comparing an `up` configuration against an `up_down` one cannot name the reference parameters at all. Density and conditional legality are in direct conflict, with no in-study workaround.
-**Why it still matters**: owner-gated (intake test 2) — the fix amends a ratified ADR. The reported case escaped only because the wanted value happened to be the D7 default; a study needing a *non-default* conditional parameter has nowhere to put it.
-**Suggested fix**: (b) stand-alone task on an owner ruling — allow an explicit null/omitted sentinel in a `configurations.parameters` list meaning "leave at default for this member", distinct from a set value, preserving density (list length still matches) while restoring expressiveness. Effort M; category B. Requires an ADR-0010 amendment in lock-step (Rule 20).
-
 ### CU-324 — Emission-placement refinements: the z_em = 200 m downwelling proxy, O₃ lumped with well-mixed gases, grazing arcs distribute opacity vertically
 
 **Discovered**: CU-321 closure (branch `atmo/cu-321-height-teff`), 2026-08-03. Family head (Rule 21 family-CU provision); promoted from three same-day Findings-Log lines (struck in this commit).
@@ -89,6 +80,32 @@ by name in check 8 — that list is frozen and must never grow.
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-384 — A `configurations:` study cannot express a parameter whose legality is conditional on another parameter — RESOLVED 2026-10-03 (commit trailer)
+
+**Discovered**: external review `docs/reports/external_review_2026-09/` F5, 2026-09-30.
+**Status**: **RESOLVED 2026-10-03** — built on owner instruction, ahead of the gating condition. The 2026-09-30 deferral reasoning (below) is kept as the record of why it waited.
+**File**: `src/radiant/io/config_set_section.py` (dense-by-construction lists, ADR-0010 D-A); `src/radiant/readout/stage.py:752` (the D7 equal-phase default that provided the escape in the reported case).
+**Symptom**: `configurations.parameters` lists are dense — one value per name, mismatch is an error, never padded. But `readout.reference_source` / `reference_integration_s` are legal only under `counting_mode: up_down`, and *being explicitly set* is the refusal trigger, including when set to 0. So a study comparing an `up` configuration against an `up_down` one cannot name the reference parameters at all. Density and conditional legality are in direct conflict, with no in-study workaround.
+**Why it still matters**: owner-gated (intake test 2) — the fix amends a ratified ADR. The reported case escaped only because the wanted value happened to be the D7 default; a study needing a *non-default* conditional parameter has nowhere to put it.
+**Suggested fix**: (b) stand-alone task on an owner ruling — allow an explicit null/omitted sentinel in a `configurations.parameters` list meaning "leave at default for this member", distinct from a set value, preserving density (list length still matches) while restoring expressiveness. Effort M; category B. Requires an ADR-0010 amendment in lock-step (Rule 20).
+
+**DELIVERED 2026-10-03** (branch `docs/cu380-manual-sync`, owner instruction: *"fix all the docs and 384"*). Built ahead of the gating condition rather than on it — the owner called it in, which supersedes the "wait for a real need" recommendation.
+
+The null-sentinel design in the suggested fix is what landed, unchanged in substance. An entry in a configured column may be `None` (`null` in YAML), meaning *leave this parameter at its schema default for this configuration*: no input is set, provenance stays `DEFAULT`. **Density is untouched** — the entry is present, `len(column) == len(names)` is still enforced on load and on the way out (`_check_dense`), and a short list is still a `ConfigError`. That was the whole constraint: restore expressiveness without reintroducing the sparse overlays, presence variance and resolution order ADR-0010 D-A exists to forbid. A sentinel is not a tombstone — it carries no inheritance and resolves against nothing.
+
+Surface touched, each place a column entry is read or written:
+
+- `api/config_set.py::sensor_for` skips the `set()` for a sentinel entry — the one line that actually produces the behaviour.
+- `configure` / `set_values` / `set_value` accept sentinels and refuse an **all-sentinel** column (it configures nothing, which is what not configuring the parameter already means). `set_value` additionally refuses a `unit=` alongside a sentinel — there is no value to convert.
+- `unconfigure(keep=...)` onto a sentinel member **resets** the base rather than setting `None` on it; collapsing onto "left at default" means the base holds no explicit input either.
+- `add(copy_from=...)` copies the sentinel like any entry (density by construction, already correct).
+- The YAML reader and writer needed **no change** — measured: a `null` entry loads as `None`, and `save` emits `- null`, round-tripping to `(None, 0.0025)`. The sentinel is not validated against the parameter's domain, since there is no value to validate.
+
+13 tests in `api/tests/test_config_set.py::TestDefaultSentinel`, including the external review's case verbatim (a `plain_up` vs `up_down` study, which resolves now and could not be written at all before) and the load-bearing distinction: **sentinel ≠ explicitly-set default**. Those two resolve to the same number and differ in provenance, which is exactly why a guard keying on "was this set?" behaves differently for them — see [[CU-392]] for the converse, where a guard asking that question of a value that *was* in play was itself the defect. CU-384 and CU-392 are the same design decision ("explicitly set signals intent") seen from its two sides: CU-392 confirmed the guard is right and the GUI already has escape hatches; CU-384 built the escape hatch for the surface that had none.
+
+**Resolution**: ADR-0010 D-A amended in lock-step with the why, the rejected alternative (padding from the base) and the provenance distinction; `docs/guides/configuration.md` (Technical Reference) and `docs/guides/ug_configuration_sets.md` (User's Guide) both updated, and `configure()`'s docstring now separates the two meanings of `None` — `values=None` seeds the column from the shared value, a `None` *entry* is the sentinel. CHANGELOG under Added. Battery green.
+
 
 ### CU-392 — Over-specification guards conflate "the user touched this" with "this value is in play", so typing a no-op value to clear a door raises instead of working — RESOLVED 2026-10-03 (commit trailer)
 

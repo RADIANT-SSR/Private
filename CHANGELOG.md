@@ -21,6 +21,21 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **A `configurations:` study can now say "leave this one at the default."** An
+  entry in a `configurations.parameters` list may be `null` (YAML) / `None`
+  (API): that configuration leaves the parameter at its schema default, no
+  input is set for it, and its provenance stays `DEFAULT`. Density is
+  unchanged — the entry is present, the list length still has to equal
+  `len(names)`, and a short list is still refused — so this adds
+  expressiveness without reintroducing sparse overlays. It exists for a
+  parameter whose legality is conditional on another parameter, where *being
+  set at all* is the refusal trigger: `readout.reference_integration_s` is
+  legal only under `counting_mode: up_down`, so a study spanning both modes
+  writes `[null, 0.0025]`, which was previously inexpressible (a value refused
+  the `up` member; omitting the entry broke density). An all-`null` column is
+  refused, since it configures nothing. Note `null` is **not** the same as
+  writing the default value: a guard asking "was this set?" sees an explicit
+  default and not the sentinel. Amends ADR-0010 decision D-A (CU-384).
 - **Noise-equivalent irradiance in photon units** — `nei_ph_s_cm2` and
   `nei_w_cm2`, with the `photon_energy_j` / `lambda_eff_um` pair that converts
   between them, now reach `stage_outputs["performance"]`. The photon-unit NEI

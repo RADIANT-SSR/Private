@@ -1706,3 +1706,125 @@ class TestElementTrainState:
         cs2 = _set_with_three_rows("A", "C")
         with pytest.raises(ConfigSetError, match="no configuration named 'B'"):
             cs2.restore_element_state(state)
+
+
+# ---------------------------------------------------------------------------
+# CU-384 — the default sentinel in a configured column
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultSentinel:
+    """A ``None`` entry means "leave this configuration at the default".
+
+    The motivating case (external review F5): a study comparing a plain `up`
+    counter against an `up_down` one cannot name the reference parameters at
+    all, because they are legal only under `up_down` and *being explicitly set*
+    is the refusal trigger — while the dense-list rule refuses a short column.
+    The sentinel resolves the conflict without weakening density.
+    """
+
+    def test_sentinel_leaves_that_configuration_unset(self) -> None:
+        cs = _set("a", "b")
+        cs.configure("detector.dark_rate_e_per_s", [None, 250.0])
+        assert "detector.dark_rate_e_per_s" not in cs.sensor_for("a").inputs()
+        assert cs.sensor_for("b").inputs()["detector.dark_rate_e_per_s"] == 250.0
+
+    def test_sentinel_is_not_the_same_as_setting_the_default_value(self) -> None:
+        """The distinction the whole CU rests on: provenance, not value.
+
+        A guard that keys on *being set* fires for an explicitly-set default and
+        not for the sentinel, so the two cannot be collapsed.
+        """
+        default = _sensor().parameter_defs()["detector.dark_rate_e_per_s"].default
+        assert default is not None
+        cs = _set("sentinel", "explicit")
+        cs.configure("detector.dark_rate_e_per_s", [None, default])
+        inputs_sentinel = cs.sensor_for("sentinel").inputs()
+        inputs_explicit = cs.sensor_for("explicit").inputs()
+        assert "detector.dark_rate_e_per_s" not in inputs_sentinel
+        assert "detector.dark_rate_e_per_s" in inputs_explicit
+        # Same resolved number, different provenance — that is the point.
+        sentinel = cs.sensor_for("sentinel").resolved("detector.dark_rate_e_per_s")
+        explicit = cs.sensor_for("explicit").resolved("detector.dark_rate_e_per_s")
+        assert sentinel.value == pytest.approx(explicit.value, rel=1e-12)
+        assert sentinel.provenance is not explicit.provenance
+
+    def test_density_is_still_enforced(self) -> None:
+        """The sentinel restores expressiveness; it does not relax ADR-0010 D-A."""
+        cs = _set("a", "b", "c")
+        with pytest.raises(ConfigSetError, match="one value per configuration|3"):
+            cs.configure("detector.dark_rate_e_per_s", [None, 250.0])
+
+    def test_all_sentinel_column_is_refused(self) -> None:
+        """An all-None column configures nothing — say so instead of storing it."""
+        cs = _set("a", "b")
+        with pytest.raises(ConfigSetError, match="None for every configuration"):
+            cs.configure("detector.dark_rate_e_per_s", [None, None])
+
+    def test_set_value_can_introduce_a_sentinel(self) -> None:
+        cs = _set("a", "b")
+        cs.configure("detector.dark_rate_e_per_s", [100.0, 250.0])
+        cs.set_value("detector.dark_rate_e_per_s", "a", None)
+        assert cs.configured()["detector.dark_rate_e_per_s"] == (None, 250.0)
+        assert "detector.dark_rate_e_per_s" not in cs.sensor_for("a").inputs()
+
+    def test_set_value_refuses_a_unit_with_the_sentinel(self) -> None:
+        cs = _set("a", "b")
+        cs.configure("detector.dark_rate_e_per_s", [100.0, 250.0])
+        with pytest.raises(ConfigSetError, match="unit"):
+            cs.set_value("detector.dark_rate_e_per_s", "a", None, unit="e-/s")
+
+    def test_set_value_refuses_emptying_the_last_real_value(self) -> None:
+        cs = _set("a", "b")
+        cs.configure("detector.dark_rate_e_per_s", [100.0, None])
+        with pytest.raises(ConfigSetError, match="every\n?\\s*configuration|every configuration"):
+            cs.set_value("detector.dark_rate_e_per_s", "a", None)
+
+    def test_set_values_accepts_and_rejects_as_configure_does(self) -> None:
+        cs = _set("a", "b")
+        cs.configure("detector.dark_rate_e_per_s", [100.0, 250.0])
+        cs.set_values("detector.dark_rate_e_per_s", [None, 300.0])
+        assert cs.configured()["detector.dark_rate_e_per_s"] == (None, 300.0)
+        with pytest.raises(ConfigSetError, match="None for every configuration"):
+            cs.set_values("detector.dark_rate_e_per_s", [None, None])
+
+    def test_unconfigure_keeping_a_sentinel_leaves_the_base_unset(self) -> None:
+        """Collapsing onto a sentinel member must reset the base, not set None."""
+        cs = _set("a", "b")
+        cs.configure("detector.dark_rate_e_per_s", [None, 250.0])
+        cs.unconfigure("detector.dark_rate_e_per_s", keep="a")
+        assert "detector.dark_rate_e_per_s" not in cs.base.inputs()
+        assert not cs.is_configured("detector.dark_rate_e_per_s")
+
+    def test_add_configuration_copies_the_sentinel(self) -> None:
+        cs = _set("a", "b")
+        cs.configure("detector.dark_rate_e_per_s", [None, 250.0])
+        cs.add("c", copy_from="a")
+        assert cs.configured()["detector.dark_rate_e_per_s"] == (None, 250.0, None)
+
+    def test_the_motivating_case_an_up_versus_up_down_study(self) -> None:
+        """External review F5 verbatim: a study spanning both counting modes.
+
+        `readout.reference_integration_s` is legal only under
+        `counting_mode: up_down`, and under `up` it is refused *for being set*,
+        whatever the value. Before CU-384 this study was inexpressible: a value
+        refused the `up` member and omitting the entry broke density.
+        """
+        cs = _set("plain_up", "up_down")
+        cs.base.set("readout.architecture", "digital_counting")
+        cs.configure("readout.counting_mode", ["up", "up_down"])
+        cs.configure("readout.reference_integration_s", [None, 0.0025])
+
+        up = cs.sensor_for("plain_up")
+        updown = cs.sensor_for("up_down")
+        assert "readout.reference_integration_s" not in up.inputs()
+        assert updown.inputs()["readout.reference_integration_s"] == 0.0025
+        # The `up` member must resolve: that is the whole point of the CU.
+        up.resolve()
+
+    def test_a_sentinel_configuration_still_evaluates(self) -> None:
+        cs = _set("a", "b")
+        cs.configure("detector.dark_rate_e_per_s", [None, 250.0])
+        result = _evaluate_all(cs)
+        assert sorted(result.names) == ["a", "b"]
+        assert result.n_failed == 0

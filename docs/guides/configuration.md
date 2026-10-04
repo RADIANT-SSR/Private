@@ -473,9 +473,19 @@ configuration, and the parameter:
 
 - **`names`** — 1 to 12 unique, non-empty names (`ConfigurationSet.MAX_CONFIGS`). This
   list defines the order of every value list below it.
-- **`parameters`** — every list has exactly as many values as there are names.
-  The lists are dense by construction: there is no "unset for this
-  configuration" and nothing is padded for you.
+- **`parameters`** — every list has exactly as many entries as there are names.
+  The lists are dense by construction: nothing is padded for you, and a short
+  list is a load error. One entry may be `null`, which means *leave this
+  parameter at its schema default for this configuration* — the entry is
+  present, so density holds, but no input is set and provenance stays
+  `DEFAULT`. That is what you need for a parameter whose legality depends on
+  another parameter's value: `readout.reference_integration_s` is legal only
+  under `counting_mode: up_down`, so a study spanning both modes writes
+  `[null, 0.0025]`. A column of all `null` is refused — it configures nothing,
+  which is what leaving the parameter out already means. Note `null` is not the
+  same as writing the default *value*: a guard that asks whether a parameter was
+  set sees the explicit default and not the sentinel, which is the distinction
+  the sentinel exists to express (CU-384).
 - **Shared or configured, never both.** A dot-path that appears in
   `configurations.parameters` must *not* also appear in the shared body —
   the shared value would be silently shadowed. Move a parameter into the

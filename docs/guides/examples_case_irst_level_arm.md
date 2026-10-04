@@ -193,15 +193,21 @@ noise.](figures/gui/case_irst_noise.png)
 |---|---:|
 | `signal_shot` | 305.4 |
 | `background_shot` | 51.89 |
+| `nearfield_shot` | 57.88 |
 | `read_noise` | 40 |
 | `quantization` | 17.61 |
 | `dark_shot` | 2.236 |
-| **Total (RSS)** | **313** |
+| **Total (RSS)** | **318.2** |
 
 This budget carries the most counter-intuitive result in the scenario. The target's own
-shot noise is 305.4 e- RMS of a 313 e- RMS total — **95 % of the noise power comes from
-the thing being detected.** Everything that is *not* the target — sky background shot,
-read, quantization and dark — combines to 67.9 e- RMS.
+shot noise is 305.4 e- RMS of a 318.2 e- RMS total — **92 % of the noise power comes
+from the thing being detected.** Everything that is *not* the target — sky background
+shot, the telescope's own warm-optics emission, read, quantization and dark — combines
+to 89.2 e- RMS. (That floor was 67.9 e- RMS before CU-380, 2026-10-03, gave this
+uncooled head the fore-optics temperature its own datasheet states — −23.15 °C =
+250.0 K, "soaked at flight OAT"; `nearfield_shot` is the new term, and raising the floor 31 % is the
+whole of that change. *The GUI figures in this chapter predate it and show five
+non-zero terms.*)
 
 That matters because a detection-range solver has to scale the noise as well as the
 signal. Push the target out and its own shot noise goes with it, leaving the 67.9 e-
@@ -244,13 +250,13 @@ routes agree to 5 × 10⁻⁴.
 
 | Metric | Value |
 |---|---|
-| SNR | 298.1 |
-| Contrast SNR | 298.1 |
-| SCNR | 298.1 |
-| Detection range | 2.025 × 10⁵ m |
-| NEDT | 90.74 mK |
+| SNR | 293.1 |
+| Contrast SNR | 293.1 |
+| SCNR | 293.1 |
+| Detection range | 1.932 × 10⁵ m |
+| NEDT | 92.28 mK |
 
-**Saturation.** Well margin 20.61 dB, ADC margin 20.60 dB, dynamic range 70.09 dB. The
+**Saturation.** Well margin 20.61 dB, ADC margin 20.60 dB, dynamic range 69.95 dB. The
 margin is $20\log_{10}$ of the ratio of capacity to filled charge, so 20.61 dB is a
 factor of 10.7: the 100 µs frame fills about 9 % of the 1 Me- well at 50 km. Nothing in
 the whole 25–100 km sweep saturates — the near end of the sweep still holds 4.6 dB.
@@ -271,23 +277,27 @@ selected a ground background. Nothing in the scenario asks for either behavior.
 
 | Range [km] | θ_o [deg] | Δh [m] | Guard | τ (MWIR) | Signal [e-] | Noise [e- RMS] | SNR | Det. range [km] |
 |---:|---:|---:|---|---:|---:|---:|---:|---:|
-| 25 | 90.11224 | 12.2 | clean | 0.6337 | 5.8803 × 10⁵ | 769.8 | 763.9 | 202.4 |
-| 50 | 90.22448 | 49.0 | clean | 0.4023 | 9.3262 × 10⁴ | 312.8 | 298.1 | 202.5 |
-| 75 | 90.33672 | 110.2 | **warn** | 0.2556 | 2.6329 × 10⁴ | 176.1 | 149.5 | 202.5 |
-| 100 | 90.44896 | 195.9 | **warn** | 0.1625 | 9.4131 × 10³ | 119.1 | 79.0 | 202.2 |
+| 25 | 90.11224 | 12.2 | clean | 0.6337 | 5.8803 × 10⁵ | 772.0 | 761.7 | 193.0 |
+| 50 | 90.22448 | 49.0 | clean | 0.4023 | 9.3262 × 10⁴ | 318.2 | 293.1 | 193.2 |
+| 75 | 90.33672 | 110.2 | **warn** | 0.2556 | 2.6329 × 10⁴ | 185.4 | 142.0 | 193.2 |
+| 100 | 90.44896 | 195.9 | **warn** | 0.1625 | 9.4131 × 10³ | 132.5 | 71.1 | 193.2 |
 
-The 50 km row is the baseline this chapter evaluated, and the GUI's SNR 298.1,
-detection range 2.025 × 10⁵ m and 20.61 dB well margin are that row. SNR falls 9.9× over
-a 4× range increase — steeper than inverse square, because the band transmittance falls
-from 0.634 to 0.163 across the same span.
+The 50 km row is the baseline this chapter evaluated, and the GUI's SNR 293.1,
+detection range 1.932 × 10⁵ m and 20.61 dB well margin are that row. SNR falls 10.7×
+over a 4× range increase — steeper than inverse square, because the band transmittance
+falls from 0.634 to 0.163 across the same span. Note how unevenly CU-380's warm optics
+are felt down the column: −0.3 % at 25 km, where the target's own shot noise still
+dominates, against −9.9 % at 100 km, where the floor is nearly all of the noise. The
+range dependence of that penalty *is* the floor-limited transition, measured.
 
-**The detection range is reference-range invariant**: 202.4 km solved from the 25 km
-point against 202.2 km solved from the 100 km point, a spread of 1.001×. That is the
+**The detection range is reference-range invariant**: 193.0 km solved from the 25 km
+point against 193.2 km solved from the 100 km point, a spread of 1.001×. That is the
 payoff of scaling the target's own shot noise along the path. Before that fix the same
 design returned 123.4 km from 25 km and 182.5 km from 100 km — a 1.48× spread on one
 unchanged sensor, and the nominal 50 km answer moved from 150.9 km to about 199 km when
-it was corrected. The residual 0.3 km of spread is the band-mean transmittance model's
-own reference dependence, not the noise treatment.
+it was corrected (193.2 km today, after CU-355 and CU-380). The residual 0.2 km of
+spread is the band-mean transmittance model's own reference dependence, not the noise
+treatment.
 
 **The horizon guard warns, and quantifies what it is warning about.** Ten of the
 sixteen sweep arms are clean (25–70 km, Δh 12.2–96.0 m) and six sit in the warning

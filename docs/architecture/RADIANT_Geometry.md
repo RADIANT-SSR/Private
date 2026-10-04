@@ -105,21 +105,37 @@ whichever is measured in the frame the *target's* velocity is expressed in:
 | Target | Sensor speed in ω | Why |
 |--------|-------------------|-----|
 | Earth-fixed (ground) | ground-track $v_g = v R_E / a$ — `geometry.ground_speed_m_s`, the default | A nadir-stabilised platform's off-boresight angle changes at $\mathrm{d}\eta/\mathrm{d}t = R_E\,\omega_o/h = v_g/h$; this is also the quantity `platform.ground_velocity_m_s` carries (Gap 75), so the two arms cannot disagree |
-| Not Earth-fixed (another spacecraft, exo-atmospheric body) | inertial $v = \sqrt{\mu/a}$ — enter it at `geometry.sensor_speed_m_s` | The ground-track reduction's premise (a co-rotating target at radius $R_E$) is false, so $v_g$ is simply the wrong magnitude |
+| Not Earth-fixed (another spacecraft, exo-atmospheric body) | inertial $v = \sqrt{\mu/a}$ — **required** at `geometry.sensor_speed_m_s`, with the target's own motion at `target_speed_m_s`/`target_heading_rad`; the stage refuses without them | The ground-track reduction's premise (a co-rotating target at radius $R_E$) is false, so $v_g$ is simply the wrong magnitude — and the target's velocity subtracts, so the sensor's speed alone is not enough |
 
 `geometry.sensor_speed_m_s` is therefore a **second expression of the one
 platform velocity**, not a second velocity: `ground_speed_m_s` stays the
 ground-track projection the access-rate metric and the smear arm consume, and
 the door changes only what the LOS-rate model puts on the sensor endpoint. The
-door is opt-in and defaults to the ground-track speed, so every pre-CU-391
+door is opt-in and defaults to the ground-track speed, so every ground-target
 configuration is bit-identical; the resolved value and its origin are published
-as `sensor_speed_m_s` / `sensor_speed_mode` (§3). Leaving it closed against a
-space target is the CU-391 defect — a 500 km LEO staring at the geostationary
-belt publishes 200.1 µrad/s where 128.7 µrad/s is correct, **+55.5 %** — so
-GeometryStage raises a `UserWarning` on exactly that combination (`target_class`
-= `space`, the door closed, a non-zero platform speed, and the rate not entered
-directly through K1). Scene class gates the *advice* only, never the physics
-(ADR-0011 decision 8).
+as `sensor_speed_m_s` / `sensor_speed_mode` (§3).
+
+**Against a space target, leaving the door closed is refused** (CU-391; a
+`UserWarning` from 2026-10-01, escalated to a refusal by owner ruling
+2026-10-03). `GeometryStage` raises `GeometrySpecificationError` on exactly that
+combination — `target_class` = `space`, the door closed, a non-zero platform
+speed, and the rate not entered directly through K1 — naming the inertial speed
+to enter and the target doors to pair it with. The magnitude is why: a 500 km
+LEO staring at the geostationary belt would publish 200.1 µrad/s where
+128.7 µrad/s is correct, **+55.5 %**, and that rate feeds `smear_width_m`, the
+smear MTF, EE_box, SNR and detection range, so it reaches every spatial and
+radiometric result. A warning is scrollable; this is not a number to publish on
+a default.
+
+The refusal names **both** endpoints deliberately, because the error does not
+decompose the way it looks: supplying only the sensor's inertial speed moves the
+LEO→GEO answer to 215.85 µrad/s, *further* from correct than the 200.14 it
+started at, since 62 % of the discrepancy is the target's own co-rotating
+motion, which subtracts. RADIANT cannot supply that half itself — it would have
+to assume a co-planar, co-rotating circular target orbit the analyst never
+stated — which is why the resolution is a refusal rather than a better default.
+Scene class gates the *validation* only, never the physics (ADR-0011
+decision 8).
 
 ### Mode-resolution rules (normative; enforced in `geometry/modes.py`)
 

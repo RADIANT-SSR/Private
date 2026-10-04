@@ -42,6 +42,24 @@ retroactively reconstructed.
 
 
 ### Changed
+- **`geometry.circular_orbit` against a space target is now refused, not
+  warned.** `circular_orbit` derives the platform's *ground-track* speed
+  (`v·R_E/a`), which is the correct line-of-sight-rate scaling for an
+  Earth-fixed target and the wrong one for a space target. Setting it against a
+  space target without stating the velocities now raises
+  `GeometrySpecificationError` instead of emitting a `UserWarning` and
+  publishing the number (owner ruling 2026-10-03, CU-391). On a 500 km
+  LEO→GEO stare the published rate was **200.1 µrad/s against a correct
+  128.7 (+55.5 %)**, and that rate drives `smear_width_m`, the smear MTF,
+  EE_box, SNR and detection range — too large an error in too load-bearing a
+  quantity to leave behind a scrollable warning. The error names *both*
+  endpoints, because the discrepancy does not decompose the way it looks:
+  supplying only `geometry.sensor_speed_m_s` moves that scene to 215.85 µrad/s,
+  *further* from correct, since 62 % of it is the target's own co-rotating
+  motion. **Ground-target scenes are unaffected** — the ground-track speed is
+  the right quantity there, and the default path is bit-identical. No shipped
+  template, example or scenario pairs `circular_orbit` with a space target, so
+  no bundled artifact changes.
 - **Results-affecting: `detection_range_m` is now reported when the target is
   *below* threshold at its current range**, instead of being declined. A target
   that cannot be detected where it sits still has a well-posed detection range

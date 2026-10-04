@@ -134,18 +134,33 @@ class TestLeoToGeoAnchor:
         assert out["ground_speed_m_s"] == pytest.approx(ground_track_speed_m_s(H_LEO_M), rel=1e-12)
         assert out["sensor_speed_m_s"] == pytest.approx(orbital_velocity_m_s(H_LEO_M), rel=1e-12)
 
-    def test_ground_track_default_reproduces_the_defect_value(self) -> None:
-        """Without the door the published rate is still v_g / R — the old number.
+    def test_ground_track_default_is_no_longer_reachable_through_the_stage(self) -> None:
+        """The scene that used to publish 200.1 µrad/s is now refused (CU-391).
 
-        Pinned deliberately: the door is opt-in, so every pre-CU-391 config
-        keeps its exact value, and the 200.1 µrad/s this scene produces is the
-        documented limitation the door exists to escape.
+        Owner ruling 2026-10-03: a warning was not enough protection for a
+        +55.5 % error in a quantity that drives smear, EE_box, SNR and
+        detection range, so the stage refuses instead of publishing.
         """
-        with pytest.warns(UserWarning, match="sub-satellite ground-track speed"):
-            out = run_stage(leo_to_geo_params(geometry__circular_orbit=True))
+        with pytest.raises(GeometrySpecificationError, match="ground-track speed"):
+            run_stage(leo_to_geo_params(geometry__circular_orbit=True))
+
+    def test_the_refused_number_is_the_documented_defect_value(self) -> None:
+        """What the stage WOULD have published, pinned at the kernel instead.
+
+        The 200.1 µrad/s is kept on the record because it is the magnitude that
+        justifies refusing: it is +55.5 % against the 128.7 the same scene gives
+        once both endpoints' velocities are stated. Asserted against the kernel,
+        since the stage no longer offers a path to it.
+        """
         v_g = ground_track_speed_m_s(H_LEO_M)
-        assert out["los_angular_rate_rad_s"] == pytest.approx(v_g / (H_GEO_M - H_LEO_M), rel=1e-12)
-        assert out["los_angular_rate_rad_s"] == pytest.approx(2.0014e-4, rel=1e-3)
+        omega_ground_track = relative_los_angular_rate_rad_s(
+            slant_range_m=H_GEO_M - H_LEO_M,
+            theta_o_rad=math.pi,
+            sensor_speed_m_s=v_g,
+        )
+        assert omega_ground_track == pytest.approx(v_g / (H_GEO_M - H_LEO_M), rel=1e-12)
+        assert omega_ground_track == pytest.approx(2.0014e-4, rel=1e-3)
+        assert omega_ground_track / OMEGA_LEO_GEO_RAD_S == pytest.approx(1.555, rel=1e-3)
 
 
 # ---------------------------------------------------------------------------
@@ -279,17 +294,42 @@ class TestDoorResolution:
 # ---------------------------------------------------------------------------
 
 
-class TestGroundTrackAdvisory:
-    def test_space_target_without_the_door_warns(self) -> None:
-        with pytest.warns(UserWarning, match=r"geometry\.sensor_speed_m_s"):
+class TestGroundTrackRefusal:
+    def test_space_target_without_the_door_is_refused(self) -> None:
+        with pytest.raises(GeometrySpecificationError, match=r"geometry\.sensor_speed_m_s"):
             run_stage(leo_to_geo_params(geometry__ground_speed_m_s=7000.0))
 
-    def test_warning_names_the_inertial_speed_to_enter(self) -> None:
-        with pytest.warns(UserWarning) as record:
+    def test_refusal_names_the_inertial_speed_to_enter(self) -> None:
+        """Rule 15: the error carries the number to type, not just the problem."""
+        with pytest.raises(GeometrySpecificationError) as excinfo:
             run_stage(leo_to_geo_params(geometry__circular_orbit=True))
-        assert any("7616" in str(w.message) for w in record)
+        assert "7616" in str(excinfo.value)
 
-    def test_ground_target_never_warns(self) -> None:
+    def test_refusal_warns_against_fixing_only_the_sensor_speed(self) -> None:
+        """The non-obvious half: supplying only v_sensor moves the answer WORSE.
+
+        200.14 (ground-track) -> 215.85 (inertial only) against a correct
+        128.71, because 62 % of the discrepancy is the target's own co-rotating
+        motion. An error that named only the sensor door would walk the analyst
+        into that, so it names both endpoints.
+        """
+        with pytest.raises(GeometrySpecificationError) as excinfo:
+            run_stage(leo_to_geo_params(geometry__circular_orbit=True))
+        message = str(excinfo.value)
+        assert "target_speed_m_s" in message
+        assert "FURTHER from correct" in message
+
+    def test_inertial_only_really_is_worse_than_the_ground_track_default(self) -> None:
+        """The claim the error message makes, measured rather than asserted."""
+        separation_m = H_GEO_M - H_LEO_M
+        correct = OMEGA_LEO_GEO_RAD_S
+        ground_track = ground_track_speed_m_s(H_LEO_M) / separation_m
+        inertial_only = orbital_velocity_m_s(H_LEO_M) / separation_m
+        assert ground_track == pytest.approx(2.0014e-4, rel=1e-3)
+        assert inertial_only == pytest.approx(2.1585e-4, rel=1e-3)
+        assert abs(inertial_only - correct) > abs(ground_track - correct)
+
+    def test_ground_target_is_accepted(self) -> None:
         """The ground-track speed IS the right quantity for an Earth-fixed target."""
         import warnings as _warnings
 
@@ -297,7 +337,7 @@ class TestGroundTrackAdvisory:
             _warnings.simplefilter("error")
             run_stage(make_params(geometry__circular_orbit=True, geometry__path_zenith_rad=0.3))
 
-    def test_space_target_with_the_door_never_warns(self) -> None:
+    def test_space_target_with_the_door_is_accepted(self) -> None:
         import warnings as _warnings
 
         with _warnings.catch_warnings():
@@ -309,7 +349,7 @@ class TestGroundTrackAdvisory:
                 )
             )
 
-    def test_static_platform_space_target_never_warns(self) -> None:
+    def test_static_platform_space_target_is_accepted(self) -> None:
         """Nothing to mis-attribute when the platform is not moving."""
         import warnings as _warnings
 
@@ -317,7 +357,7 @@ class TestGroundTrackAdvisory:
             _warnings.simplefilter("error")
             run_stage(leo_to_geo_params())
 
-    def test_direct_rate_door_never_warns(self) -> None:
+    def test_direct_rate_door_is_accepted(self) -> None:
         """K1 bypasses the velocity model entirely, so the frame question is moot."""
         import warnings as _warnings
 

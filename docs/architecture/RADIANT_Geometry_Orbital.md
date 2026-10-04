@@ -210,7 +210,14 @@ non-rotating Earth for ground-track speed; plane-of-date solar geometry.
   derivation (CU-391; RADIANT_Geometry.md §2 LOS-rate family). Which of the two
   speeds belongs is a frame question, not a unit conversion: $v_g = v R_E/a$ is
   the rate a nadir-stabilised platform sees against a **co-rotating surface**
-  target, and nothing about a space target satisfies that premise.
+  target, and nothing about a space target satisfies that premise. Against a
+  space target the stage therefore **refuses** rather than defaulting to $v_g$
+  (CU-391, owner ruling 2026-10-03), and it asks for the target's velocity too:
+  entering only the sensor's inertial speed moves a LEO→GEO stare from 200.14
+  to 215.85 µrad/s against a correct 128.71, because the target's co-rotating
+  motion subtracts. `orbital_velocity_m_s` supplies the sensor half; the target
+  half is not derivable from altitude without assuming an orbit the analyst did
+  not state.
 - **Performance metrics:** GSD, ground range, swath width, access rate, and
   the diffraction-limit ground projection consume the values GeometryStage
   publishes (`stage_outputs["geometry"]` — ADR-0006 Phase 2), which are

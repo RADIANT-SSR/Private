@@ -150,13 +150,19 @@ def _run_scene(
 
     ``reflective=True`` specifies the target by reflectance alone
     (``T2Reflective``) instead of by the (ε, T) pair; the two surfaces are
-    mutually exclusive.  That choice is not cosmetic: ``_inferrer`` strips
-    ``theta_s`` from the descriptor-adjusted LOS for a T1 (pure-thermal)
-    target — the CU-009 predicate — and since Phase 2 the LOS ``theta_s``
-    also gates the **sky background's** scattered-solar component.  On a VIS
-    grid the (ε, T) surface always classifies T1 (the T3 route is
-    MWIR-overlap only), so a reflective target is the only way to reach the
-    daytime VIS sky at all.  See the task report.
+    mutually exclusive.  That choice is not cosmetic: on a VIS grid the
+    (ε, T) surface always classifies T1 (the T3 route is MWIR-overlap only),
+    and the LOS ``theta_s`` gates the **sky background's** scattered-solar
+    component, so a reflective target is the convenient way to reach the
+    daytime VIS sky here.
+
+    This docstring used to say that ``_inferrer`` *strips* ``theta_s`` for a
+    T1 target — the CU-009 predicate — which was true when it was written and
+    was removed by CU-258/CU-356: the target's own descriptor is the wrong
+    thing to decide it, since the background behind a thermal target can be
+    sunlit. ``TestProvisionalScatteredSkyWarning`` below asserts the current
+    behaviour, so the header had been contradicting its own module until
+    2026-10-04.
     """
     session = RadiantSession(wavelength_um=wavelength_um)
     params = session.default_params()

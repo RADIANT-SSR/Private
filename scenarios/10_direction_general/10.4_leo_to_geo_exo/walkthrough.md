@@ -514,7 +514,7 @@ direct) and **K2** (`geometry.target_speed_m_s` / `target_heading_rad` /
 | Hand $\vert v_\mathrm{LEO} - v_\mathrm{GEO}\vert / R$ | 128.709 µrad/s |
 | RADIANT published rate | 128.709 µrad/s |
 | Difference | **+0.000e+00 %** |
-| `los_rate_mode` | `geometry.los_angular_rate_rad_s + target velocity (K2) (consistent)` |
+| `los_rate_mode` | `geometry.los_angular_rate_rad_s + relative velocity (K2) (consistent)` |
 
 The ADR-0006 rule-2 agreement check (1 % tolerance) accepted both entries. The
 framework's K2 formula reproduces the hand kinematics to the last bit.
@@ -599,13 +599,18 @@ Full detail in `gaps.md`. Three items, none of them blocking:
    $R_\mathrm{det}$ 15.2 % conservative here. Not specific to up-looking.~~
    **RESOLVED 2026-08-01 (CU-263):** the criterion is now shot-consistent;
    $R_\mathrm{det}$ moved 78 139 km → 90 015 km (+15.20 %) on this scene.
-2. **No inertial-velocity door for the sensor endpoint in the kinematics model**
+2. ~~**No inertial-velocity door for the sensor endpoint in the kinematics model**
    — `geometry.ground_speed_m_s` is defined as the *ground-track* speed, which
-   is the wrong quantity for a space target. Using the framework's V6
-   `circular_orbit = True` door on this scene publishes 200.1 µrad/s against the
-   correct 128.7 µrad/s, a **+55.5 %** error. Worked around by entering the
-   inertial speed through the ground-speed parameter (K2) and by setting the
-   rate directly (K1).
+   is the wrong quantity for a space target.~~ **RESOLVED 2026-10-01 (CU-391):**
+   `geometry.sensor_speed_m_s` now carries the sensor endpoint's inertial speed,
+   and this runner was migrated onto it 2026-10-04 (no numerical movement — the
+   workaround had been entering the same inertial speed through the ground-speed
+   door, which only mislabelled the published `ground_speed_m_s`). The quantified
+   +55.5 % this scenario measured — `circular_orbit = True` publishing
+   200.1 µrad/s against the correct 128.7 — was the CU's headline. Note the door
+   alone does not make `circular_orbit` right for a space target: 62 % of that
+   error is the *target's* own co-rotating motion, so `circular_orbit` against a
+   space target is now refused rather than approximated.
 3. **K2 heading frame is degenerate for a radial LOS** — documentation-level;
    the numerical answer is unaffected (§5).
 

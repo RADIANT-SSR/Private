@@ -24,6 +24,13 @@ from radiant.performance.detection_shot_consistent_snr import shot_consistent_sn
 __all__ = ["detection_range_generic"]
 
 
+#: Relative half-width at which the bisection stops, in addition to the caller's
+#: absolute ``tol_m``. 1e-9 is ~30 bisections from any bracket, well inside the
+#: default iteration budget, and keeps the reported SNR-at-range at the threshold
+#: to the precision the metric is quoted in.
+_REL_TOL: float = 1.0e-9
+
+
 def detection_range_generic(
     signal_at_range_fn: Callable[[float], float],
     noise_floor_e: float,
@@ -52,7 +59,11 @@ def detection_range_generic(
     r_max_m:
         Maximum search range [m].
     tol_m:
-        Convergence tolerance [m].
+        Absolute convergence tolerance [m]. The bracket also stops at a
+        *relative* width of ``_REL_TOL`` of the current answer, so precision no
+        longer depends on the answer's magnitude: 1 m is a fine tolerance on a
+        200 km range and a ~2 % error on a 44 m one, which Gap 136's inward
+        solving can return.
     max_iter:
         Maximum bisection iterations.
 
@@ -115,7 +126,14 @@ def detection_range_generic(
             r_lo = r_mid
         else:
             r_hi = r_mid
-        if (r_hi - r_lo) < tol_m:
+        # Relative AND absolute: an absolute-only test is as coarse as the answer
+        # is small. Measured before this was added — a 44 m answer converged at
+        # SNR 4.898 against a 5.0 threshold, a ~2 % miss, while a 200 km answer
+        # at the same tol_m is exact to parts per billion. Taking the *stricter*
+        # of the two makes precision track the answer's magnitude and can only
+        # tighten an existing result, never loosen one: on a multi-Gm range the
+        # relative bound is the looser, so `tol_m` still governs there.
+        if (r_hi - r_lo) < min(tol_m, _REL_TOL * r_hi):
             break
 
     r_final = 0.5 * (r_lo + r_hi)

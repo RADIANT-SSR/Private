@@ -19,11 +19,41 @@ geometry:
   target:
     projected_area_m2: 20.0
   target_altitude_m: 35786000.0
+optical_elements:
+- kind: MIRROR
+  name: S1
+  reflectance: 0.9183859021684453
+  temperature_K: 179.99999999999997
+  transfer_mode: REFLECTIVE
+- kind: MIRROR
+  name: S2
+  reflectance: 0.9183859021684453
+  temperature_K: 179.99999999999997
+  transfer_mode: REFLECTIVE
+- kind: MIRROR
+  name: S3
+  reflectance: 0.9183859021684453
+  temperature_K: 179.99999999999997
+  transfer_mode: REFLECTIVE
+- kind: MIRROR
+  name: S4
+  reflectance: 0.9183859021684453
+  temperature_K: 179.99999999999997
+  transfer_mode: REFLECTIVE
+- kind: MIRROR
+  name: S5
+  reflectance: 0.9183859021684453
+  temperature_K: 179.99999999999997
+  transfer_mode: REFLECTIVE
+- kind: MIRROR
+  name: S6
+  reflectance: 0.9183859021684453
+  temperature_K: 179.99999999999997
+  transfer_mode: REFLECTIVE
 optics:
   aperture_diameter_m: 0.35
   focal_length_m: 2.1
   obscuration_ratio: 0.25
-  transmission_scalar: 0.6
   wfe_rms_waves: 0.05
 performance:
   detection_snr_threshold: 5.0

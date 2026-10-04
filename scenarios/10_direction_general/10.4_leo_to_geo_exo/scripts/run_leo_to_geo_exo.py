@@ -291,10 +291,37 @@ def make_config(
         "optics": {
             "aperture_diameter_m": cin["aperture_m"],
             "focal_length_m": cin["focal_length_m"],
-            "transmission_scalar": cin["tau_optics"],
             "obscuration_ratio": cin["obscuration"],
             "wfe_rms_waves": cin["wfe_rms_waves"],
         },
+        # Warm optics declared rather than lumped (CU-380). `transmission_scalar`
+        # synthesizes a lump, which has no Kirchhoff emissivity, so this
+        # telescope could not emit and the datasheet's own "Optical bench
+        # temperature" reached nothing. The datasheet is unusually explicit
+        # here -- "6 surfaces + cold filter, 3.5-5.0 um" against 60 % in-band
+        # transmission -- so the train is declared as the six surfaces it
+        # names, at R = 0.60^(1/6) = 0.918385 each. The product is the net 60 %
+        # the datasheet specifies, so the SCENE signal is unchanged, and each
+        # surface emits at its Kirchhoff eps = 1 - R = 0.081615 at the
+        # declared 180.0 K (-93.15 degC, "radiatively cooled aft optics").
+        #
+        # This is the one of the four re-authored scenarios whose element COUNT
+        # is specified rather than conventional, and it matters: the emitting
+        # total is roughly the sum of the per-surface emissivities, so six
+        # surfaces at eps = 0.0816 emit about 2.6x what the two-mirror
+        # convention at R = sqrt(0.60) would give. The cold filter is not
+        # declared -- it is cold by construction (inside the dewar at the FPA's
+        # 80 K), which is the whole point of putting a filter there.
+        "optical_elements": [
+            {
+                "name": f"S{i}",
+                "transfer_mode": "REFLECTIVE",
+                "kind": "MIRROR",
+                "reflectance": cin["tau_optics"] ** (1.0 / 6.0),
+                "temperature_K": cin["optics_temp_K"],
+            }
+            for i in range(1, 7)
+        ],
         "detector": {
             "pixel_pitch_x_um": cin["pixel_pitch_um"],
             "pixel_pitch_y_um": cin["pixel_pitch_um"],
@@ -814,10 +841,19 @@ def main() -> None:  # noqa: PLR0915 - a scenario driver is a linear narrative
         f"    SNR       open loop / tracked : "
         f"{float(ol_result.metrics['snr']):.3f} / {snr:.3f} [--]"
     )
-    print(
-        f"    Detection open loop / tracked : "
-        f"{float(ol_result.metrics['detection_range_m']) / 1e3:,.1f} / {det_m / 1e3:,.1f} km"
-    )
+    # The open-loop arm no longer publishes a detection range at all. Since
+    # CU-380 gave this telescope its real 180 K optics, open-loop SNR sits
+    # BELOW the detection threshold at the reference range, so the solver
+    # declines rather than extrapolating -- `detection_range_m` is absent from
+    # metrics and the reason is on the result object (Rule 17's metric-layer
+    # carve-out). Reporting the decline is the honest answer, and it sharpens
+    # the design-driver conclusion below rather than weakening it.
+    ol_det_result = ol_result.stage_outputs["performance"]["detection_range_result"]
+    if ol_det_result.ok:
+        ol_det_text = f"{float(ol_result.metrics['detection_range_m']) / 1e3:,.1f}"
+    else:
+        ol_det_text = f"declined ({ol_det_result.failure_reason})"
+    print(f"    Detection open loop / tracked : {ol_det_text} / {det_m / 1e3:,.1f} km")
     print(
         "\n  This is the design driver: an inertially-fixed 500 ms stare drags the GEO"
         f"\n  target across {ol_smear_m / cin['pixel_pitch_m']:.1f} pixels, spreading a point"
@@ -825,6 +861,14 @@ def main() -> None:  # noqa: PLR0915 - a scenario driver is a linear narrative
         "\n  otherwise sit inside one. The nominal design therefore rate-tracks, and the"
         "\n  scenario's headline numbers are the rate-tracked ones."
     )
+    if not ol_det_result.ok:
+        print(
+            "\n  Sharper than it used to be: with the 180 K optics declared (CU-380),"
+            "\n  the open-loop arm does not merely detect at shorter range - it does not"
+            "\n  reach the SNR threshold at the LEO->GEO range at all, so no detection"
+            "\n  range is defined for it. Rate tracking is not an optimisation of this"
+            "\n  design; it is the difference between a sensor and no sensor."
+        )
     ol_user_warnings = [str(r.message) for r in ol_records if issubclass(r.category, UserWarning)]
     print(f"\n  UserWarnings in the open-loop run: {len(ol_user_warnings)}")
     for message in ol_user_warnings:
@@ -968,11 +1012,15 @@ def main() -> None:  # noqa: PLR0915 - a scenario driver is a linear narrative
         "\n      relevance map (section 5) - there is no ground plane at a GEO target."
         "\n    - geometry.ground_speed_m_s in the RATE-TRACKED config: the K1 door supplies"
         "\n      the rate directly, so the platform-only ground_speed / slant path is unused."
-        "\n    - optics self-emission: this config runs scalar transmission, which has no"
-        "\n      defined optical element, so there is no emitting surface and the near-field"
-        "\n      term is identically zero (Gap 127). The scalar optics.optics_temperature_K"
-        "\n      that used to be set here was removed 2026-09-10 for exactly that reason - it"
-        "\n      multiplied a zero emissivity. Model warm optics by defining elements."
+        "\n  NOT on that list any more, and the single most important entry to have"
+        "\n  lost from it (CU-380):"
+        "\n    - optics self-emission. This config used to run scalar transmission, which"
+        "\n      synthesizes a lump with no Kirchhoff emissivity, so the near-field term"
+        "\n      was identically zero and the datasheet bench temperature was inert. The"
+        "\n      six surfaces the datasheet names are now declared at 180 K, and"
+        "\n      nearfield_shot is 94 % of the noise power - the DOMINANT term in this"
+        "\n      budget. A point source against cold space has no other background, so"
+        "\n      this is the scene where warm optics matter most, not least."
     )
     print(f"\n{SEP}\n  Scenario 10.4 complete.\n{SEP}")
 

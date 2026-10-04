@@ -67,7 +67,22 @@ Two residual caveats:
 
 ## Results (aperture = 30 cm, mid-sweep; real MODTRAN 6, D2 run set)
 
-*Numbers refreshed 2026-09-01 from the unmodified runner (previous vintage
+*Numbers re-authored 2026-10-03 (previous vintage 2026-09-01). **CU-380**: the
+runner declared `optics.transmission_scalar = 0.85`, which lumps the entire
+train into one transmittance and so leaves nothing to emit — the Kirchhoff
+emissivity of a scalar is structurally zero. It now declares the two mirrors
+this telescope always physically had, at R = √0.85 = 0.921954 each, so the net
+scene throughput is unchanged *by construction*: τ̄ is bit-identical in both
+columns (0.4594 and 0.4277), and each surface emits at its own
+ε = 1 − R = 0.078046 at 280 K — the LEO bus-mounted class temperature
+(owner-ratified 2026-09-30). This is the first vintage in which the scenario's
+own optics contribute background: 3.03 × 10⁵ e⁻, which is 13.3 % of the
+SimpleAtmosphere background and 16.6 % of the MODTRAN one. The MODTRAN column
+has the smaller scene term, so the identical warm-optics term is a larger share
+of its background and costs it more SNR (−4.4 % vs −3.6 %). Every metric moved;
+no conclusion in the comparison did.*
+
+*Prior vintage, 2026-09-01, from the then-unmodified runner (previous vintage
 2026-08-30). One mover, and only in the SimpleAtmosphere column. **CU-336**
 corrected the gas fit's grid convention: `floor_add` had been subtracting a
 band optical depth measured on a uniform-λ grid from one measured on MODTRAN's
@@ -102,10 +117,10 @@ under CU-321 (SNR 1152.37 → 980.55) and the MODTRAN column under CU-316
 
 | Metric | SimpleAtmosphere | MODTRAN 6 (real D2) |
 |--------|-------------------|----------------------|
-| SNR [-] | 1001.55 | 916.18 |
-| NEDT [K] | 0.0251 | 0.0266 |
-| NIIRS [-] | 4.61 | 4.55 |
-| Detection range @ SNR=5 [km] | 2357.2 | 2227.3 |
+| SNR [-] | 965.71 | 875.45 |
+| NEDT [K] | 0.0260 | 0.0278 |
+| NIIRS [-] | 4.58 | 4.52 |
+| Detection range @ SNR=5 [km] | 2326.8 | 2191.6 |
 | In-band transmittance [-] | 0.4594 | 0.4277 |
 
 - **SimpleAtmosphere agrees with MODTRAN to ~7% on transmittance for this
@@ -113,10 +128,10 @@ under CU-321 (SNR 1152.37 → 980.55) and the MODTRAN column under CU-316
   slightly *more* transparent). The earlier ~45% over-absorption was removed by
   the CU-155/161 water-ladder recalibration — scenario 6.2 is the dedicated
   validation, which collapsed the τ residuals across all six profiles ~6× to a
-  uniform −5…−11% band. Detection range now differs by +5.8% (2357.2 vs
-  2227.3 km), where the pre-recalibration model understated it by ~25%.
-- **SNR: the parametric model reads ~9% high** (1001 vs 916). Its history in
-  four steps: it read ~17% *low* before CU-224 (no down-looking path emission
+  uniform −5…−11% band. Detection range now differs by +6.2% (2326.8 vs
+  2191.6 km), where the pre-recalibration model understated it by ~25%.
+- **SNR: the parametric model reads ~10% high** (966 vs 875). Its history in
+  five steps: it read ~17% *low* before CU-224 (no down-looking path emission
   at all), swung to ~26% high when CU-224 added that emission at the column's
   near-surface temperature, settled at ~7% high once CU-321 resolved the
   emission temperature in altitude — a 100 km MWIR column emits mostly from
@@ -124,9 +139,13 @@ under CU-321 (SNR 1152.37 → 980.55) and the MODTRAN column under CU-316
   CU-324 made the downwelling exponent geometric, which lifts the reflected-sky
   term of this ρ = 0.73 steel hull — for a hull this reflective the sky term is
   the larger of its two signal contributions in this band, which is why every
-  downwelling change above shows up in SNR. The remaining gap is the parametric model being
+  downwelling change above shows up in SNR. CU-380 then widened the spread from
+  ~9% to ~10% without touching either atmosphere: giving the train its real warm
+  mirrors adds the *same* background to both columns, which is the larger
+  fractional insult to whichever column has the weaker scene term — the MODTRAN
+  one. The remaining gap is the parametric model being
   marginally the more transparent of the two, and its noise floor is
-  correspondingly lower (NEDT 0.0251 vs 0.0266 K). τ, SNR, and range still do
+  correspondingly lower (NEDT 0.0260 vs 0.0278 K). τ, SNR, and range still do
   not move together — quote the metric the decision needs.
 - **This is the entire point of scenario 1.1's original gap**: before
   `Tape7Reader`/CU-066, RADIANT had no way to *consume* a colleague's
@@ -141,11 +160,15 @@ under CU-321 (SNR 1152.37 → 980.55) and the MODTRAN column under CU-316
   f/# fixed at 2.5, so focal length scales with aperture. At fixed f/#,
   per-pixel étendue — and thus photon flux for both the sub-pixel target
   and the extended ocean background — is invariant with aperture. The
-  aperture benefit shows up entirely as resolution: NIIRS rises from 3.53
-  to 5.13 (real D2) as the diffraction-limited PSF shrinks. A genuine "SNR from a
+  aperture benefit shows up entirely as resolution: NIIRS rises from 3.50
+  to 5.10 (real D2) as the diffraction-limited PSF shrinks. A genuine "SNR from a
   bigger telescope" trade needs a fixed-focal-length (varying f/#) sweep,
   not a fixed-f/# aperture sweep — worth remembering for the next
-  aperture trade study.
+  aperture trade study. The warm-optics background CU-380 added obeys the same
+  invariance for the same reason — it reaches the detector through that same
+  per-pixel étendue — so it is 3.031538 × 10⁵ e⁻ at every aperture in the sweep
+  (measured, 15/30/45 cm identical to seven figures) and does not disturb the
+  flatness it rides on.
 - **Detection range is a Beer-Lambert point-source extrapolation**, not a
   full-chain re-evaluation at each range — it assumes the extinction
   coefficient measured at 532 km holds out to ~2240–2420 km, which is

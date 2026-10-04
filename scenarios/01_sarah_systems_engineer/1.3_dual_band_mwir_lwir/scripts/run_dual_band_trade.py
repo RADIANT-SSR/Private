@@ -81,6 +81,7 @@ eps_forest = {b: forest.band_averaged_emissivity(*bands[b]) for b in bands}
 
 altitude_m = shared["Platform altitude"] * 1000.0  # km → m
 focal_m = shared["Focal length"] / 100.0  # cm → m
+optics_temp_K = shared["Optics temperature"] + 273.15  # °C → K
 gsd_m = det["MWIR"]["Pixel pitch"] * 1e-6 * altitude_m / focal_m
 footprint_m2 = gsd_m**2
 fill = shared["Hotspot area"] / footprint_m2
@@ -115,7 +116,30 @@ def build_sensor(band: str, hotspot_T: float) -> Sensor:
     s.set("geometry.path_zenith_rad", 0.0)
     s.set("optics.aperture_diameter_m", shared["Aperture diameter"], unit="cm")
     s.set("optics.focal_length_m", shared["Focal length"], unit="cm")
-    s.set("optics.transmission_scalar", shared["Optical transmission"], unit="%")
+    # Warm optics declared rather than lumped (CU-380). A scalar transmittance
+    # has no Kirchhoff emissivity (eps = 1 - T - R is undefined for a lump), so
+    # the previous `optics.transmission_scalar` left this telescope unable to
+    # emit -- and silently discarded the "Optics temperature" Sarah's own
+    # spreadsheet supplies. Two reflective surfaces at R = sqrt(tau_net) each
+    # reproduce the net throughput the workbook specifies, so the scene signal
+    # is unchanged, and each now emits at its Kirchhoff eps = 1 - R at the
+    # declared temperature. The trade pays for it asymmetrically: 278 K optics
+    # radiate inside the LWIR band and down the Wien flank of the MWIR one, so
+    # the new nearfield_shot term is 371,856 e- in LWIR against 1,136 e- in
+    # MWIR (measured) -- 7.2 % of the clutter-free noise power versus 0.5 %.
+    r_surface = math.sqrt(shared["Optical transmission"] / 100.0)
+    s.set_optical_elements(
+        [
+            {
+                "name": name,
+                "transfer_mode": "REFLECTIVE",
+                "kind": "MIRROR",
+                "reflectance": r_surface,
+                "temperature_K": optics_temp_K,
+            }
+            for name in ("M1", "M2")
+        ]
+    )
     s.set("detector.pixel_pitch_x_um", d["Pixel pitch"])
     s.set("detector.pixel_pitch_y_um", d["Pixel pitch"])
     s.set("detector.qe_value", d["Quantum efficiency (band avg)"], unit="%")

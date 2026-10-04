@@ -18,10 +18,20 @@ geometry:
   target:
     projected_area_m2: 5.0
   target_range_m: 10000.0
+optical_elements:
+- kind: MIRROR
+  name: M1
+  reflectance: 0.8831760866327847
+  temperature_K: 278.15
+  transfer_mode: REFLECTIVE
+- kind: MIRROR
+  name: M2
+  reflectance: 0.8831760866327847
+  temperature_K: 278.15
+  transfer_mode: REFLECTIVE
 optics:
   aperture_diameter_m: 0.025
   focal_length_m: 0.05
-  transmission_scalar: 0.78
 readout:
   adc_bits: 14
   full_well_capacity_e: 4000000.0

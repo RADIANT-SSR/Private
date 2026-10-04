@@ -59,6 +59,25 @@ retroactively reconstructed.
   (Gap 136).
 
 ### Fixed
+- **Results-affecting: the last four shipped scenarios that modelled their
+  optical train as a scalar transmittance now declare warm trains** (CU-380,
+  now closed). A scalar lump has no Kirchhoff emissivity, so these scenarios'
+  warm-optics background was identically zero — and in three of the four the
+  **optics temperature their own input file supplied was read by nothing**
+  (1.3's spreadsheet "Optics temperature: 5 °C"; 10.2's datasheet −23.15 °C;
+  10.4's bench −93.15 °C). Each now declares surfaces at `R = τ^(1/N)`, so net
+  throughput and therefore the scene signal are unchanged by construction, and
+  every movement is on the noise side. Direction and magnitude: **1.1** SNR
+  −3.6 % / −4.4 % (two atmosphere columns), **1.3** LWIR SNR −3.7 % and NEDT
+  +3.9 % with MWIR −0.2 % (278 K optics radiate in-band for LWIR and down the
+  Wien flank for MWIR), **10.2** target-free noise floor +30 % and detection
+  range −4.6 %, **10.4** SNR 26.32 → 6.23 and detection range 94,438 →
+  39,451 km — a point source against cold space has no other background, so
+  its own 180 K optics become 94 % of the noise power. 10.4's open-loop arm no
+  longer reaches the detection threshold at any swept integration time, so
+  `detection_range_m` is now correctly declined for it rather than reported.
+  No verdict in 1.1, 1.3 or 10.2 changes; 10.4's design margin goes from
+  comfortable (2.68× the required range) to marginal (1.12×).
 - **Setting a dark-current door to 0 now clears it, instead of raising
   "over-specified".** Reported from the GUI: setting `dark_rate_e_per_s` to 0
   and then entering a `dark_current_density_a_per_cm2` was rejected as an

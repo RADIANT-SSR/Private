@@ -86,7 +86,11 @@ Rule 25, one registry per concern). This file is the per-scenario record.
   radiance, correctly selected without any scene-class branch.
 - **Rule-4 dual-path consistency** — passed on both axes with 86× margin, and
   neither the nominal nor the heavily-smeared open-loop run raised a *consistency*
-  `UserWarning`. Each raises exactly one unrelated `UserWarning` (CU-261/265's
+  `UserWarning`. **Since CU-380 (2026-10-03) neither run raises any `UserWarning`
+  at all**, because the warm train is declared and the condition below is gone;
+  the SNR and detection-range numbers this file quotes moved with it (see the
+  walkthrough §4.2). Historically, each raised exactly one unrelated
+  `UserWarning` (CU-261/265's
   inert-optics-temperature report: `optics.optics_temperature_K = 180 K` is set
   while no defined optical element can emit, so the bench temperature contributes
   nothing. Reworded by Gap 127, 2026-09-09 — it previously named

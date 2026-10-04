@@ -152,17 +152,61 @@ triangle.
 | EE_box (1×1, from the fully degraded PSF) | 0.245670 | — |
 | In-pixel signal | 1 295.78 | e- |
 | signal shot noise | 35.997 | e- RMS |
+| **warm-optics shot noise** (`nearfield_shot`) | **202.034** | e- RMS |
 | dark shot noise | 22.361 | e- RMS |
 | read noise | 25.000 | e- RMS |
 | quantization noise | 1.761 | e- RMS |
-| **Total noise** | **49.233** | e- RMS |
-| **SNR** | **26.32** | — |
-| **Detection range** (SNR = 5) | **94 438** | km |
+| **Total noise** | **207.947** | e- RMS |
+| **SNR** | **6.23** | — |
+| **Detection range** (SNR = 5) | **39 451** | km |
 
-*Refreshed 2026-09-12 (chartered sweep). Sole mover: **CU-355** — with the
+*Re-authored 2026-10-03. **CU-380** — and this is the scenario the change hits
+hardest, because a point source against cold space has nothing else in its
+background. The telescope ran as a scalar transmission lump, which has no
+Kirchhoff emissivity, so its warm-optics term was identically zero and the
+datasheet's "Optical bench temperature = −93.15 °C" reached nothing. This
+datasheet is unusually explicit — *"6 surfaces + cold filter, 3.5–5.0 µm"*
+against 60 % in-band transmission — so the train is declared as the six
+surfaces it names, at R = 0.60^(1/6) = 0.918385 each, emitting at
+ε = 1 − R = 0.081615 at 180.0 K. The product is the net 60 % the datasheet
+specifies, so **the signal is unchanged to 1.4 × 10⁻⁶** — the hand-radiometry
+cross-check of §6 still reproduces the chain, which is the proof that only the
+noise side moved.
+
+It moved a long way. `nearfield_shot` at **202.0 e⁻ RMS is now 94 % of the
+noise power** and four times the entire previous noise budget, so:
+
+| | before | after |
+|---|---:|---:|
+| Total noise [e⁻ RMS] | 49.233 | 207.947 |
+| SNR | 26.32 | 6.23 |
+| Detection range [km] | 94 438 | 39 451 |
+| $R_\mathrm{det}$ / LEO→GEO range | 2.68× | 1.12× |
+
+**This changes the scenario's verdict, not just its digits.** The design went
+from comfortable to marginal: detection range is now 1.12× the range it has to
+work at, against 2.68× before, and the zenith sweep of §4.4 reaches SNR 5.30 at
+$\zeta_\mathrm{low} = 60°$ — inside 6 % of the detection threshold itself, where
+it previously had 4.7× margin. 180 K radiatively-cooled optics are *not* cold
+enough to be ignored in a 3.5–5.0 µm point-source space-surveillance design at
+a 500 ms integration; that is the same conclusion the shipped
+`sda_space_to_space` template reached independently under CU-380, where the well
+saturates on self-emission alone at bus-ambient temperature and detection needs
+optics below ~180 K. Two instruments, two methods, one design rule.
+
+Six surfaces rather than the two-mirror convention matters here, and it is the
+one of the four re-authored scenarios where the element **count** is specified
+rather than conventional: the emitting total goes roughly as the sum of the
+per-surface emissivities, so six at ε = 0.0816 emit about 2.6× what two at
+R = √0.60 would. The cold filter is deliberately not declared — it sits inside
+the dewar at the FPA's 80 K, which is the entire reason for putting a filter
+there.*
+
+*Prior vintage, refreshed 2026-09-12 (chartered sweep). Sole mover: **CU-355** — with the
 0.633 µm-referenced WFE correctly rescaled to this MWIR band, the pupil is
 nearly diffraction-limited and EE_box rises 0.2232 → 0.2457 (+10 %); SNR
-follows to 26.32 (+7.3 %) and the detection range to 94 438 km (+4.9 %).
+follows to 26.32 (+7.3 %) and the detection range to 94 438 km (+4.9 %) — the
+readings current at that date; see the CU-380 note above for today's.
 Dark, read, and quantization noise are bit-identical.*
 | NEDT (reported, but not a meaningful figure of merit here — see below) | 1005 | mK |
 
@@ -174,7 +218,12 @@ pair.
 
 Background shot noise is **exactly zero**: the up-looking LOS never returns to
 Earth, so past the GEO bus it exits into deep space and the background is
-`ColdSpaceBackground` with identically zero radiance. This is the LOS-termination
+`ColdSpaceBackground` with identically zero radiance. Note that this is the
+*scene* background, and it is a separate term from the warm-optics
+`nearfield_shot` above — which is why the latter dominates so completely here.
+A cold-space scene removes the one background that would otherwise mask the
+instrument's own emission, so this scenario measures the telescope against
+itself. This is the LOS-termination
 rule of ADR-0011 decision 9 in action — hits Earth → ground, exits the
 atmosphere → cold space, grazes the limb → raise.
 
@@ -208,25 +257,39 @@ $$\omega_\mathrm{LOS} = \frac{|v_\mathrm{LEO} - v_\mathrm{GEO}|}{h_\mathrm{GEO} 
 
 That rate is the design driver. An inertially-fixed 500 ms stare drags the point
 source across **7.5 pixels**, collapsing EE_box from 0.2457 to 0.0597 and SNR from
-26.32 to 8.29. Open-loop SNR actually *peaks* at 250 ms and then falls: past that
-point the smear kernel grows faster than $\sqrt{t}$, so integrating longer loses
-SNR. The rate-tracked curve keeps rising as $\sqrt{t}$ because the scene is
-background-free (cold space) and dark-current-limited.
+6.23 to 1.53. Open-loop SNR actually *peaks* at 100 ms (SNR 2.28) and then
+falls: past that point the smear kernel grows faster than $\sqrt{t}$, so
+integrating longer loses SNR. The rate-tracked curve keeps rising with $t$,
+though no longer as $\sqrt{t}$: since CU-380 the dominant noise is warm-optics
+shot noise, which accumulates with integration time exactly as the signal's own
+shot noise does, so the tracked arm is now **warm-optics limited** rather than
+dark-current limited. The knee moved from 250 ms to 100 ms for the same reason
+— a larger floor means the smear penalty overtakes the integration gain sooner.
+
+Since CU-380 the open-loop arm **never reaches the detection threshold at any
+integration time in the sweep** (its SNR peaks at 2.28 against a threshold of
+5), so no detection range is defined for it at all and the runner reports the
+metric layer's decline rather than a number. Rate tracking is not an
+optimisation of this design; it is the difference between a sensor and no
+sensor.
 
 ![Smear and SNR vs integration time](outputs/10.4_smear_snr_vs_integration_time.png)
 
 | $t_\mathrm{int}$ [ms] | smear OL [px] | SNR OL | EE OL | smear RT [px] | SNR RT | $R_\mathrm{det}$ RT [km] |
 |---:|---:|---:|---:|---:|---:|---:|
-| 5 | 0.075 | 0.51 | 0.2457 | 0.00075 | 0.51 | < R_GEO |
-| 25 | 0.375 | 2.38 | 0.2420 | 0.00375 | 2.42 | < R_GEO |
-| 50 | 0.751 | 4.35 | 0.2337 | 0.00751 | 4.56 | < R_GEO |
-| 100 | 1.502 | 7.09 | 0.2067 | 0.01502 | 8.25 | 46 694 |
-| 250 | 3.754 | **8.68** | 0.1128 | 0.03754 | 16.59 | 70 743 |
-| 500 | 7.508 | 8.29 | 0.0597 | 0.07508 | **26.32** | **94 438** |
-| 1000 | 15.016 | 7.22 | 0.0302 | 0.15016 | 39.90 | 122 612 |
+| 5 | 0.075 | 0.40 | 0.2457 | 0.00075 | 0.40 | < R_GEO |
+| 25 | 0.375 | 1.22 | 0.2420 | 0.00375 | 1.23 | < R_GEO |
+| 50 | 0.751 | 1.76 | 0.2337 | 0.00751 | 1.85 | < R_GEO |
+| 100 | 1.502 | **2.28** | 0.2067 | 0.01502 | 2.71 | < R_GEO |
+| 250 | 3.754 | 2.03 | 0.1128 | 0.03754 | 4.38 | < R_GEO |
+| 500 | 7.508 | 1.53 | 0.0597 | 0.07508 | **6.23** | **39 451** |
+| 1000 | 15.016 | 1.10 | 0.0302 | 0.15016 | 8.85 | 47 087 |
 
-*Refreshed 2026-09-12 (CU-355; the level shift is the EE-box gain — the
-open/tracked structure and the 250 ms open-loop knee are unchanged).*
+*Re-authored 2026-10-03 (CU-380). The open-loop knee moved 250 → 100 ms and the
+whole table dropped below threshold except the two longest tracked dwells —
+500 ms is now the shortest integration at which this design works at all, where
+it previously had a detectable tracked arm from 100 ms. Smear and EE columns are
+bit-identical: the change is purely the noise floor.*
 
 `< R_GEO` is not a crash and not a NaN: the metric layer's result-typed failure
 (ADR-B / Rule 17 carve-out) reports that the SNR at the GEO range is already
@@ -239,13 +302,20 @@ detectable.
 
 | $\zeta_\mathrm{low}$ [°] | $\theta_o$ [°] | $\eta$ [°] | slant [km] | ground arc [km] | SNR |
 |---:|---:|---:|---:|---:|---:|
-| 0 | 180.00000 | 180.00000 | 35 286.00 | 0.00 | 26.32 |
-| 5 | 179.18608 | 175.00000 | 35 307.89 | 465.47 | 26.30 |
-| 10 | 178.37819 | 170.00000 | 35 373.50 | 931.61 | 26.22 |
-| 20 | 176.80442 | 160.00000 | 35 634.82 | 1 868.57 | 25.94 |
-| 30 | 175.32561 | 150.00000 | 36 066.32 | 2 816.08 | 25.49 |
-| 45 | 173.38204 | 135.00000 | 37 017.56 | 4 267.89 | 24.52 |
-| 60 | 171.88560 | 120.00000 | 38 299.43 | 5 769.42 | 23.30 |
+| 0 | 180.00000 | 180.00000 | 35 286.00 | 0.00 | 6.23 |
+| 5 | 179.18608 | 175.00000 | 35 307.89 | 465.47 | 6.22 |
+| 10 | 178.37819 | 170.00000 | 35 373.50 | 931.61 | 6.20 |
+| 20 | 176.80442 | 160.00000 | 35 634.82 | 1 868.57 | 6.11 |
+| 30 | 175.32561 | 150.00000 | 36 066.32 | 2 816.08 | 5.97 |
+| 45 | 173.38204 | 135.00000 | 37 017.56 | 4 267.89 | 5.67 |
+| 60 | 171.88560 | 120.00000 | 38 299.43 | 5 769.42 | 5.30 |
+
+*SNR column re-authored 2026-10-03 (CU-380); geometry columns bit-identical.
+The 11 % SNR fall across the fan is unchanged in *relative* terms — it is pure
+inverse-square on a 8.5 % longer slant — but it used to run from 26.32 down to
+23.30, comfortably above threshold throughout, and now runs from 6.23 to 5.30,
+reaching within 6 % of the SNR = 5 detection threshold at the edge of the
+accessible fan. The geometry did not change; the margin that absorbed it did.*
 
 $\theta_o$ never leaves a $9.38°$ neighbourhood of $\pi$ — because
 $\arcsin(r_\mathrm{LEO}/r_\mathrm{GEO}) = \arcsin(0.162986) = 9.38°$: seen from
@@ -377,11 +447,14 @@ $$N_e = t\,\mathrm{EE}\,\mathrm{QE}\,\tau_\mathrm{opt} A_\mathrm{pupil}
 | In-band radiance $L(280\ \mathrm{K}, 3.5$–$5.0\ \mu\mathrm{m})$ | 0.836211 W/m²/sr |
 | Target intensity $\varepsilon L A_\mathrm{proj}$ | 14.2156 W/sr |
 | Irradiance at the pupil $I/R^2$ | 1.1417 × 10⁻¹⁴ W/m² |
-| **Hand in-pixel signal** | **1 177.2452 e-** |
-| **RADIANT `signal_e`** | **1 177.2469 e-** |
+| **Hand in-pixel signal** | **1 295.7808 e-** |
+| **RADIANT `signal_e`** | **1 295.7827 e-** |
 | Relative difference | **−0.000141 %** |
 
-Agreement to quadrature precision. It is exact because this vendor datasheet
+Agreement to quadrature precision. *(Signal digits refreshed 2026-10-03 from
+the measured run: 1 177.2452 → 1 295.7808 e⁻ is uncaptured CU-355 EE_box
+residue, not CU-380 — CU-380 leaves the signal path bit-identical, which is
+exactly what this cross-check still agreeing to 1.4 × 10⁻⁶ demonstrates.)* It is exact because this vendor datasheet
 quotes QE and transmission as band-averaged scalars; a spectral QE curve would
 introduce a real weighting difference between the two models.
 
@@ -396,12 +469,12 @@ $R_\mathrm{det} = R_\mathrm{ref}\sqrt{S_\mathrm{ref}/S_\mathrm{det}}$ in vacuum:
 
 | | Value |
 |---|---:|
-| $N_0^2$ (target-free noise power) | 1 128.10 e-² |
-| $N_0$ | 33.5872 e- RMS |
-| $S_\mathrm{det}$ | 180.90 e- |
-| Closed form | 94 438.369 km |
-| RADIANT bisection | 94 438.368 km |
-| Relative difference | **+0.000000 %** |
+| $N_0^2$ (target-free noise power) | 41 946.02 e-² |
+| $N_0$ | 204.8073 e- RMS |
+| $S_\mathrm{det}$ | 1 036.61 e- |
+| Closed form | 39 451.205 km |
+| RADIANT bisection | 39 451.204 km |
+| Relative difference | **+0.000001 %** |
 
 The solver is verified against a closed form that needs no root finding at all.
 
@@ -411,17 +484,23 @@ and $R_\mathrm{det} = R_\mathrm{ref}\sqrt{\mathrm{SNR}_\mathrm{ref}/T}$:
 
 | | Value |
 |---|---:|
-| Signal demanded at threshold, $T\sigma_\mathrm{ref}$ | 240.07 e- (vs 180.90 e- above) |
-| Closed form | 78 138.863 km |
-| vs RADIANT | **−13.19 %** |
+| Signal demanded at threshold, $T\sigma_\mathrm{ref}$ | 1 039.73 e- (vs 1 036.61 e- above) |
+| Closed form | 39 391.958 km |
+| vs RADIANT | **−0.15 %** |
 
-Signal shot noise is 51 % of the noise power at the reference range, so freezing
-it was not negligible: the shipped answer was **conservative by 15.2 %** for this
-scene, and worse, it depended on the range the chain was evaluated at. The two
-models agree *exactly* at the reference range — $\sigma_\mathrm{ref}^2 =
-S_\mathrm{ref} + N_0^2$ is the definition of $N_0$ — and diverge outward, which
-is why the correction is always a lengthening and vanishes for a
-background-limited chain. Filed as CU-263 from this scenario and 10.2
+Signal shot noise is now only **3 %** of the noise power at the reference range,
+so the two models have very nearly converged — the superseded frozen-noise model
+is conservative by 0.2 % here, where before CU-380 it was conservative by 15.2 %
+against a 51 % shot share. The two models agree *exactly* at the reference range
+— $\sigma_\mathrm{ref}^2 = S_\mathrm{ref} + N_0^2$ is the definition of $N_0$ —
+and diverge outward, which is why the correction is always a lengthening and
+**vanishes for a background-limited chain**. CU-380 made this chain
+background-limited (by its own optics), so this cross-check now demonstrates
+that limit directly rather than describing it: the correction CU-263 was filed
+for is real, and it is this scene's warm optics that made it almost disappear.
+*(Re-authored 2026-10-03. The pre-change readings in this table were themselves
+uncaptured CU-355 residue — 240.07 e⁻ and −13.19 % against a measured
+246.16 e⁻ and −14.28 %.)* Filed as CU-263 from this scenario and 10.2
 independently; fixed 2026-08-01.
 
 ### Cross-check 5 — Gap 111 two-door agreement
@@ -467,8 +546,10 @@ up-looking `space_to_space` path adds no spatial degradation to one path without
 the other; the PSF path and the MTF product agree with 86× margin against the
 Rule-4 tolerance.
 
-The one `UserWarning` the nominal chain raises — and the open-loop variant raises
-the same one — is CU-261/265's inert-optics-temperature report:
+**The nominal chain and the open-loop variant now raise no `UserWarning` at
+all** (CU-380, 2026-10-03). For three generations they raised one, and its
+history is worth keeping, because this scenario's own author got the physics
+right first and the model was corrected *away* from them:
 
 <!-- Superseded 2026-09-10: optics.optics_temperature_K was removed (inert after
      Gap 127) and this warning with it. Quoted verbatim as a record of the run. -->
@@ -486,13 +567,27 @@ warning still fires on the same condition and no computed value moved.)*
 scene does not have. The only changes are this warning count, which CU-261/265
 introduced, and the metric-relevance list in §4.5.*
 
-The warning is telling the truth about §2.1's 180 K bench temperature: with the
-optical train entered as a scalar transmission lump — which under Gap 127 emits
-nothing, ever — the bench temperature is radiometrically inert, so every number
-in this walkthrough is independent of it. Note that the runner's own §12 "parameters that do not matter"
-list still says the 180 K self-emission "is NOT zero and is left in the budget";
-that line predates the warning and is wrong — the term is identically zero. The
-scenario config is left unmodified rather than silenced.
+That warning was telling the truth about the *configuration* and the wrong
+story about the *instrument*. With the train entered as a scalar transmission
+lump — which under Gap 127 emits nothing, ever — §2.1's 180 K bench temperature
+was radiometrically inert, and this walkthrough concluded that every number in
+it was therefore independent of the bench temperature.
+
+**The record of how that conclusion was reached is the most instructive thing
+in this file.** The runner's original §12 "parameters that do not matter" list
+said the 180 K self-emission *"is NOT zero and is left in the budget"* — the
+scenario's author believed the optics emitted, and was right. A later pass
+noticed the engine disagreed and "corrected" the runner to say the term was
+identically zero, noting that the line "predates the warning and is wrong".
+Under CU-380 it turns out the line was right and the engine was wrong: the
+warm-optics term is not merely non-zero, it is **94 % of the noise power and
+the single dominant entry in the budget**. The author's physics was overruled
+by a model limitation, in writing, in a shipped reference document.
+
+That is the failure mode [[CU-387]] exists to catch, seen from the inside: a
+correct physical claim being revised to match an incorrect model, because the
+model is what the tests check. The train is now declared, the bench temperature
+is live, and the warning is gone because its condition is genuinely gone.
 
 ---
 

@@ -193,19 +193,37 @@ class OpticalElement:
             eps_vals = 1.0 - self.reflectance.values
             source = f"Kirchhoff: 1 - R ({self.name})"
         elif self.cavity is not None:
-            # Cavity emissivity: eps_eff = T2 * n^2 * (1 - beer) / denom.
-            # The n^2 factor accounts for enhanced photon density of states
-            # inside the dielectric medium (generalized Kirchhoff's law).
+            # Cavity emissivity: eps_eff = T2 * (1 - beer) * (1 + R1 * beer) / denom,
+            # the slab's side-2 absorptance. No n^2: the density-of-states
+            # enhancement inside the dielectric is cancelled exactly by the 1/n^2
+            # radiance de-magnification on escape (CU-396).
             eps_vals = self.cavity.eps_eff.values
             source = f"Cavity eps_eff ({self.name})"
         else:
             eps_vals = np.zeros_like(self.transmittance.values)
             source = f"Simple refractive: eps=0 ({self.name})"
 
+        # No clip (CU-396). Every branch above is bounded in [0, 1] by construction —
+        # a mirror's 1 - R, the cavity's side-2 absorptance, or zero — so a value
+        # outside it is a bug, not a rounding artifact, and Rule 17 forbids silently
+        # clamping it. The clip this replaces was not guarding arithmetic: it was
+        # concealing the uncancelled n^2 factor, which drove a germanium element to
+        # eps = 1 and held it there, i.e. a second-law violation rendered invisible.
+        out_of_range = (eps_vals < 0.0) | (eps_vals > 1.0)
+        if bool(np.any(out_of_range)):
+            worst = float(eps_vals[np.argmax(np.abs(eps_vals - 0.5))])
+            raise KirchhoffViolationError(
+                f"OpticalElement '{self.name}': derived emissivity {worst:.6g} is "
+                "outside [0, 1]. A surface cannot emit more than a blackbody, nor "
+                "less than nothing, so this is a model or input error rather than a "
+                "value to clamp. Check the element's reflectance (mirror) or its "
+                "coating/absorption inputs (cavity)."
+            )
+
         return SpectralData(
             name=f"{self.name}.emissivity",
             wavelength_um=self.transmittance.wavelength_um.copy(),
-            values=np.clip(eps_vals, 0.0, 1.0),
+            values=eps_vals,
             unit="",
             source=source,
         )

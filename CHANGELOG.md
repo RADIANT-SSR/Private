@@ -102,6 +102,19 @@ retroactively reconstructed.
   (Gap 136).
 
 ### Fixed
+- **Results-affecting: refractive-element emissivity was too high by ~n² — 15.8× for
+  germanium.** The cavity model's `eps_eff` kept the n² enhancement of the Planck
+  function *inside* the dielectric but omitted the compensating 1/n² radiance
+  de-magnification at the escape interface. Radiance is not invariant across a
+  refracting surface (L/n² is) and the two cancel exactly, so emissivity is simply the
+  slab's side-2 absorptance: `T2·(1−beer)·(1+R1·beer)/denom`. Measured through the
+  shipped model: germanium at 10.6 µm 0.3385 → **0.02136**, silicon at 5.0 µm
+  0.09228 → 0.00797. The tell was that the old expression could exceed 1 and was being
+  clipped — a surface emitting more than a blackbody is a second-law violation, not a
+  rounding artifact — so the clip is now an actionable error instead. **No shipped
+  result changes**: no golden, fixture or scenario uses the cavity path, which is why
+  this could be corrected cleanly rather than re-baselined. Found by the refractive
+  substrate design study (CU-396, from CU-394).
 - **Results-affecting: scenario 10.3 now declares its site elevation, correcting an
   r₀ that was 2.876× optimistic.** The ground-to-space SST scenario places its
   telescope at 900 m MSL but left `geometry.site_elevation_m` at the 0 m default, so

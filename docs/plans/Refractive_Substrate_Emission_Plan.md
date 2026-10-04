@@ -1,6 +1,8 @@
 # Refractive Substrate Emission — Design Study
 
-**Status:** Draft — **study complete, awaiting ratification of §7.** No implementation until §7 is ratified.
+**Status:** Active — §7 ratified by the owner 2026-10-04 (see the ratification note below); §7.3 delivered as [[CU-396]]. Implementation of the library is [[Gap 142]].
+
+**Superseded status line:** Draft — **study complete, awaiting ratification of §7.** No implementation until §7 is ratified.
 
 **Date:** 2026-10-04 (opened); 2026-10-04 (study completed)
 **Category:** C (physics implementation) for the emission path; B for the material-library surface.
@@ -172,6 +174,47 @@ cavity path, so the §7.3 fix moves no committed number (§10.1).
 ---
 
 # 7. Decisions needed — recommendations with the numbers behind them
+
+## 7.0 Owner ratification (2026-10-04)
+
+**All three open recommendations accepted as written** — §7.1 the six-substrate
+two-tier set (sapphire and fused silica not shipped; the standard-ZnS duplicate
+dropped), §7.2 no temperature axis in v1 with a hard `ParameterBoundsError` outside
+Ge's [250, 330] K window, §7.4 the library at `data/tables/substrates/`. §7.3 was
+accepted and **landed the same day** as [[CU-396]].
+
+**One requirement added, which the study did not cover:**
+
+> *"But we also need to be able to define a custom material with thickness and alpha."*
+
+### 7.5 The custom-material path is first-class, not a fallback
+
+The named-substrate door is a **convenience over** the explicit inputs, never a
+replacement for them. An analyst with their own measured α — a lot-specific CVD ZnSe
+coupon, an exotic or proprietary substrate, a material the v1 set does not carry — must
+be able to state `alpha`, `n_refr` and `thickness_m` directly and get the same physics.
+That path exists today and **must survive the library's arrival unchanged**; adding a
+convenience that quietly removes the general case would be a regression dressed as a
+feature.
+
+Binding consequences for the implementation:
+
+1. **Both doors reach the same cavity.** `substrate: germanium` resolves to the same
+   `alpha`/`n_refr` fields the explicit form sets. There is one physics path.
+2. **They are mutually exclusive, and saying both is refused** — the ADR-0009
+   single-validation-authority pattern, rejected at parse time with an actionable error
+   naming which to drop. A named substrate *plus* an explicit α is an over-specified
+   element, exactly as a mirror with both reflectance and emissivity is (Rule 5).
+3. **`thickness_m` always belongs to the element**, never to the material. Thickness is
+   a property of the lens, not of germanium. It is required on both paths.
+4. **The refusal for an unavailable material names the custom path first.** A user who
+   wants a substrate the library does not carry should be told they can state α and n
+   directly, before being told to file a Gap. §9.5's `SubstrateError` action line is
+   ordered accordingly.
+5. **The GUI exposes it.** The substrate picker carries an explicit *Custom (enter α and
+   n)* entry rather than only a closed list of names, so the custom path is reachable
+   without hand-editing YAML — which is the whole point of putting the library in the
+   GUI in the first place.
 
 ## 7.1 The v1 substrate set
 

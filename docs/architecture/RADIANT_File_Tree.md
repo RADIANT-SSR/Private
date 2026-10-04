@@ -145,7 +145,7 @@ atmosphere/
 └── site_elevation_advisory.py  # ground site left at the 0 m default (CU-393)
 ```
 
-### `optics/` — 33 source + 30 tests
+### `optics/` — 33 source + 31 tests
 
 Stage 3: PSF (dual-path), MTF terms, throughput, EE_box, regime final. Largest package alongside `source/` and `performance/` because spatial physics (pupil → PSF → MTF) lives here.
 
@@ -534,7 +534,7 @@ convention and may differ slightly.
 | geometry/              | 7      | 5     | scene geometry / LOS (ADR-0006, ADR-0011) |
 | source/                | 41     | 35    | spec-form fan-out + shape catalog |
 | atmosphere/            | 42     | 50    | MODTRAN + simple + exo + tabulated + interpolated + loaders |
-| optics/                | 36     | 28    | dual-path PSF/MTF + element model |
+| optics/                | 36     | 29    | dual-path PSF/MTF + element model |
 | platform/              | 9      | 9     | smear, relative-motion smear, jitter, sampling, turbulence |
 | spectral_integration/  | 3      | 1     | single-stage collapse |
 | detector/              | 16     | 10    | includes `detector/noise/` subpackage |

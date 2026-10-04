@@ -1,0 +1,358 @@
+
+Sapphire Al2O3 - Crystran
+We are technical experts and global provider of optical components in the UV/VIS/IR
+
+ for enquiries: +44(0) 1202 307650
+ Products search 
+About Us
+News
+Knowledge Centre
+Contact Us
+My account
+Orders
+Edit Address
+Account Information
+0
+£
+0.00
+Stock Optics
+Windows
+Barium Fluoride
+Caesium Iodide
+Calcium Fluoride
+Crystal Quartz
+Fused Silica IR (Waterfree)
+Fused Silica UV
+Germanium
+Glass
+KRS5 Thallium Bromo-Iodide Windows
+Lithium Fluoride
+Magnesium Fluoride
+Potassium Bromide
+Potassium Chloride
+Sapphire
+Silicon
+Sodium Chloride
+Strontium Fluoride
+Zinc Selenide
+Zinc Sulphide FLIR
+Zinc Sulphide Multispectral (Clear)
+Lenses
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Magnesium Fluoride
+Zinc Selenide
+Prisms and ATRs
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Germanium
+Glass
+KRS5
+Sapphire
+Silicon
+Zinc Selenide
+Bespoke Optics
+Optical Materials
+Handbook
+Optical Metrology
+ Menu
+0
+£
+0.00
+< Back to Optical Materials
+Sapphire Al2O3
+Sapphire (Al2O3) SDS
+Download
+Sapphire (Al2O3) Data Sheet
+Download
+Sapphire is used for its extreme toughness and strength. Sapphire is a very useful optical window material for use in the UV, visible, and near infra-red.
+♦ 
+Sapphire IR Transmission data table ©2019
+. Open source for use with acknowledgement.
+♦ 
+Sapphire Material
+. A Quick Guide.
+Products
+Windows
+Prisms & ATR
+Product Data
+Refractive Index
+References & Notes
+Transmission Range
+0.17 to 5.5 μm
+Refractive Index
+No = 1.75449; Ne = 1.74663 at 1.06 μm (1)
+Reflection Loss
+14% at 1.06 μm (2 surfaces)
+Absorption Coefficient
+0.3 x 10-3 cm-1 at 2.4 μm (2)
+Reststrahlen Peak
+13.5 μm
+dn/dT
+13.1 x 10-6 at 0.546 μm (3)
+dn/dμ
+1.5 μm
+Density
+3.97 g/cc
+Melting Point
+2040°C
+Thermal Conductivity
+27.21 W m-1 K-1 @ 300 K
+Thermal Expansion
+5.6 (para); 5.0 (perp) x 10-6/K *
+Hardness
+Knoop 1800 (para); 2200 (perp)
+Specific Heat Capacity
+763 J Kg-1 K-1 @ 293 K (4)
+Dielectric Constant
+11.5 (para); 9.4 (perp) at 1 MHz
+Young's Modulus (E)
+335 GPa
+Shear Modulus (G)
+148.1 GPa
+Bulk Modulus (K)
+240 GPa
+Elastic Coefficients
+C11 = 496; C12 = 164; C13 = 115; C33 = 498; C44 = 148
+Apparent Elastic Limit
+300 MPa (45,000 psi)
+Poisson Ratio
+0.25
+Solubility
+98 x 10-6 g / 100 g water at 20°C
+Molecular Weight
+101.96
+Class/Structure
+Trigonal (hex), R3c
+* Note that manufacturers appear to disagree at times on figures for thermal expansion.
+μm
+No
+Ne
+μm
+No
+Ne
+μm
+No
+Ne
+0.193
+1.9288
+1.9174
+0.458
+1.7784
+1.7702
+1.550
+1.7462
+1.7384
+0.213
+1.8890
+1.8784
+0.488
+1.7753
+1.7671
+2.010
+1.7375
+1.7297
+0.222
+1.8754
+1.8650
+0.515
+1.7730
+1.7649
+2.249
+1.7323
+1.7243
+0.226
+1.8702
+1.8599
+0.532
+1.7717
+1.7636
+2.703
+1.7190
+1.711
+0.244
+1.8506
+1.8407
+0.590
+1.7680
+1.7600
+2.941
+1.7120
+1.704
+0.248
+1.8470
+1.8372
+0.633
+1.7659
+1.7579
+3.333
+1.7010
+1.693
+0.257
+1.8393
+1.8297
+0.670
+1.7643
+1.7563
+3.704
+1.6870
+1.679
+0.266
+1.8330
+1.8236
+0.694
+1.7634
+1.7554
+4.000
+1.6740
+1.666
+0.280
+1.8244
+1.8151
+0.755
+1.7614
+1.7535
+4.348
+1.6580
+1.650
+0.308
+1.8110
+1.8020
+0.780
+1.7607
+1.7527
+4.762
+1.6360
+1.628
+0.325
+1.8047
+1.7958
+0.800
+1.7601
+1.7522
+5.000
+1.6230
+1.615
+0.337
+1.8001
+1.7921
+0.820
+1.7596
+1.7517
+5.263
+1.6070
+1.599
+0.351
+1.7969
+1.7882
+0.980
+1.7561
+1.7482
+0.355
+1.7960
+1.7883
+1.064
+1.7545
+1.7466
+0.442
+1.7804
+1.7721
+1.320
+1.7501
+1.7423
+Sapphire is grown by a variety of methods. Verneuil and Czochralski methods are usual for standard grade Sapphire material. Higher quality Sapphire, particularly for electronic substrates is manufactured by Kyropulos growth and this can be very pure with excellent UV transmission. Large thin sheets of Sapphire can be made by ribbon growth. Sapphire is slightly birefringent, general purpose IR windows are usually cut in a random way from crystal but for specific applications where the birefringence is an issue, an orientation is selected. Usually this is with the optic axis at 90 degrees to the surface plane and is known as “zero degree” material. Synthetic optical sapphire has no colouration.
+* Note that all manufacturers seem to disagree on the actual figures for thermal expansion!
+REFERENCES:
+(1) Handbook Optical Constants, ed Palik, V3, ISBN 0-12-544423-0
+(2) Harrington et al, Appl.Opt. V15, 1953-1959 (1976)
+(3) Malitson, J.Opt.Soc.Am., V52, 1377- 1379 (1962)
+(4) D. A. Ditmars, et. al., J. Res. Nat. Bur. Stand., 87, (2), 159-163 (1982).
+Data provided is extracted from our technical handbook of materials. While every attempt has been made to verify the source of the information, Crystran Ltd accept no responsibility for accuracy of data.
+< Back to Optical Materials
+Welcome to Crystran Ltd
+World Wide Optics Source
+Visit Our Online Shop
+Need something we aren’t listing? Get In Touch
+Get our monthly newsletter to your mailbox?
+Crystran Ltd
+Unit 1
+Broom Road Business Park
+Poole
+Dorset
+BH12 4PA
+Tel: +44 (0) 1202 307650
+Fax: +44 (0) 1202 307651
+Email: sales@crystran.co.uk
+Quick Links
+About us
+Knowledge Centre
+Contact Us
+Privacy Policy
+Terms and Conditions
+Employment
+Stock Items
+Windows
+Lenses
+Prisms & ATR
+Social media
+Follow
+Follow
+Follow
+Certificates
+ISO 9001 certified through LRQA and ISO 14001 certified through SGS
+Secret Link
+About Us
+News
+Knowledge Centre
+Contact Us
+My account
+Orders
+Edit Address
+Account Information
+ Back
+Stock Optics
+Windows
+Barium Fluoride
+Caesium Iodide
+Calcium Fluoride
+Crystal Quartz
+Fused Silica IR (Waterfree)
+Fused Silica UV
+Germanium
+Glass
+KRS5 Thallium Bromo-Iodide Windows
+Lithium Fluoride
+Magnesium Fluoride
+Potassium Bromide
+Potassium Chloride
+Sapphire
+Silicon
+Sodium Chloride
+Strontium Fluoride
+Zinc Selenide
+Zinc Sulphide FLIR
+Zinc Sulphide Multispectral (Clear)
+ Back
+Lenses
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Magnesium Fluoride
+Zinc Selenide
+ Back
+Prisms and ATRs
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Germanium
+Glass
+KRS5
+Sapphire
+Silicon
+Zinc Selenide
+ Back
+ Back
+ × Close Panel 
+0

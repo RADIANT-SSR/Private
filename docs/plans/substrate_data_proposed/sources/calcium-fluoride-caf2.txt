@@ -1,0 +1,313 @@
+
+Calcium Fluoride CaF2 - Crystran
+We are technical experts and global provider of optical components in the UV/VIS/IR
+
+ for enquiries: +44(0) 1202 307650
+ Products search 
+About Us
+News
+Knowledge Centre
+Contact Us
+My account
+Orders
+Edit Address
+Account Information
+0
+£
+0.00
+Stock Optics
+Windows
+Barium Fluoride
+Caesium Iodide
+Calcium Fluoride
+Crystal Quartz
+Fused Silica IR (Waterfree)
+Fused Silica UV
+Germanium
+Glass
+KRS5 Thallium Bromo-Iodide Windows
+Lithium Fluoride
+Magnesium Fluoride
+Potassium Bromide
+Potassium Chloride
+Sapphire
+Silicon
+Sodium Chloride
+Strontium Fluoride
+Zinc Selenide
+Zinc Sulphide FLIR
+Zinc Sulphide Multispectral (Clear)
+Lenses
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Magnesium Fluoride
+Zinc Selenide
+Prisms and ATRs
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Germanium
+Glass
+KRS5
+Sapphire
+Silicon
+Zinc Selenide
+Bespoke Optics
+Optical Materials
+Handbook
+Optical Metrology
+ Menu
+0
+£
+0.00
+< Back to Optical Materials
+Calcium Fluoride CaF2
+Calcium Fluoride CaF2 Data Sheet
+Download
+Calcium Fluoride CaF2 SDS
+Download
+Calcium Fluoride (CaF2) Raman Datasheet
+Download
+Calcium Fluoride has widespread IR applications as spectroscopic CaF2 windows, CaF2 prisms and CaF2 lenses. Especially pure grades of Calcium Fluoride (CaF2) find useful applications in the UV and as UV Excimer laser windows. Calcium Fluoride (CaF2) is available doped with Europium as a gamma-ray scintillator.
+Products
+Windows
+Lenses
+Prisms & ATR
+Product Data
+Refractive Index
+References & Notes
+Transmission Range
+0.13 to 10 μm (Note: IR grade will have restricted performance in UV) 
+Refractive Index
+1.39908 at 5 μm (1) (2) 
+Reflection Loss
+5.4% at 5 μm (2 surfaces) 
+Absorption Coefficient
+0.00078 cm-1 at 2.7 μm
+0.0035 cm-1 at 6.25 μm 
+0.11 cm-1 at 7.69 μm
+0.48 cm-1 at 8.69 μm 
+0.65 cm-1 at 9.09 μm 
+3.5 cm-1 at 10.6 μm 
+Reststrahlen Peak
+35 μm 
+dn/dT
+-10.6 x 10-6/°C (3) 
+dn/dμ = 0
+1.7 μm 
+Density
+3.18 g/cc 
+Melting Point
+1360°C 
+Thermal Conductivity
+9.71 W m-1 K-1 (4) 
+Thermal Expansion
+18.85 x 10-6 K-1 (5)(6) 
+Hardness
+Knoop 158.3 (100) with 500g indenter 
+Specific Heat Capacity
+854 J Kg-1 K-1 
+Dielectric Constant
+6.76 at 1 MHz (7) 
+Youngs Modulus (E)
+75.8 GPa (7) 
+Shear Modulus (G)
+33.77 GPa (7) 
+Bulk Modulus (K)
+82.71 GPa (7) 
+Elastic Coefficients
+C11 = 164 C12 = 53.0 C44 = 33.7 (7) 
+Apparent Elastic Limit
+36.54 MPa 
+Poisson Ratio
+0.26 
+Solubility
+0.0017g/100g water at 20°C 
+Molecular Weight
+78.08 
+Class/Structure
+Cubic Fm3m (#225) Fluorite Structure. Cleaves on (111) 
+μm
+No
+μm
+No
+μm
+No
+0.149
+1.5800
+0.687
+1.4320
+4.000
+1.4096
+0.161
+1.5490
+0.728
+1.4314
+4.400
+1.4057
+0.195
+1.5000
+0.884
+1.4298
+4.800
+1.4014
+0.200
+1.4950
+1.014
+1.4288
+5.000
+1.3991
+0.222
+1.4800
+1.100
+1.4283
+5.304
+1.3952
+0.248
+1.4680
+1.250
+1.4275
+5.893
+1.3871
+0.266
+1.4621
+1.650
+1.4256
+6.483
+1.3782
+0.280
+1.4584
+1.900
+1.4244
+7.072
+1.3681
+0.300
+1.4540
+2.058
+1.4236
+7.661
+1.3570
+0.337
+1.4481
+2.450
+1.4214
+8.251
+1.3444
+0.400
+1.4419
+2.700
+1.4199
+8.840
+1.3308
+0.486
+1.4370
+2.800
+1.4192
+9.429
+1.3161
+0.588
+1.4339
+3.050
+1.4175
+0.656
+1.4325
+3.400
+1.4149
+Calcium fluoride (CaF2or fluorite) is grown by vacuum Stockbarger technique in diameters of up to about 250mm.
+Crystal for infrared use is often grown using naturally mined fluorite to reduce costs. It will not have the best transmission in the UV and VUV and can have absorption bands at 300nm due to impurities.
+For UV and VUV applications chemically prepared raw material is generally used. For Excimer applications, we use only the highest grade of specially selected material and crystal.
+REFERENCES:
+(1) Handbook Optical Constants, ed Palik, V2, ISBN 0-12-544422-2
+(2) Dressler et al., Cryst.Res.Technol. V27, p413, 1992
+(3) I.H.Malitson; J.Opt.Soc.Am. Vol52, p1377, 1962
+(4) Ballard et al; Rev. Sci. Instr., V21, p905, 1950 also OSA PUBLISHING
+(5) Batchelder & Simmons, J.Chem. Phys. V41, p2324 N8 1964
+(6) Schumann & Neumann, Crys. Res. Tech V19, 1984
+(7) Dickinson, IR laser windows, AFCRL-TR-0318, Air Force, Cambridge 1975
+< Back to Optical Materials
+Welcome to Crystran Ltd
+World Wide Optics Source
+Visit Our Online Shop
+Need something we aren’t listing? Get In Touch
+Get our monthly newsletter to your mailbox?
+Crystran Ltd
+Unit 1
+Broom Road Business Park
+Poole
+Dorset
+BH12 4PA
+Tel: +44 (0) 1202 307650
+Fax: +44 (0) 1202 307651
+Email: sales@crystran.co.uk
+Quick Links
+About us
+Knowledge Centre
+Contact Us
+Privacy Policy
+Terms and Conditions
+Employment
+Stock Items
+Windows
+Lenses
+Prisms & ATR
+Social media
+Follow
+Follow
+Follow
+Certificates
+ISO 9001 certified through LRQA and ISO 14001 certified through SGS
+Secret Link
+About Us
+News
+Knowledge Centre
+Contact Us
+My account
+Orders
+Edit Address
+Account Information
+ Back
+Stock Optics
+Windows
+Barium Fluoride
+Caesium Iodide
+Calcium Fluoride
+Crystal Quartz
+Fused Silica IR (Waterfree)
+Fused Silica UV
+Germanium
+Glass
+KRS5 Thallium Bromo-Iodide Windows
+Lithium Fluoride
+Magnesium Fluoride
+Potassium Bromide
+Potassium Chloride
+Sapphire
+Silicon
+Sodium Chloride
+Strontium Fluoride
+Zinc Selenide
+Zinc Sulphide FLIR
+Zinc Sulphide Multispectral (Clear)
+ Back
+Lenses
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Magnesium Fluoride
+Zinc Selenide
+ Back
+Prisms and ATRs
+Barium Fluoride
+Calcium Fluoride
+Fused Silica
+Germanium
+Glass
+KRS5
+Sapphire
+Silicon
+Zinc Selenide
+ Back
+ Back
+ × Close Panel 
+0

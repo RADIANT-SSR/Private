@@ -743,7 +743,7 @@ class TestEarthLosInterceptNegativePath:
         session, params = self._params(1_000.0)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            with pytest.raises(ParameterBoundsError, match="Phase 2"):
+            with pytest.raises(ParameterBoundsError, match="cannot serve an up-looking/level path"):
                 session.run(params)
 
     def test_sensor_above_space_target_runs(self) -> None:

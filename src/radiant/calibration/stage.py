@@ -166,7 +166,7 @@ def _validate_active_scheme(scheme: str, params: ParameterSet) -> None:
                 "calibration.scheme = 'three_point' needs three cal points, but "
                 f"calibration.{missing} is unset.\n"
                 "  Why: three-point NUC corrects piecewise gain and offset at "
-                "three cal-source temperatures (Gap 122 item 2).\n"
+                "three cal-source temperatures.\n"
                 "  Action: set cal_temp_low_K < cal_temp_mid_K < cal_temp_high_K, "
                 "or use scheme = 'two_point'."
             )
@@ -176,7 +176,7 @@ def _validate_active_scheme(scheme: str, params: ParameterSet) -> None:
                 f"low = {t_low} K, mid = {t_mid} K, high = {t_high} K.\n"
                 "  Why: the piecewise correction needs ordered, distinct "
                 "segments; coincident or unordered points are ill-conditioned "
-                "(plan §15).\n"
+                "and ill-conditioned.\n"
                 "  Action: order the cal temperatures (low < mid < high)."
             )
     if scheme == "two_point":
@@ -194,7 +194,7 @@ def _validate_active_scheme(scheme: str, params: ParameterSet) -> None:
                 f"calibration.cal_temp_high_K = {t_high} K must exceed "
                 f"cal_temp_low_K = {t_low} K.\n"
                 "  Why: two-point NUC is ill-conditioned as the cal points "
-                "converge (plan §15) and undefined when inverted.\n"
+                "converge and undefined when inverted.\n"
                 "  Action: separate the cal temperatures (high > low)."
             )
 
@@ -265,7 +265,7 @@ def _validate_flux_mode(scheme: str, params: ParameterSet) -> None:
         raise CalibrationValidationError(
             f"flux cal points must be strictly increasing, got {ordered}.\n"
             "  Why: coincident or unordered levels are ill-conditioned "
-            "(plan §15), same as the temperature form.\n"
+            "ill-conditioned, same as the temperature form.\n"
             "  Action: order the flux fractions (low < [mid <] high)."
         )
 
@@ -356,7 +356,7 @@ class CalibrationStage:
                 "flux-ratio door, delivered as Gap 122 item 5) — or set "
                 "calibration.scheme = 'none' to silence."
             )
-            warnings.warn(f"CU-346: {note}", UserWarning, stacklevel=2)
+            warnings.warn(f"{note}", UserWarning, stacklevel=2)
             state = state.with_stage_output("calibration", "reflective_scene_cal_note", note)
 
         ro = state.stage_outputs.get("readout", {})
@@ -592,7 +592,7 @@ class CalibrationStage:
                         "nearfield_e cannot be split without it.\n"
                         "  Action: define the optical train's elements "
                         "(near-field emission derives only from defined "
-                        "elements, Gap 127) or use cal_path = 'full_aperture'."
+                        "elements) or use cal_path = 'full_aperture'."
                     )
                 fore_names = tuple(e.name for e in elements[:n_fore])
                 fore_frac = fore_optics_fraction(

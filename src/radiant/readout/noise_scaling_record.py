@@ -50,7 +50,7 @@ CORRELATION_CLASSES: Final[dict[str, str]] = {
     "read_like": "injected once per read, so TDI and on-chip binning do not multiply it",
     "spatial": "a fixed pattern: the same systematic in every frame, so it adds coherently",
     "transfer_function": "no per-axis factor on the co-add axis — the correlation is "
-    "frequency-dependent and lives in the measurement's transfer function (CU-381)",
+    "frequency-dependent and lives in the measurement's transfer function",
     "post_conversion": "computed at the accumulated-charge level, where n_counts already "
     "carries TDI and on-chip binning — so only the post-conversion axes apply",
 }

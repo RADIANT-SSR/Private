@@ -168,8 +168,8 @@ def _resolve_spectral_or_scalar(
 # errors (Gap 128).
 _REMOVED_ENTRY_KEYS: dict[str, str] = {
     "diameter_m": (
-        "Per-element near-field geometry was deleted by Gap 128 "
-        "(étendue-conserving near-field, owner-ratified 2026-09-09): the "
+        "Per-element near-field geometry was deleted when the near-field "
+        "model became étendue-conserving: the "
         "Lagrange invariant fixes what the focal plane can see, so every "
         "in-beam element is viewed through the one acceptance cone the working "
         "f/# sets — an element cannot subtend more, however large or close it "
@@ -178,8 +178,8 @@ _REMOVED_ENTRY_KEYS: dict[str, str] = {
         "optics.cold_stop_undersize_frac)."
     ),
     "distance_to_fpa_m": (
-        "Per-element near-field geometry was deleted by Gap 128 "
-        "(étendue-conserving near-field, owner-ratified 2026-09-09): an element "
+        "Per-element near-field geometry was deleted when the near-field "
+        "model became étendue-conserving: an element "
         "close to the focal plane does not contribute more near-field than one "
         "further away — both are seen through the same acceptance cone. Delete "
         "the key; nothing replaces it."

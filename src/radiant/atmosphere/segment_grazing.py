@@ -240,7 +240,7 @@ def evaluate_grazing_segment(
             why=(
                 "This evaluator serves ascending arcs only: a lower-endpoint zenith "
                 "past π/2 points downward, which is a descending (limb-transit) "
-                "topology, declined for v1.x (ADR-0011 decision 5)."
+                "topology, which is declined rather than approximated."
             ),
             action=(
                 "Pass the zenith of the ray at its lower endpoint measured from the "

@@ -154,7 +154,7 @@ def compute_stray_light_irradiance(
                 "compute_stray_light_irradiance: spectral_file mode requires "
                 "preloaded_spectral to be provided — inject it pre-chain via "
                 "stage_outputs['optics_config']['stray_light_spectral'] "
-                "(Rule 6: file I/O happens outside the stage run)."
+                "(file I/O happens outside the stage run)."
             )
         from radiant.core.spectral import SpectralGrid
 

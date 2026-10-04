@@ -793,7 +793,7 @@ def _validate_psf_regime_consistency(
                 "pre-integrating over the target area.  When the target's "
                 "angular extent exceeds ~10% of the system PSF_FWHM the "
                 "target is resolved and the point-source form silently "
-                "drops spatial structure (Rule 17 forbids that)."
+                "drops spatial structure, which is not allowed."
             ),
             action=(
                 "Either (a) switch scene_type to 'sub_pixel' and supply A_t "
@@ -828,7 +828,7 @@ def _validate_psf_regime_consistency(
                 "~1% of PSF_FWHM the target is a point source: the chain "
                 "finalizes the regime as point_source and applies "
                 "point-source radiometry (EE_box), so the declared "
-                "'sub_pixel' and the applied physics disagree.  Rule 17 "
+                "'sub_pixel' and the applied physics disagree.  RADIANT "
                 "forbids resolving that disagreement silently."
             ),
             action=(
@@ -1162,7 +1162,7 @@ class OpticsStage:
                 "SpectralData curve injected pre-chain via "
                 "stage_outputs['optics_config']['stray_light_spectral'] — e.g. "
                 "Sensor.evaluate(extra_stage_outputs={'optics_config': "
-                "{'stray_light_spectral': curve}}) (Rule 6: stages do not read files)."
+                "{'stray_light_spectral': curve}}) — stages do not read files."
             )
         stray_config = StrayLightConfig(
             input_mode=StrayLightInputMode(stray_mode_str),

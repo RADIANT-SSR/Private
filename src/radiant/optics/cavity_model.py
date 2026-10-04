@@ -90,7 +90,7 @@ class CavityModel:
                 worst = float(total[np.argmax(np.abs(total - 1.0))])
                 raise KirchhoffViolationError(
                     f"CavityModel {label}: R + T = {worst:.6g} ≠ 1. "
-                    "Surfaces are lossless by model rule (Gap 127): coating "
+                    "Surfaces are lossless by model rule: coating "
                     "absorption is not modelled, so R + T must equal 1 per "
                     "surface (specify one and derive the other as its "
                     "complement). Bulk absorption belongs in alpha/thickness."

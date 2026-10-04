@@ -713,7 +713,7 @@ class Sensor:
             raise ApiValidationError(
                 "Sensor.set_optical_elements: the document holds configured element row(s) "
                 "('configured:'), which carry one entry per configuration of a configuration "
-                "set (Gap 103 v1.1). A Sensor holds one train. Attach the shared rows here and "
+                "set. A Sensor holds one train. Attach the shared rows here and "
                 "configure a row with ConfigurationSet.configure_element(index), or materialize "
                 "a configuration with cs.sensor_for(name), which attaches its resolved train."
             )

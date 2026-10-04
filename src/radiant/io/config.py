@@ -61,14 +61,14 @@ _SECTION_ADVICE: dict[str, str] = {
         "attach the element document), or remove the section for parameter-only loading."
     ),
     "configurations": (
-        "This config file is a configuration set (ADR-0010) — load it with "
+        "This config file is a configuration set — load it with "
         "ConfigurationSet.load(path), which restores the shared base and every "
         "configuration. Sensor.load() / Sensor.from_yaml() load single-configuration "
         "config files only; remove the section to load it as one."
     ),
     "fpa": (
         "Load the file with Sensor.load() / Sensor.from_yaml() (which apply the named "
-        "FPA preset, Gap 119), or remove the key for parameter-only loading."
+        "FPA preset), or remove the key for parameter-only loading."
     ),
 }
 

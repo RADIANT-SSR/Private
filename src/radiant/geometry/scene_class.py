@@ -213,7 +213,7 @@ def check_scene_class_assertion(
             what=f"geometry.scene_class = {asserted!r} is not a scene class",
             why=(
                 "The optional scene-class assertion must name one of the nine "
-                "observer-to-target classes of the ADR-0011 taxonomy."
+                "observer-to-target classes of the scene-class taxonomy."
             ),
             action=f"Use one of: {', '.join(SCENE_CLASSES)} (or leave it unset).",
             context={"asserted": asserted, "valid": SCENE_CLASSES},

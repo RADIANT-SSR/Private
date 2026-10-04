@@ -146,7 +146,7 @@ class AtmosphereStage:
                 raise AtmosphereValidationError(
                     f"AtmosphereStage: model='{model_name}' (with the current "
                     "parameters) requires file I/O and must be constructed "
-                    "before chain execution (Rule 6). "
+                    "before chain execution. "
                     "Run the chain via RadiantSession/Sensor (which injects "
                     "stage_outputs['atmosphere_config']['model']), or build "
                     "the model with "

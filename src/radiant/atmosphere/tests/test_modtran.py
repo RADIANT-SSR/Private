@@ -272,7 +272,7 @@ class TestUnitConversion:
         tape7.write_text("\n".join(lines), encoding="utf-8")
 
         reader = Tape7Reader(tape7)
-        with pytest.warns(UserWarning, match="CU-066"):
+        with pytest.warns(UserWarning, match="no 'FREQ' column-header line found"):
             wl, trans, lp, _ = reader.to_radiant_units()
 
         # Ascending wavelength: [4.0, 5.0] um
@@ -297,7 +297,7 @@ class TestUnitConversion:
         tape7.write_text("\n".join(lines), encoding="utf-8")
 
         reader = Tape7Reader(tape7)
-        with pytest.warns(UserWarning, match="CU-066"):
+        with pytest.warns(UserWarning, match="no 'FREQ' column-header line found"):
             wl, trans, _, _ = reader.to_radiant_units()
 
         # Sorted to ascending wavelength: lam=3.33 (nu=3000), lam=5.0 (nu=2000)
@@ -309,7 +309,7 @@ class TestUnitConversion:
         """Output wavelength array must be strictly ascending."""
         _write_synthetic_tape7(tmp_path / "tape7")
         reader = Tape7Reader(tmp_path / "tape7")
-        with pytest.warns(UserWarning, match="CU-066"):
+        with pytest.warns(UserWarning, match="no 'FREQ' column-header line found"):
             wl, _, _, _ = reader.to_radiant_units()
 
         assert np.all(np.diff(wl) > 0), "Wavelength must be ascending"
@@ -327,7 +327,7 @@ class TestTape7Reader:
     def test_parse_synthetic(self, tmp_path: Path) -> None:
         nu = _write_synthetic_tape7(tmp_path / "tape7")
         reader = Tape7Reader(tmp_path / "tape7")
-        with pytest.warns(UserWarning, match="CU-066"):
+        with pytest.warns(UserWarning, match="no 'FREQ' column-header line found"):
             native = reader.parse()
 
         assert native.wavenumber_cm1.shape[0] == len(nu)

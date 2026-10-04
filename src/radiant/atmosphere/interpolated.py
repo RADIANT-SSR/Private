@@ -464,7 +464,7 @@ class InterpolatedAtmosphere:
                     f"varies across the sample points "
                     f"([{min(recorded):.6g}, {max(recorded):.6g}]) but is not an "
                     "interpolation axis — the samples differ in a dimension the "
-                    "interpolator would silently ignore (CU-167). Add the field "
+                    "interpolator would silently ignore. Add the field "
                     "to the interpolation axes, or fix the sample set."
                 )
             self._non_axis_recorded[field] = recorded[0]
@@ -650,7 +650,7 @@ class InterpolatedAtmosphere:
                         f"InterpolatedAtmosphere: query {field} = {query_val:.6g} "
                         f"is IGNORED — '{field}' is not an interpolation axis "
                         f"(axes={self._axes}), so the result carries the sample "
-                        f"runs' {origin} value {reference:.6g} instead (CU-167). "
+                        f"runs' {origin} value {reference:.6g} instead. "
                         "Add runs covering this dimension and include "
                         f"'{field}' in atmosphere.interpolation_axes, or accept "
                         "the stored geometry's physics."
@@ -1231,7 +1231,7 @@ class InterpolatedAtmosphere:
                     "The grid holds the full (h_tgt = 0) column, and one column "
                     "cannot supply both the target→sensor leg (tau_up) and the "
                     "ground→sensor full column (tau_full_up) the background "
-                    "branch needs (Gap 94)."
+                    "branch needs."
                 ),
                 action=(
                     "Point atmosphere.interpolated_data_dir at a grid with a "

@@ -142,7 +142,7 @@ def observer_leg_from_los(los: LineOfSightGeometry) -> ObserverLeg:
                 "The observer leg is the segment between the two endpoints; without "
                 "the sensor endpoint there is no segment.  Reading "
                 "geometry.sensor_altitude_m from the ParameterSet instead is what "
-                "guardrail G2 (plan §3.5) deletes — two live sources for one "
+                "the segment decomposition removes — two live sources for one "
                 "quantity."
             ),
             action=(
@@ -164,7 +164,7 @@ def observer_leg_from_los(los: LineOfSightGeometry) -> ObserverLeg:
             ),
             why=(
                 "Down-looking scenes keep their existing, un-rerouted backend column "
-                "so that every golden baseline stays byte-identical (plan §3 "
+                "so that every golden baseline stays byte-identical ("
                 "principle 3).  The segment decomposition is additive and reachable "
                 "only from the newly-legal up-looking / level topologies."
             ),

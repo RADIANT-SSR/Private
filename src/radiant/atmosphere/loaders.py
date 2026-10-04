@@ -257,7 +257,7 @@ def _build_modtran(params: ParameterSet) -> object:
             "but atmosphere.modtran.tape7_path is not. The sun-leg file only "
             "supplements a tape7 file import — set tape7_path (the "
             "target→sensor up-leg file) too, or unset tape7_sun_path. The "
-            "binary-invocation flavor has no two-leg support yet (CU-011)."
+            "binary-invocation flavor has no two-leg support yet."
         )
     if tape7_up_path and not tape7_path:
         raise AtmosphereValidationError(
@@ -265,7 +265,7 @@ def _build_modtran(params: ParameterSet) -> object:
             "but atmosphere.modtran.tape7_path is not. The up-leg file only "
             "supplements a tape7 file import — set tape7_path (the "
             "ground→sensor full-column file the background branch needs) "
-            "too, or unset tape7_up_path (Gap 94)."
+            "too, or unset tape7_up_path."
         )
     if flux_path and not tape7_path:
         raise AtmosphereValidationError(
@@ -273,7 +273,7 @@ def _build_modtran(params: ParameterSet) -> object:
             "but atmosphere.modtran.tape7_path is not. The flux file only "
             "supplements a tape7 file import — it supplies the downwelling "
             "sky irradiance the tape7 lacks. Set tape7_path too, or unset "
-            "flux_path (CU-157; Gap 81)."
+            "flux_path."
         )
 
     tape7_import = None
@@ -313,7 +313,7 @@ def _build_modtran(params: ParameterSet) -> object:
                     f"atmosphere.modtran.tape7_up_path: file not found: "
                     f"{tape7_up_path}. Check the path, or unset the parameter "
                     "(airborne targets are then rejected on the file-import "
-                    "path — Gap 94)."
+                    "path)."
                 )
             tape7_up_import = Tape7Import.from_file(tape7_up_path)
             logger.info(
@@ -327,7 +327,7 @@ def _build_modtran(params: ParameterSet) -> object:
                     f"atmosphere.modtran.flux_path: file not found: "
                     f"{flux_path}. Check the path, or unset the parameter "
                     "(the tape7 import then carries zero downwelling — "
-                    "Gap 81)."
+                    "the tape7 lacks)."
                 )
             flux_import = FluxImport.from_file(flux_path)
             logger.info(

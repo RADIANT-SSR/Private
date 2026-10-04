@@ -343,16 +343,16 @@ def evaluate_uplooking_topology(
             why=(
                 "The direction-aware path-segment products (up-path column, "
                 "constant-altitude arm, sky radiance along the LOS) are built on the "
-                "CU-161-calibrated simple-model species machinery.  What IS supported "
+                "calibrated simple-model species machinery.  What IS supported "
                 "up-looking today: (a) atmosphere.model='simple' for any endo path, "
                 "(b) atmosphere.model='interpolated' pointed at an UP-looking run "
                 "family (shipped: midlat_summer_uplooking_ladder, "
                 "interpolation_axes='target_altitude_m') — its MODTRAN column serves "
                 "the observer leg and its simple companion the illumination and sky "
-                "legs (CU-226), and (c) any backend for a wholly-vacuum path with "
+                "legs, and (c) any backend for a wholly-vacuum path with "
                 "both endpoints at or above h_atm_top (the LEO→GEO case).  MODTRAN "
                 "tape7-import still needs its own up-looking / ITYPE=1 deck geometry, "
-                "which is an owner-run batch (plan §4 Phase 2, GF-10)."
+                "which is an owner-run batch."
             ),
             action=(
                 "Set atmosphere.model='simple' for this scene, point "
@@ -395,7 +395,7 @@ def evaluate_uplooking_topology(
         warnings.warn(
             (
                 "AtmosphereStage: this up-looking scene is served by TWO atmosphere "
-                f"models (CU-226). The observer leg ({los.h_sensor:.0f} m -> "
+                f"models. The observer leg ({los.h_sensor:.0f} m -> "
                 f"{los.h_tgt:.0f} m MSL) comes from the interpolated up-looking run "
                 "family; the target's illumination (solar column and sky hemisphere "
                 "above the target) and the sky radiance along the LOS continuation "
@@ -596,7 +596,7 @@ def _library_observer_segment(
                 "upward from one lower endpoint.  A level arm has zero vertical "
                 "extent and a local zenith of pi/2 everywhere along it, so no rung "
                 "of the ladder is that path and no interpolation between rungs "
-                "produces it (Rule 17 — this is a refusal, not an approximation)."
+                "produces it — this is a refusal, not an approximation."
             ),
             action=(
                 "Set atmosphere.model='simple' for a level path — its level-arm "
@@ -681,7 +681,7 @@ def _validate_library_segment(tau: np.ndarray, radiance: np.ndarray, lam: np.nda
     if rad_min < -_LIBRARY_TOLERANCE:
         raise ParameterBoundsError(
             what=f"uplooking run family L_toward_lower has negative values (min={rad_min:g})",
-            why="Emergent spectral radiance must be >= 0; Rule 17 forbids silent clipping.",
+            why="Emergent spectral radiance must be >= 0; it is never silently clipped.",
             action="Inspect the run family NPZ path_radiance_toward_lower arrays.",
             context={"min": rad_min},
         )
@@ -749,7 +749,7 @@ def _refuse_library_backed_exo_target(
             "at the top of the modelled column has never been validated against a "
             f"run: this family's own measured target ceiling is {measured}, BELOW "
             "h_atm_top, so it stops inside the atmosphere and real, unmeasured air "
-            "lies between its top rung and the target (CU-224, ex-CU-308). A family "
+            "lies between its top rung and the target. A family "
             "that DOES reach h_atm_top is a different case — it measured the entire "
             "column, the rest of the path is vacuum, and the composed answer is "
             "identically its own top-of-column run, so that case is served. "
@@ -985,8 +985,8 @@ def _sky_radiance_at_aperture(
                 f"({termination.detail})"
             ),
             why=(
-                "Earthlimb backgrounds (matrix B4) are declined for v1.x — ADR-0011 "
-                "decision 5 guards them rather than approximating them."
+                "Earthlimb backgrounds (matrix B4) are declined — the limb "
+                "termination is guarded rather than approximated."
             ),
             action="Tilt the geometry so the continuation does not graze the limb.",
             context={

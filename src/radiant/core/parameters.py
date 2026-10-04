@@ -52,8 +52,8 @@ class UnknownParameterError(RadiantError, KeyError):
 #: cycle; every entry names the tracking item that removed it.
 REMOVED_PARAMETERS: dict[str, str] = {
     "optics.nearfield_fraction": (
-        "It was removed by Gap 128 (étendue-conserving near-field, owner-ratified "
-        "2026-09-09). A cold stop cannot attenuate in-cone warm-optics emission — "
+        "It was removed when the near-field model became étendue-conserving. "
+        "A cold stop cannot attenuate in-cone warm-optics emission — "
         "that light arrives through the imaging path itself — so scaling the "
         "near-field by a leaked-hemisphere fraction was unphysical. Out-of-cone "
         "structure is now always fully blocked. To model a cold stop, set "
@@ -62,24 +62,24 @@ REMOVED_PARAMETERS: dict[str, str] = {
         "secondary, 'optics.cold_stop_obscuration_ratio'."
     ),
     "optics.cold_stop_efficiency": (
-        "It was the deprecated alias of 'optics.nearfield_fraction', which Gap 128 "
-        "removed (étendue-conserving near-field, owner-ratified 2026-09-09). Use "
+        "It was the deprecated alias of 'optics.nearfield_fraction', which was "
+        "removed when the near-field model became étendue-conserving. Use "
         "'optics.cold_stop_undersize_frac' to state how far the cold stop is "
         "undersized relative to the primary; the near-field then scales with the "
         "acceptance cone, together with the signal."
     ),
     "optics.optics_distance_to_fpa_m": (
-        "It was removed by Gap 128 (étendue-conserving near-field, owner-ratified "
-        "2026-09-09). It existed only to give synthesized elements a "
+        "It was removed when the near-field model became étendue-conserving. "
+        "It existed only to give synthesized elements a "
         "'distance_to_fpa_m', and per-element near-field geometry no longer "
         "exists: every in-beam element is seen through the acceptance cone "
         "Ω_cone set by the working f/#. Delete the key — nothing replaces it."
     ),
     "optics.optics_temperature_K": (
-        "It was removed 2026-09-10 (owner ruling) as inert after Gaps 127/128. Its "
+        "It was removed 2026-09-10 as inert. Its "
         "only consumers were the synthesized lumped elements of the scalar, "
-        "spectral-file, telescope+filters and key-elements modes, and Gap 127 made "
-        "every one of those non-emitting (a lump is bookkeeping, not a surface: its "
+        "spectral-file, telescope+filters and key-elements modes, and every one "
+        "of those is non-emitting (a lump is bookkeeping, not a surface: its "
         "Kirchhoff emissivity is identically 0), so the temperature multiplied zero "
         "and the scene evaluated identically at any value. Per-element temperature "
         "is the only optics temperature there is: give each row in the "
@@ -321,7 +321,7 @@ class Tolerance:
                     f"Tolerance('{self.distribution}'): missing required "
                     f"parameter {opts}. A '{self.distribution}' tolerance with "
                     f"params={self.params} would silently sample zero spread "
-                    "(CU-085). Provide the distribution parameters explicitly."
+                    ". Provide the distribution parameters explicitly."
                 )
 
     def sample(self, nominal: float, rng: Any) -> float:

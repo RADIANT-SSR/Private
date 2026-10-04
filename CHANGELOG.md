@@ -92,6 +92,19 @@ retroactively reconstructed.
   (Gap 136).
 
 ### Fixed
+- **Tracking vocabulary no longer reaches operator-facing messages anywhere in the
+  library.** Warnings and actionable errors cited cleanup units, gaps, ADRs,
+  architectural rule numbers and plan sections — text that talks to the project's
+  tracking system rather than to the person using the tool, and that the manuals quote
+  verbatim. 92 such strings across 40 modules are rewritten to say the same thing in
+  the reader's terms; the reasoning stays in docstrings and comments, which the check
+  deliberately exempts. The existing check covered six hand-listed modules, so the rest
+  of the library was never held to the rule; it now selects modules by existence and
+  narrows instead on *which* strings it reads — in a library module, only those handed
+  to a warning or an exception. **"Rule 07" and "Rule 22" are deliberately preserved**:
+  they are Tennant's empirical HgCdTe dark-current laws, literature model names an
+  operator needs, and they are exempt in the two modules that implement them and
+  nowhere else.
 - **Results-affecting: the last four shipped scenarios that modelled their
   optical train as a scalar transmittance now declare warm trains** (CU-380,
   now closed). A scalar lump has no Kirchhoff emissivity, so these scenarios'

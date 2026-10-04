@@ -333,7 +333,7 @@ class TestRangeConsistency:
             )
 
     def test_range_only_mismatch_warns_not_raises(self) -> None:
-        with pytest.warns(UserWarning, match="CU-093"):
+        with pytest.warns(UserWarning, match="regime classification and detection range"):
             out = run_stage(make_params(geometry__target_range_m=100_000.0)).stage_outputs[
                 "geometry"
             ]

@@ -149,7 +149,7 @@ class ColumnSegmentSpec:
                     f"h_low_m = {self.h_low_m} m"
                 ),
                 why=(
-                    "A column segment is keyed to its LOWER endpoint (ADR-0011 "
+                    "A column segment is keyed to its LOWER endpoint ("
                     "decision 3); the endpoints must be ordered so that "
                     "'lower' and 'upper' mean what they say.  Direction is "
                     "carried by which radiance field you read "
@@ -185,9 +185,9 @@ class ColumnSegmentSpec:
                     "airmass, which loses physical meaning as the path approaches "
                     "the horizontal.  In the sliver just past the ceiling "
                     f"({math.degrees(ZENITH_CEILING_RAD):.1f}°–90°) the geometry "
-                    "layer only warns (the Phase 1 endpoint-minimum horizon band), "
+                    "layer only warns (the endpoint-minimum horizon band), "
                     "but the atmosphere has no trustworthy column there and "
-                    "refuses rather than returning a wrong number (Rule 17)."
+                    "refuses rather than returning a wrong number."
                 ),
                 action=(
                     "For a near-horizontal or level path use LevelArmSpec — it "
@@ -382,7 +382,7 @@ class SegmentQuantities:
                 why=(
                     "Segment transmittance is a probability of transmission.  "
                     "Values outside [0, 1] mean the optical depth went negative "
-                    "— a backend bug, not a clamp target (Rule 17)."
+                    "— a backend bug, not a clamp target."
                 ),
                 action="Inspect the segment evaluator that produced this array.",
                 context={"min": lo, "max": hi},
@@ -397,7 +397,7 @@ class SegmentQuantities:
                 what=f"SegmentQuantities.{name} has negative values (min={lo:g})",
                 why=(
                     "Emergent spectral radiance must be ≥ 0.  A negative value "
-                    "is a physics bug; Rule 17 forbids silent clipping."
+                    "is a physics bug; it is never silently clipped."
                 ),
                 action=(
                     "Fix the evaluator; if the negativity is floating-point "
@@ -477,7 +477,7 @@ def _require_finite(name: str, value: float) -> None:
             what=f"{name} = {value} is not finite",
             why=(
                 "NaN or infinity in a segment specification propagates silently "
-                "through every downstream radiometric product (Rule 17)."
+                "through every downstream radiometric product."
             ),
             action=f"Supply a finite value for {name}.",
             context={"field": name, "value": value},

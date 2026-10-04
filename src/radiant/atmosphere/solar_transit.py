@@ -165,7 +165,7 @@ def twilight_solar_transmittance(
             why=(
                 "A shadowed target has no direct beam, so there is no transmittance to "
                 "compute; returning some small number would imply an illumination that "
-                "does not exist (Rule 17)."
+                "does not exist."
             ),
             action=(
                 "Test solar_shadow.sunlit() first and drop the direct-solar term "

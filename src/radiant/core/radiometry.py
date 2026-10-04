@@ -118,7 +118,7 @@ class RadiometricFrame:
         if any_spectral and has_scalar:
             raise CoreValidationError(
                 f"RadiometricFrame '{self.name}': cannot hold both spectral "
-                "arrays and an in_band_value. Per CLAUDE.md Rule 8, spectral "
+                "arrays and an in_band_value. Spectral "
                 "integration happens exactly once — a frame is either pre- "
                 "or post-integration, never both."
             )
@@ -229,7 +229,7 @@ class BiasTerm:
             raise CoreValidationError(
                 f"BiasTerm '{self.name}': value_frac = {self.value_frac} is "
                 "negative. Bias terms are 1-sigma uncertainty magnitudes; "
-                "direction is not modeled (v1, plan §3.4)."
+                "direction is not modeled."
             )
         if not self.origin:
             raise CoreValidationError(

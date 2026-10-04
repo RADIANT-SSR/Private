@@ -131,7 +131,7 @@ def configured_rows_need_a_configuration_set(path: str | Path | None) -> ConfigE
     """
     return ConfigError(
         f"'{_WHERE}' has configured row(s) ('{CONFIGURED_KEY}:'), which carry one entry per "
-        "configuration of a configuration set (ADR-0010 / Gap 103 v1.1). This config file is a "
+        "configuration of a configuration set. This config file is a "
         "study — load it with ConfigurationSet.load(path), which reads the shared body, the "
         f"'{_WHERE}' skeleton, and the 'configurations:' section together. Sensor.load() / "
         "Sensor.from_yaml() / Sensor.from_dict() load single-configuration config files only.",
@@ -306,7 +306,7 @@ def _parse_configured_row(
         raise ConfigError(
             f"{where}: '{CONFIGURED_KEY}' must hold exactly one entry per configuration "
             f"{expected} — {'; '.join(detail)}. A configured element row is dense, like a "
-            "configured parameter (ADR-0010 D-A): a missing configuration is never defaulted "
+            "configured parameter: a missing configuration is never defaulted "
             "and an unknown key is never dropped. Give every configuration its entry, or "
             "remove the row's configured form.",
             path=path,

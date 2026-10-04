@@ -208,6 +208,6 @@ class TestRemovedParametersFailLoudly:
     def test_removed_parameter_message(self, name: str) -> None:
         session = RadiantSession(wavelength_um=np.linspace(FILTER_MIN, FILTER_MAX, 50))
         params = session.default_params()
-        with pytest.raises(Exception, match="Gap 128") as exc:
+        with pytest.raises(Exception, match="near-field model became étendue-conserving") as exc:
             params.set(name, 0.1)
         assert "no longer exists" in str(exc.value)

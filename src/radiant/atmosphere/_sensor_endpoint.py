@@ -55,12 +55,12 @@ def require_sensor_altitude_m(los: LineOfSightGeometry, where: str) -> float:
                 f"theta_o = {los.theta_o} rad"
             ),
             why=(
-                "Since ADR-0011 (Geometry-Flexibility Phase 1) the sensor "
+                "The sensor "
                 "altitude travels on the LOS contract, and it is the single "
-                "source of truth for every atmosphere backend (plan §3.5 "
+                "source of truth for every atmosphere backend ("
                 "guardrail G2).  Falling back to "
                 "params['geometry.sensor_altitude_m'] here would restore the "
-                "two-live-sources failure mode ADR-0006 removed, and a "
+                "two-live-sources failure mode, and a "
                 "disagreement between the two would be silent."
             ),
             action=(

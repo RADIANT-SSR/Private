@@ -171,12 +171,12 @@ def validate_no_atmosphere_subcase(
                     "the sensor → target LOS (matrix §7; v1 has no "
                     "earthlimb model).  The check requires the sensor "
                     "altitude; silently defaulting it to 0 (ground) would "
-                    "produce a non-physical result (Rule 17)."
+                    "produce a non-physical result."
                 ),
                 action=(
                     "Set geometry.sensor_altitude_m to the sensor altitude "
                     "above MSL in meters (e.g. 800_000 for 800 km LEO). "
-                    "(platform.h_sensor is a deprecated alias — CU-090.)"
+                    "(platform.h_sensor is a deprecated alias.)"
                 ),
                 context={
                     "h_sensor": h_sensor,
@@ -346,7 +346,7 @@ def _grid_match(lam: np.ndarray, atm: AtmosphericQuantities) -> None:
             ),
             why=(
                 "Assembly is grid-aligned arithmetic; resampling is the "
-                "caller's responsibility (Rule 2 — conversions at "
+                "caller's responsibility — conversions happen at "
                 "boundaries only)."
             ),
             action=(
@@ -664,7 +664,7 @@ def assemble_target_at_aperture(
     raise ParameterBoundsError(
         what=f"assembly: unsupported TargetDescriptor variant {type(target).__name__}",
         why="Stage 3 of Option C only knows T1/T2/T3/T5/T6/T7.",
-        action="Extend assembly with the new variant (update ADR-0002 first).",
+        action="Extend assembly with the new variant.",
         context={"variant": type(target).__name__},
     )
 
@@ -1185,7 +1185,7 @@ def assemble_background_source_emission(
             f"{type(background).__name__} in source-emission extraction"
         ),
         why="Stage 3 of Option C only knows AtAperture/ColdSpace/Ground/UserSpectral.",
-        action="Extend assembly with the new variant (update ADR-0002 first).",
+        action="Extend assembly with the new variant.",
         context={"variant": type(background).__name__},
     )
 
@@ -1294,7 +1294,7 @@ def assemble_background_at_aperture(
     raise ParameterBoundsError(
         what=(f"assembly: unsupported BackgroundDescriptor variant {type(background).__name__}"),
         why="Stage 3 of Option C only knows AtAperture/ColdSpace/Ground/UserSpectral.",
-        action="Extend assembly with the new variant (update ADR-0002 first).",
+        action="Extend assembly with the new variant.",
         context={"variant": type(background).__name__},
     )
 
@@ -1350,7 +1350,7 @@ def _validated_sky_radiance(
                 "SkyBackground carries no user parameters by design — the radiance is "
                 "derived from the scene by AtmosphereStage's up-looking/level topology "
                 "dispatch and passed in here.  Defaulting it to zero would silently "
-                "delete the background photon term and inflate SNR (Rule 17)."
+                "delete the background photon term and inflate SNR."
             ),
             action=(
                 "Call assemble_background_at_aperture(..., sky_radiance_at_aperture=...) "
@@ -1367,7 +1367,7 @@ def _validated_sky_radiance(
                 f"assembly: sky_radiance_at_aperture shape {vals.shape} does not match the "
                 f"atmosphere wavelength grid {atm.wavelength_um.shape}"
             ),
-            why="Assembly is grid-aligned arithmetic (Rule 2 — conversions at boundaries).",
+            why="Assembly is grid-aligned arithmetic — conversions happen at boundaries.",
             action="Evaluate the sky radiance on the chain wavelength grid.",
             context={"sky_shape": vals.shape, "atm_shape": atm.wavelength_um.shape},
         )

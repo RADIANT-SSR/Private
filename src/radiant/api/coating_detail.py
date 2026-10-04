@@ -84,7 +84,7 @@ def plot_coating_detail(
     if not document:
         raise ApiValidationError(
             "No optical element document is attached to this sensor — "
-            "coating detail reads the declarative ADR-0009 document. Attach "
+            "coating detail reads the declarative element document. Attach "
             "one with Sensor.set_optical_elements(...) (or the GUI Elements "
             "tab) first."
         )

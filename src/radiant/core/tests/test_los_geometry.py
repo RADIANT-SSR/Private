@@ -535,7 +535,7 @@ def test_up_looking_slant_range_atm_raises() -> None:
     los = LineOfSightGeometry(
         h_tgt=10_000.0, theta_o=math.radians(175.0), h_sensor=0.0, h_atm_top=1.0e5
     )
-    with pytest.raises(ParameterBoundsError, match="Phase 2"):
+    with pytest.raises(ParameterBoundsError, match="not modelled for this line-of-sight direction"):
         _ = los.slant_range_atm
 
 
@@ -544,7 +544,7 @@ def test_up_looking_airmass_raises() -> None:
     los = LineOfSightGeometry(
         h_tgt=10_000.0, theta_o=math.radians(175.0), h_sensor=0.0, h_atm_top=1.0e5
     )
-    with pytest.raises(ParameterBoundsError, match="Phase 2"):
+    with pytest.raises(ParameterBoundsError, match="not modelled for this line-of-sight direction"):
         _ = los.path_airmass_up
 
 

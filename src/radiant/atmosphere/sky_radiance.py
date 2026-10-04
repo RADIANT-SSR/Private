@@ -185,7 +185,7 @@ def warn_if_scattered_sky_provisional(
         "sky, where multiple scattering dominates. The thermal component "
         "(MWIR/LWIR) is MODTRAN-anchored and is not affected. Use a MODTRAN or "
         "interpolated backend for quantitative VIS/NIR sky-background work "
-        "(Geometry Flexibility plan §8.3 answer 3).",
+        "for reflective VIS/NIR sky-background work.",
         UserWarning,
         stacklevel=3,
     )

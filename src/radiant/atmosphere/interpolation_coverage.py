@@ -533,7 +533,7 @@ def check_interpolation_coverage(params: ParameterSet) -> None:
                 "A grid without a target-altitude axis holds only the full "
                 "(target at 0 m) column, and one column cannot supply both the "
                 "target→sensor leg (tau_up) and the ground→sensor full column "
-                "(tau_full_up) the background branch needs (Gap 94)."
+                "(tau_full_up) the background branch needs."
             ),
             action=remedy,
             context={

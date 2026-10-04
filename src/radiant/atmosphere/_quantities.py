@@ -220,7 +220,7 @@ class AtmosphericQuantities:
                 why=(
                     "Spectral irradiance / radiance must be ≥ 0.  Negative "
                     "values from a backend are a physics bug, not a clamp "
-                    "target — Rule 17 forbids silent clipping."
+                    "target; it is never silently clipped."
                 ),
                 action=(
                     "Fix the backend that produced this field; if the "

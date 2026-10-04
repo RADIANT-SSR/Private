@@ -522,7 +522,7 @@ def check_intensity_door_extent_conflicts(params: ParameterSet) -> None:
             "resolved object on the sky.  Supplying both over-specifies the "
             "target: RADIANT would have two inconsistent statements of how "
             "big it is, and the intensity path can only honour one of them "
-            "(it publishes a fictitious reference area so the ADR-0004 "
+            "(it publishes a fictitious reference area so the point-source "
             "algebra cancels, which would silently discard the declared "
             "extent and disarm the matrix §7 point-source validity check)."
         ),

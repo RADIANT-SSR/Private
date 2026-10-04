@@ -284,7 +284,7 @@ def path_fried_parameter_from_los(
                 "The turbulence path is the segment between the two endpoints; "
                 "without the sensor endpoint there is no segment.  Reading "
                 "geometry.sensor_altitude_m from the ParameterSet instead is what "
-                "guardrail G2 (plan §3.5) deletes."
+                "the segment decomposition removes."
             ),
             action=(
                 "Run the chain through GeometryStage, or pass h_sensor explicitly on "
@@ -322,7 +322,7 @@ def path_fried_parameter_from_los(
                 "The path integral converts vertical thickness to path length with "
                 "sec(ζ), which diverges at the horizon and stops describing a real "
                 "path well before it.  Returning a plausible-looking number there "
-                "would be a silent physics failure (Rule 17)."
+                "would be a silent physics failure."
             ),
             action=(
                 "Move the line of sight away from the horizon, or express a "
@@ -523,7 +523,7 @@ def _converged_integral(
             "test means the Cn² profile has structure finer than the grid can "
             "resolve (e.g. a table with near-duplicate altitudes, or a "
             "many-decade jump between adjacent samples).  Returning the "
-            "unconverged number would be a silent accuracy failure (Rule 17)."
+            "unconverged number would be a silent accuracy failure."
         ),
         action=(
             "Smooth or re-sample the Cn² profile so adjacent samples differ by less "

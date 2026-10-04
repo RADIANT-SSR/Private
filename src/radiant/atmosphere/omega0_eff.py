@@ -72,7 +72,7 @@ def omega0_eff(wavelength_um: np.ndarray, aerosol_type: str) -> np.ndarray:
         raise AtmosphereValidationError(
             f"omega0_eff: unknown aerosol_type '{aerosol_type}'. The "
             f"MODTRAN-derived ω₀_eff table covers {sorted(OMEGA0_EFF_TABLE)} "
-            "(Gap 38). Set atmosphere.aerosol_type to one of these."
+            ". Set atmosphere.aerosol_type to one of these."
         )
     vis, nir, swir = OMEGA0_EFF_TABLE[aerosol_type]
     lam = np.asarray(wavelength_um, dtype=np.float64)

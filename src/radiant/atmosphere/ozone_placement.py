@@ -169,7 +169,7 @@ def ozone_continuum_regions(regions: Sequence[_Region]) -> tuple[_Region, ...]:
                 "floor over its clean-window neighbour's, so both rows must exist."
             ),
             action=(
-                "Restore the CU-330 partition at 9.40/9.90 µm, or update "
+                "Restore the partition at 9.40/9.90 µm, or update "
                 "OZONE_BAND_UM to the region a re-partition actually created."
             ),
             context={"band_um": OZONE_BAND_UM, "n_regions": len(regions)},

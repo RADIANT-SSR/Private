@@ -149,7 +149,7 @@ class LineOfSightGeometry:
                 why="Target altitude must be non-negative (above MSL).",
                 action=(
                     "Set h_tgt ≥ 0 m. Values at or above h_atm_top are legal — "
-                    "the target→sensor leg is then treated as vacuum (Gap 95)."
+                    "the target→sensor leg is then treated as vacuum."
                 ),
                 context={"h_tgt": self.h_tgt, "h_atm_top": self.h_atm_top},
             )
@@ -165,7 +165,7 @@ class LineOfSightGeometry:
                     "above) through π/2 (sensor on the target's horizon plane) to "
                     "π (sensor straight below — vertical up-looking).  Nothing "
                     "outside [0, π] is a zenith angle.  The domain is closed at π "
-                    "since ADR-0011; near-horizontal paths are handled by the "
+                    "here; near-horizontal paths are handled by the "
                     "horizon guard, not by the domain check."
                 ),
                 action="Wrap theta_o into [0, π] radians (0–180°).",
@@ -232,8 +232,8 @@ class LineOfSightGeometry:
                 ),
                 why=(
                     "Within a half-degree of the horizontal, atmospheric refraction "
-                    "dominates the path geometry and v1.x has no refraction model, so "
-                    "any number returned here would be quietly wrong (ADR-0011 "
+                    "dominates the path geometry and RADIANT has no refraction model, so "
+                    "any number returned here would be quietly wrong (the "
                     "decision 6).  The airmass column also loses meaning there."
                 ),
                 action=(
@@ -250,10 +250,10 @@ class LineOfSightGeometry:
                 f"LineOfSightGeometry.theta_o = {math.degrees(self.theta_o):.4f}° is "
                 f"{math.degrees(band_rad):.4f}° from the geometric horizontal. "
                 "Computing anyway, but "
-                "atmospheric refraction is NOT modelled in v1.x and is the dominant "
+                "atmospheric refraction is NOT modelled and is the dominant "
                 f"geometric error in this band (hard guard at "
                 f"±{math.degrees(GUARD_HARD_RAD):g}°; "
-                "thresholds provisional pending Phase 2 MODTRAN calibration).",
+                "thresholds provisional pending MODTRAN calibration).",
                 UserWarning,
                 stacklevel=4,
             )
@@ -319,14 +319,14 @@ class LineOfSightGeometry:
                     "For an up-looking path the sensor is below the target, so the "
                     "column above the target is not the target→sensor leg.  The "
                     "direction-aware path-segment products (up-path radiance, "
-                    "horizontal arm, sky background) arrive in Phase 2 of the "
-                    "Geometry Flexibility plan (Gaps 108/109); returning the "
+                    "horizontal arm, sky background) are not modelled for this "
+                    "line-of-sight direction; returning the "
                     "down-looking column here would be silently wrong."
                 ),
                 action=(
                     "Use a down-looking geometry (theta_o < π/2), or an exo-altitude "
                     "target (h_tgt >= h_atm_top) where the leg is vacuum, until the "
-                    "Phase 2 up-looking column lands."
+                    "up-looking column lands."
                 ),
                 context={
                     "theta_o": self.theta_o,

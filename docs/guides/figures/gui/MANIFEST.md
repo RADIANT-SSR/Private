@@ -16,8 +16,8 @@ python scripts/gen_gui_screenshots.py --all
 ```
 
 - Generator: `scripts/gen_gui_screenshots.py`
-- Commit: `2fc7e16f`
-- Generated: 2026-09-25
+- Commit: `f3cca262`
+- Generated: 2026-10-04
 - Figures: 50
 
 | Figure | Capture | Input config | Workspace | Target | Window |

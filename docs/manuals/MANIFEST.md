@@ -27,6 +27,4 @@ work re-baselined four worked-example scenarios after the tag, so Volume IV
 quoted superseded numbers. Rebuilt from current `main` with those sources
 synced, plus the CU-384 and CU-391 documentation. Volume III grew 160 → 162
 pages (the CU-391 refusal and CU-384 sentinel entries); the other three volumes
-keep their page counts. The committed GUI screenshots in Volume IV's case-study
-chapters still predate CU-380 — they cannot be regenerated headlessly — and
-each chapter now says so in the text.
+keep their page counts.

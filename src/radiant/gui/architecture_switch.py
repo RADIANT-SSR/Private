@@ -20,10 +20,7 @@ convention as the stage input forms (CU-120).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Final
-
-if TYPE_CHECKING:
-    from radiant.api.sensor import Sensor
+from typing import Final
 
 ARCHITECTURE_DOTPATH: Final[str] = "readout.architecture"
 
@@ -69,27 +66,9 @@ def companion_resets_for(dotpath: str, new_value: object) -> tuple[str, ...]:
     return ()
 
 
-def apply_companion_resets(sensor: Sensor, dotpath: str, new_value: object) -> tuple[str, ...]:
-    """Clear the explicit inputs the new selection rejects; return those cleared.
-
-    ``Sensor.reset`` on a parameter with no explicit input is a no-op, so this
-    is safe to call unconditionally after every switch commit. The returned
-    tuple (possibly empty) names the parameters actually cleared, for the
-    caller's messaging surface.
-    """
-    explicit = set(sensor.inputs())
-    cleared: list[str] = []
-    for name in companion_resets_for(dotpath, new_value):
-        if name in explicit:
-            sensor.reset(name)
-            cleared.append(name)
-    return tuple(cleared)
-
-
 __all__ = [
     "ARCHITECTURE_DOTPATH",
     "MODE_DOTPATH",
     "SWITCH_DOTPATHS",
-    "apply_companion_resets",
     "companion_resets_for",
 ]

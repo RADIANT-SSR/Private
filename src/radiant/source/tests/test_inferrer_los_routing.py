@@ -5,14 +5,17 @@ CU-009 wires SourceStage's `_infer_los` to read three already-registered
 instead of hardcoding nadir / no-solar geometry:
 
     * ``geometry.path_zenith_rad``  → ``LineOfSightGeometry.theta_o``
-    * ``geometry.solar_zenith_rad`` → ``LineOfSightGeometry.theta_s``  (T2/T3 only)
-    * ``geometry.solar_azimuth_rad``→ ``LineOfSightGeometry.delta_phi`` (T2/T3 only)
+    * ``geometry.solar_zenith_rad`` → ``LineOfSightGeometry.theta_s``
+    * ``geometry.solar_azimuth_rad``→ ``LineOfSightGeometry.delta_phi``
 
-The "T2/T3 only" predicate honors :class:`LineOfSightGeometry`'s docstring
-intent (``theta_s`` / ``delta_phi`` are ``None`` for pure-thermal scenarios
-where the sun is not used).  T1Thermal targets retain ``None`` regardless
-of the registered solar params, so all 14 baseline scenarios + Cells 28/58
-remain bit-invariant under defaults.
+**The original "T2/T3 only" predicate is gone.** CU-009 routed the solar pair
+only for reflective and mixed targets, on the reasoning that a pure-thermal
+scene does not use the sun; CU-258/CU-356 removed that, because the target's
+own descriptor is the wrong thing to decide it — the *background* behind a
+thermal target can still be sunlit, and stripping the solar geometry deleted
+the sky pedestal that dominates a daylight measurement. The solar pair now
+routes regardless of target type, and the tests below assert that. This header
+described the removed predicate as current until 2026-10-04.
 
 The latent-finding fix (`_view_direction_from_los` now reads from the
 canonical `geometry.path_zenith_rad` instead of the unregistered
@@ -29,11 +32,18 @@ import numpy as np
 import pytest
 
 from radiant.api._param_registry import build_parameter_set
-from radiant.core.descriptors import T1Thermal, T2Reflective, T3Mixed
+from radiant.core.descriptors import (
+    T1Thermal,
+    T2Reflective,
+    T3Mixed,
+    T6TabulatedAtSource,
+    T7IntensityAtSource,
+    TargetDescriptor,
+)
 from radiant.core.los_geometry import LineOfSightGeometry
 from radiant.core.parameters import ParameterBoundsError, ParameterSet
 from radiant.core.spectral import SpectralData
-from radiant.source._inferrer import _infer_los, _view_direction_from_los
+from radiant.source._inferrer import _adjust_scene_los, _infer_los, _view_direction_from_los
 from radiant.source.converters.reflectance import reflectance_to_descriptor
 
 _WL_GREY = np.linspace(8.0, 12.0, 11)  # LWIR band — keeps T1Thermal silent.
@@ -500,3 +510,109 @@ class TestSolarIlluminationToggle:
             target = _t1_thermal()
             los = _infer_los("terrestrial", params, target_descriptor=target)
             assert (los.theta_s is not None) is expect_sun, mode
+
+
+# ---------------------------------------------------------------------------
+# The solar pair is descriptor-independent (CU-258, CU-356)
+# ---------------------------------------------------------------------------
+
+
+class TestSolarPairIsDescriptorIndependent:
+    """`_adjust_scene_los` keeps theta_s / delta_phi for **every** descriptor.
+
+    This is the behaviour CU-009 originally gated on target type and CU-258/CU-356
+    removed. It had no test, and the absence is why the same defect was filed twice
+    — first as CU-258 from scenario 10.3, then again as CU-388 when the CU-387 triage
+    re-read 10.3's stale gaps row. A third filing is only prevented by pinning it,
+    which is what this class does.
+
+    The physics the predicate got wrong: the question is "does this scene have a sun
+    the atmosphere should know about?", never "does the target reflect?". A
+    pure-thermal target under a noon sky still sits in front of a bright
+    scattered-solar sky, and an intensity-declared target is agnostic about what its
+    intensity represents — a sunlit satellite signature is reflective.
+    """
+
+    @staticmethod
+    def _scene_los() -> LineOfSightGeometry:
+        return LineOfSightGeometry(
+            h_tgt=0.0,
+            h_sensor=500_000.0,
+            theta_o=0.3,
+            theta_s=1.0,
+            delta_phi=0.4,
+        )
+
+    @staticmethod
+    def _descriptors() -> list[TargetDescriptor]:
+        wl = np.array([4.0, 4.5, 5.0])
+        ones = SpectralData(
+            name="x", wavelength_um=wl, values=np.ones_like(wl), unit="", source="test"
+        )
+        common = {"scene_type": "extended", "target_location": "terrestrial", "h_tgt": 0.0}
+        return [
+            T1Thermal(**common, epsilon=ones, T_t=300.0),
+            reflectance_to_descriptor(ones, wl, **common),
+            T3Mixed(**common, epsilon=ones, T_t=300.0),
+            T6TabulatedAtSource(**common, L_t_source=ones, A_t=1.0),
+            # The intensity door is point-source by definition (matrix §7 S10).
+            T7IntensityAtSource(
+                scene_type="point_source",
+                target_location="terrestrial",
+                h_tgt=0.0,
+                I_t_source=SpectralData(
+                    name="I",
+                    wavelength_um=wl,
+                    values=np.ones_like(wl),
+                    unit="W/sr/um",
+                    source="test",
+                ),
+            ),
+        ]
+
+    def test_every_descriptor_keeps_the_solar_pair(self) -> None:
+        scene = self._scene_los()
+        for descriptor in self._descriptors():
+            adjusted = _adjust_scene_los(scene, "in_atmosphere", target_descriptor=descriptor)
+            assert adjusted is not None
+            name = type(descriptor).__name__
+            assert adjusted.theta_s == pytest.approx(1.0, abs=1e-15), name
+            assert adjusted.delta_phi == pytest.approx(0.4, abs=1e-15), name
+
+    def test_the_intensity_door_specifically_keeps_it(self) -> None:
+        """T7 is the descriptor CU-258 punched through the predicate for."""
+        wl = np.array([0.5, 0.7, 0.9])
+        ones = SpectralData(
+            name="I",
+            wavelength_um=wl,
+            values=np.ones_like(wl),
+            unit="W/sr/um",
+            source="test",
+        )
+        descriptor = T7IntensityAtSource(
+            scene_type="point_source",
+            target_location="terrestrial",
+            h_tgt=700_000.0,
+            I_t_source=ones,
+        )
+        adjusted = _adjust_scene_los(self._scene_los(), "terrestrial", target_descriptor=descriptor)
+        assert adjusted is not None
+        assert adjusted.theta_s is not None
+        assert adjusted.delta_phi is not None
+
+    def test_at_aperture_still_returns_none(self) -> None:
+        """The one route that legitimately drops the LOS — unrelated to target type."""
+        for descriptor in self._descriptors():
+            assert (
+                _adjust_scene_los(self._scene_los(), "at_aperture", target_descriptor=descriptor)
+                is None
+            )
+
+    def test_a_night_scene_arrives_already_stripped(self) -> None:
+        """Night mode is GeometryStage's job; this function does not re-impose it."""
+        night = LineOfSightGeometry(h_tgt=0.0, h_sensor=500_000.0, theta_o=0.3)
+        for descriptor in self._descriptors():
+            adjusted = _adjust_scene_los(night, "terrestrial", target_descriptor=descriptor)
+            assert adjusted is not None
+            assert adjusted.theta_s is None
+            assert adjusted.delta_phi is None

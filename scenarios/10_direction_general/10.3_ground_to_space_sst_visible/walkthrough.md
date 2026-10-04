@@ -322,16 +322,28 @@ chain does select it. At the **nominal tasking** the at-aperture background radi
 is **4.1687 × 10⁻¹⁹ W/m²/sr/µm**, i.e. numerically zero, and for one surviving
 structural reason:
 
-1. **The intensity door strips the sun.** `_adjust_scene_los` keeps θ_s only for
-   `T2Reflective` / `T3Mixed`; `T7IntensityAtSource` (the intensity door) is treated
-   as pure-thermal by the CU-009 predicate, so the atmosphere sees θ_s = None and
-   builds a purely thermal sky, which at 0.4–0.9 µm is ~10⁻¹⁸ W/m²/sr/µm
-   (`gaps.md` G3). This is unchanged and is the whole story for the nominal run.
+1. **The site is dark.** The tasking sheet puts the sun 12° below the horizon
+   (solar depression 12° → θ_s = 102°), which is the entire point of the
+   observation: a sunlit object against a dark sky. There is no sun above the
+   horizon to scatter, so the scattered-solar sky term is physically absent and the
+   thermal remainder is ~10⁻¹⁸ W/m²/sr/µm at 0.4–0.9 µm.
+
+   *Corrected 2026-10-04.* This item used to say the near-zero pedestal was
+   structural — that `_adjust_scene_los` kept θ_s only for `T2Reflective`/`T3Mixed`,
+   so the intensity door produced a pure-thermal sky "regardless of illumination",
+   and that this was "unchanged". That predicate was real when the scenario was
+   written and was removed by CU-258/CU-356; `_adjust_scene_los` now states that
+   **every** descriptor keeps the solar fields. `gaps.md` G3 carries the measured
+   resolution, including the proof that the nominal zero is the dark site: the same
+   intensity door re-tasked at θ_s = 60° returns 5.0800 W/m²/sr/µm.
 2. **With θ_s kept, the ground-to-space sky is no longer zero — this is new.**
    Re-tasking the same telescope on a 10 m² GEO object through the shape+albedo door
    (which *does* keep θ_s = 60°) now returns a band-mean sky background of
-   **3.8794 W/m²/sr/µm**, equal to the observer-leg L_path, against a target radiance
-   of 3.8359 × 10¹ W/m²/sr/µm — **and it raises the VIS/NIR provisional warning once.**
+   **4.7371 W/m²/sr/µm**, equal to the observer-leg L_path, against a target radiance
+   of 3.9216 × 10¹ W/m²/sr/µm — **and it raises the VIS/NIR provisional warning once.**
+   *(Digits refreshed 2026-10-04 from a measured run: 3.8794 → 4.7371 and
+   3.8359 × 10¹ → 3.9216 × 10¹ is CU-337's aerosol-attribution split, not this
+   section's physics.)*
    The two structural blocks this scenario originally documented have both been
    removed: CU-254 roots the up-looking sky at the *sensor* rather than taking it from
    the LOS continuation past the target (so the vacuum continuation no longer
@@ -344,11 +356,6 @@ structural reason:
 class, and the class now carries a real daytime sky pedestal.** `gaps.md` G4 is
 resolved on both of its arms.
 
-> **Runner-prose note.** `run_ground_to_space_sst_visible.py` still prints a hardcoded
-> "STILL ZERO" banner and the mean-altitude-underflow explanation immediately after
-> the 3.8794 W/m²/sr/µm it just computed. The *numbers* the runner prints are current;
-> that narrative paragraph is not, and the runner needs a follow-up edit.
-
 The runner also tasks the same telescope on a 20 km stratospheric target
 (`ground_to_air`, extended scene, sun 30° up), where the continuation genuinely is
 atmospheric, and prints the warning verbatim:
@@ -359,8 +366,8 @@ atmospheric, and prints the warning verbatim:
 > is MODTRAN-anchored and is not affected. Use a MODTRAN or interpolated backend for
 > quantitative VIS/NIR sky-background work (Geometry Flexibility plan §8.3 answer 3).
 
-That probe's observer-leg L_path is **3.6218 W/m²/sr/µm**, within 7 % of the
-3.8794 W/m²/sr/µm the `ground_to_space` GEO daylight case now returns on its own —
+That probe's observer-leg L_path is **4.4191 W/m²/sr/µm**, within 7 % of the
+4.7371 W/m²/sr/µm the `ground_to_space` GEO daylight case returns on its own —
 which is the cross-check that the two paths are computing one sky and not two.
 (Before CU-253 and CU-260 this probe read 21.572 W/m²/sr/µm; the fall is the
 corrected Rayleigh optical depth halving `E_sky_scattered` plus the species split
@@ -620,7 +627,7 @@ settle which of the two this scenario should be scored against.
 2. ~~Re-run with the Rayleigh coefficient corrected~~ — **done**: CU-253 landed the
    correction and the pass SNR budget above is the re-derived one (+24 % at nominal).
 3. Add a real sky pedestal to the *nominal* tasking. The class-level block is gone
-   (§9 — a daylight re-tasking now carries a 3.8794 W/m²/sr/µm pedestal), but the
+   (§9 — a daylight re-tasking now carries a 4.7371 W/m²/sr/µm pedestal), but the
    intensity door still strips θ_s, so this scene needs either a reflective
    point-source door (`gaps.md` G1/G3) or a measured sky spectrum injected through
    `UserSpectralBackground` before an SST detection limit can be quoted.

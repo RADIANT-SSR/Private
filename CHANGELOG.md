@@ -92,6 +92,18 @@ retroactively reconstructed.
   (Gap 136).
 
 ### Fixed
+- **The detection-range bisection's convergence is now relative as well as
+  absolute.** `tol_m` is an absolute tolerance in metres, so its *precision*
+  depended on the answer's magnitude — fine at 200 km, coarse at tens of metres,
+  which Gap 136's inward solving can return. The loop now stops at the stricter
+  of `tol_m` and a 1e-9 relative half-width. This can only tighten a result,
+  never loosen one: on a multi-gigametre range the relative bound is the looser
+  of the two, so `tol_m` still governs and those answers are unchanged.
+  Measured on a tens-of-metres answer: SNR-at-range 4.999999999 against a 5.0
+  threshold, where the old form converged at 4.898 (~2 % off). **Results-affecting,
+  sub-metre:** two shipped GUI baselines move — scenario 10.2's detection range by
+  0.249 m (1.3 ppm) and 10.4's by 0.450 m (0.011 ppm), both *toward* the exact
+  root. No walkthrough number changes, since both are quoted in km to one decimal.
 - **Tracking vocabulary no longer reaches operator-facing messages anywhere in the
   library.** Warnings and actionable errors cited cleanup units, gaps, ADRs,
   architectural rule numbers and plan sections — text that talks to the project's

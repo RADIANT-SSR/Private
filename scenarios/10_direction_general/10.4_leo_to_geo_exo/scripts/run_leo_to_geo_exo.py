@@ -268,7 +268,15 @@ def make_config(
         # the target's inertial velocity along the same cross-LOS direction the
         # platform's is modelled on, which is the co-planar co-rotating case.
         geometry["los_angular_rate_rad_s"] = kin["omega_los_rad_s"]
-        geometry["ground_speed_m_s"] = kin["v_sensor_m_s"]
+        # The platform's INERTIAL speed, which is what the LOS rate needs against a
+        # target that is not Earth-fixed. It used to be entered through
+        # geometry.ground_speed_m_s because no inertial door existed; that made the
+        # scenario publish a ground_speed_m_s of 7616.6 m/s for a platform whose
+        # ground track actually runs at 7062.3. CU-391 added the proper door, and
+        # this is the scenario's own "rerun after fix" item. Measured at the
+        # migration: the LOS rate, every metric and the warning count are unchanged
+        # -- only the mislabelled readout moves.
+        geometry["sensor_speed_m_s"] = kin["v_sensor_m_s"]
         geometry["target_speed_m_s"] = kin["v_target_m_s"]
         geometry["target_heading_rad"] = math.pi / 2.0
         geometry["target_climb_rad"] = 0.0

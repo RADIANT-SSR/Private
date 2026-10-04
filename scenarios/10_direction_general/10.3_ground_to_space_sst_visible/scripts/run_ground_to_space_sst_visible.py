@@ -577,14 +577,21 @@ def section_sky_background(
     bg_mean = 0.0 if bg_frame is None else float(np.mean(bg_frame.spectral_radiance))
     print(
         f"  band-mean at-aperture background radiance : {bg_mean:.4e} W/m^2/sr/um\n"
-        "  That is effectively ZERO, and it is NOT because the site is dark.  With the\n"
-        "  intensity door the target descriptor is T7IntensityAtSource, and the source\n"
-        "  stage strips the solar geometry for every non-T2/T3 descriptor (the CU-009\n"
-        "  pure-thermal predicate).  The atmosphere therefore sees theta_s = None and\n"
-        "  builds a PURE-THERMAL sky, which at 0.4-0.9 um is ~1e-18 W/m^2/sr/um.\n"
-        "  Consequence: the dominant noise source of a real visible SST measurement — sky\n"
-        "  brightness — is absent whenever the reflective object is entered as I(lambda).\n"
-        "  See gaps.md G3."
+        "  That is effectively ZERO, and the reason is simply that THE SITE IS DARK:\n"
+        "  the tasking sheet puts the sun 12 deg below the horizon (solar depression\n"
+        "  12 deg -> theta_s = 102 deg), which is the whole point of the observation —\n"
+        "  a sunlit object against a dark sky.  There is no sun above the horizon to\n"
+        "  scatter, so the scattered-solar sky term is physically absent, not modelled\n"
+        "  away.  The thermal sky that remains is ~1e-18 W/m^2/sr/um at 0.4-0.9 um.\n"
+        "\n"
+        "  CORRECTION 2026-10-04: this section used to attribute the near-zero pedestal\n"
+        "  to a framework defect — that the source stage stripped the solar geometry for\n"
+        "  every non-T2/T3 descriptor, so the intensity door produced a pure-thermal sky\n"
+        "  regardless of illumination.  That predicate was real when this scenario was\n"
+        "  written and was REMOVED by CU-258/CU-356: every descriptor now keeps the solar\n"
+        "  fields, and whether the scene has a sun is decided by the scene, not by how\n"
+        "  the target was described.  The printed explanation had outlived the engine and\n"
+        "  stood beside its own measurement, which was the dark-site answer all along."
     )
 
     print(

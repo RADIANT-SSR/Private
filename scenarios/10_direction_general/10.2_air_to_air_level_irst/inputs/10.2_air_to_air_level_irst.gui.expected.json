@@ -4,7 +4,7 @@
   "metrics": {
     "snr": 293.13794007479777,
     "contrast_snr": 293.13794007479777,
-    "detection_range_m": 193204.70236944713,
+    "detection_range_m": 193204.45328110002,
     "geometry.theta_o_rad": 1.5747142180279186,
     "geometry.slant_range_m": 49999.99999999926
   },

@@ -21,6 +21,16 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **RADIANT now warns when a ground sensor on high terrain leaves
+  `geometry.site_elevation_m` at its default** (CU-393). The Hufnagel-Valley surface
+  term is evaluated at `h − site_elevation_m`, so a telescope on a 900 m ridge with the
+  default in place had its own boundary layer modelled at sea level and dropped out of
+  the Cn² integral — r₀ came back **2.876× optimistic**, and the only symptom was a
+  Fried parameter that looked good. The advisory is gated on the scene classifier's
+  `observer_class == "ground"`, because an *airborne* sensor over sea-level terrain
+  satisfies the identical altitude predicate and is correct; scene class gates the
+  validation, never the physics. It keys on provenance rather than value, so an explicit
+  `0.0` for a genuine sea-level site is silent. No computed result changes.
 - **A `configurations:` study can now say "leave this one at the default."** An
   entry in a `configurations.parameters` list may be `null` (YAML) / `None`
   (API): that configuration leaves the parameter at its schema default, no

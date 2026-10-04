@@ -189,16 +189,17 @@ Select stage **7 Detector**, tab **Noise**.
 ![Detector workspace, Noise tab — the maritime noise budget, where background shot
 nearly matches signal shot.](figures/gui/case_maritime_noise.png)
 
-Sixteen noise terms are computed; five are non-zero. In order:
+Sixteen noise terms are computed; six are non-zero. In order:
 
 | Term | σ [e- RMS] | Note |
 |---|---:|---|
 | `signal_shot` | 1416 | The hull's own emission. |
 | `background_shot` | 1408 | The sea filling the rest of the pixel. |
+| `nearfield_shot` | 550.6 | The telescope's own two 280 K mirrors (CU-380). |
 | `quantization` | 144.3 | $g/\sqrt{12}$ at 500 e-/DN. |
 | `read_noise` | 30 | Vendor ROIC. |
 | `dark_shot` | 15.81 | 50,000 e-/s over 5 ms. |
-| **Total (RSS)** | **2003** | |
+| **Total (RSS)** | **2076.9** | |
 
 **Signal shot and background shot are the same size, and the figure lets you read why.**
 Shot noise is $\sqrt{S}$, so the two terms square straight back to collected charge:
@@ -213,6 +214,15 @@ Quantization at 144.3 e- RMS is nearly five times the read noise, which is what 
 500 e-/DN gain buys: the ADC, not the detector, sets the electronic floor. On this
 bright scene it costs nothing — 144 e- against 2003 e- total is 0.5 % in quadrature —
 but it is worth remembering before this ROIC is flown against a fainter one.
+
+The third term is the instrument itself. `nearfield_shot` at 550.6 e- RMS is the
+telescope's own emission — two mirrors at $R = \sqrt{0.85}$ and 280 K, each radiating at
+its Kirchhoff $\varepsilon = 1 - R = 0.078$ — and it contributes 3.03 × 10⁵ e- of
+charge, 13.3 % of this pixel's background. Before CU-380 (2026-10-03) this scenario
+declared its train as a scalar transmittance, which has no Kirchhoff emissivity, so the
+term was identically zero and absent from this table. *The GUI figures in this chapter
+were captured before that change and show five non-zero terms; the numbers in the text
+are current.*
 
 ### Step 6 — Read the result, and pick the right SNR
 
@@ -238,28 +248,28 @@ and the Maréchal form, because the config carries no wavefront error.
 
 | Metric | Value |
 |---|---|
-| SNR | 1002 |
-| Contrast SNR | 11.45 |
-| SCNR | 11.45 |
-| NEDT | 25.11 mK |
+| SNR | 966 |
+| Contrast SNR | 11.04 |
+| SCNR | 11.04 |
+| NEDT | 26.04 mK |
 
 SNR and contrast SNR differ by a factor of 87. SNR is the collected signal over the
 total noise — it says the pixel is well exposed. **Contrast SNR is the
 target-minus-background difference over that same noise, and it is the number that
 decides whether the ship is detectable.** The 1.1 % radiance difference read off the
-noise budget a moment ago, divided by 2003 e- RMS, *is* 11.45. That is comfortably
+noise budget a moment ago, divided by 2076.9 e- RMS, *is* 11.04. That is comfortably
 above a detection threshold of 5, so the answer is still *yes, detectable* — but an
-aperture trade argued on SNR = 1002 is arguing about the wrong number. The margin here
-is 11.45, and it is set by how nearly the hull's reflected sky makes up for its missing
+aperture trade argued on SNR = 966 is arguing about the wrong number. The margin here
+is 11.04, and it is set by how nearly the hull's reflected sky makes up for its missing
 emission.
 
-**Interpretability.** MRT at Nyquist 0.159 K, NIIRS 4.606, flagged
+**Interpretability.** MRT at Nyquist 0.165 K, NIIRS 4.582, flagged
 `yes — outside GIQE-5`. The flag is not a footnote to ignore: a 10.93 m GSD thermal
 scene sits outside the GIQE-5 regression's calibration range, and the config opts into
 the extrapolated value explicitly via `performance.niirs.allow_extrapolated`. Read
 NIIRS here as a relative trend across the aperture sweep, not as an absolute rating.
 
-**Saturation.** Well margin 12.02 dB, ADC margin 12.22 dB, dynamic range 72.03 dB. The
+**Saturation.** Well margin 12.02 dB, ADC margin 12.22 dB, dynamic range 71.71 dB. The
 margin is $20\log_{10}$ of capacity over filled charge, so 12.02 dB is a factor of 4:
 the 5 ms dwell fills about a quarter of the 8 Me- well. There is room to integrate
 longer if the frame rate allows it, though not a great deal.
@@ -267,9 +277,9 @@ longer if the frame rate allows it, though not a great deal.
 ## What the study concludes
 
 At the 30 cm mid-point, with the parametric maritime atmosphere, the GUI reports
-SNR 1002, contrast SNR 11.45, NEDT 25.11 mK, NIIRS 4.606 and GSD 10.93 m. The
+SNR 966, contrast SNR 11.04, NEDT 26.04 mK, NIIRS 4.582 and GSD 10.93 m. The
 scenario's runner, which evaluates the same configuration headless, reports SNR
-1001.55, NEDT 0.0251 K and NIIRS 4.61 — the same numbers to the precision the cards
+965.71, NEDT 0.0260 K and NIIRS 4.58 — the same numbers to the precision the cards
 display.
 
 Three findings survive out of the aperture sweep the script runs:
@@ -277,13 +287,16 @@ Three findings survive out of the aperture sweep the script runs:
 - **SNR is flat across 15 → 45 cm of aperture.** The sweep holds f/2.5 fixed, so focal
   length scales with diameter and the per-pixel étendue — and therefore the photon
   flux, for both the sub-pixel hull and the extended sea — is invariant. The aperture
-  buys *resolution*, not signal: NIIRS climbs from 3.53 to 5.13 across the sweep while
+  buys *resolution*, not signal: NIIRS climbs from 3.50 to 5.10 across the sweep while
   SNR does not move. An aperture trade that wants an SNR benefit has to sweep aperture
   at **fixed focal length**, letting f/# vary.
 - **The parametric atmosphere and the real MODTRAN column agree to about 7 % on band
   transmittance** here — $\bar\tau$ 0.4594 parametric against 0.4277 measured, with the
-  parametric model marginally the more transparent. SNR follows at about 9 % high
-  (1001.55 against 916.18) and detection range at 5.8 % (2357.2 km against 2227.3 km).
+  parametric model marginally the more transparent. SNR follows at about 10 % high
+  (965.71 against 875.45) and detection range at 6.2 % (2326.8 km against 2191.6 km).
+  The spread widened from 9 % when CU-380 gave the telescope its real warm mirrors: the
+  same warm-optics term lands on both columns, which is the larger fractional insult to
+  whichever has the weaker scene signal — the MODTRAN one.
   Note that $\tau$, SNR and range do not move together; quote the one the decision
   needs.
 - **The regime is `sub_pixel`, and the metric that matters is contrast SNR.** Both

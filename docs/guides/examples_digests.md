@@ -118,11 +118,16 @@ arrives as a JPL/NASA ASTER-library text file. The band decision is the delivera
 | Fire-mode integration | 5 µs (MWIR), 25 µs (LWIR) |
 | Scene clutter | 3 % of background (σ) |
 
-**Headline results.** At 600 K: MWIR pixel signal 228,529 e- against LWIR 2,962,748 e-;
-contrast 220,998 e- vs 1,217,206 e-; total noise 541.6 e- RMS vs 52,411.7 e- RMS, of
-which clutter is 225.9 and 52,366.3 e- RMS respectively. **SCNR including clutter:
-408.0 (MWIR) vs 23.2 (LWIR)** — a 17× advantage. NEDT runs the other way, 229.9 mK
-(MWIR) vs 165.4 mK (LWIR), both carrying the single-wavelength NEDT caveat. Over a
+**Headline results.** At 600 K: MWIR pixel signal 228,529 e- against LWIR 2,962,820 e-;
+contrast 220,998 e- vs 1,217,173 e-; total noise 542.7 e- RMS vs 52,418.4 e- RMS, of
+which clutter is 225.9 and 52,369.4 e- RMS and **warm-optics shot noise 33.7 and
+609.8 e- RMS** (CU-380 — 278 K optics radiate in-band for LWIR and down the Wien flank
+for MWIR, a 327× split in electrons). **SCNR including clutter:
+407.2 (MWIR) vs 23.2 (LWIR)** — a 17× advantage. NEDT runs the other way, 230.5 mK
+(MWIR) vs 171.8 mK (LWIR), both carrying the single-wavelength NEDT caveat. Note which
+metric the warm optics moved: LWIR SNR fell 3.7 % and its NEDT rose 3.9 %, while its
+**SCNR did not move at all** — 99.8 % of that total is scene clutter, and 610 e- RMS in
+quadrature with 52,369 is below the rounding. Over a
 400–1200 K fire sweep, MWIR holds $P_d \approx 1$ throughout while **LWIR misses the
 400 K smolder outright** (SCNR 1.1, $P_d = 0.000$ against a 4.75σ threshold). MWIR
 saturates first, at ≈1200 K and ~98 % of the 4 Me- well. Band-integrated radiance
@@ -243,8 +248,11 @@ surface radiance times an area.
 | Target intensity | graybody: 290 K, 8 m² emitting area, ε = 0.85 |
 | Range | `geometry.target_range_m` = 729,287 m (explicit) |
 
-**Headline results.** Signal **20,939 e-**, **SNR 20.32**, **detection range (SNR = 6)
-1346.7 km**, sampling $Q$ at band center 1.42. Signal scales linearly with emitting
+**Headline results.** Signal **20,939 e-**, **SNR 19.02**, **detection range (SNR = 6)
+1302.2 km**, sampling $Q$ at band center 1.42. (CU-380, 2026-09-30: declaring the warm
+train this telescope always had — two mirrors at `R = √0.85`, 280 K LEO bus-mounted
+class — left the signal unchanged at 20,939 e- by construction and took SNR 20.32 →
+19.02, range 1,346.7 → 1,302.2 km.) Signal scales linearly with emitting
 area, emissivity and intensity, and inverse-square with range — the point-source camera
 equation. The blackbody point-intensity input reproduces an equivalent hand-built
 intensity CSV exactly.
@@ -1800,20 +1808,27 @@ was.
 | Target | 280 K gray body, ε = 0.85, 20 m² projected area |
 | Rate-track residual | 1 % of the open-loop LOS rate |
 
-**Headline results.** EE_box 0.245670, in-pixel signal 1295.78 e-, total noise 49.233
-e- RMS, **SNR 26.32**, **detection range (SNR = 5) 94,438 km** — 2.67× the LEO→GEO
-range, so the belt sits comfortably inside the single-frame horizon. Background shot
-noise is **exactly zero**: the up-looking LOS exits into deep space and selects
-`ColdSpaceBackground`. The kinematics are the design driver: LEO 1108.508 µrad/s
+**Headline results.** EE_box 0.245670, in-pixel signal 1295.78 e-, total noise 207.947
+e- RMS, **SNR 6.23**, **detection range (SNR = 5) 39,451 km** — 1.12× the LEO→GEO
+range, so the belt sits only just inside the single-frame horizon. *Scene* background
+shot noise is **exactly zero** — the up-looking LOS exits into deep space and selects
+`ColdSpaceBackground` — but that is precisely why the telescope's **own** emission
+dominates: `nearfield_shot` is 202.034 e- RMS, **94 % of the noise power** (CU-380,
+2026-10-03; the six declared surfaces at the datasheet's 180 K bench temperature). A
+point source against cold space has no other background, so this scenario measures the
+instrument against itself, and it is the case in the whole suite where warm optics
+matter most. The kinematics are the design driver: LEO 1108.508 µrad/s
 against GEO 72.940 µrad/s gives an open-loop LOS rate of **128.709 µrad/s**, which
 drags the point source across **7.5 pixels** in a 500 ms inertially-fixed stare,
-collapsing EE_box to 0.0597 and SNR to 8.29. **Open-loop SNR peaks at 250 ms and then
-falls** — past that the smear kernel grows faster than $\sqrt t$ — while the
-rate-tracked curve keeps rising as $\sqrt t$ because the scene is background-free.
-Every vacuum transport identity is checked bitwise, not toleranced. *(The scenario walkthrough's §4.3 prose
-and cross-check 3 both still carry numbers of an earlier vintage — an open-loop collapse of
-"0.223 → 0.054, SNR 24.5 → 7.6", and a hand-vs-chain signal of 1177.2 e- against the
-refreshed 1295.78 e-.)*
+collapsing EE_box to 0.0597 and SNR to 1.53 — below the detection threshold, so the
+open-loop arm publishes **no detection range at all** (the solver declines rather than
+extrapolating, Rule 17's metric-layer carve-out). **Open-loop SNR peaks at 100 ms** and
+then falls — past that the smear kernel grows faster than $\sqrt t$ — and its peak of
+2.28 never reaches threshold either. The rate-tracked curve keeps rising with $t$, but
+no longer as $\sqrt t$: since CU-380 the dominant term is warm-optics shot noise, which
+accumulates with integration time exactly as the signal's own does, so the tracked arm
+is **warm-optics limited** rather than background-free. Every vacuum transport identity
+is checked bitwise, not toleranced.
 
 **Regime.** `point_source`, finalized in `OpticsStage`. A 20 m² bus at 35,286 km
 subtends 0.1267 µrad — 68× smaller than the detector IFOV and far inside the 14.8 µrad
@@ -1824,11 +1839,15 @@ defined against a scene that fills the pixel, and this target fills 0.02 % of on
 
 **Takeaway.** **The tracking loop, not the aperture or the signature, is the design
 driver.** A 1 % rate residual holds smear to 0.075 px and the full 500 ms is usable; an
-untracked stare throws away two-thirds of the SNR and has an optimum three times
-shorter. The scenario also retired a framework defect found here and in 10.2
-independently: the detection-range solver froze the noise at the reference range, and
-since signal shot noise carries 51 % of the noise power here, that made $R_{det}$
-conservative by 15.2 % and dependent on where the chain was evaluated.
+untracked stare does not merely lose SNR, it **never reaches the detection threshold at
+any swept integration time**. Rate tracking here is the difference between a sensor and
+no sensor. The scenario also retired a framework defect found here and in 10.2
+independently: the detection-range solver froze the noise at the reference range, which
+made $R_{det}$ conservative by 15.2 % and dependent on where the chain was evaluated,
+back when signal shot noise carried 51 % of the noise power. CU-380 has since taken
+that share to 3 %, so the two noise models now agree to 0.2 % — the correction
+*vanishes for a background-limited chain*, and this chain is now background-limited by
+its own optics, which demonstrates the limit rather than describing it.
 
 **Where to go deeper.** `scenarios/10_direction_general/10.4_leo_to_geo_exo/`.
 A GUI baseline ships.

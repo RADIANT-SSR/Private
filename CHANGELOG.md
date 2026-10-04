@@ -92,6 +92,17 @@ retroactively reconstructed.
   (Gap 136).
 
 ### Fixed
+- **Results-affecting: scenario 10.3 now declares its site elevation, correcting an
+  r₀ that was 2.876× optimistic.** The ground-to-space SST scenario places its
+  telescope at 900 m MSL but left `geometry.site_elevation_m` at the 0 m default, so
+  the Hufnagel-Valley surface term was evaluated 900 m below the site and the whole
+  boundary layer dropped out of the Cn² integral. Fried parameter r₀ 19.820 →
+  **6.891 cm**, seeing 0.663″ → 1.907″, EE_box 0.12075 → 0.01857, SNR 221.78 →
+  86.81, detection range 24 678 → 9 678 km, and MTF at Nyquist 0.00862 → **0.00000**
+  — the design is unambiguously seeing-limited rather than marginally so. Only this
+  scenario was affected: it was the one tree member leaving the default at a
+  non-sea-level site. The engine behaviour is unchanged (CU-262 fixed that in July);
+  what changes is a scenario input that was wrong (CU-393).
 - **The detection-range bisection's convergence is now relative as well as
   absolute.** `tol_m` is an absolute tolerance in metres, so its *precision*
   depended on the answer's magnitude — fine at 200 km, coarse at tens of metres,

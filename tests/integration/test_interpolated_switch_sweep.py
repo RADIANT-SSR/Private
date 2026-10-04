@@ -223,7 +223,17 @@ def test_scenario_10_3_is_served_from_its_own_900_m_site_fan() -> None:
         run.set("atmosphere.interpolated_data_dir", family.bundled_dir)
         result = run.evaluate()
 
-    assert result.metrics["snr"] == pytest.approx(218.0267, rel=1e-4)
+    # Re-baselined 2026-10-04 (CU-393): 218.0267 -> 85.3372. The scenario now declares
+    # geometry.site_elevation_m = 900 m, so the Hufnagel-Valley surface term is evaluated
+    # at the site instead of 900 m below it and the boundary layer rejoins the Cn2
+    # integral. r0 19.820 -> 6.891 cm (2.876x), which is the whole of the SNR move. The
+    # ENGINE is unchanged -- CU-262 fixed it in July -- so this is a corrected expectation,
+    # not a drifted one. The provenance assertions above, which are this test's actual
+    # subject, are untouched.
+    # Cross-check that this is the r0 correction and nothing else: this interpolated
+    # path and the scenario's own path moved by the same factor (0.391407 vs 0.391430),
+    # and their ratio held at 0.98308 -> 0.98302, a 6e-5 drift.
+    assert result.metrics["snr"] == pytest.approx(85.3372, rel=1e-4)
 
     provenance = result.stage_outputs["atmosphere"]["topology_provenance"]
     segment = provenance["observer_segment_provenance"]

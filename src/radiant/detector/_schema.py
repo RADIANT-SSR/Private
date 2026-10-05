@@ -226,7 +226,7 @@ QE_TEMPERATURE_REF_K = ParameterDef(
 DARK_MODEL = ParameterDef(
     name="detector.dark_model",
     description=(
-        "Dark-current source (Gap 123). 'measured' (default): use dark_rate_e_per_s "
+        "Dark-current source. 'measured' (default): use dark_rate_e_per_s "
         "with optional Arrhenius scaling — the historical behaviour. 'rule07' / "
         "'rule22': derive the per-pixel dark rate from the published empirical "
         "HgCdTe p-on-n law J(λc, T) (Tennant 2008 / Zandian 2023) using "

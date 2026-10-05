@@ -731,7 +731,7 @@ SENSOR_SPEED_M_S = ParameterDef(
     description=(
         "Sensor speed [m/s] used as the SENSOR endpoint's velocity in the "
         "line-of-sight angular rate — mode K2 entry (the relative-velocity "
-        "door), the counterpart of geometry.target_speed_m_s (CU-391). "
+        "door), the counterpart of geometry.target_speed_m_s. "
         "Magnitude only; the direction is the cross-track convention "
         "radiant.geometry.los_rate models the platform track with. This is a "
         "SECOND expression of the one platform velocity, NOT a second "
@@ -745,7 +745,7 @@ SENSOR_SPEED_M_S = ParameterDef(
         "left unset; for a target that is NOT Earth-fixed (another "
         "spacecraft, an exo-atmospheric body) the inertial speed belongs. "
         "Against a SPACE target, leaving this unset is REFUSED rather than "
-        "published (CU-391, owner ruling 2026-10-03): the rate would be "
+        "published: the rate would be "
         "+55.5 % high on a 500 km LEO to GEO stare, and it drives smear, "
         "EE_box, SNR and detection range. Note that setting this ALONE is not "
         "the fix when the target co-rotates — it moves the LEO-to-GEO answer "
@@ -756,7 +756,7 @@ SENSOR_SPEED_M_S = ParameterDef(
         "ground target this door stays unset and the LOS rate uses "
         "geometry.ground_speed_m_s, bit-for-bit as before. When "
         "geometry.circular_orbit is also true this value must agree "
-        "within 1 % with the derived sqrt(mu/a) (ADR-0006 rule 2) or the "
+        "within 1 % with the derived sqrt(mu/a) for a circular orbit, or the "
         "stage raises."
     ),
     dtype=float,

@@ -606,7 +606,7 @@ USER_RADIANCE_PATH = ParameterDef(
     description=(
         "Path to a 2-column CSV (wavelength_um, L_t_source [W/m²/sr/µm]) "
         "carrying a user-supplied spectral radiance at the target plane.  "
-        "When set, routes through the Phase 4 inferrer to a "
+        "When set, routes through the tabulated-radiance inferrer to a "
         "T6TabulatedAtSource descriptor (S8 — no physical model applied; "
         "the user owns the physics).  Mutually exclusive with every "
         "other target spec form ((ε, T), reflectance/albedo, "
@@ -632,7 +632,7 @@ USER_INTENSITY_PATH = ParameterDef(
         "Path to a 2-column CSV (wavelength_um, I_t_source [W/sr/µm]) "
         "carrying a user-supplied spectral intensity at the target "
         "plane, for unresolved (point-source) targets.  When set, "
-        "routes through the Phase 5 inferrer to a T7IntensityAtSource "
+        "routes through the tabulated-intensity inferrer to a T7IntensityAtSource "
         "descriptor (S10 — no physical model applied, the "
         "user owns the physics).  Mutually exclusive with every other "
         "target spec form ((ε, T), reflectance/albedo, "

@@ -118,6 +118,54 @@ class Substrate:
     alpha_per_m: np.ndarray
     valid_temperature_K: tuple[float, float] | None = None
 
+    def check_temperature(self, temperature_K: float) -> None:
+        """Refuse a temperature outside this material's declared validity window.
+
+        alpha ships at a single reference temperature because **no published
+        alpha(lambda, T) exists to build an axis from** — n(lambda, T) is published for
+        germanium at nine temperatures; alpha is not. Outside the declared window the
+        293 K value is wrong by more than the term it computes (+54 % at 230 K, -38 % at
+        350 K for germanium), so using it is not an approximation with a caveat, it is a
+        different number. That is why this raises rather than warns.
+
+        **Zero is not checked.** ``temperature_K = 0`` is RADIANT's "this element emits
+        nothing" convention, not a cryogenic measurement: the emission term is zero
+        whatever alpha says, so the window cannot matter there.
+
+        A material that declares no window is not checked either — most of the library
+        does not, because most of the set has no published temperature dependence to
+        bound.
+        """
+        if self.valid_temperature_K is None or temperature_K <= 0.0:
+            return
+        low, high = self.valid_temperature_K
+        if low <= temperature_K <= high:
+            return
+        raise SubstrateError(
+            what=(
+                f"substrate {self.name!r} is at {temperature_K:g} K, outside its "
+                f"published validity window {low:g}-{high:g} K"
+            ),
+            why=(
+                "its alpha is published at a single temperature "
+                f"({self.reference_temperature_K:g} K) because no temperature-resolved "
+                "measurement exists to interpolate from; "
+                "outside the window that value is wrong by more than the emission term "
+                "it computes"
+            ),
+            action=(
+                "Set the element to a temperature inside the window, choose a material "
+                "whose window covers it, or state alpha explicitly on the element — a "
+                "scalar, a CSV path, or an inline table — if you have a measurement at "
+                "your operating temperature."
+            ),
+            context={
+                "substrate": self.name,
+                "temperature_K": temperature_K,
+                "valid_temperature_K": self.valid_temperature_K,
+            },
+        )
+
     def resample(self, wavelength_um: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Return ``(n_refr, alpha_per_m)`` on *wavelength_um*.
 

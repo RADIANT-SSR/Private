@@ -1,8 +1,11 @@
 # Refractive Substrate Emission — Design Study
 
-**Status:** Active — §7 ratified by the owner 2026-10-04 (see the ratification note below); §7.3 delivered as [[CU-396]]. Implementation of the library is [[Gap 142]].
+**Status:** Complete — HISTORICAL. Archived 2026-10-05, delivered as Gap 142 in v0.4.0 (CU-394 closed against it; CU-396/398/399 resolved its §7 open questions).
 
-**Superseded status line:** Draft — **study complete, awaiting ratification of §7.** No implementation until §7 is ratified.
+> **HISTORICAL — completed 2026-10-05.** Delivered as Gap 142 in v0.4.0. §7 was
+> ratified by the owner on 2026-10-04 and implemented; its three open questions are
+> answered in CU-394's closure record. Kept for the reasoning behind the substrate
+> set and the data-confidence tiers, which no shipped document repeats at this depth.
 
 **Date:** 2026-10-04 (opened); 2026-10-04 (study completed)
 **Category:** C (physics implementation) for the emission path; B for the material-library surface.

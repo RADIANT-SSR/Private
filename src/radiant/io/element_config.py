@@ -369,7 +369,10 @@ def _reject_overspecified_keys(
 
 
 def _substrate_optical_constants(
-    substrate_name: str, element_name: str, wavelength_um: np.ndarray | None
+    substrate_name: str,
+    element_name: str,
+    wavelength_um: np.ndarray | None,
+    temperature_K: float,
 ) -> SpectralData:
     """Resolve a named substrate to its bulk absorption ``alpha`` on the chain grid.
 
@@ -382,6 +385,7 @@ def _substrate_optical_constants(
     """
     try:
         material = SubstrateLibrary().material(substrate_name)
+        material.check_temperature(temperature_K)
         if wavelength_um is None:
             # Native-grid parse (the structural-validation path, which has no chain
             # grid yet): a substrate IS a spectral property, so it keeps its own stored
@@ -480,7 +484,9 @@ def _parse_element(
                     "it belongs to the lens, not to the material."
                 )
             if substrate_name is not None:
-                alpha = _substrate_optical_constants(str(substrate_name), name, wavelength_um)
+                alpha = _substrate_optical_constants(
+                    str(substrate_name), name, wavelength_um, temperature_K
+                )
                 if wavelength_um is None:
                     # The substrate supplied the only real grid in this entry, so the
                     # rest of it (scalar coatings) broadcasts onto that rather than

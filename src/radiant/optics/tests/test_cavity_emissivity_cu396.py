@@ -57,11 +57,17 @@ class TestTheCancellation:
 
     @pytest.mark.level0
     def test_germanium_is_no_longer_sixteen_times_too_high(self) -> None:
-        """Regression anchor on the measured defect value."""
+        """Regression anchor on the measured defect value.
+
+        Hand value, first order (CU-398): beer = exp(-2.7*0.008) = 0.978631609, so
+        eps = T2*(1-beer)*(1+R1*beer) = 0.99 * 0.021368391 * 1.009786316 = 0.021361733.
+        It moved 0.02136378 -> 0.02136173 when the bounce series went, a factor
+        1/denom = 1.0000958 at these AR coatings.
+        """
         eps = _cavity(r1=0.01, r2=0.01, alpha=2.7, n=4.0).eps_eff.values[0]
-        assert eps == pytest.approx(0.02136378, rel=1e-6)
-        # What the shipped expression used to give, for the record.
-        assert 0.3385077 / eps == pytest.approx(15.845, rel=1e-3)
+        assert eps == pytest.approx(0.021361733, rel=1e-6)
+        # What the n^2 expression used to give, for the record.
+        assert 0.3385077 / eps == pytest.approx(15.8465, rel=1e-3)
 
 
 class TestTheEnergyIdentity:
@@ -75,8 +81,8 @@ class TestTheEnergyIdentity:
             alpha = rng.uniform(0.0, 400.0)
             c = _cavity(r1=float(r1), r2=float(r2), alpha=float(alpha), n=4.0)
             b = c.beer[0]
-            denom = c.denom[0]
-            r_side2 = r2 + (1.0 - r2) ** 2 * r1 * b * b / denom
+            # First order (CU-398): the side-swapped R_sys — one T2, no bounce series.
+            r_side2 = r2 + (1.0 - r2) * r1 * b * b
             absorptance = 1.0 - c.T_sys.values[0] - r_side2
             worst = max(worst, abs(c.eps_eff.values[0] - absorptance))
         assert worst < 1e-14

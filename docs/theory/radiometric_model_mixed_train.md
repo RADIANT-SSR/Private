@@ -45,20 +45,49 @@ differ fundamentally between the two types.
 
 ### 1.1 Refractive element i
 
+**This is a first-order model: one interaction per surface.** A ray meets surface 1
+once and surface 2 once; the beam reflected back off surface 2 leaves through surface 1
+without reflecting again. That second reflection begins the internal bounce series,
+whose closed form is the Airy denominator `1 − R1·R2·beer²`. Summing it is a
+higher-order term and is out of scope — the justification is the **order of the model**,
+not the geometry of the element (owner ruling 2026-10-04, CU-398). Whether a given lens
+is curved, wedged or plane-parallel, and at what ray angles, is detailed ray tracing
+that RADIANT neither performs nor represents, so it cannot be what selects the formula.
+This applies to every refractive element without exception; there is no plane-parallel
+opt-in.
+
 ```
-beer_i(λ)    = exp(−alpha_i(λ) · d_i / cos(theta_r,i))
-denom_i(λ)   = 1 − R1_i(λ) · R2_i(λ) · beer_i(λ)²
+beer_i(λ)    = exp(−alpha_i(λ) · d_i)
 
-T_sys,i(λ)   =      T1_i(λ) · beer_i(λ) · T2_i(λ)
-               ──────────────────────────────────────
-               1 − R1_i(λ) · R2_i(λ) · beer_i(λ)²
+T_sys,i(λ)   = T1_i(λ) · beer_i(λ) · T2_i(λ)
 
-eps_eff,i(λ) =   T2_i(λ) · (1 − beer_i(λ)) · (1 + R1_i(λ) · beer_i(λ))
-               ──────────────────────────────────────────────────────────
-               1 − R1_i(λ) · R2_i(λ) · beer_i(λ)²
+R_sys,i(λ)   = R1_i(λ) + T1_i(λ) · R2_i(λ) · beer_i(λ)²          (entering side 1)
+R_side2,i(λ) = R2_i(λ) + T2_i(λ) · R1_i(λ) · beer_i(λ)²          (entering side 2)
+
+eps_eff,i(λ) = T2_i(λ) · (1 − beer_i(λ)) · (1 + R1_i(λ) · beer_i(λ))
 
 L_thermal,i(λ) = eps_eff,i(λ) · B(λ, T_i)
 ```
+
+`R_sys` carries a single `T1`, where a truncated bounce series would carry `T1²`: with
+no second bounce the ghost reflected off surface 2 exits surface 1 **in full**, rather
+than leaving an `R1` share behind to keep bouncing. That is what makes the energy
+identity close exactly —
+
+```
+T_sys,i(λ) + R_side2,i(λ) + eps_eff,i(λ) = 1       ← holds at each λ, to 2.2e-16
+```
+
+— and it is `R_side2`, not `R_sys`, that appears in it. The two coincide only for
+symmetric coatings (`R1 == R2`); a "simplification" to `R_sys` silently reintroduces an
+error on every asymmetric element, which is the common real case.
+
+The `beer` factor above has no `/ cos(theta_r,i)` refraction-angle path lengthening.
+RADIANT works at near-normal incidence: at f/2 the marginal ray inside germanium
+(n = 4) refracts to 3.5°, so `cos theta_r = 0.998` and the path error is 0.2 %, below
+the model's own data uncertainty. The doc previously specified the `cos` term while the
+code never implemented it.
+
 
 > **Corrected 2026-10-04 (CU-396).** This expression carried an `n_i(λ)²` factor in the
 > numerator until that date. The reasoning was that the photon density of states inside
@@ -345,11 +374,10 @@ Inputs per element i:
 ─────────────────────────────────────────────────────────
 Per element, compute transfer factor C_i and emissivity:
 
-  If REFRACTIVE:
-    beer_i    = exp(−alpha_i · d_i / cos(theta_r,i))
-    denom_i   = 1 − R1_i · R2_i · beer_i²
-    C_i       = T1_i · beer_i · T2_i / denom_i       [transmittance]
-    eps_i     = T2_i · n_i² · (1 − beer_i) / denom_i [cavity emissivity]
+  If REFRACTIVE (first order — one interaction per surface, CU-398):
+    beer_i    = exp(−alpha_i · d_i)
+    C_i       = T1_i · beer_i · T2_i                 [transmittance]
+    eps_i     = T2_i · (1 − beer_i) · (1 + R1_i · beer_i)  [cavity emissivity]
 
   If REFLECTIVE:
     C_i       = Rho_i                                  [reflectance]

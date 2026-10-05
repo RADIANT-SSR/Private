@@ -47,31 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-398 — The cavity model sums an infinite internal-bounce series, which is a higher-order term in a first-order model
-
-**Discovered**: owner ruling during the Gap 142 GUI design review, 2026-10-04.
-**Status**: **Open** — owner-ruled on discovery: *"it should only be once per surface. Double bounces should not happen in this model"*, and on the rationale: *"we're not dealing with the detailed ray tracing of curved vs plane parallel plates and the corresponding ray angles. This is a 1st order model."*
-**File**: `src/radiant/optics/cavity_model.py` (`denom`, `R_sys`, `eps_eff`).
-
-**Symptom**: `denom = 1 - R1*R2*beer^2` is the closed form of an infinite sum of internal round trips between the two faces. RADIANT's element model is **first-order**: one interaction per surface. A summed bounce series is a higher-order term, so it does not belong here regardless of what the element's faces look like.
-
-**The justification is the model's order, not the element's geometry** (owner ruling, 2026-10-04, correcting this entry's first draft). Whether a given element is curved, wedged or plane-parallel, and at what ray angles, is detailed ray-tracing that this model does not do and does not want to do. An earlier draft argued the change from "a lens is not a plane-parallel plate"; that reasoning is wrong for this codebase because it makes the right answer depend on geometry the model never represents — and it would invite a per-element geometry flag that nothing could populate.
-
-**Why it still matters**: results-affecting. Shipped `eps_eff` over the once-per-surface form is **exactly `1/denom`** (verified to 2.2e-16 over 200 000 random triples). That is 1.0001 for AR-coated surfaces (R = 0.01) — negligible — but **1.148 for uncoated germanium** (R = 0.362 per face, 8 mm, 4 µm), and up to 1.318 over the sampled coating range. Emissivity feeds warm-optics self-emission, so this inflates the thermal background of any poorly-coated refractive train.
-
-**Suggested fix**: (a) inline-fix-now, category C. The once-per-surface forms, each verified energy-conserving to 2.2e-16 with eps bounded in [0, 1]:
-
-```
-T_sys    = T1 * beer * T2
-R_side1  = R1 + T1 * R2 * beer^2
-R_side2  = R2 + T2 * R1 * beer^2
-eps_eff  = T2 * (1 - beer) * (1 + R1 * beer)      # = the shipped numerator, denom dropped
-```
-
-Note `R_side1` loses a factor `T1` relative to the shipped `R1 + T1^2*R2*beer^2/denom`: with no second bounce the ghost exits S1 in full rather than leaving an `R1` share behind to keep bouncing. That is precisely what makes the energy identity close exactly. Touches the 9 CU-396 Level-0 tests that pin the etalon forms, `docs/theory/radiometric_model_mixed_train.md`, and CHANGELOG (Results-affecting).
-
-**Once-per-surface is unconditional** — there is no opt-in for plane-parallel elements. The first draft of this entry left that open; the owner's rationale closes it, because an etalon option would be a second-order term bolted onto a model that is first-order everywhere else, and selecting it would need element geometry the model does not carry.
-
 ### CU-397 — A header-row spectral CSV crashes the element loader with a raw ValueError
 
 **Discovered**: Gap 142 substrate-library work, 2026-10-04, while verifying that each cavity surface accepts a coating from a file (owner requirement, same day).
@@ -144,6 +119,25 @@ The study's open questions are the substrate set, whether α carries its tempera
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-398 — The cavity model sums an infinite internal-bounce series, which is a higher-order term in a first-order model — RESOLVED 2026-10-04 (commit trailer)
+
+**Discovered**: owner ruling during the Gap 142 GUI design review, 2026-10-04.
+**Status**: **RESOLVED 2026-10-04** (commit trailer) — ruled and landed the same day.
+
+**Delivered**: `T_sys = T1*beer*T2`, `R_sys = R1 + T1*R2*beer^2`, `eps_eff = T2*(1-beer)*(1+R1*beer)`. The Airy denominator `1 - R1*R2*beer^2` divides nothing any more; `CavityModel.denom` is retained as a **diagnostic**, because it is exactly the factor by which the old model was high and is therefore the natural way to ask how much a given element moved.
+
+**The justification is the order of the model, not the geometry of the element.** An earlier draft of this entry argued it from "a lens is not a plane-parallel plate"; the owner corrected that on the same day. The geometry framing is wrong for this codebase because it makes the right answer depend on element shape and ray angles the model never represents — and its natural next step is a per-element geometry flag nothing could populate, plus the invitation to hand the etalon back to any element whose faces happen to be parallel. Once-per-surface is unconditional.
+
+**The single `T1` in `R_sys` is load-bearing**, not a simplification. The summed form carried `T1^2`: the ghost reflected off surface 2 exits surface 1 with one more transmission, and the `R1` share left behind keeps bouncing, which is what the series summed. With no second bounce that share has nowhere to go, so the ghost exits **in full**. Keeping `T1^2` while dropping the series would quietly lose `R1*T1*R2*beer^2` of the incident power. The test suite pins this directly: the two-`T1` form is asserted *not* to match to 1e-3, so it cannot be reintroduced as a tidy-up.
+
+**Verified**: `T_sys + R_side2 + eps = 1` to **2.2e-16** over 200 000 random coating/absorption triples (and 3 000 through the shipped class in CI), with `R_side2 = R2 + T2*R1*beer^2`, the side-swapped `R_sys`. eps stays within [0, 1]. Uncoated glass now closes **exactly** (0.9216 + 0.0784 + 0 = 1) where the summed form left a 1.9e-4 shortfall that two Level-0 tests had been absorbing with an `atol`.
+
+**Results-affecting**: emissivity falls by exactly `1/denom` — 1.0001 for AR coatings (invisible), **1.148 for uncoated germanium** (R = 0.362 per face, 8 mm, 4 µm), up to 1.318 across the sampled range. No golden, fixture or scenario uses the cavity path, so no shipped result moves; the exposure is warm-optics self-emission in poorly-coated refractive trains.
+
+**Files**: `src/radiant/optics/cavity_model.py` (`denom`, `T_sys`, `R_sys`, `eps_eff`); 9 new Level-0 tests in `optics/tests/test_cavity_first_order_cu398.py`; expectations updated in `optics/tests/test_element.py` (7), `optics/tests/test_cavity_emissivity_cu396.py` (2) and `io/tests/test_element_config.py` (1); `docs/theory/radiometric_model_mixed_train.md`; `docs/architecture/RADIANT_Optics.md`.
+
+**Found in passing**: the theory doc states its governing equations **twice**, and CU-396's `n^2` correction had only reached one of the two sites — the end-of-document summary block still read `eps_i = T2_i * n_i^2 * (1 - beer_i) / denom_i` eight days later. Corrected here; logged in `Findings_Log.md` and struck in the same commit.
 
 ### CU-396 — Cavity `eps_eff` carries an uncancelled n² factor: refractive-element emissivity is n²/(1+R₁·beer) too high, and the overflow is silently clipped — RESOLVED 2026-10-04 (commit trailer)
 

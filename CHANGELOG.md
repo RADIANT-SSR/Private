@@ -20,6 +20,24 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Changed
+- **Results-affecting: the refractive cavity is now a first-order model — one
+  interaction per surface** (CU-398). `T_sys`, `R_sys` and `eps_eff` were each divided
+  by the Airy denominator `1 − R1·R2·beer²`, the closed form of the infinite series of
+  internal reflections between the two faces. Summing that series is a higher-order
+  term and is out of scope; the justification is the order of the model, not the
+  geometry of the element, so it applies to every refractive element with no
+  plane-parallel opt-in. **Emissivity falls by exactly `1/denom`** — a factor 1.0001
+  for AR-coated surfaces (invisible), but **1.148 for uncoated germanium** (R = 0.362
+  per face) and up to 1.318 across the sampled coating range, so warm-optics
+  self-emission drops for any poorly-coated refractive train. `R_sys` also loses a
+  factor `T1` (`R1 + T1·R2·beer²`, not `T1²`): with no second bounce the ghost
+  reflected off surface 2 exits surface 1 in full. That is what makes
+  `T_sys + R_side2 + ε = 1` close to 2.2e-16, where the previous form left a 1.9e-4
+  shortfall on uncoated glass. No golden, fixture or scenario uses the cavity path, so
+  no shipped result moves. `CavityModel.denom` is retained as a diagnostic — it is
+  exactly the factor by which the old model was high.
+
 ### Added
 - **A refractive element can name its substrate material** (Gap 142). `substrate:
   germanium` on an `optical_elements:` entry resolves the bulk absorption coefficient

@@ -291,13 +291,16 @@ class TestCavityModel:
     def test_uncoated_glass_no_absorption(self) -> None:
         """Truth anchor 1: uncoated glass window, no bulk absorption.
 
+        First order — one interaction per surface (CU-398), so no bounce series.
+
         R1=R2=0.04, T1=T2=0.96, alpha=0, n=1.5, d=3mm.
         beer = exp(0) = 1
-        denom = 1 - 0.04*0.04*1 = 1 - 0.0016 = 0.9984
-        T_sys = 0.96*1*0.96 / 0.9984 = 0.9216/0.9984 ≈ 0.92288
-        R_sys = 0.04 + 0.96^2*0.04*1 / 0.9984 = 0.04 + 0.036864/0.9984 ≈ 0.07693
-        eps_eff = 0.96*1.5^2*(1-1)/0.9984 = 0  (no absorption → no emission)
-        Energy: T_sys + R_sys + eps_eff ≈ 0.92288 + 0.07693 + 0 ≈ 0.99981
+        T_sys = 0.96*1*0.96 = 0.9216
+        R_sys = 0.04 + 0.96*0.04*1 = 0.04 + 0.0384 = 0.0784
+        eps_eff = 0.96*(1-1)*(1+0.04) = 0  (no absorption → no emission)
+        Energy: 0.9216 + 0.0784 + 0 = 1 EXACTLY — the summed-bounce form could only
+        reach 0.99981 here, because truncating its series without also letting the
+        ghost out in full loses R1*T1*R2*beer^2 of the incident power.
         """
         cavity = CavityModel(
             R1=_flat_spectral(0.04, "R1"),
@@ -312,21 +315,22 @@ class TestCavityModel:
         r_sys = cavity.R_sys.values
         eps = cavity.eps_eff.values
 
-        np.testing.assert_allclose(t_sys, 0.9216 / 0.9984, rtol=1e-10)
-        np.testing.assert_allclose(r_sys, 0.04 + 0.96**2 * 0.04 / 0.9984, rtol=1e-10)
+        np.testing.assert_allclose(t_sys, 0.9216, rtol=1e-10)
+        np.testing.assert_allclose(r_sys, 0.0784, rtol=1e-10)
         np.testing.assert_allclose(eps, 0.0, atol=1e-14)
-        # Energy conservation.
-        np.testing.assert_allclose(t_sys + r_sys + eps, 1.0, atol=1e-10)
+        # Energy conservation — exact here, not merely within 1e-10 (CU-398).
+        np.testing.assert_allclose(t_sys + r_sys + eps, 1.0, atol=1e-15)
 
     @pytest.mark.level0
     def test_absorbing_glass(self) -> None:
         """Truth anchor 2: glass with bulk absorption.
 
+        First order — one interaction per surface (CU-398).
+
         R1=R2=0.04, T1=T2=0.96, alpha=10 1/m, n=1.5, d=3mm.
         beer = exp(-10*0.003) = exp(-0.03) ≈ 0.97045
-        denom = 1 - 0.04*0.04*0.97045^2 ≈ 0.998494
-        T_sys = 0.96*0.97045*0.96 / 0.998494
-        R_sys = 0.04 + 0.96^2*0.04*0.97045^2 / 0.998494
+        T_sys = 0.96*0.97045*0.96
+        R_sys = 0.04 + 0.96*0.04*0.97045^2
         A_total = 1 - T_sys - R_sys (Kirchhoff emissivity)
         """
 
@@ -340,9 +344,8 @@ class TestCavityModel:
             thickness_m=0.003,
         )
         beer = math.exp(-10.0 * 0.003)
-        denom = 1.0 - 0.04 * 0.04 * beer**2
-        expected_t = 0.96 * beer * 0.96 / denom
-        expected_r = 0.04 + 0.96**2 * 0.04 * beer**2 / denom
+        expected_t = 0.96 * beer * 0.96
+        expected_r = 0.04 + 0.96 * 0.04 * beer**2
 
         t_sys = cavity.T_sys.values
         r_sys = cavity.R_sys.values
@@ -611,7 +614,7 @@ class TestMakeRefractiveCavityElement:
         # T_sys from hand calc.
         np.testing.assert_allclose(
             elem.transmittance.values,
-            0.9216 / 0.9984,
+            0.9216,
             rtol=1e-10,
         )
         # eps_eff = 0 (no absorption).
@@ -621,7 +624,7 @@ class TestMakeRefractiveCavityElement:
     def test_absorbing_glass_nonzero_eps(self) -> None:
         """Glass with absorption has nonzero emissivity.
 
-        eps_eff = T2 * (1 - beer) * (1 + R1 * beer) / denom — the slab's side-2
+        eps_eff = T2 * (1 - beer) * (1 + R1 * beer) — the slab's side-2
         absorptance. Updated by CU-396: this test asserted the n^2 form and the
         property "eps_eff > absorptance for n > 1", which was the defect stated as a
         contract. The n^2 density-of-states enhancement inside the dielectric is
@@ -641,15 +644,14 @@ class TestMakeRefractiveCavityElement:
             wavelength_um=WL,
         )
         beer = math.exp(-10.0 * 0.003)
-        denom = 1.0 - 0.04 * 0.04 * beer**2
-        expected_eps = 0.96 * (1.0 - beer) * (1.0 + 0.04 * beer) / denom
+        expected_eps = 0.96 * (1.0 - beer) * (1.0 + 0.04 * beer)
 
         np.testing.assert_allclose(elem.emissivity.values, expected_eps, rtol=1e-10)
         assert np.all(elem.emissivity.values > 0)
 
     @pytest.mark.level1
     def test_eps_eff_matches_cavity_formula(self) -> None:
-        """Cavity element eps matches T2 * (1 - beer) * (1 + R1 * beer) / denom.
+        """Cavity element eps matches T2 * (1 - beer) * (1 + R1 * beer).
 
         Updated by CU-396, which removed the n^2 factor. This element is
         deliberately **asymmetric** (R1 = 0.03, R2 = 0.05), which makes it the right
@@ -671,8 +673,7 @@ class TestMakeRefractiveCavityElement:
             wavelength_um=WL,
         )
         beer = math.exp(-15.0 * 0.005)
-        denom = 1.0 - 0.03 * 0.05 * beer**2
-        expected_eps = 0.95 * (1.0 - beer) * (1.0 + 0.03 * beer) / denom
+        expected_eps = 0.95 * (1.0 - beer) * (1.0 + 0.03 * beer)
 
         np.testing.assert_allclose(
             elem.emissivity.values,
@@ -683,7 +684,8 @@ class TestMakeRefractiveCavityElement:
         # elem.reflectance is the side-1 R_sys, so the side-2 value is rebuilt here —
         # the difference between the two is exactly what this asymmetric case exists
         # to catch.
-        r_side2 = 0.05 + 0.95**2 * 0.03 * beer**2 / denom
+        # First order (CU-398): a single T2, and no bounce series to divide by.
+        r_side2 = 0.05 + 0.95 * 0.03 * beer**2
         absorptance_side2 = 1.0 - elem.transmittance.values - r_side2
         np.testing.assert_allclose(elem.emissivity.values, absorptance_side2, rtol=1e-12)
         # And the side-1 shorthand genuinely differs for this element.
@@ -819,7 +821,7 @@ class TestLosslessSurfaces:
             thickness_m=0.003,
             wavelength_um=WL,
         )
-        np.testing.assert_allclose(derived.transmittance.values, 0.9216 / 0.9984, rtol=1e-10)
+        np.testing.assert_allclose(derived.transmittance.values, 0.9216, rtol=1e-10)
 
     @pytest.mark.level1
     def test_factory_derives_R_from_T(self) -> None:
@@ -833,7 +835,7 @@ class TestLosslessSurfaces:
             thickness_m=0.003,
             wavelength_um=WL,
         )
-        np.testing.assert_allclose(derived.transmittance.values, 0.9216 / 0.9984, rtol=1e-10)
+        np.testing.assert_allclose(derived.transmittance.values, 0.9216, rtol=1e-10)
 
     @pytest.mark.level1
     def test_factory_surface_unspecified_actionable(self) -> None:

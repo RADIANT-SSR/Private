@@ -30,30 +30,38 @@ def _sd(value: float, name: str = "x"):
     )
 
 
-def _cavity(*, r1: float, r2: float, alpha: float, n: float, d: float = 0.008) -> CavityModel:
+def _cavity(*, r1: float, r2: float, alpha: float, d: float = 0.008) -> CavityModel:
     return CavityModel(
         R1=_sd(r1, "R1"),
         T1=_sd(1.0 - r1, "T1"),
         R2=_sd(r2, "R2"),
         T2=_sd(1.0 - r2, "T2"),
         alpha=_sd(alpha, "alpha"),
-        n_refr=_sd(n, "n"),
         thickness_m=d,
     )
 
 
 class TestTheCancellation:
     @pytest.mark.level0
-    def test_emissivity_does_not_depend_on_refractive_index(self) -> None:
-        """The whole of CU-396: n enters T_sys/R_sys through the coatings, not eps.
+    def test_the_model_has_no_refractive_index_at_all(self) -> None:
+        """CU-396 removed the n^2; CU-399 removed the index that fed it.
 
-        If an n^2 survived anywhere in the expression, germanium (n = 4) and a
-        notional n = 1 slab with identical coatings and absorption would differ by 16x.
+        This replaces a test that varied n and asserted eps did not move. That check
+        became unconstructible — and it was always the weaker statement. An index the
+        model accepts but ignores is a control an analyst can turn believing it
+        matters; an index the model does not accept cannot mislead anyone.
         """
-        common = {"r1": 0.01, "r2": 0.01, "alpha": 2.7}
-        eps_n1 = _cavity(**common, n=1.0).eps_eff.values[0]
-        eps_ge = _cavity(**common, n=4.0).eps_eff.values[0]
-        assert eps_ge == pytest.approx(eps_n1, rel=1e-15)
+        assert "n_refr" not in CavityModel.__dataclass_fields__
+        with pytest.raises(TypeError):
+            CavityModel(  # type: ignore[call-arg]
+                R1=_sd(0.01, "R1"),
+                T1=_sd(0.99, "T1"),
+                R2=_sd(0.01, "R2"),
+                T2=_sd(0.99, "T2"),
+                alpha=_sd(2.7, "alpha"),
+                n_refr=_sd(4.0, "n"),
+                thickness_m=0.008,
+            )
 
     @pytest.mark.level0
     def test_germanium_is_no_longer_sixteen_times_too_high(self) -> None:
@@ -64,7 +72,7 @@ class TestTheCancellation:
         It moved 0.02136378 -> 0.02136173 when the bounce series went, a factor
         1/denom = 1.0000958 at these AR coatings.
         """
-        eps = _cavity(r1=0.01, r2=0.01, alpha=2.7, n=4.0).eps_eff.values[0]
+        eps = _cavity(r1=0.01, r2=0.01, alpha=2.7).eps_eff.values[0]
         assert eps == pytest.approx(0.021361733, rel=1e-6)
         # What the n^2 expression used to give, for the record.
         assert 0.3385077 / eps == pytest.approx(15.8465, rel=1e-3)
@@ -79,7 +87,7 @@ class TestTheEnergyIdentity:
         for _ in range(2000):
             r1, r2 = rng.uniform(0.0, 0.4, 2)
             alpha = rng.uniform(0.0, 400.0)
-            c = _cavity(r1=float(r1), r2=float(r2), alpha=float(alpha), n=4.0)
+            c = _cavity(r1=float(r1), r2=float(r2), alpha=float(alpha))
             b = c.beer[0]
             # First order (CU-398): the side-swapped R_sys — one T2, no bounce series.
             r_side2 = r2 + (1.0 - r2) * r1 * b * b
@@ -96,14 +104,14 @@ class TestTheEnergyIdentity:
         carry the same AR stack. A "simplification" to R_sys would silently reintroduce
         an error on every asymmetric element.
         """
-        c = _cavity(r1=0.30, r2=0.02, alpha=200.0, n=4.0)
+        c = _cavity(r1=0.30, r2=0.02, alpha=200.0)
         side_one = 1.0 - c.T_sys.values[0] - c.R_sys.values[0]
         assert c.eps_eff.values[0] != pytest.approx(side_one, rel=1e-3)
 
     @pytest.mark.level0
     def test_symmetric_coatings_make_the_two_agree(self) -> None:
         """...and this is why the trap is hard to see."""
-        c = _cavity(r1=0.05, r2=0.05, alpha=200.0, n=4.0)
+        c = _cavity(r1=0.05, r2=0.05, alpha=200.0)
         side_one = 1.0 - c.T_sys.values[0] - c.R_sys.values[0]
         assert c.eps_eff.values[0] == pytest.approx(side_one, rel=1e-12)
 
@@ -121,7 +129,7 @@ class TestTheBound:
         for _ in range(4000):
             r1, r2 = rng.uniform(0.0, 0.95, 2)
             alpha = rng.uniform(0.0, 5000.0)
-            eps = _cavity(r1=float(r1), r2=float(r2), alpha=float(alpha), n=4.0).eps_eff.values[0]
+            eps = _cavity(r1=float(r1), r2=float(r2), alpha=float(alpha)).eps_eff.values[0]
             assert 0.0 <= eps <= 1.0
             worst = max(worst, eps)
         assert worst < 1.0
@@ -129,19 +137,19 @@ class TestTheBound:
     @pytest.mark.level0
     def test_the_limit_is_a_blackbody_behind_a_lossless_window(self) -> None:
         """eps -> 1 only as R2 -> 0 and the slab becomes opaque."""
-        eps = _cavity(r1=0.0, r2=0.0, alpha=1.0e6, n=4.0).eps_eff.values[0]
+        eps = _cavity(r1=0.0, r2=0.0, alpha=1.0e6).eps_eff.values[0]
         assert eps == pytest.approx(1.0, abs=1e-9)
 
 
 class TestTheZeroCasesStillHold:
     @pytest.mark.level0
     def test_no_absorption_means_no_emission(self) -> None:
-        assert _cavity(r1=0.01, r2=0.01, alpha=0.0, n=4.0).eps_eff.values[0] == pytest.approx(
+        assert _cavity(r1=0.01, r2=0.01, alpha=0.0).eps_eff.values[0] == pytest.approx(
             0.0, abs=1e-15
         )
 
     @pytest.mark.level0
     def test_zero_thickness_means_no_emission(self) -> None:
-        assert _cavity(r1=0.01, r2=0.01, alpha=2.7, n=4.0, d=0.0).eps_eff.values[
-            0
-        ] == pytest.approx(0.0, abs=1e-15)
+        assert _cavity(r1=0.01, r2=0.01, alpha=2.7, d=0.0).eps_eff.values[0] == pytest.approx(
+            0.0, abs=1e-15
+        )

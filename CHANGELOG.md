@@ -20,6 +20,13 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+### Added
+- **GUI: α can be loaded from a CSV on the custom-material path.** α(λ) is the usual
+  case rather than the exception — a measured coupon comes off an FTIR as a spectrum,
+  and every library material is one. The field always accepted a scalar, a CSV path or
+  an inline λ-table (the config layer resolves all three), but with no button the only
+  way to discover that was to read the parser.
+
 ### Fixed
 - **A spectral CSV may now carry a column-header row, and a corrupt one is refused
   with an actionable message** (CU-397). `wavelength_um,value` as the first line — what
@@ -33,6 +40,18 @@ retroactively reconstructed.
   read as data — `float()` accepts both, so one `NaN` row in a coating file was
   interpolated across the chain grid and produced 7 NaN reflectances and 7 NaN
   emissivities out of 9 points with no error raised anywhere.
+
+### Removed
+- **`n_refr` is no longer an optical-element field** (CU-399). The refractive index was
+  a *required* cavity input that entered no formula — n = 1 and n = 10 gave bit-identical
+  `T_sys`, `R_sys` and ε. Its only consumer was the n² factor removed from the emissivity
+  by CU-396, after which it went inert with nothing noticing, because no test asserted
+  that a required input does something. A required input that changes nothing is worse
+  than an unused field: it is a control you can turn believing it matters. A config still
+  carrying the key is refused with guidance rather than ignored, and no result moves —
+  there was nothing for it to move. Surface reflectance is given per surface (R1/T1,
+  R2/T2) and is never derived from an index; designing with uncoated optics is out of
+  scope (owner ruling).
 
 ### Changed
 - **Results-affecting: the refractive cavity is now a first-order model — one

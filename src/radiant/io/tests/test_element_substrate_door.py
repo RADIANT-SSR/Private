@@ -1,6 +1,6 @@
 """The named-substrate door on a refractive element (Gap 142).
 
-The door is a convenience over the explicit ``alpha``/``n_refr`` inputs, never a
+The door is a convenience over the explicit ``alpha`` input, never a
 replacement (plan §7.5, owner requirement 2026-10-04). These tests pin that
 relationship: both doors must reach the same cavity, naming both must be refused, and
 the custom path must keep working untouched.
@@ -40,17 +40,16 @@ class TestBothDoorsReachOneCavity:
     def test_identical_inputs_give_bit_identical_emissivity(self) -> None:
         """§7.5's load-bearing claim: there is ONE physics path, not two.
 
-        Resolve the library's germanium onto the grid, then feed those exact arrays
+        Resolve the library's germanium onto the grid, then feed that exact array
         through the explicit door. If the named door did anything other than look up
-        alpha and n, this would not be bit-identical.
+        alpha, this would not be bit-identical.
         """
-        n, alpha = SubstrateLibrary().material("germanium").resample(_WL)
+        _, alpha = SubstrateLibrary().material("germanium").resample(_WL)
         named = parse_element_entries([_entry(substrate="germanium")], wavelength_um=_WL)[0]
         custom = parse_element_entries(
             [
                 _entry(
                     alpha={"wavelength_um": _WL.tolist(), "values": alpha.tolist()},
-                    n_refr={"wavelength_um": _WL.tolist(), "values": n.tolist()},
                 )
             ],
             wavelength_um=_WL,
@@ -77,16 +76,16 @@ class TestBothDoorsReachOneCavity:
 
 class TestTheCustomPathSurvives:
     @pytest.mark.level1
-    def test_explicit_alpha_and_n_still_work_with_no_substrate(self) -> None:
+    def test_explicit_alpha_still_works_with_no_substrate(self) -> None:
         """Adding a convenience must not remove the general case."""
-        element = parse_element_entries([_entry(alpha=0.552, n_refr=4.024)], wavelength_um=_WL)[0]
+        element = parse_element_entries([_entry(alpha=0.552)], wavelength_um=_WL)[0]
         assert np.all(element.emissivity.values > 0.0)
         assert "substrate library" not in element.cavity.alpha.source
 
 
 class TestOverSpecification:
     @pytest.mark.level1
-    @pytest.mark.parametrize("extra", ["alpha", "n_refr"])
+    @pytest.mark.parametrize("extra", ["alpha"])
     def test_naming_a_substrate_and_setting_its_quantities_is_refused(self, extra: str) -> None:
         """A substrate supplies exactly these; giving both has no resolution rule.
 
@@ -113,7 +112,7 @@ class TestUnknownMaterial:
             parse_element_entries([_entry(substrate="unobtainium")], wavelength_um=_WL)
         message = str(excinfo.value)
         assert "unknown substrate" in message
-        assert "alpha and n_refr explicitly" in message
+        assert "alpha explicitly" in message
 
     @pytest.mark.level1
     def test_a_substrate_outside_its_window_is_refused(self) -> None:
@@ -242,3 +241,17 @@ class TestSubstrateSupportPredicate:
             else:
                 with pytest.raises(ElementConfigError, match="nothing to act on"):
                     parse_element_entries([entry], wavelength_um=_WL)
+
+
+class TestTheRemovedIndexKey:
+    """``n_refr`` is refused with guidance, not ignored (CU-399)."""
+
+    @pytest.mark.level1
+    def test_a_legacy_document_is_told_what_happened(self) -> None:
+        with pytest.raises(ElementConfigError) as excinfo:
+            parse_element_entries([_entry(alpha=0.552, n_refr=4.024)], wavelength_um=_WL)
+        message = str(excinfo.value)
+        assert "no longer an element field" in message
+        # The reassurance that matters to someone editing an old config: deleting the
+        # key does not move their answer, because the key never moved it.
+        assert "the result does not change" in message

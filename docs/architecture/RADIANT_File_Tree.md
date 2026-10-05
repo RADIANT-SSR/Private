@@ -292,7 +292,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 34 source + 26 tests
+### `api/` — 35 source + 27 tests
 
 Public scripting API.
 
@@ -318,6 +318,7 @@ api/
 ├── geometry_modes.py      # re-export bridge: ADR-0006 mode manifest (CU-120)
 ├── atmosphere_families.py # shipped interpolation-family catalogue seam for the GUI (CU-239)
 ├── substrate.py           # substrate-library display metadata seam for the GUI (Gap 142)
+├── substrate_absorption.py # substrate α(λ) and n(λ) figure, log α axis (Gap 142 §9)
 ├── transmission_state.py  # re-export bridge: transmission-mode incomplete predicate (CU-373 F-09)
 ├── stage_output_units.py  # canonical display units for scalar stage outputs (CU-118)
 ├── config_io.py           # config-document facade for structured configuration

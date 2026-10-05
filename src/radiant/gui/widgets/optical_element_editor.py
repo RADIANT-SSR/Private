@@ -110,11 +110,14 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QMenu,
     QMessageBox,
     QPushButton,
+    QScrollArea,
+    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -260,6 +263,23 @@ _DETAIL_MIN_HEIGHT = 260
 # The element table shows every row (CU-371); this floor only keeps an empty train
 # from collapsing to a header sliver.
 _TABLE_FLOOR = 96
+
+# The inspection row adapts to the width it actually gets. Side by side is right on a
+# wide display and WRONG in a ~690 px tab, where a 270 px form plus a 270 px figure plus
+# the form's own ~310 px control row cannot fit and both axes clip. Below the threshold
+# the two stack instead, which is always legible because each gets the full width.
+#
+# The threshold is the form's real minimum (its widest control row) plus the narrowest
+# figure worth drawing, not a round number.
+_INSPECT_FORM_MIN_WIDTH = 330
+_INSPECT_FIGURE_MIN_WIDTH = 430
+_INSPECT_SIDE_BY_SIDE_MIN = _INSPECT_FORM_MIN_WIDTH + _INSPECT_FIGURE_MIN_WIDTH
+
+#: Heights the stacked halves open at [px]. The form takes the larger share: the figure
+#: stays readable when it shrinks, a form cut to one visible row does not, and the form
+#: is the half being acted on. The splitter handle resizes both from there.
+_STACKED_FORM_HEIGHT = 360
+_STACKED_FIGURE_HEIGHT = 230
 
 # Gap 128 deleted per-element near-field geometry (``diameter_m`` /
 # ``distance_to_fpa_m``): an element has no near-field geometry of its own, because every
@@ -476,19 +496,46 @@ class OpticalElementEditor(QWidget):
         # entries (drafts included, via the `entries=` override), so a row previews
         # before Apply; an unparsable draft shows the io parser's actionable message.
         self._dark = False
-        self._detail_title = QLabel(_DETAIL_TITLE_IDLE, card)
+        # The inspection row: the selected element's editor on the left, its figure on
+        # the right. Side by side rather than stacked, because they are two views of the
+        # SAME element and reading one while editing the other is the whole point —
+        # stacked, the figure pushes the fields off-screen (owner report, 2026-10-04).
+        # A SPLITTER, not a fixed split. The central area is ~690 px wide with the
+        # right rail open, so a form with a fixed width took two thirds of it and left
+        # the figure clipped. Both sides keep a modest minimum, the window's width
+        # decides the rest, and the operator can drag when they want one or the other.
+        self._inspect_split = QSplitter(Qt.Orientation.Horizontal, card)
+        self._inspect_split.setChildrenCollapsible(True)
+        self._side_host = QWidget(self._inspect_split)
+        side_box = QVBoxLayout(self._side_host)
+        side_box.setContentsMargins(0, 0, 0, 0)
+        self._side_host.setVisible(False)
+        self._inspect_split.addWidget(self._side_host)
+
+        figure_side = QWidget(self._inspect_split)
+        self._figure_side = figure_side
+        box_fig = QVBoxLayout(figure_side)
+        box_fig.setContentsMargins(0, 0, 0, 0)
+        self._detail_title = QLabel(_DETAIL_TITLE_IDLE, figure_side)
         self._detail_title.setObjectName("stagePlotTitle")
         self._detail_title.setWordWrap(True)
-        box.addWidget(self._detail_title)
-        self._detail_canvas = MatplotlibCanvas(card)
+        box_fig.addWidget(self._detail_title)
+        self._detail_canvas = MatplotlibCanvas(figure_side)
         self._detail_canvas.setMinimumHeight(_DETAIL_MIN_HEIGHT)
         self._detail_canvas.setVisible(False)
-        self._detail_message = QLabel(_DETAIL_PROMPT, card)
+        self._detail_message = QLabel(_DETAIL_PROMPT, figure_side)
         self._detail_message.setObjectName("stagePlotMessage")
         self._detail_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._detail_message.setWordWrap(True)
-        box.addWidget(self._detail_canvas, 1)
-        box.addWidget(self._detail_message)
+        box_fig.addWidget(self._detail_canvas, 1)
+        box_fig.addWidget(self._detail_message)
+        self._inspect_split.addWidget(figure_side)
+        # The figure takes the larger share when there is room; the form is the side
+        # that stops growing, because a value field gains nothing from extra width.
+        self._inspect_split.setStretchFactor(0, 0)
+        self._inspect_split.setStretchFactor(1, 1)
+        self._sync_inspect_orientation()
+        box.addWidget(self._inspect_split, 1)
         self._table.itemSelectionChanged.connect(self.refresh_coating_detail)
         self._table.itemSelectionChanged.connect(self._sync_selection_actions)
         self._table.customContextMenuRequested.connect(self._on_context_menu)
@@ -1295,6 +1342,69 @@ class OpticalElementEditor(QWidget):
 
     # -- document assembly ----------------------------------------------------
 
+    def replace_entry(self, row: int, entry: dict[str, Any]) -> bool:
+        """Replace one row's entry wholesale and commit (Gap 142 detail editor).
+
+        The one write path the per-element detail editor uses. It replaces the row's
+        **source entry** — the copy :meth:`entries` overlays the table's cells onto
+        (CU-344) — and then refreshes the cells the table itself owns, so the overlay
+        cannot clobber what the detail editor just set. Without that second step a
+        detail-editor change to ``transfer_mode`` would be written into the source and
+        then immediately overwritten by the stale Transfer combo.
+
+        Everything the table has no column for — the surface coatings, the thickness,
+        the substrate, the bulk alpha — rides through on the source entry exactly
+        as it always has. Validation, undo and the study split all happen in
+        :meth:`apply_train`, unchanged: this method does not know how to write a sensor.
+        """
+        item = self._table.item(row, _COL_NAME)
+        if item is None:
+            return False
+        item.setData(_ENTRY_ROLE, copy.deepcopy(entry))
+        with self._silent():
+            self._refresh_owned_cells(row, entry)
+        return self.apply_train()
+
+    def _refresh_owned_cells(self, row: int, entry: dict[str, Any]) -> None:
+        """Re-render the columns the table owns from *entry*, without committing."""
+        name_item = self._table.item(row, _COL_NAME)
+        if name_item is not None:
+            name_item.setText(str(entry.get("name", "")))
+            name_item.setToolTip(name_item.text())
+
+        transfer = str(entry.get("transfer_mode", "REFLECTIVE")).upper()
+        transfer_combo = self._table.cellWidget(row, _COL_TRANSFER)
+        if isinstance(transfer_combo, QComboBox):
+            transfer_combo.setCurrentText(transfer)
+        kind_combo = self._table.cellWidget(row, _COL_KIND)
+        if isinstance(kind_combo, QComboBox):
+            kind_combo.setCurrentText(str(entry.get("kind", "lens")).lower())
+            self._sync_kind_combo(kind_combo, transfer)
+
+        value = entry.get("reflectance" if transfer == "REFLECTIVE" else "transmittance")
+        value_item = self._table.item(row, _COL_VALUE)
+        if value_item is not None:
+            if isinstance(value, dict):
+                value_item.setData(_SPECTRUM_ROLE, value)
+                text = f"spectral ({len(value.get('wavelength_um', ()))} pts)"
+            else:
+                value_item.setData(_SPECTRUM_ROLE, None)
+                text = "" if value is None else str(value)
+            value_item.setText(text)
+            value_item.setToolTip(text)
+
+        temperature = entry.get("temperature_K")
+        temp_item = self._table.item(row, _COL_TEMP)
+        if temp_item is not None:
+            temp_item.setText("" if temperature is None else str(temperature))
+
+    def selected_entry(self) -> tuple[int, dict[str, Any] | None]:
+        """The selected row index and its current entry, or ``(-1, None)``."""
+        row = self._table.currentRow()
+        if row < 0 or row >= self._table.rowCount():
+            return -1, None
+        return row, self._row_entry(row)
+
     def entries(self) -> list[dict[str, Any]]:
         """The table serialized to the declarative element document — entry-faithful.
 
@@ -1779,6 +1889,73 @@ class OpticalElementEditor(QWidget):
                 item = self._table.item(row, _COL_EPS)
                 if item is not None:
                     item.setText(f"{preview.emissivity_mean:.4f}")
+
+    def resizeEvent(self, event: Any) -> None:  # noqa: N802 - Qt override
+        """Re-decide side-by-side vs stacked whenever the available width changes."""
+        super().resizeEvent(event)
+        self._sync_inspect_orientation()
+
+    def _sync_inspect_orientation(self) -> None:
+        """Lay the element's form and its figure side by side, or stack them.
+
+        Measured against the width this widget actually has, not the width a mock-up
+        was drawn at. The first build of this row was fixed side-by-side and clipped
+        both the form's controls and the figure's axes in a ~690 px tab.
+        """
+        split = getattr(self, "_inspect_split", None)
+        if split is None:
+            return
+        wide = self.width() >= _INSPECT_SIDE_BY_SIDE_MIN
+        want = Qt.Orientation.Horizontal if wide else Qt.Orientation.Vertical
+        if split.orientation() != want:
+            split.setOrientation(want)
+        if wide:
+            # Minimums apply only across the split axis; stacked they would clip.
+            self._side_host.setMinimumWidth(_INSPECT_FORM_MIN_WIDTH)
+            self._figure_side.setMinimumWidth(_INSPECT_FIGURE_MIN_WIDTH)
+            self._side_host.setMinimumHeight(0)
+            self._detail_canvas.setMinimumHeight(_DETAIL_MIN_HEIGHT)
+            # Seed in the figure's favour: a column of labelled fields reports a wide
+            # size preference and gains nothing from the extra width; the figure does.
+            split.setSizes([_INSPECT_FORM_MIN_WIDTH, self.width() - _INSPECT_FORM_MIN_WIDTH])
+        else:
+            self._side_host.setMinimumWidth(0)
+            self._figure_side.setMinimumWidth(0)
+            # Stacked, the FORM gets the larger share. The figure is readable at
+            # _STACKED_FIGURE_HEIGHT, while a form cut to one visible row is not usable
+            # at all — and the form is the half the operator is acting on. The card
+            # scrolls if the window cannot hold both; that is the right trade, because
+            # shrinking the form to fit is what made it unusable.
+            self._side_host.setMinimumHeight(_STACKED_FORM_HEIGHT)
+            self._detail_canvas.setMinimumHeight(_STACKED_FIGURE_HEIGHT)
+            split.setSizes([_STACKED_FORM_HEIGHT, _STACKED_FIGURE_HEIGHT])
+
+    def set_side_panel(self, widget: QWidget) -> None:
+        """Mount *widget* to the LEFT of the coating figure, inside this card.
+
+        The per-element detail editor's home (Gap 142). It is hosted here rather than
+        appended under the editor so the element's fields and the element's figure sit
+        side by side — appended, the figure takes the full width above and pushes every
+        field below the fold, which is exactly how it looked when it was first built.
+        """
+        layout = self._side_host.layout()
+        if layout is not None:
+            scroller = QScrollArea(self._side_host)
+            scroller.setWidgetResizable(True)
+            scroller.setFrameShape(QFrame.Shape.NoFrame)
+            scroller.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            scroller.setWidget(widget)
+            layout.addWidget(scroller)
+        self._side_host.setVisible(True)
+
+    def element_previews(self) -> list[Any]:
+        """Band-mean R/T/ε per row, from the one facade call the ε column uses.
+
+        Exposed so the detail editor's Derived tab reads the **same** numbers the ε
+        column shows, rather than computing them again. Two computations of one quantity
+        is how a derived display drifts from the value it claims to report.
+        """
+        return list(preview_optical_elements(self.entries()))
 
     # -- accessors (tests) ------------------------------------------------------
 

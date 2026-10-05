@@ -1,0 +1,24 @@
+# Protected-silver mirror reflectance R(lambda) [-] vs [um].
+# Representative of a protected-Ag coating in the MWIR; illustrative, not a vendor curve.
+# Two columns: wavelength_um, value. A header row is also accepted.
+3.000,0.98200
+3.100,0.98180
+3.200,0.98160
+3.300,0.98140
+3.400,0.98120
+3.500,0.98100
+3.600,0.98080
+3.700,0.98060
+3.800,0.98040
+3.900,0.98020
+4.000,0.98000
+4.100,0.97980
+4.200,0.97960
+4.300,0.97940
+4.400,0.97920
+4.500,0.97900
+4.600,0.97880
+4.700,0.97860
+4.800,0.97840
+4.900,0.97820
+5.000,0.97800

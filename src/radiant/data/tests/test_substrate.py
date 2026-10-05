@@ -92,13 +92,13 @@ class TestRefusals:
         """Plan §7.5: the library is a convenience over the explicit inputs.
 
         Someone who wants a material we do not carry should be told they can state
-        alpha and n themselves, before being told to file a gap.
+        alpha themselves, before being told to file a gap.
         """
         with pytest.raises(SubstrateError) as excinfo:
             SubstrateLibrary().material("unobtainium")
         message = str(excinfo.value)
-        assert "alpha and n_refr explicitly" in message
-        custom_at = message.index("alpha and n_refr explicitly")
+        assert "alpha explicitly" in message
+        custom_at = message.index("alpha explicitly")
         gap_at = message.index("file a gap")
         assert custom_at < gap_at, "the custom path must be offered before filing a gap"
 

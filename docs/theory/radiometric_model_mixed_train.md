@@ -356,7 +356,6 @@ Inputs per element i:
     R1_i(λ), T1_i(λ)       entry surface coating
     R2_i(λ), T2_i(λ)       exit surface coating
     alpha_i(λ)              bulk absorption coefficient
-    n_i(λ)                  refractive index
     d_i                     substrate thickness
     T_i                     temperature
     theta_r,i               refracted angle inside substrate

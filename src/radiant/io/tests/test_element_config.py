@@ -61,7 +61,6 @@ def cavity_yaml(tmp_path: Path) -> Path:
             R2: 0.04
             T2: 0.96
             alpha: 0.0
-            n_refr: 1.5
             thickness_m: 0.003
             temperature_K: 280.0
     """)

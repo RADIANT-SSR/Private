@@ -47,7 +47,6 @@ SPECTRAL_FILE_KEYS: tuple[str, ...] = (
     "R2",
     "T2",
     "alpha",
-    "n_refr",
 )
 
 # Broadcast grid for validating a *scalar-only* entry that arrives without a
@@ -237,7 +236,20 @@ def _resolve_spectral_or_scalar(
 # needs. Silently ignoring one would leave a document that *looks* like it states
 # a near-field geometry while the model no longer has one, so they are hard
 # errors (Gap 128).
-_REMOVED_ENTRY_KEYS: dict[str, str] = {
+#: Element keys a model change removed, mapped to the guidance their refusal carries.
+#: Public because an *editor* needs the same roster the parser enforces: a document
+#: written before a removal still carries the key, and an editor that rides it through
+#: faithfully (CU-344) makes that row permanently un-committable — every edit re-emits
+#: a key the parser refuses. Dropping a removed key is the one place faithfulness must
+#: yield, and it must yield against one list, not an editor's guess at it.
+REMOVED_ENTRY_KEYS: dict[str, str] = {
+    "n_refr": (
+        "The refractive index is not an element input: it entered no cavity formula. "
+        "Every cavity quantity is built from the surface coatings and the bulk "
+        "absorption, so delete the key — the result does not change. Surface "
+        "reflectance is given per surface (R1/T1, R2/T2) and is never derived from an "
+        "index."
+    ),
     "diameter_m": (
         "Per-element near-field geometry was deleted when the near-field "
         "model became étendue-conserving: the "
@@ -260,7 +272,7 @@ _REMOVED_ENTRY_KEYS: dict[str, str] = {
 
 def _reject_removed_keys(entry: dict[str, Any], element_name: str) -> None:
     """Raise on any element key a model change removed (Rule 15, Rule 17)."""
-    for key, guidance in _REMOVED_ENTRY_KEYS.items():
+    for key, guidance in REMOVED_ENTRY_KEYS.items():
         if key in entry:
             raise ElementConfigError(
                 f"Element '{element_name}': '{key}' is no longer an element field. {guidance}"
@@ -274,7 +286,7 @@ def _reject_removed_keys(entry: dict[str, Any], element_name: str) -> None:
 #: refused: a lens surface's reflectance is a real property (the cavity model
 #: reads R1/R2, and the simple model's ε = 1 − T − R has a place for it), and the
 #: element editor's entry-faithfulness contract carries it through unchanged.
-_REFLECTIVE_FOREIGN_KEYS: tuple[str, ...] = ("transmittance", "alpha", "n_refr", "thickness_m")
+_REFLECTIVE_FOREIGN_KEYS: tuple[str, ...] = ("transmittance", "alpha", "thickness_m")
 
 
 #: The keys that make a REFRACTIVE entry a *cavity* entry rather than a simple one.
@@ -329,7 +341,7 @@ def _reject_overspecified_keys(
         raise ElementConfigError(
             f"Element '{element_name}': {present} do not apply to transfer_mode = "
             f"'{transfer_mode}' and would be silently ignored. A REFLECTIVE element takes "
-            "'reflectance'; 'transmittance', 'alpha', 'n_refr' and 'thickness_m' belong to "
+            "'reflectance'; 'transmittance', 'alpha' and 'thickness_m' belong to "
             "a REFRACTIVE element. Remove the stray key or change transfer_mode."
         )
     if "substrate" in entry and not _is_cavity_entry(entry):
@@ -358,11 +370,15 @@ def _reject_overspecified_keys(
 
 def _substrate_optical_constants(
     substrate_name: str, element_name: str, wavelength_um: np.ndarray | None
-) -> tuple[SpectralData, SpectralData]:
-    """Resolve a named substrate to ``(alpha, n_refr)`` on the chain grid (Gap 142).
+) -> SpectralData:
+    """Resolve a named substrate to its bulk absorption ``alpha`` on the chain grid.
 
     Resolution happens here, pre-chain, so the optics stage sees an ordinary cavity
     element and Rule 6 is untouched — the stage never learns that a library exists.
+
+    The library also carries a published ``n``, which this no longer returns: the cavity
+    model has no index input (CU-399). The data stays in the library because it is real
+    measured dispersion and the absorption figure plots it.
     """
     try:
         material = SubstrateLibrary().material(substrate_name)
@@ -375,27 +391,19 @@ def _substrate_optical_constants(
             # valid entry into a spurious out-of-window refusal. The real window check
             # happens at evaluation, against the grid that will actually be used.
             grid = material.wavelength_um
-            n_values, alpha_values = material.n_refr, material.alpha_per_m
+            alpha_values = material.alpha_per_m
         else:
             grid = wavelength_um
-            n_values, alpha_values = material.resample(wavelength_um)
+            _, alpha_values = material.resample(wavelength_um)
     except SubstrateError as exc:
         raise ElementConfigError(f"optical element '{element_name}': {exc}") from exc
-    alpha = SpectralData(
+    return SpectralData(
         name=f"{element_name}.alpha",
         wavelength_um=grid.copy(),
         values=alpha_values,
         unit="1/m",
         source=f"substrate library: {material.name} (tier {material.tier})",
     )
-    n_refr = SpectralData(
-        name=f"{element_name}.n_refr",
-        wavelength_um=grid.copy(),
-        values=n_values,
-        unit="",
-        source=f"substrate library: {material.name} (tier {material.tier})",
-    )
-    return alpha, n_refr
 
 
 def _require(entry: dict[str, Any], key: str, element_name: str) -> Any:
@@ -452,14 +460,14 @@ def _parse_element(
             t2 = _surface_value("T2")
             # Two doors onto the same two quantities (Gap 142, plan §7.5):
             #   substrate: germanium        -> alpha(lambda), n(lambda) from the library
-            #   alpha: ... / n_refr: ...    -> stated explicitly (the custom-material path)
+            #   alpha: ...                  -> stated explicitly (the custom-material path)
             # The named door is a CONVENIENCE OVER the explicit one, never a
             # replacement: an analyst with their own measured alpha must still be able
             # to state it. Giving both over-specifies the element and is refused here,
             # at the single validation authority, exactly as a mirror carrying both a
             # reflectance and an emissivity is (Rule 5).
             substrate_name = entry.get("substrate")
-            explicit_optical = [k for k in ("alpha", "n_refr") if k in entry]
+            explicit_optical = [k for k in ("alpha",) if k in entry]
             if substrate_name is not None and explicit_optical:
                 raise ElementConfigError(
                     f"optical element '{name}' names substrate "
@@ -468,13 +476,11 @@ def _parse_element(
                     "supplies exactly those quantities, so giving both over-specifies "
                     "the element and there is no rule for which should win. Keep the "
                     "substrate for a library material, or drop it and state alpha and "
-                    "n_refr yourself for a custom one. thickness_m stays either way — "
+                    "alpha yourself for a custom one. thickness_m stays either way — "
                     "it belongs to the lens, not to the material."
                 )
             if substrate_name is not None:
-                alpha, n_refr = _substrate_optical_constants(
-                    str(substrate_name), name, wavelength_um
-                )
+                alpha = _substrate_optical_constants(str(substrate_name), name, wavelength_um)
                 if wavelength_um is None:
                     # The substrate supplied the only real grid in this entry, so the
                     # rest of it (scalar coatings) broadcasts onto that rather than
@@ -486,11 +492,6 @@ def _parse_element(
                 alpha = _resolve_spectral_or_scalar(
                     _require(entry, "alpha", name),
                     f"{name}.alpha",
-                    config_dir,
-                )
-                n_refr = _resolve_spectral_or_scalar(
-                    _require(entry, "n_refr", name),
-                    f"{name}.n_refr",
                     config_dir,
                 )
             thickness_m = float(_require(entry, "thickness_m", name))
@@ -505,7 +506,6 @@ def _parse_element(
                 R2=r2,
                 T2=t2,
                 alpha=alpha,
-                n_refr=n_refr,
                 thickness_m=thickness_m,
                 kind=kind,
                 wavelength_um=wavelength_um,
@@ -585,6 +585,31 @@ def parse_element_entries(
     return elements
 
 
+def _entry_native_grid(entry: dict[str, Any], base_dir: str | Path | None) -> np.ndarray | None:
+    """The wavelength grid *entry* carries, from the first spectral input that has one.
+
+    Returns ``None`` for a scalar-only entry, which has no grid of its own. Where
+    several spectral inputs disagree the first one wins and the parse then raises the
+    ordinary grid-mismatch error — that is the right outcome, and it is the parser's
+    message rather than a new one invented here.
+    """
+    config_dir = Path(base_dir) if base_dir is not None else Path.cwd()
+    for key in SPECTRAL_FILE_KEYS:
+        value = entry.get(key)
+        if not isinstance(value, (str, dict)):
+            continue
+        try:
+            resolved = _resolve_spectral_or_scalar(
+                value, f"{entry.get('name', '?')}.{key}", config_dir
+            )
+        except (ElementConfigError, OSError):
+            # Unresolvable here is not this helper's business: the real parse below
+            # raises the actionable error, with the file name and the reason.
+            continue
+        return np.asarray(resolved.wavelength_um, dtype=np.float64)
+    return None
+
+
 def validate_element_entry(
     entry: dict[str, Any],
     *,
@@ -621,8 +646,17 @@ def validate_element_entry(
     except OpticsValidationError as exc:
         if "wavelength_um is required" not in str(exc):
             raise
-        # Scalar-only entry: any grid broadcasts it losslessly.
-        return parse_element_entries([entry], FALLBACK_GRID_UM, base_dir=base_dir)[0]
+        # A scalar needs a grid to broadcast onto. Prefer one the entry ITSELF supplies:
+        # a MIXED entry — a cavity whose surface 1 is a 3-5 µm coating file and whose
+        # surface 2 is a scalar — reaches here too, and the generic fallback spans
+        # 0.4-20 µm, wider than any real coating table. Broadcasting the scalar onto
+        # that grid then fails when the file is resampled onto it, so a structurally
+        # valid entry was refused for a band nobody asked about. Falling back to the
+        # generic grid is right only when the entry has no grid of its own.
+        grid = _entry_native_grid(entry, base_dir)
+        if grid is None:
+            grid = FALLBACK_GRID_UM
+        return parse_element_entries([entry], grid, base_dir=base_dir)[0]
 
 
 def load_element_list(

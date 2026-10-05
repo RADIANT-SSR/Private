@@ -23,9 +23,28 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from radiant.data.substrate import SubstrateLibrary
-from radiant.io.element_config import entry_supports_substrate
+from radiant.io.element_config import REMOVED_ENTRY_KEYS, entry_supports_substrate
 
-__all__ = ["SubstrateInfo", "available_substrates", "entry_supports_substrate"]
+__all__ = [
+    "SubstrateInfo",
+    "available_substrates",
+    "REMOVED_ENTRY_KEYS",
+    "entry_supports_substrate",
+    "substrate_label",
+]
+
+
+def substrate_label(*, display_name: str, name: str, formula: str) -> str:
+    """Human label for a substrate: ``"Germanium (Ge)"``.
+
+    One definition, read by the picker and by the absorption figure's title. It was
+    briefly written twice, which is how two surfaces that must agree start
+    disagreeing. Uses the declared ``display_name`` where a material has one, because
+    a few names do not survive title-casing — "zinc_sulphide_ms" is the multispectral
+    grade, not a surname.
+    """
+    pretty = display_name or name.replace("_", " ").title()
+    return f"{pretty} ({formula})" if formula else pretty
 
 
 @dataclass(frozen=True)
@@ -76,8 +95,7 @@ class SubstrateInfo:
         names do not survive title-casing — "zinc_sulphide_ms" is the multispectral
         grade, not a surname.
         """
-        pretty = self.display_name or self.name.replace("_", " ").title()
-        return f"{pretty} ({self.formula})" if self.formula else pretty
+        return substrate_label(display_name=self.display_name, name=self.name, formula=self.formula)
 
 
 def available_substrates(*, library: SubstrateLibrary | None = None) -> tuple[SubstrateInfo, ...]:

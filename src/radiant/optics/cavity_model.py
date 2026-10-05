@@ -2,8 +2,15 @@
 
 Computes system transmittance, system reflectance, and effective
 emissivity from surface coatings (R1, T1, R2, T2), bulk absorption
-coefficient (alpha), refractive index (n_refr), and substrate
-thickness (thickness_m).
+coefficient (alpha), and substrate thickness (thickness_m).
+
+**There is no refractive index here (CU-399).** It was a field until
+2026-10-04 and it entered no formula: n = 1 and n = 10 gave bit-identical
+T_sys, R_sys and eps. The index's only consumer was the n^2 factor CU-396
+removed from eps_eff that same day, and the parameter went inert without
+anything noticing, because no test asserts that a required input does
+something. A required input that changes nothing is worse than an unused
+field: it is a control the analyst can turn, believing it matters.
 
 Surfaces are lossless by model rule (Gap 127): per surface R + T = 1 —
 coating absorption is not modelled, so all absorption (and hence all
@@ -46,8 +53,7 @@ class CavityModel:
 
     Computes system transmittance, system reflectance, and effective
     emissivity from surface coatings (R1, T1, R2, T2), bulk absorption
-    coefficient (alpha), refractive index (n_refr), and substrate
-    thickness (thickness_m).
+    coefficient (alpha), and substrate thickness (thickness_m).
 
     All spectral inputs must share the same wavelength grid.
     This class contains NO geometry or thermal properties — it is
@@ -61,8 +67,6 @@ class CavityModel:
         Exit surface reflectance and transmittance.
     alpha:
         Bulk absorption coefficient [1/m].
-    n_refr:
-        Refractive index (dimensionless).
     thickness_m:
         Substrate thickness [m].
     """
@@ -72,7 +76,6 @@ class CavityModel:
     R2: SpectralData
     T2: SpectralData
     alpha: SpectralData
-    n_refr: SpectralData
     thickness_m: float
 
     def __post_init__(self) -> None:
@@ -83,7 +86,6 @@ class CavityModel:
             ("R2", self.R2),
             ("T2", self.T2),
             ("alpha", self.alpha),
-            ("n_refr", self.n_refr),
         ]:
             if not np.array_equal(sd.wavelength_um, ref_wl):
                 raise OpticsValidationError(
@@ -112,13 +114,6 @@ class CavityModel:
             raise OpticsValidationError(
                 "CavityModel: absorption coefficient alpha must be >= 0 "
                 f"(gain is not physical). Min value: {float(self.alpha.values.min()):.6g}."
-            )
-
-        # Refractive index must be >= 1.
-        if np.any(self.n_refr.values < 1.0):
-            raise OpticsValidationError(
-                "CavityModel: refractive index n must be >= 1. "
-                f"Min value: {float(self.n_refr.values.min()):.6g}."
             )
 
         # Thickness must be non-negative.

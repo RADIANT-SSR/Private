@@ -1,0 +1,61 @@
+substrate: 1
+name: silicon
+tier: B
+formula: Si
+aliases: [si, silicon]
+window_um: [1.20, 14.00]
+reference_temperature_K: 293
+description: >
+  Single-crystal silicon, optical grade. The standard MWIR refractive substrate
+  (n ~ 3.43), paired with Ge for achromatisation. Unsuitable as a thick LWIR
+  element: Czochralski (CZ) material carries an interstitial-oxygen band at
+  ~9 um and the multiphonon edge rises from ~6.5 um. Float-zone (FZ) material
+  suppresses the oxygen band.
+grade_note: >
+  CZ vs FZ changes alpha at 9 um by more than an order of magnitude. The anchors
+  below describe generic optical-grade CZ; the 6.5-14 um portion is a shape
+  continuation, not measured data (see the per-anchor basis fields).
+
+n_refr:
+  kind: ri_table
+  source_file: sources/main__Si__nk__Li-293K.yml
+  source: li1993
+  note: "Critically-evaluated tabulated n, 1.20-14 um at 293 K."
+
+alpha:
+  unit: cm^-1
+  grade_sensitivity: ">10x (CZ vs FZ at 9 um)"
+  interpolation: log10-log10 through anchors
+  anchors:
+    - {lambda_um: 3.0, alpha_cm_inv: 0.010, source: crystran_si, basis: "manufacturer typical -- the ONLY published window anchor"}
+    - {lambda_um: 6.5, alpha_cm_inv: 0.05, source: estimated, basis: "onset of the multiphonon edge; ORDER-OF-MAGNITUDE ESTIMATE, not measured"}
+    - {lambda_um: 9.0, alpha_cm_inv: 1.5, source: estimated, basis: "CZ interstitial-oxygen band peak; ORDER-OF-MAGNITUDE ESTIMATE (Crystran names the band but publishes no alpha)"}
+    - {lambda_um: 11.0, alpha_cm_inv: 0.3, source: estimated, basis: "between the 9 um band and the lattice edge; ORDER-OF-MAGNITUDE ESTIMATE"}
+    - {lambda_um: 14.0, alpha_cm_inv: 2.0, source: estimated, basis: "multiphonon lattice edge; ORDER-OF-MAGNITUDE ESTIMATE"}
+  temperature_note: >
+    Si's bandgap (1.12 eV) is 70 % wider than Ge's, so intrinsic free-carrier
+    absorption is negligible to well above 400 K. alpha(T) is not a concern for
+    silicon in any EO operating range.
+
+sources:
+  li1993:
+    type: paper
+    title: "Refractive index of silicon and germanium and its wavelength and temperature derivatives"
+    authors: "H. H. Li"
+    venue: "J. Phys. Chem. Ref. Data 9, 561-658 (1980/1993)"
+    doi: 10.1063/1.555624
+    retrieved_via: "refractiveindex.info database (CC0), main/Si/nk/Li-293K.yml"
+    url: "https://refractiveindex.info/?shelf=main&book=Si&page=Li-293K"
+  crystran_si:
+    type: manufacturer_page
+    title: "Silicon (Si) optical material"
+    publisher: "Crystran Ltd"
+    url: "https://www.crystran.co.uk/optical-materials/silicon-si"
+    local_copy: sources/silicon-si.txt
+  estimated:
+    type: estimate
+    note: >
+      No retrievable published alpha. These anchors reproduce the SHAPE of the
+      published transmission curve for a nominal thickness but are not traceable
+      measurements. Flagged so the library can refuse to serve them above a
+      declared confidence threshold (study section 7.1).

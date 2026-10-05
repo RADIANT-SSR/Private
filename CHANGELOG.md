@@ -21,6 +21,24 @@ retroactively reconstructed.
 ## [Unreleased]
 
 ### Added
+- **A refractive element can name its substrate material** (Gap 142). `substrate:
+  germanium` on an `optical_elements:` entry resolves the bulk absorption coefficient
+  and refractive index the cavity emission model needs — properties of the *material*,
+  which an analyst holding a lens drawing does not know, as opposed to the thickness,
+  which they do. Six materials ship in two confidence tiers: ZnSe, CaF₂ and
+  multispectral ZnS built from five or six published laser-line α anchors; Ge, Si and
+  BaF₂ flagged with their lot-to-lot spread, because a substrate library without
+  germanium and silicon is not a substrate library. α is published in cm⁻¹ and the
+  registry gained the `1/cm` ↔ `1/m` pair (it carried no reciprocal-length dimension
+  at all). **The explicit `alpha`/`n_refr` inputs are unchanged and remain the
+  custom-material path** — the two doors reach the identical cavity, naming both is
+  refused as over-specification, and a substrate used outside its published window is
+  refused rather than extrapolated. Resolution happens pre-chain in the io layer, so
+  the optics stage is untouched. A substrate named where it cannot act — on a mirror, or
+  on a *simple* refractive element defined by a single `transmittance`, neither of which
+  runs the cavity model — is likewise **refused** rather than ignored, naming the two
+  things the cavity needs that a material cannot supply (`thickness_m` and a surface
+  coating value).
 - **RADIANT now warns when a ground sensor on high terrain leaves
   `geometry.site_elevation_m` at its default** (CU-393). The Hufnagel-Valley surface
   term is evaluated at `h − site_elevation_m`, so a telescope on a 900 m ridge with the

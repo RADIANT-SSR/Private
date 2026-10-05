@@ -16,7 +16,10 @@ import pytest
 pytest.importorskip("PySide6", reason="GUI tests require the optional 'gui' extra")
 
 from radiant.api.sensor import Sensor  # noqa: E402
-from radiant.gui.widgets.optical_element_editor import OpticalElementEditor  # noqa: E402
+from radiant.gui.widgets.optical_element_editor import (  # noqa: E402
+    _COL_VALUE,
+    OpticalElementEditor,
+)
 from radiant.gui.widgets.spectral_table_dialog import (  # noqa: E402
     SpectralTableDialog,
     parse_spectrum_text,
@@ -64,7 +67,7 @@ class TestInlineSpectrumDocument:
         editor.bind_sensor(sensor, {})
         editor._add_mirror.click()
         # Attach an inline spectrum the way _edit_spectrum would store it.
-        item = editor.table.item(0, 3)
+        item = editor.table.item(0, _COL_VALUE)
         from radiant.gui.widgets.optical_element_editor import _SPECTRUM_ROLE
 
         item.setData(_SPECTRUM_ROLE, {"wavelength_um": [3.0, 5.0], "values": [0.96, 0.98]})
@@ -92,7 +95,7 @@ class TestInlineSpectrumDocument:
         qtbot.addWidget(editor)
         editor.bind_sensor(sensor, {})
         editor._add_mirror.click()
-        item = editor.table.item(0, 3)
+        item = editor.table.item(0, _COL_VALUE)
         from radiant.gui.widgets.optical_element_editor import _SPECTRUM_ROLE
 
         item.setData(_SPECTRUM_ROLE, {"wavelength_um": [3.0, 5.0], "values": [0.96, 0.98]})

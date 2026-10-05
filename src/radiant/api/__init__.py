@@ -42,6 +42,7 @@ from radiant.api.fpa_preset import (
 from radiant.api.sensitivity import SensitivityResult
 from radiant.api.sensor import Sensor
 from radiant.api.solve import SolveResult
+from radiant.api.substrate import SubstrateInfo, available_substrates
 from radiant.api.sweep import Sweep2DResult, SweepResult
 from radiant.api.tolerance import MonteCarloResult
 from radiant.io.results import ChainResult, NoiseExplanation, WellStatus
@@ -52,6 +53,8 @@ __all__ = [
     "FPAPartInfo",
     "FPASourceInfo",
     "available_fpa_parts",
+    "SubstrateInfo",
+    "available_substrates",
     "remove_fpa_preset",
     "SweepResult",
     "Sweep2DResult",

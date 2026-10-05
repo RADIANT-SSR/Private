@@ -1,0 +1,51 @@
+substrate: 1
+name: zinc_sulphide_ms
+display_name: Zinc Sulphide, multispectral
+tier: A
+formula: ZnS
+aliases: [zns, zns-ms, multispectral zns, zinc sulphide, zinc sulfide]
+window_um: [0.40, 13.00]
+reference_temperature_K: 293
+description: >
+  Multispectral (hot-isostatically-pressed CVD) zinc sulphide, n ~ 2.2. The only
+  candidate that usefully spans visible through LWIR in one material, which is
+  why it is the standard multiband dome and window. Its alpha rises steeply past
+  ~9.5 um (0.2 cm^-1 at 10.6 um), so a thick ZnS element is a real LWIR emitter
+  -- the one material in the set where self-emission is a first-order design
+  driver rather than a small correction.
+
+n_refr:
+  kind: formula
+  formula: formula_4
+  coefficients: [8.393, 0.14383, 0, 0.2421, 2, 4430.99, 0, 36.71, 2]
+  valid_um: [0.405, 13.0]
+  source: klein1986
+  note: "Checks against Crystran's published n = 2.20084 at 10 um to 1e-4."
+
+alpha:
+  unit: cm^-1
+  grade_sensitivity: "~3x (MS vs FLIR-grade ZnS)"
+  interpolation: log10-log10 through anchors
+  anchors:
+    - {lambda_um: 1.3, alpha_cm_inv: 0.0006, source: crystran_zns_ms, basis: "published laser-line value"}
+    - {lambda_um: 2.7, alpha_cm_inv: 0.0001, source: crystran_zns_ms, basis: "published laser-line value"}
+    - {lambda_um: 3.8, alpha_cm_inv: 0.0006, source: crystran_zns_ms, basis: "published laser-line value"}
+    - {lambda_um: 9.27, alpha_cm_inv: 0.006, source: crystran_zns_ms, basis: "published laser-line value"}
+    - {lambda_um: 10.6, alpha_cm_inv: 0.2, source: crystran_zns_ms, basis: "published laser-line value"}
+  temperature_note: "Wide-gap II-VI; no free-carrier term in any EO operating range."
+
+sources:
+  klein1986:
+    type: paper
+    title: "Room-temperature dispersion equations for cubic zinc sulfide (fit to Debenham's measurements)"
+    authors: "C. A. Klein (fit); M. Debenham (data)"
+    venue: "Appl. Opt. 25, 1873-1875 (1986); Appl. Opt. 23, 2238-2239 (1984)"
+    doi: 10.1364/AO.25.001873
+    retrieved_via: "refractiveindex.info database (CC0), main/ZnS/nk/Debenham.yml"
+    url: "https://refractiveindex.info/?shelf=main&book=ZnS&page=Debenham"
+  crystran_zns_ms:
+    type: manufacturer_page
+    title: "Zinc Sulphide (multispectral ZnS) optical material"
+    publisher: "Crystran Ltd"
+    url: "https://www.crystran.co.uk/optical-materials/zinc-sulphide-zinc-sulfide-multispectral-zns"
+    local_copy: sources/zinc-sulphide-zinc-sulfide-multispectral-zns.txt

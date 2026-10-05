@@ -1,0 +1,51 @@
+substrate: 1
+name: calcium_fluoride
+tier: A
+formula: CaF2
+aliases: [caf2, calcium fluoride, fluorite]
+window_um: [0.40, 10.00]
+reference_temperature_K: 293
+description: >
+  Single-crystal calcium fluoride, n ~ 1.40 -- the lowest-index candidate and a
+  standard MWIR corrector/colour-correcting element. Six published window alpha
+  anchors spanning 2.7-10.6 um make it the second-best-provenanced material in
+  the set, and they document the multiphonon edge explicitly: alpha goes from
+  7.8e-4 cm^-1 at 2.7 um to 3.5 cm^-1 at 10.6 um, a 4500x rise. CaF2 is a MWIR
+  material only; a CaF2 element in an LWIR train is nearly a blackbody.
+
+n_refr:
+  kind: formula
+  formula: sellmeier_1
+  coefficients: [0.33973, 0.69913, 0.09374, 0.11994, 21.18, 4.35181, 38.46]
+  valid_um: [0.15, 12.0]
+  source: li1980
+  note: "Checks against Crystran's published n = 1.39908 at 5 um."
+
+alpha:
+  unit: cm^-1
+  grade_sensitivity: "~2x (mined-fluorite IR grade vs synthetic)"
+  interpolation: log10-log10 through anchors
+  anchors:
+    - {lambda_um: 2.7, alpha_cm_inv: 0.00078, source: crystran_caf2, basis: "published value"}
+    - {lambda_um: 6.25, alpha_cm_inv: 0.0035, source: crystran_caf2, basis: "published value"}
+    - {lambda_um: 7.69, alpha_cm_inv: 0.11, source: crystran_caf2, basis: "published value"}
+    - {lambda_um: 8.69, alpha_cm_inv: 0.48, source: crystran_caf2, basis: "published value"}
+    - {lambda_um: 9.09, alpha_cm_inv: 0.65, source: crystran_caf2, basis: "published value"}
+    - {lambda_um: 10.6, alpha_cm_inv: 3.5, source: crystran_caf2, basis: "published value"}
+  temperature_note: "Wide-gap ionic crystal; no free-carrier term in any EO operating range."
+
+sources:
+  li1980:
+    type: paper
+    title: "Refractive index of alkaline earth halides and its wavelength and temperature derivatives"
+    authors: "H. H. Li"
+    venue: "J. Phys. Chem. Ref. Data 9, 161-289 (1980)"
+    doi: 10.1063/1.555616
+    retrieved_via: "refractiveindex.info database (CC0), main/CaF2/nk/Li.yml"
+    url: "https://refractiveindex.info/?shelf=main&book=CaF2&page=Li"
+  crystran_caf2:
+    type: manufacturer_page
+    title: "Calcium Fluoride (CaF2) optical material"
+    publisher: "Crystran Ltd"
+    url: "https://www.crystran.co.uk/optical-materials/calcium-fluoride-caf2"
+    local_copy: sources/calcium-fluoride-caf2.txt

@@ -132,10 +132,11 @@ class TestLoadElementList:
         elements = load_element_list(cavity_yaml, wavelength_um=WL)
         window = elements[1]
         assert window.cavity is not None
-        # Uncoated glass, no absorption: T_sys = 0.9216/0.9984, eps ≈ 0.
+        # Uncoated glass, no absorption: T_sys = T1*beer*T2 = 0.96*1*0.96, eps ≈ 0.
+        # One interaction per surface — no bounce series to divide by (CU-398).
         np.testing.assert_allclose(
             window.transmittance.values,
-            0.9216 / 0.9984,
+            0.9216,
             rtol=1e-10,
         )
         np.testing.assert_allclose(window.emissivity.values, 0.0, atol=1e-14)

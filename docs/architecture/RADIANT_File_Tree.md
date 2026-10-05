@@ -145,7 +145,7 @@ atmosphere/
 └── site_elevation_advisory.py  # ground site left at the 0 m default (CU-393)
 ```
 
-### `optics/` — 33 source + 31 tests
+### `optics/` — 33 source + 32 tests
 
 Stage 3: PSF (dual-path), MTF terms, throughput, EE_box, regime final. Largest package alongside `source/` and `performance/` because spatial physics (pupil → PSF → MTF) lives here.
 

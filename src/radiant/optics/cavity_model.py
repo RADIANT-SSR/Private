@@ -9,6 +9,17 @@ Surfaces are lossless by model rule (Gap 127): per surface R + T = 1 —
 coating absorption is not modelled, so all absorption (and hence all
 emission) is bulk alpha*thickness (ε ≈ α·t in the weak-absorption limit).
 
+**First order: one interaction per surface** (owner ruling 2026-10-04,
+CU-398). A ray meets surface 1 once and surface 2 once; the beam reflected
+back off surface 2 leaves through surface 1 without reflecting again. That
+second reflection is the start of the internal bounce series, whose closed
+form is the Airy denominator ``1 - R1*R2*beer^2`` this model used to divide
+by. The series is a higher-order term, so it is out of scope here — the
+justification is the order of the model, not the shape of the element.
+Whether a given lens is curved, wedged or plane-parallel, and at what ray
+angles, is detailed ray tracing that RADIANT does not do and does not
+represent, so it cannot be what selects the formula.
+
 All spectral inputs must share the same wavelength grid.
 This class contains NO geometry or thermal properties — it is
 a pure radiometric computation.
@@ -139,44 +150,67 @@ class CavityModel:
 
     @property
     def denom(self) -> np.ndarray:
-        """Cavity denominator: 1 - R1 * R2 * beer^2."""
+        """Airy denominator ``1 - R1*R2*beer^2`` — **diagnostic only** (CU-398).
+
+        Retained because it is exactly the factor by which the old summed-bounce
+        model inflated :attr:`eps_eff`, which makes it the natural way to ask "how
+        much did dropping the series change this element?". Nothing in the first-order
+        physics divides by it any more.
+        """
         b = self.beer
         return 1.0 - self.R1.values * self.R2.values * b * b
 
     @property
     def T_sys(self) -> SpectralData:
-        """System transmittance: T1 * beer * T2 / denom."""
+        """System transmittance: T1 * beer * T2 (one pass, CU-398)."""
         b = self.beer
-        vals = self.T1.values * b * self.T2.values / self.denom
+        vals = self.T1.values * b * self.T2.values
         return SpectralData(
             name="cavity.T_sys",
             wavelength_um=self.wavelength_um.copy(),
             values=vals,
             unit="",
-            source="Cavity model: T1 * beer * T2 / denom",
+            source="Cavity model: T1 * beer * T2",
         )
 
     @property
     def R_sys(self) -> SpectralData:
-        """System reflectance: R1 + T1^2 * R2 * beer^2 / denom."""
+        """Side-1 reflectance: R1 + T1 * R2 * beer^2 (CU-398).
+
+        Note the single ``T1``, where the summed-bounce form carried ``T1^2``. With no
+        second bounce the ghost reflected off surface 2 exits surface 1 **in full**,
+        instead of leaving an ``R1`` share behind to keep bouncing. That is precisely
+        what makes the energy identity close exactly: keeping ``T1^2`` here while
+        dropping the series would lose ``R1*T1*R2*beer^2`` of the incident power.
+        """
         b = self.beer
-        vals = self.R1.values + (self.T1.values**2 * self.R2.values * b * b / self.denom)
+        vals = self.R1.values + (self.T1.values * self.R2.values * b * b)
         return SpectralData(
             name="cavity.R_sys",
             wavelength_um=self.wavelength_um.copy(),
             values=vals,
             unit="",
-            source="Cavity model: R1 + T1^2 * R2 * beer^2 / denom",
+            source="Cavity model: R1 + T1 * R2 * beer^2",
         )
 
     @property
     def eps_eff(self) -> SpectralData:
-        """Effective cavity emissivity: T2 * (1 - beer) * (1 + R1 * beer) / denom.
+        """Effective cavity emissivity: T2 * (1 - beer) * (1 + R1 * beer).
 
         Emission out of **surface 2** — the exit face, which is the one looking at
         the focal plane. By Kirchhoff this is the slab's absorptance for radiation
-        arriving on that side, and it is exactly ``1 - T_sys - R_side2`` (verified to
-        3.3e-16 over 200 000 random coating/absorption triples).
+        arriving on that side, and it is exactly ``1 - T_sys - R_side2`` with
+        ``R_side2 = R2 + T2*R1*beer^2`` (the side-swapped :attr:`R_sys`), verified to
+        2.2e-16 over 200 000 random coating/absorption triples.
+
+        **One interaction per surface (CU-398).** Until 2026-10-04 this carried the
+        Airy denominator ``/(1 - R1*R2*beer^2)``, summing the internal bounce series
+        to infinity. That is a higher-order term and this is a first-order model, so
+        it is gone; the ratio of the old value to this one is exactly ``1/denom``.
+        For AR-coated surfaces that is 1.0001 and invisible, but for uncoated
+        germanium (R = 0.362 per face) it is **1.148**, and it reached 1.318 across
+        the sampled coating range — an inflation of the warm-optics self-emission of
+        every poorly-coated refractive train.
 
         **There is no n^2 factor (CU-396).** This expression carried one until
         2026-10-04, on the reasoning that the photon density of states inside a
@@ -199,11 +233,11 @@ class CavityModel:
         is why the closed form is written out here and pinned by a test.
         """
         b = self.beer
-        vals = self.T2.values * (1.0 - b) * (1.0 + self.R1.values * b) / self.denom
+        vals = self.T2.values * (1.0 - b) * (1.0 + self.R1.values * b)
         return SpectralData(
             name="cavity.eps_eff",
             wavelength_um=self.wavelength_um.copy(),
             values=vals,
             unit="",
-            source="Cavity model: T2 * (1 - beer) * (1 + R1 * beer) / denom",
+            source="Cavity model: T2 * (1 - beer) * (1 + R1 * beer)",
         )

@@ -47,40 +47,6 @@ by name in check 8 — that list is frozen and must never grow.
 
 ## Open
 
-### CU-400 — A cavity element mixing a scalar surface with a spectral-file surface cannot be loaded
-
-**Discovered**: authoring the shipped transmission-doors example, 2026-10-04 — the example exists precisely to exercise every way of supplying a coating, and this is the combination it died on.
-**Status**: **Open.**
-**File**: `src/radiant/io/element_config.py` (`validate_element_entry`'s fallback branch).
-
-**Symptom**: a REFRACTIVE cavity entry whose surface 1 is a spectral CSV and whose surface 2 is a scalar is refused at load with `cannot resample — target grid [0.4, 20.0] µm extends outside source range [3.0, 5.0] µm`. Nothing about the entry is wrong. Reproduce: any `optical_elements` entry with `R1: coatings/ar.csv` and `T2: 0.988`.
-
-**Cause**: structural validation parses first on the entry's **native** grid; a scalar has none, so the parse raises "wavelength_um is required" and the handler retries on `FALLBACK_GRID_UM`, which spans **0.4-20 µm** — wider than any real coating table. The spectral half then fails to resample onto it. The branch's own comment says "Scalar-only entry: any grid broadcasts it losslessly", and the docstring says "only a scalar-only entry ... falls back" — but the `except` catches **mixed** entries too, and for those the premise is false. The comment describes the case the author had in mind, not the case the code catches.
-
-**Why it still matters**: this is the one combination an optical engineer is most likely to author — a real lens routinely has a measured coating on one face and a nominal number on the other (owner, 2026-10-04: *"they could be different. Either scalar or table or file"*). It is shipped behaviour, reachable from a hand-written config and from the GUI's per-surface CSV picker alike. The same shape bit the substrate door a day earlier and was fixed there only (Gap 142), which is the tell: the fallback grid is a trap wherever an entry mixes forms.
-
-**Suggested fix**: (a) inline-fix-now, ~1 h, category B. Prefer a grid the entry itself supplies — resolve its first spectral input and broadcast the scalars onto that — and fall back to the generic grid only when the entry has no grid at all. Where two spectral inputs disagree, let the parser raise its ordinary grid-mismatch error rather than inventing a new one.
-
-### CU-399 — `n_refr` is a required cavity input that changes nothing
-
-**Discovered**: owner question during the Gap 142 GUI review, 2026-10-04 — *"and the custom alpha, why do we need n?"*
-**Status**: **Open — owner-gated.** Needs a ruling between the three dispositions below.
-**File**: `src/radiant/optics/cavity_model.py` (`n_refr` field + the `n >= 1` validation); `src/radiant/optics/element_factories.py` (`make_refractive_cavity_element`); `src/radiant/io/element_config.py` (the `n_refr` element key, required on the explicit-alpha path).
-
-**Symptom**: `n_refr` is stored, validated, and consumed by **no formula**. Measured through the shipped `CavityModel` at R1 = 0.03, R2 = 0.05, alpha = 50 1/m, d = 8 mm: n = 1.0, 1.5, 4.0 and 10.0 all give `T_sys = 0.61769992`, `R_sys = 0.05179245`, `eps = 0.31949420` — identical to the last digit. Every cavity quantity is built from the surface coatings and `beer`; none reads the index.
-
-**How it got here**: `eps_eff` carried an `n^2` factor until [[CU-396]] removed it (2026-10-04), and that was the index's only consumer. CU-396's own note says "n enters T_sys/R_sys through the coatings, not eps" — but it does not enter those either, because they take R1/T1/R2/T2 as *inputs*. The parameter became inert that day and nothing noticed, because no test asserts that a required input does something.
-
-**Why it still matters**: an analyst on the custom-material path must supply a number that has no effect, and may reasonably believe tuning it changes the answer. That is a worse failure than an unused field — it is a **false control**. It is also the one input the substrate library cannot excuse: the library supplies n for free on the named path, so the cost falls entirely on the custom path, which exists for the analyst with their own measured data.
-
-**Three dispositions, owner's call:**
-
-1. **Give it a job (recommended).** Derive an *unspecified* surface's Fresnel reflectance from it: `R = ((n-1)/(n+1))^2`. Today `make_refractive_cavity_element` refuses a surface with neither R nor T, so an uncoated lens cannot be expressed at all — the analyst must compute Fresnel by hand and type the result. With this, `substrate: germanium` + `thickness_m` alone would describe an uncoated germanium lens, which is exactly what someone holding a lens drawing has. Makes n meaningful *and* adds a capability. Results-affecting only where a surface is currently un-expressible.
-2. **Make it optional, carried as provenance.** Keep the field for documentation (and for a future model that needs it), stop requiring it, and state in the schema that it does not enter the first-order result.
-3. **Remove it.** Smallest surface, but forecloses (1) and discards data the substrate library already ships.
-
-**Suggested fix**: (b) stand-alone task once ruled, ~3 h, category C. Until then the GUI's *Explicit α and n* field should not present n as if it were load-bearing.
-
 ### CU-394 — A datasheet-level refractive train cannot express warm-optics emission at all
 
 **Discovered**: promoted from a Findings-Log line, 2026-10-04 (origin CU-380 scenario re-authoring, 2026-10-03).
@@ -141,6 +107,37 @@ The study's open questions are the substrate set, whether α carries its tempera
 **Suggested fix (remaining)**: stand-alone Category C task on MODTRAN access — second MODTRAN invocation keyed on `(los.h_tgt, los.theta_s)`, θ_s in the cache key, plus real-tape7 parity validation. Expect a Cell 28/58 re-baseline conversation if any MWIR snapshot scenario routes through MODTRAN with non-zero θ_s (today both anchors use the analytic atmosphere; no-op for them).
 
 ## Resolved
+
+### CU-400 — A cavity element mixing a scalar surface with a spectral-file surface cannot be loaded — RESOLVED 2026-10-04 (commit trailer)
+
+**Discovered**: authoring the shipped transmission-doors example, 2026-10-04 — the example exists precisely to exercise every way of supplying a coating, and this is the combination it died on.
+**Status**: **RESOLVED 2026-10-04** (commit trailer).
+
+**Delivered**: `validate_element_entry`'s scalar fallback now prefers a grid the entry **itself** supplies — `_entry_native_grid` resolves the first spectral input and broadcasts the scalars onto that — and reaches `FALLBACK_GRID_UM` only when the entry has no grid at all, which is the case its comment always described. Where two spectral inputs disagree the first wins and the parser raises its ordinary grid-mismatch error; no new message was invented for a case that already had one.
+
+**The comment was right about the case the author had in mind and wrong about the case the code caught.** "Scalar-only entry: any grid broadcasts it losslessly" is true, and the `except` it sat under also caught **mixed** entries, for which the premise is false. That is the generalisable lesson here: an `except` clause narrows the error, not the situation.
+
+**The same shape had been fixed once already, locally.** The substrate door hit it a day earlier (Gap 142) and was fixed by adopting the substrate's native grid in that one branch. Treating it as a substrate problem rather than a fallback-grid problem left every other mixed-form entry broken — and the one it left broken is the commonest real case, a lens with a measured coating on one face and a nominal number on the other.
+
+**Files**: `src/radiant/io/element_config.py` (`validate_element_entry`, new `_entry_native_grid`); `src/radiant/io/tests/test_mixed_form_surfaces.py` (8 tests, including that a missing file and disjoint grids still raise — the adoption must not become an amnesty).
+
+### CU-399 — `n_refr` is a required cavity input that changes nothing — RESOLVED 2026-10-04 (commit trailer)
+
+**Discovered**: owner question during the Gap 142 GUI review, 2026-10-04 — *"and the custom alpha, why do we need n?"*
+**Status**: **RESOLVED 2026-10-04** (commit trailer). Owner ruled disposition 3, **remove**, the same day: *"we'd never design with uncoated optics. Remove it."*
+
+**The ruling declined the option this entry recommended**, and was right to. The draft argued for giving the index a job — deriving an unspecified surface's Fresnel reflectance, which would also have made an uncoated lens expressible for the first time. The owner's answer is that an uncoated element is not something RADIANT's users design, so the capability the entry treated as a bonus is one nobody would reach for; keeping a parameter alive to serve it would have been scope, not physics. Surface reflectance is given per surface and never derived from an index.
+
+**Delivered**: `n_refr` is gone from `CavityModel` (the field and its `n >= 1` validation), from `make_refractive_cavity_element`, and from the element document. A config still carrying the key is **refused with guidance** through the existing removed-key mechanism rather than silently ignored, and the guidance says the thing an analyst editing an old config needs to hear: *deleting it does not change the result*, because it never changed one.
+
+**Two consequences worth recording.**
+
+1. **A removed key makes faithful rows un-committable.** The element detail editor rides unknown keys through untouched (CU-344), so a legacy document carrying `n_refr` would re-emit it on every edit and be refused every time — permanently un-editable, for a field the operator never set and cannot see. The editor now drops removed keys against the parser's **own** roster: `_REMOVED_ENTRY_KEYS` became public `REMOVED_ENTRY_KEYS`, re-exported through `api.substrate`, so the editor cannot drift from the rule it defers to. This is the one place entry-faithfulness must yield.
+2. **Two tests guarded the wrong thing.** `test_emissivity_does_not_depend_on_refractive_index` varied n and asserted eps did not move; `test_n_below_one` asserted an out-of-range index is refused. Both became unconstructible, and both were always the weaker statement — an index the model accepts but ignores is a control an analyst can turn believing it matters. Replaced by structural assertions that the field does not exist.
+
+**No result moves**: there was nothing for the index to move. The library keeps its published `n` as **data** (the absorption figure plots it beside alpha); only the element *input* is gone.
+
+**Files**: `optics/cavity_model.py`, `optics/element_factories.py`, `io/element_config.py` (+ public `REMOVED_ENTRY_KEYS`), `api/substrate.py`, `gui/widgets/element_detail_editor.py`, `data/substrate.py`; tests across `optics/tests/`, `io/tests/`, `data/tests/`, `gui/tests/`.
 
 ### CU-397 — A header-row spectral CSV crashes the element loader with a raw ValueError — RESOLVED 2026-10-04 (commit trailer)
 

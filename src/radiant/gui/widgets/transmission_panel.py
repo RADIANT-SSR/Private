@@ -52,8 +52,10 @@ from typing import TYPE_CHECKING, Final
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from radiant.core.exceptions import RadiantError
 from radiant.gui.dialog_lifetime import exec_dialog
 from radiant.gui.param_format import field_display_text
+from radiant.gui.widgets.element_detail_editor import ElementDetailEditor
 from radiant.gui.widgets.field_row import UNSET as _UNSET
 from radiant.gui.widgets.field_row import FieldRow
 from radiant.gui.widgets.optical_element_editor import OpticalElementEditor
@@ -155,7 +157,86 @@ class TransmissionPanel(QWidget):
         self._editor.trainCommitted.connect(self.trainCommitted)
         layout.addWidget(self._editor)
 
+        # The per-element detail editor (Gap 142). The table above keeps the TRAIN —
+        # order, names, the derived summary — and this owns the ELEMENT, because a
+        # cavity element has up to eight quantities and the table has one value column.
+        self._detail = ElementDetailEditor(self)
+        self._detail.entryEdited.connect(self._on_detail_edited)
+        self._detail.showAbsorption.connect(self._show_absorption)
+        # Mounted INSIDE the editor's inspection row, to the left of the coating
+        # figure — the element's fields and the element's figure are two views of one
+        # thing and belong side by side. Appended below the editor instead, the figure
+        # takes the full width and pushes every field under the fold.
+        self._editor.set_side_panel(self._detail)
+        self._editor.table.itemSelectionChanged.connect(self._sync_detail)
+        self._editor.elementsApplied.connect(lambda _path: self._sync_detail())
+        self._sync_detail()
+
         self._sync_mode_widgets()
+
+    # -- detail editor --------------------------------------------------------
+
+    def _sync_detail(self) -> None:
+        """Show the selected row's whole entry in the detail editor."""
+        row, entry = self._editor.selected_entry()
+        self._detail.bind_entry(entry, derived=self._derived_summary(row))
+
+    def _on_detail_edited(self, entry: object) -> None:
+        """Write a detail-editor change back through the train editor's commit path.
+
+        One write path, not two: validation, undo and the study split all live in
+        ``apply_train``, so this never touches a sensor itself.
+        """
+        row = self._editor.table.currentRow()
+        if row < 0 or not isinstance(entry, dict):
+            return
+        self._editor.replace_entry(row, entry)
+
+    def _show_absorption(self, name: str) -> None:
+        """Draw the chosen substrate's alpha and n in the editor's own figure pane.
+
+        One API call (``radiant.api.plot_substrate_absorption``), rendered into the pane
+        the coating detail already uses, so the material's absorption is one click from
+        the point of choosing it rather than something to go and look up. Selecting a
+        different row re-renders that pane with its coating detail, which is the right
+        precedence: the pane always shows the thing most recently asked for.
+        """
+        from radiant.api.substrate_absorption import plot_substrate_absorption
+
+        band: tuple[float, float] | None = None
+        if self._sensor is not None:
+            try:
+                band = (
+                    float(self._sensor.get("spectral_integration.filter_min_um")),
+                    float(self._sensor.get("spectral_integration.filter_max_um")),
+                )
+            except (RadiantError, KeyError, TypeError, ValueError):
+                # No resolved band is not a failure here: the figure's whole point is
+                # the material's own window, and the band is context shaded onto it.
+                band = None
+        figure = plot_substrate_absorption(name, band_um=band)
+        self._editor.detail_canvas.show_figure(figure)
+
+    def _derived_summary(self, row: int) -> str:
+        """Read-only derived quantities for the Derived tab, from the preview.
+
+        Sourced from the same ``preview_optical_elements`` call the derived-ε column
+        uses, so the two cannot disagree — a second computation of the same number is
+        how the ε column and the plot drifted apart before.
+        """
+        previews = self._editor.element_previews()
+        if row < 0 or row >= len(previews):
+            return ""
+        preview = previews[row]
+        return (
+            f"Band means — T {preview.transmittance_mean:.6f} [-] · "
+            f"R {preview.reflectance_mean:.6f} [-] · ε {preview.emissivity_mean:.6f} [-] "
+            f"at {preview.temperature_K:.1f} K.\n\n"
+            "ε is derived, never entered: for a mirror it is 1 − R, and through a cavity "
+            "it is the slab's side-2 absorptance, fixed by T_sys + R_side2 + ε = 1. Note "
+            "it is the side-2 reflectance in that identity, not the side-1 R_sys — the "
+            "two differ whenever the two coatings differ."
+        )
 
     # -- accessors ------------------------------------------------------------
 
@@ -173,6 +254,11 @@ class TransmissionPanel(QWidget):
     def element_editor(self) -> OpticalElementEditor:
         """The embedded element-train editor (the Elements tab's widget, unchanged)."""
         return self._editor
+
+    @property
+    def detail_editor(self) -> ElementDetailEditor:
+        """The per-element detail editor mounted below the train table (Gap 142)."""
+        return self._detail
 
     @property
     def banner(self) -> QLabel:

@@ -30,14 +30,13 @@ def _sd(value: float, name: str) -> SpectralData:
     )
 
 
-def _cavity(*, r1: float, r2: float, alpha: float, n: float = 4.0, d: float = 0.008) -> CavityModel:
+def _cavity(*, r1: float, r2: float, alpha: float, d: float = 0.008) -> CavityModel:
     return CavityModel(
         R1=_sd(r1, "R1"),
         T1=_sd(1.0 - r1, "T1"),
         R2=_sd(r2, "R2"),
         T2=_sd(1.0 - r2, "T2"),
         alpha=_sd(alpha, "alpha"),
-        n_refr=_sd(n, "n"),
         thickness_m=d,
     )
 
@@ -114,7 +113,7 @@ class TestEnergyClosesExactly:
         The summed-bounce form gave 0.92288 + 0.07693 = 0.99981 here — a 1.9e-4
         shortfall that had to be absorbed by an atol.
         """
-        c = _cavity(r1=0.04, r2=0.04, alpha=0.0, n=1.5, d=0.003)
+        c = _cavity(r1=0.04, r2=0.04, alpha=0.0, d=0.003)
         total = c.T_sys.values[0] + c.R_sys.values[0] + c.eps_eff.values[0]
         assert c.T_sys.values[0] == pytest.approx(0.9216, rel=1e-15)
         assert c.R_sys.values[0] == pytest.approx(0.0784, rel=1e-15)

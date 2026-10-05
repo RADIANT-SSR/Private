@@ -1,0 +1,128 @@
+# RADIANT config — every way to define optical transmission, in one train.
+#
+# The element document accepts a quantity in three forms — a scalar, a spectral CSV,
+# or an inline λ-table — and a refractive element in three models. This config uses
+# all of them at once so you can see the syntax side by side and diff your own
+# against it. It is a syntax reference that happens to run, not a real instrument.
+#
+# The one door NOT shown here is `optics.transmission_scalar`, the single lumped τ.
+# It cannot appear alongside a train — they are the two mutually exclusive ways to
+# define transmission, and a config carrying both is refused. See the walkthrough.
+_radiant:
+  example:
+    name: Transmission Doors
+    blurb: 'Every way to define optical transmission in one element train: scalar,
+      spectral CSV and inline λ-table; mirror, simple refractive and cavity; a named
+      substrate and a measured α from file.'
+    specs: MWIR 3–5 µm · 6 elements · every transmission door
+    tune_next:
+    - optics.aperture_diameter_m
+    - spectral_integration.integration_time_s
+    - detector.qe_value
+    provenance: authored for the v0.4.0 transmission-doors reference (2026-10-04)
+  format: 1
+  wavelength_points: 300
+
+source:
+  target:
+    temperature: 300.0
+    emissivity: 0.95
+
+atmosphere:
+  standard_atmosphere: midlat_summer
+
+geometry:
+  sensor_altitude_m: 8000.0
+
+optics:
+  aperture_diameter_m: 0.30
+  focal_length_m: 1.20
+  cold_stop_undersize_frac: 0.0
+  # No `transmission_scalar` here: the element train below defines transmission.
+
+optical_elements:
+
+# 1 — REFLECTIVE, scalar. The simplest door: one number, flat across the band.
+- name: primary
+  kind: MIRROR
+  transfer_mode: REFLECTIVE
+  reflectance: 0.980
+  temperature_K: 290.0
+
+# 2 — REFLECTIVE, spectral CSV. The path is resolved relative to THIS file.
+#     Two columns, wavelength_um then value; '#' lines are comments and a single
+#     column-header row is accepted.
+- name: secondary
+  kind: MIRROR
+  transfer_mode: REFLECTIVE
+  reflectance: transmission/protected_silver_R.csv
+  temperature_K: 290.0
+
+# 3 — REFLECTIVE, inline λ-table. For a handful of points you do not want in a
+#     separate file. Same meaning as the CSV above, carried in the config itself.
+- name: fold
+  kind: MIRROR
+  transfer_mode: REFLECTIVE
+  reflectance:
+    wavelength_um: [3.0, 4.0, 5.0]
+    values: [0.975, 0.978, 0.974]
+  temperature_K: 290.0
+
+# 4 — REFRACTIVE, simple. One net transmittance and nothing else.
+#     This model takes the remaining 1 − τ to be REFLECTION, not absorption, so its
+#     emissivity is zero by construction and it emits nothing. That is the right
+#     model for a cold window whose losses you only know in aggregate — and the
+#     wrong one if you need its thermal emission. Use the cavity model for that.
+- name: dewar_window
+  kind: WINDOW
+  transfer_mode: REFRACTIVE
+  transmittance: 0.920
+  temperature_K: 80.0
+
+# 5 — REFRACTIVE, cavity, NAMED SUBSTRATE. The bulk absorption comes from the
+#     bundled material library: you name germanium and the library supplies α(λ).
+#     Both surfaces carry the same scalar AR coating here.
+- name: collimator_ge
+  kind: LENS
+  transfer_mode: REFRACTIVE
+  substrate: germanium
+  thickness_m: 0.008
+  R1: 0.010
+  R2: 0.010
+  temperature_K: 290.0
+
+# 6 — REFRACTIVE, cavity, EXPLICIT α FROM FILE, and two surfaces that differ in
+#     BOTH value and form. Surface 1 takes a measured AR curve from a CSV; surface 2
+#     takes a scalar. The faces are independent — a real lens often has a different
+#     coating on each — and either may be given as R or as T, with the other derived
+#     (the coating is lossless by model rule, R + T = 1).
+#
+#     This is the custom-material path: α stated directly, for a measured coupon or
+#     a substrate the library does not carry. It reaches the identical cavity model
+#     as door 5; naming a substrate AND giving α over-specifies the element and is
+#     refused.
+- name: imager_custom
+  kind: LENS
+  transfer_mode: REFRACTIVE
+  alpha: transmission/chalcogenide_alpha.csv
+  thickness_m: 0.006
+  R1: transmission/ar_coating_ge_R.csv
+  T2: 0.988
+  temperature_K: 290.0
+
+detector:
+  pixel_pitch_x_um: 18.0
+  pixel_pitch_y_um: 18.0
+  qe_value: 0.70
+  dark_rate_e_per_s: 100.0
+
+spectral_integration:
+  filter_min_um: 3.0
+  filter_max_um: 5.0
+  integration_time_s: 0.005
+
+readout:
+  read_noise_e_rms: 5.0
+  gain_e_per_dn: 32.0
+  adc_bits: 16
+  full_well_capacity_e: 2000000.0

@@ -20,7 +20,33 @@ retroactively reconstructed.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-04
+
+### Added
+- **A bundled example that exercises every transmission door** —
+  `transmission_doors`, the seventh shipped example. One six-element train using all
+  three forms a quantity takes (scalar, spectral CSV, inline λ-table) and all three
+  element models (reflective, simple refractive, cavity), with the bulk coming from a
+  named substrate on one lens and from a measured α CSV on the other, and a cavity whose
+  two faces differ in both value and form (`R1` from a file, `T2` a scalar). Deliberately
+  not a realistic instrument: it is a syntax reference you diff your own config against.
+  Documented in `docs/guides/examples_transmission_doors.md`, which also states the one
+  door it cannot show — `optics.transmission_scalar`, mutually exclusive with a train.
+- **GUI: α can be loaded from a CSV on the custom-material path.** α(λ) is the usual
+  case rather than the exception — a measured coupon comes off an FTIR as a spectrum,
+  and every library material is one. The field always accepted a scalar, a CSV path or
+  an inline λ-table (the config layer resolves all three), but with no button the only
+  way to discover that was to read the parser.
+
 ### Fixed
+- **A cavity element may mix a spectral surface with a scalar surface** (CU-400). An
+  entry with, say, `R1: coatings/ar.csv` and `T2: 0.988` was refused at load with
+  `cannot resample — target grid [0.4, 20.0] µm extends outside source range
+  [3.0, 5.0] µm`, although nothing about it was wrong: structural validation fell back
+  to a generic 0.4–20 µm grid whenever any quantity was a scalar, and no real coating
+  table spans that. It now adopts a grid the entry itself supplies. This is the
+  combination an optical engineer is most likely to author — a measured coating on one
+  face and a nominal number on the other.
 - **A spectral CSV may now carry a column-header row, and a corrupt one is refused
   with an actionable message** (CU-397). `wavelength_um,value` as the first line — what
   Excel, pandas and this repo's own substrate tables all write — crashed the element
@@ -33,6 +59,18 @@ retroactively reconstructed.
   read as data — `float()` accepts both, so one `NaN` row in a coating file was
   interpolated across the chain grid and produced 7 NaN reflectances and 7 NaN
   emissivities out of 9 points with no error raised anywhere.
+
+### Removed
+- **`n_refr` is no longer an optical-element field** (CU-399). The refractive index was
+  a *required* cavity input that entered no formula — n = 1 and n = 10 gave bit-identical
+  `T_sys`, `R_sys` and ε. Its only consumer was the n² factor removed from the emissivity
+  by CU-396, after which it went inert with nothing noticing, because no test asserted
+  that a required input does something. A required input that changes nothing is worse
+  than an unused field: it is a control you can turn believing it matters. A config still
+  carrying the key is refused with guidance rather than ignored, and no result moves —
+  there was nothing for it to move. Surface reflectance is given per surface (R1/T1,
+  R2/T2) and is never derived from an index; designing with uncoated optics is out of
+  scope (owner ruling).
 
 ### Changed
 - **Results-affecting: the refractive cavity is now a first-order model — one

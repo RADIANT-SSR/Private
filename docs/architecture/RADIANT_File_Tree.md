@@ -259,7 +259,7 @@ Stage 9: SNR, NEDT, NEDL, NEDR, NIIRS, GIQE, IIRS, MTF system + budget, detectio
 
 Notable modules: `stage.py`, `registry.py`, `system_mtf.py`, `mtf_budget.py`, `folded_mtf.py`, `qsample.py`, `consistency_check.py` (PSF/MTF dual-path agreement), `snr.py`, `nedt.py`, `nedl.py`, `nedr.py`, `niirs.py`, `giqe.py`, `iirs.py`, `gsd.py`, `ground_range.py`, `swath_width.py`, `access_rate.py`, `target_plane_sample_distance.py` (non-ground counterpart of GSD, GF-13), `scene_relevance.py` (the one declarative scene-class → metric-relevance map, guardrail G3), `radiometric_accuracy.py` (Gap 120 bias budget — consumes `bias_terms` only), `detection.py`, `detection_generic.py` (root finder + criterion), `detection_beer_lambert.py` (constant-α signal law), `detection_path_aware.py` (path-resolved τ(R); all three topologies since CU-263), `detection_noise_floor.py` (N₀² = σ_ref² − S_ref), `detection_shot_consistent_snr.py` (S/√(S+N₀²) and its analytic inverse), `path_optical_depth.py` (piecewise τ(R) along the LOS), `dynamic_range.py`, `saturation_metrics.py`, `well_margin.py`, `adc_margin.py`, `contrast_snr.py`, `strehl.py` (wraps the optics Strehl into a metric), `turbulence_mtf_term.py`, `optics_cutoff.py` (the optics band edge 1/(λ·F#), published in cycles/mrad next to the Nyquist output).
 
-### `io/` — 12 source + 17 tests
+### `io/` — 12 source + 18 tests
 
 I/O layer: YAML config, results container.
 
@@ -292,7 +292,7 @@ cli/
 └── templates.py           # built-in scenario templates
 ```
 
-### `api/` — 34 source + 26 tests
+### `api/` — 35 source + 27 tests
 
 Public scripting API.
 
@@ -318,6 +318,7 @@ api/
 ├── geometry_modes.py      # re-export bridge: ADR-0006 mode manifest (CU-120)
 ├── atmosphere_families.py # shipped interpolation-family catalogue seam for the GUI (CU-239)
 ├── substrate.py           # substrate-library display metadata seam for the GUI (Gap 142)
+├── substrate_absorption.py # substrate α(λ) and n(λ) figure, log α axis (Gap 142 §9)
 ├── transmission_state.py  # re-export bridge: transmission-mode incomplete predicate (CU-373 F-09)
 ├── stage_output_units.py  # canonical display units for scalar stage outputs (CU-118)
 ├── config_io.py           # config-document facade for structured configuration
@@ -376,6 +377,7 @@ gui/
 │   ├── mtf_overlay_dialog.py                # MtfOverlayDialog
 │   ├── mtf_panel.py                         # MtfPanel
 │   ├── noise_budget_panel.py                # NoiseBudgetPanel
+│   ├── element_detail_editor.py             # ElementDetailEditor — one element, whole (Gap 142)
 │   ├── optical_element_editor.py            # OpticalElementEditor
 │   ├── optics_inputs_form.py                # OpticsInputsForm
 │   ├── outputs_readout.py                   # OutputsReadout

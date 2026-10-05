@@ -1,18 +1,19 @@
 """Bundled optical-substrate material library (Gap 142).
 
 A refractive element emits through the cavity model, which needs the bulk absorption
-coefficient ``alpha`` [1/m] and the refractive index ``n_refr``. Those are properties of
-**germanium**, not of the instrument: an analyst holding a lens drawing knows the
-material and the thickness, and should not be expected to know the bulk absorption
-coefficient at 4.2 µm. This module resolves a material *name* to those two spectra.
+coefficient ``alpha`` [1/m]. That is a property of **germanium**, not of the
+instrument: an analyst holding a lens drawing knows the material and the thickness, and
+should not be expected to know the bulk absorption coefficient at 4.2 µm. This module
+resolves a material *name* to that spectrum.
 
 What the library is not
 -----------------------
 It is a convenience over the explicit inputs, never a replacement (plan §7.5, owner
 requirement 2026-10-04). An analyst with their own measured alpha — a lot-specific CVD
 coupon, a proprietary substrate, anything the shipped set does not carry — states
-``alpha`` and ``n_refr`` directly and gets identical physics. The two doors resolve to
-the same :class:`~radiant.optics.cavity_model.CavityModel`; naming a substrate *and*
+``alpha`` directly — a scalar, a CSV path, or an inline table — and gets identical
+physics. The two doors resolve to the same
+:class:`~radiant.optics.cavity_model.CavityModel`; naming a substrate *and*
 giving an explicit alpha is an over-specified element and is refused at parse time.
 
 ``thickness_m`` is never part of a material. Thickness is a property of the lens.
@@ -71,7 +72,7 @@ class SubstrateError(RadiantError):
     Carries the ``what`` / ``why`` / ``action`` shape every RADIANT error uses (Rule 15).
     The action line names the **custom-material path first**: a user who wants a
     substrate the library does not carry should be told they can state ``alpha`` and
-    ``n_refr`` directly before being told to file a capability gap.
+    ``alpha`` directly before being told to file a capability gap.
     """
 
     def __init__(
@@ -98,6 +99,10 @@ class Substrate:
     """One resolved substrate material.
 
     ``wavelength_um`` / ``n_refr`` / ``alpha_per_m`` are the library's own sampling.
+
+    ``n_refr`` is published dispersion the library keeps as **data**, not as a model
+    input: the cavity has no index (CU-399). It is kept because it is real measured
+    material data and the absorption figure plots it beside alpha.
     Use :meth:`resample` to put them on a chain grid.
     """
 
@@ -146,7 +151,7 @@ class Substrate:
                 ),
                 action=(
                     f"Restrict the spectral grid to {lo:g}-{hi:g} µm, choose a substrate "
-                    "whose window covers the band, or state alpha and n_refr explicitly "
+                    "whose window covers the band, or state alpha explicitly "
                     "on the element."
                 ),
                 context={"substrate": self.name, "window_um": self.window_um},
@@ -233,7 +238,8 @@ class SubstrateLibrary:
             what=f"unknown substrate {name!r}",
             why=f"the bundled library carries {', '.join(available) or 'no materials'}",
             action=(
-                "State the material's alpha and n_refr explicitly on the element — the "
+                "State the material's alpha explicitly on the element — a scalar, a CSV "
+                "path, or an inline table — the "
                 "named library is a convenience over that path, not a replacement — or "
                 "pick one of the names above. If the material is a common one that "
                 "should ship, file a gap against the substrate library."

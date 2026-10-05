@@ -1286,6 +1286,20 @@ QLabel#stageSectionHeader, QLabel#stagePlotTitle {{
  * The segmented control mirrors the configuration-bar tabs exactly (same chip
  * radius, same focus-soft checked fill), because it asks the same shape of
  * question: pick one of these, and everything below follows from the choice. */
+/* Element detail editor (Gap 142). A refractive element's two faces are separate
+ * physical surfaces that may carry different coatings, so each gets its own card —
+ * run together as plain rows they read as one long form and the operator loses track
+ * of which value belongs to which face. */
+QWidget#elementSurfaceCard {{
+    background-color: {t.panel_2};
+    border: {tokens.BORDER_WIDTH} solid {t.line};
+    border-radius: {tokens.RADIUS_CONTROL};
+}}
+QLabel#elementSurfaceTitle {{
+    color: {t.ink};
+    font-size: 11px;
+    font-weight: 600;
+}}
 QPushButton#transmissionModeButton {{
     background-color: {t.panel};
     color: {t.ink_2};

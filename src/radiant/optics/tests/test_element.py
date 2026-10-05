@@ -308,7 +308,6 @@ class TestCavityModel:
             R2=_flat_spectral(0.04, "R2"),
             T2=_flat_spectral(0.96, "T2"),
             alpha=_flat_spectral(0.0, "alpha"),
-            n_refr=_flat_spectral(1.5, "n"),
             thickness_m=0.003,
         )
         t_sys = cavity.T_sys.values
@@ -340,7 +339,6 @@ class TestCavityModel:
             R2=_flat_spectral(0.04, "R2"),
             T2=_flat_spectral(0.96, "T2"),
             alpha=_flat_spectral(10.0, "alpha"),
-            n_refr=_flat_spectral(1.5, "n"),
             thickness_m=0.003,
         )
         beer = math.exp(-10.0 * 0.003)
@@ -367,7 +365,6 @@ class TestCavityModel:
             R2=_flat_spectral(0.04, "R2"),
             T2=_flat_spectral(0.96, "T2"),
             alpha=_flat_spectral(1000.0, "alpha"),
-            n_refr=_flat_spectral(1.5, "n"),
             thickness_m=0.01,  # 10mm at 1000/m → beer ≈ 0
         )
         t_sys = cavity.T_sys.values
@@ -388,8 +385,7 @@ class TestCavityModel:
             T1=_flat_spectral(0.96, "T1"),
             R2=_flat_spectral(0.04, "R2"),
             T2=_flat_spectral(0.96, "T2"),
-            alpha=_flat_spectral(100.0, "alpha"),  # ignored when d=0
-            n_refr=_flat_spectral(1.5, "n"),
+            alpha=_flat_spectral(100.0, "alpha"),  # ignored when d=0 "n"),
             thickness_m=0.0,
         )
         # beer = exp(0) = 1, same as no-absorption case.
@@ -414,7 +410,6 @@ class TestCavityModel:
                 unit="1/m",
                 source="test",
             ),
-            n_refr=_flat_spectral(1.45, "n"),
             thickness_m=0.005,
         )
         t_sys = cavity.T_sys.values
@@ -441,7 +436,6 @@ class TestCavityModelValidation:
                 R2=_flat_spectral(0.04, "R2"),
                 T2=_flat_spectral(0.96, "T2"),
                 alpha=_flat_spectral(0.0, "alpha"),
-                n_refr=_flat_spectral(1.5, "n"),
                 thickness_m=0.003,
             )
 
@@ -454,22 +448,18 @@ class TestCavityModelValidation:
                 R2=_flat_spectral(0.04, "R2"),
                 T2=_flat_spectral(0.96, "T2"),
                 alpha=_flat_spectral(-1.0, "alpha"),
-                n_refr=_flat_spectral(1.5, "n"),
                 thickness_m=0.003,
             )
 
     @pytest.mark.level1
-    def test_n_below_one(self) -> None:
-        with pytest.raises(ValueError, match="n must be"):
-            CavityModel(
-                R1=_flat_spectral(0.04, "R1"),
-                T1=_flat_spectral(0.96, "T1"),
-                R2=_flat_spectral(0.04, "R2"),
-                T2=_flat_spectral(0.96, "T2"),
-                alpha=_flat_spectral(0.0, "alpha"),
-                n_refr=_flat_spectral(0.9, "n"),
-                thickness_m=0.003,
-            )
+    def test_the_cavity_takes_no_refractive_index(self) -> None:
+        """CU-399 removed the field, so its `n >= 1` validation went with it.
+
+        This replaces a test that asserted an index below 1 is refused. That check
+        guarded an input the model never read; the thing worth guarding now is that
+        the input does not exist, so nothing can be entered for it.
+        """
+        assert "n_refr" not in CavityModel.__dataclass_fields__
 
     @pytest.mark.level1
     def test_negative_thickness(self) -> None:
@@ -480,7 +470,6 @@ class TestCavityModelValidation:
                 R2=_flat_spectral(0.04, "R2"),
                 T2=_flat_spectral(0.96, "T2"),
                 alpha=_flat_spectral(0.0, "alpha"),
-                n_refr=_flat_spectral(1.5, "n"),
                 thickness_m=-0.001,
             )
 
@@ -502,7 +491,6 @@ class TestCavityModelValidation:
                 R2=_flat_spectral(0.04, "R2"),
                 T2=_flat_spectral(0.96, "T2"),
                 alpha=bad_alpha,
-                n_refr=_flat_spectral(1.5, "n"),
                 thickness_m=0.003,
             )
 
@@ -605,7 +593,6 @@ class TestMakeRefractiveCavityElement:
             R2=0.04,
             T2=0.96,
             alpha=0.0,
-            n_refr=1.5,
             thickness_m=0.003,
             wavelength_um=WL,
         )
@@ -639,7 +626,6 @@ class TestMakeRefractiveCavityElement:
             R2=0.04,
             T2=0.96,
             alpha=10.0,
-            n_refr=1.5,
             thickness_m=0.003,
             wavelength_um=WL,
         )
@@ -668,7 +654,6 @@ class TestMakeRefractiveCavityElement:
             R2=0.05,
             T2=0.95,
             alpha=15.0,
-            n_refr=1.5,
             thickness_m=0.005,
             wavelength_um=WL,
         )
@@ -702,7 +687,6 @@ class TestMakeRefractiveCavityElement:
                 R2=0.04,
                 T2=0.96,
                 alpha=0.0,
-                n_refr=1.5,
                 thickness_m=0.003,
                 kind=ElementKind.MIRROR,
                 wavelength_um=WL,
@@ -718,7 +702,6 @@ class TestMakeRefractiveCavityElement:
             R2=0.04,
             T2=0.96,
             alpha=10.0,
-            n_refr=1.5,
             thickness_m=0.003,
             wavelength_um=WL,
         )
@@ -805,7 +788,6 @@ class TestLosslessSurfaces:
                 R2=_flat_spectral(0.04, "R2"),
                 T2=_flat_spectral(0.96, "T2"),
                 alpha=_flat_spectral(0.0, "alpha"),
-                n_refr=_flat_spectral(1.5, "n"),
                 thickness_m=0.003,
             )
 
@@ -817,7 +799,6 @@ class TestLosslessSurfaces:
             R1=0.04,
             R2=0.04,
             alpha=0.0,
-            n_refr=1.5,
             thickness_m=0.003,
             wavelength_um=WL,
         )
@@ -831,7 +812,6 @@ class TestLosslessSurfaces:
             T1=0.96,
             T2=0.96,
             alpha=0.0,
-            n_refr=1.5,
             thickness_m=0.003,
             wavelength_um=WL,
         )
@@ -845,7 +825,6 @@ class TestLosslessSurfaces:
                 "window",
                 R2=0.04,
                 alpha=0.0,
-                n_refr=1.5,
                 thickness_m=0.003,
                 wavelength_um=WL,
             )
@@ -866,7 +845,6 @@ class TestLosslessSurfaces:
             R1=0.0,
             R2=0.0,
             alpha=alpha,
-            n_refr=1.0,
             thickness_m=t_m,
             wavelength_um=WL,
         )

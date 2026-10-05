@@ -43,6 +43,7 @@ from radiant.api.sensitivity import SensitivityResult
 from radiant.api.sensor import Sensor
 from radiant.api.solve import SolveResult
 from radiant.api.substrate import SubstrateInfo, available_substrates
+from radiant.api.substrate_absorption import plot_substrate_absorption
 from radiant.api.sweep import Sweep2DResult, SweepResult
 from radiant.api.tolerance import MonteCarloResult
 from radiant.io.results import ChainResult, NoiseExplanation, WellStatus
@@ -76,6 +77,7 @@ __all__ = [
     "ElementPreview",
     "preview_optical_elements",
     "plot_coating_detail",
+    "plot_substrate_absorption",
     "normalize_element_document",
     "ConfigurationSet",
     "ElementTrainState",

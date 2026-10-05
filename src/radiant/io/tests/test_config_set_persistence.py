@@ -513,7 +513,6 @@ class TestConfiguredElementLoadValidation:
             "R2": 0.02,
             "T2": 0.98,
             "alpha": 0.0,
-            "n_refr": 1.5,
             "thickness_m": 0.01,
             "temperature_K": 290.0,
         }

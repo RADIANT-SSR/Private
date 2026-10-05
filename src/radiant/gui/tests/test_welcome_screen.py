@@ -144,17 +144,21 @@ class TestTemplateFlow:
 class TestWorkedExamples:
     """Gap 126: the bundled worked examples render as a second card group."""
 
-    def test_six_examples_discovered(self) -> None:
+    def test_every_example_is_discovered_with_its_card_metadata(self) -> None:
+        """Seven since v0.4.0: six mission snapshots plus the transmission-doors
+        syntax reference. Counted rather than named, because the card group renders
+        whatever ships — but each one must carry the three fields a card shows, or it
+        renders blank."""
         from radiant.api.mission_templates import discover_examples
 
         examples = discover_examples()
-        assert len(examples) == 6
+        assert len(examples) == 7
         assert all(e.name and e.blurb and e.specs for e in examples)
 
     def test_examples_group_renders_and_emits(self, qtbot) -> None:  # type: ignore[no-untyped-def]
         screen = WelcomeScreen(recent_files=[])
         qtbot.addWidget(screen)
-        assert len(screen.example_cards) == 6
+        assert len(screen.example_cards) == 7
         chosen: list[str] = []
         screen.templateChosen.connect(chosen.append)
         screen.example_cards[0].click()

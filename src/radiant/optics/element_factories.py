@@ -235,7 +235,6 @@ def make_refractive_cavity_element(
     R2: float | SpectralData | None = None,
     T2: float | SpectralData | None = None,
     alpha: float | SpectralData = 0.0,
-    n_refr: float | SpectralData = 1.5,
     thickness_m: float = 0.0,
     *,
     kind: ElementKind = ElementKind.LENS,
@@ -263,8 +262,6 @@ def make_refractive_cavity_element(
         Exit surface reflectance / transmittance; same rule.
     alpha:
         Bulk absorption coefficient [1/m] (scalar or spectral).
-    n_refr:
-        Refractive index (scalar or spectral).
     thickness_m:
         Substrate thickness [m].
     kind:
@@ -288,7 +285,6 @@ def make_refractive_cavity_element(
     r1_sd, t1_sd = _resolve_surface(name, "surface1", R1, T1, wavelength_um)
     r2_sd, t2_sd = _resolve_surface(name, "surface2", R2, T2, wavelength_um)
     alpha_sd = _scalar_to_spectral(alpha, wavelength_um, f"{name}.alpha")
-    n_sd = _scalar_to_spectral(n_refr, wavelength_um, f"{name}.n_refr")
 
     cavity = CavityModel(
         R1=r1_sd,
@@ -296,7 +292,6 @@ def make_refractive_cavity_element(
         R2=r2_sd,
         T2=t2_sd,
         alpha=alpha_sd,
-        n_refr=n_sd,
         thickness_m=thickness_m,
     )
 
